@@ -24,7 +24,7 @@ Access the application at `http://localhost:8088`
 
 1. **Clone and setup**
    ```bash
-   git clone https://github.com/brunnox/application_panel.git
+   git clone https://github.com/ProgramadoresSemPatria/application_panel.git
    cd application_panel
    pip install flask
    ```
