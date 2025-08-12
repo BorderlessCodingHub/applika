@@ -911,7 +911,7 @@ select.form-input-application option {
 /* Applications grid layout */
 .applications-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+    grid-template-columns: 1fr;
 }
 
 /* Individual application card */
@@ -919,6 +919,7 @@ select.form-input-application option {
     padding: 0.6rem 1rem;
     transition: all 0.3s ease;
     min-height: auto;
+    width: 100%;
 }
 
 .application-card:hover {
@@ -1391,7 +1392,7 @@ select.form-input-application option {
 /* Dashboard grid layout */
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: 1.5rem;
 }
 
