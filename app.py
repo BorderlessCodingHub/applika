@@ -44,38 +44,19 @@ def home():
     cur = con.cursor()
     
     # Get total applications count
-    cur.execute("SELECT COUNT(*) as total FROM applications")
+    cur.execute("SELECT COUNT(DISTINCT application_id) as total FROM steps")
     total_applications = cur.fetchone()['total']
-    
-    # Get applications count per step with conversion calculation
-    # This complex query calculates how many applications are at each step
-    # and how many have reached or passed each step for conversion rates
+
+    # Get applications count per step - this shows how many unique applications
+    # have actually passed through each step (based on the steps history table)
     cur.execute("""
         SELECT 
             sd.id as step_id,
             sd.name as step_name,
             sd.color as step_color,
-            COUNT(a.id) as count,
-            CASE 
-                WHEN sd.id <= 5 THEN (
-                    SELECT COUNT(*) FROM applications 
-                    WHERE last_step >= sd.id
-                )
-                WHEN sd.id = 6 THEN (
-                    SELECT COUNT(*) FROM applications 
-                    WHERE last_step >= 6 AND last_step != 7
-                )
-                WHEN sd.id = 7 THEN (
-                    SELECT COUNT(*) FROM applications 
-                    WHERE last_step >= 7
-                )
-                ELSE (
-                    SELECT COUNT(*) FROM applications 
-                    WHERE last_step >= sd.id
-                )
-            END as at_or_above_count
+            COUNT(DISTINCT s.application_id) as applications_count
         FROM steps_definition sd
-        LEFT JOIN applications a ON a.last_step = sd.id
+        LEFT JOIN steps s ON s.step_id = sd.id
         GROUP BY sd.id, sd.name, sd.color
         ORDER BY sd.id
     """)
@@ -84,16 +65,16 @@ def home():
     # Calculate conversion rates for each step
     conversion_data = []
     for step in applications_per_step:
+        # Conversion rate = (applications that reached this step / total applications) * 100
         conversion_rate = (
-            round((step['at_or_above_count'] / total_applications * 100), 1) 
+            round((step['applications_count'] / total_applications * 100), 1) 
             if total_applications > 0 else 0
         )
         conversion_data.append({
             'step_id': step['step_id'],
             'step_name': step['step_name'],
             'step_color': step['step_color'],
-            'count': step['count'],
-            'at_or_above_count': step['at_or_above_count'],
+            'applications_count': step['applications_count'],  # Applications that actually went through this step
             'conversion_rate': conversion_rate
         })
     
