@@ -135,7 +135,9 @@ def upgrade() -> None:
     op.create_table(
         'users',
         sa.Column('github_id', sa.BigInteger(), nullable=False),
-        sa.Column('name', sa.String(length=100), nullable=False),
+        sa.Column('username', sa.String(length=50), nullable=False),
+        sa.Column('first_name', sa.String(length=100), nullable=True),
+        sa.Column('last_name', sa.String(length=100), nullable=True),
         sa.Column('email', sa.String(length=100), nullable=False),
         sa.Column('current_company', sa.String(length=200), nullable=True),
         sa.Column('current_salary', sa.Numeric(precision=10, scale=2),

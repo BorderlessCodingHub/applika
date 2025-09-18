@@ -26,9 +26,11 @@ class UserModel(BaseMixin, Base):
 
     github_id: Mapped[int] = mapped_column(
         sa.BigInteger, unique=True, index=True, nullable=False)
-    name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    username: Mapped[str] = mapped_column(sa.String(100), nullable=False)
     email: Mapped[str] = mapped_column(
         sa.String(100), unique=True, index=True, nullable=False)
+    first_name: Mapped[str] = mapped_column(sa.String(100))
+    last_name: Mapped[str] = mapped_column(sa.String(100))
     current_company: Mapped[Optional[str]] = mapped_column(sa.String(200))
     current_salary: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
     experience_years: Mapped[int] = mapped_column(sa.Integer, default=0)
@@ -38,13 +40,13 @@ class UserModel(BaseMixin, Base):
         back_populates="user")
 
     @property
-    def tech_stack(self) -> Optional[list[str]]:
+    def tech_stack(self) -> list[str]:
         if self._tech_stack:
             return self._tech_stack.split(',')
-        return None
+        return []
 
     @tech_stack.setter
-    def tech_stack(self, techs: Optional[list[str]]):
+    def tech_stack(self, techs: List[str] | None):
         if techs:
             techs = [tech.strip() for tech in techs if tech.strip()]
             self._tech_stack = ','.join(techs)
