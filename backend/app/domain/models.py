@@ -1,19 +1,19 @@
-from typing_extensions import Literal
-import sqlalchemy as sq
+import sqlalchemy as sa
 from datetime import date, datetime
-from typing import List, Optional
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from typing import List, Optional
+from typing_extensions import Literal
 
 
 class BaseMixin:
     id: Mapped[int] = mapped_column(
-        sq.Integer, primary_key=True, autoincrement=True)
+        sa.Integer, primary_key=True, autoincrement=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        default=sq.func.now(), nullable=False
+        sa.DateTime(timezone=True), default=sa.func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        onupdate=sq.func.now(), nullable=True
+        sa.DateTime(timezone=True), onupdate=sa.func.now(), nullable=True
     )
 
 
@@ -25,14 +25,14 @@ class UserModel(BaseMixin, Base):
     __tablename__ = "users"
 
     github_id: Mapped[int] = mapped_column(
-        sq.BigInteger, unique=True, index=True, nullable=False)
-    name: Mapped[str] = mapped_column(sq.String(100), nullable=False)
+        sa.BigInteger, unique=True, index=True, nullable=False)
+    name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
     email: Mapped[str] = mapped_column(
-        sq.String(100), unique=True, index=True, nullable=False)
-    current_company: Mapped[Optional[str]] = mapped_column(sq.String(200))
-    current_salary: Mapped[Optional[float]] = mapped_column(sq.Numeric(10, 2))
-    experience_years: Mapped[int] = mapped_column(sq.Integer, default=0)
-    _tech_stack: Mapped[Optional[str]] = mapped_column(sq.Text)
+        sa.String(100), unique=True, index=True, nullable=False)
+    current_company: Mapped[Optional[str]] = mapped_column(sa.String(200))
+    current_salary: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
+    experience_years: Mapped[int] = mapped_column(sa.Integer, default=0)
+    _tech_stack: Mapped[Optional[str]] = mapped_column(sa.Text)
 
     applications: Mapped[List["ApplicationModel"]] = relationship(
         back_populates="user")
@@ -55,8 +55,8 @@ class UserModel(BaseMixin, Base):
 class PlatformModel(BaseMixin, Base):
     __tablename__ = "platforms"
 
-    name: Mapped[str] = mapped_column(sq.String(100), nullable=False)
-    url: Mapped[Optional[str]] = mapped_column(sq.String(200))
+    name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    url: Mapped[Optional[str]] = mapped_column(sa.String(200))
 
     applications: Mapped[List["ApplicationModel"]] = relationship(
         back_populates="platform")
@@ -65,9 +65,8 @@ class PlatformModel(BaseMixin, Base):
 class StepDefinitionModel(BaseMixin, Base):
     __tablename__ = "steps_definition"
 
-    name: Mapped[str] = mapped_column(sq.String(100), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(sq.Text)
-    color: Mapped[str] = mapped_column(sq.String(7), default="#007bff")
+    name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    color: Mapped[str] = mapped_column(sa.String(7), default="#007bff")
 
     applications: Mapped[List["ApplicationModel"]] = relationship(
         back_populates="last_step_def")
@@ -77,9 +76,8 @@ class StepDefinitionModel(BaseMixin, Base):
 class FeedbackDefinitionModel(BaseMixin, Base):
     __tablename__ = "feedbacks_definition"
 
-    name: Mapped[str] = mapped_column(sq.String(100), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(sq.Text)
-    color: Mapped[str] = mapped_column(sq.String(7), default="#28a745")
+    name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    color: Mapped[str] = mapped_column(sa.String(7), default="#28a745")
 
     applications: Mapped[List["ApplicationModel"]] = relationship(
         back_populates="feedback_def")
@@ -88,12 +86,12 @@ class FeedbackDefinitionModel(BaseMixin, Base):
 class StepModel(BaseMixin, Base):
     __tablename__ = "steps"
 
-    application_id: Mapped[int] = mapped_column(sq.ForeignKey(
+    application_id: Mapped[int] = mapped_column(sa.ForeignKey(
         "applications.id", ondelete="CASCADE"), nullable=False)
     step_id: Mapped[int] = mapped_column(
-        sq.ForeignKey("steps_definition.id"), nullable=False)
-    step_date: Mapped[date] = mapped_column(sq.Date, nullable=False)
-    observation: Mapped[Optional[str]] = mapped_column(sq.Text)
+        sa.ForeignKey("steps_definition.id"), nullable=False)
+    step_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    observation: Mapped[Optional[str]] = mapped_column(sa.Text)
 
     application: Mapped["ApplicationModel"] = relationship(
         back_populates="steps")
@@ -104,31 +102,31 @@ class StepModel(BaseMixin, Base):
 class ApplicationModel(BaseMixin, Base):
     __tablename__ = "applications"
 
-    user_id: Mapped[int] = mapped_column(sq.ForeignKey(
+    user_id: Mapped[int] = mapped_column(sa.ForeignKey(
         "users.id", ondelete="CASCADE"), nullable=False)
     platform_id: Mapped[int] = mapped_column(
-        sq.ForeignKey("platforms.id"), nullable=False)
+        sa.ForeignKey("platforms.id"), nullable=False)
 
-    application_date: Mapped[date] = mapped_column(sq.Date, nullable=False)
-    company: Mapped[str] = mapped_column(sq.String(200), nullable=False)
-    role: Mapped[str] = mapped_column(sq.String(200), nullable=False)
+    application_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    company: Mapped[str] = mapped_column(sa.String(200), nullable=False)
+    role: Mapped[str] = mapped_column(sa.String(200), nullable=False)
     mode: Mapped[Optional[Literal['active', 'passive']]] = mapped_column(
-        sq.String(10))
-    observation: Mapped[Optional[str]] = mapped_column(sq.Text)
+        sa.String(10))
+    observation: Mapped[Optional[str]] = mapped_column(sa.Text)
 
-    salary_offer: Mapped[Optional[float]] = mapped_column(sq.Numeric(10, 2))
-    expected_salary: Mapped[Optional[float]] = mapped_column(sq.Numeric(10, 2))
+    salary_offer: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
+    expected_salary: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
     salary_range_min: Mapped[Optional[float]] = mapped_column(
-        sq.Numeric(10, 2))
+        sa.Numeric(10, 2))
     salary_range_max: Mapped[Optional[float]] = mapped_column(
-        sq.Numeric(10, 2))
+        sa.Numeric(10, 2))
 
     last_step: Mapped[Optional[int]] = mapped_column(
-        sq.ForeignKey("steps_definition.id"))
-    last_step_date: Mapped[Optional[date]] = mapped_column(sq.Date)
+        sa.ForeignKey("steps_definition.id"))
+    last_step_date: Mapped[Optional[date]] = mapped_column(sa.Date)
     feedback_id: Mapped[Optional[int]] = mapped_column(
-        sq.ForeignKey("feedbacks_definition.id"))
-    feedback_date: Mapped[Optional[date]] = mapped_column(sq.Date)
+        sa.ForeignKey("feedbacks_definition.id"))
+    feedback_date: Mapped[Optional[date]] = mapped_column(sa.Date)
 
     user: Mapped["UserModel"] = relationship(
         back_populates="applications")
