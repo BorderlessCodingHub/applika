@@ -1,20 +1,20 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.dto.user import UserCreateDTO
 from app.domain.models import UserModel
-from app.presentation.schemas.user import UserCreate
 
 
 class UserRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_email(self, email: str) -> UserModel | None:
+    async def get_by_github_id(self, id: int) -> UserModel | None:
         return await self.session.scalar(
-            select(UserModel).where(UserModel.email == email)
+            select(UserModel).where(UserModel.github_id == id)
         )
 
-    async def create(self, user: UserCreate):
+    async def create(self, user: UserCreateDTO) -> UserModel:
         try:
             db_user = UserModel(**user.model_dump())
             self.session.add(db_user)
