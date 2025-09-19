@@ -25,9 +25,9 @@ class Settings(BaseSettings):
     API_PREFIX: str = '/api'
     ENVIRONMENT: EnvType = "DEV"
 
-    CORS_ORIGINS: List[str] = ["*"]
-    CORS_HEADERS: List[str] = ["*"]
-    CORS_METHODS: List[str] = ["*"]
+    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
+    CORS_HEADERS: List[str] = ["X-Request-ID", "Content-Type"]
+    CORS_METHODS: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 
     DATABASE_URL: str
     DATABASE_ECHO: bool = False

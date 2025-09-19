@@ -7,7 +7,7 @@ RUN useradd --create-home --shell /bin/bash appuser
 WORKDIR /app
 
 #  - migrations
-COPY ./alembic /app/alembic
+COPY ./migrations /app/migrations
 COPY ./alembic.ini /app/alembic.ini
 #  - app
 COPY ./app /app/app
