@@ -3,8 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.middleware import register_middleware
 from app.config.settings import envs
-from app.presentation.api.github_oauth import router as auth_router
-from app.presentation.api.profile import router as profile_router
+from app.presentation.api.oauth import router as auth_router
+from app.presentation.api.user import router as profile_router
+from app.presentation.api.support import router as support_router
 from app.presentation.handlers import register_handlers
 
 app = FastAPI(
@@ -29,3 +30,4 @@ register_handlers(app)
 # REST Routes
 app.include_router(auth_router)
 app.include_router(profile_router)
+app.include_router(support_router)
