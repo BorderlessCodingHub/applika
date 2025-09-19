@@ -8,9 +8,9 @@ class UnicornException(Exception):
         return f'{self.message}'
 
 
-class ResourseNotFound(UnicornException):
+class ResourceNotFound(UnicornException):
     ...
 
 
-class ResourseConflict(UnicornException):
+class ResourceConflict(UnicornException):
     ...

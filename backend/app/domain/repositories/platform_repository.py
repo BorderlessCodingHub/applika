@@ -12,3 +12,7 @@ class PlatformRepository:
     async def get_all(self) -> List[PlatformModel]:
         return await self.session.scalars(
             select(PlatformModel).order_by(PlatformModel.id))
+
+    async def get_by_id(self, id: int) -> PlatformModel:
+        return await self.session.scalar(
+            select(PlatformModel).where(PlatformModel.id == id))

@@ -8,6 +8,7 @@ from app.application.dto.user import UserDTO
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
 from app.config.db import get_session
 from app.config.settings import ACCESS_COOKIE_NAME
+from app.domain.repositories.application_repository import ApplicationRepository
 from app.domain.repositories.feedback_definition_repository import (
     FeedbackDefinitionRepository)
 from app.domain.repositories.platform_repository import PlatformRepository
@@ -34,6 +35,10 @@ def get_platform_repository(session: DbSession):
     return PlatformRepository(session)
 
 
+def get_application_repository(session: DbSession):
+    return ApplicationRepository(session)
+
+
 UserRepositoryDp = Annotated[UserRepository, Depends(get_user_repository)]
 
 FeedbackDefinitionRepositoryDp = Annotated[
@@ -44,6 +49,9 @@ StepDefinitionRepositoryDp = Annotated[StepDefinitionRepository, Depends(
 
 PlatformRepositoryDp = Annotated[PlatformRepository, Depends(
     get_platform_repository)]
+
+ApplicationRepositoryDp = Annotated[ApplicationRepository, Depends(
+    get_application_repository)]
 
 
 async def get_current_user(
