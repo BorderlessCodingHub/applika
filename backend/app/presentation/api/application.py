@@ -1,7 +1,9 @@
+from typing import List
 from fastapi import APIRouter
 
 from app.application.dto.application import ApplicationCreateDTO
 from app.application.use_cases.create_application import CreateApplicationUseCase
+from app.application.use_cases.list_applications import ListApplicationsUseCase
 from app.presentation.dependencies import (
     ApplicationRepositoryDp, CurrentUserDp, PlatformRepositoryDp)
 from app.presentation.schemas.application import Application, CreateApplication
@@ -18,3 +20,12 @@ async def create(
     data = ApplicationCreateDTO(**payload.model_dump(), user_id=c_user.id)
     application = await use_case.execute(data)
     return Application.model_validate(application)
+
+
+@router.get("/applications", response_model=List[Application])
+async def list_applications(
+        c_user: CurrentUserDp,
+        app_repo: ApplicationRepositoryDp):
+    use_case = ListApplicationsUseCase(app_repo)
+    applications = await use_case.execute(c_user.id)
+    return applications

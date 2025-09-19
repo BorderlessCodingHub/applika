@@ -1,8 +1,7 @@
-from dataclasses import dataclass
 import sqlalchemy as sa
 from datetime import date, datetime
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from typing import List, Optional
+from typing import List, Optional, TypedDict
 from typing_extensions import Literal
 
 
@@ -102,16 +101,14 @@ class StepModel(BaseMixin, Base):
         back_populates="steps")
 
 
-@dataclass
-class ApplicationLastStep:
+class ApplicationLastStep(TypedDict):
     id: int
     name: str
     color: str
     date: date
 
 
-@dataclass
-class ApplicationFeedback:
+class ApplicationFeedback(TypedDict):
     id: int
     name: str
     color: str
