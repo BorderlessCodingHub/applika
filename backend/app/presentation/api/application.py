@@ -6,7 +6,8 @@ from app.application.use_cases.create_application import CreateApplicationUseCas
 from app.application.use_cases.list_applications import ListApplicationsUseCase
 from app.presentation.dependencies import (
     ApplicationRepositoryDp, CurrentUserDp, PlatformRepositoryDp)
-from app.presentation.schemas.application import Application, CreateApplication
+from app.presentation.schemas.application import (
+    Application, CreateApplication, UpdateApplication)
 
 router = APIRouter(tags=["Application"])
 
@@ -24,8 +25,19 @@ async def create(
 
 @router.get("/applications", response_model=List[Application])
 async def list_applications(
-        c_user: CurrentUserDp,
-        app_repo: ApplicationRepositoryDp):
+        c_user: CurrentUserDp, app_repo: ApplicationRepositoryDp):
     use_case = ListApplicationsUseCase(app_repo)
     applications = await use_case.execute(c_user.id)
     return applications
+
+
+@router.put("/applications/{application_id}", response_model=Application)
+async def update_application(application_id: int, payload: UpdateApplication,
+                             app_repo: ApplicationRepositoryDp):
+    raise NotImplementedError("This endpoint is not implemented yet.")
+
+
+@router.delete("/applications/{application_id}", status_code=204)
+async def delete_application(application_id: int, c_user: CurrentUserDp,
+                             app_repo: ApplicationRepositoryDp):
+    raise NotImplementedError("This endpoint is not implemented yet.")
