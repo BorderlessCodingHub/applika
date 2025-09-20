@@ -1,7 +1,7 @@
 from datetime import date
-from typing import List
-from typing_extensions import Literal
+
 from pydantic import BaseModel
+from typing_extensions import Literal
 
 from app.application.dto import BaseSchema
 

@@ -1,7 +1,7 @@
 from datetime import date
-from typing import List
+
+from pydantic import BaseModel
 from typing_extensions import Literal
-from pydantic import BaseModel, EmailStr
 
 from app.presentation.schemas import BaseSchema, TimeSchema
 
@@ -61,7 +61,7 @@ class Application(BaseSchema, TimeSchema):
 
 
 class FinalizeApplication(BaseModel):
-    step_id: int # only strict steps
+    step_id: int  # only strict steps
     feedback_id: int
     finalize_date: date
     salary_offer: float | None = None

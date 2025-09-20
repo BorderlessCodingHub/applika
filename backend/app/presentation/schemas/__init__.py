@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -13,6 +14,7 @@ class BaseSchema(BaseModel):
 
 class DetailSchema(BaseModel):
     detail: str
+
 
 class TimeSchema(BaseModel):
     created_at: datetime

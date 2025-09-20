@@ -1,4 +1,5 @@
 from typing import List
+
 from pydantic import BaseModel
 
 from app.application.dto import BaseSchema

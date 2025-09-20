@@ -14,7 +14,7 @@ class GetCurrentUserUseCase:
         if not access_token:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated",
+                detail='Not authenticated',
             )
 
         try:
@@ -22,26 +22,26 @@ class GetCurrentUserUseCase:
         except jwt.ExpiredSignatureError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token expired",
+                detail='Token expired',
             )
         except jwt.InvalidTokenError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token",
+                detail='Invalid token',
             )
 
-        user_sub = payload.get("sub")
+        user_sub = payload.get('sub')
         if not user_sub:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token payload",
+                detail='Invalid token payload',
             )
 
         user = await self.user_repository.get_by_github_id(int(user_sub))
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
+                detail='User not found',
             )
 
         return UserDTO.model_validate(user)

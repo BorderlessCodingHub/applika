@@ -1,4 +1,5 @@
 from typing import List
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,4 +12,7 @@ class FeedbackDefinitionRepository:
 
     async def get_all(self) -> List[FeedbackDefinitionModel]:
         return await self.session.scalars(
-            select(FeedbackDefinitionModel).order_by(FeedbackDefinitionModel.id))
+            select(FeedbackDefinitionModel).order_by(
+                FeedbackDefinitionModel.id
+            )
+        )

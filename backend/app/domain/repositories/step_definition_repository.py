@@ -1,4 +1,5 @@
 from typing import List
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,4 +12,5 @@ class StepDefinitionRepository:
 
     async def get_all(self) -> List[StepDefinitionModel]:
         return await self.session.scalars(
-            select(StepDefinitionModel).order_by(StepDefinitionModel.id))
+            select(StepDefinitionModel).order_by(StepDefinitionModel.id)
+        )

@@ -1,4 +1,5 @@
 from typing import List
+
 from pydantic import BaseModel, EmailStr
 
 from app.application.dto import BaseSchema

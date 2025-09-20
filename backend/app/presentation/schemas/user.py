@@ -1,7 +1,9 @@
 from typing import List
+
 from pydantic import EmailStr
 
 from app.presentation.schemas import BaseSchema, TimeSchema
+
 
 class UserProfile(BaseSchema, TimeSchema):
     id: int

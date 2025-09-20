@@ -1,13 +1,15 @@
-import sqlalchemy as sa
 from datetime import date, datetime
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from typing import List, Optional, TypedDict
+
+import sqlalchemy as sa
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from typing_extensions import Literal
 
 
 class BaseMixin:
     id: Mapped[int] = mapped_column(
-        sa.Integer, primary_key=True, autoincrement=True)
+        sa.Integer, primary_key=True, autoincrement=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), default=sa.func.now(), nullable=False
@@ -17,18 +19,19 @@ class BaseMixin:
     )
 
 
-class Base(DeclarativeBase):
-    ...
+class Base(DeclarativeBase): ...
 
 
 class UserModel(BaseMixin, Base):
-    __tablename__ = "users"
+    __tablename__ = 'users'
 
     github_id: Mapped[int] = mapped_column(
-        sa.BigInteger, unique=True, index=True, nullable=False)
+        sa.BigInteger, unique=True, index=True, nullable=False
+    )
     username: Mapped[str] = mapped_column(sa.String(100), nullable=False)
     email: Mapped[str] = mapped_column(
-        sa.String(100), unique=True, index=True, nullable=False)
+        sa.String(100), unique=True, index=True, nullable=False
+    )
     first_name: Mapped[Optional[str]] = mapped_column(sa.String(100))
     last_name: Mapped[Optional[str]] = mapped_column(sa.String(100))
     current_company: Mapped[Optional[str]] = mapped_column(sa.String(200))
@@ -36,8 +39,9 @@ class UserModel(BaseMixin, Base):
     experience_years: Mapped[int] = mapped_column(sa.Integer, default=0)
     _tech_stack: Mapped[Optional[str]] = mapped_column(sa.Text)
 
-    applications: Mapped[List["ApplicationModel"]] = relationship(
-        back_populates="user")
+    applications: Mapped[List['ApplicationModel']] = relationship(
+        back_populates='user'
+    )
 
     @property
     def tech_stack(self) -> list[str]:
@@ -55,52 +59,59 @@ class UserModel(BaseMixin, Base):
 
 
 class PlatformModel(BaseMixin, Base):
-    __tablename__ = "platforms"
+    __tablename__ = 'platforms'
 
     name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
     url: Mapped[Optional[str]] = mapped_column(sa.String(200))
 
-    applications: Mapped[List["ApplicationModel"]] = relationship(
-        back_populates="platform")
+    applications: Mapped[List['ApplicationModel']] = relationship(
+        back_populates='platform'
+    )
 
 
 class StepDefinitionModel(BaseMixin, Base):
-    __tablename__ = "steps_definition"
+    __tablename__ = 'steps_definition'
 
     name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
-    color: Mapped[str] = mapped_column(sa.String(7), default="#007bff")
+    color: Mapped[str] = mapped_column(sa.String(7), default='#007bff')
     # strict steps is only used in application finalization form
     strict: Mapped[bool] = mapped_column(sa.Boolean, default=False)
 
-    applications: Mapped[List["ApplicationModel"]] = relationship(
-        back_populates="last_step_def")
-    steps: Mapped[List["StepModel"]] = relationship(back_populates="step_def")
+    applications: Mapped[List['ApplicationModel']] = relationship(
+        back_populates='last_step_def'
+    )
+    steps: Mapped[List['StepModel']] = relationship(back_populates='step_def')
 
 
 class FeedbackDefinitionModel(BaseMixin, Base):
-    __tablename__ = "feedbacks_definition"
+    __tablename__ = 'feedbacks_definition'
 
     name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
-    color: Mapped[str] = mapped_column(sa.String(7), default="#28a745")
+    color: Mapped[str] = mapped_column(sa.String(7), default='#28a745')
 
-    applications: Mapped[List["ApplicationModel"]] = relationship(
-        back_populates="feedback_def")
+    applications: Mapped[List['ApplicationModel']] = relationship(
+        back_populates='feedback_def'
+    )
 
 
 class StepModel(BaseMixin, Base):
-    __tablename__ = "steps"
+    __tablename__ = 'steps'
 
-    application_id: Mapped[int] = mapped_column(sa.ForeignKey(
-        "applications.id", ondelete="CASCADE"), nullable=False)
+    application_id: Mapped[int] = mapped_column(
+        sa.ForeignKey('applications.id', ondelete='CASCADE'), nullable=False
+    )
     step_id: Mapped[int] = mapped_column(
-        sa.ForeignKey("steps_definition.id"), nullable=False)
+        sa.ForeignKey('steps_definition.id'), nullable=False
+    )
     step_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
     observation: Mapped[Optional[str]] = mapped_column(sa.Text)
 
-    application: Mapped["ApplicationModel"] = relationship(
-        back_populates="steps")
-    step_def: Mapped["StepDefinitionModel"] = relationship(
-        back_populates="steps")
+    application: Mapped['ApplicationModel'] = relationship(
+        back_populates='steps'
+    )
+    step_def: Mapped['StepDefinitionModel'] = relationship(
+        back_populates='steps'
+    )
 
 
 class ApplicationLastStep(TypedDict):
@@ -118,45 +129,55 @@ class ApplicationFeedback(TypedDict):
 
 
 class ApplicationModel(BaseMixin, Base):
-    __tablename__ = "applications"
+    __tablename__ = 'applications'
 
-    user_id: Mapped[int] = mapped_column(sa.ForeignKey(
-        "users.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
+    )
     platform_id: Mapped[int] = mapped_column(
-        sa.ForeignKey("platforms.id"), nullable=False)
+        sa.ForeignKey('platforms.id'), nullable=False
+    )
 
     application_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
     company: Mapped[str] = mapped_column(sa.String(200), nullable=False)
     role: Mapped[str] = mapped_column(sa.String(200), nullable=False)
     mode: Mapped[Literal['active', 'passive']] = mapped_column(
-        sa.String(10), nullable=False)
+        sa.String(10), nullable=False
+    )
     observation: Mapped[Optional[str]] = mapped_column(sa.Text)
 
     salary_offer: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
     expected_salary: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
     salary_range_min: Mapped[Optional[float]] = mapped_column(
-        sa.Numeric(10, 2))
+        sa.Numeric(10, 2)
+    )
     salary_range_max: Mapped[Optional[float]] = mapped_column(
-        sa.Numeric(10, 2))
+        sa.Numeric(10, 2)
+    )
 
     last_step_id: Mapped[Optional[int]] = mapped_column(
-        sa.ForeignKey("steps_definition.id"))
+        sa.ForeignKey('steps_definition.id')
+    )
     last_step_date: Mapped[Optional[date]] = mapped_column(sa.Date)
 
     feedback_id: Mapped[Optional[int]] = mapped_column(
-        sa.ForeignKey("feedbacks_definition.id"))
+        sa.ForeignKey('feedbacks_definition.id')
+    )
     feedback_date: Mapped[Optional[date]] = mapped_column(sa.Date)
 
-    user: Mapped["UserModel"] = relationship(
-        back_populates="applications")
-    platform: Mapped["PlatformModel"] = relationship(
-        back_populates="applications")
-    last_step_def: Mapped[Optional["StepDefinitionModel"]] = relationship(
-        back_populates="applications")
-    feedback_def: Mapped[Optional["FeedbackDefinitionModel"]] = relationship(
-        back_populates="applications")
-    steps: Mapped[List["StepModel"]] = relationship(
-        back_populates="application")
+    user: Mapped['UserModel'] = relationship(back_populates='applications')
+    platform: Mapped['PlatformModel'] = relationship(
+        back_populates='applications'
+    )
+    last_step_def: Mapped[Optional['StepDefinitionModel']] = relationship(
+        back_populates='applications'
+    )
+    feedback_def: Mapped[Optional['FeedbackDefinitionModel']] = relationship(
+        back_populates='applications'
+    )
+    steps: Mapped[List['StepModel']] = relationship(
+        back_populates='application'
+    )
 
     @property
     def last_step(self) -> ApplicationLastStep | None:
@@ -165,7 +186,7 @@ class ApplicationModel(BaseMixin, Base):
                 id=self.last_step_def.id,
                 name=self.last_step_def.name,
                 color=self.last_step_def.color,
-                date=self.last_step_date
+                date=self.last_step_date,
             )
 
     @property
@@ -175,5 +196,5 @@ class ApplicationModel(BaseMixin, Base):
                 id=self.feedback_def.id,
                 name=self.feedback_def.name,
                 color=self.feedback_def.color,
-                date=self.feedback_date
+                date=self.feedback_date,
             )

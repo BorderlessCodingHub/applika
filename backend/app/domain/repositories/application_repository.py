@@ -1,4 +1,5 @@
 from typing import List
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -11,18 +12,20 @@ class ApplicationRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_all_by_user_id(
-            self, user_id: int) -> List[ApplicationModel]:
+    async def get_all_by_user_id(self, user_id: int) -> List[ApplicationModel]:
         return await self.session.scalars(
-            select(ApplicationModel).
-            where(ApplicationModel.user_id == user_id).
-            order_by(ApplicationModel.application_date.desc()).
-            options(selectinload(ApplicationModel.last_step_def), 
-                    selectinload(ApplicationModel.feedback_def))
+            select(ApplicationModel)
+            .where(ApplicationModel.user_id == user_id)
+            .order_by(ApplicationModel.application_date.desc())
+            .options(
+                selectinload(ApplicationModel.last_step_def),
+                selectinload(ApplicationModel.feedback_def),
+            )
         )
 
     async def create(
-            self, application: ApplicationCreateDTO) -> ApplicationModel:
+        self, application: ApplicationCreateDTO
+    ) -> ApplicationModel:
         try:
             db_application = ApplicationModel(**application.model_dump())
             self.session.add(db_application)
