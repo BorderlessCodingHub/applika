@@ -34,10 +34,12 @@ def set_cookies(sub: str, response: Response):
         samesite="lax"
     )
 
+    max_age = envs.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+    expires_dt = utc_now + timedelta(days=envs.REFRESH_TOKEN_EXPIRE_DAYS)
     refresh_payload = {
         "sub": sub,
         "kind": "refresh",
-        "exp": utc_now + timedelta(days=envs.REFRESH_TOKEN_EXPIRE_DAYS),
+        "exp": expires_dt,
     }
     refresh_token = jwt.encode(
         refresh_payload, envs.JWT_SECRET, algorithm=envs.JWT_ALGORITHM)
@@ -46,7 +48,9 @@ def set_cookies(sub: str, response: Response):
         value=refresh_token,
         httponly=True,
         secure=True if envs.ENVIRONMENT == "PROD" else False,
-        samesite="lax"
+        samesite="lax",
+        max_age=max_age,
+        expires=expires_dt.strftime("%a, %d %b %Y %H:%M:%S GMT")
     )
 
 def clear_cookies(response: Response):
