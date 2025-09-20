@@ -58,3 +58,11 @@ class Application(BaseSchema, TimeSchema):
 
     last_step: ApplicationLastStep | None = None
     feedback: ApplicationFeedback | None = None
+
+
+class FinalizeApplication(BaseModel):
+    step_id: int # only strict steps
+    feedback_id: int
+    finalize_date: date
+    salary_offer: float | None = None
+    observation: str | None = None

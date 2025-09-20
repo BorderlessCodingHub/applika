@@ -14,6 +14,7 @@ class StepDefinitionSchema(BaseSchema):
     id: int
     name: str
     color: str
+    strict: bool
 
 
 class PlatformSchema(BaseSchema):

@@ -69,6 +69,8 @@ class StepDefinitionModel(BaseMixin, Base):
 
     name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
     color: Mapped[str] = mapped_column(sa.String(7), default="#007bff")
+    # strict steps is only used in application finalization form
+    strict: Mapped[bool] = mapped_column(sa.Boolean, default=False)
 
     applications: Mapped[List["ApplicationModel"]] = relationship(
         back_populates="last_step_def")

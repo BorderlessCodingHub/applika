@@ -12,6 +12,7 @@ class FeedbackDefinitionDTO(BaseSchema):
 class StepDefinitionDTO(BaseSchema):
     name: str
     color: str
+    strict: bool
 
 
 class PlatformDTO(BaseSchema):
