@@ -7,6 +7,7 @@ from app.presentation.api.application import router as application_router
 from app.presentation.api.oauth import router as auth_router
 from app.presentation.api.user import router as profile_router
 from app.presentation.api.support import router as support_router
+from app.presentation.api.statistic import router as statistic_router
 from app.presentation.handlers import register_handlers
 
 app = FastAPI(
@@ -33,3 +34,4 @@ app.include_router(auth_router)
 app.include_router(profile_router)
 app.include_router(support_router)
 app.include_router(application_router)
+app.include_router(statistic_router)
