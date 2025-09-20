@@ -50,7 +50,7 @@ async def update_application(
     payload: UpdateApplication,
     app_repo: ApplicationRepositoryDp,
 ):
-    raise NotImplementedError('This endpoint is not implemented yet.')
+    raise NotImplementedError()
 
 
 @router.delete('/applications/{application_id}', status_code=204)
@@ -59,7 +59,7 @@ async def delete_application(
     c_user: CurrentUserDp,
     app_repo: ApplicationRepositoryDp,
 ):
-    raise NotImplementedError('This endpoint is not implemented yet.')
+    raise NotImplementedError()
 
 
 @router.post('/applications/{application_id}/finalize', status_code=201)
@@ -69,4 +69,4 @@ async def finalize_application(
     c_user: CurrentUserDp,
     app_repo: ApplicationRepositoryDp,
 ):
-    raise NotImplementedError('This endpoint is not implemented yet.')
+    raise NotImplementedError()
