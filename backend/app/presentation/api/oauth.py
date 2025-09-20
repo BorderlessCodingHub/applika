@@ -15,7 +15,7 @@ router = APIRouter(prefix='/auth', tags=['OAuth'])
 github_sso = GithubSSO(
     client_id=envs.GITHUB_CLIENT_ID,
     client_secret=envs.GITHUB_CLIENT_SECRET,
-    redirect_uri=envs.GITHUB_CALLBACK_URI,
+    redirect_uri=envs.GITHUB_REDIRECT_URI,
     allow_insecure_http=True,
 )
 

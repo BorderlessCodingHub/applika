@@ -41,7 +41,7 @@ class Settings(BaseSettings):
 
     GITHUB_CLIENT_ID: str
     GITHUB_CLIENT_SECRET: str
-    GITHUB_CALLBACK_URI: str = 'http://localhost:8000/api/auth/github/callback'
+    GITHUB_REDIRECT_URI: str = 'http://localhost:8000/api/auth/github/callback'
 
     LOGIN_REDIRECT_URI: str = 'http://localhost:8000/api/docs'
 
