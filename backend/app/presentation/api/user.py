@@ -1,5 +1,4 @@
 from fastapi import APIRouter
-from typing import List
 
 from app.presentation.dependencies import CurrentUserDp
 from app.presentation.schemas.user import UserProfile

@@ -9,7 +9,7 @@ from app.presentation.dependencies import (
 from app.presentation.schemas.application import (
     Application, CreateApplication, UpdateApplication)
 
-router = APIRouter(tags=["Application"])
+router = APIRouter(tags=["Applications"])
 
 
 @router.post("/applications", response_model=Application, status_code=201)
