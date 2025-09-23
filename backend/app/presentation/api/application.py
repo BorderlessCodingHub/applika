@@ -2,15 +2,31 @@ from typing import List
 
 from fastapi import APIRouter
 
-from app.application.dto.application import ApplicationCreateDTO
+from app.application.dto.application import (
+    ApplicationCreateDTO,
+    ApplicationUpdateDTO,
+    FinalizeApplicationDTO,
+)
 from app.application.use_cases.create_application import (
     CreateApplicationUseCase,
 )
+from app.application.use_cases.delete_application import (
+    DeleteApplicationUseCase,
+)
+from app.application.use_cases.finalize_application import (
+    FinalizeApplicationUseCase,
+)
 from app.application.use_cases.list_applications import ListApplicationsUseCase
+from app.application.use_cases.update_application import (
+    UpdateApplicationUseCase,
+)
 from app.presentation.dependencies import (
     ApplicationRepositoryDp,
+    ApplicationStepRepositoryDp,
     CurrentUserDp,
+    FeedbackDefinitionRepositoryDp,
     PlatformRepositoryDp,
+    StepDefinitionRepositoryDp,
 )
 from app.presentation.schemas.application import (
     Application,
@@ -48,9 +64,14 @@ async def list_applications(
 async def update_application(
     application_id: int,
     payload: UpdateApplication,
+    c_user: CurrentUserDp,
     app_repo: ApplicationRepositoryDp,
+    platform_repo: PlatformRepositoryDp,
 ):
-    raise NotImplementedError()
+    use_case = UpdateApplicationUseCase(app_repo, platform_repo)
+    data = ApplicationUpdateDTO(**payload.model_dump(), user_id=c_user.id)
+    application = await use_case.execute(application_id, data)
+    return Application.model_validate(application)
 
 
 @router.delete('/applications/{application_id}', status_code=204)
@@ -59,14 +80,30 @@ async def delete_application(
     c_user: CurrentUserDp,
     app_repo: ApplicationRepositoryDp,
 ):
-    raise NotImplementedError()
+    use_case = DeleteApplicationUseCase(app_repo)
+    use_case.execute(application_id, c_user.id)
 
 
-@router.post('/applications/{application_id}/finalize', status_code=201)
+@router.post(
+    '/applications/{application_id}/finalize',
+    response_model=Application,
+    status_code=201,
+)
 async def finalize_application(
     application_id: int,
     payload: FinalizeApplication,
     c_user: CurrentUserDp,
+    step_repo: StepDefinitionRepositoryDp,
+    feedback_repo: FeedbackDefinitionRepositoryDp,
+    app_step_repo: ApplicationStepRepositoryDp,
     app_repo: ApplicationRepositoryDp,
 ):
-    raise NotImplementedError()
+    use_case = FinalizeApplicationUseCase(
+        step_repo=step_repo,
+        feedback_repo=feedback_repo,
+        application_step_repo=app_step_repo,
+        application_repo=app_repo,
+    )
+    data = FinalizeApplicationDTO(**payload.model_dump())
+    application = await use_case.execute(application_id, c_user.id, data)
+    return Application.model_validate(application)

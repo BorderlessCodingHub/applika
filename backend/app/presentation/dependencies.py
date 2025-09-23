@@ -11,6 +11,9 @@ from app.config.settings import ACCESS_COOKIE_NAME
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
+from app.domain.repositories.application_step_repository import (
+    ApplicationStepRepository,
+)
 from app.domain.repositories.feedback_definition_repository import (
     FeedbackDefinitionRepository,
 )
@@ -39,6 +42,10 @@ def get_platform_repository(session: DbSession):
     return PlatformRepository(session)
 
 
+def get_application_step_repository(session: DbSession):
+    return ApplicationStepRepository(session)
+
+
 def get_application_repository(session: DbSession):
     return ApplicationRepository(session)
 
@@ -55,6 +62,10 @@ StepDefinitionRepositoryDp = Annotated[
 
 PlatformRepositoryDp = Annotated[
     PlatformRepository, Depends(get_platform_repository)
+]
+
+ApplicationStepRepositoryDp = Annotated[
+    ApplicationStepRepository, Depends(get_application_step_repository)
 ]
 
 ApplicationRepositoryDp = Annotated[

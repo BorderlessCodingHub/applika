@@ -16,3 +16,10 @@ class FeedbackDefinitionRepository:
                 FeedbackDefinitionModel.id
             )
         )
+
+    async def get_by_id(self, id: int) -> FeedbackDefinitionModel:
+        return await self.session.scalar(
+            select(FeedbackDefinitionModel).where(
+                FeedbackDefinitionModel.id == id
+            )
+        )

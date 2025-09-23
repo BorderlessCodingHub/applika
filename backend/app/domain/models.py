@@ -80,7 +80,9 @@ class StepDefinitionModel(BaseMixin, Base):
     applications: Mapped[List['ApplicationModel']] = relationship(
         back_populates='last_step_def'
     )
-    steps: Mapped[List['StepModel']] = relationship(back_populates='step_def')
+    application_steps: Mapped[List['ApplicationStepModel']] = relationship(
+        back_populates='step_def'
+    )
 
 
 class FeedbackDefinitionModel(BaseMixin, Base):
@@ -94,8 +96,8 @@ class FeedbackDefinitionModel(BaseMixin, Base):
     )
 
 
-class StepModel(BaseMixin, Base):
-    __tablename__ = 'steps'
+class ApplicationStepModel(BaseMixin, Base):
+    __tablename__ = 'application_steps'
 
     application_id: Mapped[int] = mapped_column(
         sa.ForeignKey('applications.id', ondelete='CASCADE'), nullable=False
@@ -175,7 +177,7 @@ class ApplicationModel(BaseMixin, Base):
     feedback_def: Mapped[Optional['FeedbackDefinitionModel']] = relationship(
         back_populates='applications'
     )
-    steps: Mapped[List['StepModel']] = relationship(
+    application_steps: Mapped[List['ApplicationStepModel']] = relationship(
         back_populates='application'
     )
 

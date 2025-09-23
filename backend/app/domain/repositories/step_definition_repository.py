@@ -14,3 +14,11 @@ class StepDefinitionRepository:
         return await self.session.scalars(
             select(StepDefinitionModel).order_by(StepDefinitionModel.id)
         )
+
+    async def get_by_id_strict_only(self, id: int) -> StepDefinitionModel:
+        return await self.session.scalar(
+            select(StepDefinitionModel).where(
+                StepDefinitionModel.id == id,
+                StepDefinitionModel.strict.is_(True),
+            )
+        )
