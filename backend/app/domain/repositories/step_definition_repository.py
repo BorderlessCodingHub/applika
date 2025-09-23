@@ -22,3 +22,11 @@ class StepDefinitionRepository:
                 StepDefinitionModel.strict.is_(True),
             )
         )
+
+    async def get_by_id_non_strict_only(self, id: int) -> StepDefinitionModel:
+        return await self.session.scalar(
+            select(StepDefinitionModel).where(
+                StepDefinitionModel.id == id,
+                StepDefinitionModel.strict.is_(False),
+            )
+        )

@@ -115,6 +115,13 @@ class ApplicationStepModel(BaseMixin, Base):
         back_populates='steps'
     )
 
+    @property
+    def step_name(self) -> str:
+        try:
+            return self.step_def.name
+        except Exception:
+            return None
+
 
 class ApplicationLastStep(TypedDict):
     id: int

@@ -1,4 +1,9 @@
+from datetime import datetime, timezone
+from typing import List
+
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.application.dto.application_step import ApplicationStepCreateDTO
 from app.domain.models import ApplicationStepModel
@@ -7,6 +12,29 @@ from app.domain.models import ApplicationStepModel
 class ApplicationStepRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def get_by_id_and_user_id(
+        self, id: int, user_id: int
+    ) -> ApplicationStepModel:
+        return self.session.scalar(
+            select(ApplicationStepModel).where(
+                ApplicationStepModel.id == id,
+                ApplicationStepModel.user_id == user_id,
+            )
+        )
+
+    async def get_all_by_app_id_and_user_id(
+        self, application_id: int, user_id: int
+    ) -> List[ApplicationStepModel]:
+        return self.session.scalars(
+            select(ApplicationStepModel)
+            .where(
+                ApplicationStepModel.application_id == application_id,
+                ApplicationStepModel.user_id == user_id,
+            )
+            .order_by(ApplicationStepModel.created_at.asc())
+            .options(joinedload(ApplicationStepModel.step_def))
+        )
 
     async def create(
         self, app_step: ApplicationStepCreateDTO
@@ -20,3 +48,27 @@ class ApplicationStepRepository:
         except Exception as e:
             await self.session.rollback()
             raise e
+
+    async def update(
+        self, application: ApplicationStepModel
+    ) -> ApplicationStepModel:
+        try:
+            application.updated_at = datetime.now(timezone.utc)
+            self.session.add(application)
+            await self.session.commit()
+            return application
+        except Exception as e:
+            await self.session.rollback()
+            raise e
+
+    async def delete_by_id_and_app_id_and_user_id(
+        self, id: int, app_id: int, user_id: int
+    ) -> int:
+        result = await self.session.execute(
+            delete(ApplicationStepModel).where(
+                ApplicationStepModel.id == id,
+                ApplicationStepModel.application_id == app_id,
+                ApplicationStepModel.user_id == user_id,
+            )
+        )
+        return result.rowcount
