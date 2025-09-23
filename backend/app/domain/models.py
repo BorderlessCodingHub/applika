@@ -109,10 +109,10 @@ class ApplicationStepModel(BaseMixin, Base):
     observation: Mapped[Optional[str]] = mapped_column(sa.Text)
 
     application: Mapped['ApplicationModel'] = relationship(
-        back_populates='steps'
+        back_populates='application_steps'
     )
     step_def: Mapped['StepDefinitionModel'] = relationship(
-        back_populates='steps'
+        back_populates='application_steps'
     )
 
     @property
