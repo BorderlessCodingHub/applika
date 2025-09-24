@@ -45,7 +45,7 @@ class AverageDaysPerStep(TypedDict):
     avg_days: float
 
 
-class UserRepository:
+class UserStatsRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 

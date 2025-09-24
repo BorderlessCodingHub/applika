@@ -22,6 +22,9 @@ from app.domain.repositories.step_definition_repository import (
     StepDefinitionRepository,
 )
 from app.domain.repositories.user_repository import UserRepository
+from app.domain.repositories.user_statistic_repository import (
+    UserStatsRepository,
+)
 
 DbSession = Annotated[AsyncSession, Depends(get_session)]
 
@@ -50,6 +53,10 @@ def get_application_repository(session: DbSession):
     return ApplicationRepository(session)
 
 
+def get_user_statistics_repository(session: DbSession):
+    return UserStatsRepository(session)
+
+
 UserRepositoryDp = Annotated[UserRepository, Depends(get_user_repository)]
 
 FeedbackDefinitionRepositoryDp = Annotated[
@@ -70,6 +77,10 @@ ApplicationStepRepositoryDp = Annotated[
 
 ApplicationRepositoryDp = Annotated[
     ApplicationRepository, Depends(get_application_repository)
+]
+
+UserStatsRepositoryDp = Annotated[
+    UserStatsRepository, Depends(get_user_statistics_repository)
 ]
 
 
