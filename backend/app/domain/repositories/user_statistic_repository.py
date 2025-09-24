@@ -154,7 +154,7 @@ class UserStatsRepository:
                     ApplicationModel.user_id == user_id,
                 ),
             )
-            .group_by(PlatformModel.name)
+            .group_by(PlatformModel.name, PlatformModel.id)
             .having(func.count(ApplicationModel.id) > 0)
             .order_by(sa.desc('count'))
         )

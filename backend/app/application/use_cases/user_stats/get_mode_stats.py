@@ -13,10 +13,14 @@ class GetModeStatsUseCase:
             user_id
         )
 
-        result = ModeAppDTO()
+        active, passive = 0, 0
         for mode in a_mode:
             if mode['mode'] == 'active':
-                result.active = mode['count']
+                active = mode['count']
             elif mode['mode'] == 'passive':
-                result.passive = mode['count']
-        return result
+                passive = mode['count']
+
+        return ModeAppDTO(
+            active=active,
+            passive=passive
+        )
