@@ -2,7 +2,8 @@ version: '3.8'
 
 services:
   backend:
-    build: .
+    # build: .
+    image: luisedu/app-panel-api:latest
     container_name: panel_backend
     env_file:
       - .env

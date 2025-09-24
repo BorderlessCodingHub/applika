@@ -9,11 +9,12 @@ class UserRegistrationUseCase:
         self.user_repository = user_repository
 
     async def execute(self, user: OpenID) -> UserDTO:
-        existing_user = await self.user_repository.\
-            get_by_github_id(int(user.id))
+        existing_user = await self.user_repository.get_by_github_id(
+            int(user.id)
+        )
         if existing_user:
             return UserDTO.model_validate(existing_user)
-        
+
         user_data = UserCreateDTO(
             github_id=int(user.id),
             username=user.display_name,
