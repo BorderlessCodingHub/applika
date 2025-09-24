@@ -2,20 +2,22 @@ from typing import List
 
 from fastapi import APIRouter
 
-from app.application.use_cases.get_conversion_rate import (
+from app.application.use_cases.user_stats.get_conversion_rate import (
     UserConversionRateUseCase,
 )
-from app.application.use_cases.get_general_statistics import (
+from app.application.use_cases.user_stats.get_general_statistics import (
     GeneralStatisticsUseCase,
 )
-from app.application.use_cases.get_last_month_trends_stats import (
+from app.application.use_cases.user_stats.get_last_month_trends_stats import (
     GetLastMonthTrendsStatsUseCase,
 )
-from app.application.use_cases.get_mode_stats import GetModeStatsUseCase
-from app.application.use_cases.get_platform_stats import (
+from app.application.use_cases.user_stats.get_mode_stats import (
+    GetModeStatsUseCase,
+)
+from app.application.use_cases.user_stats.get_platform_stats import (
     GetPlatformStatsUseCase,
 )
-from app.application.use_cases.get_step_avg_days import (
+from app.application.use_cases.user_stats.get_step_avg_days import (
     GetAvgDaysPerStepUseCase,
 )
 from app.presentation.dependencies import CurrentUserDp, UserStatsRepositoryDp

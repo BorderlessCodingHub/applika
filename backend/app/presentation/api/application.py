@@ -7,17 +7,19 @@ from app.application.dto.application import (
     ApplicationUpdateDTO,
     FinalizeApplicationDTO,
 )
-from app.application.use_cases.create_application import (
+from app.application.use_cases.applications.create_application import (
     CreateApplicationUseCase,
 )
-from app.application.use_cases.delete_application import (
+from app.application.use_cases.applications.delete_application import (
     DeleteApplicationUseCase,
 )
-from app.application.use_cases.finalize_application import (
+from app.application.use_cases.applications.finalize_application import (
     FinalizeApplicationUseCase,
 )
-from app.application.use_cases.list_applications import ListApplicationsUseCase
-from app.application.use_cases.update_application import (
+from app.application.use_cases.applications.list_applications import (
+    ListApplicationsUseCase,
+)
+from app.application.use_cases.applications.update_application import (
     UpdateApplicationUseCase,
 )
 from app.presentation.dependencies import (
