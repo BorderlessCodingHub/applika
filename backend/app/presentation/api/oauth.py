@@ -48,7 +48,11 @@ async def auth_callback(
     return response
 
 
-@router.get('/refresh', response_model=DetailSchema)
+@router.get(
+    '/refresh',
+    response_model=DetailSchema,
+    responses={'403': {'model': DetailSchema}},
+)
 def refresh_token(request: Request, response: Response):
     refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
     if not refresh_token:

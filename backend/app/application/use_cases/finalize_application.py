@@ -3,7 +3,7 @@ from app.application.dto.application import (
     FinalizeApplicationDTO,
 )
 from app.application.dto.application_step import ApplicationStepCreateDTO
-from app.core.exceptions import ResourceNotFound
+from app.core.exceptions import ApplicationFinalized, ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
@@ -40,6 +40,11 @@ class FinalizeApplicationUseCase:
         if not application:
             raise ResourceNotFound(
                 'Application not found or not owned by user'
+            )
+
+        if application.feedback_id is not None:
+            raise ApplicationFinalized(
+                'This application has already been finalized'
             )
 
         step = await self.step_repo.get_by_id_strict_only(data.step_id)

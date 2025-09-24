@@ -61,10 +61,9 @@ class ApplicationRepository:
             await self.session.rollback()
             raise e
 
-    async def delete_by_id_and_user_id(self, id: int, user_id: int) -> int:
+    async def delete_by_id(self, id: int) -> int:
         result = await self.session.execute(
-            delete(ApplicationModel).where(
-                ApplicationModel.id == id, ApplicationModel.user_id == user_id
-            )
+            delete(ApplicationModel).where(ApplicationModel.id == id)
         )
+        await self.session.commit()
         return result.rowcount

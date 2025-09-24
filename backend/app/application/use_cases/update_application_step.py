@@ -3,7 +3,7 @@ from app.application.dto.application_step import (
     ApplicationStepDTO,
     ApplicationStepUpdateDTO,
 )
-from app.core.exceptions import ResourceNotFound
+from app.core.exceptions import ApplicationFinalized, ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
@@ -36,9 +36,15 @@ class UpdateApplicationStepUseCase:
             raise ResourceNotFound(
                 'Application not found or not owned by user'
             )
+        if application.feedback_id is not None:
+            raise ApplicationFinalized(
+                'This application has already been finalized'
+            )
 
         application_step = (
-            await self.application_step_repo.get_by_id_and_user_id(id, user_id)
+            await self.application_step_repo.get_by_id_and_app_id_and_user_id(
+                id, data.application_id, user_id
+            )
         )
         if not application_step:
             raise ResourceNotFound(

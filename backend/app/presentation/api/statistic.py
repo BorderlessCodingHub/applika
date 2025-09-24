@@ -3,6 +3,7 @@ from typing import List
 from fastapi import APIRouter
 
 from app.presentation.dependencies import CurrentUserDp
+from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.statistic import (
     ApplicationsStatistics,
     ApplicationsTrend,
@@ -12,7 +13,11 @@ from app.presentation.schemas.statistic import (
     StepConversionRate,
 )
 
-router = APIRouter(prefix='/applications', tags=['Applications Statistics'])
+router = APIRouter(
+    prefix='/applications',
+    tags=['Applications Statistics'],
+    responses={'403': {'model': DetailSchema}},
+)
 
 
 @router.get('/statistics', response_model=ApplicationsStatistics)

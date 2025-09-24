@@ -24,28 +24,43 @@ from app.presentation.dependencies import (
     CurrentUserDp,
     StepDefinitionRepositoryDp,
 )
+from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.application_step import (
     ApplicationStep,
     CreateApplicationStep,
     UpdateApplicationStep,
 )
 
-router = APIRouter(prefix='/applications', tags=['Applications Steps'])
+router = APIRouter(
+    prefix='/applications',
+    tags=['Applications Steps'],
+    responses={'403': {'model': DetailSchema}},
+)
 
 
-@router.get('/{application_id}/steps', response_model=List[ApplicationStep])
+@router.get(
+    '/{application_id}/steps',
+    response_model=List[ApplicationStep],
+    responses={'404': {'model': DetailSchema}},
+)
 async def get_all_application_steps(
     c_user: CurrentUserDp,
     application_id: int,
+    app_repo: ApplicationRepositoryDp,
     app_step_repo: ApplicationStepRepositoryDp,
 ):
-    use_case = ListApplicationStepsUseCase(app_step_repo=app_step_repo)
+    use_case = ListApplicationStepsUseCase(
+        app_repo=app_repo, app_step_repo=app_step_repo
+    )
     app_steps = await use_case.execute(application_id, c_user.id)
     return app_steps
 
 
 @router.post(
-    '/{application_id}/steps', status_code=201, response_model=ApplicationStep
+    '/{application_id}/steps',
+    status_code=201,
+    response_model=ApplicationStep,
+    responses={'404': {'model': DetailSchema}, '409': {'model': DetailSchema}},
 )
 async def add_step(
     c_user: CurrentUserDp,
@@ -68,15 +83,17 @@ async def add_step(
 
 
 @router.put(
-    '/{application_id}/steps/{step_id}', response_model=ApplicationStep
+    '/{application_id}/steps/{step_id}',
+    response_model=ApplicationStep,
+    responses={'404': {'model': DetailSchema}, '409': {'model': DetailSchema}},
 )
 async def update_step(
     c_user: CurrentUserDp,
     application_id: int,
     step_id: int,
     payload: UpdateApplicationStep,
-    step_repo: StepDefinitionRepositoryDp,
     app_repo: ApplicationRepositoryDp,
+    step_repo: StepDefinitionRepositoryDp,
     app_step_repo: ApplicationStepRepositoryDp,
 ):
     use_case = UpdateApplicationStepUseCase(
@@ -91,14 +108,19 @@ async def update_step(
     return ApplicationStep.model_validate(app_step)
 
 
-@router.delete('/{application_id}/steps/{step_id}', status_code=204)
+@router.delete(
+    '/{application_id}/steps/{step_id}',
+    status_code=204,
+    responses={'404': {'model': DetailSchema}, '409': {'model': DetailSchema}},
+)
 async def delete_step(
     c_user: CurrentUserDp,
     application_id: int,
     step_id: int,
+    app_repo: ApplicationRepositoryDp,
     app_step_repo: ApplicationStepRepositoryDp,
 ):
     use_case = DeleteApplicationStepUseCase(
-        application_step_repo=app_step_repo
+        application_repo=app_repo, application_step_repo=app_step_repo
     )
     await use_case.execute(step_id, application_id, c_user.id)

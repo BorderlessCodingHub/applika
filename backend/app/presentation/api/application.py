@@ -28,6 +28,7 @@ from app.presentation.dependencies import (
     PlatformRepositoryDp,
     StepDefinitionRepositoryDp,
 )
+from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.application import (
     Application,
     CreateApplication,
@@ -35,10 +36,17 @@ from app.presentation.schemas.application import (
     UpdateApplication,
 )
 
-router = APIRouter(tags=['Applications'])
+router = APIRouter(
+    tags=['Applications'], responses={'403': {'model': DetailSchema}}
+)
 
 
-@router.post('/applications', response_model=Application, status_code=201)
+@router.post(
+    '/applications',
+    response_model=Application,
+    status_code=201,
+    responses={'404': {'model': DetailSchema}},
+)
 async def create(
     payload: CreateApplication,
     c_user: CurrentUserDp,
@@ -60,7 +68,11 @@ async def list_applications(
     return applications
 
 
-@router.put('/applications/{application_id}', response_model=Application)
+@router.put(
+    '/applications/{application_id}',
+    response_model=Application,
+    responses={'404': {'model': DetailSchema}},
+)
 async def update_application(
     application_id: int,
     payload: UpdateApplication,
@@ -74,20 +86,29 @@ async def update_application(
     return Application.model_validate(application)
 
 
-@router.delete('/applications/{application_id}', status_code=204)
+@router.delete(
+    '/applications/{application_id}',
+    status_code=204,
+    responses={'404': {'model': DetailSchema}},
+)
 async def delete_application(
     application_id: int,
     c_user: CurrentUserDp,
     app_repo: ApplicationRepositoryDp,
+    app_steps_repo: ApplicationStepRepositoryDp,
 ):
-    use_case = DeleteApplicationUseCase(app_repo)
-    use_case.execute(application_id, c_user.id)
+    use_case = DeleteApplicationUseCase(app_repo, app_steps_repo)
+    await use_case.execute(application_id, c_user.id)
 
 
 @router.post(
     '/applications/{application_id}/finalize',
     response_model=Application,
     status_code=201,
+    responses={
+        '404': {'model': DetailSchema},
+        '409': {'model': DetailSchema},
+    },
 )
 async def finalize_application(
     application_id: int,

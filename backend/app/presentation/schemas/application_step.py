@@ -19,4 +19,5 @@ class ApplicationStep(BaseSchema, TimeSchema):
     id: int
     step_id: int
     step_date: date
+    step_name: str | None
     observation: str | None = None

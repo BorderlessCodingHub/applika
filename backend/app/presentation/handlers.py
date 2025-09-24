@@ -23,6 +23,12 @@ async def _resource_conflict_handler(
     return JSONResponse(status_code=409, content={'detail': exc.message})
 
 
+async def _application_finalized_handler(
+    request: Request, exc: exceptions.ApplicationFinalized
+):
+    return JSONResponse(status_code=409, content={'detail': exc.message})
+
+
 def register_handlers(app: FastAPI):
     """Register all errors handlers for the app"""
     app.add_exception_handler(NotImplementedError, _not_implemented_handler)
@@ -31,4 +37,7 @@ def register_handlers(app: FastAPI):
     )
     app.add_exception_handler(
         exceptions.ResourceConflict, _resource_conflict_handler
+    )
+    app.add_exception_handler(
+        exceptions.ApplicationFinalized, _application_finalized_handler
     )
