@@ -1,4 +1,5 @@
 from typing import List
+
 from app.application.dto.statistic import AvarageDaysDTO
 from app.domain.repositories.user_statistic_repository import (
     UserStatsRepository,
