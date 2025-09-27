@@ -101,9 +101,9 @@ export default function ApplicationsGrid({
                 </span>
               </div>
               {/* Information Section */}
-              <div className="flex-1 grid grid-cols-[70px_120px_150px_150px_100px_100px] gap-3 items-center min-w-0 text-center">
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 items-center min-w-0 text-center">
                 {/* Application Date */}
-                <span className="block text-xs text-white/80 truncate">
+                <span className="block text-xs text-white/80 sm:col-span-2 md:col-span-1 md:text-left sm:text-center">
                   <span className="block text-[0.65rem] uppercase tracking-wide text-white/60 font-semibold mb-1">
                     Date
                   </span>
@@ -118,7 +118,7 @@ export default function ApplicationsGrid({
                   {app.platform_name}
                 </span>
 
-                {/* Step Badge with Dynamic Color */}
+                {/* Step Badge */}
                 <span
                   className="text-xs font-semibold px-2 py-0.5 rounded-md border"
                   style={{
@@ -133,7 +133,7 @@ export default function ApplicationsGrid({
                   {app.step_name}
                 </span>
 
-                {/* Feedback Badge with Dynamic Color */}
+                {/* Feedback Badge */}
                 <span
                   className="text-xs font-semibold px-2 py-0.5 rounded-md border"
                   style={{
@@ -156,8 +156,8 @@ export default function ApplicationsGrid({
                   ${app.salary_range_min}k - ${app.salary_range_max}k
                 </span>
 
-                {/* Extra column if needed or can remove */}
-                <span></span>
+                {/* Placeholder for spacing on large screens */}
+                <span className="hidden lg:block"></span>
               </div>
 
               {/* Actions */}
