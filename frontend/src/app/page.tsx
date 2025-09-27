@@ -8,6 +8,10 @@ import ApplicationsByPlatformCard from '@/components/ApplicationsByPlatformCard'
 import ApplicationModeCard from '@/components/ApplicationModeCard'
 import ApplicationTrendCard from '@/components/ApplicationTrendCard'
 
+// Applications page
+import SearchApplications from '@/components/SearchApplications'
+import ApplicationsGrid from '@/components/ApplicationsGrid'
+
 const testData = {
     totalApplications: 120,
     totalOffers: 45,
@@ -62,6 +66,23 @@ const testData = {
 export default function Page() {
    
   const totalApps = platformsSample.reduce((acc, cur) => acc + cur.count, 0);
+
+    const applications = [
+    {
+      id: '1',
+      company: 'Tech Corp',
+      role: 'Frontend Developer',
+      application_date: '2025-09-26',
+      platform_name: 'LinkedIn',
+      step_name: 'Interview',
+      step_color: '#3498db',
+      feedback_name: 'Positive',
+      feedback_color: '#2ecc71',
+      salary_range_min: 80,
+      salary_range_max: 120,
+    },
+    // more applications...
+  ];
   
   return (
      <main>
@@ -77,6 +98,10 @@ export default function Page() {
       <ApplicationsByPlatformCard applicationsByPlatform={platformsSample} totalApplications={totalApps} />
       <ApplicationModeCard applicationsByMode={modesSample} totalApplications={totalApps} />
        <ApplicationTrendCard monthlyData={last30DaysData} />
+      
+      {/* // Applications page */}
+      <SearchApplications />
+      <ApplicationsGrid applications={applications} />
     </main>
   )
 }

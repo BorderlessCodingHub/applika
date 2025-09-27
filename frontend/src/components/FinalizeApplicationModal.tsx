@@ -1,0 +1,138 @@
+'use client';
+
+import React, { useState } from 'react';
+
+interface FinalizeApplicationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  feedbacks: { id: string; name: string }[];
+  onSubmit: (data: {
+    final_step: string;
+    feedback_id: string;
+    finalize_date: string;
+    salary_offer?: string;
+    final_observation?: string;
+  }) => void;
+}
+
+export default function FinalizeApplicationModal({
+  isOpen,
+  onClose,
+  feedbacks = [],
+  onSubmit,
+}: FinalizeApplicationModalProps) {
+  const [finalStep, setFinalStep] = useState('');
+  const [feedbackId, setFeedbackId] = useState('');
+  const [finalizeDate, setFinalizeDate] = useState('');
+  const [salaryOffer, setSalaryOffer] = useState('');
+  const [observation, setObservation] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const formData = {
+      final_step: finalStep,
+      feedback_id: feedbackId,
+      finalize_date: finalizeDate,
+      salary_offer: finalStep === '6' ? salaryOffer : undefined,
+      final_observation: observation || undefined,
+    };
+    onSubmit(formData);
+  };
+
+  return (
+    <div
+      className={`fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm flex items-center justify-center transition-opacity ${
+        isOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
+      }`}
+    >
+      <div className="relative w-[90%] max-w-[1200px] bg-white/5 backdrop-blur-[20px] border border-white/20 rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.1)] animate-[modalSlideIn_0.3s_ease-out]">
+        {/* Header */}
+        <div className="flex justify-between items-center border-b border-white/20 pb-4 mb-4">
+          <h3 className="text-white m-0">Finalize Application</h3>
+          <span
+            className="text-white/70 text-2xl font-bold cursor-pointer hover:text-white transition-all"
+            onClick={onClose}
+          >
+            &times;
+          </span>
+        </div>
+
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          {/* Result & Feedback Row */}
+          <div className="grid grid-cols-2 gap-4 justify-items-center">
+            <select
+              name="final_step"
+              required
+              value={finalStep}
+              onChange={(e) => setFinalStep(e.target.value)}
+              className="w-3/5 h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 transition-all duration-300 focus:outline-none focus:border-white/50 focus:bg-white/15 cursor-pointer"
+            >
+              <option value="">Select Result</option>
+              <option value="6">Offer</option>
+              <option value="7">Denied</option>
+            </select>
+
+            <select
+              name="feedback_id"
+              required
+              value={feedbackId}
+              onChange={(e) => setFeedbackId(e.target.value)}
+              className="w-3/5 h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 transition-all duration-300 focus:outline-none focus:border-white/50 focus:bg-white/15 cursor-pointer"
+            >
+              <option value="">Select Feedback</option>
+              {feedbacks.map((feedback) => (
+                <option key={feedback.id} value={feedback.id}>
+                  {feedback.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Date & Salary Row */}
+          <div className="grid grid-cols-2 gap-4 justify-items-center">
+            <input
+              type="date"
+              name="finalize_date"
+              required
+              value={finalizeDate}
+              onChange={(e) => setFinalizeDate(e.target.value)}
+              className="w-3/5 h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 transition-all duration-300 focus:outline-none focus:border-white/50 focus:bg-white/15"
+            />
+            {finalStep === '6' && (
+              <input
+                type="number"
+                name="salary_offer"
+                placeholder="Salary offer amount"
+                value={salaryOffer}
+                onChange={(e) => setSalaryOffer(e.target.value)}
+                className="w-3/5 h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 transition-all duration-300 focus:outline-none focus:border-white/50 focus:bg-white/15"
+              />
+            )}
+          </div>
+
+          {/* Final Observation */}
+          <div className="flex justify-center">
+            <textarea
+              name="final_observation"
+              rows={3}
+              placeholder="Final notes about the application"
+              value={observation}
+              onChange={(e) => setObservation(e.target.value)}
+              className="w-4/5 h-[150px] px-4 py-3 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 transition-all duration-300 resize-none focus:outline-none focus:border-white/50 focus:bg-white/15"
+            />
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end gap-4 border-t border-white/20 pt-4">
+            <button
+              type="submit"
+              className="bg-red-500/80 text-white border border-white/30 px-6 py-3 rounded-lg font-semibold cursor-pointer transition-all duration-300 hover:bg-red-500/60"
+            >
+              Finalize Application
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
