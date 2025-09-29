@@ -6,16 +6,16 @@ from app.application.dto.application_step import (
     ApplicationStepCreateDTO,
     ApplicationStepUpdateDTO,
 )
-from app.application.use_cases.create_application_step import (
+from app.application.use_cases.application_steps.create_application_step import (
     CreateApplicationStepUseCase,
 )
-from app.application.use_cases.delete_application_step import (
+from app.application.use_cases.application_steps.delete_application_step import (
     DeleteApplicationStepUseCase,
 )
-from app.application.use_cases.list_application_steps import (
+from app.application.use_cases.application_steps.list_application_steps import (
     ListApplicationStepsUseCase,
 )
-from app.application.use_cases.update_application_step import (
+from app.application.use_cases.application_steps.update_application_step import (
     UpdateApplicationStepUseCase,
 )
 from app.presentation.dependencies import (
