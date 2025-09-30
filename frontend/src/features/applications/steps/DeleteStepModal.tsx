@@ -1,5 +1,5 @@
 import React from "react";
-import ModalBase from "../../ui/ModalBase";
+import ModalBase from "../../../components/ui/ModalBase";
 
 interface DeleteStepModalProps {
   isOpen: boolean;

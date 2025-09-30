@@ -71,6 +71,7 @@ export default function ApplicationTrendCard({ monthlyData }: ApplicationTrendCa
 
   return (
     <div className="
+      dashboard-card-size
       backdrop-blur-[20px]
       bg-white/5
       border border-white/20
@@ -79,7 +80,6 @@ export default function ApplicationTrendCard({ monthlyData }: ApplicationTrendCa
       my-4
       shadow-[0_8px_32px_rgba(0,0,0,0.1)]
       min-h-[300px]
-      w-full
     ">
       {/* Card Header */}
       <div className="mb-6 border-b border-white/10 pb-4">

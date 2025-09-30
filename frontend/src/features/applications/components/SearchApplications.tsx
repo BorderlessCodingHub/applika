@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import AddApplicationModal from './AddApplicationModal'
+import AddApplicationModal from '../modals/AddApplicationModal'
 
 export default function SearchApplications() {
   const [modalOpen, setModalOpen] = useState(false)

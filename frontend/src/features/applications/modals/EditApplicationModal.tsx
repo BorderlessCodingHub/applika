@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import ModalBase from '../../ui/ModalBase';
+import ModalBase from '../../../components/ui/ModalBase';
 
 type Platform = { id: string; name: string };
 

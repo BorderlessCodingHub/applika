@@ -24,6 +24,7 @@ export default function ApplicationAnalyticsDashboard({
 
       <div
         className="
+        dashboard-card-size
         backdrop-blur-[20px]
         bg-white/5
         border border-white/20

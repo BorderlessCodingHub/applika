@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import ModalBase from '../../ui/ModalBase';
+import ModalBase from '../../../components/ui/ModalBase';
 
 type Step = { id: string; name: string };
 

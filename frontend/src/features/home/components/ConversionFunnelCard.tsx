@@ -71,12 +71,12 @@ export default function ConversionFunnelCard({ conversionData }: ConversionFunne
 
   return (
     <div className="
+      dashboard-card-size
       backdrop-blur-[20px]
       bg-white/5
       border border-white/20
       rounded-2xl
       p-8
-      my-4
       shadow-[0_8px_32px_rgba(0,0,0,0.1)]
       min-h-[300px]
     ">
