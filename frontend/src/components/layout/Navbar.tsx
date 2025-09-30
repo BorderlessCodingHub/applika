@@ -5,6 +5,7 @@ import NavLink from "./NavLink";
 const navItems = [
   { href: "/", label: "Home" },
   { href: "/applications", label: "Applications" },
+  { href: "/profile", label: "Profile"  }
 ];
 
 export default function Navbar() {
