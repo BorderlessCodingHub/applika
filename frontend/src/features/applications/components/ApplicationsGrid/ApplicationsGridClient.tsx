@@ -1,12 +1,12 @@
 import React from "react";
-import ApplicationCard from "./ApplicationCard";
-import useApplicationModals from "../hooks/useApplicationModals";
-import AddStepModal from "../steps/AddStepModal";
-import FinalizeApplicationModal from "../modals/FinalizeApplicationModal";
-import EditApplicationModal from "../modals/EditApplicationModal";
-import DeleteApplicationModal from "../modals/DeleteApplicationModal";
-import EditStepModal from "../steps/EditStepModal";
-import DeleteStepModal from "../steps/DeleteStepModal";
+import ApplicationCard from "../ApplicationCard";
+import useApplicationModals from "../../hooks/useApplicationModals";
+import AddStepModal from "../../steps/AddStepModal";
+import FinalizeApplicationModal from "../../modals/FinalizeApplicationModal";
+import EditApplicationModal from "../../modals/EditApplicationModal";
+import DeleteApplicationModal from "../../modals/DeleteApplicationModal";
+import EditStepModal from "../../steps/EditStepModal";
+import DeleteStepModal from "../../steps/DeleteStepModal";
 import type { Application } from "@/features/applications/steps/types";
 
 interface ApplicationsGridProps {
@@ -16,13 +16,8 @@ interface ApplicationsGridProps {
 export default function ApplicationsGrid({ applications }: ApplicationsGridProps) {
   const modal = useApplicationModals();
 
-  // ---------- Handlers ----------
   const handleStepSubmit = (data: any) => {
-    console.log(
-      "Add step for application:",
-      modal.selectedApplication?.id,
-      data
-    );
+    console.log("Add step for application:", modal.selectedApplication?.id, data);
     modal.setAddStepOpen(false);
   };
 
@@ -39,10 +34,8 @@ export default function ApplicationsGrid({ applications }: ApplicationsGridProps
   const handleDelete = (id?: string) => {
     if (!id) return;
     console.log("Delete application:", id);
-    // TODO: replace with API call
     modal.setDeleteAppOpen(false);
   };
-  // ------------------------------
 
   return (
     <div className="grid grid-cols-1 gap-4">
@@ -59,12 +52,13 @@ export default function ApplicationsGrid({ applications }: ApplicationsGridProps
         />
       ))}
 
+      {/* Modals */}
       <AddStepModal
         isOpen={modal.addStepOpen}
         onClose={() => modal.setAddStepOpen(false)}
         steps={[]}
         applicationInfo={modal.selectedApplication?.company ?? ""}
-        onSubmit={() => {}}
+        onSubmit={handleStepSubmit}
       />
       <FinalizeApplicationModal
         isOpen={modal.finalizeOpen}
@@ -108,22 +102,22 @@ export default function ApplicationsGrid({ applications }: ApplicationsGridProps
       />
 
       {modal.selectedStep && (
-        <EditStepModal
-          isOpen={modal.editStepOpen}
-          onClose={() => modal.setEditStepOpen(false)}
-          steps={[]}
-          initialData={modal.selectedStep}
-          onSubmit={() => {}}
-        />
-      )}
-      {modal.selectedStep && (
-        <DeleteStepModal
-          isOpen={modal.deleteStepOpen}
-          stepName={modal.selectedStep.step_name}
-          stepDate={modal.selectedStep.step_date}
-          onClose={() => modal.setDeleteStepOpen(false)}
-          onConfirm={() => {}}
-        />
+        <>
+          <EditStepModal
+            isOpen={modal.editStepOpen}
+            onClose={() => modal.setEditStepOpen(false)}
+            steps={[]}
+            initialData={modal.selectedStep}
+            onSubmit={() => {}}
+          />
+          <DeleteStepModal
+            isOpen={modal.deleteStepOpen}
+            stepName={modal.selectedStep.step_name}
+            stepDate={modal.selectedStep.step_date}
+            onClose={() => modal.setDeleteStepOpen(false)}
+            onConfirm={() => {}}
+          />
+        </>
       )}
     </div>
   );
