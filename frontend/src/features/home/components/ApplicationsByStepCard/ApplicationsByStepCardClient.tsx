@@ -1,17 +1,13 @@
-type StepData = {
-  step_name: string;
-  count: number;
-  conversion_rate: number;
-  step_color: string;
-};
+"use client";
+
+import React from "react";
+import { StepConversionRate } from "@/features/home/types";
 
 type ApplicationsByStepCardProps = {
-  conversionData: StepData[];
+  conversionData: StepConversionRate[];
 };
 
-export default function ApplicationsByStepCard({
-  conversionData,
-}: ApplicationsByStepCardProps) {
+export default function ApplicationsByStepCardClientUI({ conversionData }: ApplicationsByStepCardProps) {
   return (
     <div
       className="
@@ -36,28 +32,28 @@ export default function ApplicationsByStepCard({
       <div className="flex flex-col gap-4">
         {conversionData.map((step) => (
           <div
-            key={step.step_name}
+            key={step.name}
             className="
-                flex justify-between items-center
-                p-3
-                bg-white/5
-                rounded-lg
-                transition-all duration-300 ease-in-out
-                hover:bg-white/10
-              "
+              flex justify-between items-center
+              p-3
+              bg-white/5
+              rounded-lg
+              transition-all duration-300 ease-in-out
+              hover:bg-white/10
+            "
           >
             {/* Step Info */}
             <div className="flex items-center gap-3">
               <div
                 className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: step.step_color }}
+                style={{ backgroundColor: step.color }}
               ></div>
               <div className="flex flex-col">
                 <span className="font-semibold text-white/90 text-sm">
-                  {step.step_name}
+                  {step.name}
                 </span>
                 <span className="text-xs text-white/60">
-                  {step.count} applications
+                  {step.total_applications} applications
                 </span>
               </div>
             </div>

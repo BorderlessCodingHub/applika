@@ -1,4 +1,6 @@
-import React from 'react';
+"use client";
+
+import React from "react";
 
 type ModeData = {
   mode: string;
@@ -10,12 +12,13 @@ type ApplicationModeCardProps = {
   totalApplications: number;
 };
 
-export default function ApplicationModeCard({
+export default function ApplicationModeCardClient({
   applicationsByMode,
-  totalApplications
+  totalApplications,
 }: ApplicationModeCardProps) {
   return (
-    <div className="
+    <div
+      className="
       dashboard-card-size
       backdrop-blur-[20px]
       bg-white/5
@@ -25,7 +28,8 @@ export default function ApplicationModeCard({
       my-4
       shadow-[0_8px_32px_rgba(0,0,0,0.1)]
       min-h-[300px]
-    ">
+    "
+    >
       {/* Card Header */}
       <div className="mb-6 border-b border-white/10 pb-4">
         <h3 className="text-white/90 flex items-center gap-2 text-[1.1rem] m-0">

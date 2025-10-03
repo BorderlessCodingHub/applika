@@ -1,4 +1,6 @@
-import React from 'react';
+"use client";
+
+import React from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -8,8 +10,8 @@ import {
   Title,
   Tooltip,
   Legend
-} from 'chart.js';
-import { Line } from 'react-chartjs-2';
+} from "chart.js";
+import { Line } from "react-chartjs-2";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -22,20 +24,20 @@ type ApplicationTrendCardProps = {
   monthlyData: MonthlyData[];
 };
 
-export default function ApplicationTrendCard({ monthlyData }: ApplicationTrendCardProps) {
+export default function ApplicationTrendCardClient({ monthlyData }: ApplicationTrendCardProps) {
   const data = {
     labels: monthlyData.map(item => item.month),
     datasets: [
       {
-        label: 'Applications',
+        label: "Applications",
         data: monthlyData.map(item => item.count),
-        borderColor: 'rgba(19,236,171,1)',
-        backgroundColor: 'rgba(19,236,171,0.1)',
+        borderColor: "rgba(19,236,171,1)",
+        backgroundColor: "rgba(19,236,171,0.1)",
         fill: true,
         tension: 0.4,
         borderWidth: 3,
-        pointBackgroundColor: 'rgba(19,236,171,1)',
-        pointBorderColor: '#ffffff',
+        pointBackgroundColor: "rgba(19,236,171,1)",
+        pointBorderColor: "#ffffff",
         pointBorderWidth: 2,
         pointRadius: 6
       }
@@ -48,7 +50,7 @@ export default function ApplicationTrendCard({ monthlyData }: ApplicationTrendCa
     plugins: {
       legend: {
         labels: {
-          color: 'rgba(255,255,255,0.8)',
+          color: "rgba(255,255,255,0.8)",
           font: { size: 12 }
         }
       }
@@ -57,14 +59,14 @@ export default function ApplicationTrendCard({ monthlyData }: ApplicationTrendCa
       y: {
         beginAtZero: true,
         ticks: {
-          color: 'rgba(255,255,255,0.8)',
+          color: "rgba(255,255,255,0.8)",
           stepSize: 1
         },
-        grid: { color: 'rgba(255,255,255,0.1)' }
+        grid: { color: "rgba(255,255,255,0.1)" }
       },
       x: {
-        ticks: { color: 'rgba(255,255,255,0.8)' },
-        grid: { color: 'rgba(255,255,255,0.1)' }
+        ticks: { color: "rgba(255,255,255,0.8)" },
+        grid: { color: "rgba(255,255,255,0.1)" }
       }
     }
   };
