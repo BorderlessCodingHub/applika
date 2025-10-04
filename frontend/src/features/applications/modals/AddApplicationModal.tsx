@@ -1,35 +1,68 @@
-'use client'
+"use client";
 
-import { useState, FormEvent } from 'react'
+import { useState, FormEvent } from "react";
+import {
+  createApplication,
+  CreateApplicationPayload,
+} from "@/features/applications/services/applicationsService";
 
 interface AddApplicationModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSubmit: (formData: Record<string, any>) => void
-  platforms: { id: string; name: string }[]
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (formData: Record<string, any>) => void;
+  platforms: { id: string; name: string }[];
 }
 
 export default function AddApplicationModal({
   isOpen,
   onClose,
   onSubmit,
-  platforms
+  platforms,
 }: AddApplicationModalProps) {
-  const [formData, setFormData] = useState<Record<string, any>>({})
+  const [formData, setFormData] = useState<Record<string, any>>({});
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
   ) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    onSubmit(formData)
-  }
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
 
-  if (!isOpen) return null
+    // Transform form data to match API schema
+    const payload: CreateApplicationPayload = {
+      company: formData.company,
+      role: formData.role,
+      mode: formData.mode,
+      platform_id: parseInt(formData.platform_id, 10),
+      application_date: formData.application_date,
+      observation: formData.observation || undefined,
+      expected_salary: formData.expected_salary
+        ? parseFloat(formData.expected_salary)
+        : undefined,
+      salary_range_min: formData.salary_range_min
+        ? parseFloat(formData.salary_range_min)
+        : undefined,
+      salary_range_max: formData.salary_range_max
+        ? parseFloat(formData.salary_range_max)
+        : undefined,
+    };
+
+    try {
+      const newApp = await createApplication(payload);
+      console.log("Application created:", newApp);
+      onSubmit(newApp); // call parent callback to update UI
+      onClose();
+    } catch (err) {
+      console.error("Error creating application:", err);
+    }
+  };
+
+  if (!isOpen) return null;
 
   return (
     <div
@@ -43,7 +76,9 @@ export default function AddApplicationModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/20 px-6 py-4">
-          <h3 className="text-xl font-semibold text-white">Add New Application</h3>
+          <h3 className="text-xl font-semibold text-white">
+            Add New Application
+          </h3>
           <button
             onClick={onClose}
             className="text-white/70 hover:text-white text-2xl font-bold transition-colors"
@@ -169,5 +204,5 @@ export default function AddApplicationModal({
         </form>
       </div>
     </div>
-  )
+  );
 }

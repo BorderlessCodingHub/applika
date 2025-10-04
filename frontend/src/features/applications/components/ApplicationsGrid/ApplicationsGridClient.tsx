@@ -8,6 +8,10 @@ import DeleteApplicationModal from "../../modals/DeleteApplicationModal";
 import EditStepModal from "../../steps/EditStepModal";
 import DeleteStepModal from "../../steps/DeleteStepModal";
 import type { Application } from "@/features/applications/steps/types";
+import {
+  finalizeApplication,
+  FinalizeApplicationPayload,
+} from "@/features/applications/services/applicationsService";
 
 interface ApplicationsGridProps {
   applications: Application[];
@@ -27,9 +31,37 @@ export default function ApplicationsGrid({
     modal.setAddStepOpen(false);
   };
 
-  const handleFinalizeSubmit = (data: any) => {
-    console.log("Finalize application:", modal.selectedApplication?.id, data);
-    modal.setFinalizeOpen(false);
+  const handleFinalizeSubmit = async (data: {
+    final_step: string;
+    feedback_id: string;
+    finalize_date: string;
+    salary_offer?: string;
+    final_observation?: string;
+  }) => {
+    if (!modal.selectedApplication?.id) return;
+
+    const payload: FinalizeApplicationPayload = {
+      step_id: parseInt(data.final_step, 10),
+      feedback_id: parseInt(data.feedback_id, 10),
+      finalize_date: data.finalize_date,
+      salary_offer: data.salary_offer
+        ? parseFloat(data.salary_offer)
+        : undefined,
+      observation: data.final_observation,
+    };
+
+    try {
+      const updatedApp = await finalizeApplication(
+        modal.selectedApplication.id,
+        payload
+      );
+      console.log("Application finalized:", updatedApp);
+      modal.setFinalizeOpen(false);
+
+      // Optionally, update the applications list locally to reflect finalization
+    } catch (err) {
+      console.error("Error finalizing application:", err);
+    }
   };
 
   const handleEditSubmit = (data: any) => {
@@ -74,9 +106,9 @@ export default function ApplicationsGrid({
         isOpen={modal.finalizeOpen}
         onClose={() => modal.setFinalizeOpen(false)}
         feedbacks={[
-          { id: "f1", name: "Positive" },
-          { id: "f2", name: "Neutral" },
-          { id: "f3", name: "Negative" },
+          { id: "1", name: "Positive" },
+          { id: "2", name: "Neutral" },
+          { id: "3", name: "Negative" },
         ]}
         onSubmit={handleFinalizeSubmit}
       />
