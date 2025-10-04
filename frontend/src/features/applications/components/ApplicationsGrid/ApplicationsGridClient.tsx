@@ -13,11 +13,17 @@ interface ApplicationsGridProps {
   applications: Application[];
 }
 
-export default function ApplicationsGrid({ applications }: ApplicationsGridProps) {
+export default function ApplicationsGrid({
+  applications,
+}: ApplicationsGridProps) {
   const modal = useApplicationModals();
 
   const handleStepSubmit = (data: any) => {
-    console.log("Add step for application:", modal.selectedApplication?.id, data);
+    console.log(
+      "Add step for application:",
+      modal.selectedApplication?.id,
+      data
+    );
     modal.setAddStepOpen(false);
   };
 
@@ -56,9 +62,13 @@ export default function ApplicationsGrid({ applications }: ApplicationsGridProps
       <AddStepModal
         isOpen={modal.addStepOpen}
         onClose={() => modal.setAddStepOpen(false)}
-        steps={[]}
+        steps={[]} // ideally you fetch actual steps
+        applicationId={modal.selectedApplication?.id || ""}
         applicationInfo={modal.selectedApplication?.company ?? ""}
-        onSubmit={handleStepSubmit}
+        onSuccess={(data) => {
+          console.log("Add step success:", data);
+          modal.setAddStepOpen(false);
+        }}
       />
       <FinalizeApplicationModal
         isOpen={modal.finalizeOpen}
