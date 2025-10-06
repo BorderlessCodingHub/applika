@@ -1,24 +1,32 @@
-import React, { useEffect, useState } from 'react';
-import ModalBase from '../../../components/ui/ModalBase';
+import React, { useEffect, useState } from "react";
+import ModalBase from "../../../components/ui/ModalBase";
+import { z } from "zod";
+import {
+  applicationFormSchema,
+  ApplicationFormData,
+} from "@/features/applications/schemas/applicationSchema";
 
-type Platform = { id: string; name: string };
+// ---- Form Schema ----
+const EditApplicationSchema = z.object({
+  company: z.string().min(1),
+  role: z.string().min(1),
+  application_date: z.string(),
+  platform_id: z.string().optional(),
+  mode: z.enum(["active", "passive"]).optional(),
+  expected_salary: z.string().optional(),
+  salary_range_min: z.string().optional(),
+  salary_range_max: z.string().optional(),
+  observation: z.string().optional(),
+});
 
-interface EditApplicationModalProps {
+export type EditApplicationFormData = z.infer<typeof EditApplicationSchema>;
+
+export interface EditApplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  platforms: Platform[];
-  initialData?: {
-    company: string;
-    role: string;
-    application_date: string;
-    platform_id: string;
-    mode: string;
-    expected_salary?: number;
-    salary_range_min?: number;
-    salary_range_max?: number;
-    observation?: string;
-  };
-  onSubmit: (data: any) => void;
+  platforms: { id: string; name: string }[];
+  initialData?: ApplicationFormData;
+  onSubmit: (data: ApplicationFormData) => void;
 }
 
 export default function EditApplicationModal({
@@ -28,43 +36,62 @@ export default function EditApplicationModal({
   initialData,
   onSubmit,
 }: EditApplicationModalProps) {
-  const [company, setCompany] = useState('');
-  const [role, setRole] = useState('');
-  const [applicationDate, setApplicationDate] = useState('');
-  const [platformId, setPlatformId] = useState('');
-  const [mode, setMode] = useState('');
-  const [expectedSalary, setExpectedSalary] = useState<number | ''>('');
-  const [salaryRangeMin, setSalaryRangeMin] = useState<number | ''>('');
-  const [salaryRangeMax, setSalaryRangeMax] = useState<number | ''>('');
-  const [observation, setObservation] = useState('');
+  // ---- Form States (sempre string) ----
+  const [company, setCompany] = useState("");
+  const [role, setRole] = useState("");
+  const [applicationDate, setApplicationDate] = useState("");
+  const [platformId, setPlatformId] = useState("");
+  const [mode, setMode] = useState("");
+  const [expectedSalary, setExpectedSalary] = useState("");
+  const [salaryRangeMin, setSalaryRangeMin] = useState("");
+  const [salaryRangeMax, setSalaryRangeMax] = useState("");
+  const [observation, setObservation] = useState("");
 
+  // ---- Preenche dados iniciais ----
   useEffect(() => {
     if (initialData) {
-      setCompany(initialData.company || '');
-      setRole(initialData.role || '');
-      setApplicationDate(initialData.application_date || '');
-      setPlatformId(initialData.platform_id || '');
-      setMode(initialData.mode || '');
-      setExpectedSalary(initialData.expected_salary || '');
-      setSalaryRangeMin(initialData.salary_range_min || '');
-      setSalaryRangeMax(initialData.salary_range_max || '');
-      setObservation(initialData.observation || '');
+      setCompany(initialData.company || "");
+      setRole(initialData.role || "");
+      setApplicationDate(initialData.application_date || "");
+      setPlatformId(
+        initialData.platform_id ? String(initialData.platform_id) : ""
+      );
+      setMode(initialData.mode || "");
+      setExpectedSalary(
+        initialData.expected_salary ? String(initialData.expected_salary) : ""
+      );
+      setSalaryRangeMin(
+        initialData.salary_range_min ? String(initialData.salary_range_min) : ""
+      );
+      setSalaryRangeMax(
+        initialData.salary_range_max ? String(initialData.salary_range_max) : ""
+      );
+      setObservation(initialData.observation || "");
     }
   }, [initialData]);
 
+  // ---- Submit Handler ----
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
+
+    const rawData = {
       company,
       role,
       application_date: applicationDate,
-      platform_id: platformId,
+      platform_id: platformId, // still string here
       mode,
       expected_salary: expectedSalary,
       salary_range_min: salaryRangeMin,
       salary_range_max: salaryRangeMax,
       observation,
-    });
+    };
+
+    const parsed = applicationFormSchema.parse(rawData); // ✅ Zod validation + conversion
+    parsed.platform_id = parsed.platform_id
+      ? Number(parsed.platform_id)
+      : undefined;
+
+    onSubmit(parsed);
   };
 
   return (
@@ -117,10 +144,10 @@ export default function EditApplicationModal({
             required
           />
           <select
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all cursor-pointer"
+          className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all cursor-pointer"
+            required
             value={platformId}
             onChange={(e) => setPlatformId(e.target.value)}
-            required
           >
             <option value="">Select Platform</option>
             {platforms.map((p) => (
@@ -137,7 +164,6 @@ export default function EditApplicationModal({
             className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all cursor-pointer"
             value={mode}
             onChange={(e) => setMode(e.target.value)}
-            required
           >
             <option value="">Select Mode</option>
             <option value="active">Active</option>
@@ -148,9 +174,7 @@ export default function EditApplicationModal({
             placeholder="Expected Salary (optional)"
             className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
             value={expectedSalary}
-            onChange={(e) =>
-              setExpectedSalary(e.target.value ? Number(e.target.value) : '')
-            }
+            onChange={(e) => setExpectedSalary(e.target.value)}
           />
         </div>
 
@@ -159,20 +183,16 @@ export default function EditApplicationModal({
           <input
             type="number"
             placeholder="Salary Range Min"
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
             value={salaryRangeMin}
-            onChange={(e) =>
-              setSalaryRangeMin(e.target.value ? Number(e.target.value) : '')
-            }
+            onChange={(e) => setSalaryRangeMin(e.target.value)}
           />
           <input
             type="number"
             placeholder="Salary Range Max"
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
             value={salaryRangeMax}
-            onChange={(e) =>
-              setSalaryRangeMax(e.target.value ? Number(e.target.value) : '')
-            }
+            onChange={(e) => setSalaryRangeMax(e.target.value)}
           />
         </div>
 

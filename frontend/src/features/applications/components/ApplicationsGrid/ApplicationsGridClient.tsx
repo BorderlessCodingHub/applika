@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import ApplicationCard from "../ApplicationCard";
 import useApplicationModals from "../../hooks/useApplicationModals";
 import AddStepModal from "../../steps/AddStepModal";
@@ -7,10 +7,13 @@ import EditApplicationModal from "../../modals/EditApplicationModal";
 import DeleteApplicationModal from "../../modals/DeleteApplicationModal";
 import EditStepModal from "../../steps/EditStepModal";
 import DeleteStepModal from "../../steps/DeleteStepModal";
-import type { Application } from "@/features/applications/steps/types";
+import type { Application } from "@/features/applications/types";
+import type { ApplicationFormData } from "@/features/applications/schemas/applicationSchema";
 import {
   finalizeApplication,
   FinalizeApplicationPayload,
+  updateApplication,
+  UpdateApplicationPayload,
 } from "@/features/applications/services/applicationsService";
 
 interface ApplicationsGridProps {
@@ -21,7 +24,9 @@ export default function ApplicationsGrid({
   applications,
 }: ApplicationsGridProps) {
   const modal = useApplicationModals();
+  const [localApps, setLocalApps] = useState(applications);
 
+  // ---- STEP HANDLERS ----
   const handleStepSubmit = (data: any) => {
     console.log(
       "Add step for application:",
@@ -31,6 +36,7 @@ export default function ApplicationsGrid({
     modal.setAddStepOpen(false);
   };
 
+  // ---- FINALIZE HANDLER ----
   const handleFinalizeSubmit = async (data: {
     final_step: string;
     feedback_id: string;
@@ -55,20 +61,53 @@ export default function ApplicationsGrid({
         modal.selectedApplication.id,
         payload
       );
-      console.log("Application finalized:", updatedApp);
-      modal.setFinalizeOpen(false);
 
-      // Optionally, update the applications list locally to reflect finalization
+      // update local list
+      setLocalApps((prev) =>
+        prev.map((a) =>
+          a.id === modal.selectedApplication?.id ? updatedApp : a
+        )
+      );
+
+      modal.setFinalizeOpen(false);
     } catch (err) {
       console.error("Error finalizing application:", err);
     }
   };
+  // ---- EDIT HANDLER ----
+  const handleEditSubmit = async (data: ApplicationFormData) => {
+    if (!modal.selectedApplication?.id) return;
 
-  const handleEditSubmit = (data: any) => {
-    console.log("Edit application:", modal.selectedApplication?.id, data);
+    // normalize to match UpdateApplicationPayload
+    const payload: UpdateApplicationPayload = {
+      company: data.company,
+      role: data.role,
+      application_date: data.application_date,
+
+      platform_id: parseInt(data.platform_id as string, 10),
+
+      // enforce strict type
+      mode: data.mode ?? "active", // or fallback default, adjust if backend allows omission
+
+      expected_salary: data.expected_salary,
+      salary_range_min: data.salary_range_min,
+      salary_range_max: data.salary_range_max,
+      observation: data.observation,
+    };
+
+    const updatedApp = await updateApplication(
+      modal.selectedApplication.id,
+      payload
+    );
+
+    setLocalApps((prev) =>
+      prev.map((a) => (a.id === modal.selectedApplication?.id ? updatedApp : a))
+    );
+
     modal.setEditAppOpen(false);
   };
 
+  // ---- DELETE HANDLER ----
   const handleDelete = (id?: string) => {
     if (!id) return;
     console.log("Delete application:", id);
@@ -77,7 +116,7 @@ export default function ApplicationsGrid({
 
   return (
     <div className="grid grid-cols-1 gap-4">
-      {applications.map((app) => (
+      {localApps.map((app) => (
         <ApplicationCard
           key={app.id}
           app={app}
@@ -94,7 +133,7 @@ export default function ApplicationsGrid({
       <AddStepModal
         isOpen={modal.addStepOpen}
         onClose={() => modal.setAddStepOpen(false)}
-        steps={[]} // ideally you fetch actual steps
+        steps={[]} // ideally fetch actual steps
         applicationId={modal.selectedApplication?.id || ""}
         applicationInfo={modal.selectedApplication?.company ?? ""}
         onSuccess={(data) => {
@@ -102,6 +141,7 @@ export default function ApplicationsGrid({
           modal.setAddStepOpen(false);
         }}
       />
+
       <FinalizeApplicationModal
         isOpen={modal.finalizeOpen}
         onClose={() => modal.setFinalizeOpen(false)}
@@ -112,13 +152,14 @@ export default function ApplicationsGrid({
         ]}
         onSubmit={handleFinalizeSubmit}
       />
+
       <EditApplicationModal
         isOpen={modal.editAppOpen}
         onClose={() => modal.setEditAppOpen(false)}
         platforms={[
-          { id: "p1", name: "LinkedIn" },
-          { id: "p2", name: "Indeed" },
-          { id: "p3", name: "Glassdoor" },
+          { id: "1", name: "LinkedIn" },
+          { id: "2", name: "Indeed" },
+          { id: "3", name: "Glassdoor" },
         ]}
         initialData={
           modal.selectedApplication
@@ -126,17 +167,27 @@ export default function ApplicationsGrid({
                 company: modal.selectedApplication.company,
                 role: modal.selectedApplication.role,
                 application_date: modal.selectedApplication.application_date,
-                platform_id: modal.selectedApplication.platform_name,
-                mode: "active",
-                expected_salary: modal.selectedApplication.salary_range_min,
+
+                // platform_id can be string (for <select>) or number
+                platform_id: modal.selectedApplication.platform_id ?? undefined,
+
+                // only allow "active" or "passive"
+                mode:
+                  modal.selectedApplication.mode === "active" ||
+                  modal.selectedApplication.mode === "passive"
+                    ? modal.selectedApplication.mode
+                    : undefined,
+
+                expected_salary: modal.selectedApplication.expected_salary,
                 salary_range_min: modal.selectedApplication.salary_range_min,
                 salary_range_max: modal.selectedApplication.salary_range_max,
-                observation: "Placeholder observation",
+                observation: modal.selectedApplication.observation,
               }
             : undefined
         }
         onSubmit={handleEditSubmit}
       />
+
       <DeleteApplicationModal
         isOpen={modal.deleteAppOpen}
         onClose={() => modal.setDeleteAppOpen(false)}

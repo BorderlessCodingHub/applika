@@ -1,6 +1,18 @@
-import type { Application } from "../steps/types";
+import type { Application } from "../types";
 
 export interface CreateApplicationPayload {
+  company: string;
+  role: string;
+  mode: 'active' | 'passive';
+  platform_id: number;
+  application_date: string;
+  observation?: string;
+  expected_salary?: number;
+  salary_range_min?: number;
+  salary_range_max?: number;
+}
+
+export interface UpdateApplicationPayload {
   company: string;
   role: string;
   mode: 'active' | 'passive';
@@ -43,6 +55,25 @@ export async function createApplication(payload: CreateApplicationPayload) {
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.detail || "Failed to create application");
+  }
+
+  return res.json();
+}
+
+export async function updateApplication(
+  applicationId: number | string,
+  payload: UpdateApplicationPayload
+) {
+  const res = await fetch(`/api/applications/${applicationId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Failed to update application");
   }
 
   return res.json();

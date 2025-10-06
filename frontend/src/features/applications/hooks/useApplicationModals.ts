@@ -1,7 +1,7 @@
 // hooks/useApplicationModals.ts
 import { useState } from 'react';
-import { Step } from '../steps/types';
-import { Application } from '../steps/types';
+import { Step } from '../types';
+import { Application } from '../types';
 
 export default function useApplicationModals() {
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);

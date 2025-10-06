@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+
 const nextConfig = {
   async rewrites() {
     return [
@@ -8,6 +9,7 @@ const nextConfig = {
       },
     ];
   },
+  reactStrictMode: true
 };
 
 module.exports = nextConfig;

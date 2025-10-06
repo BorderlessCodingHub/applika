@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import ApplicationsGrid from "./ApplicationsGridClient";
 import { fetchApplications } from "../../services/applicationsService";
-import type { Application } from "../../steps/types";
+import type { Application } from "../../types";
 
 export default function ApplicationsGridIndex() {
   const [applications, setApplications] = useState<Application[]>([]);

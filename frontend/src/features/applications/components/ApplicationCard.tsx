@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import CardDetails from "../CardDetails";
-import { Application, Step } from "../steps/types";
+import { Application, Step } from "../types";
 import { fetchApplicationSteps, ApplicationStep } from "@/features/applications/services/applicationStepsService";
 
 interface ApplicationCardProps {
