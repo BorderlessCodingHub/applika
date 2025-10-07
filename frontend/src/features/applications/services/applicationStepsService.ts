@@ -1,3 +1,9 @@
+import {
+  supportSchema,
+  StepDefinition,
+  SupportResponse,
+} from "../schemas/supportSchema";
+
 export interface ApplicationStep {
   id: number;
   step_id: number;
@@ -13,7 +19,9 @@ export interface AddStepPayload {
   observation: string;
 }
 
-export async function fetchApplicationSteps(applicationId: string | number): Promise<ApplicationStep[]> {
+export async function fetchApplicationSteps(
+  applicationId: string | number
+): Promise<ApplicationStep[]> {
   const res = await fetch(`/api/applications/${applicationId}/steps`, {
     credentials: "include",
   });
@@ -24,6 +32,20 @@ export async function fetchApplicationSteps(applicationId: string | number): Pro
   }
 
   return res.json();
+}
+
+export async function fetchSupportsSteps(): Promise<StepDefinition[]> {
+  const res = await fetch("/api/supports", { credentials: "include" });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Failed to fetch supports");
+  }
+
+  const data = await res.json();
+  const parsed = supportSchema.parse(data); // validates & infers type
+  // only strict === false steps
+  return parsed.steps.filter((s) => !s.strict);
 }
 
 export async function addApplicationStep(

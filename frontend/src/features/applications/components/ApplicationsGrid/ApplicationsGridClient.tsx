@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ApplicationCard from "../ApplicationCard";
 import useApplicationModals from "../../hooks/useApplicationModals";
 import AddStepModal from "../../steps/AddStepModal";
@@ -16,6 +16,7 @@ import {
   UpdateApplicationPayload,
   deleteApplication,
 } from "@/features/applications/services/applicationsService";
+import { fetchSupportsSteps } from "@/features/applications/services/applicationStepsService";
 
 interface ApplicationsGridProps {
   applications: Application[];
@@ -27,6 +28,20 @@ export default function ApplicationsGrid({
   const modal = useApplicationModals();
   const [localApps, setLocalApps] = useState(applications);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [steps, setSteps] = useState<{ id: number; name: string }[]>([]);
+
+  useEffect(() => {
+    if (modal.addStepOpen) {
+      (async () => {
+        try {
+          const availableSteps = await fetchSupportsSteps();
+          setSteps(availableSteps);
+        } catch (err) {
+          console.error("Failed to load available steps:", err);
+        }
+      })();
+    }
+  }, [modal.addStepOpen]);
 
   // ---- STEP HANDLERS ----
   const handleStepSubmit = (data: any) => {
@@ -141,7 +156,7 @@ export default function ApplicationsGrid({
       <AddStepModal
         isOpen={modal.addStepOpen}
         onClose={() => modal.setAddStepOpen(false)}
-        steps={[]} // ideally fetch actual steps
+        steps={steps}
         applicationId={modal.selectedApplication?.id || ""}
         applicationInfo={modal.selectedApplication?.company ?? ""}
         onSuccess={(data) => {

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { addApplicationStep, type AddStepPayload } from "../services/applicationStepsService";
 
 interface Step {
-  id: string;
+  id: number;
   name: string;
 }
 
