@@ -14,6 +14,7 @@ import {
   FinalizeApplicationPayload,
   updateApplication,
   UpdateApplicationPayload,
+  deleteApplication,
 } from "@/features/applications/services/applicationsService";
 
 interface ApplicationsGridProps {
@@ -25,6 +26,7 @@ export default function ApplicationsGrid({
 }: ApplicationsGridProps) {
   const modal = useApplicationModals();
   const [localApps, setLocalApps] = useState(applications);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // ---- STEP HANDLERS ----
   const handleStepSubmit = (data: any) => {
@@ -108,10 +110,16 @@ export default function ApplicationsGrid({
   };
 
   // ---- DELETE HANDLER ----
-  const handleDelete = (id?: string) => {
+  const handleDelete = async (id?: string) => {
     if (!id) return;
-    console.log("Delete application:", id);
-    modal.setDeleteAppOpen(false);
+    setIsDeleting(true);
+    try {
+      await deleteApplication(id);
+      setLocalApps((prev) => prev.filter((a) => a.id !== id));
+      modal.setDeleteAppOpen(false);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -192,6 +200,7 @@ export default function ApplicationsGrid({
         isOpen={modal.deleteAppOpen}
         onClose={() => modal.setDeleteAppOpen(false)}
         onDelete={() => handleDelete(modal.selectedApplication?.id)}
+        isDeleting={isDeleting}
       />
 
       {modal.selectedStep && (

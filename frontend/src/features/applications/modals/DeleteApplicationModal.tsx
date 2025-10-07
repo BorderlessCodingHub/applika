@@ -1,24 +1,26 @@
-'use client';
+"use client";
 
-import React from 'react';
+import React from "react";
 
 interface DeleteApplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onDelete: () => void;
+  isDeleting?: boolean;
 }
 
 export default function DeleteApplicationModal({
   isOpen,
   onClose,
   onDelete,
+  isDeleting
 }: DeleteApplicationModalProps) {
   if (!isOpen) return null;
 
   return (
     <div
       className={`fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm flex items-center justify-center transition-opacity ${
-        isOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
+        isOpen ? "opacity-100 visible" : "opacity-0 invisible"
       }`}
     >
       <div className="relative w-[90%] max-w-[1200px] bg-white/5 backdrop-blur-[20px] border border-white/20 rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.1)] animate-[modalSlideIn_0.3s_ease-out]">
@@ -45,10 +47,14 @@ export default function DeleteApplicationModal({
           <button
             type="button"
             onClick={onDelete}
-            className="bg-red-600/80 text-white border border-red-600 px-6 py-3 rounded-lg font-semibold cursor-pointer transition-all duration-300 hover:bg-red-600"
+            disabled={isDeleting}
+            className={`${
+              isDeleting ? "opacity-50 cursor-not-allowed" : "hover:bg-red-600"
+            } bg-red-600/80 text-white border border-red-600 px-6 py-3 rounded-lg font-semibold transition-all duration-300`}
           >
-            Delete
+            {isDeleting ? "Deleting..." : "Delete"}
           </button>
+
           <button
             type="button"
             onClick={onClose}

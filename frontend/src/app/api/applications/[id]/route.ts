@@ -13,3 +13,20 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const data = await res.json();
   return NextResponse.json(data, { status: res.status });
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const cookie = req.headers.get("cookie") || "";
+
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/applications/${params.id}`, {
+    method: "DELETE",
+    headers: { cookie },
+  });
+
+  // no content returned by API → just respond with status
+  if (res.status === 204) {
+    return NextResponse.json({ message: "Application deleted successfully" }, { status: 204 });
+  }
+
+  const data = await res.json();
+  return NextResponse.json(data, { status: res.status });
+}

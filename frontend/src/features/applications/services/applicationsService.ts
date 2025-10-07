@@ -79,6 +79,20 @@ export async function updateApplication(
   return res.json();
 }
 
+export async function deleteApplication(applicationId: number | string) {
+  const res = await fetch(`/api/applications/${applicationId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Failed to delete application");
+  }
+
+  return true;
+}
+
 export async function finalizeApplication(
   applicationId: number | string,
   payload: FinalizeApplicationPayload
