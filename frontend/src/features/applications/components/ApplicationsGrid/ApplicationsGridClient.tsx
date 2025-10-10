@@ -223,16 +223,28 @@ export default function ApplicationsGrid({
           <EditStepModal
             isOpen={modal.editStepOpen}
             onClose={() => modal.setEditStepOpen(false)}
-            applicationId={modal.selectedApplication?.id || ""}
+            applicationId={modal.selectedApplication?.id ?? ""}
             initialData={{
-              id: modal.selectedStep.id,
-              step_id: modal.selectedStep.step_id,
-              step_name: modal.selectedStep.step_name,
-              step_date: modal.selectedStep.step_date,
-              observation: modal.selectedStep.observation,
+              id: modal.selectedStep.id ?? "",
+              step_id: modal.selectedStep.step_id ?? "",
+              step_name: modal.selectedStep.step_name ?? "",
+              step_date: modal.selectedStep.step_date ?? "",
+              observation: modal.selectedStep.observation ?? "",
             }}
             onSuccess={(updatedStep) => {
-              console.log("Step updated successfully:", updatedStep);
+              setLocalApps((prev) =>
+                prev.map((app) =>
+                  app.id === modal.selectedApplication?.id
+                    ? {
+                        ...app,
+                        steps:
+                          app.steps?.map((s) =>
+                            s.id === updatedStep.id ? updatedStep : s
+                          ) ?? [],
+                      }
+                    : app
+                )
+              );
               modal.setEditStepOpen(false);
             }}
           />
@@ -241,16 +253,18 @@ export default function ApplicationsGrid({
             isOpen={modal.deleteStepOpen}
             onClose={() => modal.setDeleteStepOpen(false)}
             applicationId={modal.selectedApplication?.id ?? ""}
-            stepId={modal.selectedStep?.id ?? ""}
-            stepName={modal.selectedStep?.step_name ?? ""}
-            stepDate={modal.selectedStep?.step_date ?? ""}
+            stepId={modal.selectedStep.id ?? ""}
+            stepName={modal.selectedStep.step_name ?? ""}
+            stepDate={modal.selectedStep.step_date ?? ""}
             onSuccess={(deletedStepId) => {
               setLocalApps((prev) =>
                 prev.map((app) =>
                   app.id === modal.selectedApplication?.id
                     ? {
                         ...app,
-                        steps: app.steps?.filter((s) => s.id !== deletedStepId),
+                        steps:
+                          app.steps?.filter((s) => s.id !== deletedStepId) ??
+                          [],
                       }
                     : app
                 )
