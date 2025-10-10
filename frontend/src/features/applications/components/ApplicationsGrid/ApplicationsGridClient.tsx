@@ -31,7 +31,7 @@ export default function ApplicationsGrid({
   const [steps, setSteps] = useState<{ id: number; name: string }[]>([]);
 
   useEffect(() => {
-    if (modal.addStepOpen) {
+    if (modal.addStepOpen || modal.editStepOpen) {
       (async () => {
         try {
           const availableSteps = await fetchSupportsSteps();
@@ -41,7 +41,7 @@ export default function ApplicationsGrid({
         }
       })();
     }
-  }, [modal.addStepOpen]);
+  }, [modal.addStepOpen, modal.editStepOpen]);
 
   // ---- STEP HANDLERS ----
   const handleStepSubmit = (data: any) => {
@@ -223,10 +223,20 @@ export default function ApplicationsGrid({
           <EditStepModal
             isOpen={modal.editStepOpen}
             onClose={() => modal.setEditStepOpen(false)}
-            steps={[]}
-            initialData={modal.selectedStep}
-            onSubmit={() => {}}
+            applicationId={modal.selectedApplication?.id || ""}
+            initialData={{
+              id: modal.selectedStep.id,
+              step_id: modal.selectedStep.step_id,
+              step_name: modal.selectedStep.step_name,
+              step_date: modal.selectedStep.step_date,
+              observation: modal.selectedStep.observation,
+            }}
+            onSuccess={(updatedStep) => {
+              console.log("Step updated successfully:", updatedStep);
+              modal.setEditStepOpen(false);
+            }}
           />
+
           <DeleteStepModal
             isOpen={modal.deleteStepOpen}
             stepName={modal.selectedStep.step_name}

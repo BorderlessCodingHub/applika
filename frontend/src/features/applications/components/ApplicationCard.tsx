@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
 import CardDetails from "../CardDetails";
 import { Application, Step } from "../types";
-import { fetchApplicationSteps, ApplicationStep } from "@/features/applications/services/applicationStepsService";
+import {
+  fetchApplicationSteps,
+  ApplicationStep,
+} from "@/features/applications/services/applicationStepsService";
 
 interface ApplicationCardProps {
   app: Application;
@@ -39,7 +42,7 @@ export default function ApplicationCard({
   const loadSteps = async () => {
     setLoading(true);
     try {
-      const data: ApplicationStep[] = await fetchApplicationSteps(app.id);
+      const data = await fetchApplicationSteps(app.id);
       const formatted: Step[] = data.map((s) => ({
         id: s.id.toString(),
         step_id: s.step_id.toString(),
@@ -63,7 +66,9 @@ export default function ApplicationCard({
       {/* Card header & actions */}
       <div className="flex justify-between items-center gap-4 min-h-[45px]">
         <div className="flex flex-col gap-1 min-w-[180px]">
-          <h3 className="text-white font-semibold text-base truncate">{app.company}</h3>
+          <h3 className="text-white font-semibold text-base truncate">
+            {app.company}
+          </h3>
           <span className="text-white/70 text-sm truncate">{app.role}</span>
         </div>
 
@@ -72,20 +77,39 @@ export default function ApplicationCard({
         </div>
 
         <div className="flex items-center justify-end gap-2 min-w-[80px] text-white/80">
-          <button onClick={() => onAddStep(app)} className="text-sky-500 hover:text-sky-600 transition-transform duration-300 hover:scale-110">
+          <button
+            onClick={() => onAddStep(app)}
+            className="text-sky-500 hover:text-sky-600 transition-transform duration-300 hover:scale-110"
+          >
             <i className="fa-solid fa-plus" />
           </button>
-          <button onClick={() => onFinalizeApp(app)} className="text-amber-500 hover:text-amber-600 transition-transform duration-300 hover:scale-110">
+          <button
+            onClick={() => onFinalizeApp(app)}
+            className="text-amber-500 hover:text-amber-600 transition-transform duration-300 hover:scale-110"
+          >
             <i className="fa-solid fa-flag-checkered" />
           </button>
-          <button onClick={() => onEditApp(app)} className="hover:text-white transition-transform duration-300 hover:scale-110">
+          <button
+            onClick={() => onEditApp(app)}
+            className="hover:text-white transition-transform duration-300 hover:scale-110"
+          >
             <i className="fa-solid fa-pen-to-square" />
           </button>
-          <button onClick={() => onDeleteApp(app)} className="text-red-500 hover:text-red-600 transition-transform duration-300 hover:scale-110">
+          <button
+            onClick={() => onDeleteApp(app)}
+            className="text-red-500 hover:text-red-600 transition-transform duration-300 hover:scale-110"
+          >
             <i className="fa-solid fa-trash" />
           </button>
-          <button onClick={toggleDetails} className="text-white hover:text-white/80 transition-transform duration-300 hover:scale-110">
-            <i className={`fa-solid ${isOpen ? "fa-chevron-up" : "fa-chevron-down"}`} />
+          <button
+            onClick={toggleDetails}
+            className="text-white hover:text-white/80 transition-transform duration-300 hover:scale-110"
+          >
+            <i
+              className={`fa-solid ${
+                isOpen ? "fa-chevron-up" : "fa-chevron-down"
+              }`}
+            />
           </button>
         </div>
       </div>
@@ -97,7 +121,9 @@ export default function ApplicationCard({
         expected_salary={app.salary_range_min}
         salary_offer={app.salary_range_max}
         mode="Remote"
-        last_step_date={steps.length ? steps[steps.length - 1].step_date : "N/A"}
+        last_step_date={
+          steps.length ? steps[steps.length - 1].step_date : "N/A"
+        }
         feedback_date="2025-09-30"
         observation="Placeholder observation"
         steps={steps}

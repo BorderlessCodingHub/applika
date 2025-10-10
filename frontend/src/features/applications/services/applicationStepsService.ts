@@ -1,17 +1,9 @@
 import {
-  supportSchema,
-  StepDefinition,
-  SupportResponse,
-} from "../schemas/supportSchema";
-
-export interface ApplicationStep {
-  id: number;
-  step_id: number;
-  step_date: string;
-  step_name?: string;
-  observation?: string;
-  step_color?: string; // optional for UI
-}
+  applicationStepsSchema,
+  ApplicationStep,
+  UpdateStepPayload,
+} from "../schemas/applicationsStepsSchema";
+import { StepDefinition, supportSchema } from "../schemas/supportSchema";
 
 export interface AddStepPayload {
   step_id: string;
@@ -31,7 +23,8 @@ export async function fetchApplicationSteps(
     throw new Error(err.detail || "Failed to fetch application steps");
   }
 
-  return res.json();
+  const data = await res.json();
+  return applicationStepsSchema.parse(data);
 }
 
 export async function fetchSupportsSteps(): Promise<StepDefinition[]> {
@@ -43,8 +36,7 @@ export async function fetchSupportsSteps(): Promise<StepDefinition[]> {
   }
 
   const data = await res.json();
-  const parsed = supportSchema.parse(data); // validates & infers type
-  // only strict === false steps
+  const parsed = supportSchema.parse(data);
   return parsed.steps.filter((s) => !s.strict);
 }
 
@@ -62,6 +54,29 @@ export async function addApplicationStep(
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.detail || "Failed to add step");
+  }
+
+  return res.json();
+}
+
+export async function updateApplicationStep(
+  applicationId: number | string,
+  stepId: number | string,
+  payload: UpdateStepPayload
+) {
+  const res = await fetch(
+    `/api/applications/${applicationId}/steps/${stepId}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Failed to update step");
   }
 
   return res.json();
