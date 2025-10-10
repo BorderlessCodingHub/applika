@@ -81,3 +81,23 @@ export async function updateApplicationStep(
 
   return res.json();
 }
+
+export async function deleteApplicationStep(
+  applicationId: number | string,
+  stepId: number | string
+) {
+  const res = await fetch(
+    `/api/applications/${applicationId}/steps/${stepId}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Failed to delete step");
+  }
+
+  return true;
+}

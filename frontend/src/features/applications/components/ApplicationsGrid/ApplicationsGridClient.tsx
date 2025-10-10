@@ -239,10 +239,24 @@ export default function ApplicationsGrid({
 
           <DeleteStepModal
             isOpen={modal.deleteStepOpen}
-            stepName={modal.selectedStep.step_name}
-            stepDate={modal.selectedStep.step_date}
             onClose={() => modal.setDeleteStepOpen(false)}
-            onConfirm={() => {}}
+            applicationId={modal.selectedApplication?.id ?? ""}
+            stepId={modal.selectedStep?.id ?? ""}
+            stepName={modal.selectedStep?.step_name ?? ""}
+            stepDate={modal.selectedStep?.step_date ?? ""}
+            onSuccess={(deletedStepId) => {
+              setLocalApps((prev) =>
+                prev.map((app) =>
+                  app.id === modal.selectedApplication?.id
+                    ? {
+                        ...app,
+                        steps: app.steps?.filter((s) => s.id !== deletedStepId),
+                      }
+                    : app
+                )
+              );
+              modal.setDeleteStepOpen(false);
+            }}
           />
         </>
       )}
