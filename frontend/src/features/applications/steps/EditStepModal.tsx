@@ -6,6 +6,7 @@ import {
   fetchSupportsSteps,
   updateApplicationStep,
 } from "../services/applicationStepsService";
+import { mutateSteps } from "@/features/applications/hooks/useApplicationModals";
 
 interface Step {
   id: number;
@@ -17,7 +18,7 @@ interface EditStepModalProps {
   onClose: () => void;
   applicationId?: string;
   initialData?: {
-    id: string; // step record id
+    id: string;
     step_id: string;
     step_name?: string;
     step_date: string;
@@ -79,6 +80,10 @@ export default function EditStepModal({
         initialData.id,
         payload
       );
+
+      // ✅ Refresh only this application's steps
+      await mutateSteps(applicationId);
+
       onSuccess?.(updated);
       onClose();
     } catch (err: any) {
@@ -145,7 +150,7 @@ export default function EditStepModal({
             onChange={(e) => setObservation(e.target.value)}
             placeholder="Step details (optional)"
             className="w-4/5 h-[150px] px-4 py-3 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 resize-none"
-          ></textarea>
+          />
         </div>
       </form>
     </ModalBase>

@@ -8,11 +8,23 @@ export const applicationFormSchema = z.object({
   platform_id: z.union([z.string(), z.number()]).optional(), // accepts string (from <select>) and transforms to number
   mode: z.enum(["active", "passive"]).optional(),
 
-  expected_salary: z.preprocess((val) => val === "" ? undefined : Number(val), z.number().optional()),
-  salary_range_min: z.preprocess((val) => val === "" ? undefined : Number(val), z.number().optional()),
-  salary_range_max: z.preprocess((val) => val === "" ? undefined : Number(val), z.number().optional()),
+  expected_salary: z.preprocess(
+    (val) => (val === "" ? undefined : Number(val)),
+    z.number().optional()
+  ),
+  salary_range_min: z.preprocess(
+    (val) => (val === "" ? undefined : Number(val)),
+    z.number().optional()
+  ),
+  salary_range_max: z.preprocess(
+    (val) => (val === "" ? undefined : Number(val)),
+    z.number().optional()
+  ),
 
   observation: z.string().optional(),
 });
 
 export type ApplicationFormData = z.infer<typeof applicationFormSchema>;
+
+export const editApplicationSchema = applicationFormSchema;
+export type EditApplicationFormData = z.infer<typeof editApplicationSchema>;

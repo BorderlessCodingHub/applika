@@ -3,7 +3,7 @@ import type { Application } from "../types";
 export interface CreateApplicationPayload {
   company: string;
   role: string;
-  mode: 'active' | 'passive';
+  mode: "active" | "passive";
   platform_id: number;
   application_date: string;
   observation?: string;
@@ -12,17 +12,7 @@ export interface CreateApplicationPayload {
   salary_range_max?: number;
 }
 
-export interface UpdateApplicationPayload {
-  company: string;
-  role: string;
-  mode: 'active' | 'passive';
-  platform_id: number;
-  application_date: string;
-  observation?: string;
-  expected_salary?: number;
-  salary_range_min?: number;
-  salary_range_max?: number;
-}
+export interface UpdateApplicationPayload extends CreateApplicationPayload {}
 
 export interface FinalizeApplicationPayload {
   step_id: number;
@@ -30,6 +20,18 @@ export interface FinalizeApplicationPayload {
   finalize_date: string;
   salary_offer?: number;
   observation?: string;
+}
+
+async function parseErrorResponse(res: Response) {
+  const cloned = res.clone();
+
+  try {
+    const data = await cloned.json();
+    return data.detail || JSON.stringify(data);
+  } catch {
+    const text = await res.text();
+    return text || "Unknown error occurred";
+  }
 }
 
 export async function fetchApplications(): Promise<Application[]> {
@@ -72,8 +74,7 @@ export async function updateApplication(
   });
 
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail || "Failed to update application");
+    throw new Error(await parseErrorResponse(res));
   }
 
   return res.json();

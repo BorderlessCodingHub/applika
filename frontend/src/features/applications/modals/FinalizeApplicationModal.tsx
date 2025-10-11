@@ -1,10 +1,12 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
+import React, { useState } from "react";
+import { mutateApplications } from "@/features/applications/hooks/useApplicationModals";
 
 interface FinalizeApplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
+  applicationId: string; // pass the application id
   feedbacks: { id: string; name: string }[];
   onSubmit: (data: {
     final_step: string;
@@ -12,37 +14,53 @@ interface FinalizeApplicationModalProps {
     finalize_date: string;
     salary_offer?: string;
     final_observation?: string;
-  }) => void;
+  }) => Promise<void>; // async submit handler
 }
 
 export default function FinalizeApplicationModal({
   isOpen,
   onClose,
+  applicationId,
   feedbacks = [],
   onSubmit,
 }: FinalizeApplicationModalProps) {
-  const [finalStep, setFinalStep] = useState('');
-  const [feedbackId, setFeedbackId] = useState('');
-  const [finalizeDate, setFinalizeDate] = useState('');
-  const [salaryOffer, setSalaryOffer] = useState('');
-  const [observation, setObservation] = useState('');
+  const [finalStep, setFinalStep] = useState("");
+  const [feedbackId, setFeedbackId] = useState("");
+  const [finalizeDate, setFinalizeDate] = useState("");
+  const [salaryOffer, setSalaryOffer] = useState("");
+  const [observation, setObservation] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const formData = {
-      final_step: finalStep,
-      feedback_id: feedbackId,
-      finalize_date: finalizeDate,
-      salary_offer: finalStep === '6' ? salaryOffer : undefined,
-      final_observation: observation || undefined,
-    };
-    onSubmit(formData);
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+      const payload = {
+        final_step: finalStep,
+        feedback_id: feedbackId,
+        finalize_date: finalizeDate,
+        salary_offer: salaryOffer ? salaryOffer : undefined,
+        final_observation: observation,
+      };
+
+      // Pass applicationId as a separate argument if your onSubmit expects it
+      await onSubmit(payload);
+
+      await mutateApplications();
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div
       className={`fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm flex items-center justify-center transition-opacity ${
-        isOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
+        isOpen ? "opacity-100 visible" : "opacity-0 invisible"
       }`}
     >
       <div className="relative w-[90%] max-w-[1200px] bg-white/5 backdrop-blur-[20px] border border-white/20 rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.1)] animate-[modalSlideIn_0.3s_ease-out]">
@@ -98,7 +116,7 @@ export default function FinalizeApplicationModal({
               onChange={(e) => setFinalizeDate(e.target.value)}
               className="w-3/5 h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 transition-all duration-300 focus:outline-none focus:border-white/50 focus:bg-white/15"
             />
-            {finalStep === '6' && (
+            {finalStep === "6" && (
               <input
                 type="number"
                 name="salary_offer"
@@ -126,9 +144,10 @@ export default function FinalizeApplicationModal({
           <div className="flex justify-end gap-4 border-t border-white/20 pt-4">
             <button
               type="submit"
+              disabled={isSubmitting}
               className="bg-red-500/80 text-white border border-white/30 px-6 py-3 rounded-lg font-semibold cursor-pointer transition-all duration-300 hover:bg-red-500/60"
             >
-              Finalize Application
+              {isSubmitting ? "Finalizing..." : "Finalize Application"}
             </button>
           </div>
         </form>

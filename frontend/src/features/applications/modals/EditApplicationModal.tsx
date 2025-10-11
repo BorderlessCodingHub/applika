@@ -1,32 +1,20 @@
-import React, { useEffect, useState } from "react";
-import ModalBase from "../../../components/ui/ModalBase";
-import { z } from "zod";
+"use client";
+
+import { useEffect, useState } from "react";
+import ModalBase from "@/components/ui/ModalBase";
 import {
-  applicationFormSchema,
-  ApplicationFormData,
+  editApplicationSchema,
+  EditApplicationFormData,
 } from "@/features/applications/schemas/applicationSchema";
+import { updateApplication } from "@/features/applications/services/applicationsService";
+import { mutateApplications } from "@/features/applications/hooks/useApplicationModals";
 
-// ---- Form Schema ----
-const EditApplicationSchema = z.object({
-  company: z.string().min(1),
-  role: z.string().min(1),
-  application_date: z.string(),
-  platform_id: z.string().optional(),
-  mode: z.enum(["active", "passive"]).optional(),
-  expected_salary: z.string().optional(),
-  salary_range_min: z.string().optional(),
-  salary_range_max: z.string().optional(),
-  observation: z.string().optional(),
-});
-
-export type EditApplicationFormData = z.infer<typeof EditApplicationSchema>;
-
-export interface EditApplicationModalProps {
+interface EditApplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
   platforms: { id: string; name: string }[];
-  initialData?: ApplicationFormData;
-  onSubmit: (data: ApplicationFormData) => void;
+  initialData?: EditApplicationFormData & { id: string };
+  onSubmit: (data: EditApplicationFormData) => void;
 }
 
 export default function EditApplicationModal({
@@ -36,7 +24,6 @@ export default function EditApplicationModal({
   initialData,
   onSubmit,
 }: EditApplicationModalProps) {
-  // ---- Form States (sempre string) ----
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [applicationDate, setApplicationDate] = useState("");
@@ -46,53 +33,59 @@ export default function EditApplicationModal({
   const [salaryRangeMin, setSalaryRangeMin] = useState("");
   const [salaryRangeMax, setSalaryRangeMax] = useState("");
   const [observation, setObservation] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // ---- Preenche dados iniciais ----
   useEffect(() => {
-    if (initialData) {
-      setCompany(initialData.company || "");
-      setRole(initialData.role || "");
-      setApplicationDate(initialData.application_date || "");
-      setPlatformId(
-        initialData.platform_id ? String(initialData.platform_id) : ""
-      );
-      setMode(initialData.mode || "");
-      setExpectedSalary(
-        initialData.expected_salary ? String(initialData.expected_salary) : ""
-      );
-      setSalaryRangeMin(
-        initialData.salary_range_min ? String(initialData.salary_range_min) : ""
-      );
-      setSalaryRangeMax(
-        initialData.salary_range_max ? String(initialData.salary_range_max) : ""
-      );
-      setObservation(initialData.observation || "");
-    }
+    if (!initialData) return;
+
+    setCompany(initialData.company || "");
+    setRole(initialData.role || "");
+    setApplicationDate(initialData.application_date || "");
+    setPlatformId(initialData.platform_id?.toString() || "");
+    setMode(initialData.mode || "");
+    setExpectedSalary(initialData.expected_salary?.toString() || "");
+    setSalaryRangeMin(initialData.salary_range_min?.toString() || "");
+    setSalaryRangeMax(initialData.salary_range_max?.toString() || "");
+    setObservation(initialData.observation || "");
   }, [initialData]);
 
-  // ---- Submit Handler ----
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
+    if (!initialData?.id) return;
+    setLoading(true);
 
-    const rawData = {
-      company,
-      role,
-      application_date: applicationDate,
-      platform_id: platformId, // still string here
-      mode,
-      expected_salary: expectedSalary,
-      salary_range_min: salaryRangeMin,
-      salary_range_max: salaryRangeMax,
-      observation,
-    };
+    try {
+      const payload = {
+        company,
+        role,
+        application_date: applicationDate,
+        platform_id: platformId ? Number(platformId) : undefined,
+        mode: mode as "active" | "passive",
+        expected_salary: expectedSalary,
+        salary_range_min: salaryRangeMin,
+        salary_range_max: salaryRangeMax,
+        observation,
+      };
 
-    const parsed = applicationFormSchema.parse(rawData); // ✅ Zod validation + conversion
-    parsed.platform_id = parsed.platform_id
-      ? Number(parsed.platform_id)
-      : undefined;
+      // Validate before sending
+      const parsed = editApplicationSchema.parse(payload);
 
-    onSubmit(parsed);
+      const updated = await updateApplication(initialData.id, parsed);
+
+      await mutateApplications();
+      onSubmit(updated);
+      onClose();
+    } catch (err) {
+      console.error(
+        "Validation or API error (may be 500 but update applied):",
+        err
+      );
+      // Optional: show toast or notice that update may have applied despite error
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (!isOpen) return null;
 
   return (
     <ModalBase
@@ -101,53 +94,53 @@ export default function EditApplicationModal({
       onClose={onClose}
       footer={
         <button
-          type="submit"
-          form="edit-application-form"
-          className="bg-green-400/90 hover:bg-green-400/60 text-black font-semibold px-6 py-2 rounded-lg border border-white/30 transition-all"
+          onClick={handleSubmit}
+          disabled={loading}
+          className="rounded-md border border-white/30 bg-emerald-400 px-6 py-2 font-semibold text-black transition-colors hover:bg-emerald-400/70 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/30 disabled:border-white/10"
         >
-          Update Application
+          {loading ? "Updating..." : "Update Application"}
         </button>
       }
     >
-      <form
-        id="edit-application-form"
-        onSubmit={handleSubmit}
-        className="space-y-4"
-      >
-        {/* Company & Role */}
+      <div className="space-y-4">
+        {/* Company / Role */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <input
+            name="company"
             type="text"
             placeholder="Company (required)"
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
             value={company}
             onChange={(e) => setCompany(e.target.value)}
             required
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
           />
           <input
+            name="role"
             type="text"
             placeholder="Role (required)"
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
             value={role}
             onChange={(e) => setRole(e.target.value)}
             required
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
           />
         </div>
 
-        {/* Date & Platform */}
+        {/* Date / Platform */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <input
+            name="application_date"
             type="date"
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
             value={applicationDate}
             onChange={(e) => setApplicationDate(e.target.value)}
             required
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
           />
           <select
-          className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all cursor-pointer"
-            required
+            name="platform_id"
             value={platformId}
             onChange={(e) => setPlatformId(e.target.value)}
+            required
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all cursor-pointer"
           >
             <option value="">Select Platform</option>
             {platforms.map((p) => (
@@ -158,53 +151,58 @@ export default function EditApplicationModal({
           </select>
         </div>
 
-        {/* Mode & Expected Salary */}
+        {/* Mode / Expected Salary */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <select
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all cursor-pointer"
+            name="mode"
             value={mode}
-            onChange={(e) => setMode(e.target.value)}
+            onChange={(e) => setMode(e.target.value as "active" | "passive")}
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all cursor-pointer"
           >
             <option value="">Select Mode</option>
             <option value="active">Active</option>
             <option value="passive">Passive</option>
           </select>
           <input
+            name="expected_salary"
             type="number"
             placeholder="Expected Salary (optional)"
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
             value={expectedSalary}
             onChange={(e) => setExpectedSalary(e.target.value)}
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
           />
         </div>
 
         {/* Salary Range */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <input
+            name="salary_range_min"
             type="number"
-            placeholder="Salary Range Min"
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+            placeholder="Salary Range Min (optional)"
             value={salaryRangeMin}
             onChange={(e) => setSalaryRangeMin(e.target.value)}
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
           />
           <input
+            name="salary_range_max"
             type="number"
-            placeholder="Salary Range Max"
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+            placeholder="Salary Range Max (optional)"
             value={salaryRangeMax}
             onChange={(e) => setSalaryRangeMax(e.target.value)}
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
           />
         </div>
 
         {/* Observation */}
         <textarea
+          name="observation"
           rows={3}
           placeholder="Observation (optional)"
-          className="w-full px-4 py-3 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all resize-none"
           value={observation}
           onChange={(e) => setObservation(e.target.value)}
+          className="w-full px-4 py-3 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all resize-none"
         />
-      </form>
+      </div>
     </ModalBase>
   );
 }

@@ -1,6 +1,13 @@
-import React, { useState, useEffect } from "react";
+// src/features/applications/components/ApplicationsGridClient.tsx
+"use client";
+
+import React, { useEffect, useState } from "react";
 import ApplicationCard from "../ApplicationCard";
-import useApplicationModals from "../../hooks/useApplicationModals";
+import useApplicationModals, {
+  useApplications,
+  mutateApplications,
+  mutateSteps,
+} from "../../hooks/useApplicationModals";
 import AddStepModal from "../../steps/AddStepModal";
 import FinalizeApplicationModal from "../../modals/FinalizeApplicationModal";
 import EditApplicationModal from "../../modals/EditApplicationModal";
@@ -19,16 +26,19 @@ import {
 import { fetchSupportsSteps } from "@/features/applications/services/applicationStepsService";
 
 interface ApplicationsGridProps {
-  applications: Application[];
+  applications?: Application[];
 }
 
 export default function ApplicationsGrid({
-  applications,
+  applications: initialApplications,
 }: ApplicationsGridProps) {
   const modal = useApplicationModals();
-  const [localApps, setLocalApps] = useState(applications);
   const [isDeleting, setIsDeleting] = useState(false);
   const [steps, setSteps] = useState<{ id: number; name: string }[]>([]);
+
+  const { applications: apps, error, isValidating } = useApplications();
+
+  const displayedApps = apps.length > 0 ? apps : initialApplications || [];
 
   useEffect(() => {
     if (modal.addStepOpen || modal.editStepOpen) {
@@ -43,7 +53,6 @@ export default function ApplicationsGrid({
     }
   }, [modal.addStepOpen, modal.editStepOpen]);
 
-  // ---- STEP HANDLERS ----
   const handleStepSubmit = (data: any) => {
     console.log(
       "Add step for application:",
@@ -53,7 +62,6 @@ export default function ApplicationsGrid({
     modal.setAddStepOpen(false);
   };
 
-  // ---- FINALIZE HANDLER ----
   const handleFinalizeSubmit = async (data: {
     final_step: string;
     feedback_id: string;
@@ -74,72 +82,53 @@ export default function ApplicationsGrid({
     };
 
     try {
-      const updatedApp = await finalizeApplication(
-        modal.selectedApplication.id,
-        payload
-      );
-
-      // update local list
-      setLocalApps((prev) =>
-        prev.map((a) =>
-          a.id === modal.selectedApplication?.id ? updatedApp : a
-        )
-      );
-
+      await finalizeApplication(modal.selectedApplication.id, payload);
+      await mutateSteps(modal.selectedApplication.id);
+      await mutateApplications();
       modal.setFinalizeOpen(false);
     } catch (err) {
       console.error("Error finalizing application:", err);
     }
   };
-  // ---- EDIT HANDLER ----
+
   const handleEditSubmit = async (data: ApplicationFormData) => {
     if (!modal.selectedApplication?.id) return;
 
-    // normalize to match UpdateApplicationPayload
     const payload: UpdateApplicationPayload = {
       company: data.company,
       role: data.role,
       application_date: data.application_date,
-
       platform_id: parseInt(data.platform_id as string, 10),
-
-      // enforce strict type
-      mode: data.mode ?? "active", // or fallback default, adjust if backend allows omission
-
+      mode: data.mode ?? "active",
       expected_salary: data.expected_salary,
       salary_range_min: data.salary_range_min,
       salary_range_max: data.salary_range_max,
       observation: data.observation,
     };
 
-    const updatedApp = await updateApplication(
-      modal.selectedApplication.id,
-      payload
-    );
-
-    setLocalApps((prev) =>
-      prev.map((a) => (a.id === modal.selectedApplication?.id ? updatedApp : a))
-    );
-
+    await updateApplication(modal.selectedApplication.id, payload);
+    await mutateApplications();
     modal.setEditAppOpen(false);
   };
 
-  // ---- DELETE HANDLER ----
   const handleDelete = async (id?: string) => {
     if (!id) return;
     setIsDeleting(true);
     try {
       await deleteApplication(id);
-      setLocalApps((prev) => prev.filter((a) => a.id !== id));
+      await mutateApplications();
       modal.setDeleteAppOpen(false);
     } finally {
       setIsDeleting(false);
     }
   };
 
+  if (error)
+    return <div className="text-red-400">Failed to load applications</div>;
+
   return (
     <div className="grid grid-cols-1 gap-4">
-      {localApps.map((app) => (
+      {(displayedApps || []).map((app) => (
         <ApplicationCard
           key={app.id}
           app={app}
@@ -152,15 +141,14 @@ export default function ApplicationsGrid({
         />
       ))}
 
-      {/* Modals */}
       <AddStepModal
         isOpen={modal.addStepOpen}
         onClose={() => modal.setAddStepOpen(false)}
         steps={steps}
         applicationId={modal.selectedApplication?.id || ""}
         applicationInfo={modal.selectedApplication?.company ?? ""}
-        onSuccess={(data) => {
-          console.log("Add step success:", data);
+        onSuccess={() => {
+          mutateApplications();
           modal.setAddStepOpen(false);
         }}
       />
@@ -187,20 +175,16 @@ export default function ApplicationsGrid({
         initialData={
           modal.selectedApplication
             ? {
+                id: modal.selectedApplication.id,
                 company: modal.selectedApplication.company,
                 role: modal.selectedApplication.role,
                 application_date: modal.selectedApplication.application_date,
-
-                // platform_id can be string (for <select>) or number
                 platform_id: modal.selectedApplication.platform_id ?? undefined,
-
-                // only allow "active" or "passive"
                 mode:
                   modal.selectedApplication.mode === "active" ||
                   modal.selectedApplication.mode === "passive"
                     ? modal.selectedApplication.mode
                     : undefined,
-
                 expected_salary: modal.selectedApplication.expected_salary,
                 salary_range_min: modal.selectedApplication.salary_range_min,
                 salary_range_max: modal.selectedApplication.salary_range_max,
@@ -231,20 +215,8 @@ export default function ApplicationsGrid({
               step_date: modal.selectedStep.step_date ?? "",
               observation: modal.selectedStep.observation ?? "",
             }}
-            onSuccess={(updatedStep) => {
-              setLocalApps((prev) =>
-                prev.map((app) =>
-                  app.id === modal.selectedApplication?.id
-                    ? {
-                        ...app,
-                        steps:
-                          app.steps?.map((s) =>
-                            s.id === updatedStep.id ? updatedStep : s
-                          ) ?? [],
-                      }
-                    : app
-                )
-              );
+            onSuccess={async () => {
+              await mutateApplications();
               modal.setEditStepOpen(false);
             }}
           />
@@ -256,19 +228,8 @@ export default function ApplicationsGrid({
             stepId={modal.selectedStep.id ?? ""}
             stepName={modal.selectedStep.step_name ?? ""}
             stepDate={modal.selectedStep.step_date ?? ""}
-            onSuccess={(deletedStepId) => {
-              setLocalApps((prev) =>
-                prev.map((app) =>
-                  app.id === modal.selectedApplication?.id
-                    ? {
-                        ...app,
-                        steps:
-                          app.steps?.filter((s) => s.id !== deletedStepId) ??
-                          [],
-                      }
-                    : app
-                )
-              );
+            onSuccess={async () => {
+              await mutateApplications();
               modal.setDeleteStepOpen(false);
             }}
           />

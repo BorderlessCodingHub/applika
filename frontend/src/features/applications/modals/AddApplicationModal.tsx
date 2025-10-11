@@ -5,6 +5,7 @@ import {
   createApplication,
   CreateApplicationPayload,
 } from "@/features/applications/services/applicationsService";
+import { mutateApplications } from "@/features/applications/hooks/useApplicationModals";
 
 interface AddApplicationModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export default function AddApplicationModal({
   platforms,
 }: AddApplicationModalProps) {
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [loading, setLoading] = useState(false); // ✅ fixed missing state
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -32,33 +34,35 @@ export default function AddApplicationModal({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-
-    // Transform form data to match API schema
-    const payload: CreateApplicationPayload = {
-      company: formData.company,
-      role: formData.role,
-      mode: formData.mode,
-      platform_id: parseInt(formData.platform_id, 10),
-      application_date: formData.application_date,
-      observation: formData.observation || undefined,
-      expected_salary: formData.expected_salary
-        ? parseFloat(formData.expected_salary)
-        : undefined,
-      salary_range_min: formData.salary_range_min
-        ? parseFloat(formData.salary_range_min)
-        : undefined,
-      salary_range_max: formData.salary_range_max
-        ? parseFloat(formData.salary_range_max)
-        : undefined,
-    };
-
+    setLoading(true);
     try {
+      const payload: CreateApplicationPayload = {
+        company: formData.company,
+        role: formData.role,
+        mode: formData.mode,
+        platform_id: parseInt(formData.platform_id, 10),
+        application_date: formData.application_date,
+        observation: formData.observation || undefined,
+        expected_salary: formData.expected_salary
+          ? parseFloat(formData.expected_salary)
+          : undefined,
+        salary_range_min: formData.salary_range_min
+          ? parseFloat(formData.salary_range_min)
+          : undefined,
+        salary_range_max: formData.salary_range_max
+          ? parseFloat(formData.salary_range_max)
+          : undefined,
+      };
+
       const newApp = await createApplication(payload);
-      console.log("Application created:", newApp);
-      onSubmit(newApp); // call parent callback to update UI
+
+      await mutateApplications();
+      onSubmit(newApp);
       onClose();
     } catch (err) {
       console.error("Error creating application:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -194,11 +198,12 @@ export default function AddApplicationModal({
           <div className="flex justify-end border-t border-white/20 pt-4">
             <button
               type="submit"
+              disabled={loading} // ✅ prevent double submit
               className="rounded-md border border-white/30 bg-emerald-400 px-6 py-2 font-semibold text-black
                          transition-colors hover:bg-emerald-400/70 disabled:cursor-not-allowed
                          disabled:bg-white/10 disabled:text-white/30 disabled:border-white/10"
             >
-              Create Application
+              {loading ? "Creating..." : "Create Application"}
             </button>
           </div>
         </form>

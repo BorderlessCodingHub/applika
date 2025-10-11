@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { addApplicationStep, type AddStepPayload } from "../services/applicationStepsService";
+import {
+  addApplicationStep,
+  type AddStepPayload,
+} from "../services/applicationStepsService";
+import { mutateSteps } from "@/features/applications/hooks/useApplicationModals";
 
 interface Step {
   id: number;
@@ -44,7 +48,11 @@ export default function AddStepModalClient({
       };
 
       const data = await addApplicationStep(applicationId, payload);
-      onSuccess?.(data); // optional callback to update UI
+
+      // ✅ Revalidate only this application's steps
+      await mutateSteps(applicationId);
+
+      onSuccess?.(data);
       setStepId("");
       setStepDate("");
       setObservation("");
@@ -62,12 +70,17 @@ export default function AddStepModalClient({
       <div className="relative w-full max-w-3xl bg-white/5 backdrop-blur-2xl border border-white/20 rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.1)] animate-slide-in">
         <div className="flex justify-between items-center border-b border-white/20 pb-4 mb-4">
           <h3 className="text-white text-lg font-semibold">Add Step</h3>
-          <button onClick={onClose} className="text-white/70 text-2xl font-bold hover:text-white transition-all">
+          <button
+            onClick={onClose}
+            className="text-white/70 text-2xl font-bold hover:text-white transition-all"
+          >
             &times;
           </button>
         </div>
 
-        {applicationInfo && <p className="text-white/80 mb-4">{applicationInfo}</p>}
+        {applicationInfo && (
+          <p className="text-white/80 mb-4">{applicationInfo}</p>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center">

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import ModalBase from "../../../components/ui/ModalBase";
 import { deleteApplicationStep } from "../services/applicationStepsService";
+import { mutateSteps } from "@/features/applications/hooks/useApplicationModals";
 
 interface DeleteStepModalProps {
   isOpen: boolean;
@@ -33,6 +34,9 @@ export default function DeleteStepModal({
     setLoading(true);
     try {
       await deleteApplicationStep(applicationId, stepId);
+
+      await mutateSteps(applicationId);
+
       onSuccess?.(stepId);
       onClose();
     } catch (err) {

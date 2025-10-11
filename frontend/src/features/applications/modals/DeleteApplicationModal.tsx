@@ -1,21 +1,37 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { mutateApplications } from "@/features/applications/hooks/useApplicationModals";
 
 interface DeleteApplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onDelete: () => void;
-  isDeleting?: boolean;
+  onDelete: (id: string) => Promise<void>; // expects async delete function
+  applicationId: string; // pass the ID of the application to delete
 }
 
 export default function DeleteApplicationModal({
   isOpen,
   onClose,
   onDelete,
-  isDeleting
+  applicationId,
 }: DeleteApplicationModalProps) {
+  const [isDeleting, setIsDeleting] = useState(false);
+
   if (!isOpen) return null;
+
+  const handleDelete = async () => {
+    if (isDeleting) return;
+    setIsDeleting(true);
+
+    try {
+      await onDelete(applicationId); // use the passed delete function
+      await mutateApplications();
+      onClose();
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div
@@ -46,7 +62,7 @@ export default function DeleteApplicationModal({
         <div className="flex justify-end gap-4 border-t border-white/20 pt-4">
           <button
             type="button"
-            onClick={onDelete}
+            onClick={handleDelete}
             disabled={isDeleting}
             className={`${
               isDeleting ? "opacity-50 cursor-not-allowed" : "hover:bg-red-600"

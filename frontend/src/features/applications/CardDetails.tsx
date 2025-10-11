@@ -1,4 +1,6 @@
-import { useState } from "react";
+// src/features/applications/components/CardDetails.tsx
+"use client";
+import { useMemo } from "react";
 
 interface Step {
   id: string;
@@ -36,35 +38,22 @@ export default function CardDetails({
   onEditStep,
   onDeleteStep,
 }: CardDetailsProps) {
-  const [showEditStepModal, setShowEditStepModal] = useState(false);
-  const [selectedStep, setSelectedStep] = useState<Step | null>(null);
-
-  const safeSteps: Step[] = Array.isArray(steps) ? steps : [];
-
-  const handleEditClick = (step: Step) => {
-    setSelectedStep(step);
-    setShowEditStepModal(true);
-  };
-
-  const closeModal = () => {
-    setShowEditStepModal(false);
-    setSelectedStep(null);
-  };
-
-  const handleStepSubmit = (data: any) => {
-    console.log("Updated step:", data, "for step:", selectedStep);
-    closeModal();
-  };
+  const safeSteps: Step[] = useMemo(
+    () => (Array.isArray(steps) ? steps : []),
+    [steps]
+  );
 
   return (
     <div>
       <div
         id={`details-${id}`}
         className={`transition-all duration-300 overflow-hidden ${
-          isOpen ? "max-h-[5000px] mt-3 pt-3 border-t border-white/10" : "max-h-0"
+          isOpen
+            ? "max-h-[5000px] mt-3 pt-3 border-t border-white/10"
+            : "max-h-0"
         }`}
       >
-        {/* Information Section */}
+        {/* Info */}
         <div className="grid grid-cols-3 gap-2 text-xs mb-2">
           <InfoItem label="Salary Expected" value={`$${expected_salary}k`} />
           <InfoItem
@@ -92,49 +81,47 @@ export default function CardDetails({
           {safeSteps.length > 0 ? (
             <div className="relative py-4 my-4">
               <div className="absolute left-1 top-0 bottom-0 w-0.5 bg-gradient-to-b from-white/30 to-white/10" />
-              {safeSteps.map((step) =>
-                step ? (
+              {safeSteps.map((step) => (
+                <div
+                  key={step.id}
+                  className="relative flex items-start mb-4 pl-8 last:mb-0"
+                >
                   <div
-                    key={step.id}
-                    className="relative flex items-start mb-4 pl-8 last:mb-0"
-                  >
-                    <div
-                      className="absolute left-0 top-2 w-4 h-4 rounded-full border-4 shadow-md"
-                      style={{
-                        borderColor: step.step_color || "#999",
-                        backgroundColor: `${step.step_color || "#999"}33`,
-                      }}
-                    />
-                    <div className="flex-1 bg-white/10 hover:bg-white/15 p-2 rounded-xl border-l-4 border-white/20 backdrop-blur transition-all duration-300 hover:translate-x-1">
-                      <div className="flex justify-between items-center flex-wrap gap-2">
-                        <span className="font-semibold text-white/95 text-sm">
-                          {step.step_name || "Untitled Step"}
+                    className="absolute left-0 top-2 w-4 h-4 rounded-full border-4 shadow-md"
+                    style={{
+                      borderColor: step.step_color,
+                      backgroundColor: `${step.step_color}33`,
+                    }}
+                  />
+                  <div className="flex-1 bg-white/10 hover:bg-white/15 p-2 rounded-xl border-l-4 border-white/20 backdrop-blur transition-all duration-300 hover:translate-x-1">
+                    <div className="flex justify-between items-center flex-wrap gap-2">
+                      <span className="font-semibold text-white/95 text-sm">
+                        {step.step_name}
+                      </span>
+                      <div className="text-sm flex items-center gap-2">
+                        <span className="text-white/70 bg-white/10 px-3 py-0.5 rounded-full">
+                          {step.step_date}
                         </span>
-                        <div className="text-sm flex items-center gap-2">
-                          <span className="text-white/70 bg-white/10 px-3 py-0.5 rounded-full">
-                            {step.step_date || "-"}
-                          </span>
-                          <i
-                            className="fa-solid fa-pen-to-square cursor-pointer pl-2"
-                            title="Edit Step"
-                            onClick={() => onEditStep?.(step)}
-                          />
-                          <i
-                            className="fa-solid fa-trash cursor-pointer pl-2"
-                            title="Delete Step"
-                            onClick={() => onDeleteStep?.(step)}
-                          />
-                        </div>
+                        <i
+                          className="fa-solid fa-pen-to-square cursor-pointer pl-2"
+                          title="Edit Step"
+                          onClick={() => onEditStep?.(step)}
+                        />
+                        <i
+                          className="fa-solid fa-trash cursor-pointer pl-2"
+                          title="Delete Step"
+                          onClick={() => onDeleteStep?.(step)}
+                        />
                       </div>
-                      {step.observation && (
-                        <div className="text-sm text-white/80 mt-2 p-3 bg-white/5 rounded-md border-l-2 border-white/30">
-                          {step.observation}
-                        </div>
-                      )}
                     </div>
+                    {step.observation && (
+                      <div className="text-sm text-white/80 mt-2 p-3 bg-white/5 rounded-md border-l-2 border-white/30">
+                        {step.observation}
+                      </div>
+                    )}
                   </div>
-                ) : null
-              )}
+                </div>
+              ))}
             </div>
           ) : (
             <div className="flex items-center justify-center gap-3 p-8 text-white/60 italic">
