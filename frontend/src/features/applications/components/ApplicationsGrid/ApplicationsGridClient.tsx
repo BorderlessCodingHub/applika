@@ -22,6 +22,7 @@ import {
   updateApplication,
   UpdateApplicationPayload,
   deleteApplication,
+  fetchSupportsPlatforms,
   fetchSupportsResults,
   fetchSupportsFeedbacks,
 } from "@/features/applications/services/applicationsService";
@@ -41,10 +42,29 @@ export default function ApplicationsGrid({
     []
   );
   const [results, setResults] = useState<{ id: number; name: string }[]>([]);
+  const [platforms, setPlatforms] = useState<{ id: number; name: string }[]>(
+    []
+  );
+  const [loadingPlatforms, setLoadingPlatforms] = useState(true);
 
   const { applications: apps, error, isValidating } = useApplications();
 
   const displayedApps = apps.length > 0 ? apps : initialApplications || [];
+
+  useEffect(() => {
+    async function loadPlatforms() {
+      try {
+        const data = await fetchSupportsPlatforms();
+        setPlatforms(data);
+      } catch (err) {
+        console.error("Failed to load platforms:", err);
+      } finally {
+        setLoadingPlatforms(false);
+      }
+    }
+
+    loadPlatforms();
+  }, []);
 
   useEffect(() => {
     if (modal.addStepOpen || modal.editStepOpen) {
@@ -188,11 +208,7 @@ export default function ApplicationsGrid({
       <EditApplicationModal
         isOpen={modal.editAppOpen}
         onClose={() => modal.setEditAppOpen(false)}
-        platforms={[
-          { id: "1", name: "LinkedIn" },
-          { id: "2", name: "Indeed" },
-          { id: "3", name: "Glassdoor" },
-        ]}
+        platforms={platforms.map((p) => ({ id: String(p.id), name: p.name }))}
         initialData={
           modal.selectedApplication
             ? {

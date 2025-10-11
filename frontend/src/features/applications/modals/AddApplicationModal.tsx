@@ -132,7 +132,11 @@ export default function AddApplicationModal({
               className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
                          focus:border-white/50 focus:bg-white/10 focus:outline-none cursor-pointer"
             >
-              <option value="">Select Platform (required)</option>
+              <option value="">
+                {platforms.length === 0
+                  ? "Loading platforms..."
+                  : "Select Platform (required)"}
+              </option>
               {platforms.map((p) => (
                 <option key={p.id} value={p.id} className="bg-neutral-900">
                   {p.name}

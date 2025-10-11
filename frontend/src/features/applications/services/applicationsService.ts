@@ -1,5 +1,5 @@
 import type { Application } from "../types";
-import { supportSchema, FeedbackDefinition, StepDefinition } from "../schemas/supportSchema";
+import { supportSchema, FeedbackDefinition, StepDefinition, Platform } from "../schemas/supportSchema";
 
 export interface CreateApplicationPayload {
   company: string;
@@ -45,6 +45,20 @@ export async function fetchApplications(): Promise<Application[]> {
   }
 
   return res.json();
+}
+
+export async function fetchSupportsPlatforms(): Promise<Platform[]> {
+  const res = await fetch("/api/supports", { credentials: "include" });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Failed to fetch supports platforms");
+  }
+
+  const data = await res.json();
+  const parsed = supportSchema.parse(data);
+
+  return parsed.platforms;
 }
 
 export async function fetchSupportsResults(): Promise<StepDefinition[]> {

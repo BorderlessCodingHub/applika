@@ -1,30 +1,45 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import AddApplicationModal from '../modals/AddApplicationModal'
+import { useEffect, useState } from "react";
+import AddApplicationModal from "../modals/AddApplicationModal";
+import { fetchSupportsPlatforms } from "@/features/applications/services/applicationsService";
+import type { Platform } from "@/features/applications/schemas/supportSchema";
 
 export default function SearchApplications() {
-  const [modalOpen, setModalOpen] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false);
+  const [platforms, setPlatforms] = useState<Platform[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const platforms = [
-    { id: '1', name: 'LinkedIn' },
-    { id: '2', name: 'Indeed' },
-    { id: '3', name: 'Stack Overflow' }
-  ]
+  useEffect(() => {
+    async function loadPlatforms() {
+      try {
+        const data = await fetchSupportsPlatforms();
+        setPlatforms(data);
+      } catch (err: any) {
+        setError(err.message || "Failed to load platforms");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadPlatforms();
+  }, []);
 
   const handleSubmit = (formData: Record<string, any>) => {
-    console.log('New application submitted:', formData)
-    setModalOpen(false)
-  }
+    console.log("New application submitted:", formData);
+    setModalOpen(false);
+  };
 
   return (
     <>
-      <div className="
-        backdrop-blur-xl bg-white/5 border border-white/20 
-        rounded-2xl p-8 my-4 shadow-[0_8px_32px_rgba(0,0,0,0.1)]
-      ">
+      <div
+        className="
+          backdrop-blur-xl bg-white/5 border border-white/20 
+          rounded-2xl p-8 my-4 shadow-[0_8px_32px_rgba(0,0,0,0.1)]
+        "
+      >
         <div className="flex justify-between items-center">
-          {/* Search Input Section */}
           <div className="flex items-center gap-2 flex-1 max-w-md">
             <input
               type="text"
@@ -40,11 +55,11 @@ export default function SearchApplications() {
             />
           </div>
 
-          {/* Add New Application Button */}
           <div className="flex items-center">
             <button
               type="button"
               onClick={() => setModalOpen(true)}
+              disabled={loading}
               className="
                 flex items-center gap-2 font-semibold
                 bg-emerald-400/80 border border-emerald-600 text-black
@@ -52,22 +67,28 @@ export default function SearchApplications() {
                 backdrop-blur-sm transition-all duration-300
                 hover:bg-emerald-400 hover:-translate-y-0.5
                 hover:shadow-[0_4px_12px_rgba(39,174,96,0.3)]
+                disabled:opacity-50 disabled:cursor-not-allowed
               "
             >
               <i className="fa-solid fa-plus" />
-              Add Application
+              {loading ? "Loading..." : "Add Application"}
             </button>
           </div>
         </div>
+
+        {error && (
+          <p className="text-red-400 mt-3 text-sm">
+            {error}
+          </p>
+        )}
       </div>
 
-      {/* Add Application Modal */}
       <AddApplicationModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        platforms={platforms}
+        platforms={platforms.map((p) => ({ id: p.id.toString(), name: p.name }))}
         onSubmit={handleSubmit}
       />
     </>
-  )
+  );
 }
