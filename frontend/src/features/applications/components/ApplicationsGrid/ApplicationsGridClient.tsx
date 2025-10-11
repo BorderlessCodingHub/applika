@@ -22,6 +22,8 @@ import {
   updateApplication,
   UpdateApplicationPayload,
   deleteApplication,
+  fetchSupportsResults,
+  fetchSupportsFeedbacks,
 } from "@/features/applications/services/applicationsService";
 import { fetchSupportsSteps } from "@/features/applications/services/applicationStepsService";
 
@@ -35,6 +37,10 @@ export default function ApplicationsGrid({
   const modal = useApplicationModals();
   const [isDeleting, setIsDeleting] = useState(false);
   const [steps, setSteps] = useState<{ id: number; name: string }[]>([]);
+  const [feedbacks, setFeedbacks] = useState<{ id: number; name: string }[]>(
+    []
+  );
+  const [results, setResults] = useState<{ id: number; name: string }[]>([]);
 
   const { applications: apps, error, isValidating } = useApplications();
 
@@ -52,6 +58,23 @@ export default function ApplicationsGrid({
       })();
     }
   }, [modal.addStepOpen, modal.editStepOpen]);
+
+  useEffect(() => {
+    if (modal.finalizeOpen) {
+      (async () => {
+        try {
+          const [availableFeedbacks, availableResults] = await Promise.all([
+            fetchSupportsFeedbacks(),
+            fetchSupportsResults(),
+          ]);
+          setFeedbacks(availableFeedbacks);
+          setResults(availableResults);
+        } catch (err) {
+          console.error("Failed to load feedbacks/results:", err);
+        }
+      })();
+    }
+  }, [modal.finalizeOpen]);
 
   const handleStepSubmit = (data: any) => {
     console.log(
@@ -156,11 +179,9 @@ export default function ApplicationsGrid({
       <FinalizeApplicationModal
         isOpen={modal.finalizeOpen}
         onClose={() => modal.setFinalizeOpen(false)}
-        feedbacks={[
-          { id: "1", name: "Positive" },
-          { id: "2", name: "Neutral" },
-          { id: "3", name: "Negative" },
-        ]}
+        applicationId={modal.selectedApplication?.id || ""}
+        feedbacks={feedbacks.map((f) => ({ id: String(f.id), name: f.name }))}
+        results={results.map((r) => ({ id: String(r.id), name: r.name }))}
         onSubmit={handleFinalizeSubmit}
       />
 

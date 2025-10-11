@@ -6,8 +6,9 @@ import { mutateApplications } from "@/features/applications/hooks/useApplication
 interface FinalizeApplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  applicationId: string; // pass the application id
+  applicationId: string;
   feedbacks: { id: string; name: string }[];
+  results: { id: string; name: string }[];
   onSubmit: (data: {
     final_step: string;
     feedback_id: string;
@@ -22,6 +23,7 @@ export default function FinalizeApplicationModal({
   onClose,
   applicationId,
   feedbacks = [],
+  results,
   onSubmit,
 }: FinalizeApplicationModalProps) {
   const [finalStep, setFinalStep] = useState("");
@@ -85,9 +87,12 @@ export default function FinalizeApplicationModal({
               onChange={(e) => setFinalStep(e.target.value)}
               className="w-3/5 h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 transition-all duration-300 focus:outline-none focus:border-white/50 focus:bg-white/15 cursor-pointer"
             >
-              <option value="">Select Result</option>
-              <option value="6">Offer</option>
-              <option value="7">Denied</option>
+              <option value="">Select a result</option>
+              {results.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
             </select>
 
             <select

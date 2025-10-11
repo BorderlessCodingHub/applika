@@ -1,4 +1,5 @@
 import type { Application } from "../types";
+import { supportSchema, FeedbackDefinition, StepDefinition } from "../schemas/supportSchema";
 
 export interface CreateApplicationPayload {
   company: string;
@@ -45,6 +46,36 @@ export async function fetchApplications(): Promise<Application[]> {
 
   return res.json();
 }
+
+export async function fetchSupportsResults(): Promise<StepDefinition[]> {
+  const res = await fetch("/api/supports", { credentials: "include" });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Failed to fetch supports results");
+  }
+
+  const data = await res.json();
+  const parsed = supportSchema.parse(data);
+
+  // Filter only steps with strict: true
+  return parsed.steps.filter((s) => s.strict);
+}
+
+
+export async function fetchSupportsFeedbacks(): Promise<FeedbackDefinition[]> {
+  const res = await fetch("/api/supports", { credentials: "include" });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || "Failed to fetch supports feedbacks");
+  }
+
+  const data = await res.json();
+  const parsed = supportSchema.parse(data);
+  return parsed.feedbacks;
+}
+
 
 export async function createApplication(payload: CreateApplicationPayload) {
   const res = await fetch(`/api/applications`, {
