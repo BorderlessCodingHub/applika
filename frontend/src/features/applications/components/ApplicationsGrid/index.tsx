@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import ApplicationsGrid from "./ApplicationsGridClient";
 import { fetchApplications } from "../../services/applicationsService";
 import type { Application } from "../../types";
 
-export default function ApplicationsGridIndex() {
+interface ApplicationsGridIndexProps {
+  searchTerm: string;
+}
+
+export default function ApplicationsGridIndex({ searchTerm }: ApplicationsGridIndexProps) {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -24,9 +28,18 @@ export default function ApplicationsGridIndex() {
     loadApplications();
   }, []);
 
-  if (loading) {
-    return <div className="p-6 text-white/70">Loading applications...</div>;
-  }
+  const filteredApps = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return applications;
 
-  return <ApplicationsGrid applications={applications} />;
+    return applications.filter((app) => {
+      const company = app.company?.toLowerCase() ?? "";
+      const role = app.role?.toLowerCase() ?? "";
+      return company.includes(term) || role.includes(term);
+    });
+  }, [applications, searchTerm]);
+
+  if (loading) return <div className="p-6 text-white/70">Loading applications...</div>;
+
+  return <ApplicationsGrid applications={filteredApps} />;
 }

@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, ChangeEvent } from "react";
 import AddApplicationModal from "../modals/AddApplicationModal";
 import { fetchSupportsPlatforms } from "@/features/applications/services/applicationsService";
 import type { Platform } from "@/features/applications/schemas/supportSchema";
 
-export default function SearchApplications() {
+interface SearchApplicationsProps {
+  onSearchChange: (value: string) => void;
+}
+
+export default function SearchApplications({
+  onSearchChange,
+}: SearchApplicationsProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,9 +32,10 @@ export default function SearchApplications() {
     loadPlatforms();
   }, []);
 
-  const handleSubmit = (formData: Record<string, any>) => {
-    console.log("New application submitted:", formData);
-    setModalOpen(false);
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    console.log("[SearchApplications] onSearchChange ->", value);
+    onSearchChange(value);
   };
 
   return (
@@ -44,6 +51,7 @@ export default function SearchApplications() {
             <input
               type="text"
               placeholder="Search applications..."
+              onChange={handleInputChange}
               className="
                 flex-1 px-4 py-3 text-white text-sm
                 bg-white/10 border border-white/20 rounded-lg
@@ -76,18 +84,17 @@ export default function SearchApplications() {
           </div>
         </div>
 
-        {error && (
-          <p className="text-red-400 mt-3 text-sm">
-            {error}
-          </p>
-        )}
+        {error && <p className="text-red-400 mt-3 text-sm">{error}</p>}
       </div>
 
       <AddApplicationModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        platforms={platforms.map((p) => ({ id: p.id.toString(), name: p.name }))}
-        onSubmit={handleSubmit}
+        platforms={platforms.map((p) => ({
+          id: p.id.toString(),
+          name: p.name,
+        }))}
+        onSubmit={() => setModalOpen(false)}
       />
     </>
   );
