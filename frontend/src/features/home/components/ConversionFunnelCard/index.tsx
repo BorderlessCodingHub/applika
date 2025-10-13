@@ -1,45 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
 import ConversionFunnelCardClientUI from "./ConversionFunnelCardClient";
+import CardSkeleton from "@/components/ui/CardSkeleton";
 import { StepConversionRate } from "@/features/home/types";
+import { fetchApplicationsByStep } from "@/features/home/services/dashboardService";
 
-export default function ConversionFunnelCardClient() {
-  const [conversionData, setConversionData] = useState<StepConversionRate[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function ConversionFunnelCard() {
+  const { data, error, isLoading } = useSWR<StepConversionRate[]>(
+    "applicationsByStep",
+    fetchApplicationsByStep
+  );
 
-  useEffect(() => {
-    async function fetchConversionData() {
-      try {
-        const res = await fetch("/api/applications/statistics/steps/conversion_rate", {
-          credentials: "include",
-        });
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data: StepConversionRate[] = await res.json();
+  if (isLoading) return <CardSkeleton />;
+  if (error)
+    return (
+      <div className="text-red-400 p-6">
+        Failed to load Applications by Step.
+      </div>
+    );
 
-        // Normalize response if needed
-        const mapped: StepConversionRate[] = data.map((step) => ({
-          id: step.id,
-          name: step.name,
-          color: step.color,
-          total_applications: step.total_applications,
-          conversion_rate: step.conversion_rate,
-        }));
-
-        setConversionData(mapped);
-      } catch (err) {
-        console.error("Error fetching conversion funnel data:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchConversionData();
-  }, []);
-
-  if (loading) {
-    return <div className="p-6 text-white/70">Loading Conversion Funnel...</div>;
-  }
-
-  return <ConversionFunnelCardClientUI conversionData={conversionData} />;
+  return <ConversionFunnelCardClientUI conversionData={data!} />;
 }

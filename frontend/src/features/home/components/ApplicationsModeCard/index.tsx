@@ -1,48 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
 import ApplicationModeCardClient from "./ApplicationModeCardClient";
+import CardSkeleton from "@/components/ui/CardSkeleton";
 import { ModeApplications } from "../../types";
+import { fetchApplicationsByMode } from "@/features/home/services/dashboardService";
 
-type ModeData = {
-  mode: string;
-  count: number;
-};
+type ModeData = { mode: string; count: number };
 
 export default function ApplicationModeCard() {
-  const [modesData, setModesData] = useState<ModeData[]>([]);
-  const [totalApplications, setTotalApplications] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const { data, error, isLoading } = useSWR<ModeApplications>(
+    "applicationsByMode",
+    fetchApplicationsByMode
+  );
 
-  useEffect(() => {
-    async function fetchModes() {
-      try {
-        const res = await fetch("/api/applications/statistics/mode", { credentials: "include" });
-        if (!res.ok) throw new Error("Failed to fetch mode data");
-        const data: ModeApplications = await res.json();
+  if (isLoading) return <CardSkeleton />;
+  if (error)
+    return (
+      <div className="text-red-400 p-6">Failed to load Application Modes.</div>
+    );
 
-        const mapped: ModeData[] = [
-          { mode: "active", count: data.active },
-          { mode: "passive", count: data.passive },
-        ];
+  const mapped: ModeData[] = [
+    { mode: "active", count: data!.active },
+    { mode: "passive", count: data!.passive },
+  ];
 
-        const total = mapped.reduce((sum, m) => sum + m.count, 0);
+  const totalApplications = mapped.reduce((sum, m) => sum + m.count, 0);
 
-        setModesData(mapped);
-        setTotalApplications(total);
-      } catch (err) {
-        console.error("Error fetching application modes:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchModes();
-  }, []);
-
-  if (loading) {
-    return <div className="p-6 text-white/70">Loading Application Modes...</div>;
-  }
-
-  return <ApplicationModeCardClient applicationsByMode={modesData} totalApplications={totalApplications} />;
+  return (
+    <ApplicationModeCardClient
+      applicationsByMode={mapped}
+      totalApplications={totalApplications}
+    />
+  );
 }

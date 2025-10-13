@@ -1,4 +1,7 @@
+import { Suspense } from "react";
 import DashboardCard from "@/components/ui/DashboardCard";
+import CardSkeleton from "@/components/ui/CardSkeleton";
+
 import ApplicationAnalyticsDashboardClient from "@/features/home/components/ApplicationAnalyticsDashboardCard/index";
 import ApplicationsByStepCard from "@/features/home/components/ApplicationsByStepCard/index";
 import ConversionFunnelCard from "@/features/home/components/ConversionFunnelCard/index";
@@ -12,25 +15,45 @@ export default async function HomePage() {
     <main>
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <DashboardCard fullWidth>
-          <ApplicationAnalyticsDashboardClient />
+          <Suspense fallback={<CardSkeleton />}>
+            <ApplicationAnalyticsDashboardClient />
+          </Suspense>
         </DashboardCard>
+
         <DashboardCard>
-          <ApplicationsByStepCard />
+          <Suspense fallback={<CardSkeleton />}>
+            <ApplicationsByStepCard />
+          </Suspense>
         </DashboardCard>
+
         <DashboardCard>
-          <ConversionFunnelCard />
+          <Suspense fallback={<CardSkeleton />}>
+            <ConversionFunnelCard />
+          </Suspense>
         </DashboardCard>
+
         <DashboardCard fullWidth>
-          <AverageDaysChartCard />
+          <Suspense fallback={<CardSkeleton />}>
+            <AverageDaysChartCard />
+          </Suspense>
         </DashboardCard>
+
         <DashboardCard>
-          <ApplicationsByPlatformCard />
+          <Suspense fallback={<CardSkeleton />}>
+            <ApplicationsByPlatformCard />
+          </Suspense>
         </DashboardCard>
+
         <DashboardCard>
-          <ApplicationModeCard />
+          <Suspense fallback={<CardSkeleton />}>
+            <ApplicationModeCard />
+          </Suspense>
         </DashboardCard>
+
         <DashboardCard fullWidth>
-          <ApplicationTrendCard />
+          <Suspense fallback={<CardSkeleton />}>
+            <ApplicationTrendCard />
+          </Suspense>
         </DashboardCard>
       </section>
     </main>

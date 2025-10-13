@@ -1,23 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
+import CardSkeleton from "@/components/ui/CardSkeleton";
 import ApplicationAnalyticsDashboardClientUI from "./ApplicationAnalyticsDashboardCardClient";
+import { fetchApplicationsStatistics } from "@/features/home/services/dashboardService";
 import { ApplicationsStatistics } from "@/features/home/types";
 
 export default function ApplicationAnalyticsDashboardClient() {
-  const [stats, setStats] = useState<ApplicationsStatistics | null>(null);
+  const { data, error, isLoading } = useSWR<ApplicationsStatistics>(
+    "/api/stats",
+    fetchApplicationsStatistics
+  );
 
-  useEffect(() => {
-    fetch("/api/stats", { credentials: "include" })
-      .then((res) => {
-        if (!res.ok) throw new Error("API error");
-        return res.json();
-      })
-      .then((data: ApplicationsStatistics) => setStats(data))
-      .catch(console.error);
-  }, []);
+  if (isLoading) return <CardSkeleton />;
+  if (error)
+    return <div className="text-red-400 p-6">Failed to load data.</div>;
 
-  if (!stats) return <div>Loading...</div>;
-
-  return <ApplicationAnalyticsDashboardClientUI stats={stats} />;
+  return <ApplicationAnalyticsDashboardClientUI stats={data!} />;
 }

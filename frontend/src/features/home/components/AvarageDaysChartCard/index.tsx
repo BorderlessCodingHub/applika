@@ -1,35 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
+import CardSkeleton from "@/components/ui/CardSkeleton";
 import AverageDaysChartCardClientUI from "./AvarageDaysChartCardClient";
+import { fetchAverageDaysBetweenSteps } from "@/features/home/services/dashboardService";
 import { AverageDaysStep } from "@/features/home/types";
 
-export default function AverageDaysChartCardClient() {
-  const [averageDaysData, setAverageDaysData] = useState<AverageDaysStep[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function AverageDaysChartCard() {
+  const { data, error, isLoading } = useSWR<AverageDaysStep[]>(
+    "/api/applications/statistics/steps/avarage_days",
+    fetchAverageDaysBetweenSteps
+  );
 
-  useEffect(() => {
-    async function fetchAverageDays() {
-      try {
-        const res = await fetch("/api/applications/statistics/steps/avarage_days", {
-          credentials: "include",
-        });
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data: AverageDaysStep[] = await res.json();
-        setAverageDaysData(data);
-      } catch (err) {
-        console.error("Error fetching average days data:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
+  if (isLoading) return <CardSkeleton />;
+  if (error)
+    return (
+      <div className="text-red-400 p-6">Failed to load Average Days data.</div>
+    );
 
-    fetchAverageDays();
-  }, []);
-
-  if (loading) {
-    return <div className="p-6 text-white/70">Loading Average Days Between Steps...</div>;
-  }
-
-  return <AverageDaysChartCardClientUI averageDaysData={averageDaysData} />;
+  return <AverageDaysChartCardClientUI averageDaysData={data!} />;
 }

@@ -1,38 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
 import ApplicationTrendCardClient from "./ApplicationTrendCardClient";
+import CardSkeleton from "@/components/ui/CardSkeleton";
 import { ApplicationsTrend } from "../../types";
+import { fetchApplicationsTrend } from "@/features/home/services/dashboardService";
 
 export default function ApplicationTrendCard() {
-  const [trends, setTrends] = useState<ApplicationsTrend[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, error, isLoading } = useSWR<ApplicationsTrend[]>(
+    "applicationsTrend",
+    fetchApplicationsTrend
+  );
 
-  useEffect(() => {
-    async function fetchTrends() {
-      try {
-        const res = await fetch("/api/applications/statistics/trends", { credentials: "include" });
-        if (!res.ok) throw new Error("Failed to fetch trends");
-        const data: ApplicationsTrend[] = await res.json();
+  if (isLoading) return <CardSkeleton />;
+  if (error)
+    return (
+      <div className="text-red-400 p-6">Failed to load Application Trends.</div>
+    );
 
-        setTrends(data);
-      } catch (err) {
-        console.error("Error fetching application trends:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchTrends();
-  }, []);
-
-  if (loading) {
-    return <div className="p-6 text-white/70">Loading Application Trends...</div>;
-  }
-
-  const monthlyData = trends.map(t => ({
+  const monthlyData = data!.map((t) => ({
     month: t.application_date,
-    count: t.total_applications
+    count: t.total_applications,
   }));
 
   return <ApplicationTrendCardClient monthlyData={monthlyData} />;
