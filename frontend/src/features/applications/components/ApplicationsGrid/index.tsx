@@ -3,6 +3,7 @@
 
 import { useMemo } from "react";
 import ApplicationsGrid from "./ApplicationsGridClient";
+import ApplicationCardSkeleton from "@/components/ui/ApplicationCardSekelton";
 import type { Application } from "../../types";
 import { useApplications } from "../../hooks/useApplicationModals";
 
@@ -27,7 +28,14 @@ export default function ApplicationsGridIndex({
   }, [applications, searchTerm]);
 
   if (isLoading)
-    return <div className="p-6 text-white/70">Loading applications...</div>;
+    return (
+      <div className="grid grid-cols-1 gap-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <ApplicationCardSkeleton key={i} />
+        ))}
+      </div>
+    );
+
   if (error)
     return <div className="text-red-400">Failed to load applications</div>;
 
