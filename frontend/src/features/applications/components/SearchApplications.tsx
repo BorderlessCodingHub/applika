@@ -16,6 +16,7 @@ export default function SearchApplications({
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     async function loadPlatforms() {
@@ -32,9 +33,23 @@ export default function SearchApplications({
     loadPlatforms();
   }, []);
 
+  useEffect(() => {
+    function handleApplicationsUpdated() {
+      setSearchTerm("");
+      onSearchChange("");
+    }
+
+    window.addEventListener("applications:updated", handleApplicationsUpdated);
+    return () =>
+      window.removeEventListener(
+        "applications:updated",
+        handleApplicationsUpdated
+      );
+  }, [onSearchChange]);
+
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    console.log("[SearchApplications] onSearchChange ->", value);
+    setSearchTerm(value);
     onSearchChange(value);
   };
 
@@ -52,6 +67,7 @@ export default function SearchApplications({
               type="text"
               placeholder="Search applications..."
               onChange={handleInputChange}
+              value={searchTerm}
               className="
                 flex-1 px-4 py-3 text-white text-sm
                 bg-white/10 border border-white/20 rounded-lg

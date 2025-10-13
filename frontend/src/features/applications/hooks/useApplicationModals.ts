@@ -59,7 +59,18 @@ export function useApplicationSteps(applicationId?: string) {
 /* ----------------------------- Mutations ----------------------------- */
 
 export async function mutateApplications() {
-  await mutate("/api/applications");
+  try {
+    await mutate("/api/applications");
+    if (typeof window !== "undefined") {
+      console.log(
+        "[useApplicationModals] mutateApplications -> dispatch applications:updated"
+      );
+      window.dispatchEvent(new Event("applications:updated"));
+    }
+  } catch (err) {
+    console.error("[useApplicationModals] mutateApplications error:", err);
+    throw err;
+  }
 }
 
 export async function mutateSteps(applicationId: string) {

@@ -36,12 +36,10 @@ export default function ApplicationsGrid({
   // applications: initialApplications,
   applications = [],
 }: ApplicationsGridProps) {
-  const { applications: appsFromHook, error } = useApplications();
+  const { applications: error } = useApplications();
   const [localApplications, setLocalApplications] =
     useState<Application[]>(applications);
-  //   const [localApplications, setLocalApplications] = useState<Application[]>(
-  //   initialApplications || []
-  // );
+
   const modal = useApplicationModals();
   const [isDeleting, setIsDeleting] = useState(false);
   const [steps, setSteps] = useState<{ id: number; name: string }[]>([]);
@@ -54,19 +52,11 @@ export default function ApplicationsGrid({
   );
   const [loadingPlatforms, setLoadingPlatforms] = useState(true);
 
-  // const { applications: apps, error, isValidating } = useApplications();
-
   const displayedApps = localApplications;
 
   useEffect(() => {
     setLocalApplications(applications);
   }, [applications]);
-
-  useEffect(() => {
-    if (appsFromHook && appsFromHook.length > 0) {
-      setLocalApplications(appsFromHook);
-    }
-  }, [appsFromHook]);
 
   useEffect(() => {
     async function loadPlatforms() {
