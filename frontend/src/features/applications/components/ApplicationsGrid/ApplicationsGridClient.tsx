@@ -36,7 +36,7 @@ export default function ApplicationsGrid({
   // applications: initialApplications,
   applications = [],
 }: ApplicationsGridProps) {
-  const { applications: error } = useApplications();
+  const { applications: appsFromHook, error } = useApplications();
   const [localApplications, setLocalApplications] =
     useState<Application[]>(applications);
 
