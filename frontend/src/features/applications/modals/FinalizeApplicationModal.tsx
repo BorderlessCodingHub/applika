@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import { Fragment, useState } from "react";
+import { Listbox, Transition } from "@headlessui/react";
 import { mutateApplications } from "@/features/applications/hooks/useApplicationModals";
 
 interface FinalizeApplicationModalProps {
@@ -15,7 +16,9 @@ interface FinalizeApplicationModalProps {
     finalize_date: string;
     salary_offer?: string;
     final_observation?: string;
-  }) => Promise<void>; // async submit handler
+  }) => Promise<void>;
+  loadingFeedbacks?: boolean;
+  loadingResults?: boolean;
 }
 
 export default function FinalizeApplicationModal({
@@ -23,7 +26,9 @@ export default function FinalizeApplicationModal({
   onClose,
   applicationId,
   feedbacks = [],
-  results,
+  results = [],
+  loadingFeedbacks = false,
+  loadingResults = false,
   onSubmit,
 }: FinalizeApplicationModalProps) {
   const [finalStep, setFinalStep] = useState("");
@@ -32,6 +37,8 @@ export default function FinalizeApplicationModal({
   const [salaryOffer, setSalaryOffer] = useState("");
   const [observation, setObservation] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,21 +50,17 @@ export default function FinalizeApplicationModal({
         final_step: finalStep,
         feedback_id: feedbackId,
         finalize_date: finalizeDate,
-        salary_offer: salaryOffer ? salaryOffer : undefined,
+        salary_offer: salaryOffer || undefined,
         final_observation: observation,
       };
 
-      // Pass applicationId as a separate argument if your onSubmit expects it
       await onSubmit(payload);
-
       await mutateApplications();
       onClose();
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  if (!isOpen) return null;
 
   return (
     <div
@@ -80,35 +83,119 @@ export default function FinalizeApplicationModal({
         <form className="space-y-6" onSubmit={handleSubmit}>
           {/* Result & Feedback Row */}
           <div className="grid grid-cols-2 gap-4 justify-items-center">
-            <select
-              name="final_step"
-              required
-              value={finalStep}
-              onChange={(e) => setFinalStep(e.target.value)}
-              className="w-3/5 h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 transition-all duration-300 focus:outline-none focus:border-white/50 focus:bg-white/15 cursor-pointer"
-            >
-              <option value="">Select a result</option>
-              {results.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
+            {/* Result Selector */}
+            <div className="flex flex-col w-full items-center relative">
+              <Listbox
+                value={finalStep}
+                onChange={setFinalStep}
+                disabled={loadingResults}
+              >
+                <div className="relative w-3/5">
+                  <Listbox.Button
+                    className={`w-full h-10 px-4 text-left rounded-lg border border-white/30 bg-white/5 text-white ${
+                      loadingResults ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    {loadingResults
+                      ? "Loading results..."
+                      : results.find((r) => r.id === finalStep)?.name ||
+                        "Select Result"}
+                  </Listbox.Button>
 
-            <select
-              name="feedback_id"
-              required
-              value={feedbackId}
-              onChange={(e) => setFeedbackId(e.target.value)}
-              className="w-3/5 h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 transition-all duration-300 focus:outline-none focus:border-white/50 focus:bg-white/15 cursor-pointer"
-            >
-              <option value="">Select Feedback</option>
-              {feedbacks.map((feedback) => (
-                <option key={feedback.id} value={feedback.id}>
-                  {feedback.name}
-                </option>
-              ))}
-            </select>
+                  <Transition
+                    as={Fragment}
+                    leave="transition ease-in duration-100"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
+                  >
+                    <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white/5 py-1 text-white shadow-lg ring-1 ring-black/20 focus:outline-none z-10">
+                      {loadingResults ? (
+                        <div className="px-4 py-2 text-white/70">
+                          Loading...
+                        </div>
+                      ) : (
+                        results.map((r) => (
+                          <Listbox.Option
+                            key={r.id}
+                            value={r.id}
+                            className={({ active }: { active: boolean }) =>
+                              `cursor-pointer select-none px-4 py-2 ${
+                                active ? "bg-gray-900/80" : "bg-gray-800/90"
+                              } text-white hover:bg-gray-900/80`
+                            }
+                          >
+                            {r.name}
+                          </Listbox.Option>
+                        ))
+                      )}
+                    </Listbox.Options>
+                  </Transition>
+                </div>
+              </Listbox>
+
+              {loadingResults && (
+                <div className="absolute right-[25%] top-2.5 animate-spin text-white/50">
+                  <i className="fa-solid fa-spinner" />
+                </div>
+              )}
+            </div>
+
+            {/* Feedback Selector */}
+            <div className="flex flex-col w-full items-center relative">
+              <Listbox
+                value={feedbackId}
+                onChange={setFeedbackId}
+                disabled={loadingFeedbacks}
+              >
+                <div className="relative w-3/5">
+                  <Listbox.Button
+                    className={`w-full h-10 px-4 text-left rounded-lg border border-white/30 bg-white/5 text-white ${
+                      loadingFeedbacks ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    {loadingFeedbacks
+                      ? "Loading feedbacks..."
+                      : feedbacks.find((f) => f.id === feedbackId)?.name ||
+                        "Select Feedback"}
+                  </Listbox.Button>
+
+                  <Transition
+                    as={Fragment}
+                    leave="transition ease-in duration-100"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
+                  >
+                    <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white/5 py-1 text-white shadow-lg ring-1 ring-black/20 focus:outline-none z-10">
+                      {loadingFeedbacks ? (
+                        <div className="px-4 py-2 text-white/70">
+                          Loading...
+                        </div>
+                      ) : (
+                        feedbacks.map((f) => (
+                          <Listbox.Option
+                            key={f.id}
+                            value={f.id}
+                            className={({ active }: { active: boolean }) =>
+                              `cursor-pointer select-none px-4 py-2 ${
+                                active ? "bg-gray-900/80" : "bg-gray-800/90"
+                              } text-white hover:bg-gray-900/80`
+                            }
+                          >
+                            {f.name}
+                          </Listbox.Option>
+                        ))
+                      )}
+                    </Listbox.Options>
+                  </Transition>
+                </div>
+              </Listbox>
+
+              {loadingFeedbacks && (
+                <div className="absolute right-[25%] top-2.5 animate-spin text-white/50">
+                  <i className="fa-solid fa-spinner" />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Date & Salary Row */}
@@ -119,7 +206,7 @@ export default function FinalizeApplicationModal({
               required
               value={finalizeDate}
               onChange={(e) => setFinalizeDate(e.target.value)}
-              className="w-3/5 h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 transition-all duration-300 focus:outline-none focus:border-white/50 focus:bg-white/15"
+              className="w-3/5 h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60"
             />
             {finalStep === "6" && (
               <input
@@ -128,7 +215,7 @@ export default function FinalizeApplicationModal({
                 placeholder="Salary offer amount"
                 value={salaryOffer}
                 onChange={(e) => setSalaryOffer(e.target.value)}
-                className="w-3/5 h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 transition-all duration-300 focus:outline-none focus:border-white/50 focus:bg-white/15"
+                className="w-3/5 h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60"
               />
             )}
           </div>
@@ -141,7 +228,7 @@ export default function FinalizeApplicationModal({
               placeholder="Final notes about the application"
               value={observation}
               onChange={(e) => setObservation(e.target.value)}
-              className="w-4/5 h-[150px] px-4 py-3 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 transition-all duration-300 resize-none focus:outline-none focus:border-white/50 focus:bg-white/15"
+              className="w-4/5 h-[150px] px-4 py-3 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 resize-none"
             />
           </div>
 

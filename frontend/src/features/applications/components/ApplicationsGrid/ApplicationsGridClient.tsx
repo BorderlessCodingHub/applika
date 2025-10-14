@@ -195,6 +195,7 @@ export default function ApplicationsGrid({
         isOpen={modal.addStepOpen}
         onClose={() => modal.setAddStepOpen(false)}
         steps={steps}
+        loadingSteps={modal.addStepOpen && steps.length === 0} // <-- add this
         applicationId={modal.selectedApplication?.id || ""}
         applicationInfo={modal.selectedApplication?.company ?? ""}
         onSuccess={() => {
@@ -209,6 +210,8 @@ export default function ApplicationsGrid({
         applicationId={modal.selectedApplication?.id || ""}
         feedbacks={feedbacks.map((f) => ({ id: String(f.id), name: f.name }))}
         results={results.map((r) => ({ id: String(r.id), name: r.name }))}
+        loadingFeedbacks={modal.finalizeOpen && feedbacks.length === 0}
+        loadingResults={modal.finalizeOpen && results.length === 0}
         onSubmit={handleFinalizeSubmit}
       />
 

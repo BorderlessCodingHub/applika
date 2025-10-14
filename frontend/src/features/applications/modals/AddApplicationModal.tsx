@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
+import { Listbox } from "@headlessui/react";
 import {
   createApplication,
   CreateApplicationPayload,
@@ -14,6 +15,11 @@ interface AddApplicationModalProps {
   platforms: { id: string; name: string }[];
 }
 
+const modes = [
+  { id: "active", name: "Active" },
+  { id: "passive", name: "Passive" },
+];
+
 export default function AddApplicationModal({
   isOpen,
   onClose,
@@ -21,12 +27,20 @@ export default function AddApplicationModal({
   platforms,
 }: AddApplicationModalProps) {
   const [formData, setFormData] = useState<Record<string, any>>({});
-  const [loading, setLoading] = useState(false); // ✅ fixed missing state
+  const [loading, setLoading] = useState(false);
+
+  const [selectedPlatform, setSelectedPlatform] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  const [selectedMode, setSelectedMode] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -39,8 +53,8 @@ export default function AddApplicationModal({
       const payload: CreateApplicationPayload = {
         company: formData.company,
         role: formData.role,
-        mode: formData.mode,
-        platform_id: parseInt(formData.platform_id, 10),
+        mode: selectedMode?.id || "",
+        platform_id: selectedPlatform ? parseInt(selectedPlatform.id, 10) : 0,
         application_date: formData.application_date,
         observation: formData.observation || undefined,
         expected_salary: formData.expected_salary
@@ -55,7 +69,6 @@ export default function AddApplicationModal({
       };
 
       const newApp = await createApplication(payload);
-
       await mutateApplications();
       onSubmit(newApp);
       onClose();
@@ -125,63 +138,89 @@ export default function AddApplicationModal({
               className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
                          focus:border-white/50 focus:bg-white/10 focus:outline-none"
             />
-            <select
-              name="platform_id"
-              required
-              onChange={handleChange}
-              className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
-                         focus:border-white/50 focus:bg-white/10 focus:outline-none cursor-pointer"
-            >
-              <option value="">
-                {platforms.length === 0
-                  ? "Loading platforms..."
-                  : "Select Platform (required)"}
-              </option>
-              {platforms.map((p) => (
-                <option key={p.id} value={p.id} className="bg-neutral-900">
-                  {p.name}
-                </option>
-              ))}
-            </select>
+
+            <Listbox value={selectedPlatform} onChange={setSelectedPlatform}>
+              <div className="relative">
+                <Listbox.Button
+                  className="w-full rounded-md border border-white/30 bg-neutral-900 px-4 py-2 text-white
+                             text-left backdrop-blur-sm focus:outline-none cursor-pointer
+                             flex justify-between items-center"
+                >
+                  <span>
+                    {selectedPlatform
+                      ? selectedPlatform.name
+                      : platforms.length === 0
+                      ? "Loading platforms..."
+                      : "Select Platform (required)"}
+                  </span>
+                  <i className="fa-solid fa-chevron-down text-white/60 text-xs" />
+                </Listbox.Button>
+
+                <Listbox.Options
+                  className="absolute z-50 mt-2 w-full max-h-60 overflow-y-auto rounded-md border border-white/20 
+             bg-[#1e293b] backdrop-blur-xl text-white shadow-lg scrollbar-thin scrollbar-thumb-white/10 
+             scrollbar-track-transparent"
+                >
+                  {platforms.map((p) => (
+                    <Listbox.Option
+                      key={p.id}
+                      value={p}
+                      className={({ active }) =>
+                        `cursor-pointer select-none px-4 py-2 ${
+                          active ? "bg-gray-900/80" : "bg-gray-800/80"
+                        } text-white hover:bg-gray-900/80`
+                      }
+                    >
+                      {p.name}
+                    </Listbox.Option>
+                  ))}
+                </Listbox.Options>
+              </div>
+            </Listbox>
           </div>
 
           {/* Mode / Expected Salary */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <select
-              name="mode"
-              required
-              onChange={handleChange}
-              className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
-                         focus:border-white/50 focus:bg-white/10 focus:outline-none cursor-pointer"
-            >
-              <option value="">Select Mode (required)</option>
-              <option value="active">Active</option>
-              <option value="passive">Passive</option>
-            </select>
+            <Listbox value={selectedMode} onChange={setSelectedMode}>
+              <div className="relative">
+                <Listbox.Button
+                  className="w-full rounded-md border border-white/30 bg-neutral-900 px-4 py-2 text-white
+                             text-left backdrop-blur-sm focus:outline-none cursor-pointer
+                             flex justify-between items-center"
+                >
+                  <span>
+                    {selectedMode
+                      ? selectedMode.name
+                      : "Select Mode (required)"}
+                  </span>
+                  <i className="fa-solid fa-chevron-down text-white/60 text-xs" />
+                </Listbox.Button>
+
+                <Listbox.Options
+                  className="absolute z-50 mt-2 w-full rounded-md border border-white/20 bg-slate-800/70
+                             backdrop-blur-xl text-white shadow-lg overflow-hidden"
+                >
+                  {modes.map((mode) => (
+                    <Listbox.Option
+                      key={mode.id}
+                      value={mode}
+                      className={({ active }) =>
+                        `cursor-pointer select-none px-4 py-2 ${
+                          active ? "bg-gray-900/80" : "bg-gray-800/80"
+                        } text-white hover:bg-gray-900/80`
+                      }
+                    >
+                      {mode.name}
+                    </Listbox.Option>
+                  ))}
+                </Listbox.Options>
+              </div>
+            </Listbox>
+
             <input
               name="expected_salary"
               type="number"
               placeholder="Expected Salary (optional)"
-              onChange={handleChange}
-              className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
-                         placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
-            />
-          </div>
-
-          {/* Salary Range */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              name="salary_range_min"
-              type="number"
-              placeholder="Salary Range Min (optional)"
-              onChange={handleChange}
-              className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
-                         placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
-            />
-            <input
-              name="salary_range_max"
-              type="number"
-              placeholder="Salary Range Max (optional)"
               onChange={handleChange}
               className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
                          placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
@@ -202,7 +241,7 @@ export default function AddApplicationModal({
           <div className="flex justify-end border-t border-white/20 pt-4">
             <button
               type="submit"
-              disabled={loading} // ✅ prevent double submit
+              disabled={loading}
               className="rounded-md border border-white/30 bg-emerald-400 px-6 py-2 font-semibold text-black
                          transition-colors hover:bg-emerald-400/70 disabled:cursor-not-allowed
                          disabled:bg-white/10 disabled:text-white/30 disabled:border-white/10"
