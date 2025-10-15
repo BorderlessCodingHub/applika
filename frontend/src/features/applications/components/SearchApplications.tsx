@@ -29,7 +29,6 @@ export default function SearchApplications({
         setLoading(false);
       }
     }
-
     loadPlatforms();
   }, []);
 
@@ -58,18 +57,23 @@ export default function SearchApplications({
       <div
         className="
           backdrop-blur-xl bg-white/5 border border-white/20 
-          rounded-2xl p-8 my-4 shadow-[0_8px_32px_rgba(0,0,0,0.1)]
+          rounded-2xl p-6 my-4 shadow-[0_8px_32px_rgba(0,0,0,0.1)]
         "
       >
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2 flex-1 max-w-md">
+        <div
+          className="
+            flex flex-col sm:flex-row sm:justify-between sm:items-center 
+            gap-4 sm:gap-6
+          "
+        >
+          <div className="flex items-center gap-2 flex-1 w-full sm:max-w-md">
             <input
               type="text"
               placeholder="Search applications..."
               onChange={handleInputChange}
               value={searchTerm}
               className="
-                flex-1 px-4 py-3 text-white text-sm
+                flex-1 px-4 py-3 text-white text-sm w-full
                 bg-white/10 border border-white/20 rounded-lg
                 backdrop-blur-sm transition-all duration-300
                 placeholder-white/60
@@ -79,16 +83,16 @@ export default function SearchApplications({
             />
           </div>
 
-          <div className="flex items-center">
+          <div className="flex sm:justify-end w-full sm:w-auto">
             <button
               type="button"
               onClick={() => setModalOpen(true)}
               disabled={loading}
               className="
-                flex items-center gap-2 font-semibold
+                flex justify-center items-center gap-2 font-semibold text-sm
                 bg-emerald-400/80 border border-emerald-600 text-black
-                px-6 py-3 rounded-lg cursor-pointer
-                backdrop-blur-sm transition-all duration-300
+                w-full sm:w-auto px-6 py-3 rounded-lg
+                cursor-pointer backdrop-blur-sm transition-all duration-300
                 hover:bg-emerald-400 hover:-translate-y-0.5
                 hover:shadow-[0_4px_12px_rgba(39,174,96,0.3)]
                 disabled:opacity-50 disabled:cursor-not-allowed
