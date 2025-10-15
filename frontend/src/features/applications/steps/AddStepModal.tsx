@@ -1,11 +1,8 @@
 "use client";
 
-import { Fragment, useState } from "react";
-import { Listbox, Transition } from "@headlessui/react";
-import {
-  addApplicationStep,
-  type AddStepPayload,
-} from "../services/applicationStepsService";
+import { useState } from "react";
+import ListBoxSelect from "@/components/ui/ListBoxSelect";
+import { addApplicationStep, type AddStepPayload } from "../services/applicationStepsService";
 import { mutateSteps } from "@/features/applications/hooks/useApplicationModals";
 
 interface Step {
@@ -23,7 +20,7 @@ interface AddStepModalProps {
   loadingSteps?: boolean;
 }
 
-export default function AddStepModalClient({
+export default function AddStepModal({
   isOpen,
   onClose,
   steps,
@@ -44,11 +41,7 @@ export default function AddStepModalClient({
     setLoading(true);
 
     try {
-      const payload: AddStepPayload = {
-        step_id: stepId,
-        step_date: stepDate,
-        observation,
-      };
+      const payload: AddStepPayload = { step_id: stepId, step_date: stepDate, observation };
       const data = await addApplicationStep(applicationId, payload);
       await mutateSteps(applicationId);
       onSuccess?.(data);
@@ -56,9 +49,6 @@ export default function AddStepModalClient({
       setStepDate("");
       setObservation("");
       onClose();
-    } catch (err: any) {
-      console.error(err);
-      alert(err.message);
     } finally {
       setLoading(false);
     }
@@ -69,72 +59,25 @@ export default function AddStepModalClient({
       <div className="relative w-full max-w-3xl bg-white/5 backdrop-blur-2xl border border-white/20 rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.1)] animate-slide-in">
         <div className="flex justify-between items-center border-b border-white/20 pb-4 mb-4">
           <h3 className="text-white text-lg font-semibold">Add Step</h3>
-          <button
-            onClick={onClose}
-            className="text-white/70 text-2xl font-bold hover:text-white transition-all"
-          >
-            &times;
-          </button>
+          <button onClick={onClose} className="text-white/70 text-2xl font-bold hover:text-white transition-all">&times;</button>
         </div>
 
-        {applicationInfo && (
-          <p className="text-white/80 mb-4">{applicationInfo}</p>
-        )}
+        {applicationInfo && <p className="text-white/80 mb-4">{applicationInfo}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center">
-            <div className="flex flex-col w-full items-center pb-5 relative">
-              {/* Custom Headless UI Listbox */}
-              <Listbox
+            {/* Step Selector */}
+            <div className="relative w-full flex justify-center pb-5">
+              <ListBoxSelect
                 value={stepId}
                 onChange={setStepId}
+                options={steps}
+                placeholder="Select Step"
+                loading={loadingSteps}
                 disabled={loadingSteps}
-              >
-                <div className="relative w-3/5">
-                  <Listbox.Button
-                    className={`w-full h-10 px-4 text-left rounded-lg border border-white/30 bg-white/5 text-white ${
-                      loadingSteps ? "opacity-50 cursor-not-allowed" : ""
-                    }`}
-                  >
-                    {loadingSteps
-                      ? "Loading steps..."
-                      : steps.find((s) => s.id.toString() === stepId)?.name ||
-                        "Select Step"}
-                  </Listbox.Button>
-
-                  <Transition
-                    as={Fragment}
-                    leave="transition ease-in duration-100"
-                    leaveFrom="opacity-100"
-                    leaveTo="opacity-0"
-                  >
-                    <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white/5 py-1 text-white shadow-lg ring-1 ring-black/20 focus:outline-none z-10">
-                      {loadingSteps ? (
-                        <div className="px-4 py-2 text-white/70">
-                          Loading...
-                        </div>
-                      ) : (
-                        steps.map((step) => (
-                          <Listbox.Option
-                            key={step.id}
-                            value={step.id.toString()}
-                            className={({ active }: { active: boolean }) =>
-                              `cursor-pointer select-none px-4 py-2 ${
-                                active ? "bg-gray-900/80" : "bg-gray-800/90"
-                              } text-white hover:bg-gray-900/80`
-                            }
-                          >
-                            {step.name}
-                          </Listbox.Option>
-                        ))
-                      )}
-                    </Listbox.Options>
-                  </Transition>
-                </div>
-              </Listbox>
-
+              />
               {loadingSteps && (
-                <div className="absolute right-[25%] top-2.5 animate-spin text-white/50">
+                <div className="absolute right-[35%] top-2.5 animate-spin text-white/50 pointer-events-none">
                   <i className="fa-solid fa-spinner" />
                 </div>
               )}
@@ -158,7 +101,7 @@ export default function AddStepModalClient({
               onChange={(e) => setObservation(e.target.value)}
               placeholder="Step details (optional)"
               className="w-4/5 h-[150px] px-4 py-3 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 resize-none"
-            ></textarea>
+            />
           </div>
 
           <div className="flex justify-end gap-4 border-t border-white/20 pt-4">

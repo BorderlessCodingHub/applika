@@ -9,6 +9,7 @@ import {
 } from "@/features/applications/schemas/applicationSchema";
 import { updateApplication } from "@/features/applications/services/applicationsService";
 import { mutateApplications } from "@/features/applications/hooks/useApplicationModals";
+import ListBoxSelect from "@/components/ui/ListBoxSelect";
 
 interface EditApplicationModalProps {
   isOpen: boolean;
@@ -155,58 +156,14 @@ export default function EditApplicationModal({
           />
 
           <div className="relative">
-            <Listbox
+            <ListBoxSelect
               value={selectedPlatform}
               onChange={setSelectedPlatform}
+              options={platforms}
+              placeholder="Select Platform"
+              loading={loadingPlatforms}
               disabled={platforms.length === 0 || loadingPlatforms}
-            >
-              <div className="relative">
-                <Listbox.Button
-                  className={`w-full rounded-md border border-white/30 bg-neutral-900  px-4 py-2 text-white text-left 
-                      backdrop-blur-sm focus:outline-none cursor-pointer flex justify-between items-center`}
-                >
-                  <span>
-                    {platforms.length === 0 || loadingPlatforms
-                      ? "Loading platforms..."
-                      : selectedPlatform
-                      ? selectedPlatform.name
-                      : "Select Platform"}
-                  </span>
-                  <i className="fa-solid fa-chevron-down text-white/60 text-xs" />
-                </Listbox.Button>
-
-                <Transition
-                  as={Fragment}
-                  leave="transition ease-in duration-100"
-                  leaveFrom="opacity-100"
-                  leaveTo="opacity-0"
-                >
-                  <Listbox.Options
-                    className="absolute z-50 mt-2 w-full max-h-60 overflow-y-auto rounded-md border border-white/20 
-                       bg-[#1e293b]/90 backdrop-blur-xl text-white shadow-lg scrollbar-thin 
-                       scrollbar-thumb-white/10 scrollbar-track-transparent"
-                  >
-                    {platforms.length === 0 || loadingPlatforms ? (
-                      <div className="px-4 py-2 text-white/70">Loading...</div>
-                    ) : (
-                      platforms.map((p) => (
-                        <Listbox.Option
-                          key={p.id}
-                          value={p}
-                          className={({ active }) =>
-                            `cursor-pointer select-none px-4 py-2 ${
-                              active ? "bg-gray-900/80" : "bg-gray-800/70"
-                            } text-white hover:bg-gray-900/80`
-                          }
-                        >
-                          {p.name}
-                        </Listbox.Option>
-                      ))
-                    )}
-                  </Listbox.Options>
-                </Transition>
-              </div>
-            </Listbox>
+            />
 
             {(platforms.length === 0 || loadingPlatforms) && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-white/50 pointer-events-none">
@@ -218,49 +175,14 @@ export default function EditApplicationModal({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative">
-            <Listbox
+            <ListBoxSelect
               value={selectedMode}
               onChange={setSelectedMode}
-              disabled={loadingPlatforms}
-            >
-              <div className="relative">
-                <Listbox.Button
-                  className="w-full rounded-md border border-white/30 bg-neutral-900  px-4 py-2 text-white text-left 
-                     backdrop-blur-sm focus:outline-none cursor-pointer flex justify-between items-center"
-                >
-                  <span>
-                    {selectedMode ? selectedMode.name : "Select Mode"}
-                  </span>
-                  <i className="fa-solid fa-chevron-down text-white/60 text-xs" />
-                </Listbox.Button>
-
-                <Transition
-                  as={Fragment}
-                  leave="transition ease-in duration-100"
-                  leaveFrom="opacity-100"
-                  leaveTo="opacity-0"
-                >
-                  <Listbox.Options
-                    className="absolute z-50 mt-2 w-full rounded-md border border-white/20 bg-[#1e293b]/90 
-                       backdrop-blur-xl text-white shadow-lg overflow-hidden"
-                  >
-                    {modes.map((mode) => (
-                      <Listbox.Option
-                        key={mode.id}
-                        value={mode}
-                        className={({ active }) =>
-                          `cursor-pointer select-none px-4 py-2 ${
-                            active ? "bg-gray-900/80" : "bg-gray-800/70"
-                          } text-white hover:bg-gray-900/80`
-                        }
-                      >
-                        {mode.name}
-                      </Listbox.Option>
-                    ))}
-                  </Listbox.Options>
-                </Transition>
-              </div>
-            </Listbox>
+              options={modes}
+              placeholder="Select Mode"
+              loading={false}
+              disabled={modes.length === 0}
+            />
 
             {loadingPlatforms && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-white/50 pointer-events-none">

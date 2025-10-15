@@ -1,12 +1,10 @@
-"use client";
-
 import { useState, FormEvent } from "react";
-import { Listbox } from "@headlessui/react";
 import {
   createApplication,
   CreateApplicationPayload,
 } from "@/features/applications/services/applicationsService";
 import { mutateApplications } from "@/features/applications/hooks/useApplicationModals";
+import ListBoxSelect from "@/components/ui/ListBoxSelect";
 
 interface AddApplicationModalProps {
   isOpen: boolean;
@@ -33,7 +31,6 @@ export default function AddApplicationModal({
     id: string;
     name: string;
   } | null>(null);
-
   const [selectedMode, setSelectedMode] = useState<{
     id: string;
     name: string;
@@ -139,83 +136,30 @@ export default function AddApplicationModal({
                          focus:border-white/50 focus:bg-white/10 focus:outline-none"
             />
 
-            <Listbox value={selectedPlatform} onChange={setSelectedPlatform}>
-              <div className="relative">
-                <Listbox.Button
-                  className="w-full rounded-md border border-white/30 bg-neutral-900 px-4 py-2 text-white
-                             text-left backdrop-blur-sm focus:outline-none cursor-pointer
-                             flex justify-between items-center"
-                >
-                  <span>
-                    {selectedPlatform
-                      ? selectedPlatform.name
-                      : platforms.length === 0
-                      ? "Loading platforms..."
-                      : "Select Platform (required)"}
-                  </span>
-                  <i className="fa-solid fa-chevron-down text-white/60 text-xs" />
-                </Listbox.Button>
-
-                <Listbox.Options
-                  className="absolute z-50 mt-2 w-full max-h-60 overflow-y-auto rounded-md border border-white/20 
-             bg-[#1e293b] backdrop-blur-xl text-white shadow-lg scrollbar-thin scrollbar-thumb-white/10 
-             scrollbar-track-transparent"
-                >
-                  {platforms.map((p) => (
-                    <Listbox.Option
-                      key={p.id}
-                      value={p}
-                      className={({ active }) =>
-                        `cursor-pointer select-none px-4 py-2 ${
-                          active ? "bg-gray-900/80" : "bg-gray-800/80"
-                        } text-white hover:bg-gray-900/80`
-                      }
-                    >
-                      {p.name}
-                    </Listbox.Option>
-                  ))}
-                </Listbox.Options>
-              </div>
-            </Listbox>
+            <ListBoxSelect
+              value={selectedPlatform}
+              onChange={setSelectedPlatform}
+              options={platforms}
+              placeholder={
+                platforms.length === 0
+                  ? "Loading platforms..."
+                  : "Select Platform (required)"
+              }
+              loading={platforms.length === 0}
+              disabled={platforms.length === 0}
+            />
           </div>
 
           {/* Mode / Expected Salary */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Listbox value={selectedMode} onChange={setSelectedMode}>
-              <div className="relative">
-                <Listbox.Button
-                  className="w-full rounded-md border border-white/30 bg-neutral-900 px-4 py-2 text-white
-                             text-left backdrop-blur-sm focus:outline-none cursor-pointer
-                             flex justify-between items-center"
-                >
-                  <span>
-                    {selectedMode
-                      ? selectedMode.name
-                      : "Select Mode (required)"}
-                  </span>
-                  <i className="fa-solid fa-chevron-down text-white/60 text-xs" />
-                </Listbox.Button>
-
-                <Listbox.Options
-                  className="absolute z-50 mt-2 w-full rounded-md border border-white/20 bg-slate-800/70
-                             backdrop-blur-xl text-white shadow-lg overflow-hidden"
-                >
-                  {modes.map((mode) => (
-                    <Listbox.Option
-                      key={mode.id}
-                      value={mode}
-                      className={({ active }) =>
-                        `cursor-pointer select-none px-4 py-2 ${
-                          active ? "bg-gray-900/80" : "bg-gray-800/80"
-                        } text-white hover:bg-gray-900/80`
-                      }
-                    >
-                      {mode.name}
-                    </Listbox.Option>
-                  ))}
-                </Listbox.Options>
-              </div>
-            </Listbox>
+            <ListBoxSelect
+              value={selectedMode}
+              onChange={setSelectedMode}
+              options={modes}
+              placeholder="Select Mode (required)"
+              loading={false}
+              disabled={false}
+            />
 
             <input
               name="expected_salary"
