@@ -219,6 +219,7 @@ export default function ApplicationsGrid({
         isOpen={modal.editAppOpen}
         onClose={() => modal.setEditAppOpen(false)}
         platforms={platforms.map((p) => ({ id: String(p.id), name: p.name }))}
+        loadingPlatforms={loadingPlatforms}
         initialData={
           modal.selectedApplication
             ? {
