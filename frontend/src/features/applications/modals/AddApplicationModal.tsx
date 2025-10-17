@@ -5,6 +5,7 @@ import {
 } from "@/features/applications/services/applicationsService";
 import { mutateApplications } from "@/features/applications/hooks/useApplicationModals";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
+import ModalBase from "@/components/ui/ModalBase";
 
 interface AddApplicationModalProps {
   isOpen: boolean;
@@ -76,125 +77,102 @@ export default function AddApplicationModal({
     }
   };
 
+  const footer = (
+    <button
+      type="submit"
+      disabled={loading}
+      className="rounded-md border border-white/30 bg-emerald-400 px-6 py-2 font-semibold text-black
+                         transition-colors hover:bg-emerald-400/70 disabled:cursor-not-allowed
+                         disabled:bg-white/10 disabled:text-white/30 disabled:border-white/10"
+    >
+      {loading ? "Creating..." : "Create Application"}
+    </button>
+  );
+
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
+    <ModalBase
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Add New Application"
+      footer={footer}
     >
-      <div
-        className="relative w-[90%] max-w-5xl rounded-2xl border border-white/20 bg-white/5
-                   backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] p-4 animate-[fadeIn_0.3s_ease-out]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/20 px-6 py-4">
-          <h3 className="text-xl font-semibold text-white">
-            Add New Application
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-white/70 hover:text-white text-2xl font-bold transition-colors"
-          >
-            &times;
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="px-6 py-4 space-y-6">
-          {/* Company / Role */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              name="company"
-              type="text"
-              placeholder="Company (required)"
-              required
-              onChange={handleChange}
-              className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
-                         placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
-            />
-            <input
-              name="role"
-              type="text"
-              placeholder="Role (required)"
-              required
-              onChange={handleChange}
-              className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
-                         placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
-            />
-          </div>
-
-          {/* Date / Platform */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              name="application_date"
-              type="date"
-              required
-              onChange={handleChange}
-              className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
-                         focus:border-white/50 focus:bg-white/10 focus:outline-none"
-            />
-
-            <ListBoxSelect
-              value={selectedPlatform}
-              onChange={setSelectedPlatform}
-              options={platforms}
-              placeholder={
-                platforms.length === 0
-                  ? "Loading platforms..."
-                  : "Select Platform (required)"
-              }
-              loading={platforms.length === 0}
-              disabled={platforms.length === 0}
-            />
-          </div>
-
-          {/* Mode / Expected Salary */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ListBoxSelect
-              value={selectedMode}
-              onChange={setSelectedMode}
-              options={modes}
-              placeholder="Select Mode (required)"
-              loading={false}
-              disabled={false}
-            />
-
-            <input
-              name="expected_salary"
-              type="number"
-              placeholder="Expected Salary (optional)"
-              onChange={handleChange}
-              className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
-                         placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
-            />
-          </div>
-
-          {/* Observation */}
-          <textarea
-            name="observation"
-            rows={3}
-            placeholder="Observation (optional)"
+      <form onSubmit={handleSubmit} className="px-6 py-4 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input
+            name="company"
+            type="text"
+            placeholder="Company (required)"
+            required
             onChange={handleChange}
             className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
-                       placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
+                         placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
+          />
+          <input
+            name="role"
+            type="text"
+            placeholder="Role (required)"
+            required
+            onChange={handleChange}
+            className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
+                         placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input
+            name="application_date"
+            type="date"
+            required
+            onChange={handleChange}
+            className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
+                         focus:border-white/50 focus:bg-white/10 focus:outline-none"
           />
 
-          {/* Footer */}
-          <div className="flex justify-end border-t border-white/20 pt-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className="rounded-md border border-white/30 bg-emerald-400 px-6 py-2 font-semibold text-black
-                         transition-colors hover:bg-emerald-400/70 disabled:cursor-not-allowed
-                         disabled:bg-white/10 disabled:text-white/30 disabled:border-white/10"
-            >
-              {loading ? "Creating..." : "Create Application"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          <ListBoxSelect
+            value={selectedPlatform}
+            onChange={setSelectedPlatform}
+            options={platforms}
+            placeholder={
+              platforms.length === 0
+                ? "Loading platforms..."
+                : "Select Platform (required)"
+            }
+            loading={platforms.length === 0}
+            disabled={platforms.length === 0}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <ListBoxSelect
+            value={selectedMode}
+            onChange={setSelectedMode}
+            options={modes}
+            placeholder="Select Mode (required)"
+            loading={false}
+            disabled={false}
+          />
+
+          <input
+            name="expected_salary"
+            type="number"
+            placeholder="Expected Salary (optional)"
+            onChange={handleChange}
+            className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
+                         placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
+          />
+        </div>
+
+        <textarea
+          name="observation"
+          rows={3}
+          placeholder="Observation (optional)"
+          onChange={handleChange}
+          className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
+                       placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
+        />
+      </form>
+    </ModalBase>
   );
 }

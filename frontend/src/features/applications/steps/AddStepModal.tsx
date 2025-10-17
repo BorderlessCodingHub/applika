@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
-import { addApplicationStep, type AddStepPayload } from "../services/applicationStepsService";
+import {
+  addApplicationStep,
+  type AddStepPayload,
+} from "../services/applicationStepsService";
 import { mutateSteps } from "@/features/applications/hooks/useApplicationModals";
+import ModalBase from "@/components/ui/ModalBase";
 
 interface Step {
   id: number;
@@ -41,7 +45,11 @@ export default function AddStepModal({
     setLoading(true);
 
     try {
-      const payload: AddStepPayload = { step_id: stepId, step_date: stepDate, observation };
+      const payload: AddStepPayload = {
+        step_id: stepId,
+        step_date: stepDate,
+        observation,
+      };
       const data = await addApplicationStep(applicationId, payload);
       await mutateSteps(applicationId);
       onSuccess?.(data);
@@ -54,67 +62,66 @@ export default function AddStepModal({
     }
   };
 
+  const footer = (
+    <button
+      type="submit"
+      disabled={loading || loadingSteps}
+      className="px-8 py-3 rounded-lg font-semibold bg-emerald-400/80 border border-white/30 text-black hover:bg-emerald-400 transition-all"
+    >
+      {loading ? "Adding..." : "Add Step"}
+    </button>
+  );
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4">
-      <div className="relative w-full max-w-3xl bg-white/5 backdrop-blur-2xl border border-white/20 rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.1)] animate-slide-in">
-        <div className="flex justify-between items-center border-b border-white/20 pb-4 mb-4">
-          <h3 className="text-white text-lg font-semibold">Add Step</h3>
-          <button onClick={onClose} className="text-white/70 text-2xl font-bold hover:text-white transition-all">&times;</button>
-        </div>
+    <ModalBase
+      isOpen={isOpen}
+      title="Add Step"
+      onClose={onClose}
+      footer={footer}
+    >
+      {applicationInfo && (
+        <p className="text-white/80 mb-4">{applicationInfo}</p>
+      )}
 
-        {applicationInfo && <p className="text-white/80 mb-4">{applicationInfo}</p>}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center">
-            {/* Step Selector */}
-            <div className="relative w-full flex justify-center pb-5">
-              <ListBoxSelect
-                value={stepId}
-                onChange={setStepId}
-                options={steps}
-                placeholder="Select Step"
-                loading={loadingSteps}
-                disabled={loadingSteps}
-              />
-              {loadingSteps && (
-                <div className="absolute right-[35%] top-2.5 animate-spin text-white/50 pointer-events-none">
-                  <i className="fa-solid fa-spinner" />
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col w-full items-center pb-5">
-              <input
-                type="date"
-                value={stepDate}
-                onChange={(e) => setStepDate(e.target.value)}
-                className="w-3/5 h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60"
-                required
-              />
-            </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center">
+          <div className="relative w-full flex justify-center pb-5">
+            <ListBoxSelect
+              value={stepId}
+              onChange={setStepId}
+              options={steps}
+              placeholder="Select Step"
+              loading={loadingSteps}
+              disabled={loadingSteps}
+            />
+            {loadingSteps && (
+              <div className="absolute right-[35%] top-2.5 animate-spin text-white/50 pointer-events-none">
+                <i className="fa-solid fa-spinner" />
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col w-full items-center pb-5">
-            <textarea
-              rows={3}
-              value={observation}
-              onChange={(e) => setObservation(e.target.value)}
-              placeholder="Step details (optional)"
-              className="w-4/5 h-[150px] px-4 py-3 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 resize-none"
+            <input
+              type="date"
+              value={stepDate}
+              onChange={(e) => setStepDate(e.target.value)}
+              className="w-3/5 h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60"
+              required
             />
           </div>
+        </div>
 
-          <div className="flex justify-end gap-4 border-t border-white/20 pt-4">
-            <button
-              type="submit"
-              disabled={loading || loadingSteps}
-              className="px-8 py-3 rounded-lg font-semibold bg-emerald-400/80 border border-white/30 text-black hover:bg-emerald-400 transition-all"
-            >
-              {loading ? "Adding..." : "Add Step"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex flex-col w-full items-center pb-5">
+          <textarea
+            rows={3}
+            value={observation}
+            onChange={(e) => setObservation(e.target.value)}
+            placeholder="Step details (optional)"
+            className="w-4/5 h-[150px] px-4 py-3 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 resize-none"
+          />
+        </div>
+      </form>
+    </ModalBase>
   );
 }
