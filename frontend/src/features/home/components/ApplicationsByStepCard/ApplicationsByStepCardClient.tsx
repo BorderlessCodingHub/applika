@@ -20,7 +20,6 @@ export default function ApplicationsByStepCardClientUI({ conversionData }: Appli
         min-h-[300px]
       "
     >
-      {/* Card Header */}
       <div className="mb-6 border-b border-white/10 pb-4">
         <h3 className="text-white/90 flex items-center gap-2 text-lg">
           <i className="fa-solid fa-layer-group"></i>
@@ -28,7 +27,6 @@ export default function ApplicationsByStepCardClientUI({ conversionData }: Appli
         </h3>
       </div>
 
-      {/* Step Metrics */}
       <div className="flex flex-col gap-4">
         {conversionData.map((step) => (
           <div
@@ -42,7 +40,6 @@ export default function ApplicationsByStepCardClientUI({ conversionData }: Appli
               hover:bg-white/10
             "
           >
-            {/* Step Info */}
             <div className="flex items-center gap-3">
               <div
                 className="w-3 h-3 rounded-full"
@@ -58,7 +55,6 @@ export default function ApplicationsByStepCardClientUI({ conversionData }: Appli
               </div>
             </div>
 
-            {/* Conversion Rate */}
             <div className="text-right">
               <span className="text-white/90 font-bold text-base">
                 {step.conversion_rate}%

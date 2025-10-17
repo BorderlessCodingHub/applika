@@ -1,24 +1,16 @@
 "use client";
 
 import useSWR from "swr";
-import CardSkeleton from "@/components/ui/CardSkeleton";
 import ApplicationsByStepCardClientUI from "./ApplicationsByStepCardClient";
 import { fetchApplicationsByStep } from "@/features/home/services/dashboardService";
-import { StepConversionRate } from "@/features/home/types";
+import { withFetchStatus } from "@/components/ui/withFetchStatus";
+
+function Base({ data }: { data?: any }) {
+  return <ApplicationsByStepCardClientUI conversionData={data ?? []} />;
+}
 
 export default function ApplicationsByStepCard() {
-  const { data, error, isLoading } = useSWR<StepConversionRate[]>(
-    "/api/applications/statistics/steps/conversion_rate",
-    fetchApplicationsByStep
-  );
-
-  if (isLoading) return <CardSkeleton />;
-  if (error)
-    return (
-      <div className="text-red-400 p-6">
-        Failed to load Applications by Step.
-      </div>
-    );
-
-  return <ApplicationsByStepCardClientUI conversionData={data!} />;
+  const { data, error, isLoading } = useSWR("/api/applications/statistics/steps/conversion_rate", fetchApplicationsByStep);
+  const Wrapped = withFetchStatus(Base, "Failed to load Applications by Step");
+  return <Wrapped data={data} isLoading={isLoading} error={error} />;
 }

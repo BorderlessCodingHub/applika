@@ -2,23 +2,15 @@
 
 import useSWR from "swr";
 import ConversionFunnelCardClientUI from "./ConversionFunnelCardClient";
-import CardSkeleton from "@/components/ui/CardSkeleton";
-import { StepConversionRate } from "@/features/home/types";
 import { fetchApplicationsByStep } from "@/features/home/services/dashboardService";
+import { withFetchStatus } from "@/components/ui/withFetchStatus";
+
+function Base({ data }: { data?: any }) {
+  return <ConversionFunnelCardClientUI conversionData={data ?? []} />;
+}
 
 export default function ConversionFunnelCard() {
-  const { data, error, isLoading } = useSWR<StepConversionRate[]>(
-    "applicationsByStep",
-    fetchApplicationsByStep
-  );
-
-  if (isLoading) return <CardSkeleton />;
-  if (error)
-    return (
-      <div className="text-red-400 p-6">
-        Failed to load Applications by Step.
-      </div>
-    );
-
-  return <ConversionFunnelCardClientUI conversionData={data!} />;
+  const { data, error, isLoading } = useSWR("applicationsByStep", fetchApplicationsByStep);
+  const Wrapped = withFetchStatus(Base, "Failed to load Conversion Funnel");
+  return <Wrapped data={data} isLoading={isLoading} error={error} />;
 }

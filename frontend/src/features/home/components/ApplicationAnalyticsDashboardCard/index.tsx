@@ -1,20 +1,16 @@
 "use client";
 
 import useSWR from "swr";
-import CardSkeleton from "@/components/ui/CardSkeleton";
 import ApplicationAnalyticsDashboardClientUI from "./ApplicationAnalyticsDashboardCardClient";
 import { fetchApplicationsStatistics } from "@/features/home/services/dashboardService";
-import { ApplicationsStatistics } from "@/features/home/types";
+import { withFetchStatus } from "@/components/ui/withFetchStatus";
 
-export default function ApplicationAnalyticsDashboardClient() {
-  const { data, error, isLoading } = useSWR<ApplicationsStatistics>(
-    "/api/stats",
-    fetchApplicationsStatistics
-  );
+function Base({ data }: { data?: any }) {
+  return <ApplicationAnalyticsDashboardClientUI stats={data} />;
+}
 
-  if (isLoading) return <CardSkeleton />;
-  if (error)
-    return <div className="text-red-400 p-6">Failed to load data.</div>;
-
-  return <ApplicationAnalyticsDashboardClientUI stats={data!} />;
+export default function ApplicationAnalyticsDashboardCard() {
+  const { data, error, isLoading } = useSWR("/api/stats", fetchApplicationsStatistics);
+  const Wrapped = withFetchStatus(Base, "Failed to load Analytics");
+  return <Wrapped data={data} isLoading={isLoading} error={error} />;
 }

@@ -30,7 +30,6 @@ export default function ApplicationsByPlatformCardClient({
         min-h-[300px]
       "
     >
-      {/* Card Header */}
       <div className="mb-6 border-b border-white/10 pb-4">
         <h3 className="text-white/90 flex items-center gap-2 text-[1.1rem] m-0">
           <i className="fa-solid fa-globe"></i>
@@ -38,7 +37,6 @@ export default function ApplicationsByPlatformCardClient({
         </h3>
       </div>
 
-      {/* Platform Metrics */}
       <div className="flex flex-col gap-3">
         {applicationsByPlatform.map((platform) => {
           const percentage = ((platform.count / totalApplications) * 100).toFixed(1);

@@ -83,7 +83,6 @@ export default function ApplicationTrendCardClient({ monthlyData }: ApplicationT
       shadow-[0_8px_32px_rgba(0,0,0,0.1)]
       min-h-[300px]
     ">
-      {/* Card Header */}
       <div className="mb-6 border-b border-white/10 pb-4">
         <h3 className="text-white/90 flex items-center gap-2 text-[1.1rem] m-0">
           <i className="fa-solid fa-chart-area"></i>
@@ -91,7 +90,6 @@ export default function ApplicationTrendCardClient({ monthlyData }: ApplicationT
         </h3>
       </div>
 
-      {/* Chart Container */}
       <div className="relative h-[300px]">
         <Line data={data} options={options} />
       </div>

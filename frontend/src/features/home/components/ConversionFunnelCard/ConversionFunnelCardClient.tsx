@@ -26,7 +26,7 @@ export default function ConversionFunnelCardClientUI({ conversionData }: Convers
       {
         label: "Reach Rate (%)",
         data: conversionData.map((item) => item.conversion_rate),
-        backgroundColor: conversionData.map((item) => item.color + "80"), // 50% opacity
+        backgroundColor: conversionData.map((item) => item.color + "80"),
         borderColor: conversionData.map((item) => item.color),
         borderWidth: 2,
         borderRadius: 4,
@@ -80,7 +80,6 @@ export default function ConversionFunnelCardClientUI({ conversionData }: Convers
         min-h-[300px]
       "
     >
-      {/* Card Header */}
       <div className="mb-6 border-b border-white/10 pb-4">
         <h3 className="text-white/90 flex items-center gap-2 text-[1.1rem] m-0">
           <i className="fa-solid fa-chart-bar"></i>
@@ -88,7 +87,6 @@ export default function ConversionFunnelCardClientUI({ conversionData }: Convers
         </h3>
       </div>
 
-      {/* Chart Container */}
       <div className="relative h-[300px]">
         <Bar data={data} options={options} />
       </div>

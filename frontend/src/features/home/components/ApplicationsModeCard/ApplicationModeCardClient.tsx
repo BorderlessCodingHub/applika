@@ -30,7 +30,6 @@ export default function ApplicationModeCardClient({
       min-h-[300px]
     "
     >
-      {/* Card Header */}
       <div className="mb-6 border-b border-white/10 pb-4">
         <h3 className="text-white/90 flex items-center gap-2 text-[1.1rem] m-0">
           <i className="fa-solid fa-pie-chart"></i>
@@ -38,7 +37,6 @@ export default function ApplicationModeCardClient({
         </h3>
       </div>
 
-      {/* Mode Metrics */}
       <div className="flex flex-col gap-4">
         {applicationsByMode.map((mode) => {
           const percentage = ((mode.count / totalApplications) * 100).toFixed(1);
