@@ -65,6 +65,7 @@ export default function DeleteStepModal({
       title="Delete Step"
       onClose={onClose}
       footer={footer}
+      variant="danger"
     >
       <div className="text-white space-y-3">
         <p>Are you sure you want to delete this step?</p>

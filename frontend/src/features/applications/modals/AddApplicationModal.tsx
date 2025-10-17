@@ -81,9 +81,9 @@ export default function AddApplicationModal({
     <button
       type="submit"
       disabled={loading}
-      className="rounded-md border border-white/30 bg-emerald-400 px-6 py-2 font-semibold text-black
-                         transition-colors hover:bg-emerald-400/70 disabled:cursor-not-allowed
-                         disabled:bg-white/10 disabled:text-white/30 disabled:border-white/10"
+      className="w-full md:w-auto rounded-md border border-white/30 bg-emerald-400 px-6 py-3 font-semibold text-black 
+                 transition-colors hover:bg-emerald-400/70 disabled:cursor-not-allowed 
+                 disabled:bg-white/10 disabled:text-white/30 disabled:border-white/10"
     >
       {loading ? "Creating..." : "Create Application"}
     </button>

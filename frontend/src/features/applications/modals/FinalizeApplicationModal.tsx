@@ -64,7 +64,7 @@ export default function FinalizeApplicationModal({
     <button
       type="submit"
       disabled={isSubmitting}
-      className="bg-red-500/80 text-white border border-white/30 px-6 py-3 rounded-lg font-semibold cursor-pointer transition-all duration-300 hover:bg-red-500/60"
+      className="w-full md:w-auto bg-red-500/80 text-white border border-white/30 px-6 py-3 rounded-lg font-semibold cursor-pointer transition-all duration-300 hover:bg-red-500/60"
     >
       {isSubmitting ? "Finalizing..." : "Finalize Application"}
     </button>

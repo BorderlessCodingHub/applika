@@ -40,7 +40,7 @@ export default function DeleteApplicationModal({
         type="button"
         onClick={handleDelete}
         disabled={isDeleting}
-        className={`${
+        className={`w-full sm:w-auto ${
           isDeleting ? "opacity-50 cursor-not-allowed" : "hover:bg-red-600"
         } bg-red-600/80 text-white border border-red-600 px-6 py-3 rounded-lg font-semibold transition-all duration-300`}
       >
@@ -50,7 +50,7 @@ export default function DeleteApplicationModal({
       <button
         type="button"
         onClick={onClose}
-        className="bg-white/10 text-white border border-white/30 px-6 py-3 rounded-lg font-semibold cursor-pointer transition-all duration-300 hover:bg-white/20"
+        className="w-full sm:w-auto bg-white/10 text-white border border-white/30 px-6 py-3 rounded-lg font-semibold cursor-pointer transition-all duration-300 hover:bg-white/20"
       >
         Cancel
       </button>

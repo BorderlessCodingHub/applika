@@ -91,7 +91,7 @@ export default function EditStepModal({
       type="submit"
       onClick={(e) => handleSubmit(e as any)}
       disabled={loading || loadingSteps}
-      className={`px-8 py-3 rounded-lg font-semibold bg-emerald-400/80 border border-white/30 text-black hover:bg-emerald-400 transition-all ${
+      className={`w-full md:w-auto px-8 py-3 rounded-lg font-semibold bg-emerald-400/80 border border-white/30 text-black hover:bg-emerald-400 transition-all ${
         loading || loadingSteps ? "opacity-50 cursor-not-allowed" : ""
       }`}
     >

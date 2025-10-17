@@ -100,6 +100,18 @@ export default function EditApplicationModal({
     }
   };
 
+  const footer = (
+    <button
+          onClick={handleSubmit}
+          disabled={loading}
+          className="w-full md:w-auto rounded-md border border-white/30 bg-emerald-400 px-6 py-2 font-semibold text-black 
+                     transition-colors hover:bg-emerald-400/70 disabled:cursor-not-allowed 
+                     disabled:bg-white/10 disabled:text-white/30 disabled:border-white/10"
+        >
+          {loading ? "Updating..." : "Update Application"}
+        </button>
+  );
+
   if (!isOpen) return null;
 
   return (
@@ -107,17 +119,7 @@ export default function EditApplicationModal({
       isOpen={isOpen}
       title="Edit Application"
       onClose={onClose}
-      footer={
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className="rounded-md border border-white/30 bg-emerald-400 px-6 py-2 font-semibold text-black 
-                     transition-colors hover:bg-emerald-400/70 disabled:cursor-not-allowed 
-                     disabled:bg-white/10 disabled:text-white/30 disabled:border-white/10"
-        >
-          {loading ? "Updating..." : "Update Application"}
-        </button>
-      }
+      footer={footer}
     >
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
