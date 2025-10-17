@@ -103,8 +103,6 @@ export default function SearchApplications({
             </button>
           </div>
         </div>
-
-        {error && <p className="text-red-400 mt-3 text-sm">{error}</p>}
       </div>
 
       <AddApplicationModal
