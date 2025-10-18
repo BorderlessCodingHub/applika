@@ -15,8 +15,16 @@ export function withFetchStatus<T extends object>(
     const { isLoading, error, ...rest } = props as FetchStatusProps;
 
     if (isLoading) return <CardSkeleton />;
-    if (error) return <FetchError message={errorMessage} retry={() => window.location.reload()} />;
+    if (error)
+      return (
+        <FetchError
+          message={errorMessage}
+          retry={() => window.location.reload()}
+        />
+      );
 
     return <Component {...(rest as T)} />;
   };
 }
+
+export default withFetchStatus;
