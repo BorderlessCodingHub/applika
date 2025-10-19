@@ -6,6 +6,7 @@ import { addApplicationStep } from "../services/applicationStepsService";
 import { AddStepPayload } from "@/features/applications/schemas/applicationsStepsSchema";
 import { mutateSteps } from "@/features/applications/hooks/useApplicationModals";
 import ModalBase from "@/components/ui/ModalBase";
+import ModalFooter from "@/components/ui/ModalFooter";
 
 interface Step {
   id: number;
@@ -76,26 +77,14 @@ export default function AddStepModal({
     }
   };
 
-  const footer = (
-    <button
-      type="submit"
-      disabled={loading || loadingSteps}
-      onClick={(e) => handleSubmit(e as any)}
-      className="w-full md:w-auto px-8 py-3 rounded-lg font-semibold bg-emerald-400/80 border border-white/30 text-black hover:bg-emerald-400 transition-all"
-    >
-      {loading ? "Adding..." : "Add Step"}
-    </button>
-  );
-
   return (
-    <ModalBase
-      isOpen={isOpen}
-      title="Add Step"
-      onClose={onClose}
-      footer={footer}
-    >
+    <ModalBase isOpen={isOpen} title="Add Step" onClose={onClose}>
       {applicationInfo && (
         <p className="text-white/80 mb-4">{applicationInfo}</p>
+      )}
+
+      {error && (
+        <p className="text-red-400 text-sm text-center mb-2">{error}</p>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -136,6 +125,13 @@ export default function AddStepModal({
             className="w-4/5 h-[150px] px-4 py-3 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 resize-none"
           />
         </div>
+        
+        <ModalFooter
+          onCancel={onClose}
+          submitLabel="Add Step"
+          loading={loading}
+          disabled={loadingSteps}
+        />
       </form>
     </ModalBase>
   );

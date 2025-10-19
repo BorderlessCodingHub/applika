@@ -5,8 +5,7 @@ interface ModalBaseProps {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
-  footer?: React.ReactNode;
-  variant?: "default" | "danger"; // new
+  variant?: "default" | "danger";
 }
 
 export default function ModalBase({
@@ -14,15 +13,9 @@ export default function ModalBase({
   title,
   onClose,
   children,
-  footer,
   variant = "default",
 }: ModalBaseProps) {
   if (!isOpen) return null;
-
-  const footerClass =
-    variant === "danger"
-      ? "border-t border-white/20 mt-8 pt-6 flex flex-col sm:flex-row justify-end gap-4"
-      : "flex justify-end mt-6";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -39,8 +32,6 @@ export default function ModalBase({
         </div>
 
         <div>{children}</div>
-
-        {footer && <div className={footerClass}>{footer}</div>}
       </div>
     </div>
   );
