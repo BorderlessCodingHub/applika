@@ -11,14 +11,20 @@ export const applicationStepSchema = z.object({
   updated_at: z.string().nullable().optional(),
 });
 
-export const updateStepPayloadSchema = z.object({
-  step_id: z.union([z.string(), z.number()]),
+export const applicationStepsSchema = z.array(applicationStepSchema);
+
+export const addStepPayloadSchema = z.object({
+  step_id: z.number().int().positive("Step ID must be positive"),
   step_date: z.string().min(1, "Step date is required"),
   observation: z.string().optional(),
 });
 
-export const applicationStepsSchema = z.array(applicationStepSchema);
+export const updateStepPayloadSchema = z.object({
+  step_id: z.number().int().positive("Step ID must be positive"),
+  step_date: z.string().min(1, "Step date is required"),
+  observation: z.string().optional(),
+});
 
 export type ApplicationStep = z.infer<typeof applicationStepSchema>;
-
+export type AddStepPayload = z.infer<typeof addStepPayloadSchema>;
 export type UpdateStepPayload = z.infer<typeof updateStepPayloadSchema>;

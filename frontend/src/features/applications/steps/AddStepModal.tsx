@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
-import {
-  addApplicationStep,
-  type AddStepPayload,
-} from "../services/applicationStepsService";
+import { addApplicationStep } from "../services/applicationStepsService";
+import { AddStepPayload } from "@/features/applications/schemas/applicationsStepsSchema";
 import { mutateSteps } from "@/features/applications/hooks/useApplicationModals";
 import ModalBase from "@/components/ui/ModalBase";
 
@@ -33,30 +31,46 @@ export default function AddStepModal({
   onSuccess,
   loadingSteps = false,
 }: AddStepModalProps) {
-  const [stepId, setStepId] = useState("");
+  const [selectedStep, setSelectedStep] = useState<Step | null>(null);
   const [stepDate, setStepDate] = useState("");
   const [observation, setObservation] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!selectedStep) {
+      setError("Please select a step before submitting.");
+      return;
+    }
+    if (!stepDate) {
+      setError("Please choose a valid date.");
+      return;
+    }
+
     setLoading(true);
+    setError(null);
 
     try {
       const payload: AddStepPayload = {
-        step_id: stepId,
+        step_id: selectedStep.id,
         step_date: stepDate,
         observation,
       };
+
       const data = await addApplicationStep(applicationId, payload);
       await mutateSteps(applicationId);
       onSuccess?.(data);
-      setStepId("");
+
+      setSelectedStep(null);
       setStepDate("");
       setObservation("");
       onClose();
+    } catch (err) {
+      setError("Failed to add step. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -66,6 +80,7 @@ export default function AddStepModal({
     <button
       type="submit"
       disabled={loading || loadingSteps}
+      onClick={(e) => handleSubmit(e as any)}
       className="w-full md:w-auto px-8 py-3 rounded-lg font-semibold bg-emerald-400/80 border border-white/30 text-black hover:bg-emerald-400 transition-all"
     >
       {loading ? "Adding..." : "Add Step"}
@@ -87,8 +102,8 @@ export default function AddStepModal({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center">
           <div className="relative w-full flex justify-center pb-5">
             <ListBoxSelect
-              value={stepId}
-              onChange={setStepId}
+              value={selectedStep}
+              onChange={setSelectedStep}
               options={steps}
               placeholder="Select Step"
               loading={loadingSteps}

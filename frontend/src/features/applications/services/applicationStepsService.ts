@@ -1,15 +1,11 @@
 import {
   applicationStepsSchema,
   ApplicationStep,
+  addStepPayloadSchema,
+  AddStepPayload,
   UpdateStepPayload,
 } from "../schemas/applicationsStepsSchema";
 import { StepDefinition, supportSchema } from "../schemas/supportSchema";
-
-export interface AddStepPayload {
-  step_id: string;
-  step_date: string;
-  observation: string;
-}
 
 export async function fetchApplicationSteps(
   applicationId: string | number
@@ -44,11 +40,13 @@ export async function addApplicationStep(
   applicationId: number | string,
   payload: AddStepPayload
 ) {
+  const validated = addStepPayloadSchema.parse(payload);
+
   const res = await fetch(`/api/applications/${applicationId}/steps`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(validated),
   });
 
   if (!res.ok) {
