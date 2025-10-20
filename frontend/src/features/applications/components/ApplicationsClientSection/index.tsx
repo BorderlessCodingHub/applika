@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import SearchApplications from "../SearchApplications";
 import ApplicationsGridIndex from "../ApplicationsGrid/index";
 import FetchError from "@/components/ui/FetchError";
-import { useApplications } from "../../hooks/useApplicationModals";
+import { useApplications } from "../../hooks/useApplications";
 
 export default function ApplicationsClientSection() {
   const [searchTerm, setSearchTerm] = useState("");

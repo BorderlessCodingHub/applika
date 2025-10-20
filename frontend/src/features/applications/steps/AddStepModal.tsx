@@ -4,7 +4,7 @@ import { useState } from "react";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
 import { addApplicationStep } from "../services/applicationStepsService";
 import { AddStepPayload } from "@/features/applications/schemas/applicationsStepsSchema";
-import { mutateSteps } from "@/features/applications/hooks/useApplicationModals";
+import { mutateSteps } from "@/features/applications/hooks/useApplicationSteps";
 import ModalBase from "@/components/ui/ModalBase";
 import ModalFooter from "@/components/ui/ModalFooter";
 

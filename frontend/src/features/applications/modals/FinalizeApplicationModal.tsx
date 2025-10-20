@@ -1,6 +1,6 @@
 import { useState } from "react";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
-import { mutateApplications } from "@/features/applications/hooks/useApplicationModals";
+import { mutateApplications } from "@/features/applications/hooks/useApplications";
 import ModalBase from "@/components/ui/ModalBase";
 
 interface FinalizeApplicationModalProps {

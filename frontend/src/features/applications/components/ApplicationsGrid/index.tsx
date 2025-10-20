@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import ApplicationsGrid from "./ApplicationsGridClient";
 import ApplicationCardSkeleton from "@/components/ui/ApplicationCardSekelton";
 import type { Application } from "../../types";
-import { useApplications } from "../../hooks/useApplicationModals";
+import { useApplications } from "../../hooks/useApplications";
 
 interface ApplicationsGridIndexProps {
   searchTerm: string;

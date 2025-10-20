@@ -3,11 +3,12 @@
 
 import React, { useEffect, useState } from "react";
 import ApplicationCard from "../ApplicationCard";
-import useApplicationModals, {
+import useApplicationModals from "../../hooks/useApplicationModals";
+import {
   useApplications,
   mutateApplications,
-  mutateSteps,
-} from "../../hooks/useApplicationModals";
+} from "../../hooks/useApplications";
+import { mutateSteps } from "../../hooks/useApplicationSteps";
 import AddStepModal from "../../steps/AddStepModal";
 import FinalizeApplicationModal from "../../modals/FinalizeApplicationModal";
 import EditApplicationModal from "../../modals/EditApplicationModal";
@@ -255,10 +256,12 @@ export default function ApplicationsGrid({
           <EditStepModal
             isOpen={modal.editStepOpen}
             onClose={() => modal.setEditStepOpen(false)}
+            steps={steps}
+            loadingSteps={modal.editStepOpen && steps.length === 0}
             applicationId={modal.selectedApplication?.id ?? ""}
             initialData={{
-              id: modal.selectedStep.id ?? "",
-              step_id: modal.selectedStep.step_id ?? "",
+              id: Number(modal.selectedStep.id),
+              step_id: Number(modal.selectedStep.step_id),
               step_name: modal.selectedStep.step_name ?? "",
               step_date: modal.selectedStep.step_date ?? "",
               observation: modal.selectedStep.observation ?? "",

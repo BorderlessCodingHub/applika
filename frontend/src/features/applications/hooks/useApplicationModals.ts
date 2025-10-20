@@ -1,143 +1,81 @@
 import { useState } from "react";
-import useSWR, { mutate } from "swr";
-import { Step, Application } from "../types";
-import { fetchApplications } from "../services/applicationsService";
-import { fetchApplicationSteps } from "../services/applicationStepsService";
+import type { ApplicationFormData } from "../schemas/applicationSchema";
+import type { ApplicationStep } from "../schemas/applicationsStepsSchema";
 
-/* ----------------------------- SWR Fetchers ----------------------------- */
-
-const fetcherApplications = async (): Promise<Application[]> => {
-  return await fetchApplications();
-};
-
-const fetcherSteps = async (appId: string): Promise<Step[]> => {
-  const data = await fetchApplicationSteps(appId);
-  return data.map((s) => ({
-    id: s.id.toString(),
-    step_id: s.step_id.toString(),
-    step_name: s.step_name,
-    step_date: s.step_date,
-    observation: s.observation,
-    step_color: s.step_color || "#4ade80",
-  }));
-};
-
-/* ----------------------------- Applications Hook ----------------------------- */
-
-export function useApplications() {
-  const { data, error, isLoading, isValidating } = useSWR<Application[]>(
-    "/api/applications",
-    fetcherApplications
-  );
-
-  return {
-    applications: data || [],
-    isLoading,
-    isValidating,
-    error,
-  };
-}
-
-/* ----------------------------- Application Steps Hook ----------------------------- */
-
-export function useApplicationSteps(applicationId?: string) {
-  const shouldFetch = Boolean(applicationId);
-
-  const { data, error, isLoading, isValidating } = useSWR<Step[]>(
-    shouldFetch ? `/api/applications/${applicationId}/steps` : null,
-    applicationId ? () => fetcherSteps(applicationId) : null
-  );
-
-  return {
-    steps: data || [],
-    isLoading,
-    isValidating,
-    error,
-  };
-}
-
-/* ----------------------------- Mutations ----------------------------- */
-
-export async function mutateApplications() {
-  try {
-    await mutate("/api/applications");
-    if (typeof window !== "undefined") {
-      console.log(
-        "[useApplicationModals] mutateApplications -> dispatch applications:updated"
-      );
-      window.dispatchEvent(new Event("applications:updated"));
-    }
-  } catch (err) {
-    console.error("[useApplicationModals] mutateApplications error:", err);
-    throw err;
-  }
-}
-
-export async function mutateSteps(applicationId: string) {
-  await mutate(`/api/applications/${applicationId}/steps`);
-}
-
-/* ----------------------------- Modal State Hook ----------------------------- */
-
+/**
+ * Hook to manage all modals for Applications and Application Steps
+ */
 export default function useApplicationModals() {
-  const [selectedApplication, setSelectedApplication] =
-    useState<Application | null>(null);
-  const [selectedStep, setSelectedStep] = useState<Step | null>(null);
+  // Selected application and step
+  const [selectedApplication, setSelectedApplication] = useState<ApplicationFormData | null>(null);
+  const [selectedStep, setSelectedStep] = useState<ApplicationStep | null>(null);
 
+  // Step modals
   const [addStepOpen, setAddStepOpen] = useState(false);
   const [editStepOpen, setEditStepOpen] = useState(false);
   const [deleteStepOpen, setDeleteStepOpen] = useState(false);
+
+  // Application modals
   const [editAppOpen, setEditAppOpen] = useState(false);
   const [deleteAppOpen, setDeleteAppOpen] = useState(false);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
 
-  const openAddStep = (app: Application) => {
+  // ---------------- Step Modals ----------------
+  const openAddStep = (app: ApplicationFormData) => {
     setSelectedApplication(app);
     setAddStepOpen(true);
   };
 
-  const openEditStep = (step: Step, app: Application) => {
+  const openEditStep = (step: ApplicationStep, app: ApplicationFormData) => {
     setSelectedApplication(app);
     setSelectedStep(step);
     setEditStepOpen(true);
   };
 
-  const openDeleteStep = (step: Step, app: Application) => {
+  const openDeleteStep = (step: ApplicationStep, app: ApplicationFormData) => {
     setSelectedApplication(app);
     setSelectedStep(step);
     setDeleteStepOpen(true);
   };
 
-  const openEditApp = (app: Application) => {
+  // ---------------- Application Modals ----------------
+  const openEditApp = (app: ApplicationFormData) => {
     setSelectedApplication(app);
     setEditAppOpen(true);
   };
 
-  const openDeleteApp = (app: Application) => {
+  const openDeleteApp = (app: ApplicationFormData) => {
     setSelectedApplication(app);
     setDeleteAppOpen(true);
   };
 
-  const openFinalizeApp = (app: Application) => {
+  const openFinalizeApp = (app: ApplicationFormData) => {
     setSelectedApplication(app);
     setFinalizeOpen(true);
   };
 
   return {
+    // Selected items
     selectedApplication,
     selectedStep,
+
+    // Modal open states
     addStepOpen,
     editStepOpen,
     deleteStepOpen,
     editAppOpen,
     deleteAppOpen,
     finalizeOpen,
+
+    // Modal open functions
     openAddStep,
     openEditStep,
     openDeleteStep,
     openEditApp,
     openDeleteApp,
     openFinalizeApp,
+
+    // Manual set functions (optional)
     setAddStepOpen,
     setEditStepOpen,
     setDeleteStepOpen,

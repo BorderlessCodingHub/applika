@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import CardDetails from "../CardDetails";
 import { Application, Step } from "../types";
-import { useApplicationSteps } from "@/features/applications/hooks/useApplicationModals";
+import { useApplicationSteps } from "@/features/applications/hooks/useApplicationSteps";
 
 interface ApplicationCardProps {
   app: Application;

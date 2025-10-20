@@ -7,7 +7,7 @@ import {
   EditApplicationFormData,
 } from "@/features/applications/schemas/applicationSchema";
 import { updateApplication } from "@/features/applications/services/applicationsService";
-import { mutateApplications } from "@/features/applications/hooks/useApplicationModals";
+import { mutateApplications } from "@/features/applications/hooks/useApplications";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
 
 interface EditApplicationModalProps {

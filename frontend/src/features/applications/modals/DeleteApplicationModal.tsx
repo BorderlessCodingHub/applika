@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { mutateApplications } from "@/features/applications/hooks/useApplicationModals";
+import { mutateApplications } from "@/features/applications/hooks/useApplications";
 import ModalBase from "@/components/ui/ModalBase";
 
 interface DeleteApplicationModalProps {

@@ -4,11 +4,9 @@ import { useEffect, useState } from "react";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
 import ModalBase from "@/components/ui/ModalBase";
 import ModalFooter from "@/components/ui/ModalFooter";
-import {
-  fetchSupportsSteps,
-  updateApplicationStep,
-} from "../services/applicationStepsService";
-import { mutateSteps } from "@/features/applications/hooks/useApplicationModals";
+import { updateApplicationStep } from "../services/applicationStepsService";
+import { mutateSteps } from "@/features/applications/hooks/useApplicationSteps";
+import { UpdateStepPayload } from "@/features/applications/schemas/applicationsStepsSchema";
 
 interface Step {
   id: number;
@@ -18,10 +16,12 @@ interface Step {
 interface EditStepModalProps {
   isOpen: boolean;
   onClose: () => void;
+  steps: Step[];
+  loadingSteps?: boolean;
   applicationId?: string;
   initialData?: {
-    id: string;
-    step_id: string;
+    id: number;
+    step_id: number;
     step_name?: string;
     step_date: string;
     observation?: string;
@@ -32,41 +32,36 @@ interface EditStepModalProps {
 export default function EditStepModal({
   isOpen,
   onClose,
+  steps,
+  loadingSteps = false,
   applicationId,
   initialData,
   onSuccess,
 }: EditStepModalProps) {
-  const [steps, setSteps] = useState<Step[]>([]);
-  const [stepId, setStepId] = useState("");
+  const [selectedStep, setSelectedStep] = useState<Step | null>(null);
   const [stepDate, setStepDate] = useState("");
   const [observation, setObservation] = useState("");
-  const [loadingSteps, setLoadingSteps] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      (async () => {
-        try {
-          setLoadingSteps(true);
-          const availableSteps = await fetchSupportsSteps();
-          setSteps(availableSteps);
-        } catch {
-          setError("Failed to load steps. Please try again.");
-        } finally {
-          setLoadingSteps(false);
-        }
-      })();
+    if (!initialData) {
+      setSelectedStep(null);
+      setStepDate("");
+      setObservation("");
+      return;
     }
-  }, [isOpen]);
 
-  useEffect(() => {
-    if (initialData) {
-      setStepId(initialData.step_id || "");
-      setStepDate(initialData.step_date || "");
-      setObservation(initialData.observation || "");
+    setStepDate(initialData.step_date || "");
+    setObservation(initialData.observation || "");
+
+    const matched = steps.find((s) => s.id === initialData.step_id);
+    if (matched) {
+      setSelectedStep(matched);
+    } else if (initialData.step_name) {
+      setSelectedStep({ id: initialData.step_id, name: initialData.step_name });
     }
-  }, [initialData]);
+  }, [initialData, steps]);
 
   if (!isOpen) return null;
 
@@ -74,8 +69,13 @@ export default function EditStepModal({
     e.preventDefault();
     if (!applicationId || !initialData?.id) return;
 
-    if (!stepId || !stepDate) {
-      setError("Please select both step and date.");
+    if (!selectedStep) {
+      setError("Please select a step before submitting.");
+      return;
+    }
+
+    if (!stepDate) {
+      setError("Please choose a valid date.");
       return;
     }
 
@@ -83,12 +83,18 @@ export default function EditStepModal({
     setError(null);
 
     try {
-      const payload = { step_id: stepId, step_date: stepDate, observation };
+      const payload: UpdateStepPayload = {
+        step_id: selectedStep.id,
+        step_date: stepDate,
+        observation,
+      };
+
       const updated = await updateApplicationStep(
         applicationId,
         initialData.id,
         payload
       );
+
       await mutateSteps(applicationId);
       onSuccess?.(updated);
       onClose();
@@ -109,10 +115,10 @@ export default function EditStepModal({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center">
           <div className="relative w-full flex justify-center pb-5">
             <ListBoxSelect
-              value={stepId}
-              onChange={setStepId}
+              value={selectedStep}
+              onChange={setSelectedStep}
               options={steps}
-              placeholder="Select Step"
+              placeholder={loadingSteps ? "Loading steps..." : "Select Step"}
               loading={loadingSteps}
               disabled={loadingSteps}
             />
@@ -145,8 +151,8 @@ export default function EditStepModal({
         </div>
 
         <ModalFooter
-          submitLabel="Save Changes"
           onCancel={onClose}
+          submitLabel="Save Changes"
           loading={loading}
           disabled={loadingSteps}
         />

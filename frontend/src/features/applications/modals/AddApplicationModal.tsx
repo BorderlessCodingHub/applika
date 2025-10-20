@@ -3,7 +3,7 @@ import {
   createApplication,
   CreateApplicationPayload,
 } from "@/features/applications/services/applicationsService";
-import { mutateApplications } from "@/features/applications/hooks/useApplicationModals";
+import { mutateApplications } from "@/features/applications/hooks/useApplications";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
 import ModalBase from "@/components/ui/ModalBase";
 
