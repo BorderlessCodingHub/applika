@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import ModalBase from "../../../components/ui/ModalBase";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
+import ModalBase from "@/components/ui/ModalBase";
+import ModalFooter from "@/components/ui/ModalFooter";
 import {
   fetchSupportsSteps,
   updateApplicationStep,
@@ -35,12 +36,13 @@ export default function EditStepModal({
   initialData,
   onSuccess,
 }: EditStepModalProps) {
+  const [steps, setSteps] = useState<Step[]>([]);
   const [stepId, setStepId] = useState("");
   const [stepDate, setStepDate] = useState("");
   const [observation, setObservation] = useState("");
-  const [steps, setSteps] = useState<Step[]>([]);
-  const [loadingSteps, setLoadingSteps] = useState(true);
+  const [loadingSteps, setLoadingSteps] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -49,6 +51,8 @@ export default function EditStepModal({
           setLoadingSteps(true);
           const availableSteps = await fetchSupportsSteps();
           setSteps(availableSteps);
+        } catch {
+          setError("Failed to load steps. Please try again.");
         } finally {
           setLoadingSteps(false);
         }
@@ -66,10 +70,17 @@ export default function EditStepModal({
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!applicationId || !initialData?.id) return;
+
+    if (!stepId || !stepDate) {
+      setError("Please select both step and date.");
+      return;
+    }
+
     setLoading(true);
+    setError(null);
 
     try {
       const payload = { step_id: stepId, step_date: stepDate, observation };
@@ -81,31 +92,19 @@ export default function EditStepModal({
       await mutateSteps(applicationId);
       onSuccess?.(updated);
       onClose();
+    } catch {
+      setError("Failed to update step. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const footer = (
-    <button
-      type="submit"
-      onClick={(e) => handleSubmit(e as any)}
-      disabled={loading || loadingSteps}
-      className={`w-full md:w-auto px-8 py-3 rounded-lg font-semibold bg-emerald-400/80 border border-white/30 text-black hover:bg-emerald-400 transition-all ${
-        loading || loadingSteps ? "opacity-50 cursor-not-allowed" : ""
-      }`}
-    >
-      {loading ? "Saving..." : "Save Changes"}
-    </button>
-  );
-
   return (
-    <ModalBase
-      isOpen={isOpen}
-      title="Edit Step"
-      onClose={onClose}
-      footer={footer}
-    >
+    <ModalBase isOpen={isOpen} title="Edit Step" onClose={onClose}>
+      {error && (
+        <p className="text-red-400 text-sm text-center mb-2">{error}</p>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center">
           <div className="relative w-full flex justify-center pb-5">
@@ -144,6 +143,13 @@ export default function EditStepModal({
             className="w-4/5 h-[150px] px-4 py-3 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 resize-none"
           />
         </div>
+
+        <ModalFooter
+          submitLabel="Save Changes"
+          onCancel={onClose}
+          loading={loading}
+          disabled={loadingSteps}
+        />
       </form>
     </ModalBase>
   );

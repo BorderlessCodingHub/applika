@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import ModalBase from "../../../components/ui/ModalBase";
+import ModalBase from "@/components/ui/ModalBase";
+import ModalFooter from "@/components/ui/ModalFooter";
 import { deleteApplicationStep } from "../services/applicationStepsService";
 import { mutateSteps } from "@/features/applications/hooks/useApplicationModals";
 
@@ -25,6 +26,7 @@ export default function DeleteStepModal({
   onSuccess,
 }: DeleteStepModalProps) {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -32,39 +34,25 @@ export default function DeleteStepModal({
     if (!applicationId || !stepId) return;
 
     setLoading(true);
+    setError(null);
+
     try {
       await deleteApplicationStep(applicationId, stepId);
-
       await mutateSteps(applicationId);
-
       onSuccess?.(stepId);
       onClose();
-    } catch (err) {
-      console.error("Error deleting step:", err);
-      alert("Failed to delete step.");
+    } catch {
+      setError("Failed to delete step. Please try again.");
     } finally {
       setLoading(false);
     }
   };
-
-  const footer = (
-    <button
-      onClick={handleDelete}
-      disabled={loading}
-      className={`rounded-lg border border-red-600 bg-red-600/80 px-6 py-2 text-white transition-colors hover:bg-red-600 ${
-        loading ? "opacity-50 cursor-not-allowed" : ""
-      }`}
-    >
-      {loading ? "Deleting..." : "Delete Step"}
-    </button>
-  );
 
   return (
     <ModalBase
       isOpen={isOpen}
       title="Delete Step"
       onClose={onClose}
-      footer={footer}
       variant="danger"
     >
       <div className="text-white space-y-3">
@@ -78,7 +66,17 @@ export default function DeleteStepModal({
             <strong>Date:</strong> <span>{stepDate}</span>
           </p>
         </div>
+
+        {error && <p className="text-red-400 text-sm text-center">{error}</p>}
       </div>
+
+      <ModalFooter
+        onSubmit={handleDelete}
+        onCancel={onClose}
+        submitLabel="Delete Step"
+        loading={loading}
+        variant="danger"
+      />
     </ModalBase>
   );
 }
