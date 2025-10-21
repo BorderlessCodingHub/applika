@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import SearchApplications from "../SearchApplications";
 import ApplicationsGridIndex from "../ApplicationsGrid/index";
 import FetchError from "@/components/ui/FetchError";
@@ -9,10 +9,9 @@ import { useApplications } from "../../hooks/useApplications";
 export default function ApplicationsClientSection() {
   const [searchTerm, setSearchTerm] = useState("");
   const { error } = useApplications();
+  const [addAppOpen, setAddAppOpen] = useState(false);
 
-  const handleSearchChange = useCallback((value: string) => {
-    setSearchTerm(value);
-  }, []);
+  const handleSearchChange = (value: string) => setSearchTerm(value);
 
   if (error)
     return (
@@ -24,8 +23,15 @@ export default function ApplicationsClientSection() {
 
   return (
     <section className="space-y-6">
-      <SearchApplications onSearchChange={handleSearchChange} />
-      <ApplicationsGridIndex searchTerm={searchTerm} />
+      <SearchApplications
+        onSearchChange={handleSearchChange}
+        onAddClick={() => setAddAppOpen(true)}
+      />
+      <ApplicationsGridIndex
+        searchTerm={searchTerm}
+        addAppOpen={addAppOpen}
+        setAddAppOpen={setAddAppOpen}
+      />
     </section>
   );
 }

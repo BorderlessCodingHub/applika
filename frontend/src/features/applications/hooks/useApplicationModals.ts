@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ApplicationFormData } from "../schemas/applicationSchema";
+import type { BaseApplicationFormData } from "../schemas/applications/applicationBaseSchema";
 import type { ApplicationStep } from "../schemas/applicationsStepsSchema";
 
 /**
@@ -7,7 +7,7 @@ import type { ApplicationStep } from "../schemas/applicationsStepsSchema";
  */
 export default function useApplicationModals() {
   // Selected application and step
-  const [selectedApplication, setSelectedApplication] = useState<ApplicationFormData | null>(null);
+  const [selectedApplication, setSelectedApplication] = useState<BaseApplicationFormData | null>(null);
   const [selectedStep, setSelectedStep] = useState<ApplicationStep | null>(null);
 
   // Step modals
@@ -16,40 +16,46 @@ export default function useApplicationModals() {
   const [deleteStepOpen, setDeleteStepOpen] = useState(false);
 
   // Application modals
+  const [addAppOpen, setAddAppOpen] = useState(false);
   const [editAppOpen, setEditAppOpen] = useState(false);
   const [deleteAppOpen, setDeleteAppOpen] = useState(false);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
 
   // ---------------- Step Modals ----------------
-  const openAddStep = (app: ApplicationFormData) => {
+  const openAddStep = (app: BaseApplicationFormData) => {
     setSelectedApplication(app);
     setAddStepOpen(true);
   };
 
-  const openEditStep = (step: ApplicationStep, app: ApplicationFormData) => {
+  const openEditStep = (step: ApplicationStep, app: BaseApplicationFormData) => {
     setSelectedApplication(app);
     setSelectedStep(step);
     setEditStepOpen(true);
   };
 
-  const openDeleteStep = (step: ApplicationStep, app: ApplicationFormData) => {
+  const openDeleteStep = (step: ApplicationStep, app: BaseApplicationFormData) => {
     setSelectedApplication(app);
     setSelectedStep(step);
     setDeleteStepOpen(true);
   };
 
   // ---------------- Application Modals ----------------
-  const openEditApp = (app: ApplicationFormData) => {
+  const openAddApp = (app: BaseApplicationFormData) => {
+    setSelectedApplication(app);
+    setAddAppOpen(true);
+  };
+
+  const openEditApp = (app: BaseApplicationFormData) => {
     setSelectedApplication(app);
     setEditAppOpen(true);
   };
 
-  const openDeleteApp = (app: ApplicationFormData) => {
+  const openDeleteApp = (app: BaseApplicationFormData) => {
     setSelectedApplication(app);
     setDeleteAppOpen(true);
   };
 
-  const openFinalizeApp = (app: ApplicationFormData) => {
+  const openFinalizeApp = (app: BaseApplicationFormData) => {
     setSelectedApplication(app);
     setFinalizeOpen(true);
   };
@@ -71,6 +77,7 @@ export default function useApplicationModals() {
     openAddStep,
     openEditStep,
     openDeleteStep,
+    openAddApp,
     openEditApp,
     openDeleteApp,
     openFinalizeApp,
@@ -79,6 +86,7 @@ export default function useApplicationModals() {
     setAddStepOpen,
     setEditStepOpen,
     setDeleteStepOpen,
+    setAddAppOpen,
     setEditAppOpen,
     setDeleteAppOpen,
     setFinalizeOpen,

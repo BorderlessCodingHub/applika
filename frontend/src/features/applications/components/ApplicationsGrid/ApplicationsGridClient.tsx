@@ -1,4 +1,3 @@
-// src/features/applications/components/ApplicationsGridClient.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -9,6 +8,9 @@ import {
   mutateApplications,
 } from "../../hooks/useApplications";
 import { mutateSteps } from "../../hooks/useApplicationSteps";
+
+import SearchApplications from "../SearchApplications";
+import AddApplicationModal from "../../modals/AddApplicationModal";
 import AddStepModal from "../../steps/AddStepModal";
 import FinalizeApplicationModal from "../../modals/FinalizeApplicationModal";
 import EditApplicationModal from "../../modals/EditApplicationModal";
@@ -16,7 +18,7 @@ import DeleteApplicationModal from "../../modals/DeleteApplicationModal";
 import EditStepModal from "../../steps/EditStepModal";
 import DeleteStepModal from "../../steps/DeleteStepModal";
 import type { Application } from "@/features/applications/types";
-import type { ApplicationFormData } from "@/features/applications/schemas/applicationSchema";
+import type { BaseApplicationFormData } from "@/features/applications/schemas/applications/applicationBaseSchema";
 import {
   finalizeApplication,
   FinalizeApplicationPayload,
@@ -31,15 +33,21 @@ import { fetchSupportsSteps } from "@/features/applications/services/application
 
 interface ApplicationsGridProps {
   applications?: Application[];
+  searchTerm?: string;
+  addAppOpen?: boolean;
+  setAddAppOpen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export default function ApplicationsGrid({
-  // applications: initialApplications,
   applications = [],
+  searchTerm = "",
+  addAppOpen = false,
+  setAddAppOpen,
 }: ApplicationsGridProps) {
   const { applications: appsFromHook, error } = useApplications();
   const [localApplications, setLocalApplications] =
     useState<Application[]>(applications);
+  // const [searchTerm, setSearchTerm] = useState("");
 
   const modal = useApplicationModals();
   const [isDeleting, setIsDeleting] = useState(false);
@@ -53,7 +61,14 @@ export default function ApplicationsGrid({
   );
   const [loadingPlatforms, setLoadingPlatforms] = useState(true);
 
-  const displayedApps = localApplications;
+  // Filter applications based on search
+  const displayedApps = localApplications.filter(
+    (app) =>
+      app.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.role.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  useEffect(() => setLocalApplications(applications), [applications]);
 
   useEffect(() => {
     setLocalApplications(applications);
@@ -70,7 +85,6 @@ export default function ApplicationsGrid({
         setLoadingPlatforms(false);
       }
     }
-
     loadPlatforms();
   }, []);
 
@@ -104,15 +118,6 @@ export default function ApplicationsGrid({
     }
   }, [modal.finalizeOpen]);
 
-  const handleStepSubmit = (data: any) => {
-    console.log(
-      "Add step for application:",
-      modal.selectedApplication?.id,
-      data
-    );
-    modal.setAddStepOpen(false);
-  };
-
   const handleFinalizeSubmit = async (data: {
     final_step: string;
     feedback_id: string;
@@ -142,7 +147,7 @@ export default function ApplicationsGrid({
     }
   };
 
-  const handleEditSubmit = async (data: ApplicationFormData) => {
+  const handleEditSubmit = async (data: BaseApplicationFormData) => {
     if (!modal.selectedApplication?.id) return;
 
     const payload: UpdateApplicationPayload = {
@@ -179,7 +184,7 @@ export default function ApplicationsGrid({
 
   return (
     <div className="grid grid-cols-1 gap-4">
-      {(displayedApps || []).map((app) => (
+      {displayedApps.map((app) => (
         <ApplicationCard
           key={app.id}
           app={app}
@@ -192,15 +197,23 @@ export default function ApplicationsGrid({
         />
       ))}
 
+      {/* Modals */}
+      <AddApplicationModal
+        isOpen={addAppOpen}
+        onClose={() => setAddAppOpen?.(false)}
+        platforms={platforms.map((p) => ({ id: String(p.id), name: p.name }))}
+        onSubmit={() => setAddAppOpen?.(false)}
+      />
+
       <AddStepModal
         isOpen={modal.addStepOpen}
         onClose={() => modal.setAddStepOpen(false)}
         steps={steps}
-        loadingSteps={modal.addStepOpen && steps.length === 0} // <-- add this
+        loadingSteps={modal.addStepOpen && steps.length === 0}
         applicationId={modal.selectedApplication?.id || ""}
         applicationInfo={modal.selectedApplication?.company ?? ""}
-        onSuccess={() => {
-          mutateApplications();
+        onSuccess={async () => {
+          await mutateApplications();
           modal.setAddStepOpen(false);
         }}
       />
@@ -271,7 +284,6 @@ export default function ApplicationsGrid({
               modal.setEditStepOpen(false);
             }}
           />
-
           <DeleteStepModal
             isOpen={modal.deleteStepOpen}
             onClose={() => modal.setDeleteStepOpen(false)}

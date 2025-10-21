@@ -9,10 +9,14 @@ import { useApplications } from "../../hooks/useApplications";
 
 interface ApplicationsGridIndexProps {
   searchTerm: string;
+  addAppOpen?: boolean; // optional if you want
+  setAddAppOpen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export default function ApplicationsGridIndex({
   searchTerm,
+  addAppOpen,
+  setAddAppOpen,
 }: ApplicationsGridIndexProps) {
   const { applications, isLoading, error } = useApplications();
 
@@ -36,5 +40,12 @@ export default function ApplicationsGridIndex({
       </div>
     );
 
-  return <ApplicationsGrid applications={filteredApps} />;
+  return (
+    <ApplicationsGrid
+      applications={filteredApps}
+      addAppOpen={addAppOpen} // forward it here
+      setAddAppOpen={setAddAppOpen} // forward it here
+      searchTerm={searchTerm}
+    />
+  );
 }

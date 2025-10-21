@@ -1,20 +1,28 @@
-import { useState, FormEvent } from "react";
-import {
-  createApplication,
-  CreateApplicationPayload,
-} from "@/features/applications/services/applicationsService";
-import { mutateApplications } from "@/features/applications/hooks/useApplications";
-import ListBoxSelect from "@/components/ui/ListBoxSelect";
+"use client";
+
+import { useEffect, useMemo } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+
 import ModalBase from "@/components/ui/ModalBase";
+import ModalFooter from "@/components/ui/ModalFooter";
+import ListBoxSelect from "@/components/ui/ListBoxSelect";
+
+import {
+  createApplicationSchema,
+  type CreateApplicationPayload,
+} from "../schemas/applications/createApplicationSchema";
+import { createApplication } from "../services/applicationsService";
+import { mutateApplications } from "../hooks/useApplications";
 
 interface AddApplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (formData: Record<string, any>) => void;
   platforms: { id: string; name: string }[];
+  onSubmit?: (data: CreateApplicationPayload) => void;
 }
 
-const modes = [
+const MODES = [
   { id: "active", name: "Active" },
   { id: "passive", name: "Passive" },
 ];
@@ -22,155 +30,155 @@ const modes = [
 export default function AddApplicationModal({
   isOpen,
   onClose,
-  onSubmit,
   platforms,
+  onSubmit,
 }: AddApplicationModalProps) {
-  const [formData, setFormData] = useState<Record<string, any>>({});
-  const [loading, setLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    formState: { isSubmitting },
+  } = useForm<CreateApplicationPayload>({
+    resolver: zodResolver(createApplicationSchema),
+    defaultValues: useMemo(
+      () => ({
+        company: "",
+        role: "",
+        application_date: "",
+        platform_id: "",
+        mode: "",
+        expected_salary: undefined,
+        salary_range_min: undefined,
+        salary_range_max: undefined,
+        observation: "",
+      }),
+      []
+    ),
+  });
 
-  const [selectedPlatform, setSelectedPlatform] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
-  const [selectedMode, setSelectedMode] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
+  // Reset form when modal opens
+  useEffect(() => {
+    if (isOpen) reset();
+  }, [isOpen, reset]);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const onFormSubmit = async (data: CreateApplicationPayload) => {
     try {
-      const payload: CreateApplicationPayload = {
-        company: formData.company,
-        role: formData.role,
-        mode: selectedMode?.id || "",
-        platform_id: selectedPlatform ? parseInt(selectedPlatform.id, 10) : 0,
-        application_date: formData.application_date,
-        observation: formData.observation || undefined,
-        expected_salary: formData.expected_salary
-          ? parseFloat(formData.expected_salary)
-          : undefined,
-        salary_range_min: formData.salary_range_min
-          ? parseFloat(formData.salary_range_min)
-          : undefined,
-        salary_range_max: formData.salary_range_max
-          ? parseFloat(formData.salary_range_max)
-          : undefined,
-      };
-
+      // Parse numeric platform_id
+      const payload = { ...data, platform_id: Number(data.platform_id) };
       const newApp = await createApplication(payload);
       await mutateApplications();
-      onSubmit(newApp);
+      onSubmit?.(newApp);
       onClose();
     } catch (err) {
       console.error("Error creating application:", err);
-    } finally {
-      setLoading(false);
     }
   };
-
-  const footer = (
-    <button
-      type="submit"
-      disabled={loading}
-      className="w-full md:w-auto rounded-md border border-white/30 bg-emerald-400 px-6 py-3 font-semibold text-black 
-                 transition-colors hover:bg-emerald-400/70 disabled:cursor-not-allowed 
-                 disabled:bg-white/10 disabled:text-white/30 disabled:border-white/10"
-    >
-      {loading ? "Creating..." : "Create Application"}
-    </button>
-  );
 
   if (!isOpen) return null;
 
   return (
-    <ModalBase
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Add New Application"
-      footer={footer}
-    >
-      <form onSubmit={handleSubmit} className="px-6 py-4 space-y-6">
+    <ModalBase isOpen={isOpen} title="Add New Application" onClose={onClose}>
+      <form className="space-y-4" onSubmit={handleSubmit(onFormSubmit)}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <input
-            name="company"
+            {...register("company")}
             type="text"
             placeholder="Company (required)"
-            required
-            onChange={handleChange}
-            className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
-                         placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
+                       placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
           />
           <input
-            name="role"
+            {...register("role")}
             type="text"
             placeholder="Role (required)"
-            required
-            onChange={handleChange}
-            className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
-                         placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
+                       placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
           <input
-            name="application_date"
+            {...register("application_date")}
             type="date"
-            required
-            onChange={handleChange}
-            className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
-                         focus:border-white/50 focus:bg-white/10 focus:outline-none"
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
+                       focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
           />
 
-          <ListBoxSelect
-            value={selectedPlatform}
-            onChange={setSelectedPlatform}
-            options={platforms}
-            placeholder={
-              platforms.length === 0
-                ? "Loading platforms..."
-                : "Select Platform (required)"
-            }
-            loading={platforms.length === 0}
-            disabled={platforms.length === 0}
+          <Controller
+            control={control}
+            name="platform_id"
+            render={({ field }) => (
+              <div className="relative">
+                <ListBoxSelect
+                  value={platforms.find((p) => p.id === field.value) ?? null}
+                  onChange={(val) => field.onChange(val?.id ?? "")}
+                  options={platforms}
+                  placeholder={
+                    platforms.length === 0
+                      ? "Loading platforms..."
+                      : "Select Platform (required)"
+                  }
+                  loading={platforms.length === 0}
+                  disabled={platforms.length === 0}
+                />
+              </div>
+            )}
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <ListBoxSelect
-            value={selectedMode}
-            onChange={setSelectedMode}
-            options={modes}
-            placeholder="Select Mode (required)"
-            loading={false}
-            disabled={false}
+          <Controller
+            control={control}
+            name="mode"
+            render={({ field }) => (
+              <ListBoxSelect
+                value={MODES.find((m) => m.id === field.value) ?? null}
+                onChange={(val) => field.onChange(val?.id ?? "")}
+                options={MODES}
+                placeholder="Select Mode (required)"
+              />
+            )}
           />
-
           <input
-            name="expected_salary"
+            {...register("expected_salary")}
             type="number"
             placeholder="Expected Salary (optional)"
-            onChange={handleChange}
-            className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
-                         placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
+                       placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input
+            {...register("salary_range_min")}
+            type="number"
+            placeholder="Salary Range Min (optional)"
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
+                       placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+          />
+          <input
+            {...register("salary_range_max")}
+            type="number"
+            placeholder="Salary Range Max (optional)"
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
+                       placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
           />
         </div>
 
         <textarea
-          name="observation"
+          {...register("observation")}
           rows={3}
           placeholder="Observation (optional)"
-          onChange={handleChange}
-          className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white
-                       placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
+          className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white 
+                     placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
+        />
+
+        <ModalFooter
+          onCancel={onClose}
+          submitLabel="Create Application"
+          loading={isSubmitting}
+          disabled={isSubmitting || platforms.length === 0}
         />
       </form>
     </ModalBase>
