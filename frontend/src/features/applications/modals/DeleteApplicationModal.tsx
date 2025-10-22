@@ -1,34 +1,78 @@
 "use client";
 
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+
 import ModalBase from "@/components/ui/ModalBase";
 import ModalFooter from "@/components/ui/ModalFooter";
+
+const deleteApplicationSchema = z.object({
+  confirm: z.literal(true, {
+    errorMap: () => ({ message: "You must confirm before deleting." }),
+  }),
+});
+
+type DeleteApplicationPayload = z.infer<typeof deleteApplicationSchema>;
 
 interface DeleteApplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onDelete: () => Promise<void>;
-  isDeleting?: boolean;
+  onSubmit: () => Promise<void> | void;
+  loading?: boolean;
+  applicationName?: string;
 }
 
-export default function DeleteApplicationModal({ isOpen, onClose, onDelete, isDeleting = false }: DeleteApplicationModalProps) {
+export default function DeleteApplicationModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  loading = false,
+  applicationName,
+}: DeleteApplicationModalProps) {
+  const {
+    handleSubmit,
+    register,
+    formState: { isSubmitting },
+  } = useForm<DeleteApplicationPayload>({
+    resolver: zodResolver(deleteApplicationSchema),
+    defaultValues: { confirm: true },
+  });
+
   if (!isOpen) return null;
 
-  const footer = (
-    <>
-      <button type="button" onClick={onDelete} disabled={isDeleting} className={`w-full sm:w-auto ${isDeleting ? "opacity-50 cursor-not-allowed" : "hover:bg-red-600"} bg-red-600/80 text-white border border-red-600 px-6 py-3 rounded-lg font-semibold transition-all duration-300`}>
-        {isDeleting ? "Deleting..." : "Delete"}
-      </button>
-      <button type="button" onClick={onClose} className="w-full sm:w-auto bg-white/10 text-white border border-white/30 px-6 py-3 rounded-lg font-semibold cursor-pointer transition-all duration-300 hover:bg-white/20">
-        Cancel
-      </button>
-    </>
-  );
-
   return (
-    <ModalBase isOpen={isOpen} onClose={onClose} title="Delete Application" footer={footer} variant="danger">
-      <div className="p-6 text-center">
-        <p className="text-white text-lg">Are you sure you want to delete this application?</p>
-      </div>
+    <ModalBase
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Delete Application"
+      variant="danger"
+    >
+      <form
+        onSubmit={handleSubmit(async () => {
+          await onSubmit();
+          onClose();
+        })}
+        className="space-y-6"
+      >
+        <div className="p-6 text-center">
+          <p className="text-white text-lg">
+            Are you sure you want to delete{" "}
+            <span className="font-semibold text-red-400">
+              {applicationName ?? "this application"}
+            </span>
+            ?
+          </p>
+        </div>
+
+        <ModalFooter
+          onCancel={onClose}
+          submitLabel="Delete"
+          cancelLabel="Cancel"
+          loading={loading || isSubmitting}
+          variant="danger"
+        />
+      </form>
     </ModalBase>
   );
 }

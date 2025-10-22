@@ -260,8 +260,9 @@ export default function ApplicationsGrid({
       <DeleteApplicationModal
         isOpen={modal.deleteAppOpen}
         onClose={() => modal.setDeleteAppOpen(false)}
-        onDelete={() => handleDelete(modal.selectedApplication?.id)}
-        isDeleting={isDeleting}
+        onSubmit={() => handleDelete(modal.selectedApplication?.id)}
+        loading={isDeleting}
+        applicationName={modal.selectedApplication?.company}
       />
 
       {modal.selectedStep && (
