@@ -119,7 +119,7 @@ export default function ApplicationsGrid({
   }, [modal.finalizeOpen]);
 
   const handleFinalizeSubmit = async (data: {
-    final_step: string;
+    step_id: string;
     feedback_id: string;
     finalize_date: string;
     salary_offer?: string;
@@ -128,7 +128,7 @@ export default function ApplicationsGrid({
     if (!modal.selectedApplication?.id) return;
 
     const payload: FinalizeApplicationPayload = {
-      step_id: parseInt(data.final_step, 10),
+      step_id: parseInt(data.step_id, 10),
       feedback_id: parseInt(data.feedback_id, 10),
       finalize_date: data.finalize_date,
       salary_offer: data.salary_offer
