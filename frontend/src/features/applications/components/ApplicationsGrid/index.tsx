@@ -15,8 +15,6 @@ interface ApplicationsGridIndexProps {
 
 export default function ApplicationsGridIndex({
   searchTerm,
-  // addAppOpen,
-  // setAddAppOpen,
 }: ApplicationsGridIndexProps) {
   const { applications, isLoading, error } = useApplications();
 
@@ -43,8 +41,6 @@ export default function ApplicationsGridIndex({
   return (
     <ApplicationsGrid
       applications={filteredApps}
-      // addAppOpen={addAppOpen} // forward it here
-      // setAddAppOpen={setAddAppOpen} // forward it here
       searchTerm={searchTerm}
     />
   );

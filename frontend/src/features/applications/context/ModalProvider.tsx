@@ -22,7 +22,10 @@ interface ModalState {
 
 interface ModalContextValue {
   state: ModalState;
-  open: (key: ModalKey, payload?: Partial<ModalState>) => void;
+  open: (
+    key: ModalKey,
+    payload?: { application?: BaseApplicationFormData; step?: ApplicationStep }
+  ) => void;
   close: (key: ModalKey) => void;
   isOpen: (key: ModalKey) => boolean;
 }
@@ -44,14 +47,22 @@ export function ModalProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  const open = useCallback((key: ModalKey, payload?: Partial<ModalState>) => {
-    setState((prev) => ({
-      selectedApplication:
-        payload?.selectedApplication ?? prev.selectedApplication,
-      selectedStep: payload?.selectedStep ?? prev.selectedStep,
-      activeModals: { ...prev.activeModals, [key]: true },
-    }));
-  }, []);
+  const open = useCallback(
+    (
+      key: ModalKey,
+      payload?: {
+        application?: BaseApplicationFormData;
+        step?: ApplicationStep;
+      }
+    ) => {
+      setState((prev) => ({
+        selectedApplication: payload?.application ?? prev.selectedApplication,
+        selectedStep: payload?.step ?? prev.selectedStep,
+        activeModals: { ...prev.activeModals, [key]: true },
+      }));
+    },
+    []
+  );
 
   const close = useCallback((key: ModalKey) => {
     setState((prev) => ({

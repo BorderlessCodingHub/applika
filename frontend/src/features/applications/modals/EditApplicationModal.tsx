@@ -4,7 +4,7 @@ import { useEffect, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import ModalBase from "@/components/ui/ModalBase";
+import ModalWithSkeleton from "@/components/ui/ModalWithSkeleton";
 import ModalFooter from "@/components/ui/ModalFooter";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
 
@@ -101,120 +101,127 @@ export default function EditApplicationModal({
   if (!isOpen) return null;
 
   return (
-    <ModalBase isOpen={isOpen} title="Edit Application" onClose={onClose}>
-      <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
-        {/* Company & Role */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input
-            {...register("company")}
-            type="text"
-            placeholder="Company (required)"
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
+    <ModalWithSkeleton
+      isOpen={isOpen}
+      title="Edit Application"
+      onClose={onClose}
+      loading={loadingPlatforms}
+      numFields={8}
+      showTextarea
+    >
+      {initialData && (
+        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
+          {/* Company & Role */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              {...register("company")}
+              type="text"
+              placeholder="Company (required)"
+              className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
                        placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
-          />
-          <input
-            {...register("role")}
-            type="text"
-            placeholder="Role (required)"
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
+            />
+            <input
+              {...register("role")}
+              type="text"
+              placeholder="Role (required)"
+              className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
                        placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
-          />
-        </div>
+            />
+          </div>
 
-        {/* Date & Platform */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
-          <input
-            {...register("application_date")}
-            type="date"
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
+          {/* Date & Platform */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
+            <input
+              {...register("application_date")}
+              type="date"
+              className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
                        focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
-          />
+            />
 
-          <Controller
-            control={control}
-            name="platform_id"
-            render={({ field }) => (
-              <div className="relative">
+            <Controller
+              control={control}
+              name="platform_id"
+              render={({ field }) => (
+                <div className="relative">
+                  <ListBoxSelect
+                    value={platforms.find((p) => p.id === field.value) ?? null}
+                    onChange={(val) => field.onChange(val?.id ?? "")}
+                    options={platforms}
+                    placeholder="Select Platform"
+                    loading={loadingPlatforms}
+                    disabled={platforms.length === 0 || loadingPlatforms}
+                  />
+                  {(platforms.length === 0 || loadingPlatforms) && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-white/50 pointer-events-none">
+                      <i className="fa-solid fa-spinner" />
+                    </div>
+                  )}
+                </div>
+              )}
+            />
+          </div>
+
+          {/* Mode & Expected Salary */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Controller
+              control={control}
+              name="mode"
+              render={({ field }) => (
                 <ListBoxSelect
-                  value={
-                    platforms.find((p) => p.id === field.value) ?? null
-                  }
+                  value={MODES.find((m) => m.id === field.value) ?? null}
                   onChange={(val) => field.onChange(val?.id ?? "")}
-                  options={platforms}
-                  placeholder="Select Platform"
-                  loading={loadingPlatforms}
-                  disabled={platforms.length === 0 || loadingPlatforms}
+                  options={MODES}
+                  placeholder="Select Mode"
+                  loading={false}
                 />
-                {(platforms.length === 0 || loadingPlatforms) && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-white/50 pointer-events-none">
-                    <i className="fa-solid fa-spinner" />
-                  </div>
-                )}
-              </div>
-            )}
-          />
-        </div>
+              )}
+            />
 
-        {/* Mode & Expected Salary */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Controller
-            control={control}
-            name="mode"
-            render={({ field }) => (
-              <ListBoxSelect
-                value={MODES.find((m) => m.id === field.value) ?? null}
-                onChange={(val) => field.onChange(val?.id ?? "")}
-                options={MODES}
-                placeholder="Select Mode"
-                loading={false}
-              />
-            )}
-          />
-
-          <input
-            {...register("expected_salary")}
-            type="number"
-            placeholder="Expected Salary (optional)"
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
+            <input
+              {...register("expected_salary")}
+              type="number"
+              placeholder="Expected Salary (optional)"
+              className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
                        placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
-          />
-        </div>
+            />
+          </div>
 
-        {/* Salary Range */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input
-            {...register("salary_range_min")}
-            type="number"
-            placeholder="Salary Range Min (optional)"
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
+          {/* Salary Range */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              {...register("salary_range_min")}
+              type="number"
+              placeholder="Salary Range Min (optional)"
+              className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
                        placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
-          />
-          <input
-            {...register("salary_range_max")}
-            type="number"
-            placeholder="Salary Range Max (optional)"
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
+            />
+            <input
+              {...register("salary_range_max")}
+              type="number"
+              placeholder="Salary Range Max (optional)"
+              className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
                        placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
-          />
-        </div>
+            />
+          </div>
 
-        {/* Observation */}
-        <textarea
-          {...register("observation")}
-          rows={3}
-          placeholder="Observation (optional)"
-          className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white 
+          {/* Observation */}
+          <textarea
+            {...register("observation")}
+            rows={3}
+            placeholder="Observation (optional)"
+            className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white 
                      placeholder-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
-        />
+          />
 
-        <ModalFooter
-          onCancel={onClose}
-          loading={isSubmitting}
-          submitLabel="Save Changes"
-          cancelLabel="Cancel"
-          disabled={isSubmitting}
-        />
-      </form>
-    </ModalBase>
+          <ModalFooter
+            onCancel={onClose}
+            loading={isSubmitting}
+            submitLabel="Save Changes"
+            cancelLabel="Cancel"
+            disabled={isSubmitting}
+          />
+        </form>
+      )}
+    </ModalWithSkeleton>
   );
 }

@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import ModalBase from "@/components/ui/ModalBase";
+import ModalWithSkeleton from "@/components/ui/ModalWithSkeleton";
 import ModalFooter from "@/components/ui/ModalFooter";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
 import { z } from "zod";
@@ -52,16 +52,19 @@ export default function AddStepModal({
   }, [isOpen, reset]);
 
   const onFormSubmit = async (data: CreateStepPayload) => {
-    await onSuccess?.();
+    await onSuccess?.(data);
   };
 
   if (!isOpen) return null;
 
   return (
-    <ModalBase
+    <ModalWithSkeleton
       isOpen={isOpen}
       title={`Add Step — ${applicationInfo}`}
       onClose={onClose}
+      loading={loadingSteps}
+      numFields={2}
+      showTextarea
     >
       <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -113,6 +116,6 @@ export default function AddStepModal({
           disabled={formState.isSubmitting || loading}
         />
       </form>
-    </ModalBase>
+    </ModalWithSkeleton>
   );
 }

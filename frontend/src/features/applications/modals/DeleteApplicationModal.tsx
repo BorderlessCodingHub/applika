@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import ModalBase from "@/components/ui/ModalBase";
 import ModalFooter from "@/components/ui/ModalFooter";
+import ModalSkeleton from "@/components/ui/ModalSkeleton";
 
 const deleteApplicationSchema = z.object({
   confirm: z.literal(true, {

@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import ModalBase from "@/components/ui/ModalBase";
 import ModalFooter from "@/components/ui/ModalFooter";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
+import ModalSkeleton from "@/components/ui/ModalSkeleton";
 
 const editStepSchema = z.object({
   id: z.number().int().positive(),
@@ -88,58 +89,62 @@ export default function EditStepModal({
 
   return (
     <ModalBase isOpen={isOpen} title="Edit Step" onClose={onClose}>
-      <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Controller
-            control={control}
-            name="step_id"
-            render={({ field }) => (
-              <div className="relative">
-                <ListBoxSelect
-                  value={
-                    steps.find((s) => String(s.id) === String(field.value)) ??
-                    null
-                  }
-                  onChange={(val) => field.onChange(val ? Number(val.id) : 0)}
-                  options={steps.map((s) => ({
-                    id: String(s.id),
-                    name: s.name,
-                  }))}
-                  placeholder="Select Step"
-                  loading={loadingSteps}
-                  disabled={loadingSteps || steps.length === 0}
-                />
-                {(loadingSteps || steps.length === 0) && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-white/50 pointer-events-none">
-                    <i className="fa-solid fa-spinner" />
-                  </div>
-                )}
-              </div>
-            )}
+      {loadingSteps || !initialData ? (
+        <ModalSkeleton numFields={2} showTextarea />
+      ) : (
+        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Controller
+              control={control}
+              name="step_id"
+              render={({ field }) => (
+                <div className="relative">
+                  <ListBoxSelect
+                    value={
+                      steps.find((s) => String(s.id) === String(field.value)) ??
+                      null
+                    }
+                    onChange={(val) => field.onChange(val ? Number(val.id) : 0)}
+                    options={steps.map((s) => ({
+                      id: String(s.id),
+                      name: s.name,
+                    }))}
+                    placeholder="Select Step"
+                    loading={loadingSteps}
+                    disabled={loadingSteps || steps.length === 0}
+                  />
+                  {(loadingSteps || steps.length === 0) && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-white/50 pointer-events-none">
+                      <i className="fa-solid fa-spinner" />
+                    </div>
+                  )}
+                </div>
+              )}
+            />
+
+            <input
+              {...register("step_date")}
+              type="date"
+              className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white focus:outline-none"
+              aria-label="Step date"
+            />
+          </div>
+
+          <textarea
+            {...register("observation")}
+            rows={3}
+            placeholder="Observation (optional)"
+            className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white"
           />
 
-          <input
-            {...register("step_date")}
-            type="date"
-            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white focus:outline-none"
-            aria-label="Step date"
+          <ModalFooter
+            onCancel={onClose}
+            submitLabel="Save Changes"
+            loading={isSubmitting || loading}
+            disabled={isSubmitting || loading}
           />
-        </div>
-
-        <textarea
-          {...register("observation")}
-          rows={3}
-          placeholder="Observation (optional)"
-          className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white"
-        />
-
-        <ModalFooter
-          onCancel={onClose}
-          submitLabel="Save Changes"
-          loading={isSubmitting || loading}
-          disabled={isSubmitting || loading}
-        />
-      </form>
+        </form>
+      )}
     </ModalBase>
   );
 }

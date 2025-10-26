@@ -1,7 +1,6 @@
-// src/features/applications/components/ApplicationCard.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import CardDetails from "../CardDetails";
 import { Application, Step } from "../types";
 import { useApplicationSteps } from "@/features/applications/hooks/useApplicationSteps";
@@ -26,9 +25,16 @@ export default function ApplicationCard({
   onFinalizeApp,
 }: ApplicationCardProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const { steps, isLoading, isValidating } = useApplicationSteps(
-    isOpen ? app.id : undefined
+
+  // Hook is ready to fetch data for this specific app
+  const { steps, isLoading, mutate } = useApplicationSteps(
+    isOpen ? app.id : null
   );
+
+  // When card opens, ensure a refetch (even if cached)
+  useEffect(() => {
+    if (isOpen && app.id) mutate();
+  }, [isOpen, app.id, mutate]);
 
   const toggleDetails = () => setIsOpen((prev) => !prev);
 
@@ -82,24 +88,16 @@ export default function ApplicationCard({
         </div>
       </div>
 
-      <CardDetails
-        isOpen={isOpen}
-        id={app.id}
-        expected_salary={app.salary_range_min}
-        salary_offer={app.salary_range_max}
-        mode="Remote"
-        last_step_date={
-          steps.length ? steps[steps.length - 1].step_date : "N/A"
-        }
-        feedback_date="N/A"
-        observation={app.observation}
-        steps={steps}
-        onEditStep={(step) => onEditStep(step, app)}
-        onDeleteStep={(step) => onDeleteStep(step, app)}
-      />
-
-      {isOpen && (isLoading || isValidating) && (
-        <div className="text-white/50 text-xs mt-2">Loading steps...</div>
+      {isOpen && (
+        <CardDetails
+          id={app.id}
+          isOpen={isOpen}
+          observation={app.observation}
+          steps={steps}
+          isLoading={isLoading}
+          onEditStep={(s) => onEditStep(s, app)}
+          onDeleteStep={(s) => onDeleteStep(s, app)}
+        />
       )}
     </div>
   );

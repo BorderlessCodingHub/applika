@@ -14,6 +14,7 @@ import {
 } from "../schemas/applications/createApplicationSchema";
 import { createApplication } from "../services/applicationsService";
 import { mutateApplications } from "../hooks/useApplications";
+import ModalWithSkeleton from "@/components/ui/ModalWithSkeleton";
 
 interface Props {
   isOpen: boolean;
@@ -71,7 +72,14 @@ export default function AddApplicationModal({
   if (!isOpen) return null;
 
   return (
-    <ModalBase isOpen={isOpen} title="Add New Application" onClose={onClose}>
+    <ModalWithSkeleton
+      isOpen={isOpen}
+      title="Add New Application"
+      onClose={onClose}
+      loading={loading}
+      numFields={8}
+      showTextarea
+    >
       <form className="space-y-4" onSubmit={handleSubmit(onFormSubmit)}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <input
@@ -172,6 +180,6 @@ export default function AddApplicationModal({
           disabled={isSubmitting || loading || platforms.length === 0}
         />
       </form>
-    </ModalBase>
+    </ModalWithSkeleton>
   );
 }
