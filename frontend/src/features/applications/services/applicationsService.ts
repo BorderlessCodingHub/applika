@@ -1,5 +1,11 @@
 import type { Application } from "../types";
-import { supportSchema, FeedbackDefinition, StepDefinition, Platform } from "../schemas/supportSchema";
+import {
+  supportSchema,
+  FeedbackDefinition,
+  StepDefinition,
+  Platform,
+} from "../schemas/supportSchema";
+import { fetchSupports } from "./supportsService";
 
 export interface CreateApplicationPayload {
   company: string;
@@ -47,49 +53,63 @@ export async function fetchApplications(): Promise<Application[]> {
   return res.json();
 }
 
+// export async function fetchSupportsPlatforms(): Promise<Platform[]> {
+//   const res = await fetch("/api/supports", { credentials: "include" });
+
+//   if (!res.ok) {
+//     const err = await res.json();
+//     throw new Error(err.detail || "Failed to fetch supports platforms");
+//   }
+
+//   const data = await res.json();
+//   const parsed = supportSchema.parse(data);
+
+//   return parsed.platforms;
+// }
+
+// export async function fetchSupportsResults(): Promise<StepDefinition[]> {
+//   const res = await fetch("/api/supports", { credentials: "include" });
+
+//   if (!res.ok) {
+//     const err = await res.json();
+//     throw new Error(err.detail || "Failed to fetch supports results");
+//   }
+
+//   const data = await res.json();
+//   const parsed = supportSchema.parse(data);
+
+//   // Filter only steps with strict: true
+//   return parsed.steps.filter((s) => s.strict);
+// }
+
+// export async function fetchSupportsFeedbacks(): Promise<FeedbackDefinition[]> {
+//   const res = await fetch("/api/supports", { credentials: "include" });
+
+//   if (!res.ok) {
+//     const err = await res.json();
+//     throw new Error(err.detail || "Failed to fetch supports feedbacks");
+//   }
+
+//   const data = await res.json();
+//   const parsed = supportSchema.parse(data);
+//   return parsed.feedbacks;
+// }
+
 export async function fetchSupportsPlatforms(): Promise<Platform[]> {
-  const res = await fetch("/api/supports", { credentials: "include" });
+  const parsed = await fetchSupports();
+  return parsed.platforms ?? [];
+}
 
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail || "Failed to fetch supports platforms");
-  }
-
-  const data = await res.json();
-  const parsed = supportSchema.parse(data);
-
-  return parsed.platforms;
+export async function fetchSupportsFeedbacks(): Promise<FeedbackDefinition[]> {
+  const parsed = await fetchSupports();
+  return parsed.feedbacks ?? [];
 }
 
 export async function fetchSupportsResults(): Promise<StepDefinition[]> {
-  const res = await fetch("/api/supports", { credentials: "include" });
-
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail || "Failed to fetch supports results");
-  }
-
-  const data = await res.json();
-  const parsed = supportSchema.parse(data);
-
-  // Filter only steps with strict: true
-  return parsed.steps.filter((s) => s.strict);
+  const parsed = await fetchSupports();
+  // strict steps are results
+  return (parsed.steps ?? []).filter((s) => s.strict);
 }
-
-
-export async function fetchSupportsFeedbacks(): Promise<FeedbackDefinition[]> {
-  const res = await fetch("/api/supports", { credentials: "include" });
-
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail || "Failed to fetch supports feedbacks");
-  }
-
-  const data = await res.json();
-  const parsed = supportSchema.parse(data);
-  return parsed.feedbacks;
-}
-
 
 export async function createApplication(payload: CreateApplicationPayload) {
   const res = await fetch(`/api/applications`, {

@@ -8,8 +8,8 @@ export const baseApplicationSchema = z.object({
     z.enum(["active", "passive"], { message: "Mode is required" })
   ),
   platform_id: z.preprocess(
-    (val) => (val === "" ? undefined : Number(val)),
-    z.number({ message: "Mode is required" })
+    (val) => Number(val),
+    z.number().int().positive("Platform is required")
   ),
   application_date: z
     .string()

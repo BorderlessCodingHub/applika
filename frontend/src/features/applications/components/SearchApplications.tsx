@@ -1,19 +1,19 @@
 "use client";
 
 import { useEffect, useState, ChangeEvent } from "react";
+import { useModal } from "@/features/applications/context/ModalProvider";
 import type { Platform } from "@/features/applications/schemas/supportSchema";
 
 interface SearchApplicationsProps {
   onSearchChange: (value: string) => void;
-  onAddClick: () => void; // new prop
 }
 
 export default function SearchApplications({
   onSearchChange,
-  onAddClick,
 }: SearchApplicationsProps) {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const modal = useModal();
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -63,7 +63,7 @@ export default function SearchApplications({
         <div className="flex sm:justify-end w-full sm:w-auto">
           <button
             type="button"
-            onClick={onAddClick}
+            onClick={() => modal.open("addApp")}
             className="
               flex justify-center items-center gap-2 font-semibold text-sm
               bg-emerald-400/80 border border-emerald-600 text-black

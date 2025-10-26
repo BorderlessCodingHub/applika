@@ -15,11 +15,12 @@ import {
 import { createApplication } from "../services/applicationsService";
 import { mutateApplications } from "../hooks/useApplications";
 
-interface AddApplicationModalProps {
+interface Props {
   isOpen: boolean;
   onClose: () => void;
   platforms: { id: string; name: string }[];
-  onSubmit?: (data: CreateApplicationPayload) => void;
+  loading?: boolean;
+  onSubmit?: (payload: CreateApplicationPayload) => Promise<void> | void;
 }
 
 const MODES = [
@@ -32,7 +33,8 @@ export default function AddApplicationModal({
   onClose,
   platforms,
   onSubmit,
-}: AddApplicationModalProps) {
+  loading = false,
+}: Props) {
   const {
     register,
     handleSubmit,
@@ -57,22 +59,13 @@ export default function AddApplicationModal({
     ),
   });
 
-  // Reset form when modal opens
   useEffect(() => {
     if (isOpen) reset();
   }, [isOpen, reset]);
 
   const onFormSubmit = async (data: CreateApplicationPayload) => {
-    try {
-      // Parse numeric platform_id
-      const payload = { ...data, platform_id: Number(data.platform_id) };
-      const newApp = await createApplication(payload);
-      await mutateApplications();
-      onSubmit?.(newApp);
-      onClose();
-    } catch (err) {
-      console.error("Error creating application:", err);
-    }
+    // delegate to parent
+    await onSubmit?.({ ...data, platform_id: Number(data.platform_id) });
   };
 
   if (!isOpen) return null;
@@ -109,20 +102,18 @@ export default function AddApplicationModal({
             control={control}
             name="platform_id"
             render={({ field }) => (
-              <div className="relative">
-                <ListBoxSelect
-                  value={platforms.find((p) => p.id === field.value) ?? null}
-                  onChange={(val) => field.onChange(val?.id ?? "")}
-                  options={platforms}
-                  placeholder={
-                    platforms.length === 0
-                      ? "Loading platforms..."
-                      : "Select Platform (required)"
-                  }
-                  loading={platforms.length === 0}
-                  disabled={platforms.length === 0}
-                />
-              </div>
+              <ListBoxSelect
+                value={platforms.find((p) => p.id === field.value) ?? null}
+                onChange={(v) => field.onChange(v?.id ?? "")}
+                options={platforms}
+                placeholder={
+                  platforms.length === 0
+                    ? "Loading platforms..."
+                    : "Select Platform (required)"
+                }
+                loading={platforms.length === 0}
+                disabled={platforms.length === 0}
+              />
             )}
           />
         </div>
@@ -177,8 +168,8 @@ export default function AddApplicationModal({
         <ModalFooter
           onCancel={onClose}
           submitLabel="Create Application"
-          loading={isSubmitting}
-          disabled={isSubmitting || platforms.length === 0}
+          loading={isSubmitting || loading}
+          disabled={isSubmitting || loading || platforms.length === 0}
         />
       </form>
     </ModalBase>

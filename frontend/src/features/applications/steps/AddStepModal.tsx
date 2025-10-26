@@ -1,136 +1,116 @@
 "use client";
 
-import { useState } from "react";
-import ListBoxSelect from "@/components/ui/ListBoxSelect";
-import { addApplicationStep } from "../services/applicationStepsService";
-import { AddStepPayload } from "@/features/applications/schemas/applicationsStepsSchema";
-import { mutateSteps } from "@/features/applications/hooks/useApplicationSteps";
+import { useEffect, useMemo } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import ModalBase from "@/components/ui/ModalBase";
 import ModalFooter from "@/components/ui/ModalFooter";
+import ListBoxSelect from "@/components/ui/ListBoxSelect";
+import { z } from "zod";
 
-interface Step {
-  id: number;
-  name: string;
-}
+// Minimal schema for creating a step. Adjust fields to your real schema if different.
+const createStepSchema = z.object({
+  step_id: z.number().int().positive(),
+  step_date: z.string().min(1),
+  observation: z.string().optional(),
+});
 
-interface AddStepModalProps {
+type CreateStepPayload = z.infer<typeof createStepSchema>;
+
+interface Props {
   isOpen: boolean;
   onClose: () => void;
-  steps: Step[];
+  steps: { id: number; name: string }[];
+  loadingSteps?: boolean;
   applicationId: string;
   applicationInfo?: string;
-  onSuccess?: (data: any) => void;
-  loadingSteps?: boolean;
+  onSuccess?: () => Promise<void> | void; // parent handles API and mutation
+  loading?: boolean;
 }
 
 export default function AddStepModal({
   isOpen,
   onClose,
   steps,
-  applicationId,
-  applicationInfo,
-  onSuccess,
   loadingSteps = false,
-}: AddStepModalProps) {
-  const [selectedStep, setSelectedStep] = useState<Step | null>(null);
-  const [stepDate, setStepDate] = useState("");
-  const [observation, setObservation] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  applicationId,
+  applicationInfo = "",
+  onSuccess,
+  loading = false,
+}: Props) {
+  const { register, handleSubmit, control, reset, formState } =
+    useForm<CreateStepPayload>({
+      resolver: zodResolver(createStepSchema),
+      defaultValues: useMemo(
+        () => ({ step_id: 0, step_date: "", observation: "" }),
+        []
+      ),
+    });
+
+  useEffect(() => {
+    if (isOpen) reset();
+  }, [isOpen, reset]);
+
+  const onFormSubmit = async (data: CreateStepPayload) => {
+    await onSuccess?.();
+  };
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!selectedStep) {
-      setError("Please select a step before submitting.");
-      return;
-    }
-    if (!stepDate) {
-      setError("Please choose a valid date.");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const payload: AddStepPayload = {
-        step_id: selectedStep.id,
-        step_date: stepDate,
-        observation,
-      };
-
-      const data = await addApplicationStep(applicationId, payload);
-      await mutateSteps(applicationId);
-      onSuccess?.(data);
-
-      setSelectedStep(null);
-      setStepDate("");
-      setObservation("");
-      onClose();
-    } catch (err) {
-      setError("Failed to add step. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <ModalBase isOpen={isOpen} title="Add Step" onClose={onClose}>
-      {applicationInfo && (
-        <p className="text-white/80 mb-4">{applicationInfo}</p>
-      )}
-
-      {error && (
-        <p className="text-red-400 text-sm text-center mb-2">{error}</p>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center">
-          <div className="relative w-full flex justify-center pb-5">
-            <ListBoxSelect
-              value={selectedStep}
-              onChange={setSelectedStep}
-              options={steps}
-              placeholder="Select Step"
-              loading={loadingSteps}
-              disabled={loadingSteps}
-            />
-            {loadingSteps && (
-              <div className="absolute right-[35%] top-2.5 animate-spin text-white/50 pointer-events-none">
-                <i className="fa-solid fa-spinner" />
+    <ModalBase
+      isOpen={isOpen}
+      title={`Add Step — ${applicationInfo}`}
+      onClose={onClose}
+    >
+      <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Controller
+            control={control}
+            name="step_id"
+            render={({ field }) => (
+              <div className="relative">
+                <ListBoxSelect
+                  value={
+                    steps.find((s) => s.id === Number(field.value)) ?? null
+                  }
+                  onChange={(val) => field.onChange(val ? Number(val.id) : 0)}
+                  options={steps.map((s) => ({
+                    id: String(s.id),
+                    name: s.name,
+                  }))}
+                  placeholder="Select Step"
+                  loading={loadingSteps}
+                  disabled={loadingSteps || steps.length === 0}
+                />
+                {(loadingSteps || steps.length === 0) && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-white/50 pointer-events-none">
+                    <i className="fa-solid fa-spinner" />
+                  </div>
+                )}
               </div>
             )}
-          </div>
+          />
 
-          <div className="flex flex-col w-full items-center pb-5">
-            <input
-              type="date"
-              value={stepDate}
-              onChange={(e) => setStepDate(e.target.value)}
-              className="w-3/5 h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60"
-              required
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-col w-full items-center pb-5">
-          <textarea
-            rows={3}
-            value={observation}
-            onChange={(e) => setObservation(e.target.value)}
-            placeholder="Step details (optional)"
-            className="w-4/5 h-[150px] px-4 py-3 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60 resize-none"
+          <input
+            {...register("step_date")}
+            type="date"
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white"
           />
         </div>
-        
+
+        <textarea
+          {...register("observation")}
+          rows={3}
+          placeholder="Observation (optional)"
+          className="w-full rounded-md border border-white/30 bg-transparent px-4 py-2 text-white"
+        />
+
         <ModalFooter
           onCancel={onClose}
           submitLabel="Add Step"
-          loading={loading}
-          disabled={loadingSteps}
+          loading={formState.isSubmitting || loading}
+          disabled={formState.isSubmitting || loading}
         />
       </form>
     </ModalBase>

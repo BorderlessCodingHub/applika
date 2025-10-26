@@ -15,10 +15,10 @@ const deleteApplicationSchema = z.object({
 
 type DeleteApplicationPayload = z.infer<typeof deleteApplicationSchema>;
 
-interface DeleteApplicationModalProps {
+interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: () => Promise<void> | void;
+  onSubmit?: () => Promise<void> | void;
   loading?: boolean;
   applicationName?: string;
 }
@@ -29,7 +29,7 @@ export default function DeleteApplicationModal({
   onSubmit,
   loading = false,
   applicationName,
-}: DeleteApplicationModalProps) {
+}: Props) {
   const {
     handleSubmit,
     register,
@@ -50,8 +50,7 @@ export default function DeleteApplicationModal({
     >
       <form
         onSubmit={handleSubmit(async () => {
-          await onSubmit();
-          onClose();
+          await onSubmit?.();
         })}
         className="space-y-6"
       >

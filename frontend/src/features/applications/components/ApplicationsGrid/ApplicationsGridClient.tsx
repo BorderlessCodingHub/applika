@@ -1,186 +1,113 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useMemo } from "react";
 import ApplicationCard from "../ApplicationCard";
-import useApplicationModals from "../../hooks/useApplicationModals";
-import {
-  useApplications,
-  mutateApplications,
-} from "../../hooks/useApplications";
+
+import { useModal } from "../../context/ModalProvider";
+import { useApplications, mutateApplications } from "../../hooks/useApplications";
+import { useSupports } from "../../hooks/useSupports";
 import { mutateSteps } from "../../hooks/useApplicationSteps";
 
-import SearchApplications from "../SearchApplications";
-import AddApplicationModal from "../../modals/AddApplicationModal";
-import AddStepModal from "../../steps/AddStepModal";
-import FinalizeApplicationModal from "../../modals/FinalizeApplicationModal";
-import EditApplicationModal from "../../modals/EditApplicationModal";
-import DeleteApplicationModal from "../../modals/DeleteApplicationModal";
-import EditStepModal from "../../steps/EditStepModal";
-import DeleteStepModal from "../../steps/DeleteStepModal";
-import type { Application } from "@/features/applications/types";
-import type { BaseApplicationFormData } from "@/features/applications/schemas/applications/applicationBaseSchema";
 import {
-  finalizeApplication,
-  FinalizeApplicationPayload,
+  createApplication,
   updateApplication,
-  UpdateApplicationPayload,
+  finalizeApplication,
   deleteApplication,
-  fetchSupportsPlatforms,
-  fetchSupportsResults,
-  fetchSupportsFeedbacks,
-} from "@/features/applications/services/applicationsService";
-import { fetchSupportsSteps } from "@/features/applications/services/applicationStepsService";
+} from "../../services/applicationsService";
+
+import {
+  AddApplicationModal,
+  EditApplicationModal,
+  FinalizeApplicationModal,
+  DeleteApplicationModal,
+} from "../../modals";
+
+import {
+  AddStepModal,
+  EditStepModal,
+  DeleteStepModal,
+} from "../../steps";
+
+import type { Application } from "../../types";
+import type {
+  CreateApplicationPayload,
+  UpdateApplicationPayload,
+  FinalizeApplicationPayload,
+} from "../../services/applicationsService";
 
 interface ApplicationsGridProps {
   applications?: Application[];
   searchTerm?: string;
-  addAppOpen?: boolean;
-  setAddAppOpen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export default function ApplicationsGrid({
+export default function ApplicationsGridClient({
   applications = [],
   searchTerm = "",
-  addAppOpen = false,
-  setAddAppOpen,
 }: ApplicationsGridProps) {
-  const { applications: appsFromHook, error } = useApplications();
-  const [localApplications, setLocalApplications] =
-    useState<Application[]>(applications);
-  // const [searchTerm, setSearchTerm] = useState("");
+  const modal = useModal();
+  const { applications: fetchedApps, error } = useApplications();
+  const { supports, isLoading: loadingSupports } = useSupports();
 
-  const modal = useApplicationModals();
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [steps, setSteps] = useState<{ id: number; name: string }[]>([]);
-  const [feedbacks, setFeedbacks] = useState<{ id: number; name: string }[]>(
-    []
-  );
-  const [results, setResults] = useState<{ id: number; name: string }[]>([]);
-  const [platforms, setPlatforms] = useState<{ id: number; name: string }[]>(
-    []
-  );
-  const [loadingPlatforms, setLoadingPlatforms] = useState(true);
+  const localApplications = applications.length ? applications : fetchedApps;
 
-  // Filter applications based on search
-  const displayedApps = localApplications.filter(
-    (app) =>
-      app.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.role.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const displayedApps = useMemo(() => {
+    const query = searchTerm.toLowerCase();
+    return localApplications.filter(
+      (app) =>
+        app.company.toLowerCase().includes(query) ||
+        app.role.toLowerCase().includes(query)
+    );
+  }, [localApplications, searchTerm]);
 
-  useEffect(() => setLocalApplications(applications), [applications]);
+  // ======================
+  // Modal submit handlers
+  // ======================
 
-  useEffect(() => {
-    setLocalApplications(applications);
-  }, [applications]);
-
-  useEffect(() => {
-    async function loadPlatforms() {
-      try {
-        const data = await fetchSupportsPlatforms();
-        setPlatforms(data);
-      } catch (err) {
-        console.error("Failed to load platforms:", err);
-      } finally {
-        setLoadingPlatforms(false);
-      }
-    }
-    loadPlatforms();
-  }, []);
-
-  useEffect(() => {
-    if (modal.addStepOpen || modal.editStepOpen) {
-      (async () => {
-        try {
-          const availableSteps = await fetchSupportsSteps();
-          setSteps(availableSteps);
-        } catch (err) {
-          console.error("Failed to load available steps:", err);
-        }
-      })();
-    }
-  }, [modal.addStepOpen, modal.editStepOpen]);
-
-  useEffect(() => {
-    if (modal.finalizeOpen) {
-      (async () => {
-        try {
-          const [availableFeedbacks, availableResults] = await Promise.all([
-            fetchSupportsFeedbacks(),
-            fetchSupportsResults(),
-          ]);
-          setFeedbacks(availableFeedbacks);
-          setResults(availableResults);
-        } catch (err) {
-          console.error("Failed to load feedbacks/results:", err);
-        }
-      })();
-    }
-  }, [modal.finalizeOpen]);
-
-  const handleFinalizeSubmit = async (data: {
-    step_id: string;
-    feedback_id: string;
-    finalize_date: string;
-    salary_offer?: string;
-    final_observation?: string;
-  }) => {
-    if (!modal.selectedApplication?.id) return;
-
-    const payload: FinalizeApplicationPayload = {
-      step_id: parseInt(data.step_id, 10),
-      feedback_id: parseInt(data.feedback_id, 10),
-      finalize_date: data.finalize_date,
-      salary_offer: data.salary_offer
-        ? parseFloat(data.salary_offer)
-        : undefined,
-      observation: data.final_observation,
-    };
-
-    try {
-      await finalizeApplication(modal.selectedApplication.id, payload);
-      await mutateSteps(modal.selectedApplication.id);
-      await mutateApplications();
-      modal.setFinalizeOpen(false);
-    } catch (err) {
-      console.error("Error finalizing application:", err);
-    }
-  };
-
-  const handleEditSubmit = async (data: BaseApplicationFormData) => {
-    if (!modal.selectedApplication?.id) return;
-
-    const payload: UpdateApplicationPayload = {
-      company: data.company,
-      role: data.role,
-      application_date: data.application_date,
-      platform_id: parseInt(data.platform_id as string, 10),
-      mode: data.mode ?? "active",
-      expected_salary: data.expected_salary,
-      salary_range_min: data.salary_range_min,
-      salary_range_max: data.salary_range_max,
-      observation: data.observation,
-    };
-
-    await updateApplication(modal.selectedApplication.id, payload);
+  async function handleCreate(data: CreateApplicationPayload) {
+    await createApplication({
+      ...data,
+      platform_id: Number(data.platform_id),
+    });
     await mutateApplications();
-    modal.setEditAppOpen(false);
-  };
+    modal.close("addApp");
+  }
 
-  const handleDelete = async (id?: string) => {
+  async function handleEdit(data: UpdateApplicationPayload) {
+    const id = modal.state.selectedApplication?.id;
     if (!id) return;
-    setIsDeleting(true);
-    try {
-      await deleteApplication(id);
-      await mutateApplications();
-      modal.setDeleteAppOpen(false);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
+    await updateApplication(id, {
+      ...data,
+      platform_id: Number(data.platform_id),
+    });
+    await mutateApplications();
+    modal.close("editApp");
+  }
 
-  if (error)
-    return <div className="text-red-400">Failed to load applications</div>;
+  async function handleFinalize(data: FinalizeApplicationPayload) {
+    const id = modal.state.selectedApplication?.id;
+    if (!id) return;
+    await finalizeApplication(id, data);
+    await mutateSteps(id);
+    await mutateApplications();
+    modal.close("finalizeApp");
+  }
+
+  async function handleDelete() {
+    const id = modal.state.selectedApplication?.id;
+    if (!id) return;
+    await deleteApplication(id);
+    await mutateApplications();
+    modal.close("deleteApp");
+  }
+
+  async function handleStepSuccess(modalKey: string) {
+    const id = modal.state.selectedApplication?.id;
+    if (!id) return;
+    await mutateApplications();
+    modal.close(modalKey);
+  }
+
+  if (error) return <div className="text-red-500">Failed to load applications.</div>;
 
   return (
     <div className="grid grid-cols-1 gap-4">
@@ -188,114 +115,93 @@ export default function ApplicationsGrid({
         <ApplicationCard
           key={app.id}
           app={app}
-          onAddStep={modal.openAddStep}
-          onEditStep={modal.openEditStep}
-          onDeleteStep={modal.openDeleteStep}
-          onEditApp={modal.openEditApp}
-          onDeleteApp={modal.openDeleteApp}
-          onFinalizeApp={modal.openFinalizeApp}
+          onAddStep={() => modal.open("addStep", { application: app })}
+          onEditStep={(step) => modal.open("editStep", { step, application: app })}
+          onDeleteStep={(step) => modal.open("deleteStep", { step, application: app })}
+          onEditApp={() => modal.open("editApp", { application: app })}
+          onDeleteApp={() => modal.open("deleteApp", { application: app })}
+          onFinalizeApp={() => modal.open("finalizeApp", { application: app })}
         />
       ))}
 
-      {/* Modals */}
+      {/* Application Modals */}
       <AddApplicationModal
-        isOpen={addAppOpen}
-        onClose={() => setAddAppOpen?.(false)}
-        platforms={platforms.map((p) => ({ id: String(p.id), name: p.name }))}
-        onSubmit={() => setAddAppOpen?.(false)}
-      />
-
-      <AddStepModal
-        isOpen={modal.addStepOpen}
-        onClose={() => modal.setAddStepOpen(false)}
-        steps={steps}
-        loadingSteps={modal.addStepOpen && steps.length === 0}
-        applicationId={modal.selectedApplication?.id || ""}
-        applicationInfo={modal.selectedApplication?.company ?? ""}
-        onSuccess={async () => {
-          await mutateApplications();
-          modal.setAddStepOpen(false);
-        }}
-      />
-
-      <FinalizeApplicationModal
-        isOpen={modal.finalizeOpen}
-        onClose={() => modal.setFinalizeOpen(false)}
-        applicationId={modal.selectedApplication?.id || ""}
-        feedbacks={feedbacks.map((f) => ({ id: String(f.id), name: f.name }))}
-        results={results.map((r) => ({ id: String(r.id), name: r.name }))}
-        loadingFeedbacks={modal.finalizeOpen && feedbacks.length === 0}
-        loadingResults={modal.finalizeOpen && results.length === 0}
-        onSubmit={handleFinalizeSubmit}
+        isOpen={modal.isOpen("addApp")}
+        onClose={() => modal.close("addApp")}
+        onSubmit={handleCreate}
+        platforms={supports.platforms}
+        loadingPlatforms={loadingSupports}
       />
 
       <EditApplicationModal
-        isOpen={modal.editAppOpen}
-        onClose={() => modal.setEditAppOpen(false)}
-        platforms={platforms.map((p) => ({ id: String(p.id), name: p.name }))}
-        loadingPlatforms={loadingPlatforms}
+        isOpen={modal.isOpen("editApp")}
+        onClose={() => modal.close("editApp")}
+        onSubmit={handleEdit}
+        platforms={supports.platforms}
+        loadingPlatforms={loadingSupports}
         initialData={
-          modal.selectedApplication
-            ? {
-                id: modal.selectedApplication.id,
-                company: modal.selectedApplication.company,
-                role: modal.selectedApplication.role,
-                application_date: modal.selectedApplication.application_date,
-                platform_id: modal.selectedApplication.platform_id ?? undefined,
-                mode:
-                  modal.selectedApplication.mode === "active" ||
-                  modal.selectedApplication.mode === "passive"
-                    ? modal.selectedApplication.mode
-                    : undefined,
-                expected_salary: modal.selectedApplication.expected_salary,
-                salary_range_min: modal.selectedApplication.salary_range_min,
-                salary_range_max: modal.selectedApplication.salary_range_max,
-                observation: modal.selectedApplication.observation,
-              }
-            : undefined
+          modal.state.selectedApplication && {
+            ...modal.state.selectedApplication,
+            platform_id: Number(modal.state.selectedApplication.platform_id),
+          }
         }
-        onSubmit={handleEditSubmit}
+      />
+
+      <FinalizeApplicationModal
+        isOpen={modal.isOpen("finalizeApp")}
+        onClose={() => modal.close("finalizeApp")}
+        onSubmit={handleFinalize}
+        feedbacks={supports.feedbacks}
+        results={supports.results}
+        loadingFeedbacks={loadingSupports}
+        loadingResults={loadingSupports}
+        applicationId={String(modal.state.selectedApplication?.id ?? "")}
       />
 
       <DeleteApplicationModal
-        isOpen={modal.deleteAppOpen}
-        onClose={() => modal.setDeleteAppOpen(false)}
-        onSubmit={() => handleDelete(modal.selectedApplication?.id)}
-        loading={isDeleting}
-        applicationName={modal.selectedApplication?.company}
+        isOpen={modal.isOpen("deleteApp")}
+        onClose={() => modal.close("deleteApp")}
+        onSubmit={handleDelete}
+        applicationName={modal.state.selectedApplication?.company}
       />
 
-      {modal.selectedStep && (
+      {/* Step Modals */}
+      <AddStepModal
+        isOpen={modal.isOpen("addStep")}
+        onClose={() => modal.close("addStep")}
+        steps={supports.steps}
+        applicationId={String(modal.state.selectedApplication?.id ?? "")}
+        applicationInfo={modal.state.selectedApplication?.company ?? ""}
+        loadingSteps={loadingSupports}
+        onSuccess={() => handleStepSuccess("addStep")}
+      />
+
+      {modal.state.selectedStep && (
         <>
           <EditStepModal
-            isOpen={modal.editStepOpen}
-            onClose={() => modal.setEditStepOpen(false)}
-            steps={steps}
-            loadingSteps={modal.editStepOpen && steps.length === 0}
-            applicationId={modal.selectedApplication?.id ?? ""}
+            isOpen={modal.isOpen("editStep")}
+            onClose={() => modal.close("editStep")}
+            steps={supports.steps}
+            applicationId={String(modal.state.selectedApplication?.id ?? "")}
+            loadingSteps={loadingSupports}
             initialData={{
-              id: Number(modal.selectedStep.id),
-              step_id: Number(modal.selectedStep.step_id),
-              step_name: modal.selectedStep.step_name ?? "",
-              step_date: modal.selectedStep.step_date ?? "",
-              observation: modal.selectedStep.observation ?? "",
+              id: Number(modal.state.selectedStep.id),
+              step_id: Number(modal.state.selectedStep.step_id),
+              step_name: modal.state.selectedStep.step_name ?? "",
+              step_date: modal.state.selectedStep.step_date ?? "",
+              observation: modal.state.selectedStep.observation ?? "",
             }}
-            onSuccess={async () => {
-              await mutateApplications();
-              modal.setEditStepOpen(false);
-            }}
+            onSuccess={() => handleStepSuccess("editStep")}
           />
+
           <DeleteStepModal
-            isOpen={modal.deleteStepOpen}
-            onClose={() => modal.setDeleteStepOpen(false)}
-            applicationId={modal.selectedApplication?.id ?? ""}
-            stepId={modal.selectedStep.id ?? ""}
-            stepName={modal.selectedStep.step_name ?? ""}
-            stepDate={modal.selectedStep.step_date ?? ""}
-            onSuccess={async () => {
-              await mutateApplications();
-              modal.setDeleteStepOpen(false);
-            }}
+            isOpen={modal.isOpen("deleteStep")}
+            onClose={() => modal.close("deleteStep")}
+            applicationId={String(modal.state.selectedApplication?.id ?? "")}
+            stepId={String(modal.state.selectedStep.id ?? "")}
+            stepName={modal.state.selectedStep.step_name ?? ""}
+            stepDate={modal.state.selectedStep.step_date ?? ""}
+            onSuccess={() => handleStepSuccess("deleteStep")}
           />
         </>
       )}
