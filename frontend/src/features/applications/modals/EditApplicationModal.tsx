@@ -21,6 +21,7 @@ interface EditApplicationModalProps {
   onClose: () => void;
   platforms: { id: string; name: string }[];
   loadingPlatforms?: boolean;
+  loading?: boolean;
   initialData?: Partial<Application>;
   onSubmit: (data: UpdateApplicationPayload) => void;
 }
@@ -35,6 +36,7 @@ export default function EditApplicationModal({
   onClose,
   platforms = [],
   loadingPlatforms = false,
+  loading = false,
   initialData,
   onSubmit,
 }: EditApplicationModalProps) {
@@ -215,10 +217,10 @@ export default function EditApplicationModal({
 
           <ModalFooter
             onCancel={onClose}
-            loading={isSubmitting}
             submitLabel="Save Changes"
             cancelLabel="Cancel"
-            disabled={isSubmitting}
+            loading={isSubmitting || loading}
+            disabled={isSubmitting || loading}
           />
         </form>
       )}

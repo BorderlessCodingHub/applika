@@ -20,6 +20,7 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   platforms: { id: string; name: string }[];
+  loadingPlatforms?: boolean;
   loading?: boolean;
   onSubmit?: (payload: CreateApplicationPayload) => Promise<void> | void;
 }
@@ -34,6 +35,7 @@ export default function AddApplicationModal({
   onClose,
   platforms,
   onSubmit,
+  loadingPlatforms = false,
   loading = false,
 }: Props) {
   const {
@@ -76,7 +78,7 @@ export default function AddApplicationModal({
       isOpen={isOpen}
       title="Add New Application"
       onClose={onClose}
-      loading={loading}
+      loading={loadingPlatforms}
       numFields={8}
       showTextarea
     >

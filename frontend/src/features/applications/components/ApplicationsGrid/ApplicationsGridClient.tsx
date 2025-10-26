@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import ApplicationCard from "../ApplicationCard";
 
 import { useModal } from "../../context/ModalProvider";
@@ -40,7 +40,10 @@ import type {
   FinalizeApplicationPayload,
 } from "../../services/applicationsService";
 
-import type { AddStepPayload, UpdateStepPayload } from "../../services/applicationStepsService";
+import type {
+  AddStepPayload,
+  UpdateStepPayload,
+} from "../../services/applicationStepsService";
 
 interface ApplicationsGridProps {
   applications?: Application[];
@@ -66,74 +69,110 @@ export default function ApplicationsGridClient({
     );
   }, [localApplications, searchTerm]);
 
+  // ---------------- Loading states for modal submits ----------------
+  const [loadingAddApp, setLoadingAddApp] = useState(false);
+  const [loadingEditApp, setLoadingEditApp] = useState(false);
+  const [loadingFinalizeApp, setLoadingFinalizeApp] = useState(false);
+  const [loadingDeleteApp, setLoadingDeleteApp] = useState(false);
+
+  const [loadingAddStep, setLoadingAddStep] = useState(false);
+  const [loadingEditStep, setLoadingEditStep] = useState(false);
+  const [loadingDeleteStep, setLoadingDeleteStep] = useState(false);
+
   // ======================
   // Modal submit handlers
   // ======================
 
   async function handleCreate(data: CreateApplicationPayload) {
-    await createApplication({
-      ...data,
-      platform_id: Number(data.platform_id),
-    });
-    await mutateApplications();
-    modal.close("addApp");
+    setLoadingAddApp(true);
+    try {
+      await createApplication({
+        ...data,
+        platform_id: Number(data.platform_id),
+      });
+      await mutateApplications();
+      modal.close("addApp");
+    } finally {
+      setLoadingAddApp(false);
+    }
   }
 
   async function handleEdit(data: UpdateApplicationPayload) {
     const id = modal.state.selectedApplication?.id;
     if (!id) return;
-    await updateApplication(id, {
-      ...data,
-      platform_id: Number(data.platform_id),
-    });
-    await mutateApplications();
-    modal.close("editApp");
+    setLoadingEditApp(true);
+    try {
+      await updateApplication(id, {
+        ...data,
+        platform_id: Number(data.platform_id),
+      });
+      await mutateApplications();
+      modal.close("editApp");
+    } finally {
+      setLoadingEditApp(false);
+    }
   }
 
   async function handleFinalize(data: FinalizeApplicationPayload) {
     const id = modal.state.selectedApplication?.id;
     if (!id) return;
-    await finalizeApplication(id, data);
-    await mutateSteps(id);
-    await mutateApplications();
-    modal.close("finalizeApp");
+    setLoadingFinalizeApp(true);
+    try {
+      await finalizeApplication(id, data);
+      await mutateSteps(id);
+      await mutateApplications();
+      modal.close("finalizeApp");
+    } finally {
+      setLoadingFinalizeApp(false);
+    }
   }
 
   async function handleDelete() {
     const id = modal.state.selectedApplication?.id;
     if (!id) return;
-    await deleteApplication(id);
-    await mutateApplications();
-    modal.close("deleteApp");
+    setLoadingDeleteApp(true);
+    try {
+      await deleteApplication(id);
+      await mutateApplications();
+      modal.close("deleteApp");
+    } finally {
+      setLoadingDeleteApp(false);
+    }
   }
 
   // Add Step
   async function handleAddStep(data: AddStepPayload) {
     const appId = modal.state.selectedApplication?.id;
     if (!appId) return;
-
-    // Send API request
-    await addApplicationStep(appId, data);
-
-    // Refresh steps and applications
-    await mutateSteps(appId);
-    await mutateApplications();
-
-    modal.close("addStep");
+    setLoadingAddStep(true);
+    try {
+      await addApplicationStep(appId, data);
+      await mutateSteps(appId);
+      await mutateApplications();
+      modal.close("addStep");
+    } finally {
+      setLoadingAddStep(false);
+    }
   }
-
   // Edit Step
   async function handleEditStep({
     applicationId,
+    stepId,
     data,
   }: {
     applicationId: string | number;
+    stepId: number;
     data: UpdateStepPayload & { id: number };
   }) {
-    await updateApplicationStep(applicationId, data.id, data);
-    await mutateSteps(applicationId);
-    await mutateApplications();
-    modal.close("editStep");
+    setLoadingEditStep(true);
+    try {
+      await updateApplicationStep(applicationId, stepId, data);
+      await mutateSteps(applicationId);
+      await mutateApplications();
+      modal.close("editStep");
+    } finally {
+      setLoadingEditStep(false);
+    }
   }
 
   // Delete Step
@@ -144,10 +183,15 @@ export default function ApplicationsGridClient({
     applicationId: string | number;
     stepId: string | number;
   }) {
-    await deleteApplicationStep(applicationId, stepId);
-    await mutateSteps(applicationId);
-    await mutateApplications();
-    modal.close("deleteStep");
+    setLoadingDeleteStep(true);
+    try {
+      await deleteApplicationStep(applicationId, stepId);
+      await mutateSteps(applicationId);
+      await mutateApplications();
+      modal.close("deleteStep");
+    } finally {
+      setLoadingDeleteStep(false);
+    }
   }
 
   if (error)
@@ -178,7 +222,8 @@ export default function ApplicationsGridClient({
         onClose={() => modal.close("addApp")}
         onSubmit={handleCreate}
         platforms={supports.platforms}
-        loading={loadingSupports}
+        loadingPlatforms={loadingSupports}
+        loading={loadingAddApp}
       />
 
       {modal.state.selectedApplication && (
@@ -188,6 +233,7 @@ export default function ApplicationsGridClient({
           onSubmit={handleEdit}
           platforms={supports.platforms}
           loadingPlatforms={loadingSupports}
+          loading={loadingEditApp}
           initialData={modal.state.selectedApplication}
         />
       )}
@@ -198,7 +244,9 @@ export default function ApplicationsGridClient({
         onSubmit={handleFinalize}
         feedbacks={supports.feedbacks}
         results={supports.results}
-        loading={loadingSupports}
+        loadingFeedbacks={loadingSupports}
+        loadingResults={loadingSupports}
+        loading={loadingFinalizeApp}
         applicationId={String(modal.state.selectedApplication?.id ?? "")}
       />
 
@@ -207,6 +255,7 @@ export default function ApplicationsGridClient({
         onClose={() => modal.close("deleteApp")}
         onSubmit={handleDelete}
         applicationName={modal.state.selectedApplication?.company}
+        loading={loadingDeleteApp}
       />
 
       {/* Step Modals */}
@@ -217,6 +266,7 @@ export default function ApplicationsGridClient({
         applicationId={String(modal.state.selectedApplication?.id ?? "")}
         applicationInfo={modal.state.selectedApplication?.company ?? ""}
         loadingSteps={loadingSupports}
+        loading={loadingAddStep}
         onSuccess={handleAddStep}
       />
 
@@ -228,15 +278,20 @@ export default function ApplicationsGridClient({
             steps={supports.steps}
             applicationId={String(modal.state.selectedApplication?.id ?? "")}
             initialData={{
-              id: Number(modal.state.selectedStep.id),
+              id: modal.state.selectedStep.id,
               step_id: Number(modal.state.selectedStep.step_id),
               step_name: modal.state.selectedStep.step_name ?? "",
               step_date: modal.state.selectedStep.step_date ?? "",
               observation: modal.state.selectedStep.observation ?? "",
             }}
             loadingSteps={loadingSupports}
-            onSubmit={({ applicationId, data }) =>
-              handleEditStep({ applicationId, data })
+            loading={loadingEditStep}
+            onSubmit={({ applicationId, stepId, data }) =>
+              handleEditStep({
+                applicationId,
+                stepId: stepId,
+                data,
+              })
             }
           />
 
@@ -247,6 +302,7 @@ export default function ApplicationsGridClient({
             stepId={String(modal.state.selectedStep.id ?? "")}
             stepName={modal.state.selectedStep.step_name ?? ""}
             stepDate={modal.state.selectedStep.step_date ?? ""}
+            loading={loadingDeleteStep}
             onSubmit={() =>
               handleDeleteStep({
                 applicationId: String(

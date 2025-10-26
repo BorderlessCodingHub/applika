@@ -6,16 +6,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import ModalWithSkeleton from "@/components/ui/ModalWithSkeleton";
 import ModalFooter from "@/components/ui/ModalFooter";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
-import { z } from "zod";
 
-// Minimal schema for creating a step. Adjust fields to your real schema if different.
-const createStepSchema = z.object({
-  step_id: z.number().int().positive(),
-  step_date: z.string().min(1),
-  observation: z.string().optional(),
-});
-
-type CreateStepPayload = z.infer<typeof createStepSchema>;
+import {
+  addStepPayloadSchema,
+  type AddStepPayload,
+} from "../schemas/applicationsStepsSchema";
 
 interface Props {
   isOpen: boolean;
@@ -24,7 +19,7 @@ interface Props {
   loadingSteps?: boolean;
   applicationId: string;
   applicationInfo?: string;
-  onSuccess?: () => Promise<void> | void; // parent handles API and mutation
+  onSuccess?: () => Promise<void> | void;
   loading?: boolean;
 }
 
@@ -39,8 +34,8 @@ export default function AddStepModal({
   loading = false,
 }: Props) {
   const { register, handleSubmit, control, reset, formState } =
-    useForm<CreateStepPayload>({
-      resolver: zodResolver(createStepSchema),
+    useForm<AddStepPayload>({
+      resolver: zodResolver(addStepPayloadSchema),
       defaultValues: useMemo(
         () => ({ step_id: 0, step_date: "", observation: "" }),
         []
@@ -51,7 +46,7 @@ export default function AddStepModal({
     if (isOpen) reset();
   }, [isOpen, reset]);
 
-  const onFormSubmit = async (data: CreateStepPayload) => {
+  const onFormSubmit = async (data: AddStepPayload) => {
     await onSuccess?.(data);
   };
 

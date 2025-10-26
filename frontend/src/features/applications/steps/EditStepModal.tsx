@@ -3,20 +3,15 @@
 
 import React, { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import ModalBase from "@/components/ui/ModalBase";
+import ModalWithSkeleton from "@/components/ui/ModalWithSkeleton";
 import ModalFooter from "@/components/ui/ModalFooter";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
-import ModalSkeleton from "@/components/ui/ModalSkeleton";
 
-const editStepSchema = z.object({
-  id: z.number().int().positive(),
-  step_id: z.number().int().positive(),
-  step_date: z.string().min(1),
-  observation: z.string().optional(),
-});
-export type EditStepForm = z.infer<typeof editStepSchema>;
+import {
+  updateStepPayloadSchema,
+  type UpdateStepPayload,
+} from "../schemas/applicationsStepsSchema";
 
 interface StepOption {
   id: number | string;
@@ -30,7 +25,7 @@ interface Props {
   loadingSteps?: boolean;
   applicationId: string;
   initialData: {
-    id: number;
+    id: Number;
     step_id: number;
     step_name?: string;
     step_date?: string;
@@ -38,7 +33,8 @@ interface Props {
   };
   onSubmit: (payload: {
     applicationId: string;
-    data: EditStepForm;
+    stepId: number;
+    data: UpdateStepPayload;
   }) => Promise<void> | void;
   loading?: boolean;
 }
@@ -59,10 +55,9 @@ export default function EditStepModal({
     register,
     reset,
     formState: { isSubmitting },
-  } = useForm<EditStepForm>({
-    resolver: zodResolver(editStepSchema),
+  } = useForm<UpdateStepPayload>({
+    resolver: zodResolver(updateStepPayloadSchema),
     defaultValues: {
-      id: initialData.id ?? 0,
       step_id: initialData.step_id ?? 0,
       step_date: initialData.step_date ?? "",
       observation: initialData.observation ?? "",
@@ -72,7 +67,6 @@ export default function EditStepModal({
   useEffect(() => {
     if (isOpen && initialData) {
       reset({
-        id: initialData.id,
         step_id: initialData.step_id,
         step_date: initialData.step_date ?? "",
         observation: initialData.observation ?? "",
@@ -80,18 +74,29 @@ export default function EditStepModal({
     }
   }, [isOpen, initialData, reset]);
 
-  const onFormSubmit = async (data: EditStepForm) => {
-    await onSubmit({ applicationId, data });
+  const onFormSubmit = async (data: UpdateStepPayload) => {
+    if (!initialData) return;
+
+    await onSubmit({
+      applicationId,
+      stepId: initialData.id,
+      data: data,
+    });
     onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <ModalBase isOpen={isOpen} title="Edit Step" onClose={onClose}>
-      {loadingSteps || !initialData ? (
-        <ModalSkeleton numFields={2} showTextarea />
-      ) : (
+    <ModalWithSkeleton
+      isOpen={isOpen}
+      title="Edit Step"
+      onClose={onClose}
+      loading={loadingSteps}
+      numFields={2}
+      showTextarea
+    >
+      {initialData && (
         <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Controller
@@ -145,6 +150,6 @@ export default function EditStepModal({
           />
         </form>
       )}
-    </ModalBase>
+    </ModalWithSkeleton>
   );
 }
