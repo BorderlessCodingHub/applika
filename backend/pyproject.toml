@@ -40,6 +40,8 @@ addopts = "--cov=app --cov-report=html --cov-report=xml"
 ENVIRONMENT = "TEST"
 # fake url - will be replaced by testcontainer instance during tests
 DATABASE_URL = "postgresql+asyncpg://user:password@localhost:5432/testdb"
+GITHUB_CLIENT_ID = "fake_client_id"
+GITHUB_CLIENT_SECRET = "fake_client_secret"
 
 [tool.ruff]
 target-version = "py311"
