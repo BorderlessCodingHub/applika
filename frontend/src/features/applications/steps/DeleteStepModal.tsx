@@ -1,9 +1,20 @@
 // src/features/applications/steps/DeleteStepModal.tsx
 "use client";
 
-import React from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+
 import ModalBase from "@/components/ui/ModalBase";
 import ModalFooter from "@/components/ui/ModalFooter";
+
+const deleteStepSchema = z.object({
+  confirm: z.literal(true, {
+    errorMap: () => ({ message: "You must confirm before deleting." }),
+  }),
+});
+
+type DeleteStepPayload = z.infer<typeof deleteStepSchema>;
 
 interface Props {
   isOpen: boolean;
@@ -13,7 +24,7 @@ interface Props {
   stepName?: string;
   stepDate?: string;
   // parent should perform API/mutation
-  onSubmit: () => Promise<void> | void;
+  onSubmit?: () => Promise<void> | void;
   loading?: boolean;
 }
 
@@ -27,6 +38,15 @@ export default function DeleteStepModal({
   onSubmit,
   loading = false,
 }: Props) {
+  const {
+    handleSubmit,
+    register,
+    formState: { isSubmitting },
+  } = useForm<DeleteStepPayload>({
+    resolver: zodResolver(deleteStepSchema),
+    defaultValues: { confirm: true },
+  });
+
   if (!isOpen) return null;
 
   return (
@@ -36,32 +56,36 @@ export default function DeleteStepModal({
       title="Delete Step"
       variant="danger"
     >
-      <div className="p-6 text-center">
-        <p className="text-white text-lg">
-          Are you sure you want to delete step{" "}
-          <span className="font-semibold text-red-400">
-            {stepName ?? stepId}
-          </span>
-          {stepDate ? (
-            <span className="block text-sm text-white/60 mt-1">{stepDate}</span>
-          ) : null}
-        </p>
-      </div>
+      <form
+        onSubmit={handleSubmit(async () => {
+          await onSubmit?.();
+        })}
+        className="space-y-6"
+      >
+        {/* hidden input so zod/reducer has the confirm value registered (keeps same pattern as DeleteApplicationModal) */}
+        <input type="hidden" {...register("confirm")} />
 
-      <div className="px-6 pb-6">
+        <div className="p-6 text-center">
+          <p className="text-white text-lg">
+            Are you sure you want to delete step{" "}
+            <span className="font-semibold text-red-400">
+              {stepName ?? stepId}
+            </span>
+            ?{" "}
+            <span className="block text-sm text-white/60 mt-1">
+              {stepDate ?? `${applicationId} • step ${stepId}`}
+            </span>
+          </p>
+        </div>
+
         <ModalFooter
           onCancel={onClose}
           submitLabel="Delete Step"
           cancelLabel="Cancel"
-          loading={loading}
+          loading={isSubmitting || loading}
           variant="danger"
-          // When the Delete button is clicked, call parent then close
-          onSubmit={async () => {
-            await onSubmit();
-            onClose();
-          }}
         />
-      </div>
+      </form>
     </ModalBase>
   );
 }

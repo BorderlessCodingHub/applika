@@ -69,7 +69,7 @@ export default function DeleteApplicationModal({
           onCancel={onClose}
           submitLabel="Delete"
           cancelLabel="Cancel"
-          loading={loading || isSubmitting}
+          loading={isSubmitting || loading}
           variant="danger"
         />
       </form>
