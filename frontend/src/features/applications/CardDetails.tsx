@@ -1,6 +1,7 @@
-// src/features/applications/components/CardDetails.tsx
 "use client";
-import { useMemo } from "react";
+
+import { motion } from "framer-motion";
+import { Pencil, Trash2 } from "lucide-react";
 import CardDetailsSkeleton from "@/components/ui/CardDetailsSkeleton";
 import { useApplicationSteps } from "@/features/applications/hooks/useApplicationSteps";
 
@@ -19,22 +20,34 @@ export default function CardDetails({
   onEditStep,
   onDeleteStep,
 }: CardDetailsProps) {
-  // Only fetch steps when modal is open
-  const appId = useMemo(() => (isOpen ? id : undefined), [isOpen, id]);
-  const { steps, isLoading, isValidating } = useApplicationSteps(appId);
-
+  const { steps, isLoading, isValidating } = useApplicationSteps(
+    isOpen ? id : undefined
+  );
   const loading = isLoading || isValidating;
 
   if (!isOpen) return null;
 
   return (
-    <div className="mt-4 bg-white/5 p-6 rounded-2xl border border-white/10 backdrop-blur-xl transition-all">
+    <motion.div
+      layout
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.25 }}
+      className="mt-4 bg-white/5 p-6 rounded-2xl border border-white/10 backdrop-blur-xl transition-all"
+    >
       {loading ? (
         <CardDetailsSkeleton />
       ) : steps.length > 0 ? (
         <div className="space-y-4">
-          {steps.map((step, index) => (
-            <div key={step.id ?? index} className="flex gap-4 items-start">
+          {steps.map((step) => (
+            <motion.div
+              key={step.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              className="flex gap-4 items-start"
+            >
               <div className="relative w-3 h-3 bg-white/20 rounded-full mt-1.5" />
               <div className="flex-1">
                 <div className="font-medium">{step.step_name}</div>
@@ -45,21 +58,19 @@ export default function CardDetails({
                   </div>
                 )}
               </div>
-              <div className="flex gap-2">
-                <button
-                  className="text-xs text-blue-400"
+              <div className="flex gap-3 items-center">
+                <IconButton
+                  icon={<Pencil size={16} />}
+                  color="text-blue-400"
                   onClick={() => onEditStep(step)}
-                >
-                  Edit
-                </button>
-                <button
-                  className="text-xs text-red-400"
+                />
+                <IconButton
+                  icon={<Trash2 size={16} />}
+                  color="text-red-400"
                   onClick={() => onDeleteStep(step)}
-                >
-                  Delete
-                </button>
+                />
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       ) : (
@@ -73,6 +84,28 @@ export default function CardDetails({
           <strong>Observation:</strong> {observation}
         </div>
       )}
-    </div>
+    </motion.div>
+  );
+}
+
+function IconButton({
+  icon,
+  color,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  color: string;
+  onClick: () => void;
+}) {
+  return (
+    <motion.button
+      whileHover={{ scale: 1.2, rotate: 8 }}
+      whileTap={{ scale: 0.9 }}
+      transition={{ type: "spring", stiffness: 250, damping: 18 }}
+      className={`${color} hover:opacity-80`}
+      onClick={onClick}
+    >
+      {icon}
+    </motion.button>
   );
 }
