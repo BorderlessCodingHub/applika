@@ -13,8 +13,6 @@ import {
   type UpdateApplicationPayload,
 } from "../schemas/applications/updateApplicationSchema";
 import type { Application } from "../types";
-import { updateApplication } from "../services/applicationsService";
-import { mutateApplications } from "../hooks/useApplications";
 
 interface EditApplicationModalProps {
   isOpen: boolean;
@@ -82,22 +80,7 @@ export default function EditApplicationModal({
   }, [isOpen, initialData, reset]);
 
   const onFormSubmit = async (data: UpdateApplicationPayload) => {
-    try {
-      if (!initialData?.id) return;
-
-      // Parse numeric fields
-      const payload = {
-        ...data,
-        platform_id: data.platform_id ? Number(data.platform_id) : undefined,
-      };
-
-      await updateApplication(initialData.id, payload);
-      await mutateApplications(); // global cache update
-      onSubmit(payload);
-      onClose();
-    } catch (err) {
-      console.error("Error updating application:", err);
-    }
+    await onSubmit?.(data);
   };
 
   if (!isOpen) return null;
@@ -146,7 +129,11 @@ export default function EditApplicationModal({
               render={({ field }) => (
                 <div className="relative">
                   <ListBoxSelect
-                    value={platforms.find((p) => p.id === field.value) ?? null}
+                    value={
+                      platforms.find(
+                        (p) => String(p.id) === String(field.value)
+                      ) ?? null
+                    }
                     onChange={(val) => field.onChange(val?.id ?? "")}
                     options={platforms}
                     placeholder="Select Platform"
@@ -180,7 +167,7 @@ export default function EditApplicationModal({
             />
 
             <input
-              {...register("expected_salary")}
+              {...register("expected_salary", { valueAsNumber: true })}
               type="number"
               placeholder="Expected Salary (optional)"
               className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
@@ -191,14 +178,14 @@ export default function EditApplicationModal({
           {/* Salary Range */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
-              {...register("salary_range_min")}
+              {...register("salary_range_min", { valueAsNumber: true })}
               type="number"
               placeholder="Salary Range Min (optional)"
               className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
                        placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
             />
             <input
-              {...register("salary_range_max")}
+              {...register("salary_range_max", { valueAsNumber: true })}
               type="number"
               placeholder="Salary Range Max (optional)"
               className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
