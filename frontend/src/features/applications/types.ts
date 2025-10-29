@@ -40,6 +40,15 @@ export interface Application {
   // Extra info
   mode?: string;
   observation?: string;
+  
+  finalized?: boolean;
+
+  feedback?: {
+    id: number;
+    name: string;
+    color: string;
+    date: string;
+  } | null;
 
   // Steps
   step_name?: string;

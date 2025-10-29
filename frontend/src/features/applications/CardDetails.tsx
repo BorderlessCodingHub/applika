@@ -8,6 +8,7 @@ import { useApplicationSteps } from "@/features/applications/hooks/useApplicatio
 interface CardDetailsProps {
   id: number;
   isOpen: boolean;
+  finalized?: boolean;
   observation?: string;
   onEditStep: (step: any) => void;
   onDeleteStep: (step: any) => void;
@@ -16,6 +17,7 @@ interface CardDetailsProps {
 export default function CardDetails({
   id,
   isOpen,
+  finalized = false,
   observation,
   onEditStep,
   onDeleteStep,
@@ -61,13 +63,21 @@ export default function CardDetails({
               <div className="flex gap-3 items-center">
                 <IconButton
                   icon={<Pencil size={16} />}
-                  color="text-blue-400"
-                  onClick={() => onEditStep(step)}
+                  color={
+                    finalized
+                      ? "text-white/30 cursor-not-allowed"
+                      : "text-blue-400"
+                  }
+                  onClick={() => !finalized && onEditStep(step)}
                 />
                 <IconButton
                   icon={<Trash2 size={16} />}
-                  color="text-red-400"
-                  onClick={() => onDeleteStep(step)}
+                  color={
+                    finalized
+                      ? "text-white/30 cursor-not-allowed"
+                      : "text-red-400"
+                  }
+                  onClick={() => !finalized && onDeleteStep(step)}
                 />
               </div>
             </motion.div>

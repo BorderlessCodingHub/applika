@@ -58,7 +58,12 @@ export default function ApplicationsGridClient({
   const { applications: fetchedApps, error } = useApplications();
   const { supports, isLoading: loadingSupports } = useSupports();
 
-  const localApplications = applications.length ? applications : fetchedApps;
+  const localApplications = (
+    applications.length ? applications : fetchedApps
+  ).map((app) => ({
+    ...app,
+    finalized: app.feedback !== null,
+  }));
 
   const displayedApps = useMemo(() => {
     const query = searchTerm.toLowerCase();
@@ -203,16 +208,25 @@ export default function ApplicationsGridClient({
         <ApplicationCard
           key={app.id}
           app={app}
-          onAddStep={() => modal.open("addStep", { application: app })}
+          onAddStep={() =>
+            !app.finalized && modal.open("addStep", { application: app })
+          }
           onEditStep={(step) =>
-            modal.open("editStep", { step, application: app })
+            !app.finalized && modal.open("editStep", { step, application: app })
           }
           onDeleteStep={(step) =>
+            !app.finalized &&
             modal.open("deleteStep", { step, application: app })
           }
-          onEditApp={() => modal.open("editApp", { application: app })}
-          onDeleteApp={() => modal.open("deleteApp", { application: app })}
-          onFinalizeApp={() => modal.open("finalizeApp", { application: app })}
+          onEditApp={() =>
+            !app.finalized && modal.open("editApp", { application: app })
+          }
+          onDeleteApp={() =>
+            modal.open("deleteApp", { application: app })
+          }
+          onFinalizeApp={() =>
+            !app.finalized && modal.open("finalizeApp", { application: app })
+          }
         />
       ))}
 
