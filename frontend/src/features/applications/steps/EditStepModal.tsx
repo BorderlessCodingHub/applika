@@ -85,8 +85,6 @@ export default function EditStepModal({
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
     <ModalWithSkeleton
       isOpen={isOpen}

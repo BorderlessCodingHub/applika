@@ -50,8 +50,6 @@ export default function AddStepModal({
     await onSuccess?.(data);
   };
 
-  if (!isOpen) return null;
-
   return (
     <ModalWithSkeleton
       isOpen={isOpen}

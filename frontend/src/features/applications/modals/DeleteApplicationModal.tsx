@@ -40,8 +40,6 @@ export default function DeleteApplicationModal({
     defaultValues: { confirm: true },
   });
 
-  if (!isOpen) return null;
-
   return (
     <ModalBase
       isOpen={isOpen}

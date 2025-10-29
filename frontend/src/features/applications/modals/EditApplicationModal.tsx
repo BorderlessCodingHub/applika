@@ -83,8 +83,6 @@ export default function EditApplicationModal({
     await onSubmit?.(data);
   };
 
-  if (!isOpen) return null;
-
   return (
     <ModalWithSkeleton
       isOpen={isOpen}

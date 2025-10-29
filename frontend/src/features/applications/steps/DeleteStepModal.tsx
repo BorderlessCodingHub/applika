@@ -47,8 +47,6 @@ export default function DeleteStepModal({
     defaultValues: { confirm: true },
   });
 
-  if (!isOpen) return null;
-
   return (
     <ModalBase
       isOpen={isOpen}

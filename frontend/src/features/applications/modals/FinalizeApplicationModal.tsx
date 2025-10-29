@@ -63,8 +63,6 @@ export default function FinalizeApplicationModal({
     await onSubmit?.(data);
   };
 
-  if (!isOpen) return null;
-
   const safeResults = results ?? [];
   const safeFeedbacks = feedbacks ?? [];
 

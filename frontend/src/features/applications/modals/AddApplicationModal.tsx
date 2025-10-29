@@ -71,8 +71,6 @@ export default function AddApplicationModal({
     await onSubmit?.({ ...data, platform_id: Number(data.platform_id) });
   };
 
-  if (!isOpen) return null;
-
   return (
     <ModalWithSkeleton
       isOpen={isOpen}

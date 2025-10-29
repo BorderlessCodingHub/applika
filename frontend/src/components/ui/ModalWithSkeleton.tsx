@@ -1,6 +1,6 @@
 import React, { ReactNode } from "react";
 import ModalBase from "./ModalBase";
-import ModalSkeleton from "./ModalSkeleton"; // your existing skeleton
+import ModalSkeleton from "./ModalSkeleton";
 
 interface ModalWithSkeletonProps {
   isOpen: boolean;
@@ -8,7 +8,7 @@ interface ModalWithSkeletonProps {
   title: string;
   loading?: boolean;
   children: ReactNode;
-  numFields?: number; // optional config for skeleton
+  numFields?: number;
   showTextarea?: boolean;
   variant?: "default" | "danger";
 }
