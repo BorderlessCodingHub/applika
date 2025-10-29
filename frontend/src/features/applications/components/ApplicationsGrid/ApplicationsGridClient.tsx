@@ -207,7 +207,10 @@ export default function ApplicationsGridClient({
       {displayedApps.map((app) => (
         <ApplicationCard
           key={app.id}
-          app={app}
+          app={{
+            ...app,
+            platform: supports.platforms.find((p) => p.id === app.platform_id)?.name ?? "",
+          }}
           onAddStep={() =>
             !app.finalized && modal.open("addStep", { application: app })
           }

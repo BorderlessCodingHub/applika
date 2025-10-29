@@ -66,17 +66,27 @@ export default function ApplicationCard({
           )}
           <IconButton
             icon={<Plus />}
-            color={app.finalized ? "text-white/30 cursor-not-allowed" : "text-sky-500"}
+            color={
+              app.finalized
+                ? "text-white/30 cursor-not-allowed"
+                : "text-sky-500"
+            }
             onClick={() => !app.finalized && onAddStep(app)}
           />
           <IconButton
             icon={<Flag />}
-            color={app.finalized ? "text-white/30 cursor-not-allowed" : "text-amber-500"}
+            color={
+              app.finalized
+                ? "text-white/30 cursor-not-allowed"
+                : "text-amber-500"
+            }
             onClick={() => !app.finalized && onFinalizeApp(app)}
           />
           <IconButton
             icon={<Pencil />}
-            color={app.finalized ? "text-white/30 cursor-not-allowed" : "text-white"}
+            color={
+              app.finalized ? "text-white/30 cursor-not-allowed" : "text-white"
+            }
             onClick={() => !app.finalized && onEditApp(app)}
           />
           <IconButton
@@ -106,6 +116,14 @@ export default function ApplicationCard({
               isOpen={isOpen}
               finalized={app.finalized}
               observation={app.observation}
+              company={app.company}
+              role={app.role}
+              mode={app.mode}
+              platform={app.platform}
+              application_date={app.application_date}
+              expected_salary={app.expected_salary}
+              salary_range_min={app.salary_range_min}
+              salary_range_max={app.salary_range_max}
               steps={steps}
               isLoading={isLoading}
               onEditStep={(s) => onEditStep(s, app)}
