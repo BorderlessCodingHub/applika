@@ -48,17 +48,19 @@ export default function ApplicationCard({
     <motion.div
       layout
       transition={{ layout: { duration: 0.35, ease: "easeInOut" } }}
-      className="transition-all duration-300 w-full rounded-2xl p-8 my-1 bg-white/5 border border-white/20 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.1)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.15)] hover:-translate-y-0.5"
+      className="w-full h-full flex flex-col rounded-2xl p-4 bg-white/5 border border-white/20 backdrop-blur-xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all"
     >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 min-h-[45px]">
-        <div className="flex flex-col gap-1 min-w-[180px]">
-          <h3 className="text-white font-semibold text-base truncate">
+        <div className="flex flex-col gap-1 min-w-[180px] w-full sm:w-auto  items-center sm:items-start">
+          <h3 className="text-white font-semibold text-xl sm:text-2xl truncate">
             {app.company}
           </h3>
-          <span className="text-white/70 text-sm truncate">{app.role}</span>
+          <span className="text-white/70 text-base sm:text-lg truncate">
+            {app.role}
+          </span>
         </div>
 
-        <div className="flex flex-wrap sm:flex-nowrap items-center justify-end gap-3 text-white/80 w-full sm:w-auto">
+        <div className="flex flex-wrap sm:flex-nowrap items-center justify-center sm:justify-end gap-3 text-white/80 w-full sm:w-auto">
           {app.finalized && (
             <span className="ml-0 sm:ml-2 text-sm text-white/50 italic">
               Finalized
@@ -151,7 +153,10 @@ function IconButton({
       whileHover={{ scale: 1.15, rotate: 5 }}
       whileTap={{ scale: 0.9 }}
       transition={{ type: "spring", stiffness: 300, damping: 15 }}
-      className={`${color} hover:opacity-80`}
+      className={`${color} hover:opacity-80
+                 p-3 sm:p-2 
+                 m-1 sm:m-0
+                 rounded-md`}
       onClick={onClick}
     >
       {icon}

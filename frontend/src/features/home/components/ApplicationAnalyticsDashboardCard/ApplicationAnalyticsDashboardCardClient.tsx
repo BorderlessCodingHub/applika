@@ -17,7 +17,7 @@ export default function ApplicationAnalyticsDashboardClientUI({ stats }: Applica
 
   return (
     <section>
-      <h3 className="text-center font-bold">Application Analytics Dashboard</h3>
+      <h3 className="text-center font-bold text-xl">Application Analytics Dashboard</h3>
       <div className="dashboard-card-size backdrop-blur-[20px] bg-white/5 border border-white/20 rounded-2xl p-8 my-4 shadow-[0_8px_32px_rgba(0,0,0,0.1)]">
         <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 mb-4">
           {cards.map(({ label, value }) => (

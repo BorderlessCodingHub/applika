@@ -3,9 +3,8 @@ import ApplicationsClientSection from "@/features/applications/components/Applic
 
 export default function ApplicationsPage() {
   return (
-    <main className="px-4 py-8">
+    <main>
       <h1 className="text-center text-2xl font-bold mb-6">Applications</h1>
-
       <ApplicationsClientSection />
     </main>
   );
