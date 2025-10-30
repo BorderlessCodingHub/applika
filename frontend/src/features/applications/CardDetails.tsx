@@ -27,6 +27,8 @@ interface CardDetailsProps {
   expected_salary?: number;
   salary_range_min?: number;
   salary_range_max?: number;
+  lastStepId?: string;
+  lastStepColor?: string;
   onEditStep: (step: any) => void;
   onDeleteStep: (step: any) => void;
 }
@@ -44,6 +46,8 @@ export default function CardDetails({
   expected_salary,
   salary_range_min,
   salary_range_max,
+  lastStepId,
+  lastStepColor,
   onEditStep,
   onDeleteStep,
 }: CardDetailsProps) {
@@ -110,9 +114,9 @@ export default function CardDetails({
 
       {/* OBSERVATION SECTION */}
       {observation && (
-        <div className="bg-white/10 border border-white/20 rounded-xl p-4 mb-6">
+        <div className="bg-white/10 border border-white/20 rounded-xl p-4 mb-6 overflow-hidden">
           <span className="text-white/80 font-semibold">Observation:</span>
-          <p className="text-white/70 text-base mt-1 leading-relaxed">
+          <p className="text-white/70 text-base mt-1 leading-relaxed break-words whitespace-pre-wrap">
             {observation}
           </p>
         </div>
@@ -136,7 +140,15 @@ export default function CardDetails({
                 <div className="flex flex-col sm:flex-row items-center sm:items-start justify-center sm:justify-between w-full gap-2 sm:gap-4">
                   <div className="flex flex-col sm:flex-row items-center sm:items-start justify-center sm:justify-between gap-2 w-full">
                     <div className="flex items-center justify-center sm:justify-start gap-3 w-full sm:w-auto">
-                      <div className="w-3 h-3 bg-white/20 rounded-full flex-shrink-0" />
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{
+                          backgroundColor:
+                            String(step.step_id) === String(lastStepId)
+                              ? lastStepColor ?? "rgba(255,255,255,0.2)"
+                              : "rgba(255,255,255,0.2)",
+                        }}
+                      />
                       <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 items-center">
                         <div className="font-medium text-white text-xl sm:text-lg">
                           {step.step_name}
@@ -197,11 +209,11 @@ export default function CardDetails({
 
                 {/* Step Observation */}
                 {step.observation && (
-                  <div className="bg-white/10 border border-white/20 rounded-xl p-3 mt-3 w-full mx-auto shadow-sm backdrop-blur-md">
+                  <div className="bg-white/10 border border-white/20 rounded-xl p-3 mt-3 w-full mx-auto shadow-sm backdrop-blur-md overflow-hidden">
                     <span className="text-white/80 font-semibold text-sm md:text-base">
                       Observation:
                     </span>
-                    <p className="text-white/70 text-sm md:text-base mt-1 leading-relaxed tracking-wide">
+                    <p className="text-white/70 text-sm md:text-base mt-1 leading-relaxed tracking-wide break-words whitespace-pre-wrap">
                       {step.observation}
                     </p>
                   </div>

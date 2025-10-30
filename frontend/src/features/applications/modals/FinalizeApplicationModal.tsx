@@ -54,7 +54,15 @@ export default function FinalizeApplicationModal({
   });
 
   useEffect(() => {
-    if (isOpen) reset();
+    if (isOpen) {
+      reset({
+        step_id: 0,
+        feedback_id: 0,
+        finalize_date: "",
+        salary_offer: undefined,
+        observation: "",
+      });
+    }
   }, [isOpen, reset]);
 
   const onFormSubmit: SubmitHandler<FinalizeApplicationPayload> = async (
@@ -81,18 +89,15 @@ export default function FinalizeApplicationModal({
             control={control}
             name="step_id"
             render={({ field }) => (
-              <div className="w-full">
-                <ListBoxSelect
-                  value={
-                    safeResults.find((r) => r.id === String(field.value)) ??
-                    null
-                  }
-                  onChange={(val) => field.onChange(val ? Number(val.id) : 0)}
-                  options={safeResults}
-                  placeholder="Select Result"
-                  className="w-full"
-                />
-              </div>
+              <ListBoxSelect
+                value={
+                  safeResults.find((r) => Number(r.id) === field.value) ?? null
+                }
+                onChange={(val) => field.onChange(val ? Number(val.id) : 0)}
+                options={safeResults}
+                placeholder="Select Result"
+                className="w-full"
+              />
             )}
           />
 
@@ -100,18 +105,16 @@ export default function FinalizeApplicationModal({
             control={control}
             name="feedback_id"
             render={({ field }) => (
-              <div className="w-full">
-                <ListBoxSelect
-                  value={
-                    safeFeedbacks.find((f) => f.id === String(field.value)) ??
-                    null
-                  }
-                  onChange={(val) => field.onChange(val ? Number(val.id) : 0)}
-                  options={safeFeedbacks}
-                  placeholder="Select Feedback"
-                  className="w-full"
-                />
-              </div>
+              <ListBoxSelect
+                value={
+                  safeFeedbacks.find((f) => Number(f.id) === field.value) ??
+                  null
+                }
+                onChange={(val) => field.onChange(val ? Number(val.id) : 0)}
+                options={safeFeedbacks}
+                placeholder="Select Feedback"
+                className="w-full"
+              />
             )}
           />
         </div>

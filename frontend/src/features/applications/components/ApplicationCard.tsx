@@ -62,7 +62,7 @@ export default function ApplicationCard({
 
         <div className="flex flex-wrap sm:flex-nowrap items-center justify-center sm:justify-end gap-3 text-white/80 w-full sm:w-auto">
           {app.finalized && (
-            <span className="ml-0 sm:ml-2 text-sm text-white/50 italic">
+            <span className="w-full ml-0 sm:ml-2 text-center text-md text-white/50 italic">
               Finalized
             </span>
           )}
@@ -128,6 +128,8 @@ export default function ApplicationCard({
               salary_range_max={app.salary_range_max}
               steps={steps}
               isLoading={isLoading}
+              lastStepId={app.last_step?.id ?? undefined}
+              lastStepColor={app.last_step?.color ?? undefined}
               onEditStep={(s) => onEditStep(s, app)}
               onDeleteStep={(s) => onDeleteStep(s, app)}
             />

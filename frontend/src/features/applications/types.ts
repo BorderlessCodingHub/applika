@@ -9,6 +9,13 @@ export interface Step {
   step_color: string;
 }
 
+export interface LastStep {
+  id: number;
+  name: string;
+  color: string;
+  date: string;
+}
+
 export interface CardDetailsProps {
   isOpen: boolean;
   id: string;
@@ -40,7 +47,7 @@ export interface Application {
   // Extra info
   mode?: string;
   observation?: string;
-  
+
   finalized?: boolean;
 
   feedback?: {
@@ -49,6 +56,8 @@ export interface Application {
     color: string;
     date: string;
   } | null;
+
+  last_step?: LastStep | null;
 
   // Steps
   step_name?: string;
