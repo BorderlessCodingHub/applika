@@ -1,5 +1,6 @@
 "use client";
 
+import { featureFlags } from "@/config/featureFlags";
 import { redirect } from "next/navigation";
 import FlashMessages from "@/features/profile/components/FlashMessages";
 import { useProfile } from "@/features/profile/hooks/userProfile";
@@ -7,15 +8,9 @@ import ProfileInformationSection from "@/features/profile/sections/ProfileInform
 import SecuritySection from "@/features/profile/sections/SecuritySection";
 import ActionsSection from "@/features/profile/sections/ActionSection";
 
-// Feature flag for controlling access to the Profile page.
-const PROFILE_FEATURE_ENABLED =
-  process.env.NEXT_PUBLIC_PROFILE_FEATURE === "true";
-
 export default function ProfilePage() {
-  if (!PROFILE_FEATURE_ENABLED) {
-    redirect("/");
-  }
-
+  // Feature flag for controlling access to the Profile page.
+  if (!featureFlags.PROFILE_FEATURE_ENABLED) redirect("/");
   const { flashMessage, showMessage, clearMessage } = useProfile();
 
   return (
