@@ -1,16 +1,20 @@
 "use client";
-import {useCallback} from "react";
+import { useCallback, useState } from "react";
 import { motion } from "framer-motion";
 import { FaGithub } from "react-icons/fa";
 
 export default function AuthGitHubButton() {
+  const [loading, setLoading] = useState(false);
+
   const handleLogin = useCallback(() => {
+    setLoading(true);
     window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/api/auth/github/login`;
   }, []);
 
   return (
     <motion.button
       onClick={handleLogin}
+      disabled={loading}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
       transition={{ duration: 0.2 }}

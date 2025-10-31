@@ -3,8 +3,13 @@ import LoginForm from "@/features/auth/LoginForm";
 import Link from "next/link";
 import { featureFlags } from "@/config/featureFlags";
 import { DEFAULT_SUBTITLE } from "@/config/appConfig";
+import { verifyAuth } from "@/lib/auth/verifyAuth";
+import { redirect } from "next/navigation";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const isAuthenticated = await verifyAuth();
+  if (isAuthenticated) redirect("/dashboard");
+  
   return (
     <AuthLayout title="Sign In" subtitle={DEFAULT_SUBTITLE}>
       <LoginForm />

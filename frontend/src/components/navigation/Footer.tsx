@@ -16,7 +16,7 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4 px-6">
         <motion.p
           whileHover={{ scale: 1.05 }}
-          className="text-white/70 text-sm text-center sm:text-left"
+          className="text-white/70 text-sm text-center sm:text-left"  
         >
           {`
             © ${new Date().getFullYear()} ${APP_NAME} — Built for

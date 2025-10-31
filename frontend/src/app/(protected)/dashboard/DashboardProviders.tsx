@@ -4,7 +4,11 @@ import { SWRConfig } from "swr";
 import { ModalProvider } from "@/features/applications/context/ModalProvider";
 import { fetcher } from "@/features/home/services/dashboardService";
 
-export default function Providers({ children }: { children: React.ReactNode }) {
+export default function DashboardProviders({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <SWRConfig
       value={{

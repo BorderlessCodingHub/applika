@@ -22,6 +22,7 @@ export default function ApplicationsClientSection() {
 
   return (
     <section className="space-y-6">
+      <h1 className="text-center text-2xl font-bold mb-6">Applications</h1>
       <SearchApplications onSearchChange={handleSearchChange} />
       <ApplicationsGridIndex searchTerm={searchTerm} />
     </section>
