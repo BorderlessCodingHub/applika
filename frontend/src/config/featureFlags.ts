@@ -1,4 +1,5 @@
 export const featureFlags = {
   PROFILE_FEATURE_ENABLED: process.env.NEXT_PUBLIC_PROFILE_FEATURE === "true",
   REGISTER_FEATURE_ENABLED: process.env.NEXT_PUBLIC_REGISTER_FEATURE === "true",
+  EMAIL_LOGIN_ENABLED: process.env.NEXT_PUBLIC_EMAIL_LOGIN_FEATURE === "true"
 };
