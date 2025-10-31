@@ -5,7 +5,10 @@ import NavLink from "./NavLink";
 const navItems = [
   { href: "/", label: "Home" },
   { href: "/applications", label: "Applications" },
-  { href: "/profile", label: "Profile"  }
+  // { href: "/profile", label: "Profile" },
+  // Profile page intentionally disabled for v1 release.
+  // Reason: the user management and settings feature set is scheduled for a later milestone (v2+).
+  // Keeping the route commented to preserve code structure and maintain future extensibility.
 ];
 
 export default function Navbar() {
