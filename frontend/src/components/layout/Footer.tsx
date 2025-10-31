@@ -1,21 +1,44 @@
+"use client";
+
 import Link from "next/link";
+import { motion } from "framer-motion";
+import { Github } from "lucide-react";
+import { APP_NAME, PROJECT_GITHUB_REPOSITORY } from "@/config/appConfig";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-white/20 mt-auto">
-      <div className="max-w-7xl mx-auto text-center py-4 px-4">
-        <p className="text-white/80 text-sm">
-          Coded by{" "}
-          {/* <Link
-            href="https://github.com/brxnnox"
+    <motion.footer
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+      className="border-t border-white/10 bg-black/40 backdrop-blur-md mt-auto py-6"
+    >
+      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4 px-6">
+        <motion.p
+          whileHover={{ scale: 1.05 }}
+          className="text-white/70 text-sm text-center sm:text-left"
+        >
+          {`
+            © ${new Date().getFullYear()} ${APP_NAME} — Built for
+            developers, inspired by excellence.
+            `}
+        </motion.p>
+
+        <motion.div
+          whileHover={{ scale: 1.1, rotate: 5 }}
+          transition={{ type: "spring", stiffness: 300 }}
+        >
+          <Link
+            href={PROJECT_GITHUB_REPOSITORY}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-semibold text-white hover:text-violet-600 transition-colors"
+            className="flex items-center gap-2 text-white/80 hover:text-emerald-400 transition-all duration-300"
           >
-            @brxnnox
-          </Link> */}
-        </p>
+            <Github size={18} />
+            <span className="text-sm font-medium">View on GitHub</span>
+          </Link>
+        </motion.div>
       </div>
-    </footer>
+    </motion.footer>
   );
 }
