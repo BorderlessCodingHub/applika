@@ -4,10 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
-import { Home, Briefcase } from "lucide-react";
+import { LayoutDashboard , Briefcase } from "lucide-react";
 
 const navItems = [
-  { href: "/", label: "Home", icon: Home },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard  },
   { href: "/applications", label: "Applications", icon: Briefcase },
   // { href: "/profile", label: "Profile" },
   // Profile page intentionally disabled for v1 release.
