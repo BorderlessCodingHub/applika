@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { verifyAuth } from "@/lib/auth/verifyAuth";
+import { getSession } from "@/lib/auth/getSession";
 
 /**
  * Root landing page.
@@ -8,9 +8,10 @@ import { verifyAuth } from "@/lib/auth/verifyAuth";
  *  - Guest → Login (/auth/login)
  */
 export default async function RootPage() {
-  const isAuthenticated = await verifyAuth();
+  const { access } = await getSession();
+  console.log(access);
 
-  if (isAuthenticated) {
+  if (access) {
     // Redirect authenticated users to the dashboard
     redirect("/dashboard");
   } else {

@@ -7,9 +7,7 @@ export default async function ProtectedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const isAuthenticated = await verifyAuth();
-
-  if (!isAuthenticated) {
+  if (!(await verifyAuth())) {
     redirect("/login");
   }
 
