@@ -77,7 +77,7 @@ export async function middleware(req: NextRequest) {
       const refreshRes = await fetch(`${backendUrl}/api/auth/refresh`, {
         method: "GET",
         headers: {
-          Cookie: `__access=${refresh.value}`,
+          Cookie: `__refresh=${refresh}`,
           Accept: "application/json",
         },
         credentials: "include",
