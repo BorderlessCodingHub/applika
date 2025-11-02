@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Github } from "lucide-react";
-import { APP_NAME, PROJECT_GITHUB_REPOSITORY } from "@/config/appConfig";
+import { appConfig } from "@/lib/constants";
 
 export default function Footer() {
   return (
@@ -19,7 +19,7 @@ export default function Footer() {
           className="text-white/70 text-sm text-center sm:text-left"  
         >
           {`
-            © ${new Date().getFullYear()} ${APP_NAME} — Built for
+            © ${new Date().getFullYear()} ${appConfig.shortName} — Built for
             developers, inspired by excellence.
             `}
         </motion.p>
@@ -29,7 +29,7 @@ export default function Footer() {
           transition={{ type: "spring", stiffness: 300 }}
         >
           <Link
-            href={PROJECT_GITHUB_REPOSITORY}
+            href={appConfig.repository}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 text-white/80 hover:text-emerald-400 transition-all duration-300"

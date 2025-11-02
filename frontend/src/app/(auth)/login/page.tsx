@@ -2,7 +2,7 @@ import AuthLayout from "@/components/ui/AuthLayout";
 import LoginForm from "@/features/auth/LoginForm";
 import Link from "next/link";
 import { featureFlags } from "@/config/featureFlags";
-import { DEFAULT_SUBTITLE } from "@/config/appConfig";
+import { appConfig } from "@/lib/constants";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
@@ -19,7 +19,7 @@ export default async function LoginPage() {
   }
 
   return (
-    <AuthLayout title="Sign In" subtitle={DEFAULT_SUBTITLE}>
+    <AuthLayout title="Sign In" subtitle={appConfig.subtitle}>
       <LoginForm />
       {/* Hide "Don’t have an account?" text on v1 */}
       {featureFlags.EMAIL_LOGIN_ENABLED && (

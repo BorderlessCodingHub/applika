@@ -4,10 +4,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard , Briefcase } from "lucide-react";
+import { LayoutDashboard, Briefcase } from "lucide-react";
+import { appConfig } from "@/lib/constants";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard  },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/applications", label: "Applications", icon: Briefcase },
   // { href: "/profile", label: "Profile" },
   // Profile page intentionally disabled for v1 release.
@@ -30,14 +31,13 @@ export default function Navbar() {
         <motion.div whileHover={{ scale: 1.05 }} transition={{ duration: 0.2 }}>
           <Link href="/" className="flex items-center gap-2">
             <Image
-              src="/images/app-logo.webp"
-              alt="Application Tracker Logo"
+              src={appConfig.logo}
+              alt={`${appConfig.name} Logo`}
               width={150}
               height={40}
               priority
               className="rounded-lg"
             />
-         
           </Link>
         </motion.div>
 

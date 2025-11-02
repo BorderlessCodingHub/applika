@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react";
 import { motion } from "framer-motion";
-import { APP_LOGO, APP_NAME } from "@/config/appConfig";
+import { appConfig } from "@/lib/constants";
 
 export default function AuthLayout({
   title,
@@ -23,8 +23,8 @@ export default function AuthLayout({
       >
         <div className="text-center mb-8">
           <motion.img
-            src={APP_LOGO}
-            alt={`${APP_NAME} Logo`}
+            src={appConfig.logo}
+            alt={`${appConfig.name} Logo`}
             className="w-36 sm:w-40 md:w-48 mx-auto"
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
