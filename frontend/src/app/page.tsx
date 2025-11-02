@@ -1,24 +1,12 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth/getSession";
 
 /**
  * Root landing page.
- * Automatically redirects users to the correct area:
- *  - Authenticated → Dashboard (/)
- *  - Guest → Login (/auth/login)
+ * Middleware ensures correct authentication flow:
+ * - Authenticated users → continue
+ * - Unauthenticated users → redirected automatically
  */
-export default async function RootPage() {
-  const { access } = await getSession();
-  console.log(access);
-
-  if (access) {
-    // Redirect authenticated users to the dashboard
-    redirect("/dashboard");
-  } else {
-    // Redirect unauthenticated users to login
-    redirect("/login");
-  }
-
-  // (This will never render because of redirect, but is required syntactically)
+export default function RootPage() {
+  redirect("/dashboard");
   return null;
 }

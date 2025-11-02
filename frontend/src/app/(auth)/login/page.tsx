@@ -3,13 +3,21 @@ import LoginForm from "@/features/auth/LoginForm";
 import Link from "next/link";
 import { featureFlags } from "@/config/featureFlags";
 import { DEFAULT_SUBTITLE } from "@/config/appConfig";
-import { verifyAuth } from "@/lib/auth/verifyAuth";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
 export default async function LoginPage() {
-  const isAuthenticated = await verifyAuth();
-  if (isAuthenticated) redirect("/dashboard");
-  
+  const cookieStore = await cookies();
+  const access = cookieStore.get("__access")?.value ?? null;
+  const refresh = cookieStore.get("__refresh")?.value ?? null;
+
+  if (access || refresh) {
+    console.log(
+      "[LOGIN PAGE] Authenticated user trying to access login → redirecting to /dashboard"
+    );
+    redirect("/dashboard");
+  }
+
   return (
     <AuthLayout title="Sign In" subtitle={DEFAULT_SUBTITLE}>
       <LoginForm />
