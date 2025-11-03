@@ -10,7 +10,7 @@ import ModalFooter from "@/components/ui/ModalFooter";
 
 const deleteStepSchema = z.object({
   confirm: z.literal(true, {
-    errorMap: () => ({ message: "You must confirm before deleting." }),
+    message: "You must confirm before deleting.",
   }),
 });
 

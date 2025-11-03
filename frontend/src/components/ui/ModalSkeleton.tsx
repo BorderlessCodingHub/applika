@@ -17,7 +17,7 @@ export default function ModalSkeleton({
       {/* Input fields */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center">
         {Array.from({ length: numFields }).map((_, i) => (
-          <Skeleton key={i} width="80%" mdWidth="60%" height="2.5rem" />
+          <Skeleton key={i} className="w-4/5 md:w-3/5" />
         ))}
       </div>
 

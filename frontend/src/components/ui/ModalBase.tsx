@@ -34,7 +34,7 @@ const modalVariants = {
     scale: 1,
     transition: {
       duration: 0.25,
-      ease: [0.25, 0.1, 0.25, 1],
+      ease: [0.25, 0.1, 0.25, 1] as unknown as any,
     },
   },
   exit: {
@@ -42,7 +42,7 @@ const modalVariants = {
     scale: 0.95,
     transition: {
       duration: 0.35,
-      ease: [0.4, 0, 0.2, 1],
+      ease: [0.4, 0, 0.2, 1]as unknown as any,
     },
   },
 };

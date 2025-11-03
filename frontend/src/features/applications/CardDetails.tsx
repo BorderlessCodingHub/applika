@@ -61,7 +61,8 @@ export default function CardDetails({
   const capitalize = (str?: string) =>
     str ? str.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : "";
 
-  const platformName = platform ? platform : "—";
+  const platformName =
+    typeof platform === "string" ? platform : platform?.name ?? "—";
 
   return (
     <motion.div

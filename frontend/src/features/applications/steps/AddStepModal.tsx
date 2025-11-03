@@ -19,7 +19,7 @@ interface Props {
   loadingSteps?: boolean;
   applicationId: string;
   applicationInfo?: string;
-  onSuccess?: () => Promise<void> | void;
+  onSuccess?: (data: AddStepPayload) => Promise<void> | void;
   loading?: boolean;
 }
 

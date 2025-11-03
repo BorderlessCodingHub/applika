@@ -25,7 +25,7 @@ interface Props {
   loadingSteps?: boolean;
   applicationId: string;
   initialData: {
-    id: Number;
+    id: number;
     step_id: number;
     step_name?: string;
     step_date?: string;
