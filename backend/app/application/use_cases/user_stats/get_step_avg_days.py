@@ -18,7 +18,7 @@ class GetAvgDaysPerStepUseCase:
                 id=step['step_id'],
                 name=step['step_name'],
                 color=step['step_color'],
-                average_days=step['avg_days'],
+                average_days=int(step['avg_days']),
             )
             for step in avg_days
         ]
