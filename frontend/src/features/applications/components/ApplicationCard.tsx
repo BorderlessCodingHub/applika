@@ -35,7 +35,7 @@ export default function ApplicationCard({
 }: ApplicationCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { steps, isLoading, mutate } = useApplicationSteps(
-    isOpen ? app.id : null
+    isOpen ? app.id : undefined
   );
 
   useEffect(() => {
@@ -128,7 +128,9 @@ export default function ApplicationCard({
               salary_range_max={app.salary_range_max}
               steps={steps}
               isLoading={isLoading}
-              lastStepId={app.last_step?.id ?? undefined}
+              lastStepId={
+                app.last_step?.id ? String(app.last_step.id) : undefined
+              }
               lastStepColor={app.last_step?.color ?? undefined}
               onEditStep={(s) => onEditStep(s, app)}
               onDeleteStep={(s) => onDeleteStep(s, app)}
