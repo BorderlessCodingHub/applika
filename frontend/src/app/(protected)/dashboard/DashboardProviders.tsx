@@ -2,7 +2,7 @@
 
 import { SWRConfig } from "swr";
 import { ModalProvider } from "@/features/applications/context/ModalProvider";
-import { fetcher } from "@/features/home/services/dashboardService";
+import { authFetcher } from "@/lib/auth/authFetcher";
 
 export default function DashboardProviders({
   children,
@@ -12,7 +12,7 @@ export default function DashboardProviders({
   return (
     <SWRConfig
       value={{
-        fetcher,
+        fetcher: authFetcher,
         revalidateOnFocus: false,
         revalidateIfStale: false,
         dedupingInterval: 60000,
