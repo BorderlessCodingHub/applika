@@ -17,8 +17,8 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   applicationId?: string;
-  feedbacks?: { id: string; name: string }[];
-  results?: { id: string; name: string }[];
+  feedbacks?: { id: number; name: string }[];
+  results?: { id: number; name: string }[];
   loadingFeedbacks?: boolean;
   loadingResults?: boolean;
   onSubmit?: (payload: FinalizeApplicationPayload) => Promise<void> | void;
@@ -126,7 +126,7 @@ export default function FinalizeApplicationModal({
             className="w-full h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60"
           />
           <input
-            {...register("salary_offer")}
+            {...register("salary_offer", { valueAsNumber: true })}
             type="number"
             placeholder="Salary Offer (optional)"
             className="w-full h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60"
