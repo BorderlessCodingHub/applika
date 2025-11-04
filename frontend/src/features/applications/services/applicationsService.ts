@@ -59,7 +59,7 @@ export async function createApplication(payload: CreateApplicationPayload) {
 
 export async function updateApplication(
   applicationId: number | string,
-  payload: UpdateApplicationPayload
+  payload: Partial<UpdateApplicationPayload>
 ) {
   return authFetcher(`/api/applications/${applicationId}`, {
     method: "PUT",
