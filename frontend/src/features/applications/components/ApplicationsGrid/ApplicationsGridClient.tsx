@@ -43,7 +43,7 @@ import type {
 import type {
   AddStepPayload,
   UpdateStepPayload,
-} from "../../services/applicationStepsService";
+} from "../../schemas/applicationsStepsSchema";
 
 interface ApplicationsGridProps {
   applications?: Application[];
@@ -91,6 +91,7 @@ export default function ApplicationsGridClient({
   async function handleCreate(data: CreateApplicationPayload) {
     setLoadingAddApp(true);
     try {
+      console.log("Payload being sent:", data);
       await createApplication({
         ...data,
         platform_id: Number(data.platform_id),
@@ -102,14 +103,14 @@ export default function ApplicationsGridClient({
     }
   }
 
-  async function handleEdit(data: UpdateApplicationPayload) {
+  async function handleEdit(data: Partial<UpdateApplicationPayload>) {
     const id = modal.state.selectedApplication?.id;
     if (!id) return;
     setLoadingEditApp(true);
     try {
       await updateApplication(id, {
         ...data,
-        platform_id: Number(data.platform_id),
+        platform_id: data.platform_id ? Number(data.platform_id) : undefined,
       });
       await mutateApplications();
       modal.close("editApp");
@@ -209,7 +210,14 @@ export default function ApplicationsGridClient({
           key={app.id}
           app={{
             ...app,
-            platform: supports.platforms.find((p) => p.id === app.platform_id)?.name ?? "",
+            platform:
+              supports.platforms.find((p) => p.id === app.platform_id) ??
+              (app.platform_id
+                ? {
+                    id: app.platform_id,
+                    name: app.platform_name ?? "Unknown Platform",
+                  }
+                : { id: 0, name: "Unknown Platform" }),
           }}
           onAddStep={() =>
             !app.finalized && modal.open("addStep", { application: app })
@@ -224,9 +232,7 @@ export default function ApplicationsGridClient({
           onEditApp={() =>
             !app.finalized && modal.open("editApp", { application: app })
           }
-          onDeleteApp={() =>
-            modal.open("deleteApp", { application: app })
-          }
+          onDeleteApp={() => modal.open("deleteApp", { application: app })}
           onFinalizeApp={() =>
             !app.finalized && modal.open("finalizeApp", { application: app })
           }
@@ -325,7 +331,7 @@ export default function ApplicationsGridClient({
                 applicationId: String(
                   modal.state.selectedApplication?.id ?? ""
                 ),
-                stepId: String(modal.state.selectedStep.id ?? ""),
+                stepId: String(modal.state.selectedStep?.id ?? ""),
               })
             }
           />
