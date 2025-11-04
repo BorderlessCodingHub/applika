@@ -14,6 +14,29 @@ export async function parseErrorResponse(res: Response): Promise<string> {
   }
 }
 
+async function trySilentRefresh(): Promise<boolean> {
+  try {
+    const res = await fetch("/api/auth/refresh", {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    if (res.ok) {
+      console.info("[authFetcher] Silent refresh succeeded");
+      return true;
+    }
+
+    console.warn(
+      `[authFetcher] Silent refresh failed with status: ${res.status}`
+    );
+    return false;
+  } catch (err) {
+    console.error("[authFetcher] Silent refresh error:", err);
+    return false;
+  }
+}
+
 /**
  * Handles token expiration consistently across services.
  * It triggers backend logout (server clears HttpOnly cookies)
@@ -55,7 +78,24 @@ export async function authFetcher<T>(
   if (res.status === 401) {
     const msg = await parseErrorResponse(res);
     console.warn(`[authFetcher] 401 Unauthorized: ${msg}`);
-    await handleUnauthorized();
+
+    const refreshed = await trySilentRefresh();
+
+    if (!refreshed) {
+      await handleUnauthorized();
+    }
+
+    const retryRes = await fetch(input, {
+      credentials: "include",
+      ...init,
+    });
+
+    if (!retryRes.ok) {
+      const retryMsg = await parseErrorResponse(retryRes);
+      throw new Error(retryMsg);
+    }
+
+    return retryRes.json();
   }
 
   if (!res.ok) {
