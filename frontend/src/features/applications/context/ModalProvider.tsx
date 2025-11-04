@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useCallback } from "react";
 import type { ReactNode } from "react";
 import type { BaseApplicationFormData } from "../schemas/applications/applicationBaseSchema";
 import type { ApplicationStep } from "../schemas/applicationsStepsSchema";
+import type { Application } from "../types";
 
 type ModalKey =
   | "addApp"
@@ -15,7 +16,7 @@ type ModalKey =
   | "deleteStep";
 
 interface ModalState {
-  selectedApplication: BaseApplicationFormData | null;
+  selectedApplication: (BaseApplicationFormData & { id?: number }) | null;
   selectedStep: ApplicationStep | null;
   activeModals: Record<ModalKey, boolean>;
 }
@@ -24,7 +25,10 @@ interface ModalContextValue {
   state: ModalState;
   open: (
     key: ModalKey,
-    payload?: { application?: BaseApplicationFormData; step?: ApplicationStep }
+    payload?: {
+      application?: Application | (BaseApplicationFormData & { id?: number });
+      step?: ApplicationStep;
+    }
   ) => void;
   close: (key: ModalKey) => void;
   isOpen: (key: ModalKey) => boolean;
