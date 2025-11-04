@@ -20,12 +20,15 @@ export function useSupports() {
     fetchSupports,
     {
       revalidateOnFocus: false,
-      // optional: set a sensible dedupeInterval so multiple components don't refetch soon after mount
-      dedupeInterval: 60 * 1000, // 60s
+      dedupingInterval: 60 * 1000, // <-- correct property name
     }
   );
 
-  const platforms: Platform[] = data?.platforms ?? [];
+  const platforms: { id: number; name: string }[] =
+    data?.platforms?.map((p) => ({
+      id: p.id,
+      name: p.name,
+    })) ?? [];
   const feedbacks: FeedbackDefinition[] = data?.feedbacks ?? [];
   const allSteps: StepDefinition[] = data?.steps ?? [];
 
