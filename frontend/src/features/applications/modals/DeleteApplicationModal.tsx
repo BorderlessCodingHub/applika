@@ -9,8 +9,8 @@ import ModalFooter from "@/components/ui/ModalFooter";
 import ModalSkeleton from "@/components/ui/ModalSkeleton";
 
 const deleteApplicationSchema = z.object({
-  confirm: z.literal(true, {
-    errorMap: () => ({ message: "You must confirm before deleting." }),
+  confirm: z.boolean().refine((val) => val === true, {
+    message: "You must confirm before deleting.",
   }),
 });
 
