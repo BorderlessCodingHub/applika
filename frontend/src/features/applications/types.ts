@@ -1,12 +1,12 @@
 // src/features/applications/types.ts
 
 export interface Step {
-  id: string;
-  step_id: string;
+  id: number;
+  step_id: number;
   step_name: string;
   step_date: string;
   observation?: string;
-  step_color: string;
+  step_color?: string;
 }
 
 export interface LastStep {
@@ -17,24 +17,37 @@ export interface LastStep {
 }
 
 export interface CardDetailsProps {
+  id: number;
   isOpen: boolean;
-  id: string;
-  expected_salary: number;
-  salary_offer: number;
-  mode: string;
-  last_step_date: string;
-  feedback_date: string;
-  observation: string;
+  finalized?: boolean;
+  observation?: string;
+  company: string;
+  role: string;
+  mode?: Mode;
+  platform?: { id: number; name: string } | string;
+  application_date: string;
+  expected_salary?: number;
+  salary_range_min?: number;
+  salary_range_max?: number;
+  
   steps: Step[];
+  isLoading: boolean;
+  lastStepId?: string;
+  lastStepColor?: string;
+  onEditStep: (step: Step) => void;
+  onDeleteStep: (step: Step) => void;
 }
 
+export type Mode = "active" | "passive";
+
 export interface Application {
-  id: string;
+  id: number;
   company: string;
   role: string;
   application_date: string;
 
   // Platform
+  platform?: { id: number; name: string };
   platform_id?: number;
   platform_name?: string;
 
@@ -45,7 +58,7 @@ export interface Application {
   salary_offer?: number;
 
   // Extra info
-  mode?: string;
+  mode?: Mode;
   observation?: string;
 
   finalized?: boolean;
