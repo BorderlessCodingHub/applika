@@ -3,7 +3,6 @@
 import { useEffect, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-
 import ModalWithSkeleton from "@/components/ui/ModalWithSkeleton";
 import ModalFooter from "@/components/ui/ModalFooter";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
@@ -17,14 +16,14 @@ import type { Application } from "../types";
 interface EditApplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  platforms: { id: string; name: string }[];
+  platforms: { id: number; name: string }[];
   loadingPlatforms?: boolean;
   loading?: boolean;
   initialData?: Partial<Application>;
-  onSubmit: (data: UpdateApplicationPayload) => void;
+  onSubmit: (data: Partial<UpdateApplicationPayload>) => void;
 }
 
-const MODES = [
+const MODES: { id: "active" | "passive"; name: string }[] = [
   { id: "active", name: "Active" },
   { id: "passive", name: "Passive" },
 ];
@@ -52,7 +51,7 @@ export default function EditApplicationModal({
         role: initialData?.role ?? "",
         application_date: initialData?.application_date ?? "",
         platform_id: initialData?.platform_id ?? undefined,
-        mode: initialData?.mode ?? undefined,
+        mode: initialData?.mode as "active" | "passive" | undefined,
         expected_salary: initialData?.expected_salary ?? undefined,
         salary_range_min: initialData?.salary_range_min ?? undefined,
         salary_range_max: initialData?.salary_range_max ?? undefined,
@@ -69,8 +68,8 @@ export default function EditApplicationModal({
         company: initialData.company ?? "",
         role: initialData.role ?? "",
         application_date: initialData.application_date ?? "",
-        platform_id: initialData.platform_id ?? undefined,
-        mode: initialData.mode ?? undefined,
+        platform_id: initialData?.platform_id ?? undefined,
+        mode: initialData?.mode as "active" | "passive" | undefined,
         expected_salary: initialData.expected_salary ?? undefined,
         salary_range_min: initialData.salary_range_min ?? undefined,
         salary_range_max: initialData.salary_range_max ?? undefined,
@@ -128,11 +127,12 @@ export default function EditApplicationModal({
                 <div className="relative">
                   <ListBoxSelect
                     value={
-                      platforms.find(
-                        (p) => String(p.id) === String(field.value)
-                      ) ?? null
+                      platforms.find((p) => Number(p.id) === field.value) ??
+                      null
                     }
-                    onChange={(val) => field.onChange(val?.id ?? "")}
+                    onChange={(val) =>
+                      field.onChange(val?.id ? Number(val.id) : undefined)
+                    }
                     options={platforms}
                     placeholder="Select Platform"
                     loading={loadingPlatforms}
@@ -156,7 +156,7 @@ export default function EditApplicationModal({
               render={({ field }) => (
                 <ListBoxSelect
                   value={MODES.find((m) => m.id === field.value) ?? null}
-                  onChange={(val) => field.onChange(val?.id ?? "")}
+                  onChange={(val) => field.onChange(val?.id ?? undefined)}
                   options={MODES}
                   placeholder="Select Mode"
                   loading={false}
