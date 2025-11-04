@@ -12,26 +12,7 @@ import {
   Flag,
 } from "lucide-react";
 import CardDetailsSkeleton from "@/components/ui/CardDetailsSkeleton";
-import { useApplicationSteps } from "@/features/applications/hooks/useApplicationSteps";
-
-interface CardDetailsProps {
-  id: number;
-  isOpen: boolean;
-  finalized?: boolean;
-  observation?: string;
-  company: string;
-  role: string;
-  mode: string;
-  platform?: { name: string } | string;
-  application_date: string;
-  expected_salary?: number;
-  salary_range_min?: number;
-  salary_range_max?: number;
-  lastStepId?: string;
-  lastStepColor?: string;
-  onEditStep: (step: any) => void;
-  onDeleteStep: (step: any) => void;
-}
+import { CardDetailsProps } from "@/features/applications/types";
 
 export default function CardDetails({
   id,
@@ -46,15 +27,13 @@ export default function CardDetails({
   expected_salary,
   salary_range_min,
   salary_range_max,
+  steps,
+  isLoading,
   lastStepId,
   lastStepColor,
   onEditStep,
   onDeleteStep,
 }: CardDetailsProps) {
-  const { steps, isLoading, isValidating } = useApplicationSteps(
-    isOpen ? id : undefined
-  );
-  const loading = isLoading || isValidating;
 
   if (!isOpen) return null;
 
@@ -98,7 +77,7 @@ export default function CardDetails({
         <DetailItem
           icon={<FlagIcon mode={mode} />}
           label="Mode"
-          value={capitalize(mode)}
+          value={capitalize(mode ?? "-")}
         />
         <DetailItem
           icon={<DollarSign size={16} />}
@@ -124,7 +103,7 @@ export default function CardDetails({
       )}
 
       {/* STEPS SECTION */}
-      {loading ? (
+      {isLoading ? (
         <CardDetailsSkeleton />
       ) : steps.length > 0 ? (
         <div className="space-y-4">
@@ -254,7 +233,7 @@ function DetailItem({
   );
 }
 
-function FlagIcon({ mode }: { mode: string }) {
+function FlagIcon({ mode }: { mode?: string }) {
   const color =
     mode === "active"
       ? "text-sky-400"
@@ -263,6 +242,7 @@ function FlagIcon({ mode }: { mode: string }) {
       : mode === "finalized"
       ? "text-green-400"
       : "text-white/60";
+
   return <Flag className={color} size={16} />;
 }
 
