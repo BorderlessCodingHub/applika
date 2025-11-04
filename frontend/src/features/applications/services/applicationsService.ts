@@ -6,6 +6,7 @@ import {
   Platform,
 } from "../schemas/supportSchema";
 import { fetchSupports } from "./supportsService";
+import { authFetcher, parseErrorResponse } from "@/lib/auth/authFetcher";
 
 export interface CreateApplicationPayload {
   company: string;
@@ -29,71 +30,8 @@ export interface FinalizeApplicationPayload {
   observation?: string;
 }
 
-async function parseErrorResponse(res: Response) {
-  const cloned = res.clone();
-
-  try {
-    const data = await cloned.json();
-    return data.detail || JSON.stringify(data);
-  } catch {
-    const text = await res.text();
-    return text || "Unknown error occurred";
-  }
-}
-
-export async function fetchApplications(): Promise<Application[]> {
-  const res = await fetch("/api/applications", {
-    credentials: "include", // ensures cookies are sent
-  });
-
-  if (!res.ok) {
-    throw new Error("Failed to fetch applications");
-  }
-
-  return res.json();
-}
-
-// export async function fetchSupportsPlatforms(): Promise<Platform[]> {
-//   const res = await fetch("/api/supports", { credentials: "include" });
-
-//   if (!res.ok) {
-//     const err = await res.json();
-//     throw new Error(err.detail || "Failed to fetch supports platforms");
-//   }
-
-//   const data = await res.json();
-//   const parsed = supportSchema.parse(data);
-
-//   return parsed.platforms;
-// }
-
-// export async function fetchSupportsResults(): Promise<StepDefinition[]> {
-//   const res = await fetch("/api/supports", { credentials: "include" });
-
-//   if (!res.ok) {
-//     const err = await res.json();
-//     throw new Error(err.detail || "Failed to fetch supports results");
-//   }
-
-//   const data = await res.json();
-//   const parsed = supportSchema.parse(data);
-
-//   // Filter only steps with strict: true
-//   return parsed.steps.filter((s) => s.strict);
-// }
-
-// export async function fetchSupportsFeedbacks(): Promise<FeedbackDefinition[]> {
-//   const res = await fetch("/api/supports", { credentials: "include" });
-
-//   if (!res.ok) {
-//     const err = await res.json();
-//     throw new Error(err.detail || "Failed to fetch supports feedbacks");
-//   }
-
-//   const data = await res.json();
-//   const parsed = supportSchema.parse(data);
-//   return parsed.feedbacks;
-// }
+export const fetchApplications = (): Promise<Application[]> =>
+  authFetcher("/api/applications");
 
 export async function fetchSupportsPlatforms(): Promise<Platform[]> {
   const parsed = await fetchSupports();
@@ -112,50 +50,28 @@ export async function fetchSupportsResults(): Promise<StepDefinition[]> {
 }
 
 export async function createApplication(payload: CreateApplicationPayload) {
-  const res = await fetch(`/api/applications`, {
+  return authFetcher(`/api/applications`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify(payload),
   });
-
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail || "Failed to create application");
-  }
-
-  return res.json();
 }
 
 export async function updateApplication(
   applicationId: number | string,
   payload: UpdateApplicationPayload
 ) {
-  const res = await fetch(`/api/applications/${applicationId}`, {
+  return authFetcher(`/api/applications/${applicationId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify(payload),
   });
-
-  if (!res.ok) {
-    throw new Error(await parseErrorResponse(res));
-  }
-
-  return res.json();
 }
 
 export async function deleteApplication(applicationId: number | string) {
-  const res = await fetch(`/api/applications/${applicationId}`, {
+  await authFetcher(`/api/applications/${applicationId}`, {
     method: "DELETE",
-    credentials: "include",
   });
-
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail || "Failed to delete application");
-  }
-
   return true;
 }
 
@@ -163,17 +79,9 @@ export async function finalizeApplication(
   applicationId: number | string,
   payload: FinalizeApplicationPayload
 ) {
-  const res = await fetch(`/api/applications/${applicationId}/finalize`, {
+  return authFetcher(`/api/applications/${applicationId}/finalize`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify(payload),
   });
-
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail || "Failed to finalize application");
-  }
-
-  return res.json();
 }

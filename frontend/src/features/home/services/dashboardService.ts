@@ -6,43 +6,30 @@ import {
   ModeApplications,
   ApplicationsTrend,
 } from "../types";
+import { authFetcher } from "@/lib/auth/authFetcher";
 
-async function parseErrorResponse(res: Response) {
-  const cloned = res.clone();
-  try {
-    const data = await cloned.json();
-    return data.detail || JSON.stringify(data);
-  } catch {
-    const text = await res.text();
-    return text || "Unknown error occurred";
-  }
-}
-
-export async function fetcher<T>(url: string): Promise<T> {
-  const res = await fetch(url, {
-    credentials: "include",
-    next: { revalidate: 60, tags: [url] },
-  });
-  if (!res.ok) throw new Error(await parseErrorResponse(res));
-  return res.json();
-}
-
+/**
+ * All dashboard fetch calls now use authFetcher
+ * for automatic 401 detection and redirect handling.
+ */
 export const fetchApplicationsStatistics = () =>
-  fetcher<ApplicationsStatistics>("/api/stats");
+  authFetcher<ApplicationsStatistics>("/api/stats");
 
 export const fetchApplicationsByPlatform = () =>
-  fetcher<PlatformApplications[]>("/api/applications/statistics/platforms");
+  authFetcher<PlatformApplications[]>("/api/applications/statistics/platforms");
 
 export const fetchApplicationsByStep = () =>
-  fetcher<StepConversionRate[]>(
+  authFetcher<StepConversionRate[]>(
     "/api/applications/statistics/steps/conversion_rate"
   );
 
 export const fetchAverageDaysBetweenSteps = () =>
-  fetcher<AverageDaysStep[]>("/api/applications/statistics/steps/avarage_days");
+  authFetcher<AverageDaysStep[]>(
+    "/api/applications/statistics/steps/avarage_days"
+  );
 
 export const fetchApplicationsByMode = () =>
-  fetcher<ModeApplications>("/api/applications/statistics/mode");
+  authFetcher<ModeApplications>("/api/applications/statistics/mode");
 
 export const fetchApplicationsTrend = () =>
-  fetcher<ApplicationsTrend[]>("/api/applications/statistics/trends");
+  authFetcher<ApplicationsTrend[]>("/api/applications/statistics/trends");
