@@ -4,7 +4,6 @@ import { useEffect, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import ModalBase from "@/components/ui/ModalBase";
 import ModalFooter from "@/components/ui/ModalFooter";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
 
@@ -12,14 +11,13 @@ import {
   createApplicationSchema,
   type CreateApplicationPayload,
 } from "../schemas/applications/createApplicationSchema";
-import { createApplication } from "../services/applicationsService";
-import { mutateApplications } from "../hooks/useApplications";
 import ModalWithSkeleton from "@/components/ui/ModalWithSkeleton";
+import type { SubmitHandler, UseFormHandleSubmit } from "react-hook-form";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  platforms: { id: string; name: string }[];
+  platforms: { id: number; name: string }[];
   loadingPlatforms?: boolean;
   loading?: boolean;
   onSubmit?: (payload: CreateApplicationPayload) => Promise<void> | void;
@@ -51,8 +49,8 @@ export default function AddApplicationModal({
         company: "",
         role: "",
         application_date: "",
-        platform_id: "",
-        mode: "",
+        platform_id: undefined,
+        mode: undefined,
         expected_salary: undefined,
         salary_range_min: undefined,
         salary_range_max: undefined,
@@ -66,11 +64,11 @@ export default function AddApplicationModal({
     if (isOpen) reset();
   }, [isOpen, reset]);
 
-  const onFormSubmit = async (data: CreateApplicationPayload) => {
-    // delegate to parent
-    await onSubmit?.({ ...data, platform_id: Number(data.platform_id) });
+  const onFormSubmit: SubmitHandler<CreateApplicationPayload> = async (
+    data
+  ) => {
+    await onSubmit?.(data);
   };
-
   return (
     <ModalWithSkeleton
       isOpen={isOpen}
@@ -112,7 +110,7 @@ export default function AddApplicationModal({
             render={({ field }) => (
               <ListBoxSelect
                 value={platforms.find((p) => p.id === field.value) ?? null}
-                onChange={(v) => field.onChange(v?.id ?? "")}
+                onChange={(val) => field.onChange(val ? Number(val.id) : undefined)}
                 options={platforms}
                 placeholder={
                   platforms.length === 0
@@ -133,14 +131,14 @@ export default function AddApplicationModal({
             render={({ field }) => (
               <ListBoxSelect
                 value={MODES.find((m) => m.id === field.value) ?? null}
-                onChange={(val) => field.onChange(val?.id ?? "")}
+                onChange={(val) => field.onChange(val?.id ?? undefined)}
                 options={MODES}
                 placeholder="Select Mode (required)"
               />
             )}
           />
           <input
-            {...register("expected_salary")}
+            {...register("expected_salary", { valueAsNumber: true })}
             type="number"
             placeholder="Expected Salary (optional)"
             className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
@@ -150,14 +148,14 @@ export default function AddApplicationModal({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <input
-            {...register("salary_range_min")}
+            {...register("salary_range_min", { valueAsNumber: true })}
             type="number"
             placeholder="Salary Range Min (optional)"
             className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
                        placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
           />
           <input
-            {...register("salary_range_max")}
+            {...register("salary_range_max", { valueAsNumber: true })}
             type="number"
             placeholder="Salary Range Max (optional)"
             className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
