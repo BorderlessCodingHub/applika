@@ -65,14 +65,16 @@ export default function EditStepModal({
   });
 
   useEffect(() => {
-    if (isOpen && initialData) {
-      reset({
-        step_id: initialData.step_id,
-        step_date: initialData.step_date ?? "",
-        observation: initialData.observation ?? "",
-      });
-    }
-  }, [isOpen, initialData, reset]);
+    if (!isOpen || !initialData) return;
+
+    if (isSubmitting) return;
+
+    reset({
+      step_id: initialData.step_id,
+      step_date: initialData.step_date ?? "",
+      observation: initialData.observation ?? "",
+    });
+  }, [isOpen, initialData?.id, isSubmitting, reset]);
 
   const onFormSubmit = async (data: UpdateStepPayload) => {
     if (!initialData) return;

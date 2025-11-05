@@ -168,7 +168,7 @@ export default function ApplicationsGridClient({
   }: {
     applicationId: string | number;
     stepId: number;
-    data: UpdateStepPayload & { id: number };
+    data: UpdateStepPayload;
   }) {
     setLoadingEditStep(true);
     try {
