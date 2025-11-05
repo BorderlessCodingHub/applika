@@ -13,6 +13,7 @@ import {
 } from "../schemas/applications/createApplicationSchema";
 import ModalWithSkeleton from "@/components/ui/ModalWithSkeleton";
 import type { SubmitHandler, UseFormHandleSubmit } from "react-hook-form";
+import type { Resolver } from "react-hook-form";
 
 interface Props {
   isOpen: boolean;
@@ -43,7 +44,9 @@ export default function AddApplicationModal({
     reset,
     formState: { isSubmitting },
   } = useForm<CreateApplicationPayload>({
-    resolver: zodResolver(createApplicationSchema),
+    resolver: zodResolver(
+      createApplicationSchema
+    ) as unknown as Resolver<CreateApplicationPayload>,
     defaultValues: useMemo(
       () => ({
         company: "",
@@ -109,8 +112,12 @@ export default function AddApplicationModal({
             name="platform_id"
             render={({ field }) => (
               <ListBoxSelect
-                value={platforms.find((p) => p.id === field.value) ?? null}
-                onChange={(val) => field.onChange(val ? Number(val.id) : undefined)}
+                value={
+                  platforms.find((p) => Number(p.id) === field.value) ?? null
+                }
+                onChange={(val) =>
+                  field.onChange(val?.id ? Number(val.id) : undefined)
+                }
                 options={platforms}
                 placeholder={
                   platforms.length === 0

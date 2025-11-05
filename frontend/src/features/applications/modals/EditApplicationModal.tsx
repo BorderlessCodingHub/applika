@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import ModalWithSkeleton from "@/components/ui/ModalWithSkeleton";
 import ModalFooter from "@/components/ui/ModalFooter";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
+import type { Resolver } from "react-hook-form";
 
 import {
   updateApplicationSchema,
@@ -44,7 +45,9 @@ export default function EditApplicationModal({
     reset,
     formState: { isSubmitting },
   } = useForm<UpdateApplicationPayload>({
-    resolver: zodResolver(updateApplicationSchema),
+    resolver: zodResolver(updateApplicationSchema) as unknown as Resolver<
+      UpdateApplicationPayload
+    >,
     defaultValues: useMemo(
       () => ({
         company: initialData?.company ?? "",
@@ -61,7 +64,6 @@ export default function EditApplicationModal({
     ),
   });
 
-  // Reset form when modal opens or initialData changes
   useEffect(() => {
     if (isOpen && initialData) {
       reset({
@@ -93,7 +95,6 @@ export default function EditApplicationModal({
     >
       {initialData && (
         <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
-          {/* Company & Role */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               {...register("company")}
@@ -111,7 +112,6 @@ export default function EditApplicationModal({
             />
           </div>
 
-          {/* Date & Platform */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
             <input
               {...register("application_date")}
@@ -148,7 +148,6 @@ export default function EditApplicationModal({
             />
           </div>
 
-          {/* Mode & Expected Salary */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Controller
               control={control}
@@ -173,7 +172,6 @@ export default function EditApplicationModal({
             />
           </div>
 
-          {/* Salary Range */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               {...register("salary_range_min", { valueAsNumber: true })}
@@ -191,7 +189,6 @@ export default function EditApplicationModal({
             />
           </div>
 
-          {/* Observation */}
           <textarea
             {...register("observation")}
             rows={3}
