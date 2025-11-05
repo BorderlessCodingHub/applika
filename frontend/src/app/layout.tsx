@@ -1,5 +1,5 @@
 import "./styles/globals.css";
-import { appConfig } from "@/lib/constants";
+import { appConfig } from "@/domain/constants/appConfig";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {

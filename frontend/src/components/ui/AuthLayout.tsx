@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react";
 import { motion } from "framer-motion";
-import { appConfig } from "@/lib/constants";
+import { appConfig } from "@/domain/constants/appConfig";
 
 export default function AuthLayout({
   title,

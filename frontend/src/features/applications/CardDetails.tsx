@@ -12,7 +12,29 @@ import {
   Flag,
 } from "lucide-react";
 import CardDetailsSkeleton from "@/components/ui/CardDetailsSkeleton";
-import { CardDetailsProps } from "@/features/applications/types";
+import { Step, Mode } from "@/features/applications/types";
+
+export interface CardDetailsProps {
+  id: number;
+  isOpen: boolean;
+  finalized?: boolean;
+  observation?: string;
+  company: string;
+  role: string;
+  mode?: Mode;
+  platform?: { id: number; name: string } | string;
+  application_date: string;
+  expected_salary?: number;
+  salary_range_min?: number;
+  salary_range_max?: number;
+  
+  steps: Step[];
+  isLoading: boolean;
+  lastStepId?: string;
+  lastStepColor?: string;
+  onEditStep: (step: Step) => void;
+  onDeleteStep: (step: Step) => void;
+}
 
 export default function CardDetails({
   id,

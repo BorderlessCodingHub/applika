@@ -14,6 +14,8 @@ import {
 import ModalWithSkeleton from "@/components/ui/ModalWithSkeleton";
 import type { SubmitHandler, UseFormHandleSubmit } from "react-hook-form";
 import type { Resolver } from "react-hook-form";
+import { APPLICATION_MODES } from "@/domain/constants/application";
+import type { Option } from "../types";
 
 interface Props {
   isOpen: boolean;
@@ -23,11 +25,6 @@ interface Props {
   loading?: boolean;
   onSubmit?: (payload: CreateApplicationPayload) => Promise<void> | void;
 }
-
-const MODES = [
-  { id: "active", name: "Active" },
-  { id: "passive", name: "Passive" },
-];
 
 export default function AddApplicationModal({
   isOpen,
@@ -64,13 +61,25 @@ export default function AddApplicationModal({
   });
 
   useEffect(() => {
-    if (isOpen) reset();
+    if (!isOpen)
+      reset({
+        company: "",
+        role: "",
+        application_date: "",
+        platform_id: undefined,
+        mode: undefined,
+        expected_salary: undefined,
+        salary_range_min: undefined,
+        salary_range_max: undefined,
+        observation: "",
+      });
   }, [isOpen, reset]);
 
   const onFormSubmit: SubmitHandler<CreateApplicationPayload> = async (
     data
   ) => {
     await onSubmit?.(data);
+    onClose();
   };
   return (
     <ModalWithSkeleton
@@ -137,9 +146,11 @@ export default function AddApplicationModal({
             name="mode"
             render={({ field }) => (
               <ListBoxSelect
-                value={MODES.find((m) => m.id === field.value) ?? null}
+                value={
+                  APPLICATION_MODES.find((m) => m.id === field.value) ?? null
+                }
                 onChange={(val) => field.onChange(val?.id ?? undefined)}
-                options={MODES}
+                options={[...APPLICATION_MODES] satisfies Option[]}
                 placeholder="Select Mode (required)"
               />
             )}

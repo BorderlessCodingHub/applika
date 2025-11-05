@@ -90,5 +90,19 @@ export async function authFetcher<T>(
     throw new Error(msg);
   }
 
-  return res.json();
+  return safeJsonParse<T>(res);
+}
+
+async function safeJsonParse<T>(res: Response): Promise<T> {
+  const text = await res.text();
+
+  if (!text) return true as T;
+  if (text.trim() === "true") return true as T;
+  if (text.trim() === "false") return false as T;
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return text as unknown as T;
+  }
 }

@@ -11,7 +11,7 @@ import { authFetcher, parseErrorResponse } from "@/lib/auth/authFetcher";
 export interface CreateApplicationPayload {
   company: string;
   role: string;
-  mode: "active" | "passive";
+  mode: string;
   platform_id: number;
   application_date: string;
   observation?: string;

@@ -5,7 +5,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Briefcase } from "lucide-react";
-import { appConfig } from "@/lib/constants";
+import { appConfig } from "@/domain/constants/appConfig";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },

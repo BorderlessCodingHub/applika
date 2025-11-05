@@ -2,7 +2,7 @@ import AuthLayout from "@/components/ui/AuthLayout";
 import LoginForm from "@/features/auth/LoginForm";
 import Link from "next/link";
 import { featureFlags } from "@/config/featureFlags";
-import { appConfig } from "@/lib/constants";
+import { appConfig } from "@/domain/constants/appConfig";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Github } from "lucide-react";
-import { appConfig } from "@/lib/constants";
+import { appConfig } from "@/domain/constants/appConfig";
 
 export default function Footer() {
   return (

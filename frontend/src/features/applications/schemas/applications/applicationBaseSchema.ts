@@ -1,11 +1,14 @@
 import { z } from "zod";
+import { APPLICATION_MODES } from "@/domain/constants/application";
 
 export const baseApplicationSchema = z.object({
   company: z.string().min(1, "Company is required"),
   role: z.string().min(1, "Role is required"),
   mode: z.preprocess(
     (val) => (val === "" ? undefined : val),
-    z.enum(["active", "passive"], { message: "Mode is required" })
+    z.enum(APPLICATION_MODES.map((m) => m.id) as [string, ...string[]], {
+      message: "Mode is required",
+    })
   ),
   platform_id: z.preprocess(
     (val) => (val === "" || val === undefined ? undefined : Number(val)),

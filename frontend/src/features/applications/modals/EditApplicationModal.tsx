@@ -12,7 +12,8 @@ import {
   updateApplicationSchema,
   type UpdateApplicationPayload,
 } from "../schemas/applications/updateApplicationSchema";
-import type { Application } from "../types";
+import type { Application, Option } from "../types";
+import { APPLICATION_MODES } from "@/domain/constants/application";
 
 interface EditApplicationModalProps {
   isOpen: boolean;
@@ -23,11 +24,6 @@ interface EditApplicationModalProps {
   initialData?: Partial<Application>;
   onSubmit: (data: Partial<UpdateApplicationPayload>) => void;
 }
-
-const MODES: { id: "active" | "passive"; name: string }[] = [
-  { id: "active", name: "Active" },
-  { id: "passive", name: "Passive" },
-];
 
 export default function EditApplicationModal({
   isOpen,
@@ -45,16 +41,16 @@ export default function EditApplicationModal({
     reset,
     formState: { isSubmitting },
   } = useForm<UpdateApplicationPayload>({
-    resolver: zodResolver(updateApplicationSchema) as unknown as Resolver<
-      UpdateApplicationPayload
-    >,
+    resolver: zodResolver(
+      updateApplicationSchema
+    ) as unknown as Resolver<UpdateApplicationPayload>,
     defaultValues: useMemo(
       () => ({
         company: initialData?.company ?? "",
         role: initialData?.role ?? "",
         application_date: initialData?.application_date ?? "",
         platform_id: initialData?.platform_id ?? undefined,
-        mode: initialData?.mode as "active" | "passive" | undefined,
+        mode: initialData?.mode,
         expected_salary: initialData?.expected_salary ?? undefined,
         salary_range_min: initialData?.salary_range_min ?? undefined,
         salary_range_max: initialData?.salary_range_max ?? undefined,
@@ -71,7 +67,7 @@ export default function EditApplicationModal({
         role: initialData.role ?? "",
         application_date: initialData.application_date ?? "",
         platform_id: initialData?.platform_id ?? undefined,
-        mode: initialData?.mode as "active" | "passive" | undefined,
+        mode: initialData?.mode,
         expected_salary: initialData.expected_salary ?? undefined,
         salary_range_min: initialData.salary_range_min ?? undefined,
         salary_range_max: initialData.salary_range_max ?? undefined,
@@ -154,9 +150,11 @@ export default function EditApplicationModal({
               name="mode"
               render={({ field }) => (
                 <ListBoxSelect
-                  value={MODES.find((m) => m.id === field.value) ?? null}
+                  value={
+                    APPLICATION_MODES.find((m) => m.id === field.value) ?? null
+                  }
                   onChange={(val) => field.onChange(val?.id ?? undefined)}
-                  options={MODES}
+                  options={[...APPLICATION_MODES] satisfies Option[]}
                   placeholder="Select Mode"
                   loading={false}
                 />
