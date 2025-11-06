@@ -6,6 +6,7 @@ from app.application.dto import BaseSchema
 
 
 class ApplicationStepCreateDTO(BaseModel):
+    user_id: int
     application_id: int
     step_id: int
     step_date: date
