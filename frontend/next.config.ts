@@ -9,7 +9,8 @@ const nextConfig = {
       },
     ];
   },
-  reactStrictMode: true
+  output: "standalone",
+  reactStrictMode: true,
 };
 
 module.exports = nextConfig;

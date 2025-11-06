@@ -39,7 +39,10 @@ export default function ApplicationModeCardClient({
 
       <div className="flex flex-col gap-4">
         {applicationsByMode.map((mode) => {
-          const percentage = ((mode.count / totalApplications) * 100).toFixed(1);
+          const percentage =
+            totalApplications > 0
+              ? ((mode.count / totalApplications) * 100).toFixed(1)
+              : "0";
           return (
             <div
               key={mode.mode}

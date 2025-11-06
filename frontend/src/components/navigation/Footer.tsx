@@ -16,7 +16,7 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4 px-6">
         <motion.p
           whileHover={{ scale: 1.05 }}
-          className="text-white/70 text-sm text-center sm:text-left"  
+          className="text-white/70 text-sm text-center sm:text-left"
         >
           {`
             © ${new Date().getFullYear()} ${appConfig.shortName} — Built for
@@ -24,20 +24,22 @@ export default function Footer() {
             `}
         </motion.p>
 
-        <motion.div
-          whileHover={{ scale: 1.1, rotate: 5 }}
-          transition={{ type: "spring", stiffness: 300 }}
-        >
-          <Link
-            href={appConfig.repository}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-white/80 hover:text-emerald-400 transition-all duration-300"
+        {appConfig.repository && (
+          <motion.div
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            transition={{ type: "spring", stiffness: 300 }}
           >
-            <Github size={18} />
-            <span className="text-sm font-medium">View on GitHub</span>
-          </Link>
-        </motion.div>
+            <Link
+              href={appConfig.repository}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-white/80 hover:text-emerald-400 transition-all duration-300"
+            >
+              <Github size={18} />
+              <span className="text-sm font-medium">View on GitHub</span>
+            </Link>
+          </motion.div>
+        )}
       </div>
     </motion.footer>
   );

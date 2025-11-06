@@ -13,7 +13,7 @@ import { authFetcher } from "@/lib/auth/authFetcher";
  * for automatic 401 detection and redirect handling.
  */
 export const fetchApplicationsStatistics = () =>
-  authFetcher<ApplicationsStatistics>("/api/stats");
+  authFetcher<ApplicationsStatistics>("/api/applications/statistics");
 
 export const fetchApplicationsByPlatform = () =>
   authFetcher<PlatformApplications[]>("/api/applications/statistics/platforms");

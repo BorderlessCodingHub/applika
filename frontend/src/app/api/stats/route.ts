@@ -2,11 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
-  const cookie = req.headers.get("cookie"); // get all cookies
-  const res = await fetch("http://localhost:8000/applications/statistics", {
-    headers: {
-      cookie: cookie || "",
-    },
+  const cookie = req.headers.get("cookie") || "";
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/applications/statistics`, {
+    headers: { cookie },
   });
 
   const data = await res.json();
