@@ -189,8 +189,8 @@ class UserStatsRepository:
             select(
                 ApplicationStepModel.step_id.label('step_id'),
                 func.avg(
+                    ApplicationModel.application_date -
                     ApplicationStepModel.step_date
-                    - ApplicationModel.application_date
                 ).label('avg_days'),
             )
             .outerjoin(

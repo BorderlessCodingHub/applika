@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 from pydantic import BaseModel
 
@@ -24,7 +25,7 @@ class AvarageDaysSteps(BaseModel):
     id: int
     name: str
     color: str
-    average_days: int
+    average_days: float
 
 
 class PlarformApplications(BaseModel):
