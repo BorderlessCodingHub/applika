@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from decimal import Decimal
 from typing import List, Literal, TypedDict
 
 import sqlalchemy as sa
@@ -42,7 +43,7 @@ class AverageDaysPerStep(TypedDict):
     step_name: str
     step_color: str
     step_strict: bool
-    avg_days: float
+    avg_days: Decimal
 
 
 class UserStatsRepository:
