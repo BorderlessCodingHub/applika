@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import ModalWithSkeleton from "@/components/ui/ModalWithSkeleton";
 import ModalFooter from "@/components/ui/ModalFooter";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
+import DateInput from "@/components/ui/DateInput";
 
 import {
   updateStepPayloadSchema,
@@ -127,12 +128,7 @@ export default function EditStepModal({
               )}
             />
 
-            <input
-              {...register("step_date")}
-              type="date"
-              className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white focus:outline-none"
-              aria-label="Step date"
-            />
+            <DateInput {...register("step_date")} placeholder="Select date" />
           </div>
 
           <textarea

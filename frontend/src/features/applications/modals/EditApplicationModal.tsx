@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import ModalWithSkeleton from "@/components/ui/ModalWithSkeleton";
 import ModalFooter from "@/components/ui/ModalFooter";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
+import DateInput from "@/components/ui/DateInput";
 import type { Resolver } from "react-hook-form";
 
 import {
@@ -109,11 +110,9 @@ export default function EditApplicationModal({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
-            <input
+            <DateInput
               {...register("application_date")}
-              type="date"
-              className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
-                       focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+              placeholder="Select date"
             />
 
             <Controller

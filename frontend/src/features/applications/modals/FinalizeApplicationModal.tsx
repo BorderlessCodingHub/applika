@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import ModalWithSkeleton from "@/components/ui/ModalWithSkeleton";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
 import ModalFooter from "@/components/ui/ModalFooter";
+import DateInput from "@/components/ui/DateInput";
 
 import {
   finalizeApplicationSchema,
@@ -120,11 +121,11 @@ export default function FinalizeApplicationModal({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input
+          <DateInput
             {...register("finalize_date")}
-            type="date"
-            className="w-full h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60"
+            placeholder="Select date"
           />
+
           <input
             {...register("salary_offer", { valueAsNumber: true })}
             type="number"
