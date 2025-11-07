@@ -4,12 +4,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Briefcase } from "lucide-react";
+import { LayoutDashboard, Briefcase, LogOut } from "lucide-react";
 import { appConfig } from "@/domain/constants/appConfig";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/applications", label: "Applications", icon: Briefcase },
+  { href: "/logout", label: "Logout", icon: LogOut },
   // { href: "/profile", label: "Profile" },
   // Profile page intentionally disabled for v1 release.
   // Reason: the user management and settings feature set is scheduled for a later milestone (v2+).

@@ -12,7 +12,7 @@ export async function parseErrorResponse(res: Response): Promise<string> {
 
 async function trySilentRefresh(): Promise<boolean> {
   try {
-    const res = await fetch("/api/auth/refresh", {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/refresh`, {
       method: "GET",
       credentials: "include",
       cache: "no-store",
@@ -53,16 +53,23 @@ export async function handleUnauthorized(): Promise<never> {
   throw new Error("Unauthorized - redirecting to login");
 }
 
+export async function logout() {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`)
+  return res.ok
+}
+
 export async function authFetcher<T>(
   input: RequestInfo,
   init?: RequestInit
 ): Promise<T> {
-  const res = await fetch(input, {
+  const finalInput = `${process.env.NEXT_PUBLIC_API_URL}${input}`
+
+  const res = await fetch(finalInput, {
     credentials: "include",
     ...init,
   });
 
-  if (res.status === 401) {
+  if (res.status === 403 || res.status === 401) {
     const msg = await parseErrorResponse(res);
     console.warn(`[authFetcher] 401 Unauthorized: ${msg}`);
 
@@ -72,7 +79,7 @@ export async function authFetcher<T>(
       await handleUnauthorized();
     }
 
-    const retryRes = await fetch(input, {
+    const retryRes = await fetch(finalInput, {
       credentials: "include",
       ...init,
     });
