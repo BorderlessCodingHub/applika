@@ -6,11 +6,11 @@ import { useEffect } from "react"
 
 export default function LogoutPage() {
   useEffect(() => {
-    async function handleLogout() {
+    async function on() {
       await handleLogout()
       redirect("/login")
     }
-    handleLogout()
+    on()
   }, [])
   
   return null
