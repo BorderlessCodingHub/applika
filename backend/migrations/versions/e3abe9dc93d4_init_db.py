@@ -126,7 +126,6 @@ def insert_initial_data() -> None:
     op.bulk_insert(
         steps_table,
         [
-            {'name': 'Application', 'color': '#b5a2dd', 'created_at': now},
             {'name': 'Initial Screen', 'color': '#a892d3', 'created_at': now},
             {'name': 'Phase 2', 'color': '#9373d3', 'created_at': now},
             {'name': 'Phase 3', 'color': '#7b52cb', 'created_at': now},

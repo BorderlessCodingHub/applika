@@ -33,14 +33,6 @@ if envs.ENVIRONMENT != 'TEST':
 
 logger.addFilter(RequestIdFilter())
 
-if envs.DATABASE_ECHO:
-    sqlalchemy_logger = logging.getLogger('sqlalchemy')
-    sqlalchemy_logger.handlers.clear()
-    sqlalchemy_logger.propagate = False
-
-    sqlalchemy_logger.addHandler(console_handler)
-    sqlalchemy_logger.addFilter(RequestIdFilter())
-
 for name in logging.root.manager.loggerDict:
     if name.startswith('uvicorn'):
         logger.info(f"Logger '{name}' disabled")

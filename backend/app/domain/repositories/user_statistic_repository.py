@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from decimal import Decimal
 from typing import List, Literal, TypedDict
 
 import sqlalchemy as sa
@@ -42,7 +43,7 @@ class AverageDaysPerStep(TypedDict):
     step_name: str
     step_color: str
     step_strict: bool
-    avg_days: float
+    avg_days: Decimal
 
 
 class UserStatsRepository:
@@ -51,15 +52,7 @@ class UserStatsRepository:
 
     async def get_applications_count(self, user_id: int) -> int | None:
         return await self.session.scalar(
-            select(
-                func.count(
-                    sa.distinct(ApplicationStepModel.application_id)
-                ).label('total')
-            )
-            .join(
-                ApplicationModel,
-                ApplicationStepModel.application_id == ApplicationModel.id,
-            )
+            select(func.count(ApplicationModel.id).label('total'))
             .where(ApplicationModel.user_id == user_id)
         )
 
@@ -72,27 +65,23 @@ class UserStatsRepository:
                 StepDefinitionModel.name.label('step_name'),
                 StepDefinitionModel.strict.label('step_strict'),
                 StepDefinitionModel.color.label('step_color'),
-                func.count(
-                    sa.distinct(ApplicationStepModel.application_id)
-                ).label('count'),
+                func.coalesce(
+                    func.count(ApplicationStepModel.application_id), 0
+                ).label("count"),
             )
-            .select_from(StepDefinitionModel)
             .outerjoin(
                 ApplicationStepModel,
-                ApplicationStepModel.step_id == StepDefinitionModel.id,
+                (StepDefinitionModel.id == ApplicationStepModel.step_id) &
+                (ApplicationStepModel.user_id == user_id),
             )
-            .outerjoin(
-                ApplicationModel,
-                sa.and_(
-                    ApplicationModel.id == ApplicationStepModel.application_id,
-                    ApplicationModel.user_id == user_id,
-                ),
+            .where(
+                StepDefinitionModel.strict.is_(True)
             )
-            .where(StepDefinitionModel.strict.is_(True))
             .group_by(
                 StepDefinitionModel.id,
                 StepDefinitionModel.name,
                 StepDefinitionModel.color,
+                StepDefinitionModel.strict,
             )
             .order_by(StepDefinitionModel.id)
         )
@@ -109,27 +98,23 @@ class UserStatsRepository:
                 StepDefinitionModel.name.label('step_name'),
                 StepDefinitionModel.strict.label('step_strict'),
                 StepDefinitionModel.color.label('step_color'),
-                func.count(
-                    sa.distinct(ApplicationStepModel.application_id)
-                ).label('count'),
+                func.coalesce(
+                    func.count(ApplicationStepModel.application_id), 0
+                ).label("count"),
             )
-            .select_from(StepDefinitionModel)
             .outerjoin(
                 ApplicationStepModel,
-                ApplicationStepModel.step_id == StepDefinitionModel.id,
+                (StepDefinitionModel.id == ApplicationStepModel.step_id) &
+                (ApplicationStepModel.user_id == user_id),
             )
-            .outerjoin(
-                ApplicationModel,
-                sa.and_(
-                    ApplicationModel.id == ApplicationStepModel.application_id,
-                    ApplicationModel.user_id == user_id,
-                ),
+            .where(
+                StepDefinitionModel.strict.is_(False)
             )
-            .where(StepDefinitionModel.strict.is_(False))
             .group_by(
                 StepDefinitionModel.id,
                 StepDefinitionModel.name,
                 StepDefinitionModel.color,
+                StepDefinitionModel.strict,
             )
             .order_by(StepDefinitionModel.id)
         )
@@ -204,14 +189,13 @@ class UserStatsRepository:
             select(
                 ApplicationStepModel.step_id.label('step_id'),
                 func.avg(
-                    ApplicationStepModel.step_date
-                    - ApplicationModel.application_date
+                    ApplicationStepModel.step_date -
+                    ApplicationModel.application_date
                 ).label('avg_days'),
             )
-            .join(
+            .outerjoin(
                 ApplicationModel,
                 ApplicationModel.id == ApplicationStepModel.application_id,
-                isouter=True,
             )
             .where(
                 ApplicationModel.user_id == user_id,

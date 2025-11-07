@@ -13,9 +13,9 @@ export default function DashboardProviders({
     <SWRConfig
       value={{
         fetcher: authFetcher,
-        revalidateOnFocus: false,
-        revalidateIfStale: false,
-        dedupingInterval: 60000,
+        revalidateOnFocus: true,
+        revalidateIfStale: true,
+        dedupingInterval: 2000,
         shouldRetryOnError: true,
         errorRetryInterval: 5000,
       }}

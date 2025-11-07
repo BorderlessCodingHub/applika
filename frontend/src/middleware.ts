@@ -7,23 +7,12 @@ export async function middleware(req: NextRequest) {
   console.log(`[MIDDLEWARE] Incoming request: ${pathname}`);
 
   // allow next internals, api and favicon
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname === "/favicon.ico"
-  ) {
+  if (pathname.startsWith("/_next") || pathname === "/favicon.ico") {
     console.log(`[MIDDLEWARE] Skipping internal or API path: ${pathname}`);
     return NextResponse.next();
   }
 
-  const access =
-    req.cookies.get("__access")?.value ??
-    req.cookies.get("access_token")?.value ??
-    null;
-  const refresh =
-    req.cookies.get("__refresh")?.value ??
-    req.cookies.get("refresh_token")?.value ??
-    null;
+  const refresh = req.cookies.get("__refresh")?.value ?? null;
 
   const isAuthPage =
     pathname === "/login" ||
@@ -38,15 +27,14 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/(auth)");
 
   console.log("[MIDDLEWARE] Tokens:", {
-    access: !!access,
     refresh: !!refresh,
     isAuthPage,
   });
 
   // ✅ Authenticated flow
-  if (access) {
+  if (refresh) {
     console.log(
-      "[MIDDLEWARE] Access token found, treating as authenticated user"
+      "[MIDDLEWARE] Refresh token found, treating as authenticated user"
     );
 
     if (isAuthPage) {
@@ -62,62 +50,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // ✅ Attempt silent refresh
-  if (!access && refresh) {
-    console.log(
-      "[MIDDLEWARE] No access token, but refresh token found → attempting silent refresh..."
-    );
-
-    try {
-      const backendUrl =
-        process.env.BACKEND_URL ??
-        process.env.NEXT_PUBLIC_API_URL ??
-        "http://localhost:8000";
-
-      const refreshRes = await fetch(`${backendUrl}/api/auth/refresh`, {
-        method: "GET",
-        headers: {
-          Cookie: `__refresh=${refresh}`,
-          Accept: "application/json",
-        },
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      if (refreshRes.ok) {
-        console.log(
-          "[MIDDLEWARE] Silent refresh succeeded, forwarding cookies"
-        );
-        const response = NextResponse.next();
-
-        const setCookie = refreshRes.headers.get("set-cookie");
-        if (setCookie) {
-          const parts = setCookie.split(/,(?=\s*\w+=)/);
-          parts.forEach((cookie) =>
-            response.headers.append("set-cookie", cookie)
-          );
-        }
-
-        return response;
-      } else {
-        console.warn(
-          "[MIDDLEWARE] Silent refresh failed with status:",
-          refreshRes.status
-        );
-        const loginUrl = new URL("/login", req.url);
-        loginUrl.searchParams.set("next", pathname);
-        return NextResponse.redirect(loginUrl);
-      }
-    } catch (err) {
-      console.error("[MIDDLEWARE] Silent refresh threw an error:", err);
-      const loginUrl = new URL("/login", req.url);
-      loginUrl.searchParams.set("next", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-  }
-
   // ✅ Unauthenticated but accessing auth pages
-  if (!access && !refresh && isAuthPage) {
+  if (!refresh && isAuthPage) {
     console.log(
       "[MIDDLEWARE] Unauthenticated user accessing auth page → allowed"
     );
@@ -125,7 +59,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // ✅ Unauthenticated user trying to access protected route
-  if (!access && !refresh && !isAuthPage) {
+  if (!refresh && !isAuthPage) {
     console.log("[MIDDLEWARE] No tokens → redirecting to /login");
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("next", pathname);

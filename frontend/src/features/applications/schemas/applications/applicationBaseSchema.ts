@@ -5,13 +5,13 @@ export const baseApplicationSchema = z.object({
   company: z.string().min(1, "Company is required"),
   role: z.string().min(1, "Role is required"),
   mode: z.preprocess(
-    (val) => (val === "" ? undefined : val),
+    (val) => (!val ? undefined : val),
     z.enum(APPLICATION_MODES.map((m) => m.id) as [string, ...string[]], {
       message: "Mode is required",
     })
   ),
   platform_id: z.preprocess(
-    (val) => (val === "" || val === undefined ? undefined : Number(val)),
+    (val) => (!val ? undefined : Number(val)),
     z.number().int().positive("Platform is required")
   ),
   application_date: z
@@ -21,19 +21,19 @@ export const baseApplicationSchema = z.object({
   observation: z.string().optional(),
   expected_salary: z
     .preprocess(
-      (val) => (val === "" ? undefined : Number(val)),
+      (val) => (!val ? undefined : Number(val)),
       z.number().optional()
     )
     .optional(),
   salary_range_min: z
     .preprocess(
-      (val) => (val === "" ? undefined : Number(val)),
+      (val) => (!val ? undefined : Number(val)),
       z.number().optional()
     )
     .optional(),
   salary_range_max: z
     .preprocess(
-      (val) => (val === "" ? undefined : Number(val)),
+      (val) => (!val ? undefined : Number(val)),
       z.number().optional()
     )
     .optional(),

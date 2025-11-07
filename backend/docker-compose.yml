@@ -1,12 +1,39 @@
-version: '3.8'
-
 services:
   backend:
-    # build: .
-    image: luisedu/app-panel-api:latest
+    build: .
     container_name: panel_backend
-    env_file:
-      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - ENVIRONMENT=DEV
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/application-panel
+      - GITHUB_CLIENT_ID=<your-client-id>
+      - GITHUB_CLIENT_SECRET=<your-client-secret>
+      - GITHUB_REDIRECT_URI=http://127.0.0.1:8000/api/auth/github/callback
+      - LOGIN_REDIRECT_URI=http://127.0.0.1:3000/dashboard
     ports:
       - "8000:8000"
+    entrypoint: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
     restart: unless-stopped
+
+  db:
+    image: postgres:12
+    container_name: panel_db
+    environment:
+      POSTGRES_DB: application-panel
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:

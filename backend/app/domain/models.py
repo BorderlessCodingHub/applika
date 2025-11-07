@@ -42,6 +42,9 @@ class UserModel(BaseMixin, Base):
     applications: Mapped[List['ApplicationModel']] = relationship(
         back_populates='user'
     )
+    applications_steps: Mapped[List['ApplicationStepModel']] = relationship(
+        back_populates='user'
+    )
 
     @property
     def tech_stack(self) -> list[str]:
@@ -107,7 +110,11 @@ class ApplicationStepModel(BaseMixin, Base):
     )
     step_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
     observation: Mapped[Optional[str]] = mapped_column(sa.Text)
+    user_id: Mapped[int] = mapped_column(
+        sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
+    )
 
+    user: Mapped['UserModel'] = relationship(back_populates='applications_steps')
     application: Mapped['ApplicationModel'] = relationship(
         back_populates='application_steps'
     )

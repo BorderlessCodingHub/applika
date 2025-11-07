@@ -1,54 +1,55 @@
-# name: Frontend CD
+name: Frontend CD
 
-# on:
-#   workflow_dispatch:
-#   push:
-#     branches:
-#       - actions/*
-#       - main
-#     paths:
-#       - "frontend/**"
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - actions/*
+      - main
+    paths:
+      - "frontend/**"
 
-# jobs:
-#   build-and-push:
-#     runs-on: ubuntu-latest
-#     defaults:
-#       run:
-#         working-directory: frontend
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
 
-#     steps:
-#       - name: Checkout source code
-#         uses: actions/checkout@v4
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
 
-#       - name: Log in to Docker Hub
-#         uses: docker/login-action@v3
-#         with:
-#           username: ${{ secrets.DOCKER_HUB_USER }}
-#           password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-#       - name: Set up Docker Buildx
-#         uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-#       - name: Build and push Docker image
-#         uses: docker/build-push-action@v6
-#         with:
-#           context: ./frontend
-#           push: true
-#           tags: |
-#             ${{ secrets.DOCKER_HUB_USER }}/${{ vars.IMAGE_NAME_FRONTEND }}:latest
-#           build-args: |
-#             API_BASE_URL=${{ vars.API_BASE_URL }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_HUB_USER }}/${{ vars.IMAGE_NAME_FRONTEND }}:latest
+          build-args: |
+            API_BASE_URL=${{ vars.API_BASE_URL }}
+            REPOSITORY_URL=${{ vars.REPOSITORY_URL }}
 
-#   deploy:
-#     needs: build-and-push
-#     runs-on: ubuntu-latest
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
 
-#     steps:
-#       - name: Deploy to EC2 via SSH
-#         uses: appleboy/ssh-action@master
-#         with:
-#           host: ${{ secrets.EC2_HOST }}
-#           username: ${{ secrets.EC2_USERNAME }}
-#           key: ${{ secrets.EC2_SSH_KEY }}
-#           script: |
-#             docker service update --image ${{ secrets.DOCKER_HUB_USER }}/${{ vars.IMAGE_NAME_FRONTEND }}:latest ${{ vars.SWARM_FRONTEND_SERVICE_NAME }} --force
+    steps:
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOSTNAME }}
+          username: ${{ secrets.VPS_USERNAME }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          script: |
+            docker service update --image ${{ secrets.DOCKER_HUB_USER }}/${{ vars.IMAGE_NAME_FRONTEND }}:latest ${{ vars.SWARM_FRONTEND_SERVICE_NAME }} --force

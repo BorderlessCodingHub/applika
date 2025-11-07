@@ -24,7 +24,7 @@ class AvarageDaysSteps(BaseModel):
     id: int
     name: str
     color: str
-    average_days: int
+    average_days: float
 
 
 class PlarformApplications(BaseModel):

@@ -1,9 +1,14 @@
+from decimal import ROUND_HALF_UP, Decimal
 from typing import List
 
 from app.application.dto.statistic import AvarageDaysDTO
 from app.domain.repositories.user_statistic_repository import (
     UserStatsRepository,
 )
+
+
+def format_decimal(value: Decimal) -> Decimal:
+    return value.quantize(Decimal("0.0"), rounding=ROUND_HALF_UP)
 
 
 class GetAvgDaysPerStepUseCase:
@@ -18,7 +23,7 @@ class GetAvgDaysPerStepUseCase:
                 id=step['step_id'],
                 name=step['step_name'],
                 color=step['step_color'],
-                average_days=step['avg_days'],
+                average_days=format_decimal(step['avg_days']),
             )
             for step in avg_days
         ]

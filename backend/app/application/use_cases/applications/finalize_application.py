@@ -57,6 +57,7 @@ class FinalizeApplicationUseCase:
 
         # Insert final step record
         application_step = ApplicationStepCreateDTO(
+            user_id=user_id,
             application_id=application.id,
             step_id=step.id,
             step_date=data.finalize_date,

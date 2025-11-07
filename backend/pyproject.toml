@@ -39,7 +39,7 @@ addopts = "--cov=app --cov-report=html --cov-report=xml"
 [tool.pytest_env]
 ENVIRONMENT = "TEST"
 # fake url - will be replaced by testcontainer instance during tests
-DATABASE_URL = "postgresql+asyncpg://user:password@localhost:5432/testdb"
+DATABASE_URL = "postgresql+asyncpg://user:password@127.0.0.1:5432/testdb"
 GITHUB_CLIENT_ID = "fake_client_id"
 GITHUB_CLIENT_SECRET = "fake_client_secret"
 

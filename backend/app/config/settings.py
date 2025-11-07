@@ -1,11 +1,25 @@
 from typing import List, Literal
 
+from pydantic import PostgresDsn, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ACCESS_COOKIE_NAME = '__access'
 REFRESH_COOKIE_NAME = '__refresh'
 
 EnvType = Literal['PROD', 'DEV', 'TEST']
+
+
+class AsyncpgDsn(PostgresDsn):
+    _constraints = UrlConstraints(
+        host_required=True,
+        allowed_schemes=[
+            'postgresql+asyncpg',
+        ],
+    )
+
+    def to_sync(self) -> str:
+        return self.__str__().replace(
+            'postgresql+asyncpg', 'postgresql')
 
 
 class Settings(BaseSettings):
@@ -25,13 +39,13 @@ class Settings(BaseSettings):
     ENVIRONMENT: EnvType = 'DEV'
 
     CORS_ORIGINS: List[str] = [
-        'http://localhost:3000',
-        'http://localhost:8000',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:8000',
     ]
     CORS_HEADERS: List[str] = ['X-Request-ID', 'Content-Type']
     CORS_METHODS: List[str] = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 
-    DATABASE_URL: str
+    DATABASE_URL: AsyncpgDsn
     DATABASE_ECHO: bool = False
 
     JWT_ALGORITHM: str = 'HS256'
@@ -41,9 +55,9 @@ class Settings(BaseSettings):
 
     GITHUB_CLIENT_ID: str
     GITHUB_CLIENT_SECRET: str
-    GITHUB_REDIRECT_URI: str = 'http://localhost:8000/api/auth/github/callback'
+    GITHUB_REDIRECT_URI: str = 'http://127.0.0.1:8000/api/auth/github/callback'
 
-    LOGIN_REDIRECT_URI: str = 'http://localhost:8000/api/docs'
+    LOGIN_REDIRECT_URI: str = 'http://127.0.0.1:8000/api/docs'
 
 
 envs = Settings()

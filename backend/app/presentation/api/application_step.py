@@ -76,7 +76,9 @@ async def add_step(
         application_step_repo=app_step_repo,
     )
     data = ApplicationStepCreateDTO(
-        application_id=application_id, **payload.model_dump()
+        user_id=c_user.id,
+        application_id=application_id,
+        **payload.model_dump()
     )
     app_step = await use_case.execute(c_user.id, data)
     return ApplicationStep.model_validate(app_step)
