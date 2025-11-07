@@ -45,8 +45,8 @@ jobs:
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+          host: ${{ secrets.VPS_HOSTNAME }}
+          username: ${{ secrets.VPS_USERNAME }}
+          password: ${{ secrets.VPS_PASSWORD }}
           script: |
             docker service update --image ${{ secrets.DOCKER_HUB_USER }}/${{ vars.IMAGE_NAME_BACKEND }}:latest ${{ vars.SWARM_BACKEND_SERVICE_NAME }} --force
