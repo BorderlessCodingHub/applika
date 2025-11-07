@@ -9,7 +9,8 @@ root/
 ├── backend/      # Python FastAPI backend
 ├── frontend/     # Next.js React frontend
 ├── legacy/       # Legacy code
-└── CONTRIBUTORS.md
+├── CONTRIBUTORS.md
+└── README.md
 ```
 
 ## Prerequisites
