@@ -17,7 +17,7 @@ root/
 
 - Docker & Docker Compose (recommended for local development)
 - Python 3.10+ (for backend, if running without Docker)
-- Node.js 18+ and pnpm (for frontend, if running without Docker)
+- Node.js 20+ and pnpm (for frontend, if running without Docker)
 
 ## Quick Start (Docker Compose)
 
