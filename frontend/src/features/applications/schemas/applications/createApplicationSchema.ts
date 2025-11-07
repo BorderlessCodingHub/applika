@@ -8,7 +8,7 @@ export const createApplicationSchema = baseApplicationSchema.extend({
     z.number().int().positive("Platform is required")
   ),
   mode: z.preprocess(
-    (val) => (val === "" ? undefined : val),
+    (val) => (!val ? undefined : val),
     z.enum(APPLICATION_MODES.map((m) => m.id) as [string, ...string[]], {
       message: "Mode is required",
     })

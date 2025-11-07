@@ -1,13 +1,13 @@
 "use client"
 
-import { logout } from "@/lib/auth/authFetcher"
+import { handleLogout } from "@/lib/auth/authFetcher"
 import { redirect } from "next/navigation"
 import { useEffect } from "react"
 
 export default function LogoutPage() {
   useEffect(() => {
     async function handleLogout() {
-      await logout()
+      await handleLogout()
       redirect("/login")
     }
     handleLogout()

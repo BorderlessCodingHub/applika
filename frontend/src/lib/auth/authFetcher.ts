@@ -35,11 +35,7 @@ async function trySilentRefresh(): Promise<boolean> {
 
 export async function handleUnauthorized(): Promise<never> {
   try {
-    await fetch("/api/auth/logout", {
-      method: "GET",
-      credentials: "include",
-      cache: "no-store",
-    });
+    await handleLogout()
   } catch (err) {
     console.error("[authFetcher] Logout error:", err);
   }
@@ -53,7 +49,7 @@ export async function handleUnauthorized(): Promise<never> {
   throw new Error("Unauthorized - redirecting to login");
 }
 
-export async function logout() {
+export async function handleLogout() {
   const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`)
   return res.ok
 }
