@@ -68,6 +68,7 @@ export default function ApplicationCard({
           )}
           <IconButton
             icon={<Plus />}
+            title="Add step"
             color={
               app.finalized
                 ? "text-white/30 cursor-not-allowed"
@@ -77,6 +78,7 @@ export default function ApplicationCard({
           />
           <IconButton
             icon={<Flag />}
+            title="Finalize application"
             color={
               app.finalized
                 ? "text-white/30 cursor-not-allowed"
@@ -86,6 +88,7 @@ export default function ApplicationCard({
           />
           <IconButton
             icon={<Pencil />}
+            title="Edit application"
             color={
               app.finalized ? "text-white/30 cursor-not-allowed" : "text-white"
             }
@@ -93,6 +96,7 @@ export default function ApplicationCard({
           />
           <IconButton
             icon={<Trash2 />}
+            title="Delete application"
             color="text-red-500"
             onClick={() => onDeleteApp(app)}
           />
@@ -145,15 +149,18 @@ export default function ApplicationCard({
 // Shared animated icon button
 function IconButton({
   icon,
+  title,
   color,
   onClick,
 }: {
   icon: React.ReactNode;
+  title?: string;
   color: string;
   onClick: () => void;
 }) {
   return (
     <motion.button
+      title={title}
       whileHover={{ scale: 1.15, rotate: 5 }}
       whileTap={{ scale: 0.9 }}
       transition={{ type: "spring", stiffness: 300, damping: 15 }}
