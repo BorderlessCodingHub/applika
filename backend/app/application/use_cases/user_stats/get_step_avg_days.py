@@ -10,6 +10,7 @@ from app.domain.repositories.user_statistic_repository import (
 def format_decimal(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.0"), rounding=ROUND_HALF_UP)
 
+
 class GetAvgDaysPerStepUseCase:
     def __init__(self, user_stats_repo: UserStatsRepository):
         self.user_stats_repo = user_stats_repo
