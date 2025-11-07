@@ -19,10 +19,12 @@ backend/
 │   ├── config/
 │   ├── core/
 │   ├── domain/
+│   │   ├── models.py
 │   │   └── repositories/
 │   ├── presentation/
 │   │   ├── api/
 │   │   ├── schemas/
+│   │   ├── dependencies.py
 │   │   └── handlers.py
 │   └── tests/
 │       ├── integration/

@@ -1,10 +1,10 @@
 services:
   frontend:
-    image: luisedu/praxis-app:latest
     build:
       context: .
       args:
-        API_BASE_URL: "https://praxis.luis0ares.com/api"
+        API_BASE_URL: "http://127.0.0.1:8000/api"
         REPOSITORY_URL: "https://github.com/ProgramadoresSemPatria/application_panel"
+    container_name: panel_frontend
     ports:
       - "3000:3000"
