@@ -39,8 +39,8 @@ class Settings(BaseSettings):
     ENVIRONMENT: EnvType = 'DEV'
 
     CORS_ORIGINS: List[str] = [
-        'http://localhost:3000',
-        'http://localhost:8000',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:8000',
     ]
     CORS_HEADERS: List[str] = ['X-Request-ID', 'Content-Type']
     CORS_METHODS: List[str] = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
@@ -55,9 +55,9 @@ class Settings(BaseSettings):
 
     GITHUB_CLIENT_ID: str
     GITHUB_CLIENT_SECRET: str
-    GITHUB_REDIRECT_URI: str = 'http://localhost:8000/api/auth/github/callback'
+    GITHUB_REDIRECT_URI: str = 'http://127.0.0.1:8000/api/auth/github/callback'
 
-    LOGIN_REDIRECT_URI: str = 'http://localhost:8000/api/docs'
+    LOGIN_REDIRECT_URI: str = 'http://127.0.0.1:8000/api/docs'
 
 
 envs = Settings()

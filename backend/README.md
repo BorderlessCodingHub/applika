@@ -56,8 +56,8 @@ backend/
 | DATABASE_URL            | Async DB connection string (SQLAlchemy async format)  | postgresql+asyncpg://user:passw@host:port/database   | Yes      |
 | GITHUB_CLIENT_ID        | GitHub OAuth client ID                                | <your-client-id>                                     | Yes      |
 | GITHUB_CLIENT_SECRET    | GitHub OAuth client secret                            | <your-client-secret>                                 | Yes      |
-| GITHUB_REDIRECT_URI     | GitHub OAuth redirect URI                             | http://localhost:8000/api/auth/github/callback       | No       |
-| LOGIN_REDIRECT_URI      | Login redirect URI after authentication               | http://localhost:8000/api/docs                       | No       |
+| GITHUB_REDIRECT_URI     | GitHub OAuth redirect URI                             | http://127.0.0.1:8000/api/auth/github/callback       | No       |
+| LOGIN_REDIRECT_URI      | Login redirect URI after authentication               | http://127.0.0.1:8000/api/docs                       | No       |
 | JWT_ALGORITHM           | JWT signing algorithm                                 | HS256                                                | No       |
 | JWT_SECRET              | JWT secret key                                        | my-jwt-secret                                        | No       |
 | ACCESS_TOKEN_EXPIRE_MINUTES | Access token expiration (minutes)                 | 15                                                   | No       |
@@ -65,7 +65,7 @@ backend/
 | LOG_LEVEL               | Logging level                                         | INFO                                                 | No       |
 | LOG_FORMAT              | Logging format string                                 | [%(asctime)s] [%(levelname)s] %(message)s            | No       |
 | API_PREFIX              | API route prefix                                      | /api                                                 | No       |
-| CORS_ORIGINS            | Allowed CORS origins (comma separated)                | http://localhost:3000,http://localhost:8000          | No       |
+| CORS_ORIGINS            | Allowed CORS origins (comma separated)                | http://127.0.0.1:3000,http://127.0.0.1:8000          | No       |
 | CORS_HEADERS            | Allowed CORS headers (comma separated)                | X-Request-ID,Content-Type                            | No       |
 | CORS_METHODS            | Allowed CORS methods (comma separated)                | GET,POST,PUT,DELETE,OPTIONS                          | No       |
 | DATABASE_ECHO           | SQLAlchemy echo flag (show SQL queries)               | False                                                | No       |
@@ -87,7 +87,7 @@ backend/
    ```
 
 4. **Access the backend API:**
-   - The API will be available at `http://localhost:8000`
+   - The API will be available at `http://127.0.0.1:8000`
 
 5. **Run database migrations (if needed):**
    ```bash

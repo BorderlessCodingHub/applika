@@ -28,28 +28,18 @@ root/
    cd application-panel
    ```
 
-2. **Copy environment files:**
-
-   - Copy `.env.example` to `.env` in both `backend/` and `frontend/` folders and adjust variables as needed.
-
-3. **Start backend service:**
+2. **Start backend service:**
 
    ```bash
    cd backend
    docker-compose up --build
    ```
+   Backend API: [http://127.0.0.1:8000/api/docs](http://127.0.0.1:8000/api/docs) (Swagger UI)
 
-4. **Start backend service:**
+3. **Start backend service:**
 
    ```bash
    cd frontend
    docker-compose up --build
    ```
-
-5. **Access the application:**
-   - Frontend: [http://127.0.0.1:3000](http://127.0.0.1:3000)
-   - Backend API: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) (Swagger UI)
-
-## Contributing
-
-See `CONTRIBUTORS.md` for guidelines on how to contribute to this project.
+   Frontend: [http://127.0.0.1:3000](http://127.0.0.1:3000)
