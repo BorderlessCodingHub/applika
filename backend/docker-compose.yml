@@ -5,16 +5,16 @@ services:
     environment:
       - ENVIRONMENT=DEV
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/application-panel
-      - GITHUB_CLIENT_ID=<your-client-id>
-      - GITHUB_CLIENT_SECRET=<your-client-secret>
+      - GITHUB_CLIENT_ID=Ov23liktEXTOGwAPuSII
+      - GITHUB_CLIENT_SECRET=cd63c6a936797167029ced80a3c523dbd36e8d23
       - GITHUB_REDIRECT_URI=http://127.0.0.1:8000/api/auth/github/callback
-      - LOGIN_REDIRECT_URI=http://127.0.0.1:3000/
+      - LOGIN_REDIRECT_URI=http://127.0.0.1:3000/dashboard
     ports:
       - "8000:8000"
     restart: unless-stopped
 
   db:
-    image: postgres:15
+    image: postgres:12
     container_name: panel_db
     environment:
       POSTGRES_DB: application-panel
