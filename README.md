@@ -1,6 +1,6 @@
-# Application Panel
+# Applika.dev
 
-Application Panel is a full-stack application designed to manage applications and user statistics. It consists of a backend (Python/FastAPI) and a frontend (Next.js/React), organized in separate folders for modular development.
+Applika.dev is a full-stack application designed to manage applications and user statistics. It consists of a backend (Python/FastAPI) and a frontend (Next.js/React), organized in separate folders for modular development.
 
 ## Project Structure
 
@@ -16,7 +16,7 @@ root/
 ## Prerequisites
 
 - Docker & Docker Compose (recommended for local development)
-- Python 3.10+ (for backend, if running without Docker)
+- Python 3.9+ (for backend, if running without Docker)
 - Node.js 20+ and pnpm (for frontend, if running without Docker)
 
 ## Quick Start (Docker Compose)
@@ -32,7 +32,7 @@ root/
 
    ```bash
    cd backend
-   docker-compose up --build
+   docker compose up --build
    ```
    Backend API: [http://127.0.0.1:8000/api/docs](http://127.0.0.1:8000/api/docs) (Swagger UI)
 
@@ -40,6 +40,6 @@ root/
 
    ```bash
    cd frontend
-   docker-compose up --build
+   docker compose up --build
    ```
    Frontend: [http://127.0.0.1:3000](http://127.0.0.1:3000)

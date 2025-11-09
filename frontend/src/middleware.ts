@@ -73,5 +73,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next|api|images|fonts|assets|logo.svg).*)"],
+  matcher: ["/((?!_next|api|images|fonts|assets|logo.webp).*)"],
 };

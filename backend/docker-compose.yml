@@ -1,7 +1,7 @@
 services:
   backend:
     build: .
-    container_name: panel_backend
+    container_name: applika.dev-api
     depends_on:
       db:
         condition: service_healthy
@@ -19,7 +19,7 @@ services:
 
   db:
     image: postgres:12
-    container_name: panel_db
+    container_name: applika.dev-postgres
     environment:
       POSTGRES_DB: application-panel
       POSTGRES_USER: postgres
@@ -28,7 +28,7 @@ services:
       - "5432:5432"
     restart: unless-stopped
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - applika_db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -36,4 +36,4 @@ services:
       retries: 5
 
 volumes:
-  db_data:
+  applika_db_data:

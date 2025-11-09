@@ -1,6 +1,6 @@
 export const appConfig = {
-  name: "Application Tracker",
-  shortName: "Application Tracker",
+  name: "Applika.dev",
+  shortName: "Applika.dev",
   logo: "/images/app-logo.webp",
   get subtitle() {
     return `Welcome back to ${this.name}`;
