@@ -4,7 +4,6 @@ services:
       context: .
       args:
         API_BASE_URL: "http://127.0.0.1:8000"
-        REPOSITORY_URL: "https://github.com/ProgramadoresSemPatria/application_panel"
-    container_name: panel_frontend
+    container_name: front-applika.dev
     ports:
       - "3000:3000"
