@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useForm, Controller, SubmitHandler } from "react-hook-form";
+import type { Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import ModalWithSkeleton from "@/components/ui/ModalWithSkeleton";
@@ -44,7 +45,9 @@ export default function FinalizeApplicationModal({
     reset,
     formState: { isSubmitting },
   } = useForm<FinalizeApplicationPayload>({
-    resolver: zodResolver(finalizeApplicationSchema),
+    resolver: zodResolver(
+      finalizeApplicationSchema
+    ) as unknown as Resolver<FinalizeApplicationPayload>,
     defaultValues: {
       step_id: 0,
       feedback_id: 0,
@@ -121,10 +124,7 @@ export default function FinalizeApplicationModal({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <DateInput
-            {...register("finalize_date")}
-            placeholder="Select date"
-          />
+          <DateInput {...register("finalize_date")} placeholder="Select date" />
 
           <input
             {...register("salary_offer", { valueAsNumber: true })}
