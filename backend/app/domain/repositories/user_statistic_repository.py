@@ -89,7 +89,7 @@ class UserStatsRepository:
         result = await self.session.execute(stmt)
         return result.mappings().all()
 
-    async def count_applications_per_non_strict_step(
+    async def count_applications_per_step(
         self, user_id: int
     ) -> List[ApplicationStepCount]:
         stmt = (
@@ -106,9 +106,6 @@ class UserStatsRepository:
                 ApplicationStepModel,
                 (StepDefinitionModel.id == ApplicationStepModel.step_id) &
                 (ApplicationStepModel.user_id == user_id),
-            )
-            .where(
-                StepDefinitionModel.strict.is_(False)
             )
             .group_by(
                 StepDefinitionModel.id,

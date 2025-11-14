@@ -13,6 +13,7 @@ import {
 import CardDetails from "../CardDetails";
 import { Application, Step } from "../types";
 import { useApplicationSteps } from "@/features/applications/hooks/useApplicationSteps";
+import { useSupports } from "@/features/applications/hooks/useSupports";
 
 interface ApplicationCardProps {
   app: Application;
@@ -38,35 +39,82 @@ export default function ApplicationCard({
     isOpen ? app.id : undefined
   );
 
+  // get application steps definitions (to map colors)
+  const { supports, isLoading: supportsLoading } = useSupports();
+
+  // build a quick lookup map: stepId -> color
+  const stepColorMap: Record<number, string> = {};
+  supports.steps?.forEach((s) => {
+    if (s?.id && s?.color) stepColorMap[s.id] = s.color;
+  });
+
   useEffect(() => {
     if (isOpen && app.id) mutate();
   }, [isOpen, app.id, mutate]);
 
   const toggleDetails = () => setIsOpen((prev) => !prev);
 
+  function formatToPrettyDate(dateStr: string) {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const d = new Date(year, month - 1, day);
+
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+    }).format(d);
+  }
+
   return (
     <motion.div
+      onClick={(e) => {
+        const target = e.target as HTMLElement;
+
+        // ignore clicks on interactive elements
+        if (
+          target.closest("button") ||
+          target.closest("[data-no-toggle]") ||
+          target.closest("svg") ||
+          target.closest("a") ||
+          (target as HTMLElement).isContentEditable
+        ) {
+          return;
+        }
+
+        toggleDetails();
+      }}
       layout
       transition={{ layout: { duration: 0.35, ease: "easeInOut" } }}
       className="w-full h-full flex flex-col rounded-2xl p-4 bg-white/5 border border-white/20 backdrop-blur-xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all"
     >
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 min-h-[45px]">
-        <div className="flex flex-col gap-1 min-w-[180px] w-full sm:w-auto  items-center sm:items-start">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 min-h-[45px]">
+        <div className="flex flex-col gap-1 min-w-[180px] w-full md:w-auto items-center md:items-start">
           <h3 className="text-white font-semibold text-xl sm:text-2xl truncate">
             {app.company}
           </h3>
-          <span className="text-white/70 text-base sm:text-lg truncate">
-            {app.role}
-          </span>
+          <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2">
+            <span className="text-white/70 text-base sm:text-lg truncate">
+              {app.role}
+            </span>
+
+            <span className="hidden md:inline text-white/70 text-base sm:text-lg">
+              -
+            </span>
+
+            <span className="text-white/70 text-base sm:text-lg truncate text-center md:text-left">
+              {formatToPrettyDate(app.application_date)}
+            </span>
+          </div>
         </div>
 
-        <div className="flex flex-wrap sm:flex-nowrap items-center justify-center sm:justify-end gap-3 text-white/80 w-full sm:w-auto">
+        <div className="flex flex-wrap md:flex-nowrap items-center justify-center md:justify-end gap-3 text-white/80 w-full md:w-auto">
           {app.finalized && (
-            <span className="w-full ml-0 sm:ml-2 text-center text-md text-white/50 italic">
+            <span className="w-full md:w-auto ml-0 md:ml-2 text-center text-md text-white/50 italic">
               Finalized
             </span>
           )}
           <IconButton
+            data-no-toggle
             icon={<Plus />}
             title="Add step"
             color={
@@ -77,6 +125,7 @@ export default function ApplicationCard({
             onClick={() => !app.finalized && onAddStep(app)}
           />
           <IconButton
+            data-no-toggle
             icon={<Flag />}
             title="Finalize application"
             color={
@@ -87,6 +136,7 @@ export default function ApplicationCard({
             onClick={() => !app.finalized && onFinalizeApp(app)}
           />
           <IconButton
+            data-no-toggle
             icon={<Pencil />}
             title="Edit application"
             color={
@@ -95,6 +145,7 @@ export default function ApplicationCard({
             onClick={() => !app.finalized && onEditApp(app)}
           />
           <IconButton
+            data-no-toggle
             icon={<Trash2 />}
             title="Delete application"
             color="text-red-500"
@@ -102,6 +153,7 @@ export default function ApplicationCard({
           />
           <IconButton
             icon={isOpen ? <ChevronUp /> : <ChevronDown />}
+            title={isOpen ? "Collapse" : "Expand"}
             color="text-white"
             onClick={toggleDetails}
           />
@@ -136,6 +188,7 @@ export default function ApplicationCard({
                 app.last_step?.id ? String(app.last_step.id) : undefined
               }
               lastStepColor={app.last_step?.color ?? undefined}
+              stepColorMap={stepColorMap}
               onEditStep={(s) => onEditStep(s, app)}
               onDeleteStep={(s) => onDeleteStep(s, app)}
             />
@@ -152,11 +205,14 @@ function IconButton({
   title,
   color,
   onClick,
+  ...rest
 }: {
   icon: React.ReactNode;
   title?: string;
   color: string;
   onClick: () => void;
+  // allow arbitrary attributes such as data-no-toggle
+  [key: string]: any;
 }) {
   return (
     <motion.button
@@ -169,6 +225,7 @@ function IconButton({
                  m-1 sm:m-0
                  rounded-md`}
       onClick={onClick}
+      {...rest}
     >
       {icon}
     </motion.button>

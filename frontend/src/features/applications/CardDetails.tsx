@@ -34,6 +34,7 @@ export interface CardDetailsProps {
   lastStepColor?: string;
   onEditStep: (step: Step) => void;
   onDeleteStep: (step: Step) => void;
+  stepColorMap?: Record<number, string>;
 }
 
 export default function CardDetails({
@@ -55,6 +56,7 @@ export default function CardDetails({
   lastStepColor,
   onEditStep,
   onDeleteStep,
+  stepColorMap = {},
 }: CardDetailsProps) {
   if (!isOpen) return null;
 
@@ -113,11 +115,7 @@ export default function CardDetails({
         <DetailItem
           icon={<DollarSign size={22} />}
           label="Expected Salary"
-          value={
-            expected_salary
-              ? `$${expected_salary.toLocaleString()}`
-              : "—"
-          }
+          value={expected_salary ? `$${expected_salary.toLocaleString()}` : "—"}
         />
       </div>
 
@@ -136,76 +134,88 @@ export default function CardDetails({
         <CardDetailsSkeleton />
       ) : steps.length > 0 ? (
         <div className="space-y-4">
-          {steps.map((step) => (
-            <motion.div
-              key={step.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
-              className="flex flex-col items-center sm:w-[90%] mx-auto p-4 sm:p-5 border border-slate-800 hover:border-slate-600 rounded-xl"
-            >
-              <div className="flex-1 flex flex-col w-full items-center sm:items-start text-center sm:text-left">
-                {/* Step Info */}
-                <div className="flex flex-col sm:flex-row items-center sm:items-start justify-center sm:justify-between w-full gap-2 sm:gap-4">
-                  <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-2 w-full">
-                    <div className="flex items-center justify-center sm:justify-start gap-3 w-full sm:w-auto">
-                      <div
-                        className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{
-                          backgroundColor:
-                            String(step.step_id) === String(lastStepId)
-                              ? lastStepColor ?? "rgba(255,255,255,0.2)"
-                              : "rgba(255,255,255,0.2)",
-                        }}
-                      />
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 items-center">
-                        <div className="font-medium text-white text-xl sm:text-lg">
-                          {step.step_name}
-                        </div>
-                        <div className="text-white/60 text-lg sm:text-base">
-                          {step.step_date}
+          {steps.map((step) => {
+            // determine color priority:
+            // 1) step.step_color (from step instance)
+            // 2) mapping from supports (stepColorMap)
+            // 3) if this is the "last step" use lastStepColor
+            // 4) fallback color
+            const fallback = "rgba(255,255,255,0.2)";
+            const color =
+              step.step_color ??
+              stepColorMap[step.step_id] ??
+              (String(step.step_id) === String(lastStepId)
+                ? lastStepColor ?? fallback
+                : fallback);
+
+            return (
+              <motion.div
+                key={step.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25 }}
+                className="flex flex-col items-center sm:w-[90%] mx-auto p-4 sm:p-5 border border-slate-800 hover:border-slate-600 rounded-xl"
+              >
+                <div className="flex-1 flex flex-col w-full items-center sm:items-start text-center sm:text-left">
+                  {/* Step Info */}
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start justify-center sm:justify-between w-full gap-2 sm:gap-4">
+                    <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-2 w-full">
+                      <div className="flex items-center justify-center sm:justify-start gap-3 w-full sm:w-auto">
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{
+                            backgroundColor: color,
+                          }}
+                        />
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 items-center">
+                          <div className="font-medium text-white text-xl sm:text-lg">
+                            {step.step_name}
+                          </div>
+                          <div className="text-white/60 text-lg sm:text-base">
+                            {step.step_date}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Buttons for medium+ screens */}
-                    <div className="flex gap-5 sm:gap-3">
-                      <IconButton
-                        icon={<Pencil size={24} />}
-                        color={
-                          finalized
-                            ? "text-white/30 cursor-not-allowed"
-                            : "text-blue-400"
-                        }
-                        onClick={() => !finalized && onEditStep(step)}
-                      />
-                      <IconButton
-                        icon={<Trash2 size={24} />}
-                        color={
-                          finalized
-                            ? "text-white/30 cursor-not-allowed"
-                            : "text-red-400"
-                        }
-                        onClick={() => !finalized && onDeleteStep(step)}
-                      />
+                      {/* Buttons for medium+ screens */}
+                      <div className="flex gap-5 sm:gap-3">
+                        <IconButton
+                          icon={<Pencil size={24} />}
+                          color={
+                            finalized
+                              ? "text-white/30 cursor-not-allowed"
+                              : "text-blue-400"
+                          }
+                          onClick={() => !finalized && onEditStep(step)}
+                        />
+                        <IconButton
+                          icon={<Trash2 size={24} />}
+                          color={
+                            finalized
+                              ? "text-white/30 cursor-not-allowed"
+                              : "text-red-400"
+                          }
+                          onClick={() => !finalized && onDeleteStep(step)}
+                        />
+                      </div>
                     </div>
                   </div>
+
+                  {/* Step Observation */}
+                  {step.observation && (
+                    <div className="bg-white/10 border border-white/20 rounded-xl p-3 mt-3 w-full mx-auto shadow-sm backdrop-blur-md overflow-hidden">
+                      <span className="text-white/80 font-semibold text-sm md:text-base">
+                        Observation:
+                      </span>
+                      <p className="text-white/70 text-sm md:text-base mt-1 leading-relaxed tracking-wide break-words whitespace-pre-wrap">
+                        {step.observation}
+                      </p>
+                    </div>
+                  )}
                 </div>
-
-                {/* Step Observation */}
-                {step.observation && (
-                  <div className="bg-white/10 border border-white/20 rounded-xl p-3 mt-3 w-full mx-auto shadow-sm backdrop-blur-md overflow-hidden">
-                    <span className="text-white/80 font-semibold text-sm md:text-base">
-                      Observation:
-                    </span>
-                    <p className="text-white/70 text-sm md:text-base mt-1 leading-relaxed tracking-wide break-words whitespace-pre-wrap">
-                      {step.observation}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </div>
       ) : (
         <div className="text-white/60 italic text-sm">
@@ -256,11 +266,13 @@ function IconButton({
   color,
   onClick,
   smallScreenProps,
+  ...rest
 }: {
   icon: React.ReactNode;
   color: string;
   onClick: () => void;
   smallScreenProps?: { className?: string };
+  [key: string]: any;
 }) {
   return (
     <motion.button
@@ -271,6 +283,7 @@ function IconButton({
         smallScreenProps?.className || ""
       }`}
       onClick={onClick}
+      {...rest}
     >
       {icon}
     </motion.button>
