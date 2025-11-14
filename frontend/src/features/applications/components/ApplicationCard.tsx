@@ -46,6 +46,20 @@ export default function ApplicationCard({
 
   return (
     <motion.div
+      onClick={(e) => {
+        const target = e.target as HTMLElement;
+
+        // ignore clicks on interactive elements
+        if (
+          target.closest("button") ||
+          target.closest("[data-no-toggle]") ||
+          target.closest("svg")
+        ) {
+          return;
+        }
+
+        toggleDetails();
+      }}
       layout
       transition={{ layout: { duration: 0.35, ease: "easeInOut" } }}
       className="w-full h-full flex flex-col rounded-2xl p-4 bg-white/5 border border-white/20 backdrop-blur-xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all"
@@ -77,6 +91,7 @@ export default function ApplicationCard({
             </span>
           )}
           <IconButton
+            data-no-toggle
             icon={<Plus />}
             title="Add step"
             color={
@@ -87,6 +102,7 @@ export default function ApplicationCard({
             onClick={() => !app.finalized && onAddStep(app)}
           />
           <IconButton
+            data-no-toggle
             icon={<Flag />}
             title="Finalize application"
             color={
@@ -97,6 +113,7 @@ export default function ApplicationCard({
             onClick={() => !app.finalized && onFinalizeApp(app)}
           />
           <IconButton
+            data-no-toggle
             icon={<Pencil />}
             title="Edit application"
             color={
@@ -105,6 +122,7 @@ export default function ApplicationCard({
             onClick={() => !app.finalized && onEditApp(app)}
           />
           <IconButton
+            data-no-toggle
             icon={<Trash2 />}
             title="Delete application"
             color="text-red-500"
