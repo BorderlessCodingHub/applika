@@ -44,6 +44,17 @@ export default function ApplicationCard({
 
   const toggleDetails = () => setIsOpen((prev) => !prev);
 
+  function formatToPrettyDate(dateStr: string) {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const d = new Date(year, month - 1, day);
+
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+    }).format(d);
+  }
+
   return (
     <motion.div
       onClick={(e) => {
@@ -77,19 +88,9 @@ export default function ApplicationCard({
             <span className="hidden sm:inline text-white/70 text-base sm:text-lg">
               -
             </span>
-
-            {(() => {
-              const [year, month, day] = app.application_date
-                .split("-")
-                .map(Number);
-              const localDate = new Date(year, month - 1, day);
-
-              return (
-                <span className="text-white/70 text-base sm:text-lg truncate text-center sm:text-left">
-                  {new Intl.DateTimeFormat("pt-BR").format(localDate)}
-                </span>
-              );
-            })()}
+            <span className="text-white/70 text-base sm:text-lg truncate text-center sm:text-left">
+              {formatToPrettyDate(app.application_date)}
+            </span>
           </div>
         </div>
 
