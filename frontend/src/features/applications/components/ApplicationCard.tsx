@@ -51,13 +51,23 @@ export default function ApplicationCard({
       className="w-full h-full flex flex-col rounded-2xl p-4 bg-white/5 border border-white/20 backdrop-blur-xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all"
     >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 min-h-[45px]">
-        <div className="flex flex-col gap-1 min-w-[180px] w-full sm:w-auto  items-center sm:items-start">
+        <div className="flex flex-col gap-1 min-w-[180px] w-full sm:w-auto items-center sm:items-start">
           <h3 className="text-white font-semibold text-xl sm:text-2xl truncate">
             {app.company}
           </h3>
-          <span className="text-white/70 text-base sm:text-lg truncate">
-            {app.role}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-white/70 text-base sm:text-lg truncate">
+              {app.role}
+            </span>
+            <span className="text-white/70 text-base sm:text-lg">-</span>
+            <span className="text-white/70 text-base sm:text-lg truncate">
+              {new Intl.DateTimeFormat("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              }).format(new Date(app.application_date))}
+            </span>
+          </div>
         </div>
 
         <div className="flex flex-wrap sm:flex-nowrap items-center justify-center sm:justify-end gap-3 text-white/80 w-full sm:w-auto">
