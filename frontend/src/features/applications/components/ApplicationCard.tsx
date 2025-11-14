@@ -69,18 +69,27 @@ export default function ApplicationCard({
           <h3 className="text-white font-semibold text-xl sm:text-2xl truncate">
             {app.company}
           </h3>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
             <span className="text-white/70 text-base sm:text-lg truncate">
               {app.role}
             </span>
-            <span className="text-white/70 text-base sm:text-lg">-</span>
-            <span className="text-white/70 text-base sm:text-lg truncate">
-              {new Intl.DateTimeFormat("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              }).format(new Date(app.application_date))}
+
+            <span className="hidden sm:inline text-white/70 text-base sm:text-lg">
+              -
             </span>
+
+            {(() => {
+              const [year, month, day] = app.application_date
+                .split("-")
+                .map(Number);
+              const localDate = new Date(year, month - 1, day);
+
+              return (
+                <span className="text-white/70 text-base sm:text-lg truncate text-center sm:text-left">
+                  {new Intl.DateTimeFormat("pt-BR").format(localDate)}
+                </span>
+              );
+            })()}
           </div>
         </div>
 
