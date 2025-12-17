@@ -15,10 +15,12 @@ class BaseMixin:
         sa.DateTime(timezone=True), default=sa.func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        sa.DateTime(timezone=True), onupdate=sa.func.now(), nullable=True
+        sa.DateTime(timezone=True), default=None,
+        onupdate=sa.func.now(), nullable=True
     )
 
 
+# TODO: Configure MappedAsDataclass and set default_factory for each model field
 class Base(DeclarativeBase): ...
 
 

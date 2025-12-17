@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import (
@@ -10,6 +12,8 @@ from testcontainers.postgres import PostgresContainer
 from app.config.db import get_session
 from app.domain.models import Base
 from app.main import app as main_app
+from app.presentation.dependencies import get_current_user
+from app.tests.base_db_setup import base_data
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -36,6 +40,8 @@ async def db_session(db_container):
         async_engine, autoflush=False, expire_on_commit=False
     )
     async with async_session_maker() as session:
+        session.add_all(base_data.to_list())
+        await session.commit()
         yield session
 
 
@@ -49,6 +55,19 @@ async def async_client(db_session: AsyncSession):
         yield db_session
 
     main_app.dependency_overrides[get_session] = override_get_session
+
+    async def override_get_current_user():
+        # Mocked user DTO for authentication
+        from app.application.dto.user import UserDTO
+        return UserDTO(
+            id=base_data.user.id,
+            github_id=base_data.user.github_id,
+            username=base_data.user.username,
+            email=base_data.user.email,
+            created_at=datetime.now(timezone.utc)
+        )
+
+    main_app.dependency_overrides[get_current_user] = override_get_current_user
 
     transport = ASGITransport(app=main_app)
     async with AsyncClient(transport=transport,
