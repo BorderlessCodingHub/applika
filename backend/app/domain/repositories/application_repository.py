@@ -44,7 +44,8 @@ class ApplicationRepository:
         try:
             db_application = ApplicationModel(
                 **application.model_dump(exclude={'link_to_job'}),
-                link_to_job=str(application.link_to_job)
+                link_to_job=(str(application.link_to_job)
+                             if application.link_to_job else None),
             )
             self.session.add(db_application)
             await self.session.commit()

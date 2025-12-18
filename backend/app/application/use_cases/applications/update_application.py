@@ -39,7 +39,8 @@ class UpdateApplicationUseCase:
         application.mode = data.mode
         application.platform_id = data.platform_id
         application.application_date = data.application_date
-        application.link_to_job = str(data.link_to_job)
+        application.link_to_job = (str(data.link_to_job)
+                                   if data.link_to_job else None)
         application.observation = data.observation
         application.expected_salary = data.expected_salary
         application.salary_range_min = data.salary_range_min
