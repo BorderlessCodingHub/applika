@@ -42,7 +42,10 @@ class ApplicationRepository:
         self, application: ApplicationCreateDTO
     ) -> ApplicationModel:
         try:
-            db_application = ApplicationModel(**application.model_dump())
+            db_application = ApplicationModel(
+                **application.model_dump(exclude={'link_to_job'}),
+                link_to_job=str(application.link_to_job)
+            )
             self.session.add(db_application)
             await self.session.commit()
             await self.session.refresh(db_application)

@@ -1,6 +1,6 @@
 from datetime import date
 
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl, Field
 from typing_extensions import Literal
 
 from app.application.dto import BaseSchema
@@ -13,6 +13,7 @@ class ApplicationCreateDTO(BaseModel):
     mode: Literal['active', 'passive']
     platform_id: int
     application_date: date
+    link_to_job: HttpUrl | None
     observation: str | None = None
     expected_salary: float | None = None
     salary_range_min: float | None = None
@@ -26,6 +27,7 @@ class ApplicationUpdateDTO(BaseModel):
     mode: Literal['active', 'passive']
     platform_id: int
     application_date: date
+    link_to_job: HttpUrl | None
     observation: str | None = None
     expected_salary: float | None = None
     salary_range_min: float | None = None
@@ -60,6 +62,7 @@ class ApplicationDTO(BaseSchema):
     mode: Literal['active', 'passive']
     platform_id: int
     application_date: date
+    link_to_job: HttpUrl | None = None
     observation: str | None = None
     expected_salary: float | None = None
     salary_range_min: float | None = None
