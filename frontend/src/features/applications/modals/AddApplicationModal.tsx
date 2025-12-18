@@ -55,6 +55,7 @@ export default function AddApplicationModal({
         expected_salary: undefined,
         salary_range_min: undefined,
         salary_range_max: undefined,
+        link_to_job: "",
         observation: "",
       }),
       []
@@ -72,6 +73,7 @@ export default function AddApplicationModal({
         expected_salary: undefined,
         salary_range_min: undefined,
         salary_range_max: undefined,
+        link_to_job: "",
         observation: "",
       });
   }, [isOpen, reset]);
@@ -112,7 +114,7 @@ export default function AddApplicationModal({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
           <DateInput
             {...register("application_date")}
-            placeholder="Select date"
+            placeholder="Select date (required)"
           />
 
           <Controller
@@ -179,6 +181,14 @@ export default function AddApplicationModal({
                        placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
           />
         </div>
+
+        <input
+          {...register("link_to_job")}
+          type="text"
+          placeholder="Link to Job (optional)"
+          className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
+                       placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+        />
 
         <textarea
           {...register("observation")}

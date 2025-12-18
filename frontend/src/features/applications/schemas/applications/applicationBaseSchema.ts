@@ -18,6 +18,14 @@ export const baseApplicationSchema = z.object({
     .string()
     .min(1, "Date is required")
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
+  link_to_job: z
+    .url({
+      protocol: /^https?$/,
+      hostname: z.regexes.domain,
+      error: "Invalid URL format",
+    })
+    .max(2048, "Max length is 2048 characters")
+    .optional(),
   observation: z.string().optional(),
   expected_salary: z
     .preprocess(
