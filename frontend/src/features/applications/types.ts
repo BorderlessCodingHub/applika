@@ -35,6 +35,7 @@ export interface Application {
 
   // Extra info
   mode: Mode;
+  link_to_job?: string;
   observation?: string;
 
   finalized?: boolean;

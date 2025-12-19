@@ -163,6 +163,7 @@ class ApplicationModel(BaseMixin, Base):
         sa.String(10), nullable=False
     )
     observation: Mapped[Optional[str]] = mapped_column(sa.Text)
+    link_to_job: Mapped[Optional[str]] = mapped_column(sa.String(2083))
 
     salary_offer: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
     expected_salary: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))

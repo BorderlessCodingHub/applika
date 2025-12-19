@@ -93,3 +93,17 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
+
+
+# if context.is_offline_mode():
+#     run_migrations_offline()
+# else:
+#     try:
+#         loop = asyncio.get_running_loop()
+#     except RuntimeError:
+#         # CLI mode
+#         asyncio.run(run_async_migrations())
+#     else:
+#         # pytest_asyncio / FastAPI
+#         print('Running migrations in existing event loop')
+#         loop.create_task(run_async_migrations())
