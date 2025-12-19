@@ -1,6 +1,6 @@
 from datetime import date
 
-from pydantic import BaseModel, HttpUrl, Field
+from pydantic import BaseModel, HttpUrl
 from typing_extensions import Literal
 
 from app.application.dto import BaseSchema

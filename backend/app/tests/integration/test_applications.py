@@ -95,7 +95,7 @@ async def test_delete_application(
     await db_session.commit()
 
     # Act: call the endpoint
-    response = await async_client.delete(f"/applications/1")
+    response = await async_client.delete("/applications/1")
 
     # Assert: verify the response
     assert response.status_code == 204, msg(204, response.status_code)
