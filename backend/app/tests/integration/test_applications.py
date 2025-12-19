@@ -77,3 +77,32 @@ async def test_list_applications(
     assert data[0]["id"] == 2, msg(2, data[0]["id"])
     # Finalized application second
     assert data[1]["id"] == 1, msg(1, data[1]["id"])
+
+
+async def test_delete_application(
+        async_client: AsyncClient, db_session: AsyncSession):
+    # Arrange: create test data
+    application = ApplicationModel(
+        id=1,
+        user_id=base_data()["user"].id,
+        platform_id=base_data()["fb_denied"].id,
+        company="Applika Inc",
+        role="Software Engineer",
+        mode="active",
+        application_date=date(2025, 12, 1)
+    )
+    db_session.add(application)
+    await db_session.commit()
+
+    # Act: call the endpoint
+    response = await async_client.delete(f"/applications/1")
+
+    # Assert: verify the response
+    assert response.status_code == 204, msg(204, response.status_code)
+
+    # Ensure the session expires cached state so we read fresh data from the DB
+    await db_session.run_sync(lambda s: s.expire_all())
+
+    # Verify the application is deleted
+    deleted_application = await db_session.get(ApplicationModel, 1)
+    assert deleted_application is None, msg("None", deleted_application)
