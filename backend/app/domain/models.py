@@ -15,10 +15,12 @@ class BaseMixin:
         sa.DateTime(timezone=True), default=sa.func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        sa.DateTime(timezone=True), onupdate=sa.func.now(), nullable=True
+        sa.DateTime(timezone=True), default=None,
+        onupdate=sa.func.now(), nullable=True
     )
 
 
+# TODO: Configure MappedAsDataclass and set default_factory for each model field
 class Base(DeclarativeBase): ...
 
 
@@ -161,6 +163,7 @@ class ApplicationModel(BaseMixin, Base):
         sa.String(10), nullable=False
     )
     observation: Mapped[Optional[str]] = mapped_column(sa.Text)
+    link_to_job: Mapped[Optional[str]] = mapped_column(sa.String(2083))
 
     salary_offer: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
     expected_salary: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))

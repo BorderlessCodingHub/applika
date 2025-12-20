@@ -12,4 +12,11 @@ class ListApplicationsUseCase:
 
     async def execute(self, user_id: int) -> List[ApplicationDTO]:
         applications = await self.app_repo.get_all_by_user_id(user_id)
-        return [ApplicationDTO.model_validate(app) for app in applications]
+        active, finalized = [], []
+        for application in applications:
+            application = ApplicationDTO.model_validate(application)
+            if application.feedback is None:
+                active.append(application)
+            else:
+                finalized.append(application)
+        return active + finalized

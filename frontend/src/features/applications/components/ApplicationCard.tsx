@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import Link from "next/link";
 import CardDetails from "../CardDetails";
 import { Application, Step } from "../types";
 import { useApplicationSteps } from "@/features/applications/hooks/useApplicationSteps";
@@ -67,22 +68,6 @@ export default function ApplicationCard({
 
   return (
     <motion.div
-      onClick={(e) => {
-        const target = e.target as HTMLElement;
-
-        // ignore clicks on interactive elements
-        if (
-          target.closest("button") ||
-          target.closest("[data-no-toggle]") ||
-          target.closest("svg") ||
-          target.closest("a") ||
-          (target as HTMLElement).isContentEditable
-        ) {
-          return;
-        }
-
-        toggleDetails();
-      }}
       layout
       transition={{ layout: { duration: 0.35, ease: "easeInOut" } }}
       className="w-full h-full flex flex-col rounded-2xl p-4 bg-white/5 border border-white/20 backdrop-blur-xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all"
@@ -93,9 +78,19 @@ export default function ApplicationCard({
             {app.company}
           </h3>
           <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2">
-            <span className="text-white/70 text-base sm:text-lg truncate">
-              {app.role}
-            </span>
+            {app.link_to_job ? (
+              <Link
+                className="text-blue-400/70 text-base sm:text-lg truncate underline cursor-pointer"
+                href={app.link_to_job}
+                target="_blank"
+              >
+                {app.role}
+              </Link>
+            ) : (
+              <span className="text-white/70 text-base sm:text-lg truncate">
+                {app.role}
+              </span>
+            )}
 
             <span className="hidden md:inline text-white/70 text-base sm:text-lg">
               -

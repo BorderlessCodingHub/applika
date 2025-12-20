@@ -15,6 +15,7 @@ app = FastAPI(
     title='Application Panel',
     version='0.1.0',
     root_path=envs.API_PREFIX,
+    openapi_url=envs.openapi_url,
 )
 
 

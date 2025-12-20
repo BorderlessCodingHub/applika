@@ -59,5 +59,11 @@ class Settings(BaseSettings):
 
     LOGIN_REDIRECT_URI: str = 'http://127.0.0.1:8000/api/docs'
 
+    @property
+    def openapi_url(self):
+        if self.ENVIRONMENT == "PROD":
+            return None
+        return "/openapi.json"
+
 
 envs = Settings()

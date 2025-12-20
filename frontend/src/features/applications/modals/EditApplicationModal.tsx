@@ -55,6 +55,7 @@ export default function EditApplicationModal({
         expected_salary: initialData?.expected_salary ?? undefined,
         salary_range_min: initialData?.salary_range_min ?? undefined,
         salary_range_max: initialData?.salary_range_max ?? undefined,
+        link_to_job: initialData?.link_to_job ?? "",
         observation: initialData?.observation ?? "",
       }),
       [initialData]
@@ -72,6 +73,7 @@ export default function EditApplicationModal({
         expected_salary: initialData.expected_salary ?? undefined,
         salary_range_min: initialData.salary_range_min ?? undefined,
         salary_range_max: initialData.salary_range_max ?? undefined,
+        link_to_job: initialData.link_to_job ?? "",
         observation: initialData.observation ?? "",
       });
     }
@@ -185,6 +187,14 @@ export default function EditApplicationModal({
                        placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
             />
           </div>
+
+          <input
+            {...register("link_to_job")}
+            type="text"
+            placeholder="Link to Job (optional)"
+            className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
+                        placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+          />
 
           <textarea
             {...register("observation")}
