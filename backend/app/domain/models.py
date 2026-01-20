@@ -221,4 +221,3 @@ class ApplicationModel(BaseMixin, Base):
     @property
     def finalized(self) -> bool:
         return self.feedback_id is not None
-
