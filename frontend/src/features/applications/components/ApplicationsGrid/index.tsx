@@ -14,6 +14,23 @@ interface ApplicationsGridIndexProps {
   setAddAppOpen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
+const filterStrategies: Record<
+  string,
+  (apps: Application[]) => Application[]
+> = {
+  all: (apps) => apps,
+  open: (apps) => apps.filter(({ finalized }) => !finalized),
+  closed: (apps) => apps.filter(({ finalized }) => !!finalized),
+};
+
+const getFilteredApplications = (
+  status: string,
+  applications: Application[]
+) => {
+  const strategy = filterStrategies[status] || filterStrategies.all;
+  return strategy(applications);
+};
+
 export default function ApplicationsGridIndex({
   searchTerm,
   filterStatus,
@@ -21,15 +38,9 @@ export default function ApplicationsGridIndex({
   const { applications, isLoading, error } = useApplications();
 
   const filteredApps = useMemo(() => {
-    const filterStrategies: Record<string, (apps: Application[]) => Application[]> = {
-      all: (apps) => apps,
-      open: (apps) => apps.filter(({ finalized }) => !finalized),
-      closed: (apps) => apps.filter(({ finalized }) => finalized)
-    };
-
     const term = (searchTerm || "").trim().toLowerCase();
-    const applyStatusFilter = filterStrategies[filterStatus] || filterStrategies.all;
-    const appsByStatus = applyStatusFilter(applications);
+
+    const appsByStatus = getFilteredApplications(filterStatus, applications);
 
     if (!term) return appsByStatus;
 

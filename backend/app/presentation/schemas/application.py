@@ -62,7 +62,7 @@ class Application(BaseSchema, TimeSchema):
 
     last_step: ApplicationLastStep | None = None
     feedback: ApplicationFeedback | None = None
-
+    finalized: bool | None = None
 
 class FinalizeApplication(BaseModel):
     step_id: int  # only strict steps

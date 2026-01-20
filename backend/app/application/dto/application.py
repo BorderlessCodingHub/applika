@@ -69,5 +69,6 @@ class ApplicationDTO(BaseSchema):
     salary_range_max: float | None = None
     salary_offer: float | None = None
 
+    finalized: bool
     last_step: ApplicationLastStep | None = None
     feedback: ApplicationFeedback | None = None
