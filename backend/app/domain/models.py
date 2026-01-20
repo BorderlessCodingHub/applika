@@ -217,7 +217,8 @@ class ApplicationModel(BaseMixin, Base):
                 color=self.feedback_def.color,
                 date=self.feedback_date,
             )
-        
+
     @property
     def finalized(self) -> bool:
         return self.feedback_id is not None
+

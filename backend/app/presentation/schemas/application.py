@@ -64,6 +64,7 @@ class Application(BaseSchema, TimeSchema):
     feedback: ApplicationFeedback | None = None
     finalized: bool | None = None
 
+
 class FinalizeApplication(BaseModel):
     step_id: int  # only strict steps
     feedback_id: int
