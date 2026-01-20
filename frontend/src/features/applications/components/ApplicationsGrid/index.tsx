@@ -9,25 +9,36 @@ import { useApplications } from "../../hooks/useApplications";
 
 interface ApplicationsGridIndexProps {
   searchTerm: string;
-  addAppOpen?: boolean; // optional if you want
+  filterStatus: string;
+  addAppOpen?: boolean;
   setAddAppOpen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export default function ApplicationsGridIndex({
   searchTerm,
+  filterStatus,
 }: ApplicationsGridIndexProps) {
   const { applications, isLoading, error } = useApplications();
 
   const filteredApps = useMemo(() => {
-    const term = (searchTerm || "").trim().toLowerCase();
-    if (!term) return applications;
+    const filterStrategies: Record<string, (apps: Application[]) => Application[]> = {
+      all: (apps) => apps,
+      open: (apps) => apps.filter(({ finalized }) => !finalized),
+      closed: (apps) => apps.filter(({ finalized }) => finalized)
+    };
 
-    return applications.filter((app: Application) => {
+    const term = (searchTerm || "").trim().toLowerCase();
+    const applyStatusFilter = filterStrategies[filterStatus] || filterStrategies.all;
+    const appsByStatus = applyStatusFilter(applications);
+
+    if (!term) return appsByStatus;
+
+    return appsByStatus.filter((app: Application) => {
       const company = (app.company || "").toLowerCase();
       const role = (app.role || "").toLowerCase();
       return company.includes(term) || role.includes(term);
     });
-  }, [applications, searchTerm]);
+  }, [applications, searchTerm, filterStatus]);
 
   if (isLoading)
     return (

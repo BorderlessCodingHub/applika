@@ -8,9 +8,11 @@ import { useApplications } from "../../hooks/useApplications";
 
 export default function ApplicationsClientSection() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
   const { error } = useApplications();
 
   const handleSearchChange = (value: string) => setSearchTerm(value);
+  const handleFilterChange = (value: string) => setFilterStatus(value);
 
   if (error)
     return (
@@ -23,8 +25,15 @@ export default function ApplicationsClientSection() {
   return (
     <section className="space-y-6">
       <h1 className="text-center text-2xl font-bold mb-6">Applications</h1>
-      <SearchApplications onSearchChange={handleSearchChange} />
-      <ApplicationsGridIndex searchTerm={searchTerm} />
+      <SearchApplications
+        onSearchChange={handleSearchChange}
+        onFilterChange={handleFilterChange}
+        filterStatus={filterStatus}
+      />
+      <ApplicationsGridIndex
+        searchTerm={searchTerm}
+        filterStatus={filterStatus}
+      />
     </section>
   );
 }
