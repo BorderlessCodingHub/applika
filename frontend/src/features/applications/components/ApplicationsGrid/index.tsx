@@ -6,15 +6,14 @@ import ApplicationsGrid from "./ApplicationsGridClient";
 import ApplicationCardSkeleton from "@/components/ui/ApplicationCardSekelton";
 import type { Application } from "../../types";
 import { useApplications } from "../../hooks/useApplications";
+import { FilterStatus } from "@/domain/constants/application";
 
 interface ApplicationsGridIndexProps {
   searchTerm: string;
-  filterStatus: string;
+  filterStatus: FilterStatus;
   addAppOpen?: boolean;
   setAddAppOpen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
-
-type FilterStatus = 'all' | 'open' | 'closed';
 
 const normalizeString = (str: string | undefined | null): string => (str || "").trim().toLowerCase();
 

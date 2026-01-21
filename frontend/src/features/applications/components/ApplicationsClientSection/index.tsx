@@ -5,14 +5,15 @@ import SearchApplications from "../SearchApplications";
 import ApplicationsGridIndex from "../ApplicationsGrid/index";
 import FetchError from "@/components/ui/FetchError";
 import { useApplications } from "../../hooks/useApplications";
+import { FilterStatus } from "@/domain/constants/application";
 
 export default function ApplicationsClientSection() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const { error } = useApplications();
 
   const handleSearchChange = (value: string) => setSearchTerm(value);
-  const handleFilterChange = (value: string) => setFilterStatus(value);
+  const handleFilterChange = (value: FilterStatus) => setFilterStatus(value);
 
   if (error)
     return (

@@ -2,12 +2,16 @@
 
 import { useEffect, useState, ChangeEvent } from "react";
 import { useModal } from "@/features/applications/context/ModalProvider";
-import type { Platform } from "@/features/applications/schemas/supportSchema";
+import ListBoxSelect from "@/components/ui/ListBoxSelect";
+import {
+  FILTER_STATUS_OPTIONS,
+  FilterStatus,
+} from "@/domain/constants/application";
 
 interface SearchApplicationsProps {
   onSearchChange: (value: string) => void;
-  onFilterChange: (value: string) => void;
-  filterStatus: string;
+  onFilterChange: (value: FilterStatus) => void;
+  filterStatus: FilterStatus;
 }
 
 export default function SearchApplications({
@@ -23,11 +27,6 @@ export default function SearchApplications({
     const value = e.target.value;
     setSearchTerm(value);
     onSearchChange(value);
-  };
-
-  const handleFilterChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    onFilterChange(value);
   };
 
   useEffect(() => {
@@ -49,6 +48,7 @@ export default function SearchApplications({
       className="
         backdrop-blur-xl bg-white/5 border border-white/20 
         rounded-2xl p-6 my-4 shadow-[0_8px_32px_rgba(0,0,0,0.1)]
+        relative z-30
       "
     >
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-6">
@@ -72,19 +72,13 @@ export default function SearchApplications({
 
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-white/60">Status:</span>
-            <select
-              value={filterStatus}
-              onChange={handleFilterChange}
-              className="
-                bg-white/10 border border-white/20 text-white text-sm rounded-lg 
-                focus:ring-emerald-500 focus:border-emerald-500 block w-full p-2.5
-                [&>option]:text-black
-              "
-            >
-              <option value="all">All</option>
-              <option value="open">Open</option>
-              <option value="closed">Closed</option>
-            </select>
+            <div className="w-32">
+              <ListBoxSelect
+                value={filterStatus}
+                onChange={(option) => onFilterChange(option.id)}
+                options={[...FILTER_STATUS_OPTIONS]}
+              />
+            </div>
           </div>
         </div>
 
