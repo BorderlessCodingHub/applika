@@ -14,21 +14,37 @@ interface ApplicationsGridIndexProps {
   setAddAppOpen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
+type FilterStatus = 'all' | 'open' | 'closed';
+
+const normalizeString = (str: string | undefined | null): string => (str || "").trim().toLowerCase();
+
 const filterStrategies: Record<
-  string,
+  FilterStatus,
   (apps: Application[]) => Application[]
 > = {
-  all: (apps) => apps,
-  open: (apps) => apps.filter(({ finalized }) => !finalized),
-  closed: (apps) => apps.filter(({ finalized }) => !!finalized),
+  all: apps => apps,
+  open: apps => apps.filter(({ finalized }) => !finalized),
+  closed: apps => apps.filter(({ finalized }) => finalized),
 };
 
-const getFilteredApplications = (
-  status: string,
+const filterByStatus = (
+  status: FilterStatus,
   applications: Application[]
-) => {
-  const strategy = filterStrategies[status] || filterStrategies.all;
+): Application[] => {
+  const strategy = filterStrategies[status] ?? filterStrategies.all;
   return strategy(applications);
+};
+
+const matchesSearchTerm = (app: Application, searchTerm: string): boolean => {
+  if (!searchTerm) {
+    return true;
+  }
+  
+  const normalizedTerm = normalizeString(searchTerm);
+  const company = normalizeString(app.company);
+  const role = normalizeString(app.role);
+  
+  return company.includes(normalizedTerm) || role.includes(normalizedTerm);
 };
 
 export default function ApplicationsGridIndex({
@@ -37,19 +53,21 @@ export default function ApplicationsGridIndex({
 }: ApplicationsGridIndexProps) {
   const { applications, isLoading, error } = useApplications();
 
-  const filteredApps = useMemo(() => {
-    const term = (searchTerm || "").trim().toLowerCase();
+  const normalizedSearchTerm = useMemo(
+    () => normalizeString(searchTerm), [searchTerm]
+  );
 
-    const appsByStatus = getFilteredApplications(filterStatus, applications);
+  const filteredApps = useMemo(
+    () => {
+      const appsByStatus = filterByStatus(filterStatus as FilterStatus, applications);
 
-    if (!term) return appsByStatus;
+      if (!normalizedSearchTerm) {
+        return appsByStatus;
+      }
 
-    return appsByStatus.filter((app: Application) => {
-      const company = (app.company || "").toLowerCase();
-      const role = (app.role || "").toLowerCase();
-      return company.includes(term) || role.includes(term);
-    });
-  }, [applications, searchTerm, filterStatus]);
+      return appsByStatus.filter(app => matchesSearchTerm(app, normalizedSearchTerm));
+    }, [applications, normalizedSearchTerm, filterStatus]
+  );
 
   if (isLoading)
     return (
