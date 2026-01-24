@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import ApplicationCard from "../ApplicationCard";
 
 import { useModal } from "../../context/ModalProvider";
 import {
-  useApplications,
   mutateApplications,
 } from "../../hooks/useApplications";
 import { useSupports } from "../../hooks/useSupports";
@@ -55,24 +54,7 @@ export default function ApplicationsGridClient({
   searchTerm = "",
 }: ApplicationsGridProps) {
   const modal = useModal();
-  const { applications: fetchedApps, error } = useApplications();
   const { supports, isLoading: loadingSupports } = useSupports();
-
-  const localApplications = (
-    applications.length ? applications : fetchedApps
-  ).map((app) => ({
-    ...app,
-    finalized: app.feedback !== null,
-  }));
-
-  const displayedApps = useMemo(() => {
-    const query = searchTerm.toLowerCase();
-    return localApplications.filter(
-      (app) =>
-        app.company.toLowerCase().includes(query) ||
-        app.role.toLowerCase().includes(query)
-    );
-  }, [localApplications, searchTerm]);
 
   // ---------------- Loading states for modal submits ----------------
   const [loadingAddApp, setLoadingAddApp] = useState(false);
@@ -200,12 +182,14 @@ export default function ApplicationsGridClient({
     }
   }
 
-  if (error)
-    return <div className="text-red-500">Failed to load applications.</div>;
-
   return (
     <div className="grid grid-cols-1 gap-4">
-      {displayedApps.map((app) => (
+      {!applications.length && (
+        <div className="text-center text-white/50 py-8 italic bg-white/5 rounded-lg border border-white/10">
+          No applications found.
+        </div>
+      )}
+      {applications.map((app) => (
         <ApplicationCard
           key={app.id}
           app={{
