@@ -15,6 +15,7 @@ interface SearchApplicationsProps {
   onFilterChange: (value: FilterStatus) => void;
   filterStatus: FilterStatus;
   filterVariant?: "pill" | "segmented" | "select";
+  count?: number;
 }
 
 export default function SearchApplications({
@@ -22,6 +23,7 @@ export default function SearchApplications({
   onFilterChange,
   filterStatus,
   filterVariant = "pill",
+  count,
 }: SearchApplicationsProps) {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -85,7 +87,11 @@ export default function SearchApplications({
               />
             )}
             {filterVariant === "pill" && (
-              <FilterStatusPill value={filterStatus} onChange={onFilterChange} />
+              <FilterStatusPill
+                value={filterStatus}
+                onChange={onFilterChange}
+                count={count}
+              />
             )}
             {filterVariant === "segmented" && (
               <FilterStatusSegmented value={filterStatus} onChange={onFilterChange} />

@@ -10,9 +10,10 @@ import type { FilterStatus } from "@/domain/constants/application";
 interface Props {
   value: FilterStatus;
   onChange: (v: FilterStatus) => void;
+  count?: number;
 }
 
-export default function FilterStatusPill({ value, onChange }: Props) {
+export default function FilterStatusPill({ value, onChange, count }: Props) {
   const active = value !== "all";
   const [isMobile, setIsMobile] = useState(false);
 
@@ -44,8 +45,10 @@ export default function FilterStatusPill({ value, onChange }: Props) {
               </div>
 
               <div className="flex items-center gap-2">
-                {active && (
-                  <span className="inline-flex items-center justify-center w-5 h-5 text-xs rounded-full bg-black/80 text-white font-semibold">1</span>
+                {active && count !== undefined && (
+                  <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 text-xs rounded-full bg-black/80 text-white font-semibold">
+                    {count}
+                  </span>
                 )}
                 <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
                   <ChevronDown className={`${active ? "text-black" : "text-white/60"} w-4 h-4`} />
