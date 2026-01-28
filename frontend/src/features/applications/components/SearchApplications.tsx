@@ -3,6 +3,8 @@
 import { useEffect, useState, ChangeEvent } from "react";
 import { useModal } from "@/features/applications/context/ModalProvider";
 import ListBoxSelect from "@/components/ui/ListBoxSelect";
+import FilterStatusPill from "@/components/ui/FilterStatusPill";
+import FilterStatusSegmented from "@/components/ui/FilterStatusSegmented";
 import {
   FILTER_STATUS_OPTIONS,
   FilterStatus,
@@ -12,12 +14,14 @@ interface SearchApplicationsProps {
   onSearchChange: (value: string) => void;
   onFilterChange: (value: FilterStatus) => void;
   filterStatus: FilterStatus;
+  filterVariant?: "pill" | "segmented" | "select";
 }
 
 export default function SearchApplications({
   onSearchChange,
   onFilterChange,
   filterStatus,
+  filterVariant = "pill",
 }: SearchApplicationsProps) {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -52,8 +56,8 @@ export default function SearchApplications({
       "
     >
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-6">
-        <div className="flex items-center gap-4 flex-1 w-full sm:max-w-2xl">
-          <div className="flex items-center gap-2 flex-1">
+        <div className="flex flex-col sm:flex-row items-center gap-4 flex-1 w-full sm:max-w-2xl">
+          <div className="w-full">
             <input
               type="text"
               placeholder="Search applications..."
@@ -70,15 +74,22 @@ export default function SearchApplications({
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-white/60">Status:</span>
-            <div className="w-32">
+          <div className="w-full sm:w-auto flex items-center gap-2">
+            {filterVariant === "select" && (
               <ListBoxSelect
                 value={filterStatus}
                 onChange={(option) => onFilterChange(option.id)}
                 options={[...FILTER_STATUS_OPTIONS]}
+                placeholder="Status"
+                className="w-28 sm:w-36"
               />
-            </div>
+            )}
+            {filterVariant === "pill" && (
+              <FilterStatusPill value={filterStatus} onChange={onFilterChange} />
+            )}
+            {filterVariant === "segmented" && (
+              <FilterStatusSegmented value={filterStatus} onChange={onFilterChange} />
+            )}
           </div>
         </div>
 

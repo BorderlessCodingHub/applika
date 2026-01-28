@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import ApplicationCard from "../ApplicationCard";
 
 import { useModal } from "../../context/ModalProvider";
 import {
+  useApplications,
   mutateApplications,
 } from "../../hooks/useApplications";
 import { useSupports } from "../../hooks/useSupports";
@@ -45,16 +46,27 @@ import type {
 } from "../../schemas/applicationsStepsSchema";
 
 interface ApplicationsGridProps {
-  applications?: Application[];
+  applications?: Application[] | undefined;
   searchTerm?: string;
 }
 
 export default function ApplicationsGridClient({
-  applications = [],
+  applications,
   searchTerm = "",
 }: ApplicationsGridProps) {
   const modal = useModal();
+  const { applications: fetchedApps, error } = useApplications();
   const { supports, isLoading: loadingSupports } = useSupports();
+
+  const sourceApplications =
+    applications !== undefined ? applications : fetchedApps;
+
+  const localApplications = sourceApplications.map((app) => ({
+    ...app,
+    finalized: app.finalized ?? app.feedback !== null,
+  }));
+
+  const displayedApps = localApplications;
 
   // ---------------- Loading states for modal submits ----------------
   const [loadingAddApp, setLoadingAddApp] = useState(false);
@@ -182,14 +194,12 @@ export default function ApplicationsGridClient({
     }
   }
 
+  if (error)
+    return <div className="text-red-500">Failed to load applications.</div>;
+
   return (
     <div className="grid grid-cols-1 gap-4">
-      {!applications.length && (
-        <div className="text-center text-white/50 py-8 italic bg-white/5 rounded-lg border border-white/10">
-          No applications found.
-        </div>
-      )}
-      {applications.map((app) => (
+      {displayedApps.map((app) => (
         <ApplicationCard
           key={app.id}
           app={{
@@ -313,7 +323,7 @@ export default function ApplicationsGridClient({
             onSubmit={() =>
               handleDeleteStep({
                 applicationId: String(
-                  modal.state.selectedApplication?.id ?? ""
+                  modal.state.selectedApplication?.id ?? "",
                 ),
                 stepId: String(modal.state.selectedStep?.id ?? ""),
               })
