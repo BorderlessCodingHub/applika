@@ -46,33 +46,27 @@ import type {
 } from "../../schemas/applicationsStepsSchema";
 
 interface ApplicationsGridProps {
-  applications?: Application[];
+  applications?: Application[] | undefined;
   searchTerm?: string;
 }
 
 export default function ApplicationsGridClient({
-  applications = [],
+  applications,
   searchTerm = "",
 }: ApplicationsGridProps) {
   const modal = useModal();
   const { applications: fetchedApps, error } = useApplications();
   const { supports, isLoading: loadingSupports } = useSupports();
 
-  const localApplications = (
-    applications.length ? applications : fetchedApps
-  ).map((app) => ({
+  const sourceApplications =
+    applications !== undefined ? applications : fetchedApps;
+
+  const localApplications = sourceApplications.map((app) => ({
     ...app,
-    finalized: app.feedback !== null,
+    finalized: app.finalized ?? app.feedback !== null,
   }));
 
-  const displayedApps = useMemo(() => {
-    const query = searchTerm.toLowerCase();
-    return localApplications.filter(
-      (app) =>
-        app.company.toLowerCase().includes(query) ||
-        app.role.toLowerCase().includes(query)
-    );
-  }, [localApplications, searchTerm]);
+  const displayedApps = localApplications;
 
   // ---------------- Loading states for modal submits ----------------
   const [loadingAddApp, setLoadingAddApp] = useState(false);
@@ -329,7 +323,7 @@ export default function ApplicationsGridClient({
             onSubmit={() =>
               handleDeleteStep({
                 applicationId: String(
-                  modal.state.selectedApplication?.id ?? ""
+                  modal.state.selectedApplication?.id ?? "",
                 ),
                 stepId: String(modal.state.selectedStep?.id ?? ""),
               })

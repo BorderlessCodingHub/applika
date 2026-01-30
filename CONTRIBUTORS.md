@@ -18,5 +18,11 @@
         <sub><b>Ian Miyazato</b></sub>
       </a>
     </td>
+    <td align="center">
+      <a href="https://github.com/gianluca-pettenon">
+        <img src="https://avatars.githubusercontent.com/gianluca-pettenon" width="80" alt="Gianluca Pettenon"/><br />
+        <sub><b>Gianluca Pettenon</b></sub>
+      </a>
+    </td>
   </tr>
 </table>
