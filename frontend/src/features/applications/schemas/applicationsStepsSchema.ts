@@ -14,13 +14,13 @@ export const applicationStepSchema = z.object({
 export const applicationStepsSchema = z.array(applicationStepSchema);
 
 export const addStepPayloadSchema = z.object({
-  step_id: z.number().int().positive("Step ID must be positive"),
+  step_id: z.number().int().positive("Step is required"),
   step_date: z.string().min(1, "Step date is required"),
   observation: z.string().optional(),
 });
 
 export const updateStepPayloadSchema = z.object({
-  step_id: z.number().int().positive("Step ID must be positive"),
+  step_id: z.number().int().positive("Step is required"),
   step_date: z.string().min(1, "Step date is required"),
   observation: z.string().optional(),
 });
