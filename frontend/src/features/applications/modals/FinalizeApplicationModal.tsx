@@ -43,7 +43,7 @@ export default function FinalizeApplicationModal({
     control,
     register,
     reset,
-    formState: { isSubmitting },
+    formState: { isSubmitting, errors },
   } = useForm<FinalizeApplicationPayload>({
     resolver: zodResolver(
       finalizeApplicationSchema
@@ -93,15 +93,29 @@ export default function FinalizeApplicationModal({
             control={control}
             name="step_id"
             render={({ field }) => (
-              <ListBoxSelect
-                value={
-                  safeResults.find((r) => Number(r.id) === field.value) ?? null
-                }
-                onChange={(val) => field.onChange(val ? Number(val.id) : 0)}
-                options={safeResults}
-                placeholder="Select Result"
-                className="w-full"
-              />
+              <div className="flex flex-col gap-1">
+                <ListBoxSelect
+                  value={
+                    safeResults.find((r) => Number(r.id) === field.value) ?? null
+                  }
+                  onChange={(val) => field.onChange(val ? Number(val.id) : 0)}
+                  options={safeResults}
+                  placeholder="Select Result"
+                  className="w-full"
+                  error={Boolean(errors.step_id)}
+                  ariaInvalid={Boolean(errors.step_id)}
+                  ariaDescribedBy={errors.step_id ? "finalize-step-id-error" : undefined}
+                />
+                {errors.step_id?.message && (
+                  <span
+                    id="finalize-step-id-error"
+                    className="text-xs text-red-400"
+                    role="alert"
+                  >
+                    {errors.step_id.message}
+                  </span>
+                )}
+              </div>
             )}
           />
 
@@ -109,29 +123,63 @@ export default function FinalizeApplicationModal({
             control={control}
             name="feedback_id"
             render={({ field }) => (
-              <ListBoxSelect
-                value={
-                  safeFeedbacks.find((f) => Number(f.id) === field.value) ??
-                  null
-                }
-                onChange={(val) => field.onChange(val ? Number(val.id) : 0)}
-                options={safeFeedbacks}
-                placeholder="Select Feedback"
-                className="w-full"
-              />
+              <div className="flex flex-col gap-1">
+                <ListBoxSelect
+                  value={
+                    safeFeedbacks.find((f) => Number(f.id) === field.value) ??
+                    null
+                  }
+                  onChange={(val) => field.onChange(val ? Number(val.id) : 0)}
+                  options={safeFeedbacks}
+                  placeholder="Select Feedback"
+                  className="w-full"
+                  error={Boolean(errors.feedback_id)}
+                  ariaInvalid={Boolean(errors.feedback_id)}
+                  ariaDescribedBy={
+                    errors.feedback_id ? "finalize-feedback-id-error" : undefined
+                  }
+                />
+                {errors.feedback_id?.message && (
+                  <span
+                    id="finalize-feedback-id-error"
+                    className="text-xs text-red-400"
+                    role="alert"
+                  >
+                    {errors.feedback_id.message}
+                  </span>
+                )}
+              </div>
             )}
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <DateInput {...register("finalize_date")} placeholder="Select date" />
-
-          <input
-            {...register("salary_offer", { valueAsNumber: true })}
-            type="number"
-            placeholder="Salary Offer (optional)"
-            className="w-full h-10 px-4 border border-white/30 rounded-lg bg-transparent text-white placeholder-white/60"
+          <DateInput
+            {...register("finalize_date")}
+            placeholder="Select date"
+            error={errors.finalize_date?.message}
+            errorId="finalize-date-error"
+            aria-invalid={errors.finalize_date ? "true" : "false"}
+            aria-describedby={errors.finalize_date ? "finalize-date-error" : undefined}
           />
+
+          <div className="flex flex-col gap-1">
+            <input
+              {...register("salary_offer", { valueAsNumber: true })}
+              type="number"
+              placeholder="Salary Offer (optional)"
+              aria-invalid={errors.salary_offer ? "true" : "false"}
+              aria-describedby={errors.salary_offer ? "salary-offer-error" : undefined}
+              className={`w-full h-10 px-4 border rounded-lg bg-transparent text-white placeholder-white/60 ${
+                errors.salary_offer ? "border-red-400" : "border-white/30"
+              }`}
+            />
+            {errors.salary_offer?.message && (
+              <span id="salary-offer-error" className="text-xs text-red-400" role="alert">
+                {errors.salary_offer.message}
+              </span>
+            )}
+          </div>
         </div>
 
         <textarea
