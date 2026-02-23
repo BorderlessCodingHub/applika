@@ -40,7 +40,7 @@ export default function EditApplicationModal({
     handleSubmit,
     control,
     reset,
-    formState: { isSubmitting },
+    formState: { isSubmitting, errors },
   } = useForm<UpdateApplicationPayload>({
     resolver: zodResolver(
       updateApplicationSchema
@@ -95,26 +95,54 @@ export default function EditApplicationModal({
       {initialData && (
         <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              {...register("company")}
-              type="text"
-              placeholder="Company (required)"
-              className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
-                       placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
-            />
-            <input
-              {...register("role")}
-              type="text"
-              placeholder="Role (required)"
-              className="w-full h-10 px-4 py-2 border border-white/30 rounded-lg bg-transparent text-white 
-                       placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
-            />
+            <div className="flex flex-col gap-1">
+              <input
+                {...register("company")}
+                type="text"
+                placeholder="Company (required)"
+                aria-invalid={errors.company ? "true" : "false"}
+                aria-describedby={errors.company ? "edit-company-error" : undefined}
+                className={`w-full h-10 px-4 py-2 border rounded-lg bg-transparent text-white 
+                       placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all ${
+                         errors.company ? "border-red-400" : "border-white/30"
+                       }`}
+              />
+              {errors.company?.message && (
+                <span id="edit-company-error" className="text-xs text-red-400" role="alert">
+                  {errors.company.message}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <input
+                {...register("role")}
+                type="text"
+                placeholder="Role (required)"
+                aria-invalid={errors.role ? "true" : "false"}
+                aria-describedby={errors.role ? "edit-role-error" : undefined}
+                className={`w-full h-10 px-4 py-2 border rounded-lg bg-transparent text-white 
+                       placeholder-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all ${
+                         errors.role ? "border-red-400" : "border-white/30"
+                       }`}
+              />
+              {errors.role?.message && (
+                <span id="edit-role-error" className="text-xs text-red-400" role="alert">
+                  {errors.role.message}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
             <DateInput
               {...register("application_date")}
               placeholder="Select date"
+              error={errors.application_date?.message}
+              errorId="edit-application-date-error"
+              aria-invalid={errors.application_date ? "true" : "false"}
+              aria-describedby={
+                errors.application_date ? "edit-application-date-error" : undefined
+              }
             />
 
             <Controller
@@ -134,11 +162,25 @@ export default function EditApplicationModal({
                     placeholder="Select Platform"
                     loading={loadingPlatforms}
                     disabled={platforms.length === 0 || loadingPlatforms}
+                    error={Boolean(errors.platform_id)}
+                    ariaInvalid={Boolean(errors.platform_id)}
+                    ariaDescribedBy={
+                      errors.platform_id ? "edit-platform-id-error" : undefined
+                    }
                   />
                   {(platforms.length === 0 || loadingPlatforms) && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-white/50 pointer-events-none">
                       <i className="fa-solid fa-spinner" />
                     </div>
+                  )}
+                  {errors.platform_id?.message && (
+                    <span
+                      id="edit-platform-id-error"
+                      className="text-xs text-red-400"
+                      role="alert"
+                    >
+                      {errors.platform_id.message}
+                    </span>
                   )}
                 </div>
               )}
@@ -150,15 +192,25 @@ export default function EditApplicationModal({
               control={control}
               name="mode"
               render={({ field }) => (
-                <ListBoxSelect
-                  value={
-                    APPLICATION_MODES.find((m) => m.id === field.value) ?? null
-                  }
-                  onChange={(val) => field.onChange(val?.id ?? undefined)}
-                  options={[...APPLICATION_MODES] satisfies Option[]}
-                  placeholder="Select Mode"
-                  loading={false}
-                />
+                <div className="flex flex-col gap-1">
+                  <ListBoxSelect
+                    value={
+                      APPLICATION_MODES.find((m) => m.id === field.value) ?? null
+                    }
+                    onChange={(val) => field.onChange(val?.id ?? undefined)}
+                    options={[...APPLICATION_MODES] satisfies Option[]}
+                    placeholder="Select Mode"
+                    loading={false}
+                    error={Boolean(errors.mode)}
+                    ariaInvalid={Boolean(errors.mode)}
+                    ariaDescribedBy={errors.mode ? "edit-mode-error" : undefined}
+                  />
+                  {errors.mode?.message && (
+                    <span id="edit-mode-error" className="text-xs text-red-400" role="alert">
+                      {errors.mode.message}
+                    </span>
+                  )}
+                </div>
               )}
             />
 
