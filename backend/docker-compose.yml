@@ -12,6 +12,7 @@ services:
       - GITHUB_CLIENT_SECRET=<your-client-secret>
       - GITHUB_REDIRECT_URI=http://127.0.0.1:8000/api/auth/github/callback
       - LOGIN_REDIRECT_URI=http://127.0.0.1:3000/dashboard
+      - DISCORD_REPORTS_WEBHOOK=<your-webhook-url>
     ports:
       - "8000:8000"
     entrypoint: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
