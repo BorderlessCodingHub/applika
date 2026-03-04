@@ -4,8 +4,8 @@ from fastapi import Depends, Security
 from fastapi.security import APIKeyCookie
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.application.services.discord_service import DiscordService
 from app.application.dto.user import UserDTO
+from app.application.services.discord_service import DiscordService
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
 from app.config.db import get_session
 from app.config.settings import ACCESS_COOKIE_NAME

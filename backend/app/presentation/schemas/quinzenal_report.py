@@ -3,8 +3,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.presentation.schemas import BaseSchema
-
 ReportStatus = Literal['submitted', 'pending', 'overdue', 'future']
 
 
