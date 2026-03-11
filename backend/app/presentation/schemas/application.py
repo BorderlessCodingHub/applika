@@ -7,7 +7,8 @@ from app.presentation.schemas import BaseSchema, TimeSchema
 
 
 class CreateApplication(BaseSchema):
-    company: str
+    company_id: int
+    old_company: str
     role: str
     mode: Literal['active', 'passive']
     platform_id: int
@@ -20,7 +21,8 @@ class CreateApplication(BaseSchema):
 
 
 class UpdateApplication(BaseModel):
-    company: str
+    company_id: int
+    old_company: str
     role: str
     mode: Literal['active', 'passive']
     platform_id: int
@@ -30,6 +32,12 @@ class UpdateApplication(BaseModel):
     expected_salary: float | None = None
     salary_range_min: float | None = None
     salary_range_max: float | None = None
+
+
+class ApplicationCompany(BaseModel):
+    id: int
+    name: str
+    url: str
 
 
 class ApplicationLastStep(BaseModel):
@@ -48,7 +56,8 @@ class ApplicationFeedback(BaseModel):
 
 class Application(BaseSchema, TimeSchema):
     id: int
-    company: str
+    company: ApplicationCompany | None = None
+    old_company: str
     role: str
     mode: Literal['active', 'passive']
     platform_id: int
@@ -60,6 +69,7 @@ class Application(BaseSchema, TimeSchema):
     salary_range_max: float | None = None
     salary_offer: float | None = None
 
+    finalized: bool
     last_step: ApplicationLastStep | None = None
     feedback: ApplicationFeedback | None = None
     finalized: bool | None = None

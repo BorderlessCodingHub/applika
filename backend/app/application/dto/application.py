@@ -8,7 +8,8 @@ from app.application.dto import BaseSchema
 
 class ApplicationCreateDTO(BaseModel):
     user_id: int
-    company: str
+    company_id: int
+    old_company: str
     role: str
     mode: Literal['active', 'passive']
     platform_id: int
@@ -22,7 +23,8 @@ class ApplicationCreateDTO(BaseModel):
 
 class ApplicationUpdateDTO(BaseModel):
     user_id: int
-    company: str
+    company_id: int
+    old_company: str
     role: str
     mode: Literal['active', 'passive']
     platform_id: int
@@ -42,6 +44,12 @@ class FinalizeApplicationDTO(BaseModel):
     observation: str | None = None
 
 
+class ApplicationCompany(BaseModel):
+    id: int
+    name: str
+    url: str
+
+
 class ApplicationLastStep(BaseModel):
     id: int
     name: str
@@ -57,7 +65,8 @@ class ApplicationFeedback(BaseModel):
 
 
 class ApplicationDTO(BaseSchema):
-    company: str
+    company: ApplicationCompany | None = None
+    old_company: str
     role: str
     mode: Literal['active', 'passive']
     platform_id: int

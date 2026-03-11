@@ -22,6 +22,7 @@ class ApplicationRepository:
                 ApplicationModel.id == id, ApplicationModel.user_id == user_id
             )
             .options(
+                selectinload(ApplicationModel.company_rel),
                 selectinload(ApplicationModel.last_step_def),
                 selectinload(ApplicationModel.feedback_def),
             )
@@ -33,6 +34,7 @@ class ApplicationRepository:
             .where(ApplicationModel.user_id == user_id)
             .order_by(ApplicationModel.application_date.desc())
             .options(
+                selectinload(ApplicationModel.company_rel),
                 selectinload(ApplicationModel.last_step_def),
                 selectinload(ApplicationModel.feedback_def),
             )

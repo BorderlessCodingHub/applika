@@ -25,6 +25,7 @@ from app.application.use_cases.applications.update_application import (
 from app.presentation.dependencies import (
     ApplicationRepositoryDp,
     ApplicationStepRepositoryDp,
+    CompanyRepositoryDp,
     CurrentUserDp,
     FeedbackDefinitionRepositoryDp,
     PlatformRepositoryDp,
@@ -54,8 +55,11 @@ async def create(
     c_user: CurrentUserDp,
     app_repo: ApplicationRepositoryDp,
     platform_repo: PlatformRepositoryDp,
+    company_repo: CompanyRepositoryDp,
 ):
-    use_case = CreateApplicationUseCase(app_repo, platform_repo)
+    use_case = CreateApplicationUseCase(
+        app_repo, platform_repo, company_repo
+    )
     data = ApplicationCreateDTO(**payload.model_dump(), user_id=c_user.id)
     application = await use_case.execute(data)
     return Application.model_validate(application)
@@ -81,8 +85,11 @@ async def update_application(
     c_user: CurrentUserDp,
     app_repo: ApplicationRepositoryDp,
     platform_repo: PlatformRepositoryDp,
+    company_repo: CompanyRepositoryDp,
 ):
-    use_case = UpdateApplicationUseCase(app_repo, platform_repo)
+    use_case = UpdateApplicationUseCase(
+        app_repo, platform_repo, company_repo
+    )
     data = ApplicationUpdateDTO(**payload.model_dump(), user_id=c_user.id)
     application = await use_case.execute(application_id, data)
     return Application.model_validate(application)

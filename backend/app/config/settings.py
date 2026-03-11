@@ -24,6 +24,7 @@ class AsyncpgDsn(PostgresDsn):
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
+        arbitrary_types_allowed=True,
         env_file='.env',
         env_ignore_empty=True,
         env_file_encoding='utf-8',
@@ -45,7 +46,7 @@ class Settings(BaseSettings):
     CORS_HEADERS: List[str] = ['X-Request-ID', 'Content-Type']
     CORS_METHODS: List[str] = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 
-    DATABASE_URL: AsyncpgDsn
+    DATABASE_URL: str
     DATABASE_ECHO: bool = False
 
     JWT_ALGORITHM: str = 'HS256'
