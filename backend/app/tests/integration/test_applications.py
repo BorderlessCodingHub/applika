@@ -12,7 +12,8 @@ async def test_create_application(
         async_client: AsyncClient, db_session: AsyncSession):
     # Arrange: prepare test data
     payload = {
-        "company": "Applika Inc",
+        "company_id": base_data()["company_acme"].id,
+        "old_company": "Acme Corp",
         "role": "Software Engineer",
         "mode": "active",
         "platform_id": base_data()["plat_linkedin"].id,
@@ -30,8 +31,12 @@ async def test_create_application(
     # Assert: verify the response
     assert response.status_code == 201, msg(201, response.status_code)
     data = response.json()
-    assert data["company"] == payload["company"], \
-        msg(payload["company"], data["company"])
+    assert data["company"]["id"] == payload["company_id"], \
+        msg(payload["company_id"], data["company"]["id"])
+    assert data["company"]["name"] == "Acme Corp", \
+        msg("Acme Corp", data["company"]["name"])
+    assert data["old_company"] == payload["old_company"], \
+        msg(payload["old_company"], data["old_company"])
     assert data["role"] == payload["role"], \
         msg(payload["role"], data["role"])
     assert data["link_to_job"] == payload["link_to_job"], \
@@ -46,7 +51,8 @@ async def test_list_applications(
             id=1,
             user_id=base_data()["user"].id,
             platform_id=base_data()["fb_denied"].id,
-            company="Applika Inc",
+            company_id=base_data()["company_acme"].id,
+            old_company="Acme Corp",
             role="Software Engineer",
             mode="active",
             application_date=date(2025, 12, 1),
@@ -57,7 +63,8 @@ async def test_list_applications(
             id=2,
             user_id=base_data()["user"].id,
             platform_id=base_data()["fb_denied"].id,
-            company="Applika Inc",
+            company_id=base_data()["company_acme"].id,
+            old_company="Acme Corp",
             role="Fullstack Engineer",
             mode="active",
             application_date=date(2025, 12, 12)
@@ -86,7 +93,8 @@ async def test_delete_application(
         id=1,
         user_id=base_data()["user"].id,
         platform_id=base_data()["fb_denied"].id,
-        company="Applika Inc",
+        company_id=base_data()["company_acme"].id,
+        old_company="Acme Corp",
         role="Software Engineer",
         mode="active",
         application_date=date(2025, 12, 1)

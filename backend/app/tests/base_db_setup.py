@@ -1,12 +1,18 @@
 from typing import TypedDict
 
-from app.domain.models import FeedbackDefinitionModel, PlatformModel, UserModel
+from app.domain.models import (
+    CompanyModel,
+    FeedbackDefinitionModel,
+    PlatformModel,
+    UserModel,
+)
 
 
 class BaseDataType(TypedDict):
     user: UserModel
     plat_linkedin: PlatformModel
     fb_denied: FeedbackDefinitionModel
+    company_acme: CompanyModel
 
 
 def base_data() -> BaseDataType:
@@ -19,5 +25,11 @@ def base_data() -> BaseDataType:
         ),
         'fb_denied': FeedbackDefinitionModel(
             id=1, name="Denied", color="#a80000"
+        ),
+        'company_acme': CompanyModel(
+            id=1,
+            name="Acme Corp",
+            url="https://www.linkedin.com/company/acme",
+            created_by=1,
         ),
     }
