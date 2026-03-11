@@ -47,6 +47,9 @@ class UserModel(BaseMixin, Base):
     applications_steps: Mapped[List['ApplicationStepModel']] = relationship(
         back_populates='user'
     )
+    created_companies: Mapped[List['CompanyModel']] = relationship(
+        back_populates='created_by_user'
+    )
 
     @property
     def tech_stack(self) -> list[str]:
@@ -61,6 +64,26 @@ class UserModel(BaseMixin, Base):
             self._tech_stack = ','.join(techs)
         else:
             self._tech_stack = None
+
+
+class CompanyModel(BaseMixin, Base):
+    __tablename__ = 'companies'
+
+    name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
+    url: Mapped[str] = mapped_column(sa.String(2083), nullable=False)
+    is_active: Mapped[bool] = mapped_column(
+        sa.Boolean, default=True, nullable=False
+    )
+    created_by: Mapped[Optional[int]] = mapped_column(
+        sa.ForeignKey('users.id', ondelete='SET NULL')
+    )
+
+    created_by_user: Mapped[Optional['UserModel']] = relationship(
+        back_populates='created_companies'
+    )
+    applications: Mapped[List['ApplicationModel']] = relationship(
+        back_populates='company_rel'
+    )
 
 
 class PlatformModel(BaseMixin, Base):
@@ -132,6 +155,12 @@ class ApplicationStepModel(BaseMixin, Base):
             return None
 
 
+class ApplicationCompany(TypedDict):
+    id: int
+    name: str
+    url: str
+
+
 class ApplicationLastStep(TypedDict):
     id: int
     name: str
@@ -156,8 +185,12 @@ class ApplicationModel(BaseMixin, Base):
         sa.ForeignKey('platforms.id'), nullable=False
     )
 
+    company_id: Mapped[int] = mapped_column(
+        sa.ForeignKey('companies.id'), nullable=False
+    )
+
     application_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
-    company: Mapped[str] = mapped_column(sa.String(200), nullable=False)
+    old_company: Mapped[str] = mapped_column(sa.String(200), nullable=False)
     role: Mapped[str] = mapped_column(sa.String(200), nullable=False)
     mode: Mapped[Literal['active', 'passive']] = mapped_column(
         sa.String(10), nullable=False
@@ -185,6 +218,9 @@ class ApplicationModel(BaseMixin, Base):
     feedback_date: Mapped[Optional[date]] = mapped_column(sa.Date)
 
     user: Mapped['UserModel'] = relationship(back_populates='applications')
+    company_rel: Mapped['CompanyModel'] = relationship(
+        back_populates='applications'
+    )
     platform: Mapped['PlatformModel'] = relationship(
         back_populates='applications'
     )
@@ -197,6 +233,15 @@ class ApplicationModel(BaseMixin, Base):
     application_steps: Mapped[List['ApplicationStepModel']] = relationship(
         back_populates='application'
     )
+
+    @property
+    def company(self) -> ApplicationCompany | None:
+        if self.company_rel:
+            return ApplicationCompany(
+                id=self.company_rel.id,
+                name=self.company_rel.name,
+                url=self.company_rel.url,
+            )
 
     @property
     def last_step(self) -> ApplicationLastStep | None:
