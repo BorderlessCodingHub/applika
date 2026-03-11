@@ -178,6 +178,24 @@ CurrentUserDp = Annotated[UserDTO, Depends(get_current_user)]
 - One repository per model in `domain/repositories/`
 - API routes in `presentation/api/` match resource names
 
+## MCP Usage
+
+Use available MCP (Model Context Protocol) servers during interactions:
+
+### Git MCP
+- Create meaningful commits as you work — don't batch everything at the end
+- Commit after completing logical units of work (e.g., after finishing a migration, after adding a new feature layer)
+- Write descriptive commit messages following conventional commits style 
+(feat(backend): message, fix(backend): message, test(backend): message, etc)
+
+### Context7 MCP
+- Use context7 to look up library documentation when working with FastAPI, SQLAlchemy, Alembic, Pydantic, or any other dependency
+- Prefer context7 over guessing API signatures or relying on outdated knowledge
+
+### Other MCPs
+- Use any other available MCP server when relevant (e.g., Docker MCP for container operations)
+- Check available MCPs at the start of complex tasks and leverage them throughout
+
 ## Project Skills
 
 This repository includes Claude Code skills in `.claude/skills/backend-patterns/` covering:
