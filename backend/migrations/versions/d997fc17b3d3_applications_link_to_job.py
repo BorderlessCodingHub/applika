@@ -9,9 +9,8 @@ Create Date: 2025-12-18 17:11:23.404757
 from datetime import datetime, timezone
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'd997fc17b3d3'
@@ -31,12 +30,13 @@ def upgrade() -> None:
         sa.column('created_at', sa.DateTime(timezone=True)),
     )
     op.bulk_insert(
-        platforms_table,
-        [{'name': 'Referral', 'url': '', 'created_at': now}]
+        platforms_table, [{'name': 'Referral', 'url': '', 'created_at': now}]
     )
 
-    op.add_column('applications', sa.Column(
-        'link_to_job', sa.String(length=2083), nullable=True))
+    op.add_column(
+        'applications',
+        sa.Column('link_to_job', sa.String(length=2083), nullable=True),
+    )
     # ### end Alembic commands ###
 
 
@@ -51,7 +51,8 @@ def downgrade() -> None:
         sa.column('url', sa.String),
         sa.column('created_at', sa.DateTime(timezone=True)),
     )
-    op.execute(sa.text("""
+    op.execute(
+        sa.text("""
         UPDATE applications
         SET platform_id = (
             SELECT id FROM platforms WHERE lower(name) = 'linkedin' LIMIT 1
@@ -59,9 +60,10 @@ def downgrade() -> None:
         WHERE platform_id = (
             SELECT id FROM platforms WHERE lower(name) = 'referral' LIMIT 1
         )
-    """))
+    """)
+    )
     op.execute(
         platforms_table.delete().where(platforms_table.c.name == 'Referral')
     )
-    
+
     # ### end Alembic commands ###

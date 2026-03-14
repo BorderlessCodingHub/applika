@@ -11,9 +11,10 @@ class CreateCompany(BaseSchema):
     @classmethod
     def validate_linkedin_url(cls, v):
         url_str = str(v)
-        if not url_str.startswith(
-            ('https://www.linkedin.com/', 'https://linkedin.com/')
-        ):
+        if not url_str.startswith((
+            'https://www.linkedin.com/',
+            'https://linkedin.com/',
+        )):
             raise ValueError(
                 'Only LinkedIn URLs are accepted'
                 ' (https://www.linkedin.com/...)'

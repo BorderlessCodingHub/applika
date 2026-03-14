@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import (
@@ -16,9 +17,9 @@ from app.presentation.dependencies import get_current_user
 from app.tests.base_db_setup import base_data
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope='session')
 async def db_container():
-    container = PostgresContainer("postgres:14", driver="asyncpg")
+    container = PostgresContainer('postgres:14', driver='asyncpg')
     container.start()
     yield container
     container.stop()
@@ -27,7 +28,7 @@ async def db_container():
 @pytest_asyncio.fixture
 async def async_engine(db_container: PostgresContainer):
     db_url = db_container.get_connection_url().replace(
-        "postgresql://", "postgresql+asyncpg://"
+        'postgresql://', 'postgresql+asyncpg://'
     )
     async_engine = create_async_engine(db_url, echo=False)
 
@@ -69,10 +70,10 @@ async def async_client(async_engine: AsyncEngine):
         from app.application.dto.user import UserDTO
 
         return UserDTO(
-            id=base_data()["user"].id,
-            github_id=base_data()["user"].github_id,
-            username=base_data()["user"].username,
-            email=base_data()["user"].email,
+            id=base_data()['user'].id,
+            github_id=base_data()['user'].github_id,
+            username=base_data()['user'].username,
+            email=base_data()['user'].email,
             created_at=datetime.now(timezone.utc),
         )
 
@@ -80,7 +81,7 @@ async def async_client(async_engine: AsyncEngine):
 
     transport = ASGITransport(app=main_app)
     async with AsyncClient(
-        transport=transport, base_url="http://test/api"
+        transport=transport, base_url='http://test/api'
     ) as client:
         yield client
 

@@ -18,8 +18,7 @@ class AsyncpgDsn(PostgresDsn):
     )
 
     def to_sync(self) -> str:
-        return self.__str__().replace(
-            'postgresql+asyncpg', 'postgresql')
+        return self.__str__().replace('postgresql+asyncpg', 'postgresql')
 
 
 class Settings(BaseSettings):
@@ -62,9 +61,9 @@ class Settings(BaseSettings):
 
     @property
     def openapi_url(self):
-        if self.ENVIRONMENT == "PROD":
+        if self.ENVIRONMENT == 'PROD':
             return None
-        return "/openapi.json"
+        return '/openapi.json'
 
 
 envs = Settings()

@@ -4,8 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config.middleware import register_middleware
 from app.config.settings import envs
 from app.presentation.api.application import router as application_router
-from app.presentation.api.company import router as company_router
 from app.presentation.api.application_step import router as app_step_router
+from app.presentation.api.company import router as company_router
 from app.presentation.api.oauth import router as auth_router
 from app.presentation.api.statistic import router as statistic_router
 from app.presentation.api.support import router as support_router

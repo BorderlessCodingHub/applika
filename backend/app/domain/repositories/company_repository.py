@@ -16,23 +16,17 @@ class CompanyRepository:
             select(CompanyModel).where(CompanyModel.id == id)
         )
 
-    async def get_all(
-        self, name: str | None = None
-    ) -> List[CompanyModel]:
+    async def get_all(self, name: str | None = None) -> List[CompanyModel]:
         query = (
             select(CompanyModel)
             .where(CompanyModel.is_active.is_(True))
             .order_by(CompanyModel.name)
         )
         if name:
-            query = query.where(
-                CompanyModel.name.ilike(f'%{name}%')
-            )
+            query = query.where(CompanyModel.name.ilike(f'%{name}%'))
         return await self.session.scalars(query)
 
-    async def create(
-        self, company: CompanyCreateDTO
-    ) -> CompanyModel:
+    async def create(self, company: CompanyCreateDTO) -> CompanyModel:
         try:
             db_company = CompanyModel(
                 **company.model_dump(exclude={'url'}),

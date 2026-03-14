@@ -8,7 +8,7 @@ from app.domain.repositories.user_statistic_repository import (
 
 
 def format_decimal(value: Decimal) -> Decimal:
-    return value.quantize(Decimal("0.0"), rounding=ROUND_HALF_UP)
+    return value.quantize(Decimal('0.0'), rounding=ROUND_HALF_UP)
 
 
 class GetAvgDaysPerStepUseCase:

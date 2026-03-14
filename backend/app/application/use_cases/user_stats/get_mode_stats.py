@@ -20,7 +20,4 @@ class GetModeStatsUseCase:
             elif mode['mode'] == 'passive':
                 passive = mode['count']
 
-        return ModeAppDTO(
-            active=active,
-            passive=passive
-        )
+        return ModeAppDTO(active=active, passive=passive)

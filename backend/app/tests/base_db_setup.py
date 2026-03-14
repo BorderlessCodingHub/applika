@@ -18,18 +18,18 @@ class BaseDataType(TypedDict):
 def base_data() -> BaseDataType:
     return {
         'user': UserModel(
-            id=1, github_id=1, username="testuser", email="test@user.com"
+            id=1, github_id=1, username='testuser', email='test@user.com'
         ),
         'plat_linkedin': PlatformModel(
-            id=1, name="Linkedin", url="https://www.linkedin.com/"
+            id=1, name='Linkedin', url='https://www.linkedin.com/'
         ),
         'fb_denied': FeedbackDefinitionModel(
-            id=1, name="Denied", color="#a80000"
+            id=1, name='Denied', color='#a80000'
         ),
         'company_acme': CompanyModel(
             id=1,
-            name="Acme Corp",
-            url="https://www.linkedin.com/company/acme",
+            name='Acme Corp',
+            url='https://www.linkedin.com/company/acme',
             created_by=1,
         ),
     }

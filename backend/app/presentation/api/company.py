@@ -33,9 +33,7 @@ async def create(
     company_repo: CompanyRepositoryDp,
 ):
     use_case = CreateCompanyUseCase(company_repo)
-    data = CompanyCreateDTO(
-        **payload.model_dump(), created_by=c_user.id
-    )
+    data = CompanyCreateDTO(**payload.model_dump(), created_by=c_user.id)
     company = await use_case.execute(data)
     return Company.model_validate(company)
 
@@ -44,9 +42,7 @@ async def create(
 async def list_companies(
     c_user: CurrentUserDp,
     company_repo: CompanyRepositoryDp,
-    name: str | None = Query(
-        None, description='Filter companies by name'
-    ),
+    name: str | None = Query(None, description='Filter companies by name'),
 ):
     use_case = ListCompaniesUseCase(company_repo)
     return await use_case.execute(name=name)
