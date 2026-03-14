@@ -48,12 +48,18 @@ class UpdateApplicationUseCase:
         application.mode = data.mode
         application.platform_id = data.platform_id
         application.application_date = data.application_date
-        application.link_to_job = (str(data.link_to_job)
-                                   if data.link_to_job else None)
+        application.link_to_job = (
+            str(data.link_to_job) if data.link_to_job else None
+        )
         application.observation = data.observation
         application.expected_salary = data.expected_salary
         application.salary_range_min = data.salary_range_min
         application.salary_range_max = data.salary_range_max
+        application.currency = data.currency
+        application.salary_period = data.salary_period
+        application.experience_level = data.experience_level
+        application.work_mode = data.work_mode
+        application.country = data.country
 
         application = await self.application_repo.update(application)
         return ApplicationDTO.model_validate(application)

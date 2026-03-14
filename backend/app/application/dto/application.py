@@ -4,6 +4,7 @@ from pydantic import BaseModel, HttpUrl
 from typing_extensions import Literal
 
 from app.application.dto import BaseSchema
+from app.core.enums import Currency, ExperienceLevel, SalaryPeriod, WorkMode
 
 
 class ApplicationCreateDTO(BaseModel):
@@ -19,6 +20,11 @@ class ApplicationCreateDTO(BaseModel):
     expected_salary: float | None = None
     salary_range_min: float | None = None
     salary_range_max: float | None = None
+    currency: Currency | None = None
+    salary_period: SalaryPeriod | None = None
+    experience_level: ExperienceLevel | None = None
+    work_mode: WorkMode | None = None
+    country: str | None = None
 
 
 class ApplicationUpdateDTO(BaseModel):
@@ -34,6 +40,11 @@ class ApplicationUpdateDTO(BaseModel):
     expected_salary: float | None = None
     salary_range_min: float | None = None
     salary_range_max: float | None = None
+    currency: Currency | None = None
+    salary_period: SalaryPeriod | None = None
+    experience_level: ExperienceLevel | None = None
+    work_mode: WorkMode | None = None
+    country: str | None = None
 
 
 class FinalizeApplicationDTO(BaseModel):
@@ -77,6 +88,11 @@ class ApplicationDTO(BaseSchema):
     salary_range_min: float | None = None
     salary_range_max: float | None = None
     salary_offer: float | None = None
+    currency: Currency | None = None
+    salary_period: SalaryPeriod | None = None
+    experience_level: ExperienceLevel | None = None
+    work_mode: WorkMode | None = None
+    country: str | None = None
 
     finalized: bool
     last_step: ApplicationLastStep | None = None

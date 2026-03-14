@@ -3,6 +3,7 @@ from datetime import date
 from pydantic import BaseModel, HttpUrl
 from typing_extensions import Literal
 
+from app.core.enums import Currency, ExperienceLevel, SalaryPeriod, WorkMode
 from app.presentation.schemas import BaseSchema, TimeSchema
 
 
@@ -18,6 +19,11 @@ class CreateApplication(BaseSchema):
     expected_salary: float | None = None
     salary_range_min: float | None = None
     salary_range_max: float | None = None
+    currency: Currency | None = None
+    salary_period: SalaryPeriod | None = None
+    experience_level: ExperienceLevel | None = None
+    work_mode: WorkMode | None = None
+    country: str | None = None
 
 
 class UpdateApplication(BaseModel):
@@ -32,6 +38,11 @@ class UpdateApplication(BaseModel):
     expected_salary: float | None = None
     salary_range_min: float | None = None
     salary_range_max: float | None = None
+    currency: Currency | None = None
+    salary_period: SalaryPeriod | None = None
+    experience_level: ExperienceLevel | None = None
+    work_mode: WorkMode | None = None
+    country: str | None = None
 
 
 class ApplicationCompany(BaseModel):
@@ -68,11 +79,15 @@ class Application(BaseSchema, TimeSchema):
     salary_range_min: float | None = None
     salary_range_max: float | None = None
     salary_offer: float | None = None
+    currency: Currency | None = None
+    salary_period: SalaryPeriod | None = None
+    experience_level: ExperienceLevel | None = None
+    work_mode: WorkMode | None = None
+    country: str | None = None
 
     finalized: bool
     last_step: ApplicationLastStep | None = None
     feedback: ApplicationFeedback | None = None
-    finalized: bool | None = None
 
 
 class FinalizeApplication(BaseModel):
