@@ -5,6 +5,14 @@ import sqlalchemy as sa
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from typing_extensions import Literal
 
+from app.core.enums import (
+    Availability,
+    Currency,
+    ExperienceLevel,
+    SalaryPeriod,
+    WorkMode,
+)
+
 
 class BaseMixin:
     id: Mapped[int] = mapped_column(
@@ -40,6 +48,26 @@ class UserModel(BaseMixin, Base):
     current_salary: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
     experience_years: Mapped[int] = mapped_column(sa.Integer, default=0)
     _tech_stack: Mapped[Optional[str]] = mapped_column(sa.Text)
+    current_role: Mapped[Optional[str]] = mapped_column(sa.String(200))
+    salary_currency: Mapped[Optional[Currency]] = mapped_column(
+        sa.Enum(Currency, name='currency', create_constraint=False,
+                native_enum=True)
+    )
+    salary_period: Mapped[Optional[SalaryPeriod]] = mapped_column(
+        sa.Enum(SalaryPeriod, name='salaryperiod', create_constraint=False,
+                native_enum=True)
+    )
+    seniority_level: Mapped[Optional[ExperienceLevel]] = mapped_column(
+        sa.Enum(ExperienceLevel, name='experiencelevel',
+                create_constraint=False, native_enum=True)
+    )
+    location: Mapped[Optional[str]] = mapped_column(sa.String(200))
+    availability: Mapped[Optional[Availability]] = mapped_column(
+        sa.Enum(Availability, name='availability', create_constraint=False,
+                native_enum=True)
+    )
+    bio: Mapped[Optional[str]] = mapped_column(sa.Text)
+    linkedin_url: Mapped[Optional[str]] = mapped_column(sa.String(500))
 
     applications: Mapped[List['ApplicationModel']] = relationship(
         back_populates='user'
@@ -206,6 +234,24 @@ class ApplicationModel(BaseMixin, Base):
     salary_range_max: Mapped[Optional[float]] = mapped_column(
         sa.Numeric(10, 2)
     )
+
+    currency: Mapped[Optional[Currency]] = mapped_column(
+        sa.Enum(Currency, name='currency', create_constraint=False,
+                native_enum=True, create_type=False)
+    )
+    salary_period: Mapped[Optional[SalaryPeriod]] = mapped_column(
+        sa.Enum(SalaryPeriod, name='salaryperiod', create_constraint=False,
+                native_enum=True, create_type=False)
+    )
+    experience_level: Mapped[Optional[ExperienceLevel]] = mapped_column(
+        sa.Enum(ExperienceLevel, name='experiencelevel',
+                create_constraint=False, native_enum=True, create_type=False)
+    )
+    work_mode: Mapped[Optional[WorkMode]] = mapped_column(
+        sa.Enum(WorkMode, name='workmode', create_constraint=False,
+                native_enum=True)
+    )
+    country: Mapped[Optional[str]] = mapped_column(sa.String(100))
 
     last_step_id: Mapped[Optional[int]] = mapped_column(
         sa.ForeignKey('steps_definition.id')
