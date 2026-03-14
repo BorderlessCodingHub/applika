@@ -5,11 +5,11 @@ Revises: d47505cfb232
 Create Date: 2026-03-14 17:30:05.058290
 
 """
+
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '77c96a061d09'
@@ -19,24 +19,44 @@ depends_on: Union[str, Sequence[str], None] = None
 
 # Enum type definitions
 currency_enum = sa.Enum(
-    'USD', 'BRL', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'INR',
+    'USD',
+    'BRL',
+    'EUR',
+    'GBP',
+    'CAD',
+    'AUD',
+    'JPY',
+    'CHF',
+    'INR',
     name='currency',
 )
 salaryperiod_enum = sa.Enum(
-    'hourly', 'monthly', 'annual',
+    'hourly',
+    'monthly',
+    'annual',
     name='salaryperiod',
 )
 experiencelevel_enum = sa.Enum(
-    'intern', 'junior', 'mid_level', 'senior', 'staff', 'lead',
-    'principal', 'specialist',
+    'intern',
+    'junior',
+    'mid_level',
+    'senior',
+    'staff',
+    'lead',
+    'principal',
+    'specialist',
     name='experiencelevel',
 )
 workmode_enum = sa.Enum(
-    'remote', 'hybrid', 'on_site',
+    'remote',
+    'hybrid',
+    'on_site',
     name='workmode',
 )
 availability_enum = sa.Enum(
-    'open_to_work', 'casually_looking', 'not_looking',
+    'open_to_work',
+    'casually_looking',
+    'not_looking',
     name='availability',
 )
 
@@ -51,34 +71,51 @@ def upgrade() -> None:
     availability_enum.create(op.get_bind(), checkfirst=True)
 
     # Application columns
-    op.add_column('applications', sa.Column(
-        'currency', currency_enum, nullable=True))
-    op.add_column('applications', sa.Column(
-        'salary_period', salaryperiod_enum, nullable=True))
-    op.add_column('applications', sa.Column(
-        'experience_level', experiencelevel_enum, nullable=True))
-    op.add_column('applications', sa.Column(
-        'work_mode', workmode_enum, nullable=True))
-    op.add_column('applications', sa.Column(
-        'country', sa.String(length=100), nullable=True))
+    op.add_column(
+        'applications', sa.Column('currency', currency_enum, nullable=True)
+    )
+    op.add_column(
+        'applications',
+        sa.Column('salary_period', salaryperiod_enum, nullable=True),
+    )
+    op.add_column(
+        'applications',
+        sa.Column('experience_level', experiencelevel_enum, nullable=True),
+    )
+    op.add_column(
+        'applications', sa.Column('work_mode', workmode_enum, nullable=True)
+    )
+    op.add_column(
+        'applications',
+        sa.Column('country', sa.String(length=100), nullable=True),
+    )
 
     # User columns
-    op.add_column('users', sa.Column(
-        'current_role', sa.String(length=200), nullable=True))
-    op.add_column('users', sa.Column(
-        'salary_currency', currency_enum, nullable=True))
-    op.add_column('users', sa.Column(
-        'salary_period', salaryperiod_enum, nullable=True))
-    op.add_column('users', sa.Column(
-        'seniority_level', experiencelevel_enum, nullable=True))
-    op.add_column('users', sa.Column(
-        'location', sa.String(length=200), nullable=True))
-    op.add_column('users', sa.Column(
-        'availability', availability_enum, nullable=True))
-    op.add_column('users', sa.Column(
-        'bio', sa.Text(), nullable=True))
-    op.add_column('users', sa.Column(
-        'linkedin_url', sa.String(length=500), nullable=True))
+    op.add_column(
+        'users',
+        sa.Column('current_role', sa.String(length=200), nullable=True),
+    )
+    op.add_column(
+        'users', sa.Column('salary_currency', currency_enum, nullable=True)
+    )
+    op.add_column(
+        'users', sa.Column('salary_period', salaryperiod_enum, nullable=True)
+    )
+    op.add_column(
+        'users',
+        sa.Column('seniority_level', experiencelevel_enum, nullable=True),
+    )
+    op.add_column(
+        'users', sa.Column('location', sa.String(length=200), nullable=True)
+    )
+    op.add_column(
+        'users', sa.Column('availability', availability_enum, nullable=True)
+    )
+    op.add_column('users', sa.Column('bio', sa.Text(), nullable=True))
+    op.add_column(
+        'users',
+        sa.Column('linkedin_url', sa.String(length=500), nullable=True),
+    )
 
 
 def downgrade() -> None:

@@ -23,8 +23,10 @@ class BaseMixin:
         sa.DateTime(timezone=True), default=sa.func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        sa.DateTime(timezone=True), default=None,
-        onupdate=sa.func.now(), nullable=True
+        sa.DateTime(timezone=True),
+        default=None,
+        onupdate=sa.func.now(),
+        nullable=True,
     )
 
 
@@ -50,21 +52,37 @@ class UserModel(BaseMixin, Base):
     _tech_stack: Mapped[Optional[str]] = mapped_column(sa.Text)
     current_role: Mapped[Optional[str]] = mapped_column(sa.String(200))
     salary_currency: Mapped[Optional[Currency]] = mapped_column(
-        sa.Enum(Currency, name='currency', create_constraint=False,
-                native_enum=True)
+        sa.Enum(
+            Currency,
+            name='currency',
+            create_constraint=False,
+            native_enum=True,
+        )
     )
     salary_period: Mapped[Optional[SalaryPeriod]] = mapped_column(
-        sa.Enum(SalaryPeriod, name='salaryperiod', create_constraint=False,
-                native_enum=True)
+        sa.Enum(
+            SalaryPeriod,
+            name='salaryperiod',
+            create_constraint=False,
+            native_enum=True,
+        )
     )
     seniority_level: Mapped[Optional[ExperienceLevel]] = mapped_column(
-        sa.Enum(ExperienceLevel, name='experiencelevel',
-                create_constraint=False, native_enum=True)
+        sa.Enum(
+            ExperienceLevel,
+            name='experiencelevel',
+            create_constraint=False,
+            native_enum=True,
+        )
     )
     location: Mapped[Optional[str]] = mapped_column(sa.String(200))
     availability: Mapped[Optional[Availability]] = mapped_column(
-        sa.Enum(Availability, name='availability', create_constraint=False,
-                native_enum=True)
+        sa.Enum(
+            Availability,
+            name='availability',
+            create_constraint=False,
+            native_enum=True,
+        )
     )
     bio: Mapped[Optional[str]] = mapped_column(sa.Text)
     linkedin_url: Mapped[Optional[str]] = mapped_column(sa.String(500))
@@ -167,7 +185,9 @@ class ApplicationStepModel(BaseMixin, Base):
         sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
     )
 
-    user: Mapped['UserModel'] = relationship(back_populates='applications_steps')
+    user: Mapped['UserModel'] = relationship(
+        back_populates='applications_steps'
+    )
     application: Mapped['ApplicationModel'] = relationship(
         back_populates='application_steps'
     )
@@ -236,20 +256,39 @@ class ApplicationModel(BaseMixin, Base):
     )
 
     currency: Mapped[Optional[Currency]] = mapped_column(
-        sa.Enum(Currency, name='currency', create_constraint=False,
-                native_enum=True, create_type=False)
+        sa.Enum(
+            Currency,
+            name='currency',
+            create_constraint=False,
+            native_enum=True,
+            create_type=False,
+        )
     )
     salary_period: Mapped[Optional[SalaryPeriod]] = mapped_column(
-        sa.Enum(SalaryPeriod, name='salaryperiod', create_constraint=False,
-                native_enum=True, create_type=False)
+        sa.Enum(
+            SalaryPeriod,
+            name='salaryperiod',
+            create_constraint=False,
+            native_enum=True,
+            create_type=False,
+        )
     )
     experience_level: Mapped[Optional[ExperienceLevel]] = mapped_column(
-        sa.Enum(ExperienceLevel, name='experiencelevel',
-                create_constraint=False, native_enum=True, create_type=False)
+        sa.Enum(
+            ExperienceLevel,
+            name='experiencelevel',
+            create_constraint=False,
+            native_enum=True,
+            create_type=False,
+        )
     )
     work_mode: Mapped[Optional[WorkMode]] = mapped_column(
-        sa.Enum(WorkMode, name='workmode', create_constraint=False,
-                native_enum=True)
+        sa.Enum(
+            WorkMode,
+            name='workmode',
+            create_constraint=False,
+            native_enum=True,
+        )
     )
     country: Mapped[Optional[str]] = mapped_column(sa.String(100))
 

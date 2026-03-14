@@ -11,10 +11,10 @@ from app.config.settings import ACCESS_COOKIE_NAME
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
-from app.domain.repositories.company_repository import CompanyRepository
 from app.domain.repositories.application_step_repository import (
     ApplicationStepRepository,
 )
+from app.domain.repositories.company_repository import CompanyRepository
 from app.domain.repositories.feedback_definition_repository import (
     FeedbackDefinitionRepository,
 )
