@@ -4,9 +4,16 @@ import { cn } from "@/lib/utils"; // optional if you use a class merging helper
 interface DateInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  errorId?: string;
 }
 
-export default function DateInput({ label, error, className, ...props }: DateInputProps) {
+export default function DateInput({
+  label,
+  error,
+  errorId,
+  className,
+  ...props
+}: DateInputProps) {
   return (
     <div className="flex flex-col gap-1">
       {label && (
@@ -24,7 +31,11 @@ export default function DateInput({ label, error, className, ...props }: DateInp
           className
         )}
       />
-      {error && <span className="text-xs text-red-400">{error}</span>}
+      {error && (
+        <span id={errorId} className="text-xs text-red-400" role="alert">
+          {error}
+        </span>
+      )}
     </div>
   );
 }
