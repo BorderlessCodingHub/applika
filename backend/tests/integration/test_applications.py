@@ -5,8 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import Currency, ExperienceLevel, SalaryPeriod, WorkMode
 from app.domain.models import ApplicationModel
-from app.tests import msg
-from app.tests.base_db_setup import base_data
+from tests import msg
+from tests.base_db_setup import base_data
 
 
 async def test_create_application(

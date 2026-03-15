@@ -67,7 +67,7 @@ backend/
 | API_PREFIX                  | API route prefix                                     | /api                                               | No       |
 | CORS_ORIGINS                | Allowed CORS origins                                 | ["http://127.0.0.1:3000","http://127.0.0.1:8000"]  | No       |
 | CORS_HEADERS                | Allowed CORS headers                                 | ["X-Request-ID","Content-Type"]                    | No       |
-| CORS_METHODS                | Allowed CORS methods                                 | ["GET","POST","PUT","DELETE","OPTIONS"]            | No       |
+| CORS_METHODS                | Allowed CORS methods                                 | ["GET","PATCH","POST","PUT","DELETE","OPTIONS"]            | No       |
 | DATABASE_ECHO               | SQLAlchemy echo flag (show SQL queries)              | False                                              | No       |
 
 ### Creating a GitHub OAuth App

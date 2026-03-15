@@ -180,12 +180,14 @@ CurrentUserDp = Annotated[UserDTO, Depends(get_current_user)]
 
 ## MCP Usage
 
-Use available MCP (Model Context Protocol) servers during interactions:
+Use available MCP (Model Context Protocol) servers during interactions.
+**Always prefer MCP tools over bash equivalents when an MCP server is available.**
 
 ### Git MCP
+- **Always use the Git MCP for every commit** — prefer `git_add`, `git_commit`, `git_diff`, `git_status`, etc. over bash git commands
 - Create meaningful commits as you work — don't batch everything at the end
 - Commit after completing logical units of work (e.g., after finishing a migration, after adding a new feature layer)
-- Write descriptive commit messages following conventional commits style 
+- Write descriptive commit messages following conventional commits style
 (feat(backend): message, fix(backend): message, test(backend): message, etc)
 
 ### Context7 MCP
