@@ -11,28 +11,28 @@ This is a FastAPI backend for Applika.dev (Application Panel), a job application
 ### Development
 ```bash
 # Install dependencies
-poetry install
+uv sync
 
 # Run development server (port 8000 with auto-reload)
-poetry run task run
+uv run task run
 
 # Run linter with auto-fix
-poetry run task ruff
+uv run task ruff
 
 # Run tests with coverage
-poetry run task pytest
+uv run task pytest
 ```
 
 ### Database Migrations
 ```bash
 # Create new migration (auto-generate from models)
-poetry run task autorevision
+uv run task autorevision
 
 # Apply migrations
-poetry run task auhead
+uv run task auhead
 
 # Rollback all migrations
-poetry run task adbase
+uv run task adbase
 ```
 
 ### Docker

@@ -45,20 +45,20 @@ class UpdateApplication(BaseModel):
     country: str | None = None
 
 
-class ApplicationCompany(BaseModel):
+class ApplicationCompany(BaseSchema):
     id: int
     name: str
     url: str
 
 
-class ApplicationLastStep(BaseModel):
+class ApplicationLastStep(BaseSchema):
     id: int
     name: str
     color: str
     date: date
 
 
-class ApplicationFeedback(BaseModel):
+class ApplicationFeedback(BaseSchema):
     id: int
     name: str
     color: str
