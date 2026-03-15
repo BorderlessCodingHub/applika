@@ -43,13 +43,13 @@ class Settings(BaseSettings):
         'http://127.0.0.1:8000',
     ]
     CORS_HEADERS: List[str] = ['X-Request-ID', 'Content-Type']
-    CORS_METHODS: List[str] = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+    CORS_METHODS: List[str] = ['GET', 'PATCH', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 
     DATABASE_URL: str
     DATABASE_ECHO: bool = False
 
     JWT_ALGORITHM: str = 'HS256'
-    JWT_SECRET: str = 'my-jwt-secret'
+    JWT_SECRET: str = 'changeme-set-a-strong-jwt-secret-in-production'
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
