@@ -31,32 +31,32 @@ currency_enum = sa.Enum(
     name='currency',
 )
 salaryperiod_enum = sa.Enum(
-    'hourly',
-    'monthly',
-    'annual',
+    'HOURLY',
+    'MONTHLY',
+    'ANNUAL',
     name='salaryperiod',
 )
 experiencelevel_enum = sa.Enum(
-    'intern',
-    'junior',
-    'mid_level',
-    'senior',
-    'staff',
-    'lead',
-    'principal',
-    'specialist',
+    'INTERN',
+    'JUNIOR',
+    'MID_LEVEL',
+    'SENIOR',
+    'STAFF',
+    'LEAD',
+    'PRINCIPAL',
+    'SPECIALIST',
     name='experiencelevel',
 )
 workmode_enum = sa.Enum(
-    'remote',
-    'hybrid',
-    'on_site',
+    'REMOTE',
+    'HYBRID',
+    'ON_SITE',
     name='workmode',
 )
 availability_enum = sa.Enum(
-    'open_to_work',
-    'casually_looking',
-    'not_looking',
+    'OPEN_TO_WORK',
+    'CASUALLY_LOOKING',
+    'NOT_LOOKING',
     name='availability',
 )
 
