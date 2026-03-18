@@ -18,7 +18,7 @@ async def _resource_not_found_handler(
 
 
 async def _resource_conflict_handler(
-    request: Request, exc: exceptions.ResourceNotFound
+    request: Request, exc: exceptions.ResourceConflict
 ):
     return JSONResponse(status_code=409, content={'detail': exc.message})
 

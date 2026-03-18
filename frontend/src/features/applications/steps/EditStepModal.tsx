@@ -55,7 +55,7 @@ export default function EditStepModal({
     control,
     register,
     reset,
-    formState: { isSubmitting },
+    formState: { isSubmitting, errors },
   } = useForm<UpdateStepPayload>({
     resolver: zodResolver(updateStepPayloadSchema),
     defaultValues: {
@@ -104,31 +104,48 @@ export default function EditStepModal({
               control={control}
               name="step_id"
               render={({ field }) => (
-                <div className="relative">
-                  <ListBoxSelect
-                    value={
-                      steps.find((s) => String(s.id) === String(field.value)) ??
-                      null
-                    }
-                    onChange={(val) => field.onChange(val ? Number(val.id) : 0)}
-                    options={steps.map((s) => ({
-                      id: String(s.id),
-                      name: s.name,
-                    }))}
-                    placeholder="Select Step"
-                    loading={loadingSteps}
-                    disabled={loadingSteps || steps.length === 0}
-                  />
-                  {(loadingSteps || steps.length === 0) && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-white/50 pointer-events-none">
-                      <i className="fa-solid fa-spinner" />
-                    </div>
+                <div className="flex flex-col gap-1">
+                  <div className="relative">
+                    <ListBoxSelect
+                      value={
+                        steps.find((s) => String(s.id) === String(field.value)) ??
+                        null
+                      }
+                      onChange={(val) => field.onChange(val ? Number(val.id) : 0)}
+                      options={steps.map((s) => ({
+                        id: String(s.id),
+                        name: s.name,
+                      }))}
+                      placeholder="Select Step"
+                      loading={loadingSteps}
+                      disabled={loadingSteps || steps.length === 0}
+                      error={Boolean(errors.step_id)}
+                      ariaInvalid={Boolean(errors.step_id)}
+                      ariaDescribedBy={errors.step_id ? "edit-step-id-error" : undefined}
+                    />
+                    {(loadingSteps || steps.length === 0) && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-white/50 pointer-events-none">
+                        <i className="fa-solid fa-spinner" />
+                      </div>
+                    )}
+                  </div>
+                  {errors.step_id?.message && (
+                    <span id="edit-step-id-error" className="text-xs text-red-400" role="alert">
+                      {errors.step_id.message}
+                    </span>
                   )}
                 </div>
               )}
             />
 
-            <DateInput {...register("step_date")} placeholder="Select date" />
+            <DateInput
+              {...register("step_date")}
+              placeholder="Select date"
+              error={errors.step_date?.message}
+              errorId="edit-step-date-error"
+              aria-invalid={errors.step_date ? "true" : "false"}
+              aria-describedby={errors.step_date ? "edit-step-date-error" : undefined}
+            />
           </div>
 
           <textarea

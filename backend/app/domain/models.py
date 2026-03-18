@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 from typing import List, Optional, TypedDict
 
 import sqlalchemy as sa
@@ -95,6 +96,9 @@ class UserModel(BaseMixin, Base):
     )
     created_companies: Mapped[List['CompanyModel']] = relationship(
         back_populates='created_by_user'
+    )
+    quinzenal_reports: Mapped[List['QuinzenalReportModel']] = relationship(
+        back_populates='user'
     )
 
     @property
@@ -351,3 +355,73 @@ class ApplicationModel(BaseMixin, Base):
     @property
     def finalized(self) -> bool:
         return self.feedback_id is not None
+
+
+class QuinzenalReportModel(BaseMixin, Base):
+    __tablename__ = 'quinzenal_reports'
+
+    __table_args__ = (
+        sa.CheckConstraint(
+            'report_day IN (1, 14, 28, 42, 56, 70, 84, 98, 112, 120)',
+            name='ck_quinzenal_reports_report_day',
+        ),
+        sa.CheckConstraint(
+            'phase IN (1, 2, 3, 4)',
+            name='ck_quinzenal_reports_phase',
+        ),
+        sa.UniqueConstraint(
+            'user_id', 'report_day', name='uq_quinzenal_reports_user_day'
+        ),
+        sa.Index('idx_quinzenal_reports_user_id', 'user_id'),
+        sa.Index('idx_quinzenal_reports_report_day', 'report_day'),
+        sa.Index('idx_quinzenal_reports_user_day', 'user_id', 'report_day'),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
+    )
+    report_day: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    start_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    phase: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+
+    applications_count: Mapped[int] = mapped_column(sa.Integer, default=0)
+    callback_rate: Mapped[Decimal] = mapped_column(
+        sa.Numeric(5, 2), default=Decimal('0.00')
+    )
+    initial_screenings_count: Mapped[int] = mapped_column(sa.Integer, default=0)
+    interviews_completed_fortnight: Mapped[int] = mapped_column(
+        sa.Integer, default=0
+    )
+    active_processes_count: Mapped[int] = mapped_column(sa.Integer, default=0)
+    offers_count: Mapped[int] = mapped_column(sa.Integer, default=0)
+    offer_rate: Mapped[Decimal] = mapped_column(
+        sa.Numeric(5, 2), default=Decimal('0.00')
+    )
+
+    total_applications_count: Mapped[int] = mapped_column(sa.Integer, default=0)
+    overall_conversion_rate: Mapped[Decimal] = mapped_column(
+        sa.Numeric(5, 2), default=Decimal('0.00')
+    )
+    total_initial_screenings_count: Mapped[int] = mapped_column(
+        sa.Integer, default=0
+    )
+
+    mock_interviews_count: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    linkedin_posts_count: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    strategic_connections_count: Mapped[int] = mapped_column(
+        sa.Integer, nullable=False
+    )
+    biggest_win: Mapped[str] = mapped_column(sa.String(280), nullable=False)
+    biggest_challenge: Mapped[str] = mapped_column(
+        sa.String(280), nullable=False
+    )
+    next_fortnight_goal: Mapped[str] = mapped_column(
+        sa.String(500), nullable=False
+    )
+
+    submitted_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False
+    )
+    discord_posted: Mapped[bool] = mapped_column(sa.Boolean, default=False)
+
+    user: Mapped['UserModel'] = relationship(back_populates='quinzenal_reports')

@@ -18,6 +18,9 @@ interface ListBoxSelectProps {
   disabled?: boolean;
   loading?: boolean;
   className?: string;
+  error?: boolean;
+  ariaInvalid?: boolean;
+  ariaDescribedBy?: string;
 }
 
 export default function ListBoxSelect({
@@ -28,6 +31,9 @@ export default function ListBoxSelect({
   disabled = false,
   loading = false,
   className = "",
+  error = false,
+  ariaInvalid = false,
+  ariaDescribedBy,
 }: ListBoxSelectProps) {
   return (
     <div className={className}>
@@ -36,8 +42,11 @@ export default function ListBoxSelect({
           <div className="relative w-full">
             {/* BUTTON */}
             <Listbox.Button
+              aria-invalid={ariaInvalid}
+              aria-describedby={ariaDescribedBy}
               className={`w-full h-10 px-4 text-left rounded-lg border border-white/30 bg-white/5 text-white
                           flex justify-between items-center cursor-pointer focus:outline-none transition-colors duration-150
+                          ${error ? "border-red-400" : "border-white/30"}
                           ${disabled ? "opacity-50 cursor-not-allowed" : "hover:border-white/50"}`}
             >
               <span className="truncate">

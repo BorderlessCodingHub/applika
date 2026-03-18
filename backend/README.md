@@ -58,6 +58,7 @@ backend/
 | GITHUB_CLIENT_SECRET        | GitHub OAuth client secret                           | <your-client-secret>                               | Yes      |
 | GITHUB_REDIRECT_URI         | GitHub OAuth redirect URI                            | http://127.0.0.1:8000/api/auth/github/callback     | No       |
 | LOGIN_REDIRECT_URI          | Login redirect URI after authentication              | http://127.0.0.1:8000/api/docs                     | No       |
+| DISCORD_REPORTS_WEBHOOK     | Discord webhook URL for quinzenal reports            | https://discord.com/api/webhooks/...               | No       |
 | JWT_ALGORITHM               | JWT signing algorithm                                | HS256                                              | No       |
 | JWT_SECRET                  | JWT secret key                                       | my-jwt-secret                                      | No       |
 | ACCESS_TOKEN_EXPIRE_MINUTES | Access token expiration (minutes)                    | 15                                                 | No       |

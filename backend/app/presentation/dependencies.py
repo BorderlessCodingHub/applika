@@ -5,6 +5,7 @@ from fastapi.security import APIKeyCookie
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dto.user import UserDTO
+from app.application.services.discord_service import DiscordService
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
 from app.config.db import get_session
 from app.config.settings import ACCESS_COOKIE_NAME
@@ -19,6 +20,9 @@ from app.domain.repositories.feedback_definition_repository import (
     FeedbackDefinitionRepository,
 )
 from app.domain.repositories.platform_repository import PlatformRepository
+from app.domain.repositories.quinzenal_report_repository import (
+    QuinzenalReportRepository,
+)
 from app.domain.repositories.step_definition_repository import (
     StepDefinitionRepository,
 )
@@ -44,6 +48,10 @@ def get_step_definition_repository(session: DbSession):
 
 def get_platform_repository(session: DbSession):
     return PlatformRepository(session)
+
+
+def get_quinzenal_report_repository(session: DbSession):
+    return QuinzenalReportRepository(session)
 
 
 def get_application_step_repository(session: DbSession):
@@ -76,6 +84,10 @@ PlatformRepositoryDp = Annotated[
     PlatformRepository, Depends(get_platform_repository)
 ]
 
+QuinzenalReportRepositoryDp = Annotated[
+    QuinzenalReportRepository, Depends(get_quinzenal_report_repository)
+]
+
 ApplicationStepRepositoryDp = Annotated[
     ApplicationStepRepository, Depends(get_application_step_repository)
 ]
@@ -91,6 +103,13 @@ ApplicationRepositoryDp = Annotated[
 UserStatsRepositoryDp = Annotated[
     UserStatsRepository, Depends(get_user_statistics_repository)
 ]
+
+
+def get_discord_service():
+    return DiscordService()
+
+
+DiscordServiceDp = Annotated[DiscordService, Depends(get_discord_service)]
 
 
 async def get_current_user(
