@@ -80,6 +80,7 @@ exclude_also = [
 ]
 
 [tool.taskipy.tasks]
+seed = "alembic downgrade base && alembic upgrade head && python scripts/seed_mock_data.py"
 run = "uvicorn app.main:app --port 8000 --reload --log-level debug"
 pytest = 'pytest .'
 ruff = "ruff check ./app --fix"
