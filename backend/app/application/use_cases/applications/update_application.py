@@ -43,7 +43,8 @@ class UpdateApplicationUseCase:
             raise ResourceNotFound('Company not found')
 
         application.company_id = data.company_id
-        application.old_company = data.old_company
+        application.old_company = None
+        
         application.role = data.role
         application.mode = data.mode
         application.platform_id = data.platform_id

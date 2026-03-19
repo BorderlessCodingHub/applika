@@ -83,7 +83,7 @@ def upgrade() -> None:
         UPDATE applications
         SET company_id = (
             SELECT id FROM companies
-            WHERE name = 'applika.dev' LIMIT 1
+            WHERE name = 'Applika.dev' LIMIT 1
         )
     """)
     )

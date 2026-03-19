@@ -11,6 +11,14 @@ class ListApplicationsUseCase:
         self.app_repo = app_repo
 
     async def execute(self, user_id: int) -> List[ApplicationDTO]:
-        applications = await self.app_repo.get_all_by_user_id(user_id)
-        return [ApplicationDTO.model_validate(application) 
-                for application in applications]
+        db_applications = await self.app_repo.get_all_by_user_id(user_id)
+
+        applications = []
+        for app in db_applications:
+            application = ApplicationDTO.model_validate(app)
+
+            if app.old_company:
+                application.company.name = f"Deprecated: {app.old_company}"
+
+            applications.append(application)
+        return applications

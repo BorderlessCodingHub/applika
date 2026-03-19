@@ -13,7 +13,10 @@ class CompanyRepository:
 
     async def get_by_id(self, id: int) -> CompanyModel | None:
         return await self.session.scalar(
-            select(CompanyModel).where(CompanyModel.id == id)
+            select(CompanyModel).where(
+                CompanyModel.id == id,
+                CompanyModel.is_active.is_(True)
+            )
         )
 
     async def get_all(self, name: str | None = None) -> List[CompanyModel]:
