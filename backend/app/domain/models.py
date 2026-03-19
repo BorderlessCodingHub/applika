@@ -13,11 +13,15 @@ from app.core.enums import (
     SalaryPeriod,
     WorkMode,
 )
+from app.lib.types import generate_snowflake_id
 
 
 class BaseMixin:
     id: Mapped[int] = mapped_column(
-        sa.Integer, primary_key=True, autoincrement=True
+        sa.BigInteger,
+        primary_key=True,
+        nullable=False,
+        default=generate_snowflake_id,
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -31,8 +35,8 @@ class BaseMixin:
     )
 
 
-# TODO: Configure MappedAsDataclass and set default_factory for each model field
-class Base(DeclarativeBase): ...
+class Base(DeclarativeBase):
+    ...
 
 
 class UserModel(BaseMixin, Base):
@@ -257,7 +261,7 @@ class ApplicationModel(BaseMixin, Base):
     salary_range_max: Mapped[Optional[float]] = mapped_column(
         sa.Numeric(10, 2)
     )
-    
+
     # Deprecated columns
     old_company: Mapped[Optional[str]] = mapped_column(sa.String(200))
 
@@ -390,7 +394,8 @@ class QuinzenalReportModel(BaseMixin, Base):
     callback_rate: Mapped[Decimal] = mapped_column(
         sa.Numeric(5, 2), default=Decimal('0.00')
     )
-    initial_screenings_count: Mapped[int] = mapped_column(sa.Integer, default=0)
+    initial_screenings_count: Mapped[int] = mapped_column(
+        sa.Integer, default=0)
     interviews_completed_fortnight: Mapped[int] = mapped_column(
         sa.Integer, default=0
     )
@@ -400,7 +405,8 @@ class QuinzenalReportModel(BaseMixin, Base):
         sa.Numeric(5, 2), default=Decimal('0.00')
     )
 
-    total_applications_count: Mapped[int] = mapped_column(sa.Integer, default=0)
+    total_applications_count: Mapped[int] = mapped_column(
+        sa.Integer, default=0)
     overall_conversion_rate: Mapped[Decimal] = mapped_column(
         sa.Numeric(5, 2), default=Decimal('0.00')
     )
@@ -408,8 +414,10 @@ class QuinzenalReportModel(BaseMixin, Base):
         sa.Integer, default=0
     )
 
-    mock_interviews_count: Mapped[int] = mapped_column(sa.Integer, nullable=False)
-    linkedin_posts_count: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    mock_interviews_count: Mapped[int] = mapped_column(
+        sa.Integer, nullable=False)
+    linkedin_posts_count: Mapped[int] = mapped_column(
+        sa.Integer, nullable=False)
     strategic_connections_count: Mapped[int] = mapped_column(
         sa.Integer, nullable=False
     )
@@ -426,4 +434,5 @@ class QuinzenalReportModel(BaseMixin, Base):
     )
     discord_posted: Mapped[bool] = mapped_column(sa.Boolean, default=False)
 
-    user: Mapped['UserModel'] = relationship(back_populates='quinzenal_reports')
+    user: Mapped['UserModel'] = relationship(
+        back_populates='quinzenal_reports')
