@@ -4,15 +4,15 @@ from pydantic import BaseModel, HttpUrl
 from typing_extensions import Literal
 
 from app.core.enums import Currency, ExperienceLevel, SalaryPeriod, WorkMode
+from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema, TimeSchema
 
 
 class CreateApplication(BaseSchema):
-    company_id: int
-    old_company: str
+    company_id: SnowflakeID
     role: str
     mode: Literal['active', 'passive']
-    platform_id: int
+    platform_id: SnowflakeID
     application_date: date
     link_to_job: HttpUrl | None = None
     observation: str | None = None
@@ -27,11 +27,10 @@ class CreateApplication(BaseSchema):
 
 
 class UpdateApplication(BaseModel):
-    company_id: int
-    old_company: str
+    company_id: SnowflakeID
     role: str
     mode: Literal['active', 'passive']
-    platform_id: int
+    platform_id: SnowflakeID
     application_date: date
     link_to_job: HttpUrl | None = None
     observation: str | None = None
@@ -46,32 +45,31 @@ class UpdateApplication(BaseModel):
 
 
 class ApplicationCompany(BaseSchema):
-    id: int
+    id: SnowflakeID
     name: str
     url: str
 
 
 class ApplicationLastStep(BaseSchema):
-    id: int
+    id: SnowflakeID
     name: str
     color: str
     date: date
 
 
 class ApplicationFeedback(BaseSchema):
-    id: int
+    id: SnowflakeID
     name: str
     color: str
     date: date
 
 
 class Application(BaseSchema, TimeSchema):
-    id: int
+    id: SnowflakeID
     company: ApplicationCompany | None = None
-    old_company: str
     role: str
     mode: Literal['active', 'passive']
-    platform_id: int
+    platform_id: SnowflakeID
     application_date: date
     link_to_job: HttpUrl | None = None
     observation: str | None = None
@@ -89,10 +87,13 @@ class Application(BaseSchema, TimeSchema):
     last_step: ApplicationLastStep | None = None
     feedback: ApplicationFeedback | None = None
 
+    # Deprecated Field
+    old_company: str | None
+
 
 class FinalizeApplication(BaseModel):
-    step_id: int  # only strict steps
-    feedback_id: int
+    step_id: SnowflakeID  # only strict steps
+    feedback_id: SnowflakeID
     finalize_date: date
     salary_offer: float | None = None
     observation: str | None = None

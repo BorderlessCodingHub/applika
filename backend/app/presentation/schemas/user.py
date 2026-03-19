@@ -6,12 +6,13 @@ from app.core.enums import (
     ExperienceLevel,
     SalaryPeriod,
 )
+from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema, TimeSchema
 
 
 class UserProfile(BaseSchema, TimeSchema):
-    id: int
-    github_id: str
+    id: SnowflakeID
+    github_id: int
     username: str
     email: EmailStr
     first_name: str | None = None

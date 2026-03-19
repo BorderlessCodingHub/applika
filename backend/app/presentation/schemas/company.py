@@ -1,5 +1,6 @@
 from pydantic import HttpUrl
 
+from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema, TimeSchema
 
 
@@ -9,6 +10,6 @@ class CreateCompany(BaseSchema):
 
 
 class Company(BaseSchema, TimeSchema):
-    id: int
+    id: SnowflakeID
     name: str
     url: HttpUrl

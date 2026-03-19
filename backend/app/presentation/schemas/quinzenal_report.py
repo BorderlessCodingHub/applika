@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.lib.types import SnowflakeID
+
 ReportStatus = Literal['submitted', 'pending', 'overdue', 'future']
 
 
@@ -67,6 +69,6 @@ class SubmitReportRequest(ManualMetrics):
 
 class SubmitReportResponse(BaseModel):
     success: bool
-    report_id: int
+    report_id: SnowflakeID
     discord_posted: bool
     discord_error: str | None = None

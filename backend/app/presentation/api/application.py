@@ -22,6 +22,7 @@ from app.application.use_cases.applications.list_applications import (
 from app.application.use_cases.applications.update_application import (
     UpdateApplicationUseCase,
 )
+from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     ApplicationRepositoryDp,
     ApplicationStepRepositoryDp,
@@ -78,7 +79,7 @@ async def list_applications(
     responses={'404': {'model': DetailSchema}},
 )
 async def update_application(
-    application_id: int,
+    application_id: SnowflakeID,
     payload: UpdateApplication,
     c_user: CurrentUserDp,
     app_repo: ApplicationRepositoryDp,
@@ -97,7 +98,7 @@ async def update_application(
     responses={'404': {'model': DetailSchema}},
 )
 async def delete_application(
-    application_id: int,
+    application_id: SnowflakeID,
     c_user: CurrentUserDp,
     app_repo: ApplicationRepositoryDp,
     app_steps_repo: ApplicationStepRepositoryDp,
@@ -116,7 +117,7 @@ async def delete_application(
     },
 )
 async def finalize_application(
-    application_id: int,
+    application_id: SnowflakeID,
     payload: FinalizeApplication,
     c_user: CurrentUserDp,
     step_repo: StepDefinitionRepositoryDp,

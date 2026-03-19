@@ -10,7 +10,6 @@ from app.core.enums import Currency, ExperienceLevel, SalaryPeriod, WorkMode
 class ApplicationCreateDTO(BaseModel):
     user_id: int
     company_id: int
-    old_company: str
     role: str
     mode: Literal['active', 'passive']
     platform_id: int
@@ -30,7 +29,6 @@ class ApplicationCreateDTO(BaseModel):
 class ApplicationUpdateDTO(BaseModel):
     user_id: int
     company_id: int
-    old_company: str
     role: str
     mode: Literal['active', 'passive']
     platform_id: int
@@ -77,7 +75,6 @@ class ApplicationFeedback(BaseModel):
 
 class ApplicationDTO(BaseSchema):
     company: ApplicationCompany | None = None
-    old_company: str
     role: str
     mode: Literal['active', 'passive']
     platform_id: int
@@ -97,3 +94,6 @@ class ApplicationDTO(BaseSchema):
     finalized: bool
     last_step: ApplicationLastStep | None = None
     feedback: ApplicationFeedback | None = None
+
+    # Deprecated fields
+    old_company: str | None
