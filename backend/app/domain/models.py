@@ -242,7 +242,6 @@ class ApplicationModel(BaseMixin, Base):
     )
 
     application_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
-    old_company: Mapped[str] = mapped_column(sa.String(200), nullable=False)
     role: Mapped[str] = mapped_column(sa.String(200), nullable=False)
     mode: Mapped[Literal['active', 'passive']] = mapped_column(
         sa.String(10), nullable=False
@@ -258,6 +257,9 @@ class ApplicationModel(BaseMixin, Base):
     salary_range_max: Mapped[Optional[float]] = mapped_column(
         sa.Numeric(10, 2)
     )
+    
+    # Deprecated columns
+    old_company: Mapped[Optional[str]] = mapped_column(sa.String(200))
 
     currency: Mapped[Optional[Currency]] = mapped_column(
         sa.Enum(

@@ -1,3 +1,11 @@
+"""'de quinzenal reports'
+
+Revision ID: 79f1d9bc77de
+Revises: d997fc17b3d3
+Create Date: 2026-03-04 11:11:02.385263
+
+"""
+
 from typing import Sequence, Union
 
 from alembic import op

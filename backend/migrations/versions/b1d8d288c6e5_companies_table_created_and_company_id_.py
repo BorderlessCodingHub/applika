@@ -1,7 +1,7 @@
 """'companies' table created and company_id FK added to applications
 
 Revision ID: b1d8d288c6e5
-Revises: d997fc17b3d3
+Revises: 79f1d9bc77de
 Create Date: 2026-03-11 13:55:34.661932
 
 """
@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'b1d8d288c6e5'
-down_revision: Union[str, Sequence[str], None] = 'd997fc17b3d3'
+down_revision: Union[str, Sequence[str], None] = '79f1d9bc77de'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -63,8 +63,8 @@ def upgrade() -> None:
         companies_table,
         [
             {
-                'name': 'applika.dev',
-                'url': 'https://www.linkedin.com/company/applika.dev',
+                'name': 'Applika.dev',
+                'url': 'https://applika.dev',
                 'is_active': False,
                 'created_at': now,
             }
