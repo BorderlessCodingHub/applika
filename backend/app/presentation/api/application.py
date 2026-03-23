@@ -59,7 +59,16 @@ async def create(
     company_repo: CompanyRepositoryDp,
 ):
     use_case = CreateApplicationUseCase(app_repo, platform_repo, company_repo)
-    data = ApplicationCreateDTO(**payload.model_dump(), user_id=c_user.id)
+    company = (
+        payload.company
+        if isinstance(payload.company, int)
+        else payload.company.model_dump()
+    )
+    data = ApplicationCreateDTO(
+        **payload.model_dump(exclude={'company'}),
+        company=company,
+        user_id=c_user.id,
+    )
     application = await use_case.execute(data)
     return Application.model_validate(application)
 
@@ -87,7 +96,16 @@ async def update_application(
     company_repo: CompanyRepositoryDp,
 ):
     use_case = UpdateApplicationUseCase(app_repo, platform_repo, company_repo)
-    data = ApplicationUpdateDTO(**payload.model_dump(), user_id=c_user.id)
+    company = (
+        payload.company
+        if isinstance(payload.company, int)
+        else payload.company.model_dump()
+    )
+    data = ApplicationUpdateDTO(
+        **payload.model_dump(exclude={'company'}),
+        company=company,
+        user_id=c_user.id,
+    )
     application = await use_case.execute(application_id, data)
     return Application.model_validate(application)
 

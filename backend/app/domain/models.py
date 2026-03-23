@@ -123,6 +123,15 @@ class UserModel(BaseMixin, Base):
 class CompanyModel(BaseMixin, Base):
     __tablename__ = 'companies'
 
+    __table_args__ = (
+        sa.Index(
+            'uq_companies_name_url',
+            sa.text('lower(name)'),
+            sa.text('url'),
+            unique=True,
+        ),
+    )
+
     name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
     url: Mapped[str] = mapped_column(sa.String(2083), nullable=False)
     is_active: Mapped[bool] = mapped_column(
@@ -211,12 +220,6 @@ class ApplicationStepModel(BaseMixin, Base):
             return None
 
 
-class ApplicationCompany(TypedDict):
-    id: int
-    name: str
-    url: str
-
-
 class ApplicationLastStep(TypedDict):
     id: int
     name: str
@@ -241,8 +244,8 @@ class ApplicationModel(BaseMixin, Base):
         sa.ForeignKey('platforms.id'), nullable=False
     )
 
-    company_id: Mapped[int] = mapped_column(
-        sa.ForeignKey('companies.id'), nullable=False
+    company_id: Mapped[Optional[int]] = mapped_column(
+        sa.ForeignKey('companies.id'), nullable=True
     )
 
     application_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
@@ -262,8 +265,7 @@ class ApplicationModel(BaseMixin, Base):
         sa.Numeric(10, 2)
     )
 
-    # Deprecated columns
-    old_company: Mapped[Optional[str]] = mapped_column(sa.String(200))
+    company_name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
 
     currency: Mapped[Optional[Currency]] = mapped_column(
         sa.Enum(
@@ -313,7 +315,7 @@ class ApplicationModel(BaseMixin, Base):
     feedback_date: Mapped[Optional[date]] = mapped_column(sa.Date)
 
     user: Mapped['UserModel'] = relationship(back_populates='applications')
-    company_rel: Mapped['CompanyModel'] = relationship(
+    company_rel: Mapped[Optional['CompanyModel']] = relationship(
         back_populates='applications'
     )
     platform: Mapped['PlatformModel'] = relationship(
@@ -328,15 +330,6 @@ class ApplicationModel(BaseMixin, Base):
     application_steps: Mapped[List['ApplicationStepModel']] = relationship(
         back_populates='application'
     )
-
-    @property
-    def company(self) -> ApplicationCompany | None:
-        if self.company_rel:
-            return ApplicationCompany(
-                id=self.company_rel.id,
-                name=self.company_rel.name,
-                url=self.company_rel.url,
-            )
 
     @property
     def last_step(self) -> ApplicationLastStep | None:

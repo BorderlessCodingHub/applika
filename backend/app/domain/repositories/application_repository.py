@@ -41,16 +41,21 @@ class ApplicationRepository:
         )
 
     async def create(
-        self, application: ApplicationCreateDTO
+        self,
+        application: ApplicationCreateDTO,
+        company_id: int | None,
+        company_name: str,
     ) -> ApplicationModel:
         try:
             db_application = ApplicationModel(
-                **application.model_dump(exclude={'link_to_job'}),
+                **application.model_dump(exclude={'link_to_job', 'company'}),
                 link_to_job=(
                     str(application.link_to_job)
                     if application.link_to_job
                     else None
                 ),
+                company_id=company_id,
+                company_name=company_name,
             )
             self.session.add(db_application)
             await self.session.commit()

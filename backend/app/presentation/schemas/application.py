@@ -8,8 +8,12 @@ from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema, TimeSchema
 
 
+class ApplicationCompany(BaseSchema):
+    name: str
+    url: HttpUrl | None
+
 class CreateApplication(BaseSchema):
-    company_id: SnowflakeID
+    company: SnowflakeID | ApplicationCompany
     role: str
     mode: Literal['active', 'passive']
     platform_id: SnowflakeID
@@ -27,7 +31,7 @@ class CreateApplication(BaseSchema):
 
 
 class UpdateApplication(BaseModel):
-    company_id: SnowflakeID
+    company: SnowflakeID | ApplicationCompany
     role: str
     mode: Literal['active', 'passive']
     platform_id: SnowflakeID
@@ -42,12 +46,6 @@ class UpdateApplication(BaseModel):
     experience_level: ExperienceLevel | None = None
     work_mode: WorkMode | None = None
     country: str | None = None
-
-
-class ApplicationCompany(BaseSchema):
-    id: SnowflakeID
-    name: str
-    url: str
 
 
 class ApplicationLastStep(BaseSchema):
@@ -66,7 +64,8 @@ class ApplicationFeedback(BaseSchema):
 
 class Application(BaseSchema, TimeSchema):
     id: SnowflakeID
-    company: ApplicationCompany | None = None
+    company_id: SnowflakeID | None
+    company_name: str
     role: str
     mode: Literal['active', 'passive']
     platform_id: SnowflakeID
@@ -86,9 +85,6 @@ class Application(BaseSchema, TimeSchema):
     finalized: bool
     last_step: ApplicationLastStep | None = None
     feedback: ApplicationFeedback | None = None
-
-    # Deprecated Field
-    old_company: str | None
 
 
 class FinalizeApplication(BaseModel):
