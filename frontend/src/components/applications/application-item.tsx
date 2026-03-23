@@ -60,7 +60,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
       <div
         className={cn(
           "overflow-hidden rounded-xl border border-border/60 bg-card shadow-card transition-all duration-200",
-          isExpanded && "shadow-elevated"
+          isExpanded && "shadow-elevated",
         )}
         style={{ animationDelay: "30ms" }}
       >
@@ -73,7 +73,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
           {/* Main info */}
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-sm font-semibold text-foreground">
-              {props.app.company.name}
+              {props.app.company_name}
             </p>
             <div className="mt-0.5 flex items-center truncate text-sm text-muted-foreground">
               <span className="truncate">{props.app.role}</span>
@@ -204,14 +204,9 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
             </Badge>
           )}
 
-          {props.app.company && (
-            <Badge
-              variant="secondary"
-              className="px-2 py-0.5 text-xs capitalize"
-            >
-              {props.app.company.name}
-            </Badge>
-          )}
+          <Badge variant="secondary" className="px-2 py-0.5 text-xs capitalize">
+            {props.app.company_name}
+          </Badge>
 
           {props.app.last_step && (
             <Badge
@@ -309,13 +304,13 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
                   <p className="mt-0.5 font-medium tabular-nums text-foreground">
                     {formatSalaryConcise(
                       props.app.salary_range_min,
-                      props.app.currency
+                      props.app.currency,
                     )}{" "}
                     –{" "}
                     {formatSalaryConcise(
                       props.app.salary_range_max,
                       props.app.currency,
-                      props.app.salary_period
+                      props.app.salary_period,
                     )}
                   </p>
                 </div>
@@ -327,7 +322,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
                     {formatSalaryConcise(
                       props.app.expected_salary,
                       props.app.currency,
-                      props.app.salary_period
+                      props.app.salary_period,
                     )}
                   </p>
                 </div>
@@ -450,7 +445,7 @@ export function ApplicationStepTimeline({
             const stepName = supportStep?.name ?? `Step #${step.step_id}`;
             const stepColor = supportStep?.color ?? "#888888";
             const { label: timeLabel, isFuture } = getRelativeTimeLabel(
-              step.step_date
+              step.step_date,
             );
 
             return (
@@ -462,7 +457,7 @@ export function ApplicationStepTimeline({
                 <div
                   className={cn(
                     "relative right-0.5 z-10 mt-4 h-5 w-5 shrink-0 rounded-full border-2 bg-background",
-                    isFuture && "border-dashed"
+                    isFuture && "border-dashed",
                   )}
                   style={{ borderColor: stepColor }}
                 >
@@ -586,7 +581,7 @@ const PERIOD_SUFFIXES: Record<string, string> = {
 function formatSalaryConcise(
   value: number | undefined | null,
   currency?: string,
-  period?: string
+  period?: string,
 ) {
   if (value == null) return "";
   const sym = CURRENCY_SYMBOLS[currency ?? "USD"] ?? currency ?? "$";
