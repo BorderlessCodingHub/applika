@@ -209,28 +209,10 @@ def main():
             f'Feedbacks: {len(feedback_defs)}'
         )
 
-        # ----- Create companies -----
-        print('Creating companies...')
-        company_ids = []
-        for name, url in COMPANIES:
-            resp = client.post('/companies', json={'name': name, 'url': url})
-            if resp.status_code == 201:
-                company_ids.append(resp.json()['id'])
-            elif resp.status_code == 409:
-                # Company already exists, fetch it
-                resp2 = client.get('/companies', params={'name': name})
-                resp2.raise_for_status()
-                matches = resp2.json()
-                if matches:
-                    company_ids.append(matches[0]['id'])
-            else:
-                print(f'  Warning: could not create company {name}: '
-                      f'{resp.status_code} {resp.text}')
-        print(f'  {len(company_ids)} companies available')
-
-        if not company_ids:
-            print('ERROR: No companies created.')
-            return
+        # company_id_cache maps company name → ID returned from the API
+        # so the same company is reused across applications instead of
+        # being re-created every time (which would hit the unique index).
+        company_id_cache: dict[str, int] = {}
 
         # ----- Decide which applications get finalized -----
         # Only 7 stay active, the rest are all finalized
@@ -261,10 +243,13 @@ def main():
         accepted_count = 0
 
         for i in range(NUM_APPLICATIONS):
-            company_id = random.choice(company_ids)
-            company_name = COMPANIES[
-                company_ids.index(company_id)
-            ][0] if company_id in company_ids else 'Unknown'
+            company_name, company_url = random.choice(COMPANIES)
+            # Reuse existing company ID if already created, otherwise
+            # send inline object so the API creates it on first use.
+            if company_name in company_id_cache:
+                company_field: int | dict = company_id_cache[company_name]
+            else:
+                company_field = {'name': company_name, 'url': company_url}
             role = random.choice(ROLES)
             mode = random.choice(['active', 'active', 'active', 'passive'])
             platform_id = random.choice(platform_ids)
@@ -287,8 +272,7 @@ def main():
             )
 
             payload = {
-                'company_id': company_id,
-                'old_company': company_name,
+                'company': company_field,
                 'role': role,
                 'mode': mode,
                 'platform_id': platform_id,
@@ -321,6 +305,8 @@ def main():
             app = resp.json()
             app_id = app['id']
             created += 1
+            if company_name not in company_id_cache and app.get('company_id'):
+                company_id_cache[company_name] = app['company_id']
 
             # ----- Add 3-5 steps -----
             num_steps = random.randint(3, 5)
