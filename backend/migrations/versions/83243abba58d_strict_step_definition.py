@@ -1,4 +1,4 @@
-"""'strict column for steps definition'
+"""'strict column for steps definition' 
 
 Revision ID: 83243abba58d
 Revises: a33d23ad4276

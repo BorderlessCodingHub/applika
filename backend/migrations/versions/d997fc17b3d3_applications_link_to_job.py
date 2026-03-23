@@ -1,4 +1,4 @@
-"""''link_to_job' column added to 'applications' table'
+"""''link_to_job' column added to 'applications' table' 
 
 Revision ID: d997fc17b3d3
 Revises: 07d97858223f

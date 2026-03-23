@@ -1,4 +1,4 @@
-"""'column names and types adjustments'
+"""'column names and types adjustments' 
 
 Revision ID: a33d23ad4276
 Revises: e3abe9dc93d4
