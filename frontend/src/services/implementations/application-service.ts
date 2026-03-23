@@ -13,7 +13,7 @@ export class ApplicationService implements IApplicationService {
 
   createApplication(data: CreateApplicationPayload): Promise<Application> {
     return api
-      .post("/applications", { ...data, old_company: "applika" })
+      .post("/applications", data)
       .then((r) => r.data);
   }
 

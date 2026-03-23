@@ -7,6 +7,7 @@ import {
 export interface Company {
   id: string;
   name: string;
+  url: string
 }
 
 export interface ApplicationStep {
@@ -18,9 +19,9 @@ export interface ApplicationStep {
 
 export interface Application {
   id: string;
-  company: Company;
+  company_id: string | null;
+  company_name: string;
   platform_id: string;
-  old_company?: string;
   role: string;
   mode: ModeType;
   application_date: string;
@@ -41,7 +42,7 @@ export interface Application {
 }
 
 export interface CreateApplicationPayload {
-  company_id: string;
+  company: string | { name: string; url: string | null };
   platform_id: string;
   role: string;
   mode: ModeType;
@@ -56,7 +57,6 @@ export interface CreateApplicationPayload {
   work_mode?: WorkModeType;
   country?: string;
   observation?: string;
-  old_company?: string;
 }
 
 export const WorkModeValues = ["remote", "hybrid", "on_site"] as const;
