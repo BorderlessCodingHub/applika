@@ -63,6 +63,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
           isExpanded && "shadow-elevated",
         )}
         style={{ animationDelay: "30ms" }}
+        onClick={() => setExpanded((current) => !current)}
       >
         <div className="flex cursor-pointer items-center gap-4 px-5 py-4 transition-colors hover:bg-accent/40">
           {/* Company icon */}
@@ -241,7 +242,10 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
 
         {/* Inline expansion */}
         {isExpanded && (
-          <div className="animate-fade-in-up border-t border-border px-5 pb-5 pt-1">
+          <div
+            className="animate-fade-in-up border-t border-border px-5 pb-5 pt-1"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="mt-3 grid grid-cols-2 gap-4 text-xs sm:grid-cols-3 lg:grid-cols-4">
               {props.app.link_to_job && (
                 <a

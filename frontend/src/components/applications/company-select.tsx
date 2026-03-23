@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import z from "zod";
 import { UseFormReturn } from "react-hook-form";
 import { CompanyOptionsList } from "./company-select-options";
+import { Label } from "../ui/label";
 
 interface CompanyFormReturn {
   company?:
@@ -160,7 +161,8 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
       : undefined;
 
   return (
-    <div data-slot="company-select" className="space-y-2">
+    <div data-slot="company-select" className="space-y-1.5">
+      <Label>Company *</Label>
       <Popover open={open} onOpenChange={handleOpenChange}>
         <div className="relative">
           <PopoverTrigger asChild>
