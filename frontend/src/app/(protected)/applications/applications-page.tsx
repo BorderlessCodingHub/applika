@@ -34,6 +34,7 @@ import {
   ApplicationStepTimeline,
 } from "@/components/applications/application-item";
 import { Card } from "@/components/ui/card";
+import { DatePickerInput } from "@/components/ui/date-picker";
 
 interface ApplicationAction {
   action:
@@ -87,7 +88,7 @@ export function ApplicationsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -150,7 +151,7 @@ export function ApplicationsPage() {
           {/* Advanced filters */}
           {showAdvanced && (
             <Card className="flex animate-fade-in-up flex-wrap items-end gap-4 bg-background p-3">
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 w-40">
                 <Label className="pl-1 text-sm text-muted-foreground">
                   Source
                 </Label>
@@ -161,7 +162,7 @@ export function ApplicationsPage() {
                     updateFilter("mode", v as typeof filters.mode)
                   }
                 >
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -173,7 +174,7 @@ export function ApplicationsPage() {
               </div>
 
               {(supports?.platforms?.length ?? 0) > 0 && (
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 w-40">
                   <Label className="pl-1 text-sm text-muted-foreground">
                     Platform
                   </Label>
@@ -185,7 +186,7 @@ export function ApplicationsPage() {
                       updateFilter("platformId", v === "all" ? undefined : v)
                     }
                   >
-                    <SelectTrigger className="w-40">
+                    <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -200,56 +201,47 @@ export function ApplicationsPage() {
                 </div>
               )}
 
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 w-40">
                 <Label className="pl-1 text-sm text-muted-foreground">
                   From
                 </Label>
-                <Input
-                  type="date"
-                  value={
-                    filters.dateRange?.start?.toISOString().split("T")[0] ?? ""
-                  }
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (!val) {
+                <DatePickerInput
+                  value={filters.dateRange?.start}
+                  maxDate={new Date()}
+                  onChange={(value) => {
+                    if (!value) {
                       updateFilter("dateRange", undefined);
                     } else {
                       updateFilter("dateRange", {
-                        start: new Date(val + "T00:00:00"),
-                        end: filters.dateRange?.end ?? new Date(),
+                        start: value,
+                        end: filters.dateRange?.end,
                       });
                     }
                   }}
-                  className="w-40"
                 />
               </div>
-              <div className="space-y-1.5">
+
+              <div className="space-y-1.5 w-40">
                 <Label className="pl-1 text-sm text-muted-foreground">To</Label>
-                <Input
-                  type="date"
-                  value={
-                    filters.dateRange?.end?.toISOString().split("T")[0] ?? ""
-                  }
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (!val) {
+                <DatePickerInput
+                  value={filters.dateRange?.end}
+                  maxDate={new Date()}
+                  onChange={(value) => {
+                    if (!value) {
                       updateFilter("dateRange", undefined);
                     } else {
                       updateFilter("dateRange", {
-                        start:
-                          filters.dateRange?.start ?? new Date("2020-01-01"),
-                        end: new Date(val + "T00:00:00"),
+                        start: filters.dateRange?.start,
+                        end: value,
                       });
                     }
                   }}
-                  className="w-40"
                 />
               </div>
 
               {hasAdvancedFilters && (
                 <Button
-                  variant="ghost"
-                  size="sm"
+                  variant="secondary"
                   onClick={clearFilters}
                   className="gap-1.5 text-muted-foreground"
                 >
@@ -284,33 +276,38 @@ export function ApplicationsPage() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-3">
-          {filtered.map((app) => {
-            return (
-              <ApplicationItem
-                key={app.id}
-                app={app}
-                onEditClick={handleEditClick}
-                onNewStepClick={handleStepClick}
-                onFinalizeClick={handleFinalizeClick}
-                onDeleteClick={handleDeleteClick}
-              >
-                <ApplicationStepTimeline
-                  id={app.id}
-                  isDisabled={app.finalized}
-                  stepsSupports={supports?.steps ?? []}
-                  onEditStep={(step) =>
-                    setAppAction({
-                      action: "editStep",
-                      data: app,
-                      stepData: step,
-                    })
-                  }
-                />
-              </ApplicationItem>
-            );
-          })}
-        </div>
+        <>
+          <div className="text-sm text-muted-foreground mb-4">
+            Found {filtered.length} application{filtered.length !== 1 ? "s" : ""}
+          </div>
+          <div className="space-y-3">
+            {filtered.map((app) => {
+              return (
+                <ApplicationItem
+                  key={app.id}
+                  app={app}
+                  onEditClick={handleEditClick}
+                  onNewStepClick={handleStepClick}
+                  onFinalizeClick={handleFinalizeClick}
+                  onDeleteClick={handleDeleteClick}
+                >
+                  <ApplicationStepTimeline
+                    id={app.id}
+                    isDisabled={app.finalized}
+                    stepsSupports={supports?.steps ?? []}
+                    onEditStep={(step) =>
+                      setAppAction({
+                        action: "editStep",
+                        data: app,
+                        stepData: step,
+                      })
+                    }
+                  />
+                </ApplicationItem>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {/* Sheets & dialogs */}

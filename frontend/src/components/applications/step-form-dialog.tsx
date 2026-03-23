@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { CalendarPlus, Loader2 } from "lucide-react";
 import { genApplicationStepIcsFile } from "@/lib/calendar";
+import { DatePickerInput } from "../ui/date-picker";
 
 const schema = z.object({
   step_id: z.string().min(1, "Step is required"),
@@ -167,9 +168,13 @@ export function ApplicationStepFormDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Date *</Label>
-            <Input
-              type="date"
-              {...form.register("step_date")}
+            <DatePickerInput
+              value={form.watch("step_date")}
+              onChange={(date) =>
+                form.setValue("step_date", date ? date : "", {
+                  shouldValidate: true,
+                })
+              }
               className={cn(
                 form.formState.errors.step_date &&
                   "border-destructive focus-visible:ring-destructive",

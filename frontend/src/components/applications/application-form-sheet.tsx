@@ -49,6 +49,7 @@ import { AxiosError } from "axios";
 import { getApiError } from "@/lib/api-client";
 import { CompanySelect, ZodType } from "./company-select";
 import { useCompanySearch } from "@/hooks/use-companies";
+import { DatePickerInput } from "../ui/date-picker";
 
 function getCurrencySymbol(currency: string) {
   return (
@@ -165,6 +166,7 @@ export function ApplicationFormSheet({
     name: "company.name" as never,
   }) as string | undefined;
   const isCompanyObject = companyName !== undefined;
+
   const watchCurrency = useWatch({ control: form.control, name: "currency" });
   const watchSalaryPeriod = useWatch({
     control: form.control,
@@ -240,8 +242,8 @@ export function ApplicationFormSheet({
   })();
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="overflow-y-auto">
+    <Sheet open={open}>
+      <SheetContent className="overflow-y-auto" hideClose>
         <SheetHeader>
           <SheetTitle>
             {isEdit ? "Edit Application" : "New Application"}
@@ -258,7 +260,7 @@ export function ApplicationFormSheet({
               <Label>Company URL</Label>
               <Input
                 {...form.register("company.url")}
-                placeholder="https://company.com (optional)"
+                placeholder="https://company.com"
                 className={cn(
                   companyUrlInputError &&
                     "border-destructive focus-visible:ring-destructive",
@@ -359,10 +361,14 @@ export function ApplicationFormSheet({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Application Date *</Label>
-              <Input
-                type="date"
-                max={new Date().toISOString().split("T")[0]}
-                {...form.register("application_date")}
+              <DatePickerInput
+                value={form.watch("application_date")}
+                onChange={(date) =>
+                  form.setValue("application_date", date ? date : "", {
+                    shouldValidate: true,
+                  })
+                }
+                maxDate={new Date()}
                 className={cn(
                   form.formState.errors.application_date &&
                     "border-destructive focus-visible:ring-destructive",
@@ -573,6 +579,15 @@ export function ApplicationFormSheet({
               rows={3}
             />
           </div>
+
+          <Button
+            type="button"
+            className="w-full"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
 
           <Button
             type="submit"

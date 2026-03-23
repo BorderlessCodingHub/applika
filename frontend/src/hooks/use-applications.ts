@@ -5,6 +5,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { services } from "@/container/services";
 import { useSupports } from "@/contexts/supports-context";
+import {
+  isAfter,
+  isBefore,
+  isEqual,
+  isWithinInterval,
+  parseISO,
+} from "date-fns";
 
 export interface ApplicationFilters {
   mode: "all" | "active" | "passive";
@@ -12,8 +19,8 @@ export interface ApplicationFilters {
   search?: string;
   platformId?: string;
   dateRange?: {
-    start: Date;
-    end: Date;
+    start?: string;
+    end?: string;
   };
 }
 
@@ -21,6 +28,32 @@ const DEFAULT_FILTERS: ApplicationFilters = {
   mode: "all",
   status: "all",
 };
+
+function appDateRange(
+  appDate: string,
+  interval: {
+    start?: string;
+    end?: string;
+  },
+) {
+  const date = parseISO(appDate);
+
+  if (interval.start) {
+    const startDate = parseISO(interval.start);
+    if (isBefore(date, startDate) && !isEqual(date, startDate)) {
+      return false;
+    }
+  }
+
+  if (interval.end) {
+    const endDate = parseISO(interval.end);
+    if (isAfter(date, endDate) && !isEqual(date, endDate)) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 export function useApplications() {
   const queryClient = useQueryClient();
@@ -31,11 +64,11 @@ export function useApplications() {
   const updateFilter = useCallback(
     <K extends keyof ApplicationFilters>(
       key: K,
-      value: ApplicationFilters[K]
+      value: ApplicationFilters[K],
     ) => {
       setFilters((prev) => ({ ...prev, [key]: value }));
     },
-    []
+    [],
   );
 
   const clearFilters = useCallback(() => setFilters(DEFAULT_FILTERS), []);
@@ -65,7 +98,7 @@ export function useApplications() {
   const filtered = useMemo(() => {
     if (!query.data) return [];
     return query.data.filter((app) => {
-      const companyName = app.company?.name || app.old_company || "";
+      const companyName = app.company_name || "";
       const matchSearch =
         !filters.search ||
         companyName.toLowerCase().includes(filters.search.toLowerCase()) ||
@@ -78,13 +111,7 @@ export function useApplications() {
         filters.platformId == null || app.platform_id === filters.platformId;
       const matchDateRange =
         !filters.dateRange ||
-        (() => {
-          const appDate = new Date(app.application_date + "T00:00:00");
-          return (
-            appDate >= filters.dateRange.start &&
-            appDate <= filters.dateRange.end
-          );
-        })();
+        appDateRange(app.application_date, filters.dateRange);
 
       return (
         matchSearch &&
