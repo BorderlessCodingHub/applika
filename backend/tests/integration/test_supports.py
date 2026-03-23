@@ -34,8 +34,8 @@ async def test_get_supports_returns_seeded_feedback(
     assert len(feedbacks) == 1, msg(1, len(feedbacks))
 
     fb = feedbacks[0]
-    assert fb['id'] == base_data()['fb_denied'].id, msg(
-        base_data()['fb_denied'].id, fb['id']
+    assert fb['id'] == str(base_data()['fb_denied'].id), msg(
+        str(base_data()['fb_denied'].id), fb['id']
     )
     assert fb['name'] == 'Denied', msg('Denied', fb['name'])
     assert fb['color'] == '#a80000', msg('#a80000', fb['color'])
@@ -52,8 +52,8 @@ async def test_get_supports_returns_seeded_platform(
     assert len(platforms) == 1, msg(1, len(platforms))
 
     plat = platforms[0]
-    assert plat['id'] == base_data()['plat_linkedin'].id, msg(
-        base_data()['plat_linkedin'].id, plat['id']
+    assert plat['id'] == str(base_data()['plat_linkedin'].id), msg(
+        str(base_data()['plat_linkedin'].id), plat['id']
     )
     assert plat['name'] == 'Linkedin', msg('Linkedin', plat['name'])
 
