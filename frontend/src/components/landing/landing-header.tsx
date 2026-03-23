@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 import { AUTH_LOGIN_URL } from "@/services/types/auth";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Github, ArrowRight } from "lucide-react";
 import { AppLogo } from "../app-logo";

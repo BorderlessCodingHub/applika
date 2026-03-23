@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function LoginPage() {
   const { isAuthenticated, isLoading } = useAuth();

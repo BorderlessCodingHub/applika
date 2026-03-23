@@ -11,8 +11,8 @@ import {
   X,
   Shield,
 } from "lucide-react";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
-import { FeedbackButton } from "@/components/shared/feedback-dialog";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { FeedbackButton } from "@/components/applications/feedback-dialog";
 import { useAuth } from "@/contexts/auth-context";
 import { api } from "@/lib/api-client";
 import { useQueryClient } from "@tanstack/react-query";

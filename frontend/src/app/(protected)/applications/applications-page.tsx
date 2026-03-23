@@ -26,13 +26,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ApplicationFormSheet } from "@/components/shared/application-form-sheet";
-import { ApplicationStepFormDialog } from "@/components/shared/application-step-form-dialog";
-import { FinalizeDialog } from "@/components/shared/finalize-dialog";
+import { ApplicationFormSheet } from "@/components/applications/application-form-sheet";
+import { ApplicationStepFormDialog } from "@/components/applications/step-form-dialog";
+import { FinalizeDialog } from "@/components/applications/finalize-dialog";
 import {
   ApplicationItem,
   ApplicationStepTimeline,
-} from "@/components/shared/application-item";
+} from "@/components/applications/application-item";
 import { Card } from "@/components/ui/card";
 
 interface ApplicationAction {
