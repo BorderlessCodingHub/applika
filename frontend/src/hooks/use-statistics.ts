@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { services } from "@/container/services";
+import { services } from "@/services/services";
 
 export function useGeneralStats() {
   return useQuery({

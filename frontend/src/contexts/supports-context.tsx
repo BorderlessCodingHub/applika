@@ -2,7 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { services } from "@/container/services";
+import { services } from "@/services/services";
 import type { Supports } from "@/services/types/supports";
 
 interface SupportsContextType {
