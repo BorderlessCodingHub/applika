@@ -19,7 +19,7 @@ interface DatePickerInputProps {
   placeholder?: string;
   minDate?: Date;
   maxDate?: Date;
-  disabled?: (date: Date) => boolean;
+  disabled?: boolean;
   className?: string;
 }
 
@@ -59,22 +59,24 @@ export function DatePickerInput({
     if (maxDate && date > maxDate) {
       return true;
     }
-    // Check custom disabled logic
-    if (disabled && disabled(date)) {
-      return true;
-    }
     return false;
   };
 
   const formatDate = (value: string) => parse(value, "yyyy-MM-dd", new Date());
-  
-  const toDate = value ? formatDate(value) : undefined
+
+  const toDate = value ? formatDate(value) : undefined;
+
+  function onOpenChange() {
+    if (!disabled) {
+      setOpen((v) => !v);
+    }
+  }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <Button
-          variant="outline"
+          variant={disabled ? "ghost" : "outline"}
           className={cn(
             "bg-card w-full justify-start text-left font-normal",
             className,

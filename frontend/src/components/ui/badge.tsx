@@ -14,14 +14,25 @@ const badgeVariants = cva(
           "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
         destructive:
           "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
+        warning:
+          "border-transparent bg-yellow-600 text-destructive-foreground hover:bg-yellow-600/80",
         outline: "text-foreground",
       },
     },
     defaultVariants: {
       variant: "default",
     },
-  }
+  },
 );
+
+export type BadgeVariantsType =
+  | "default"
+  | "secondary"
+  | "destructive"
+  | "warning"
+  | "outline"
+  | null
+  | undefined;
 
 export interface BadgeProps
   extends
