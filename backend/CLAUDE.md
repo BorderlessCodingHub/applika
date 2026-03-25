@@ -2,6 +2,46 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Keeping This File Up to Date
+
+**CLAUDE.md is a living document. Update it whenever the project changes in ways that affect how you work here.**
+
+Update CLAUDE.md when:
+- New entities, relationships, or domain concepts are added (update Domain Model Relationships)
+- A new architectural pattern or layer is introduced
+- A new essential command is added (tasks, scripts, docker targets)
+- A new environment variable becomes required or optional
+- A new domain exception is introduced and mapped to an HTTP status
+- The authentication/token strategy changes
+- A new dependency is added that has non-obvious usage patterns
+- Project skills or MCP usage patterns change
+
+Do NOT bloat CLAUDE.md with:
+- Implementation details already visible in the code
+- Ephemeral task notes or in-progress work
+- Debugging steps or one-off fixes
+- Anything already in git history or docstrings
+
+---
+
+## Seed Script Rule
+
+**Always keep `scripts/seed_mock_data.py` up to date and working.**
+
+The seed script exercises the full public API to create realistic mock data. It is the fastest way to verify that all endpoints work end-to-end after changes.
+
+When you add or modify any of the following, update the seed script accordingly:
+- New required or optional fields on `POST /applications` or `POST /applications/{id}/steps` or `POST /applications/{id}/finalize`
+- New enums (e.g., `work_mode`, `experience_level`, `salary_period`, `currency`, `mode`)
+- New support data endpoints (platforms, steps, feedbacks) — update the `/supports` fetch and field extraction
+- Renamed or removed fields that the seed script currently sends
+- New endpoints the seed script should exercise to keep coverage complete
+- Changes to authentication (cookie name, token format)
+
+After any such change, mentally walk through the seed script from top to bottom and confirm it would still run without errors against a fresh database.
+
+---
+
 ## Project Overview
 
 This is a FastAPI backend for Applika.dev (Application Panel), a job application tracking system. The codebase follows Clean Architecture with strict layer separation and uses async SQLAlchemy with PostgreSQL.
@@ -33,6 +73,12 @@ uv run task auhead
 
 # Rollback all migrations
 uv run task adbase
+```
+
+### Seed Script
+```bash
+# Seed mock data (server must be running, requires a valid JWT access token)
+python scripts/seed_mock_data.py
 ```
 
 ### Docker
@@ -93,7 +139,7 @@ See `app/application/use_cases/applications/create_application.py` for reference
 ### Authentication
 - GitHub OAuth via `fastapi-sso`
 - JWT tokens stored in HTTP-only cookies (access + refresh)
-- `get_current_user()` dependency extracts user from access token cookie
+- `get_current_user()` dependency extracts user from access token cookie (`__access`)
 - Token utilities in `app/core/tokens.py`
 
 ### Exception Handling
