@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
-import { services } from "@/container/services";
+import { services } from "@/services/services";
 import {
   AvailabilityType,
   AvailabilityValues,
@@ -140,10 +140,10 @@ const schema = z.object({
   last_name: z.string().optional(),
   current_role: z.string().optional(),
   current_company: z.string().optional(),
-  current_salary: z.coerce.number().optional(),
+  current_salary: z.number().optional(),
   salary_currency: z.enum(SalaryCurrencyValues).optional(),
   salary_period: z.enum(SalaryPeriodValues).optional(),
-  experience_years: z.coerce.number().optional(),
+  experience_years: z.number().optional(),
   seniority_level: z.enum(SeniorityLevelValues).optional(),
   location: z.string().optional(),
   availability: z.enum(AvailabilityValues).optional(),
@@ -565,7 +565,9 @@ export function ProfilePage() {
                 </span>
                 <Input
                   type="number"
-                  {...form.register("current_salary")}
+                  {...form.register("current_salary", {
+                    setValueAs: (v) => (v === "" ? undefined : Number(v)),
+                  })}
                   className="pl-8"
                   placeholder="0"
                 />
@@ -644,7 +646,9 @@ export function ProfilePage() {
               <Label>Experience (years)</Label>
               <Input
                 type="number"
-                {...form.register("experience_years")}
+                {...form.register("experience_years", {
+                  setValueAs: (v) => (v === "" ? undefined : Number(v)),
+                })}
                 placeholder="0"
               />
             </div>
