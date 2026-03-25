@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   Shield,
+  NotepadText,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { FeedbackButton } from "@/components/applications/feedback-dialog";
@@ -24,6 +25,7 @@ import { AppLogo } from "../app-logo";
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/applications", icon: Briefcase, label: "Applications" },
+  { to: "/reports", icon: NotepadText, label: "Reports" },
   { to: "/profile", icon: User, label: "Profile" },
   { to: "/admin", icon: Shield, label: "Admin", adminOnly: true },
 ];
@@ -73,7 +75,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                         : "glow-primary bg-primary text-primary-foreground shadow-sm"
                       : item.adminOnly
                         ? "text-amber-500/60 hover:bg-amber-500/10 hover:text-amber-500"
-                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                   )}
                 >
                   <item.icon className="h-4 w-4" />
