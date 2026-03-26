@@ -3,15 +3,14 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { services } from "@/services/services";
-import { useSupports } from "@/contexts/supports-context";
 import {
   isAfter,
   isBefore,
   isEqual,
-  isWithinInterval,
   parseISO,
 } from "date-fns";
+import { services } from "@/services/services";
+import { useSupports } from "@/contexts/supports-context";
 
 export interface ApplicationFilters {
   mode: "all" | "active" | "passive";

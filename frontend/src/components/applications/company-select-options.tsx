@@ -12,13 +12,6 @@ import {
 import { Company } from "@/services/types/applications";
 import { cn } from "@/lib/utils";
 
-
-
-
-
-
-
-
 // ---------------------------------------------------------------------------
 // CompanyOptionsList — owns fetch, cache, debounce, and the Command list UI
 // ---------------------------------------------------------------------------
