@@ -8,7 +8,7 @@ import type {
 
 export interface IReportsService {
   fetchReports(): Promise<ReportsResponse>;
-  fetchReportDetail(day: ReportDaysType): Promise<ReportDetailResponse>;
+  fetchReportDetail(day: ReportDaysType, startDate?: string): Promise<ReportDetailResponse>;
   submitReport(
     day: ReportDaysType,
     payload: ReportSubmitPayload,

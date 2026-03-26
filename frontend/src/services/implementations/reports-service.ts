@@ -13,9 +13,10 @@ export class ReportsService implements IReportsService {
     return api.get<ReportsResponse>("/reports").then((res) => res.data);
   }
 
-  fetchReportDetail(day: ReportDaysType): Promise<ReportDetailResponse> {
+  fetchReportDetail(day: ReportDaysType, startDate?: string): Promise<ReportDetailResponse> {
+    const qparm = startDate ? `?start_date=${startDate}` : ""
     return api
-      .get<ReportDetailResponse>(`/reports/${day}`)
+      .get<ReportDetailResponse>(`/reports/${day}${qparm}`)
       .then((res) => res.data);
   }
 

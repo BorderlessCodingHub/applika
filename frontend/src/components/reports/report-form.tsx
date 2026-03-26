@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -20,16 +19,19 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
-import { useReportDetail, useReportSubmit } from "@/hooks/use-repports";
+import { useReportSubmit } from "@/hooks/use-repports";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { ReportDays, type ReportDaysType } from "@/services/types/reports";
+import {
+  ReportDays,
+  ReportDetailResponse,
+  type ReportDaysType,
+} from "@/services/types/reports";
 import {
   reportZodSchema,
   ReportFormType,
@@ -37,49 +39,46 @@ import {
   CHALLENGE_MAX,
   GOAL_MAX,
 } from "./report-form-config";
+import {
+  CharCounter,
+  FieldError,
+  SectionHeader,
+  StatCard,
+} from "./sub-components";
 
-// ─── Props ───────────────────────────────────────────────────────────────────
-
-export interface ReportFormProps {
+interface ReportFormProps {
   dayInterval: ReportDaysType;
   onCancel?: () => void;
+  reportData: ReportDetailResponse;
+  onStartDateChange: (string) => void;
 }
 
-function FormSkeleton() {
-  return (
-    <div className="max-w-6xl mx-auto space-y-4 py-6 px-4 sm:px-0">
-      <div className="space-y-2">
-        <Skeleton className="h-4 w-28" />
-        <Skeleton className="h-8 w-72" />
-        <Skeleton className="h-4 w-16" />
-      </div>
-      <Skeleton className="h-44 w-full rounded-lg" />
-      <Skeleton className="h-56 w-full rounded-lg" />
-      <Skeleton className="h-72 w-full rounded-lg" />
-      <Skeleton className="h-44 w-full rounded-lg" />
-      <Skeleton className="h-52 w-full rounded-lg" />
-    </div>
-  );
+function buildFormDefault(reportData: ReportDetailResponse): ReportFormType {
+  const manualMetrics = reportData.manual_metrics;
+  return {
+    start_date: reportData.period.start_date,
+    mock_interviews_count: manualMetrics?.mock_interviews_count ?? 0,
+    linkedin_posts_count: manualMetrics?.linkedin_posts_count ?? 0,
+    strategic_connections_count:
+      manualMetrics?.strategic_connections_count ?? 0,
+    biggest_win: manualMetrics?.biggest_win ?? "",
+    biggest_challenge: manualMetrics?.biggest_challenge ?? "",
+    next_fortnight_goal: manualMetrics?.next_fortnight_goal ?? "",
+  };
 }
 
-// ─── Main Component ──────────────────────────────────────────────────────────
-
-export function ReportForm({ dayInterval, onCancel }: ReportFormProps) {
-  const { reportData, isLoading, isAvailable } = useReportDetail(dayInterval);
-  const { submit, isSubmitting } = useReportSubmit();
-
+export function ReportForm({
+  dayInterval,
+  onCancel,
+  reportData,
+  onStartDateChange,
+}: ReportFormProps) {
   const form = useForm<ReportFormType>({
     resolver: zodResolver(reportZodSchema),
-    defaultValues: {
-      start_date: "",
-      mock_interviews_count: 0,
-      linkedin_posts_count: 0,
-      strategic_connections_count: 0,
-      biggest_win: "",
-      biggest_challenge: "",
-      next_fortnight_goal: "",
-    },
+    defaultValues: buildFormDefault(reportData),
   });
+
+  const { submit, isSubmitting } = useReportSubmit();
 
   const {
     register,
@@ -89,32 +88,8 @@ export function ReportForm({ dayInterval, onCancel }: ReportFormProps) {
     formState: { errors },
   } = form;
 
-  // Auto redirect to reports listing if isn't available to fill or visualize
-  useEffect(() => {
-    if (isAvailable != undefined && !isAvailable && onCancel) {
-      onCancel();
-    }
-  }, [isAvailable, onCancel]);
-
-  // Pre-fill form when data loads (handles editing an already-submitted report)
-  useEffect(() => {
-    if (!reportData) return;
-
-    const m = reportData.manual_metrics;
-    form.reset({
-      start_date: reportData.period?.start_date ?? "",
-      mock_interviews_count: m?.mock_interviews_count ?? 0,
-      linkedin_posts_count: m?.linkedin_posts_count ?? 0,
-      strategic_connections_count: m?.strategic_connections_count ?? 0,
-      biggest_win: m?.biggest_win ?? "",
-      biggest_challenge: m?.biggest_challenge ?? "",
-      next_fortnight_goal: m?.next_fortnight_goal ?? "",
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportData]);
-
   // Watched values for real-time character counting
-  const startDate = useWatch({ control, name: "start_date" });
+  const startDate = useWatch({ control: control, name: "start_date" });
   const biggestWin = useWatch({ control, name: "biggest_win" }) ?? "";
   const biggestChallenge =
     useWatch({ control, name: "biggest_challenge" }) ?? "";
@@ -136,8 +111,6 @@ export function ReportForm({ dayInterval, onCancel }: ReportFormProps) {
     });
     onCancel?.();
   };
-
-  if (isLoading || !isAvailable) return <FormSkeleton />;
 
   return (
     <div className="max-w-6xl space-y-4 py-2">
@@ -203,11 +176,13 @@ export function ReportForm({ dayInterval, onCancel }: ReportFormProps) {
                 <DatePickerInput
                   value={startDate || undefined}
                   disabled={!canSubmit || dayInterval > 1}
-                  onChange={(date) =>
+                  onChange={(date) => {
+                    onStartDateChange(date);
                     setValue("start_date", date ?? "", {
                       shouldValidate: true,
-                    })
-                  }
+                    });
+                  }}
+                  maxDate={new Date()}
                   placeholder="Pick a date"
                   className={cn(
                     errors.start_date &&
@@ -397,88 +372,15 @@ export function ReportForm({ dayInterval, onCancel }: ReportFormProps) {
         </Card>
 
         {/* ── Footer Actions ───────────────────────────────────────────── */}
-        {canSubmit && (
-          <div className="flex items-center justify-between pt-2">
-            <Button type="button" variant="ghost" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Submitting..." : "Submit Report"}
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center justify-between pt-2">
+          <Button type="button" variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Submitting..." : "Submit Report"}
+          </Button>
+        </div>
       </form>
     </div>
   );
-}
-
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-secondary/40 p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Icon className="h-3.5 w-3.5 text-primary shrink-0" />
-        <span className="text-xs font-medium text-muted-foreground truncate">
-          {label}
-        </span>
-      </div>
-      <p className="text-2xl font-display font-semibold tabular-nums">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function SectionHeader({
-  icon: Icon,
-  title,
-  description,
-  iconClass,
-}: {
-  icon: React.ElementType;
-  title: string;
-  description?: string;
-  iconClass?: string;
-}) {
-  return (
-    <div className="flex items-start gap-2 mb-4">
-      <Icon
-        className={cn("h-4 w-4 mt-0.5 shrink-0", iconClass ?? "text-primary")}
-      />
-      <div>
-        <h3 className="text-sm font-display font-semibold">{title}</h3>
-        {description && (
-          <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function CharCounter({ count, max }: { count: number; max: number }) {
-  const exceeded = count > max;
-  return (
-    <span
-      className={cn(
-        "text-xs tabular-nums",
-        exceeded ? "text-destructive font-medium" : "text-muted-foreground",
-      )}
-    >
-      {exceeded ? `${count - max} over limit` : `${max - count} characters`}
-    </span>
-  );
-}
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null;
-  return <p className="text-xs text-destructive mt-1.5">{message}</p>;
 }
