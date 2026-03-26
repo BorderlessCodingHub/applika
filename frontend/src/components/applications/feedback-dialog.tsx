@@ -13,25 +13,24 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+import { services } from "@/services/services";
 
 export function FeedbackButton() {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-accent hover:text-accent-foreground"
-      >
+      <Button onClick={() => setOpen(true)} variant="ghost">
         <MessageSquareHeart className="h-4 w-4" />
         <span className="font-display">Feedback</span>
-      </button>
+      </Button>
       <FeedbackDialog open={open} onOpenChange={setOpen} />
     </>
   );
 }
+
+const MAX_TEXT_LENGHT = 2000;
 
 function FeedbackDialog({
   open,
@@ -57,7 +56,7 @@ function FeedbackDialog({
     }
     setPending(true);
     try {
-      await api.post("/feedback", { rate, feedback });
+      await services.feedbacks.create({ score: rate, text: feedback });
       toast.success("Thanks for your feedback!");
       reset();
       onOpenChange(false);
@@ -101,21 +100,26 @@ function FeedbackDialog({
                   "h-8 w-8 transition-colors",
                   n <= (hovered || rate)
                     ? "fill-primary text-primary"
-                    : "text-muted-foreground/40"
+                    : "text-muted-foreground/40",
                 )}
               />
             </button>
           ))}
         </div>
 
-        <Textarea
-          placeholder="Tell us what you think… (optional)"
-          value={feedback}
-          onChange={(e) => setFeedback(e.target.value)}
-          rows={4}
-          maxLength={2000}
-          className="resize-none"
-        />
+        <div className="">
+          <Textarea
+            placeholder="Tell us what you think… (optional)"
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+            rows={4}
+            maxLength={MAX_TEXT_LENGHT}
+            className="resize-none"
+          />
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {`${MAX_TEXT_LENGHT - feedback.length} characters`}
+          </span>
+        </div>
 
         <DialogFooter>
           <Button

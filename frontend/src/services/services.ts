@@ -1,3 +1,4 @@
+import { FeedbackService } from "./implementations/feedback-service";
 import { UserService } from "@/services/implementations/user-service";
 import { ApplicationService } from "@/services/implementations/application-service";
 import { StatisticsService } from "@/services/implementations/statistics-service";
@@ -12,6 +13,7 @@ class ServiceContainer {
   supports = new SupportsService();
   companies = new CompanyService();
   reports = new ReportsService();
+  feedbacks = new FeedbackService();
 }
 
 export const services = new ServiceContainer();
