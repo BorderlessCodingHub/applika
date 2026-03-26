@@ -11,6 +11,7 @@ from app.presentation.api.reports import router as reports_router
 from app.presentation.api.statistic import router as statistic_router
 from app.presentation.api.support import router as support_router
 from app.presentation.api.user import router as profile_router
+from app.presentation.api.user_feedback import router as feedback_router
 from app.presentation.handlers import register_handlers
 
 app = FastAPI(
@@ -42,3 +43,4 @@ app.include_router(application_router)
 app.include_router(app_step_router)
 app.include_router(statistic_router)
 app.include_router(reports_router)
+app.include_router(feedback_router)

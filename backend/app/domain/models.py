@@ -104,6 +104,9 @@ class UserModel(BaseMixin, Base):
     quinzenal_reports: Mapped[List['QuinzenalReportModel']] = relationship(
         back_populates='user'
     )
+    user_feedbacks: Mapped[List['UserFeedbackModel']] = relationship(
+        back_populates='user'
+    )
 
     @property
     def tech_stack(self) -> list[str]:
@@ -356,6 +359,9 @@ class ApplicationModel(BaseMixin, Base):
         return self.feedback_id is not None
 
 
+ReportDays = Literal[1, 14, 28, 42, 56, 70, 84, 98, 112, 120]
+
+
 class QuinzenalReportModel(BaseMixin, Base):
     __tablename__ = 'quinzenal_reports'
 
@@ -379,7 +385,7 @@ class QuinzenalReportModel(BaseMixin, Base):
     user_id: Mapped[int] = mapped_column(
         sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
     )
-    report_day: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    report_day: Mapped[ReportDays] = mapped_column(sa.Integer, nullable=False)
     start_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
     phase: Mapped[int] = mapped_column(sa.Integer, nullable=False)
 
@@ -429,3 +435,26 @@ class QuinzenalReportModel(BaseMixin, Base):
 
     user: Mapped['UserModel'] = relationship(
         back_populates='quinzenal_reports')
+
+
+class UserFeedbackModel(BaseMixin, Base):
+    __tablename__ = 'user_feedbacks'
+
+    __table_args__ = (
+        sa.CheckConstraint(
+            'score >= 1 AND score <= 5',
+            name='ck_user_feedbacks_score',
+        ),
+        sa.Index('idx_user_feedbacks_user_id', 'user_id'),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        sa.ForeignKey('users.id', ondelete='CASCADE'),
+        nullable=False,
+    )
+    score: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    text: Mapped[Optional[str]] = mapped_column(sa.String(2000))
+
+    user: Mapped['UserModel'] = relationship(
+        back_populates='user_feedbacks'
+    )

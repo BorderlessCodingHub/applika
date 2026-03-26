@@ -8,7 +8,7 @@ from app.application.dto.user import UserDTO
 from app.application.services.discord_service import DiscordService
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
 from app.config.db import get_session
-from app.config.settings import ACCESS_COOKIE_NAME
+from app.config.settings import ACCESS_COOKIE_NAME, envs
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
@@ -25,6 +25,9 @@ from app.domain.repositories.quinzenal_report_repository import (
 )
 from app.domain.repositories.step_definition_repository import (
     StepDefinitionRepository,
+)
+from app.domain.repositories.user_feedback_repository import (
+    UserFeedbackRepository,
 )
 from app.domain.repositories.user_repository import UserRepository
 from app.domain.repositories.user_statistic_repository import (
@@ -110,6 +113,26 @@ def get_discord_service():
 
 
 DiscordServiceDp = Annotated[DiscordService, Depends(get_discord_service)]
+
+
+def get_user_feedback_repository(session: DbSession):
+    return UserFeedbackRepository(session)
+
+
+UserFeedbackRepositoryDp = Annotated[
+    UserFeedbackRepository, Depends(get_user_feedback_repository)
+]
+
+
+def get_discord_feedback_service():
+    return DiscordService(
+        webhook_url=envs.DISCORD_FEEDBACK_WEBHOOK
+    )
+
+
+DiscordFeedbackServiceDp = Annotated[
+    DiscordService, Depends(get_discord_feedback_service)
+]
 
 
 async def get_current_user(

@@ -59,6 +59,7 @@ class Settings(BaseSettings):
 
     LOGIN_REDIRECT_URI: str = 'http://127.0.0.1:8000/api/docs'
     DISCORD_REPORTS_WEBHOOK: str | None = None
+    DISCORD_FEEDBACK_WEBHOOK: str | None = None
 
     @property
     def openapi_url(self):
