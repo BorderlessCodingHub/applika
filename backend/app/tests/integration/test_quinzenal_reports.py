@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 
+from app.tests.base_db_setup import base_data
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,7 +11,6 @@ from app.domain.models import (
     StepDefinitionModel,
 )
 from app.tests import msg
-from app.tests.base_db_setup import base_data
 
 
 def _payload(start_date: str | None = None) -> dict:

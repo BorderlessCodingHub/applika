@@ -5,7 +5,6 @@ from app.application.use_cases.quinzenal_reports.common import (
     get_next_report_day,
     get_phase,
     get_report_period,
-    is_valid_report_day,
 )
 
 
@@ -45,14 +44,6 @@ def test_get_phase_boundaries():
     assert get_phase(90) == 3
     assert get_phase(91) == 4
     assert get_phase(120) == 4
-
-
-def test_valid_report_days():
-    assert is_valid_report_day(1) is True
-    assert is_valid_report_day(14) is True
-    assert is_valid_report_day(120) is True
-    assert is_valid_report_day(2) is False
-    assert is_valid_report_day(15) is False
 
 
 def test_current_day_for_today_start_date():

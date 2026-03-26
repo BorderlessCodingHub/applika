@@ -3,10 +3,6 @@ from datetime import date, timedelta
 REPORT_DAYS = (1, 14, 28, 42, 56, 70, 84, 98, 112, 120)
 
 
-def is_valid_report_day(report_day: int) -> bool:
-    return report_day in REPORT_DAYS
-
-
 def get_next_report_day(submitted_days: set[int]) -> int | None:
     for report_day in REPORT_DAYS:
         if report_day not in submitted_days:

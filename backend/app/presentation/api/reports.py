@@ -1,6 +1,14 @@
-from fastapi import APIRouter
+from datetime import date
+from typing import Annotated
 
-from app.application.dto.quinzenal_report import SubmitReportPayloadDTO
+from fastapi import APIRouter
+from fastapi.params import Query
+from pydantic import BeforeValidator
+
+from app.application.dto.quinzenal_report import (
+    ReportDays,
+    SubmitReportPayloadDTO,
+)
 from app.application.use_cases.quinzenal_reports.get_report import (
     GetReportUseCase,
 )
@@ -23,7 +31,8 @@ from app.presentation.schemas.quinzenal_report import (
     SubmitReportResponse,
 )
 
-router = APIRouter(tags=['Reports'], responses={'403': {'model': DetailSchema}})
+router = APIRouter(tags=['Reports'], responses={
+                   '403': {'model': DetailSchema}})
 
 
 @router.get('/reports', response_model=ReportListResponse)
@@ -36,6 +45,12 @@ async def list_reports(
     return ReportListResponse.model_validate(report_list.model_dump())
 
 
+ReportDaysPath = Annotated[ReportDays, BeforeValidator(lambda v: int(v))]
+ReportStartDate = Annotated[date | None, Query(
+    description="This param is 'required' for the first day"
+)]
+
+
 @router.get(
     '/reports/{day}',
     response_model=ReportDetailResponse,
@@ -43,12 +58,13 @@ async def list_reports(
     responses={'404': {'model': DetailSchema}},
 )
 async def get_report(
-    day: int,
+    day: ReportDaysPath,
     c_user: CurrentUserDp,
     report_repo: QuinzenalReportRepositoryDp,
+    start_date: ReportStartDate = None,
 ):
     use_case = GetReportUseCase(report_repo)
-    report = await use_case.execute(c_user.id, day)
+    report = await use_case.execute(c_user.id, day, start_date)
     return ReportDetailResponse.model_validate(report.model_dump())
 
 
@@ -61,7 +77,7 @@ async def get_report(
     },
 )
 async def submit_report(
-    day: int,
+    day: ReportDaysPath,
     payload: SubmitReportRequest,
     c_user: CurrentUserDp,
     report_repo: QuinzenalReportRepositoryDp,

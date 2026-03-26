@@ -2,6 +2,7 @@ from datetime import date
 
 from app.application.dto.quinzenal_report import (
     ManualMetricsDTO,
+    ReportDays,
     ReportDetailDTO,
     ReportMetricsDTO,
     ReportPeriodDTO,
@@ -12,9 +13,7 @@ from app.application.use_cases.quinzenal_reports.common import (
     get_next_report_day,
     get_phase,
     get_report_period,
-    is_valid_report_day,
 )
-from app.core.exceptions import ResourceNotFound
 from app.domain.models import QuinzenalReportModel
 from app.domain.repositories.quinzenal_report_repository import (
     QuinzenalReportRepository,
@@ -68,16 +67,20 @@ class GetReportUseCase:
             ),
         )
 
-    async def execute(self, user_id: int, report_day: int) -> ReportDetailDTO:
-        if not is_valid_report_day(report_day):
-            raise ResourceNotFound('Invalid report day')
+    async def execute(self, user_id: int, report_day: ReportDays,
+                      start_date: date | None) -> ReportDetailDTO:
+        # Start date is only used in the first day of the report
+        if report_day > 1:
+            start_date = None
 
         reports = await self.report_repo.get_all_by_user_id(user_id)
         reports_by_day = {report.report_day: report for report in reports}
         submitted_days = set(reports_by_day)
 
         day_one_report = reports_by_day.get(1)
-        start_date = day_one_report.start_date if day_one_report else date.today()
+        if start_date == None:
+            start_date = (day_one_report.start_date
+                          if day_one_report else date.today())
         current_day = get_current_day(start_date)
         next_report_day = get_next_report_day(submitted_days)
 
@@ -126,5 +129,6 @@ class GetReportUseCase:
             metrics=metrics,
             can_submit=can_submit,
             manual_metrics=manual_metrics,
-            period=ReportPeriodDTO(start_date=period_start, end_date=period_end),
+            period=ReportPeriodDTO(
+                start_date=period_start, end_date=period_end),
         )

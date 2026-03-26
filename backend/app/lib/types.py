@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import GetCoreSchemaHandler, GetJsonSchemaHandler
+from pydantic import GetJsonSchemaHandler
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import core_schema
 from snowflake.snowflake import SnowflakeGenerator

@@ -12,6 +12,7 @@ class ApplicationCompany(BaseSchema):
     name: str
     url: HttpUrl | None
 
+
 class CreateApplication(BaseSchema):
     company: SnowflakeID | ApplicationCompany
     role: str

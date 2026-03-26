@@ -3,6 +3,7 @@ from datetime import date, datetime, timezone
 from fastapi import HTTPException
 
 from app.application.dto.quinzenal_report import (
+    ReportDays,
     ReportMetricsDTO,
     SubmitReportPayloadDTO,
     SubmitReportResultDTO,
@@ -13,9 +14,8 @@ from app.application.use_cases.quinzenal_reports.common import (
     get_next_report_day,
     get_phase,
     get_report_period,
-    is_valid_report_day,
 )
-from app.core.exceptions import ResourceConflict, ResourceNotFound
+from app.core.exceptions import ResourceConflict
 from app.domain.models import QuinzenalReportModel
 from app.domain.repositories.quinzenal_report_repository import (
     QuinzenalReportRepository,
@@ -65,7 +65,7 @@ class SubmitReportUseCase:
     @classmethod
     def _build_discord_message(
         cls,
-        report_day: int,
+        report_day: ReportDays,
         username: str,
         phase: int,
         metrics: ReportMetricsDTO,
@@ -114,11 +114,12 @@ class SubmitReportUseCase:
         self,
         user_id: int,
         username: str,
-        report_day: int,
+        report_day: ReportDays,
         payload: SubmitReportPayloadDTO,
     ) -> SubmitReportResultDTO:
-        if not is_valid_report_day(report_day):
-            raise ResourceNotFound('Invalid report day')
+        # Start date is only used in the first day of the report
+        if report_day > 1:
+            payload.start_date = None
 
         reports = await self.report_repo.get_all_by_user_id(user_id)
         reports_by_day = {report.report_day: report for report in reports}

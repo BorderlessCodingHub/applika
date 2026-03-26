@@ -4,10 +4,11 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 ReportStatus = Literal['submitted', 'pending', 'overdue', 'future']
+ReportDays = Literal[1, 14, 28, 42, 56, 70, 84, 98, 112, 120]
 
 
 class ReportListItemDTO(BaseModel):
-    day: int
+    day: ReportDays
     status: ReportStatus
     submitted_at: datetime | None = None
 
@@ -20,7 +21,7 @@ class ReportsListDTO(BaseModel):
 
 
 class ReportSummaryDTO(BaseModel):
-    day: int
+    day: ReportDays
     phase: int
     submitted: bool
     submitted_at: datetime | None = None
