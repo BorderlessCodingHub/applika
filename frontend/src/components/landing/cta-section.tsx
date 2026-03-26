@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 import { AUTH_LOGIN_URL } from "@/services/types/auth";
 import { Button } from "@/components/ui/button";
-import { Github, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { GithubIcon } from "../brand-icons";
 
 export function CtaSection() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -38,7 +39,7 @@ export function CtaSection() {
             className="glow-primary h-12 gap-2.5 px-10 font-display text-base font-semibold"
           >
             <a href={AUTH_LOGIN_URL}>
-              <Github className="h-5 w-5" />
+              <GithubIcon className="h-5 w-5" />
               Get started free
             </a>
           </Button>

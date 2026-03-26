@@ -1,12 +1,12 @@
 "use client";
 
-import { Github } from "lucide-react";
 import { AUTH_LOGIN_URL } from "@/services/types/auth";
 import { useAuth } from "@/contexts/auth-context";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { GithubIcon } from "@/components/brand-icons";
 
 export function LoginPage() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -53,7 +53,7 @@ export function LoginPage() {
             className="glow-primary h-12 w-full gap-2.5 font-display text-base font-semibold"
           >
             <a href={AUTH_LOGIN_URL}>
-              <Github className="h-5 w-5" />
+              <GithubIcon className="h-5 w-5" />
               Login with GitHub
             </a>
           </Button>

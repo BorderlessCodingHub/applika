@@ -21,6 +21,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppLogo } from "../app-logo";
+import { Button } from "../ui/button";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -98,13 +99,10 @@ export function AppLayout({ children }: AppLayoutProps) {
         )}
         <FeedbackButton />
         <div className="flex items-center justify-between">
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-destructive/10 hover:text-destructive"
-          >
+          <Button onClick={handleLogout} variant="ghost">
             <LogOut className="h-4 w-4" />
             <span className="font-display">Logout</span>
-          </button>
+          </Button>
           <ThemeToggle />
         </div>
       </div>
