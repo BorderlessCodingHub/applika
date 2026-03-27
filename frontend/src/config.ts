@@ -1,5 +1,7 @@
 export const APP_CONFIG = {
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
+  envs: {
+    apiBaseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
+  },
   name: "Applika.dev",
   shortName: "Applika.dev",
   logo: "app-logo.webp",

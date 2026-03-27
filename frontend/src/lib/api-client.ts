@@ -2,7 +2,7 @@ import axios, { AxiosError } from "axios";
 import { APP_CONFIG } from "@/config";
 
 export const api = axios.create({
-  baseURL: APP_CONFIG.baseURL,
+  baseURL: APP_CONFIG.envs.apiBaseURL,
   withCredentials: true,
 });
 
