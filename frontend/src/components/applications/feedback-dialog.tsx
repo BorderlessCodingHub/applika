@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { services } from "@/services/services";
+import { FeedbackScore } from "@/services/types/feedbacks";
 
 export function FeedbackButton() {
   const [open, setOpen] = useState(false);
@@ -39,7 +40,7 @@ function FeedbackDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
-  const [rate, setRate] = useState(0);
+  const [rate, setRate] = useState<FeedbackScore | 0>(0);
   const [hovered, setHovered] = useState(0);
   const [feedback, setFeedback] = useState("");
   const [pending, setPending] = useState(false);
@@ -90,7 +91,7 @@ function FeedbackDialog({
             <button
               key={n}
               type="button"
-              onClick={() => setRate(n)}
+              onClick={() => setRate(n as FeedbackScore)}
               onMouseEnter={() => setHovered(n)}
               onMouseLeave={() => setHovered(0)}
               className="transition-transform hover:scale-110"
