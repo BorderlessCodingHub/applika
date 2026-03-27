@@ -1,0 +1,4 @@
+Contact: https://github.com/ProgramadoresSemPatria/applika/issues/new
+Expires: 2027-01-01T00:00:00.000Z
+Preferred-Languages: en, pt
+Policy: https://github.com/ProgramadoresSemPatria/applika/blob/main/SECURITY.md
