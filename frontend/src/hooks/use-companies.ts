@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { services } from "@/services/services";
 import { Company } from "@/services/types/applications";
@@ -38,16 +38,4 @@ export function useCompanySearch() {
   );
 
   return { isLoading, error, fetchCompanies };
-}
-
-export function useCreateCompany() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ name, url }: { name: string; url?: string }) =>
-      services.companies.createCompany(name, url),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["company-search"] });
-    },
-  });
 }

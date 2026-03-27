@@ -8,10 +8,4 @@ export class CompanyService implements ICompanyService {
       .get<Company[]>(`/companies?name=${encodeURIComponent(name)}`)
       .then((r) => r.data);
   }
-
-  createCompany(name: string, url?: string): Promise<Company> {
-    return api
-      .post<Company>("/companies", { name, ...(url ? { url } : {}) })
-      .then((r) => r.data);
-  }
 }

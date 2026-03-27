@@ -2,7 +2,9 @@ import { api } from "@/lib/api-client";
 import type { IApplicationService } from "@/services/interfaces/i-application-service";
 import type {
   Application,
+  ApplicationFinalizePayload,
   ApplicationStep,
+  ApplicationStepPayload,
   CreateApplicationPayload,
 } from "@/services/types/applications";
 
@@ -12,14 +14,12 @@ export class ApplicationService implements IApplicationService {
   }
 
   createApplication(data: CreateApplicationPayload): Promise<Application> {
-    return api
-      .post("/applications", data)
-      .then((r) => r.data);
+    return api.post("/applications", data).then((r) => r.data);
   }
 
   updateApplication(
     id: string,
-    data: CreateApplicationPayload
+    data: CreateApplicationPayload,
   ): Promise<Application> {
     return api.put(`/applications/${id}`, data).then((r) => r.data);
   }
@@ -36,7 +36,7 @@ export class ApplicationService implements IApplicationService {
 
   addStep(
     applicationId: string,
-    data: { step_id: string; step_date: string; observation?: string }
+    data: ApplicationStepPayload,
   ): Promise<ApplicationStep> {
     return api
       .post(`/applications/${applicationId}/steps`, data)
@@ -46,7 +46,7 @@ export class ApplicationService implements IApplicationService {
   updateStep(
     applicationId: string,
     stepId: string,
-    data: { step_id: string; step_date: string; observation?: string }
+    data: ApplicationStepPayload,
   ): Promise<ApplicationStep> {
     return api
       .put(`/applications/${applicationId}/steps/${stepId}`, data)
@@ -61,13 +61,7 @@ export class ApplicationService implements IApplicationService {
 
   finalizeApplication(
     id: string,
-    data: {
-      step_id: string;
-      feedback_id: string;
-      finalize_date: string;
-      salary_offer?: number;
-      observation?: string;
-    }
+    data: ApplicationFinalizePayload,
   ): Promise<void> {
     return api.post(`/applications/${id}/finalize`, data).then((r) => r.data);
   }

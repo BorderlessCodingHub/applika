@@ -7,13 +7,27 @@ import {
 export interface Company {
   id: string;
   name: string;
-  url: string
+  url: string;
 }
 
 export interface ApplicationStep {
   id: string;
   step_id: string;
   step_date: string;
+  observation?: string;
+}
+
+export interface ApplicationStepPayload {
+  step_id: string;
+  step_date: string;
+  observation?: string;
+}
+
+export interface ApplicationFinalizePayload {
+  step_id: string;
+  feedback_id: string;
+  finalize_date: string;
+  salary_offer?: number;
   observation?: string;
 }
 
@@ -38,7 +52,6 @@ export interface Application {
   finalized: boolean;
   last_step?: { name: string; color: string };
   feedback?: { name: string; color: string };
-  steps?: ApplicationStep[];
 }
 
 export interface CreateApplicationPayload {
