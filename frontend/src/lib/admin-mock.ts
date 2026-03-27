@@ -69,10 +69,10 @@ function generateMockUsers(): AdminUserRow[] {
     const joinedDaysAgo = randomBetween(daysAgo + 1, 365);
 
     return {
-      id: i + 1,
+      id: String(i + 1),
       username,
       email: `${username.replace(/[._]/g, "")}@email.com`,
-      github_id: 10000 + i,
+      github_id: String(10000 + i),
       seniority_level: SENIORITY[randomBetween(0, SENIORITY.length - 1)],
       location: LOCATIONS[randomBetween(0, LOCATIONS.length - 1)],
       total_applications: total,
