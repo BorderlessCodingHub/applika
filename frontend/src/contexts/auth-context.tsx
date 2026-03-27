@@ -1,9 +1,8 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { services } from "@/services/services";
 import type { User } from "@/services/types/users";
+import { useUserProfile } from "@/hooks/use-user";
 
 interface AuthContextType {
   user: User | null;
@@ -20,16 +19,7 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const {
-    data: user,
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: ["user", "me"],
-    queryFn: () => services.users.getMe(),
-    retry: false,
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data: user, isLoading, isError } = useUserProfile();
 
   return (
     <AuthContext.Provider

@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
-import { AUTH_LOGIN_URL } from "@/services/types/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { AppLogo } from "../app-logo";
-import { GithubIcon } from "../brand-icons";
+import { SignInLink } from "../auth-buttons";
 
 export function LandingHeader() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -36,10 +35,7 @@ export function LandingHeader() {
               size="sm"
               className="gap-2 font-display font-medium"
             >
-              <a href={AUTH_LOGIN_URL}>
-                <GithubIcon className="h-4 w-4" />
-                Sign in
-              </a>
+              <SignInLink>Sign in</SignInLink>
             </Button>
           )}
         </div>

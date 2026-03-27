@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Briefcase,
   User,
-  LogOut,
   Menu,
   X,
   Shield,
@@ -15,13 +14,11 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle";
 import { FeedbackButton } from "@/components/applications/feedback-dialog";
 import { useAuth } from "@/contexts/auth-context";
-import { api } from "@/lib/api-client";
-import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppLogo } from "../app-logo";
-import { Button } from "../ui/button";
+import { LogoutButton } from "../auth-buttons";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -37,18 +34,8 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  const handleLogout = async () => {
-    try {
-      await api.get("/auth/logout");
-    } finally {
-      queryClient.clear();
-      window.location.href = "/";
-    }
-  };
 
   const SidebarContent = () => (
     <div className="flex h-full flex-col justify-between py-6">
@@ -99,10 +86,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         )}
         <FeedbackButton />
         <div className="flex items-center justify-between">
-          <Button onClick={handleLogout} variant="ghost">
-            <LogOut className="h-4 w-4" />
-            <span className="font-display">Logout</span>
-          </Button>
+          <LogoutButton />
           <ThemeToggle />
         </div>
       </div>

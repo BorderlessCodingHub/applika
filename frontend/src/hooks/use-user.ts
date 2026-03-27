@@ -5,12 +5,18 @@ import { UpdateUserPayload } from "@/services/types/users";
 
 const USER_QUERY_KEY = ["user", "me"] as const;
 
+const CONNECTED_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const DISCONNECTED_INTERVAL = 30 * 1000; // 30 seconds on failure
+
 export function useUserProfile() {
   return useQuery({
     queryKey: USER_QUERY_KEY,
     queryFn: () => services.users.getMe(),
     retry: false,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    refetchInterval: (query) =>
+      query.state.error ? DISCONNECTED_INTERVAL : CONNECTED_INTERVAL,
+    refetchIntervalInBackground: true,
   });
 }
 
@@ -28,7 +34,7 @@ export function useMutateUserProfile() {
 
   async function submit(data: UpdateUserPayload) {
     await mutation.mutateAsync(data);
-  };
+  }
 
   return {
     submit,
