@@ -32,12 +32,15 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
-export function AppLayout({ children }: AppLayoutProps) {
+function SidebarContent({
+  setMobileOpen,
+}: {
+  setMobileOpen: (value: boolean) => void;
+}) {
   const { user } = useAuth();
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const SidebarContent = () => (
+  return (
     <div className="flex h-full flex-col justify-between py-6">
       <div>
         <Link href="/" className="mb-6 flex items-center px-4">
@@ -92,12 +95,16 @@ export function AppLayout({ children }: AppLayoutProps) {
       </div>
     </div>
   );
+}
+
+export function AppLayout({ children }: AppLayoutProps) {
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <div className="flex h-screen bg-background">
       {/* Desktop sidebar */}
       <aside className="hidden w-60 shrink-0 flex-col border-r border-border/60 bg-card md:flex">
-        <SidebarContent />
+        <SidebarContent setMobileOpen={setMobileOpen} />
       </aside>
 
       {/* Mobile header */}
@@ -136,7 +143,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               transition={{ duration: 0.3, ease: [0.2, 0.9, 0.3, 1] }}
               className="fixed bottom-0 left-0 top-0 z-50 w-full max-w-80 border-r border-border/60 bg-card md:hidden"
             >
-              <SidebarContent />
+              <SidebarContent setMobileOpen={setMobileOpen} />
             </motion.aside>
           </>
         )}
