@@ -1,9 +1,11 @@
 from typing import List
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dto.company import CompanyCreateDTO
+from app.core.exceptions import ResourceConflict
 from app.domain.models import CompanyModel
 
 
@@ -39,6 +41,11 @@ class CompanyRepository:
             await self.session.commit()
             await self.session.refresh(db_company)
             return db_company
+        except IntegrityError:
+            await self.session.rollback()
+            raise ResourceConflict(
+                'A company with this name and URL already exists.'
+            )
         except Exception as e:
             await self.session.rollback()
             raise e
