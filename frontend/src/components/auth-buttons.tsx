@@ -3,11 +3,9 @@
 import { APP_CONFIG } from "@/config";
 import { GithubIcon } from "./brand-icons";
 import { forwardRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api-client";
 import { Button } from "./ui/button";
 import { LogOut } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
 
 type SignInLinkProps = React.ComponentPropsWithoutRef<"a"> & {
   children: React.ReactNode;
@@ -15,7 +13,7 @@ type SignInLinkProps = React.ComponentPropsWithoutRef<"a"> & {
 
 export const SignInLink = forwardRef<HTMLAnchorElement, SignInLinkProps>(
   ({ children, ...props }, ref) => {
-    const authHref = `${APP_CONFIG.baseURL}/auth/github/login`;
+    const authHref = `${APP_CONFIG.envs.apiBaseURL}/auth/github/login`;
 
     return (
       <a ref={ref} href={authHref} {...props}>
@@ -29,20 +27,10 @@ export const SignInLink = forwardRef<HTMLAnchorElement, SignInLinkProps>(
 SignInLink.displayName = "SignInLink";
 
 export function LogoutButton() {
-  const queryClient = useQueryClient();
-  const router = useRouter();
-
-  const handleLogout = async () => {
-    try {
-      await api.get("/auth/logout");
-    } finally {
-      queryClient.clear();
-      window.location.href = "/";
-    }
-  };
+  const { logout } = useAuth();
 
   return (
-    <Button onClick={handleLogout} variant="ghost">
+    <Button onClick={logout} variant="ghost">
       <LogOut className="h-4 w-4" />
       <span className="font-display">Logout</span>
     </Button>

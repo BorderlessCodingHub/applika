@@ -1,4 +1,5 @@
 import { FeedbackService } from "./implementations/feedback-service";
+import { AuthService } from "./implementations/auth-service";
 import { UserService } from "@/services/implementations/user-service";
 import { ApplicationService } from "@/services/implementations/application-service";
 import { StatisticsService } from "@/services/implementations/statistics-service";
@@ -7,6 +8,7 @@ import { CompanyService } from "@/services/implementations/company-service";
 import { ReportsService } from "@/services/implementations/reports-service";
 
 class ServiceContainer {
+  auth = new AuthService();
   users = new UserService();
   applications = new ApplicationService();
   statistics = new StatisticsService();
