@@ -5,7 +5,10 @@ import type {
   ApplicationStep,
 } from "@/services/types/applications";
 import type { Step } from "@/services/types/supports";
-import { useApplicationSteps } from "@/hooks/use-application-steps";
+import {
+  useApplicationStepDelete,
+  useApplicationSteps,
+} from "@/hooks/use-application-steps";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSupports } from "@/contexts/supports-context";
@@ -36,6 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { formatSalary } from "@/options";
 
 interface ApplicationItemProps {
   app: Application;
@@ -306,12 +310,12 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
                 <div>
                   <span className="text-muted-foreground">Salary Range</span>
                   <p className="mt-0.5 font-medium tabular-nums text-foreground">
-                    {formatSalaryConcise(
+                    {formatSalary(
                       props.app.salary_range_min,
                       props.app.currency,
-                    )}{" "}
-                    –{" "}
-                    {formatSalaryConcise(
+                    )}
+                    {" – "}
+                    {formatSalary(
                       props.app.salary_range_max,
                       props.app.currency,
                       props.app.salary_period,
@@ -323,7 +327,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
                 <div>
                   <span className="text-muted-foreground">Expected Salary</span>
                   <p className="mt-0.5 font-medium tabular-nums text-foreground">
-                    {formatSalaryConcise(
+                    {formatSalary(
                       props.app.expected_salary,
                       props.app.currency,
                       props.app.salary_period,
@@ -401,11 +405,8 @@ export function ApplicationStepTimeline({
 }) {
   const [stepDelete, setStepDelete] = useState<StepDelete>({ open: false });
 
-  const {
-    steps,
-    isLoading: stepsLoading,
-    deleteMutation,
-  } = useApplicationSteps(id);
+  const { steps, isLoading: stepsLoading } = useApplicationSteps(id);
+  const { deleteStep } = useApplicationStepDelete({ applicationId: id });
 
   const resolveStep = (stepId: string) =>
     stepsSupports.find((s) => s.id === stepId);
@@ -551,9 +552,7 @@ export function ApplicationStepTimeline({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() =>
-                stepDelete.id && deleteMutation.mutate(stepDelete.id)
-              }
+              onClick={() => stepDelete.id && deleteStep(stepDelete.id)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
@@ -563,32 +562,4 @@ export function ApplicationStepTimeline({
       </AlertDialog>
     </div>
   );
-}
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$",
-  BRL: "R$",
-  EUR: "€",
-  GBP: "£",
-  CAD: "C$",
-  AUD: "A$",
-  JPY: "¥",
-  CHF: "CHF",
-  INR: "₹",
-};
-const PERIOD_SUFFIXES: Record<string, string> = {
-  hourly: "/hr",
-  monthly: "/mo",
-  annual: "/yr",
-};
-
-function formatSalaryConcise(
-  value: number | undefined | null,
-  currency?: string,
-  period?: string,
-) {
-  if (value == null) return "";
-  const sym = CURRENCY_SYMBOLS[currency ?? "USD"] ?? currency ?? "$";
-  const suf = period ? (PERIOD_SUFFIXES[period] ?? "") : "";
-  return `${sym}${value.toLocaleString()}${suf}`;
 }

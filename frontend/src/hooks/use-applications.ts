@@ -3,14 +3,15 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  isAfter,
-  isBefore,
-  isEqual,
-  parseISO,
-} from "date-fns";
+import { isAfter, isBefore, isEqual, parseISO } from "date-fns";
+import { AxiosError } from "axios";
 import { services } from "@/services/services";
 import { useSupports } from "@/contexts/supports-context";
+import {
+  ApplicationFinalizePayload,
+  CreateApplicationPayload,
+} from "@/services/types/applications";
+import { getApiError } from "@/lib/api-client";
 
 export interface ApplicationFilters {
   mode: "all" | "active" | "passive";
@@ -55,7 +56,6 @@ function appDateRange(
 }
 
 export function useApplications() {
-  const queryClient = useQueryClient();
   const { supports } = useSupports();
 
   const [filters, setFilters] = useState<ApplicationFilters>(DEFAULT_FILTERS);
@@ -75,15 +75,6 @@ export function useApplications() {
   const query = useQuery({
     queryKey: ["applications"],
     queryFn: () => services.applications.getApplications(),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => services.applications.deleteApplication(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["applications"] });
-      toast.success("Application deleted");
-    },
-    onError: () => toast.error("Failed to delete"),
   });
 
   const hasAdvancedFilters =
@@ -133,8 +124,95 @@ export function useApplications() {
     clearFilters,
     hasAdvancedFilters,
     hasAnyFilter,
-    deleteMutation,
     getPlatformName,
     supports,
+  };
+}
+
+export function useApplicationDelete() {
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => services.applications.deleteApplication(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["applications"] });
+      toast.success("Application deleted");
+    },
+    onError: () => toast.error("Failed to delete"),
+  });
+
+  async function deleteApplication(id: string) {
+    await deleteMutation.mutate(id);
+  }
+
+  return { deleteApplication };
+}
+
+interface ApplicationMutateProps {
+  applicationId?: string;
+  onSuccess?: () => Promise<void> | void;
+}
+
+export function useApplicationMutate(props: ApplicationMutateProps) {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (data: CreateApplicationPayload) =>
+      props.applicationId
+        ? services.applications.updateApplication(props.applicationId, data)
+        : services.applications.createApplication(data),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["applications"] });
+      await queryClient.invalidateQueries({ queryKey: ["statistics"] });
+      await queryClient.invalidateQueries({ queryKey: ["company-search"] });
+      toast.success(
+        props.applicationId ? "Application updated" : "Application created",
+      );
+      if (props.onSuccess) await props.onSuccess();
+    },
+    onError: (error: AxiosError) => {
+      const message = getApiError(error);
+      toast.error(message);
+    },
+  });
+
+  async function submit(payload: CreateApplicationPayload) {
+    await mutation.mutate(payload);
+  }
+
+  return {
+    submit,
+    isPending: mutation.isPending,
+    error: mutation.error as Error | null,
+  };
+}
+
+interface ApplicationFinalizeProps {
+  applicationId: string;
+  onSuccess?: () => Promise<void> | void;
+}
+
+export function useFinalizeApplication(props: ApplicationFinalizeProps) {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (data: ApplicationFinalizePayload) =>
+      services.applications.finalizeApplication(props.applicationId, data),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["applications"] });
+      await queryClient.invalidateQueries({ queryKey: ["statistics"] });
+      toast.success("Application finalized");
+      if (props.onSuccess) await props.onSuccess();
+    },
+    onError: () => toast.error("Failed to finalize"),
+  });
+
+  async function finalize(payload: ApplicationFinalizePayload) {
+    await mutation.mutate(payload);
+  }
+
+  return {
+    finalize,
+    isPending: mutation.isPending,
+    error: mutation.error as Error | null,
   };
 }

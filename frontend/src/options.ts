@@ -18,10 +18,10 @@ const CURRENCY = [
 ] as { value: SalaryCurrencyType; symbol: string }[];
 
 const SALARY_PERIOD = [
-  { value: "hourly", label: "Hourly" },
-  { value: "monthly", label: "Monthly" },
-  { value: "annual", label: "Annual" },
-] as { value: SalaryPeriodType; label: string }[];
+  { value: "hourly", label: "Hourly", sufix: "/hr" },
+  { value: "monthly", label: "Monthly", sufix: "/mo" },
+  { value: "annual", label: "Annual", sufix: "/yr" },
+] as { value: SalaryPeriodType; label: string; sufix: string }[];
 
 const SENIORITY = [
   { value: "intern", label: "Intern" },
@@ -59,3 +59,19 @@ export const SelectOptions = {
   WORK_MODE,
   SOURCE,
 };
+
+export function formatSalary(
+  value: number | undefined | null,
+  currency?: SalaryCurrencyType,
+  period?: SalaryPeriodType,
+) {
+  if (value == null) return "";
+
+  const c = CURRENCY.find((x) => x.value === currency);
+  const sym = c ? c.symbol : "$";
+
+  const s = SALARY_PERIOD.find((x) => x.value === period);
+  const suf = s ? s.sufix : "";
+
+  return `${sym}${value.toLocaleString()}${suf}`;
+}

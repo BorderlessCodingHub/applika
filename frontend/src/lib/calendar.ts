@@ -14,11 +14,11 @@ export function genApplicationStepIcsFile(
   const nextDay = new Date(y, m - 1, d + 1);
   const end = `${nextDay.getFullYear()}${String(nextDay.getMonth() + 1).padStart(2, "0")}${String(nextDay.getDate()).padStart(2, "0")}`;
 
-  const title = `${application.company.name} — ${stepName}`;
+  const title = `${application.company_name} — ${stepName}`;
 
   const descriptionLines = [
     `Role: ${application.role}`,
-    `Company: ${application.company.name}`,
+    `Company: ${application.company_name}`,
     `Mode: ${application.mode}`,
     application.work_mode ? `Work Mode: ${application.work_mode}` : "",
     application.experience_level
@@ -54,7 +54,7 @@ export function genApplicationStepIcsFile(
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${application.company.name}-${stepName}.ics`;
+  a.download = `${application.company_name}-${stepName}.ics`;
   a.click();
   URL.revokeObjectURL(url);
 }

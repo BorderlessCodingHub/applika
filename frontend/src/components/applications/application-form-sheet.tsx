@@ -4,8 +4,6 @@ import { useMemo } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { services } from "@/services/services";
 import {
   Company,
   ModeType,
@@ -34,7 +32,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { SelectOptions } from "@/options";
 import {
@@ -45,11 +42,10 @@ import {
   SeniorityLevelType,
   SeniorityLevelValues,
 } from "@/services/types/users";
-import { AxiosError } from "axios";
-import { getApiError } from "@/lib/api-client";
 import { CompanySelect, ZodType } from "./company-select";
 import { useCompanySearch } from "@/hooks/use-companies";
 import { DatePickerInput } from "../ui/date-picker";
+import { useApplicationMutate } from "@/hooks/use-applications";
 
 function getCurrencySymbol(currency: string) {
   return (
@@ -152,8 +148,11 @@ export function ApplicationFormSheet({
   application,
 }: Props) {
   const { supports } = useSupports();
-  const queryClient = useQueryClient();
-  const isEdit = !!application;
+  const { fetchCompanies } = useCompanySearch();
+  const { submit, isPending } = useApplicationMutate({
+    applicationId: application ? application.id : undefined,
+    onSuccess: () => onOpenChange(false),
+  });
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -185,26 +184,7 @@ export function ApplicationFormSheet({
   const salaryEnabled = !!watchCurrency && !!watchSalaryPeriod;
   const currencySymbol = watchCurrency ? getCurrencySymbol(watchCurrency) : "$";
 
-  const { fetchCompanies } = useCompanySearch();
-
-  const mutation = useMutation({
-    mutationFn: (data: CreateApplicationPayload) =>
-      isEdit
-        ? services.applications.updateApplication(application!.id, data)
-        : services.applications.createApplication(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["applications"] });
-      queryClient.invalidateQueries({ queryKey: ["statistics"] });
-      toast.success(isEdit ? "Application updated" : "Application created");
-      onOpenChange(false);
-    },
-    onError: (error: AxiosError) => {
-      const message = getApiError(error);
-      toast.error(message);
-    },
-  });
-
-  function onSubmit(data: FormData) {
+  async function handleFormSubmit(data: FormData) {
     const includeSalary = !!data.currency && !!data.salary_period;
 
     const payload: CreateApplicationPayload = {
@@ -224,12 +204,11 @@ export function ApplicationFormSheet({
       country: data.country,
       observation: data.observation,
     };
-    mutation.mutate(payload);
+    await submit(payload);
   }
 
   const companySelectValue = useMemo(
     () => buildCompanySelectDefaultValue(application),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [application?.company_id, application?.company_name],
   );
 
@@ -246,10 +225,13 @@ export function ApplicationFormSheet({
       <SheetContent className="overflow-y-auto" hideClose>
         <SheetHeader>
           <SheetTitle>
-            {isEdit ? "Edit Application" : "New Application"}
+            {application ? "Edit Application" : "New Application"}
           </SheetTitle>
         </SheetHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6 space-y-4">
+        <form
+          onSubmit={form.handleSubmit(handleFormSubmit)}
+          className="mt-6 space-y-4"
+        >
           <CompanySelect
             value={companySelectValue}
             form={form}
@@ -589,15 +571,9 @@ export function ApplicationFormSheet({
             Cancel
           </Button>
 
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={mutation.isPending}
-          >
-            {mutation.isPending && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            )}
-            {isEdit ? "Save changes" : "Create application"}
+          <Button type="submit" className="w-full" disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {application ? "Save changes" : "Create application"}
           </Button>
         </form>
       </SheetContent>

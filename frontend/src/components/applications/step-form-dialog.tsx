@@ -3,8 +3,6 @@
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { services } from "@/services/services";
 import type {
   Application,
   ApplicationStep,
@@ -31,6 +29,10 @@ import { toast } from "sonner";
 import { CalendarPlus, Loader2 } from "lucide-react";
 import { genApplicationStepIcsFile } from "@/lib/calendar";
 import { DatePickerInput } from "../ui/date-picker";
+import {
+  useApplicationStepMutate,
+  useApplicationSteps,
+} from "@/hooks/use-application-steps";
 
 const schema = z.object({
   step_id: z.string().min(1, "Step is required"),
@@ -48,6 +50,24 @@ interface Props {
   editStep?: ApplicationStep;
 }
 
+function buildDefaultFormValues(
+  editStep: ApplicationStep | undefined,
+): FormData {
+  return {
+    step_id: editStep?.step_id ?? "",
+    step_date: editStep?.step_date ?? "",
+    observation: editStep?.observation ?? "",
+  };
+}
+
+function getLastPickedDate(
+  application: Application,
+  applicationSteps: ApplicationStep[],
+): string {
+  const lastStep = applicationSteps.at(-1);
+  return lastStep ? lastStep.step_date : application.application_date;
+}
+
 export function ApplicationStepFormDialog({
   application,
   open,
@@ -55,58 +75,22 @@ export function ApplicationStepFormDialog({
   steps,
   editStep,
 }: Props) {
-  const queryClient = useQueryClient();
-  const isEditing = !!editStep;
-
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: editStep
-      ? {
-          step_id: editStep.step_id,
-          step_date: editStep.step_date,
-          observation: editStep.observation ?? "",
-        }
-      : { step_id: "", step_date: "", observation: "" },
+    defaultValues: buildDefaultFormValues(editStep),
   });
+  const { steps: applicationSteps, isLoading } = useApplicationSteps(
+    application.id,
+  );
 
-  const addMutation = useMutation({
-    mutationFn: (data: FormData) =>
-      services.applications.addStep(application.id, {
-        step_id: data.step_id,
-        step_date: data.step_date,
-        observation: data.observation,
-      }),
+  const { submit, isPending } = useApplicationStepMutate({
+    applicationId: application.id,
+    applicationStepId: editStep ? editStep.id : undefined,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["applications"] });
-      queryClient.invalidateQueries({
-        queryKey: ["applications", application.id, "steps"],
-      });
-      toast.success("Step added");
-      form.reset();
-      onOpenChange(false);
-    },
-    onError: () => toast.error("Failed to add step"),
-  });
-
-  const editMutation = useMutation({
-    mutationFn: (data: FormData) =>
-      services.applications.updateStep(application.id, editStep!.id, {
-        step_id: data.step_id,
-        step_date: data.step_date,
-        observation: data.observation,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["applications"] });
-      queryClient.invalidateQueries({
-        queryKey: ["applications", application.id, "steps"],
-      });
       toast.success("Step updated");
       onOpenChange(false);
     },
-    onError: () => toast.error("Failed to update step"),
   });
-
-  const mutation = isEditing ? editMutation : addMutation;
 
   const watchStepId = useWatch({ control: form.control, name: "step_id" });
   const watchStepDate = useWatch({ control: form.control, name: "step_date" });
@@ -119,14 +103,24 @@ export function ApplicationStepFormDialog({
     toast.success("Calendar event downloaded");
   }
 
+  async function handleFormSubmit(data: FormData) {
+    await submit(data);
+  }
+
+  if (isLoading) return null;
+
+  const minPickableDate = new Date(
+    getLastPickedDate(application, applicationSteps),
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit Step" : "Add Step"}</DialogTitle>
+          <DialogTitle>{!!editStep ? "Edit Step" : "Add Step"}</DialogTitle>
         </DialogHeader>
         <form
-          onSubmit={form.handleSubmit((d) => mutation.mutate(d))}
+          onSubmit={form.handleSubmit(handleFormSubmit)}
           className="mt-2 space-y-4"
         >
           <div className="space-y-1.5">
@@ -169,6 +163,7 @@ export function ApplicationStepFormDialog({
             <Label>Date *</Label>
             <DatePickerInput
               value={form.watch("step_date")}
+              minDate={minPickableDate}
               onChange={(date) =>
                 form.setValue("step_date", date ? date : "", {
                   shouldValidate: true,
@@ -201,15 +196,9 @@ export function ApplicationStepFormDialog({
               Add to calendar (.ics)
             </Button>
 
-            <Button
-              type="submit"
-              className="flex-1"
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              {isEditing ? "Save Changes" : "Add Step"}
+            <Button type="submit" className="flex-1" disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {!!editStep ? "Save Changes" : "Add Step"}
             </Button>
           </div>
         </form>

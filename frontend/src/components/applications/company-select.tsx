@@ -22,7 +22,7 @@ interface CompanyFormReturn {
       }
     | undefined;
 }
-interface CompanyForm<T extends CompanyFormReturn> extends UseFormReturn<T> {}
+type CompanyForm<T extends CompanyFormReturn> = UseFormReturn<T>;
 
 interface CompanySelectProps<TForm extends CompanyFormReturn> {
   form: CompanyForm<TForm>;
@@ -48,6 +48,12 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
   );
   const [listKey, setListKey] = React.useState(0);
 
+  const setCompanyValue = form.setValue as (
+    name: "company",
+    value: string | { name: string; url?: string },
+    options?: { shouldValidate: boolean },
+  ) => void;
+
   // Refs used by stable callbacks to read latest state without stale closures
   const selectedCompanyRef = React.useRef(selectedCompany);
   const inputValueRef = React.useRef(inputValue);
@@ -70,16 +76,14 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
 
   function onCompanySelect(company: Company | null) {
     setSelectedCompany(company);
-    (form.setValue as (n: string, v: unknown, o?: unknown) => void)(
-      "company",
-      company ? company.id : "",
-      { shouldValidate: company != null },
-    );
+    setCompanyValue("company", company ? company.id : "", {
+      shouldValidate: company != null,
+    });
   }
 
   function onCompanyCreate(prefill: string) {
     setSelectedCompany({ id: "", name: prefill, url: "" });
-    (form.setValue as (n: string, v: unknown, o?: unknown) => void)(
+    setCompanyValue(
       "company",
       { name: prefill, url: "" },
       { shouldValidate: false },
@@ -98,42 +102,40 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
   }
 
   // Stable callbacks passed to the memoized CompanyOptionsList
-  const handleInputChange = React.useCallback((search: string) => {
-    setInputValue(search);
-    if (
-      selectedCompanyRef.current &&
-      search !== selectedCompanyRef.current.name
-    ) {
-      setSelectedCompany(null);
-      (form.setValue as (n: string, v: unknown, o?: unknown) => void)(
-        "company",
-        "",
-        { shouldValidate: false },
-      );
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const handleInputChange = React.useCallback(
+    (search: string) => {
+      setInputValue(search);
+      if (
+        selectedCompanyRef.current &&
+        search !== selectedCompanyRef.current.name
+      ) {
+        setSelectedCompany(null);
+        setCompanyValue("company", "", { shouldValidate: false });
+      }
+    },
+    [setCompanyValue],
+  );
 
-  const handleSelect = React.useCallback((company: Company) => {
-    setSelectedCompany(company);
-    (form.setValue as (n: string, v: unknown, o?: unknown) => void)(
-      "company",
-      company.id,
-      { shouldValidate: true },
-    );
-    setInputValue(company.name);
-    setOpen(false);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const handleSelect = React.useCallback(
+    (company: Company) => {
+      setSelectedCompany(company);
+      setCompanyValue("company", company.id, { shouldValidate: true });
+      setInputValue(company.name);
+      setOpen(false);
+    },
+    [setCompanyValue],
+  );
 
   const handleCreateNew = React.useCallback(() => {
     const prefill = inputValueRef.current.trim();
     setSelectedCompany({ id: "", name: prefill, url: "" });
-    (form.setValue as (n: string, v: unknown, o?: unknown) => void)(
+    setCompanyValue(
       "company",
       { name: prefill, url: "" },
       { shouldValidate: false },
     );
     setOpen(false);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setCompanyValue]);
 
   // Plain function — intentionally captures fresh selectedCompany and inputValue
   // from closure (Radix fires onOpenChange in the same event batch as handleSelect,
@@ -242,7 +244,7 @@ const ZodSchema = z
     // Must exist
     if (value === undefined || value === null) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "Company is required",
       });
       return;
@@ -252,7 +254,7 @@ const ZodSchema = z
     if (typeof value === "string") {
       if (value.trim().length < 1) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           message: "Company name must have at least 1 character",
         });
       }
@@ -264,7 +266,7 @@ const ZodSchema = z
       if (!value.name || value.name.trim().length < 1) {
         ctx.addIssue({
           path: ["name"],
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           message: "Company name is required",
         });
       }
@@ -276,7 +278,7 @@ const ZodSchema = z
       ) {
         ctx.addIssue({
           path: ["url"],
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           message: "Invalid url",
         });
       }

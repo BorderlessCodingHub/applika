@@ -3,7 +3,10 @@
 import { useState } from "react";
 import type { ApplicationStep } from "@/services/types/applications";
 import type { Application } from "@/services/types/applications";
-import { useApplications } from "@/hooks/use-applications";
+import {
+  useApplicationDelete,
+  useApplications,
+} from "@/hooks/use-applications";
 import { Search, Plus, SlidersHorizontal, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -58,9 +61,9 @@ export function ApplicationsPage() {
     updateFilter,
     clearFilters,
     hasAdvancedFilters,
-    deleteMutation,
     supports,
   } = useApplications();
+  const { deleteApplication } = useApplicationDelete();
 
   const [appAction, setAppAction] = useState<ApplicationAction>({
     action: "none",
@@ -278,7 +281,8 @@ export function ApplicationsPage() {
       ) : (
         <>
           <div className="text-sm text-muted-foreground mb-4">
-            Found {filtered.length} application{filtered.length !== 1 ? "s" : ""}
+            Found {filtered.length} application
+            {filtered.length !== 1 ? "s" : ""}
           </div>
           <div className="space-y-3">
             {filtered.map((app) => {
@@ -371,7 +375,7 @@ export function ApplicationsPage() {
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => deleteMutation.mutate(appAction.data!.id)}
+                onClick={() => deleteApplication(appAction.data!.id)}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 Delete

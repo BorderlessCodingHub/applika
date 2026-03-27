@@ -3,8 +3,6 @@
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { services } from "@/services/services";
 import type { Step, Feedback } from "@/services/types/supports";
 import {
   AlertDialog,
@@ -24,11 +22,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "sonner";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { DatePickerInput } from "../ui/date-picker";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { useFinalizeApplication } from "@/hooks/use-applications";
 
 const schema = z.object({
   step_id: z.string().min(1, "Final step is required"),
@@ -55,7 +53,6 @@ export function FinalizeDialog({
   steps,
   feedbacks,
 }: Props) {
-  const queryClient = useQueryClient();
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -66,6 +63,12 @@ export function FinalizeDialog({
       observation: "",
     },
   });
+  const { finalize, isPending } = useFinalizeApplication({
+    applicationId,
+    onSuccess: () => {
+      onOpenChange(false);
+    },
+  });
 
   const watchStepId = useWatch({ control: form.control, name: "step_id" });
   const watchFeedbackId = useWatch({
@@ -73,32 +76,15 @@ export function FinalizeDialog({
     name: "feedback_id",
   });
 
-  const mutation = useMutation({
-    mutationFn: (data: {
-      step_id: string;
-      feedback_id: string;
-      finalize_date: string;
-      salary_offer?: number;
-      observation?: string;
-    }) => services.applications.finalizeApplication(applicationId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["applications"] });
-      queryClient.invalidateQueries({ queryKey: ["statistics"] });
-      toast.success("Application finalized");
-      onOpenChange(false);
-    },
-    onError: () => toast.error("Failed to finalize"),
-  });
-
-  const onSubmit = (data: FormValues) => {
-    mutation.mutate({
+  async function handleFormSubmit(data: FormValues) {
+    await finalize({
       step_id: data.step_id,
       feedback_id: data.feedback_id,
       finalize_date: data.finalize_date,
       salary_offer: data.salary_offer ? Number(data.salary_offer) : undefined,
       observation: data.observation || undefined,
     });
-  };
+  }
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -111,7 +97,10 @@ export function FinalizeDialog({
             be edited.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="mt-2 space-y-4">
+        <form
+          onSubmit={form.handleSubmit(handleFormSubmit)}
+          className="mt-2 space-y-4"
+        >
           <div className="space-y-1.5">
             <Label>Final Step *</Label>
             <Select
@@ -195,6 +184,7 @@ export function FinalizeDialog({
                   shouldValidate: true,
                 })
               }
+              maxDate={new Date()}
               className={cn(
                 form.formState.errors.finalize_date &&
                   "border-destructive focus-visible:ring-destructive",
@@ -230,14 +220,8 @@ export function FinalizeDialog({
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              className="flex-1"
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
+            <Button type="submit" className="flex-1" disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Finalize
             </Button>
           </div>
