@@ -155,25 +155,29 @@ interface ApplicationMutateProps {
 
 export function useApplicationMutate(props: ApplicationMutateProps) {
   const queryClient = useQueryClient();
-  const mutation = useMutation({
-    mutationFn: (data: CreateApplicationPayload) =>
-      props.applicationId
-        ? services.applications.updateApplication(props.applicationId, data)
-        : services.applications.createApplication(data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["applications"] });
-      await queryClient.invalidateQueries({ queryKey: ["statistics"] });
-      await queryClient.invalidateQueries({ queryKey: ["company-search"] });
-      toast.success(
-        props.applicationId ? "Application updated" : "Application created",
-      );
-      if (props.onSuccess) await props.onSuccess();
-    },
-    onError: (error: AxiosError) => {
-      const message = getApiError(error);
-      toast.error(message);
-    },
-  });
+
+  function mutationFn(data: CreateApplicationPayload) {
+    return props.applicationId
+      ? services.applications.updateApplication(props.applicationId, data)
+      : services.applications.createApplication(data);
+  }
+
+  async function onSuccess() {
+    await queryClient.invalidateQueries({ queryKey: ["applications"] });
+    await queryClient.invalidateQueries({ queryKey: ["statistics"] });
+    await queryClient.invalidateQueries({ queryKey: ["company-search"] });
+    toast.success(
+      props.applicationId ? "Application updated" : "Application created",
+    );
+    if (props.onSuccess) await props.onSuccess();
+  }
+
+  function onError(error: AxiosError) {
+    const message = getApiError(error);
+    toast.error(message);
+  }
+
+  const mutation = useMutation({ mutationFn, onSuccess, onError });
 
   async function submit(payload: CreateApplicationPayload) {
     await mutation.mutate(payload);

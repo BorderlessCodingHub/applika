@@ -36,25 +36,29 @@ export function useApplicationStepMutate(props: ApplicationStepMutateProps) {
   const queryClient = useQueryClient();
   const queryKey = buildQueryKey(props.applicationId);
 
-  const mutate = useMutation({
-    mutationFn: (payload: ApplicationStepPayload) =>
-      props.applicationStepId
-        ? services.applications.updateStep(
-            props.applicationId,
-            props.applicationStepId,
-            payload,
-          )
-        : services.applications.addStep(props.applicationId, payload),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey });
-      await queryClient.invalidateQueries({ queryKey: ["applications"] });
-      props.applicationStepId
-        ? toast.success("Step added")
-        : toast.success("Step updated");
-      if (props.onSuccess) await props.onSuccess();
-    },
-    onError: () => toast.error("Failed to add step"),
-  });
+  function mutationFn(payload: ApplicationStepPayload) {
+    return props.applicationStepId
+      ? services.applications.updateStep(
+          props.applicationId,
+          props.applicationStepId,
+          payload,
+        )
+      : services.applications.addStep(props.applicationId, payload);
+  }
+
+  async function onSuccess() {
+    await queryClient.invalidateQueries({ queryKey });
+    await queryClient.invalidateQueries({ queryKey: ["applications"] });
+    if (props.applicationStepId) toast.success("Step updated");
+    else toast.success("Step added");
+    if (props.onSuccess) await props.onSuccess();
+  }
+
+  function onError() {
+    toast.error("Failed to add step");
+  }
+
+  const mutate = useMutation({ mutationFn, onSuccess, onError });
 
   async function submit(payload: ApplicationStepPayload) {
     await mutate.mutate(payload);
