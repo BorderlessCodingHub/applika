@@ -38,7 +38,10 @@ export function ActiveVsPassiveChart() {
                 <Cell fill="hsl(var(--primary))" />
                 <Cell fill="hsl(var(--muted-foreground))" />
               </Pie>
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip
+                content={<CustomTooltip />}
+                cursor={{ fill: "#8d8d8d12" }}
+              />
             </PieChart>
           </ResponsiveContainer>
           <div className="mt-1 flex justify-center gap-4">

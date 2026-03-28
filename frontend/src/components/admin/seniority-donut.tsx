@@ -47,7 +47,10 @@ export function SeniorityDonut() {
                       <Cell key={i} fill={entry.color} opacity={0.85} />
                     ))}
                   </Pie>
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip
+                    content={<CustomTooltip />}
+                    cursor={{ fill: "#8d8d8d12" }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
 

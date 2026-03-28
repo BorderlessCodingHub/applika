@@ -9,10 +9,57 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  LabelList,
 } from "recharts";
 import { useStepConversion } from "@/hooks/use-statistics";
 import { CustomTooltip } from "./chart-styles";
 import { Card } from "../ui/card";
+
+function renderInsideLabel(props: Record<string, unknown>) {
+  const { x, y, width, height, value } = props as {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    value: number;
+  };
+  if (!value || height < 24) return null;
+  return (
+    <text
+      x={x + width / 2}
+      y={y + 18}
+      fill="white"
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontSize={16}
+      fontWeight={700}
+    >
+      {value}
+    </text>
+  );
+}
+
+function renderTopLabel(props: Record<string, unknown>) {
+  const { x, y, width, value } = props as {
+    x: number;
+    y: number;
+    width: number;
+    value: number;
+  };
+  if (!value) return null;
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 8}
+      fill="hsl(var(--muted-foreground))"
+      textAnchor="middle"
+      fontSize={14}
+      fontWeight={500}
+    >
+      {value}%
+    </text>
+  );
+}
 
 export function StepConversionChart() {
   const { data, isLoading } = useStepConversion();
@@ -39,11 +86,24 @@ export function StepConversionChart() {
             <YAxis
               tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
               stroke="none"
+              tickFormatter={(v: number) => `${v}%`}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip
+              content={<CustomTooltip sufix="%" />}
+              cursor={{ fill: "#8d8d8d12" }}
+            />
             <Bar dataKey="conversion_rate" radius={[4, 4, 0, 0]}>
+              <LabelList
+                dataKey="total_applications"
+                content={renderInsideLabel}
+              />
+              <LabelList dataKey="conversion_rate" content={renderTopLabel} />
               {(data ?? []).map((entry, i) => (
-                <Cell key={i} fill={entry.color} />
+                <Cell
+                  key={i}
+                  fill={entry.color}
+                  style={{ transition: "fill-opacity 0.2s ease" }}
+                />
               ))}
             </Bar>
           </BarChart>
