@@ -4,7 +4,6 @@ from pydantic import PostgresDsn, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ACCESS_COOKIE_NAME = '__access'
-REFRESH_COOKIE_NAME = '__refresh'
 
 EnvType = Literal['PROD', 'DEV', 'TEST']
 
@@ -51,7 +50,6 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = 'HS256'
     JWT_SECRET: str = 'changeme-set-a-strong-jwt-secret-in-production'
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     GITHUB_CLIENT_ID: str
     GITHUB_CLIENT_SECRET: str
