@@ -1,4 +1,4 @@
 export interface IAuthService {
-  refresh(): Promise<void>
-  logout(): Promise<void>
+  refresh(): Promise<{detail: string}>
+  logout(): Promise<{detail: string}>
 }
