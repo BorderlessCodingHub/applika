@@ -1,162 +1,224 @@
 # Applika.dev - Backend
 
+FastAPI backend for Applika.dev, a job application tracking system with biweekly reporting and analytics. Built with Clean Architecture, async SQLAlchemy, and PostgreSQL.
+
 ## Project Structure
 
 ```
 backend/
 ├── alembic.ini
-├── app.log
 ├── Dockerfile
-├── poetry.lock
-├── pyproject.toml
 ├── docker-compose.yml
+├── pyproject.toml
+├── uv.lock
 ├── app/
 │   ├── __init__.py
 │   ├── main.py
 │   ├── application/
-│   │   ├── dto/
-│   │   └── use_cases/
+│   │   ├── dto/                  # Data Transfer Objects
+│   │   ├── services/             # External integrations (Discord)
+│   │   └── use_cases/            # Business logic
+│   │       ├── applications/
+│   │       ├── application_steps/
+│   │       ├── companies/
+│   │       ├── quinzenal_reports/
+│   │       ├── user_feedbacks/
+│   │       └── user_stats/
 │   ├── config/
+│   │   ├── db.py                 # Async SQLAlchemy engine & session
+│   │   ├── logging.py            # Request ID context + logging
+│   │   ├── middleware.py          # HTTP & WebSocket lifecycle
+│   │   └── settings.py           # Pydantic settings
 │   ├── core/
+│   │   ├── enums.py              # Domain enums
+│   │   ├── exceptions.py         # Domain exceptions
+│   │   └── tokens.py             # JWT cookie utilities
 │   ├── domain/
-│   │   ├── models.py
-│   │   └── repositories/
+│   │   ├── models.py             # SQLAlchemy ORM models
+│   │   └── repositories/         # Data access layer
+│   ├── lib/
+│   │   ├── types.py              # Snowflake ID type
+│   │   └── urls.py               # URL utilities
 │   ├── presentation/
-│   │   ├── api/
-│   │   ├── schemas/
-│   │   ├── dependencies.py
-│   │   └── handlers.py
+│   │   ├── api/                   # FastAPI route handlers
+│   │   ├── schemas/               # Request/response schemas
+│   │   ├── dependencies.py        # DI factories
+│   │   └── handlers.py            # Exception → HTTP mapping
 │   └── tests/
 │       ├── integration/
 │       └── unit/
 ├── migrations/
 │   ├── env.py
 │   └── versions/
+└── scripts/
+    └── seed_mock_data.py
 ```
 
-### Structure Explanation
+## Tech Stack
 
-- **app/**: Main application code, organized by domain, presentation, config, and core logic.
-  - **application/**: Business logic, DTOs, and use cases.
-  - **config/**: Configuration files (DB, logging, middleware, settings).
-  - **core/**: Core utilities (exceptions, tokens).
-  - **domain/**: Domain models and repositories.
-  - **presentation/**: API routes, schemas, handlers, and dependencies.
-  - **tests/**: Unit and integration tests.
-- **migrations/**: Database migration scripts managed by Alembic.
-- **Dockerfile**: Containerization instructions for backend service.
-- **docker-compose.yml**: Multi-container orchestration (backend + Postgres).
-- **pyproject.toml / poetry.lock**: Python dependencies managed by Poetry.
+- **Python 3.14** with uv package manager
+- **FastAPI** 0.115+ with async/await
+- **SQLAlchemy** 2.0 async with asyncpg
+- **PostgreSQL** 16
+- **Alembic** for migrations
+- **Pydantic** 2.0 for validation and settings
+- **Snowflake IDs** for distributed unique identifiers
+- **fastapi-sso** for GitHub OAuth
+- **PyJWT** for token management
 
 ## Required Environment Variables
 
-| Name                        | Description                                          | Example Value                                      | Required |
-| --------------------------- | ---------------------------------------------------- | -------------------------------------------------- | -------- |
-| ENVIRONMENT                 | Application environment (PROD, DEV, TEST)            | PROD                                               | Yes      |
-| DATABASE_URL                | Async DB connection string (SQLAlchemy async format) | postgresql+asyncpg://user:passw@host:port/database | Yes      |
-| GITHUB_CLIENT_ID            | GitHub OAuth client ID                               | <your-client-id>                                   | Yes      |
-| GITHUB_CLIENT_SECRET        | GitHub OAuth client secret                           | <your-client-secret>                               | Yes      |
-| GITHUB_REDIRECT_URI         | GitHub OAuth redirect URI                            | http://127.0.0.1:8000/api/auth/github/callback     | No       |
-| LOGIN_REDIRECT_URI          | Login redirect URI after authentication              | http://127.0.0.1:8000/api/docs                     | No       |
-| DISCORD_REPORTS_WEBHOOK     | Discord webhook URL for quinzenal reports            | https://discord.com/api/webhooks/...               | No       |
-| JWT_ALGORITHM               | JWT signing algorithm                                | HS256                                              | No       |
-| JWT_SECRET                  | JWT secret key                                       | my-jwt-secret                                      | No       |
-| ACCESS_TOKEN_EXPIRE_MINUTES | Access token expiration (minutes)                    | 15                                                 | No       |
-| REFRESH_TOKEN_EXPIRE_DAYS   | Refresh token expiration (days)                      | 7                                                  | No       |
-| LOG_LEVEL                   | Logging level                                        | INFO                                               | No       |
-| LOG_FORMAT                  | Logging format string                                | "[%(asctime)s] [%(levelname)s] %(message)s"        | No       |
-| API_PREFIX                  | API route prefix                                     | /api                                               | No       |
-| CORS_ORIGINS                | Allowed CORS origins                                 | ["http://127.0.0.1:3000","http://127.0.0.1:8000"]  | No       |
-| CORS_HEADERS                | Allowed CORS headers                                 | ["X-Request-ID","Content-Type"]                    | No       |
-| CORS_METHODS                | Allowed CORS methods                                 | ["GET","PATCH","POST","PUT","DELETE","OPTIONS"]            | No       |
-| DATABASE_ECHO               | SQLAlchemy echo flag (show SQL queries)              | False                                              | No       |
+| Name | Description | Example | Required |
+|------|-------------|---------|----------|
+| `DATABASE_URL` | Async DB connection string | `postgresql+asyncpg://user:pass@host:5432/db` | Yes |
+| `GITHUB_CLIENT_ID` | GitHub OAuth client ID | `<your-client-id>` | Yes |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth client secret | `<your-client-secret>` | Yes |
 
-### Creating a GitHub OAuth App
+## Optional Environment Variables
 
-To authenticate users with GitHub OAuth, you need to create a GitHub OAuth App:
+| Name | Description | Default |
+|------|-------------|---------|
+| `ENVIRONMENT` | PROD, DEV, or TEST | `DEV` |
+| `JWT_SECRET` | JWT signing secret | changeme placeholder |
+| `JWT_ALGORITHM` | JWT algorithm | `HS256` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token TTL | `15` |
+| `GITHUB_REDIRECT_URI` | OAuth callback URL | `http://127.0.0.1:8000/api/auth/github/callback` |
+| `LOGIN_REDIRECT_URI` | Post-login redirect | `http://127.0.0.1:8000/api/docs` |
+| `DISCORD_REPORTS_WEBHOOK` | Discord webhook for biweekly reports | `None` |
+| `DISCORD_FEEDBACK_WEBHOOK` | Discord webhook for user feedback | `None` |
+| `CORS_ORIGINS` | Allowed CORS origins | `["http://127.0.0.1:3000","http://127.0.0.1:8000"]` |
+| `CORS_HEADERS` | Allowed CORS headers | `["X-Request-ID","Content-Type"]` |
+| `CORS_METHODS` | Allowed CORS methods | `["GET","PATCH","POST","PUT","DELETE","OPTIONS"]` |
+| `API_PREFIX` | API route prefix | `/api` |
+| `LOG_LEVEL` | Logging level | `INFO` |
+| `LOG_FORMAT` | Logging format string | `[%(asctime)s] \|%(levelname)s\| ...` |
+| `DATABASE_ECHO` | SQLAlchemy echo flag | `False` |
 
-1. Visit [GitHub OAuth App Creation](https://github.com/settings/developers)
-2. Click "New OAuth App"
-3. Fill in the required fields:
-   - Application name
-   - Homepage URL
-   - Authorization callback URL
-     - `http://127.0.0.1:8000/api/auth/github/callback`
-4. Click "Register application"
-5. Copy the generated Client ID and Client Secret
-6. Add these credentials to your environment variables:
-   ```
-   GITHUB_CLIENT_ID=<your-client-id>
-   GITHUB_CLIENT_SECRET=<your-client-secret>
-   ```
+## How to Run
 
-## How to Run the Application
+### With Docker (recommended)
 
 1. **Clone the repository:**
-
    ```bash
    git clone https://github.com/ProgramadoresSemPatria/application_panel.git borderless-panel
    cd borderless-panel/backend
    ```
 
-2. **Set up environment variables:**
+2. **Configure environment:**
+   - Create a `.env` file or edit variables in `docker-compose.yml`
 
-   - Create a `.env` file or set variables in `docker-compose.yml` as needed.
-
-3. **Build and start services with Docker Compose:**
-
+3. **Build and start:**
    ```bash
    docker compose up --build
    ```
+   The entrypoint automatically runs migrations before starting the server.
 
-4. **Access the backend API:**
+4. **Access the API:** `http://127.0.0.1:8000/api/docs`
 
-   - The API will be available at `http://127.0.0.1:8000`
+### Without Docker
 
-5. **Run database migrations (if needed):**
-   ```bash
-   docker exec applika.dev-api alembic upgrade head
-   ```
-
----
-
-## Prerequisites to run without docker
-
-Before running this application, ensure you have the following installed:
-
-- **Python 3.9+**: This application requires Python version 3.9 or higher. You can download it from the [official Python website](https://www.python.org/downloads/).
-- **Poetry**: Package management and dependency resolution is handled by Poetry. Install it following the [official Poetry installation guide](https://python-poetry.org/docs/#installation).
-
-These requirements are essential for local development. If you're using Docker, these dependencies will be handled automatically by the container.
-
-### Setup Instructions
+**Prerequisites:** Python 3.14+, [uv](https://docs.astral.sh/uv/) package manager, PostgreSQL 16
 
 1. **Install dependencies:**
-
    ```bash
-   poetry install
+   uv sync
    ```
 
-   This command will create a virtual environment and install all required dependencies.
-
-2. **Create a `.env` file:**
-
-   - Create a `.env` file in the root of your project and add the required environment variables.
+2. **Create a `.env` file** with the required environment variables.
 
 3. **Run database migrations:**
-
    ```bash
-   poetry run alembic upgrade head
+   uv run task auhead
    ```
-
-   This command will execute the database migrations.
 
 4. **Run the application:**
    ```bash
-   poetry run task run
+   uv run task run
    ```
-   This command will start the application.
+
+### Seeding Mock Data
+
+The seed script creates 55 realistic job applications for testing:
+
+```bash
+# Full reset + seed (downgrade → upgrade → seed)
+uv run task seed
+
+# Or manually (server must be running)
+python scripts/seed_mock_data.py
+```
+
+## Authentication
+
+The API uses GitHub OAuth with access-only JWT cookies (no refresh token):
+
+1. `GET /api/auth/github/login` — Redirects to GitHub
+2. GitHub callback sets an `__access` HTTPOnly cookie
+3. `GET /api/auth/refresh` — Re-issues the cookie if still valid
+4. `GET /api/auth/logout` — Clears the cookie
+
+### Creating a GitHub OAuth App
+
+1. Visit [GitHub Developer Settings](https://github.com/settings/developers)
+2. Click "New OAuth App"
+3. Set Authorization callback URL to `http://127.0.0.1:8000/api/auth/github/callback`
+4. Copy Client ID and Client Secret to your `.env`
+
+## API Endpoints
+
+All endpoints (except OAuth) require authentication via the `__access` cookie.
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| **OAuth** | | |
+| GET | `/auth/github/login` | GitHub login redirect |
+| GET | `/auth/github/callback` | OAuth callback |
+| GET | `/auth/refresh` | Refresh access cookie |
+| GET | `/auth/logout` | Logout |
+| **Users** | | |
+| GET | `/users/me` | Get profile |
+| PATCH | `/users/me` | Update profile |
+| **Applications** | | |
+| POST | `/applications` | Create application |
+| GET | `/applications` | List applications |
+| PUT | `/applications/{id}` | Update application |
+| DELETE | `/applications/{id}` | Delete application |
+| POST | `/applications/{id}/finalize` | Finalize with feedback |
+| **Application Steps** | | |
+| GET | `/applications/{id}/steps` | List steps |
+| POST | `/applications/{id}/steps` | Create step |
+| PUT | `/applications/{id}/steps/{step_id}` | Update step |
+| DELETE | `/applications/{id}/steps/{step_id}` | Delete step |
+| **Companies** | | |
+| GET | `/companies` | List/search companies |
+| **Statistics** | | |
+| GET | `/applications/statistics` | General stats |
+| GET | `/applications/statistics/steps/conversion_rate` | Step conversion |
+| GET | `/applications/statistics/steps/avarage_days` | Avg days per step |
+| GET | `/applications/statistics/platforms` | Per-platform stats |
+| GET | `/applications/statistics/mode` | Active vs passive |
+| GET | `/applications/statistics/trends` | Daily trends |
+| **Biweekly Reports** | | |
+| GET | `/reports` | List reports |
+| GET | `/reports/{day}` | Get report details |
+| POST | `/reports/{day}/submit` | Submit report |
+| **Feedback** | | |
+| POST | `/feedbacks` | Submit app feedback |
+| **Support** | | |
+| GET | `/supports` | Steps, feedbacks, platforms |
+
+## Development Tasks
+
+```bash
+uv run task run            # Dev server (port 8000, hot reload)
+uv run task pytest         # Run tests with coverage
+uv run task ruff           # Lint and auto-fix
+uv run task autorevision   # Generate Alembic migration
+uv run task auhead         # Apply migrations
+uv run task adbase         # Rollback all migrations
+uv run task seed           # Reset DB + seed mock data
+```
 
 ---
 
-For more details, check the source code and configuration files. If you have any issues, feel free to ask for help!
+For more details, check the source code and `CLAUDE.md`. If you have any issues, feel free to ask for help!
