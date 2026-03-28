@@ -8,7 +8,7 @@ import { AuthProvider } from "@/contexts/auth-context";
 import { queryClient } from "@/lib/query-client";
 import type { ReactNode } from "react";
 
-export function Providers({ children }: { children: ReactNode }) {
+export function RootProviders({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

@@ -1,6 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { Providers } from "@/components/layout/providers";
+import { RootProviders } from "@/components/layout/root-providers";
 import { APP_CONFIG } from "@/config";
 
 export const metadata: Metadata = {
@@ -16,7 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <Providers>{children}</Providers>
+        <RootProviders>{children}</RootProviders>
       </body>
     </html>
   );
