@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { services } from "@/services/services";
 import type { Supports } from "@/services/types/supports";
@@ -25,8 +25,18 @@ export function SupportsProvider({ children }: { children: ReactNode }) {
     gcTime: Infinity,
   });
 
+  const supports = useMemo(() => {
+    if (!data) return undefined;
+    return {
+      ...data,
+      platforms: [...data.platforms].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+      ),
+    };
+  }, [data]);
+
   return (
-    <SupportsContext.Provider value={{ supports: data, isLoading }}>
+    <SupportsContext.Provider value={{ supports, isLoading }}>
       {children}
     </SupportsContext.Provider>
   );
