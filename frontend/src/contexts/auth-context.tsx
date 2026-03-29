@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import type { User } from "@/services/types/users";
 import { useUserProfile } from "@/hooks/use-user";
 import { services } from "@/services/services";
@@ -26,9 +26,11 @@ const CONNECTED_INTERVAL = 10 * 60_000; // 10 minutes
 const DISCONNECTED_INTERVAL = 30_000; // 30 seconds on failure
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { data: user, isLoading, isError: isUserError } = useUserProfile();
-
-  const { isError: isAuthError } = useQuery({
+  const {
+    isSuccess: isAuthSuccess,
+    isLoading: isAuthLoading,
+    isError: isAuthError,
+  } = useQuery({
     queryKey: ["applika-auth"],
     queryFn: () => services.auth.refresh(),
     retry: false,
@@ -37,6 +39,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       query.state.error ? DISCONNECTED_INTERVAL : CONNECTED_INTERVAL,
     refetchIntervalInBackground: true,
   });
+
+  const {
+    data: user,
+    isLoading: isUserLoading,
+    isError: isUserError,
+  } = useUserProfile(isAuthSuccess);
+
+  const isLoading = isAuthLoading || (isAuthSuccess && isUserLoading);
 
   const handleLogout = async () => {
     try {

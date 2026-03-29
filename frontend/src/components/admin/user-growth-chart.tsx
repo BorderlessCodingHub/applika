@@ -64,7 +64,10 @@ export function UserGrowthChart() {
                 tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
                 stroke="none"
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip
+                content={<CustomTooltip />}
+                cursor={{ fill: "#8d8d8d12" }}
+              />
               <Area
                 type="monotone"
                 dataKey="total_users"
@@ -125,7 +128,10 @@ export function NewUsersBarChart() {
                 stroke="none"
                 allowDecimals={false}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip
+                content={<CustomTooltip />}
+                cursor={{ fill: "#8d8d8d12" }}
+              />
               <Bar
                 dataKey="new_users"
                 name="New Users"

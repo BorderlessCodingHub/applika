@@ -9,10 +9,35 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  LabelList,
 } from "recharts";
 import { useStepAvgDays } from "@/hooks/use-statistics";
-import { CustomTooltip } from "./chart-styles";
 import { Card } from "../ui/card";
+import { CustomTooltip } from "./chart-styles";
+
+function renderInsideLabel(props: Record<string, unknown>) {
+  const { x, y, width, height, value } = props as {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    value: number;
+  };
+  if (!value || height < 24) return null;
+  return (
+    <text
+      x={x + width - 30}
+      y={y + 13}
+      fill="white"
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontSize={16}
+      fontWeight={700}
+    >
+      {value}
+    </text>
+  );
+}
 
 export function AvgDaysPerStepChart() {
   const { data, isLoading } = useStepAvgDays();
@@ -43,8 +68,10 @@ export function AvgDaysPerStepChart() {
               width={80}
               stroke="none"
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: "#8d8d8d12" }} />
             <Bar dataKey="average_days" radius={[0, 4, 4, 0]}>
+              <LabelList dataKey="average_days" content={renderInsideLabel} />
+
               {(data ?? []).map((entry, i) => (
                 <Cell key={i} fill={entry.color} />
               ))}

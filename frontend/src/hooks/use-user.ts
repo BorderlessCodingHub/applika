@@ -5,10 +5,11 @@ import { UpdateUserPayload } from "@/services/types/users";
 
 const USER_QUERY_KEY = ["user", "me"] as const;
 
-export function useUserProfile() {
+export function useUserProfile(enabled = true) {
   return useQuery({
     queryKey: USER_QUERY_KEY,
     queryFn: () => services.users.getMe(),
+    enabled,
   });
 }
 

@@ -8,7 +8,7 @@ Job application tracker built with Next.js 16, App Router, and static export. Co
 frontend/
 ├── docker/              # Docker configuration
 │   ├── Dockerfile       # Multi-stage build (Node + Nginx)
-│   └── nginx.conf       # Nginx config with static file caching
+│   └── nginx.conf       # Nginx config with SPA routing and caching
 ├── public/              # Static files
 │   └── images/          # Image assets
 ├── src/
@@ -25,25 +25,26 @@ frontend/
 │   │   ├── applications/
 │   │   ├── dashboard/
 │   │   ├── landing/
-│   │   ├── layout/
+│   │   ├── layout/          # App layout, root & protected providers
 │   │   ├── profile/
 │   │   ├── reports/
 │   │   └── ui/              # shadcn/ui primitives (Radix + Tailwind)
 │   ├── contexts/        # React contexts
-│   │   ├── auth-context.tsx     # Auth state & user session
+│   │   ├── auth-context.tsx     # Auth state & polling-based token refresh
 │   │   └── supports-context.tsx # Shared lookup data
 │   ├── hooks/           # Custom hooks (data fetching & mutations)
 │   ├── lib/             # Utilities, Axios client, React Query config
 │   ├── services/        # Service layer (DI pattern)
 │   │   ├── implementations/    # Concrete API service classes
 │   │   ├── interfaces/         # Service contracts
-│   │   └── types/              # Request/response types
+│   │   ├── types/              # Request/response types
+│   │   └── services.ts         # Singleton DI container
 │   └── test/            # Test utilities
 ```
 
 ## Prerequisites
 
-- Node.js 20 or higher
+- Node.js 22 or higher
 - pnpm (latest version recommended)
 
 ## Environment Setup
@@ -77,20 +78,23 @@ pnpm build
 |---|---|
 | `pnpm dev` | Start development server on port 8080 |
 | `pnpm build` | Create production build (static export to `out/`) |
+| `pnpm start` | Serve production build locally on port 8080 |
 | `pnpm test` | Run tests with Vitest |
 | `pnpm test:watch` | Run tests in watch mode |
 | `pnpm lint` | Run ESLint |
 | `pnpm lint-fix` | Run ESLint with auto-fix |
 
-## Docker Support
+## Docker
 
 The project includes a multi-stage Docker build (Node.js build + Nginx) and Docker Compose:
 
 ```bash
-docker compose --env-file .env.local up --build
+docker compose up --build
 ```
 
-The `API_BASE_URL` build argument is read from your `.env.local` and baked into the static bundle at build time. The Nginx image runs as a non-root user with caching configured for static assets.
+The `API_BASE_URL` build argument defaults to `http://127.0.0.1/api` and is baked into the static bundle at build time. Override it by setting `NEXT_PUBLIC_API_BASE_URL` in your environment before building.
+
+The Nginx image runs as a non-root user with gzip compression, SPA routing, and long-lived caching for static assets.
 
 ## Accessing the Application
 
@@ -108,15 +112,16 @@ After starting the development server or Docker container, the application will 
 | Styling | Tailwind CSS + shadcn/ui (Radix UI) |
 | State | TanStack React Query + React Context |
 | Forms | React Hook Form + Zod |
-| HTTP | Axios (cookie-based JWT auth with silent refresh) |
+| HTTP | Axios (cookie-based JWT auth) |
 | Charts | Recharts |
 | Testing | Vitest + Testing Library |
 | Linting | ESLint + Prettier |
 
-## Development Notes
+## Architecture Notes
 
 - The app is exported as static HTML/JS/CSS — no Node.js server in production
-- Authentication uses HTTP-only JWT cookies (`__access` + `__refresh`) with GitHub OAuth
+- Authentication uses HTTP-only JWT cookies with GitHub OAuth
+- Token refresh is handled via polling in AuthContext (10-min interval when connected, 30-sec on failure)
 - Protected routes redirect unauthenticated users to `/login`
-- All API calls go through typed service classes with a DI container (`src/services/`)
+- All API calls go through typed service classes with a DI container (`src/services/services.ts`)
 - Environment variables must be prefixed with `NEXT_PUBLIC_` to be accessible in the browser

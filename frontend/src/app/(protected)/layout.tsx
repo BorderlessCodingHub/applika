@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { SupportsProvider } from "@/contexts/supports-context";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Loader2 } from "lucide-react";
+import { ProtectedProviders } from "@/components/layout/protected-providers";
 
 export default function ProtectedLayout({
   children,
@@ -34,8 +35,10 @@ export default function ProtectedLayout({
   }
 
   return (
-    <SupportsProvider>
-      <AppLayout>{children}</AppLayout>
-    </SupportsProvider>
+    <ProtectedProviders>
+      <SupportsProvider>
+        <AppLayout>{children}</AppLayout>
+      </SupportsProvider>
+    </ProtectedProviders>
   );
 }
