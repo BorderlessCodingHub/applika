@@ -114,12 +114,14 @@ interface Props {
 }
 
 function buildDefaultValues(application: Application | null) {
+  const company = application?.company_id
+    ? application.company_id
+    : application?.company_name
+      ? { name: application.company_name, url: "" }
+      : undefined;
+
   return {
-    company: application?.company_id
-      ? application.company_id
-      : application?.company_name
-        ? { name: application.company_name, url: "" }
-        : undefined,
+    company,
     role: application?.role ?? undefined,
     platform_id: application?.platform_id ?? "",
     mode: application?.mode ?? undefined,
@@ -153,7 +155,7 @@ export function ApplicationFormSheet({
 }: Props) {
   const { supports } = useSupports();
   const { fetchCompanies } = useCompanySearch();
-  const { submit, isPending } = useApplicationMutate({
+  const { submit: applicationSubmit, isPending } = useApplicationMutate({
     applicationId: application ? application.id : undefined,
     onSuccess: () => onOpenChange(false),
   });
@@ -170,7 +172,10 @@ export function ApplicationFormSheet({
   }) as string | undefined;
   const isCompanyObject = companyName !== undefined;
 
-  const watchCurrency = useWatch({ control: form.control, name: "currency" });
+  const watchCurrency = useWatch({
+    control: form.control,
+    name: "currency",
+  });
   const watchSalaryPeriod = useWatch({
     control: form.control,
     name: "salary_period",
@@ -179,14 +184,33 @@ export function ApplicationFormSheet({
     control: form.control,
     name: "platform_id",
   });
-  const watchMode = useWatch({ control: form.control, name: "mode" });
-  const watchWorkMode = useWatch({ control: form.control, name: "work_mode" });
+  const watchMode = useWatch({
+    control: form.control,
+    name: "mode",
+  });
+  const watchWorkMode = useWatch({
+    control: form.control,
+    name: "work_mode",
+  });
   const watchExperienceLevel = useWatch({
     control: form.control,
     name: "experience_level",
   });
   const salaryEnabled = !!watchCurrency && !!watchSalaryPeriod;
   const currencySymbol = watchCurrency ? getCurrencySymbol(watchCurrency) : "$";
+
+  const companySelectValue = useMemo(
+    () => buildCompanySelectDefaultValue(application),
+    [application?.company_id, application?.company_name],
+  );
+
+  const companyUrlInputError = (() => {
+    if (!isCompanyObject) return undefined;
+
+    type CmpUrlError = undefined | { url?: { message?: string } };
+    const cmpErr = form.formState.errors.company as CmpUrlError;
+    return cmpErr?.url;
+  })();
 
   async function handleFormSubmit(data: FormData) {
     const includeSalary = !!data.currency && !!data.salary_period;
@@ -208,21 +232,8 @@ export function ApplicationFormSheet({
       country: data.country,
       observation: data.observation,
     };
-    await submit(payload);
+    await applicationSubmit(payload);
   }
-
-  const companySelectValue = useMemo(
-    () => buildCompanySelectDefaultValue(application),
-    [application?.company_id, application?.company_name],
-  );
-
-  const companyUrlInputError = (() => {
-    if (!isCompanyObject) return undefined;
-
-    type CmpUrlError = undefined | { url?: { message?: string } };
-    const cmpErr = form.formState.errors.company as CmpUrlError;
-    return cmpErr?.url;
-  })();
 
   return (
     <Sheet open={open}>
