@@ -63,10 +63,18 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
     inputValueRef.current = inputValue;
   });
 
-  // Sync internal state when the value prop changes (e.g. different application loaded)
+  // Sync internal state AND form value when the value prop changes (e.g. different application loaded)
   React.useEffect(() => {
-    setSelectedCompany(value ?? null);
-  }, [value?.id]);
+    const company = value ?? null;
+    setSelectedCompany(company);
+    if (company) {
+      setCompanyValue(
+        "company",
+        company.id ? company.id : { name: company.name, url: company.url ?? "" },
+        { shouldValidate: false },
+      );
+    }
+  }, [value?.id, value?.name, setCompanyValue]);
 
   // Sync display input when popover closes or selected company changes
   React.useEffect(() => {

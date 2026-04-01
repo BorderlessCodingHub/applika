@@ -115,7 +115,11 @@ interface Props {
 
 function buildDefaultValues(application: Application | null) {
   return {
-    company: application?.company_id ?? undefined,
+    company: application?.company_id
+      ? application.company_id
+      : application?.company_name
+        ? { name: application.company_name, url: "" }
+        : undefined,
     role: application?.role ?? undefined,
     platform_id: application?.platform_id ?? "",
     mode: application?.mode ?? undefined,
