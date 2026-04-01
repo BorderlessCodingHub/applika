@@ -13,6 +13,15 @@ import { UseFormReturn } from "react-hook-form";
 import { CompanyOptionsList } from "./company-select-options";
 import { Label } from "../ui/label";
 
+// ---------------------------------------------------------------------------
+// Form typing
+// ---------------------------------------------------------------------------
+// The `company` field in the parent form is polymorphic:
+//   - string   → ID of an existing company selected from the dropdown
+//   - object   → new company created inline ({ name, url })
+//   - undefined → nothing selected yet
+// ---------------------------------------------------------------------------
+
 interface CompanyFormReturn {
   company?:
     | string
@@ -25,14 +34,27 @@ interface CompanyFormReturn {
 type CompanyForm<T extends CompanyFormReturn> = UseFormReturn<T>;
 
 interface CompanySelectProps<TForm extends CompanyFormReturn> {
+  /** The react-hook-form instance that owns the `company` field. */
   form: CompanyForm<TForm>;
+  /** External company value used to seed the select when editing an application. */
   value?: Company | null;
+  /** Async search function that returns matching companies from the API. */
   fetchCompanies: (query: string) => Promise<Company[]>;
   placeholder?: string;
 }
 
 // ---------------------------------------------------------------------------
-// CompanySelectBase — trigger UI, form integration, error display
+// CompanySelectBase
+// ---------------------------------------------------------------------------
+// A searchable combobox that lets the user either pick an existing company
+// or type a new name to create one inline.
+//
+// State flow:
+//   1. `selectedCompany` (local) tracks what the user picked / typed.
+//   2. Every selection/creation also writes into the parent form via
+//      `setCompanyValue` so the form's `company` field stays in sync.
+//   3. The `value` prop seeds the initial state (edit mode) and is re-synced
+//      via useEffect when the parent passes a different application.
 // ---------------------------------------------------------------------------
 
 function CompanySelectBase<TForm extends CompanyFormReturn>({
@@ -46,15 +68,21 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
   const [selectedCompany, setSelectedCompany] = React.useState<Company | null>(
     value ?? null,
   );
+  // Incrementing key forces CompanyOptionsList to remount (resets its internal
+  // search cache) every time the popover opens.
   const [listKey, setListKey] = React.useState(0);
 
+  // Narrowed setValue — avoids generic form typing issues when writing to the
+  // polymorphic `company` field (string | object).
   const setCompanyValue = form.setValue as (
     name: "company",
     value: string | { name: string; url?: string },
     options?: { shouldValidate: boolean },
   ) => void;
 
-  // Refs used by stable callbacks to read latest state without stale closures
+  // Refs mirror the latest state so that useCallback handlers (which have a
+  // stable identity for the memoized CompanyOptionsList) can read fresh values
+  // without re-creating themselves on every render.
   const selectedCompanyRef = React.useRef(selectedCompany);
   const inputValueRef = React.useRef(inputValue);
 
@@ -63,11 +91,15 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
     inputValueRef.current = inputValue;
   });
 
-  // Sync internal state AND form value when the value prop changes (e.g. different application loaded)
+  // Sync internal state AND form value when the external `value` prop changes
+  // (e.g. parent loads a different application for editing). Without this the
+  // UI would show the correct company name but the form field would remain
+  // stale/undefined, causing validation to fail on submit.
   React.useEffect(() => {
     const company = value ?? null;
     setSelectedCompany(company);
     if (company) {
+      // Existing company → write its ID; new/free-text company → write object
       setCompanyValue(
         "company",
         company.id ? company.id : { name: company.name, url: company.url ?? "" },
@@ -76,12 +108,14 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
     }
   }, [value?.id, value?.name, setCompanyValue]);
 
-  // Sync display input when popover closes or selected company changes
+  // Keep the visible text in the trigger button up-to-date whenever the
+  // popover closes or the selected company changes from outside.
   React.useEffect(() => {
     if (open) return;
     setInputValue(selectedCompany?.name ?? "");
   }, [open, selectedCompany?.id, selectedCompany?.name]);
 
+  /** Select an existing company (writes the company ID to the form). */
   function onCompanySelect(company: Company | null) {
     setSelectedCompany(company);
     setCompanyValue("company", company ? company.id : "", {
@@ -89,6 +123,9 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
     });
   }
 
+  /** Create a new company inline (writes a { name, url } object to the form).
+   *  Triggered when the user closes the popover with typed text that doesn't
+   *  match any existing company. */
   function onCompanyCreate(prefill: string) {
     setSelectedCompany({ id: "", name: prefill, url: "" });
     setCompanyValue(
@@ -98,6 +135,9 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
     );
   }
 
+  /** Extracts the appropriate error message depending on whether the current
+   *  company value is a string (existing) or an object (new). The Zod schema
+   *  places errors at different paths for each variant. */
   function getCompanyErrorMsg() {
     const isObj = selectedCompany !== null && !selectedCompany.id;
     if (!isObj) {
@@ -109,7 +149,15 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
       .name?.message;
   }
 
-  // Stable callbacks passed to the memoized CompanyOptionsList
+  // -------------------------------------------------------------------------
+  // Stable callbacks passed to the memoized CompanyOptionsList.
+  // They use refs instead of state to avoid re-creating on every render,
+  // which would remount the options list and lose its internal state.
+  // -------------------------------------------------------------------------
+
+  /** Called on every keystroke inside the popover search input. If the user
+   *  edits the text away from the currently selected company name, the
+   *  selection is cleared so the form doesn't submit a stale company ID. */
   const handleInputChange = React.useCallback(
     (search: string) => {
       setInputValue(search);
@@ -124,6 +172,7 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
     [setCompanyValue],
   );
 
+  /** Called when the user picks a company from the dropdown list. */
   const handleSelect = React.useCallback(
     (company: Company) => {
       setSelectedCompany(company);
@@ -134,6 +183,8 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
     [setCompanyValue],
   );
 
+  /** Called when the user clicks "Create new" in the dropdown. Uses the
+   *  current search text as the new company name. */
   const handleCreateNew = React.useCallback(() => {
     const prefill = inputValueRef.current.trim();
     setSelectedCompany({ id: "", name: prefill, url: "" });
@@ -165,6 +216,9 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
 
   const companyNameError = getCompanyErrorMsg();
   const displayValue = inputValue || selectedCompany?.name || "";
+
+  // Only highlight the selected row in the dropdown when the input text
+  // exactly matches the company name — prevents stale highlights while typing.
   const effectiveSelectedId =
     selectedCompany?.id && inputValue === selectedCompany.name
       ? selectedCompany.id
@@ -236,6 +290,19 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
 
 export const CompanySelect = CompanySelectBase;
 
+// ---------------------------------------------------------------------------
+// Validation & parsing helpers
+// ---------------------------------------------------------------------------
+// Exported as `ZodType` and consumed by the parent form schema.
+//
+// The company field is a **discriminated union** at the form level:
+//   - string   → existing company selected by ID
+//   - object   → new company typed by the user ({ name, url })
+//
+// `ZodSchema`    validates either variant before form submission.
+// `parseSchema`  normalises the validated value into the API payload shape.
+// ---------------------------------------------------------------------------
+
 const ZodSchema = z
   .union([
     z.string().optional(),
@@ -297,13 +364,15 @@ type ParseArgType =
   | string
   | { name?: string | undefined; url?: string | undefined }
   | undefined;
+
+/** Converts the validated form value into the shape expected by the API:
+ *  - string (company ID) is trimmed and passed through
+ *  - object is normalised: name trimmed, empty url coerced to null */
 function parseSchema(value: ParseArgType) {
-  // String stays string (trimmed)
   if (typeof value === "string") {
     return value.trim();
   }
 
-  // Object normalization
   return {
     name: (value?.name ?? "").trim(),
     url: value?.url && value.url !== "" ? value.url : null,
