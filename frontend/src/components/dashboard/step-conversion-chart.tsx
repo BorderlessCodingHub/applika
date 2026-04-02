@@ -87,6 +87,7 @@ export function StepConversionChart() {
               tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
               stroke="none"
               tickFormatter={(v: number) => `${v}%`}
+              domain={[0, (max: number) => Math.ceil((max + 10) / 10) * 10]}
             />
             <Tooltip
               content={<CustomTooltip sufix="%" />}
