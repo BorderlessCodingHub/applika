@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
+import { CycleProvider } from "@/contexts/cycle-context";
 import { SupportsProvider } from "@/contexts/supports-context";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Loader2 } from "lucide-react";
@@ -37,7 +38,9 @@ export default function ProtectedLayout({
   return (
     <ProtectedProviders>
       <SupportsProvider>
-        <AppLayout>{children}</AppLayout>
+        <CycleProvider>
+          <AppLayout>{children}</AppLayout>
+        </CycleProvider>
       </SupportsProvider>
     </ProtectedProviders>
   );

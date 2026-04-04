@@ -38,6 +38,8 @@ import {
 } from "@/components/applications/application-item";
 import { Card } from "@/components/ui/card";
 import { DatePickerInput } from "@/components/ui/date-picker";
+import { CycleSelector } from "@/components/layout/cycle-selector";
+import { useCycleContext } from "@/contexts/cycle-context";
 
 interface ApplicationAction {
   action:
@@ -54,6 +56,7 @@ interface ApplicationAction {
 }
 
 export function ApplicationsPage() {
+  const { selectedCycleId, isViewingPastCycle } = useCycleContext();
   const {
     filtered,
     isLoading,
@@ -62,7 +65,7 @@ export function ApplicationsPage() {
     clearFilters,
     hasAdvancedFilters,
     supports,
-  } = useApplications();
+  } = useApplications(selectedCycleId);
   const { deleteApplication } = useApplicationDelete();
 
   const [appAction, setAppAction] = useState<ApplicationAction>({
@@ -99,13 +102,20 @@ export function ApplicationsPage() {
               Applications
             </h1>
             <p className="mt-0.5 text-base text-muted-foreground">
-              {filtered.length} items
+              {isViewingPastCycle
+                ? "Viewing archived cycle"
+                : `${filtered.length} items`}
             </p>
           </div>
-          <Button onClick={handleNewClick} size="sm" className="gap-1.5">
-            <Plus className="h-4 w-4" />
-            New Application
-          </Button>
+          <div className="flex items-center gap-3">
+            <CycleSelector />
+            {!isViewingPastCycle && (
+              <Button onClick={handleNewClick} size="sm" className="gap-1.5">
+                <Plus className="h-4 w-4" />
+                New Application
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Filters */}
@@ -290,10 +300,16 @@ export function ApplicationsPage() {
                 <ApplicationItem
                   key={app.id}
                   app={app}
-                  onEditClick={handleEditClick}
-                  onNewStepClick={handleStepClick}
-                  onFinalizeClick={handleFinalizeClick}
-                  onDeleteClick={handleDeleteClick}
+                  onEditClick={isViewingPastCycle ? undefined : handleEditClick}
+                  onNewStepClick={
+                    isViewingPastCycle ? undefined : handleStepClick
+                  }
+                  onFinalizeClick={
+                    isViewingPastCycle ? undefined : handleFinalizeClick
+                  }
+                  onDeleteClick={
+                    isViewingPastCycle ? undefined : handleDeleteClick
+                  }
                 >
                   <ApplicationStepTimeline
                     id={app.id}

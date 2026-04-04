@@ -47,8 +47,8 @@ function StatCard({
   );
 }
 
-export function StatCards() {
-  const { data, isLoading } = useGeneralStats();
+export function StatCards({ cycleId }: { cycleId?: string | null }) {
+  const { data, isLoading } = useGeneralStats(cycleId);
 
   const active = data
     ? data.total_applications - (data.denials ?? 0) - (data.offers ?? 0)

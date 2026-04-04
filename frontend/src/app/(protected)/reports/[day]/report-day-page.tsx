@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ReportDays, type ReportDaysType } from "@/services/types/reports";
 import { useReportDetail } from "@/hooks/use-repports";
+import { useCycleContext } from "@/contexts/cycle-context";
 import { ReportForm } from "@/components/reports/report-form";
 import { ReportReadOnly } from "@/components/reports/report-view";
 import { FormSkeleton } from "@/components/reports/sub-components";
@@ -42,11 +43,13 @@ interface ReportDetailProps {
 }
 
 function ReportDetail({ dayInterval, onCancel }: ReportDetailProps) {
+  const { selectedCycleId } = useCycleContext();
   const [startDate, setStartDate] = useState<string | undefined>(undefined);
 
   const { reportData, isLoading, isAvailable } = useReportDetail(
     dayInterval,
     startDate,
+    selectedCycleId,
   );
 
   useEffect(() => {

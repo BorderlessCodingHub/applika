@@ -2,6 +2,7 @@
 
 import { Eye, FileText } from "lucide-react";
 import { useReports } from "@/hooks/use-repports";
+import { useCycleContext } from "@/contexts/cycle-context";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReportStatusBadge } from "./status-badge";
@@ -153,7 +154,8 @@ function ReportRow({
 }
 
 export function ReportsList({ onFillReport, onViewReport }: ReportsListProps) {
-  const { reports, currentDay, isLoading } = useReports();
+  const { selectedCycleId } = useCycleContext();
+  const { reports, currentDay, isLoading } = useReports(selectedCycleId);
 
   if (isLoading) return <ListSkeleton />;
 

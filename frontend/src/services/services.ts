@@ -1,3 +1,4 @@
+import { CycleService } from "./implementations/cycle-service";
 import { FeedbackService } from "./implementations/feedback-service";
 import { AuthService } from "./implementations/auth-service";
 import { UserService } from "@/services/implementations/user-service";
@@ -16,6 +17,7 @@ class ServiceContainer {
   companies = new CompanyService();
   reports = new ReportsService();
   feedbacks = new FeedbackService();
+  cycles = new CycleService();
 }
 
 export const services = new ServiceContainer();

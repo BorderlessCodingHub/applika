@@ -7,7 +7,7 @@ import type {
 } from "@/services/types/applications";
 
 export interface IApplicationService {
-  getApplications(): Promise<Application[]>;
+  getApplications(cycleId?: string | null): Promise<Application[]>;
   createApplication(data: CreateApplicationPayload): Promise<Application>;
   updateApplication(
     id: string,

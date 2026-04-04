@@ -55,7 +55,7 @@ function appDateRange(
   return true;
 }
 
-export function useApplications() {
+export function useApplications(cycleId?: string | null) {
   const { supports } = useSupports();
 
   const [filters, setFilters] = useState<ApplicationFilters>(DEFAULT_FILTERS);
@@ -73,8 +73,8 @@ export function useApplications() {
   const clearFilters = useCallback(() => setFilters(DEFAULT_FILTERS), []);
 
   const query = useQuery({
-    queryKey: ["applications"],
-    queryFn: () => services.applications.getApplications(),
+    queryKey: ["applications", cycleId ?? "current"],
+    queryFn: () => services.applications.getApplications(cycleId),
   });
 
   const hasAdvancedFilters =

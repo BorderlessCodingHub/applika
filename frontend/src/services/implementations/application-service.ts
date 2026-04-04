@@ -9,8 +9,11 @@ import type {
 } from "@/services/types/applications";
 
 export class ApplicationService implements IApplicationService {
-  getApplications(): Promise<Application[]> {
-    return api.get<Application[]>("/applications").then((r) => r.data);
+  getApplications(cycleId?: string | null): Promise<Application[]> {
+    const params = cycleId ? { cycle_id: cycleId } : {};
+    return api
+      .get<Application[]>("/applications", { params })
+      .then((r) => r.data);
   }
 
   createApplication(data: CreateApplicationPayload): Promise<Application> {

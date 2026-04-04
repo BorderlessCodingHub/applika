@@ -39,8 +39,12 @@ function renderInsideLabel(props: Record<string, unknown>) {
   );
 }
 
-export function AvgDaysPerStepChart() {
-  const { data, isLoading } = useStepAvgDays();
+export function AvgDaysPerStepChart({
+  cycleId,
+}: {
+  cycleId?: string | null;
+}) {
+  const { data, isLoading } = useStepAvgDays(cycleId);
 
   return (
     <Card className="animate-fade-in-up p-5">

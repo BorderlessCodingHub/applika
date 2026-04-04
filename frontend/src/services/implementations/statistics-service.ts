@@ -10,16 +10,24 @@ import type {
   ModeStat,
 } from "@/services/types/statistics";
 
+function cycleParams(cycleId?: string | null) {
+  return cycleId ? { cycle_id: cycleId } : {};
+}
+
 export class StatisticsService implements IStatisticsService {
-  getGeneralStats(): Promise<GeneralStats> {
+  getGeneralStats(cycleId?: string | null): Promise<GeneralStats> {
     return api
-      .get<GeneralStats>("/applications/statistics")
+      .get<GeneralStats>("/applications/statistics", {
+        params: cycleParams(cycleId),
+      })
       .then((r) => r.data);
   }
 
-  getTrends(): Promise<TrendPoint[]> {
+  getTrends(cycleId?: string | null): Promise<TrendPoint[]> {
     return api
-      .get<ApiTrendPoint[]>("/applications/statistics/trends")
+      .get<ApiTrendPoint[]>("/applications/statistics/trends", {
+        params: cycleParams(cycleId),
+      })
       .then((r) =>
         r.data.map(
           (value) =>
@@ -32,27 +40,35 @@ export class StatisticsService implements IStatisticsService {
       );
   }
 
-  getStepConversion(): Promise<StepConversion[]> {
+  getStepConversion(cycleId?: string | null): Promise<StepConversion[]> {
     return api
-      .get<StepConversion[]>("/applications/statistics/steps/conversion_rate")
+      .get<StepConversion[]>("/applications/statistics/steps/conversion_rate", {
+        params: cycleParams(cycleId),
+      })
       .then((r) => r.data);
   }
 
-  getStepAvgDays(): Promise<StepAvgDays[]> {
+  getStepAvgDays(cycleId?: string | null): Promise<StepAvgDays[]> {
     return api
-      .get<StepAvgDays[]>("/applications/statistics/steps/avarage_days")
+      .get<StepAvgDays[]>("/applications/statistics/steps/avarage_days", {
+        params: cycleParams(cycleId),
+      })
       .then((r) => r.data);
   }
 
-  getPlatformStats(): Promise<PlatformStat[]> {
+  getPlatformStats(cycleId?: string | null): Promise<PlatformStat[]> {
     return api
-      .get<PlatformStat[]>("/applications/statistics/platforms")
+      .get<PlatformStat[]>("/applications/statistics/platforms", {
+        params: cycleParams(cycleId),
+      })
       .then((r) => r.data);
   }
 
-  getModeStats(): Promise<ModeStat> {
+  getModeStats(cycleId?: string | null): Promise<ModeStat> {
     return api
-      .get<ModeStat>("/applications/statistics/mode")
+      .get<ModeStat>("/applications/statistics/mode", {
+        params: cycleParams(cycleId),
+      })
       .then((r) => r.data);
   }
 }

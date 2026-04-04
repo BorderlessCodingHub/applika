@@ -16,8 +16,12 @@ import { CustomTooltip } from "./chart-styles";
 import { RangeSlider } from "@/components/ui/range-slider";
 import { Card } from "../ui/card";
 
-export function ApplicationTrendChart() {
-  const { data: trends, isLoading } = useTrends();
+export function ApplicationTrendChart({
+  cycleId,
+}: {
+  cycleId?: string | null;
+}) {
+  const { data: trends, isLoading } = useTrends(cycleId);
   const { data: stats } = useGeneralStats();
 
   const total = stats?.total_applications ?? 0;

@@ -43,10 +43,10 @@ import { formatSalary } from "@/options";
 
 interface ApplicationItemProps {
   app: Application;
-  onNewStepClick: (app: Application) => void;
-  onEditClick: (app: Application) => void;
-  onFinalizeClick: (app: Application) => void;
-  onDeleteClick: (app: Application) => void;
+  onNewStepClick?: (app: Application) => void;
+  onEditClick?: (app: Application) => void;
+  onFinalizeClick?: (app: Application) => void;
+  onDeleteClick?: (app: Application) => void;
   children: React.ReactNode;
 }
 
@@ -142,40 +142,46 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
             className="flex items-center gap-1"
             onClick={(e) => e.stopPropagation()}
           >
-            {!props.app.finalized && (
+            {!props.app.finalized && props.onNewStepClick && (
               <>
                 <button
-                  onClick={() => props.onNewStepClick(props.app)}
+                  onClick={() => props.onNewStepClick!(props.app)}
                   className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   title="Add step"
                 >
                   <ListPlus className="h-4 w-4" />
                 </button>
 
-                <button
-                  onClick={() => props.onEditClick(props.app)}
-                  className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  title="Edit"
-                >
-                  <Edit className="h-4 w-4" />
-                </button>
+                {props.onEditClick && (
+                  <button
+                    onClick={() => props.onEditClick!(props.app)}
+                    className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    title="Edit"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                )}
 
-                <button
-                  onClick={() => props.onFinalizeClick(props.app)}
-                  className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  title="Finalize"
-                >
-                  <Flag className="h-4 w-4" />
-                </button>
+                {props.onFinalizeClick && (
+                  <button
+                    onClick={() => props.onFinalizeClick!(props.app)}
+                    className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    title="Finalize"
+                  >
+                    <Flag className="h-4 w-4" />
+                  </button>
+                )}
               </>
             )}
-            <button
-              onClick={() => props.onDeleteClick(props.app)}
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-              title="Delete"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            {props.onDeleteClick && (
+              <button
+                onClick={() => props.onDeleteClick!(props.app)}
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                title="Delete"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
             <button
               onClick={() => setExpanded((current) => !current)}
               className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent"

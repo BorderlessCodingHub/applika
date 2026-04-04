@@ -61,8 +61,12 @@ function renderTopLabel(props: Record<string, unknown>) {
   );
 }
 
-export function StepConversionChart() {
-  const { data, isLoading } = useStepConversion();
+export function StepConversionChart({
+  cycleId,
+}: {
+  cycleId?: string | null;
+}) {
+  const { data, isLoading } = useStepConversion(cycleId);
 
   return (
     <Card className="animate-fade-in-up p-5">

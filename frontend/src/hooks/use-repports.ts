@@ -23,10 +23,12 @@ function reportDetailPrefixKey(day: ReportDaysType | 0) {
 export function useReportDetail(
   day: ReportDaysType | null,
   startDate?: string,
+  cycleId?: string | null,
 ) {
   const query = useQuery({
-    queryKey: reportDetailKey(day ?? 0, startDate),
-    queryFn: () => services.reports.fetchReportDetail(day!, startDate),
+    queryKey: [...reportDetailKey(day ?? 0, startDate), cycleId ?? "current"],
+    queryFn: () =>
+      services.reports.fetchReportDetail(day!, startDate, cycleId),
     enabled: day !== null,
     placeholderData: keepPreviousData,
   });
@@ -42,10 +44,10 @@ export function useReportDetail(
   } as const;
 }
 
-export function useReports() {
+export function useReports(cycleId?: string | null) {
   const query = useQuery({
-    queryKey: REPORTS_KEY,
-    queryFn: () => services.reports.fetchReports(),
+    queryKey: [...REPORTS_KEY, cycleId ?? "current"],
+    queryFn: () => services.reports.fetchReports(cycleId),
   });
 
   return {

@@ -4,8 +4,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { usePlatformStats } from "@/hooks/use-statistics";
 import { Card } from "../ui/card";
 
-export function PlatformBreakdown() {
-  const { data, isLoading } = usePlatformStats();
+export function PlatformBreakdown({ cycleId }: { cycleId?: string | null }) {
+  const { data, isLoading } = usePlatformStats(cycleId);
 
   const { sorted, total } = useMemo(() => {
     if (!data?.length) return { sorted: [], total: 0 };

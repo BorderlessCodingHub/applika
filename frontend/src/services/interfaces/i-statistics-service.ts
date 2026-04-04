@@ -8,10 +8,10 @@ import type {
 } from "@/services/types/statistics";
 
 export interface IStatisticsService {
-  getGeneralStats(): Promise<GeneralStats>;
-  getTrends(): Promise<TrendPoint[]>;
-  getStepConversion(): Promise<StepConversion[]>;
-  getStepAvgDays(): Promise<StepAvgDays[]>;
-  getPlatformStats(): Promise<PlatformStat[]>;
-  getModeStats(): Promise<ModeStat>;
+  getGeneralStats(cycleId?: string | null): Promise<GeneralStats>;
+  getTrends(cycleId?: string | null): Promise<TrendPoint[]>;
+  getStepConversion(cycleId?: string | null): Promise<StepConversion[]>;
+  getStepAvgDays(cycleId?: string | null): Promise<StepAvgDays[]>;
+  getPlatformStats(cycleId?: string | null): Promise<PlatformStat[]>;
+  getModeStats(cycleId?: string | null): Promise<ModeStat>;
 }
