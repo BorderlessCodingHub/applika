@@ -13,7 +13,8 @@ async def reset_pk_sequences(db_session: AsyncSession):
     resets every sequence to MAX(id) of its table so auto-increments work.
     """
     tables = ['users', 'companies', 'platforms', 'feedbacks_definition',
-              'steps_definition', 'applications', 'application_steps']
+              'steps_definition', 'applications', 'application_steps',
+              'cycles']
     for table in tables:
         await db_session.execute(text(
             f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
