@@ -3,6 +3,7 @@ from app.application.dto.application_step import (
     ApplicationStepCreateDTO,
     ApplicationStepDTO,
 )
+from app.config.logging import logger
 from app.core.exceptions import ApplicationFinalized, ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -46,6 +47,15 @@ class CreateApplicationStepUseCase:
             raise ResourceNotFound('Step not found or is invalid')
 
         application_step = await self.application_step_repo.create(data)
+        logger.info(
+            f'Step created for application {data.application_id}',
+            extra={'extra_data': {
+                'event': 'application_step_created',
+                'application_id': data.application_id,
+                'step_id': data.step_id,
+                'user_id': user_id,
+            }},
+        )
         result = ApplicationStepDTO.model_validate(application_step)
         result.step_name = step.name
         return result

@@ -5,6 +5,8 @@ from fastapi import APIRouter
 from fastapi.params import Query
 from pydantic import BeforeValidator
 
+from app.lib.types import SnowflakeID
+
 from app.application.dto.quinzenal_report import (
     ReportDays,
     SubmitReportPayloadDTO,
@@ -39,9 +41,13 @@ router = APIRouter(tags=['Reports'], responses={
 async def list_reports(
     c_user: CurrentUserDp,
     report_repo: QuinzenalReportRepositoryDp,
+    cycle_id: SnowflakeID | None = None,
 ):
     use_case = ListReportsUseCase(report_repo)
-    report_list = await use_case.execute(c_user.id)
+    report_list = await use_case.execute(
+        c_user.id,
+        cycle_id=int(cycle_id) if cycle_id else None,
+    )
     return ReportListResponse.model_validate(report_list.model_dump())
 
 
@@ -62,9 +68,13 @@ async def get_report(
     c_user: CurrentUserDp,
     report_repo: QuinzenalReportRepositoryDp,
     start_date: ReportStartDate = None,
+    cycle_id: SnowflakeID | None = None,
 ):
     use_case = GetReportUseCase(report_repo)
-    report = await use_case.execute(c_user.id, day, start_date)
+    report = await use_case.execute(
+        c_user.id, day, start_date,
+        cycle_id=int(cycle_id) if cycle_id else None,
+    )
     return ReportDetailResponse.model_validate(report.model_dump())
 
 

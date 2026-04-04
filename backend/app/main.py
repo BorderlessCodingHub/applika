@@ -6,6 +6,7 @@ from app.config.settings import envs
 from app.presentation.api.application import router as application_router
 from app.presentation.api.application_step import router as app_step_router
 from app.presentation.api.company import router as company_router
+from app.presentation.api.cycle import router as cycle_router
 from app.presentation.api.oauth import router as auth_router
 from app.presentation.api.reports import router as reports_router
 from app.presentation.api.statistic import router as statistic_router
@@ -44,3 +45,4 @@ app.include_router(app_step_router)
 app.include_router(statistic_router)
 app.include_router(reports_router)
 app.include_router(feedback_router)
+app.include_router(cycle_router)

@@ -30,6 +30,7 @@ from app.domain.repositories.user_feedback_repository import (
     UserFeedbackRepository,
 )
 from app.domain.repositories.user_repository import UserRepository
+from app.domain.repositories.cycle_repository import CycleRepository
 from app.domain.repositories.user_statistic_repository import (
     UserStatsRepository,
 )
@@ -105,6 +106,15 @@ ApplicationRepositoryDp = Annotated[
 
 UserStatsRepositoryDp = Annotated[
     UserStatsRepository, Depends(get_user_statistics_repository)
+]
+
+
+def get_cycle_repository(session: DbSession):
+    return CycleRepository(session)
+
+
+CycleRepositoryDp = Annotated[
+    CycleRepository, Depends(get_cycle_repository)
 ]
 
 

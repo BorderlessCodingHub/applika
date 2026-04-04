@@ -4,6 +4,7 @@ from app.application.dto.application import (
     ApplicationDTO,
 )
 from app.application.dto.company import CompanyCreateDTO
+from app.config.logging import logger
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -26,6 +27,14 @@ class CreateApplicationUseCase:
     async def execute(self, data: ApplicationCreateDTO) -> ApplicationDTO:
         platform = await self.platform_repo.get_by_id(data.platform_id)
         if not platform:
+            logger.warning(
+                f'Platform not found: {data.platform_id}',
+                extra={'extra_data': {
+                    'event': 'create_application_failed',
+                    'reason': 'platform_not_found',
+                    'user_id': data.user_id,
+                }},
+            )
             raise ResourceNotFound('Platform not found')
 
         company_id, company_name = await self._resolve_company(
@@ -34,6 +43,16 @@ class CreateApplicationUseCase:
 
         application = await self.application_repo.create(
             data, company_id=company_id, company_name=company_name
+        )
+        logger.info(
+            f'Application created: {application.id}',
+            extra={'extra_data': {
+                'event': 'application_created',
+                'application_id': application.id,
+                'user_id': data.user_id,
+                'company': company_name,
+                'role': data.role,
+            }},
         )
         return ApplicationDTO.model_validate(application)
 

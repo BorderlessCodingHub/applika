@@ -2,6 +2,7 @@ from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
 
+from app.config.logging import logger
 from app.application.dto.quinzenal_report import (
     ReportDays,
     ReportMetricsDTO,
@@ -127,6 +128,15 @@ class SubmitReportUseCase:
 
         submitted_report = reports_by_day.get(report_day)
         if submitted_report:
+            logger.warning(
+                f'Report day {report_day} already submitted',
+                extra={'extra_data': {
+                    'event': 'report_submit_failed',
+                    'reason': 'already_submitted',
+                    'user_id': user_id,
+                    'report_day': report_day,
+                }},
+            )
             raise ResourceConflict('Report already submitted')
 
         next_report_day = get_next_report_day(submitted_days)
@@ -217,6 +227,17 @@ class SubmitReportUseCase:
         if discord_posted and not saved_report.discord_posted:
             saved_report.discord_posted = True
             saved_report = await self.report_repo.update(saved_report)
+
+        logger.info(
+            f'Report day {report_day} submitted successfully',
+            extra={'extra_data': {
+                'event': 'report_submitted',
+                'user_id': user_id,
+                'report_day': report_day,
+                'report_id': saved_report.id,
+                'discord_posted': saved_report.discord_posted,
+            }},
+        )
 
         return SubmitReportResultDTO(
             success=True,

@@ -30,17 +30,20 @@ class GetReportUseCase:
         report_start_date: date,
         period_start: date,
         period_end: date,
+        cycle_id: int | None = None,
     ) -> ReportMetricsDTO:
         fortnight_metrics = await self.report_repo.calculate_fortnight_metrics(
             user_id=user_id,
             start_date=period_start,
             end_date=period_end,
+            cycle_id=cycle_id,
         )
         accumulated_metrics = (
             await self.report_repo.calculate_accumulated_metrics(
                 user_id=user_id,
                 start_date=report_start_date,
                 end_date=period_end,
+                cycle_id=cycle_id,
             )
         )
 
@@ -67,13 +70,18 @@ class GetReportUseCase:
             ),
         )
 
-    async def execute(self, user_id: int, report_day: ReportDays,
-                      start_date: date | None) -> ReportDetailDTO:
+    async def execute(
+        self, user_id: int, report_day: ReportDays,
+        start_date: date | None,
+        cycle_id: int | None = None,
+    ) -> ReportDetailDTO:
         # Start date is only used in the first day of the report
         if report_day > 1:
             start_date = None
 
-        reports = await self.report_repo.get_all_by_user_id(user_id)
+        reports = await self.report_repo.get_all_by_user_id(
+            user_id, cycle_id
+        )
         reports_by_day = {report.report_day: report for report in reports}
         submitted_days = set(reports_by_day)
 
@@ -116,6 +124,7 @@ class GetReportUseCase:
                 report_start_date=start_date,
                 period_start=period_start,
                 period_end=period_end,
+                cycle_id=cycle_id,
             )
             manual_metrics = None
             can_submit = (

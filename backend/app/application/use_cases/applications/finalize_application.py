@@ -3,6 +3,7 @@ from app.application.dto.application import (
     FinalizeApplicationDTO,
 )
 from app.application.dto.application_step import ApplicationStepCreateDTO
+from app.config.logging import logger
 from app.core.exceptions import ApplicationFinalized, ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -38,11 +39,29 @@ class FinalizeApplicationUseCase:
             id, user_id
         )
         if not application:
+            logger.warning(
+                f'Finalize failed: application {id} not found',
+                extra={'extra_data': {
+                    'event': 'finalize_application_failed',
+                    'reason': 'not_found',
+                    'application_id': id,
+                    'user_id': user_id,
+                }},
+            )
             raise ResourceNotFound(
                 'Application not found or not owned by user'
             )
 
         if application.feedback_id is not None:
+            logger.warning(
+                f'Finalize failed: application {id} already finalized',
+                extra={'extra_data': {
+                    'event': 'finalize_application_failed',
+                    'reason': 'already_finalized',
+                    'application_id': id,
+                    'user_id': user_id,
+                }},
+            )
             raise ApplicationFinalized(
                 'This application has already been finalized'
             )
@@ -72,4 +91,14 @@ class FinalizeApplicationUseCase:
         application.salary_offer = data.salary_offer
 
         application = await self.application_repo.update(application)
+        logger.info(
+            f'Application finalized: {id}',
+            extra={'extra_data': {
+                'event': 'application_finalized',
+                'application_id': id,
+                'user_id': user_id,
+                'feedback_id': feedback.id,
+                'step_id': step.id,
+            }},
+        )
         return ApplicationDTO.model_validate(application)

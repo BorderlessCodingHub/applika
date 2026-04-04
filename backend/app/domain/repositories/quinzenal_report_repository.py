@@ -22,37 +22,61 @@ INTERVIEW_FUNNEL_STEP_NAMES = (
     'Phase 4',
 )
 UNIQUE_REPORT_DAY_CONSTRAINT = 'uq_quinzenal_reports_user_day'
+UNIQUE_REPORT_DAY_CYCLE_CONSTRAINT = 'uq_quinzenal_reports_user_day_cycle'
+UNIQUE_REPORT_DAY_NULL_CYCLE_CONSTRAINT = (
+    'uq_quinzenal_reports_user_day_null_cycle'
+)
+
+
+def _report_cycle_filter(cycle_id: int | None):
+    if cycle_id is not None:
+        return QuinzenalReportModel.cycle_id == cycle_id
+    return QuinzenalReportModel.cycle_id.is_(None)
+
+
+def _app_cycle_filter(cycle_id: int | None):
+    if cycle_id is not None:
+        return ApplicationModel.cycle_id == cycle_id
+    return ApplicationModel.cycle_id.is_(None)
 
 
 class QuinzenalReportRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_user_start_date(self, user_id: int) -> date:
+    async def get_user_start_date(
+        self, user_id: int, cycle_id: int | None = None
+    ) -> date:
         start_date = await self.session.scalar(
             select(func.min(QuinzenalReportModel.start_date)).where(
-                QuinzenalReportModel.user_id == user_id
+                QuinzenalReportModel.user_id == user_id,
+                _report_cycle_filter(cycle_id),
             )
         )
         return start_date or date.today()
 
     async def get_all_by_user_id(
-        self, user_id: int
+        self, user_id: int, cycle_id: int | None = None
     ) -> list[QuinzenalReportModel]:
         reports = await self.session.scalars(
             select(QuinzenalReportModel)
-            .where(QuinzenalReportModel.user_id == user_id)
+            .where(
+                QuinzenalReportModel.user_id == user_id,
+                _report_cycle_filter(cycle_id),
+            )
             .order_by(QuinzenalReportModel.report_day.asc())
         )
         return list(reports)
 
     async def get_by_user_id_and_report_day(
-        self, user_id: int, report_day: int
+        self, user_id: int, report_day: int,
+        cycle_id: int | None = None
     ) -> QuinzenalReportModel | None:
         return await self.session.scalar(
             select(QuinzenalReportModel).where(
                 QuinzenalReportModel.user_id == user_id,
                 QuinzenalReportModel.report_day == report_day,
+                _report_cycle_filter(cycle_id),
             )
         )
 
@@ -67,7 +91,12 @@ class QuinzenalReportRepository:
         except IntegrityError as error:
             await self.session.rollback()
 
-            if UNIQUE_REPORT_DAY_CONSTRAINT in str(error):
+            error_str = str(error)
+            if (
+                UNIQUE_REPORT_DAY_CONSTRAINT in error_str
+                or UNIQUE_REPORT_DAY_CYCLE_CONSTRAINT in error_str
+                or UNIQUE_REPORT_DAY_NULL_CYCLE_CONSTRAINT in error_str
+            ):
                 raise ResourceConflict('Report already submitted') from error
 
             raise
@@ -92,6 +121,7 @@ class QuinzenalReportRepository:
         user_id: int,
         start_date: date,
         end_date: date,
+        cycle_id: int | None = None,
     ) -> dict[str, Any]:
         applications_count = await self.session.scalar(
             select(func.count())
@@ -100,6 +130,7 @@ class QuinzenalReportRepository:
                 ApplicationModel.user_id == user_id,
                 ApplicationModel.application_date >= start_date,
                 ApplicationModel.application_date <= end_date,
+                _app_cycle_filter(cycle_id),
             )
         )
         applications_count = int(applications_count or 0)
@@ -117,6 +148,7 @@ class QuinzenalReportRepository:
             )
             .where(
                 ApplicationModel.user_id == user_id,
+                _app_cycle_filter(cycle_id),
                 ApplicationStepModel.step_date >= start_date,
                 ApplicationStepModel.step_date <= end_date,
                 StepDefinitionModel.name == INITIAL_SCREEN_STEP_NAME,
@@ -137,6 +169,7 @@ class QuinzenalReportRepository:
             )
             .where(
                 ApplicationModel.user_id == user_id,
+                _app_cycle_filter(cycle_id),
                 ApplicationStepModel.step_date >= start_date,
                 ApplicationStepModel.step_date <= end_date,
                 StepDefinitionModel.name.in_(INTERVIEW_FUNNEL_STEP_NAMES),
@@ -157,6 +190,7 @@ class QuinzenalReportRepository:
             )
             .where(
                 ApplicationModel.user_id == user_id,
+                _app_cycle_filter(cycle_id),
                 ApplicationStepModel.step_date >= start_date,
                 ApplicationStepModel.step_date <= end_date,
                 StepDefinitionModel.name == OFFER_STEP_NAME,
@@ -177,6 +211,7 @@ class QuinzenalReportRepository:
             )
             .where(
                 ApplicationModel.user_id == user_id,
+                _app_cycle_filter(cycle_id),
                 ApplicationModel.feedback_id.is_(None),
                 ApplicationModel.application_date <= end_date,
                 ApplicationStepModel.step_date <= end_date,
@@ -198,12 +233,14 @@ class QuinzenalReportRepository:
         user_id: int,
         start_date: date,
         end_date: date,
+        cycle_id: int | None = None,
     ) -> dict[str, Any]:
         total_applications_count = await self.session.scalar(
             select(func.count())
             .select_from(ApplicationModel)
             .where(
                 ApplicationModel.user_id == user_id,
+                _app_cycle_filter(cycle_id),
                 ApplicationModel.application_date >= start_date,
                 ApplicationModel.application_date <= end_date,
             )
@@ -223,6 +260,7 @@ class QuinzenalReportRepository:
             )
             .where(
                 ApplicationModel.user_id == user_id,
+                _app_cycle_filter(cycle_id),
                 ApplicationModel.application_date >= start_date,
                 ApplicationModel.application_date <= end_date,
                 ApplicationStepModel.step_date <= end_date,
@@ -246,6 +284,7 @@ class QuinzenalReportRepository:
             )
             .where(
                 ApplicationModel.user_id == user_id,
+                _app_cycle_filter(cycle_id),
                 ApplicationModel.application_date >= start_date,
                 ApplicationModel.application_date <= end_date,
                 ApplicationStepModel.step_date <= end_date,

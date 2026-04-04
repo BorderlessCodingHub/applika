@@ -75,10 +75,15 @@ async def create(
 
 @router.get('/applications', response_model=List[Application])
 async def list_applications(
-    c_user: CurrentUserDp, app_repo: ApplicationRepositoryDp
+    c_user: CurrentUserDp,
+    app_repo: ApplicationRepositoryDp,
+    cycle_id: SnowflakeID | None = None,
 ):
     use_case = ListApplicationsUseCase(app_repo)
-    applications = await use_case.execute(c_user.id)
+    applications = await use_case.execute(
+        c_user.id,
+        cycle_id=int(cycle_id) if cycle_id else None,
+    )
     return applications
 
 

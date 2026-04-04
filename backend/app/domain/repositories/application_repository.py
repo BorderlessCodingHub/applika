@@ -28,8 +28,10 @@ class ApplicationRepository:
             )
         )
 
-    async def get_all_by_user_id(self, user_id: int) -> List[ApplicationModel]:
-        return await self.session.scalars(
+    async def get_all_by_user_id(
+        self, user_id: int, cycle_id: int | None = None
+    ) -> List[ApplicationModel]:
+        stmt = (
             select(ApplicationModel)
             .where(ApplicationModel.user_id == user_id)
             .order_by(ApplicationModel.application_date.desc())
@@ -39,6 +41,11 @@ class ApplicationRepository:
                 selectinload(ApplicationModel.feedback_def),
             )
         )
+        if cycle_id is not None:
+            stmt = stmt.where(ApplicationModel.cycle_id == cycle_id)
+        else:
+            stmt = stmt.where(ApplicationModel.cycle_id.is_(None))
+        return await self.session.scalars(stmt)
 
     async def create(
         self,

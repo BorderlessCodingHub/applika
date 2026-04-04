@@ -107,6 +107,9 @@ class UserModel(BaseMixin, Base):
     user_feedbacks: Mapped[List['UserFeedbackModel']] = relationship(
         back_populates='user'
     )
+    cycles: Mapped[List['CycleModel']] = relationship(
+        back_populates='user'
+    )
 
     @property
     def tech_stack(self) -> list[str]:
@@ -190,6 +193,27 @@ class FeedbackDefinitionModel(BaseMixin, Base):
     )
 
 
+class CycleModel(BaseMixin, Base):
+    __tablename__ = 'cycles'
+
+    __table_args__ = (
+        sa.Index('idx_cycles_user_id', 'user_id'),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
+    )
+    name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
+
+    user: Mapped['UserModel'] = relationship(back_populates='cycles')
+    applications: Mapped[List['ApplicationModel']] = relationship(
+        back_populates='cycle'
+    )
+    quinzenal_reports: Mapped[List['QuinzenalReportModel']] = relationship(
+        back_populates='cycle'
+    )
+
+
 class ApplicationStepModel(BaseMixin, Base):
     __tablename__ = 'application_steps'
 
@@ -249,6 +273,9 @@ class ApplicationModel(BaseMixin, Base):
 
     company_id: Mapped[Optional[int]] = mapped_column(
         sa.ForeignKey('companies.id'), nullable=True
+    )
+    cycle_id: Mapped[Optional[int]] = mapped_column(
+        sa.ForeignKey('cycles.id', ondelete='SET NULL'), nullable=True
     )
 
     application_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
@@ -333,6 +360,9 @@ class ApplicationModel(BaseMixin, Base):
     application_steps: Mapped[List['ApplicationStepModel']] = relationship(
         back_populates='application'
     )
+    cycle: Mapped[Optional['CycleModel']] = relationship(
+        back_populates='applications'
+    )
 
     @property
     def last_step(self) -> ApplicationLastStep | None:
@@ -375,7 +405,17 @@ class QuinzenalReportModel(BaseMixin, Base):
             name='ck_quinzenal_reports_phase',
         ),
         sa.UniqueConstraint(
-            'user_id', 'report_day', name='uq_quinzenal_reports_user_day'
+            'user_id',
+            'report_day',
+            'cycle_id',
+            name='uq_quinzenal_reports_user_day_cycle',
+        ),
+        sa.Index(
+            'uq_quinzenal_reports_user_day_null_cycle',
+            'user_id',
+            'report_day',
+            unique=True,
+            postgresql_where=sa.text('cycle_id IS NULL'),
         ),
         sa.Index('idx_quinzenal_reports_user_id', 'user_id'),
         sa.Index('idx_quinzenal_reports_report_day', 'report_day'),
@@ -384,6 +424,9 @@ class QuinzenalReportModel(BaseMixin, Base):
 
     user_id: Mapped[int] = mapped_column(
         sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
+    )
+    cycle_id: Mapped[Optional[int]] = mapped_column(
+        sa.ForeignKey('cycles.id', ondelete='SET NULL'), nullable=True
     )
     report_day: Mapped[ReportDays] = mapped_column(sa.Integer, nullable=False)
     start_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
@@ -435,6 +478,9 @@ class QuinzenalReportModel(BaseMixin, Base):
 
     user: Mapped['UserModel'] = relationship(
         back_populates='quinzenal_reports')
+    cycle: Mapped[Optional['CycleModel']] = relationship(
+        back_populates='quinzenal_reports'
+    )
 
 
 class UserFeedbackModel(BaseMixin, Base):
