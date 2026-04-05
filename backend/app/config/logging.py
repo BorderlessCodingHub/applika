@@ -4,6 +4,7 @@ import logging
 import os
 import traceback
 from datetime import datetime, timezone
+from logging.handlers import RotatingFileHandler
 
 from app.config.settings import envs
 
@@ -50,7 +51,7 @@ def _filter_traceback(exc_info) -> str | None:
 
 
 class JsonFormatter(logging.Formatter):
-    """Structured JSON log formatter."""
+    """Structured JSON log formatter for file output."""
 
     def format(self, record: logging.LogRecord) -> str:
         log_entry = {
@@ -87,12 +88,27 @@ class RequestIdFilter(logging.Filter):
         return True
 
 
-# Disable logging to console in test environment
 if envs.ENVIRONMENT != 'TEST':
+    # Console handler — plain message using LOG_FORMAT from settings
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(JsonFormatter())
+    console_handler.setFormatter(logging.Formatter(envs.LOG_FORMAT))
     console_handler.setLevel(envs.LOG_LEVEL)
     logger.addHandler(console_handler)
+
+    # File handler — structured JSON for log analysis
+    log_dir = os.path.dirname(envs.LOG_FILE)
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
+
+    file_handler = RotatingFileHandler(
+        envs.LOG_FILE,
+        maxBytes=10 * 1024 * 1024,  # 10 MB
+        backupCount=5,
+        encoding='utf-8',
+    )
+    file_handler.setFormatter(JsonFormatter())
+    file_handler.setLevel(envs.LOG_LEVEL)
+    logger.addHandler(file_handler)
 
 logger.addFilter(RequestIdFilter())
 

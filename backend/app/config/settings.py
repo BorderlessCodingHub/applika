@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     # https://docs.python.org/3/library/logging.html#logrecord-attributes
     # 'request_id' is an unique id generated for each request
     LOG_FORMAT: str = '[%(asctime)s] |%(levelname)s| [%(filename)s] > %(request_id)s >> %(message)s'
+    LOG_FILE: str = 'logs/app.log'
 
     API_PREFIX: str = '/api'
     ENVIRONMENT: EnvType = 'DEV'

@@ -167,3 +167,4 @@ cython_debug/
 
 fake_ledger_db.json
 *.pem
+logs/
