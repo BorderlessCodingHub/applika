@@ -33,7 +33,7 @@ export function FeedbackButton() {
 
 const MAX_TEXT_LENGHT = 2000;
 
-function FeedbackDialog({
+export function FeedbackDialog({
   open,
   onOpenChange,
 }: {

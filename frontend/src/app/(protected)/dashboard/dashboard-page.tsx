@@ -6,7 +6,6 @@ import { StepConversionChart } from "@/components/dashboard/step-conversion-char
 import { AvgDaysPerStepChart } from "@/components/dashboard/avg-days-per-step-chart";
 import { PlatformBreakdown } from "@/components/dashboard/platform-breakdown";
 import { ActiveVsPassiveChart } from "@/components/dashboard/active-vs-passive-chart";
-import { CycleSelector } from "@/components/layout/cycle-selector";
 import { useCycleContext } from "@/contexts/cycle-context";
 
 export function DashboardPage() {
@@ -14,18 +13,15 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground">
-            Dashboard
-          </h1>
-          <p className="mt-0.5 text-base text-muted-foreground">
-            {isViewingPastCycle
-              ? "Viewing archived cycle"
-              : "Your application analytics at a glance"}
-          </p>
-        </div>
-        <CycleSelector />
+      <div>
+        <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground">
+          Dashboard
+        </h1>
+        <p className="mt-0.5 text-base text-muted-foreground">
+          {isViewingPastCycle
+            ? "Viewing archived cycle"
+            : "Your application analytics at a glance"}
+        </p>
       </div>
 
       <StatCards cycleId={selectedCycleId} />

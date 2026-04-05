@@ -5,26 +5,20 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Briefcase,
-  User,
-  Menu,
-  X,
   Shield,
   NotepadText,
 } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { FeedbackButton } from "@/components/applications/feedback-dialog";
 import { useAuth } from "@/contexts/auth-context";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppLogo } from "../app-logo";
-import { LogoutButton } from "../auth-buttons";
+import { AppHeader, MobileHeader } from "./app-header";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/applications", icon: Briefcase, label: "Applications" },
   { to: "/reports", icon: NotepadText, label: "Reports" },
-  { to: "/profile", icon: User, label: "Profile" },
   { to: "/admin", icon: Shield, label: "Admin", adminOnly: true },
 ];
 
@@ -76,23 +70,6 @@ function SidebarContent({
             })}
         </nav>
       </div>
-      <div className="space-y-2 px-3">
-        {user && (
-          <div className="rounded-lg border border-border/60 bg-accent/50 px-3 py-2.5">
-            <p className="truncate font-display text-sm font-medium text-foreground">
-              {user.username}
-            </p>
-            <p className="truncate text-[11px] text-muted-foreground">
-              {user.email}
-            </p>
-          </div>
-        )}
-        <FeedbackButton />
-        <div className="flex items-center justify-between">
-          <LogoutButton />
-          <ThemeToggle />
-        </div>
-      </div>
     </div>
   );
 }
@@ -107,54 +84,48 @@ export function AppLayout({ children }: AppLayoutProps) {
         <SidebarContent setMobileOpen={setMobileOpen} />
       </aside>
 
-      {/* Mobile header */}
-      <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border/60 bg-card/80 px-4 backdrop-blur-xl md:hidden">
-        <Link href="/" className="flex items-center">
-          <AppLogo mode="mobile" />
-        </Link>
+      {/* Right side: header + content */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Desktop header */}
+        <AppHeader />
 
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent"
-        >
-          {mobileOpen ? (
-            <X className="h-5 w-5" />
-          ) : (
-            <Menu className="h-5 w-5" />
+        {/* Mobile header */}
+        <MobileHeader
+          onMenuToggle={() => setMobileOpen(!mobileOpen)}
+          mobileOpen={mobileOpen}
+        />
+
+        {/* Mobile sidebar overlay */}
+        <AnimatePresence>
+          {mobileOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm md:hidden"
+                onClick={() => setMobileOpen(false)}
+              />
+              <motion.aside
+                initial={{ x: "-100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "-100%" }}
+                transition={{ duration: 0.3, ease: [0.2, 0.9, 0.3, 1] }}
+                className="fixed bottom-0 left-0 top-0 z-50 w-full max-w-80 border-r border-border/60 bg-card md:hidden"
+              >
+                <SidebarContent setMobileOpen={setMobileOpen} />
+              </motion.aside>
+            </>
           )}
-        </button>
+        </AnimatePresence>
+
+        {/* Main content */}
+        <main className="flex-1 overflow-auto pt-14 md:pt-0">
+          <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">
+            {children}
+          </div>
+        </main>
       </div>
-
-      {/* Mobile sidebar overlay */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm md:hidden"
-              onClick={() => setMobileOpen(false)}
-            />
-            <motion.aside
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ duration: 0.3, ease: [0.2, 0.9, 0.3, 1] }}
-              className="fixed bottom-0 left-0 top-0 z-50 w-full max-w-80 border-r border-border/60 bg-card md:hidden"
-            >
-              <SidebarContent setMobileOpen={setMobileOpen} />
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Main content */}
-      <main className="flex-1 overflow-auto pt-14 md:pt-0">
-        <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">
-          {children}
-        </div>
-      </main>
     </div>
   );
 }

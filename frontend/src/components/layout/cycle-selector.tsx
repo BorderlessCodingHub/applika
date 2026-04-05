@@ -72,13 +72,13 @@ export function CycleSelector() {
         <Button
           variant="outline"
           size="sm"
-          className="h-8 gap-1.5 text-xs"
+          className="gap-1.5"
           onClick={() => setDialogOpen(true)}
         >
           {hasCycles ? (
-            <RefreshCw className="h-3.5 w-3.5" />
+            <RefreshCw className="h-4 w-4" />
           ) : (
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-4 w-4" />
           )}
           New Cycle
         </Button>

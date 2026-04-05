@@ -38,7 +38,6 @@ import {
 } from "@/components/applications/application-item";
 import { Card } from "@/components/ui/card";
 import { DatePickerInput } from "@/components/ui/date-picker";
-import { CycleSelector } from "@/components/layout/cycle-selector";
 import { useCycleContext } from "@/contexts/cycle-context";
 
 interface ApplicationAction {
@@ -107,15 +106,12 @@ export function ApplicationsPage() {
                 : `${filtered.length} items`}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <CycleSelector />
-            {!isViewingPastCycle && (
-              <Button onClick={handleNewClick} size="sm" className="gap-1.5">
-                <Plus className="h-4 w-4" />
-                New Application
-              </Button>
-            )}
-          </div>
+          {!isViewingPastCycle && (
+            <Button onClick={handleNewClick} size="sm" className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              New Application
+            </Button>
+          )}
         </div>
 
         {/* Filters */}
