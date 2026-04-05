@@ -21,10 +21,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCycleContext } from "@/contexts/cycle-context";
 import { useCycles, useCreateCycle } from "@/hooks/use-cycles";
+import { useGeneralStats } from "@/hooks/use-statistics";
+
+const MIN_APPLICATIONS_FOR_CYCLE = 10;
 
 export function CycleSelector() {
   const { selectedCycleId, setSelectedCycleId } = useCycleContext();
   const { data: cycles } = useCycles();
+  const { data: stats } = useGeneralStats();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [cycleName, setCycleName] = useState("");
 
@@ -37,6 +41,8 @@ export function CycleSelector() {
   });
 
   const hasCycles = cycles && cycles.length > 0;
+  const currentApps = stats?.total_applications ?? 0;
+  const canCreateCycle = currentApps >= MIN_APPLICATIONS_FOR_CYCLE;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,19 +75,21 @@ export function CycleSelector() {
           </Select>
         )}
 
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => setDialogOpen(true)}
-        >
-          {hasCycles ? (
-            <RefreshCw className="h-4 w-4" />
-          ) : (
-            <Plus className="h-4 w-4" />
-          )}
-          New Cycle
-        </Button>
+        {canCreateCycle && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setDialogOpen(true)}
+          >
+            {hasCycles ? (
+              <RefreshCw className="h-4 w-4" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+            New Cycle
+          </Button>
+        )}
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -90,8 +98,9 @@ export function CycleSelector() {
             <DialogHeader>
               <DialogTitle>Start a New Cycle</DialogTitle>
               <DialogDescription>
-                All current applications and reports will be archived under a
-                named cycle. You can switch back to view them anytime.
+                All current applications and reports will be permanently
+                archived under a named cycle. This action cannot be undone
+                &mdash; archived data will only be available for viewing.
               </DialogDescription>
             </DialogHeader>
 

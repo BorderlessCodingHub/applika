@@ -8,6 +8,24 @@ from tests import msg
 from tests.base_db_setup import base_data
 
 
+def _make_apps(count: int) -> list[ApplicationModel]:
+    """Create N current-cycle ApplicationModel instances."""
+    bd = base_data()
+    return [
+        ApplicationModel(
+            id=i + 1,
+            user_id=bd['user'].id,
+            platform_id=bd['plat_linkedin'].id,
+            company_id=None,
+            company_name=f'Company {i}',
+            role='Engineer',
+            mode='active',
+            application_date=date(2025, 12, 1),
+        )
+        for i in range(count)
+    ]
+
+
 # ---------------------------------------------------------------------------
 # CREATE cycle (reset)
 # ---------------------------------------------------------------------------
@@ -15,29 +33,7 @@ from tests.base_db_setup import base_data
 async def test_create_cycle(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    # Seed some current-cycle applications
-    db_session.add_all([
-        ApplicationModel(
-            id=1,
-            user_id=base_data()['user'].id,
-            platform_id=base_data()['plat_linkedin'].id,
-            company_id=base_data()['company_acme'].id,
-            company_name='Acme Corp',
-            role='Software Engineer',
-            mode='active',
-            application_date=date(2025, 12, 1),
-        ),
-        ApplicationModel(
-            id=2,
-            user_id=base_data()['user'].id,
-            platform_id=base_data()['plat_linkedin'].id,
-            company_id=None,
-            company_name='Beta Inc',
-            role='Backend',
-            mode='passive',
-            application_date=date(2025, 12, 5),
-        ),
-    ])
+    db_session.add_all(_make_apps(10))
     await db_session.commit()
 
     response = await async_client.post(
@@ -64,18 +60,22 @@ async def test_create_cycle(
         f'/applications?cycle_id={cycle_id}'
     )
     assert old_apps.status_code == 200
-    assert len(old_apps.json()) == 2, msg(2, len(old_apps.json()))
+    assert len(old_apps.json()) == 10, msg(10, len(old_apps.json()))
 
 
-async def test_create_cycle_empty_state(
+async def test_create_cycle_rejected_below_minimum(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """Creating a cycle with no current apps should still work."""
+    """Creating a cycle with fewer than 10 apps should return 422."""
+    db_session.add_all(_make_apps(5))
+    await db_session.commit()
+
     response = await async_client.post(
-        '/cycles', json={'name': 'Empty Cycle'}
+        '/cycles', json={'name': 'Too Early'}
     )
 
-    assert response.status_code == 201, msg(201, response.status_code)
+    assert response.status_code == 422, msg(422, response.status_code)
+    assert 'At least 10' in response.json()['detail']
 
 
 # ---------------------------------------------------------------------------

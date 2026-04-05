@@ -1,6 +1,6 @@
 from typing import List
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.models import (
@@ -34,6 +34,17 @@ class CycleRepository:
                 CycleModel.user_id == user_id,
             )
         )
+
+    async def count_current_applications(
+        self, user_id: int
+    ) -> int:
+        result = await self.session.scalar(
+            select(func.count(ApplicationModel.id)).where(
+                ApplicationModel.user_id == user_id,
+                ApplicationModel.cycle_id.is_(None),
+            )
+        )
+        return int(result or 0)
 
     async def create(
         self, user_id: int, name: str

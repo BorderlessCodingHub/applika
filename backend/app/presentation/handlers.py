@@ -29,6 +29,12 @@ async def _application_finalized_handler(
     return JSONResponse(status_code=409, content={'detail': exc.message})
 
 
+async def _business_rule_violation_handler(
+    request: Request, exc: exceptions.BusinessRuleViolation
+):
+    return JSONResponse(status_code=422, content={'detail': exc.message})
+
+
 def register_handlers(app: FastAPI):
     """Register all errors handlers for the app"""
     app.add_exception_handler(NotImplementedError, _not_implemented_handler)
@@ -40,4 +46,7 @@ def register_handlers(app: FastAPI):
     )
     app.add_exception_handler(
         exceptions.ApplicationFinalized, _application_finalized_handler
+    )
+    app.add_exception_handler(
+        exceptions.BusinessRuleViolation, _business_rule_violation_handler
     )

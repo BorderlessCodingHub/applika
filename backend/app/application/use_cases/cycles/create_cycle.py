@@ -1,6 +1,9 @@
 from app.application.dto.cycle import CycleCreateDTO, CycleDTO
 from app.config.logging import logger
+from app.core.exceptions import BusinessRuleViolation
 from app.domain.repositories.cycle_repository import CycleRepository
+
+MIN_APPLICATIONS_FOR_CYCLE = 10
 
 
 class CreateCycleUseCase:
@@ -10,6 +13,15 @@ class CreateCycleUseCase:
     async def execute(
         self, user_id: int, data: CycleCreateDTO
     ) -> CycleDTO:
+        current_count = await self.cycle_repo.count_current_applications(
+            user_id
+        )
+        if current_count < MIN_APPLICATIONS_FOR_CYCLE:
+            raise BusinessRuleViolation(
+                f'At least {MIN_APPLICATIONS_FOR_CYCLE} applications are '
+                f'required to start a new cycle '
+                f'(currently {current_count})'
+            )
         cycle = await self.cycle_repo.create(user_id, data.name)
         archived_apps = await self.cycle_repo.archive_current_applications(
             user_id, cycle.id
