@@ -48,7 +48,12 @@ export function AvgDaysPerStepChart({
 
   return (
     <Card className="animate-fade-in-up p-5">
-      <h2 className="pb-4 text-base">Avg Days / Step</h2>
+      <div className="pb-4">
+        <h2 className="text-base">Avg Days / Step</h2>
+        <p className="text-xs text-muted-foreground">
+          Average number of days spent in each step before progressing
+        </p>
+      </div>
       {isLoading ? (
         <Skeleton className="h-[240px] w-full rounded-lg" />
       ) : (

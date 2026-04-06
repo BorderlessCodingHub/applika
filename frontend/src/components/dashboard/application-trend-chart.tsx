@@ -46,7 +46,12 @@ export function ApplicationTrendChart({
   return (
     <Card className="animate-fade-in-up p-5">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="pb-4 text-base">Application Trend</h2>
+        <div>
+          <h2 className="text-base">Application Trend</h2>
+          <p className="text-xs text-muted-foreground">
+            Daily applications submitted over the last 30 days
+          </p>
+        </div>
         {!isLoading && trendPct !== 0 && (
           <div className="flex items-center justify-center gap-1 text-primary">
             <TrendingUp className="h-5 w-5" />

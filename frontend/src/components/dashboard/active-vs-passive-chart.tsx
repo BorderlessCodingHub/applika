@@ -78,7 +78,12 @@ export function ActiveVsPassiveChart({
 
   return (
     <Card className="animate-fade-in-up p-5">
-      <h2 className="pb-4 text-base">Active vs Passive</h2>
+      <div className="pb-4">
+        <h2 className="text-base">Active vs Passive</h2>
+        <p className="text-xs text-muted-foreground">
+          Balance between applications you initiated vs. recruiter outreach
+        </p>
+      </div>
       {isLoading ? (
         <Skeleton className="h-[180px] w-full rounded-lg" />
       ) : (

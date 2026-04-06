@@ -70,7 +70,12 @@ export function StepConversionChart({
 
   return (
     <Card className="animate-fade-in-up p-5">
-      <h2 className="pb-4 text-base">Step Conversion</h2>
+      <div className="pb-4">
+        <h2 className="text-base">Step Conversion</h2>
+        <p className="text-xs text-muted-foreground">
+          Percentage of applications that reached each pipeline step
+        </p>
+      </div>
       {isLoading ? (
         <Skeleton className="h-[240px] w-full rounded-lg" />
       ) : (

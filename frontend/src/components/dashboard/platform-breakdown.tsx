@@ -18,7 +18,12 @@ export function PlatformBreakdown({ cycleId }: { cycleId?: string | null }) {
 
   return (
     <Card className="animate-fade-in-up p-5">
-      <h2 className="pb-4 text-base">By Platform</h2>
+      <div className="pb-4">
+        <h2 className="text-base">By Platform</h2>
+        <p className="text-xs text-muted-foreground">
+          Distribution of applications across job platforms
+        </p>
+      </div>
       {isLoading ? (
         <div className="space-y-2.5">
           {Array.from({ length: 5 }).map((_, i) => (
