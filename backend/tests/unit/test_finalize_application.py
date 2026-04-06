@@ -6,7 +6,11 @@ from app.application.dto.application import FinalizeApplicationDTO
 from app.application.use_cases.applications.finalize_application import (
     FinalizeApplicationUseCase,
 )
-from app.core.exceptions import ApplicationFinalized, ResourceNotFound
+from app.core.exceptions import (
+    ApplicationFinalized,
+    BusinessRuleViolation,
+    ResourceNotFound,
+)
 from tests.unit.conftest import make_application
 
 
@@ -26,6 +30,18 @@ async def test_finalize_not_found():
 
     with pytest.raises(ResourceNotFound):
         await uc.execute(id=999, user_id=1, data=_data())
+
+
+async def test_finalize_archived_cycle():
+    uc = FinalizeApplicationUseCase(
+        AsyncMock(), AsyncMock(), AsyncMock(), AsyncMock()
+    )
+    uc.application_repo.get_by_id_and_user_id.return_value = (
+        make_application(cycle_id=42)
+    )
+
+    with pytest.raises(BusinessRuleViolation, match='archived cycle'):
+        await uc.execute(id=1, user_id=1, data=_data())
 
 
 async def test_finalize_already_finalized():

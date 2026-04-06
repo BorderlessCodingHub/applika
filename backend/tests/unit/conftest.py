@@ -37,6 +37,7 @@ def make_application(**kwargs):
         'experience_level': None,
         'work_mode': None,
         'country': None,
+        'cycle_id': None,
         'finalized': False,
         'last_step': None,
         'feedback': None,

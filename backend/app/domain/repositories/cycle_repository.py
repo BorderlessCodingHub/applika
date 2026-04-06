@@ -1,10 +1,11 @@
 from typing import List
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.models import (
     ApplicationModel,
+    ApplicationStepModel,
     CycleModel,
     QuinzenalReportModel,
 )
@@ -84,6 +85,47 @@ class CycleRepository:
             .values(cycle_id=cycle_id)
         )
         return result.rowcount
+
+    async def delete_cycle_cascade(
+        self, cycle_id: int, user_id: int
+    ) -> None:
+        """Delete a cycle and all its associated data atomically."""
+        # 1. Delete application steps for apps in this cycle
+        app_ids_subq = (
+            select(ApplicationModel.id)
+            .where(
+                ApplicationModel.cycle_id == cycle_id,
+                ApplicationModel.user_id == user_id,
+            )
+            .scalar_subquery()
+        )
+        await self.session.execute(
+            delete(ApplicationStepModel).where(
+                ApplicationStepModel.application_id.in_(app_ids_subq)
+            )
+        )
+        # 2. Delete applications in this cycle
+        await self.session.execute(
+            delete(ApplicationModel).where(
+                ApplicationModel.cycle_id == cycle_id,
+                ApplicationModel.user_id == user_id,
+            )
+        )
+        # 3. Delete reports in this cycle
+        await self.session.execute(
+            delete(QuinzenalReportModel).where(
+                QuinzenalReportModel.cycle_id == cycle_id,
+                QuinzenalReportModel.user_id == user_id,
+            )
+        )
+        # 4. Delete the cycle itself
+        await self.session.execute(
+            delete(CycleModel).where(
+                CycleModel.id == cycle_id,
+                CycleModel.user_id == user_id,
+            )
+        )
+        await self.session.commit()
 
     async def commit(self):
         await self.session.commit()

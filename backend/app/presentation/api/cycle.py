@@ -4,7 +4,9 @@ from fastapi import APIRouter
 
 from app.application.dto.cycle import CycleCreateDTO
 from app.application.use_cases.cycles.create_cycle import CreateCycleUseCase
+from app.application.use_cases.cycles.delete_cycle import DeleteCycleUseCase
 from app.application.use_cases.cycles.list_cycles import ListCyclesUseCase
+from app.lib.types import SnowflakeID
 from app.presentation.dependencies import CycleRepositoryDp, CurrentUserDp
 from app.presentation.schemas.cycle import CreateCycle, Cycle
 
@@ -36,3 +38,13 @@ async def list_cycles(
         Cycle.model_validate(c.model_dump(exclude={'user_id'}))
         for c in cycles
     ]
+
+
+@router.delete('/cycles/{cycle_id}', status_code=204)
+async def delete_cycle(
+    cycle_id: SnowflakeID,
+    c_user: CurrentUserDp,
+    cycle_repo: CycleRepositoryDp,
+):
+    use_case = DeleteCycleUseCase(cycle_repo)
+    await use_case.execute(cycle_id, c_user.id)

@@ -7,7 +7,7 @@ from app.application.dto.application import ApplicationUpdateDTO
 from app.application.use_cases.applications.update_application import (
     UpdateApplicationUseCase,
 )
-from app.core.exceptions import ResourceNotFound
+from app.core.exceptions import BusinessRuleViolation, ResourceNotFound
 from tests.unit.conftest import make_application
 
 
@@ -30,6 +30,20 @@ async def test_update_not_found():
     uc = UpdateApplicationUseCase(app_repo, platform_repo, company_repo)
 
     with pytest.raises(ResourceNotFound, match='Application not found'):
+        await uc.execute(id=1, data=_dto())
+
+
+async def test_update_application_archived_cycle():
+    app_repo = AsyncMock()
+    platform_repo = AsyncMock()
+    company_repo = AsyncMock()
+    app_repo.get_by_id_and_user_id.return_value = make_application(
+        cycle_id=42
+    )
+
+    uc = UpdateApplicationUseCase(app_repo, platform_repo, company_repo)
+
+    with pytest.raises(BusinessRuleViolation, match='archived cycle'):
         await uc.execute(id=1, data=_dto())
 
 

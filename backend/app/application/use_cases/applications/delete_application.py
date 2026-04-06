@@ -1,5 +1,5 @@
 from app.config.logging import logger
-from app.core.exceptions import ResourceNotFound
+from app.core.exceptions import BusinessRuleViolation, ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
@@ -32,6 +32,10 @@ class DeleteApplicationUseCase:
             )
             raise ResourceNotFound(
                 'Application not found or not owned by user'
+            )
+        if application.cycle_id is not None:
+            raise BusinessRuleViolation(
+                'Cannot modify an application from an archived cycle'
             )
 
         await self.application_step_repo.delete_all_by_application_id(id)

@@ -19,7 +19,11 @@ from app.application.use_cases.application_steps.list_application_steps import (
 from app.application.use_cases.application_steps.update_application_step import (
     UpdateApplicationStepUseCase,
 )
-from app.core.exceptions import ApplicationFinalized, ResourceNotFound
+from app.core.exceptions import (
+    ApplicationFinalized,
+    BusinessRuleViolation,
+    ResourceNotFound,
+)
 from tests.unit.conftest import make_application, make_step
 
 
@@ -52,6 +56,18 @@ async def test_create_step_app_not_found():
     uc.application_repo.get_by_id_and_user_id.return_value = None
 
     with pytest.raises(ResourceNotFound):
+        await uc.execute(user_id=1, data=_create_dto())
+
+
+async def test_create_step_app_archived_cycle():
+    uc = CreateApplicationStepUseCase(
+        AsyncMock(), AsyncMock(), AsyncMock()
+    )
+    uc.application_repo.get_by_id_and_user_id.return_value = (
+        make_application(cycle_id=42)
+    )
+
+    with pytest.raises(BusinessRuleViolation, match='archived cycle'):
         await uc.execute(user_id=1, data=_create_dto())
 
 
@@ -131,6 +147,16 @@ async def test_delete_step_app_not_found():
         await uc.execute(id=1, app_id=1, user_id=1)
 
 
+async def test_delete_step_app_archived_cycle():
+    uc = DeleteApplicationStepUseCase(AsyncMock(), AsyncMock())
+    uc.application_repo.get_by_id_and_user_id.return_value = (
+        make_application(cycle_id=42)
+    )
+
+    with pytest.raises(BusinessRuleViolation, match='archived cycle'):
+        await uc.execute(id=1, app_id=1, user_id=1)
+
+
 async def test_delete_step_app_finalized():
     uc = DeleteApplicationStepUseCase(AsyncMock(), AsyncMock())
     uc.application_repo.get_by_id_and_user_id.return_value = (
@@ -179,6 +205,18 @@ async def test_update_step_app_not_found():
     uc.application_repo.get_by_id_and_user_id.return_value = None
 
     with pytest.raises(ResourceNotFound):
+        await uc.execute(id=1, user_id=1, data=_update_dto())
+
+
+async def test_update_step_app_archived_cycle():
+    uc = UpdateApplicationStepUseCase(
+        AsyncMock(), AsyncMock(), AsyncMock()
+    )
+    uc.application_repo.get_by_id_and_user_id.return_value = (
+        make_application(cycle_id=42)
+    )
+
+    with pytest.raises(BusinessRuleViolation, match='archived cycle'):
         await uc.execute(id=1, user_id=1, data=_update_dto())
 
 

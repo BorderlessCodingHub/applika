@@ -4,7 +4,7 @@ from app.application.dto.application import (
     ApplicationUpdateDTO,
 )
 from app.application.dto.company import CompanyCreateDTO
-from app.core.exceptions import ResourceNotFound
+from app.core.exceptions import BusinessRuleViolation, ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
@@ -32,6 +32,10 @@ class UpdateApplicationUseCase:
         if not application:
             raise ResourceNotFound(
                 'Application not found or not owned by user'
+            )
+        if application.cycle_id is not None:
+            raise BusinessRuleViolation(
+                'Cannot modify an application from an archived cycle'
             )
 
         platform = await self.platform_repo.get_by_id(data.platform_id)

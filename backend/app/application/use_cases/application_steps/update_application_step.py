@@ -3,7 +3,11 @@ from app.application.dto.application_step import (
     ApplicationStepDTO,
     ApplicationStepUpdateDTO,
 )
-from app.core.exceptions import ApplicationFinalized, ResourceNotFound
+from app.core.exceptions import (
+    ApplicationFinalized,
+    BusinessRuleViolation,
+    ResourceNotFound,
+)
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
@@ -35,6 +39,10 @@ class UpdateApplicationStepUseCase:
         if not application:
             raise ResourceNotFound(
                 'Application not found or not owned by user'
+            )
+        if application.cycle_id is not None:
+            raise BusinessRuleViolation(
+                'Cannot modify an application from an archived cycle'
             )
         if application.feedback_id is not None:
             raise ApplicationFinalized(
