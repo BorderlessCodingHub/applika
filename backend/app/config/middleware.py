@@ -31,7 +31,7 @@ class HTTPLifecycleMiddleware(BaseHTTPMiddleware):
         content_type = request.headers.get('Content-Type', '-')
 
         self.logger.info(
-            'Incoming request',
+            f'[{client_ip}][{request.method}][{request.url}]',
             extra={'extra_data': {
                 'event': 'request_start',
                 'method': request.method,
@@ -52,19 +52,20 @@ class HTTPLifecycleMiddleware(BaseHTTPMiddleware):
             )
 
             log_level = logging.INFO
-            if response.status_code >= 500:
+            scode = response.status_code
+            if scode >= 500:
                 log_level = logging.ERROR
-            elif response.status_code >= 400:
+            elif scode >= 400:
                 log_level = logging.WARNING
 
             self.logger.log(
                 log_level,
-                'Request completed',
+                f'[{client_ip}][{request.method}][{request.url}][{scode}]',
                 extra={'extra_data': {
                     'event': 'request_end',
                     'method': request.method,
                     'path': str(request.url.path),
-                    'status_code': response.status_code,
+                    'status_code': scode,
                     'duration_ms': duration_ms,
                     'client_ip': client_ip,
                 }},

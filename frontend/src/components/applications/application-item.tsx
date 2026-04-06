@@ -23,7 +23,7 @@ import {
   Edit,
   ExternalLink,
   Flag,
-  ListPlus,
+  Plus,
   Pencil,
   Trash2,
   Zap,
@@ -40,6 +40,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { formatSalary } from "@/options";
+import { Button } from "../ui/button";
 
 interface ApplicationItemProps {
   app: Application;
@@ -125,11 +126,11 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
 
           {/* Meta info */}
           <div className="hidden items-center gap-3 text-xs text-muted-foreground lg:flex">
-            <span className="flex items-center gap-1">
+            {/* <span className="flex items-center gap-1">
               <Zap className="h-3.5 w-3.5" />
               <span className="capitalize">{props.app.mode}</span>
             </span>
-            <span className="text-border">|</span>
+            <span className="text-border">|</span> */}
 
             <div className="hidden items-center gap-1.5 text-xs tabular-nums text-muted-foreground sm:flex">
               <Calendar className="h-3.5 w-3.5" />
@@ -144,54 +145,64 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
           >
             {!props.app.finalized && props.onNewStepClick && (
               <>
-                <button
+                <Button
+                  size="sm"
+                  variant="link"
                   onClick={() => props.onNewStepClick!(props.app)}
-                  className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className="gap-1.5 text-primary/80 hover:text-primary"
                   title="Add step"
                 >
-                  <ListPlus className="h-4 w-4" />
-                </button>
+                  <Plus className="h-4 w-4" />
+                </Button>
 
                 {props.onEditClick && (
-                  <button
+                  <Button
+                    size="sm"
+                    variant="link"
                     onClick={() => props.onEditClick!(props.app)}
-                    className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    className="gap-1.5 text-muted-foreground hover:text-foreground"
                     title="Edit"
                   >
                     <Edit className="h-4 w-4" />
-                  </button>
+                  </Button>
                 )}
 
                 {props.onFinalizeClick && (
-                  <button
+                  <Button
+                    size="sm"
+                    variant="link"
                     onClick={() => props.onFinalizeClick!(props.app)}
-                    className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    className="gap-1.5 text-amber-500/80 hover:text-amber-500"
                     title="Finalize"
                   >
                     <Flag className="h-4 w-4" />
-                  </button>
+                  </Button>
                 )}
               </>
             )}
             {props.onDeleteClick && (
-              <button
+              <Button
+                size="sm"
+                variant="link"
                 onClick={() => props.onDeleteClick!(props.app)}
-                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                className="gap-1.5 text-destructive/80 hover:text-destructive"
                 title="Delete"
               >
                 <Trash2 className="h-4 w-4" />
-              </button>
+              </Button>
             )}
-            <button
+            <Button
+              size="sm"
+              variant="link"
               onClick={() => setExpanded((current) => !current)}
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent"
+              className="gap-1.5 text-muted-foreground hover:text-foreground"
             >
               {isExpanded ? (
                 <ChevronUp className="h-4 w-4" />
               ) : (
                 <ChevronDown className="h-4 w-4" />
               )}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -449,7 +460,7 @@ export function ApplicationStepTimeline({
       ) : (
         <div className="relative mt-3 space-y-0">
           {/* Vertical timeline line */}
-          <div className="absolute bottom-2 left-[7px] top-2 w-px bg-border" />
+          <div className="absolute hidden sm:block bottom-2 left-[7px] top-2 w-px border-2 border-dashed border-border" />
 
           {steps.map((step) => {
             const supportStep = resolveStep(step.step_id);
@@ -467,7 +478,7 @@ export function ApplicationStepTimeline({
                 {/* Timeline dot */}
                 <div
                   className={cn(
-                    "relative right-0.5 z-10 mt-4 h-5 w-5 shrink-0 rounded-full border-2 bg-background",
+                    "relative hidden sm:block right-[1px] z-10 my-auto h-5 w-5 shrink-0 rounded-full border-2 bg-background",
                     isFuture && "border-dashed",
                   )}
                   style={{ borderColor: stepColor }}
@@ -498,23 +509,27 @@ export function ApplicationStepTimeline({
 
                     {/* Actions */}
                     {!isDisabled && (
-                      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                        <button
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="link"
                           onClick={() => onEditStep?.(step)}
-                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                          className="gap-1.5 text-muted-foreground hover:text-foreground"
                           title="Edit step"
                         >
                           <Pencil className="h-5 w-5" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="link"
                           onClick={() =>
                             setStepDelete({ open: true, id: step.id })
                           }
-                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          className="gap-1.5 text-destructive/80 hover:text-destructive"
                           title="Delete step"
                         >
                           <Trash2 className="h-5 w-5" />
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>
