@@ -154,7 +154,7 @@ function ReportRow({
 }
 
 export function ReportsList({ onFillReport, onViewReport }: ReportsListProps) {
-  const { selectedCycleId } = useCycleContext();
+  const { selectedCycleId, isViewingPastCycle } = useCycleContext();
   const { reports, currentDay, isLoading } = useReports(selectedCycleId);
 
   if (isLoading) return <ListSkeleton />;
@@ -219,7 +219,7 @@ export function ReportsList({ onFillReport, onViewReport }: ReportsListProps) {
               key={report.day}
               report={report}
               currentDay={currentDay}
-              onFill={() => onFillReport(report.day as ReportDaysType)}
+              onFill={isViewingPastCycle ? undefined : () => onFillReport(report.day as ReportDaysType)}
             />
           ))}
         </div>

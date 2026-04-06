@@ -1,6 +1,7 @@
 import { User } from "@/services/types/users";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Skeleton } from "../ui/skeleton";
+import { cn } from "@/lib/utils";
 
 export function UserProfileSkeleton() {
   return (
@@ -12,7 +13,13 @@ export function UserProfileSkeleton() {
   );
 }
 
-export function UserProfileAvatar({ user }: { user: User }) {
+export function UserProfileAvatar({
+  user,
+  className,
+}: {
+  user: User;
+  className?: string;
+}) {
   const avatarUrl = `https://avatars.githubusercontent.com/u/${user.github_id}?v=4`;
   const avatarFallback =
     user.first_name && user.last_name
@@ -20,9 +27,16 @@ export function UserProfileAvatar({ user }: { user: User }) {
       : user.username.substring(0, 2);
 
   return (
-    <Avatar className="shadow-elevated h-20 w-20 ring-4 ring-card">
+    <Avatar
+      className={cn(
+        "shadow-elevated text-3xl h-20 w-20 ring-4 ring-card",
+        className,
+      )}
+    >
       <AvatarImage src={avatarUrl} />
-      <AvatarFallback className="capitalize">{avatarFallback}</AvatarFallback>
+      <AvatarFallback className="uppercase bg-primary font-semibold text-primary-foreground">
+        {avatarFallback}
+      </AvatarFallback>
     </Avatar>
   );
 }

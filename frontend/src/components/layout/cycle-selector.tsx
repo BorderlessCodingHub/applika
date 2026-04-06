@@ -4,6 +4,7 @@ import { useState } from "react";
 import { RefreshCw, Plus, History } from "lucide-react";
 import {
   Select,
+  SelectButton,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -22,10 +23,11 @@ import { Input } from "@/components/ui/input";
 import { useCycleContext } from "@/contexts/cycle-context";
 import { useCycles, useCreateCycle } from "@/hooks/use-cycles";
 import { useGeneralStats } from "@/hooks/use-statistics";
+import { cn } from "@/lib/utils";
 
 const MIN_APPLICATIONS_FOR_CYCLE = 10;
 
-export function CycleSelector() {
+export function CycleSelector({ className }: { className?: string }) {
   const { selectedCycleId, setSelectedCycleId } = useCycleContext();
   const { data: cycles } = useCycles();
   const { data: stats } = useGeneralStats();
@@ -40,7 +42,6 @@ export function CycleSelector() {
     },
   });
 
-  const hasCycles = cycles && cycles.length > 0;
   const currentApps = stats?.total_applications ?? 0;
   const canCreateCycle = currentApps >= MIN_APPLICATIONS_FOR_CYCLE;
 
@@ -52,44 +53,33 @@ export function CycleSelector() {
 
   return (
     <>
-      <div className="flex items-center gap-2">
-        {hasCycles && (
-          <Select
-            value={selectedCycleId ?? "current"}
-            onValueChange={(v) =>
-              setSelectedCycleId(v === "current" ? null : v)
-            }
-          >
-            <SelectTrigger className="h-8 w-[180px] text-xs">
-              <History className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="current">Current Cycle</SelectItem>
-              {cycles.map((cycle) => (
-                <SelectItem key={cycle.id} value={cycle.id}>
-                  {cycle.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        {canCreateCycle && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => setDialogOpen(true)}
-          >
-            {hasCycles ? (
-              <RefreshCw className="h-4 w-4" />
-            ) : (
-              <Plus className="h-4 w-4" />
+      <div className={cn("flex items-center gap-2 w-full lg:max-w-96", className)}>
+        <Select
+          value={selectedCycleId ?? "current"}
+          onValueChange={(v) => setSelectedCycleId(v === "current" ? null : v)}
+        >
+          <SelectTrigger className="mx-auto">
+            <History className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="current">Current Cycle</SelectItem>
+            {(cycles || []).map((cycle) => (
+              <SelectItem key={cycle.id} value={cycle.id}>
+                {cycle.name}
+              </SelectItem>
+            ))}
+            {canCreateCycle && (
+              <SelectButton
+                className="gap-1.5 w-full"
+                onClick={() => setDialogOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                New Cycle
+              </SelectButton>
             )}
-            New Cycle
-          </Button>
-        )}
+          </SelectContent>
+        </Select>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -97,10 +87,10 @@ export function CycleSelector() {
           <form onSubmit={handleSubmit}>
             <DialogHeader>
               <DialogTitle>Start a New Cycle</DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="text-justify">
                 All current applications and reports will be permanently
-                archived under a named cycle. This action cannot be undone
-                &mdash; archived data will only be available for viewing.
+                archived under a named cycle. This action cannot be undone, but
+                the archived data will only be available for viewing.
               </DialogDescription>
             </DialogHeader>
 

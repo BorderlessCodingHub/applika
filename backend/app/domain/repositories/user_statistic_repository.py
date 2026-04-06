@@ -6,6 +6,7 @@ import sqlalchemy as sa
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config.logging import logger
 from app.domain.models import (
     ApplicationModel,
     ApplicationStepModel,
@@ -203,6 +204,7 @@ class UserStatsRepository:
         self, user_id: int, cycle_id: int | None = None
     ) -> List[DailyApplicationsLastMonth]:
         one_month_ago = date.today() - timedelta(days=30)
+        logger.info("Counting applications per day for user_id=%s since %s", user_id, one_month_ago)
         stmt = (
             select(
                 ApplicationModel.application_date,
