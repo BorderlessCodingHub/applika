@@ -32,3 +32,22 @@ export function useCreateCycle(opts?: { onSuccess?: () => void }) {
     onError: () => toast.error("Failed to create cycle"),
   });
 }
+
+export function useDeleteCycle(opts?: { onSuccess?: () => void }) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => services.cycles.deleteCycle(id),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["cycles"] }),
+        queryClient.invalidateQueries({ queryKey: ["applications"] }),
+        queryClient.invalidateQueries({ queryKey: ["statistics"] }),
+        queryClient.invalidateQueries({ queryKey: ["reports"] }),
+      ]);
+      toast.success("Cycle deleted permanently");
+      opts?.onSuccess?.();
+    },
+    onError: () => toast.error("Failed to delete cycle"),
+  });
+}

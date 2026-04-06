@@ -309,7 +309,7 @@ export function ApplicationsPage() {
                 >
                   <ApplicationStepTimeline
                     id={app.id}
-                    isDisabled={app.finalized}
+                    isDisabled={app.finalized || isViewingPastCycle}
                     stepsSupports={supports?.steps ?? []}
                     onEditStep={(step) =>
                       setAppAction({

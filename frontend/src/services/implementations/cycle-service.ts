@@ -10,4 +10,8 @@ export class CycleService implements ICycleService {
   createCycle(data: CreateCyclePayload): Promise<Cycle> {
     return api.post<Cycle>("/cycles", data).then((r) => r.data);
   }
+
+  deleteCycle(id: string): Promise<void> {
+    return api.delete(`/cycles/${id}`).then(() => undefined);
+  }
 }

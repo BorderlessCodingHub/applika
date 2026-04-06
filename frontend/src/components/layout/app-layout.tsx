@@ -7,6 +7,7 @@ import {
   Briefcase,
   Shield,
   NotepadText,
+  History,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useState } from "react";
@@ -19,6 +20,7 @@ const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/applications", icon: Briefcase, label: "Applications" },
   { to: "/reports", icon: NotepadText, label: "Reports" },
+  { to: "/cycles", icon: History, label: "Cycles" },
   { to: "/admin", icon: Shield, label: "Admin", adminOnly: true },
 ];
 
