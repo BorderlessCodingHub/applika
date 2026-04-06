@@ -60,7 +60,7 @@ export function HeroSection() {
             </div>
 
             {/* Trust metrics */}
-            <div className="stagger-4 mt-8 flex animate-fade-in-up items-center justify-center gap-6 md:justify-start">
+            {/* <div className="stagger-4 mt-8 flex animate-fade-in-up items-center justify-center gap-6 md:justify-start">
               <div className="flex items-center gap-1.5">
                 <div className="flex -space-x-1">
                   {[...Array(3)].map((_, i) => (
@@ -97,7 +97,7 @@ export function HeroSection() {
                   rating
                 </span>
               </div>
-            </div>
+            </div> */}
           </div>
 
           {/* Hide DashboardMockup on screens smaller than md */}
