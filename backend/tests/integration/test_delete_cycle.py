@@ -20,6 +20,8 @@ from tests.base_db_setup import base_data
 
 def _make_report(**kwargs):
     defaults = dict(
+        start_date=date(2025, 12, 1),
+        phase=1,
         applications_count=0,
         callback_rate=Decimal('0.00'),
         initial_screenings_count=0,
