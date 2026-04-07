@@ -1,14 +1,22 @@
+from datetime import datetime, timezone
 from functools import lru_cache
 
 from pydantic import GetJsonSchemaHandler
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import core_schema
-from snowflake.snowflake import SnowflakeGenerator
+from snowflake import SnowflakeGenerator
+
+from app.config.settings import envs
+
 
 
 @lru_cache(maxsize=1)
-def __get_snowflake_generator(instance: int = 1):
-    return SnowflakeGenerator(instance)
+def __get_snowflake_generator():
+    # Custom epoch: Jan 1, 2010 (in milliseconds)
+    epoch = int(
+        datetime(2010, 1, 1, tzinfo=timezone.utc).timestamp() * 1000
+    )
+    return SnowflakeGenerator(envs.INSTANCE_ID, epoch=epoch)
 
 
 def generate_snowflake_id() -> int:

@@ -1,6 +1,6 @@
-from typing import List, Literal
+from typing import Annotated, List, Literal
 
-from pydantic import PostgresDsn, UrlConstraints
+from pydantic import Field, PostgresDsn, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ACCESS_COOKIE_NAME = '__access'
@@ -20,6 +20,9 @@ class AsyncpgDsn(PostgresDsn):
         return self.__str__().replace('postgresql+asyncpg', 'postgresql')
 
 
+InstanceId = Annotated[int, Field(ge=0, le=1023)]
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         arbitrary_types_allowed=True,
@@ -28,6 +31,8 @@ class Settings(BaseSettings):
         env_file_encoding='utf-8',
         extra='ignore',
     )
+
+    INSTANCE_ID: InstanceId = 1023
 
     LOG_LEVEL: str = 'INFO'
     # https://docs.python.org/3/library/logging.html#logrecord-attributes
@@ -39,11 +44,12 @@ class Settings(BaseSettings):
     ENVIRONMENT: EnvType = 'DEV'
 
     CORS_ORIGINS: List[str] = [
-        'http://127.0.0.1:3000',
+        'http://127.0.0.1:8080',
         'http://127.0.0.1:8000',
     ]
     CORS_HEADERS: List[str] = ['X-Request-ID', 'Content-Type']
-    CORS_METHODS: List[str] = ['GET', 'PATCH', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+    CORS_METHODS: List[str] = ['GET', 'PATCH',
+                               'POST', 'PUT', 'DELETE', 'OPTIONS']
 
     DATABASE_URL: str
     DATABASE_ECHO: bool = False

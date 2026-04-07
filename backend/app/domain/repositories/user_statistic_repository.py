@@ -6,7 +6,6 @@ import sqlalchemy as sa
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.logging import logger
 from app.domain.models import (
     ApplicationModel,
     ApplicationStepModel,

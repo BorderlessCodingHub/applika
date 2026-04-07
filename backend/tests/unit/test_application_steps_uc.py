@@ -129,7 +129,7 @@ async def test_list_steps_app_not_found():
 async def test_list_steps_success():
     uc = ListApplicationStepsUseCase(AsyncMock(), AsyncMock())
     uc.app_repo.get_by_id_and_user_id.return_value = make_application()
-    uc.app_step_repo.get_all_by_app_id_and_user_id.return_value = []
+    uc.app_step_repo.get_all_by_application_id.return_value = []
 
     result = await uc.execute(application_id=1, user_id=1)
     assert result == []

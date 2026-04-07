@@ -7,7 +7,7 @@ from app.application.use_cases.cycles.create_cycle import CreateCycleUseCase
 from app.application.use_cases.cycles.delete_cycle import DeleteCycleUseCase
 from app.application.use_cases.cycles.list_cycles import ListCyclesUseCase
 from app.lib.types import SnowflakeID
-from app.presentation.dependencies import CycleRepositoryDp, CurrentUserDp
+from app.presentation.dependencies import CurrentUserDp, CycleRepositoryDp
 from app.presentation.schemas.cycle import CreateCycle, Cycle
 
 router = APIRouter(tags=['Cycles'])

@@ -5,8 +5,6 @@ from fastapi import APIRouter
 from fastapi.params import Query
 from pydantic import BeforeValidator
 
-from app.lib.types import SnowflakeID
-
 from app.application.dto.quinzenal_report import (
     ReportDays,
     SubmitReportPayloadDTO,
@@ -20,6 +18,7 @@ from app.application.use_cases.quinzenal_reports.list_reports import (
 from app.application.use_cases.quinzenal_reports.submit_report import (
     SubmitReportUseCase,
 )
+from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     CurrentUserDp,
     DiscordServiceDp,

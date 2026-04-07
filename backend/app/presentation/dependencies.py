@@ -16,6 +16,7 @@ from app.domain.repositories.application_step_repository import (
     ApplicationStepRepository,
 )
 from app.domain.repositories.company_repository import CompanyRepository
+from app.domain.repositories.cycle_repository import CycleRepository
 from app.domain.repositories.feedback_definition_repository import (
     FeedbackDefinitionRepository,
 )
@@ -30,7 +31,6 @@ from app.domain.repositories.user_feedback_repository import (
     UserFeedbackRepository,
 )
 from app.domain.repositories.user_repository import UserRepository
-from app.domain.repositories.cycle_repository import CycleRepository
 from app.domain.repositories.user_statistic_repository import (
     UserStatsRepository,
 )

@@ -29,7 +29,7 @@ class ApplicationStepRepository:
             )
         )
 
-    async def get_all_by_app_id_and_user_id(
+    async def get_all_by_application_id(
         self, application_id: int
     ) -> List[ApplicationStepModel]:
         return await self.session.scalars(

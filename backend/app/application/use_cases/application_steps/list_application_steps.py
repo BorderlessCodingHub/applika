@@ -30,7 +30,7 @@ class ListApplicationStepsUseCase:
                 'Application not found or not owned by user'
             )
 
-        steps = await self.app_step_repo.get_all_by_app_id_and_user_id(
+        steps = await self.app_step_repo.get_all_by_application_id(
             application_id
         )
         return [ApplicationStepDTO.model_validate(step) for step in steps]

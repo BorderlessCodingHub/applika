@@ -2,7 +2,6 @@ from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
 
-from app.config.logging import logger
 from app.application.dto.quinzenal_report import (
     ReportDays,
     ReportMetricsDTO,
@@ -16,6 +15,7 @@ from app.application.use_cases.quinzenal_reports.common import (
     get_phase,
     get_report_period,
 )
+from app.config.logging import logger
 from app.core.exceptions import ResourceConflict
 from app.domain.models import QuinzenalReportModel
 from app.domain.repositories.quinzenal_report_repository import (
