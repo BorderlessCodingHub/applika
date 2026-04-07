@@ -1,11 +1,12 @@
 from datetime import date
 
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, field_validator
 from typing_extensions import Literal
 
 from app.core.enums import Currency, ExperienceLevel, SalaryPeriod, WorkMode
 from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema, TimeSchema
+from app.presentation.schemas._date_validators import ensure_not_in_future
 
 
 class ApplicationCompany(BaseSchema):
@@ -30,6 +31,11 @@ class CreateApplication(BaseSchema):
     work_mode: WorkMode | None = None
     country: str | None = None
 
+    @field_validator('application_date')
+    @classmethod
+    def _application_date_not_future(cls, value: date) -> date:
+        return ensure_not_in_future(value, 'application_date')
+
 
 class UpdateApplication(BaseModel):
     company: SnowflakeID | ApplicationCompany
@@ -47,6 +53,11 @@ class UpdateApplication(BaseModel):
     experience_level: ExperienceLevel | None = None
     work_mode: WorkMode | None = None
     country: str | None = None
+
+    @field_validator('application_date')
+    @classmethod
+    def _application_date_not_future(cls, value: date) -> date:
+        return ensure_not_in_future(value, 'application_date')
 
 
 class ApplicationLastStep(BaseSchema):
@@ -94,3 +105,8 @@ class FinalizeApplication(BaseModel):
     finalize_date: date
     salary_offer: float | None = None
     observation: str | None = None
+
+    @field_validator('finalize_date')
+    @classmethod
+    def _finalize_date_not_future(cls, value: date) -> date:
+        return ensure_not_in_future(value, 'finalize_date')
