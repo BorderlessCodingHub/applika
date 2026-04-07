@@ -1,3 +1,5 @@
+from fastapi.exceptions import RequestValidationError
+
 from app.application.dto.application import ApplicationDTO
 from app.application.dto.application_step import (
     ApplicationStepDTO,
@@ -8,6 +10,7 @@ from app.core.exceptions import (
     BusinessRuleViolation,
     ResourceNotFound,
 )
+from app.domain.models import ApplicationModel
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
@@ -29,6 +32,67 @@ class UpdateApplicationStepUseCase:
         self.step_repo = step_repo
         self.application_repo = application_repo
         self.application_step_repo = application_step_repo
+
+    async def _check_sibling_steps(self, application: ApplicationModel,
+                                   data: ApplicationStepUpdateDTO,
+                                   step_id: int):
+        """Enforce step chronology against the parent application and
+        the updated step's neighbouring siblings.
+
+        Errors are raised as ``RequestValidationError`` so FastAPI's
+        default handler formats them as the standard 422 response.
+        """
+        if data.step_date < application.application_date:
+            raise RequestValidationError([{
+                'type': 'value_error',
+                'loc': ('body', 'step_date'),
+                'msg': (
+                    'Value error, step_date cannot be earlier than the '
+                    'application_date '
+                    f'({application.application_date.isoformat()})'
+                ),
+                'input': data.step_date.isoformat(),
+            }])
+
+        sibling_steps = list(
+            await self.application_step_repo.get_all_by_application_id(
+                application.id
+            )
+        )
+        # Steps are ordered by creation. The updated step must remain
+        # within the chronological window defined by its neighbours.
+        prev_date = None
+        next_date = None
+        for index, sibling in enumerate(sibling_steps):
+            if sibling.id == step_id:
+                if index > 0:
+                    prev_date = sibling_steps[index - 1].step_date
+                if index < len(sibling_steps) - 1:
+                    next_date = sibling_steps[index + 1].step_date
+                break
+
+        if prev_date is not None and data.step_date < prev_date:
+            raise RequestValidationError([{
+                'type': 'value_error',
+                'loc': ('body', 'step_date'),
+                'msg': (
+                    'Value error, step_date must be greater than or '
+                    'equal to the previous step date '
+                    f'({prev_date.isoformat()})'
+                ),
+                'input': data.step_date.isoformat(),
+            }])
+
+        if next_date is not None and data.step_date > next_date:
+            raise RequestValidationError([{
+                'type': 'value_error',
+                'loc': ('body', 'step_date'),
+                'msg': (
+                    'Value error, step_date must be less than or equal '
+                    f'to the next step date ({next_date.isoformat()})'
+                ),
+                'input': data.step_date.isoformat(),
+            }])
 
     async def execute(
         self, id: int, user_id: int, data: ApplicationStepUpdateDTO
@@ -62,6 +126,8 @@ class UpdateApplicationStepUseCase:
         step = await self.step_repo.get_by_id_non_strict_only(data.step_id)
         if not step:
             raise ResourceNotFound('Step not found or is invalid')
+
+        await self._check_sibling_steps(application, data, application_step.id)
 
         application_step.application_id = data.application_id
         application_step.step_id = data.step_id
