@@ -1,29 +1,59 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import coreWebVitals from "eslint-config-next/core-web-vitals";
+import importPlugin from "eslint-plugin-import";
+import nextTypescript from "eslint-config-next/typescript";
+import unusedImports from "eslint-plugin-unused-imports";
+import unicornPlugin from "eslint-plugin-unicorn";
+import { importX } from "eslint-plugin-import-x";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+const config = [
+  ...coreWebVitals,
+  ...nextTypescript,
   {
-    ignores: [
-      "node_modules/**",
-      ".next/**",
-      "out/**",
-      "build/**",
-      "next-env.d.ts",
-    ],
+    plugins: {
+      import: importPlugin,
+      unicorn: unicornPlugin,
+      "unused-imports": unusedImports,
+      "import-x": importX,
+    },
     rules: {
-      "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-empty-object-type": "off"
+      "import/no-default-export": "error",
+      "unused-imports/no-unused-imports": "error",
+      "unicorn/filename-case": ["error", { case: "kebabCase" }],
+    },
+  },
+  {},
+  {
+    files: [
+      "eslint.config.mjs",
+      "next.config.ts",
+      "postcss.config.js",
+      "tailwind.config.ts",
+      "vitest.config.ts",
+    ],
+    rules: { "import/no-default-export": "off" },
+  },
+  {
+    files: [
+      "src/app/**/page.tsx",
+      "src/app/**/layout.tsx",
+      "src/app/**/error.tsx",
+      "src/app/**/loading.tsx",
+      "src/app/**/not-found.tsx",
+      "src/app/**/template.tsx",
+      "src/app/**/global-error.tsx",
+    ],
+    rules: { "import/no-default-export": "off" },
+  },
+  {
+    files: ["src/app/**"],
+    rules: { "unicorn/filename-case": "off" },
+  },
+  {
+    files: ["src/**/*.ts", "src/**/*.js"],
+    rules: {
+      "import-x/order": "error",
+      "import-x/newline-after-import": "error",
     },
   },
 ];
-
-export default eslintConfig;
+export default config;

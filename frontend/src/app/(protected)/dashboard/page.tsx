@@ -1,5 +1,5 @@
-import DashboardSection from "@/features/home/components/DashboardSection";
+import { DashboardPage } from "./dashboard-page";
 
-export default async function DashboardPage() {
-  return <DashboardSection />;
+export default function Page() {
+  return <DashboardPage />;
 }

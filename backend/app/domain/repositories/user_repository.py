@@ -14,6 +14,11 @@ class UserRepository:
             select(UserModel).where(UserModel.github_id == id)
         )
 
+    async def get_by_id(self, id: int) -> UserModel | None:
+        return await self.session.scalar(
+            select(UserModel).where(UserModel.id == id)
+        )
+
     async def create(self, user: UserCreateDTO) -> UserModel:
         try:
             db_user = UserModel(**user.model_dump())
@@ -21,6 +26,16 @@ class UserRepository:
             await self.session.commit()
             await self.session.refresh(db_user)
             return db_user
+        except Exception as e:
+            await self.session.rollback()
+            raise e
+
+    async def update(self, user: UserModel) -> UserModel:
+        try:
+            self.session.add(user)
+            await self.session.commit()
+            await self.session.refresh(user)
+            return user
         except Exception as e:
             await self.session.rollback()
             raise e

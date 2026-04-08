@@ -1,4 +1,4 @@
-"""'column names and types adjustments'
+"""'column names and types adjustments' 
 
 Revision ID: a33d23ad4276
 Revises: e3abe9dc93d4
@@ -8,9 +8,8 @@ Create Date: 2025-09-19 19:13:15.399107
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'a33d23ad4276'

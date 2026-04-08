@@ -4,11 +4,17 @@ from pydantic import BaseModel, HttpUrl
 from typing_extensions import Literal
 
 from app.application.dto import BaseSchema
+from app.core.enums import Currency, ExperienceLevel, SalaryPeriod, WorkMode
+
+
+class ApplicationCompanyInputDTO(BaseModel):
+    name: str
+    url: HttpUrl | None
 
 
 class ApplicationCreateDTO(BaseModel):
     user_id: int
-    company: str
+    company: int | ApplicationCompanyInputDTO
     role: str
     mode: Literal['active', 'passive']
     platform_id: int
@@ -18,11 +24,16 @@ class ApplicationCreateDTO(BaseModel):
     expected_salary: float | None = None
     salary_range_min: float | None = None
     salary_range_max: float | None = None
+    currency: Currency | None = None
+    salary_period: SalaryPeriod | None = None
+    experience_level: ExperienceLevel | None = None
+    work_mode: WorkMode | None = None
+    country: str | None = None
 
 
 class ApplicationUpdateDTO(BaseModel):
     user_id: int
-    company: str
+    company: int | ApplicationCompanyInputDTO
     role: str
     mode: Literal['active', 'passive']
     platform_id: int
@@ -32,6 +43,11 @@ class ApplicationUpdateDTO(BaseModel):
     expected_salary: float | None = None
     salary_range_min: float | None = None
     salary_range_max: float | None = None
+    currency: Currency | None = None
+    salary_period: SalaryPeriod | None = None
+    experience_level: ExperienceLevel | None = None
+    work_mode: WorkMode | None = None
+    country: str | None = None
 
 
 class FinalizeApplicationDTO(BaseModel):
@@ -57,7 +73,8 @@ class ApplicationFeedback(BaseModel):
 
 
 class ApplicationDTO(BaseSchema):
-    company: str
+    company_id: int | None
+    company_name: str
     role: str
     mode: Literal['active', 'passive']
     platform_id: int
@@ -68,6 +85,11 @@ class ApplicationDTO(BaseSchema):
     salary_range_min: float | None = None
     salary_range_max: float | None = None
     salary_offer: float | None = None
+    currency: Currency | None = None
+    salary_period: SalaryPeriod | None = None
+    experience_level: ExperienceLevel | None = None
+    work_mode: WorkMode | None = None
+    country: str | None = None
 
     finalized: bool
     last_step: ApplicationLastStep | None = None

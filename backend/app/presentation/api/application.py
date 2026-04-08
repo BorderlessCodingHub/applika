@@ -22,9 +22,11 @@ from app.application.use_cases.applications.list_applications import (
 from app.application.use_cases.applications.update_application import (
     UpdateApplicationUseCase,
 )
+from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     ApplicationRepositoryDp,
     ApplicationStepRepositoryDp,
+    CompanyRepositoryDp,
     CurrentUserDp,
     FeedbackDefinitionRepositoryDp,
     PlatformRepositoryDp,
@@ -54,19 +56,34 @@ async def create(
     c_user: CurrentUserDp,
     app_repo: ApplicationRepositoryDp,
     platform_repo: PlatformRepositoryDp,
+    company_repo: CompanyRepositoryDp,
 ):
-    use_case = CreateApplicationUseCase(app_repo, platform_repo)
-    data = ApplicationCreateDTO(**payload.model_dump(), user_id=c_user.id)
+    use_case = CreateApplicationUseCase(app_repo, platform_repo, company_repo)
+    company = (
+        payload.company
+        if isinstance(payload.company, int)
+        else payload.company.model_dump()
+    )
+    data = ApplicationCreateDTO(
+        **payload.model_dump(exclude={'company'}),
+        company=company,
+        user_id=c_user.id,
+    )
     application = await use_case.execute(data)
     return Application.model_validate(application)
 
 
 @router.get('/applications', response_model=List[Application])
 async def list_applications(
-    c_user: CurrentUserDp, app_repo: ApplicationRepositoryDp
+    c_user: CurrentUserDp,
+    app_repo: ApplicationRepositoryDp,
+    cycle_id: SnowflakeID | None = None,
 ):
     use_case = ListApplicationsUseCase(app_repo)
-    applications = await use_case.execute(c_user.id)
+    applications = await use_case.execute(
+        c_user.id,
+        cycle_id=int(cycle_id) if cycle_id else None,
+    )
     return applications
 
 
@@ -76,14 +93,24 @@ async def list_applications(
     responses={'404': {'model': DetailSchema}},
 )
 async def update_application(
-    application_id: int,
+    application_id: SnowflakeID,
     payload: UpdateApplication,
     c_user: CurrentUserDp,
     app_repo: ApplicationRepositoryDp,
     platform_repo: PlatformRepositoryDp,
+    company_repo: CompanyRepositoryDp,
 ):
-    use_case = UpdateApplicationUseCase(app_repo, platform_repo)
-    data = ApplicationUpdateDTO(**payload.model_dump(), user_id=c_user.id)
+    use_case = UpdateApplicationUseCase(app_repo, platform_repo, company_repo)
+    company = (
+        payload.company
+        if isinstance(payload.company, int)
+        else payload.company.model_dump()
+    )
+    data = ApplicationUpdateDTO(
+        **payload.model_dump(exclude={'company'}),
+        company=company,
+        user_id=c_user.id,
+    )
     application = await use_case.execute(application_id, data)
     return Application.model_validate(application)
 
@@ -94,7 +121,7 @@ async def update_application(
     responses={'404': {'model': DetailSchema}},
 )
 async def delete_application(
-    application_id: int,
+    application_id: SnowflakeID,
     c_user: CurrentUserDp,
     app_repo: ApplicationRepositoryDp,
     app_steps_repo: ApplicationStepRepositoryDp,
@@ -113,7 +140,7 @@ async def delete_application(
     },
 )
 async def finalize_application(
-    application_id: int,
+    application_id: SnowflakeID,
     payload: FinalizeApplication,
     c_user: CurrentUserDp,
     step_repo: StepDefinitionRepositoryDp,

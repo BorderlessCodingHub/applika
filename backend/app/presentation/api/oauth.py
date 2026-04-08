@@ -4,8 +4,8 @@ from fastapi.responses import RedirectResponse
 from fastapi_sso.sso.github import GithubSSO
 
 from app.application.use_cases.user_registration import UserRegistrationUseCase
-from app.config.settings import REFRESH_COOKIE_NAME, envs
-from app.core.tokens import clear_cookies, decode_token, set_cookies
+from app.config.settings import ACCESS_COOKIE_NAME, envs
+from app.core.tokens import clear_access_cookie, decode_token, set_access_cookie
 from app.presentation.dependencies import UserRepositoryDp
 from app.presentation.schemas import DetailSchema
 
@@ -43,7 +43,7 @@ async def auth_callback(
     user_data = await use_case.execute(user)
 
     response = RedirectResponse(envs.LOGIN_REDIRECT_URI)
-    set_cookies(str(user_data.github_id), response)
+    set_access_cookie(str(user_data.github_id), response)
 
     return response
 
@@ -51,38 +51,36 @@ async def auth_callback(
 @router.get(
     '/refresh',
     response_model=DetailSchema,
-    responses={'403': {'model': DetailSchema}},
+    responses={'401': {'model': DetailSchema}},
 )
 def refresh_token(request: Request, response: Response):
-    refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
-    if not refresh_token:
+    access_token = request.cookies.get(ACCESS_COOKIE_NAME)
+    if not access_token:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Not authenticated',
         )
 
     try:
-        payload = decode_token(refresh_token)
-        if payload['kind'] != 'refresh':
-            raise jwt.InvalidTokenError()
+        payload = decode_token(access_token)
     except jwt.ExpiredSignatureError:
-        clear_cookies(response)
+        clear_access_cookie(response)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Token expired',
         )
     except jwt.InvalidTokenError:
-        clear_cookies(response)
+        clear_access_cookie(response)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Invalid token',
         )
 
-    set_cookies(payload.get('sub'), response)
+    set_access_cookie(payload['sub'], response)
     return DetailSchema(detail='Token refreshed')
 
 
 @router.get('/logout', response_model=DetailSchema)
 def logout(response: Response):
-    clear_cookies(response)
+    clear_access_cookie(response)
     return DetailSchema(detail='Logged out')

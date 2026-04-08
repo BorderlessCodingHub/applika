@@ -46,19 +46,38 @@ class AverageDaysPerStep(TypedDict):
     avg_days: Decimal
 
 
+def _cycle_filter(cycle_id: int | None):
+    if cycle_id is not None:
+        return ApplicationModel.cycle_id == cycle_id
+    return ApplicationModel.cycle_id.is_(None)
+
+
 class UserStatsRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_applications_count(self, user_id: int) -> int | None:
+    async def get_applications_count(
+        self, user_id: int, cycle_id: int | None = None
+    ) -> int | None:
         return await self.session.scalar(
-            select(func.count(ApplicationModel.id).label('total'))
-            .where(ApplicationModel.user_id == user_id)
+            select(func.count(ApplicationModel.id).label('total')).where(
+                ApplicationModel.user_id == user_id,
+                _cycle_filter(cycle_id),
+            )
         )
 
     async def count_applications_per_strict_step(
-        self, user_id: int
+        self, user_id: int, cycle_id: int | None = None
     ) -> List[ApplicationStepCount]:
+        app_ids_subq = (
+            select(ApplicationModel.id)
+            .where(
+                ApplicationModel.user_id == user_id,
+                _cycle_filter(cycle_id),
+            )
+            .subquery()
+        )
+
         stmt = (
             select(
                 StepDefinitionModel.id.label('step_id'),
@@ -67,16 +86,19 @@ class UserStatsRepository:
                 StepDefinitionModel.color.label('step_color'),
                 func.coalesce(
                     func.count(ApplicationStepModel.application_id), 0
-                ).label("count"),
+                ).label('count'),
             )
             .outerjoin(
                 ApplicationStepModel,
-                (StepDefinitionModel.id == ApplicationStepModel.step_id) &
-                (ApplicationStepModel.user_id == user_id),
+                (StepDefinitionModel.id == ApplicationStepModel.step_id)
+                & (ApplicationStepModel.user_id == user_id)
+                & (
+                    ApplicationStepModel.application_id.in_(
+                        select(app_ids_subq.c.id)
+                    )
+                ),
             )
-            .where(
-                StepDefinitionModel.strict.is_(True)
-            )
+            .where(StepDefinitionModel.strict.is_(True))
             .group_by(
                 StepDefinitionModel.id,
                 StepDefinitionModel.name,
@@ -90,8 +112,17 @@ class UserStatsRepository:
         return result.mappings().all()
 
     async def count_applications_per_step(
-        self, user_id: int
+        self, user_id: int, cycle_id: int | None = None
     ) -> List[ApplicationStepCount]:
+        app_ids_subq = (
+            select(ApplicationModel.id)
+            .where(
+                ApplicationModel.user_id == user_id,
+                _cycle_filter(cycle_id),
+            )
+            .subquery()
+        )
+
         stmt = (
             select(
                 StepDefinitionModel.id.label('step_id'),
@@ -100,12 +131,17 @@ class UserStatsRepository:
                 StepDefinitionModel.color.label('step_color'),
                 func.coalesce(
                     func.count(ApplicationStepModel.application_id), 0
-                ).label("count"),
+                ).label('count'),
             )
             .outerjoin(
                 ApplicationStepModel,
-                (StepDefinitionModel.id == ApplicationStepModel.step_id) &
-                (ApplicationStepModel.user_id == user_id),
+                (StepDefinitionModel.id == ApplicationStepModel.step_id)
+                & (ApplicationStepModel.user_id == user_id)
+                & (
+                    ApplicationStepModel.application_id.in_(
+                        select(app_ids_subq.c.id)
+                    )
+                ),
             )
             .group_by(
                 StepDefinitionModel.id,
@@ -120,7 +156,7 @@ class UserStatsRepository:
         return result.mappings().all()
 
     async def count_applications_grouped_by_platform(
-        self, user_id: int
+        self, user_id: int, cycle_id: int | None = None
     ) -> List[ApplicationsPerPlatform]:
         stmt = (
             select(
@@ -134,6 +170,7 @@ class UserStatsRepository:
                 sa.and_(
                     ApplicationModel.platform_id == PlatformModel.id,
                     ApplicationModel.user_id == user_id,
+                    _cycle_filter(cycle_id),
                 ),
             )
             .group_by(PlatformModel.name, PlatformModel.id)
@@ -145,14 +182,17 @@ class UserStatsRepository:
         return result.mappings().all()
 
     async def count_applications_grouped_by_mode(
-        self, user_id: int
+        self, user_id: int, cycle_id: int | None = None
     ) -> List[ApplicationsPerMode]:
         stmt = (
             select(
                 ApplicationModel.mode,
                 func.count().label('count'),
             )
-            .where(ApplicationModel.user_id == user_id)
+            .where(
+                ApplicationModel.user_id == user_id,
+                _cycle_filter(cycle_id),
+            )
             .group_by(ApplicationModel.mode)
         )
 
@@ -160,7 +200,7 @@ class UserStatsRepository:
         return result.mappings().all()
 
     async def count_applications_per_day_last_month(
-        self, user_id: int
+        self, user_id: int, cycle_id: int | None = None
     ) -> List[DailyApplicationsLastMonth]:
         one_month_ago = date.today() - timedelta(days=30)
         stmt = (
@@ -171,6 +211,7 @@ class UserStatsRepository:
             .where(
                 ApplicationModel.application_date >= one_month_ago,
                 ApplicationModel.user_id == user_id,
+                _cycle_filter(cycle_id),
             )
             .group_by(ApplicationModel.application_date)
             .order_by(ApplicationModel.application_date)
@@ -180,14 +221,14 @@ class UserStatsRepository:
         return result.mappings().all()
 
     async def average_days_per_step(
-        self, user_id: int
+        self, user_id: int, cycle_id: int | None = None
     ) -> List[AverageDaysPerStep]:
         subq = (
             select(
                 ApplicationStepModel.step_id.label('step_id'),
                 func.avg(
-                    ApplicationStepModel.step_date -
-                    ApplicationModel.application_date
+                    ApplicationStepModel.step_date
+                    - ApplicationModel.application_date
                 ).label('avg_days'),
             )
             .outerjoin(
@@ -196,6 +237,7 @@ class UserStatsRepository:
             )
             .where(
                 ApplicationModel.user_id == user_id,
+                _cycle_filter(cycle_id),
             )
             .group_by(ApplicationStepModel.step_id)
             .subquery('savg')

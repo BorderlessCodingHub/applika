@@ -1,0 +1,221 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 18% 96%;
+    --foreground: 225 25% 12%;
+
+    --card: 40 20% 99%;
+    --card-foreground: 225 25% 12%;
+
+    --popover: 40 20% 99%;
+    --popover-foreground: 225 25% 12%;
+
+    --primary: 168 65% 38%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 40 12% 93%;
+    --secondary-foreground: 225 20% 18%;
+
+    --muted: 40 10% 91%;
+    --muted-foreground: 225 10% 45%;
+
+    --accent: 168 45% 94%;
+    --accent-foreground: 168 65% 28%;
+
+    --destructive: 0 65% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 160 60% 40%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 90% 50%;
+    --warning-foreground: 25 50% 14%;
+
+    --border: 40 12% 88%;
+    --input: 40 12% 88%;
+    --ring: 168 65% 38%;
+
+    --radius: 0.625rem;
+
+    --sidebar-background: 40 18% 98%;
+    --sidebar-foreground: 225 10% 45%;
+    --sidebar-primary: 168 65% 38%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 168 45% 94%;
+    --sidebar-accent-foreground: 168 65% 28%;
+    --sidebar-border: 40 12% 90%;
+    --sidebar-ring: 168 65% 38%;
+
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.03);
+    --shadow-elevated: 0 8px 30px -4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04);
+    --shadow-panel: -2px 0 20px rgba(0,0,0,0.04);
+  }
+
+  .dark {
+    --background: 228 22% 8%;
+    --foreground: 40 12% 90%;
+
+    --card: 228 20% 11%;
+    --card-foreground: 40 12% 90%;
+
+    --popover: 228 20% 11%;
+    --popover-foreground: 40 12% 90%;
+
+    --primary: 168 70% 48%;
+    --primary-foreground: 228 22% 8%;
+
+    --secondary: 228 16% 15%;
+    --secondary-foreground: 40 10% 82%;
+
+    --muted: 228 16% 15%;
+    --muted-foreground: 228 10% 50%;
+
+    --accent: 228 18% 17%;
+    --accent-foreground: 40 12% 90%;
+
+    --destructive: 0 55% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 168 60% 42%;
+    --success-foreground: 228 22% 8%;
+
+    --warning: 38 90% 50%;
+    --warning-foreground: 228 22% 8%;
+
+    --border: 228 14% 18%;
+    --input: 228 14% 18%;
+    --ring: 168 70% 48%;
+
+    --sidebar-background: 228 22% 9%;
+    --sidebar-foreground: 228 10% 50%;
+    --sidebar-primary: 168 70% 48%;
+    --sidebar-primary-foreground: 228 22% 8%;
+    --sidebar-accent: 228 18% 15%;
+    --sidebar-accent-foreground: 40 12% 90%;
+    --sidebar-border: 228 14% 16%;
+    --sidebar-ring: 168 70% 48%;
+
+    --shadow-card: 0 0 0 1px rgba(255,255,255,0.04), 0 2px 8px -1px rgba(0,0,0,0.4);
+    --shadow-elevated: 0 8px 32px -4px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+    --shadow-panel: -2px 0 24px rgba(0,0,0,0.3);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Editorial headings */
+  h1, h2, h3, h4 {
+    font-family: "Outfit", system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .shadow-panel {
+    box-shadow: var(--shadow-panel);
+  }
+
+  .font-display {
+    font-family: "Outfit", system-ui, sans-serif;
+  }
+
+  .font-body {
+    font-family: "DM Sans", system-ui, sans-serif;
+  }
+
+  /* Noise texture overlay */
+  .noise-overlay::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.025;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+  }
+
+  .dark .noise-overlay::before {
+    opacity: 0.04;
+  }
+
+  /* Dot grid pattern */
+  .dot-grid {
+    background-image: radial-gradient(circle, hsl(var(--border)) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .dark .dot-grid {
+    background-image: radial-gradient(circle, hsl(var(--border) / 0.5) 1px, transparent 1px);
+  }
+
+  /* Gradient mesh for hero backgrounds */
+  .gradient-mesh {
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 30%, hsl(168 65% 38% / 0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 80% at 80% 70%, hsl(200 60% 50% / 0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 50% at 50% 50%, hsl(40 30% 50% / 0.03) 0%, transparent 70%);
+  }
+
+  .dark .gradient-mesh {
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 30%, hsl(168 70% 48% / 0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 80% at 80% 70%, hsl(200 60% 50% / 0.05) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 50% at 50% 50%, hsl(260 40% 50% / 0.04) 0%, transparent 70%);
+  }
+
+  /* Glow effect for primary elements in dark mode */
+  .dark .glow-primary {
+    box-shadow: 0 0 24px -4px hsl(168 70% 48% / 0.25);
+  }
+
+  /* Stagger animation delays */
+  .stagger-1 { animation-delay: 60ms; }
+  .stagger-2 { animation-delay: 120ms; }
+  .stagger-3 { animation-delay: 180ms; }
+  .stagger-4 { animation-delay: 240ms; }
+  .stagger-5 { animation-delay: 300ms; }
+  .stagger-6 { animation-delay: 360ms; }
+
+  /* Admin card hover lift */
+  .admin-card {
+    will-change: transform;
+  }
+
+  .admin-card:hover {
+    transform: translateY(-1px);
+  }
+
+  /* Admin gradient accent line */
+  .admin-gradient-line {
+    background: linear-gradient(90deg, hsl(var(--primary)), #fbbf24 50%, transparent);
+  }
+}

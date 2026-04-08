@@ -2,6 +2,7 @@ from datetime import date
 
 from pydantic import BaseModel
 
+from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema
 
 
@@ -13,7 +14,7 @@ class ApplicationsStatistics(BaseSchema):
 
 
 class StepConversionRate(BaseModel):
-    id: int
+    id: SnowflakeID
     name: str
     color: str
     total_applications: int
@@ -21,14 +22,14 @@ class StepConversionRate(BaseModel):
 
 
 class AvarageDaysSteps(BaseModel):
-    id: int
+    id: SnowflakeID
     name: str
     color: str
     average_days: float
 
 
 class PlarformApplications(BaseModel):
-    id: int
+    id: SnowflakeID
     name: str
     total_applications: int
 

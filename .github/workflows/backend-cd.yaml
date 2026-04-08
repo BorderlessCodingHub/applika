@@ -35,7 +35,7 @@ jobs:
           context: ./backend
           push: true
           tags: |
-            ${{ secrets.DOCKER_HUB_USER }}/${{ vars.IMAGE_NAME_BACKEND }}:latest
+            ${{ secrets.DOCKER_HUB_USER }}/${{ vars.IMAGE_NAME_BACKEND }}:api-latest
 
   deploy:
     needs: build-and-push
@@ -49,4 +49,4 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
-            docker service update --image ${{ secrets.DOCKER_HUB_USER }}/${{ vars.IMAGE_NAME_BACKEND }}:latest ${{ vars.SWARM_BACKEND_SERVICE_NAME }} --force
+            docker service update --image ${{ secrets.DOCKER_HUB_USER }}/${{ vars.IMAGE_NAME_BACKEND }}:api-latest ${{ vars.SWARM_BACKEND_SERVICE_NAME }} --force

@@ -8,10 +8,14 @@ class GeneralStatisticsUseCase:
     def __init__(self, stats_repo: UserStatsRepository):
         self.stats_repo = stats_repo
 
-    async def execute(self, user_id: int) -> GeneralStatsDTO:
-        total_a = await self.stats_repo.get_applications_count(user_id)
+    async def execute(
+        self, user_id: int, cycle_id: int | None = None
+    ) -> GeneralStatsDTO:
+        total_a = await self.stats_repo.get_applications_count(
+            user_id, cycle_id
+        )
         stricts = await self.stats_repo.count_applications_per_strict_step(
-            user_id
+            user_id, cycle_id
         )
 
         offers, denials, success_rate = 0, 0, 0

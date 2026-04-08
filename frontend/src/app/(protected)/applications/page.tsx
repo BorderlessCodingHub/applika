@@ -1,10 +1,5 @@
-import ApplicationsClientSection from "@/features/applications/components/ApplicationsClientSection";
-import { Metadata } from "next";
+import { ApplicationsPage } from "./applications-page";
 
-export const metadata: Metadata = {
-  title: 'Applications',
-};
-
-export default async function ApplicationsPage() {
-  return <ApplicationsClientSection />;
+export default function Page() {
+  return <ApplicationsPage />;
 }

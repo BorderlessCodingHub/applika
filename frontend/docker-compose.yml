@@ -1,0 +1,9 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        API_BASE_URL: http://127.0.0.1/api
+    ports:
+      - "8080:80"

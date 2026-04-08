@@ -1,4 +1,5 @@
-from app.core.exceptions import ResourceNotFound
+from app.config.logging import logger
+from app.core.exceptions import BusinessRuleViolation, ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
@@ -21,9 +22,29 @@ class DeleteApplicationUseCase:
             id, user_id
         )
         if not application:
+            logger.warning(
+                f'Delete failed: application {id} not found',
+                extra={'extra_data': {
+                    'event': 'delete_application_failed',
+                    'application_id': id,
+                    'user_id': user_id,
+                }},
+            )
             raise ResourceNotFound(
                 'Application not found or not owned by user'
+            )
+        if application.cycle_id is not None:
+            raise BusinessRuleViolation(
+                'Cannot modify an application from an archived cycle'
             )
 
         await self.application_step_repo.delete_all_by_application_id(id)
         await self.application_repo.delete_by_id(id)
+        logger.info(
+            f'Application deleted: {id}',
+            extra={'extra_data': {
+                'event': 'application_deleted',
+                'application_id': id,
+                'user_id': user_id,
+            }},
+        )

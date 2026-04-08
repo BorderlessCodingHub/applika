@@ -131,6 +131,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.claude/settings.local.json
 
 # Spyder project settings
 .spyderproject
@@ -166,3 +167,4 @@ cython_debug/
 
 fake_ledger_db.json
 *.pem
+logs/

@@ -1,33 +1,36 @@
-FROM python:3.11-slim
+# ---- Build stage ----
+FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim AS builder
 
-# Create a non-root user
-RUN useradd --create-home --shell /bin/bash appuser
-
-# Set the working directory
 WORKDIR /app
 
-#  - migrations
-COPY ./migrations /app/migrations
-COPY ./alembic.ini /app/alembic.ini
-#  - app
-COPY ./app /app/app
-COPY ./poetry.lock /app/poetry.lock
-COPY ./pyproject.toml /app/pyproject.toml
+COPY pyproject.toml uv.lock ./
 
-# Set environment variables
+RUN uv sync --frozen --no-dev
+
+# ---- Runtime stage ----
+FROM python:3.14-slim-trixie
+
+WORKDIR /app
+
 ENV ENVIRONMENT=PROD
 
-# Install Poetry and dependencies
-RUN pip install --upgrade pip \
-    && pip install poetry \
-    && poetry config virtualenvs.create false \
-    && poetry install --without dev
+# Copy the virtual environment from builder
+COPY --from=builder /app/.venv /app/.venv
 
-# Expose the application port
-EXPOSE 8000
+# Copy application code and migrations
+COPY ./migrations /app/migrations
+COPY ./alembic.ini /app/alembic.ini
+COPY ./app /app/app
 
-# Switch to the non-root user
+# Create non-root user and set ownership
+RUN useradd -m -u 1001 appuser && \
+    chown -R appuser:appuser /app
+
 USER appuser
 
-# Set the entrypoint
-CMD [ "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000" ]
+# Use the venv Python directly — no uv needed at runtime
+ENV PATH="/app/.venv/bin:$PATH"
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
