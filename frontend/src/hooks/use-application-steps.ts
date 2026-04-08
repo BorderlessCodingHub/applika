@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { services } from "@/services/services";
 import { ApplicationStepPayload } from "@/services/types/applications";
+import { AxiosError } from "axios";
+import { getApiError } from "@/lib/api-client";
 
 const buildQueryKey = (applicationId: string) => [
   "applications",
@@ -54,8 +56,9 @@ export function useApplicationStepMutate(props: ApplicationStepMutateProps) {
     if (props.onSuccess) await props.onSuccess();
   }
 
-  function onError() {
-    toast.error("Failed to add step");
+  function onError(error: AxiosError) {
+      const message = getApiError(error);
+    toast.error(message);
   }
 
   const mutate = useMutation({ mutationFn, onSuccess, onError });

@@ -62,7 +62,7 @@ export function DatePickerInput({
     return false;
   };
 
-  const formatDate = (value: string) => parse(value, "yyyy-MM-dd", new Date());
+  const formatDate = (value: string) => parse(value, pattern, new Date());
 
   const toDate = value ? formatDate(value) : undefined;
 

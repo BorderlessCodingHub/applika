@@ -33,6 +33,7 @@ import {
   useApplicationStepMutate,
   useApplicationSteps,
 } from "@/hooks/use-application-steps";
+import { min, parse } from "date-fns";
 
 const schema = z.object({
   step_id: z.string().min(1, "Step is required"),
@@ -62,10 +63,60 @@ function buildDefaultFormValues(
 
 function getLastPickedDate(
   application: Application,
+  isEditing: boolean,
   applicationSteps: ApplicationStep[],
 ): string {
+  if (isEditing) return application.application_date;
+
   const lastStep = applicationSteps.at(-1);
   return lastStep ? lastStep.step_date : application.application_date;
+}
+
+function getStepDateRange(
+  application: Application,
+  step: ApplicationStep | undefined,
+  steps: ApplicationStep[],
+) {
+  const parseDate = (date: string): Date =>
+    parse(date, "yyyy-MM-dd", new Date());
+  if (!steps.length) {
+    return {
+      minDate: parseDate(application.application_date),
+      maxDate: undefined,
+    };
+  }
+
+  // 🆕 Modo criação (novo step)
+  if (!step) {
+    const lastStep = steps[steps.length - 1];
+
+    return {
+      minDate: lastStep
+        ? parseDate(lastStep.step_date)
+        : parseDate(application.application_date),
+      maxDate: undefined,
+    };
+  }
+
+  // 🔍 Encontrar índice diretamente
+  const index = steps.findIndex((s) => s.id === step.id);
+
+  if (index === -1) {
+    return {
+      minDate: parseDate(application.application_date),
+      maxDate: undefined,
+    };
+  }
+
+  const previous = steps[index - 1];
+  const next = steps[index + 1];
+
+  return {
+    minDate: previous
+      ? parseDate(previous.step_date)
+      : parseDate(application.application_date),
+    maxDate: next ? parseDate(next.step_date) : undefined,
+  };
 }
 
 export function ApplicationStepFormDialog({
@@ -109,9 +160,8 @@ export function ApplicationStepFormDialog({
 
   if (isLoading) return null;
 
-  const minPickableDate = new Date(
-    getLastPickedDate(application, applicationSteps),
-  );
+  const { minDate: minPickableDate, maxDate: maxPickableDate } =
+    getStepDateRange(application, editStep, applicationSteps);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -164,6 +214,7 @@ export function ApplicationStepFormDialog({
             <DatePickerInput
               value={form.watch("step_date")}
               minDate={minPickableDate}
+              maxDate={maxPickableDate ? new Date(maxPickableDate) : undefined}
               onChange={(date) =>
                 form.setValue("step_date", date ? date : "", {
                   shouldValidate: true,
