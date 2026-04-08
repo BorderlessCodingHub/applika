@@ -4,6 +4,7 @@ from app.application.dto.application import (
     ApplicationDTO,
 )
 from app.application.dto.company import CompanyCreateDTO
+from app.application.validators.application_date import ensure_not_in_future
 from app.config.logging import logger
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.application_repository import (
@@ -11,7 +12,6 @@ from app.domain.repositories.application_repository import (
 )
 from app.domain.repositories.company_repository import CompanyRepository
 from app.domain.repositories.platform_repository import PlatformRepository
-from app.application.validators.application_date import ensure_not_in_future
 
 
 class CreateApplicationUseCase:

@@ -9,7 +9,6 @@ from snowflake import SnowflakeGenerator
 from app.config.settings import envs
 
 
-
 @lru_cache(maxsize=1)
 def __get_snowflake_generator():
     # Custom epoch: Jan 1, 2010 (in milliseconds)

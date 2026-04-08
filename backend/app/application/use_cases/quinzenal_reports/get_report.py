@@ -86,7 +86,7 @@ class GetReportUseCase:
         submitted_days = set(reports_by_day)
 
         day_one_report = reports_by_day.get(1)
-        if start_date == None:
+        if start_date is None:
             start_date = (day_one_report.start_date
                           if day_one_report else date.today())
         current_day = get_current_day(start_date)

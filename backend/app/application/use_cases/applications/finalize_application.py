@@ -3,6 +3,7 @@ from app.application.dto.application import (
     FinalizeApplicationDTO,
 )
 from app.application.dto.application_step import ApplicationStepCreateDTO
+from app.application.validators.application_date import ensure_not_in_future
 from app.config.logging import logger
 from app.core.exceptions import (
     ApplicationFinalized,
@@ -21,7 +22,6 @@ from app.domain.repositories.feedback_definition_repository import (
 from app.domain.repositories.step_definition_repository import (
     StepDefinitionRepository,
 )
-from app.application.validators.application_date import ensure_not_in_future
 
 
 class FinalizeApplicationUseCase:

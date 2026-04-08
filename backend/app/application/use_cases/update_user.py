@@ -14,9 +14,9 @@ class UpdateUserUseCase:
 
         update_data = data.model_dump(exclude_unset=True)
 
-        if update_data.get("experience_years", 0) == None:
+        if update_data.get("experience_years", 0) is None:
             update_data["experience_years"] = 0
-        if update_data.get("current_salary", 0) == None:
+        if update_data.get("current_salary", 0) is None:
             update_data["current_salary"] = 0
 
         for field, value in update_data.items():
