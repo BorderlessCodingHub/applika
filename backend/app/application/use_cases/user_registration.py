@@ -1,6 +1,7 @@
 from fastapi_sso import OpenID
 
 from app.application.dto.user import UserCreateDTO, UserDTO
+from app.config.logging import logger
 from app.domain.repositories.user_repository import UserRepository
 
 
@@ -13,6 +14,14 @@ class UserRegistrationUseCase:
             int(user.id)
         )
         if existing_user:
+            logger.info(
+                f'Returning user login: {existing_user.username}',
+                extra={'extra_data': {
+                    'event': 'user_login',
+                    'user_id': existing_user.id,
+                    'github_id': user.id,
+                }},
+            )
             return UserDTO.model_validate(existing_user)
 
         user_data = UserCreateDTO(
@@ -22,4 +31,13 @@ class UserRegistrationUseCase:
         )
 
         created_user = await self.user_repository.create(user_data)
+        logger.info(
+            f'New user registered: {created_user.username}',
+            extra={'extra_data': {
+                'event': 'user_registered',
+                'user_id': created_user.id,
+                'github_id': user.id,
+                'username': user.display_name,
+            }},
+        )
         return UserDTO.model_validate(created_user)

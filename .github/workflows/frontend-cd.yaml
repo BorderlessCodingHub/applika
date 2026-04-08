@@ -33,12 +33,12 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
+          file: ./frontend/docker/Dockerfile
           push: true
           tags: |
             ${{ secrets.DOCKER_HUB_USER }}/${{ vars.IMAGE_NAME_FRONTEND }}:latest
           build-args: |
             API_BASE_URL=${{ vars.API_BASE_URL }}
-            REPOSITORY_URL=${{ vars.REPOSITORY_URL }}
 
   deploy:
     needs: build-and-push

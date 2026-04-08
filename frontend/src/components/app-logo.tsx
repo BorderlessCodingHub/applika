@@ -1,0 +1,35 @@
+import { createLucideIcon } from "lucide-react";
+
+export function AppLogo({ mode }: { mode: "header" | "mobile" | "sidebar" }) {
+  return mode === "sidebar" ? (
+    <div className="flex cursor-pointer gap-1">
+      <ApplikaIcon className="h-16 w-16 text-primary" />
+      <div className="flex flex-col gap-1 py-0.5 text-2xl font-bold leading-none text-foreground">
+        <span>applika</span>
+        <span>.dev</span>
+      </div>
+    </div>
+  ) : (
+    <div className="flex cursor-pointer gap-1">
+      <ApplikaIcon className="h-12 w-12 text-primary" />
+      <div className="flex flex-col gap-1 py-0.5 text-lg font-bold leading-none text-foreground">
+        <span>applika</span>
+        <span>.dev</span>
+      </div>
+    </div>
+  );
+}
+
+// https://convertio.co/png-svg/
+export const ApplikaIcon = createLucideIcon("ApplikaIcon", [
+  [
+    "path",
+    {
+      d: "M2966 5659 c-74 -25 -134 -66 -176 -119 -32 -41 -59 -99 -380 -815 -208 -466 -263 -587 -310 -690 -18 -38 -106 -234 -195 -435 -90 -201 -182 -405 -205 -455 -23 -49 -88 -193 -145 -320 -57 -126 -136 -300 -175 -385 -40 -85 -98 -213 -130 -285 -32 -71 -114 -251 -183 -400 -202 -439 -354 -777 -371 -828 -33 -98 -11 -169 63 -207 38 -19 58 -20 370 -20 415 0 364 -15 656 200 576 425 1146 794 1965 1272 434 253 521 301 530 292 9 -9 229 -500 312 -694 50 -119 359 -822 400 -910 36 -79 59 -105 120 -136 47 -24 48 -24 390 -24 328 0 343 1 386 21 32 16 49 33 65 65 41 85 27 122 -426 1144 -72 162 -153 345 -180 405 -27 61 -62 139 -77 175 -15 36 -72 162 -125 280 -53 118 -214 478 -357 800 -143 322 -278 623 -300 670 -22 47 -75 164 -118 260 -43 96 -120 265 -170 375 -51 110 -125 272 -165 360 -101 224 -121 261 -165 309 -42 46 -121 89 -191 105 -25 6 -179 10 -349 10 -281 0 -310 -1 -364 -20z m393 -1126 c13 -27 104 -230 203 -453 99 -223 229 -514 290 -647 60 -134 107 -247 104 -252 -4 -5 -57 -37 -119 -72 -325 -180 -808 -459 -1180 -681 -230 -137 -420 -248 -422 -246 -2 2 28 71 66 153 39 83 99 213 134 290 34 77 79 174 98 215 19 41 65 143 102 225 37 83 118 260 180 395 62 135 195 430 295 655 200 449 207 465 218 465 5 0 18 -21 31 -47z",
+      transform: "translate(0,24) scale(0.003664,-0.003664)",
+      fill: "currentColor",
+      stroke: "none",
+      key: "applika-icon",
+    },
+  ],
+]);

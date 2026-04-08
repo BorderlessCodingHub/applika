@@ -18,6 +18,7 @@ from app.application.use_cases.application_steps.list_application_steps import (
 from app.application.use_cases.application_steps.update_application_step import (
     UpdateApplicationStepUseCase,
 )
+from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     ApplicationRepositoryDp,
     ApplicationStepRepositoryDp,
@@ -45,7 +46,7 @@ router = APIRouter(
 )
 async def get_all_application_steps(
     c_user: CurrentUserDp,
-    application_id: int,
+    application_id: SnowflakeID,
     app_repo: ApplicationRepositoryDp,
     app_step_repo: ApplicationStepRepositoryDp,
 ):
@@ -64,7 +65,7 @@ async def get_all_application_steps(
 )
 async def add_step(
     c_user: CurrentUserDp,
-    application_id: int,
+    application_id: SnowflakeID,
     payload: CreateApplicationStep,
     step_repo: StepDefinitionRepositoryDp,
     app_repo: ApplicationRepositoryDp,
@@ -78,7 +79,7 @@ async def add_step(
     data = ApplicationStepCreateDTO(
         user_id=c_user.id,
         application_id=application_id,
-        **payload.model_dump()
+        **payload.model_dump(),
     )
     app_step = await use_case.execute(c_user.id, data)
     return ApplicationStep.model_validate(app_step)
@@ -91,8 +92,8 @@ async def add_step(
 )
 async def update_step(
     c_user: CurrentUserDp,
-    application_id: int,
-    step_id: int,
+    application_id: SnowflakeID,
+    step_id: SnowflakeID,
     payload: UpdateApplicationStep,
     app_repo: ApplicationRepositoryDp,
     step_repo: StepDefinitionRepositoryDp,
@@ -117,8 +118,8 @@ async def update_step(
 )
 async def delete_step(
     c_user: CurrentUserDp,
-    application_id: int,
-    step_id: int,
+    application_id: SnowflakeID,
+    step_id: SnowflakeID,
     app_repo: ApplicationRepositoryDp,
     app_step_repo: ApplicationStepRepositoryDp,
 ):

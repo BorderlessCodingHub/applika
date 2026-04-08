@@ -1,10 +1,47 @@
-import DashboardProviders from "@/app/(protected)/dashboard/DashboardProviders";
+"use client";
 
-export default async function ProtectedLayout({
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
+import { CycleProvider } from "@/contexts/cycle-context";
+import { SupportsProvider } from "@/contexts/supports-context";
+import { AppLayout } from "@/components/layout/app-layout";
+import { Loader2 } from "lucide-react";
+import { ProtectedProviders } from "@/components/layout/protected-providers";
+
+export default function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Client-only providers should be rendered after auth passes
-  return <DashboardProviders>{children}</DashboardProviders>;
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  return (
+    <ProtectedProviders>
+      <SupportsProvider>
+        <CycleProvider>
+          <AppLayout>{children}</AppLayout>
+        </CycleProvider>
+      </SupportsProvider>
+    </ProtectedProviders>
+  );
 }

@@ -22,30 +22,47 @@ class ApplicationRepository:
                 ApplicationModel.id == id, ApplicationModel.user_id == user_id
             )
             .options(
+                selectinload(ApplicationModel.company_rel),
                 selectinload(ApplicationModel.last_step_def),
                 selectinload(ApplicationModel.feedback_def),
             )
         )
 
-    async def get_all_by_user_id(self, user_id: int) -> List[ApplicationModel]:
-        return await self.session.scalars(
+    async def get_all_by_user_id(
+        self, user_id: int, cycle_id: int | None = None
+    ) -> List[ApplicationModel]:
+        stmt = (
             select(ApplicationModel)
             .where(ApplicationModel.user_id == user_id)
             .order_by(ApplicationModel.application_date.desc())
             .options(
+                selectinload(ApplicationModel.company_rel),
                 selectinload(ApplicationModel.last_step_def),
                 selectinload(ApplicationModel.feedback_def),
             )
         )
+        if cycle_id is not None:
+            stmt = stmt.where(ApplicationModel.cycle_id == cycle_id)
+        else:
+            stmt = stmt.where(ApplicationModel.cycle_id.is_(None))
+        return await self.session.scalars(stmt)
 
     async def create(
-        self, application: ApplicationCreateDTO
+        self,
+        application: ApplicationCreateDTO,
+        company_id: int | None,
+        company_name: str,
     ) -> ApplicationModel:
         try:
             db_application = ApplicationModel(
-                **application.model_dump(exclude={'link_to_job'}),
-                link_to_job=(str(application.link_to_job)
-                             if application.link_to_job else None),
+                **application.model_dump(exclude={'link_to_job', 'company'}),
+                link_to_job=(
+                    str(application.link_to_job)
+                    if application.link_to_job
+                    else None
+                ),
+                company_id=company_id,
+                company_name=company_name,
             )
             self.session.add(db_application)
             await self.session.commit()
