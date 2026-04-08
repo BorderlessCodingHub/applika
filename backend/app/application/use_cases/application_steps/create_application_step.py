@@ -1,5 +1,3 @@
-from fastapi.exceptions import RequestValidationError
-
 from app.application.dto.application import ApplicationDTO
 from app.application.dto.application_step import (
     ApplicationStepCreateDTO,
@@ -9,6 +7,7 @@ from app.config.logging import logger
 from app.core.exceptions import (
     ApplicationFinalized,
     BusinessRuleViolation,
+    InvalidDate,
     ResourceNotFound,
 )
 from app.domain.models import ApplicationModel
@@ -21,6 +20,7 @@ from app.domain.repositories.application_step_repository import (
 from app.domain.repositories.step_definition_repository import (
     StepDefinitionRepository,
 )
+from app.application.validators.application_date import ensure_not_in_future
 
 
 class CreateApplicationStepUseCase:
@@ -43,16 +43,10 @@ class CreateApplicationStepUseCase:
         default handler formats them as the standard 422 response.
         """
         if data.step_date < application.application_date:
-            raise RequestValidationError([{
-                'type': 'value_error',
-                'loc': ('body', 'step_date'),
-                'msg': (
-                    'Value error, step_date cannot be earlier than the '
-                    'application_date '
-                    f'({application.application_date.isoformat()})'
-                ),
-                'input': data.step_date.isoformat(),
-            }])
+            raise InvalidDate(
+                'step_date cannot be earlier than the application_date '
+                f'({application.application_date.isoformat()})'
+            )
 
         existing_steps = (
             await self.application_step_repo.get_all_by_application_id(
@@ -63,20 +57,15 @@ class CreateApplicationStepUseCase:
         if existing_dates:
             min_step_date = max(existing_dates)
             if data.step_date < min_step_date:
-                raise RequestValidationError([{
-                    'type': 'value_error',
-                    'loc': ('body', 'step_date'),
-                    'msg': (
-                        'Value error, step_date must be greater than or '
-                        'equal to the previous step date '
-                        f'({min_step_date.isoformat()})'
-                    ),
-                    'input': data.step_date.isoformat(),
-                }])
+                raise InvalidDate(
+                    "Step date must be greater than or equal to the previous step date"
+                )
 
     async def execute(
         self, user_id: int, data: ApplicationStepCreateDTO
     ) -> ApplicationDTO:
+        ensure_not_in_future(data.step_date, 'step_date')
+
         application = await self.application_repo.get_by_id_and_user_id(
             data.application_id, user_id
         )

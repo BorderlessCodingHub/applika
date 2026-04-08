@@ -21,6 +21,7 @@ from app.domain.repositories.feedback_definition_repository import (
 from app.domain.repositories.step_definition_repository import (
     StepDefinitionRepository,
 )
+from app.application.validators.application_date import ensure_not_in_future
 
 
 class FinalizeApplicationUseCase:
@@ -39,6 +40,8 @@ class FinalizeApplicationUseCase:
     async def execute(
         self, id: int, user_id: int, data: FinalizeApplicationDTO
     ) -> ApplicationDTO:
+        ensure_not_in_future(data.finalize_date, 'finalize_date')
+
         application = await self.application_repo.get_by_id_and_user_id(
             id, user_id
         )

@@ -10,6 +10,7 @@ from app.domain.repositories.application_repository import (
 )
 from app.domain.repositories.company_repository import CompanyRepository
 from app.domain.repositories.platform_repository import PlatformRepository
+from app.application.validators.application_date import ensure_not_in_future
 
 
 class UpdateApplicationUseCase:
@@ -26,6 +27,8 @@ class UpdateApplicationUseCase:
     async def execute(
         self, id: int, data: ApplicationUpdateDTO
     ) -> ApplicationDTO:
+        ensure_not_in_future(data.application_date, 'application_date')
+
         application = await self.application_repo.get_by_id_and_user_id(
             id, data.user_id
         )

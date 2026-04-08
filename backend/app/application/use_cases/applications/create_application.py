@@ -11,6 +11,7 @@ from app.domain.repositories.application_repository import (
 )
 from app.domain.repositories.company_repository import CompanyRepository
 from app.domain.repositories.platform_repository import PlatformRepository
+from app.application.validators.application_date import ensure_not_in_future
 
 
 class CreateApplicationUseCase:
@@ -25,6 +26,8 @@ class CreateApplicationUseCase:
         self.company_repo = company_repo
 
     async def execute(self, data: ApplicationCreateDTO) -> ApplicationDTO:
+        ensure_not_in_future(data.application_date, 'application_date')
+
         platform = await self.platform_repo.get_by_id(data.platform_id)
         if not platform:
             logger.warning(
