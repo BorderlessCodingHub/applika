@@ -10,22 +10,10 @@ const values = [
       "Every line of code is public. Read it, audit it, learn from it — full transparency from day one.",
   },
   {
-    icon: Lock,
-    title: "Privacy First",
-    description:
-      "Your data stays yours. No tracking, no ads, no selling your information. Self-host anytime.",
-  },
-  {
     icon: GitFork,
     title: "Community Driven",
     description:
       "Feature requests, bug reports, and pull requests are all welcome. Shape the tool you use every day.",
-  },
-  {
-    icon: Heart,
-    title: "Free Forever",
-    description:
-      "No premium tiers, no paywalls. The full experience is available to every job seeker, always.",
   },
 ];
 
