@@ -1,19 +1,20 @@
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from fastapi_sso.sso.github import GithubSSO
 
+from app.application.use_cases.refresh_token import (
+    RefreshTokenUseCase,
+)
 from app.application.use_cases.user_registration import (
     UserRegistrationUseCase,
 )
 from app.config.settings import REFRESH_COOKIE_NAME, envs
-from app.core.crypto import decrypt_token
 from app.core.tokens import (
     clear_access_cookie,
     clear_refresh_cookie,
     create_refresh_token,
     revoke_refresh_token,
     set_access_cookie,
-    validate_refresh_token,
 )
 from app.presentation.dependencies import (
     GitHubServiceDp,
@@ -63,9 +64,7 @@ async def auth_callback(
     # Check org membership with the fresh GitHub token
     is_org_member = False
     if github_token and envs.DISCORD_REPORTS_ORGANIZATION:
-        is_org_member = await gh_service.check_org_membership(
-            0, github_token  # user_id=0 skips cache on first check
-        )
+        is_org_member = await gh_service.check_org_membership(github_token)
 
     use_case = UserRegistrationUseCase(user_repo)
     user_data = await use_case.execute(
@@ -98,48 +97,8 @@ async def refresh_token(
 ):
     """Validate refresh token, verify GitHub token, re-issue access."""
     refresh_id = request.cookies.get(REFRESH_COOKIE_NAME)
-    if not refresh_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail='Not authenticated',
-        )
-
-    user_id = await validate_refresh_token(refresh_id, redis_client)
-    if user_id is None:
-        clear_access_cookie(response)
-        clear_refresh_cookie(response)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail='Invalid or expired refresh token',
-        )
-
-    user = await user_repo.get_by_id(user_id)
-    if not user:
-        await revoke_refresh_token(refresh_id, redis_client)
-        clear_access_cookie(response)
-        clear_refresh_cookie(response)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail='User not found',
-        )
-
-    # Validate the stored GitHub token (cached in Redis)
-    if user.encrypted_github_token:
-        github_token = decrypt_token(user.encrypted_github_token)
-        if github_token:
-            is_valid = await gh_service.validate_token(
-                user.id, github_token
-            )
-            if not is_valid:
-                await revoke_refresh_token(refresh_id, redis_client)
-                clear_access_cookie(response)
-                clear_refresh_cookie(response)
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail='GitHub token revoked',
-                )
-
-    set_access_cookie(str(user.github_id), response)
+    use_case = RefreshTokenUseCase(user_repo, gh_service, redis_client)
+    await use_case.execute(refresh_id, response)
     return DetailSchema(detail='Token refreshed')
 
 
