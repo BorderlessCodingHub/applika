@@ -18,7 +18,6 @@ from app.application.use_cases.quinzenal_reports.list_reports import (
 from app.application.use_cases.quinzenal_reports.submit_report import (
     SubmitReportUseCase,
 )
-from app.core.crypto import decrypt_token
 from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     CurrentUserDp,
@@ -97,21 +96,9 @@ async def submit_report(
     gh_service: GitHubServiceDp,
     user_repo: UserRepositoryDp,
 ):
-    # Re-check org membership at submit time (cached in Redis)
-    is_org_member = c_user.is_org_member
-    if is_org_member:
-        user = await user_repo.get_by_id(c_user.id)
-        if user and user.encrypted_github_token:
-            github_token = decrypt_token(user.encrypted_github_token)
-            if github_token:
-                is_org_member = await gh_service.check_org_membership(
-                    c_user.id, github_token
-                )
-
-    use_case = SubmitReportUseCase(report_repo, discord_service)
-    data = SubmitReportPayloadDTO(**payload.model_dump())
-    report = await use_case.execute(
-        c_user.id, c_user.username, day, data,
-        is_org_member=is_org_member,
+    use_case = SubmitReportUseCase(
+        report_repo, discord_service, gh_service, user_repo,
     )
+    data = SubmitReportPayloadDTO(**payload.model_dump())
+    report = await use_case.execute(c_user.id, c_user.username, day, data)
     return SubmitReportResponse.model_validate(report.model_dump())
