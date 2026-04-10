@@ -33,6 +33,7 @@ class UserDTO(BaseSchema):
     availability: Availability | None = None
     bio: str | None = None
     linkedin_url: str | None = None
+    is_org_member: bool = False
 
 
 class UserUpdateDTO(BaseModel):
