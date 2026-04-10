@@ -146,13 +146,21 @@ Use cases encapsulate business operations:
 See `app/application/use_cases/applications/create_application.py` for reference.
 
 ### Authentication
-- GitHub OAuth via `fastapi-sso`
-- **Access-only JWT** stored in HTTP-only cookie (`__access`) — no refresh token
-- Payload: `{sub: github_id, kind: 'access', exp: ...}`
+- GitHub OAuth via `fastapi-sso` with scopes `user:email`, `read:org`
+- **Access token**: short-lived JWT in HTTP-only cookie (`__access`), payload `{sub: github_id, kind: 'access', exp: ...}`
+- **Refresh token**: opaque UUID stored in Redis, referenced via HTTP-only cookie (`__refresh`), TTL configurable (default 7 days)
+- GitHub access token stored **encrypted** (Fernet) in `users.encrypted_github_token` — never logged or exposed
 - `get_current_user()` dependency extracts user from access cookie
-- `GET /auth/refresh` re-issues the cookie if the current token is still valid
-- Token utilities in `app/core/tokens.py`
+- `GET /auth/refresh` validates refresh token from Redis, verifies GitHub token via cached `GET /user`, re-issues access cookie; invalidates session if GitHub token revoked
+- `GET /auth/logout` revokes refresh token from Redis and clears both cookies
+- Token utilities in `app/core/tokens.py`, encryption in `app/core/crypto.py`
 - Cookie settings: HTTPOnly, Secure in PROD, SameSite=Lax
+
+### GitHub Integration
+- `GitHubService` (`app/application/services/github_service.py`) validates tokens and checks org membership
+- Redis cache with configurable TTL (default 10 min) for `github:token_valid:{user_id}` and `github:org_member:{user_id}`
+- Org membership checked on login (fresh) and report submission (cached)
+- Discord report webhook only fires for confirmed org members
 
 ### Exception Handling
 Domain exceptions in `app/core/exceptions.py`:
@@ -271,6 +279,11 @@ Optional (with defaults):
 - `ACCESS_TOKEN_EXPIRE_MINUTES`: 15 (default)
 - `GITHUB_REDIRECT_URI`: OAuth callback URL
 - `LOGIN_REDIRECT_URI`: Post-login redirect
+- `REFRESH_TOKEN_EXPIRE_DAYS`: Refresh token TTL in days (default: 7)
+- `REDIS_URL`: Redis connection URL (default: redis://localhost:6379/0)
+- `GITHUB_CACHE_TTL_SECONDS`: Redis cache TTL for GitHub API checks (default: 600)
+- `GITHUB_TOKEN_ENCRYPTION_KEY`: Fernet key for encrypting GitHub tokens (generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
+- `DISCORD_REPORTS_ORGANIZATION`: GitHub org name; only org members get reports posted to Discord
 - `DISCORD_REPORTS_WEBHOOK`: Discord webhook for biweekly reports
 - `DISCORD_FEEDBACK_WEBHOOK`: Discord webhook for user feedback
 - `CORS_ORIGINS`, `CORS_HEADERS`, `CORS_METHODS`: CORS configuration
