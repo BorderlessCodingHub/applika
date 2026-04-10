@@ -117,6 +117,7 @@ class SubmitReportUseCase:
         username: str,
         report_day: ReportDays,
         payload: SubmitReportPayloadDTO,
+        is_org_member: bool = False,
     ) -> SubmitReportResultDTO:
         # Start date is only used in the first day of the report
         if report_day > 1:
@@ -213,20 +214,28 @@ class SubmitReportUseCase:
 
         saved_report = await self.report_repo.create(report)
 
-        discord_message = self._build_discord_message(
-            report_day=report_day,
-            username=username,
-            phase=report.phase,
-            metrics=metrics,
-            payload=payload,
-        )
-        discord_posted, discord_error = (
-            await self.discord_service.post_report_message(discord_message)
-        )
+        discord_posted = False
+        discord_error = None
 
-        if discord_posted and not saved_report.discord_posted:
-            saved_report.discord_posted = True
-            saved_report = await self.report_repo.update(saved_report)
+        if is_org_member:
+            discord_message = self._build_discord_message(
+                report_day=report_day,
+                username=username,
+                phase=report.phase,
+                metrics=metrics,
+                payload=payload,
+            )
+            discord_posted, discord_error = (
+                await self.discord_service.post_report_message(
+                    discord_message
+                )
+            )
+
+            if discord_posted and not saved_report.discord_posted:
+                saved_report.discord_posted = True
+                saved_report = await self.report_repo.update(
+                    saved_report
+                )
 
         logger.info(
             f'Report day {report_day} submitted successfully',

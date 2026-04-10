@@ -19,10 +19,13 @@ from app.application.use_cases.quinzenal_reports.submit_report import (
     SubmitReportUseCase,
 )
 from app.lib.types import SnowflakeID
+from app.core.crypto import decrypt_token
 from app.presentation.dependencies import (
     CurrentUserDp,
     DiscordServiceDp,
+    GitHubServiceDp,
     QuinzenalReportRepositoryDp,
+    UserRepositoryDp,
 )
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.quinzenal_report import (
@@ -91,8 +94,24 @@ async def submit_report(
     c_user: CurrentUserDp,
     report_repo: QuinzenalReportRepositoryDp,
     discord_service: DiscordServiceDp,
+    gh_service: GitHubServiceDp,
+    user_repo: UserRepositoryDp,
 ):
+    # Re-check org membership at submit time (cached in Redis)
+    is_org_member = c_user.is_org_member
+    if is_org_member:
+        user = await user_repo.get_by_id(c_user.id)
+        if user and user.encrypted_github_token:
+            github_token = decrypt_token(user.encrypted_github_token)
+            if github_token:
+                is_org_member = await gh_service.check_org_membership(
+                    c_user.id, github_token
+                )
+
     use_case = SubmitReportUseCase(report_repo, discord_service)
     data = SubmitReportPayloadDTO(**payload.model_dump())
-    report = await use_case.execute(c_user.id, c_user.username, day, data)
+    report = await use_case.execute(
+        c_user.id, c_user.username, day, data,
+        is_org_member=is_org_member,
+    )
     return SubmitReportResponse.model_validate(report.model_dump())
