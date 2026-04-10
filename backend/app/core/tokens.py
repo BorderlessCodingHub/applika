@@ -63,7 +63,7 @@ def clear_access_cookie(response: Response):
 
 # --- Refresh token (Redis-backed) ---
 
-_REFRESH_PREFIX = 'refresh_token:'
+_REFRESH_PREFIX = 'applika:refresh_token:'
 
 
 def _refresh_key(token_id: str) -> str:

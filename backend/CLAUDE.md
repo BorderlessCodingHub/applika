@@ -158,8 +158,7 @@ See `app/application/use_cases/applications/create_application.py` for reference
 
 ### GitHub Integration
 - `GitHubService` (`app/application/services/github_service.py`) validates tokens and checks org membership
-- Redis cache with configurable TTL (default 10 min) for `github:token_valid:{user_id}` and `github:org_member:{user_id}`
-- Org membership checked on login (fresh) and report submission (cached)
+- Redis cache with configurable TTL (default 10 min) for `applika:github:token_valid:{user_id}`
 - Discord report webhook only fires for confirmed org members
 
 ### Exception Handling
@@ -186,9 +185,9 @@ All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUID
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
 | GET | `/auth/github/login` | No | Redirect to GitHub OAuth |
-| GET | `/auth/github/callback` | No | OAuth callback, sets access cookie |
-| GET | `/auth/refresh` | Yes | Re-issue access cookie |
-| GET | `/auth/logout` | No | Clear access cookie |
+| GET | `/auth/github/callback` | No | OAuth callback, sets access + refresh cookies |
+| GET | `/auth/refresh` | No | Validate refresh token, re-issue access cookie |
+| GET | `/auth/logout` | No | Revoke refresh token, clear both cookies |
 
 ### Users (`/users`)
 | Method | Route | Auth | Description |

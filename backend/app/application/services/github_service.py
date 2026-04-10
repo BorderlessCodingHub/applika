@@ -18,7 +18,7 @@ class GitHubService:
     _API_BASE = 'https://api.github.com'
     _HEADERS = {
         'Accept': 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
+        'X-GitHub-Api-Version': '2026-03-10',
     }
 
     def __init__(self, redis_client: redis.Redis):
@@ -33,7 +33,7 @@ class GitHubService:
         self, user_id: int, github_token: str
     ) -> bool:
         """Check if a GitHub token is still valid. Cached per user."""
-        cache_key = f'github:token_valid:{user_id}'
+        cache_key = f'applika:github:token_valid:{user_id}'
 
         cached = await self.redis.get(cache_key)
         if cached is not None:
@@ -53,23 +53,18 @@ class GitHubService:
             )
             is_valid = False
 
-        await self.redis.set(
-            cache_key, '1' if is_valid else '0', ex=self.cache_ttl
-        )
+        if user_id:
+            await self.redis.set(
+                cache_key, '1' if is_valid else '0', ex=self.cache_ttl
+            )
         return is_valid
 
     async def check_org_membership(
-        self, user_id: int, github_token: str
+        self, github_token: str
     ) -> bool:
-        """Check if user belongs to the configured org. Cached per user."""
+        """Check if user belongs to the configured org. Not cached."""
         if not self.org_name:
             return False
-
-        cache_key = f'github:org_member:{user_id}'
-
-        cached = await self.redis.get(cache_key)
-        if cached is not None:
-            return cached == '1'
 
         try:
             async with httpx.AsyncClient() as client:
@@ -77,6 +72,10 @@ class GitHubService:
                     f'{self._API_BASE}/user/orgs',
                     headers=self._auth_headers(github_token),
                     timeout=10,
+                )
+                logger.debug(
+                    'GitHub /user/orgs response: \n' +
+                    f'{response.status_code} - {response.text}'
                 )
                 if response.status_code != 200:
                     logger.warning(
@@ -96,14 +95,10 @@ class GitHubService:
             )
             is_member = False
 
-        await self.redis.set(
-            cache_key, '1' if is_member else '0', ex=self.cache_ttl
-        )
         return is_member
 
     async def invalidate_cache(self, user_id: int) -> None:
         """Remove all cached GitHub data for a user."""
         await self.redis.delete(
-            f'github:token_valid:{user_id}',
-            f'github:org_member:{user_id}',
+            f'applika:github:token_valid:{user_id}',
         )
