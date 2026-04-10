@@ -18,8 +18,8 @@ from app.application.use_cases.quinzenal_reports.list_reports import (
 from app.application.use_cases.quinzenal_reports.submit_report import (
     SubmitReportUseCase,
 )
-from app.lib.types import SnowflakeID
 from app.core.crypto import decrypt_token
+from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     CurrentUserDp,
     DiscordServiceDp,

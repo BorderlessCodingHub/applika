@@ -1,9 +1,7 @@
-import jwt
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from fastapi_sso.sso.github import GithubSSO
 
-from app.application.services.github_service import GitHubService
 from app.application.use_cases.user_registration import (
     UserRegistrationUseCase,
 )
