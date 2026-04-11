@@ -3,7 +3,6 @@ from app.application.dto.application_step import (
     ApplicationStepDTO,
     ApplicationStepUpdateDTO,
 )
-from app.application.validators.application_date import ensure_not_in_future
 from app.core.exceptions import (
     ApplicationFinalized,
     BusinessRuleViolation,
@@ -78,8 +77,6 @@ class UpdateApplicationStepUseCase:
     async def execute(
         self, id: int, user_id: int, data: ApplicationStepUpdateDTO
     ) -> ApplicationDTO:
-        ensure_not_in_future(data.step_date, 'step_date')
-
         application = await self.application_repo.get_by_id_and_user_id(
             data.application_id, user_id
         )
