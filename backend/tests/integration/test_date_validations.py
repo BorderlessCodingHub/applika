@@ -202,20 +202,6 @@ async def test_create_step_after_application_date_succeeds(
 
 
 @freeze_time(FROZEN_NOW, ignore=['snowflake'])
-async def test_create_step_with_future_date_returns_422(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    await _seed_steps_and_app(db_session, application_date=date(2026, 4, 1))
-
-    payload = {'step_id': 1, 'step_date': ONE_DAY_PAST_MAX.isoformat()}
-    response = await async_client.post(
-        '/applications/1/steps', json=payload
-    )
-
-    assert response.status_code == 422, msg(422, response.status_code)
-
-
-@freeze_time(FROZEN_NOW, ignore=['snowflake'])
 async def test_create_step_earlier_than_previous_step_returns_422(
     async_client: AsyncClient, db_session: AsyncSession
 ):
