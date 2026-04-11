@@ -1,13 +1,16 @@
 from typing import Annotated
 
+import redis.asyncio as aioredis
 from fastapi import Depends, Security
 from fastapi.security import APIKeyCookie
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dto.user import UserDTO
 from app.application.services.discord_service import DiscordService
+from app.application.services.github_service import GitHubService
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
 from app.config.db import get_session
+from app.config.redis import get_redis
 from app.config.settings import ACCESS_COOKIE_NAME, envs
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -142,6 +145,20 @@ def get_discord_feedback_service():
 
 DiscordFeedbackServiceDp = Annotated[
     DiscordService, Depends(get_discord_feedback_service)
+]
+
+
+RedisDp = Annotated[aioredis.Redis, Depends(get_redis)]
+
+
+async def get_github_service(
+    redis_client: RedisDp,
+) -> GitHubService:
+    return GitHubService(redis_client)
+
+
+GitHubServiceDp = Annotated[
+    GitHubService, Depends(get_github_service)
 ]
 
 

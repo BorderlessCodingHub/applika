@@ -9,6 +9,7 @@ from app.application.dto.quinzenal_report import (
     SubmitReportResultDTO,
 )
 from app.application.services.discord_service import DiscordService
+from app.application.services.github_service import GitHubService
 from app.application.use_cases.quinzenal_reports.common import (
     get_current_day,
     get_next_report_day,
@@ -16,11 +17,13 @@ from app.application.use_cases.quinzenal_reports.common import (
     get_report_period,
 )
 from app.config.logging import logger
+from app.core.crypto import decrypt_token
 from app.core.exceptions import ResourceConflict
 from app.domain.models import QuinzenalReportModel
 from app.domain.repositories.quinzenal_report_repository import (
     QuinzenalReportRepository,
 )
+from app.domain.repositories.user_repository import UserRepository
 
 
 class SubmitReportUseCase:
@@ -30,9 +33,13 @@ class SubmitReportUseCase:
         self,
         report_repo: QuinzenalReportRepository,
         discord_service: DiscordService,
+        github_service: GitHubService,
+        user_repo: UserRepository,
     ):
         self.report_repo = report_repo
         self.discord_service = discord_service
+        self.github_service = github_service
+        self.user_repo = user_repo
 
     @classmethod
     def _sanitize_discord_text(cls, text: str, *, max_length: int) -> str:
@@ -109,6 +116,24 @@ class SubmitReportUseCase:
             f'• Callback rate: {metrics.callback_rate}%\n'
             f'• Offer rate: {metrics.offer_rate}%\n\n'
             f'🎯 **NEXT FORTNIGHT GOAL:** {safe_next_fortnight_goal}'
+        )
+
+    async def _validate_org_membership(
+        self, user_id: int
+    ) -> bool:
+        """Check if the user is an org member via their stored GitHub
+        token. Returns False if the user has no token or the check
+        fails — never cached for non-members."""
+        user = await self.user_repo.get_by_id(user_id)
+        if not user or not user.encrypted_github_token:
+            return False
+
+        github_token = decrypt_token(user.encrypted_github_token)
+        if not github_token:
+            return False
+
+        return await self.github_service.check_org_membership(
+            github_token
         )
 
     async def execute(
@@ -213,20 +238,29 @@ class SubmitReportUseCase:
 
         saved_report = await self.report_repo.create(report)
 
-        discord_message = self._build_discord_message(
-            report_day=report_day,
-            username=username,
-            phase=report.phase,
-            metrics=metrics,
-            payload=payload,
-        )
-        discord_posted, discord_error = (
-            await self.discord_service.post_report_message(discord_message)
-        )
+        discord_posted = False
+        discord_error = None
 
-        if discord_posted and not saved_report.discord_posted:
-            saved_report.discord_posted = True
-            saved_report = await self.report_repo.update(saved_report)
+        is_org_member = await self._validate_org_membership(user_id)
+        if is_org_member:
+            discord_message = self._build_discord_message(
+                report_day=report_day,
+                username=username,
+                phase=report.phase,
+                metrics=metrics,
+                payload=payload,
+            )
+            discord_posted, discord_error = (
+                await self.discord_service.post_report_message(
+                    discord_message
+                )
+            )
+
+            if discord_posted and not saved_report.discord_posted:
+                saved_report.discord_posted = True
+                saved_report = await self.report_repo.update(
+                    saved_report
+                )
 
         logger.info(
             f'Report day {report_day} submitted successfully',

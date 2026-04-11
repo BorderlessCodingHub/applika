@@ -5,16 +5,21 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - ENVIRONMENT=DEV
       - CORS_ORIGINS=["http://127.0.0.1:8080"]
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/applika
+      - REDIS_URL=redis://redis:6379/0
       - GITHUB_CLIENT_ID=<your-client-id>
       - GITHUB_CLIENT_SECRET=<your-client-secret>
       - GITHUB_REDIRECT_URI=http://127.0.0.1:8000/api/auth/github/callback
+      - GITHUB_TOKEN_ENCRYPTION_KEY=<your-fernet-key>
       - LOGIN_REDIRECT_URI=http://127.0.0.1:3000/dashboard
       - DISCORD_REPORTS_WEBHOOK=<your-webhook-url>
       - DISCORD_FEEDBACK_WEBHOOK=<your-webhook-url>
+      - DISCORD_REPORTS_ORGANIZATION=<your-github-org>
     ports:
       - "8000:8000"
     entrypoint: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
@@ -38,5 +43,20 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: applika.dev-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - applika_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
   applika_db_data:
+  applika_redis_data:

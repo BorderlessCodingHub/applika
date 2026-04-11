@@ -4,6 +4,7 @@ from pydantic import Field, PostgresDsn, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ACCESS_COOKIE_NAME = '__access'
+REFRESH_COOKIE_NAME = '__refresh'
 
 EnvType = Literal['PROD', 'DEV', 'TEST']
 
@@ -61,6 +62,16 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_ID: str
     GITHUB_CLIENT_SECRET: str
     GITHUB_REDIRECT_URI: str = 'http://127.0.0.1:8000/api/auth/github/callback'
+
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    REDIS_URL: str = 'redis://localhost:6379/0'
+    GITHUB_CACHE_TTL_SECONDS: int = 600  # 10 minutes
+
+    GITHUB_TOKEN_ENCRYPTION_KEY: str = (
+        'changeme-set-a-fernet-key-in-production'
+    )
+    DISCORD_REPORTS_ORGANIZATION: str | None = None
 
     LOGIN_REDIRECT_URI: str = 'http://127.0.0.1:8000/api/docs'
     DISCORD_REPORTS_WEBHOOK: str | None = None
