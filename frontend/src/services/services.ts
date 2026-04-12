@@ -1,3 +1,4 @@
+import { AdminService } from "./implementations/admin-service";
 import { CycleService } from "./implementations/cycle-service";
 import { FeedbackService } from "./implementations/feedback-service";
 import { AuthService } from "./implementations/auth-service";
@@ -9,6 +10,7 @@ import { CompanyService } from "@/services/implementations/company-service";
 import { ReportsService } from "@/services/implementations/reports-service";
 
 class ServiceContainer {
+  admin = new AdminService();
   auth = new AuthService();
   users = new UserService();
   applications = new ApplicationService();
