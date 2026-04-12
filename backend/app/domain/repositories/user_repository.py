@@ -39,3 +39,11 @@ class UserRepository:
         except Exception as e:
             await self.session.rollback()
             raise e
+
+    async def delete(self, user: UserModel) -> None:
+        try:
+            await self.session.delete(user)
+            await self.session.commit()
+        except Exception as e:
+            await self.session.rollback()
+            raise e

@@ -31,6 +31,23 @@ class CompanyRepository:
             query = query.where(CompanyModel.name.ilike(f'%{name}%'))
         return await self.session.scalars(query)
 
+    async def get_by_id_unfiltered(
+        self, id: int
+    ) -> CompanyModel | None:
+        return await self.session.scalar(
+            select(CompanyModel).where(CompanyModel.id == id)
+        )
+
+    async def update(self, company: CompanyModel) -> CompanyModel:
+        try:
+            self.session.add(company)
+            await self.session.commit()
+            await self.session.refresh(company)
+            return company
+        except Exception as e:
+            await self.session.rollback()
+            raise e
+
     async def create(self, company: CompanyCreateDTO) -> CompanyModel:
         try:
             db_company = CompanyModel(
