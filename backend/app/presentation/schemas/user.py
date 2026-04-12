@@ -29,6 +29,7 @@ class UserProfile(BaseSchema, TimeSchema):
     availability: Availability | None = None
     bio: str | None = None
     linkedin_url: str | None = None
+    is_admin: bool = False
 
 
 class UpdateUserProfile(BaseSchema):

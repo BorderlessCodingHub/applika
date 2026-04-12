@@ -12,6 +12,8 @@ from app.application.use_cases.get_current_user import GetCurrentUserUseCase
 from app.config.db import get_session
 from app.config.redis import get_redis
 from app.config.settings import ACCESS_COOKIE_NAME, envs
+from app.core.exceptions import ForbiddenAccess
+from app.domain.repositories.admin_repository import AdminRepository
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
@@ -112,6 +114,15 @@ UserStatsRepositoryDp = Annotated[
 ]
 
 
+def get_admin_repository(session: DbSession):
+    return AdminRepository(session)
+
+
+AdminRepositoryDp = Annotated[
+    AdminRepository, Depends(get_admin_repository)
+]
+
+
 def get_cycle_repository(session: DbSession):
     return CycleRepository(session)
 
@@ -171,3 +182,14 @@ async def get_current_user(
 
 
 CurrentUserDp = Annotated[UserDTO, Depends(get_current_user)]
+
+
+async def get_admin_user(
+    user: CurrentUserDp,
+) -> UserDTO:
+    if not user.is_admin:
+        raise ForbiddenAccess('Admin access required')
+    return user
+
+
+AdminUserDp = Annotated[UserDTO, Depends(get_admin_user)]

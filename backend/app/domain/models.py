@@ -97,6 +97,9 @@ class UserModel(BaseMixin, Base):
     is_org_member: Mapped[bool] = mapped_column(
         sa.Boolean, default=False, server_default='false', nullable=False
     )
+    is_admin: Mapped[bool] = mapped_column(
+        sa.Boolean, default=False, server_default='false', nullable=False
+    )
 
     applications: Mapped[List['ApplicationModel']] = relationship(
         back_populates='user'
