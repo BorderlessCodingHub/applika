@@ -22,8 +22,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: APP_CONFIG.ogImage,
-        width: 1200,
-        height: 630,
+        width: 1280,
+        height: 720,
         alt: `${APP_CONFIG.name} — open-source job application tracker`,
       },
     ],
