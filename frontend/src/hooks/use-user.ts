@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AxiosError } from "axios";
 import { toast } from "sonner";
+
+import { getApiError } from "@/lib/api-client";
 import { services } from "@/services/services";
 import { UpdateUserPayload } from "@/services/types/users";
 
@@ -36,4 +39,14 @@ export function useMutateUserProfile() {
     isSuccess: mutation.isSuccess,
     error: mutation.error as Error | null,
   };
+}
+
+export function useDeleteAccount() {
+  return useMutation({
+    mutationFn: () => services.users.deleteMe(),
+    onSuccess: () => {
+      window.location.href = "/";
+    },
+    onError: (err: AxiosError) => toast.error(getApiError(err)),
+  });
 }

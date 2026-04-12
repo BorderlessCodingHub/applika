@@ -10,4 +10,8 @@ export class UserService implements IUserService {
   updateMe(data: UpdateUserPayload): Promise<User> {
     return api.patch<User>("/users/me", data).then((r) => r.data);
   }
+
+  deleteMe(): Promise<void> {
+    return api.delete("/users/me").then(() => undefined);
+  }
 }

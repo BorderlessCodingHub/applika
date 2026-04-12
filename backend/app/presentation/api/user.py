@@ -1,7 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 
 from app.application.dto.user import UserUpdateDTO
 from app.application.use_cases.update_user import UpdateUserUseCase
+from app.config.settings import envs
 from app.presentation.dependencies import CurrentUserDp, UserRepositoryDp
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.user import UpdateUserProfile, UserProfile
@@ -24,3 +25,22 @@ async def update_me(
     data = UserUpdateDTO(**payload.model_dump(exclude_unset=True))
     user = await use_case.execute(c_user.id, data)
     return UserProfile.model_validate(user)
+
+
+@router.delete('/users/me', status_code=204)
+async def delete_me(
+    c_user: CurrentUserDp,
+    user_repo: UserRepositoryDp,
+    response: Response,
+):
+    user = await user_repo.get_by_id(c_user.id)
+    if user:
+        await user_repo.delete(user)
+
+    is_prod = envs.ENVIRONMENT == 'PROD'
+    response.delete_cookie(
+        '__access', path='/', secure=is_prod, httponly=True
+    )
+    response.delete_cookie(
+        '__refresh', path='/', secure=is_prod, httponly=True
+    )
