@@ -91,6 +91,12 @@ class UserModel(BaseMixin, Base):
     )
     bio: Mapped[Optional[str]] = mapped_column(sa.Text)
     linkedin_url: Mapped[Optional[str]] = mapped_column(sa.String(500))
+    encrypted_github_token: Mapped[Optional[str]] = mapped_column(
+        sa.Text, nullable=True
+    )
+    is_org_member: Mapped[bool] = mapped_column(
+        sa.Boolean, default=False, server_default='false', nullable=False
+    )
 
     applications: Mapped[List['ApplicationModel']] = relationship(
         back_populates='user'

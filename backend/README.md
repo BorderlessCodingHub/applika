@@ -64,7 +64,9 @@ backend/
 - **Pydantic** 2.0 for validation and settings
 - **Snowflake IDs** for distributed unique identifiers
 - **fastapi-sso** for GitHub OAuth
+- **Redis** 7 for refresh tokens and caching
 - **PyJWT** for token management
+- **cryptography** (Fernet) for GitHub token encryption
 
 ## Required Environment Variables
 
@@ -82,16 +84,22 @@ backend/
 | `JWT_SECRET` | JWT signing secret | changeme placeholder |
 | `JWT_ALGORITHM` | JWT algorithm | `HS256` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token TTL | `15` |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | Refresh token TTL in days | `7` |
+| `REDIS_URL` | Redis connection URL | `redis://localhost:6379/0` |
 | `GITHUB_REDIRECT_URI` | OAuth callback URL | `http://127.0.0.1:8000/api/auth/github/callback` |
+| `GITHUB_CACHE_TTL_SECONDS` | Redis cache TTL for GitHub API checks | `600` |
+| `GITHUB_TOKEN_ENCRYPTION_KEY` | Fernet key for encrypting GitHub tokens | changeme placeholder |
+| `DISCORD_REPORTS_ORGANIZATION` | GitHub org for gating Discord report webhook | `None` |
 | `LOGIN_REDIRECT_URI` | Post-login redirect | `http://127.0.0.1:8000/api/docs` |
 | `DISCORD_REPORTS_WEBHOOK` | Discord webhook for biweekly reports | `None` |
 | `DISCORD_FEEDBACK_WEBHOOK` | Discord webhook for user feedback | `None` |
-| `CORS_ORIGINS` | Allowed CORS origins | `["http://127.0.0.1:3000","http://127.0.0.1:8000"]` |
+| `CORS_ORIGINS` | Allowed CORS origins | `["http://127.0.0.1:8080","http://127.0.0.1:8000"]` |
 | `CORS_HEADERS` | Allowed CORS headers | `["X-Request-ID","Content-Type"]` |
 | `CORS_METHODS` | Allowed CORS methods | `["GET","PATCH","POST","PUT","DELETE","OPTIONS"]` |
 | `API_PREFIX` | API route prefix | `/api` |
 | `LOG_LEVEL` | Logging level | `INFO` |
 | `LOG_FORMAT` | Logging format string | `[%(asctime)s] \|%(levelname)s\| ...` |
+| `LOG_FILE` | JSON log file path | `logs/app.log` |
 | `DATABASE_ECHO` | SQLAlchemy echo flag | `False` |
 
 ## How to Run
@@ -111,7 +119,7 @@ backend/
    ```bash
    docker compose up --build
    ```
-   The entrypoint automatically runs migrations before starting the server.
+   This starts the backend, PostgreSQL, and Redis. The entrypoint automatically runs migrations before starting the server.
 
 4. **Access the API:** `http://127.0.0.1:8000/api/docs`
 
@@ -150,12 +158,14 @@ python scripts/seed_mock_data.py
 
 ## Authentication
 
-The API uses GitHub OAuth with access-only JWT cookies (no refresh token):
+The API uses GitHub OAuth with JWT access cookies and Redis-backed refresh tokens:
 
 1. `GET /api/auth/github/login` — Redirects to GitHub
-2. GitHub callback sets an `__access` HTTPOnly cookie
-3. `GET /api/auth/refresh` — Re-issues the cookie if still valid
-4. `GET /api/auth/logout` — Clears the cookie
+2. GitHub callback sets an `__access` HTTPOnly JWT cookie and a `__refresh` HTTPOnly cookie (opaque UUID stored in Redis)
+3. `GET /api/auth/refresh` — Validates refresh token from Redis, verifies GitHub token, re-issues access cookie
+4. `GET /api/auth/logout` — Revokes refresh token from Redis and clears both cookies
+
+GitHub access tokens are stored **encrypted** (Fernet) in the database and never exposed.
 
 ### Creating a GitHub OAuth App
 
