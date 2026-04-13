@@ -17,8 +17,8 @@ from app.presentation.api.user_feedback import router as feedback_router
 from app.presentation.handlers import register_handlers
 
 app = FastAPI(
-    title='Applika 2.1 API',
-    version='2.1.0',
+    title='Applika 2.2 API',
+    version='2.2.0',
     root_path=envs.API_PREFIX,
     openapi_url=envs.openapi_url,
 )
