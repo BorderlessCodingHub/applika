@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { RefreshCw, Plus, History } from "lucide-react";
+import { Plus, History } from "lucide-react";
 import {
   Select,
   SelectButton,
