@@ -249,6 +249,7 @@ export function CompaniesPage() {
                             size="icon"
                             className="h-7 w-7"
                             onClick={() => openEdit(company)}
+                            title="Edit company details"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
@@ -262,6 +263,7 @@ export function CompaniesPage() {
                                 data: { is_active: !company.is_active },
                               })
                             }
+                            title="Toggle company status"
                           >
                             <span
                               className={cn(

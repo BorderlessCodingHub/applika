@@ -181,6 +181,7 @@ function PlatformsTab() {
                             url: p.url ?? "",
                           });
                         }}
+                        title="Edit platform details"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -189,6 +190,7 @@ function PlatformsTab() {
                         size="icon"
                         className="h-7 w-7 text-destructive hover:text-destructive"
                         onClick={() => setDeleteTarget(p)}
+                        title="Delete platform"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -426,6 +428,7 @@ function StepDefinitionsTab() {
                             strict: s.strict,
                           });
                         }}
+                        title="Edit step definition"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -434,6 +437,7 @@ function StepDefinitionsTab() {
                         size="icon"
                         className="h-7 w-7 text-destructive hover:text-destructive"
                         onClick={() => setDeleteTarget(s)}
+                        title="Delete step definition"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -686,6 +690,7 @@ function FeedbackDefinitionsTab() {
                           setEditTarget(f);
                           editForm.reset({ name: f.name, color: f.color });
                         }}
+                        title="Edit feedback definition details"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -694,6 +699,7 @@ function FeedbackDefinitionsTab() {
                         size="icon"
                         className="h-7 w-7 text-destructive hover:text-destructive"
                         onClick={() => setDeleteTarget(f)}
+                        title="Delete feedback definition"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>

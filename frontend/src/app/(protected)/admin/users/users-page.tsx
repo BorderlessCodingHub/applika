@@ -303,6 +303,7 @@ export function UsersPage() {
                             size="icon"
                             className="h-7 w-7"
                             onClick={() => setSelectedUser(user)}
+                            title="View user details"
                           >
                             <User className="h-3.5 w-3.5" />
                           </Button>
@@ -316,6 +317,7 @@ export function UsersPage() {
                                 data: { is_admin: !user.is_admin },
                               })
                             }
+                            title="Toggle user admin"
                           >
                             {user.is_admin ? (
                               <ShieldOff className="h-3.5 w-3.5 text-amber-400" />
