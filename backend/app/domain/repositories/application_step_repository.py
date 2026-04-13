@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import List
 
 from sqlalchemy import delete, select
@@ -73,6 +73,37 @@ class ApplicationStepRepository:
         except Exception as e:
             await self.session.rollback()
             raise e
+
+    async def get_user_agenda(
+        self,
+        user_id: int,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> List[ApplicationStepModel]:
+        """Get all steps for a user within a date range,
+        with application and step definition loaded."""
+        today = date.today()
+        start = from_date or (today - timedelta(days=30))
+        end = to_date or (today + timedelta(days=30))
+
+        result = await self.session.scalars(
+            select(ApplicationStepModel)
+            .join(ApplicationModel)
+            .where(
+                ApplicationStepModel.user_id == user_id,
+                ApplicationStepModel.step_date >= start,
+                ApplicationStepModel.step_date <= end,
+            )
+            .order_by(
+                ApplicationStepModel.step_date.asc(),
+                ApplicationStepModel.start_time.asc().nullslast(),
+            )
+            .options(
+                joinedload(ApplicationStepModel.step_def),
+                joinedload(ApplicationStepModel.application),
+            )
+        )
+        return list(result.unique())
 
     async def delete_all_by_application_id(self, application_id) -> int:
         result = await self.session.execute(
