@@ -26,7 +26,7 @@ import { genAgendaStepIcsFile } from "@/lib/calendar";
 import { toast } from "sonner";
 import Link from "next/link";
 import { cn, getAgendaUrgencyColor } from "@/lib/utils";
-import { useAgendaNotifications } from "@/hooks/use-agenda-notifications";
+import { useAgendaNotifications } from "@/contexts/agenda-notifications-context";
 
 function getUserTimezone(): string {
   try {
@@ -167,10 +167,12 @@ function StepCard({
   step,
   notificationEnabled,
   onToggleNotification,
+  isPast,
 }: {
   step: AgendaStep;
   notificationEnabled: boolean;
   onToggleNotification: () => void;
+  isPast: boolean;
 }) {
   const date = new Date(step.step_date + "T00:00:00");
   const showFullDate = !isToday(date) && !isTomorrow(date);
@@ -224,7 +226,7 @@ function StepCard({
               >
                 {step.step_name}
               </Badge>
-              {step.start_time && (
+              {step.start_time && !isPast && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -307,10 +309,12 @@ function SectionBlock({
   section,
   isNotificationEnabled,
   onToggleNotification,
+  isPast,
 }: {
   section: Section;
   isNotificationEnabled: (id: string) => boolean;
   onToggleNotification: (id: string) => void;
+  isPast: boolean;
 }) {
   return (
     <div className="space-y-3">
@@ -327,6 +331,7 @@ function SectionBlock({
             step={step}
             notificationEnabled={isNotificationEnabled(step.id)}
             onToggleNotification={() => onToggleNotification(step.id)}
+            isPast={isPast}
           />
         ))}
       </div>
@@ -351,7 +356,7 @@ function AgendaSkeleton() {
 
 export function AgendaPage() {
   const { data: steps, isLoading } = useAgenda();
-  const { toggle, isEnabled } = useAgendaNotifications(steps);
+  const { toggle, isEnabled } = useAgendaNotifications();
 
   const sections = steps ? categorizeSteps(steps) : [];
 
@@ -391,6 +396,7 @@ export function AgendaPage() {
               section={section}
               isNotificationEnabled={isEnabled}
               onToggleNotification={toggle}
+              isPast={section.title === "Past"}
             />
           ))}
         </div>
