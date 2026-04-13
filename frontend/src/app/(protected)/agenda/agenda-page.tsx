@@ -137,9 +137,42 @@ interface Section {
   steps: AgendaStep[];
 }
 
+function isStepPast(step: AgendaStep, now: Date): boolean {
+  const today = format(now, "yyyy-MM-dd");
+
+  if (step.step_date < today) return true;
+  if (step.step_date > today) return false;
+
+  // Today's step: if it has a start_time, check if that time has passed
+  if (step.start_time) {
+    const [h, m] = parseTime(step.start_time);
+    const stepDt = new Date(step.step_date + "T00:00:00");
+    stepDt.setHours(h, m, 0, 0);
+
+    const stepTz = step.timezone;
+    const localTz = getUserTimezone();
+    if (stepTz && stepTz !== localTz) {
+      const inSource = new Date(
+        stepDt.toLocaleString("en-US", { timeZone: stepTz }),
+      );
+      const inLocal = new Date(
+        stepDt.toLocaleString("en-US", { timeZone: localTz }),
+      );
+      const diffMs = inLocal.getTime() - inSource.getTime();
+      return new Date(stepDt.getTime() + diffMs) < now;
+    }
+
+    return stepDt < now;
+  }
+
+  // No time set — consider entire day, not past until day is over
+  return false;
+}
+
 function categorizeSteps(steps: AgendaStep[]): Section[] {
-  const today = format(new Date(), "yyyy-MM-dd");
-  const tomorrow = format(addDays(new Date(), 1), "yyyy-MM-dd");
+  const now = new Date();
+  const today = format(now, "yyyy-MM-dd");
+  const tomorrow = format(addDays(now, 1), "yyyy-MM-dd");
 
   const sections: Section[] = [
     { title: "Today", steps: [] },
@@ -149,14 +182,14 @@ function categorizeSteps(steps: AgendaStep[]): Section[] {
   ];
 
   for (const step of steps) {
-    if (step.step_date === today) {
+    if (isStepPast(step, now)) {
+      sections[3].steps.push(step);
+    } else if (step.step_date === today) {
       sections[0].steps.push(step);
     } else if (step.step_date === tomorrow) {
       sections[1].steps.push(step);
-    } else if (step.step_date > today) {
-      sections[2].steps.push(step);
     } else {
-      sections[3].steps.push(step);
+      sections[2].steps.push(step);
     }
   }
 
