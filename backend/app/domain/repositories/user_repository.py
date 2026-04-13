@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dto.user import UserCreateDTO
@@ -42,7 +42,9 @@ class UserRepository:
 
     async def delete(self, user: UserModel) -> None:
         try:
-            await self.session.delete(user)
+            await self.session.execute(
+                delete(UserModel).where(UserModel.id == user.id)
+            )
             await self.session.commit()
         except Exception as e:
             await self.session.rollback()

@@ -279,11 +279,13 @@ class AdminRepository:
         return points
 
     async def get_seniority_breakdown(self) -> List[dict]:
+        level_expr = func.coalesce(
+            sa.cast(UserModel.seniority_level, sa.String),
+            'unknown',
+        ).label('level')
         stmt = (
             select(
-                func.coalesce(
-                    UserModel.seniority_level, 'unknown'
-                ).label('level'),
+                level_expr,
                 func.count(UserModel.id).label('count'),
             )
             .group_by(sa.literal_column('level'))
