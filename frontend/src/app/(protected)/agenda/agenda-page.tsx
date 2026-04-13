@@ -11,6 +11,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  Bell,
+  BellRing,
   CalendarClock,
   CalendarPlus,
   Clock,
@@ -23,7 +25,8 @@ import type { AgendaStep } from "@/services/types/applications";
 import { genAgendaStepIcsFile } from "@/lib/calendar";
 import { toast } from "sonner";
 import Link from "next/link";
-import { getAgendaUrgencyColor } from "@/lib/utils";
+import { cn, getAgendaUrgencyColor } from "@/lib/utils";
+import { useAgendaNotifications } from "@/hooks/use-agenda-notifications";
 
 function getUserTimezone(): string {
   try {
@@ -160,7 +163,15 @@ function categorizeSteps(steps: AgendaStep[]): Section[] {
   return sections.filter((s) => s.steps.length > 0);
 }
 
-function StepCard({ step }: { step: AgendaStep }) {
+function StepCard({
+  step,
+  notificationEnabled,
+  onToggleNotification,
+}: {
+  step: AgendaStep;
+  notificationEnabled: boolean;
+  onToggleNotification: () => void;
+}) {
   const date = new Date(step.step_date + "T00:00:00");
   const showFullDate = !isToday(date) && !isTomorrow(date);
   const urgencyColor = getUrgencyColor(step);
@@ -213,6 +224,32 @@ function StepCard({ step }: { step: AgendaStep }) {
               >
                 {step.step_name}
               </Badge>
+              {step.start_time && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "h-7 w-7",
+                        notificationEnabled && "text-primary",
+                      )}
+                      onClick={onToggleNotification}
+                    >
+                      {notificationEnabled ? (
+                        <BellRing className="h-3.5 w-3.5" />
+                      ) : (
+                        <Bell className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {notificationEnabled
+                      ? "Disable sound alerts"
+                      : "Alert at 30, 15 & 5 min before"}
+                  </TooltipContent>
+                </Tooltip>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -266,7 +303,15 @@ function StepCard({ step }: { step: AgendaStep }) {
   );
 }
 
-function SectionBlock({ section }: { section: Section }) {
+function SectionBlock({
+  section,
+  isNotificationEnabled,
+  onToggleNotification,
+}: {
+  section: Section;
+  isNotificationEnabled: (id: string) => boolean;
+  onToggleNotification: (id: string) => void;
+}) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -277,7 +322,12 @@ function SectionBlock({ section }: { section: Section }) {
       </div>
       <div className="space-y-2">
         {section.steps.map((step) => (
-          <StepCard key={step.id} step={step} />
+          <StepCard
+            key={step.id}
+            step={step}
+            notificationEnabled={isNotificationEnabled(step.id)}
+            onToggleNotification={() => onToggleNotification(step.id)}
+          />
         ))}
       </div>
     </div>
@@ -301,6 +351,7 @@ function AgendaSkeleton() {
 
 export function AgendaPage() {
   const { data: steps, isLoading } = useAgenda();
+  const { toggle, isEnabled } = useAgendaNotifications(steps);
 
   const sections = steps ? categorizeSteps(steps) : [];
 
@@ -335,7 +386,12 @@ export function AgendaPage() {
       ) : (
         <div className="space-y-8">
           {sections.map((section) => (
-            <SectionBlock key={section.title} section={section} />
+            <SectionBlock
+              key={section.title}
+              section={section}
+              isNotificationEnabled={isEnabled}
+              onToggleNotification={toggle}
+            />
           ))}
         </div>
       )}
