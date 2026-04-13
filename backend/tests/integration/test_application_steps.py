@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, time
 
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -253,3 +253,254 @@ async def test_delete_step_on_finalized_app_returns_409(
     response = await async_client.delete('/applications/1/steps/1')
 
     assert response.status_code == 409, msg(409, response.status_code)
+
+
+# ---------------------------------------------------------------------------
+# Time range validation (CREATE)
+# ---------------------------------------------------------------------------
+
+async def test_create_step_with_both_times_succeeds(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await _seed_app_and_steps(db_session)
+
+    payload = {
+        'step_id': 1,
+        'step_date': '2025-12-05',
+        'start_time': '09:00',
+        'end_time': '10:00',
+    }
+    response = await async_client.post(
+        '/applications/1/steps', json=payload
+    )
+
+    assert response.status_code == 201, msg(201, response.status_code)
+    data = response.json()
+    assert data['start_time'] == '09:00:00', msg('09:00:00', data['start_time'])
+    assert data['end_time'] == '10:00:00', msg('10:00:00', data['end_time'])
+
+
+async def test_create_step_with_no_times_succeeds(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await _seed_app_and_steps(db_session)
+
+    payload = {'step_id': 1, 'step_date': '2025-12-05'}
+    response = await async_client.post(
+        '/applications/1/steps', json=payload
+    )
+
+    assert response.status_code == 201, msg(201, response.status_code)
+    data = response.json()
+    assert data['start_time'] is None
+    assert data['end_time'] is None
+
+
+async def test_create_step_only_start_time_returns_422(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await _seed_app_and_steps(db_session)
+
+    payload = {
+        'step_id': 1,
+        'step_date': '2025-12-05',
+        'start_time': '09:00',
+    }
+    response = await async_client.post(
+        '/applications/1/steps', json=payload
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+
+
+async def test_create_step_only_end_time_returns_422(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await _seed_app_and_steps(db_session)
+
+    payload = {
+        'step_id': 1,
+        'step_date': '2025-12-05',
+        'end_time': '10:00',
+    }
+    response = await async_client.post(
+        '/applications/1/steps', json=payload
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+
+
+async def test_create_step_end_time_before_start_returns_422(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await _seed_app_and_steps(db_session)
+
+    payload = {
+        'step_id': 1,
+        'step_date': '2025-12-05',
+        'start_time': '14:00',
+        'end_time': '10:00',
+    }
+    response = await async_client.post(
+        '/applications/1/steps', json=payload
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+
+
+async def test_create_step_equal_times_returns_422(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await _seed_app_and_steps(db_session)
+
+    payload = {
+        'step_id': 1,
+        'step_date': '2025-12-05',
+        'start_time': '10:00',
+        'end_time': '10:00',
+    }
+    response = await async_client.post(
+        '/applications/1/steps', json=payload
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+
+
+# ---------------------------------------------------------------------------
+# Time range validation (UPDATE)
+# ---------------------------------------------------------------------------
+
+async def test_update_step_with_both_times_succeeds(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await _seed_app_and_steps(db_session)
+    db_session.add(ApplicationStepModel(
+        id=1,
+        application_id=1,
+        step_id=1,
+        step_date=date(2025, 12, 5),
+        user_id=base_data()['user'].id,
+    ))
+    await db_session.commit()
+
+    payload = {
+        'step_id': 1,
+        'step_date': '2025-12-05',
+        'start_time': '09:00',
+        'end_time': '10:00',
+    }
+    response = await async_client.put(
+        '/applications/1/steps/1', json=payload
+    )
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    data = response.json()
+    assert data['start_time'] == '09:00:00', msg('09:00:00', data['start_time'])
+    assert data['end_time'] == '10:00:00', msg('10:00:00', data['end_time'])
+
+
+async def test_update_step_only_start_time_returns_422(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await _seed_app_and_steps(db_session)
+    db_session.add(ApplicationStepModel(
+        id=1,
+        application_id=1,
+        step_id=1,
+        step_date=date(2025, 12, 5),
+        user_id=base_data()['user'].id,
+    ))
+    await db_session.commit()
+
+    payload = {
+        'step_id': 1,
+        'step_date': '2025-12-05',
+        'start_time': '09:00',
+    }
+    response = await async_client.put(
+        '/applications/1/steps/1', json=payload
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+
+
+async def test_update_step_only_end_time_returns_422(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await _seed_app_and_steps(db_session)
+    db_session.add(ApplicationStepModel(
+        id=1,
+        application_id=1,
+        step_id=1,
+        step_date=date(2025, 12, 5),
+        user_id=base_data()['user'].id,
+    ))
+    await db_session.commit()
+
+    payload = {
+        'step_id': 1,
+        'step_date': '2025-12-05',
+        'end_time': '10:00',
+    }
+    response = await async_client.put(
+        '/applications/1/steps/1', json=payload
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+
+
+async def test_update_step_end_before_start_returns_422(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await _seed_app_and_steps(db_session)
+    db_session.add(ApplicationStepModel(
+        id=1,
+        application_id=1,
+        step_id=1,
+        step_date=date(2025, 12, 5),
+        user_id=base_data()['user'].id,
+    ))
+    await db_session.commit()
+
+    payload = {
+        'step_id': 1,
+        'step_date': '2025-12-05',
+        'start_time': '14:00',
+        'end_time': '10:00',
+    }
+    response = await async_client.put(
+        '/applications/1/steps/1', json=payload
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+
+
+async def test_update_step_clear_times_succeeds(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await _seed_app_and_steps(db_session)
+    db_session.add(ApplicationStepModel(
+        id=1,
+        application_id=1,
+        step_id=1,
+        step_date=date(2025, 12, 5),
+        start_time=time(9, 0),
+        end_time=time(10, 0),
+        user_id=base_data()['user'].id,
+    ))
+    await db_session.commit()
+
+    payload = {
+        'step_id': 1,
+        'step_date': '2025-12-05',
+        'start_time': None,
+        'end_time': None,
+    }
+    response = await async_client.put(
+        '/applications/1/steps/1', json=payload
+    )
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    data = response.json()
+    assert data['start_time'] is None
+    assert data['end_time'] is None
