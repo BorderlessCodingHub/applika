@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { AxiosError } from "axios";
 import { toast } from "sonner";
 
@@ -27,6 +32,7 @@ export function useAdminUsers(params?: AdminUsersParams) {
     queryKey: ["admin", "users", params],
     queryFn: () => services.admin.getUsers(params),
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -102,6 +108,7 @@ export function useAdminCompanies(params?: AdminCompaniesParams) {
     queryKey: ["admin", "companies", params],
     queryFn: () => services.admin.getCompanies(params),
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
   });
 }
 

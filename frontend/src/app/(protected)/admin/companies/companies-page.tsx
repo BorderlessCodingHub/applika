@@ -62,7 +62,7 @@ export function CompaniesPage() {
     null,
   );
 
-  const { data, isLoading } = useAdminCompanies({
+  const { data, isLoading, isFetching } = useAdminCompanies({
     search: search || undefined,
     page: page + 1,
     per_page: PAGE_SIZE,
@@ -157,7 +157,7 @@ export function CompaniesPage() {
           </div>
         </div>
 
-        {isLoading ? (
+        {isLoading && !data ? (
           <div className="space-y-3 p-5">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-10 w-full" />
@@ -165,7 +165,7 @@ export function CompaniesPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className={cn("overflow-x-auto transition-opacity duration-200", isFetching && "opacity-50")}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-y border-border/40 bg-accent/20">

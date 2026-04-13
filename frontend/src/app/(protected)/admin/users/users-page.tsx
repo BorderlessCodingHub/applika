@@ -108,7 +108,7 @@ export function UsersPage() {
 
   const [selectedUser, setSelectedUser] = useState<AdminUserRow | null>(null);
 
-  const { data, isLoading } = useAdminUsers({
+  const { data, isLoading, isFetching } = useAdminUsers({
     search: search || undefined,
     sort_by: sortKey,
     sort_order: sortDir,
@@ -166,7 +166,7 @@ export function UsersPage() {
           </div>
         </div>
 
-        {isLoading ? (
+        {isLoading && !data ? (
           <div className="space-y-3 p-5">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-10 w-full" />
@@ -174,7 +174,7 @@ export function UsersPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className={cn("overflow-x-auto transition-opacity duration-200", isFetching && "opacity-50")}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-y border-border/40 bg-accent/20">
