@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { CalendarPlus, Loader2 } from "lucide-react";
@@ -33,13 +34,35 @@ import {
   useApplicationStepMutate,
   useApplicationSteps,
 } from "@/hooks/use-application-steps";
-import { min, parse } from "date-fns";
+import { parse } from "date-fns";
+import { TimezoneCombobox } from "./timezone-combo-box";
 
-const schema = z.object({
-  step_id: z.string().min(1, "Step is required"),
-  step_date: z.string().min(1, "Date is required"),
-  observation: z.string().optional(),
-});
+const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
+
+const schema = z
+  .object({
+    step_id: z.string().min(1, "Step is required"),
+    step_date: z.string().min(1, "Date is required"),
+    start_time: z.string().optional(),
+    end_time: z.string().optional(),
+    timezone: z.string().optional(),
+    observation: z.string().optional(),
+  })
+  .refine(
+    (d) => {
+      if (d.start_time && !TIME_REGEX.test(d.start_time)) return false;
+      if (d.end_time && !TIME_REGEX.test(d.end_time)) return false;
+      return true;
+    },
+    { message: "Invalid time format (HH:MM)", path: ["start_time"] },
+  )
+  .refine(
+    (d) => {
+      if (d.start_time && d.end_time) return d.end_time > d.start_time;
+      return true;
+    },
+    { message: "End time must be after start time", path: ["end_time"] },
+  );
 
 type FormData = z.infer<typeof schema>;
 
@@ -51,12 +74,23 @@ interface Props {
   editStep?: ApplicationStep;
 }
 
+function getUserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return "UTC";
+  }
+}
+
 function buildDefaultFormValues(
   editStep: ApplicationStep | undefined,
 ): FormData {
   return {
     step_id: editStep?.step_id ?? "",
     step_date: editStep?.step_date ?? "",
+    start_time: editStep?.start_time ?? "",
+    end_time: editStep?.end_time ?? "",
+    timezone: editStep?.timezone ?? getUserTimezone(),
     observation: editStep?.observation ?? "",
   };
 }
@@ -119,6 +153,7 @@ function getStepDateRange(
   };
 }
 
+
 export function ApplicationStepFormDialog({
   application,
   open,
@@ -149,13 +184,26 @@ export function ApplicationStepFormDialog({
   function handleCalendarClick() {
     const stepId = form.getValues("step_id");
     const stepDate = form.getValues("step_date");
+    const startTime = form.getValues("start_time");
+    const endTime = form.getValues("end_time");
+    const timezone = form.getValues("timezone");
     const stepName = steps.find((s) => s.id === stepId)?.name ?? "Step";
-    genApplicationStepIcsFile(stepDate, stepName, application);
+    genApplicationStepIcsFile(stepDate, stepName, application, {
+      startTime: startTime || undefined,
+      endTime: endTime || undefined,
+      timezone: timezone || undefined,
+    });
     toast.success("Calendar event downloaded");
   }
 
   async function handleFormSubmit(data: FormData) {
-    await submit(data);
+    await submit({
+      ...data,
+      start_time: data.start_time || undefined,
+      end_time: data.end_time || undefined,
+      timezone: data.timezone || undefined,
+      observation: data.observation || undefined,
+    });
   }
 
   if (isLoading) return null;
@@ -209,6 +257,7 @@ export function ApplicationStepFormDialog({
               </p>
             )}
           </div>
+
           <div className="space-y-1.5">
             <Label>Date *</Label>
             <DatePickerInput
@@ -231,10 +280,73 @@ export function ApplicationStepFormDialog({
               </p>
             )}
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="step-start-time">Start Time</Label>
+              <input
+                id="step-start-time"
+                type="time"
+                step="60"
+                value={form.watch("start_time") ?? ""}
+                onChange={(e) =>
+                  form.setValue("start_time", e.target.value, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+                className={cn(
+                  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none",
+                  form.formState.errors.start_time &&
+                    "border-destructive focus-visible:ring-destructive",
+                )}
+              />
+              {form.formState.errors.start_time && (
+                <p className="text-xs text-destructive">
+                  {form.formState.errors.start_time.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="step-end-time">End Time</Label>
+              <input
+                id="step-end-time"
+                type="time"
+                step="60"
+                value={form.watch("end_time") ?? ""}
+                onChange={(e) =>
+                  form.setValue("end_time", e.target.value, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+                className={cn(
+                  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none",
+                  form.formState.errors.end_time &&
+                    "border-destructive focus-visible:ring-destructive",
+                )}
+              />
+              {form.formState.errors.end_time && (
+                <p className="text-xs text-destructive">
+                  {form.formState.errors.end_time.message}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <TimezoneCombobox
+            value={form.watch("timezone") || getUserTimezone()}
+            onChange={(v) =>
+              form.setValue("timezone", v, { shouldValidate: true })
+            }
+          />
+
           <div className="space-y-1.5">
             <Label>Observation</Label>
             <Textarea {...form.register("observation")} rows={2} />
           </div>
+          
           <div className="grid gap-3">
             <Button
               type="button"
