@@ -57,6 +57,20 @@ const schema = z
     { message: "Invalid time format (HH:MM)", path: ["start_time"] },
   )
   .refine(
+    (d) => !(d.start_time && !d.end_time),
+    {
+      message: "End time is required when start time is filled",
+      path: ["end_time"],
+    },
+  )
+  .refine(
+    (d) => !(d.end_time && !d.start_time),
+    {
+      message: "Start time is required when end time is filled",
+      path: ["start_time"],
+    },
+  )
+  .refine(
     (d) => {
       if (d.start_time && d.end_time) return d.end_time > d.start_time;
       return true;
