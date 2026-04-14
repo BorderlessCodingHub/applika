@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, time
 
 from pydantic import BaseModel
 
@@ -10,14 +10,20 @@ class ApplicationStepCreateDTO(BaseModel):
     application_id: int
     step_id: int
     step_date: date
-    observation: str | None
+    start_time: time | None = None
+    end_time: time | None = None
+    timezone: str | None = None
+    observation: str | None = None
 
 
 class ApplicationStepUpdateDTO(BaseModel):
     application_id: int
     step_id: int
     step_date: date
-    observation: str | None
+    start_time: time | None = None
+    end_time: time | None = None
+    timezone: str | None = None
+    observation: str | None = None
 
 
 class ApplicationStepDTO(BaseSchema):
@@ -25,4 +31,7 @@ class ApplicationStepDTO(BaseSchema):
     step_id: int
     step_name: str | None
     step_date: date
-    observation: str | None
+    start_time: time | None = None
+    end_time: time | None = None
+    timezone: str | None = None
+    observation: str | None = None

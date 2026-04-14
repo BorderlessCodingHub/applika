@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import List, Optional, TypedDict
 
@@ -95,6 +95,9 @@ class UserModel(BaseMixin, Base):
         sa.Text, nullable=True
     )
     is_org_member: Mapped[bool] = mapped_column(
+        sa.Boolean, default=False, server_default='false', nullable=False
+    )
+    is_admin: Mapped[bool] = mapped_column(
         sa.Boolean, default=False, server_default='false', nullable=False
     )
 
@@ -230,6 +233,9 @@ class ApplicationStepModel(BaseMixin, Base):
         sa.ForeignKey('steps_definition.id'), nullable=False
     )
     step_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    start_time: Mapped[Optional[time]] = mapped_column(sa.Time)
+    end_time: Mapped[Optional[time]] = mapped_column(sa.Time)
+    timezone: Mapped[Optional[str]] = mapped_column(sa.String(50))
     observation: Mapped[Optional[str]] = mapped_column(sa.Text)
     user_id: Mapped[int] = mapped_column(
         sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False

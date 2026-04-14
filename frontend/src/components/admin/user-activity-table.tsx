@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowUpDown,
@@ -75,11 +75,21 @@ function SortHeader({
 }
 
 export function UserActivityTable() {
-  const { data: users, isLoading } = useAdminUsers();
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("total_applications");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(0);
+
+  const { data, isLoading, isFetching } = useAdminUsers({
+    search: search || undefined,
+    sort_by: sortKey,
+    sort_order: sortDir,
+    page: page + 1,
+    per_page: PAGE_SIZE,
+  });
+
+  const users = data?.items ?? [];
+  const totalPages = data?.total_pages ?? 0;
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -91,35 +101,7 @@ export function UserActivityTable() {
     setPage(0);
   };
 
-  const filtered = useMemo(() => {
-    if (!users) return [];
-    let result = users;
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (u) =>
-          u.username.toLowerCase().includes(q) ||
-          u.email.toLowerCase().includes(q) ||
-          u.location?.toLowerCase().includes(q)
-      );
-    }
-
-    result = [...result].sort((a, b) => {
-      let av = a[sortKey];
-      let bv = b[sortKey];
-      if (sortKey === "last_activity") {
-        av = new Date(av).getTime();
-        bv = new Date(bv).getTime();
-      }
-      return sortDir === "asc" ? (av > bv ? 1 : -1) : av < bv ? 1 : -1;
-    });
-
-    return result;
-  }, [users, search, sortKey, sortDir]);
-
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const paged = users;
 
   return (
     <motion.div
@@ -135,7 +117,7 @@ export function UserActivityTable() {
               Users
             </h3>
             <span className="text-xs tabular-nums text-muted-foreground/60">
-              {filtered.length} total
+              {data?.total ?? 0} total
             </span>
           </div>
 
@@ -154,7 +136,7 @@ export function UserActivityTable() {
           </div>
         </div>
 
-        {isLoading ? (
+        {isLoading && !data ? (
           <div className="space-y-3 p-5">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-10 w-full" />
@@ -162,7 +144,7 @@ export function UserActivityTable() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className={cn("overflow-x-auto transition-opacity duration-200", isFetching && "opacity-50")}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-y border-border/40 bg-accent/20">

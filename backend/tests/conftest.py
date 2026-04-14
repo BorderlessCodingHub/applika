@@ -85,3 +85,39 @@ async def async_client(async_engine: AsyncEngine):
         yield client
 
     main_app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def admin_client(async_engine: AsyncEngine):
+    SessionLocal = async_sessionmaker(
+        bind=async_engine,
+        expire_on_commit=False,
+    )
+
+    async def override_get_session():
+        async with SessionLocal() as session:
+            yield session
+
+    main_app.dependency_overrides[get_session] = override_get_session
+
+    async def override_get_current_user():
+        from app.application.dto.user import UserDTO
+
+        return UserDTO(
+            id=base_data()['admin_user'].id,
+            github_id=base_data()['admin_user'].github_id,
+            username=base_data()['admin_user'].username,
+            email=base_data()['admin_user'].email,
+            is_admin=True,
+            created_at=datetime.now(timezone.utc),
+        )
+
+    main_app.dependency_overrides[get_current_user] = override_get_current_user
+
+    transport = ASGITransport(app=main_app)
+    async with AsyncClient(
+        transport=transport, base_url='http://test/api'
+    ) as client:
+        yield client
+
+    main_app.dependency_overrides.clear()

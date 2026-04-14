@@ -41,6 +41,12 @@ async def _invalid_date_handler(
     return JSONResponse(status_code=422, content={'detail': exc.message})
 
 
+async def _forbidden_access_handler(
+    request: Request, exc: exceptions.ForbiddenAccess
+):
+    return JSONResponse(status_code=403, content={'detail': exc.message})
+
+
 def register_handlers(app: FastAPI):
     """Register all errors handlers for the app"""
     app.add_exception_handler(NotImplementedError, _not_implemented_handler)
@@ -57,3 +63,6 @@ def register_handlers(app: FastAPI):
         exceptions.BusinessRuleViolation, _business_rule_violation_handler
     )
     app.add_exception_handler(exceptions.InvalidDate, _invalid_date_handler)
+    app.add_exception_handler(
+        exceptions.ForbiddenAccess, _forbidden_access_handler
+    )

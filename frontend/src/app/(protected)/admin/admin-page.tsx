@@ -7,10 +7,11 @@ import {
   UserGrowthChart,
   NewUsersBarChart,
 } from "@/components/admin/user-growth-chart";
-import { SystemHealthPanel } from "@/components/admin/system-health-panel";
+
 import { UserActivityTable } from "@/components/admin/user-activity-table";
 import { SeniorityDonut } from "@/components/admin/seniority-donut";
 import { TopPlatformsPanel } from "@/components/admin/top-platforms-panel";
+import { TopCompaniesPanel } from "@/components/admin/top-companies-panel";
 import { ActivityHeatmap } from "@/components/admin/activity-heatmap";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -70,19 +71,19 @@ export function AdminPage() {
       {/* Stat cards */}
       <AdminStatCards />
 
-      {/* Row: Growth chart + System health */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <UserGrowthChart />
-        </div>
-        <SystemHealthPanel />
-      </div>
+      {/* Row: Growth chart */}
+      <UserGrowthChart />
 
-      {/* Row: New users bar + Seniority donut + Top platforms */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* Row: New users bar + Seniority donut */}
+      <div className="grid gap-4 md:grid-cols-2">
         <NewUsersBarChart />
         <SeniorityDonut />
+      </div>
+
+      {/* Row: Top platforms + Top companies */}
+      <div className="grid gap-4 md:grid-cols-2">
         <TopPlatformsPanel />
+        <TopCompaniesPanel />
       </div>
 
       {/* Activity heatmap */}

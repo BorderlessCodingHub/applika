@@ -112,6 +112,9 @@ class UpdateApplicationStepUseCase:
         application_step.application_id = data.application_id
         application_step.step_id = data.step_id
         application_step.step_date = data.step_date
+        application_step.start_time = data.start_time
+        application_step.end_time = data.end_time
+        application_step.timezone = data.timezone
         application_step.observation = data.observation
 
         application_step = await self.application_step_repo.update(

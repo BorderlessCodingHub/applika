@@ -1,6 +1,6 @@
 "use client";
 
-import { Code2, GitFork, Heart, Lock } from "lucide-react";
+import { Code2, GitFork } from "lucide-react";
 
 const values = [
   {
