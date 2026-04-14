@@ -7,6 +7,9 @@ export interface AdminPlatformStats {
   avg_applications_per_user: number;
   global_success_rate: number;
   new_users_7d: number;
+  total_finalized: number;
+  finalization_rate: number;
+  applications_last_30d: number;
 }
 
 export interface AdminUserRow {
@@ -16,12 +19,13 @@ export interface AdminUserRow {
   github_id: string;
   seniority_level?: string;
   location?: string;
+  is_admin: boolean;
   total_applications: number;
   offers: number;
   denials: number;
   active_applications: number;
-  last_activity: string; // ISO date
-  joined_at: string; // ISO date
+  last_activity: string;
+  joined_at: string;
 }
 
 export interface UserGrowthPoint {
@@ -54,8 +58,98 @@ export interface TopPlatformStat {
   unique_users: number;
 }
 
+export interface TopCompanyStat {
+  name: string;
+  total_across_users: number;
+  unique_users: number;
+}
+
 export interface ActivityHeatmapPoint {
   hour: number;
-  day: number; // 0=Mon, 6=Sun
+  day: number;
   count: number;
+}
+
+export interface AdminUsersParams {
+  search?: string;
+  seniority?: string;
+  sort_by?: string;
+  sort_order?: "asc" | "desc";
+  page?: number;
+  per_page?: number;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
+
+export interface AdminUserDetail extends AdminUserRow {
+  first_name?: string;
+  last_name?: string;
+  current_role?: string;
+  current_company?: string;
+  bio?: string;
+  linkedin_url?: string;
+  tech_stack?: string[];
+  availability?: string;
+  is_org_member: boolean;
+}
+
+export interface AdminUpdateUser {
+  is_admin?: boolean;
+  seniority_level?: string;
+  location?: string;
+}
+
+export interface AdminCompanyRow {
+  id: string;
+  name: string;
+  url: string;
+  is_active: boolean;
+  applications_count: number;
+  created_by_username?: string;
+  created_at: string;
+}
+
+export interface AdminCompaniesParams {
+  search?: string;
+  is_active?: boolean;
+  sort_by?: string;
+  sort_order?: "asc" | "desc";
+  page?: number;
+  per_page?: number;
+}
+
+export interface CreateCompany {
+  name: string;
+  url: string;
+}
+
+export interface UpdateCompany {
+  name?: string;
+  url?: string;
+  is_active?: boolean;
+}
+
+export interface AdminPlatform {
+  id: string;
+  name: string;
+  url?: string;
+}
+
+export interface AdminStepDefinition {
+  id: string;
+  name: string;
+  color: string;
+  strict: boolean;
+}
+
+export interface AdminFeedbackDefinition {
+  id: string;
+  name: string;
+  color: string;
 }

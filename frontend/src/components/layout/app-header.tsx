@@ -6,6 +6,7 @@ import { LogOut, User, MessageSquareHeart, Menu } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CycleSelector } from "@/components/layout/cycle-selector";
+import { AgendaDropdown } from "@/components/layout/agenda-dropdown";
 import { FeedbackDialog } from "@/components/applications/feedback-dialog";
 import {
   DropdownMenu,
@@ -71,6 +72,7 @@ export function AppHeader() {
   return (
     <header className="hidden h-14 shrink-0 items-center justify-end gap-5 border-b border-border/60 bg-card/80 px-6 backdrop-blur-xl md:flex">
       <CycleSelector />
+      <AgendaDropdown />
       <ThemeToggle />
       <UserMenu />
     </header>
@@ -89,6 +91,7 @@ export function MobileHeader({
       <CycleSelector className="max-w-full" />
 
       <div className="flex items-center gap-2">
+        <AgendaDropdown />
         <ThemeToggle />
         <UserMenu />
         <button

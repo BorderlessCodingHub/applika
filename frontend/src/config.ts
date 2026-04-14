@@ -6,7 +6,7 @@ export const APP_CONFIG = {
   name: "Applika.dev",
   shortName: "Applika.dev",
   logo: "app-logo.webp",
-  ogImage: "/logo.webp",
+  ogImage: "/images/applika-ad.webp",
   twitterHandle: "@applikadev",
   locale: "en_US",
   keywords: [

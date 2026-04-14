@@ -8,6 +8,7 @@ import {
   Shield,
   NotepadText,
   History,
+  CalendarClock,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useState } from "react";
@@ -19,6 +20,7 @@ import { AppHeader, MobileHeader } from "./app-header";
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/applications", icon: Briefcase, label: "Applications" },
+  { to: "/agenda", icon: CalendarClock, label: "Agenda" },
   { to: "/reports", icon: NotepadText, label: "Reports" },
   { to: "/cycles", icon: History, label: "Cycles" },
   { to: "/admin", icon: Shield, label: "Admin", adminOnly: true },

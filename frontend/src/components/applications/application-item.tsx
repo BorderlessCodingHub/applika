@@ -26,7 +26,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Zap,
 } from "lucide-react";
 import { useState } from "react";
 import {

@@ -14,7 +14,7 @@ async def reset_pk_sequences(db_session: AsyncSession):
     """
     tables = ['users', 'companies', 'platforms', 'feedbacks_definition',
               'steps_definition', 'applications', 'application_steps',
-              'cycles']
+              'cycles', 'quinzenal_reports', 'user_feedbacks']
     for table in tables:
         await db_session.execute(text(
             f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "

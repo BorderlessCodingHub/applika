@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.middleware import register_middleware
 from app.config.settings import envs
+from app.presentation.api.admin import routers as admin_routers
 from app.presentation.api.application import router as application_router
 from app.presentation.api.application_step import router as app_step_router
 from app.presentation.api.company import router as company_router
@@ -16,8 +17,8 @@ from app.presentation.api.user_feedback import router as feedback_router
 from app.presentation.handlers import register_handlers
 
 app = FastAPI(
-    title='Applika 2.1 API',
-    version='2.1.0',
+    title='Applika 2.2 API',
+    version='2.2.0',
     root_path=envs.API_PREFIX,
     openapi_url=envs.openapi_url,
 )
@@ -46,3 +47,6 @@ app.include_router(statistic_router)
 app.include_router(reports_router)
 app.include_router(feedback_router)
 app.include_router(cycle_router)
+# REST Admin routes
+for _r in admin_routers:
+    app.include_router(_r)

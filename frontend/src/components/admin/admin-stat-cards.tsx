@@ -9,6 +9,8 @@ import {
   TrendingUp,
   BarChart3,
   UserPlus,
+  CheckCircle2,
+  CalendarDays,
 } from "lucide-react";
 import { useAdminStats } from "@/hooks/use-admin";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -111,13 +113,35 @@ const STATS: StatDef[] = [
     suffix: "%",
     decimals: 1,
   },
+  {
+    key: "finalization_rate",
+    label: "Finalization Rate",
+    icon: CheckCircle2,
+    accent: "text-cyan-400",
+    glowColor: "rgba(34, 211, 238, 0.12)",
+    getValue: (d) => {
+      return d ? d.finalization_rate : 0;
+    },
+    suffix: "%",
+    decimals: 1,
+  },
+  {
+    key: "apps_30d",
+    label: "Apps (30d)",
+    icon: CalendarDays,
+    accent: "text-pink-400",
+    glowColor: "rgba(244, 114, 182, 0.12)",
+    getValue: (d) => {
+      return d ? d.applications_last_30d : 0;
+    },
+  },
 ];
 
 export function AdminStatCards() {
   const { data, isLoading } = useAdminStats();
 
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
       {STATS.map((stat, i) => (
         <motion.div
           key={stat.key}

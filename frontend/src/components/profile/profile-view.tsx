@@ -1,4 +1,6 @@
+import { useState } from "react";
 import {
+  AlertTriangle,
   Briefcase,
   Building,
   Calendar,
@@ -8,6 +10,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { InfoItem, UserProfileAvatar } from "./sub-components";
 import { Star, Flame, Target, Award, Trophy, Zap } from "lucide-react";
 import { AvailabilityType, User } from "@/services/types/users";
@@ -16,6 +19,7 @@ import { SelectOptions } from "@/options";
 import { LinkedinIcon } from "../brand-icons";
 import { Badge } from "../ui/badge";
 import { getCurrencySymbol } from "./edit-form-config";
+import { useDeleteAccount } from "@/hooks/use-user";
 
 function formatLabel(v?: string) {
   return v?.replace(/_/g, " ") ?? "";
@@ -234,6 +238,110 @@ export function UserProfileView({
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Delete Account */}
+      <DeleteAccountCard username={user.username} />
+    </div>
+  );
+}
+
+function DeleteAccountCard({ username }: { username: string }) {
+  const [confirmValue, setConfirmValue] = useState("");
+  const [expanded, setExpanded] = useState(false);
+  const deleteAccount = useDeleteAccount();
+
+  const confirmText = `delete ${username}`;
+  const isConfirmed = confirmValue === confirmText;
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-destructive/30 bg-card shadow-card">
+      <div className="border-b border-destructive/20 bg-destructive/5 px-6 py-4">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-destructive" />
+          <h2 className="text-sm font-semibold text-destructive">
+            Delete account
+          </h2>
+        </div>
+      </div>
+
+      <div className="px-6 py-5">
+        {!expanded ? (
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              Once you delete your account, all of your data — applications,
+              steps, reports, and profile — will be permanently removed. This
+              action cannot be undone.
+            </p>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="shrink-0"
+              onClick={() => setExpanded(true)}
+            >
+              Delete your account
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+              <p className="text-sm font-medium text-destructive">
+                This will permanently delete your account and all associated
+                data.
+              </p>
+              <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                <li>- All your job applications and their steps</li>
+                <li>- Your biweekly reports</li>
+                <li>- Your profile information and preferences</li>
+                <li>- Companies you created (if not used by others)</li>
+              </ul>
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="delete-confirm"
+                className="text-sm text-muted-foreground"
+              >
+                To confirm, type{" "}
+                <span className="font-semibold text-foreground">
+                  {confirmText}
+                </span>{" "}
+                below:
+              </label>
+              <Input
+                id="delete-confirm"
+                value={confirmValue}
+                onChange={(e) => setConfirmValue(e.target.value)}
+                placeholder={confirmText}
+                className="border-destructive/30 focus-visible:ring-destructive"
+                autoComplete="off"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setExpanded(false);
+                  setConfirmValue("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={!isConfirmed || deleteAccount.isPending}
+                onClick={() => deleteAccount.mutate()}
+              >
+                {deleteAccount.isPending
+                  ? "Deleting..."
+                  : "I understand, delete my account"}
+              </Button>
+            </div>
           </div>
         )}
       </div>

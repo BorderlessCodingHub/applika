@@ -14,13 +14,34 @@ export interface ApplicationStep {
   id: string;
   step_id: string;
   step_date: string;
+  start_time?: string;
+  end_time?: string;
+  timezone?: string;
   observation?: string;
 }
 
 export interface ApplicationStepPayload {
   step_id: string;
   step_date: string;
+  start_time?: string;
+  end_time?: string;
+  timezone?: string;
   observation?: string;
+}
+
+export interface AgendaStep {
+  id: string;
+  step_id: string;
+  step_date: string;
+  step_name?: string;
+  step_color?: string;
+  start_time?: string;
+  end_time?: string;
+  timezone?: string;
+  observation?: string;
+  application_id: string;
+  company_name: string;
+  role: string;
 }
 
 export interface ApplicationFinalizePayload {

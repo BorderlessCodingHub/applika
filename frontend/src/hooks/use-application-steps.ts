@@ -2,9 +2,9 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { AxiosError } from "axios";
 import { services } from "@/services/services";
 import { ApplicationStepPayload } from "@/services/types/applications";
-import { AxiosError } from "axios";
 import { getApiError } from "@/lib/api-client";
 
 const buildQueryKey = (applicationId: string) => [
@@ -51,6 +51,7 @@ export function useApplicationStepMutate(props: ApplicationStepMutateProps) {
   async function onSuccess() {
     await queryClient.invalidateQueries({ queryKey });
     await queryClient.invalidateQueries({ queryKey: ["applications"] });
+    await queryClient.invalidateQueries({ queryKey: ["user", "agenda"] });
     if (props.applicationStepId) toast.success("Step updated");
     else toast.success("Step added");
     if (props.onSuccess) await props.onSuccess();
@@ -80,6 +81,7 @@ export function useApplicationStepDelete(props: ApplicationStepMutateProps) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey });
       await queryClient.invalidateQueries({ queryKey: ["applications"] });
+      await queryClient.invalidateQueries({ queryKey: ["user", "agenda"] });
       toast.success("Step deleted");
       if (props.onSuccess) await props.onSuccess();
     },
