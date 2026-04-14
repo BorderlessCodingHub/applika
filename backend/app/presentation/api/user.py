@@ -4,6 +4,9 @@ from typing import List
 from fastapi import APIRouter, Query, Response
 
 from app.application.dto.user import UserUpdateDTO
+from app.application.use_cases.get_user_agenda import (
+    GetUserAgendaUseCase,
+)
 from app.application.use_cases.update_user import UpdateUserUseCase
 from app.config.settings import envs
 from app.presentation.dependencies import (
@@ -44,28 +47,13 @@ async def get_my_agenda(
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
 ):
-    steps = await app_step_repo.get_user_agenda(
+    use_case = GetUserAgendaUseCase(app_step_repo)
+    dtos = await use_case.execute(
         user_id=c_user.id,
         from_date=from_date,
         to_date=to_date,
     )
-    return [
-        AgendaStepSchema(
-            id=s.id,
-            step_id=s.step_id,
-            step_date=s.step_date,
-            step_name=s.step_def.name if s.step_def else None,
-            step_color=s.step_def.color if s.step_def else None,
-            start_time=s.start_time,
-            end_time=s.end_time,
-            timezone=s.timezone,
-            observation=s.observation,
-            application_id=s.application_id,
-            company_name=s.application.company_name,
-            role=s.application.role,
-        )
-        for s in steps
-    ]
+    return [AgendaStepSchema.model_validate(d) for d in dtos]
 
 
 @router.delete('/users/me', status_code=204)

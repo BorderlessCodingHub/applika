@@ -1,6 +1,6 @@
 from typing import List
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,6 +44,18 @@ class CompanyRepository:
             await self.session.commit()
             await self.session.refresh(company)
             return company
+        except Exception as e:
+            await self.session.rollback()
+            raise e
+
+    async def delete(self, id: int) -> None:
+        try:
+            await self.session.execute(
+                delete(CompanyModel).where(
+                    CompanyModel.id == id
+                )
+            )
+            await self.session.commit()
         except Exception as e:
             await self.session.rollback()
             raise e
