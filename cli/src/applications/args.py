@@ -18,9 +18,7 @@ def add_application_args(
     parser.add_argument('--company-url')
     parser.add_argument('--role', required=require_all)
     parser.add_argument('--platform', required=require_all)
-    parser.add_argument(
-        '--mode', choices=MODE_CHOICES[:2], required=require_all
-    )
+    parser.add_argument('--mode', choices=MODE_CHOICES[:2], required=require_all)
     parser.add_argument('--date', dest='application_date', required=require_all)
     parser.add_argument('--job-url')
     parser.add_argument('--observation')

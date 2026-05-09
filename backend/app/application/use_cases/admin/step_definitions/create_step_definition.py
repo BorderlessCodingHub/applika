@@ -12,9 +12,7 @@ class CreateStepDefinitionUseCase:
     def __init__(self, step_def_repo: StepDefinitionRepository):
         self.step_def_repo = step_def_repo
 
-    async def execute(
-        self, data: StepDefinitionCreateDTO, admin_id: int
-    ) -> StepDefinitionDTO:
+    async def execute(self, data: StepDefinitionCreateDTO, admin_id: int) -> StepDefinitionDTO:
         step = await self.step_def_repo.create(**data.model_dump())
 
         logger.info(

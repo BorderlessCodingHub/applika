@@ -29,7 +29,7 @@ class GetCurrentUserUseCase:
 
         try:
             payload = decode_token(access_token)
-        except jwt.ExpiredSignatureError:
+        except jwt.ExpiredSignatureError as err:
             logger.info(
                 'Auth failed: token expired',
                 extra={
@@ -42,8 +42,8 @@ class GetCurrentUserUseCase:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail='Token expired',
-            )
-        except jwt.InvalidTokenError:
+            ) from err
+        except jwt.InvalidTokenError as err:
             logger.warning(
                 'Auth failed: invalid token',
                 extra={
@@ -56,7 +56,7 @@ class GetCurrentUserUseCase:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail='Invalid token',
-            )
+            ) from err
 
         user_sub = payload.get('sub')
         if not user_sub:

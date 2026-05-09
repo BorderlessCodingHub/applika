@@ -36,10 +36,7 @@ class SubmitFeedbackUseCase:
     ) -> str:
         safe_username = cls._sanitize_discord_text(username, max_length=100)
         stars = '\u2b50' * score
-        message = (
-            f'\U0001f4ac **USER FEEDBACK** - @{safe_username}\n'
-            f'{stars} ({score}/5)\n'
-        )
+        message = f'\U0001f4ac **USER FEEDBACK** - @{safe_username}\n{stars} ({score}/5)\n'
         if text:
             safe_text = cls._sanitize_discord_text(text, max_length=2000)
             message += f'\n{safe_text}'

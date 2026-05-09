@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from typing import List
 
 import sqlalchemy as sa
 from sqlalchemy import func, select
@@ -22,15 +21,11 @@ class AdminRepository:
     async def _get_accepted_feedback_id(self) -> int | None:
         """Get the ID of the 'Accepted' feedback definition."""
         return await self.session.scalar(
-            select(FeedbackDefinitionModel.id).where(
-                FeedbackDefinitionModel.name == 'Accepted'
-            )
+            select(FeedbackDefinitionModel.id).where(FeedbackDefinitionModel.name == 'Accepted')
         )
 
     async def get_platform_stats(self) -> dict:
-        total_users = await self.session.scalar(
-            select(func.count(UserModel.id))
-        )
+        total_users = await self.session.scalar(select(func.count(UserModel.id)))
 
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
         active_users_subq = (
@@ -47,9 +42,7 @@ class AdminRepository:
             select(func.count()).select_from(active_users_subq)
         )
 
-        total_applications = await self.session.scalar(
-            select(func.count(ApplicationModel.id))
-        )
+        total_applications = await self.session.scalar(select(func.count(ApplicationModel.id)))
 
         total_finalized = await self.session.scalar(
             select(func.count(ApplicationModel.id)).where(
@@ -76,9 +69,7 @@ class AdminRepository:
 
         seven_days_ago = datetime.utcnow() - timedelta(days=7)
         new_users_7d = await self.session.scalar(
-            select(func.count(UserModel.id)).where(
-                UserModel.created_at >= seven_days_ago
-            )
+            select(func.count(UserModel.id)).where(UserModel.created_at >= seven_days_ago)
         )
 
         # Applications in last 30 days
@@ -91,13 +82,9 @@ class AdminRepository:
             or 0
         )
 
-        avg_apps = (
-            round(total_applications / total_users, 1) if total_users else 0
-        )
+        avg_apps = round(total_applications / total_users, 1) if total_users else 0
         success_rate = (
-            round((total_offers / total_applications) * 100, 1)
-            if total_applications
-            else 0
+            round((total_offers / total_applications) * 100, 1) if total_applications else 0
         )
         finalization_rate = (
             round(
@@ -139,23 +126,27 @@ class AdminRepository:
                 ApplicationModel.user_id,
                 func.count(ApplicationModel.id).label('total_applications'),
                 func.count(
-                    sa.case((
-                        ApplicationModel.feedback_id == accepted_id,
-                        1,
-                    ))
+                    sa.case(
+                        (
+                            ApplicationModel.feedback_id == accepted_id,
+                            1,
+                        )
+                    )
                 ).label('offers'),
                 func.count(
-                    sa.case((
-                        sa.and_(
-                            ApplicationModel.feedback_id.isnot(None),
-                            ApplicationModel.feedback_id != accepted_id,
-                        ),
-                        1,
-                    ))
+                    sa.case(
+                        (
+                            sa.and_(
+                                ApplicationModel.feedback_id.isnot(None),
+                                ApplicationModel.feedback_id != accepted_id,
+                            ),
+                            1,
+                        )
+                    )
                 ).label('denials'),
-                func.count(
-                    sa.case((ApplicationModel.feedback_id.is_(None), 1))
-                ).label('active_applications'),
+                func.count(sa.case((ApplicationModel.feedback_id.is_(None), 1))).label(
+                    'active_applications'
+                ),
                 func.max(ApplicationModel.created_at).label('last_activity'),
             )
             .group_by(ApplicationModel.user_id)
@@ -170,17 +161,11 @@ class AdminRepository:
             UserModel.seniority_level,
             UserModel.location,
             UserModel.is_admin,
-            func.coalesce(app_counts.c.total_applications, 0).label(
-                'total_applications'
-            ),
+            func.coalesce(app_counts.c.total_applications, 0).label('total_applications'),
             func.coalesce(app_counts.c.offers, 0).label('offers'),
             func.coalesce(app_counts.c.denials, 0).label('denials'),
-            func.coalesce(app_counts.c.active_applications, 0).label(
-                'active_applications'
-            ),
-            func.coalesce(
-                app_counts.c.last_activity, UserModel.created_at
-            ).label('last_activity'),
+            func.coalesce(app_counts.c.active_applications, 0).label('active_applications'),
+            func.coalesce(app_counts.c.last_activity, UserModel.created_at).label('last_activity'),
             UserModel.created_at.label('joined_at'),
         ).outerjoin(app_counts, UserModel.id == app_counts.c.user_id)
 
@@ -223,7 +208,7 @@ class AdminRepository:
 
         return rows, total or 0
 
-    async def get_user_growth(self, months: int = 12) -> List[dict]:
+    async def get_user_growth(self, months: int = 12) -> list[dict]:
         cutoff = datetime.utcnow() - timedelta(days=months * 30)
 
         stmt = (
@@ -243,9 +228,7 @@ class AdminRepository:
         # First get total users before cutoff
         users_before = (
             await self.session.scalar(
-                select(func.count(UserModel.id)).where(
-                    UserModel.created_at < cutoff
-                )
+                select(func.count(UserModel.id)).where(UserModel.created_at < cutoff)
             )
             or 0
         )
@@ -255,16 +238,18 @@ class AdminRepository:
         for row in rows:
             cumulative += row['new_users']
             dt = row['month']
-            points.append({
-                'date': dt.strftime('%Y-%m-%d'),
-                'label': dt.strftime('%b %y'),
-                'total_users': cumulative,
-                'new_users': row['new_users'],
-            })
+            points.append(
+                {
+                    'date': dt.strftime('%Y-%m-%d'),
+                    'label': dt.strftime('%b %y'),
+                    'total_users': cumulative,
+                    'new_users': row['new_users'],
+                }
+            )
 
         return points
 
-    async def get_seniority_breakdown(self) -> List[dict]:
+    async def get_seniority_breakdown(self) -> list[dict]:
         level_expr = func.coalesce(
             sa.cast(UserModel.seniority_level, sa.String),
             'unknown',
@@ -302,14 +287,12 @@ class AdminRepository:
             for r in rows
         ]
 
-    async def get_top_platforms(self, limit: int = 10) -> List[dict]:
+    async def get_top_platforms(self, limit: int = 10) -> list[dict]:
         stmt = (
             select(
                 PlatformModel.name,
                 func.count(ApplicationModel.id).label('total_across_users'),
-                func.count(sa.distinct(ApplicationModel.user_id)).label(
-                    'unique_users'
-                ),
+                func.count(sa.distinct(ApplicationModel.user_id)).label('unique_users'),
             )
             .join(
                 ApplicationModel,
@@ -323,14 +306,12 @@ class AdminRepository:
         result = await self.session.execute(stmt)
         return [dict(r) for r in result.mappings().all()]
 
-    async def get_top_companies(self, limit: int = 10) -> List[dict]:
+    async def get_top_companies(self, limit: int = 10) -> list[dict]:
         stmt = (
             select(
                 CompanyModel.name,
                 func.count(ApplicationModel.id).label('total_across_users'),
-                func.count(sa.distinct(ApplicationModel.user_id)).label(
-                    'unique_users'
-                ),
+                func.count(sa.distinct(ApplicationModel.user_id)).label('unique_users'),
             )
             .join(
                 ApplicationModel,
@@ -344,14 +325,10 @@ class AdminRepository:
         result = await self.session.execute(stmt)
         return [dict(r) for r in result.mappings().all()]
 
-    async def get_activity_heatmap(self) -> List[dict]:
+    async def get_activity_heatmap(self) -> list[dict]:
         stmt = select(
-            func
-            .extract('hour', ApplicationStepModel.created_at)
-            .cast(sa.Integer)
-            .label('hour'),
-            func
-            .extract('isodow', ApplicationStepModel.created_at)
+            func.extract('hour', ApplicationStepModel.created_at).cast(sa.Integer).label('hour'),
+            func.extract('isodow', ApplicationStepModel.created_at)
             .cast(sa.Integer)
             .label('iso_dow'),
             func.count().label('count'),
@@ -373,9 +350,7 @@ class AdminRepository:
         ]
 
     async def get_user_detail(self, user_id: int) -> dict | None:
-        user = await self.session.scalar(
-            select(UserModel).where(UserModel.id == user_id)
-        )
+        user = await self.session.scalar(select(UserModel).where(UserModel.id == user_id))
         if not user:
             return None
 
@@ -385,23 +360,25 @@ class AdminRepository:
             select(
                 func.count(ApplicationModel.id).label('total'),
                 func.count(
-                    sa.case((
-                        ApplicationModel.feedback_id == accepted_id,
-                        1,
-                    ))
+                    sa.case(
+                        (
+                            ApplicationModel.feedback_id == accepted_id,
+                            1,
+                        )
+                    )
                 ).label('offers'),
                 func.count(
-                    sa.case((
-                        sa.and_(
-                            ApplicationModel.feedback_id.isnot(None),
-                            ApplicationModel.feedback_id != accepted_id,
-                        ),
-                        1,
-                    ))
+                    sa.case(
+                        (
+                            sa.and_(
+                                ApplicationModel.feedback_id.isnot(None),
+                                ApplicationModel.feedback_id != accepted_id,
+                            ),
+                            1,
+                        )
+                    )
                 ).label('denials'),
-                func.count(
-                    sa.case((ApplicationModel.feedback_id.is_(None), 1))
-                ).label('active'),
+                func.count(sa.case((ApplicationModel.feedback_id.is_(None), 1))).label('active'),
                 func.max(ApplicationModel.created_at).label('last_activity'),
             ).where(ApplicationModel.user_id == user_id)
         )
@@ -416,24 +393,19 @@ class AdminRepository:
             'last_name': user.last_name,
             'current_role': user.current_role,
             'current_company': user.current_company,
-            'seniority_level': (
-                user.seniority_level.value if user.seniority_level else None
-            ),
+            'seniority_level': (user.seniority_level.value if user.seniority_level else None),
             'location': user.location,
             'bio': user.bio,
             'linkedin_url': user.linkedin_url,
             'tech_stack': user.tech_stack,
-            'availability': (
-                user.availability.value if user.availability else None
-            ),
+            'availability': (user.availability.value if user.availability else None),
             'is_admin': user.is_admin,
             'is_org_member': user.is_org_member,
             'total_applications': counts['total'] if counts else 0,
             'offers': counts['offers'] if counts else 0,
             'denials': counts['denials'] if counts else 0,
             'active_applications': counts['active'] if counts else 0,
-            'last_activity': (counts['last_activity'] if counts else None)
-            or user.created_at,
+            'last_activity': (counts['last_activity'] if counts else None) or user.created_at,
             'joined_at': user.created_at,
         }
 
@@ -463,9 +435,7 @@ class AdminRepository:
                 CompanyModel.url,
                 CompanyModel.is_active,
                 CompanyModel.created_at,
-                func.coalesce(app_counts.c.applications_count, 0).label(
-                    'applications_count'
-                ),
+                func.coalesce(app_counts.c.applications_count, 0).label('applications_count'),
                 UserModel.username.label('created_by_username'),
             )
             .outerjoin(

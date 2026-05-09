@@ -12,9 +12,7 @@ class CreatePlatformUseCase:
     def __init__(self, platform_repo: PlatformRepository):
         self.platform_repo = platform_repo
 
-    async def execute(
-        self, data: PlatformCreateDTO, admin_id: int
-    ) -> PlatformDTO:
+    async def execute(self, data: PlatformCreateDTO, admin_id: int) -> PlatformDTO:
         platform = await self.platform_repo.create(**data.model_dump())
 
         logger.info(

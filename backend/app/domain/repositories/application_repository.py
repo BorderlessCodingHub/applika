@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from typing import List
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,14 +12,10 @@ class ApplicationRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_id_and_user_id(
-        self, id: int, user_id: int
-    ) -> ApplicationModel | None:
+    async def get_by_id_and_user_id(self, id: int, user_id: int) -> ApplicationModel | None:
         return await self.session.scalar(
             select(ApplicationModel)
-            .where(
-                ApplicationModel.id == id, ApplicationModel.user_id == user_id
-            )
+            .where(ApplicationModel.id == id, ApplicationModel.user_id == user_id)
             .options(
                 selectinload(ApplicationModel.company_rel),
                 selectinload(ApplicationModel.last_step_def),
@@ -30,7 +25,7 @@ class ApplicationRepository:
 
     async def get_all_by_user_id(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[ApplicationModel]:
+    ) -> list[ApplicationModel]:
         stmt = (
             select(ApplicationModel)
             .where(ApplicationModel.user_id == user_id)
@@ -56,11 +51,7 @@ class ApplicationRepository:
         try:
             db_application = ApplicationModel(
                 **application.model_dump(exclude={'link_to_job', 'company'}),
-                link_to_job=(
-                    str(application.link_to_job)
-                    if application.link_to_job
-                    else None
-                ),
+                link_to_job=(str(application.link_to_job) if application.link_to_job else None),
                 company_id=company_id,
                 company_name=company_name,
             )
@@ -74,7 +65,7 @@ class ApplicationRepository:
 
     async def update(self, application: ApplicationModel) -> ApplicationModel:
         try:
-            application.updated_at = datetime.now(timezone.utc)
+            application.updated_at = datetime.now(UTC)
             self.session.add(application)
             await self.session.commit()
             return application

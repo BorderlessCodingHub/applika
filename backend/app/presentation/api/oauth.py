@@ -198,9 +198,7 @@ async def cli_exchange(
     auth_handoff_state_use_case: AuthHandoffStateUseCaseDp,
 ):
     """Redeem the short-lived auth handoff code for the normal session."""
-    code_state = await auth_handoff_state_use_case.pop_exchange_code(
-        payload.code
-    )
+    code_state = await auth_handoff_state_use_case.pop_exchange_code(payload.code)
 
     if code_state is None:
         raise HTTPException(
@@ -208,9 +206,7 @@ async def cli_exchange(
             detail='Invalid or expired CLI exchange code',
         )
 
-    access_token, _, access_expires_in = create_access_token(
-        str(code_state['github_id'])
-    )
+    access_token, _, access_expires_in = create_access_token(str(code_state['github_id']))
     refresh_token, refresh_expires_in = await create_refresh_token_value(
         code_state['user_id'],
         redis_client,

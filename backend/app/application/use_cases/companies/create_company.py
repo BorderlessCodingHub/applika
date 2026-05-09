@@ -8,8 +8,6 @@ class CreateCompanyUseCase:
         self.company_repo = company_repo
 
     async def execute(self, data: CompanyCreateDTO) -> CompanyDTO:
-        normalized = data.model_copy(
-            update={'url': normalize_company_url(str(data.url))}
-        )
+        normalized = data.model_copy(update={'url': normalize_company_url(str(data.url))})
         company = await self.company_repo.create(normalized)
         return CompanyDTO.model_validate(company)

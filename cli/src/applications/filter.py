@@ -60,9 +60,7 @@ def resolve_platform_id(supports: dict[str, Any], platform_name: str) -> str:
         None,
     )
     if match is None:
-        valid = ', '.join(
-            sorted(platform['name'] for platform in supports['platforms'])
-        )
+        valid = ', '.join(sorted(platform['name'] for platform in supports['platforms']))
         raise ValueError(f'Unknown platform. Valid options: {valid}')
 
     return str(match['id'])

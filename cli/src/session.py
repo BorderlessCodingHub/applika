@@ -3,7 +3,7 @@ import json
 import os
 import tempfile
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 DEFAULT_API_BASE_URL = 'http://127.0.0.1:8000/api'
@@ -19,9 +19,7 @@ class SessionData:
 
 class SessionStore:
     def __init__(self, path: Path | None = None):
-        self.path = path or (
-            Path.home() / '.config' / 'applika' / 'session.json'
-        )
+        self.path = path or (Path.home() / '.config' / 'applika' / 'session.json')
 
     def load(self) -> SessionData:
         data = json.loads(self.path.read_text())
@@ -73,4 +71,4 @@ def expiry_from_access_token(token: str) -> str:
     padding = '=' * (-len(payload_segment) % 4)
     payload = json.loads(base64.urlsafe_b64decode(payload_segment + padding))
     exp = payload['exp']
-    return datetime.fromtimestamp(exp, tz=timezone.utc).isoformat()
+    return datetime.fromtimestamp(exp, tz=UTC).isoformat()

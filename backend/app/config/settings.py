@@ -1,4 +1,4 @@
-from typing import Annotated, List, Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, PostgresDsn, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -44,12 +44,12 @@ class Settings(BaseSettings):
     API_PREFIX: str = '/api'
     ENVIRONMENT: EnvType = 'DEV'
 
-    CORS_ORIGINS: List[str] = [
+    CORS_ORIGINS: list[str] = [
         'http://127.0.0.1:8080',
         'http://127.0.0.1:8000',
     ]
-    CORS_HEADERS: List[str] = ['X-Request-ID', 'Content-Type']
-    CORS_METHODS: List[str] = [
+    CORS_HEADERS: list[str] = ['X-Request-ID', 'Content-Type']
+    CORS_METHODS: list[str] = [
         'GET',
         'PATCH',
         'POST',

@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from typing import List
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,15 +10,11 @@ class PlatformRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_all(self) -> List[PlatformModel]:
-        return await self.session.scalars(
-            select(PlatformModel).order_by(PlatformModel.id)
-        )
+    async def get_all(self) -> list[PlatformModel]:
+        return await self.session.scalars(select(PlatformModel).order_by(PlatformModel.id))
 
     async def get_by_id(self, id: int) -> PlatformModel:
-        return await self.session.scalar(
-            select(PlatformModel).where(PlatformModel.id == id)
-        )
+        return await self.session.scalar(select(PlatformModel).where(PlatformModel.id == id))
 
     async def create(self, **kwargs) -> PlatformModel:
         try:
@@ -34,7 +29,7 @@ class PlatformRepository:
 
     async def update(self, platform: PlatformModel) -> PlatformModel:
         try:
-            platform.updated_at = datetime.now(timezone.utc)
+            platform.updated_at = datetime.now(UTC)
             self.session.add(platform)
             await self.session.commit()
             await self.session.refresh(platform)
@@ -45,9 +40,7 @@ class PlatformRepository:
 
     async def delete(self, id: int) -> None:
         try:
-            await self.session.execute(
-                delete(PlatformModel).where(PlatformModel.id == id)
-            )
+            await self.session.execute(delete(PlatformModel).where(PlatformModel.id == id))
             await self.session.commit()
         except Exception as e:
             await self.session.rollback()

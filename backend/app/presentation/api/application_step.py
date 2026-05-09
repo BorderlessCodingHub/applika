@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter
 
 from app.application.dto.application_step import (
@@ -41,7 +39,7 @@ router = APIRouter(
 
 @router.get(
     '/{application_id}/steps',
-    response_model=List[ApplicationStep],
+    response_model=list[ApplicationStep],
     responses={'404': {'model': DetailSchema}},
 )
 async def get_all_application_steps(
@@ -50,9 +48,7 @@ async def get_all_application_steps(
     app_repo: ApplicationRepositoryDp,
     app_step_repo: ApplicationStepRepositoryDp,
 ):
-    use_case = ListApplicationStepsUseCase(
-        app_repo=app_repo, app_step_repo=app_step_repo
-    )
+    use_case = ListApplicationStepsUseCase(app_repo=app_repo, app_step_repo=app_step_repo)
     app_steps = await use_case.execute(application_id, c_user.id)
     return app_steps
 
@@ -104,9 +100,7 @@ async def update_step(
         application_repo=app_repo,
         application_step_repo=app_step_repo,
     )
-    data = ApplicationStepUpdateDTO(
-        application_id=application_id, **payload.model_dump()
-    )
+    data = ApplicationStepUpdateDTO(application_id=application_id, **payload.model_dump())
     app_step = await use_case.execute(step_id, c_user.id, data)
     return ApplicationStep.model_validate(app_step)
 

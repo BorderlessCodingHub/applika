@@ -1,5 +1,3 @@
-from typing import List
-
 from pydantic import BaseModel
 
 from app.lib.types import SnowflakeID
@@ -26,6 +24,6 @@ class PlatformSchema(BaseSchema):
 
 
 class SupportSchema(BaseModel):
-    feedbacks: List[FeedbackDefinitionSchema]
-    steps: List[StepDefinitionSchema]
-    platforms: List[PlatformSchema]
+    feedbacks: list[FeedbackDefinitionSchema]
+    steps: list[StepDefinitionSchema]
+    platforms: list[PlatformSchema]

@@ -56,11 +56,14 @@ uv sync
 # Run development server (port 8000 with auto-reload)
 uv run task run
 
+# Run formatter
+make format
+
 # Run linter with auto-fix
-uv run task ruff
+make lint
 
 # Run tests with coverage
-uv run task pytest
+make test
 ```
 
 ### Database Migrations
@@ -100,9 +103,9 @@ docker exec applika.dev-api alembic upgrade head
 Run these at the end of any backend code change:
 
 ```bash
-uv run ruff format ./app
-uv run task ruff
-uv run task pytest
+make format
+make lint
+make test
 ```
 
 Do not skip this unless the user explicitly asks you not to run validation or the environment prevents it.

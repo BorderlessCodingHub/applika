@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from typing import List
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +10,7 @@ class StepDefinitionRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_all(self) -> List[StepDefinitionModel]:
+    async def get_all(self) -> list[StepDefinitionModel]:
         return await self.session.scalars(
             select(StepDefinitionModel).order_by(StepDefinitionModel.id)
         )
@@ -50,7 +49,7 @@ class StepDefinitionRepository:
 
     async def update(self, step: StepDefinitionModel) -> StepDefinitionModel:
         try:
-            step.updated_at = datetime.now(timezone.utc)
+            step.updated_at = datetime.now(UTC)
             self.session.add(step)
             await self.session.commit()
             await self.session.refresh(step)

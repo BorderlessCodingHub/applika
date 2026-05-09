@@ -10,14 +10,10 @@ class UserRepository:
         self.session = session
 
     async def get_by_github_id(self, id: int) -> UserModel | None:
-        return await self.session.scalar(
-            select(UserModel).where(UserModel.github_id == id)
-        )
+        return await self.session.scalar(select(UserModel).where(UserModel.github_id == id))
 
     async def get_by_id(self, id: int) -> UserModel | None:
-        return await self.session.scalar(
-            select(UserModel).where(UserModel.id == id)
-        )
+        return await self.session.scalar(select(UserModel).where(UserModel.id == id))
 
     async def create(self, user: UserCreateDTO) -> UserModel:
         try:
@@ -42,9 +38,7 @@ class UserRepository:
 
     async def delete(self, user: UserModel) -> None:
         try:
-            await self.session.execute(
-                delete(UserModel).where(UserModel.id == user.id)
-            )
+            await self.session.execute(delete(UserModel).where(UserModel.id == user.id))
             await self.session.commit()
         except Exception as e:
             await self.session.rollback()

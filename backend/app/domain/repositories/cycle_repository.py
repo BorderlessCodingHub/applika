@@ -1,5 +1,3 @@
-from typing import List
-
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +13,7 @@ class CycleRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_all_by_user_id(self, user_id: int) -> List[CycleModel]:
+    async def get_all_by_user_id(self, user_id: int) -> list[CycleModel]:
         return list(
             await self.session.scalars(
                 select(CycleModel)
@@ -24,9 +22,7 @@ class CycleRepository:
             )
         )
 
-    async def get_by_id_and_user_id(
-        self, id: int, user_id: int
-    ) -> CycleModel | None:
+    async def get_by_id_and_user_id(self, id: int, user_id: int) -> CycleModel | None:
         return await self.session.scalar(
             select(CycleModel).where(
                 CycleModel.id == id,
@@ -54,9 +50,7 @@ class CycleRepository:
             await self.session.rollback()
             raise e
 
-    async def archive_current_applications(
-        self, user_id: int, cycle_id: int
-    ) -> int:
+    async def archive_current_applications(self, user_id: int, cycle_id: int) -> int:
         result = await self.session.execute(
             update(ApplicationModel)
             .where(

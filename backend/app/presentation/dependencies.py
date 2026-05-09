@@ -92,9 +92,7 @@ StepDefinitionRepositoryDp = Annotated[
     StepDefinitionRepository, Depends(get_step_definition_repository)
 ]
 
-PlatformRepositoryDp = Annotated[
-    PlatformRepository, Depends(get_platform_repository)
-]
+PlatformRepositoryDp = Annotated[PlatformRepository, Depends(get_platform_repository)]
 
 QuinzenalReportRepositoryDp = Annotated[
     QuinzenalReportRepository, Depends(get_quinzenal_report_repository)
@@ -104,17 +102,11 @@ ApplicationStepRepositoryDp = Annotated[
     ApplicationStepRepository, Depends(get_application_step_repository)
 ]
 
-CompanyRepositoryDp = Annotated[
-    CompanyRepository, Depends(get_company_repository)
-]
+CompanyRepositoryDp = Annotated[CompanyRepository, Depends(get_company_repository)]
 
-ApplicationRepositoryDp = Annotated[
-    ApplicationRepository, Depends(get_application_repository)
-]
+ApplicationRepositoryDp = Annotated[ApplicationRepository, Depends(get_application_repository)]
 
-UserStatsRepositoryDp = Annotated[
-    UserStatsRepository, Depends(get_user_statistics_repository)
-]
+UserStatsRepositoryDp = Annotated[UserStatsRepository, Depends(get_user_statistics_repository)]
 
 
 def get_admin_repository(session: DbSession):
@@ -142,18 +134,14 @@ def get_user_feedback_repository(session: DbSession):
     return UserFeedbackRepository(session)
 
 
-UserFeedbackRepositoryDp = Annotated[
-    UserFeedbackRepository, Depends(get_user_feedback_repository)
-]
+UserFeedbackRepositoryDp = Annotated[UserFeedbackRepository, Depends(get_user_feedback_repository)]
 
 
 def get_discord_feedback_service():
     return DiscordService(webhook_url=envs.DISCORD_FEEDBACK_WEBHOOK)
 
 
-DiscordFeedbackServiceDp = Annotated[
-    DiscordService, Depends(get_discord_feedback_service)
-]
+DiscordFeedbackServiceDp = Annotated[DiscordService, Depends(get_discord_feedback_service)]
 
 
 RedisDp = Annotated[aioredis.Redis, Depends(get_redis)]

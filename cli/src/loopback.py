@@ -52,7 +52,10 @@ class LoopbackLoginServer:
                 else:
                     result.code = code
                     result.state = state
-                    body = b'<html><body>Authentication complete. You can close this window.</body></html>'
+                    body = (
+                        b'<html><body>Authentication complete. '
+                        b'You can close this window.</body></html>'
+                    )
                     self.send_response(200)
                 self.send_header('Content-Type', 'text/html; charset=utf-8')
                 self.send_header('Content-Length', str(len(body)))

@@ -1,5 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
-from typing import List
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,9 +28,7 @@ class ApplicationStepRepository:
             )
         )
 
-    async def get_all_by_application_id(
-        self, application_id: int
-    ) -> List[ApplicationStepModel]:
+    async def get_all_by_application_id(self, application_id: int) -> list[ApplicationStepModel]:
         return await self.session.scalars(
             select(ApplicationStepModel)
             .where(
@@ -41,9 +38,7 @@ class ApplicationStepRepository:
             .options(joinedload(ApplicationStepModel.step_def))
         )
 
-    async def create(
-        self, app_step: ApplicationStepCreateDTO
-    ) -> ApplicationStepModel:
+    async def create(self, app_step: ApplicationStepCreateDTO) -> ApplicationStepModel:
         try:
             db_app_step = ApplicationStepModel(**app_step.model_dump())
             self.session.add(db_app_step)
@@ -54,11 +49,9 @@ class ApplicationStepRepository:
             await self.session.rollback()
             raise e
 
-    async def update(
-        self, application: ApplicationStepModel
-    ) -> ApplicationStepModel:
+    async def update(self, application: ApplicationStepModel) -> ApplicationStepModel:
         try:
-            application.updated_at = datetime.now(timezone.utc)
+            application.updated_at = datetime.now(UTC)
             self.session.add(application)
             await self.session.commit()
             return application
@@ -79,7 +72,7 @@ class ApplicationStepRepository:
         user_id: int,
         from_date: date | None = None,
         to_date: date | None = None,
-    ) -> List[ApplicationStepModel]:
+    ) -> list[ApplicationStepModel]:
         """Get all steps for a user within a date range,
         with application and step definition loaded."""
         today = date.today()

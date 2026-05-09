@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import List, Literal, TypedDict
+from typing import Literal, TypedDict
 
 import sqlalchemy as sa
 from sqlalchemy import func, select
@@ -56,9 +56,7 @@ class UserStatsRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_applications_count(
-        self, user_id: int, cycle_id: int | None = None
-    ) -> int | None:
+    async def get_applications_count(self, user_id: int, cycle_id: int | None = None) -> int | None:
         return await self.session.scalar(
             select(func.count(ApplicationModel.id).label('total')).where(
                 ApplicationModel.user_id == user_id,
@@ -68,7 +66,7 @@ class UserStatsRepository:
 
     async def count_applications_per_strict_step(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[ApplicationStepCount]:
+    ) -> list[ApplicationStepCount]:
         app_ids_subq = (
             select(ApplicationModel.id)
             .where(
@@ -84,19 +82,13 @@ class UserStatsRepository:
                 StepDefinitionModel.name.label('step_name'),
                 StepDefinitionModel.strict.label('step_strict'),
                 StepDefinitionModel.color.label('step_color'),
-                func.coalesce(
-                    func.count(ApplicationStepModel.application_id), 0
-                ).label('count'),
+                func.coalesce(func.count(ApplicationStepModel.application_id), 0).label('count'),
             )
             .outerjoin(
                 ApplicationStepModel,
                 (StepDefinitionModel.id == ApplicationStepModel.step_id)
                 & (ApplicationStepModel.user_id == user_id)
-                & (
-                    ApplicationStepModel.application_id.in_(
-                        select(app_ids_subq.c.id)
-                    )
-                ),
+                & (ApplicationStepModel.application_id.in_(select(app_ids_subq.c.id))),
             )
             .where(StepDefinitionModel.strict.is_(True))
             .group_by(
@@ -113,7 +105,7 @@ class UserStatsRepository:
 
     async def count_applications_per_step(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[ApplicationStepCount]:
+    ) -> list[ApplicationStepCount]:
         app_ids_subq = (
             select(ApplicationModel.id)
             .where(
@@ -129,19 +121,13 @@ class UserStatsRepository:
                 StepDefinitionModel.name.label('step_name'),
                 StepDefinitionModel.strict.label('step_strict'),
                 StepDefinitionModel.color.label('step_color'),
-                func.coalesce(
-                    func.count(ApplicationStepModel.application_id), 0
-                ).label('count'),
+                func.coalesce(func.count(ApplicationStepModel.application_id), 0).label('count'),
             )
             .outerjoin(
                 ApplicationStepModel,
                 (StepDefinitionModel.id == ApplicationStepModel.step_id)
                 & (ApplicationStepModel.user_id == user_id)
-                & (
-                    ApplicationStepModel.application_id.in_(
-                        select(app_ids_subq.c.id)
-                    )
-                ),
+                & (ApplicationStepModel.application_id.in_(select(app_ids_subq.c.id))),
             )
             .group_by(
                 StepDefinitionModel.id,
@@ -157,7 +143,7 @@ class UserStatsRepository:
 
     async def count_applications_grouped_by_platform(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[ApplicationsPerPlatform]:
+    ) -> list[ApplicationsPerPlatform]:
         stmt = (
             select(
                 PlatformModel.id.label('platform_id'),
@@ -183,7 +169,7 @@ class UserStatsRepository:
 
     async def count_applications_grouped_by_mode(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[ApplicationsPerMode]:
+    ) -> list[ApplicationsPerMode]:
         stmt = (
             select(
                 ApplicationModel.mode,
@@ -201,7 +187,7 @@ class UserStatsRepository:
 
     async def count_applications_per_day_last_month(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[DailyApplicationsLastMonth]:
+    ) -> list[DailyApplicationsLastMonth]:
         one_month_ago = date.today() - timedelta(days=30)
         stmt = (
             select(
@@ -222,14 +208,13 @@ class UserStatsRepository:
 
     async def average_days_per_step(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[AverageDaysPerStep]:
+    ) -> list[AverageDaysPerStep]:
         subq = (
             select(
                 ApplicationStepModel.step_id.label('step_id'),
-                func.avg(
-                    ApplicationStepModel.step_date
-                    - ApplicationModel.application_date
-                ).label('avg_days'),
+                func.avg(ApplicationStepModel.step_date - ApplicationModel.application_date).label(
+                    'avg_days'
+                ),
             )
             .outerjoin(
                 ApplicationModel,

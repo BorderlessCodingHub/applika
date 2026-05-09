@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class Currency(str, Enum):
+class Currency(StrEnum):
     USD = 'USD'
     BRL = 'BRL'
     EUR = 'EUR'
@@ -13,13 +13,13 @@ class Currency(str, Enum):
     INR = 'INR'
 
 
-class SalaryPeriod(str, Enum):
+class SalaryPeriod(StrEnum):
     HOURLY = 'hourly'
     MONTHLY = 'monthly'
     ANNUAL = 'annual'
 
 
-class ExperienceLevel(str, Enum):
+class ExperienceLevel(StrEnum):
     INTERN = 'intern'
     JUNIOR = 'junior'
     MID_LEVEL = 'mid_level'
@@ -30,13 +30,13 @@ class ExperienceLevel(str, Enum):
     SPECIALIST = 'specialist'
 
 
-class WorkMode(str, Enum):
+class WorkMode(StrEnum):
     REMOTE = 'remote'
     HYBRID = 'hybrid'
     ON_SITE = 'on_site'
 
 
-class Availability(str, Enum):
+class Availability(StrEnum):
     OPEN_TO_WORK = 'open_to_work'
     CASUALLY_LOOKING = 'casually_looking'
     NOT_LOOKING = 'not_looking'

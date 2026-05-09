@@ -37,14 +37,10 @@ class FinalizeApplicationUseCase:
         self.application_repo = application_repo
         self.application_step_repo = application_step_repo
 
-    async def execute(
-        self, id: int, user_id: int, data: FinalizeApplicationDTO
-    ) -> ApplicationDTO:
+    async def execute(self, id: int, user_id: int, data: FinalizeApplicationDTO) -> ApplicationDTO:
         ensure_not_in_future(data.finalize_date, 'finalize_date')
 
-        application = await self.application_repo.get_by_id_and_user_id(
-            id, user_id
-        )
+        application = await self.application_repo.get_by_id_and_user_id(id, user_id)
         if not application:
             logger.warning(
                 f'Finalize failed: application {id} not found',
@@ -60,9 +56,7 @@ class FinalizeApplicationUseCase:
             raise ResourceNotFound('Application not found or not owned by user')
 
         if application.cycle_id is not None:
-            raise BusinessRuleViolation(
-                'Cannot modify an application from an archived cycle'
-            )
+            raise BusinessRuleViolation('Cannot modify an application from an archived cycle')
 
         if application.feedback_id is not None:
             logger.warning(
@@ -76,9 +70,7 @@ class FinalizeApplicationUseCase:
                     }
                 },
             )
-            raise ApplicationFinalized(
-                'This application has already been finalized'
-            )
+            raise ApplicationFinalized('This application has already been finalized')
 
         step = await self.step_repo.get_by_id_strict_only(data.step_id)
         if not step:

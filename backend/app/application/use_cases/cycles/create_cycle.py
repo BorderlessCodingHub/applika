@@ -11,9 +11,7 @@ class CreateCycleUseCase:
         self.cycle_repo = cycle_repo
 
     async def execute(self, user_id: int, data: CycleCreateDTO) -> CycleDTO:
-        current_count = await self.cycle_repo.count_current_applications(
-            user_id
-        )
+        current_count = await self.cycle_repo.count_current_applications(user_id)
         if current_count < MIN_APPLICATIONS_FOR_CYCLE:
             raise BusinessRuleViolation(
                 f'At least {MIN_APPLICATIONS_FOR_CYCLE} applications are '
@@ -21,12 +19,8 @@ class CreateCycleUseCase:
                 f'(currently {current_count})'
             )
         cycle = await self.cycle_repo.create(user_id, data.name)
-        archived_apps = await self.cycle_repo.archive_current_applications(
-            user_id, cycle.id
-        )
-        archived_reports = await self.cycle_repo.archive_current_reports(
-            user_id, cycle.id
-        )
+        archived_apps = await self.cycle_repo.archive_current_applications(user_id, cycle.id)
+        archived_reports = await self.cycle_repo.archive_current_reports(user_id, cycle.id)
         await self.cycle_repo.commit()
         logger.info(
             f'Cycle created: {cycle.id}',

@@ -17,10 +17,10 @@ test:
 	uv run --no-sync pytest tests -q
 
 lint:
-	uv run ruff check . --fix
+	uv run --no-sync ruff check . --fix
 
 format:
-	uv run ruff format .
+	uv run --no-sync ruff format .
 
 help:
 	uv run --no-sync applika --help

@@ -18,9 +18,7 @@ class DeleteApplicationUseCase:
         self.application_step_repo = application_step_repo
 
     async def execute(self, id: int, user_id: int) -> None:
-        application = await self.application_repo.get_by_id_and_user_id(
-            id, user_id
-        )
+        application = await self.application_repo.get_by_id_and_user_id(id, user_id)
         if not application:
             logger.warning(
                 f'Delete failed: application {id} not found',
@@ -34,9 +32,7 @@ class DeleteApplicationUseCase:
             )
             raise ResourceNotFound('Application not found or not owned by user')
         if application.cycle_id is not None:
-            raise BusinessRuleViolation(
-                'Cannot modify an application from an archived cycle'
-            )
+            raise BusinessRuleViolation('Cannot modify an application from an archived cycle')
 
         await self.application_step_repo.delete_all_by_application_id(id)
         await self.application_repo.delete_by_id(id)

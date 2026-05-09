@@ -1,5 +1,3 @@
-from typing import List
-
 from app.application.dto.statistic import ApplicationsTrendDTO
 from app.domain.repositories.user_statistic_repository import (
     UserStatsRepository,
@@ -12,11 +10,9 @@ class GetLastMonthTrendsStatsUseCase:
 
     async def execute(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[ApplicationsTrendDTO]:
-        applications = (
-            await self.user_stats_repo.count_applications_per_day_last_month(
-                user_id, cycle_id
-            )
+    ) -> list[ApplicationsTrendDTO]:
+        applications = await self.user_stats_repo.count_applications_per_day_last_month(
+            user_id, cycle_id
         )
 
         return [

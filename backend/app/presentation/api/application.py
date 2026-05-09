@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter
 
 from app.application.dto.application import (
@@ -40,9 +38,7 @@ from app.presentation.schemas.application import (
     UpdateApplication,
 )
 
-router = APIRouter(
-    tags=['Applications'], responses={'403': {'model': DetailSchema}}
-)
+router = APIRouter(tags=['Applications'], responses={'403': {'model': DetailSchema}})
 
 
 @router.post(
@@ -59,11 +55,7 @@ async def create(
     company_repo: CompanyRepositoryDp,
 ):
     use_case = CreateApplicationUseCase(app_repo, platform_repo, company_repo)
-    company = (
-        payload.company
-        if isinstance(payload.company, int)
-        else payload.company.model_dump()
-    )
+    company = payload.company if isinstance(payload.company, int) else payload.company.model_dump()
     data = ApplicationCreateDTO(
         **payload.model_dump(exclude={'company'}),
         company=company,
@@ -73,7 +65,7 @@ async def create(
     return Application.model_validate(application)
 
 
-@router.get('/applications', response_model=List[Application])
+@router.get('/applications', response_model=list[Application])
 async def list_applications(
     c_user: CurrentUserDp,
     app_repo: ApplicationRepositoryDp,
@@ -101,11 +93,7 @@ async def update_application(
     company_repo: CompanyRepositoryDp,
 ):
     use_case = UpdateApplicationUseCase(app_repo, platform_repo, company_repo)
-    company = (
-        payload.company
-        if isinstance(payload.company, int)
-        else payload.company.model_dump()
-    )
+    company = payload.company if isinstance(payload.company, int) else payload.company.model_dump()
     data = ApplicationUpdateDTO(
         **payload.model_dump(exclude={'company'}),
         company=company,

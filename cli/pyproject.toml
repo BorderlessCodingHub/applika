@@ -21,17 +21,15 @@ dev = [
 ]
 
 [tool.ruff]
-line-length = 80
+line-length = 100
 
 [tool.ruff.lint.pycodestyle]
-max-line-length = 120
+max-line-length = 100
 
 [tool.ruff.lint]
-preview = true
-select = ["I", "F", "E", "W"]
+select = ["I", "F", "E", "W", "B", "UP"]
 
 [tool.ruff.format]
-preview = true
 quote-style = "single"
 
 [tool.hatch.build.targets.wheel]

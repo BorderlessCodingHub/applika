@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter, Query
 
 from app.application.use_cases.companies.list_companies import (
@@ -18,7 +16,7 @@ router = APIRouter(
 )
 
 
-@router.get('/companies', response_model=List[Company])
+@router.get('/companies', response_model=list[Company])
 async def list_companies(
     c_user: CurrentUserDp,
     company_repo: CompanyRepositoryDp,

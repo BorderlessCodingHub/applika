@@ -55,9 +55,7 @@ class RefreshTokenUseCase:
         if user.encrypted_github_token:
             github_token = decrypt_token(user.encrypted_github_token)
             if github_token:
-                is_valid = await self.gh_service.validate_token(
-                    user.id, github_token
-                )
+                is_valid = await self.gh_service.validate_token(user.id, github_token)
                 if not is_valid:
                     await revoke_refresh_token(refresh_id, self.redis_client)
                     clear_access_cookie(response)

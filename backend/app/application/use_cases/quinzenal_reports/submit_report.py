@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 from fastapi import HTTPException
 
@@ -60,12 +60,10 @@ class SubmitReportUseCase:
             start_date=period_start,
             end_date=period_end,
         )
-        accumulated_metrics = (
-            await self.report_repo.calculate_accumulated_metrics(
-                user_id=user_id,
-                start_date=report_start_date,
-                end_date=period_end,
-            )
+        accumulated_metrics = await self.report_repo.calculate_accumulated_metrics(
+            user_id=user_id,
+            start_date=report_start_date,
+            end_date=period_end,
         )
 
         return ReportMetricsDTO(**fortnight_metrics, **accumulated_metrics)
@@ -213,24 +211,20 @@ class SubmitReportUseCase:
             applications_count=metrics.applications_count,
             callback_rate=metrics.callback_rate,
             initial_screenings_count=metrics.initial_screenings_count,
-            interviews_completed_fortnight=(
-                metrics.interviews_completed_fortnight
-            ),
+            interviews_completed_fortnight=(metrics.interviews_completed_fortnight),
             active_processes_count=metrics.active_processes_count,
             offers_count=metrics.offers_count,
             offer_rate=metrics.offer_rate,
             total_applications_count=metrics.total_applications_count,
             overall_conversion_rate=metrics.overall_conversion_rate,
-            total_initial_screenings_count=(
-                metrics.total_initial_screenings_count
-            ),
+            total_initial_screenings_count=(metrics.total_initial_screenings_count),
             mock_interviews_count=payload.mock_interviews_count,
             linkedin_posts_count=payload.linkedin_posts_count,
             strategic_connections_count=payload.strategic_connections_count,
             biggest_win=payload.biggest_win,
             biggest_challenge=payload.biggest_challenge,
             next_fortnight_goal=payload.next_fortnight_goal,
-            submitted_at=datetime.now(timezone.utc),
+            submitted_at=datetime.now(UTC),
             discord_posted=False,
         )
 

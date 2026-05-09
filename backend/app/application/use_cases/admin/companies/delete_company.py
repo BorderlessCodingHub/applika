@@ -14,9 +14,7 @@ class DeleteAdminCompanyUseCase:
         self.admin_repo = admin_repo
 
     async def execute(self, company_id: int, admin_id: int) -> None:
-        refs = await self.admin_repo.count_entity_references(
-            'company', company_id
-        )
+        refs = await self.admin_repo.count_entity_references('company', company_id)
         if refs > 0:
             logger.warning(
                 f'Admin delete company blocked: {company_id}',
@@ -30,9 +28,7 @@ class DeleteAdminCompanyUseCase:
                     }
                 },
             )
-            raise ResourceConflict(
-                f'Cannot delete: {refs} application(s) reference this company'
-            )
+            raise ResourceConflict(f'Cannot delete: {refs} application(s) reference this company')
 
         await self.company_repo.delete(company_id)
 

@@ -116,12 +116,8 @@ def build_salary_fields(
             'salary_range_max',
         )
     )
-    if has_salary and (
-        fields['currency'] is None or fields['salary_period'] is None
-    ):
-        raise ValueError(
-            'Currency and salary period are required when salary is set'
-        )
+    if has_salary and (fields['currency'] is None or fields['salary_period'] is None):
+        raise ValueError('Currency and salary period are required when salary is set')
 
     return fields
 
@@ -143,11 +139,7 @@ def resolve_company_input(
     query = company_name.strip().lower()
     matches = client.get_json('/companies', params={'name': query})
     exact_match = next(
-        (
-            company
-            for company in matches
-            if company['name'].strip().lower() == query
-        ),
+        (company for company in matches if company['name'].strip().lower() == query),
         None,
     )
     if exact_match:
