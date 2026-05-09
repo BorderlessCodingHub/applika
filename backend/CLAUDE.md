@@ -93,6 +93,20 @@ docker compose up --build
 docker exec applika.dev-api alembic upgrade head
 ```
 
+## End-of-Task Validation
+
+**Always finish a backend task by running formatting, linting, and tests.**
+
+Run these at the end of any backend code change:
+
+```bash
+uv run ruff format ./app
+uv run task ruff
+uv run task pytest
+```
+
+Do not skip this unless the user explicitly asks you not to run validation or the environment prevents it.
+
 ## Architecture
 
 The codebase uses Clean Architecture with four main layers:

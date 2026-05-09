@@ -26,18 +26,14 @@ class TokenPayload(TypedDict):
 
 
 def decode_token(token: str) -> TokenPayload:
-    return jwt.decode(
-        token, envs.JWT_SECRET, algorithms=[envs.JWT_ALGORITHM]
-    )
+    return jwt.decode(token, envs.JWT_SECRET, algorithms=[envs.JWT_ALGORITHM])
 
 
 def create_access_token(
     sub: str,
 ) -> tuple[str, datetime, int]:
     utc_now = datetime.now(timezone.utc)
-    expires_dt = utc_now + timedelta(
-        minutes=envs.ACCESS_TOKEN_EXPIRE_MINUTES
-    )
+    expires_dt = utc_now + timedelta(minutes=envs.ACCESS_TOKEN_EXPIRE_MINUTES)
     max_age = envs.ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
     access_payload = {

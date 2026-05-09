@@ -118,9 +118,7 @@ class SubmitReportUseCase:
             f'🎯 **NEXT FORTNIGHT GOAL:** {safe_next_fortnight_goal}'
         )
 
-    async def _validate_org_membership(
-        self, user_id: int
-    ) -> bool:
+    async def _validate_org_membership(self, user_id: int) -> bool:
         """Check if the user is an org member via their stored GitHub
         token. Returns False if the user has no token or the check
         fails — never cached for non-members."""
@@ -132,9 +130,7 @@ class SubmitReportUseCase:
         if not github_token:
             return False
 
-        return await self.github_service.check_org_membership(
-            github_token
-        )
+        return await self.github_service.check_org_membership(github_token)
 
     async def execute(
         self,
@@ -155,12 +151,14 @@ class SubmitReportUseCase:
         if submitted_report:
             logger.warning(
                 f'Report day {report_day} already submitted',
-                extra={'extra_data': {
-                    'event': 'report_submit_failed',
-                    'reason': 'already_submitted',
-                    'user_id': user_id,
-                    'report_day': report_day,
-                }},
+                extra={
+                    'extra_data': {
+                        'event': 'report_submit_failed',
+                        'reason': 'already_submitted',
+                        'user_id': user_id,
+                        'report_day': report_day,
+                    }
+                },
             )
             raise ResourceConflict('Report already submitted')
 
@@ -250,27 +248,26 @@ class SubmitReportUseCase:
                 metrics=metrics,
                 payload=payload,
             )
-            discord_posted, discord_error = (
-                await self.discord_service.post_report_message(
-                    discord_message
-                )
-            )
+            (
+                discord_posted,
+                discord_error,
+            ) = await self.discord_service.post_report_message(discord_message)
 
             if discord_posted and not saved_report.discord_posted:
                 saved_report.discord_posted = True
-                saved_report = await self.report_repo.update(
-                    saved_report
-                )
+                saved_report = await self.report_repo.update(saved_report)
 
         logger.info(
             f'Report day {report_day} submitted successfully',
-            extra={'extra_data': {
-                'event': 'report_submitted',
-                'user_id': user_id,
-                'report_day': report_day,
-                'report_id': saved_report.id,
-                'discord_posted': saved_report.discord_posted,
-            }},
+            extra={
+                'extra_data': {
+                    'event': 'report_submitted',
+                    'user_id': user_id,
+                    'report_day': report_day,
+                    'report_id': saved_report.id,
+                    'discord_posted': saved_report.discord_posted,
+                }
+            },
         )
 
         return SubmitReportResultDTO(

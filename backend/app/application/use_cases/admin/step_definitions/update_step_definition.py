@@ -10,9 +10,7 @@ from app.domain.repositories.step_definition_repository import (
 
 
 class UpdateStepDefinitionUseCase:
-    def __init__(
-        self, step_def_repo: StepDefinitionRepository
-    ):
+    def __init__(self, step_def_repo: StepDefinitionRepository):
         self.step_def_repo = step_def_repo
 
     async def execute(
@@ -25,18 +23,16 @@ class UpdateStepDefinitionUseCase:
         if not step:
             logger.warning(
                 f'Admin update step def failed: {step_id}',
-                extra={'extra_data': {
-                    'event': (
-                        'admin_update_step_definition_failed'
-                    ),
-                    'reason': 'step_definition_not_found',
-                    'step_definition_id': step_id,
-                    'admin_id': admin_id,
-                }},
+                extra={
+                    'extra_data': {
+                        'event': ('admin_update_step_definition_failed'),
+                        'reason': 'step_definition_not_found',
+                        'step_definition_id': step_id,
+                        'admin_id': admin_id,
+                    }
+                },
             )
-            raise ResourceNotFound(
-                'Step definition not found'
-            )
+            raise ResourceNotFound('Step definition not found')
 
         update_data = data.model_dump(exclude_unset=True)
         for key, value in update_data.items():
@@ -46,12 +42,14 @@ class UpdateStepDefinitionUseCase:
 
         logger.info(
             f'Admin updated step definition: {step_id}',
-            extra={'extra_data': {
-                'event': 'admin_update_step_definition',
-                'step_definition_id': step_id,
-                'admin_id': admin_id,
-                'fields_updated': list(update_data.keys()),
-            }},
+            extra={
+                'extra_data': {
+                    'event': 'admin_update_step_definition',
+                    'step_definition_id': step_id,
+                    'admin_id': admin_id,
+                    'fields_updated': list(update_data.keys()),
+                }
+            },
         )
 
         return StepDefinitionDTO.model_validate(step)

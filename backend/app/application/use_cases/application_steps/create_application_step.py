@@ -33,8 +33,9 @@ class CreateApplicationStepUseCase:
         self.application_repo = application_repo
         self.application_step_repo = application_step_repo
 
-    async def _check_sibling_steps(self, application: ApplicationModel,
-                                   data: ApplicationStepCreateDTO):
+    async def _check_sibling_steps(
+        self, application: ApplicationModel, data: ApplicationStepCreateDTO
+    ):
         """Enforce step chronology against the parent application and
         any pre-existing sibling steps.
 
@@ -57,7 +58,7 @@ class CreateApplicationStepUseCase:
             min_step_date = max(existing_dates)
             if data.step_date < min_step_date:
                 raise InvalidDate(
-                    "Step date must be greater than or equal to the previous step date"
+                    'Step date must be greater than or equal to the previous step date'
                 )
 
     async def execute(
@@ -67,9 +68,7 @@ class CreateApplicationStepUseCase:
             data.application_id, user_id
         )
         if not application:
-            raise ResourceNotFound(
-                'Application not found or not owned by user'
-            )
+            raise ResourceNotFound('Application not found or not owned by user')
         if application.cycle_id is not None:
             raise BusinessRuleViolation(
                 'Cannot modify an application from an archived cycle'
@@ -88,12 +87,14 @@ class CreateApplicationStepUseCase:
         application_step = await self.application_step_repo.create(data)
         logger.info(
             f'Step created for application {data.application_id}',
-            extra={'extra_data': {
-                'event': 'application_step_created',
-                'application_id': data.application_id,
-                'step_id': data.step_id,
-                'user_id': user_id,
-            }},
+            extra={
+                'extra_data': {
+                    'event': 'application_step_created',
+                    'application_id': data.application_id,
+                    'step_id': data.step_id,
+                    'user_id': user_id,
+                }
+            },
         )
         result = ApplicationStepDTO.model_validate(application_step)
         result.step_name = step.name

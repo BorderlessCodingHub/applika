@@ -15,10 +15,12 @@ class GetCurrentUserUseCase:
         if not access_token:
             logger.warning(
                 'Auth failed: no token provided',
-                extra={'extra_data': {
-                    'event': 'auth_failed',
-                    'reason': 'no_token',
-                }},
+                extra={
+                    'extra_data': {
+                        'event': 'auth_failed',
+                        'reason': 'no_token',
+                    }
+                },
             )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -30,10 +32,12 @@ class GetCurrentUserUseCase:
         except jwt.ExpiredSignatureError:
             logger.info(
                 'Auth failed: token expired',
-                extra={'extra_data': {
-                    'event': 'auth_failed',
-                    'reason': 'token_expired',
-                }},
+                extra={
+                    'extra_data': {
+                        'event': 'auth_failed',
+                        'reason': 'token_expired',
+                    }
+                },
             )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -42,10 +46,12 @@ class GetCurrentUserUseCase:
         except jwt.InvalidTokenError:
             logger.warning(
                 'Auth failed: invalid token',
-                extra={'extra_data': {
-                    'event': 'auth_failed',
-                    'reason': 'invalid_token',
-                }},
+                extra={
+                    'extra_data': {
+                        'event': 'auth_failed',
+                        'reason': 'invalid_token',
+                    }
+                },
             )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -56,10 +62,12 @@ class GetCurrentUserUseCase:
         if not user_sub:
             logger.warning(
                 'Auth failed: invalid token payload (no sub)',
-                extra={'extra_data': {
-                    'event': 'auth_failed',
-                    'reason': 'invalid_payload',
-                }},
+                extra={
+                    'extra_data': {
+                        'event': 'auth_failed',
+                        'reason': 'invalid_payload',
+                    }
+                },
             )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -70,11 +78,13 @@ class GetCurrentUserUseCase:
         if not user:
             logger.warning(
                 f'Auth failed: user not found for github_id={user_sub}',
-                extra={'extra_data': {
-                    'event': 'auth_failed',
-                    'reason': 'user_not_found',
-                    'github_id': user_sub,
-                }},
+                extra={
+                    'extra_data': {
+                        'event': 'auth_failed',
+                        'reason': 'user_not_found',
+                        'github_id': user_sub,
+                    }
+                },
             )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

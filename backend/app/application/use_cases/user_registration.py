@@ -29,12 +29,14 @@ class UserRegistrationUseCase:
 
             logger.info(
                 f'Returning user login: {existing_user.username}',
-                extra={'extra_data': {
-                    'event': 'user_login',
-                    'user_id': existing_user.id,
-                    'github_id': user.id,
-                    'is_org_member': is_org_member,
-                }},
+                extra={
+                    'extra_data': {
+                        'event': 'user_login',
+                        'user_id': existing_user.id,
+                        'github_id': user.id,
+                        'is_org_member': is_org_member,
+                    }
+                },
             )
             return UserDTO.model_validate(existing_user)
 
@@ -47,20 +49,20 @@ class UserRegistrationUseCase:
         created_user = await self.user_repository.create(user_data)
 
         if github_token:
-            created_user.encrypted_github_token = encrypt_token(
-                github_token
-            )
+            created_user.encrypted_github_token = encrypt_token(github_token)
         created_user.is_org_member = is_org_member
         await self.user_repository.update(created_user)
 
         logger.info(
             f'New user registered: {created_user.username}',
-            extra={'extra_data': {
-                'event': 'user_registered',
-                'user_id': created_user.id,
-                'github_id': user.id,
-                'username': user.display_name,
-                'is_org_member': is_org_member,
-            }},
+            extra={
+                'extra_data': {
+                    'event': 'user_registered',
+                    'user_id': created_user.id,
+                    'github_id': user.id,
+                    'username': user.display_name,
+                    'is_org_member': is_org_member,
+                }
+            },
         )
         return UserDTO.model_validate(created_user)

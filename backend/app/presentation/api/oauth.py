@@ -77,11 +77,13 @@ async def _build_auth_handoff_response(
         user_id=user_id,
         github_id=github_id,
     )
+
     handoff_response.headers['location'] = build_callback_redirect_url(
         login_state['callback_url'],
         code=code,
         state=login_state['state'],
     )
+
     return handoff_response
 
 
@@ -154,6 +156,7 @@ async def auth_callback(
         user = await github_sso.verify_and_process(request)
         if not user:
             raise HTTPException(status_code=401, detail='Authentication failed')
+
         github_token = github_sso.oauth_client.token.get('access_token')
 
     # Check org membership with the fresh GitHub token
@@ -177,6 +180,7 @@ async def auth_callback(
         user_id=user_data.id,
         github_id=user_data.github_id,
     )
+
     if handoff_response is not None:
         return handoff_response
 
@@ -197,6 +201,7 @@ async def cli_exchange(
     code_state = await auth_handoff_state_use_case.pop_exchange_code(
         payload.code
     )
+
     if code_state is None:
         raise HTTPException(
             status_code=401,
@@ -210,6 +215,7 @@ async def cli_exchange(
         code_state['user_id'],
         redis_client,
     )
+
     await auth_handoff_state_use_case.delete_login(code_state['login_id'])
 
     return CliExchangeResponse(

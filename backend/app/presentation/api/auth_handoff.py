@@ -29,6 +29,7 @@ def validate_cli_callback_url(callback_url: str) -> str:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='CLI callback URL must not contain params or fragments',
         )
+
     return callback_url
 
 
@@ -41,4 +42,5 @@ def build_callback_redirect_url(
     query = dict(parse_qsl(parsed.query, keep_blank_values=True))
     query['code'] = code
     query['state'] = state
+
     return urlunparse(parsed._replace(query=urlencode(query)))

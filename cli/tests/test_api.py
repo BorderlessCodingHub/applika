@@ -8,12 +8,18 @@ from session import SessionData, SessionStore
 
 
 def _jwt_like(exp: int) -> str:
-    header = base64.urlsafe_b64encode(
-        json.dumps({'alg': 'HS256', 'typ': 'JWT'}).encode()
-    ).decode().rstrip('=')
-    payload = base64.urlsafe_b64encode(
-        json.dumps({'exp': exp}).encode()
-    ).decode().rstrip('=')
+    header = (
+        base64
+        .urlsafe_b64encode(json.dumps({'alg': 'HS256', 'typ': 'JWT'}).encode())
+        .decode()
+        .rstrip('=')
+    )
+    payload = (
+        base64
+        .urlsafe_b64encode(json.dumps({'exp': exp}).encode())
+        .decode()
+        .rstrip('=')
+    )
     return f'{header}.{payload}.signature'
 
 

@@ -21,9 +21,7 @@ class SubmitFeedbackUseCase:
         self.discord_service = discord_service
 
     @classmethod
-    def _sanitize_discord_text(
-        cls, text: str, *, max_length: int
-    ) -> str:
+    def _sanitize_discord_text(cls, text: str, *, max_length: int) -> str:
         sanitized = ' '.join(text.strip().split())
         for char in cls._DISCORD_SPECIAL_CHARS:
             sanitized = sanitized.replace(char, f'\\{char}')
@@ -36,18 +34,14 @@ class SubmitFeedbackUseCase:
         score: int,
         text: str | None,
     ) -> str:
-        safe_username = cls._sanitize_discord_text(
-            username, max_length=100
-        )
+        safe_username = cls._sanitize_discord_text(username, max_length=100)
         stars = '\u2b50' * score
         message = (
             f'\U0001f4ac **USER FEEDBACK** - @{safe_username}\n'
             f'{stars} ({score}/5)\n'
         )
         if text:
-            safe_text = cls._sanitize_discord_text(
-                text, max_length=2000
-            )
+            safe_text = cls._sanitize_discord_text(text, max_length=2000)
             message += f'\n{safe_text}'
         return message
 
@@ -70,8 +64,6 @@ class SubmitFeedbackUseCase:
             score=payload.score,
             text=payload.text,
         )
-        await self.discord_service.post_report_message(
-            discord_message
-        )
+        await self.discord_service.post_report_message(discord_message)
 
         return UserFeedbackDTO.model_validate(saved)

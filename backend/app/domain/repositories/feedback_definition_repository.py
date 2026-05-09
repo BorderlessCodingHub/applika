@@ -13,23 +13,17 @@ class FeedbackDefinitionRepository:
 
     async def get_all(self) -> List[FeedbackDefinitionModel]:
         return await self.session.scalars(
-            select(FeedbackDefinitionModel).order_by(
-                FeedbackDefinitionModel.id
-            )
+            select(FeedbackDefinitionModel).order_by(FeedbackDefinitionModel.id)
         )
 
-    async def get_by_id(
-        self, id: int
-    ) -> FeedbackDefinitionModel | None:
+    async def get_by_id(self, id: int) -> FeedbackDefinitionModel | None:
         return await self.session.scalar(
             select(FeedbackDefinitionModel).where(
                 FeedbackDefinitionModel.id == id
             )
         )
 
-    async def create(
-        self, **kwargs
-    ) -> FeedbackDefinitionModel:
+    async def create(self, **kwargs) -> FeedbackDefinitionModel:
         try:
             feedback = FeedbackDefinitionModel(**kwargs)
             self.session.add(feedback)

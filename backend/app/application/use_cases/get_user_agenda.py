@@ -7,9 +7,7 @@ from app.domain.repositories.application_step_repository import (
 
 
 class GetUserAgendaUseCase:
-    def __init__(
-        self, app_step_repo: ApplicationStepRepository
-    ):
+    def __init__(self, app_step_repo: ApplicationStepRepository):
         self.app_step_repo = app_step_repo
 
     async def execute(
@@ -28,12 +26,8 @@ class GetUserAgendaUseCase:
                 id=s.id,
                 step_id=s.step_id,
                 step_date=s.step_date,
-                step_name=(
-                    s.step_def.name if s.step_def else None
-                ),
-                step_color=(
-                    s.step_def.color if s.step_def else None
-                ),
+                step_name=(s.step_def.name if s.step_def else None),
+                step_color=(s.step_def.color if s.step_def else None),
                 start_time=s.start_time,
                 end_time=s.end_time,
                 timezone=s.timezone,

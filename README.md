@@ -59,9 +59,19 @@ CLI commands:
 applika login
 applika logout
 applika applications list
-applika applications new --company "Acme" --role "Backend Engineer" --platform "LinkedIn" --mode active --date 2026-05-08
+applika applications new \
+  --company "Acme" \
+  --role "Backend Engineer" \
+  --platform "LinkedIn" \
+  --mode active \
+  --date 2026-05-08
 applika applications edit 123 --role "Senior Backend Engineer"
-applika applications -n --company "Acme" --role "Backend Engineer" --platform "LinkedIn" --mode active --date 2026-05-08
+applika applications -n \
+  --company "Acme" \
+  --role "Backend Engineer" \
+  --platform "LinkedIn" \
+  --mode active \
+  --date 2026-05-08
 ```
 
 ## Quick Start (Docker Compose)

@@ -21,9 +21,7 @@ class PlatformRepository:
             select(PlatformModel).where(PlatformModel.id == id)
         )
 
-    async def create(
-        self, **kwargs
-    ) -> PlatformModel:
+    async def create(self, **kwargs) -> PlatformModel:
         try:
             platform = PlatformModel(**kwargs)
             self.session.add(platform)
@@ -34,9 +32,7 @@ class PlatformRepository:
             await self.session.rollback()
             raise e
 
-    async def update(
-        self, platform: PlatformModel
-    ) -> PlatformModel:
+    async def update(self, platform: PlatformModel) -> PlatformModel:
         try:
             platform.updated_at = datetime.now(timezone.utc)
             self.session.add(platform)
@@ -50,9 +46,7 @@ class PlatformRepository:
     async def delete(self, id: int) -> None:
         try:
             await self.session.execute(
-                delete(PlatformModel).where(
-                    PlatformModel.id == id
-                )
+                delete(PlatformModel).where(PlatformModel.id == id)
             )
             await self.session.commit()
         except Exception as e:

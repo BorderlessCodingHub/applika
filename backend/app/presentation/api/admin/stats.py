@@ -31,9 +31,7 @@ router = APIRouter(
 )
 
 
-@router.get(
-    '/stats', response_model=AdminPlatformStatsSchema
-)
+@router.get('/stats', response_model=AdminPlatformStatsSchema)
 async def get_admin_stats(
     admin: AdminUserDp,
     admin_repo: AdminRepositoryDp,
@@ -53,10 +51,7 @@ async def get_top_platforms(
 ):
     use_case = GetTopPlatformsUseCase(admin_repo)
     dtos = await use_case.execute(admin.id)
-    return [
-        TopPlatformStatSchema.model_validate(d)
-        for d in dtos
-    ]
+    return [TopPlatformStatSchema.model_validate(d) for d in dtos]
 
 
 @router.get(
@@ -69,9 +64,7 @@ async def get_top_companies(
 ):
     use_case = GetTopCompaniesUseCase(admin_repo)
     dtos = await use_case.execute(admin.id)
-    return [
-        TopCompanyStatSchema.model_validate(d) for d in dtos
-    ]
+    return [TopCompanyStatSchema.model_validate(d) for d in dtos]
 
 
 @router.get(
@@ -84,7 +77,4 @@ async def get_activity_heatmap(
 ):
     use_case = GetActivityHeatmapUseCase(admin_repo)
     dtos = await use_case.execute(admin.id)
-    return [
-        ActivityHeatmapPointSchema.model_validate(d)
-        for d in dtos
-    ]
+    return [ActivityHeatmapPointSchema.model_validate(d) for d in dtos]

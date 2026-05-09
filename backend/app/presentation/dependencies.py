@@ -121,18 +121,14 @@ def get_admin_repository(session: DbSession):
     return AdminRepository(session)
 
 
-AdminRepositoryDp = Annotated[
-    AdminRepository, Depends(get_admin_repository)
-]
+AdminRepositoryDp = Annotated[AdminRepository, Depends(get_admin_repository)]
 
 
 def get_cycle_repository(session: DbSession):
     return CycleRepository(session)
 
 
-CycleRepositoryDp = Annotated[
-    CycleRepository, Depends(get_cycle_repository)
-]
+CycleRepositoryDp = Annotated[CycleRepository, Depends(get_cycle_repository)]
 
 
 def get_discord_service():
@@ -152,9 +148,7 @@ UserFeedbackRepositoryDp = Annotated[
 
 
 def get_discord_feedback_service():
-    return DiscordService(
-        webhook_url=envs.DISCORD_FEEDBACK_WEBHOOK
-    )
+    return DiscordService(webhook_url=envs.DISCORD_FEEDBACK_WEBHOOK)
 
 
 DiscordFeedbackServiceDp = Annotated[
@@ -171,9 +165,7 @@ async def get_github_service(
     return GitHubService(redis_client)
 
 
-GitHubServiceDp = Annotated[
-    GitHubService, Depends(get_github_service)
-]
+GitHubServiceDp = Annotated[GitHubService, Depends(get_github_service)]
 
 
 async def get_auth_handoff_state_use_case(

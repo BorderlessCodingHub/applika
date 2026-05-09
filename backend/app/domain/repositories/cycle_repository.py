@@ -15,9 +15,7 @@ class CycleRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_all_by_user_id(
-        self, user_id: int
-    ) -> List[CycleModel]:
+    async def get_all_by_user_id(self, user_id: int) -> List[CycleModel]:
         return list(
             await self.session.scalars(
                 select(CycleModel)
@@ -36,9 +34,7 @@ class CycleRepository:
             )
         )
 
-    async def count_current_applications(
-        self, user_id: int
-    ) -> int:
+    async def count_current_applications(self, user_id: int) -> int:
         result = await self.session.scalar(
             select(func.count(ApplicationModel.id)).where(
                 ApplicationModel.user_id == user_id,
@@ -47,9 +43,7 @@ class CycleRepository:
         )
         return int(result or 0)
 
-    async def create(
-        self, user_id: int, name: str
-    ) -> CycleModel:
+    async def create(self, user_id: int, name: str) -> CycleModel:
         try:
             cycle = CycleModel(user_id=user_id, name=name)
             self.session.add(cycle)
@@ -73,9 +67,7 @@ class CycleRepository:
         )
         return result.rowcount
 
-    async def archive_current_reports(
-        self, user_id: int, cycle_id: int
-    ) -> int:
+    async def archive_current_reports(self, user_id: int, cycle_id: int) -> int:
         result = await self.session.execute(
             update(QuinzenalReportModel)
             .where(
@@ -86,9 +78,7 @@ class CycleRepository:
         )
         return result.rowcount
 
-    async def delete_cycle_cascade(
-        self, cycle_id: int, user_id: int
-    ) -> None:
+    async def delete_cycle_cascade(self, cycle_id: int, user_id: int) -> None:
         """Delete a cycle and all its associated data atomically."""
         # 1. Delete application steps for apps in this cycle
         app_ids_subq = (

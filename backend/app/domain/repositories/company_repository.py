@@ -16,8 +16,7 @@ class CompanyRepository:
     async def get_by_id(self, id: int) -> CompanyModel | None:
         return await self.session.scalar(
             select(CompanyModel).where(
-                CompanyModel.id == id,
-                CompanyModel.is_active.is_(True)
+                CompanyModel.id == id, CompanyModel.is_active.is_(True)
             )
         )
 
@@ -31,9 +30,7 @@ class CompanyRepository:
             query = query.where(CompanyModel.name.ilike(f'%{name}%'))
         return await self.session.scalars(query)
 
-    async def get_by_id_unfiltered(
-        self, id: int
-    ) -> CompanyModel | None:
+    async def get_by_id_unfiltered(self, id: int) -> CompanyModel | None:
         return await self.session.scalar(
             select(CompanyModel).where(CompanyModel.id == id)
         )
@@ -51,9 +48,7 @@ class CompanyRepository:
     async def delete(self, id: int) -> None:
         try:
             await self.session.execute(
-                delete(CompanyModel).where(
-                    CompanyModel.id == id
-                )
+                delete(CompanyModel).where(CompanyModel.id == id)
             )
             await self.session.commit()
         except Exception as e:

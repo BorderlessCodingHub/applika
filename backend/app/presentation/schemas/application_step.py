@@ -36,9 +36,7 @@ class _TimeRangeValidator(BaseSchema):
             and self.end_time
             and self.end_time <= self.start_time
         ):
-            raise ValueError(
-                'end_time must be after start_time'
-            )
+            raise ValueError('end_time must be after start_time')
         return self
 
 

@@ -17,7 +17,22 @@ applika = "main:main"
 [dependency-groups]
 dev = [
     "pytest>=8.3.5",
+    "ruff>=0.15.2",
 ]
+
+[tool.ruff]
+line-length = 80
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 120
+
+[tool.ruff.lint]
+preview = true
+select = ["I", "F", "E", "W"]
+
+[tool.ruff.format]
+preview = true
+quote-style = "single"
 
 [tool.hatch.build.targets.wheel]
 only-include = ["src"]

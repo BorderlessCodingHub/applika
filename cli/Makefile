@@ -16,6 +16,12 @@ install-windows:
 test:
 	uv run --no-sync pytest tests -q
 
+lint:
+	uv run ruff check . --fix
+
+format:
+	uv run ruff format .
+
 help:
 	uv run --no-sync applika --help
 

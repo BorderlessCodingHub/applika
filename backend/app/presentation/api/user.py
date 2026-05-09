@@ -38,9 +38,7 @@ async def update_me(
     return UserProfile.model_validate(user)
 
 
-@router.get(
-    '/users/me/agenda', response_model=List[AgendaStepSchema]
-)
+@router.get('/users/me/agenda', response_model=List[AgendaStepSchema])
 async def get_my_agenda(
     c_user: CurrentUserDp,
     app_step_repo: ApplicationStepRepositoryDp,
@@ -67,9 +65,5 @@ async def delete_me(
         await user_repo.delete(user)
 
     is_prod = envs.ENVIRONMENT == 'PROD'
-    response.delete_cookie(
-        '__access', path='/', secure=is_prod, httponly=True
-    )
-    response.delete_cookie(
-        '__refresh', path='/', secure=is_prod, httponly=True
-    )
+    response.delete_cookie('__access', path='/', secure=is_prod, httponly=True)
+    response.delete_cookie('__refresh', path='/', secure=is_prod, httponly=True)

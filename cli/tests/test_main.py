@@ -1,8 +1,10 @@
 import json
 
 import httpx
-import main as cli_main
 
+import applications.commands as applications_commands
+import auth_commands
+import main as cli_main
 from session import SessionData
 
 
@@ -84,7 +86,7 @@ def _install_fake_api_client(monkeypatch) -> None:
     FakeApiClient.captured_post_payload = None
     FakeApiClient.captured_put_payload = None
     FakeApiClient.captured_application_params = None
-    monkeypatch.setattr(cli_main, 'ApiClient', FakeApiClient)
+    monkeypatch.setattr(applications_commands, 'ApiClient', FakeApiClient)
 
 
 def _response(
@@ -133,23 +135,21 @@ def test_applications_list_filters_and_outputs_json(
         },
     ]
 
-    exit_code = cli_main.main(
-        [
-            '--api-base-url',
-            'http://api.test/api',
-            'applications',
-            'list',
-            '--cycle-id',
-            '77',
-            '--search',
-            'acme',
-            '--platform',
-            'LinkedIn',
-            '--status',
-            'active',
-            '--json',
-        ]
-    )
+    exit_code = cli_main.main([
+        '--api-base-url',
+        'http://api.test/api',
+        'applications',
+        'list',
+        '--cycle-id',
+        '77',
+        '--search',
+        'acme',
+        '--platform',
+        'LinkedIn',
+        '--status',
+        'active',
+        '--json',
+    ])
 
     assert exit_code == 0
     assert FakeApiClient.captured_application_params == {'cycle_id': '77'}
@@ -162,9 +162,7 @@ def test_applications_new_builds_ui_matching_payload(monkeypatch, capsys):
     _install_fake_store(monkeypatch, store)
     _install_fake_api_client(monkeypatch)
 
-    FakeApiClient.supports = {
-        'platforms': [{'id': 10, 'name': 'LinkedIn'}]
-    }
+    FakeApiClient.supports = {'platforms': [{'id': 10, 'name': 'LinkedIn'}]}
     FakeApiClient.company_matches = [{'id': 55, 'name': 'Acme'}]
     FakeApiClient.created_response = {
         'id': 42,
@@ -173,34 +171,32 @@ def test_applications_new_builds_ui_matching_payload(monkeypatch, capsys):
         'application_date': '2026-05-08',
     }
 
-    exit_code = cli_main.main(
-        [
-            'applications',
-            'new',
-            '--company',
-            'Acme',
-            '--role',
-            'Platform Engineer',
-            '--platform',
-            'LinkedIn',
-            '--mode',
-            'active',
-            '--date',
-            '2026-05-08',
-            '--job-url',
-            'https://jobs.example/acme',
-            '--country',
-            'Brazil',
-            '--salary-min',
-            '1000',
-            '--salary-max',
-            '2000',
-            '--currency',
-            'USD',
-            '--salary-period',
-            'annual',
-        ]
-    )
+    exit_code = cli_main.main([
+        'applications',
+        'new',
+        '--company',
+        'Acme',
+        '--role',
+        'Platform Engineer',
+        '--platform',
+        'LinkedIn',
+        '--mode',
+        'active',
+        '--date',
+        '2026-05-08',
+        '--job-url',
+        'https://jobs.example/acme',
+        '--country',
+        'Brazil',
+        '--salary-min',
+        '1000',
+        '--salary-max',
+        '2000',
+        '--currency',
+        'USD',
+        '--salary-period',
+        'annual',
+    ])
 
     assert exit_code == 0
     assert FakeApiClient.captured_post_payload == {
@@ -220,7 +216,10 @@ def test_applications_new_builds_ui_matching_payload(monkeypatch, capsys):
         'experience_level': None,
         'work_mode': None,
     }
-    assert 'Created application: id=42 company=Acme role=Platform Engineer' in capsys.readouterr().out
+    assert (
+        'Created application: id=42 company=Acme role=Platform Engineer'
+        in capsys.readouterr().out
+    )
 
 
 def test_applications_edit_merges_existing_values_and_clear_flags(
@@ -231,9 +230,7 @@ def test_applications_edit_merges_existing_values_and_clear_flags(
     _install_fake_store(monkeypatch, store)
     _install_fake_api_client(monkeypatch)
 
-    FakeApiClient.supports = {
-        'platforms': [{'id': 10, 'name': 'LinkedIn'}]
-    }
+    FakeApiClient.supports = {'platforms': [{'id': 10, 'name': 'LinkedIn'}]}
     FakeApiClient.company_matches = [{'id': 88, 'name': 'NewCo'}]
     FakeApiClient.applications = [
         {
@@ -264,21 +261,19 @@ def test_applications_edit_merges_existing_values_and_clear_flags(
         'application_date': '2026-05-01',
     }
 
-    exit_code = cli_main.main(
-        [
-            'applications',
-            'edit',
-            '99',
-            '--company',
-            'NewCo',
-            '--role',
-            'Staff Engineer',
-            '--clear-job-url',
-            '--clear-observation',
-            '--clear-country',
-            '--clear-salary',
-        ]
-    )
+    exit_code = cli_main.main([
+        'applications',
+        'edit',
+        '99',
+        '--company',
+        'NewCo',
+        '--role',
+        'Staff Engineer',
+        '--clear-job-url',
+        '--clear-observation',
+        '--clear-country',
+        '--clear-salary',
+    ])
 
     assert exit_code == 0
     assert FakeApiClient.captured_put_payload == {
@@ -298,7 +293,10 @@ def test_applications_edit_merges_existing_values_and_clear_flags(
         'experience_level': 'senior',
         'work_mode': 'remote',
     }
-    assert 'Updated application: id=99 company=NewCo role=Staff Engineer' in capsys.readouterr().out
+    assert (
+        'Updated application: id=99 company=NewCo role=Staff Engineer'
+        in capsys.readouterr().out
+    )
 
 
 def test_applications_edit_rejects_finalized(monkeypatch, capsys):
@@ -352,9 +350,13 @@ def test_login_returns_error_on_state_mismatch(monkeypatch, capsys):
         )
     ]
 
-    monkeypatch.setattr(cli_main, 'LoopbackLoginServer', FakeServer)
-    monkeypatch.setattr(cli_main.webbrowser, 'open', lambda url: True)
-    monkeypatch.setattr(cli_main.httpx, 'post', lambda *args, **kwargs: responses.pop(0))
+    monkeypatch.setattr(auth_commands, 'LoopbackLoginServer', FakeServer)
+    monkeypatch.setattr(auth_commands.webbrowser, 'open', lambda url: True)
+    monkeypatch.setattr(
+        auth_commands.httpx,
+        'post',
+        lambda *args, **kwargs: responses.pop(0),
+    )
 
     exit_code = cli_main.main(['login'])
 
@@ -400,9 +402,13 @@ def test_login_returns_error_when_exchange_fails(monkeypatch, capsys):
         ),
     ]
 
-    monkeypatch.setattr(cli_main, 'LoopbackLoginServer', FakeServer)
-    monkeypatch.setattr(cli_main.webbrowser, 'open', lambda url: True)
-    monkeypatch.setattr(cli_main.httpx, 'post', lambda *args, **kwargs: responses.pop(0))
+    monkeypatch.setattr(auth_commands, 'LoopbackLoginServer', FakeServer)
+    monkeypatch.setattr(auth_commands.webbrowser, 'open', lambda url: True)
+    monkeypatch.setattr(
+        auth_commands.httpx,
+        'post',
+        lambda *args, **kwargs: responses.pop(0),
+    )
 
     exit_code = cli_main.main(['login'])
 

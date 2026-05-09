@@ -10,9 +10,7 @@ class CreateCycleUseCase:
     def __init__(self, cycle_repo: CycleRepository):
         self.cycle_repo = cycle_repo
 
-    async def execute(
-        self, user_id: int, data: CycleCreateDTO
-    ) -> CycleDTO:
+    async def execute(self, user_id: int, data: CycleCreateDTO) -> CycleDTO:
         current_count = await self.cycle_repo.count_current_applications(
             user_id
         )
@@ -32,13 +30,15 @@ class CreateCycleUseCase:
         await self.cycle_repo.commit()
         logger.info(
             f'Cycle created: {cycle.id}',
-            extra={'extra_data': {
-                'event': 'cycle_created',
-                'cycle_id': cycle.id,
-                'cycle_name': data.name,
-                'user_id': user_id,
-                'archived_applications': archived_apps,
-                'archived_reports': archived_reports,
-            }},
+            extra={
+                'extra_data': {
+                    'event': 'cycle_created',
+                    'cycle_id': cycle.id,
+                    'cycle_name': data.name,
+                    'user_id': user_id,
+                    'archived_applications': archived_apps,
+                    'archived_reports': archived_reports,
+                }
+            },
         )
         return CycleDTO.model_validate(cycle)

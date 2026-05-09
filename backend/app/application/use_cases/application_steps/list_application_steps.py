@@ -26,9 +26,7 @@ class ListApplicationStepsUseCase:
             application_id, user_id
         )
         if not application:
-            raise ResourceNotFound(
-                'Application not found or not owned by user'
-            )
+            raise ResourceNotFound('Application not found or not owned by user')
 
         steps = await self.app_step_repo.get_all_by_application_id(
             application_id

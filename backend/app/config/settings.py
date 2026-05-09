@@ -49,8 +49,14 @@ class Settings(BaseSettings):
         'http://127.0.0.1:8000',
     ]
     CORS_HEADERS: List[str] = ['X-Request-ID', 'Content-Type']
-    CORS_METHODS: List[str] = ['GET', 'PATCH',
-                               'POST', 'PUT', 'DELETE', 'OPTIONS']
+    CORS_METHODS: List[str] = [
+        'GET',
+        'PATCH',
+        'POST',
+        'PUT',
+        'DELETE',
+        'OPTIONS',
+    ]
 
     DATABASE_URL: str
     DATABASE_ECHO: bool = False
@@ -68,9 +74,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = 'redis://localhost:6379/0'
     GITHUB_CACHE_TTL_SECONDS: int = 600  # 10 minutes
 
-    GITHUB_TOKEN_ENCRYPTION_KEY: str = (
-        'changeme-set-a-fernet-key-in-production'
-    )
+    GITHUB_TOKEN_ENCRYPTION_KEY: str = 'changeme-set-a-fernet-key-in-production'
     DISCORD_REPORTS_ORGANIZATION: str | None = None
 
     LOGIN_REDIRECT_URI: str = 'http://127.0.0.1:8000/api/docs'

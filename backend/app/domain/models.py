@@ -35,8 +35,7 @@ class BaseMixin:
     )
 
 
-class Base(DeclarativeBase):
-    ...
+class Base(DeclarativeBase): ...
 
 
 class UserModel(BaseMixin, Base):
@@ -116,9 +115,7 @@ class UserModel(BaseMixin, Base):
     user_feedbacks: Mapped[List['UserFeedbackModel']] = relationship(
         back_populates='user'
     )
-    cycles: Mapped[List['CycleModel']] = relationship(
-        back_populates='user'
-    )
+    cycles: Mapped[List['CycleModel']] = relationship(back_populates='user')
 
     @property
     def tech_stack(self) -> list[str]:
@@ -205,9 +202,7 @@ class FeedbackDefinitionModel(BaseMixin, Base):
 class CycleModel(BaseMixin, Base):
     __tablename__ = 'cycles'
 
-    __table_args__ = (
-        sa.Index('idx_cycles_user_id', 'user_id'),
-    )
+    __table_args__ = (sa.Index('idx_cycles_user_id', 'user_id'),)
 
     user_id: Mapped[int] = mapped_column(
         sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
@@ -300,12 +295,8 @@ class ApplicationModel(BaseMixin, Base):
 
     salary_offer: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
     expected_salary: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
-    salary_range_min: Mapped[Optional[float]] = mapped_column(
-        sa.Numeric(10, 2)
-    )
-    salary_range_max: Mapped[Optional[float]] = mapped_column(
-        sa.Numeric(10, 2)
-    )
+    salary_range_min: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
+    salary_range_max: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
 
     company_name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
 
@@ -448,8 +439,7 @@ class QuinzenalReportModel(BaseMixin, Base):
     callback_rate: Mapped[Decimal] = mapped_column(
         sa.Numeric(5, 2), default=Decimal('0.00')
     )
-    initial_screenings_count: Mapped[int] = mapped_column(
-        sa.Integer, default=0)
+    initial_screenings_count: Mapped[int] = mapped_column(sa.Integer, default=0)
     interviews_completed_fortnight: Mapped[int] = mapped_column(
         sa.Integer, default=0
     )
@@ -459,8 +449,7 @@ class QuinzenalReportModel(BaseMixin, Base):
         sa.Numeric(5, 2), default=Decimal('0.00')
     )
 
-    total_applications_count: Mapped[int] = mapped_column(
-        sa.Integer, default=0)
+    total_applications_count: Mapped[int] = mapped_column(sa.Integer, default=0)
     overall_conversion_rate: Mapped[Decimal] = mapped_column(
         sa.Numeric(5, 2), default=Decimal('0.00')
     )
@@ -469,9 +458,11 @@ class QuinzenalReportModel(BaseMixin, Base):
     )
 
     mock_interviews_count: Mapped[int] = mapped_column(
-        sa.Integer, nullable=False)
+        sa.Integer, nullable=False
+    )
     linkedin_posts_count: Mapped[int] = mapped_column(
-        sa.Integer, nullable=False)
+        sa.Integer, nullable=False
+    )
     strategic_connections_count: Mapped[int] = mapped_column(
         sa.Integer, nullable=False
     )
@@ -488,8 +479,7 @@ class QuinzenalReportModel(BaseMixin, Base):
     )
     discord_posted: Mapped[bool] = mapped_column(sa.Boolean, default=False)
 
-    user: Mapped['UserModel'] = relationship(
-        back_populates='quinzenal_reports')
+    user: Mapped['UserModel'] = relationship(back_populates='quinzenal_reports')
     cycle: Mapped[Optional['CycleModel']] = relationship(
         back_populates='quinzenal_reports'
     )
@@ -513,6 +503,4 @@ class UserFeedbackModel(BaseMixin, Base):
     score: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     text: Mapped[Optional[str]] = mapped_column(sa.String(2000))
 
-    user: Mapped['UserModel'] = relationship(
-        back_populates='user_feedbacks'
-    )
+    user: Mapped['UserModel'] = relationship(back_populates='user_feedbacks')

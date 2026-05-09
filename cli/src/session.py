@@ -6,7 +6,6 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-
 DEFAULT_API_BASE_URL = 'http://127.0.0.1:8000/api'
 
 
@@ -72,8 +71,6 @@ def resolve_api_base_url(
 def expiry_from_access_token(token: str) -> str:
     payload_segment = token.split('.')[1]
     padding = '=' * (-len(payload_segment) % 4)
-    payload = json.loads(
-        base64.urlsafe_b64decode(payload_segment + padding)
-    )
+    payload = json.loads(base64.urlsafe_b64decode(payload_segment + padding))
     exp = payload['exp']
     return datetime.fromtimestamp(exp, tz=timezone.utc).isoformat()

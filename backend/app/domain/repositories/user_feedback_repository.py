@@ -7,9 +7,7 @@ class UserFeedbackRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def create(
-        self, feedback: UserFeedbackModel
-    ) -> UserFeedbackModel:
+    async def create(self, feedback: UserFeedbackModel) -> UserFeedbackModel:
         try:
             self.session.add(feedback)
             await self.session.commit()
