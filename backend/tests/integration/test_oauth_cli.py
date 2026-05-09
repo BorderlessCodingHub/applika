@@ -1,46 +1,8 @@
 import pytest
 import pytest_asyncio
-import redis.asyncio as redis
 from httpx import ASGITransport, AsyncClient
-from testcontainers.redis import RedisContainer
 
-from app.application.use_cases.auth_handoff_state import (
-    AuthHandoffStateUseCase,
-)
-from app.config.redis import get_redis
 from app.main import app as main_app
-
-
-@pytest.fixture
-def redis_container():
-    container = RedisContainer('redis:7.2-alpine')
-    container.start()
-    yield container
-    container.stop()
-
-
-@pytest_asyncio.fixture
-async def redis_client(redis_container):
-    redis_url = (
-        f'redis://{redis_container.get_container_host_ip()}:'
-        f'{redis_container.get_exposed_port(6379)}/0'
-    )
-    client = redis.from_url(redis_url, decode_responses=True)
-    await client.flushdb()
-
-    async def override_get_redis():
-        return client
-
-    main_app.dependency_overrides[get_redis] = override_get_redis
-    yield client
-    await client.flushdb()
-    await client.aclose()
-    main_app.dependency_overrides.pop(get_redis, None)
-
-
-@pytest_asyncio.fixture
-async def auth_handoff_state_use_case(redis_client):
-    return AuthHandoffStateUseCase(redis_client)
 
 
 @pytest_asyncio.fixture
