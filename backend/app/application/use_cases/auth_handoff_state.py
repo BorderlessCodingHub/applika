@@ -35,12 +35,10 @@ class AuthHandoffStateUseCase:
         state: str,
     ) -> str:
         login_id = uuid.uuid4().hex
-        payload = json.dumps(
-            {
-                'callback_url': callback_url,
-                'state': state,
-            }
-        )
+        payload = json.dumps({
+            'callback_url': callback_url,
+            'state': state,
+        })
         await self.redis.set(
             self._login_key(login_id),
             payload,
@@ -68,13 +66,11 @@ class AuthHandoffStateUseCase:
         github_id: int,
     ) -> str:
         code = uuid.uuid4().hex
-        payload = json.dumps(
-            {
-                'login_id': login_id,
-                'user_id': user_id,
-                'github_id': github_id,
-            }
-        )
+        payload = json.dumps({
+            'login_id': login_id,
+            'user_id': user_id,
+            'github_id': github_id,
+        })
         await self.redis.set(
             self._code_key(code),
             payload,

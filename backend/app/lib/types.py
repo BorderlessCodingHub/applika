@@ -26,13 +26,13 @@ class SnowflakeID(int):
     def __get_pydantic_core_schema__(cls, source_type, handler):
         return core_schema.no_info_after_validator_function(
             cls.validate,
-            core_schema.union_schema(
-                [
-                    core_schema.int_schema(),
-                    core_schema.str_schema(),
-                ]
+            core_schema.union_schema([
+                core_schema.int_schema(),
+                core_schema.str_schema(),
+            ]),
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda v: str(v)
             ),
-            serialization=core_schema.plain_serializer_function_ser_schema(lambda v: str(v)),
         )
 
     @classmethod

@@ -16,7 +16,9 @@ class DeletePlatformUseCase:
         self.admin_repo = admin_repo
 
     async def execute(self, platform_id: int, admin_id: int) -> None:
-        refs = await self.admin_repo.count_entity_references('platform', platform_id)
+        refs = await self.admin_repo.count_entity_references(
+            'platform', platform_id
+        )
         if refs > 0:
             logger.warning(
                 f'Admin delete platform blocked: {platform_id}',
@@ -30,7 +32,9 @@ class DeletePlatformUseCase:
                     }
                 },
             )
-            raise ResourceConflict(f'Cannot delete: {refs} application(s) reference this platform')
+            raise ResourceConflict(
+                f'Cannot delete: {refs} application(s) reference this platform'
+            )
 
         await self.platform_repo.delete(platform_id)
 

@@ -51,7 +51,9 @@ class UpdateApplicationStepUseCase:
             )
 
         sibling_steps = list(
-            await self.application_step_repo.get_all_by_application_id(application.id)
+            await self.application_step_repo.get_all_by_application_id(
+                application.id
+            )
         )
         # Steps are ordered by creation. The updated step must remain
         # within the chronological window defined by its neighbours.
@@ -66,10 +68,14 @@ class UpdateApplicationStepUseCase:
                 break
 
         if prev_date is not None and data.step_date < prev_date:
-            raise InvalidDate('Step date must be greater than or equal to the previous step date')
+            raise InvalidDate(
+                'Step date must be greater than or equal to the previous step date'
+            )
 
         if next_date is not None and data.step_date > next_date:
-            raise InvalidDate('Step date must be less than or equal to the next step date')
+            raise InvalidDate(
+                'Step date must be less than or equal to the next step date'
+            )
 
     async def execute(
         self, id: int, user_id: int, data: ApplicationStepUpdateDTO
@@ -80,15 +86,23 @@ class UpdateApplicationStepUseCase:
         if not application:
             raise ResourceNotFound('Application not found or not owned by user')
         if application.cycle_id is not None:
-            raise BusinessRuleViolation('Cannot modify an application from an archived cycle')
+            raise BusinessRuleViolation(
+                'Cannot modify an application from an archived cycle'
+            )
         if application.feedback_id is not None:
-            raise ApplicationFinalized('This application has already been finalized')
+            raise ApplicationFinalized(
+                'This application has already been finalized'
+            )
 
-        application_step = await self.application_step_repo.get_by_id_and_app_id_and_user_id(
-            id, data.application_id, user_id
+        application_step = (
+            await self.application_step_repo.get_by_id_and_app_id_and_user_id(
+                id, data.application_id, user_id
+            )
         )
         if not application_step:
-            raise ResourceNotFound('Application step not found or not owned by user')
+            raise ResourceNotFound(
+                'Application step not found or not owned by user'
+            )
 
         step = await self.step_repo.get_by_id_non_strict_only(data.step_id)
         if not step:
@@ -104,7 +118,9 @@ class UpdateApplicationStepUseCase:
         application_step.timezone = data.timezone
         application_step.observation = data.observation
 
-        application_step = await self.application_step_repo.update(application_step)
+        application_step = await self.application_step_repo.update(
+            application_step
+        )
         result = ApplicationStepDTO.model_validate(application_step)
         result.step_name = step.name
         return result

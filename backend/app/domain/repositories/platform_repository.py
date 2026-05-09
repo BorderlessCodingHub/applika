@@ -11,10 +11,14 @@ class PlatformRepository:
         self.session = session
 
     async def get_all(self) -> list[PlatformModel]:
-        return await self.session.scalars(select(PlatformModel).order_by(PlatformModel.id))
+        return await self.session.scalars(
+            select(PlatformModel).order_by(PlatformModel.id)
+        )
 
     async def get_by_id(self, id: int) -> PlatformModel:
-        return await self.session.scalar(select(PlatformModel).where(PlatformModel.id == id))
+        return await self.session.scalar(
+            select(PlatformModel).where(PlatformModel.id == id)
+        )
 
     async def create(self, **kwargs) -> PlatformModel:
         try:
@@ -40,7 +44,9 @@ class PlatformRepository:
 
     async def delete(self, id: int) -> None:
         try:
-            await self.session.execute(delete(PlatformModel).where(PlatformModel.id == id))
+            await self.session.execute(
+                delete(PlatformModel).where(PlatformModel.id == id)
+            )
             await self.session.commit()
         except Exception as e:
             await self.session.rollback()

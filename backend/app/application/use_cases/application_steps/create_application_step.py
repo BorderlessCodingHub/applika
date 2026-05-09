@@ -48,8 +48,10 @@ class CreateApplicationStepUseCase:
                 f'({application.application_date.isoformat()})'
             )
 
-        existing_steps = await self.application_step_repo.get_all_by_application_id(
-            data.application_id
+        existing_steps = (
+            await self.application_step_repo.get_all_by_application_id(
+                data.application_id
+            )
         )
         existing_dates = [s.step_date for s in existing_steps]
         if existing_dates:
@@ -59,16 +61,22 @@ class CreateApplicationStepUseCase:
                     'Step date must be greater than or equal to the previous step date'
                 )
 
-    async def execute(self, user_id: int, data: ApplicationStepCreateDTO) -> ApplicationDTO:
+    async def execute(
+        self, user_id: int, data: ApplicationStepCreateDTO
+    ) -> ApplicationDTO:
         application = await self.application_repo.get_by_id_and_user_id(
             data.application_id, user_id
         )
         if not application:
             raise ResourceNotFound('Application not found or not owned by user')
         if application.cycle_id is not None:
-            raise BusinessRuleViolation('Cannot modify an application from an archived cycle')
+            raise BusinessRuleViolation(
+                'Cannot modify an application from an archived cycle'
+            )
         if application.feedback_id is not None:
-            raise ApplicationFinalized('This application has already been finalized')
+            raise ApplicationFinalized(
+                'This application has already been finalized'
+            )
 
         step = await self.step_repo.get_by_id_non_strict_only(data.step_id)
         if not step:

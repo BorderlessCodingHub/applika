@@ -28,8 +28,14 @@ class _TimeRangeValidator(BaseSchema):
     @model_validator(mode='after')
     def validate_time_range(self):
         if bool(self.start_time) != bool(self.end_time):
-            raise ValueError('Both start_time and end_time must be provided together')
-        if self.start_time and self.end_time and self.end_time <= self.start_time:
+            raise ValueError(
+                'Both start_time and end_time must be provided together'
+            )
+        if (
+            self.start_time
+            and self.end_time
+            and self.end_time <= self.start_time
+        ):
             raise ValueError('end_time must be after start_time')
         return self
 

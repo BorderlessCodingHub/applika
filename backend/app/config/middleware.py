@@ -11,7 +11,9 @@ from app.config.logging import _filter_traceback, request_id_ctx
 
 
 class HTTPLifecycleMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: ASGIApp, dispatch: DispatchFunction | None = None) -> None:
+    def __init__(
+        self, app: ASGIApp, dispatch: DispatchFunction | None = None
+    ) -> None:
         super().__init__(app, dispatch)
         self.logger = logging.getLogger('app')
 
@@ -20,7 +22,10 @@ class HTTPLifecycleMiddleware(BaseHTTPMiddleware):
         request_id_ctx.set(request_id)
 
         client_ip = (
-            request.headers.get('X-Forwarded-For', request.client.host).split(',')[0].strip()
+            request.headers
+            .get('X-Forwarded-For', request.client.host)
+            .split(',')[0]
+            .strip()
         )
 
         user_agent = request.headers.get('User-Agent', '-')

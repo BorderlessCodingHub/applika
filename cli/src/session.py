@@ -19,7 +19,9 @@ class SessionData:
 
 class SessionStore:
     def __init__(self, path: Path | None = None):
-        self.path = path or (Path.home() / '.config' / 'applika' / 'session.json')
+        self.path = path or (
+            Path.home() / '.config' / 'applika' / 'session.json'
+        )
 
     def load(self) -> SessionData:
         data = json.loads(self.path.read_text())

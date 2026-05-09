@@ -38,7 +38,9 @@ from app.presentation.schemas.application import (
     UpdateApplication,
 )
 
-router = APIRouter(tags=['Applications'], responses={'403': {'model': DetailSchema}})
+router = APIRouter(
+    tags=['Applications'], responses={'403': {'model': DetailSchema}}
+)
 
 
 @router.post(
@@ -55,7 +57,11 @@ async def create(
     company_repo: CompanyRepositoryDp,
 ):
     use_case = CreateApplicationUseCase(app_repo, platform_repo, company_repo)
-    company = payload.company if isinstance(payload.company, int) else payload.company.model_dump()
+    company = (
+        payload.company
+        if isinstance(payload.company, int)
+        else payload.company.model_dump()
+    )
     data = ApplicationCreateDTO(
         **payload.model_dump(exclude={'company'}),
         company=company,
@@ -93,7 +99,11 @@ async def update_application(
     company_repo: CompanyRepositoryDp,
 ):
     use_case = UpdateApplicationUseCase(app_repo, platform_repo, company_repo)
-    company = payload.company if isinstance(payload.company, int) else payload.company.model_dump()
+    company = (
+        payload.company
+        if isinstance(payload.company, int)
+        else payload.company.model_dump()
+    )
     data = ApplicationUpdateDTO(
         **payload.model_dump(exclude={'company'}),
         company=company,

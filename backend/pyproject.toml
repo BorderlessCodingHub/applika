@@ -49,15 +49,18 @@ GITHUB_CLIENT_SECRET = "fake_client_secret"
 JWT_SECRET = "test-secret-key-long-enough-for-hs256-minimum-32-bytes"
 
 [tool.ruff]
-line-length = 100
+line-length = 80
 
 [tool.ruff.lint.pycodestyle]
-max-line-length = 100
+# E501 reports lines that exceed the length of 120.
+max-line-length = 120
 
 [tool.ruff.lint]
-select = ['I', 'F', 'E', 'W', 'B', 'UP', 'PT']
+preview = true
+select = ['I', 'F', 'E', 'W', 'PT']
 
 [tool.ruff.format]
+preview = true
 quote-style = "single"
 
 # https://coverage.readthedocs.io/en/latest/excluding.html
@@ -93,7 +96,6 @@ exclude_also = [
 seed = "python scripts/seed_mock_data.py"
 run = "uvicorn app.main:app --port 8000 --reload --log-level debug"
 pytest = 'pytest .'
-format = "ruff format ./app"
 ruff = "ruff check ./app --fix"
 autorevision = "alembic revision --autogenerate -m=/"
 auhead = "alembic upgrade head"

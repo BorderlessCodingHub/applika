@@ -16,7 +16,9 @@ class DeleteStepDefinitionUseCase:
         self.admin_repo = admin_repo
 
     async def execute(self, step_id: int, admin_id: int) -> None:
-        refs = await self.admin_repo.count_entity_references('step_definition', step_id)
+        refs = await self.admin_repo.count_entity_references(
+            'step_definition', step_id
+        )
         if refs > 0:
             logger.warning(
                 f'Admin delete step def blocked: {step_id}',

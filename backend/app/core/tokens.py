@@ -41,7 +41,9 @@ def create_access_token(
         'kind': 'access',
         'exp': expires_dt,
     }
-    access_token = jwt.encode(access_payload, envs.JWT_SECRET, algorithm=envs.JWT_ALGORITHM)
+    access_token = jwt.encode(
+        access_payload, envs.JWT_SECRET, algorithm=envs.JWT_ALGORITHM
+    )
     return access_token, expires_dt, max_age
 
 
@@ -101,14 +103,20 @@ def set_refresh_cookie(
     )
 
 
-async def create_refresh_token(user_id: int, redis_client: redis.Redis, response: Response) -> str:
+async def create_refresh_token(
+    user_id: int, redis_client: redis.Redis, response: Response
+) -> str:
     """Generate a refresh token, store in Redis, set cookie."""
-    token_id, ttl_seconds = await create_refresh_token_value(user_id, redis_client)
+    token_id, ttl_seconds = await create_refresh_token_value(
+        user_id, redis_client
+    )
     set_refresh_cookie(token_id, ttl_seconds, response)
     return token_id
 
 
-async def validate_refresh_token(token_id: str, redis_client: redis.Redis) -> int | None:
+async def validate_refresh_token(
+    token_id: str, redis_client: redis.Redis
+) -> int | None:
     """Validate refresh token. Returns user_id if valid, else None."""
     user_id_str = await redis_client.get(_refresh_key(token_id))
     if user_id_str is None:
@@ -116,7 +124,9 @@ async def validate_refresh_token(token_id: str, redis_client: redis.Redis) -> in
     return int(user_id_str)
 
 
-async def revoke_refresh_token(token_id: str, redis_client: redis.Redis) -> None:
+async def revoke_refresh_token(
+    token_id: str, redis_client: redis.Redis
+) -> None:
     """Revoke a refresh token by deleting it from Redis."""
     await redis_client.delete(_refresh_key(token_id))
 

@@ -11,8 +11,10 @@ class GetLastMonthTrendsStatsUseCase:
     async def execute(
         self, user_id: int, cycle_id: int | None = None
     ) -> list[ApplicationsTrendDTO]:
-        applications = await self.user_stats_repo.count_applications_per_day_last_month(
-            user_id, cycle_id
+        applications = (
+            await self.user_stats_repo.count_applications_per_day_last_month(
+                user_id, cycle_id
+            )
         )
 
         return [

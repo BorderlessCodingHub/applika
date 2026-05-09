@@ -16,10 +16,14 @@ class UserRegistrationUseCase:
         github_token: str | None = None,
         is_org_member: bool = False,
     ) -> UserDTO:
-        existing_user = await self.user_repository.get_by_github_id(int(user.id))
+        existing_user = await self.user_repository.get_by_github_id(
+            int(user.id)
+        )
         if existing_user:
             if github_token:
-                existing_user.encrypted_github_token = encrypt_token(github_token)
+                existing_user.encrypted_github_token = encrypt_token(
+                    github_token
+                )
             existing_user.is_org_member = is_org_member
             await self.user_repository.update(existing_user)
 

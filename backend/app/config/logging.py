@@ -26,16 +26,24 @@ def _filter_traceback(exc_info) -> str | None:
         return None
 
     tb = traceback.extract_tb(exc_info[2])
-    app_frames = [frame for frame in tb if _APP_ROOT in os.path.abspath(frame.filename)]
+    app_frames = [
+        frame for frame in tb if _APP_ROOT in os.path.abspath(frame.filename)
+    ]
 
     if not app_frames:
-        return traceback.format_exception_only(exc_info[0], exc_info[1])[0].strip()
+        return traceback.format_exception_only(exc_info[0], exc_info[1])[
+            0
+        ].strip()
 
     lines = []
     for frame in app_frames:
         rel_path = os.path.relpath(frame.filename, _APP_ROOT)
-        lines.append(f'  File "{rel_path}", line {frame.lineno}, in {frame.name}\n    {frame.line}')
-    exc_line = traceback.format_exception_only(exc_info[0], exc_info[1])[0].strip()
+        lines.append(
+            f'  File "{rel_path}", line {frame.lineno}, in {frame.name}\n    {frame.line}'
+        )
+    exc_line = traceback.format_exception_only(exc_info[0], exc_info[1])[
+        0
+    ].strip()
     lines.append(exc_line)
     return '\n'.join(lines)
 

@@ -14,8 +14,12 @@ class GetAvgDaysPerStepUseCase:
     def __init__(self, user_stats_repo: UserStatsRepository):
         self.user_stats_repo = user_stats_repo
 
-    async def execute(self, user_id: int, cycle_id: int | None = None) -> list[AvarageDaysDTO]:
-        avg_days = await self.user_stats_repo.average_days_per_step(user_id, cycle_id)
+    async def execute(
+        self, user_id: int, cycle_id: int | None = None
+    ) -> list[AvarageDaysDTO]:
+        avg_days = await self.user_stats_repo.average_days_per_step(
+            user_id, cycle_id
+        )
 
         return [
             AvarageDaysDTO(

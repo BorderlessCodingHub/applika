@@ -64,7 +64,9 @@ async def step_conversion_rate(
     return await use_case.execute(c_user.id, _cid(cycle_id))
 
 
-@router.get('/statistics/steps/avarage_days', response_model=list[AvarageDaysSteps])
+@router.get(
+    '/statistics/steps/avarage_days', response_model=list[AvarageDaysSteps]
+)
 async def step_avarage_day(
     c_user: CurrentUserDp,
     user_stats_repo: UserStatsRepositoryDp,

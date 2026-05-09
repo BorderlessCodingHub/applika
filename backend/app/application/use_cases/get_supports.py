@@ -30,7 +30,9 @@ class GetSupportsUseCase:
         steps = await self.step_repository.get_all()
 
         return SupportDTO(
-            feedbacks=[FeedbackDefinitionDTO.model_validate(f) for f in feedbacks],
+            feedbacks=[
+                FeedbackDefinitionDTO.model_validate(f) for f in feedbacks
+            ],
             platforms=[PlatformDTO.model_validate(p) for p in platforms],
             steps=[StepDefinitionDTO.model_validate(s) for s in steps],
         )

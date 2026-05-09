@@ -72,7 +72,9 @@ def handle_applications_edit(
             raise ValueError('Finalized applications cannot be edited')
 
         payload = build_application_payload(client, args, existing=existing)
-        updated = client.put_json(f'/applications/{args.application_id}', payload)
+        updated = client.put_json(
+            f'/applications/{args.application_id}', payload
+        )
 
         print_application_summary(updated, 'Updated application')
         return 0

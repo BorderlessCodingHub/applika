@@ -15,9 +15,15 @@ class UserConversionRateUseCase:
             else 0
         )
 
-    async def execute(self, user_id: int, cycle_id: int | None = None) -> list[StepConversionDTO]:
-        total_a = await self.user_stats_repo.get_applications_count(user_id, cycle_id)
-        steps = await self.user_stats_repo.count_applications_per_step(user_id, cycle_id)
+    async def execute(
+        self, user_id: int, cycle_id: int | None = None
+    ) -> list[StepConversionDTO]:
+        total_a = await self.user_stats_repo.get_applications_count(
+            user_id, cycle_id
+        )
+        steps = await self.user_stats_repo.count_applications_per_step(
+            user_id, cycle_id
+        )
 
         return [
             StepConversionDTO(

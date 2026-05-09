@@ -28,7 +28,9 @@ class ApplicationStepRepository:
             )
         )
 
-    async def get_all_by_application_id(self, application_id: int) -> list[ApplicationStepModel]:
+    async def get_all_by_application_id(
+        self, application_id: int
+    ) -> list[ApplicationStepModel]:
         return await self.session.scalars(
             select(ApplicationStepModel)
             .where(
@@ -38,7 +40,9 @@ class ApplicationStepRepository:
             .options(joinedload(ApplicationStepModel.step_def))
         )
 
-    async def create(self, app_step: ApplicationStepCreateDTO) -> ApplicationStepModel:
+    async def create(
+        self, app_step: ApplicationStepCreateDTO
+    ) -> ApplicationStepModel:
         try:
             db_app_step = ApplicationStepModel(**app_step.model_dump())
             self.session.add(db_app_step)
@@ -49,7 +53,9 @@ class ApplicationStepRepository:
             await self.session.rollback()
             raise e
 
-    async def update(self, application: ApplicationStepModel) -> ApplicationStepModel:
+    async def update(
+        self, application: ApplicationStepModel
+    ) -> ApplicationStepModel:
         try:
             application.updated_at = datetime.now(UTC)
             self.session.add(application)

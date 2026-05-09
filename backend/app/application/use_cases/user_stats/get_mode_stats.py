@@ -8,8 +8,12 @@ class GetModeStatsUseCase:
     def __init__(self, user_stats_repo: UserStatsRepository):
         self.user_stats_repo = user_stats_repo
 
-    async def execute(self, user_id: int, cycle_id: int | None = None) -> ModeAppDTO:
-        a_mode = await self.user_stats_repo.count_applications_grouped_by_mode(user_id, cycle_id)
+    async def execute(
+        self, user_id: int, cycle_id: int | None = None
+    ) -> ModeAppDTO:
+        a_mode = await self.user_stats_repo.count_applications_grouped_by_mode(
+            user_id, cycle_id
+        )
 
         active, passive = 0, 0
         for mode in a_mode:

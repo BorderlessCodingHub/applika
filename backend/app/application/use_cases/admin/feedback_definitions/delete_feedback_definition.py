@@ -16,7 +16,9 @@ class DeleteFeedbackDefinitionUseCase:
         self.admin_repo = admin_repo
 
     async def execute(self, feedback_id: int, admin_id: int) -> None:
-        refs = await self.admin_repo.count_entity_references('feedback_definition', feedback_id)
+        refs = await self.admin_repo.count_entity_references(
+            'feedback_definition', feedback_id
+        )
         if refs > 0:
             logger.warning(
                 f'Admin delete feedback def blocked: {feedback_id}',

@@ -10,7 +10,9 @@ from app.presentation.dependencies import (
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.support import SupportSchema
 
-router = APIRouter(tags=['Supports'], responses={'403': {'model': DetailSchema}})
+router = APIRouter(
+    tags=['Supports'], responses={'403': {'model': DetailSchema}}
+)
 
 
 @router.get('/supports', response_model=SupportSchema)

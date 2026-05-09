@@ -50,7 +50,9 @@ class GitHubService:
             is_valid = False
 
         if user_id:
-            await self.redis.set(cache_key, '1' if is_valid else '0', ex=self.cache_ttl)
+            await self.redis.set(
+                cache_key, '1' if is_valid else '0', ex=self.cache_ttl
+            )
         return is_valid
 
     async def check_org_membership(self, github_token: str) -> bool:
@@ -66,14 +68,19 @@ class GitHubService:
                     timeout=10,
                 )
                 logger.debug(
-                    'GitHub /user/orgs response: \n' + f'{response.status_code} - {response.text}'
+                    'GitHub /user/orgs response: \n'
+                    + f'{response.status_code} - {response.text}'
                 )
                 if response.status_code != 200:
-                    logger.warning(f'GitHub /user/orgs returned status {response.status_code}')
+                    logger.warning(
+                        f'GitHub /user/orgs returned status {response.status_code}'
+                    )
                     is_member = False
                 else:
                     orgs = response.json()
-                    is_member = any(org.get('login') == self.org_name for org in orgs)
+                    is_member = any(
+                        org.get('login') == self.org_name for org in orgs
+                    )
         except httpx.HTTPError as exc:
             logger.error(f'GitHub org membership check failed: {exc}')
             is_member = False

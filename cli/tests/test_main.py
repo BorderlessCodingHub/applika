@@ -135,23 +135,21 @@ def test_applications_list_filters_and_outputs_json(
         },
     ]
 
-    exit_code = cli_main.main(
-        [
-            '--api-base-url',
-            'http://api.test/api',
-            'applications',
-            'list',
-            '--cycle-id',
-            '77',
-            '--search',
-            'acme',
-            '--platform',
-            'LinkedIn',
-            '--status',
-            'active',
-            '--json',
-        ]
-    )
+    exit_code = cli_main.main([
+        '--api-base-url',
+        'http://api.test/api',
+        'applications',
+        'list',
+        '--cycle-id',
+        '77',
+        '--search',
+        'acme',
+        '--platform',
+        'LinkedIn',
+        '--status',
+        'active',
+        '--json',
+    ])
 
     assert exit_code == 0
     assert FakeApiClient.captured_application_params == {'cycle_id': '77'}
@@ -173,34 +171,32 @@ def test_applications_new_builds_ui_matching_payload(monkeypatch, capsys):
         'application_date': '2026-05-08',
     }
 
-    exit_code = cli_main.main(
-        [
-            'applications',
-            'new',
-            '--company',
-            'Acme',
-            '--role',
-            'Platform Engineer',
-            '--platform',
-            'LinkedIn',
-            '--mode',
-            'active',
-            '--date',
-            '2026-05-08',
-            '--job-url',
-            'https://jobs.example/acme',
-            '--country',
-            'Brazil',
-            '--salary-min',
-            '1000',
-            '--salary-max',
-            '2000',
-            '--currency',
-            'USD',
-            '--salary-period',
-            'annual',
-        ]
-    )
+    exit_code = cli_main.main([
+        'applications',
+        'new',
+        '--company',
+        'Acme',
+        '--role',
+        'Platform Engineer',
+        '--platform',
+        'LinkedIn',
+        '--mode',
+        'active',
+        '--date',
+        '2026-05-08',
+        '--job-url',
+        'https://jobs.example/acme',
+        '--country',
+        'Brazil',
+        '--salary-min',
+        '1000',
+        '--salary-max',
+        '2000',
+        '--currency',
+        'USD',
+        '--salary-period',
+        'annual',
+    ])
 
     assert exit_code == 0
     assert FakeApiClient.captured_post_payload == {
@@ -221,7 +217,8 @@ def test_applications_new_builds_ui_matching_payload(monkeypatch, capsys):
         'work_mode': None,
     }
     assert (
-        'Created application: id=42 company=Acme role=Platform Engineer' in capsys.readouterr().out
+        'Created application: id=42 company=Acme role=Platform Engineer'
+        in capsys.readouterr().out
     )
 
 
@@ -264,21 +261,19 @@ def test_applications_edit_merges_existing_values_and_clear_flags(
         'application_date': '2026-05-01',
     }
 
-    exit_code = cli_main.main(
-        [
-            'applications',
-            'edit',
-            '99',
-            '--company',
-            'NewCo',
-            '--role',
-            'Staff Engineer',
-            '--clear-job-url',
-            '--clear-observation',
-            '--clear-country',
-            '--clear-salary',
-        ]
-    )
+    exit_code = cli_main.main([
+        'applications',
+        'edit',
+        '99',
+        '--company',
+        'NewCo',
+        '--role',
+        'Staff Engineer',
+        '--clear-job-url',
+        '--clear-observation',
+        '--clear-country',
+        '--clear-salary',
+    ])
 
     assert exit_code == 0
     assert FakeApiClient.captured_put_payload == {
@@ -298,7 +293,10 @@ def test_applications_edit_merges_existing_values_and_clear_flags(
         'experience_level': 'senior',
         'work_mode': 'remote',
     }
-    assert 'Updated application: id=99 company=NewCo role=Staff Engineer' in capsys.readouterr().out
+    assert (
+        'Updated application: id=99 company=NewCo role=Staff Engineer'
+        in capsys.readouterr().out
+    )
 
 
 def test_applications_edit_rejects_finalized(monkeypatch, capsys):

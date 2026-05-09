@@ -42,7 +42,9 @@ class CreateApplicationUseCase:
             )
             raise ResourceNotFound('Platform not found')
 
-        company_id, company_name = await self._resolve_company(data.company, data.user_id)
+        company_id, company_name = await self._resolve_company(
+            data.company, data.user_id
+        )
 
         application = await self.application_repo.create(
             data, company_id=company_id, company_name=company_name

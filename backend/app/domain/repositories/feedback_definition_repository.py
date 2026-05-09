@@ -17,7 +17,9 @@ class FeedbackDefinitionRepository:
 
     async def get_by_id(self, id: int) -> FeedbackDefinitionModel | None:
         return await self.session.scalar(
-            select(FeedbackDefinitionModel).where(FeedbackDefinitionModel.id == id)
+            select(FeedbackDefinitionModel).where(
+                FeedbackDefinitionModel.id == id
+            )
         )
 
     async def create(self, **kwargs) -> FeedbackDefinitionModel:
@@ -31,7 +33,9 @@ class FeedbackDefinitionRepository:
             await self.session.rollback()
             raise e
 
-    async def update(self, feedback: FeedbackDefinitionModel) -> FeedbackDefinitionModel:
+    async def update(
+        self, feedback: FeedbackDefinitionModel
+    ) -> FeedbackDefinitionModel:
         try:
             feedback.updated_at = datetime.now(UTC)
             self.session.add(feedback)
@@ -45,7 +49,9 @@ class FeedbackDefinitionRepository:
     async def delete(self, id: int) -> None:
         try:
             await self.session.execute(
-                delete(FeedbackDefinitionModel).where(FeedbackDefinitionModel.id == id)
+                delete(FeedbackDefinitionModel).where(
+                    FeedbackDefinitionModel.id == id
+                )
             )
             await self.session.commit()
         except Exception as e:

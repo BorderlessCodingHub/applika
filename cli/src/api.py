@@ -92,7 +92,11 @@ class ApiClient:
             params=params,
             json=json,
         )
-        if response.status_code == 401 and retry and not path.startswith('/auth/'):
+        if (
+            response.status_code == 401
+            and retry
+            and not path.startswith('/auth/')
+        ):
             if not self._refresh():
                 raise AuthError('Please run `applika login` again.')
             return self.request(
@@ -133,7 +137,9 @@ def create_session_from_exchange(
     api_base_url: str,
     payload: dict[str, Any],
 ) -> SessionData:
-    expires_at = datetime.now(UTC) + timedelta(seconds=int(payload['access_expires_in']))
+    expires_at = datetime.now(UTC) + timedelta(
+        seconds=int(payload['access_expires_in'])
+    )
     return SessionData(
         api_base_url=api_base_url.rstrip('/'),
         access_token=payload['access_token'],
