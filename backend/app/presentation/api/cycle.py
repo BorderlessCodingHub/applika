@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter
 
 from app.application.dto.cycle import CycleCreateDTO
@@ -22,12 +20,10 @@ async def create_cycle(
     use_case = CreateCycleUseCase(cycle_repo)
     data = CycleCreateDTO(name=payload.name)
     cycle = await use_case.execute(c_user.id, data)
-    return Cycle.model_validate(
-        cycle.model_dump(exclude={'user_id'})
-    )
+    return Cycle.model_validate(cycle.model_dump(exclude={'user_id'}))
 
 
-@router.get('/cycles', response_model=List[Cycle])
+@router.get('/cycles', response_model=list[Cycle])
 async def list_cycles(
     c_user: CurrentUserDp,
     cycle_repo: CycleRepositoryDp,
@@ -35,8 +31,7 @@ async def list_cycles(
     use_case = ListCyclesUseCase(cycle_repo)
     cycles = await use_case.execute(c_user.id)
     return [
-        Cycle.model_validate(c.model_dump(exclude={'user_id'}))
-        for c in cycles
+        Cycle.model_validate(c.model_dump(exclude={'user_id'})) for c in cycles
     ]
 
 

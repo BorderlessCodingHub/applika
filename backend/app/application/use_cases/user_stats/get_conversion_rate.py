@@ -1,5 +1,3 @@
-from typing import List
-
 from app.application.dto.statistic import StepConversionDTO
 from app.domain.repositories.user_statistic_repository import (
     UserStatsRepository,
@@ -19,7 +17,7 @@ class UserConversionRateUseCase:
 
     async def execute(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[StepConversionDTO]:
+    ) -> list[StepConversionDTO]:
         total_a = await self.user_stats_repo.get_applications_count(
             user_id, cycle_id
         )

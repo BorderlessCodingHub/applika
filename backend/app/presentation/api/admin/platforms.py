@@ -35,18 +35,14 @@ router = APIRouter(
 )
 
 
-@router.get(
-    '/platforms', response_model=list[PlatformSchema]
-)
+@router.get('/platforms', response_model=list[PlatformSchema])
 async def list_admin_platforms(
     admin: AdminUserDp,
     platform_repo: PlatformRepositoryDp,
 ):
     use_case = ListPlatformsUseCase(platform_repo)
     dtos = await use_case.execute(admin.id)
-    return [
-        PlatformSchema.model_validate(d) for d in dtos
-    ]
+    return [PlatformSchema.model_validate(d) for d in dtos]
 
 
 @router.post(
@@ -76,12 +72,8 @@ async def update_admin_platform(
     platform_repo: PlatformRepositoryDp,
 ):
     use_case = UpdatePlatformUseCase(platform_repo)
-    data = PlatformUpdateDTO(
-        **body.model_dump(exclude_unset=True)
-    )
-    dto = await use_case.execute(
-        platform_id, data, admin.id
-    )
+    data = PlatformUpdateDTO(**body.model_dump(exclude_unset=True))
+    dto = await use_case.execute(platform_id, data, admin.id)
     return PlatformSchema.model_validate(dto)
 
 
@@ -92,7 +84,5 @@ async def delete_admin_platform(
     platform_repo: PlatformRepositoryDp,
     admin_repo: AdminRepositoryDp,
 ):
-    use_case = DeletePlatformUseCase(
-        platform_repo, admin_repo
-    )
+    use_case = DeletePlatformUseCase(platform_repo, admin_repo)
     await use_case.execute(platform_id, admin.id)

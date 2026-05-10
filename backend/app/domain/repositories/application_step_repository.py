@@ -1,5 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
-from typing import List
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,7 +30,7 @@ class ApplicationStepRepository:
 
     async def get_all_by_application_id(
         self, application_id: int
-    ) -> List[ApplicationStepModel]:
+    ) -> list[ApplicationStepModel]:
         return await self.session.scalars(
             select(ApplicationStepModel)
             .where(
@@ -58,7 +57,7 @@ class ApplicationStepRepository:
         self, application: ApplicationStepModel
     ) -> ApplicationStepModel:
         try:
-            application.updated_at = datetime.now(timezone.utc)
+            application.updated_at = datetime.now(UTC)
             self.session.add(application)
             await self.session.commit()
             return application
@@ -79,7 +78,7 @@ class ApplicationStepRepository:
         user_id: int,
         from_date: date | None = None,
         to_date: date | None = None,
-    ) -> List[ApplicationStepModel]:
+    ) -> list[ApplicationStepModel]:
         """Get all steps for a user within a date range,
         with application and step definition loaded."""
         today = date.today()

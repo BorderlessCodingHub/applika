@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from typing import List
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,7 +29,7 @@ class ApplicationRepository:
 
     async def get_all_by_user_id(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[ApplicationModel]:
+    ) -> list[ApplicationModel]:
         stmt = (
             select(ApplicationModel)
             .where(ApplicationModel.user_id == user_id)
@@ -74,7 +73,7 @@ class ApplicationRepository:
 
     async def update(self, application: ApplicationModel) -> ApplicationModel:
         try:
-            application.updated_at = datetime.now(timezone.utc)
+            application.updated_at = datetime.now(UTC)
             self.session.add(application)
             await self.session.commit()
             return application

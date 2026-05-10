@@ -1,5 +1,3 @@
-from typing import List
-
 from app.application.dto.application_step import ApplicationStepDTO
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.application_repository import (
@@ -21,14 +19,12 @@ class ListApplicationStepsUseCase:
 
     async def execute(
         self, application_id: int, user_id: int
-    ) -> List[ApplicationStepDTO]:
+    ) -> list[ApplicationStepDTO]:
         application = await self.app_repo.get_by_id_and_user_id(
             application_id, user_id
         )
         if not application:
-            raise ResourceNotFound(
-                'Application not found or not owned by user'
-            )
+            raise ResourceNotFound('Application not found or not owned by user')
 
         steps = await self.app_step_repo.get_all_by_application_id(
             application_id

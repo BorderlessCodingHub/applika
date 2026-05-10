@@ -1,5 +1,4 @@
 from decimal import ROUND_HALF_UP, Decimal
-from typing import List
 
 from app.application.dto.statistic import AvarageDaysDTO
 from app.domain.repositories.user_statistic_repository import (
@@ -17,7 +16,7 @@ class GetAvgDaysPerStepUseCase:
 
     async def execute(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[AvarageDaysDTO]:
+    ) -> list[AvarageDaysDTO]:
         avg_days = await self.user_stats_repo.average_days_per_step(
             user_id, cycle_id
         )

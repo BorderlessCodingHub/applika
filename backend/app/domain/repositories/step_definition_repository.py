@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from typing import List
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,25 +10,17 @@ class StepDefinitionRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_all(self) -> List[StepDefinitionModel]:
+    async def get_all(self) -> list[StepDefinitionModel]:
         return await self.session.scalars(
-            select(StepDefinitionModel).order_by(
-                StepDefinitionModel.id
-            )
+            select(StepDefinitionModel).order_by(StepDefinitionModel.id)
         )
 
-    async def get_by_id(
-        self, id: int
-    ) -> StepDefinitionModel | None:
+    async def get_by_id(self, id: int) -> StepDefinitionModel | None:
         return await self.session.scalar(
-            select(StepDefinitionModel).where(
-                StepDefinitionModel.id == id
-            )
+            select(StepDefinitionModel).where(StepDefinitionModel.id == id)
         )
 
-    async def get_by_id_strict_only(
-        self, id: int
-    ) -> StepDefinitionModel:
+    async def get_by_id_strict_only(self, id: int) -> StepDefinitionModel:
         return await self.session.scalar(
             select(StepDefinitionModel).where(
                 StepDefinitionModel.id == id,
@@ -37,9 +28,7 @@ class StepDefinitionRepository:
             )
         )
 
-    async def get_by_id_non_strict_only(
-        self, id: int
-    ) -> StepDefinitionModel:
+    async def get_by_id_non_strict_only(self, id: int) -> StepDefinitionModel:
         return await self.session.scalar(
             select(StepDefinitionModel).where(
                 StepDefinitionModel.id == id,
@@ -47,9 +36,7 @@ class StepDefinitionRepository:
             )
         )
 
-    async def create(
-        self, **kwargs
-    ) -> StepDefinitionModel:
+    async def create(self, **kwargs) -> StepDefinitionModel:
         try:
             step = StepDefinitionModel(**kwargs)
             self.session.add(step)
@@ -60,11 +47,9 @@ class StepDefinitionRepository:
             await self.session.rollback()
             raise e
 
-    async def update(
-        self, step: StepDefinitionModel
-    ) -> StepDefinitionModel:
+    async def update(self, step: StepDefinitionModel) -> StepDefinitionModel:
         try:
-            step.updated_at = datetime.now(timezone.utc)
+            step.updated_at = datetime.now(UTC)
             self.session.add(step)
             await self.session.commit()
             await self.session.refresh(step)
@@ -76,9 +61,7 @@ class StepDefinitionRepository:
     async def delete(self, id: int) -> None:
         try:
             await self.session.execute(
-                delete(StepDefinitionModel).where(
-                    StepDefinitionModel.id == id
-                )
+                delete(StepDefinitionModel).where(StepDefinitionModel.id == id)
             )
             await self.session.commit()
         except Exception as e:

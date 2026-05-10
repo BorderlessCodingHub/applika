@@ -45,10 +45,7 @@ async def list_admin_feedback_definitions(
 ):
     use_case = ListFeedbackDefinitionsUseCase(feedback_repo)
     dtos = await use_case.execute(admin.id)
-    return [
-        FeedbackDefinitionSchema.model_validate(d)
-        for d in dtos
-    ]
+    return [FeedbackDefinitionSchema.model_validate(d) for d in dtos]
 
 
 @router.post(
@@ -62,9 +59,7 @@ async def create_admin_feedback_definition(
     feedback_repo: FeedbackDefinitionRepositoryDp,
 ):
     use_case = CreateFeedbackDefinitionUseCase(feedback_repo)
-    data = FeedbackDefinitionCreateDTO(
-        name=body.name, color=body.color
-    )
+    data = FeedbackDefinitionCreateDTO(name=body.name, color=body.color)
     dto = await use_case.execute(data, admin.id)
     return FeedbackDefinitionSchema.model_validate(dto)
 
@@ -80,25 +75,17 @@ async def update_admin_feedback_definition(
     feedback_repo: FeedbackDefinitionRepositoryDp,
 ):
     use_case = UpdateFeedbackDefinitionUseCase(feedback_repo)
-    data = FeedbackDefinitionUpdateDTO(
-        **body.model_dump(exclude_unset=True)
-    )
-    dto = await use_case.execute(
-        feedback_id, data, admin.id
-    )
+    data = FeedbackDefinitionUpdateDTO(**body.model_dump(exclude_unset=True))
+    dto = await use_case.execute(feedback_id, data, admin.id)
     return FeedbackDefinitionSchema.model_validate(dto)
 
 
-@router.delete(
-    '/feedback-definitions/{feedback_id}', status_code=204
-)
+@router.delete('/feedback-definitions/{feedback_id}', status_code=204)
 async def delete_admin_feedback_definition(
     feedback_id: int,
     admin: AdminUserDp,
     feedback_repo: FeedbackDefinitionRepositoryDp,
     admin_repo: AdminRepositoryDp,
 ):
-    use_case = DeleteFeedbackDefinitionUseCase(
-        feedback_repo, admin_repo
-    )
+    use_case = DeleteFeedbackDefinitionUseCase(feedback_repo, admin_repo)
     await use_case.execute(feedback_id, admin.id)

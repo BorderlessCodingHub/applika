@@ -1,7 +1,7 @@
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, HttpUrl
-from typing_extensions import Literal
 
 from app.core.enums import Currency, ExperienceLevel, SalaryPeriod, WorkMode
 from app.lib.types import SnowflakeID

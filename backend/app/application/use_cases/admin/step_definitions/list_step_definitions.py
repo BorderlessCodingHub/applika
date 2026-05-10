@@ -8,22 +8,18 @@ from app.domain.repositories.step_definition_repository import (
 
 
 class ListStepDefinitionsUseCase:
-    def __init__(
-        self, step_def_repo: StepDefinitionRepository
-    ):
+    def __init__(self, step_def_repo: StepDefinitionRepository):
         self.step_def_repo = step_def_repo
 
-    async def execute(
-        self, admin_id: int
-    ) -> list[StepDefinitionDTO]:
+    async def execute(self, admin_id: int) -> list[StepDefinitionDTO]:
         logger.info(
             'Admin listed step definitions',
-            extra={'extra_data': {
-                'event': 'admin_list_step_definitions',
-                'admin_id': admin_id,
-            }},
+            extra={
+                'extra_data': {
+                    'event': 'admin_list_step_definitions',
+                    'admin_id': admin_id,
+                }
+            },
         )
         steps = await self.step_def_repo.get_all()
-        return [
-            StepDefinitionDTO.model_validate(s) for s in steps
-        ]
+        return [StepDefinitionDTO.model_validate(s) for s in steps]

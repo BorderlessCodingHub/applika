@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import List, Literal, TypedDict
+from typing import Literal, TypedDict
 
 import sqlalchemy as sa
 from sqlalchemy import func, select
@@ -68,7 +68,7 @@ class UserStatsRepository:
 
     async def count_applications_per_strict_step(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[ApplicationStepCount]:
+    ) -> list[ApplicationStepCount]:
         app_ids_subq = (
             select(ApplicationModel.id)
             .where(
@@ -113,7 +113,7 @@ class UserStatsRepository:
 
     async def count_applications_per_step(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[ApplicationStepCount]:
+    ) -> list[ApplicationStepCount]:
         app_ids_subq = (
             select(ApplicationModel.id)
             .where(
@@ -157,7 +157,7 @@ class UserStatsRepository:
 
     async def count_applications_grouped_by_platform(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[ApplicationsPerPlatform]:
+    ) -> list[ApplicationsPerPlatform]:
         stmt = (
             select(
                 PlatformModel.id.label('platform_id'),
@@ -183,7 +183,7 @@ class UserStatsRepository:
 
     async def count_applications_grouped_by_mode(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[ApplicationsPerMode]:
+    ) -> list[ApplicationsPerMode]:
         stmt = (
             select(
                 ApplicationModel.mode,
@@ -201,7 +201,7 @@ class UserStatsRepository:
 
     async def count_applications_per_day_last_month(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[DailyApplicationsLastMonth]:
+    ) -> list[DailyApplicationsLastMonth]:
         one_month_ago = date.today() - timedelta(days=30)
         stmt = (
             select(
@@ -222,7 +222,7 @@ class UserStatsRepository:
 
     async def average_days_per_step(
         self, user_id: int, cycle_id: int | None = None
-    ) -> List[AverageDaysPerStep]:
+    ) -> list[AverageDaysPerStep]:
         subq = (
             select(
                 ApplicationStepModel.step_id.label('step_id'),

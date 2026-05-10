@@ -48,16 +48,16 @@ class FinalizeApplicationUseCase:
         if not application:
             logger.warning(
                 f'Finalize failed: application {id} not found',
-                extra={'extra_data': {
-                    'event': 'finalize_application_failed',
-                    'reason': 'not_found',
-                    'application_id': id,
-                    'user_id': user_id,
-                }},
+                extra={
+                    'extra_data': {
+                        'event': 'finalize_application_failed',
+                        'reason': 'not_found',
+                        'application_id': id,
+                        'user_id': user_id,
+                    }
+                },
             )
-            raise ResourceNotFound(
-                'Application not found or not owned by user'
-            )
+            raise ResourceNotFound('Application not found or not owned by user')
 
         if application.cycle_id is not None:
             raise BusinessRuleViolation(
@@ -67,12 +67,14 @@ class FinalizeApplicationUseCase:
         if application.feedback_id is not None:
             logger.warning(
                 f'Finalize failed: application {id} already finalized',
-                extra={'extra_data': {
-                    'event': 'finalize_application_failed',
-                    'reason': 'already_finalized',
-                    'application_id': id,
-                    'user_id': user_id,
-                }},
+                extra={
+                    'extra_data': {
+                        'event': 'finalize_application_failed',
+                        'reason': 'already_finalized',
+                        'application_id': id,
+                        'user_id': user_id,
+                    }
+                },
             )
             raise ApplicationFinalized(
                 'This application has already been finalized'
@@ -105,12 +107,14 @@ class FinalizeApplicationUseCase:
         application = await self.application_repo.update(application)
         logger.info(
             f'Application finalized: {id}',
-            extra={'extra_data': {
-                'event': 'application_finalized',
-                'application_id': id,
-                'user_id': user_id,
-                'feedback_id': feedback.id,
-                'step_id': step.id,
-            }},
+            extra={
+                'extra_data': {
+                    'event': 'application_finalized',
+                    'application_id': id,
+                    'user_id': user_id,
+                    'feedback_id': feedback.id,
+                    'step_id': step.id,
+                }
+            },
         )
         return ApplicationDTO.model_validate(application)

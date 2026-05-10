@@ -6,7 +6,7 @@ cookie (__refresh).
 """
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Literal, TypedDict
 
 import jwt
@@ -26,16 +26,14 @@ class TokenPayload(TypedDict):
 
 
 def decode_token(token: str) -> TokenPayload:
-    return jwt.decode(
-        token, envs.JWT_SECRET, algorithms=[envs.JWT_ALGORITHM]
-    )
+    return jwt.decode(token, envs.JWT_SECRET, algorithms=[envs.JWT_ALGORITHM])
 
 
-def set_access_cookie(sub: str, response: Response):
-    utc_now = datetime.now(timezone.utc)
-    expires_dt = utc_now + timedelta(
-        minutes=envs.ACCESS_TOKEN_EXPIRE_MINUTES
-    )
+def create_access_token(
+    sub: str,
+) -> tuple[str, datetime, int]:
+    utc_now = datetime.now(UTC)
+    expires_dt = utc_now + timedelta(minutes=envs.ACCESS_TOKEN_EXPIRE_MINUTES)
     max_age = envs.ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
     access_payload = {
@@ -46,6 +44,11 @@ def set_access_cookie(sub: str, response: Response):
     access_token = jwt.encode(
         access_payload, envs.JWT_SECRET, algorithm=envs.JWT_ALGORITHM
     )
+    return access_token, expires_dt, max_age
+
+
+def set_access_cookie(sub: str, response: Response):
+    access_token, expires_dt, max_age = create_access_token(sub)
     response.set_cookie(
         key=ACCESS_COOKIE_NAME,
         value=access_token,
@@ -70,10 +73,10 @@ def _refresh_key(token_id: str) -> str:
     return f'{_REFRESH_PREFIX}{token_id}'
 
 
-async def create_refresh_token(
-    user_id: int, redis_client: redis.Redis, response: Response
-) -> str:
-    """Generate a refresh token, store in Redis, set cookie."""
+async def create_refresh_token_value(
+    user_id: int,
+    redis_client: redis.Redis,
+) -> tuple[str, int]:
     token_id = str(uuid.uuid4())
     ttl_seconds = envs.REFRESH_TOKEN_EXPIRE_DAYS * 86400
 
@@ -82,7 +85,14 @@ async def create_refresh_token(
         str(user_id),
         ex=ttl_seconds,
     )
+    return token_id, ttl_seconds
 
+
+def set_refresh_cookie(
+    token_id: str,
+    ttl_seconds: int,
+    response: Response,
+):
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
         value=token_id,
@@ -91,6 +101,16 @@ async def create_refresh_token(
         samesite='lax',
         max_age=ttl_seconds,
     )
+
+
+async def create_refresh_token(
+    user_id: int, redis_client: redis.Redis, response: Response
+) -> str:
+    """Generate a refresh token, store in Redis, set cookie."""
+    token_id, ttl_seconds = await create_refresh_token_value(
+        user_id, redis_client
+    )
+    set_refresh_cookie(token_id, ttl_seconds, response)
     return token_id
 
 

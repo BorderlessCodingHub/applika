@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter
 
 from app.application.dto.application import (
@@ -73,7 +71,7 @@ async def create(
     return Application.model_validate(application)
 
 
-@router.get('/applications', response_model=List[Application])
+@router.get('/applications', response_model=list[Application])
 async def list_applications(
     c_user: CurrentUserDp,
     app_repo: ApplicationRepositoryDp,

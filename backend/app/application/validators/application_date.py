@@ -7,7 +7,7 @@ caller's local timezone, the allowed upper bound is ``UTC today + 1
 day`` — enough to absorb any positive timezone offset.
 """
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 from app.core.exceptions import InvalidDate
 
@@ -18,7 +18,7 @@ def _max_allowed_today() -> date:
     Always UTC current date + 1 day, so users in timezones ahead of
     UTC are not rejected for picking their local "today".
     """
-    return (datetime.now(timezone.utc) + timedelta(days=1)).date()
+    return (datetime.now(UTC) + timedelta(days=1)).date()
 
 
 def ensure_not_in_future(value: date, field_name: str) -> date:
@@ -28,7 +28,6 @@ def ensure_not_in_future(value: date, field_name: str) -> date:
     limit = _max_allowed_today()
     if value > limit:
         raise InvalidDate(
-            f'{field_name} cannot be in the future '
-            f'(max allowed: {limit.isoformat()})'
+            f'{field_name} cannot be in the future (max allowed: {limit.isoformat()})'
         )
     return value

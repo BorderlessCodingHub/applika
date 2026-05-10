@@ -36,9 +36,7 @@ router = APIRouter(
 )
 
 
-@router.get(
-    '/companies', response_model=PaginatedCompaniesSchema
-)
+@router.get('/companies', response_model=PaginatedCompaniesSchema)
 async def list_admin_companies(
     admin: AdminUserDp,
     admin_repo: AdminRepositoryDp,
@@ -73,9 +71,7 @@ async def create_admin_company(
     company_repo: CompanyRepositoryDp,
     admin_repo: AdminRepositoryDp,
 ):
-    use_case = CreateAdminCompanyUseCase(
-        company_repo, admin_repo
-    )
+    use_case = CreateAdminCompanyUseCase(company_repo, admin_repo)
     data = AdminCompanyCreateDTO(name=body.name, url=body.url)
     dto = await use_case.execute(data, created_by=admin.id)
     return AdminCompanyRowSchema.model_validate(dto)
@@ -92,15 +88,9 @@ async def update_admin_company(
     company_repo: CompanyRepositoryDp,
     admin_repo: AdminRepositoryDp,
 ):
-    use_case = UpdateAdminCompanyUseCase(
-        company_repo, admin_repo
-    )
-    data = AdminCompanyUpdateDTO(
-        **body.model_dump(exclude_unset=True)
-    )
-    dto = await use_case.execute(
-        company_id, data, admin.id
-    )
+    use_case = UpdateAdminCompanyUseCase(company_repo, admin_repo)
+    data = AdminCompanyUpdateDTO(**body.model_dump(exclude_unset=True))
+    dto = await use_case.execute(company_id, data, admin.id)
     return AdminCompanyRowSchema.model_validate(dto)
 
 
@@ -111,7 +101,5 @@ async def delete_admin_company(
     company_repo: CompanyRepositoryDp,
     admin_repo: AdminRepositoryDp,
 ):
-    use_case = DeleteAdminCompanyUseCase(
-        company_repo, admin_repo
-    )
+    use_case = DeleteAdminCompanyUseCase(company_repo, admin_repo)
     await use_case.execute(company_id, admin.id)
