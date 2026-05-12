@@ -3,10 +3,8 @@ import json
 import os
 import tempfile
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
-
-DEFAULT_API_BASE_URL = 'https://applika.dev/api'
 
 
 @dataclass
@@ -53,24 +51,9 @@ class SessionStore:
             self.path.unlink()
 
 
-def resolve_api_base_url(
-    explicit_value: str | None,
-    store: SessionStore,
-) -> str:
-    if explicit_value:
-        return explicit_value.rstrip('/')
-    env_value = os.getenv('APPLIKA_API_BASE_URL')
-    if env_value:
-        return env_value.rstrip('/')
-    existing = store.try_load()
-    if existing:
-        return existing.api_base_url.rstrip('/')
-    return DEFAULT_API_BASE_URL
-
-
 def expiry_from_access_token(token: str) -> str:
     payload_segment = token.split('.')[1]
     padding = '=' * (-len(payload_segment) % 4)
     payload = json.loads(base64.urlsafe_b64decode(payload_segment + padding))
     exp = payload['exp']
-    return datetime.fromtimestamp(exp, tz=UTC).isoformat()
+    return datetime.fromtimestamp(exp, tz=timezone.utc).isoformat()

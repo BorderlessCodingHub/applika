@@ -1,11 +1,15 @@
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
 
-from session import SessionData, SessionStore, expiry_from_access_token
+from applika.lib.session import (
+    SessionData,
+    SessionStore,
+    expiry_from_access_token,
+)
 
 
 class ApiError(RuntimeError):
@@ -17,6 +21,13 @@ class ApiError(RuntimeError):
 
 class AuthError(ApiError):
     pass
+
+
+def require_session(store: SessionStore) -> SessionData:
+    session = store.try_load()
+    if not session:
+        raise AuthError('Please run `applika login` first.')
+    return session
 
 
 @dataclass
@@ -137,7 +148,7 @@ def create_session_from_exchange(
     api_base_url: str,
     payload: dict[str, Any],
 ) -> SessionData:
-    expires_at = datetime.now(UTC) + timedelta(
+    expires_at = datetime.now(timezone.utc) + timedelta(
         seconds=int(payload['access_expires_in'])
     )
     return SessionData(

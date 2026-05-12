@@ -1,0 +1,81 @@
+name: CLI CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - actions/*
+      - develop
+    paths:
+      - "cli/**"
+  pull_request:
+    branches:
+      - develop
+      - main
+    paths:
+      - "cli/**"
+
+permissions:
+  contents: read
+
+jobs:
+  linter:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Set up Python 3.10
+        run: uv python install 3.10
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+      - name: Lint with ruff
+        run: uv run ruff check ./src
+
+  pytest:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Set up Python 3.10
+        run: uv python install 3.10
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+      - name: Test with pytest
+        run: uv run pytest
+
+  build:
+    needs: [linter, pytest]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Set up Python 3.10
+        run: uv python install 3.10
+      - name: Build distribution
+        run: uv build
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: cli/dist/
