@@ -1,5 +1,5 @@
 import datetime
-from typing import TypedDict
+from typing_extensions import TypedDict
 
 from pydantic import BaseModel, HttpUrl, model_validator
 
