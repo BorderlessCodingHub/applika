@@ -1,9 +1,16 @@
 import stat
+import sys
 from pathlib import Path
 
-from session import SessionData, SessionStore
+import pytest
+
+from applika.lib.session import SessionData, SessionStore
 
 
+@pytest.mark.skipif(
+    sys.platform == 'win32',
+    reason='Unix file permissions not enforced on Windows',
+)
 def test_session_store_writes_restricted_file(tmp_path: Path):
     store = SessionStore(tmp_path / 'session.json')
     session = SessionData(
