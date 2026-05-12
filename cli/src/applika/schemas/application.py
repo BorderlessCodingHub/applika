@@ -1,7 +1,7 @@
 import datetime
-from typing_extensions import TypedDict
 
 from pydantic import BaseModel, HttpUrl, model_validator
+from typing_extensions import TypedDict
 
 from applika.schemas.enums import (
     ApplicationMode,
