@@ -76,7 +76,7 @@ src/applika/
 ├── skills/
 │   └── applika-cli/     # Bundled SKILL.md (included in wheel, symlinked/copied by skill install)
 ├── schemas/
-│   ├── enums.py         # StrEnum types: Currency, SalaryPeriod, ExperienceLevel,
+│   ├── enums.py         # Enum types: Currency, SalaryPeriod, ExperienceLevel,
 │   │                    #   WorkMode, ApplicationMode, ModeFilter, StatusFilter, OutputFormat, ClearField
 │   ├── application.py  # Pydantic models: ApplicationCreate, ApplicationUpdate,
 │   │                    #   ApplicationCompany (vendored from backend DTOs)

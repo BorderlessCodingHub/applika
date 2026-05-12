@@ -1,7 +1,7 @@
-from enum import StrEnum
+from enum import Enum
 
 
-class Currency(StrEnum):
+class Currency(str, Enum):
     USD = 'USD'
     BRL = 'BRL'
     EUR = 'EUR'
@@ -13,13 +13,13 @@ class Currency(StrEnum):
     INR = 'INR'
 
 
-class SalaryPeriod(StrEnum):
+class SalaryPeriod(str, Enum):
     HOURLY = 'hourly'
     MONTHLY = 'monthly'
     ANNUAL = 'annual'
 
 
-class ExperienceLevel(StrEnum):
+class ExperienceLevel(str, Enum):
     INTERN = 'intern'
     JUNIOR = 'junior'
     MID_LEVEL = 'mid_level'
@@ -30,35 +30,35 @@ class ExperienceLevel(StrEnum):
     SPECIALIST = 'specialist'
 
 
-class WorkMode(StrEnum):
+class WorkMode(str, Enum):
     REMOTE = 'remote'
     HYBRID = 'hybrid'
     ON_SITE = 'on_site'
 
 
-class ApplicationMode(StrEnum):
+class ApplicationMode(str, Enum):
     ACTIVE = 'active'
     PASSIVE = 'passive'
 
 
-class ModeFilter(StrEnum):
+class ModeFilter(str, Enum):
     ACTIVE = 'active'
     PASSIVE = 'passive'
     ALL = 'all'
 
 
-class StatusFilter(StrEnum):
+class StatusFilter(str, Enum):
     ACTIVE = 'active'
     FINALIZED = 'finalized'
     ALL = 'all'
 
 
-class OutputFormat(StrEnum):
+class OutputFormat(str, Enum):
     TABLE = 'table'
     JSON = 'json'
 
 
-class ClearField(StrEnum):
+class ClearField(str, Enum):
     OBSERVATION = 'observation'
     JOB_URL = 'job_url'
     COUNTRY = 'country'

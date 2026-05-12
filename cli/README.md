@@ -270,7 +270,7 @@ cli/
         │       └── SKILL.md     # Bundled AI skill — installed via `applika skill`
         │
         ├── schemas/             # Vendored Pydantic models (no backend import)
-        │   ├── enums.py         # StrEnum types: Currency, SalaryPeriod, WorkMode, ClearField, etc.
+        │   ├── enums.py         # Enum types: Currency, SalaryPeriod, WorkMode, ClearField, etc.
         │   ├── application.py   # ApplicationCreate, ApplicationUpdate with validators
         │   └── supports.py      # SupportSchema — platforms and companies from /supports
         │
