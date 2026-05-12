@@ -77,25 +77,25 @@ src/applika/
 │   └── applika-cli/     # Bundled SKILL.md (included in wheel, symlinked/copied by skill install)
 ├── schemas/
 │   ├── enums.py         # StrEnum types: Currency, SalaryPeriod, ExperienceLevel,
-│   │                    #   WorkMode, ApplicationMode, ModeFilter, StatusFilter, OutputFormat
-│   └── application.py  # Pydantic models: ApplicationCreate, ApplicationUpdate,
-│                        #   ApplicationCompanyInput (vendored from backend DTOs)
+│   │                    #   WorkMode, ApplicationMode, ModeFilter, StatusFilter, OutputFormat, ClearField
+│   ├── application.py  # Pydantic models: ApplicationCreate, ApplicationUpdate,
+│   │                    #   ApplicationCompany (vendored from backend DTOs)
+│   └── supports.py     # SupportSchema — platforms and companies from /supports
 ├── lib/
 │   ├── api.py           # ApiClient (httpx + cookie auth), ApiError, AuthError,
 │   │                    #   require_session, create_session_from_exchange
 │   ├── session.py       # SessionData, SessionStore (~/.config/applika/session.json)
 │   └── loopback.py      # LoopbackLoginServer for OAuth callback
 ├── utils/
-│   ├── dates.py         # parse_date, ensure_date_string
 │   └── output.py        # render_application_table, print_application_summary
 └── commands/
     ├── auth.py          # login + logout + whoami Typer commands
     ├── skill.py         # skill install Typer sub-app
     └── applications/
         ├── __init__.py  # applications_app Typer sub-app with default-to-list callback
-        ├── commands.py  # list_applications, new_application, edit_application
-        ├── filter.py    # filter_applications, resolve_platform_id
-        └── payloads.py  # ApplicationArgs dataclass + build_application_payload
+        ├── commands.py    # list_applications, new_application, edit_application
+        ├── filter.py      # filter_applications
+        └── api_resolve.py # resolve_platform_id, resolve_company_input
 ```
 
 ## Key Patterns
@@ -103,7 +103,6 @@ src/applika/
 - **Global state**: `AppConfig` (dataclass with `api_base_url` + `store`) lives on `ctx.obj`, set by the root `@app.callback()` in `app.py`.
 - **Auth required**: Commands call `require_session(config.store)` → raises `AuthError` if no session.
 - **Payload validation**: `ApplicationCreate`/`ApplicationUpdate` Pydantic models validate inputs before API calls in `new_application` and `edit_application`.
-- **ApplicationArgs**: Thin dataclass passed to `build_application_payload()` — decouples Typer command signatures from payload construction logic.
 - **Schemas are vendored**: `schemas/enums.py` and `schemas/application.py` are standalone copies (no backend import). Keep in sync with `backend/app/core/enums.py` and `backend/app/application/dto/application.py` when the backend changes.
 
 ## CLI Commands

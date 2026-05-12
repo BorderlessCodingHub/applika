@@ -1,4 +1,5 @@
 import datetime
+from typing import TypedDict
 
 from pydantic import BaseModel, HttpUrl, model_validator
 
@@ -11,23 +12,22 @@ from applika.schemas.enums import (
 )
 
 
-class ApplicationCompanyInput(BaseModel):
+class ApplicationCompany(TypedDict):
     name: str
-    url: HttpUrl | None = None
+    url: HttpUrl | None
 
 
 class ApplicationCreate(BaseModel):
-    company: str
+    company: str | ApplicationCompany
     role: str
-    platform: str
     mode: ApplicationMode
+    platform_id: str
     application_date: datetime.date
-    company_url: str | None = None
-    job_url: str | None = None
+    link_to_job: HttpUrl | None = None
     observation: str | None = None
     expected_salary: float | None = None
-    salary_min: float | None = None
-    salary_max: float | None = None
+    salary_range_min: float | None = None
+    salary_range_max: float | None = None
     currency: Currency | None = None
     salary_period: SalaryPeriod | None = None
     experience_level: ExperienceLevel | None = None
@@ -36,39 +36,36 @@ class ApplicationCreate(BaseModel):
 
     @model_validator(mode='after')
     def validate_salary(self) -> 'ApplicationCreate':
-        amounts = [self.expected_salary, self.salary_min, self.salary_max]
+        amounts = [
+            self.expected_salary,
+            self.salary_range_min,
+            self.salary_range_max,
+        ]
         if any(v is not None for v in amounts):
             if self.currency is None or self.salary_period is None:
                 raise ValueError(
-                    '--currency and --salary-period are required when any salary field is set'
+                    'currency and salary-period are required when any salary field is set'
                 )
         return self
 
 
-class ApplicationUpdate(BaseModel):
-    company: str | None = None
-    role: str | None = None
-    platform: str | None = None
-    mode: ApplicationMode | None = None
-    application_date: datetime.date | None = None
-    company_url: str | None = None
-    job_url: str | None = None
-    observation: str | None = None
-    expected_salary: float | None = None
-    salary_min: float | None = None
-    salary_max: float | None = None
-    currency: Currency | None = None
-    salary_period: SalaryPeriod | None = None
-    experience_level: ExperienceLevel | None = None
-    work_mode: WorkMode | None = None
-    country: str | None = None
+class ApplicationUpdate(ApplicationCreate): ...
 
-    @model_validator(mode='after')
-    def validate_salary(self) -> 'ApplicationUpdate':
-        amounts = [self.expected_salary, self.salary_min, self.salary_max]
-        if any(v is not None for v in amounts):
-            if self.currency is None or self.salary_period is None:
-                raise ValueError(
-                    '--currency and --salary-period are required when any salary field is set'
-                )
-        return self
+
+class ApplicationEntry(TypedDict):
+    id: str
+    company: ApplicationCompany
+    role: str
+    mode: str
+    platform_id: str
+    application_date: str
+    link_to_job: str | None
+    observation: str | None
+    expected_salary: float | None
+    salary_range_min: float | None
+    salary_range_max: float | None
+    currency: str | None
+    salary_period: str | None
+    experience_level: str | None
+    work_mode: str | None
+    country: str | None

@@ -1,16 +1,26 @@
 from __future__ import annotations
 
 import json
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from pydantic import ValidationError
 
+from applika.commands.applications.api_resolve import (
+    resolve_company_input,
+    resolve_platform_id,
+)
+from applika.commands.applications.filter import filter_applications
 from applika.config import AppConfig
 from applika.lib.api import ApiClient, require_session
-from applika.schemas.application import ApplicationCreate, ApplicationUpdate
+from applika.schemas.application import (
+    ApplicationCreate,
+    ApplicationEntry,
+    ApplicationUpdate,
+)
 from applika.schemas.enums import (
     ApplicationMode,
+    ClearField,
     Currency,
     ExperienceLevel,
     ModeFilter,
@@ -19,13 +29,11 @@ from applika.schemas.enums import (
     StatusFilter,
     WorkMode,
 )
+from applika.schemas.supports import SupportSchema
 from applika.utils.output import (
     print_application_summary,
     render_application_table,
 )
-
-from .filter import filter_applications
-from .payloads import ApplicationArgs, build_application_payload
 
 
 def list_applications(
@@ -83,14 +91,17 @@ def list_applications(
 
     try:
         params = {'cycle_id': cycle_id} if cycle_id else None
-        applications = client.get_json('/applications', params=params)
-        supports = client.get_json('/supports')
+        supports: SupportSchema = client.get_json('/supports')
+        applications: list[ApplicationEntry] = client.get_json(
+            '/applications', params=params
+        )
+
         filtered = filter_applications(
             applications,
             supports,
             search=search,
-            mode=str(mode),
-            status=str(status),
+            mode=mode,
+            status=status,
             platform=platform,
             from_date=from_date,
             to_date=to_date,
@@ -183,59 +194,37 @@ def new_application(
     ] = None,
 ) -> None:
     """Create a new job application."""
+    config: AppConfig = ctx.obj
+    session = require_session(config.store)
+    client = ApiClient(session, config.store)
+
     try:
-        ApplicationCreate(
-            company=company,
+        payload = ApplicationCreate(
+            company=resolve_company_input(client, company, company_url),
             role=role,
-            platform=platform,
             mode=mode,
-            application_date=application_date,  # type: ignore[arg-type]
-            company_url=company_url,
-            job_url=job_url,
+            platform_id=resolve_platform_id(client, platform),
+            application_date=application_date,
+            link_to_job=job_url,
             observation=observation,
             expected_salary=expected_salary,
-            salary_min=salary_min,
-            salary_max=salary_max,
+            salary_range_min=salary_min,
+            salary_range_max=salary_max,
             currency=currency,
             salary_period=salary_period,
             experience_level=experience_level,
             work_mode=work_mode,
             country=country,
         )
+        created = client.post_json(
+            '/applications', payload.model_dump(mode='json')
+        )
+        print_application_summary(created, 'Created application')
     except ValidationError as exc:
         for err in exc.errors():
             field = '.'.join(str(loc) for loc in err['loc'])
             typer.echo(f'Error [{field}]: {err["msg"]}', err=True)
         raise typer.Exit(1)
-
-    config: AppConfig = ctx.obj
-    session = require_session(config.store)
-    client = ApiClient(session, config.store)
-
-    try:
-        args = ApplicationArgs(
-            company=company,
-            company_url=company_url,
-            role=role,
-            platform=platform,
-            mode=str(mode),
-            application_date=application_date,
-            job_url=job_url,
-            observation=observation,
-            expected_salary=expected_salary,
-            salary_min=salary_min,
-            salary_max=salary_max,
-            currency=str(currency) if currency else None,
-            salary_period=str(salary_period) if salary_period else None,
-            experience_level=str(experience_level)
-            if experience_level
-            else None,
-            work_mode=str(work_mode) if work_mode else None,
-            country=country,
-        )
-        payload = build_application_payload(client, args, existing=None)
-        created = client.post_json('/applications', payload)
-        print_application_summary(created, 'Created application')
     finally:
         client.close()
 
@@ -312,57 +301,26 @@ def edit_application(
         str | None,
         typer.Option('--country', help='New country where the job is located.'),
     ] = None,
-    clear_job_url: Annotated[
-        bool,
-        typer.Option('--clear-job-url', help='Remove the job URL.'),
-    ] = False,
-    clear_observation: Annotated[
-        bool,
+    clear: Annotated[
+        list[ClearField] | None,
         typer.Option(
-            '--clear-observation', help='Remove the observation note.'
+            '--clear',
+            help=(
+                'Field to set to null. Repeatable: --clear observation --clear job_url. '
+                'Valid: observation, job_url, country, experience_level, work_mode, '
+                'expected_salary, salary_min, salary_max, currency, salary_period, '
+                'salary (clears all salary fields at once).'
+            ),
         ),
-    ] = False,
-    clear_country: Annotated[
-        bool,
-        typer.Option('--clear-country', help='Remove the country.'),
-    ] = False,
-    clear_salary: Annotated[
-        bool,
-        typer.Option('--clear-salary', help='Remove all salary fields.'),
-    ] = False,
+    ] = None,
 ) -> None:
     """Edit an existing job application. Unspecified fields keep their current values."""
-    try:
-        ApplicationUpdate(
-            company=company,
-            role=role,
-            platform=platform,
-            mode=mode,
-            application_date=application_date,  # type: ignore[arg-type]
-            company_url=company_url,
-            job_url=job_url,
-            observation=observation,
-            expected_salary=expected_salary,
-            salary_min=salary_min,
-            salary_max=salary_max,
-            currency=currency,
-            salary_period=salary_period,
-            experience_level=experience_level,
-            work_mode=work_mode,
-            country=country,
-        )
-    except ValidationError as exc:
-        for err in exc.errors():
-            field = '.'.join(str(loc) for loc in err['loc'])
-            typer.echo(f'Error [{field}]: {err["msg"]}', err=True)
-        raise typer.Exit(1)
-
     config: AppConfig = ctx.obj
     session = require_session(config.store)
     client = ApiClient(session, config.store)
 
     try:
-        applications = client.get_json('/applications')
+        applications: list[dict[str, Any]] = client.get_json('/applications')
         existing = next(
             (app for app in applications if str(app['id']) == application_id),
             None,
@@ -374,32 +332,104 @@ def edit_application(
             typer.echo('Finalized applications cannot be edited', err=True)
             raise typer.Exit(1)
 
-        args = ApplicationArgs(
-            company=company,
-            company_url=company_url,
-            role=role,
-            platform=platform,
-            mode=str(mode) if mode else None,
-            application_date=application_date,
-            job_url=job_url,
-            observation=observation,
-            expected_salary=expected_salary,
-            salary_min=salary_min,
-            salary_max=salary_max,
-            currency=str(currency) if currency else None,
-            salary_period=str(salary_period) if salary_period else None,
-            experience_level=str(experience_level)
-            if experience_level
-            else None,
-            work_mode=str(work_mode) if work_mode else None,
-            country=country,
-            clear_job_url=clear_job_url,
-            clear_observation=clear_observation,
-            clear_country=clear_country,
-            clear_salary=clear_salary,
+        resolved_company = (
+            resolve_company_input(client, company, company_url)
+            if company is not None
+            else str(existing['company_id'])
+            if existing.get('company_id')
+            else {'name': existing['company_name'], 'url': None}
         )
-        payload = build_application_payload(client, args, existing=existing)
-        updated = client.put_json(f'/applications/{application_id}', payload)
+        resolved_platform_id = (
+            resolve_platform_id(client, platform)
+            if platform is not None
+            else str(existing['platform_id'])
+        )
+
+        clear_set: set[ClearField] = set(clear or [])
+
+        def _clears(field: ClearField) -> bool:
+            return field in clear_set
+
+        clear_all_salary = _clears(ClearField.SALARY)
+
+        payload = ApplicationUpdate(
+            company=resolved_company,
+            role=role or existing['role'],
+            mode=mode or existing['mode'],
+            platform_id=resolved_platform_id,
+            application_date=(application_date or existing['application_date']),
+            link_to_job=(
+                None
+                if _clears(ClearField.JOB_URL)
+                else job_url or existing.get('link_to_job')
+            ),
+            observation=(
+                None
+                if _clears(ClearField.OBSERVATION)
+                else observation or existing.get('observation')
+            ),
+            country=(
+                None
+                if _clears(ClearField.COUNTRY)
+                else country or existing.get('country')
+            ),
+            expected_salary=(
+                None
+                if clear_all_salary or _clears(ClearField.EXPECTED_SALARY)
+                else (
+                    expected_salary
+                    if expected_salary is not None
+                    else existing.get('expected_salary')
+                )
+            ),
+            salary_range_min=(
+                None
+                if clear_all_salary or _clears(ClearField.SALARY_MIN)
+                else (
+                    salary_min
+                    if salary_min is not None
+                    else existing.get('salary_range_min')
+                )
+            ),
+            salary_range_max=(
+                None
+                if clear_all_salary or _clears(ClearField.SALARY_MAX)
+                else (
+                    salary_max
+                    if salary_max is not None
+                    else existing.get('salary_range_max')
+                )
+            ),
+            currency=(
+                None
+                if clear_all_salary or _clears(ClearField.CURRENCY)
+                else currency or existing.get('currency')
+            ),
+            salary_period=(
+                None
+                if clear_all_salary or _clears(ClearField.SALARY_PERIOD)
+                else salary_period or existing.get('salary_period')
+            ),
+            experience_level=(
+                None
+                if _clears(ClearField.EXPERIENCE_LEVEL)
+                else experience_level or existing.get('experience_level')
+            ),
+            work_mode=(
+                None
+                if _clears(ClearField.WORK_MODE)
+                else work_mode or existing.get('work_mode')
+            ),
+        )
+        updated = client.put_json(
+            f'/applications/{application_id}',
+            payload.model_dump(mode='json'),
+        )
         print_application_summary(updated, 'Updated application')
+    except ValidationError as exc:
+        for err in exc.errors():
+            field = '.'.join(str(loc) for loc in err['loc'])
+            typer.echo(f'Error [{field}]: {err["msg"]}', err=True)
+        raise typer.Exit(1)
     finally:
         client.close()

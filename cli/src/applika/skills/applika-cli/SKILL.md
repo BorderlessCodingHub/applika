@@ -73,7 +73,7 @@ applika applications list \
 applika applications list --output-format json
 
 # Filter to a specific job-search cycle
-applika applications list --cycle-id <uuid>
+applika applications list --cycle-id <snowflake-id>
 ```
 
 ### Filter options
@@ -87,7 +87,7 @@ applika applications list --cycle-id <uuid>
 | `--from YYYY-MM-DD` | Inclusive lower bound on application date | — |
 | `--to YYYY-MM-DD` | Inclusive upper bound on application date | — |
 | `--output-format` | `table` · `json` | `table` |
-| `--cycle-id TEXT` | Filter to a specific cycle UUID | — |
+| `--cycle-id TEXT` | Filter to a specific cycle (snowflake ID — a large integer string from the API) | — |
 
 ---
 
@@ -142,25 +142,36 @@ applika applications edit <application-id> \
   --role "Staff Engineer" \
   --company "Acme"
 
-# Clear optional fields explicitly
+# Clear optional fields explicitly (--clear is repeatable)
 applika applications edit <application-id> \
-  --clear-job-url \
-  --clear-observation \
-  --clear-country \
-  --clear-salary
+  --clear job_url \
+  --clear observation \
+  --clear country \
+  --clear salary
 ```
 
-`application-id` is the integer `id` from the list output. Use
+`application-id` is the snowflake `id` from the list output — a large integer
+encoded as a string (e.g. `"1234567890123456789"`). Use
 `applika applications list --output-format json` to find it.
 
-### Clear flags
+### --clear flag
 
-| Flag | Effect |
-|------|--------|
-| `--clear-job-url` | Set job URL to null |
-| `--clear-observation` | Set observation to null |
-| `--clear-country` | Set country to null |
-| `--clear-salary` | Null out all salary fields |
+`--clear <field>` sets a nullable field to null. It is repeatable — pass it
+once per field.
+
+| Value | Effect |
+|-------|--------|
+| `observation` | Set observation to null |
+| `job_url` | Set job URL to null |
+| `country` | Set country to null |
+| `experience_level` | Set experience level to null |
+| `work_mode` | Set work mode to null |
+| `expected_salary` | Set expected salary to null |
+| `salary_min` | Set salary range minimum to null |
+| `salary_max` | Set salary range maximum to null |
+| `currency` | Set currency to null |
+| `salary_period` | Set salary period to null |
+| `salary` | Null out all salary fields at once (shortcut for the five above) |
 
 Finalized applications cannot be edited — the CLI rejects them before calling the API.
 
@@ -198,8 +209,8 @@ applika applications new \
 
 ```bash
 applika applications list --search "stripe" --output-format json
-# returns JSON array — inspect the "id" field
-applika applications edit 42 --role "Staff Engineer"
+# returns JSON array — inspect the "id" field (a snowflake string like "1234567890123456789")
+applika applications edit 1234567890123456789 --role "Staff Engineer"
 ```
 
 ### Log a passive lead (recruiter reached out)
@@ -217,7 +228,7 @@ applika applications new \
 ### Add salary info after receiving an offer
 
 ```bash
-applika applications edit 42 \
+applika applications edit 1234567890123456789 \
   --expected-salary 180000 \
   --currency USD \
   --salary-period annual

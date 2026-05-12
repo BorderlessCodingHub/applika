@@ -75,8 +75,8 @@ applika applications list \
 # JSON output — useful for piping into jq or scripts
 applika applications list --output-format json
 
-# Scope to a specific job-search cycle by UUID
-applika applications list --cycle-id <uuid>
+# Scope to a specific job-search cycle by snowflake ID
+applika applications list --cycle-id <snowflake-id>
 ```
 
 **Filter reference:**
@@ -90,7 +90,7 @@ applika applications list --cycle-id <uuid>
 | `--from YYYY-MM-DD` | date | — | Include applications from this date (inclusive) |
 | `--to YYYY-MM-DD` | date | — | Include applications up to this date (inclusive) |
 | `--output-format` | `table` · `json` | `table` | `json` returns the raw API response as a formatted array |
-| `--cycle-id TEXT` | UUID | — | Filter to a specific job-search cycle |
+| `--cycle-id TEXT` | snowflake ID | — | Filter to a specific job-search cycle |
 
 ---
 
@@ -167,12 +167,12 @@ applika applications edit 42 \
   --currency USD \
   --salary-period annual
 
-# Clear fields you no longer want to track
+# Clear fields you no longer want to track (--clear is repeatable)
 applika applications edit 42 \
-  --clear-job-url \
-  --clear-observation \
-  --clear-country \
-  --clear-salary
+  --clear job_url \
+  --clear observation \
+  --clear country \
+  --clear salary
 ```
 
 Find the application `id` with:
@@ -181,14 +181,21 @@ Find the application `id` with:
 applika applications list --search "company name" --output-format json
 ```
 
-**Clear flags** — set a field back to null without affecting others:
+**Clear flags** — pass `--clear <field>` (repeatable) to set a field back to null without affecting others:
 
 | Flag | Clears |
 |---|---|
-| `--clear-job-url` | Job posting URL |
-| `--clear-observation` | Notes |
-| `--clear-country` | Country |
-| `--clear-salary` | All salary fields (`expected_salary`, `salary_min`, `salary_max`, `currency`, `salary_period`) |
+| `--clear observation` | Notes |
+| `--clear job_url` | Job posting URL |
+| `--clear country` | Country |
+| `--clear experience_level` | Experience level |
+| `--clear work_mode` | Work mode |
+| `--clear expected_salary` | Expected salary amount |
+| `--clear salary_min` | Minimum salary range |
+| `--clear salary_max` | Maximum salary range |
+| `--clear currency` | Salary currency |
+| `--clear salary_period` | Salary period |
+| `--clear salary` | All salary fields at once (`expected_salary`, `salary_min`, `salary_max`, `currency`, `salary_period`) |
 
 > Finalized applications (those with a recorded outcome) are read-only and cannot be edited. The CLI checks this before sending the request.
 
@@ -263,8 +270,9 @@ cli/
         │       └── SKILL.md     # Bundled AI skill — installed via `applika skill`
         │
         ├── schemas/             # Vendored Pydantic models (no backend import)
-        │   ├── enums.py         # StrEnum types: Currency, SalaryPeriod, WorkMode, etc.
-        │   └── application.py   # ApplicationCreate, ApplicationUpdate with validators
+        │   ├── enums.py         # StrEnum types: Currency, SalaryPeriod, WorkMode, ClearField, etc.
+        │   ├── application.py   # ApplicationCreate, ApplicationUpdate with validators
+        │   └── supports.py      # SupportSchema — platforms and companies from /supports
         │
         ├── lib/                 # Infrastructure — no Typer dependency
         │   ├── api.py           # ApiClient (httpx + cookie auth), ApiError, AuthError
@@ -272,17 +280,16 @@ cli/
         │   └── loopback.py      # LoopbackLoginServer for OAuth browser callback
         │
         ├── utils/               # Pure helpers — no httpx, no Typer
-        │   ├── dates.py         # parse_date, ensure_date_string
         │   └── output.py        # render_application_table, print_application_summary
         │
         └── commands/
             ├── auth.py          # login, logout, whoami commands
             ├── skill.py         # skill command — installs the AI skill
             └── applications/
-                ├── __init__.py  # applications_app Typer sub-app, default-to-list callback
-                ├── commands.py  # list_applications, new_application, edit_application
-                ├── filter.py    # filter_applications, resolve_platform_id
-                └── payloads.py  # ApplicationArgs dataclass, build_application_payload()
+                ├── __init__.py    # applications_app Typer sub-app, default-to-list callback
+                ├── commands.py    # list_applications, new_application, edit_application
+                ├── filter.py      # filter_applications
+                └── api_resolve.py # resolve_platform_id, resolve_company_input
 ```
 
 **Layer rules:**

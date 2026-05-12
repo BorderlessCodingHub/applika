@@ -56,3 +56,17 @@ class StatusFilter(StrEnum):
 class OutputFormat(StrEnum):
     TABLE = 'table'
     JSON = 'json'
+
+
+class ClearField(StrEnum):
+    OBSERVATION = 'observation'
+    JOB_URL = 'job_url'
+    COUNTRY = 'country'
+    EXPERIENCE_LEVEL = 'experience_level'
+    WORK_MODE = 'work_mode'
+    EXPECTED_SALARY = 'expected_salary'
+    SALARY_MIN = 'salary_min'
+    SALARY_MAX = 'salary_max'
+    CURRENCY = 'currency'
+    SALARY_PERIOD = 'salary_period'
+    SALARY = 'salary'

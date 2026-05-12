@@ -35,27 +35,27 @@ def test_applications_list_filters_and_outputs_json(monkeypatch, runner):
     _setup(monkeypatch)
     FakeApiClient.supports = {
         'platforms': [
-            {'id': 10, 'name': 'LinkedIn'},
-            {'id': 11, 'name': 'Indeed'},
+            {'id': '10', 'name': 'LinkedIn'},
+            {'id': '11', 'name': 'Indeed'},
         ]
     }
     FakeApiClient.applications = [
         {
-            'id': 1,
+            'id': '1',
             'application_date': '2026-05-08',
             'company_name': 'Acme',
             'role': 'Backend Engineer',
             'mode': 'active',
-            'platform_id': 10,
+            'platform_id': '10',
             'finalized': False,
         },
         {
-            'id': 2,
+            'id': '2',
             'application_date': '2026-05-07',
             'company_name': 'Other',
             'role': 'Designer',
             'mode': 'passive',
-            'platform_id': 11,
+            'platform_id': '11',
             'finalized': True,
         },
     ]
@@ -88,10 +88,10 @@ def test_applications_list_filters_and_outputs_json(monkeypatch, runner):
 
 def test_applications_new_builds_matching_payload(monkeypatch, runner):
     _setup(monkeypatch)
-    FakeApiClient.supports = {'platforms': [{'id': 10, 'name': 'LinkedIn'}]}
-    FakeApiClient.company_matches = [{'id': 55, 'name': 'Acme'}]
+    FakeApiClient.supports = {'platforms': [{'id': '10', 'name': 'LinkedIn'}]}
+    FakeApiClient.company_matches = [{'id': '55', 'name': 'Acme'}]
     FakeApiClient.created_response = {
-        'id': 42,
+        'id': '42',
         'company_name': 'Acme',
         'role': 'Platform Engineer',
         'application_date': '2026-05-08',
@@ -155,6 +155,7 @@ def test_applications_new_salary_validation_fails_without_currency(
     monkeypatch, runner
 ):
     _setup(monkeypatch)
+    FakeApiClient.supports = {'platforms': [{'id': '10', 'name': 'LinkedIn'}]}
 
     result = runner.invoke(
         app,
@@ -177,19 +178,19 @@ def test_applications_new_salary_validation_fails_without_currency(
     )
 
     assert result.exit_code == 1
-    assert '--currency and --salary-period are required' in result.output
+    assert 'currency and salary-period are required' in result.output
 
 
 def test_applications_edit_merges_existing_and_clear_flags(monkeypatch, runner):
     _setup(monkeypatch)
-    FakeApiClient.supports = {'platforms': [{'id': 10, 'name': 'LinkedIn'}]}
-    FakeApiClient.company_matches = [{'id': 88, 'name': 'NewCo'}]
+    FakeApiClient.supports = {'platforms': [{'id': '10', 'name': 'LinkedIn'}]}
+    FakeApiClient.company_matches = [{'id': '88', 'name': 'NewCo'}]
     FakeApiClient.applications = [
         {
-            'id': 99,
+            'id': '99',
             'company_id': None,
             'company_name': 'OldCo',
-            'platform_id': 10,
+            'platform_id': '10',
             'role': 'Backend Engineer',
             'mode': 'active',
             'application_date': '2026-05-01',
@@ -207,7 +208,7 @@ def test_applications_edit_merges_existing_and_clear_flags(monkeypatch, runner):
         }
     ]
     FakeApiClient.updated_response = {
-        'id': 99,
+        'id': '99',
         'company_name': 'NewCo',
         'role': 'Staff Engineer',
         'application_date': '2026-05-01',
@@ -223,10 +224,14 @@ def test_applications_edit_merges_existing_and_clear_flags(monkeypatch, runner):
             'NewCo',
             '--role',
             'Staff Engineer',
-            '--clear-job-url',
-            '--clear-observation',
-            '--clear-country',
-            '--clear-salary',
+            '--clear',
+            'job_url',
+            '--clear',
+            'observation',
+            '--clear',
+            'country',
+            '--clear',
+            'salary',
         ],
     )
 
@@ -256,7 +261,7 @@ def test_applications_edit_merges_existing_and_clear_flags(monkeypatch, runner):
 
 def test_applications_edit_rejects_finalized(monkeypatch, runner):
     _setup(monkeypatch)
-    FakeApiClient.applications = [{'id': 1, 'finalized': True}]
+    FakeApiClient.applications = [{'id': '1', 'finalized': True}]
 
     result = runner.invoke(app, ['applications', 'edit', '1'])
 
