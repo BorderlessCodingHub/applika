@@ -5,7 +5,11 @@ from urllib.parse import urlparse
 
 import httpx
 
-from session import SessionData, SessionStore, expiry_from_access_token
+from applika.lib.session import (
+    SessionData,
+    SessionStore,
+    expiry_from_access_token,
+)
 
 
 class ApiError(RuntimeError):
@@ -17,6 +21,13 @@ class ApiError(RuntimeError):
 
 class AuthError(ApiError):
     pass
+
+
+def require_session(store: SessionStore) -> SessionData:
+    session = store.try_load()
+    if not session:
+        raise AuthError('Please run `applika login` first.')
+    return session
 
 
 @dataclass

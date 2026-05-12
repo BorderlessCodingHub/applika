@@ -5,20 +5,33 @@ build-backend = "hatchling.build"
 [project]
 name = "applika-cli"
 version = "0.1.0"
-description = "CLI for Applika"
+description = "Job application tracker CLI for Applika.dev"
+readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-    "httpx>=0.28.1",
+license = { text = "MIT" }
+authors = [
+    { name = "Luis Eduardo Soares", email = "luisedu.soares@outlook.com.br" },
+    { name = "David Alecrim", email = "dsalecrim@outlook.com" },
 ]
+keywords = ["cli", "job-tracker", "applika"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Environment :: Console",
+    "Topic :: Utilities",
+]
+dependencies = ["httpx>=0.28.1", "typer>=0.15.0", "pydantic>=2.0"]
+
+[project.urls]
+Homepage = "https://applika.dev"
+Repository = "https://github.com/ApplikaDev/applika"
 
 [project.scripts]
-applika = "main:main"
+applika = "applika.main:main"
 
 [dependency-groups]
-dev = [
-    "pytest>=8.3.5",
-    "ruff>=0.15.2",
-]
+dev = ["pytest>=8.3.5", "ruff>=0.15.2"]
 
 [tool.ruff]
 line-length = 80

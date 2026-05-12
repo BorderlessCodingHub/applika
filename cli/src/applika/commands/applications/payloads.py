@@ -1,15 +1,39 @@
-import argparse
+from dataclasses import dataclass
 from typing import Any
 
-from api import ApiClient
-from cli_context import ensure_date_string
+from applika.lib.api import ApiClient
+from applika.utils.dates import ensure_date_string
 
 from .filter import resolve_platform_id
 
 
+@dataclass
+class ApplicationArgs:
+    company: str | None = None
+    company_url: str | None = None
+    role: str | None = None
+    platform: str | None = None
+    mode: str | None = None
+    application_date: str | None = None
+    job_url: str | None = None
+    observation: str | None = None
+    expected_salary: float | None = None
+    salary_min: float | None = None
+    salary_max: float | None = None
+    currency: str | None = None
+    salary_period: str | None = None
+    experience_level: str | None = None
+    work_mode: str | None = None
+    country: str | None = None
+    clear_job_url: bool = False
+    clear_observation: bool = False
+    clear_country: bool = False
+    clear_salary: bool = False
+
+
 def build_application_payload(
     client: ApiClient,
-    args: argparse.Namespace,
+    args: ApplicationArgs,
     *,
     existing: dict[str, Any] | None,
 ) -> dict[str, Any]:
@@ -42,17 +66,17 @@ def build_application_payload(
         'link_to_job': choose_optional_value(
             provided=args.job_url,
             existing=existing.get('link_to_job') if existing else None,
-            clear=getattr(args, 'clear_job_url', False),
+            clear=args.clear_job_url,
         ),
         'observation': choose_optional_value(
             provided=args.observation,
             existing=existing.get('observation') if existing else None,
-            clear=getattr(args, 'clear_observation', False),
+            clear=args.clear_observation,
         ),
         'country': choose_optional_value(
             provided=args.country,
             existing=existing.get('country') if existing else None,
-            clear=getattr(args, 'clear_country', False),
+            clear=args.clear_country,
         ),
         'currency': salary['currency'],
         'salary_period': salary['salary_period'],
@@ -73,10 +97,10 @@ def build_application_payload(
 
 
 def build_salary_fields(
-    args: argparse.Namespace,
+    args: ApplicationArgs,
     existing: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    if getattr(args, 'clear_salary', False):
+    if args.clear_salary:
         return {
             'currency': None,
             'salary_period': None,

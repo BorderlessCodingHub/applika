@@ -3,8 +3,8 @@ import json
 
 import httpx
 
-from api import ApiClient
-from session import SessionData, SessionStore
+from applika.lib.api import ApiClient
+from applika.lib.session import SessionData, SessionStore
 
 
 def _jwt_like(exp: int) -> str:

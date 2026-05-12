@@ -6,8 +6,6 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-DEFAULT_API_BASE_URL = 'https://applika.dev/api'
-
 
 @dataclass
 class SessionData:
@@ -51,21 +49,6 @@ class SessionStore:
     def clear(self) -> None:
         if self.path.exists():
             self.path.unlink()
-
-
-def resolve_api_base_url(
-    explicit_value: str | None,
-    store: SessionStore,
-) -> str:
-    if explicit_value:
-        return explicit_value.rstrip('/')
-    env_value = os.getenv('APPLIKA_API_BASE_URL')
-    if env_value:
-        return env_value.rstrip('/')
-    existing = store.try_load()
-    if existing:
-        return existing.api_base_url.rstrip('/')
-    return DEFAULT_API_BASE_URL
 
 
 def expiry_from_access_token(token: str) -> str:
