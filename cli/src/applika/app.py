@@ -14,7 +14,7 @@ from applika.lib.session import SessionStore
 app = typer.Typer(
     name='applika',
     help='Job application tracker CLI for Applika.dev.',
-    no_args_is_help=True,
+    invoke_without_command=True,
 )
 
 app.add_typer(applications_app, name='applications')
@@ -48,6 +48,9 @@ def _root(
 ) -> None:
     if _version:
         typer.echo(version('applika-cli'))
+        raise typer.Exit()
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
         raise typer.Exit()
     store = SessionStore()
     ctx.ensure_object(dict)

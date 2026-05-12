@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "applika-cli"
-version = "0.1.0"
+version = "0.1.2"
 description = "Job application tracker CLI for Applika.dev"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
     { name = "Luis Eduardo Soares", email = "luisedu.soares@outlook.com.br" },
@@ -16,7 +16,7 @@ authors = [
 keywords = ["cli", "job-tracker", "applika"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.10",
     "License :: OSI Approved :: MIT License",
     "Environment :: Console",
     "Topic :: Utilities",

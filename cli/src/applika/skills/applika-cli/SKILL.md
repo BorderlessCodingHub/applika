@@ -228,7 +228,7 @@ applika applications edit 42 \
 ## 7. Installation (if not already installed)
 
 ```bash
-# Requires Python 3.12+ and uv
+# Requires Python 3.10+ and uv
 uv tool install applika-cli
 
 # Or from a local source checkout

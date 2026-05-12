@@ -31,8 +31,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-      - name: Set up Python 3.12
-        run: uv python install 3.12
+      - name: Set up Python 3.10
+        run: uv python install 3.10
       - name: Install dependencies
         run: uv sync --all-extras --dev
       - name: Lint with ruff
@@ -50,8 +50,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-      - name: Set up Python 3.12
-        run: uv python install 3.12
+      - name: Set up Python 3.10
+        run: uv python install 3.10
       - name: Install dependencies
         run: uv sync --all-extras --dev
       - name: Test with pytest
@@ -70,8 +70,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-      - name: Set up Python 3.12
-        run: uv python install 3.12
+      - name: Set up Python 3.10
+        run: uv python install 3.10
       - name: Build distribution
         run: uv build
       - name: Upload build artifacts

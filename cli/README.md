@@ -6,16 +6,20 @@ Track every application you send, filter and review your pipeline from the termi
 
 ## Requirements
 
-- Python 3.12+
+- Python 3.10+
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
 ## Installation
 
 ```bash
+# Using uv (recommended)
 uv tool install applika-cli
+
+# Using pipx
+pipx install applika-cli
 ```
 
-This installs the `applika` binary globally via uv's tool environment. Verify:
+This installs the `applika` binary globally. Verify:
 
 ```bash
 applika --help
