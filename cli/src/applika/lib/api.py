@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import timezone, datetime, timedelta
 from typing import Any
 from urllib.parse import urlparse
 
@@ -148,7 +148,7 @@ def create_session_from_exchange(
     api_base_url: str,
     payload: dict[str, Any],
 ) -> SessionData:
-    expires_at = datetime.now(UTC) + timedelta(
+    expires_at = datetime.now(timezone.utc) + timedelta(
         seconds=int(payload['access_expires_in'])
     )
     return SessionData(

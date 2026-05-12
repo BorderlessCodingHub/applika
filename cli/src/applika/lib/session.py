@@ -3,7 +3,7 @@ import json
 import os
 import tempfile
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -56,4 +56,4 @@ def expiry_from_access_token(token: str) -> str:
     padding = '=' * (-len(payload_segment) % 4)
     payload = json.loads(base64.urlsafe_b64decode(payload_segment + padding))
     exp = payload['exp']
-    return datetime.fromtimestamp(exp, tz=UTC).isoformat()
+    return datetime.fromtimestamp(exp, tz=timezone.utc).isoformat()
