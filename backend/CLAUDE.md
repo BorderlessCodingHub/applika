@@ -323,6 +323,27 @@ Optional (with defaults):
 
 Applications are "finalized" when `feedback_id` is set (irreversible).
 
+### Jobs / Opportunities Entities
+- **JobSource**: External job board sources (Himalayas, RemoteOK) with scrape status tracking
+- **Job**: Individual job postings scraped from sources; unique on (source_id, external_id); indexed for fast feed queries
+- **JobTag**: Comma-free skill/category tags for a job (composite PK: job_id + tag, cascade delete)
+- **UserResume**: Uploaded resume files; stored on disk at `storage/resumes/{user_id}/`; parsed text stored for fit scoring
+- **JobFitSnapshot**: Snapshot of fit score between a (user, job, resume) triple; unique per triple, recomputed on demand
+- **TailoredDocument**: Heuristically generated CV rewrite for a job; stores JSON structure and plain-text rendering
+- **AtsReport**: ATS warnings computed from a TailoredDocument; one-to-one with TailoredDocumentModel
+
+### Jobs Domain Relationships
+- JobSource → Job (one-to-many)
+- Job → JobTag (one-to-many, cascade delete)
+- Job → JobFitSnapshot (one-to-many)
+- Job → TailoredDocument (one-to-many)
+- User → UserResume (one-to-many, cascade delete)
+- User → JobFitSnapshot (one-to-many, cascade delete)
+- User → TailoredDocument (one-to-many, cascade delete)
+- UserResume → JobFitSnapshot (one-to-many)
+- UserResume → TailoredDocument (one-to-many)
+- TailoredDocument → AtsReport (one-to-one)
+
 ## Code Conventions
 
 ### Formatting

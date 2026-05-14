@@ -119,6 +119,15 @@ class UserModel(BaseMixin, Base):
     cycles: Mapped[List['CycleModel']] = relationship(
         back_populates='user'
     )
+    resumes: Mapped[List['UserResumeModel']] = relationship(
+        back_populates='user', cascade='all, delete-orphan'
+    )
+    fit_snapshots: Mapped[List['JobFitSnapshotModel']] = relationship(
+        back_populates='user', cascade='all, delete-orphan'
+    )
+    tailored_documents: Mapped[List['TailoredDocumentModel']] = relationship(
+        cascade='all, delete-orphan'
+    )
 
     @property
     def tech_stack(self) -> list[str]:
@@ -515,4 +524,213 @@ class UserFeedbackModel(BaseMixin, Base):
 
     user: Mapped['UserModel'] = relationship(
         back_populates='user_feedbacks'
+    )
+
+
+class JobSourceModel(BaseMixin, Base):
+    __tablename__ = 'job_sources'
+
+    code: Mapped[str] = mapped_column(
+        sa.String(50), unique=True, nullable=False
+    )
+    name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    base_url: Mapped[str] = mapped_column(sa.String(500), nullable=False)
+    is_enabled: Mapped[bool] = mapped_column(
+        sa.Boolean, default=True, nullable=False
+    )
+    last_scraped_at: Mapped[Optional[datetime]] = mapped_column(
+        sa.DateTime(timezone=True)
+    )
+    last_scrape_status: Mapped[Optional[str]] = mapped_column(sa.String(20))
+    last_scrape_error: Mapped[Optional[str]] = mapped_column(sa.Text)
+
+    jobs: Mapped[List['JobModel']] = relationship(back_populates='source')
+
+
+class JobModel(BaseMixin, Base):
+    __tablename__ = 'jobs'
+
+    __table_args__ = (
+        sa.UniqueConstraint(
+            'source_id', 'external_id', name='uq_jobs_source_external'
+        ),
+        sa.Index('idx_jobs_posted_at_desc', sa.text('posted_at DESC')),
+        sa.Index(
+            'idx_jobs_source_posted', 'source_id', sa.text('posted_at DESC')
+        ),
+        sa.Index(
+            'idx_jobs_active_posted', 'is_active', sa.text('posted_at DESC')
+        ),
+    )
+
+    source_id: Mapped[int] = mapped_column(
+        sa.ForeignKey('job_sources.id'), nullable=False
+    )
+    external_id: Mapped[str] = mapped_column(sa.String(500), nullable=False)
+    title: Mapped[str] = mapped_column(sa.String(500), nullable=False)
+    company_name: Mapped[str] = mapped_column(sa.String(300), nullable=False)
+    company_url: Mapped[Optional[str]] = mapped_column(sa.String(2083))
+    location_text: Mapped[str] = mapped_column(
+        sa.String(300), default='Remote', nullable=False
+    )
+    job_url: Mapped[str] = mapped_column(sa.String(2083), nullable=False)
+    description_raw: Mapped[Optional[str]] = mapped_column(sa.Text)
+    description_text: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    employment_type: Mapped[Optional[str]] = mapped_column(sa.String(100))
+    salary_text: Mapped[Optional[str]] = mapped_column(sa.String(200))
+    posted_at: Mapped[Optional[datetime]] = mapped_column(
+        sa.DateTime(timezone=True)
+    )
+    fetched_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), default=sa.func.now(), nullable=False
+    )
+    is_active: Mapped[bool] = mapped_column(
+        sa.Boolean, default=True, nullable=False
+    )
+    content_hash: Mapped[Optional[str]] = mapped_column(sa.String(64))
+
+    source: Mapped['JobSourceModel'] = relationship(back_populates='jobs')
+    tags: Mapped[List['JobTagModel']] = relationship(
+        back_populates='job', cascade='all, delete-orphan'
+    )
+    fit_snapshots: Mapped[List['JobFitSnapshotModel']] = relationship(
+        back_populates='job'
+    )
+
+
+class JobTagModel(Base):
+    __tablename__ = 'job_tags'
+
+    __table_args__ = (sa.Index('idx_job_tags_job_id', 'job_id'),)
+
+    job_id: Mapped[int] = mapped_column(
+        sa.ForeignKey('jobs.id', ondelete='CASCADE'), primary_key=True
+    )
+    tag: Mapped[str] = mapped_column(sa.String(200), primary_key=True)
+
+    job: Mapped['JobModel'] = relationship(back_populates='tags')
+
+
+class UserResumeModel(BaseMixin, Base):
+    __tablename__ = 'user_resumes'
+
+    __table_args__ = (sa.Index('idx_user_resumes_user_id', 'user_id'),)
+
+    user_id: Mapped[int] = mapped_column(
+        sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
+    )
+    filename: Mapped[str] = mapped_column(sa.String(500), nullable=False)
+    content_type: Mapped[str] = mapped_column(sa.String(200), nullable=False)
+    storage_path: Mapped[str] = mapped_column(sa.String(1000), nullable=False)
+    parsed_text: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    is_default: Mapped[bool] = mapped_column(
+        sa.Boolean, default=False, nullable=False
+    )
+    byte_size: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+
+    user: Mapped['UserModel'] = relationship()
+    fit_snapshots: Mapped[List['JobFitSnapshotModel']] = relationship(
+        back_populates='resume'
+    )
+    tailored_documents: Mapped[List['TailoredDocumentModel']] = relationship(
+        back_populates='resume'
+    )
+
+
+class JobFitSnapshotModel(Base):
+    __tablename__ = 'job_fit_snapshots'
+
+    __table_args__ = (
+        sa.UniqueConstraint(
+            'user_id', 'job_id', 'resume_id', name='uq_fit_user_job_resume'
+        ),
+        sa.Index(
+            'idx_fit_snapshots_user_computed',
+            'user_id',
+            sa.text('computed_at DESC'),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        primary_key=True,
+        nullable=False,
+        default=generate_snowflake_id,
+    )
+    user_id: Mapped[int] = mapped_column(
+        sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
+    )
+    job_id: Mapped[int] = mapped_column(
+        sa.ForeignKey('jobs.id', ondelete='CASCADE'), nullable=False
+    )
+    resume_id: Mapped[int] = mapped_column(
+        sa.ForeignKey('user_resumes.id', ondelete='CASCADE'), nullable=False
+    )
+    fit_score: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    matched_keywords_json: Mapped[str] = mapped_column(
+        sa.Text, nullable=False
+    )
+    missing_keywords_json: Mapped[str] = mapped_column(
+        sa.Text, nullable=False
+    )
+    computed_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), default=sa.func.now(), nullable=False
+    )
+
+    job: Mapped['JobModel'] = relationship(back_populates='fit_snapshots')
+    resume: Mapped['UserResumeModel'] = relationship(
+        back_populates='fit_snapshots'
+    )
+    user: Mapped['UserModel'] = relationship(back_populates='fit_snapshots')
+
+
+class TailoredDocumentModel(BaseMixin, Base):
+    __tablename__ = 'tailored_documents'
+
+    user_id: Mapped[int] = mapped_column(
+        sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
+    )
+    job_id: Mapped[int] = mapped_column(
+        sa.ForeignKey('jobs.id', ondelete='CASCADE'), nullable=False
+    )
+    resume_id: Mapped[Optional[int]] = mapped_column(
+        sa.ForeignKey('user_resumes.id', ondelete='SET NULL'), nullable=True
+    )
+    kind: Mapped[str] = mapped_column(
+        sa.String(20), default='cv', nullable=False
+    )
+    provider: Mapped[str] = mapped_column(
+        sa.String(50), default='heuristic', nullable=False
+    )
+    template_version: Mapped[str] = mapped_column(
+        sa.String(20), default='1.0', nullable=False
+    )
+    content_json: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    plain_text: Mapped[str] = mapped_column(sa.Text, nullable=False)
+
+    job: Mapped['JobModel'] = relationship()
+    resume: Mapped[Optional['UserResumeModel']] = relationship(
+        back_populates='tailored_documents'
+    )
+    ats_report: Mapped[Optional['AtsReportModel']] = relationship(
+        back_populates='tailored_document', uselist=False
+    )
+
+
+class AtsReportModel(BaseMixin, Base):
+    __tablename__ = 'ats_reports'
+
+    tailored_document_id: Mapped[int] = mapped_column(
+        sa.ForeignKey('tailored_documents.id', ondelete='CASCADE'),
+        unique=True,
+        nullable=False,
+    )
+    score: Mapped[Optional[int]] = mapped_column(sa.Integer)
+    warnings_json: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    missing_keywords_json: Mapped[str] = mapped_column(
+        sa.Text, nullable=False
+    )
+
+    tailored_document: Mapped['TailoredDocumentModel'] = relationship(
+        back_populates='ats_report'
     )
