@@ -8,15 +8,10 @@ from app.presentation.api.application import router as application_router
 from app.presentation.api.application_step import router as app_step_router
 from app.presentation.api.company import router as company_router
 from app.presentation.api.cycle import router as cycle_router
-from app.presentation.api.jobs import router as jobs_router
 from app.presentation.api.oauth import router as auth_router
 from app.presentation.api.reports import router as reports_router
-from app.presentation.api.resumes import router as resumes_router
 from app.presentation.api.statistic import router as statistic_router
 from app.presentation.api.support import router as support_router
-from app.presentation.api.tailored_documents import (
-    router as tailored_documents_router,
-)
 from app.presentation.api.user import router as profile_router
 from app.presentation.api.user_feedback import router as feedback_router
 from app.presentation.handlers import register_handlers
@@ -52,9 +47,6 @@ app.include_router(statistic_router)
 app.include_router(reports_router)
 app.include_router(feedback_router)
 app.include_router(cycle_router)
-app.include_router(jobs_router)
-app.include_router(resumes_router)
-app.include_router(tailored_documents_router)
 # REST Admin routes
 for _r in admin_routers:
     app.include_router(_r)

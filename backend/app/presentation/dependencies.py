@@ -25,11 +25,6 @@ from app.domain.repositories.cycle_repository import CycleRepository
 from app.domain.repositories.feedback_definition_repository import (
     FeedbackDefinitionRepository,
 )
-from app.domain.repositories.job_fit_snapshot_repository import (
-    JobFitSnapshotRepository,
-)
-from app.domain.repositories.job_repository import JobRepository
-from app.domain.repositories.job_source_repository import JobSourceRepository
 from app.domain.repositories.platform_repository import PlatformRepository
 from app.domain.repositories.quinzenal_report_repository import (
     QuinzenalReportRepository,
@@ -37,14 +32,10 @@ from app.domain.repositories.quinzenal_report_repository import (
 from app.domain.repositories.step_definition_repository import (
     StepDefinitionRepository,
 )
-from app.domain.repositories.tailored_document_repository import (
-    TailoredDocumentRepository,
-)
 from app.domain.repositories.user_feedback_repository import (
     UserFeedbackRepository,
 )
 from app.domain.repositories.user_repository import UserRepository
-from app.domain.repositories.user_resume_repository import UserResumeRepository
 from app.domain.repositories.user_statistic_repository import (
     UserStatsRepository,
 )
@@ -169,47 +160,6 @@ DiscordFeedbackServiceDp = Annotated[
 
 
 RedisDp = Annotated[aioredis.Redis, Depends(get_redis)]
-
-
-def get_job_repository(session: DbSession):
-    return JobRepository(session)
-
-
-def get_job_source_repository(session: DbSession):
-    return JobSourceRepository(session)
-
-
-def get_user_resume_repository(session: DbSession):
-    return UserResumeRepository(session)
-
-
-def get_job_fit_snapshot_repository(session: DbSession):
-    return JobFitSnapshotRepository(session)
-
-
-def get_tailored_document_repository(session: DbSession):
-    return TailoredDocumentRepository(session)
-
-
-JobRepositoryDp = Annotated[
-    JobRepository, Depends(get_job_repository)
-]
-
-JobSourceRepositoryDp = Annotated[
-    JobSourceRepository, Depends(get_job_source_repository)
-]
-
-UserResumeRepositoryDp = Annotated[
-    UserResumeRepository, Depends(get_user_resume_repository)
-]
-
-JobFitSnapshotRepositoryDp = Annotated[
-    JobFitSnapshotRepository, Depends(get_job_fit_snapshot_repository)
-]
-
-TailoredDocumentRepositoryDp = Annotated[
-    TailoredDocumentRepository, Depends(get_tailored_document_repository)
-]
 
 
 async def get_github_service(
