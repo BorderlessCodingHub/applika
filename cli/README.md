@@ -365,7 +365,7 @@ Notes:
 
 ### `applika skill`
 
-Installs the bundled AI skill into your assistant's skills directory. The skill teaches Claude Code, Gemini, or Codex how to use this CLI — what commands exist, how authentication works, required vs optional flags, and common workflows.
+Installs the bundled AI skill into your assistant's skills directory. The skill teaches Claude Code, Gemini, Codex, or OpenCode how to use this CLI — what commands exist, how authentication works, required vs optional flags, and common workflows.
 
 The skill file is shipped inside the installed package (`applika/skills/applika-cli/SKILL.md`) so it stays in sync with the CLI version you have installed. By default the command creates a symlink so updates are reflected automatically; it falls back to a file copy if symlink creation fails (e.g. Windows without Developer Mode enabled).
 
@@ -375,7 +375,8 @@ applika skill
 # →  1. Claude   (~/.claude/skills/applika-cli)
 # →  2. Gemini   (~/.gemini/skills/applika-cli)
 # →  3. Codex    (~/.codex/skills/applika-cli)
-# →  4. All of the above
+# →  4. OpenCode (~/.agents/skills/applika-cli)
+# →  5. All of the above
 
 # Install to the current project's .claude/skills/ (file copy, no prompt)
 # Useful when you want the skill scoped to a single repo
