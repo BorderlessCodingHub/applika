@@ -23,12 +23,26 @@ This installs the `applika` binary globally. Verify:
 
 ```bash
 applika --help
+applika --version
+applika version
 ```
 
-To install from a local source checkout (useful during development):
+`applika --version` shows the installed CLI version.
+`applika version` checks PyPI and shows the latest published version alongside
+the installed one.
+
+To run from a local source checkout during development:
 
 ```bash
-uv tool install --force .
+uv sync
+uv run applika --help
+```
+
+If you want the global `applika` command to point at your local checkout while
+you develop, install it in editable mode:
+
+```bash
+uv tool install --force --editable .
 ```
 
 ---
@@ -198,6 +212,154 @@ applika applications list --search "company name" --output-format json
 | `--clear salary` | All salary fields at once (`expected_salary`, `salary_min`, `salary_max`, `currency`, `salary_period`) |
 
 > Finalized applications (those with a recorded outcome) are read-only and cannot be edited. The CLI checks this before sending the request.
+
+---
+
+### `applika applications steps list <application-id>`
+
+Lists the recorded timeline steps for one application.
+
+```bash
+# Human-readable table
+applika applications steps list 42
+
+# JSON output for scripting
+applika applications steps list 42 --output-format json
+```
+
+Each row uses the recorded step entry `id`, which is the identifier needed for
+`steps edit` and `steps delete`.
+
+---
+
+### `applika applications steps add <application-id>`
+
+Adds a non-final step to an active application.
+
+```bash
+applika applications steps add 42 \
+  --step "Initial Screen" \
+  --date 2026-05-11
+
+applika applications steps add 42 \
+  --step "Phase 2" \
+  --date 2026-05-14 \
+  --start-time 14:00 \
+  --end-time 15:00 \
+  --timezone America/Sao_Paulo \
+  --observation "Panel with hiring manager"
+```
+
+Notes:
+- `--step` accepts a predefined non-strict step definition name or ID from `/supports`, such as `Initial Screen`, `Phase 2`, `Phase 3`, or `Phase 4`.
+- Interview labels like `Manager Interview` belong in `--observation`, not `--step`, unless they were explicitly created as step definitions in supports.
+- `--start-time` and `--end-time` must be provided together.
+- Finalized applications reject step mutations.
+
+---
+
+### `applika applications steps edit <application-id> <step-record-id>`
+
+Updates an existing recorded step. Unspecified fields keep their current value.
+
+```bash
+# Change only the step definition
+applika applications steps edit \
+  --application-id 42 \
+  --step-record-id 500 \
+  --step "Phase 2"
+
+# Clear notes and time while keeping the date
+applika applications steps edit \
+  --application-id 42 \
+  --step-record-id 500 \
+  --clear observation \
+  --clear time
+
+# Update the time window
+applika applications steps edit \
+  --application-id 42 \
+  --step-record-id 500 \
+  --start-time 15:00 \
+  --end-time 16:00 \
+  --timezone America/Sao_Paulo
+```
+
+The positional form still works for backward compatibility:
+
+```bash
+applika applications steps edit 42 500 --step "Phase 2"
+```
+
+**Clear flags** — pass `--clear <field>` (repeatable):
+
+| Flag | Clears |
+|---|---|
+| `--clear observation` | Step notes |
+| `--clear time` | Both `start_time` and `end_time` |
+| `--clear timezone` | Step timezone |
+
+---
+
+### `applika applications steps delete <application-id> <step-record-id>`
+
+Deletes a recorded step from an active application.
+
+Preferred explicit form:
+
+```bash
+applika applications steps delete \
+  --application-id 42 \
+  --step-record-id 500
+```
+
+The positional form still works:
+
+```bash
+applika applications steps delete 42 500
+```
+
+```bash
+applika applications steps delete 42 500
+```
+
+---
+
+### `applika applications finalize <application-id>`
+
+Finalizes an application by recording a strict final step plus a feedback
+definition. This is the CLI path for outcomes like rejected, denied, accepted,
+or offer, depending on the backend definitions available in `/supports`.
+
+```bash
+# Finalize as rejected
+applika applications finalize 42 \
+  --step "Denied" \
+  --feedback "Rejected" \
+  --date 2026-05-18 \
+  --observation "Closed after take-home"
+
+# JSON output for scripting
+applika applications finalize 42 \
+  --step "Denied" \
+  --feedback "Rejected" \
+  --date 2026-05-18 \
+  --output-format json
+
+# Finalize with an accepted offer
+applika applications finalize 42 \
+  --step "Offer" \
+  --feedback "Accepted" \
+  --date 2026-05-18 \
+  --salary-offer 180000 \
+  --observation "Signed the offer"
+```
+
+Notes:
+- `--step` accepts only strict final steps.
+- `--feedback` accepts a feedback definition name or ID.
+- Once finalized, the application and its steps become immutable.
+- `--output-format` supports `table` (default summary output) and `json`.
 
 ---
 
