@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     LOG_FORMAT: str = '[%(asctime)s] |%(levelname)s| [%(filename)s] > %(request_id)s >> %(message)s'
     LOG_FILE: str = 'logs/app.log'
 
+    # Reverse-proxy mount prefix. This is metadata for deployments that mount
+    # the app under a subpath, not a local Uvicorn route prefix.
     API_PREFIX: str = '/api'
     ENVIRONMENT: EnvType = 'DEV'
 
@@ -61,7 +63,7 @@ class Settings(BaseSettings):
 
     GITHUB_CLIENT_ID: str
     GITHUB_CLIENT_SECRET: str
-    GITHUB_REDIRECT_URI: str = 'http://127.0.0.1:8000/api/auth/github/callback'
+    GITHUB_REDIRECT_URI: str = 'http://127.0.0.1:8000/auth/github/callback'
 
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
