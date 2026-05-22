@@ -23,34 +23,48 @@ root/
 
 ## CLI
 
-Install the CLI command from the repo:
+Install the published CLI from PyPI. The package page has the current install
+and usage docs:
+
+- [applika-cli on PyPI](https://pypi.org/project/applika-cli/)
 
 ```bash
-cd cli
-make install
+uv tool install applika-cli
+# or
+pipx install applika-cli
 ```
 
-This uses `uv tool install --force .` and works the same on Linux, macOS, and Windows.
-If `make` is not available on Windows, run the underlying command directly:
+This installs the global `applika` command:
 
 ```bash
-cd cli
-uv tool install --force .
+applika --help
+applika --version
+applika version
 ```
 
-For local CLI development:
+For local CLI development from this repository:
 
 ```bash
 cd cli
-make install-dev
+uv sync
+uv run applika --help
+```
+
+If you want the global `applika` command to point at your local checkout while
+you develop, install it in editable mode:
+
+```bash
+cd cli
+uv tool install --force --editable .
 ```
 
 Useful commands:
 
 ```bash
 cd cli
-make help    # Show applika CLI help
 make test    # Run CLI tests
+make format  # Format CLI code
+make lint    # Lint CLI code
 ```
 
 CLI commands:
@@ -72,6 +86,15 @@ applika applications -n \
   --platform "LinkedIn" \
   --mode active \
   --date 2026-05-08
+applika applications steps list 123
+applika applications steps add 123 \
+  --step "Initial Screen" \
+  --date 2026-05-11
+applika applications finalize 123 \
+  --step "Offer" \
+  --feedback "Accepted" \
+  --date 2026-05-18 \
+  --salary-offer 180000
 ```
 
 ## Quick Start (Docker Compose)
