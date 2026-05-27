@@ -2,6 +2,7 @@
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
+import { CookieConsent } from "@/components/cookie-consent";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/auth-context";
@@ -16,6 +17,7 @@ export function RootProviders({ children }: { children: ReactNode }) {
           <TooltipProvider>
             <Sonner richColors position="top-right" />
             {children}
+            <CookieConsent />
           </TooltipProvider>
         </AuthProvider>
       </ThemeProvider>
