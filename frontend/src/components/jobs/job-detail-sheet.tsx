@@ -37,6 +37,27 @@ export function JobDetailSheet({ jobId, onClose }: JobDetailSheetProps) {
       <Sheet open onOpenChange={(open) => !open && onClose()}>
         <SheetContent className="w-full max-w-lg overflow-y-auto p-0 sm:max-w-xl">
             <div className="p-6">
+              <SheetHeader>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <SheetTitle className="text-xl">
+                      {job?.title ?? "Job Details"}
+                    </SheetTitle>
+                    {job && (
+                      <p className="text-muted-foreground">{job.company_name}</p>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={onClose}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </SheetHeader>
+
               {isLoading && (
                 <div className="flex h-40 items-center justify-center">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -45,25 +66,6 @@ export function JobDetailSheet({ jobId, onClose }: JobDetailSheetProps) {
 
               {job && (
                 <div className="space-y-5">
-                  <SheetHeader>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <SheetTitle className="text-xl">{job.title}</SheetTitle>
-                        <p className="text-muted-foreground">
-                          {job.company_name}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="shrink-0"
-                        onClick={onClose}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </SheetHeader>
-
                   <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
                     <span>{job.location_text}</span>
                     {job.employment_type && <span>· {job.employment_type}</span>}
