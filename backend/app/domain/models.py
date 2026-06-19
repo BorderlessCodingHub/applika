@@ -630,10 +630,12 @@ class UserResumeModel(BaseMixin, Base):
 
     user: Mapped['UserModel'] = relationship()
     fit_snapshots: Mapped[List['JobFitSnapshotModel']] = relationship(
-        back_populates='resume'
+        back_populates='resume',
+        passive_deletes=True,
     )
     tailored_documents: Mapped[List['TailoredDocumentModel']] = relationship(
-        back_populates='resume'
+        back_populates='resume',
+        passive_deletes=True,
     )
 
 

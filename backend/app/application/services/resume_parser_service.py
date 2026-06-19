@@ -5,7 +5,6 @@ are not installed (graceful degradation).
 """
 from __future__ import annotations
 
-import io
 from dataclasses import dataclass
 
 SUPPORTED_CONTENT_TYPES = {
@@ -30,21 +29,20 @@ class ParsedResume:
 
 def _parse_pdf(data: bytes) -> str:
     try:
-        import pypdf  # noqa: PLC0415
+        import fitz  # noqa: PLC0415 — PyMuPDF
     except ImportError as exc:
         raise UnsupportedResumeFormat(
-            'pypdf is not installed; cannot parse PDF files.'
+            'pymupdf is not installed; cannot parse PDF files.'
         ) from exc
-    reader = pypdf.PdfReader(io.BytesIO(data))
-    parts: list[str] = []
-    for page in reader.pages:
-        text = page.extract_text() or ''
-        parts.append(text)
+    doc = fitz.open(stream=data, filetype='pdf')
+    parts: list[str] = [page.get_text() for page in doc]
+    doc.close()
     return '\n'.join(parts)
 
 
 def _parse_docx(data: bytes) -> str:
     try:
+        import io
         import docx  # noqa: PLC0415
     except ImportError as exc:
         raise UnsupportedResumeFormat(

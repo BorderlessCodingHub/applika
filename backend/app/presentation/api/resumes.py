@@ -1,5 +1,6 @@
-from fastapi import APIRouter, UploadFile
+from fastapi import APIRouter, BackgroundTasks, UploadFile
 
+from app.application.use_cases.fit.refresh_fit import RefreshFitUseCase
 from app.application.use_cases.resumes.delete_resume import DeleteResumeUseCase
 from app.application.use_cases.resumes.list_resumes import ListResumesUseCase
 from app.application.use_cases.resumes.set_default_resume import (
@@ -9,6 +10,8 @@ from app.application.use_cases.resumes.upload_resume import UploadResumeUseCase
 from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     CurrentUserDp,
+    JobFitSnapshotRepositoryDp,
+    JobRepositoryDp,
     UserResumeRepositoryDp,
 )
 from app.presentation.schemas import DetailSchema
@@ -42,6 +45,9 @@ async def list_resumes(
 async def upload_resume(
     current_user: CurrentUserDp,
     resume_repo: UserResumeRepositoryDp,
+    job_repo: JobRepositoryDp,
+    fit_repo: JobFitSnapshotRepositoryDp,
+    background_tasks: BackgroundTasks,
     file: UploadFile,
 ):
     data = await file.read()
@@ -51,6 +57,11 @@ async def upload_resume(
         filename=file.filename or 'resume',
         content_type=file.content_type or 'text/plain',
         data=data,
+    )
+    background_tasks.add_task(
+        RefreshFitUseCase(job_repo, resume_repo, fit_repo).execute,
+        user_id=current_user.id,
+        resume_id=dto.id,
     )
     return UserResumeSchema.model_validate(dto.model_dump())
 

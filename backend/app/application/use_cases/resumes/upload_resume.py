@@ -9,7 +9,16 @@ from app.domain.repositories.user_resume_repository import (
     UserResumeRepository,
 )
 
-_STORAGE_BASE = Path(__file__).resolve().parents[5] / 'storage' / 'resumes'
+# In local source trees this file lives under:
+#   backend/app/application/use_cases/resumes/upload_resume.py
+# and in the Docker image under:
+#   /app/app/application/use_cases/resumes/upload_resume.py
+# `parents[4]` resolves to the writable backend root in both layouts:
+#   <repo>/backend
+#   /app
+# Using `parents[5]` escapes one level too far in Docker and incorrectly
+# targets `/storage`, which the non-root container user cannot create.
+_STORAGE_BASE = Path(__file__).resolve().parents[4] / 'storage' / 'resumes'
 
 
 class UploadResumeUseCase:
