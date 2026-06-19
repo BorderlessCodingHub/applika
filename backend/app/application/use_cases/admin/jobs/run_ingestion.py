@@ -39,21 +39,22 @@ class RunIngestionUseCase:
                     name=getattr(scraper, 'display_name', scraper_id),
                     base_url='',
                 )
+            source_id = source.id
 
             if not source.is_enabled:
                 summary[scraper_id] = {'status': 'disabled'}
                 continue
 
             await self.job_source_repo.update_scrape_status(
-                source.id, 'running'
+                source_id, 'running'
             )
             created = 0
             updated = 0
             errors = 0
 
             try:
-                scraped_jobs = await scraper.fetch(lookback_days=7)
-                for scraped in scraped_jobs:
+                batch = await scraper.fetch(lookback_days=7)
+                for scraped in batch.jobs:
                     try:
                         desc_text = _strip_html(scraped.description)
                         content_hash = hashlib.sha256(
@@ -73,7 +74,7 @@ class RunIngestionUseCase:
                         }
 
                         job, was_created = await self.job_repo.upsert(
-                            source_id=source.id,
+                            source_id=source_id,
                             external_id=scraped.external_id,
                             job_data=job_data,
                         )
@@ -88,16 +89,22 @@ class RunIngestionUseCase:
                     except Exception:
                         errors += 1
 
-                await self.job_source_repo.mark_scraped(source.id)
+                await self.job_source_repo.mark_scraped(
+                    source_id, warning=batch.warning
+                )
+                deleted = await self.job_repo.delete_old_jobs(source_id)
                 summary[scraper_id] = {
                     'status': 'ok',
                     'created': created,
                     'updated': updated,
                     'errors': errors,
+                    'deleted': deleted,
                 }
+                if batch.warning:
+                    summary[scraper_id]['warning'] = batch.warning
             except Exception as exc:
                 await self.job_source_repo.update_scrape_status(
-                    source.id, 'error', error=str(exc)
+                    source_id, 'error', error=str(exc)
                 )
                 summary[scraper_id] = {
                     'status': 'error',

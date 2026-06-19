@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Iterable, Protocol
+from typing import Protocol
 
 
 @dataclass
@@ -18,11 +18,17 @@ class ScrapedJob:
     posted_at: datetime | None = None
 
 
+@dataclass
+class ScrapeBatch:
+    jobs: list[ScrapedJob]
+    warning: str | None = None
+
+
 class BaseScraper(Protocol):
     id: str
     display_name: str
 
-    async def fetch(self, lookback_days: int) -> Iterable[ScrapedJob]: ...
+    async def fetch(self, lookback_days: int) -> ScrapeBatch: ...
 
 
 class ScraperUnavailable(RuntimeError): ...

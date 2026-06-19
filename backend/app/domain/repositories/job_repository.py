@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import sqlalchemy as sa
@@ -193,3 +193,20 @@ class JobRepository:
             select(JobModel.id).where(JobModel.is_active == sa.true())
         )
         return list(result)
+
+    async def delete_old_jobs(
+        self, source_id: int, cutoff_days: int = 15
+    ) -> int:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=cutoff_days)
+        try:
+            result = await self.session.execute(
+                sa.delete(JobModel).where(
+                    JobModel.source_id == source_id,
+                    JobModel.posted_at < cutoff,
+                )
+            )
+            await self.session.commit()
+            return result.rowcount
+        except Exception as e:
+            await self.session.rollback()
+            raise e

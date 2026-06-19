@@ -60,14 +60,16 @@ class JobSourceRepository:
             await self.session.rollback()
             raise e
 
-    async def mark_scraped(self, source_id: int) -> None:
+    async def mark_scraped(
+        self, source_id: int, warning: str | None = None
+    ) -> None:
         try:
             source = await self.get_by_id(source_id)
             if source is None:
                 return
             source.last_scraped_at = datetime.now(timezone.utc)
             source.last_scrape_status = 'ok'
-            source.last_scrape_error = None
+            source.last_scrape_error = warning
             source.updated_at = datetime.now(timezone.utc)
             self.session.add(source)
             await self.session.commit()

@@ -5,6 +5,7 @@ Revises: f1a2b3c4d5e6
 Create Date: 2026-05-13 00:00:00.000000
 
 """
+from datetime import datetime, timezone
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -247,14 +248,14 @@ def upgrade() -> None:
                 'name': 'Himalayas',
                 'base_url': 'https://himalayas.app',
                 'is_enabled': True,
-                'created_at': sa.func.now(),
+                'created_at': datetime.now(timezone.utc),
             },
             {
                 'code': 'remoteok',
                 'name': 'RemoteOK',
                 'base_url': 'https://remoteok.com',
                 'is_enabled': True,
-                'created_at': sa.func.now(),
+                'created_at': datetime.now(timezone.utc),
             },
         ],
     )

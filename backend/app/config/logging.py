@@ -88,11 +88,14 @@ class RequestIdFilter(logging.Filter):
         return True
 
 
+_request_id_filter = RequestIdFilter()
+
 if envs.ENVIRONMENT != 'TEST':
     # Console handler — plain message using LOG_FORMAT from settings
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(logging.Formatter(envs.LOG_FORMAT))
     console_handler.setLevel(envs.LOG_LEVEL)
+    console_handler.addFilter(_request_id_filter)
     logger.addHandler(console_handler)
 
     # File handler — structured JSON for log analysis
@@ -108,9 +111,8 @@ if envs.ENVIRONMENT != 'TEST':
     )
     file_handler.setFormatter(JsonFormatter())
     file_handler.setLevel(envs.LOG_LEVEL)
+    file_handler.addFilter(_request_id_filter)
     logger.addHandler(file_handler)
-
-logger.addFilter(RequestIdFilter())
 
 for name in logging.root.manager.loggerDict:
     if name.startswith('uvicorn'):

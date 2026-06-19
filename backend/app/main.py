@@ -1,7 +1,11 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.middleware import register_middleware
+from app.config.scheduler import run_scheduler
 from app.config.settings import envs
 from app.presentation.api.admin import routers as admin_routers
 from app.presentation.api.application import router as application_router
@@ -21,11 +25,23 @@ from app.presentation.api.user import router as profile_router
 from app.presentation.api.user_feedback import router as feedback_router
 from app.presentation.handlers import register_handlers
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(run_scheduler())
+    yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+
 app = FastAPI(
     title='Applika 2.2 API',
     version='2.2.0',
     root_path=envs.API_PREFIX,
     openapi_url=envs.openapi_url,
+    lifespan=lifespan,
 )
 
 

@@ -12,6 +12,7 @@ class JobSourceDTO(BaseModel):
     is_enabled: bool
     last_scraped_at: Optional[datetime]
     last_scrape_status: Optional[str]
+    last_scrape_error: Optional[str]
 
     model_config = ConfigDict(from_attributes=True)
 

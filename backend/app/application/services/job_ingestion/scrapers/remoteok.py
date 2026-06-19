@@ -4,11 +4,11 @@ from __future__ import annotations
 import html
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Iterable
 
 import httpx
 
 from app.application.services.job_ingestion.scrapers.base import (
+    ScrapeBatch,
     ScrapedJob,
     ScraperUnavailable,
 )
@@ -62,7 +62,7 @@ class RemoteOKScraper:
             posted_at=posted_at,
         )
 
-    async def fetch(self, lookback_days: int) -> Iterable[ScrapedJob]:
+    async def fetch(self, lookback_days: int) -> ScrapeBatch:
         cutoff = datetime.now(timezone.utc) - timedelta(days=lookback_days)
         headers = {
             'User-Agent': _USER_AGENT,
@@ -97,4 +97,4 @@ class RemoteOKScraper:
             if job.posted_at and job.posted_at < cutoff:
                 continue
             jobs.append(job)
-        return jobs
+        return ScrapeBatch(jobs=jobs)
