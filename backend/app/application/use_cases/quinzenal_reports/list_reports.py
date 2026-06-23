@@ -22,9 +22,7 @@ class ListReportsUseCase:
     async def execute(
         self, user_id: int, cycle_id: int | None = None
     ) -> ReportsListDTO:
-        reports = await self.report_repo.get_all_by_user_id(
-            user_id, cycle_id
-        )
+        reports = await self.report_repo.get_all_by_user_id(user_id, cycle_id)
         reports_by_day = {report.report_day: report for report in reports}
         submitted_days = set(reports_by_day)
 

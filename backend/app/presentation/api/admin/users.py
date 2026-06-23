@@ -71,10 +71,7 @@ async def get_user_growth(
 ):
     use_case = GetUserGrowthUseCase(admin_repo)
     dtos = await use_case.execute(admin.id)
-    return [
-        UserGrowthPointSchema.model_validate(d)
-        for d in dtos
-    ]
+    return [UserGrowthPointSchema.model_validate(d) for d in dtos]
 
 
 @router.get(
@@ -87,10 +84,7 @@ async def get_seniority_breakdown(
 ):
     use_case = GetSeniorityBreakdownUseCase(admin_repo)
     dtos = await use_case.execute(admin.id)
-    return [
-        SeniorityBreakdownSchema.model_validate(d)
-        for d in dtos
-    ]
+    return [SeniorityBreakdownSchema.model_validate(d) for d in dtos]
 
 
 @router.get(
@@ -119,10 +113,6 @@ async def update_admin_user(
     admin_repo: AdminRepositoryDp,
 ):
     use_case = UpdateAdminUserUseCase(user_repo, admin_repo)
-    data = AdminUserUpdateDTO(
-        **body.model_dump(exclude_unset=True)
-    )
-    dto = await use_case.execute(
-        user_id, data, admin.id
-    )
+    data = AdminUserUpdateDTO(**body.model_dump(exclude_unset=True))
+    dto = await use_case.execute(user_id, data, admin.id)
     return AdminUserDetailSchema.model_validate(dto)

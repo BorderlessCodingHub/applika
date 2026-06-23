@@ -2,7 +2,8 @@
 
 Used to encrypt/decrypt GitHub access tokens stored in the database.
 The encryption key must be a valid Fernet key (base64-encoded 32 bytes).
-Generate one with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+Generate one with:
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 """
 
 from cryptography.fernet import Fernet, InvalidToken

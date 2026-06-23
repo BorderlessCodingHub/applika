@@ -45,9 +45,7 @@ async def list_admin_step_definitions(
 ):
     use_case = ListStepDefinitionsUseCase(step_repo)
     dtos = await use_case.execute(admin.id)
-    return [
-        StepDefinitionSchema.model_validate(d) for d in dtos
-    ]
+    return [StepDefinitionSchema.model_validate(d) for d in dtos]
 
 
 @router.post(
@@ -81,23 +79,17 @@ async def update_admin_step_definition(
     step_repo: StepDefinitionRepositoryDp,
 ):
     use_case = UpdateStepDefinitionUseCase(step_repo)
-    data = StepDefinitionUpdateDTO(
-        **body.model_dump(exclude_unset=True)
-    )
+    data = StepDefinitionUpdateDTO(**body.model_dump(exclude_unset=True))
     dto = await use_case.execute(step_id, data, admin.id)
     return StepDefinitionSchema.model_validate(dto)
 
 
-@router.delete(
-    '/step-definitions/{step_id}', status_code=204
-)
+@router.delete('/step-definitions/{step_id}', status_code=204)
 async def delete_admin_step_definition(
     step_id: int,
     admin: AdminUserDp,
     step_repo: StepDefinitionRepositoryDp,
     admin_repo: AdminRepositoryDp,
 ):
-    use_case = DeleteStepDefinitionUseCase(
-        step_repo, admin_repo
-    )
+    use_case = DeleteStepDefinitionUseCase(step_repo, admin_repo)
     await use_case.execute(step_id, admin.id)

@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter
 
 from app.application.use_cases.user_stats.get_conversion_rate import (
@@ -55,7 +53,7 @@ async def statistics(
 
 @router.get(
     '/statistics/steps/conversion_rate',
-    response_model=List[StepConversionRate],
+    response_model=list[StepConversionRate],
 )
 async def step_conversion_rate(
     c_user: CurrentUserDp,
@@ -67,7 +65,7 @@ async def step_conversion_rate(
 
 
 @router.get(
-    '/statistics/steps/avarage_days', response_model=List[AvarageDaysSteps]
+    '/statistics/steps/avarage_days', response_model=list[AvarageDaysSteps]
 )
 async def step_avarage_day(
     c_user: CurrentUserDp,
@@ -78,7 +76,7 @@ async def step_avarage_day(
     return await use_case.execute(c_user.id, _cid(cycle_id))
 
 
-@router.get('/statistics/platforms', response_model=List[PlarformApplications])
+@router.get('/statistics/platforms', response_model=list[PlarformApplications])
 async def plarform_applications(
     c_user: CurrentUserDp,
     user_stats_repo: UserStatsRepositoryDp,
@@ -98,7 +96,7 @@ async def mode_applications(
     return await use_case.execute(c_user.id, _cid(cycle_id))
 
 
-@router.get('/statistics/trends', response_model=List[ApplicationsTrend])
+@router.get('/statistics/trends', response_model=list[ApplicationsTrend])
 async def applications_trend(
     c_user: CurrentUserDp,
     user_stats_repo: UserStatsRepositoryDp,

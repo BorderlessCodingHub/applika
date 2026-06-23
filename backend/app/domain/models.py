@@ -1,10 +1,9 @@
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import List, Optional, TypedDict
+from typing import Literal, TypedDict
 
 import sqlalchemy as sa
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from typing_extensions import Literal
 
 from app.core.enums import (
     Availability,
@@ -35,8 +34,7 @@ class BaseMixin:
     )
 
 
-class Base(DeclarativeBase):
-    ...
+class Base(DeclarativeBase): ...
 
 
 class UserModel(BaseMixin, Base):
@@ -49,14 +47,14 @@ class UserModel(BaseMixin, Base):
     email: Mapped[str] = mapped_column(
         sa.String(100), unique=True, index=True, nullable=False
     )
-    first_name: Mapped[Optional[str]] = mapped_column(sa.String(100))
-    last_name: Mapped[Optional[str]] = mapped_column(sa.String(100))
-    current_company: Mapped[Optional[str]] = mapped_column(sa.String(200))
-    current_salary: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
+    first_name: Mapped[str | None] = mapped_column(sa.String(100))
+    last_name: Mapped[str | None] = mapped_column(sa.String(100))
+    current_company: Mapped[str | None] = mapped_column(sa.String(200))
+    current_salary: Mapped[float | None] = mapped_column(sa.Numeric(10, 2))
     experience_years: Mapped[int] = mapped_column(sa.Integer, default=0)
-    _tech_stack: Mapped[Optional[str]] = mapped_column(sa.Text)
-    current_role: Mapped[Optional[str]] = mapped_column(sa.String(200))
-    salary_currency: Mapped[Optional[Currency]] = mapped_column(
+    _tech_stack: Mapped[str | None] = mapped_column(sa.Text)
+    current_role: Mapped[str | None] = mapped_column(sa.String(200))
+    salary_currency: Mapped[Currency | None] = mapped_column(
         sa.Enum(
             Currency,
             name='currency',
@@ -64,7 +62,7 @@ class UserModel(BaseMixin, Base):
             native_enum=True,
         )
     )
-    salary_period: Mapped[Optional[SalaryPeriod]] = mapped_column(
+    salary_period: Mapped[SalaryPeriod | None] = mapped_column(
         sa.Enum(
             SalaryPeriod,
             name='salaryperiod',
@@ -72,7 +70,7 @@ class UserModel(BaseMixin, Base):
             native_enum=True,
         )
     )
-    seniority_level: Mapped[Optional[ExperienceLevel]] = mapped_column(
+    seniority_level: Mapped[ExperienceLevel | None] = mapped_column(
         sa.Enum(
             ExperienceLevel,
             name='experiencelevel',
@@ -80,8 +78,8 @@ class UserModel(BaseMixin, Base):
             native_enum=True,
         )
     )
-    location: Mapped[Optional[str]] = mapped_column(sa.String(200))
-    availability: Mapped[Optional[Availability]] = mapped_column(
+    location: Mapped[str | None] = mapped_column(sa.String(200))
+    availability: Mapped[Availability | None] = mapped_column(
         sa.Enum(
             Availability,
             name='availability',
@@ -89,9 +87,9 @@ class UserModel(BaseMixin, Base):
             native_enum=True,
         )
     )
-    bio: Mapped[Optional[str]] = mapped_column(sa.Text)
-    linkedin_url: Mapped[Optional[str]] = mapped_column(sa.String(500))
-    encrypted_github_token: Mapped[Optional[str]] = mapped_column(
+    bio: Mapped[str | None] = mapped_column(sa.Text)
+    linkedin_url: Mapped[str | None] = mapped_column(sa.String(500))
+    encrypted_github_token: Mapped[str | None] = mapped_column(
         sa.Text, nullable=True
     )
     is_org_member: Mapped[bool] = mapped_column(
@@ -101,22 +99,19 @@ class UserModel(BaseMixin, Base):
         sa.Boolean, default=False, server_default='false', nullable=False
     )
 
-    applications: Mapped[List['ApplicationModel']] = relationship(
+    applications: Mapped[list[ApplicationModel]] = relationship(
         back_populates='user'
     )
-    applications_steps: Mapped[List['ApplicationStepModel']] = relationship(
+    applications_steps: Mapped[list[ApplicationStepModel]] = relationship(
         back_populates='user'
     )
-    created_companies: Mapped[List['CompanyModel']] = relationship(
+    created_companies: Mapped[list[CompanyModel]] = relationship(
         back_populates='created_by_user'
     )
-    quinzenal_reports: Mapped[List['QuinzenalReportModel']] = relationship(
+    quinzenal_reports: Mapped[list[QuinzenalReportModel]] = relationship(
         back_populates='user'
     )
-    user_feedbacks: Mapped[List['UserFeedbackModel']] = relationship(
-        back_populates='user'
-    )
-    cycles: Mapped[List['CycleModel']] = relationship(
+    user_feedbacks: Mapped[list[UserFeedbackModel]] = relationship(
         back_populates='user'
     )
     resumes: Mapped[List['UserResumeModel']] = relationship(
@@ -128,6 +123,7 @@ class UserModel(BaseMixin, Base):
     tailored_documents: Mapped[List['TailoredDocumentModel']] = relationship(
         cascade='all, delete-orphan'
     )
+    cycles: Mapped[list[CycleModel]] = relationship(back_populates='user')
 
     @property
     def tech_stack(self) -> list[str]:
@@ -136,7 +132,7 @@ class UserModel(BaseMixin, Base):
         return []
 
     @tech_stack.setter
-    def tech_stack(self, techs: List[str] | None):
+    def tech_stack(self, techs: list[str] | None):
         if techs:
             techs = [tech.strip() for tech in techs if tech.strip()]
             self._tech_stack = ','.join(techs)
@@ -161,14 +157,14 @@ class CompanyModel(BaseMixin, Base):
     is_active: Mapped[bool] = mapped_column(
         sa.Boolean, default=True, nullable=False
     )
-    created_by: Mapped[Optional[int]] = mapped_column(
+    created_by: Mapped[int | None] = mapped_column(
         sa.ForeignKey('users.id', ondelete='SET NULL')
     )
 
-    created_by_user: Mapped[Optional['UserModel']] = relationship(
+    created_by_user: Mapped[UserModel | None] = relationship(
         back_populates='created_companies'
     )
-    applications: Mapped[List['ApplicationModel']] = relationship(
+    applications: Mapped[list[ApplicationModel]] = relationship(
         back_populates='company_rel'
     )
 
@@ -177,9 +173,9 @@ class PlatformModel(BaseMixin, Base):
     __tablename__ = 'platforms'
 
     name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
-    url: Mapped[Optional[str]] = mapped_column(sa.String(200))
+    url: Mapped[str | None] = mapped_column(sa.String(200))
 
-    applications: Mapped[List['ApplicationModel']] = relationship(
+    applications: Mapped[list[ApplicationModel]] = relationship(
         back_populates='platform'
     )
 
@@ -192,10 +188,10 @@ class StepDefinitionModel(BaseMixin, Base):
     # strict steps is only used in application finalization form
     strict: Mapped[bool] = mapped_column(sa.Boolean, default=False)
 
-    applications: Mapped[List['ApplicationModel']] = relationship(
+    applications: Mapped[list[ApplicationModel]] = relationship(
         back_populates='last_step_def'
     )
-    application_steps: Mapped[List['ApplicationStepModel']] = relationship(
+    application_steps: Mapped[list[ApplicationStepModel]] = relationship(
         back_populates='step_def'
     )
 
@@ -206,7 +202,7 @@ class FeedbackDefinitionModel(BaseMixin, Base):
     name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
     color: Mapped[str] = mapped_column(sa.String(7), default='#28a745')
 
-    applications: Mapped[List['ApplicationModel']] = relationship(
+    applications: Mapped[list[ApplicationModel]] = relationship(
         back_populates='feedback_def'
     )
 
@@ -214,20 +210,18 @@ class FeedbackDefinitionModel(BaseMixin, Base):
 class CycleModel(BaseMixin, Base):
     __tablename__ = 'cycles'
 
-    __table_args__ = (
-        sa.Index('idx_cycles_user_id', 'user_id'),
-    )
+    __table_args__ = (sa.Index('idx_cycles_user_id', 'user_id'),)
 
     user_id: Mapped[int] = mapped_column(
         sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
     )
     name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
 
-    user: Mapped['UserModel'] = relationship(back_populates='cycles')
-    applications: Mapped[List['ApplicationModel']] = relationship(
+    user: Mapped[UserModel] = relationship(back_populates='cycles')
+    applications: Mapped[list[ApplicationModel]] = relationship(
         back_populates='cycle'
     )
-    quinzenal_reports: Mapped[List['QuinzenalReportModel']] = relationship(
+    quinzenal_reports: Mapped[list[QuinzenalReportModel]] = relationship(
         back_populates='cycle'
     )
 
@@ -242,21 +236,19 @@ class ApplicationStepModel(BaseMixin, Base):
         sa.ForeignKey('steps_definition.id'), nullable=False
     )
     step_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
-    start_time: Mapped[Optional[time]] = mapped_column(sa.Time)
-    end_time: Mapped[Optional[time]] = mapped_column(sa.Time)
-    timezone: Mapped[Optional[str]] = mapped_column(sa.String(50))
-    observation: Mapped[Optional[str]] = mapped_column(sa.Text)
+    start_time: Mapped[time | None] = mapped_column(sa.Time)
+    end_time: Mapped[time | None] = mapped_column(sa.Time)
+    timezone: Mapped[str | None] = mapped_column(sa.String(50))
+    observation: Mapped[str | None] = mapped_column(sa.Text)
     user_id: Mapped[int] = mapped_column(
         sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
     )
 
-    user: Mapped['UserModel'] = relationship(
-        back_populates='applications_steps'
-    )
-    application: Mapped['ApplicationModel'] = relationship(
+    user: Mapped[UserModel] = relationship(back_populates='applications_steps')
+    application: Mapped[ApplicationModel] = relationship(
         back_populates='application_steps'
     )
-    step_def: Mapped['StepDefinitionModel'] = relationship(
+    step_def: Mapped[StepDefinitionModel] = relationship(
         back_populates='application_steps'
     )
 
@@ -292,10 +284,10 @@ class ApplicationModel(BaseMixin, Base):
         sa.ForeignKey('platforms.id'), nullable=False
     )
 
-    company_id: Mapped[Optional[int]] = mapped_column(
+    company_id: Mapped[int | None] = mapped_column(
         sa.ForeignKey('companies.id'), nullable=True
     )
-    cycle_id: Mapped[Optional[int]] = mapped_column(
+    cycle_id: Mapped[int | None] = mapped_column(
         sa.ForeignKey('cycles.id', ondelete='SET NULL'), nullable=True
     )
 
@@ -304,21 +296,17 @@ class ApplicationModel(BaseMixin, Base):
     mode: Mapped[Literal['active', 'passive']] = mapped_column(
         sa.String(10), nullable=False
     )
-    observation: Mapped[Optional[str]] = mapped_column(sa.Text)
-    link_to_job: Mapped[Optional[str]] = mapped_column(sa.String(2083))
+    observation: Mapped[str | None] = mapped_column(sa.Text)
+    link_to_job: Mapped[str | None] = mapped_column(sa.String(2083))
 
-    salary_offer: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
-    expected_salary: Mapped[Optional[float]] = mapped_column(sa.Numeric(10, 2))
-    salary_range_min: Mapped[Optional[float]] = mapped_column(
-        sa.Numeric(10, 2)
-    )
-    salary_range_max: Mapped[Optional[float]] = mapped_column(
-        sa.Numeric(10, 2)
-    )
+    salary_offer: Mapped[float | None] = mapped_column(sa.Numeric(10, 2))
+    expected_salary: Mapped[float | None] = mapped_column(sa.Numeric(10, 2))
+    salary_range_min: Mapped[float | None] = mapped_column(sa.Numeric(10, 2))
+    salary_range_max: Mapped[float | None] = mapped_column(sa.Numeric(10, 2))
 
     company_name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
 
-    currency: Mapped[Optional[Currency]] = mapped_column(
+    currency: Mapped[Currency | None] = mapped_column(
         sa.Enum(
             Currency,
             name='currency',
@@ -327,7 +315,7 @@ class ApplicationModel(BaseMixin, Base):
             create_type=False,
         )
     )
-    salary_period: Mapped[Optional[SalaryPeriod]] = mapped_column(
+    salary_period: Mapped[SalaryPeriod | None] = mapped_column(
         sa.Enum(
             SalaryPeriod,
             name='salaryperiod',
@@ -336,7 +324,7 @@ class ApplicationModel(BaseMixin, Base):
             create_type=False,
         )
     )
-    experience_level: Mapped[Optional[ExperienceLevel]] = mapped_column(
+    experience_level: Mapped[ExperienceLevel | None] = mapped_column(
         sa.Enum(
             ExperienceLevel,
             name='experiencelevel',
@@ -345,7 +333,7 @@ class ApplicationModel(BaseMixin, Base):
             create_type=False,
         )
     )
-    work_mode: Mapped[Optional[WorkMode]] = mapped_column(
+    work_mode: Mapped[WorkMode | None] = mapped_column(
         sa.Enum(
             WorkMode,
             name='workmode',
@@ -353,35 +341,35 @@ class ApplicationModel(BaseMixin, Base):
             native_enum=True,
         )
     )
-    country: Mapped[Optional[str]] = mapped_column(sa.String(100))
+    country: Mapped[str | None] = mapped_column(sa.String(100))
 
-    last_step_id: Mapped[Optional[int]] = mapped_column(
+    last_step_id: Mapped[int | None] = mapped_column(
         sa.ForeignKey('steps_definition.id')
     )
-    last_step_date: Mapped[Optional[date]] = mapped_column(sa.Date)
+    last_step_date: Mapped[date | None] = mapped_column(sa.Date)
 
-    feedback_id: Mapped[Optional[int]] = mapped_column(
+    feedback_id: Mapped[int | None] = mapped_column(
         sa.ForeignKey('feedbacks_definition.id')
     )
-    feedback_date: Mapped[Optional[date]] = mapped_column(sa.Date)
+    feedback_date: Mapped[date | None] = mapped_column(sa.Date)
 
-    user: Mapped['UserModel'] = relationship(back_populates='applications')
-    company_rel: Mapped[Optional['CompanyModel']] = relationship(
+    user: Mapped[UserModel] = relationship(back_populates='applications')
+    company_rel: Mapped[CompanyModel | None] = relationship(
         back_populates='applications'
     )
-    platform: Mapped['PlatformModel'] = relationship(
+    platform: Mapped[PlatformModel] = relationship(
         back_populates='applications'
     )
-    last_step_def: Mapped[Optional['StepDefinitionModel']] = relationship(
+    last_step_def: Mapped[StepDefinitionModel | None] = relationship(
         back_populates='applications'
     )
-    feedback_def: Mapped[Optional['FeedbackDefinitionModel']] = relationship(
+    feedback_def: Mapped[FeedbackDefinitionModel | None] = relationship(
         back_populates='applications'
     )
-    application_steps: Mapped[List['ApplicationStepModel']] = relationship(
+    application_steps: Mapped[list[ApplicationStepModel]] = relationship(
         back_populates='application'
     )
-    cycle: Mapped[Optional['CycleModel']] = relationship(
+    cycle: Mapped[CycleModel | None] = relationship(
         back_populates='applications'
     )
 
@@ -446,7 +434,7 @@ class QuinzenalReportModel(BaseMixin, Base):
     user_id: Mapped[int] = mapped_column(
         sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
     )
-    cycle_id: Mapped[Optional[int]] = mapped_column(
+    cycle_id: Mapped[int | None] = mapped_column(
         sa.ForeignKey('cycles.id', ondelete='SET NULL'), nullable=True
     )
     report_day: Mapped[ReportDays] = mapped_column(sa.Integer, nullable=False)
@@ -457,8 +445,7 @@ class QuinzenalReportModel(BaseMixin, Base):
     callback_rate: Mapped[Decimal] = mapped_column(
         sa.Numeric(5, 2), default=Decimal('0.00')
     )
-    initial_screenings_count: Mapped[int] = mapped_column(
-        sa.Integer, default=0)
+    initial_screenings_count: Mapped[int] = mapped_column(sa.Integer, default=0)
     interviews_completed_fortnight: Mapped[int] = mapped_column(
         sa.Integer, default=0
     )
@@ -468,8 +455,7 @@ class QuinzenalReportModel(BaseMixin, Base):
         sa.Numeric(5, 2), default=Decimal('0.00')
     )
 
-    total_applications_count: Mapped[int] = mapped_column(
-        sa.Integer, default=0)
+    total_applications_count: Mapped[int] = mapped_column(sa.Integer, default=0)
     overall_conversion_rate: Mapped[Decimal] = mapped_column(
         sa.Numeric(5, 2), default=Decimal('0.00')
     )
@@ -478,9 +464,11 @@ class QuinzenalReportModel(BaseMixin, Base):
     )
 
     mock_interviews_count: Mapped[int] = mapped_column(
-        sa.Integer, nullable=False)
+        sa.Integer, nullable=False
+    )
     linkedin_posts_count: Mapped[int] = mapped_column(
-        sa.Integer, nullable=False)
+        sa.Integer, nullable=False
+    )
     strategic_connections_count: Mapped[int] = mapped_column(
         sa.Integer, nullable=False
     )
@@ -497,9 +485,8 @@ class QuinzenalReportModel(BaseMixin, Base):
     )
     discord_posted: Mapped[bool] = mapped_column(sa.Boolean, default=False)
 
-    user: Mapped['UserModel'] = relationship(
-        back_populates='quinzenal_reports')
-    cycle: Mapped[Optional['CycleModel']] = relationship(
+    user: Mapped[UserModel] = relationship(back_populates='quinzenal_reports')
+    cycle: Mapped[CycleModel | None] = relationship(
         back_populates='quinzenal_reports'
     )
 
@@ -520,7 +507,7 @@ class UserFeedbackModel(BaseMixin, Base):
         nullable=False,
     )
     score: Mapped[int] = mapped_column(sa.Integer, nullable=False)
-    text: Mapped[Optional[str]] = mapped_column(sa.String(2000))
+    text: Mapped[str | None] = mapped_column(sa.String(2000))
 
     user: Mapped['UserModel'] = relationship(
         back_populates='user_feedbacks'

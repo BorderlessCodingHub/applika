@@ -19,18 +19,18 @@ class UpdatePlatformUseCase:
         data: PlatformUpdateDTO,
         admin_id: int,
     ) -> PlatformDTO:
-        platform = await self.platform_repo.get_by_id(
-            platform_id
-        )
+        platform = await self.platform_repo.get_by_id(platform_id)
         if not platform:
             logger.warning(
                 f'Admin update platform failed: {platform_id}',
-                extra={'extra_data': {
-                    'event': 'admin_update_platform_failed',
-                    'reason': 'platform_not_found',
-                    'platform_id': platform_id,
-                    'admin_id': admin_id,
-                }},
+                extra={
+                    'extra_data': {
+                        'event': 'admin_update_platform_failed',
+                        'reason': 'platform_not_found',
+                        'platform_id': platform_id,
+                        'admin_id': admin_id,
+                    }
+                },
             )
             raise ResourceNotFound('Platform not found')
 
@@ -42,12 +42,14 @@ class UpdatePlatformUseCase:
 
         logger.info(
             f'Admin updated platform: {platform_id}',
-            extra={'extra_data': {
-                'event': 'admin_update_platform',
-                'platform_id': platform_id,
-                'admin_id': admin_id,
-                'fields_updated': list(update_data.keys()),
-            }},
+            extra={
+                'extra_data': {
+                    'event': 'admin_update_platform',
+                    'platform_id': platform_id,
+                    'admin_id': admin_id,
+                    'fields_updated': list(update_data.keys()),
+                }
+            },
         )
 
         return PlatformDTO.model_validate(platform)

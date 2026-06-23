@@ -15,7 +15,9 @@ class DiscordService:
         self.webhook_url = webhook_url or envs.DISCORD_REPORTS_WEBHOOK
         self.timeout_seconds = timeout_seconds
 
-    def _post_message(self, payload: dict[str, object]) -> tuple[bool, str | None]:
+    def _post_message(
+        self, payload: dict[str, object]
+    ) -> tuple[bool, str | None]:
         if not self.webhook_url:
             return False, 'Discord webhook not configured'
 
@@ -48,7 +50,9 @@ class DiscordService:
         except TimeoutError:
             return False, 'Webhook timeout'
 
-    async def post_report_message(self, message: str) -> tuple[bool, str | None]:
+    async def post_report_message(
+        self, message: str
+    ) -> tuple[bool, str | None]:
         payload = {
             'content': message,
             'allowed_mentions': {'parse': []},

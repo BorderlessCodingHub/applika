@@ -32,9 +32,12 @@ class UpdateApplicationStepUseCase:
         self.application_repo = application_repo
         self.application_step_repo = application_step_repo
 
-    async def _check_sibling_steps(self, application: ApplicationModel,
-                                   data: ApplicationStepUpdateDTO,
-                                   step_id: int):
+    async def _check_sibling_steps(
+        self,
+        application: ApplicationModel,
+        data: ApplicationStepUpdateDTO,
+        step_id: int,
+    ):
         """Enforce step chronology against the parent application and
         the updated step's neighbouring siblings.
 
@@ -66,12 +69,12 @@ class UpdateApplicationStepUseCase:
 
         if prev_date is not None and data.step_date < prev_date:
             raise InvalidDate(
-                "Step date must be greater than or equal to the previous step date"
+                'Step date must be greater than or equal to the previous step date'
             )
 
         if next_date is not None and data.step_date > next_date:
             raise InvalidDate(
-                "Step date must be less than or equal to the next step date"
+                'Step date must be less than or equal to the next step date'
             )
 
     async def execute(
@@ -81,9 +84,7 @@ class UpdateApplicationStepUseCase:
             data.application_id, user_id
         )
         if not application:
-            raise ResourceNotFound(
-                'Application not found or not owned by user'
-            )
+            raise ResourceNotFound('Application not found or not owned by user')
         if application.cycle_id is not None:
             raise BusinessRuleViolation(
                 'Cannot modify an application from an archived cycle'

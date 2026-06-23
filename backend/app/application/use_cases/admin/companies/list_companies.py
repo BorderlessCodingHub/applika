@@ -24,13 +24,15 @@ class ListAdminCompaniesUseCase:
     ) -> PaginatedCompaniesDTO:
         logger.info(
             'Admin listed companies',
-            extra={'extra_data': {
-                'event': 'admin_list_companies',
-                'admin_id': admin_id,
-                'search': search,
-                'is_active': is_active,
-                'page': page,
-            }},
+            extra={
+                'extra_data': {
+                    'event': 'admin_list_companies',
+                    'admin_id': admin_id,
+                    'search': search,
+                    'is_active': is_active,
+                    'page': page,
+                }
+            },
         )
         rows, total = await self.admin_repo.get_admin_companies(
             search=search,
@@ -45,7 +47,5 @@ class ListAdminCompaniesUseCase:
             total=total,
             page=page,
             per_page=per_page,
-            total_pages=(
-                math.ceil(total / per_page) if total else 0
-            ),
+            total_pages=(math.ceil(total / per_page) if total else 0),
         )

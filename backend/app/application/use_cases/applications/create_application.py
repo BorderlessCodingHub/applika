@@ -32,11 +32,13 @@ class CreateApplicationUseCase:
         if not platform:
             logger.warning(
                 f'Platform not found: {data.platform_id}',
-                extra={'extra_data': {
-                    'event': 'create_application_failed',
-                    'reason': 'platform_not_found',
-                    'user_id': data.user_id,
-                }},
+                extra={
+                    'extra_data': {
+                        'event': 'create_application_failed',
+                        'reason': 'platform_not_found',
+                        'user_id': data.user_id,
+                    }
+                },
             )
             raise ResourceNotFound('Platform not found')
 
@@ -49,13 +51,15 @@ class CreateApplicationUseCase:
         )
         logger.info(
             f'Application created: {application.id}',
-            extra={'extra_data': {
-                'event': 'application_created',
-                'application_id': application.id,
-                'user_id': data.user_id,
-                'company': company_name,
-                'role': data.role,
-            }},
+            extra={
+                'extra_data': {
+                    'event': 'application_created',
+                    'application_id': application.id,
+                    'user_id': data.user_id,
+                    'company': company_name,
+                    'role': data.role,
+                }
+            },
         )
         return ApplicationDTO.model_validate(application)
 

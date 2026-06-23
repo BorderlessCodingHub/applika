@@ -69,8 +69,7 @@ class QuinzenalReportRepository:
         return list(reports)
 
     async def get_by_user_id_and_report_day(
-        self, user_id: int, report_day: int,
-        cycle_id: int | None = None
+        self, user_id: int, report_day: int, cycle_id: int | None = None
     ) -> QuinzenalReportModel | None:
         return await self.session.scalar(
             select(QuinzenalReportModel).where(
@@ -136,7 +135,9 @@ class QuinzenalReportRepository:
         applications_count = int(applications_count or 0)
 
         initial_screenings_count = await self.session.scalar(
-            select(func.count(func.distinct(ApplicationStepModel.application_id)))
+            select(
+                func.count(func.distinct(ApplicationStepModel.application_id))
+            )
             .select_from(ApplicationStepModel)
             .join(
                 ApplicationModel,
@@ -157,7 +158,9 @@ class QuinzenalReportRepository:
         initial_screenings_count = int(initial_screenings_count or 0)
 
         interviews_completed_fortnight = await self.session.scalar(
-            select(func.count(func.distinct(ApplicationStepModel.application_id)))
+            select(
+                func.count(func.distinct(ApplicationStepModel.application_id))
+            )
             .select_from(ApplicationStepModel)
             .join(
                 ApplicationModel,
@@ -175,10 +178,14 @@ class QuinzenalReportRepository:
                 StepDefinitionModel.name.in_(INTERVIEW_FUNNEL_STEP_NAMES),
             )
         )
-        interviews_completed_fortnight = int(interviews_completed_fortnight or 0)
+        interviews_completed_fortnight = int(
+            interviews_completed_fortnight or 0
+        )
 
         offers_count = await self.session.scalar(
-            select(func.count(func.distinct(ApplicationStepModel.application_id)))
+            select(
+                func.count(func.distinct(ApplicationStepModel.application_id))
+            )
             .select_from(ApplicationStepModel)
             .join(
                 ApplicationModel,
@@ -199,7 +206,9 @@ class QuinzenalReportRepository:
         offers_count = int(offers_count or 0)
 
         active_processes_count = await self.session.scalar(
-            select(func.count(func.distinct(ApplicationStepModel.application_id)))
+            select(
+                func.count(func.distinct(ApplicationStepModel.application_id))
+            )
             .select_from(ApplicationStepModel)
             .join(
                 ApplicationModel,
@@ -248,7 +257,9 @@ class QuinzenalReportRepository:
         total_applications_count = int(total_applications_count or 0)
 
         total_initial_screenings_count = await self.session.scalar(
-            select(func.count(func.distinct(ApplicationStepModel.application_id)))
+            select(
+                func.count(func.distinct(ApplicationStepModel.application_id))
+            )
             .select_from(ApplicationStepModel)
             .join(
                 ApplicationModel,
@@ -272,7 +283,9 @@ class QuinzenalReportRepository:
         )
 
         total_offers_count = await self.session.scalar(
-            select(func.count(func.distinct(ApplicationStepModel.application_id)))
+            select(
+                func.count(func.distinct(ApplicationStepModel.application_id))
+            )
             .select_from(ApplicationStepModel)
             .join(
                 ApplicationModel,

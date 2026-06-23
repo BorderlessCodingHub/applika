@@ -1,5 +1,4 @@
 from datetime import date
-from typing import List
 
 from fastapi import APIRouter, Query, Response
 
@@ -19,6 +18,7 @@ from app.presentation.schemas.application_step import AgendaStepSchema
 from app.presentation.schemas.user import UpdateUserProfile, UserProfile
 
 router = APIRouter(tags=['Users'], responses={'403': {'model': DetailSchema}})
+EMPTY_DATE_QUERY = Query(None)
 
 
 @router.get('/users/me', response_model=UserProfile)
@@ -38,14 +38,12 @@ async def update_me(
     return UserProfile.model_validate(user)
 
 
-@router.get(
-    '/users/me/agenda', response_model=List[AgendaStepSchema]
-)
+@router.get('/users/me/agenda', response_model=list[AgendaStepSchema])
 async def get_my_agenda(
     c_user: CurrentUserDp,
     app_step_repo: ApplicationStepRepositoryDp,
-    from_date: date | None = Query(None),
-    to_date: date | None = Query(None),
+    from_date: date | None = EMPTY_DATE_QUERY,
+    to_date: date | None = EMPTY_DATE_QUERY,
 ):
     use_case = GetUserAgendaUseCase(app_step_repo)
     dtos = await use_case.execute(
@@ -67,9 +65,5 @@ async def delete_me(
         await user_repo.delete(user)
 
     is_prod = envs.ENVIRONMENT == 'PROD'
-    response.delete_cookie(
-        '__access', path='/', secure=is_prod, httponly=True
-    )
-    response.delete_cookie(
-        '__refresh', path='/', secure=is_prod, httponly=True
-    )
+    response.delete_cookie('__access', path='/', secure=is_prod, httponly=True)
+    response.delete_cookie('__refresh', path='/', secure=is_prod, httponly=True)

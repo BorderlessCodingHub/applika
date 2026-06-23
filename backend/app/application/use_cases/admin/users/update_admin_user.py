@@ -27,12 +27,14 @@ class UpdateAdminUserUseCase:
         if not user:
             logger.warning(
                 f'Admin update user failed: {user_id}',
-                extra={'extra_data': {
-                    'event': 'admin_update_user_failed',
-                    'reason': 'user_not_found',
-                    'target_user_id': user_id,
-                    'admin_id': admin_id,
-                }},
+                extra={
+                    'extra_data': {
+                        'event': 'admin_update_user_failed',
+                        'reason': 'user_not_found',
+                        'target_user_id': user_id,
+                        'admin_id': admin_id,
+                    }
+                },
             )
             raise ResourceNotFound('User not found')
 
@@ -44,12 +46,14 @@ class UpdateAdminUserUseCase:
 
         logger.info(
             f'Admin updated user: {user_id}',
-            extra={'extra_data': {
-                'event': 'admin_update_user',
-                'target_user_id': user_id,
-                'admin_id': admin_id,
-                'fields_updated': list(update_data.keys()),
-            }},
+            extra={
+                'extra_data': {
+                    'event': 'admin_update_user',
+                    'target_user_id': user_id,
+                    'admin_id': admin_id,
+                    'fields_updated': list(update_data.keys()),
+                }
+            },
         )
 
         detail = await self.admin_repo.get_user_detail(user_id)

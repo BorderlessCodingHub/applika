@@ -71,7 +71,9 @@ class GetReportUseCase:
         )
 
     async def execute(
-        self, user_id: int, report_day: ReportDays,
+        self,
+        user_id: int,
+        report_day: ReportDays,
         start_date: date | None,
         cycle_id: int | None = None,
     ) -> ReportDetailDTO:
@@ -79,16 +81,15 @@ class GetReportUseCase:
         if report_day > 1:
             start_date = None
 
-        reports = await self.report_repo.get_all_by_user_id(
-            user_id, cycle_id
-        )
+        reports = await self.report_repo.get_all_by_user_id(user_id, cycle_id)
         reports_by_day = {report.report_day: report for report in reports}
         submitted_days = set(reports_by_day)
 
         day_one_report = reports_by_day.get(1)
         if start_date is None:
-            start_date = (day_one_report.start_date
-                          if day_one_report else date.today())
+            start_date = (
+                day_one_report.start_date if day_one_report else date.today()
+            )
         current_day = get_current_day(start_date)
         next_report_day = get_next_report_day(submitted_days)
 
@@ -139,5 +140,6 @@ class GetReportUseCase:
             can_submit=can_submit,
             manual_metrics=manual_metrics,
             period=ReportPeriodDTO(
-                start_date=period_start, end_date=period_end),
+                start_date=period_start, end_date=period_end
+            ),
         )

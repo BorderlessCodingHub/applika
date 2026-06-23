@@ -34,8 +34,7 @@ from app.presentation.schemas.quinzenal_report import (
     SubmitReportResponse,
 )
 
-router = APIRouter(tags=['Reports'], responses={
-                   '403': {'model': DetailSchema}})
+router = APIRouter(tags=['Reports'], responses={'403': {'model': DetailSchema}})
 
 
 @router.get('/reports', response_model=ReportListResponse)
@@ -53,9 +52,9 @@ async def list_reports(
 
 
 ReportDaysPath = Annotated[ReportDays, BeforeValidator(lambda v: int(v))]
-ReportStartDate = Annotated[date | None, Query(
-    description="This param is 'required' for the first day"
-)]
+ReportStartDate = Annotated[
+    date | None, Query(description="This param is 'required' for the first day")
+]
 
 
 @router.get(
@@ -73,7 +72,9 @@ async def get_report(
 ):
     use_case = GetReportUseCase(report_repo)
     report = await use_case.execute(
-        c_user.id, day, start_date,
+        c_user.id,
+        day,
+        start_date,
         cycle_id=int(cycle_id) if cycle_id else None,
     )
     return ReportDetailResponse.model_validate(report.model_dump())
@@ -97,7 +98,10 @@ async def submit_report(
     user_repo: UserRepositoryDp,
 ):
     use_case = SubmitReportUseCase(
-        report_repo, discord_service, gh_service, user_repo,
+        report_repo,
+        discord_service,
+        gh_service,
+        user_repo,
     )
     data = SubmitReportPayloadDTO(**payload.model_dump())
     report = await use_case.execute(c_user.id, c_user.username, day, data)

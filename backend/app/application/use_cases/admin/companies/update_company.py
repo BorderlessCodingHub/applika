@@ -23,18 +23,18 @@ class UpdateAdminCompanyUseCase:
         data: AdminCompanyUpdateDTO,
         admin_id: int,
     ) -> AdminCompanyRowDTO:
-        company = await self.company_repo.get_by_id_unfiltered(
-            company_id
-        )
+        company = await self.company_repo.get_by_id_unfiltered(company_id)
         if not company:
             logger.warning(
                 f'Admin update company failed: {company_id}',
-                extra={'extra_data': {
-                    'event': 'admin_update_company_failed',
-                    'reason': 'company_not_found',
-                    'company_id': company_id,
-                    'admin_id': admin_id,
-                }},
+                extra={
+                    'extra_data': {
+                        'event': 'admin_update_company_failed',
+                        'reason': 'company_not_found',
+                        'company_id': company_id,
+                        'admin_id': admin_id,
+                    }
+                },
             )
             raise ResourceNotFound('Company not found')
 
@@ -46,12 +46,14 @@ class UpdateAdminCompanyUseCase:
 
         logger.info(
             f'Admin updated company: {company_id}',
-            extra={'extra_data': {
-                'event': 'admin_update_company',
-                'company_id': company_id,
-                'admin_id': admin_id,
-                'fields_updated': list(update_data.keys()),
-            }},
+            extra={
+                'extra_data': {
+                    'event': 'admin_update_company',
+                    'company_id': company_id,
+                    'admin_id': admin_id,
+                    'fields_updated': list(update_data.keys()),
+                }
+            },
         )
 
         rows, _ = await self.admin_repo.get_admin_companies(

@@ -56,11 +56,14 @@ uv sync
 # Run development server (port 8000 with auto-reload)
 uv run task run
 
+# Run formatter
+make format
+
 # Run linter with auto-fix
-uv run task ruff
+make lint
 
 # Run tests with coverage
-uv run task pytest
+make test
 ```
 
 ### Database Migrations
@@ -92,6 +95,20 @@ docker compose up --build
 # Run migrations in container (entrypoint already runs them)
 docker exec applika.dev-api alembic upgrade head
 ```
+
+## End-of-Task Validation
+
+**Always finish a backend task by running formatting, linting, and tests.**
+
+Run these at the end of any backend code change:
+
+```bash
+make format
+make lint
+make test
+```
+
+Do not skip this unless the user explicitly asks you not to run validation or the environment prevents it.
 
 ## Architecture
 
@@ -149,10 +166,14 @@ See `app/application/use_cases/applications/create_application.py` for reference
 - GitHub OAuth via `fastapi-sso` with scopes `user:email`, `read:org`
 - **Access token**: short-lived JWT in HTTP-only cookie (`__access`), payload `{sub: github_id, kind: 'access', exp: ...}`
 - **Refresh token**: opaque UUID stored in Redis, referenced via HTTP-only cookie (`__refresh`), TTL configurable (default 7 days)
+- **CLI login handoff**: external-browser GitHub sign-in with loopback redirect and short-lived Redis-backed exchange code; the CLI receives the same `__access` and `__refresh` session values in JSON and stores them locally
 - GitHub access token stored **encrypted** (Fernet) in `users.encrypted_github_token` — never logged or exposed
 - `get_current_user()` dependency extracts user from access cookie
 - `GET /auth/refresh` validates refresh token from Redis, verifies GitHub token via cached `GET /user`, re-issues access cookie; invalidates session if GitHub token revoked
 - `GET /auth/logout` revokes refresh token from Redis and clears both cookies
+- `POST /auth/cli/start` creates a pending CLI login in Redis and returns the browser login URL
+- `GET /auth/cli/login/{login_id}` marks the browser session as CLI-initiated, then redirects into GitHub OAuth
+- `POST /auth/cli/exchange` validates a short-lived one-time code and returns the normal session values in JSON instead of `Set-Cookie`
 - Token utilities in `app/core/tokens.py`, encryption in `app/core/crypto.py`
 - Cookie settings: HTTPOnly, Secure in PROD, SameSite=Lax
 
@@ -186,6 +207,9 @@ All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUID
 |--------|-------|------|-------------|
 | GET | `/auth/github/login` | No | Redirect to GitHub OAuth |
 | GET | `/auth/github/callback` | No | OAuth callback, sets access + refresh cookies |
+| POST | `/auth/cli/start` | No | Create pending CLI login and return browser login URL |
+| GET | `/auth/cli/login/{login_id}` | No | Mark browser flow as CLI login and redirect to GitHub OAuth |
+| POST | `/auth/cli/exchange` | No | Exchange CLI auth code for JSON `__access` and `__refresh` values |
 | GET | `/auth/refresh` | No | Validate refresh token, re-issue access cookie |
 | GET | `/auth/logout` | No | Revoke refresh token, clear both cookies |
 
