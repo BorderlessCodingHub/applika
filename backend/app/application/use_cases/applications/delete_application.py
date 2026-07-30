@@ -24,15 +24,15 @@ class DeleteApplicationUseCase:
         if not application:
             logger.warning(
                 f'Delete failed: application {id} not found',
-                extra={'extra_data': {
-                    'event': 'delete_application_failed',
-                    'application_id': id,
-                    'user_id': user_id,
-                }},
+                extra={
+                    'extra_data': {
+                        'event': 'delete_application_failed',
+                        'application_id': id,
+                        'user_id': user_id,
+                    }
+                },
             )
-            raise ResourceNotFound(
-                'Application not found or not owned by user'
-            )
+            raise ResourceNotFound('Application not found or not owned by user')
         if application.cycle_id is not None:
             raise BusinessRuleViolation(
                 'Cannot modify an application from an archived cycle'
@@ -42,9 +42,11 @@ class DeleteApplicationUseCase:
         await self.application_repo.delete_by_id(id)
         logger.info(
             f'Application deleted: {id}',
-            extra={'extra_data': {
-                'event': 'application_deleted',
-                'application_id': id,
-                'user_id': user_id,
-            }},
+            extra={
+                'extra_data': {
+                    'event': 'application_deleted',
+                    'application_id': id,
+                    'user_id': user_id,
+                }
+            },
         )

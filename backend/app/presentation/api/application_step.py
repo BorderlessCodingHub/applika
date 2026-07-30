@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter
 
 from app.application.dto.application_step import (
@@ -41,7 +39,7 @@ router = APIRouter(
 
 @router.get(
     '/{application_id}/steps',
-    response_model=List[ApplicationStep],
+    response_model=list[ApplicationStep],
     responses={'404': {'model': DetailSchema}},
 )
 async def get_all_application_steps(

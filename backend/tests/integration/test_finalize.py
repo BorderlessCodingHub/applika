@@ -137,3 +137,61 @@ async def test_finalize_with_invalid_feedback_returns_404(
     )
 
     assert response.status_code == 404, msg(404, response.status_code)
+
+
+async def test_finalize_offer_requires_accepted_feedback(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await _seed_finalize_data(db_session)
+
+    payload = {
+        'step_id': 2,  # Offer
+        'feedback_id': base_data()['fb_denied'].id,  # Denied
+        'finalize_date': '2025-12-15',
+    }
+    response = await async_client.post(
+        '/applications/1/finalize', json=payload
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+    assert response.json()['detail'] == 'Offer final step requires Accepted feedback'
+
+
+async def test_finalize_accepted_requires_offer_step(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await _seed_finalize_data(db_session)
+
+    payload = {
+        'step_id': 3,  # Denied
+        'feedback_id': 2,  # Accepted
+        'finalize_date': '2025-12-15',
+    }
+    response = await async_client.post(
+        '/applications/1/finalize', json=payload
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+    assert response.json()['detail'] == 'Accepted feedback requires the Offer final step'
+
+
+async def test_finalize_salary_offer_requires_offer_and_accepted(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await _seed_finalize_data(db_session)
+
+    payload = {
+        'step_id': 3,  # Denied
+        'feedback_id': base_data()['fb_denied'].id,  # Denied
+        'finalize_date': '2025-12-15',
+        'salary_offer': 95000.0,
+    }
+    response = await async_client.post(
+        '/applications/1/finalize', json=payload
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+    assert (
+        response.json()['detail']
+        == 'salary_offer can only be set for Offer + Accepted'
+    )

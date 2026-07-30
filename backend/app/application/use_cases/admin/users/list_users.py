@@ -24,13 +24,15 @@ class ListAdminUsersUseCase:
     ) -> PaginatedUsersDTO:
         logger.info(
             'Admin listed users',
-            extra={'extra_data': {
-                'event': 'admin_list_users',
-                'admin_id': admin_id,
-                'search': search,
-                'seniority': seniority,
-                'page': page,
-            }},
+            extra={
+                'extra_data': {
+                    'event': 'admin_list_users',
+                    'admin_id': admin_id,
+                    'search': search,
+                    'seniority': seniority,
+                    'page': page,
+                }
+            },
         )
         rows, total = await self.admin_repo.get_user_rows(
             search=search,
@@ -45,7 +47,5 @@ class ListAdminUsersUseCase:
             total=total,
             page=page,
             per_page=per_page,
-            total_pages=(
-                math.ceil(total / per_page) if total else 0
-            ),
+            total_pages=(math.ceil(total / per_page) if total else 0),
         )

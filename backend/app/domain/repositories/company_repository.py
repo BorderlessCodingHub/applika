@@ -1,5 +1,3 @@
-from typing import List
-
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,12 +14,11 @@ class CompanyRepository:
     async def get_by_id(self, id: int) -> CompanyModel | None:
         return await self.session.scalar(
             select(CompanyModel).where(
-                CompanyModel.id == id,
-                CompanyModel.is_active.is_(True)
+                CompanyModel.id == id, CompanyModel.is_active.is_(True)
             )
         )
 
-    async def get_all(self, name: str | None = None) -> List[CompanyModel]:
+    async def get_all(self, name: str | None = None) -> list[CompanyModel]:
         query = (
             select(CompanyModel)
             .where(CompanyModel.is_active.is_(True))
@@ -31,9 +28,7 @@ class CompanyRepository:
             query = query.where(CompanyModel.name.ilike(f'%{name}%'))
         return await self.session.scalars(query)
 
-    async def get_by_id_unfiltered(
-        self, id: int
-    ) -> CompanyModel | None:
+    async def get_by_id_unfiltered(self, id: int) -> CompanyModel | None:
         return await self.session.scalar(
             select(CompanyModel).where(CompanyModel.id == id)
         )
@@ -51,9 +46,7 @@ class CompanyRepository:
     async def delete(self, id: int) -> None:
         try:
             await self.session.execute(
-                delete(CompanyModel).where(
-                    CompanyModel.id == id
-                )
+                delete(CompanyModel).where(CompanyModel.id == id)
             )
             await self.session.commit()
         except Exception as e:
@@ -70,11 +63,11 @@ class CompanyRepository:
             await self.session.commit()
             await self.session.refresh(db_company)
             return db_company
-        except IntegrityError:
+        except IntegrityError as err:
             await self.session.rollback()
             raise ResourceConflict(
                 'A company with this name and URL already exists.'
-            )
+            ) from err
         except Exception as e:
             await self.session.rollback()
             raise e

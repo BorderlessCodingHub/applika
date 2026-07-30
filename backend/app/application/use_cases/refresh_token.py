@@ -24,9 +24,7 @@ class RefreshTokenUseCase:
         self.gh_service = gh_service
         self.redis_client = redis_client
 
-    async def execute(
-        self, refresh_id: str | None, response: Response
-    ) -> None:
+    async def execute(self, refresh_id: str | None, response: Response) -> None:
         """Validate refresh token, verify GitHub token, re-issue
         access cookie. Raises HTTPException on failure."""
         if not refresh_id:
@@ -35,9 +33,7 @@ class RefreshTokenUseCase:
                 detail='Not authenticated',
             )
 
-        user_id = await validate_refresh_token(
-            refresh_id, self.redis_client
-        )
+        user_id = await validate_refresh_token(refresh_id, self.redis_client)
         if user_id is None:
             clear_access_cookie(response)
             clear_refresh_cookie(response)
@@ -48,9 +44,7 @@ class RefreshTokenUseCase:
 
         user = await self.user_repo.get_by_id(user_id)
         if not user:
-            await revoke_refresh_token(
-                refresh_id, self.redis_client
-            )
+            await revoke_refresh_token(refresh_id, self.redis_client)
             clear_access_cookie(response)
             clear_refresh_cookie(response)
             raise HTTPException(
@@ -65,9 +59,7 @@ class RefreshTokenUseCase:
                     user.id, github_token
                 )
                 if not is_valid:
-                    await revoke_refresh_token(
-                        refresh_id, self.redis_client
-                    )
+                    await revoke_refresh_token(refresh_id, self.redis_client)
                     clear_access_cookie(response)
                     clear_refresh_cookie(response)
                     raise HTTPException(

@@ -29,9 +29,7 @@ class GitHubService:
     def _auth_headers(self, token: str) -> dict:
         return {**self._HEADERS, 'Authorization': f'Bearer {token}'}
 
-    async def validate_token(
-        self, user_id: int, github_token: str
-    ) -> bool:
+    async def validate_token(self, user_id: int, github_token: str) -> bool:
         """Check if a GitHub token is still valid. Cached per user."""
         cache_key = f'applika:github:token_valid:{user_id}'
 
@@ -48,9 +46,7 @@ class GitHubService:
                 )
                 is_valid = response.status_code == 200
         except httpx.HTTPError as exc:
-            logger.error(
-                f'GitHub token validation failed: {exc}'
-            )
+            logger.error(f'GitHub token validation failed: {exc}')
             is_valid = False
 
         if user_id:
@@ -59,9 +55,7 @@ class GitHubService:
             )
         return is_valid
 
-    async def check_org_membership(
-        self, github_token: str
-    ) -> bool:
+    async def check_org_membership(self, github_token: str) -> bool:
         """Check if user belongs to the configured org. Not cached."""
         if not self.org_name:
             return False
@@ -74,25 +68,21 @@ class GitHubService:
                     timeout=10,
                 )
                 logger.debug(
-                    'GitHub /user/orgs response: \n' +
-                    f'{response.status_code} - {response.text}'
+                    'GitHub /user/orgs response: \n'
+                    + f'{response.status_code} - {response.text}'
                 )
                 if response.status_code != 200:
                     logger.warning(
-                        'GitHub /user/orgs returned '
-                        f'status {response.status_code}'
+                        f'GitHub /user/orgs returned status {response.status_code}'
                     )
                     is_member = False
                 else:
                     orgs = response.json()
                     is_member = any(
-                        org.get('login') == self.org_name
-                        for org in orgs
+                        org.get('login') == self.org_name for org in orgs
                     )
         except httpx.HTTPError as exc:
-            logger.error(
-                f'GitHub org membership check failed: {exc}'
-            )
+            logger.error(f'GitHub org membership check failed: {exc}')
             is_member = False
 
         return is_member

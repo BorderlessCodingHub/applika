@@ -29,12 +29,14 @@ class CreateAdminCompanyUseCase:
 
         logger.info(
             f'Admin created company: {company.name}',
-            extra={'extra_data': {
-                'event': 'admin_create_company',
-                'company_id': company.id,
-                'company_name': company.name,
-                'admin_id': created_by,
-            }},
+            extra={
+                'extra_data': {
+                    'event': 'admin_create_company',
+                    'company_id': company.id,
+                    'company_name': company.name,
+                    'admin_id': created_by,
+                }
+            },
         )
 
         rows, _ = await self.admin_repo.get_admin_companies(

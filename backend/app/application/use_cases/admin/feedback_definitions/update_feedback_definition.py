@@ -10,9 +10,7 @@ from app.domain.repositories.feedback_definition_repository import (
 
 
 class UpdateFeedbackDefinitionUseCase:
-    def __init__(
-        self, feedback_def_repo: FeedbackDefinitionRepository
-    ):
+    def __init__(self, feedback_def_repo: FeedbackDefinitionRepository):
         self.feedback_def_repo = feedback_def_repo
 
     async def execute(
@@ -21,28 +19,20 @@ class UpdateFeedbackDefinitionUseCase:
         data: FeedbackDefinitionUpdateDTO,
         admin_id: int,
     ) -> FeedbackDefinitionDTO:
-        feedback = await self.feedback_def_repo.get_by_id(
-            feedback_id
-        )
+        feedback = await self.feedback_def_repo.get_by_id(feedback_id)
         if not feedback:
             logger.warning(
-                f'Admin update feedback def failed: '
-                f'{feedback_id}',
-                extra={'extra_data': {
-                    'event': (
-                        'admin_update_feedback_definition'
-                        '_failed'
-                    ),
-                    'reason': (
-                        'feedback_definition_not_found'
-                    ),
-                    'feedback_definition_id': feedback_id,
-                    'admin_id': admin_id,
-                }},
+                f'Admin update feedback def failed: {feedback_id}',
+                extra={
+                    'extra_data': {
+                        'event': ('admin_update_feedback_definition_failed'),
+                        'reason': ('feedback_definition_not_found'),
+                        'feedback_definition_id': feedback_id,
+                        'admin_id': admin_id,
+                    }
+                },
             )
-            raise ResourceNotFound(
-                'Feedback definition not found'
-            )
+            raise ResourceNotFound('Feedback definition not found')
 
         update_data = data.model_dump(exclude_unset=True)
         for key, value in update_data.items():
@@ -51,16 +41,15 @@ class UpdateFeedbackDefinitionUseCase:
         feedback = await self.feedback_def_repo.update(feedback)
 
         logger.info(
-            f'Admin updated feedback definition: '
-            f'{feedback_id}',
-            extra={'extra_data': {
-                'event': (
-                    'admin_update_feedback_definition'
-                ),
-                'feedback_definition_id': feedback_id,
-                'admin_id': admin_id,
-                'fields_updated': list(update_data.keys()),
-            }},
+            f'Admin updated feedback definition: {feedback_id}',
+            extra={
+                'extra_data': {
+                    'event': ('admin_update_feedback_definition'),
+                    'feedback_definition_id': feedback_id,
+                    'admin_id': admin_id,
+                    'fields_updated': list(update_data.keys()),
+                }
+            },
         )
 
         return FeedbackDefinitionDTO.model_validate(feedback)

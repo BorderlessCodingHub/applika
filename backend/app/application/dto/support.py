@@ -1,5 +1,3 @@
-from typing import List
-
 from pydantic import BaseModel
 
 from app.application.dto import BaseSchema
@@ -22,6 +20,6 @@ class PlatformDTO(BaseSchema):
 
 
 class SupportDTO(BaseModel):
-    feedbacks: List[FeedbackDefinitionDTO]
-    steps: List[StepDefinitionDTO]
-    platforms: List[PlatformDTO]
+    feedbacks: list[FeedbackDefinitionDTO]
+    steps: list[StepDefinitionDTO]
+    platforms: list[PlatformDTO]

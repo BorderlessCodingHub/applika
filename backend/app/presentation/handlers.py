@@ -35,9 +35,7 @@ async def _business_rule_violation_handler(
     return JSONResponse(status_code=422, content={'detail': exc.message})
 
 
-async def _invalid_date_handler(
-    request: Request, exc: exceptions.InvalidDate
-):
+async def _invalid_date_handler(request: Request, exc: exceptions.InvalidDate):
     return JSONResponse(status_code=422, content={'detail': exc.message})
 
 

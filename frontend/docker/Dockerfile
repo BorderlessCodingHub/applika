@@ -9,7 +9,7 @@ ENV NEXT_PUBLIC_API_BASE_URL=${API_BASE_URL}
 WORKDIR /app
 
 COPY pnpm-lock.yaml package.json pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --config.dangerouslyAllowAllBuilds=true --frozen-lockfile
 
 COPY . .
 RUN pnpm build
