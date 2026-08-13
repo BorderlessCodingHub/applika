@@ -19,7 +19,6 @@ from app.presentation.dependencies import (
     CurrentUserDp,
     JobFitSnapshotRepositoryDp,
     JobRepositoryDp,
-    JobSourceRepositoryDp,
     PlatformRepositoryDp,
     TailoredDocumentRepositoryDp,
     UserResumeRepositoryDp,

@@ -114,13 +114,13 @@ class UserModel(BaseMixin, Base):
     user_feedbacks: Mapped[list[UserFeedbackModel]] = relationship(
         back_populates='user'
     )
-    resumes: Mapped[List['UserResumeModel']] = relationship(
+    resumes: Mapped[list['UserResumeModel']] = relationship(
         back_populates='user', cascade='all, delete-orphan'
     )
-    fit_snapshots: Mapped[List['JobFitSnapshotModel']] = relationship(
+    fit_snapshots: Mapped[list['JobFitSnapshotModel']] = relationship(
         back_populates='user', cascade='all, delete-orphan'
     )
-    tailored_documents: Mapped[List['TailoredDocumentModel']] = relationship(
+    tailored_documents: Mapped[list['TailoredDocumentModel']] = relationship(
         cascade='all, delete-orphan'
     )
     cycles: Mapped[list[CycleModel]] = relationship(back_populates='user')
@@ -525,13 +525,13 @@ class JobSourceModel(BaseMixin, Base):
     is_enabled: Mapped[bool] = mapped_column(
         sa.Boolean, default=True, nullable=False
     )
-    last_scraped_at: Mapped[Optional[datetime]] = mapped_column(
+    last_scraped_at: Mapped[datetime | None] = mapped_column(
         sa.DateTime(timezone=True)
     )
-    last_scrape_status: Mapped[Optional[str]] = mapped_column(sa.String(20))
-    last_scrape_error: Mapped[Optional[str]] = mapped_column(sa.Text)
+    last_scrape_status: Mapped[str | None] = mapped_column(sa.String(20))
+    last_scrape_error: Mapped[str | None] = mapped_column(sa.Text)
 
-    jobs: Mapped[List['JobModel']] = relationship(back_populates='source')
+    jobs: Mapped[list['JobModel']] = relationship(back_populates='source')
 
 
 class JobModel(BaseMixin, Base):
@@ -556,16 +556,16 @@ class JobModel(BaseMixin, Base):
     external_id: Mapped[str] = mapped_column(sa.String(500), nullable=False)
     title: Mapped[str] = mapped_column(sa.String(500), nullable=False)
     company_name: Mapped[str] = mapped_column(sa.String(300), nullable=False)
-    company_url: Mapped[Optional[str]] = mapped_column(sa.String(2083))
+    company_url: Mapped[str | None] = mapped_column(sa.String(2083))
     location_text: Mapped[str] = mapped_column(
         sa.String(300), default='Remote', nullable=False
     )
     job_url: Mapped[str] = mapped_column(sa.String(2083), nullable=False)
-    description_raw: Mapped[Optional[str]] = mapped_column(sa.Text)
+    description_raw: Mapped[str | None] = mapped_column(sa.Text)
     description_text: Mapped[str] = mapped_column(sa.Text, nullable=False)
-    employment_type: Mapped[Optional[str]] = mapped_column(sa.String(100))
-    salary_text: Mapped[Optional[str]] = mapped_column(sa.String(200))
-    posted_at: Mapped[Optional[datetime]] = mapped_column(
+    employment_type: Mapped[str | None] = mapped_column(sa.String(100))
+    salary_text: Mapped[str | None] = mapped_column(sa.String(200))
+    posted_at: Mapped[datetime | None] = mapped_column(
         sa.DateTime(timezone=True)
     )
     fetched_at: Mapped[datetime] = mapped_column(
@@ -574,13 +574,13 @@ class JobModel(BaseMixin, Base):
     is_active: Mapped[bool] = mapped_column(
         sa.Boolean, default=True, nullable=False
     )
-    content_hash: Mapped[Optional[str]] = mapped_column(sa.String(64))
+    content_hash: Mapped[str | None] = mapped_column(sa.String(64))
 
     source: Mapped['JobSourceModel'] = relationship(back_populates='jobs')
-    tags: Mapped[List['JobTagModel']] = relationship(
+    tags: Mapped[list['JobTagModel']] = relationship(
         back_populates='job', cascade='all, delete-orphan'
     )
-    fit_snapshots: Mapped[List['JobFitSnapshotModel']] = relationship(
+    fit_snapshots: Mapped[list['JobFitSnapshotModel']] = relationship(
         back_populates='job'
     )
 
@@ -616,11 +616,11 @@ class UserResumeModel(BaseMixin, Base):
     byte_size: Mapped[int] = mapped_column(sa.Integer, nullable=False)
 
     user: Mapped['UserModel'] = relationship()
-    fit_snapshots: Mapped[List['JobFitSnapshotModel']] = relationship(
+    fit_snapshots: Mapped[list['JobFitSnapshotModel']] = relationship(
         back_populates='resume',
         passive_deletes=True,
     )
-    tailored_documents: Mapped[List['TailoredDocumentModel']] = relationship(
+    tailored_documents: Mapped[list['TailoredDocumentModel']] = relationship(
         back_populates='resume',
         passive_deletes=True,
     )
@@ -682,7 +682,7 @@ class TailoredDocumentModel(BaseMixin, Base):
     job_id: Mapped[int] = mapped_column(
         sa.ForeignKey('jobs.id', ondelete='CASCADE'), nullable=False
     )
-    resume_id: Mapped[Optional[int]] = mapped_column(
+    resume_id: Mapped[int | None] = mapped_column(
         sa.ForeignKey('user_resumes.id', ondelete='SET NULL'), nullable=True
     )
     kind: Mapped[str] = mapped_column(
@@ -698,10 +698,10 @@ class TailoredDocumentModel(BaseMixin, Base):
     plain_text: Mapped[str] = mapped_column(sa.Text, nullable=False)
 
     job: Mapped['JobModel'] = relationship()
-    resume: Mapped[Optional['UserResumeModel']] = relationship(
+    resume: Mapped['UserResumeModel | None'] = relationship(
         back_populates='tailored_documents'
     )
-    ats_report: Mapped[Optional['AtsReportModel']] = relationship(
+    ats_report: Mapped['AtsReportModel | None'] = relationship(
         back_populates='tailored_document', uselist=False
     )
 
@@ -714,7 +714,7 @@ class AtsReportModel(BaseMixin, Base):
         unique=True,
         nullable=False,
     )
-    score: Mapped[Optional[int]] = mapped_column(sa.Integer)
+    score: Mapped[int | None] = mapped_column(sa.Integer)
     warnings_json: Mapped[str] = mapped_column(sa.Text, nullable=False)
     missing_keywords_json: Mapped[str] = mapped_column(
         sa.Text, nullable=False

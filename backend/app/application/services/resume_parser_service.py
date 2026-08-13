@@ -43,6 +43,7 @@ def _parse_pdf(data: bytes) -> str:
 def _parse_docx(data: bytes) -> str:
     try:
         import io
+
         import docx  # noqa: PLC0415
     except ImportError as exc:
         raise UnsupportedResumeFormat(

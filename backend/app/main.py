@@ -25,6 +25,7 @@ from app.presentation.api.user import router as profile_router
 from app.presentation.api.user_feedback import router as feedback_router
 from app.presentation.handlers import register_handlers
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     task = asyncio.create_task(run_scheduler())

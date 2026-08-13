@@ -2,6 +2,7 @@ import json
 
 from fastapi import APIRouter
 
+from app.core.exceptions import ResourceNotFound
 from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     CurrentUserDp,
@@ -12,7 +13,6 @@ from app.presentation.schemas.tailored_documents import (
     AtsReportSchema,
     TailoredDocumentSchema,
 )
-from app.core.exceptions import ResourceNotFound
 
 router = APIRouter(
     prefix='/tailored-documents',

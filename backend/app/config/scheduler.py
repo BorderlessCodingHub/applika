@@ -4,7 +4,9 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
-from app.application.use_cases.admin.jobs.run_ingestion import RunIngestionUseCase
+from app.application.use_cases.admin.jobs.run_ingestion import (
+    RunIngestionUseCase,
+)
 from app.config.db import AsyncLocalSession
 from app.domain.repositories.job_repository import JobRepository
 from app.domain.repositories.job_source_repository import JobSourceRepository

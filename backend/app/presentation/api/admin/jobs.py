@@ -12,7 +12,6 @@ from app.presentation.dependencies import (
     JobSourceRepositoryDp,
 )
 from app.presentation.schemas import DetailSchema
-from app.presentation.schemas.jobs import JobListResponseSchema
 
 router = APIRouter(
     prefix='/admin/jobs',

@@ -6,7 +6,6 @@ from app.application.dto.tailored_documents import (
     AtsReportDTO,
     TailoredDocumentDTO,
 )
-from app.application.services import ats_service
 from app.application.services.cv_tailor_service import (
     render_cv_plaintext,
     tailor_cv_heuristic,
@@ -67,8 +66,6 @@ class TailorCvUseCase:
         )
 
         # Persist ATS report
-        jd_keywords = cv.ats_warnings  # already computed inside tailor
-        ats_result = ats_service.check(plain_text, jd_keywords=[])
         ats_model = AtsReportModel(
             tailored_document_id=doc.id,
             score=None,

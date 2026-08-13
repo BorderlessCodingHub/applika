@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from app.application.services import ats_service
 from app.application.services.keywords_service import score_fit
 
-
 # ---------- Schema dataclasses -------------------------------------------
 
 

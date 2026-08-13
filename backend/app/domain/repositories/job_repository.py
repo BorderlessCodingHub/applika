@@ -9,9 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.domain.models import (
-    JobFitSnapshotModel,
     JobModel,
-    JobSourceModel,
     JobTagModel,
 )
 
