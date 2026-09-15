@@ -1,0 +1,135 @@
+# Dedicated E2E stack — production-simulating, ephemeral, isolated.
+#
+# NOT the dev stack. `frontend/docker-compose.yml` is the developer stack and
+# this file never touches it. Here both real production images are built and
+# run side by side, the way production serves them: `api` from
+# `backend/Dockerfile` (uvicorn behind the `/api` root path) and `web` from
+# `frontend/docker/Dockerfile` (the Next.js static export served by nginx).
+# The schema comes from the real Alembic chain (`alembic upgrade head`) on the
+# api command, against a real Postgres and a real Redis. Playwright drives the
+# `web` origin and every request it makes hits the real API — nothing is mocked.
+# See `scripts/e2e.sh` (the runner) and `backend/app/scripts/seed_e2e.py`
+# (real-session seeding, since GitHub OAuth cannot run headless).
+#
+# Isolation: a distinct compose PROJECT name (`applika-e2e`) and `applika-e2e-*`
+# container names — it shares NO project, containers, networks or volumes with
+# the dev stack, so tearing it down can never touch a developer's database.
+# There are intentionally NO named volumes: Postgres and Redis live in
+# throwaway container layers, so every run starts from an EMPTY database
+# migrated solely by `alembic upgrade head`.
+#
+# Two origins, one host: the cookies minted by the seeder are set for host
+# `127.0.0.1` and cookies ignore the port, so the session issued for the web
+# origin (`:8180`) is sent to the api origin (`:8100`), and SameSite=Lax treats
+# the two ports as same-site. Both ports are bound to 127.0.0.1 only.
+#
+#   Up:   docker compose -f docker-compose.e2e.yml up -d --build --wait
+#   Down: docker compose -f docker-compose.e2e.yml down -v --remove-orphans
+# Normally you don't call those directly — `scripts/e2e.sh` does.
+name: applika-e2e
+
+services:
+  # The real API image. `ENVIRONMENT: DEV` overrides the Dockerfile's PROD:
+  # it keeps /api/openapi.json reachable (the readiness probe) and — crucially
+  # — makes the session cookies non-Secure so they work over plain http in the
+  # harness (see core/tokens.py: secure = ENVIRONMENT == 'PROD').
+  # The image has no `uv` at runtime; PATH already points at /app/.venv/bin, so
+  # `alembic` and `uvicorn` are called directly.
+  api:
+    container_name: applika-e2e-api
+    image: applika-e2e-api
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command:
+      - /bin/sh
+      - -c
+      - alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000
+    environment:
+      ENVIRONMENT: DEV
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/applika_e2e
+      REDIS_URL: redis://redis:6379/0
+      # Synthetic, non-secret E2E values. JWT_SECRET is shared with the seed
+      # CLI (it runs via `compose exec api`, same env) so the tokens it mints
+      # validate. GITHUB_TOKEN_ENCRYPTION_KEY is a valid, throwaway Fernet key
+      # so app/core/crypto.py can build its Fernet. The GitHub client id and
+      # secret are required settings with no default; the OAuth flow is never
+      # exercised in E2E, so these dummies only satisfy the settings model.
+      # NOT for production.
+      JWT_SECRET: e2e-jwt-secret-not-for-production
+      GITHUB_TOKEN_ENCRYPTION_KEY: auiKtUcX-v_oZqv-A4viHsBK8MPYwDE_AFvK_EIj7WU=
+      GITHUB_CLIENT_ID: e2e-dummy-github-client-id
+      GITHUB_CLIENT_SECRET: e2e-dummy-github-client-secret
+      # The browser's origin is the `web` service, not the API's own port.
+      # allow_credentials is already True in app/main.py; CORS_HEADERS is
+      # widened here (the default is only X-Request-ID + Content-Type) so the
+      # axios preflight from the SPA passes without editing settings.py.
+      CORS_ORIGINS: '["http://127.0.0.1:8180"]'
+      CORS_HEADERS: '["X-Request-ID", "Content-Type", "Accept", "Authorization"]'
+    ports:
+      - "127.0.0.1:8100:8000"
+    healthcheck:
+      # applika has no /health route; openapi.json exists in every non-PROD
+      # environment and proves the app booted after the migration ran.
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/openapi.json')"
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 20s
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # The real frontend image: the static export built with the API base URL
+  # baked in at build time (NEXT_PUBLIC_API_BASE_URL), served by nginx with
+  # the SPA try_files fallback.
+  web:
+    container_name: applika-e2e-web
+    image: applika-e2e-web
+    build:
+      context: ./frontend
+      dockerfile: docker/Dockerfile
+      args:
+        API_BASE_URL: http://127.0.0.1:8100/api
+    ports:
+      - "127.0.0.1:8180:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # EMPTY on boot — no volume. The schema comes only from the api service's
+  # `alembic upgrade head`, so every run starts from a clean, migrated database.
+  db:
+    container_name: applika-e2e-db
+    image: postgres:16
+    environment:
+      POSTGRES_DB: applika_e2e
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d applika_e2e"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    container_name: applika-e2e-redis
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+# NO top-level `volumes:` — by design. Nothing persists across `down`.
