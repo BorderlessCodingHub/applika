@@ -48,12 +48,12 @@ export function ReportReadOnly({
         <button
           type="button"
           onClick={onCancel}
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
+          className="mb-3 flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ChevronLeft className="h-4 w-4" />
           Back to Reports
         </button>
-        <h1 className="text-2xl font-display font-bold tracking-tight">
+        <h1 className="font-display text-2xl font-bold tracking-tight">
           Report — Day {dayInterval} of {ReportDays.at(-1)}
         </h1>
         <span className="text-sm font-medium text-primary">
@@ -69,7 +69,7 @@ export function ReportReadOnly({
             title="Auto-Calculated Metrics"
             description="These metrics are automatically calculated from your application data."
           />
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard
               icon={Briefcase}
               label="Applications"
@@ -98,11 +98,11 @@ export function ReportReadOnly({
       <Card>
         <CardContent className="p-5">
           <SectionHeader icon={Target} title="Manual Metrics" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <Label className="mb-1.5 block">Challenge Start Date</Label>
               <Input
-                className="disabled:opacity-100 bg-secondary/40"
+                className="bg-secondary/40 disabled:opacity-100"
                 disabled
                 value={reportData.period?.start_date ?? "—"}
               />
@@ -113,7 +113,7 @@ export function ReportReadOnly({
                 Mock Interviews
               </Label>
               <Input
-                className="disabled:opacity-100 bg-secondary/40"
+                className="bg-secondary/40 disabled:opacity-100"
                 disabled
                 value={manualMetrics?.mock_interviews_count ?? "—"}
               />
@@ -124,7 +124,7 @@ export function ReportReadOnly({
                 LinkedIn Posts
               </Label>
               <Input
-                className="disabled:opacity-100 bg-secondary/40"
+                className="bg-secondary/40 disabled:opacity-100"
                 disabled
                 value={manualMetrics?.linkedin_posts_count ?? "—"}
               />
@@ -135,7 +135,7 @@ export function ReportReadOnly({
                 Strategic Connections
               </Label>
               <Input
-                className="disabled:opacity-100 bg-secondary/40"
+                className="bg-secondary/40 disabled:opacity-100"
                 disabled
                 value={manualMetrics?.strategic_connections_count ?? "—"}
               />
@@ -159,7 +159,7 @@ export function ReportReadOnly({
                 Biggest Win
               </Label>
               <Textarea
-                className="disabled:opacity-100 bg-secondary/40 resize-none"
+                className="resize-none bg-secondary/40 disabled:opacity-100"
                 disabled
                 value={manualMetrics?.biggest_win ?? "—"}
               />
@@ -170,7 +170,7 @@ export function ReportReadOnly({
                 Biggest Challenge
               </Label>
               <Textarea
-                className="disabled:opacity-100 bg-secondary/40 resize-none"
+                className="resize-none bg-secondary/40 disabled:opacity-100"
                 disabled
                 value={manualMetrics?.biggest_challenge ?? "—"}
               />
@@ -183,7 +183,7 @@ export function ReportReadOnly({
       <Card>
         <CardContent className="p-5">
           <SectionHeader icon={BarChart3} title="Accumulated Totals" />
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard
               icon={Briefcase}
               label="Total Applications"
@@ -212,12 +212,12 @@ export function ReportReadOnly({
       <Card>
         <CardContent className="p-5">
           <SectionHeader icon={Target} title="Next Fortnight Goal" />
-          <p className="text-xs text-muted-foreground -mt-2 mb-4">
+          <p className="-mt-2 mb-4 text-xs text-muted-foreground">
             What do you want to achieve in the next{" "}
             <span className="font-semibold text-primary">14 days</span>?
           </p>
           <Textarea
-            className="disabled:opacity-100 bg-secondary/40 resize-none"
+            className="resize-none bg-secondary/40 disabled:opacity-100"
             disabled
             value={manualMetrics?.next_fortnight_goal ?? "—"}
           />

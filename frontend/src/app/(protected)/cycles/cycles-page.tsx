@@ -53,10 +53,10 @@ export function CyclesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-display font-bold tracking-tight">
+        <h1 className="font-display text-2xl font-bold tracking-tight">
           Cycles
         </h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
+        <p className="mt-0.5 text-sm text-muted-foreground">
           Manage your archived job search cycles. Deleting a cycle permanently
           removes all its applications, reports, and statistics.
         </p>
@@ -66,11 +66,11 @@ export function CyclesPage() {
         <ListSkeleton />
       ) : !cycles || cycles.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border py-16 text-center">
-          <History className="h-10 w-10 text-muted-foreground/40 mb-3" />
+          <History className="mb-3 h-10 w-10 text-muted-foreground/40" />
           <p className="text-sm font-medium text-muted-foreground">
             No archived cycles yet
           </p>
-          <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs">
+          <p className="mt-1 max-w-xs text-xs text-muted-foreground/70">
             When you start a new cycle from the header, your current
             applications and reports will be archived here.
           </p>
@@ -87,15 +87,15 @@ export function CyclesPage() {
               </div>
 
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold leading-tight truncate">
+                <p className="truncate text-sm font-semibold leading-tight">
                   {cycle.name}
                 </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   Created {formatDate(cycle.created_at)}
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex shrink-0 items-center gap-2">
                 <Button
                   size="sm"
                   variant="ghost"
@@ -112,7 +112,7 @@ export function CyclesPage() {
                   size="sm"
                   variant="ghost"
                   onClick={() => setDeleteTarget(cycle)}
-                  className="gap-1.5 text-destructive/80 hover:text-destructive hover:bg-destructive/10"
+                  className="gap-1.5 text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Delete

@@ -165,14 +165,19 @@ export function CompaniesPage() {
           </div>
         ) : (
           <>
-            <div className={cn("overflow-x-auto transition-opacity duration-200", isFetching && "opacity-50")}>
+            <div
+              className={cn(
+                "overflow-x-auto transition-opacity duration-200",
+                isFetching && "opacity-50",
+              )}
+            >
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-y border-border/40 bg-accent/20">
                     <th className="px-5 py-2.5 text-left font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
                       Company
                     </th>
-                    <th className="hidden px-3 py-2.5 text-left md:table-cell font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                    <th className="hidden px-3 py-2.5 text-left font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground md:table-cell">
                       URL
                     </th>
                     <th className="px-3 py-2.5 text-center font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
@@ -181,7 +186,7 @@ export function CompaniesPage() {
                     <th className="px-3 py-2.5 text-right font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
                       Apps
                     </th>
-                    <th className="hidden px-3 py-2.5 text-right lg:table-cell font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                    <th className="hidden px-3 py-2.5 text-right font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground lg:table-cell">
                       Created
                     </th>
                     <th className="px-5 py-2.5 text-right font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">

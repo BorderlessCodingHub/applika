@@ -39,11 +39,7 @@ function renderInsideLabel(props: Record<string, unknown>) {
   );
 }
 
-export function AvgDaysPerStepChart({
-  cycleId,
-}: {
-  cycleId?: string | null;
-}) {
+export function AvgDaysPerStepChart({ cycleId }: { cycleId?: string | null }) {
   const { data, isLoading } = useStepAvgDays(cycleId);
 
   return (
@@ -77,7 +73,10 @@ export function AvgDaysPerStepChart({
               width={80}
               stroke="none"
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "#8d8d8d12" }} />
+            <Tooltip
+              content={<CustomTooltip />}
+              cursor={{ fill: "#8d8d8d12" }}
+            />
             <Bar dataKey="average_days" radius={[0, 4, 4, 0]}>
               <LabelList dataKey="average_days" content={renderInsideLabel} />
 

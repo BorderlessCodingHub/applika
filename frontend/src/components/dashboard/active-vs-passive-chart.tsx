@@ -62,11 +62,7 @@ function renderInnerLabel(props: Record<string, unknown>) {
   );
 }
 
-export function ActiveVsPassiveChart({
-  cycleId,
-}: {
-  cycleId?: string | null;
-}) {
+export function ActiveVsPassiveChart({ cycleId }: { cycleId?: string | null }) {
   const { data, isLoading } = useModeStats(cycleId);
 
   const chartData = data

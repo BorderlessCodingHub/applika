@@ -2,10 +2,10 @@ import { IAuthService } from "../interfaces/i-auth-service";
 import { api } from "@/lib/api-client";
 
 export class AuthService implements IAuthService {
-  refresh(): Promise<{detail: string}> {
+  refresh(): Promise<{ detail: string }> {
     return api.get("/auth/refresh");
   }
-  logout(): Promise<{detail: string}> {
+  logout(): Promise<{ detail: string }> {
     return api.get("/auth/logout");
   }
 }

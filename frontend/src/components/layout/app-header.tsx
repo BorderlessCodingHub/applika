@@ -28,7 +28,10 @@ function UserMenu() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="rounded-full outline-none ring-offset-background transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-            <UserProfileAvatar className="h-8 w-8 text-xl cursor-pointer" user={user} />
+            <UserProfileAvatar
+              className="h-8 w-8 cursor-pointer text-xl"
+              user={user}
+            />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">

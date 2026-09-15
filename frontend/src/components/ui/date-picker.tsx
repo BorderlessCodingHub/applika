@@ -78,7 +78,7 @@ export function DatePickerInput({
         <Button
           variant={disabled ? "ghost" : "outline"}
           className={cn(
-            "bg-card w-full justify-start text-left font-normal",
+            "w-full justify-start bg-card text-left font-normal",
             className,
           )}
         >

@@ -174,7 +174,12 @@ export function UsersPage() {
           </div>
         ) : (
           <>
-            <div className={cn("overflow-x-auto transition-opacity duration-200", isFetching && "opacity-50")}>
+            <div
+              className={cn(
+                "overflow-x-auto transition-opacity duration-200",
+                isFetching && "opacity-50",
+              )}
+            >
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-y border-border/40 bg-accent/20">
@@ -470,9 +475,7 @@ export function UsersPage() {
                     <p className="text-lg font-bold tabular-nums text-rose-400">
                       {userDetail.denials}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Denials
-                    </p>
+                    <p className="text-[10px] text-muted-foreground">Denials</p>
                   </div>
                   <div>
                     <p className="text-lg font-bold tabular-nums text-amber-400">
@@ -499,7 +502,11 @@ export function UsersPage() {
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {userDetail.tech_stack.map((t) => (
-                      <Badge key={t} variant="secondary" className="text-[10px]">
+                      <Badge
+                        key={t}
+                        variant="secondary"
+                        className="text-[10px]"
+                      >
                         {t}
                       </Badge>
                     ))}
@@ -510,7 +517,6 @@ export function UsersPage() {
           )}
         </SheetContent>
       </Sheet>
-
     </div>
   );
 }

@@ -160,7 +160,7 @@ export function ApplicationsPage() {
           {/* Advanced filters */}
           {showAdvanced && (
             <Card className="flex animate-fade-in-up flex-wrap items-end gap-4 bg-background p-3">
-              <div className="space-y-1.5 w-40">
+              <div className="w-40 space-y-1.5">
                 <Label className="pl-1 text-sm text-muted-foreground">
                   Source
                 </Label>
@@ -183,7 +183,7 @@ export function ApplicationsPage() {
               </div>
 
               {(supports?.platforms?.length ?? 0) > 0 && (
-                <div className="space-y-1.5 w-40">
+                <div className="w-40 space-y-1.5">
                   <Label className="pl-1 text-sm text-muted-foreground">
                     Platform
                   </Label>
@@ -210,7 +210,7 @@ export function ApplicationsPage() {
                 </div>
               )}
 
-              <div className="space-y-1.5 w-40">
+              <div className="w-40 space-y-1.5">
                 <Label className="pl-1 text-sm text-muted-foreground">
                   From
                 </Label>
@@ -230,7 +230,7 @@ export function ApplicationsPage() {
                 />
               </div>
 
-              <div className="space-y-1.5 w-40">
+              <div className="w-40 space-y-1.5">
                 <Label className="pl-1 text-sm text-muted-foreground">To</Label>
                 <DatePickerInput
                   value={filters.dateRange?.end}
@@ -286,7 +286,7 @@ export function ApplicationsPage() {
         </div>
       ) : (
         <>
-          <div className="text-sm text-muted-foreground mb-4">
+          <div className="mb-4 text-sm text-muted-foreground">
             Found {filtered.length} application
             {filtered.length !== 1 ? "s" : ""}
           </div>

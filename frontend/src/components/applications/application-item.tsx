@@ -459,7 +459,7 @@ export function ApplicationStepTimeline({
       ) : (
         <div className="relative mt-3 space-y-0">
           {/* Vertical timeline line */}
-          <div className="absolute hidden sm:block bottom-2 left-[7px] top-2 w-px border-2 border-dashed border-border" />
+          <div className="absolute bottom-2 left-[7px] top-2 hidden w-px border-2 border-dashed border-border sm:block" />
 
           {steps.map((step) => {
             const supportStep = resolveStep(step.step_id);
@@ -477,7 +477,7 @@ export function ApplicationStepTimeline({
                 {/* Timeline dot */}
                 <div
                   className={cn(
-                    "relative hidden sm:block right-[1px] z-10 my-auto h-5 w-5 shrink-0 rounded-full border-2 bg-background",
+                    "relative right-[1px] z-10 my-auto hidden h-5 w-5 shrink-0 rounded-full border-2 bg-background sm:block",
                     isFuture && "border-dashed",
                   )}
                   style={{ borderColor: stepColor }}

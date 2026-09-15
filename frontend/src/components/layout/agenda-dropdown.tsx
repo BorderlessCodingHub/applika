@@ -92,8 +92,7 @@ function getUrgencyColor(step: AgendaStep): string {
     stepDateTime = new Date(step.step_date + "T00:00:00");
   }
 
-  const diffHours =
-    (stepDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+  const diffHours = (stepDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
   return getAgendaUrgencyColor(diffHours);
 }
@@ -144,7 +143,7 @@ export function AgendaDropdown() {
           <h4 className="text-sm font-semibold">Upcoming Steps</h4>
           <Link
             href="/agenda"
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
             View all
             <ChevronRight className="h-3 w-3" />
@@ -178,7 +177,7 @@ export function AgendaDropdown() {
                       <div className="flex items-center gap-2">
                         <Badge
                           variant="secondary"
-                          className="text-[10px] px-1.5 py-0"
+                          className="px-1.5 py-0 text-[10px]"
                         >
                           {step.step_name}
                         </Badge>
@@ -188,7 +187,7 @@ export function AgendaDropdown() {
                           </span>
                         )}
                       </div>
-                      <p className="truncate text-xs text-muted-foreground mt-0.5">
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
                         {step.role}
                       </p>
                     </div>

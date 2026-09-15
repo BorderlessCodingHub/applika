@@ -10,7 +10,7 @@ export function PlatformBreakdown({ cycleId }: { cycleId?: string | null }) {
   const { sorted, total } = useMemo(() => {
     if (!data?.length) return { sorted: [], total: 0 };
     const sorted = [...data].sort(
-      (a, b) => b.total_applications - a.total_applications
+      (a, b) => b.total_applications - a.total_applications,
     );
     const total = sorted.reduce((sum, p) => sum + p.total_applications, 0);
     return { sorted, total };

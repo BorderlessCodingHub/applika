@@ -29,12 +29,12 @@ export function UserProfileAvatar({
   return (
     <Avatar
       className={cn(
-        "shadow-elevated text-3xl h-20 w-20 ring-4 ring-card",
+        "shadow-elevated h-20 w-20 text-3xl ring-4 ring-card",
         className,
       )}
     >
       <AvatarImage src={avatarUrl} />
-      <AvatarFallback className="uppercase bg-primary font-semibold text-primary-foreground">
+      <AvatarFallback className="bg-primary font-semibold uppercase text-primary-foreground">
         {avatarFallback}
       </AvatarFallback>
     </Avatar>

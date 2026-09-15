@@ -58,31 +58,34 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api
 ## Installation
 
 1. Install dependencies:
+
 ```bash
 pnpm install
 ```
 
 2. Run the development server:
+
 ```bash
 pnpm dev
 ```
 
 3. Build for production:
+
 ```bash
 pnpm build
 ```
 
 ## Available Scripts
 
-| Command | Description |
-|---|---|
-| `pnpm dev` | Start development server on port 8080 |
-| `pnpm build` | Create production build (static export to `out/`) |
-| `pnpm start` | Serve production build locally on port 8080 |
-| `pnpm test` | Run tests with Vitest |
-| `pnpm test:watch` | Run tests in watch mode |
-| `pnpm lint` | Run ESLint |
-| `pnpm lint-fix` | Run ESLint with auto-fix |
+| Command           | Description                                       |
+| ----------------- | ------------------------------------------------- |
+| `pnpm dev`        | Start development server on port 8080             |
+| `pnpm build`      | Create production build (static export to `out/`) |
+| `pnpm start`      | Serve production build locally on port 8080       |
+| `pnpm test`       | Run tests with Vitest                             |
+| `pnpm test:watch` | Run tests in watch mode                           |
+| `pnpm lint`       | Run ESLint                                        |
+| `pnpm lint-fix`   | Run ESLint with auto-fix                          |
 
 ## Docker
 
@@ -105,17 +108,17 @@ After starting the development server or Docker container, the application will 
 
 ## Tech Stack
 
-| Category | Technology |
-|---|---|
+| Category  | Technology                             |
+| --------- | -------------------------------------- |
 | Framework | Next.js 16 (App Router, static export) |
-| Language | TypeScript |
-| Styling | Tailwind CSS + shadcn/ui (Radix UI) |
-| State | TanStack React Query + React Context |
-| Forms | React Hook Form + Zod |
-| HTTP | Axios (cookie-based JWT auth) |
-| Charts | Recharts |
-| Testing | Vitest + Testing Library |
-| Linting | ESLint + Prettier |
+| Language  | TypeScript                             |
+| Styling   | Tailwind CSS + shadcn/ui (Radix UI)    |
+| State     | TanStack React Query + React Context   |
+| Forms     | React Hook Form + Zod                  |
+| HTTP      | Axios (cookie-based JWT auth)          |
+| Charts    | Recharts                               |
+| Testing   | Vitest + Testing Library               |
+| Linting   | ESLint + Prettier                      |
 
 ## Architecture Notes
 

@@ -56,20 +56,14 @@ const schema = z
     },
     { message: "Invalid time format (HH:MM)", path: ["start_time"] },
   )
-  .refine(
-    (d) => !(d.start_time && !d.end_time),
-    {
-      message: "End time is required when start time is filled",
-      path: ["end_time"],
-    },
-  )
-  .refine(
-    (d) => !(d.end_time && !d.start_time),
-    {
-      message: "Start time is required when end time is filled",
-      path: ["start_time"],
-    },
-  )
+  .refine((d) => !(d.start_time && !d.end_time), {
+    message: "End time is required when start time is filled",
+    path: ["end_time"],
+  })
+  .refine((d) => !(d.end_time && !d.start_time), {
+    message: "Start time is required when end time is filled",
+    path: ["start_time"],
+  })
   .refine(
     (d) => {
       if (d.start_time && d.end_time) return d.end_time > d.start_time;
@@ -166,7 +160,6 @@ function getStepDateRange(
     maxDate: next ? parseDate(next.step_date) : undefined,
   };
 }
-
 
 export function ApplicationStepFormDialog({
   application,
@@ -310,7 +303,7 @@ export function ApplicationStepFormDialog({
                   })
                 }
                 className={cn(
-                  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none",
+                  "flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none",
                   form.formState.errors.start_time &&
                     "border-destructive focus-visible:ring-destructive",
                 )}
@@ -336,7 +329,7 @@ export function ApplicationStepFormDialog({
                   })
                 }
                 className={cn(
-                  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none",
+                  "flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none",
                   form.formState.errors.end_time &&
                     "border-destructive focus-visible:ring-destructive",
                 )}
@@ -360,7 +353,7 @@ export function ApplicationStepFormDialog({
             <Label>Observation</Label>
             <Textarea {...form.register("observation")} rows={2} />
           </div>
-          
+
           <div className="grid gap-3">
             <Button
               type="button"

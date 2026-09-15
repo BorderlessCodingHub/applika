@@ -61,11 +61,7 @@ function renderTopLabel(props: Record<string, unknown>) {
   );
 }
 
-export function StepConversionChart({
-  cycleId,
-}: {
-  cycleId?: string | null;
-}) {
+export function StepConversionChart({ cycleId }: { cycleId?: string | null }) {
   const { data, isLoading } = useStepConversion(cycleId);
 
   return (

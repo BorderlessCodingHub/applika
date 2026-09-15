@@ -3,7 +3,7 @@ import { Skeleton } from "../ui/skeleton";
 
 export function FormSkeleton() {
   return (
-    <div className="max-w-6xl mx-auto space-y-4 py-6 px-4 sm:px-0">
+    <div className="mx-auto max-w-6xl space-y-4 px-4 py-6 sm:px-0">
       <div className="space-y-2">
         <Skeleton className="h-4 w-28" />
         <Skeleton className="h-8 w-72" />
@@ -29,13 +29,13 @@ export function StatCard({
 }) {
   return (
     <div className="rounded-lg border border-border bg-secondary/40 p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Icon className="h-3.5 w-3.5 text-primary shrink-0" />
-        <span className="text-xs font-medium text-muted-foreground truncate">
+      <div className="mb-2 flex items-center gap-2">
+        <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+        <span className="truncate text-xs font-medium text-muted-foreground">
           {label}
         </span>
       </div>
-      <p className="text-2xl font-display font-semibold tabular-nums">
+      <p className="font-display text-2xl font-semibold tabular-nums">
         {value}
       </p>
     </div>
@@ -54,14 +54,14 @@ export function SectionHeader({
   iconClass?: string;
 }) {
   return (
-    <div className="flex items-start gap-2 mb-4">
+    <div className="mb-4 flex items-start gap-2">
       <Icon
-        className={cn("h-4 w-4 mt-0.5 shrink-0", iconClass ?? "text-primary")}
+        className={cn("mt-0.5 h-4 w-4 shrink-0", iconClass ?? "text-primary")}
       />
       <div>
-        <h3 className="text-sm font-display font-semibold">{title}</h3>
+        <h3 className="font-display text-sm font-semibold">{title}</h3>
         {description && (
-          <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
         )}
       </div>
     </div>
@@ -74,7 +74,7 @@ export function CharCounter({ count, max }: { count: number; max: number }) {
     <span
       className={cn(
         "text-xs tabular-nums",
-        exceeded ? "text-destructive font-medium" : "text-muted-foreground",
+        exceeded ? "font-medium text-destructive" : "text-muted-foreground",
       )}
     >
       {exceeded ? `${count - max} over limit` : `${max - count} characters`}
@@ -84,5 +84,5 @@ export function CharCounter({ count, max }: { count: number; max: number }) {
 
 export function FieldError({ message }: { message?: string }) {
   if (!message) return null;
-  return <p className="text-xs text-destructive mt-1.5">{message}</p>;
+  return <p className="mt-1.5 text-xs text-destructive">{message}</p>;
 }

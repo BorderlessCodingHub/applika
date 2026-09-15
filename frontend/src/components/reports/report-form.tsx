@@ -119,12 +119,12 @@ export function ReportForm({
         <button
           type="button"
           onClick={onCancel}
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
+          className="mb-3 flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ChevronLeft className="h-4 w-4" />
           Back to Reports
         </button>
-        <h1 className="text-2xl font-display font-bold tracking-tight">
+        <h1 className="font-display text-2xl font-bold tracking-tight">
           Report — Day {dayInterval} of {ReportDays.at(-1)}
         </h1>
         <span className="text-sm font-medium text-primary">Phase {phase}</span>
@@ -139,7 +139,7 @@ export function ReportForm({
               title="Auto-Calculated Metrics"
               description="These metrics are automatically calculated from your application data."
             />
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <StatCard
                 icon={Briefcase}
                 label="Applications"
@@ -169,7 +169,7 @@ export function ReportForm({
           <CardContent className="p-5">
             <SectionHeader icon={Target} title="Manual Metrics" />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {/* Challenge Start Date */}
               <div>
                 <Label className="mb-1.5 block">Challenge Start Date</Label>
@@ -270,7 +270,7 @@ export function ReportForm({
             <div className="space-y-4">
               {/* Biggest Win */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="mb-1.5 flex items-center justify-between">
                   <Label className="flex items-center gap-1.5">
                     <TrendingUp className="h-3.5 w-3.5 text-primary" />
                     Biggest Win
@@ -291,7 +291,7 @@ export function ReportForm({
 
               {/* Biggest Challenge */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="mb-1.5 flex items-center justify-between">
                   <Label className="flex items-center gap-1.5">
                     <HelpCircle className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
                     Biggest Challenge
@@ -320,7 +320,7 @@ export function ReportForm({
         <Card>
           <CardContent className="p-5">
             <SectionHeader icon={BarChart3} title="Accumulated Totals" />
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <StatCard
                 icon={Briefcase}
                 label="Total Applications"
@@ -349,18 +349,18 @@ export function ReportForm({
         <Card>
           <CardContent className="p-5">
             <SectionHeader icon={Target} title="Next Fortnight Goal" />
-            <p className="text-xs text-muted-foreground -mt-2 mb-4">
+            <p className="-mt-2 mb-4 text-xs text-muted-foreground">
               What do you want to achieve in the next{" "}
               <span className="font-semibold text-primary">14 days</span>?
             </p>
             <div>
-              <div className="flex justify-end mb-1.5">
+              <div className="mb-1.5 flex justify-end">
                 <CharCounter count={nextGoal.length} max={GOAL_MAX} />
               </div>
               <Textarea
                 placeholder="Set a specific, measurable goal for the next fortnight..."
                 className={cn(
-                  "resize-none min-h-[100px]",
+                  "min-h-[100px] resize-none",
                   errors.next_fortnight_goal &&
                     "border-destructive focus-visible:ring-destructive",
                 )}

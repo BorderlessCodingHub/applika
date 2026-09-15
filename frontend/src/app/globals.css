@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -51,9 +51,10 @@
     --sidebar-border: 40 12% 90%;
     --sidebar-ring: 168 65% 38%;
 
-    --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.03);
-    --shadow-elevated: 0 8px 30px -4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04);
-    --shadow-panel: -2px 0 20px rgba(0,0,0,0.04);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.03);
+    --shadow-elevated:
+      0 8px 30px -4px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+    --shadow-panel: -2px 0 20px rgba(0, 0, 0, 0.04);
   }
 
   .dark {
@@ -100,9 +101,11 @@
     --sidebar-border: 228 14% 16%;
     --sidebar-ring: 168 70% 48%;
 
-    --shadow-card: 0 0 0 1px rgba(255,255,255,0.04), 0 2px 8px -1px rgba(0,0,0,0.4);
-    --shadow-elevated: 0 8px 32px -4px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
-    --shadow-panel: -2px 0 24px rgba(0,0,0,0.3);
+    --shadow-card:
+      0 0 0 1px rgba(255, 255, 255, 0.04), 0 2px 8px -1px rgba(0, 0, 0, 0.4);
+    --shadow-elevated:
+      0 8px 32px -4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    --shadow-panel: -2px 0 24px rgba(0, 0, 0, 0.3);
   }
 }
 
@@ -113,12 +116,19 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+    font-family:
+      "DM Sans",
+      system-ui,
+      -apple-system,
+      sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   /* Editorial headings */
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     font-family: "Outfit", system-ui, sans-serif;
   }
 }
@@ -169,27 +179,59 @@
 
   /* Dot grid pattern */
   .dot-grid {
-    background-image: radial-gradient(circle, hsl(var(--border)) 1px, transparent 1px);
+    background-image: radial-gradient(
+      circle,
+      hsl(var(--border)) 1px,
+      transparent 1px
+    );
     background-size: 24px 24px;
   }
 
   .dark .dot-grid {
-    background-image: radial-gradient(circle, hsl(var(--border) / 0.5) 1px, transparent 1px);
+    background-image: radial-gradient(
+      circle,
+      hsl(var(--border) / 0.5) 1px,
+      transparent 1px
+    );
   }
 
   /* Gradient mesh for hero backgrounds */
   .gradient-mesh {
     background:
-      radial-gradient(ellipse 80% 60% at 20% 30%, hsl(168 65% 38% / 0.08) 0%, transparent 70%),
-      radial-gradient(ellipse 60% 80% at 80% 70%, hsl(200 60% 50% / 0.06) 0%, transparent 70%),
-      radial-gradient(ellipse 50% 50% at 50% 50%, hsl(40 30% 50% / 0.03) 0%, transparent 70%);
+      radial-gradient(
+        ellipse 80% 60% at 20% 30%,
+        hsl(168 65% 38% / 0.08) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 60% 80% at 80% 70%,
+        hsl(200 60% 50% / 0.06) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 50% 50% at 50% 50%,
+        hsl(40 30% 50% / 0.03) 0%,
+        transparent 70%
+      );
   }
 
   .dark .gradient-mesh {
     background:
-      radial-gradient(ellipse 80% 60% at 20% 30%, hsl(168 70% 48% / 0.08) 0%, transparent 70%),
-      radial-gradient(ellipse 60% 80% at 80% 70%, hsl(200 60% 50% / 0.05) 0%, transparent 70%),
-      radial-gradient(ellipse 50% 50% at 50% 50%, hsl(260 40% 50% / 0.04) 0%, transparent 70%);
+      radial-gradient(
+        ellipse 80% 60% at 20% 30%,
+        hsl(168 70% 48% / 0.08) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 60% 80% at 80% 70%,
+        hsl(200 60% 50% / 0.05) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 50% 50% at 50% 50%,
+        hsl(260 40% 50% / 0.04) 0%,
+        transparent 70%
+      );
   }
 
   /* Glow effect for primary elements in dark mode */
@@ -198,12 +240,24 @@
   }
 
   /* Stagger animation delays */
-  .stagger-1 { animation-delay: 60ms; }
-  .stagger-2 { animation-delay: 120ms; }
-  .stagger-3 { animation-delay: 180ms; }
-  .stagger-4 { animation-delay: 240ms; }
-  .stagger-5 { animation-delay: 300ms; }
-  .stagger-6 { animation-delay: 360ms; }
+  .stagger-1 {
+    animation-delay: 60ms;
+  }
+  .stagger-2 {
+    animation-delay: 120ms;
+  }
+  .stagger-3 {
+    animation-delay: 180ms;
+  }
+  .stagger-4 {
+    animation-delay: 240ms;
+  }
+  .stagger-5 {
+    animation-delay: 300ms;
+  }
+  .stagger-6 {
+    animation-delay: 360ms;
+  }
 
   /* Admin card hover lift */
   .admin-card {
@@ -216,6 +270,11 @@
 
   /* Admin gradient accent line */
   .admin-gradient-line {
-    background: linear-gradient(90deg, hsl(var(--primary)), #fbbf24 50%, transparent);
+    background: linear-gradient(
+      90deg,
+      hsl(var(--primary)),
+      #fbbf24 50%,
+      transparent
+    );
   }
 }
