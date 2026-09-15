@@ -1,7 +1,11 @@
 # Stage 1: Build
 FROM node:22-alpine AS builder
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Pinned to the pnpm major this project declares (pnpm 10). `pnpm@latest` made
+# the image non-reproducible and now fails outright: pnpm 11 dropped
+# `--config.dangerouslyAllowAllBuilds` and turns ignored build scripts
+# (esbuild, sharp, unrs-resolver) into a hard ERR_PNPM_IGNORED_BUILDS error.
+RUN corepack enable && corepack prepare pnpm@10 --activate
 
 ARG API_BASE_URL
 ENV NEXT_PUBLIC_API_BASE_URL=${API_BASE_URL}
