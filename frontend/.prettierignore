@@ -1,0 +1,22 @@
+# Dependencies and build output
+node_modules
+.next
+out
+*.tsbuildinfo
+
+# Generated / vendored files: not ours to format.
+# pnpm owns both of these — reformatting them causes pointless churn and, for
+# pnpm-workspace.yaml, a diff the package manager will just rewrite.
+pnpm-lock.yaml
+pnpm-workspace.yaml
+next-env.d.ts
+public
+
+# Playwright artifacts
+playwright-report
+test-results
+blob-report
+
+# Installed agent skill-packs: vendored content owned by `kodi add`, not source.
+.claude
+.agents
