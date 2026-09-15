@@ -56,10 +56,11 @@ const PAGES: PageCase[] = [
     path: "/login",
     visitors: ["anon"],
     // The h1 is a logo glyph + "pplika.dev", so its accessible name is a poor
-    // assertion target. The sign-in button is the page's unambiguous content.
+    // assertion target. The sign-in control is the page's unambiguous content.
+    // It is a LINK, not a button: <Button asChild> renders the <a> underneath.
     assert: async (page) => {
       await expect(
-        page.getByRole("button", { name: /Login with GitHub/i }),
+        page.getByRole("link", { name: /Login with GitHub/i }),
       ).toBeVisible();
     },
   },

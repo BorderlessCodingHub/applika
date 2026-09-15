@@ -35,8 +35,10 @@ test.describe("anonymous visitors are sent to /login", () => {
       await page.goto(path);
 
       await page.waitForURL("**/login");
+      // The sign-in control is a link (<Button asChild> wrapping an <a>), so
+      // the landing page is proven by its role and name, not by styling.
       await expect(
-        page.getByRole("button", { name: /Login with GitHub/i }),
+        page.getByRole("link", { name: /Login with GitHub/i }),
       ).toBeVisible();
     });
   }
