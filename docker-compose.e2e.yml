@@ -75,7 +75,7 @@ services:
         - "CMD"
         - "python"
         - "-c"
-        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/openapi.json')"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/openapi.json')"
       interval: 5s
       timeout: 5s
       retries: 24
@@ -100,7 +100,9 @@ services:
     ports:
       - "127.0.0.1:8180:80"
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost/ || exit 1"]
+      # 127.0.0.1, not localhost: nginx listens on IPv4 only and `localhost`
+      # resolves to ::1 first inside the container.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 12
