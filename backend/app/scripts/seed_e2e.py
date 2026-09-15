@@ -55,16 +55,19 @@ from app.core.tokens import create_access_token, create_refresh_token_value
 from app.domain.repositories.user_repository import UserRepository
 
 # Deterministic, synthetic identities — NOT real data. The github_id
-# values sit far outside GitHub's real id range so they can never collide
-# with a genuine account, and they are stable across runs so specs can
-# rely on a known seeded user.
+# values sit far above GitHub's real id range (9-digit today) so they can
+# never collide with a genuine account, yet stay below
+# Number.MAX_SAFE_INTEGER: UserDTO serialises github_id as a JSON number,
+# so a larger value would silently lose precision in the browser and in
+# the Playwright specs. They are stable across runs so specs can rely on
+# a known seeded user.
 E2E_USER = UserCreateDTO(
-    github_id=900000000000000001,
+    github_id=999000000001,
     username='e2e-user',
     email='e2e-user@e2e.applika.dev',
 )
 E2E_ADMIN = UserCreateDTO(
-    github_id=900000000000000002,
+    github_id=999000000002,
     username='e2e-admin',
     email='e2e-admin@e2e.applika.dev',
 )

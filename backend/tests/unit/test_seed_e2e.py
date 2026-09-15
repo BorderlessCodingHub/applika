@@ -107,7 +107,7 @@ async def test_upsert_creates_then_updates_idempotently():
 
 async def test_minted_access_token_subject_is_the_github_id():
     """The access token decodes and its sub is github_id, not the pk."""
-    identity = seed_e2e.Identity(github_id=900000000000000001, user_id=4242)
+    identity = seed_e2e.Identity(github_id=999000000001, user_id=4242)
     fake_redis = FakeRedis()
 
     access_token, refresh_token = await seed_e2e.mint_session(
@@ -124,8 +124,8 @@ async def test_minted_access_token_subject_is_the_github_id():
 
 async def test_seed_returns_the_six_contract_keys(monkeypatch):
     """seed() returns both sessions under the agreed contract keys."""
-    user = seed_e2e.Identity(github_id=900000000000000001, user_id=11)
-    admin = seed_e2e.Identity(github_id=900000000000000002, user_id=22)
+    user = seed_e2e.Identity(github_id=999000000001, user_id=11)
+    admin = seed_e2e.Identity(github_id=999000000002, user_id=22)
     fake_redis = FakeRedis()
 
     async def _identities():
@@ -156,8 +156,8 @@ async def test_seed_returns_the_six_contract_keys(monkeypatch):
 
 def test_main_prints_one_json_line_with_the_contract(monkeypatch, capsys):
     """stdout is exactly one JSON line carrying the six string keys."""
-    user = seed_e2e.Identity(github_id=900000000000000001, user_id=11)
-    admin = seed_e2e.Identity(github_id=900000000000000002, user_id=22)
+    user = seed_e2e.Identity(github_id=999000000001, user_id=11)
+    admin = seed_e2e.Identity(github_id=999000000002, user_id=22)
 
     async def _identities():
         return user, admin
@@ -178,3 +178,11 @@ def test_main_prints_one_json_line_with_the_contract(monkeypatch, capsys):
         'admin_access_token',
         'admin_refresh_token',
     }
+
+
+def test_seed_github_ids_survive_json_number_precision():
+    """github_id is a JSON number: it must stay JS-safe (< 2**53)."""
+    max_safe_integer = 2**53 - 1
+    for dto in (seed_e2e.E2E_USER, seed_e2e.E2E_ADMIN):
+        # Above every real GitHub account id, below the JS safe range.
+        assert 10_000_000_000 < dto.github_id < max_safe_integer
