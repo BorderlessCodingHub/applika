@@ -5,12 +5,15 @@ so the real token code is exercised without any container.
 """
 
 import json
+from typing import cast
 
 import pytest
+import redis.asyncio as redis
 
 from app.application.dto.user import UserCreateDTO
 from app.config.settings import envs
 from app.core.tokens import decode_token
+from app.domain.repositories.user_repository import UserRepository
 from app.scripts import seed_e2e
 
 
@@ -92,14 +95,15 @@ def test_refuses_before_touching_the_database(monkeypatch):
 
 async def test_upsert_creates_then_updates_idempotently():
     """Running the upsert twice yields the same row, admin flag applied."""
-    repo = FakeUserRepository()
+    fake_repo = FakeUserRepository()
+    repo = cast(UserRepository, fake_repo)
 
     first = await seed_e2e.upsert_user(repo, seed_e2e.E2E_ADMIN, is_admin=True)
     second = await seed_e2e.upsert_user(repo, seed_e2e.E2E_ADMIN, is_admin=True)
 
     assert first == second
     assert first.github_id == seed_e2e.E2E_ADMIN.github_id
-    row = repo.rows[seed_e2e.E2E_ADMIN.github_id]
+    row = fake_repo.rows[seed_e2e.E2E_ADMIN.github_id]
     assert row.is_admin is True
     # Emptied so /auth/refresh skips the GitHub token check.
     assert row.encrypted_github_token is None
@@ -111,7 +115,7 @@ async def test_minted_access_token_subject_is_the_github_id():
     fake_redis = FakeRedis()
 
     access_token, refresh_token = await seed_e2e.mint_session(
-        identity, fake_redis
+        identity, cast(redis.Redis, fake_redis)
     )
 
     payload = decode_token(access_token)
