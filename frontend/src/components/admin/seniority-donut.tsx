@@ -138,7 +138,7 @@ export function SeniorityDonut() {
 
               {/* Center text */}
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="font-display text-2xl font-bold text-foreground tabular-nums">
+                <span className="font-numeric text-2xl font-bold text-foreground">
                   {total}
                 </span>
                 <span className="font-display text-[10px] tracking-wide-label text-muted-foreground uppercase">

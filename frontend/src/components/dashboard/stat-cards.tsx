@@ -37,7 +37,7 @@ function StatCard({
             {label}
           </span>
           <p
-            className={`mt-1 font-display text-2xl leading-tight font-bold tabular-nums ${STAT_COLORS[colorKey] ?? "text-foreground"}`}
+            className={`mt-1 font-numeric text-2xl leading-tight font-bold ${STAT_COLORS[colorKey] ?? "text-foreground"}`}
           >
             {value}
           </p>
