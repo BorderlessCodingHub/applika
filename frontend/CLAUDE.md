@@ -38,16 +38,48 @@ pnpm build
 # Serve production build locally
 pnpm start
 
-# Run tests
+# Unit / component tests (vitest, jsdom)
 pnpm test
+pnpm test:watch
+pnpm test src/path/to/file.test.ts   # a single file
 
-# Run a single test file
-pnpm test src/path/to/file.test.ts
-
-# Lint
+# Lint / format / types
 pnpm lint
 pnpm lint-fix
+pnpm format          # prettier --write .
+pnpm format:check    # prettier --check .
+pnpm typecheck       # tsc --noEmit
 ```
+
+### The gate
+
+A PR to `develop` is ready only when the whole chain is green
+(`.claude/rules/quality-gates.md`):
+
+```bash
+pnpm lint && pnpm prettier --check . && pnpm tsc --noEmit && pnpm test && pnpm build
+```
+
+`pnpm lint` currently emits warnings on pre-existing files (React Compiler vs.
+`react-hook-form`'s `watch()`, and an unused local in `step-form-dialog.tsx`).
+Warnings do not fail the gate; errors do. Do not add new ones.
+
+### E2E
+
+Playwright drives the REAL stack — the built API image, the built static
+frontend behind nginx, a real Postgres migrated with `alembic upgrade head` and
+a real Redis. Nothing is mocked, and there is no `webServer` block.
+
+```bash
+../scripts/e2e.sh                          # full run: up -> seed -> test -> down
+../scripts/e2e.sh e2e/smoke.spec.ts        # args are forwarded to `playwright test`
+KEEP_STACK=1 ../scripts/e2e.sh             # leave the stack up to debug
+```
+
+`pnpm e2e` on its own will NOT work: `e2e/support/auth.ts` needs the `E2E_*`
+variables that `scripts/e2e.sh` exports after seeding the real users. The suite
+runs serially (`workers: 1`) against one shared real database, so specs must be
+read-only or clean up after themselves.
 
 ---
 
@@ -64,6 +96,8 @@ Route groups control access:
 
 Each protected route has a thin `page.tsx` shell that renders a `*-page.tsx` component containing the actual logic.
 
+`/login` lives at `src/app/login/`, OUTSIDE the `(public)` group, so it renders no landing header or footer. The URL is unchanged.
+
 ### Providers
 
 Providers are split into two layers:
@@ -71,7 +105,7 @@ Providers are split into two layers:
 - **`RootProviders`** (`src/components/layout/root-providers.tsx`) — wraps the entire app in the root layout. Includes QueryClientProvider, ThemeProvider, AuthProvider, TooltipProvider, and Sonner.
 - **`ProtectedProviders`** (`src/components/layout/protected-providers.tsx`) — wraps protected routes only. Adds a nested AuthProvider for protected-scope auth state.
 
-The `(protected)/layout.tsx` wraps children with `ProtectedProviders` + `SupportsProvider` and redirects unauthenticated users to `/login`.
+The `(protected)/layout.tsx` wraps children with `ProtectedProviders` + `SupportsProvider` + `CycleProvider`, redirects unauthenticated users to `/login`, and renders everything inside `<AppShell>` (see **App shell** below).
 
 ### Service Layer & DI
 
@@ -127,9 +161,69 @@ The component avoids browser timezone off-by-one issues by parsing dates as loca
 
 ### UI Components
 
-Built on shadcn/ui (Radix UI + Tailwind). Components live in `src/components/ui/`. Use `cn()` from `src/lib/utils` for conditional class merging.
+Built on shadcn/ui (Radix UI + Tailwind, `new-york` style, the unified `radix-ui`
+package). Components live in `src/components/ui/`. Use `cn()` from `src/lib/utils`
+for conditional class merging.
 
-`SheetContent` accepts a `hideClose` prop to suppress the default X button when a Cancel button is preferred inside the form.
+Tailwind 4 is CSS-first: every token lives in `@theme` in `src/app/globals.css`.
+There is no `tailwind.config.ts`.
+
+**`SheetContent` props (applika-only, kept across the new-york regeneration):**
+
+- `hideClose` — suppress the default X button when the panel owns its own
+  Cancel/Submit footer.
+- `size?: "form" | "nav"` — the width/padding preset, default `"form"`.
+  `"form"` is `w-full p-6 sm:max-w-2xl`, the wide form panel every sheet in the
+  app uses; `"nav"` is `w-[17rem] gap-0 p-0 sm:max-w-[17rem]`, the mobile
+  navigation panel. The preset is applied AFTER `className`, so a caller cannot
+  widen or pad a sheet from the outside — add a preset here instead.
+
+**Fonts.** `font-display` is the heading family (Inter, self-hosted via
+`next/font`); `font-numeric` is the `@utility` in `globals.css` that switches a
+run of digits to JetBrains Mono with tabular, slashed-zero figures. Use
+`font-numeric` for headline metrics, counts and table numbers so columns line
+up; use `font-display` for headings and titles. Never mix the two on one element.
+
+**Stacking contract.** Layers, lowest first. Keep new chrome inside it:
+
+| z      | layer                               | members                                                               |
+| ------ | ----------------------------------- | --------------------------------------------------------------------- |
+| `z-30` | in-column sticky chrome             | the shell `Header`                                                    |
+| `z-40` | fixed/sticky page chrome, no portal | `LandingHeader`, `CookieConsent`                                      |
+| `z-50` | the Radix portal layer              | Sheet overlay/content, Dialog, DropdownMenu, Popover, Tooltip, Sonner |
+
+`CookieConsent` MUST stay at `z-40`. It is rendered after `children` in
+`root-providers.tsx`, so at `z-50` it ties with the sheet and wins on document
+order — which floated it over the open mobile navigation menu.
+`e2e/shell-responsive.spec.ts` hit-tests this with real geometry.
+
+### App shell
+
+Every signed-in page renders inside `AppShell`
+(`src/components/layout/app-shell.tsx`), which owns the mobile-menu and feedback
+state and hoists a SINGLE `FeedbackDialog`. It renders `CliPromoBanner` and the
+`max-w-6xl` content container itself, so no page component needs to.
+
+- Nav entries live in `src/components/layout/nav.ts`. `navItemsFor(isAdmin)`
+  appends the `/admin` entry, which is deliberately kept OUT of `PRIMARY_NAV` so
+  a non-admin render can never leak it. `isNavItemActive` matches `exact` items
+  on the pathname only, and everything else on `href` or `href + "/"` — the
+  trailing slash is what stops `/reports` lighting up a `/report` entry.
+- The ACTIVE entry is marked with `aria-current="page"` and nothing else.
+  Assert on that, never on a class.
+- **`md` (48rem) is the only breakpoint.** At or above it: a fixed `w-60` rail
+  and a one-row `h-14` header, with the account menu in the rail footer
+  (`variant="card"`). Below it: the rail is hidden, the nav opens in a
+  `Sheet side="left" size="nav"` named "Navigation", and the header wraps to two
+  rows with the account menu in it (`variant="avatar"`).
+- `AppShell` has a `matchMedia("(min-width: 48rem)")` effect that force-closes
+  the sheet on a resize past `md`. Do not remove it: without it Radix keeps focus
+  trapped and body scroll locked behind an `md:hidden` panel.
+- Below `md` the account menu is mounted TWICE (header and sheet). Scope test
+  locators by container or Playwright's strict mode will fail.
+- Accessible names the tests depend on: `Open navigation menu`,
+  `Close navigation menu`, `Open account menu`, `Applika.dev home`, and the
+  `Primary` navigation landmark.
 
 ---
 
@@ -144,6 +238,13 @@ Built on shadcn/ui (Radix UI + Tailwind). Components live in `src/components/ui/
 | `src/contexts/supports-context.tsx`             | Shared lookup data (platforms, steps, feedbacks)                 |
 | `src/components/layout/root-providers.tsx`      | Root-level providers (QueryClient, Theme, Auth, Tooltip, Sonner) |
 | `src/components/layout/protected-providers.tsx` | Protected-route providers (nested AuthProvider)                  |
+| `src/components/layout/app-shell.tsx`           | Signed-in shell: rail, header, mobile sheet, feedback dialog     |
+| `src/components/layout/nav.ts`                  | Nav entries, `navItemsFor()` admin filter, `isNavItemActive()`   |
+| `src/components/layout/sidebar.tsx`             | Rail body: brand, nav, account menu (rail AND mobile sheet)      |
+| `src/components/layout/sidebar-nav.tsx`         | Nav entry list; owns `aria-current="page"`                       |
+| `src/components/layout/header.tsx`              | Shell header: menu trigger, cycle selector, agenda, theme        |
+| `src/components/layout/user-menu.tsx`           | Account menu (`card` in the rail, `avatar` in the header)        |
+| `src/app/globals.css`                           | ALL design tokens (`@theme`) and `@utility` definitions          |
 | `src/hooks/use-applications.ts`                 | Application list, client-side filtering, CRUD mutations          |
 | `src/components/ui/date-picker.tsx`             | Timezone-safe date picker (use instead of `<input type="date">`) |
 
@@ -165,12 +266,17 @@ The `docker-compose.yml` defaults `API_BASE_URL` to `http://127.0.0.1/api` if no
 
 ---
 
-## MCP Usage
+## Tooling
 
-Use available MCP servers when possible — prefer them over bash equivalents.
-
-- **Git MCP**: use for all git operations (`git_add`, `git_commit`, `git_diff`, etc.). Commit after each logical unit of work using conventional commits (`feat(frontend):`, `fix(frontend):`, etc.)
-- **Context7 MCP**: look up docs for Next.js, React Query, Zod, react-hook-form, shadcn/ui before guessing API signatures
+- **Git**: plain `git` via the shell. There is no Git MCP in this workspace.
+  Commit after each logical unit of work using conventional commits with the
+  ticket key after the scope: `feat(frontend): KODI-004 ...`. Branch from
+  `develop` and open the PR against `develop`
+  (`.claude/rules/branches-and-commits.md`).
+- **shadcn/ui**: add or compose primitives through the CLI and fetch the
+  canonical docs before using a pattern. Do not hand-roll what the registry has.
+- **Context7 MCP** (when available): look up docs for Next.js, React Query, Zod,
+  react-hook-form and shadcn/ui before guessing API signatures.
 
 ---
 
