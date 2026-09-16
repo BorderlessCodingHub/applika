@@ -76,10 +76,12 @@ function SheetContent({
           side === "bottom" &&
             "inset-x-0 bottom-0 h-auto border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
           className,
-          // applika-only: every sheet in the app is a wide form panel, so the
-          // width wins over both the side default and the caller's className,
-          // exactly as it did before the regeneration.
-          "w-full sm:max-w-2xl",
+          // applika-only: every sheet in the app is a wide form panel holding a
+          // bare <form>, not the registry's Header/Content/Footer sandwich, so
+          // the padding and the width live here and win over both the side
+          // default and the caller's className — exactly as they did before the
+          // regeneration. Without the padding the fields run edge to edge.
+          "w-full p-6 sm:max-w-2xl",
         )}
         {...props}
       >
@@ -99,7 +101,10 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sheet-header"
-      className={cn("flex flex-col gap-1.5 p-4", className)}
+      className={cn(
+        "flex flex-col gap-1.5 text-center sm:text-left",
+        className,
+      )}
       {...props}
     />
   );
@@ -109,7 +114,10 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sheet-footer"
-      className={cn("mt-auto flex flex-col gap-2 p-4", className)}
+      className={cn(
+        "mt-auto flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        className,
+      )}
       {...props}
     />
   );

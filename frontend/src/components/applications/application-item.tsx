@@ -573,7 +573,7 @@ export function ApplicationStepTimeline({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => stepDelete.id && deleteStep(stepDelete.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
             >
               Delete
             </AlertDialogAction>

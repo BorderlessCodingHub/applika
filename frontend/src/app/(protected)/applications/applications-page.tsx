@@ -388,7 +388,7 @@ export function ApplicationsPage() {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => deleteApplication(appAction.data!.id)}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                variant="destructive"
               >
                 Delete
               </AlertDialogAction>
