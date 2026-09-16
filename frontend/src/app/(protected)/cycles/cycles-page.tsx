@@ -87,7 +87,7 @@ export function CyclesPage() {
               </div>
 
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold leading-tight">
+                <p className="truncate text-sm leading-tight font-semibold">
                   {cycle.name}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
@@ -149,7 +149,7 @@ export function CyclesPage() {
                 deleteTarget && deleteMutation.mutate(deleteTarget.id)
               }
               disabled={deleteMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
             >
               {deleteMutation.isPending ? "Deleting..." : "Delete permanently"}
             </AlertDialogAction>

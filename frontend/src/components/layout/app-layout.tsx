@@ -61,8 +61,8 @@ function SidebarContent({
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
                     isActive
                       ? item.adminOnly
-                        ? "bg-amber-500/15 text-amber-500 shadow-sm dark:shadow-[0_0_24px_-4px_rgba(251,191,36,0.25)]"
-                        : "glow-primary bg-primary text-primary-foreground shadow-sm"
+                        ? "bg-amber-500/15 text-amber-500 shadow-xs dark:shadow-[0_0_24px_-4px_rgba(251,191,36,0.25)]"
+                        : "bg-primary text-primary-foreground shadow-xs glow-primary"
                       : item.adminOnly
                         ? "text-amber-500/60 hover:bg-amber-500/10 hover:text-amber-500"
                         : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
@@ -108,7 +108,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm md:hidden"
+                className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-xs md:hidden"
                 onClick={() => setMobileOpen(false)}
               />
               <motion.aside
@@ -116,7 +116,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 animate={{ x: 0 }}
                 exit={{ x: "-100%" }}
                 transition={{ duration: 0.3, ease: [0.2, 0.9, 0.3, 1] }}
-                className="fixed bottom-0 left-0 top-0 z-50 w-full max-w-80 border-r border-border/60 bg-card md:hidden"
+                className="fixed top-0 bottom-0 left-0 z-50 w-full max-w-80 border-r border-border/60 bg-card md:hidden"
               >
                 <SidebarContent setMobileOpen={setMobileOpen} />
               </motion.aside>

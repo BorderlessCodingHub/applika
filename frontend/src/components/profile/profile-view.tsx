@@ -55,7 +55,7 @@ export function UserProfileView({
     <div className="mx-auto max-w-4xl animate-fade-in-up space-y-6">
       {/* Header card */}
       <div className="overflow-hidden rounded-xl bg-card shadow-card">
-        <div className="h-24 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent" />
+        <div className="h-24 bg-linear-to-br from-primary/20 via-primary/10 to-transparent" />
         <div className="-mt-12 px-6 pb-6">
           <div className="flex items-end justify-between">
             <UserProfileAvatar user={user} />
@@ -78,7 +78,7 @@ export function UserProfileView({
               </h1>
               {user.availability && (
                 <span
-                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${AVAILABILITY_STYLES[user.availability] ?? AVAILABILITY_STYLES.not_looking}`}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${AVAILABILITY_STYLES[user.availability] ?? AVAILABILITY_STYLES.not_looking}`}
                 >
                   {formatLabel(user.availability)}
                 </span>
@@ -198,7 +198,7 @@ export function UserProfileView({
             {earnedBadges.map((b) => (
               <div
                 key={b.id}
-                className="hover:shadow-elevated flex items-center gap-2.5 rounded-lg border border-border bg-accent/50 p-3 transition-shadow"
+                className="flex items-center gap-2.5 rounded-lg border border-border bg-accent/50 p-3 transition-shadow hover:shadow-elevated"
               >
                 <div
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"

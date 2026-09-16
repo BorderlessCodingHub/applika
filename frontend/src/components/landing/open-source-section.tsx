@@ -22,7 +22,7 @@ export function OpenSourceSection() {
     <section className="relative border-t border-border/60 bg-card/50">
       <div className="mx-auto max-w-5xl px-4 py-16 md:px-8 md:py-20">
         <div className="mb-14 text-center">
-          <p className="mb-2 font-display text-base font-semibold uppercase tracking-wide-label text-primary md:text-lg">
+          <p className="mb-2 font-display text-base font-semibold tracking-wide-label text-primary uppercase md:text-lg">
             Open Source
           </p>
           <h3 className="font-display text-2xl font-bold tracking-tight-display text-foreground md:text-3xl">
@@ -38,7 +38,7 @@ export function OpenSourceSection() {
           {values.map((v, i) => (
             <div
               key={v.title}
-              className={`group animate-fade-in-up stagger-${i + 1} hover:shadow-elevated rounded-xl border border-border/60 bg-background p-6 shadow-card transition-all duration-300 hover:-translate-y-0.5`}
+              className={`group animate-fade-in-up stagger-${i + 1} rounded-xl border border-border/60 bg-background p-6 shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated`}
             >
               <div className="mb-4 flex items-center gap-5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/15">

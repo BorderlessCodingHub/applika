@@ -15,28 +15,28 @@ export function HeroSection() {
 
   return (
     <section className="relative overflow-hidden">
-      <div className="gradient-mesh absolute inset-0" />
-      <div className="dot-grid absolute inset-0 opacity-40" />
+      <div className="absolute inset-0 gradient-mesh" />
+      <div className="absolute inset-0 dot-grid opacity-40" />
 
       <div className="relative mx-auto max-w-5xl px-5 py-16 md:px-8 md:py-24">
-        <div className="grid items-center gap-12 md:grid-cols-[1fr,1.1fr] md:gap-8">
+        <div className="grid items-center gap-12 md:grid-cols-[1fr_1.1fr] md:gap-8">
           <div className="text-center md:text-left">
             <div className="mb-6 inline-flex animate-fade-in-up items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 shadow-card">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-              <span className="font-display text-[10px] font-medium uppercase tracking-wide-label text-muted-foreground">
+              <span className="font-display text-[10px] font-medium tracking-wide-label text-muted-foreground uppercase">
                 Job Application Tracker
               </span>
             </div>
 
-            <h2 className="stagger-1 animate-fade-in-up text-balance font-display text-4xl font-extrabold leading-[1.08] tracking-tight-display text-foreground md:text-5xl lg:text-[3.5rem]">
+            <h2 className="animate-fade-in-up font-display text-4xl leading-[1.08] font-extrabold tracking-tight-display text-balance text-foreground stagger-1 md:text-5xl lg:text-[3.5rem]">
               Manage your job search with{" "}
               <span className="text-primary">clarity</span>
             </h2>
-            <p className="stagger-2 mx-auto mt-5 max-w-md animate-fade-in-up text-balance text-base leading-relaxed text-muted-foreground md:mx-0 md:text-lg">
+            <p className="mx-auto mt-5 max-w-md animate-fade-in-up text-base leading-relaxed text-balance text-muted-foreground stagger-2 md:mx-0 md:text-lg">
               Track applications, monitor your pipeline, and turn your job
               search into a data-driven process with real-time analytics.
             </p>
-            <div className="stagger-3 mt-8 flex animate-fade-in-up items-center justify-center gap-4 md:justify-start">
+            <div className="mt-8 flex animate-fade-in-up items-center justify-center gap-4 stagger-3 md:justify-start">
               {!isLoading && isAuthenticated ? (
                 <Button
                   asChild
@@ -52,7 +52,7 @@ export function HeroSection() {
                 <Button
                   asChild
                   size="lg"
-                  className="glow-primary h-12 gap-2.5 px-8 font-display text-base font-semibold"
+                  className="h-12 gap-2.5 px-8 font-display text-base font-semibold glow-primary"
                 >
                   <SignInLink>Get started free</SignInLink>
                 </Button>

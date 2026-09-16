@@ -54,7 +54,7 @@ function ListSkeleton() {
 function SectionLabel({ label, count }: { label: string; count: number }) {
   return (
     <div className="flex items-center gap-2 px-3">
-      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
         {label}
       </span>
       <div className="h-0.5 flex-1 bg-border" />
@@ -114,7 +114,7 @@ function ReportRow({
 
       {/* Label */}
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold leading-tight">Day {report.day}</p>
+        <p className="text-sm leading-tight font-semibold">Day {report.day}</p>
         <p className="text-xs text-muted-foreground">Phase {phase}</p>
       </div>
 
@@ -199,7 +199,7 @@ export function ReportsList({ onFillReport, onViewReport }: ReportsListProps) {
 
       {/* Tip — visible right below the header */}
       <div className="flex items-start gap-3 rounded-lg border border-primary/25 bg-primary/5 px-4 py-3">
-        <span className="mt-px shrink-0 text-xs font-bold uppercase tracking-wider text-primary">
+        <span className="mt-px shrink-0 text-xs font-bold tracking-wider text-primary uppercase">
           Tip
         </span>
         <p className="text-xs leading-relaxed text-muted-foreground">

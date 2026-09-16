@@ -33,7 +33,7 @@ export function ActivityHeatmap() {
       <Card className="overflow-hidden p-5">
         <div className="mb-4 flex items-center gap-3">
           <div className="h-2 w-2 rounded-full bg-primary" />
-          <h3 className="font-display text-sm font-semibold uppercase tracking-wide-label text-muted-foreground">
+          <h3 className="font-display text-sm font-semibold tracking-wide-label text-muted-foreground uppercase">
             Activity Heatmap
           </h3>
           <span className="ml-auto text-[10px] text-muted-foreground/50">
@@ -51,7 +51,7 @@ export function ActivityHeatmap() {
                 {HOURS.filter((h) => h % 3 === 0).map((h) => (
                   <span
                     key={h}
-                    className="font-display text-[9px] tabular-nums text-muted-foreground/50"
+                    className="font-display text-[9px] text-muted-foreground/50 tabular-nums"
                     style={{ width: `${100 / 8}%`, textAlign: "center" }}
                   >
                     {h.toString().padStart(2, "0")}

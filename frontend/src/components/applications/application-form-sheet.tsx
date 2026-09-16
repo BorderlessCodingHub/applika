@@ -517,7 +517,7 @@ export function ApplicationFormSheet({
               <div className="space-y-1.5">
                 <Label>Expected</Label>
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+                  <span className="absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground">
                     {currencySymbol}
                   </span>
                   <Input
@@ -534,7 +534,7 @@ export function ApplicationFormSheet({
               <div className="space-y-1.5">
                 <Label>Min</Label>
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+                  <span className="absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground">
                     {currencySymbol}
                   </span>
                   <Input
@@ -551,7 +551,7 @@ export function ApplicationFormSheet({
               <div className="space-y-1.5">
                 <Label>Max</Label>
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+                  <span className="absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground">
                     {currencySymbol}
                   </span>
                   <Input

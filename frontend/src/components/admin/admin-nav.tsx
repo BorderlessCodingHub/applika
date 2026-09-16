@@ -27,7 +27,7 @@ export function AdminNav() {
             key={tab.href}
             href={tab.href}
             className={cn(
-              "relative flex items-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors",
+              "relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors",
               active
                 ? "text-amber-400"
                 : "text-muted-foreground hover:text-foreground",

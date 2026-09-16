@@ -31,7 +31,7 @@ export function PlatformBreakdown({ cycleId }: { cycleId?: string | null }) {
           ))}
         </div>
       ) : (
-        <div className="scrollbar-thin max-h-[220px] space-y-2.5 overflow-y-auto pr-1">
+        <div className="max-h-[220px] scrollbar-thin space-y-2.5 overflow-y-auto pr-1">
           {sorted.map((p) => {
             const pct = total > 0 ? (p.total_applications / total) * 100 : 0;
             return (
@@ -39,9 +39,9 @@ export function PlatformBreakdown({ cycleId }: { cycleId?: string | null }) {
                 <span className="w-auto shrink-0 truncate text-sm text-muted-foreground">
                   {p.name}
                 </span>
-                <div className="mt-[2px] flex-grow border-b-2 border-dashed border-gray-600"></div>
+                <div className="mt-[2px] grow border-b-2 border-dashed border-gray-600"></div>
 
-                <span className="text-md shrink-0 text-right font-display font-semibold tabular-nums text-foreground">
+                <span className="text-md shrink-0 text-right font-display font-semibold text-foreground tabular-nums">
                   {p.total_applications}
                 </span>
 

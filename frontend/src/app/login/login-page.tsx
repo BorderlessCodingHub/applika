@@ -25,15 +25,15 @@ export function LoginPage() {
   return (
     <div className="noise-overlay relative flex min-h-screen items-center justify-center bg-background p-4">
       {/* Background decoration */}
-      <div className="gradient-mesh absolute inset-0" />
-      <div className="dot-grid absolute inset-0 opacity-30" />
+      <div className="absolute inset-0 gradient-mesh" />
+      <div className="absolute inset-0 dot-grid opacity-30" />
 
-      <div className="absolute right-4 top-4 z-10">
+      <div className="absolute top-4 right-4 z-10">
         <ThemeToggle />
       </div>
 
       <div className="relative w-full max-w-sm animate-fade-in-up">
-        <div className="shadow-elevated rounded-2xl border border-border/60 bg-card p-10 text-center">
+        <div className="rounded-2xl border border-border/60 bg-card p-10 text-center shadow-elevated">
           <div className="mb-8">
             <h1 className="flex items-center justify-center font-display text-2xl font-bold tracking-tight-display text-foreground">
               <ApplikaIcon className="h-10 w-10" />
@@ -47,7 +47,7 @@ export function LoginPage() {
           <Button
             asChild
             size="lg"
-            className="glow-primary h-12 w-full gap-2.5 font-display text-base font-semibold"
+            className="h-12 w-full gap-2.5 font-display text-base font-semibold glow-primary"
           >
             <SignInLink>Login with GitHub</SignInLink>
           </Button>

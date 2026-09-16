@@ -258,7 +258,7 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
             <button
               type="button"
               onClick={handleClear}
-              className="absolute right-9 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute top-1/2 right-9 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
               aria-label="Clear selection"
             >
               <X className="size-3.5" />
@@ -267,7 +267,7 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
         </div>
 
         <PopoverContent
-          className="w-[--radix-popover-trigger-width] p-0"
+          className="w-(--radix-popover-trigger-width) p-0"
           align="start"
         >
           <CompanyOptionsList

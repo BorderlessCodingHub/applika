@@ -132,7 +132,7 @@ export function AgendaDropdown() {
         <Button variant="ghost" size="icon" className="relative">
           <CalendarClock className="h-5 w-5" />
           {upcoming.length > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
               {upcoming.length}
             </span>
           )}
@@ -158,7 +158,7 @@ export function AgendaDropdown() {
           ) : (
             grouped.map(([date, items]) => (
               <div key={date}>
-                <div className="sticky top-0 bg-muted/50 px-4 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-sm">
+                <div className="sticky top-0 bg-muted/50 px-4 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-xs">
                   {getDayLabel(date)}
                 </div>
                 {items.map((step) => (

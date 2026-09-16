@@ -102,7 +102,7 @@ export function UserProfileEditForm({
   return (
     <div className="mx-auto max-w-4xl animate-fade-in-up">
       <div className="overflow-hidden rounded-xl bg-card shadow-card">
-        <div className="h-16 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent" />
+        <div className="h-16 bg-linear-to-br from-primary/20 via-primary/10 to-transparent" />
         <form
           onSubmit={form.handleSubmit(handleSubmitClick)}
           className="-mt-8 space-y-5 px-6 pb-6"
@@ -175,7 +175,7 @@ export function UserProfileEditForm({
             <div className="space-y-1.5">
               <Label>Salary</Label>
               <div className="relative">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+                <span className="absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground">
                   {getCurrencySymbol(watchSalaryCurrency)}
                 </span>
                 <Input

@@ -123,7 +123,7 @@ export function ApplicationTrendChart({
       {isLoading ? (
         <Skeleton className="mt-4 h-6 w-full rounded-lg" />
       ) : dataLength > 1 ? (
-        <div className="mt-4 pl-12 pr-6">
+        <div className="mt-4 pr-6 pl-12">
           <div className="">
             <RangeSlider
               min={0}

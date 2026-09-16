@@ -131,7 +131,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
             </span>
             <span className="text-border">|</span> */}
 
-            <div className="hidden items-center gap-1.5 text-xs tabular-nums text-muted-foreground sm:flex">
+            <div className="hidden items-center gap-1.5 text-xs text-muted-foreground tabular-nums sm:flex">
               <Calendar className="h-3.5 w-3.5" />
               {props.app.application_date}
             </div>
@@ -206,7 +206,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
         </div>
 
         {/* Mobile badges row */}
-        <div className="flex flex-wrap items-center gap-2 px-5 pb-3 pt-3 lg:hidden">
+        <div className="flex flex-wrap items-center gap-2 px-5 pt-3 pb-3 lg:hidden">
           {props.app.mode && (
             <Badge
               variant="secondary"
@@ -255,7 +255,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
             </Badge>
           )}
 
-          <span className="ml-auto text-xs tabular-nums text-muted-foreground">
+          <span className="ml-auto text-xs text-muted-foreground tabular-nums">
             {props.app.application_date}
           </span>
         </div>
@@ -263,7 +263,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
         {/* Inline expansion */}
         {isExpanded && (
           <div
-            className="animate-fade-in-up border-t border-border px-5 pb-5 pt-1"
+            className="animate-fade-in-up border-t border-border px-5 pt-1 pb-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mt-3 grid grid-cols-2 gap-4 text-xs sm:grid-cols-3 lg:grid-cols-4">
@@ -293,7 +293,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
               </div>
               <div>
                 <span className="text-muted-foreground">Date</span>
-                <p className="mt-0.5 font-medium tabular-nums text-foreground">
+                <p className="mt-0.5 font-medium text-foreground tabular-nums">
                   {props.app.application_date}
                 </p>
               </div>
@@ -301,7 +301,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
               {props.app.experience_level && (
                 <div>
                   <span className="text-muted-foreground">Experience</span>
-                  <p className="mt-0.5 font-medium capitalize text-foreground">
+                  <p className="mt-0.5 font-medium text-foreground capitalize">
                     {props.app.experience_level.replace("_", " ")}
                   </p>
                 </div>
@@ -309,7 +309,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
               {props.app.work_mode && (
                 <div>
                   <span className="text-muted-foreground">Work Mode</span>
-                  <p className="mt-0.5 font-medium capitalize text-foreground">
+                  <p className="mt-0.5 font-medium text-foreground capitalize">
                     {props.app.work_mode.replace("_", " ")}
                   </p>
                 </div>
@@ -325,7 +325,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
               {props.app.salary_range_min != null && (
                 <div>
                   <span className="text-muted-foreground">Salary Range</span>
-                  <p className="mt-0.5 font-medium tabular-nums text-foreground">
+                  <p className="mt-0.5 font-medium text-foreground tabular-nums">
                     {formatSalary(
                       props.app.salary_range_min,
                       props.app.currency,
@@ -342,7 +342,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
               {props.app.expected_salary != null && (
                 <div>
                   <span className="text-muted-foreground">Expected Salary</span>
-                  <p className="mt-0.5 font-medium tabular-nums text-foreground">
+                  <p className="mt-0.5 font-medium text-foreground tabular-nums">
                     {formatSalary(
                       props.app.expected_salary,
                       props.app.currency,
@@ -430,7 +430,7 @@ export function ApplicationStepTimeline({
   if (stepsLoading)
     return (
       <div className="mt-4 border-t border-border/50 pt-3">
-        <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
+        <span className="text-xs font-semibold tracking-wider text-foreground uppercase">
           Steps
         </span>
         <div className="mt-3 space-y-2">
@@ -444,7 +444,7 @@ export function ApplicationStepTimeline({
   return (
     <div className="mt-4 border-t border-border/50 pt-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
+        <span className="text-xs font-semibold tracking-wider text-foreground uppercase">
           Steps
         </span>
         <span className="text-xs text-muted-foreground">
@@ -459,7 +459,7 @@ export function ApplicationStepTimeline({
       ) : (
         <div className="relative mt-3 space-y-0">
           {/* Vertical timeline line */}
-          <div className="absolute bottom-2 left-[7px] top-2 hidden w-px border-2 border-dashed border-border sm:block" />
+          <div className="absolute top-2 bottom-2 left-[7px] hidden w-px border-2 border-dashed border-border sm:block" />
 
           {steps.map((step) => {
             const supportStep = resolveStep(step.step_id);
@@ -477,7 +477,7 @@ export function ApplicationStepTimeline({
                 {/* Timeline dot */}
                 <div
                   className={cn(
-                    "relative right-[1px] z-10 my-auto hidden h-5 w-5 shrink-0 rounded-full border-2 bg-background sm:block",
+                    "relative right-px z-10 my-auto hidden h-5 w-5 shrink-0 rounded-full border-2 bg-background sm:block",
                     isFuture && "border-dashed",
                   )}
                   style={{ borderColor: stepColor }}
@@ -547,7 +547,7 @@ export function ApplicationStepTimeline({
 
                   {/* Observation */}
                   {step.observation && (
-                    <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-foreground/70">
+                    <p className="mt-2 text-xs leading-relaxed whitespace-pre-wrap text-foreground/70">
                       {step.observation}
                     </p>
                   )}
@@ -573,7 +573,7 @@ export function ApplicationStepTimeline({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => stepDelete.id && deleteStep(stepDelete.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
             >
               Delete
             </AlertDialogAction>

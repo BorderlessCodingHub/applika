@@ -118,7 +118,7 @@ export function ApplicationsPage() {
         <div className="space-y-3">
           <div className="flex flex-wrap gap-3">
             <div className="relative min-w-[200px] flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search company or role…"
                 value={filters.search ?? ""}
@@ -388,7 +388,7 @@ export function ApplicationsPage() {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => deleteApplication(appAction.data!.id)}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                variant="destructive"
               >
                 Delete
               </AlertDialogAction>

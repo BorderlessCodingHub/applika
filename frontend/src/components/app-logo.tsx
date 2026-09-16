@@ -4,7 +4,7 @@ export function AppLogo({ mode }: { mode: "header" | "mobile" | "sidebar" }) {
   return mode === "sidebar" ? (
     <div className="flex cursor-pointer gap-1">
       <ApplikaIcon className="h-16 w-16 text-primary" />
-      <div className="flex flex-col gap-1 py-0.5 text-2xl font-bold leading-none text-foreground">
+      <div className="flex flex-col gap-1 py-0.5 text-2xl leading-none font-bold text-foreground">
         <span>applika</span>
         <span>.dev</span>
       </div>
@@ -12,7 +12,7 @@ export function AppLogo({ mode }: { mode: "header" | "mobile" | "sidebar" }) {
   ) : (
     <div className="flex cursor-pointer gap-1">
       <ApplikaIcon className="h-12 w-12 text-primary" />
-      <div className="flex flex-col gap-1 py-0.5 text-lg font-bold leading-none text-foreground">
+      <div className="flex flex-col gap-1 py-0.5 text-lg leading-none font-bold text-foreground">
         <span>applika</span>
         <span>.dev</span>
       </div>

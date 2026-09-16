@@ -51,7 +51,7 @@ export function CookiePolicyPage() {
 
         <div className="overflow-x-auto rounded-md border border-border">
           <table className="w-full text-left text-sm">
-            <thead className="bg-muted text-xs uppercase text-muted-foreground">
+            <thead className="bg-muted text-xs text-muted-foreground uppercase">
               <tr>
                 <th className="px-3 py-2 font-medium">Name</th>
                 <th className="px-3 py-2 font-medium">Purpose</th>
