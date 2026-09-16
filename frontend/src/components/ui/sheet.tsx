@@ -78,9 +78,13 @@ function SheetContent({
           className,
           // applika-only: every sheet in the app is a wide form panel holding a
           // bare <form>, not the registry's Header/Content/Footer sandwich, so
-          // the padding and the width live here and win over both the side
-          // default and the caller's className — exactly as they did before the
-          // regeneration. Without the padding the fields run edge to edge.
+          // the padding and the width live here — exactly as they did before the
+          // new-york regeneration. Without the padding the fields run edge to
+          // edge against the panel.
+          //
+          // NOTE these come AFTER `className`, so a caller CANNOT override the
+          // width or the padding from the outside; widen the variants here
+          // instead if a sheet ever needs a different size.
           "w-full p-6 sm:max-w-2xl",
         )}
         {...props}
