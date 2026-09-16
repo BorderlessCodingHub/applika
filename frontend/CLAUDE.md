@@ -168,6 +168,14 @@ for conditional class merging.
 Tailwind 4 is CSS-first: every token lives in `@theme` in `src/app/globals.css`.
 There is no `tailwind.config.ts`.
 
+**`cn()` and custom utilities.** `shadow-card` and `shadow-elevated` are custom
+`@utility` rules, so stock tailwind-merge does not know they are shadows and
+would keep BOTH sides of an override — leaving the loser to win on stylesheet
+order. `src/lib/utils.ts` registers them in the `shadow` group via
+`extendTailwindMerge`. **Any new custom `@utility` that competes with a built-in
+Tailwind group must be registered there too**, or overriding it will silently do
+nothing.
+
 **`SheetContent` props (applika-only, kept across the new-york regeneration):**
 
 - `hideClose` — suppress the default X button when the panel owns its own
@@ -222,8 +230,17 @@ state and hoists a SINGLE `FeedbackDialog`. It renders `CliPromoBanner` and the
 - Below `md` the account menu is mounted TWICE (header and sheet). Scope test
   locators by container or Playwright's strict mode will fail.
 - Accessible names the tests depend on: `Open navigation menu`,
-  `Close navigation menu`, `Open account menu`, `Applika.dev home`, and the
-  `Primary` navigation landmark.
+  `Close navigation menu`, `Applika.dev home`, the `Primary` navigation
+  landmark, and `Open account menu` — which the `card` variant extends to
+  `Open account menu for <username>`, because the username is its VISIBLE label
+  and WCAG 2.5.3 requires the accessible name to contain it. Playwright's
+  `getByRole(..., { name })` is a substring match, so both variants match
+  `"Open account menu"`; Testing Library's is exact, so a vitest locator needs
+  the full string or a regex.
+- The group divider (`System`) is NOT `aria-hidden`: with the old amber
+  treatment gone it is the only thing marking the Admin entry as privileged.
+  Grouped entries point at it with `aria-describedby`, which describes without
+  renaming — `admin-gating.spec.ts` asserts the name is exactly `Admin`.
 
 ---
 
