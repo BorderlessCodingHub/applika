@@ -28,7 +28,7 @@ export function UserGrowthChart() {
       <Card className="overflow-hidden p-5">
         <div className="mb-4 flex items-center gap-3">
           <div className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
-          <h3 className="font-display text-sm font-semibold uppercase tracking-wide-label text-muted-foreground">
+          <h3 className="font-display text-sm font-semibold tracking-wide-label text-muted-foreground uppercase">
             User Growth
           </h3>
         </div>
@@ -103,7 +103,7 @@ export function NewUsersBarChart() {
       <Card className="overflow-hidden p-5">
         <div className="mb-4 flex items-center gap-3">
           <div className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
-          <h3 className="font-display text-sm font-semibold uppercase tracking-wide-label text-muted-foreground">
+          <h3 className="font-display text-sm font-semibold tracking-wide-label text-muted-foreground uppercase">
             New Users / Month
           </h3>
         </div>

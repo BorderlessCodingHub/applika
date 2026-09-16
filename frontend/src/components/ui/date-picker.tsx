@@ -76,13 +76,14 @@ export function DatePickerInput({
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <Button
+          data-slot="date-picker-trigger"
           variant={disabled ? "ghost" : "outline"}
           className={cn(
             "w-full justify-start bg-card text-left font-normal",
             className,
           )}
         >
-          <CalendarIcon className="mr-2 h-4 w-4" />
+          <CalendarIcon className="mr-2 size-4" />
           {value ? format(formatDate(value), pattern) : placeholder}
         </Button>
       </PopoverTrigger>

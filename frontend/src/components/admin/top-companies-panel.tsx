@@ -18,7 +18,7 @@ export function TopCompaniesPanel() {
       <Card className="overflow-hidden p-5">
         <div className="mb-4 flex items-center gap-3">
           <div className="h-2 w-2 rounded-full bg-violet-400" />
-          <h3 className="font-display text-sm font-semibold uppercase tracking-wide-label text-muted-foreground">
+          <h3 className="font-display text-sm font-semibold tracking-wide-label text-muted-foreground uppercase">
             Top Companies
           </h3>
         </div>
@@ -53,7 +53,7 @@ export function TopCompaniesPanel() {
                       <span className="text-[10px] text-muted-foreground/60">
                         {company.unique_users} users
                       </span>
-                      <span className="font-display text-sm font-bold tabular-nums text-foreground">
+                      <span className="font-display text-sm font-bold text-foreground tabular-nums">
                         {company.total_across_users}
                       </span>
                     </div>

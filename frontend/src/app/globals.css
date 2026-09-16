@@ -1,8 +1,313 @@
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap")
+layer(base);
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans:
+    "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: "Outfit", system-ui, -apple-system, sans-serif;
+
+  --tracking-tight-display: -0.03em;
+  --tracking-wide-label: 0.08em;
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-sidebar: hsl(var(--sidebar-background));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-slide-in-right: slide-in-right 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
+  --animate-fade-in: fade-in 0.3s ease-out both;
+  --animate-fade-in-up: fade-in-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-float-slow: float-slow 8s ease-in-out infinite;
+  --animate-scale-in: scale-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-8px) rotate(1deg);
+    }
+  }
+  @keyframes float-slow {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-12px) rotate(-1.5deg);
+    }
+  }
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.92);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@utility tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility text-balance {
+  text-wrap: balance;
+}
+
+@utility shadow-card {
+  box-shadow: var(--shadow-card);
+}
+
+@utility shadow-elevated {
+  box-shadow: var(--shadow-elevated);
+}
+
+@utility shadow-panel {
+  box-shadow: var(--shadow-panel);
+}
+
+@utility font-body {
+  font-family: "DM Sans", system-ui, sans-serif;
+}
+
+@utility noise-overlay {
+  /* Noise texture overlay */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.025;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+  }
+
+  .dark &::before {
+    opacity: 0.04;
+  }
+}
+
+@utility dot-grid {
+  /* Dot grid pattern */
+  background-image: radial-gradient(
+    circle,
+    hsl(var(--border)) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+
+  .dark & {
+    background-image: radial-gradient(
+      circle,
+      hsl(var(--border) / 0.5) 1px,
+      transparent 1px
+    );
+  }
+}
+
+@utility gradient-mesh {
+  /* Gradient mesh for hero backgrounds */
+  background:
+    radial-gradient(
+      ellipse 80% 60% at 20% 30%,
+      hsl(168 65% 38% / 0.08) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 60% 80% at 80% 70%,
+      hsl(200 60% 50% / 0.06) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 50% 50% at 50% 50%,
+      hsl(40 30% 50% / 0.03) 0%,
+      transparent 70%
+    );
+
+  .dark & {
+    background:
+      radial-gradient(
+        ellipse 80% 60% at 20% 30%,
+        hsl(168 70% 48% / 0.08) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 60% 80% at 80% 70%,
+        hsl(200 60% 50% / 0.05) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 50% 50% at 50% 50%,
+        hsl(260 40% 50% / 0.04) 0%,
+        transparent 70%
+      );
+  }
+}
+
+@utility glow-primary {
+  /* Glow effect for primary elements in dark mode */
+  .dark & {
+    box-shadow: 0 0 24px -4px hsl(168 70% 48% / 0.25);
+  }
+}
+
+@utility stagger-1 {
+  /* Stagger animation delays */
+  animation-delay: 60ms;
+}
+
+@utility stagger-2 {
+  animation-delay: 120ms;
+}
+
+@utility stagger-3 {
+  animation-delay: 180ms;
+}
+
+@utility stagger-4 {
+  animation-delay: 240ms;
+}
+
+@utility stagger-5 {
+  animation-delay: 300ms;
+}
+
+@utility stagger-6 {
+  animation-delay: 360ms;
+}
+
+@utility admin-card {
+  /* Admin card hover lift */
+  will-change: transform;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+@utility admin-gradient-line {
+  /* Admin gradient accent line */
+  background: linear-gradient(
+    90deg,
+    hsl(var(--primary)),
+    #fbbf24 50%,
+    transparent
+  );
+}
 
 @layer base {
   :root {
@@ -130,151 +435,5 @@
   h3,
   h4 {
     font-family: "Outfit", system-ui, sans-serif;
-  }
-}
-
-@layer utilities {
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-  }
-
-  .text-balance {
-    text-wrap: balance;
-  }
-
-  .shadow-card {
-    box-shadow: var(--shadow-card);
-  }
-
-  .shadow-elevated {
-    box-shadow: var(--shadow-elevated);
-  }
-
-  .shadow-panel {
-    box-shadow: var(--shadow-panel);
-  }
-
-  .font-display {
-    font-family: "Outfit", system-ui, sans-serif;
-  }
-
-  .font-body {
-    font-family: "DM Sans", system-ui, sans-serif;
-  }
-
-  /* Noise texture overlay */
-  .noise-overlay::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    opacity: 0.025;
-    pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 200px 200px;
-  }
-
-  .dark .noise-overlay::before {
-    opacity: 0.04;
-  }
-
-  /* Dot grid pattern */
-  .dot-grid {
-    background-image: radial-gradient(
-      circle,
-      hsl(var(--border)) 1px,
-      transparent 1px
-    );
-    background-size: 24px 24px;
-  }
-
-  .dark .dot-grid {
-    background-image: radial-gradient(
-      circle,
-      hsl(var(--border) / 0.5) 1px,
-      transparent 1px
-    );
-  }
-
-  /* Gradient mesh for hero backgrounds */
-  .gradient-mesh {
-    background:
-      radial-gradient(
-        ellipse 80% 60% at 20% 30%,
-        hsl(168 65% 38% / 0.08) 0%,
-        transparent 70%
-      ),
-      radial-gradient(
-        ellipse 60% 80% at 80% 70%,
-        hsl(200 60% 50% / 0.06) 0%,
-        transparent 70%
-      ),
-      radial-gradient(
-        ellipse 50% 50% at 50% 50%,
-        hsl(40 30% 50% / 0.03) 0%,
-        transparent 70%
-      );
-  }
-
-  .dark .gradient-mesh {
-    background:
-      radial-gradient(
-        ellipse 80% 60% at 20% 30%,
-        hsl(168 70% 48% / 0.08) 0%,
-        transparent 70%
-      ),
-      radial-gradient(
-        ellipse 60% 80% at 80% 70%,
-        hsl(200 60% 50% / 0.05) 0%,
-        transparent 70%
-      ),
-      radial-gradient(
-        ellipse 50% 50% at 50% 50%,
-        hsl(260 40% 50% / 0.04) 0%,
-        transparent 70%
-      );
-  }
-
-  /* Glow effect for primary elements in dark mode */
-  .dark .glow-primary {
-    box-shadow: 0 0 24px -4px hsl(168 70% 48% / 0.25);
-  }
-
-  /* Stagger animation delays */
-  .stagger-1 {
-    animation-delay: 60ms;
-  }
-  .stagger-2 {
-    animation-delay: 120ms;
-  }
-  .stagger-3 {
-    animation-delay: 180ms;
-  }
-  .stagger-4 {
-    animation-delay: 240ms;
-  }
-  .stagger-5 {
-    animation-delay: 300ms;
-  }
-  .stagger-6 {
-    animation-delay: 360ms;
-  }
-
-  /* Admin card hover lift */
-  .admin-card {
-    will-change: transform;
-  }
-
-  .admin-card:hover {
-    transform: translateY(-1px);
-  }
-
-  /* Admin gradient accent line */
-  .admin-gradient-line {
-    background: linear-gradient(
-      90deg,
-      hsl(var(--primary)),
-      #fbbf24 50%,
-      transparent
-    );
   }
 }

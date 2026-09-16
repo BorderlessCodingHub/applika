@@ -87,7 +87,7 @@ export function CyclesPage() {
               </div>
 
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold leading-tight">
+                <p className="truncate text-sm leading-tight font-semibold">
                   {cycle.name}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">

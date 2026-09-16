@@ -56,7 +56,7 @@ export function CookieConsent() {
       aria-live="polite"
       aria-label="Cookie notice"
       className={cn(
-        "fixed bottom-4 right-4 z-50 w-[min(22rem,calc(100vw-2rem))]",
+        "fixed right-4 bottom-4 z-50 w-[min(22rem,calc(100vw-2rem))]",
         "rounded-lg border border-border bg-background text-foreground shadow-lg",
         "p-4",
       )}
@@ -64,7 +64,7 @@ export function CookieConsent() {
       <div className="flex items-start gap-3">
         <Cookie className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
         <div className="flex-1 space-y-2">
-          <p className="text-sm font-semibold leading-none">
+          <p className="text-sm leading-none font-semibold">
             We use essential cookies
           </p>
           <p className="text-xs leading-relaxed text-muted-foreground">
@@ -87,7 +87,7 @@ export function CookieConsent() {
           className={cn(
             "shrink-0 rounded-md p-1 text-muted-foreground transition-colors",
             "hover:bg-accent hover:text-accent-foreground",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
           )}
         >
           <X className="size-4" />

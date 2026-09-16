@@ -117,7 +117,7 @@ export function FeedbackDialog({
             maxLength={MAX_TEXT_LENGHT}
             className="resize-none"
           />
-          <span className="text-xs tabular-nums text-muted-foreground">
+          <span className="text-xs text-muted-foreground tabular-nums">
             {`${MAX_TEXT_LENGHT - feedback.length} characters`}
           </span>
         </div>

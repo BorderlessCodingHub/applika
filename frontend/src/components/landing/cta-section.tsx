@@ -11,7 +11,7 @@ export function CtaSection() {
 
   return (
     <section className="relative border-t border-border/60">
-      <div className="gradient-mesh absolute inset-0 opacity-50" />
+      <div className="absolute inset-0 opacity-50 gradient-mesh" />
       <div className="relative mx-auto max-w-5xl px-4 py-16 text-center md:px-8 md:py-20">
         <h3 className="mb-4 font-display text-3xl font-extrabold tracking-tight-display text-foreground md:text-4xl">
           Ready to take control of your job search?
@@ -24,7 +24,7 @@ export function CtaSection() {
           <Button
             asChild
             size="lg"
-            className="glow-primary h-12 gap-2 px-10 font-display text-base font-semibold"
+            className="h-12 gap-2 px-10 font-display text-base font-semibold glow-primary"
           >
             <Link href="/dashboard">
               Go to Dashboard
@@ -35,7 +35,7 @@ export function CtaSection() {
           <Button
             asChild
             size="lg"
-            className="glow-primary h-12 gap-2.5 px-10 font-display text-base font-semibold"
+            className="h-12 gap-2.5 px-10 font-display text-base font-semibold glow-primary"
           >
             <SignInLink>Get started free</SignInLink>
           </Button>

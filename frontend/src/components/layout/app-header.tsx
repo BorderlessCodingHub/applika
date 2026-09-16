@@ -27,7 +27,7 @@ function UserMenu() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="rounded-full outline-none ring-offset-background transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+          <button className="rounded-full ring-offset-background outline-hidden transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
             <UserProfileAvatar
               className="h-8 w-8 cursor-pointer text-xl"
               user={user}
@@ -90,7 +90,7 @@ export function MobileHeader({
   mobileOpen: boolean;
 }) {
   return (
-    <header className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-end gap-5 border-b border-border/60 bg-card/80 px-4 backdrop-blur-xl md:hidden">
+    <header className="fixed top-0 right-0 left-0 z-40 flex h-14 items-center justify-end gap-5 border-b border-border/60 bg-card/80 px-4 backdrop-blur-xl md:hidden">
       <CycleSelector className="max-w-full" />
 
       <div className="flex items-center gap-2">

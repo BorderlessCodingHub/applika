@@ -152,7 +152,7 @@ export function AdminStatCards() {
             delay: i * 0.06,
             ease: [0.22, 1, 0.36, 1],
           }}
-          className="admin-card hover:shadow-elevated group relative overflow-hidden rounded-xl border border-border/60 bg-card p-4 transition-all duration-300 hover:border-border"
+          className="group relative admin-card overflow-hidden rounded-xl border border-border/60 bg-card p-4 transition-all duration-300 hover:border-border hover:shadow-elevated"
         >
           {/* Subtle glow on hover */}
           <div
@@ -164,7 +164,7 @@ export function AdminStatCards() {
 
           <div className="relative z-10">
             <div className="mb-3 flex items-center justify-between">
-              <span className="font-display text-[11px] font-medium uppercase tracking-wide-label text-muted-foreground">
+              <span className="font-display text-[11px] font-medium tracking-wide-label text-muted-foreground uppercase">
                 {stat.label}
               </span>
               <stat.icon className={`h-4 w-4 ${stat.accent} opacity-70`} />
@@ -177,7 +177,7 @@ export function AdminStatCards() {
                 value={stat.getValue(data)}
                 decimals={stat.decimals ?? 0}
                 suffix={stat.suffix ?? ""}
-                className={`font-display text-2xl font-bold tabular-nums tracking-tight ${stat.accent}`}
+                className={`font-display text-2xl font-bold tracking-tight tabular-nums ${stat.accent}`}
               />
             )}
           </div>

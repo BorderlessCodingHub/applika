@@ -61,7 +61,7 @@ export function CliPromoBanner() {
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="font-medium leading-tight">
+        <p className="leading-tight font-medium">
           Try the <span className="font-mono">applika-cli</span> command-line
           tool
         </p>
@@ -85,7 +85,7 @@ export function CliPromoBanner() {
         className={cn(
           "shrink-0 rounded-md p-1 text-muted-foreground transition-colors",
           "hover:bg-accent hover:text-accent-foreground",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
         )}
       >
         <X className="size-4" />

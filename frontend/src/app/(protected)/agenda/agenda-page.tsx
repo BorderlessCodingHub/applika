@@ -249,7 +249,7 @@ function StepCard({
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <p className="font-semibold leading-tight">{step.company_name}</p>
+              <p className="leading-tight font-semibold">{step.company_name}</p>
               <p className="text-sm text-muted-foreground">{step.role}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">

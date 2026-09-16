@@ -33,11 +33,11 @@ function StatCard({
         </div>
       ) : (
         <>
-          <span className="font-display text-base font-medium uppercase tracking-wide-label text-muted-foreground">
+          <span className="font-display text-base font-medium tracking-wide-label text-muted-foreground uppercase">
             {label}
           </span>
           <p
-            className={`mt-1 font-display text-2xl font-bold tabular-nums leading-tight ${STAT_COLORS[colorKey] ?? "text-foreground"}`}
+            className={`mt-1 font-display text-2xl leading-tight font-bold tabular-nums ${STAT_COLORS[colorKey] ?? "text-foreground"}`}
           >
             {value}
           </p>
