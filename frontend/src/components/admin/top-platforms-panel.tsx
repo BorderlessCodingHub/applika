@@ -49,7 +49,7 @@ export function TopPlatformsPanel() {
                       <span className="text-[10px] text-muted-foreground/60">
                         {platform.unique_users} users
                       </span>
-                      <span className="font-display text-sm font-bold text-foreground tabular-nums">
+                      <span className="font-numeric text-sm font-bold text-foreground">
                         {platform.total_across_users}
                       </span>
                     </div>
@@ -58,7 +58,10 @@ export function TopPlatformsPanel() {
                     <motion.div
                       className="h-full rounded-full"
                       style={{
-                        background: `linear-gradient(90deg, var(--chart-1) 0%, var(--chart-3) 100%)`,
+                        // chart-1 -> chart-3 is a 180 deg hue sweep; sRGB and
+                        // oklab both interpolate it through grey. Land on a
+                        // near neighbour of chart-1 instead.
+                        background: `linear-gradient(90deg, var(--chart-1) 0%, color-mix(in oklab, var(--chart-1) 45%, var(--chart-3)) 100%)`,
                       }}
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}

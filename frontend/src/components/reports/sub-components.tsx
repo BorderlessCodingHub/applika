@@ -35,9 +35,7 @@ export function StatCard({
           {label}
         </span>
       </div>
-      <p className="font-display text-2xl font-semibold tabular-nums">
-        {value}
-      </p>
+      <p className="font-numeric text-2xl font-semibold">{value}</p>
     </div>
   );
 }

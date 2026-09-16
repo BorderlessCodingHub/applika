@@ -53,7 +53,7 @@ export function TopCompaniesPanel() {
                       <span className="text-[10px] text-muted-foreground/60">
                         {company.unique_users} users
                       </span>
-                      <span className="font-display text-sm font-bold text-foreground tabular-nums">
+                      <span className="font-numeric text-sm font-bold text-foreground">
                         {company.total_across_users}
                       </span>
                     </div>
@@ -63,7 +63,7 @@ export function TopCompaniesPanel() {
                       className="h-full rounded-full"
                       style={{
                         background:
-                          "linear-gradient(90deg, #a855f7 0%, #ec4899 100%)",
+                          "linear-gradient(90deg, var(--chart-2) 0%, color-mix(in oklab, var(--chart-2) 45%, var(--chart-1)) 100%)",
                       }}
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}

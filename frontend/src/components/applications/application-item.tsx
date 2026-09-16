@@ -131,7 +131,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
             </span>
             <span className="text-border">|</span> */}
 
-            <div className="hidden items-center gap-1.5 text-xs text-muted-foreground tabular-nums sm:flex">
+            <div className="hidden items-center gap-1.5 font-numeric text-xs text-muted-foreground sm:flex">
               <Calendar className="h-3.5 w-3.5" />
               {props.app.application_date}
             </div>
@@ -255,7 +255,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
             </Badge>
           )}
 
-          <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+          <span className="ml-auto font-numeric text-xs text-muted-foreground">
             {props.app.application_date}
           </span>
         </div>
@@ -293,7 +293,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
               </div>
               <div>
                 <span className="text-muted-foreground">Date</span>
-                <p className="mt-0.5 font-medium text-foreground tabular-nums">
+                <p className="mt-0.5 font-numeric font-medium text-foreground">
                   {props.app.application_date}
                 </p>
               </div>
@@ -325,7 +325,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
               {props.app.salary_range_min != null && (
                 <div>
                   <span className="text-muted-foreground">Salary Range</span>
-                  <p className="mt-0.5 font-medium text-foreground tabular-nums">
+                  <p className="mt-0.5 font-numeric font-medium text-foreground">
                     {formatSalary(
                       props.app.salary_range_min,
                       props.app.currency,
@@ -342,7 +342,7 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
               {props.app.expected_salary != null && (
                 <div>
                   <span className="text-muted-foreground">Expected Salary</span>
-                  <p className="mt-0.5 font-medium text-foreground tabular-nums">
+                  <p className="mt-0.5 font-numeric font-medium text-foreground">
                     {formatSalary(
                       props.app.expected_salary,
                       props.app.currency,
@@ -536,7 +536,7 @@ export function ApplicationStepTimeline({
                   {/* Date row */}
                   <div className="mt-2 flex items-center gap-1.5 text-xs text-foreground/70">
                     <Clock className="h-3.5 w-3.5 shrink-0" />
-                    <span className="tabular-nums">{step.step_date}</span>
+                    <span className="font-numeric">{step.step_date}</span>
                     <span className="text-border">·</span>
                     <span
                       className={cn(isFuture && "font-medium text-primary")}

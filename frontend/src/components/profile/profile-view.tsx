@@ -202,7 +202,9 @@ export function UserProfileView({
               >
                 <div
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                  style={{ backgroundColor: `${b.color}20` }}
+                  style={{
+                    backgroundColor: `color-mix(in oklab, ${b.color} 14%, transparent)`,
+                  }}
                 >
                   <b.icon className="h-4.5 w-4.5" style={{ color: b.color }} />
                 </div>
@@ -368,6 +370,8 @@ function computeBadges(stats?: {
   const o = stats?.offers ?? 0;
   const sr = stats?.success_rate ?? 0;
 
+  // Volume badges ramp along the identity blue as the count grows; the two
+  // outcome badges take the chart scale's green and amber.
   return [
     {
       id: "first_app",
@@ -375,7 +379,7 @@ function computeBadges(stats?: {
       description: "Created your first application",
       icon: Star,
       earned: t >= 1,
-      color: "hsl(38 92% 50%)",
+      color: "color-mix(in oklab, var(--chart-1) 45%, var(--chart-5))",
     },
     {
       id: "ten_apps",
@@ -383,7 +387,7 @@ function computeBadges(stats?: {
       description: "10 applications submitted",
       icon: Flame,
       earned: t >= 10,
-      color: "hsl(15 80% 55%)",
+      color: "color-mix(in oklab, var(--chart-1) 65%, var(--chart-5))",
     },
     {
       id: "fifty_apps",
@@ -391,7 +395,7 @@ function computeBadges(stats?: {
       description: "50 applications submitted",
       icon: Target,
       earned: t >= 50,
-      color: "hsl(262 60% 55%)",
+      color: "color-mix(in oklab, var(--chart-1) 85%, var(--chart-5))",
     },
     {
       id: "hundred_apps",
@@ -399,7 +403,7 @@ function computeBadges(stats?: {
       description: "100 applications submitted",
       icon: Award,
       earned: t >= 100,
-      color: "hsl(220 90% 50%)",
+      color: "var(--chart-1)",
     },
     {
       id: "first_offer",
@@ -407,7 +411,7 @@ function computeBadges(stats?: {
       description: "Received your first offer",
       icon: Trophy,
       earned: o >= 1,
-      color: "hsl(142 71% 45%)",
+      color: "var(--chart-2)",
     },
     {
       id: "high_rate",
@@ -415,7 +419,7 @@ function computeBadges(stats?: {
       description: "Achieved 20%+ success rate",
       icon: Zap,
       earned: sr >= 20 && t >= 5,
-      color: "hsl(48 96% 53%)",
+      color: "var(--chart-3)",
     },
   ];
 }

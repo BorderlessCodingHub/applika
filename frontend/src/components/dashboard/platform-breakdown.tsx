@@ -41,7 +41,7 @@ export function PlatformBreakdown({ cycleId }: { cycleId?: string | null }) {
                 </span>
                 <div className="mt-[2px] grow border-b-2 border-dashed border-gray-600"></div>
 
-                <span className="text-md shrink-0 text-right font-display font-semibold text-foreground tabular-nums">
+                <span className="shrink-0 text-right font-numeric font-semibold text-foreground">
                   {p.total_applications}
                 </span>
 

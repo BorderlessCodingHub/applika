@@ -289,13 +289,13 @@ export function UsersPage() {
                           </Badge>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-right font-display font-semibold text-foreground tabular-nums">
+                      <td className="px-3 py-3 text-right font-numeric font-semibold text-foreground">
                         {user.total_applications}
                       </td>
-                      <td className="hidden px-3 py-3 text-right font-display text-primary tabular-nums md:table-cell">
+                      <td className="hidden px-3 py-3 text-right font-numeric text-primary md:table-cell">
                         {user.offers}
                       </td>
-                      <td className="hidden px-3 py-3 text-right font-display text-rose-400 tabular-nums md:table-cell">
+                      <td className="hidden px-3 py-3 text-right font-numeric text-rose-400 md:table-cell">
                         {user.denials}
                       </td>
                       <td className="px-3 py-3 text-right text-xs text-muted-foreground tabular-nums">
@@ -460,25 +460,25 @@ export function UsersPage() {
                 </p>
                 <div className="grid grid-cols-4 gap-2 text-center">
                   <div>
-                    <p className="text-lg font-bold tabular-nums">
+                    <p className="font-numeric text-lg font-bold">
                       {userDetail.total_applications}
                     </p>
                     <p className="text-[10px] text-muted-foreground">Total</p>
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-primary tabular-nums">
+                    <p className="font-numeric text-lg font-bold text-primary">
                       {userDetail.offers}
                     </p>
                     <p className="text-[10px] text-muted-foreground">Offers</p>
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-rose-400 tabular-nums">
+                    <p className="font-numeric text-lg font-bold text-rose-400">
                       {userDetail.denials}
                     </p>
                     <p className="text-[10px] text-muted-foreground">Denials</p>
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-amber-400 tabular-nums">
+                    <p className="font-numeric text-lg font-bold text-amber-400">
                       {userDetail.active_applications}
                     </p>
                     <p className="text-[10px] text-muted-foreground">Active</p>

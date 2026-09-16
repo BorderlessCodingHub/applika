@@ -54,7 +54,7 @@ export function ActivityHeatmap() {
                 {HOURS.filter((h) => h % 3 === 0).map((h) => (
                   <span
                     key={h}
-                    className="font-display text-[9px] text-muted-foreground/50 tabular-nums"
+                    className="font-numeric text-[9px] text-muted-foreground/50"
                     style={{ width: `${100 / 8}%`, textAlign: "center" }}
                   >
                     {h.toString().padStart(2, "0")}

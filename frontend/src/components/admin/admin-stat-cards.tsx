@@ -177,7 +177,7 @@ export function AdminStatCards() {
                 value={stat.getValue(data)}
                 decimals={stat.decimals ?? 0}
                 suffix={stat.suffix ?? ""}
-                className={`font-display text-2xl font-bold tracking-tight tabular-nums ${stat.accent}`}
+                className={`font-numeric text-2xl font-bold tracking-tight ${stat.accent}`}
               />
             )}
           </div>

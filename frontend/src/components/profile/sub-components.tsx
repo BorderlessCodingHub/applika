@@ -60,7 +60,7 @@ export function InfoItem({
       <div>
         <span className="text-xs text-muted-foreground">{label}</span>
         <p
-          className={`text-sm text-foreground ${tabular ? "tabular-nums" : ""} ${capitalize ? "capitalize" : ""}`}
+          className={`text-sm text-foreground ${tabular ? "font-numeric" : ""} ${capitalize ? "capitalize" : ""}`}
         >
           {value}
         </p>

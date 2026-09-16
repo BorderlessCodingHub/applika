@@ -241,7 +241,7 @@ export function CompaniesPage() {
                           {company.is_active ? "active" : "inactive"}
                         </Badge>
                       </td>
-                      <td className="px-3 py-3 text-right font-display text-foreground tabular-nums">
+                      <td className="px-3 py-3 text-right font-numeric text-foreground">
                         {company.applications_count}
                       </td>
                       <td className="hidden px-3 py-3 text-right text-xs text-muted-foreground lg:table-cell">

@@ -242,13 +242,13 @@ export function UserActivityTable() {
                           </Badge>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-right font-display font-semibold text-foreground tabular-nums">
+                      <td className="px-3 py-3 text-right font-numeric font-semibold text-foreground">
                         {user.total_applications}
                       </td>
-                      <td className="hidden px-3 py-3 text-right font-display text-primary tabular-nums md:table-cell">
+                      <td className="hidden px-3 py-3 text-right font-numeric text-primary md:table-cell">
                         {user.offers}
                       </td>
-                      <td className="hidden px-3 py-3 text-right font-display text-rose-400 tabular-nums md:table-cell">
+                      <td className="hidden px-3 py-3 text-right font-numeric text-rose-400 md:table-cell">
                         {user.denials}
                       </td>
                       <td className="px-5 py-3 text-right text-xs text-muted-foreground tabular-nums">

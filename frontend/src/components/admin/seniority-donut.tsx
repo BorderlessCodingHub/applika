@@ -160,7 +160,7 @@ export function SeniorityDonut() {
                   <span className="text-xs text-muted-foreground capitalize">
                     {entry.level}
                   </span>
-                  <span className="ml-auto font-display text-xs font-medium text-foreground tabular-nums">
+                  <span className="ml-auto font-numeric text-xs font-medium text-foreground">
                     {entry.count}
                   </span>
                 </div>

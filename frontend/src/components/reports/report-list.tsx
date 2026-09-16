@@ -101,7 +101,7 @@ function ReportRow({
       {/* Day number badge */}
       <div
         className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-md font-display text-sm font-semibold tabular-nums",
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-md font-numeric text-sm font-semibold",
           isSubmitted
             ? "bg-emerald-500/15 text-emerald-400"
             : isFuture
