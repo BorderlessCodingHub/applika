@@ -1,5 +1,16 @@
 import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { extendTailwindMerge } from "tailwind-merge";
+
+/**
+ * `shadow-card` and `shadow-elevated` are custom `@utility` rules declared in
+ * `globals.css`, so stock tailwind-merge does not know they belong to the
+ * `shadow` group. Without this, `cn("shadow-elevated", "shadow-none")` keeps
+ * BOTH and the later rule in the stylesheet wins — the override silently does
+ * nothing. Register them so a caller can actually replace them.
+ */
+const twMerge = extendTailwindMerge({
+  extend: { classGroups: { shadow: ["shadow-card", "shadow-elevated"] } },
+});
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
