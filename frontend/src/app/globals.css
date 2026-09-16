@@ -253,7 +253,7 @@
     (L_light = L_dark + 0.79) so cards stay lighter than the page.
   */
   :root {
-    --radius: 0.625rem;
+    --radius: 0.5rem;
 
     --background: oklch(0.95 0.01 270);
     --foreground: oklch(0.17 0.01 270);
