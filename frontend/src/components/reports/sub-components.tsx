@@ -71,7 +71,7 @@ export function CharCounter({ count, max }: { count: number; max: number }) {
   return (
     <span
       className={cn(
-        "text-xs tabular-nums",
+        "font-numeric text-xs",
         exceeded ? "font-medium text-destructive" : "text-muted-foreground",
       )}
     >

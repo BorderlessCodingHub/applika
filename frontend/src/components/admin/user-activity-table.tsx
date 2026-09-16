@@ -116,7 +116,7 @@ export function UserActivityTable() {
             <h3 className="font-display text-sm font-semibold tracking-wide-label text-muted-foreground uppercase">
               Users
             </h3>
-            <span className="text-xs text-muted-foreground/60 tabular-nums">
+            <span className="font-numeric text-xs text-muted-foreground/60">
               {data?.total ?? 0} total
             </span>
           </div>
@@ -251,7 +251,7 @@ export function UserActivityTable() {
                       <td className="hidden px-3 py-3 text-right font-numeric text-rose-400 md:table-cell">
                         {user.denials}
                       </td>
-                      <td className="px-5 py-3 text-right text-xs text-muted-foreground tabular-nums">
+                      <td className="px-5 py-3 text-right font-numeric text-xs text-muted-foreground">
                         {formatRelative(user.last_activity)}
                       </td>
                     </motion.tr>
@@ -263,7 +263,7 @@ export function UserActivityTable() {
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between border-t border-border/30 px-5 py-3">
-                <span className="text-xs text-muted-foreground tabular-nums">
+                <span className="font-numeric text-xs text-muted-foreground">
                   Page {page + 1} of {totalPages}
                 </span>
                 <div className="flex items-center gap-1">
