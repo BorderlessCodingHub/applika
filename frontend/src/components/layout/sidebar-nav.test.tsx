@@ -172,6 +172,29 @@ describe("SidebarNav rendering", () => {
     expect(screen.getByText("System")).toBeInTheDocument();
   });
 
+  it("announces the group label with the entry it qualifies", () => {
+    renderNav("/dashboard", navItemsFor(true));
+
+    const admin = screen.getByRole("link", { name: "Admin" });
+    const label = screen.getByText("System");
+
+    // The label is the ONLY privilege signal left now that the amber treatment
+    // is gone, so it must not be `aria-hidden` and must be tied to the entry.
+    expect(label).not.toHaveAttribute("aria-hidden");
+    expect(admin).toHaveAttribute("aria-describedby", label.id);
+    // Describing must not rename: `admin-gating.spec.ts` asserts "Admin" exactly.
+    expect(admin).toHaveAccessibleName("Admin");
+    expect(admin).toHaveAccessibleDescription("System");
+  });
+
+  it("describes an ungrouped entry with nothing at all", () => {
+    renderNav("/dashboard", navItemsFor(true));
+
+    expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute(
+      "aria-describedby",
+    );
+  });
+
   it("renders no group divider when the admin entry is absent", () => {
     renderNav("/dashboard", navItemsFor(false));
 
