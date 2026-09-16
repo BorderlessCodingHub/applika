@@ -29,7 +29,11 @@ function getSnapshot(): boolean {
 const getServerSnapshot = (): boolean => true;
 
 export function CliPromoBanner() {
-  const dismissed = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const dismissed = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
   const [closedThisSession, setClosedThisSession] = useState(false);
 
   if (dismissed || closedThisSession) return null;
@@ -58,11 +62,13 @@ export function CliPromoBanner() {
 
       <div className="min-w-0 flex-1">
         <p className="font-medium leading-tight">
-          Try the <span className="font-mono">applika-cli</span> command-line tool
+          Try the <span className="font-mono">applika-cli</span> command-line
+          tool
         </p>
         <p className="text-xs text-muted-foreground sm:text-sm">
-          A CLI to log applications from your terminal. Ships with a ready-to-use skill for AI
-          tools like Claude and Codex. See PyPI for installation and full details.
+          A CLI to log applications from your terminal. Ships with a
+          ready-to-use skill for AI tools like Claude and Codex. See PyPI for
+          installation and full details.
         </p>
       </div>
 

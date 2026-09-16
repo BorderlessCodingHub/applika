@@ -31,7 +31,11 @@ function getSnapshot(): boolean {
 const getServerSnapshot = (): boolean => true;
 
 export function CookieConsent() {
-  const acknowledged = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const acknowledged = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
   const [closedThisSession, setClosedThisSession] = useState(false);
 
   if (acknowledged || closedThisSession) return null;
@@ -60,10 +64,13 @@ export function CookieConsent() {
       <div className="flex items-start gap-3">
         <Cookie className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
         <div className="flex-1 space-y-2">
-          <p className="text-sm font-semibold leading-none">We use essential cookies</p>
+          <p className="text-sm font-semibold leading-none">
+            We use essential cookies
+          </p>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Applika.dev only uses cookies that are strictly necessary to keep you signed in and to
-            protect your session. No analytics, advertising, or tracking cookies are used.{" "}
+            Applika.dev only uses cookies that are strictly necessary to keep
+            you signed in and to protect your session. No analytics,
+            advertising, or tracking cookies are used.{" "}
             <Link
               href="/cookie-policy"
               className="underline underline-offset-2 hover:text-foreground"
