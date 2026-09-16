@@ -6,7 +6,10 @@ export function StarRating({ rating }: { rating: number }) {
   const filled = Math.max(0, Math.min(TOTAL_STARS, Math.round(rating)));
 
   return (
-    <div className="flex gap-1" aria-label={`${filled} out of ${TOTAL_STARS} stars`}>
+    <div
+      className="flex gap-1"
+      aria-label={`${filled} out of ${TOTAL_STARS} stars`}
+    >
       {Array.from({ length: TOTAL_STARS }).map((_, idx) => (
         <Star
           key={idx}

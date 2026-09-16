@@ -38,7 +38,7 @@ export function OpenSourceSection() {
           {values.map((v, i) => (
             <div
               key={v.title}
-              className={`group animate-fade-in-up stagger-${i + 1} rounded-xl border border-border/60 bg-background p-6 shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated`}
+              className={`group animate-fade-in-up stagger-${i + 1} hover:shadow-elevated rounded-xl border border-border/60 bg-background p-6 shadow-card transition-all duration-300 hover:-translate-y-0.5`}
             >
               <div className="mb-4 flex items-center gap-5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/15">

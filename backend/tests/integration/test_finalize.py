@@ -137,3 +137,77 @@ async def test_finalize_with_invalid_feedback_returns_404(
     )
 
     assert response.status_code == 404, msg(404, response.status_code)
+
+
+# ---------------------------------------------------------------------------
+# CLI 0.1.4 compatibility: every step/feedback/salary_offer combination the
+# published CLI can send must finalize successfully.
+# `.claude/rules/cli-compatibility.md` point 3 names `salary_offer` explicitly.
+# ---------------------------------------------------------------------------
+
+async def test_finalize_denied_with_salary_offer_succeeds(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """Denied + Not good enough + salary_offer must finalize (rule 3)."""
+    await _seed_finalize_data(db_session)
+    db_session.add(
+        FeedbackDefinitionModel(id=3, name='Not good enough', color='#d29137')
+    )
+    await db_session.commit()
+
+    payload = {
+        'step_id': 3,  # Denied
+        'feedback_id': 3,  # Not good enough
+        'finalize_date': '2025-12-15',
+        'salary_offer': 95000.0,
+    }
+    response = await async_client.post(
+        '/applications/1/finalize', json=payload
+    )
+
+    assert response.status_code == 201, msg(201, response.status_code)
+    data = response.json()
+    assert data['finalized'] is True, msg(True, data['finalized'])
+    assert data['salary_offer'] == 95000.0
+
+
+async def test_finalize_offer_with_non_accepted_feedback_succeeds(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """Offer + Position filled must finalize: no step/feedback pairing rule."""
+    await _seed_finalize_data(db_session)
+    db_session.add(
+        FeedbackDefinitionModel(id=4, name='Position filled', color='#d14415')
+    )
+    await db_session.commit()
+
+    payload = {
+        'step_id': 2,  # Offer
+        'feedback_id': 4,  # Position filled
+        'finalize_date': '2025-12-15',
+    }
+    response = await async_client.post(
+        '/applications/1/finalize', json=payload
+    )
+
+    assert response.status_code == 201, msg(201, response.status_code)
+    assert response.json()['finalized'] is True
+
+
+async def test_finalize_denied_with_accepted_feedback_succeeds(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """Denied + Accepted must finalize: Accepted is not tied to the Offer step."""
+    await _seed_finalize_data(db_session)
+
+    payload = {
+        'step_id': 3,  # Denied
+        'feedback_id': 2,  # Accepted
+        'finalize_date': '2025-12-15',
+    }
+    response = await async_client.post(
+        '/applications/1/finalize', json=payload
+    )
+
+    assert response.status_code == 201, msg(201, response.status_code)
+    assert response.json()['finalized'] is True

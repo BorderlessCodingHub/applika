@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from importlib.metadata import version
 from typing import Annotated
 
 import typer
@@ -8,6 +7,7 @@ import typer
 from applika.commands.applications import applications_app
 from applika.commands.auth import login, logout, whoami
 from applika.commands.skill import skill
+from applika.commands.version import installed_version, version
 from applika.config import AppConfig, resolve_api_base_url
 from applika.lib.session import SessionStore
 
@@ -22,6 +22,7 @@ app.command('skill')(skill)
 app.command('login')(login)
 app.command('logout')(logout)
 app.command('whoami')(whoami)
+app.command('version')(version)
 
 
 @app.callback()
@@ -47,7 +48,7 @@ def _root(
     ] = False,
 ) -> None:
     if _version:
-        typer.echo(version('applika-cli'))
+        typer.echo(installed_version())
         raise typer.Exit()
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help())

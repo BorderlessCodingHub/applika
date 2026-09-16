@@ -27,8 +27,7 @@ export function useReportDetail(
 ) {
   const query = useQuery({
     queryKey: [...reportDetailKey(day ?? 0, startDate), cycleId ?? "current"],
-    queryFn: () =>
-      services.reports.fetchReportDetail(day!, startDate, cycleId),
+    queryFn: () => services.reports.fetchReportDetail(day!, startDate, cycleId),
     enabled: day !== null,
     placeholderData: keepPreviousData,
   });
@@ -81,7 +80,9 @@ export function useReportSubmit(): UseReportSubmitReturn {
       payload: ReportSubmitPayload;
     }) => services.reports.submitReport(day, payload),
     onSuccess: async (_data, { day }) => {
-      await queryClient.invalidateQueries({ queryKey: reportDetailPrefixKey(day) });
+      await queryClient.invalidateQueries({
+        queryKey: reportDetailPrefixKey(day),
+      });
       await queryClient.invalidateQueries({ queryKey: REPORTS_KEY });
     },
     onError: () => toast.error("Failed to submit report"),

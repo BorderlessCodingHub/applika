@@ -150,7 +150,7 @@ function PlatformsTab() {
                 <th className="px-5 py-2.5 text-left font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
                   Name
                 </th>
-                <th className="hidden px-3 py-2.5 text-left md:table-cell font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                <th className="hidden px-3 py-2.5 text-left font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground md:table-cell">
                   URL
                 </th>
                 <th className="px-5 py-2.5 text-right font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
@@ -231,7 +231,10 @@ function PlatformsTab() {
             </div>
             <div className="space-y-2">
               <Label>URL (optional)</Label>
-              <Input {...createForm.register("url")} placeholder="https://..." />
+              <Input
+                {...createForm.register("url")}
+                placeholder="https://..."
+              />
             </div>
             <DialogFooter>
               <Button
@@ -612,8 +615,9 @@ function FeedbackDefinitionsTab() {
   const deleteMutation = useDeleteAdminFeedbackDefinition();
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [editTarget, setEditTarget] =
-    useState<AdminFeedbackDefinition | null>(null);
+  const [editTarget, setEditTarget] = useState<AdminFeedbackDefinition | null>(
+    null,
+  );
   const [deleteTarget, setDeleteTarget] =
     useState<AdminFeedbackDefinition | null>(null);
 

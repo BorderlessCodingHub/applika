@@ -52,9 +52,24 @@ class ApplicationCreate(BaseModel):
 class ApplicationUpdate(ApplicationCreate): ...
 
 
+class ApplicationLastStep(TypedDict):
+    id: str
+    name: str
+    color: str
+    date: str
+
+
+class ApplicationFeedback(TypedDict):
+    id: str
+    name: str
+    color: str
+    date: str
+
+
 class ApplicationEntry(TypedDict):
     id: str
-    company: ApplicationCompany
+    company_id: str | None
+    company_name: str
     role: str
     mode: str
     platform_id: str
@@ -69,3 +84,7 @@ class ApplicationEntry(TypedDict):
     experience_level: str | None
     work_mode: str | None
     country: str | None
+    salary_offer: float | None
+    finalized: bool
+    last_step: ApplicationLastStep | None
+    feedback: ApplicationFeedback | None

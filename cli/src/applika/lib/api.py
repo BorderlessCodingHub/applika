@@ -137,6 +137,9 @@ class ApiClient:
     def put_json(self, path: str, payload: dict[str, Any]) -> Any:
         return self.request('PUT', path, json=payload).json()
 
+    def delete(self, path: str) -> None:
+        self.request('DELETE', path)
+
     def logout(self) -> None:
         try:
             self.client.get('/auth/logout')

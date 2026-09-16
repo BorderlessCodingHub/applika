@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **CLAUDE.md is a living document. Update it when the project changes in ways that affect how to work here.**
 
 Update when:
+
 - A new UI pattern or component convention is established (e.g., a new reusable primitive)
 - A new hook or service is added with non-obvious usage
 - Authentication or token refresh behavior changes
@@ -15,6 +16,7 @@ Update when:
 - A new form/validation convention replaces an existing one
 
 Do NOT add:
+
 - Implementation details already visible in the code
 - Ephemeral task notes or in-progress work
 - Anything already in git history or comments
@@ -56,6 +58,7 @@ This is a **Next.js 16 App Router** frontend (static export) for Applika.dev —
 ### Routing
 
 Route groups control access:
+
 - `src/app/(public)/` — Unauthenticated pages (home, login)
 - `src/app/(protected)/` — Auth-guarded pages (dashboard, applications, profile, admin)
 
@@ -132,17 +135,17 @@ Built on shadcn/ui (Radix UI + Tailwind). Components live in `src/components/ui/
 
 ## Key Files
 
-| File | Purpose |
-|---|---|
-| `src/services/services.ts` | Service DI container (single import point for all API calls) |
-| `src/lib/api-client.ts` | Axios instance with cookie auth (`withCredentials`) |
-| `src/lib/query-client.ts` | React Query configuration |
-| `src/contexts/auth-context.tsx` | Auth state + polling-based token refresh |
-| `src/contexts/supports-context.tsx` | Shared lookup data (platforms, steps, feedbacks) |
-| `src/components/layout/root-providers.tsx` | Root-level providers (QueryClient, Theme, Auth, Tooltip, Sonner) |
-| `src/components/layout/protected-providers.tsx` | Protected-route providers (nested AuthProvider) |
-| `src/hooks/use-applications.ts` | Application list, client-side filtering, CRUD mutations |
-| `src/components/ui/date-picker.tsx` | Timezone-safe date picker (use instead of `<input type="date">`) |
+| File                                            | Purpose                                                          |
+| ----------------------------------------------- | ---------------------------------------------------------------- |
+| `src/services/services.ts`                      | Service DI container (single import point for all API calls)     |
+| `src/lib/api-client.ts`                         | Axios instance with cookie auth (`withCredentials`)              |
+| `src/lib/query-client.ts`                       | React Query configuration                                        |
+| `src/contexts/auth-context.tsx`                 | Auth state + polling-based token refresh                         |
+| `src/contexts/supports-context.tsx`             | Shared lookup data (platforms, steps, feedbacks)                 |
+| `src/components/layout/root-providers.tsx`      | Root-level providers (QueryClient, Theme, Auth, Tooltip, Sonner) |
+| `src/components/layout/protected-providers.tsx` | Protected-route providers (nested AuthProvider)                  |
+| `src/hooks/use-applications.ts`                 | Application list, client-side filtering, CRUD mutations          |
+| `src/components/ui/date-picker.tsx`             | Timezone-safe date picker (use instead of `<input type="date">`) |
 
 ---
 

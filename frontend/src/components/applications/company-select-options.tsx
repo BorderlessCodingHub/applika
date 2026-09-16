@@ -149,7 +149,7 @@ const CompanyOptionsListBase = React.memo(function CompanyOptionsList({
                       : "opacity-0",
                   )}
                 />
-                <div className="flex flex-col min-w-0">
+                <div className="flex min-w-0 flex-col">
                   <span className="truncate text-sm">{company.name}</span>
                   {company.url && (
                     <span className="truncate text-xs text-muted-foreground">

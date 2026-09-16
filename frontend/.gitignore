@@ -16,6 +16,11 @@ out
 .env
 .next
 
+# Playwright run artifacts
+playwright-report
+test-results
+blob-report
+
 settings.local.json
 
 # Editor directories and files

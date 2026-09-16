@@ -41,10 +41,7 @@ export function useMutateUserProfile() {
   };
 }
 
-export function useAgenda(params?: {
-  from_date?: string;
-  to_date?: string;
-}) {
+export function useAgenda(params?: { from_date?: string; to_date?: string }) {
   return useQuery({
     queryKey: ["user", "agenda", params],
     queryFn: () => services.users.getAgenda(params),

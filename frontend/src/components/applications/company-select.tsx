@@ -102,7 +102,9 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
       // Existing company → write its ID; new/free-text company → write object
       setCompanyValue(
         "company",
-        company.id ? company.id : { name: company.name, url: company.url ?? "" },
+        company.id
+          ? company.id
+          : { name: company.name, url: company.url ?? "" },
         { shouldValidate: false },
       );
     }
@@ -235,7 +237,7 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
               role="combobox"
               aria-expanded={open}
               className={cn(
-                "w-full justify-between font-normal bg-card",
+                "w-full justify-between bg-card font-normal",
                 companyNameError && "border-destructive",
               )}
             >
@@ -256,7 +258,7 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
             <button
               type="button"
               onClick={handleClear}
-              className="absolute right-9 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute right-9 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="Clear selection"
             >
               <X className="size-3.5" />

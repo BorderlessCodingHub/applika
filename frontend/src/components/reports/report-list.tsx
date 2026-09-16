@@ -57,7 +57,7 @@ function SectionLabel({ label, count }: { label: string; count: number }) {
       <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </span>
-      <div className="flex-1 h-0.5 bg-border" />
+      <div className="h-0.5 flex-1 bg-border" />
       <span className="text-xs font-semibold text-muted-foreground">
         {count}
       </span>
@@ -101,7 +101,7 @@ function ReportRow({
       {/* Day number badge */}
       <div
         className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-sm font-display font-semibold tabular-nums",
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-md font-display text-sm font-semibold tabular-nums",
           isSubmitted
             ? "bg-emerald-500/15 text-emerald-400"
             : isFuture
@@ -138,13 +138,13 @@ function ReportRow({
             size="sm"
             variant="outline"
             onClick={onFill}
-            className="gap-1.5 border-primary/40 text-primary hover:bg-primary/10 hover:border-primary hover:text-primary"
+            className="gap-1.5 border-primary/40 text-primary hover:border-primary hover:bg-primary/10 hover:text-primary"
           >
             <FileText className="h-3.5 w-3.5" />
             Fill Report
           </Button>
         ) : (
-          <span className="text-xs text-muted-foreground pr-2">
+          <span className="pr-2 text-xs text-muted-foreground">
             Not available
           </span>
         )}
@@ -168,12 +168,12 @@ export function ReportsList({ onFillReport, onViewReport }: ReportsListProps) {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-display font-bold tracking-tight">
+          <h1 className="font-display text-2xl font-bold tracking-tight">
             My Reports <span className="text-primary">— 120 Days</span>
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="mt-0.5 text-sm text-muted-foreground">
             You are on{" "}
             <span className="font-semibold text-primary">Day {currentDay}</span>{" "}
             of the challenge
@@ -181,7 +181,7 @@ export function ReportsList({ onFillReport, onViewReport }: ReportsListProps) {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0 self-start sm:pt-1">
+        <div className="flex shrink-0 items-center gap-4 self-start text-xs text-muted-foreground sm:pt-1">
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
             Submitted
@@ -199,10 +199,10 @@ export function ReportsList({ onFillReport, onViewReport }: ReportsListProps) {
 
       {/* Tip — visible right below the header */}
       <div className="flex items-start gap-3 rounded-lg border border-primary/25 bg-primary/5 px-4 py-3">
-        <span className="mt-px text-primary text-xs font-bold uppercase tracking-wider shrink-0">
+        <span className="mt-px shrink-0 text-xs font-bold uppercase tracking-wider text-primary">
           Tip
         </span>
-        <p className="text-xs text-muted-foreground leading-relaxed">
+        <p className="text-xs leading-relaxed text-muted-foreground">
           Reports are due every{" "}
           <span className="font-semibold text-foreground">14 days</span> during
           the 120-day challenge. Complete them on time to track your progress
@@ -219,7 +219,11 @@ export function ReportsList({ onFillReport, onViewReport }: ReportsListProps) {
               key={report.day}
               report={report}
               currentDay={currentDay}
-              onFill={isViewingPastCycle ? undefined : () => onFillReport(report.day as ReportDaysType)}
+              onFill={
+                isViewingPastCycle
+                  ? undefined
+                  : () => onFillReport(report.day as ReportDaysType)
+              }
             />
           ))}
         </div>

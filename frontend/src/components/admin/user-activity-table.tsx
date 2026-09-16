@@ -57,7 +57,7 @@ function SortHeader({
       onClick={() => onSort(sortKey)}
       className={cn(
         "flex items-center gap-1 font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground transition-colors hover:text-foreground",
-        className
+        className,
       )}
     >
       {label}
@@ -144,7 +144,12 @@ export function UserActivityTable() {
           </div>
         ) : (
           <>
-            <div className={cn("overflow-x-auto transition-opacity duration-200", isFetching && "opacity-50")}>
+            <div
+              className={cn(
+                "overflow-x-auto transition-opacity duration-200",
+                isFetching && "opacity-50",
+              )}
+            >
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-y border-border/40 bg-accent/20">
@@ -230,7 +235,7 @@ export function UserActivityTable() {
                             className={cn(
                               "border font-display text-[10px] font-medium capitalize",
                               SENIORITY_COLORS[user.seniority_level] ||
-                                "bg-muted text-muted-foreground"
+                                "bg-muted text-muted-foreground",
                             )}
                           >
                             {user.seniority_level.replace("_", " ")}

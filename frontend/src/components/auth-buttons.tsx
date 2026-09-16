@@ -17,7 +17,7 @@ export const SignInLink = forwardRef<HTMLAnchorElement, SignInLinkProps>(
 
     return (
       <a ref={ref} href={authHref} {...props}>
-        <GithubIcon className="h-5 w-h-5" />
+        <GithubIcon className="w-h-5 h-5" />
         {children}
       </a>
     );
