@@ -17,7 +17,6 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getAgendaUrgencyColor(diffHours: number) {
-  console.log("diffHours", diffHours);
   if (diffHours < 0) return "#9CA3AF"; // past
   if (diffHours <= 3) return "#EF4444"; // red
   if (diffHours <= 6) return "#F97316"; // orange
