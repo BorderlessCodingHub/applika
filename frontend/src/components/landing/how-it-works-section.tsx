@@ -33,8 +33,8 @@ export function HowItWorksSection() {
           <div className="absolute top-10 right-[16.6%] left-[16.6%] hidden h-px bg-border md:block" />
           {steps.map((item) => (
             <div key={item.step} className="relative text-center">
-              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl border border-border/60 bg-background shadow-card">
-                <span className="font-display text-2xl font-bold text-primary">
+              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl border border-border/60 bg-surface-elevated shadow-card">
+                <span className="font-numeric text-2xl font-bold text-primary">
                   {item.step}
                 </span>
               </div>

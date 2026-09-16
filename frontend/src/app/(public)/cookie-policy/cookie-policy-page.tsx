@@ -22,16 +22,23 @@ const cookies = [
 
 export function CookiePolicyPage() {
   return (
-    <main className="mx-auto max-w-4xl px-4 py-12">
-      <header className="mb-8 space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Cookie Policy</h1>
-        <p className="text-sm text-muted-foreground">
+    <main className="relative mx-auto max-w-3xl px-5 py-14 md:px-8 md:py-20">
+      <header className="mb-10 space-y-2 border-b border-border/60 pb-8">
+        <p className="font-display text-[11px] font-semibold tracking-wide-label text-primary uppercase">
+          Legal
+        </p>
+        <h1 className="font-display text-3xl font-extrabold tracking-tight-display text-balance text-foreground md:text-4xl">
+          Cookie Policy
+        </h1>
+        <p className="font-numeric text-xs text-muted-foreground">
           Last updated: {lastUpdated}
         </p>
       </header>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">What are cookies?</h2>
+        <h2 className="font-display text-lg font-semibold tracking-tight-display text-foreground md:text-xl">
+          What are cookies?
+        </h2>
         <p className="text-sm leading-relaxed text-muted-foreground">
           Cookies are small text files placed on your device by the websites you
           visit. They are widely used to make sites work, or work more
@@ -39,8 +46,10 @@ export function CookiePolicyPage() {
         </p>
       </section>
 
-      <section className="mt-8 space-y-3">
-        <h2 className="text-xl font-semibold">Cookies we use</h2>
+      <section className="mt-10 space-y-3">
+        <h2 className="font-display text-lg font-semibold tracking-tight-display text-foreground md:text-xl">
+          Cookies we use
+        </h2>
         <p className="text-sm leading-relaxed text-muted-foreground">
           {APP_CONFIG.name} uses{" "}
           <strong>only strictly necessary cookies</strong>. These cookies are
@@ -49,23 +58,34 @@ export function CookiePolicyPage() {
           profiling, or third-party tracking.
         </p>
 
-        <div className="overflow-x-auto rounded-md border border-border">
+        <div className="mt-2 overflow-x-auto rounded-xl border border-border/60 bg-surface shadow-card">
           <table className="w-full text-left text-sm">
-            <thead className="bg-muted text-xs text-muted-foreground uppercase">
+            <thead className="bg-muted/60 text-[11px] tracking-wide-label text-muted-foreground uppercase">
               <tr>
-                <th className="px-3 py-2 font-medium">Name</th>
-                <th className="px-3 py-2 font-medium">Purpose</th>
-                <th className="px-3 py-2 font-medium">Duration</th>
-                <th className="px-3 py-2 font-medium">Type</th>
+                <th className="px-4 py-2.5 font-semibold">Name</th>
+                <th className="px-4 py-2.5 font-semibold">Purpose</th>
+                <th className="px-4 py-2.5 font-semibold">Duration</th>
+                <th className="px-4 py-2.5 font-semibold">Type</th>
               </tr>
             </thead>
             <tbody>
               {cookies.map((c) => (
-                <tr key={c.name} className="border-t border-border">
-                  <td className="px-3 py-2 font-mono text-xs">{c.name}</td>
-                  <td className="px-3 py-2">{c.purpose}</td>
-                  <td className="px-3 py-2">{c.duration}</td>
-                  <td className="px-3 py-2">{c.type}</td>
+                <tr
+                  key={c.name}
+                  className="border-t border-border/60 align-top"
+                >
+                  <td className="px-4 py-3 font-mono text-xs whitespace-nowrap text-foreground">
+                    {c.name}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {c.purpose}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {c.duration}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+                    {c.type}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -73,16 +93,20 @@ export function CookiePolicyPage() {
         </div>
       </section>
 
-      <section className="mt-8 space-y-3">
-        <h2 className="text-xl font-semibold">Third-party cookies</h2>
+      <section className="mt-10 space-y-3">
+        <h2 className="font-display text-lg font-semibold tracking-tight-display text-foreground md:text-xl">
+          Third-party cookies
+        </h2>
         <p className="text-sm leading-relaxed text-muted-foreground">
           None. {APP_CONFIG.name} does not embed third-party services that set
           cookies on your device.
         </p>
       </section>
 
-      <section className="mt-8 space-y-3">
-        <h2 className="text-xl font-semibold">Managing cookies</h2>
+      <section className="mt-10 space-y-3">
+        <h2 className="font-display text-lg font-semibold tracking-tight-display text-foreground md:text-xl">
+          Managing cookies
+        </h2>
         <p className="text-sm leading-relaxed text-muted-foreground">
           Because the cookies we set are strictly necessary, there is no consent
           toggle to offer: disabling them would prevent you from signing in. You
@@ -91,19 +115,21 @@ export function CookiePolicyPage() {
         </p>
       </section>
 
-      <section className="mt-8 space-y-3">
-        <h2 className="text-xl font-semibold">Changes to this policy</h2>
+      <section className="mt-10 space-y-3">
+        <h2 className="font-display text-lg font-semibold tracking-tight-display text-foreground md:text-xl">
+          Changes to this policy
+        </h2>
         <p className="text-sm leading-relaxed text-muted-foreground">
           If our cookie practices change, we will update this page and revise
           the date above.
         </p>
       </section>
 
-      <footer className="mt-10 border-t border-border pt-6 text-xs text-muted-foreground">
+      <footer className="mt-12 border-t border-border/60 pt-6 text-xs text-muted-foreground">
         Questions? See our{" "}
         <Link
           href="/"
-          className="underline underline-offset-2 hover:text-foreground"
+          className="font-medium text-primary underline underline-offset-2 hover:text-foreground"
         >
           home page
         </Link>{" "}

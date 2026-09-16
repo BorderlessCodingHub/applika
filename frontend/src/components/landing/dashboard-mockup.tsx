@@ -19,13 +19,16 @@ const TREND_VALUES = [
 const TREND_X_LABELS = ["02-14", "02-19", "02-26", "03-01", "03-06", "03-10"];
 const TREND_Y_LABELS = [5, 4, 3, 2, 1];
 
+// Pipeline stages deepen toward the decision on the identity blue; the two
+// outcomes take the chart scale's green and red.
 const STEP_COLORS: Record<string, string> = {
-  "Initial Screen": "hsl(258, 50%, 62%)",
-  "Phase 2": "hsl(255, 48%, 64%)",
-  "Phase 3": "hsl(252, 45%, 62%)",
-  "Phase 4": "hsl(249, 50%, 60%)",
-  Offer: "hsl(142, 60%, 45%)",
-  Denied: "hsl(0, 72%, 55%)",
+  "Initial Screen":
+    "color-mix(in oklab, var(--chart-1) 55%, var(--background))",
+  "Phase 2": "color-mix(in oklab, var(--chart-1) 70%, var(--background))",
+  "Phase 3": "color-mix(in oklab, var(--chart-1) 85%, var(--background))",
+  "Phase 4": "var(--chart-1)",
+  Offer: "var(--chart-2)",
+  Denied: "var(--chart-4)",
 };
 
 const MOCK_CONVERSION = [
@@ -106,7 +109,7 @@ function MockTrendChart() {
           {TREND_Y_LABELS.map((v) => (
             <span
               key={v}
-              className="text-[5.5px] leading-none text-muted-foreground tabular-nums"
+              className="font-numeric text-[5.5px] leading-none text-muted-foreground"
             >
               {v}
             </span>
@@ -228,7 +231,7 @@ function MockConversionChart() {
           {yLabels.map((v) => (
             <span
               key={v}
-              className="text-[5.5px] leading-none text-muted-foreground tabular-nums"
+              className="font-numeric text-[5.5px] leading-none text-muted-foreground"
             >
               {v}
             </span>
@@ -364,10 +367,10 @@ function MockPlatformBreakdown() {
               {p.name}
             </span>
             <span className="flex-1 border-b border-dashed border-border/50" />
-            <span className="shrink-0 text-[6px] font-semibold text-foreground tabular-nums">
+            <span className="shrink-0 font-numeric text-[6px] font-semibold text-foreground">
               {p.count}
             </span>
-            <span className="w-4 shrink-0 text-right text-[6px] text-muted-foreground tabular-nums">
+            <span className="w-4 shrink-0 text-right font-numeric text-[6px] text-muted-foreground">
               {p.pct.toFixed(1)}%
             </span>
             <div className="h-0.5 w-6 overflow-hidden rounded-full bg-muted">
@@ -492,7 +495,7 @@ export function DashboardMockup() {
                   {s.label}
                 </span>
                 <p
-                  className={`mt-0.5 font-display text-base leading-tight font-bold tabular-nums ${s.color}`}
+                  className={`mt-0.5 font-numeric text-base leading-tight font-bold ${s.color}`}
                 >
                   {s.value}
                 </p>

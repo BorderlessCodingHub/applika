@@ -50,7 +50,7 @@ export function TestimonialsSection() {
           {testimonials.map((t) => (
             <figure
               key={t.name}
-              className="flex flex-col rounded-xl border border-border/60 bg-card p-6 shadow-card transition-colors duration-200 hover:border-border"
+              className="flex flex-col rounded-xl border border-border/60 bg-surface p-6 shadow-card transition-colors duration-200 hover:border-border-strong/60 hover:bg-surface-elevated"
             >
               <div className="mb-4">
                 <StarRating rating={t.stars} />

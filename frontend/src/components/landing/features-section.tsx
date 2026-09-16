@@ -61,10 +61,10 @@ export function FeaturesSection() {
         {features.map((f, i) => (
           <div
             key={f.title}
-            className={`group animate-fade-in-up stagger-${i + 1} rounded-xl border border-border/60 bg-card p-6 shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated`}
+            className={`group animate-fade-in-up stagger-${i + 1} rounded-xl border border-border/60 bg-surface p-6 shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:border-border-strong/60 hover:bg-surface-elevated hover:shadow-elevated`}
           >
             <div className="mb-4 flex items-center gap-5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/15">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-muted transition-colors group-hover:bg-primary/20">
                 <f.icon className="h-5 w-5 text-primary" />
               </div>
               <h4 className="font-display text-sm font-semibold tracking-tight-display text-foreground md:text-base">

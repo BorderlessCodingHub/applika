@@ -14,7 +14,13 @@ export function LandingHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3.5 md:px-8">
-        <AppLogo mode="header" />
+        <Link
+          href="/"
+          aria-label="Applika.dev home"
+          className="rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
+          <AppLogo mode="header" />
+        </Link>
 
         <div className="flex items-center gap-3">
           <ThemeToggle />

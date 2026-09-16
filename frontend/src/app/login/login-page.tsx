@@ -33,10 +33,10 @@ export function LoginPage() {
       </div>
 
       <div className="relative w-full max-w-sm animate-fade-in-up">
-        <div className="rounded-2xl border border-border/60 bg-card p-10 text-center shadow-elevated">
+        <div className="rounded-2xl border border-border/60 bg-surface-elevated p-10 text-center shadow-elevated">
           <div className="mb-8">
             <h1 className="flex items-center justify-center font-display text-2xl font-bold tracking-tight-display text-foreground">
-              <ApplikaIcon className="h-10 w-10" />
+              <ApplikaIcon className="size-10 text-primary" />
               pplika.dev
             </h1>
 
@@ -51,7 +51,7 @@ export function LoginPage() {
           >
             <SignInLink>Login with GitHub</SignInLink>
           </Button>
-          <p className="mt-5 text-[11px] text-muted-foreground/70">
+          <p className="mt-5 text-[11px] text-muted-foreground/80">
             Secure authentication via GitHub OAuth
           </p>
         </div>
