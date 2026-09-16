@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode, Ref } from "react";
+import Link from "next/link";
 import { Menu } from "lucide-react";
 import { AppLogo } from "@/components/app-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -57,9 +58,15 @@ export function Header({
         <Menu className="size-5" />
       </Button>
 
-      <div className="md:hidden">
+      {/* The rail and the sheet both make this lockup a link; below `md` this
+          is the only place it appears, so it links too. */}
+      <Link
+        href="/dashboard"
+        aria-label="Applika.dev home"
+        className="rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 md:hidden"
+      >
         <AppLogo mode="compact" />
-      </div>
+      </Link>
 
       {leading ? (
         <div className="order-last flex min-w-0 basis-full items-center md:order-none md:w-64 md:basis-auto">

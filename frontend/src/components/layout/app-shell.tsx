@@ -93,7 +93,7 @@ export function AppShell({
         >
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SheetDescription className="sr-only">
-            Primary navigation, cycle selector and account menu.
+            Primary navigation and account menu.
           </SheetDescription>
 
           <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-sidebar-border bg-sidebar px-4">

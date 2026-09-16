@@ -41,7 +41,12 @@ export function UserMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label="Open account menu"
+        // The card variant shows the username as its VISIBLE label, so the
+        // accessible name has to contain it (WCAG 2.5.3 Label in Name) or a
+        // voice-control user cannot address the control by what they see.
+        aria-label={
+          card ? `Open account menu for ${user.username}` : "Open account menu"
+        }
         className={cn(
           "flex items-center rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
           card

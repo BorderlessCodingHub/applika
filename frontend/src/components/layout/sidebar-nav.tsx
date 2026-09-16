@@ -5,6 +5,14 @@ import { Fragment } from "react";
 import { isNavItemActive, type NavItem } from "./nav";
 import { cn } from "@/lib/utils";
 
+/**
+ * Id of a group's label. The label is NOT `aria-hidden`: with the old amber
+ * treatment gone, the group name is the only thing that marks an entry as
+ * privileged, so hiding it would leave that signal sighted-users-only.
+ */
+const groupLabelId = (group: string) =>
+  `sidebar-nav-group-${group.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+
 interface SidebarNavProps {
   items: NavItem[];
   /** Current pathname. Never read from a router hook — both the desktop rail
@@ -29,23 +37,27 @@ export function SidebarNav({
       {items.map((item, index) => {
         const active = isNavItemActive(item, activePath);
         const Icon = item.icon;
-        const startsGroup =
-          item.group && item.group !== items[index - 1]?.group;
+        const group = item.group;
+        const startsGroup = group && group !== items[index - 1]?.group;
 
         return (
           <Fragment key={item.href}>
             {startsGroup ? (
               <div
-                aria-hidden
+                id={groupLabelId(group)}
                 className="mt-3 mb-1 border-t border-sidebar-border px-2.5 pt-3 text-[10px] font-semibold tracking-wide-label text-sidebar-foreground/45 uppercase"
               >
-                {item.group}
+                {group}
               </div>
             ) : null}
             <Link
               href={item.href}
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
+              // Describes, never names: the accessible name stays exactly the
+              // label (`admin-gating.spec.ts` asserts "Admin" exactly), while
+              // the group is announced after it.
+              aria-describedby={group ? groupLabelId(group) : undefined}
               className={cn(
                 "group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50",
                 active
