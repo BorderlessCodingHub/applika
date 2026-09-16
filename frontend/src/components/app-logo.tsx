@@ -1,15 +1,29 @@
 import { createLucideIcon } from "lucide-react";
 
-export function AppLogo({ mode }: { mode: "header" | "mobile" | "sidebar" }) {
-  return mode === "sidebar" ? (
-    <div className="flex cursor-pointer gap-1">
-      <ApplikaIcon className="h-16 w-16 text-primary" />
-      <div className="flex flex-col gap-1 py-0.5 text-2xl leading-none font-bold text-foreground">
-        <span>applika</span>
-        <span>.dev</span>
+/**
+ * The Applika wordmark.
+ *
+ * - `header` — the large landing/marketing lockup.
+ * - `compact` — the single-line lockup the app shell uses in the sidebar rail,
+ *   the mobile sheet header and the mobile header row.
+ *
+ * The `sidebar` and `mobile` modes were dropped with `app-layout.tsx` /
+ * `app-header.tsx` in KODI-004: nothing rendered them once the shell landed.
+ */
+export function AppLogo({ mode }: { mode: "header" | "compact" }) {
+  if (mode === "compact") {
+    return (
+      <div className="flex cursor-pointer items-center gap-1.5">
+        <ApplikaIcon className="size-7 shrink-0 text-primary" />
+        <div className="flex items-baseline text-sm leading-none font-bold text-foreground">
+          <span>applika</span>
+          <span>.dev</span>
+        </div>
       </div>
-    </div>
-  ) : (
+    );
+  }
+
+  return (
     <div className="flex cursor-pointer gap-1">
       <ApplikaIcon className="h-12 w-12 text-primary" />
       <div className="flex flex-col gap-1 py-0.5 text-lg leading-none font-bold text-foreground">

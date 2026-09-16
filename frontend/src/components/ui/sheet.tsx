@@ -47,11 +47,18 @@ function SheetContent({
   className,
   children,
   side = "right",
+  size = "form",
   showCloseButton = true,
   hideClose,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left";
+  /**
+   * applika-only: the panel's width and padding preset. "form" is the wide
+   * form panel every existing sheet uses; "nav" is the narrow, unpadded
+   * navigation rail the app shell opens below `md`.
+   */
+  size?: "form" | "nav";
   showCloseButton?: boolean;
   /**
    * applika-only: suppress the built-in close button so a form sheet can own
@@ -83,9 +90,11 @@ function SheetContent({
           // edge against the panel.
           //
           // NOTE these come AFTER `className`, so a caller CANNOT override the
-          // width or the padding from the outside; widen the variants here
-          // instead if a sheet ever needs a different size.
-          "w-full p-6 sm:max-w-2xl",
+          // width or the padding from the outside; add a `size` preset here
+          // instead if a sheet ever needs a different one.
+          size === "nav"
+            ? "w-[17rem] gap-0 p-0 sm:max-w-[17rem]"
+            : "w-full p-6 sm:max-w-2xl",
         )}
         {...props}
       >
