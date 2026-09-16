@@ -176,6 +176,12 @@ order. `src/lib/utils.ts` registers them in the `shadow` group via
 Tailwind group must be registered there too**, or overriding it will silently do
 nothing.
 
+Registering a utility in one group also takes it OUT of the group it was falling
+through to. `shadow-card`/`shadow-elevated` used to land in `shadow-color`, so a
+`shadow-<color>` class no longer conflicts with them. Nothing in `src/` uses a
+shadow-color class today; if one is ever added, a later `shadow-card` will not
+override it.
+
 **`SheetContent` props (applika-only, kept across the new-york regeneration):**
 
 - `hideClose` — suppress the default X button when the panel owns its own
