@@ -110,67 +110,30 @@ async def test_finalize_success():
     assert app.salary_offer == 90000.0
 
 
-async def test_finalize_offer_requires_accepted_feedback():
+async def test_finalize_denied_with_salary_offer_succeeds():
+    """CLI 0.1.4 sends salary_offer on any final step; it must not be rejected.
+
+    Guards against reintroducing the `Offer + Accepted`-only restriction that
+    broke `.claude/rules/cli-compatibility.md` point 3.
+    """
     uc = FinalizeApplicationUseCase(
         AsyncMock(), AsyncMock(), AsyncMock(), AsyncMock()
     )
-    uc.application_repo.get_by_id_and_user_id.return_value = (
-        make_application()
-    )
-    uc.step_repo.get_by_id_strict_only.return_value = SimpleNamespace(
-        id=2, name='Offer'
-    )
-    uc.feedback_repo.get_by_id.return_value = SimpleNamespace(
-        id=3, name='Rejected'
-    )
-
-    with pytest.raises(
-        BusinessRuleViolation, match='Offer final step requires Accepted feedback'
-    ):
-        await uc.execute(id=1, user_id=1, data=_data(step_id=2, feedback_id=3))
-
-
-async def test_finalize_accepted_requires_offer_step():
-    uc = FinalizeApplicationUseCase(
-        AsyncMock(), AsyncMock(), AsyncMock(), AsyncMock()
-    )
-    uc.application_repo.get_by_id_and_user_id.return_value = (
-        make_application()
-    )
+    app = make_application()
+    uc.application_repo.get_by_id_and_user_id.return_value = app
     uc.step_repo.get_by_id_strict_only.return_value = SimpleNamespace(
         id=2, name='Denied'
     )
     uc.feedback_repo.get_by_id.return_value = SimpleNamespace(
-        id=3, name='Accepted'
+        id=3, name='Not good enough'
+    )
+    uc.application_repo.update.return_value = app
+
+    await uc.execute(
+        id=1,
+        user_id=1,
+        data=_data(step_id=2, feedback_id=3, salary_offer=90000.0),
     )
 
-    with pytest.raises(
-        BusinessRuleViolation,
-        match='Accepted feedback requires the Offer final step',
-    ):
-        await uc.execute(id=1, user_id=1, data=_data(step_id=2, feedback_id=3))
-
-
-async def test_finalize_salary_offer_requires_offer_and_accepted():
-    uc = FinalizeApplicationUseCase(
-        AsyncMock(), AsyncMock(), AsyncMock(), AsyncMock()
-    )
-    uc.application_repo.get_by_id_and_user_id.return_value = (
-        make_application()
-    )
-    uc.step_repo.get_by_id_strict_only.return_value = SimpleNamespace(
-        id=2, name='Denied'
-    )
-    uc.feedback_repo.get_by_id.return_value = SimpleNamespace(
-        id=3, name='Rejected'
-    )
-
-    with pytest.raises(
-        BusinessRuleViolation,
-        match='salary_offer can only be set for Offer \\+ Accepted',
-    ):
-        await uc.execute(
-            id=1,
-            user_id=1,
-            data=_data(step_id=2, feedback_id=3, salary_offer=90000.0),
-        )
+    uc.application_repo.update.assert_called_once()
+    assert app.salary_offer == 90000.0
