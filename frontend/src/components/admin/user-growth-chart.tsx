@@ -46,8 +46,16 @@ export function UserGrowthChart() {
                   x2="0"
                   y2="1"
                 >
-                  <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#fbbf24" stopOpacity={0} />
+                  <stop
+                    offset="0%"
+                    stopColor="var(--chart-3)"
+                    stopOpacity={0.3}
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor="var(--chart-3)"
+                    stopOpacity={0}
+                  />
                 </linearGradient>
               </defs>
               <CartesianGrid
@@ -66,19 +74,21 @@ export function UserGrowthChart() {
               />
               <Tooltip
                 content={<CustomTooltip />}
-                cursor={{ fill: "#8d8d8d12" }}
+                cursor={{
+                  fill: "color-mix(in oklab, var(--muted-foreground) 12%, transparent)",
+                }}
               />
               <Area
                 type="monotone"
                 dataKey="total_users"
                 name="Total Users"
-                stroke="#fbbf24"
+                stroke="var(--chart-3)"
                 strokeWidth={2}
                 fill="url(#adminGrowthGrad)"
-                dot={{ r: 2.5, fill: "#fbbf24", strokeWidth: 0 }}
+                dot={{ r: 2.5, fill: "var(--chart-3)", strokeWidth: 0 }}
                 activeDot={{
                   r: 4,
-                  fill: "#fbbf24",
+                  fill: "var(--chart-3)",
                   strokeWidth: 2,
                   stroke: "var(--card)",
                 }}
@@ -130,12 +140,14 @@ export function NewUsersBarChart() {
               />
               <Tooltip
                 content={<CustomTooltip />}
-                cursor={{ fill: "#8d8d8d12" }}
+                cursor={{
+                  fill: "color-mix(in oklab, var(--muted-foreground) 12%, transparent)",
+                }}
               />
               <Bar
                 dataKey="new_users"
                 name="New Users"
-                fill="#38bdf8"
+                fill="var(--chart-1)"
                 radius={[4, 4, 0, 0]}
                 opacity={0.85}
               />

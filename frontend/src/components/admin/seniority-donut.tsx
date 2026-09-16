@@ -131,7 +131,9 @@ export function SeniorityDonut() {
                   </Pie>
                   <Tooltip
                     content={<CustomTooltip />}
-                    cursor={{ fill: "#8d8d8d12" }}
+                    cursor={{
+                      fill: "color-mix(in oklab, var(--muted-foreground) 12%, transparent)",
+                    }}
                   />
                 </PieChart>
               </ResponsiveContainer>

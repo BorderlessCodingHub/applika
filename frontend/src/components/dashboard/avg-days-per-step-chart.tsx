@@ -75,7 +75,9 @@ export function AvgDaysPerStepChart({ cycleId }: { cycleId?: string | null }) {
             />
             <Tooltip
               content={<CustomTooltip />}
-              cursor={{ fill: "#8d8d8d12" }}
+              cursor={{
+                fill: "color-mix(in oklab, var(--muted-foreground) 12%, transparent)",
+              }}
             />
             <Bar dataKey="average_days" radius={[0, 4, 4, 0]}>
               <LabelList dataKey="average_days" content={renderInsideLabel} />

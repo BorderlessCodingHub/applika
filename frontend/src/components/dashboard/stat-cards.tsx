@@ -6,8 +6,8 @@ import { Card } from "../ui/card";
 const STAT_COLORS = {
   total: "text-foreground",
   offers: "text-primary",
-  rate: "text-chart-success",
-  active: "text-chart-info",
+  rate: "text-chart-2",
+  active: "text-chart-1",
   denied: "text-destructive",
 } as const;
 

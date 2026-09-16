@@ -86,7 +86,7 @@ const STATS: StatDef[] = [
     label: "Total Offers",
     icon: Trophy,
     accent: "text-primary",
-    glowColor: "hsl(168 70% 48% / 0.12)",
+    glowColor: "color-mix(in oklab, var(--primary) 12%, transparent)",
     getValue: (d) => {
       return d ? d.total_offers : 0;
     },

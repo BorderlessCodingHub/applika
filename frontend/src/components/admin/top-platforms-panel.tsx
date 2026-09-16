@@ -58,7 +58,7 @@ export function TopPlatformsPanel() {
                     <motion.div
                       className="h-full rounded-full"
                       style={{
-                        background: `linear-gradient(90deg, var(--primary) 0%, #fbbf24 100%)`,
+                        background: `linear-gradient(90deg, var(--chart-1) 0%, var(--chart-3) 100%)`,
                       }}
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}

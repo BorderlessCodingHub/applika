@@ -96,7 +96,9 @@ export function StepConversionChart({ cycleId }: { cycleId?: string | null }) {
             />
             <Tooltip
               content={<CustomTooltip sufix="%" />}
-              cursor={{ fill: "#8d8d8d12" }}
+              cursor={{
+                fill: "color-mix(in oklab, var(--muted-foreground) 12%, transparent)",
+              }}
             />
             <Bar dataKey="conversion_rate" radius={[4, 4, 0, 0]}>
               <LabelList

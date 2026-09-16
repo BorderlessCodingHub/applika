@@ -70,12 +70,12 @@ export function ApplicationTrendChart({
               <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="0%"
-                  stopColor="var(--primary)"
+                  stopColor="var(--chart-1)"
                   stopOpacity={0.25}
                 />
                 <stop
                   offset="100%"
-                  stopColor="var(--primary)"
+                  stopColor="var(--chart-1)"
                   stopOpacity={0}
                 />
               </linearGradient>
@@ -98,20 +98,22 @@ export function ApplicationTrendChart({
             />
             <Tooltip
               content={<CustomTooltip />}
-              cursor={{ fill: "#8d8d8d12" }}
+              cursor={{
+                fill: "color-mix(in oklab, var(--muted-foreground) 12%, transparent)",
+              }}
             />
             <Area
               type="monotone"
               dataKey="total_applications"
               name="Total"
               label="Total applications"
-              stroke="var(--primary)"
+              stroke="var(--chart-1)"
               strokeWidth={2}
               fill="url(#trendGradient)"
-              dot={{ r: 2.5, fill: "var(--primary)", strokeWidth: 2 }}
+              dot={{ r: 2.5, fill: "var(--chart-1)", strokeWidth: 2 }}
               activeDot={{
                 r: 4,
-                fill: "var(--primary)",
+                fill: "var(--chart-1)",
                 strokeWidth: 2,
                 stroke: "var(--card)",
               }}

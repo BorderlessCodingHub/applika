@@ -10,10 +10,13 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i);
 function getHeatColor(count: number, max: number): string {
   if (count === 0) return "color-mix(in oklab, var(--accent) 30%, transparent)";
   const intensity = count / max;
-  if (intensity < 0.25) return "hsl(168 70% 48% / 0.2)";
-  if (intensity < 0.5) return "hsl(168 70% 48% / 0.4)";
-  if (intensity < 0.75) return "hsl(168 70% 48% / 0.65)";
-  return "hsl(168 70% 48% / 0.9)";
+  if (intensity < 0.25)
+    return "color-mix(in oklab, var(--chart-1) 20%, transparent)";
+  if (intensity < 0.5)
+    return "color-mix(in oklab, var(--chart-1) 40%, transparent)";
+  if (intensity < 0.75)
+    return "color-mix(in oklab, var(--chart-1) 65%, transparent)";
+  return "color-mix(in oklab, var(--chart-1) 90%, transparent)";
 }
 
 export function ActivityHeatmap() {
@@ -100,7 +103,7 @@ export function ActivityHeatmap() {
                       backgroundColor:
                         intensity === 0
                           ? "color-mix(in oklab, var(--accent) 30%, transparent)"
-                          : `hsl(168 70% 48% / ${intensity * 0.9})`,
+                          : `color-mix(in oklab, var(--chart-1) ${intensity * 90}%, transparent)`,
                     }}
                   />
                 ))}
