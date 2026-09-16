@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import json
-from typing import Annotated, Any
+from typing import Annotated
 
 import typer
 from pydantic import ValidationError
 
 from applika.commands.applications.api_resolve import (
     resolve_company_input,
+    resolve_feedback_id,
     resolve_platform_id,
+    resolve_step_id,
 )
 from applika.commands.applications.filter import filter_applications
 from applika.config import AppConfig
@@ -17,6 +19,12 @@ from applika.schemas.application import (
     ApplicationCreate,
     ApplicationEntry,
     ApplicationUpdate,
+)
+from applika.schemas.application_step import (
+    ApplicationStepCreate,
+    ApplicationStepEntry,
+    ApplicationStepUpdate,
+    FinalizeApplication,
 )
 from applika.schemas.enums import (
     ApplicationMode,
@@ -27,11 +35,15 @@ from applika.schemas.enums import (
     OutputFormat,
     SalaryPeriod,
     StatusFilter,
+    StepClearField,
     WorkMode,
 )
 from applika.schemas.supports import SupportSchema
 from applika.utils.output import (
+    print_application_step_summary,
     print_application_summary,
+    print_finalize_summary,
+    render_application_step_table,
     render_application_table,
 )
 
@@ -111,6 +123,8 @@ def list_applications(
             print(json.dumps(filtered, indent=2, sort_keys=True))
         else:
             render_application_table(filtered, supports)
+    except ValueError as exc:
+        _echo_value_error(exc)
     finally:
         client.close()
 
@@ -221,10 +235,9 @@ def new_application(
         )
         print_application_summary(created, 'Created application')
     except ValidationError as exc:
-        for err in exc.errors():
-            field = '.'.join(str(loc) for loc in err['loc'])
-            typer.echo(f'Error [{field}]: {err["msg"]}', err=True)
-        raise typer.Exit(1)
+        _echo_validation_error(exc)
+    except ValueError as exc:
+        _echo_value_error(exc)
     finally:
         client.close()
 
@@ -320,7 +333,7 @@ def edit_application(
     client = ApiClient(session, config.store)
 
     try:
-        applications: list[dict[str, Any]] = client.get_json('/applications')
+        applications: list[ApplicationEntry] = client.get_json('/applications')
         existing = next(
             (app for app in applications if str(app['id']) == application_id),
             None,
@@ -357,7 +370,7 @@ def edit_application(
             role=role or existing['role'],
             mode=mode or existing['mode'],
             platform_id=resolved_platform_id,
-            application_date=(application_date or existing['application_date']),
+            application_date=application_date or existing['application_date'],
             link_to_job=(
                 None
                 if _clears(ClearField.JOB_URL)
@@ -427,9 +440,479 @@ def edit_application(
         )
         print_application_summary(updated, 'Updated application')
     except ValidationError as exc:
-        for err in exc.errors():
-            field = '.'.join(str(loc) for loc in err['loc'])
-            typer.echo(f'Error [{field}]: {err["msg"]}', err=True)
-        raise typer.Exit(1)
+        _echo_validation_error(exc)
+    except ValueError as exc:
+        _echo_value_error(exc)
     finally:
         client.close()
+
+
+def list_application_steps(
+    ctx: typer.Context,
+    application_id_arg: Annotated[
+        str | None,
+        typer.Argument(help='ID of the application to inspect.'),
+    ] = None,
+    application_id: Annotated[
+        str | None,
+        typer.Option(
+            '--application-id', help='ID of the application to inspect.'
+        ),
+    ] = None,
+    output_format: Annotated[
+        OutputFormat,
+        typer.Option(
+            '--output-format', help='Output format: table (default) or json.'
+        ),
+    ] = OutputFormat.TABLE,
+) -> None:
+    """List the recorded steps for an application."""
+    config: AppConfig = ctx.obj
+    session = require_session(config.store)
+    client = ApiClient(session, config.store)
+
+    try:
+        resolved_application_id = _resolve_identifier(
+            label='application id',
+            positional=application_id_arg,
+            option=application_id,
+            option_name='--application-id',
+        )
+        steps = _sorted_steps(
+            client.get_json(f'/applications/{resolved_application_id}/steps')
+        )
+        if output_format == OutputFormat.JSON:
+            print(json.dumps(steps, indent=2, sort_keys=True))
+        else:
+            render_application_step_table(steps)
+    finally:
+        client.close()
+
+
+def add_application_step(
+    ctx: typer.Context,
+    application_id_arg: Annotated[
+        str | None,
+        typer.Argument(help='ID of the application to update.'),
+    ] = None,
+    application_id: Annotated[
+        str | None,
+        typer.Option(
+            '--application-id', help='ID of the application to update.'
+        ),
+    ] = None,
+    step: Annotated[
+        str,
+        typer.Option(
+            '--step',
+            help='Predefined non-final step definition name or ID (e.g. Phase 2).',
+        ),
+    ] = ...,
+    step_date: Annotated[
+        str,
+        typer.Option('--date', help='Step date (YYYY-MM-DD).'),
+    ] = ...,
+    start_time: Annotated[
+        str | None,
+        typer.Option(
+            '--start-time', help='Step start time (HH:MM or HH:MM:SS).'
+        ),
+    ] = None,
+    end_time: Annotated[
+        str | None,
+        typer.Option('--end-time', help='Step end time (HH:MM or HH:MM:SS).'),
+    ] = None,
+    timezone: Annotated[
+        str | None,
+        typer.Option(
+            '--timezone', help='IANA timezone (e.g. America/Sao_Paulo).'
+        ),
+    ] = None,
+    observation: Annotated[
+        str | None,
+        typer.Option('--observation', help='Notes for this step.'),
+    ] = None,
+) -> None:
+    """Add a recorded step to an active application."""
+    config: AppConfig = ctx.obj
+    session = require_session(config.store)
+    client = ApiClient(session, config.store)
+
+    try:
+        resolved_application_id = _resolve_identifier(
+            label='application id',
+            positional=application_id_arg,
+            option=application_id,
+            option_name='--application-id',
+        )
+        _reject_if_application_finalized(client, resolved_application_id)
+        supports: SupportSchema = client.get_json('/supports')
+        payload = ApplicationStepCreate(
+            step_id=resolve_step_id(supports, step, strict=False),
+            step_date=step_date,
+            start_time=start_time,
+            end_time=end_time,
+            timezone=timezone,
+            observation=observation,
+        )
+        created = client.post_json(
+            f'/applications/{resolved_application_id}/steps',
+            payload.model_dump(mode='json'),
+        )
+        print_application_step_summary(created, 'Added step')
+    except ValidationError as exc:
+        _echo_validation_error(exc)
+    except ValueError as exc:
+        _echo_value_error(exc)
+    finally:
+        client.close()
+
+
+def edit_application_step(
+    ctx: typer.Context,
+    application_id_arg: Annotated[
+        str | None,
+        typer.Argument(help='ID of the application to update.'),
+    ] = None,
+    step_record_id_arg: Annotated[
+        str | None,
+        typer.Argument(help='Recorded step ID to edit.'),
+    ] = None,
+    application_id: Annotated[
+        str | None,
+        typer.Option(
+            '--application-id', help='ID of the application to update.'
+        ),
+    ] = None,
+    step_record_id: Annotated[
+        str | None,
+        typer.Option('--step-record-id', help='Recorded step ID to edit.'),
+    ] = None,
+    step: Annotated[
+        str | None,
+        typer.Option(
+            '--step',
+            help='New predefined non-final step definition name or ID.',
+        ),
+    ] = None,
+    step_date: Annotated[
+        str | None,
+        typer.Option('--date', help='New step date (YYYY-MM-DD).'),
+    ] = None,
+    start_time: Annotated[
+        str | None,
+        typer.Option(
+            '--start-time', help='New start time (HH:MM or HH:MM:SS).'
+        ),
+    ] = None,
+    end_time: Annotated[
+        str | None,
+        typer.Option('--end-time', help='New end time (HH:MM or HH:MM:SS).'),
+    ] = None,
+    timezone: Annotated[
+        str | None,
+        typer.Option('--timezone', help='New IANA timezone.'),
+    ] = None,
+    observation: Annotated[
+        str | None,
+        typer.Option('--observation', help='New notes for this step.'),
+    ] = None,
+    clear: Annotated[
+        list[StepClearField] | None,
+        typer.Option(
+            '--clear',
+            help=(
+                'Field to set to null. Repeatable. '
+                'Valid: observation, time, timezone.'
+            ),
+        ),
+    ] = None,
+) -> None:
+    """Edit a recorded application step. Unspecified fields keep their current values."""
+    config: AppConfig = ctx.obj
+    session = require_session(config.store)
+    client = ApiClient(session, config.store)
+
+    try:
+        resolved_application_id = _resolve_identifier(
+            label='application id',
+            positional=application_id_arg,
+            option=application_id,
+            option_name='--application-id',
+        )
+        resolved_step_record_id = _resolve_identifier(
+            label='step record id',
+            positional=step_record_id_arg,
+            option=step_record_id,
+            option_name='--step-record-id',
+        )
+        _reject_if_application_finalized(client, resolved_application_id)
+        existing = _get_application_step_or_exit(
+            client, resolved_application_id, resolved_step_record_id
+        )
+        supports: SupportSchema = client.get_json('/supports')
+        clear_set = set(clear or [])
+        clear_time = StepClearField.TIME in clear_set
+        clear_timezone = StepClearField.TIMEZONE in clear_set
+        clear_observation = StepClearField.OBSERVATION in clear_set
+
+        payload = ApplicationStepUpdate(
+            step_id=(
+                resolve_step_id(supports, step, strict=False)
+                if step is not None
+                else str(existing['step_id'])
+            ),
+            step_date=step_date or existing['step_date'],
+            start_time=(
+                None
+                if clear_time
+                else start_time
+                if start_time is not None
+                else existing.get('start_time')
+            ),
+            end_time=(
+                None
+                if clear_time
+                else end_time
+                if end_time is not None
+                else existing.get('end_time')
+            ),
+            timezone=(
+                None
+                if clear_timezone
+                else timezone
+                if timezone is not None
+                else existing.get('timezone')
+            ),
+            observation=(
+                None
+                if clear_observation
+                else observation
+                if observation is not None
+                else existing.get('observation')
+            ),
+        )
+        updated = client.put_json(
+            f'/applications/{resolved_application_id}/steps/{resolved_step_record_id}',
+            payload.model_dump(mode='json'),
+        )
+        print_application_step_summary(updated, 'Updated step')
+    except ValidationError as exc:
+        _echo_validation_error(exc)
+    except ValueError as exc:
+        _echo_value_error(exc)
+    finally:
+        client.close()
+
+
+def delete_application_step(
+    ctx: typer.Context,
+    application_id_arg: Annotated[
+        str | None,
+        typer.Argument(help='ID of the application to update.'),
+    ] = None,
+    step_record_id_arg: Annotated[
+        str | None,
+        typer.Argument(help='Recorded step ID to delete.'),
+    ] = None,
+    application_id: Annotated[
+        str | None,
+        typer.Option(
+            '--application-id', help='ID of the application to update.'
+        ),
+    ] = None,
+    step_record_id: Annotated[
+        str | None,
+        typer.Option('--step-record-id', help='Recorded step ID to delete.'),
+    ] = None,
+) -> None:
+    """Delete a recorded application step."""
+    config: AppConfig = ctx.obj
+    session = require_session(config.store)
+    client = ApiClient(session, config.store)
+
+    try:
+        resolved_application_id = _resolve_identifier(
+            label='application id',
+            positional=application_id_arg,
+            option=application_id,
+            option_name='--application-id',
+        )
+        resolved_step_record_id = _resolve_identifier(
+            label='step record id',
+            positional=step_record_id_arg,
+            option=step_record_id,
+            option_name='--step-record-id',
+        )
+        _reject_if_application_finalized(client, resolved_application_id)
+        _get_application_step_or_exit(
+            client, resolved_application_id, resolved_step_record_id
+        )
+        client.delete(
+            f'/applications/{resolved_application_id}/steps/{resolved_step_record_id}'
+        )
+        typer.echo(f'Deleted step: id={resolved_step_record_id}')
+    finally:
+        client.close()
+
+
+def finalize_application(
+    ctx: typer.Context,
+    application_id_arg: Annotated[
+        str | None,
+        typer.Argument(help='ID of the application to finalize.'),
+    ] = None,
+    application_id: Annotated[
+        str | None,
+        typer.Option(
+            '--application-id', help='ID of the application to finalize.'
+        ),
+    ] = None,
+    step: Annotated[
+        str,
+        typer.Option(
+            '--step',
+            help='Final strict step definition name or ID (e.g. Offer, Denied).',
+        ),
+    ] = ...,
+    feedback: Annotated[
+        str,
+        typer.Option(
+            '--feedback',
+            help='Feedback definition name or ID (e.g. Accepted, Rejected).',
+        ),
+    ] = ...,
+    finalize_date: Annotated[
+        str,
+        typer.Option('--date', help='Finalization date (YYYY-MM-DD).'),
+    ] = ...,
+    salary_offer: Annotated[
+        float | None,
+        typer.Option('--salary-offer', help='Final salary offer amount.'),
+    ] = None,
+    observation: Annotated[
+        str | None,
+        typer.Option('--observation', help='Final notes or observations.'),
+    ] = None,
+    output_format: Annotated[
+        OutputFormat,
+        typer.Option(
+            '--output-format', help='Output format: table (default) or json.'
+        ),
+    ] = OutputFormat.TABLE,
+) -> None:
+    """Finalize an application with a strict final step and feedback."""
+    config: AppConfig = ctx.obj
+    session = require_session(config.store)
+    client = ApiClient(session, config.store)
+
+    try:
+        resolved_application_id = _resolve_identifier(
+            label='application id',
+            positional=application_id_arg,
+            option=application_id,
+            option_name='--application-id',
+        )
+        supports: SupportSchema = client.get_json('/supports')
+        payload = FinalizeApplication(
+            step_id=resolve_step_id(supports, step, strict=True),
+            feedback_id=resolve_feedback_id(supports, feedback),
+            finalize_date=finalize_date,
+            salary_offer=salary_offer,
+            observation=observation,
+        )
+        finalized = client.post_json(
+            f'/applications/{resolved_application_id}/finalize',
+            payload.model_dump(mode='json'),
+        )
+        if output_format == OutputFormat.JSON:
+            print(json.dumps(finalized, indent=2, sort_keys=True))
+        else:
+            print_finalize_summary(finalized, 'Finalized application')
+    except ValidationError as exc:
+        _echo_validation_error(exc)
+    except ValueError as exc:
+        _echo_value_error(exc)
+    finally:
+        client.close()
+
+
+def _echo_validation_error(exc: ValidationError) -> None:
+    for err in exc.errors():
+        field = '.'.join(str(loc) for loc in err['loc'])
+        typer.echo(f'Error [{field}]: {err["msg"]}', err=True)
+    raise typer.Exit(1)
+
+
+def _resolve_identifier(
+    *,
+    label: str,
+    positional: str | None,
+    option: str | None,
+    option_name: str,
+) -> str:
+    if positional and option and positional != option:
+        typer.echo(
+            f'Conflicting {label}: positional value "{positional}" does not match {option_name} "{option}"',
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    value = option or positional
+    if value is None:
+        typer.echo(
+            f'Missing {label}. Provide it positionally or with {option_name}.',
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    return value
+
+
+def _echo_value_error(exc: ValueError) -> None:
+    typer.echo(str(exc), err=True)
+    raise typer.Exit(1)
+
+
+def _get_application_step_or_exit(
+    client: ApiClient,
+    application_id: str,
+    step_record_id: str,
+) -> ApplicationStepEntry:
+    steps: list[ApplicationStepEntry] = client.get_json(
+        f'/applications/{application_id}/steps'
+    )
+    existing = next(
+        (step for step in steps if str(step['id']) == step_record_id), None
+    )
+    if existing is None:
+        typer.echo('Application step not found', err=True)
+        raise typer.Exit(1)
+    return existing
+
+
+def _reject_if_application_finalized(
+    client: ApiClient,
+    application_id: str,
+) -> None:
+    applications: list[ApplicationEntry] = client.get_json('/applications')
+    existing = next(
+        (app for app in applications if str(app['id']) == application_id),
+        None,
+    )
+    if existing is not None and existing.get('finalized'):
+        typer.echo('This application has already been finalized', err=True)
+        raise typer.Exit(1)
+
+
+def _sorted_steps(
+    steps: list[ApplicationStepEntry],
+) -> list[ApplicationStepEntry]:
+    return sorted(
+        steps,
+        key=lambda step: (
+            step['step_date'],
+            step.get('start_time') or '',
+            str(step['id']),
+        ),
+    )

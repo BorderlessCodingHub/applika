@@ -1,12 +1,14 @@
 import json
 
 import httpx
+import pytest
 from conftest import FakeApiClient, FakeStore, make_session, reset_fake_client
 
 import applika.app as cli_app
 import applika.commands.applications.commands as applications_commands
 import applika.commands.auth as auth_commands
 import applika.commands.skill as skill_module
+import applika.commands.version as version_module
 from applika.app import app
 
 
@@ -29,6 +31,31 @@ def _setup(monkeypatch, session=None):
     reset_fake_client()
     monkeypatch.setattr(applications_commands, 'ApiClient', FakeApiClient)
     return store
+
+
+def _supports():
+    return {
+        'platforms': [{'id': '10', 'name': 'LinkedIn'}],
+        'steps': [
+            {
+                'id': '1',
+                'name': 'Initial Screen',
+                'color': '#aaa',
+                'strict': False,
+            },
+            {
+                'id': '2',
+                'name': 'Manager Interview',
+                'color': '#bbb',
+                'strict': False,
+            },
+            {'id': '9', 'name': 'Offer', 'color': '#0f0', 'strict': True},
+        ],
+        'feedbacks': [
+            {'id': '7', 'name': 'Rejected', 'color': '#f00'},
+            {'id': '8', 'name': 'Accepted', 'color': '#0f0'},
+        ],
+    }
 
 
 def test_applications_list_filters_and_outputs_json(monkeypatch, runner):
@@ -269,6 +296,526 @@ def test_applications_edit_rejects_finalized(monkeypatch, runner):
     assert 'Finalized applications cannot be edited' in result.output
 
 
+def test_applications_commands_include_steps_and_finalize(runner):
+    result = runner.invoke(app, ['applications', '--help'])
+
+    assert result.exit_code == 0
+    assert 'steps' in result.output
+    assert 'finalize' in result.output
+
+
+def test_application_steps_help_lists_subcommands(runner):
+    result = runner.invoke(app, ['applications', 'steps', '--help'])
+
+    assert result.exit_code == 0
+    assert 'list' in result.output
+    assert 'add' in result.output
+    assert 'edit' in result.output
+    assert 'delete' in result.output
+
+
+def test_application_steps_list_outputs_table(monkeypatch, runner):
+    _setup(monkeypatch)
+    FakeApiClient.application_steps = {
+        '99': [
+            {
+                'id': '500',
+                'step_id': '1',
+                'step_name': 'Initial Screen',
+                'step_date': '2026-05-11',
+                'start_time': None,
+                'end_time': None,
+                'timezone': None,
+                'observation': None,
+            }
+        ]
+    }
+
+    result = runner.invoke(app, ['applications', 'steps', 'list', '99'])
+
+    assert result.exit_code == 0
+    assert 'Initial Screen' in result.output
+    assert '2026-05-11' in result.output
+
+
+def test_application_steps_list_outputs_json(monkeypatch, runner):
+    _setup(monkeypatch)
+    FakeApiClient.application_steps = {
+        '99': [
+            {
+                'id': '500',
+                'step_id': '1',
+                'step_name': 'Initial Screen',
+                'step_date': '2026-05-11',
+                'start_time': None,
+                'end_time': None,
+                'timezone': None,
+                'observation': None,
+            }
+        ]
+    }
+
+    result = runner.invoke(
+        app,
+        ['applications', 'steps', 'list', '99', '--output-format', 'json'],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)[0]['id'] == '500'
+
+
+def test_application_steps_add_builds_matching_payload(monkeypatch, runner):
+    _setup(monkeypatch)
+    FakeApiClient.supports = _supports()
+    FakeApiClient.applications = [{'id': '99', 'finalized': False}]
+    FakeApiClient.step_created_response = {
+        'id': '500',
+        'step_id': '1',
+        'step_name': 'Initial Screen',
+        'step_date': '2026-05-11',
+        'start_time': '09:00',
+        'end_time': '10:00',
+        'timezone': 'America/Sao_Paulo',
+        'observation': 'Met recruiter',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'steps',
+            'add',
+            '99',
+            '--step',
+            'Initial Screen',
+            '--date',
+            '2026-05-11',
+            '--start-time',
+            '09:00',
+            '--end-time',
+            '10:00',
+            '--timezone',
+            'America/Sao_Paulo',
+            '--observation',
+            'Met recruiter',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_post_path == '/applications/99/steps'
+    assert FakeApiClient.captured_post_payload == {
+        'step_id': '1',
+        'step_date': '2026-05-11',
+        'start_time': '09:00',
+        'end_time': '10:00',
+        'timezone': 'America/Sao_Paulo',
+        'observation': 'Met recruiter',
+    }
+    assert (
+        'Added step: id=500 step=Initial Screen date=2026-05-11'
+        in result.output
+    )
+
+
+def test_application_steps_add_rejects_strict_step(monkeypatch, runner):
+    _setup(monkeypatch)
+    FakeApiClient.supports = _supports()
+    FakeApiClient.applications = [{'id': '99', 'finalized': False}]
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'steps',
+            'add',
+            '99',
+            '--step',
+            'Offer',
+            '--date',
+            '2026-05-11',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert 'Unknown step.' in result.output
+
+
+def test_application_steps_add_rejects_invalid_time_pairs(monkeypatch, runner):
+    _setup(monkeypatch)
+    FakeApiClient.supports = _supports()
+    FakeApiClient.applications = [{'id': '99', 'finalized': False}]
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'steps',
+            'add',
+            '99',
+            '--step',
+            'Initial Screen',
+            '--date',
+            '2026-05-11',
+            '--start-time',
+            '09:00',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert 'start-time and end-time must be provided together' in result.output
+
+
+def test_application_steps_edit_merges_existing_and_clear_flags(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    FakeApiClient.supports = _supports()
+    FakeApiClient.applications = [{'id': '99', 'finalized': False}]
+    FakeApiClient.application_steps = {
+        '99': [
+            {
+                'id': '500',
+                'step_id': '1',
+                'step_name': 'Initial Screen',
+                'step_date': '2026-05-11',
+                'start_time': '09:00',
+                'end_time': '10:00',
+                'timezone': 'America/Sao_Paulo',
+                'observation': 'Old note',
+            }
+        ]
+    }
+    FakeApiClient.step_updated_response = {
+        'id': '500',
+        'step_id': '2',
+        'step_name': 'Manager Interview',
+        'step_date': '2026-05-11',
+        'start_time': None,
+        'end_time': None,
+        'timezone': 'America/Sao_Paulo',
+        'observation': None,
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'steps',
+            'edit',
+            '99',
+            '500',
+            '--step',
+            'Manager Interview',
+            '--clear',
+            'observation',
+            '--clear',
+            'time',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_put_path == '/applications/99/steps/500'
+    assert FakeApiClient.captured_put_payload == {
+        'step_id': '2',
+        'step_date': '2026-05-11',
+        'start_time': None,
+        'end_time': None,
+        'timezone': 'America/Sao_Paulo',
+        'observation': None,
+    }
+    assert (
+        'Updated step: id=500 step=Manager Interview date=2026-05-11'
+        in result.output
+    )
+
+
+def test_application_steps_delete_calls_correct_endpoint(monkeypatch, runner):
+    _setup(monkeypatch)
+    FakeApiClient.applications = [{'id': '99', 'finalized': False}]
+    FakeApiClient.application_steps = {
+        '99': [
+            {
+                'id': '500',
+                'step_id': '1',
+                'step_name': 'Initial Screen',
+                'step_date': '2026-05-11',
+                'start_time': None,
+                'end_time': None,
+                'timezone': None,
+                'observation': None,
+            }
+        ]
+    }
+
+    result = runner.invoke(
+        app,
+        ['applications', 'steps', 'delete', '99', '500'],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_delete_path == '/applications/99/steps/500'
+    assert 'Deleted step: id=500' in result.output
+
+
+def test_application_steps_edit_accepts_explicit_id_flags(monkeypatch, runner):
+    _setup(monkeypatch)
+    FakeApiClient.supports = _supports()
+    FakeApiClient.applications = [{'id': '99', 'finalized': False}]
+    FakeApiClient.application_steps = {
+        '99': [
+            {
+                'id': '500',
+                'step_id': '1',
+                'step_name': 'Initial Screen',
+                'step_date': '2026-05-11',
+                'start_time': '09:00',
+                'end_time': '10:00',
+                'timezone': 'America/Sao_Paulo',
+                'observation': 'Old note',
+            }
+        ]
+    }
+    FakeApiClient.step_updated_response = {
+        'id': '500',
+        'step_id': '2',
+        'step_name': 'Manager Interview',
+        'step_date': '2026-05-11',
+        'start_time': '15:00',
+        'end_time': '16:00',
+        'timezone': 'America/Sao_Paulo',
+        'observation': 'Old note',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'steps',
+            'edit',
+            '--application-id',
+            '99',
+            '--step-record-id',
+            '500',
+            '--step',
+            'Manager Interview',
+            '--start-time',
+            '15:00',
+            '--end-time',
+            '16:00',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_put_path == '/applications/99/steps/500'
+    assert FakeApiClient.captured_put_payload == {
+        'step_id': '2',
+        'step_date': '2026-05-11',
+        'start_time': '15:00',
+        'end_time': '16:00',
+        'timezone': 'America/Sao_Paulo',
+        'observation': 'Old note',
+    }
+
+
+def test_application_steps_edit_rejects_conflicting_ids(monkeypatch, runner):
+    _setup(monkeypatch)
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'steps',
+            'edit',
+            '99',
+            '500',
+            '--application-id',
+            '100',
+            '--step-record-id',
+            '500',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert 'Conflicting application id' in result.output
+
+
+def test_application_steps_delete_accepts_explicit_id_flags(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    FakeApiClient.applications = [{'id': '99', 'finalized': False}]
+    FakeApiClient.application_steps = {
+        '99': [
+            {
+                'id': '500',
+                'step_id': '1',
+                'step_name': 'Initial Screen',
+                'step_date': '2026-05-11',
+                'start_time': None,
+                'end_time': None,
+                'timezone': None,
+                'observation': None,
+            }
+        ]
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'steps',
+            'delete',
+            '--application-id',
+            '99',
+            '--step-record-id',
+            '500',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_delete_path == '/applications/99/steps/500'
+
+
+@pytest.mark.parametrize(
+    'command', [['add'], ['edit', '500'], ['delete', '500']]
+)
+def test_application_step_mutations_reject_finalized_applications(
+    monkeypatch, runner, command
+):
+    _setup(monkeypatch)
+    FakeApiClient.supports = _supports()
+    FakeApiClient.applications = [{'id': '99', 'finalized': True}]
+    FakeApiClient.application_steps = {
+        '99': [
+            {
+                'id': '500',
+                'step_id': '1',
+                'step_name': 'Initial Screen',
+                'step_date': '2026-05-11',
+                'start_time': None,
+                'end_time': None,
+                'timezone': None,
+                'observation': None,
+            }
+        ]
+    }
+
+    args = ['applications', 'steps', *command, '99']
+    if command == ['add']:
+        args.extend(['--step', 'Initial Screen', '--date', '2026-05-11'])
+    else:
+        args = ['applications', 'steps', command[0], '99', command[1]]
+
+    result = runner.invoke(app, args)
+
+    assert result.exit_code == 1
+    assert 'already been finalized' in result.output
+
+
+def test_applications_finalize_posts_matching_payload(monkeypatch, runner):
+    _setup(monkeypatch)
+    FakeApiClient.supports = _supports()
+    FakeApiClient.finalized_response = {
+        'id': '99',
+        'company_name': 'Acme',
+        'role': 'Backend Engineer',
+        'salary_offer': 180000.0,
+        'last_step': {'name': 'Offer', 'date': '2026-05-18'},
+        'feedback': {'name': 'Accepted', 'date': '2026-05-18'},
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'finalize',
+            '99',
+            '--step',
+            'Offer',
+            '--feedback',
+            'Accepted',
+            '--date',
+            '2026-05-18',
+            '--salary-offer',
+            '180000',
+            '--observation',
+            'Signed',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_post_path == '/applications/99/finalize'
+    assert FakeApiClient.captured_post_payload == {
+        'step_id': '9',
+        'feedback_id': '8',
+        'finalize_date': '2026-05-18',
+        'salary_offer': 180000.0,
+        'observation': 'Signed',
+    }
+    assert (
+        'Finalized application: id=99 company=Acme role=Backend Engineer'
+        in result.output
+    )
+    assert 'final_step=Offer' in result.output
+    assert 'feedback=Accepted' in result.output
+
+
+def test_applications_finalize_outputs_json(monkeypatch, runner):
+    _setup(monkeypatch)
+    FakeApiClient.supports = _supports()
+    FakeApiClient.finalized_response = {
+        'id': '99',
+        'company_name': 'Acme',
+        'role': 'Backend Engineer',
+        'salary_offer': None,
+        'last_step': {'name': 'Denied', 'date': '2026-05-18'},
+        'feedback': {'name': 'Rejected', 'date': '2026-05-18'},
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'finalize',
+            '99',
+            '--step',
+            'Offer',
+            '--feedback',
+            'Rejected',
+            '--date',
+            '2026-05-18',
+            '--output-format',
+            'json',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)['id'] == '99'
+
+
+def test_applications_finalize_rejects_non_strict_steps(monkeypatch, runner):
+    _setup(monkeypatch)
+    FakeApiClient.supports = _supports()
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'finalize',
+            '99',
+            '--step',
+            'Initial Screen',
+            '--feedback',
+            'Rejected',
+            '--date',
+            '2026-05-18',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert 'Unknown step.' in result.output
+
+
 def test_login_error_on_state_mismatch(monkeypatch, runner):
     store = FakeStore()
     monkeypatch.setattr(cli_app, 'SessionStore', lambda: store)
@@ -377,6 +924,53 @@ def test_whoami_works_without_name(monkeypatch, runner):
     assert result.exit_code == 0
     assert 'username=ghost' in result.output
     assert '  name=' not in result.output
+
+
+def test_root_version_flag_prints_installed_version(monkeypatch, runner):
+    monkeypatch.setattr(cli_app, 'installed_version', lambda: '0.1.2')
+
+    result = runner.invoke(app, ['--version'])
+
+    assert result.exit_code == 0
+    assert result.output.strip() == '0.1.2'
+
+
+def test_version_command_prints_installed_and_published(monkeypatch, runner):
+    monkeypatch.setattr(version_module, 'installed_version', lambda: '0.1.2')
+
+    def fake_get(url, timeout):
+        assert url == 'https://pypi.org/pypi/applika-cli/json'
+        assert timeout == 10
+        request = httpx.Request('GET', url)
+        return httpx.Response(
+            200,
+            json={'info': {'version': '0.1.3'}},
+            request=request,
+        )
+
+    monkeypatch.setattr(version_module.httpx, 'get', fake_get)
+
+    result = runner.invoke(app, ['version'])
+
+    assert result.exit_code == 0
+    assert 'installed: 0.1.2' in result.output
+    assert 'published: 0.1.3' in result.output
+
+
+def test_version_command_handles_unavailable_pypi(monkeypatch, runner):
+    monkeypatch.setattr(version_module, 'installed_version', lambda: '0.1.2')
+
+    def fake_get(url, timeout):
+        request = httpx.Request('GET', url)
+        raise httpx.ConnectError('network down', request=request)
+
+    monkeypatch.setattr(version_module.httpx, 'get', fake_get)
+
+    result = runner.invoke(app, ['version'])
+
+    assert result.exit_code == 0
+    assert 'installed: 0.1.2' in result.output
+    assert 'published: unavailable' in result.output
 
 
 def test_skill_dry_run(monkeypatch, runner, tmp_path):

@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from typer.testing import CliRunner
 
@@ -42,9 +44,16 @@ class FakeApiClient:
     company_matches = []
     created_response = {}
     updated_response = {}
+    step_created_response = {}
+    step_updated_response = {}
+    finalized_response = {}
+    application_steps = {}
     whoami_response = {}
+    captured_post_path = None
     captured_post_payload = None
+    captured_put_path = None
     captured_put_payload = None
+    captured_delete_path = None
     captured_application_params = None
 
     def __init__(self, session, store):
@@ -58,6 +67,9 @@ class FakeApiClient:
         if path == '/applications':
             FakeApiClient.captured_application_params = params
             return FakeApiClient.applications
+        match = re.fullmatch(r'/applications/([^/]+)/steps', path)
+        if match:
+            return FakeApiClient.application_steps.get(match.group(1), [])
         if path == '/supports':
             return FakeApiClient.supports
         if path == '/companies':
@@ -67,14 +79,27 @@ class FakeApiClient:
         raise AssertionError(f'Unexpected GET path: {path}')
 
     def post_json(self, path, payload):
-        assert path == '/applications'
+        FakeApiClient.captured_post_path = path
         FakeApiClient.captured_post_payload = payload
-        return FakeApiClient.created_response
+        if path == '/applications':
+            return FakeApiClient.created_response
+        if re.fullmatch(r'/applications/[^/]+/steps', path):
+            return FakeApiClient.step_created_response
+        if re.fullmatch(r'/applications/[^/]+/finalize', path):
+            return FakeApiClient.finalized_response
+        raise AssertionError(f'Unexpected POST path: {path}')
 
     def put_json(self, path, payload):
-        assert path.startswith('/applications/')
+        FakeApiClient.captured_put_path = path
         FakeApiClient.captured_put_payload = payload
-        return FakeApiClient.updated_response
+        if re.fullmatch(r'/applications/[^/]+/steps/[^/]+', path):
+            return FakeApiClient.step_updated_response
+        if path.startswith('/applications/'):
+            return FakeApiClient.updated_response
+        raise AssertionError(f'Unexpected PUT path: {path}')
+
+    def delete(self, path):
+        FakeApiClient.captured_delete_path = path
 
 
 def reset_fake_client():
@@ -83,7 +108,14 @@ def reset_fake_client():
     FakeApiClient.company_matches = []
     FakeApiClient.created_response = {}
     FakeApiClient.updated_response = {}
+    FakeApiClient.step_created_response = {}
+    FakeApiClient.step_updated_response = {}
+    FakeApiClient.finalized_response = {}
+    FakeApiClient.application_steps = {}
     FakeApiClient.whoami_response = {}
+    FakeApiClient.captured_post_path = None
     FakeApiClient.captured_post_payload = None
+    FakeApiClient.captured_put_path = None
     FakeApiClient.captured_put_payload = None
+    FakeApiClient.captured_delete_path = None
     FakeApiClient.captured_application_params = None

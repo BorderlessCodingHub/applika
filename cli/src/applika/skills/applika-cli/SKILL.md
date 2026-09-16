@@ -252,3 +252,163 @@ Verify:
 applika --help
 applika whoami
 ```
+
+---
+
+## 8. Application Steps and Finalization
+
+Application steps are timeline entries inside one application. Finalization is
+separate and irreversible.
+
+Important distinction:
+- Normal steps are used while the application is active.
+- Strict steps are final-only and can only be used during finalization.
+
+### List recorded steps for an application
+
+```bash
+applika applications steps list <application-id>
+applika applications steps list <application-id> --output-format json
+```
+
+Use this to find the recorded step entry `id` needed by `steps edit` and
+`steps delete`.
+
+### Add a step
+
+```bash
+applika applications steps add <application-id> \
+  --step "Initial Screen" \
+  --date 2026-05-11
+
+applika applications steps add <application-id> \
+  --step "Phase 2" \
+  --date 2026-05-14 \
+  --start-time 14:00 \
+  --end-time 15:00 \
+  --timezone America/Sao_Paulo \
+  --observation "Panel interview"
+```
+
+Rules:
+- `--step` must be a predefined non-strict step definition from supports, such as `Initial Screen`, `Phase 2`, `Phase 3`, or `Phase 4`.
+- Interview labels like `Manager Interview` belong in `--observation`, not `--step`, unless they were explicitly created as step definitions in supports.
+- `--start-time` and `--end-time` must be provided together.
+- `--end-time` must be after `--start-time`.
+- Finalized applications reject step mutations.
+
+### Edit a recorded step
+
+```bash
+applika applications steps edit \
+  --application-id <application-id> \
+  --step-record-id <step-record-id> \
+  --step "Phase 2"
+
+applika applications steps edit \
+  --application-id <application-id> \
+  --step-record-id <step-record-id> \
+  --clear observation \
+  --clear time
+
+applika applications steps edit \
+  --application-id <application-id> \
+  --step-record-id <step-record-id> \
+  --start-time 15:00 \
+  --end-time 16:00 \
+  --timezone America/Sao_Paulo
+```
+
+`steps edit` keeps unspecified fields unchanged.
+The positional form still works: `applika applications steps edit <application-id> <step-record-id> ...`
+
+Supported clear flags:
+- `--clear observation`
+- `--clear time`
+- `--clear timezone`
+
+### Delete a recorded step
+
+```bash
+applika applications steps delete \
+  --application-id <application-id> \
+  --step-record-id <step-record-id>
+```
+
+The positional form still works: `applika applications steps delete <application-id> <step-record-id>`
+
+### Finalize an application
+
+```bash
+applika applications finalize <application-id> \
+  --step "Denied" \
+  --feedback "Rejected" \
+  --date 2026-05-18 \
+  --observation "Closed after take-home"
+
+applika applications finalize <application-id> \
+  --step "Denied" \
+  --feedback "Rejected" \
+  --date 2026-05-18 \
+  --output-format json
+
+applika applications finalize <application-id> \
+  --step "Offer" \
+  --feedback "Accepted" \
+  --date 2026-05-18 \
+  --salary-offer 180000 \
+  --observation "Signed the offer"
+```
+
+Rules:
+- `--step` must be a strict final step definition.
+- `--feedback` must be a feedback definition.
+- `--salary-offer` is optional and useful for accepted/offer outcomes.
+- Once finalized, the application and its steps are no longer editable.
+- `--output-format` supports `table` (default summary output) and `json`.
+
+### Common step/finalize workflows
+
+Find an application ID:
+
+```bash
+applika applications list --search "stripe" --output-format json
+```
+
+Inspect steps to find a step-record ID:
+
+```bash
+applika applications steps list 1234567890123456789 --output-format json
+```
+
+Add interview progression steps:
+
+```bash
+applika applications steps add 1234567890123456789 \
+  --step "Initial Screen" \
+  --date 2026-05-11
+
+applika applications steps add 1234567890123456789 \
+  --step "Phase 2" \
+  --date 2026-05-14 \
+  --observation "Strong technical round"
+```
+
+Finalize as rejected:
+
+```bash
+applika applications finalize 1234567890123456789 \
+  --step "Denied" \
+  --feedback "Rejected" \
+  --date 2026-05-18
+```
+
+Finalize with accepted offer plus salary:
+
+```bash
+applika applications finalize 1234567890123456789 \
+  --step "Offer" \
+  --feedback "Accepted" \
+  --date 2026-05-18 \
+  --salary-offer 180000
+```

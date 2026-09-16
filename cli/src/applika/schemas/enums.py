@@ -70,3 +70,9 @@ class ClearField(str, Enum):
     CURRENCY = 'currency'
     SALARY_PERIOD = 'salary_period'
     SALARY = 'salary'
+
+
+class StepClearField(str, Enum):
+    OBSERVATION = 'observation'
+    TIME = 'time'
+    TIMEZONE = 'timezone'

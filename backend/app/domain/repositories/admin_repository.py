@@ -204,6 +204,8 @@ class AdminRepository:
             'joined_at': UserModel.created_at,
             'last_activity': 'last_activity',
             'total_applications': 'total_applications',
+            'offers': 'offers',
+            'denials': 'denials',
         }
         sort_col = sort_columns.get(sort_by, UserModel.created_at)
         if isinstance(sort_col, str):
