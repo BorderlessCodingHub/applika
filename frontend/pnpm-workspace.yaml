@@ -1,2 +1,10 @@
 ignoredBuiltDependencies:
   - '@swc/core'
+
+# recharts 2.15 depends on react-is ^18, whose `isFragment`/`isElement` cannot
+# recognise React 19 elements (React 19 changed the element `$$typeof` symbol
+# from `react.element` to `react.transitional.element`). Without this override
+# recharts silently mis-detects chart children on React 19. Scoped to recharts
+# so `prop-types` and `@testing-library/dom` keep their own react-is versions.
+overrides:
+  recharts>react-is: ^19.2.0

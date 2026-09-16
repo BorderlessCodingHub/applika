@@ -26,6 +26,7 @@ const config = [
     files: [
       "eslint.config.mjs",
       "next.config.ts",
+      "playwright.config.ts",
       "postcss.config.js",
       "tailwind.config.ts",
       "vitest.config.ts",

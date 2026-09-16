@@ -6,8 +6,8 @@ import { Card } from "../ui/card";
 const STAT_COLORS = {
   total: "text-foreground",
   offers: "text-primary",
-  rate: "text-chart-success",
-  active: "text-chart-info",
+  rate: "text-chart-2",
+  active: "text-chart-1",
   denied: "text-destructive",
 } as const;
 
@@ -33,11 +33,11 @@ function StatCard({
         </div>
       ) : (
         <>
-          <span className="font-display text-base font-medium uppercase tracking-wide-label text-muted-foreground">
+          <span className="font-display text-base font-medium tracking-wide-label text-muted-foreground uppercase">
             {label}
           </span>
           <p
-            className={`mt-1 font-display text-2xl font-bold tabular-nums leading-tight ${STAT_COLORS[colorKey] ?? "text-foreground"}`}
+            className={`mt-1 font-numeric text-2xl leading-tight font-bold ${STAT_COLORS[colorKey] ?? "text-foreground"}`}
           >
             {value}
           </p>

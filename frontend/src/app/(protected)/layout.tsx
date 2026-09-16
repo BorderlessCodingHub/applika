@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { CycleProvider } from "@/contexts/cycle-context";
 import { SupportsProvider } from "@/contexts/supports-context";
-import { AppLayout } from "@/components/layout/app-layout";
+import { AppShell } from "@/components/layout/app-shell";
+import { navItemsFor } from "@/components/layout/nav";
 import { Loader2 } from "lucide-react";
 import { ProtectedProviders } from "@/components/layout/protected-providers";
 
@@ -14,8 +15,9 @@ export default function ProtectedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -39,7 +41,16 @@ export default function ProtectedLayout({
     <ProtectedProviders>
       <SupportsProvider>
         <CycleProvider>
-          <AppLayout>{children}</AppLayout>
+          <AppShell
+            activePath={pathname}
+            navItems={navItemsFor(user?.is_admin)}
+            user={user}
+            onLogout={() => {
+              void logout();
+            }}
+          >
+            {children}
+          </AppShell>
         </CycleProvider>
       </SupportsProvider>
     </ProtectedProviders>

@@ -92,8 +92,7 @@ function getUrgencyColor(step: AgendaStep): string {
     stepDateTime = new Date(step.step_date + "T00:00:00");
   }
 
-  const diffHours =
-    (stepDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+  const diffHours = (stepDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
   return getAgendaUrgencyColor(diffHours);
 }
@@ -132,8 +131,11 @@ export function AgendaDropdown() {
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <CalendarClock className="h-5 w-5" />
+          {/* The trigger is icon-only; without this it reaches the a11y tree
+              (and any role-based test) as a button with no name at all. */}
+          <span className="sr-only">Upcoming steps</span>
           {upcoming.length > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
               {upcoming.length}
             </span>
           )}
@@ -144,7 +146,7 @@ export function AgendaDropdown() {
           <h4 className="text-sm font-semibold">Upcoming Steps</h4>
           <Link
             href="/agenda"
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
             View all
             <ChevronRight className="h-3 w-3" />
@@ -159,7 +161,7 @@ export function AgendaDropdown() {
           ) : (
             grouped.map(([date, items]) => (
               <div key={date}>
-                <div className="sticky top-0 bg-muted/50 px-4 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-sm">
+                <div className="sticky top-0 bg-muted/50 px-4 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-xs">
                   {getDayLabel(date)}
                 </div>
                 {items.map((step) => (
@@ -178,7 +180,7 @@ export function AgendaDropdown() {
                       <div className="flex items-center gap-2">
                         <Badge
                           variant="secondary"
-                          className="text-[10px] px-1.5 py-0"
+                          className="px-1.5 py-0 text-[10px]"
                         >
                           {step.step_name}
                         </Badge>
@@ -188,7 +190,7 @@ export function AgendaDropdown() {
                           </span>
                         )}
                       </div>
-                      <p className="truncate text-xs text-muted-foreground mt-0.5">
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
                         {step.role}
                       </p>
                     </div>

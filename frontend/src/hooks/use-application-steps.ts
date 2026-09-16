@@ -58,7 +58,7 @@ export function useApplicationStepMutate(props: ApplicationStepMutateProps) {
   }
 
   function onError(error: AxiosError) {
-      const message = getApiError(error);
+    const message = getApiError(error);
     toast.error(message);
   }
 

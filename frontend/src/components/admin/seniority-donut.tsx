@@ -26,7 +26,7 @@ function renderOuterLabel(props: Record<string, unknown>) {
     <text
       x={x}
       y={y}
-      fill="hsl(var(--muted-foreground))"
+      fill="var(--muted-foreground)"
       textAnchor="middle"
       dominantBaseline="central"
       fontSize={12}
@@ -82,7 +82,7 @@ export function SeniorityDonut() {
       <Card className="overflow-hidden p-5">
         <div className="mb-4 flex items-center gap-3">
           <div className="h-2 w-2 rounded-full bg-violet-400" />
-          <h3 className="font-display text-sm font-semibold uppercase tracking-wide-label text-muted-foreground">
+          <h3 className="font-display text-sm font-semibold tracking-wide-label text-muted-foreground uppercase">
             Seniority Distribution
           </h3>
         </div>
@@ -131,17 +131,19 @@ export function SeniorityDonut() {
                   </Pie>
                   <Tooltip
                     content={<CustomTooltip />}
-                    cursor={{ fill: "#8d8d8d12" }}
+                    cursor={{
+                      fill: "color-mix(in oklab, var(--muted-foreground) 12%, transparent)",
+                    }}
                   />
                 </PieChart>
               </ResponsiveContainer>
 
               {/* Center text */}
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="font-display text-2xl font-bold tabular-nums text-foreground">
+                <span className="font-numeric text-2xl font-bold text-foreground">
                   {total}
                 </span>
-                <span className="font-display text-[10px] uppercase tracking-wide-label text-muted-foreground">
+                <span className="font-display text-[10px] tracking-wide-label text-muted-foreground uppercase">
                   users
                 </span>
               </div>
@@ -155,10 +157,10 @@ export function SeniorityDonut() {
                     className="h-2 w-2 shrink-0 rounded-full"
                     style={{ backgroundColor: entry.color }}
                   />
-                  <span className="text-xs capitalize text-muted-foreground">
+                  <span className="text-xs text-muted-foreground capitalize">
                     {entry.level}
                   </span>
-                  <span className="ml-auto font-display text-xs font-medium tabular-nums text-foreground">
+                  <span className="ml-auto font-numeric text-xs font-medium text-foreground">
                     {entry.count}
                   </span>
                 </div>

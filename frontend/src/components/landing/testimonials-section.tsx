@@ -39,7 +39,7 @@ export function TestimonialsSection() {
     <section className="relative border-t border-border/60">
       <div className="mx-auto max-w-5xl px-4 py-16 md:px-8 md:py-20">
         <div className="mb-14 text-center">
-          <p className="mb-2 font-display text-base font-semibold uppercase tracking-wide-label text-primary md:text-lg">
+          <p className="mb-2 font-display text-base font-semibold tracking-wide-label text-primary uppercase md:text-lg">
             Testimonials
           </p>
           <h3 className="font-display text-2xl font-bold tracking-tight-display text-foreground md:text-3xl">
@@ -50,7 +50,7 @@ export function TestimonialsSection() {
           {testimonials.map((t) => (
             <figure
               key={t.name}
-              className="flex flex-col rounded-xl border border-border/60 bg-card p-6 shadow-card transition-colors duration-200 hover:border-border"
+              className="flex flex-col rounded-xl border border-border/60 bg-surface p-6 shadow-card transition-colors duration-200 hover:border-border-strong/60 hover:bg-surface-elevated"
             >
               <div className="mb-4">
                 <StarRating rating={t.stars} />

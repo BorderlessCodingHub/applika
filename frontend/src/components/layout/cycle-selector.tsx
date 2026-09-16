@@ -53,7 +53,9 @@ export function CycleSelector({ className }: { className?: string }) {
 
   return (
     <>
-      <div className={cn("flex items-center gap-2 w-full lg:max-w-96", className)}>
+      <div
+        className={cn("flex w-full items-center gap-2 lg:max-w-96", className)}
+      >
         <Select
           value={selectedCycleId ?? "current"}
           onValueChange={(v) => setSelectedCycleId(v === "current" ? null : v)}
@@ -71,7 +73,7 @@ export function CycleSelector({ className }: { className?: string }) {
             ))}
             {canCreateCycle && (
               <SelectButton
-                className="gap-1.5 w-full"
+                className="w-full gap-1.5"
                 onClick={() => setDialogOpen(true)}
               >
                 <Plus className="h-4 w-4" />

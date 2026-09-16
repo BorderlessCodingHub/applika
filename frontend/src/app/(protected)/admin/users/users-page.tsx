@@ -73,7 +73,7 @@ function SortHeader({
     <button
       onClick={() => onSort(sortKey)}
       className={cn(
-        "flex items-center gap-1 font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground transition-colors hover:text-foreground",
+        "flex items-center gap-1 font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase transition-colors hover:text-foreground",
         className,
       )}
     >
@@ -149,11 +149,11 @@ export function UsersPage() {
 
       <Card className="overflow-hidden">
         <div className="flex flex-col justify-between gap-3 p-5 pb-3 sm:flex-row sm:items-center">
-          <span className="text-xs tabular-nums text-muted-foreground/60">
+          <span className="font-numeric text-xs text-muted-foreground/60">
             {data?.total ?? 0} users
           </span>
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
+            <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
             <Input
               value={search}
               onChange={(e) => {
@@ -174,7 +174,12 @@ export function UsersPage() {
           </div>
         ) : (
           <>
-            <div className={cn("overflow-x-auto transition-opacity duration-200", isFetching && "opacity-50")}>
+            <div
+              className={cn(
+                "overflow-x-auto transition-opacity duration-200",
+                isFetching && "opacity-50",
+              )}
+            >
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-y border-border/40 bg-accent/20">
@@ -188,7 +193,7 @@ export function UsersPage() {
                       />
                     </th>
                     <th className="hidden px-3 py-2.5 text-left lg:table-cell">
-                      <span className="font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                      <span className="font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                         Seniority
                       </span>
                     </th>
@@ -233,7 +238,7 @@ export function UsersPage() {
                       />
                     </th>
                     <th className="px-5 py-2.5 text-right">
-                      <span className="font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                      <span className="font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                         Actions
                       </span>
                     </th>
@@ -284,16 +289,16 @@ export function UsersPage() {
                           </Badge>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-right font-display font-semibold tabular-nums text-foreground">
+                      <td className="px-3 py-3 text-right font-numeric font-semibold text-foreground">
                         {user.total_applications}
                       </td>
-                      <td className="hidden px-3 py-3 text-right font-display tabular-nums text-primary md:table-cell">
+                      <td className="hidden px-3 py-3 text-right font-numeric text-primary md:table-cell">
                         {user.offers}
                       </td>
-                      <td className="hidden px-3 py-3 text-right font-display tabular-nums text-rose-400 md:table-cell">
+                      <td className="hidden px-3 py-3 text-right font-numeric text-rose-400 md:table-cell">
                         {user.denials}
                       </td>
-                      <td className="px-3 py-3 text-right text-xs tabular-nums text-muted-foreground">
+                      <td className="px-3 py-3 text-right font-numeric text-xs text-muted-foreground">
                         {formatRelative(user.joined_at)}
                       </td>
                       <td className="px-5 py-3 text-right">
@@ -335,7 +340,7 @@ export function UsersPage() {
 
             {totalPages > 1 && (
               <div className="flex items-center justify-between border-t border-border/30 px-5 py-3">
-                <span className="text-xs tabular-nums text-muted-foreground">
+                <span className="font-numeric text-xs text-muted-foreground">
                   Page {page + 1} of {totalPages}
                 </span>
                 <div className="flex items-center gap-1">
@@ -375,20 +380,20 @@ export function UsersPage() {
             <div className="mt-6 space-y-4 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-[11px] uppercase text-muted-foreground">
+                  <p className="text-[11px] text-muted-foreground uppercase">
                     Email
                   </p>
                   <p className="font-medium">{userDetail.email}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] uppercase text-muted-foreground">
+                  <p className="text-[11px] text-muted-foreground uppercase">
                     GitHub ID
                   </p>
                   <p className="font-medium">{userDetail.github_id}</p>
                 </div>
                 {userDetail.first_name && (
                   <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground uppercase">
                       Name
                     </p>
                     <p className="font-medium">
@@ -398,7 +403,7 @@ export function UsersPage() {
                 )}
                 {userDetail.current_role && (
                   <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground uppercase">
                       Role
                     </p>
                     <p className="font-medium">{userDetail.current_role}</p>
@@ -406,7 +411,7 @@ export function UsersPage() {
                 )}
                 {userDetail.current_company && (
                   <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground uppercase">
                       Company
                     </p>
                     <p className="font-medium">{userDetail.current_company}</p>
@@ -414,7 +419,7 @@ export function UsersPage() {
                 )}
                 {userDetail.seniority_level && (
                   <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground uppercase">
                       Seniority
                     </p>
                     <Badge
@@ -431,7 +436,7 @@ export function UsersPage() {
                 )}
                 {userDetail.location && (
                   <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground uppercase">
                       Location
                     </p>
                     <p className="font-medium">{userDetail.location}</p>
@@ -439,7 +444,7 @@ export function UsersPage() {
                 )}
                 {userDetail.availability && (
                   <div>
-                    <p className="text-[11px] uppercase text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground uppercase">
                       Availability
                     </p>
                     <p className="font-medium capitalize">
@@ -450,32 +455,30 @@ export function UsersPage() {
               </div>
 
               <div className="rounded-lg border border-border/40 p-3">
-                <p className="mb-2 text-[11px] font-semibold uppercase text-muted-foreground">
+                <p className="mb-2 text-[11px] font-semibold text-muted-foreground uppercase">
                   Application Stats
                 </p>
                 <div className="grid grid-cols-4 gap-2 text-center">
                   <div>
-                    <p className="text-lg font-bold tabular-nums">
+                    <p className="font-numeric text-lg font-bold">
                       {userDetail.total_applications}
                     </p>
                     <p className="text-[10px] text-muted-foreground">Total</p>
                   </div>
                   <div>
-                    <p className="text-lg font-bold tabular-nums text-primary">
+                    <p className="font-numeric text-lg font-bold text-primary">
                       {userDetail.offers}
                     </p>
                     <p className="text-[10px] text-muted-foreground">Offers</p>
                   </div>
                   <div>
-                    <p className="text-lg font-bold tabular-nums text-rose-400">
+                    <p className="font-numeric text-lg font-bold text-rose-400">
                       {userDetail.denials}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Denials
-                    </p>
+                    <p className="text-[10px] text-muted-foreground">Denials</p>
                   </div>
                   <div>
-                    <p className="text-lg font-bold tabular-nums text-amber-400">
+                    <p className="font-numeric text-lg font-bold text-amber-400">
                       {userDetail.active_applications}
                     </p>
                     <p className="text-[10px] text-muted-foreground">Active</p>
@@ -485,7 +488,7 @@ export function UsersPage() {
 
               {userDetail.bio && (
                 <div>
-                  <p className="text-[11px] uppercase text-muted-foreground">
+                  <p className="text-[11px] text-muted-foreground uppercase">
                     Bio
                   </p>
                   <p className="mt-1 text-muted-foreground">{userDetail.bio}</p>
@@ -494,12 +497,16 @@ export function UsersPage() {
 
               {userDetail.tech_stack && userDetail.tech_stack.length > 0 && (
                 <div>
-                  <p className="mb-1 text-[11px] uppercase text-muted-foreground">
+                  <p className="mb-1 text-[11px] text-muted-foreground uppercase">
                     Tech Stack
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {userDetail.tech_stack.map((t) => (
-                      <Badge key={t} variant="secondary" className="text-[10px]">
+                      <Badge
+                        key={t}
+                        variant="secondary"
+                        className="text-[10px]"
+                      >
                         {t}
                       </Badge>
                     ))}
@@ -510,7 +517,6 @@ export function UsersPage() {
           )}
         </SheetContent>
       </Sheet>
-
     </div>
   );
 }

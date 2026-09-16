@@ -118,7 +118,7 @@ export function ApplicationsPage() {
         <div className="space-y-3">
           <div className="flex flex-wrap gap-3">
             <div className="relative min-w-[200px] flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search company or role…"
                 value={filters.search ?? ""}
@@ -160,7 +160,7 @@ export function ApplicationsPage() {
           {/* Advanced filters */}
           {showAdvanced && (
             <Card className="flex animate-fade-in-up flex-wrap items-end gap-4 bg-background p-3">
-              <div className="space-y-1.5 w-40">
+              <div className="w-40 space-y-1.5">
                 <Label className="pl-1 text-sm text-muted-foreground">
                   Source
                 </Label>
@@ -183,7 +183,7 @@ export function ApplicationsPage() {
               </div>
 
               {(supports?.platforms?.length ?? 0) > 0 && (
-                <div className="space-y-1.5 w-40">
+                <div className="w-40 space-y-1.5">
                   <Label className="pl-1 text-sm text-muted-foreground">
                     Platform
                   </Label>
@@ -210,7 +210,7 @@ export function ApplicationsPage() {
                 </div>
               )}
 
-              <div className="space-y-1.5 w-40">
+              <div className="w-40 space-y-1.5">
                 <Label className="pl-1 text-sm text-muted-foreground">
                   From
                 </Label>
@@ -230,7 +230,7 @@ export function ApplicationsPage() {
                 />
               </div>
 
-              <div className="space-y-1.5 w-40">
+              <div className="w-40 space-y-1.5">
                 <Label className="pl-1 text-sm text-muted-foreground">To</Label>
                 <DatePickerInput
                   value={filters.dateRange?.end}
@@ -286,7 +286,7 @@ export function ApplicationsPage() {
         </div>
       ) : (
         <>
-          <div className="text-sm text-muted-foreground mb-4">
+          <div className="mb-4 text-sm text-muted-foreground">
             Found {filtered.length} application
             {filtered.length !== 1 ? "s" : ""}
           </div>
@@ -388,7 +388,7 @@ export function ApplicationsPage() {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => deleteApplication(appAction.data!.id)}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                variant="destructive"
               >
                 Delete
               </AlertDialogAction>

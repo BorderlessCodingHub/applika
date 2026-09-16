@@ -23,7 +23,7 @@ function renderOuterLabel(props: Record<string, unknown>) {
     <text
       x={x}
       y={y}
-      fill="hsl(var(--muted-foreground))"
+      fill="var(--muted-foreground)"
       textAnchor="middle"
       dominantBaseline="central"
       fontSize={14}
@@ -62,11 +62,7 @@ function renderInnerLabel(props: Record<string, unknown>) {
   );
 }
 
-export function ActiveVsPassiveChart({
-  cycleId,
-}: {
-  cycleId?: string | null;
-}) {
+export function ActiveVsPassiveChart({ cycleId }: { cycleId?: string | null }) {
   const { data, isLoading } = useModeStats(cycleId);
 
   const chartData = data
@@ -103,8 +99,8 @@ export function ActiveVsPassiveChart({
                 label={renderOuterLabel}
                 labelLine={false}
               >
-                <Cell fill="hsl(var(--primary))" />
-                <Cell fill="hsl(var(--muted-foreground))" />
+                <Cell fill="var(--chart-1)" />
+                <Cell fill="var(--chart-5)" />
               </Pie>
               <Pie
                 data={chartData}
@@ -125,17 +121,19 @@ export function ActiveVsPassiveChart({
               </Pie>
               <Tooltip
                 content={<CustomTooltip />}
-                cursor={{ fill: "#8d8d8d12" }}
+                cursor={{
+                  fill: "color-mix(in oklab, var(--muted-foreground) 12%, transparent)",
+                }}
               />
             </PieChart>
           </ResponsiveContainer>
           <div className="mt-1 flex justify-center gap-4">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+              <span className="h-2 w-2 shrink-0 rounded-full bg-chart-1" />
               Active
             </div>
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="h-2 w-2 shrink-0 rounded-full bg-muted-foreground" />
+              <span className="h-2 w-2 shrink-0 rounded-full bg-chart-5" />
               Passive
             </div>
           </div>

@@ -140,11 +140,11 @@ export function CompaniesPage() {
 
       <Card className="overflow-hidden">
         <div className="flex flex-col justify-between gap-3 p-5 pb-3 sm:flex-row sm:items-center">
-          <span className="text-xs tabular-nums text-muted-foreground/60">
+          <span className="font-numeric text-xs text-muted-foreground/60">
             {data?.total ?? 0} companies
           </span>
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
+            <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
             <Input
               value={search}
               onChange={(e) => {
@@ -165,26 +165,31 @@ export function CompaniesPage() {
           </div>
         ) : (
           <>
-            <div className={cn("overflow-x-auto transition-opacity duration-200", isFetching && "opacity-50")}>
+            <div
+              className={cn(
+                "overflow-x-auto transition-opacity duration-200",
+                isFetching && "opacity-50",
+              )}
+            >
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-y border-border/40 bg-accent/20">
-                    <th className="px-5 py-2.5 text-left font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                    <th className="px-5 py-2.5 text-left font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                       Company
                     </th>
-                    <th className="hidden px-3 py-2.5 text-left md:table-cell font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                    <th className="hidden px-3 py-2.5 text-left font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase md:table-cell">
                       URL
                     </th>
-                    <th className="px-3 py-2.5 text-center font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                    <th className="px-3 py-2.5 text-center font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                       Status
                     </th>
-                    <th className="px-3 py-2.5 text-right font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                    <th className="px-3 py-2.5 text-right font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                       Apps
                     </th>
-                    <th className="hidden px-3 py-2.5 text-right lg:table-cell font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                    <th className="hidden px-3 py-2.5 text-right font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase lg:table-cell">
                       Created
                     </th>
-                    <th className="px-5 py-2.5 text-right font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                    <th className="px-5 py-2.5 text-right font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                       Actions
                     </th>
                   </tr>
@@ -236,7 +241,7 @@ export function CompaniesPage() {
                           {company.is_active ? "active" : "inactive"}
                         </Badge>
                       </td>
-                      <td className="px-3 py-3 text-right font-display tabular-nums text-foreground">
+                      <td className="px-3 py-3 text-right font-numeric text-foreground">
                         {company.applications_count}
                       </td>
                       <td className="hidden px-3 py-3 text-right text-xs text-muted-foreground lg:table-cell">
@@ -298,7 +303,7 @@ export function CompaniesPage() {
 
             {totalPages > 1 && (
               <div className="flex items-center justify-between border-t border-border/30 px-5 py-3">
-                <span className="text-xs tabular-nums text-muted-foreground">
+                <span className="font-numeric text-xs text-muted-foreground">
                   Page {page + 1} of {totalPages}
                 </span>
                 <div className="flex items-center gap-1">

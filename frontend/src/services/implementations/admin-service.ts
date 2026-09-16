@@ -68,9 +68,7 @@ export class AdminService {
   // ── User Management ───────────────────────────────────────────────
 
   getUser(id: string): Promise<AdminUserDetail> {
-    return api
-      .get<AdminUserDetail>(`/admin/users/${id}`)
-      .then((r) => r.data);
+    return api.get<AdminUserDetail>(`/admin/users/${id}`).then((r) => r.data);
   }
 
   updateUser(id: string, data: AdminUpdateUser): Promise<AdminUserDetail> {
@@ -183,10 +181,7 @@ export class AdminService {
     data: { name?: string; color?: string },
   ): Promise<AdminFeedbackDefinition> {
     return api
-      .patch<AdminFeedbackDefinition>(
-        `/admin/feedback-definitions/${id}`,
-        data,
-      )
+      .patch<AdminFeedbackDefinition>(`/admin/feedback-definitions/${id}`, data)
       .then((r) => r.data);
   }
 

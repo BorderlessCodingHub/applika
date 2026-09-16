@@ -53,7 +53,9 @@ function convertToLocalTime(
 ): string {
   const [h, m] = parseTime(timeStr);
   // Build a date in the step's timezone using Intl formatting
-  const fakeDate = new Date(`${dateStr}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`);
+  const fakeDate = new Date(
+    `${dateStr}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`,
+  );
 
   // Get the offset difference by formatting in both timezones
   const inSource = new Date(
@@ -235,7 +237,8 @@ function StepCard({
               {displayTime.converted && step.timezone && (
                 <TooltipContent>
                   <p className="text-xs">
-                    {step.start_time!.slice(0, 5)} in {step.timezone.replace(/_/g, " ")}
+                    {step.start_time!.slice(0, 5)} in{" "}
+                    {step.timezone.replace(/_/g, " ")}
                   </p>
                 </TooltipContent>
               )}
@@ -246,10 +249,10 @@ function StepCard({
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <p className="font-semibold leading-tight">{step.company_name}</p>
+              <p className="leading-tight font-semibold">{step.company_name}</p>
               <p className="text-sm text-muted-foreground">{step.role}</p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex shrink-0 items-center gap-2">
               <Badge
                 variant="secondary"
                 style={{

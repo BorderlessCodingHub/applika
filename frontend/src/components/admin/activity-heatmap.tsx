@@ -8,12 +8,15 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 function getHeatColor(count: number, max: number): string {
-  if (count === 0) return "hsl(var(--accent) / 0.3)";
+  if (count === 0) return "color-mix(in oklab, var(--accent) 30%, transparent)";
   const intensity = count / max;
-  if (intensity < 0.25) return "hsl(168 70% 48% / 0.2)";
-  if (intensity < 0.5) return "hsl(168 70% 48% / 0.4)";
-  if (intensity < 0.75) return "hsl(168 70% 48% / 0.65)";
-  return "hsl(168 70% 48% / 0.9)";
+  if (intensity < 0.25)
+    return "color-mix(in oklab, var(--chart-1) 20%, transparent)";
+  if (intensity < 0.5)
+    return "color-mix(in oklab, var(--chart-1) 40%, transparent)";
+  if (intensity < 0.75)
+    return "color-mix(in oklab, var(--chart-1) 65%, transparent)";
+  return "color-mix(in oklab, var(--chart-1) 90%, transparent)";
 }
 
 export function ActivityHeatmap() {
@@ -33,7 +36,7 @@ export function ActivityHeatmap() {
       <Card className="overflow-hidden p-5">
         <div className="mb-4 flex items-center gap-3">
           <div className="h-2 w-2 rounded-full bg-primary" />
-          <h3 className="font-display text-sm font-semibold uppercase tracking-wide-label text-muted-foreground">
+          <h3 className="font-display text-sm font-semibold tracking-wide-label text-muted-foreground uppercase">
             Activity Heatmap
           </h3>
           <span className="ml-auto text-[10px] text-muted-foreground/50">
@@ -51,7 +54,7 @@ export function ActivityHeatmap() {
                 {HOURS.filter((h) => h % 3 === 0).map((h) => (
                   <span
                     key={h}
-                    className="font-display text-[9px] tabular-nums text-muted-foreground/50"
+                    className="font-numeric text-[9px] text-muted-foreground/50"
                     style={{ width: `${100 / 8}%`, textAlign: "center" }}
                   >
                     {h.toString().padStart(2, "0")}
@@ -99,8 +102,8 @@ export function ActivityHeatmap() {
                     style={{
                       backgroundColor:
                         intensity === 0
-                          ? "hsl(var(--accent) / 0.3)"
-                          : `hsl(168 70% 48% / ${intensity * 0.9})`,
+                          ? "color-mix(in oklab, var(--accent) 30%, transparent)"
+                          : `color-mix(in oklab, var(--chart-1) ${intensity * 90}%, transparent)`,
                     }}
                   />
                 ))}

@@ -35,8 +35,8 @@ export class StatisticsService implements IStatisticsService {
               application_date: value.application_date,
               total_applications: value.total_applications,
               label: value.application_date.substring(5, 10),
-            }) as TrendPoint
-        )
+            }) as TrendPoint,
+        ),
       );
   }
 

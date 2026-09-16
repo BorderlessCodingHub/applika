@@ -13,6 +13,7 @@ _TOOLS: list[tuple[str, Path]] = [
     ('Claude', Path.home() / '.claude' / 'skills'),
     ('Gemini', Path.home() / '.gemini' / 'skills'),
     ('Codex', Path.home() / '.codex' / 'skills'),
+    ('OpenCode', Path.home() / '.agents' / 'skills'),
 ]
 
 
@@ -95,9 +96,9 @@ def skill(
     """Install the applika-cli AI skill into your assistant's skills directory.
 
     By default, opens an interactive picker to choose Claude, Gemini, Codex,
-    or all of them. Symlinks the bundled skill directory; falls back to a file
-    copy automatically if symlink creation fails (e.g. Windows without
-    Developer Mode).
+    OpenCode, or all of them. Symlinks the bundled skill directory; falls
+    back to a file copy automatically if symlink creation fails (e.g.
+    Windows without Developer Mode).
 
     Use --local or --dir to skip the picker and install as a file copy.
     """

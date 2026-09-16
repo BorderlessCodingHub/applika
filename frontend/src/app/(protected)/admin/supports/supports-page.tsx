@@ -74,7 +74,7 @@ export function SupportsPage() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={cn(
-              "relative whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors",
+              "relative px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors",
               tab === t.key
                 ? "text-amber-400"
                 : "text-muted-foreground hover:text-foreground",
@@ -147,13 +147,13 @@ function PlatformsTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/40 bg-accent/20">
-                <th className="px-5 py-2.5 text-left font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                <th className="px-5 py-2.5 text-left font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                   Name
                 </th>
-                <th className="hidden px-3 py-2.5 text-left md:table-cell font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                <th className="hidden px-3 py-2.5 text-left font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase md:table-cell">
                   URL
                 </th>
-                <th className="px-5 py-2.5 text-right font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                <th className="px-5 py-2.5 text-right font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                   Actions
                 </th>
               </tr>
@@ -231,7 +231,10 @@ function PlatformsTab() {
             </div>
             <div className="space-y-2">
               <Label>URL (optional)</Label>
-              <Input {...createForm.register("url")} placeholder="https://..." />
+              <Input
+                {...createForm.register("url")}
+                placeholder="https://..."
+              />
             </div>
             <DialogFooter>
               <Button
@@ -369,16 +372,16 @@ function StepDefinitionsTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/40 bg-accent/20">
-                <th className="px-5 py-2.5 text-left font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                <th className="px-5 py-2.5 text-left font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                   Name
                 </th>
-                <th className="px-3 py-2.5 text-center font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                <th className="px-3 py-2.5 text-center font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                   Color
                 </th>
-                <th className="px-3 py-2.5 text-center font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                <th className="px-3 py-2.5 text-center font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                   Type
                 </th>
-                <th className="px-5 py-2.5 text-right font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                <th className="px-5 py-2.5 text-right font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                   Actions
                 </th>
               </tr>
@@ -612,8 +615,9 @@ function FeedbackDefinitionsTab() {
   const deleteMutation = useDeleteAdminFeedbackDefinition();
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [editTarget, setEditTarget] =
-    useState<AdminFeedbackDefinition | null>(null);
+  const [editTarget, setEditTarget] = useState<AdminFeedbackDefinition | null>(
+    null,
+  );
   const [deleteTarget, setDeleteTarget] =
     useState<AdminFeedbackDefinition | null>(null);
 
@@ -651,13 +655,13 @@ function FeedbackDefinitionsTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/40 bg-accent/20">
-                <th className="px-5 py-2.5 text-left font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                <th className="px-5 py-2.5 text-left font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                   Name
                 </th>
-                <th className="px-3 py-2.5 text-center font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                <th className="px-3 py-2.5 text-center font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                   Color
                 </th>
-                <th className="px-5 py-2.5 text-right font-display text-[11px] font-semibold uppercase tracking-wide-label text-muted-foreground">
+                <th className="px-5 py-2.5 text-right font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                   Actions
                 </th>
               </tr>

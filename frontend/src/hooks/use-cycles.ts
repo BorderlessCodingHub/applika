@@ -17,8 +17,7 @@ export function useCreateCycle(opts?: { onSuccess?: () => void }) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateCyclePayload) =>
-      services.cycles.createCycle(data),
+    mutationFn: (data: CreateCyclePayload) => services.cycles.createCycle(data),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["cycles"] }),

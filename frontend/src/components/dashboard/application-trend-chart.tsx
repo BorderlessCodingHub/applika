@@ -70,50 +70,52 @@ export function ApplicationTrendChart({
               <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="0%"
-                  stopColor="hsl(var(--primary))"
+                  stopColor="var(--chart-1)"
                   stopOpacity={0.25}
                 />
                 <stop
                   offset="100%"
-                  stopColor="hsl(var(--primary))"
+                  stopColor="var(--chart-1)"
                   stopOpacity={0}
                 />
               </linearGradient>
             </defs>
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="hsl(var(--border))"
+              stroke="var(--border)"
               strokeOpacity={0.5}
             />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+              tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
               stroke="none"
               angle={-30}
               padding={{ right: 30 }}
             />
             <YAxis
-              tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+              tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
               stroke="none"
             />
             <Tooltip
               content={<CustomTooltip />}
-              cursor={{ fill: "#8d8d8d12" }}
+              cursor={{
+                fill: "color-mix(in oklab, var(--muted-foreground) 12%, transparent)",
+              }}
             />
             <Area
               type="monotone"
               dataKey="total_applications"
               name="Total"
               label="Total applications"
-              stroke="hsl(var(--primary))"
+              stroke="var(--chart-1)"
               strokeWidth={2}
               fill="url(#trendGradient)"
-              dot={{ r: 2.5, fill: "hsl(var(--primary))", strokeWidth: 2 }}
+              dot={{ r: 2.5, fill: "var(--chart-1)", strokeWidth: 2 }}
               activeDot={{
                 r: 4,
-                fill: "hsl(var(--primary))",
+                fill: "var(--chart-1)",
                 strokeWidth: 2,
-                stroke: "hsl(var(--card))",
+                stroke: "var(--card)",
               }}
             />
           </AreaChart>
@@ -123,7 +125,7 @@ export function ApplicationTrendChart({
       {isLoading ? (
         <Skeleton className="mt-4 h-6 w-full rounded-lg" />
       ) : dataLength > 1 ? (
-        <div className="mt-4 pl-12 pr-6">
+        <div className="mt-4 pr-6 pl-12">
           <div className="">
             <RangeSlider
               min={0}

@@ -29,12 +29,12 @@ export function UserProfileAvatar({
   return (
     <Avatar
       className={cn(
-        "shadow-elevated text-3xl h-20 w-20 ring-4 ring-card",
+        "h-20 w-20 text-3xl ring-4 shadow-elevated ring-card",
         className,
       )}
     >
       <AvatarImage src={avatarUrl} />
-      <AvatarFallback className="uppercase bg-primary font-semibold text-primary-foreground">
+      <AvatarFallback className="bg-primary font-semibold text-primary-foreground uppercase">
         {avatarFallback}
       </AvatarFallback>
     </Avatar>
@@ -60,7 +60,7 @@ export function InfoItem({
       <div>
         <span className="text-xs text-muted-foreground">{label}</span>
         <p
-          className={`text-sm text-foreground ${tabular ? "tabular-nums" : ""} ${capitalize ? "capitalize" : ""}`}
+          className={`text-sm text-foreground ${tabular ? "font-numeric" : ""} ${capitalize ? "capitalize" : ""}`}
         >
           {value}
         </p>

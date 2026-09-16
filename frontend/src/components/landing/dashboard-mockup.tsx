@@ -19,13 +19,16 @@ const TREND_VALUES = [
 const TREND_X_LABELS = ["02-14", "02-19", "02-26", "03-01", "03-06", "03-10"];
 const TREND_Y_LABELS = [5, 4, 3, 2, 1];
 
+// Pipeline stages deepen toward the decision on the identity blue; the two
+// outcomes take the chart scale's green and red.
 const STEP_COLORS: Record<string, string> = {
-  "Initial Screen": "hsl(258, 50%, 62%)",
-  "Phase 2": "hsl(255, 48%, 64%)",
-  "Phase 3": "hsl(252, 45%, 62%)",
-  "Phase 4": "hsl(249, 50%, 60%)",
-  Offer: "hsl(142, 60%, 45%)",
-  Denied: "hsl(0, 72%, 55%)",
+  "Initial Screen":
+    "color-mix(in oklab, var(--chart-1) 55%, var(--background))",
+  "Phase 2": "color-mix(in oklab, var(--chart-1) 70%, var(--background))",
+  "Phase 3": "color-mix(in oklab, var(--chart-1) 85%, var(--background))",
+  "Phase 4": "var(--chart-1)",
+  Offer: "var(--chart-2)",
+  Denied: "var(--chart-4)",
 };
 
 const MOCK_CONVERSION = [
@@ -106,7 +109,7 @@ function MockTrendChart() {
           {TREND_Y_LABELS.map((v) => (
             <span
               key={v}
-              className="text-[5.5px] tabular-nums leading-none text-muted-foreground"
+              className="font-numeric text-[5.5px] leading-none text-muted-foreground"
             >
               {v}
             </span>
@@ -123,12 +126,12 @@ function MockTrendChart() {
               <linearGradient id="mockTrendFill" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="0%"
-                  stopColor="hsl(var(--primary))"
+                  stopColor="var(--primary)"
                   stopOpacity="0.3"
                 />
                 <stop
                   offset="100%"
-                  stopColor="hsl(var(--primary))"
+                  stopColor="var(--primary)"
                   stopOpacity="0"
                 />
               </linearGradient>
@@ -143,7 +146,7 @@ function MockTrendChart() {
                   y1={y}
                   x2={W}
                   y2={y}
-                  stroke="hsl(var(--border))"
+                  stroke="var(--border)"
                   strokeOpacity="0.5"
                   strokeWidth="0.5"
                 />
@@ -153,7 +156,7 @@ function MockTrendChart() {
             <path
               d={linePath}
               fill="none"
-              stroke="hsl(var(--primary))"
+              stroke="var(--primary)"
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -167,7 +170,7 @@ function MockTrendChart() {
                   cx={p.x.toFixed(1)}
                   cy={p.y.toFixed(1)}
                   r="1.5"
-                  fill="hsl(var(--primary))"
+                  fill="var(--primary)"
                 />
               ))}
           </svg>
@@ -185,8 +188,8 @@ function MockTrendChart() {
           <div className="mt-2 px-1">
             <div className="relative h-0.5 w-full rounded-full bg-muted">
               <div className="absolute inset-0 rounded-full bg-primary" />
-              <div className="absolute left-0 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary bg-card shadow-sm" />
-              <div className="absolute right-0 top-1/2 h-2 w-2 -translate-y-1/2 translate-x-1/2 rounded-full border border-primary bg-card shadow-sm" />
+              <div className="absolute top-1/2 left-0 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary bg-card shadow-xs" />
+              <div className="absolute top-1/2 right-0 h-2 w-2 translate-x-1/2 -translate-y-1/2 rounded-full border border-primary bg-card shadow-xs" />
             </div>
             <div className="mt-1 flex justify-between">
               <span className="font-display text-[6px] font-medium text-primary">
@@ -228,7 +231,7 @@ function MockConversionChart() {
           {yLabels.map((v) => (
             <span
               key={v}
-              className="text-[5.5px] tabular-nums leading-none text-muted-foreground"
+              className="font-numeric text-[5.5px] leading-none text-muted-foreground"
             >
               {v}
             </span>
@@ -250,7 +253,7 @@ function MockConversionChart() {
                   y1={y}
                   x2={W}
                   y2={y}
-                  stroke="hsl(var(--border))"
+                  stroke="var(--border)"
                   strokeOpacity="0.4"
                   strokeWidth="0.5"
                 />
@@ -364,10 +367,10 @@ function MockPlatformBreakdown() {
               {p.name}
             </span>
             <span className="flex-1 border-b border-dashed border-border/50" />
-            <span className="shrink-0 text-[6px] font-semibold tabular-nums text-foreground">
+            <span className="shrink-0 font-numeric text-[6px] font-semibold text-foreground">
               {p.count}
             </span>
-            <span className="w-4 shrink-0 text-right text-[6px] tabular-nums text-muted-foreground">
+            <span className="w-4 shrink-0 text-right font-numeric text-[6px] text-muted-foreground">
               {p.pct.toFixed(1)}%
             </span>
             <div className="h-0.5 w-6 overflow-hidden rounded-full bg-muted">
@@ -426,12 +429,12 @@ function MockActiveVsPassive() {
           {/* Active arc (70%) */}
           <path
             d={`M${f(ax1)},${f(ay1)} A${R},${R} 0 1,1 ${f(ax2)},${f(ay2)} L${f(aix1)},${f(aiy1)} A${r},${r} 0 1,0 ${f(aix2)},${f(aiy2)} Z`}
-            fill="hsl(var(--primary))"
+            fill="var(--primary)"
           />
           {/* Passive arc (30%) */}
           <path
             d={`M${f(px1)},${f(py1)} A${R},${R} 0 0,1 ${f(px2)},${f(py2)} L${f(pix1)},${f(piy1)} A${r},${r} 0 0,0 ${f(pix2)},${f(piy2)} Z`}
-            fill="hsl(var(--muted-foreground))"
+            fill="var(--muted-foreground)"
           />
         </svg>
         <div className="flex flex-col gap-1">
@@ -453,11 +456,11 @@ function MockActiveVsPassive() {
 
 export function DashboardMockup() {
   return (
-    <div className="stagger-4 relative animate-fade-in-up">
-      <div className="dark:bg-primary/8 absolute -inset-8 rounded-3xl bg-primary/5 blur-3xl" />
+    <div className="relative animate-fade-in-up stagger-4">
+      <div className="absolute -inset-8 rounded-3xl bg-primary/5 blur-3xl dark:bg-primary/8" />
 
       <div
-        className="shadow-elevated pointer-events-none relative select-none overflow-hidden rounded-2xl border border-border/60 bg-card"
+        className="pointer-events-none relative overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elevated select-none"
         style={{
           transform: "perspective(1200px) rotateY(-2deg) rotateX(1deg)",
         }}
@@ -488,11 +491,11 @@ export function DashboardMockup() {
                 className="animate-fade-in-up rounded-lg border border-border/40 bg-background/50 p-2"
                 style={{ animationDelay: `${500 + i * 70}ms` }}
               >
-                <span className="block font-display text-[7px] font-medium leading-none tracking-wide-label text-muted-foreground">
+                <span className="block font-display text-[7px] leading-none font-medium tracking-wide-label text-muted-foreground">
                   {s.label}
                 </span>
                 <p
-                  className={`mt-0.5 font-display text-base font-bold tabular-nums leading-tight ${s.color}`}
+                  className={`mt-0.5 font-numeric text-base leading-tight font-bold ${s.color}`}
                 >
                   {s.value}
                 </p>

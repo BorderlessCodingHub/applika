@@ -28,7 +28,7 @@ export function UserGrowthChart() {
       <Card className="overflow-hidden p-5">
         <div className="mb-4 flex items-center gap-3">
           <div className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
-          <h3 className="font-display text-sm font-semibold uppercase tracking-wide-label text-muted-foreground">
+          <h3 className="font-display text-sm font-semibold tracking-wide-label text-muted-foreground uppercase">
             User Growth
           </h3>
         </div>
@@ -46,41 +46,51 @@ export function UserGrowthChart() {
                   x2="0"
                   y2="1"
                 >
-                  <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#fbbf24" stopOpacity={0} />
+                  <stop
+                    offset="0%"
+                    stopColor="var(--chart-3)"
+                    stopOpacity={0.3}
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor="var(--chart-3)"
+                    stopOpacity={0}
+                  />
                 </linearGradient>
               </defs>
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="hsl(var(--border))"
+                stroke="var(--border)"
                 strokeOpacity={0.4}
               />
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                 stroke="none"
               />
               <YAxis
-                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                 stroke="none"
               />
               <Tooltip
                 content={<CustomTooltip />}
-                cursor={{ fill: "#8d8d8d12" }}
+                cursor={{
+                  fill: "color-mix(in oklab, var(--muted-foreground) 12%, transparent)",
+                }}
               />
               <Area
                 type="monotone"
                 dataKey="total_users"
                 name="Total Users"
-                stroke="#fbbf24"
+                stroke="var(--chart-3)"
                 strokeWidth={2}
                 fill="url(#adminGrowthGrad)"
-                dot={{ r: 2.5, fill: "#fbbf24", strokeWidth: 0 }}
+                dot={{ r: 2.5, fill: "var(--chart-3)", strokeWidth: 0 }}
                 activeDot={{
                   r: 4,
-                  fill: "#fbbf24",
+                  fill: "var(--chart-3)",
                   strokeWidth: 2,
-                  stroke: "hsl(var(--card))",
+                  stroke: "var(--card)",
                 }}
               />
             </AreaChart>
@@ -103,7 +113,7 @@ export function NewUsersBarChart() {
       <Card className="overflow-hidden p-5">
         <div className="mb-4 flex items-center gap-3">
           <div className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
-          <h3 className="font-display text-sm font-semibold uppercase tracking-wide-label text-muted-foreground">
+          <h3 className="font-display text-sm font-semibold tracking-wide-label text-muted-foreground uppercase">
             New Users / Month
           </h3>
         </div>
@@ -115,27 +125,29 @@ export function NewUsersBarChart() {
             <BarChart data={data} barSize={20}>
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="hsl(var(--border))"
+                stroke="var(--border)"
                 strokeOpacity={0.4}
               />
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                 stroke="none"
               />
               <YAxis
-                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                 stroke="none"
                 allowDecimals={false}
               />
               <Tooltip
                 content={<CustomTooltip />}
-                cursor={{ fill: "#8d8d8d12" }}
+                cursor={{
+                  fill: "color-mix(in oklab, var(--muted-foreground) 12%, transparent)",
+                }}
               />
               <Bar
                 dataKey="new_users"
                 name="New Users"
-                fill="#38bdf8"
+                fill="var(--chart-1)"
                 radius={[4, 4, 0, 0]}
                 opacity={0.85}
               />

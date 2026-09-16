@@ -6,7 +6,6 @@ import {
 } from "recharts/types/component/DefaultTooltipContent";
 import { Card } from "../ui/card";
 
-
 interface CustomTooltipProps extends TooltipProps<ValueType, NameType> {
   prefix?: string;
   sufix?: string;
@@ -17,7 +16,7 @@ export function CustomTooltip({
   payload,
   label,
   prefix,
-  sufix
+  sufix,
 }: CustomTooltipProps) {
   if (active && payload && payload.length) {
     return (
@@ -25,7 +24,7 @@ export function CustomTooltip({
         {payload.map((entry, index) => (
           <div key={`item-${index}`} className="grid">
             <p className="text-base tracking-wide">{`${label || entry.name}`}</p>
-            <p className="text-center tracking-wide">{`${prefix || ''}${entry.value}${sufix || ''}`}</p>
+            <p className="text-center tracking-wide">{`${prefix || ""}${entry.value}${sufix || ""}`}</p>
           </div>
         ))}
       </Card>

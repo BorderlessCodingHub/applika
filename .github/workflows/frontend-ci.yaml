@@ -1,48 +1,194 @@
 name: Frontend CI
 
+# The `paths` filter is a property of the EVENT, not of a job, so one workflow
+# gets exactly one path list. It is therefore the UNION of what the frontend
+# jobs need (`frontend/**`) and what the `e2e` job needs (`backend/**`,
+# `docker-compose.e2e.yml`, `scripts/e2e.sh`) — the E2E suite drives the real
+# API, so a backend-only change must still run it. The consequence is that the
+# five frontend-only jobs also run on a backend-only change; they are fast and
+# can only pass, so the trade is a little CI time for never missing an E2E run.
 on:
   workflow_dispatch:
   push:
     branches:
       - actions/*
       - develop
+    # Kept in sync by hand with the pull_request list below: GitHub Actions
+    # does not support YAML anchors.
     paths:
       - "frontend/**"
+      - "backend/**"
+      - "docker-compose.e2e.yml"
+      - "scripts/e2e.sh"
   pull_request:
     branches:
       - develop
       - main
     paths:
       - "frontend/**"
+      - "backend/**"
+      - "docker-compose.e2e.yml"
+      - "scripts/e2e.sh"
 
 permissions:
   contents: read
 
 jobs:
-  lint-and-build:
+  lint:
+    name: ESLint
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
         name: Install pnpm
         with:
           version: 10
-
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
+          cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
 
-      - name: Run ESLint & Build project
+  format:
+    name: Prettier
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 10
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check formatting
+        run: pnpm prettier --check .
+
+  types:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 10
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Type check
+        run: pnpm tsc --noEmit
+
+  unit:
+    name: Vitest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 10
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Unit tests
+        run: pnpm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 10
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
         run: pnpm build
+
+  e2e:
+    name: E2E (real stack)
+    runs-on: ubuntu-latest
+    # No `working-directory` default: scripts/e2e.sh must run from the repo
+    # root, where docker-compose.e2e.yml lives. It builds and starts the real
+    # API, the real frontend image, a real Postgres migrated with
+    # `alembic upgrade head` and a real Redis, seeds real sessions, runs
+    # Playwright and tears the stack down. Same single command as local.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 10
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Run the E2E suite against the real stack
+        run: ./scripts/e2e.sh
+      - name: Upload the Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 7
