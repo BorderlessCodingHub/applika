@@ -99,25 +99,81 @@ applika applications finalize 123 \
 
 ## Quick Start (Docker Compose)
 
-1. **Clone the repository:**
+One command brings up the whole app — api, static frontend, Postgres and Redis —
+wired the way production serves it. The schema is applied by the real Alembic
+chain on every api start.
+
+1. **Configure the environment.**
 
    ```bash
-   git clone https://github.com/ProgramadoresSemPatria/application_panel.git application-panel
-   cd application-panel
+   cp .env.example .env
    ```
 
-2. **Start backend service:**
+   `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are required settings with no
+   defaults — the api will not boot without them. Create a GitHub OAuth app at
+   <https://github.com/settings/developers> with:
+
+   | Field | Value |
+   |---|---|
+   | Homepage URL | `http://127.0.0.1:8080` |
+   | Authorization callback URL | `http://127.0.0.1:8000/api/auth/github/callback` |
+
+   `GITHUB_TOKEN_ENCRYPTION_KEY` must be a valid Fernet key:
 
    ```bash
-   cd backend
-   docker compose up --build
+   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
    ```
-   Backend API: [http://127.0.0.1:8000/api/docs](http://127.0.0.1:8000/api/docs) (Swagger UI)
 
-3. **Start backend service:**
+2. **Start everything.**
 
    ```bash
-   cd frontend
-   docker compose up --build
+   docker compose up -d --build --wait
    ```
-   Frontend: [http://127.0.0.1:3000](http://127.0.0.1:3000)
+
+   | | |
+   |---|---|
+   | Frontend | <http://127.0.0.1:8080> |
+   | API docs | <http://127.0.0.1:8000/api/docs> |
+
+3. **Stop it.**
+
+   ```bash
+   docker compose down        # keeps the database
+   docker compose down -v     # drops the database too
+   ```
+
+### Iterating on the frontend
+
+The Next.js build is a **static export** and `NEXT_PUBLIC_API_BASE_URL` is baked
+in at build time, so a source change only appears after
+`docker compose up -d --build web`. For a fast UI loop, run the infrastructure in
+Docker and the frontend on the host:
+
+```bash
+docker compose up -d --wait api          # api, db and redis
+cd frontend && pnpm install && pnpm dev   # http://127.0.0.1:3000
+```
+
+Point the dev server at the api with `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api`
+in `frontend/.env.local`, and add `http://127.0.0.1:3000` to `CORS_ORIGINS` for the
+`api` service.
+
+### Signing in without a GitHub OAuth app
+
+GitHub is the sole login (ADR 0002), so the UI cannot sign you in without a real
+OAuth app. To poke at a signed-in session anyway, mint one directly:
+
+```bash
+docker compose exec api python -m app.scripts.seed_e2e
+```
+
+It prints `__access` and `__refresh` cookies — set them for host `127.0.0.1` in
+DevTools. It refuses to run when `ENVIRONMENT=PROD`.
+
+### The other compose files
+
+| File | Purpose |
+|---|---|
+| `docker-compose.yml` | This stack. Local development, persistent volumes. |
+| `docker-compose.e2e.yml` | Ephemeral E2E stack (`scripts/e2e.sh`). No volumes, empty DB every run. |
+| `backend/docker-compose.yml`, `frontend/docker-compose.yml` | Older per-project stacks, superseded by the root file. Their volumes live under different project names, so their databases are separate. |
