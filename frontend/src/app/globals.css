@@ -310,7 +310,7 @@
       0 8px 30px -4px oklch(0 0 0 / 0.08), 0 0 0 1px oklch(0 0 0 / 0.04);
   }
 
-  /* Dark palette: mynextjob's oklch tokens, unchanged. */
+  /* Dark palette: the prototype's oklch tokens, ported unchanged. */
   .dark {
     --background: oklch(0.16 0.01 270);
     --foreground: oklch(0.96 0.005 270);
