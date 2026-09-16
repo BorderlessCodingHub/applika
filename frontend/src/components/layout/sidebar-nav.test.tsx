@@ -187,6 +187,29 @@ describe("SidebarNav rendering", () => {
     expect(admin).toHaveAccessibleDescription("System");
   });
 
+  it("keeps group label ids unique when two navs are mounted at once", () => {
+    // Below `md` the desktop rail is `display:none` but still MOUNTED, so with
+    // the mobile sheet open two SidebarNavs render together. A module-level id
+    // would be duplicate HTML and would point the sheet's entry at the hidden
+    // rail's label.
+    render(
+      <>
+        <SidebarNav items={navItemsFor(true)} activePath="/dashboard" />
+        <SidebarNav items={navItemsFor(true)} activePath="/dashboard" />
+      </>,
+    );
+
+    const labels = screen.getAllByText("System");
+    const admins = screen.getAllByRole("link", { name: "Admin" });
+    expect(labels).toHaveLength(2);
+    expect(admins).toHaveLength(2);
+
+    expect(labels[0].id).not.toBe(labels[1].id);
+    // Each entry points at ITS OWN label, not at the first one in the document.
+    expect(admins[0]).toHaveAttribute("aria-describedby", labels[0].id);
+    expect(admins[1]).toHaveAttribute("aria-describedby", labels[1].id);
+  });
+
   it("describes an ungrouped entry with nothing at all", () => {
     renderNav("/dashboard", navItemsFor(true));
 

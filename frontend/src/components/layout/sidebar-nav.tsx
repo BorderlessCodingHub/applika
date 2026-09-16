@@ -1,17 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment } from "react";
+import { Fragment, useId } from "react";
 import { isNavItemActive, type NavItem } from "./nav";
 import { cn } from "@/lib/utils";
 
-/**
- * Id of a group's label. The label is NOT `aria-hidden`: with the old amber
- * treatment gone, the group name is the only thing that marks an entry as
- * privileged, so hiding it would leave that signal sighted-users-only.
- */
-const groupLabelId = (group: string) =>
-  `sidebar-nav-group-${group.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+const slugify = (group: string) =>
+  group.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
 interface SidebarNavProps {
   items: NavItem[];
@@ -29,6 +24,18 @@ export function SidebarNav({
   onNavigate,
   className,
 }: SidebarNavProps) {
+  // Instance-scoped, NOT a pure function of the group name: below `md` the
+  // desktop rail is `display:none` but still MOUNTED, so with the sheet open
+  // two SidebarNavs render at once. A shared id would be duplicate HTML and
+  // would point the sheet's `aria-describedby` at the hidden rail's copy.
+  const uid = useId();
+  /**
+   * Id of a group's label. The label is NOT `aria-hidden`: with the old amber
+   * treatment gone, the group name is the only thing that marks an entry as
+   * privileged, so hiding it would leave that signal sighted-users-only.
+   */
+  const groupLabelId = (group: string) => `${uid}-group-${slugify(group)}`;
+
   return (
     <nav
       aria-label="Primary"
