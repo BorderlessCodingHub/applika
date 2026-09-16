@@ -123,12 +123,12 @@ function MockTrendChart() {
               <linearGradient id="mockTrendFill" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="0%"
-                  stopColor="hsl(var(--primary))"
+                  stopColor="var(--primary)"
                   stopOpacity="0.3"
                 />
                 <stop
                   offset="100%"
-                  stopColor="hsl(var(--primary))"
+                  stopColor="var(--primary)"
                   stopOpacity="0"
                 />
               </linearGradient>
@@ -143,7 +143,7 @@ function MockTrendChart() {
                   y1={y}
                   x2={W}
                   y2={y}
-                  stroke="hsl(var(--border))"
+                  stroke="var(--border)"
                   strokeOpacity="0.5"
                   strokeWidth="0.5"
                 />
@@ -153,7 +153,7 @@ function MockTrendChart() {
             <path
               d={linePath}
               fill="none"
-              stroke="hsl(var(--primary))"
+              stroke="var(--primary)"
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -167,7 +167,7 @@ function MockTrendChart() {
                   cx={p.x.toFixed(1)}
                   cy={p.y.toFixed(1)}
                   r="1.5"
-                  fill="hsl(var(--primary))"
+                  fill="var(--primary)"
                 />
               ))}
           </svg>
@@ -250,7 +250,7 @@ function MockConversionChart() {
                   y1={y}
                   x2={W}
                   y2={y}
-                  stroke="hsl(var(--border))"
+                  stroke="var(--border)"
                   strokeOpacity="0.4"
                   strokeWidth="0.5"
                 />
@@ -426,12 +426,12 @@ function MockActiveVsPassive() {
           {/* Active arc (70%) */}
           <path
             d={`M${f(ax1)},${f(ay1)} A${R},${R} 0 1,1 ${f(ax2)},${f(ay2)} L${f(aix1)},${f(aiy1)} A${r},${r} 0 1,0 ${f(aix2)},${f(aiy2)} Z`}
-            fill="hsl(var(--primary))"
+            fill="var(--primary)"
           />
           {/* Passive arc (30%) */}
           <path
             d={`M${f(px1)},${f(py1)} A${R},${R} 0 0,1 ${f(px2)},${f(py2)} L${f(pix1)},${f(piy1)} A${r},${r} 0 0,0 ${f(pix2)},${f(piy2)} Z`}
-            fill="hsl(var(--muted-foreground))"
+            fill="var(--muted-foreground)"
           />
         </svg>
         <div className="flex flex-col gap-1">

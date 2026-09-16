@@ -63,7 +63,7 @@ export function AdminPage() {
           className="mt-4 h-px origin-left"
           style={{
             background:
-              "linear-gradient(90deg, hsl(var(--primary)), #fbbf24 50%, transparent)",
+              "linear-gradient(90deg, var(--primary), #fbbf24 50%, transparent)",
           }}
         />
       </motion.div>

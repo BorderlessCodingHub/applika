@@ -52,16 +52,16 @@ export function UserGrowthChart() {
               </defs>
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="hsl(var(--border))"
+                stroke="var(--border)"
                 strokeOpacity={0.4}
               />
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                 stroke="none"
               />
               <YAxis
-                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                 stroke="none"
               />
               <Tooltip
@@ -80,7 +80,7 @@ export function UserGrowthChart() {
                   r: 4,
                   fill: "#fbbf24",
                   strokeWidth: 2,
-                  stroke: "hsl(var(--card))",
+                  stroke: "var(--card)",
                 }}
               />
             </AreaChart>
@@ -115,16 +115,16 @@ export function NewUsersBarChart() {
             <BarChart data={data} barSize={20}>
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="hsl(var(--border))"
+                stroke="var(--border)"
                 strokeOpacity={0.4}
               />
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                 stroke="none"
               />
               <YAxis
-                tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+                tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                 stroke="none"
                 allowDecimals={false}
               />

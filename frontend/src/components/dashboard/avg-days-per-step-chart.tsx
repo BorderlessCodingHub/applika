@@ -57,19 +57,19 @@ export function AvgDaysPerStepChart({ cycleId }: { cycleId?: string | null }) {
           <BarChart data={data ?? []} layout="vertical">
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="hsl(var(--border))"
+              stroke="var(--border)"
               strokeOpacity={0.5}
             />
             <XAxis
               type="number"
-              tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+              tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
               stroke="none"
               padding={{ right: 30 }}
             />
             <YAxis
               dataKey="name"
               type="category"
-              tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+              tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
               width={80}
               stroke="none"
             />

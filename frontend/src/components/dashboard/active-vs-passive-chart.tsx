@@ -23,7 +23,7 @@ function renderOuterLabel(props: Record<string, unknown>) {
     <text
       x={x}
       y={y}
-      fill="hsl(var(--muted-foreground))"
+      fill="var(--muted-foreground)"
       textAnchor="middle"
       dominantBaseline="central"
       fontSize={14}
@@ -99,8 +99,8 @@ export function ActiveVsPassiveChart({ cycleId }: { cycleId?: string | null }) {
                 label={renderOuterLabel}
                 labelLine={false}
               >
-                <Cell fill="hsl(var(--primary))" />
-                <Cell fill="hsl(var(--muted-foreground))" />
+                <Cell fill="var(--primary)" />
+                <Cell fill="var(--muted-foreground)" />
               </Pie>
               <Pie
                 data={chartData}

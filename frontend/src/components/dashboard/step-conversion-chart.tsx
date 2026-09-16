@@ -51,7 +51,7 @@ function renderTopLabel(props: Record<string, unknown>) {
     <text
       x={x + width / 2}
       y={y - 8}
-      fill="hsl(var(--muted-foreground))"
+      fill="var(--muted-foreground)"
       textAnchor="middle"
       fontSize={14}
       fontWeight={500}
@@ -79,17 +79,17 @@ export function StepConversionChart({ cycleId }: { cycleId?: string | null }) {
           <BarChart data={data ?? []}>
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="hsl(var(--border))"
+              stroke="var(--border)"
               strokeOpacity={0.5}
             />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+              tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
               stroke="none"
               padding={{ right: 30 }}
             />
             <YAxis
-              tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+              tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
               stroke="none"
               tickFormatter={(v: number) => `${v}%`}
               domain={[0, (max: number) => Math.ceil((max + 10) / 10) * 10]}

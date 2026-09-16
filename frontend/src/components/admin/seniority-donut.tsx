@@ -26,7 +26,7 @@ function renderOuterLabel(props: Record<string, unknown>) {
     <text
       x={x}
       y={y}
-      fill="hsl(var(--muted-foreground))"
+      fill="var(--muted-foreground)"
       textAnchor="middle"
       dominantBaseline="central"
       fontSize={12}
