@@ -1,0 +1,148 @@
+# Local development stack — the whole app on one command.
+#
+#   Up:    docker compose up -d --build --wait
+#   Logs:  docker compose logs -f api
+#   Down:  docker compose down            # keeps the database
+#   Nuke:  docker compose down -v         # drops the database too
+#
+# Four services, wired the way production serves them: `api` from
+# `backend/Dockerfile` (uvicorn under the `/api` prefix) and `web` from
+# `frontend/docker/Dockerfile` (the Next.js static export served by nginx),
+# against a real Postgres and a real Redis. The schema comes from the real
+# Alembic chain — `alembic upgrade head` runs on every `api` start.
+#
+#   web  http://127.0.0.1:8080
+#   api  http://127.0.0.1:8000/api      docs at /api/docs
+#
+# Relationship to the other compose files in this repo:
+#   - `docker-compose.e2e.yml` is the ephemeral E2E stack (project `applika-e2e`,
+#     no volumes, empty DB every run). It shares nothing with this one.
+#   - `backend/docker-compose.yml` and `frontend/docker-compose.yml` are the
+#     older per-project stacks. This file supersedes both; its volumes live
+#     under the `applika` project name, so its database is SEPARATE from the one
+#     `backend/docker-compose.yml` creates.
+#
+# Copy `.env.example` to `.env` first — GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET
+# are required settings with no defaults, so the api will not boot without them.
+#
+# NOTE ON THE FRONTEND: the Next.js build is a STATIC EXPORT and
+# NEXT_PUBLIC_API_BASE_URL is baked in at BUILD time, so a frontend source change
+# needs `docker compose up -d --build web` to show up. For an iterative UI loop,
+# run only the infrastructure here and `pnpm dev` on the host — see
+# "Iterating on the frontend" in README.md.
+name: applika
+
+services:
+  api:
+    container_name: applika-api
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # The image has no `uv` at runtime; PATH already points at /app/.venv/bin,
+    # so alembic and uvicorn are called directly. `--reload` is deliberately
+    # absent: the image copies the source in rather than mounting it.
+    command:
+      - /bin/sh
+      - -c
+      - alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000
+    environment:
+      # DEV (not the Dockerfile's PROD) keeps /api/openapi.json and /api/docs
+      # reachable and makes the session cookies non-Secure, so they work over
+      # plain http — see backend/app/core/tokens.py.
+      ENVIRONMENT: DEV
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/applika
+      REDIS_URL: redis://redis:6379/0
+      # The browser's origin is `web`, not the api's own port.
+      CORS_ORIGINS: '["http://127.0.0.1:8080"]'
+      CORS_HEADERS: '["X-Request-ID", "Content-Type", "Accept", "Authorization"]'
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-not-for-production}
+      GITHUB_TOKEN_ENCRYPTION_KEY: ${GITHUB_TOKEN_ENCRYPTION_KEY}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/github/callback}
+      LOGIN_REDIRECT_URI: ${LOGIN_REDIRECT_URI:-http://127.0.0.1:8080/dashboard}
+      DISCORD_REPORTS_WEBHOOK: ${DISCORD_REPORTS_WEBHOOK:-}
+      DISCORD_FEEDBACK_WEBHOOK: ${DISCORD_FEEDBACK_WEBHOOK:-}
+      DISCORD_REPORTS_ORGANIZATION: ${DISCORD_REPORTS_ORGANIZATION:-}
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      # applika has no /health route; openapi.json exists in every non-PROD
+      # environment and proves the app booted AFTER the migration ran.
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/openapi.json')"
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 20s
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    container_name: applika-web
+    build:
+      context: ./frontend
+      dockerfile: docker/Dockerfile
+      args:
+        # Baked into the static export at build time. The browser calls the api
+        # directly on :8000; cookies ignore the port, so the session set for
+        # host 127.0.0.1 is sent to both origins and SameSite=Lax treats the two
+        # ports as same-site.
+        API_BASE_URL: http://127.0.0.1:8000/api
+    ports:
+      - "127.0.0.1:8080:80"
+    healthcheck:
+      # 127.0.0.1, not localhost: nginx listens on IPv4 only and `localhost`
+      # resolves to ::1 first inside the container.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    container_name: applika-db
+    image: postgres:16
+    environment:
+      POSTGRES_DB: applika
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - applika_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d applika"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    container_name: applika-redis
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - applika_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  applika_db_data:
+  applika_redis_data:
