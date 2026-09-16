@@ -29,7 +29,11 @@ export default defineConfig({
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? "github" : "list",
+  // On CI, "github" annotates the failing lines inline in the PR; the html
+  // reporter is what the workflow uploads as an artifact on failure, so it has
+  // to be produced too (`open: "never"` keeps it from trying to launch a
+  // browser on the runner).
+  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: BASE_URL,
     trace: "on-first-retry",

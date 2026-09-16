@@ -72,8 +72,14 @@ test.describe("an admin reaches the admin surface", () => {
       page.getByRole("heading", { name: "Dashboard" }),
     ).toBeVisible();
 
+    // `.first()` rather than a bare locator: today the nav renders once, but a
+    // later slice may mount the same items in a desktop rail AND a mobile
+    // drawer, which would make a bare locator a strict-mode violation and break
+    // a spec that is supposed to survive the repaint. "At least one visible
+    // Admin link" is the property we actually care about. The negative
+    // assertion above needs no such guard — `toHaveCount(0)` is exact.
     await expect(
-      page.getByRole("link", { name: "Admin", exact: true }),
+      page.getByRole("link", { name: "Admin", exact: true }).first(),
     ).toBeVisible();
   });
 
