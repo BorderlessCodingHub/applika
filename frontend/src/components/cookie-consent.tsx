@@ -56,15 +56,19 @@ export function CookieConsent() {
       aria-live="polite"
       aria-label="Cookie notice"
       className={cn(
-        "fixed right-4 bottom-4 z-50 w-[min(22rem,calc(100vw-2rem))]",
-        "rounded-lg border border-border bg-background text-foreground shadow-lg",
-        "p-4",
+        // z-40 is the page-chrome layer. It MUST stay below the z-50 Radix
+        // portal layer or this card floats over the open mobile nav sheet.
+        "fixed right-4 bottom-4 z-40 w-[min(22rem,calc(100vw-2rem))]",
+        "rounded-xl border border-border/60 bg-surface-elevated text-foreground shadow-elevated",
+        "animate-fade-in-up p-4",
       )}
     >
       <div className="flex items-start gap-3">
-        <Cookie className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
+        <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Cookie className="size-4" aria-hidden />
+        </span>
         <div className="flex-1 space-y-2">
-          <p className="text-sm leading-none font-semibold">
+          <p className="font-display text-sm leading-none font-semibold tracking-tight-display">
             We use essential cookies
           </p>
           <p className="text-xs leading-relaxed text-muted-foreground">
@@ -73,7 +77,7 @@ export function CookieConsent() {
             advertising, or tracking cookies are used.{" "}
             <Link
               href="/cookie-policy"
-              className="underline underline-offset-2 hover:text-foreground"
+              className="font-medium text-primary underline underline-offset-2 hover:text-foreground"
             >
               Learn more
             </Link>
@@ -87,7 +91,7 @@ export function CookieConsent() {
           className={cn(
             "shrink-0 rounded-md p-1 text-muted-foreground transition-colors",
             "hover:bg-accent hover:text-accent-foreground",
-            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
+            "focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-hidden",
           )}
         >
           <X className="size-4" />
