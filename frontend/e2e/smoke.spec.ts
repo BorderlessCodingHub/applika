@@ -14,15 +14,6 @@ import { loginAs, type SeededRole } from "./support/auth";
  * once, with the identities that may see it and its render assertion.
  */
 
-/**
- * `/cookie-policy` is the 14th page in the acceptance criteria but does NOT
- * exist on this branch — it lives on the unmerged `origin/feature/cookie-policy`.
- * Its row below is complete and parked behind this ONE flag: flip it to `false`
- * the moment that branch merges and the 14th page is covered. Nothing else
- * needs to change.
- */
-const COOKIE_POLICY_PENDING = true;
-
 /** `anon` drives the page with no session at all. */
 type Visitor = SeededRole | "anon";
 
@@ -33,10 +24,6 @@ interface PageCase {
   visitors: Visitor[];
   /** Proves the page rendered, using visible text / ARIA roles only. */
   assert: (page: Page) => Promise<void>;
-  /** When set, the route is not in the tree yet and the case is skipped. */
-  pending?: boolean;
-  /** Why it is parked — surfaced in the skip annotation. */
-  pendingReason?: string;
 }
 
 const heading =
@@ -55,6 +42,9 @@ const PAGES: PageCase[] = [
   {
     path: "/login",
     visitors: ["anon"],
+    // The route now lives at `src/app/login/`, OUTSIDE the `(public)` group, so
+    // it renders no landing header and the only sign-in control on it is this
+    // one. The URL is unchanged.
     // The h1 is a logo glyph + "pplika.dev", so its accessible name is a poor
     // assertion target. The sign-in control is the page's unambiguous content.
     // It is a LINK, not a button: <Button asChild> renders the <a> underneath.
@@ -67,12 +57,10 @@ const PAGES: PageCase[] = [
   {
     path: "/cookie-policy",
     visitors: ["anon"],
-    assert: heading(/Cookie Policy/i),
-    pending: COOKIE_POLICY_PENDING,
-    pendingReason:
-      "/cookie-policy is not on this branch yet — it ships with " +
-      "origin/feature/cookie-policy. Flip COOKIE_POLICY_PENDING to false when " +
-      "that branch merges.",
+    // Verified against the merged page: it renders a real <h1>Cookie Policy</h1>
+    // and it is the only h1 on the route — the `(public)` layout's header and
+    // footer contribute no headings at all.
+    assert: heading("Cookie Policy", 1),
   },
 
   // ---- signed-in -------------------------------------------------------
@@ -143,8 +131,6 @@ test.describe("every page renders against the real stack", () => {
   for (const pageCase of PAGES) {
     for (const visitor of pageCase.visitors) {
       test(`${pageCase.path} renders for ${visitor}`, async ({ page }) => {
-        test.skip(pageCase.pending === true, pageCase.pendingReason ?? "");
-
         // Smoke-level guard: an uncaught exception means the page did not
         // really come up, even if some text happens to be on screen.
         const pageErrors: Error[] = [];
@@ -167,10 +153,23 @@ test.describe("every page renders against the real stack", () => {
 });
 
 test("the suite covers every page named in the acceptance criteria", () => {
-  // Guards the table itself: a route silently dropped from PAGES would make the
-  // suite pass while covering less. 14 routes, one of them parked.
+  // Guards the table itself, because the suite is only as good as this list: a
+  // route silently dropped from PAGES would leave the suite green while
+  // covering less. The invariant is 14 routes, ALL of them exercised — the
+  // `pending`/`pendingReason` parking mechanism is gone, so there is no longer
+  // any way to keep a row in the table while skipping it at runtime.
   expect(PAGES).toHaveLength(14);
-  expect(PAGES.filter((pageCase) => pageCase.pending)).toHaveLength(
-    COOKIE_POLICY_PENDING ? 1 : 0,
+
+  // A row with no visitors generates no tests at all, which the length check
+  // above cannot see. Same for a duplicated path: 14 rows covering 13 routes.
+  // These two are the remaining ways to lose coverage without deleting a row.
+  for (const pageCase of PAGES) {
+    expect(
+      pageCase.visitors.length,
+      `${pageCase.path} has no visitors`,
+    ).toBeGreaterThan(0);
+  }
+  expect(new Set(PAGES.map((pageCase) => pageCase.path)).size).toBe(
+    PAGES.length,
   );
 });
