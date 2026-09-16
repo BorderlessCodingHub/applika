@@ -779,7 +779,10 @@ def finalize_application(
         str,
         typer.Option(
             '--feedback',
-            help='Feedback definition name or ID (e.g. Accepted, Rejected).',
+            help=(
+                'Feedback definition name or ID '
+                '(e.g. Accepted, Not good enough).'
+            ),
         ),
     ] = ...,
     finalize_date: Annotated[

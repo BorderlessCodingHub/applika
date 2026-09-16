@@ -52,7 +52,7 @@ def _supports():
             {'id': '9', 'name': 'Offer', 'color': '#0f0', 'strict': True},
         ],
         'feedbacks': [
-            {'id': '7', 'name': 'Rejected', 'color': '#f00'},
+            {'id': '7', 'name': 'Not good enough', 'color': '#f00'},
             {'id': '8', 'name': 'Accepted', 'color': '#0f0'},
         ],
     }
@@ -769,7 +769,7 @@ def test_applications_finalize_outputs_json(monkeypatch, runner):
         'role': 'Backend Engineer',
         'salary_offer': None,
         'last_step': {'name': 'Denied', 'date': '2026-05-18'},
-        'feedback': {'name': 'Rejected', 'date': '2026-05-18'},
+        'feedback': {'name': 'Not good enough', 'date': '2026-05-18'},
     }
 
     result = runner.invoke(
@@ -781,7 +781,7 @@ def test_applications_finalize_outputs_json(monkeypatch, runner):
             '--step',
             'Offer',
             '--feedback',
-            'Rejected',
+            'Not good enough',
             '--date',
             '2026-05-18',
             '--output-format',
@@ -806,7 +806,7 @@ def test_applications_finalize_rejects_non_strict_steps(monkeypatch, runner):
             '--step',
             'Initial Screen',
             '--feedback',
-            'Rejected',
+            'Not good enough',
             '--date',
             '2026-05-18',
         ],

@@ -125,7 +125,7 @@ applika applications new \
 applika applications new \
   --company "Cloudflare" \
   --role "Systems Engineer" \
-  --platform "Email" \
+  --platform "LinkedIn" \
   --mode passive \
   --date 2026-05-10 \
   --observation "Recruiter cold-messaged. Interesting stack." \
@@ -143,7 +143,7 @@ applika applications new \
 |---|---|
 | `--company TEXT` | Company name. Matched against known companies; a new record is created if not found. |
 | `--role TEXT` | Job title or role description |
-| `--platform TEXT` | Platform where you found or were contacted about the role (e.g. `LinkedIn`, `Indeed`, `Email`) |
+| `--platform TEXT` | Platform where you found or were contacted about the role (e.g. `LinkedIn`, `RemoteOK`, `WeWorkRemotely`) |
 | `--mode` | `active` — you applied proactively · `passive` — inbound from a recruiter |
 | `--date YYYY-MM-DD` | Date the application was submitted or the first contact occurred |
 
@@ -335,14 +335,14 @@ or offer, depending on the backend definitions available in `/supports`.
 # Finalize as rejected
 applika applications finalize 42 \
   --step "Denied" \
-  --feedback "Rejected" \
+  --feedback "Assessment failed" \
   --date 2026-05-18 \
   --observation "Closed after take-home"
 
 # JSON output for scripting
 applika applications finalize 42 \
   --step "Denied" \
-  --feedback "Rejected" \
+  --feedback "Not good enough" \
   --date 2026-05-18 \
   --output-format json
 

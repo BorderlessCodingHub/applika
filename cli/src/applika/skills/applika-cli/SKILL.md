@@ -108,7 +108,7 @@ applika applications new \
 |------|-------------|
 | `--company TEXT` | Company name |
 | `--role TEXT` | Job title |
-| `--platform TEXT` | Platform name (e.g. `LinkedIn`, `Indeed`, `Glassdoor`) |
+| `--platform TEXT` | Platform name (e.g. `LinkedIn`, `RemoteOK`, `WeWorkRemotely`) |
 | `--mode` | `active` (you applied) · `passive` (recruiter reached out) |
 | `--date YYYY-MM-DD` | Date of application |
 
@@ -219,7 +219,7 @@ applika applications edit 1234567890123456789 --role "Staff Engineer"
 applika applications new \
   --company "Cloudflare" \
   --role "Systems Engineer" \
-  --platform "Email" \
+  --platform "LinkedIn" \
   --mode passive \
   --date 2026-05-11 \
   --observation "Recruiter cold-messaged on LinkedIn"
@@ -342,13 +342,13 @@ The positional form still works: `applika applications steps delete <application
 ```bash
 applika applications finalize <application-id> \
   --step "Denied" \
-  --feedback "Rejected" \
+  --feedback "Assessment failed" \
   --date 2026-05-18 \
   --observation "Closed after take-home"
 
 applika applications finalize <application-id> \
   --step "Denied" \
-  --feedback "Rejected" \
+  --feedback "Not good enough" \
   --date 2026-05-18 \
   --output-format json
 
@@ -399,7 +399,7 @@ Finalize as rejected:
 ```bash
 applika applications finalize 1234567890123456789 \
   --step "Denied" \
-  --feedback "Rejected" \
+  --feedback "Not good enough" \
   --date 2026-05-18
 ```
 
