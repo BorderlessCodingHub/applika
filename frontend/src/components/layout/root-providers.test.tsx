@@ -1,5 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ThemeToggle } from "@/components/theme-toggle";
 import type { ReactNode } from "react";
 
 // Keep the test on the theme wiring: stub the providers that do I/O or render
@@ -13,17 +15,12 @@ vi.mock("@/components/ui/tooltip", () => ({
 vi.mock("@/components/ui/sonner", () => ({ Toaster: () => null }));
 vi.mock("@/components/cookie-consent", () => ({ CookieConsent: () => null }));
 
-async function renderRootProviders() {
+async function renderRootProviders(children: ReactNode = <span>child</span>) {
   // The "system" normalisation runs at module scope, so every case needs a
   // fresh module instance evaluated against the localStorage set just above.
   vi.resetModules();
   const { RootProviders } = await import("./root-providers");
-  render(
-    <RootProviders>
-      <span>child</span>
-    </RootProviders>,
-  );
-  await screen.findByText("child");
+  render(<RootProviders>{children}</RootProviders>);
 }
 
 describe("RootProviders theme", () => {
@@ -69,6 +66,33 @@ describe("RootProviders theme", () => {
     });
     // Never the literal "system" class, which is neither light nor dark.
     expect(document.documentElement.classList.contains("system")).toBe(false);
+    expect(window.localStorage.getItem("theme")).toBe("dark");
+  });
+
+  // Criterion 5: the toggle survives the switch to a dark default. It is the
+  // only way a visitor can reach the light theme now that `enableSystem` is
+  // gone, so it needs an assertion that outlives a shell restyle.
+  it("toggles between dark and light, and persists the choice", async () => {
+    const user = userEvent.setup();
+    await renderRootProviders(<ThemeToggle />);
+
+    const toggle = await screen.findByRole("button", { name: /toggle theme/i });
+    await waitFor(() => {
+      expect(document.documentElement.classList.contains("dark")).toBe(true);
+    });
+
+    await user.click(toggle);
+    await waitFor(() => {
+      expect(document.documentElement.classList.contains("light")).toBe(true);
+    });
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    expect(window.localStorage.getItem("theme")).toBe("light");
+
+    await user.click(toggle);
+    await waitFor(() => {
+      expect(document.documentElement.classList.contains("dark")).toBe(true);
+    });
+    expect(document.documentElement.classList.contains("light")).toBe(false);
     expect(window.localStorage.getItem("theme")).toBe("dark");
   });
 });
