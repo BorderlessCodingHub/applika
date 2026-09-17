@@ -9,6 +9,7 @@ import { StatisticsService } from "@/services/implementations/statistics-service
 import { SupportsService } from "@/services/implementations/supports-service";
 import { CompanyService } from "@/services/implementations/company-service";
 import { ReportsService } from "@/services/implementations/reports-service";
+import { TailoredCvService } from "@/services/implementations/tailored-cv-service";
 
 class ServiceContainer {
   admin = new AdminService();
@@ -22,6 +23,7 @@ class ServiceContainer {
   feedbacks = new FeedbackService();
   cycles = new CycleService();
   baseCvs = new BaseCvService();
+  tailoredCvs = new TailoredCvService();
 }
 
 export const services = new ServiceContainer();
