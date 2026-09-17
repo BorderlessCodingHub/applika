@@ -451,13 +451,52 @@ describe("the education section (AC4)", () => {
     expect(education.getByText("BSc in Computer Science")).toBeInTheDocument();
   });
 
-  it("drops a row with neither an institution nor a degree", () => {
+  it("drops a row with nothing typed into it at all", () => {
     expect(
-      visibleEducation([{ id: "d", institution: " ", degree: "  " }]),
+      visibleEducation([
+        { id: "d", institution: " ", degree: "  ", area: "", period: " " },
+      ]),
     ).toEqual([]);
-    expect(
-      visibleEducation([{ id: "d", institution: "", degree: "BSc" }]),
-    ).toHaveLength(1);
+  });
+
+  it("keeps a row the user has only started, whichever field they began with", () => {
+    // The server's `_education_entries` keeps a row if ANY of the four is
+    // present. A narrower rule here would make the whole section vanish from
+    // the LIVE preview mid-edit — the user fills the period and the heading
+    // they were looking at disappears.
+    for (const partial of [
+      { institution: "University of Edinburgh" },
+      { degree: "BSc" },
+      { area: "Computer Science" },
+      { period: "2010 — 2013" },
+    ]) {
+      expect(
+        visibleEducation([
+          { id: "d", institution: "", degree: "", ...partial },
+        ]),
+        JSON.stringify(partial),
+      ).toHaveLength(1);
+    }
+  });
+});
+
+describe("the certifications section", () => {
+  it("bolds the NAME and leaves the issuer plain", () => {
+    // The server emits `**name** issuer` (`_labelled_line`) and the owner's
+    // reference CV prints it that way. This used to be the other way round,
+    // which read as though the issuer were the qualification.
+    render(<CvDocument cv={FULL_CV} />);
+    const entry = within(documentSection("Certifications")).getByRole(
+      "listitem",
+    );
+
+    const name = entry.querySelector("span:first-child") as HTMLElement;
+    const issuer = entry.querySelector("span:last-child") as HTMLElement;
+
+    expect(name.textContent).toBe("AWS SAA");
+    expect(issuer.textContent).toBe("Amazon Web Services");
+    expect(name.className).toMatch(/font-semibold/);
+    expect(issuer.className).not.toMatch(/font-(semibold|medium|bold)/);
   });
 });
 

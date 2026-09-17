@@ -10,6 +10,7 @@ import {
 } from "@/components/base-cvs/cv-keywords-input";
 import { CvRepeatableSection } from "@/components/base-cvs/cv-repeatable-section";
 import type { CvSkillCategory } from "@/components/base-cvs/types";
+import { cn } from "@/lib/utils";
 
 /** Said when the section carries no category at all. */
 export const CV_SKILLS_EMPTY_HINT =
@@ -85,6 +86,15 @@ export function CvSkillsSection({
       }
       renderItem={({ item, update }) => {
         const hintId = `${hintBaseId}-${item.id}`;
+        // THIS row is the one at fault only when it is the shape the section
+        // error describes: keywords with no category to print them under. A
+        // section-level message must not paint every sibling row red, and the
+        // control it points at has to be the empty one — the category name,
+        // never the keyword entry that is perfectly valid.
+        const rowInvalid =
+          Boolean(error) &&
+          item.category.trim() === "" &&
+          item.keywords.length > 0;
         return (
           <div className="space-y-3">
             <CvField label="Category">
@@ -92,6 +102,12 @@ export function CvSkillsSection({
                 value={item.category}
                 disabled={disabled}
                 placeholder="Languages and frameworks"
+                aria-invalid={rowInvalid ? true : undefined}
+                aria-describedby={rowInvalid ? errorId : undefined}
+                className={cn(
+                  rowInvalid &&
+                    "border-destructive focus-visible:ring-destructive",
+                )}
                 onChange={(event) => update({ category: event.target.value })}
               />
             </CvField>
@@ -110,8 +126,7 @@ export function CvSkillsSection({
                 groupLabel={item.category || "this category"}
                 disabled={disabled}
                 maxKeywords={maxKeywordsPerCategory}
-                aria-invalid={error ? true : undefined}
-                aria-describedby={error ? `${hintId} ${errorId}` : hintId}
+                aria-describedby={hintId}
                 onChange={(keywords) => update({ keywords })}
               />
               <p

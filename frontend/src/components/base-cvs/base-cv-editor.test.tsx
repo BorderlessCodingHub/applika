@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { BaseCvEditor } from "./base-cv-editor";
 import { ExportCvButton } from "./export-cv-button";
 import {
+  BASE_CV_MAX,
   baseCvSchema,
   baseCvToFormValues,
   emptyBaseCvValues,
@@ -27,7 +28,7 @@ import {
  *
  * Three properties hang off this file:
  *  - AC1 — the form captures the label, the identity and contact block, the
- *    summary and all six list sections, and hands them to the caller;
+ *    summary and all seven list sections, and hands them to the caller;
  *  - AC1 — the schema requires what the editor marks as required and accepts a
  *    CV whose sections are all empty;
  *  - AC2 — at the cap the create affordance is genuinely disabled and the
@@ -289,6 +290,79 @@ describe("baseCvSchema section rows", () => {
       expect(parsed.error?.issues[0]?.message).toBe(message);
       expect(parsed.error?.issues[0]?.path[0]).toBe(field);
     }
+  });
+
+  it("refuses text the server would answer 422 for, before it is sent", () => {
+    // `getApiError` renders FastAPI's `detail` unguarded and a 422 `detail` is
+    // an ARRAY, so a server-side length failure reaches the toast as garbage.
+    // Every ceiling below is at or under the server's; `keyword` has no server
+    // ceiling at all, so that one is strictly stricter.
+    const cases: Array<[string, Partial<CvFormValues>]> = [
+      [
+        "skills",
+        {
+          skills: [
+            { id: "a", category: "x".repeat(101), keywords: ["Python"] },
+          ],
+        },
+      ],
+      [
+        "skills",
+        {
+          skills: [{ id: "a", category: "Cloud", keywords: ["x".repeat(101)] }],
+        },
+      ],
+      [
+        "education",
+        {
+          education: [{ id: "b", institution: "x".repeat(201), degree: "BSc" }],
+        },
+      ],
+      [
+        "education",
+        {
+          education: [
+            {
+              id: "b",
+              institution: "Edinburgh",
+              degree: "BSc",
+              period: "x".repeat(101),
+            },
+          ],
+        },
+      ],
+    ];
+
+    for (const [field, values] of cases) {
+      const parsed = baseCvSchema.safeParse(validValues(values));
+      expect(parsed.success, `${field} ceiling must hold`).toBe(false);
+      expect(parsed.error?.issues[0]?.path[0]).toBe(field);
+    }
+  });
+
+  it("accepts text exactly at the ceiling", () => {
+    expect(
+      baseCvSchema.safeParse(
+        validValues({
+          skills: [
+            {
+              id: "a",
+              category: "x".repeat(BASE_CV_MAX.skillCategory),
+              keywords: ["y".repeat(BASE_CV_MAX.skillKeyword)],
+            },
+          ],
+          education: [
+            {
+              id: "b",
+              institution: "x".repeat(BASE_CV_MAX.educationInstitution),
+              degree: "y".repeat(BASE_CV_MAX.educationDegree),
+              area: "z".repeat(BASE_CV_MAX.educationArea),
+              period: "p".repeat(BASE_CV_MAX.educationPeriod),
+            },
+          ],
+        }),
+      ).success,
+    ).toBe(true);
   });
 
   it("hands the section message to the caller, since no row renders one", () => {

@@ -76,10 +76,23 @@ export function visibleSkillCategories(
   );
 }
 
-/** The education entries that print: one needs an institution or a degree. */
+/**
+ * The education entries that print: anything typed into a row makes it real.
+ *
+ * All four fields count, not just the two that are required. The server's
+ * `_education_entries` uses the same rule, and a narrower one here would make
+ * the whole section vanish from the LIVE preview while a user is part-way
+ * through a row — they fill the period, and the heading they were looking at
+ * disappears. `visibleSkillCategories` above answers the same question the
+ * same way.
+ */
 export function visibleEducation(education: CvEducation[]): CvEducation[] {
   return education.filter(
-    (entry) => entry.institution.trim() !== "" || entry.degree.trim() !== "",
+    (entry) =>
+      entry.institution.trim() !== "" ||
+      entry.degree.trim() !== "" ||
+      (entry.area ?? "").trim() !== "" ||
+      (entry.period ?? "").trim() !== "",
   );
 }
 
@@ -319,14 +332,20 @@ export function CvDocument({
 
       {populated.has("certifications") ? (
         <DocumentSection title="Certifications">
+          {/*
+            The NAME is the bold half. The server emits `**name** issuer`
+            (`_labelled_line`) and the owner's reference CV prints it that way;
+            this used to be the other way round, which read as though the
+            issuer were the qualification.
+          */}
           <ul className="space-y-1 text-[11px] text-neutral-700">
             {cv.certifications.map((certification) => (
               <li key={certification.id}>
-                <span className="text-neutral-600">{certification.name}</span>
-                {" — "}
-                <span className="font-medium text-neutral-900">
-                  {certification.issuer}
+                <span className="font-semibold text-neutral-900">
+                  {certification.name}
                 </span>
+                {" — "}
+                <span className="text-neutral-600">{certification.issuer}</span>
               </li>
             ))}
           </ul>

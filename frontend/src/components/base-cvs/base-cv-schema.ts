@@ -22,6 +22,28 @@ import type { CreateBaseCvPayload } from "@/services/types/base-cv";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Client ceilings for the sections this form owns, at or under the server's.
+ *
+ * `getApiError` renders FastAPI's `detail` unguarded and a 422 `detail` is an
+ * ARRAY, so a server-side length failure would reach the toast as garbage. A
+ * reachable 422 is the bug, not the toast. `keyword` has no server ceiling at
+ * all (`SkillCategoryIn.keywords` is a bare `list[str]`), so this one is
+ * strictly stricter rather than merely equal.
+ */
+export const BASE_CV_MAX = {
+  skillCategory: 100,
+  skillKeyword: 100,
+  educationInstitution: 200,
+  educationDegree: 200,
+  educationArea: 200,
+  educationPeriod: 100,
+} as const;
+
+/** Every string in the list is within its ceiling. */
+const within = (max: number, ...values: (string | undefined)[]) =>
+  values.every((value) => (value ?? "").trim().length <= max);
+
 const text = (value: string | null | undefined) => (value ?? "").trim();
 
 /** A trimmed value, or `undefined` so the key is omitted from the JSON body. */
@@ -209,6 +231,15 @@ export const baseCvSchema = z.object({
           (item) => isBlankSkillCategory(item) || text(item.category),
         ),
       "Every skill category needs a name. Remove the categories you do not want.",
+    )
+    .refine(
+      (items) =>
+        items.every(
+          (item) =>
+            within(BASE_CV_MAX.skillCategory, item.category) &&
+            within(BASE_CV_MAX.skillKeyword, ...item.keywords),
+        ),
+      `Keep every category name under ${BASE_CV_MAX.skillCategory} characters and every keyword under ${BASE_CV_MAX.skillKeyword}.`,
     ),
   experience: z
     .array(experienceSchema)
@@ -237,6 +268,17 @@ export const baseCvSchema = z.object({
             (text(item.institution) && text(item.degree)),
         ),
       "Every qualification needs an institution and a degree. Remove the rows you do not want.",
+    )
+    .refine(
+      (items) =>
+        items.every(
+          (item) =>
+            within(BASE_CV_MAX.educationInstitution, item.institution) &&
+            within(BASE_CV_MAX.educationDegree, item.degree) &&
+            within(BASE_CV_MAX.educationArea, item.area) &&
+            within(BASE_CV_MAX.educationPeriod, item.period),
+        ),
+      `Keep every institution, degree and field of study under ${BASE_CV_MAX.educationInstitution} characters and every period under ${BASE_CV_MAX.educationPeriod}.`,
     ),
   certifications: z
     .array(certificationSchema)

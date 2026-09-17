@@ -236,10 +236,21 @@ section where i can create a category and inside this caregory add keywords".
 - Languages render as a three-column grid filled from the LEFT at any count,
   name then level in words, with no separator dot and no proficiency meter.
   One or two languages sit left STRUCTURALLY, not by a tuned justification.
-- Client validation stays STRICTER than the server's: a category with keywords
-  but no name, and a qualification missing its institution or degree, are
-  section-level errors here, because the API declares all three `min_length=1`
-  and `getApiError` would render its 422 `detail` array as garbage.
+- Client validation stays STRICTER than the server's for these two sections: a
+  category with keywords but no name, and a qualification missing its
+  institution or degree, are section-level errors here (the API declares all
+  three `min_length=1`), and `BASE_CV_MAX` carries their length ceilings at or
+  under the server's. **The older sections in `base-cv-schema.ts` carry
+  required-ness but NO length ceiling** — only `TAILORED_CV_MAX` is complete —
+  so an over-long link or bullet still reaches the server on the master CV
+  route. That is a known gap, not a pattern to copy: `getApiError` renders
+  FastAPI's 422 `detail` ARRAY into the toast as garbage, so a reachable 422 is
+  the bug, not the toast.
+- The section error is reported at SECTION level (rows have no inline slot) but
+  it is ATTACHED to the offending control: `CvSkillsSection` puts
+  `aria-invalid`/`aria-describedby` on the empty _Category_ input of the row
+  actually at fault, never on the keyword entry the user filled in correctly,
+  and never on a valid sibling row.
 
 **The PDF is rendered on the SERVER** (`docs/applika/adr/0011`, Accepted):
 RenderCV/Typst, one fixed theme named `applika`, no theme parameter, no user

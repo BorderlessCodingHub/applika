@@ -85,8 +85,8 @@ export interface CvFormSectionsProps {
 
 /**
  * The CV field body: identity and contact, summary, links, skills, experience,
- * projects, certifications and languages, in that order, with the inline errors
- * the form already holds.
+ * projects, education, certifications and languages, in that order, with the
+ * inline errors the form already holds.
  *
  * Shared by `BaseCvEditor` (the master CV) and `TailoredCvEditor` (an
  * application's copy) so the two can never drift. It renders NO `<form>`, no

@@ -122,6 +122,59 @@ describe("CvSkillsSection — the categories", () => {
   });
 });
 
+describe("CvSkillsSection — where a section error points", () => {
+  const withError = (value: CvSkillCategory[]) =>
+    render(
+      <CvSkillsSection
+        value={value}
+        onChange={() => {}}
+        newItemId={() => "s-x"}
+        error="Every skill category needs a name."
+        errorId="cv-skills-error"
+      />,
+    );
+
+  it("marks the CATEGORY field, not the keyword entry the user filled in", () => {
+    // The offending field is the empty one. Marking the keyword entry would
+    // tell a screen-reader user the thing they typed correctly is wrong.
+    withError([{ id: "s-1", category: "", keywords: ["Python"] }]);
+
+    const row = within(screen.getByRole("group", { name: "category 1" }));
+    expect(row.getByLabelText("Category")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(row.getByLabelText("Category")).toHaveAccessibleDescription(
+      "Every skill category needs a name.",
+    );
+    expect(
+      row.getByLabelText("Add a keyword to this category"),
+    ).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("leaves the valid siblings alone", () => {
+    // A section-level message must not paint every row in the section red.
+    withError([
+      { id: "s-1", category: "", keywords: ["Python"] },
+      { id: "s-2", category: "Data stores", keywords: ["Redis"] },
+    ]);
+
+    expect(
+      within(screen.getByRole("group", { name: "category 2" })).getByLabelText(
+        "Category",
+      ),
+    ).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("says the message once, in the section footer", () => {
+    withError([{ id: "s-1", category: "", keywords: ["Python"] }]);
+
+    expect(
+      screen.getAllByText("Every skill category needs a name."),
+    ).toHaveLength(1);
+  });
+});
+
 describe("CvSkillsSection — the keywords inside a category", () => {
   it("names the entry after its category, so several on screen stay apart", () => {
     render(<Harness initial={SEEDED} />);

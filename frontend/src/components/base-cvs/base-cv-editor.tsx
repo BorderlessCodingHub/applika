@@ -34,9 +34,10 @@ export interface BaseCvEditorProps {
 
 /**
  * The master CV form body, shared by the create and the edit route. Renders the
- * identity block, the summary, the skills chips and the five repeatable
- * sections, with a live document preview beside the form at `md` and up and
- * below it on narrow screens.
+ * identity block, the summary and the seven repeatable sections — links,
+ * skills (categories of keywords), experience, projects, education,
+ * certifications and languages — with a live document preview beside the form
+ * at `md` and up and below it on narrow screens.
  *
  * Controlled and presentational: it neither owns the schema nor fetches nor
  * submits. Hand it a `form` and an `onSubmit`; it renders the fields, the
