@@ -42,7 +42,7 @@ export function Header({
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/60 bg-background/80 px-4 py-2.5 backdrop-blur-xl md:h-14 md:flex-nowrap md:px-6 md:py-0",
+        "sticky top-0 z-30 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/60 bg-background/80 px-4 py-2.5 backdrop-blur-xl md:h-[var(--app-header-height)] md:flex-nowrap md:px-6 md:py-0",
         className,
       )}
     >

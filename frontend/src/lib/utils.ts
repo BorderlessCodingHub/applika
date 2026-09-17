@@ -8,8 +8,8 @@ import { extendTailwindMerge } from "tailwind-merge";
  * BOTH and the later rule in the stylesheet wins — the override silently does
  * nothing. Register them so a caller can actually replace them.
  *
- * `h-viewport` and `min-h-viewport` are the same story in the `h` and `min-h`
- * groups.
+ * `h-viewport`, `min-h-viewport` and `max-h-scrollport` are the same story in
+ * the `h`, `min-h` and `max-h` groups.
  */
 const twMerge = extendTailwindMerge({
   extend: {
@@ -17,6 +17,7 @@ const twMerge = extendTailwindMerge({
       shadow: ["shadow-card", "shadow-elevated"],
       h: ["h-viewport"],
       "min-h": ["min-h-viewport"],
+      "max-h": ["max-h-scrollport"],
     },
   },
 });

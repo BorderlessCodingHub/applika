@@ -251,6 +251,29 @@
   min-height: calc(100dvh - var(--cookie-notice-height, 0px));
 }
 
+@utility max-h-scrollport {
+  /*
+    The height of the app shell's SCROLLPORT — the `<main>` that owns the
+    signed-in page's scroll — rather than of the viewport.
+
+    `h-viewport` measures the whole shell. `main` is one `--app-header-height`
+    shorter than that, because the shell `Header` is its SIBLING and sits above
+    it. Anything that must fill the scrolling region (a sticky pane beside a
+    long form) has to be capped with THIS, never with `100dvh`: `100dvh`
+    measures the wrong box and overshoots by exactly the header, and the
+    difference then has to be guessed back off in a hand-tuned constant.
+    KODI-009 is that bug — the CV preview pane carried a `12rem` lump standing
+    in for the header, a phantom sticky offset and its own chrome.
+
+    Valid at `md` and up, where the header is a single fixed-height row. Below
+    it the header wraps to two rows of its own height and a pane this size
+    would be short by the second row; that is also where nothing sticks.
+  */
+  max-height: calc(
+    100dvh - var(--cookie-notice-height, 0px) - var(--app-header-height)
+  );
+}
+
 @utility admin-card {
   /* Admin card hover lift */
   will-change: transform;
@@ -396,6 +419,14 @@
       when it unmounts, so a dismissed notice reserves nothing.
     */
     --cookie-notice-height: 0px;
+
+    /*
+      Height of the shell `Header` at `md` and up, where it is a single row.
+      `header.tsx` sizes itself from this and `max-h-scrollport` subtracts it,
+      so the two cannot drift. Below `md` the header wraps and owns its own
+      height; nothing reads this there.
+    */
+    --app-header-height: 3.5rem;
   }
 
   body {
