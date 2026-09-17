@@ -242,6 +242,24 @@ render path needs that module, so `renderer.py` never imports it and drives
   `importlib.util.spec_from_file_location`, outside the `app` package — its
   imports must stay absolute and must never reach into `app`.
 
+**The four `.j2.typ` files are the owner's, and they are frozen.** The owner:
+*"Just use the template as is in the reference directory removing the key
+achievements section, I won't accept any deviation of the original template."*
+The only edit the theme carries is dropping `key_achievements` from the grid
+branch of `SectionBeginning.j2.typ`. `tests/unit/test_cv_rendering.py` enforces
+that twice — a diff against the owner's folder when it is on disk, and a sha256
+pin that also runs in CI. A layout problem is fixed in `mapper.py`, never in a
+template; a change that genuinely needs one goes back to the owner.
+
+One consequence to know before touching `mapper.py`: `SectionBeginning.j2.typ`
+opens a `#grid(` only for `languages` while `SectionEnding.j2.typ` closes one
+for **every** OneLineEntry section, so **`Languages` is the only section that
+may map to OneLineEntry**. Certifications and non-social links are TextEntry
+lines (`**label** details`) for exactly that reason. Adding a second
+OneLineEntry section does not fail the compile — Typst prints the orphan `[`,
+`],` and `)` as text — so the guard is a delimiter-balance assertion on the
+generated `.typ`, not on the PDF.
+
 ### The Tailoring Port
 `TailoringService` (`app/application/services/tailoring.py`) is a `Protocol`
 describing "tailor a master CV to a job posting": one `async def tailor(request)

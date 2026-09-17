@@ -20,6 +20,8 @@ per failed request fills the disk of a long-running container.
 All CV data here is invented.
 """
 
+import difflib
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -48,6 +50,7 @@ from app.application.services.cv_rendering.renderer import (
     TYPST_PACKAGE_NAME,
     CVPdfRenderer,
     _bundled_typst_package_version,
+    generate_typst_source,
     get_cv_pdf_renderer,
     pdf_filename,
     slugify,
@@ -206,40 +209,102 @@ def test_theme_dates_are_numeric():
 
 def test_vendored_theme_files_ship_with_the_code():
     """RenderCV needs at least one ``.j2.typ`` beside the theme module."""
-    for name in (
-        'Header.j2.typ',
-        'SectionBeginning.j2.typ',
-        'SectionEnding.j2.typ',
-        'entries/OneLineEntry.j2.typ',
-    ):
+    for name in THEME_FILES:
         assert (THEME_SOURCE_DIR / name).is_file(), msg('a file', name)
 
 
-def test_one_line_entry_sections_open_a_grid_the_ending_can_close():
-    """The one branch in the vendored templates that is ours, pinned.
+# The four files the theme is made of, and the only files this test module is
+# allowed to touch inside the reference folder - the rest of that folder is a
+# real person's CV and is off limits. Never globbed, always named.
+THEME_FILES = (
+    'Header.j2.typ',
+    'SectionBeginning.j2.typ',
+    'SectionEnding.j2.typ',
+    'entries/OneLineEntry.j2.typ',
+)
 
-    ``SectionEnding.j2.typ`` - byte-identical to the owner's - emits a closing
-    ``)`` for *every* OneLineEntry section, while only ``languages`` opens the
-    three-column grid. Certifications are OneLineEntry too, so without a
-    matching opener their section prints a stray ``),`` on the page. Typst does
-    not complain about it (a lone ``)`` is just text), so no render test can
-    catch this: only asserting the template itself protects the fix.
+# The owner's folder, two levels above the applika repo. Present on a
+# workstation, absent in CI - it is deliberately not committed.
+REFERENCE_THEME_DIR = (
+    Path(__file__).resolve().parents[4] / 'custom-template-reference' / 'custom'
+)
+
+# The one edit the whole theme is allowed to carry: applika has no key
+# achievements section (the ticket's non-goals), so that title drops out of
+# the grid branch. Everything else is the owner's file byte for byte.
+KEY_ACHIEVEMENTS_LINE = (
+    '{% if snake_case_section_title in ["key_achievements", "languages"] %}'
+)
+APPLIKA_LINE = '{% if snake_case_section_title in ["languages"] %}'
+
+# sha256 of each vendored file, so the rule above is enforced by the suite even
+# where the owner's folder is not on disk. A future slice that edits a template
+# breaks this test and has to come back to the owner for it.
+THEME_DIGESTS = {
+    'Header.j2.typ': 'fcf7094977ec44974bc298641c276b3857942c8dc80af5e38c3c3a647b08fd64',
+    'SectionBeginning.j2.typ': '48d832f7b785cc039ae82194bd796eba0027830a15d223d74d7116358c57d466',
+    'SectionEnding.j2.typ': '769e39565cecc5c2ef64528ab424f90b8e78a3e52d7a485af902d616414b5fd1',
+    'entries/OneLineEntry.j2.typ': 'd5a41a25d228428fb2d9e2bb9e76b97ea9672cda9bce0801c79f3f7c9719fdec',
+}
+
+
+def _expected_template(name: str, reference_text: str) -> str:
+    """What the vendored copy of ``name`` must contain, from the reference."""
+    if name != 'SectionBeginning.j2.typ':
+        return reference_text
+    assert reference_text.count(KEY_ACHIEVEMENTS_LINE) == 1, msg(
+        'the reference still has the key_achievements grid branch',
+        reference_text.splitlines()[:1],
+    )
+    return reference_text.replace(KEY_ACHIEVEMENTS_LINE, APPLIKA_LINE)
+
+
+@pytest.mark.skipif(
+    not REFERENCE_THEME_DIR.is_dir(),
+    reason="the owner's template folder is not committed; digests cover CI",
+)
+@pytest.mark.parametrize('name', THEME_FILES)
+def test_vendored_theme_is_the_owners_template_verbatim(name: str):
+    """The owner: "I won't accept any deviation of the original template."
+
+    Three of the four files must be byte-identical to
+    ``custom-template-reference/custom/``; ``SectionBeginning.j2.typ`` must be
+    identical except for dropping ``key_achievements`` from the grid branch.
+    The expectation is *computed* from the reference rather than written out
+    here, so this test cannot drift away from the file it is guarding.
+
+    Why it is worth a test of its own: the templates carry the layout
+    contract the mapper is written against. A previous attempt at this slice
+    added a branch to ``SectionBeginning.j2.typ`` to make certifications fit,
+    and the owner rejected it. Nothing stopped that but a person reading the
+    diff; this does.
     """
-    beginning = (THEME_SOURCE_DIR / 'SectionBeginning.j2.typ').read_text()
-    ending = (THEME_SOURCE_DIR / 'SectionEnding.j2.typ').read_text()
+    reference = (REFERENCE_THEME_DIR / name).read_text(encoding='utf-8')
+    vendored = (THEME_SOURCE_DIR / name).read_text(encoding='utf-8')
+    assert vendored == _expected_template(name, reference), msg(
+        f'{name} identical to the owner template',
+        ''.join(
+            difflib.unified_diff(
+                _expected_template(name, reference).splitlines(keepends=True),
+                vendored.splitlines(keepends=True),
+                fromfile=f'owner/{name}',
+                tofile=f'applika/{name}',
+            )
+        ),
+    )
 
-    assert 'OneLineEntry' in ending, msg(
-        'the ending still closes OneLineEntry sections', ending
-    )
-    assert 'entry_type in ["OneLineEntry"]' in beginning, msg(
-        'an opener for non-languages OneLineEntry sections', beginning
-    )
-    assert 'columns: (1fr)' in beginning, msg(
-        'a one-column grid for them', beginning
-    )
-    assert 'columns: (1fr, 1fr, 1fr)' in beginning, msg(
-        'languages keeps the three-column grid', beginning
-    )
+
+@pytest.mark.parametrize('name', THEME_FILES)
+def test_vendored_theme_files_are_pinned_by_digest(name: str):
+    """The same rule, enforced where the owner's folder is not on disk.
+
+    The reference folder holds a real CV and is not committed, so the test
+    above skips in CI. These digests do not: editing any vendored template
+    fails here, which is the point - the owner foreclosed template changes,
+    and a change that needs one has to be taken back to them.
+    """
+    digest = hashlib.sha256((THEME_SOURCE_DIR / name).read_bytes()).hexdigest()
+    assert digest == THEME_DIGESTS[name], msg(THEME_DIGESTS[name], digest)
 
 
 # --- The trimmed font payload --------------------------------------------------
@@ -392,10 +457,16 @@ def test_skills_map_to_a_single_line():
     )
 
 
-def test_certifications_map_to_one_line_entries():
-    assert _sections()[CERTIFICATIONS_SECTION] == [
-        {'label': 'AWS SAA', 'details': 'Amazon'}
-    ]
+def test_certifications_map_to_text_entry_lines():
+    """Bold name, then issuer - a TextEntry, not a OneLineEntry.
+
+    The pair reads exactly as the owner's OneLineEntry template typesets one
+    (semibold label, normal details), but as a markdown line that needs no
+    surrounding ``#grid(``. See ``test_languages_is_the_only_one_line_entry``.
+    """
+    assert _sections()[CERTIFICATIONS_SECTION] == ['**AWS SAA** Amazon'], msg(
+        'one markdown line', _sections()[CERTIFICATIONS_SECTION]
+    )
 
 
 def test_languages_map_to_one_line_entries():
@@ -415,12 +486,49 @@ def test_known_link_becomes_a_social_network():
 def test_unknown_link_falls_back_to_a_links_entry():
     """RenderCV knows a closed list of networks; the rest still get typeset."""
     entries = _sections()[LINKS_SECTION]
+    assert entries == ['**Site** [Site](https://ada.example.com)'], msg(
+        'one Links line', entries
+    )
+
+
+def test_a_link_with_no_label_still_gets_a_line():
+    """The URL stands in for the label rather than emitting ``**** ``."""
+    entries = _sections(
+        links=[{'id': 'l1', 'label': '', 'url': 'https://ada.example.com'}]
+    )[LINKS_SECTION]
     assert entries == [
-        {
-            'label': 'Site',
-            'details': '[Site](https://ada.example.com)',
-        }
-    ], msg('one Links entry', entries)
+        '**https://ada.example.com** '
+        '[https://ada.example.com](https://ada.example.com)'
+    ], msg('a line built from the URL', entries)
+
+
+def test_a_certification_with_no_issuer_is_just_the_bold_name():
+    entries = _sections(
+        certifications=[{'id': 'c1', 'name': 'AWS SAA', 'issuer': ''}]
+    )[CERTIFICATIONS_SECTION]
+    assert entries == ['**AWS SAA**'], msg('no trailing space', entries)
+
+
+def test_languages_is_the_only_one_line_entry():
+    """The owner's template can only close a grid it opened for languages.
+
+    ``SectionBeginning.j2.typ`` opens ``#grid(`` for ``languages`` alone while
+    ``SectionEnding.j2.typ`` emits the closing ``)`` for every OneLineEntry
+    section, so a second dict-shaped section would print a stray bracket on
+    the page. This asserts the mapper never creates one - the templates are
+    the owner's and cannot be adjusted to accommodate it.
+    """
+    sections = _sections()
+    dict_shaped = [
+        title
+        for title, entries in sections.items()
+        if any(
+            isinstance(entry, dict) and 'label' in entry for entry in entries
+        )
+    ]
+    assert dict_shaped == [LANGUAGES_SECTION], msg(
+        [LANGUAGES_SECTION], dict_shaped
+    )
 
 
 def test_no_links_section_when_every_link_is_a_social_network():
@@ -530,6 +638,128 @@ def test_link_url_is_never_rewritten():
     )[PROJECTS_SECTION][0]
     assert '(https://example.com/a#section)' in entry['summary'], msg(
         'the URL verbatim', entry['summary']
+    )
+
+
+# --- The generated Typst is well-formed, section by section -------------------
+#
+# The trap this guards: Typst prints an unmatched ``[``, ``]``, ``,`` or ``)``
+# as *text* instead of failing the compile. A render that returns a PDF whose
+# bytes start with ``%PDF-`` therefore proves nothing about the markup - the
+# stray brackets are simply printed on the page. Only reading the generated
+# ``.typ`` catches it, which is why this asserts on the source and not on the
+# PDF.
+
+
+def _delimiter_balance(source: str) -> tuple[int, int, int, int]:
+    """Scan Typst markup for ``()`` and ``[]`` balance.
+
+    Returns ``(lowest_paren_depth, lowest_bracket_depth, final_paren_depth,
+    final_bracket_depth)``. A depth that ever goes negative means a closer
+    with no opener - exactly the shape a OneLineEntry emitted outside its grid
+    produces. Quoted strings are skipped so a URL or a bullet glyph cannot
+    throw the count off.
+    """
+    paren = bracket = lowest_paren = lowest_bracket = 0
+    in_string = escaped = False
+    for char in source:
+        if escaped:
+            escaped = False
+        elif char == '\\':
+            escaped = True
+        elif in_string:
+            in_string = char != '"'
+        elif char == '"':
+            in_string = True
+        elif char == '(':
+            paren += 1
+        elif char == ')':
+            paren -= 1
+            lowest_paren = min(lowest_paren, paren)
+        elif char == '[':
+            bracket += 1
+        elif char == ']':
+            bracket -= 1
+            lowest_bracket = min(lowest_bracket, bracket)
+    return lowest_paren, lowest_bracket, paren, bracket
+
+
+def test_a_cv_with_languages_certifications_and_links_is_well_formed(tmp_path):
+    """The three pair-shaped sections together, through the real theme.
+
+    All three exist on this CV, and all three used to be OneLineEntry: only
+    ``Languages`` opens the grid the owner's ``SectionEnding.j2.typ`` closes,
+    so ``Certifications`` and ``Links`` printed a literal ``[``, ``],`` and
+    ``)`` around every entry. Reverting the mapper to OneLineEntry for either
+    of them drives the paren depth negative here and fails this test.
+    """
+    yaml_text = map_cv_to_rendercv_yaml(_cv())
+    source = generate_typst_source(yaml_text, tmp_path).read_text(
+        encoding='utf-8'
+    )
+
+    for section in (LANGUAGES_SECTION, CERTIFICATIONS_SECTION, LINKS_SECTION):
+        assert f'== {section}' in source, msg(f'a {section} heading', section)
+
+    lowest_paren, lowest_bracket, paren, bracket = _delimiter_balance(source)
+    assert (lowest_paren, lowest_bracket, paren, bracket) == (0, 0, 0, 0), msg(
+        'balanced Typst delimiters',
+        {
+            'lowest_paren_depth': lowest_paren,
+            'lowest_bracket_depth': lowest_bracket,
+            'final_paren_depth': paren,
+            'final_bracket_depth': bracket,
+        },
+    )
+
+
+def test_only_the_languages_section_carries_a_grid(tmp_path):
+    """The grid the owner's templates open and close, and nothing else.
+
+    Balance alone would also be satisfied by a section that opened its own
+    grid, which is the deviation the owner rejected. This pins the count: one
+    ``#grid(`` in the whole document, in ``Languages``.
+    """
+    source = generate_typst_source(
+        map_cv_to_rendercv_yaml(_cv()), tmp_path
+    ).read_text(encoding='utf-8')
+
+    grids = source.count('#grid(')
+    assert grids == 1, msg('exactly one grid', grids)
+
+    after_languages = source.split(f'== {LANGUAGES_SECTION}', 1)[1]
+    next_heading = after_languages.find('\n== ')
+    languages_block = after_languages[
+        : next_heading if next_heading != -1 else None
+    ]
+    assert '#grid(' in languages_block, msg(
+        'the grid belongs to Languages', languages_block[:200]
+    )
+
+
+def test_certifications_and_links_typeset_as_bold_label_then_details(
+    tmp_path,
+):
+    """The replacement reads like the entry it replaced.
+
+    A OneLineEntry typesets a semibold label followed by normal details. The
+    TextEntry line has to land on the same thing - bold name, then issuer;
+    bold label, then the hyperlink - or the fix traded broken markup for a
+    different-looking CV.
+    """
+    source = generate_typst_source(
+        map_cv_to_rendercv_yaml(_cv()), tmp_path
+    ).read_text(encoding='utf-8')
+
+    assert '#strong[AWS SAA] Amazon' in source, msg(
+        'a bold certification name followed by its issuer',
+        source[source.find(f'== {CERTIFICATIONS_SECTION}') :][:200],
+    )
+    assert '#strong[Site] #link("https://ada.example.com")[Site]' in source, (
+        msg(
+            'a bold link label followed by the hyperlink',
+            source[source.find(f'== {LINKS_SECTION}') :][:200],
+        )
     )
 
 

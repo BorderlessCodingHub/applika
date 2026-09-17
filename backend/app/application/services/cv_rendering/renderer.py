@@ -178,13 +178,18 @@ def _compile_pdf(typst_path: Path) -> bytes:
     return pdf_path.read_bytes()
 
 
-def _render_sync(yaml_text: str, work_dir: Path) -> bytes:
-    """Do the actual compile. Runs in a worker thread, never on the loop.
+def generate_typst_source(yaml_text: str, work_dir: Path) -> Path:
+    """Run the theme through Jinja and return the generated ``.typ`` file.
 
     Copying the theme is the first step for a reason: RenderCV needs it on
     disk beside ``cv.yaml`` before it validates the ``design`` block.
     ``__pycache__`` is skipped so a stale compiled module cannot travel with
     it.
+
+    Split out of :func:`_render_sync` because this - not the PDF - is where
+    the theme's markup can be inspected. Typst prints unbalanced ``[``, ``]``
+    and ``)`` as ordinary text instead of failing, so a compile that succeeds
+    proves nothing about the markup; the generated source does.
     """
     shutil.copytree(
         THEME_SOURCE_DIR,
@@ -206,7 +211,12 @@ def _render_sync(yaml_text: str, work_dir: Path) -> bytes:
     typst_path = generate_typst(model)
     if typst_path is None:
         raise RuntimeError('RenderCV produced no Typst source')
-    return _compile_pdf(Path(typst_path))
+    return Path(typst_path)
+
+
+def _render_sync(yaml_text: str, work_dir: Path) -> bytes:
+    """Do the actual compile. Runs in a worker thread, never on the loop."""
+    return _compile_pdf(generate_typst_source(yaml_text, work_dir))
 
 
 class CVPdfRenderer:

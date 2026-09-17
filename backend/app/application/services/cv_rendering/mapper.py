@@ -6,7 +6,7 @@ typeset, so one mapper serves both. Nothing here touches the database, the
 filesystem or the clock: given a document it returns a dictionary, and given
 the same document twice it returns the same dictionary.
 
-Two things this file is careful about.
+A few things this file is careful about.
 
 **The theme is not a parameter.** ``design`` is always ``{theme: applika}``.
 The user does not choose a look (docs/applika/adr/0011-server-side-cv-pdf-rendercv.md),
@@ -15,6 +15,18 @@ so the caller cannot pass one in.
 **A section that is empty is omitted, never emitted blank.** RenderCV would
 happily print a "Projects" heading over nothing; a CV with no projects should
 simply not have the heading.
+
+**``Languages`` is the only OneLineEntry section, and that is a constraint of
+the owner's template, not a preference.** The vendored templates are the
+owner's file verbatim (one substitution aside), and in them
+``SectionBeginning.j2.typ`` opens a ``#grid(`` only for ``languages`` while
+``SectionEnding.j2.typ`` closes one for *every* OneLineEntry section. A second
+OneLineEntry section therefore emits an entry cell and a closing paren with no
+grid around them, and Typst prints ``[``, ``]``, ``,`` and ``)`` as literal
+text rather than failing the compile - broken markup on the page, a green
+render. So the other pair-shaped sections - certifications and the links that
+are not social networks - are mapped to TextEntry lines (``**label** details``)
+instead, which need no grid and read the same.
 
 **Stored data never gets to break the render.** Everything applika stores is
 free text: the columns have no format validation, and the user types whatever
@@ -51,7 +63,8 @@ from rendercv.schema.models.cv.social_network import (
 THEME_NAME = 'applika'
 
 # Section titles, in the order they are typeset. ``Languages`` is the one the
-# theme lays out as a three-column grid (see ``SectionBeginning.j2.typ``).
+# theme lays out as a three-column grid (see ``SectionBeginning.j2.typ``), and
+# so the only one mapped to OneLineEntry.
 SUMMARY_SECTION = 'Summary'
 EXPERIENCE_SECTION = 'Experience'
 PROJECTS_SECTION = 'Projects'
@@ -228,6 +241,14 @@ def _project_entries(cv: RenderableCV) -> list[dict[str, Any]]:
 def _one_line_entries(
     items: Any, label_attr: str, details_attr: str
 ) -> list[dict[str, str]]:
+    """Build OneLineEntry dicts. ``Languages`` and nothing else.
+
+    The vendored ``SectionEnding.j2.typ`` closes a ``)`` for *every*
+    OneLineEntry section while ``SectionBeginning.j2.typ`` opens the grid only
+    for ``languages``, so a second OneLineEntry section would print a stray
+    bracket. :func:`_labelled_lines` is the shape every other pair-like section
+    uses.
+    """
     entries: list[dict[str, str]] = []
     for item in items:
         label = _text(getattr(item, label_attr))
@@ -236,6 +257,29 @@ def _one_line_entries(
             continue
         entries.append({'label': label, 'details': details})
     return entries
+
+
+def _labelled_line(label: str, details: str) -> str:
+    """A ``label``/``details`` pair as one markdown TextEntry line."""
+    if not label:
+        return details
+    if not details:
+        return f'**{label}**'
+    return f'**{label}** {details}'
+
+
+def _labelled_lines(
+    items: Any, label_attr: str, details_attr: str
+) -> list[str]:
+    """The same pairs as :func:`_one_line_entries`, as TextEntry lines."""
+    lines: list[str] = []
+    for item in items:
+        label = _text(getattr(item, label_attr))
+        details = _text(getattr(item, details_attr))
+        if not label and not details:
+            continue
+        lines.append(_labelled_line(label, details))
+    return lines
 
 
 def _sections(cv: RenderableCV) -> dict[str, Any]:
@@ -258,7 +302,7 @@ def _sections(cv: RenderableCV) -> dict[str, Any]:
     if skills:
         sections[SKILLS_SECTION] = [SKILLS_SEPARATOR.join(skills)]
 
-    certifications = _one_line_entries(cv.certifications, 'name', 'issuer')
+    certifications = _labelled_lines(cv.certifications, 'name', 'issuer')
     if certifications:
         sections[CERTIFICATIONS_SECTION] = certifications
 
@@ -299,17 +343,19 @@ def map_cv_to_rendercv_document(cv: RenderableCV) -> dict[str, Any]:
         cv_block['phone'] = phone
 
     social_networks: list[dict[str, str]] = []
-    leftover_links: list[dict[str, str]] = []
+    leftover_links: list[str] = []
     for link in cv.links:
         network = _as_social_network(link.url)
         if network is not None:
             social_networks.append(network)
             continue
         if _clean(link.url):
-            leftover_links.append({
-                'label': _text(link.label) or _text(link.url),
-                'details': _markdown_link(link.label, link.url),
-            })
+            leftover_links.append(
+                _labelled_line(
+                    _text(link.label) or _text(link.url),
+                    _markdown_link(link.label, link.url),
+                )
+            )
     if social_networks:
         cv_block['social_networks'] = social_networks
 
