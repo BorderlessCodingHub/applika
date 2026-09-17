@@ -258,11 +258,35 @@ large, use A4 dimensions". Three files, one seam:
   **no `role="status"`**: the CV copy editor's read-only banner is already this
   screen's one `status`, and a second breaks every `getByRole("status")`
   locator in the suite.
-- The preview pane caps its own height at `md` and up with an inline
-  `calc(100dvh - var(--cookie-notice-height,0px) - 12rem)` — the same
-  expression `h-viewport` uses, so the cookie bar's strip is subtracted here
-  too. There is **no `max-h-viewport` utility**; adding one is a design-system
-  change (`globals.css` + the tailwind-merge registration), not a drive-by.
+- **The preview pane names no height of its own.** The EDITOR bounds the
+  column — `md:sticky md:top-0 md:flex md:max-h-scrollport md:flex-col` — and
+  `CvDocumentPreview` fills its share through `md:min-h-0 md:flex-1` passed in
+  `className`. Do not put a `max-h` back on the preview. It used to carry
+  `calc(100dvh - var(--cookie-notice-height,0px) - 12rem)` and that `12rem`
+  was a lump with three unrelated things in it: the shell header that `100dvh`
+  wrongly counts (the pane lives in `main`, not in the viewport), a phantom
+  `md:top-20` sticky offset, and the aside's own label and caption. KODI-009
+  measured the result at 720px — the first sheet 104px below the top of the
+  scrollport at every scroll position, which is the gap the owner reported.
+  `max-h-scrollport` replaces the first two; flexbox replaces the third.
+- **`CvSectionCard` has no header action slot, and its whole header toggles.**
+  The owner, KODI-009: "remove the button to insert a new link/category/etc
+  from the category header and put inside the colapsable section, preferable
+  bellow from the last item added". Every repeatable section's add control now
+  renders INSIDE `CollapsibleContent`, directly under the last row (under the
+  empty hint when there is none) and above the section's error `footer`. Two
+  consequences are the ask, not a defect: a COLLAPSED section exposes no add
+  control at all — do not put a duplicate back in the header — and the
+  auto-expand-on-invalid-submit is what keeps the form operable, since a
+  collapsed section now hides its error line too. With nothing competing for
+  the header, the trigger is stretched over it with `after:absolute
+after:inset-0` against a `relative` header (`data-slot="cv-section-header"`).
+  That is deliberately NOT a bigger `<button>`: the accessible name stays
+  EXACTLY the title — every locator matches it exactly — the description stays
+  a real `<p>`, and the focus indicator is an inset `outline` because the
+  card's `overflow-hidden` would clip a `ring`. The header row is
+  `items-center`, so the chevron sits on the centre of the whole two-line
+  block ("align the chevron icons to the center vercially of the component").
 - **The preview's page breaks do NOT match the PDF's**, and the owner accepted
   that: Typst owns the real layout. `CV_PDF_LAYOUT_NOTICE` therefore stays
   exactly where and as it is. Now that the preview LOOKS like paginated A4 that
@@ -475,8 +499,9 @@ order. `src/lib/utils.ts` registers them in the `shadow` group via
 Tailwind group must be registered there too**, or overriding it will silently do
 nothing.
 
-`h-viewport` and `min-h-viewport` (see **Stacking contract**) are registered the
-same way, in the `h` and `min-h` groups.
+`h-viewport`, `min-h-viewport` and `max-h-scrollport` (see **Stacking
+contract**) are registered the same way, in the `h`, `min-h` and `max-h`
+groups.
 
 Registering a utility in one group also takes it OUT of the group it was falling
 through to. `shadow-card`/`shadow-elevated` used to land in `shadow-color`, so a
@@ -533,14 +558,25 @@ to `--cookie-notice-height` on `<html>`, and it REMOVES the property when it
 unmounts — a dismissed notice reserves nothing. `globals.css` spends that
 property in two places: `body` takes it as `padding-bottom` and
 `scroll-padding-bottom`, so a flowing document ends above the bar; and the
-`h-viewport` / `min-h-viewport` utilities subtract it. **Use those two instead
-of `h-dvh`, `h-screen` or `min-h-screen` on any full-viewport shell** — the
-padding and the subtraction add up to exactly one viewport, so reserving space
-never introduces a scrollbar. The consequence, and the reason the notice stopped
-being a bottom-right card: it can NO LONGER cover an in-page `sticky bottom-0`
-footer — the CV editor's submit row — at any breakpoint. The `z-50` nav sheet is
-`fixed inset-y-0`, so it still overlaps the bar's strip and still paints over
-it.
+`h-viewport` / `min-h-viewport` / `max-h-scrollport` utilities subtract it.
+**Use those instead of `h-dvh`, `h-screen` or `min-h-screen` on any
+full-viewport shell** — the padding and the subtraction add up to exactly one
+viewport, so reserving space never introduces a scrollbar. The consequence, and
+the reason the notice stopped being a bottom-right card: it can NO LONGER cover
+an in-page `sticky bottom-0` footer — the CV editor's submit row — at any
+breakpoint. The `z-50` nav sheet is `fixed inset-y-0`, so it still overlaps the
+bar's strip and still paints over it.
+
+**`h-viewport` is the shell; `max-h-scrollport` is the `<main>` inside it.**
+They differ by `--app-header-height`, because the shell `Header` is `main`'s
+SIBLING and sits above it. Anything sized to fill the SCROLLING region — a
+sticky pane beside a long form — takes `max-h-scrollport`. Reaching for
+`100dvh` there measures the wrong box, overshoots by exactly the header, and
+ends in a hand-tuned constant subtracting the difference back off; that is the
+bug KODI-009 fixed in the CV preview. `--app-header-height` is declared once in
+`globals.css` and `header.tsx` sizes itself from it, so the two cannot drift.
+It is only true at `md` and up, where the header is one row — which is also the
+only place anything sticks.
 
 ### App shell
 
