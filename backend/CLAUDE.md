@@ -233,8 +233,19 @@ render path needs that module, so `renderer.py` never imports it and drives
   the header separator uses); projects are NormalEntries whose summary is
   `"<markdown link>\n<description>"`, so the entry reads name / link /
   description on three lines, with the raw URL standing in for a missing link
-  label; education is an EducationEntry whose free-text `period` goes into
-  RenderCV's arbitrary `date` field.
+  label; education is an EducationEntry, dated exactly like experience.
+
+  **Experience and education dates go to RenderCV's `start_date`/`end_date`,
+  never to its arbitrary `date`.** The stored `start` / optional `end` are ISO
+  `YYYY-MM`, which `start_date`/`end_date` accept verbatim, and the theme's
+  `templates.single_date` (`MONTH_IN_TWO_DIGITS/YEAR`) and
+  `templates.date_range` (`START_DATE - END_DATE`) typeset them as
+  `02/2023 - 02/2024`. An entry with no `end` omits `end_date` and RenderCV's
+  own `check_and_adjust_dates` fills in `present` — the mapper never writes
+  that word. The two are **mutually exclusive**: setting `date` makes RenderCV
+  discard `start_date`/`end_date` silently, so `_apply_period()` is the single
+  place either key is written and `date` is never emitted for these sections.
+  A blank `start` omits both keys rather than emitting a half range.
 - `renderer.py` — compiles in `anyio.to_thread.run_sync` under
   `CV_PDF_RENDER_TIMEOUT_SECONDS`, in a temp directory removed in `finally`.
   The directory is mandatory: RenderCV resolves a custom theme by looking for a
@@ -510,7 +521,9 @@ Optional (with defaults):
   - Identity and contact (`name` label, `full_name`, `headline`, `location`, `email`, optional `phone`) plus a `summary`
   - Seven repeatable sections stored as JSONB arrays, never NULL: `links`, `skills`, `experience`, `projects`, `education`, `certifications`, `languages`
   - `skills` is a list of **categories**, not tags: `{id, category, keywords[]}`. The owner: *"skills isn't simply a section where i put "tags" or just "keywords" it's a section where i can create a category and inside this caregory add keywords"*. There is no `list[str]` back-compat shim — revision `f2a9c1d4b6e8` was amended in place before it ever ran anywhere
-  - `education` is `{id, institution, degree, area?, period?}`; `period` is free text, exactly like `experience.period` — applika parses no dates in a CV
+  - `experience` is `{id, company, company_description?, role, start, end?, location?, bullets[]}` and `education` is `{id, institution, degree, area?, start, end?}`
+  - **`start` is required on both, `end` is optional**, and both are ISO `YYYY-MM` in storage and on the wire (regex `^\d{4}-(0[1-9]|1[0-2])$`). An absent `end` means the entry is current and the PDF prints `present`. A finish earlier than its start is a 422, enforced on the item model so create, PATCH and the tailored-CV copy all refuse it. The owner: *"instead of a bare text input it needs to ask when started and when finished (finish is optional, when empty is counted as Present), it's a date input but only for month and year "MM/yyyy""* — `MM/yyyy` is the **input and display** format and lives in the frontend; ISO is what the API stores, because ISO is what RenderCV's `start_date`/`end_date` take
+  - The free-text `period` both sections used to carry is retired: revision `d3f7b1c9e2a4` renamed the columns to `experience_old` / `education_old` on `base_cvs` and `tailored_cvs` and seeded every migrated item with `start` and `end` of `2026-01`. Nothing was parsed; the original text lives on in the `_old` columns, which no application code and no ORM model touches
   - Section sub-item `id`s are **client-generated strings** preserved round-trip, never minted server-side
   - Read and written whole (a document aggregate), so there are no child tables
 - **TailoredCV**: an application's CV copy — at most one per application

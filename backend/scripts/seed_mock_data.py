@@ -203,7 +203,10 @@ BASE_CVS = [
                 'company': 'Acme Corp',
                 'company_description': 'Payments platform, 300 engineers',
                 'role': 'Senior Backend Engineer',
-                'period': '2021 - 2026',
+                # No 'end': this is the job Alex holds today, so the seeded
+                # data exercises the 'present' path through the PDF as well
+                # as the ordinary closed range below.
+                'start': '2021-03',
                 'location': 'Remote',
                 'bullets': [
                     'Cut p99 latency from 1.2s to 180ms',
@@ -226,7 +229,8 @@ BASE_CVS = [
                 'institution': 'Universidade de Lisboa',
                 'degree': "Bachelor's degree",
                 'area': 'Computer Science',
-                'period': '09/2012 - 07/2016',
+                'start': '2012-09',
+                'end': '2016-07',
             }
         ],
         'certifications': [
@@ -261,7 +265,8 @@ BASE_CVS = [
                 'id': 'exp-2',
                 'company': 'Globex',
                 'role': 'Platform Engineer',
-                'period': '2019 - 2021',
+                'start': '2019-01',
+                'end': '2021-02',
                 'bullets': ['Built the deployment pipeline from scratch'],
             }
         ],
