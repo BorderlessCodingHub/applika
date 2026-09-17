@@ -262,6 +262,35 @@ describe("the tailored CV surface", () => {
     expect(screen.getByRole("status")).toHaveTextContent("finalized");
   });
 
+  it("gives the job description ONE disclosure, the card's own header (10)", async () => {
+    const user = userEvent.setup();
+    render(
+      <Editor
+        jobDescription="We need a backend engineer."
+        onDelete={() => {}}
+      />,
+    );
+
+    // It used to carry a second toggle — a Hide/Show button in the header's
+    // action slot — over the same body the card itself could already fold, so
+    // the two could disagree about what was on screen. Removing the action
+    // slot (criterion 10) left the header as the one control.
+    expect(screen.queryByRole("button", { name: "Hide" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show" })).toBeNull();
+
+    const trigger = screen.getByRole("button", { name: "Job description" });
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("region", { name: "Job description text" }),
+    ).toBeVisible();
+
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("region", { name: "Job description text" }),
+    ).toBeNull();
+  });
+
   it("editor shows source CV deleted, the job description and the delete action", () => {
     render(
       <Editor

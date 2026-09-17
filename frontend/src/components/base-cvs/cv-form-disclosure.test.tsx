@@ -186,16 +186,159 @@ describe("the CV form's section disclosures (AC4, AC7)", () => {
     }
   });
 
-  it("keeps the Add control usable while its section header is a button", async () => {
+  it("keeps the Add control usable, and does not fold the section under it", async () => {
     const user = userEvent.setup();
     render(<Harness />);
 
-    // The Add button is a SIBLING of the trigger, never nested in it, so
-    // pressing it adds a row instead of folding the section away.
     await user.click(screen.getByRole("button", { name: "Add link" }));
 
     expect(sectionTrigger("Links")).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("group", { name: "link 1" })).toBeInTheDocument();
+  });
+});
+
+/* ==========================================================================
+ * Criterion 10 — the add control moved out of the header and into the body.
+ *
+ * The owner: "remove the button to insert a new link/category/etc from the
+ * category header and put inside the colapsable section, preferable bellow
+ * from the last item added".
+ *
+ * Three consequences are the ask itself and are pinned as such: a COLLAPSED
+ * section exposes no add control (there is no duplicate left in the header),
+ * an EMPTY one still offers one, and the header is left with nothing but its
+ * own trigger — which is what lets the WHOLE header be the hit area. The hit
+ * area is geometry, so it is proven in a real browser
+ * (`e2e/cv-builder.spec.ts`); jsdom lays nothing out.
+ * ====================================================================== */
+
+/** The card of one section, by its visible title. */
+function sectionCard(title: string): HTMLElement {
+  const card = sectionTrigger(title).closest('[data-slot="cv-section"]');
+  expect(card, `no card around the ${title} trigger`).not.toBeNull();
+  return card as HTMLElement;
+}
+
+/** The collapsible body of one section. Absent while the section is closed. */
+function sectionBody(title: string): HTMLElement {
+  const body = sectionCard(title).querySelector(
+    '[data-slot="cv-section-content"]',
+  );
+  expect(body, `the ${title} section has no open body`).not.toBeNull();
+  return body as HTMLElement;
+}
+
+/** True when `later` follows `earlier` in document order. */
+function follows(earlier: Element, later: Element): boolean {
+  return Boolean(
+    earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING,
+  );
+}
+
+/** Every add control the CV form owns, one per repeatable section. */
+const ADD_LABELS = [
+  "Add link",
+  "Add category",
+  "Add experience",
+  "Add project",
+  "Add education",
+  "Add certification",
+  "Add language",
+] as const;
+
+describe("the add control lives inside the section, below the last item (10)", () => {
+  it("puts every section's add control inside that section's collapsible body", () => {
+    render(<Harness defaults={values({ experience: TWO_ROLES })} />);
+
+    // Every one of the seven, not only the ones the owner had on screen.
+    for (const label of ADD_LABELS) {
+      const add = screen.getByRole("button", { name: label });
+      expect(
+        add.closest('[data-slot="cv-section-content"]'),
+        `"${label}" is not inside a collapsible section body`,
+      ).not.toBeNull();
+    }
+  });
+
+  it("puts it below the last item of a populated section", () => {
+    render(<Harness defaults={values({ experience: TWO_ROLES })} />);
+
+    const body = sectionBody("Experience");
+    const add = screen.getByRole("button", { name: "Add experience" });
+    expect(body).toContainElement(add);
+
+    const rows = body.querySelectorAll('[data-slot="cv-repeatable-item"]');
+    expect(rows).toHaveLength(2);
+    expect(
+      follows(rows[rows.length - 1], add),
+      "the add control is not below the last row",
+    ).toBe(true);
+  });
+
+  it("puts it below the hint of an empty section", () => {
+    render(<Harness />);
+
+    const body = sectionBody("Links");
+    expect(
+      body.querySelectorAll('[data-slot="cv-repeatable-item"]'),
+    ).toHaveLength(0);
+
+    const hint = within(body).getByText(
+      "No links yet. Add the profiles you want on your CV.",
+    );
+    const add = within(body).getByRole("button", { name: "Add link" });
+    expect(follows(hint, add), "the add control is above the hint").toBe(true);
+  });
+
+  it("keeps a row added later above the add control", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.click(screen.getByRole("button", { name: "Add link" }));
+
+    const body = sectionBody("Links");
+    const rows = body.querySelectorAll('[data-slot="cv-repeatable-item"]');
+    expect(rows).toHaveLength(1);
+    expect(
+      follows(rows[0], screen.getByRole("button", { name: "Add link" })),
+      "the new row landed below the add control",
+    ).toBe(true);
+  });
+
+  it("exposes no add control at all while the section is collapsed", async () => {
+    const user = userEvent.setup();
+    render(<Harness defaults={values({ experience: TWO_ROLES })} />);
+
+    await user.click(sectionTrigger("Experience"));
+    expect(sectionTrigger("Experience")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Add experience" }),
+    ).not.toBeInTheDocument();
+
+    // And nothing was left behind in the header "for convenience": the whole
+    // collapsed card holds exactly one control, its own trigger. That is also
+    // what makes the entire header safe to use as the hit area.
+    const controls = within(sectionCard("Experience")).getAllByRole("button");
+    expect(controls).toHaveLength(1);
+    expect(controls[0]).toBe(sectionTrigger("Experience"));
+  });
+
+  it("brings it back, in the same place, when the section is re-opened", async () => {
+    const user = userEvent.setup();
+    render(<Harness defaults={values({ experience: TWO_ROLES })} />);
+
+    await user.click(sectionTrigger("Experience"));
+    await user.click(sectionTrigger("Experience"));
+
+    const body = sectionBody("Experience");
+    const add = screen.getByRole("button", { name: "Add experience" });
+    const rows = body.querySelectorAll('[data-slot="cv-repeatable-item"]');
+    expect(body).toContainElement(add);
+    expect(follows(rows[rows.length - 1], add)).toBe(true);
   });
 });
 

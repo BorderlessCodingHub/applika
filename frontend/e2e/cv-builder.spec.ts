@@ -1609,3 +1609,284 @@ test("the CV list shows every keyword of every skill category (AC1)", async ({
   });
   expect(clipped).toBeNull();
 });
+
+/* ==========================================================================
+ * KODI-009, round 2 — the owner's three refinements (criteria 10, 11, 12).
+ *
+ * The owner: "remove the button to insert a new link/category/etc from the
+ * category header and put inside the colapsable section, preferable bellow
+ * from the last item added. And align the chevron icons to the center
+ * vercially of the component. One last thing, when I scroll the page the live
+ * preciew creates a gap from the top of the page".
+ *
+ * All three are GEOMETRY, and jsdom reports every height as zero. The
+ * structural half of criterion 10 is pinned in
+ * `src/components/base-cvs/cv-form-disclosure.test.tsx`; what only a real
+ * engine can answer is here.
+ * ====================================================================== */
+
+/** The card of one section, located by its trigger's visible title. */
+function sectionCard(page: Page, title: string) {
+  return page
+    .locator('[data-slot="cv-section"]')
+    .filter({ has: sectionHeader(page, title) });
+}
+
+test("the whole section header toggles it, and a collapsed section offers no add control (10)", async ({
+  page,
+  request,
+}) => {
+  const cvId = await seedBulkyBaseCv(request, 2);
+
+  await loginAs(page, "user");
+  await openSettledEditor(page, cvId);
+
+  const trigger = sectionHeader(page, "Experience");
+  const add = page.getByRole("button", { name: "Add experience" });
+
+  // ---- the add control is INSIDE the collapsible body -------------------
+  const content = sectionCard(page, "Experience").locator(
+    '[data-slot="cv-section-content"]',
+  );
+  await expect(
+    content.getByRole("button", { name: "Add experience" }),
+  ).toBeVisible();
+
+  // ---- and geometrically BELOW the last row ----------------------------
+  const lastRow = sectionCard(page, "Experience")
+    .locator('[data-slot="cv-repeatable-item"]')
+    .last();
+  const rowBox = await lastRow.boundingBox();
+  const addBox = await add.boundingBox();
+  expect(rowBox && addBox).toBeTruthy();
+  expect(
+    addBox!.y,
+    `the add control is not below the last row: ${JSON.stringify({ rowBox, addBox })}`,
+  ).toBeGreaterThanOrEqual(rowBox!.y + rowBox!.height);
+
+  // ---- the WHOLE header is the hit area --------------------------------
+  // Pressed at its far RIGHT edge, over the chevron — a point that belonged
+  // to the Add button before this change and to nothing at all after it.
+  // `page.mouse` works in VIEWPORT coordinates and does not auto-scroll, so
+  // the header has to be on screen before its box means anything.
+  const header = sectionCard(page, "Experience").locator(
+    '[data-slot="cv-section-header"]',
+  );
+  await header.scrollIntoViewIfNeeded();
+  const headerBox = await header.boundingBox();
+  expect(headerBox).toBeTruthy();
+  await page.mouse.click(
+    headerBox!.x + headerBox!.width - 12,
+    headerBox!.y + headerBox!.height / 2,
+  );
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+  // ---- collapsed: no add control anywhere in the card -------------------
+  await expect(add).toHaveCount(0);
+  await expect(
+    sectionCard(page, "Experience").getByRole("button"),
+    "a collapsed section still exposes a control other than its own trigger",
+  ).toHaveCount(1);
+
+  // Re-open from the far LEFT of the header, over the icon tile. Collapsing
+  // shortened the column, so the header moved: measure it again.
+  await header.scrollIntoViewIfNeeded();
+  const reopenBox = (await header.boundingBox())!;
+  await page.mouse.click(reopenBox.x + 12, reopenBox.y + reopenBox.height / 2);
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await expect(add).toBeVisible();
+
+  // ---- an EMPTY section still offers one, below its hint ---------------
+  const emptyHint = page.getByText("No projects yet.");
+  await emptyHint.scrollIntoViewIfNeeded();
+  await expect(emptyHint).toBeVisible();
+  const addProject = page.getByRole("button", { name: "Add project" });
+  const hintBox = await emptyHint.boundingBox();
+  const addProjectBox = await addProject.boundingBox();
+  expect(addProjectBox!.y).toBeGreaterThanOrEqual(hintBox!.y + hintBox!.height);
+
+  // And it still adds: the control works where it now lives.
+  await addProject.click();
+  await expect(page.getByRole("group", { name: "project 1" })).toBeVisible();
+});
+
+test("every chevron sits on the vertical centre of its own header (11)", async ({
+  page,
+  request,
+}) => {
+  // The owner: "align the chevron icons to the center vercially of the
+  // component". The header is two lines (title plus description), so
+  // `items-start` pinned the chevron to the top of the first line. This
+  // measures the icon's centre against the header's, in pixels.
+  const cvId = await seedBulkyBaseCv(request, 2);
+
+  await loginAs(page, "user");
+  await openSettledEditor(page, cvId);
+
+  const offsets = await page.evaluate(() => {
+    const out: Array<{
+      title: string;
+      off: number;
+      headerHeight: number;
+    }> = [];
+    for (const header of document.querySelectorAll(
+      '[data-slot="cv-section-header"]',
+    )) {
+      const trigger = header.querySelector('[data-slot="cv-section-trigger"]');
+      // The chevron is the header's own direct child, not the trigger's.
+      const icon = header.querySelector(":scope > svg");
+      if (!trigger || !icon) continue;
+      const h = header.getBoundingClientRect();
+      const i = icon.getBoundingClientRect();
+      out.push({
+        title: (trigger.textContent ?? "").trim(),
+        off: Math.abs(i.top + i.height / 2 - (h.top + h.height / 2)),
+        headerHeight: Math.round(h.height),
+      });
+    }
+    return out;
+  });
+
+  expect(offsets.length, "no section chevrons found").toBe(
+    FORM_SECTIONS.length,
+  );
+  for (const entry of offsets) {
+    // Two-line headers really are two lines — otherwise centring is trivial.
+    expect(
+      entry.headerHeight,
+      `${entry.title} has a one-line header, so this proves nothing`,
+    ).toBeGreaterThan(56);
+    expect(
+      entry.off,
+      `${entry.title}: chevron is ${entry.off.toFixed(1)}px off the header's centre`,
+    ).toBeLessThanOrEqual(1);
+  }
+
+  // The Experience ROW triggers carry a chevron too, on a one-line header.
+  const rowOffsets = await page.evaluate(() => {
+    const out: number[] = [];
+    for (const trigger of document.querySelectorAll(
+      '[data-slot="cv-item-trigger"]',
+    )) {
+      const row = trigger.parentElement!;
+      const icon = trigger.querySelector("svg")!;
+      const r = row.getBoundingClientRect();
+      const i = icon.getBoundingClientRect();
+      out.push(Math.abs(i.top + i.height / 2 - (r.top + r.height / 2)));
+    }
+    return out;
+  });
+  expect(rowOffsets.length).toBe(2);
+  for (const off of rowOffsets) {
+    expect(
+      off,
+      `a row chevron is ${off.toFixed(1)}px off centre`,
+    ).toBeLessThanOrEqual(1);
+  }
+
+  console.log(`[KODI-009] chevron offsets — ${JSON.stringify(offsets)}`);
+});
+
+/** Where the preview sits relative to the TOP of the shell's scrollport. */
+async function previewGapReport(page: Page) {
+  return page.evaluate(() => {
+    const main = document.querySelector("main")!;
+    const aside = document.querySelector<HTMLElement>(
+      'aside[aria-label="CV preview"]',
+    )!;
+    const sheet = aside.querySelector('[data-slot="cv-page"]')!;
+    const form = document.querySelector<HTMLElement>(
+      '[data-slot="cv-section"]',
+    )!;
+    const m = main.getBoundingClientRect();
+    const round = (n: number) => Math.round(n);
+    return {
+      scrollTop: round(main.scrollTop),
+      scrollportHeight: main.clientHeight,
+      // The band of nothing above the first A4 sheet — the owner's complaint.
+      sheetGap: round(sheet.getBoundingClientRect().top - m.top),
+      asideGap: round(aside.getBoundingClientRect().top - m.top),
+      asideHeight: round(aside.getBoundingClientRect().height),
+      formGap: round(form.getBoundingClientRect().top - m.top),
+      docDelta:
+        document.documentElement.scrollHeight -
+        document.documentElement.clientHeight,
+    };
+  });
+}
+
+test("the live preview does not gap from the top of the page as it scrolls (12)", async ({
+  page,
+  request,
+}) => {
+  // The owner: "when I scroll the page the live preciew creates a gap from the
+  // top of the page".
+  //
+  // ROOT CAUSE, measured: the pane was stuck at `md:top-20` inside `main` —
+  // but `main` IS the scrollport and the shell `Header` is its SIBLING, above
+  // it, so that 5rem cleared nothing and was dead band; and the pane's own cap
+  // was `calc(100dvh - cookie - 12rem)`, measuring the VIEWPORT while living
+  // in a scrollport one header shorter, with `12rem` the hand-tuned lump that
+  // hid the difference. The first sheet sat 104px below the top of the
+  // scrollport at every scroll position while the form column ran to 0.
+  //
+  // The assertion is the owner's own test: scroll, then look at the top.
+  const cvId = await seedBulkyBaseCv(request, 12);
+
+  await loginAs(page, "user");
+  await openSettledEditor(page, cvId);
+
+  const at: Record<string, Awaited<ReturnType<typeof previewGapReport>>> = {};
+  for (const top of [0, 400, 1000, 2500]) {
+    await page.evaluate((t) => {
+      document.querySelector("main")!.scrollTop = t;
+    }, top);
+    await page.waitForTimeout(200);
+    at[`scroll_${top}`] = await previewGapReport(page);
+  }
+
+  // The three positions past the page heading, where the pane is really stuck.
+  const scrolled = [at.scroll_400, at.scroll_1000, at.scroll_2500];
+
+  // 1. The form column really does reach the top of the scrollport once
+  //    scrolled — otherwise "a gap above the preview" means nothing.
+  for (const report of scrolled) {
+    expect(report.formGap).toBeLessThanOrEqual(0);
+  }
+
+  // 2. The gap above the first sheet does not GROW as the page scrolls, and
+  //    never exceeds the pane's own visible chrome. 32px is the "Live
+  //    preview" label plus its gap with room to spare; the old layout sat at
+  //    104px and could not pass this.
+  for (const report of scrolled) {
+    expect(
+      report.sheetGap,
+      `the preview gaps from the top of the page: ${JSON.stringify(report)}`,
+    ).toBeLessThanOrEqual(32);
+  }
+  expect(
+    Math.max(...scrolled.map((r) => r.sheetGap)) -
+      Math.min(...scrolled.map((r) => r.sheetGap)),
+    "the gap moves while scrolling",
+  ).toBeLessThanOrEqual(1);
+
+  // 3. The pane is stuck to the top of the scrollport itself, and is sized
+  //    from the SCROLLPORT rather than from the viewport: no slack, no
+  //    overflow.
+  for (const report of scrolled) {
+    expect(report.asideGap).toBe(0);
+    expect(
+      Math.abs(report.asideHeight - report.scrollportHeight),
+      `the pane is not the height of the scrollport: ${JSON.stringify(report)}`,
+    ).toBeLessThanOrEqual(1);
+  }
+
+  // 4. And none of it gave the page a scrollbar back (KODI-006 AC7).
+  for (const key of Object.keys(at)) {
+    expect(at[key].docDelta, `${key} scrolls the document`).toBeLessThanOrEqual(
+      1,
+    );
+  }
+
+  console.log(`[KODI-009] preview top gap — ${JSON.stringify(at)}`);
+});
