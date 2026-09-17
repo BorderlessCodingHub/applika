@@ -85,10 +85,12 @@ export function CvEditorPage() {
     onSuccess: () => router.push("/cvs"),
   });
 
+  // One instance, the CV named at press time (KODI-009 moved the id and the
+  // name onto the mutation variables so `/cvs` can export any of its tiles).
   // Named from the SERVER's copy of the CV, never from the form: the fallback
   // filename has to match the document the server renders, not the unsaved
   // edits on screen.
-  const exportMutation = useExportBaseCvPdf(id ?? "", cv?.name ?? "");
+  const exportMutation = useExportBaseCvPdf();
 
   return (
     <div className="space-y-6">
@@ -146,7 +148,9 @@ export function CvEditorPage() {
           isSubmitting={updateMutation.isPending}
           actions={
             <ExportCvButton
-              onExport={() => exportMutation.mutate()}
+              onExport={() =>
+                exportMutation.mutate({ id: id ?? "", name: cv?.name ?? "" })
+              }
               isExporting={exportMutation.isPending}
             />
           }

@@ -29,6 +29,14 @@ export interface BaseCvListProps {
   onDelete: (cv: BaseCv) => void;
   /** Id of the CV whose delete is in flight. */
   deletingId?: string | null;
+  /**
+   * Asks the server for one CV's PDF. The page owns the request and the
+   * errors. Optional ONLY so a surface with no export route can mount the
+   * gallery; `/cvs` must pass it — the download is acceptance criterion 2.
+   */
+  onExport?: (cv: BaseCv) => void;
+  /** Id of the CV whose PDF render is in flight. */
+  exportingId?: string | null;
   max?: number;
   /** Overrides the on-screen reason on the disabled create tile. */
   limitReason?: string;
@@ -49,6 +57,8 @@ export function BaseCvList({
   newHref,
   onDelete,
   deletingId,
+  onExport,
+  exportingId,
   max = BASE_CVS_MAX,
   limitReason,
   className,
@@ -133,6 +143,8 @@ export function BaseCvList({
           href={editHref(cv)}
           onDelete={() => onDelete(cv)}
           isDeleting={deletingId === cv.id}
+          onExport={onExport ? () => onExport(cv) : undefined}
+          isExporting={exportingId === cv.id}
         />
       ))}
       <NewCvCard
