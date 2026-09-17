@@ -38,6 +38,7 @@ When you add or modify any of the following, update the seed script accordingly:
 - New endpoints the seed script should exercise to keep coverage complete
 - Changes to authentication (cookie name, token format)
 - New or changed fields on `POST /base-cvs` — `seed_base_cvs()` creates 3 master CVs and asserts the 4th is refused with 409
+- New or changed behaviour on the `/pdf` export routes — `seed_cv_pdfs()` posts to both at the end of the run and checks the bytes start with `%PDF-`
 - New or changed fields on `/applications/{id}/cv` — `seed_application_cv()` gives roughly half the applications a CV copy and runs the full create → read → update → delete → recreate round trip on the first one, asserting the 2nd copy is refused with 409
 
 After any such change, mentally walk through the seed script from top to bottom and confirm it would still run without errors against a fresh database.
@@ -192,9 +193,37 @@ Domain exceptions in `app/core/exceptions.py`:
 - `BusinessRuleViolation` → 422
 - `InvalidDate` → 422
 - `ForbiddenAccess` → 403
+- `PdfRenderFailed` → 500
 - `NotImplementedError` → 501
 
 Handlers registered in `app/presentation/handlers.py` via `register_handlers(app)`.
+
+### CV PDF Rendering
+
+`app/application/services/cv_rendering/` turns a stored CV document — a master
+CV or an application's copy — into PDF bytes with **RenderCV 2.8 + Typst**
+(`rendercv[full]==2.8`, pinned; the `full` extra is what pulls `typst` and
+`rendercv-fonts`). All wheels, no system packages, no Dockerfile change.
+
+- `mapper.py` — a pure `document → RenderCV dict/YAML` map. An empty section is
+  omitted, never printed blank. It also defuses the three ways ordinary stored
+  data would otherwise 500: an email or phone RenderCV refuses is dropped from
+  the header instead of aborting the render, a link that is not one of
+  RenderCV's known social networks falls back to a Links entry, and `#word` —
+  which RenderCV reads as a *Typst command* — is rewritten to `#sym.hash`.
+- `renderer.py` — compiles in `anyio.to_thread.run_sync` under
+  `CV_PDF_RENDER_TIMEOUT_SECONDS`, in a temp directory removed in `finally`.
+  The directory is mandatory: RenderCV resolves a custom theme by looking for a
+  folder named after it **next to the input YAML**, so every render gets its own
+  copy of `themes/applika/`. Failure or timeout → `PdfRenderFailed`, with a
+  fixed message — RenderCV's own errors quote the CV field that upset them.
+- `themes/applika/` — the one theme, `ApplikaTheme(ClassicTheme)` plus four
+  `.j2.typ` templates, vendored from the owner's own theme and renamed
+  `custom` → `applika`. Every design token is an overridden field default, so
+  the generated YAML only ever says `design: {theme: applika}`. The user does
+  not choose a theme. `themes/applika/__init__.py` is loaded by RenderCV via
+  `importlib.util.spec_from_file_location`, outside the `app` package — its
+  imports must stay absolute and must never reach into `app`.
 
 ### The Tailoring Port
 `TailoringService` (`app/application/services/tailoring.py`) is a `Protocol`
@@ -325,6 +354,29 @@ every route authorizes against the **application's** owner, and POST
 additionally authorizes the source master CV on its own. Another user's row is
 a 404, for admins too.
 
+### CV PDF export
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| POST | `/base-cvs/{id}/pdf` | Yes | Download the master CV as a PDF |
+| POST | `/applications/{id}/cv/pdf` | Yes | Download the application's CV copy as a PDF |
+
+Both return `application/pdf` with
+`Content-Disposition: attachment; filename="<slug>.pdf"`, where `<slug>` comes
+from the row's `name` (the CV **label**, not the person): lowercased, every run
+of non-`[a-z0-9]` collapsed to one `-`, trimmed, `cv` when nothing is left. The
+`Content-Disposition` header is in `expose_headers` on the CORS middleware, or
+the browser could not read the filename.
+
+`POST`, not `GET`: the server does a real Typst compile. There is **no request
+body and no theme parameter** — the look is fixed. A row that does not exist or
+is not owned is a 404; a failed or timed-out render is a
+`PdfRenderFailed` → 500. Neither route writes anything.
+
+Unlike every write on `/applications/{id}/cv`, the export carries **no**
+finalized or archived guard — the CV of a finished application is exactly the
+one a user wants to download.
+
 ### Support Data (`/supports`)
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
@@ -367,6 +419,7 @@ Optional (with defaults):
 - `REFRESH_TOKEN_EXPIRE_DAYS`: Refresh token TTL in days (default: 7)
 - `REDIS_URL`: Redis connection URL (default: redis://localhost:6379/0)
 - `GITHUB_CACHE_TTL_SECONDS`: Redis cache TTL for GitHub API checks (default: 600)
+- `CV_PDF_RENDER_TIMEOUT_SECONDS`: wall-clock ceiling for one CV PDF render (default: 30); past it the request is a 500
 - `GITHUB_TOKEN_ENCRYPTION_KEY`: Fernet key for encrypting GitHub tokens (generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
 - `DISCORD_REPORTS_ORGANIZATION`: GitHub org name; only org members get reports posted to Discord
 - `DISCORD_REPORTS_WEBHOOK`: Discord webhook for biweekly reports

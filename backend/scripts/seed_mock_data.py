@@ -376,6 +376,49 @@ def seed_application_cv(
     return True
 
 
+def seed_cv_pdfs(
+    client: httpx.Client,
+    base_cv_id: str | None,
+    application_id: str | None,
+) -> None:
+    """Exercise both PDF export routes and check what came back is a PDF.
+
+    Run at the very end, after the applications have been finalized: the copy
+    of a finalized application must still export, and this is the cheapest
+    place to notice if that ever stops being true.
+    """
+    print('\nExporting CV PDFs...')
+    targets = [
+        ('master CV', f'/base-cvs/{base_cv_id}/pdf' if base_cv_id else None),
+        (
+            "application's CV copy",
+            f'/applications/{application_id}/cv/pdf'
+            if application_id
+            else None,
+        ),
+    ]
+    for label, url in targets:
+        if url is None:
+            print(f'  Skipped the {label}: nothing to export')
+            continue
+        resp = client.post(url)
+        if resp.status_code != 200:
+            print(
+                f'  Failed to export the {label}: '
+                f'{resp.status_code} {resp.text}'
+            )
+            continue
+        content_type = resp.headers.get('content-type')
+        disposition = resp.headers.get('content-disposition')
+        if not resp.content.startswith(b'%PDF-'):
+            print(f'  WARNING: the {label} export is not a PDF')
+            continue
+        print(
+            f'  {label}: {len(resp.content)} bytes, {content_type}, '
+            f'{disposition}'
+        )
+
+
 def random_date(start: date, end: date) -> date:
     delta = (end - start).days
     return start + timedelta(days=random.randint(0, delta))
@@ -436,6 +479,10 @@ def main():
 
         # ----- Master CVs -----
         base_cv_ids = seed_base_cvs(client)
+
+        # The first application to keep a CV copy is the one the PDF export
+        # is exercised against, once everything else has run.
+        pdf_application_id: str | None = None
 
         # company_id_cache maps company name → ID returned from the API
         # so the same company is reused across applications instead of
@@ -548,6 +595,8 @@ def main():
                 client, app_id, base_cv_ids, full_cycle=(cv_copies == 0)
             ):
                 cv_copies += 1
+                if pdf_application_id is None:
+                    pdf_application_id = app_id
 
             # ----- Add 3-5 steps -----
             num_steps = random.randint(3, 5)
@@ -630,6 +679,12 @@ def main():
         print(f'In progress: {created - finalized_count}')
         print(f'Master CVs created: {len(base_cv_ids)}')
         print(f'Application CV copies created: {cv_copies}')
+
+        seed_cv_pdfs(
+            client,
+            base_cv_ids[0] if base_cv_ids else None,
+            pdf_application_id,
+        )
 
 
 if __name__ == '__main__':
