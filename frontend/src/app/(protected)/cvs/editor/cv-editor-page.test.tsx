@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -56,7 +56,18 @@ const SAVED_CV: BaseCv = {
   phone: "+44 20 7946 0958",
   summary: "Eight years on payment systems.",
   links: [{ id: "l-1", label: "GitHub", url: "https://github.com/ada" }],
-  skills: ["Python"],
+  skills: [
+    { id: "s-1", category: "Languages and frameworks", keywords: ["Python"] },
+  ],
+  education: [
+    {
+      id: "d-1",
+      institution: "University of Edinburgh",
+      degree: "BSc",
+      area: "Computer Science",
+      period: "2010 — 2013",
+    },
+  ],
   experience: [
     {
       id: "e-1",
@@ -129,7 +140,24 @@ describe("CvEditorPage", () => {
     expect(await screen.findByLabelText("CV label")).toHaveValue("Backend CV");
     expect(screen.getByLabelText("Full name")).toHaveValue("Ada Lovelace");
     expect(screen.getByLabelText("Phone")).toHaveValue("+44 20 7946 0958");
-    expect(screen.getByLabelText("Add a skill")).toBeInTheDocument();
+    // Skills load as CATEGORIES with their keywords, and education loads too.
+    const category = within(screen.getByRole("group", { name: "category 1" }));
+    expect(category.getByLabelText("Category")).toHaveValue(
+      "Languages and frameworks",
+    );
+    expect(
+      category.getByRole("button", { name: "Rename Python" }),
+    ).toBeInTheDocument();
+
+    const qualification = within(
+      screen.getByRole("group", { name: "education 1" }),
+    );
+    expect(qualification.getByLabelText("Institution")).toHaveValue(
+      "University of Edinburgh",
+    );
+    expect(qualification.getByLabelText("Field of study")).toHaveValue(
+      "Computer Science",
+    );
   });
 
   it("saves the change back and keeps every section item id", async () => {

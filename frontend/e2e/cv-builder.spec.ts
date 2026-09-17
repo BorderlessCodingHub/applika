@@ -36,6 +36,9 @@ const ROLE = "E2E Backend Engineer";
 const JOB_DESCRIPTION =
   "We need someone who has run Postgres in anger and can talk about it.";
 
+const SKILL_CATEGORY = "Languages and frameworks";
+const INSTITUTION = "E2E University";
+
 const COOKIE_NOTICE = '[role="dialog"][aria-label="Cookie notice"]';
 
 function apiHeaders() {
@@ -79,6 +82,7 @@ async function seedBaseCv(
       skills: [],
       experience: [],
       projects: [],
+      education: [],
       certifications: [],
       languages: [],
     },
@@ -270,8 +274,31 @@ test("a master CV can be created, listed, edited and deleted", async ({
   await expect(page).toHaveURL(/\/cvs\/new/);
 
   await fillRequired(page, CV_NAME);
-  await page.getByLabel("Add a skill").fill("Python");
-  await page.getByLabel("Add a skill").press("Enter");
+  // Skills are CATEGORIES with keywords inside them, not a flat tag list.
+  await page.getByRole("button", { name: "Add category" }).click();
+  const category = page.getByRole("group", { name: "category 1" });
+  await category.getByLabel("Category", { exact: true }).fill(SKILL_CATEGORY);
+  await category
+    .getByLabel(`Add a keyword to ${SKILL_CATEGORY}`)
+    .fill("Python");
+  await category
+    .getByLabel(`Add a keyword to ${SKILL_CATEGORY}`)
+    .press("Enter");
+  await category.getByLabel(`Add a keyword to ${SKILL_CATEGORY}`).fill("Go");
+  await category
+    .getByLabel(`Add a keyword to ${SKILL_CATEGORY}`)
+    .press("Enter");
+
+  await page.getByRole("button", { name: "Add education" }).click();
+  const qualification = page.getByRole("group", { name: "education 1" });
+  await qualification
+    .getByLabel("Institution", { exact: true })
+    .fill(INSTITUTION);
+  await qualification.getByLabel("Degree", { exact: true }).fill("BSc");
+  await qualification
+    .getByLabel("Field of study", { exact: true })
+    .fill("Computer Science");
+  await qualification.getByLabel("Period", { exact: true }).fill("2010 — 2013");
 
   await page.getByRole("button", { name: "Add experience" }).click();
   const role = page.getByRole("group", { name: "experience 1" });
@@ -313,6 +340,34 @@ test("a master CV can be created, listed, edited and deleted", async ({
     savedRole.getByLabel("Highlight 1", { exact: true }),
   ).toHaveValue("Cut settlement latency by 40%");
 
+  // The categories and their keywords survive the round trip, and so does the
+  // education section the owner never asked to have cut.
+  const savedCategory = page.getByRole("group", { name: "category 1" });
+  await expect(
+    savedCategory.getByLabel("Category", { exact: true }),
+  ).toHaveValue(SKILL_CATEGORY);
+  await expect(
+    savedCategory.getByRole("button", { name: "Rename Python" }),
+  ).toBeVisible();
+  await expect(
+    savedCategory.getByRole("button", { name: "Rename Go" }),
+  ).toBeVisible();
+
+  const savedQualification = page.getByRole("group", { name: "education 1" });
+  await expect(
+    savedQualification.getByLabel("Institution", { exact: true }),
+  ).toHaveValue(INSTITUTION);
+  await expect(
+    savedQualification.getByLabel("Field of study", { exact: true }),
+  ).toHaveValue("Computer Science");
+
+  // And the live preview prints them the way the PDF does: a bold category
+  // line, then its keywords joined by a middle dot.
+  const preview = page.locator('[data-slot="cv-document"]');
+  await expect(preview.getByText(`${SKILL_CATEGORY}:`)).toBeVisible();
+  await expect(preview.getByText("Python \u00b7 Go")).toBeVisible();
+  await expect(preview.getByText("BSc in Computer Science")).toBeVisible();
+
   await label.fill(CV_RENAMED);
   await page.getByRole("button", { name: "Save changes" }).click();
 
@@ -330,6 +385,126 @@ test("a master CV can be created, listed, edited and deleted", async ({
   await expect(
     page.getByRole("heading", { name: "No master CVs yet" }),
   ).toBeVisible();
+});
+
+/** What the document is scrolling, measured in the real browser. */
+async function scrollReport(page: Page) {
+  return page.evaluate(() => {
+    const doc = document.documentElement;
+    const main = document.querySelector("main");
+    return {
+      innerHeight: window.innerHeight,
+      documentScrollHeight: doc.scrollHeight,
+      documentClientHeight: doc.clientHeight,
+      mainScrollHeight: main?.scrollHeight ?? 0,
+      mainClientHeight: main?.clientHeight ?? 0,
+    };
+  });
+}
+
+test("creating a master CV scrolls the editor, never the whole page (AC7)", async ({
+  page,
+}) => {
+  // The owner: "When creating a new master CV, remove the page scroll".
+  //
+  // The cause was not the editor's height. Radix `Select` renders a visually
+  // hidden native `<select>` at `position: absolute` beside every trigger —
+  // the "Level" control of a language row. With no positioned ancestor its
+  // containing block was the initial containing block, so no `overflow:
+  // hidden` clipped it and it stretched `<html>` to roughly four viewports.
+  // `/cvs/new` with no language row therefore looked fine and grew a second
+  // scrollbar the moment a language was added, which is exactly when the
+  // owner saw it.
+  await loginAs(page, "user");
+  await page.goto("/cvs/new");
+  await expect(page.getByLabel("CV label", { exact: true })).toBeVisible();
+
+  const before = await scrollReport(page);
+  expect(
+    before.documentScrollHeight - before.documentClientHeight,
+    `the page scrolls before any Select is mounted: ${JSON.stringify(before)}`,
+  ).toBeLessThanOrEqual(1);
+
+  // Add the language row, and with it the Select that used to do the damage.
+  await page.getByRole("button", { name: "Add language" }).click();
+  const language = page.getByRole("group", { name: "language 1" });
+  await language.getByLabel("Language", { exact: true }).fill("English");
+  await expect(language.getByRole("combobox", { name: "Level" })).toBeVisible();
+
+  const after = await scrollReport(page);
+  expect(
+    after.documentScrollHeight - after.documentClientHeight,
+    `adding a language grew the page: ${JSON.stringify(after)}`,
+  ).toBeLessThanOrEqual(1);
+  expect(after.documentScrollHeight).toBeLessThanOrEqual(after.innerHeight + 1);
+
+  // The form is far taller than the viewport, so SOMETHING has to scroll —
+  // the editor's own region, which is the whole point of the criterion.
+  expect(after.mainScrollHeight).toBeGreaterThan(after.mainClientHeight);
+
+  // And the same holds on the EDIT route, which mounts the same controls.
+  await fillRequired(page, "E2E scroll CV");
+  await page.getByRole("button", { name: "Create CV" }).click();
+  await expect(page).toHaveURL(/\/cvs$/);
+  await page.getByRole("link", { name: "Edit E2E scroll CV" }).click();
+  await expect(page).toHaveURL(/\/cvs\/editor\?id=/);
+  await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+    "E2E scroll CV",
+  );
+
+  const edit = await scrollReport(page);
+  expect(
+    edit.documentScrollHeight - edit.documentClientHeight,
+    `the edit route scrolls the page: ${JSON.stringify(edit)}`,
+  ).toBeLessThanOrEqual(1);
+});
+
+test("the live preview left-aligns languages at any count (AC6)", async ({
+  page,
+}) => {
+  // The owner: "during live preview of the CV, the languages is alignes to
+  // the center when I have only one languages or two, but when i download the
+  // file as pdf, the languages is aligned to the left … fix the live preview
+  // to align to the left as well and remove the dots in live preview only
+  // display the language name and the level."
+  //
+  // Only a real browser has the geometry to prove it, so this is measured,
+  // not asserted on a class.
+  await loginAs(page, "user");
+  await page.goto("/cvs/new");
+  await fillRequired(page, "E2E languages CV");
+
+  const preview = page.locator('[data-slot="cv-document"]');
+  const list = preview.getByRole("list").filter({ hasText: "English" });
+
+  for (const [index, name] of ["English", "Portuguese"].entries()) {
+    await page.getByRole("button", { name: "Add language" }).click();
+    await page
+      .getByRole("group", { name: `language ${index + 1}` })
+      .getByLabel("Language", { exact: true })
+      .fill(name);
+
+    await expect(preview.getByText(name, { exact: true })).toBeVisible();
+
+    const listBox = await list.boundingBox();
+    const firstEntry = await list.getByRole("listitem").first().boundingBox();
+    expect(listBox, "the languages list is not laid out").not.toBeNull();
+    expect(firstEntry, "the first language has no box").not.toBeNull();
+
+    // Hard left: the first entry starts at the list's own left edge, whether
+    // there is one language or two. `justify-around` put it in the middle.
+    expect(
+      firstEntry!.x - listBox!.x,
+      `${index + 1} language(s) are not left-aligned`,
+    ).toBeLessThanOrEqual(2);
+  }
+
+  // Name and level, and no separator dot of any kind.
+  const languagesText = (await list.textContent()) ?? "";
+  expect(languagesText).toContain("English");
+  expect(languagesText).toContain("Proficient");
+  expect(languagesText).not.toContain("\u00b7");
+  expect(languagesText).not.toContain("\u2022");
 });
 
 test("at three master CVs the create affordance is disabled and says why", async ({

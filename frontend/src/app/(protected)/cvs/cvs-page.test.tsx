@@ -46,6 +46,7 @@ function cv(id: string, name: string): BaseCv {
     summary: "Summary.",
     links: [],
     skills: [],
+    education: [],
     experience: [],
     projects: [],
     certifications: [],

@@ -59,7 +59,10 @@ const COPY = {
   phone: null,
   summary: "Eight years on payment systems.",
   links: [],
-  skills: ["Python"],
+  skills: [
+    { id: "s-1", category: "Languages and frameworks", keywords: ["Python"] },
+  ],
+  education: [],
   experience: [],
   projects: [],
   certifications: [],
@@ -77,7 +80,10 @@ const WRITABLE: UpdateTailoredCvPayload = {
   phone: null,
   summary: "Tailored to the posting.",
   links: [],
-  skills: ["Python"],
+  skills: [
+    { id: "s-1", category: "Languages and frameworks", keywords: ["Python"] },
+  ],
+  education: [],
   experience: [],
   projects: [],
   certifications: [],

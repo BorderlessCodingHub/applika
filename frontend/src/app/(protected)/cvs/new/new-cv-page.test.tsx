@@ -77,7 +77,17 @@ describe("NewCvPage", () => {
     renderPage();
 
     await fillRequired(user);
-    await user.type(screen.getByLabelText("Add a skill"), "Python{Enter}");
+    // Skills are CATEGORIES with keywords inside, not a flat tag list.
+    await user.click(screen.getByRole("button", { name: "Add category" }));
+    const category = within(screen.getByRole("group", { name: "category 1" }));
+    await user.type(
+      category.getByLabelText("Category"),
+      "Languages and frameworks",
+    );
+    await user.type(
+      category.getByLabelText("Add a keyword to Languages and frameworks"),
+      "Python{Enter}",
+    );
     // "Highlight" is the UI's word for what the wire calls `bullets`; a
     // mis-wired input would otherwise pass the whole suite.
     await user.click(screen.getByRole("button", { name: "Add experience" }));
@@ -112,9 +122,16 @@ describe("NewCvPage", () => {
       phone: null,
       location: "London",
       summary: "Eight years on payments.",
-      skills: ["Python"],
+      skills: [
+        {
+          id: expect.any(String),
+          category: "Languages and frameworks",
+          keywords: ["Python"],
+        },
+      ],
       links: [],
       projects: [],
+      education: [],
       languages: [],
     });
     expect(createMock.mock.calls[0][0].experience).toEqual([

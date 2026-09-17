@@ -106,7 +106,10 @@ const MASTER_CVS: BaseCv[] = [
     phone: null,
     summary: "Eight years on payment systems.",
     links: [],
-    skills: ["Python"],
+    skills: [
+      { id: "s-1", category: "Languages and frameworks", keywords: ["Python"] },
+    ],
+    education: [],
     experience: [],
     projects: [],
     certifications: [],
@@ -125,6 +128,7 @@ const MASTER_CVS: BaseCv[] = [
     summary: "Also does React.",
     links: [],
     skills: [],
+    education: [],
     experience: [],
     projects: [],
     certifications: [],
@@ -149,7 +153,13 @@ const COPY: TailoredCv = {
   phone: "+44 20 7946 0958",
   summary: "Eight years on payment systems.",
   links: [{ id: "l-1", label: "GitHub", url: "https://github.com/ada" }],
-  skills: ["Python", "Postgres"],
+  skills: [
+    {
+      id: "s-1",
+      category: "Languages and frameworks",
+      keywords: ["Python", "Postgres"],
+    },
+  ],
   experience: [
     {
       id: "e-1",
@@ -161,6 +171,15 @@ const COPY: TailoredCv = {
   ],
   projects: [
     { id: "p-1", name: "Ledger", description: "Double-entry ledger." },
+  ],
+  education: [
+    {
+      id: "d-1",
+      institution: "University of Edinburgh",
+      degree: "BSc",
+      area: "Computer Science",
+      period: "2010 — 2013",
+    },
   ],
   certifications: [{ id: "k-1", name: "AWS SAA", issuer: "Amazon" }],
   languages: [{ id: "g-1", name: "English", level: "Native" }],
@@ -272,7 +291,14 @@ describe("ApplicationCvPage", () => {
     expect(payload.name).toBe("Backend CV, tailored");
     // Every section survives the round trip, ids included.
     expect(payload.links[0].id).toBe("l-1");
-    expect(payload.skills).toEqual(["Python", "Postgres"]);
+    expect(payload.skills).toEqual([
+      {
+        id: "s-1",
+        category: "Languages and frameworks",
+        keywords: ["Python", "Postgres"],
+      },
+    ]);
+    expect(payload.education[0].id).toBe("d-1");
     expect(payload.experience[0].id).toBe("e-1");
     expect(payload.experience[0].bullets).toEqual([
       "Cut settlement latency by 40%",

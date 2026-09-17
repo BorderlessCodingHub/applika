@@ -45,7 +45,13 @@ const SAVED_CV: BaseCv = {
   phone: null,
   summary: "Backend engineer with eight years on payment systems.",
   links: [{ id: "l-1", label: "GitHub", url: "https://github.com/ada" }],
-  skills: ["Python", "PostgreSQL"],
+  skills: [
+    {
+      id: "s-1",
+      category: "Languages and frameworks",
+      keywords: ["Python", "PostgreSQL"],
+    },
+  ],
   experience: [
     {
       id: "e-1",
@@ -64,6 +70,15 @@ const SAVED_CV: BaseCv = {
       description: "A mechanical computer, in Rust.",
       link: "https://example.com/de",
       link_label: "Live demo",
+    },
+  ],
+  education: [
+    {
+      id: "d-1",
+      institution: "University of Edinburgh",
+      degree: "BSc",
+      area: "Computer Science",
+      period: "2010 — 2013",
     },
   ],
   certifications: [
@@ -117,18 +132,25 @@ function Harness({
 }
 
 describe("baseCvSchema", () => {
-  it("accepts a CV carrying all seven sections", () => {
-    // summary + links + skills + experience + projects + certifications +
-    // languages — the seven the ticket names.
+  it("accepts a CV carrying all eight sections", () => {
+    // summary + links + skills + experience + projects + education +
+    // certifications + languages.
     const values = baseCvToFormValues(SAVED_CV);
     const parsed = baseCvSchema.safeParse(values);
 
     expect(parsed.success).toBe(true);
     expect(parsed.data?.summary).toBe(SAVED_CV.summary);
     expect(parsed.data?.links).toHaveLength(1);
-    expect(parsed.data?.skills).toEqual(["Python", "PostgreSQL"]);
+    expect(parsed.data?.skills).toEqual([
+      {
+        id: "s-1",
+        category: "Languages and frameworks",
+        keywords: ["Python", "PostgreSQL"],
+      },
+    ]);
     expect(parsed.data?.experience).toHaveLength(1);
     expect(parsed.data?.projects).toHaveLength(1);
+    expect(parsed.data?.education).toHaveLength(1);
     expect(parsed.data?.certifications).toHaveLength(1);
     expect(parsed.data?.languages).toHaveLength(1);
   });
@@ -143,6 +165,7 @@ describe("baseCvSchema", () => {
     expect(parsed.data?.skills).toEqual([]);
     expect(parsed.data?.experience).toEqual([]);
     expect(parsed.data?.projects).toEqual([]);
+    expect(parsed.data?.education).toEqual([]);
     expect(parsed.data?.certifications).toEqual([]);
     expect(parsed.data?.languages).toEqual([]);
   });
@@ -194,6 +217,10 @@ describe("baseCvSchema section rows", () => {
           { id: "b", company: "", role: "", period: "", bullets: [] },
         ],
         certifications: [{ id: "c", name: "", issuer: "" }],
+        skills: [{ id: "d", category: "", keywords: [] }],
+        education: [
+          { id: "f", institution: "", degree: "", area: "", period: "" },
+        ],
       }),
     );
 
@@ -240,6 +267,20 @@ describe("baseCvSchema section rows", () => {
         { certifications: [{ id: "d", name: "", issuer: "AWS" }] },
         "Every certification needs a name and an issuer. Remove the rows you do not want.",
       ],
+      [
+        "skills",
+        { skills: [{ id: "e", category: "", keywords: ["Python"] }] },
+        "Every skill category needs a name. Remove the categories you do not want.",
+      ],
+      [
+        "education",
+        {
+          education: [
+            { id: "f", institution: "Edinburgh", degree: "", period: "" },
+          ],
+        },
+        "Every qualification needs an institution and a degree. Remove the rows you do not want.",
+      ],
     ];
 
     for (const [field, values, message] of cases) {
@@ -279,6 +320,8 @@ describe("toBaseCvPayload", () => {
     expect(payload.links[0].id).toBe("l-1");
     expect(payload.experience[0].id).toBe("e-1");
     expect(payload.projects[0].id).toBe("p-1");
+    expect(payload.skills[0].id).toBe("s-1");
+    expect(payload.education[0].id).toBe("d-1");
     expect(payload.certifications[0].id).toBe("c-1");
     expect(payload.languages[0].id).toBe("g-1");
   });
@@ -295,7 +338,13 @@ describe("toBaseCvPayload", () => {
     const payload = toBaseCvPayload(
       validValues({
         links: [{ id: "a", label: "", url: "" }],
-        skills: ["  ", "Python"],
+        skills: [
+          { id: "s", category: "  ", keywords: ["  "] },
+          { id: "t", category: " Languages ", keywords: [" Python ", "  "] },
+        ],
+        education: [
+          { id: "f", institution: "", degree: "", area: "", period: "" },
+        ],
         experience: [
           { id: "b", company: "", role: "", period: "", bullets: ["", " "] },
         ],
@@ -304,7 +353,10 @@ describe("toBaseCvPayload", () => {
     );
 
     expect(payload.links).toEqual([]);
-    expect(payload.skills).toEqual(["Python"]);
+    expect(payload.skills).toEqual([
+      { id: "t", category: "Languages", keywords: ["Python"] },
+    ]);
+    expect(payload.education).toEqual([]);
     expect(payload.experience).toEqual([]);
     expect(payload.certifications).toEqual([]);
   });
@@ -330,6 +382,7 @@ describe("baseCvToFormValues", () => {
       skills: SAVED_CV.skills,
       experience: SAVED_CV.experience,
       projects: SAVED_CV.projects,
+      education: SAVED_CV.education,
       certifications: SAVED_CV.certifications,
       languages: SAVED_CV.languages,
     });
@@ -353,7 +406,17 @@ describe("BaseCvEditor", () => {
       "Eight years on payments.",
     );
 
-    await user.type(screen.getByLabelText("Add a skill"), "Python{Enter}");
+    // Skills are CATEGORIES with keywords inside, never a flat tag list.
+    await user.click(screen.getByRole("button", { name: "Add category" }));
+    const category = within(screen.getByRole("group", { name: "category 1" }));
+    await user.type(
+      category.getByLabelText("Category"),
+      "Languages and frameworks",
+    );
+    await user.type(
+      category.getByLabelText("Add a keyword to Languages and frameworks"),
+      "Python{Enter}",
+    );
 
     await user.click(screen.getByRole("button", { name: "Add link" }));
     const link = within(screen.getByRole("group", { name: "link 1" }));
@@ -371,12 +434,18 @@ describe("BaseCvEditor", () => {
       phone: "+44 20 7946 0958",
       location: "London",
       summary: "Eight years on payments.",
-      skills: ["Python"],
-      links: [{ id: "new-1", label: "GitHub", url: "https://github.com/ada" }],
+      skills: [
+        {
+          id: "new-1",
+          category: "Languages and frameworks",
+          keywords: ["Python"],
+        },
+      ],
+      links: [{ id: "new-2", label: "GitHub", url: "https://github.com/ada" }],
     });
   });
 
-  it("hands every one of the seven sections to the caller on submit", async () => {
+  it("hands every one of the eight sections to the caller on submit", async () => {
     const user = userEvent.setup();
     const onValid = vi.fn();
     render(
@@ -389,13 +458,25 @@ describe("BaseCvEditor", () => {
     const values = onValid.mock.calls[0][0] as CvFormValues;
     expect(values.summary).toBe(SAVED_CV.summary);
     expect(values.links).toHaveLength(1);
-    expect(values.skills).toHaveLength(2);
+    expect(values.skills).toEqual([
+      {
+        id: "s-1",
+        category: "Languages and frameworks",
+        keywords: ["Python", "PostgreSQL"],
+      },
+    ]);
     expect(values.experience[0]).toMatchObject({
       company: "Stripe",
       role: "Senior Backend Engineer",
       bullets: ["Cut settlement latency by 40%"],
     });
     expect(values.projects[0]).toMatchObject({ name: "difference-engine" });
+    expect(values.education[0]).toMatchObject({
+      institution: "University of Edinburgh",
+      degree: "BSc",
+      area: "Computer Science",
+      period: "2010 — 2013",
+    });
     expect(values.certifications[0]).toMatchObject({ name: "AWS SAA" });
     expect(values.languages[0]).toMatchObject({
       name: "English",
@@ -434,6 +515,61 @@ describe("BaseCvEditor", () => {
     expect(screen.getByRole("button", { name: "Create CV" })).toBeEnabled();
   });
 
+  it("captures a qualification and hands the education section over (AC4)", async () => {
+    // The owner: "I never said to cut out education, only key achievements."
+    const user = userEvent.setup();
+    const onValid = vi.fn();
+    render(<Harness defaults={validValues()} onValid={onValid} />);
+
+    await user.click(screen.getByRole("button", { name: "Add education" }));
+    const row = within(screen.getByRole("group", { name: "education 1" }));
+    await user.type(row.getByLabelText("Institution"), "University of Bath");
+    await user.type(row.getByLabelText("Degree"), "MSc");
+    await user.type(row.getByLabelText("Field of study"), "Data Science");
+    await user.type(row.getByLabelText("Period"), "2018 — 2019");
+
+    await user.click(screen.getByRole("button", { name: "Create CV" }));
+
+    expect(onValid).toHaveBeenCalledTimes(1);
+    const values = onValid.mock.calls[0][0] as CvFormValues;
+    expect(values.education).toEqual([
+      {
+        id: "new-1",
+        institution: "University of Bath",
+        degree: "MSc",
+        area: "Data Science",
+        period: "2018 — 2019",
+      },
+    ]);
+    // And it reaches the wire the same way, `area` and `period` included.
+    expect(toBaseCvPayload(values).education).toEqual([
+      {
+        id: "new-1",
+        institution: "University of Bath",
+        degree: "MSc",
+        area: "Data Science",
+        period: "2018 — 2019",
+      },
+    ]);
+  });
+
+  it("positions the Level field, so its hidden native select is contained (AC7)", async () => {
+    // Radix `Select` renders a visually hidden native `<select>` at
+    // `position: absolute`. With no positioned ancestor its containing block
+    // is the initial one and it stretches the DOCUMENT, which is the page
+    // scroll the owner saw on `/cvs/new`. The e2e suite measures the scroll;
+    // this pins the contract that prevents it.
+    const user = userEvent.setup();
+    render(<Harness onValid={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "Add language" }));
+    const row = screen.getByRole("group", { name: "language 1" });
+    const level = within(row).getByRole("combobox", { name: "Level" });
+    const wrapper = level.closest("div.space-y-1\\.5") as HTMLElement;
+
+    expect(wrapper.className).toContain("relative");
+  });
+
   it("renders every section of the CV, in the order the design fixes", () => {
     render(<Harness onValid={vi.fn()} />);
 
@@ -453,6 +589,7 @@ describe("BaseCvEditor", () => {
       "Skills",
       "Experience",
       "Projects",
+      "Education",
       "Certifications",
       "Languages",
     ]);

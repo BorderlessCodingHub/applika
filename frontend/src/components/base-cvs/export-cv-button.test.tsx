@@ -44,7 +44,10 @@ const CV = {
   phone: "",
   summary: "Eight years on payment systems.",
   links: [],
-  skills: ["Python"],
+  skills: [
+    { id: "s-1", category: "Languages and frameworks", keywords: ["Python"] },
+  ],
+  education: [],
   experience: [],
   projects: [],
   certifications: [],

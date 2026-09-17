@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useForm } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
@@ -24,7 +24,9 @@ const OPTIONS: BaseCvOption[] = [
     name: "Backend CV",
     full_name: "Ada",
     headline: "Eng",
-    skills: ["Python"],
+    skills: [
+      { id: "s-1", category: "Languages and frameworks", keywords: ["Python"] },
+    ],
     updated_at: null,
   },
   {
@@ -65,6 +67,101 @@ function Editor(props: Partial<React.ComponentProps<typeof TailoredCvEditor>>) {
  * Presentational only — no queries, no services. The page's wiring is tested
  * separately.
  */
+describe("the CV copy carries the same sections as a master CV (KODI-006)", () => {
+  it("edits skills as categories and carries an education section (AC3, AC4)", async () => {
+    // AC4 names BOTH surfaces — "A master CV and an application's CV copy".
+    // The copy gets them for free because the editor body is the master CV's
+    // `CvFormSections`; this pins that it stays that way.
+    const user = userEvent.setup();
+    render(<Editor />);
+
+    await user.click(screen.getByRole("button", { name: "Add category" }));
+    const category = within(screen.getByRole("group", { name: "category 1" }));
+    await user.type(category.getByLabelText("Category"), "Data stores");
+    await user.type(
+      category.getByLabelText("Add a keyword to Data stores"),
+      "PostgreSQL{Enter}",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Add education" }));
+    const qualification = within(
+      screen.getByRole("group", { name: "education 1" }),
+    );
+    await user.type(
+      qualification.getByLabelText("Institution"),
+      "University of Bath",
+    );
+    await user.type(qualification.getByLabelText("Degree"), "MSc");
+
+    expect(
+      category.getByRole("button", { name: "Rename PostgreSQL" }),
+    ).toBeInTheDocument();
+    expect(qualification.getByLabelText("Degree")).toHaveValue("MSc");
+  });
+
+  it("renders its sections in the owner's order, education included", () => {
+    render(<Editor />);
+
+    // Scoped to the CV field body: the copy's own panels (the job
+    // description, the provenance badge) are headings of the same level.
+    expect(
+      screen
+        .getAllByRole("heading", { level: 2 })
+        .map((heading) => heading.textContent)
+        .slice(0, 9),
+    ).toEqual([
+      "Identity and contact",
+      "Summary",
+      "Links",
+      "Skills",
+      "Experience",
+      "Projects",
+      "Education",
+      "Certifications",
+      "Languages",
+    ]);
+  });
+
+  it("maps categories and qualifications onto the wire shape", () => {
+    expect(
+      toTailoredCvPayload({
+        ...emptyTailoredCvValues(),
+        name: "Copy",
+        full_name: "Ada",
+        headline: "Eng",
+        location: "London",
+        email: "ada@example.com",
+        summary: "Summary.",
+        skills: [
+          { id: "s-1", category: " Data stores ", keywords: [" Redis ", " "] },
+          { id: "s-2", category: "  ", keywords: [] },
+        ],
+        education: [
+          {
+            id: "d-1",
+            institution: " University of Bath ",
+            degree: " MSc ",
+            area: "  ",
+            period: "2018 — 2019",
+          },
+          { id: "d-2", institution: "", degree: "", area: "", period: "" },
+        ],
+      }),
+    ).toMatchObject({
+      skills: [{ id: "s-1", category: "Data stores", keywords: ["Redis"] }],
+      education: [
+        {
+          id: "d-1",
+          institution: "University of Bath",
+          degree: "MSc",
+          area: undefined,
+          period: "2018 — 2019",
+        },
+      ],
+    });
+  });
+});
+
 describe("the tailored CV surface", () => {
   it("picker preselects the only option", () => {
     const onValueChange = vi.fn();
