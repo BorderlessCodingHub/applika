@@ -1540,20 +1540,41 @@ test("the CV list downloads any of its CVs as the PDF the server typeset (AC2)",
   await expect(page.getByText(CV_RENAMED, { exact: true })).toBeVisible();
 });
 
-test("the CV list shows every keyword of every skill category (AC1)", async ({
+/** A keyword at the schema's ceiling: 100 characters, wider than any tile. */
+const LONG_KEYWORD = "a".repeat(100);
+
+test("the CV list shows every keyword of every skill category as a badge (AC1)", async ({
   page,
   request,
 }) => {
-  // The owner: "instead of listing the keywords, now lists only the
-  // categories, change this to display all keywords inside all categories in
-  // skills". Nothing capped, nothing clipped: the tile is asserted keyword by
-  // keyword AND measured, because a `line-clamp` would keep every word in the
-  // DOM while hiding half of them.
+  // The owner, round 3: "i said to display all keywords of all categories but
+  // still in badges as was in the first place (but do not display skills
+  // repetedly)". So: badges, every keyword, no category labels, no "+N", and
+  // a keyword that sits under two categories appears ONCE.
   const categories = [
     { id: "s-1", category: "Languages", keywords: ["Python", "TypeScript"] },
     { id: "s-2", category: "Data stores", keywords: ["PostgreSQL", "Redis"] },
     { id: "s-3", category: "Platform", keywords: ["Docker", "Kubernetes"] },
-    { id: "s-4", category: "Cloud", keywords: ["AWS", "Terraform"] },
+    // "Docker" again, and "python" in another casing: two skills the tile has
+    // to collapse into the badges it already shows.
+    { id: "s-4", category: "Cloud", keywords: ["AWS", "Terraform", "Docker"] },
+    { id: "s-5", category: "Practices", keywords: ["python"] },
+    // A keyword at the schema's ceiling (`BASE_CV_MAX.skillKeyword` = 100).
+    // It is wider than the tile, and the shell column is `overflow-hidden`, so
+    // it is the case that catches a badge which refuses to wrap.
+    { id: "s-6", category: "Long", keywords: [LONG_KEYWORD] },
+  ];
+  /** The eight distinct skills, in the order the categories declare them. */
+  const distinct = [
+    "Python",
+    "TypeScript",
+    "PostgreSQL",
+    "Redis",
+    "Docker",
+    "Kubernetes",
+    "AWS",
+    "Terraform",
+    LONG_KEYWORD,
   ];
   const response = await request.post(apiUrl("/base-cvs"), {
     headers: apiHeaders(),
@@ -1578,32 +1599,57 @@ test("the CV list shows every keyword of every skill category (AC1)", async ({
 
   await loginAs(page, "user");
   await page.goto("/cvs");
-  await expect(page.getByText(CV_NAME, { exact: true })).toBeVisible();
+  const tile = page
+    .locator('[data-slot="card"]')
+    .filter({ hasText: CV_NAME })
+    .first();
+  await expect(tile).toBeVisible();
 
-  for (const entry of categories) {
-    const line = page.locator("dl div", { hasText: entry.category }).first();
-    await expect(line).toBeVisible();
-    for (const keyword of entry.keywords) {
-      await expect(line, `${entry.category} lost ${keyword}`).toContainText(
-        keyword,
-      );
-    }
+  // Badges, in category order, each keyword exactly once and spelled the way
+  // its first occurrence was typed.
+  const badges = tile.locator('[data-slot="badge"]');
+  await expect(badges).toHaveText(distinct);
+  for (const keyword of distinct) {
+    await expect(
+      tile.locator('[data-slot="badge"]', { hasText: keyword }),
+      `${keyword} is missing or repeated`,
+    ).toHaveCount(1);
   }
+  // The lower-case duplicate did NOT get a badge of its own.
+  await expect(badges.filter({ hasText: /^Docker$/ })).toHaveCount(1);
 
-  // Eight keywords, and the tile says so rather than hiding a "+N".
-  await expect(page.getByText("8 keywords")).toBeVisible();
+  // The category names are the DOCUMENT's headings, not the tile's, and the
+  // plain-text treatment the owner rejected is gone.
+  for (const entry of categories) {
+    await expect(tile.getByText(entry.category, { exact: true })).toHaveCount(
+      0,
+    );
+  }
+  await expect(tile.locator("dl")).toHaveCount(0);
+
+  // Nine distinct keywords, and the tile counts what the user can SEE rather
+  // than hiding a "+N".
+  await expect(tile.getByText("9 keywords")).toBeVisible();
   await expect(page.getByText(/\+\d+ more/)).toHaveCount(0);
 
-  // Really painted: every category line has real height inside the tile, so
+  // Really painted: every badge has real height and sits inside its row, so
   // none of them is clipped away by an overflow rule.
-  const clipped = await page.evaluate(() => {
-    const list = document.querySelector<HTMLElement>("dl");
-    if (!list) return "no skills list";
-    const listBox = list.getBoundingClientRect();
-    for (const row of Array.from(list.children)) {
-      const box = row.getBoundingClientRect();
-      if (box.height < 1) return `${row.textContent} has no height`;
-      if (box.bottom > listBox.bottom + 1) return `${row.textContent} is cut`;
+  const clipped = await tile.evaluate((card: HTMLElement) => {
+    const chips = Array.from(
+      card.querySelectorAll<HTMLElement>('[data-slot="badge"]'),
+    );
+    if (chips.length === 0) return "no badges";
+    const row = chips[0].parentElement;
+    if (!row) return "no badge row";
+    const rowBox = row.getBoundingClientRect();
+    for (const chip of chips) {
+      const box = chip.getBoundingClientRect();
+      if (box.height < 1) return `${chip.textContent} has no height`;
+      if (box.width < 1) return `${chip.textContent} has no width`;
+      if (box.bottom > rowBox.bottom + 1) return `${chip.textContent} is cut`;
+      // The one that catches a `whitespace-nowrap` badge: a keyword wider
+      // than the tile overhangs to the RIGHT, and the shell clips it away.
+      if (box.right > rowBox.right + 1) return `${chip.textContent} overhangs`;
     }
     return null;
   });
