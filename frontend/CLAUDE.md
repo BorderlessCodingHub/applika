@@ -201,8 +201,43 @@ the pages wire data to them:
   default would take those words off the screen.
 - `cv-document.tsx` deliberately uses raw `neutral-*`/`blue-700` utilities
   instead of semantic tokens: it is a print artefact that must look identical in
-  light and dark mode. `CV_DOCUMENT_EXPORT_ID` and the editor's `actions` slot
-  are the seam a later PDF export hangs off.
+  light and dark mode. It is a PREVIEW of the content, never of the page — see
+  the PDF export below. `CV_DOCUMENT_EXPORT_ID` is a vestigial hook from an
+  earlier client-side idea; nothing reads it and nothing new should.
+
+**The PDF is rendered on the SERVER** (`docs/applika/adr/0011`, Accepted):
+RenderCV/Typst, one fixed theme named `applika`, no theme parameter, no user
+choice. **Never add `html2pdf`, a `cv-pdf.ts` or any client-side rasteriser.**
+
+- `export-cv-button.tsx` is the whole affordance and is PRESENTATIONAL: no hook,
+  no service, no axios. It takes `onExport` and `isExporting` and it has NO
+  `disabled` prop — only a render already in flight locks it, so no caller can
+  take the download away from a finalized or archived CV copy, or from a copy
+  whose master CV was deleted.
+- It mounts in the editors' `actions` slot: `/cvs/editor?id=` (never `/cvs/new`
+  — the server typesets the STORED CV, so there is nothing to render until it
+  has been saved once) and `/applications/cv?id=` in BOTH modes.
+- The layout notice (`CV_PDF_LAYOUT_NOTICE` in `base-cvs/types.ts`) is said
+  TWICE on every CV screen: `CvDocumentPreview` is a `<figure>` whose
+  `<figcaption>` carries it, and the button carries its own copy wired with
+  `aria-describedby`. Do NOT add a third at a call site. Assert the WORDS.
+- The visible label does not change while the server renders (1-3s): the icon
+  swaps to a spinner and `CV_PDF_EXPORT_PENDING` fills an always-mounted
+  `aria-live` region, so the `"Download PDF"` locator stays stable.
+- `useExportBaseCvPdf` / `useExportTailoredCvPdf` own the request. They
+  invalidate nothing (a download changes no row) and raise no SUCCESS toast —
+  the browser and the live region already say it — which is the one place the
+  mutation convention above is deliberately not followed.
+- `src/lib/pdf-download.ts` owns `downloadBlob` (object URL on a synthetic
+  `<a download>`, revoked on a LATER tick) and `cvPdfFilename`, which mirrors
+  the server's slug rule character for character. The server names the file via
+  `Content-Disposition` (readable cross-origin, `expose_headers`); the slug is
+  only the fallback for a header that did not survive the trip.
+- **`getApiError` cannot read a blob error.** With `responseType: "blob"` axios
+  hands back a 404/500 body as a `Blob`, so `detail` is `undefined` and the
+  toast would say "undefined". Use `getBlobApiError` from `src/lib/blob-error.ts`
+  for any blob request. It lives outside `api-client.ts` on purpose: that module
+  imports the service container, so a service cannot import back from it.
 
 ### Tailored CVs (`src/components/tailored-cvs/`)
 
@@ -238,7 +273,8 @@ The module mirrors `base-cvs/` rather than forking it:
 - `tailored-cv-editor.tsx` is `CvFormSections` — the SAME body as the master CV
   editor, so the two cannot drift — plus the job-description panel, the
   provenance badge and read-only mode. Like `BaseCvEditor` it does NOT own
-  `useForm`; the page does. Its `actions` slot is the seam PDF export hangs off.
+  `useForm`; the page does. Its `actions` slot is where `ExportCvButton` mounts,
+  and in read-only mode it is the ONLY thing the footer carries.
 - `was_ai_generated` and `adjustments` exist on the wire type and render
   NOWHERE. Nothing in this product generates a CV, and no UI may suggest it
   will.
@@ -246,8 +282,12 @@ The module mirrors `base-cvs/` rather than forking it:
 **Read-only is the application's state, never the copy's.** The page derives
 `readOnlyReason` as `application.finalized ? "finalized" : isViewingPastCycle ?
 "archived" : null` and both the picker and the editor take it: the banner goes
-up, every control is disabled and the submit footer is not rendered at all, so
-there is nothing to click by accident. The UI is a courtesy, not the rule — the
+up, every control is disabled and no Save, Cancel or Delete is rendered at all,
+so there is nothing to WRITE by accident. The footer itself survives when
+`actions` is given, carrying the PDF export and nothing else — refusing to let a
+locked copy be written is not refusing to let it be read. A read-only editor
+with no `actions` renders no footer, which is why the older unit test that
+asserts the footer is gone still holds. The UI is a courtesy, not the rule — the
 API refuses a finalized write with 409 and an archived one with 422 whatever the
 screen shows, and both reach the user as the server's own `detail` in a toast.
 `GET` carries no such guard, so VIEWING a locked copy always works.
@@ -404,6 +444,9 @@ state and hoists a SINGLE `FeedbackDialog`. It renders `CliPromoBanner` and the
 | `src/components/base-cvs/base-cv-schema.ts`     | Master CV zod schema and the form/wire translations               |
 | `src/components/tailored-cvs/types.ts`          | CV copy vocabulary and its on-screen copy constants               |
 | `src/hooks/use-tailored-cv.ts`                  | CV copy query + the `tailored-cvs` key every write invalidates    |
+| `src/components/base-cvs/export-cv-button.tsx`  | The PDF export affordance + the "not the final layout" notice     |
+| `src/lib/pdf-download.ts`                       | `downloadBlob`, and the slug rule mirrored from the server        |
+| `src/lib/blob-error.ts`                         | `getBlobApiError` — `getApiError` for a `responseType: "blob"`    |
 | `src/components/ui/date-picker.tsx`             | Timezone-safe date picker (use instead of `<input type="date">`)  |
 
 ---
