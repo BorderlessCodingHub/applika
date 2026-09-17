@@ -59,14 +59,14 @@ export function BaseCvEditor({
   return (
     <form onSubmit={onSubmit} className={cn("space-y-6", className)} noValidate>
       {/*
-        Half and half until `2xl`, then the preview column stops growing and
-        every extra pixel goes to the FORM. An A4 sheet scaled past ~0.8 is not
-        more readable, only taller than the pane that holds it; the form's
-        textareas and keyword rows are where width does work. 38rem keeps the
-        preview at the size it already had at `2xl`, so nothing jumps at the
-        breakpoint, and leaves the form above its own `@lg/cv-form` threshold.
+        Strictly half and half at EVERY width — two equal `1fr` tracks, no cap
+        on either side. KODI-008 capped the preview at `2xl` and gave the
+        surplus to the form; KODI-009 reverses that on the owner's own words:
+        "increace the preview width size keep 50/50 w-1/2 to the CV form and
+        w-1/2 to CV preview". Do not re-introduce a `2xl` (or any) cap — the
+        asymmetry was tried and rejected. Below `md` the two stack, form first.
       */}
-      <div className="grid gap-6 md:grid-cols-2 md:items-start 2xl:grid-cols-[minmax(0,1fr)_38rem]">
+      <div className="grid gap-6 md:grid-cols-2 md:items-start">
         <CvFormSections
           form={form}
           disabled={isSubmitting}
