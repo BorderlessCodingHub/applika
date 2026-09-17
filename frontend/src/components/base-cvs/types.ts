@@ -71,6 +71,47 @@ export function skillCategoryNames(skills: CvSkillCategory[]): string[] {
   return skills.map((entry) => entry.category.trim()).filter(Boolean);
 }
 
+/** A named category and the keywords under it, both trimmed, in print order. */
+export interface CvSkillSummary {
+  id: string;
+  category: string;
+  keywords: string[];
+}
+
+/**
+ * Every keyword of every category, still attached to the category it belongs
+ * to, in print order.
+ *
+ * The owner: "display all keywords inside all categories in skills". The CV
+ * card shows THIS, not {@link skillCategoryNames} — a list of category names
+ * tells the user nothing about what is actually in the CV. Attribution is kept
+ * because a keyword without its category is not what the document prints, and
+ * because two CVs often share keywords under different headings.
+ *
+ * Blank entries are dropped on both levels: a category with no name cannot be
+ * saved (the API declares `category` `min_length=1`) and has no label to show,
+ * and a whitespace-only keyword is nothing.
+ */
+export function skillCategoryKeywords(
+  skills: CvSkillCategory[],
+): CvSkillSummary[] {
+  return skills
+    .map((entry) => ({
+      id: entry.id,
+      category: entry.category.trim(),
+      keywords: entry.keywords.map((keyword) => keyword.trim()).filter(Boolean),
+    }))
+    .filter((entry) => entry.category !== "");
+}
+
+/** Total keywords across every category — the honest count beside the list. */
+export function skillKeywordCount(skills: CvSkillCategory[]): number {
+  return skillCategoryKeywords(skills).reduce(
+    (total, entry) => total + entry.keywords.length,
+    0,
+  );
+}
+
 /**
  * One entry in the education section.
  *

@@ -12,13 +12,23 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { skillCategoryNames, type BaseCv } from "@/components/base-cvs/types";
+import { ExportCvButton } from "@/components/base-cvs/export-cv-button";
+import {
+  skillCategoryKeywords,
+  skillKeywordCount,
+  type BaseCv,
+} from "@/components/base-cvs/types";
 import { cn } from "@/lib/utils";
 
-const MAX_VISIBLE_SKILLS = 5;
+/**
+ * Between two keywords of one category. The middle dot the typeset document
+ * uses, because the card is showing the same run of words — but the card is
+ * NOT one of the renderers the parity table pins, so it keeps its own copy
+ * rather than importing the document's constant.
+ */
+const KEYWORD_SEPARATOR = " \u00b7 ";
 
 function formatUpdated(value: string | null): string | null {
   // `new Date(null)` is the epoch, not an invalid date, so a CV that has never
@@ -41,6 +51,14 @@ export interface CvCardProps {
   onDelete: () => void;
   /** Reflects an in-flight delete on this card. */
   isDeleting?: boolean;
+  /**
+   * Asks the server for this CV's PDF. The parent owns the request and the
+   * errors. Without it the tile renders no download at all — the gallery
+   * always passes it.
+   */
+  onExport?: () => void;
+  /** Reflects an in-flight PDF render on this card. */
+  isExporting?: boolean;
   className?: string;
 }
 
@@ -54,13 +72,14 @@ export function CvCard({
   href,
   onDelete,
   isDeleting = false,
+  onExport,
+  isExporting = false,
   className,
 }: CvCardProps) {
-  // The card shows the CATEGORY names; the keywords inside them belong to the
-  // document, not to a summary chip row.
-  const categories = skillCategoryNames(cv.skills);
-  const visibleSkills = categories.slice(0, MAX_VISIBLE_SKILLS);
-  const overflow = categories.length - visibleSkills.length;
+  // Every keyword of every category, uncapped. The owner asked to see what is
+  // IN the CV, and a hidden "+7" is the thing they asked us to stop doing.
+  const categories = skillCategoryKeywords(cv.skills);
+  const keywordCount = skillKeywordCount(cv.skills);
   const updated = formatUpdated(cv.updated_at);
 
   return (
@@ -90,24 +109,30 @@ export function CvCard({
           {cv.headline ? ` · ${cv.headline}` : ""}
         </p>
 
+        {/*
+          A chip per keyword would be four times the height of the same words
+          set as text, and a tile has to stay a tile. So the card prints the
+          skills the way the CV prints them: the category, then its keywords
+          joined by a middle dot. Nothing is clipped and nothing is counted
+          away — a `line-clamp` here would be exactly the silent truncation
+          this card is being fixed to remove.
+        */}
         <div className="mt-4 min-h-8">
-          {visibleSkills.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {visibleSkills.map((skill) => (
-                <Badge
-                  key={skill}
-                  variant="secondary"
-                  className="rounded px-1.5 py-0.5 text-[10px] font-medium"
-                >
-                  {skill}
-                </Badge>
+          {categories.length > 0 ? (
+            <dl className="space-y-1">
+              {categories.map((entry) => (
+                <div key={entry.id} className="text-[11px] leading-snug">
+                  <dt className="inline font-medium text-foreground">
+                    {entry.category}
+                  </dt>
+                  {entry.keywords.length > 0 ? (
+                    <dd className="inline text-muted-foreground">
+                      {`: ${entry.keywords.join(KEYWORD_SEPARATOR)}`}
+                    </dd>
+                  ) : null}
+                </div>
               ))}
-              {overflow > 0 ? (
-                <span className="self-center text-[10px] text-muted-foreground">
-                  {`+${overflow}`}
-                </span>
-              ) : null}
-            </div>
+            </dl>
           ) : (
             <p className="text-xs text-muted-foreground/70">
               No skills added yet
@@ -120,10 +145,25 @@ export function CvCard({
             `${cv.experience.length} ${cv.experience.length === 1 ? "role" : "roles"}`,
             `${cv.projects.length} ${cv.projects.length === 1 ? "project" : "projects"}`,
             `${cv.languages.length} ${cv.languages.length === 1 ? "language" : "languages"}`,
+            `${keywordCount} ${keywordCount === 1 ? "keyword" : "keywords"}`,
           ].join(" \u00b7 ")}
         </p>
 
-        <div className="mt-auto flex items-center justify-end gap-2 border-t border-border pt-4">
+        {/*
+          `flex-wrap`: three controls no longer fit one 320px row. Least
+          destructive first, destructive last — download, edit, delete.
+        */}
+        <div className="mt-auto flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4">
+          {onExport ? (
+            <ExportCvButton
+              layout="compact"
+              variant="ghost"
+              cvName={cv.name}
+              isExporting={isExporting}
+              onExport={onExport}
+            />
+          ) : null}
+
           <LinkButton
             href={href}
             variant="outline"
