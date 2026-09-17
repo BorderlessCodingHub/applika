@@ -12,6 +12,7 @@ import {
   CreateApplicationPayload,
 } from "@/services/types/applications";
 import { getApiError } from "@/lib/api-client";
+import { TAILORED_CVS_QUERY_KEY } from "@/hooks/use-tailored-cv";
 
 export interface ApplicationFilters {
   mode: "all" | "active" | "passive";
@@ -174,6 +175,11 @@ export function useApplicationDelete() {
     mutationFn: (id: string) => services.applications.deleteApplication(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["applications"] });
+      // Deleting an application takes its CV copy with it, so the cached copy
+      // is gone too — the client mirror of that cascade.
+      await queryClient.invalidateQueries({
+        queryKey: TAILORED_CVS_QUERY_KEY,
+      });
       toast.success("Application deleted");
     },
     onError: () => toast.error("Failed to delete"),
