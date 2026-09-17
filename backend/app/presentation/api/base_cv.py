@@ -1,0 +1,118 @@
+"""Master CV routes - the user's reusable CVs, capped at 3 per user.
+
+A thin router: every endpoint resolves the acting user and scopes to that
+user's own rows (docs/applika/adr/0004-row-ownership-and-is-admin.md), so a
+master CV belonging to another user is a 404 - for an admin too, because
+``users.is_admin`` grants no extra access through the user routes. No business
+logic lives here: the 3-per-user cap belongs to ``CreateBaseCVUseCase``.
+
+``base_cv_id`` arrives as a Snowflake string on the wire and is validated into
+an ``int`` by ``SnowflakeID``.
+"""
+
+from fastapi import APIRouter
+
+from app.application.dto.base_cv import BaseCVCreateDTO, BaseCVUpdateDTO
+from app.lib.types import SnowflakeID
+from app.presentation.dependencies import (
+    CreateBaseCVUseCaseDp,
+    CurrentUserDp,
+    DeleteBaseCVUseCaseDp,
+    GetBaseCVUseCaseDp,
+    ListBaseCVsUseCaseDp,
+    UpdateBaseCVUseCaseDp,
+)
+from app.presentation.schemas import DetailSchema
+from app.presentation.schemas.base_cv import (
+    BaseCVCreate,
+    BaseCVOut,
+    BaseCVUpdate,
+)
+
+router = APIRouter(
+    tags=['Base CVs'], responses={'403': {'model': DetailSchema}}
+)
+
+
+@router.get('/base-cvs', response_model=list[BaseCVOut])
+async def list_base_cvs(
+    c_user: CurrentUserDp,
+    use_case: ListBaseCVsUseCaseDp,
+):
+    """List the acting user's own master CVs, newest first."""
+    base_cvs = await use_case.execute(c_user.id)
+    return [BaseCVOut.model_validate(base_cv) for base_cv in base_cvs]
+
+
+@router.post(
+    '/base-cvs',
+    response_model=BaseCVOut,
+    status_code=201,
+    responses={'409': {'model': DetailSchema}},
+)
+async def create_base_cv(
+    payload: BaseCVCreate,
+    c_user: CurrentUserDp,
+    use_case: CreateBaseCVUseCaseDp,
+):
+    """Create a master CV owned by the acting user.
+
+    ``user_id`` is stamped from the acting user; a fourth master CV is refused
+    with 409 and the message the user is shown.
+    """
+    data = BaseCVCreateDTO(user_id=c_user.id, **payload.model_dump())
+    base_cv = await use_case.execute(data)
+    return BaseCVOut.model_validate(base_cv)
+
+
+@router.get(
+    '/base-cvs/{base_cv_id}',
+    response_model=BaseCVOut,
+    responses={'404': {'model': DetailSchema}},
+)
+async def get_base_cv(
+    base_cv_id: SnowflakeID,
+    c_user: CurrentUserDp,
+    use_case: GetBaseCVUseCaseDp,
+):
+    """Fetch one of the acting user's own master CVs (404 if not owned)."""
+    base_cv = await use_case.execute(base_cv_id, c_user.id)
+    return BaseCVOut.model_validate(base_cv)
+
+
+@router.patch(
+    '/base-cvs/{base_cv_id}',
+    response_model=BaseCVOut,
+    responses={'404': {'model': DetailSchema}},
+)
+async def update_base_cv(
+    base_cv_id: SnowflakeID,
+    payload: BaseCVUpdate,
+    c_user: CurrentUserDp,
+    use_case: UpdateBaseCVUseCaseDp,
+):
+    """Partially update one of the acting user's own master CVs.
+
+    Only the fields explicitly provided are applied; a section provided
+    replaces that section whole. 404 if not owned.
+    """
+    data = BaseCVUpdateDTO(**payload.model_dump(exclude_unset=True))
+    base_cv = await use_case.execute(base_cv_id, c_user.id, data)
+    return BaseCVOut.model_validate(base_cv)
+
+
+@router.delete(
+    '/base-cvs/{base_cv_id}',
+    status_code=204,
+    responses={'404': {'model': DetailSchema}},
+)
+async def delete_base_cv(
+    base_cv_id: SnowflakeID,
+    c_user: CurrentUserDp,
+    use_case: DeleteBaseCVUseCaseDp,
+):
+    """Delete one of the acting user's own master CVs.
+
+    Never blocked: 204 on success, 404 when it does not exist or is not owned.
+    """
+    await use_case.execute(base_cv_id, c_user.id)

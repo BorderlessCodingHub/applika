@@ -37,6 +37,7 @@ When you add or modify any of the following, update the seed script accordingly:
 - Renamed or removed fields that the seed script currently sends
 - New endpoints the seed script should exercise to keep coverage complete
 - Changes to authentication (cookie name, token format)
+- New or changed fields on `POST /base-cvs` — `seed_base_cvs()` creates 3 master CVs and asserts the 4th is refused with 409
 
 After any such change, mentally walk through the seed script from top to bottom and confirm it would still run without errors against a fresh database.
 
@@ -263,6 +264,21 @@ All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUID
 |--------|-------|------|-------------|
 | POST | `/feedbacks` | Yes | Submit app feedback (201) |
 
+### Base CVs (`/base-cvs`)
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| GET | `/base-cvs` | Yes | List the user's own master CVs (newest first) |
+| POST | `/base-cvs` | Yes | Create a master CV (201); 4th is 409 |
+| GET | `/base-cvs/{id}` | Yes | Get one own master CV (404 if not owned) |
+| PATCH | `/base-cvs/{id}` | Yes | Partial update (404 if not owned) |
+| DELETE | `/base-cvs/{id}` | Yes | Delete a master CV (204, never blocked) |
+
+A user may hold at most **3** master CVs. The cap lives in
+`CreateBaseCVUseCase`, not in a trigger or a constraint: one transaction takes
+a `SELECT ... FOR UPDATE` lock on the owning user row, counts, refuses with
+`ResourceConflict('Base CV limit reached (max 3 per user)')` at 3, then
+inserts. The lock is what keeps concurrent creates from overshooting.
+
 ### Support Data (`/supports`)
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
@@ -331,6 +347,11 @@ Optional (with defaults):
   - Includes manual metrics (mock interviews, LinkedIn posts, strategic connections)
   - Discord integration for posting reports
 - **UserFeedback**: In-app feedback from users (score 1-5 + optional text)
+- **BaseCV**: A user's master CV, capped at 3 per user
+  - Identity and contact (`name` label, `full_name`, `headline`, `location`, `email`, optional `phone`) plus a `summary`
+  - Six repeatable sections stored as JSONB arrays, never NULL: `links`, `skills`, `experience`, `projects`, `certifications`, `languages`
+  - Section sub-item `id`s are **client-generated strings** preserved round-trip, never minted server-side
+  - Read and written whole (a document aggregate), so there are no child tables
 
 ### Key Relationships
 - Application → User (many-to-one, cascade delete)
@@ -344,6 +365,7 @@ Optional (with defaults):
 - Company → User (many-to-one via created_by, cascade delete)
 - QuinzenalReport → User (many-to-one, cascade delete), unique on (user_id, report_day)
 - UserFeedback → User (many-to-one, cascade delete)
+- BaseCV → User (many-to-one, cascade delete), at most 3 per user
 
 Applications are "finalized" when `feedback_id` is set (irreversible).
 
@@ -369,7 +391,7 @@ DiscordServiceDp = Annotated[DiscordService, Depends(get_discord_service)]
 ```
 
 ### File Organization
-- Use cases grouped in subdirectories by feature (applications/, application_steps/, user_stats/, quinzenal_reports/, companies/, user_feedbacks/)
+- Use cases grouped in subdirectories by feature (applications/, application_steps/, user_stats/, quinzenal_reports/, companies/, user_feedbacks/, base_cvs/)
 - One repository per model in `domain/repositories/`
 - API routes in `presentation/api/` match resource names
 

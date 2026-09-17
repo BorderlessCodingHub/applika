@@ -151,6 +151,129 @@ STEP_OBSERVATIONS = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Master CVs (max 3 per user)
+# ---------------------------------------------------------------------------
+# The owner's rule: "a user can create up to 3 master CV's". The seeder
+# creates exactly three and then attempts a fourth on purpose, so a run also
+# proves the 409 refusal is still wired up.
+MAX_BASE_CVS = 3
+
+BASE_CVS = [
+    {
+        'name': 'Backend CV',
+        'full_name': 'Alex Moreira',
+        'headline': 'Senior Backend Engineer',
+        'location': 'Lisbon, Portugal',
+        'email': 'alex.moreira@example.com',
+        'phone': '+351 910 000 000',
+        'summary': 'Ten years building Python services at scale.',
+        'links': [
+            {
+                'id': 'lnk-gh',
+                'label': 'GitHub',
+                'url': 'https://github.com/alexmoreira',
+            },
+            {
+                'id': 'lnk-li',
+                'label': 'LinkedIn',
+                'url': 'https://www.linkedin.com/in/alexmoreira',
+            },
+        ],
+        'skills': ['Python', 'FastAPI', 'PostgreSQL', 'Redis', 'Docker'],
+        'experience': [
+            {
+                'id': 'exp-1',
+                'company': 'Acme Corp',
+                'company_description': 'Payments platform, 300 engineers',
+                'role': 'Senior Backend Engineer',
+                'period': '2021 - 2026',
+                'location': 'Remote',
+                'bullets': [
+                    'Cut p99 latency from 1.2s to 180ms',
+                    'Led the migration to async SQLAlchemy',
+                ],
+            }
+        ],
+        'projects': [
+            {
+                'id': 'prj-1',
+                'name': 'applika',
+                'description': 'Job application tracker with analytics',
+                'link': 'https://applika.dev',
+                'link_label': 'applika.dev',
+            }
+        ],
+        'certifications': [
+            {'id': 'crt-1', 'name': 'AWS Solutions Architect', 'issuer': 'AWS'}
+        ],
+        'languages': [
+            {'id': 'lng-pt', 'name': 'Portuguese', 'level': 'Native'},
+            {'id': 'lng-en', 'name': 'English', 'level': 'C2'},
+        ],
+    },
+    {
+        'name': 'Platform CV',
+        'full_name': 'Alex Moreira',
+        'headline': 'Platform / DevOps Engineer',
+        'location': 'Lisbon, Portugal',
+        'email': 'alex.moreira@example.com',
+        'summary': 'Infrastructure as code, CI/CD and observability.',
+        'skills': ['Terraform', 'Kubernetes', 'GitHub Actions', 'Grafana'],
+        'experience': [
+            {
+                'id': 'exp-2',
+                'company': 'Globex',
+                'role': 'Platform Engineer',
+                'period': '2019 - 2021',
+                'bullets': ['Built the deployment pipeline from scratch'],
+            }
+        ],
+        'languages': [{'id': 'lng-en', 'name': 'English', 'level': 'C2'}],
+    },
+    {
+        'name': 'Leadership CV',
+        'full_name': 'Alex Moreira',
+        'headline': 'Engineering Manager',
+        'location': 'Lisbon, Portugal',
+        'email': 'alex.moreira@example.com',
+        'summary': 'Grew and led two product teams.',
+        'skills': ['Coaching', 'Hiring', 'Roadmapping'],
+        'languages': [{'id': 'lng-en', 'name': 'English', 'level': 'C2'}],
+    },
+]
+
+
+def seed_base_cvs(client: httpx.Client) -> list[str]:
+    """Create the 3 allowed master CVs, then prove the 4th is refused."""
+    print(f'Creating {MAX_BASE_CVS} master CVs...')
+    created_ids: list[str] = []
+
+    for index, base_cv in enumerate(BASE_CVS[:MAX_BASE_CVS], start=1):
+        resp = client.post('/base-cvs', json=base_cv)
+        if resp.status_code != 201:
+            print(
+                f'  [{index}] Failed to create master CV: '
+                f'{resp.status_code} {resp.text}'
+            )
+            continue
+        created_ids.append(resp.json()['id'])
+        print(f'  [{index}/{MAX_BASE_CVS}] {base_cv["name"]}')
+
+    # The 4th must come back 409 with the limit message.
+    overflow = dict(BASE_CVS[0], name='Fourth CV (must be refused)')
+    resp = client.post('/base-cvs', json=overflow)
+    if resp.status_code == 409:
+        print(f'  4th master CV refused as expected: {resp.json()["detail"]}')
+    else:
+        print(
+            f'  WARNING: the 4th master CV was NOT refused: '
+            f'{resp.status_code} {resp.text}'
+        )
+
+    return created_ids
+
+
 def random_date(start: date, end: date) -> date:
     delta = (end - start).days
     return start + timedelta(days=random.randint(0, delta))
@@ -208,6 +331,9 @@ def main():
             f'Steps: {len(normal_steps)} normal + {len(strict_steps)} strict, '
             f'Feedbacks: {len(feedback_defs)}'
         )
+
+        # ----- Master CVs -----
+        base_cv_ids = seed_base_cvs(client)
 
         # company_id_cache maps company name → ID returned from the API
         # so the same company is reused across applications instead of
@@ -387,6 +513,7 @@ def main():
         print(f'Finalized: {finalized_count}')
         print(f'Accepted: {accepted_count}')
         print(f'In progress: {created - finalized_count}')
+        print(f'Master CVs created: {len(base_cv_ids)}')
 
 
 if __name__ == '__main__':

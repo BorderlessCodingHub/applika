@@ -11,6 +11,11 @@ from app.application.services.github_service import GitHubService
 from app.application.use_cases.auth_handoff_state import (
     AuthHandoffStateUseCase,
 )
+from app.application.use_cases.base_cvs.create import CreateBaseCVUseCase
+from app.application.use_cases.base_cvs.delete import DeleteBaseCVUseCase
+from app.application.use_cases.base_cvs.get import GetBaseCVUseCase
+from app.application.use_cases.base_cvs.list import ListBaseCVsUseCase
+from app.application.use_cases.base_cvs.update import UpdateBaseCVUseCase
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
 from app.config.db import get_session
 from app.config.redis import get_redis
@@ -23,6 +28,7 @@ from app.domain.repositories.application_repository import (
 from app.domain.repositories.application_step_repository import (
     ApplicationStepRepository,
 )
+from app.domain.repositories.base_cv_repository import BaseCVRepository
 from app.domain.repositories.company_repository import CompanyRepository
 from app.domain.repositories.cycle_repository import CycleRepository
 from app.domain.repositories.feedback_definition_repository import (
@@ -199,3 +205,57 @@ async def get_admin_user(
 
 
 AdminUserDp = Annotated[UserDTO, Depends(get_admin_user)]
+
+
+def get_base_cv_repository(session: DbSession):
+    return BaseCVRepository(session)
+
+
+BaseCVRepositoryDp = Annotated[
+    BaseCVRepository, Depends(get_base_cv_repository)
+]
+
+
+def get_create_base_cv_use_case(base_cv_repo: BaseCVRepositoryDp):
+    return CreateBaseCVUseCase(base_cv_repo)
+
+
+CreateBaseCVUseCaseDp = Annotated[
+    CreateBaseCVUseCase, Depends(get_create_base_cv_use_case)
+]
+
+
+def get_list_base_cvs_use_case(base_cv_repo: BaseCVRepositoryDp):
+    return ListBaseCVsUseCase(base_cv_repo)
+
+
+ListBaseCVsUseCaseDp = Annotated[
+    ListBaseCVsUseCase, Depends(get_list_base_cvs_use_case)
+]
+
+
+def get_get_base_cv_use_case(base_cv_repo: BaseCVRepositoryDp):
+    return GetBaseCVUseCase(base_cv_repo)
+
+
+GetBaseCVUseCaseDp = Annotated[
+    GetBaseCVUseCase, Depends(get_get_base_cv_use_case)
+]
+
+
+def get_update_base_cv_use_case(base_cv_repo: BaseCVRepositoryDp):
+    return UpdateBaseCVUseCase(base_cv_repo)
+
+
+UpdateBaseCVUseCaseDp = Annotated[
+    UpdateBaseCVUseCase, Depends(get_update_base_cv_use_case)
+]
+
+
+def get_delete_base_cv_use_case(base_cv_repo: BaseCVRepositoryDp):
+    return DeleteBaseCVUseCase(base_cv_repo)
+
+
+DeleteBaseCVUseCaseDp = Annotated[
+    DeleteBaseCVUseCase, Depends(get_delete_base_cv_use_case)
+]
