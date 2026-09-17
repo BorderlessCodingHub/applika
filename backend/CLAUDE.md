@@ -38,6 +38,7 @@ When you add or modify any of the following, update the seed script accordingly:
 - New endpoints the seed script should exercise to keep coverage complete
 - Changes to authentication (cookie name, token format)
 - New or changed fields on `POST /base-cvs` — `seed_base_cvs()` creates 3 master CVs and asserts the 4th is refused with 409
+- New or changed fields on `/applications/{id}/cv` — `seed_application_cv()` gives roughly half the applications a CV copy and runs the full create → read → update → delete → recreate round trip on the first one, asserting the 2nd copy is refused with 409
 
 After any such change, mentally walk through the seed script from top to bottom and confirm it would still run without errors against a fresh database.
 
@@ -188,9 +189,25 @@ Domain exceptions in `app/core/exceptions.py`:
 - `ResourceNotFound` → 404
 - `ResourceConflict` → 409
 - `ApplicationFinalized` → 409
+- `BusinessRuleViolation` → 422
+- `InvalidDate` → 422
+- `ForbiddenAccess` → 403
 - `NotImplementedError` → 501
 
 Handlers registered in `app/presentation/handlers.py` via `register_handlers(app)`.
+
+### The Tailoring Port
+`TailoringService` (`app/application/services/tailoring.py`) is a `Protocol`
+describing "tailor a master CV to a job posting": one `async def tailor(request)
+-> TailoringResult`. It exists so a model-backed implementation can be dropped
+in later without changing the stored CV shape or the API.
+
+Today there is exactly **one** binding, `CloneTailoringService`
+(`clone_tailoring.py`), and it copies the master CV verbatim — identity and
+contact included — with `was_ai_generated=False` and `adjustments=[]`. There is
+no AI in this codebase, no resolver and nothing to configure;
+`get_tailoring_service()` in `dependencies.py` is the single line that would
+change. The port is `async` even though the clone does no I/O.
 
 ### Snowflake IDs
 All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUIDs or auto-increment. Defined in `app/lib/types.py` with Pydantic serialization to string for JSON/OpenAPI.
@@ -228,6 +245,14 @@ All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUID
 | PUT | `/applications/{id}` | Yes | Update application |
 | DELETE | `/applications/{id}` | Yes | Delete application (204) |
 | POST | `/applications/{id}/finalize` | Yes | Finalize with feedback (201) |
+
+`job_description` (optional, max 50 000 chars) carries the pasted job posting.
+On `PUT /applications/{id}` it is the **one** sticky field: omitting the key
+keeps the stored text, sending `null` clears it. Every other optional field is
+still a full replace and clears when omitted — that is the PUT contract
+published `applika-cli` versions rely on. `app/presentation/api/application.py`
+carries the distinction by dropping the key from the DTO when it is absent from
+`payload.model_fields_set`.
 
 ### Application Steps (`/applications/{id}/steps`)
 | Method | Route | Auth | Description |
@@ -278,6 +303,27 @@ A user may hold at most **3** master CVs. The cap lives in
 a `SELECT ... FOR UPDATE` lock on the owning user row, counts, refuses with
 `ResourceConflict('Base CV limit reached (max 3 per user)')` at 3, then
 inserts. The lock is what keeps concurrent creates from overshooting.
+
+### Application CVs (`/applications/{id}/cv`)
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| POST | `/{id}/cv` | Yes | Copy a master CV onto the application (201) |
+| GET | `/{id}/cv` | Yes | Get the application's CV copy |
+| PUT | `/{id}/cv` | Yes | Replace the copy whole (every field editable) |
+| DELETE | `/{id}/cv` | Yes | Delete the copy (204); a new one can then be made |
+
+At most **one** CV copy per application (UNIQUE on
+`tailored_cvs.application_id`); a second POST is a 409. Writes are refused
+exactly as an application step is refused: archived in a cycle →
+`BusinessRuleViolation` (422), finalized → `ApplicationFinalized` (409), in
+that order. `GET` has **no** such guard — viewing a finished application's CV
+always works.
+
+Ownership is enforced at the use-case layer only: nothing in the schema ties
+`tailored_cvs.user_id` to `applications.user_id` or `base_cvs.user_id`, so
+every route authorizes against the **application's** owner, and POST
+additionally authorizes the source master CV on its own. Another user's row is
+a 404, for admins too.
 
 ### Support Data (`/supports`)
 | Method | Route | Auth | Description |
@@ -352,6 +398,11 @@ Optional (with defaults):
   - Six repeatable sections stored as JSONB arrays, never NULL: `links`, `skills`, `experience`, `projects`, `certifications`, `languages`
   - Section sub-item `id`s are **client-generated strings** preserved round-trip, never minted server-side
   - Read and written whole (a document aggregate), so there are no child tables
+- **TailoredCV**: an application's CV copy — at most one per application
+  - A **full snapshot** of the master CV it was made from: same identity, contact, summary and six sections, stored on its own row
+  - Editing or deleting the master never changes it; when the master is deleted `base_cv_id` becomes NULL and the copy keeps every field ("source CV deleted")
+  - `was_ai_generated` / `adjustments` are the tailoring port's provenance fields, always `false` / `[]` today
+  - Created through `TailoringService`, never assembled in the use case
 
 ### Key Relationships
 - Application → User (many-to-one, cascade delete)
@@ -366,6 +417,9 @@ Optional (with defaults):
 - QuinzenalReport → User (many-to-one, cascade delete), unique on (user_id, report_day)
 - UserFeedback → User (many-to-one, cascade delete)
 - BaseCV → User (many-to-one, cascade delete), at most 3 per user
+- TailoredCV → Application (one-to-one, cascade delete, `passive_deletes=True`), UNIQUE on application_id
+- TailoredCV → User (many-to-one, cascade delete)
+- TailoredCV → BaseCV (many-to-one, nullable, **SET NULL** on delete — the copy outlives its master)
 
 Applications are "finalized" when `feedback_id` is set (irreversible).
 
@@ -391,7 +445,7 @@ DiscordServiceDp = Annotated[DiscordService, Depends(get_discord_service)]
 ```
 
 ### File Organization
-- Use cases grouped in subdirectories by feature (applications/, application_steps/, user_stats/, quinzenal_reports/, companies/, user_feedbacks/, base_cvs/)
+- Use cases grouped in subdirectories by feature (applications/, application_steps/, user_stats/, quinzenal_reports/, companies/, user_feedbacks/, base_cvs/, tailored_cvs/)
 - One repository per model in `domain/repositories/`
 - API routes in `presentation/api/` match resource names
 

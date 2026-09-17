@@ -274,6 +274,108 @@ def seed_base_cvs(client: httpx.Client) -> list[str]:
     return created_ids
 
 
+JOB_DESCRIPTIONS = [
+    'We are looking for a backend engineer comfortable with Python, '
+    'FastAPI and PostgreSQL. You will own services end to end, from the '
+    'schema to the deploy.',
+    'Senior full-stack role. React on the front, Go on the back, '
+    'Kubernetes in between. Strong testing culture, trunk-based '
+    'development, no on-call rotation.',
+    'Platform team. You will spend your days on CI, observability and '
+    'developer experience. Terraform and AWS are a must.',
+    None,
+]
+
+
+def seed_application_cv(
+    client: httpx.Client,
+    app_id: str,
+    base_cv_ids: list[str],
+    full_cycle: bool = False,
+) -> bool:
+    """Give one application a CV copy, exercising the /cv endpoints.
+
+    ``full_cycle`` runs every verb once - create, read, update, delete, then
+    create again from a different master CV - so a single seed run proves all
+    four routes still work. The other applications only get the create, which
+    is what a realistic database looks like.
+
+    Returns whether the application ends up holding a copy.
+    """
+    if not base_cv_ids:
+        return False
+
+    resp = client.post(
+        f'/applications/{app_id}/cv',
+        json={'base_cv_id': random.choice(base_cv_ids)},
+    )
+    if resp.status_code != 201:
+        print(
+            f'  Failed to create the CV copy: {resp.status_code} {resp.text}'
+        )
+        return False
+    if not full_cycle:
+        return True
+
+    copy = resp.json()
+    print(f'  CV copy created from master CV {copy["base_cv_id"]}')
+
+    # A second copy must be refused - one per application.
+    resp = client.post(
+        f'/applications/{app_id}/cv',
+        json={'base_cv_id': random.choice(base_cv_ids)},
+    )
+    if resp.status_code == 409:
+        print(f'  2nd CV copy refused as expected: {resp.json()["detail"]}')
+    else:
+        print(
+            f'  WARNING: the 2nd CV copy was NOT refused: '
+            f'{resp.status_code} {resp.text}'
+        )
+
+    # Edit it: a PUT carries every editable field.
+    edited = {
+        field: copy[field]
+        for field in (
+            'name', 'full_name', 'headline', 'location', 'email', 'phone',
+            'summary', 'links', 'skills', 'experience', 'projects',
+            'certifications', 'languages',
+        )
+    }
+    edited['summary'] = 'Tailored to this posting during the seed run.'
+    resp = client.put(f'/applications/{app_id}/cv', json=edited)
+    if resp.status_code != 200:
+        print(f'  Failed to edit the CV copy: {resp.status_code} {resp.text}')
+    else:
+        print('  CV copy edited')
+
+    resp = client.get(f'/applications/{app_id}/cv')
+    if resp.status_code != 200:
+        print(f'  Failed to read the CV copy: {resp.status_code} {resp.text}')
+
+    # Delete it, then make a fresh one - deleting frees the application.
+    resp = client.delete(f'/applications/{app_id}/cv')
+    if resp.status_code != 204:
+        print(
+            f'  Failed to delete the CV copy: {resp.status_code} {resp.text}'
+        )
+        return True
+    print('  CV copy deleted')
+
+    resp = client.post(
+        f'/applications/{app_id}/cv',
+        json={'base_cv_id': random.choice(base_cv_ids)},
+    )
+    if resp.status_code != 201:
+        print(
+            f'  Failed to recreate the CV copy: '
+            f'{resp.status_code} {resp.text}'
+        )
+        return False
+    print('  CV copy recreated from another master CV')
+    return True
+
+
 def random_date(start: date, end: date) -> date:
     delta = (end - start).days
     return start + timedelta(days=random.randint(0, delta))
@@ -367,6 +469,10 @@ def main():
         created = 0
         finalized_count = 0
         accepted_count = 0
+        cv_copies = 0
+        # Roughly half the applications get a CV copy; the first one that
+        # does gets the full create/read/update/delete round trip.
+        seed_cv_plan = [i % 2 == 0 for i in range(NUM_APPLICATIONS)]
 
         for i in range(NUM_APPLICATIONS):
             company_name, company_url = random.choice(COMPANIES)
@@ -418,6 +524,7 @@ def main():
                 'experience_level': random.choice(exp_levels),
                 'work_mode': random.choice(work_modes),
                 'country': random.choice(COUNTRIES),
+                'job_description': random.choice(JOB_DESCRIPTIONS),
             }
 
             resp = client.post('/applications', json=payload)
@@ -433,6 +540,14 @@ def main():
             created += 1
             if company_name not in company_id_cache and app.get('company_id'):
                 company_id_cache[company_name] = app['company_id']
+
+            # ----- CV copy -----
+            # Before the steps and the finalize: writing to the copy of a
+            # finalized application is refused, by design.
+            if seed_cv_plan[i] and seed_application_cv(
+                client, app_id, base_cv_ids, full_cycle=(cv_copies == 0)
+            ):
+                cv_copies += 1
 
             # ----- Add 3-5 steps -----
             num_steps = random.randint(3, 5)
@@ -514,6 +629,7 @@ def main():
         print(f'Accepted: {accepted_count}')
         print(f'In progress: {created - finalized_count}')
         print(f'Master CVs created: {len(base_cv_ids)}')
+        print(f'Application CV copies created: {cv_copies}')
 
 
 if __name__ == '__main__':

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.application.dto.application import (
+    ApplicationCompanyInputDTO,
     ApplicationCreateDTO,
     ApplicationUpdateDTO,
     FinalizeApplicationDTO,
@@ -50,7 +51,6 @@ STICKY_UPDATE_FIELDS = ('job_description',)
 
 def _build_update_dto(
     payload: UpdateApplication,
-    company: int | dict,
     user_id: int,
 ) -> ApplicationUpdateDTO:
     """Map the update body to its DTO, carrying set-ness for sticky fields.
@@ -68,6 +68,11 @@ def _build_update_dto(
     so an omitted ``observation`` keeps clearing the stored observation
     exactly as before.
     """
+    company: int | ApplicationCompanyInputDTO = (
+        payload.company
+        if isinstance(payload.company, int)
+        else ApplicationCompanyInputDTO(**payload.company.model_dump())
+    )
     dumped = payload.model_dump(exclude={'company'})
     for field in STICKY_UPDATE_FIELDS:
         if field not in payload.model_fields_set:
@@ -135,14 +140,8 @@ async def update_application(
     company_repo: CompanyRepositoryDp,
 ):
     use_case = UpdateApplicationUseCase(app_repo, platform_repo, company_repo)
-    company = (
-        payload.company
-        if isinstance(payload.company, int)
-        else payload.company.model_dump()
-    )
     application = await use_case.execute(
-        application_id,
-        _build_update_dto(payload, company, c_user.id),
+        application_id, _build_update_dto(payload, c_user.id)
     )
     return Application.model_validate(application)
 

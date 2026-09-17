@@ -6,8 +6,10 @@ from fastapi.security import APIKeyCookie
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dto.user import UserDTO
+from app.application.services.clone_tailoring import CloneTailoringService
 from app.application.services.discord_service import DiscordService
 from app.application.services.github_service import GitHubService
+from app.application.services.tailoring import TailoringService
 from app.application.use_cases.auth_handoff_state import (
     AuthHandoffStateUseCase,
 )
@@ -17,6 +19,16 @@ from app.application.use_cases.base_cvs.get import GetBaseCVUseCase
 from app.application.use_cases.base_cvs.list import ListBaseCVsUseCase
 from app.application.use_cases.base_cvs.update import UpdateBaseCVUseCase
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
+from app.application.use_cases.tailored_cvs.create import (
+    CreateTailoredCVUseCase,
+)
+from app.application.use_cases.tailored_cvs.delete import (
+    DeleteTailoredCVUseCase,
+)
+from app.application.use_cases.tailored_cvs.get import GetTailoredCVUseCase
+from app.application.use_cases.tailored_cvs.update import (
+    UpdateTailoredCVUseCase,
+)
 from app.config.db import get_session
 from app.config.redis import get_redis
 from app.config.settings import ACCESS_COOKIE_NAME, envs
@@ -40,6 +52,9 @@ from app.domain.repositories.quinzenal_report_repository import (
 )
 from app.domain.repositories.step_definition_repository import (
     StepDefinitionRepository,
+)
+from app.domain.repositories.tailored_cv_repository import (
+    TailoredCVRepository,
 )
 from app.domain.repositories.user_feedback_repository import (
     UserFeedbackRepository,
@@ -258,4 +273,78 @@ def get_delete_base_cv_use_case(base_cv_repo: BaseCVRepositoryDp):
 
 DeleteBaseCVUseCaseDp = Annotated[
     DeleteBaseCVUseCase, Depends(get_delete_base_cv_use_case)
+]
+
+
+def get_tailored_cv_repository(session: DbSession):
+    return TailoredCVRepository(session)
+
+
+TailoredCVRepositoryDp = Annotated[
+    TailoredCVRepository, Depends(get_tailored_cv_repository)
+]
+
+
+def get_tailoring_service() -> TailoringService:
+    """Bind the tailoring port to its one implementation: the verbatim clone.
+
+    There is no resolver and nothing to configure. The owner's words: "In the
+    future i want to connect this to real models, but this is to the future."
+    When that future arrives, this factory is the single line that changes.
+    """
+    return CloneTailoringService()
+
+
+TailoringServiceDp = Annotated[TailoringService, Depends(get_tailoring_service)]
+
+
+def get_create_tailored_cv_use_case(
+    tailored_cv_repo: TailoredCVRepositoryDp,
+    base_cv_repo: BaseCVRepositoryDp,
+    application_repo: ApplicationRepositoryDp,
+    tailoring_service: TailoringServiceDp,
+):
+    return CreateTailoredCVUseCase(
+        tailored_cv_repo, base_cv_repo, application_repo, tailoring_service
+    )
+
+
+CreateTailoredCVUseCaseDp = Annotated[
+    CreateTailoredCVUseCase, Depends(get_create_tailored_cv_use_case)
+]
+
+
+def get_get_tailored_cv_use_case(
+    tailored_cv_repo: TailoredCVRepositoryDp,
+    application_repo: ApplicationRepositoryDp,
+):
+    return GetTailoredCVUseCase(tailored_cv_repo, application_repo)
+
+
+GetTailoredCVUseCaseDp = Annotated[
+    GetTailoredCVUseCase, Depends(get_get_tailored_cv_use_case)
+]
+
+
+def get_update_tailored_cv_use_case(
+    tailored_cv_repo: TailoredCVRepositoryDp,
+    application_repo: ApplicationRepositoryDp,
+):
+    return UpdateTailoredCVUseCase(tailored_cv_repo, application_repo)
+
+
+UpdateTailoredCVUseCaseDp = Annotated[
+    UpdateTailoredCVUseCase, Depends(get_update_tailored_cv_use_case)
+]
+
+
+def get_delete_tailored_cv_use_case(
+    tailored_cv_repo: TailoredCVRepositoryDp,
+    application_repo: ApplicationRepositoryDp,
+):
+    return DeleteTailoredCVUseCase(tailored_cv_repo, application_repo)
+
+
+DeleteTailoredCVUseCaseDp = Annotated[
+    DeleteTailoredCVUseCase, Depends(get_delete_tailored_cv_use_case)
 ]

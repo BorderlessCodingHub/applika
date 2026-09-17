@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -13,7 +14,7 @@ from tests.unit.conftest import make_application
 
 
 def _dto(**overrides) -> ApplicationUpdateDTO:
-    defaults = dict(
+    defaults: dict[str, Any] = dict(
         company=1, role='Eng', mode='active',
         platform_id=1, application_date='2025-12-01',
         user_id=1, link_to_job=None,

@@ -13,6 +13,7 @@ from app.presentation.api.oauth import router as auth_router
 from app.presentation.api.reports import router as reports_router
 from app.presentation.api.statistic import router as statistic_router
 from app.presentation.api.support import router as support_router
+from app.presentation.api.tailored_cv import router as tailored_cv_router
 from app.presentation.api.user import router as profile_router
 from app.presentation.api.user_feedback import router as feedback_router
 from app.presentation.handlers import register_handlers
@@ -49,6 +50,7 @@ app.include_router(reports_router)
 app.include_router(feedback_router)
 app.include_router(cycle_router)
 app.include_router(base_cv_router)
+app.include_router(tailored_cv_router)
 # REST Admin routes
 for _r in admin_routers:
     app.include_router(_r)

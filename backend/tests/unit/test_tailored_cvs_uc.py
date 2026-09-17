@@ -13,6 +13,7 @@ Two things are pinned here that the integration suite cannot pin as sharply.
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -44,7 +45,7 @@ from app.core.exceptions import (
 from tests import msg
 from tests.unit.conftest import make_application
 
-SECTIONS = {
+SECTIONS: dict[str, Any] = {
     'links': [{'id': 'lnk-1', 'label': 'GitHub', 'url': 'https://gh/ada'}],
     'skills': ['Python', 'PostgreSQL'],
     'experience': [
@@ -85,7 +86,7 @@ class _RecordingTailoringService:
 
 def make_base_cv(**overrides) -> BaseCVDTO:
     """A fully populated master CV read model."""
-    defaults = {
+    defaults: dict[str, Any] = {
         'id': 10,
         'created_at': datetime(2026, 1, 1, tzinfo=timezone.utc),
         'updated_at': None,
@@ -105,7 +106,7 @@ def make_base_cv(**overrides) -> BaseCVDTO:
 
 def make_tailored_cv(**overrides):
     """SimpleNamespace mimicking TailoredCVModel for model_validate."""
-    defaults = {
+    defaults: dict[str, Any] = {
         'id': 20,
         'created_at': datetime(2026, 1, 1, tzinfo=timezone.utc),
         'updated_at': None,
@@ -128,7 +129,7 @@ def make_tailored_cv(**overrides):
 
 
 def update_dto(**overrides) -> TailoredCVUpdateDTO:
-    defaults = {
+    defaults: dict[str, Any] = {
         'name': 'Edited CV',
         'full_name': 'Ada Lovelace',
         'headline': 'Principal Engineer',
@@ -168,7 +169,11 @@ def make_create_use_case(
 
 
 def create_dto(**overrides) -> TailoredCVCreateDTO:
-    defaults = {'user_id': 1, 'application_id': 1, 'base_cv_id': 10}
+    defaults: dict[str, Any] = {
+        'user_id': 1,
+        'application_id': 1,
+        'base_cv_id': 10,
+    }
     defaults.update(overrides)
     return TailoredCVCreateDTO(**defaults)
 
