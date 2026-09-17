@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
 import { ArrowDown, ArrowUp, ChevronDown, Plus, Trash2 } from "lucide-react";
 import type { LucideProps } from "lucide-react";
@@ -124,30 +124,35 @@ export function CvRepeatableSection<T extends { id: string }>({
   // Open is the ABSENCE of an entry, so a row the user has never touched — and
   // every row added later — starts expanded with nothing to seed it.
   //
-  // The set is stamped with the reveal it was recorded against. A reveal is
-  // then applied by DERIVING the effective set during render — no effect, no
-  // cascading setState — and the next toggle rebases the stored set onto the
-  // current stamp. So a row the user closes while the error is still on screen
-  // stays closed, and a NEW error opens it again.
+  // The set is stamped with the reveal it was recorded against, and a reveal is
+  // COMMITTED during render rather than derived for as long as the error lasts.
+  // Deriving it collapsed the row again the instant the last invalid field
+  // became valid: the error cleared, the reveal with it, and the stored
+  // "closed" folded away a row the user was still typing in — an unrequested
+  // context change on input (WCAG 3.2.2) that took keyboard focus to `<body>`
+  // with it. A revealed row now stays open until the USER closes it.
+  //
+  // The commit is React's "adjust state when a prop changes" pattern: it
+  // re-renders immediately and converges on the next pass, because the stamp
+  // then matches. Never an effect — `react-hooks/set-state-in-effect` is an
+  // error under the React Compiler config, and an effect would paint the
+  // collapsed frame first.
   const [closedItems, setClosedItems] = useState<{
     revealKey: string;
     ids: ReadonlySet<string>;
   }>(() => ({ revealKey: "", ids: new Set<string>() }));
 
   const revealKey = `${revealNonce}\u0000${revealItemIds?.join("\u0000") ?? ""}`;
-  const revealTargets = useMemo(
-    () => revealKey.split("\u0000").slice(1).filter(Boolean),
-    [revealKey],
-  );
 
-  const closedItemIds = useMemo(() => {
-    if (closedItems.revealKey === revealKey || closedItems.ids.size === 0) {
-      return closedItems.ids;
-    }
+  if (closedItems.revealKey !== revealKey) {
     const draft = new Set(closedItems.ids);
-    for (const id of revealTargets) draft.delete(id);
-    return draft;
-  }, [closedItems, revealKey, revealTargets]);
+    for (const id of revealKey.split("\u0000").slice(1)) {
+      if (id) draft.delete(id);
+    }
+    setClosedItems({ revealKey, ids: draft });
+  }
+
+  const closedItemIds = closedItems.ids;
 
   const setItemOpen = useCallback(
     (id: string, next: boolean) => {

@@ -125,11 +125,17 @@ export function CvCard({
                   <dt className="inline font-medium text-foreground">
                     {entry.category}
                   </dt>
-                  {entry.keywords.length > 0 ? (
-                    <dd className="inline text-muted-foreground">
-                      {`: ${entry.keywords.join(KEYWORD_SEPARATOR)}`}
-                    </dd>
-                  ) : null}
+                  {/*
+                    The `dd` is rendered even with nothing to say: a `dt` with
+                    no `dd` after it is not a valid description list, and a
+                    screen reader announces the orphan term oddly. A category
+                    with no keywords yet is a real, saveable state.
+                  */}
+                  <dd className="inline text-muted-foreground">
+                    {entry.keywords.length > 0
+                      ? `: ${entry.keywords.join(KEYWORD_SEPARATOR)}`
+                      : ""}
+                  </dd>
                 </div>
               ))}
             </dl>

@@ -106,6 +106,11 @@ describe("the tile's skills (AC1)", () => {
 
     expect(screen.getByText("Tooling")).toBeVisible();
     expect(screen.getByText(/0 keywords/)).toBeVisible();
+    // A `dt` with no `dd` after it is not a valid description list, so the
+    // description is rendered empty rather than dropped.
+    const term = screen.getByText("Tooling");
+    expect(term.tagName).toBe("DT");
+    expect(term.nextElementSibling?.tagName).toBe("DD");
   });
 
   it("says so plainly when there are no skills at all", () => {

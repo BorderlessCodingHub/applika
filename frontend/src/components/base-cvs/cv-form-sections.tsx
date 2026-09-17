@@ -136,36 +136,41 @@ const NO_REVEAL: readonly string[] = [];
  * submits", so EVERY submit reveals, including the second one that fails on
  * the very same error the user just folded away. Between two submits the user
  * stays in charge of every header.
+ *
+ * A reveal is COMMITTED, not merely derived for as long as the error lasts.
+ * Deriving it would fold the section away again the instant the user finished
+ * fixing the message — the error clears, the reveal with it, and the stored
+ * "closed" reasserts itself over a field the user is still typing in. That is
+ * an unrequested context change on input (WCAG 3.2.2) in the one flow this
+ * seam exists to protect, and it takes keyboard focus with it. So a revealed
+ * section stays open until the USER closes it again.
  */
 export function useCvSectionDisclosure(
   invalidSections: readonly CvFormSectionId[],
   revealNonce: string | number = "",
 ) {
-  // Stamped with the reveal it was recorded against; a reveal is DERIVED
-  // during render rather than pushed by an effect, so there is no cascading
-  // setState (`react-hooks/set-state-in-effect` is an error under the React
-  // Compiler config) and no fight with the user between submits. The next
-  // toggle rebases the set onto the current stamp.
+  // Stamped with the reveal it was recorded against. The commit happens DURING
+  // RENDER — React's "adjust state when a prop changes" pattern, which
+  // re-renders immediately and converges on the next pass because the stamp
+  // then matches. Never in an effect: `react-hooks/set-state-in-effect` is an
+  // error under the React Compiler config, and an effect would paint the
+  // collapsed frame first.
   const [closed, setClosed] = useState<{
     revealKey: string;
     ids: ReadonlySet<CvFormSectionId>;
   }>(() => ({ revealKey: "", ids: new Set<CvFormSectionId>() }));
 
   const revealKey = `${revealNonce}\u0000${invalidSections.join("\u0000")}`;
-  const revealTargets = useMemo(
-    () =>
-      revealKey.split("\u0000").slice(1).filter(Boolean) as CvFormSectionId[],
-    [revealKey],
-  );
 
-  const closedIds = useMemo(() => {
-    if (closed.revealKey === revealKey || closed.ids.size === 0) {
-      return closed.ids;
-    }
+  if (closed.revealKey !== revealKey) {
     const draft = new Set(closed.ids);
-    for (const id of revealTargets) draft.delete(id);
-    return draft;
-  }, [closed, revealKey, revealTargets]);
+    for (const id of revealKey.split("\u0000").slice(1)) {
+      if (id) draft.delete(id as CvFormSectionId);
+    }
+    setClosed({ revealKey, ids: draft });
+  }
+
+  const closedIds = closed.ids;
 
   return useMemo(
     () => ({

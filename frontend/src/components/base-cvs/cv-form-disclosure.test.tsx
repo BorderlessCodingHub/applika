@@ -362,6 +362,63 @@ describe("a submit never hides an error behind a collapsed header (AC6)", () => 
     );
   });
 
+  it("keeps a revealed section open while the user fixes it, and keeps focus", async () => {
+    // The reveal is COMMITTED, not derived for as long as the error lasts.
+    // Derived, the section folded away again the instant the field became
+    // valid — the error cleared, the reveal with it, and the stored "closed"
+    // reasserted itself over the textarea the user was typing in. That is an
+    // unrequested context change on input (WCAG 3.2.2) in the very flow AC6
+    // exists to protect, and it sent keyboard focus to `<body>`.
+    const user = userEvent.setup();
+    render(<Harness defaults={values({ summary: "" })} />);
+
+    await user.click(sectionTrigger("Summary"));
+    await user.click(screen.getByRole("button", { name: "Save CV" }));
+    expect(sectionTrigger("Summary")).toHaveAttribute("aria-expanded", "true");
+
+    const field = screen.getByLabelText("Summary");
+    await user.type(field, "Eight years on payment systems.");
+
+    // Still open, still the same field, still focused.
+    expect(sectionTrigger("Summary")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("Summary")).toBeVisible();
+    expect(document.activeElement).toBe(field);
+    expect(screen.queryByText("A summary is required")).not.toBeInTheDocument();
+  });
+
+  it("keeps a revealed Experience ROW open while the user fixes it", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        defaults={values({
+          experience: [
+            { id: "e-1", company: "Stripe", role: "", start: "", bullets: [] },
+          ],
+        })}
+      />,
+    );
+
+    await user.click(rowTrigger("Stripe", "experience 1"));
+    await user.click(screen.getByRole("button", { name: "Save CV" }));
+    expect(rowTrigger("Stripe", "experience 1")).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+
+    const row = within(screen.getByRole("group", { name: "experience 1" }));
+    await user.type(row.getByLabelText("Role"), "Senior Backend Engineer");
+    const start = row.getByLabelText("Start");
+    await user.type(start, "032021");
+
+    // The last keystroke is the one that clears the array-level error. The row
+    // must not vanish under the cursor on it.
+    expect(
+      rowTrigger("Senior Backend Engineer", "experience 1"),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(document.activeElement).toBe(start);
+    expect(start).toHaveValue("03/2021");
+  });
+
   it("lets the user close a revealed section again, and re-reveals on the next submit", async () => {
     const user = userEvent.setup();
     render(<Harness defaults={values({ summary: "" })} />);
