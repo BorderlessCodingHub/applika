@@ -29,7 +29,11 @@ from typing import Any
 import pytest
 import ruamel.yaml
 
-from app.application.dto.base_cv import BaseCVDTO
+from app.application.dto.base_cv import (
+    BaseCVDTO,
+    EducationItem,
+    ExperienceItem,
+)
 from app.application.services.cv_rendering import renderer as renderer_module
 from app.application.services.cv_rendering.mapper import (
     CERTIFICATIONS_SECTION,
@@ -82,15 +86,26 @@ FULL_SECTIONS: dict[str, Any] = {
         {'id': 'skl-3', 'category': 'Practices', 'keywords': []},
     ],
     'experience': [
+        # The current role: a `start` and no `end` at all, which is how the
+        # owner asked a running entry to be stored ("finish is optional, when
+        # empty is counted as Present") and what makes the page say `present`.
         {
             'id': 'exp-1',
             'company': 'Acme',
             'company_description': 'Anvils, mostly',
             'role': 'Staff Engineer',
-            'period': '2020 - 2026',
+            'start': '2024-02',
             'location': 'Lisbon, PT',
             'bullets': ['Cut p99 by half', 'Owned the billing rewrite'],
-        }
+        },
+        # A finished role: both months, which the page prints as a range.
+        {
+            'id': 'exp-2',
+            'company': 'Globex',
+            'role': 'Senior Engineer',
+            'start': '2023-02',
+            'end': '2024-02',
+        },
     ],
     'projects': [
         {
@@ -114,14 +129,16 @@ FULL_SECTIONS: dict[str, Any] = {
             'institution': 'Riverside Institute',
             'degree': "Master's degree",
             'area': 'Distributed Systems',
-            'period': '09/2016 - 07/2018',
+            'start': '2016-09',
+            'end': '2018-07',
         },
         {
             'id': 'edu-2',
             'institution': 'Northgate College',
             'degree': "Bachelor's degree",
             'area': 'Computer Science',
-            'period': '09/2012 - 07/2016',
+            'start': '2012-09',
+            'end': '2016-07',
         },
     ],
     'certifications': [{'id': 'crt-1', 'name': 'AWS SAA', 'issuer': 'Amazon'}],
@@ -165,6 +182,19 @@ def _cv(**overrides: Any) -> BaseCVDTO:
 def _sections(**overrides: Any) -> dict[str, Any]:
     document = map_cv_to_rendercv_document(_cv(**overrides))
     return document['cv'].get('sections', {})
+
+
+def _sections_unvalidated(**overrides: Any) -> dict[str, Any]:
+    """Map a CV whose section items bypassed validation.
+
+    The mapper's defensive branches - a blank ``start``, an item with nothing
+    in it at all - cannot be reached through a validated payload any more, so
+    the items are built with ``model_construct`` and dropped onto the document
+    with ``model_copy(update=...)``, which pydantic also leaves unvalidated.
+    """
+    return map_cv_to_rendercv_document(_cv().model_copy(update=overrides))[
+        'cv'
+    ].get('sections', {})
 
 
 # The owner's folder, two levels above the applika repo. Present on a
@@ -626,15 +656,93 @@ def test_summary_maps_to_a_text_entry():
 
 
 def test_experience_maps_to_an_experience_entry():
+    """A current role: ``start_date`` alone, and never RenderCV's ``date``.
+
+    The owner: "finish is optional, when empty is counted as Present". The
+    mapper does **not** write the word - it omits ``end_date`` and RenderCV's
+    own ``check_and_adjust_dates`` fills in ``present``.
+    """
     entry = _sections()[EXPERIENCE_SECTION][0]
     assert entry == {
         'company': 'Acme',
         'position': 'Staff Engineer',
-        'date': '2020 - 2026',
+        'start_date': '2024-02',
         'location': 'Lisbon, PT',
         'summary': 'Anvils, mostly',
         'highlights': ['Cut p99 by half', 'Owned the billing rewrite'],
     }, msg('the mapped experience entry', entry)
+
+
+def test_a_finished_experience_carries_both_dates():
+    entry = _sections()[EXPERIENCE_SECTION][1]
+    assert entry == {
+        'company': 'Globex',
+        'position': 'Senior Engineer',
+        'start_date': '2023-02',
+        'end_date': '2024-02',
+    }, msg('a closed date range', entry)
+
+
+@pytest.mark.parametrize(
+    'section', [EXPERIENCE_SECTION, EDUCATION_SECTION]
+)
+def test_no_dated_entry_ever_emits_rendercv_s_arbitrary_date(section):
+    """``date`` and ``start_date`` are mutually exclusive, and silently so.
+
+    ``BaseEntryWithComplexFields.check_and_adjust_dates`` clears ``start_date``
+    and ``end_date`` the moment ``date`` is set. An entry that emitted both
+    would render the ``date`` string and throw the period away - a PDF that
+    compiles and is wrong, which is the failure mode this whole ticket exists
+    to remove.
+    """
+    for entry in _sections()[section]:
+        assert 'date' not in entry, msg('no arbitrary date key', entry)
+        assert 'start_date' in entry, msg('a start_date', entry)
+
+
+def test_a_blank_start_on_experience_omits_both_date_keys():
+    """Defensive: the schema requires ``start``, but a bare row must not 500.
+
+    Emitting ``end_date`` with no ``start_date`` is worse than emitting
+    nothing - RenderCV folds a lone ``end_date`` back into ``date`` and prints
+    a finish with no beginning. An entry carrying neither key never reaches
+    ``process_date`` at all (``entry_fields`` is built from the entry's own
+    set fields), so it renders undated instead of raising.
+
+    ``model_construct`` is the only way in: ``start`` is required and
+    pattern-checked, so no validated payload can produce this shape.
+    """
+    item = ExperienceItem.model_construct(
+        id='exp-x',
+        company='Acme',
+        role='Staff Engineer',
+        start='',
+        end='2024-02',
+    )
+    entry = _sections_unvalidated(experience=[item])[EXPERIENCE_SECTION][0]
+
+    assert entry == {'company': 'Acme', 'position': 'Staff Engineer'}, msg(
+        'no date key of any kind', entry
+    )
+
+
+def test_a_blank_start_on_education_omits_both_date_keys():
+    """The same defence on the other dated section."""
+    item = EducationItem.model_construct(
+        id='edu-x',
+        institution='Riverside Institute',
+        degree='Certificate',
+        area=None,
+        start='',
+        end='2019-07',
+    )
+    entry = _sections_unvalidated(education=[item])[EDUCATION_SECTION][0]
+
+    assert entry == {
+        'institution': 'Riverside Institute',
+        'area': '',
+        'degree': 'Certificate',
+    }, msg('no date key of any kind', entry)
 
 
 def test_a_project_is_three_lines_name_then_link_then_description():
@@ -757,10 +865,11 @@ def test_a_category_with_neither_a_name_nor_a_keyword_is_dropped():
 
 
 def test_education_maps_to_an_education_entry():
-    """``period`` is free text and goes into RenderCV's arbitrary ``date``.
+    """Education is dated by ``start``/``end``, exactly like experience.
 
-    Same choice experience already made: applika parses no dates anywhere in
-    a CV. The institution/degree/area/date layout comes from
+    The owner changed both sections in one breath, so both map onto RenderCV's
+    ``start_date``/``end_date`` and neither touches the arbitrary ``date``.
+    The institution/degree/area/date layout comes from
     ``templates.education_entry``, not from a template file.
     """
     entry = _sections()[EDUCATION_SECTION][0]
@@ -768,8 +877,26 @@ def test_education_maps_to_an_education_entry():
         'institution': 'Riverside Institute',
         'area': 'Distributed Systems',
         'degree': "Master's degree",
-        'date': '09/2016 - 07/2018',
+        'start_date': '2016-09',
+        'end_date': '2018-07',
     }, msg('the mapped education entry', entry)
+
+
+def test_an_ongoing_course_omits_its_end_date():
+    """A course still running has no ``end`` and prints ``present``."""
+    entry = _sections(
+        education=[
+            {
+                'id': 'e1',
+                'institution': 'Riverside Institute',
+                'degree': 'PhD',
+                'area': 'Distributed Systems',
+                'start': '2025-09',
+            }
+        ]
+    )[EDUCATION_SECTION][0]
+    assert entry['start_date'] == '2025-09', msg('2025-09', entry)
+    assert 'end_date' not in entry, msg('no end_date key', entry)
 
 
 def test_education_without_an_area_still_maps():
@@ -786,7 +913,7 @@ def test_education_without_an_area_still_maps():
                 'institution': 'Riverside Institute',
                 'degree': 'Certificate',
                 'area': None,
-                'period': None,
+                'start': '2019-01',
             }
         ]
     )[EDUCATION_SECTION][0]
@@ -794,19 +921,17 @@ def test_education_without_an_area_still_maps():
         'institution': 'Riverside Institute',
         'area': '',
         'degree': 'Certificate',
-    }, msg('an area key with no date key', entry)
+        'start_date': '2019-01',
+    }, msg('an area key and a start_date', entry)
 
 
 def test_an_entirely_blank_education_item_is_dropped():
-    sections = _sections(
+    """Unreachable through the schema now, still guarded in the mapper."""
+    sections = _sections_unvalidated(
         education=[
-            {
-                'id': 'e1',
-                'institution': ' ',
-                'degree': ' ',
-                'area': '  ',
-                'period': '',
-            }
+            EducationItem.model_construct(
+                id='e1', institution=' ', degree=' ', area='  ', start=''
+            )
         ]
     )
     assert EDUCATION_SECTION not in sections, msg(
@@ -1238,12 +1363,53 @@ def test_education_typesets_institution_then_degree_then_date(tmp_path):
     )
     # ``\\/`` and not ``/``: RenderCV escapes the slash on its way into Typst
     # (a bare ``/`` starts a list item there). The PDF prints ``09/2016``.
+    #
+    # This is the owner's two tokens doing their work on stored ISO months:
+    # ``single_date: MONTH_IN_TWO_DIGITS/YEAR`` turns ``2016-09`` into
+    # ``09/2016``, and ``date_range: START_DATE - END_DATE`` joins the pair.
+    # Nothing in applika formats a date.
     assert '09\\/2016 - 07\\/2018' in education_block, msg(
-        'the free-text period as the date column', education_block[:400]
+        'the stored ISO months typeset as MM/yyyy', education_block[:400]
     )
     assert '#strong[Riverside Institute]' not in education_block, msg(
         "the owner's template does not bold the institution",
         education_block[:400],
+    )
+
+
+def test_experience_typesets_mm_yyyy_ranges_and_present(tmp_path):
+    """AC3 + AC4, end to end through the real theme, on the generated Typst.
+
+    Two assertions, and both are the point of the whole ticket:
+
+    * a finished role prints ``02/2023 - 02/2024`` - stored ISO months, run
+      through the owner's own ``single_date``/``date_range`` tokens, come out
+      as ``MM/yyyy`` on the page with nothing in applika formatting them;
+    * the current role prints ``02/2024 - present``. The mapper never writes
+      that word. RenderCV's ``check_and_adjust_dates`` sets
+      ``end_date = "present"`` because ``start_date`` was given and
+      ``end_date`` was not, which is exactly what the owner asked for: "finish
+      is optional, when empty is counted as Present".
+
+    ``\\/`` rather than ``/``: RenderCV escapes the slash on its way into
+    Typst, where a bare ``/`` starts a list item. The PDF shows ``02/2024``.
+    """
+    source = generate_typst_source(
+        map_cv_to_rendercv_yaml(_cv()), tmp_path
+    ).read_text(encoding='utf-8')
+    experience_block = source.split(f'== {EXPERIENCE_SECTION}', 1)[1].split(
+        '\n== '
+    )[0]
+
+    assert '02\\/2024 - present' in experience_block, msg(
+        'the current role as MM/yyyy - present', experience_block[:600]
+    )
+    assert '02\\/2023 - 02\\/2024' in experience_block, msg(
+        'the finished role as an MM/yyyy range', experience_block[:600]
+    )
+    # ``show_time_spans_in=[]`` still holds: no "1 year 2 months" tail.
+    assert 'year' not in experience_block, msg(
+        'no time span appended to the range', experience_block[:600]
     )
 
 

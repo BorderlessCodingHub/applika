@@ -190,7 +190,8 @@ async def test_create_persists_every_section_and_the_stamped_user_id():
                     institution='Riverside Institute',
                     degree="Master's degree",
                     area='Distributed Systems',
-                    period='09/2016 - 07/2018',
+                    start='2016-09',
+                    end='2018-07',
                 )
             ],
         )

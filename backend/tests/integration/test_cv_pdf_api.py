@@ -82,7 +82,7 @@ FULL_SECTIONS: dict[str, Any] = {
             'company': 'Acme',
             'company_description': 'Anvils, mostly',
             'role': 'Staff Engineer',
-            'period': '2020 - 2026',
+            'start': '2020-02',
             'location': 'Lisbon, PT',
             'bullets': ['Cut p99 by half', 'Owned the billing rewrite'],
         }
@@ -102,7 +102,8 @@ FULL_SECTIONS: dict[str, Any] = {
             'institution': 'Riverside Institute',
             'degree': "Master's degree",
             'area': 'Distributed Systems',
-            'period': '09/2016 - 07/2018',
+            'start': '2016-09',
+            'end': '2018-07',
         }
     ],
     'certifications': [{'id': 'crt-1', 'name': 'AWS SAA', 'issuer': 'Amazon'}],

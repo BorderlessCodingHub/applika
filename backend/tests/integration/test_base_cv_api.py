@@ -24,6 +24,7 @@ import asyncio
 from datetime import datetime, timezone
 from typing import Any, cast
 
+import pytest
 import sqlalchemy as sa
 from httpx import AsyncClient
 from sqlalchemy.dialects import postgresql
@@ -77,7 +78,10 @@ FULL_SECTIONS = {
             'company': 'Acme',
             'company_description': 'Anvils, mostly',
             'role': 'Staff Engineer',
-            'period': '2020 - 2026',
+            # An explicit ``null`` finish: the entry is current, and the
+            # create echo comes back identical rather than growing a key.
+            'start': '2020-02',
+            'end': None,
             'location': 'Lisbon, PT',
             'bullets': ['Cut p99 by half', 'Owned the billing rewrite'],
         }
@@ -97,7 +101,8 @@ FULL_SECTIONS = {
             'institution': 'Riverside Institute',
             'degree': "Master's degree",
             'area': 'Distributed Systems',
-            'period': '09/2016 - 07/2018',
+            'start': '2016-09',
+            'end': '2018-07',
         }
     ],
     'certifications': [{'id': 'crt-1', 'name': 'AWS SAA', 'issuer': 'Amazon'}],
@@ -706,6 +711,218 @@ async def test_admin_gets_no_extra_access_to_another_users_master_cv(
     assert deleted.status_code == 404, msg(404, deleted.status_code)
     assert listed.json() == [], msg([], listed.json())
     assert await _count_rows(db_session, owner_id) == 1
+
+
+# --- KODI-007: experience and education periods ------------------------------
+#
+# The owner: "Today for Education and Experience, the period input is optional,
+# this must be required, and needs to change, instead of a bare text input it
+# needs to ask when started and when finished (finish is optional, when empty
+# is counted as Present), it's a date input but only for month and year
+# "MM/yyyy" for both start and finish."
+#
+# On the wire that is ISO ``YYYY-MM`` in both directions: ``MM/yyyy`` is the
+# *input and display* format and lives in the frontend, while the API stores
+# and returns the ISO month RenderCV's ``start_date``/``end_date`` take
+# unchanged. These tests pin the server half of AC1, AC2 and AC3.
+
+DATED_SECTIONS = ('experience', 'education')
+
+
+def _dated_item(section: str, **overrides: Any) -> dict[str, Any]:
+    """One experience or education item, with its period overridden."""
+    item = dict(FULL_SECTIONS[section][0])
+    item.pop('end', None)
+    item.update(overrides)
+    return item
+
+
+@pytest.mark.parametrize('section', DATED_SECTIONS)
+async def test_an_entry_without_a_start_is_refused(
+    async_client: AsyncClient, section: str
+):
+    """AC1 + AC2: the start month is required on **both** sections.
+
+    Education is the widening: its period used to be optional free text, and
+    the owner's sentence names both sections in one breath.
+    """
+    item = _dated_item(section)
+    del item['start']
+
+    response = await async_client.post(
+        '/base-cvs', json=payload(**{section: [item]})
+    )
+
+    assert response.status_code == 422, msg(422, response.text)
+
+
+@pytest.mark.parametrize('section', DATED_SECTIONS)
+async def test_the_retired_period_field_is_refused(
+    async_client: AsyncClient, section: str
+):
+    """``period`` is gone, not deprecated: sending it is a 422.
+
+    ``extra='forbid'`` is what makes that true, and asserting it here is what
+    stops the old free-text field from creeping back in beside the new pair.
+    """
+    item = _dated_item(section, start='2020-02')
+    item['period'] = '2020 - 2026'
+
+    response = await async_client.post(
+        '/base-cvs', json=payload(**{section: [item]})
+    )
+
+    assert response.status_code == 422, msg(422, response.text)
+
+
+@pytest.mark.parametrize('section', DATED_SECTIONS)
+async def test_an_entry_with_no_finish_round_trips_as_current(
+    async_client: AsyncClient, section: str
+):
+    """AC1 + AC2: "finish is optional, when empty is counted as Present".
+
+    An omitted ``end`` comes back as ``null`` rather than as an empty string
+    or a guessed month - that ``null`` is what the renderer turns into
+    ``present``.
+    """
+    item = _dated_item(section, start='2024-02')
+
+    created = await _create(async_client, **{section: [item]})
+    fetched = await async_client.get(f'/base-cvs/{created["id"]}')
+
+    assert fetched.status_code == 200, msg(200, fetched.text)
+    stored = fetched.json()[section][0]
+    assert stored['start'] == '2024-02', msg('2024-02', stored)
+    assert stored['end'] is None, msg(None, stored)
+
+
+@pytest.mark.parametrize('section', DATED_SECTIONS)
+async def test_the_period_is_stored_and_returned_as_iso_months(
+    async_client: AsyncClient, section: str
+):
+    """AC3: ISO ``YYYY-MM`` on the wire, byte for byte, in both directions."""
+    item = _dated_item(section, start='2016-09', end='2018-07')
+
+    created = await _create(async_client, **{section: [item]})
+
+    assert created[section][0]['start'] == '2016-09'
+    assert created[section][0]['end'] == '2018-07'
+
+
+@pytest.mark.parametrize('section', DATED_SECTIONS)
+async def test_a_finish_earlier_than_its_start_is_refused(
+    async_client: AsyncClient, section: str
+):
+    """AC3: "a finish earlier than its start is refused"."""
+    item = _dated_item(section, start='2024-02', end='2023-02')
+
+    response = await async_client.post(
+        '/base-cvs', json=payload(**{section: [item]})
+    )
+
+    assert response.status_code == 422, msg(422, response.text)
+
+
+@pytest.mark.parametrize('section', DATED_SECTIONS)
+async def test_a_finish_in_the_same_month_as_its_start_is_accepted(
+    async_client: AsyncClient, section: str
+):
+    """The boundary: *earlier* is refused, equal is a one-month entry.
+
+    The migration seeds every carried-over item with ``start`` and ``end``
+    both ``2026-01`` (the owner: "seed as "01/2026" to both start and
+    finish"), so refusing an equal pair would make the migrated data
+    unreadable through its own API.
+    """
+    item = _dated_item(section, start='2026-01', end='2026-01')
+
+    created = await _create(async_client, **{section: [item]})
+
+    assert created[section][0]['end'] == '2026-01', msg(
+        'an equal pair is a valid one-month entry', created[section][0]
+    )
+
+
+@pytest.mark.parametrize(
+    'value',
+    [
+        '01/2026',  # the owner's display format - the frontend's job
+        '2026-1',  # unpadded month
+        '2026-00',  # not a month
+        '2026-13',  # not a month either
+        '2026',  # a year alone
+        '2026-01-15',  # a day-level date; this ticket is months only
+        'present',  # the renderer's word, never a stored value
+        '',
+    ],
+)
+@pytest.mark.parametrize('section', DATED_SECTIONS)
+async def test_a_start_that_is_not_an_iso_month_is_refused(
+    async_client: AsyncClient, section: str, value: str
+):
+    """AC3: the wire is ISO ``YYYY-MM`` and nothing else.
+
+    ``01/2026`` is in this list on purpose: it is exactly what the owner asked
+    the *input* to look like, and exactly what the API must not be handed.
+    The frontend converts; the server stores ISO.
+    """
+    item = _dated_item(section, start=value)
+
+    response = await async_client.post(
+        '/base-cvs', json=payload(**{section: [item]})
+    )
+
+    assert response.status_code == 422, msg(422, response.text)
+
+
+@pytest.mark.parametrize('section', DATED_SECTIONS)
+async def test_a_finish_that_is_not_an_iso_month_is_refused(
+    async_client: AsyncClient, section: str
+):
+    item = _dated_item(section, start='2020-02', end='12/2024')
+
+    response = await async_client.post(
+        '/base-cvs', json=payload(**{section: [item]})
+    )
+
+    assert response.status_code == 422, msg(422, response.text)
+
+
+@pytest.mark.parametrize('section', DATED_SECTIONS)
+async def test_patch_refuses_a_finish_earlier_than_its_start(
+    async_client: AsyncClient, section: str
+):
+    """AC3 on the partial update: the rule lives on the item, not the body.
+
+    A PATCH replaces a section whole, so the same item model validates it and
+    the same 422 comes back - the create path is not the only guarded one.
+    """
+    created = await _create(async_client)
+    item = _dated_item(section, start='2024-02', end='2020-02')
+
+    response = await async_client.patch(
+        f'/base-cvs/{created["id"]}', json={section: [item]}
+    )
+
+    assert response.status_code == 422, msg(422, response.text)
+
+
+@pytest.mark.parametrize('section', DATED_SECTIONS)
+async def test_patch_can_clear_a_finish_to_make_an_entry_current(
+    async_client: AsyncClient, section: str
+):
+    """A user still in the job removes the finish; it stores as null."""
+    created = await _create(async_client)
+    item = _dated_item(section, start='2020-02')
+
+    response = await async_client.patch(
+        f'/base-cvs/{created["id"]}', json={section: [item]}
+    )
+
+    assert response.status_code == 200, msg(200, response.text)
+    assert response.json()[section][0]['end'] is None, msg(
+        None, response.json()[section][0]
+    )
 
 
 # --- The ORM mirrors the migration -------------------------------------------

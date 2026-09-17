@@ -90,7 +90,7 @@ FULL_SECTIONS: dict[str, Any] = {
             'company': 'Acme',
             'company_description': 'Anvils, mostly',
             'role': 'Staff Engineer',
-            'period': '2020 - 2026',
+            'start': '2020-02',
             'location': 'Lisbon, PT',
             'bullets': ['Cut p99 by half', 'Owned the billing rewrite'],
         }
@@ -110,7 +110,8 @@ FULL_SECTIONS: dict[str, Any] = {
             'institution': 'Riverside Institute',
             'degree': "Master's degree",
             'area': 'Distributed Systems',
-            'period': '09/2016 - 07/2018',
+            'start': '2016-09',
+            'end': '2018-07',
         }
     ],
     'certifications': [{'id': 'crt-1', 'name': 'AWS SAA', 'issuer': 'Amazon'}],
@@ -177,7 +178,8 @@ def update_payload(**overrides: Any) -> dict:
                 'company': 'Globex',
                 'company_description': None,
                 'role': 'Principal Engineer',
-                'period': '2018 - 2020',
+                'start': '2018-04',
+                'end': '2020-01',
                 'location': None,
                 'bullets': ['Led the platform team'],
             }
@@ -197,7 +199,8 @@ def update_payload(**overrides: Any) -> dict:
                 'institution': 'Northgate College',
                 'degree': "Bachelor's degree",
                 'area': 'Computer Science',
-                'period': '09/2012 - 07/2016',
+                'start': '2012-09',
+                'end': '2016-07',
             }
         ],
         'certifications': [
@@ -615,6 +618,87 @@ async def test_update_without_a_copy_is_404(async_client: AsyncClient):
     )
 
     assert response.status_code == 404, msg(404, response.status_code)
+
+
+# --- KODI-007: the copy carries the same period rules ----------------------
+#
+# The contract is one shape for both documents: the copy's item schemas are
+# imported from the master CV's, so ``start`` is required and a finish earlier
+# than its start is a 422 here too. These pin that the shared model really is
+# shared - a copy path that quietly kept the old free text would pass every
+# test above.
+
+DATED_SECTIONS = ('experience', 'education')
+
+
+@pytest.mark.parametrize('section', DATED_SECTIONS)
+async def test_the_copy_carries_the_periods_of_its_master(
+    async_client: AsyncClient, section: str
+):
+    """AC1 + AC2 through the clone: ISO months survive the copy untouched."""
+    _, _, copy = await _setup(async_client)
+
+    master_item = base_cv_payload()[section][0]
+    copied = copy[section][0]
+    assert copied['start'] == master_item['start'], msg(
+        master_item['start'], copied
+    )
+    assert copied.get('end') == master_item.get('end'), msg(
+        master_item.get('end'), copied
+    )
+
+
+@pytest.mark.parametrize('section', DATED_SECTIONS)
+async def test_update_refuses_a_finish_earlier_than_its_start(
+    async_client: AsyncClient, section: str
+):
+    """AC3 on the copy's PUT - the item model guards this path too."""
+    _, application, _ = await _setup(async_client)
+    item = dict(update_payload()[section][0], start='2024-02', end='2023-02')
+
+    response = await async_client.put(
+        f'/applications/{application["id"]}/cv',
+        json=update_payload(**{section: [item]}),
+    )
+
+    assert response.status_code == 422, msg(422, response.text)
+
+
+@pytest.mark.parametrize('section', DATED_SECTIONS)
+async def test_update_refuses_an_entry_without_a_start(
+    async_client: AsyncClient, section: str
+):
+    _, application, _ = await _setup(async_client)
+    item = dict(update_payload()[section][0])
+    del item['start']
+
+    response = await async_client.put(
+        f'/applications/{application["id"]}/cv',
+        json=update_payload(**{section: [item]}),
+    )
+
+    assert response.status_code == 422, msg(422, response.text)
+
+
+@pytest.mark.parametrize('section', DATED_SECTIONS)
+async def test_update_can_make_an_entry_current(
+    async_client: AsyncClient, section: str
+):
+    """Dropping the finish on the copy stores ``null``, which renders as
+    ``present``."""
+    _, application, _ = await _setup(async_client)
+    item = dict(update_payload()[section][0])
+    item.pop('end', None)
+
+    response = await async_client.put(
+        f'/applications/{application["id"]}/cv',
+        json=update_payload(**{section: [item]}),
+    )
+
+    assert response.status_code == 200, msg(200, response.text)
+    assert response.json()[section][0]['end'] is None, msg(
+        None, response.json()[section][0]
+    )
 
 
 # --- AC7: delete the copy, then make another one ---------------------------
