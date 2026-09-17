@@ -156,22 +156,35 @@ export function TailoredCvEditor({
           className="order-2 md:order-none"
         />
 
-        <div className="contents md:sticky md:top-20 md:block md:min-w-0 md:space-y-4">
+        {/*
+          The same fix as `BaseCvEditor`'s aside, for the same reason: stuck to
+          the TOP of the scrollport (`main`'s only chrome, the shell `Header`,
+          is OUTSIDE it, so `top-20` reserved 5rem of dead band) and capped by
+          the SCROLLPORT rather than by `100dvh`. The column is a flex column,
+          so the preview takes whatever the job description leaves instead of
+          the two adding up past the viewport — which is what used to put the
+          bottom of a CV copy's preview out of reach for good, a sticky box
+          taller than the scrollport never scrolling to its own end.
+        */}
+        <div className="contents md:sticky md:top-0 md:flex md:max-h-scrollport md:min-w-0 md:flex-col md:gap-4">
           <JobDescriptionPanel
             jobDescription={jobDescription}
             onAdd={onAddJobDescription}
             disabled={readOnly}
-            className="order-1 md:order-none"
+            className="order-1 md:order-none md:shrink-0"
           />
 
           <section
             aria-label="CV preview"
-            className="order-3 min-w-0 space-y-2 md:order-none"
+            className="order-3 min-w-0 space-y-2 md:order-none md:flex md:min-h-0 md:flex-1 md:flex-col"
           >
-            <p className="text-xs font-medium tracking-wide-label text-muted-foreground uppercase">
+            <p className="shrink-0 text-xs font-medium tracking-wide-label text-muted-foreground uppercase">
               Live preview
             </p>
-            <CvDocumentPreview cv={previewCv} />
+            <CvDocumentPreview
+              cv={previewCv}
+              className="md:min-h-0 md:flex-1"
+            />
           </section>
         </div>
       </div>

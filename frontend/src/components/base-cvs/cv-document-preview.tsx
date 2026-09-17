@@ -22,7 +22,11 @@ export interface CvDocumentPreviewProps {
   cv: CvDocumentData;
   /** Passed through to `CvPageStack` when more than one document is mounted. */
   exportId?: string;
-  /** Lands on the `<figure>`, not on the pane inside it. */
+  /**
+   * Lands on the `<figure>`, not on the pane inside it. This is also how a
+   * caller SIZES the preview — it names no height of its own; pass
+   * `md:min-h-0 md:flex-1` from a flex column and it fills what is left.
+   */
   className?: string;
 }
 
@@ -38,11 +42,22 @@ export interface CvDocumentPreviewProps {
  *
  * The pane scrolls itself at `md` and up rather than growing the editor: a
  * three-page CV beside a sticky form would otherwise push the form's own
- * scroll out of reach. Its height is capped with the SAME expression
- * `h-viewport` uses, so the cookie bar's reserved strip is subtracted here too
- * (frontend/CLAUDE.md, "`CookieConsent` reserves space instead of floating").
- * Below `md` the cap is off and the sheets flow in `main`'s scroll, which is
- * where KODI-006's AC7 requires every pixel of added height to land.
+ * scroll out of reach.
+ *
+ * It no longer says how TALL it is. It used to carry
+ * `max-h-[calc(100dvh - cookie - 12rem)]`, and that `12rem` was a guess with
+ * three different things folded into it — the shell header `100dvh` wrongly
+ * counted, the caller's phantom `top-20` sticky offset, and the caller's own
+ * label and caption. KODI-009 measured it: the first sheet sat 104px below the
+ * top of the scrollport at every scroll position, which is the gap the owner
+ * reported. The CALLER now bounds the column with `max-h-scrollport` and lays
+ * it out as a flex column; this figure just fills its share (`md:flex-1
+ * md:min-h-0` from the caller's `className`). Nothing here subtracts anything,
+ * so nothing here can drift — and the cookie bar's reserved strip is still
+ * subtracted, once, inside `max-h-scrollport`.
+ *
+ * Below `md` there is no cap at all and the sheets flow in `main`'s scroll,
+ * which is where KODI-006's AC7 requires every pixel of added height to land.
  */
 export function CvDocumentPreview({
   cv,
@@ -53,7 +68,7 @@ export function CvDocumentPreview({
   const { frameRef, scale, pages } = useCvPageFlow(blocks);
 
   return (
-    <figure className={cn("min-w-0 space-y-2", className)}>
+    <figure className={cn("min-w-0 space-y-2 md:flex md:flex-col", className)}>
       <div
         ref={frameRef}
         // A scroll container is only reachable by keyboard if something can be
@@ -69,7 +84,8 @@ export function CvDocumentPreview({
         className={cn(
           "relative min-w-0 rounded-md outline-none",
           "focus-visible:ring-[3px] focus-visible:ring-ring/50",
-          "md:max-h-[calc(100dvh-var(--cookie-notice-height,0px)-12rem)]",
+          // Fills what the caption leaves, rather than naming a height.
+          "md:min-h-0 md:flex-1",
           "md:[scrollbar-gutter:stable] md:overflow-y-auto md:overscroll-contain",
         )}
       >
@@ -94,7 +110,7 @@ export function CvDocumentPreview({
         {cvPreviewPageCount(pages.length)}
       </p>
 
-      <figcaption className="flex items-start gap-1.5 text-xs text-pretty text-muted-foreground">
+      <figcaption className="flex shrink-0 items-start gap-1.5 text-xs text-pretty text-muted-foreground">
         <Info aria-hidden className="mt-0.5 size-3.5 shrink-0" />
         <span>{CV_PDF_LAYOUT_NOTICE}</span>
       </figcaption>

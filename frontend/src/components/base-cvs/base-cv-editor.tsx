@@ -73,14 +73,36 @@ export function BaseCvEditor({
           newItemId={newItemId}
         />
 
+        {/*
+          Stuck to the TOP of the scrollport, and exactly as tall as it.
+
+          KODI-009, the owner: "when I scroll the page the live preciew creates
+          a gap from the top of the page". It did, by 104px, every one of which
+          was dead: `md:top-20` reserved 5rem for chrome that does not exist
+          INSIDE `main` — `main` is the scrollport and the shell `Header` is
+          its sibling, above it, so a sticky offset here clears nothing — and
+          the preview's own `12rem` cap was the constant tuned to fit under
+          that gap. Measured in Chrome at 720px: the first sheet sat 104px
+          below the top of the scrollport at every scroll position while the
+          form column ran to 0. Now 24px, which is the "Live preview" label
+          and its gap — visible chrome, not dead band.
+
+          `max-h-scrollport`, never `100dvh`: the pane lives in `main`, which is
+          one header shorter than the viewport. The aside is a flex COLUMN so
+          the preview fills whatever the label and the caption leave, instead of
+          a third constant guessing at their height.
+        */}
         <aside
           aria-label="CV preview"
-          className="min-w-0 space-y-2 md:sticky md:top-20"
+          className={cn(
+            "min-w-0 space-y-2",
+            "md:sticky md:top-0 md:flex md:max-h-scrollport md:flex-col",
+          )}
         >
-          <p className="text-xs font-medium tracking-wide-label text-muted-foreground uppercase">
+          <p className="shrink-0 text-xs font-medium tracking-wide-label text-muted-foreground uppercase">
             Live preview
           </p>
-          <CvDocumentPreview cv={previewCv} />
+          <CvDocumentPreview cv={previewCv} className="md:min-h-0 md:flex-1" />
         </aside>
       </div>
 
