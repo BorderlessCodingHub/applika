@@ -16,6 +16,7 @@ dependencies = [
     "snowflake-id>=1.0.2",
     "redis[hiredis]>=7.4.0",
     "cryptography>=46.0.7",
+    "rendercv[full]==2.8",
 ]
 
 [dependency-groups]
