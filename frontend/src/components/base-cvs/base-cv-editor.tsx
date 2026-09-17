@@ -25,7 +25,7 @@ export interface BaseCvEditorProps {
   cancelLabel?: string;
   /** Disables every control and puts a spinner on submit. */
   isSubmitting?: boolean;
-  /** Extra footer controls, left-aligned (the seam for a later export action). */
+  /** Extra footer controls, left-aligned (the seam the PDF export hangs off). */
   actions?: ReactNode;
   /** Overrides id generation for new rows. Defaults to `crypto.randomUUID()`. */
   newItemId?: () => string;
@@ -75,9 +75,16 @@ export function BaseCvEditor({
         </aside>
       </div>
 
+      {/*
+        `sticky`, never `fixed`: `CookieConsent` reserves its height on `body`,
+        so this row lands above the bar at every width (frontend/CLAUDE.md,
+        "Stacking contract"). The e2e suite hit-tests it with the notice up.
+      */}
       <div className="sticky bottom-0 z-30 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-background/85 py-3 backdrop-blur">
         {actions ? (
-          <div className="mr-auto flex items-center gap-2">{actions}</div>
+          <div className="mr-auto flex min-w-0 flex-wrap items-center gap-2">
+            {actions}
+          </div>
         ) : null}
         {onCancel ? (
           <Button

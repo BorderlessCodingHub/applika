@@ -114,3 +114,21 @@ export interface BaseCv extends CvScalars, CvSections {
   /** `null` until the CV is first updated — the API's `TimeSchema` allows it. */
   updated_at: string | null;
 }
+
+/**
+ * Said wherever the on-screen CV is shown or a PDF is asked for.
+ *
+ * The PDF is typeset on the server (ADR 0011) from the stored CV data, so the
+ * browser render is an approximation of the content, never of the page breaks,
+ * the fonts or the spacing. The words are the acceptance criterion; do not
+ * paraphrase them.
+ */
+export const CV_PDF_LAYOUT_NOTICE =
+  "Preview does not show the final PDF layout.";
+
+/** Announced while the server typesets the PDF. A render takes a few seconds. */
+export const CV_PDF_EXPORT_PENDING =
+  "Preparing your PDF. This can take a few seconds.";
+
+/** Visible text and accessible name of the export action. */
+export const CV_PDF_EXPORT_LABEL = "Download PDF";

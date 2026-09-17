@@ -61,7 +61,10 @@ export interface TailoredCvEditorProps {
   isDeleting?: boolean;
   /** Locks the whole editor and explains why. See `TailoredCvReadOnlyBanner`. */
   readOnlyReason?: TailoredCvReadOnlyReason | null;
-  /** Extra footer controls, left-aligned (the seam KODI-004's export hangs off). */
+  /**
+   * Extra footer controls, left-aligned. The seam the PDF export hangs off, and
+   * the ONLY thing the footer carries in read-only mode.
+   */
   actions?: ReactNode;
   /** Overrides id generation for new rows. Defaults to `crypto.randomUUID()`. */
   newItemId?: () => string;
@@ -78,8 +81,10 @@ export interface TailoredCvEditorProps {
  * read-only mode driven by the application's own state.
  *
  * Controlled and presentational: it neither owns the schema nor fetches nor
- * submits. In read-only mode it renders no submit footer and no delete action at
- * all, so there is nothing to disable and nothing to click by accident.
+ * submits. In read-only mode the footer keeps ONLY `actions` — no submit, no
+ * cancel, no delete — so there is nothing to disable and nothing to click by
+ * accident, while the one thing a locked copy still allows, the PDF export,
+ * stays reachable. A read-only editor with no `actions` renders no footer.
  */
 export function TailoredCvEditor({
   form,
@@ -171,9 +176,23 @@ export function TailoredCvEditor({
         </div>
       </div>
 
-      {readOnly ? null : (
+      {/*
+        Same wrapper, same height rules, same `z-30` in both states: the footer
+        sits above the cookie bar because `CookieConsent` RESERVES its height on
+        `body` (see frontend/CLAUDE.md, "Stacking contract"), and the e2e suite
+        hit-tests that a sticky footer control is still the topmost element.
+      */}
+      {readOnly ? (
+        actions ? (
+          <div className="sticky bottom-0 z-30 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-background/85 py-3 backdrop-blur">
+            <div className="mr-auto flex min-w-0 flex-wrap items-center gap-2">
+              {actions}
+            </div>
+          </div>
+        ) : null
+      ) : (
         <div className="sticky bottom-0 z-30 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-background/85 py-3 backdrop-blur">
-          <div className="mr-auto flex items-center gap-2">
+          <div className="mr-auto flex min-w-0 flex-wrap items-center gap-2">
             {actions}
             {onDelete ? (
               <AlertDialog>
