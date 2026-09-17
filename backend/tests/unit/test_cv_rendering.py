@@ -209,6 +209,33 @@ def test_vendored_theme_files_ship_with_the_code():
         assert (THEME_SOURCE_DIR / name).is_file(), msg('a file', name)
 
 
+def test_one_line_entry_sections_open_a_grid_the_ending_can_close():
+    """The one branch in the vendored templates that is ours, pinned.
+
+    ``SectionEnding.j2.typ`` - byte-identical to the owner's - emits a closing
+    ``)`` for *every* OneLineEntry section, while only ``languages`` opens the
+    three-column grid. Certifications are OneLineEntry too, so without a
+    matching opener their section prints a stray ``),`` on the page. Typst does
+    not complain about it (a lone ``)`` is just text), so no render test can
+    catch this: only asserting the template itself protects the fix.
+    """
+    beginning = (THEME_SOURCE_DIR / 'SectionBeginning.j2.typ').read_text()
+    ending = (THEME_SOURCE_DIR / 'SectionEnding.j2.typ').read_text()
+
+    assert 'OneLineEntry' in ending, msg(
+        'the ending still closes OneLineEntry sections', ending
+    )
+    assert 'entry_type in ["OneLineEntry"]' in beginning, msg(
+        'an opener for non-languages OneLineEntry sections', beginning
+    )
+    assert 'columns: (1fr)' in beginning, msg(
+        'a one-column grid for them', beginning
+    )
+    assert 'columns: (1fr, 1fr, 1fr)' in beginning, msg(
+        'languages keeps the three-column grid', beginning
+    )
+
+
 def test_vendored_section_beginning_has_no_key_achievements_branch():
     """The owner's template had a second grid section; applika has one."""
     template = (THEME_SOURCE_DIR / 'SectionBeginning.j2.typ').read_text()
