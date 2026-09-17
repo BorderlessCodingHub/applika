@@ -28,9 +28,12 @@ render. So the other pair-shaped sections - certifications and the links that
 are not social networks - are mapped to TextEntry lines (``**label** details``)
 instead, which need no grid and read the same.
 
-**Stored data never gets to break the render.** Everything applika stores is
-free text: the columns have no format validation, and the user types whatever
-they want. RenderCV is far stricter, and three of its rules would otherwise
+**Stored data never gets to break the render.** Almost everything applika
+stores is free text: the columns have no format validation, and the user types
+whatever they want. The one exception is the experience/education period -
+``start`` and ``end`` are schema-validated ISO ``YYYY-MM`` months, which is
+precisely why :func:`_apply_period` can hand them to RenderCV's ``start_date``
+and ``end_date`` without a guard. RenderCV is far stricter, and three of its rules would otherwise
 turn an ordinary CV into a 500:
 
 * ``cv.email`` goes through pydantic's email validator and ``cv.phone`` through
@@ -231,16 +234,58 @@ def _markdown_link(label: str, url: str) -> str:
     return f'[{text}]({_clean(url)})'
 
 
+def _apply_period(entry: dict[str, Any], item: Any) -> None:
+    """Put a stored ``start``/``end`` onto RenderCV's ``start_date``/``end_date``.
+
+    **Never RenderCV's arbitrary ``date``, and that is not a style choice.**
+    ``BaseEntryWithComplexFields.check_and_adjust_dates`` clears ``start_date``
+    and ``end_date`` outright the moment ``date`` is set, so emitting both
+    would silently throw the whole period away and print the ``date`` string
+    instead. Only these two keys are ever written here.
+
+    Two behaviours come for free from doing it this way, and neither is
+    reimplemented in applika:
+
+    * **``present``.** When ``start_date`` is given and ``end_date`` is not,
+      that same RenderCV validator sets ``end_date = "present"`` itself. The
+      owner: "finish is optional, when empty is counted as Present". So an
+      entry with no ``end`` simply omits the key and the page reads
+      ``02/2024 - present``.
+    * **``MM/yyyy``.** The stored value is ISO ``YYYY-MM``, which RenderCV
+      accepts verbatim, and the owner's own pinned tokens - ``single_date:
+      MONTH_IN_TWO_DIGITS/YEAR`` and ``date_range: START_DATE - END_DATE`` -
+      format it into ``02/2023 - 02/2024`` on the page.
+
+    Defensive on a blank ``start``: the schema makes it required, so stored
+    data always has one, but if a row ever arrives without it both keys are
+    omitted rather than emitting an ``end_date`` alone - which RenderCV would
+    fold back into a single ``date``, printing a finish with no beginning.
+    An entry carrying neither key never reaches ``process_date`` at all
+    (``entry_fields`` is built from the entry's own set fields), so it renders
+    dateless instead of raising.
+
+    The values are ``_clean``ed, not ``_text``ed: an ISO month has nothing in
+    it for :func:`_neutralize_typst_commands` to defuse, and RenderCV parses
+    the string as a date rather than typesetting it as body text.
+    """
+    start = _clean(getattr(item, 'start', None))
+    if not start:
+        return
+    entry['start_date'] = start
+    end = _clean(getattr(item, 'end', None))
+    if end:
+        entry['end_date'] = end
+
+
 def _experience_entries(cv: RenderableCV) -> list[dict[str, Any]]:
-    """applika's free-text ``period`` becomes RenderCV's arbitrary ``date``."""
+    """One ExperienceEntry per stored item, dated by ``start``/``end``."""
     entries: list[dict[str, Any]] = []
     for item in cv.experience:
         entry: dict[str, Any] = {
             'company': _text(item.company),
             'position': _text(item.role),
         }
-        if _text(item.period):
-            entry['date'] = _text(item.period)
+        _apply_period(entry, item)
         if _text(item.location):
             entry['location'] = _text(item.location)
         if _text(item.company_description):
@@ -328,11 +373,12 @@ def _skill_entries(cv: RenderableCV) -> list[dict[str, Any]]:
 
 
 def _education_entries(cv: RenderableCV) -> list[dict[str, Any]]:
-    """One EducationEntry per stored item; ``period`` becomes ``date``.
+    """One EducationEntry per stored item, dated by ``start``/``end``.
 
-    applika stores a free-text ``period`` rather than parseable dates - the
-    same choice experience already made - so it goes into RenderCV's
-    arbitrary ``date`` field instead of ``start_date``/``end_date``.
+    Exactly the same period mapping experience uses - see
+    :func:`_apply_period` - because the owner changed both sections in one
+    breath: "Today for Education and Experience, the period input is optional,
+    this must be required".
 
     ``area`` is always emitted, even empty: RenderCV requires it on an
     ``EducationEntry`` and treats an empty string as "not provided", dropping
@@ -348,16 +394,15 @@ def _education_entries(cv: RenderableCV) -> list[dict[str, Any]]:
         institution = _text(item.institution)
         degree = _text(item.degree)
         area = _text(item.area)
-        period = _text(item.period)
-        if not any((institution, degree, area, period)):
+        start = _clean(getattr(item, 'start', None))
+        if not any((institution, degree, area, start)):
             continue
         entry: dict[str, Any] = {
             'institution': institution,
             'area': area,
             'degree': degree,
         }
-        if period:
-            entry['date'] = period
+        _apply_period(entry, item)
         entries.append(entry)
     return entries
 

@@ -13,14 +13,57 @@ request body. ``BaseCVUpdateDTO`` is an all-optional partial update applied via
 cases return and the presentation layer maps to ``BaseCVOut``.
 """
 
+from typing import Self
+
 from pydantic import (
     BaseModel,
     ConfigDict,
+    Field,
     ValidationInfo,
     field_validator,
+    model_validator,
 )
 
 from app.application.dto import BaseSchema
+
+# --- CV period months (experience and education) ---
+
+# One month of a CV period, stored and carried on the wire as ISO ``YYYY-MM``.
+#
+# The owner asked for an ``MM/yyyy`` **input**: "it's a date input but only for
+# month and year "MM/yyyy" for both start and finish". ``MM/yyyy`` is therefore
+# what the user types and reads, and it lives entirely in the frontend; what
+# applika stores and what crosses the wire is ISO, because ISO is exactly what
+# RenderCV's ``start_date``/``end_date`` accept. The owner's own pinned theme
+# tokens - ``single_date: MONTH_IN_TWO_DIGITS/YEAR`` and ``date_range:
+# START_DATE - END_DATE`` - then format it back to ``MM/yyyy`` on the page with
+# no translation layer anywhere in between.
+#
+# Anchored at both ends and month-bounded: ``2026-00`` and ``2026-13`` are not
+# months, and a ``YYYY-MM`` prefix of a longer string is not a match.
+#
+# Single source of truth: ``app/presentation/schemas/base_cv.py`` imports this
+# pattern rather than repeating it.
+CV_MONTH_PATTERN = r'^\d{4}-(0[1-9]|1[0-2])$'
+
+# What a finish earlier than its start is refused with, in both layers.
+FINISH_BEFORE_START_MESSAGE = (
+    'end cannot be earlier than start; leave end empty for a current entry'
+)
+
+
+def reject_finish_before_start(start: str | None, end: str | None) -> None:
+    """Raise when a period finishes before it starts.
+
+    Both values are ISO ``YYYY-MM`` by the time this runs, and ISO months sort
+    lexicographically exactly as they sort chronologically, so a plain string
+    comparison is the whole check - no parsing, no timezone, no ``date``.
+
+    An absent ``end`` is a *current* entry and is never out of order.
+    """
+    if start and end and end < start:
+        raise ValueError(FINISH_BEFORE_START_MESSAGE)
+
 
 # The fields backed by a NOT NULL column: an explicit ``None`` on any of
 # them is a caller error, not a request to clear the column. ``phone`` is
@@ -54,6 +97,37 @@ class _SectionItem(BaseModel):
     model_config = ConfigDict(extra='forbid', from_attributes=True)
 
 
+class _DatedSectionItem(_SectionItem):
+    """A section item that runs from a month to an optional later month.
+
+    The owner: "Today for Education and Experience, the period input is
+    optional, this must be required, and needs to change, instead of a bare
+    text input it needs to ask when started and when finished (finish is
+    optional, when empty is counted as Present)".
+
+    So ``start`` is **required** on both experience and education - education's
+    single free-text ``period`` used to be optional, and this widens it - while
+    ``end`` is optional and an absent ``end`` means the entry is current. The
+    PDF prints that as ``present``, and it prints it because RenderCV's own
+    model validator fills ``end_date`` in when only ``start_date`` is given;
+    the mapper never synthesizes the word.
+    """
+
+    start: str = Field(pattern=CV_MONTH_PATTERN)
+    end: str | None = Field(default=None, pattern=CV_MONTH_PATTERN)
+
+    @model_validator(mode='after')
+    def _reject_finish_before_start(self) -> Self:
+        """Refuse a finish earlier than its start, wherever the item came from.
+
+        On the *item* and not on the request schema on purpose: the same model
+        backs a create, a partial update and the tailored-CV copy, so putting
+        the rule here is what makes all three refuse the same payload.
+        """
+        reject_finish_before_start(self.start, self.end)
+        return self
+
+
 class LinkItem(_SectionItem):
     """A profile link.
 
@@ -67,12 +141,17 @@ class LinkItem(_SectionItem):
     url: str
 
 
-class ExperienceItem(_SectionItem):
+class ExperienceItem(_DatedSectionItem):
+    """One experience entry, from a required ``start`` month onwards.
+
+    ``end`` is optional: an entry with none is the job the user holds today
+    and typesets as ``present``.
+    """
+
     id: str
     company: str
     company_description: str | None = None
     role: str
-    period: str
     location: str | None = None
     bullets: list[str] = []
 
@@ -103,20 +182,20 @@ class SkillCategoryItem(_SectionItem):
     keywords: list[str] = []
 
 
-class EducationItem(_SectionItem):
-    """One education entry.
+class EducationItem(_DatedSectionItem):
+    """One education entry, from a required ``start`` month onwards.
 
-    ``period`` is free text, exactly like :attr:`ExperienceItem.period`:
-    applika does not parse dates anywhere in a CV, it hands the string
-    straight to RenderCV's arbitrary ``date`` field. ``area`` is optional
-    because a degree does not always name one.
+    The period carries the same required ``start`` / optional ``end`` as
+    :class:`ExperienceItem` - the owner asked for both sections to change
+    together - and an entry with no ``end`` is a course still running, which
+    typesets as ``present``. ``area`` stays optional because a degree does not
+    always name one.
     """
 
     id: str
     institution: str
     degree: str
     area: str | None = None
-    period: str | None = None
 
 
 class CertificationItem(_SectionItem):

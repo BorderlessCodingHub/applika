@@ -10,13 +10,44 @@ master CV's own ``id`` is a Snowflake serialized as a string
 (docs/applika/adr/0003-snowflake-string-ids.md).
 """
 
-from pydantic import Field, ValidationInfo, field_validator
+from typing import Self
 
-from app.application.dto.base_cv import NOT_NULLABLE_FIELDS
+from pydantic import Field, ValidationInfo, field_validator, model_validator
+
+from app.application.dto.base_cv import (
+    CV_MONTH_PATTERN,
+    NOT_NULLABLE_FIELDS,
+    reject_finish_before_start,
+)
 from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema, TimeSchema
 
 # --- Section item schemas ---
+
+
+class _DatedIn(BaseSchema):
+    """The wire half of a CV period: a required start, an optional finish.
+
+    ISO ``YYYY-MM`` on the wire, in both directions. The owner asked for an
+    ``MM/yyyy`` *input* ("it's a date input but only for month and year
+    "MM/yyyy" for both start and finish"); that format is the frontend's, and
+    the API speaks ISO because it is what the renderer's ``start_date`` /
+    ``end_date`` take unchanged.
+
+    An absent or ``null`` ``end`` means the entry is current and typesets as
+    ``present``. The pattern and the ordering rule are imported from
+    ``application/dto/base_cv.py`` rather than restated, so the wire and the
+    use-case layer refuse exactly the same payloads.
+    """
+
+    start: str = Field(pattern=CV_MONTH_PATTERN)
+    end: str | None = Field(default=None, pattern=CV_MONTH_PATTERN)
+
+    @model_validator(mode='after')
+    def _reject_finish_before_start(self) -> Self:
+        """A finish earlier than its start is a 422, never a stored row."""
+        reject_finish_before_start(self.start, self.end)
+        return self
 
 
 class LinkIn(BaseSchema):
@@ -25,12 +56,13 @@ class LinkIn(BaseSchema):
     url: str = Field(min_length=1, max_length=500)
 
 
-class ExperienceIn(BaseSchema):
+class ExperienceIn(_DatedIn):
+    """One experience entry; ``start`` is required, ``end`` means "until"."""
+
     id: str = Field(min_length=1)
     company: str = Field(min_length=1, max_length=200)
     company_description: str | None = Field(default=None, max_length=500)
     role: str = Field(min_length=1, max_length=200)
-    period: str = Field(min_length=1, max_length=100)
     location: str | None = Field(default=None, max_length=200)
     bullets: list[str] = []
 
@@ -58,14 +90,18 @@ class SkillCategoryIn(BaseSchema):
     keywords: list[str] = []
 
 
-class EducationIn(BaseSchema):
-    """One education entry; ``period`` is free text, never a parsed date."""
+class EducationIn(_DatedIn):
+    """One education entry; ``start`` is required here too.
+
+    The widening the owner asked for: education's period used to be optional
+    free text, and is now the same required-start / optional-finish pair
+    experience carries.
+    """
 
     id: str = Field(min_length=1)
     institution: str = Field(min_length=1, max_length=200)
     degree: str = Field(min_length=1, max_length=200)
     area: str | None = Field(default=None, max_length=200)
-    period: str | None = Field(default=None, max_length=100)
 
 
 class CertificationIn(BaseSchema):
