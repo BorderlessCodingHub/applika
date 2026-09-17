@@ -33,6 +33,9 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=envs.CORS_METHODS,
     allow_headers=envs.CORS_HEADERS,
+    # The API and the web app are separate origins, so the browser cannot
+    # read the PDF download's filename unless this header is exposed.
+    expose_headers=['Content-Disposition'],
 )
 # Logging middlewares
 register_middleware(app)

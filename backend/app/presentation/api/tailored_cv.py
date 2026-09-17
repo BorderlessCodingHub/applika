@@ -15,7 +15,7 @@ finished application.
 into an ``int`` by ``SnowflakeID``.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 
 from app.application.dto.tailored_cv import (
     TailoredCVCreateDTO,
@@ -27,6 +27,7 @@ from app.presentation.dependencies import (
     CurrentUserDp,
     DeleteTailoredCVUseCaseDp,
     GetTailoredCVUseCaseDp,
+    RenderTailoredCVPdfUseCaseDp,
     UpdateTailoredCVUseCaseDp,
 )
 from app.presentation.schemas import DetailSchema
@@ -137,3 +138,40 @@ async def delete_tailored_cv(
     409 when the application is finalized, 422 when it is archived in a cycle.
     """
     await use_case.execute(application_id, c_user.id)
+
+
+@router.post(
+    '/{application_id}/cv/pdf',
+    response_class=Response,
+    responses={
+        '200': {
+            'content': {'application/pdf': {}},
+            'description': 'The typeset CV.',
+        },
+        '404': {'model': DetailSchema},
+        '500': {'model': DetailSchema},
+    },
+)
+async def export_tailored_cv_pdf(
+    application_id: SnowflakeID,
+    c_user: CurrentUserDp,
+    use_case: RenderTailoredCVPdfUseCaseDp,
+):
+    """Download this application's CV copy as a PDF.
+
+    Like ``GET``, and unlike every write here, this carries **no**
+    finalized or archived guard: the copy of an application that is over
+    is exactly the one the user is most likely to want a PDF of. 404 when
+    the application is unknown, not owned, or has no copy; 500 when the
+    render fails, with nothing written.
+    """
+    rendered = await use_case.execute(application_id, c_user.id)
+    return Response(
+        content=rendered.content,
+        media_type='application/pdf',
+        headers={
+            'Content-Disposition': (
+                f'attachment; filename="{rendered.filename}"'
+            )
+        },
+    )

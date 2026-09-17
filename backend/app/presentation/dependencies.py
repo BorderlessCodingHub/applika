@@ -7,6 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dto.user import UserDTO
 from app.application.services.clone_tailoring import CloneTailoringService
+from app.application.services.cv_rendering.renderer import (
+    CVPdfRenderer,
+    get_cv_pdf_renderer,
+)
 from app.application.services.discord_service import DiscordService
 from app.application.services.github_service import GitHubService
 from app.application.services.tailoring import TailoringService
@@ -17,6 +21,9 @@ from app.application.use_cases.base_cvs.create import CreateBaseCVUseCase
 from app.application.use_cases.base_cvs.delete import DeleteBaseCVUseCase
 from app.application.use_cases.base_cvs.get import GetBaseCVUseCase
 from app.application.use_cases.base_cvs.list import ListBaseCVsUseCase
+from app.application.use_cases.base_cvs.render_pdf import (
+    RenderBaseCVPdfUseCase,
+)
 from app.application.use_cases.base_cvs.update import UpdateBaseCVUseCase
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
 from app.application.use_cases.tailored_cvs.create import (
@@ -26,6 +33,9 @@ from app.application.use_cases.tailored_cvs.delete import (
     DeleteTailoredCVUseCase,
 )
 from app.application.use_cases.tailored_cvs.get import GetTailoredCVUseCase
+from app.application.use_cases.tailored_cvs.render_pdf import (
+    RenderTailoredCVPdfUseCase,
+)
 from app.application.use_cases.tailored_cvs.update import (
     UpdateTailoredCVUseCase,
 )
@@ -276,6 +286,31 @@ DeleteBaseCVUseCaseDp = Annotated[
 ]
 
 
+def get_cv_pdf_renderer_service() -> CVPdfRenderer:
+    """Bind the PDF renderer. One implementation, one fixed theme.
+
+    Stateless and session-free: a render reads nothing but the CV document
+    it is handed, so there is nothing to scope per request beyond the
+    instance itself.
+    """
+    return get_cv_pdf_renderer()
+
+
+CVPdfRendererDp = Annotated[CVPdfRenderer, Depends(get_cv_pdf_renderer_service)]
+
+
+def get_render_base_cv_pdf_use_case(
+    base_cv_repo: BaseCVRepositoryDp,
+    renderer: CVPdfRendererDp,
+):
+    return RenderBaseCVPdfUseCase(base_cv_repo, renderer)
+
+
+RenderBaseCVPdfUseCaseDp = Annotated[
+    RenderBaseCVPdfUseCase, Depends(get_render_base_cv_pdf_use_case)
+]
+
+
 def get_tailored_cv_repository(session: DbSession):
     return TailoredCVRepository(session)
 
@@ -347,4 +382,19 @@ def get_delete_tailored_cv_use_case(
 
 DeleteTailoredCVUseCaseDp = Annotated[
     DeleteTailoredCVUseCase, Depends(get_delete_tailored_cv_use_case)
+]
+
+
+def get_render_tailored_cv_pdf_use_case(
+    tailored_cv_repo: TailoredCVRepositoryDp,
+    application_repo: ApplicationRepositoryDp,
+    renderer: CVPdfRendererDp,
+):
+    return RenderTailoredCVPdfUseCase(
+        tailored_cv_repo, application_repo, renderer
+    )
+
+
+RenderTailoredCVPdfUseCaseDp = Annotated[
+    RenderTailoredCVPdfUseCase, Depends(get_render_tailored_cv_pdf_use_case)
 ]

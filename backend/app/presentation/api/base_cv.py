@@ -10,7 +10,7 @@ logic lives here: the 3-per-user cap belongs to ``CreateBaseCVUseCase``.
 an ``int`` by ``SnowflakeID``.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 
 from app.application.dto.base_cv import BaseCVCreateDTO, BaseCVUpdateDTO
 from app.lib.types import SnowflakeID
@@ -20,6 +20,7 @@ from app.presentation.dependencies import (
     DeleteBaseCVUseCaseDp,
     GetBaseCVUseCaseDp,
     ListBaseCVsUseCaseDp,
+    RenderBaseCVPdfUseCaseDp,
     UpdateBaseCVUseCaseDp,
 )
 from app.presentation.schemas import DetailSchema
@@ -116,3 +117,41 @@ async def delete_base_cv(
     Never blocked: 204 on success, 404 when it does not exist or is not owned.
     """
     await use_case.execute(base_cv_id, c_user.id)
+
+
+@router.post(
+    '/base-cvs/{base_cv_id}/pdf',
+    response_class=Response,
+    responses={
+        '200': {
+            'content': {'application/pdf': {}},
+            'description': 'The typeset CV.',
+        },
+        '404': {'model': DetailSchema},
+        '500': {'model': DetailSchema},
+    },
+)
+async def export_base_cv_pdf(
+    base_cv_id: SnowflakeID,
+    c_user: CurrentUserDp,
+    use_case: RenderBaseCVPdfUseCaseDp,
+):
+    """Download one of the acting user's own master CVs as a PDF.
+
+    ``POST`` rather than ``GET`` because the server does real work here -
+    a Typst compile - and the result must never be cached as a resource.
+    There is no body and no theme parameter: the look is fixed
+    (docs/applika/adr/0011-server-side-cv-pdf-rendercv.md). 404 if the CV
+    does not exist or is not owned, 500 if the render fails - and nothing
+    is written either way.
+    """
+    rendered = await use_case.execute(base_cv_id, c_user.id)
+    return Response(
+        content=rendered.content,
+        media_type='application/pdf',
+        headers={
+            'Content-Disposition': (
+                f'attachment; filename="{rendered.filename}"'
+            )
+        },
+    )
