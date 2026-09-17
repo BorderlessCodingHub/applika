@@ -44,6 +44,7 @@ class CloneTailoringService:
             skills=base_cv.skills,
             experience=base_cv.experience,
             projects=base_cv.projects,
+            education=base_cv.education,
             certifications=base_cv.certifications,
             languages=base_cv.languages,
         )

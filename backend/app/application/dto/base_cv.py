@@ -1,8 +1,8 @@
 """Master CV data-transfer objects (application layer).
 
 A master CV is a document aggregate: identity/contact scalars, a summary and
-six repeatable sections that are read and written whole. The item models below
-validate the JSONB shape by structure; every sub-item carries a
+seven repeatable sections that are read and written whole. The item models
+below validate the JSONB shape by structure; every sub-item carries a
 **client-generated** ``id`` string that is preserved round-trip and never
 minted server-side.
 
@@ -40,6 +40,7 @@ NOT_NULLABLE_FIELDS = (
     'skills',
     'experience',
     'projects',
+    'education',
     'certifications',
     'languages',
 )
@@ -84,6 +85,40 @@ class ProjectItem(_SectionItem):
     link_label: str | None = None
 
 
+class SkillCategoryItem(_SectionItem):
+    """One named skill category and the keywords inside it.
+
+    The owner: "skills isn't simply a section where i put "tags" or just
+    "keywords" it's a section where i can create a category and inside this
+    caregory add keywords". So a skill is not a string - it is a category with
+    its own keyword list, and the PDF prints one bold category line per entry
+    with its keywords beneath.
+
+    ``keywords`` may be empty: a category the user has created but not filled
+    in yet still round-trips, and the renderer prints its heading alone.
+    """
+
+    id: str
+    category: str
+    keywords: list[str] = []
+
+
+class EducationItem(_SectionItem):
+    """One education entry.
+
+    ``period`` is free text, exactly like :attr:`ExperienceItem.period`:
+    applika does not parse dates anywhere in a CV, it hands the string
+    straight to RenderCV's arbitrary ``date`` field. ``area`` is optional
+    because a degree does not always name one.
+    """
+
+    id: str
+    institution: str
+    degree: str
+    area: str | None = None
+    period: str | None = None
+
+
 class CertificationItem(_SectionItem):
     id: str
     name: str
@@ -97,7 +132,7 @@ class LanguageItem(_SectionItem):
 
 
 class BaseCVSections(BaseModel):
-    """The six repeatable sections of a master CV, validated by shape.
+    """The seven repeatable sections of a master CV, validated by shape.
 
     Each defaults to an empty list so an omitted section is stored as ``[]``
     and never NULL, mirroring ``BaseCVModel``'s ``server_default``.
@@ -106,9 +141,10 @@ class BaseCVSections(BaseModel):
     model_config = ConfigDict(extra='forbid', from_attributes=True)
 
     links: list[LinkItem] = []
-    skills: list[str] = []
+    skills: list[SkillCategoryItem] = []
     experience: list[ExperienceItem] = []
     projects: list[ProjectItem] = []
+    education: list[EducationItem] = []
     certifications: list[CertificationItem] = []
     languages: list[LanguageItem] = []
 
@@ -155,9 +191,10 @@ class BaseCVUpdateDTO(BaseModel):
     phone: str | None = None
     summary: str | None = None
     links: list[LinkItem] | None = None
-    skills: list[str] | None = None
+    skills: list[SkillCategoryItem] | None = None
     experience: list[ExperienceItem] | None = None
     projects: list[ProjectItem] | None = None
+    education: list[EducationItem] | None = None
     certifications: list[CertificationItem] | None = None
     languages: list[LanguageItem] | None = None
 
@@ -181,8 +218,9 @@ class BaseCVDTO(BaseSchema):
     phone: str | None = None
     summary: str = ''
     links: list[LinkItem] = []
-    skills: list[str] = []
+    skills: list[SkillCategoryItem] = []
     experience: list[ExperienceItem] = []
     projects: list[ProjectItem] = []
+    education: list[EducationItem] = []
     certifications: list[CertificationItem] = []
     languages: list[LanguageItem] = []

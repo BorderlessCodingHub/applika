@@ -3,7 +3,7 @@
 A CV copy is a per-application document derived from a chosen master CV, at
 most one per application. Unlike the mynextjob prototype it reads as reference,
 applika's copy is a **full snapshot**: it carries the identity and contact
-scalars as well as the summary and the six sections, because the owner asked
+scalars as well as the summary and the seven sections, because the owner asked
 for a copy that survives its master ("each job application will store a "copy"
 of this master CV but edited to the job application"). Nothing is merged back
 from the master at read time, so editing or deleting the master cannot change
@@ -26,10 +26,12 @@ from app.application.dto.base_cv import (
     BaseCVDTO,
     BaseCVSections,
     CertificationItem,
+    EducationItem,
     ExperienceItem,
     LanguageItem,
     LinkItem,
     ProjectItem,
+    SkillCategoryItem,
 )
 
 
@@ -48,7 +50,7 @@ class CVAdjustment(BaseModel):
 
 
 class TailoredCVContent(BaseCVSections):
-    """The stored CV-copy body: identity, contact, summary and six sections.
+    """The stored CV-copy body: identity, contact, summary and seven sections.
 
     This is the whole editable document. It deliberately includes the identity
     and contact scalars, which is what makes the copy a full snapshot rather
@@ -128,8 +130,9 @@ class TailoredCVDTO(BaseSchema):
     phone: str | None = None
     summary: str = ''
     links: list[LinkItem] = []
-    skills: list[str] = []
+    skills: list[SkillCategoryItem] = []
     experience: list[ExperienceItem] = []
     projects: list[ProjectItem] = []
+    education: list[EducationItem] = []
     certifications: list[CertificationItem] = []
     languages: list[LanguageItem] = []

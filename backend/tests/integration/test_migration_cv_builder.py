@@ -69,9 +69,34 @@ _CV_SECTIONS = (
     'skills',
     'experience',
     'projects',
+    'education',
     'certifications',
     'languages',
 )
+
+# The stored skills shape, seeded and asserted verbatim at every step of the
+# round trip. ``skills`` is a list of *categories* since KODI-006 amended this
+# revision in place; JSONB carries it without a DDL change, and the round trip
+# is the only thing that proves the payload survives a downgrade and a second
+# upgrade intact.
+_SKILLS_PAYLOAD = [
+    {
+        'id': 'skl-1',
+        'category': 'Languages & Frameworks',
+        'keywords': ['python', 'postgres'],
+    },
+    {'id': 'skl-2', 'category': 'Platform', 'keywords': []},
+]
+
+_EDUCATION_PAYLOAD = [
+    {
+        'id': 'edu-1',
+        'institution': 'Riverside Institute',
+        'degree': "Master's degree",
+        'area': 'Distributed Systems',
+        'period': '09/2016 - 07/2018',
+    }
+]
 
 
 @pytest.fixture(autouse=True)
@@ -308,9 +333,10 @@ def _cv_payload(prefix: str) -> dict[str, Any]:
         'phone': None,
         'summary': f'{prefix} summary',
         'links': json.dumps([{'label': 'site', 'url': 'https://ada.dev'}]),
-        'skills': json.dumps(['python', 'postgres']),
+        'skills': json.dumps(_SKILLS_PAYLOAD),
         'experience': json.dumps([{'company': 'Acme', 'years': 3}]),
         'projects': json.dumps([{'name': 'applika'}]),
+        'education': json.dumps(_EDUCATION_PAYLOAD),
         'certifications': json.dumps(['AWS SAA']),
         'languages': json.dumps(['en', 'pt']),
     }
@@ -467,13 +493,14 @@ def test_round_trip_upgrade_downgrade_upgrade(migration_db: str) -> None:
     copies = _query(
         migration_db,
         'SELECT id, application_id, base_cv_id, summary, skills, '
-        'was_ai_generated, adjustments FROM tailored_cvs',
+        'education, was_ai_generated, adjustments FROM tailored_cvs',
     )
     assert len(copies) == 1
     assert copies[0]['application_id'] == APPLICATION_ID
     assert copies[0]['base_cv_id'] == BASE_CV_ID
     assert copies[0]['summary'] == 'Tailored summary'
-    assert copies[0]['skills'] == ['python', 'postgres']
+    assert copies[0]['skills'] == _SKILLS_PAYLOAD
+    assert copies[0]['education'] == _EDUCATION_PAYLOAD
     assert copies[0]['was_ai_generated'] is False
     assert copies[0]['adjustments'] == ['rewrote the summary for Acme']
 
@@ -498,11 +525,84 @@ def test_round_trip_upgrade_downgrade_upgrade(migration_db: str) -> None:
         'SELECT job_description FROM applications WHERE id = :id',
         {'id': APPLICATION_ID},
     ) == [{'job_description': None}]
-    # The copy is re-insertable after the round trip.
+    # The copy is re-insertable after the round trip, and the JSONB payloads
+    # come back byte for byte - the second upgrade equals the first
+    # (``.claude/rules/migration-tests.md`` 3).
     _insert_base_cv(migration_db)
     _insert_tailored_cv(migration_db)
     assert _query(migration_db, 'SELECT count(*) AS n FROM tailored_cvs') == [
         {'n': 1}
+    ]
+    reinserted = _query(
+        migration_db, 'SELECT skills, education FROM tailored_cvs'
+    )
+    assert reinserted == [
+        {'skills': _SKILLS_PAYLOAD, 'education': _EDUCATION_PAYLOAD}
+    ], reinserted
+
+
+def test_education_is_created_by_this_revision_on_both_cv_tables(
+    migration_db: str,
+) -> None:
+    """The one DDL change KODI-006 made to this revision, pinned.
+
+    ``education`` is a section of the CV document like any other, so it is a
+    ``NOT NULL`` JSONB array defaulting to ``[]`` on ``base_cvs`` *and* on
+    ``tailored_cvs`` - the copy is a full snapshot and carries every section
+    its master has. The column did not exist at the parent revision; it is
+    created here, not added by a later one.
+    """
+    _upgrade(migration_db, PARENT_REVISION)
+    parent_columns = _columns(migration_db)
+    assert ('base_cvs', 'education') not in parent_columns
+    assert ('tailored_cvs', 'education') not in parent_columns
+
+    _upgrade(migration_db, REVISION)
+
+    after = _columns(migration_db)
+    assert ('base_cvs', 'education') in after
+    assert ('tailored_cvs', 'education') in after
+
+    for table in ('base_cvs', 'tailored_cvs'):
+        definition = _query(
+            migration_db,
+            'SELECT data_type, is_nullable, column_default '
+            'FROM information_schema.columns '
+            'WHERE table_name = :table AND column_name = :column',
+            {'table': table, 'column': 'education'},
+        )
+        assert definition == [
+            {
+                'data_type': 'jsonb',
+                'is_nullable': 'NO',
+                'column_default': "'[]'::jsonb",
+            }
+        ], (table, definition)
+
+
+def test_the_revision_is_amended_not_superseded(migration_db: str) -> None:
+    """Owner's ruling: "Amend KODI-001's revision instead."
+
+    ``f2a9c1d4b6e8`` has never run on any database, so KODI-006 changed it in
+    place rather than layering a second revision with a ``skills_old`` rename
+    on top of a shape no deployment has ever seen. That exception is narrow -
+    it belongs to this unshipped revision and to nothing else - so what is
+    pinned here is the consequence: ``education`` and the category-shaped
+    ``skills`` arrive *in* this revision, its parent is still
+    ``a1b2c3d4e5f7``, and no ``_old`` object exists anywhere after it runs.
+    """
+    module = _load_migration_module()
+    assert module.revision == REVISION, module.revision
+    assert module.down_revision == PARENT_REVISION, module.down_revision
+    assert 'education' in module._JSONB_SECTIONS, module._JSONB_SECTIONS
+
+    _upgrade(migration_db, REVISION)
+
+    assert not [name for name in _tables(migration_db) if name.endswith('_old')]
+    assert not [
+        column
+        for _, column in _columns(migration_db)
+        if column.endswith('_old')
     ]
 
 
@@ -598,7 +698,7 @@ def test_deleting_the_base_cv_keeps_the_copy(migration_db: str) -> None:
     rows = _query(
         migration_db,
         'SELECT base_cv_id, application_id, full_name, headline, summary, '
-        'skills, experience, languages FROM tailored_cvs',
+        'skills, education, experience, languages FROM tailored_cvs',
     )
     assert len(rows) == 1
     assert rows[0]['base_cv_id'] is None
@@ -606,7 +706,8 @@ def test_deleting_the_base_cv_keeps_the_copy(migration_db: str) -> None:
     assert rows[0]['full_name'] == 'Ada Lovelace'
     assert rows[0]['headline'] == 'Backend Engineer'
     assert rows[0]['summary'] == 'Tailored summary'
-    assert rows[0]['skills'] == ['python', 'postgres']
+    assert rows[0]['skills'] == _SKILLS_PAYLOAD
+    assert rows[0]['education'] == _EDUCATION_PAYLOAD
     assert rows[0]['experience'] == [{'company': 'Acme', 'years': 3}]
     assert rows[0]['languages'] == ['en', 'pt']
 
@@ -632,7 +733,7 @@ def test_deleting_the_user_deletes_both_cvs(migration_db: str) -> None:
 
 
 def test_section_defaults_are_empty_arrays(migration_db: str) -> None:
-    """The six JSONB sections and ``summary`` default to empty, not NULL."""
+    """The seven JSONB sections and ``summary`` default to empty, not NULL."""
     _upgrade(migration_db, REVISION)
     _seed_at_parent(migration_db)
 

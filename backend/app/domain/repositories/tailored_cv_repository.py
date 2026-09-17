@@ -66,9 +66,10 @@ class TailoredCVRepository:
                 phone=content.phone,
                 summary=content.summary,
                 links=[item.model_dump() for item in content.links],
-                skills=list(content.skills),
+                skills=[item.model_dump() for item in content.skills],
                 experience=[item.model_dump() for item in content.experience],
                 projects=[item.model_dump() for item in content.projects],
+                education=[item.model_dump() for item in content.education],
                 certifications=[
                     item.model_dump() for item in content.certifications
                 ],
@@ -101,11 +102,14 @@ class TailoredCVRepository:
             tailored_cv.phone = data.phone
             tailored_cv.summary = data.summary
             tailored_cv.links = [item.model_dump() for item in data.links]
-            tailored_cv.skills = list(data.skills)
+            tailored_cv.skills = [item.model_dump() for item in data.skills]
             tailored_cv.experience = [
                 item.model_dump() for item in data.experience
             ]
             tailored_cv.projects = [item.model_dump() for item in data.projects]
+            tailored_cv.education = [
+                item.model_dump() for item in data.education
+            ]
             tailored_cv.certifications = [
                 item.model_dump() for item in data.certifications
             ]

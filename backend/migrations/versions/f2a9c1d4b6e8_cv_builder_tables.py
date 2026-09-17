@@ -21,6 +21,14 @@ default, ``autoincrement=False``.
 revision created, which is what .claude/rules/non-destructive-migrations.md
 points 1 and 5 ask for; nothing pre-existing is retired here, so there is no
 ``_old`` rename.
+
+**Amended in place by KODI-006**, on the owner's explicit order ("Amend
+KODI-001's revision instead"): ``education`` joined the JSONB section list and
+``skills`` changed from a list of strings to a list of categories. This
+revision has never run on any database, so there was no data to preserve and
+no deployed schema to protect - the narrow exception the owner granted to
+.claude/rules/non-destructive-migrations.md, and one that applies to this
+unshipped revision only. No other revision is amendable.
 """
 
 from typing import Sequence, Union
@@ -35,19 +43,25 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 # The CV section columns, shared by base_cvs and tailored_cvs.
-# summary is TEXT; the six others are JSONB arrays.
+# summary is TEXT; the seven others are JSONB arrays.
+#
+# ``skills`` holds a list of *categories* - ``{id, category, keywords[]}`` -
+# and ``education`` a list of ``{id, institution, degree, area, period}``.
+# Neither shape is DDL: both are JSONB, and the column definition below is the
+# same for every section.
 _JSONB_SECTIONS = (
     'links',
     'skills',
     'experience',
     'projects',
+    'education',
     'certifications',
     'languages',
 )
 
 
 def _identity_columns() -> list[sa.Column]:
-    """Identity + summary + the six JSONB sections, shared by both tables."""
+    """Identity + summary + the seven JSONB sections, shared by both."""
     return [
         sa.Column('name', sa.String(length=200), nullable=False),
         sa.Column('full_name', sa.String(length=200), nullable=False),

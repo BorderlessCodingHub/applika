@@ -68,7 +68,14 @@ FULL_SECTIONS: dict[str, Any] = {
         {'id': 'lnk-1', 'label': 'GitHub', 'url': 'https://github.com/ada'},
         {'id': 'lnk-2', 'label': 'Site', 'url': 'https://ada.example.com'},
     ],
-    'skills': ['Python', 'PostgreSQL', 'FastAPI'],
+    'skills': [
+        {
+            'id': 'skl-1',
+            'category': 'Languages & Frameworks',
+            'keywords': ['Python', 'PostgreSQL', 'FastAPI'],
+        },
+        {'id': 'skl-2', 'category': 'Platform', 'keywords': ['Docker']},
+    ],
     'experience': [
         {
             'id': 'exp-1',
@@ -87,6 +94,15 @@ FULL_SECTIONS: dict[str, Any] = {
             'description': 'Job application tracker',
             'link': 'https://applika.example.com',
             'link_label': 'applika.example.com',
+        }
+    ],
+    'education': [
+        {
+            'id': 'edu-1',
+            'institution': 'Riverside Institute',
+            'degree': "Master's degree",
+            'area': 'Distributed Systems',
+            'period': '09/2016 - 07/2018',
         }
     ],
     'certifications': [{'id': 'crt-1', 'name': 'AWS SAA', 'issuer': 'Amazon'}],
@@ -351,6 +367,7 @@ async def test_a_cv_with_only_identity_still_renders(
         skills=[],
         experience=[],
         projects=[],
+        education=[],
         certifications=[],
         languages=[],
     )
@@ -380,7 +397,13 @@ async def test_a_hashtag_in_the_summary_still_renders(
         async_client,
         name='Hashtag CV',
         summary='Open to work. #opentowork #DevOps',
-        skills=['#Python', 'C# and .NET'],
+        skills=[
+            {
+                'id': 'skl-h',
+                'category': '#DevOps',
+                'keywords': ['#Python', 'C# and .NET'],
+            }
+        ],
     )
     response = await async_client.post(f'/base-cvs/{base_cv["id"]}/pdf')
     _assert_is_pdf(response, 'hashtag-cv.pdf')

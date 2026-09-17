@@ -18,10 +18,12 @@ from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema, TimeSchema
 from app.presentation.schemas.base_cv import (
     CertificationIn,
+    EducationIn,
     ExperienceIn,
     LanguageIn,
     LinkIn,
     ProjectIn,
+    SkillCategoryIn,
 )
 
 
@@ -52,9 +54,10 @@ class TailoredCVUpdate(BaseSchema):
     phone: str | None = Field(default=None, max_length=50)
     summary: str = Field(default='', max_length=5000)
     links: list[LinkIn] = []
-    skills: list[str] = []
+    skills: list[SkillCategoryIn] = []
     experience: list[ExperienceIn] = []
     projects: list[ProjectIn] = []
+    education: list[EducationIn] = []
     certifications: list[CertificationIn] = []
     languages: list[LanguageIn] = []
 
@@ -80,8 +83,9 @@ class TailoredCVOut(BaseSchema, TimeSchema):
     phone: str | None = None
     summary: str = ''
     links: list[LinkIn] = []
-    skills: list[str] = []
+    skills: list[SkillCategoryIn] = []
     experience: list[ExperienceIn] = []
     projects: list[ProjectIn] = []
+    education: list[EducationIn] = []
     certifications: list[CertificationIn] = []
     languages: list[LanguageIn] = []

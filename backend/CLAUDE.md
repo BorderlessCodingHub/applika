@@ -219,6 +219,22 @@ render path needs that module, so `renderer.py` never imports it and drives
   the header instead of aborting the render, a link that is not one of
   RenderCV's known social networks falls back to a Links entry, and `#word` —
   which RenderCV reads as a *Typst command* — is rewritten to `#sym.hash`.
+
+  **Section order is insertion order, and it only survives the dump because
+  `sort_base_mapping_type_on_output` is off.** The order the owner asked for is
+  Summary, Experience, Languages, Skills, Projects, Education, Certifications,
+  then Links; `ruamel.yaml`'s representer sorts mapping keys by default, which
+  is what once put the summary at the bottom of the page. `SECTION_ORDER` names
+  it and `tests/unit/test_cv_rendering.py` asserts it on the generated YAML
+  text and on the generated `.typ`, never by reading a parsed dict back.
+
+  Section shapes: skills are NormalEntries (`{name: "<category>:", summary:
+  "<keywords joined by ' · '>"}`, U+00B7 MIDDLE DOT — *not* the U+2022 BULLET
+  the header separator uses); projects are NormalEntries whose summary is
+  `"<markdown link>\n<description>"`, so the entry reads name / link /
+  description on three lines, with the raw URL standing in for a missing link
+  label; education is an EducationEntry whose free-text `period` goes into
+  RenderCV's arbitrary `date` field.
 - `renderer.py` — compiles in `anyio.to_thread.run_sync` under
   `CV_PDF_RENDER_TIMEOUT_SECONDS`, in a temp directory removed in `finally`.
   The directory is mandatory: RenderCV resolves a custom theme by looking for a
@@ -238,7 +254,16 @@ render path needs that module, so `renderer.py` never imports it and drives
   `.j2.typ` templates, vendored from the owner's own theme and renamed
   `custom` → `applika`. Every design token is an overridden field default, so
   the generated YAML only ever says `design: {theme: applika}`. The user does
-  not choose a theme. `themes/applika/__init__.py` is loaded by RenderCV via
+  not choose a theme. **Every** token of the owner's `design` block is set
+  here, including the ones that happen to equal RenderCV's own default — the
+  file reproduces *his block*, not the delta against `ClassicTheme`, so a
+  RenderCV release that moves a default cannot move the product's look.
+  `OWNER_DESIGN_TOKENS` in `tests/unit/test_cv_rendering.py` pins all of them
+  one parametrized case per dotted path, and a companion test re-reads his
+  file when it is on disk and fails if the table does not cover it key for key.
+  Education needs no vendored template: `templates.education_entry` in that
+  block drives ClassicTheme's own `EducationEntry`.
+  `themes/applika/__init__.py` is loaded by RenderCV via
   `importlib.util.spec_from_file_location`, outside the `app` package — its
   imports must stay absolute and must never reach into `app`.
 
@@ -483,11 +508,13 @@ Optional (with defaults):
 - **UserFeedback**: In-app feedback from users (score 1-5 + optional text)
 - **BaseCV**: A user's master CV, capped at 3 per user
   - Identity and contact (`name` label, `full_name`, `headline`, `location`, `email`, optional `phone`) plus a `summary`
-  - Six repeatable sections stored as JSONB arrays, never NULL: `links`, `skills`, `experience`, `projects`, `certifications`, `languages`
+  - Seven repeatable sections stored as JSONB arrays, never NULL: `links`, `skills`, `experience`, `projects`, `education`, `certifications`, `languages`
+  - `skills` is a list of **categories**, not tags: `{id, category, keywords[]}`. The owner: *"skills isn't simply a section where i put "tags" or just "keywords" it's a section where i can create a category and inside this caregory add keywords"*. There is no `list[str]` back-compat shim — revision `f2a9c1d4b6e8` was amended in place before it ever ran anywhere
+  - `education` is `{id, institution, degree, area?, period?}`; `period` is free text, exactly like `experience.period` — applika parses no dates in a CV
   - Section sub-item `id`s are **client-generated strings** preserved round-trip, never minted server-side
   - Read and written whole (a document aggregate), so there are no child tables
 - **TailoredCV**: an application's CV copy — at most one per application
-  - A **full snapshot** of the master CV it was made from: same identity, contact, summary and six sections, stored on its own row
+  - A **full snapshot** of the master CV it was made from: same identity, contact, summary and seven sections, stored on its own row
   - Editing or deleting the master never changes it; when the master is deleted `base_cv_id` becomes NULL and the copy keeps every field ("source CV deleted")
   - `was_ai_generated` / `adjustments` are the tailoring port's provenance fields, always `false` / `[]` today
   - Created through `TailoringService`, never assembled in the use case

@@ -43,6 +43,31 @@ class ProjectIn(BaseSchema):
     link_label: str | None = Field(default=None, max_length=100)
 
 
+class SkillCategoryIn(BaseSchema):
+    """One skill category and its keywords.
+
+    The owner: a skills section is "a section where i can create a category
+    and inside this caregory add keywords" - so the wire shape is a list of
+    categories, never a flat list of strings. There is deliberately no
+    ``list[str]`` fallback: the column that holds this has never existed on
+    any database, so there is no stored shape to stay compatible with.
+    """
+
+    id: str = Field(min_length=1)
+    category: str = Field(min_length=1, max_length=100)
+    keywords: list[str] = []
+
+
+class EducationIn(BaseSchema):
+    """One education entry; ``period`` is free text, never a parsed date."""
+
+    id: str = Field(min_length=1)
+    institution: str = Field(min_length=1, max_length=200)
+    degree: str = Field(min_length=1, max_length=200)
+    area: str | None = Field(default=None, max_length=200)
+    period: str | None = Field(default=None, max_length=100)
+
+
 class CertificationIn(BaseSchema):
     id: str = Field(min_length=1)
     name: str = Field(min_length=1, max_length=200)
@@ -69,9 +94,10 @@ class BaseCVCreate(BaseSchema):
     phone: str | None = Field(default=None, max_length=50)
     summary: str = Field(default='', max_length=5000)
     links: list[LinkIn] = []
-    skills: list[str] = []
+    skills: list[SkillCategoryIn] = []
     experience: list[ExperienceIn] = []
     projects: list[ProjectIn] = []
+    education: list[EducationIn] = []
     certifications: list[CertificationIn] = []
     languages: list[LanguageIn] = []
 
@@ -96,9 +122,10 @@ class BaseCVUpdate(BaseSchema):
     phone: str | None = Field(default=None, max_length=50)
     summary: str | None = Field(default=None, max_length=5000)
     links: list[LinkIn] | None = None
-    skills: list[str] | None = None
+    skills: list[SkillCategoryIn] | None = None
     experience: list[ExperienceIn] | None = None
     projects: list[ProjectIn] | None = None
+    education: list[EducationIn] | None = None
     certifications: list[CertificationIn] | None = None
     languages: list[LanguageIn] | None = None
 
@@ -128,8 +155,9 @@ class BaseCVOut(BaseSchema, TimeSchema):
     phone: str | None = None
     summary: str = ''
     links: list[LinkIn] = []
-    skills: list[str] = []
+    skills: list[SkillCategoryIn] = []
     experience: list[ExperienceIn] = []
     projects: list[ProjectIn] = []
+    education: list[EducationIn] = []
     certifications: list[CertificationIn] = []
     languages: list[LanguageIn] = []

@@ -545,10 +545,15 @@ class BaseCVModel(BaseMixin, Base):
     on the owning user row - there is no trigger and no database constraint.
 
     A master CV is a document aggregate: it is read and written whole, so its
-    six repeatable sections (``links``, ``skills``, ``experience``,
-    ``projects``, ``certifications``, ``languages``) are JSONB arrays instead
-    of child tables. Section sub-item ids are client-generated strings,
-    preserved round-trip and never minted server-side.
+    seven repeatable sections (``links``, ``skills``, ``experience``,
+    ``projects``, ``education``, ``certifications``, ``languages``) are JSONB
+    arrays instead of child tables. Section sub-item ids are client-generated
+    strings, preserved round-trip and never minted server-side.
+
+    ``skills`` is a list of *categories* - ``{id, category, keywords[]}`` -
+    not a flat list of strings. The owner: "skills isn't simply a section
+    where i put "tags" or just "keywords" it's a section where i can create a
+    category and inside this caregory add keywords".
 
     The mapping mirrors revision ``f2a9c1d4b6e8`` column for column, including
     every ``server_default``. The primary key is the inherited Snowflake
@@ -586,9 +591,10 @@ class BaseCVModel(BaseMixin, Base):
 
     # --- Repeatable sections (JSONB arrays, never NULL) ---
     links: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
-    skills: Mapped[list[str]] = _empty_jsonb_list()
+    skills: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
     experience: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
     projects: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+    education: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
     certifications: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
     languages: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
 
@@ -598,7 +604,7 @@ class TailoredCVModel(BaseMixin, Base):
 
     The owner's words: "each job application will store a "copy" of this
     master CV but edited to the job application". The copy is a *snapshot*,
-    not a view: it carries its own identity, contact, summary and six
+    not a view: it carries its own identity, contact, summary and seven
     sections, so editing or deleting the master CV never touches it. When the
     master is deleted the database sets ``base_cv_id`` to NULL
     (``ON DELETE SET NULL``) and the copy keeps every field - it has simply
@@ -681,9 +687,10 @@ class TailoredCVModel(BaseMixin, Base):
 
     # --- Repeatable sections (JSONB arrays, never NULL) ---
     links: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
-    skills: Mapped[list[str]] = _empty_jsonb_list()
+    skills: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
     experience: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
     projects: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+    education: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
     certifications: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
     languages: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
 

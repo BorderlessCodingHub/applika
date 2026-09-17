@@ -17,7 +17,9 @@ from pydantic import ValidationError
 from app.application.dto.base_cv import (
     BaseCVCreateDTO,
     BaseCVUpdateDTO,
+    EducationItem,
     LinkItem,
+    SkillCategoryItem,
 )
 from app.application.use_cases.base_cvs.create import (
     MAX_BASE_CVS,
@@ -61,6 +63,7 @@ def _base_cv(**overrides: Any):
         skills=[],
         experience=[],
         projects=[],
+        education=[],
         certifications=[],
         languages=[],
     )
@@ -166,7 +169,7 @@ async def test_create_persists_every_section_and_the_stamped_user_id():
     repo.count_by_user_id.return_value = 0
     repo.create.return_value = _base_cv(
         links=[{'id': 'l1', 'label': 'GitHub', 'url': 'https://gh.dev'}],
-        skills=['python'],
+        skills=[{'id': 's1', 'category': 'Languages', 'keywords': ['python']}],
         summary='Ten years of backend.',
     )
 
@@ -176,14 +179,35 @@ async def test_create_persists_every_section_and_the_stamped_user_id():
             user_id=42,
             summary='Ten years of backend.',
             links=[LinkItem(id='l1', label='GitHub', url='https://gh.dev')],
-            skills=['python'],
+            skills=[
+                SkillCategoryItem(
+                    id='s1', category='Languages', keywords=['python']
+                )
+            ],
+            education=[
+                EducationItem(
+                    id='e1',
+                    institution='Riverside Institute',
+                    degree="Master's degree",
+                    area='Distributed Systems',
+                    period='09/2016 - 07/2018',
+                )
+            ],
         )
     )
 
     sent = repo.create.await_args.args[0]
     assert sent.user_id == 42, msg(42, sent.user_id)
     assert sent.links[0].id == 'l1', msg('l1', sent.links[0].id)
-    assert sent.skills == ['python'], msg(['python'], sent.skills)
+    assert sent.skills[0].category == 'Languages', msg(
+        'Languages', sent.skills[0].category
+    )
+    assert sent.skills[0].keywords == ['python'], msg(
+        ['python'], sent.skills[0].keywords
+    )
+    assert sent.education[0].institution == 'Riverside Institute', msg(
+        'Riverside Institute', sent.education[0].institution
+    )
     assert result.summary == 'Ten years of backend.'
 
 
@@ -277,6 +301,7 @@ async def test_delete_not_found_for_another_users_row():
         'skills',
         'experience',
         'projects',
+        'education',
         'certifications',
         'languages',
     ],

@@ -47,7 +47,13 @@ from tests.unit.conftest import make_application
 
 SECTIONS: dict[str, Any] = {
     'links': [{'id': 'lnk-1', 'label': 'GitHub', 'url': 'https://gh/ada'}],
-    'skills': ['Python', 'PostgreSQL'],
+    'skills': [
+        {
+            'id': 'skl-1',
+            'category': 'Languages',
+            'keywords': ['Python', 'PostgreSQL'],
+        }
+    ],
     'experience': [
         {
             'id': 'exp-1',
@@ -66,6 +72,15 @@ SECTIONS: dict[str, Any] = {
             'description': 'Job application tracker',
             'link': 'https://applika.dev',
             'link_label': 'applika.dev',
+        }
+    ],
+    'education': [
+        {
+            'id': 'edu-1',
+            'institution': 'Riverside Institute',
+            'degree': "Master's degree",
+            'area': 'Distributed Systems',
+            'period': '09/2016 - 07/2018',
         }
     ],
     'certifications': [{'id': 'crt-1', 'name': 'AWS SAA', 'issuer': 'Amazon'}],

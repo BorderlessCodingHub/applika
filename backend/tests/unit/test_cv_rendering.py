@@ -27,15 +27,18 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import ruamel.yaml
 
 from app.application.dto.base_cv import BaseCVDTO
 from app.application.services.cv_rendering import renderer as renderer_module
 from app.application.services.cv_rendering.mapper import (
     CERTIFICATIONS_SECTION,
+    EDUCATION_SECTION,
     EXPERIENCE_SECTION,
     LANGUAGES_SECTION,
     LINKS_SECTION,
     PROJECTS_SECTION,
+    SECTION_ORDER,
     SKILLS_SECTION,
     SUMMARY_SECTION,
     THEME_NAME,
@@ -65,7 +68,19 @@ FULL_SECTIONS: dict[str, Any] = {
         {'id': 'lnk-1', 'label': 'GitHub', 'url': 'https://github.com/ada'},
         {'id': 'lnk-2', 'label': 'Site', 'url': 'https://ada.example.com'},
     ],
-    'skills': ['Python', 'PostgreSQL', 'FastAPI'],
+    'skills': [
+        {
+            'id': 'skl-1',
+            'category': 'Languages & Frameworks',
+            'keywords': ['Python', 'PostgreSQL', 'FastAPI'],
+        },
+        {
+            'id': 'skl-2',
+            'category': 'Platform & Delivery:',
+            'keywords': ['Docker', 'Terraform'],
+        },
+        {'id': 'skl-3', 'category': 'Practices', 'keywords': []},
+    ],
     'experience': [
         {
             'id': 'exp-1',
@@ -84,7 +99,30 @@ FULL_SECTIONS: dict[str, Any] = {
             'description': 'Job application tracker',
             'link': 'https://applika.example.com',
             'link_label': 'applika.example.com',
-        }
+        },
+        {
+            'id': 'prj-2',
+            'name': 'slowquery',
+            'description': 'Samples slow query plans',
+            'link': 'https://example.org/slowquery',
+            'link_label': None,
+        },
+    ],
+    'education': [
+        {
+            'id': 'edu-1',
+            'institution': 'Riverside Institute',
+            'degree': "Master's degree",
+            'area': 'Distributed Systems',
+            'period': '09/2016 - 07/2018',
+        },
+        {
+            'id': 'edu-2',
+            'institution': 'Northgate College',
+            'degree': "Bachelor's degree",
+            'area': 'Computer Science',
+            'period': '09/2012 - 07/2016',
+        },
     ],
     'certifications': [{'id': 'crt-1', 'name': 'AWS SAA', 'issuer': 'Amazon'}],
     'languages': [
@@ -98,6 +136,7 @@ EMPTY_SECTIONS: dict[str, Any] = {
     'skills': [],
     'experience': [],
     'projects': [],
+    'education': [],
     'certifications': [],
     'languages': [],
 }
@@ -128,7 +167,137 @@ def _sections(**overrides: Any) -> dict[str, Any]:
     return document['cv'].get('sections', {})
 
 
-# --- The theme is fixed, and it is the owner's --------------------------------
+# The owner's folder, two levels above the applika repo. Present on a
+# workstation, absent in CI - it is deliberately not committed.
+REFERENCE_THEME_DIR = (
+    Path(__file__).resolve().parents[4] / 'custom-template-reference' / 'custom'
+)
+
+# --- The theme is fixed, and it is the owner's, token for token ---------------
+#
+# What this block exists to stop, in the owner's words: "My opnion if that you
+# forgot completelly what i said during plan and deviate in 40%." The first cut
+# of ``ApplikaTheme`` set roughly half of his ``design`` block, and the tests
+# guarding it were spot checks - a handful of values per sub-model, chosen by
+# the same hand that wrote the code. A spot check cannot notice a token nobody
+# thought about, and every one of the missing tokens was a *spacing* token, so
+# the PDF compiled cleanly and looked wrong.
+#
+# So the pin below is exhaustive rather than representative: one parametrized
+# case per token of the owner's block, keyed by its dotted path, and a second
+# test that reads his file when it is on disk and refuses to pass unless the
+# table below covers it key for key. Adding a token to his block and not to
+# this table fails; dropping one from ``ApplikaTheme`` fails with the path that
+# moved.
+
+# Every token of the owner's ``design`` block, flattened to ``dotted.path`` ->
+# value as ``ApplikaTheme().model_dump(mode='json')`` renders it. A token is
+# listed even when it happens to equal RenderCV's own ``ClassicTheme``
+# default - the point is to reproduce *his file*, not the delta against
+# RenderCV, and a RenderCV release that moves a default must fail here rather
+# than move the product's look in silence.
+#
+# ``theme`` itself is excluded on purpose: his says ``custom``, ours says
+# ``applika``, and that rename is the one intended difference.
+#
+# ``font_family`` is written as five expanded paths because the owner gives it
+# as a bare string and RenderCV's own validator fans it out to the five
+# elements; ``_flatten_owner_design`` does the same fan-out when it reads his
+# file, so the two sides stay comparable.
+OWNER_DESIGN_TOKENS: dict[str, Any] = {
+    'page.size': 'a4',
+    'page.top_margin': '0.55in',
+    'page.bottom_margin': '0.55in',
+    'page.left_margin': '0.6in',
+    'page.right_margin': '0.6in',
+    'page.show_footer': False,
+    'page.show_top_note': False,
+    'typography.line_spacing': '0.65em',
+    'typography.alignment': 'justified-with-no-hyphenation',
+    'typography.font_family.body': 'Source Sans 3',
+    'typography.font_family.name': 'Source Sans 3',
+    'typography.font_family.headline': 'Source Sans 3',
+    'typography.font_family.connections': 'Source Sans 3',
+    'typography.font_family.section_titles': 'Source Sans 3',
+    'typography.font_size.body': '10pt',
+    'typography.font_size.name': '26pt',
+    'typography.font_size.headline': '11pt',
+    'typography.font_size.connections': '9pt',
+    'typography.font_size.section_titles': '1.2em',
+    'typography.small_caps.name': False,
+    'typography.small_caps.headline': False,
+    'typography.small_caps.connections': False,
+    'typography.small_caps.section_titles': False,
+    'typography.bold.name': True,
+    'typography.bold.headline': False,
+    'typography.bold.connections': False,
+    'typography.bold.section_titles': True,
+    'colors.body': 'rgb(25, 25, 25)',
+    'colors.name': 'rgb(10, 10, 10)',
+    'colors.headline': 'rgb(55, 55, 55)',
+    'colors.connections': 'rgb(65, 65, 65)',
+    'colors.section_titles': 'rgb(10, 10, 10)',
+    'colors.links': 'rgb(25, 95, 175)',
+    'colors.footer': 'rgb(150, 150, 150)',
+    'colors.top_note': 'rgb(150, 150, 150)',
+    'header.alignment': 'center',
+    # The owner's "HUGE PROBLEM": three tokens, all missing from the first cut.
+    'header.space_below_name': '0.3cm',
+    'header.space_below_headline': '0.3cm',
+    'header.space_below_connections': '0.6cm',
+    'header.connections.separator': '•',
+    'header.connections.show_icons': False,
+    'header.connections.hyperlink': True,
+    'header.connections.display_urls_instead_of_usernames': False,
+    'header.connections.space_between_connections': '0.4cm',
+    'links.underline': False,
+    'links.show_external_link_icon': False,
+    'section_titles.type': 'centered_with_partial_line',
+    'section_titles.line_thickness': '0.1pt',
+    'section_titles.space_above': '0.5cm',
+    'section_titles.space_below': '0.5cm',
+    'sections.allow_page_break': True,
+    'sections.space_between_regular_entries': '0.95em',
+    'sections.space_between_text_based_entries': '0.2em',
+    # Empty, not ``['experience']``: RenderCV's default appends "2 years 3
+    # months" to every experience date range and the owner's CV has no such
+    # thing.
+    'sections.show_time_spans_in': [],
+    'entries.short_second_row': False,
+    'entries.side_space': '0.1cm',
+    'entries.space_between_columns': '0.15cm',
+    'entries.date_and_location_width': '4.1cm',
+    'entries.allow_page_break': False,
+    'entries.summary.space_above': '0.04cm',
+    'entries.summary.space_left': '0cm',
+    'entries.highlights.bullet': '•',
+    'entries.highlights.nested_bullet': '◦',
+    'entries.highlights.space_left': '0.15cm',
+    'entries.highlights.space_above': '0.04cm',
+    'entries.highlights.space_between_items': '0.03cm',
+    'entries.highlights.space_between_bullet_and_text': '0.5em',
+    # The education layout arrives entirely through these three: institution,
+    # then the degree phrase, then the date alone on the right. It is why the
+    # education section needs no vendored ``.j2.typ`` of its own.
+    'templates.education_entry.main_column': (
+        'INSTITUTION\nDEGREE_WITH_AREA\nSUMMARY\nHIGHLIGHTS'
+    ),
+    'templates.education_entry.date_and_location_column': 'DATE',
+    'templates.education_entry.degree_column': None,
+    'templates.single_date': 'MONTH_IN_TWO_DIGITS/YEAR',
+    'templates.date_range': 'START_DATE - END_DATE',
+}
+
+
+def _dotted(document: dict[str, Any], path: str) -> Any:
+    """Walk ``document`` by a dotted path, failing loudly on a missing key."""
+    current: Any = document
+    for key in path.split('.'):
+        assert isinstance(current, dict) and key in current, msg(
+            f'a value at {path}', current
+        )
+        current = current[key]
+    return current
 
 
 def test_theme_is_applika_and_not_a_parameter():
@@ -140,71 +309,103 @@ def test_theme_is_applika_and_not_a_parameter():
     )
 
 
-def test_theme_page_is_a4_with_the_owners_margins():
-    page = ApplikaTheme().page
-    assert page.size == 'a4', msg('a4', page.size)
-    assert page.top_margin == '0.55in', msg('0.55in', page.top_margin)
-    assert page.bottom_margin == '0.55in', msg('0.55in', page.bottom_margin)
-    assert page.left_margin == '0.6in', msg('0.6in', page.left_margin)
-    assert page.right_margin == '0.6in', msg('0.6in', page.right_margin)
-    assert page.show_footer is False, msg(False, page.show_footer)
-    assert page.show_top_note is False, msg(False, page.show_top_note)
+@pytest.mark.parametrize('path', sorted(OWNER_DESIGN_TOKENS))
+def test_theme_carries_every_token_of_the_owners_design_block(path: str):
+    """One case per token of the owner's ``design`` block, by dotted path.
+
+    Parametrized rather than grouped into a handful of asserts so a regression
+    names the token that moved instead of the sub-model it lives in, and so a
+    token can never be quietly deleted from a passing test body.
+    """
+    expected = OWNER_DESIGN_TOKENS[path]
+    # ``warnings='none'``: ``Typography.font_family`` is declared as
+    # ``FontFamily | str`` and RenderCV's own validator always turns it into
+    # the ``FontFamily``, which the serializer flags as "unexpected" for the
+    # ``str`` arm of the union. The value is right; only the notice is noise.
+    document = ApplikaTheme().model_dump(mode='json', warnings='none')
+    actual = _dotted(document, path)
+    assert actual == expected, msg(expected, actual)
 
 
-def test_theme_typography_is_source_sans_3():
-    """The font the PDF must embed, per family, not just for the body."""
-    typography = ApplikaTheme().typography
-    families = typography.font_family
-    for element in (
-        'body',
-        'name',
-        'headline',
-        'connections',
-        'section_titles',
-    ):
-        family = getattr(families, element)
-        assert family == 'Source Sans 3', msg('Source Sans 3', family)
-    assert typography.font_size.body == '10pt'
-    assert typography.font_size.name == '26pt'
-    assert typography.font_size.headline == '11pt'
-    assert typography.font_size.connections == '9pt'
-    assert typography.font_size.section_titles == '1.2em'
-    assert typography.line_spacing == '0.65em'
-    assert typography.alignment == 'justified-with-no-hyphenation'
-    assert typography.bold.name is True
-    assert typography.bold.section_titles is True
+# The owner's input file, beside the theme folder the templates come from. It
+# is *globbed* rather than named - the opposite of ``THEME_FILES`` and for the
+# same reason those are named: the filename is a real person's name, and it has
+# no business written into this repository.
+REFERENCE_PROJECT_DIR = REFERENCE_THEME_DIR.parent
+_DESIGN_KEY = 'design:'
+
+_FONT_FAMILY_ELEMENTS = (
+    'body',
+    'name',
+    'headline',
+    'connections',
+    'section_titles',
+)
 
 
-def test_theme_colors_are_the_owners_tokens():
-    colors = ApplikaTheme().colors
-    assert str(colors.body) == 'rgb(25, 25, 25)'
-    assert str(colors.name) == 'rgb(10, 10, 10)'
-    assert str(colors.headline) == 'rgb(55, 55, 55)'
-    assert str(colors.connections) == 'rgb(65, 65, 65)'
-    assert str(colors.section_titles) == 'rgb(10, 10, 10)'
-    assert str(colors.links) == 'rgb(25, 95, 175)'
+def _owner_design_block() -> dict[str, Any]:
+    """Parse *only* the ``design:`` block of the owner's input file.
+
+    Everything above ``design:`` is a real CV and is not read, let alone
+    asserted on: the slice of text handed to the parser starts at the
+    ``design:`` line, which is the last top-level key in the file.
+    """
+    candidates = sorted(REFERENCE_PROJECT_DIR.glob('*.yaml'))
+    assert len(candidates) == 1, msg('one reference input file', candidates)
+    text = candidates[0].read_text(encoding='utf-8')
+    start = text.index(f'\n{_DESIGN_KEY}') + 1
+    parsed = ruamel.yaml.YAML(typ='safe', pure=True).load(text[start:])
+    return dict(parsed['design'])
 
 
-def test_theme_header_has_no_icons():
-    """Icons default to on, and switching them on drags FontAwesome in."""
-    header = ApplikaTheme().header
-    assert header.alignment == 'center', msg('center', header.alignment)
-    assert header.connections.show_icons is False
-    assert header.connections.hyperlink is True
-    assert header.connections.separator == '•'
+def _flatten_owner_design(block: Any, prefix: str = '') -> dict[str, Any]:
+    """Flatten the owner's block to the same dotted paths the table uses."""
+    if prefix == 'typography.font_family' and isinstance(block, str):
+        return {
+            f'{prefix}.{element}': block for element in _FONT_FAMILY_ELEMENTS
+        }
+    if not isinstance(block, dict):
+        return {prefix: block}
+    flattened: dict[str, Any] = {}
+    for key, value in block.items():
+        child = f'{prefix}.{key}' if prefix else str(key)
+        flattened.update(_flatten_owner_design(value, child))
+    return flattened
 
 
-def test_theme_section_titles_and_bullets():
-    theme = ApplikaTheme()
-    assert theme.section_titles.type == 'centered_with_partial_line'
-    assert theme.section_titles.line_thickness == '0.1pt'
-    assert theme.entries.highlights.bullet == '•'
+@pytest.mark.skipif(
+    not REFERENCE_THEME_DIR.is_dir(),
+    reason="the owner's project is not committed; the token table covers CI",
+)
+def test_the_token_table_is_the_owners_whole_design_block():
+    """The table above is his block - every key, nothing invented.
 
+    This is what makes the exhaustive pin *exhaustive*. Without it the table
+    is still just a list somebody typed, and the failure mode that produced
+    this ticket - a token nobody transcribed - comes straight back. With it,
+    a token the owner has and applika does not fails here by name.
 
-def test_theme_dates_are_numeric():
-    templates = ApplikaTheme().templates
-    assert templates.single_date == 'MONTH_IN_TWO_DIGITS/YEAR'
-    assert templates.date_range == 'START_DATE - END_DATE'
+    ``theme`` is the one excluded key: his file says ``custom`` and applika's
+    says ``applika``.
+    """
+    owner = _flatten_owner_design(_owner_design_block())
+    owner.pop('theme', None)
+    assert owner == OWNER_DESIGN_TOKENS, msg(
+        "the owner's design block, flattened",
+        {
+            'missing_from_the_table': sorted(
+                set(owner) - set(OWNER_DESIGN_TOKENS)
+            ),
+            'not_in_the_owners_block': sorted(
+                set(OWNER_DESIGN_TOKENS) - set(owner)
+            ),
+            'different_value': {
+                key: (owner[key], OWNER_DESIGN_TOKENS[key])
+                for key in set(owner) & set(OWNER_DESIGN_TOKENS)
+                if owner[key] != OWNER_DESIGN_TOKENS[key]
+            },
+        },
+    )
 
 
 def test_vendored_theme_files_ship_with_the_code():
@@ -221,12 +422,6 @@ THEME_FILES = (
     'SectionBeginning.j2.typ',
     'SectionEnding.j2.typ',
     'entries/OneLineEntry.j2.typ',
-)
-
-# The owner's folder, two levels above the applika repo. Present on a
-# workstation, absent in CI - it is deliberately not committed.
-REFERENCE_THEME_DIR = (
-    Path(__file__).resolve().parents[4] / 'custom-template-reference' / 'custom'
 )
 
 # The one edit the whole theme is allowed to carry: applika has no key
@@ -442,18 +637,180 @@ def test_experience_maps_to_an_experience_entry():
     }, msg('the mapped experience entry', entry)
 
 
-def test_projects_map_to_a_normal_entry_carrying_the_link():
+def test_a_project_is_three_lines_name_then_link_then_description():
+    """The owner: name, then the link, then the description - never one line.
+
+    Line one is the entry ``name``; lines two and three are the ``summary``,
+    split by a newline. The order matters as much as the break: before this
+    ticket the mapper emitted ``description + " " + link`` on a single line.
+    """
     entry = _sections()[PROJECTS_SECTION][0]
     assert entry['name'] == 'applika', msg('applika', entry['name'])
     assert entry['summary'] == (
-        'Job application tracker '
-        '[applika.example.com](https://applika.example.com)'
-    ), msg('description plus markdown link', entry['summary'])
+        '[applika.example.com](https://applika.example.com)\n'
+        'Job application tracker'
+    ), msg('link line, then description line', entry['summary'])
 
 
-def test_skills_map_to_a_single_line():
-    assert _sections()[SKILLS_SECTION] == ['Python • PostgreSQL • FastAPI'], (
-        msg('one joined line', _sections()[SKILLS_SECTION])
+def test_a_project_with_no_link_label_shows_the_raw_url():
+    """The owner: "if link label is missing, just display the raw link"."""
+    entry = _sections()[PROJECTS_SECTION][1]
+    assert entry['summary'] == (
+        '[https://example.org/slowquery](https://example.org/slowquery)\n'
+        'Samples slow query plans'
+    ), msg('the URL as its own label', entry['summary'])
+
+
+def test_a_project_with_no_link_is_name_and_description_only():
+    """Two lines, not a leading blank one."""
+    entry = _sections(
+        projects=[
+            {
+                'id': 'p1',
+                'name': 'applika',
+                'description': 'Job application tracker',
+                'link': None,
+                'link_label': None,
+            }
+        ]
+    )[PROJECTS_SECTION][0]
+    assert entry['summary'] == 'Job application tracker', msg(
+        'the description alone', entry['summary']
+    )
+
+
+def test_a_project_with_no_description_is_name_and_link_only():
+    entry = _sections(
+        projects=[
+            {
+                'id': 'p1',
+                'name': 'applika',
+                'description': '',
+                'link': 'https://applika.example.com',
+                'link_label': 'Live',
+            }
+        ]
+    )[PROJECTS_SECTION][0]
+    assert entry['summary'] == '[Live](https://applika.example.com)', msg(
+        'the link alone', entry['summary']
+    )
+
+
+# --- The mapper: skills are categories, not tags ------------------------------
+
+
+def test_each_skill_category_is_its_own_entry():
+    """The owner: a category, and keywords inside it - one block each.
+
+    A NormalEntry, so ClassicTheme's own template puts the category bold on
+    its own line with the keywords beneath. It must not become a OneLineEntry:
+    see ``test_languages_is_the_only_one_line_entry``.
+    """
+    entries = _sections()[SKILLS_SECTION]
+    assert entries[0] == {
+        'name': 'Languages & Frameworks:',
+        'summary': 'Python · PostgreSQL · FastAPI',
+    }, msg('a bold category line and its keywords', entries[0])
+
+
+def test_keywords_are_joined_by_a_middle_dot_not_a_bullet():
+    """U+00B7 MIDDLE DOT, the glyph the owner typeset his own skills with.
+
+    Spelled out by codepoint because the two characters this could be are
+    indistinguishable in a diff: U+2022 BULLET is the *header's* connection
+    separator and belongs nowhere near the skills line.
+    """
+    summary = _sections()[SKILLS_SECTION][0]['summary']
+    assert '\u00b7' in summary, msg('a middle dot', summary)
+    assert '\u2022' not in summary, msg('no bullet', summary)
+
+
+def test_a_category_gets_a_colon_appended():
+    """The user types the category; applika types the colon."""
+    entry = _sections(
+        skills=[{'id': 's1', 'category': 'Testing & QA', 'keywords': ['Jest']}]
+    )[SKILLS_SECTION][0]
+    assert entry['name'] == 'Testing & QA:', msg('Testing & QA:', entry['name'])
+
+
+def test_a_category_that_already_ends_in_a_colon_does_not_get_a_second():
+    entry = _sections()[SKILLS_SECTION][1]
+    assert entry['name'] == 'Platform & Delivery:', msg(
+        'one colon', entry['name']
+    )
+
+
+def test_a_category_with_no_keywords_keeps_its_heading():
+    """An empty category still round-trips; it prints its bold line alone."""
+    entry = _sections()[SKILLS_SECTION][2]
+    assert entry == {'name': 'Practices:'}, msg('no summary key', entry)
+
+
+def test_a_category_with_neither_a_name_nor_a_keyword_is_dropped():
+    sections = _sections(
+        skills=[{'id': 's1', 'category': '   ', 'keywords': ['', '  ']}]
+    )
+    assert SKILLS_SECTION not in sections, msg('no Skills heading', sections)
+
+
+# --- The mapper: education ----------------------------------------------------
+
+
+def test_education_maps_to_an_education_entry():
+    """``period`` is free text and goes into RenderCV's arbitrary ``date``.
+
+    Same choice experience already made: applika parses no dates anywhere in
+    a CV. The institution/degree/area/date layout comes from
+    ``templates.education_entry``, not from a template file.
+    """
+    entry = _sections()[EDUCATION_SECTION][0]
+    assert entry == {
+        'institution': 'Riverside Institute',
+        'area': 'Distributed Systems',
+        'degree': "Master's degree",
+        'date': '09/2016 - 07/2018',
+    }, msg('the mapped education entry', entry)
+
+
+def test_education_without_an_area_still_maps():
+    """``area`` is required by RenderCV, so it is always sent.
+
+    Empty when the user left it blank, which RenderCV reads as "not
+    provided" and drops from the ``DEGREE_WITH_AREA`` phrase rather than
+    printing a dangling "in".
+    """
+    entry = _sections(
+        education=[
+            {
+                'id': 'e1',
+                'institution': 'Riverside Institute',
+                'degree': 'Certificate',
+                'area': None,
+                'period': None,
+            }
+        ]
+    )[EDUCATION_SECTION][0]
+    assert entry == {
+        'institution': 'Riverside Institute',
+        'area': '',
+        'degree': 'Certificate',
+    }, msg('an area key with no date key', entry)
+
+
+def test_an_entirely_blank_education_item_is_dropped():
+    sections = _sections(
+        education=[
+            {
+                'id': 'e1',
+                'institution': ' ',
+                'degree': ' ',
+                'area': '  ',
+                'period': '',
+            }
+        ]
+    )
+    assert EDUCATION_SECTION not in sections, msg(
+        'no Education heading', sections
     )
 
 
@@ -547,6 +904,7 @@ def test_no_links_section_when_every_link_is_a_social_network():
         ('summary', SUMMARY_SECTION),
         ('experience', EXPERIENCE_SECTION),
         ('projects', PROJECTS_SECTION),
+        ('education', EDUCATION_SECTION),
         ('skills', SKILLS_SECTION),
         ('certifications', CERTIFICATIONS_SECTION),
         ('languages', LANGUAGES_SECTION),
@@ -572,7 +930,7 @@ def test_blank_strings_do_not_become_entries():
     """Whitespace-only stored values are not content."""
     sections = _sections(
         summary='   ',
-        skills=['  ', ''],
+        skills=[{'id': 's1', 'category': '  ', 'keywords': ['']}],
         certifications=[{'id': 'c1', 'name': '  ', 'issuer': ' '}],
     )
     assert SUMMARY_SECTION not in sections
@@ -608,13 +966,19 @@ def test_hash_word_is_neutralized_everywhere_it_is_typeset():
     """``#word`` is a Typst command to RenderCV and aborts the compile."""
     sections = _sections(
         summary='Open to work: #opentowork',
-        skills=['#DevOps'],
+        skills=[{'id': 's1', 'category': '#DevOps', 'keywords': ['#IaC']}],
     )
     summary = sections[SUMMARY_SECTION][0]
     assert '#opentowork' not in summary, msg('neutralized hash', summary)
     assert 'sym.hash' in summary, msg('a hash symbol command', summary)
     assert 'opentowork' in summary, msg('the word survives', summary)
-    assert 'sym.hash' in sections[SKILLS_SECTION][0]
+    skills_entry = sections[SKILLS_SECTION][0]
+    assert 'sym.hash' in skills_entry['name'], msg(
+        'a neutralized category', skills_entry['name']
+    )
+    assert 'sym.hash' in skills_entry['summary'], msg(
+        'a neutralized keyword', skills_entry['summary']
+    )
 
 
 def test_hash_not_followed_by_a_letter_is_left_alone():
@@ -683,6 +1047,222 @@ def _delimiter_balance(source: str) -> tuple[int, int, int, int]:
             bracket -= 1
             lowest_bracket = min(lowest_bracket, bracket)
     return lowest_paren, lowest_bracket, paren, bracket
+
+
+def _headings(source: str) -> list[str]:
+    """Every ``== Title`` heading in a generated Typst document, in order."""
+    return [
+        line[len('== ') :].strip()
+        for line in source.splitlines()
+        if line.startswith('== ')
+    ]
+
+
+def _yaml_section_order(yaml_text: str) -> list[str]:
+    """The section keys of a generated input file, in the order they appear.
+
+    Read off the raw text rather than a parsed mapping on purpose: the bug
+    this guards lives in the *dump*, not in the document, so a test that
+    re-parsed the YAML into a dict would pass while the file on disk said
+    something else.
+    """
+    order: list[str] = []
+    inside = False
+    for line in yaml_text.splitlines():
+        if line.rstrip() == '  sections:':
+            inside = True
+            continue
+        if not inside:
+            continue
+        if not line.startswith('    ') or line.startswith('     '):
+            continue
+        stripped = line.strip()
+        if stripped.endswith(':') and not stripped.startswith('-'):
+            order.append(stripped[:-1])
+    return order
+
+
+# The order the owner asked for, spelled out here rather than imported from
+# ``SECTION_ORDER`` so the expectation and the implementation cannot drift
+# together. ``Links`` is last: applika typesets a link the header could not
+# turn into a social network, which the owner's own CV never has.
+EXPECTED_SECTION_ORDER = [
+    'Summary',
+    'Experience',
+    'Languages',
+    'Skills',
+    'Projects',
+    'Education',
+    'Certifications',
+    'Links',
+]
+
+
+def test_the_mappers_section_order_constant_is_the_owners_order():
+    assert list(SECTION_ORDER) == EXPECTED_SECTION_ORDER, msg(
+        EXPECTED_SECTION_ORDER, list(SECTION_ORDER)
+    )
+
+
+def test_the_generated_yaml_carries_the_sections_in_the_owners_order():
+    """The owner: "Summary MUST BE ON TOP, followed by experience, languages,
+    skills, projects (optionally), education and certifications (optionally)."
+
+    This is the assertion the previous slice did not have. ``_sections()``
+    always inserted in *an* order; ``ruamel.yaml``'s representer then sorted
+    every mapping's keys on the way out and the page came back alphabetical,
+    with the summary at the bottom. Nothing about the mapper's dict shows it -
+    only the serialized text does.
+    """
+    order = _yaml_section_order(map_cv_to_rendercv_yaml(_cv()))
+    assert order == EXPECTED_SECTION_ORDER, msg(EXPECTED_SECTION_ORDER, order)
+
+
+def test_the_generated_yaml_is_not_sorted_alphabetically():
+    """The specific failure, named: ``Certifications`` cannot come first."""
+    order = _yaml_section_order(map_cv_to_rendercv_yaml(_cv()))
+    assert order != sorted(order), msg(
+        'insertion order, not alphabetical', order
+    )
+    assert order[0] == SUMMARY_SECTION, msg(SUMMARY_SECTION, order[0])
+
+
+def test_the_rendered_typst_carries_the_sections_in_the_owners_order(tmp_path):
+    """The same order, one layer further down - through the real theme.
+
+    The YAML test proves the dump; this proves RenderCV walks the mapping as
+    given rather than reordering it itself.
+    """
+    source = generate_typst_source(
+        map_cv_to_rendercv_yaml(_cv()), tmp_path
+    ).read_text(encoding='utf-8')
+    assert _headings(source) == EXPECTED_SECTION_ORDER, msg(
+        EXPECTED_SECTION_ORDER, _headings(source)
+    )
+
+
+@pytest.mark.parametrize(
+    ('field', 'section'),
+    [
+        ('projects', PROJECTS_SECTION),
+        ('education', EDUCATION_SECTION),
+        ('certifications', CERTIFICATIONS_SECTION),
+    ],
+)
+def test_an_optional_section_leaves_no_heading_in_the_rendered_typst(
+    tmp_path, field: str, section: str
+):
+    """The owner marked three sections optional; empty means *absent*.
+
+    Asserted on the generated source rather than on the mapper's dict because
+    a heading RenderCV printed over nothing is what the user would see.
+    """
+    source = generate_typst_source(
+        map_cv_to_rendercv_yaml(_cv(**{field: []})), tmp_path
+    ).read_text(encoding='utf-8')
+    headings = _headings(source)
+    assert section not in headings, msg(f'no {section} heading', headings)
+    assert headings == [
+        title for title in EXPECTED_SECTION_ORDER if title != section
+    ], msg('the rest of the order intact', headings)
+
+
+def test_a_skill_category_typesets_as_a_bold_line_over_its_keywords(tmp_path):
+    """The category prints as a bold line, its keywords on the line beneath.
+
+    ``#strong[...]`` on its own followed by ``#summary[...]`` is RenderCV's
+    NormalEntry, which is the shape the owner's own skills section uses. A
+    regression to one joined line, or to a OneLineEntry, fails here.
+    """
+    source = generate_typst_source(
+        map_cv_to_rendercv_yaml(_cv()), tmp_path
+    ).read_text(encoding='utf-8')
+    skills_block = source.split(f'== {SKILLS_SECTION}', 1)[1].split('\n== ')[0]
+
+    assert '#strong[Languages & Frameworks:]' in skills_block, msg(
+        'a bold category line', skills_block[:400]
+    )
+    assert 'Python \u00b7 PostgreSQL \u00b7 FastAPI' in skills_block, msg(
+        'keywords joined by a middle dot', skills_block[:400]
+    )
+    assert '#strong[Practices:]' in skills_block, msg(
+        'a keywordless category keeps its line', skills_block[:400]
+    )
+
+
+def test_a_project_breaks_its_line_between_the_link_and_the_description(
+    tmp_path,
+):
+    """The newline has to survive into Typst as a real break.
+
+    A ``\n`` inside a NormalEntry summary is markdown, not Typst, so nothing
+    about the mapper guarantees it becomes a line break - RenderCV has to turn
+    it into Typst's ``\\`` for it to. If it ever stops doing so the owner is
+    back to "you are putting the description and link in a same line", and a
+    PDF that compiled cleanly would not show it.
+    """
+    source = generate_typst_source(
+        map_cv_to_rendercv_yaml(_cv()), tmp_path
+    ).read_text(encoding='utf-8')
+    projects_block = source.split(f'== {PROJECTS_SECTION}', 1)[1].split(
+        '\n== '
+    )[0]
+
+    assert (
+        '#link("https://applika.example.com")[applika.example.com] \\ '
+        'Job application tracker' in projects_block
+    ), msg('a Typst line break between link and description', projects_block)
+    assert '#strong[applika]' in projects_block, msg(
+        'the project name on its own line', projects_block
+    )
+
+
+def test_education_typesets_institution_then_degree_then_date(tmp_path):
+    """The owner's ``education_entry`` template, end to end.
+
+    No vendored education template exists, so if the three
+    ``templates.education_entry`` tokens ever drop out of ``ApplikaTheme``
+    this section silently reverts to ClassicTheme's ``**INSTITUTION**, AREA``
+    with a separate degree column - a different-looking CV that still renders.
+    """
+    source = generate_typst_source(
+        map_cv_to_rendercv_yaml(_cv()), tmp_path
+    ).read_text(encoding='utf-8')
+    education_block = source.split(f'== {EDUCATION_SECTION}', 1)[1].split(
+        '\n== '
+    )[0]
+
+    assert 'Riverside Institute' in education_block
+    assert "Master's degree in Distributed Systems" in education_block, msg(
+        'the DEGREE_WITH_AREA phrase', education_block[:400]
+    )
+    # ``\\/`` and not ``/``: RenderCV escapes the slash on its way into Typst
+    # (a bare ``/`` starts a list item there). The PDF prints ``09/2016``.
+    assert '09\\/2016 - 07\\/2018' in education_block, msg(
+        'the free-text period as the date column', education_block[:400]
+    )
+    assert '#strong[Riverside Institute]' not in education_block, msg(
+        "the owner's template does not bold the institution",
+        education_block[:400],
+    )
+
+
+def test_education_is_not_a_one_line_entry(tmp_path):
+    """One grid, still - education must not open or close a second.
+
+    ``SectionEnding.j2.typ`` closes a ``)`` for every OneLineEntry section
+    while ``SectionBeginning.j2.typ`` opens the grid for ``languages`` alone,
+    and Typst prints the orphan as text rather than failing. A CV carrying
+    education has to leave the balance untouched.
+    """
+    source = generate_typst_source(
+        map_cv_to_rendercv_yaml(_cv()), tmp_path
+    ).read_text(encoding='utf-8')
+    assert f'== {EDUCATION_SECTION}' in source, msg('an Education heading', '')
+    assert source.count('#grid(') == 1, msg(1, source.count('#grid('))
+    assert _delimiter_balance(source) == (0, 0, 0, 0), msg(
+        'balanced Typst delimiters', _delimiter_balance(source)
+    )
 
 
 def test_a_cv_with_languages_certifications_and_links_is_well_formed(tmp_path):

@@ -180,7 +180,23 @@ BASE_CVS = [
                 'url': 'https://www.linkedin.com/in/alexmoreira',
             },
         ],
-        'skills': ['Python', 'FastAPI', 'PostgreSQL', 'Redis', 'Docker'],
+        'skills': [
+            {
+                'id': 'skl-lang',
+                'category': 'Languages & Frameworks',
+                'keywords': ['Python', 'FastAPI', 'TypeScript'],
+            },
+            {
+                'id': 'skl-data',
+                'category': 'Data & Messaging',
+                'keywords': ['PostgreSQL', 'Redis'],
+            },
+            {
+                'id': 'skl-plat',
+                'category': 'Platform & Delivery',
+                'keywords': ['Docker', 'GitHub Actions'],
+            },
+        ],
         'experience': [
             {
                 'id': 'exp-1',
@@ -204,6 +220,15 @@ BASE_CVS = [
                 'link_label': 'applika.dev',
             }
         ],
+        'education': [
+            {
+                'id': 'edu-1',
+                'institution': 'Universidade de Lisboa',
+                'degree': "Bachelor's degree",
+                'area': 'Computer Science',
+                'period': '09/2012 - 07/2016',
+            }
+        ],
         'certifications': [
             {'id': 'crt-1', 'name': 'AWS Solutions Architect', 'issuer': 'AWS'}
         ],
@@ -219,7 +244,18 @@ BASE_CVS = [
         'location': 'Lisbon, Portugal',
         'email': 'alex.moreira@example.com',
         'summary': 'Infrastructure as code, CI/CD and observability.',
-        'skills': ['Terraform', 'Kubernetes', 'GitHub Actions', 'Grafana'],
+        'skills': [
+            {
+                'id': 'skl-iac',
+                'category': 'Infrastructure',
+                'keywords': ['Terraform', 'Kubernetes'],
+            },
+            {
+                'id': 'skl-obs',
+                'category': 'Delivery & Observability',
+                'keywords': ['GitHub Actions', 'Grafana'],
+            },
+        ],
         'experience': [
             {
                 'id': 'exp-2',
@@ -238,7 +274,13 @@ BASE_CVS = [
         'location': 'Lisbon, Portugal',
         'email': 'alex.moreira@example.com',
         'summary': 'Grew and led two product teams.',
-        'skills': ['Coaching', 'Hiring', 'Roadmapping'],
+        'skills': [
+            {
+                'id': 'skl-lead',
+                'category': 'Leadership',
+                'keywords': ['Coaching', 'Hiring', 'Roadmapping'],
+            }
+        ],
         'languages': [{'id': 'lng-en', 'name': 'English', 'level': 'C2'}],
     },
 ]
@@ -339,7 +381,7 @@ def seed_application_cv(
         for field in (
             'name', 'full_name', 'headline', 'location', 'email', 'phone',
             'summary', 'links', 'skills', 'experience', 'projects',
-            'certifications', 'languages',
+            'education', 'certifications', 'languages',
         )
     }
     edited['summary'] = 'Tailored to this posting during the seed run.'

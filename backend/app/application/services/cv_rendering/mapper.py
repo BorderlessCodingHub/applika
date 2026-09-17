@@ -67,14 +67,44 @@ THEME_NAME = 'applika'
 # so the only one mapped to OneLineEntry.
 SUMMARY_SECTION = 'Summary'
 EXPERIENCE_SECTION = 'Experience'
-PROJECTS_SECTION = 'Projects'
-SKILLS_SECTION = 'Skills'
-CERTIFICATIONS_SECTION = 'Certifications'
 LANGUAGES_SECTION = 'Languages'
+SKILLS_SECTION = 'Skills'
+PROJECTS_SECTION = 'Projects'
+EDUCATION_SECTION = 'Education'
+CERTIFICATIONS_SECTION = 'Certifications'
 LINKS_SECTION = 'Links'
 
-# How the skills list is joined into its single line.
-SKILLS_SEPARATOR = ' • '
+# The order the owner asked for, in his words: "Summary MUST BE ON TOP,
+# followed by experience, languages, skills, projects (optionally), education
+# and certifications (optionally)." ``Links`` is appended after these by
+# :func:`map_cv_to_rendercv_document`; the owner's own CV has no Links section
+# because all of his links are social networks in the header.
+SECTION_ORDER = (
+    SUMMARY_SECTION,
+    EXPERIENCE_SECTION,
+    LANGUAGES_SECTION,
+    SKILLS_SECTION,
+    PROJECTS_SECTION,
+    EDUCATION_SECTION,
+    CERTIFICATIONS_SECTION,
+    LINKS_SECTION,
+)
+
+# How one skill category's keywords are joined. U+00B7 MIDDLE DOT with a space
+# each side - the character the owner typeset his own skills with, and *not*
+# U+2022 BULLET, which is the header's connection separator and a different
+# glyph entirely.
+SKILLS_SEPARATOR = ' \u00b7 '
+
+# Every skill category line ends in a colon in the owner's CV. He typed it into
+# his category names by hand; applika appends it instead, so the user does not
+# have to know.
+SKILLS_CATEGORY_SUFFIX = ':'
+
+# What joins the three lines of a project entry. RenderCV passes a newline
+# inside a NormalEntry ``summary`` through to the Typst source as a real line
+# break, which is how the owner's own project entries are built.
+PROJECT_LINE_SEPARATOR = '\n'
 
 
 @runtime_checkable
@@ -97,6 +127,7 @@ class RenderableCV(Protocol):
     skills: Any
     experience: Any
     projects: Any
+    education: Any
     certifications: Any
     languages: Any
 
@@ -222,18 +253,111 @@ def _experience_entries(cv: RenderableCV) -> list[dict[str, Any]]:
 
 
 def _project_entries(cv: RenderableCV) -> list[dict[str, Any]]:
-    """The project link rides along in the summary as a markdown link."""
+    """Three lines per project: the name, then the link, then the description.
+
+    The owner: "each project must appear in this order: One line displaying
+    the project name, the second like the link to access this project with the
+    current behavior if link label is missing, just display the raw link and
+    in a third link the project description, currenly you are putting the
+    description and link in a same line."
+
+    Line one is the entry ``name``, which the ``normal_entry`` template
+    typesets bold on its own. Lines two and three are the ``summary``, joined
+    by a newline - the same shape the owner uses in his own RenderCV input.
+    Either may be missing: a project with no link is name + description, a
+    project with no description is name + link.
+    """
     entries: list[dict[str, Any]] = []
     for item in cv.projects:
-        summary_parts = [_text(item.description)]
+        summary_parts: list[str] = []
         if _clean(item.link):
             summary_parts.append(
                 _markdown_link(item.link_label or '', item.link)
             )
-        summary = ' '.join(part for part in summary_parts if part)
+        description = _text(item.description)
+        if description:
+            summary_parts.append(description)
         entry: dict[str, Any] = {'name': _text(item.name)}
-        if summary:
-            entry['summary'] = summary
+        if summary_parts:
+            entry['summary'] = PROJECT_LINE_SEPARATOR.join(summary_parts)
+        entries.append(entry)
+    return entries
+
+
+def _skill_category_label(category: str) -> str:
+    """The bold line above a category's keywords, colon included.
+
+    The owner typed the colon into his own category names ("Languages &
+    Frameworks:"); a user typing "Languages & Frameworks" into applika's
+    editor should get the same line. A category that already ends in one is
+    left alone rather than growing a second.
+    """
+    if not category or category.endswith(SKILLS_CATEGORY_SUFFIX):
+        return category
+    return category + SKILLS_CATEGORY_SUFFIX
+
+
+def _skill_entries(cv: RenderableCV) -> list[dict[str, Any]]:
+    """One NormalEntry per skill category: bold heading, keywords beneath.
+
+    The owner: "skills isn't simply a section where i put "tags" or just
+    "keywords" it's a section where i can create a category and inside this
+    caregory add keywords".
+
+    NormalEntry rather than OneLineEntry, and not by preference: the owner's
+    ``SectionEnding.j2.typ`` closes a grid for every OneLineEntry section
+    while ``SectionBeginning.j2.typ`` opens one for ``languages`` alone, so a
+    second OneLineEntry section prints a stray bracket. NormalEntry uses
+    ClassicTheme's own template, which already renders ``**NAME**`` on one
+    line and ``SUMMARY`` under it - exactly the look asked for.
+
+    A category with no keywords keeps its heading; one with neither a name nor
+    a keyword is dropped, like every other empty item in this file.
+    """
+    entries: list[dict[str, Any]] = []
+    for item in cv.skills:
+        category = _text(item.category)
+        keywords = [_text(word) for word in item.keywords if _clean(word)]
+        if not category and not keywords:
+            continue
+        entry: dict[str, Any] = {'name': _skill_category_label(category)}
+        if keywords:
+            entry['summary'] = SKILLS_SEPARATOR.join(keywords)
+        entries.append(entry)
+    return entries
+
+
+def _education_entries(cv: RenderableCV) -> list[dict[str, Any]]:
+    """One EducationEntry per stored item; ``period`` becomes ``date``.
+
+    applika stores a free-text ``period`` rather than parseable dates - the
+    same choice experience already made - so it goes into RenderCV's
+    arbitrary ``date`` field instead of ``start_date``/``end_date``.
+
+    ``area`` is always emitted, even empty: RenderCV requires it on an
+    ``EducationEntry`` and treats an empty string as "not provided", dropping
+    the placeholder from the ``DEGREE_WITH_AREA`` phrase rather than printing
+    a dangling "in".
+
+    The layout - institution, then the degree phrase, then the date on the
+    right - comes entirely from ``templates.education_entry`` in
+    ``ApplikaTheme``, so there is no education template to vendor.
+    """
+    entries: list[dict[str, Any]] = []
+    for item in cv.education:
+        institution = _text(item.institution)
+        degree = _text(item.degree)
+        area = _text(item.area)
+        period = _text(item.period)
+        if not any((institution, degree, area, period)):
+            continue
+        entry: dict[str, Any] = {
+            'institution': institution,
+            'area': area,
+            'degree': degree,
+        }
+        if period:
+            entry['date'] = period
         entries.append(entry)
     return entries
 
@@ -283,7 +407,16 @@ def _labelled_lines(
 
 
 def _sections(cv: RenderableCV) -> dict[str, Any]:
-    """Build the section map, dropping every section that has no content."""
+    """Build the section map, dropping every section that has no content.
+
+    **Insertion order is the typeset order.** RenderCV walks the mapping as it
+    is given, so the sequence of the assignments below is what comes out on
+    the page - Summary, Experience, Languages, Skills, Projects, Education,
+    Certifications. It only survives the trip because
+    :func:`map_cv_to_rendercv_yaml` turns off ruamel's key sorting; leaving
+    that on is what made the first cut of this feature print the sections
+    alphabetically, with the summary at the bottom.
+    """
     sections: dict[str, Any] = {}
 
     summary = _text(cv.summary)
@@ -294,21 +427,25 @@ def _sections(cv: RenderableCV) -> dict[str, Any]:
     if experience:
         sections[EXPERIENCE_SECTION] = experience
 
+    languages = _one_line_entries(cv.languages, 'name', 'level')
+    if languages:
+        sections[LANGUAGES_SECTION] = languages
+
+    skills = _skill_entries(cv)
+    if skills:
+        sections[SKILLS_SECTION] = skills
+
     projects = _project_entries(cv)
     if projects:
         sections[PROJECTS_SECTION] = projects
 
-    skills = [_text(skill) for skill in cv.skills if _clean(skill)]
-    if skills:
-        sections[SKILLS_SECTION] = [SKILLS_SEPARATOR.join(skills)]
+    education = _education_entries(cv)
+    if education:
+        sections[EDUCATION_SECTION] = education
 
     certifications = _labelled_lines(cv.certifications, 'name', 'issuer')
     if certifications:
         sections[CERTIFICATIONS_SECTION] = certifications
-
-    languages = _one_line_entries(cv.languages, 'name', 'level')
-    if languages:
-        sections[LANGUAGES_SECTION] = languages
 
     return sections
 
@@ -378,6 +515,13 @@ def map_cv_to_rendercv_yaml(cv: RenderableCV) -> str:
     document = map_cv_to_rendercv_document(cv)
     serializer = ruamel.yaml.YAML(typ='safe', pure=True)
     serializer.default_flow_style = False
+    # Without this the representer sorts every mapping's keys on dump, and the
+    # section order :func:`_sections` built is replaced by an alphabetical one
+    # - Certifications, Education, Experience, Languages, Projects, Skills,
+    # Summary. That is exactly what the owner saw ("you put the summary as
+    # last section"), and it happens on the way out, long after the mapper has
+    # done the right thing.
+    serializer.representer.sort_base_mapping_type_on_output = False
     buffer = StringIO()
     serializer.dump(document, buffer)
     return buffer.getvalue()

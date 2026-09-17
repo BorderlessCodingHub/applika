@@ -53,6 +53,7 @@ SECTIONS = (
     'skills',
     'experience',
     'projects',
+    'education',
     'certifications',
     'languages',
 )
@@ -62,7 +63,14 @@ FULL_SECTIONS = {
         {'id': 'lnk-1', 'label': 'GitHub', 'url': 'https://github.com/ada'},
         {'id': 'lnk-2', 'label': 'Site', 'url': 'https://ada.dev'},
     ],
-    'skills': ['Python', 'PostgreSQL', 'FastAPI'],
+    'skills': [
+        {
+            'id': 'skl-1',
+            'category': 'Languages & Frameworks',
+            'keywords': ['Python', 'PostgreSQL', 'FastAPI'],
+        },
+        {'id': 'skl-2', 'category': 'Platform', 'keywords': ['Docker']},
+    ],
     'experience': [
         {
             'id': 'exp-1',
@@ -81,6 +89,15 @@ FULL_SECTIONS = {
             'description': 'Job application tracker',
             'link': 'https://applika.dev',
             'link_label': 'applika.dev',
+        }
+    ],
+    'education': [
+        {
+            'id': 'edu-1',
+            'institution': 'Riverside Institute',
+            'degree': "Master's degree",
+            'area': 'Distributed Systems',
+            'period': '09/2016 - 07/2018',
         }
     ],
     'certifications': [{'id': 'crt-1', 'name': 'AWS SAA', 'issuer': 'Amazon'}],
@@ -729,7 +746,8 @@ async def test_orm_server_defaults_match_the_migration(
     result = await db_session.execute(
         sa.text(
             'SELECT summary, phone, links, skills, experience, projects, '
-            'certifications, languages FROM base_cvs WHERE id = :id'
+            'education, certifications, languages '
+            'FROM base_cvs WHERE id = :id'
         ),
         {'id': row_id},
     )

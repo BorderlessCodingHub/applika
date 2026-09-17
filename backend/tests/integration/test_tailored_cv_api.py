@@ -54,6 +54,7 @@ SECTIONS = (
     'skills',
     'experience',
     'projects',
+    'education',
     'certifications',
     'languages',
 )
@@ -75,7 +76,14 @@ FULL_SECTIONS: dict[str, Any] = {
         {'id': 'lnk-1', 'label': 'GitHub', 'url': 'https://github.com/ada'},
         {'id': 'lnk-2', 'label': 'Site', 'url': 'https://ada.dev'},
     ],
-    'skills': ['Python', 'PostgreSQL', 'FastAPI'],
+    'skills': [
+        {
+            'id': 'skl-1',
+            'category': 'Languages & Frameworks',
+            'keywords': ['Python', 'PostgreSQL', 'FastAPI'],
+        },
+        {'id': 'skl-2', 'category': 'Platform', 'keywords': ['Docker']},
+    ],
     'experience': [
         {
             'id': 'exp-1',
@@ -94,6 +102,15 @@ FULL_SECTIONS: dict[str, Any] = {
             'description': 'Job application tracker',
             'link': 'https://applika.dev',
             'link_label': 'applika.dev',
+        }
+    ],
+    'education': [
+        {
+            'id': 'edu-1',
+            'institution': 'Riverside Institute',
+            'degree': "Master's degree",
+            'area': 'Distributed Systems',
+            'period': '09/2016 - 07/2018',
         }
     ],
     'certifications': [{'id': 'crt-1', 'name': 'AWS SAA', 'issuer': 'Amazon'}],
@@ -147,7 +164,13 @@ def update_payload(**overrides: Any) -> dict:
         'links': [
             {'id': 'lnk-9', 'label': 'Portfolio', 'url': 'https://ada.works'}
         ],
-        'skills': ['Go', 'Kubernetes'],
+        'skills': [
+            {
+                'id': 'skl-9',
+                'category': 'Platform',
+                'keywords': ['Go', 'Kubernetes'],
+            }
+        ],
         'experience': [
             {
                 'id': 'exp-9',
@@ -166,6 +189,15 @@ def update_payload(**overrides: Any) -> dict:
                 'description': 'A planning tool',
                 'link': None,
                 'link_label': None,
+            }
+        ],
+        'education': [
+            {
+                'id': 'edu-9',
+                'institution': 'Northgate College',
+                'degree': "Bachelor's degree",
+                'area': 'Computer Science',
+                'period': '09/2012 - 07/2016',
             }
         ],
         'certifications': [
@@ -459,7 +491,9 @@ async def test_editing_the_master_leaves_the_copy_untouched(
         json={
             'full_name': 'Someone Else',
             'summary': 'A completely different summary.',
-            'skills': ['COBOL'],
+            'skills': [
+                {'id': 'skl-x', 'category': 'Legacy', 'keywords': ['COBOL']}
+            ],
         },
     )
     fetched = await async_client.get(f'/applications/{application["id"]}/cv')
@@ -467,7 +501,7 @@ async def test_editing_the_master_leaves_the_copy_untouched(
     assert patched.status_code == 200, msg(200, patched.text)
     assert fetched.json()['full_name'] == 'Ada Lovelace'
     assert fetched.json()['summary'] == 'Ten years of backend engineering.'
-    assert fetched.json()['skills'] == ['Python', 'PostgreSQL', 'FastAPI']
+    assert fetched.json()['skills'] == FULL_SECTIONS['skills']
     assert fetched.json() == copy | {
         'updated_at': fetched.json()['updated_at']
     }
@@ -530,7 +564,7 @@ async def test_update_replaces_every_field_and_persists(
     # ...and it is really in the database, not just in the response.
     row = await _row(db_session, copy['id'])
     assert row.full_name == 'Ada B. Lovelace'
-    assert row.skills == ['Go', 'Kubernetes']
+    assert row.skills == update_payload()['skills']
     assert row.languages == body['languages']
 
 
@@ -557,7 +591,7 @@ async def test_update_does_not_touch_the_master_cv(async_client: AsyncClient):
     master = await async_client.get(f'/base-cvs/{base_cv["id"]}')
 
     assert master.json()['full_name'] == 'Ada Lovelace'
-    assert master.json()['skills'] == ['Python', 'PostgreSQL', 'FastAPI']
+    assert master.json()['skills'] == FULL_SECTIONS['skills']
 
 
 async def test_update_rejects_provenance_fields(async_client: AsyncClient):
@@ -1006,7 +1040,8 @@ async def test_orm_server_defaults_match_the_migration(
         sa.text(
             'SELECT summary, phone, base_cv_id, was_ai_generated, '
             'adjustments, links, skills, experience, projects, '
-            'certifications, languages FROM tailored_cvs WHERE id = :id'
+            'education, certifications, languages '
+            'FROM tailored_cvs WHERE id = :id'
         ),
         {'id': row_id},
     )

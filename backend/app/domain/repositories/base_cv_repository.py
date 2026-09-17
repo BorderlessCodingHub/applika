@@ -92,9 +92,10 @@ class BaseCVRepository:
                 phone=data.phone,
                 summary=data.summary,
                 links=[item.model_dump() for item in data.links],
-                skills=list(data.skills),
+                skills=[item.model_dump() for item in data.skills],
                 experience=[item.model_dump() for item in data.experience],
                 projects=[item.model_dump() for item in data.projects],
+                education=[item.model_dump() for item in data.education],
                 certifications=[
                     item.model_dump() for item in data.certifications
                 ],
