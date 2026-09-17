@@ -33,6 +33,7 @@ one test cannot act as two identities over HTTP. This is the same workaround
 from datetime import date, datetime, timezone
 from typing import Any, cast
 
+import pytest
 import sqlalchemy as sa
 from httpx import AsyncClient
 from sqlalchemy.dialects import postgresql
@@ -719,18 +720,22 @@ async def test_archived_application_refuses_update_and_delete_but_not_get(
     assert fetched.json()['id'] == copy['id']
 
 
+@pytest.mark.parametrize(
+    'make_read_only', [_finalize, _archive], ids=['finalized', 'archived']
+)
 async def test_the_refusal_matches_how_steps_are_refused_today(
-    async_client: AsyncClient, db_session: AsyncSession
+    async_client: AsyncClient, db_session: AsyncSession, make_read_only
 ):
     """AC10, literally: the CV copy and a step answer identically.
 
     Same application, same state, two different endpoints - the status code
     and the message must agree, which is what "matching how steps are refused
-    today" asks for.
+    today" asks for. Both read-only states are compared, so the CV copy cannot
+    drift from the step refusal in one of them.
     """
     base_cv = await _create_base_cv(async_client)
     application = await _create_application(async_client)
-    await _finalize(db_session, application['id'])
+    await make_read_only(db_session, application['id'])
 
     step_response = await async_client.post(
         f'/applications/{application["id"]}/steps',
