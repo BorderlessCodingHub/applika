@@ -1,7 +1,13 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Controller, useFormState, useWatch } from "react-hook-form";
-import type { Control, FieldPath, UseFormReturn } from "react-hook-form";
+import type {
+  Control,
+  FieldErrors,
+  FieldPath,
+  UseFormReturn,
+} from "react-hook-form";
 import {
   Award,
   Briefcase,
@@ -74,6 +80,108 @@ export function useCvPreviewData(
   };
 }
 
+/** The collapsible sections of the CV form, in the order they render. */
+export const CV_FORM_SECTION_IDS = [
+  "identity",
+  "links",
+  "summary",
+  "skills",
+  "experience",
+  "projects",
+  "education",
+  "certifications",
+  "languages",
+] as const;
+
+export type CvFormSectionId = (typeof CV_FORM_SECTION_IDS)[number];
+
+/** Which form fields live under which section header. */
+const CV_SECTION_FIELDS: Record<
+  CvFormSectionId,
+  readonly (keyof CvFormValues)[]
+> = {
+  identity: ["name", "full_name", "headline", "email", "phone", "location"],
+  links: ["links"],
+  summary: ["summary"],
+  skills: ["skills"],
+  experience: ["experience"],
+  projects: ["projects"],
+  education: ["education"],
+  certifications: ["certifications"],
+  languages: ["languages"],
+};
+
+/** True when any field under `id` currently carries a validation message. */
+export function cvSectionHasError(
+  id: CvFormSectionId,
+  errors: FieldErrors<CvFormValues>,
+): boolean {
+  return CV_SECTION_FIELDS[id].some((field) => Boolean(errors[field]));
+}
+
+/** Stable empty list, so a section with no reveal never churns the effect. */
+const NO_REVEAL: readonly string[] = [];
+
+/**
+ * Open/close state for the section headers, all OPEN on first render.
+ *
+ * The seam behind criterion 6: a section named in `invalidSections` is forced
+ * open, so a submit can never leave an error behind a collapsed header.
+ *
+ * The reveal is keyed on the CONTENT of that list plus `revealNonce`, never on
+ * the list's identity — the caller rebuilds it every render, and an
+ * identity-keyed reveal would re-open a section on every keystroke and fight
+ * the user who collapsed it on purpose. `revealNonce` is the form's submit
+ * count: the owner's criterion is "expanded automatically when the user
+ * submits", so EVERY submit reveals, including the second one that fails on
+ * the very same error the user just folded away. Between two submits the user
+ * stays in charge of every header.
+ */
+export function useCvSectionDisclosure(
+  invalidSections: readonly CvFormSectionId[],
+  revealNonce: string | number = "",
+) {
+  // Stamped with the reveal it was recorded against; a reveal is DERIVED
+  // during render rather than pushed by an effect, so there is no cascading
+  // setState (`react-hooks/set-state-in-effect` is an error under the React
+  // Compiler config) and no fight with the user between submits. The next
+  // toggle rebases the set onto the current stamp.
+  const [closed, setClosed] = useState<{
+    revealKey: string;
+    ids: ReadonlySet<CvFormSectionId>;
+  }>(() => ({ revealKey: "", ids: new Set<CvFormSectionId>() }));
+
+  const revealKey = `${revealNonce}\u0000${invalidSections.join("\u0000")}`;
+  const revealTargets = useMemo(
+    () =>
+      revealKey.split("\u0000").slice(1).filter(Boolean) as CvFormSectionId[],
+    [revealKey],
+  );
+
+  const closedIds = useMemo(() => {
+    if (closed.revealKey === revealKey || closed.ids.size === 0) {
+      return closed.ids;
+    }
+    const draft = new Set(closed.ids);
+    for (const id of revealTargets) draft.delete(id);
+    return draft;
+  }, [closed, revealKey, revealTargets]);
+
+  return useMemo(
+    () => ({
+      isOpen: (id: CvFormSectionId) => !closedIds.has(id),
+      setOpen: (id: CvFormSectionId, open: boolean) => {
+        if (closedIds.has(id) === !open) return;
+        const draft = new Set(closedIds);
+        if (open) draft.delete(id);
+        else draft.add(id);
+        setClosed({ revealKey, ids: draft });
+      },
+    }),
+    [closedIds, revealKey],
+  );
+}
+
 export interface CvFormSectionsProps {
   /** The react-hook-form instance. The caller owns the schema and the defaults. */
   form: UseFormReturn<CvFormValues>;
@@ -81,13 +189,29 @@ export interface CvFormSectionsProps {
   disabled?: boolean;
   /** Mints ids for new section rows. Defaults to `crypto.randomUUID()`. */
   newItemId?: () => string;
+  /**
+   * Section ids to force OPEN, on top of the ones the form's own errors
+   * already reveal. For a failure the resolver cannot see — a server-side
+   * rejection the page maps back onto a section.
+   */
+  revealSections?: readonly CvFormSectionId[];
   className?: string;
 }
 
 /**
- * The CV field body: identity and contact, summary, links, skills, experience,
+ * The CV field body: identity and contact, links, summary, skills, experience,
  * projects, education, certifications and languages, in that order, with the
  * inline errors the form already holds.
+ *
+ * The owner's order, KODI-009: "change the links position to above summary,
+ * today is identity, summary and links..., i want identity, links and
+ * summary...". This is the EDITOR's order only. The typeset document's section
+ * order is pinned against the server's `mapper.py` and is not this list; links
+ * are not a document section at all, they print in its header.
+ *
+ * Every section is a disclosure, open on load, and the Experience rows are
+ * disclosures of their own. A section whose fields fail validation is forced
+ * open — see {@link useCvSectionDisclosure}.
  *
  * Shared by `BaseCvEditor` (the master CV) and `TailoredCvEditor` (an
  * application's copy) so the two can never drift. It renders NO `<form>`, no
@@ -99,10 +223,36 @@ export function CvFormSections({
   form,
   disabled = false,
   newItemId = defaultNewItemId,
+  revealSections,
   className,
 }: CvFormSectionsProps) {
   const { control, register } = form;
-  const { errors } = useFormState({ control });
+  const { errors, submitCount } = useFormState({ control });
+
+  const invalidSections = useMemo(
+    () => [
+      ...CV_FORM_SECTION_IDS.filter((id) => cvSectionHasError(id, errors)),
+      ...(revealSections ?? []),
+    ],
+    [errors, revealSections],
+  );
+  // Every submit reveals, even the second one that fails on the same error
+  // (AC6): the nonce moves, so a header the user folded away in between is
+  // opened again rather than left hiding a message.
+  const disclosure = useCvSectionDisclosure(invalidSections, submitCount);
+  const sectionProps = (id: CvFormSectionId) => ({
+    open: disclosure.isOpen(id),
+    onOpenChange: (next: boolean) => disclosure.setOpen(id, next),
+  });
+
+  // The schema validates experience as a WHOLE array (`base-cv-schema.ts` uses
+  // `.refine` on the list, so there is no per-index path to read). Until that
+  // changes, a section error reveals every row of it: over-revealing keeps the
+  // promise that no message points at a field nobody can see.
+  const revealExperienceRows = (rows: CvExperience[] | undefined) =>
+    cvSectionHasError("experience", errors)
+      ? (rows ?? []).map((row) => row.id)
+      : NO_REVEAL;
 
   const errorFor = (field: FieldPath<CvFormValues>): string | undefined => {
     const message = errors[field as keyof typeof errors]?.message;
@@ -117,6 +267,7 @@ export function CvFormSections({
   return (
     <div className={cn("@container/cv-form min-w-0 space-y-4", className)}>
       <CvSectionCard
+        {...sectionProps("identity")}
         title="Identity and contact"
         description="The header at the top of your CV, plus the label you recognise this CV by."
         icon={UserRound}
@@ -230,36 +381,12 @@ export function CvFormSections({
         </div>
       </CvSectionCard>
 
-      <CvSectionCard
-        title="Summary"
-        description="A short professional summary, in your own words."
-        icon={ScrollText}
-      >
-        <CvField
-          label="Summary"
-          required
-          error={errorFor("summary")}
-          errorId={errorId("summary")}
-        >
-          <Textarea
-            {...register("summary")}
-            rows={5}
-            disabled={disabled}
-            placeholder="Backend engineer with eight years on payment systems…"
-            aria-invalid={errorFor("summary") ? true : undefined}
-            aria-describedby={
-              errorFor("summary") ? errorId("summary") : undefined
-            }
-            className={invalid("summary")}
-          />
-        </CvField>
-      </CvSectionCard>
-
       <Controller
         control={control}
         name="links"
         render={({ field }) => (
           <CvRepeatableSection<CvLink>
+            {...sectionProps("links")}
             title="Links"
             description="Portfolio, GitHub, LinkedIn and other profiles."
             icon={Link2}
@@ -295,11 +422,38 @@ export function CvFormSections({
         )}
       />
 
+      <CvSectionCard
+        {...sectionProps("summary")}
+        title="Summary"
+        description="A short professional summary, in your own words."
+        icon={ScrollText}
+      >
+        <CvField
+          label="Summary"
+          required
+          error={errorFor("summary")}
+          errorId={errorId("summary")}
+        >
+          <Textarea
+            {...register("summary")}
+            rows={5}
+            disabled={disabled}
+            placeholder="Backend engineer with eight years on payment systems…"
+            aria-invalid={errorFor("summary") ? true : undefined}
+            aria-describedby={
+              errorFor("summary") ? errorId("summary") : undefined
+            }
+            className={invalid("summary")}
+          />
+        </CvField>
+      </CvSectionCard>
+
       <Controller
         control={control}
         name="skills"
         render={({ field }) => (
           <CvSkillsSection
+            {...sectionProps("skills")}
             value={field.value ?? []}
             onChange={field.onChange}
             newItemId={newItemId}
@@ -315,6 +469,10 @@ export function CvFormSections({
         name="experience"
         render={({ field }) => (
           <CvRepeatableSection<CvExperience>
+            {...sectionProps("experience")}
+            collapsibleItems
+            revealItemIds={revealExperienceRows(field.value)}
+            revealNonce={submitCount}
             title="Experience"
             description="Your roles, most recent first."
             icon={Briefcase}
@@ -421,6 +579,7 @@ export function CvFormSections({
         name="projects"
         render={({ field }) => (
           <CvRepeatableSection<CvProject>
+            {...sectionProps("projects")}
             title="Projects"
             description="Side projects, open source and notable work."
             icon={FolderGit2}
@@ -484,6 +643,7 @@ export function CvFormSections({
         name="education"
         render={({ field }) => (
           <CvRepeatableSection<CvEducation>
+            {...sectionProps("education")}
             title="Education"
             description="Degrees and diplomas, most recent first."
             icon={GraduationCap}
@@ -560,6 +720,7 @@ export function CvFormSections({
         name="certifications"
         render={({ field }) => (
           <CvRepeatableSection<CvCertification>
+            {...sectionProps("certifications")}
             title="Certifications"
             description="Professional certifications and licences."
             icon={Award}
@@ -600,6 +761,7 @@ export function CvFormSections({
         name="languages"
         render={({ field }) => (
           <CvRepeatableSection<CvLanguage>
+            {...sectionProps("languages")}
             title="Languages"
             description="The languages you speak and how well."
             icon={Languages}

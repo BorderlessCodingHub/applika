@@ -1,10 +1,20 @@
 "use client";
 
+import { useCallback, useMemo, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
-import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Plus, Trash2 } from "lucide-react";
 import type { LucideProps } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CvSectionCard } from "@/components/base-cvs/cv-section-card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  CV_COLLAPSIBLE_CONTENT_CLASS,
+  CvSectionCard,
+  type CvCollapsibleProps,
+} from "@/components/base-cvs/cv-section-card";
 import { cn } from "@/lib/utils";
 
 /** What a rendered row gets so it can edit its own item. */
@@ -15,7 +25,9 @@ export interface CvRepeatableItemContext<T> {
   update: (patch: Partial<T>) => void;
 }
 
-export interface CvRepeatableSectionProps<T extends { id: string }> {
+export interface CvRepeatableSectionProps<
+  T extends { id: string },
+> extends CvCollapsibleProps {
   title: string;
   description?: ReactNode;
   icon?: ComponentType<LucideProps>;
@@ -41,6 +53,25 @@ export interface CvRepeatableSectionProps<T extends { id: string }> {
   reorderable?: boolean;
   /** Disables every control (while saving). */
   disabled?: boolean;
+  /**
+   * Makes every ROW its own disclosure. Rows open on load and a row added
+   * later is born open; the section remembers only what the user CLOSED.
+   */
+  collapsibleItems?: boolean;
+  /**
+   * Row ids that must be OPEN right now — the seam a caller drives when a
+   * submit found an error inside a collapsed row. Reopening is one-way: the
+   * user may close the row again afterwards.
+   */
+  revealItemIds?: readonly string[];
+  /**
+   * Moves whenever the caller wants `revealItemIds` honoured AGAIN, even
+   * though the ids did not change — the form passes its submit count, so the
+   * second submit that fails on the same rows re-opens them too (AC6).
+   */
+  revealNonce?: string | number;
+  /** Fired with the next state when a row's own trigger is pressed. */
+  onItemOpenChange?: (item: T, open: boolean) => void;
   /** Rendered inside the card under the list — the section's own error line. */
   footer?: ReactNode;
   className?: string;
@@ -54,6 +85,12 @@ export interface CvRepeatableSectionProps<T extends { id: string }> {
  * Presentation only and generic: the parent owns the array, the ids and the
  * validation. Order is part of the CV, so reordering is keyboard-operable
  * buttons rather than drag and drop.
+ *
+ * Reorder is an ARROW and disclosure is a CHEVRON, deliberately: with
+ * `collapsibleItems` a row header carries both, and two chevron pairs in one
+ * 200px row would be unreadable. The disclosure also sits on the LEFT, wrapping
+ * the row label, while move and remove stay right — different icon family,
+ * different side, different accessible names.
  */
 export function CvRepeatableSection<T extends { id: string }>({
   title,
@@ -70,11 +107,58 @@ export function CvRepeatableSection<T extends { id: string }>({
   max,
   reorderable = true,
   disabled = false,
+  collapsibleItems = false,
+  revealItemIds,
+  revealNonce = "",
+  onItemOpenChange,
   footer,
   className,
+  collapsible,
+  defaultOpen,
+  open,
+  onOpenChange,
 }: CvRepeatableSectionProps<T>) {
   const atMax = max != null && items.length >= max;
   const canAdd = !disabled && !atMax;
+
+  // Open is the ABSENCE of an entry, so a row the user has never touched — and
+  // every row added later — starts expanded with nothing to seed it.
+  //
+  // The set is stamped with the reveal it was recorded against. A reveal is
+  // then applied by DERIVING the effective set during render — no effect, no
+  // cascading setState — and the next toggle rebases the stored set onto the
+  // current stamp. So a row the user closes while the error is still on screen
+  // stays closed, and a NEW error opens it again.
+  const [closedItems, setClosedItems] = useState<{
+    revealKey: string;
+    ids: ReadonlySet<string>;
+  }>(() => ({ revealKey: "", ids: new Set<string>() }));
+
+  const revealKey = `${revealNonce}\u0000${revealItemIds?.join("\u0000") ?? ""}`;
+  const revealTargets = useMemo(
+    () => revealKey.split("\u0000").slice(1).filter(Boolean),
+    [revealKey],
+  );
+
+  const closedItemIds = useMemo(() => {
+    if (closedItems.revealKey === revealKey || closedItems.ids.size === 0) {
+      return closedItems.ids;
+    }
+    const draft = new Set(closedItems.ids);
+    for (const id of revealTargets) draft.delete(id);
+    return draft;
+  }, [closedItems, revealKey, revealTargets]);
+
+  const setItemOpen = useCallback(
+    (id: string, next: boolean) => {
+      if (closedItemIds.has(id) === !next) return;
+      const draft = new Set(closedItemIds);
+      if (next) draft.delete(id);
+      else draft.add(id);
+      setClosedItems({ revealKey, ids: draft });
+    },
+    [closedItemIds, revealKey],
+  );
 
   const move = (index: number, direction: -1 | 1) => {
     const target = index + direction;
@@ -90,6 +174,10 @@ export function CvRepeatableSection<T extends { id: string }>({
       description={description}
       icon={icon}
       className={className}
+      collapsible={collapsible}
+      defaultOpen={defaultOpen}
+      open={open}
+      onOpenChange={onOpenChange}
       action={
         <Button
           type="button"
@@ -112,59 +200,88 @@ export function CvRepeatableSection<T extends { id: string }>({
           <ul className="space-y-3">
             {items.map((item, index) => {
               const position = `${itemNoun} ${index + 1}`;
-              return (
-                <li
-                  key={item.id}
-                  role="group"
-                  aria-label={position}
-                  className="rounded-lg border border-border bg-surface/60 p-3"
-                >
-                  <div className="mb-3 flex items-center justify-between gap-2">
+              const label = itemLabel
+                ? itemLabel(item, index)
+                : `#${index + 1}`;
+              const isOpen = !closedItemIds.has(item.id);
+
+              const header = (
+                <div className="flex items-center justify-between gap-2">
+                  {collapsibleItems ? (
+                    <CollapsibleTrigger
+                      data-slot="cv-item-trigger"
+                      // The visible label is the row caption, so the accessible
+                      // name must contain it (WCAG 2.5.3); the position makes it
+                      // unique when two rows are still called "New role".
+                      aria-label={`${label}, ${position}`}
+                      className={cn(
+                        "group flex min-w-0 flex-1 items-center gap-1.5 rounded-sm text-left",
+                        "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                        "cursor-pointer hover:text-foreground",
+                      )}
+                    >
+                      <ChevronDown
+                        aria-hidden
+                        className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=closed]:-rotate-90"
+                      />
+                      <span className="truncate text-xs font-medium tracking-wide-label text-muted-foreground uppercase">
+                        {label}
+                      </span>
+                    </CollapsibleTrigger>
+                  ) : (
                     <span className="truncate text-xs font-medium tracking-wide-label text-muted-foreground uppercase">
-                      {itemLabel ? itemLabel(item, index) : `#${index + 1}`}
+                      {label}
                     </span>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {reorderable ? (
-                        <>
-                          <Button
-                            type="button"
-                            size="icon-sm"
-                            variant="ghost"
-                            aria-label={`Move ${position} up`}
-                            disabled={disabled || index === 0}
-                            onClick={() => move(index, -1)}
-                          >
-                            <ChevronUp aria-hidden />
-                          </Button>
-                          <Button
-                            type="button"
-                            size="icon-sm"
-                            variant="ghost"
-                            aria-label={`Move ${position} down`}
-                            disabled={disabled || index === items.length - 1}
-                            onClick={() => move(index, 1)}
-                          >
-                            <ChevronDown aria-hidden />
-                          </Button>
-                        </>
-                      ) : null}
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="ghost"
-                        aria-label={`Remove ${position}`}
-                        disabled={disabled}
-                        onClick={() =>
-                          onChange(items.filter((_, i) => i !== index))
-                        }
-                        className={cn(
-                          "text-muted-foreground hover:text-destructive",
-                        )}
-                      >
-                        <Trash2 aria-hidden />
-                      </Button>
-                    </div>
+                  )}
+                  <div className="flex shrink-0 items-center gap-1">
+                    {reorderable ? (
+                      <>
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label={`Move ${position} up`}
+                          disabled={disabled || index === 0}
+                          onClick={() => move(index, -1)}
+                        >
+                          <ArrowUp aria-hidden />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label={`Move ${position} down`}
+                          disabled={disabled || index === items.length - 1}
+                          onClick={() => move(index, 1)}
+                        >
+                          <ArrowDown aria-hidden />
+                        </Button>
+                      </>
+                    ) : null}
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label={`Remove ${position}`}
+                      disabled={disabled}
+                      onClick={() =>
+                        onChange(items.filter((_, i) => i !== index))
+                      }
+                      className={cn(
+                        "text-muted-foreground hover:text-destructive",
+                      )}
+                    >
+                      <Trash2 aria-hidden />
+                    </Button>
                   </div>
+                </div>
+              );
+
+              // The gap between header and fields lives INSIDE the body, never
+              // as a margin on the header: a collapsed row must leave no strip
+              // of dead space, and the animated height has to include it.
+              const body = (
+                <div className="pt-3">
                   {renderItem({
                     item,
                     index,
@@ -175,6 +292,39 @@ export function CvRepeatableSection<T extends { id: string }>({
                         ),
                       ),
                   })}
+                </div>
+              );
+
+              return (
+                <li
+                  key={item.id}
+                  data-slot="cv-repeatable-item"
+                  role="group"
+                  aria-label={position}
+                  className="rounded-lg border border-border bg-surface/60 p-3"
+                >
+                  {collapsibleItems ? (
+                    <Collapsible
+                      open={isOpen}
+                      onOpenChange={(next) => {
+                        setItemOpen(item.id, next);
+                        onItemOpenChange?.(item, next);
+                      }}
+                    >
+                      {header}
+                      <CollapsibleContent
+                        data-slot="cv-item-content"
+                        className={CV_COLLAPSIBLE_CONTENT_CLASS}
+                      >
+                        {body}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  ) : (
+                    <>
+                      {header}
+                      {body}
+                    </>
+                  )}
                 </li>
               );
             })}

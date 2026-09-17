@@ -9,6 +9,7 @@ import {
   CvKeywordsInput,
 } from "@/components/base-cvs/cv-keywords-input";
 import { CvRepeatableSection } from "@/components/base-cvs/cv-repeatable-section";
+import type { CvCollapsibleProps } from "@/components/base-cvs/cv-section-card";
 import type { CvSkillCategory } from "@/components/base-cvs/types";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +21,7 @@ export const CV_SKILLS_EMPTY_HINT =
 export const CV_SKILLS_CATEGORY_EMPTY_HINT =
   "No keywords yet. They print under the category name, joined by a middle dot.";
 
-export interface CvSkillsSectionProps {
+export interface CvSkillsSectionProps extends CvCollapsibleProps {
   /** Controlled list of categories, in print order. */
   value: CvSkillCategory[];
   /** Called with the next list on add, edit, move or remove. */
@@ -59,6 +60,10 @@ export function CvSkillsSection({
   maxCategories,
   maxKeywordsPerCategory,
   className,
+  collapsible,
+  defaultOpen,
+  open,
+  onOpenChange,
 }: CvSkillsSectionProps) {
   const hintBaseId = useId();
 
@@ -77,6 +82,10 @@ export function CvSkillsSection({
       max={maxCategories}
       disabled={disabled}
       className={className}
+      collapsible={collapsible}
+      defaultOpen={defaultOpen}
+      open={open}
+      onOpenChange={onOpenChange}
       footer={
         error ? (
           <p id={errorId} className="mt-3 text-xs text-destructive">
