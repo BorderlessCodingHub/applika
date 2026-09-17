@@ -364,7 +364,8 @@ async def _count_rows(db_session: AsyncSession) -> int:
 async def test_create_copies_every_field_of_the_master_cv(
     async_client: AsyncClient,
 ):
-    """AC3: identity, contact, summary and all six sections, field for field."""
+    """AC3: identity, contact, summary and all seven sections, field for
+    field."""
     base_cv = await _create_base_cv(async_client)
     application = await _create_application(async_client)
 
@@ -1004,7 +1005,8 @@ async def test_orm_server_defaults_match_the_migration(
 ):
     """The ``create_all`` schema defaults exactly like ``f2a9c1d4b6e8``.
 
-    A raw INSERT that omits ``summary``, the six sections, ``adjustments`` and
+    A raw INSERT that omits ``summary``, the seven sections, ``adjustments``
+    and
     ``was_ai_generated`` must land ``''``, ``[]`` and ``false``. Without the
     ``server_default``s on the ORM columns this fails with NOT NULL
     violations, and the test schema would have drifted away from the schema

@@ -3,7 +3,7 @@
 Three acceptance criteria are covered end to end against a real Postgres:
 
 * AC1 - a signed-in user creates a master CV with a label, identity and
-  contact, a summary and the six sections, and every field comes back
+  contact, a summary and the seven sections, and every field comes back
   unchanged.
 * AC2 - the fourth master CV is refused with the limit message, **including**
   when several creates arrive at the same time. Two tests cover this: one
@@ -175,7 +175,8 @@ async def _seed_foreign_cv(db_session: AsyncSession, user_id: int) -> int:
 async def test_create_returns_201_and_persists_every_field(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """AC1: label, identity, contact, summary and all six sections survive."""
+    """AC1: label, identity, contact, summary and all seven sections
+    survive."""
     body = payload()
 
     response = await async_client.post('/base-cvs', json=body)
@@ -557,7 +558,7 @@ async def test_patch_rejects_an_explicit_null_on_a_scalar(
 async def test_patch_rejects_an_explicit_null_on_a_section(
     async_client: AsyncClient,
 ):
-    """AC3: the six JSONB sections are NOT NULL too - clear them with []."""
+    """AC3: the seven JSONB sections are NOT NULL too - clear them with []."""
     created = await _create(async_client)
 
     for section in SECTIONS:
@@ -715,7 +716,7 @@ async def test_orm_server_defaults_match_the_migration(
 ):
     """The ``create_all`` schema defaults exactly like ``f2a9c1d4b6e8``.
 
-    A raw INSERT that omits ``summary`` and the six sections must land ``''``
+    A raw INSERT that omits ``summary`` and the seven sections must land ``''``
     and ``[]``, the same values ``test_section_defaults_are_empty_arrays``
     pins on the migrated schema. Without the ``server_default``s on the ORM
     columns this test fails with NOT NULL violations, and the two schemas
