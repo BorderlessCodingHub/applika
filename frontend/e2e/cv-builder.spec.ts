@@ -104,7 +104,7 @@ async function supports(request: APIRequestContext) {
   expect(response.ok(), await response.text()).toBeTruthy();
   return (await response.json()) as {
     platforms: Array<{ id: string }>;
-    steps: Array<{ id: string }>;
+    steps: Array<{ id: string; strict: boolean }>;
     feedbacks: Array<{ id: string }>;
   };
 }
@@ -158,12 +158,21 @@ async function finalizeApplication(
   applicationId: string,
 ) {
   const { steps, feedbacks } = await supports(request);
+  // Finalizing accepts a STRICT step definition only
+  // (`StepDefinitionRepository.get_by_id_strict_only`); any other one is a 404
+  // reading "Step not found or is invalid".
+  const strictStep = steps.find((step) => step.strict);
+  expect(
+    strictStep,
+    "the seeded supports data has no strict step definition to finalize with",
+  ).toBeDefined();
+
   const response = await request.post(
     apiUrl(`/applications/${applicationId}/finalize`),
     {
       headers: apiHeaders(),
       data: {
-        step_id: steps[0].id,
+        step_id: strictStep!.id,
         feedback_id: feedbacks[0].id,
         finalize_date: yesterday(),
       },
