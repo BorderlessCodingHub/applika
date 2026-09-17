@@ -210,10 +210,8 @@ the pages wire data to them:
 section where i can create a category and inside this caregory add keywords".
 
 - `CvSkillCategory` is `{ id, category, keywords: string[] }` and
-  `CvEducation` is `{ id, institution, degree, area?, period? }`. `period` is
-  free text like `CvExperience.period` — applika never parses a CV date. There
-  is no `skills: string[]` back-compat: the column never existed on any
-  database.
+  `CvEducation` is `{ id, institution, degree, area?, start, end? }`. There is
+  no `skills: string[]` back-compat: the column never existed on any database.
 - `CvSkillsSection` is the categorised editor (a `CvRepeatableSection` of
   categories, each wrapping a `CvKeywordsInput`). Keyword reorder is
   KEYBOARD-ONLY (`Alt`+arrow) — a wrapping chip row has no room for two
@@ -251,6 +249,33 @@ section where i can create a category and inside this caregory add keywords".
   `aria-invalid`/`aria-describedby` on the empty _Category_ input of the row
   actually at fault, never on the keyword entry the user filled in correctly,
   and never on a valid sibling row.
+
+**A CV date is a month and a year (KODI-007).** The owner: "instead of a bare
+text input it needs to ask when started and when finished (finish is optional,
+when empty is counted as Present), it's a date input but only for month and
+year "MM/yyyy" for both start and finish".
+
+- `CvExperience` and `CvEducation` BOTH carry `start: string` (required) and
+  `end?: string | null` (optional). There is no `period` field on either any
+  more. The wire names are exactly **`start` and `end`** — never `start_date` /
+  `end_date`, which is what the server's renderer calls them internally.
+- The value is ISO `YYYY-MM` in the form, in store and on the wire; `MM/yyyy`
+  is input and display ONLY. `src/lib/month-year.ts` is the single
+  implementation of both directions and of the mask.
+- An absent, `null` or empty `end` means the entry is CURRENT. Reading tolerates
+  both `null` and a missing key; writing OMITS the key (`optionalText` yields
+  `undefined`), so `""` never reaches the API.
+- `formatCvDatePeriod` in `cv-document.tsx` is the FIFTH pinned twin of the
+  server renderer, beside the section order, the keyword separator, the category
+  colon and the degree joiner: `02/2023 - 02/2024`, or `02/2024 - present` with
+  no finish. The separator is a spaced ASCII hyphen-minus (the theme's
+  `date_range`, not RenderCV's en-dash default) and `present` is lowercase.
+  A start that is not yet a real `YYYY-MM` prints NOTHING, so a half-typed row
+  never shows a dangling separator in the live preview.
+- Client validation mirrors the server's rule exactly — the format
+  `^\d{4}-(0[1-9]|1[0-2])$` and "a finish is never earlier than its start" —
+  and invents NO year range. Equal, not stricter, is what puts the 422 out of
+  reach.
 
 **The PDF is rendered on the SERVER** (`docs/applika/adr/0011`, Accepted):
 RenderCV/Typst, one fixed theme named `applika`, no theme parameter, no user
@@ -353,9 +378,22 @@ A 404 from `GET /applications/{id}/cv` is NOT a failure — it is the ordinary
 
 ### Date Inputs
 
+**`DatePickerInput` for a day; `MonthYearInput` for a CV month+year, which never
+has a day.**
+
 **Always use `<DatePickerInput>` from `src/components/ui/date-picker.tsx`** — never `<input type="date">`.
 
 The component avoids browser timezone off-by-one issues by parsing dates as local time. It accepts `value` as a `Date | string | undefined` and returns a `Date` via `onChange`.
+
+**`<MonthYearInput>`** (`src/components/ui/month-year-input.tsx`) is the CV
+period control. It is a MASKED TEXT input, not a calendar and not a pair of
+selects: `MM/yyyy` on screen, ISO `YYYY-MM` through a value-callback
+`onChange`, `""` while the value is empty, partial or impossible. One `<input>`
+is deliberate — `getByLabel("Start").fill("02/2023")` has to drive it — and no
+`Date` is ever constructed, so there is no timezone off-by-one. A half-typed
+value is held on screen verbatim while it emits `""`; the draft/prop sync is
+guarded on BOTH conditions, and simplifying it to one either wipes the draft or
+loops on an unparseable stored value.
 
 ### UI Components
 
@@ -508,6 +546,8 @@ state and hoists a SINGLE `FeedbackDialog`. It renders `CliPromoBanner` and the
 | `src/lib/pdf-download.ts`                       | `downloadBlob`, and the slug rule mirrored from the server        |
 | `src/lib/blob-error.ts`                         | `getBlobApiError` — `getApiError` for a `responseType: "blob"`    |
 | `src/components/ui/date-picker.tsx`             | Timezone-safe date picker (use instead of `<input type="date">`)  |
+| `src/components/ui/month-year-input.tsx`        | Masked CV month+year field (`MM/yyyy` in, ISO `YYYY-MM` out)      |
+| `src/lib/month-year.ts`                         | The one ISO `YYYY-MM` <-> `MM/yyyy` conversion and the mask       |
 
 ---
 
