@@ -205,6 +205,42 @@ the pages wire data to them:
   the PDF export below. `CV_DOCUMENT_EXPORT_ID` is a vestigial hook from an
   earlier client-side idea; nothing reads it and nothing new should.
 
+**Skills are CATEGORIES, and education is a section (KODI-006).** The owner:
+"skills isn't simply a section where i put "tags" or just "keywords" it's a
+section where i can create a category and inside this caregory add keywords".
+
+- `CvSkillCategory` is `{ id, category, keywords: string[] }` and
+  `CvEducation` is `{ id, institution, degree, area?, period? }`. `period` is
+  free text like `CvExperience.period` — applika never parses a CV date. There
+  is no `skills: string[]` back-compat: the column never existed on any
+  database.
+- `CvSkillsSection` is the categorised editor (a `CvRepeatableSection` of
+  categories, each wrapping a `CvKeywordsInput`). Keyword reorder is
+  KEYBOARD-ONLY (`Alt`+arrow) — a wrapping chip row has no room for two
+  buttons per chip — and the keys are told in words once per field via
+  `CV_KEYWORDS_HINT` and per chip via `aria-keyshortcuts`. The keywords block
+  is deliberately NOT a `CvField`: that label wraps its child, and the first
+  labelable node in a keyword field is a chip button the label would wrongly
+  name.
+- **The preview and the server's PDF are two renderers of ONE document.** Four
+  things are pinned on both sides and must be changed on both or neither
+  (`backend/app/application/services/cv_rendering/mapper.py`): the section
+  order (`CV_DOCUMENT_SECTIONS` / `SECTION_ORDER` — summary, experience,
+  languages, skills, projects, education, certifications); the keyword
+  separator (`CV_KEYWORD_SEPARATOR` / `SKILLS_SEPARATOR`, U+00B7 with a space
+  each side, NEVER the header's U+2022); the trailing colon on a category
+  (`skillCategoryHeading` / `_skill_category_label`, never doubled); and the
+  education degree phrase (`CV_EDUCATION_DEGREE_JOINER` / RenderCV's
+  `DEGREE_WITH_AREA`, `" in "`). A project renders on THREE lines — name, then
+  its link (the raw URL when `link_label` is blank), then the description.
+- Languages render as a three-column grid filled from the LEFT at any count,
+  name then level in words, with no separator dot and no proficiency meter.
+  One or two languages sit left STRUCTURALLY, not by a tuned justification.
+- Client validation stays STRICTER than the server's: a category with keywords
+  but no name, and a qualification missing its institution or degree, are
+  section-level errors here, because the API declares all three `min_length=1`
+  and `getApiError` would render its 422 `detail` array as garbage.
+
 **The PDF is rendered on the SERVER** (`docs/applika/adr/0011`, Accepted):
 RenderCV/Typst, one fixed theme named `applika`, no theme parameter, no user
 choice. **Never add `html2pdf`, a `cv-pdf.ts` or any client-side rasteriser.**
@@ -351,6 +387,19 @@ override it.
 run of digits to JetBrains Mono with tabular, slashed-zero figures. Use
 `font-numeric` for headline metrics, counts and table numbers so columns line
 up; use `font-display` for headings and titles. Never mix the two on one element.
+
+**An `overflow: hidden` on a STATIC ancestor clips nothing.** An absolutely
+positioned element whose containing block lies outside that ancestor escapes
+the clip entirely — it is left out of `body`'s scrollable overflow, counted in
+`<html>`'s, and stretches the DOCUMENT to its own offset. That is a second
+scrollbar over a page of dead background, and it is why the shell root
+(`app-shell.tsx`) and `CvSelectField`'s wrapper carry `relative`: **Radix
+`Select` renders a visually hidden native `<select>` at `position: absolute`**
+beside every trigger, and nothing positioned it. `position: relative` with
+`z-index: auto` creates NO stacking context, so the table below is untouched —
+but a `z-*`, `isolate`, `transform` or `filter` on the shell root WOULD create
+one and trap the `z-50` portal layer under the shell. Any new full-viewport
+shell needs the same `relative`.
 
 **Stacking contract.** Layers, lowest first. Keep new chrome inside it:
 
