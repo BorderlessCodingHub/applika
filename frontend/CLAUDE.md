@@ -199,11 +199,74 @@ the pages wire data to them:
   contains the words "the limit is three". Do NOT pass an API message as
   `reason`: the server's `detail` belongs in the 409 toast, and overriding the
   default would take those words off the screen.
-- `cv-document.tsx` deliberately uses raw `neutral-*`/`blue-700` utilities
-  instead of semantic tokens: it is a print artefact that must look identical in
-  light and dark mode. It is a PREVIEW of the content, never of the page — see
-  the PDF export below. `CV_DOCUMENT_EXPORT_ID` is a vestigial hook from an
-  earlier client-side idea; nothing reads it and nothing new should.
+- The typeset document is **leaves plus ONE container**.
+  `cv-document-blocks.tsx` owns every fragment of it (`CvIdentityHeader`,
+  `CvSectionHeading`, `CvExperienceEntry`, …), the pure helpers
+  (`getPopulatedCvSections`, `formatCvDatePeriod`, `skillCategoryHeading`,
+  `educationDegreeLine`, `visibleSkillCategories`, `visibleEducation`) and
+  `buildCvDocumentBlocks(cv)`. `cv-document.tsx` is now only the BARREL that
+  re-exports that vocabulary — the continuous `CvDocument` renderer was removed
+  with KODI-008 once nothing rendered it, because the whole pinned parity table
+  was then asserting markup no user could see. There is one container,
+  `CvDocumentPreview`, and the table runs against it.
+- Every leaf deliberately uses raw `neutral-*`/`blue-700` utilities instead of
+  semantic tokens: it is a print artefact that must look identical in light and
+  dark mode. It is a PREVIEW of the content, never of the page — see the PDF
+  export below. The one exception is the PREVIEW CHROME outside the white
+  sheet (the page indicator, the overflow note), which is app UI and uses
+  `text-muted-foreground` precisely so it cannot be mistaken for a folio the
+  PDF prints.
+- `CV_DOCUMENT_EXPORT_ID` lands on `CvPageStack`'s `<article>` — the element
+  that holds the ordered LIST of sheets, never one of the sheets: a multi-page
+  document's export root cannot be one of its pages. Still exactly one such
+  node per mounted document. Nothing reads it today and nothing new should.
+
+**The live preview is real A4 pagination (KODI-008).** The owner: "if possible,
+make the preview during CV creation create pages if the document become too
+large, use A4 dimensions". Three files, one seam:
+
+- `cv-page-sheet.tsx` owns the A4 geometry at 96dpi (`CV_PAGE_WIDTH_PX`,
+  `CV_PAGE_HEIGHT_PX`, `CV_PAGE_PADDING_PX`, `CV_PAGE_CONTENT_HEIGHT_PX`), the
+  words (`cvPageIndicator`, `cvPageIndicatorLabel`, `CV_PAGE_OVERFLOW_NOTE`,
+  `cvPreviewPageCount`), the `CvPageLayout` contract and the presentational
+  `CvPageStack` / `CvPageSheet`. Pure: props in, markup out.
+- `use-cv-page-flow.ts` is the only thing that measures. `distributeCvBlocks`
+  is PURE and takes a height lookup, which is the only way the arithmetic can
+  be tested honestly — **jsdom reports every height as zero**. The hook reads
+  `offsetHeight` (never `getBoundingClientRect().height`: the sheet is inside a
+  `transform: scale()`) IN PLACE, in a layout effect, with no off-screen
+  measuring container — one would duplicate the CV's text in the DOM and, if
+  absolutely positioned, stretch `<html>` and regress KODI-006's AC7.
+- **The no-measurement path is a contract, not a stopgap.** jsdom, the
+  static-export prerender and the first paint all render `singleCvPage()`: ONE
+  sheet holding the complete document, indicator `1 / 1`. Never replace it with
+  something that renders nothing or N empty sheets.
+- A sheet is created only when a block is assigned to it. That is the whole of
+  "a CV that fits renders exactly one sheet, with no stray empty second page".
+- The break unit is the ATOM, and an experience entry's bullet `<ul>` is inside
+  its atom — so "never mid-bullet" and "never mid-entry" are one statement.
+  `keepWithNext` (section headings only) moves a heading with the block after
+  it, **guarded** so a pair too tall for any sheet places the heading and lets
+  the entry fall through instead of opening sheets for ever.
+- An atom taller than A4 gets its own sheet, `data-overflowing="true"`, grown to
+  its own height and shown WHOLE. Nothing is ever clipped.
+- The `scale()` is applied PER SHEET inside a fixed-size viewport, never to the
+  stack, so the 11px page indicator stays 11px at any zoom.
+- Assert on `[data-slot="cv-page"]`, `[data-cv-block]`, `[data-overflowing]`
+  and the WORDS — never on the classes.
+- The page-count live region is `aria-live="polite" aria-atomic="true"` with
+  **no `role="status"`**: the CV copy editor's read-only banner is already this
+  screen's one `status`, and a second breaks every `getByRole("status")`
+  locator in the suite.
+- The preview pane caps its own height at `md` and up with an inline
+  `calc(100dvh - var(--cookie-notice-height,0px) - 12rem)` — the same
+  expression `h-viewport` uses, so the cookie bar's strip is subtracted here
+  too. There is **no `max-h-viewport` utility**; adding one is a design-system
+  change (`globals.css` + the tailwind-merge registration), not a drive-by.
+- **The preview's page breaks do NOT match the PDF's**, and the owner accepted
+  that: Typst owns the real layout. `CV_PDF_LAYOUT_NOTICE` therefore stays
+  exactly where and as it is. Now that the preview LOOKS like paginated A4 that
+  notice does MORE work, not less.
 
 **Skills are CATEGORIES, and education is a section (KODI-006).** The owner:
 "skills isn't simply a section where i put "tags" or just "keywords" it's a
@@ -265,7 +328,7 @@ year "MM/yyyy" for both start and finish".
 - An absent, `null` or empty `end` means the entry is CURRENT. Reading tolerates
   both `null` and a missing key; writing OMITS the key (`optionalText` yields
   `undefined`), so `""` never reaches the API.
-- `formatCvDatePeriod` in `cv-document.tsx` is the FIFTH pinned twin of the
+- `formatCvDatePeriod` in `cv-document-blocks.tsx` is the FIFTH pinned twin of the
   server renderer, beside the section order, the keyword separator, the category
   colon and the degree joiner: `02/2023 - 02/2024`, or `02/2024 - present` with
   no finish. The separator is a spaced ASCII hyphen-minus (the theme's
@@ -484,7 +547,19 @@ it.
 Every signed-in page renders inside `AppShell`
 (`src/components/layout/app-shell.tsx`), which owns the mobile-menu and feedback
 state and hoists a SINGLE `FeedbackDialog`. It renders `CliPromoBanner` and the
-`max-w-6xl` content container itself, so no page component needs to.
+content container itself, so no page component renders one — including the
+pages that do NOT want it.
+
+- **The width opt-out lives in `src/components/layout/content-width.ts`**, not
+  as a prop. `isFullWidthPath(activePath)` picks `w-full` over
+  `mx-auto max-w-6xl`, and `FULL_WIDTH_PATHS` is the CV editing routes
+  (`/cvs/new`, `/cvs/editor`, `/applications/cv`) — the owner: "also, use the
+  full page width for this page". It is matched on the same `activePath` the
+  nav is matched on, tolerates the trailing slash the static export serves, and
+  is deliberately kept OUT of `nav.ts`: these are not nav entries, and
+  `PRIMARY_NAV` is pinned at seven by `e2e/shell-responsive.spec.ts`.
+- The opt-out only works because the container is rendered HERE. A page that
+  rendered its own would cap the width again from the inside.
 
 - Nav entries live in `src/components/layout/nav.ts`. `navItemsFor(isAdmin)`
   appends the `/admin` entry, which is deliberately kept OUT of `PRIMARY_NAV` so
@@ -520,34 +595,38 @@ state and hoists a SINGLE `FeedbackDialog`. It renders `CliPromoBanner` and the
 
 ## Key Files
 
-| File                                            | Purpose                                                           |
-| ----------------------------------------------- | ----------------------------------------------------------------- |
-| `src/services/services.ts`                      | Service DI container (single import point for all API calls)      |
-| `src/lib/api-client.ts`                         | Axios instance with cookie auth (`withCredentials`)               |
-| `src/lib/query-client.ts`                       | React Query configuration                                         |
-| `src/contexts/auth-context.tsx`                 | Auth state + polling-based token refresh                          |
-| `src/contexts/supports-context.tsx`             | Shared lookup data (platforms, steps, feedbacks)                  |
-| `src/components/layout/root-providers.tsx`      | Root-level providers (QueryClient, Theme, Auth, Tooltip, Sonner)  |
-| `src/components/layout/protected-providers.tsx` | Protected-route providers (nested AuthProvider)                   |
-| `src/components/layout/app-shell.tsx`           | Signed-in shell: rail, header, mobile sheet, feedback dialog      |
-| `src/components/layout/nav.ts`                  | Nav entries, `navItemsFor()` admin filter, `isNavItemActive()`    |
-| `src/components/layout/sidebar.tsx`             | Rail body: brand, nav, account menu (rail AND mobile sheet)       |
-| `src/components/layout/sidebar-nav.tsx`         | Nav entry list; owns `aria-current="page"`                        |
-| `src/components/layout/header.tsx`              | Shell header: menu trigger, cycle selector, agenda, theme         |
-| `src/components/layout/user-menu.tsx`           | Account menu (`card` in the rail, `avatar` in the header)         |
-| `src/app/globals.css`                           | ALL design tokens (`@theme`) and `@utility` definitions           |
-| `src/hooks/use-applications.ts`                 | Application list, client-side filtering, CRUD mutations           |
-| `src/hooks/use-base-cvs.ts`                     | Master CV list + the `base-cvs` cache key every write invalidates |
-| `src/components/base-cvs/types.ts`              | Master CV vocabulary (`BaseCv`, `CvFormValues`, `BASE_CVS_MAX`)   |
-| `src/components/base-cvs/base-cv-schema.ts`     | Master CV zod schema and the form/wire translations               |
-| `src/components/tailored-cvs/types.ts`          | CV copy vocabulary and its on-screen copy constants               |
-| `src/hooks/use-tailored-cv.ts`                  | CV copy query + the `tailored-cvs` key every write invalidates    |
-| `src/components/base-cvs/export-cv-button.tsx`  | The PDF export affordance + the "not the final layout" notice     |
-| `src/lib/pdf-download.ts`                       | `downloadBlob`, and the slug rule mirrored from the server        |
-| `src/lib/blob-error.ts`                         | `getBlobApiError` — `getApiError` for a `responseType: "blob"`    |
-| `src/components/ui/date-picker.tsx`             | Timezone-safe date picker (use instead of `<input type="date">`)  |
-| `src/components/ui/month-year-input.tsx`        | Masked CV month+year field (`MM/yyyy` in, ISO `YYYY-MM` out)      |
-| `src/lib/month-year.ts`                         | The one ISO `YYYY-MM` <-> `MM/yyyy` conversion and the mask       |
+| File                                             | Purpose                                                                 |
+| ------------------------------------------------ | ----------------------------------------------------------------------- |
+| `src/services/services.ts`                       | Service DI container (single import point for all API calls)            |
+| `src/lib/api-client.ts`                          | Axios instance with cookie auth (`withCredentials`)                     |
+| `src/lib/query-client.ts`                        | React Query configuration                                               |
+| `src/contexts/auth-context.tsx`                  | Auth state + polling-based token refresh                                |
+| `src/contexts/supports-context.tsx`              | Shared lookup data (platforms, steps, feedbacks)                        |
+| `src/components/layout/root-providers.tsx`       | Root-level providers (QueryClient, Theme, Auth, Tooltip, Sonner)        |
+| `src/components/layout/protected-providers.tsx`  | Protected-route providers (nested AuthProvider)                         |
+| `src/components/layout/app-shell.tsx`            | Signed-in shell: rail, header, mobile sheet, feedback dialog            |
+| `src/components/layout/nav.ts`                   | Nav entries, `navItemsFor()` admin filter, `isNavItemActive()`          |
+| `src/components/layout/sidebar.tsx`              | Rail body: brand, nav, account menu (rail AND mobile sheet)             |
+| `src/components/layout/sidebar-nav.tsx`          | Nav entry list; owns `aria-current="page"`                              |
+| `src/components/layout/header.tsx`               | Shell header: menu trigger, cycle selector, agenda, theme               |
+| `src/components/layout/user-menu.tsx`            | Account menu (`card` in the rail, `avatar` in the header)               |
+| `src/app/globals.css`                            | ALL design tokens (`@theme`) and `@utility` definitions                 |
+| `src/hooks/use-applications.ts`                  | Application list, client-side filtering, CRUD mutations                 |
+| `src/hooks/use-base-cvs.ts`                      | Master CV list + the `base-cvs` cache key every write invalidates       |
+| `src/components/base-cvs/types.ts`               | Master CV vocabulary (`BaseCv`, `CvFormValues`, `BASE_CVS_MAX`)         |
+| `src/components/base-cvs/cv-document-blocks.tsx` | The typeset CV's leaves, its pure helpers and `buildCvDocumentBlocks`   |
+| `src/components/base-cvs/cv-page-sheet.tsx`      | A4 geometry, the page-indicator words, `CvPageStack` / `CvPageSheet`    |
+| `src/components/base-cvs/use-cv-page-flow.ts`    | `distributeCvBlocks` (pure) and the only code that measures the preview |
+| `src/components/layout/content-width.ts`         | `FULL_WIDTH_PATHS` — which routes skip the reading column               |
+| `src/components/base-cvs/base-cv-schema.ts`      | Master CV zod schema and the form/wire translations                     |
+| `src/components/tailored-cvs/types.ts`           | CV copy vocabulary and its on-screen copy constants                     |
+| `src/hooks/use-tailored-cv.ts`                   | CV copy query + the `tailored-cvs` key every write invalidates          |
+| `src/components/base-cvs/export-cv-button.tsx`   | The PDF export affordance + the "not the final layout" notice           |
+| `src/lib/pdf-download.ts`                        | `downloadBlob`, and the slug rule mirrored from the server              |
+| `src/lib/blob-error.ts`                          | `getBlobApiError` — `getApiError` for a `responseType: "blob"`          |
+| `src/components/ui/date-picker.tsx`              | Timezone-safe date picker (use instead of `<input type="date">`)        |
+| `src/components/ui/month-year-input.tsx`         | Masked CV month+year field (`MM/yyyy` in, ISO `YYYY-MM` out)            |
+| `src/lib/month-year.ts`                          | The one ISO `YYYY-MM` <-> `MM/yyyy` conversion and the mask             |
 
 ---
 
