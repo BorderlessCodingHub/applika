@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { ApplicationFormSheet } from "@/components/applications/application-form-sheet";
+import { ExportCvButton } from "@/components/base-cvs/export-cv-button";
 import type { CvFormValues } from "@/components/base-cvs/types";
 import { BaseCvPicker } from "@/components/tailored-cvs/base-cv-picker";
 import { TailoredCvEditor } from "@/components/tailored-cvs/tailored-cv-editor";
@@ -27,6 +28,7 @@ import { useApplicationById } from "@/hooks/use-applications";
 import { useBaseCvs } from "@/hooks/use-base-cvs";
 import { useCreateTailoredCv } from "@/hooks/use-create-tailored-cv";
 import { useDeleteTailoredCv } from "@/hooks/use-delete-tailored-cv";
+import { useExportTailoredCvPdf } from "@/hooks/use-export-tailored-cv-pdf";
 import { isNoTailoredCv, useTailoredCv } from "@/hooks/use-tailored-cv";
 import { useUpdateTailoredCv } from "@/hooks/use-update-tailored-cv";
 import { getApiError } from "@/lib/api-client";
@@ -80,6 +82,11 @@ function PageMessage({
  * answers reach the user as the server's own `detail` in a toast. What the page
  * adds is that the user is told BEFORE typing, and that viewing and reading the
  * copy keep working — `GET` carries no such guard.
+ *
+ * The PDF export is on the readable side of that line. It is passed as the
+ * editor's `actions` in BOTH modes and is never disabled by `readOnlyReason`
+ * nor by a deleted source master CV: a finalized application's copy is exactly
+ * the one a user needs to download.
  */
 export function ApplicationCvPage() {
   const searchParams = useSearchParams();
@@ -137,6 +144,13 @@ export function ApplicationCvPage() {
       form.reset(emptyTailoredCvValues());
     },
   });
+
+  // Named from the SERVER's copy, never from the form: the fallback filename
+  // has to match the document the server renders, not the unsaved edits.
+  const exportMutation = useExportTailoredCvPdf(
+    applicationId ?? "",
+    cv?.name ?? "",
+  );
 
   // `onValueChange` feeds a `useEffect` inside the picker (the lone option
   // selects itself), so it has to be stable or the effect re-runs every render.
@@ -250,6 +264,12 @@ export function ApplicationCvPage() {
         onDelete={() => deleteMutation.mutate()}
         isDeleting={deleteMutation.isPending}
         readOnlyReason={readOnlyReason}
+        actions={
+          <ExportCvButton
+            onExport={() => exportMutation.mutate()}
+            isExporting={exportMutation.isPending}
+          />
+        }
       />
     );
   }

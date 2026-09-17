@@ -1,3 +1,4 @@
+import type { CvPdfExport } from "@/services/types/cv-pdf";
 import type {
   CreateTailoredCvPayload,
   TailoredCv,
@@ -19,4 +20,10 @@ export interface ITailoredCvService {
     data: UpdateTailoredCvPayload,
   ): Promise<TailoredCv>;
   remove(applicationId: string): Promise<void>;
+  /**
+   * Ask the server to typeset this CV copy (ADR 0011). No body and no theme
+   * parameter. Unlike the write verbs it carries NO finalized/archived guard:
+   * a locked copy still downloads, which is half of what makes it readable.
+   */
+  exportPdf(applicationId: string): Promise<CvPdfExport>;
 }

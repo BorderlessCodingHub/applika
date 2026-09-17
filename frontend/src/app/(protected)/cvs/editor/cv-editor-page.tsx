@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { BaseCvEditor } from "@/components/base-cvs/base-cv-editor";
+import { ExportCvButton } from "@/components/base-cvs/export-cv-button";
 import {
   baseCvSchema,
   baseCvToFormValues,
@@ -19,6 +20,7 @@ import { LinkButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CvFormValues } from "@/components/base-cvs/types";
 import { useBaseCv } from "@/hooks/use-base-cv";
+import { useExportBaseCvPdf } from "@/hooks/use-export-base-cv-pdf";
 import { useUpdateBaseCv } from "@/hooks/use-update-base-cv";
 import { getApiError } from "@/lib/api-client";
 
@@ -55,6 +57,10 @@ function EditorMessage({
  * (the list invalidation after a save triggers one) must never stomp what the
  * user is typing. Seeding from the server response is also what round-trips the
  * client-generated section item ids — they are never regenerated on load.
+ *
+ * The PDF export lives HERE and not on `/cvs/new`: it is the server that
+ * typesets it (ADR 0011) from the STORED CV, so there is nothing to render
+ * until the CV has been saved once.
  */
 export function CvEditorPage() {
   const router = useRouter();
@@ -78,6 +84,11 @@ export function CvEditorPage() {
   const updateMutation = useUpdateBaseCv(id ?? "", {
     onSuccess: () => router.push("/cvs"),
   });
+
+  // Named from the SERVER's copy of the CV, never from the form: the fallback
+  // filename has to match the document the server renders, not the unsaved
+  // edits on screen.
+  const exportMutation = useExportBaseCvPdf(id ?? "", cv?.name ?? "");
 
   return (
     <div className="space-y-6">
@@ -133,6 +144,12 @@ export function CvEditorPage() {
           )}
           submitLabel="Save changes"
           isSubmitting={updateMutation.isPending}
+          actions={
+            <ExportCvButton
+              onExport={() => exportMutation.mutate()}
+              isExporting={exportMutation.isPending}
+            />
+          }
         />
       )}
     </div>

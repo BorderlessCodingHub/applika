@@ -1,5 +1,7 @@
 import { api } from "@/lib/api-client";
+import { parseContentDispositionFilename } from "@/lib/pdf-download";
 import type { IBaseCvService } from "@/services/interfaces/i-base-cv-service";
+import type { CvPdfExport } from "@/services/types/cv-pdf";
 import type {
   BaseCv,
   CreateBaseCvPayload,
@@ -11,6 +13,9 @@ import type {
  *
  * `POST` answers 409 with `{detail}` when the user already holds the maximum
  * number of master CVs; the caller surfaces that message. `DELETE` never 409s.
+ *
+ * `POST /base-cvs/{id}/pdf` returns the typeset bytes (ADR 0011). It is a
+ * `POST` because rendering is work the server does, not a cacheable read.
  */
 export class BaseCvService implements IBaseCvService {
   list(): Promise<BaseCv[]> {
@@ -31,5 +36,16 @@ export class BaseCvService implements IBaseCvService {
 
   remove(id: string): Promise<void> {
     return api.delete(`/base-cvs/${id}`).then(() => undefined);
+  }
+
+  exportPdf(id: string): Promise<CvPdfExport> {
+    return api
+      .post<Blob>(`/base-cvs/${id}/pdf`, undefined, { responseType: "blob" })
+      .then((r) => ({
+        blob: r.data,
+        filename: parseContentDispositionFilename(
+          r.headers["content-disposition"] as string | undefined,
+        ),
+      }));
   }
 }

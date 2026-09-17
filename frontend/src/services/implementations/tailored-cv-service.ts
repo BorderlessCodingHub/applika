@@ -1,5 +1,7 @@
 import { api } from "@/lib/api-client";
+import { parseContentDispositionFilename } from "@/lib/pdf-download";
 import type { ITailoredCvService } from "@/services/interfaces/i-tailored-cv-service";
+import type { CvPdfExport } from "@/services/types/cv-pdf";
 import type {
   CreateTailoredCvPayload,
   TailoredCv,
@@ -16,6 +18,9 @@ import type {
  * editor's read-only mode possible at all.
  *
  * `404` means "no copy yet", not an error: the page answers it with the picker.
+ *
+ * `POST /applications/{id}/cv/pdf` sits with `GET` on the readable side: it
+ * carries no finalized/archived guard, so a locked copy still downloads.
  */
 export class TailoredCvService implements ITailoredCvService {
   get(applicationId: string): Promise<TailoredCv> {
@@ -46,5 +51,18 @@ export class TailoredCvService implements ITailoredCvService {
     return api
       .delete(`/applications/${applicationId}/cv`)
       .then(() => undefined);
+  }
+
+  exportPdf(applicationId: string): Promise<CvPdfExport> {
+    return api
+      .post<Blob>(`/applications/${applicationId}/cv/pdf`, undefined, {
+        responseType: "blob",
+      })
+      .then((r) => ({
+        blob: r.data,
+        filename: parseContentDispositionFilename(
+          r.headers["content-disposition"] as string | undefined,
+        ),
+      }));
   }
 }
