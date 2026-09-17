@@ -12,10 +12,15 @@ import type { BaseCv } from "@/services/types/base-cv";
  * AC3 — the page shows one of the user's own master CVs and saves changes back.
  * It also pins the id round trip: the client-generated section item ids that
  * came off the wire are the ones that go back onto it.
+ *
+ * KODI-004 adds the PDF export to this route — and only to this route, never to
+ * `/cvs/new`: the server typesets the STORED CV (ADR 0011), so there is nothing
+ * to render until the CV has been saved once.
  */
 
 const getMock = vi.fn();
 const updateMock = vi.fn();
+const exportPdfMock = vi.fn();
 const pushMock = vi.fn();
 let searchParams = new URLSearchParams("id=7001");
 
@@ -24,6 +29,7 @@ vi.mock("@/services/services", () => ({
     baseCvs: {
       get: (...args: unknown[]) => getMock(...args),
       update: (...args: unknown[]) => updateMock(...args),
+      exportPdf: (...args: unknown[]) => exportPdfMock(...args),
       list: vi.fn(),
       create: vi.fn(),
       remove: vi.fn(),
@@ -83,9 +89,39 @@ beforeEach(() => {
   searchParams = new URLSearchParams("id=7001");
   getMock.mockResolvedValue(SAVED_CV);
   updateMock.mockResolvedValue(SAVED_CV);
+  exportPdfMock.mockResolvedValue({
+    blob: new Blob(["%PDF-1.7"], { type: "application/pdf" }),
+    filename: "backend-cv.pdf",
+  });
+  URL.createObjectURL = (() =>
+    "blob:applika/pdf") as unknown as typeof URL.createObjectURL;
+  URL.revokeObjectURL = () => {};
 });
 
 describe("CvEditorPage", () => {
+  it("mounts the PDF export and asks the server for the saved CV (KODI-004)", async () => {
+    const saved: string[] = [];
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        saved.push(this.download);
+      });
+    renderPage();
+
+    const button = await screen.findByRole("button", { name: "Download PDF" });
+    expect(button).toBeEnabled();
+    // AC3 — the words travel with the button, not with the call site.
+    expect(
+      screen.getAllByText("Preview does not show the final PDF layout.").length,
+    ).toBeGreaterThanOrEqual(1);
+
+    await userEvent.click(button);
+
+    await waitFor(() => expect(exportPdfMock).toHaveBeenCalledWith("7001"));
+    await waitFor(() => expect(saved).toEqual(["backend-cv.pdf"]));
+    click.mockRestore();
+  });
+
   it("opens the CV named by the query string, with its values in the form", async () => {
     renderPage();
 

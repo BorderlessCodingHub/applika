@@ -1,7 +1,10 @@
+import { readFile } from "node:fs/promises";
+
 import {
   expect,
   test,
   type APIRequestContext,
+  type Download,
   type Page,
 } from "@playwright/test";
 
@@ -14,7 +17,10 @@ import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
  * its whole life through the UI — create, list, edit, delete — and the cap made
  * visible at three. Then the application's CV COPY (KODI-003): picked from a
  * master CV, tailored beside the job description, deleted, picked again, and
- * locked once the application is finalized.
+ * locked once the application is finalized. Finally the PDF (KODI-004), which
+ * is the one part of this feature the browser cannot fake: the bytes are
+ * typeset by RenderCV/Typst on the server (ADR 0011) and only a real API can
+ * produce them.
  *
  * The suite shares ONE real database (`workers: 1`), so this spec cleans up
  * after itself. Nothing in the seed creates a base CV or an application, so
@@ -483,11 +489,138 @@ test("a finalized application's CV copy is readable but locked", async ({
     page.getByRole("region", { name: "Job description text" }),
   ).toContainText(JOB_DESCRIPTION);
 
-  // There is nothing to click by accident: the whole footer is gone.
+  // There is nothing to WRITE by accident: every control that changes the copy
+  // is gone from the footer, not merely disabled.
   await expect(page.getByRole("button", { name: "Save CV copy" })).toHaveCount(
     0,
   );
   await expect(
     page.getByRole("button", { name: "Delete this CV copy" }),
   ).toHaveCount(0);
+
+  // What the footer DOES keep is the download (KODI-004, AC1): refusing to let
+  // a finalized copy be written is not the same as refusing to let it be read.
+  const download = page.getByRole("button", { name: "Download PDF" });
+  await expect(download).toBeVisible();
+  await expect(download).toBeEnabled();
+  await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(2);
+  await expectReachableWithCookieNoticeUp(page, "Download PDF");
+
+  await expectPdfRoute(request, `/applications/${applicationId}/cv/pdf`);
+
+  const started = page.waitForEvent("download");
+  await download.click();
+  const saved = await started;
+  expect(saved.suggestedFilename()).toBe("e2e-master-cv.pdf");
+  expect((await readDownload(saved)).subarray(0, 5).toString("latin1")).toBe(
+    "%PDF-",
+  );
+});
+
+/* ---------------------------------------------------------------------------
+ * KODI-004 — the server-rendered PDF.
+ * ------------------------------------------------------------------------ */
+
+/** The words AC3 requires, verbatim. Kept in sync with `CV_PDF_LAYOUT_NOTICE`. */
+const PDF_LAYOUT_NOTICE = "Preview does not show the final PDF layout.";
+
+/**
+ * The route really answers with a PDF.
+ *
+ * Out of band on purpose: `page.waitForEvent("download")` proves the BUTTON
+ * works, but the browser hands back a saved file, not a response — the status,
+ * the `Content-Type` and the `Content-Disposition` are only visible from here.
+ * Same real session either way.
+ */
+async function expectPdfRoute(request: APIRequestContext, path: string) {
+  const response = await request.post(apiUrl(path), {
+    headers: { Cookie: authCookieHeader("user") },
+  });
+
+  expect(response.status(), await response.text()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("application/pdf");
+  // Exposed across origins by `expose_headers`, or the browser could not name
+  // the file at all and every download would land on the fallback slug.
+  expect(response.headers()["content-disposition"]).toMatch(
+    /^attachment; filename="[a-z0-9-]+\.pdf"$/,
+  );
+
+  const body = await response.body();
+  expect(body.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+  expect(body.byteLength).toBeGreaterThan(1000);
+}
+
+/** The bytes the browser actually saved, read back off disk. */
+async function readDownload(download: Download): Promise<Buffer> {
+  const path = await download.path();
+  expect(path, "the browser saved no file").not.toBeNull();
+  return readFile(path!);
+}
+
+test("a master CV downloads as a PDF the server typeset", async ({
+  page,
+  request,
+}) => {
+  const baseCvId = await seedBaseCv(request, CV_NAME);
+
+  // The route itself, before the UI: a failure here is the backend's.
+  await expectPdfRoute(request, `/base-cvs/${baseCvId}/pdf`);
+
+  await loginAs(page, "user");
+  await page.goto(`/cvs/editor?id=${baseCvId}`);
+  await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+    CV_NAME,
+  );
+
+  // AC3 — said twice on this page: once under the preview it qualifies, once
+  // beside the action it warns about.
+  await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(2);
+
+  // The export lives in the same sticky footer as the submit, so it inherits
+  // the cookie-bar invariant the rest of this file pins.
+  const download = page.getByRole("button", { name: "Download PDF" });
+  await expect(download).toBeEnabled();
+  await expectReachableWithCookieNoticeUp(page, "Download PDF");
+
+  const started = page.waitForEvent("download");
+  await download.click();
+  const saved = await started;
+
+  // Named by the server from the CV's own label, and really a PDF on disk.
+  expect(saved.suggestedFilename()).toBe("e2e-master-cv.pdf");
+  const bytes = await readDownload(saved);
+  expect(bytes.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+
+  // Nothing was written: a render is a read of the stored CV.
+  await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+    CV_NAME,
+  );
+});
+
+test("an application's CV copy downloads as a PDF", async ({
+  page,
+  request,
+}) => {
+  const baseCvId = await seedBaseCv(request, CV_NAME);
+  const applicationId = await seedApplication(request, JOB_DESCRIPTION);
+  await seedTailoredCv(request, applicationId, baseCvId);
+
+  await expectPdfRoute(request, `/applications/${applicationId}/cv/pdf`);
+
+  await loginAs(page, "user");
+  await page.goto(`/applications/cv?id=${applicationId}`);
+  await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+    CV_NAME,
+  );
+  await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(2);
+
+  await expectReachableWithCookieNoticeUp(page, "Download PDF");
+  const started = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download PDF" }).click();
+  const saved = await started;
+
+  expect(saved.suggestedFilename()).toBe("e2e-master-cv.pdf");
+  expect((await readDownload(saved)).subarray(0, 5).toString("latin1")).toBe(
+    "%PDF-",
+  );
 });

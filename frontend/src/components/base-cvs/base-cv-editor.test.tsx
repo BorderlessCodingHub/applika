@@ -1,10 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 
 import { BaseCvEditor } from "./base-cv-editor";
+import { ExportCvButton } from "./export-cv-button";
 import {
   baseCvSchema,
   baseCvToFormValues,
@@ -13,7 +15,12 @@ import {
   toBaseCvPayload,
 } from "./base-cv-schema";
 import { BASE_CV_LIMIT_REASON, NewCvCard } from "./new-cv-card";
-import { BASE_CVS_MAX, type BaseCv, type CvFormValues } from "./types";
+import {
+  BASE_CVS_MAX,
+  CV_PDF_EXPORT_LABEL,
+  type BaseCv,
+  type CvFormValues,
+} from "./types";
 
 /**
  * Master CV form and cap affordance (KODI-002 / R-001, R-002, R-003).
@@ -84,9 +91,11 @@ function validValues(over: Partial<CvFormValues> = {}): CvFormValues {
 function Harness({
   defaults,
   onValid,
+  actions,
 }: {
   defaults?: CvFormValues;
   onValid: (values: CvFormValues) => void;
+  actions?: ReactNode;
 }) {
   const form = useForm<CvFormValues>({
     resolver: zodResolver(baseCvSchema),
@@ -97,6 +106,7 @@ function Harness({
       form={form}
       onSubmit={form.handleSubmit(onValid)}
       submitLabel="Create CV"
+      actions={actions}
       // Deterministic ids: the editor mints them, the payload keeps them.
       newItemId={(() => {
         let n = 0;
@@ -406,6 +416,22 @@ describe("BaseCvEditor", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Your full name is required")).toBeInTheDocument();
     expect(screen.getByText("An email is required")).toBeInTheDocument();
+  });
+
+  it("carries the export beside the submit, both reachable (KODI-004)", () => {
+    render(
+      <Harness
+        onValid={() => {}}
+        actions={<ExportCvButton onExport={() => {}} />}
+      />,
+    );
+
+    // The `actions` slot is what the PDF export hangs off. Saving is still the
+    // primary action; the export sits beside it and neither disables the other.
+    expect(
+      screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL }),
+    ).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Create CV" })).toBeEnabled();
   });
 
   it("renders every section of the CV, in the order the design fixes", () => {

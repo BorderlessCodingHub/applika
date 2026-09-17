@@ -24,12 +24,17 @@ import type { TailoredCv } from "@/services/types/tailored-cv";
  * wire), AC7 (delete returns to the picker with every master CV offered again),
  * AC9 (the application's job description sits beside the editor) and AC10 (a
  * finalized or archived application locks both surfaces).
+ *
+ * KODI-004 adds one more: the PDF export is mounted in BOTH modes and is never
+ * disabled by the lock. Refusing to write a finalized copy and refusing to read
+ * it are different things (AC1).
  */
 
 const getCopy = vi.fn();
 const createCopy = vi.fn();
 const updateCopy = vi.fn();
 const removeCopy = vi.fn();
+const exportCopyPdf = vi.fn();
 const listBaseCvs = vi.fn();
 const getApplications = vi.fn();
 
@@ -40,6 +45,7 @@ vi.mock("@/services/services", () => ({
       create: (...args: unknown[]) => createCopy(...args),
       update: (...args: unknown[]) => updateCopy(...args),
       remove: (...args: unknown[]) => removeCopy(...args),
+      exportPdf: (...args: unknown[]) => exportCopyPdf(...args),
     },
     baseCvs: {
       list: (...args: unknown[]) => listBaseCvs(...args),
@@ -195,6 +201,15 @@ beforeEach(() => {
   createCopy.mockResolvedValue(COPY);
   updateCopy.mockResolvedValue(COPY);
   removeCopy.mockResolvedValue(undefined);
+  // No `Content-Disposition` on purpose: the page must fall back to the slug of
+  // the copy's own label, which is the rule the server uses too.
+  exportCopyPdf.mockResolvedValue({
+    blob: new Blob(["%PDF-1.7"], { type: "application/pdf" }),
+    filename: null,
+  });
+  URL.createObjectURL = (() =>
+    "blob:applika/pdf") as unknown as typeof URL.createObjectURL;
+  URL.revokeObjectURL = () => {};
 });
 
 describe("ApplicationCvPage", () => {
@@ -345,6 +360,42 @@ describe("ApplicationCvPage", () => {
     expect(
       screen.queryByRole("button", { name: "Delete this CV copy" }),
     ).not.toBeInTheDocument();
+    // ...and the ONE footer control a locked copy keeps: the download (AC1).
+    expect(screen.getByRole("button", { name: "Download PDF" })).toBeEnabled();
+  });
+
+  it("downloads a finalized application's CV copy anyway (KODI-004, AC1)", async () => {
+    const saved: string[] = [];
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        saved.push(this.download);
+      });
+    getApplications.mockResolvedValue([{ ...APPLICATION, finalized: true }]);
+    getCopy.mockResolvedValue(COPY);
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Download PDF" }),
+    );
+
+    // Keyed by the APPLICATION id, and refused by nothing: the route carries no
+    // finalized/archived guard, so neither does the page.
+    await waitFor(() => expect(exportCopyPdf).toHaveBeenCalledWith("42"));
+    await waitFor(() => expect(saved).toEqual(["backend-cv-for-applika.pdf"]));
+    click.mockRestore();
+  });
+
+  it("says the preview is not the PDF, beside the preview and the button (AC3)", async () => {
+    getCopy.mockResolvedValue(COPY);
+    renderPage();
+
+    await screen.findByRole("button", { name: "Download PDF" });
+    // Twice on the page: once in the preview's own caption, once tied to the
+    // download action through `aria-describedby`.
+    expect(
+      screen.getAllByText("Preview does not show the final PDF layout."),
+    ).toHaveLength(2);
   });
 
   it("refuses to start a copy on an application in a closed cycle (AC10)", async () => {

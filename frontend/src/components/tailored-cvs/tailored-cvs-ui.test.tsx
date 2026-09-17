@@ -4,7 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { useForm } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 
-import type { CvFormValues } from "@/components/base-cvs/types";
+import { ExportCvButton } from "@/components/base-cvs/export-cv-button";
+import {
+  CV_PDF_EXPORT_LABEL,
+  type CvFormValues,
+} from "@/components/base-cvs/types";
 import { BaseCvPicker } from "./base-cv-picker";
 import { TailoredCvEditor } from "./tailored-cv-editor";
 import {
@@ -151,6 +155,47 @@ describe("the tailored CV surface", () => {
     expect(screen.getByLabelText("Full name")).toBeDisabled();
     expect(screen.getByText("Copied from Backend CV")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("closed cycle");
+  });
+
+  it("editor keeps the export, and ONLY the export, in read-only mode (KODI-004, AC1)", () => {
+    render(
+      <Editor
+        baseCvId="7"
+        sourceCvName="Backend CV"
+        onDelete={() => {}}
+        readOnlyReason="finalized"
+        actions={<ExportCvButton onExport={() => {}} />}
+      />,
+    );
+
+    // A finalized copy cannot be written, but downloading it is exactly what it
+    // is still for: the button is PRESENT and ENABLED, never merely visible.
+    expect(
+      screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL }),
+    ).toBeEnabled();
+    // The lock itself is untouched by the new footer.
+    expect(screen.queryByRole("button", { name: "Save CV copy" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Delete this CV copy" }),
+    ).toBeNull();
+    expect(screen.getByLabelText("Full name")).toBeDisabled();
+  });
+
+  it("editor exports a copy whose master CV is gone (KODI-004, AC1)", async () => {
+    const onExport = vi.fn();
+    render(
+      <Editor
+        baseCvId={null}
+        onDelete={() => {}}
+        actions={<ExportCvButton onExport={onExport} />}
+      />,
+    );
+
+    expect(screen.getByText("source CV deleted")).toBeInTheDocument();
+    const button = screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL });
+    expect(button).toBeEnabled();
+    await userEvent.click(button);
+    expect(onExport).toHaveBeenCalledTimes(1);
   });
 
   it("editor empty job description hint offers the add control", async () => {
