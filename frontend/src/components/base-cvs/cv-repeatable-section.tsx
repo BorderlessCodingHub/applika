@@ -137,12 +137,15 @@ export function CvRepeatableSection<T extends { id: string }>({
   // then matches. Never an effect — `react-hooks/set-state-in-effect` is an
   // error under the React Compiler config, and an effect would paint the
   // collapsed frame first.
+  const revealKey = `${revealNonce}\u0000${revealItemIds?.join("\u0000") ?? ""}`;
+
+  // Seeded with the CURRENT key, not `""`: no row is closed at mount, so the
+  // prune there is provably a no-op, and seeding a key that can never match
+  // would buy a guaranteed second render pass on every mount for nothing.
   const [closedItems, setClosedItems] = useState<{
     revealKey: string;
     ids: ReadonlySet<string>;
-  }>(() => ({ revealKey: "", ids: new Set<string>() }));
-
-  const revealKey = `${revealNonce}\u0000${revealItemIds?.join("\u0000") ?? ""}`;
+  }>(() => ({ revealKey, ids: new Set<string>() }));
 
   if (closedItems.revealKey !== revealKey) {
     const draft = new Set(closedItems.ids);

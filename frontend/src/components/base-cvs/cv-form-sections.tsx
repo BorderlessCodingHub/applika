@@ -134,8 +134,15 @@ const NO_REVEAL: readonly string[] = [];
  * the user who collapsed it on purpose. `revealNonce` is the form's submit
  * count: the owner's criterion is "expanded automatically when the user
  * submits", so EVERY submit reveals, including the second one that fails on
- * the very same error the user just folded away. Between two submits the user
- * stays in charge of every header.
+ * the very same error the user just folded away.
+ *
+ * What the key does NOT promise: that a header the user closed survives until
+ * the next submit no matter what. The invalid list is part of the key, so
+ * fixing some OTHER section changes it and re-reveals whatever is still
+ * invalid. That is the safe direction — it errs towards showing a message
+ * rather than hiding one, which is the whole point of the seam — but it is
+ * more than "nothing moves between two submits", and the comment should not
+ * claim otherwise.
  *
  * A reveal is COMMITTED, not merely derived for as long as the error lasts.
  * Deriving it would fold the section away again the instant the user finished
@@ -155,12 +162,15 @@ export function useCvSectionDisclosure(
   // then matches. Never in an effect: `react-hooks/set-state-in-effect` is an
   // error under the React Compiler config, and an effect would paint the
   // collapsed frame first.
+  const revealKey = `${revealNonce}\u0000${invalidSections.join("\u0000")}`;
+
+  // Seeded with the CURRENT key, not `""`: nothing is closed at mount, so the
+  // prune there is provably a no-op, and seeding a key that can never match
+  // would buy a guaranteed second render pass on every mount for nothing.
   const [closed, setClosed] = useState<{
     revealKey: string;
     ids: ReadonlySet<CvFormSectionId>;
-  }>(() => ({ revealKey: "", ids: new Set<CvFormSectionId>() }));
-
-  const revealKey = `${revealNonce}\u0000${invalidSections.join("\u0000")}`;
+  }>(() => ({ revealKey, ids: new Set<CvFormSectionId>() }));
 
   if (closed.revealKey !== revealKey) {
     const draft = new Set(closed.ids);
