@@ -166,6 +166,27 @@ describe("CvSkillsSection — where a section error points", () => {
     ).not.toHaveAttribute("aria-invalid");
   });
 
+  it("spares a row the schema itself counts as blank", () => {
+    // The schema's `lines()` trims before counting, so a row whose only
+    // keyword is whitespace is BLANK to it and never causes the error. The
+    // row that really caused it is the one that must wear it.
+    withError([
+      { id: "s-1", category: "", keywords: ["Python"] },
+      { id: "s-2", category: "", keywords: ["   "] },
+    ]);
+
+    expect(
+      within(screen.getByRole("group", { name: "category 1" })).getByLabelText(
+        "Category",
+      ),
+    ).toHaveAttribute("aria-invalid", "true");
+    expect(
+      within(screen.getByRole("group", { name: "category 2" })).getByLabelText(
+        "Category",
+      ),
+    ).not.toHaveAttribute("aria-invalid");
+  });
+
   it("says the message once, in the section footer", () => {
     withError([{ id: "s-1", category: "", keywords: ["Python"] }]);
 

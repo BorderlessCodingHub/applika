@@ -91,10 +91,14 @@ export function CvSkillsSection({
         // section-level message must not paint every sibling row red, and the
         // control it points at has to be the empty one — the category name,
         // never the keyword entry that is perfectly valid.
+        //
+        // The keyword test is TRIMMED, to mirror the schema's `lines()`
+        // exactly. A row whose only keyword is whitespace is blank to the
+        // schema, so it never causes the error and must not wear it either.
         const rowInvalid =
           Boolean(error) &&
           item.category.trim() === "" &&
-          item.keywords.length > 0;
+          item.keywords.some((keyword) => keyword.trim() !== "");
         return (
           <div className="space-y-3">
             <CvField label="Category">
