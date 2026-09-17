@@ -13,6 +13,13 @@ class ApplicationCompanyInputDTO(BaseModel):
 
 
 class ApplicationCreateDTO(BaseModel):
+    """Normalized input for creating an application.
+
+    ``job_description`` is the optional free text of the posting the user is
+    applying to; it is shown next to the application's CV copy and is the only
+    application field the tailoring port reads.
+    """
+
     user_id: int
     company: int | ApplicationCompanyInputDTO
     role: str
@@ -29,9 +36,22 @@ class ApplicationCreateDTO(BaseModel):
     experience_level: ExperienceLevel | None = None
     work_mode: WorkMode | None = None
     country: str | None = None
+    job_description: str | None = None
 
 
 class ApplicationUpdateDTO(BaseModel):
+    """Full-replace input for updating an application, with one exception.
+
+    Every optional field here means *clear it*: an omitted ``observation``
+    blanks the stored observation, which is the PUT semantics ``applika-cli``
+    0.1.4 has always relied on. ``job_description`` is the single field that
+    breaks that rule, and it does so by set-ness rather than by value: the
+    route only passes the key when the client actually sent it, so
+    ``'job_description' in model_fields_set`` distinguishes "clear it"
+    (explicit ``null``) from "leave it alone" (key absent). A published CLI
+    that knows nothing about the field therefore never wipes it.
+    """
+
     user_id: int
     company: int | ApplicationCompanyInputDTO
     role: str
@@ -48,6 +68,7 @@ class ApplicationUpdateDTO(BaseModel):
     experience_level: ExperienceLevel | None = None
     work_mode: WorkMode | None = None
     country: str | None = None
+    job_description: str | None = None
 
 
 class FinalizeApplicationDTO(BaseModel):
@@ -90,6 +111,7 @@ class ApplicationDTO(BaseSchema):
     experience_level: ExperienceLevel | None = None
     work_mode: WorkMode | None = None
     country: str | None = None
+    job_description: str | None = None
 
     finalized: bool
     last_step: ApplicationLastStep | None = None

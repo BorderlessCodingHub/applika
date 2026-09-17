@@ -65,6 +65,15 @@ class UpdateApplicationUseCase:
         application.experience_level = data.experience_level
         application.work_mode = data.work_mode
         application.country = data.country
+        # Every field above is a full replace: an omitted optional field
+        # clears the stored value, which is the PUT contract published
+        # applika-cli versions rely on. job_description is the one exception
+        # and it keys off set-ness, not value: the route forwards the key only
+        # when the client actually sent it, so a client that knows nothing
+        # about the field leaves the stored text alone, while an explicit
+        # null still clears it.
+        if 'job_description' in data.model_fields_set:
+            application.job_description = data.job_description
 
         application = await self.application_repo.update(application)
         return ApplicationDTO.model_validate(application)
