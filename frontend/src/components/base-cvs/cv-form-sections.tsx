@@ -13,6 +13,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { MonthYearInput } from "@/components/ui/month-year-input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   CvField,
@@ -323,7 +324,7 @@ export function CvFormSections({
               id: newItemId(),
               company: "",
               role: "",
-              period: "",
+              start: "",
               bullets: [],
             })}
             itemLabel={(item) => item.role || item.company || "New role"}
@@ -351,12 +352,28 @@ export function CvFormSections({
                     onChange={(event) => update({ role: event.target.value })}
                   />
                 </CvField>
-                <CvField label="Period">
-                  <Input
-                    value={item.period}
+                {/*
+                  Company -> role -> WHEN -> where. Start and Finish share a
+                  row at `@lg/cv-form` and stack below it; the label is exactly
+                  `Start`/`Finish` in both sections, disambiguated by the row's
+                  own `role="group"` name, never qualified further.
+                */}
+                <CvField label="Start" required hint="Month and year, MM/yyyy.">
+                  <MonthYearInput
+                    value={item.start}
                     disabled={disabled}
-                    placeholder="2021 — Present"
-                    onChange={(event) => update({ period: event.target.value })}
+                    aria-required
+                    onChange={(start) => update({ start })}
+                  />
+                </CvField>
+                <CvField
+                  label="Finish"
+                  hint="Optional. Leave it empty for a role you are still in — it prints as present."
+                >
+                  <MonthYearInput
+                    value={item.end ?? ""}
+                    disabled={disabled}
+                    onChange={(end) => update({ end })}
                   />
                 </CvField>
                 <CvField label="Location">
@@ -476,6 +493,7 @@ export function CvFormSections({
               id: newItemId(),
               institution: "",
               degree: "",
+              start: "",
             })}
             itemLabel={(item) =>
               item.institution || item.degree || "New qualification"
@@ -512,16 +530,23 @@ export function CvFormSections({
                     onChange={(event) => update({ area: event.target.value })}
                   />
                 </CvField>
-                <CvField
-                  label="Period"
-                  hint="Optional. Free text — it prints exactly as you write it."
-                  className="@lg/cv-form:col-span-2"
-                >
-                  <Input
-                    value={item.period ?? ""}
+                {/* The same pair as an experience row, and required here too. */}
+                <CvField label="Start" required hint="Month and year, MM/yyyy.">
+                  <MonthYearInput
+                    value={item.start}
                     disabled={disabled}
-                    placeholder="2014 — 2018"
-                    onChange={(event) => update({ period: event.target.value })}
+                    aria-required
+                    onChange={(start) => update({ start })}
+                  />
+                </CvField>
+                <CvField
+                  label="Finish"
+                  hint="Optional. Leave it empty for a course you are still on — it prints as present."
+                >
+                  <MonthYearInput
+                    value={item.end ?? ""}
+                    disabled={disabled}
+                    onChange={(end) => update({ end })}
                   />
                 </CvField>
               </div>

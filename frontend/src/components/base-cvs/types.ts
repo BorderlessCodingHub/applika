@@ -17,13 +17,24 @@ export interface CvLink {
   url: string;
 }
 
-/** One role in the experience section. */
+/**
+ * One role in the experience section.
+ *
+ * The period is a PAIR of CV dates, never free text. `start` is required;
+ * `end` is optional and an absent, `null` or empty finish means the role is
+ * current — the document prints `present` for it. Both are ISO `YYYY-MM` in
+ * store and on the wire; `MM/yyyy` is only what the user types and reads, and
+ * `src/lib/month-year.ts` owns the two conversions.
+ */
 export interface CvExperience {
   id: string;
   company: string;
   company_description?: string;
   role: string;
-  period: string;
+  /** ISO `YYYY-MM`. Required — a role without a start is not a role. */
+  start: string;
+  /** ISO `YYYY-MM`, or absent/`null` for a role the user is still in. */
+  end?: string | null;
   location?: string;
   bullets: string[];
 }
@@ -61,15 +72,23 @@ export function skillCategoryNames(skills: CvSkillCategory[]): string[] {
 }
 
 /**
- * One entry in the education section. `period` is free text, exactly like
- * `CvExperience.period` — applika does not parse CV dates.
+ * One entry in the education section.
+ *
+ * Its period is the same required-start / optional-finish pair as
+ * `CvExperience`, and required on this section too — the owner: "Today for
+ * Education and Experience, the period input is optional, this must be
+ * required". An absent, `null` or empty `end` means the course is ongoing and
+ * prints `present`.
  */
 export interface CvEducation {
   id: string;
   institution: string;
   degree: string;
   area?: string;
-  period?: string;
+  /** ISO `YYYY-MM`. Required, exactly like `CvExperience.start`. */
+  start: string;
+  /** ISO `YYYY-MM`, or absent/`null` for a course still under way. */
+  end?: string | null;
 }
 
 /** One professional certification. */

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { isoToMonthYear } from "@/lib/month-year";
 import { cn } from "@/lib/utils";
 import type {
   CvEducation,
@@ -42,6 +43,41 @@ export const CV_KEYWORD_SEPARATOR = " · ";
 export const CV_EDUCATION_DEGREE_JOINER = " in ";
 
 /**
+ * Between the two ends of a date range. A space, an ASCII hyphen-minus, a
+ * space — the theme's `date_range: "START_DATE - END_DATE"`, NOT RenderCV's
+ * own en-dash default.
+ */
+export const CV_DATE_RANGE_SEPARATOR = " - ";
+
+/** What an entry with no finish prints instead of a second date. Lowercase. */
+export const CV_DATE_PRESENT = "present";
+
+/**
+ * The date text of one experience or education entry, character for character
+ * as the PDF prints it: `02/2023 - 02/2024`, or `02/2024 - present` with no
+ * finish.
+ *
+ * A fifth pinned twin, alongside the section order, the keyword separator, the
+ * category colon and the degree joiner. The server side is RenderCV formatting
+ * `start_date`/`end_date` through the theme's own `single_date`
+ * (`MONTH_IN_TWO_DIGITS/YEAR`) and `date_range` tokens plus the English
+ * locale's `present`; `show_time_spans_in` is empty, so nothing is appended.
+ * Change one side and you change both.
+ *
+ * A row whose start is not yet a real `YYYY-MM` prints nothing at all, so the
+ * live preview never shows a dangling separator while a row is half typed.
+ */
+export function formatCvDatePeriod(
+  startDate: string | null | undefined,
+  endDate: string | null | undefined,
+): string {
+  const start = isoToMonthYear(startDate);
+  if (!start) return "";
+  const finish = isoToMonthYear(endDate) || CV_DATE_PRESENT;
+  return `${start}${CV_DATE_RANGE_SEPARATOR}${finish}`;
+}
+
+/**
  * The category name as it prints: always closed with a colon, never doubled.
  *
  * A blank name gets no colon — the server's `_skill_category_label` returns the
@@ -79,12 +115,12 @@ export function visibleSkillCategories(
 /**
  * The education entries that print: anything typed into a row makes it real.
  *
- * All four fields count, not just the two that are required. The server's
- * `_education_entries` uses the same rule, and a narrower one here would make
- * the whole section vanish from the LIVE preview while a user is part-way
- * through a row — they fill the period, and the heading they were looking at
- * disappears. `visibleSkillCategories` above answers the same question the
- * same way.
+ * Every field counts, not just the ones that are required — including BOTH
+ * ends of the period. The server's `_education_entries` uses the same rule, and
+ * a narrower one here would make the whole section vanish from the LIVE preview
+ * while a user is part-way through a row — they fill the dates, and the heading
+ * they were looking at disappears. `visibleSkillCategories` above answers the
+ * same question the same way.
  */
 export function visibleEducation(education: CvEducation[]): CvEducation[] {
   return education.filter(
@@ -92,7 +128,8 @@ export function visibleEducation(education: CvEducation[]): CvEducation[] {
       entry.institution.trim() !== "" ||
       entry.degree.trim() !== "" ||
       (entry.area ?? "").trim() !== "" ||
-      (entry.period ?? "").trim() !== "",
+      (entry.start ?? "").trim() !== "" ||
+      (entry.end ?? "").trim() !== "",
   );
 }
 
@@ -209,40 +246,47 @@ export function CvDocument({
       {populated.has("experience") ? (
         <DocumentSection title="Experience">
           <div className="space-y-3">
-            {cv.experience.map((exp) => (
-              <div key={exp.id}>
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className="text-[12.5px] font-semibold text-neutral-800">
-                    {exp.company}
-                  </p>
-                  {exp.location ? (
-                    <span className="shrink-0 text-[10.5px] text-neutral-600">
-                      {exp.location}
-                    </span>
+            {cv.experience.map((exp) => {
+              // A half-typed row prints no date at all, so the span is guarded
+              // rather than left to render an empty box beside the role.
+              const period = formatCvDatePeriod(exp.start, exp.end);
+              return (
+                <div key={exp.id}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-[12.5px] font-semibold text-neutral-800">
+                      {exp.company}
+                    </p>
+                    {exp.location ? (
+                      <span className="shrink-0 text-[10.5px] text-neutral-600">
+                        {exp.location}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-[11.5px] font-medium text-neutral-900">
+                      {exp.role}
+                    </p>
+                    {period ? (
+                      <span className="shrink-0 text-[10.5px] text-neutral-600">
+                        {period}
+                      </span>
+                    ) : null}
+                  </div>
+                  {exp.company_description ? (
+                    <p className="mt-0.5 text-[10.5px] text-neutral-600 italic">
+                      {exp.company_description}
+                    </p>
+                  ) : null}
+                  {exp.bullets.filter(Boolean).length > 0 ? (
+                    <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] text-neutral-700">
+                      {exp.bullets.filter(Boolean).map((bullet, index) => (
+                        <li key={index}>{bullet}</li>
+                      ))}
+                    </ul>
                   ) : null}
                 </div>
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className="text-[11.5px] font-medium text-neutral-900">
-                    {exp.role}
-                  </p>
-                  <span className="shrink-0 text-[10.5px] text-neutral-600">
-                    {exp.period}
-                  </span>
-                </div>
-                {exp.company_description ? (
-                  <p className="mt-0.5 text-[10.5px] text-neutral-600 italic">
-                    {exp.company_description}
-                  </p>
-                ) : null}
-                {exp.bullets.filter(Boolean).length > 0 ? (
-                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] text-neutral-700">
-                    {exp.bullets.filter(Boolean).map((bullet, index) => (
-                      <li key={index}>{bullet}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </DocumentSection>
       ) : null}
@@ -317,23 +361,26 @@ export function CvDocument({
       {populated.has("education") ? (
         <DocumentSection title="Education">
           <div className="space-y-2">
-            {education.map((entry) => (
-              <div key={entry.id} className="text-[11px]">
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className="text-neutral-900">{entry.institution}</p>
-                  {entry.period ? (
-                    <span className="shrink-0 text-[10.5px] text-neutral-600">
-                      {entry.period}
-                    </span>
+            {education.map((entry) => {
+              const period = formatCvDatePeriod(entry.start, entry.end);
+              return (
+                <div key={entry.id} className="text-[11px]">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-neutral-900">{entry.institution}</p>
+                    {period ? (
+                      <span className="shrink-0 text-[10.5px] text-neutral-600">
+                        {period}
+                      </span>
+                    ) : null}
+                  </div>
+                  {educationDegreeLine(entry) ? (
+                    <p className="text-neutral-700">
+                      {educationDegreeLine(entry)}
+                    </p>
                   ) : null}
                 </div>
-                {educationDegreeLine(entry) ? (
-                  <p className="text-neutral-700">
-                    {educationDegreeLine(entry)}
-                  </p>
-                ) : null}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </DocumentSection>
       ) : null}

@@ -5,6 +5,7 @@ import {
   CV_LANGUAGE_LEVELS,
   type CvFormValues,
 } from "@/components/base-cvs/types";
+import { isIsoMonth } from "@/lib/month-year";
 import type { BaseCvWritable } from "@/services/types/base-cv";
 import type { TailoredCv } from "@/components/tailored-cvs/types";
 
@@ -46,7 +47,6 @@ export const TAILORED_CV_MAX = {
   linkUrl: 500,
   experienceCompany: 200,
   experienceRole: 200,
-  experiencePeriod: 100,
   experienceLocation: 200,
   experienceCompanyDescription: 500,
   experienceBullet: 2000,
@@ -59,7 +59,6 @@ export const TAILORED_CV_MAX = {
   educationInstitution: 200,
   educationDegree: 200,
   educationArea: 200,
-  educationPeriod: 100,
   certificationName: 200,
   certificationIssuer: 200,
   languageName: 100,
@@ -80,20 +79,52 @@ const lines = (values: string[] | undefined) =>
 const within = (max: number, ...values: (string | undefined)[]) =>
   values.every((value) => (value ?? "").trim().length <= max);
 
+/**
+ * The period of an experience or education row: a required start and an
+ * optional finish, both ISO `YYYY-MM`. The master CV schema carries the twin
+ * of every predicate below (`base-cv-schema.ts`); keep them in lockstep.
+ */
+interface CvPeriod {
+  start: string;
+  end?: string | null;
+}
+
+/** Neither end of the period has been typed into. */
+const isBlankPeriod = (item: CvPeriod) => !text(item.start) && !text(item.end);
+
+/** The start is there and is a complete `YYYY-MM`. Nothing less will do. */
+const hasStart = (item: CvPeriod) => isIsoMonth(item.start);
+
+/**
+ * The finish is absent, or a complete `YYYY-MM` at or after the start.
+ *
+ * Mirrors the server's rule exactly — same format, same comparison, no
+ * invented year range — so its 422 is out of the user's reach. ISO `YYYY-MM`
+ * strings sort chronologically, so no date parsing is needed.
+ */
+const hasValidFinish = (item: CvPeriod) => {
+  const end = text(item.end);
+  if (!end) return true;
+  if (!isIsoMonth(end)) return false;
+  const start = text(item.start);
+  return !isIsoMonth(start) || end >= start;
+};
+
 const isBlankLink = (item: { label: string; url: string }) =>
   !text(item.label) && !text(item.url);
 
-const isBlankExperience = (item: {
-  company: string;
-  company_description?: string;
-  role: string;
-  period: string;
-  location?: string;
-  bullets: string[];
-}) =>
+const isBlankExperience = (
+  item: CvPeriod & {
+    company: string;
+    company_description?: string;
+    role: string;
+    location?: string;
+    bullets: string[];
+  },
+) =>
   !text(item.company) &&
   !text(item.role) &&
-  !text(item.period) &&
+  isBlankPeriod(item) &&
   !text(item.company_description) &&
   !text(item.location) &&
   lines(item.bullets).length === 0;
@@ -122,17 +153,18 @@ const isBlankLanguage = (item: { name: string }) => !text(item.name);
 const isBlankSkillCategory = (item: { category: string; keywords: string[] }) =>
   !text(item.category) && lines(item.keywords).length === 0;
 
-/** An education row nobody typed into — any of its four fields makes it real. */
-const isBlankEducation = (item: {
-  institution: string;
-  degree: string;
-  area?: string;
-  period?: string;
-}) =>
+/** An education row nobody typed into — any of its fields makes it real. */
+const isBlankEducation = (
+  item: CvPeriod & {
+    institution: string;
+    degree: string;
+    area?: string;
+  },
+) =>
   !text(item.institution) &&
   !text(item.degree) &&
   !text(item.area) &&
-  !text(item.period);
+  isBlankPeriod(item);
 
 /** A non-blank single-line string. Whitespace alone does not count. */
 const requiredText = (message: string, max: number) =>
@@ -147,12 +179,14 @@ const linkSchema = z.object({
   url: z.string(),
 });
 
+/** `start` is required and `end` optional; both are ISO `YYYY-MM`. */
 const experienceSchema = z.object({
   id: z.string(),
   company: z.string(),
   company_description: z.string().optional(),
   role: z.string(),
-  period: z.string(),
+  start: z.string(),
+  end: z.string().nullable().optional(),
   location: z.string().optional(),
   bullets: z.array(z.string()),
 });
@@ -175,13 +209,14 @@ const skillCategorySchema = z.object({
   keywords: z.array(z.string()),
 });
 
-/** `period` is free text, exactly like `CvExperience.period`. */
+/** The same required-start / optional-finish pair the experience row carries. */
 const educationSchema = z.object({
   id: z.string(),
   institution: z.string(),
   degree: z.string(),
   area: z.string().optional(),
-  period: z.string().optional(),
+  start: z.string(),
+  end: z.string().nullable().optional(),
 });
 
 const certificationSchema = z.object({
@@ -199,8 +234,10 @@ const languageSchema = z.object({
 /**
  * The tailored CV form schema. Required: the label, the identity and contact
  * block (bar the phone) and the summary — exactly the fields the editor marks
- * with a required marker. No section is required and no field inside a section
- * is; blank rows are dropped on the way to the wire.
+ * with a required marker. No section is required; blank rows are dropped on the
+ * way to the wire. A row with anything in it has to be complete, and since
+ * KODI-007 that includes the START of an experience or education period, which
+ * is required on both sections.
  */
 export const tailoredCvSchema = z.object({
   name: requiredText("A CV label is required", TAILORED_CV_MAX.name),
@@ -276,9 +313,13 @@ export const tailoredCvSchema = z.object({
         items.every(
           (item) =>
             isBlankExperience(item) ||
-            (text(item.company) && text(item.role) && text(item.period)),
+            (text(item.company) && text(item.role) && hasStart(item)),
         ),
-      "Every role needs a company, a role and a period. Remove the rows you do not want.",
+      "Every role needs a company, a role and a start month and year (MM/yyyy). Remove the rows you do not want.",
+    )
+    .refine(
+      (items) => items.every((item) => hasValidFinish(item)),
+      "A finish must be a full MM/yyyy and cannot come before its start. Leave it empty for a role you are still in.",
     )
     .refine(
       (items) =>
@@ -290,14 +331,13 @@ export const tailoredCvSchema = z.object({
               item.role,
               item.location,
             ) &&
-            within(TAILORED_CV_MAX.experiencePeriod, item.period) &&
             within(
               TAILORED_CV_MAX.experienceCompanyDescription,
               item.company_description,
             ) &&
             within(TAILORED_CV_MAX.experienceBullet, ...item.bullets),
         ),
-      `Keep every company, role and location under ${TAILORED_CV_MAX.experienceCompany} characters, every period under ${TAILORED_CV_MAX.experiencePeriod} and every company description under ${TAILORED_CV_MAX.experienceCompanyDescription}.`,
+      `Keep every company, role and location under ${TAILORED_CV_MAX.experienceCompany} characters and every company description under ${TAILORED_CV_MAX.experienceCompanyDescription}.`,
     ),
   projects: z
     .array(projectSchema)
@@ -323,9 +363,13 @@ export const tailoredCvSchema = z.object({
         items.every(
           (item) =>
             isBlankEducation(item) ||
-            (text(item.institution) && text(item.degree)),
+            (text(item.institution) && text(item.degree) && hasStart(item)),
         ),
-      "Every qualification needs an institution and a degree. Remove the rows you do not want.",
+      "Every qualification needs an institution, a degree and a start month and year (MM/yyyy). Remove the rows you do not want.",
+    )
+    .refine(
+      (items) => items.every((item) => hasValidFinish(item)),
+      "A finish must be a full MM/yyyy and cannot come before its start. Leave it empty for a course you are still on.",
     )
     .refine(
       (items) =>
@@ -333,10 +377,9 @@ export const tailoredCvSchema = z.object({
           (item) =>
             within(TAILORED_CV_MAX.educationInstitution, item.institution) &&
             within(TAILORED_CV_MAX.educationDegree, item.degree) &&
-            within(TAILORED_CV_MAX.educationArea, item.area) &&
-            within(TAILORED_CV_MAX.educationPeriod, item.period),
+            within(TAILORED_CV_MAX.educationArea, item.area),
         ),
-      `Keep every institution, degree and field of study under ${TAILORED_CV_MAX.educationInstitution} characters and every period under ${TAILORED_CV_MAX.educationPeriod}.`,
+      `Keep every institution, degree and field of study under ${TAILORED_CV_MAX.educationInstitution} characters.`,
     ),
   certifications: z
     .array(certificationSchema)
@@ -441,7 +484,10 @@ export function tailoredCvToFormValues(cv: TailoredCv): CvFormValues {
       company: item.company ?? "",
       company_description: item.company_description ?? "",
       role: item.role ?? "",
-      period: item.period ?? "",
+      // A `null` finish is the wire's way of saying "still there"; the input
+      // wants `""` so it stays controlled.
+      start: item.start ?? "",
+      end: item.end ?? "",
       location: item.location ?? "",
       bullets: [...(item.bullets ?? [])],
     })),
@@ -457,7 +503,8 @@ export function tailoredCvToFormValues(cv: TailoredCv): CvFormValues {
       institution: item.institution ?? "",
       degree: item.degree ?? "",
       area: item.area ?? "",
-      period: item.period ?? "",
+      start: item.start ?? "",
+      end: item.end ?? "",
     })),
     certifications: (cv.certifications ?? []).map((item) => ({
       id: item.id,
@@ -509,7 +556,10 @@ export function toTailoredCvPayload(values: CvFormValues): TailoredCvPayload {
         company: text(item.company),
         company_description: optionalText(item.company_description),
         role: text(item.role),
-        period: text(item.period),
+        // `start` always goes; an empty `end` is OMITTED, which is how the API
+        // is told the role is current.
+        start: text(item.start),
+        end: optionalText(item.end),
         location: optionalText(item.location),
         bullets: lines(item.bullets),
       }))
@@ -529,7 +579,8 @@ export function toTailoredCvPayload(values: CvFormValues): TailoredCvPayload {
         institution: text(item.institution),
         degree: text(item.degree),
         area: optionalText(item.area),
-        period: optionalText(item.period),
+        start: text(item.start),
+        end: optionalText(item.end),
       }))
       .filter((item) => !isBlankEducation(item)),
     certifications: (values.certifications ?? [])
