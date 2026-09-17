@@ -305,6 +305,36 @@ describe("the add control lives inside the section, below the last item (10)", (
     ).toBe(true);
   });
 
+  it("puts it above the section's own error line", async () => {
+    const user = userEvent.setup();
+    // Keywords with no category to print them under: the one shape that
+    // raises a SECTION-level message rather than a per-field one.
+    render(
+      <Harness
+        defaults={values({
+          skills: [{ id: "s-1", category: "", keywords: ["python"] }],
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save CV" }));
+
+    const error = screen.getByText(
+      "Every skill category needs a name. Remove the categories you do not want.",
+    );
+    expect(error).toBeVisible();
+
+    // Add directly under the last row, the error line last. A collapsed
+    // section now hides BOTH, which is what makes the reveal above load
+    // bearing — the AC6 tests in this file own that half.
+    const add = screen.getByRole("button", { name: "Add category" });
+    const rows = sectionBody("Skills").querySelectorAll(
+      '[data-slot="cv-repeatable-item"]',
+    );
+    expect(follows(rows[rows.length - 1], add)).toBe(true);
+    expect(follows(add, error)).toBe(true);
+  });
+
   it("exposes no add control at all while the section is collapsed", async () => {
     const user = userEvent.setup();
     render(<Harness defaults={values({ experience: TWO_ROLES })} />);
