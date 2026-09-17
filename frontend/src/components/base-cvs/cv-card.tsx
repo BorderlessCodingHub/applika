@@ -15,7 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { BaseCv } from "@/components/base-cvs/types";
+import { skillCategoryNames, type BaseCv } from "@/components/base-cvs/types";
 import { cn } from "@/lib/utils";
 
 const MAX_VISIBLE_SKILLS = 5;
@@ -56,8 +56,11 @@ export function CvCard({
   isDeleting = false,
   className,
 }: CvCardProps) {
-  const visibleSkills = cv.skills.slice(0, MAX_VISIBLE_SKILLS);
-  const overflow = cv.skills.length - visibleSkills.length;
+  // The card shows the CATEGORY names; the keywords inside them belong to the
+  // document, not to a summary chip row.
+  const categories = skillCategoryNames(cv.skills);
+  const visibleSkills = categories.slice(0, MAX_VISIBLE_SKILLS);
+  const overflow = categories.length - visibleSkills.length;
   const updated = formatUpdated(cv.updated_at);
 
   return (

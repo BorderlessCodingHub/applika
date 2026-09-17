@@ -1,12 +1,14 @@
 import type {
   BaseCv,
   CvCertification,
+  CvEducation,
   CvExperience,
   CvLanguage,
   CvLanguageLevel,
   CvLink,
   CvProject,
   CvSections,
+  CvSkillCategory,
 } from "@/components/base-cvs/types";
 
 /**
@@ -21,11 +23,13 @@ import type {
 export type {
   BaseCv,
   CvCertification,
+  CvEducation,
   CvExperience,
   CvLanguage,
   CvLanguageLevel,
   CvLink,
   CvProject,
+  CvSkillCategory,
 };
 
 /**

@@ -50,11 +50,16 @@ export const TAILORED_CV_MAX = {
   experienceLocation: 200,
   experienceCompanyDescription: 500,
   experienceBullet: 2000,
-  skill: 100,
+  skillCategory: 100,
+  skillKeyword: 100,
   projectName: 200,
   projectDescription: 2000,
   projectLink: 500,
   projectLinkLabel: 100,
+  educationInstitution: 200,
+  educationDegree: 200,
+  educationArea: 200,
+  educationPeriod: 100,
   certificationName: 200,
   certificationIssuer: 200,
   languageName: 100,
@@ -109,6 +114,26 @@ const isBlankCertification = (item: { name: string; issuer: string }) =>
 
 const isBlankLanguage = (item: { name: string }) => !text(item.name);
 
+/**
+ * A skill category nobody typed into. Keywords count: a category with keywords
+ * but no name is half-filled, not blank, and the API refuses it
+ * (`SkillCategoryIn.category` is `min_length=1`).
+ */
+const isBlankSkillCategory = (item: { category: string; keywords: string[] }) =>
+  !text(item.category) && lines(item.keywords).length === 0;
+
+/** An education row nobody typed into — any of its four fields makes it real. */
+const isBlankEducation = (item: {
+  institution: string;
+  degree: string;
+  area?: string;
+  period?: string;
+}) =>
+  !text(item.institution) &&
+  !text(item.degree) &&
+  !text(item.area) &&
+  !text(item.period);
+
 /** A non-blank single-line string. Whitespace alone does not count. */
 const requiredText = (message: string, max: number) =>
   z
@@ -138,6 +163,25 @@ const projectSchema = z.object({
   description: z.string(),
   link: z.string().optional(),
   link_label: z.string().optional(),
+});
+
+/**
+ * Skills are CATEGORIES, never a flat tag list. The owner: "it's a section
+ * where i can create a category and inside this caregory add keywords".
+ */
+const skillCategorySchema = z.object({
+  id: z.string(),
+  category: z.string(),
+  keywords: z.array(z.string()),
+});
+
+/** `period` is free text, exactly like `CvExperience.period`. */
+const educationSchema = z.object({
+  id: z.string(),
+  institution: z.string(),
+  degree: z.string(),
+  area: z.string().optional(),
+  period: z.string().optional(),
 });
 
 const certificationSchema = z.object({
@@ -208,10 +252,22 @@ export const tailoredCvSchema = z.object({
       `Keep every link label under ${TAILORED_CV_MAX.linkLabel} characters and every URL under ${TAILORED_CV_MAX.linkUrl}.`,
     ),
   skills: z
-    .array(z.string())
+    .array(skillCategorySchema)
     .refine(
-      (items) => items.every((item) => within(TAILORED_CV_MAX.skill, item)),
-      `Keep every skill under ${TAILORED_CV_MAX.skill} characters.`,
+      (items) =>
+        items.every(
+          (item) => isBlankSkillCategory(item) || text(item.category),
+        ),
+      "Every skill category needs a name. Remove the categories you do not want.",
+    )
+    .refine(
+      (items) =>
+        items.every(
+          (item) =>
+            within(TAILORED_CV_MAX.skillCategory, item.category) &&
+            within(TAILORED_CV_MAX.skillKeyword, ...item.keywords),
+        ),
+      `Keep every category name under ${TAILORED_CV_MAX.skillCategory} characters and every keyword under ${TAILORED_CV_MAX.skillKeyword}.`,
     ),
   experience: z
     .array(experienceSchema)
@@ -259,6 +315,28 @@ export const tailoredCvSchema = z.object({
             within(TAILORED_CV_MAX.projectLinkLabel, item.link_label),
         ),
       `Keep every project name under ${TAILORED_CV_MAX.projectName} characters and every description under ${TAILORED_CV_MAX.projectDescription}.`,
+    ),
+  education: z
+    .array(educationSchema)
+    .refine(
+      (items) =>
+        items.every(
+          (item) =>
+            isBlankEducation(item) ||
+            (text(item.institution) && text(item.degree)),
+        ),
+      "Every qualification needs an institution and a degree. Remove the rows you do not want.",
+    )
+    .refine(
+      (items) =>
+        items.every(
+          (item) =>
+            within(TAILORED_CV_MAX.educationInstitution, item.institution) &&
+            within(TAILORED_CV_MAX.educationDegree, item.degree) &&
+            within(TAILORED_CV_MAX.educationArea, item.area) &&
+            within(TAILORED_CV_MAX.educationPeriod, item.period),
+        ),
+      `Keep every institution, degree and field of study under ${TAILORED_CV_MAX.educationInstitution} characters and every period under ${TAILORED_CV_MAX.educationPeriod}.`,
     ),
   certifications: z
     .array(certificationSchema)
@@ -327,6 +405,7 @@ export function emptyTailoredCvValues(): CvFormValues {
     skills: [],
     experience: [],
     projects: [],
+    education: [],
     certifications: [],
     languages: [],
   };
@@ -352,7 +431,11 @@ export function tailoredCvToFormValues(cv: TailoredCv): CvFormValues {
       label: link.label ?? "",
       url: link.url ?? "",
     })),
-    skills: [...(cv.skills ?? [])],
+    skills: (cv.skills ?? []).map((item) => ({
+      id: item.id,
+      category: item.category ?? "",
+      keywords: [...(item.keywords ?? [])],
+    })),
     experience: (cv.experience ?? []).map((item) => ({
       id: item.id,
       company: item.company ?? "",
@@ -368,6 +451,13 @@ export function tailoredCvToFormValues(cv: TailoredCv): CvFormValues {
       description: item.description ?? "",
       link: item.link ?? "",
       link_label: item.link_label ?? "",
+    })),
+    education: (cv.education ?? []).map((item) => ({
+      id: item.id,
+      institution: item.institution ?? "",
+      degree: item.degree ?? "",
+      area: item.area ?? "",
+      period: item.period ?? "",
     })),
     certifications: (cv.certifications ?? []).map((item) => ({
       id: item.id,
@@ -406,7 +496,13 @@ export function toTailoredCvPayload(values: CvFormValues): TailoredCvPayload {
         url: text(link.url),
       }))
       .filter((link) => !isBlankLink(link)),
-    skills: lines(values.skills),
+    skills: (values.skills ?? [])
+      .map((item) => ({
+        id: item.id,
+        category: text(item.category),
+        keywords: lines(item.keywords),
+      }))
+      .filter((item) => !isBlankSkillCategory(item)),
     experience: (values.experience ?? [])
       .map((item) => ({
         id: item.id,
@@ -427,6 +523,15 @@ export function toTailoredCvPayload(values: CvFormValues): TailoredCvPayload {
         link_label: optionalText(item.link_label),
       }))
       .filter((item) => !isBlankProject(item)),
+    education: (values.education ?? [])
+      .map((item) => ({
+        id: item.id,
+        institution: text(item.institution),
+        degree: text(item.degree),
+        area: optionalText(item.area),
+        period: optionalText(item.period),
+      }))
+      .filter((item) => !isBlankEducation(item)),
     certifications: (values.certifications ?? [])
       .map((item) => ({
         id: item.id,

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TailoredCvReadOnlyBanner } from "@/components/tailored-cvs/tailored-cv-read-only-banner";
+import { skillCategoryNames } from "@/components/base-cvs/types";
 import type {
   BaseCvOption,
   TailoredCvReadOnlyReason,
@@ -215,12 +216,9 @@ export function BaseCvPicker({
         <div className="grid gap-3 md:grid-cols-2">
           {items.map((option) => {
             const checked = value === option.id;
-            const visibleSkills = (option.skills ?? []).slice(
-              0,
-              MAX_VISIBLE_SKILLS,
-            );
-            const overflow =
-              (option.skills ?? []).length - visibleSkills.length;
+            const categories = skillCategoryNames(option.skills ?? []);
+            const visibleSkills = categories.slice(0, MAX_VISIBLE_SKILLS);
+            const overflow = categories.length - visibleSkills.length;
             const updated = formatUpdated(option.updated_at);
 
             return (

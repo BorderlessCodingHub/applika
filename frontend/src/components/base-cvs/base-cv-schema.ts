@@ -74,6 +74,26 @@ const isBlankCertification = (item: { name: string; issuer: string }) =>
 
 const isBlankLanguage = (item: { name: string }) => !text(item.name);
 
+/**
+ * A skill category nobody typed into. Keywords count: a category with keywords
+ * but no name is half-filled, not blank, and the API refuses it
+ * (`SkillCategoryIn.category` is `min_length=1`).
+ */
+const isBlankSkillCategory = (item: { category: string; keywords: string[] }) =>
+  !text(item.category) && lines(item.keywords).length === 0;
+
+/** An education row nobody typed into — any of its four fields makes it real. */
+const isBlankEducation = (item: {
+  institution: string;
+  degree: string;
+  area?: string;
+  period?: string;
+}) =>
+  !text(item.institution) &&
+  !text(item.degree) &&
+  !text(item.area) &&
+  !text(item.period);
+
 /** A non-blank single-line string. Whitespace alone does not count. */
 const requiredText = (message: string, max: number) =>
   z
@@ -105,6 +125,25 @@ const projectSchema = z.object({
   link_label: z.string().optional(),
 });
 
+/**
+ * Skills are CATEGORIES, never a flat tag list. The owner: "it's a section
+ * where i can create a category and inside this caregory add keywords".
+ */
+const skillCategorySchema = z.object({
+  id: z.string(),
+  category: z.string(),
+  keywords: z.array(z.string()),
+});
+
+/** `period` is free text, exactly like `CvExperience.period`. */
+const educationSchema = z.object({
+  id: z.string(),
+  institution: z.string(),
+  degree: z.string(),
+  area: z.string().optional(),
+  period: z.string().optional(),
+});
+
 const certificationSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -125,10 +164,10 @@ const languageSchema = z.object({
  * which has an inline error slot. `phone` is optional.
  *
  * NO SECTION IS REQUIRED and no field INSIDE a section is: a CV with zero
- * links, skills, roles, projects, certifications and languages validates. Rows
- * carry no per-row error slot in the editor, so a row-level constraint would be
- * an invisible wall; `toBaseCvPayload` drops blank rows instead of rejecting
- * them.
+ * links, skill categories, roles, projects, qualifications, certifications and
+ * languages validates. Rows carry no per-row error slot in the editor, so a
+ * row-level constraint would be an invisible wall; `toBaseCvPayload` drops
+ * blank rows instead of rejecting them.
  */
 export const baseCvSchema = z.object({
   name: requiredText("A CV label is required", 120),
@@ -162,7 +201,15 @@ export const baseCvSchema = z.object({
         ),
       "Every link needs a label and a URL. Remove the rows you do not want.",
     ),
-  skills: z.array(z.string()),
+  skills: z
+    .array(skillCategorySchema)
+    .refine(
+      (items) =>
+        items.every(
+          (item) => isBlankSkillCategory(item) || text(item.category),
+        ),
+      "Every skill category needs a name. Remove the categories you do not want.",
+    ),
   experience: z
     .array(experienceSchema)
     .refine(
@@ -179,6 +226,17 @@ export const baseCvSchema = z.object({
     .refine(
       (items) => items.every((item) => isBlankProject(item) || text(item.name)),
       "Every project needs a name. Remove the rows you do not want.",
+    ),
+  education: z
+    .array(educationSchema)
+    .refine(
+      (items) =>
+        items.every(
+          (item) =>
+            isBlankEducation(item) ||
+            (text(item.institution) && text(item.degree)),
+        ),
+      "Every qualification needs an institution and a degree. Remove the rows you do not want.",
     ),
   certifications: z
     .array(certificationSchema)
@@ -206,6 +264,7 @@ const SECTION_FIELDS = [
   "skills",
   "experience",
   "projects",
+  "education",
   "certifications",
   "languages",
 ] as const;
@@ -252,6 +311,7 @@ export function emptyBaseCvValues(): CvFormValues {
     skills: [],
     experience: [],
     projects: [],
+    education: [],
     certifications: [],
     languages: [],
   };
@@ -277,7 +337,11 @@ export function baseCvToFormValues(cv: BaseCv): CvFormValues {
       label: link.label ?? "",
       url: link.url ?? "",
     })),
-    skills: [...(cv.skills ?? [])],
+    skills: (cv.skills ?? []).map((item) => ({
+      id: item.id,
+      category: item.category ?? "",
+      keywords: [...(item.keywords ?? [])],
+    })),
     experience: (cv.experience ?? []).map((item) => ({
       id: item.id,
       company: item.company ?? "",
@@ -293,6 +357,13 @@ export function baseCvToFormValues(cv: BaseCv): CvFormValues {
       description: item.description ?? "",
       link: item.link ?? "",
       link_label: item.link_label ?? "",
+    })),
+    education: (cv.education ?? []).map((item) => ({
+      id: item.id,
+      institution: item.institution ?? "",
+      degree: item.degree ?? "",
+      area: item.area ?? "",
+      period: item.period ?? "",
     })),
     certifications: (cv.certifications ?? []).map((item) => ({
       id: item.id,
@@ -331,7 +402,13 @@ export function toBaseCvPayload(values: CvFormValues): CreateBaseCvPayload {
         url: text(link.url),
       }))
       .filter((link) => !isBlankLink(link)),
-    skills: lines(values.skills),
+    skills: (values.skills ?? [])
+      .map((item) => ({
+        id: item.id,
+        category: text(item.category),
+        keywords: lines(item.keywords),
+      }))
+      .filter((item) => !isBlankSkillCategory(item)),
     experience: (values.experience ?? [])
       .map((item) => ({
         id: item.id,
@@ -352,6 +429,15 @@ export function toBaseCvPayload(values: CvFormValues): CreateBaseCvPayload {
         link_label: optionalText(item.link_label),
       }))
       .filter((item) => !isBlankProject(item)),
+    education: (values.education ?? [])
+      .map((item) => ({
+        id: item.id,
+        institution: text(item.institution),
+        degree: text(item.degree),
+        area: optionalText(item.area),
+        period: optionalText(item.period),
+      }))
+      .filter((item) => !isBlankEducation(item)),
     certifications: (values.certifications ?? [])
       .map((item) => ({
         id: item.id,

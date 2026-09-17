@@ -37,6 +37,41 @@ export interface CvProject {
   link_label?: string;
 }
 
+/**
+ * One named group of skills and the keywords inside it. Skills are NOT a flat
+ * tag list: the document prints the category as a bold line and its keywords
+ * under it, joined by a middle dot.
+ */
+export interface CvSkillCategory {
+  id: string;
+  category: string;
+  keywords: string[];
+}
+
+/**
+ * The names of the skill categories that carry one, in print order.
+ *
+ * What a COMPACT summary shows in place of the full keyword lists — the CV
+ * card and the copy picker have room for a handful of chips, not for six
+ * categories of keywords. A category with keywords but no name cannot be saved
+ * (the API declares `category` `min_length=1`), so it has no label to show.
+ */
+export function skillCategoryNames(skills: CvSkillCategory[]): string[] {
+  return skills.map((entry) => entry.category.trim()).filter(Boolean);
+}
+
+/**
+ * One entry in the education section. `period` is free text, exactly like
+ * `CvExperience.period` — applika does not parse CV dates.
+ */
+export interface CvEducation {
+  id: string;
+  institution: string;
+  degree: string;
+  area?: string;
+  period?: string;
+}
+
 /** One professional certification. */
 export interface CvCertification {
   id: string;
@@ -51,7 +86,7 @@ export type CvLanguageLevel =
   | "Read/Comprehend"
   | "Basic";
 
-/** Proficiency options, strongest first. Index drives the document's dot meter. */
+/** Proficiency options, strongest first. The document prints the level verbatim. */
 export const CV_LANGUAGE_LEVELS: readonly CvLanguageLevel[] = [
   "Native",
   "Proficient",
@@ -81,12 +116,13 @@ export interface CvScalars {
   summary: string;
 }
 
-/** The six list sections a master CV carries. */
+/** The seven list sections a master CV carries. */
 export interface CvSections {
   links: CvLink[];
-  skills: string[];
+  skills: CvSkillCategory[];
   experience: CvExperience[];
   projects: CvProject[];
+  education: CvEducation[];
   certifications: CvCertification[];
   languages: CvLanguage[];
 }

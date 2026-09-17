@@ -71,7 +71,13 @@ export function AppShell({
   };
 
   return (
-    <div className="flex h-viewport w-full overflow-hidden bg-background text-foreground">
+    // `relative` makes the shell the containing block for every absolutely
+    // positioned descendant, so `overflow-hidden` actually clips them. Without
+    // it, one that no ancestor positions (Radix Select's hidden native
+    // `<select>`) stretches the DOCUMENT to its own offset and the page grows a
+    // second scrollbar. Sizing is untouched: `h-viewport` plus `body`'s
+    // padding still add up to exactly one viewport.
+    <div className="relative flex h-viewport w-full overflow-hidden bg-background text-foreground">
       <aside className="hidden w-60 shrink-0 border-r border-sidebar-border md:block">
         <Sidebar {...sidebarProps} />
       </aside>

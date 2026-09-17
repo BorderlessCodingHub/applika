@@ -4,9 +4,9 @@ import { Controller, useFormState, useWatch } from "react-hook-form";
 import type { Control, FieldPath, UseFormReturn } from "react-hook-form";
 import {
   Award,
-  BadgeCheck,
   Briefcase,
   FolderGit2,
+  GraduationCap,
   Languages,
   Link2,
   ScrollText,
@@ -21,11 +21,12 @@ import {
 } from "@/components/base-cvs/cv-editor-fields";
 import { CvRepeatableSection } from "@/components/base-cvs/cv-repeatable-section";
 import { CvSectionCard } from "@/components/base-cvs/cv-section-card";
-import { CvSkillsInput } from "@/components/base-cvs/cv-skills-input";
+import { CvSkillsSection } from "@/components/base-cvs/cv-skills-section";
 import type { CvDocumentData } from "@/components/base-cvs/cv-document";
 import {
   CV_LANGUAGE_LEVELS,
   type CvCertification,
+  type CvEducation,
   type CvExperience,
   type CvFormValues,
   type CvLanguage,
@@ -66,6 +67,7 @@ export function useCvPreviewData(
     skills: watched.skills ?? [],
     experience: watched.experience ?? [],
     projects: watched.projects ?? [],
+    education: watched.education ?? [],
     certifications: watched.certifications ?? [],
     languages: watched.languages ?? [],
   };
@@ -292,32 +294,20 @@ export function CvFormSections({
         )}
       />
 
-      <CvSectionCard
-        title="Skills"
-        description="The skills you want to feature. Press Enter to add one."
-        icon={BadgeCheck}
-      >
-        <Controller
-          control={control}
-          name="skills"
-          render={({ field }) => (
-            <CvSkillsInput
-              value={field.value ?? []}
-              onChange={field.onChange}
-              disabled={disabled}
-              aria-invalid={errorFor("skills") ? true : undefined}
-              aria-describedby={
-                errorFor("skills") ? errorId("skills") : undefined
-              }
-            />
-          )}
-        />
-        {errorFor("skills") ? (
-          <p id={errorId("skills")} className="mt-1.5 text-xs text-destructive">
-            {errorFor("skills")}
-          </p>
-        ) : null}
-      </CvSectionCard>
+      <Controller
+        control={control}
+        name="skills"
+        render={({ field }) => (
+          <CvSkillsSection
+            value={field.value ?? []}
+            onChange={field.onChange}
+            newItemId={newItemId}
+            disabled={disabled}
+            error={errorFor("skills")}
+            errorId={errorId("skills")}
+          />
+        )}
+      />
 
       <Controller
         control={control}
@@ -464,6 +454,74 @@ export function CvFormSections({
                     onChange={(event) =>
                       update({ description: event.target.value })
                     }
+                  />
+                </CvField>
+              </div>
+            )}
+          />
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="education"
+        render={({ field }) => (
+          <CvRepeatableSection<CvEducation>
+            title="Education"
+            description="Degrees and diplomas, most recent first."
+            icon={GraduationCap}
+            items={field.value ?? []}
+            onChange={field.onChange}
+            createItem={() => ({
+              id: newItemId(),
+              institution: "",
+              degree: "",
+            })}
+            itemLabel={(item) =>
+              item.institution || item.degree || "New qualification"
+            }
+            addLabel="Add education"
+            itemNoun="education"
+            emptyHint="No education yet. Add the degrees you want on this CV."
+            disabled={disabled}
+            renderItem={({ item, update }) => (
+              <div className="grid gap-3 @lg/cv-form:grid-cols-2">
+                <CvField label="Institution" className="@lg/cv-form:col-span-2">
+                  <Input
+                    value={item.institution}
+                    disabled={disabled}
+                    placeholder="University of Edinburgh"
+                    onChange={(event) =>
+                      update({ institution: event.target.value })
+                    }
+                  />
+                </CvField>
+                <CvField label="Degree">
+                  <Input
+                    value={item.degree}
+                    disabled={disabled}
+                    placeholder="BSc"
+                    onChange={(event) => update({ degree: event.target.value })}
+                  />
+                </CvField>
+                <CvField label="Field of study" hint="Optional.">
+                  <Input
+                    value={item.area ?? ""}
+                    disabled={disabled}
+                    placeholder="Computer Science"
+                    onChange={(event) => update({ area: event.target.value })}
+                  />
+                </CvField>
+                <CvField
+                  label="Period"
+                  hint="Optional. Free text — it prints exactly as you write it."
+                  className="@lg/cv-form:col-span-2"
+                >
+                  <Input
+                    value={item.period ?? ""}
+                    disabled={disabled}
+                    placeholder="2014 — 2018"
+                    onChange={(event) => update({ period: event.target.value })}
                   />
                 </CvField>
               </div>

@@ -41,6 +41,8 @@ export interface CvRepeatableSectionProps<T extends { id: string }> {
   reorderable?: boolean;
   /** Disables every control (while saving). */
   disabled?: boolean;
+  /** Rendered inside the card under the list — the section's own error line. */
+  footer?: ReactNode;
   className?: string;
 }
 
@@ -68,6 +70,7 @@ export function CvRepeatableSection<T extends { id: string }>({
   max,
   reorderable = true,
   disabled = false,
+  footer,
   className,
 }: CvRepeatableSectionProps<T>) {
   const atMax = max != null && items.length >= max;
@@ -100,82 +103,85 @@ export function CvRepeatableSection<T extends { id: string }>({
         </Button>
       }
     >
-      {items.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-pretty text-muted-foreground">
-          {emptyHint}
-        </p>
-      ) : (
-        <ul className="space-y-3">
-          {items.map((item, index) => {
-            const position = `${itemNoun} ${index + 1}`;
-            return (
-              <li
-                key={item.id}
-                role="group"
-                aria-label={position}
-                className="rounded-lg border border-border bg-surface/60 p-3"
-              >
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <span className="truncate text-xs font-medium tracking-wide-label text-muted-foreground uppercase">
-                    {itemLabel ? itemLabel(item, index) : `#${index + 1}`}
-                  </span>
-                  <div className="flex shrink-0 items-center gap-1">
-                    {reorderable ? (
-                      <>
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="ghost"
-                          aria-label={`Move ${position} up`}
-                          disabled={disabled || index === 0}
-                          onClick={() => move(index, -1)}
-                        >
-                          <ChevronUp aria-hidden />
-                        </Button>
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="ghost"
-                          aria-label={`Move ${position} down`}
-                          disabled={disabled || index === items.length - 1}
-                          onClick={() => move(index, 1)}
-                        >
-                          <ChevronDown aria-hidden />
-                        </Button>
-                      </>
-                    ) : null}
-                    <Button
-                      type="button"
-                      size="icon-sm"
-                      variant="ghost"
-                      aria-label={`Remove ${position}`}
-                      disabled={disabled}
-                      onClick={() =>
-                        onChange(items.filter((_, i) => i !== index))
-                      }
-                      className={cn(
-                        "text-muted-foreground hover:text-destructive",
-                      )}
-                    >
-                      <Trash2 aria-hidden />
-                    </Button>
+      <>
+        {items.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-pretty text-muted-foreground">
+            {emptyHint}
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {items.map((item, index) => {
+              const position = `${itemNoun} ${index + 1}`;
+              return (
+                <li
+                  key={item.id}
+                  role="group"
+                  aria-label={position}
+                  className="rounded-lg border border-border bg-surface/60 p-3"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <span className="truncate text-xs font-medium tracking-wide-label text-muted-foreground uppercase">
+                      {itemLabel ? itemLabel(item, index) : `#${index + 1}`}
+                    </span>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {reorderable ? (
+                        <>
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            aria-label={`Move ${position} up`}
+                            disabled={disabled || index === 0}
+                            onClick={() => move(index, -1)}
+                          >
+                            <ChevronUp aria-hidden />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            aria-label={`Move ${position} down`}
+                            disabled={disabled || index === items.length - 1}
+                            onClick={() => move(index, 1)}
+                          >
+                            <ChevronDown aria-hidden />
+                          </Button>
+                        </>
+                      ) : null}
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label={`Remove ${position}`}
+                        disabled={disabled}
+                        onClick={() =>
+                          onChange(items.filter((_, i) => i !== index))
+                        }
+                        className={cn(
+                          "text-muted-foreground hover:text-destructive",
+                        )}
+                      >
+                        <Trash2 aria-hidden />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-                {renderItem({
-                  item,
-                  index,
-                  update: (patch) =>
-                    onChange(
-                      items.map((entry, i) =>
-                        i === index ? { ...entry, ...patch } : entry,
+                  {renderItem({
+                    item,
+                    index,
+                    update: (patch) =>
+                      onChange(
+                        items.map((entry, i) =>
+                          i === index ? { ...entry, ...patch } : entry,
+                        ),
                       ),
-                    ),
-                })}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                  })}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {footer}
+      </>
     </CvSectionCard>
   );
 }

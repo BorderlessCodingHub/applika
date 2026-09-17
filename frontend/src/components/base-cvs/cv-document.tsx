@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import {
-  CV_LANGUAGE_LEVELS,
-  type CvLanguageLevel,
-  type CvScalars,
-  type CvSections,
+import type {
+  CvEducation,
+  CvScalars,
+  CvSections,
+  CvSkillCategory,
 } from "@/components/base-cvs/types";
 
 /** Everything the document renderer reads: identity scalars plus every section. */
@@ -13,17 +13,75 @@ export type CvDocumentData = CvScalars & CvSections;
 /** Stable DOM id on the page root, so a later exporter can find the node. */
 export const CV_DOCUMENT_EXPORT_ID = "cv-document-export-root";
 
-/** The toggled content sections, in render order. The identity header always renders. */
+/**
+ * The toggled content sections, in render order. The identity header always
+ * renders.
+ *
+ * The order is the template's, not a preference: summary first, then
+ * experience, languages, skills, projects, education, certifications.
+ */
 export const CV_DOCUMENT_SECTIONS = [
   "summary",
   "experience",
   "languages",
   "skills",
   "projects",
+  "education",
   "certifications",
 ] as const;
 
 export type CvDocumentSection = (typeof CV_DOCUMENT_SECTIONS)[number];
+
+/**
+ * Joins the keywords of one skill category. U+00B7 MIDDLE DOT with a space
+ * each side — NOT U+2022 BULLET, and never a comma.
+ */
+export const CV_KEYWORD_SEPARATOR = " · ";
+
+/** Sits between a degree and its field of study on the education line. */
+export const CV_EDUCATION_DEGREE_JOINER = " in ";
+
+/**
+ * The category name as it prints: always closed with a colon, never doubled.
+ *
+ * A blank name gets no colon — the server's `_skill_category_label` returns the
+ * empty string for one, and a lone `:` is not a heading.
+ */
+export function skillCategoryHeading(category: string): string {
+  const trimmed = category.trim();
+  if (!trimmed) return "";
+  return trimmed.endsWith(":") ? trimmed : `${trimmed}:`;
+}
+
+/** The second line of an education entry: the degree, then its field of study. */
+export function educationDegreeLine(entry: CvEducation): string {
+  const degree = entry.degree.trim();
+  const area = entry.area?.trim();
+  if (!area) return degree;
+  if (!degree) return area;
+  return `${degree}${CV_EDUCATION_DEGREE_JOINER}${area}`;
+}
+
+/**
+ * The categories that print: a category needs a name or at least one keyword.
+ * A named category with no keyword keeps its heading — the server's renderer
+ * does the same (`cv_rendering/mapper.py`, `_skill_entries`), and the preview
+ * must not promise a line the PDF drops or drop one the PDF prints.
+ */
+export function visibleSkillCategories(
+  skills: CvSkillCategory[],
+): CvSkillCategory[] {
+  return skills.filter(
+    (entry) => entry.category.trim() !== "" || entry.keywords.length > 0,
+  );
+}
+
+/** The education entries that print: one needs an institution or a degree. */
+export function visibleEducation(education: CvEducation[]): CvEducation[] {
+  return education.filter(
+    (entry) => entry.institution.trim() !== "" || entry.degree.trim() !== "",
+  );
+}
 
 /**
  * The section keys that will render for `cv`, in render order — a section
@@ -36,8 +94,9 @@ export function getPopulatedCvSections(
     summary: Boolean(cv.summary?.trim()),
     experience: cv.experience.length > 0,
     languages: cv.languages.length > 0,
-    skills: cv.skills.length > 0,
+    skills: visibleSkillCategories(cv.skills).length > 0,
     projects: cv.projects.length > 0,
+    education: visibleEducation(cv.education).length > 0,
     certifications: cv.certifications.length > 0,
   };
 
@@ -49,12 +108,6 @@ export interface CvDocumentProps {
   /** Overrides {@link CV_DOCUMENT_EXPORT_ID} when more than one document is mounted. */
   exportId?: string;
   className?: string;
-}
-
-/** Filled proficiency dots per level (Native = 5 … Basic = 1). */
-function levelDots(level: CvLanguageLevel): number {
-  const index = CV_LANGUAGE_LEVELS.indexOf(level);
-  return index === -1 ? 0 : CV_LANGUAGE_LEVELS.length - index;
 }
 
 /**
@@ -71,6 +124,8 @@ export function CvDocument({
   className,
 }: CvDocumentProps) {
   const populated = new Set(getPopulatedCvSections(cv));
+  const skills = visibleSkillCategories(cv.skills);
+  const education = visibleEducation(cv.education);
 
   return (
     <article
@@ -83,20 +138,21 @@ export function CvDocument({
       )}
       style={{ width: "210mm", minHeight: "297mm" }}
     >
+      {/*
+        The identity block is TIGHT: name, headline and contact line sit on
+        consecutive lines with no rule and no gap between them, as the template
+        prints them.
+      */}
       <header className="text-center">
-        <h2 className="text-2xl font-semibold tracking-[0.18em] text-neutral-900 uppercase">
+        <h2 className="text-2xl leading-[1.1] font-semibold tracking-[0.18em] text-neutral-900 uppercase">
           {cv.full_name}
         </h2>
         {cv.headline ? (
-          <p className="mt-1 text-[11px] tracking-wide text-neutral-700">
+          <p className="mt-0.5 text-[11px] leading-snug tracking-wide text-neutral-700">
             {cv.headline}
           </p>
         ) : null}
-        <span
-          aria-hidden
-          className="mx-auto mt-2 block h-0.5 w-12 rounded-full bg-blue-700"
-        />
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[10.5px] text-neutral-600">
+        <div className="mt-0.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[10.5px] leading-snug text-neutral-600">
           {cv.phone ? (
             <>
               <span>{cv.phone}</span>
@@ -170,40 +226,52 @@ export function CvDocument({
         </DocumentSection>
       ) : null}
 
+      {/*
+        Three columns, filled from the LEFT at any count, and the level said in
+        words. No proficiency meter: the template prints none, so neither does
+        the preview.
+      */}
       {populated.has("languages") ? (
         <DocumentSection title="Languages">
-          <div className="flex flex-wrap items-center justify-around gap-x-4 gap-y-2">
+          <ul className="grid grid-cols-3 gap-x-6 gap-y-1 text-[11px]">
             {cv.languages.map((language) => (
-              <div
-                key={language.id}
-                className="flex items-center gap-2 text-[11px]"
-              >
+              <li key={language.id} className="flex items-baseline gap-1.5">
                 <span className="font-semibold text-neutral-900">
                   {language.name}
                 </span>
                 <span className="text-neutral-600">{language.level}</span>
-                <Dots filled={levelDots(language.level)} />
+              </li>
+            ))}
+          </ul>
+        </DocumentSection>
+      ) : null}
+
+      {/*
+        One block per CATEGORY: a bold heading line, then its keywords on the
+        line under it joined by a middle dot.
+      */}
+      {populated.has("skills") ? (
+        <DocumentSection title="Skills">
+          <div className="space-y-2">
+            {skills.map((entry) => (
+              <div key={entry.id} className="text-[11px]">
+                {entry.category.trim() ? (
+                  <p className="font-semibold text-neutral-900">
+                    {skillCategoryHeading(entry.category)}
+                  </p>
+                ) : null}
+                {entry.keywords.length > 0 ? (
+                  <p className="leading-relaxed text-neutral-700">
+                    {entry.keywords.join(CV_KEYWORD_SEPARATOR)}
+                  </p>
+                ) : null}
               </div>
             ))}
           </div>
         </DocumentSection>
       ) : null}
 
-      {populated.has("skills") ? (
-        <DocumentSection title="Skills">
-          <div className="flex flex-wrap gap-1">
-            {cv.skills.map((skill) => (
-              <span
-                key={skill}
-                className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10.5px] font-medium text-neutral-700"
-              >
-                {skill}
-              </span>
-            ))}
-          </div>
-        </DocumentSection>
-      ) : null}
-
+      {/* Three lines, always in this order: name, link, description. */}
       {populated.has("projects") ? (
         <DocumentSection title="Projects">
           <div className="space-y-2">
@@ -211,14 +279,38 @@ export function CvDocument({
               <div key={project.id} className="text-[11px]">
                 <p className="font-semibold text-neutral-900">{project.name}</p>
                 {project.link ? (
-                  <p className="text-[10.5px] text-neutral-600">
-                    {project.link_label || "Link"}:{" "}
-                    <span className="underline decoration-neutral-400 underline-offset-2">
-                      {project.link}
-                    </span>
+                  <p className="text-[10.5px] break-words text-blue-700">
+                    {project.link_label?.trim() || project.link}
+                    <span aria-hidden> {"↗"}</span>
                   </p>
                 ) : null}
-                <p className="text-neutral-700">{project.description}</p>
+                {project.description ? (
+                  <p className="text-neutral-700">{project.description}</p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </DocumentSection>
+      ) : null}
+
+      {populated.has("education") ? (
+        <DocumentSection title="Education">
+          <div className="space-y-2">
+            {education.map((entry) => (
+              <div key={entry.id} className="text-[11px]">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="text-neutral-900">{entry.institution}</p>
+                  {entry.period ? (
+                    <span className="shrink-0 text-[10.5px] text-neutral-600">
+                      {entry.period}
+                    </span>
+                  ) : null}
+                </div>
+                {educationDegreeLine(entry) ? (
+                  <p className="text-neutral-700">
+                    {educationDegreeLine(entry)}
+                  </p>
+                ) : null}
               </div>
             ))}
           </div>
@@ -249,23 +341,6 @@ function Dot() {
   return (
     <span aria-hidden className="text-neutral-400">
       •
-    </span>
-  );
-}
-
-/** Five proficiency dots, `filled` of them solid. Decorative. */
-function Dots({ filled }: { filled: number }) {
-  return (
-    <span aria-hidden className="flex items-center gap-0.5">
-      {Array.from({ length: CV_LANGUAGE_LEVELS.length }, (_, index) => (
-        <span
-          key={index}
-          className={cn(
-            "h-1.5 w-1.5 rounded-full",
-            index < filled ? "bg-neutral-800" : "bg-neutral-300",
-          )}
-        />
-      ))}
     </span>
   );
 }

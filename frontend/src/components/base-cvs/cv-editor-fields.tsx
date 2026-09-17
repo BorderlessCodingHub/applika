@@ -95,7 +95,11 @@ export function CvSelectField<T extends string>({
   const labelId = useId();
 
   return (
-    <div className={cn("space-y-1.5", className)}>
+    // `relative` is load-bearing: Radix Select renders a visually hidden native
+    // `<select>` with `position: absolute`. Without a positioned ancestor its
+    // containing block is the viewport, so it escapes the shell's clip and
+    // stretches the DOCUMENT to its own offset — a second scrollbar.
+    <div className={cn("relative space-y-1.5", className)}>
       <span id={labelId} className="block text-sm leading-none font-medium">
         {label}
       </span>
