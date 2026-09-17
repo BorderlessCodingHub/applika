@@ -658,7 +658,8 @@ def _delimiter_balance(source: str) -> tuple[int, int, int, int]:
     final_bracket_depth)``. A depth that ever goes negative means a closer
     with no opener - exactly the shape a OneLineEntry emitted outside its grid
     produces. Quoted strings are skipped so a URL or a bullet glyph cannot
-    throw the count off.
+    throw the count off; Typst ``//`` comments are *not*, because no template
+    carries one today - add that if a template ever comments out a delimiter.
     """
     paren = bracket = lowest_paren = lowest_bracket = 0
     in_string = escaped = False
