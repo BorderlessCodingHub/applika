@@ -109,6 +109,18 @@ const PAGES: PageCase[] = [
     assert: heading("Details"),
   },
 
+  {
+    // KODI-003. The route is only USEFUL with `?id=<application>` — the picker
+    // and the editor both need one — so the data-driven surfaces are covered by
+    // `cv-builder.spec.ts` against a seeded application, not here. What this row
+    // is worth is exactly what this suite is for: the route exists in the static
+    // export, boots under its Suspense boundary and renders its own shell with
+    // no uncaught error, which is what a `useSearchParams` page gets wrong first.
+    path: "/applications/cv",
+    visitors: ["user", "admin"],
+    assert: heading("Application CV", 1),
+  },
+
   // ---- admin -----------------------------------------------------------
   {
     path: "/admin",
@@ -164,7 +176,7 @@ test("the suite covers every page named in the acceptance criteria", () => {
   // `pending`/`pendingReason` parking mechanism is gone, so there is no longer
   // any way to keep a row in the table while skipping it at runtime.
   // 14 until KODI-002 added `/cvs`.
-  expect(PAGES).toHaveLength(15);
+  expect(PAGES).toHaveLength(16);
 
   // A row with no visitors generates no tests at all, which the length check
   // above cannot see. Same for a duplicated path: 15 rows covering 14 routes.
