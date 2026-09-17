@@ -513,3 +513,21 @@ describe("the identity header", () => {
     expect(header?.textContent).toContain("Senior Backend Engineer");
   });
 });
+
+describe("the document's typeface", () => {
+  it("typesets the page in the app's sans family, not a serif", () => {
+    // The owner's template typesets in Source Sans 3 throughout, so the
+    // preview must not be a serif. Source Sans 3 is the Typst compiler's font,
+    // vendored under the backend, and is NOT served to the browser — the
+    // preview uses the app's own self-hosted sans stack instead.
+    //
+    // Asserted as the CLASS on the document root: jsdom resolves no CSS
+    // variable, so a computed-style check would read an empty string.
+    const { container } = render(<CvDocument cv={FULL_CV} />);
+    const root = container.querySelector('[data-slot="cv-document"]');
+
+    expect(root).not.toBeNull();
+    expect(root?.className).toMatch(/\bfont-sans\b/);
+    expect(root?.className).not.toMatch(/\bfont-serif\b/);
+  });
+});

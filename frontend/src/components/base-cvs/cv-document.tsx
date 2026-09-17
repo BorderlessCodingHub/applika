@@ -129,6 +129,14 @@ export interface CvDocumentProps {
  * print artefact that must look the same in light and dark mode, and it is the
  * node a later export step rasterises.
  *
+ * It DOES take the app's sans family (`font-sans`, self-hosted Inter): the
+ * owner's template typesets in Source Sans 3 throughout, so a serif preview
+ * mismatched the PDF on the one thing the reader sees first. `font-sans` is a
+ * static family — identical in light and dark mode — so it does not breach the
+ * rule above, which is about the COLOUR tokens that flip with the theme. Do not
+ * add a font dependency to close the last of the gap: Source Sans 3 is the
+ * Typst compiler's font, vendored under the backend, and is not served here.
+ *
  * Pure: props in, markup out. No state, no fetching, no browser APIs.
  */
 export function CvDocument({
@@ -146,7 +154,7 @@ export function CvDocument({
       data-slot="cv-document"
       aria-label={`CV preview for ${cv.full_name || "your CV"}`}
       className={cn(
-        "mx-auto max-w-full bg-white px-[15mm] py-[15mm] font-serif text-neutral-900",
+        "mx-auto max-w-full bg-white px-[15mm] py-[15mm] font-sans text-neutral-900",
         className,
       )}
       style={{ width: "210mm", minHeight: "297mm" }}
