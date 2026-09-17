@@ -29,10 +29,20 @@ const SHEET_PANEL = '[data-slot="sheet-content"]';
 const COOKIE_NOTICE = '[role="dialog"][aria-label="Cookie notice"]';
 const CLI_BANNER = '[role="region"][aria-label="applika-cli announcement"]';
 
-/** The primary entries a non-admin sees, in display order. */
+/**
+ * The primary entries a non-admin sees, in display order.
+ *
+ * Kept BY HAND rather than derived from `PRIMARY_NAV`: this suite asserts tab
+ * order and hit-testing against the list, so a derived copy would follow an
+ * accidental nav change instead of catching it. The price is that the constant
+ * can rot — KODI-002 inserting `/cvs` went unnoticed here — so the rail test
+ * below pins it to the rendered nav, exactly and in order, and fails with the
+ * whole list in the diff the moment the two disagree.
+ */
 const PRIMARY_LABELS = [
   "Dashboard",
   "Applications",
+  "CVs",
   "Agenda",
   "Reports",
   "Cycles",
@@ -213,7 +223,9 @@ test.describe("below md the sidebar collapses into a menu", () => {
       },
     );
 
-    // Brand, close, six primary entries and the account menu.
+    // Brand, close, every primary entry and the account menu. Expressed as
+    // `+ 3` rather than a literal so it tracks the nav; the rail test pins
+    // `PRIMARY_LABELS` itself to what actually renders.
     expect(report.controlCount).toBe(PRIMARY_LABELS.length + 3);
 
     // Guard against a vacuous pass: the two pieces of chrome must genuinely
@@ -406,12 +418,22 @@ test.describe("at md and above the shell renders a fixed rail", () => {
 
     const rail = page.locator("aside");
     await expect(rail).toBeVisible();
-    await expect(
-      rail.getByRole("navigation", { name: "Primary" }),
-    ).toBeVisible();
+    const primary = rail.getByRole("navigation", { name: "Primary" });
+    await expect(primary).toBeVisible();
     for (const label of PRIMARY_LABELS) {
       await expect(rail.getByRole("link", { name: label })).toBeVisible();
     }
+
+    // The pin for the hand-kept constant above. The loop only proves every
+    // expected entry EXISTS; this proves the nav holds exactly those entries,
+    // in exactly that order, and nothing else. The brand link sits outside the
+    // `Primary` landmark, so the landmark's links are the entries alone.
+    // Without this, a nav change surfaces as an unrelated tab-order failure
+    // three tests away instead of here, naming the real cause.
+    await expect(
+      primary.getByRole("link"),
+      "the rail's entries no longer match PRIMARY_LABELS — update the constant to mirror PRIMARY_NAV in src/components/layout/nav.ts",
+    ).toHaveText(PRIMARY_LABELS);
 
     // The breakpoint, proved from both sides: no hamburger above `md`.
     await expect(menuTrigger(page)).toHaveCount(0);

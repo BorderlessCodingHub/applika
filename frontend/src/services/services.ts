@@ -1,4 +1,5 @@
 import { AdminService } from "./implementations/admin-service";
+import { BaseCvService } from "./implementations/base-cv-service";
 import { CycleService } from "./implementations/cycle-service";
 import { FeedbackService } from "./implementations/feedback-service";
 import { AuthService } from "./implementations/auth-service";
@@ -20,6 +21,7 @@ class ServiceContainer {
   reports = new ReportsService();
   feedbacks = new FeedbackService();
   cycles = new CycleService();
+  baseCvs = new BaseCvService();
 }
 
 export const services = new ServiceContainer();

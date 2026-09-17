@@ -46,7 +46,7 @@ export function Sidebar({
       )}
 
       {/* A plain scroll container, not a ScrollArea primitive: the rail holds
-          at most seven entries and only overflows on very short viewports. */}
+          at most eight entries and only overflows on very short viewports. */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <SidebarNav
           items={items}

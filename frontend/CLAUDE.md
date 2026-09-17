@@ -98,6 +98,20 @@ Each protected route has a thin `page.tsx` shell that renders a `*-page.tsx` com
 
 `/login` lives at `src/app/login/`, OUTSIDE the `(public)` group, so it renders no landing header or footer. The URL is unchanged.
 
+**Search params under static export.** `output: "export"` FAILS THE BUILD on a
+page that reads `useSearchParams()` outside a `<Suspense>` boundary. The shell
+`page.tsx` owns the boundary and the `*-page.tsx` component reads the params —
+see `src/app/(protected)/cvs/editor/`, which is the precedent for any future
+`?query=` route.
+
+Master CV routes (KODI-002):
+
+| Route             | Shell                             | Component                            |
+| ----------------- | --------------------------------- | ------------------------------------ |
+| `/cvs`            | `(protected)/cvs/page.tsx`        | `cvs-page.tsx` — the gallery, delete |
+| `/cvs/new`        | `(protected)/cvs/new/page.tsx`    | `new-cv-page.tsx` — create           |
+| `/cvs/editor?id=` | `(protected)/cvs/editor/page.tsx` | `cv-editor-page.tsx` — edit          |
+
 ### Providers
 
 Providers are split into two layers:
@@ -152,6 +166,33 @@ const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues:
 - Show inline error messages below each field using `form.formState.errors.field?.message`
 - Highlight invalid fields with `cn(error && "border-destructive focus-visible:ring-destructive")`
 - Trigger validation on Select/custom inputs with `form.setValue("field", value, { shouldValidate: true })`
+
+### Master CVs (`src/components/base-cvs/`)
+
+The master CV surface is presentational components plus one schema module, and
+the pages wire data to them:
+
+- `types.ts` is the SINGLE vocabulary: `BaseCv` (wire shape), `CvFormValues`
+  (form shape), the item types and `BASE_CVS_MAX`. `src/services/types/base-cv.ts`
+  RE-EXPORTS them rather than forking a second set.
+- `base-cv-schema.ts` owns the zod schema and the only two translations between
+  the two shapes: `baseCvToFormValues()` (wire to form — `phone: null` becomes
+  `""` so inputs stay controlled) and `toBaseCvPayload()` (form to wire — `""`
+  becomes `null`, strings are trimmed, blank rows are dropped, and `id`,
+  `created_at` and `updated_at` are never sent).
+- `base-cv-editor.tsx` renders the `<form>` itself and takes a
+  `UseFormReturn<CvFormValues>`; the page owns the schema, the defaults and the
+  submit. It MINTS section-item ids via its `newItemId` prop. Section item ids
+  are CLIENT-generated and preserved round-trip — never regenerate them on load.
+- `base-cv-list.tsx` owns all four list states and the delete confirmation.
+- The cap is told on screen by `NewCvCard`, whose default `BASE_CV_LIMIT_REASON`
+  contains the words "the limit is three". Do NOT pass an API message as
+  `reason`: the server's `detail` belongs in the 409 toast, and overriding the
+  default would take those words off the screen.
+- `cv-document.tsx` deliberately uses raw `neutral-*`/`blue-700` utilities
+  instead of semantic tokens: it is a print artefact that must look identical in
+  light and dark mode. `CV_DOCUMENT_EXPORT_ID` and the editor's `actions` slot
+  are the seam a later PDF export hangs off.
 
 ### Date Inputs
 
@@ -252,24 +293,27 @@ state and hoists a SINGLE `FeedbackDialog`. It renders `CliPromoBanner` and the
 
 ## Key Files
 
-| File                                            | Purpose                                                          |
-| ----------------------------------------------- | ---------------------------------------------------------------- |
-| `src/services/services.ts`                      | Service DI container (single import point for all API calls)     |
-| `src/lib/api-client.ts`                         | Axios instance with cookie auth (`withCredentials`)              |
-| `src/lib/query-client.ts`                       | React Query configuration                                        |
-| `src/contexts/auth-context.tsx`                 | Auth state + polling-based token refresh                         |
-| `src/contexts/supports-context.tsx`             | Shared lookup data (platforms, steps, feedbacks)                 |
-| `src/components/layout/root-providers.tsx`      | Root-level providers (QueryClient, Theme, Auth, Tooltip, Sonner) |
-| `src/components/layout/protected-providers.tsx` | Protected-route providers (nested AuthProvider)                  |
-| `src/components/layout/app-shell.tsx`           | Signed-in shell: rail, header, mobile sheet, feedback dialog     |
-| `src/components/layout/nav.ts`                  | Nav entries, `navItemsFor()` admin filter, `isNavItemActive()`   |
-| `src/components/layout/sidebar.tsx`             | Rail body: brand, nav, account menu (rail AND mobile sheet)      |
-| `src/components/layout/sidebar-nav.tsx`         | Nav entry list; owns `aria-current="page"`                       |
-| `src/components/layout/header.tsx`              | Shell header: menu trigger, cycle selector, agenda, theme        |
-| `src/components/layout/user-menu.tsx`           | Account menu (`card` in the rail, `avatar` in the header)        |
-| `src/app/globals.css`                           | ALL design tokens (`@theme`) and `@utility` definitions          |
-| `src/hooks/use-applications.ts`                 | Application list, client-side filtering, CRUD mutations          |
-| `src/components/ui/date-picker.tsx`             | Timezone-safe date picker (use instead of `<input type="date">`) |
+| File                                            | Purpose                                                           |
+| ----------------------------------------------- | ----------------------------------------------------------------- |
+| `src/services/services.ts`                      | Service DI container (single import point for all API calls)      |
+| `src/lib/api-client.ts`                         | Axios instance with cookie auth (`withCredentials`)               |
+| `src/lib/query-client.ts`                       | React Query configuration                                         |
+| `src/contexts/auth-context.tsx`                 | Auth state + polling-based token refresh                          |
+| `src/contexts/supports-context.tsx`             | Shared lookup data (platforms, steps, feedbacks)                  |
+| `src/components/layout/root-providers.tsx`      | Root-level providers (QueryClient, Theme, Auth, Tooltip, Sonner)  |
+| `src/components/layout/protected-providers.tsx` | Protected-route providers (nested AuthProvider)                   |
+| `src/components/layout/app-shell.tsx`           | Signed-in shell: rail, header, mobile sheet, feedback dialog      |
+| `src/components/layout/nav.ts`                  | Nav entries, `navItemsFor()` admin filter, `isNavItemActive()`    |
+| `src/components/layout/sidebar.tsx`             | Rail body: brand, nav, account menu (rail AND mobile sheet)       |
+| `src/components/layout/sidebar-nav.tsx`         | Nav entry list; owns `aria-current="page"`                        |
+| `src/components/layout/header.tsx`              | Shell header: menu trigger, cycle selector, agenda, theme         |
+| `src/components/layout/user-menu.tsx`           | Account menu (`card` in the rail, `avatar` in the header)         |
+| `src/app/globals.css`                           | ALL design tokens (`@theme`) and `@utility` definitions           |
+| `src/hooks/use-applications.ts`                 | Application list, client-side filtering, CRUD mutations           |
+| `src/hooks/use-base-cvs.ts`                     | Master CV list + the `base-cvs` cache key every write invalidates |
+| `src/components/base-cvs/types.ts`              | Master CV vocabulary (`BaseCv`, `CvFormValues`, `BASE_CVS_MAX`)   |
+| `src/components/base-cvs/base-cv-schema.ts`     | Master CV zod schema and the form/wire translations               |
+| `src/components/ui/date-picker.tsx`             | Timezone-safe date picker (use instead of `<input type="date">`)  |
 
 ---
 

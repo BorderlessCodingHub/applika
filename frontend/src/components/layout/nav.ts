@@ -1,6 +1,7 @@
 import {
   Briefcase,
   CalendarClock,
+  FileText,
   History,
   LayoutDashboard,
   NotepadText,
@@ -27,6 +28,7 @@ export const PRIMARY_NAV: NavItem[] = [
     exact: true,
   },
   { href: "/applications", label: "Applications", icon: Briefcase },
+  { href: "/cvs", label: "CVs", icon: FileText },
   { href: "/agenda", label: "Agenda", icon: CalendarClock },
   { href: "/reports", label: "Reports", icon: NotepadText },
   { href: "/cycles", label: "Cycles", icon: History },
