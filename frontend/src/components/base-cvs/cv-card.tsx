@@ -12,23 +12,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ExportCvButton } from "@/components/base-cvs/export-cv-button";
-import {
-  skillCategoryKeywords,
-  skillKeywordCount,
-  type BaseCv,
-} from "@/components/base-cvs/types";
+import { skillKeywords, type BaseCv } from "@/components/base-cvs/types";
 import { cn } from "@/lib/utils";
-
-/**
- * Between two keywords of one category. The middle dot the typeset document
- * uses, because the card is showing the same run of words — but the card is
- * NOT one of the renderers the parity table pins, so it keeps its own copy
- * rather than importing the document's constant.
- */
-const KEYWORD_SEPARATOR = " \u00b7 ";
 
 function formatUpdated(value: string | null): string | null {
   // `new Date(null)` is the epoch, not an invalid date, so a CV that has never
@@ -76,10 +65,10 @@ export function CvCard({
   isExporting = false,
   className,
 }: CvCardProps) {
-  // Every keyword of every category, uncapped. The owner asked to see what is
-  // IN the CV, and a hidden "+7" is the thing they asked us to stop doing.
-  const categories = skillCategoryKeywords(cv.skills);
-  const keywordCount = skillKeywordCount(cv.skills);
+  // Every keyword of every category, flattened, deduplicated, uncapped. The
+  // owner asked to see what is IN the CV, and a hidden "+7" is the thing they
+  // asked us to stop doing.
+  const keywords = skillKeywords(cv.skills);
   const updated = formatUpdated(cv.updated_at);
 
   return (
@@ -109,36 +98,26 @@ export function CvCard({
           {cv.headline ? ` · ${cv.headline}` : ""}
         </p>
 
-        {/*
-          A chip per keyword would be four times the height of the same words
-          set as text, and a tile has to stay a tile. So the card prints the
-          skills the way the CV prints them: the category, then its keywords
-          joined by a middle dot. Nothing is clipped and nothing is counted
-          away — a `line-clamp` here would be exactly the silent truncation
-          this card is being fixed to remove.
-        */}
         <div className="mt-4 min-h-8">
-          {categories.length > 0 ? (
-            <dl className="space-y-1">
-              {categories.map((entry) => (
-                <div key={entry.id} className="text-[11px] leading-snug">
-                  <dt className="inline font-medium text-foreground">
-                    {entry.category}
-                  </dt>
-                  {/*
-                    The `dd` is rendered even with nothing to say: a `dt` with
-                    no `dd` after it is not a valid description list, and a
-                    screen reader announces the orphan term oddly. A category
-                    with no keywords yet is a real, saveable state.
-                  */}
-                  <dd className="inline text-muted-foreground">
-                    {entry.keywords.length > 0
-                      ? `: ${entry.keywords.join(KEYWORD_SEPARATOR)}`
-                      : ""}
-                  </dd>
-                </div>
+          {keywords.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {keywords.map((keyword) => (
+                // `max-w-full whitespace-normal` beats the registry Badge's
+                // `whitespace-nowrap`: a keyword may be 100 characters
+                // (`BASE_CV_MAX.skillKeyword`), which is wider than the tile,
+                // and the shell column is `overflow-hidden` — so without this
+                // the tail is CLIPPED with no way to reveal it, which is the
+                // silent truncation this card exists to stop. It wraps
+                // instead. Realistic keywords are untouched.
+                <Badge
+                  key={keyword}
+                  variant="secondary"
+                  className="max-w-full rounded px-1.5 py-0.5 text-[10px] font-medium whitespace-normal"
+                >
+                  {keyword}
+                </Badge>
               ))}
-            </dl>
+            </div>
           ) : (
             <p className="text-xs text-muted-foreground/70">
               No skills added yet
@@ -151,7 +130,7 @@ export function CvCard({
             `${cv.experience.length} ${cv.experience.length === 1 ? "role" : "roles"}`,
             `${cv.projects.length} ${cv.projects.length === 1 ? "project" : "projects"}`,
             `${cv.languages.length} ${cv.languages.length === 1 ? "language" : "languages"}`,
-            `${keywordCount} ${keywordCount === 1 ? "keyword" : "keywords"}`,
+            `${keywords.length} ${keywords.length === 1 ? "keyword" : "keywords"}`,
           ].join(" \u00b7 ")}
         </p>
 
