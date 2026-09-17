@@ -23,6 +23,7 @@ import {
   useCvPreviewData,
 } from "@/components/base-cvs/cv-form-sections";
 import { CvDocumentPreview } from "@/components/base-cvs/cv-document-preview";
+import { CvEditorFooter } from "@/components/base-cvs/cv-editor-footer";
 import type { CvFormValues } from "@/components/base-cvs/types";
 import { JobDescriptionPanel } from "@/components/tailored-cvs/job-description-panel";
 import { TailoredCvReadOnlyBanner } from "@/components/tailored-cvs/tailored-cv-read-only-banner";
@@ -160,13 +161,15 @@ export function TailoredCvEditor({
           The same fix as `BaseCvEditor`'s aside, for the same reason: stuck to
           the TOP of the scrollport (`main`'s only chrome, the shell `Header`,
           is OUTSIDE it, so `top-20` reserved 5rem of dead band) and capped by
-          the SCROLLPORT rather than by `100dvh`. The column is a flex column,
+          the SCROLLPORT MINUS the sticky footer below rather than by `100dvh`
+          — otherwise the preview's `<figcaption>`, which carries the layout
+          notice, ends under that footer. The column is a flex column,
           so the preview takes whatever the job description leaves instead of
           the two adding up past the viewport — which is what used to put the
           bottom of a CV copy's preview out of reach for good, a sticky box
           taller than the scrollport never scrolling to its own end.
         */}
-        <div className="contents md:sticky md:top-0 md:flex md:max-h-scrollport md:min-w-0 md:flex-col md:gap-4">
+        <div className="contents md:sticky md:top-0 md:flex md:max-h-editor-scrollport md:min-w-0 md:flex-col md:gap-4">
           <JobDescriptionPanel
             jobDescription={jobDescription}
             onAdd={onAddJobDescription}
@@ -190,21 +193,23 @@ export function TailoredCvEditor({
       </div>
 
       {/*
-        Same wrapper, same height rules, same `z-30` in both states: the footer
-        sits above the cookie bar because `CookieConsent` RESERVES its height on
-        `body` (see frontend/CLAUDE.md, "Stacking contract"), and the e2e suite
-        hit-tests that a sticky footer control is still the topmost element.
+        Same `CvEditorFooter` in both states, shared with `BaseCvEditor` so the
+        two cannot drift: it sits above the cookie bar because `CookieConsent`
+        RESERVES its height on `body` (see frontend/CLAUDE.md, "Stacking
+        contract"), and it RESERVES ITS OWN height in turn for the preview
+        column above. The e2e suite hit-tests both. Read-only with no `actions`
+        mounts no footer at all — and then reserves nothing, which is correct.
       */}
       {readOnly ? (
         actions ? (
-          <div className="sticky bottom-0 z-30 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-background/85 py-3 backdrop-blur">
+          <CvEditorFooter>
             <div className="mr-auto flex min-w-0 flex-wrap items-center gap-2">
               {actions}
             </div>
-          </div>
+          </CvEditorFooter>
         ) : null
       ) : (
-        <div className="sticky bottom-0 z-30 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-background/85 py-3 backdrop-blur">
+        <CvEditorFooter>
           <div className="mr-auto flex min-w-0 flex-wrap items-center gap-2">
             {actions}
             {onDelete ? (
@@ -264,7 +269,7 @@ export function TailoredCvEditor({
             ) : null}
             {submitLabel}
           </Button>
-        </div>
+        </CvEditorFooter>
       )}
     </form>
   );

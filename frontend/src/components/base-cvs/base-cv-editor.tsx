@@ -10,6 +10,7 @@ import {
   useCvPreviewData,
 } from "@/components/base-cvs/cv-form-sections";
 import { CvDocumentPreview } from "@/components/base-cvs/cv-document-preview";
+import { CvEditorFooter } from "@/components/base-cvs/cv-editor-footer";
 import type { CvFormValues } from "@/components/base-cvs/types";
 import { cn } from "@/lib/utils";
 
@@ -87,16 +88,21 @@ export function BaseCvEditor({
           form column ran to 0. Now 24px, which is the "Live preview" label
           and its gap — visible chrome, not dead band.
 
-          `max-h-scrollport`, never `100dvh`: the pane lives in `main`, which is
-          one header shorter than the viewport. The aside is a flex COLUMN so
-          the preview fills whatever the label and the caption leave, instead of
-          a third constant guessing at their height.
+          `max-h-editor-scrollport`, never `100dvh`: the pane lives in `main`,
+          which is one header shorter than the viewport AND one submit row
+          shorter still, because that row is `sticky bottom-0` inside the same
+          scrollport. Capped at the FULL scrollport the column's last band —
+          the `<figcaption>` carrying the layout notice — ended under the bar,
+          invisible on `/cvs/new`, where no export button carries a second copy
+          of it. The aside is a flex COLUMN so the preview fills whatever the
+          label and the caption leave, instead of a third constant guessing at
+          their height.
         */}
         <aside
           aria-label="CV preview"
           className={cn(
             "min-w-0 space-y-2",
-            "md:sticky md:top-0 md:flex md:max-h-scrollport md:flex-col",
+            "md:sticky md:top-0 md:flex md:max-h-editor-scrollport md:flex-col",
           )}
         >
           <p className="shrink-0 text-xs font-medium tracking-wide-label text-muted-foreground uppercase">
@@ -107,11 +113,12 @@ export function BaseCvEditor({
       </div>
 
       {/*
-        `sticky`, never `fixed`: `CookieConsent` reserves its height on `body`,
-        so this row lands above the bar at every width (frontend/CLAUDE.md,
-        "Stacking contract"). The e2e suite hit-tests it with the notice up.
+        `CvEditorFooter` owns the stickiness AND publishes its measured height
+        to `--cv-editor-footer-height`, which the aside above spends through
+        `md:max-h-editor-scrollport`. Do not inline this row again: an
+        unmeasured sticky footer puts the preview's caption back under itself.
       */}
-      <div className="sticky bottom-0 z-30 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-background/85 py-3 backdrop-blur">
+      <CvEditorFooter>
         {actions ? (
           <div className="mr-auto flex min-w-0 flex-wrap items-center gap-2">
             {actions}
@@ -133,7 +140,7 @@ export function BaseCvEditor({
           ) : null}
           {submitLabel}
         </Button>
-      </div>
+      </CvEditorFooter>
     </form>
   );
 }

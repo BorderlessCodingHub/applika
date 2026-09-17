@@ -274,6 +274,36 @@
   );
 }
 
+@utility max-h-editor-scrollport {
+  /*
+    `max-h-scrollport` MINUS the CV editor's own sticky submit row.
+
+    That row is `sticky bottom-0 z-30` INSIDE the scrollport, so it paints over
+    the last band of it at every scroll position. A sticky pane capped at the
+    full scrollport therefore ends UNDER the bar, and what lands there is the
+    preview's `<figcaption>` — the layout notice. On `/cvs/editor?id=` a second,
+    visible copy rides along with `ExportCvButton` in that very footer; on
+    `/cvs/new` there is no export button (nothing is typeset until the CV has
+    been saved once), so the caption is the ONLY copy and it was invisible at
+    `md` and up. KODI-009 fixed that here.
+
+    The two subtractions do NOT double-count. `--cookie-notice-height` is
+    chrome pinned to the VIEWPORT, outside `main`, already reserved by `body`'s
+    padding; `--cv-editor-footer-height` is chrome pinned to the inside of
+    `main`, which `body` knows nothing about. Take one away and the caption
+    goes back under something.
+
+    Use this instead of `max-h-scrollport` on any column that shares a
+    scrollport with a `sticky bottom-0` footer. It degrades to exactly
+    `max-h-scrollport` when no editor is mounted, because the property is unset
+    then and the fallback is `0px`.
+  */
+  max-height: calc(
+    100dvh - var(--cookie-notice-height, 0px) - var(--app-header-height) -
+      var(--cv-editor-footer-height, 0px)
+  );
+}
+
 @utility admin-card {
   /* Admin card hover lift */
   will-change: transform;
@@ -427,6 +457,17 @@
       height; nothing reads this there.
     */
     --app-header-height: 3.5rem;
+
+    /*
+      Height of the CV editor's `sticky bottom-0` submit row, which is pinned
+      INSIDE `main` and paints over the bottom of the scrollport.
+      `CvEditorFooter` is its only owner and mirrors `CookieConsent`: it
+      measures itself with a `ResizeObserver` (the row is `flex-wrap` and
+      really does become two rows), writes the value here, and REMOVES the
+      property on unmount — an editor that is not on screen reserves nothing.
+      `max-h-editor-scrollport` is the only thing that spends it.
+    */
+    --cv-editor-footer-height: 0px;
   }
 
   body {

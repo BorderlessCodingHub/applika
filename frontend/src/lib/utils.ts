@@ -8,8 +8,12 @@ import { extendTailwindMerge } from "tailwind-merge";
  * BOTH and the later rule in the stylesheet wins — the override silently does
  * nothing. Register them so a caller can actually replace them.
  *
- * `h-viewport`, `min-h-viewport` and `max-h-scrollport` are the same story in
- * the `h`, `min-h` and `max-h` groups.
+ * `h-viewport`, `min-h-viewport`, `max-h-scrollport` and
+ * `max-h-editor-scrollport` are the same story in the `h`, `min-h` and `max-h`
+ * groups. The two `max-h-*` ones must both be listed: they are siblings, so
+ * without this `cn("max-h-scrollport", "max-h-editor-scrollport")` would keep
+ * BOTH and the winner would be whichever `@utility` `globals.css` declares
+ * last — not the one the caller wrote last.
  */
 const twMerge = extendTailwindMerge({
   extend: {
@@ -17,7 +21,7 @@ const twMerge = extendTailwindMerge({
       shadow: ["shadow-card", "shadow-elevated"],
       h: ["h-viewport"],
       "min-h": ["min-h-viewport"],
-      "max-h": ["max-h-scrollport"],
+      "max-h": ["max-h-scrollport", "max-h-editor-scrollport"],
     },
   },
 });

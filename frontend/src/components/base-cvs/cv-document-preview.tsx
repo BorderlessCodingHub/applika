@@ -50,11 +50,14 @@ export interface CvDocumentPreviewProps {
  * counted, the caller's phantom `top-20` sticky offset, and the caller's own
  * label and caption. KODI-009 measured it: the first sheet sat 104px below the
  * top of the scrollport at every scroll position, which is the gap the owner
- * reported. The CALLER now bounds the column with `max-h-scrollport` and lays
- * it out as a flex column; this figure just fills its share (`md:flex-1
- * md:min-h-0` from the caller's `className`). Nothing here subtracts anything,
- * so nothing here can drift — and the cookie bar's reserved strip is still
- * subtracted, once, inside `max-h-scrollport`.
+ * reported. The CALLER now bounds the column with `max-h-editor-scrollport`
+ * and lays it out as a flex column; this figure just fills its share
+ * (`md:flex-1 md:min-h-0` from the caller's `className`). Nothing here
+ * subtracts anything, so nothing here can drift — and the cookie bar's
+ * reserved strip AND the editor's sticky submit row are both subtracted, once
+ * each, inside `max-h-editor-scrollport`. That second subtraction is what
+ * keeps the `<figcaption>` below on screen: it is the ONLY copy of the layout
+ * notice on `/cvs/new`, where no export button exists yet.
  *
  * Below `md` there is no cap at all and the sheets flow in `main`'s scroll,
  * which is where KODI-006's AC7 requires every pixel of added height to land.

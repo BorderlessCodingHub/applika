@@ -1844,11 +1844,21 @@ async function previewGapReport(page: Page) {
     const form = document.querySelector<HTMLElement>(
       '[data-slot="cv-section"]',
     )!;
+    const footer = document.querySelector<HTMLElement>(
+      'form [class*="sticky"][class*="bottom-0"]',
+    );
     const m = main.getBoundingClientRect();
     const round = (n: number) => Math.round(n);
     return {
       scrollTop: round(main.scrollTop),
       scrollportHeight: main.clientHeight,
+      footerHeight: footer
+        ? round(footer.getBoundingClientRect().height)
+        : null,
+      // What `CvEditorFooter` published for `max-h-editor-scrollport` to spend.
+      reservedFooter: getComputedStyle(
+        document.documentElement,
+      ).getPropertyValue("--cv-editor-footer-height"),
       // The band of nothing above the first A4 sheet — the owner's complaint.
       sheetGap: round(sheet.getBoundingClientRect().top - m.top),
       asideGap: round(aside.getBoundingClientRect().top - m.top),
@@ -1917,13 +1927,30 @@ test("the live preview does not gap from the top of the page as it scrolls (12)"
   ).toBeLessThanOrEqual(1);
 
   // 3. The pane is stuck to the top of the scrollport itself, and is sized
-  //    from the SCROLLPORT rather than from the viewport: no slack, no
-  //    overflow.
+  //    from the SCROLLPORT MINUS the sticky submit row it shares that
+  //    scrollport with: no slack, no overflow, and nothing left under the bar.
+  //
+  //    It used to be the FULL scrollport, and that was the defect — the row is
+  //    `sticky bottom-0` INSIDE `main`, so the pane's last band was painted
+  //    over, and that band is the `<figcaption>` carrying the layout notice.
+  //    The footer now publishes its measured height and
+  //    `max-h-editor-scrollport` subtracts it. Assertion 5 below hit-tests the
+  //    consequence; this one pins the arithmetic that produces it.
   for (const report of scrolled) {
     expect(report.asideGap).toBe(0);
     expect(
-      Math.abs(report.asideHeight - report.scrollportHeight),
-      `the pane is not the height of the scrollport: ${JSON.stringify(report)}`,
+      report.footerHeight,
+      "the editor renders no sticky footer at all",
+    ).toBeGreaterThan(0);
+    expect(
+      report.reservedFooter.trim(),
+      `the footer reserved nothing: ${JSON.stringify(report)}`,
+    ).toBe(`${report.footerHeight}px`);
+    expect(
+      Math.abs(
+        report.asideHeight - (report.scrollportHeight - report.footerHeight!),
+      ),
+      `the pane is not the scrollport minus the footer: ${JSON.stringify(report)}`,
     ).toBeLessThanOrEqual(1);
   }
 
@@ -1935,4 +1962,232 @@ test("the live preview does not gap from the top of the page as it scrolls (12)"
   }
 
   console.log(`[KODI-009] preview top gap — ${JSON.stringify(at)}`);
+});
+
+/* ===========================================================================
+ * KODI-009 (13) — the layout notice is ON SCREEN, not under the submit row.
+ * ======================================================================== */
+
+/**
+ * The preview's `<figcaption>` really belongs to ITSELF at its own centre.
+ *
+ * Sibling of `expectReachableWithCookieNoticeUp`, and the same technique for
+ * the mirror-image bug. That helper proves the VIEWPORT-pinned cookie bar does
+ * not cover an in-page sticky footer. This one proves the SCROLLPORT-pinned
+ * sticky footer does not cover the preview caption above it — which it did,
+ * completely, at `md` and up.
+ *
+ * Why it matters most on `/cvs/new`: the editors mount `ExportCvButton` in the
+ * footer and it carries a second, visible copy of the notice, so the hidden
+ * caption there was a duplicate. `/cvs/new` has NO export button — the server
+ * typesets the STORED CV, so there is nothing to render until it has been saved
+ * once — which made the caption the only copy on screen, and it was entirely
+ * occluded.
+ *
+ * jsdom reports every height as zero, so this is only provable in a real
+ * browser, by hit-test rather than by reading CSS: the arithmetic in
+ * `max-h-editor-scrollport` can be right and still land wrong.
+ */
+async function captionHitTest(page: Page) {
+  return page.evaluate((notice) => {
+    const caption = Array.from(document.querySelectorAll("figcaption")).find(
+      (element) => element.textContent?.includes(notice),
+    );
+    if (!caption) return { found: false as const };
+
+    const rect = caption.getBoundingClientRect();
+    const main = document.querySelector("main")!.getBoundingClientRect();
+    const topmost = document.elementFromPoint(
+      Math.round(rect.left + rect.width / 2),
+      Math.round(rect.top + rect.height / 2),
+    );
+
+    const describe = (element: Element | null): string => {
+      if (!element) return "nothing";
+      if (element.closest('[class*="sticky"][class*="bottom-0"]')) {
+        return "the editor's sticky submit footer";
+      }
+      if (element.closest('[role="dialog"][aria-label="Cookie notice"]')) {
+        return "the cookie notice";
+      }
+      return `<${element.tagName.toLowerCase()}>`;
+    };
+
+    const aside = caption.closest("figure")!.parentElement!;
+    const asideRect = aside.getBoundingClientRect();
+    const footer = document.querySelector<HTMLElement>(
+      'form [class*="sticky"][class*="bottom-0"]',
+    );
+    const footerRect = footer?.getBoundingClientRect() ?? null;
+
+    return {
+      found: true as const,
+      height: Math.round(rect.height),
+      scrollTop: Math.round(
+        document.querySelector<HTMLElement>("main")!.scrollTop,
+      ),
+      // 0 once the pane is really stuck to the top of the scrollport, which is
+      // the state the footer can occlude. Before that the caption is simply
+      // below the fold, which is not this bug; and at the very END of the
+      // scroll the pane un-sticks with its container and rides up, which is
+      // not this bug either — the old geometry passes there too.
+      asideGap: Math.round(asideRect.top - main.top),
+      asideHeight: Math.round(asideRect.height),
+      scrollportHeight: Math.round(main.height),
+      footerHeight: footerRect ? Math.round(footerRect.height) : null,
+      // Negative means the caption ENDS above the top edge of the submit row.
+      // This is the whole fix, in one number.
+      captionBottomVsFooterTop: footerRect
+        ? Math.round(rect.bottom - footerRect.top)
+        : null,
+      // Positive means the caption hangs past the bottom of the scrollport.
+      pastScrollportBottom: Math.round(rect.bottom - main.bottom),
+      onScreen: rect.top >= 0 && rect.bottom <= window.innerHeight + 1,
+      coveredBy:
+        topmost && caption.contains(topmost) ? null : describe(topmost),
+    };
+  }, PDF_LAYOUT_NOTICE);
+}
+
+/**
+ * Hit-test the caption in the ONE state the footer could cover it: scrolled far
+ * enough that the sticky pane is PINNED to the top of the scrollport and sized
+ * to its own cap, with its bottom edge up against the submit row.
+ *
+ * Neither end of the scroll proves anything. At `scrollTop: 0` the caption is
+ * below the fold for the ordinary reason that the page has not been scrolled
+ * yet, and `elementFromPoint` outside the viewport returns nothing. At the very
+ * END of the scroll the pane un-sticks with its container and rides up, so the
+ * caption clears the footer even on the old geometry. `asideGap === 0` and
+ * `asideHeight === scrollportHeight - footerHeight` are asserted here precisely
+ * so this test cannot quietly drift into one of those two states and keep
+ * passing while the defect is back.
+ */
+async function expectCaptionUnoccluded(page: Page, where: string) {
+  // Past the page heading, where the pane is really stuck, and well short of
+  // the end of the scroll, where it stops being stuck again.
+  await page.evaluate(() => {
+    const main = document.querySelector<HTMLElement>("main")!;
+    main.scrollTop = Math.min(800, Math.round(main.scrollHeight / 2));
+  });
+  await page.waitForTimeout(200);
+
+  const hit = await captionHitTest(page);
+
+  expect(hit.found, `no <figcaption> carries the notice on ${where}`).toBe(
+    true,
+  );
+  if (!hit.found) return;
+
+  expect(hit.height, `the caption has no height on ${where}`).toBeGreaterThan(
+    0,
+  );
+  expect(
+    hit.scrollTop,
+    `${where} never scrolled, so the footer was never over the pane`,
+  ).toBeGreaterThan(0);
+
+  // The pane is stuck to the top of the scrollport AND at its full cap: this
+  // is the state the old geometry put the caption under the bar in.
+  expect(
+    hit.asideGap,
+    `the preview pane is not pinned on ${where}: ${JSON.stringify(hit)}`,
+  ).toBe(0);
+  expect(
+    hit.footerHeight,
+    `${where} renders no sticky footer at all`,
+  ).toBeGreaterThan(0);
+  // The pane never claims the band the footer occupies. `<=` rather than `===`
+  // because a preview shorter than its cap simply does not reach it (a narrow
+  // column scales the A4 sheet down); the EXACT equality on a pane that does
+  // reach its cap is pinned by the preview-gap test above, on the 12-role CV.
+  // On the old geometry this was the full scrollport and the check fails.
+  expect(
+    hit.asideHeight,
+    `the pane claims the footer's band on ${where}: ${JSON.stringify(hit)}`,
+  ).toBeLessThanOrEqual(hit.scrollportHeight - hit.footerHeight! + 1);
+
+  expect(
+    hit.onScreen,
+    `the caption is off screen on ${where}: ${JSON.stringify(hit)}`,
+  ).toBe(true);
+  expect(
+    hit.pastScrollportBottom,
+    `the caption hangs past the scrollport on ${where}: ${JSON.stringify(hit)}`,
+  ).toBeLessThanOrEqual(1);
+
+  // The caption ENDS above the top edge of the submit row.
+  expect(
+    hit.captionBottomVsFooterTop,
+    `the caption runs past the top of the submit row on ${where}: ${JSON.stringify(hit)}`,
+  ).toBeLessThanOrEqual(1);
+
+  // THE assertion: the caption's own centre belongs to the caption. Before
+  // `--cv-editor-footer-height` this said "the editor's sticky submit footer".
+  expect(
+    hit.coveredBy,
+    `the layout notice is covered on ${where} by ${hit.coveredBy}`,
+  ).toBeNull();
+
+  console.log(`[KODI-009] caption hit-test ${where} — ${JSON.stringify(hit)}`);
+}
+
+test("the layout notice is never under the submit row, on either editor (13)", async ({
+  page,
+  request,
+}) => {
+  const cvId = await seedBaseCv(request, CV_NAME);
+  await loginAs(page, "user");
+
+  // ---- /cvs/new: the caption is the ONLY copy on screen ----------------
+  await page.goto("/cvs/new");
+  await expect(page.getByLabel("CV label", { exact: true })).toBeVisible();
+  await expect(page.locator(SHEET).first()).toBeVisible();
+
+  // There is no export button here, so there is no second copy to fall back
+  // on. This is the assertion that makes the hit-test below load-bearing.
+  await expect(page.getByRole("button", { name: "Download PDF" })).toHaveCount(
+    0,
+  );
+  await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(1);
+  await expectCaptionUnoccluded(page, "/cvs/new");
+
+  // Still unoccluded once the footer GROWS: it is `flex-wrap`, and the whole
+  // reason the height is measured rather than hardcoded.
+  await page.setViewportSize({ width: 768, height: 800 });
+  await expect(page.locator(SHEET).first()).toBeVisible();
+  await expectCaptionUnoccluded(page, "/cvs/new at md exactly");
+  await page.setViewportSize({ width: 1280, height: 720 });
+
+  // ---- /cvs/editor?id=: the caption AND the button's own copy ----------
+  await openSettledEditor(page, cvId);
+  await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(2);
+  await expectCaptionUnoccluded(page, "/cvs/editor?id=");
+
+  // The footer is taller here — it carries the export beside Save and Cancel —
+  // so the reservation has to TRACK it, not a constant measured on /cvs/new.
+  await expectReachableWithCookieNoticeUp(page, "Download PDF");
+  await expectCaptionUnoccluded(page, "/cvs/editor?id= with the notice up");
+});
+
+test("the CV gallery says nothing about a preview it does not render (13)", async ({
+  page,
+  request,
+}) => {
+  await seedBaseCv(request, CV_NAME);
+  await loginAs(page, "user");
+  await page.goto("/cvs");
+
+  const download = page.getByRole("button", {
+    name: `Download PDF ${CV_NAME}`,
+  });
+  await expect(download).toBeVisible();
+
+  // The tiles render NO preview, so the preview-is-not-the-PDF notice
+  // qualifies nothing here. It used to reach this page `sr-only` through the
+  // export button's `aria-describedby` — heard once per tile by a screen
+  // reader, seen by nobody. `toHaveCount(0)` covers the sr-only copy too:
+  // `getByText` matches it, it is only visually hidden.
+  await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(0);
+  await expect(download).not.toHaveAttribute("aria-describedby", /./);
 });
