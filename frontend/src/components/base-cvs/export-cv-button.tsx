@@ -28,8 +28,8 @@ export interface ExportCvButtonProps {
   cvName?: string;
   /**
    * `"inline"` is the editor footer: a full-size button beside the visible
-   * layout notice. `"compact"` is a gallery tile, where the button is small and
-   * the notice is announced but not painted — see the note on the notice below.
+   * layout notice. `"compact"` is a gallery tile: a small button and NO
+   * notice at all — see the note on the notice below.
    */
   layout?: "inline" | "compact";
   className?: string;
@@ -44,17 +44,22 @@ export interface ExportCvButtonProps {
  * and available on a CV that can no longer be edited.
  *
  * The notice is part of the component, not a decoration the caller adds, so it
- * travels with the button to every footer the button is dropped into and stays
- * wired to it through `aria-describedby`. The button is NEVER disabled by a
- * read-only application or by a deleted source CV — reading and exporting a
+ * travels with the button to every EDITOR footer the button is dropped into and
+ * stays wired to it through `aria-describedby`. The button is NEVER disabled by
+ * a read-only application or by a deleted source CV — reading and exporting a
  * locked CV copy is allowed; only a render already in flight disables it.
  *
- * `layout="compact"` does NOT drop the notice — it is still in the DOM, still
- * the button's `aria-describedby`, still assertable by its words. It stops
- * being PAINTED, because the surface it was written for is a preview the user
- * can mistake for the PDF, and a gallery tile renders no preview at all. Three
- * tiles would otherwise repeat a 34ch paragraph three times about a document
- * none of them shows.
+ * `layout="compact"` renders NO notice: no `<p>`, and no `aria-describedby`
+ * pointing at one. The notice qualifies a PREVIEW the user could mistake for
+ * the PDF, and a gallery tile renders no preview — so on `/cvs` it described
+ * nothing. It was `sr-only` there, which made it the worst of both: a screen
+ * reader heard "Preview does not show the final PDF layout." up to three times,
+ * once per tile, about a document the page never shows, while a sighted user
+ * never saw it at all. The download button stands alone on a tile.
+ *
+ * This changes WHERE the notice is said, never WHAT it says.
+ * `CV_PDF_LAYOUT_NOTICE` is byte-identical and `layout="inline"` — the default,
+ * and the editors' copy — is untouched.
  */
 export function ExportCvButton({
   onExport,
@@ -87,7 +92,7 @@ export function ExportCvButton({
         disabled={isExporting}
         aria-busy={isExporting}
         aria-label={cvName ? `${label} ${cvName}` : undefined}
-        aria-describedby={noticeId}
+        aria-describedby={compact ? undefined : noticeId}
       >
         {isExporting ? (
           <Loader2 aria-hidden className="animate-spin" />
@@ -97,16 +102,14 @@ export function ExportCvButton({
         {label}
       </Button>
 
-      <p
-        id={noticeId}
-        className={cn(
-          compact
-            ? "sr-only"
-            : "max-w-[34ch] text-xs text-pretty text-muted-foreground",
-        )}
-      >
-        {CV_PDF_LAYOUT_NOTICE}
-      </p>
+      {compact ? null : (
+        <p
+          id={noticeId}
+          className="max-w-[34ch] text-xs text-pretty text-muted-foreground"
+        >
+          {CV_PDF_LAYOUT_NOTICE}
+        </p>
+      )}
 
       {/* Empty but mounted: a live region inserted at the same tick may not announce. */}
       <span aria-live="polite" className="sr-only">

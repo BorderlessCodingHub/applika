@@ -66,6 +66,32 @@ describe("the export button", () => {
     expect(notice.id).not.toBe("");
   });
 
+  it("keeps the notice on the default `inline` layout, which is the editors'", () => {
+    // The editors' copy. `CvDocumentPreview`'s `<figcaption>` is the other one,
+    // and on `/cvs/new` — where no export button mounts at all — it is the
+    // only one. Weakening this would take the notice off an editor screen.
+    render(<ExportCvButton onExport={() => {}} layout="inline" />);
+
+    const button = screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL });
+    const notice = screen.getByText(CV_PDF_LAYOUT_NOTICE);
+
+    expect(notice).toBeVisible();
+    expect(notice).not.toHaveClass("sr-only");
+    expect(button).toHaveAccessibleDescription(CV_PDF_LAYOUT_NOTICE);
+  });
+
+  it("says nothing about a preview on the `compact` layout, which renders none", () => {
+    render(<ExportCvButton onExport={() => {}} layout="compact" />);
+
+    const button = screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL });
+
+    // Not `sr-only` — ABSENT. A gallery tile shows no preview, so there is
+    // nothing for the words to qualify, and an `sr-only` copy per tile only
+    // repeated them to the one user who could not check them against a render.
+    expect(screen.queryByText(CV_PDF_LAYOUT_NOTICE)).toBeNull();
+    expect(button).not.toHaveAttribute("aria-describedby");
+  });
+
   it("asks for the PDF when clicked", async () => {
     const onExport = vi.fn();
     render(<ExportCvButton onExport={onExport} />);

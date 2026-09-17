@@ -326,7 +326,7 @@ describe("the tile's download (AC2)", () => {
     expect(button).toHaveTextContent(CV_PDF_EXPORT_LABEL);
   });
 
-  it("still carries the preview-is-not-the-PDF words on the compact tile", () => {
+  it("says nothing about a preview it does not render", () => {
     render(
       <CvCard
         cv={cv()}
@@ -336,14 +336,18 @@ describe("the tile's download (AC2)", () => {
       />,
     );
 
-    // Not painted on a tile that shows no preview, but in the DOM and tied to
-    // the button — the notice never leaves the export.
+    // The tile renders NO preview, so the preview-is-not-the-PDF notice
+    // describes nothing here. It used to reach the tile `sr-only` through the
+    // export button's `aria-describedby`, which meant a screen reader heard it
+    // once per tile — up to three times on `/cvs` — about a document the page
+    // never shows, while a sighted user never saw it at all. Gone from the
+    // DOM, and gone from the button's description: the download stands alone.
+    expect(screen.queryByText(CV_PDF_LAYOUT_NOTICE)).toBeNull();
     expect(
       screen.getByRole("button", {
         name: `${CV_PDF_EXPORT_LABEL} Backend CV`,
       }),
-    ).toHaveAccessibleDescription(CV_PDF_LAYOUT_NOTICE);
-    expect(screen.getByText(CV_PDF_LAYOUT_NOTICE)).toBeInTheDocument();
+    ).not.toHaveAccessibleDescription(CV_PDF_LAYOUT_NOTICE);
   });
 
   it("asks the parent for this CV's PDF, and nothing else", async () => {
