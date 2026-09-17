@@ -16,7 +16,13 @@ dependencies = [
     "snowflake-id>=1.0.2",
     "redis[hiredis]>=7.4.0",
     "cryptography>=46.0.7",
-    "rendercv[full]==2.8",
+    # Not `rendercv[full]`: that extra pulls `rendercv-fonts` (59 MB installed,
+    # fifteen families) for a theme that typesets in Source Sans 3 alone, plus
+    # the CLI-only `typer`, `watchdog` and `packaging`. The four faces we need
+    # are vendored under app/application/services/cv_rendering/fonts/ and the
+    # Typst compiler is driven directly, so only `typst` is added back.
+    "rendercv==2.8",
+    "typst==0.15.0",
 ]
 
 [dependency-groups]

@@ -55,6 +55,14 @@ PDF_MAGIC = b'%PDF-'
 # Every ``/BaseFont /ABCDEF+Name`` the PDF declares.
 BASE_FONT = re.compile(rb'/BaseFont\s*/([A-Za-z0-9+\-,#]+)')
 
+# The six-letter tag PDF puts in front of a *subset* embedded face, as in
+# ``HTVCTQ+SourceSans3-Bold``. Stripping it leaves the face name itself.
+SUBSET_TAG = re.compile(r'^[A-Z]{6}\+')
+
+# The only family the ``applika`` theme typesets in, and so the only one the
+# API image ships fonts for.
+EMBEDDED_FONT_FAMILY = 'SourceSans3'
+
 FULL_SECTIONS: dict[str, Any] = {
     'links': [
         {'id': 'lnk-1', 'label': 'GitHub', 'url': 'https://github.com/ada'},
@@ -289,15 +297,31 @@ async def test_filename_is_slugged_from_the_cv_label(
 async def test_source_sans_3_is_embedded_in_the_pdf(
     async_client: AsyncClient,
 ):
-    """The theme's font must travel inside the file, not be assumed present."""
+    """The theme's font must travel inside the file, not be assumed present.
+
+    The exclusivity half is the load-bearing one. The API image ships only the
+    four vendored Source Sans 3 faces, and a glyph they do not cover does not
+    fail the compile - Typst silently falls back to a built-in face and embeds
+    *that*. Two real regressions look identical to "it rendered": turning the
+    theme's ``show_icons`` back on embeds FontAwesome, and losing the vendored
+    font path embeds LibertinusSerif. Asserting the set holds Source Sans 3
+    **and nothing else** is what catches both.
+    """
     base_cv = await _create_base_cv(async_client)
     response = await async_client.post(f'/base-cvs/{base_cv["id"]}/pdf')
     assert response.status_code == 200, msg(200, response.text)
 
     fonts = {name.decode() for name in BASE_FONT.findall(response.content)}
-    assert any('SourceSans3' in font for font in fonts), msg(
-        'an embedded Source Sans 3 face', sorted(fonts)
+    faces = {SUBSET_TAG.sub('', font) for font in fonts}
+
+    assert faces, msg('at least one embedded face', sorted(fonts))
+    assert any(face.startswith(EMBEDDED_FONT_FAMILY) for face in faces), msg(
+        'an embedded Source Sans 3 face', sorted(faces)
     )
+    strangers = {
+        face for face in faces if not face.startswith(EMBEDDED_FONT_FAMILY)
+    }
+    assert not strangers, msg('only Source Sans 3 faces', sorted(strangers))
 
 
 async def test_the_request_carries_no_theme_and_no_body(

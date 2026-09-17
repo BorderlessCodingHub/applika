@@ -41,11 +41,17 @@ from app.application.services.cv_rendering.mapper import (
     map_cv_to_rendercv_yaml,
 )
 from app.application.services.cv_rendering.renderer import (
+    FONTS_DIR,
+    RENDERCV_TYPST_PACKAGE_DIR,
     THEME_SOURCE_DIR,
+    TYPST_PACKAGE_FILES,
+    TYPST_PACKAGE_NAME,
     CVPdfRenderer,
+    _bundled_typst_package_version,
     get_cv_pdf_renderer,
     pdf_filename,
     slugify,
+    typst_package_path,
 )
 from app.application.services.cv_rendering.themes.applika import ApplikaTheme
 from app.core.exceptions import PdfRenderFailed
@@ -234,6 +240,84 @@ def test_one_line_entry_sections_open_a_grid_the_ending_can_close():
     assert 'columns: (1fr, 1fr, 1fr)' in beginning, msg(
         'languages keeps the three-column grid', beginning
     )
+
+
+# --- The trimmed font payload --------------------------------------------------
+
+
+def test_only_the_four_source_sans_3_faces_are_vendored():
+    """The image ships this family and no other.
+
+    ``rendercv[full]`` would install fifteen families (59 MB) for a theme that
+    uses one. The list below is the *whole* directory, not a glob of one
+    extension: a family re-added as ``.otf`` or ``.ttc`` would slip past a
+    ``*.ttf`` check and back into the image.
+    """
+    shipped = {path.name for path in FONTS_DIR.iterdir() if path.is_file()}
+    assert shipped == {
+        'SourceSans3-Regular.ttf',
+        'SourceSans3-Bold.ttf',
+        'SourceSans3-Italic.ttf',
+        'SourceSans3-BoldItalic.ttf',
+        'OFL.txt',
+    }, msg('the four Source Sans 3 faces and their licence', sorted(shipped))
+
+
+def test_the_font_licence_travels_with_the_fonts():
+    """OFL 1.1 requires the licence to ship with the font files."""
+    licence = FONTS_DIR / 'OFL.txt'
+    assert licence.is_file(), msg('an OFL.txt beside the fonts', licence)
+    assert 'SIL Open Font License' in licence.read_text(encoding='utf-8')
+
+
+def test_rendercv_fonts_is_never_imported():
+    """The 59 MB package must not be reachable from the render path.
+
+    Importing the renderer is the whole test: if any module it pulls in still
+    reaches ``rendercv.renderer.pdf_png`` - the one module in RenderCV that
+    imports ``rendercv_fonts`` - the name lands in ``sys.modules`` and the
+    dependency is back in the image.
+    """
+    import sys
+
+    import app.application.services.cv_rendering.renderer  # noqa: F401
+
+    assert 'rendercv_fonts' not in sys.modules, msg(
+        'no rendercv_fonts import', 'it was imported'
+    )
+    assert 'rendercv.renderer.pdf_png' not in sys.modules, msg(
+        'no rendercv.renderer.pdf_png import', 'it was imported'
+    )
+
+
+def test_the_typst_package_is_laid_out_the_way_the_compiler_wants():
+    """``@preview/rendercv:<version>`` resolves only under this exact shape."""
+    version = _bundled_typst_package_version()
+    package_directory = (
+        typst_package_path() / 'preview' / TYPST_PACKAGE_NAME / version
+    )
+    assert package_directory.is_dir(), msg(
+        'preview/rendercv/<version>/', package_directory
+    )
+    for name in TYPST_PACKAGE_FILES:
+        assert (package_directory / name).is_file(), msg('a file', name)
+
+
+def test_the_typst_package_version_is_read_from_the_installed_wheel():
+    """Pinning it would break every render on a RenderCV upgrade."""
+    manifest = (RENDERCV_TYPST_PACKAGE_DIR / 'typst.toml').read_text()
+    version = _bundled_typst_package_version()
+    assert f'version = "{version}"' in manifest, msg(version, manifest[:200])
+
+
+def test_a_manifest_with_no_version_is_a_loud_failure(monkeypatch, tmp_path):
+    """A silent wrong version would fail every render with an import error."""
+    from app.application.services.cv_rendering import renderer as module
+
+    (tmp_path / 'typst.toml').write_text('[package]\nname = "rendercv"\n')
+    monkeypatch.setattr(module, 'RENDERCV_TYPST_PACKAGE_DIR', tmp_path)
+    with pytest.raises(RuntimeError):
+        _bundled_typst_package_version()
 
 
 def test_vendored_section_beginning_has_no_key_achievements_branch():

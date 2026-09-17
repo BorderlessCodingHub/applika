@@ -202,8 +202,16 @@ Handlers registered in `app/presentation/handlers.py` via `register_handlers(app
 
 `app/application/services/cv_rendering/` turns a stored CV document — a master
 CV or an application's copy — into PDF bytes with **RenderCV 2.8 + Typst**
-(`rendercv[full]==2.8`, pinned; the `full` extra is what pulls `typst` and
-`rendercv-fonts`). All wheels, no system packages, no Dockerfile change.
+(`rendercv==2.8` + `typst==0.15.0`, both pinned). All wheels, no system
+packages, no Dockerfile change.
+
+Deliberately **not** `rendercv[full]`: that extra pulls `rendercv-fonts` — 59 MB
+of fifteen font families — for a theme that typesets in Source Sans 3 alone,
+plus the CLI-only `typer`, `watchdog` and `packaging`. The single module in
+RenderCV that imports it is `renderer/pdf_png.py`, and nothing else in the
+render path needs that module, so `renderer.py` never imports it and drives
+`typst.Compiler` itself. Schema validation is unaffected — RenderCV hardcodes
+`available_font_families` as a literal list, so `Source Sans 3` stays valid.
 
 - `mapper.py` — a pure `document → RenderCV dict/YAML` map. An empty section is
   omitted, never printed blank. It also defuses the three ways ordinary stored
@@ -217,6 +225,15 @@ CV or an application's copy — into PDF bytes with **RenderCV 2.8 + Typst**
   folder named after it **next to the input YAML**, so every render gets its own
   copy of `themes/applika/`. Failure or timeout → `PdfRenderFailed`, with a
   fixed message — RenderCV's own errors quote the CV field that upset them.
+- `fonts/` — the four Source Sans 3 faces the theme uses, plus their `OFL.txt`
+  (the licence has to travel with the files). They are the **only** fonts on
+  the compiler's path, and `ignore_system_fonts=True` keeps the host's own out,
+  so a developer machine and the API image — which has no system fonts at all —
+  render the same row identically. A glyph Source Sans 3 lacks does not fail
+  the compile: Typst silently falls back to a built-in face and embeds that,
+  which is why the integration test asserts the embedded font set holds Source
+  Sans 3 **and nothing else**. Kept outside `themes/applika/` on purpose — that
+  folder is copied per render.
 - `themes/applika/` — the one theme, `ApplikaTheme(ClassicTheme)` plus four
   `.j2.typ` templates, vendored from the owner's own theme and renamed
   `custom` → `applika`. Every design token is an overridden field default, so
