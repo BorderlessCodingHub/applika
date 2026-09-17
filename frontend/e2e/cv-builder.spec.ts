@@ -1021,6 +1021,16 @@ test("the live preview flows a long CV across real A4 sheets (AC1, AC2, AC3)", a
   }
   await expect(page.getByText(`CV preview: ${sheets} pages.`)).toHaveCount(1);
 
+  // ---- KODI-006's AC7, at the viewport where a tall preview could break it
+  // A multi-page preview is exactly the height that used to have nowhere to go
+  // but the document. It lands in the pane's own capped scroll at `md` and up,
+  // and in `main`'s below it — never in `<html>`'s.
+  const scroll = await scrollReport(page);
+  expect(
+    scroll.documentScrollHeight - scroll.documentClientHeight,
+    `a ${sheets}-page preview grew the page: ${JSON.stringify(scroll)}`,
+  ).toBeLessThanOrEqual(1);
+
   // The notice is untouched and still said twice, and it does MORE work now
   // that the preview looks like paginated A4 (KODI-004 AC3).
   await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(2);
