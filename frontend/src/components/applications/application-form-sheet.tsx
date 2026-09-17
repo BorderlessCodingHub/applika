@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -47,6 +47,9 @@ import { useCompanySearch } from "@/hooks/use-companies";
 import { DatePickerInput } from "../ui/date-picker";
 import { useApplicationMutate } from "@/hooks/use-applications";
 
+/** Server ceiling on `job_description`. The field is optional. */
+const JOB_DESCRIPTION_MAX = 50_000;
+
 function getCurrencySymbol(currency: string) {
   return (
     SelectOptions.CURRENCY.find((c) => c.value === currency)?.symbol ?? currency
@@ -80,6 +83,15 @@ const schema = z
     work_mode: z.enum(WorkModeValues).optional(),
     country: z.string().optional(),
     observation: z.string().optional(),
+    // Optional, and capped under the server's 50 000 so a 422 — which
+    // `getApiError` would render as a raw FastAPI detail array — is unreachable.
+    job_description: z
+      .string()
+      .max(
+        JOB_DESCRIPTION_MAX,
+        `Keep this under ${JOB_DESCRIPTION_MAX} characters`,
+      )
+      .optional(),
   })
   .superRefine((data, ctx) => {
     const hasSalary =
@@ -136,6 +148,7 @@ function buildDefaultValues(application: Application | null) {
     work_mode: application?.work_mode ?? undefined,
     country: application?.country ?? undefined,
     observation: application?.observation ?? undefined,
+    job_description: application?.job_description ?? undefined,
   } as FormData;
 }
 
@@ -153,6 +166,7 @@ export function ApplicationFormSheet({
   onOpenChange,
   application,
 }: Props) {
+  const jobDescriptionId = useId();
   const { supports } = useSupports();
   const { fetchCompanies } = useCompanySearch();
   const { submit: applicationSubmit, isPending } = useApplicationMutate({
@@ -231,6 +245,9 @@ export function ApplicationFormSheet({
       work_mode: data.work_mode,
       country: data.country,
       observation: data.observation,
+      job_description: data.job_description?.trim()
+        ? data.job_description
+        : null,
     };
     await applicationSubmit(payload);
   }
@@ -575,6 +592,33 @@ export function ApplicationFormSheet({
               placeholder="Optional notes…"
               rows={3}
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor={jobDescriptionId}>Job description</Label>
+            <Textarea
+              id={jobDescriptionId}
+              {...form.register("job_description")}
+              placeholder="Paste the job posting here — it sits beside this application's CV copy while you tailor it."
+              rows={6}
+              aria-invalid={
+                form.formState.errors.job_description ? true : undefined
+              }
+              className={cn(
+                form.formState.errors.job_description &&
+                  "border-destructive focus-visible:ring-destructive",
+              )}
+            />
+            {form.formState.errors.job_description ? (
+              <p className="text-xs text-destructive">
+                {form.formState.errors.job_description.message}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Optional. Shown next to the CV copy on the application&apos;s CV
+                page.
+              </p>
+            )}
           </div>
 
           <Button

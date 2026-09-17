@@ -112,6 +112,16 @@ Master CV routes (KODI-002):
 | `/cvs/new`        | `(protected)/cvs/new/page.tsx`    | `new-cv-page.tsx` — create           |
 | `/cvs/editor?id=` | `(protected)/cvs/editor/page.tsx` | `cv-editor-page.tsx` — edit          |
 
+Application CV copy route (KODI-003):
+
+| Route                  | Shell                                  | Component                                     |
+| ---------------------- | -------------------------------------- | --------------------------------------------- |
+| `/applications/cv?id=` | `(protected)/applications/cv/page.tsx` | `application-cv-page.tsx` — picker AND editor |
+
+`?id=` is the APPLICATION's id, never the copy's. There is no nav entry: the
+route is reached from the CV link on an application row, and
+`e2e/shell-responsive.spec.ts` pins `PRIMARY_NAV` at seven entries.
+
 ### Providers
 
 Providers are split into two layers:
@@ -193,6 +203,66 @@ the pages wire data to them:
   instead of semantic tokens: it is a print artefact that must look identical in
   light and dark mode. `CV_DOCUMENT_EXPORT_ID` and the editor's `actions` slot
   are the seam a later PDF export hangs off.
+
+### Tailored CVs (`src/components/tailored-cvs/`)
+
+A **tailored CV** is an application's own COPY of a master CV, edited for that
+job. The vocabulary is deliberate and worth keeping straight:
+
+- a **master CV** (`base-cvs/`, `/base-cvs`) belongs to the USER, and there are
+  at most three;
+- a **CV copy** (`tailored-cvs/`, `/applications/{id}/cv`) belongs to an
+  APPLICATION, and there is at most one;
+- the copy is a full snapshot. Editing or deleting the master CV never touches
+  it. Deleting the master only clears the copy's `base_cv_id`, and the editor
+  then shows the words `source CV deleted` (`TAILORED_CV_SOURCE_DELETED`).
+
+**There is no default master CV.** The user picks one per application, every
+time. `BaseCvPicker` is the only way to create a copy, and its one shortcut is
+`preselectedBaseCvId(options)`: with exactly ONE master CV it returns that id
+and the picker reports it through `onValueChange`, so the PAGE stays the single
+source of truth for the selection. With none, the picker becomes an invitation
+to write a master CV first.
+
+The module mirrors `base-cvs/` rather than forking it:
+
+- `types.ts` is the vocabulary (`TailoredCv`, `BaseCvOption`,
+  `TailoredCvReadOnlyReason`) and owns the on-screen copy constants
+  (`TAILORED_CV_READ_ONLY_COPY`, `TAILORED_CV_SOURCE_DELETED`). Assert the
+  WORDS, never the classes. `src/services/types/tailored-cv.ts` re-exports it.
+- `tailored-cv-schema.ts` mirrors `base-cv-schema.ts` field for field and
+  carries every length ceiling explicitly. **Keep every client ceiling at or
+  under the server's.** `getApiError` returns `detail` unguarded and FastAPI's
+  422 `detail` is an ARRAY, so a server-side validation error would reach the
+  toast as garbage; a reachable 422 is the bug, not the toast.
+- `tailored-cv-editor.tsx` is `CvFormSections` — the SAME body as the master CV
+  editor, so the two cannot drift — plus the job-description panel, the
+  provenance badge and read-only mode. Like `BaseCvEditor` it does NOT own
+  `useForm`; the page does. Its `actions` slot is the seam PDF export hangs off.
+- `was_ai_generated` and `adjustments` exist on the wire type and render
+  NOWHERE. Nothing in this product generates a CV, and no UI may suggest it
+  will.
+
+**Read-only is the application's state, never the copy's.** The page derives
+`readOnlyReason` as `application.finalized ? "finalized" : isViewingPastCycle ?
+"archived" : null` and both the picker and the editor take it: the banner goes
+up, every control is disabled and the submit footer is not rendered at all, so
+there is nothing to click by accident. The UI is a courtesy, not the rule — the
+API refuses a finalized write with 409 and an archived one with 422 whatever the
+screen shows, and both reach the user as the server's own `detail` in a toast.
+`GET` carries no such guard, so VIEWING a locked copy always works.
+
+Because the API has no `GET /applications/{id}`, the page reads its application
+out of the cycle's list through `useApplicationById`, under the SAME query key
+as `useApplications`. That is also why "archived" is knowable at all: the wire
+carries no per-application `cycle_id`, so the cycle being VIEWED
+(`useCycleContext().isViewingPastCycle`) is the only signal, and an archived
+application is therefore reachable only by opening its CV from the applications
+list with that cycle selected.
+
+A 404 from `GET /applications/{id}/cv` is NOT a failure — it is the ordinary
+"no copy yet" answer and the page renders the picker for it. Use
+`isNoTailoredCv(error)` to tell it apart from a real one.
 
 ### Date Inputs
 
@@ -332,6 +402,8 @@ state and hoists a SINGLE `FeedbackDialog`. It renders `CliPromoBanner` and the
 | `src/hooks/use-base-cvs.ts`                     | Master CV list + the `base-cvs` cache key every write invalidates |
 | `src/components/base-cvs/types.ts`              | Master CV vocabulary (`BaseCv`, `CvFormValues`, `BASE_CVS_MAX`)   |
 | `src/components/base-cvs/base-cv-schema.ts`     | Master CV zod schema and the form/wire translations               |
+| `src/components/tailored-cvs/types.ts`          | CV copy vocabulary and its on-screen copy constants               |
+| `src/hooks/use-tailored-cv.ts`                  | CV copy query + the `tailored-cvs` key every write invalidates    |
 | `src/components/ui/date-picker.tsx`             | Timezone-safe date picker (use instead of `<input type="date">`)  |
 
 ---
