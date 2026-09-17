@@ -45,6 +45,12 @@ async def _forbidden_access_handler(
     return JSONResponse(status_code=403, content={'detail': exc.message})
 
 
+async def _pdf_render_failed_handler(
+    request: Request, exc: exceptions.PdfRenderFailed
+):
+    return JSONResponse(status_code=500, content={'detail': exc.message})
+
+
 def register_handlers(app: FastAPI):
     """Register all errors handlers for the app"""
     app.add_exception_handler(NotImplementedError, _not_implemented_handler)
@@ -63,4 +69,7 @@ def register_handlers(app: FastAPI):
     app.add_exception_handler(exceptions.InvalidDate, _invalid_date_handler)
     app.add_exception_handler(
         exceptions.ForbiddenAccess, _forbidden_access_handler
+    )
+    app.add_exception_handler(
+        exceptions.PdfRenderFailed, _pdf_render_failed_handler
     )
