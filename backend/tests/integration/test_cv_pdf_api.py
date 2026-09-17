@@ -16,6 +16,11 @@ What they pin, by criterion:
   copy of an application *archived in a cycle* both download. The refusals that
   landed with the CV copy itself are re-asserted beside them, so a future change
   cannot open the write path while "fixing" the read path.
+* **The owner's links ruling** - "Links isn't a section, it must appear in
+  bellow the headline, alongside with my email, location and links." A link
+  RenderCV recognises and one it does not both come out of a real compile as
+  clickable header connections, and a URL it would refuse is dropped instead
+  of raising.
 * **ADR-0004** - another user's row is a 404, indistinguishable from a miss,
   and being an admin grants nothing.
 
@@ -62,6 +67,17 @@ SUBSET_TAG = re.compile(r'^[A-Z]{6}\+')
 # The only family the ``applika`` theme typesets in, and so the only one the
 # API image ships fonts for.
 EMBEDDED_FONT_FAMILY = 'SourceSans3'
+
+# Every ``/URI(...)`` a link annotation in the PDF points at. Typst writes the
+# annotation objects uncompressed, so the hyperlinks a reader would click are
+# readable straight off the bytes - unlike the page text, which lives in a
+# deflated content stream.
+PDF_LINK_URI = re.compile(rb'/URI\s*\(([^)]*)\)')
+
+
+def _pdf_link_targets(pdf: bytes) -> set[str]:
+    return {uri.decode('latin1') for uri in PDF_LINK_URI.findall(pdf)}
+
 
 FULL_SECTIONS: dict[str, Any] = {
     'links': [
@@ -388,6 +404,65 @@ async def test_contact_values_rendercv_would_refuse_still_render(
     )
     response = await async_client.post(f'/base-cvs/{base_cv["id"]}/pdf')
     _assert_is_pdf(response, 'odd-contacts-cv.pdf')
+
+
+async def test_a_plain_link_is_hyperlinked_in_the_rendered_pdf(
+    async_client: AsyncClient,
+):
+    """The owner: "Links isn't a section, it must appear in bellow the
+    headline, alongside with my email, location and links."
+
+    ``FULL_SECTIONS`` carries one link RenderCV recognises
+    (``github.com/ada``) and one it does not (``ada.example.com``). Both have
+    to come out of the compiler as clickable header connections - the second
+    through ``custom_connections``, which is the only unbounded slot that
+    keeps the user's own label. The "no ``Links`` heading" half is asserted on
+    the generated Typst source in ``tests/unit/test_cv_rendering.py``, where
+    the markup is readable; here the proof is that a real compile produces the
+    link annotation.
+    """
+    base_cv = await _create_base_cv(async_client)
+    response = await async_client.post(f'/base-cvs/{base_cv["id"]}/pdf')
+    _assert_is_pdf(response, 'backend-cv.pdf')
+
+    targets = _pdf_link_targets(response.content)
+    assert 'https://github.com/ada' in targets, msg(
+        'the social network hyperlink', sorted(targets)
+    )
+    assert 'https://ada.example.com/' in targets, msg(
+        'the plain link hyperlink', sorted(targets)
+    )
+
+
+async def test_a_link_url_rendercv_would_refuse_still_renders(
+    async_client: AsyncClient,
+):
+    """The behaviour change, at the route: dropped from the header, not a 500.
+
+    ``custom_connections[].url`` is a ``pydantic.HttpUrl`` and applika's link
+    column is free text, so ``not a url`` and a scheme-less ``github.com/ada``
+    would raise where the retired Links section silently tolerated them. They
+    are dropped instead, exactly like an email or phone RenderCV refuses.
+    """
+    base_cv = await _create_base_cv(
+        async_client,
+        name='Odd Links CV',
+        links=[
+            {'id': 'lnk-1', 'label': 'Blog', 'url': 'not a url'},
+            {'id': 'lnk-2', 'label': 'Repo', 'url': 'github.com/ada'},
+            {'id': 'lnk-3', 'label': 'Site', 'url': 'https://ada.example.com'},
+        ],
+    )
+    response = await async_client.post(f'/base-cvs/{base_cv["id"]}/pdf')
+    _assert_is_pdf(response, 'odd-links-cv.pdf')
+
+    targets = _pdf_link_targets(response.content)
+    assert 'https://ada.example.com/' in targets, msg(
+        'the usable link still there', sorted(targets)
+    )
+    assert not [t for t in targets if 'github.com' in t], msg(
+        'the scheme-less link dropped', sorted(targets)
+    )
 
 
 async def test_a_hashtag_in_the_summary_still_renders(

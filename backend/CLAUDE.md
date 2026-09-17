@@ -216,17 +216,36 @@ render path needs that module, so `renderer.py` never imports it and drives
 - `mapper.py` — a pure `document → RenderCV dict/YAML` map. An empty section is
   omitted, never printed blank. It also defuses the three ways ordinary stored
   data would otherwise 500: an email or phone RenderCV refuses is dropped from
-  the header instead of aborting the render, a link that is not one of
-  RenderCV's known social networks falls back to a Links entry, and `#word` —
-  which RenderCV reads as a *Typst command* — is rewritten to `#sym.hash`.
+  the header instead of aborting the render, a link URL `pydantic.HttpUrl`
+  would refuse is dropped the same way, and `#word` — which RenderCV reads as a
+  *Typst command* — is rewritten to `#sym.hash`.
+
+  **`Links` is never a section.** The owner: *"Links isn't a section, it must
+  appear in bellow the headline, alongside with my email, location and links."*
+  Every stored link becomes a **header connection**, on the same line as the
+  location, the email and the phone. One RenderCV recognises goes to
+  `social_networks`; every other one goes to `custom_connections`, emitted
+  **after** `social_networks` because `Cv.capture_input_order` records this
+  dict's key order as `cv._key_order` and `parse_connections` walks it.
+  `custom_connections` and not `cv.website`: both are unbounded, but
+  `parse_connections` sets a website's body to `clean_url(url)` and throws the
+  user's label away, while a custom connection's body **is** its `placeholder`,
+  so `label` survives (blank label ⇒ the cleaned URL). `fontawesome_icon` is
+  `'link'` — required by the model, never typeset, because the theme sets
+  `header.connections.show_icons=False`. This is also what puts the PDF back on
+  parity with the on-screen preview, which always rendered links inline in the
+  header. A link URL `pydantic.HttpUrl` refuses (`not a url`, a scheme-less
+  `github.com/ada`) is **dropped from the header** rather than raising — before
+  the section was retired it printed under a `Links` heading instead.
 
   **Section order is insertion order, and it only survives the dump because
   `sort_base_mapping_type_on_output` is off.** The order the owner asked for is
   Summary, Experience, Languages, Skills, Projects, Education, Certifications,
-  then Links; `ruamel.yaml`'s representer sorts mapping keys by default, which
-  is what once put the summary at the bottom of the page. `SECTION_ORDER` names
-  it and `tests/unit/test_cv_rendering.py` asserts it on the generated YAML
-  text and on the generated `.typ`, never by reading a parsed dict back.
+  and **nothing follows Certifications**; `ruamel.yaml`'s representer sorts
+  mapping keys by default, which is what once put the summary at the bottom of
+  the page. `SECTION_ORDER` names it and `tests/unit/test_cv_rendering.py`
+  asserts it on the generated YAML text and on the generated `.typ`, never by
+  reading a parsed dict back.
 
   Section shapes: skills are NormalEntries (`{name: "<category>:", summary:
   "<keywords joined by ' · '>"}`, U+00B7 MIDDLE DOT — *not* the U+2022 BULLET
@@ -290,8 +309,8 @@ template; a change that genuinely needs one goes back to the owner.
 One consequence to know before touching `mapper.py`: `SectionBeginning.j2.typ`
 opens a `#grid(` only for `languages` while `SectionEnding.j2.typ` closes one
 for **every** OneLineEntry section, so **`Languages` is the only section that
-may map to OneLineEntry**. Certifications and non-social links are TextEntry
-lines (`**label** details`) for exactly that reason. Adding a second
+may map to OneLineEntry**. Certifications are TextEntry lines
+(`**label** details`) for exactly that reason. Adding a second
 OneLineEntry section does not fail the compile — Typst prints the orphan `[`,
 `],` and `)` as text — so the guard is a delimiter-balance assertion on the
 generated `.typ`, not on the PDF.

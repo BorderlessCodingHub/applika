@@ -24,9 +24,19 @@ owner's file verbatim (one substitution aside), and in them
 OneLineEntry section therefore emits an entry cell and a closing paren with no
 grid around them, and Typst prints ``[``, ``]``, ``,`` and ``)`` as literal
 text rather than failing the compile - broken markup on the page, a green
-render. So the other pair-shaped sections - certifications and the links that
-are not social networks - are mapped to TextEntry lines (``**label** details``)
-instead, which need no grid and read the same.
+render. So the other pair-shaped section - certifications - is mapped to
+TextEntry lines (``**label** details``) instead, which need no grid and read
+the same.
+
+**Links are header connections, never a section.** The owner: "Links isn't a
+section, it must appear in bellow the headline, alongside with my email,
+location and links." A stored link whose URL matches one of RenderCV's known
+social networks becomes a ``social_networks`` entry; every other link becomes a
+``custom_connections`` entry, which RenderCV appends to that same header line
+with the user's own label as the visible text and the URL as the hyperlink.
+``SECTION_ORDER`` ends at ``Certifications`` and no ``Links`` heading is ever
+emitted. This also puts the PDF back on parity with the on-screen preview,
+which has always shown links inline in the header.
 
 **Stored data never gets to break the render.** Almost everything applika
 stores is free text: the columns have no format validation, and the user types
@@ -41,8 +51,10 @@ turn an ordinary CV into a 500:
   So each contact value is validated *here*, with RenderCV's own validators,
   and one it would reject is dropped from the header on its own - the rest of
   the CV still renders.
-* A link that does not resolve to a social network RenderCV knows falls back to
-  a plain entry in the Links section instead of failing.
+* ``cv.custom_connections[].url`` is a ``pydantic.HttpUrl``. A stored
+  ``github.com/ada`` with no scheme, or a plain ``not a url``, raises - so each
+  link URL is validated *here* with that same type and one RenderCV would
+  reject is dropped from the header, exactly like an unusable email or phone.
 * ``#word`` in body text is read by RenderCV as a *Typst command* and passed
   through unescaped, so a summary saying ``#opentowork`` aborts the compile
   with "unknown variable". :func:`_neutralize_typst_commands` defuses it.
@@ -56,7 +68,9 @@ import re
 from io import StringIO
 from typing import Any, Protocol, runtime_checkable
 
+import pydantic
 import ruamel.yaml
+from rendercv.renderer.templater.string_processor import clean_url
 from rendercv.schema.models.cv.cv import email_validator, phone_validator
 from rendercv.schema.models.cv.social_network import (
     SocialNetwork,
@@ -75,13 +89,12 @@ SKILLS_SECTION = 'Skills'
 PROJECTS_SECTION = 'Projects'
 EDUCATION_SECTION = 'Education'
 CERTIFICATIONS_SECTION = 'Certifications'
-LINKS_SECTION = 'Links'
 
 # The order the owner asked for, in his words: "Summary MUST BE ON TOP,
 # followed by experience, languages, skills, projects (optionally), education
-# and certifications (optionally)." ``Links`` is appended after these by
-# :func:`map_cv_to_rendercv_document`; the owner's own CV has no Links section
-# because all of his links are social networks in the header.
+# and certifications (optionally)." Nothing follows ``Certifications``: a link
+# is a header connection, not a section - "Links isn't a section, it must
+# appear in bellow the headline, alongside with my email, location and links."
 SECTION_ORDER = (
     SUMMARY_SECTION,
     EXPERIENCE_SECTION,
@@ -90,7 +103,6 @@ SECTION_ORDER = (
     PROJECTS_SECTION,
     EDUCATION_SECTION,
     CERTIFICATIONS_SECTION,
-    LINKS_SECTION,
 )
 
 # How one skill category's keywords are joined. U+00B7 MIDDLE DOT with a space
@@ -103,6 +115,13 @@ SKILLS_SEPARATOR = ' \u00b7 '
 # his category names by hand; applika appends it instead, so the user does not
 # have to know.
 SKILLS_CATEGORY_SUFFIX = ':'
+
+# The Font Awesome name RenderCV itself uses for a website connection
+# (``fontawesome_icons['website']``). ``ApplikaTheme`` sets
+# ``header.connections.show_icons=False``, so it is never typeset and never
+# pulls the FontAwesome face into the PDF - but ``CustomConnection`` requires
+# the field, so it has to be a real icon name rather than an empty string.
+LINK_CONNECTION_ICON = 'link'
 
 # What joins the three lines of a project entry. RenderCV passes a newline
 # inside a NormalEntry ``summary`` through to the Typst source as a real line
@@ -199,13 +218,37 @@ def _valid_phone(value: str | None) -> str | None:
     return candidate
 
 
+# ``CustomConnection.url`` is typed ``pydantic.HttpUrl | None``, so this is
+# literally the validator the value will meet inside RenderCV.
+_url_validator = pydantic.TypeAdapter(pydantic.HttpUrl)
+
+
+def _valid_url(value: str | None) -> str | None:
+    """Return the link URL only if RenderCV would accept it, else ``None``.
+
+    Same shape as :func:`_valid_email` and :func:`_valid_phone`, and for the
+    same reason: applika's link column is free text, so ``github.com/ada``
+    (no scheme) or ``not a url`` can be in there, and ``pydantic.HttpUrl``
+    raises on both. A link RenderCV would refuse is left out of the header
+    rather than taking the whole CV down with it.
+    """
+    candidate = _clean(value)
+    if not candidate:
+        return None
+    try:
+        _url_validator.validate_python(candidate)
+    except Exception:
+        return None
+    return candidate
+
+
 def _as_social_network(url: str) -> dict[str, str] | None:
     """Map a stored link onto a RenderCV social network, or give up.
 
     RenderCV only knows a closed list of networks and validates the username
     per network. A link that matches one of its base URLs becomes a proper
-    header connection; anything else returns ``None`` and is typeset as a
-    Links entry instead.
+    ``social_networks`` connection; anything else returns ``None`` and becomes
+    a ``custom_connections`` entry on the same header line instead.
     """
     candidate = _clean(url)
     if not candidate:
@@ -495,6 +538,47 @@ def _sections(cv: RenderableCV) -> dict[str, Any]:
     return sections
 
 
+def _connections(
+    cv: RenderableCV,
+) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
+    """Split the stored links into the two header lists RenderCV understands.
+
+    The owner: "Links isn't a section, it must appear in bellow the headline,
+    alongside with my email, location and links." Both lists land in
+    ``cv._connections`` and are typeset by the frozen ``Header.j2.typ`` on the
+    same line as the email, the phone and the location - no template change.
+
+    A link RenderCV recognises (``https://github.com/ada``) becomes a
+    ``social_networks`` entry, which carries the username. Everything else
+    becomes a ``custom_connections`` entry, and that is the whole point of
+    picking ``custom_connections`` over ``cv.website``: ``parse_connections``
+    sets a website's body to ``clean_url(url)`` and throws the user's label
+    away, while a custom connection's body **is** its ``placeholder``. So
+    "Personal site" stays "Personal site" instead of collapsing to
+    ``ada.example.com``. Neither list has a length limit.
+
+    A link with no label falls back to the cleaned URL, the same stand-in
+    RenderCV uses for a bare website. A link whose URL ``pydantic.HttpUrl``
+    would refuse is dropped - see :func:`_valid_url`.
+    """
+    social_networks: list[dict[str, str]] = []
+    custom_connections: list[dict[str, Any]] = []
+    for link in cv.links:
+        network = _as_social_network(link.url)
+        if network is not None:
+            social_networks.append(network)
+            continue
+        url = _valid_url(link.url)
+        if url is None:
+            continue
+        custom_connections.append({
+            'fontawesome_icon': LINK_CONNECTION_ICON,
+            'placeholder': _text(link.label) or _text(clean_url(url)),
+            'url': url,
+        })
+    return social_networks, custom_connections
+
+
 def map_cv_to_rendercv_document(cv: RenderableCV) -> dict[str, Any]:
     """Map a stored CV document onto a RenderCV input document.
 
@@ -524,26 +608,17 @@ def map_cv_to_rendercv_document(cv: RenderableCV) -> dict[str, Any]:
     if phone:
         cv_block['phone'] = phone
 
-    social_networks: list[dict[str, str]] = []
-    leftover_links: list[str] = []
-    for link in cv.links:
-        network = _as_social_network(link.url)
-        if network is not None:
-            social_networks.append(network)
-            continue
-        if _clean(link.url):
-            leftover_links.append(
-                _labelled_line(
-                    _text(link.label) or _text(link.url),
-                    _markdown_link(link.label, link.url),
-                )
-            )
+    social_networks, custom_connections = _connections(cv)
     if social_networks:
         cv_block['social_networks'] = social_networks
+    # After ``social_networks`` on purpose: ``Cv.capture_input_order`` records
+    # the key order of this very dict as ``cv._key_order``, and
+    # ``parse_connections`` walks it, so the header reads identity ->
+    # location/email/phone -> known networks -> everything else.
+    if custom_connections:
+        cv_block['custom_connections'] = custom_connections
 
     sections = _sections(cv)
-    if leftover_links:
-        sections[LINKS_SECTION] = leftover_links
     if sections:
         cv_block['sections'] = sections
 

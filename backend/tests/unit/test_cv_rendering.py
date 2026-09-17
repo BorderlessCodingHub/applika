@@ -40,7 +40,7 @@ from app.application.services.cv_rendering.mapper import (
     EDUCATION_SECTION,
     EXPERIENCE_SECTION,
     LANGUAGES_SECTION,
-    LINKS_SECTION,
+    LINK_CONNECTION_ICON,
     PROJECTS_SECTION,
     SECTION_ORDER,
     SKILLS_SECTION,
@@ -965,23 +965,61 @@ def test_known_link_becomes_a_social_network():
     ], msg('a GitHub connection', cv_block.get('social_networks'))
 
 
-def test_unknown_link_falls_back_to_a_links_entry():
-    """RenderCV knows a closed list of networks; the rest still get typeset."""
-    entries = _sections()[LINKS_SECTION]
-    assert entries == ['**Site** [Site](https://ada.example.com)'], msg(
-        'one Links line', entries
+def test_unknown_link_becomes_a_custom_header_connection():
+    """RenderCV knows a closed list of networks; the rest stay in the header.
+
+    The owner: "Links isn't a section, it must appear in bellow the headline,
+    alongside with my email, location and links." ``custom_connections``
+    rather than ``cv.website`` because ``parse_connections`` sets a website's
+    body to ``clean_url(url)`` and drops the label, while a custom
+    connection's body is its ``placeholder`` - so "Site" survives.
+    """
+    cv_block = map_cv_to_rendercv_document(_cv())['cv']
+    assert cv_block['custom_connections'] == [
+        {
+            'fontawesome_icon': LINK_CONNECTION_ICON,
+            'placeholder': 'Site',
+            'url': 'https://ada.example.com',
+        }
+    ], msg('one custom connection', cv_block.get('custom_connections'))
+
+
+def test_custom_connections_come_after_the_social_networks():
+    """``Cv.capture_input_order`` makes this dict's key order the header order.
+
+    ``parse_connections`` walks ``cv._key_order``, so emitting
+    ``custom_connections`` before ``social_networks`` would put a personal
+    site ahead of GitHub on the line.
+    """
+    keys = list(map_cv_to_rendercv_document(_cv())['cv'])
+    assert keys.index('custom_connections') > keys.index('social_networks'), (
+        msg('custom_connections after social_networks', keys)
     )
 
 
-def test_a_link_with_no_label_still_gets_a_line():
-    """The URL stands in for the label rather than emitting ``**** ``."""
-    entries = _sections(
-        links=[{'id': 'l1', 'label': '', 'url': 'https://ada.example.com'}]
-    )[LINKS_SECTION]
-    assert entries == [
-        '**https://ada.example.com** '
-        '[https://ada.example.com](https://ada.example.com)'
-    ], msg('a line built from the URL', entries)
+def test_a_link_with_no_label_falls_back_to_the_cleaned_url():
+    """The URL stands in for the label, minus the protocol RenderCV strips."""
+    cv_block = map_cv_to_rendercv_document(
+        _cv(links=[{'id': 'l1', 'label': '', 'url': 'https://ada.example.com'}])
+    )['cv']
+    assert cv_block['custom_connections'] == [
+        {
+            'fontawesome_icon': LINK_CONNECTION_ICON,
+            'placeholder': 'ada.example.com',
+            'url': 'https://ada.example.com',
+        }
+    ], msg('a placeholder built from the URL', cv_block['custom_connections'])
+
+
+def test_the_link_icon_is_never_blank():
+    """``show_icons`` is off, but ``CustomConnection`` still requires a name.
+
+    An empty string would fail RenderCV's own validation before the theme
+    ever got the chance to not draw it.
+    """
+    assert LINK_CONNECTION_ICON, msg(
+        'a Font Awesome name', LINK_CONNECTION_ICON
+    )
 
 
 def test_a_certification_with_no_issuer_is_just_the_bold_name():
@@ -1013,11 +1051,59 @@ def test_languages_is_the_only_one_line_entry():
     )
 
 
-def test_no_links_section_when_every_link_is_a_social_network():
-    sections = _sections(
-        links=[{'id': 'l1', 'label': 'GitHub', 'url': 'https://github.com/ada'}]
+def test_links_are_never_a_section():
+    """The owner's ruling, asserted on the mapper: ``Links`` is not a title.
+
+    It used to be one - KODI-004 added a ``Links`` section as the fallback for
+    a link RenderCV could not turn into a social network, and KODI-006 made it
+    the trailing section. The owner never asked for that: "Links isn't a
+    section, it must appear in bellow the headline". No stored link, of any
+    shape, may put a title back.
+    """
+    for links in (
+        FULL_SECTIONS['links'],
+        [{'id': 'l1', 'label': 'GitHub', 'url': 'https://github.com/ada'}],
+        [{'id': 'l1', 'label': 'Site', 'url': 'https://ada.example.com'}],
+        [{'id': 'l1', 'label': '', 'url': 'https://ada.example.com'}],
+        [{'id': 'l1', 'label': 'Blog', 'url': 'not a url'}],
+    ):
+        sections = _sections(links=links)
+        assert 'Links' not in sections, msg('no Links section', sections)
+
+
+def test_a_link_url_rendercv_would_refuse_is_dropped_from_the_header():
+    """applika's link column is free text; ``pydantic.HttpUrl`` is not.
+
+    The behaviour this changes on purpose: ``not a url`` and a scheme-less
+    ``github.com/ada`` used to print in the Links section. Now that the
+    section is gone they are dropped instead, the same way an unusable email
+    or phone already was - the alternative is a 500 on the user's own CV.
+    """
+    cv_block = map_cv_to_rendercv_document(
+        _cv(
+            links=[
+                {'id': 'l1', 'label': 'Blog', 'url': 'not a url'},
+                {'id': 'l2', 'label': 'Repo', 'url': 'github.com/ada'},
+                {'id': 'l3', 'label': 'Blank', 'url': '   '},
+                {'id': 'l4', 'label': 'Site', 'url': 'https://ada.example.com'},
+            ]
+        )
+    )['cv']
+    assert [c['placeholder'] for c in cv_block['custom_connections']] == [
+        'Site'
+    ], msg('only the valid URL', cv_block.get('custom_connections'))
+    assert 'Links' not in cv_block.get('sections', {}), msg(
+        'no Links section', cv_block.get('sections')
     )
-    assert LINKS_SECTION not in sections, msg('no Links section', sections)
+
+
+def test_a_cv_whose_links_are_all_unusable_has_no_custom_connections():
+    cv_block = map_cv_to_rendercv_document(
+        _cv(links=[{'id': 'l1', 'label': 'Blog', 'url': 'not a url'}])
+    )['cv']
+    assert 'custom_connections' not in cv_block, msg(
+        'no empty custom_connections key', cv_block
+    )
 
 
 # --- The mapper: an empty section is omitted, never emitted blank -------------
@@ -1033,7 +1119,6 @@ def test_no_links_section_when_every_link_is_a_social_network():
         ('skills', SKILLS_SECTION),
         ('certifications', CERTIFICATIONS_SECTION),
         ('languages', LANGUAGES_SECTION),
-        ('links', LINKS_SECTION),
     ],
 )
 def test_empty_section_is_omitted(field: str, section: str):
@@ -1209,8 +1294,9 @@ def _yaml_section_order(yaml_text: str) -> list[str]:
 
 # The order the owner asked for, spelled out here rather than imported from
 # ``SECTION_ORDER`` so the expectation and the implementation cannot drift
-# together. ``Links`` is last: applika typesets a link the header could not
-# turn into a social network, which the owner's own CV never has.
+# together. It ends at ``Certifications`` and nothing follows it: "Links isn't
+# a section, it must appear in bellow the headline, alongside with my email,
+# location and links."
 EXPECTED_SECTION_ORDER = [
     'Summary',
     'Experience',
@@ -1219,7 +1305,6 @@ EXPECTED_SECTION_ORDER = [
     'Projects',
     'Education',
     'Certifications',
-    'Links',
 ]
 
 
@@ -1431,21 +1516,22 @@ def test_education_is_not_a_one_line_entry(tmp_path):
     )
 
 
-def test_a_cv_with_languages_certifications_and_links_is_well_formed(tmp_path):
-    """The three pair-shaped sections together, through the real theme.
+def test_a_cv_with_languages_and_certifications_is_well_formed(tmp_path):
+    """The two pair-shaped sections together, through the real theme.
 
-    All three exist on this CV, and all three used to be OneLineEntry: only
-    ``Languages`` opens the grid the owner's ``SectionEnding.j2.typ`` closes,
-    so ``Certifications`` and ``Links`` printed a literal ``[``, ``],`` and
-    ``)`` around every entry. Reverting the mapper to OneLineEntry for either
-    of them drives the paren depth negative here and fails this test.
+    Both used to be OneLineEntry: only ``Languages`` opens the grid the
+    owner's ``SectionEnding.j2.typ`` closes, so ``Certifications`` printed a
+    literal ``[``, ``],`` and ``)`` around every entry. Reverting the mapper
+    to OneLineEntry for it drives the paren depth negative here and fails
+    this test. This CV also carries a non-social link, which must not disturb
+    the balance now that it lives in the header.
     """
     yaml_text = map_cv_to_rendercv_yaml(_cv())
     source = generate_typst_source(yaml_text, tmp_path).read_text(
         encoding='utf-8'
     )
 
-    for section in (LANGUAGES_SECTION, CERTIFICATIONS_SECTION, LINKS_SECTION):
+    for section in (LANGUAGES_SECTION, CERTIFICATIONS_SECTION):
         assert f'== {section}' in source, msg(f'a {section} heading', section)
 
     lowest_paren, lowest_bracket, paren, bracket = _delimiter_balance(source)
@@ -1484,15 +1570,12 @@ def test_only_the_languages_section_carries_a_grid(tmp_path):
     )
 
 
-def test_certifications_and_links_typeset_as_bold_label_then_details(
-    tmp_path,
-):
+def test_certifications_typeset_as_bold_label_then_details(tmp_path):
     """The replacement reads like the entry it replaced.
 
     A OneLineEntry typesets a semibold label followed by normal details. The
-    TextEntry line has to land on the same thing - bold name, then issuer;
-    bold label, then the hyperlink - or the fix traded broken markup for a
-    different-looking CV.
+    TextEntry line has to land on the same thing - bold name, then issuer -
+    or the fix traded broken markup for a different-looking CV.
     """
     source = generate_typst_source(
         map_cv_to_rendercv_yaml(_cv()), tmp_path
@@ -1502,11 +1585,128 @@ def test_certifications_and_links_typeset_as_bold_label_then_details(
         'a bold certification name followed by its issuer',
         source[source.find(f'== {CERTIFICATIONS_SECTION}') :][:200],
     )
-    assert '#strong[Site] #link("https://ada.example.com")[Site]' in source, (
-        msg(
-            'a bold link label followed by the hyperlink',
-            source[source.find(f'== {LINKS_SECTION}') :][:200],
-        )
+
+
+# --- Links is not a section: it is part of the header line -------------------
+#
+# The owner, on the exported PDF: "when i downloaded the pdf in the end of the
+# file appeared a new section with name Links. Links isn't a section, it must
+# appear in bellow the headline, alongside with my email, location and links."
+#
+# These assert on the generated ``.typ`` rather than on a compile, because
+# Typst prints broken markup as ordinary text instead of failing - a green
+# render proves nothing on its own (see :func:`_delimiter_balance`).
+
+
+def _header_connections(source: str) -> str:
+    """The ``#connections(...)`` call the frozen ``Header.j2.typ`` emits."""
+    start = source.index('#connections(')
+    return source[start : source.index('\n)', start) + 2]
+
+
+def test_the_rendered_typst_has_no_links_heading(tmp_path):
+    """No ``== Links``, and no heading containing the word at all."""
+    source = generate_typst_source(
+        map_cv_to_rendercv_yaml(_cv()), tmp_path
+    ).read_text(encoding='utf-8')
+
+    assert '== Links' not in source, msg('no Links heading', '== Links')
+    assert not [h for h in _headings(source) if 'Links' in h], msg(
+        'no heading naming Links', _headings(source)
+    )
+
+
+def test_the_last_rendered_section_is_certifications(tmp_path):
+    """Nothing comes after ``Certifications`` - the owner's order ends there."""
+    source = generate_typst_source(
+        map_cv_to_rendercv_yaml(_cv()), tmp_path
+    ).read_text(encoding='utf-8')
+    assert _headings(source)[-1] == CERTIFICATIONS_SECTION, msg(
+        CERTIFICATIONS_SECTION, _headings(source)
+    )
+
+
+def test_a_plain_link_is_hyperlinked_in_the_header_beside_email_and_location(
+    tmp_path,
+):
+    """The fix, proved on the markup the compiler is handed.
+
+    One recognised social network and one plain non-social URL on the same
+    CV: both have to sit inside the single ``#connections(...)`` call, on the
+    same line as the location and the email, each wrapped in a ``#link``.
+    ``custom_connections`` is what keeps the user's label - a ``cv.website``
+    would have printed ``ada.example.com`` instead of ``Site``.
+    """
+    source = generate_typst_source(
+        map_cv_to_rendercv_yaml(_cv()), tmp_path
+    ).read_text(encoding='utf-8')
+    connections = _header_connections(source)
+
+    assert 'Lisbon, PT' in connections, msg('the location', connections)
+    assert 'ada\\@example.com' in connections, msg('the email', connections)
+    assert (
+        '#link("https://github.com/ada", icon: false, if-underline: false,'
+        ' if-color: false)[ada]' in connections
+    ), msg('the GitHub connection', connections)
+    assert (
+        '#link("https://ada.example.com/", icon: false, if-underline: false,'
+        ' if-color: false)[Site]' in connections
+    ), msg('the plain link, labelled and hyperlinked', connections)
+
+
+def test_the_plain_link_follows_the_social_network_in_the_header(tmp_path):
+    source = generate_typst_source(
+        map_cv_to_rendercv_yaml(_cv()), tmp_path
+    ).read_text(encoding='utf-8')
+    connections = _header_connections(source)
+    assert connections.index('ada.example.com') > connections.index(
+        'github.com/ada'
+    ), msg('the plain link after the network', connections)
+
+
+def test_the_header_stays_balanced_with_a_custom_connection(tmp_path):
+    """A custom connection must not unbalance the frozen header template."""
+    source = generate_typst_source(
+        map_cv_to_rendercv_yaml(_cv()), tmp_path
+    ).read_text(encoding='utf-8')
+    assert _delimiter_balance(source) == (0, 0, 0, 0), msg(
+        'balanced Typst delimiters', _delimiter_balance(source)
+    )
+
+
+def test_a_link_rendercv_would_refuse_leaves_the_rest_of_the_cv_rendering(
+    tmp_path,
+):
+    """The behaviour change, pinned: dropped from the header, not a 500.
+
+    Before this fix an unparseable URL still printed, in the Links section.
+    With the section gone the only alternatives are dropping it or letting
+    ``pydantic.HttpUrl`` raise on the user's own CV, and RenderCV raising is
+    how a download becomes a 500.
+    """
+    source = generate_typst_source(
+        map_cv_to_rendercv_yaml(
+            _cv(
+                links=[
+                    {'id': 'l1', 'label': 'Blog', 'url': 'not a url'},
+                    {'id': 'l2', 'label': 'Repo', 'url': 'github.com/ada'},
+                    {
+                        'id': 'l3',
+                        'label': 'Site',
+                        'url': 'https://ada.example.com',
+                    },
+                ]
+            )
+        ),
+        tmp_path,
+    ).read_text(encoding='utf-8')
+
+    connections = _header_connections(source)
+    assert 'Blog' not in connections, msg('no unparseable link', connections)
+    assert 'Repo' not in connections, msg('no scheme-less link', connections)
+    assert 'Site' in connections, msg('the usable link', connections)
+    assert _headings(source) == EXPECTED_SECTION_ORDER, msg(
+        EXPECTED_SECTION_ORDER, _headings(source)
     )
 
 
