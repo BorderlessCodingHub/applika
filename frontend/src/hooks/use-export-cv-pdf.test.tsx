@@ -112,12 +112,11 @@ afterEach(() => {
 
 describe("the master CV export", () => {
   it("POSTs the pdf route with no body, no theme and a blob response", async () => {
-    const { result } = renderHook(
-      () => useExportBaseCvPdf(BASE_CV_ID, "Backend CV"),
-      { wrapper: wrapper() },
-    );
+    const { result } = renderHook(() => useExportBaseCvPdf(), {
+      wrapper: wrapper(),
+    });
 
-    result.current.mutate();
+    result.current.mutate({ id: BASE_CV_ID, name: "Backend CV" });
 
     await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
     expect(post).toHaveBeenCalledWith("/base-cvs/7/pdf", undefined, {
@@ -126,12 +125,11 @@ describe("the master CV export", () => {
   });
 
   it("saves the bytes under the name the server chose", async () => {
-    const { result } = renderHook(
-      () => useExportBaseCvPdf(BASE_CV_ID, "Something else entirely"),
-      { wrapper: wrapper() },
-    );
+    const { result } = renderHook(() => useExportBaseCvPdf(), {
+      wrapper: wrapper(),
+    });
 
-    result.current.mutate();
+    result.current.mutate({ id: BASE_CV_ID, name: "Something else entirely" });
 
     await waitFor(() => expect(saved).toHaveLength(1));
     expect(saved[0]).toEqual({
@@ -143,12 +141,11 @@ describe("the master CV export", () => {
 
   it("falls back to the CV's own slug when the header does not arrive", async () => {
     post.mockResolvedValue(pdfResponse());
-    const { result } = renderHook(
-      () => useExportBaseCvPdf(BASE_CV_ID, "CV — 2026 (final)"),
-      { wrapper: wrapper() },
-    );
+    const { result } = renderHook(() => useExportBaseCvPdf(), {
+      wrapper: wrapper(),
+    });
 
-    result.current.mutate();
+    result.current.mutate({ id: BASE_CV_ID, name: "CV — 2026 (final)" });
 
     await waitFor(() => expect(saved).toHaveLength(1));
     expect(saved[0].download).toBe("cv-2026-final.pdf");
@@ -156,12 +153,11 @@ describe("the master CV export", () => {
 
   it("shows the server's own words when the render fails, not 'undefined'", async () => {
     post.mockRejectedValue(blobError(500, "Could not render the PDF"));
-    const { result } = renderHook(
-      () => useExportBaseCvPdf(BASE_CV_ID, "Backend CV"),
-      { wrapper: wrapper() },
-    );
+    const { result } = renderHook(() => useExportBaseCvPdf(), {
+      wrapper: wrapper(),
+    });
 
-    result.current.mutate();
+    result.current.mutate({ id: BASE_CV_ID, name: "Backend CV" });
 
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith("Could not render the PDF"),
@@ -171,12 +167,11 @@ describe("the master CV export", () => {
 
   it("never puts a 422 detail array on screen", async () => {
     post.mockRejectedValue(blobError(422, [{ loc: ["body"], msg: "nope" }]));
-    const { result } = renderHook(
-      () => useExportBaseCvPdf(BASE_CV_ID, "Backend CV"),
-      { wrapper: wrapper() },
-    );
+    const { result } = renderHook(() => useExportBaseCvPdf(), {
+      wrapper: wrapper(),
+    });
 
-    result.current.mutate();
+    result.current.mutate({ id: BASE_CV_ID, name: "Backend CV" });
 
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith("Something went wrong"),

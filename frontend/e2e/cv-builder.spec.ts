@@ -1223,3 +1223,389 @@ test("the preview restacks and stays usable below md (AC6)", async ({
   await expect(page.getByText(`Page 1 of ${sheets}`)).toHaveCount(1);
   await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(2);
 });
+
+/* ===========================================================================
+ * KODI-009 — the frontend improvements the owner asked for last.
+ *
+ * "instead of listing the keywords, now lists only the categories, change this
+ * to display all keywords inside all categories in skills and add a button to
+ * download the CV. During CV creation or edir, increace the preview width size
+ * keep 50/50 "w-1/2" to the CV form and "w-1/2" to CV preview. A third
+ * improvement, make each section in the form colapsable, do the same to each
+ * experience inside Experience section (keep open as default when i open the
+ * page)".
+ *
+ * These four live HERE rather than in a unit test because every one of them is
+ * a statement about real geometry or a real download: jsdom reports every
+ * height as zero, lays nothing out, and has no download manager.
+ * ======================================================================== */
+
+/** The nine form sections, in the owner's order (links above summary, AC7). */
+const FORM_SECTIONS = [
+  "Identity and contact",
+  "Links",
+  "Summary",
+  "Skills",
+  "Experience",
+  "Projects",
+  "Education",
+  "Certifications",
+  "Languages",
+] as const;
+
+/** The disclosure button of a form section — the heading IS the trigger. */
+function sectionHeader(page: Page, title: string) {
+  return page.locator('[data-slot="cv-section-trigger"]', {
+    hasText: title,
+  });
+}
+
+test("every form section and every experience entry collapses, none of them starts closed (AC4, AC5)", async ({
+  page,
+  request,
+}) => {
+  const cvId = await seedBulkyBaseCv(request, 2);
+
+  await loginAs(page, "user");
+  await openSettledEditor(page, cvId);
+
+  // ---- AC4: nine disclosures, all of them OPEN when the page opens -----
+  // `aria-expanded`, never `aria-controls`: Radix only points the trigger at
+  // its panel while the panel is mounted, which is the very state under test.
+  const triggers = page.locator('[data-slot="cv-section-trigger"]');
+  await expect(triggers).toHaveCount(FORM_SECTIONS.length);
+  for (const title of FORM_SECTIONS) {
+    await expect(
+      sectionHeader(page, title),
+      `${title} did not open expanded`,
+    ).toHaveAttribute("aria-expanded", "true");
+  }
+
+  // ---- AC4: it really folds the fields away, in a real browser ---------
+  const summaryField = page.getByLabel("Summary", { exact: true });
+  await expect(summaryField).toBeVisible();
+  await sectionHeader(page, "Summary").click();
+  await expect(sectionHeader(page, "Summary")).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+  await expect(summaryField).toBeHidden();
+  // Its neighbours are untouched.
+  await expect(page.getByLabel("CV label", { exact: true })).toBeVisible();
+
+  await sectionHeader(page, "Summary").click();
+  await expect(summaryField).toBeVisible();
+
+  // ---- AC5: each experience entry is a disclosure of its own -----------
+  const rows = page.locator('[data-slot="cv-item-trigger"]');
+  // Only Experience: two rows, and no other section grew one.
+  await expect(rows).toHaveCount(2);
+  for (const index of [0, 1]) {
+    await expect(rows.nth(index)).toHaveAttribute("aria-expanded", "true");
+  }
+
+  const first = page.getByRole("group", { name: "experience 1" });
+  const second = page.getByRole("group", { name: "experience 2" });
+  await expect(first.getByLabel("Company", { exact: true })).toBeVisible();
+
+  await rows.nth(0).click();
+  await expect(rows.nth(0)).toHaveAttribute("aria-expanded", "false");
+  await expect(first.getByLabel("Company", { exact: true })).toBeHidden();
+  // Independent: role 2 stayed exactly where it was.
+  await expect(rows.nth(1)).toHaveAttribute("aria-expanded", "true");
+  await expect(second.getByLabel("Company", { exact: true })).toBeVisible();
+
+  // A row added afterwards is born OPEN, like the ones that were there.
+  await page.getByRole("button", { name: "Add experience" }).click();
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(2)).toHaveAttribute("aria-expanded", "true");
+  await expect(
+    page.getByRole("group", { name: "experience 3" }).getByLabel("Company", {
+      exact: true,
+    }),
+  ).toBeVisible();
+});
+
+test("the page never scrolls, sections expanded OR collapsed (AC4 vs KODI-006 AC7)", async ({
+  page,
+  request,
+}) => {
+  // The invariant most at risk in this slice. KODI-006's AC7 is "remove the
+  // page scroll" and collapsing nine sections changes the document's height by
+  // most of a CV — in both directions. So it is measured in both states, on
+  // the twelve-role CV that needs several A4 sheets.
+  const cvId = await seedBulkyBaseCv(request, 12);
+
+  await loginAs(page, "user");
+  const sheets = await openSettledEditor(page, cvId);
+  expect(sheets).toBeGreaterThan(1);
+
+  const expanded = await scrollReport(page);
+  expect(
+    expanded.documentScrollHeight - expanded.documentClientHeight,
+    `expanded, the page scrolls: ${JSON.stringify(expanded)}`,
+  ).toBeLessThanOrEqual(1);
+  // Something still has to scroll — the editor's own region.
+  expect(expanded.mainScrollHeight).toBeGreaterThan(expanded.mainClientHeight);
+
+  // ---- collapse every one of the nine ---------------------------------
+  for (const title of FORM_SECTIONS) {
+    await sectionHeader(page, title).click();
+    await expect(sectionHeader(page, title)).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  }
+  // The collapse animation has to finish before the height means anything.
+  await expect(page.getByLabel("Summary", { exact: true })).toBeHidden();
+  await page.waitForTimeout(400);
+
+  const collapsed = await scrollReport(page);
+  expect(
+    collapsed.documentScrollHeight - collapsed.documentClientHeight,
+    `collapsed, the page scrolls: ${JSON.stringify(collapsed)}`,
+  ).toBeLessThanOrEqual(1);
+  // Losing the fields really did shorten the column — otherwise this test
+  // would pass on a layout where collapsing changed nothing at all.
+  expect(
+    collapsed.mainScrollHeight,
+    `collapsing the sections did not shorten the editor: ${JSON.stringify(collapsed)}`,
+  ).toBeLessThan(expanded.mainScrollHeight);
+
+  // ---- and back ---------------------------------------------------------
+  for (const title of FORM_SECTIONS) {
+    await sectionHeader(page, title).click();
+  }
+  await expect(page.getByLabel("Summary", { exact: true })).toBeVisible();
+  await page.waitForTimeout(400);
+
+  const reopened = await scrollReport(page);
+  expect(
+    reopened.documentScrollHeight - reopened.documentClientHeight,
+    `re-expanded, the page scrolls: ${JSON.stringify(reopened)}`,
+  ).toBeLessThanOrEqual(1);
+
+  console.log(
+    `[KODI-009] no-page-scroll, ${sheets} A4 sheets — ` +
+      `expanded ${JSON.stringify(expanded)} | ` +
+      `collapsed ${JSON.stringify(collapsed)} | ` +
+      `re-expanded ${JSON.stringify(reopened)}`,
+  );
+});
+
+test("the form and the preview each take half the editor, with no cap on either (AC3)", async ({
+  page,
+  request,
+}) => {
+  // The owner: "increace the preview width size keep 50/50 "w-1/2" to the CV
+  // form and "w-1/2" to CV preview". This REVERSES KODI-008, which capped the
+  // preview at `2xl` and gave the surplus to the form — so the assertion is
+  // that neither side is wider than the other, at a width where the old cap
+  // used to bind.
+  const cvId = await seedBulkyBaseCv(request, 12);
+
+  await loginAs(page, "user");
+
+  for (const width of [1280, 1600, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    const sheets = await openSettledEditor(page, cvId);
+    expect(sheets).toBeGreaterThan(0);
+
+    const halves = await page.evaluate(() => {
+      const split = document.querySelector<HTMLElement>("form > div.grid");
+      const form = split?.firstElementChild as HTMLElement | null;
+      const preview = document.querySelector<HTMLElement>(
+        'aside[aria-label="CV preview"]',
+      );
+      if (!split || !form || !preview) throw new Error("the editor restacked");
+      return {
+        split: Math.round(split.getBoundingClientRect().width),
+        form: Math.round(form.getBoundingClientRect().width),
+        preview: Math.round(preview.getBoundingClientRect().width),
+      };
+    });
+
+    // Half and half. The one pixel of slack is sub-pixel rounding on an odd
+    // available width, not a cap.
+    expect(
+      Math.abs(halves.form - halves.preview),
+      `${width}px is not a 50/50 split: ${JSON.stringify(halves)}`,
+    ).toBeLessThanOrEqual(1);
+    // And both halves really grow with the shell: a cap would pin one of them.
+    expect(halves.form).toBeGreaterThan(0);
+    expect(halves.form * 2).toBeGreaterThan(halves.split - 48);
+
+    console.log(
+      `[KODI-009] 50/50 at ${width}px: ${JSON.stringify(halves)}, ${sheets} sheets`,
+    );
+  }
+
+  // Below `md` the two stack, form first — the halves are a `md:` rule, not a
+  // 50% the phone inherits.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openSettledEditor(page, cvId);
+  const stacked = await page.evaluate(() => {
+    const form = document
+      .querySelector<HTMLElement>('[data-slot="cv-section"]')
+      ?.getBoundingClientRect();
+    const preview = document
+      .querySelector<HTMLElement>('aside[aria-label="CV preview"]')
+      ?.getBoundingClientRect();
+    return {
+      inner: window.innerWidth,
+      previewWidth: Math.round(preview?.width ?? -1),
+      previewTop: Math.round(preview?.top ?? -1),
+      formTop: Math.round(form?.top ?? -1),
+      formWidth: Math.round(form?.width ?? -1),
+    };
+  });
+  // Stacked, form first, and each of them spends the whole narrow column.
+  expect(stacked.previewTop).toBeGreaterThan(stacked.formTop);
+  expect(stacked.previewWidth).toBeGreaterThan(stacked.inner / 2);
+  expect(
+    Math.abs(stacked.previewWidth - stacked.formWidth),
+  ).toBeLessThanOrEqual(1);
+});
+
+test("the 50/50 split moves the preview's scale, never its page count (KODI-008)", async ({
+  page,
+  request,
+}) => {
+  // The page count is the A4 sheet's business: `cv-page-sheet.tsx` lays the
+  // document out at a FIXED A4 content width and the column only scales the
+  // result. So widening the preview from KODI-008's `38rem` cap to a true half
+  // must not repaginate the CV — which is the one way this slice could have
+  // broken KODI-008's pagination. Measured at three widths, including the one
+  // the old cap was written for.
+  const cvId = await seedBulkyBaseCv(request, 12);
+
+  await loginAs(page, "user");
+
+  const counts: Record<number, number> = {};
+  for (const width of [1024, 1280, 1600, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    counts[width] = await openSettledEditor(page, cvId);
+    await expect(page.getByText(`Page 1 of ${counts[width]}`)).toHaveCount(1);
+  }
+
+  console.log(`[KODI-009] A4 page counts by width: ${JSON.stringify(counts)}`);
+
+  const values = Object.values(counts);
+  expect(
+    values.every((count) => count === values[0]),
+    JSON.stringify(counts),
+  ).toBe(true);
+  expect(values[0]).toBeGreaterThan(1);
+});
+
+test("the CV list downloads any of its CVs as the PDF the server typeset (AC2)", async ({
+  page,
+  request,
+}) => {
+  // The owner: "add a button to download the CV" on `/cvs`. Same export route
+  // the editor uses (ADR 0011) — the proof is that real Typst bytes come back
+  // for the CV that was pressed, named after THAT CV.
+  await seedBaseCv(request, CV_NAME);
+  await seedBaseCv(request, CV_RENAMED);
+
+  await loginAs(page, "user");
+  await page.goto("/cvs");
+  await expect(page.getByText(CV_NAME, { exact: true })).toBeVisible();
+
+  // One download per tile, each named after its own CV. `exact` matters here:
+  // `CV_NAME` is a PREFIX of `CV_RENAMED`, and Playwright's name match is a
+  // substring one — which is exactly the confusion a per-tile action has to
+  // survive.
+  await expect(
+    page.getByRole("button", { name: `Download PDF ${CV_NAME}`, exact: true }),
+  ).toBeEnabled();
+  const renamed = page.getByRole("button", {
+    name: `Download PDF ${CV_RENAMED}`,
+    exact: true,
+  });
+  await expect(renamed).toBeEnabled();
+
+  const started = page.waitForEvent("download");
+  await renamed.click();
+  const saved = await started;
+
+  // The SECOND CV's document, not the first: the id travels with the press.
+  expect(saved.suggestedFilename()).toBe("e2e-master-cv-edited.pdf");
+  expect((await readDownload(saved)).subarray(0, 5).toString("latin1")).toBe(
+    "%PDF-",
+  );
+
+  // Nothing was navigated or deleted: a render is a read.
+  await expect(page).toHaveURL(/\/cvs$/);
+  await expect(page.getByText(CV_RENAMED, { exact: true })).toBeVisible();
+});
+
+test("the CV list shows every keyword of every skill category (AC1)", async ({
+  page,
+  request,
+}) => {
+  // The owner: "instead of listing the keywords, now lists only the
+  // categories, change this to display all keywords inside all categories in
+  // skills". Nothing capped, nothing clipped: the tile is asserted keyword by
+  // keyword AND measured, because a `line-clamp` would keep every word in the
+  // DOM while hiding half of them.
+  const categories = [
+    { id: "s-1", category: "Languages", keywords: ["Python", "TypeScript"] },
+    { id: "s-2", category: "Data stores", keywords: ["PostgreSQL", "Redis"] },
+    { id: "s-3", category: "Platform", keywords: ["Docker", "Kubernetes"] },
+    { id: "s-4", category: "Cloud", keywords: ["AWS", "Terraform"] },
+  ];
+  const response = await request.post(apiUrl("/base-cvs"), {
+    headers: apiHeaders(),
+    data: {
+      name: CV_NAME,
+      full_name: "E2E Candidate",
+      headline: "Engineer",
+      location: "Remote",
+      email: "e2e-user@e2e.applika.dev",
+      phone: null,
+      summary: "Seeded by the E2E suite.",
+      links: [],
+      skills: categories,
+      experience: [],
+      projects: [],
+      education: [],
+      certifications: [],
+      languages: [],
+    },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+
+  await loginAs(page, "user");
+  await page.goto("/cvs");
+  await expect(page.getByText(CV_NAME, { exact: true })).toBeVisible();
+
+  for (const entry of categories) {
+    const line = page.locator("dl div", { hasText: entry.category }).first();
+    await expect(line).toBeVisible();
+    for (const keyword of entry.keywords) {
+      await expect(line, `${entry.category} lost ${keyword}`).toContainText(
+        keyword,
+      );
+    }
+  }
+
+  // Eight keywords, and the tile says so rather than hiding a "+N".
+  await expect(page.getByText("8 keywords")).toBeVisible();
+  await expect(page.getByText(/\+\d+ more/)).toHaveCount(0);
+
+  // Really painted: every category line has real height inside the tile, so
+  // none of them is clipped away by an overflow rule.
+  const clipped = await page.evaluate(() => {
+    const list = document.querySelector<HTMLElement>("dl");
+    if (!list) return "no skills list";
+    const listBox = list.getBoundingClientRect();
+    for (const row of Array.from(list.children)) {
+      const box = row.getBoundingClientRect();
+      if (box.height < 1) return `${row.textContent} has no height`;
+      if (box.bottom > listBox.bottom + 1) return `${row.textContent} is cut`;
+    }
+    return null;
+  });
+  expect(clipped).toBeNull();
+});

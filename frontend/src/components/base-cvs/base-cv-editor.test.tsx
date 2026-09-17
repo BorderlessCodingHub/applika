@@ -671,6 +671,24 @@ describe("BaseCvEditor", () => {
     expect(wrapper.className).toContain("relative");
   });
 
+  it("splits the editor into two equal halves, with no cap on either (KODI-009 AC3)", () => {
+    // The owner: "increace the preview width size keep 50/50 "w-1/2" to the CV
+    // form and "w-1/2" to CV preview". Two `minmax(0,1fr)` tracks ARE those two
+    // halves; two `w-1/2` flex children plus the `gap-6` between them would
+    // overflow the row by exactly the gap. The real widths are measured in a
+    // browser by `e2e/cv-builder.spec.ts` — jsdom lays nothing out — so this is
+    // only the guard against a cap creeping back in.
+    const { container } = render(<Harness onValid={vi.fn()} />);
+
+    const split = container.querySelector("form > div.grid") as HTMLElement;
+    expect(split).not.toBeNull();
+    expect(split.className).toContain("md:grid-cols-2");
+    // KODI-008's `2xl:grid-cols-[minmax(0,1fr)_38rem]` gave the surplus to the
+    // form. The owner reversed it; nothing may pin either side to a width.
+    expect(split.className).not.toMatch(/grid-cols-\[/);
+    expect(split.className).not.toMatch(/2xl:/);
+  });
+
   it("renders every section of the CV, in the order the design fixes", () => {
     render(<Harness onValid={vi.fn()} />);
 
@@ -685,8 +703,8 @@ describe("BaseCvEditor", () => {
         .map((heading) => heading.textContent),
     ).toEqual([
       "Identity and contact",
-      "Summary",
       "Links",
+      "Summary",
       "Skills",
       "Experience",
       "Projects",

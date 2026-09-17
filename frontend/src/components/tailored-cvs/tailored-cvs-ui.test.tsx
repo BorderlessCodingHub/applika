@@ -145,8 +145,8 @@ describe("the CV copy carries the same sections as a master CV (KODI-006)", () =
         .slice(0, 9),
     ).toEqual([
       "Identity and contact",
-      "Summary",
       "Links",
+      "Summary",
       "Skills",
       "Experience",
       "Projects",
