@@ -71,7 +71,7 @@ export function AppShell({
   };
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
+    <div className="flex h-viewport w-full overflow-hidden bg-background text-foreground">
       <aside className="hidden w-60 shrink-0 border-r border-sidebar-border md:block">
         <Sidebar {...sidebarProps} />
       </aside>

@@ -236,6 +236,21 @@
   animation-delay: 360ms;
 }
 
+@utility h-viewport {
+  /*
+    A full-viewport box that stops above the pinned bottom chrome. Use it
+    instead of `h-dvh`/`h-screen` on a shell that owns its own scroll area:
+    with `body`'s matching padding the two add up to exactly one viewport, so
+    reserving space never introduces a scrollbar.
+  */
+  height: calc(100dvh - var(--cookie-notice-height, 0px));
+}
+
+@utility min-h-viewport {
+  /* `h-viewport`'s floor-only twin. Use it instead of `min-h-screen`. */
+  min-height: calc(100dvh - var(--cookie-notice-height, 0px));
+}
+
 @utility admin-card {
   /* Admin card hover lift */
   will-change: transform;
@@ -373,10 +388,23 @@
     border-color: var(--color-border);
   }
 
+  :root {
+    /*
+      Height of the bottom chrome that is pinned to the viewport and must never
+      cover page content. `CookieConsent` is its only owner: it measures its own
+      bar with a ResizeObserver, writes the value here and REMOVES the property
+      when it unmounts, so a dismissed notice reserves nothing.
+    */
+    --cookie-notice-height: 0px;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
     font-feature-settings: "cv11", "ss01", "ss03";
+    /* Documents that flow: the last line stops above the bar. */
+    padding-bottom: var(--cookie-notice-height, 0px);
+    scroll-padding-bottom: var(--cookie-notice-height, 0px);
   }
 
   ::selection {

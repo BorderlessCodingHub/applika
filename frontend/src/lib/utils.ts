@@ -7,9 +7,18 @@ import { extendTailwindMerge } from "tailwind-merge";
  * `shadow` group. Without this, `cn("shadow-elevated", "shadow-none")` keeps
  * BOTH and the later rule in the stylesheet wins — the override silently does
  * nothing. Register them so a caller can actually replace them.
+ *
+ * `h-viewport` and `min-h-viewport` are the same story in the `h` and `min-h`
+ * groups.
  */
 const twMerge = extendTailwindMerge({
-  extend: { classGroups: { shadow: ["shadow-card", "shadow-elevated"] } },
+  extend: {
+    classGroups: {
+      shadow: ["shadow-card", "shadow-elevated"],
+      h: ["h-viewport"],
+      "min-h": ["min-h-viewport"],
+    },
+  },
 });
 
 export function cn(...inputs: ClassValue[]) {

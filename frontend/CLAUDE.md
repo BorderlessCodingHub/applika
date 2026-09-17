@@ -217,6 +217,9 @@ order. `src/lib/utils.ts` registers them in the `shadow` group via
 Tailwind group must be registered there too**, or overriding it will silently do
 nothing.
 
+`h-viewport` and `min-h-viewport` (see **Stacking contract**) are registered the
+same way, in the `h` and `min-h` groups.
+
 Registering a utility in one group also takes it OUT of the group it was falling
 through to. `shadow-card`/`shadow-elevated` used to land in `shadow-color`, so a
 `shadow-<color>` class no longer conflicts with them. Nothing in `src/` uses a
@@ -251,6 +254,22 @@ up; use `font-display` for headings and titles. Never mix the two on one element
 `root-providers.tsx`, so at `z-50` it ties with the sheet and wins on document
 order — which floated it over the open mobile navigation menu.
 `e2e/shell-responsive.spec.ts` hit-tests this with real geometry.
+
+**`CookieConsent` reserves space instead of floating.** It is a FULL-WIDTH bar
+pinned to the bottom of the viewport. While it is mounted it publishes its
+MEASURED height (a `ResizeObserver`, so a three-line wrap at 320px still fits)
+to `--cookie-notice-height` on `<html>`, and it REMOVES the property when it
+unmounts — a dismissed notice reserves nothing. `globals.css` spends that
+property in two places: `body` takes it as `padding-bottom` and
+`scroll-padding-bottom`, so a flowing document ends above the bar; and the
+`h-viewport` / `min-h-viewport` utilities subtract it. **Use those two instead
+of `h-dvh`, `h-screen` or `min-h-screen` on any full-viewport shell** — the
+padding and the subtraction add up to exactly one viewport, so reserving space
+never introduces a scrollbar. The consequence, and the reason the notice stopped
+being a bottom-right card: it can NO LONGER cover an in-page `sticky bottom-0`
+footer — the CV editor's submit row — at any breakpoint. The `z-50` nav sheet is
+`fixed inset-y-0`, so it still overlaps the bar's strip and still paints over
+it.
 
 ### App shell
 

@@ -3,7 +3,7 @@ import { LandingHeader } from "@/components/landing/landing-header";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="noise-overlay relative min-h-screen bg-background">
+    <div className="noise-overlay relative min-h-viewport bg-background">
       <LandingHeader />
       {children}
       <LandingFooter />
