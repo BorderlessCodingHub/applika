@@ -298,13 +298,23 @@ test("a master CV can be created, listed, edited and deleted", async ({
   await qualification
     .getByLabel("Field of study", { exact: true })
     .fill("Computer Science");
-  await qualification.getByLabel("Period", { exact: true }).fill("2010 — 2013");
+  // A CV date is a month and a year, typed as MM/yyyy and stored as ISO
+  // `YYYY-MM`. `fill()` hands the whole string over in one `input` event and
+  // the mask absorbs it; always fill a PADDED month.
+  await qualification.getByLabel("Start", { exact: true }).fill("09/2010");
+  await qualification.getByLabel("Finish", { exact: true }).fill("06/2013");
 
   await page.getByRole("button", { name: "Add experience" }).click();
   const role = page.getByRole("group", { name: "experience 1" });
   await role.getByLabel("Company", { exact: true }).fill("Applika");
   await role.getByLabel("Role", { exact: true }).fill("Backend Engineer");
-  await role.getByLabel("Period", { exact: true }).fill("2024 — Present");
+  // A role the user is still in: the start is required, the finish left
+  // empty, which is how "present" is said.
+  await role.getByLabel("Start", { exact: true }).fill("01/2024");
+  await expect(role.getByLabel("Start", { exact: true })).toHaveValue(
+    "01/2024",
+  );
+  await expect(role.getByLabel("Finish", { exact: true })).toHaveValue("");
   // The UI calls it a highlight; the wire calls it `bullets`. Round-trip it.
   await role.getByRole("button", { name: "Add highlight" }).click();
   await role
@@ -339,6 +349,12 @@ test("a master CV can be created, listed, edited and deleted", async ({
   await expect(
     savedRole.getByLabel("Highlight 1", { exact: true }),
   ).toHaveValue("Cut settlement latency by 40%");
+  // The dates round-trip through the API as ISO and come back as MM/yyyy, and
+  // the empty finish stays empty.
+  await expect(savedRole.getByLabel("Start", { exact: true })).toHaveValue(
+    "01/2024",
+  );
+  await expect(savedRole.getByLabel("Finish", { exact: true })).toHaveValue("");
 
   // The categories and their keywords survive the round trip, and so does the
   // education section the owner never asked to have cut.
@@ -360,6 +376,12 @@ test("a master CV can be created, listed, edited and deleted", async ({
   await expect(
     savedQualification.getByLabel("Field of study", { exact: true }),
   ).toHaveValue("Computer Science");
+  await expect(
+    savedQualification.getByLabel("Start", { exact: true }),
+  ).toHaveValue("09/2010");
+  await expect(
+    savedQualification.getByLabel("Finish", { exact: true }),
+  ).toHaveValue("06/2013");
 
   // And the live preview prints them the way the PDF does: a bold category
   // line, then its keywords joined by a middle dot.
@@ -367,6 +389,9 @@ test("a master CV can be created, listed, edited and deleted", async ({
   await expect(preview.getByText(`${SKILL_CATEGORY}:`)).toBeVisible();
   await expect(preview.getByText("Python \u00b7 Go")).toBeVisible();
   await expect(preview.getByText("BSc in Computer Science")).toBeVisible();
+  // AC5: the preview prints the date text the PDF prints, `present` and all.
+  await expect(preview.getByText("01/2024 - present")).toBeVisible();
+  await expect(preview.getByText("09/2010 - 06/2013")).toBeVisible();
 
   await label.fill(CV_RENAMED);
   await page.getByRole("button", { name: "Save changes" }).click();

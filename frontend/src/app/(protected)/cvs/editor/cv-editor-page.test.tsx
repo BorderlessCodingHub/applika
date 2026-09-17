@@ -65,7 +65,8 @@ const SAVED_CV: BaseCv = {
       institution: "University of Edinburgh",
       degree: "BSc",
       area: "Computer Science",
-      period: "2010 — 2013",
+      start: "2010-09",
+      end: "2013-06",
     },
   ],
   experience: [
@@ -73,7 +74,7 @@ const SAVED_CV: BaseCv = {
       id: "e-1",
       company: "Stripe",
       role: "Senior Backend Engineer",
-      period: "2021 — Present",
+      start: "2021-03",
       bullets: ["Cut settlement latency by 40%"],
     },
   ],

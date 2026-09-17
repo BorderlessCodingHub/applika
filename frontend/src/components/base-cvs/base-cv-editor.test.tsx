@@ -59,7 +59,7 @@ const SAVED_CV: BaseCv = {
       company: "Stripe",
       company_description: "Payments infrastructure.",
       role: "Senior Backend Engineer",
-      period: "2021 — Present",
+      start: "2021-03",
       location: "Remote",
       bullets: ["Cut settlement latency by 40%"],
     },
@@ -79,7 +79,8 @@ const SAVED_CV: BaseCv = {
       institution: "University of Edinburgh",
       degree: "BSc",
       area: "Computer Science",
-      period: "2010 — 2013",
+      start: "2010-09",
+      end: "2013-06",
     },
   ],
   certifications: [
@@ -215,12 +216,19 @@ describe("baseCvSchema section rows", () => {
       validValues({
         links: [{ id: "a", label: "", url: "" }],
         experience: [
-          { id: "b", company: "", role: "", period: "", bullets: [] },
+          { id: "b", company: "", role: "", start: "", end: "", bullets: [] },
         ],
         certifications: [{ id: "c", name: "", issuer: "" }],
         skills: [{ id: "d", category: "", keywords: [] }],
         education: [
-          { id: "f", institution: "", degree: "", area: "", period: "" },
+          {
+            id: "f",
+            institution: "",
+            degree: "",
+            area: "",
+            start: "",
+            end: "",
+          },
         ],
       }),
     );
@@ -253,10 +261,16 @@ describe("baseCvSchema section rows", () => {
         "experience",
         {
           experience: [
-            { id: "b", company: "Stripe", role: "", period: "", bullets: [] },
+            {
+              id: "b",
+              company: "Stripe",
+              role: "",
+              start: "",
+              bullets: [],
+            },
           ],
         },
-        "Every role needs a company, a role and a period. Remove the rows you do not want.",
+        "Every role needs a company, a role and a start month and year (MM/yyyy). Remove the rows you do not want.",
       ],
       [
         "projects",
@@ -277,10 +291,10 @@ describe("baseCvSchema section rows", () => {
         "education",
         {
           education: [
-            { id: "f", institution: "Edinburgh", degree: "", period: "" },
+            { id: "f", institution: "Edinburgh", degree: "", start: "" },
           ],
         },
-        "Every qualification needs an institution and a degree. Remove the rows you do not want.",
+        "Every qualification needs an institution, a degree and a start month and year (MM/yyyy). Remove the rows you do not want.",
       ],
     ];
 
@@ -315,18 +329,12 @@ describe("baseCvSchema section rows", () => {
       [
         "education",
         {
-          education: [{ id: "b", institution: "x".repeat(201), degree: "BSc" }],
-        },
-      ],
-      [
-        "education",
-        {
           education: [
             {
               id: "b",
-              institution: "Edinburgh",
+              institution: "x".repeat(201),
               degree: "BSc",
-              period: "x".repeat(101),
+              start: "2010-09",
             },
           ],
         },
@@ -357,7 +365,7 @@ describe("baseCvSchema section rows", () => {
               institution: "x".repeat(BASE_CV_MAX.educationInstitution),
               degree: "y".repeat(BASE_CV_MAX.educationDegree),
               area: "z".repeat(BASE_CV_MAX.educationArea),
-              period: "p".repeat(BASE_CV_MAX.educationPeriod),
+              start: "2010-09",
             },
           ],
         }),
@@ -417,10 +425,24 @@ describe("toBaseCvPayload", () => {
           { id: "t", category: " Languages ", keywords: [" Python ", "  "] },
         ],
         education: [
-          { id: "f", institution: "", degree: "", area: "", period: "" },
+          {
+            id: "f",
+            institution: "",
+            degree: "",
+            area: "",
+            start: "",
+            end: "",
+          },
         ],
         experience: [
-          { id: "b", company: "", role: "", period: "", bullets: ["", " "] },
+          {
+            id: "b",
+            company: "",
+            role: "",
+            start: "",
+            end: "",
+            bullets: ["", " "],
+          },
         ],
         certifications: [{ id: "c", name: "", issuer: "" }],
       }),
@@ -549,7 +571,8 @@ describe("BaseCvEditor", () => {
       institution: "University of Edinburgh",
       degree: "BSc",
       area: "Computer Science",
-      period: "2010 — 2013",
+      start: "2010-09",
+      end: "2013-06",
     });
     expect(values.certifications[0]).toMatchObject({ name: "AWS SAA" });
     expect(values.languages[0]).toMatchObject({
@@ -600,7 +623,8 @@ describe("BaseCvEditor", () => {
     await user.type(row.getByLabelText("Institution"), "University of Bath");
     await user.type(row.getByLabelText("Degree"), "MSc");
     await user.type(row.getByLabelText("Field of study"), "Data Science");
-    await user.type(row.getByLabelText("Period"), "2018 — 2019");
+    await user.type(row.getByLabelText("Start"), "092018");
+    await user.type(row.getByLabelText("Finish"), "092019");
 
     await user.click(screen.getByRole("button", { name: "Create CV" }));
 
@@ -612,17 +636,20 @@ describe("BaseCvEditor", () => {
         institution: "University of Bath",
         degree: "MSc",
         area: "Data Science",
-        period: "2018 — 2019",
+        start: "2018-09",
+        end: "2019-09",
       },
     ]);
-    // And it reaches the wire the same way, `area` and `period` included.
+    // And it reaches the wire the same way: ISO `YYYY-MM`, under the keys
+    // `start` and `end` — never `start_date`/`end_date`.
     expect(toBaseCvPayload(values).education).toEqual([
       {
         id: "new-1",
         institution: "University of Bath",
         degree: "MSc",
         area: "Data Science",
-        period: "2018 — 2019",
+        start: "2018-09",
+        end: "2019-09",
       },
     ]);
   });
@@ -667,6 +694,333 @@ describe("BaseCvEditor", () => {
       "Certifications",
       "Languages",
     ]);
+  });
+});
+
+describe("the experience and education periods (KODI-007)", () => {
+  /*
+   * The owner: "Today for Education and Experience, the period input is
+   * optional, this must be required, and needs to change, instead of a bare
+   * text input it needs to ask when started and when finished (finish is
+   * optional, when empty is counted as Present), it's a date input but only
+   * for month and year "MM/yyyy" for both start and finish".
+   *
+   * AC1 and AC2 are the two sections; AC3's client half is the format and the
+   * finish-before-start rule, which has to keep the server's 422 out of reach
+   * (`getApiError` renders FastAPI's `detail` ARRAY as toast garbage); AC5 is
+   * the preview printing exactly what the PDF prints.
+   */
+
+  /** A complete experience row, dates aside. */
+  const role = (over: Partial<CvFormValues["experience"][number]> = {}) => ({
+    id: "e-1",
+    company: "Stripe",
+    role: "Senior Backend Engineer",
+    start: "2021-03",
+    bullets: [],
+    ...over,
+  });
+
+  /** A complete education row, dates aside. */
+  const qualification = (
+    over: Partial<CvFormValues["education"][number]> = {},
+  ) => ({
+    id: "d-1",
+    institution: "University of Edinburgh",
+    degree: "BSc",
+    start: "2010-09",
+    ...over,
+  });
+
+  it("asks an experience row for a start and offers an optional finish (AC1)", () => {
+    render(
+      <Harness defaults={baseCvToFormValues(SAVED_CV)} onValid={vi.fn()} />,
+    );
+    const row = within(screen.getByRole("group", { name: "experience 1" }));
+
+    // The labels are exactly `Start` and `Finish`, unqualified — the row group
+    // is what tells one row from another.
+    expect(row.getByLabelText("Start")).toHaveAttribute(
+      "aria-required",
+      "true",
+    );
+    expect(row.getByLabelText("Finish")).not.toHaveAttribute("aria-required");
+    expect(row.queryByLabelText("Period")).not.toBeInTheDocument();
+  });
+
+  it("asks an education row for a start too — it used to be optional (AC2)", () => {
+    render(
+      <Harness defaults={baseCvToFormValues(SAVED_CV)} onValid={vi.fn()} />,
+    );
+    const row = within(screen.getByRole("group", { name: "education 1" }));
+
+    expect(row.getByLabelText("Start")).toHaveAttribute(
+      "aria-required",
+      "true",
+    );
+    expect(row.getByLabelText("Finish")).not.toHaveAttribute("aria-required");
+    expect(row.queryByLabelText("Period")).not.toBeInTheDocument();
+  });
+
+  it("says in words that an empty finish prints as present (AC1, AC2)", () => {
+    render(
+      <Harness defaults={baseCvToFormValues(SAVED_CV)} onValid={vi.fn()} />,
+    );
+
+    // There is no checkbox and no "Present" toggle: the empty field IS the
+    // affordance, and the hint is what says so.
+    expect(
+      screen.getByText(
+        "Optional. Leave it empty for a role you are still in — it prints as present.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Optional. Leave it empty for a course you are still on — it prints as present.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Month and year, MM/yyyy.")).toHaveLength(2);
+  });
+
+  it("reads MM/yyyy back out of a stored ISO month (AC3)", () => {
+    render(
+      <Harness defaults={baseCvToFormValues(SAVED_CV)} onValid={vi.fn()} />,
+    );
+
+    const experience = within(
+      screen.getByRole("group", { name: "experience 1" }),
+    );
+    const education = within(
+      screen.getByRole("group", { name: "education 1" }),
+    );
+
+    // SAVED_CV holds `2021-03` and `2010-09`/`2013-06`.
+    expect(experience.getByLabelText("Start")).toHaveValue("03/2021");
+    expect(experience.getByLabelText("Finish")).toHaveValue("");
+    expect(education.getByLabelText("Start")).toHaveValue("09/2010");
+    expect(education.getByLabelText("Finish")).toHaveValue("06/2013");
+  });
+
+  it("types MM/yyyy and sends ISO YYYY-MM under `start` and `end` (AC1, AC3)", async () => {
+    const user = userEvent.setup();
+    const onValid = vi.fn();
+    render(<Harness defaults={validValues()} onValid={onValid} />);
+
+    await user.click(screen.getByRole("button", { name: "Add experience" }));
+    const row = within(screen.getByRole("group", { name: "experience 1" }));
+    await user.type(row.getByLabelText("Company"), "Stripe");
+    await user.type(row.getByLabelText("Role"), "Senior Backend Engineer");
+    await user.type(row.getByLabelText("Start"), "022023");
+    await user.type(row.getByLabelText("Finish"), "022024");
+
+    expect(row.getByLabelText("Start")).toHaveValue("02/2023");
+    await user.click(screen.getByRole("button", { name: "Create CV" }));
+
+    expect(onValid).toHaveBeenCalledTimes(1);
+    const values = onValid.mock.calls[0][0] as CvFormValues;
+    const [sent] = toBaseCvPayload(values).experience;
+
+    // THE FIELD NAMES ARE `start` AND `end`. A `start_date` here would
+    // type-check against nothing and fail at runtime against the API.
+    expect(sent).toMatchObject({ start: "2023-02", end: "2024-02" });
+    expect(sent).not.toHaveProperty("start_date");
+    expect(sent).not.toHaveProperty("end_date");
+    expect(sent).not.toHaveProperty("period");
+  });
+
+  it("OMITS the end key when the finish is empty, which means current (AC1)", () => {
+    // Absent, not `null` and not `""`: `optionalText` yields `undefined`, so
+    // the key is dropped from the JSON body and the API reads it as current.
+    const payload = toBaseCvPayload(
+      validValues({
+        experience: [role({ end: "" })],
+        education: [qualification({ end: "" })],
+      }),
+    );
+
+    expect(payload.experience[0].end).toBeUndefined();
+    expect(payload.education[0].end).toBeUndefined();
+    expect(payload.experience[0].start).toBe("2021-03");
+    expect(payload.education[0].start).toBe("2010-09");
+  });
+
+  it("reads a null end off the wire as an empty, current finish", () => {
+    const values = baseCvToFormValues({
+      ...SAVED_CV,
+      experience: [{ ...SAVED_CV.experience[0], end: null }],
+      education: [{ ...SAVED_CV.education[0], end: null }],
+    });
+
+    expect(values.experience[0].end).toBe("");
+    expect(values.education[0].end).toBe("");
+  });
+
+  it("refuses an experience row with no start, and says what is missing (AC1)", () => {
+    const parsed = baseCvSchema.safeParse(
+      validValues({ experience: [role({ start: "" })] }),
+    );
+
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues[0]?.message).toBe(
+      "Every role needs a company, a role and a start month and year (MM/yyyy). Remove the rows you do not want.",
+    );
+    expect(parsed.error?.issues[0]?.path[0]).toBe("experience");
+  });
+
+  it("refuses an education row with no start — the owner widened this (AC2)", () => {
+    const parsed = baseCvSchema.safeParse(
+      validValues({ education: [qualification({ start: "" })] }),
+    );
+
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues[0]?.message).toBe(
+      "Every qualification needs an institution, a degree and a start month and year (MM/yyyy). Remove the rows you do not want.",
+    );
+    expect(parsed.error?.issues[0]?.path[0]).toBe("education");
+  });
+
+  it("still drops a row nobody typed into, dates included (AC1, AC2)", () => {
+    const values = validValues({
+      experience: [
+        { id: "b", company: "", role: "", start: "", end: "", bullets: [] },
+      ],
+      education: [
+        {
+          id: "f",
+          institution: "",
+          degree: "",
+          area: "",
+          start: "",
+          end: "",
+        },
+      ],
+    });
+
+    expect(baseCvSchema.safeParse(values).success).toBe(true);
+    expect(toBaseCvPayload(values).experience).toEqual([]);
+    expect(toBaseCvPayload(values).education).toEqual([]);
+  });
+
+  it("treats a row with only a date typed into it as real, not blank", () => {
+    // Half a period is half a row: it has to be completed or removed, never
+    // silently dropped on the way to the wire.
+    for (const values of [
+      validValues({
+        experience: [
+          { id: "b", company: "", role: "", start: "2021-03", bullets: [] },
+        ],
+      }),
+      validValues({
+        education: [{ id: "f", institution: "", degree: "", start: "2010-09" }],
+      }),
+    ]) {
+      expect(baseCvSchema.safeParse(values).success).toBe(false);
+    }
+  });
+
+  it("refuses a finish earlier than its start, so the 422 is unreachable (AC3)", () => {
+    // The server answers 422 for this and `getApiError` renders FastAPI's
+    // `detail` ARRAY into the toast as garbage. The client rule is the
+    // server's, character for character, so the user never gets there.
+    const experience = baseCvSchema.safeParse(
+      validValues({
+        experience: [role({ start: "2024-02", end: "2023-02" })],
+      }),
+    );
+    expect(experience.success).toBe(false);
+    expect(experience.error?.issues[0]?.message).toBe(
+      "A finish must be a full MM/yyyy and cannot come before its start. Leave it empty for a role you are still in.",
+    );
+
+    const education = baseCvSchema.safeParse(
+      validValues({
+        education: [qualification({ start: "2013-06", end: "2010-09" })],
+      }),
+    );
+    expect(education.success).toBe(false);
+    expect(education.error?.issues[0]?.message).toBe(
+      "A finish must be a full MM/yyyy and cannot come before its start. Leave it empty for a course you are still on.",
+    );
+  });
+
+  it("refuses a finish one month before its start, and accepts the same month", () => {
+    expect(
+      baseCvSchema.safeParse(
+        validValues({
+          experience: [role({ start: "2024-02", end: "2024-01" })],
+        }),
+      ).success,
+    ).toBe(false);
+    expect(
+      baseCvSchema.safeParse(
+        validValues({
+          experience: [role({ start: "2024-02", end: "2024-02" })],
+        }),
+      ).success,
+    ).toBe(true);
+    expect(
+      baseCvSchema.safeParse(
+        validValues({
+          experience: [role({ start: "2024-02", end: "2024-03" })],
+        }),
+      ).success,
+    ).toBe(true);
+  });
+
+  it("refuses a half-typed or impossible month on either end (AC3)", () => {
+    // The mask can hold "02/20" or "13/2024" on screen; neither may be saved.
+    for (const over of [
+      { start: "2024" },
+      { start: "2024-13" },
+      { start: "02/2024" },
+      { start: "2024-02-01" },
+      { end: "2024" },
+      { end: "2024-13" },
+      { end: "02/2024" },
+    ]) {
+      expect(
+        baseCvSchema.safeParse(validValues({ experience: [role(over)] }))
+          .success,
+        JSON.stringify(over),
+      ).toBe(false);
+    }
+  });
+
+  it("does not invent a year range the server does not enforce (AC3)", () => {
+    expect(
+      baseCvSchema.safeParse(
+        validValues({
+          experience: [role({ start: "1899-01", end: "2999-12" })],
+        }),
+      ).success,
+    ).toBe(true);
+  });
+
+  it("shows the preview the same date text the PDF prints, present included (AC5)", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        defaults={validValues({
+          experience: [role({ id: "e-1", start: "2021-03", end: "2024-02" })],
+          education: [qualification({ id: "d-1", start: "2010-09" })],
+        })}
+        onValid={vi.fn()}
+      />,
+    );
+    const preview = within(
+      screen.getByRole("complementary", { name: "CV preview" }),
+    );
+
+    expect(preview.getByText("03/2021 - 02/2024")).toBeInTheDocument();
+    expect(preview.getByText("09/2010 - present")).toBeInTheDocument();
+
+    // Empty the finish and the preview flips to `present` live.
+    await user.clear(
+      within(
+        screen.getByRole("group", { name: "experience 1" }),
+      ).getByLabelText("Finish"),
+    );
+    expect(preview.getByText("03/2021 - present")).toBeInTheDocument();
   });
 });
 

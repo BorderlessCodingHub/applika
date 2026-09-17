@@ -94,7 +94,8 @@ describe("NewCvPage", () => {
     const role = within(screen.getByRole("group", { name: "experience 1" }));
     await user.type(role.getByLabelText("Company"), "Applika");
     await user.type(role.getByLabelText("Role"), "Backend Engineer");
-    await user.type(role.getByLabelText("Period"), "2024 — Present");
+    // A current role: the start is required, the finish left empty.
+    await user.type(role.getByLabelText("Start"), "012024");
     await user.click(role.getByRole("button", { name: "Add highlight" }));
     await user.type(
       role.getByLabelText("Highlight 1"),
@@ -139,7 +140,8 @@ describe("NewCvPage", () => {
         id: expect.any(String),
         company: "Applika",
         role: "Backend Engineer",
-        period: "2024 — Present",
+        start: "2024-01",
+        end: undefined,
         company_description: undefined,
         location: undefined,
         bullets: ["Cut settlement latency by 40%"],
@@ -194,7 +196,8 @@ describe("NewCvPage", () => {
     const role = within(screen.getByRole("group", { name: "experience 1" }));
     await user.type(role.getByLabelText("Company"), "Applika");
     await user.type(role.getByLabelText("Role"), "Backend Engineer");
-    await user.type(role.getByLabelText("Period"), "2024 — Present");
+    // A current role: the start is required, the finish left empty.
+    await user.type(role.getByLabelText("Start"), "012024");
     await user.click(role.getByRole("button", { name: "Add highlight" }));
     await user.type(
       role.getByLabelText("Highlight 1"),

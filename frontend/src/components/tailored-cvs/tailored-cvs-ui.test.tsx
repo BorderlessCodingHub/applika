@@ -99,6 +99,40 @@ describe("the CV copy carries the same sections as a master CV (KODI-006)", () =
     expect(qualification.getByLabelText("Degree")).toHaveValue("MSc");
   });
 
+  it("asks the copy for the same required start and optional finish (KODI-007)", async () => {
+    // The copy's body IS `CvFormSections`, so it gets the period pair for
+    // free. This pins that it stays that way — AC1 and AC2 name both surfaces.
+    const user = userEvent.setup();
+    render(<Editor />);
+
+    await user.click(screen.getByRole("button", { name: "Add experience" }));
+    await user.click(screen.getByRole("button", { name: "Add education" }));
+
+    for (const name of ["experience 1", "education 1"]) {
+      const row = within(screen.getByRole("group", { name }));
+      expect(row.getByLabelText("Start"), name).toHaveAttribute(
+        "aria-required",
+        "true",
+      );
+      expect(row.getByLabelText("Finish"), name).not.toHaveAttribute(
+        "aria-required",
+      );
+      expect(row.queryByLabelText("Period"), name).not.toBeInTheDocument();
+    }
+
+    await user.type(
+      within(
+        screen.getByRole("group", { name: "experience 1" }),
+      ).getByLabelText("Start"),
+      "022023",
+    );
+    expect(
+      within(
+        screen.getByRole("group", { name: "experience 1" }),
+      ).getByLabelText("Start"),
+    ).toHaveValue("02/2023");
+  });
+
   it("renders its sections in the owner's order, education included", () => {
     render(<Editor />);
 
@@ -142,9 +176,17 @@ describe("the CV copy carries the same sections as a master CV (KODI-006)", () =
             institution: " University of Bath ",
             degree: " MSc ",
             area: "  ",
-            period: "2018 — 2019",
+            start: " 2018-09 ",
+            end: "",
           },
-          { id: "d-2", institution: "", degree: "", area: "", period: "" },
+          {
+            id: "d-2",
+            institution: "",
+            degree: "",
+            area: "",
+            start: "",
+            end: "",
+          },
         ],
       }),
     ).toMatchObject({
@@ -155,7 +197,8 @@ describe("the CV copy carries the same sections as a master CV (KODI-006)", () =
           institution: "University of Bath",
           degree: "MSc",
           area: undefined,
-          period: "2018 — 2019",
+          start: "2018-09",
+          end: undefined,
         },
       ],
     });

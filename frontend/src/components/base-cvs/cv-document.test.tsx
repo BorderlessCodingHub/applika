@@ -2,11 +2,14 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import {
+  CV_DATE_PRESENT,
+  CV_DATE_RANGE_SEPARATOR,
   CV_DOCUMENT_SECTIONS,
   CV_EDUCATION_DEGREE_JOINER,
   CV_KEYWORD_SEPARATOR,
   CvDocument,
   educationDegreeLine,
+  formatCvDatePeriod,
   getPopulatedCvSections,
   skillCategoryHeading,
   visibleEducation,
@@ -62,7 +65,7 @@ const FULL_CV: CvDocumentData = {
       id: "e-1",
       company: "Northwind Payments",
       role: "Senior Backend Engineer",
-      period: "2021 — Present",
+      start: "2021-03",
       bullets: ["Cut settlement latency by 40%"],
     },
   ],
@@ -81,7 +84,8 @@ const FULL_CV: CvDocumentData = {
       institution: "University of Edinburgh",
       degree: "BSc",
       area: "Computer Science",
-      period: "2010 — 2013",
+      start: "2010-09",
+      end: "2013-06",
     },
   ],
   certifications: [
@@ -391,13 +395,19 @@ describe("educationDegreeLine (AC4)", () => {
         institution: "X",
         degree: "BSc",
         area: "Computer Science",
+        start: "2010-09",
       }),
     ).toBe("BSc in Computer Science");
   });
 
   it("prints the degree alone when there is no field of study", () => {
     expect(
-      educationDegreeLine({ id: "d", institution: "X", degree: "BSc" }),
+      educationDegreeLine({
+        id: "d",
+        institution: "X",
+        degree: "BSc",
+        start: "2010-09",
+      }),
     ).toBe("BSc");
     expect(
       educationDegreeLine({
@@ -405,6 +415,7 @@ describe("educationDegreeLine (AC4)", () => {
         institution: "X",
         degree: "BSc",
         area: "   ",
+        start: "2010-09",
       }),
     ).toBe("BSc");
   });
@@ -416,13 +427,20 @@ describe("educationDegreeLine (AC4)", () => {
         institution: "X",
         degree: "",
         area: "Computer Science",
+        start: "2010-09",
       }),
     ).toBe("Computer Science");
   });
 
   it("prints nothing when it has neither, so no dangling 'in' is typeset", () => {
     expect(
-      educationDegreeLine({ id: "d", institution: "X", degree: "", area: "" }),
+      educationDegreeLine({
+        id: "d",
+        institution: "X",
+        degree: "",
+        area: "",
+        start: "",
+      }),
     ).toBe("");
   });
 });
@@ -447,36 +465,168 @@ describe("the education section (AC4)", () => {
     const education = within(documentSection("Education"));
 
     expect(education.getByText("University of Edinburgh")).toBeInTheDocument();
-    expect(education.getByText("2010 — 2013")).toBeInTheDocument();
+    expect(education.getByText("09/2010 - 06/2013")).toBeInTheDocument();
     expect(education.getByText("BSc in Computer Science")).toBeInTheDocument();
   });
 
   it("drops a row with nothing typed into it at all", () => {
     expect(
       visibleEducation([
-        { id: "d", institution: " ", degree: "  ", area: "", period: " " },
+        {
+          id: "d",
+          institution: " ",
+          degree: "  ",
+          area: "",
+          start: " ",
+          end: " ",
+        },
       ]),
     ).toEqual([]);
   });
 
   it("keeps a row the user has only started, whichever field they began with", () => {
-    // The server's `_education_entries` keeps a row if ANY of the four is
+    // The server's `_education_entries` keeps a row if ANY of its fields is
     // present. A narrower rule here would make the whole section vanish from
-    // the LIVE preview mid-edit — the user fills the period and the heading
+    // the LIVE preview mid-edit — the user fills the start and the heading
     // they were looking at disappears.
     for (const partial of [
       { institution: "University of Edinburgh" },
       { degree: "BSc" },
       { area: "Computer Science" },
-      { period: "2010 — 2013" },
+      { start: "2010-09" },
+      { end: "2013-06" },
     ]) {
       expect(
         visibleEducation([
-          { id: "d", institution: "", degree: "", ...partial },
+          { id: "d", institution: "", degree: "", start: "", ...partial },
         ]),
         JSON.stringify(partial),
       ).toHaveLength(1);
     }
+  });
+});
+
+describe("the date text, the fifth pinned twin of the PDF (KODI-007 / AC5)", () => {
+  // The owner: "instead of a bare text input it needs to ask when started and
+  // when finished (finish is optional, when empty is counted as Present)".
+  //
+  // The server typesets these dates with RenderCV through the frozen `applika`
+  // theme: `single_date='MONTH_IN_TWO_DIGITS/YEAR'`,
+  // `date_range='START_DATE - END_DATE'`, the English locale's `present`, and
+  // an empty `show_time_spans_in` so nothing like "(1 year 2 months)" is
+  // appended. The preview must print the SAME characters — that is AC5.
+  it("prints two dates as MM/yyyy around a spaced ASCII hyphen", () => {
+    expect(formatCvDatePeriod("2023-02", "2024-02")).toBe("02/2023 - 02/2024");
+    expect(CV_DATE_RANGE_SEPARATOR).toBe(" - ");
+    // A hyphen-minus, NOT RenderCV's own en-dash default.
+    expect(CV_DATE_RANGE_SEPARATOR).toBe(" \u002d ");
+    expect(CV_DATE_RANGE_SEPARATOR).not.toContain("\u2013");
+  });
+
+  it("says a lowercase 'present' when there is no finish", () => {
+    expect(CV_DATE_PRESENT).toBe("present");
+    expect(formatCvDatePeriod("2024-02", undefined)).toBe("02/2024 - present");
+    expect(formatCvDatePeriod("2024-02", null)).toBe("02/2024 - present");
+    expect(formatCvDatePeriod("2024-02", "")).toBe("02/2024 - present");
+  });
+
+  it("prints nothing at all while the start is still half typed", () => {
+    // In the LIVE preview a row is typed one character at a time. A dangling
+    // separator, or a lone "present", is never on screen.
+    for (const start of ["", "2024", "2024-13", "02/2024", null, undefined]) {
+      expect(formatCvDatePeriod(start, "2025-01"), String(start)).toBe("");
+    }
+  });
+
+  it("ignores a finish it cannot read, rather than printing it raw", () => {
+    expect(formatCvDatePeriod("2024-02", "2024-13")).toBe("02/2024 - present");
+  });
+
+  it("shows the same text in the experience block as the PDF prints", () => {
+    render(
+      <CvDocument
+        cv={cv({
+          experience: [
+            {
+              id: "e-1",
+              company: "Northwind Payments",
+              role: "Senior Backend Engineer",
+              start: "2021-03",
+              end: "2024-02",
+              bullets: [],
+            },
+            {
+              id: "e-2",
+              company: "Stripe",
+              role: "Staff Engineer",
+              start: "2024-03",
+              bullets: [],
+            },
+          ],
+        })}
+      />,
+    );
+    const experience = within(documentSection("Experience"));
+
+    expect(experience.getByText("03/2021 - 02/2024")).toBeInTheDocument();
+    expect(experience.getByText("03/2024 - present")).toBeInTheDocument();
+  });
+
+  it("shows the same text in the education block, present included", () => {
+    render(
+      <CvDocument
+        cv={cv({
+          education: [
+            {
+              id: "d-1",
+              institution: "University of Edinburgh",
+              degree: "BSc",
+              start: "2010-09",
+              end: "2013-06",
+            },
+            {
+              id: "d-2",
+              institution: "University of Bath",
+              degree: "MSc",
+              start: "2025-09",
+            },
+          ],
+        })}
+      />,
+    );
+    const education = within(documentSection("Education"));
+
+    expect(education.getByText("09/2010 - 06/2013")).toBeInTheDocument();
+    expect(education.getByText("09/2025 - present")).toBeInTheDocument();
+  });
+
+  it("renders no empty date box beside a role whose start is half typed", () => {
+    // The experience date span used to render unconditionally. With no date to
+    // print it would be an empty box holding a line of its own.
+    render(
+      <CvDocument
+        cv={cv({
+          experience: [
+            {
+              id: "e-1",
+              company: "Northwind Payments",
+              role: "Senior Backend Engineer",
+              start: "",
+              bullets: [],
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(
+      within(documentSection("Experience")).queryByText(
+        new RegExp(CV_DATE_PRESENT),
+      ),
+    ).not.toBeInTheDocument();
+    expect(documentSection("Experience").querySelectorAll("span")).toHaveLength(
+      0,
+    );
   });
 });
 
