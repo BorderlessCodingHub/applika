@@ -37,8 +37,6 @@ export interface CvSectionCardProps extends CvCollapsibleProps {
   description?: ReactNode;
   /** Lucide icon shown in a tinted tile beside the title. */
   icon?: ComponentType<LucideProps>;
-  /** Right-aligned header slot (the repeatable sections put their Add button here). */
-  action?: ReactNode;
   /** Heading level, so the page outline stays correct. */
   as?: "h2" | "h3";
   children: ReactNode;
@@ -55,21 +53,36 @@ const COLLAPSIBLE_CONTENT_CLASS = cn(
 
 /**
  * Card shell for one titled block of the CV editor: tinted icon tile, heading,
- * description, an optional header action and the fields underneath. Shell only
- * — the caller owns the `<form>` and the fields.
+ * description and the fields underneath. Shell only — the caller owns the
+ * `<form>` and the fields.
  *
- * The heading IS the disclosure button (the WAI-ARIA accordion shape: a heading
- * whose only child is the trigger), which is why the header's `action` slot is
- * a SIBLING of it and not inside it — the Add button of a repeatable section
- * may never be nested in the trigger that would swallow its click. The
- * description stays outside the button too: a `<p>` is not phrasing content and
- * cannot live in a `<button>`.
+ * **The WHOLE header toggles the section.** The owner, KODI-009: "remove the
+ * button to insert a new link/category/etc from the category header and put
+ * inside the colapsable section". With nothing else competing for the header
+ * there is no reason to make the user aim at the title, so the header is one
+ * hit area — and the card carries NO header action slot any more. Do not add
+ * one back: a second interactive control in this header would be unreachable
+ * under the stretched trigger.
+ *
+ * It is stretched with a PSEUDO-ELEMENT (`after:absolute after:inset-0` over
+ * the `relative` header), not by growing the `<button>` around the rest of the
+ * header. That keeps three things at once: the WAI-ARIA accordion shape (a
+ * heading whose only child is the trigger), an accessible name that is exactly
+ * the title — every locator in the suite matches it EXACTLY — and a `<p>` for
+ * the description, which is not phrasing content and could not live inside a
+ * `<button>`. The focus ring therefore goes on the header, as an inset
+ * `outline`: a `ring` is painted outside the border box and the card's
+ * `overflow-hidden` would clip it.
+ *
+ * The header row is `items-center`, so the chevron sits on the vertical axis of
+ * the whole header block rather than on the first line of a two-line one — the
+ * owner again: "align the chevron icons to the center vercially of the
+ * component".
  */
 export function CvSectionCard({
   title,
   description,
   icon: Icon,
-  action,
   as: Heading = "h2",
   collapsible = true,
   defaultOpen = true,
@@ -80,7 +93,20 @@ export function CvSectionCard({
   contentClassName,
 }: CvSectionCardProps) {
   const header = (
-    <div className="flex flex-row items-start gap-3 border-b border-border p-4">
+    <div
+      data-slot="cv-section-header"
+      className={cn(
+        // `relative` is what bounds the trigger's stretched `::after`. With
+        // `z-index: auto` it creates NO stacking context, so the shell's
+        // z-30/40/50 contract is untouched (frontend/CLAUDE.md).
+        "relative flex flex-row items-center gap-3 border-b border-border p-4",
+        collapsible && [
+          "cursor-pointer",
+          "has-[:focus-visible]:outline-2 has-[:focus-visible]:-outline-offset-2",
+          "has-[:focus-visible]:outline-ring/50",
+        ],
+      )}
+    >
       {Icon ? (
         <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
           <Icon aria-hidden className="size-4.5" />
@@ -92,16 +118,15 @@ export function CvSectionCard({
             <CollapsibleTrigger
               data-slot="cv-section-trigger"
               className={cn(
-                "group flex w-full items-center justify-between gap-2 rounded-sm text-left",
-                "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                "block w-full rounded-sm text-left outline-none",
                 "cursor-pointer hover:text-primary",
+                // The hit area, stretched over the whole header. Hovering the
+                // pseudo-element hovers the trigger, so `hover:text-primary`
+                // answers to the header and not just to the words.
+                "after:absolute after:inset-0 after:content-['']",
               )}
             >
-              <span className="min-w-0 truncate">{title}</span>
-              <ChevronDown
-                aria-hidden
-                className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=closed]:-rotate-90"
-              />
+              <span className="block truncate">{title}</span>
             </CollapsibleTrigger>
           ) : (
             title
@@ -113,7 +138,15 @@ export function CvSectionCard({
           </p>
         ) : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {collapsible ? (
+        <ChevronDown
+          aria-hidden
+          className={cn(
+            "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+            "group-data-[state=closed]/cv-section:-rotate-90",
+          )}
+        />
+      ) : null}
     </div>
   );
 
@@ -126,6 +159,9 @@ export function CvSectionCard({
     >
       {collapsible ? (
         <Collapsible
+          // The chevron lives at HEADER level now, outside the trigger, so it
+          // reads the open state off the Root rather than off its old parent.
+          className="group/cv-section"
           defaultOpen={open === undefined ? defaultOpen : undefined}
           open={open}
           onOpenChange={onOpenChange}

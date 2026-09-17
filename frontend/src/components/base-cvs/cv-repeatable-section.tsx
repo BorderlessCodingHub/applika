@@ -186,18 +186,6 @@ export function CvRepeatableSection<T extends { id: string }>({
       defaultOpen={defaultOpen}
       open={open}
       onOpenChange={onOpenChange}
-      action={
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={!canAdd}
-          onClick={() => onChange([...items, createItem()])}
-        >
-          <Plus aria-hidden />
-          {addLabel}
-        </Button>
-      }
     >
       <>
         {items.length === 0 ? (
@@ -338,6 +326,33 @@ export function CvRepeatableSection<T extends { id: string }>({
             })}
           </ul>
         )}
+
+        {/*
+          The add control, INSIDE the disclosure and directly below the last
+          row. The owner, KODI-009: "remove the button to insert a new
+          link/category/etc from the category header and put inside the
+          colapsable section, preferable bellow from the last item added".
+
+          Two consequences that are the ask, not a bug: a COLLAPSED section
+          exposes no add control at all (there is deliberately no duplicate
+          left in the header), and an EMPTY section still offers one, below the
+          hint. It also lands where the same gesture already lives one level
+          down — `CvStringListField` has put its own add button under its list
+          since KODI-002.
+        */}
+        <div className="mt-3">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!canAdd}
+            onClick={() => onChange([...items, createItem()])}
+          >
+            <Plus aria-hidden />
+            {addLabel}
+          </Button>
+        </div>
+
         {footer}
       </>
     </CvSectionCard>

@@ -1,6 +1,5 @@
 "use client";
 
-import { useId, useState } from "react";
 import { ClipboardList, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -29,6 +28,12 @@ export interface JobDescriptionPanelProps {
  * description may be 50 000 characters, and an unbounded one would push the
  * live preview off the column entirely. It is focusable so a keyboard user can
  * scroll it, which WCAG 2.1.1 requires of any scrollable region.
+ *
+ * Hiding the text is `CvSectionCard`'s own disclosure and nothing else. This
+ * panel used to carry a second one — a Hide/Show button in the header's action
+ * slot — which once the card itself became collapsible left the same body
+ * behind TWO independent toggles that could disagree. The card's header is now
+ * the single control, and the action slot is gone with it (KODI-009).
  */
 export function JobDescriptionPanel({
   jobDescription,
@@ -36,8 +41,6 @@ export function JobDescriptionPanel({
   disabled = false,
   className,
 }: JobDescriptionPanelProps) {
-  const [expanded, setExpanded] = useState(true);
-  const bodyId = useId();
   const text = (jobDescription ?? "").trim();
 
   return (
@@ -46,25 +49,10 @@ export function JobDescriptionPanel({
       description="From the application. Read-only here."
       icon={ClipboardList}
       className={className}
-      contentClassName={cn("p-0", !expanded && "hidden")}
-      action={
-        text ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            aria-expanded={expanded}
-            aria-controls={bodyId}
-            onClick={() => setExpanded((current) => !current)}
-          >
-            {expanded ? "Hide" : "Show"}
-          </Button>
-        ) : null
-      }
+      contentClassName="p-0"
     >
       {text ? (
         <div
-          id={bodyId}
           tabIndex={0}
           role="region"
           aria-label="Job description text"
@@ -76,7 +64,7 @@ export function JobDescriptionPanel({
           {text}
         </div>
       ) : (
-        <div id={bodyId} className="space-y-3 p-4">
+        <div className="space-y-3 p-4">
           <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-pretty text-muted-foreground">
             {JOB_DESCRIPTION_EMPTY_HINT}
           </p>
