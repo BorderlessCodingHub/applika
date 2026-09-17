@@ -259,16 +259,17 @@ large, use A4 dimensions". Three files, one seam:
   screen's one `status`, and a second breaks every `getByRole("status")`
   locator in the suite.
 - **The preview pane names no height of its own.** The EDITOR bounds the
-  column — `md:sticky md:top-0 md:flex md:max-h-scrollport md:flex-col` — and
-  `CvDocumentPreview` fills its share through `md:min-h-0 md:flex-1` passed in
-  `className`. Do not put a `max-h` back on the preview. It used to carry
+  column — `md:sticky md:top-0 md:flex md:max-h-editor-scrollport md:flex-col`
+  — and `CvDocumentPreview` fills its share through `md:min-h-0 md:flex-1`
+  passed in `className`. Do not put a `max-h` back on the preview. It used to
+  carry
   `calc(100dvh - var(--cookie-notice-height,0px) - 12rem)` and that `12rem`
   was a lump with three unrelated things in it: the shell header that `100dvh`
   wrongly counts (the pane lives in `main`, not in the viewport), a phantom
   `md:top-20` sticky offset, and the aside's own label and caption. KODI-009
   measured the result at 720px — the first sheet 104px below the top of the
   scrollport at every scroll position, which is the gap the owner reported.
-  `max-h-scrollport` replaces the first two; flexbox replaces the third.
+  `max-h-editor-scrollport` replaces the first two; flexbox replaces the third.
 - **`CvSectionCard` has no header action slot, and its whole header toggles.**
   The owner, KODI-009: "remove the button to insert a new link/category/etc
   from the category header and put inside the colapsable section, preferable
@@ -376,10 +377,36 @@ choice. **Never add `html2pdf`, a `cv-pdf.ts` or any client-side rasteriser.**
 - It mounts in the editors' `actions` slot: `/cvs/editor?id=` (never `/cvs/new`
   — the server typesets the STORED CV, so there is nothing to render until it
   has been saved once) and `/applications/cv?id=` in BOTH modes.
-- The layout notice (`CV_PDF_LAYOUT_NOTICE` in `base-cvs/types.ts`) is said
-  TWICE on every CV screen: `CvDocumentPreview` is a `<figure>` whose
-  `<figcaption>` carries it, and the button carries its own copy wired with
-  `aria-describedby`. Do NOT add a third at a call site. Assert the WORDS.
+- `layout?: "inline" | "compact"` — `"inline"` (the default) is the editor
+  footer: a full-size button beside the VISIBLE layout notice. `"compact"` is a
+  gallery tile: `size="sm"`, no notice, and the wrapper is `display: contents`
+  so the button is a direct flex item of the tile's own footer row.
+- `cvName?: string` — names the CV in the accessible name, the way the
+  gallery's `Edit {name}` and `Delete {name}` do. It is COMPOSED as
+  `` `${label} ${cvName}` ``, so a caller cannot break WCAG 2.5.3 by passing an
+  unrelated string, and the visible text stays the plain label.
+- **The layout notice (`CV_PDF_LAYOUT_NOTICE` in `base-cvs/types.ts`) is said
+  where a PREVIEW is rendered, and only there.** It qualifies a render the user
+  could mistake for the PDF; a surface with no render has nothing for it to
+  qualify. Per surface:
+  - `/cvs` (the gallery) — **not said at all.** The tiles render no preview.
+    It used to reach them `sr-only` through `layout="compact"`'s
+    `aria-describedby`, which was the worst of both: a screen reader heard it
+    once per tile, up to three times, about a document the page never shows,
+    while a sighted user never saw it. `layout="compact"` now renders no `<p>`
+    and sets no `aria-describedby`.
+  - `/cvs/new` — said **once**, the `<figcaption>`. There is no export button
+    on this route, so there is no second copy: that caption is the only thing
+    on screen saying it, which is why `max-h-editor-scrollport` exists.
+  - `/cvs/editor?id=` and `/applications/cv?id=` (both modes) — said **twice**:
+    the `<figcaption>`, plus the button's own visible copy wired with
+    `aria-describedby`.
+
+  Do NOT add another at a call site, and do NOT put one back on a surface that
+  renders no preview. The WORDING is fixed and mirrored verbatim in
+  `e2e/cv-builder.spec.ts`; changing WHERE it is said is not changing WHAT it
+  says. Assert the WORDS.
+
 - The visible label does not change while the server renders (1-3s): the icon
   swaps to a spinner and `CV_PDF_EXPORT_PENDING` fills an always-mounted
   `aria-live` region, so the `"Download PDF"` locator stays stable.
@@ -499,9 +526,12 @@ order. `src/lib/utils.ts` registers them in the `shadow` group via
 Tailwind group must be registered there too**, or overriding it will silently do
 nothing.
 
-`h-viewport`, `min-h-viewport` and `max-h-scrollport` (see **Stacking
-contract**) are registered the same way, in the `h`, `min-h` and `max-h`
-groups.
+`h-viewport`, `min-h-viewport`, `max-h-scrollport` and
+`max-h-editor-scrollport` (see **Stacking contract**) are registered the same
+way, in the `h`, `min-h` and `max-h` groups. The last two are SIBLINGS in one
+group on purpose: leave either out and `cn("max-h-scrollport",
+"max-h-editor-scrollport")` keeps both, and the winner is whichever `@utility`
+`globals.css` declares last rather than the one the caller wrote last.
 
 Registering a utility in one group also takes it OUT of the group it was falling
 through to. `shadow-card`/`shadow-elevated` used to land in `shadow-color`, so a
@@ -542,7 +572,7 @@ shell needs the same `relative`.
 
 | z      | layer                               | members                                                               |
 | ------ | ----------------------------------- | --------------------------------------------------------------------- |
-| `z-30` | in-column sticky chrome             | the shell `Header`                                                    |
+| `z-30` | in-column sticky chrome             | the shell `Header`, `CvEditorFooter`                                  |
 | `z-40` | fixed/sticky page chrome, no portal | `LandingHeader`, `CookieConsent`                                      |
 | `z-50` | the Radix portal layer              | Sheet overlay/content, Dialog, DropdownMenu, Popover, Tooltip, Sonner |
 
@@ -558,7 +588,8 @@ to `--cookie-notice-height` on `<html>`, and it REMOVES the property when it
 unmounts — a dismissed notice reserves nothing. `globals.css` spends that
 property in two places: `body` takes it as `padding-bottom` and
 `scroll-padding-bottom`, so a flowing document ends above the bar; and the
-`h-viewport` / `min-h-viewport` / `max-h-scrollport` utilities subtract it.
+`h-viewport` / `min-h-viewport` / `max-h-scrollport` /
+`max-h-editor-scrollport` utilities subtract it.
 **Use those instead of `h-dvh`, `h-screen` or `min-h-screen` on any
 full-viewport shell** — the padding and the subtraction add up to exactly one
 viewport, so reserving space never introduces a scrollbar. The consequence, and
@@ -577,6 +608,35 @@ bug KODI-009 fixed in the CV preview. `--app-header-height` is declared once in
 `globals.css` and `header.tsx` sizes itself from it, so the two cannot drift.
 It is only true at `md` and up, where the header is one row — which is also the
 only place anything sticks.
+
+**`max-h-editor-scrollport` is the scrollport minus the CV editor's own submit
+row**, and it is what a column sharing a scrollport with a `sticky bottom-0`
+footer must take. `CvEditorFooter` (`base-cvs/cv-editor-footer.tsx`) is that
+row — shared by `BaseCvEditor` and `TailoredCvEditor` so the two cannot drift —
+and it is the SECOND bottom-anchored element in the app that reserves its own
+height. Like `CookieConsent` it measures itself with a `ResizeObserver` (the row
+is `flex-wrap` and really does become two rows once `actions` are present or the
+viewport is narrow), publishes `--cv-editor-footer-height` on `<html>` while
+mounted, and REMOVES the property on unmount — an editor off screen reserves
+nothing, and a read-only CV copy with no `actions` mounts no footer and reserves
+nothing either.
+
+**The two reservations compose; they do not double-count.**
+`--cookie-notice-height` is chrome pinned to the VIEWPORT, OUTSIDE `main`, and
+is already reserved by `body`'s `padding-bottom`. `--cv-editor-footer-height` is
+chrome pinned INSIDE `main`, which `body` knows nothing about. They subtract
+different things, so `max-h-editor-scrollport` takes both, once each, and
+collapses to exactly `max-h-scrollport` when no editor is mounted (the property
+is unset and the `0px` fallback applies). Drop either subtraction and something
+lands under something: without the cookie one the pane runs past the bar,
+without the footer one the pane's last band — the preview's `<figcaption>`,
+carrying the layout notice — ends UNDER the submit row. That was the KODI-009
+defect and it was total at `md` and up: on `/cvs/editor?id=` the export button's
+own copy of the notice survived in the footer, but `/cvs/new` has no export
+button, so the caption was the ONLY copy on screen and none of it was visible.
+`e2e/cv-builder.spec.ts` hit-tests the caption's own centre on BOTH routes with
+`elementFromPoint` — jsdom reports every height as zero, so the geometry is not
+provable anywhere else.
 
 ### App shell
 
@@ -658,6 +718,7 @@ pages that do NOT want it.
 | `src/components/tailored-cvs/types.ts`           | CV copy vocabulary and its on-screen copy constants                     |
 | `src/hooks/use-tailored-cv.ts`                   | CV copy query + the `tailored-cvs` key every write invalidates          |
 | `src/components/base-cvs/export-cv-button.tsx`   | The PDF export affordance + the "not the final layout" notice           |
+| `src/components/base-cvs/cv-editor-footer.tsx`   | The editors' sticky submit row; owns `--cv-editor-footer-height`        |
 | `src/lib/pdf-download.ts`                        | `downloadBlob`, and the slug rule mirrored from the server              |
 | `src/lib/blob-error.ts`                          | `getBlobApiError` — `getApiError` for a `responseType: "blob"`          |
 | `src/components/ui/date-picker.tsx`              | Timezone-safe date picker (use instead of `<input type="date">`)        |
