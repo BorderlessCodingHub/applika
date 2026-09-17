@@ -58,7 +58,15 @@ export function BaseCvEditor({
 
   return (
     <form onSubmit={onSubmit} className={cn("space-y-6", className)} noValidate>
-      <div className="grid gap-6 md:grid-cols-2 md:items-start">
+      {/*
+        Half and half until `2xl`, then the preview column stops growing and
+        every extra pixel goes to the FORM. An A4 sheet scaled past ~0.8 is not
+        more readable, only taller than the pane that holds it; the form's
+        textareas and keyword rows are where width does work. 38rem keeps the
+        preview at the size it already had at `2xl`, so nothing jumps at the
+        breakpoint, and leaves the form above its own `@lg/cv-form` threshold.
+      */}
+      <div className="grid gap-6 md:grid-cols-2 md:items-start 2xl:grid-cols-[minmax(0,1fr)_38rem]">
         <CvFormSections
           form={form}
           disabled={isSubmitting}

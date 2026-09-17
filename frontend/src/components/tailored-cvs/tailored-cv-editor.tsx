@@ -148,7 +148,7 @@ export function TailoredCvEditor({
         then the preview — read the job, edit, check the render. At `md` the
         wrapper becomes the sticky right column again.
       */}
-      <div className="flex flex-col gap-6 md:grid md:grid-cols-2 md:items-start">
+      <div className="flex flex-col gap-6 md:grid md:grid-cols-2 md:items-start 2xl:grid-cols-[minmax(0,1fr)_38rem]">
         <CvFormSections
           form={form}
           disabled={locked}

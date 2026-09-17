@@ -1,5 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   CV_DATE_PRESENT,
@@ -7,7 +7,6 @@ import {
   CV_DOCUMENT_SECTIONS,
   CV_EDUCATION_DEGREE_JOINER,
   CV_KEYWORD_SEPARATOR,
-  CvDocument,
   educationDegreeLine,
   formatCvDatePeriod,
   getPopulatedCvSections,
@@ -15,7 +14,9 @@ import {
   visibleEducation,
   visibleSkillCategories,
   type CvDocumentData,
+  type CvDocumentSection,
 } from "./cv-document";
+import { CvDocumentPreview } from "./cv-document-preview";
 
 /**
  * The live preview, against the owner's template (KODI-006).
@@ -40,6 +41,11 @@ import {
  * The preview and the server's PDF are two renderers of ONE document, so the
  * separator, the category colon, the three-line project and the degree joiner
  * are pinned here against `cv_rendering/mapper.py`.
+ *
+ * Every one of them is asserted against `CvDocumentPreview` — the ONE container
+ * the user ever sees (KODI-008). They used to run against `CvDocument`, the
+ * continuous renderer, which by then nothing in `src/` rendered; markup nobody
+ * renders cannot pin anything.
  */
 
 /** A CV with something in every section. Invented, like every fixture here. */
@@ -98,13 +104,46 @@ function cv(over: Partial<CvDocumentData> = {}): CvDocumentData {
   return { ...FULL_CV, ...over };
 }
 
-/** The document's own section, by its uppercase heading. */
-function documentSection(title: string): HTMLElement {
-  const heading = screen.getByRole("heading", { level: 3, name: title });
-  const section = heading.closest("section");
-  if (!section) throw new Error(`no section around the ${title} heading`);
-  return section;
+/**
+ * Everything ONE section of the rendered document prints, as a single element
+ * `within()` can be pointed at.
+ *
+ * The paginated renderer has no `<section>` wrapper to reach for: a section's
+ * atoms are flat `[data-cv-block]` children of whichever SHEET they landed on,
+ * because no wrapper can span a page break. They are found by their block keys
+ * instead — `experience:heading`, `experience:<id>` — and copied into a host so
+ * a query can be scoped to one section without moving a node of the tree under
+ * test.
+ *
+ * The host is attached, because `toBeInTheDocument()` means nothing on a
+ * detached node, and torn down after every test. The lookup reads only nodes
+ * inside a real `[data-slot="cv-page-sheet"]`, so a host never feeds itself.
+ *
+ * This is the container the USER sees. The whole table below used to run
+ * against `CvDocument`, the continuous renderer — which, once
+ * `CvDocumentPreview` stopped rendering it, nothing in `src/` rendered at all
+ * (KODI-008).
+ */
+function documentSection(section: CvDocumentSection): HTMLElement {
+  const blocks = document.querySelectorAll<HTMLElement>(
+    `[data-slot="cv-page-sheet"] [data-cv-block^="${section}:"]`,
+  );
+  if (blocks.length === 0) {
+    throw new Error(`the ${section} section rendered no block`);
+  }
+
+  const host = document.createElement("div");
+  host.setAttribute("data-test-section-host", section);
+  for (const block of blocks) host.appendChild(block.cloneNode(true));
+  document.body.appendChild(host);
+  return host;
 }
+
+afterEach(() => {
+  for (const host of document.querySelectorAll("[data-test-section-host]")) {
+    host.remove();
+  }
+});
 
 describe("the owner's section order", () => {
   it("is summary, experience, languages, skills, projects, education, certifications", () => {
@@ -153,7 +192,7 @@ describe("the owner's section order", () => {
   });
 
   it("renders the headings in that order too", () => {
-    render(<CvDocument cv={FULL_CV} />);
+    render(<CvDocumentPreview cv={FULL_CV} />);
 
     expect(
       screen
@@ -201,8 +240,8 @@ describe("the skills section (AC3)", () => {
   });
 
   it("prints one block per category: the name, then its keywords", () => {
-    render(<CvDocument cv={FULL_CV} />);
-    const skills = within(documentSection("Skills"));
+    render(<CvDocumentPreview cv={FULL_CV} />);
+    const skills = within(documentSection("skills"));
 
     expect(skills.getByText("Languages and frameworks:")).toBeInTheDocument();
     expect(skills.getByText("Python · TypeScript · Go")).toBeInTheDocument();
@@ -211,8 +250,8 @@ describe("the skills section (AC3)", () => {
   });
 
   it("is not a flat tag list: the keywords never leave their category", () => {
-    render(<CvDocument cv={FULL_CV} />);
-    const skills = documentSection("Skills");
+    render(<CvDocumentPreview cv={FULL_CV} />);
+    const skills = documentSection("skills");
 
     // Each category heading and its keyword line share one block, and there
     // are exactly as many blocks as categories.
@@ -228,9 +267,9 @@ describe("the skills section (AC3)", () => {
     const only = [{ id: "s-9", category: "Monitoring", keywords: [] }];
     expect(visibleSkillCategories(only)).toHaveLength(1);
 
-    render(<CvDocument cv={cv({ skills: only })} />);
+    render(<CvDocumentPreview cv={cv({ skills: only })} />);
     expect(
-      within(documentSection("Skills")).getByText("Monitoring:"),
+      within(documentSection("skills")).getByText("Monitoring:"),
     ).toBeInTheDocument();
   });
 
@@ -248,8 +287,8 @@ describe("the skills section (AC3)", () => {
 
 describe("the languages section (AC6)", () => {
   it("shows the name and the level, and nothing else", () => {
-    render(<CvDocument cv={FULL_CV} />);
-    const languages = documentSection("Languages");
+    render(<CvDocumentPreview cv={FULL_CV} />);
+    const languages = documentSection("languages");
 
     expect(languages.textContent).toBe("LanguagesEnglishNative");
   });
@@ -258,7 +297,7 @@ describe("the languages section (AC6)", () => {
     // "remove the dots in live preview only display the language name and the
     // level" — neither U+00B7 nor U+2022 nor a filled proficiency meter.
     render(
-      <CvDocument
+      <CvDocumentPreview
         cv={cv({
           languages: [
             { id: "g-1", name: "English", level: "Native" },
@@ -267,7 +306,7 @@ describe("the languages section (AC6)", () => {
         })}
       />,
     );
-    const languages = documentSection("Languages");
+    const languages = documentSection("languages");
 
     expect(languages.textContent).not.toContain("·");
     expect(languages.textContent).not.toContain("•");
@@ -281,7 +320,7 @@ describe("the languages section (AC6)", () => {
     // at any count, so there is no count to tune.
     for (const count of [1, 2, 3]) {
       const { unmount } = render(
-        <CvDocument
+        <CvDocumentPreview
           cv={cv({
             languages: Array.from({ length: count }, (_, i) => ({
               id: `g-${i}`,
@@ -292,7 +331,7 @@ describe("the languages section (AC6)", () => {
         />,
       );
 
-      const list = within(documentSection("Languages")).getByRole("list");
+      const list = within(documentSection("languages")).getByRole("list");
       expect(list.className, `${count} language(s)`).toContain("grid-cols-3");
       expect(list.className).not.toMatch(/justify-(around|center|between)/);
       expect(list.className).not.toMatch(/\btext-center\b/);
@@ -304,9 +343,9 @@ describe("the languages section (AC6)", () => {
 
 describe("the projects section (AC5)", () => {
   it("renders three lines: the name, then the link, then the description", () => {
-    render(<CvDocument cv={FULL_CV} />);
+    render(<CvDocumentPreview cv={FULL_CV} />);
     const lines = Array.from(
-      documentSection("Projects").querySelectorAll("p"),
+      documentSection("projects").querySelectorAll("p"),
     ).map((line) => line.textContent?.trim());
 
     expect(lines).toEqual([
@@ -318,7 +357,7 @@ describe("the projects section (AC5)", () => {
 
   it("shows the RAW url on line two when no link label is set", () => {
     render(
-      <CvDocument
+      <CvDocumentPreview
         cv={cv({
           projects: [
             {
@@ -332,7 +371,7 @@ describe("the projects section (AC5)", () => {
       />,
     );
     const lines = Array.from(
-      documentSection("Projects").querySelectorAll("p"),
+      documentSection("projects").querySelectorAll("p"),
     ).map((line) => line.textContent?.trim());
 
     expect(lines).toEqual([
@@ -344,7 +383,7 @@ describe("the projects section (AC5)", () => {
 
   it("treats a blank link label the same as a missing one", () => {
     render(
-      <CvDocument
+      <CvDocumentPreview
         cv={cv({
           projects: [
             {
@@ -360,7 +399,7 @@ describe("the projects section (AC5)", () => {
     );
 
     const lines = Array.from(
-      documentSection("Projects").querySelectorAll("p"),
+      documentSection("projects").querySelectorAll("p"),
     ).map((line) => line.textContent?.trim());
 
     expect(lines).toEqual(["difference-engine", "https://example.com/de ↗"]);
@@ -368,7 +407,7 @@ describe("the projects section (AC5)", () => {
 
   it("drops the link line, not the order, for a project with no link", () => {
     render(
-      <CvDocument
+      <CvDocumentPreview
         cv={cv({
           projects: [
             { id: "p-1", name: "difference-engine", description: "In Rust." },
@@ -377,7 +416,7 @@ describe("the projects section (AC5)", () => {
       />,
     );
     const lines = Array.from(
-      documentSection("Projects").querySelectorAll("p"),
+      documentSection("projects").querySelectorAll("p"),
     ).map((line) => line.textContent?.trim());
 
     expect(lines).toEqual(["difference-engine", "In Rust."]);
@@ -447,7 +486,7 @@ describe("educationDegreeLine (AC4)", () => {
 
 describe("the education section (AC4)", () => {
   it("renders between projects and certifications", () => {
-    render(<CvDocument cv={FULL_CV} />);
+    render(<CvDocumentPreview cv={FULL_CV} />);
     const headings = screen
       .getAllByRole("heading", { level: 3 })
       .map((heading) => heading.textContent);
@@ -461,8 +500,8 @@ describe("the education section (AC4)", () => {
   });
 
   it("prints the institution with its period, then the degree line", () => {
-    render(<CvDocument cv={FULL_CV} />);
-    const education = within(documentSection("Education"));
+    render(<CvDocumentPreview cv={FULL_CV} />);
+    const education = within(documentSection("education"));
 
     expect(education.getByText("University of Edinburgh")).toBeInTheDocument();
     expect(education.getByText("09/2010 - 06/2013")).toBeInTheDocument();
@@ -544,7 +583,7 @@ describe("the date text, the fifth pinned twin of the PDF (KODI-007 / AC5)", () 
 
   it("shows the same text in the experience block as the PDF prints", () => {
     render(
-      <CvDocument
+      <CvDocumentPreview
         cv={cv({
           experience: [
             {
@@ -566,7 +605,7 @@ describe("the date text, the fifth pinned twin of the PDF (KODI-007 / AC5)", () 
         })}
       />,
     );
-    const experience = within(documentSection("Experience"));
+    const experience = within(documentSection("experience"));
 
     expect(experience.getByText("03/2021 - 02/2024")).toBeInTheDocument();
     expect(experience.getByText("03/2024 - present")).toBeInTheDocument();
@@ -574,7 +613,7 @@ describe("the date text, the fifth pinned twin of the PDF (KODI-007 / AC5)", () 
 
   it("shows the same text in the education block, present included", () => {
     render(
-      <CvDocument
+      <CvDocumentPreview
         cv={cv({
           education: [
             {
@@ -594,7 +633,7 @@ describe("the date text, the fifth pinned twin of the PDF (KODI-007 / AC5)", () 
         })}
       />,
     );
-    const education = within(documentSection("Education"));
+    const education = within(documentSection("education"));
 
     expect(education.getByText("09/2010 - 06/2013")).toBeInTheDocument();
     expect(education.getByText("09/2025 - present")).toBeInTheDocument();
@@ -604,7 +643,7 @@ describe("the date text, the fifth pinned twin of the PDF (KODI-007 / AC5)", () 
     // The experience date span used to render unconditionally. With no date to
     // print it would be an empty box holding a line of its own.
     render(
-      <CvDocument
+      <CvDocumentPreview
         cv={cv({
           experience: [
             {
@@ -620,11 +659,11 @@ describe("the date text, the fifth pinned twin of the PDF (KODI-007 / AC5)", () 
     );
 
     expect(
-      within(documentSection("Experience")).queryByText(
+      within(documentSection("experience")).queryByText(
         new RegExp(CV_DATE_PRESENT),
       ),
     ).not.toBeInTheDocument();
-    expect(documentSection("Experience").querySelectorAll("span")).toHaveLength(
+    expect(documentSection("experience").querySelectorAll("span")).toHaveLength(
       0,
     );
   });
@@ -635,8 +674,8 @@ describe("the certifications section", () => {
     // The server emits `**name** issuer` (`_labelled_line`) and the owner's
     // reference CV prints it that way. This used to be the other way round,
     // which read as though the issuer were the qualification.
-    render(<CvDocument cv={FULL_CV} />);
-    const entry = within(documentSection("Certifications")).getByRole(
+    render(<CvDocumentPreview cv={FULL_CV} />);
+    const entry = within(documentSection("certifications")).getByRole(
       "listitem",
     );
 
@@ -655,7 +694,7 @@ describe("the identity header", () => {
     // The owner: "HUGE PROBLEM, is the spacing's between Full name, headline
     // and links/contacts/location, reduce the spacing". The accent bar WAS
     // that spacing, and his reference CV has no such rule.
-    const { container } = render(<CvDocument cv={FULL_CV} />);
+    const { container } = render(<CvDocumentPreview cv={FULL_CV} />);
     const header = container.querySelector("header");
 
     expect(header?.querySelector(".bg-blue-700")).toBeNull();
@@ -673,7 +712,7 @@ describe("the document's typeface", () => {
     //
     // Asserted as the CLASS on the document root: jsdom resolves no CSS
     // variable, so a computed-style check would read an empty string.
-    const { container } = render(<CvDocument cv={FULL_CV} />);
+    const { container } = render(<CvDocumentPreview cv={FULL_CV} />);
     const root = container.querySelector('[data-slot="cv-document"]');
 
     expect(root).not.toBeNull();

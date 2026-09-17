@@ -9,6 +9,7 @@ import { FeedbackDialog } from "@/components/applications/feedback-dialog";
 import { CycleSelector } from "@/components/layout/cycle-selector";
 import { Header } from "@/components/layout/header";
 import { Sidebar } from "@/components/layout/sidebar";
+import { isFullWidthPath } from "@/components/layout/content-width";
 import { PRIMARY_NAV, type NavItem } from "@/components/layout/nav";
 import { Button } from "@/components/ui/button";
 import {
@@ -145,7 +146,17 @@ export function AppShell({
         />
 
         <main className={cn("flex-1 overflow-y-auto", className)}>
-          <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">
+          {/*
+            The reading column, unless this route asked for the whole width
+            (`content-width.ts`). Either way the container is rendered HERE and
+            never by a page component.
+          */}
+          <div
+            className={cn(
+              "px-4 py-6 md:px-8 md:py-8",
+              isFullWidthPath(activePath) ? "w-full" : "mx-auto max-w-6xl",
+            )}
+          >
             <CliPromoBanner />
             {children}
           </div>

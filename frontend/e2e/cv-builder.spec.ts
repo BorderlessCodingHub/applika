@@ -500,7 +500,12 @@ test("the live preview left-aligns languages at any count (AC6)", async ({
   await fillRequired(page, "E2E languages CV");
 
   const preview = page.locator('[data-slot="cv-document"]');
-  const list = preview.getByRole("list").filter({ hasText: "English" });
+  // Scoped to the languages ATOM, not to `getByRole("list")` on the whole
+  // preview: the paginated document's sheets are themselves an ordered list
+  // (KODI-008), so a bare list locator now matches two elements.
+  const list = preview
+    .locator('[data-cv-block="languages:grid"]')
+    .getByRole("list");
 
   for (const [index, name] of ["English", "Portuguese"].entries()) {
     await page.getByRole("button", { name: "Add language" }).click();
@@ -823,4 +828,388 @@ test("an application's CV copy downloads as a PDF", async ({
   expect((await readDownload(saved)).subarray(0, 5).toString("latin1")).toBe(
     "%PDF-",
   );
+});
+
+/* ---------------------------------------------------------------------------
+ * KODI-008 — the live preview flowed across real A4 sheets, on the full width.
+ *
+ * The owner: "if possible, make the preview during CV creation create pages if
+ * the document become too large, use A4 dimensions" and "also, use the full
+ * page width for this page".
+ *
+ * Every criterion below is measured in a REAL browser, because it cannot be
+ * proved anywhere else: the flow engine distributes the CV by the heights the
+ * layout engine reports, and jsdom reports every one of them as zero. The
+ * arithmetic itself is unit-tested with injected heights in
+ * `src/components/base-cvs/use-cv-page-flow.test.tsx`; what is here is whether
+ * real text, in real line boxes, at the real column width, lands where the
+ * engine says it does.
+ * ------------------------------------------------------------------------ */
+
+/** One sheet of the live preview. */
+const SHEET = '[data-slot="cv-page"]';
+
+/** One long bullet: ~3 wrapped lines on the sheet's 680px content column. */
+function bulkBullet(role: number, index: number): string {
+  return (
+    `Owned subsystem ${role}.${index} end to end: designed the schema, wrote ` +
+    "the migrations, shipped the endpoints and the background workers behind " +
+    "them, and carried the on-call pager for the result through two peak " +
+    "seasons without an unplanned outage."
+  );
+}
+
+/** One experience entry tall enough to move the page count on its own. */
+function bulkRole(index: number) {
+  return {
+    id: `x-${index}`,
+    company: `E2E Company ${index}`,
+    role: "Backend Engineer",
+    location: "Remote",
+    company_description: "A company the E2E suite invented for its height.",
+    start: "2019-01",
+    end: "2021-12",
+    bullets: Array.from({ length: 6 }, (_, b) => bulkBullet(index, b)),
+  };
+}
+
+/** A master CV whose experience section holds `roles` bulky entries. */
+async function seedBulkyBaseCv(
+  request: APIRequestContext,
+  roles: number,
+): Promise<string> {
+  const response = await request.post(apiUrl("/base-cvs"), {
+    headers: apiHeaders(),
+    data: {
+      name: CV_NAME,
+      full_name: "E2E Candidate",
+      headline: "Engineer",
+      location: "Remote",
+      email: "e2e-user@e2e.applika.dev",
+      phone: null,
+      summary: "Seeded by the E2E suite.",
+      links: [],
+      skills: [],
+      experience: Array.from({ length: roles }, (_, index) => bulkRole(index)),
+      projects: [],
+      education: [],
+      certifications: [],
+      languages: [],
+    },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  return ((await response.json()) as { id: string }).id;
+}
+
+/**
+ * How many sheets the preview settled on.
+ *
+ * The distribution is measured in a layout effect and re-measured once the
+ * webfont has swapped in, so the count is read only after `document.fonts` is
+ * ready AND two consecutive reads agree. Without that this reads the
+ * single-sheet fallback the first paint legitimately renders.
+ */
+async function settledSheetCount(page: Page): Promise<number> {
+  await expect(page.locator(SHEET).first()).toBeVisible();
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+
+  let previous = -1;
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    const count = await page.locator(SHEET).count();
+    if (count === previous) return count;
+    previous = count;
+    await page.waitForTimeout(80);
+  }
+  return previous;
+}
+
+/** Open a master CV in the editor and wait for its preview to settle. */
+async function openSettledEditor(page: Page, cvId: string): Promise<number> {
+  await page.goto(`/cvs/editor?id=${cvId}`);
+  await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+    CV_NAME,
+  );
+  return settledSheetCount(page);
+}
+
+test("the live preview flows a long CV across real A4 sheets (AC1, AC2, AC3)", async ({
+  page,
+  request,
+}) => {
+  const cvId = await seedBulkyBaseCv(request, 12);
+
+  await loginAs(page, "user");
+  const sheets = await openSettledEditor(page, cvId);
+
+  // ---- AC1: it really continues onto further sheets --------------------
+  expect(
+    sheets,
+    "a twelve-role CV did not overflow a single A4 sheet",
+  ).toBeGreaterThan(1);
+  // Numbered in order, which is what makes them PAGES rather than cards.
+  expect(
+    await page
+      .locator(SHEET)
+      .evaluateAll((nodes) =>
+        nodes.map((node) => node.getAttribute("data-page")),
+      ),
+  ).toEqual(Array.from({ length: sheets }, (_, i) => String(i + 1)));
+
+  // ---- AC2: no break falls inside an entry or inside a bullet ----------
+  // Only a real browser can say this: it is a statement about boxes. Every
+  // atom must lie WHOLLY inside the sheet that holds it — not merely be a
+  // child of it, which the markup guarantees for free — so a miscalculated
+  // flow that let an entry run past the paper's edge would be caught here and
+  // nowhere else. And every bullet must still be inside its own entry's atom.
+  const layout = await page.evaluate((sheetSelector) => {
+    const problems: string[] = [];
+    const placed: string[] = [];
+
+    for (const sheet of Array.from(
+      document.querySelectorAll<HTMLElement>(sheetSelector),
+    )) {
+      const paper = sheet.firstElementChild as HTMLElement;
+      const paperBox = paper.getBoundingClientRect();
+      const page = sheet.getAttribute("data-page");
+
+      for (const block of Array.from(
+        sheet.querySelectorAll<HTMLElement>("[data-cv-block]"),
+      )) {
+        const key = block.getAttribute("data-cv-block") ?? "?";
+        placed.push(key);
+
+        const box = block.getBoundingClientRect();
+        if (
+          box.top < paperBox.top - 1.5 ||
+          box.bottom > paperBox.bottom + 1.5
+        ) {
+          problems.push(
+            `${key} is cut by sheet ${page}: block ${box.top.toFixed(1)}-` +
+              `${box.bottom.toFixed(1)}, sheet ${paperBox.top.toFixed(1)}-` +
+              `${paperBox.bottom.toFixed(1)}`,
+          );
+        }
+
+        for (const bullet of Array.from(block.querySelectorAll("li"))) {
+          if (bullet.closest(sheetSelector) !== sheet) {
+            problems.push(`a bullet of ${key} left sheet ${page}`);
+          }
+        }
+      }
+    }
+
+    return { problems, placed };
+  }, SHEET);
+
+  expect(layout.problems).toEqual([]);
+  // Every atom placed exactly once: nothing duplicated across sheets, and
+  // nothing dropped on the way.
+  expect(new Set(layout.placed).size).toBe(layout.placed.length);
+  expect(layout.placed).toHaveLength(
+    await page.locator("[data-cv-block]").count(),
+  );
+
+  // ---- AC3: each sheet says which page it is, and how many there are ---
+  for (let number = 1; number <= sheets; number += 1) {
+    await expect(page.getByText(`Page ${number} of ${sheets}`)).toHaveCount(1);
+    await expect(
+      page
+        .locator(SHEET)
+        .nth(number - 1)
+        .getByText(`${number} / ${sheets}`, { exact: true }),
+    ).toBeVisible();
+  }
+  await expect(page.getByText(`CV preview: ${sheets} pages.`)).toHaveCount(1);
+
+  // The notice is untouched and still said twice, and it does MORE work now
+  // that the preview looks like paginated A4 (KODI-004 AC3).
+  await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(2);
+});
+
+test("the preview crosses from one sheet to two exactly at the boundary (AC4)", async ({
+  page,
+  request,
+}) => {
+  // The interesting case is not "a short CV is one page" — it is the CROSSING.
+  // A flow that pre-opens a sheet renders the stray empty second page one
+  // entry too early, and a flow that closes one too late clips. So the CV is
+  // grown one real entry at a time until the count moves, and BOTH sides of
+  // that one step are asserted.
+  await loginAs(page, "user");
+
+  /** The sheet count at the previous step, so the CROSSING can be asserted. */
+  let before = 0;
+  let boundary = 0;
+
+  for (let roles = 1; roles <= 10; roles += 1) {
+    await wipeBaseCvs(request);
+    const cvId = await seedBulkyBaseCv(request, roles);
+    const count = await openSettledEditor(page, cvId);
+
+    if (count > 1) {
+      boundary = roles;
+      // One entry added one page. A flow that closed a sheet too late would
+      // have jumped two.
+      expect(count, `${roles} roles rendered ${count} sheets`).toBe(2);
+      break;
+    }
+
+    // Still one sheet, and one sheet ONLY — no stray empty second page.
+    expect(count, `${roles} roles rendered ${count} sheets`).toBe(1);
+    await expect(page.locator(SHEET)).toHaveCount(1);
+    await expect(page.getByText("Page 1 of 1")).toHaveCount(1);
+    await expect(page.getByText("CV preview: 1 page.")).toHaveCount(1);
+    before = count;
+  }
+
+  expect(
+    boundary,
+    "the CV never overflowed within ten roles, so no boundary was crossed",
+  ).toBeGreaterThan(1);
+  // The step BEFORE the crossing was exactly one sheet and the step AFTER is
+  // exactly two. That is AC4 stated at the only place it can fail.
+  expect(before).toBe(1);
+  await expect(page.locator(SHEET)).toHaveCount(2);
+  await expect(page.getByText("Page 2 of 2")).toHaveCount(1);
+  await expect(page.getByText("CV preview: 2 pages.")).toHaveCount(1);
+});
+
+/** The shell's content container, and how much width it leaves unspent. */
+async function contentGeometry(page: Page) {
+  return page.evaluate(() => {
+    const main = document.querySelector("main");
+    const box = main?.firstElementChild as HTMLElement | null;
+    if (!main || !box) throw new Error("the shell rendered no content box");
+
+    const mainBox = main.getBoundingClientRect();
+    const contentBox = box.getBoundingClientRect();
+    const preview = document.querySelector('[data-slot="cv-document"]');
+    const previewBox = preview?.getBoundingClientRect();
+    const padding = Number.parseFloat(getComputedStyle(box).paddingRight);
+
+    return {
+      mainWidth: Math.round(mainBox.width),
+      contentWidth: Math.round(contentBox.width),
+      /** Width of the shell the content container does not use at all. */
+      dead: Math.round(mainBox.width - contentBox.width),
+      /** Gap between the preview's right edge and the container's. */
+      previewGap: previewBox
+        ? Math.round(contentBox.right - padding - previewBox.right)
+        : -1,
+    };
+  });
+}
+
+test("the CV pages spend the whole shell width (AC5)", async ({
+  page,
+  request,
+}) => {
+  // The owner: "also, use the full page width for this page" — his
+  // screenshot showed the dead space to the right of the editor. Asserted as
+  // GEOMETRY on all three CV routes, never as a class: a capped container is
+  // only visible as width nobody uses.
+  const cvId = await seedBaseCv(request, CV_NAME);
+  const applicationId = await seedApplication(request, JOB_DESCRIPTION);
+  await seedTailoredCv(request, applicationId, cvId);
+
+  await loginAs(page, "user");
+  // Wider than `max-w-6xl`, or the reading column would not bind and there
+  // would be no dead space to remove.
+  await page.setViewportSize({ width: 1600, height: 900 });
+
+  await page.goto("/applications");
+  await expect(
+    page.getByRole("heading", { name: "Applications", level: 1 }),
+  ).toBeVisible();
+  const capped = await contentGeometry(page);
+  expect(
+    capped.dead,
+    "the reading column does not bind at 1600px, so this test proves nothing",
+  ).toBeGreaterThan(100);
+
+  for (const route of [
+    "/cvs/new",
+    `/cvs/editor?id=${cvId}`,
+    `/applications/cv?id=${applicationId}`,
+  ]) {
+    await page.goto(route);
+    await expect(page.locator('[data-slot="cv-document"]')).toBeVisible();
+
+    const full = await contentGeometry(page);
+    expect(full.dead, `${route} leaves dead space`).toBeLessThanOrEqual(1);
+    expect(full.contentWidth, route).toBeGreaterThan(capped.contentWidth);
+    // And the preview really reaches that edge: the editor and the preview
+    // share the width rather than the form taking all of the new room.
+    expect(
+      full.previewGap,
+      `${route} leaves the preview short of the edge`,
+    ).toBeLessThanOrEqual(40);
+    expect(full.previewGap, route).toBeGreaterThanOrEqual(0);
+  }
+});
+
+test("the preview restacks and stays usable below md (AC6)", async ({
+  page,
+  request,
+}) => {
+  const cvId = await seedBulkyBaseCv(request, 4);
+
+  await loginAs(page, "user");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const sheets = await openSettledEditor(page, cvId);
+  expect(sheets).toBeGreaterThanOrEqual(1);
+
+  // Restacked: the preview is BELOW the form, not a second column beside it.
+  const label = await page
+    .getByLabel("CV label", { exact: true })
+    .boundingBox();
+  const preview = await page.locator('[data-slot="cv-document"]').boundingBox();
+  expect(label, "the form did not render").not.toBeNull();
+  expect(preview, "the preview did not render").not.toBeNull();
+  expect(preview!.y).toBeGreaterThan(label!.y + label!.height);
+
+  const metrics = await page.evaluate((sheetSelector) => {
+    const doc = document.documentElement;
+    const sheet = document.querySelector<HTMLElement>(sheetSelector);
+    const frame = document.querySelector<HTMLElement>(
+      '[data-slot="cv-document"]',
+    )?.parentElement;
+
+    return {
+      innerWidth: window.innerWidth,
+      innerHeight: window.innerHeight,
+      documentScrollWidth: doc.scrollWidth,
+      documentScrollHeight: doc.scrollHeight,
+      sheetWidth: sheet?.getBoundingClientRect().width ?? -1,
+      sheetRight: sheet?.getBoundingClientRect().right ?? -1,
+      frameWidth: frame?.clientWidth ?? -1,
+    };
+  }, SHEET);
+
+  // Usable: the sheet fills the column it is in and nothing runs off the side.
+  expect(metrics.sheetWidth).toBeGreaterThan(metrics.frameWidth - 2);
+  expect(metrics.sheetRight).toBeLessThanOrEqual(metrics.innerWidth + 1);
+  expect(
+    metrics.documentScrollWidth,
+    `the paginated preview widened the page: ${JSON.stringify(metrics)}`,
+  ).toBeLessThanOrEqual(metrics.innerWidth + 1);
+
+  // KODI-006's AC7 holds at this viewport too: the added height lands in the
+  // editor's own scroll, never in the document's.
+  expect(
+    metrics.documentScrollHeight,
+    `the paginated preview grew the page: ${JSON.stringify(metrics)}`,
+  ).toBeLessThanOrEqual(metrics.innerHeight + 1);
+
+  // Readable: the page indicator is NOT inside the sheet's `scale()`. At a
+  // scale near 0.45 an 11px folio would render at 5px, which is the whole
+  // reason the transform is applied per sheet and not to the stack.
+  const indicator = page.getByText(`Page 1 of ${sheets}`).locator("..");
+  await expect(indicator).toHaveCSS("font-size", "11px");
+  const indicatorBox = await indicator.boundingBox();
+  expect(indicatorBox!.height).toBeGreaterThan(8);
+
+  // And it still says the words.
+  await expect(page.getByText(`Page 1 of ${sheets}`)).toHaveCount(1);
+  await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(2);
 });
