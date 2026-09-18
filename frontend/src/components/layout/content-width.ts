@@ -13,7 +13,7 @@
 /**
  * The CV editing routes (KODI-008). The owner: "also, use the full page width
  * for this page" — the editor and its A4 preview share the width, and the
- * `max-w-6xl` column left dead space to the right of both.
+ * `max-w-7xl` column left dead space to the right of both.
  */
 export const FULL_WIDTH_PATHS = [
   "/cvs/new",

@@ -104,7 +104,7 @@ describe("the shell's content container", () => {
     const { container } = renderShell("/applications");
     const box = contentContainer(container);
 
-    expect(box.className).toContain("max-w-6xl");
+    expect(box.className).toContain("max-w-7xl");
     expect(box.className).toContain("mx-auto");
   });
 

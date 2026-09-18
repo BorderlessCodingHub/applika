@@ -113,7 +113,7 @@ export function ReportForm({
   };
 
   return (
-    <div className="max-w-6xl space-y-4 py-2">
+    <div className="max-w-7xl space-y-4 py-2">
       {/* Header */}
       <div className="space-y-1">
         <button

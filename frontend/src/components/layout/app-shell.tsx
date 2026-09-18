@@ -154,7 +154,7 @@ export function AppShell({
           <div
             className={cn(
               "px-4 py-6 md:px-8 md:py-8",
-              isFullWidthPath(activePath) ? "w-full" : "mx-auto max-w-6xl",
+              isFullWidthPath(activePath) ? "w-full" : "mx-auto max-w-7xl",
             )}
           >
             <CliPromoBanner />

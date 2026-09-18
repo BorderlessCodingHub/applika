@@ -1123,7 +1123,7 @@ test("the CV pages spend the whole shell width (AC5)", async ({
   await seedTailoredCv(request, applicationId, cvId);
 
   await loginAs(page, "user");
-  // Wider than `max-w-6xl`, or the reading column would not bind and there
+  // Wider than `max-w-7xl`, or the reading column would not bind and there
   // would be no dead space to remove.
   await page.setViewportSize({ width: 1600, height: 900 });
 

@@ -86,7 +86,7 @@ function CookieConsentBar({ onDismiss }: { onDismiss: () => void }) {
         "animate-fade-in-up",
       )}
     >
-      <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4 md:px-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4 md:px-8">
         <div className="flex min-w-0 flex-1 items-start gap-3">
           <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Cookie className="size-4" aria-hidden />

@@ -662,7 +662,7 @@ pages that do NOT want it.
 
 - **The width opt-out lives in `src/components/layout/content-width.ts`**, not
   as a prop. `isFullWidthPath(activePath)` picks `w-full` over
-  `mx-auto max-w-6xl`, and `FULL_WIDTH_PATHS` is the CV editing routes
+  `mx-auto max-w-7xl`, and `FULL_WIDTH_PATHS` is the CV editing routes
   (`/cvs/new`, `/cvs/editor`, `/applications/cv`) — the owner: "also, use the
   full page width for this page". It is matched on the same `activePath` the
   nav is matched on, tolerates the trailing slash the static export serves, and

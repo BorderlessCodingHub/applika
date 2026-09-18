@@ -28,7 +28,7 @@ import type { BaseCv } from "@/services/types/base-cv";
  * `services.baseCvs.exportPdf` the editor's export uses (ADR 0011, the PDF is
  * typeset on the server).
  *
- * No outer container: `AppShell` already renders the `max-w-6xl` one.
+ * No outer container: `AppShell` already renders the `max-w-7xl` one.
  */
 export function CvsPage() {
   const { data: cvs, isLoading, error, refetch } = useBaseCvs();
