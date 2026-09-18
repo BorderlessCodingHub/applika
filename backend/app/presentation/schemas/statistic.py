@@ -12,6 +12,7 @@ class ApplicationsStatistics(BaseSchema):
     success_rate: float
     offers: int
     denials: int
+    active: int
 
 
 class StepConversionRate(BaseModel):

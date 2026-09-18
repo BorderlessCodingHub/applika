@@ -11,6 +11,7 @@ class GeneralStatsDTO(BaseModel):
     success_rate: float
     offers: int
     denials: int
+    active: int
 
 
 class StageConversionDTO(BaseModel):

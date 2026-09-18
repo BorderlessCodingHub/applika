@@ -67,6 +67,21 @@ class UserStatsRepository:
         )
         return int(total or 0)
 
+    async def get_active_applications_count(
+        self, user_id: int, cycle_id: int | None = None
+    ) -> int:
+        """Applications in scope whose ``finalized_at`` is NULL (AC23,
+        KODI-013): the same scope/cycle filter as :meth:`get_applications_count`,
+        plus the open-application condition."""
+        total = await self.session.scalar(
+            select(func.count(ApplicationModel.id).label('total')).where(
+                ApplicationModel.user_id == user_id,
+                ApplicationModel.finalized_at.is_(None),
+                _cycle_filter(cycle_id),
+            )
+        )
+        return int(total or 0)
+
     async def count_applications_per_stage(
         self, user_id: int, cycle_id: int | None = None
     ) -> dict[Stage, int]:
