@@ -87,6 +87,7 @@ function baseEvent(overrides: Partial<TimelineEvent> = {}): TimelineEvent {
     user_id: "u-1",
     event_type: "note",
     interview_type: null,
+    denied_reason: null,
     event_date: "2026-07-03",
     start_time: null,
     end_time: null,
@@ -145,10 +146,24 @@ describe("TimelineSection — offer and denied cards (AC2)", () => {
     expect(screen.getByText(/\/hr/)).toBeInTheDocument();
   });
 
-  it("shows a denied event's badge", async () => {
+  it("shows a denied event's badge, with an Unknown reason by default (KODI-014)", async () => {
     renderSection([baseEvent({ id: "denied-1", event_type: "denied" })]);
 
     expect(await screen.findByText("Denied")).toBeInTheDocument();
+    expect(screen.getByText("Unknown")).toBeInTheDocument();
+  });
+
+  it("shows a denied event's stored reason (KODI-014)", async () => {
+    renderSection([
+      baseEvent({
+        id: "denied-2",
+        event_type: "denied",
+        denied_reason: "not_good_enough",
+      }),
+    ]);
+
+    expect(await screen.findByText("Denied")).toBeInTheDocument();
+    expect(screen.getByText("Not good enough")).toBeInTheDocument();
   });
 });
 

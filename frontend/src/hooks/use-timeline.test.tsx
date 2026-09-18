@@ -41,6 +41,7 @@ const EVENT: TimelineEvent = {
   user_id: "900000000000000001",
   event_type: "interview",
   interview_type: "technical",
+  denied_reason: null,
   event_date: "2026-07-02",
   start_time: "09:00",
   end_time: "10:00",

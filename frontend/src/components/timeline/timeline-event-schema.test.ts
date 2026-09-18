@@ -7,20 +7,27 @@ import {
   toTimelineEventPayload,
   type TimelineEventFormValues,
 } from "./timeline-event-schema";
+import { browserTimeZone } from "@/components/timeline/timezone-options";
 import type { TimelineEventView } from "@/components/timeline/timeline-types";
 
 /**
  * PRD 0008 / ADR 0012 (frontend): the timeline-event form zod DISCRIMINATED
  * UNION keyed on `event_type`, ported from mynextjob's
  * `timeline-event-schema.test.ts` and extended for the applika-only
- * `interview_type` and the 20-currency / `monthly|annually` offer trio.
+ * `interview_type` and the 20-currency / `monthly|annually` offer trio, plus
+ * KODI-014's `denied_reason`.
  *
- * - interview branch carries `interview_type` (default `unknown`), no salary
+ * - interview branch carries `interview_type` (default `unknown`), no salary,
+ *   no reason, and is the ONLY branch with a schedule (start/end/timezone)
  * - offer branch REQUIRES the salary trio (period restricted to
  *   monthly | annually, non-negative numeric amount, one of the 20 currencies)
- * - note/feedback/denied carry neither, and `toTimelineEventPayload` OMITS
- *   both entirely from the wire payload
- * - scheduling fields collapse blanks to `null` on the wire
+ * - denied branch REQUIRES `denied_reason` (one of the 10 hardcoded reasons,
+ *   default `unknown`)
+ * - note/feedback carry none of the above, and `toTimelineEventPayload` OMITS
+ *   interview_type/denied_reason/the salary trio entirely from the wire payload
+ * - scheduling fields collapse blanks to `null` on the wire, and are sent
+ *   ONLY for `interview` — every other type sends `null` even if a stale
+ *   value lingers in form state
  */
 
 function offerValues(
@@ -56,6 +63,18 @@ function noteValues(
     ...emptyTimelineEventValues(),
     event_type: "note",
     event_date: "2026-07-02",
+    ...overrides,
+  } as TimelineEventFormValues;
+}
+
+function deniedValues(
+  overrides: Partial<TimelineEventFormValues> = {},
+): TimelineEventFormValues {
+  return {
+    ...emptyTimelineEventValues(),
+    event_type: "denied",
+    event_date: "2026-07-02",
+    denied_reason: "unknown",
     ...overrides,
   } as TimelineEventFormValues;
 }
@@ -174,9 +193,46 @@ describe("timelineEventSchema — interview variant", () => {
   });
 });
 
-describe("timelineEventSchema — non-offer, non-interview variants", () => {
-  it.each(["note", "feedback", "denied"] as const)(
-    "accepts a %s with no salary fields and no interview_type",
+describe("timelineEventSchema — denied variant (KODI-014)", () => {
+  it("accepts a denied event with the default unknown reason", () => {
+    expect(timelineEventSchema.safeParse(deniedValues()).success).toBe(true);
+  });
+
+  it.each([
+    "unknown",
+    "not_good_enough",
+    "skills_mismatch",
+    "assessment_failed",
+    "too_many_candidates",
+    "position_filled",
+    "role_closed",
+    "ghosted",
+    "salary_mismatch",
+    "other",
+  ] as const)("accepts denied_reason %s", (denied_reason) => {
+    expect(
+      timelineEventSchema.safeParse(deniedValues({ denied_reason })).success,
+    ).toBe(true);
+  });
+
+  it("rejects a blank denied_reason", () => {
+    const result = timelineEventSchema.safeParse(
+      deniedValues({ denied_reason: "" as never }),
+    );
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an unknown denied_reason value", () => {
+    const result = timelineEventSchema.safeParse(
+      deniedValues({ denied_reason: "not-a-reason" as never }),
+    );
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("timelineEventSchema — non-offer, non-interview, non-denied variants", () => {
+  it.each(["note", "feedback"] as const)(
+    "accepts a %s with no salary fields, no interview_type and no denied_reason",
     (event_type) => {
       const result = timelineEventSchema.safeParse(noteValues({ event_type }));
       expect(result.success).toBe(true);
@@ -195,35 +251,51 @@ describe("timelineEventSchema — non-offer, non-interview variants", () => {
 });
 
 describe("timelineEventSchema — server-limit parity (mirrors _TimelineEventWrite)", () => {
-  it("rejects a start time with no end time, and vice versa", () => {
+  // The schedule (start_time/end_time) pairing is validated ONLY for
+  // `interview` (KODI-014): the schedule group is unmounted for every other
+  // type, so its rule must not reach a note/feedback/offer/denied event.
+  it("rejects an interview with a start time and no end time, and vice versa", () => {
     expect(
-      timelineEventSchema.safeParse(noteValues({ start_time: "09:00" }))
+      timelineEventSchema.safeParse(interviewValues({ start_time: "09:00" }))
         .success,
     ).toBe(false);
     expect(
-      timelineEventSchema.safeParse(noteValues({ end_time: "10:00" })).success,
+      timelineEventSchema.safeParse(interviewValues({ end_time: "10:00" }))
+        .success,
     ).toBe(false);
   });
 
-  it("accepts a start/end pair with the end after the start", () => {
+  it("accepts an interview start/end pair with the end after the start", () => {
     expect(
       timelineEventSchema.safeParse(
-        noteValues({ start_time: "09:00", end_time: "10:00" }),
+        interviewValues({ start_time: "09:00", end_time: "10:00" }),
       ).success,
     ).toBe(true);
   });
 
-  it("rejects an end time at or before the start time", () => {
+  it("rejects an interview end time at or before the start time", () => {
     expect(
       timelineEventSchema.safeParse(
-        noteValues({ start_time: "10:00", end_time: "10:00" }),
+        interviewValues({ start_time: "10:00", end_time: "10:00" }),
       ).success,
     ).toBe(false);
+    expect(
+      timelineEventSchema.safeParse(
+        interviewValues({ start_time: "10:00", end_time: "09:00" }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("does not validate the schedule pairing for a non-interview event (the schedule group is unmounted)", () => {
+    expect(
+      timelineEventSchema.safeParse(noteValues({ start_time: "09:00" }))
+        .success,
+    ).toBe(true);
     expect(
       timelineEventSchema.safeParse(
         noteValues({ start_time: "10:00", end_time: "09:00" }),
       ).success,
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("rejects a timezone longer than 100 characters", () => {
@@ -284,6 +356,7 @@ describe("toTimelineEventPayload", () => {
       salary_currency: "USD",
     });
     expect(payload).not.toHaveProperty("interview_type");
+    expect(payload).not.toHaveProperty("denied_reason");
   });
 
   it("trims the offer amount", () => {
@@ -293,7 +366,7 @@ describe("toTimelineEventPayload", () => {
     expect(payload).toHaveProperty("salary_amount", "150000");
   });
 
-  it("sends interview_type for an interview and OMITS the salary trio", () => {
+  it("sends interview_type for an interview and OMITS the salary trio and denied_reason", () => {
     const payload = toTimelineEventPayload(
       interviewValues({ interview_type: "technical" }),
     );
@@ -304,25 +377,43 @@ describe("toTimelineEventPayload", () => {
     expect(payload).not.toHaveProperty("salary_period");
     expect(payload).not.toHaveProperty("salary_amount");
     expect(payload).not.toHaveProperty("salary_currency");
+    expect(payload).not.toHaveProperty("denied_reason");
   });
 
-  it("OMITS interview_type and the salary trio for note/feedback/denied", () => {
+  it("sends denied_reason for a denied event and OMITS interview_type and the salary trio (KODI-014)", () => {
     const payload = toTimelineEventPayload(
-      // Even if stale salary/interview_type strings linger in form state,
-      // they are dropped.
+      deniedValues({ denied_reason: "skills_mismatch" }),
+    );
+    expect(payload).toMatchObject({
+      event_type: "denied",
+      denied_reason: "skills_mismatch",
+    });
+    expect(payload).not.toHaveProperty("interview_type");
+    expect(payload).not.toHaveProperty("salary_period");
+    expect(payload).not.toHaveProperty("salary_amount");
+    expect(payload).not.toHaveProperty("salary_currency");
+  });
+
+  it("OMITS interview_type, denied_reason and the salary trio for note/feedback", () => {
+    const payload = toTimelineEventPayload(
+      // Even if stale salary/interview_type/denied_reason strings linger in
+      // form state (e.g. left over from a type the user picked and then
+      // changed away from), they are dropped.
       noteValues({
-        event_type: "denied",
+        event_type: "feedback",
         interview_type: "technical",
+        denied_reason: "other",
         salary_period: "monthly",
         salary_amount: "999",
         salary_currency: "USD",
       }),
     );
     expect(payload).not.toHaveProperty("interview_type");
+    expect(payload).not.toHaveProperty("denied_reason");
     expect(payload).not.toHaveProperty("salary_period");
     expect(payload).not.toHaveProperty("salary_amount");
     expect(payload).not.toHaveProperty("salary_currency");
-    expect(payload.event_type).toBe("denied");
+    expect(payload.event_type).toBe("feedback");
   });
 
   it("collapses blank scheduling fields to null", () => {
@@ -333,9 +424,9 @@ describe("toTimelineEventPayload", () => {
     expect(payload.observation).toBeNull();
   });
 
-  it("keeps provided scheduling fields", () => {
+  it("keeps provided scheduling fields for an interview", () => {
     const payload = toTimelineEventPayload(
-      noteValues({
+      interviewValues({
         start_time: "09:00",
         end_time: "10:00",
         timezone: "Europe/London",
@@ -347,6 +438,45 @@ describe("toTimelineEventPayload", () => {
     expect(payload.timezone).toBe("Europe/London");
     expect(payload.observation).toBe("Phone screen");
   });
+
+  it("nulls the timezone for an interview with no start time, even if a value is pre-filled", () => {
+    const payload = toTimelineEventPayload(
+      interviewValues({ start_time: "", end_time: "", timezone: "UTC" }),
+    );
+    expect(payload.start_time).toBeNull();
+    expect(payload.end_time).toBeNull();
+    expect(payload.timezone).toBeNull();
+  });
+
+  it("nulls the schedule for a non-interview event even if stale values linger in form state (KODI-014)", () => {
+    const payload = toTimelineEventPayload(
+      noteValues({
+        start_time: "09:00",
+        end_time: "10:00",
+        timezone: "Europe/London",
+        observation: "Phone screen",
+      }),
+    );
+    expect(payload.start_time).toBeNull();
+    expect(payload.end_time).toBeNull();
+    expect(payload.timezone).toBeNull();
+    // Only the schedule is cleared — the observation is a real field on
+    // every type and must survive.
+    expect(payload.observation).toBe("Phone screen");
+  });
+
+  it("nulls the schedule for a migrated denied event even if it carries a stored schedule (KODI-014)", () => {
+    const payload = toTimelineEventPayload(
+      deniedValues({
+        start_time: "09:00",
+        end_time: "10:00",
+        timezone: "Europe/London",
+      }),
+    );
+    expect(payload.start_time).toBeNull();
+    expect(payload.end_time).toBeNull();
+    expect(payload.timezone).toBeNull();
+  });
 });
 
 describe("emptyTimelineEventValues", () => {
@@ -357,6 +487,11 @@ describe("emptyTimelineEventValues", () => {
     expect(values.salary_period).toBe("");
     expect(values.salary_amount).toBe("");
     expect(values.salary_currency).toBe("");
+    expect(values.denied_reason).toBe("");
+  });
+
+  it("pre-fills the timezone with the browser's own zone (KODI-014)", () => {
+    expect(emptyTimelineEventValues().timezone).toBe(browserTimeZone());
   });
 });
 
@@ -381,6 +516,7 @@ describe("timelineEventToFormValues", () => {
     expect(values.salary_period).toBe("monthly");
     expect(values.salary_amount).toBe("5000");
     expect(values.salary_currency).toBe("EUR");
+    expect(values.denied_reason).toBe("");
   });
 
   it("maps a legacy hourly offer with no salary period selected", () => {
@@ -441,5 +577,74 @@ describe("timelineEventToFormValues", () => {
     expect(values.salary_period).toBe("");
     expect(values.salary_amount).toBe("");
     expect(values.salary_currency).toBe("");
+    expect(values.denied_reason).toBe("");
+  });
+
+  describe("denied reason (KODI-014)", () => {
+    it("maps a loaded denied event's stored reason", () => {
+      const event: TimelineEventView = {
+        id: "4",
+        type: "denied",
+        deniedReason: "position_filled",
+        eventDate: "2026-07-02",
+        observation: null,
+      };
+      const values = timelineEventToFormValues(event);
+      expect(values.event_type).toBe("denied");
+      expect(values.denied_reason).toBe("position_filled");
+    });
+
+    it("defaults a loaded denied event with no stored reason to unknown", () => {
+      const event: TimelineEventView = {
+        id: "4b",
+        type: "denied",
+        eventDate: "2026-07-02",
+        observation: null,
+      };
+      const values = timelineEventToFormValues(event);
+      expect(values.denied_reason).toBe("unknown");
+    });
+  });
+
+  describe("timezone (KODI-014)", () => {
+    it("the stored timezone wins over the browser's own zone", () => {
+      const event: TimelineEventView = {
+        id: "5",
+        type: "interview",
+        eventDate: "2026-07-02",
+        timezone: "Pacific/Auckland",
+        observation: null,
+      };
+      expect(timelineEventToFormValues(event).timezone).toBe(
+        "Pacific/Auckland",
+      );
+    });
+
+    it("the stored timezone wins even when the browser does not list it", () => {
+      const event: TimelineEventView = {
+        id: "5b",
+        type: "interview",
+        eventDate: "2026-07-02",
+        // Not a real IANA id: proves the mapper never filters against
+        // `Intl.supportedValuesOf("timeZone")` — the select still shows and
+        // checks it (see timezone-select.test.tsx for the rendered picker).
+        timezone: "Legacy/Not-A-Real-Zone",
+        observation: null,
+      };
+      expect(timelineEventToFormValues(event).timezone).toBe(
+        "Legacy/Not-A-Real-Zone",
+      );
+    });
+
+    it("falls back to the browser's zone when nothing is stored", () => {
+      const event: TimelineEventView = {
+        id: "5c",
+        type: "note",
+        eventDate: "2026-07-02",
+        timezone: null,
+        observation: null,
+      };
+      expect(timelineEventToFormValues(event).timezone).toBe(browserTimeZone());
+    });
   });
 });

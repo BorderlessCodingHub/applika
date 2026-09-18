@@ -137,6 +137,13 @@ test.describe("Timeline: add events, close, reopen", () => {
     await expect(interviewTypeSelect).toBeVisible();
     await expect(interviewTypeSelect).toHaveText(/unknown/i);
 
+    // ---- The interview-only schedule inputs show for Interview (AC2, KODI-014) ----
+    await expect(dialog.getByLabel("Start")).toBeVisible();
+    await expect(dialog.getByLabel("End")).toBeVisible();
+    await expect(
+      dialog.getByRole("combobox", { name: "Timezone" }),
+    ).toBeVisible();
+
     const interviewNote = `Phone screen booked ${stamp}`;
     await dialog.getByLabel(/notes/i).fill(interviewNote);
     await dialog.getByRole("button", { name: /add event/i }).click();
@@ -162,6 +169,13 @@ test.describe("Timeline: add events, close, reopen", () => {
     await dialog.getByRole("radio", { name: "Note", exact: true }).click();
     await expect(
       dialog.getByRole("combobox", { name: "Interview type" }),
+    ).not.toBeVisible();
+
+    // ---- The schedule inputs disappear for Note (AC2, KODI-014) -----------
+    await expect(dialog.getByLabel("Start")).not.toBeVisible();
+    await expect(dialog.getByLabel("End")).not.toBeVisible();
+    await expect(
+      dialog.getByRole("combobox", { name: "Timezone" }),
     ).not.toBeVisible();
 
     const noteText = `Recruiter follow-up ${stamp}`;
@@ -276,5 +290,131 @@ test.describe("Timeline: add events, close, reopen", () => {
     await expect(
       page.getByRole("button", { name: /add event/i }).first(),
     ).toBeVisible();
+  });
+});
+
+test.describe("Timeline: denied reason (AC4, KODI-014)", () => {
+  test("records a denied event with a reason, created through the form, and shows it on the card", async ({
+    page,
+    request,
+  }) => {
+    const stamp = Date.now();
+    const role = `Denied Engineer ${stamp}`;
+    const company = `Denied Co ${stamp}`;
+    await seedApplication(request, role, company);
+
+    await loginAs(page, "user");
+    await page.goto("/applications");
+    await openRow(page, role);
+
+    await page
+      .getByRole("button", { name: /add event/i })
+      .first()
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Add event" });
+    await expect(dialog).toBeVisible();
+
+    await dialog.getByRole("radio", { name: "Denied", exact: true }).click();
+    const reasonSelect = dialog.getByRole("combobox", { name: "Reason" });
+    await expect(reasonSelect).toBeVisible();
+    await expect(reasonSelect).toHaveText(/unknown/i);
+
+    await reasonSelect.click();
+    await page.getByRole("option", { name: "Ghosted", exact: true }).click();
+    await expect(reasonSelect).toHaveText(/ghosted/i);
+
+    await dialog.getByRole("button", { name: /add event/i }).click();
+    await expect(dialog).toBeHidden({ timeout: 15_000 });
+
+    await expect(page.getByText("Denied", { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
+    // The reason badge's visible text is "Ghosted", preceded by a sr-only
+    // "Reason: " prefix in the same element (same pattern as the interview
+    // type badge above) — not an exact match on "Ghosted" alone.
+    await expect(page.getByText(/reason:\s*ghosted/i)).toBeVisible();
+  });
+
+  test("closes with a denied outcome and a reason", async ({
+    page,
+    request,
+  }) => {
+    const stamp = Date.now();
+    const role = `Denied Close Engineer ${stamp}`;
+    const company = `Denied Close Co ${stamp}`;
+    await seedApplication(request, role, company);
+
+    await loginAs(page, "user");
+    await page.goto("/applications");
+    await openRow(page, role);
+
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    const closeDialog = page.getByRole("alertdialog");
+    await expect(closeDialog).toBeVisible();
+
+    await closeDialog
+      .getByRole("radio", { name: "Denied", exact: true })
+      .click();
+    const reasonSelect = closeDialog.getByRole("combobox", { name: "Reason" });
+    await expect(reasonSelect).toBeVisible();
+    await expect(reasonSelect).toHaveText(/unknown/i);
+    await reasonSelect.click();
+    await page
+      .getByRole("option", { name: "Position filled", exact: true })
+      .click();
+
+    await closeDialog
+      .getByRole("button", { name: "Close application" })
+      .click();
+    await expect(closeDialog).toBeHidden({ timeout: 15_000 });
+
+    await expect(page.getByText("Closed").first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText("Denied", { exact: true })).toBeVisible();
+    await expect(page.getByText(/reason:\s*position filled/i)).toBeVisible();
+  });
+});
+
+test.describe("Timeline: timezone pre-fill (AC3, KODI-014)", () => {
+  // A real IANA zone, distinct from the container's likely UTC default, so the
+  // pre-fill is provably READ from the browser rather than coincidentally
+  // matching a hard-coded expectation.
+  test.use({ timezoneId: "Pacific/Auckland" });
+
+  test("pre-fills the timezone select with the browser's own zone for a new interview", async ({
+    page,
+    request,
+  }) => {
+    const stamp = Date.now();
+    const role = `Timezone Engineer ${stamp}`;
+    const company = `Timezone Co ${stamp}`;
+    await seedApplication(request, role, company);
+
+    await loginAs(page, "user");
+    await page.goto("/applications");
+    await openRow(page, role);
+
+    await page
+      .getByRole("button", { name: /add event/i })
+      .first()
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Add event" });
+    await expect(dialog).toBeVisible();
+
+    await dialog.getByRole("radio", { name: "Interview", exact: true }).click();
+    const timezoneSelect = dialog.getByRole("combobox", { name: "Timezone" });
+    await expect(timezoneSelect).toBeVisible();
+
+    // Read the zone the browser itself resolves, rather than hard-coding a
+    // label — proves the pre-fill tracks whatever Intl.DateTimeFormat
+    // resolves to, not a zone this suite assumes the browser has.
+    const zone = await page.evaluate(
+      () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+    );
+    expect(zone).toBe("Pacific/Auckland");
+    await expect(timezoneSelect).toHaveText(
+      new RegExp(zone.replace("/", "\\/")),
+    );
   });
 });

@@ -10,6 +10,10 @@ import {
   LEGACY_HOURLY_OFFER_HINT,
 } from "@/components/timeline/timeline-copy";
 import { type TimelineEventView } from "@/components/timeline/timeline-types";
+import {
+  browserTimeZone,
+  timeZoneLabel,
+} from "@/components/timeline/timezone-options";
 import { services } from "@/services/services";
 
 /**
@@ -92,6 +96,7 @@ describe("TimelineEventForm — interview type visibility (AC7)", () => {
       user_id: "u-1",
       event_type: "interview",
       interview_type: "unknown",
+      denied_reason: null,
       event_date: "2026-01-01",
       start_time: null,
       end_time: null,
@@ -185,4 +190,244 @@ describe("TimelineEventForm — legacy hourly offer (R-031 WATCH)", () => {
       expect(services.timeline.update).not.toHaveBeenCalled(),
     );
   });
+});
+
+describe("TimelineEventForm — schedule visibility (AC2, KODI-014)", () => {
+  it("hides the schedule inputs by default (note)", () => {
+    renderForm();
+    expect(screen.queryByLabelText("Start")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("End")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Timezone" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the schedule inputs for Interview", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(screen.getByRole("radio", { name: "Interview" }));
+    expect(screen.getByLabelText("Start")).toBeInTheDocument();
+    expect(screen.getByLabelText("End")).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Timezone" }),
+    ).toBeInTheDocument();
+  });
+
+  it.each(["Note", "Feedback", "Offer", "Denied"])(
+    "hides the schedule inputs for %s",
+    async (label) => {
+      const user = userEvent.setup();
+      renderForm();
+      await user.click(screen.getByRole("radio", { name: label }));
+      expect(screen.queryByLabelText("Start")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("End")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("combobox", { name: "Timezone" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("clears the schedule from the payload after switching away from Interview (AC2/AC3, KODI-014)", async () => {
+    const user = userEvent.setup();
+    vi.mocked(services.timeline.create).mockResolvedValue({
+      id: "e-2",
+      application_id: "app-1",
+      user_id: "u-1",
+      event_type: "note",
+      interview_type: null,
+      denied_reason: null,
+      event_date: "2026-01-01",
+      start_time: null,
+      end_time: null,
+      timezone: null,
+      observation: null,
+      salary_period: null,
+      salary_amount: null,
+      salary_currency: null,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: null,
+    });
+    renderForm();
+
+    // Fill the schedule while Interview is selected…
+    await user.click(screen.getByRole("radio", { name: "Interview" }));
+    await user.type(screen.getByLabelText("Start"), "09:00");
+    await user.type(screen.getByLabelText("End"), "10:00");
+
+    // …then switch away. The inputs unmount and the stale values must never
+    // reach the API.
+    await user.click(screen.getByRole("radio", { name: "Note" }));
+    await user.click(screen.getByRole("button", { name: /add event/i }));
+
+    await waitFor(() =>
+      expect(services.timeline.create).toHaveBeenCalledWith(
+        "app-1",
+        expect.objectContaining({
+          event_type: "note",
+          start_time: null,
+          end_time: null,
+          timezone: null,
+        }),
+      ),
+    );
+  });
+});
+
+describe("TimelineEventForm — timezone (AC3, KODI-014)", () => {
+  it("pre-fills the timezone select with the browser's own zone for a new interview", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(screen.getByRole("radio", { name: "Interview" }));
+    const trigger = screen.getByRole("combobox", { name: "Timezone" });
+    expect(trigger).toHaveTextContent(timeZoneLabel(browserTimeZone()));
+  });
+
+  it("the stored timezone wins on edit, even one the browser does not list", async () => {
+    const EVENT: TimelineEventView = {
+      id: "interview-1",
+      type: "interview",
+      eventDate: "2026-06-01",
+      timezone: "Legacy/Not_A_Real_Zone",
+    };
+    renderForm({ event: EVENT, otherEvents: [] });
+    const trigger = screen.getByRole("combobox", { name: "Timezone" });
+    expect(trigger).toHaveTextContent("Legacy/Not A Real Zone");
+
+    // Opening the list still finds and checks it, in its own "Selected" group
+    // — a stored zone the browser does not offer is not silently dropped.
+    const user = userEvent.setup();
+    await user.click(trigger);
+    const option = await screen.findByRole("option", {
+      name: /Legacy\/Not A Real Zone/,
+    });
+    expect(option).toHaveAttribute("data-checked", "true");
+  });
+});
+
+describe("TimelineEventForm — denied reason (AC4, KODI-014)", () => {
+  it("hides the reason select by default (note)", () => {
+    renderForm();
+    expect(
+      screen.queryByRole("combobox", { name: "Reason" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the reason select, defaulted to Unknown, for Denied", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    const select = screen.getByRole("combobox", { name: "Reason" });
+    expect(select).toBeInTheDocument();
+    expect(select).toHaveTextContent("Unknown");
+  });
+
+  it("sends denied_reason 'unknown' when the select is left untouched", async () => {
+    const user = userEvent.setup();
+    vi.mocked(services.timeline.create).mockResolvedValue({
+      id: "e-3",
+      application_id: "app-1",
+      user_id: "u-1",
+      event_type: "denied",
+      interview_type: null,
+      denied_reason: "unknown",
+      event_date: "2026-01-01",
+      start_time: null,
+      end_time: null,
+      timezone: null,
+      observation: null,
+      salary_period: null,
+      salary_amount: null,
+      salary_currency: null,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: null,
+    });
+    renderForm();
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    await user.click(screen.getByRole("button", { name: /add event/i }));
+    await waitFor(() =>
+      expect(services.timeline.create).toHaveBeenCalledWith(
+        "app-1",
+        expect.objectContaining({
+          event_type: "denied",
+          denied_reason: "unknown",
+        }),
+      ),
+    );
+  });
+
+  it("sends the picked reason for a denied event", async () => {
+    const user = userEvent.setup();
+    vi.mocked(services.timeline.create).mockResolvedValue({
+      id: "e-4",
+      application_id: "app-1",
+      user_id: "u-1",
+      event_type: "denied",
+      interview_type: null,
+      denied_reason: "ghosted",
+      event_date: "2026-01-01",
+      start_time: null,
+      end_time: null,
+      timezone: null,
+      observation: null,
+      salary_period: null,
+      salary_amount: null,
+      salary_currency: null,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: null,
+    });
+    renderForm();
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    await user.click(screen.getByRole("combobox", { name: "Reason" }));
+    await user.click(await screen.findByRole("option", { name: "Ghosted" }));
+    await user.click(screen.getByRole("button", { name: /add event/i }));
+    await waitFor(() =>
+      expect(services.timeline.create).toHaveBeenCalledWith(
+        "app-1",
+        expect.objectContaining({
+          event_type: "denied",
+          denied_reason: "ghosted",
+        }),
+      ),
+    );
+  });
+
+  it.each(["Note", "Feedback", "Interview", "Offer"])(
+    "never sends denied_reason for %s",
+    async (label) => {
+      const user = userEvent.setup();
+      vi.mocked(services.timeline.create).mockResolvedValue({
+        id: "e-5",
+        application_id: "app-1",
+        user_id: "u-1",
+        event_type: "note",
+        interview_type: null,
+        denied_reason: null,
+        event_date: "2026-01-01",
+        start_time: null,
+        end_time: null,
+        timezone: null,
+        observation: null,
+        salary_period: null,
+        salary_amount: null,
+        salary_currency: null,
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: null,
+      });
+      renderForm();
+      await user.click(screen.getByRole("radio", { name: label }));
+
+      if (label === "Offer") {
+        await user.click(screen.getByRole("radio", { name: "Monthly" }));
+        await user.type(screen.getByLabelText("Amount"), "1000");
+        await user.click(screen.getByRole("combobox", { name: "Currency" }));
+        await user.click((await screen.findAllByRole("option"))[0]);
+      }
+
+      const submitLabel = /add event/i;
+      await user.click(screen.getByRole("button", { name: submitLabel }));
+      await waitFor(() => expect(services.timeline.create).toHaveBeenCalled());
+      const [, payload] = vi.mocked(services.timeline.create).mock.calls[0];
+      expect(payload).not.toHaveProperty("denied_reason");
+    },
+  );
 });
