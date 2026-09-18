@@ -28,6 +28,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   documents both accepted shapes — the deprecated 0.1.4 body and the new
   optional outcome body (R-032) — as a `oneOf`, instead of only the
   0.1.4 shape. `required: false` is unchanged.
+- KODI-013 (remediation round 1, AC7/AC8) Migration `ad747aba90fc`'s
+  `downgrade()` no longer collides with R1's (`afd4074c70c2`) on the temp
+  table name `timeline_downgrade_touched`. `migrations/env.py` wraps a whole
+  `alembic downgrade`/`upgrade` command in one outer transaction, so a
+  single `alembic downgrade d3f7b1c9e2a4` from head — crossing this
+  revision's `downgrade()` and then R1's in that same still-open transaction
+  — used to raise `asyncpg.exceptions.DuplicateTableError` on R1's `CREATE
+  TEMPORARY TABLE timeline_downgrade_touched`: `ON COMMIT DROP` only fires
+  once the whole command's transaction commits, not between the two
+  revisions. `alembic downgrade -1` run twice (one command, one transaction
+  per revision) never showed it. Fixed in `ad747aba90fc` only — R1 is
+  Release A and unchanged — by naming its temp table
+  `timeline_downgrade_touched_ad747aba90fc` and dropping it explicitly at
+  the end of its own `downgrade()`, rather than relying solely on `ON COMMIT
+  DROP`. Regression test:
+  `test_single_command_downgrade_and_upgrade_cross_two_revisions` in
+  `tests/integration/test_timeline_contract_migration.py`.
 
 ### Added
 

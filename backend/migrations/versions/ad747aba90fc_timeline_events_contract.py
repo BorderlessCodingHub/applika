@@ -651,8 +651,25 @@ _EDITED_FILTER = """
     AND (s.updated_at IS NULL OR e.updated_at > s.updated_at)
 """
 
+# Scoped to this revision, not R1's identically-shaped
+# ``timeline_downgrade_touched``: ``env.py`` wraps every revision a single
+# ``alembic downgrade``/``upgrade`` command touches in one outer transaction
+# (``context.begin_transaction()`` around the whole ``run_migrations()``
+# call, ``transaction_per_migration`` is not set), so ``ON COMMIT DROP``
+# only fires once that *outer* transaction commits — not between this
+# revision's downgrade and R1's. A single ``downgrade d3f7b1c9e2a4`` from
+# head runs this revision's downgrade and then R1's in that same still-open
+# transaction; reusing R1's name raised
+# ``asyncpg.exceptions.DuplicateTableError`` on R1's own
+# ``CREATE TEMPORARY TABLE timeline_downgrade_touched`` because this
+# revision's copy was still there, uncommitted. R1 (released as Release A)
+# is not touched — only this revision's name changes, plus the explicit
+# ``DROP TABLE`` at the end of ``downgrade()`` below, so this revision never
+# again depends on an outer-transaction commit boundary it does not control.
+_TOUCHED_TABLE = 'timeline_downgrade_touched_ad747aba90fc'
+
 _TOUCHED_SQL = f"""
-    CREATE TEMPORARY TABLE timeline_downgrade_touched
+    CREATE TEMPORARY TABLE {_TOUCHED_TABLE}
     ON COMMIT DROP AS
     SELECT e.application_id FROM timeline_events e WHERE {_C_EVENT_FILTER}
     UNION
@@ -732,7 +749,7 @@ _LAST_STEP_SQL = f"""
     UPDATE applications a SET
         last_step_id = latest.step_id,
         last_step_date = latest.event_date
-    FROM timeline_downgrade_touched touched
+    FROM {_TOUCHED_TABLE} touched
     LEFT JOIN (
         SELECT l.application_id, l.event_date,
             COALESCE(
@@ -753,7 +770,7 @@ _RESTORE_SALARY_SQL = f"""
         salary_offer = offer.salary_amount,
         currency = COALESCE(a.currency, offer.salary_currency),
         salary_period = COALESCE(a.salary_period, offer.salary_period)
-    FROM timeline_downgrade_touched touched,
+    FROM {_TOUCHED_TABLE} touched,
     (
         SELECT DISTINCT ON (e.application_id)
             e.application_id, e.salary_amount, e.salary_currency,
@@ -820,3 +837,14 @@ def downgrade() -> None:
     op.execute(sa.text(_APP_FUNCTION_SQL))
     for statement in _CREATE_TRIGGERS_SQL:
         op.execute(sa.text(statement))
+
+    # -- 6. Explicit, rather than relying solely on ON COMMIT DROP: a single
+    #       multi-revision ``alembic downgrade``/``upgrade`` command runs
+    #       every revision it crosses inside one outer transaction
+    #       (``migrations/env.py``), so ON COMMIT DROP only fires once that
+    #       whole command commits, not at the end of this revision alone.
+    #       Dropping it here — instead of leaving it for a later revision's
+    #       downgrade to collide with, as R1's identically-shaped temp table
+    #       once did — keeps this revision self-contained regardless of
+    #       what runs after it in the same command.
+    op.execute(f'DROP TABLE IF EXISTS {_TOUCHED_TABLE}')
