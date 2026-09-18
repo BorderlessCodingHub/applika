@@ -40,6 +40,7 @@ export function useFinalizeApplication() {
     onSuccess: (_updated, { applicationId }) => {
       void queryClient.invalidateQueries({ queryKey: ["applications"] });
       void queryClient.invalidateQueries({ queryKey: ["statistics"] });
+      void queryClient.invalidateQueries({ queryKey: ["user", "agenda"] });
       void queryClient.invalidateQueries({
         queryKey: TIMELINE_QUERY_KEY.list(applicationId),
       });
