@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import type { ApplicationStep } from "@/services/types/applications";
+import { isAxiosError } from "axios";
+import { toast } from "sonner";
 import type { Application } from "@/services/types/applications";
 import {
   useApplicationDelete,
   useApplications,
 } from "@/hooks/use-applications";
+import { useReopenApplication } from "@/hooks/use-reopen-application";
+import { getApiError } from "@/lib/api-client";
 import { Search, Plus, SlidersHorizontal, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -30,28 +33,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ApplicationFormSheet } from "@/components/applications/application-form-sheet";
-import { ApplicationStepFormDialog } from "@/components/applications/step-form-dialog";
 import { FinalizeDialog } from "@/components/applications/finalize-dialog";
-import {
-  ApplicationItem,
-  ApplicationStepTimeline,
-} from "@/components/applications/application-item";
+import { ApplicationItem } from "@/components/applications/application-item";
 import { Card } from "@/components/ui/card";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { useCycleContext } from "@/contexts/cycle-context";
 
 interface ApplicationAction {
-  action:
-    | "none"
-    | "new"
-    | "inspect"
-    | "edit"
-    | "delete"
-    | "newStep"
-    | "editStep"
-    | "finalize";
+  action: "none" | "new" | "inspect" | "edit" | "delete" | "finalize";
   data?: Application | null;
-  stepData?: ApplicationStep;
 }
 
 export function ApplicationsPage() {
@@ -66,11 +56,13 @@ export function ApplicationsPage() {
     supports,
   } = useApplications(selectedCycleId);
   const { deleteApplication } = useApplicationDelete();
+  const reopenApplication = useReopenApplication();
 
   const [appAction, setAppAction] = useState<ApplicationAction>({
     action: "none",
   });
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [reopeningId, setReopeningId] = useState<string | null>(null);
 
   function handleNewClick() {
     setAppAction({ action: "new", data: undefined });
@@ -84,12 +76,24 @@ export function ApplicationsPage() {
     setAppAction({ action: "finalize", data: app });
   }
 
-  function handleStepClick(app: Application) {
-    setAppAction({ action: "newStep", data: app });
-  }
-
   function handleDeleteClick(app: Application) {
     setAppAction({ action: "delete", data: app });
+  }
+
+  function handleReopenClick(app: Application) {
+    setReopeningId(app.id);
+    reopenApplication.mutate(app.id, {
+      onSuccess: () => {
+        toast.success("Application reopened");
+        setReopeningId(null);
+      },
+      onError: (error) => {
+        toast.error(
+          isAxiosError(error) ? getApiError(error) : "Could not reopen it",
+        );
+        setReopeningId(null);
+      },
+    });
   }
 
   return (
@@ -297,29 +301,19 @@ export function ApplicationsPage() {
                   key={app.id}
                   app={app}
                   onEditClick={isViewingPastCycle ? undefined : handleEditClick}
-                  onNewStepClick={
-                    isViewingPastCycle ? undefined : handleStepClick
-                  }
                   onFinalizeClick={
                     isViewingPastCycle ? undefined : handleFinalizeClick
                   }
                   onDeleteClick={
                     isViewingPastCycle ? undefined : handleDeleteClick
                   }
-                >
-                  <ApplicationStepTimeline
-                    id={app.id}
-                    isDisabled={app.finalized || isViewingPastCycle}
-                    stepsSupports={supports?.steps ?? []}
-                    onEditStep={(step) =>
-                      setAppAction({
-                        action: "editStep",
-                        data: app,
-                        stepData: step,
-                      })
-                    }
-                  />
-                </ApplicationItem>
+                  onReopenClick={
+                    isViewingPastCycle ? undefined : handleReopenClick
+                  }
+                  reopenPending={
+                    reopeningId === app.id && reopenApplication.isPending
+                  }
+                />
               );
             })}
           </div>
@@ -343,32 +337,11 @@ export function ApplicationsPage() {
         />
       )}
 
-      {appAction?.action === "newStep" && (
-        <ApplicationStepFormDialog
-          application={appAction.data!}
-          steps={supports?.steps.filter((s) => !s.strict) ?? []}
-          open={appAction.action === "newStep"}
-          onOpenChange={() => setAppAction({ action: "none" })}
-        />
-      )}
-
-      {appAction?.action === "editStep" && (
-        <ApplicationStepFormDialog
-          application={appAction.data!}
-          steps={supports?.steps.filter((s) => !s.strict) ?? []}
-          open={appAction.action === "editStep"}
-          onOpenChange={() => setAppAction({ action: "none" })}
-          editStep={appAction.stepData}
-        />
-      )}
-
       {appAction?.action === "finalize" && (
         <FinalizeDialog
           applicationId={appAction.data!.id}
           open={appAction.action === "finalize"}
           onOpenChange={() => setAppAction({ action: "none" })}
-          steps={supports?.steps.filter((s) => s.strict) ?? []}
-          feedbacks={supports?.feedbacks ?? []}
         />
       )}
 
