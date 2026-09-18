@@ -144,6 +144,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   window before the owner runs `alembic upgrade head`, keeps satisfying the
   new CHECK. Database only: no application code reads or writes this column
   until KODI-014's backend part ships in release B.
+- KODI-014 `denied_reason` (backend part, release B): `timeline_events` gains
+  the mapped `denied_reason` column and `ck_timeline_events_denied_reason`
+  CHECK in the ORM. `POST`/`PUT /applications/{id}/timeline` accept an
+  optional `denied_reason` on `denied` events (default `unknown`, same
+  pattern as `interview_type`); it is refused (422) on any other event type,
+  and changing an event away from `denied` nulls it in the same request.
+  `POST /applications/{id}/finalize`'s new optional outcome body gains
+  `denied_reason`, only with `outcome=denied` (422 otherwise, default
+  `unknown`). `TimelineEventOut` and the finalize response carry it. Legacy
+  0.1.4 paths: a `denied` event created through `/steps` gets `unknown`; the
+  0.1.4 finalize body maps the legacy feedback name to a reason with the
+  same map R3's backfill uses
+  (`use_cases/compat/legacy_finalize.LEGACY_FEEDBACK_TO_DENIED_REASON`,
+  pinned equal to it). `applika-cli` 0.1.4 request/response shapes are
+  otherwise unchanged. OpenAPI documents the `DeniedReason` enum (ten
+  values). See `cli/CHANGELOG.md` for the CLI 0.2.0 `--reason` flag.
 
 ### Changed
 
