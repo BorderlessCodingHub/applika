@@ -160,7 +160,12 @@ export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
               <FileText className="h-4 w-4" />
             </LinkButton>
 
-            {!isClosed && props.onDeleteClick && (
+            {/*
+              Outside the closed guard too: the API allows deleting a closed
+              application (only an ARCHIVED one is refused) and the design
+              spec only calls for Add/Edit/Close to hide when closed.
+            */}
+            {props.onDeleteClick && (
               <Button
                 size="sm"
                 variant="link"
