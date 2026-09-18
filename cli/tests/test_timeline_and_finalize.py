@@ -88,6 +88,100 @@ def test_timeline_list_outputs_json(monkeypatch, runner):
     assert json.loads(result.output)[0]['id'] == '700'
 
 
+def test_timeline_list_shows_denied_reason_label(monkeypatch, runner):
+    _setup(monkeypatch)
+    FakeApiClient.timeline_events = {
+        '99': [
+            {
+                'id': '700',
+                'application_id': '99',
+                'user_id': '1',
+                'event_type': 'denied',
+                'interview_type': None,
+                'denied_reason': 'skills_mismatch',
+                'event_date': '2026-06-01',
+                'start_time': None,
+                'end_time': None,
+                'timezone': None,
+                'observation': None,
+                'salary_amount': None,
+                'salary_currency': None,
+                'salary_period': None,
+                'created_at': '2026-06-01T00:00:00Z',
+                'updated_at': None,
+            }
+        ]
+    }
+
+    result = runner.invoke(app, ['applications', 'timeline', 'list', '99'])
+
+    assert result.exit_code == 0
+    assert 'Skills mismatch' in result.output
+
+
+def test_timeline_list_tolerates_missing_denied_reason(monkeypatch, runner):
+    """An older API's response may not include ``denied_reason`` at all;
+    the list must still render without crashing."""
+    _setup(monkeypatch)
+    FakeApiClient.timeline_events = {
+        '99': [
+            {
+                'id': '700',
+                'application_id': '99',
+                'user_id': '1',
+                'event_type': 'denied',
+                'interview_type': None,
+                'event_date': '2026-06-01',
+                'start_time': None,
+                'end_time': None,
+                'timezone': None,
+                'observation': None,
+                'salary_amount': None,
+                'salary_currency': None,
+                'salary_period': None,
+                'created_at': '2026-06-01T00:00:00Z',
+                'updated_at': None,
+            }
+        ]
+    }
+
+    result = runner.invoke(app, ['applications', 'timeline', 'list', '99'])
+
+    assert result.exit_code == 0
+    assert '2026-06-01' in result.output
+
+
+def test_timeline_add_denied_prints_reason_label_in_summary(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    FakeApiClient.event_created_response = {
+        'id': '706',
+        'event_type': 'denied',
+        'event_date': '2026-06-12',
+        'denied_reason': 'position_filled',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'denied',
+            '--date',
+            '2026-06-12',
+            '--reason',
+            'position_filled',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert 'Position filled' in result.output
+
+
 # --------------------------------------------------------------------------
 # applications timeline add
 # --------------------------------------------------------------------------
@@ -122,6 +216,7 @@ def test_timeline_add_note_builds_matching_payload(monkeypatch, runner):
     assert FakeApiClient.captured_post_payload == {
         'event_type': 'note',
         'interview_type': None,
+        'denied_reason': None,
         'event_date': '2026-06-01',
         'start_time': None,
         'end_time': None,
@@ -331,6 +426,7 @@ def test_timeline_add_interview_with_full_flags_builds_matching_payload(
     assert FakeApiClient.captured_post_payload == {
         'event_type': 'interview',
         'interview_type': 'initial_screening',
+        'denied_reason': None,
         'event_date': '2026-06-04',
         'start_time': '14:00',
         'end_time': '15:00',
@@ -426,6 +522,7 @@ def test_timeline_add_offer_happy_path_builds_matching_payload(
     assert FakeApiClient.captured_post_payload == {
         'event_type': 'offer',
         'interview_type': None,
+        'denied_reason': None,
         'event_date': '2026-06-10',
         'start_time': None,
         'end_time': None,
@@ -435,6 +532,98 @@ def test_timeline_add_offer_happy_path_builds_matching_payload(
         'salary_currency': 'USD',
         'salary_period': 'annually',
     }
+
+
+def test_timeline_add_denied_defaults_reason_unknown(monkeypatch, runner):
+    _setup(monkeypatch)
+    FakeApiClient.event_created_response = {
+        'id': '704',
+        'event_type': 'denied',
+        'event_date': '2026-06-11',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'denied',
+            '--date',
+            '2026-06-11',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_post_payload['denied_reason'] == 'unknown'
+
+
+def test_timeline_add_denied_with_reason_builds_matching_payload(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    FakeApiClient.event_created_response = {
+        'id': '705',
+        'event_type': 'denied',
+        'event_date': '2026-06-11',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'denied',
+            '--date',
+            '2026-06-11',
+            '--reason',
+            'skills_mismatch',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_post_payload == {
+        'event_type': 'denied',
+        'interview_type': None,
+        'denied_reason': 'skills_mismatch',
+        'event_date': '2026-06-11',
+        'start_time': None,
+        'end_time': None,
+        'timezone': None,
+        'observation': None,
+        'salary_amount': None,
+        'salary_currency': None,
+        'salary_period': None,
+    }
+
+
+def test_timeline_add_reason_on_non_denied_refused(monkeypatch, runner):
+    _setup(monkeypatch)
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'note',
+            '--date',
+            '2026-06-11',
+            '--reason',
+            'ghosted',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert '--reason is only allowed with --type denied' in result.output
+    assert FakeApiClient.captured_post_payload is None
 
 
 def test_timeline_add_409_prints_reopen_hint(monkeypatch, runner):
@@ -508,6 +697,7 @@ def test_timeline_edit_type_change_away_from_offer_drops_salary(
     assert FakeApiClient.captured_put_payload == {
         'event_type': 'note',
         'interview_type': None,
+        'denied_reason': None,
         'event_date': '2026-06-05',
         'start_time': None,
         'end_time': None,
@@ -627,6 +817,7 @@ def test_timeline_edit_keeps_offer_triad_when_event_already_had_one(
     assert FakeApiClient.captured_put_payload == {
         'event_type': 'offer',
         'interview_type': None,
+        'denied_reason': None,
         'event_date': '2026-06-05',
         'start_time': None,
         'end_time': None,
@@ -636,6 +827,178 @@ def test_timeline_edit_keeps_offer_triad_when_event_already_had_one(
         'salary_currency': 'USD',
         'salary_period': 'monthly',
     }
+
+
+def _denied_event(reason='skills_mismatch'):
+    return {
+        'id': '700',
+        'application_id': '99',
+        'user_id': '1',
+        'event_type': 'denied',
+        'interview_type': None,
+        'denied_reason': reason,
+        'event_date': '2026-06-05',
+        'start_time': None,
+        'end_time': None,
+        'timezone': None,
+        'observation': None,
+        'salary_amount': None,
+        'salary_currency': None,
+        'salary_period': None,
+        'created_at': '2026-06-05T00:00:00Z',
+        'updated_at': None,
+    }
+
+
+def test_timeline_edit_denied_without_reason_preserves_current_reason(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    FakeApiClient.timeline_events = {'99': [_denied_event('skills_mismatch')]}
+    FakeApiClient.event_updated_response = {
+        'id': '700',
+        'event_type': 'denied',
+        'event_date': '2026-06-05',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'edit',
+            '99',
+            '700',
+            '--observation',
+            'Updated note',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_put_payload['denied_reason'] == (
+        'skills_mismatch'
+    )
+
+
+def test_timeline_edit_denied_with_reason_overrides_current_reason(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    FakeApiClient.timeline_events = {'99': [_denied_event('skills_mismatch')]}
+    FakeApiClient.event_updated_response = {
+        'id': '700',
+        'event_type': 'denied',
+        'event_date': '2026-06-05',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'edit',
+            '99',
+            '700',
+            '--reason',
+            'ghosted',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_put_payload['denied_reason'] == 'ghosted'
+
+
+def test_timeline_edit_type_change_away_from_denied_drops_reason(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    FakeApiClient.timeline_events = {'99': [_denied_event('skills_mismatch')]}
+    FakeApiClient.event_updated_response = {
+        'id': '700',
+        'event_type': 'note',
+        'event_date': '2026-06-05',
+    }
+
+    result = runner.invoke(
+        app,
+        ['applications', 'timeline', 'edit', '99', '700', '--type', 'note'],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_put_payload['denied_reason'] is None
+
+
+def test_timeline_edit_reason_on_type_change_away_from_denied_refused(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    FakeApiClient.timeline_events = {'99': [_denied_event('skills_mismatch')]}
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'edit',
+            '99',
+            '700',
+            '--type',
+            'note',
+            '--reason',
+            'ghosted',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert '--reason is only allowed with --type denied' in result.output
+
+
+def test_timeline_edit_tolerates_missing_denied_reason_in_response(
+    monkeypatch, runner
+):
+    """An older API may not send ``denied_reason`` at all. Editing a denied
+    event it returned without touching --reason must default to unknown,
+    not crash."""
+    _setup(monkeypatch)
+    legacy_denied_event = {
+        'id': '700',
+        'application_id': '99',
+        'user_id': '1',
+        'event_type': 'denied',
+        'interview_type': None,
+        'event_date': '2026-06-05',
+        'start_time': None,
+        'end_time': None,
+        'timezone': None,
+        'observation': None,
+        'salary_amount': None,
+        'salary_currency': None,
+        'salary_period': None,
+        'created_at': '2026-06-05T00:00:00Z',
+        'updated_at': None,
+    }
+    FakeApiClient.timeline_events = {'99': [legacy_denied_event]}
+    FakeApiClient.event_updated_response = {
+        'id': '700',
+        'event_type': 'denied',
+        'event_date': '2026-06-05',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'edit',
+            '99',
+            '700',
+            '--observation',
+            'Updated note',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_put_payload['denied_reason'] == 'unknown'
 
 
 def test_timeline_edit_not_found_reports_clean_error(monkeypatch, runner):
@@ -759,6 +1122,7 @@ def test_finalize_outcome_offer_payload(monkeypatch, runner):
         'salary_amount': 9000.0,
         'salary_currency': 'EUR',
         'salary_period': 'annually',
+        'denied_reason': None,
     }
     assert (
         'Finalized application: id=99 company=Acme role=Backend Engineer '
@@ -793,6 +1157,7 @@ def test_finalize_outcome_denied_payload(monkeypatch, runner):
         'salary_amount': None,
         'salary_currency': None,
         'salary_period': None,
+        'denied_reason': 'unknown',
     }
     assert (
         'Finalized application: id=99 company=Acme role=Backend Engineer '
@@ -895,6 +1260,97 @@ def test_finalize_outcome_rejects_legacy_annual_period(monkeypatch, runner):
     )
 
     assert result.exit_code != 0
+
+
+def test_finalize_outcome_denied_with_reason_payload(monkeypatch, runner):
+    _setup(monkeypatch)
+    FakeApiClient.finalized_response = {
+        'id': '99',
+        'company_name': 'Acme',
+        'role': 'Backend Engineer',
+        'salary_offer': None,
+        'last_step': None,
+        'feedback': None,
+        'finalized': True,
+        'finalized_at': '2026-06-11T00:00:00+00:00',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'finalize',
+            '99',
+            '--outcome',
+            'denied',
+            '--reason',
+            'ghosted',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_post_payload['denied_reason'] == 'ghosted'
+
+
+def test_finalize_reason_with_outcome_offer_refused(monkeypatch, runner):
+    _setup(monkeypatch)
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'finalize',
+            '99',
+            '--outcome',
+            'offer',
+            '--salary',
+            '1000',
+            '--currency',
+            'USD',
+            '--period',
+            'monthly',
+            '--reason',
+            'ghosted',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert '--reason is only allowed when --outcome denied' in result.output
+
+
+def test_finalize_reason_without_outcome_refused(monkeypatch, runner):
+    _setup(monkeypatch)
+
+    result = runner.invoke(
+        app, ['applications', 'finalize', '99', '--reason', 'ghosted']
+    )
+
+    assert result.exit_code == 1
+    assert '--reason is only allowed when --outcome denied' in result.output
+
+
+def test_finalize_reason_with_legacy_step_path_refused(monkeypatch, runner):
+    _setup(monkeypatch)
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'finalize',
+            '99',
+            '--step',
+            'Denied',
+            '--feedback',
+            'Not good enough',
+            '--date',
+            '2026-06-10',
+            '--reason',
+            'ghosted',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert 'cannot be combined with --outcome' in result.output
 
 
 def test_finalize_legacy_step_path_requires_feedback_and_date(
