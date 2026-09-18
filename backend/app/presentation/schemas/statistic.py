@@ -2,6 +2,7 @@ from datetime import date
 
 from pydantic import BaseModel
 
+from app.core.enums import EventType, InterviewType
 from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema
 
@@ -14,17 +15,19 @@ class ApplicationsStatistics(BaseSchema):
 
 
 class StepConversionRate(BaseModel):
-    id: SnowflakeID
-    name: str
-    color: str
+    """One stage (R-023): an interview type, offer or denied."""
+
+    event_type: EventType
+    interview_type: InterviewType | None = None
     total_applications: int
     conversion_rate: float
 
 
 class AvarageDaysSteps(BaseModel):
-    id: SnowflakeID
-    name: str
-    color: str
+    """One stage (R-023): an interview type, offer or denied."""
+
+    event_type: EventType
+    interview_type: InterviewType | None = None
     average_days: float
 
 

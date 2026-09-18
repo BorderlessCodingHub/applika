@@ -9,8 +9,9 @@ from app.application.use_cases.get_user_agenda import (
 from app.application.use_cases.update_user import UpdateUserUseCase
 from app.config.settings import envs
 from app.presentation.dependencies import (
-    ApplicationStepRepositoryDp,
     CurrentUserDp,
+    StepDefinitionRepositoryDp,
+    TimelineEventRepositoryDp,
     UserRepositoryDp,
 )
 from app.presentation.schemas import DetailSchema
@@ -18,7 +19,6 @@ from app.presentation.schemas.application_step import AgendaStepSchema
 from app.presentation.schemas.user import UpdateUserProfile, UserProfile
 
 router = APIRouter(tags=['Users'], responses={'403': {'model': DetailSchema}})
-EMPTY_DATE_QUERY = Query(None)
 
 
 @router.get('/users/me', response_model=UserProfile)
@@ -41,11 +41,16 @@ async def update_me(
 @router.get('/users/me/agenda', response_model=list[AgendaStepSchema])
 async def get_my_agenda(
     c_user: CurrentUserDp,
-    app_step_repo: ApplicationStepRepositoryDp,
-    from_date: date | None = EMPTY_DATE_QUERY,
-    to_date: date | None = EMPTY_DATE_QUERY,
+    timeline_repo: TimelineEventRepositoryDp,
+    step_repo: StepDefinitionRepositoryDp,
+    # Two separate Query() instances: FastAPI writes the first parameter's
+    # name onto a shared Query default object, so a second parameter that
+    # reuses the same instance ends up reading the first one's query key —
+    # sharing one instance here silently dropped ``to_date``.
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
 ):
-    use_case = GetUserAgendaUseCase(app_step_repo)
+    use_case = GetUserAgendaUseCase(timeline_repo, step_repo)
     dtos = await use_case.execute(
         user_id=c_user.id,
         from_date=from_date,
