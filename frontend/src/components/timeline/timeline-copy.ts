@@ -47,3 +47,20 @@ export const TIMEZONE_COPY = {
   /** Group of zones without a region, e.g. `UTC`. */
   otherGroup: "Other",
 } as const;
+
+/** The timeline panel's header words (KODI-015 reference image). */
+export const TIMELINE_PANEL_COPY = {
+  title: "Timeline",
+  description:
+    "Track the candidate's progress throughout the recruitment process.",
+  addEvent: "Add event",
+} as const;
+
+/** Items of an event card's kebab menu. */
+export const TIMELINE_EVENT_ACTION_COPY = {
+  edit: "Edit",
+  delete: "Delete",
+} as const;
+
+/** A denied card's title reads `Feedback: <reason label>`. */
+export const DENIED_FEEDBACK_TITLE_PREFIX = "Feedback";
