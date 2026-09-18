@@ -462,10 +462,14 @@
       Height of the CV editor's `sticky bottom-0` submit row, which is pinned
       INSIDE `main` and paints over the bottom of the scrollport.
       `CvEditorFooter` is its only owner and mirrors `CookieConsent`: it
-      measures itself with a `ResizeObserver` (the row is `flex-wrap` and
-      really does become two rows), writes the value here, and REMOVES the
-      property on unmount — an editor that is not on screen reserves nothing.
+      measures itself with a `ResizeObserver` (the row is `flex-wrap` and its
+      `actions` slot varies by caller, so its height is not a constant to be
+      guessed), writes the value here, and REMOVES the property on unmount — an
+      editor that is not on screen reserves nothing.
       `max-h-editor-scrollport` is the only thing that spends it.
+
+      ONE owner at a time: the value is a single global slot, so two editors
+      mounted at once would leave it wrong. One editor per route today.
     */
     --cv-editor-footer-height: 0px;
   }

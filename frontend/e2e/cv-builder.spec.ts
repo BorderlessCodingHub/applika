@@ -2013,8 +2013,14 @@ async function captionHitTest(page: Page) {
       return `<${element.tagName.toLowerCase()}>`;
     };
 
-    const aside = caption.closest("figure")!.parentElement!;
-    const asideRect = aside.getBoundingClientRect();
+    // The STICKY COLUMN, not the figure's parent: in `BaseCvEditor` that is
+    // the `<aside>` itself, but in `TailoredCvEditor` the figure sits in a
+    // `<section>` inside the sticky wrapper, under the job-description panel.
+    // Anchoring on the figure's parent would measure a box that is legitimately
+    // not at the top of the scrollport there, and the pinned check would fail
+    // on a layout that is perfectly correct.
+    const column = caption.closest<HTMLElement>('[class*="md:sticky"]');
+    const columnRect = column?.getBoundingClientRect() ?? null;
     const footer = document.querySelector<HTMLElement>(
       'form [class*="sticky"][class*="bottom-0"]',
     );
@@ -2031,8 +2037,8 @@ async function captionHitTest(page: Page) {
       // below the fold, which is not this bug; and at the very END of the
       // scroll the pane un-sticks with its container and rides up, which is
       // not this bug either — the old geometry passes there too.
-      asideGap: Math.round(asideRect.top - main.top),
-      asideHeight: Math.round(asideRect.height),
+      columnGap: columnRect ? Math.round(columnRect.top - main.top) : null,
+      columnHeight: columnRect ? Math.round(columnRect.height) : null,
       scrollportHeight: Math.round(main.height),
       footerHeight: footerRect ? Math.round(footerRect.height) : null,
       // Negative means the caption ENDS above the top edge of the submit row.
@@ -2087,24 +2093,24 @@ async function expectCaptionUnoccluded(page: Page, where: string) {
     `${where} never scrolled, so the footer was never over the pane`,
   ).toBeGreaterThan(0);
 
-  // The pane is stuck to the top of the scrollport AND at its full cap: this
-  // is the state the old geometry put the caption under the bar in.
+  // The column is stuck to the top of the scrollport: this is the state the
+  // old geometry put the caption under the bar in.
   expect(
-    hit.asideGap,
-    `the preview pane is not pinned on ${where}: ${JSON.stringify(hit)}`,
+    hit.columnGap,
+    `the preview column is not pinned on ${where}: ${JSON.stringify(hit)}`,
   ).toBe(0);
   expect(
     hit.footerHeight,
     `${where} renders no sticky footer at all`,
   ).toBeGreaterThan(0);
-  // The pane never claims the band the footer occupies. `<=` rather than `===`
-  // because a preview shorter than its cap simply does not reach it (a narrow
-  // column scales the A4 sheet down); the EXACT equality on a pane that does
-  // reach its cap is pinned by the preview-gap test above, on the 12-role CV.
-  // On the old geometry this was the full scrollport and the check fails.
+  // The column never claims the band the footer occupies. `<=` rather than
+  // `===` because a preview shorter than its cap simply does not reach it (a
+  // narrow column scales the A4 sheet down); the EXACT equality on a column
+  // that does reach its cap is pinned by the preview-gap test above, on the
+  // 12-role CV. On the old geometry this was the full scrollport and it fails.
   expect(
-    hit.asideHeight,
-    `the pane claims the footer's band on ${where}: ${JSON.stringify(hit)}`,
+    hit.columnHeight,
+    `the column claims the footer's band on ${where}: ${JSON.stringify(hit)}`,
   ).toBeLessThanOrEqual(hit.scrollportHeight - hit.footerHeight! + 1);
 
   expect(
@@ -2152,8 +2158,9 @@ test("the layout notice is never under the submit row, on either editor (13)", a
   await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(1);
   await expectCaptionUnoccluded(page, "/cvs/new");
 
-  // Still unoccluded once the footer GROWS: it is `flex-wrap`, and the whole
-  // reason the height is measured rather than hardcoded.
+  // Still unoccluded at the bottom edge of the range, where the column is
+  // narrowest and the footer closest to wrapping. The height is MEASURED
+  // rather than hardcoded precisely so a wrap cannot under-reserve.
   await page.setViewportSize({ width: 768, height: 800 });
   await expect(page.locator(SHEET).first()).toBeVisible();
   await expectCaptionUnoccluded(page, "/cvs/new at md exactly");
@@ -2168,6 +2175,19 @@ test("the layout notice is never under the submit row, on either editor (13)", a
   // so the reservation has to TRACK it, not a constant measured on /cvs/new.
   await expectReachableWithCookieNoticeUp(page, "Download PDF");
   await expectCaptionUnoccluded(page, "/cvs/editor?id= with the notice up");
+
+  // ---- /applications/cv?id=: the OTHER editor, whose sticky column also
+  // carries the job-description panel above the preview. It shares the footer
+  // and the cap, so it shares the defect; measure it rather than assume it.
+  const applicationId = await seedApplication(request, JOB_DESCRIPTION);
+  await seedTailoredCv(request, applicationId, cvId);
+  await page.goto(`/applications/cv?id=${applicationId}`);
+  await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+    CV_NAME,
+  );
+  await expect(page.locator(SHEET).first()).toBeVisible();
+  await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(2);
+  await expectCaptionUnoccluded(page, "/applications/cv?id=");
 });
 
 test("the CV gallery says nothing about a preview it does not render (13)", async ({

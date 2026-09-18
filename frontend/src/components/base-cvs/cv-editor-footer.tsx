@@ -14,9 +14,15 @@ export const CV_EDITOR_FOOTER_HEIGHT_VAR = "--cv-editor-footer-height";
 /**
  * Publishes the footer's measured height to the document while it is mounted,
  * and removes it on unmount — the same discipline as `CookieConsent`, for the
- * same reason. Measured rather than hardcoded: the row is `flex-wrap`, so it
- * really is two rows once `actions` are present or the viewport is narrow, and
- * a stale constant would silently under-reserve exactly where the wrap happens.
+ * same reason.
+ *
+ * Measured rather than hardcoded because the row is `flex-wrap` and its
+ * contents vary: `actions` is a slot, and the editors put a different number of
+ * controls in it. Every width the e2e suite exercises happens to land on one
+ * 61px row, so the wrap is a CAPACITY of this layout rather than something the
+ * suite demonstrates — which is exactly why a constant would be the wrong
+ * choice: it would be right until the first caller that wraps, and then
+ * silently under-reserve.
  */
 function useReservedFooterHeight(ref: React.RefObject<HTMLElement | null>) {
   useEffect(() => {

@@ -600,8 +600,11 @@ bar's strip and still paints over it.
 
 **`h-viewport` is the shell; `max-h-scrollport` is the `<main>` inside it.**
 They differ by `--app-header-height`, because the shell `Header` is `main`'s
-SIBLING and sits above it. Anything sized to fill the SCROLLING region — a
-sticky pane beside a long form — takes `max-h-scrollport`. Reaching for
+SIBLING and sits above it. Anything sized to fill the SCROLLING region takes
+`max-h-scrollport` — **unless it shares that scrollport with a `sticky
+bottom-0` footer, in which case it takes `max-h-editor-scrollport`; see the
+paragraph below, and note that the CV editors' sticky preview pane is that
+case.** Reaching for
 `100dvh` there measures the wrong box, overshoots by exactly the header, and
 ends in a hand-tuned constant subtracting the difference back off; that is the
 bug KODI-009 fixed in the CV preview. `--app-header-height` is declared once in
@@ -614,12 +617,23 @@ row**, and it is what a column sharing a scrollport with a `sticky bottom-0`
 footer must take. `CvEditorFooter` (`base-cvs/cv-editor-footer.tsx`) is that
 row — shared by `BaseCvEditor` and `TailoredCvEditor` so the two cannot drift —
 and it is the SECOND bottom-anchored element in the app that reserves its own
-height. Like `CookieConsent` it measures itself with a `ResizeObserver` (the row
-is `flex-wrap` and really does become two rows once `actions` are present or the
-viewport is narrow), publishes `--cv-editor-footer-height` on `<html>` while
-mounted, and REMOVES the property on unmount — an editor off screen reserves
-nothing, and a read-only CV copy with no `actions` mounts no footer and reserves
-nothing either.
+height. Like `CookieConsent` it measures itself with a `ResizeObserver`,
+publishes `--cv-editor-footer-height` on `<html>` while mounted, and REMOVES the
+property on unmount — an editor off screen reserves nothing, and a read-only CV
+copy with no `actions` mounts no footer and reserves nothing either. Measured
+rather than hardcoded because the row is `flex-wrap` and its `actions` slot
+varies by caller; every width the e2e suite exercises lands on one 61px row, so
+the wrap is a capacity of the layout rather than something the suite
+demonstrates — which is the point, since a constant would be right until the
+first caller that wraps.
+
+**It assumes ONE mounted editor.** `--cv-editor-footer-height` is a single
+global slot with last-writer-wins and first-unmounter-clears semantics, so two
+`CvEditorFooter`s on screen at once would leave it wrong or cleared while one is
+still visible. That is unreachable today — one editor per route, and
+`TailoredCvEditor`'s two branches are mutually exclusive — but unlike
+`CookieConsent`, which is a singleton by construction, this is a shared
+component anyone could drop in twice. Keep it to one per screen.
 
 **The two reservations compose; they do not double-count.**
 `--cookie-notice-height` is chrome pinned to the VIEWPORT, OUTSIDE `main`, and

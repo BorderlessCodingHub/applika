@@ -61,11 +61,11 @@ describe("CvEditorFooter", () => {
     expect(screen.getByRole("button", { name: "Save CV" })).toBeInTheDocument();
   });
 
-  it("reserves nothing before it is mounted", () => {
+  it("reserves its measured height on the document once it is up, not before", () => {
+    // Asserted in one test rather than two: a standalone "nothing is reserved
+    // before mount" case renders nothing and only re-asserts the fixture.
     expect(reserved()).toBe("");
-  });
 
-  it("reserves its measured height on the document while it is up", () => {
     render(
       <CvEditorFooter>
         <button type="submit">Save CV</button>
