@@ -616,6 +616,53 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   type selector, the salary period toggle, the finalize outcome picker) reach
   for all of them when opening or measuring. Any future test that opens a
   Radix `Select` needs nothing extra; these are global.
+- **The event dialog is `max-w-3xl`, top-anchored, only its body scrolls
+  (KODI-014).** `timeline-event-dialog.tsx`'s `DialogContent` is
+  `top-4 translate-y-0 … sm:top-[8dvh] sm:max-h-[84dvh] sm:max-w-3xl` with
+  `flex flex-col gap-0 p-0`; the header and footer are fixed `px-6` bands and
+  only the middle `overflow-y-auto` div scrolls. Picking an event type grows
+  or shrinks the form (schedule group, offer salary group, denied-reason box)
+  without moving the footer's submit button off screen. Any other dialog whose
+  body can grow tall should copy this shape rather than centring + `max-h` on
+  the whole `DialogContent`.
+- **A type-specific field group is UNMOUNTED, never CSS-hidden, and its
+  payload is nulled from the wire side, not just left unfilled (KODI-014).**
+  The interview-only schedule (start/end/`TimezoneSelect`) and the
+  denied-only `DeniedReasonSelect` follow the same shape as the offer salary
+  group before them: `TimelineEventFormFields`/`FinalizeOutcomeFields` take an
+  `isInterview`/`isDenied`/`isOffer` flag and render the group or `null`, so a
+  value the user typed before switching types never sits in an invisible
+  control. `toTimelineEventPayload`/`toFinalizePayload` go one step further
+  than "omit the field for the wrong type": for `start_time`/`end_time`/
+  `timezone` they read the CURRENT `event_type`, not whatever is in
+  react-hook-form state, and send `null` for every non-interview type —
+  otherwise a value filled while Interview was selected, then left behind
+  after switching away (or already stored on a migrated non-interview event
+  being edited), would ride through as a stale schedule. `timezone` is
+  additionally nulled whenever `start_time` is blank, because `TimezoneSelect`
+  cannot be cleared and always holds a real zone.
+- **`TimezoneSelect` (`timezone-select.tsx`) and `timezone-options.ts`
+  (KODI-014)** are the pattern for any future searchable single-choice
+  combobox: a `Popover` + `Command` over `Intl.supportedValuesOf("timeZone")`
+  (`UTC` force-included), grouped by region via `groupTimeZones`, with a
+  stored value the browser does not list shown FIRST in its own `"Selected"`
+  group — never dropped. It is not clearable (a schedule with no zone is the
+  times left blank, not an empty zone). `browserTimeZone()` — wrapping
+  `Intl.DateTimeFormat().resolvedOptions().timeZone` in a try/catch —
+  pre-fills a new event; the stored value always wins on edit
+  (`timelineEventToFormValues`), falling back to `browserTimeZone()` only when
+  nothing is stored. `timeZoneFilter` is a literal case-insensitive substring
+  match (id + offset), never cmdk's fuzzy default — fuzzy would match `"zzzz"`
+  into `Brazzaville`.
+- **`DeniedReasonSelect`/`DeniedReasonBadge` (KODI-014)** are the
+  `denied_reason` counterpart of `InterviewTypeSelect`/`InterviewTypeBadge`:
+  a plain Radix `Select` (not a combobox — only 10 fixed values), grouped
+  Unknown | the 8 named reasons | Other, defaulting to `unknown`
+  (`DEFAULT_DENIED_REASON`) via the same "seed on the effect that flips
+  `isDenied`" pattern `interview_type` already used. The card badge reads
+  `null`/absent as `unknown` and carries a `sr-only` `"Reason: "` prefix —
+  assert on `/reason:\s*<label>/i`, never an exact string, the same convention
+  `InterviewTypeBadge` already set.
 
 ### Date Inputs
 
