@@ -64,19 +64,3 @@ export const SelectOptions = {
   WORK_MODE,
   SOURCE,
 };
-
-export function formatSalary(
-  value: number | undefined | null,
-  currency?: SalaryCurrencyType,
-  period?: SalaryPeriodType,
-) {
-  if (value == null) return "?";
-
-  const c = CURRENCY.find((x) => x.value === currency);
-  const sym = c ? c.symbol : "$";
-
-  const s = SALARY_PERIOD.find((x) => x.value === period);
-  const suf = s ? s.sufix : "";
-
-  return `${sym}${value.toLocaleString()} ${suf}`;
-}

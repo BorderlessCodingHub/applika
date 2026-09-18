@@ -21,7 +21,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useState } from "react";
-import { formatSalary } from "@/options";
+import { formatSalary } from "@/components/applications/application-format";
 import { Button, LinkButton } from "../ui/button";
 
 interface ApplicationItemProps {
@@ -288,13 +288,12 @@ export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
                 <div>
                   <span className="text-muted-foreground">Salary Range</span>
                   <p className="mt-0.5 font-numeric font-medium text-foreground">
-                    {formatSalary(app.salary_range_min, app.currency)}
-                    {" – "}
-                    {formatSalary(
-                      app.salary_range_max,
-                      app.currency,
-                      app.salary_period,
-                    )}
+                    {formatSalary({
+                      salaryRangeMin: app.salary_range_min?.toString(),
+                      salaryRangeMax: app.salary_range_max?.toString(),
+                      currency: app.currency,
+                      salaryPeriod: app.salary_period,
+                    })}
                   </p>
                 </div>
               )}
@@ -302,11 +301,11 @@ export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
                 <div>
                   <span className="text-muted-foreground">Expected Salary</span>
                   <p className="mt-0.5 font-numeric font-medium text-foreground">
-                    {formatSalary(
-                      app.expected_salary,
-                      app.currency,
-                      app.salary_period,
-                    )}
+                    {formatSalary({
+                      expectedSalary: app.expected_salary?.toString(),
+                      currency: app.currency,
+                      salaryPeriod: app.salary_period,
+                    })}
                   </p>
                 </div>
               )}
