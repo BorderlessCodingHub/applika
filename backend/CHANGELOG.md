@@ -152,10 +152,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and changing an event away from `denied` nulls it in the same request.
   `POST /applications/{id}/finalize`'s new optional outcome body gains
   `denied_reason`, only with `outcome=denied` (422 otherwise, default
-  `unknown`). `TimelineEventOut` and the finalize response carry it. Legacy
-  0.1.4 paths: a `denied` event created through `/steps` gets `unknown`; the
-  0.1.4 finalize body maps the legacy feedback name to a reason with the
-  same map R3's backfill uses
+  `unknown`); the closing denied event carries it, readable back through
+  `GET /applications/{id}/timeline` (`TimelineEventOut.denied_reason`) — the
+  finalize route's own response is `Application`, which does not gain a
+  field. Legacy 0.1.4 paths: a `denied` event created through `/steps` gets
+  `unknown`; the 0.1.4 finalize body maps the legacy feedback name to a
+  reason with the same map R3's backfill uses
   (`use_cases/compat/legacy_finalize.LEGACY_FEEDBACK_TO_DENIED_REASON`,
   pinned equal to it). `applika-cli` 0.1.4 request/response shapes are
   otherwise unchanged. OpenAPI documents the `DeniedReason` enum (ten
