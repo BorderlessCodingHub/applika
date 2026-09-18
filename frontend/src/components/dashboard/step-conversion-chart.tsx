@@ -98,7 +98,7 @@ export function StepConversionChart({ cycleId }: { cycleId?: string | null }) {
   return (
     <Card className="animate-fade-in-up p-5">
       <div className="pb-4">
-        <h2 className="text-base">Step Conversion</h2>
+        <h2 className="text-base">Stage Conversion</h2>
         <p className="text-xs text-muted-foreground">
           Percentage of applications that reached each stage
         </p>

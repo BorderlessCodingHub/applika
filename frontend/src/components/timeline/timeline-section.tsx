@@ -9,6 +9,8 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { EmptyState } from "@/components/common/empty-state";
 import { TIMELINE_READ_ONLY_COPY } from "@/components/timeline/timeline-copy";
 import { TimelineEventForm } from "@/components/timeline/timeline-event-form";
+import { formatEventDate } from "@/components/timeline/timeline-format";
+import { stageLabel } from "@/components/timeline/timeline-options";
 import { TimelinePanel } from "@/components/timeline/timeline-panel";
 import { type TimelineEventView } from "@/components/timeline/timeline-types";
 import { Button } from "@/components/ui/button";
@@ -172,7 +174,7 @@ export function TimelineSection({
                 variant="ghost"
                 size="icon"
                 className="size-7"
-                aria-label="Event actions"
+                aria-label={`Event actions: ${stageLabel(event.type, event.interviewType)}, ${formatEventDate(event.eventDate) ?? event.eventDate}`}
               >
                 <MoreHorizontal aria-hidden />
               </Button>

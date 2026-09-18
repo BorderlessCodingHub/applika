@@ -11,6 +11,14 @@
 import type { TimelineEventView } from "@/components/timeline/timeline-types";
 import type { TimelineEvent } from "@/services/types/timeline";
 
+/**
+ * The API sends times as `HH:MM:SS`; the view-model (and `<input type="time">`
+ * in the edit form) is `HH:mm`. Trim once, here.
+ */
+function toHourMinute(value: string | null): string | null {
+  return value == null ? null : value.slice(0, 5);
+}
+
 /** Map a single timeline event DTO into its card/list view-model. */
 export function toTimelineEventView(event: TimelineEvent): TimelineEventView {
   return {
@@ -18,8 +26,8 @@ export function toTimelineEventView(event: TimelineEvent): TimelineEventView {
     type: event.event_type,
     interviewType: event.interview_type,
     eventDate: event.event_date,
-    startTime: event.start_time,
-    endTime: event.end_time,
+    startTime: toHourMinute(event.start_time),
+    endTime: toHourMinute(event.end_time),
     timezone: event.timezone,
     observation: event.observation,
     salaryPeriod: event.salary_period,
