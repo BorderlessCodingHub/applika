@@ -162,6 +162,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   pinned equal to it). `applika-cli` 0.1.4 request/response shapes are
   otherwise unchanged. OpenAPI documents the `DeniedReason` enum (ten
   values). See `cli/CHANGELOG.md` for the CLI 0.2.0 `--reason` flag.
+- KODI-016 Migration `af50c83911a7` (R4, folded into release A per the
+  owner's choice, chained R1 -> R3 -> R4 -> R2, expand only): every
+  non-interview `timeline_events` row has its `start_time`, `end_time` and
+  `timezone` cleared, and the CHECK `ck_timeline_events_schedule_
+  interview_only` (`event_type = 'interview' OR (start_time IS NULL AND
+  end_time IS NULL AND timezone IS NULL)`) keeps it that way. The cleared
+  originals are not lost for any event that started life as a step — they
+  stay in `application_steps` and `downgrade()` restores them from there
+  by id; a schedule on a Release-native event with no step counterpart is
+  not recoverable on downgrade (owner: "you can remove the value in the
+  database as well in case of problems"). The step sync trigger function
+  `timeline_events_sync_application_step` is replaced (same name) so an
+  old-code write during release A, including the whole A->B window before
+  the owner runs `alembic upgrade head`, keeps satisfying the new CHECK;
+  `timeline_events_sync_application_finalize` is untouched — it never
+  writes a schedule. Database only: no application code reads or writes
+  this CHECK differently until KODI-016's backend part ships.
 
 ### Changed
 
