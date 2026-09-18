@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   FinalizeDialog,
@@ -29,6 +29,11 @@ vi.mock("@/services/services", () => ({
     },
   },
 }));
+
+beforeEach(() => {
+  vi.mocked(services.applications.finalize).mockReset();
+  vi.mocked(services.applications.reopen).mockReset();
+});
 
 function renderDialog() {
   const client = new QueryClient({
@@ -135,6 +140,31 @@ describe("FinalizeDialog — server-limit parity (mirrors FinalizeWithOutcome)",
 
     await waitFor(() =>
       expect(services.applications.finalize).not.toHaveBeenCalled(),
+    );
+  });
+
+  it("a stale over-limit note left over from Denied does not block a None close", async () => {
+    // `none` unmounts the notes field — a value typed while Denied was
+    // selected must not silently block the close once switched back to None,
+    // since there is nothing left on screen the user could fix.
+    const user = userEvent.setup();
+    vi.mocked(services.applications.finalize).mockResolvedValue({
+      id: "app-1",
+    } as never);
+    renderDialog();
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    fireEvent.change(screen.getByLabelText(/notes/i), {
+      target: { value: "a".repeat(5001) },
+    });
+    await user.click(screen.getByRole("radio", { name: "None" }));
+
+    await user.click(screen.getByRole("button", { name: "Close application" }));
+
+    await waitFor(() =>
+      expect(services.applications.finalize).toHaveBeenCalledWith(
+        "app-1",
+        undefined,
+      ),
     );
   });
 });

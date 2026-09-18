@@ -75,12 +75,16 @@ const finalizeSchema = z
   .object({
     outcome: z.enum(FINALIZE_OUTCOMES),
     event_date: z.string(),
-    observation: z.string().max(MAX_OBSERVATION, "Notes are too long"),
+    observation: z.string(),
     salary_amount: z.string(),
     salary_currency: z.string(),
     salary_period: z.string(),
   })
   .superRefine((values, ctx) => {
+    // `none` unmounts every field below (FinalizeOutcomeFields), so nothing
+    // here may fail against a value the user can no longer see or fix — a
+    // stale >5000-char note typed while Denied/Offer was selected, then left
+    // behind after switching back to None, must not silently block the close.
     if (values.outcome === "none") return;
 
     if (!values.event_date.trim()) {
@@ -88,6 +92,14 @@ const finalizeSchema = z
         code: "custom",
         path: ["event_date"],
         message: "Date is required",
+      });
+    }
+
+    if (values.observation.length > MAX_OBSERVATION) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["observation"],
+        message: "Notes are too long",
       });
     }
 
