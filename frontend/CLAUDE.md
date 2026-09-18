@@ -604,6 +604,11 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   nullable, legacy, reverse-mapped fields kept only for the CLI; the agenda
   page, the agenda dropdown, agenda notifications and `lib/calendar.ts`'s ICS
   generation all label from `stageLabel(event_type, interview_type)` instead.
+  The old step dialog's "Add to calendar (.ics)" button went with
+  `step-form-dialog.tsx`, and its `genApplicationStepIcsFile` was deleted as
+  dead code; `.ics` export now lives only on the agenda page
+  (`genAgendaStepIcsFile`). Porting it to the timeline form is an open owner
+  call, not an oversight.
 - **jsdom polyfills for Radix in `src/test/setup.ts`.** `hasPointerCapture` /
   `setPointerCapture` / `releasePointerCapture` / `scrollIntoView` and a
   `ResizeObserver` stub were added here (KODI-012) — jsdom implements none of
