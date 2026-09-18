@@ -3,6 +3,12 @@ import {
   SalaryPeriodType,
   SeniorityLevelType,
 } from "./users";
+import type {
+  InterviewType,
+  OfferSalaryPeriod,
+  SalaryCurrency,
+  TimelineEventType,
+} from "@/components/timeline/timeline-types";
 
 export interface Company {
   id: string;
@@ -10,31 +16,20 @@ export interface Company {
   url: string;
 }
 
-export interface ApplicationStep {
-  id: string;
-  step_id: string;
-  step_date: string;
-  start_time?: string;
-  end_time?: string;
-  timezone?: string;
-  observation?: string;
-}
-
-export interface ApplicationStepPayload {
-  step_id: string;
-  step_date: string;
-  start_time?: string;
-  end_time?: string;
-  timezone?: string;
-  observation?: string;
-}
-
+/**
+ * One item of `GET /users/me/agenda` (PRD 0008, ADR 0012). `step_id`,
+ * `step_name` and `step_color` are the legacy, now-nullable reverse-mapped
+ * fields — the web must label the item from `event_type`/`interview_type`
+ * (`stageLabel` in `@/components/timeline/timeline-options`), never from these.
+ */
 export interface AgendaStep {
   id: string;
-  step_id: string;
+  step_id?: string | null;
   step_date: string;
-  step_name?: string;
-  step_color?: string;
+  step_name?: string | null;
+  step_color?: string | null;
+  event_type: TimelineEventType;
+  interview_type?: InterviewType | null;
   start_time?: string;
   end_time?: string;
   timezone?: string;
@@ -44,12 +39,19 @@ export interface AgendaStep {
   role: string;
 }
 
-export interface ApplicationFinalizePayload {
-  step_id: string;
-  feedback_id: string;
-  finalize_date: string;
-  salary_offer?: number;
+/**
+ * Body for `POST /applications/{id}/finalize`. `outcome: undefined`/omitted
+ * sends a bodyless request (idempotent close, no outcome event). `offer`
+ * requires the salary triad; `denied` takes only the date/observation.
+ */
+export interface FinalizeApplicationPayload {
+  outcome: "offer" | "denied";
+  /** `YYYY-MM-DD`; defaults server-side to today (UTC) when omitted. */
+  event_date?: string;
   observation?: string;
+  salary_amount?: string;
+  salary_currency?: SalaryCurrency;
+  salary_period?: OfferSalaryPeriod;
 }
 
 export interface Application {
@@ -73,8 +75,12 @@ export interface Application {
   /** The job posting's text, kept beside the application's CV copy (KODI-003). */
   job_description?: string | null;
   finalized: boolean;
-  last_step?: { name: string; color: string };
-  feedback?: { name: string; color: string };
+  /**
+   * ISO-8601 timestamp the application was closed, or `null` while open. The
+   * single source of truth for "closed" — read-only timeline, no add/edit
+   * event, no edit application, Reopen offered (PRD 0008, ADR 0012).
+   */
+  finalized_at: string | null;
 }
 
 export interface CreateApplicationPayload {
