@@ -4,24 +4,29 @@ import {
   SalaryPeriodType,
   SeniorityLevelType,
 } from "./services/types/users";
+import {
+  CURRENCY_OPTIONS,
+  SALARY_PERIOD_OPTIONS,
+} from "@/components/timeline/timeline-options";
 
-const CURRENCY = [
-  { value: "USD", symbol: "$" },
-  { value: "BRL", symbol: "R$" },
-  { value: "EUR", symbol: "€" },
-  { value: "GBP", symbol: "£" },
-  { value: "CAD", symbol: "C$" },
-  { value: "AUD", symbol: "A$" },
-  { value: "JPY", symbol: "¥" },
-  { value: "CHF", symbol: "CHF" },
-  { value: "INR", symbol: "₹" },
-] as { value: SalaryCurrencyType; symbol: string }[];
+/**
+ * AC9 (R-031): derived from the single source of truth
+ * (`@/components/timeline/timeline-options`) so this file's shape (`symbol`
+ * for currency, `sufix` — this file's own long-standing typo, kept so no
+ * caller needs to change — for the period suffix) stays intact for every
+ * existing caller (profile, application create/edit) while the VALUES are
+ * the shared 20 currencies / `hourly | monthly | annually`.
+ */
+const CURRENCY = CURRENCY_OPTIONS.map((option) => ({
+  value: option.value,
+  symbol: option.symbol,
+})) as { value: SalaryCurrencyType; symbol: string }[];
 
-const SALARY_PERIOD = [
-  { value: "hourly", label: "Hourly", sufix: "/hr" },
-  { value: "monthly", label: "Monthly", sufix: "/mo" },
-  { value: "annual", label: "Annual", sufix: "/yr" },
-] as { value: SalaryPeriodType; label: string; sufix: string }[];
+const SALARY_PERIOD = SALARY_PERIOD_OPTIONS.map((option) => ({
+  value: option.value,
+  label: option.label,
+  sufix: option.suffix,
+})) as { value: SalaryPeriodType; label: string; sufix: string }[];
 
 const SENIORITY = [
   { value: "intern", label: "Intern" },
