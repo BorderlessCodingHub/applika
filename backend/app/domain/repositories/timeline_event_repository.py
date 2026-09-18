@@ -206,10 +206,13 @@ class TimelineEventRepository:
         from_date: date | None = None,
         to_date: date | None = None,
     ) -> list[TimelineEventModel]:
-        """The user's events dated inside the agenda window, application
-        loaded. The window and the order are the ones the steps agenda used:
-        30 days either side of today by default, ``event_date`` then
-        ``start_time`` (unscheduled last on a day)."""
+        """The user's **interview** events dated inside the agenda window,
+        application loaded. The window and the order are the ones the steps
+        agenda used: 30 days either side of today by default, ``event_date``
+        then ``start_time`` (unscheduled last on a day). KODI-016
+        (R-038/R-039): only ``interview`` events carry a schedule any more,
+        so an agenda of anything else would be a list of unscheduled
+        entries - narrowed to interview events only."""
         today = date.today()
         start = from_date or (today - timedelta(days=30))
         end = to_date or (today + timedelta(days=30))
@@ -217,6 +220,7 @@ class TimelineEventRepository:
             select(TimelineEventModel)
             .where(
                 TimelineEventModel.user_id == user_id,
+                TimelineEventModel.event_type == EventType.INTERVIEW,
                 TimelineEventModel.event_date >= start,
                 TimelineEventModel.event_date <= end,
             )

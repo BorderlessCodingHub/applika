@@ -466,10 +466,18 @@ and defaults to `unknown`; on any other type it is a 422. An offer needs
 and `salary_period` (`monthly` or `annually` for an offer); every other type
 refuses all three, so turning an offer into something else drops the salary
 in the same PUT. `start_time`/`end_time` come together, end after start;
-`timezone` ≤ 100, `observation` ≤ 5000. There is **no** date-order rule
-against the application date or the previous event. An application holds
-**one** `initial_screening` interview at most: a second one is a
-`ResourceConflict` 409 (use-case pre-check, and the partial unique index
+`timezone` ≤ 100, `observation` ≤ 5000. **`start_time`/`end_time`/`timezone`
+are allowed on an interview event only** (KODI-016, R-038/R-039,
+`ck_timeline_events_schedule_interview_only`; owner: "if event type is
+different from interview, these attributes must be blocked"), same pattern
+as `interview_type`: a non-null value on any other type is a 422, an
+explicit null or an absent key is always fine. A non-interview event's
+response **omits** the three keys entirely (not null — absent,
+`TimelineEventOut`'s own `model_serializer`) everywhere an event is
+serialized. There is **no** date-order rule against the application date or
+the previous event. An application holds **one** `initial_screening`
+interview at most: a second one is a `ResourceConflict` 409 (use-case
+pre-check, and the partial unique index
 `uq_timeline_events_one_initial_screening` turns a race into the same 409).
 The rules live in three places on purpose: the request schema (422 before
 I/O), `use_cases/timeline_events/rules.py` (so the compat routes obey them)
@@ -500,7 +508,13 @@ event's type, interview type and salary (0.1.4 `steps edit` without `--step`
 resends it; that reverse step may be strict). A POST/PUT with another step
 still refuses strict steps (404, as always). Writes go through the timeline
 use cases, so every timeline rule, guard and the one-initial-screening 409
-apply.
+apply — **except** the schedule (KODI-016, R-038/R-039): `legacy_steps.py`
+drops `start_time`/`end_time`/`timezone` itself before calling into the
+timeline use case whenever the mapped event is not an interview, so an
+installed CLI that always sends times is never 422'd for it
+(`.claude/rules/cli-compatibility.md`); the response still carries the three
+keys, null, unchanged 0.1.4 shape (`LegacyStepDTO` is not the schema that
+omits them — only `TimelineEventOut` does).
 
 **`Deprecation` header.** Every answer of `/steps*` and of `/finalize` with
 the 0.1.4 body, errors included, carries `Deprecation: @1789430400`
@@ -639,12 +653,15 @@ finalized = `finalized_at` set, and activity (30-day active users, the
 heatmap) comes from `timeline_events.created_at`.
 
 ### Agenda (`/users/me/agenda`)
-Every timeline event dated inside the window (`from_date`/`to_date`, default
-30 days either side of today), ordered by date then start time — the window
-and order the steps agenda had. An item keeps its step-era shape (`id`,
-`step_id`, `step_date`, `step_name`, `step_color`, times, timezone,
-observation, `application_id`, `company_name`, `role`; the step fields are the
-reverse-mapped legacy step) and adds `event_type` and `interview_type`.
+Every **interview** event dated inside the window (`from_date`/`to_date`,
+default 30 days either side of today), ordered by date then start time — the
+window and order the steps agenda had. Narrowed to interview events only by
+KODI-016 (R-038/R-039): a non-interview event carries no schedule any more,
+so an agenda entry with nothing to show would be pointless. An item keeps its
+step-era shape (`id`, `step_id`, `step_date`, `step_name`, `step_color`,
+times, timezone, observation, `application_id`, `company_name`, `role`; the
+step fields are the reverse-mapped legacy step) and adds `event_type` and
+`interview_type`.
 
 ## Testing
 

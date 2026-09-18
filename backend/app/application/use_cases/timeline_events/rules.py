@@ -29,6 +29,9 @@ SALARY_ONLY_ON_OFFER = (
 DENIED_REASON_ONLY_ON_DENIED = 'denied_reason is only allowed on denied events'
 TIMES_TOGETHER = 'start_time and end_time must be provided together'
 END_AFTER_START = 'end_time must be after start_time'
+SCHEDULE_ONLY_ON_INTERVIEW = (
+    'start_time, end_time and timezone are only allowed on interview events'
+)
 
 # The offer salary_period invariant (R-005/R-031): an offer accepts only
 # monthly or annually (``annual`` from an installed CLI maps to annually
@@ -61,6 +64,15 @@ def normalize_event[T: TimelineEventWriteDTO](data: T) -> T:
     * ``start_time`` and ``end_time`` come together, the end after the start
       (R-004). There is no rule on the date against the application date or
       the previous event (PRD 0008 "Assumptions").
+    * ``start_time``, ``end_time`` and ``timezone`` are only allowed on an
+      interview event (KODI-016, R-038/R-039, the same pattern as
+      ``interview_type``). Owner, verbatim: "if event type is different
+      from interview, these attributes must be blocked". Explicit nulls or
+      absent keys are fine on any event type; only a non-null value on a
+      non-interview event is refused. The deprecated ``/steps`` compat
+      routes never hit this branch - they drop the schedule themselves
+      before calling in, so an installed CLI is never 422'd for it
+      (``.claude/rules/cli-compatibility.md``).
 
     Raises ``BusinessRuleViolation`` (422). Returns a normalized copy.
     """
@@ -91,6 +103,12 @@ def normalize_event[T: TimelineEventWriteDTO](data: T) -> T:
         and data.end_time <= data.start_time
     ):
         raise BusinessRuleViolation(END_AFTER_START)
+    if data.event_type is not EventType.INTERVIEW and (
+        data.start_time is not None
+        or data.end_time is not None
+        or data.timezone is not None
+    ):
+        raise BusinessRuleViolation(SCHEDULE_ONLY_ON_INTERVIEW)
 
     return data.model_copy(
         update={

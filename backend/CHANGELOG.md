@@ -179,6 +179,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `timeline_events_sync_application_finalize` is untouched — it never
   writes a schedule. Database only: no application code reads or writes
   this CHECK differently until KODI-016's backend part ships.
+- KODI-016 `denied_reason` (backend part): `timeline_events` gains
+  `ck_timeline_events_schedule_interview_only` in the ORM
+  (`TimelineEventModel.__table_args__`). `POST`/`PUT
+  /applications/{id}/timeline` refuse (422) a non-null `start_time`,
+  `end_time` or `timezone` on any event that is not `interview`, same
+  pattern and same layering as `interview_type` (request schema
+  `_TimelineEventWrite._validate_schedule_event_type`, then
+  `use_cases/timeline_events/rules.normalize_event`, then the database
+  CHECK); explicit nulls or absent keys are always accepted. Owner,
+  verbatim: "if event type is different from interview, these attributes
+  must be blocked". `TimelineEventOut` **omits** `start_time`, `end_time`
+  and `timezone` from the response body entirely (not null — absent) when
+  `event_type` is not `interview`, via a `model_serializer`, everywhere the
+  schema is serialized (`GET`/`POST`/`PUT /timeline`); OpenAPI never listed
+  the three as `required` (they already had defaults). Finalize outcome
+  events (`POST /applications/{id}/finalize`) never carried a schedule and
+  are unaffected. `GET /users/me/agenda` now returns interview events only
+  — a non-interview event has nothing to schedule any more.
+- KODI-016 Legacy `/applications/{id}/steps` (deprecated): a step whose
+  mapped event is not an interview now has its `start_time`/`end_time`/
+  `timezone` silently dropped before the timeline use case runs, so an
+  installed `applika-cli` 0.1.4 client — which always sends the three
+  fields — is never 422'd for it (`.claude/rules/cli-compatibility.md`).
+  The response still carries the three keys, null, exact 0.1.4 shape
+  (`LegacyStepDTO` does not use `TimelineEventOut`'s omitting serializer).
 
 ### Changed
 

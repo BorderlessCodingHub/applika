@@ -396,6 +396,8 @@ class TimelineEventModel(BaseMixin, Base):
     the code relies on every one of them. ``denied_reason`` and its CHECK
     were added by migration R3 (``c8b3e9f4a1d6``, KODI-014), folded into
     Release A ahead of this ORM mapping (Release B).
+    ``ck_timeline_events_schedule_interview_only`` was added by migration R4
+    (``af50c83911a7``, KODI-016), folded into Release A the same way.
 
     * ``event_type`` is one of five fixed values; ``interview_type`` is set on
       interview events only (``ck_timeline_events_interview_type``).
@@ -403,6 +405,10 @@ class TimelineEventModel(BaseMixin, Base):
       (``ck_timeline_events_offer_salary``).
     * ``denied_reason`` is set on ``denied`` events only, defaulting to
       ``unknown`` (``ck_timeline_events_denied_reason``, R-033..R-036).
+    * ``start_time``, ``end_time`` and ``timezone`` are set on interview
+      events only (``ck_timeline_events_schedule_interview_only``, KODI-016,
+      R-038/R-039). Owner: "if event type is different from interview,
+      these attributes must be blocked".
     * At most one ``initial_screening`` interview per application (R-030,
       owner decision (a)).
     * Rows migrated from ``application_steps`` keep the step's id (R-013).
@@ -430,6 +436,12 @@ class TimelineEventModel(BaseMixin, Base):
             "(event_type = 'denied' AND denied_reason IS NOT NULL) "
             "OR (event_type <> 'denied' AND denied_reason IS NULL)",
             name='ck_timeline_events_denied_reason',
+        ),
+        sa.CheckConstraint(
+            "event_type = 'interview' "
+            'OR (start_time IS NULL AND end_time IS NULL '
+            'AND timezone IS NULL)',
+            name='ck_timeline_events_schedule_interview_only',
         ),
         sa.Index('ix_timeline_events_application_id', 'application_id'),
         sa.Index('ix_timeline_events_user_id', 'user_id'),
