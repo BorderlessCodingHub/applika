@@ -997,8 +997,9 @@ def reopen_application(
         reopened = client.post(
             f'/applications/{resolved_application_id}/reopen'
         )
-        # KODI-013 remediation round 1: same reasoning as the 0.2.0 finalize
-        # paths - print status/finalized_at, not Application.last_step.
+        # KODI-013 remediation round 1: status/finalized_at instead of the
+        # plain date= print_application_summary gave, for the same status-
+        # over-timeline-derived-fields reasoning as the 0.2.0 finalize paths.
         print_finalize_outcome_summary(reopened, 'Reopened application')
     except ApiError as exc:
         _echo_api_error(exc)

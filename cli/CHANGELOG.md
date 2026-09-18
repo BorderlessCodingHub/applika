@@ -177,13 +177,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   ZAR, AED) is fixed by upgrading to `applika-cli` 0.2.0: both values now
   parse, so `edit` can fetch, merge and resend such an application.
 - KODI-013 (remediation round 1) `applications finalize` (bodyless and
-  `--outcome`) and `applications reopen` no longer print
-  `Application.last_step` as the "final step" — it is the *latest-dated*
-  timeline event, not the closing one, so a future-dated interview added
-  before closing could sort after the outcome and print as the result
-  (e.g. `final_step=Initial Screen ... date=2026-09-22` after closing with
-  `--outcome denied`). They now print `status=open|closed` and
-  `finalized_at`, and for `--outcome` the outcome the request itself
-  carried. The deprecated `--step` finalize body's output is unchanged —
-  it still prints `final_step=`/`feedback=`, pinned exactly as 0.1.4 had
+  `--outcome`) no longer prints `Application.last_step` as the "final
+  step" — it is the *latest-dated* timeline event, not the closing one, so
+  a future-dated interview added before closing could sort after the
+  outcome and print as the result (e.g. `final_step=Initial Screen ...
+  date=2026-09-22` after closing with `--outcome denied`). It now prints
+  `status=open|closed` and `finalized_at`, and for `--outcome` the outcome
+  the request itself carried. `applications reopen` gets the same
+  `status=`/`finalized_at=` output in place of the `date=<application_date>`
+  it used to print. The deprecated `--step` finalize body's output is
+  unchanged — it still prints `final_step=`/`feedback=`, pinned exactly as
+  0.1.4 had
   it.
