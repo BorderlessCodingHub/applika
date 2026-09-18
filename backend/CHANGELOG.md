@@ -90,10 +90,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - KODI-011 A `Deprecation: @1789430400` header (RFC 9745, deprecated since
   2026-09-15) on every answer of the deprecated routes, errors included. No
   `Sunset` header, no removal date.
+- KODI-013 Migration `ad747aba90fc` (release C, the contract migration, R2).
+  A **reconcile copy** first catches any `application_steps` row the R1
+  trigger failed to sync during the switch-over (old-code write, created
+  after R1's own migration ran) without resurrecting a row whose migrated
+  event a Release B/C user later deleted (see the revision's own docstring,
+  "Reconcile design", for the full reasoning and the one open question it
+  flags to the owner). The two R1 transitional triggers
+  (`trg_application_steps_sync`, `trg_applications_finalize_sync`) and their
+  functions are then dropped — nothing has written `application_steps` since
+  Release B.
 
 ### Changed
 
 - KODI-010 `application_steps.timezone` widened from 50 to 100 characters.
+- KODI-013 `application_steps` renamed `application_steps_old`, with its
+  primary key and its three foreign keys; `applications.last_step_id`,
+  `last_step_date`, `feedback_id`, `feedback_date` and `salary_offer`
+  renamed `*_old`, with their two foreign keys. `steps_definition` and
+  `feedbacks_definition` keep their names — `/supports` still reads them,
+  frozen, for installed CLIs. Nothing is dropped (rule: a retired object is
+  renamed, never removed) and nothing under `app/` reads or writes any of
+  it — the ORM has not mapped these objects since Release B (KODI-011).
+- KODI-013 `salary_period` rows holding the legacy `ANNUAL` label are
+  remapped to `ANNUALLY` on `applications`, `users` and `timeline_events`
+  (decision (c), row remap; the PG enum label itself stays — Postgres
+  cannot drop one). `downgrade()` remaps `ANNUALLY` back to `ANNUAL` on the
+  same three tables, unconditionally: `SalaryPeriodType` already reads both
+  labels as `annually`, so relabelling a Release-C-native `ANNUALLY` row on
+  rollback loses no meaning.
 - KODI-011 Application progress is read and written as timeline events;
   the code no longer reads `application_steps` nor the legacy
   `applications.last_step_id`, `last_step_date`, `feedback_id`,
@@ -158,6 +183,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `/admin/feedback-definitions*` (now 404): nobody can create, edit or
   delete a step or feedback definition any more.
 
+### KODI-010 flag (Denied-with-salary)
+
+A legacy finalize with a `Denied` step and a `salary_offer` kept that salary
+only in `applications.salary_offer` — the timeline's offer `CHECK` refuses a
+non-offer event from carrying a salary, and R1's backfill never invented an
+offer event for a denied application. Migration `ad747aba90fc` does not
+invent a new home for that value either: it moves, unedited, into
+`applications.salary_offer_old` and stays exactly there. `downgrade()` never
+overwrites a non-null `salary_offer` it restores, so the value survives
+`alembic upgrade` -> `downgrade` -> `upgrade` untouched.
+
 ### Rollback note (Release B)
 
 KODI-011 ships as code only, no migration: rolling back means redeploying
@@ -169,3 +205,17 @@ the 11 new currencies, nor one with salary period `ANNUALLY` (it only knows
 written in Release B reach `application_steps`, where the pre-B image shows
 them, only after that downgrade (it copies them back through the reverse
 step map).
+
+### Rollback note (Release C)
+
+Rollback C: `alembic downgrade afd4074c70c2` + the Release B image.
+`downgrade()` renames every retired object back, recreates the two
+transitional sync triggers, folds any Release C write (new or edited
+timeline event, a close or reopen) into `application_steps` and the legacy
+`applications` columns through the same reverse map and recompute R1's own
+downgrade uses, and remaps `ANNUALLY` back to `ANNUAL` on `applications`,
+`users` and `timeline_events`. An `application_steps` row whose event was
+deleted after the R2 upgrade is never deleted on rollback — it comes back
+exactly as `application_steps_old` had it, visible to the Release B image
+again, the same choice R1's own downgrade already made for a Release B
+deletion.
