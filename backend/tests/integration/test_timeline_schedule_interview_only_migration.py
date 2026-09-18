@@ -697,6 +697,49 @@ def test_old_code_step_edited_off_interview_nulls_the_schedule(
     assert after['timezone'] is None
 
 
+def test_downgrade_never_overwrites_an_interview_edited_after_upgrade(
+    migration_db: str,
+) -> None:
+    """B1 (backend-qa finding): ``downgrade()`` restores a non-interview
+    event's schedule from ``application_steps`` by id, but an *interview*
+    event's schedule was never touched by ``upgrade()`` in the first place
+    - so a Release B/C-style direct write to ``timeline_events`` (the shape
+    a user's own edit takes once Release B ships, id unchanged since it
+    started life as a step) must survive the downgrade untouched.
+    ``_RESTORE_SCHEDULE_SQL``'s ``AND t.event_type <> 'interview'`` guard is
+    what this test pins; without it the stale ``application_steps`` values
+    (``TIMES``) would silently overwrite the edit below."""
+    _to_r3(migration_db)
+    _upgrade(migration_db, REVISION)
+
+    edited = {
+        'start_time': time(14, 0),
+        'end_time': time(15, 0),
+        'timezone': 'Europe/London',
+    }
+    _sql(
+        migration_db,
+        'UPDATE timeline_events SET start_time = :start_time, '
+        'end_time = :end_time, timezone = :timezone, updated_at = now() '
+        'WHERE id = :id',
+        id=S_INTERVIEW,
+        **edited,
+    )
+    before = _events(migration_db)[S_INTERVIEW]
+    assert before['start_time'] == edited['start_time']
+    assert before['timezone'] == edited['timezone']
+
+    _downgrade(migration_db, PARENT_REVISION)
+
+    after = _events(migration_db)[S_INTERVIEW]
+    assert after['start_time'] == edited['start_time']
+    assert after['end_time'] == edited['end_time']
+    assert after['timezone'] == edited['timezone']
+    # The stale application_steps row (still TIMES, untouched by the B-era
+    # edit above) never overwrote it.
+    assert after['start_time'] != TIMES['start_time']
+
+
 # --------------------------------------------------------------------------
 # Round trip (upgrade -> downgrade -> upgrade)
 # --------------------------------------------------------------------------

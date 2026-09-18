@@ -179,7 +179,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `timeline_events_sync_application_finalize` is untouched — it never
   writes a schedule. Database only: no application code reads or writes
   this CHECK differently until KODI-016's backend part ships.
-- KODI-016 `denied_reason` (backend part): `timeline_events` gains
+- KODI-016 Schedule-interview-only (backend part): `timeline_events` gains
   `ck_timeline_events_schedule_interview_only` in the ORM
   (`TimelineEventModel.__table_args__`). `POST`/`PUT
   /applications/{id}/timeline` refuse (422) a non-null `start_time`,

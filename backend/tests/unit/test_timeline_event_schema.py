@@ -446,11 +446,15 @@ def test_out_serialization_schema_still_lists_every_field():
     schema (the one FastAPI builds for ``response_model``) to an opaque
     ``{"type": "object", "additionalProperties": true}`` - losing every
     field's type and the ``required`` list the pinned contract cares about.
-    ``TimelineEventOut.__get_pydantic_json_schema__`` works around it by
-    building the schema from the inner (unwrapped) model-fields core
-    schema instead. This pins that the OpenAPI schema stays fully typed."""
+    ``TimelineEventOut.__get_pydantic_json_schema__`` works around it,
+    stripping only the ``serialization``/``metadata`` keys the wrap
+    serializer adds before delegating - so the schema comes back
+    byte-for-byte what this class would produce without the serializer:
+    same title, same ``additionalProperties: false``, same properties and
+    ``required``. This pins that the OpenAPI schema stays fully typed."""
     schema = TimelineEventOut.model_json_schema(mode='serialization')
-    assert 'additionalProperties' not in schema
+    assert schema['title'] == 'TimelineEventOut'
+    assert schema['additionalProperties'] is False
     assert set(schema['properties']) == {
         'id',
         'application_id',

@@ -376,8 +376,10 @@ async def test_scheduled_event_persists_its_scheduling_fields(
 async def test_bad_schedule_is_422(
     async_client: AsyncClient, db_session: AsyncSession, times
 ):
+    # An interview event, so this pins pairing/ordering, not the (separate)
+    # KODI-016 schedule-only-on-interview rule.
     await ts.seed_open_application(db_session)
-    response = await async_client.post(BASE, json=_note(**times))
+    response = await async_client.post(BASE, json=_interview(**times))
     assert response.status_code == 422
 
 
@@ -385,11 +387,39 @@ async def test_timezone_over_100_and_observation_over_5000_are_422(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     await ts.seed_open_application(db_session)
-    too_long_tz = await async_client.post(BASE, json=_note(timezone='x' * 101))
+    too_long_tz = await async_client.post(
+        BASE, json=_interview(timezone='x' * 101)
+    )
     too_long_obs = await async_client.post(
         BASE, json=_note(observation='x' * 5001)
     )
     assert (too_long_tz.status_code, too_long_obs.status_code) == (422, 422)
+
+
+@pytest.mark.parametrize(
+    'field',
+    [
+        {'start_time': '09:00', 'end_time': '10:00'},
+        {'timezone': 'America/Sao_Paulo'},
+    ],
+)
+async def test_schedule_on_non_interview_is_422(
+    async_client: AsyncClient, db_session: AsyncSession, field
+):
+    """KODI-016 (R-038/R-039), API-level sibling of
+    ``test_interview_type_on_non_interview_is_422``: POST and PUT both
+    refuse a non-null schedule field on a non-interview event."""
+    await ts.seed_open_application(db_session)
+
+    post = await async_client.post(BASE, json=_note(**field))
+    assert post.status_code == 422, post.text
+
+    created = await async_client.post(BASE, json=_note())
+    assert created.status_code == 201, created.text
+    put = await async_client.put(
+        f'{BASE}/{created.json()["id"]}', json=_note(**field)
+    )
+    assert put.status_code == 422, put.text
 
 
 async def test_event_before_the_application_date_is_allowed(

@@ -204,14 +204,22 @@ class TimelineEventOut(BaseSchema):
         # ``response_model``) - losing every field's type and the
         # ``required`` list the pinned contract cares about, because it can
         # no longer statically infer the wrap serializer's output shape.
-        # The inner ``model-fields`` core schema (``core_schema_['schema']``)
-        # is unaffected by the serializer wrapper, so building the JSON
-        # schema from *that* instead restores the normal, field-derived
-        # schema in both modes. The wrap serializer only ever *removes* the
-        # three optional keys at the response-body level - it never changes
-        # a type or adds a field - so the static schema stays accurate; it
-        # just cannot express the interview-only omission itself, which
-        # OpenAPI has no way to do on a flat object schema anyway (the
-        # pinned contract only requires the three not be `required`, which
-        # they already are not - they carry defaults).
-        return handler(core_schema_['schema'])
+        # ``core_schema_`` here is the *model* core schema, carrying a
+        # ``serialization`` key that is exactly what triggers that opaque
+        # fallback; dropping it (and the unrelated ``metadata`` key, which
+        # can carry stale references from the wrapped schema) before
+        # handing the schema to ``handler`` restores the normal,
+        # field-derived schema - title, ``additionalProperties: false`` and
+        # all - in both modes, byte-for-byte what this class would produce
+        # without the serializer. The wrap serializer only ever *removes*
+        # the three optional keys at the response-body level - it never
+        # changes a type or adds a field - so this stays accurate; it just
+        # cannot express the interview-only omission itself, which OpenAPI
+        # has no way to do on a flat object schema anyway (the pinned
+        # contract only requires the three not be `required`, which they
+        # already are not - they carry defaults).
+        return handler({
+            key: value
+            for key, value in core_schema_.items()
+            if key not in ('serialization', 'metadata')
+        })
