@@ -168,7 +168,7 @@ describe("TimelineSection — R-030 initial-screening dedup, end to end (AC8)", 
     index: number,
   ) {
     const menus = await screen.findAllByRole("button", {
-      name: "Event actions",
+      name: /^Event actions: /,
     });
     await user.click(menus[index]);
     await user.click(await screen.findByRole("menuitem", { name: "Edit" }));

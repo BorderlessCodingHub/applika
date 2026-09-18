@@ -4,7 +4,10 @@ import userEvent from "@testing-library/user-event";
 import { type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { FinalizeDialog } from "@/components/applications/finalize-dialog";
+import {
+  FinalizeDialog,
+  toFinalizePayload,
+} from "@/components/applications/finalize-dialog";
 import { FINALIZE_REVERSIBLE_COPY } from "@/components/applications/application-close-copy";
 import { services } from "@/services/services";
 
@@ -133,5 +136,87 @@ describe("FinalizeDialog — server-limit parity (mirrors FinalizeWithOutcome)",
     await waitFor(() =>
       expect(services.applications.finalize).not.toHaveBeenCalled(),
     );
+  });
+});
+
+type FinalizeValues = Parameters<typeof toFinalizePayload>[0];
+
+function values(overrides: Partial<FinalizeValues>): FinalizeValues {
+  return {
+    outcome: "none",
+    event_date: "2026-09-10",
+    observation: "",
+    salary_amount: "",
+    salary_currency: "",
+    salary_period: "",
+    ...overrides,
+  } as FinalizeValues;
+}
+
+describe("toFinalizePayload (AC11, R-032)", () => {
+  it("none sends no body at all", () => {
+    expect(toFinalizePayload(values({ outcome: "none" }))).toBeUndefined();
+  });
+
+  it("denied sends the date and observation, never salary keys", () => {
+    const payload = toFinalizePayload(
+      values({ outcome: "denied", observation: "  Not a fit  " }),
+    );
+    expect(payload).toEqual({
+      outcome: "denied",
+      event_date: "2026-09-10",
+      observation: "Not a fit",
+    });
+    expect(payload).not.toHaveProperty("salary_amount");
+    expect(payload).not.toHaveProperty("salary_currency");
+    expect(payload).not.toHaveProperty("salary_period");
+  });
+
+  it("offer sends the salary triad", () => {
+    expect(
+      toFinalizePayload(
+        values({
+          outcome: "offer",
+          salary_amount: " 120000 ",
+          salary_currency: "SEK",
+          salary_period: "annually",
+        }),
+      ),
+    ).toEqual({
+      outcome: "offer",
+      event_date: "2026-09-10",
+      observation: undefined,
+      salary_amount: "120000",
+      salary_currency: "SEK",
+      salary_period: "annually",
+    });
+  });
+});
+
+describe("FinalizeDialog — outcome date (AC11)", () => {
+  it("defaults the date to today and disables tomorrow", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    const trigger = screen.getByLabelText("Date");
+    const today = new Date();
+    const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    expect(trigger).toHaveTextContent(iso);
+
+    await user.click(trigger);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    // Only assert when tomorrow is in the month the calendar opened on.
+    if (tomorrow.getMonth() === today.getMonth()) {
+      const cells = screen
+        .getAllByRole("button")
+        .filter(
+          (b) =>
+            b.closest('[role="grid"]') &&
+            b.textContent === String(tomorrow.getDate()),
+        );
+      expect(cells.length).toBeGreaterThan(0);
+      expect(cells[0]).toBeDisabled();
+    }
   });
 });
