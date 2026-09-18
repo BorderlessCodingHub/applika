@@ -89,9 +89,18 @@ class ApplicationLastStep(BaseModel):
 class ApplicationDTO(BaseSchema):
     company: str
     role: str
+    finalized_at: datetime | None = None
     finalized: bool
+    # Derived from the timeline by ApplicationReadModel, not read from the
+    # row: model_validate() leaves them at their defaults.
     last_step: ApplicationLastStep | None = None
+    salary_offer: float | None = None
 ```
+
+A field that is no longer a column but that installed `applika-cli`
+versions still read keeps its place on the DTO and the schema with a default,
+and is filled in by the read model (`use_cases/applications/read_model.py`)
+with `dto.model_copy(update=...)`.
 
 ## Presentation Schema Pattern
 
@@ -168,3 +177,42 @@ router = APIRouter(
     responses={'404': {'model': DetailSchema}},
 )
 ```
+
+
+## Cross-field rules (the timeline event write schema)
+
+A body whose fields constrain each other validates them in
+`@model_validator(mode='after')` passes, one concern each, raising
+`ValueError` so FastAPI answers 422 before any I/O
+(`presentation/schemas/timeline_event.py`):
+
+- scheduling: `start_time` and `end_time` together, end after start;
+- offer salary: all three salary fields on an offer, none elsewhere;
+- interview type: only on an interview, defaulting to `unknown`.
+
+A PUT that replaces the whole row sends the **full** body, so every
+cross-field rule can be checked on every write. When other paths build the
+same object without the schema (the compat layer), the rules also live in
+the use case (`use_cases/timeline_events/rules.py`) and raise the domain
+exception; the database CHECKs are the last line.
+
+Money that maps to `NUMERIC(p, s)` is a `Decimal` with `ge=0`,
+`max_digits=p`, `decimal_places=s` on the way in and a fixed-precision string
+on the way out (`@field_serializer`), never a float.
+
+## Enum input aliases
+
+An enum value that was renamed but that installed clients still send is
+accepted through the enum's `_missing_` classmethod (`SalaryPeriod`:
+`annual` -> `annually`). Pydantic calls it, so every request field of that
+enum type accepts the old value, while OpenAPI and every response only show
+the new one. Do not add the old value as a member or an alias: it would be
+advertised and could be returned.
+
+## Deprecated routes
+
+A route kept only for installed clients is `deprecated=True` on the router
+and depends on `mark_deprecated` (`presentation/deprecation.py`), which makes
+every answer, errors included, carry `Deprecation: @<unix-seconds>`
+(RFC 9745). Its request and response schemas stay exactly as the published
+client expects them (`presentation/schemas/application_step.py`).

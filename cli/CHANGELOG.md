@@ -5,3 +5,70 @@ All notable changes to `applika-cli` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+
+### Added
+
+- KODI-011 The API accepts 11 more salary currencies: CNY, SEK, NOK, DKK,
+  PLN, SGD, HKD, NZD, MXN, ZAR, AED (20 in total). A 0.1.4 CLI only offers
+  its 9 on input, but may now receive the new ones in `currency` from
+  applications created in the web app.
+- KODI-011 `Application` responses carry `finalized_at` (null when open).
+  0.1.4 ignores it.
+- KODI-011 New API routes a future CLI can use: the application timeline
+  (`GET/POST /applications/{id}/timeline`,
+  `PUT/DELETE /applications/{id}/timeline/{event_id}`),
+  `POST /applications/{id}/finalize` without a body (200, idempotent) and
+  `POST /applications/{id}/reopen`.
+
+### Changed
+
+- KODI-011 Salary period `annual` is renamed `annually`. The API still
+  accepts `annual` (what 0.1.4 sends) on applications and `/users/me`, but
+  every response now says `annually`: `salary_period` read by 0.1.4 is
+  `annually` where it used to be `annual`.
+- KODI-011 Finalize is reversible on the server: an application can be
+  reopened (web app or a future CLI) and then edited or finalized again.
+- KODI-011 `Application.feedback` is always null. `last_step` is the latest
+  timeline event, shown as a step (id, name, color, date); `salary_offer` is
+  the latest offer's amount; `finalized` is still a boolean.
+- KODI-011 `applications steps list` shows every timeline event as a step:
+  notes, feedback and interviews of any type other than initial screening
+  appear as "Phase 2", initial screening as "Initial Screen", offers as
+  "Offer", denied as "Denied". Ids of existing steps are unchanged.
+- KODI-011 `applications steps add` maps the chosen step to a timeline
+  event; a second "Initial Screen" on one application is refused (409). The
+  added step is returned with the step that was chosen.
+- KODI-011 `applications steps edit` without `--step` keeps the event's own
+  type (a note stays a note, an offer keeps its salary); with `--step` the
+  event takes that step's type. Steps of a closed application are refused
+  with 409 "Reopen the application to edit it (it is currently closed)",
+  and an archived one with 422, as before.
+- KODI-011 The step date no longer has to follow the application date or
+  the previous step.
+- KODI-011 `applications finalize` (the step/feedback body) now refuses
+  `--salary` when the step is not Offer (422); it still answers 201 and
+  refuses an already finalized application with 409. The feedback name is
+  kept in the outcome's observation.
+- KODI-011 `GET /applications/statistics/steps/conversion_rate` and
+  `.../steps/avarage_days` return one row per stage
+  (`{event_type, interview_type, ...}`) instead of one per step definition
+  (`{id, name, color, ...}`). 0.1.4 does not call them.
+
+### Deprecated
+
+- KODI-011 `/applications/{id}/steps` and `/applications/{id}/steps/{step_id}`
+  (all methods) and the step/feedback body of
+  `POST /applications/{id}/finalize`: every answer carries
+  `Deprecation: @1789430400` (RFC 9745; deprecated since 2026-09-15). No
+  removal date: 0.1.4 keeps working.
+- KODI-011 The `steps` and `feedbacks` lists of `GET /supports` are frozen:
+  still returned, never edited again.
+
+### Rollback note (Release B)
+
+If the server is rolled back to the image before KODI-011, that image cannot
+read a row written since KODI-011 with one of the 11 new currencies, nor one
+with salary period `annually` (the owner accepted this). The server-side
+`alembic downgrade d3f7b1c9e2a4` remaps `annually` back to `annual` but
+cannot remap a currency, and it is what brings timeline events written since
+KODI-011 back as steps.

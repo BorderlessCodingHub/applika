@@ -31,9 +31,10 @@ Do NOT bloat CLAUDE.md with:
 The seed script exercises the full public API to create realistic mock data. It is the fastest way to verify that all endpoints work end-to-end after changes.
 
 When you add or modify any of the following, update the seed script accordingly:
-- New required or optional fields on `POST /applications` or `POST /applications/{id}/steps` or `POST /applications/{id}/finalize`
+- New required or optional fields on `POST /applications`, `POST /applications/{id}/timeline`, the deprecated `POST /applications/{id}/steps`, or `POST /applications/{id}/finalize` (both the no-body close and the deprecated 0.1.4 body)
 - New enums (e.g., `work_mode`, `experience_level`, `salary_period`, `currency`, `mode`, `availability`)
 - New support data endpoints (platforms, steps, feedbacks) — update the `/supports` fetch and field extraction
+- The timeline: `seed_timeline()` drives half the applications through `/timeline` (one initial screening each, typed interviews, notes, an offer or denied outcome), finalize without a body and, for some, reopen; `seed_legacy_steps()` drives the other half through the deprecated `/steps` and the 0.1.4 `/finalize` body and warns when an answer lacks the `Deprecation` header
 - Renamed or removed fields that the seed script currently sends
 - New endpoints the seed script should exercise to keep coverage complete
 - Changes to authentication (cookie name, token format)
@@ -189,8 +190,8 @@ See `app/application/use_cases/applications/create_application.py` for reference
 Domain exceptions in `app/core/exceptions.py`:
 - `ResourceNotFound` → 404
 - `ResourceConflict` → 409
-- `ApplicationFinalized` → 409
-- `BusinessRuleViolation` → 422
+- `ApplicationFinalized` → 409 (a closed application: "Reopen the application to edit it")
+- `BusinessRuleViolation` → 422 (among others: an application archived in a cycle)
 - `InvalidDate` → 422
 - `ForbiddenAccess` → 403
 - `PdfRenderFailed` → 500
@@ -362,8 +363,40 @@ All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUID
 | POST | `/applications` | Yes | Create application (201) |
 | GET | `/applications` | Yes | List all user applications |
 | PUT | `/applications/{id}` | Yes | Update application |
-| DELETE | `/applications/{id}` | Yes | Delete application (204) |
-| POST | `/applications/{id}/finalize` | Yes | Finalize with feedback (201) |
+| DELETE | `/applications/{id}` | Yes | Delete application (204); its events go with it |
+| POST | `/applications/{id}/finalize` | Yes | Close it. No body → 200, idempotent. 0.1.4 body → 201, deprecated |
+| POST | `/applications/{id}/reopen` | Yes | Reopen a closed application (200, idempotent) |
+
+**Closed is reversible** (PRD 0008). `finalized_at` set = closed, NULL = open;
+`finalized` is `finalized_at is not null`. Closing asks for no step, feedback
+or salary: the outcome is an `offer` or `denied` timeline event, and there is
+no Offer ⇔ Accepted rule. Writes to a closed application's timeline are
+`ApplicationFinalized` (409, "Reopen the application to edit it (it is
+currently closed)"); anything on an application archived in a cycle is
+`BusinessRuleViolation` (422), checked **first** (`use_cases/applications/
+guards.py`: `ensure_mutable` for event writes, `ensure_not_archived` for
+finalize/reopen). A closed application swept into a cycle stays closed for
+good.
+
+`/finalize` dispatches on the body (`presentation/api/application.py`): no
+body, an empty body, `null` or `{}` is the new close; anything else is the
+0.1.4 body `{step_id, feedback_id, finalize_date, salary_offer?, observation?}`
+handled by `use_cases/compat/legacy_finalize.py`, which answers exactly as the
+steps version did (future date 422, 404, archived 422, closed 409 "This
+application has already been finalized", strict step 404, feedback 404), then
+refuses a `salary_offer` on a step that is not an offer (422) and records the
+terminal event of the mapped step: feedback name appended to the observation
+as `Feedback: <name>`, an offer's salary = `salary_offer` or 0 with the
+application's currency or USD and period or monthly (owner decision (b)),
+`finalized_at` = `finalize_date` 00:00 UTC — the shape revision
+`afd4074c70c2` gave the applications it migrated.
+
+The `Application` response carries `finalized_at` and keeps the fields
+installed `applika-cli` 0.1.4 reads, **derived from the timeline** by
+`use_cases/applications/read_model.py` (three queries for any list, no N+1):
+`last_step` = the latest event (timeline order, reversed) shown as its
+reverse-mapped legacy step `{id, name, color, date}`; `feedback` = always
+null; `salary_offer` = the latest offer event's amount.
 
 `job_description` (optional, max 50 000 chars) carries the pasted job posting.
 On `PUT /applications/{id}` it is the **one** sticky field: omitting the key
@@ -373,13 +406,71 @@ published `applika-cli` versions rely on. `app/presentation/api/application.py`
 carries the distinction by dropping the key from the DTO when it is absent from
 `payload.model_fields_set`.
 
-### Application Steps (`/applications/{id}/steps`)
+### Application Timeline (`/applications/{id}/timeline`)
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| GET | `/{id}/steps` | Yes | List steps |
-| POST | `/{id}/steps` | Yes | Create step (201) |
-| PUT | `/{id}/steps/{step_id}` | Yes | Update step |
-| DELETE | `/{id}/steps/{step_id}` | Yes | Delete step (204) |
+| GET | `/{id}/timeline` | Yes | Events, ordered `event_date, start_time NULLS FIRST, created_at` |
+| POST | `/{id}/timeline` | Yes | Add an event (201) |
+| PUT | `/{id}/timeline/{event_id}` | Yes | Replace an event (full body) |
+| DELETE | `/{id}/timeline/{event_id}` | Yes | Delete an event (204) |
+
+A timeline event (`TimelineEventModel`, table `timeline_events`, ported from
+mynextjob) is exactly one of `note`, `interview`, `feedback`, `offer`,
+`denied`. `interview_type` (`unknown`, `initial_screening`, `technical`,
+`cultural`, `hiring_manager`, `take_home`, `final`) is set on interviews only
+and defaults to `unknown`; on any other type it is a 422. An offer needs
+`salary_amount` (≥ 0, 2-decimal string on the way out), `salary_currency`
+and `salary_period` (`monthly` or `annually` for an offer); every other type
+refuses all three, so turning an offer into something else drops the salary
+in the same PUT. `start_time`/`end_time` come together, end after start;
+`timezone` ≤ 100, `observation` ≤ 5000. There is **no** date-order rule
+against the application date or the previous event. An application holds
+**one** `initial_screening` interview at most: a second one is a
+`ResourceConflict` 409 (use-case pre-check, and the partial unique index
+`uq_timeline_events_one_initial_screening` turns a race into the same 409).
+The rules live in three places on purpose: the request schema (422 before
+I/O), `use_cases/timeline_events/rules.py` (so the compat routes obey them)
+and the database CHECKs. Reads are allowed on closed and archived
+applications; another user's application or event is a 404.
+
+### Application Steps (`/applications/{id}/steps`) — deprecated
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| GET | `/{id}/steps` | Yes | Every timeline event, shown as a legacy step |
+| POST | `/{id}/steps` | Yes | Add the event a non-strict step maps to (201) |
+| PUT | `/{id}/steps/{step_id}` | Yes | Replace the event `{step_id}` |
+| DELETE | `/{id}/steps/{step_id}` | Yes | Delete the event (204) |
+
+Kept only for installed `applika-cli` 0.1.4 (`.claude/rules/
+cli-compatibility.md`), with its request and response shapes unchanged
+(`{id, step_id, step_name, step_date, start_time, end_time, timezone,
+observation}`); `deprecated: true` in OpenAPI. The translator is
+`use_cases/compat/step_translation.py`: forward, a step becomes
+`steps_definition.event_type/interview_type` (filled by revision
+`afd4074c70c2`; NULL → interview/unknown); reverse, an event becomes one step
+by name (`initial_screening` → "Initial Screen", other interviews, notes and
+feedback → "Phase 2", offer → "Offer", denied → "Denied"), else the first
+row with the same mapping, else the first non-strict row — **identical** to
+the revision's SQL, so the ids a 0.1.4 client reads stay stable across
+releases. A PUT whose `step_id` is the event's own reverse step keeps the
+event's type, interview type and salary (0.1.4 `steps edit` without `--step`
+resends it; that reverse step may be strict). A POST/PUT with another step
+still refuses strict steps (404, as always). Writes go through the timeline
+use cases, so every timeline rule, guard and the one-initial-screening 409
+apply.
+
+**`Deprecation` header.** Every answer of `/steps*` and of `/finalize` with
+the 0.1.4 body, errors included, carries `Deprecation: @1789430400`
+(`app/presentation/deprecation.py`). RFC 9745 defines the field as a
+structured-field Date, `@` + Unix seconds; the drafts' bare `true` is not
+valid under it, so the RFC form was chosen. The date is 2026-09-15T00:00:00Z,
+the day ADR 0012 was accepted and deprecated these routes. There is **no
+`Sunset` header** and no removal date: removal is a later owner decision
+recorded in an ADR. A route opts in with `Depends(mark_deprecated)` (or by
+calling it, as `/finalize` does once it sees a body); the
+`DeprecationHeaderMiddleware` stamps the header on the response, which is why
+validation errors carry it too. `Deprecation` is in the CORS
+`expose_headers`.
 
 ### Companies (`/companies`)
 | Method | Route | Auth | Description |
@@ -390,11 +481,19 @@ carries the distinction by dropping the key from the DTO when it is absent from
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
 | GET | `/statistics` | Yes | General statistics |
-| GET | `/statistics/steps/conversion_rate` | Yes | Step conversion rates |
-| GET | `/statistics/steps/avarage_days` | Yes | Average days per step |
+| GET | `/statistics/steps/conversion_rate` | Yes | `[{event_type, interview_type, total_applications, conversion_rate}]` per stage |
+| GET | `/statistics/steps/avarage_days` | Yes | `[{event_type, interview_type, average_days}]` per stage |
 | GET | `/statistics/platforms` | Yes | Applications per platform |
 | GET | `/statistics/mode` | Yes | Active vs passive split |
 | GET | `/statistics/trends` | Yes | Last month daily trends |
+
+Statistics read the timeline. A **stage** is each interview type, then
+`offer`, then `denied`: always these nine rows, in that order
+(`use_cases/user_stats/stages.py`). Conversion = distinct applications with at
+least one event of the stage over all in-scope applications; average days =
+mean of `event_date - application_date` over the stage's events. `offers` and
+`denials` in `/statistics` are applications with at least one offer / denied
+event, counted independently.
 
 ### Biweekly Reports (`/reports`)
 | Method | Route | Auth | Description |
@@ -402,6 +501,16 @@ carries the distinction by dropping the key from the DTO when it is absent from
 | GET | `/reports` | Yes | List all reports |
 | GET | `/reports/{day}` | Yes | Get report details |
 | POST | `/reports/{day}/submit` | Yes | Submit report (201) |
+
+New reports are computed from the timeline
+(`QuinzenalReportRepository.calculate_*_metrics`): `initial_screenings_count`
+= distinct applications with an interview of type `initial_screening`
+**only** (an `unknown` or any other interview never counts — the owner's
+"explicit only"); `interviews_completed_fortnight` = interview events of any
+type; `offers_count` = distinct applications with an offer event;
+`active_processes_count` = open applications (`finalized_at` NULL) past their
+initial screening. A submitted report is a stored row and is **never**
+recomputed.
 
 ### User Feedback (`/feedbacks`)
 | Method | Route | Auth | Description |
@@ -433,9 +542,10 @@ inserts. The lock is what keeps concurrent creates from overshooting.
 
 At most **one** CV copy per application (UNIQUE on
 `tailored_cvs.application_id`); a second POST is a 409. Writes are refused
-exactly as an application step is refused: archived in a cycle →
-`BusinessRuleViolation` (422), finalized → `ApplicationFinalized` (409), in
-that order. `GET` has **no** such guard — viewing a finished application's CV
+exactly as a timeline event write is refused — it calls the same
+`ensure_mutable`: archived in a cycle → `BusinessRuleViolation` (422), closed
+→ `ApplicationFinalized` (409, "Reopen the application to edit it"), in that
+order. `GET` has **no** such guard — viewing a finished application's CV
 always works.
 
 Ownership is enforced at the use-case layer only: nothing in the schema ties
@@ -472,6 +582,27 @@ one a user wants to download.
 |--------|-------|------|-------------|
 | GET | `/supports` | Yes | Steps, feedbacks, platforms |
 
+The step and feedback lists are **frozen** catalogs (PRD 0008): nothing
+writes `steps_definition` or `feedbacks_definition` any more, and the admin
+catalog routes `/admin/step-definitions*` and `/admin/feedback-definitions*`
+are gone (404). They are served, unchanged in shape, only so installed
+`applika-cli` 0.1.4 can resolve step and feedback names; new clients use the
+`EventType`/`InterviewType` enums.
+
+Admin statistics (`/admin/stats*`, `/admin/users*`, admin-only) read the
+timeline too: offers/accepted = applications with an offer event,
+denials/rejected = with a denied event, open/active = `finalized_at` NULL,
+finalized = `finalized_at` set, and activity (30-day active users, the
+heatmap) comes from `timeline_events.created_at`.
+
+### Agenda (`/users/me/agenda`)
+Every timeline event dated inside the window (`from_date`/`to_date`, default
+30 days either side of today), ordered by date then start time — the window
+and order the steps agenda had. An item keeps its step-era shape (`id`,
+`step_id`, `step_date`, `step_name`, `step_color`, times, timezone,
+observation, `application_id`, `company_name`, `role`; the step fields are the
+reverse-mapped legacy step) and adds `event_type` and `interview_type`.
+
 ## Testing
 
 Uses pytest with testcontainers for integration tests:
@@ -486,8 +617,10 @@ See `app/tests/` for test fixtures and test files.
 ## Enums
 
 Defined in `app/core/enums.py`:
-- **Currency**: USD, BRL, EUR, GBP, CAD, AUD, JPY, CHF, INR
-- **SalaryPeriod**: hourly, monthly, annual
+- **Currency**: the 20 of applika and mynextjob combined — USD, BRL, EUR, GBP, CAD, AUD, JPY, CHF, INR, CNY, SEK, NOK, DKK, PLN, SGD, HKD, NZD, MXN, ZAR, AED
+- **SalaryPeriod**: hourly, monthly, annually. `annual` (what `applika-cli` 0.1.4 sends) is accepted on every input **forever** and means annually: `SalaryPeriod._missing_` maps it, so Pydantic accepts it without OpenAPI advertising it. In the database the `salaryperiod` labels are member names (HOURLY, MONTHLY, ANNUAL, ANNUALLY); `SalaryPeriodType` (`domain/models.py`) writes ANNUALLY and reads both ANNUAL and ANNUALLY as annually, so the API never returns `annual`. The legacy ANNUAL rows are remapped by the contract migration (R2), not by code
+- **EventType**: note, interview, feedback, offer, denied (PG type `event_type`, lower-case labels)
+- **InterviewType**: unknown, initial_screening, technical, cultural, hiring_manager, take_home, final (PG type `interview_type`); the declaration order is the statistics stage order
 - **ExperienceLevel**: intern, junior, mid_level, senior, staff, lead, principal, specialist
 - **WorkMode**: remote, hybrid, on_site
 - **Availability**: open_to_work, casually_looking, not_looking
@@ -525,10 +658,9 @@ Optional (with defaults):
 - **User**: GitHub OAuth authenticated users with profile (company, role, salary, tech stack, seniority, availability)
 - **Company**: Job companies, user-created, unique on lower(name)+url
 - **Application**: Job applications with tracking, salary info, and country
-- **ApplicationStep**: Timeline of application progress steps
-- **StepDefinition**: Predefined step types (Applied, Initial Screen, Interview phases, Offer, etc.)
-  - `strict=True` steps can only be used in final application status
-- **FeedbackDefinition**: Final outcomes (Accepted, Rejected, etc.)
+- **TimelineEvent**: one entry of an application's timeline (`timeline_events`), typed by `EventType`, with `interview_type` on interviews and the salary triple on offers; rows migrated from `application_steps` kept the step's id
+- **StepDefinition**: the frozen legacy step catalog, read only by the compat layer; `event_type`/`interview_type` are its mapping onto the timeline (`strict=True` steps were the finalize-only ones)
+- **FeedbackDefinition**: the frozen legacy outcome catalog, read only by `/supports` and the 0.1.4 finalize body
 - **Platform**: Job platforms (LinkedIn, Indeed, etc.)
 - **QuinzenalReport**: Biweekly progress reports with fortnight + accumulated metrics
   - Report days: 1, 14, 28, 42, 56, 70, 84, 98, 112, 120
@@ -555,11 +687,9 @@ Optional (with defaults):
 - Application → User (many-to-one, cascade delete)
 - Application → Platform (many-to-one)
 - Application → Company (many-to-one, optional)
-- Application → last_step_def (many-to-one, nullable)
-- Application → feedback_def (many-to-one, nullable, only set when finalized)
-- ApplicationStep → Application (many-to-one, cascade delete)
-- ApplicationStep → StepDefinition (many-to-one)
-- ApplicationStep → User (many-to-one, cascade delete)
+- TimelineEvent → Application (many-to-one, cascade delete, `passive_deletes=True`)
+- TimelineEvent → User (many-to-one, cascade delete)
+- The legacy `applications.last_step_id`, `last_step_date`, `feedback_id`, `feedback_date`, `salary_offer` columns and the `application_steps` table still exist in the database (revision `afd4074c70c2` keeps them in sync with the timeline until the contract migration) but **no model maps them** and no code reads them
 - Company → User (many-to-one via created_by, cascade delete)
 - QuinzenalReport → User (many-to-one, cascade delete), unique on (user_id, report_day)
 - UserFeedback → User (many-to-one, cascade delete)
@@ -568,7 +698,7 @@ Optional (with defaults):
 - TailoredCV → User (many-to-one, cascade delete)
 - TailoredCV → BaseCV (many-to-one, nullable, **SET NULL** on delete — the copy outlives its master)
 
-Applications are "finalized" when `feedback_id` is set (irreversible).
+Applications are closed ("finalized") when `finalized_at` is set; reopen clears it.
 
 ## Code Conventions
 
@@ -592,7 +722,8 @@ DiscordServiceDp = Annotated[DiscordService, Depends(get_discord_service)]
 ```
 
 ### File Organization
-- Use cases grouped in subdirectories by feature (applications/, application_steps/, user_stats/, quinzenal_reports/, companies/, user_feedbacks/, base_cvs/, tailored_cvs/)
+- Use cases grouped in subdirectories by feature (applications/, timeline_events/, compat/, user_stats/, quinzenal_reports/, companies/, user_feedbacks/, base_cvs/, tailored_cvs/)
+- `use_cases/compat/` holds the layer for installed `applika-cli` 0.1.4 (step translation, legacy steps, legacy finalize); nothing there owns data
 - One repository per model in `domain/repositories/`
 - API routes in `presentation/api/` match resource names
 
