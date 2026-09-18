@@ -817,13 +817,13 @@ def test_upgrade_renames_and_drops_nothing(migration_db: str) -> None:
     assert 'steps_definition' in after_tables
     assert 'feedbacks_definition' in after_tables
     # No index/table shrinks - AC8/rule 6: application_steps_old still has
-    # every row's data (checked in the reconcile test below), and no
+    # every row's data (checked in the no-resurrection test below), and no
     # secondary index existed on any renamed column to lose.
     assert _triggers(migration_db) == []
 
 
 # --------------------------------------------------------------------------
-# Upgrade: the reconcile (AC1, R-015, resurrection risk)
+# Upgrade: no reconcile, no resurrection (AC1, R-015)
 # --------------------------------------------------------------------------
 
 
@@ -835,7 +835,10 @@ def test_upgrade_never_resurrects_orphaned_application_steps_rows(
     old-code write from the switch-over and a step whose migrated event a
     Release B/C user deleted are indistinguishable from the data alone, so
     neither is copied into the timeline. Both stay fully intact, queryable,
-    under ``application_steps_old`` - a rename destroys no data."""
+    under ``application_steps_old`` - a rename destroys no data. The normal
+    case - a step the trigger *did* sync - is untouched by this revision and
+    stays visible, which is what actually satisfies R-015 for every write
+    the switch-over makes: the reverse of this test, not this test itself."""
     _upgrade(migration_db, PARENT_REVISION)
     _seed_at_r1(migration_db)
 
@@ -859,6 +862,12 @@ def test_upgrade_never_resurrects_orphaned_application_steps_rows(
     assert S_BDELETED in steps_old
     assert steps_old[S_BDELETED]['observation'] == 'Pre-R1 step'
     assert steps_old[S_BDELETED]['application_id'] == APP_BDELETED
+
+    # The normal case, side by side with the two above: a step the trigger
+    # DID sync (S_OFFER, S_DENIED, S_TOUCHED, all seeded already synced at
+    # R1) is untouched by this revision and stays visible - R-015 for every
+    # switch-over write that actually succeeds, the overwhelming majority.
+    assert {S_OFFER, S_DENIED, S_TOUCHED} <= set(events)
 
 
 # --------------------------------------------------------------------------

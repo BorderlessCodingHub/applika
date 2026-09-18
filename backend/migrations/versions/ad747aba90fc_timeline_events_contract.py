@@ -71,13 +71,23 @@ production and the moment this revision runs, two very different things can
 put an ``application_steps`` row and a ``timeline_events`` row out of sync,
 and they are indistinguishable from the data alone:
 
-* an **old-code write the trigger failed to sync** — a step insert or update
-  by the still-running previous release; the trigger tries to sync it and,
-  rarely, fails (its own catch-all
-  ``EXCEPTION WHEN OTHERS THEN RAISE WARNING`` — the write itself must never
-  fail, so it already logged a ``WARNING`` at the moment it happened). The
-  step exists in ``application_steps`` with no matching ``timeline_events``
-  row.
+* an **old-code write the trigger failed to sync** — a step insert by the
+  still-running previous release whose trigger-fired sync fails (its own
+  catch-all ``EXCEPTION WHEN OTHERS THEN RAISE WARNING`` — the write itself
+  must never fail, so it already logged a ``WARNING`` at the moment it
+  happened): the step exists in ``application_steps`` with no matching
+  ``timeline_events`` row. A failed *update* sync is a variant of the same
+  problem one level down — it leaves a stale, out-of-date
+  ``timeline_events`` row rather than a missing one, which this revision
+  does not try to fix either, for the identical reason below: it cannot
+  tell "the trigger failed to carry this edit forward" from "a Release B/C
+  user edited the event on the new code afterwards, correctly, and the step
+  row simply never saw it" (``application_steps`` is dead weight for every
+  release since Release B; only the timeline is ever edited again).
+  ``trg_applications_finalize_sync`` has the same catch-all and the same
+  reasoning applies to a failed finalize sync: a legacy finalize whose sync
+  failed looks exactly like a Release B/C reopen from the data alone, so it
+  is not distinguished either.
 * a **Release B/C deletion** — a user on the new code deletes a timeline
   event that happened to have been migrated from, or itself written as, a
   step-shaped id. Release B/C never touches ``application_steps``, so the
@@ -581,7 +591,7 @@ _SALARY_PERIOD_TABLES = ('applications', 'users', 'timeline_events')
 
 
 def upgrade() -> None:
-    # -- 1. No concurrent write to either table races the copy/rename below.
+    # -- 1. No concurrent write to either table races the rename below.
     op.execute(
         'LOCK TABLE application_steps, applications IN SHARE ROW EXCLUSIVE MODE'
     )
