@@ -118,7 +118,10 @@ test.describe("Timeline: add events, close, reopen", () => {
     await page.goto("/applications");
 
     // KODI-015 G1/G2: an open application shows the "Active" status pill.
-    await expect(page.getByText("Active", { exact: true })).toBeVisible();
+    // Not `exact` — the pill's accessible name carries a sr-only "Status: "
+    // prefix in the same element, the same convention `getByText("Closed")`
+    // already relies on elsewhere in this file.
+    await expect(page.getByText("Active").first()).toBeVisible();
 
     await openRow(page, role);
 
