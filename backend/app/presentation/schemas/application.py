@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field, HttpUrl
@@ -103,12 +103,20 @@ class Application(BaseSchema, TimeSchema):
     country: str | None = None
     job_description: str | None = None
 
+    # Closed since, or null when open (R-007, R-008).
+    finalized_at: datetime | None = None
+    # The fields installed applika-cli 0.1.4 reads (R-019), derived from the
+    # timeline: finalized = finalized_at is set; last_step = the latest event
+    # as its legacy step; feedback = always null; salary_offer = the latest
+    # offer event's amount.
     finalized: bool
     last_step: ApplicationLastStep | None = None
     feedback: ApplicationFeedback | None = None
 
 
 class FinalizeApplication(BaseModel):
+    """The 0.1.4 finalize body. Deprecated: send no body instead."""
+
     step_id: SnowflakeID  # only strict steps
     feedback_id: SnowflakeID
     finalize_date: date

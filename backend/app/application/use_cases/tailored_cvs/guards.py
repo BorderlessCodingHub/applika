@@ -1,18 +1,14 @@
 """Shared ownership and read-only guards for the application CV copy.
 
-Both checks are deliberately identical to the ones
-``CreateApplicationStepUseCase`` has always applied - same order, same
-exception types, same messages - because the criterion asks for the CV copy to
-be refused "matching how steps are refused today". Create, update and delete
-all go through here; only the read path skips the editability guard, because
-viewing a finalized or archived application's copy stays allowed.
+The editability check is the timeline's own guard, because the criterion
+asks for the CV copy to be refused "matching how steps are refused today".
+Create, update and delete all go through here; only the read path skips the
+editability guard, because viewing a closed or archived application's copy
+stays allowed.
 """
 
-from app.core.exceptions import (
-    ApplicationFinalized,
-    BusinessRuleViolation,
-    ResourceNotFound,
-)
+from app.application.use_cases.applications.guards import ensure_mutable
+from app.core.exceptions import ResourceNotFound
 from app.domain.models import ApplicationModel
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -43,17 +39,13 @@ async def load_owned_application(
 
 
 def ensure_application_is_editable(application: ApplicationModel) -> None:
-    """Refuse writes to an archived or finalized application.
+    """Refuse writes to an archived or closed application.
 
-    Verbatim from ``CreateApplicationStepUseCase``, order included: an
-    application archived in a cycle is a business-rule violation (422) and a
-    finalized one is a conflict (409).
+    The CV copy is refused exactly as a timeline event (and a /steps write)
+    is, because PRD 0007 asks for the refusal to match the steps': this *is*
+    the steps' guard, ``ensure_mutable``. Archived in a cycle is a
+    business-rule violation (422), closed (``finalized_at`` set, reversible
+    since PRD 0008) a conflict (409) that says to reopen it. PRD 0007's
+    codes are unchanged.
     """
-    if application.cycle_id is not None:
-        raise BusinessRuleViolation(
-            'Cannot modify an application from an archived cycle'
-        )
-    if application.feedback_id is not None:
-        raise ApplicationFinalized(
-            'This application has already been finalized'
-        )
+    ensure_mutable(application)

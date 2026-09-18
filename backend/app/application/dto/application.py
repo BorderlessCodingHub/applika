@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, HttpUrl
@@ -71,7 +71,9 @@ class ApplicationUpdateDTO(BaseModel):
     job_description: str | None = None
 
 
-class FinalizeApplicationDTO(BaseModel):
+class LegacyFinalizeApplicationDTO(BaseModel):
+    """The 0.1.4 finalize body (R-017), handled by the compat layer."""
+
     step_id: int  # only strict steps
     feedback_id: int
     finalize_date: date
@@ -105,7 +107,6 @@ class ApplicationDTO(BaseSchema):
     expected_salary: float | None = None
     salary_range_min: float | None = None
     salary_range_max: float | None = None
-    salary_offer: float | None = None
     currency: Currency | None = None
     salary_period: SalaryPeriod | None = None
     experience_level: ExperienceLevel | None = None
@@ -113,6 +114,13 @@ class ApplicationDTO(BaseSchema):
     country: str | None = None
     job_description: str | None = None
 
+    finalized_at: datetime | None = None
     finalized: bool
+
+    # The legacy fields installed CLIs read (R-019). They are no longer
+    # columns: ApplicationReadModel derives them from the timeline, so a
+    # plain ``model_validate(model)`` leaves them at their defaults.
+    # ``feedback`` stays null: feedbacks are not data any more.
+    salary_offer: float | None = None
     last_step: ApplicationLastStep | None = None
     feedback: ApplicationFeedback | None = None
