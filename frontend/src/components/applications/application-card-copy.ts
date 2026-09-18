@@ -2,9 +2,15 @@ export const APPLICATIONS_PAGE_COPY = {
   title: "Applications",
   subtitle: "Manage and track all applications in your organization.",
   newApplication: "New Application",
+  archivedSubtitle: "Viewing archived cycle",
   searchPlaceholder: "Search company or role…",
+  searchLabel: "Search company or role",
+  statusFilterLabel: "Status",
   allStatuses: "All statuses",
   advancedFilters: "Advanced filters",
+  clearFilters: "Clear all",
+  emptyTitle: "No applications found",
+  emptyAction: "Create your first application",
 } as const;
 
 export function foundApplicationsLabel(count: number): string {
