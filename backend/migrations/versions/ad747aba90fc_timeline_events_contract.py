@@ -31,7 +31,10 @@ still reads them, frozen, for installed CLIs (R-018/AC4).
 
 1. ``LOCK TABLE application_steps, applications IN SHARE ROW EXCLUSIVE MODE``:
    nothing below races a concurrent write to either table.
-2. **Reconcile copy** — see "Reconcile design" below.
+2. **No reconcile copy** — the plan's ``## Data`` text calls for one
+   ("reconcile copy (same insert, no-op normally)"); this revision does not
+   ship one. See "Reconcile design (why there is no reconcile)" below for
+   why, and the open question it raises for the owner.
 3. Drop the two R1 transitional sync triggers and their functions
    (``trg_application_steps_sync``, ``trg_applications_finalize_sync``,
    ``timeline_events_sync_application_step``,
@@ -59,89 +62,84 @@ still reads them, frozen, for installed CLIs (R-018/AC4).
    ``timeline_events`` — the three tables that carry the column. The PG enum
    itself is untouched (Postgres cannot drop a label); only the rows move.
 
-## Reconcile design (the resurrection risk)
+## Reconcile design (why there is no reconcile)
 
 R1's ``trg_application_steps_sync`` only ever pushed data one way,
-``application_steps`` -> ``timeline_events``, and Release B never wrote
+``application_steps`` -> ``timeline_events``, and Release B/C never writes
 ``application_steps`` at all. So between the moment R1's migration ran in
 production and the moment this revision runs, two very different things can
-put an ``application_steps`` row and a ``timeline_events`` row out of sync:
+put an ``application_steps`` row and a ``timeline_events`` row out of sync,
+and they are indistinguishable from the data alone:
 
-* an **old-code write** — the previous release's containers, still running
-  during the swarm rolling update, insert (or update) a step; the trigger
-  tries to sync it and, rarely, fails (its own catch-all
+* an **old-code write the trigger failed to sync** — a step insert or update
+  by the still-running previous release; the trigger tries to sync it and,
+  rarely, fails (its own catch-all
   ``EXCEPTION WHEN OTHERS THEN RAISE WARNING`` — the write itself must never
-  fail). The step exists in ``application_steps`` with no matching
-  ``timeline_events`` row. This is what the reconcile step exists to catch
-  (R-015 / AC1: whatever the old version wrote during the switch-over stays
-  visible).
+  fail, so it already logged a ``WARNING`` at the moment it happened). The
+  step exists in ``application_steps`` with no matching ``timeline_events``
+  row.
 * a **Release B/C deletion** — a user on the new code deletes a timeline
-  event that happened to have been migrated from a step (it kept the step's
-  id, per R1's backfill). Release B/C never touches ``application_steps``, so
-  the now-orphaned step row is still sitting there, looking exactly like an
-  unsynced old-code write: a row in ``application_steps`` with no matching
+  event that happened to have been migrated from, or itself written as, a
+  step-shaped id. Release B/C never touches ``application_steps``, so the
+  now-orphaned step row sits there, looking exactly like an unsynced
+  old-code write: a row in ``application_steps`` with no matching
   ``timeline_events`` row.
 
-A reconcile that is just R1's backfill statement again with
-``ON CONFLICT (id) DO NOTHING`` cannot tell these apart — it would resurrect
-every event a user ever deleted. Both categories look identical in their
-*content*; the only thing that tells them apart is *when the
-``application_steps`` row was created*, because of one invariant the
-old-code-write case and only that case satisfies: **R1's backfill ran once,
-inside its own migration transaction, over every ``application_steps`` row
-that existed at that moment.** Every row present in that snapshot got a
-``timeline_events`` counterpart, unconditionally (the backfill is one
-``INSERT ... SELECT``, not a per-row trigger with a catch-all handler — it
-either inserts the whole snapshot or the migration itself fails). So a row
-that is part of that original snapshot and has since lost its
-``timeline_events`` counterpart can only have lost it to a deletion — the
-backfill already proved it could be synced. A row that did **not** exist in
-that snapshot — created afterwards, by the switch-over's old code — can only
-be missing because its own trigger-fired sync failed.
+An earlier draft of this revision tried to split the two by
+``application_steps.created_at``, on the theory that every row R1's backfill
+saw got synced unconditionally, so a row created *after* R1's migration ran
+could only be an unsynced old-code write. **That theory is wrong, and
+QA caught it with a reproduction before this shipped.** The previous
+release's code does not stop writing ``application_steps`` the instant R1's
+migration commits — it keeps running, and keeps writing steps the trigger
+syncs *successfully*, for the whole stretch between the migration and the
+owner deploying the next release's image (``prod-release-runbook.md``: image
+deploy and migration are two separate, manually-sequenced steps; there is no
+fixed window). Any one of those successfully-synced, switch-over-era steps
+can then have its migrated event deleted by a Release B/C user, and it is
+now indistinguishable — by ``created_at``, by id ordering, or by any other
+column ``application_steps`` carries — from a step whose sync genuinely
+failed. A reconcile keyed on "created after some cutover" therefore
+resurrects exactly the ordinary case of "a user deleted an event", which is
+common, and only protects against "the trigger failed", which is rare and
+already recoverable (the row is never lost — it stays in
+``application_steps_old``, and R1's own ``RAISE WARNING`` already told an
+operator it happened, at the time it happened).
 
-The dividing line is therefore *"did this ``application_steps`` row exist
-when R1's migration ran"*, which is exactly what the brief's own
-``created_at``/``updated_at`` hint points at:
-``application_steps.created_at`` is set at INSERT time and is never touched
-by a Release B/C deletion (Release B/C never writes this table), so it is a
-faithful timestamp of *when the step was created*, unaffected by anything
-that happened to its ``timeline_events`` counterpart afterwards.
+**There is no stored marker in the database, at any point in this migration
+chain, that separates the two cases**, and adding one now would not help
+retroactively: R1 (``afd4074c70c2``) has not run in any environment other
+than this branch as of this revision (unlike Release A/B, "R1 has shipped"
+is aspirational in this repository's actual history, not a fact this
+revision can rely on), so amending R1 to record failed-sync ids *is* still
+technically possible without breaking rule 1 of
+``non-destructive-migrations.md`` (precedent: ``f2a9c1d4b6e8`` was amended in
+place before it ever ran anywhere) — but it changes a different ticket's
+migration (KODI-010) and trades one guarantee (R-015, a rare trigger-failure
+case) against another (a user's delete staying deleted), which is the
+owner's call, not an engineering one to make silently mid-slice.
 
-The one thing genuinely missing from the database is a stored marker of *when
-R1's migration itself ran* — Alembic does not timestamp individual upgrades,
-and nothing in R1 recorded one (it could not have: adding a marker column now
-would not help, because Release B has already been running for a possibly
-long time before this revision is written, so a marker captured today could
-not separate "existed before R1" from "an event a B user deleted last week").
-``_R1_MIGRATION_RAN_AT`` below pins the best available anchor instead: R1's
-own revision ``Create Date`` (``afd4074c70c2``, 2026-09-17T12:00:00 UTC), on
-the same "expand first, code second" premise the runbook already relies on
-— the owner runs ``alembic upgrade head`` at release time, close to when the
-revision was authored and merged. **This is a deliberate approximation, not
-a certainty**, and is the one open point of this migration: if the owner
-knows the actual production timestamp of ``alembic upgrade head`` for R1
-differed materially from 2026-09-17T12:00:00 UTC (for example, the migration
-was deferred by more than a few hours after the image deploy), this constant
-should be corrected before R2 ships, or a step written by the old code in
-that window will be silently treated as a stale orphan and left out of the
-timeline (still safe — nothing is lost, ``application_steps_old`` keeps the
-row — but R-015 would not show it). Filed as an open question in the ticket
-report; not blocking, because the alternative (skip reconciliation
-altogether) trades a rare, recoverable gap for the everyday, common case of
-"a user deleted an event" silently un-deleting it, which is strictly worse.
+**Decision shipped here: no reconcile.** ``upgrade()`` does not copy
+anything from ``application_steps`` into ``timeline_events``. Every step the
+trigger *did* sync (the overwhelming majority of any switch-over write,
+successful by design) is already in ``timeline_events`` and this revision
+does not touch it. A step whose trigger-fired sync genuinely failed — an
+exceptional case R1 already logs synchronously — is not brought into the
+timeline by this revision; it is not lost either, it stays fully intact and
+queryable in ``application_steps_old`` for a manual, one-off backfill if the
+owner ever needs it. ``test_timeline_contract_migration.py``'s
+``test_upgrade_never_resurrects_orphaned_application_steps_rows`` pins both
+cases side by side: an unsynced old-code row and a step whose migrated event
+was deleted are treated identically — neither is copied.
 
-The reconcile statement copies an ``application_steps`` row into
-``timeline_events`` only when **both** hold: no ``timeline_events`` row
-shares its id, and ``created_at > _R1_MIGRATION_RAN_AT``. It maps the step
-exactly as the (still present, not yet dropped) trigger would have for a
-brand new row: ``steps_definition`` gives the event/interview type
-(``STEP_FALLBACK`` when unmapped), a second ``initial_screening`` on the same
-application becomes ``unknown``, and an offer's salary is computed from the
-application's current salary triple (decision (b): 0 unless amount, currency
-and period are all set). ``test_timeline_contract_migration.py`` pins both
-cases: an unsynced old-code row (``created_at`` after the cutover) **is**
-copied; a step whose migrated event was deleted in Release B (``created_at``
-before the cutover) is **not** resurrected.
+**Open question for the owner** (not blocking this revision, since the
+alternative it weighs against — resurrecting deleted data — is strictly
+worse): should a follow-up amend R1 to record the ids its trigger fails to
+sync, so a future reconcile could safely catch only the genuine-failure case?
+Given R1 has not reached production, this is possible without violating the
+non-destructive-migrations rule, but it is a decision about R-015's exact
+guarantee versus engineering cost for what R1's own design already treats as
+an exceptional, logged event — the owner's call.
 
 ## Denied-with-salary (KODI-010 flag)
 
@@ -205,7 +203,6 @@ them (rule 7, unchanged since Release B); the enum change only remaps rows,
 never deletes one (rule 8).
 """
 
-from datetime import datetime, timezone
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -282,10 +279,6 @@ _STEP_TRIGGER = 'trg_application_steps_sync'
 _APP_TRIGGER = 'trg_applications_finalize_sync'
 _STEP_FUNCTION = 'timeline_events_sync_application_step'
 _APP_FUNCTION = 'timeline_events_sync_application_finalize'
-
-# R1's own revision ``Create Date`` - see "Reconcile design" in the
-# docstring above for why this, and only this, is used as the cutover.
-_R1_MIGRATION_RAN_AT = datetime(2026, 9, 17, 12, 0, tzinfo=timezone.utc)
 
 
 def _quote(value: str | None) -> str:
@@ -564,55 +557,6 @@ _CREATE_TRIGGERS_SQL = (
 # upgrade() pieces
 # --------------------------------------------------------------------------
 
-_RECONCILE_SQL = f"""
-    WITH candidates AS (
-        SELECT
-            s.id, s.application_id, s.user_id, s.step_date, s.start_time,
-            s.end_time, s.timezone, s.observation, s.created_at, s.updated_at,
-            COALESCE(d.event_type, '{STEP_FALLBACK[0]}'::event_type)
-                AS event_type,
-            CASE
-                WHEN d.event_type IS NULL
-                THEN {_quote(STEP_FALLBACK[1])}::interview_type
-                ELSE d.interview_type
-            END AS interview_type
-        FROM application_steps s
-        JOIN steps_definition d ON d.id = s.step_id
-        WHERE NOT EXISTS (
-            SELECT 1 FROM timeline_events t WHERE t.id = s.id
-        )
-        AND s.created_at > TIMESTAMPTZ '{_R1_MIGRATION_RAN_AT.isoformat()}'
-    )
-    INSERT INTO timeline_events (
-        id, application_id, user_id, event_type, interview_type,
-        event_date, start_time, end_time, timezone, observation,
-        salary_amount, salary_currency, salary_period, created_at, updated_at
-    )
-    SELECT
-        c.id, c.application_id, c.user_id, c.event_type,
-        CASE
-            WHEN c.event_type <> 'interview' THEN NULL
-            WHEN c.interview_type = 'initial_screening' AND EXISTS (
-                SELECT 1 FROM timeline_events t2
-                 WHERE t2.application_id = c.application_id
-                   AND t2.interview_type = 'initial_screening'
-            ) THEN 'unknown'::interview_type
-            ELSE COALESCE(c.interview_type, 'unknown'::interview_type)
-        END,
-        c.step_date, c.start_time, c.end_time, c.timezone, c.observation,
-        CASE WHEN c.event_type = 'offer' THEN
-            {_offer_amount_sql('a.salary_offer', 'a.currency', 'a.salary_period')}
-        END,
-        CASE WHEN c.event_type = 'offer'
-             THEN {_offer_currency_sql('a.currency')} END,
-        CASE WHEN c.event_type = 'offer'
-             THEN {_offer_period_sql('a.salary_period')} END,
-        COALESCE(c.created_at, now()), c.updated_at
-    FROM candidates c
-    JOIN applications a ON a.id = c.application_id
-    ON CONFLICT (id) DO NOTHING
-"""
-
 _RENAME_LEGACY_COLUMNS = (
     ('last_step_id', 'last_step_id_old'),
     ('last_step_date', 'last_step_date_old'),
@@ -642,9 +586,8 @@ def upgrade() -> None:
         'LOCK TABLE application_steps, applications IN SHARE ROW EXCLUSIVE MODE'
     )
 
-    # -- 2. Reconcile: old-code writes the trigger failed to sync. See the
-    #       "Reconcile design" section of the module docstring.
-    op.execute(sa.text(_RECONCILE_SQL))
+    # -- 2. No reconcile copy - see "Reconcile design (why there is no
+    #       reconcile)" in the module docstring.
 
     # -- 3. The transitional triggers have no purpose once nothing writes
     #       application_steps any more.
