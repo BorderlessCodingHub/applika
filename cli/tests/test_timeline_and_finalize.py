@@ -295,6 +295,148 @@ def test_timeline_add_salary_on_non_offer_refused(monkeypatch, runner):
     )
 
 
+def test_timeline_add_interview_with_full_flags_builds_matching_payload(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    FakeApiClient.event_created_response = {
+        'id': '702',
+        'event_type': 'interview',
+        'event_date': '2026-06-04',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'interview',
+            '--interview-type',
+            'initial_screening',
+            '--date',
+            '2026-06-04',
+            '--start-time',
+            '14:00',
+            '--end-time',
+            '15:00',
+            '--timezone',
+            'America/Sao_Paulo',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_post_payload == {
+        'event_type': 'interview',
+        'interview_type': 'initial_screening',
+        'event_date': '2026-06-04',
+        'start_time': '14:00',
+        'end_time': '15:00',
+        'timezone': 'America/Sao_Paulo',
+        'observation': None,
+        'salary_amount': None,
+        'salary_currency': None,
+        'salary_period': None,
+    }
+
+
+def test_timeline_add_start_time_without_end_time_refused(monkeypatch, runner):
+    _setup(monkeypatch)
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'note',
+            '--date',
+            '2026-06-04',
+            '--start-time',
+            '14:00',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert 'start-time and end-time must be provided together' in result.output
+    assert FakeApiClient.captured_post_payload is None
+
+
+def test_timeline_add_end_time_before_start_time_refused(monkeypatch, runner):
+    _setup(monkeypatch)
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'note',
+            '--date',
+            '2026-06-04',
+            '--start-time',
+            '15:00',
+            '--end-time',
+            '14:00',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert 'end-time must be after start-time' in result.output
+    assert FakeApiClient.captured_post_payload is None
+
+
+def test_timeline_add_offer_happy_path_builds_matching_payload(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    FakeApiClient.event_created_response = {
+        'id': '703',
+        'event_type': 'offer',
+        'event_date': '2026-06-10',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'offer',
+            '--date',
+            '2026-06-10',
+            '--salary',
+            '180000',
+            '--currency',
+            'USD',
+            '--period',
+            'annually',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_post_payload == {
+        'event_type': 'offer',
+        'interview_type': None,
+        'event_date': '2026-06-10',
+        'start_time': None,
+        'end_time': None,
+        'timezone': None,
+        'observation': None,
+        'salary_amount': 180000.0,
+        'salary_currency': 'USD',
+        'salary_period': 'annually',
+    }
+
+
 def test_timeline_add_409_prints_reopen_hint(monkeypatch, runner):
     _setup(monkeypatch)
     FakeApiClient.post_json_error = ApiError(
@@ -632,6 +774,23 @@ def test_finalize_outcome_denied_payload(monkeypatch, runner):
     }
 
 
+def test_finalize_outcome_offer_without_salary_triad_refused(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+
+    result = runner.invoke(
+        app, ['applications', 'finalize', '99', '--outcome', 'offer']
+    )
+
+    assert result.exit_code == 1
+    assert (
+        '--salary, --currency and --period are required when --outcome offer'
+        in result.output
+    )
+    assert FakeApiClient.captured_post_payload is None
+
+
 def test_finalize_salary_without_outcome_offer_refused(monkeypatch, runner):
     _setup(monkeypatch)
 
@@ -907,3 +1066,42 @@ def test_edit_works_on_application_with_new_currency(monkeypatch, runner):
 
     assert result.exit_code == 0
     assert FakeApiClient.captured_put_payload['currency'] == 'CNY'
+
+
+# --------------------------------------------------------------------------
+# deprecation surfaces in --help (not Typer's deprecated=True, see
+# commands/applications/__init__.py - this asserts the help text itself)
+# --------------------------------------------------------------------------
+
+
+def test_applications_help_marks_steps_deprecated(monkeypatch, runner):
+    _setup(monkeypatch)
+
+    result = runner.invoke(app, ['applications', '--help'])
+
+    assert result.exit_code == 0
+    assert '[DEPRECATED]' in result.output
+
+
+def test_steps_help_marks_itself_and_subcommands_deprecated(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+
+    top = runner.invoke(app, ['applications', 'steps', '--help'])
+    sub = runner.invoke(app, ['applications', 'steps', 'add', '--help'])
+
+    assert top.exit_code == 0
+    assert '[DEPRECATED]' in top.output
+    assert 'applications timeline' in top.output
+    assert sub.exit_code == 0
+    assert '[DEPRECATED]' in sub.output
+
+
+def test_finalize_help_marks_legacy_flags_deprecated(monkeypatch, runner):
+    _setup(monkeypatch)
+
+    result = runner.invoke(app, ['applications', 'finalize', '--help'])
+
+    assert result.exit_code == 0
+    assert '[DEPRECATED]' in result.output

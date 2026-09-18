@@ -126,7 +126,7 @@ applika applications new \
 | `--salary-min FLOAT` | Salary range minimum | Requires `--currency` + `--salary-period` |
 | `--salary-max FLOAT` | Salary range maximum | Requires `--currency` + `--salary-period` |
 | `--currency` | `USD` · `BRL` · `EUR` · `GBP` · `CAD` · `AUD` · `JPY` · `CHF` · `INR` · `CNY` · `SEK` · `NOK` · `DKK` · `PLN` · `SGD` · `HKD` · `NZD` · `MXN` · `ZAR` · `AED` (20 total) | Required when any salary field is set |
-| `--salary-period` | `hourly` · `monthly` · `annual` · `annually` | Required when any salary field is set. `annual` and `annually` mean the same thing; the API always reports `annually` back. |
+| `--salary-period` | `hourly` · `monthly` · `annually` (`annual` still accepted — the 0.1.4 spelling — but prefer `annually`; the API always reports `annually` back) | Required when any salary field is set. |
 
 **Salary cross-field rule:** if any salary amount is provided (`--expected-salary`,
 `--salary-min`, or `--salary-max`), both `--currency` and `--salary-period` are
@@ -225,13 +225,20 @@ applika applications new \
   --observation "Recruiter cold-messaged on LinkedIn"
 ```
 
-### Add salary info after receiving an offer
+### Record an offer
+
+An offer is a timeline event or a finalize outcome, not an `applications edit` flag:
 
 ```bash
-applika applications edit 1234567890123456789 \
-  --expected-salary 180000 \
-  --currency USD \
-  --salary-period annual
+# Add it to the timeline without closing the application
+applika applications timeline add 1234567890123456789 \
+  --type offer --date 2026-06-18 \
+  --salary 180000 --currency USD --period annually
+
+# Or close the application with the offer as the outcome
+applika applications finalize 1234567890123456789 \
+  --outcome offer --salary 180000 --currency USD --period annually \
+  --date 2026-06-18
 ```
 
 ---

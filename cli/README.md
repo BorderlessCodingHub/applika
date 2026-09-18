@@ -161,7 +161,7 @@ applika applications new \
 | `--salary-min FLOAT` | Lower bound of a posted salary range |
 | `--salary-max FLOAT` | Upper bound of a posted salary range |
 | `--currency` | `USD` · `BRL` · `EUR` · `GBP` · `CAD` · `AUD` · `JPY` · `CHF` · `INR` · `CNY` · `SEK` · `NOK` · `DKK` · `PLN` · `SGD` · `HKD` · `NZD` · `MXN` · `ZAR` · `AED` (20 total) |
-| `--salary-period` | `hourly` · `monthly` · `annual` · `annually` (both mean the same; the API always reports `annually`) |
+| `--salary-period` | `hourly` · `monthly` · `annually` (`annual` is still accepted — the spelling `applika-cli` 0.1.4 sent — but the API always reports `annually` back, so use `annually` going forward) |
 
 > **Salary rule:** if any salary amount is provided (`--expected-salary`, `--salary-min`, or `--salary-max`), both `--currency` and `--salary-period` become required. The CLI enforces this before making any API call.
 
@@ -179,7 +179,7 @@ applika applications edit 42 --role "Staff Engineer"
 applika applications edit 42 \
   --expected-salary 180000 \
   --currency USD \
-  --salary-period annual
+  --salary-period annually
 
 # Clear fields you no longer want to track (--clear is repeatable)
 applika applications edit 42 \
