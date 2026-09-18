@@ -23,11 +23,16 @@ import type { CreateTimelineEventPayload } from "@/services/types/timeline";
  * the `denied` branch REQUIRES `denied_reason` (one of the 10 hardcoded
  * reasons, default `unknown`, KODI-014); `note`/`feedback` carry none of the
  * above. Scheduling fields are optional and collapse to `null` on the wire —
- * ONLY the `interview` branch ever sends a non-null start/end/timezone
- * (KODI-014: switching away from interview, or leaving the times blank,
- * clears the schedule so nothing stale reaches the API). Salary/amount
- * numerics stay strings (they are strings on the wire) — the amount is only
- * checked to be a valid non-negative number.
+ * the `interview` branch is the only one that can ever WRITE a new
+ * start/end/timezone from form input. A non-interview branch sends `null`
+ * on CREATE, and on EDIT clears the schedule only if the event's type just
+ * changed away from interview; editing an already non-interview event that
+ * stays non-interview sends its STORED schedule back unchanged (see
+ * `toTimelineEventPayload`'s `original` parameter, KODI-014 interim rule) —
+ * so nothing stale ever reaches the API, but nothing already stored is wiped
+ * by an unrelated edit either. Salary/amount numerics stay strings (they are
+ * strings on the wire) — the amount is only checked to be a valid
+ * non-negative number.
  */
 
 /** Offer salary period is restricted to monthly/annually. */
@@ -267,32 +272,56 @@ function blankToNull(value: string): string | null {
 }
 
 /**
- * Convert validated form values into the wire payload (KODI-014).
+ * Convert validated form values into the wire payload (KODI-014, revised by
+ * the coordinator as a safer interim rule while the owner decides the final
+ * behaviour).
  *
- * The scheduling trio is sent ONLY for `interview`: every other type sends
- * `start_time`/`end_time`/`timezone` as `null`, even if a stale value lingers
- * in form state (e.g. the user filled the schedule, then switched the type
- * away from interview, or is editing a migrated non-interview event that
- * carries a stored schedule) — so nothing stale ever reaches the API.
- * `timezone` is further nulled whenever `start_time` is blank — the
- * `TimezoneSelect` cannot be cleared, so it always holds a value, but a
- * schedule with no start time is still no schedule at all.
- * `interview_type` is sent ONLY for interviews, `denied_reason` ONLY for
- * denied events, and the salary trio ONLY for offers — all three are omitted
- * entirely for every other type.
+ * The scheduling trio is sent ONLY for `interview` from the FORM values (the
+ * schedule inputs are unmounted for every other type, so a value the user
+ * typed before switching types must never ride through). For every
+ * non-interview type there are two cases:
+ *
+ * - EDITING an event whose ORIGINAL stored type was already non-interview,
+ *   and that stays non-interview in this edit (`original` is passed and
+ *   `original.type !== "interview"`): the stored `start_time`/`end_time`/
+ *   `timezone` are sent BACK UNCHANGED, straight from `original`, never from
+ *   form state — so an edit that only touches, say, the observation does not
+ *   wipe a schedule a migrated event (or a prior interview edit) already
+ *   carries.
+ * - Everything else — a fresh CREATE (`original` is null/undefined) for a
+ *   non-interview type, or an EDIT that switches the type FROM interview TO
+ *   a non-interview type — sends `null` for all three, exactly as before.
+ *
+ * Interview behaviour is unchanged: `timezone` is nulled whenever
+ * `start_time` is blank, because the `TimezoneSelect` cannot be cleared and
+ * always holds a real zone, but a schedule with no start time is still no
+ * schedule at all. `interview_type` is sent ONLY for interviews,
+ * `denied_reason` ONLY for denied events, and the salary trio ONLY for
+ * offers — all three are omitted entirely for every other type.
  */
 export function toTimelineEventPayload(
   values: TimelineEventFormValues,
+  original?: TimelineEventView | null,
 ): CreateTimelineEventPayload {
   const isInterview = values.event_type === "interview";
   const hasStart = isInterview && blankToNull(values.start_time) !== null;
-  const base = {
-    event_date: values.event_date,
-    start_time: isInterview ? blankToNull(values.start_time) : null,
-    end_time: isInterview ? blankToNull(values.end_time) : null,
-    timezone: hasStart ? blankToNull(values.timezone) : null,
-    observation: blankToNull(values.observation),
-  };
+  const keepsStoredSchedule =
+    !isInterview && original != null && original.type !== "interview";
+  const base = keepsStoredSchedule
+    ? {
+        event_date: values.event_date,
+        start_time: original.startTime ?? null,
+        end_time: original.endTime ?? null,
+        timezone: original.timezone ?? null,
+        observation: blankToNull(values.observation),
+      }
+    : {
+        event_date: values.event_date,
+        start_time: isInterview ? blankToNull(values.start_time) : null,
+        end_time: isInterview ? blankToNull(values.end_time) : null,
+        timezone: hasStart ? blankToNull(values.timezone) : null,
+        observation: blankToNull(values.observation),
+      };
 
   if (values.event_type === "interview") {
     return {

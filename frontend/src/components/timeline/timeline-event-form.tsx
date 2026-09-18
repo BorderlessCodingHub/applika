@@ -173,7 +173,12 @@ export function TimelineEventForm({
   };
 
   const onValid = (values: TimelineEventFormValues) => {
-    const payload = toTimelineEventPayload(values);
+    // `event` is the ORIGINAL stored event (undefined on create). Passing it
+    // through lets toTimelineEventPayload tell "editing an already
+    // non-interview event that stays non-interview" (keep the stored
+    // schedule) apart from "switched away from interview" or "brand new
+    // event" (null it) — see the schema module's doc comment (KODI-014).
+    const payload = toTimelineEventPayload(values, event);
 
     if (mode === "create") {
       createEvent.mutate(
