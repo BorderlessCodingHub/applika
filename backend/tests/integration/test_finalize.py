@@ -258,12 +258,41 @@ def test_openapi_documents_reopen_and_the_optional_finalize_body():
     paths = main_app.openapi()['paths']
     finalize = paths['/applications/{application_id}/finalize']['post']
     assert finalize['requestBody']['required'] is False
-    assert 'step_id' in (
-        finalize['requestBody']['content']['application/json']['schema'][
-            'properties'
-        ]
-    )
     assert '/applications/{application_id}/reopen' in paths
+
+
+def test_openapi_finalize_body_lists_both_shapes():
+    """The finalize requestBody documents both the deprecated 0.1.4 shape
+    and the new optional outcome shape (R-032, KODI-012 reads this) as an
+    OpenAPI ``oneOf``, `required: false` on the whole body still."""
+    finalize = main_app.openapi()['paths'][
+        '/applications/{application_id}/finalize'
+    ]['post']
+    request_body = finalize['requestBody']
+    assert request_body['required'] is False
+
+    body_schema = request_body['content']['application/json']['schema']
+    branches = body_schema['oneOf']
+    assert len(branches) == 2
+    titles = {branch['title'] for branch in branches}
+    assert titles == {'FinalizeApplication', 'FinalizeWithOutcome'}
+
+    legacy = next(b for b in branches if b['title'] == 'FinalizeApplication')
+    assert 'step_id' in legacy['properties']
+    assert 'feedback_id' in legacy['properties']
+
+    outcome = next(b for b in branches if b['title'] == 'FinalizeWithOutcome')
+    assert 'outcome' in outcome['properties']
+    assert 'salary_period' in outcome['properties']
+    # Nested refs resolve against components/schemas, not a local $defs -
+    # this branch was hoisted out of its own model_json_schema() output.
+    assert '$defs' not in outcome
+    assert (
+        outcome['properties']['salary_currency']['anyOf'][0]['$ref']
+        == '#/components/schemas/Currency'
+    )
+    # And that ref is not dangling: Currency is really there.
+    assert 'Currency' in main_app.openapi()['components']['schemas']
 
 
 # ===========================================================================
@@ -360,6 +389,32 @@ async def test_finalize_outcome_offer_missing_salary_field_is_422(
 
     assert response.status_code == 422, msg(422, response.status_code)
     assert 'Deprecation' not in response.headers
+    assert await _events(db_session) == []
+    assert (await _application(db_session)).finalized_at is None
+
+
+async def test_finalize_outcome_offer_hourly_period_is_422(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """KODI-011 remediation round 1 (R-032): an offer outcome refuses
+    ``hourly``, same as the timeline write schema - the defect being fixed
+    let the same offer event be valid through ``/timeline`` and refused
+    through ``/finalize``, or the reverse."""
+    await ts.seed_open_application(db_session)
+
+    response = await async_client.post(
+        '/applications/1/finalize',
+        json={
+            'outcome': 'offer',
+            'salary_amount': '100.00',
+            'salary_currency': 'USD',
+            'salary_period': 'hourly',
+        },
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+    assert 'Deprecation' not in response.headers
+    assert 'monthly or annually' in response.text
     assert await _events(db_session) == []
     assert (await _application(db_session)).finalized_at is None
 
@@ -559,13 +614,64 @@ async def test_legacy_finalize_offer_without_salary_is_decision_b(
 
     assert response.status_code == 201
     [event] = await _events(db_session)
-    assert (event.salary_amount, event.salary_currency, event.salary_period) == (
+    assert (
+        event.salary_amount,
+        event.salary_currency,
+        event.salary_period,
+    ) == (
         Decimal('0.00'),
         Currency.USD,
         SalaryPeriod.MONTHLY,
     )
     assert event.observation == 'Feedback: Accepted'
     assert response.json()['salary_offer'] == 0.0
+
+
+async def test_legacy_finalize_offer_on_hourly_application_stays_hourly(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """KODI-011 remediation round 1: the R-032 fix refuses ``hourly`` on
+    the *new* outcome body, but the 0.1.4 legacy body is pinned unchanged -
+    it still fills an offer's period from the application, which can
+    itself be hourly (owner decision (b)'s convention).
+
+    Report-only finding from that same round: the resulting offer event
+    cannot be re-submitted unchanged through ``PUT /timeline`` - the
+    timeline write schema refuses ``hourly`` on an offer regardless of
+    how the event was created. That gap is not fixed here; this test only
+    pins that the legacy write itself still succeeds, so nobody
+    accidentally closes it by folding this restriction into
+    ``normalize_event`` (which the legacy path also uses)."""
+    await ts.seed_open_application(
+        db_session, currency=Currency.EUR, salary_period=SalaryPeriod.HOURLY
+    )
+
+    response = await async_client.post(
+        '/applications/1/finalize',
+        json=_legacy_body(salary_offer=45.0),
+    )
+
+    assert response.status_code == 201, msg(201, response.status_code)
+    [event] = await _events(db_session)
+    assert event.event_type is EventType.OFFER
+    assert event.salary_amount == Decimal('45.00')
+    assert event.salary_currency is Currency.EUR
+    assert event.salary_period is SalaryPeriod.HOURLY
+
+    # And that event, unchanged, is refused by the timeline write schema -
+    # the gap this test pins as still open.
+    replay = await async_client.put(
+        f'/applications/1/timeline/{event.id}',
+        json={
+            'event_type': 'offer',
+            'event_date': event.event_date.isoformat(),
+            'salary_amount': '45.00',
+            'salary_currency': 'EUR',
+            'salary_period': 'hourly',
+        },
+    )
+    assert replay.status_code == 422, msg(422, replay.status_code)
+    assert 'monthly or annually' in replay.text
 
 
 async def test_legacy_finalize_already_closed_returns_409(

@@ -33,6 +33,9 @@ from app.application.use_cases.applications.guards import (
     CLOSED_MESSAGE,
     ensure_not_archived,
 )
+from app.application.use_cases.timeline_events.rules import (
+    OFFER_PERIOD_INVALID,
+)
 from app.core.enums import Currency, EventType, SalaryPeriod
 from app.core.exceptions import (
     ApplicationFinalized,
@@ -319,6 +322,24 @@ async def test_offer_outcome_missing_salary_triad_is_422():
     with pytest.raises(BusinessRuleViolation):
         await use_case.execute(
             10, 1, FinalizeOutcomeDTO(outcome='offer', event_date=date.today())
+        )
+    timeline_repo.create.assert_not_called()
+    app_repo.update.assert_not_called()
+
+
+async def test_offer_outcome_hourly_period_is_422():
+    """Defense in depth (KODI-011 remediation round 1, R-032):
+    ``ensure_offer_period_allowed`` refuses ``hourly`` even though the
+    presentation schema already restricts an offer outcome's
+    ``salary_period`` to monthly/annually - the same restriction the
+    timeline write schema enforces, so this offer event is never valid
+    through ``/finalize`` and refused through ``/timeline``, or the
+    reverse."""
+    use_case, app_repo, timeline_repo = _outcome_use_case()
+
+    with pytest.raises(BusinessRuleViolation, match=OFFER_PERIOD_INVALID):
+        await use_case.execute(
+            10, 1, _offer_dto(salary_period=SalaryPeriod.HOURLY)
         )
     timeline_repo.create.assert_not_called()
     app_repo.update.assert_not_called()
