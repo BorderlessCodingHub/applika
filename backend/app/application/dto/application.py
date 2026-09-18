@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, HttpUrl
@@ -79,6 +80,22 @@ class LegacyFinalizeApplicationDTO(BaseModel):
     finalize_date: date
     salary_offer: float | None = None
     observation: str | None = None
+
+
+class FinalizeOutcomeDTO(BaseModel):
+    """The new optional finalize body, once an outcome is chosen (R-032).
+
+    The router sends a bodyless, ``{}`` or all-null-fields outcome to
+    :class:`FinalizeApplicationUseCase` instead (the existing no-outcome
+    close): ``outcome`` here is never ``None``.
+    """
+
+    outcome: Literal['offer', 'denied']
+    event_date: date | None = None
+    observation: str | None = None
+    salary_amount: Decimal | None = None
+    salary_currency: Currency | None = None
+    salary_period: SalaryPeriod | None = None
 
 
 class ApplicationLastStep(BaseModel):

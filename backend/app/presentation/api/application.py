@@ -9,6 +9,7 @@ from app.application.dto.application import (
     ApplicationCompanyInputDTO,
     ApplicationCreateDTO,
     ApplicationUpdateDTO,
+    FinalizeOutcomeDTO,
     LegacyFinalizeApplicationDTO,
 )
 from app.application.use_cases.applications.create_application import (
@@ -19,6 +20,7 @@ from app.application.use_cases.applications.delete_application import (
 )
 from app.application.use_cases.applications.finalize_application import (
     FinalizeApplicationUseCase,
+    FinalizeApplicationWithOutcomeUseCase,
 )
 from app.application.use_cases.applications.list_applications import (
     ListApplicationsUseCase,
@@ -49,6 +51,7 @@ from app.presentation.schemas.application import (
     Application,
     CreateApplication,
     FinalizeApplication,
+    FinalizeWithOutcome,
     UpdateApplication,
 )
 
@@ -227,20 +230,28 @@ _FINALIZE_BODY_SCHEMA = FinalizeApplication.model_json_schema()
         '404': {'model': DetailSchema},
         '409': {
             'model': DetailSchema,
-            'description': '0.1.4 body only: the application is closed',
+            'description': 'With a body (either shape) and already closed',
         },
         '422': {
             'description': 'Archived in a cycle; 0.1.4 body only: future '
-            'finalize_date, or salary_offer on a step that is not an offer'
+            'finalize_date, or salary_offer on a step that is not an '
+            'offer; new body only: an invalid outcome, a missing salary '
+            'field on an offer outcome, a salary field without an offer '
+            'outcome, event_date/observation without an outcome, or a '
+            'future event_date'
         },
     },
     openapi_extra={
         'requestBody': {
             'required': False,
-            'description': 'Optional and deprecated. Send no body to close '
-            'the application. The 0.1.4 body `{step_id, feedback_id, '
-            'finalize_date, salary_offer?, observation?}` still works for '
-            'installed applika-cli versions.',
+            'description': 'Optional. Send no body, `{}` or `null` to '
+            'close with no outcome (200, idempotent). Send '
+            '`{outcome?: "offer"|"denied", event_date?, observation?, '
+            'salary_amount?, salary_currency?, salary_period?}` to close '
+            'with an outcome event (200, no Deprecation header; R-032). '
+            'The 0.1.4 body `{step_id, feedback_id, finalize_date, '
+            'salary_offer?, observation?}` still works for installed '
+            'applika-cli versions (201, deprecated, `Deprecation` header).',
             'content': {'application/json': {'schema': _FINALIZE_BODY_SCHEMA}},
         }
     },
@@ -258,9 +269,14 @@ async def finalize_application(
 ):
     """Close the application (R-007). Reversible with ``/reopen``.
 
-    Without a body: 200 and the application; closing a closed application
-    is a no-op (R-009). With the 0.1.4 body (deprecated, R-017): 201, the
-    outcome recorded as a timeline event, 409 if already closed.
+    Dispatches on the body: no body/``{}``/``null`` is the plain close
+    (200, idempotent, no outcome). A body carrying ``step_id`` or
+    ``feedback_id`` is the deprecated 0.1.4 shape (201, ``Deprecation``
+    header, R-017). Any other body is the new optional outcome shape
+    (R-032): 200, no ``Deprecation`` header, an ``offer``/``denied``
+    timeline event and ``finalized_at`` written atomically; a body with no
+    outcome and no other field is the same idempotent close as no body at
+    all.
     """
     body = _legacy_finalize_body(await request.body())
     if body is None:
@@ -268,28 +284,55 @@ async def finalize_application(
         application = await use_case.execute(application_id, c_user.id)
         return Application.model_validate(application)
 
-    mark_deprecated(request)
+    if 'step_id' in body or 'feedback_id' in body:
+        mark_deprecated(request)
+        try:
+            payload = FinalizeApplication.model_validate(body)
+        except ValidationError as error:
+            raise RequestValidationError([
+                {**detail, 'loc': ('body', *detail['loc'])}
+                for detail in error.errors(include_url=False)
+            ]) from error
+
+        legacy = LegacyFinalizeApplicationUseCase(
+            application_repo=app_repo,
+            step_repo=step_repo,
+            feedback_repo=feedback_repo,
+            timeline_event_repo=timeline_repo,
+            read_model=read_model,
+        )
+        application = await legacy.execute(
+            application_id,
+            c_user.id,
+            LegacyFinalizeApplicationDTO(**payload.model_dump()),
+        )
+        response.status_code = 201
+        return Application.model_validate(application)
+
     try:
-        payload = FinalizeApplication.model_validate(body)
+        outcome_payload = FinalizeWithOutcome.model_validate(body)
     except ValidationError as error:
         raise RequestValidationError([
             {**detail, 'loc': ('body', *detail['loc'])}
             for detail in error.errors(include_url=False)
         ]) from error
 
-    legacy = LegacyFinalizeApplicationUseCase(
-        application_repo=app_repo,
-        step_repo=step_repo,
-        feedback_repo=feedback_repo,
-        timeline_event_repo=timeline_repo,
-        read_model=read_model,
+    if outcome_payload.outcome is None:
+        # Every field is absent/null (schema validation refuses any other
+        # combination without an outcome): the same idempotent close as no
+        # body at all.
+        use_case = FinalizeApplicationUseCase(app_repo, read_model)
+        application = await use_case.execute(application_id, c_user.id)
+        return Application.model_validate(application)
+
+    outcome_use_case = FinalizeApplicationWithOutcomeUseCase(
+        app_repo, timeline_repo, read_model
     )
-    application = await legacy.execute(
+    application = await outcome_use_case.execute(
         application_id,
         c_user.id,
-        LegacyFinalizeApplicationDTO(**payload.model_dump()),
+        FinalizeOutcomeDTO(**outcome_payload.model_dump()),
     )
-    response.status_code = 201
     return Application.model_validate(application)
 
 

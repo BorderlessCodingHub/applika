@@ -1,11 +1,13 @@
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, model_validator
 
 from app.core.enums import Currency, ExperienceLevel, SalaryPeriod, WorkMode
 from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema, TimeSchema
+from app.presentation.schemas.timeline_event import MAX_OBSERVATION
 
 MAX_JOB_DESCRIPTION = 50_000
 """Upper bound on the pasted job posting; 50 001 characters is a 422."""
@@ -122,3 +124,77 @@ class FinalizeApplication(BaseModel):
     finalize_date: date
     salary_offer: float | None = None
     observation: str | None = None
+
+
+OFFER_OUTCOME_NEEDS_SALARY = (
+    'outcome offer requires salary_amount, salary_currency and salary_period'
+)
+SALARY_ONLY_ON_OFFER_OUTCOME = (
+    'salary_amount, salary_currency and salary_period are only allowed '
+    'when outcome is offer'
+)
+FIELDS_NEED_AN_OUTCOME = (
+    'event_date, observation and the salary fields require an outcome '
+    '(offer or denied); send no body, {} or null to close with no outcome'
+)
+
+
+class FinalizeWithOutcome(BaseSchema):
+    """The new optional finalize body (R-032, backend part of R-032; the UI
+    is KODI-012).
+
+    ``outcome`` is ``offer``, ``denied`` or absent. A body that reaches this
+    schema always has at least one key and neither ``step_id`` nor
+    ``feedback_id`` (the router routes those bodies elsewhere first); every
+    field here is otherwise optional, and a body whose fields are all
+    absent or null is handled the same as no body at all - the existing
+    idempotent close, no outcome recorded (the router checks
+    ``outcome is None`` after this validates).
+
+    Every rule below is enforced before any I/O, same as the timeline
+    write schema (``presentation/schemas/timeline_event.py``):
+
+    * an invalid ``outcome`` value (anything but ``offer``/``denied``) is a
+      422 from the ``Literal`` type itself;
+    * ``outcome=offer`` requires ``salary_amount``, ``salary_currency`` and
+      ``salary_period``;
+    * ``salary_amount``/``salary_currency``/``salary_period`` are refused
+      when ``outcome`` is ``denied`` or absent;
+    * ``event_date`` or ``observation`` without an outcome is refused too
+      (the orchestrator's pin: those fields never get silently dropped).
+
+    There is deliberately **no** restriction to ``monthly``/``annually`` on
+    the offer's ``salary_period`` here (unlike the timeline write schema):
+    ``use_cases/timeline_events/rules.normalize_event`` - the same rule set
+    the legacy finalize body already goes through - is the single source of
+    truth for the offer-salary invariant, and it does not restrict the
+    period either.
+    """
+
+    outcome: Literal['offer', 'denied'] | None = None
+    event_date: date | None = None
+    observation: str | None = Field(default=None, max_length=MAX_OBSERVATION)
+    salary_amount: Decimal | None = Field(
+        default=None, ge=0, max_digits=12, decimal_places=2
+    )
+    salary_currency: Currency | None = None
+    salary_period: SalaryPeriod | None = None
+
+    @model_validator(mode='after')
+    def _validate_outcome(self) -> 'FinalizeWithOutcome':
+        salary = (
+            self.salary_amount,
+            self.salary_currency,
+            self.salary_period,
+        )
+        if self.outcome == 'offer':
+            if any(field is None for field in salary):
+                raise ValueError(OFFER_OUTCOME_NEEDS_SALARY)
+        elif any(field is not None for field in salary):
+            raise ValueError(SALARY_ONLY_ON_OFFER_OUTCOME)
+
+        if self.outcome is None and (
+            self.event_date is not None or self.observation is not None
+        ):
+            raise ValueError(FIELDS_NEED_AN_OUTCOME)
+        return self
