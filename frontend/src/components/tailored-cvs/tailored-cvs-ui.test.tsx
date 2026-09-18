@@ -259,7 +259,9 @@ describe("the tailored CV surface", () => {
     expect(
       screen.queryByRole("button", { name: "Create the CV copy" }),
     ).toBeNull();
-    expect(screen.getByRole("status")).toHaveTextContent("finalized");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "This application is closed.",
+    );
   });
 
   it("gives the job description ONE disclosure, the card's own header (10)", async () => {

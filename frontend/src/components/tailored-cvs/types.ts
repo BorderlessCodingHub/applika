@@ -60,8 +60,8 @@ export const TAILORED_CV_READ_ONLY_COPY: Record<
   { title: string; body: string }
 > = {
   finalized: {
-    title: "This application is finalized",
-    body: "Its CV copy stays exactly as it was. You can read it, but it can no longer be edited or deleted.",
+    title: "This application is closed.",
+    body: "Reopen it to edit this CV.",
   },
   archived: {
     title: "This application is in a closed cycle",

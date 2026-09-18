@@ -379,7 +379,9 @@ describe("ApplicationCvPage", () => {
     getCopy.mockResolvedValue(COPY);
     renderPage();
 
-    expect(await screen.findByRole("status")).toHaveTextContent("finalized");
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "This application is closed.",
+    );
     expect(screen.getByLabelText("CV label")).toHaveValue(
       "Backend CV for Applika",
     );
