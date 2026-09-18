@@ -23,7 +23,10 @@ from app.application.use_cases.applications.guards import (
 from app.application.use_cases.applications.read_model import (
     ApplicationReadModel,
 )
-from app.application.use_cases.timeline_events.rules import normalize_event
+from app.application.use_cases.timeline_events.rules import (
+    ensure_offer_period_allowed,
+    normalize_event,
+)
 from app.application.validators.application_date import ensure_not_in_future
 from app.config.logging import logger
 from app.core.enums import EventType
@@ -97,7 +100,11 @@ class FinalizeApplicationWithOutcomeUseCase:
     close). Order: ownership (404), archived (422, ``ensure_not_archived``),
     already closed (409, the same message :func:`guards.ensure_mutable`
     uses for a timeline write), then the event date (defaults to today,
-    422 in the future), then one write: the outcome event and
+    422 in the future), then the offer's salary_period (``hourly`` refused,
+    :func:`rules.ensure_offer_period_allowed` - fixed in KODI-011
+    remediation round 1, R-032, so this offer event is never valid where
+    a ``/timeline`` write of the same shape would be refused), then one
+    write: the outcome event and
     ``finalized_at`` share the request's session, the same pattern
     ``LegacyFinalizeApplicationUseCase`` uses, so
     ``TimelineEventRepository.create``'s commit carries the close too and a
@@ -148,6 +155,7 @@ class FinalizeApplicationWithOutcomeUseCase:
                 'salary_period': data.salary_period,
             })
         )
+        ensure_offer_period_allowed(event)
 
         application.finalized_at = datetime.now(UTC)
         created = await self.timeline_event_repo.create(event.model_dump())

@@ -26,11 +26,14 @@ from decimal import Decimal
 
 from pydantic import Field, field_serializer, model_validator
 
+from app.application.use_cases.timeline_events.rules import (
+    OFFER_PERIOD_INVALID,
+    OFFER_PERIODS,
+)
 from app.core.enums import Currency, EventType, InterviewType, SalaryPeriod
 from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema
 
-OFFER_PERIODS = frozenset({SalaryPeriod.MONTHLY, SalaryPeriod.ANNUALLY})
 MAX_TIMEZONE = 100
 MAX_OBSERVATION = 5000
 
@@ -79,9 +82,7 @@ class _TimelineEventWrite(BaseSchema):
                     'salary_currency'
                 )
             if self.salary_period not in OFFER_PERIODS:
-                raise ValueError(
-                    'offer salary_period must be monthly or annually'
-                )
+                raise ValueError(OFFER_PERIOD_INVALID)
         elif any(field is not None for field in salary_fields):
             raise ValueError(
                 'salary_period, salary_amount and salary_currency are only '

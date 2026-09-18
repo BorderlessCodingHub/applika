@@ -9,7 +9,7 @@ are the last line.
 """
 
 from app.application.dto.timeline_event import TimelineEventWriteDTO
-from app.core.enums import EventType, InterviewType
+from app.core.enums import EventType, InterviewType, SalaryPeriod
 from app.core.exceptions import BusinessRuleViolation, ResourceConflict
 from app.domain.repositories.timeline_event_repository import (
     ONE_INITIAL_SCREENING_MESSAGE,
@@ -28,6 +28,20 @@ SALARY_ONLY_ON_OFFER = (
 )
 TIMES_TOGETHER = 'start_time and end_time must be provided together'
 END_AFTER_START = 'end_time must be after start_time'
+
+# The offer salary_period invariant (R-005/R-031): an offer accepts only
+# monthly or annually (``annual`` from an installed CLI maps to annually
+# before this runs). This is the single source both the timeline write
+# schema (``presentation/schemas/timeline_event.py``) and the new R-032
+# outcome-finalize body (``presentation/schemas/application.py:
+# FinalizeWithOutcome``, ``FinalizeApplicationWithOutcomeUseCase``) read,
+# so the same offer is never valid through one route and refused through
+# the other. It is deliberately **not** folded into ``normalize_event``:
+# the legacy 0.1.4 finalize body (``compat/legacy_finalize.py``) fills an
+# offer's period from ``application.salary_period``, and that application
+# can itself be hourly - a pinned compat behaviour this fix must not touch.
+OFFER_PERIODS = frozenset({SalaryPeriod.MONTHLY, SalaryPeriod.ANNUALLY})
+OFFER_PERIOD_INVALID = 'offer salary_period must be monthly or annually'
 
 
 def normalize_event[T: TimelineEventWriteDTO](data: T) -> T:
@@ -67,6 +81,21 @@ def normalize_event[T: TimelineEventWriteDTO](data: T) -> T:
         raise BusinessRuleViolation(END_AFTER_START)
 
     return data.model_copy(update={'interview_type': interview_type})
+
+
+def ensure_offer_period_allowed[T: TimelineEventWriteDTO](data: T) -> None:
+    """Refuse ``hourly`` on an offer event (R-005/R-031).
+
+    Call explicitly, on top of :func:`normalize_event`, from any path that
+    must match the timeline write schema's offer-period restriction. The
+    legacy 0.1.4 finalize body does not call this (see the module-level
+    note on ``OFFER_PERIODS``).
+    """
+    if (
+        data.event_type is EventType.OFFER
+        and data.salary_period not in OFFER_PERIODS
+    ):
+        raise BusinessRuleViolation(OFFER_PERIOD_INVALID)
 
 
 async def ensure_one_initial_screening(

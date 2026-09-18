@@ -4,6 +4,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, HttpUrl, model_validator
 
+from app.application.use_cases.timeline_events.rules import (
+    OFFER_PERIOD_INVALID,
+    OFFER_PERIODS,
+)
 from app.core.enums import Currency, ExperienceLevel, SalaryPeriod, WorkMode
 from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema, TimeSchema
@@ -162,13 +166,16 @@ class FinalizeWithOutcome(BaseSchema):
       when ``outcome`` is ``denied`` or absent;
     * ``event_date`` or ``observation`` without an outcome is refused too
       (the orchestrator's pin: those fields never get silently dropped).
-
-    There is deliberately **no** restriction to ``monthly``/``annually`` on
-    the offer's ``salary_period`` here (unlike the timeline write schema):
-    ``use_cases/timeline_events/rules.normalize_event`` - the same rule set
-    the legacy finalize body already goes through - is the single source of
-    truth for the offer-salary invariant, and it does not restrict the
-    period either.
+    * an offer's ``salary_period`` is ``monthly`` or ``annually``, same as
+      the timeline write schema and the same message
+      (``use_cases/timeline_events/rules.OFFER_PERIOD_INVALID``); ``hourly``
+      is refused. This was a gap fixed in KODI-011 remediation round 1
+      (R-032): the outcome body used to reach the database through
+      ``rules.normalize_event`` alone, which does not restrict the period,
+      so the same offer event was valid through ``/timeline`` and refused
+      through ``/finalize``, or the reverse. The legacy 0.1.4 finalize body
+      is untouched: it still fills the period from the application, which
+      can itself be hourly.
     """
 
     outcome: Literal['offer', 'denied'] | None = None
@@ -190,6 +197,8 @@ class FinalizeWithOutcome(BaseSchema):
         if self.outcome == 'offer':
             if any(field is None for field in salary):
                 raise ValueError(OFFER_OUTCOME_NEEDS_SALARY)
+            if self.salary_period not in OFFER_PERIODS:
+                raise ValueError(OFFER_PERIOD_INVALID)
         elif any(field is not None for field in salary):
             raise ValueError(SALARY_ONLY_ON_OFFER_OUTCOME)
 

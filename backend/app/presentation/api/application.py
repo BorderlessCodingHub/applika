@@ -214,7 +214,42 @@ def _legacy_finalize_body(raw: bytes) -> dict[str, Any] | None:
     return body
 
 
-_FINALIZE_BODY_SCHEMA = FinalizeApplication.model_json_schema()
+def _schema_ref_to_components(node: Any) -> None:
+    """Rewrite every ``$ref: '#/$defs/X'`` to ``#/components/schemas/X'``,
+    in place, recursively.
+
+    A raw ``model_json_schema()`` keeps its ``$defs`` local to itself; once
+    that schema is nested inside a combined ``oneOf`` (see
+    ``_FINALIZE_BODY_SCHEMA`` below), a bare ``#/$defs/...`` ref would
+    resolve against the root of the *combined* document instead, which has
+    no ``$defs`` of its own. ``Currency`` and ``SalaryPeriod`` are already
+    registered under ``components/schemas`` (every other schema that uses
+    them puts them there), so pointing there is both correct and exactly
+    how FastAPI resolves nested model refs everywhere else in this API.
+    """
+    if isinstance(node, dict):
+        ref = node.get('$ref')
+        if isinstance(ref, str) and ref.startswith('#/$defs/'):
+            node['$ref'] = ref.replace('#/$defs/', '#/components/schemas/')
+        for value in node.values():
+            _schema_ref_to_components(value)
+    elif isinstance(node, list):
+        for item in node:
+            _schema_ref_to_components(item)
+
+
+def _finalize_body_schema() -> dict[str, Any]:
+    """Both finalize body shapes (R-032): the deprecated 0.1.4 body and the
+    new optional outcome body, as an OpenAPI ``oneOf``. KODI-012 reads
+    this to build the finalize form."""
+    legacy_schema = FinalizeApplication.model_json_schema()
+    outcome_schema = FinalizeWithOutcome.model_json_schema()
+    outcome_schema.pop('$defs', None)
+    _schema_ref_to_components(outcome_schema)
+    return {'oneOf': [legacy_schema, outcome_schema]}
+
+
+_FINALIZE_BODY_SCHEMA = _finalize_body_schema()
 
 
 @router.post(
