@@ -67,3 +67,36 @@ def test_api_client_refreshes_and_retries(tmp_path):
     saved = store.load()
     assert saved.access_token == new_access
     assert state['applications_calls'] == 2
+
+
+def test_post_without_payload_sends_no_body(tmp_path):
+    """KODI-013: a bodyless finalize/reopen close must send no bytes and no
+    Content-Type - not even an empty ``{}`` - so it is indistinguishable
+    from a client that never heard of the outcome body."""
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured['content'] = request.content
+        captured['content_type'] = request.headers.get('content-type')
+        return httpx.Response(
+            200, json={'id': '1', 'finalized': True}, request=request
+        )
+
+    store = SessionStore(tmp_path / 'session.json')
+    session = SessionData(
+        api_base_url='http://127.0.0.1:8000/api',
+        access_token='access',
+        refresh_token='refresh',
+        access_expires_at='2026-05-08T10:00:00+00:00',
+    )
+    store.save(session)
+
+    client = ApiClient(session, store, transport=httpx.MockTransport(handler))
+    try:
+        data = client.post('/applications/1/finalize')
+    finally:
+        client.close()
+
+    assert data == {'id': '1', 'finalized': True}
+    assert captured['content'] == b''
+    assert captured['content_type'] is None
