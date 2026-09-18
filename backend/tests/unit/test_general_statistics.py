@@ -72,8 +72,11 @@ async def test_general_stats_with_cycle_id():
 
 
 async def test_general_stats_active_excludes_closed_regardless_of_outcome():
-    """AC23: ``active`` = ``finalized_at IS NULL``, independent of offers
-    and denials, so a closed-with-offer application does not count."""
+    """AC23: ``active`` is forwarded from the repository independent of
+    offers/denials (a mocked repo can't prove the ``finalized_at IS NULL``
+    rule itself — that's ``test_active_count_...`` in test_statistics.py),
+    so an application counted for both offers and denials does not bump
+    ``active`` alongside them."""
     repo = AsyncMock()
     repo.get_applications_count.return_value = 3
     repo.count_applications_per_stage.return_value = {
