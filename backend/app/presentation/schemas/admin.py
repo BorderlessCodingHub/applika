@@ -149,38 +149,3 @@ class PlatformSchema(BaseSchema):
     id: SnowflakeID
     name: str
     url: str | None = None
-
-
-class CreateStepDefinitionSchema(BaseModel):
-    name: str
-    color: str = '#007bff'
-    strict: bool = False
-
-
-class UpdateStepDefinitionSchema(BaseModel):
-    name: str | None = None
-    color: str | None = None
-    strict: bool | None = None
-
-
-class StepDefinitionSchema(BaseSchema):
-    id: SnowflakeID
-    name: str
-    color: str
-    strict: bool
-
-
-class CreateFeedbackDefinitionSchema(BaseModel):
-    name: str
-    color: str = '#28a745'
-
-
-class UpdateFeedbackDefinitionSchema(BaseModel):
-    name: str | None = None
-    color: str | None = None
-
-
-class FeedbackDefinitionSchema(BaseSchema):
-    id: SnowflakeID
-    name: str
-    color: str
