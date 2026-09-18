@@ -7,3 +7,5 @@ settings.local.json
 .env*
 # The template is tracked; real .env files are not.
 !.env.example
+
+.claude/agent-memory-local
