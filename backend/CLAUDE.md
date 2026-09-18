@@ -364,7 +364,7 @@ All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUID
 | GET | `/applications` | Yes | List all user applications |
 | PUT | `/applications/{id}` | Yes | Update application |
 | DELETE | `/applications/{id}` | Yes | Delete application (204); its events go with it |
-| POST | `/applications/{id}/finalize` | Yes | Close it. No body → 200, idempotent. 0.1.4 body → 201, deprecated |
+| POST | `/applications/{id}/finalize` | Yes | Close it. No body → 200, idempotent. New optional outcome body → 200, no Deprecation. 0.1.4 body → 201, deprecated |
 | POST | `/applications/{id}/reopen` | Yes | Reopen a closed application (200, idempotent) |
 
 **Closed is reversible** (PRD 0008). `finalized_at` set = closed, NULL = open;
@@ -379,17 +379,45 @@ finalize/reopen). A closed application swept into a cycle stays closed for
 good.
 
 `/finalize` dispatches on the body (`presentation/api/application.py`): no
-body, an empty body, `null` or `{}` is the new close; anything else is the
-0.1.4 body `{step_id, feedback_id, finalize_date, salary_offer?, observation?}`
-handled by `use_cases/compat/legacy_finalize.py`, which answers exactly as the
-steps version did (future date 422, 404, archived 422, closed 409 "This
-application has already been finalized", strict step 404, feedback 404), then
-refuses a `salary_offer` on a step that is not an offer (422) and records the
-terminal event of the mapped step: feedback name appended to the observation
-as `Feedback: <name>`, an offer's salary = `salary_offer` or 0 with the
-application's currency or USD and period or monthly (owner decision (b)),
-`finalized_at` = `finalize_date` 00:00 UTC — the shape revision
-`afd4074c70c2` gave the applications it migrated.
+body, an empty body, `null` or `{}` is the new close; a body carrying
+`step_id` or `feedback_id` is the 0.1.4 body; any other body is the new
+optional outcome body (R-032).
+
+The 0.1.4 body `{step_id, feedback_id, finalize_date, salary_offer?,
+observation?}` is handled by `use_cases/compat/legacy_finalize.py`, which
+answers exactly as the steps version did (future date 422, 404, archived
+422, closed 409 "This application has already been finalized", strict step
+404, feedback 404), then refuses a `salary_offer` on a step that is not an
+offer (422) and records the terminal event of the mapped step: feedback
+name appended to the observation as `Feedback: <name>`, an offer's salary =
+`salary_offer` or 0 with the application's currency or USD and period or
+monthly (owner decision (b)), `finalized_at` = `finalize_date` 00:00 UTC —
+the shape revision `afd4074c70c2` gave the applications it migrated. 201,
+`Deprecation` header.
+
+**R-032, the new optional outcome body** `{outcome?: "offer"|"denied",
+event_date?, observation?, salary_amount?, salary_currency?,
+salary_period?}` (`presentation/schemas/application.py:
+FinalizeWithOutcome`, `use_cases/applications/finalize_application.py:
+FinalizeApplicationWithOutcomeUseCase`): 200, **no** `Deprecation` header.
+Validated before any I/O, same as the timeline write schema: an invalid
+`outcome` is 422; `outcome=offer` requires the salary triad, else 422;
+the salary fields are refused when `outcome` is `denied` or absent, else
+422; `event_date`/`observation` without an `outcome` are refused too (the
+orchestrator's pin — never silently dropped). A body whose fields are all
+absent or null is the same idempotent close as no body at all (no outcome
+event). With an outcome: 404 if not owned, `BusinessRuleViolation` (422) if
+archived, `ApplicationFinalized` (409, "Reopen the application to edit it")
+if already closed, then `event_date` defaults to today and is refused in
+the future (`validators/application_date.ensure_not_in_future`), then one
+`offer`/`denied` timeline event (`interview_type` NULL) and `finalized_at`
+are written through the same shared-session, single-commit pattern
+`LegacyFinalizeApplicationUseCase` uses (`TimelineEventRepository.create`'s
+commit persists both; a failed insert leaves `finalized_at` unwritten). The
+offer salary_period is **not** restricted to monthly/annually here (unlike
+the timeline write schema): it goes through the same
+`timeline_events/rules.normalize_event` the legacy body already uses, which
+does not restrict it either.
 
 The `Application` response carries `finalized_at` and keeps the fields
 installed `applika-cli` 0.1.4 reads, **derived from the timeline** by

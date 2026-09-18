@@ -11,7 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - KODI-011 The API accepts 11 more salary currencies: CNY, SEK, NOK, DKK,
   PLN, SGD, HKD, NZD, MXN, ZAR, AED (20 in total). A 0.1.4 CLI only offers
   its 9 on input, but may now receive the new ones in `currency` from
-  applications created in the web app.
+  applications created in the web app; listing and viewing such an
+  application still works, `applications edit` does not (see Known
+  limitations under Changed).
 - KODI-011 `Application` responses carry `finalized_at` (null when open).
   0.1.4 ignores it.
 - KODI-011 New API routes a future CLI can use: the application timeline
@@ -19,6 +21,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `PUT/DELETE /applications/{id}/timeline/{event_id}`),
   `POST /applications/{id}/finalize` without a body (200, idempotent) and
   `POST /applications/{id}/reopen`.
+- KODI-011 `POST /applications/{id}/finalize` also accepts a new optional
+  body `{outcome?: "offer"|"denied", event_date?, observation?,
+  salary_amount?, salary_currency?, salary_period?}`: an offer requires
+  the salary triad, a denial or no outcome refuses it. 200, no
+  `Deprecation` header. 0.1.4 never sends it; a future CLI can finalize
+  with the outcome in one call instead of a `/timeline` POST followed by a
+  bodyless finalize.
 
 ### Changed
 
@@ -26,6 +35,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   accepts `annual` (what 0.1.4 sends) on applications and `/users/me`, but
   every response now says `annually`: `salary_period` read by 0.1.4 is
   `annually` where it used to be `annual`.
+- KODI-011 **Known limitation of 0.1.4**: `applications edit` fails locally
+  on an application whose `salary_period` is `annually` or whose
+  `currency` is one of the 11 currencies this release adds (CNY, SEK, NOK,
+  DKK, PLN, SGD, HKD, NZD, MXN, ZAR, AED). `edit` pre-fills its update
+  payload from the fetched application and validates it against 0.1.4's own
+  `Currency` (9 values) and `SalaryPeriod` (`hourly`/`monthly`/`annual`)
+  enums before sending the request, so the value never reaches the API —
+  0.1.4 rejects it client-side. `applications list` and `applications new`
+  are unaffected. Accepted by the owner as an exception to
+  `.claude/rules/cli-compatibility.md` rule 1 (never break a field a
+  published CLI version uses): fixed by upgrading to `applika-cli` 0.2.0,
+  released together with this API.
 - KODI-011 Finalize is reversible on the server: an application can be
   reopened (web app or a future CLI) and then edited or finalized again.
 - KODI-011 `Application.feedback` is always null. `last_step` is the latest

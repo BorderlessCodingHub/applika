@@ -27,7 +27,7 @@ import httpx
 # Configuration
 # ---------------------------------------------------------------------------
 BASE_URL = 'http://127.0.0.1:8000'
-ACCESS_TOKEN = input("Put your access token here: ")
+ACCESS_TOKEN = input('Put your access token here: ')
 
 # Date range: Jan 5 – Mar 30, 2026
 DATE_START = date(2026, 1, 5)
@@ -131,8 +131,14 @@ ROLES = [
 ]
 
 COUNTRIES = [
-    'United States', 'Brazil', 'Germany', 'United Kingdom',
-    'Canada', 'Netherlands', 'Portugal', 'Remote',
+    'United States',
+    'Brazil',
+    'Germany',
+    'United Kingdom',
+    'Canada',
+    'Netherlands',
+    'Portugal',
+    'Remote',
 ]
 
 OBSERVATIONS = [
@@ -375,9 +381,7 @@ def seed_application_cv(
         json={'base_cv_id': random.choice(base_cv_ids)},
     )
     if resp.status_code != 201:
-        print(
-            f'  Failed to create the CV copy: {resp.status_code} {resp.text}'
-        )
+        print(f'  Failed to create the CV copy: {resp.status_code} {resp.text}')
         return False
     if not full_cycle:
         return True
@@ -402,9 +406,20 @@ def seed_application_cv(
     edited = {
         field: copy[field]
         for field in (
-            'name', 'full_name', 'headline', 'location', 'email', 'phone',
-            'summary', 'links', 'skills', 'experience', 'projects',
-            'education', 'certifications', 'languages',
+            'name',
+            'full_name',
+            'headline',
+            'location',
+            'email',
+            'phone',
+            'summary',
+            'links',
+            'skills',
+            'experience',
+            'projects',
+            'education',
+            'certifications',
+            'languages',
         )
     }
     edited['summary'] = 'Tailored to this posting during the seed run.'
@@ -421,9 +436,7 @@ def seed_application_cv(
     # Delete it, then make a fresh one - deleting frees the application.
     resp = client.delete(f'/applications/{app_id}/cv')
     if resp.status_code != 204:
-        print(
-            f'  Failed to delete the CV copy: {resp.status_code} {resp.text}'
-        )
+        print(f'  Failed to delete the CV copy: {resp.status_code} {resp.text}')
         return True
     print('  CV copy deleted')
 
@@ -433,8 +446,7 @@ def seed_application_cv(
     )
     if resp.status_code != 201:
         print(
-            f'  Failed to recreate the CV copy: '
-            f'{resp.status_code} {resp.text}'
+            f'  Failed to recreate the CV copy: {resp.status_code} {resp.text}'
         )
         return False
     print('  CV copy recreated from another master CV')
@@ -496,11 +508,15 @@ def seed_timeline(
     first_date: date,
     plan: dict | None,
 ) -> bool:
-    """The web app's path: timeline events, then finalize without a body.
+    """The web app's path: timeline events, then finalize.
 
     One initial screening (an application holds at most one), then a mix of
-    typed interviews and notes, then the outcome as an offer or a denied
-    event. Returns True when the application ended closed.
+    typed interviews and notes, then the outcome. Half the finalized
+    applications get their outcome through the new optional finalize body
+    (R-032: the outcome event and the close in one atomic request); the
+    other half keep adding the outcome as a plain `/timeline` event and
+    then finalize without a body, exercising both paths. Returns True when
+    the application ended closed.
     """
     url = f'/applications/{app_id}/timeline'
     day = first_date
@@ -534,6 +550,38 @@ def seed_timeline(
 
     if plan is None:
         return False
+
+    if random.random() < 0.5:
+        # R-032: the outcome event and the close in one atomic request, no
+        # Deprecation header.
+        if plan['offer']:
+            body = {
+                'outcome': 'offer',
+                'salary_amount': str(random.choice([5000, 8000, 12000, 15000])),
+                'salary_currency': random.choice(['USD', 'EUR', 'BRL', 'NZD']),
+                # `annual` is the 0.1.4 spelling; it is stored as annually.
+                'salary_period': random.choice([
+                    'monthly',
+                    'annually',
+                    'annual',
+                ]),
+                'observation': 'Offer received',
+            }
+        else:
+            body = {'outcome': 'denied', 'observation': 'Not selected'}
+        resp = client.post(
+            f'/applications/{app_id}/finalize',
+            json={**body, 'event_date': day.isoformat()},
+        )
+        if resp.status_code != 200:
+            print(
+                f'  Failed to finalize with outcome: '
+                f'{resp.status_code} {resp.text}'
+            )
+            return False
+        if 'Deprecation' in resp.headers:
+            print('  WARNING: new finalize body carries a Deprecation header')
+        return True
 
     if plan['offer']:
         outcome = {
@@ -615,9 +663,7 @@ def seed_legacy_steps(
     check_deprecated(listed, 'GET /steps')
     if last_step is not None and random.random() < 0.3:
         # `steps edit` without --step resends the listed step_id.
-        current = next(
-            s for s in listed.json() if s['id'] == last_step['id']
-        )
+        current = next(s for s in listed.json() if s['id'] == last_step['id'])
         resp = client.put(
             f'/applications/{app_id}/steps/{current["id"]}',
             json={
@@ -699,8 +745,7 @@ def main():
             None,
         )
         other_feedbacks = [
-            f for f in feedback_defs
-            if f['name'].lower() != 'accepted'
+            f for f in feedback_defs if f['name'].lower() != 'accepted'
         ]
 
         offer_step = next(
@@ -782,17 +827,18 @@ def main():
 
             currency = random.choice(CURRENCIES)
             exp_levels = [
-                'junior', 'mid_level', 'senior', 'staff', 'lead', None
+                'junior',
+                'mid_level',
+                'senior',
+                'staff',
+                'lead',
+                None,
             ]
             work_modes = ['remote', 'hybrid', 'on_site', None]
 
-            salary_min = random.choice(
-                [None, 3000, 5000, 8000, 10000, 15000]
-            )
+            salary_min = random.choice([None, 3000, 5000, 8000, 10000, 15000])
             salary_max = (
-                salary_min + random.randint(2000, 8000)
-                if salary_min
-                else None
+                salary_min + random.randint(2000, 8000) if salary_min else None
             )
 
             payload = {
@@ -809,9 +855,7 @@ def main():
                 'salary_range_max': salary_max,
                 'currency': currency,
                 'salary_period': (
-                    random.choice(['monthly', 'annually'])
-                    if currency
-                    else None
+                    random.choice(['monthly', 'annually']) if currency else None
                 ),
                 'experience_level': random.choice(exp_levels),
                 'work_mode': random.choice(work_modes),

@@ -58,6 +58,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   feedback or salary.
 - KODI-011 `POST /applications/{id}/reopen` reopens a closed application
   (200, idempotent).
+- KODI-011 `POST /applications/{id}/finalize` accepts an optional new body
+  `{outcome?, event_date?, observation?, salary_amount?, salary_currency?,
+  salary_period?}` (R-032, backend part; the UI is KODI-012): `outcome` is
+  `offer` or `denied`, an offer requires the salary triad, a denial or no
+  outcome refuses it, `event_date` defaults to today and cannot be in the
+  future. It writes one timeline event of that outcome and `finalized_at`
+  in the same transaction, answers 200 and never carries the `Deprecation`
+  header. A body without an outcome (fields all absent or null) is the
+  same idempotent close as no body at all.
 - KODI-011 `finalized_at` on every `Application` response.
 - KODI-011 Agenda items (`GET /users/me/agenda`) gain `event_type` and
   `interview_type`; they list timeline events.
