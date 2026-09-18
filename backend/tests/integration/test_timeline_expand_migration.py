@@ -56,6 +56,11 @@ from app.config.settings import envs
 
 REVISION = 'afd4074c70c2'
 PARENT_REVISION = 'd3f7b1c9e2a4'
+# KODI-014: "Fold into Release A" chains R1 -> R3 -> R2, so R3 ships in the
+# same release as R1. Used only by the Release B round-trip test below,
+# which needs the true Release A shape (R1 + R3) before running Release B's
+# own use cases - they always write ``denied_reason``.
+R3_REVISION = 'c8b3e9f4a1d6'
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 _ALEMBIC_INI = _BACKEND_ROOT / 'alembic.ini'
@@ -1925,10 +1930,23 @@ def _release_b_code_writes(url: str) -> dict[str, Any]:
 def test_release_b_code_runs_on_r1_and_rolls_back_with_its_data(
     migration_db: str,
 ) -> None:
-    """KODI-011 criterion 26: Release B's own use cases run on the schema R1
-    leaves (the ORM mapping matches it), and ``alembic downgrade`` to R1's
-    parent brings everything they wrote back to the previous release."""
+    """KODI-011 criterion 26: Release B's own use cases run on the schema
+    Release A leaves (the ORM mapping matches it), and ``alembic downgrade``
+    to R1's own parent brings everything they wrote back to the previous
+    release.
+
+    KODI-014 folded R3 (``c8b3e9f4a1d6``, ``denied_reason``) into Release A,
+    chaining R1 -> R3 -> R2, so the schema Release B's code actually runs
+    against always has R3 too (the owner's ``alembic upgrade head`` applies
+    the whole Release A migration set in one go) - every event write since
+    then carries ``denied_reason``. The single ``alembic downgrade`` to
+    ``PARENT_REVISION`` below now crosses both R3's and R1's ``downgrade()``
+    in one command, composing them the same way
+    ``test_timeline_contract_migration.py``'s single-command test proves for
+    R2 + R3 + R1.
+    """
     _migrated(migration_db)
+    _upgrade(migration_db, R3_REVISION)
     steps = _steps(migration_db)
     feedbacks = _feedbacks(migration_db)
 

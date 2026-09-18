@@ -20,7 +20,13 @@ from app.application.use_cases.compat.legacy_finalize import (
     LegacyFinalizeApplicationUseCase,
     append_feedback,
 )
-from app.core.enums import Currency, EventType, InterviewType, SalaryPeriod
+from app.core.enums import (
+    Currency,
+    DeniedReason,
+    EventType,
+    InterviewType,
+    SalaryPeriod,
+)
 from app.core.exceptions import (
     ApplicationFinalized,
     BusinessRuleViolation,
@@ -130,12 +136,29 @@ async def test_denied_with_any_feedback_no_offer_accepted_coupling():
     assert values['event_type'] is EventType.DENIED
     assert values['salary_amount'] is None
     assert values['observation'] == 'Feedback: Accepted'
+    # KODI-014: 'Accepted' is not in the legacy feedback -> reason map.
+    assert values['denied_reason'] is DeniedReason.UNKNOWN
 
     use_case, _, timeline_repo = _use_case(step=OFFER, feedback=POSITION_FILLED)
     await use_case.execute(10, 1, _body(feedback_id=201))
-    assert timeline_repo.create.call_args.args[0]['event_type'] is (
-        EventType.OFFER
+    offer_values = timeline_repo.create.call_args.args[0]
+    assert offer_values['event_type'] is EventType.OFFER
+    # denied_reason is only ever set on a denied event.
+    assert offer_values['denied_reason'] is None
+
+
+async def test_denied_maps_the_feedback_to_a_reason():
+    """KODI-014 (R-036): the SAME map migration R3 uses for its own
+    backfill (pinned in ``tests/unit/test_denied_reason_mapping.py``)."""
+    use_case, _, timeline_repo = _use_case(
+        step=DENIED, feedback=POSITION_FILLED
     )
+
+    await use_case.execute(10, 1, _body(step_id=6, feedback_id=201))
+
+    values = timeline_repo.create.call_args.args[0]
+    assert values['event_type'] is EventType.DENIED
+    assert values['denied_reason'] is DeniedReason.POSITION_FILLED
 
 
 async def test_salary_on_a_step_that_is_not_an_offer_is_422():

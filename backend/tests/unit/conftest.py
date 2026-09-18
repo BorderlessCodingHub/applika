@@ -62,6 +62,7 @@ def make_event(**kwargs):
         'user_id': 1,
         'event_type': EventType.NOTE,
         'interview_type': None,
+        'denied_reason': None,
         'event_date': date(2025, 12, 5),
         'start_time': None,
         'end_time': None,

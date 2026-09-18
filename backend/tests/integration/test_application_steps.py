@@ -14,7 +14,13 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import Currency, EventType, InterviewType, SalaryPeriod
+from app.core.enums import (
+    Currency,
+    DeniedReason,
+    EventType,
+    InterviewType,
+    SalaryPeriod,
+)
 from app.domain.models import CycleModel, TimelineEventModel
 from app.main import app as main_app
 from app.presentation.deprecation import DEPRECATION_VALUE
@@ -148,15 +154,15 @@ async def test_list_steps_names_every_web_created_event(
             event_date=date(2025, 12, 6),
             **ts.offer_salary('5000'),
         ),
-        ts.event(
-            15, event_type=EventType.DENIED, event_date=date(2025, 12, 7)
-        ),
+        ts.event(15, event_type=EventType.DENIED, event_date=date(2025, 12, 7)),
     )
 
     response = await async_client.get('/applications/1/steps')
 
     assert response.status_code == 200
-    assert [(s['id'], s['step_id'], s['step_name']) for s in response.json()] == [
+    assert [
+        (s['id'], s['step_id'], s['step_name']) for s in response.json()
+    ] == [
         ('11', str(ts.STEP_PHASE_2), 'Phase 2'),
         ('12', str(ts.STEP_PHASE_2), 'Phase 2'),
         ('13', str(ts.STEP_PHASE_2), 'Phase 2'),
@@ -195,9 +201,7 @@ async def test_list_steps_of_another_users_application_returns_404(
 # ---------------------------------------------------------------------------
 
 
-async def test_create_step(
-    async_client: AsyncClient, db_session: AsyncSession
-):
+async def test_create_step(async_client: AsyncClient, db_session: AsyncSession):
     await _seed_app_and_steps(db_session)
 
     payload = {
@@ -259,9 +263,7 @@ async def test_create_step_nonexistent_app_returns_404(
     await _seed_app_and_steps(db_session)
 
     payload = {'step_id': str(ts.STEP_PHASE_2), 'step_date': '2025-12-05'}
-    response = await async_client.post(
-        '/applications/999/steps', json=payload
-    )
+    response = await async_client.post('/applications/999/steps', json=payload)
 
     assert response.status_code == 404, msg(404, response.status_code)
 
@@ -349,9 +351,7 @@ async def test_create_step_validation_error_still_carries_deprecation(
 # ---------------------------------------------------------------------------
 
 
-async def test_update_step(
-    async_client: AsyncClient, db_session: AsyncSession
-):
+async def test_update_step(async_client: AsyncClient, db_session: AsyncSession):
     await _seed_app_and_steps(db_session)
     await ts.seed(
         db_session,
@@ -439,6 +439,60 @@ async def test_edit_without_step_keeps_an_offer_and_its_salary(
     assert stored.salary_period is SalaryPeriod.ANNUALLY
 
 
+async def test_edit_without_step_keeps_a_denied_events_reason(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """KODI-014: symmetric to the offer/salary case above - a 0.1.4 `steps
+    edit` without `--step` resending the event's own (strict) reverse step
+    keeps its denied_reason too, instead of resetting it to unknown."""
+    await _seed_app_and_steps(db_session)
+    await ts.seed(
+        db_session,
+        ts.event(
+            23,
+            event_type=EventType.DENIED,
+            denied_reason=DeniedReason.SKILLS_MISMATCH,
+        ),
+    )
+    listed = (await async_client.get('/applications/1/steps')).json()[0]
+    assert listed['step_id'] == str(ts.STEP_DENIED)  # strict, but its own
+
+    response = await async_client.put(
+        '/applications/1/steps/23',
+        json={
+            'step_id': listed['step_id'],
+            'step_date': '2025-12-09',
+            'observation': 'still denied',
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    stored = await _event(db_session, 23)
+    assert stored.event_type is EventType.DENIED
+    assert stored.denied_reason is DeniedReason.SKILLS_MISMATCH
+
+
+async def test_edit_switching_a_new_step_to_denied_is_404(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """Denied is strict, same as Offer: a 0.1.4 edit can only ever resend an
+    event's own reverse step into it (the "keeps its reason" case above),
+    never pick it as a *new* step - ``_non_strict_step`` refuses it exactly
+    as ``test_create_step_strict_step_returns_404`` does for create."""
+    await _seed_app_and_steps(db_session)
+    await ts.seed(db_session, ts.event(24, event_type=EventType.NOTE))
+
+    response = await async_client.put(
+        '/applications/1/steps/24',
+        json={'step_id': str(ts.STEP_DENIED), 'step_date': '2025-12-09'},
+    )
+
+    assert response.status_code == 404, response.text
+    stored = await _event(db_session, 24)
+    assert stored.event_type is EventType.NOTE
+    assert stored.denied_reason is None
+
+
 async def test_update_to_a_second_initial_screen_returns_409(
     async_client: AsyncClient, db_session: AsyncSession
 ):
@@ -472,9 +526,7 @@ async def test_update_step_nonexistent_returns_404(
     await _seed_app_and_steps(db_session)
 
     payload = {'step_id': str(ts.STEP_PHASE_2), 'step_date': '2025-12-05'}
-    response = await async_client.put(
-        '/applications/1/steps/999', json=payload
-    )
+    response = await async_client.put('/applications/1/steps/999', json=payload)
 
     assert response.status_code == 404, msg(404, response.status_code)
     _deprecated(response)
@@ -501,9 +553,7 @@ async def test_update_step_on_closed_app_returns_409(
 # ---------------------------------------------------------------------------
 
 
-async def test_delete_step(
-    async_client: AsyncClient, db_session: AsyncSession
-):
+async def test_delete_step(async_client: AsyncClient, db_session: AsyncSession):
     await _seed_app_and_steps(db_session)
     await ts.seed(db_session, ts.event(MIGRATED_STEP_ID))
 
@@ -531,9 +581,7 @@ async def test_delete_step_nonexistent_returns_404(
 async def test_delete_step_on_closed_app_returns_409(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    await _seed_app_and_steps(
-        db_session, finalized_at=datetime(2025, 12, 10)
-    )
+    await _seed_app_and_steps(db_session, finalized_at=datetime(2025, 12, 10))
     await ts.seed(db_session, ts.event(51))
 
     response = await async_client.delete('/applications/1/steps/51')

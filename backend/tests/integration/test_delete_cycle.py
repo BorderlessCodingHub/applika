@@ -7,7 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import EventType, InterviewType
+from app.core.enums import DeniedReason, EventType, InterviewType
 from app.domain.models import (
     ApplicationModel,
     CycleModel,
@@ -89,6 +89,7 @@ async def _seed_cycle_with_data(db_session: AsyncSession) -> int:
             application_id=200,
             user_id=bd['user'].id,
             event_type=EventType.DENIED,
+            denied_reason=DeniedReason.UNKNOWN,
             event_date=date(2025, 12, 3),
         ),
     ])

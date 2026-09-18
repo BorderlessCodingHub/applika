@@ -13,7 +13,13 @@ from datetime import date, time
 import pytest
 from pydantic import ValidationError
 
-from app.core.enums import Currency, EventType, InterviewType, SalaryPeriod
+from app.core.enums import (
+    Currency,
+    DeniedReason,
+    EventType,
+    InterviewType,
+    SalaryPeriod,
+)
 from app.presentation.schemas.timeline_event import (
     TimelineEventCreate,
     TimelineEventOut,
@@ -162,6 +168,47 @@ def test_unknown_interview_type_value_is_rejected(schema):
         schema(**_note_body(event_type='interview', interview_type='phone'))
 
 
+# -- Denied reason (KODI-014, R-033..R-036, the same pattern) ---------------
+
+
+def _denied_body(**overrides: object) -> dict:
+    data: dict = {'event_type': 'denied', 'event_date': '2026-07-01'}
+    data.update(overrides)
+    return data
+
+
+@pytest.mark.parametrize('schema', WRITE_SCHEMAS)
+def test_denied_without_reason_defaults_to_unknown(schema):
+    model = schema(**_denied_body())
+    assert model.denied_reason is DeniedReason.UNKNOWN
+
+
+@pytest.mark.parametrize('schema', WRITE_SCHEMAS)
+@pytest.mark.parametrize('reason', [r.value for r in DeniedReason])
+def test_denied_accepts_each_of_the_ten_reasons(schema, reason):
+    model = schema(**_denied_body(denied_reason=reason))
+    assert model.denied_reason == reason
+
+
+@pytest.mark.parametrize('schema', WRITE_SCHEMAS)
+@pytest.mark.parametrize('event_type', ['note', 'interview', 'feedback'])
+def test_denied_reason_on_non_denied_is_rejected(schema, event_type):
+    with pytest.raises(ValidationError, match='only allowed on denied'):
+        schema(**_note_body(event_type=event_type, denied_reason='ghosted'))
+
+
+@pytest.mark.parametrize('schema', WRITE_SCHEMAS)
+def test_denied_reason_on_offer_is_rejected(schema):
+    with pytest.raises(ValidationError, match='only allowed on denied'):
+        schema(**_offer_body(denied_reason='ghosted'))
+
+
+@pytest.mark.parametrize('schema', WRITE_SCHEMAS)
+def test_unknown_denied_reason_value_is_rejected(schema):
+    with pytest.raises(ValidationError):
+        schema(**_denied_body(denied_reason='not_a_real_reason'))
+
+
 # -- Scheduling -----------------------------------------------------------------
 
 
@@ -277,3 +324,18 @@ def test_out_serializes_null_salary_for_non_offer():
     assert dumped['salary_period'] is None
     assert dumped['salary_currency'] is None
     assert dumped['interview_type'] == 'take_home'
+    assert dumped['denied_reason'] is None
+
+
+def test_out_serializes_the_denied_reason():
+    out = TimelineEventOut.model_validate({
+        'id': 1,
+        'application_id': 2,
+        'user_id': 3,
+        'event_type': EventType.DENIED,
+        'denied_reason': DeniedReason.SALARY_MISMATCH,
+        'event_date': date(2026, 7, 1),
+        'created_at': '2026-07-01T12:00:00Z',
+    })
+    dumped = out.model_dump(mode='json')
+    assert dumped['denied_reason'] == 'salary_mismatch'

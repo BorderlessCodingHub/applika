@@ -13,7 +13,13 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import Currency, EventType, InterviewType, SalaryPeriod
+from app.core.enums import (
+    Currency,
+    DeniedReason,
+    EventType,
+    InterviewType,
+    SalaryPeriod,
+)
 from app.domain.models import (
     ApplicationModel,
     FeedbackDefinitionModel,
@@ -105,6 +111,10 @@ def event(
         'event_date': date(2025, 12, 5),
     }
     values.update(fields)
+    # KODI-014: a denied event defaults to unknown unless the caller picks a
+    # reason, same as a real write (``rules.normalize_event``).
+    if values['event_type'] is EventType.DENIED:
+        values.setdefault('denied_reason', DeniedReason.UNKNOWN)
     return TimelineEventModel(id=id, application_id=application_id, **values)
 
 

@@ -22,7 +22,13 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import Currency, EventType, InterviewType, SalaryPeriod
+from app.core.enums import (
+    Currency,
+    DeniedReason,
+    EventType,
+    InterviewType,
+    SalaryPeriod,
+)
 from app.domain.models import ApplicationModel, CycleModel, TimelineEventModel
 from app.main import app as main_app
 from app.presentation.deprecation import DEPRECATION_VALUE
@@ -284,6 +290,7 @@ def test_openapi_finalize_body_lists_both_shapes():
     outcome = next(b for b in branches if b['title'] == 'FinalizeWithOutcome')
     assert 'outcome' in outcome['properties']
     assert 'salary_period' in outcome['properties']
+    assert 'denied_reason' in outcome['properties']
     # Nested refs resolve against components/schemas, not a local $defs -
     # this branch was hoisted out of its own model_json_schema() output.
     assert '$defs' not in outcome
@@ -291,8 +298,26 @@ def test_openapi_finalize_body_lists_both_shapes():
         outcome['properties']['salary_currency']['anyOf'][0]['$ref']
         == '#/components/schemas/Currency'
     )
-    # And that ref is not dangling: Currency is really there.
-    assert 'Currency' in main_app.openapi()['components']['schemas']
+    assert (
+        outcome['properties']['denied_reason']['anyOf'][0]['$ref']
+        == '#/components/schemas/DeniedReason'
+    )
+    # And those refs are not dangling: both are really there, DeniedReason
+    # with all ten values (KODI-014).
+    schemas = main_app.openapi()['components']['schemas']
+    assert 'Currency' in schemas
+    assert schemas['DeniedReason']['enum'] == [
+        'unknown',
+        'not_good_enough',
+        'skills_mismatch',
+        'assessment_failed',
+        'too_many_candidates',
+        'position_filled',
+        'role_closed',
+        'ghosted',
+        'salary_mismatch',
+        'other',
+    ]
 
 
 # ===========================================================================
@@ -357,6 +382,61 @@ async def test_finalize_denied_outcome_writes_event_without_salary(
     assert event.event_type is EventType.DENIED
     assert event.observation == 'Not a fit'
     assert event.salary_amount is None
+    # KODI-014: no reason given defaults to unknown, same as /timeline.
+    assert event.denied_reason is DeniedReason.UNKNOWN
+
+
+async def test_finalize_denied_outcome_with_a_reason(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await ts.seed_open_application(db_session)
+
+    response = await async_client.post(
+        '/applications/1/finalize',
+        json={'outcome': 'denied', 'denied_reason': 'ghosted'},
+    )
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    data = response.json()
+    assert data['finalized'] is True
+    [event] = await _events(db_session)
+    assert event.denied_reason is DeniedReason.GHOSTED
+
+
+async def test_finalize_outcome_denied_reason_on_offer_is_422(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await ts.seed_open_application(db_session)
+
+    response = await async_client.post(
+        '/applications/1/finalize',
+        json={
+            'outcome': 'offer',
+            'salary_amount': '100.00',
+            'salary_currency': 'USD',
+            'salary_period': 'monthly',
+            'denied_reason': 'ghosted',
+        },
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+    assert 'denied_reason' in response.text
+    assert await _events(db_session) == []
+    assert (await _application(db_session)).finalized_at is None
+
+
+async def test_finalize_outcome_denied_reason_without_outcome_is_422(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await ts.seed_open_application(db_session)
+
+    response = await async_client.post(
+        '/applications/1/finalize', json={'denied_reason': 'ghosted'}
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+    assert await _events(db_session) == []
+    assert (await _application(db_session)).finalized_at is None
 
 
 async def test_finalize_outcome_event_date_defaults_to_today(
@@ -838,6 +918,31 @@ async def test_legacy_finalize_denied_with_accepted_feedback_succeeds(
     [event] = await _events(db_session)
     assert event.event_type is EventType.DENIED
     assert event.salary_amount is None
+    # KODI-014: 'Accepted' is not in the legacy feedback -> reason map, so
+    # it falls back to unknown, same as everywhere else this reason defaults.
+    assert event.denied_reason is DeniedReason.UNKNOWN
+
+
+async def test_legacy_finalize_denied_maps_the_feedback_to_a_reason(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """KODI-014 (R-036): the legacy finalize body maps the feedback name to
+    a ``denied_reason`` with the SAME map migration R3 uses for its own
+    backfill (pinned in ``tests/unit/test_denied_reason_mapping.py``)."""
+    await ts.seed_open_application(db_session)
+
+    response = await async_client.post(
+        '/applications/1/finalize',
+        json=_legacy_body(
+            step_id=str(ts.STEP_DENIED), feedback_id=str(ts.FB_GHOST)
+        ),
+    )
+
+    assert response.status_code == 201, msg(201, response.status_code)
+    [event] = await _events(db_session)
+    assert event.event_type is EventType.DENIED
+    assert event.denied_reason is DeniedReason.GHOSTED
+    assert event.observation == 'Feedback: Ghost'
 
 
 async def test_legacy_finalized_application_can_be_reopened(

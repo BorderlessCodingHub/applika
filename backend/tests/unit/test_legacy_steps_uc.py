@@ -20,7 +20,13 @@ from app.application.use_cases.compat.legacy_steps import (
     ListLegacyStepsUseCase,
     UpdateLegacyStepUseCase,
 )
-from app.core.enums import Currency, EventType, InterviewType, SalaryPeriod
+from app.core.enums import (
+    Currency,
+    DeniedReason,
+    EventType,
+    InterviewType,
+    SalaryPeriod,
+)
 from app.core.exceptions import (
     ApplicationFinalized,
     BusinessRuleViolation,
@@ -53,6 +59,13 @@ LOOSE_OFFER = make_step_definition(
     id=7, name='Verbal offer', strict=False, event_type=EventType.OFFER
 )
 CATALOG = [SCREEN, PHASE_2, PHASE_3, OFFER, LOOSE_OFFER]
+# A catalog WITH 'Denied', for the denied_reason preservation tests below -
+# kept separate from CATALOG so ``test_list_shows_every_event_as_its_
+# reverse_step`` still proves the "no matching name" fallback.
+DENIED = make_step_definition(
+    id=6, name='Denied', strict=True, event_type=EventType.DENIED
+)
+CATALOG_WITH_DENIED = [*CATALOG, DENIED]
 SALARY = {
     'salary_amount': Decimal('9000.00'),
     'salary_currency': Currency.GBP,
@@ -60,15 +73,15 @@ SALARY = {
 }
 
 
-def _repos(application=None, event=None, screening=False):
+def _repos(application=None, event=None, screening=False, catalog=CATALOG):
     app_repo = AsyncMock()
     app_repo.get_by_id_and_user_id.return_value = (
         make_application(id=10) if application is None else application
     )
     step_repo = AsyncMock()
-    step_repo.get_all.return_value = CATALOG
+    step_repo.get_all.return_value = catalog
     step_repo.get_by_id_non_strict_only.side_effect = lambda sid: next(
-        (s for s in CATALOG if s.id == sid and not s.strict), None
+        (s for s in catalog if s.id == sid and not s.strict), None
     )
     timeline_repo = AsyncMock()
     timeline_repo.get_by_id_and_user_id.return_value = event
@@ -241,6 +254,41 @@ async def test_edit_offer_to_another_offer_step_keeps_the_salary():
 
     changes = repos[2].update.call_args.args[1]
     assert changes['salary_amount'] == Decimal('9000.00')
+
+
+async def test_edit_denied_with_its_own_reverse_step_keeps_the_reason():
+    """KODI-014, symmetric to the offer/salary case above: a 0.1.4 `steps
+    edit` without `--step` resending the event's own (strict) reverse step
+    keeps its denied_reason too."""
+    event = make_event(
+        id=42,
+        application_id=10,
+        event_type=EventType.DENIED,
+        denied_reason=DeniedReason.TOO_MANY_CANDIDATES,
+    )
+    repos = _repos(event=event, catalog=CATALOG_WITH_DENIED)
+
+    await UpdateLegacyStepUseCase(*repos).execute(42, 10, 1, _body(step_id=6))
+
+    changes = repos[2].update.call_args.args[1]
+    assert changes['event_type'] is EventType.DENIED
+    assert changes['denied_reason'] is DeniedReason.TOO_MANY_CANDIDATES
+
+
+async def test_edit_denied_to_interview_drops_the_reason():
+    event = make_event(
+        id=42,
+        application_id=10,
+        event_type=EventType.DENIED,
+        denied_reason=DeniedReason.TOO_MANY_CANDIDATES,
+    )
+    repos = _repos(event=event, catalog=CATALOG_WITH_DENIED)
+
+    await UpdateLegacyStepUseCase(*repos).execute(42, 10, 1, _body(step_id=3))
+
+    changes = repos[2].update.call_args.args[1]
+    assert changes['event_type'] is IV
+    assert changes['denied_reason'] is None
 
 
 async def test_edit_interview_to_offer_step_fills_decision_b():

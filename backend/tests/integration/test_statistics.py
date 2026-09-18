@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.enums import EventType, InterviewType
+from app.core.enums import DeniedReason, EventType, InterviewType
 from app.domain.models import (
     ApplicationModel,
     CycleModel,
@@ -88,6 +88,7 @@ async def _seed_stats_data(db_session: AsyncSession):
             user_id=user,
             event_type=EventType.DENIED,
             event_date=today,
+            denied_reason=DeniedReason.UNKNOWN,
         ),
         TimelineEventModel(
             id=3,

@@ -241,9 +241,7 @@ def test_a_scheduled_event_with_timezone_and_observation_is_valid():
 async def test_no_date_order_rule_against_application_or_previous_event():
     """PRD 0008 "Assumptions": an event may predate the application."""
     app_repo, event_repo = _repos(
-        application=make_application(
-            id=800, application_date=date(2026, 7, 10)
-        )
+        application=make_application(id=800, application_date=date(2026, 7, 10))
     )
     result = await CreateTimelineEventUseCase(app_repo, event_repo).execute(
         _create_dto(event_date=date(2020, 1, 1))
@@ -477,6 +475,7 @@ async def test_update_applies_full_replacement():
     assert set(changes) == {
         'event_type',
         'interview_type',
+        'denied_reason',
         'event_date',
         'start_time',
         'end_time',

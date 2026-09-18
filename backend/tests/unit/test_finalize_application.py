@@ -36,7 +36,7 @@ from app.application.use_cases.applications.guards import (
 from app.application.use_cases.timeline_events.rules import (
     OFFER_PERIOD_INVALID,
 )
-from app.core.enums import Currency, EventType, SalaryPeriod
+from app.core.enums import Currency, DeniedReason, EventType, SalaryPeriod
 from app.core.exceptions import (
     ApplicationFinalized,
     BusinessRuleViolation,
@@ -312,6 +312,25 @@ async def test_denied_outcome_creates_event_without_salary():
     assert values['salary_amount'] is None
     assert values['salary_currency'] is None
     assert values['salary_period'] is None
+    # KODI-014: no reason given defaults to unknown.
+    assert values['denied_reason'] is DeniedReason.UNKNOWN
+
+
+async def test_denied_outcome_carries_a_given_reason():
+    use_case, _, timeline_repo = _outcome_use_case()
+
+    await use_case.execute(
+        10,
+        1,
+        FinalizeOutcomeDTO(
+            outcome='denied',
+            event_date=date(2026, 1, 5),
+            denied_reason=DeniedReason.POSITION_FILLED,
+        ),
+    )
+
+    values = timeline_repo.create.call_args.args[0]
+    assert values['denied_reason'] is DeniedReason.POSITION_FILLED
 
 
 async def test_offer_outcome_missing_salary_triad_is_422():

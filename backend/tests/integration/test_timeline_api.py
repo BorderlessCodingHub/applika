@@ -17,7 +17,13 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from app.core.enums import Currency, EventType, InterviewType, SalaryPeriod
+from app.core.enums import (
+    Currency,
+    DeniedReason,
+    EventType,
+    InterviewType,
+    SalaryPeriod,
+)
 from app.domain.models import CycleModel, TimelineEventModel
 from app.main import app as main_app
 from app.presentation.dependencies import get_current_user
@@ -30,6 +36,7 @@ EVENT_KEYS = {
     'user_id',
     'event_type',
     'interview_type',
+    'denied_reason',
     'event_date',
     'start_time',
     'end_time',
@@ -65,6 +72,14 @@ def _interview(kind: str | None = None, **overrides: object) -> dict:
     data: dict = {'event_type': 'interview', 'event_date': '2025-12-03'}
     if kind is not None:
         data['interview_type'] = kind
+    data.update(overrides)
+    return data
+
+
+def _denied(reason: str | None = None, **overrides: object) -> dict:
+    data: dict = {'event_type': 'denied', 'event_date': '2025-12-08'}
+    if reason is not None:
+        data['denied_reason'] = reason
     data.update(overrides)
     return data
 
@@ -253,6 +268,60 @@ async def test_interview_type_on_non_interview_is_422(
 
 
 # ---------------------------------------------------------------------------
+# Denied reason (KODI-014, R-033..R-036)
+# ---------------------------------------------------------------------------
+
+
+async def test_denied_without_reason_is_stored_as_unknown(
+    async_client: AsyncClient, db_session: AsyncSession, async_engine
+):
+    await ts.seed_open_application(db_session)
+
+    response = await async_client.post(BASE, json=_denied())
+
+    assert response.status_code == 201
+    assert response.json()['denied_reason'] == 'unknown'
+    row = await _row(async_engine, response.json()['id'])
+    assert row.denied_reason is DeniedReason.UNKNOWN
+
+
+@pytest.mark.parametrize('reason', [r.value for r in DeniedReason])
+async def test_every_denied_reason_is_accepted(
+    async_client: AsyncClient, db_session: AsyncSession, reason
+):
+    await ts.seed_open_application(db_session)
+    response = await async_client.post(BASE, json=_denied(reason))
+    assert response.status_code == 201
+    assert response.json()['denied_reason'] == reason
+
+
+@pytest.mark.parametrize('event_type', ['note', 'interview', 'offer'])
+async def test_denied_reason_on_non_denied_is_422(
+    async_client: AsyncClient, db_session: AsyncSession, event_type
+):
+    await ts.seed_open_application(db_session)
+    extra = _offer() if event_type == 'offer' else {'event_date': '2025-12-03'}
+    body = {**extra, 'event_type': event_type, 'denied_reason': 'ghosted'}
+    response = await async_client.post(BASE, json=body)
+    assert response.status_code == 422
+
+
+async def test_denied_changed_to_another_type_must_drop_the_reason(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """PRD 0008 pattern (already true of ``interview_type``): the reason
+    goes in the same request that changes the event away from denied."""
+    await ts.seed_open_application(db_session)
+    created = await async_client.post(BASE, json=_denied('skills_mismatch'))
+    event_id = created.json()['id']
+
+    put = await async_client.put(f'{BASE}/{event_id}', json=_note())
+
+    assert put.status_code == 200
+    assert put.json()['denied_reason'] is None
+
+
+# ---------------------------------------------------------------------------
 # Dates, times, timezone, observation (R-004)
 # ---------------------------------------------------------------------------
 
@@ -403,7 +472,9 @@ async def test_offer_hourly_period_returns_422(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     await ts.seed_open_application(db_session)
-    response = await async_client.post(BASE, json=_offer(salary_period='hourly'))
+    response = await async_client.post(
+        BASE, json=_offer(salary_period='hourly')
+    )
     assert response.status_code == 422
 
 
@@ -459,6 +530,17 @@ async def test_offer_changed_to_interview_must_drop_the_salary(
                 'interview_type': InterviewType.FINAL,
             },
             'ck_timeline_events_interview_type',
+        ),
+        (
+            {'event_type': EventType.DENIED, 'denied_reason': None},
+            'ck_timeline_events_denied_reason',
+        ),
+        (
+            {
+                'event_type': EventType.NOTE,
+                'denied_reason': DeniedReason.GHOSTED,
+            },
+            'ck_timeline_events_denied_reason',
         ),
     ],
 )
@@ -518,9 +600,7 @@ async def test_second_initial_screening_is_409(
     await ts.seed_open_application(db_session)
 
     first = await async_client.post(BASE, json=_interview('initial_screening'))
-    second = await async_client.post(
-        BASE, json=_interview('initial_screening')
-    )
+    second = await async_client.post(BASE, json=_interview('initial_screening'))
     other = await async_client.post(BASE, json=_interview('technical'))
 
     assert first.status_code == 201
@@ -554,7 +634,9 @@ async def test_put_into_a_second_initial_screening_is_409_but_itself_is_ok(
 async def test_initial_screening_is_per_application(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    await ts.seed(db_session, *ts.catalog(), ts.application(), ts.application(2))
+    await ts.seed(
+        db_session, *ts.catalog(), ts.application(), ts.application(2)
+    )
 
     one = await async_client.post(BASE, json=_interview('initial_screening'))
     two = await async_client.post(
@@ -591,7 +673,9 @@ async def test_cross_user_access_returns_404(
 async def test_event_scoped_to_owning_application(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    await ts.seed(db_session, *ts.catalog(), ts.application(), ts.application(2))
+    await ts.seed(
+        db_session, *ts.catalog(), ts.application(), ts.application(2)
+    )
     created = await async_client.post(BASE, json=_note())
     event_id = created.json()['id']
 
@@ -608,7 +692,9 @@ async def test_missing_application_and_event_are_404(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     await ts.seed_open_application(db_session)
-    assert (await async_client.get('/applications/999/timeline')).status_code == 404
+    assert (
+        await async_client.get('/applications/999/timeline')
+    ).status_code == 404
     assert (
         await async_client.put(f'{BASE}/999', json=_note())
     ).status_code == 404
@@ -642,7 +728,9 @@ async def test_writes_on_closed_application_conflict_then_reopen_lifts_it(
     # Reads stay allowed on a closed application.
     assert (await async_client.get(BASE)).status_code == 200
 
-    assert (await async_client.post('/applications/1/reopen')).status_code == 200
+    assert (
+        await async_client.post('/applications/1/reopen')
+    ).status_code == 200
     assert (await async_client.post(BASE, json=_note())).status_code == 201
 
 
