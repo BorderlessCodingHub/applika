@@ -24,7 +24,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - KODI-011 `POST /applications/{id}/finalize` also accepts a new optional
   body `{outcome?: "offer"|"denied", event_date?, observation?,
   salary_amount?, salary_currency?, salary_period?}`: an offer requires
-  the salary triad, a denial or no outcome refuses it. 200, no
+  the salary triad, and its `salary_period` must be `monthly` or
+  `annually` (`hourly` is a 422, same restriction as the timeline body); a
+  denial or no outcome refuses the salary fields entirely. 200, no
   `Deprecation` header. 0.1.4 never sends it; a future CLI can finalize
   with the outcome in one call instead of a `/timeline` POST followed by a
   bodyless finalize.

@@ -13,6 +13,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   both parameters from the first one's query key and the window silently
   collapsed to `from_date`-only, one day when both were sent explicitly.
   Each parameter now gets its own `Query(None)` instance.
+- KODI-011 (remediation round 1, R-032) `POST /applications/{id}/finalize`
+  with the new optional outcome body now refuses `salary_period=hourly` on
+  `outcome=offer` (422, "offer salary_period must be monthly or annually"),
+  the same restriction and message the timeline write schema already
+  enforces. Before this fix the outcome body validated the salary triad's
+  presence but not the period's value, so the same offer event was valid
+  through `POST/PUT /timeline` and refused through `/finalize`, or the
+  reverse. The shared check lives in
+  `timeline_events/rules.ensure_offer_period_allowed`; the 0.1.4 legacy
+  finalize body is unchanged — it still fills an offer's period from the
+  application, which can itself be hourly.
+- KODI-011 (remediation round 1) The finalize `requestBody` in OpenAPI now
+  documents both accepted shapes — the deprecated 0.1.4 body and the new
+  optional outcome body (R-032) — as a `oneOf`, instead of only the
+  0.1.4 shape. `required: false` is unchanged.
 
 ### Added
 

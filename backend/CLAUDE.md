@@ -414,10 +414,25 @@ the future (`validators/application_date.ensure_not_in_future`), then one
 are written through the same shared-session, single-commit pattern
 `LegacyFinalizeApplicationUseCase` uses (`TimelineEventRepository.create`'s
 commit persists both; a failed insert leaves `finalized_at` unwritten). The
-offer salary_period is **not** restricted to monthly/annually here (unlike
-the timeline write schema): it goes through the same
-`timeline_events/rules.normalize_event` the legacy body already uses, which
-does not restrict it either.
+offer's `salary_period` is `monthly` or `annually`, same restriction and
+same message as the timeline write schema (`hourly` is a 422) —
+`timeline_events/rules.OFFER_PERIODS`/`OFFER_PERIOD_INVALID`, enforced in
+`FinalizeWithOutcome` and again in `FinalizeApplicationWithOutcomeUseCase`
+via `rules.ensure_offer_period_allowed`. Fixed in KODI-011 remediation
+round 1 (R-032): the outcome body used to go through
+`timeline_events/rules.normalize_event` alone, which only checks the
+salary fields are present, not the period's value, so the same offer event
+was valid through `/timeline` and refused through `/finalize`, or the
+reverse. `ensure_offer_period_allowed` is deliberately **not** folded into
+`normalize_event` itself, because the 0.1.4 legacy finalize body
+(`compat/legacy_finalize.py`) also goes through `normalize_event` and
+fills an offer's period from `application.salary_period`, which can itself
+be `hourly` — that compat behaviour is pinned and unchanged. One
+consequence: the legacy body can still write an offer event with
+`salary_period=hourly` (owner decision (b)'s convention, unchanged), and
+that event, once read back, cannot be re-submitted unchanged through
+`PUT /timeline` — the timeline write schema refuses `hourly` on an offer
+regardless of how the event got there.
 
 The `Application` response carries `finalized_at` and keeps the fields
 installed `applika-cli` 0.1.4 reads, **derived from the timeline** by
