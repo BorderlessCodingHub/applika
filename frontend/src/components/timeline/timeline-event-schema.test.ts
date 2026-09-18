@@ -465,17 +465,141 @@ describe("toTimelineEventPayload", () => {
     expect(payload.observation).toBe("Phone screen");
   });
 
-  it("nulls the schedule for a migrated denied event even if it carries a stored schedule (KODI-014)", () => {
+  it("nulls the schedule when CREATING a denied event, even if stale values linger in form state (KODI-014)", () => {
     const payload = toTimelineEventPayload(
       deniedValues({
         start_time: "09:00",
         end_time: "10:00",
         timezone: "Europe/London",
       }),
+      // No `original` — this is a create, not an edit.
     );
     expect(payload.start_time).toBeNull();
     expect(payload.end_time).toBeNull();
     expect(payload.timezone).toBeNull();
+  });
+
+  // Coordinator's interim rule (2026-09-18): editing an event whose stored
+  // type was already non-interview, and that stays non-interview in this
+  // edit, must send the STORED schedule back unchanged — only a switch away
+  // from interview (or a brand-new event) clears it.
+  describe("editing a non-interview event with a stored schedule (KODI-014 interim rule)", () => {
+    it.each(["note", "offer", "denied"] as const)(
+      "keeps the stored start, end and timezone when editing a %s and changing only the observation",
+      (type) => {
+        const original: TimelineEventView = {
+          id: "orig-1",
+          type,
+          eventDate: "2026-07-02",
+          startTime: "09:00",
+          endTime: "10:00",
+          timezone: "Europe/London",
+          observation: "Old note",
+          ...(type === "offer"
+            ? {
+                salaryPeriod: "monthly" as const,
+                salaryAmount: "5000",
+                salaryCurrency: "EUR",
+              }
+            : {}),
+          ...(type === "denied" ? { deniedReason: "unknown" as const } : {}),
+        };
+        const values =
+          type === "offer"
+            ? offerValues({
+                start_time: "09:00",
+                end_time: "10:00",
+                timezone: "Europe/London",
+                observation: "New note",
+              })
+            : type === "denied"
+              ? deniedValues({
+                  start_time: "09:00",
+                  end_time: "10:00",
+                  timezone: "Europe/London",
+                  observation: "New note",
+                })
+              : noteValues({
+                  start_time: "09:00",
+                  end_time: "10:00",
+                  timezone: "Europe/London",
+                  observation: "New note",
+                });
+
+        const payload = toTimelineEventPayload(values, original);
+
+        expect(payload.start_time).toBe("09:00");
+        expect(payload.end_time).toBe("10:00");
+        expect(payload.timezone).toBe("Europe/London");
+        expect(payload.observation).toBe("New note");
+      },
+    );
+
+    it("sends the original's null schedule as null when editing a non-interview event that never had one", () => {
+      const original: TimelineEventView = {
+        id: "orig-2",
+        type: "note",
+        eventDate: "2026-07-02",
+        startTime: null,
+        endTime: null,
+        timezone: null,
+        observation: "Old note",
+      };
+      const payload = toTimelineEventPayload(
+        noteValues({ observation: "New note" }),
+        original,
+      );
+      expect(payload.start_time).toBeNull();
+      expect(payload.end_time).toBeNull();
+      expect(payload.timezone).toBeNull();
+    });
+
+    it("nulls the schedule when the edit switches the type FROM interview TO a non-interview type", () => {
+      const original: TimelineEventView = {
+        id: "orig-3",
+        type: "interview",
+        interviewType: "technical",
+        eventDate: "2026-07-02",
+        startTime: "09:00",
+        endTime: "10:00",
+        timezone: "Europe/London",
+        observation: "Old note",
+      };
+      const payload = toTimelineEventPayload(
+        noteValues({ observation: "Switched to note" }),
+        original,
+      );
+      expect(payload.start_time).toBeNull();
+      expect(payload.end_time).toBeNull();
+      expect(payload.timezone).toBeNull();
+    });
+
+    it("still applies the interview nulling rules when an interview stays an interview on edit", () => {
+      const original: TimelineEventView = {
+        id: "orig-4",
+        type: "interview",
+        interviewType: "technical",
+        eventDate: "2026-07-02",
+        startTime: "09:00",
+        endTime: "10:00",
+        timezone: "Europe/London",
+        observation: "Old note",
+      };
+      // Editing the interview and blanking the start time still nulls the
+      // timezone, exactly as before (unchanged interview behaviour).
+      const payload = toTimelineEventPayload(
+        interviewValues({
+          start_time: "",
+          end_time: "",
+          timezone: "UTC",
+          observation: "Blanked schedule",
+        }),
+        original,
+      );
+      expect(payload.start_time).toBeNull();
+      expect(payload.end_time).toBeNull();
+      expect(payload.timezone).toBeNull();
+    });
   });
 });
 
