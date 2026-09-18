@@ -951,6 +951,88 @@ def test_timeline_edit_reason_on_type_change_away_from_denied_refused(
 
     assert result.exit_code == 1
     assert '--reason is only allowed with --type denied' in result.output
+    assert FakeApiClient.captured_put_payload is None
+
+
+def test_timeline_edit_reason_with_no_type_on_non_denied_event_refused(
+    monkeypatch, runner
+):
+    """--reason with no --type at all, on an event that is not (and does
+    not become) denied, must be refused too - not just the explicit
+    --type note case."""
+    _setup(monkeypatch)
+    note_event = {
+        'id': '700',
+        'application_id': '99',
+        'user_id': '1',
+        'event_type': 'note',
+        'interview_type': None,
+        'event_date': '2026-06-05',
+        'start_time': None,
+        'end_time': None,
+        'timezone': None,
+        'observation': None,
+        'salary_amount': None,
+        'salary_currency': None,
+        'salary_period': None,
+        'created_at': '2026-06-05T00:00:00Z',
+        'updated_at': None,
+    }
+    FakeApiClient.timeline_events = {'99': [note_event]}
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'edit',
+            '99',
+            '700',
+            '--reason',
+            'ghosted',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert '--reason is only allowed with --type denied' in result.output
+    assert FakeApiClient.captured_put_payload is None
+
+
+def test_timeline_edit_type_change_to_denied_without_reason_defaults_unknown(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    note_event = {
+        'id': '700',
+        'application_id': '99',
+        'user_id': '1',
+        'event_type': 'note',
+        'interview_type': None,
+        'event_date': '2026-06-05',
+        'start_time': None,
+        'end_time': None,
+        'timezone': None,
+        'observation': None,
+        'salary_amount': None,
+        'salary_currency': None,
+        'salary_period': None,
+        'created_at': '2026-06-05T00:00:00Z',
+        'updated_at': None,
+    }
+    FakeApiClient.timeline_events = {'99': [note_event]}
+    FakeApiClient.event_updated_response = {
+        'id': '700',
+        'event_type': 'denied',
+        'event_date': '2026-06-05',
+    }
+
+    result = runner.invoke(
+        app,
+        ['applications', 'timeline', 'edit', '99', '700', '--type', 'denied'],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_put_payload['denied_reason'] == 'unknown'
 
 
 def test_timeline_edit_tolerates_missing_denied_reason_in_response(
@@ -1316,6 +1398,7 @@ def test_finalize_reason_with_outcome_offer_refused(monkeypatch, runner):
 
     assert result.exit_code == 1
     assert '--reason is only allowed when --outcome denied' in result.output
+    assert FakeApiClient.captured_post_payload is None
 
 
 def test_finalize_reason_without_outcome_refused(monkeypatch, runner):
@@ -1327,6 +1410,7 @@ def test_finalize_reason_without_outcome_refused(monkeypatch, runner):
 
     assert result.exit_code == 1
     assert '--reason is only allowed when --outcome denied' in result.output
+    assert FakeApiClient.captured_post_payload is None
 
 
 def test_finalize_reason_with_legacy_step_path_refused(monkeypatch, runner):
@@ -1351,6 +1435,7 @@ def test_finalize_reason_with_legacy_step_path_refused(monkeypatch, runner):
 
     assert result.exit_code == 1
     assert 'cannot be combined with --outcome' in result.output
+    assert FakeApiClient.captured_post_payload is None
 
 
 def test_finalize_legacy_step_path_requires_feedback_and_date(
