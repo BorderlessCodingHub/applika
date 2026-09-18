@@ -105,6 +105,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   transitional triggers (`trg_application_steps_sync`,
   `trg_applications_finalize_sync`) and their functions are then dropped —
   nothing has written `application_steps` since Release B.
+- KODI-013 (addendum, AC23) `GET /applications/statistics` gains `active:
+  int` on `ApplicationsStatistics`: the current user's applications in the
+  same scope/cycle filter as `total_applications` whose `finalized_at` is
+  NULL — not closed, regardless of outcome. `applika-cli` does not call this
+  route, so no CLI changelog entry.
 
 ### Changed
 
