@@ -34,6 +34,7 @@ from app.application.use_cases.applications.guards import (
     ensure_not_archived,
 )
 from app.application.use_cases.timeline_events.rules import (
+    DENIED_REASON_ONLY_ON_DENIED,
     OFFER_PERIOD_INVALID,
 )
 from app.core.enums import Currency, DeniedReason, EventType, SalaryPeriod
@@ -379,6 +380,27 @@ async def test_salary_on_denied_outcome_is_422():
                 salary_period=SalaryPeriod.MONTHLY,
             ),
         )
+    timeline_repo.create.assert_not_called()
+    app_repo.update.assert_not_called()
+
+
+async def test_denied_reason_on_offer_outcome_is_422():
+    """Defense in depth: the presentation schema already refuses this."""
+    use_case, app_repo, timeline_repo = _outcome_use_case()
+
+    with pytest.raises(BusinessRuleViolation) as exc:
+        await use_case.execute(
+            10,
+            1,
+            FinalizeOutcomeDTO(
+                outcome='offer',
+                salary_amount=Decimal('10'),
+                salary_currency=Currency.USD,
+                salary_period=SalaryPeriod.MONTHLY,
+                denied_reason=DeniedReason.GHOSTED,
+            ),
+        )
+    assert str(exc.value) == DENIED_REASON_ONLY_ON_DENIED
     timeline_repo.create.assert_not_called()
     app_repo.update.assert_not_called()
 

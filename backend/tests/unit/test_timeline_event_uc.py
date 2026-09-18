@@ -39,6 +39,7 @@ from app.application.use_cases.timeline_events.list import (
     ListTimelineEventsUseCase,
 )
 from app.application.use_cases.timeline_events.rules import (
+    DENIED_REASON_ONLY_ON_DENIED,
     END_AFTER_START,
     INTERVIEW_TYPE_ONLY_ON_INTERVIEW,
     OFFER_NEEDS_SALARY,
@@ -49,7 +50,13 @@ from app.application.use_cases.timeline_events.rules import (
 from app.application.use_cases.timeline_events.update import (
     UpdateTimelineEventUseCase,
 )
-from app.core.enums import Currency, EventType, InterviewType, SalaryPeriod
+from app.core.enums import (
+    Currency,
+    DeniedReason,
+    EventType,
+    InterviewType,
+    SalaryPeriod,
+)
 from app.core.exceptions import (
     ApplicationFinalized,
     BusinessRuleViolation,
@@ -169,6 +176,40 @@ def test_interview_type_on_a_non_interview_is_refused(event_type):
             )
         )
     assert str(exc.value) == INTERVIEW_TYPE_ONLY_ON_INTERVIEW
+
+
+def test_denied_without_reason_defaults_to_unknown():
+    result = normalize_event(_update_dto(event_type='denied'))
+    assert result.denied_reason is DeniedReason.UNKNOWN
+
+
+@pytest.mark.parametrize('reason', list(DeniedReason))
+def test_denied_keeps_the_reason_it_was_given(reason):
+    result = normalize_event(
+        _update_dto(event_type='denied', denied_reason=reason)
+    )
+    assert result.denied_reason is reason
+
+
+@pytest.mark.parametrize(
+    'event_type', ['note', 'interview', 'feedback', 'offer']
+)
+def test_denied_reason_on_a_non_denied_is_refused(event_type):
+    extra = OFFER_SALARY if event_type == 'offer' else {}
+    with pytest.raises(BusinessRuleViolation) as exc:
+        normalize_event(
+            _update_dto(event_type=event_type, denied_reason='ghosted', **extra)
+        )
+    assert str(exc.value) == DENIED_REASON_ONLY_ON_DENIED
+
+
+def test_denied_changed_to_note_must_drop_the_reason():
+    """PRD 0008 edge case, symmetric to the offer/salary one below: the
+    reason goes in the same change that moves the event away from denied."""
+    with pytest.raises(BusinessRuleViolation):
+        normalize_event(_update_dto(event_type='note', denied_reason='ghosted'))
+    dropped = normalize_event(_update_dto(event_type='note'))
+    assert dropped.denied_reason is None
 
 
 def test_offer_with_the_salary_triple_is_valid():
