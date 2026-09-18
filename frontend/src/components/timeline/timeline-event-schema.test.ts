@@ -194,6 +194,86 @@ describe("timelineEventSchema — non-offer, non-interview variants", () => {
   });
 });
 
+describe("timelineEventSchema — server-limit parity (mirrors _TimelineEventWrite)", () => {
+  it("rejects a start time with no end time, and vice versa", () => {
+    expect(
+      timelineEventSchema.safeParse(noteValues({ start_time: "09:00" }))
+        .success,
+    ).toBe(false);
+    expect(
+      timelineEventSchema.safeParse(noteValues({ end_time: "10:00" })).success,
+    ).toBe(false);
+  });
+
+  it("accepts a start/end pair with the end after the start", () => {
+    expect(
+      timelineEventSchema.safeParse(
+        noteValues({ start_time: "09:00", end_time: "10:00" }),
+      ).success,
+    ).toBe(true);
+  });
+
+  it("rejects an end time at or before the start time", () => {
+    expect(
+      timelineEventSchema.safeParse(
+        noteValues({ start_time: "10:00", end_time: "10:00" }),
+      ).success,
+    ).toBe(false);
+    expect(
+      timelineEventSchema.safeParse(
+        noteValues({ start_time: "10:00", end_time: "09:00" }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("rejects a timezone longer than 100 characters", () => {
+    expect(
+      timelineEventSchema.safeParse(noteValues({ timezone: "a".repeat(101) }))
+        .success,
+    ).toBe(false);
+    expect(
+      timelineEventSchema.safeParse(noteValues({ timezone: "a".repeat(100) }))
+        .success,
+    ).toBe(true);
+  });
+
+  it("rejects an observation longer than 5000 characters", () => {
+    expect(
+      timelineEventSchema.safeParse(
+        noteValues({ observation: "a".repeat(5001) }),
+      ).success,
+    ).toBe(false);
+    expect(
+      timelineEventSchema.safeParse(
+        noteValues({ observation: "a".repeat(5000) }),
+      ).success,
+    ).toBe(true);
+  });
+
+  it("rejects an offer amount with more than 2 decimal places", () => {
+    expect(
+      timelineEventSchema.safeParse(offerValues({ salary_amount: "100.555" }))
+        .success,
+    ).toBe(false);
+  });
+
+  it("rejects an offer amount with more than 10 integer digits", () => {
+    expect(
+      timelineEventSchema.safeParse(
+        offerValues({ salary_amount: "12345678901" }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("accepts an offer amount at the limit (10 digits, 2 decimals)", () => {
+    expect(
+      timelineEventSchema.safeParse(
+        offerValues({ salary_amount: "1234567890.12" }),
+      ).success,
+    ).toBe(true);
+  });
+});
+
 describe("toTimelineEventPayload", () => {
   it("sends the salary trio for an offer", () => {
     const payload = toTimelineEventPayload(offerValues());

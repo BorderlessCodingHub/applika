@@ -13,7 +13,10 @@ import { services } from "@/services/services";
  * PRD 0008 / ADR 0012 (T046): the closed badge + Reopen affordance, both
  * derived purely from `finalized_at`. A closed application hides Add/Edit/
  * Close and offers Reopen instead (the CV link always stays); an open one
- * shows Edit/Close and no Reopen.
+ * shows Edit/Close and no Reopen. Delete stays available EITHER way — the
+ * API only refuses deleting an ARCHIVED application
+ * (`DeleteApplicationUseCase`), not a closed one, and the design spec only
+ * calls for Add/Edit/Close to hide when closed.
  */
 
 vi.mock("@/contexts/supports-context", () => ({
@@ -119,6 +122,16 @@ describe("ApplicationItem — closed application", () => {
       }),
     );
     expect(screen.getByTitle("CV")).toBeInTheDocument();
+  });
+
+  it("keeps Delete even when closed (only archived applications refuse delete)", () => {
+    renderItem(
+      baseApplication({
+        finalized: true,
+        finalized_at: "2026-06-10T00:00:00Z",
+      }),
+    );
+    expect(screen.getByTitle("Delete")).toBeInTheDocument();
   });
 
   it("expanding a closed application's timeline shows no Add event button", async () => {

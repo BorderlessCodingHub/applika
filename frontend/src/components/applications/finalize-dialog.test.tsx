@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { FinalizeDialog } from "@/components/applications/finalize-dialog";
 import { FINALIZE_REVERSIBLE_COPY } from "@/components/applications/application-close-copy";
+import { services } from "@/services/services";
 
 /**
  * PRD 0008 / ADR 0012, R-032 (T046): the close-application dialog is an
@@ -99,5 +100,38 @@ describe("FinalizeDialog — outcome-gated fields (R-032)", () => {
     await user.click(screen.getByRole("radio", { name: "Offer" }));
     await user.click(screen.getByRole("combobox", { name: "Currency" }));
     expect(screen.getAllByRole("option")).toHaveLength(20);
+  });
+});
+
+describe("FinalizeDialog — server-limit parity (mirrors FinalizeWithOutcome)", () => {
+  it("blocks save on an amount with more than 2 decimal places", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("radio", { name: "Offer" }));
+    await user.type(screen.getByLabelText("Amount"), "100.555");
+    await user.click(screen.getByRole("combobox", { name: "Currency" }));
+    await user.click(screen.getAllByRole("option")[0]);
+    await user.click(screen.getByRole("radio", { name: "Monthly" }));
+
+    await user.click(screen.getByRole("button", { name: "Close application" }));
+
+    await waitFor(() =>
+      expect(services.applications.finalize).not.toHaveBeenCalled(),
+    );
+  });
+
+  it("blocks save on an observation longer than 5000 characters", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    fireEvent.change(screen.getByLabelText(/notes/i), {
+      target: { value: "a".repeat(5001) },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Close application" }));
+
+    await waitFor(() =>
+      expect(services.applications.finalize).not.toHaveBeenCalled(),
+    );
   });
 });
