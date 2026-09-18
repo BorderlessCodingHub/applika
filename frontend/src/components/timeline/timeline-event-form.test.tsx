@@ -279,6 +279,145 @@ describe("TimelineEventForm — schedule visibility (AC2, KODI-014)", () => {
   });
 });
 
+describe("TimelineEventForm — stored schedule on edit (KODI-014 interim rule)", () => {
+  const STORED_NOTE_WITH_SCHEDULE: TimelineEventView = {
+    id: "note-1",
+    type: "note",
+    eventDate: "2026-06-01",
+    startTime: "09:00",
+    endTime: "10:00",
+    timezone: "Europe/London",
+    observation: "Old note",
+  };
+
+  function mockUpdatedEvent() {
+    vi.mocked(services.timeline.update).mockResolvedValue({
+      id: "note-1",
+      application_id: "app-1",
+      user_id: "u-1",
+      event_type: "note",
+      interview_type: null,
+      denied_reason: null,
+      event_date: "2026-06-01",
+      start_time: "09:00",
+      end_time: "10:00",
+      timezone: "Europe/London",
+      observation: "Updated note",
+      salary_period: null,
+      salary_amount: null,
+      salary_currency: null,
+      created_at: "2026-06-01T00:00:00Z",
+      updated_at: "2026-06-02T00:00:00Z",
+    });
+  }
+
+  it("keeps the stored start, end and timezone in the PUT when only the observation changes (regression: the payload builder must be called WITH the original event)", async () => {
+    const user = userEvent.setup();
+    mockUpdatedEvent();
+    renderForm({ event: STORED_NOTE_WITH_SCHEDULE, otherEvents: [] });
+
+    // The schedule inputs stay hidden — Note is not Interview.
+    expect(screen.queryByLabelText("Start")).not.toBeInTheDocument();
+
+    const notes = screen.getByLabelText("Notes (optional)");
+    await user.clear(notes);
+    await user.type(notes, "Updated note");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() =>
+      expect(services.timeline.update).toHaveBeenCalledWith(
+        "app-1",
+        "note-1",
+        expect.objectContaining({
+          event_type: "note",
+          start_time: "09:00",
+          end_time: "10:00",
+          timezone: "Europe/London",
+          observation: "Updated note",
+        }),
+      ),
+    );
+  });
+
+  it("keeps the ORIGINAL stored schedule, not a value typed while briefly switched to Interview, when the edit ends back on a non-interview type", async () => {
+    const user = userEvent.setup();
+    mockUpdatedEvent();
+    renderForm({ event: STORED_NOTE_WITH_SCHEDULE, otherEvents: [] });
+
+    // Toggle to Interview, type different times, then switch back to Note.
+    await user.click(screen.getByRole("radio", { name: "Interview" }));
+    await user.clear(screen.getByLabelText("Start"));
+    await user.type(screen.getByLabelText("Start"), "14:00");
+    await user.clear(screen.getByLabelText("End"));
+    await user.type(screen.getByLabelText("End"), "15:00");
+    await user.click(screen.getByRole("radio", { name: "Note" }));
+
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() =>
+      expect(services.timeline.update).toHaveBeenCalledWith(
+        "app-1",
+        "note-1",
+        expect.objectContaining({
+          event_type: "note",
+          start_time: "09:00",
+          end_time: "10:00",
+          timezone: "Europe/London",
+        }),
+      ),
+    );
+  });
+
+  it("nulls the schedule when the edit switches the type FROM Interview TO a non-interview type", async () => {
+    const user = userEvent.setup();
+    const STORED_INTERVIEW: TimelineEventView = {
+      id: "interview-2",
+      type: "interview",
+      interviewType: "technical",
+      eventDate: "2026-06-01",
+      startTime: "09:00",
+      endTime: "10:00",
+      timezone: "Europe/London",
+      observation: null,
+    };
+    vi.mocked(services.timeline.update).mockResolvedValue({
+      id: "interview-2",
+      application_id: "app-1",
+      user_id: "u-1",
+      event_type: "note",
+      interview_type: null,
+      denied_reason: null,
+      event_date: "2026-06-01",
+      start_time: null,
+      end_time: null,
+      timezone: null,
+      observation: null,
+      salary_period: null,
+      salary_amount: null,
+      salary_currency: null,
+      created_at: "2026-06-01T00:00:00Z",
+      updated_at: "2026-06-02T00:00:00Z",
+    });
+    renderForm({ event: STORED_INTERVIEW, otherEvents: [] });
+
+    await user.click(screen.getByRole("radio", { name: "Note" }));
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() =>
+      expect(services.timeline.update).toHaveBeenCalledWith(
+        "app-1",
+        "interview-2",
+        expect.objectContaining({
+          event_type: "note",
+          start_time: null,
+          end_time: null,
+          timezone: null,
+        }),
+      ),
+    );
+  });
+});
+
 describe("TimelineEventForm — timezone (AC3, KODI-014)", () => {
   it("pre-fills the timezone select with the browser's own zone for a new interview", async () => {
     const user = userEvent.setup();

@@ -484,8 +484,15 @@ describe("toTimelineEventPayload", () => {
   // edit, must send the STORED schedule back unchanged — only a switch away
   // from interview (or a brand-new event) clears it.
   describe("editing a non-interview event with a stored schedule (KODI-014 interim rule)", () => {
-    it.each(["note", "offer", "denied"] as const)(
-      "keeps the stored start, end and timezone when editing a %s and changing only the observation",
+    // The form values deliberately carry a DIFFERENT start/end/timezone than
+    // `original` (form state can still hold whatever the last interview
+    // selection left behind, even though the fields are unmounted and the
+    // user cannot see or edit them — see the schema module's doc comment).
+    // Asserting the STORED 09:00/10:00/Europe/London comes out, not the
+    // 14:00/15:00/Asia/Tokyo sitting in form state, is what actually proves
+    // the payload is read from `original` and not from `values`.
+    it.each(["note", "feedback", "offer", "denied"] as const)(
+      "keeps the ORIGINAL's stored start, end and timezone when editing a %s and changing only the observation, even when form state disagrees",
       (type) => {
         const original: TimelineEventView = {
           id: "orig-1",
@@ -504,27 +511,18 @@ describe("toTimelineEventPayload", () => {
             : {}),
           ...(type === "denied" ? { deniedReason: "unknown" as const } : {}),
         };
+        const staleFormSchedule = {
+          start_time: "14:00",
+          end_time: "15:00",
+          timezone: "Asia/Tokyo",
+          observation: "New note",
+        };
         const values =
           type === "offer"
-            ? offerValues({
-                start_time: "09:00",
-                end_time: "10:00",
-                timezone: "Europe/London",
-                observation: "New note",
-              })
+            ? offerValues(staleFormSchedule)
             : type === "denied"
-              ? deniedValues({
-                  start_time: "09:00",
-                  end_time: "10:00",
-                  timezone: "Europe/London",
-                  observation: "New note",
-                })
-              : noteValues({
-                  start_time: "09:00",
-                  end_time: "10:00",
-                  timezone: "Europe/London",
-                  observation: "New note",
-                });
+              ? deniedValues(staleFormSchedule)
+              : noteValues({ event_type: type, ...staleFormSchedule });
 
         const payload = toTimelineEventPayload(values, original);
 
