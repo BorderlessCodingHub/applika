@@ -15,7 +15,10 @@ import {
   FINALIZE_OUTCOMES,
   type FinalizeOutcome,
 } from "@/components/applications/application-close-copy";
-import { EVENT_TYPE_CONFIG } from "@/components/timeline/timeline-options";
+import {
+  EVENT_TYPE_CONFIG,
+  REVEAL_CLASS,
+} from "@/components/timeline/timeline-options";
 import { cn } from "@/lib/utils";
 
 interface OutcomeLook {
@@ -134,6 +137,8 @@ export function FinalizeOutcomePicker({
 export interface FinalizeOutcomeFieldsProps {
   /** `outcome` — `FinalizeOutcomePicker` in a `FormField`. */
   outcomeField: ReactNode;
+  /** `denied_reason` — `DeniedReasonSelect` (default `unknown`). Denied only. */
+  deniedReasonField?: ReactNode;
   /** `event_date` — `DatePickerInput` (today by default, no future). Offer/denied only. */
   eventDateField: ReactNode;
   /** `observation` — `Textarea`. Offer/denied only. */
@@ -146,7 +151,8 @@ export interface FinalizeOutcomeFieldsProps {
   salaryPeriodField: ReactNode;
   /**
    * The watched outcome. `offer`/`denied` reveal the date and observation;
-   * `offer` also reveals the salary group. Unrevealed fields are unmounted and
+   * `denied` also reveals the reason, right under the picker, and `offer` the
+   * salary group. Unrevealed fields are unmounted and
    * must be omitted from the payload (`none` sends no body at all).
    */
   outcome: FinalizeOutcome;
@@ -155,13 +161,15 @@ export interface FinalizeOutcomeFieldsProps {
 
 /**
  * Presentational layout scaffold for the finalize dialog body: the outcome
- * picker, then — for Offer or Denied — the date and observation, then — for
- * Offer only — the salary triad, grouped like the timeline form's Offer
- * details. Not a form: no `<form>`, no submit, no validation. The dialog's
+ * picker, then — for Denied only — the reason in a tinted box right under it,
+ * as the timeline form places a type's own classifier, then — for Offer or
+ * Denied — the date and observation, then — for Offer only — the salary
+ * triad, grouped like the timeline form's Offer details. Not a form: no `<form>`, no submit, no validation. The dialog's
  * description carries `FINALIZE_REVERSIBLE_COPY`.
  */
 export function FinalizeOutcomeFields({
   outcomeField,
+  deniedReasonField,
   eventDateField,
   observationField,
   salaryAmountField,
@@ -172,13 +180,30 @@ export function FinalizeOutcomeFields({
 }: FinalizeOutcomeFieldsProps) {
   const hasOutcome = outcome !== "none";
   const isOffer = outcome === "offer";
+  const isDenied = outcome === "denied";
 
   return (
-    <div className={cn("space-y-5", className)}>
+    <div className={cn("flex flex-col gap-5", className)}>
       {outcomeField}
 
+      {isDenied && deniedReasonField ? (
+        <div
+          className={cn(
+            REVEAL_CLASS,
+            "rounded-md border border-destructive/30 bg-destructive/5 p-3",
+          )}
+        >
+          {deniedReasonField}
+        </div>
+      ) : null}
+
       {hasOutcome ? (
-        <fieldset className="rounded-md border border-border p-3">
+        <fieldset
+          className={cn(
+            REVEAL_CLASS,
+            "min-w-0 rounded-md border border-border p-3",
+          )}
+        >
           <legend className="flex items-center gap-1.5 px-1 text-[11px] font-medium tracking-wide-label text-muted-foreground uppercase">
             <CalendarCheck aria-hidden className="size-3" />
             {FINALIZE_FIELDS_COPY.detailsLegend}
@@ -186,7 +211,7 @@ export function FinalizeOutcomeFields({
           <p className="mb-3 text-xs text-muted-foreground">
             {FINALIZE_FIELDS_COPY.detailsHint}
           </p>
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             {eventDateField}
             {observationField}
           </div>
@@ -194,7 +219,12 @@ export function FinalizeOutcomeFields({
       ) : null}
 
       {isOffer ? (
-        <fieldset className="rounded-md border border-success/30 bg-success/5 p-3">
+        <fieldset
+          className={cn(
+            REVEAL_CLASS,
+            "min-w-0 rounded-md border border-success/30 bg-success/5 p-3",
+          )}
+        >
           <legend className="flex items-center gap-1.5 px-1 text-[11px] font-medium tracking-wide-label text-success uppercase">
             <Coins aria-hidden className="size-3" />
             {FINALIZE_FIELDS_COPY.offerLegend}

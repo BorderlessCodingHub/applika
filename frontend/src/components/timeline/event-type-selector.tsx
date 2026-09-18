@@ -31,7 +31,8 @@ interface EventTypeSelectorProps {
  * colour, not colour alone. Controlled + presentational — pass `value` /
  * `onValueChange` from react-hook-form.
  *
- * Responsive: 2 columns on mobile, 3 from `sm`, all 5 in a row from `lg`.
+ * Responsive: 3 columns (3 + 2) on mobile, all 5 in a row from `sm`, where the
+ * event dialog is `max-w-3xl`.
  */
 export function EventTypeSelector({
   value,
@@ -53,10 +54,7 @@ export function EventTypeSelector({
       aria-labelledby={ariaLabelledby}
       aria-describedby={ariaDescribedby}
       aria-label={ariaLabelledby ? undefined : "Event type"}
-      className={cn(
-        "grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5",
-        className,
-      )}
+      className={cn("grid grid-cols-3 gap-2 sm:grid-cols-5", className)}
     >
       {EVENT_TYPE_OPTIONS.map((option) => {
         const {

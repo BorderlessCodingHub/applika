@@ -25,6 +25,7 @@ export function toTimelineEventView(event: TimelineEvent): TimelineEventView {
     id: event.id,
     type: event.event_type,
     interviewType: event.interview_type,
+    deniedReason: event.denied_reason,
     eventDate: event.event_date,
     startTime: toHourMinute(event.start_time),
     endTime: toHourMinute(event.end_time),

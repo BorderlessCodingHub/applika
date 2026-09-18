@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { Banknote, Clock } from "lucide-react";
 
+import { DeniedReasonBadge } from "@/components/timeline/denied-reason-badge";
 import { EventTypeBadge } from "@/components/timeline/event-type-badge";
 import { InterviewTypeBadge } from "@/components/timeline/interview-type-badge";
 import {
@@ -24,7 +25,7 @@ interface TimelineEventCardProps {
 
 /**
  * The content block of a single timeline entry: type badge (+ the interview
- * type on interviews) + date, an optional scheduled time range, the observation
+ * type on interviews, the reason on denied events) + date, an optional scheduled time range, the observation
  * text, and — for `offer` events — the salary. Presentational; the vertical
  * rail/dot is drawn by `TimelineEventList`.
  */
@@ -55,6 +56,9 @@ export function TimelineEventCard({
             <EventTypeBadge type={event.type} />
             {event.type === "interview" ? (
               <InterviewTypeBadge type={event.interviewType} />
+            ) : null}
+            {event.type === "denied" ? (
+              <DeniedReasonBadge reason={event.deniedReason} />
             ) : null}
             {date ? (
               <time

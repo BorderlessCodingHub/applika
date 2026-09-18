@@ -39,6 +39,25 @@ export const INTERVIEW_TYPES = [
 export type InterviewType = (typeof INTERVIEW_TYPES)[number];
 
 /**
+ * Hardcoded 10-value reason, carried only by `denied` events (KODI-014). Order
+ * is the API's and the CLI's. `unknown` is the default.
+ */
+export const DENIED_REASONS = [
+  "unknown",
+  "not_good_enough",
+  "skills_mismatch",
+  "assessment_failed",
+  "too_many_candidates",
+  "position_filled",
+  "role_closed",
+  "ghosted",
+  "salary_mismatch",
+  "other",
+] as const;
+
+export type DeniedReason = (typeof DENIED_REASONS)[number];
+
+/**
  * Salary period as the API returns it. New offers are `monthly | annually`
  * only; `hourly` survives on offers migrated from steps or written by an old CLI.
  */
@@ -90,6 +109,8 @@ export interface TimelineEventView {
   type: TimelineEventType;
   /** Interview-only: the interview type. `null`/absent reads as `unknown`. */
   interviewType?: InterviewType | null;
+  /** Denied-only: the reason. `null`/absent reads as `unknown`. */
+  deniedReason?: DeniedReason | null;
   /** ISO-8601 calendar date of the event (`YYYY-MM-DD`). Required. */
   eventDate: string;
   /** Optional scheduled start time (`HH:mm`, 24h). */

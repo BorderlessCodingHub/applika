@@ -20,9 +20,18 @@ import {
   FinalizeOutcomeFields,
   FinalizeOutcomePicker,
 } from "@/components/applications/finalize-outcome-fields";
+import { DeniedReasonSelect } from "@/components/timeline/denied-reason-select";
 import { SalaryPeriodToggle } from "@/components/timeline/salary-period-toggle";
-import { CURRENCY_OPTIONS } from "@/components/timeline/timeline-options";
-import { type OfferSalaryPeriod } from "@/components/timeline/timeline-types";
+import {
+  DEFAULT_DENIED_REASON,
+  CURRENCY_OPTIONS,
+} from "@/components/timeline/timeline-options";
+import { DENIED_REASON_FIELD_LABEL } from "@/components/timeline/timeline-copy";
+import {
+  DENIED_REASONS,
+  type DeniedReason,
+  type OfferSalaryPeriod,
+} from "@/components/timeline/timeline-types";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -79,6 +88,7 @@ const finalizeSchema = z
     salary_amount: z.string(),
     salary_currency: z.string(),
     salary_period: z.string(),
+    denied_reason: z.string(),
   })
   .superRefine((values, ctx) => {
     // `none` unmounts every field below (FinalizeOutcomeFields), so nothing
@@ -100,6 +110,17 @@ const finalizeSchema = z
         code: "custom",
         path: ["observation"],
         message: "Notes are too long",
+      });
+    }
+
+    if (
+      values.outcome === "denied" &&
+      !DENIED_REASONS.includes(values.denied_reason as DeniedReason)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["denied_reason"],
+        message: "Select a reason",
       });
     }
 
@@ -158,6 +179,7 @@ function defaultFinalizeValues(): FinalizeFormValues {
     salary_amount: "",
     salary_currency: "",
     salary_period: "",
+    denied_reason: DEFAULT_DENIED_REASON,
   };
 }
 
@@ -188,7 +210,11 @@ export function toFinalizePayload(
     };
   }
 
-  return base;
+  return {
+    ...base,
+    outcome: "denied",
+    denied_reason: values.denied_reason as DeniedReason,
+  };
 }
 
 interface FinalizeDialogProps {
@@ -276,6 +302,31 @@ export function FinalizeDialog({
                           value={field.value as FinalizeOutcome}
                           onValueChange={field.onChange}
                           disabled={isSaving}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              }
+              deniedReasonField={
+                <FormField
+                  control={form.control}
+                  name="denied_reason"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{DENIED_REASON_FIELD_LABEL}</FormLabel>
+                      <FormControl>
+                        <DeniedReasonSelect
+                          value={
+                            (field.value as DeniedReason) ||
+                            DEFAULT_DENIED_REASON
+                          }
+                          onValueChange={field.onChange}
+                          disabled={isSaving}
+                          aria-invalid={Boolean(
+                            form.formState.errors.denied_reason,
+                          )}
                         />
                       </FormControl>
                       <FormMessage />

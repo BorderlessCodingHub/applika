@@ -20,6 +20,7 @@
  */
 
 import type {
+  DeniedReason,
   InterviewType,
   OfferSalaryPeriod,
   SalaryCurrency,
@@ -46,6 +47,8 @@ export interface TimelineEvent {
   event_type: TimelineEventType;
   /** Interview-only: one of the 7 hardcoded interview types. */
   interview_type: InterviewType | null;
+  /** Denied-only: one of the 10 hardcoded reasons (KODI-014). */
+  denied_reason: DeniedReason | null;
   /** ISO-8601 calendar date (`YYYY-MM-DD`). Required. */
   event_date: string;
   /** Optional scheduled start time (`HH:mm`, 24h). */
@@ -83,11 +86,14 @@ interface TimelineEventBodyBase {
  * (the backend CHECK rejects them for non-offer types). `interview_type` is
  * present only when `event_type` is `"interview"` (the backend defaults a
  * missing one to `unknown`, but the form always sends it); it is 422 on any
- * other type.
+ * other type. `denied_reason` (KODI-014) is present only when `event_type` is
+ * `"denied"` (the backend defaults a missing one to `unknown`, but the form
+ * always sends it); it is 422 on any other type.
  */
 export interface NonOfferTimelineEventPayload extends TimelineEventBodyBase {
   event_type: Exclude<TimelineEventType, "offer">;
   interview_type?: InterviewType;
+  denied_reason?: DeniedReason;
 }
 
 /**

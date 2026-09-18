@@ -26,3 +26,24 @@ export const INTERVIEW_TYPE_TAKEN_LABEL = "Already recorded";
  */
 export const LEGACY_HOURLY_OFFER_HINT =
   "This offer was recorded per hour. Choose monthly or annually to save it.";
+
+/** Label of the denied reason select, and the badge's screen-reader prefix. */
+export const DENIED_REASON_FIELD_LABEL = "Reason";
+
+/** The interview-only schedule group of the event form. */
+export const SCHEDULE_COPY = {
+  legend: "Schedule (optional)",
+  hint: "Add a time range to place this interview on your agenda.",
+} as const;
+
+/** The timezone select's words. */
+export const TIMEZONE_COPY = {
+  label: "Timezone",
+  placeholder: "Select timezone",
+  search: "Search city, region or offset",
+  empty: "No timezone found.",
+  /** Group of a stored zone the browser does not list (e.g. `Etc/UTC`). */
+  selectedGroup: "Selected",
+  /** Group of zones without a region, e.g. `UTC`. */
+  otherGroup: "Other",
+} as const;

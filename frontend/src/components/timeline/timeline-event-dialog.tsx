@@ -51,7 +51,12 @@ const DEFAULTS: Record<
  * Accessible dialog shell for the add/edit timeline-event form. Radix `Dialog`
  * traps focus, restores it to the trigger on close, and dismisses on
  * Escape/overlay. Presentational — the parent owns the `<form>`, react-hook-form
- * wiring, mutation, and the footer buttons. Compose:
+ * wiring, mutation, and the footer buttons.
+ *
+ * `max-w-3xl` from `sm`, `1rem` of margin each side below it. Anchored to the
+ * top, not centred, and only the body scrolls: picking an event type grows or
+ * shrinks the form, and neither the chip under the pointer nor the footer's
+ * submit button may move off screen when it does. Compose:
  *
  * ```tsx
  * <TimelineEventDialog open={…} onOpenChange={…} mode="create"
@@ -78,17 +83,21 @@ export function TimelineEventDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] gap-0 overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="top-4 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] translate-y-0 flex-col gap-0 p-0 sm:top-[8dvh] sm:max-h-[84dvh] sm:max-w-3xl">
+        <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle>{title ?? defaults.title}</DialogTitle>
           <DialogDescription>
             {description ?? defaults.description}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pt-1 pb-5">
+          {children}
+        </div>
 
-        <DialogFooter>{footer}</DialogFooter>
+        <DialogFooter className="flex-row justify-end border-t px-6 py-4">
+          {footer}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

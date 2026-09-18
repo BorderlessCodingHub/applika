@@ -1,15 +1,17 @@
 import { z } from "zod";
 
 import {
+  DENIED_REASONS,
   INTERVIEW_TYPES,
   SALARY_CURRENCIES,
   type TimelineEventView,
 } from "@/components/timeline/timeline-types";
+import { browserTimeZone } from "@/components/timeline/timezone-options";
 import type { CreateTimelineEventPayload } from "@/services/types/timeline";
 
 /**
  * Validation + value-mapping for the add/edit timeline-event form (PRD 0008,
- * ADR 0012).
+ * ADR 0012, KODI-014).
  *
  * A zod DISCRIMINATED UNION keyed on `event_type`, ported from mynextjob's
  * timeline-event-schema and extended with the applika-only `interview_type`
@@ -18,8 +20,12 @@ import type { CreateTimelineEventPayload } from "@/services/types/timeline";
  * (one of the 7 hardcoded types, default `unknown`) and no salary; the `offer`
  * branch REQUIRES the salary trio (period restricted to `monthly | annually`,
  * a non-negative amount, and one of the 20 currencies) and no `interview_type`;
- * every other type (`note`/`feedback`/`denied`) carries neither. Scheduling
- * fields are optional and collapse to `null` on the wire. Salary/amount
+ * the `denied` branch REQUIRES `denied_reason` (one of the 10 hardcoded
+ * reasons, default `unknown`, KODI-014); `note`/`feedback` carry none of the
+ * above. Scheduling fields are optional and collapse to `null` on the wire —
+ * ONLY the `interview` branch ever sends a non-null start/end/timezone
+ * (KODI-014: switching away from interview, or leaving the times blank,
+ * clears the schedule so nothing stale reaches the API). Salary/amount
  * numerics stay strings (they are strings on the wire) — the amount is only
  * checked to be a valid non-negative number.
  */
@@ -38,7 +44,7 @@ const MAX_TIMEZONE = 100;
 const MAX_OBSERVATION = 5000;
 const SALARY_AMOUNT_PATTERN = /^\d{1,10}(\.\d{1,2})?$/;
 
-/** Shared, non-salary, non-interview-type fields present on every branch. */
+/** Shared, non-salary, non-classifier fields present on every branch. */
 const commonShape = {
   event_date: z
     .string()
@@ -56,12 +62,16 @@ const commonShape = {
  * `start_time`/`end_time` must both be blank or both be set, and — when set
  * — the end must be strictly after the start (`HH:mm` compares correctly as
  * a string). Applied once, after the discriminated union, since the pair is
- * shared by every branch.
+ * shared by every branch. Runs ONLY for `interview`: the schedule group is
+ * unmounted for every other type (KODI-014), so a stray value left in form
+ * state from a prior interview selection must never block a save.
  */
 function validateSchedule(
-  values: { start_time: string; end_time: string },
+  values: { event_type: string; start_time: string; end_time: string },
   ctx: z.RefinementCtx,
 ): void {
+  if (values.event_type !== "interview") return;
+
   const hasStart = values.start_time.trim() !== "";
   const hasEnd = values.end_time.trim() !== "";
   if (hasStart !== hasEnd) {
@@ -81,30 +91,44 @@ function validateSchedule(
   }
 }
 
-/** Interview branch — `interview_type` is required (default `unknown`). No salary. */
+/** Interview branch — `interview_type` is required (default `unknown`). No salary, no reason. */
 const interviewSchema = z.object({
   event_type: z.literal("interview"),
   interview_type: z.enum(INTERVIEW_TYPES),
+  denied_reason: z.string().optional(),
   ...commonShape,
   salary_period: z.string().optional(),
   salary_amount: z.string().optional(),
   salary_currency: z.string().optional(),
 });
 
-/** note/feedback/denied branch — no `interview_type`, no salary constraint. */
+/** note/feedback branch — no `interview_type`, no `denied_reason`, no salary. */
 const otherSchema = z.object({
-  event_type: z.enum(["note", "feedback", "denied"]),
+  event_type: z.enum(["note", "feedback"]),
   interview_type: z.string().optional(),
+  denied_reason: z.string().optional(),
   ...commonShape,
   salary_period: z.string().optional(),
   salary_amount: z.string().optional(),
   salary_currency: z.string().optional(),
 });
 
-/** Offer branch — the salary trio is required (DB CHECK + zod). No `interview_type`. */
+/** denied branch — `denied_reason` is required (default `unknown`, KODI-014). No salary. */
+const deniedSchema = z.object({
+  event_type: z.literal("denied"),
+  interview_type: z.string().optional(),
+  denied_reason: z.enum(DENIED_REASONS, { message: "Select a reason" }),
+  ...commonShape,
+  salary_period: z.string().optional(),
+  salary_amount: z.string().optional(),
+  salary_currency: z.string().optional(),
+});
+
+/** Offer branch — the salary trio is required (DB CHECK + zod). No `interview_type`, no reason. */
 const offerSchema = z.object({
   event_type: z.literal("offer"),
   interview_type: z.string().optional(),
+  denied_reason: z.string().optional(),
   ...commonShape,
   salary_period: z.enum(OFFER_SALARY_PERIOD_VALUES, {
     message: "Select a salary period",
@@ -124,7 +148,12 @@ const offerSchema = z.object({
 });
 
 export const timelineEventSchema = z
-  .discriminatedUnion("event_type", [interviewSchema, offerSchema, otherSchema])
+  .discriminatedUnion("event_type", [
+    interviewSchema,
+    offerSchema,
+    deniedSchema,
+    otherSchema,
+  ])
   .superRefine(validateSchedule);
 
 export type TimelineEventFormValues = z.infer<typeof timelineEventSchema>;
@@ -136,23 +165,34 @@ function todayIso(): string {
   return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
 }
 
-/** Blank values for the create flow — defaults to a `note` on today's date. */
+/**
+ * Blank values for the create flow — defaults to a `note` on today's date.
+ * `timezone` pre-fills with the browser's own zone (KODI-014): the select
+ * cannot be cleared, so a create flow that never touches the field still
+ * carries a real zone once the type becomes `interview`.
+ */
 export function emptyTimelineEventValues(): TimelineEventFormValues {
   return {
     event_type: "note",
     event_date: todayIso(),
     start_time: "",
     end_time: "",
-    timezone: "",
+    timezone: browserTimeZone(),
     observation: "",
     interview_type: "",
+    denied_reason: "",
     salary_period: "",
     salary_amount: "",
     salary_currency: "",
   } as TimelineEventFormValues;
 }
 
-/** Map a loaded event view-model into editor form values (edit flow). */
+/**
+ * Map a loaded event view-model into editor form values (edit flow). The
+ * stored `timezone` always wins over the browser's; only an EMPTY stored
+ * value (legacy note/feedback/offer/denied events, or an interview recorded
+ * before this slice) falls back to `browserTimeZone()` (KODI-014).
+ */
 export function timelineEventToFormValues(
   event: TimelineEventView,
 ): TimelineEventFormValues {
@@ -160,7 +200,7 @@ export function timelineEventToFormValues(
     event_date: event.eventDate.slice(0, 10),
     start_time: event.startTime ?? "",
     end_time: event.endTime ?? "",
-    timezone: event.timezone ?? "",
+    timezone: event.timezone || browserTimeZone(),
     observation: event.observation ?? "",
   };
 
@@ -168,6 +208,7 @@ export function timelineEventToFormValues(
     return {
       event_type: "offer",
       interview_type: "",
+      denied_reason: "",
       ...common,
       // A legacy hourly offer rides through as-is; the salary-period toggle
       // then shows nothing selected and the zod enum blocks save until the
@@ -187,6 +228,20 @@ export function timelineEventToFormValues(
     return {
       event_type: "interview",
       interview_type: event.interviewType ?? "unknown",
+      denied_reason: "",
+      ...common,
+      salary_period: "",
+      salary_amount: "",
+      salary_currency: "",
+    } as TimelineEventFormValues;
+  }
+
+  if (event.type === "denied") {
+    return {
+      event_type: "denied",
+      interview_type: "",
+      // A missing/null stored reason (pre-KODI-014 data) reads as unknown.
+      denied_reason: event.deniedReason ?? "unknown",
       ...common,
       salary_period: "",
       salary_amount: "",
@@ -197,6 +252,7 @@ export function timelineEventToFormValues(
   return {
     event_type: event.type,
     interview_type: "",
+    denied_reason: "",
     ...common,
     salary_period: "",
     salary_amount: "",
@@ -211,19 +267,30 @@ function blankToNull(value: string): string | null {
 }
 
 /**
- * Convert validated form values into the wire payload. The scheduling trio
- * collapses blanks to `null`; `interview_type` is sent ONLY for interviews and
- * the salary trio ONLY for offers — both are omitted entirely for every other
- * type.
+ * Convert validated form values into the wire payload (KODI-014).
+ *
+ * The scheduling trio is sent ONLY for `interview`: every other type sends
+ * `start_time`/`end_time`/`timezone` as `null`, even if a stale value lingers
+ * in form state (e.g. the user filled the schedule, then switched the type
+ * away from interview, or is editing a migrated non-interview event that
+ * carries a stored schedule) — so nothing stale ever reaches the API.
+ * `timezone` is further nulled whenever `start_time` is blank — the
+ * `TimezoneSelect` cannot be cleared, so it always holds a value, but a
+ * schedule with no start time is still no schedule at all.
+ * `interview_type` is sent ONLY for interviews, `denied_reason` ONLY for
+ * denied events, and the salary trio ONLY for offers — all three are omitted
+ * entirely for every other type.
  */
 export function toTimelineEventPayload(
   values: TimelineEventFormValues,
 ): CreateTimelineEventPayload {
+  const isInterview = values.event_type === "interview";
+  const hasStart = isInterview && blankToNull(values.start_time) !== null;
   const base = {
     event_date: values.event_date,
-    start_time: blankToNull(values.start_time),
-    end_time: blankToNull(values.end_time),
-    timezone: blankToNull(values.timezone),
+    start_time: isInterview ? blankToNull(values.start_time) : null,
+    end_time: isInterview ? blankToNull(values.end_time) : null,
+    timezone: hasStart ? blankToNull(values.timezone) : null,
     observation: blankToNull(values.observation),
   };
 
@@ -242,6 +309,14 @@ export function toTimelineEventPayload(
       salary_period: values.salary_period,
       salary_amount: values.salary_amount.trim(),
       salary_currency: values.salary_currency,
+    };
+  }
+
+  if (values.event_type === "denied") {
+    return {
+      event_type: "denied",
+      ...base,
+      denied_reason: values.denied_reason,
     };
   }
 

@@ -26,9 +26,11 @@ import {
 } from "lucide-react";
 
 import {
+  DENIED_REASONS,
   INTERVIEW_TYPES,
   SALARY_CURRENCIES,
   TIMELINE_EVENT_TYPES,
+  type DeniedReason,
   type InterviewType,
   type SalaryCurrency,
   type SalaryPeriod,
@@ -118,6 +120,13 @@ export const EVENT_TYPE_CONFIG: Record<TimelineEventType, EventTypeConfig> = {
   },
 };
 
+/**
+ * Entrance of a form group a type or outcome choice reveals. The group
+ * unmounts on the way out, so there is no exit animation.
+ */
+export const REVEAL_CLASS =
+  "animate-in fade-in-0 slide-in-from-top-1 duration-200 motion-reduce:animate-none";
+
 /** Ordered config list — drive the selector and any legend off this. */
 export const EVENT_TYPE_OPTIONS: readonly EventTypeConfig[] =
   TIMELINE_EVENT_TYPES.map((type) => EVENT_TYPE_CONFIG[type]);
@@ -181,6 +190,41 @@ export const INTERVIEW_TYPE_LABELS: Record<InterviewType, string> =
 
 /** The default interview type for a new interview event. */
 export const DEFAULT_INTERVIEW_TYPE: InterviewType = "unknown";
+
+export interface DeniedReasonConfig {
+  value: DeniedReason;
+  /** Human label for the select and the card badge. The CLI prints the same. */
+  label: string;
+}
+
+export const DENIED_REASON_CONFIG: Record<DeniedReason, DeniedReasonConfig> = {
+  unknown: { value: "unknown", label: "Unknown" },
+  not_good_enough: { value: "not_good_enough", label: "Not good enough" },
+  skills_mismatch: { value: "skills_mismatch", label: "Skills mismatch" },
+  assessment_failed: { value: "assessment_failed", label: "Assessment failed" },
+  too_many_candidates: {
+    value: "too_many_candidates",
+    label: "Too many candidates",
+  },
+  position_filled: { value: "position_filled", label: "Position filled" },
+  role_closed: { value: "role_closed", label: "Role closed" },
+  ghosted: { value: "ghosted", label: "Ghosted" },
+  salary_mismatch: { value: "salary_mismatch", label: "Salary mismatch" },
+  other: { value: "other", label: "Other" },
+};
+
+/** Ordered denied reason list — drive the select off this. */
+export const DENIED_REASON_OPTIONS: readonly DeniedReasonConfig[] =
+  DENIED_REASONS.map((reason) => DENIED_REASON_CONFIG[reason]);
+
+/** value -> label lookup for a saved denied reason. */
+export const DENIED_REASON_LABELS: Record<DeniedReason, string> =
+  Object.fromEntries(
+    DENIED_REASON_OPTIONS.map((option) => [option.value, option.label]),
+  ) as Record<DeniedReason, string>;
+
+/** The default reason for a new denied event and a denied close. */
+export const DEFAULT_DENIED_REASON: DeniedReason = "unknown";
 
 export interface SalaryPeriodOption extends SelectOption {
   value: SalaryPeriod;

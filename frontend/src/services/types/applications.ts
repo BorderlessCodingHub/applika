@@ -4,6 +4,7 @@ import {
   SeniorityLevelType,
 } from "./users";
 import type {
+  DeniedReason,
   InterviewType,
   OfferSalaryPeriod,
   SalaryCurrency,
@@ -42,7 +43,9 @@ export interface AgendaStep {
 /**
  * Body for `POST /applications/{id}/finalize`. `outcome: undefined`/omitted
  * sends a bodyless request (idempotent close, no outcome event). `offer`
- * requires the salary triad; `denied` takes only the date/observation.
+ * requires the salary triad; `denied` takes only the date/observation and an
+ * optional `denied_reason` (KODI-014, default `unknown`) — `denied_reason` is
+ * 422 with any other outcome, so it is never sent for `offer`.
  */
 export interface FinalizeApplicationPayload {
   outcome: "offer" | "denied";
@@ -52,6 +55,8 @@ export interface FinalizeApplicationPayload {
   salary_amount?: string;
   salary_currency?: SalaryCurrency;
   salary_period?: OfferSalaryPeriod;
+  /** Denied-only (KODI-014); omitted for `offer`. */
+  denied_reason?: DeniedReason;
 }
 
 export interface Application {

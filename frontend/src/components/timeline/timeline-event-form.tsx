@@ -7,11 +7,17 @@ import { useForm, useWatch } from "react-hook-form";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 
-import { LEGACY_HOURLY_OFFER_HINT } from "@/components/timeline/timeline-copy";
+import {
+  DENIED_REASON_FIELD_LABEL,
+  LEGACY_HOURLY_OFFER_HINT,
+  TIMEZONE_COPY,
+} from "@/components/timeline/timeline-copy";
+import { DeniedReasonSelect } from "@/components/timeline/denied-reason-select";
 import { EventTypeSelector } from "@/components/timeline/event-type-selector";
 import { InterviewTypeSelect } from "@/components/timeline/interview-type-select";
 import {
   CURRENCY_OPTIONS,
+  DEFAULT_DENIED_REASON,
   DEFAULT_INTERVIEW_TYPE,
 } from "@/components/timeline/timeline-options";
 import { SalaryPeriodToggle } from "@/components/timeline/salary-period-toggle";
@@ -25,10 +31,12 @@ import {
   type TimelineEventFormValues,
 } from "@/components/timeline/timeline-event-schema";
 import {
+  type DeniedReason,
   type InterviewType,
   type OfferSalaryPeriod,
   type TimelineEventView,
 } from "@/components/timeline/timeline-types";
+import { TimezoneSelect } from "@/components/timeline/timezone-select";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import {
@@ -116,6 +124,7 @@ export function TimelineEventForm({
   const eventType = useWatch({ control: form.control, name: "event_type" });
   const isInterview = eventType === "interview";
   const isOffer = eventType === "offer";
+  const isDenied = eventType === "denied";
 
   // The interview type select shows "Unknown" the moment event_type becomes
   // "interview" (the display falls back to DEFAULT_INTERVIEW_TYPE when the
@@ -130,6 +139,17 @@ export function TimelineEventForm({
       });
     }
   }, [isInterview, form]);
+
+  // Same pattern as interview_type above, for the denied reason select
+  // (KODI-014): seed "unknown" the moment event_type becomes "denied" so a
+  // save with the select left untouched still carries a valid default.
+  useEffect(() => {
+    if (isDenied && !form.getValues("denied_reason")) {
+      form.setValue("denied_reason", DEFAULT_DENIED_REASON, {
+        shouldValidate: false,
+      });
+    }
+  }, [isDenied, form]);
 
   // R-030: at most one initial-screening interview per application. The other
   // events (this one excluded) decide whether the option is disabled.
@@ -231,6 +251,7 @@ export function TimelineEventForm({
           <TimelineEventFormFields
             isInterview={isInterview}
             isOffer={isOffer}
+            isDenied={isDenied}
             typeField={
               <FormField
                 control={form.control}
@@ -269,6 +290,30 @@ export function TimelineEventForm({
                         disabled={isSaving}
                         aria-invalid={Boolean(
                           form.formState.errors.interview_type,
+                        )}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            }
+            deniedReasonField={
+              <FormField
+                control={form.control}
+                name="denied_reason"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{DENIED_REASON_FIELD_LABEL}</FormLabel>
+                    <FormControl>
+                      <DeniedReasonSelect
+                        value={
+                          (field.value as DeniedReason) || DEFAULT_DENIED_REASON
+                        }
+                        onValueChange={field.onChange}
+                        disabled={isSaving}
+                        aria-invalid={Boolean(
+                          form.formState.errors.denied_reason,
                         )}
                       />
                     </FormControl>
@@ -333,12 +378,13 @@ export function TimelineEventForm({
                 name="timezone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Timezone</FormLabel>
+                    <FormLabel>{TIMEZONE_COPY.label}</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="Europe/London"
+                      <TimezoneSelect
+                        value={field.value}
+                        onValueChange={field.onChange}
                         disabled={isSaving}
-                        {...field}
+                        aria-invalid={Boolean(form.formState.errors.timezone)}
                       />
                     </FormControl>
                     <FormMessage />
