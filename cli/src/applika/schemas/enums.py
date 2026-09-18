@@ -80,6 +80,22 @@ class InterviewType(str, Enum):
     FINAL = 'final'
 
 
+class DeniedReason(str, Enum):
+    """The 10 denied-event reasons (R-033..R-036, KODI-014). Same wire
+    values as ``backend/app/core/enums.py``'s ``DeniedReason``."""
+
+    UNKNOWN = 'unknown'
+    NOT_GOOD_ENOUGH = 'not_good_enough'
+    SKILLS_MISMATCH = 'skills_mismatch'
+    ASSESSMENT_FAILED = 'assessment_failed'
+    TOO_MANY_CANDIDATES = 'too_many_candidates'
+    POSITION_FILLED = 'position_filled'
+    ROLE_CLOSED = 'role_closed'
+    GHOSTED = 'ghosted'
+    SALARY_MISMATCH = 'salary_mismatch'
+    OTHER = 'other'
+
+
 class FinalizeOutcome(str, Enum):
     OFFER = 'offer'
     DENIED = 'denied'

@@ -6,6 +6,7 @@ from typing_extensions import TypedDict
 from applika.schemas.enums import (
     ApplicationMode,
     Currency,
+    DeniedReason,
     ExperienceLevel,
     FinalizeOutcome,
     OfferPeriod,
@@ -102,11 +103,12 @@ SALARY_ONLY_ON_OFFER_OUTCOME = (
 FIELDS_NEED_AN_OUTCOME = (
     '--date and --observation require --outcome (offer or denied)'
 )
+REASON_ONLY_ON_DENIED_OUTCOME = '--reason is only allowed when --outcome denied'
 
 
 class FinalizeOutcomePayload(BaseModel):
-    """The new optional finalize body (R-032). Mirrors the backend's
-    ``FinalizeWithOutcome`` validation so the CLI refuses the same
+    """The new optional finalize body (R-032, R-033..R-036). Mirrors the
+    backend's ``FinalizeWithOutcome`` validation so the CLI refuses the same
     combinations before any request is made."""
 
     outcome: FinalizeOutcome | None = None
@@ -115,6 +117,7 @@ class FinalizeOutcomePayload(BaseModel):
     salary_amount: float | None = None
     salary_currency: Currency | None = None
     salary_period: OfferPeriod | None = None
+    denied_reason: DeniedReason | None = None
 
     @model_validator(mode='after')
     def validate_outcome(self) -> 'FinalizeOutcomePayload':
@@ -128,6 +131,12 @@ class FinalizeOutcomePayload(BaseModel):
                 raise ValueError(OFFER_OUTCOME_NEEDS_SALARY)
         elif any(field is not None for field in salary_fields):
             raise ValueError(SALARY_ONLY_ON_OFFER_OUTCOME)
+
+        if self.outcome == FinalizeOutcome.DENIED:
+            if self.denied_reason is None:
+                self.denied_reason = DeniedReason.UNKNOWN
+        elif self.denied_reason is not None:
+            raise ValueError(REASON_ONLY_ON_DENIED_OUTCOME)
 
         if self.outcome is None and (
             self.event_date is not None or self.observation is not None

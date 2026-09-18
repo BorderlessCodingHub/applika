@@ -5,6 +5,7 @@ from typing_extensions import TypedDict
 
 from applika.schemas.enums import (
     Currency,
+    DeniedReason,
     EventType,
     InterviewType,
     OfferPeriod,
@@ -18,6 +19,7 @@ def _parse_time(value: str) -> datetime.time:
 class _TimelineEventBase(BaseModel):
     event_type: EventType
     interview_type: InterviewType | None = None
+    denied_reason: DeniedReason | None = None
     event_date: datetime.date
     start_time: str | None = None
     end_time: str | None = None
@@ -53,6 +55,15 @@ class _TimelineEventBase(BaseModel):
         return self
 
     @model_validator(mode='after')
+    def validate_denied_reason(self) -> '_TimelineEventBase':
+        if self.event_type is EventType.DENIED:
+            if self.denied_reason is None:
+                self.denied_reason = DeniedReason.UNKNOWN
+        elif self.denied_reason is not None:
+            raise ValueError('--reason is only allowed with --type denied')
+        return self
+
+    @model_validator(mode='after')
     def validate_offer_salary(self) -> '_TimelineEventBase':
         salary_fields = (
             self.salary_amount,
@@ -85,6 +96,7 @@ class TimelineEventEntry(TypedDict):
     user_id: str
     event_type: str
     interview_type: str | None
+    denied_reason: str | None
     event_date: str
     start_time: str | None
     end_time: str | None

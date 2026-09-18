@@ -1,5 +1,21 @@
 from typing import Any
 
+# English labels for DeniedReason wire values (R-033..R-036, KODI-014).
+# Keyed on the raw string from the API response, not the enum, so an
+# unrecognised value (e.g. a newer API) still prints as-is.
+_DENIED_REASON_LABELS: dict[str, str] = {
+    'unknown': 'Unknown',
+    'not_good_enough': 'Not good enough',
+    'skills_mismatch': 'Skills mismatch',
+    'assessment_failed': 'Assessment failed',
+    'too_many_candidates': 'Too many candidates',
+    'position_filled': 'Position filled',
+    'role_closed': 'Role closed',
+    'ghosted': 'Ghosted',
+    'salary_mismatch': 'Salary mismatch',
+    'other': 'Other',
+}
+
 
 def render_application_table(
     applications: list[dict[str, Any]],
@@ -214,6 +230,9 @@ def _format_timeline_detail(event: dict[str, Any]) -> str:
         currency = event.get('salary_currency') or ''
         period = event.get('salary_period') or ''
         return f'{amount} {currency}/{period}'.strip()
+    if event.get('event_type') == 'denied' and event.get('denied_reason'):
+        reason = str(event['denied_reason'])
+        return _DENIED_REASON_LABELS.get(reason, reason)
     return '-'
 
 

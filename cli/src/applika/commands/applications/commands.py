@@ -31,6 +31,7 @@ from applika.schemas.enums import (
     ApplicationMode,
     ClearField,
     Currency,
+    DeniedReason,
     EventType,
     ExperienceLevel,
     FinalizeOutcome,
@@ -862,6 +863,16 @@ def finalize_application(
             ),
         ),
     ] = None,
+    reason: Annotated[
+        DeniedReason | None,
+        typer.Option(
+            '--reason',
+            help=(
+                'Denied reason. Only with --outcome denied; defaults to '
+                'unknown.'
+            ),
+        ),
+    ] = None,
     output_format: Annotated[
         OutputFormat,
         typer.Option(
@@ -870,8 +881,8 @@ def finalize_application(
     ] = OutputFormat.TABLE,
 ) -> None:
     """Close an application. No flags: idempotent close, no outcome.
-    --outcome offer|denied: close with an outcome event. --step (deprecated):
-    the 0.1.4 finalize body."""
+    --outcome offer|denied: close with an outcome event (--reason only
+    with --outcome denied). --step (deprecated): the 0.1.4 finalize body."""
     config: AppConfig = ctx.obj
     session = require_session(config.store)
     client = ApiClient(session, config.store)
@@ -887,13 +898,14 @@ def finalize_application(
             value is not None for value in (step, feedback, salary_offer)
         )
         outcome_given = any(
-            value is not None for value in (outcome, salary, currency, period)
+            value is not None
+            for value in (outcome, salary, currency, period, reason)
         )
         if legacy_given and outcome_given:
             raise ValueError(
                 '--step, --feedback and --salary-offer (deprecated) cannot '
-                'be combined with --outcome, --salary, --currency or '
-                '--period'
+                'be combined with --outcome, --salary, --currency, '
+                '--period or --reason'
             )
 
         if legacy_given:
@@ -929,6 +941,7 @@ def finalize_application(
                 salary_amount=salary,
                 salary_currency=currency,
                 salary_period=period,
+                denied_reason=reason,
             )
             if outcome_payload.outcome is None:
                 finalized = client.post(
@@ -1127,6 +1140,15 @@ def add_timeline_event(
             ),
         ),
     ] = None,
+    reason: Annotated[
+        DeniedReason | None,
+        typer.Option(
+            '--reason',
+            help=(
+                'Denied reason. Only with --type denied; defaults to unknown.'
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Add a timeline event to an application."""
     config: AppConfig = ctx.obj
@@ -1143,6 +1165,7 @@ def add_timeline_event(
         payload = TimelineEventCreate(
             event_type=event_type,
             interview_type=interview_type,
+            denied_reason=reason,
             event_date=event_date,
             start_time=start_time,
             end_time=end_time,
@@ -1233,12 +1256,25 @@ def edit_timeline_event(
             '--period', help='New offer salary period: monthly or annually.'
         ),
     ] = None,
+    reason: Annotated[
+        DeniedReason | None,
+        typer.Option(
+            '--reason',
+            help=(
+                'New denied reason. Valid with --type denied, or with no '
+                '--type when the event is already denied.'
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Edit a timeline event. PUT replaces the full event: unspecified
     fields keep their current value. Changing --type away from offer drops
     the salary fields; away from interview drops --interview-type; to
     interview without --interview-type defaults to unknown; to offer
-    requires the salary triad unless the event already had one."""
+    requires the salary triad unless the event already had one. Changing
+    --type away from denied drops --reason; an edit that keeps --type
+    denied (or omits --type on an already-denied event) and does not pass
+    --reason preserves the event's current reason."""
     config: AppConfig = ctx.obj
     session = require_session(config.store)
     client = ApiClient(session, config.store)
@@ -1294,9 +1330,20 @@ def edit_timeline_event(
             resolved_currency = currency
             resolved_period = period
 
+        resolved_denied_reason = (
+            reason
+            if reason is not None
+            else (
+                existing.get('denied_reason')
+                if new_event_type == EventType.DENIED
+                else None
+            )
+        )
+
         payload = TimelineEventUpdate(
             event_type=new_event_type,
             interview_type=resolved_interview_type,
+            denied_reason=resolved_denied_reason,
             event_date=event_date or existing['event_date'],
             start_time=(
                 start_time
