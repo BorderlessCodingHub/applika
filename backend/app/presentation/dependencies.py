@@ -14,6 +14,9 @@ from app.application.services.cv_rendering.renderer import (
 from app.application.services.discord_service import DiscordService
 from app.application.services.github_service import GitHubService
 from app.application.services.tailoring import TailoringService
+from app.application.use_cases.applications.read_model import (
+    ApplicationReadModel,
+)
 from app.application.use_cases.auth_handoff_state import (
     AuthHandoffStateUseCase,
 )
@@ -47,9 +50,6 @@ from app.domain.repositories.admin_repository import AdminRepository
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
-from app.domain.repositories.application_step_repository import (
-    ApplicationStepRepository,
-)
 from app.domain.repositories.base_cv_repository import BaseCVRepository
 from app.domain.repositories.company_repository import CompanyRepository
 from app.domain.repositories.cycle_repository import CycleRepository
@@ -65,6 +65,9 @@ from app.domain.repositories.step_definition_repository import (
 )
 from app.domain.repositories.tailored_cv_repository import (
     TailoredCVRepository,
+)
+from app.domain.repositories.timeline_event_repository import (
+    TimelineEventRepository,
 )
 from app.domain.repositories.user_feedback_repository import (
     UserFeedbackRepository,
@@ -97,8 +100,8 @@ def get_quinzenal_report_repository(session: DbSession):
     return QuinzenalReportRepository(session)
 
 
-def get_application_step_repository(session: DbSession):
-    return ApplicationStepRepository(session)
+def get_timeline_event_repository(session: DbSession):
+    return TimelineEventRepository(session)
 
 
 def get_company_repository(session: DbSession):
@@ -131,8 +134,8 @@ QuinzenalReportRepositoryDp = Annotated[
     QuinzenalReportRepository, Depends(get_quinzenal_report_repository)
 ]
 
-ApplicationStepRepositoryDp = Annotated[
-    ApplicationStepRepository, Depends(get_application_step_repository)
+TimelineEventRepositoryDp = Annotated[
+    TimelineEventRepository, Depends(get_timeline_event_repository)
 ]
 
 CompanyRepositoryDp = Annotated[
@@ -145,6 +148,18 @@ ApplicationRepositoryDp = Annotated[
 
 UserStatsRepositoryDp = Annotated[
     UserStatsRepository, Depends(get_user_statistics_repository)
+]
+
+
+def get_application_read_model(
+    timeline_event_repo: TimelineEventRepositoryDp,
+    step_repo: StepDefinitionRepositoryDp,
+):
+    return ApplicationReadModel(timeline_event_repo, step_repo)
+
+
+ApplicationReadModelDp = Annotated[
+    ApplicationReadModel, Depends(get_application_read_model)
 ]
 
 

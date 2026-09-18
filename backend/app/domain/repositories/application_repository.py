@@ -20,11 +20,7 @@ class ApplicationRepository:
             .where(
                 ApplicationModel.id == id, ApplicationModel.user_id == user_id
             )
-            .options(
-                selectinload(ApplicationModel.company_rel),
-                selectinload(ApplicationModel.last_step_def),
-                selectinload(ApplicationModel.feedback_def),
-            )
+            .options(selectinload(ApplicationModel.company_rel))
         )
 
     async def get_all_by_user_id(
@@ -34,17 +30,14 @@ class ApplicationRepository:
             select(ApplicationModel)
             .where(ApplicationModel.user_id == user_id)
             .order_by(ApplicationModel.application_date.desc())
-            .options(
-                selectinload(ApplicationModel.company_rel),
-                selectinload(ApplicationModel.last_step_def),
-                selectinload(ApplicationModel.feedback_def),
-            )
+            .options(selectinload(ApplicationModel.company_rel))
         )
         if cycle_id is not None:
             stmt = stmt.where(ApplicationModel.cycle_id == cycle_id)
         else:
             stmt = stmt.where(ApplicationModel.cycle_id.is_(None))
-        return await self.session.scalars(stmt)
+        result = await self.session.scalars(stmt)
+        return list(result.all())
 
     async def create(
         self,
@@ -86,4 +79,4 @@ class ApplicationRepository:
             delete(ApplicationModel).where(ApplicationModel.id == id)
         )
         await self.session.commit()
-        return result.rowcount
+        return int(getattr(result, 'rowcount', 0) or 0)

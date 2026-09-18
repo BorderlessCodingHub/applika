@@ -3,19 +3,18 @@ from app.core.exceptions import BusinessRuleViolation, ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
-from app.domain.repositories.application_step_repository import (
-    ApplicationStepRepository,
-)
 
 
 class DeleteApplicationUseCase:
-    def __init__(
-        self,
-        application_repo: ApplicationRepository,
-        application_step_repo: ApplicationStepRepository,
-    ):
+    """Delete one of the acting user's own applications.
+
+    Its timeline events go with it through the FK ON DELETE CASCADE of
+    ``timeline_events.application_id`` (so do the legacy
+    ``application_steps`` rows still in production).
+    """
+
+    def __init__(self, application_repo: ApplicationRepository):
         self.application_repo = application_repo
-        self.application_step_repo = application_step_repo
 
     async def execute(self, id: int, user_id: int) -> None:
         application = await self.application_repo.get_by_id_and_user_id(
@@ -38,7 +37,6 @@ class DeleteApplicationUseCase:
                 'Cannot modify an application from an archived cycle'
             )
 
-        await self.application_step_repo.delete_all_by_application_id(id)
         await self.application_repo.delete_by_id(id)
         logger.info(
             f'Application deleted: {id}',

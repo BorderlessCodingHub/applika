@@ -1,120 +1,77 @@
-from app.application.dto.application import (
-    ApplicationDTO,
-    FinalizeApplicationDTO,
+"""Finalize-application use case: close, reversibly (R-007, R-009).
+
+Ported from mynextjob's ``finalize.py``. Closing stamps
+``applications.finalized_at`` with the server's current UTC time. It asks
+for no step, no feedback and no salary: the outcome and any offered salary
+live on the timeline (an offer or denied event), and there is no
+Offer <-> Accepted rule any more (R-012). Reopen undoes it.
+
+The 0.1.4 body (step, feedback, date, salary, observation) is the compat
+layer's ``LegacyFinalizeApplicationUseCase``.
+"""
+
+from datetime import UTC, datetime
+
+from app.application.dto.application import ApplicationDTO
+from app.application.use_cases.applications.guards import ensure_not_archived
+from app.application.use_cases.applications.read_model import (
+    ApplicationReadModel,
 )
-from app.application.dto.application_step import ApplicationStepCreateDTO
-from app.application.validators.application_date import ensure_not_in_future
 from app.config.logging import logger
-from app.core.exceptions import (
-    ApplicationFinalized,
-    BusinessRuleViolation,
-    ResourceNotFound,
-)
+from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
-from app.domain.repositories.application_step_repository import (
-    ApplicationStepRepository,
-)
-from app.domain.repositories.feedback_definition_repository import (
-    FeedbackDefinitionRepository,
-)
-from app.domain.repositories.step_definition_repository import (
-    StepDefinitionRepository,
-)
+
+APPLICATION_NOT_FOUND = 'Application not found or not owned by user'
 
 
 class FinalizeApplicationUseCase:
+    """Close one of the acting user's own applications.
+
+    A missing or foreign application is a 404 (ADR 0004). An archived one
+    is refused (422, applika's code). A closed one is *not* refused:
+    finalizing it again is an idempotent no-op that keeps the original
+    ``finalized_at`` and returns the current state (R-009). A real close is
+    logged as ``application.finalized``.
+    """
+
     def __init__(
         self,
-        step_repo: StepDefinitionRepository,
-        feedback_repo: FeedbackDefinitionRepository,
         application_repo: ApplicationRepository,
-        application_step_repo: ApplicationStepRepository,
-    ):
-        self.step_repo = step_repo
-        self.feedback_repo = feedback_repo
+        read_model: ApplicationReadModel,
+    ) -> None:
         self.application_repo = application_repo
-        self.application_step_repo = application_step_repo
+        self.read_model = read_model
 
     async def execute(
-        self, id: int, user_id: int, data: FinalizeApplicationDTO
+        self, application_id: int, user_id: int
     ) -> ApplicationDTO:
-        ensure_not_in_future(data.finalize_date, 'finalize_date')
-
         application = await self.application_repo.get_by_id_and_user_id(
-            id, user_id
+            application_id, user_id
         )
-        if not application:
-            logger.warning(
-                f'Finalize failed: application {id} not found',
-                extra={
-                    'extra_data': {
-                        'event': 'finalize_application_failed',
-                        'reason': 'not_found',
-                        'application_id': id,
-                        'user_id': user_id,
-                    }
-                },
-            )
-            raise ResourceNotFound('Application not found or not owned by user')
+        if application is None:
+            raise ResourceNotFound(APPLICATION_NOT_FOUND)
 
-        if application.cycle_id is not None:
-            raise BusinessRuleViolation(
-                'Cannot modify an application from an archived cycle'
-            )
+        ensure_not_archived(application)
 
-        if application.feedback_id is not None:
-            logger.warning(
-                f'Finalize failed: application {id} already finalized',
-                extra={
-                    'extra_data': {
-                        'event': 'finalize_application_failed',
-                        'reason': 'already_finalized',
-                        'application_id': id,
-                        'user_id': user_id,
-                    }
-                },
-            )
-            raise ApplicationFinalized(
-                'This application has already been finalized'
-            )
+        if application.finalized_at is not None:
+            # Already closed: idempotent no-op, current state returned.
+            return await self.read_model.one(application)
 
-        step = await self.step_repo.get_by_id_strict_only(data.step_id)
-        if not step:
-            raise ResourceNotFound('Step not found or is invalid')
-
-        feedback = await self.feedback_repo.get_by_id(data.feedback_id)
-        if not feedback:
-            raise ResourceNotFound('Feedback not found')
-
-        # Insert final step record
-        application_step = ApplicationStepCreateDTO(
-            user_id=user_id,
-            application_id=application.id,
-            step_id=step.id,
-            step_date=data.finalize_date,
-            observation=data.observation,
-        )
-        await self.application_step_repo.create(application_step)
-
-        application.last_step_id = step.id
-        application.last_step_date = data.finalize_date
-        application.feedback_id = feedback.id
-        application.feedback_date = data.finalize_date
-        application.salary_offer = data.salary_offer
-
+        finalized_at = datetime.now(UTC)
+        application.finalized_at = finalized_at
         application = await self.application_repo.update(application)
+
         logger.info(
-            f'Application finalized: {id}',
+            'application.finalized',
             extra={
                 'extra_data': {
-                    'event': 'application_finalized',
-                    'application_id': id,
+                    'event': 'application.finalized',
+                    'application_id': application.id,
                     'user_id': user_id,
-                    'feedback_id': feedback.id,
-                    'step_id': step.id,
+                    'finalized_at': finalized_at.isoformat(),
                 }
             },
         )
-        return ApplicationDTO.model_validate(application)
+        return await self.read_model.one(application)
