@@ -97,6 +97,9 @@ def print_application_step_summary(step: dict[str, Any], prefix: str) -> None:
 
 
 def print_finalize_summary(application: dict[str, Any], prefix: str) -> None:
+    """The 0.1.4 legacy ``--step`` finalize body's output, pinned exactly as
+    0.1.4 had it. Do not use this for the 0.2.0 bodyless/``--outcome``
+    finalize or for ``reopen`` — see ``print_finalize_outcome_summary``."""
     last_step = application.get('last_step') or {}
     feedback = application.get('feedback') or {}
     salary_offer = application.get('salary_offer')
@@ -112,6 +115,38 @@ def print_finalize_summary(application: dict[str, Any], prefix: str) -> None:
     ]
     if salary_offer is not None:
         parts.append(f'salary_offer={salary_offer}')
+
+    print(' '.join(parts))
+
+
+def print_finalize_outcome_summary(
+    application: dict[str, Any],
+    prefix: str,
+    *,
+    outcome: str | None = None,
+) -> None:
+    """The 0.2.0 bodyless/``--outcome`` finalize and ``reopen`` output.
+
+    ``Application.last_step`` is the *latest-dated* timeline event, not the
+    closing one — a future-dated interview added before closing sorts after
+    the outcome event and would print as the "final step" even though it
+    never closed anything. Print what actually happened instead: whether
+    the application is closed, when, and — for an ``--outcome`` finalize —
+    the outcome the request itself carried, not a value re-derived from the
+    timeline.
+    """
+    status = 'closed' if application.get('finalized') else 'open'
+
+    parts = [
+        f'{prefix}:',
+        f'id={application["id"]}',
+        f'company={application["company_name"]}',
+        f'role={application["role"]}',
+        f'status={status}',
+        f'finalized_at={application.get("finalized_at") or "-"}',
+    ]
+    if outcome is not None:
+        parts.append(f'outcome={outcome}')
 
     print(' '.join(parts))
 

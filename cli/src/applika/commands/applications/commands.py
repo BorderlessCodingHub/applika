@@ -52,6 +52,7 @@ from applika.schemas.timeline_event import (
 from applika.utils.output import (
     print_application_step_summary,
     print_application_summary,
+    print_finalize_outcome_summary,
     print_finalize_summary,
     print_timeline_event_summary,
     render_application_step_table,
@@ -913,6 +914,13 @@ def finalize_application(
                 f'/applications/{resolved_application_id}/finalize',
                 payload.model_dump(mode='json'),
             )
+
+            if output_format == OutputFormat.JSON:
+                print(json.dumps(finalized, indent=2, sort_keys=True))
+            else:
+                # 0.1.4's own output, pinned - do not change (KODI-013
+                # remediation round 1: only the 0.2.0 paths below changed).
+                print_finalize_summary(finalized, 'Finalized application')
         else:
             outcome_payload = FinalizeOutcomePayload(
                 outcome=outcome,
@@ -932,10 +940,24 @@ def finalize_application(
                     outcome_payload.model_dump(mode='json'),
                 )
 
-        if output_format == OutputFormat.JSON:
-            print(json.dumps(finalized, indent=2, sort_keys=True))
-        else:
-            print_finalize_summary(finalized, 'Finalized application')
+            if output_format == OutputFormat.JSON:
+                print(json.dumps(finalized, indent=2, sort_keys=True))
+            else:
+                # KODI-013 remediation round 1: Application.last_step is the
+                # latest-dated timeline event, not the closing one - a
+                # future-dated interview added before closing can sort
+                # after the outcome event. Print what actually happened -
+                # status, finalized_at and (for --outcome) the outcome the
+                # request itself carried - instead.
+                print_finalize_outcome_summary(
+                    finalized,
+                    'Finalized application',
+                    outcome=(
+                        outcome_payload.outcome.value
+                        if outcome_payload.outcome is not None
+                        else None
+                    ),
+                )
     except ValidationError as exc:
         _echo_validation_error(exc)
     except ValueError as exc:
@@ -975,7 +997,9 @@ def reopen_application(
         reopened = client.post(
             f'/applications/{resolved_application_id}/reopen'
         )
-        print_application_summary(reopened, 'Reopened application')
+        # KODI-013 remediation round 1: same reasoning as the 0.2.0 finalize
+        # paths - print status/finalized_at, not Application.last_step.
+        print_finalize_outcome_summary(reopened, 'Reopened application')
     except ApiError as exc:
         _echo_api_error(exc)
     finally:
