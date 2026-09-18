@@ -153,3 +153,28 @@ describe("ApplicationItem — closed application", () => {
     expect(services.timeline.list).toHaveBeenCalledWith("app-1");
   });
 });
+
+describe("ApplicationItem — salary display (AC22)", () => {
+  it("shows the ISO currency code on the row, never a symbol", async () => {
+    const user = userEvent.setup();
+    renderItem(
+      baseApplication({
+        currency: "SEK",
+        salary_period: "annually",
+        salary_range_min: 50000,
+        salary_range_max: 60000,
+      }),
+    );
+    await user.click(screen.getByText("Backend engineer"));
+    const label = await screen.findByText("Salary Range");
+    // The value sits in the label's sibling <p> (same pattern as the
+    // dashboard stat cards). Grouping is locale-dependent; the ISO prefix
+    // (never a symbol) is what AC22 pins.
+    const range = label.nextElementSibling;
+    expect(range).toHaveTextContent("SEK");
+    expect(range).toHaveTextContent(
+      new Intl.NumberFormat(undefined).format(50000),
+    );
+    expect(range).not.toHaveTextContent(/kr/i);
+  });
+});

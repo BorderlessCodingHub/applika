@@ -9,22 +9,31 @@ import { formatSalary } from "@/components/applications/application-format";
  * `formatOfferSalary` already delegates to this same function). Pinned across
  * every currency the owner named plus the three salary shapes a row can show:
  * a single expected amount, a min–max range, and each one-sided bound.
+ *
+ * The amount's own grouping (`amount()`) is built with the SAME
+ * `Intl.NumberFormat(undefined, …)` call `formatSalary` uses internally,
+ * rather than a hardcoded "50,000" — so this test asserts the ISO-code
+ * behaviour under test, not this machine's locale (frontend-qa nit).
  */
+function amount(value: number): string {
+  return new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 describe("formatSalary (AC22 — ISO code, never a symbol)", () => {
-  it.each([
-    ["SEK", "SEK 50,000"],
-    ["NOK", "NOK 50,000"],
-    ["DKK", "DKK 50,000"],
-    ["USD", "USD 50,000"],
-    ["EUR", "EUR 50,000"],
-  ])("prints the ISO code for %s, never a symbol", (currency, expected) => {
-    const result = formatSalary({
-      expectedSalary: "50000",
-      currency,
-      salaryPeriod: null,
-    });
-    expect(result).toBe(expected);
-  });
+  it.each(["SEK", "NOK", "DKK", "USD", "EUR"])(
+    "prints the ISO code for %s, never a symbol",
+    (currency) => {
+      const result = formatSalary({
+        expectedSalary: "50000",
+        currency,
+        salaryPeriod: null,
+      });
+      expect(result).toBe(`${currency} ${amount(50000)}`);
+    },
+  );
 
   it("formats a min–max range with one currency prefix and one period suffix", () => {
     expect(
@@ -34,7 +43,7 @@ describe("formatSalary (AC22 — ISO code, never a symbol)", () => {
         currency: "SEK",
         salaryPeriod: "annually",
       }),
-    ).toBe("SEK 50,000 – 60,000 /yr");
+    ).toBe(`SEK ${amount(50000)} – ${amount(60000)} /yr`);
   });
 
   it("formats a min-only bound as an open range", () => {
@@ -44,7 +53,7 @@ describe("formatSalary (AC22 — ISO code, never a symbol)", () => {
         currency: "NOK",
         salaryPeriod: "monthly",
       }),
-    ).toBe("NOK 50,000+ /mo");
+    ).toBe(`NOK ${amount(50000)}+ /mo`);
   });
 
   it("formats a max-only bound as an upper cap", () => {
@@ -54,6 +63,6 @@ describe("formatSalary (AC22 — ISO code, never a symbol)", () => {
         currency: "DKK",
         salaryPeriod: "monthly",
       }),
-    ).toBe("Up to DKK 60,000 /mo");
+    ).toBe(`Up to DKK ${amount(60000)} /mo`);
   });
 });

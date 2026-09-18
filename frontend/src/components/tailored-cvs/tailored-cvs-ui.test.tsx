@@ -16,7 +16,7 @@ import {
   tailoredCvSchema,
   toTailoredCvPayload,
 } from "./tailored-cv-schema";
-import type { BaseCvOption } from "./types";
+import { TAILORED_CV_READ_ONLY_COPY, type BaseCvOption } from "./types";
 
 const OPTIONS: BaseCvOption[] = [
   {
@@ -259,9 +259,10 @@ describe("the tailored CV surface", () => {
     expect(
       screen.queryByRole("button", { name: "Create the CV copy" }),
     ).toBeNull();
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "This application is closed.",
-    );
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("This application is closed.");
+    // AC21 (KODI-013 addendum): the banner also says what to do about it.
+    expect(status).toHaveTextContent(TAILORED_CV_READ_ONLY_COPY.finalized.body);
   });
 
   it("gives the job description ONE disclosure, the card's own header (10)", async () => {
