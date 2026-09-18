@@ -36,6 +36,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - KODI-010 PG enum `currency` gains CNY, SEK, NOK, DKK, PLN, SGD, HKD, NZD,
   MXN, ZAR and AED (20 values). PG enum `salaryperiod` gains `ANNUALLY`.
   Database only: the API enums are unchanged until KODI-011.
+- KODI-014 Migration `c8b3e9f4a1d6` (R3, folded into release A per the
+  owner's choice, chained R1 -> R3 -> R2, expand only): PG enum
+  `denied_reason` (unknown, not_good_enough, skills_mismatch,
+  assessment_failed, too_many_candidates, position_filled, role_closed,
+  ghosted, salary_mismatch, other) and nullable
+  `timeline_events.denied_reason`, plus the CHECK
+  `ck_timeline_events_denied_reason` (`denied_reason IS NOT NULL` iff
+  `event_type = 'denied'`). Every existing `denied` event is backfilled from
+  its application's legacy feedback name (Not good enough->not_good_enough,
+  Skills->skills_mismatch, Assessment failed->assessment_failed, Too many
+  candidates->too_many_candidates, Position filled->position_filled, Role
+  closed->role_closed, Ghost->ghosted; anything else or no feedback->
+  unknown). R1's transitional sync trigger functions are replaced (same
+  names) so an old-code write during release A, including the whole A->B
+  window before the owner runs `alembic upgrade head`, keeps satisfying the
+  new CHECK. Database only: no application code reads or writes this column
+  until KODI-014's backend part ships in release B.
 
 ### Changed
 
