@@ -1,9 +1,9 @@
 """timeline events contract: retire application_steps and the legacy
-applications columns to ``_old``, drop the R1/R3 sync triggers, remap
+applications columns to ``_old``, drop the R1/R3/R4 sync triggers, remap
 ``ANNUAL`` -> ``ANNUALLY`` (R2)
 
 Revision ID: ad747aba90fc
-Revises: c8b3e9f4a1d6
+Revises: af50c83911a7
 Create Date: 2026-09-18 09:00:00.000000
 
 Plan ``docs/applika/plan/0008-steps-as-timeline.md`` ``## Data``, revision R2,
@@ -19,14 +19,18 @@ unrelated response DTO field computed from the timeline, or the deprecated
 compat schema for the 0.1.4 request/response shape — none of it is a SQL
 column or table name).
 
-**Re-parented by KODI-014 (R3, ``c8b3e9f4a1d6``).** The owner folded R3
-("denied_reason on timeline_events") into Release A, so the chain is now
-R1 (``afd4074c70c2``) -> R3 (``c8b3e9f4a1d6``) -> R2 (this revision), not
+**Re-parented by KODI-014 (R3, ``c8b3e9f4a1d6``) and again by KODI-016
+(R4, ``af50c83911a7``).** The owner folded both R3 ("denied_reason on
+timeline_events") and R4 ("schedule kept on interview events only") into
+Release A, so the chain is now R1 (``afd4074c70c2``) -> R3
+(``c8b3e9f4a1d6``) -> R4 (``af50c83911a7``) -> R2 (this revision), not
 R1 -> R2 directly. R2's own logic (the renames, the row remap, the "no
 reconcile" design) is unaffected — R3 only added a column, an enum and a
-CHECK to ``timeline_events``, none of which R2 renames or touches. The one
-place this re-parenting changes R2's own behaviour is the sync-trigger
-recreation in ``downgrade()``: see "R3's trigger bodies, not R1's" below.
+CHECK to ``timeline_events``, and R4 only clears three existing columns on
+non-interview rows and adds its own CHECK; none of that is renamed or
+touched by R2. The one place this re-parenting changes R2's own behaviour
+is the sync-trigger recreation in ``downgrade()``: see "R4's trigger
+bodies, not R3's" below.
 
 ``upgrade()`` drops no column and no table (rule 2). Every retired object is
 renamed with the ``_old`` suffix (rule 3): the table ``application_steps``
@@ -47,15 +51,15 @@ still reads them, frozen, for installed CLIs (R-018/AC4).
 3. Drop the two transitional sync triggers and their functions
    (``trg_application_steps_sync``, ``trg_applications_finalize_sync``,
    ``timeline_events_sync_application_step``,
-   ``timeline_events_sync_application_finalize`` — R3's versions since the
-   re-parenting, denied-reason-aware, but the same names R1 first created
-   them with). Nothing after this point writes ``application_steps``
-   (Release C never does), so the triggers no longer have a purpose;
-   ``downgrade()`` recreates them, because a further downgrade to the R3
-   schema needs a working sync while a pre-Release-B image could still be
-   running against it (unlikely, but the rollback contract in
-   ``prod-release-runbook.md`` promises the previous release's data, not the
-   previous release's code path never running again).
+   ``timeline_events_sync_application_finalize`` — R4's versions since the
+   re-parenting, denied-reason- **and** schedule-nulling-aware, but the same
+   names R1 first created them with). Nothing after this point writes
+   ``application_steps`` (Release C never does), so the triggers no longer
+   have a purpose; ``downgrade()`` recreates them, because a further
+   downgrade to the R4 schema needs a working sync while a pre-Release-B
+   image could still be running against it (unlikely, but the rollback
+   contract in ``prod-release-runbook.md`` promises the previous release's
+   data, not the previous release's code path never running again).
 4. Rename ``application_steps`` -> ``application_steps_old``, and its primary
    key (``pk_steps`` -> ``pk_steps_old``) and its three foreign keys
    (``fk_application_steps_user_id``, ``fk_steps_application_id``,
@@ -72,31 +76,38 @@ still reads them, frozen, for installed CLIs (R-018/AC4).
    ``timeline_events`` — the three tables that carry the column. The PG enum
    itself is untouched (Postgres cannot drop a label); only the rows move.
 
-## R3's trigger bodies, not R1's (KODI-014 re-parenting)
+## R4's trigger bodies, not R3's (KODI-014, then KODI-016, re-parenting)
 
-Before the re-parenting, R2's ``downgrade()`` recreated the two sync trigger
-functions byte-identical to R1's own bodies, because a downgrade to
-``afd4074c70c2`` put the schema back in exactly R1's shape. Now that R3 sits
-between R1 and R2, downgrading R2 lands on **R3's** schema
-(``timeline_events.denied_reason`` and its CHECK are still there — R3 is
-untouched by this revision's downgrade), not R1's. Recreating R1's
-plain bodies there would leave a live gap: an old-code step insert/update
-the sync turns into a ``denied`` event would ``INSERT`` a row with
-``denied_reason`` left at its column default (``NULL``), which violates
-``ck_timeline_events_denied_reason`` — caught by the trigger's own
-``EXCEPTION WHEN OTHERS THEN RAISE WARNING`` catch-all (the write itself
-never fails), but the event would then simply never sync, silently losing
-every denied sync for as long as the rollback lasts. ``_STEP_FUNCTION_SQL``
-and ``_APP_FUNCTION_SQL`` below are therefore copied from R3
-(``c8b3e9f4a1d6``), not from R1 — a revision must not import another
-revision, so this is a byte-for-byte duplicate, pinned against R3's own
-copies by
-``test_duplicated_constants_match_revision_c8b3e9f4a1d6_and_step_
-translation`` in the round-trip test (renamed from the R1-pinning test the
-re-parenting replaces). Every other constant this revision copies
+Before the first re-parenting (KODI-014), R2's ``downgrade()`` recreated the
+two sync trigger functions byte-identical to R1's own bodies, because a
+downgrade to ``afd4074c70c2`` put the schema back in exactly R1's shape.
+KODI-014 moved that target to R3's bodies (denied-reason-aware), and
+KODI-016 moves it one more step, to **R4's**: now that R3 and R4 both sit
+between R1 and R2, downgrading R2 lands on **R4's** schema
+(``timeline_events.denied_reason``, its CHECK, and R4's own
+``ck_timeline_events_schedule_interview_only`` are all still there — neither
+R3 nor R4 is touched by this revision's downgrade), not R3's and not R1's.
+Recreating R3's plain (pre-schedule-nulling) step body there would leave the
+same kind of live gap KODI-014's own note already describes for R1's body:
+an old-code step insert/update for a non-interview step that still carries
+``start_time``/``end_time``/``timezone`` would ``INSERT`` a row that
+violates ``ck_timeline_events_schedule_interview_only`` — caught by the
+trigger's own ``EXCEPTION WHEN OTHERS THEN RAISE WARNING`` catch-all (the
+write itself never fails), but the event would then simply never sync,
+silently losing every such sync for as long as the rollback lasts.
+``_STEP_FUNCTION_SQL`` below is therefore copied from R4
+(``af50c83911a7``), not from R3 or R1 — a revision must not import another
+revision, so this is a byte-for-byte duplicate, pinned against R4's own copy
+by
+``test_duplicated_constants_match_revision_af50c83911a7_and_step_
+translation`` in the round-trip test (renamed from the R3-pinning test this
+re-parenting replaces). ``_APP_FUNCTION_SQL`` is unchanged text-for-text
+from the previous re-parenting: R4 never touched the finalize-sync function
+(it writes no schedule), so its body copied from R3 is byte-identical to
+R4's own copy of it too. Every other constant this revision copies
 (``REVERSE_STEP_MAP``, ``STEP_FALLBACK``, the offer-salary helpers, ...)
-still comes from R1: R3 never touched any of them, only the trigger bodies
-changed.
+still comes from R1: neither R3 nor R4 touched any of them, only the
+step-function body changed, twice.
 
 ## Reconcile design (why there is no reconcile)
 
@@ -220,11 +231,19 @@ instead of inserting a second row; ``last_step_id``/``last_step_date``,
 ``feedback_id``/``feedback_date`` and ``salary_offer`` (only when currently
 NULL — see the Denied-with-salary note above) are recomputed from the latest
 timeline event, exactly the way R1's downgrade recomputes them (that part is
-unaffected by the KODI-014 re-parenting: R3 does not touch any of the legacy
-``applications`` columns or ``application_steps``), because after this
-downgrade the schema **is** R3's schema (``afd4074c70c2`` -> ``c8b3e9f4a1d6``
--> here) and needs to satisfy the same old code, ``denied_reason`` CHECK
-included. ``ANNUALLY`` is remapped back to ``ANNUAL`` on ``applications``,
+unaffected by either re-parenting: neither R3 nor R4 touches any of the
+legacy ``applications`` columns or ``application_steps``), because after
+this downgrade the schema **is** R4's schema (``afd4074c70c2`` ->
+``c8b3e9f4a1d6`` -> ``af50c83911a7`` -> here) and needs to satisfy the same
+old code, ``denied_reason`` CHECK and ``ck_timeline_events_schedule_
+interview_only`` CHECK both included. Neither ``_SYNC_EDITS_SQL`` nor
+``_COPY_BACK_SQL`` ever writes to ``timeline_events`` — both only *read*
+its ``start_time``/``end_time``/``timezone`` to populate
+``application_steps`` (a table the new CHECK does not constrain) — so
+nothing in this downgrade can violate R4's CHECK; a non-interview event's
+columns, already NULL since R4's own upgrade ran, are simply copied as NULL
+into the ``application_steps`` row that represents it, same as every other
+field. ``ANNUALLY`` is remapped back to ``ANNUAL`` on ``applications``,
 ``users`` and ``timeline_events`` — safe unconditionally (not only for the
 rows this revision itself remapped): ``SalaryPeriodType`` already reads both
 labels as ``annually`` (see ``app/domain/models.py``), so relabelling a
@@ -233,8 +252,8 @@ keeps the round trip exact without needing to tell "remapped by this
 revision" apart from "written natively as ANNUALLY by Release C" — an
 ambiguity that, unlike the reconcile's, carries no risk because both labels
 mean the same thing to every release that will ever read the row. Both
-triggers are recreated last, byte-identical to **R3's** definitions (see
-"R3's trigger bodies, not R1's" above).
+triggers are recreated last, byte-identical to **R4's** definitions (see
+"R4's trigger bodies, not R3's" above).
 
 **An ``application_steps`` row whose event was deleted after this revision's
 upgrade**: downgrade never deletes a row (rule: a rollback never destroys
@@ -259,7 +278,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = 'ad747aba90fc'
-down_revision: Union[str, Sequence[str], None] = 'c8b3e9f4a1d6'
+down_revision: Union[str, Sequence[str], None] = 'af50c83911a7'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -272,10 +291,10 @@ depends_on: Union[str, Sequence[str], None] = None
 # ``app/application/use_cases/compat/step_translation.py``.
 #
 # The two trigger-body constants (``_STEP_FUNCTION_SQL``, ``_APP_FUNCTION_
-# SQL`` below) are the one exception since KODI-014's re-parenting: they are
-# copied from R3 (``c8b3e9f4a1d6``), not R1, because ``downgrade()`` recreates
-# the triggers on R3's schema now - see "R3's trigger bodies, not R1's" in
-# the module docstring.
+# SQL`` below) are the one exception since KODI-014's/KODI-016's
+# re-parenting: they are copied from R4 (``af50c83911a7``), not R1 or R3,
+# because ``downgrade()`` recreates the triggers on R4's schema now - see
+# "R4's trigger bodies, not R3's" in the module docstring.
 # --------------------------------------------------------------------------
 
 INTERVIEW_TYPES = (
@@ -336,10 +355,10 @@ _APP_TRIGGER = 'trg_applications_finalize_sync'
 _STEP_FUNCTION = 'timeline_events_sync_application_step'
 _APP_FUNCTION = 'timeline_events_sync_application_finalize'
 
-# R3's (``c8b3e9f4a1d6``, KODI-014) denied-reason mapping, duplicated so the
-# trigger bodies below stay byte-compatible with R3's. Match by feedback
-# *name*, never by id; anything unmapped or missing falls back to
-# DENIED_REASON_FALLBACK.
+# R3's (``c8b3e9f4a1d6``, KODI-014) denied-reason mapping, unchanged by R4
+# and duplicated here so the trigger bodies below stay byte-compatible with
+# R4's (``af50c83911a7``, KODI-016). Match by feedback *name*, never by id;
+# anything unmapped or missing falls back to DENIED_REASON_FALLBACK.
 FEEDBACK_TO_DENIED_REASON: dict[str, str] = {
     'Not good enough': 'not_good_enough',
     'Skills': 'skills_mismatch',
@@ -453,8 +472,8 @@ def _feedback_id_sql(event_type: str) -> str:
 
 
 # --------------------------------------------------------------------------
-# Trigger bodies, byte-identical to R3's (``c8b3e9f4a1d6``) since KODI-014's
-# re-parenting (they were R1's, ``afd4074c70c2``, before it) - dropped by
+# Trigger bodies, byte-identical to R4's (``af50c83911a7``) since KODI-016's
+# re-parenting (they were R3's, ``c8b3e9f4a1d6``, before it) - dropped by
 # upgrade(), recreated by downgrade().
 # --------------------------------------------------------------------------
 
@@ -465,6 +484,9 @@ DECLARE
     v_event_type event_type;
     v_interview_type interview_type;
     v_denied_reason denied_reason;
+    v_start_time time;
+    v_end_time time;
+    v_timezone varchar(100);
     v_existing timeline_events%ROWTYPE;
     v_amount numeric(12, 2);
     v_currency currency;
@@ -495,6 +517,16 @@ BEGIN
                AND t.id <> NEW.id
         ) THEN
             v_interview_type := 'unknown';
+        END IF;
+
+        IF v_event_type = 'interview' THEN
+            v_start_time := NEW.start_time;
+            v_end_time := NEW.end_time;
+            v_timezone := NEW.timezone;
+        ELSE
+            v_start_time := NULL;
+            v_end_time := NULL;
+            v_timezone := NULL;
         END IF;
 
         IF v_event_type = 'denied' THEN
@@ -540,8 +572,8 @@ BEGIN
         ) VALUES (
             NEW.id, NEW.application_id, NEW.user_id, v_event_type,
             v_interview_type, v_denied_reason,
-            NEW.step_date, NEW.start_time, NEW.end_time,
-            NEW.timezone, NEW.observation, v_amount, v_currency, v_period,
+            NEW.step_date, v_start_time, v_end_time,
+            v_timezone, NEW.observation, v_amount, v_currency, v_period,
             COALESCE(NEW.created_at, now()), NEW.updated_at
         )
         ON CONFLICT (id) DO UPDATE SET
@@ -931,7 +963,7 @@ def downgrade() -> None:
             f"WHERE salary_period = '{SALARY_PERIOD_ADDED}'"
         )
 
-    # -- 5. The triggers, last, byte-identical to R3's.
+    # -- 5. The triggers, last, byte-identical to R4's.
     op.execute(sa.text(_STEP_FUNCTION_SQL))
     op.execute(sa.text(_APP_FUNCTION_SQL))
     for statement in _CREATE_TRIGGERS_SQL:

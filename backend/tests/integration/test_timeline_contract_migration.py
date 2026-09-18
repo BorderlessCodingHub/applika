@@ -4,11 +4,13 @@
 dedicated testcontainers Postgres - upgrade to the revision, downgrade to its
 parent, upgrade again - with rows seeded before the upgrade and the data
 asserted after every step. **KODI-014 re-parented R2 onto R3**
-(``c8b3e9f4a1d6``, denied_reason, folded into Release A): the chain is now
-R1 (``afd4074c70c2``) -> R3 (``c8b3e9f4a1d6``) -> R2 (this revision), so
-R2's own "parent" for the round trip is R3, not R1 directly (see
-``PARENT_REVISION``/``GRANDPARENT_REVISION``/``GREATGRANDPARENT_REVISION``
-below).
+(``c8b3e9f4a1d6``, denied_reason, folded into Release A), and **KODI-016
+re-parented it again onto R4** (``af50c83911a7``, schedule-interview-only,
+also folded into Release A): the chain is now R1 (``afd4074c70c2``) -> R3
+(``c8b3e9f4a1d6``) -> R4 (``af50c83911a7``) -> R2 (this revision), so R2's
+own "parent" for the round trip is R4, not R3 or R1 directly (see
+``PARENT_REVISION``/``GRANDPARENT_REVISION``/``GREATGRANDPARENT_REVISION``/
+``GREATGREATGRANDPARENT_REVISION`` below).
 
 What is proved here, by acceptance criterion of KODI-013 (Engineer A's
 ownership - see the slice brief):
@@ -76,15 +78,18 @@ from testcontainers.postgres import PostgresContainer
 from app.config.settings import envs
 
 REVISION = 'ad747aba90fc'
-# KODI-014 re-parented R2 onto R3 (``c8b3e9f4a1d6``, denied_reason, folded
-# into Release A): the chain is now R1 -> R3 -> R2, not R1 -> R2 directly.
-PARENT_REVISION = 'c8b3e9f4a1d6'
-# R3's own down_revision (R1) - two hops below head.
-GRANDPARENT_REVISION = 'afd4074c70c2'
-# R1's own down_revision - three hops below head. Used only by the
-# remediation-round-1 regression test that crosses R2's, R3's and R1's
+# KODI-016 re-parented R2 onto R4 (``af50c83911a7``, schedule-interview-only,
+# folded into Release A): the chain is now R1 -> R3 -> R4 -> R2, not
+# R1 -> R3 -> R2 (KODI-014's own re-parenting) and not R1 -> R2 directly.
+PARENT_REVISION = 'af50c83911a7'
+# R4's own down_revision (R3) - two hops below head.
+GRANDPARENT_REVISION = 'c8b3e9f4a1d6'
+# R3's own down_revision (R1) - three hops below head.
+GREATGRANDPARENT_REVISION = 'afd4074c70c2'
+# R1's own down_revision - four hops below head. Used only by the
+# remediation-round-1 regression test that crosses R2's, R4's, R3's and R1's
 # downgrade()/upgrade() in a single alembic command.
-GREATGRANDPARENT_REVISION = 'd3f7b1c9e2a4'
+GREATGREATGRANDPARENT_REVISION = 'd3f7b1c9e2a4'
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 _ALEMBIC_INI = _BACKEND_ROOT / 'alembic.ini'
@@ -98,13 +103,19 @@ _R1_MIGRATION_PATH = (
     _BACKEND_ROOT
     / 'migrations'
     / 'versions'
-    / f'{GRANDPARENT_REVISION}_timeline_events_expand.py'
+    / f'{GREATGRANDPARENT_REVISION}_timeline_events_expand.py'
 )
 _R3_MIGRATION_PATH = (
     _BACKEND_ROOT
     / 'migrations'
     / 'versions'
-    / f'{PARENT_REVISION}_timeline_events_denied_reason.py'
+    / f'{GRANDPARENT_REVISION}_timeline_events_denied_reason.py'
+)
+_R4_MIGRATION_PATH = (
+    _BACKEND_ROOT
+    / 'migrations'
+    / 'versions'
+    / f'{PARENT_REVISION}_timeline_events_schedule_interview_only.py'
 )
 
 USER_ID = 7300000000000000001
@@ -262,6 +273,13 @@ def _load_r1_module() -> ModuleType:
 def _load_r3_module() -> ModuleType:
     return _load_module(
         _R3_MIGRATION_PATH, 'timeline_denied_reason_migration_reference'
+    )
+
+
+def _load_r4_module() -> ModuleType:
+    return _load_module(
+        _R4_MIGRATION_PATH,
+        'timeline_schedule_interview_only_migration_reference',
     )
 
 
@@ -776,8 +794,8 @@ def test_upgrade_source_drops_no_column_or_table() -> None:
     assert len(downgrade_source.splitlines()) > 5
 
 
-def test_the_revision_is_a_child_of_r3() -> None:
-    """KODI-014 re-parented R2 onto R3 (``c8b3e9f4a1d6``)."""
+def test_the_revision_is_a_child_of_r4() -> None:
+    """KODI-016 re-parented R2 onto R4 (``af50c83911a7``)."""
     module = _load_migration_module()
 
     assert module.revision == REVISION
@@ -786,8 +804,8 @@ def test_the_revision_is_a_child_of_r3() -> None:
 
 def test_only_one_head() -> None:
     """The re-parenting must not leave a fork: the real Alembic
-    ``ScriptDirectory`` sees exactly one head, and the R1 -> R3 -> R2 chain
-    resolves as expected."""
+    ``ScriptDirectory`` sees exactly one head, and the
+    R1 -> R3 -> R4 -> R2 chain resolves as expected."""
     from alembic.config import Config
     from alembic.script import ScriptDirectory
 
@@ -799,21 +817,25 @@ def test_only_one_head() -> None:
 
     r2 = script.get_revision(REVISION)
     assert r2.down_revision == PARENT_REVISION
-    r3 = script.get_revision(PARENT_REVISION)
-    assert r3.down_revision == GRANDPARENT_REVISION
+    r4 = script.get_revision(PARENT_REVISION)
+    assert r4.down_revision == GRANDPARENT_REVISION
+    r3 = script.get_revision(GRANDPARENT_REVISION)
+    assert r3.down_revision == GREATGRANDPARENT_REVISION
 
 
-def test_duplicated_constants_match_revision_c8b3e9f4a1d6_and_step_translation() -> (
+def test_duplicated_constants_match_revision_af50c83911a7_and_step_translation() -> (
     None
 ):
     """A revision must not import another revision, so R2 copies R1's
-    constants and SQL - this pins the copies against drift. The two trigger
-    bodies are the one exception since the KODI-014 re-parenting: they are
-    now copied from R3 (``c8b3e9f4a1d6``), not R1 directly - see "R3's
-    trigger bodies, not R1's" in the revision's own docstring."""
+    constants and SQL - this pins the copies against drift. The trigger
+    bodies are the one exception since the KODI-014 (then KODI-016)
+    re-parenting: they are now copied from R4 (``af50c83911a7``), not R3 or
+    R1 directly - see "R4's trigger bodies, not R3's" in the revision's own
+    docstring."""
     r2 = _load_migration_module()
     r1 = _load_r1_module()
     r3 = _load_r3_module()
+    r4 = _load_r4_module()
 
     assert r2.REVERSE_STEP_MAP == r1.REVERSE_STEP_MAP
     assert r2.REVERSE_FEEDBACK_MAP == r1.REVERSE_FEEDBACK_MAP
@@ -829,11 +851,16 @@ def test_duplicated_constants_match_revision_c8b3e9f4a1d6_and_step_translation()
     assert r2._APP_TRIGGER == r1._APP_TRIGGER
     assert r2._STEP_FUNCTION == r1._STEP_FUNCTION
     assert r2._APP_FUNCTION == r1._APP_FUNCTION
-    # The trigger bodies themselves: R3's versions, denied_reason-aware.
-    assert r2._STEP_FUNCTION_SQL == r3._STEP_FUNCTION_SQL
+    # The trigger bodies themselves: R4's versions, schedule-nulling- and
+    # denied_reason-aware. The finalize function never changed since R3, so
+    # it is byte-identical whichever of the two it is compared against.
+    assert r2._STEP_FUNCTION_SQL == r4._STEP_FUNCTION_SQL
+    assert r2._APP_FUNCTION_SQL == r4._APP_FUNCTION_SQL
     assert r2._APP_FUNCTION_SQL == r3._APP_FUNCTION_SQL
     assert r2.FEEDBACK_TO_DENIED_REASON == r3.FEEDBACK_TO_DENIED_REASON
+    assert r2.FEEDBACK_TO_DENIED_REASON == r4.FEEDBACK_TO_DENIED_REASON
     assert r2.DENIED_REASON_FALLBACK == r3.DENIED_REASON_FALLBACK
+    assert r2.DENIED_REASON_FALLBACK == r4.DENIED_REASON_FALLBACK
 
     from app.application.use_cases.compat.step_translation import (
         REVERSE_STEP_NAMES,
@@ -1254,32 +1281,34 @@ def test_r2_does_not_touch_the_denied_reason_column(migration_db: str) -> None:
     ]
 
 
-def test_single_command_downgrade_and_upgrade_cross_three_revisions(
+def test_single_command_downgrade_and_upgrade_cross_four_revisions(
     migration_db: str,
 ) -> None:
-    """Remediation round 1 regression (AC7 R-029, AC8), widened by the
-    KODI-014 re-parenting: a single ``alembic downgrade``/``upgrade`` command
-    that crosses this revision's downgrade(), *then* R3's
+    """Remediation round 1 regression (AC7 R-029, AC8), widened first by the
+    KODI-014 re-parenting and again by KODI-016's: a single ``alembic
+    downgrade``/``upgrade`` command that crosses this revision's
+    downgrade(), *then* R4's (``af50c83911a7``), *then* R3's
     (``c8b3e9f4a1d6``), *then* R1's (``afd4074c70c2``) in the same run must
     not collide.
 
     ``migrations/env.py`` wraps a whole ``run_migrations()`` call in one
     outer transaction (no ``transaction_per_migration``), so a single
-    ``alembic downgrade d3f7b1c9e2a4`` from head now runs three
+    ``alembic downgrade d3f7b1c9e2a4`` from head now runs four
     downgrade()s in that same still-open transaction where it used to run
-    two. Before the original fix (KODI-013 remediation round 1), R2 and R1
-    both created a temp table named ``timeline_downgrade_touched`` with
-    ``ON COMMIT DROP`` - which only fires once the *whole* command's
+    two, then three. Before the original fix (KODI-013 remediation round 1),
+    R2 and R1 both created a temp table named ``timeline_downgrade_touched``
+    with ``ON COMMIT DROP`` - which only fires once the *whole* command's
     transaction commits, not between revisions - so R1's ``CREATE TEMPORARY
     TABLE`` raised ``asyncpg.exceptions.DuplicateTableError``. R2 was fixed
     by scoping its temp table to its own name
     (``timeline_downgrade_touched_ad747aba90fc``) and dropping it explicitly
-    at the end of its own ``downgrade()``. R3 (KODI-014) sidesteps the whole
-    class of bug by using no temporary table anywhere, so inserting it
-    between R2 and R1 introduces no new collision - this test is the proof.
-    R1 (Release A, released) is untouched.
+    at the end of its own ``downgrade()``. R3 (KODI-014) and R4 (KODI-016)
+    both sidestep the whole class of bug by using no temporary table
+    anywhere, so inserting either between R2 and R1 introduces no new
+    collision - this test is the proof. R1 (Release A, released) is
+    untouched.
     """
-    _upgrade(migration_db, GREATGRANDPARENT_REVISION)
+    _upgrade(migration_db, GREATGREATGRANDPARENT_REVISION)
     pre_r1_columns = _columns(migration_db)
     pre_r1_tables = _tables(migration_db)
 
@@ -1287,13 +1316,14 @@ def test_single_command_downgrade_and_upgrade_cross_three_revisions(
     _seed_at_r1(migration_db)
     _upgrade(migration_db, REVISION)
 
-    # -- One command, crossing this revision's downgrade(), then R3's, then
-    #    R1's. Used to raise asyncpg.exceptions.DuplicateTableError (R2/R1
-    #    only) before the original fix.
-    _downgrade(migration_db, GREATGRANDPARENT_REVISION)
+    # -- One command, crossing this revision's downgrade(), then R4's, then
+    #    R3's, then R1's. Used to raise
+    #    asyncpg.exceptions.DuplicateTableError (R2/R1 only) before the
+    #    original fix.
+    _downgrade(migration_db, GREATGREATGRANDPARENT_REVISION)
 
     assert _query(migration_db, 'SELECT version_num FROM alembic_version') == [
-        {'version_num': GREATGRANDPARENT_REVISION}
+        {'version_num': GREATGREATGRANDPARENT_REVISION}
     ]
     assert _columns(migration_db) == pre_r1_columns
     assert _tables(migration_db) == pre_r1_tables
@@ -1324,7 +1354,7 @@ def test_single_command_downgrade_and_upgrade_cross_three_revisions(
     )
 
     # -- The other direction: one command crossing R1's upgrade(), R3's,
-    #    then R2's.
+    #    R4's, then R2's.
     _upgrade(migration_db, REVISION)
     assert _query(migration_db, 'SELECT version_num FROM alembic_version') == [
         {'version_num': REVISION}
