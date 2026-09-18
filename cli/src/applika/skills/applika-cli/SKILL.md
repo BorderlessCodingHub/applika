@@ -287,8 +287,15 @@ applika applications timeline add <application-id> \
   --type offer --date 2026-06-10 \
   --salary 180000 --currency USD --period annually
 
+# Add a denial with a reason (defaults --reason to "unknown" if omitted)
+applika applications timeline add <application-id> \
+  --type denied --date 2026-06-11 --reason skills_mismatch
+
 # Edit an event (PUT replaces the whole event; unspecified flags keep current values)
 applika applications timeline edit <application-id> <event-id> --observation "Updated"
+
+# Change a denied event's reason without touching anything else
+applika applications timeline edit <application-id> <event-id> --reason ghosted
 
 # Delete an event
 applika applications timeline delete <application-id> <event-id>
@@ -298,17 +305,28 @@ Event types: `note`, `interview`, `feedback`, `offer`, `denied`.
 Interview types: `unknown` (default), `initial_screening`, `technical`,
 `cultural`, `hiring_manager`, `take_home`, `final`. An application can have
 at most one `initial_screening` interview (409 on a second one).
+Denied reasons: `unknown` (default), `not_good_enough`, `skills_mismatch`,
+`assessment_failed`, `too_many_candidates`, `position_filled`,
+`role_closed`, `ghosted`, `salary_mismatch`, `other` (shown as Unknown, Not
+good enough, Skills mismatch, Assessment failed, Too many candidates,
+Position filled, Role closed, Ghosted, Salary mismatch, Other in
+`timeline list`/`add`/`edit` output).
 
 `--interview-type` is only valid with `--type interview`.
 `--salary`/`--currency`/`--period` are only valid with `--type offer`, and
 then all three are required together; `--period` is `monthly` or `annually`
 only (an hourly offer is refused).
+`--reason` is only valid with `--type denied`; if omitted on a denied
+event, the server defaults it to `unknown`.
 
 `edit` fetches the current event and overlays the flags given: changing
 `--type` away from `offer` drops the salary fields, away from `interview`
-drops the interview type; changing to `interview` without
-`--interview-type` defaults to `unknown`; changing to `offer` requires the
-salary triad unless the event already had one.
+drops the interview type, away from `denied` drops the reason; changing to
+`interview` without `--interview-type` defaults to `unknown`; changing to
+`offer` requires the salary triad unless the event already had one;
+`--reason` is valid when `--type denied` is given, or when `--type` is
+omitted and the event is already `denied` — an edit that does not pass
+`--reason` preserves the event's current reason.
 
 If an application is closed, a write to its timeline is refused (409) with
 a hint to run `applika applications reopen <application-id>`.
@@ -328,6 +346,10 @@ applika applications finalize <application-id> \
 applika applications finalize <application-id> \
   --outcome denied --date 2026-06-18 --observation "Not a fit"
 
+# Close with a denial and a specific reason (defaults to "unknown" if omitted)
+applika applications finalize <application-id> \
+  --outcome denied --reason position_filled
+
 # Reopen a closed application (idempotent) so its timeline is editable again
 applika applications reopen <application-id>
 ```
@@ -339,10 +361,14 @@ Rules:
 - `--salary`/`--currency`/`--period` are only valid with `--outcome offer`,
   and then all three are required; `--period` is `monthly` or `annually`
   only.
+- `--reason` is only valid with `--outcome denied`; refused with
+  `--outcome offer`, with no `--outcome` at all, or with the deprecated
+  `--step` body. Same ten values as `timeline add|edit --reason`; defaults
+  to `unknown` if omitted.
 - `--step`, `--feedback` and `--salary-offer` are the **deprecated** 0.1.4
   body — still work exactly as before, but print as deprecated in
   `--help`. They cannot be combined with `--outcome`/`--salary`/
-  `--currency`/`--period`.
+  `--currency`/`--period`/`--reason`.
 - A 409 on an already-closed application suggests
   `applika applications reopen <application-id>`.
 

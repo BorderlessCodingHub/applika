@@ -127,6 +127,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   it as its own flag yet.
 - KODI-013 `EventType` and `InterviewType` vendored in `schemas/enums.py`,
   matching `applika/backend/app/core/enums.py`.
+- KODI-014 `applications timeline add|edit --reason <value>` sets the denied
+  reason on a `denied` event: valid only with `--type denied` (`add`) or
+  when the event is or becomes `denied` (`edit`, where unspecified
+  `--reason` preserves the event's current reason and changing `--type`
+  away from `denied` drops it, the same PUT-is-a-full-replace pattern as
+  `--interview-type`); defaults to `unknown` when omitted on a `denied`
+  event. `applications finalize --outcome denied --reason <value>` does the
+  same for the closing event; only valid with `--outcome denied`, refused
+  with `--outcome offer`, with no `--outcome`, or with the deprecated
+  `--step` body. Ten values: `unknown`, `not_good_enough`,
+  `skills_mismatch`, `assessment_failed`, `too_many_candidates`,
+  `position_filled`, `role_closed`, `ghosted`, `salary_mismatch`, `other`
+  (English labels shown by `timeline list`/`add`/`edit`: Unknown, Not good
+  enough, Skills mismatch, Assessment failed, Too many candidates, Position
+  filled, Role closed, Ghosted, Salary mismatch, Other). `DeniedReason`
+  vendored in `schemas/enums.py`, matching
+  `applika/backend/app/core/enums.py`.
+- KODI-014 Backend contract change this CLI consumes: `TimelineEvent`
+  responses gain `denied_reason: <value>|null` (non-null iff `event_type`
+  is `denied`); `POST/PUT .../timeline` and `POST .../finalize` (body
+  `outcome: "denied"`) accept an optional `denied_reason`, defaulting to
+  `unknown` when the event/outcome is `denied` and omitted, and answering
+  422 when set on anything else — same pattern as `interview_type` on a
+  non-interview. The CLI tolerates a response without `denied_reason` at
+  all (an older API). Legacy 0.1.4 paths (`/steps*`, the legacy finalize
+  body) are unaffected: a denied event they create gets `unknown`, or, for
+  the legacy finalize body, the old feedback name mapped to a reason
+  server-side; 0.1.4 request/response shapes do not change, and
+  `applika-cli` 0.1.4 never sees this field.
 
 ### Changed
 
