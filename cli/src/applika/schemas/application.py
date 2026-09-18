@@ -7,6 +7,8 @@ from applika.schemas.enums import (
     ApplicationMode,
     Currency,
     ExperienceLevel,
+    FinalizeOutcome,
+    OfferPeriod,
     SalaryPeriod,
     WorkMode,
 )
@@ -85,6 +87,50 @@ class ApplicationEntry(TypedDict):
     work_mode: str | None
     country: str | None
     salary_offer: float | None
+    finalized_at: str | None
     finalized: bool
     last_step: ApplicationLastStep | None
     feedback: ApplicationFeedback | None
+
+
+OFFER_OUTCOME_NEEDS_SALARY = (
+    '--salary, --currency and --period are required when --outcome offer'
+)
+SALARY_ONLY_ON_OFFER_OUTCOME = (
+    '--salary, --currency and --period are only allowed when --outcome offer'
+)
+FIELDS_NEED_AN_OUTCOME = (
+    '--date and --observation require --outcome (offer or denied)'
+)
+
+
+class FinalizeOutcomePayload(BaseModel):
+    """The new optional finalize body (R-032). Mirrors the backend's
+    ``FinalizeWithOutcome`` validation so the CLI refuses the same
+    combinations before any request is made."""
+
+    outcome: FinalizeOutcome | None = None
+    event_date: datetime.date | None = None
+    observation: str | None = None
+    salary_amount: float | None = None
+    salary_currency: Currency | None = None
+    salary_period: OfferPeriod | None = None
+
+    @model_validator(mode='after')
+    def validate_outcome(self) -> 'FinalizeOutcomePayload':
+        salary_fields = (
+            self.salary_amount,
+            self.salary_currency,
+            self.salary_period,
+        )
+        if self.outcome == FinalizeOutcome.OFFER:
+            if any(field is None for field in salary_fields):
+                raise ValueError(OFFER_OUTCOME_NEEDS_SALARY)
+        elif any(field is not None for field in salary_fields):
+            raise ValueError(SALARY_ONLY_ON_OFFER_OUTCOME)
+
+        if self.outcome is None and (
+            self.event_date is not None or self.observation is not None
+        ):
+            raise ValueError(FIELDS_NEED_AN_OUTCOME)
+        return self

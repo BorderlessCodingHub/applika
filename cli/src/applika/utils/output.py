@@ -116,6 +116,72 @@ def print_finalize_summary(application: dict[str, Any], prefix: str) -> None:
     print(' '.join(parts))
 
 
+def render_timeline_event_table(events: list[dict[str, Any]]) -> None:
+    rows = [
+        [
+            str(event['id']),
+            event['event_date'],
+            event['event_type'],
+            _format_timeline_detail(event),
+            _format_time_range(event),
+            event.get('timezone') or '-',
+            event.get('observation') or '-',
+        ]
+        for event in events
+    ]
+    headers = [
+        'id',
+        'date',
+        'type',
+        'detail',
+        'time',
+        'timezone',
+        'observation',
+    ]
+    widths = [
+        max(len(header), *(len(row[index]) for row in rows))
+        if rows
+        else len(header)
+        for index, header in enumerate(headers)
+    ]
+
+    print(
+        '  '.join(
+            header.ljust(widths[index]) for index, header in enumerate(headers)
+        )
+    )
+    for row in rows:
+        print(
+            '  '.join(
+                value.ljust(widths[index]) for index, value in enumerate(row)
+            )
+        )
+
+
+def print_timeline_event_summary(event: dict[str, Any], prefix: str) -> None:
+    parts = [
+        f'{prefix}:',
+        f'id={event["id"]}',
+        f'type={event["event_type"]}',
+        f'date={event["event_date"]}',
+    ]
+    detail = _format_timeline_detail(event)
+    if detail != '-':
+        parts.append(f'detail={detail}')
+    print(' '.join(parts))
+
+
+def _format_timeline_detail(event: dict[str, Any]) -> str:
+    if event.get('event_type') == 'interview' and event.get('interview_type'):
+        return str(event['interview_type'])
+    if event.get('event_type') == 'offer' and event.get('salary_amount'):
+        amount = event.get('salary_amount')
+        currency = event.get('salary_currency') or ''
+        period = event.get('salary_period') or ''
+        return f'{amount} {currency}/{period}'.strip()
+    return '-'
+
+
 def _format_time_range(step: dict[str, Any]) -> str:
     start_time = step.get('start_time')
     end_time = step.get('end_time')

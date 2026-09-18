@@ -134,6 +134,14 @@ class ApiClient:
     def post_json(self, path: str, payload: dict[str, Any]) -> Any:
         return self.request('POST', path, json=payload).json()
 
+    def post(self, path: str, payload: dict[str, Any] | None = None) -> Any:
+        """POST with an optional body. ``payload=None`` sends no body at
+        all (no ``json`` kwarg reaches httpx, so no ``Content-Type`` header
+        and no bytes go out) - used for the bodyless finalize/reopen close,
+        which must be indistinguishable from a client that never heard of
+        the outcome body."""
+        return self.request('POST', path, json=payload).json()
+
     def put_json(self, path: str, payload: dict[str, Any]) -> Any:
         return self.request('PUT', path, json=payload).json()
 
