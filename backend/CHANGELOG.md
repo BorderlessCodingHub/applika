@@ -91,15 +91,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   2026-09-15) on every answer of the deprecated routes, errors included. No
   `Sunset` header, no removal date.
 - KODI-013 Migration `ad747aba90fc` (release C, the contract migration, R2).
-  A **reconcile copy** first catches any `application_steps` row the R1
-  trigger failed to sync during the switch-over (old-code write, created
-  after R1's own migration ran) without resurrecting a row whose migrated
-  event a Release B/C user later deleted (see the revision's own docstring,
-  "Reconcile design", for the full reasoning and the one open question it
-  flags to the owner). The two R1 transitional triggers
-  (`trg_application_steps_sync`, `trg_applications_finalize_sync`) and their
-  functions are then dropped — nothing has written `application_steps` since
-  Release B.
+  Ships with **no reconcile copy**: an `application_steps` row the R1
+  trigger failed to sync during the switch-over and a row whose migrated
+  event a Release B/C user later deleted are indistinguishable from the
+  data alone (no column marks *when* R1's migration itself ran), so a
+  reconcile keyed on any of them would resurrect deleted events — the
+  common case — to catch a rare, already-logged trigger failure. Neither is
+  copied into `timeline_events`; both stay fully intact under
+  `application_steps_old`. See the revision's own docstring, "Reconcile
+  design (why there is no reconcile)", for the full reasoning and the open
+  question it flags to the owner (whether a follow-up should amend R1, which
+  has not reached production, to record failed-sync ids). The two R1
+  transitional triggers (`trg_application_steps_sync`,
+  `trg_applications_finalize_sync`) and their functions are then dropped —
+  nothing has written `application_steps` since Release B.
 
 ### Changed
 

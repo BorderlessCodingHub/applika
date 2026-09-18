@@ -732,7 +732,7 @@ Optional (with defaults):
 - Application → Company (many-to-one, optional)
 - TimelineEvent → Application (many-to-one, cascade delete, `passive_deletes=True`)
 - TimelineEvent → User (many-to-one, cascade delete)
-- The legacy `applications.last_step_id`, `last_step_date`, `feedback_id`, `feedback_date`, `salary_offer` columns and the `application_steps` table still exist in the database (revision `afd4074c70c2` keeps them in sync with the timeline until the contract migration) but **no model maps them** and no code reads them
+- The contract migration (`ad747aba90fc`, R2, KODI-013) renamed the legacy `applications.last_step_id`, `last_step_date`, `feedback_id`, `feedback_date`, `salary_offer` columns to `*_old` and the `application_steps` table to `application_steps_old`, and dropped the two transitional sync triggers `afd4074c70c2` created. The renamed objects still exist in the database (rule: retire with `_old`, never drop) but **no model maps them** and no code reads them
 - Company → User (many-to-one via created_by, cascade delete)
 - QuinzenalReport → User (many-to-one, cascade delete), unique on (user_id, report_day)
 - UserFeedback → User (many-to-one, cascade delete)
