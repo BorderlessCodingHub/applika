@@ -632,15 +632,21 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   group before them: `TimelineEventFormFields`/`FinalizeOutcomeFields` take an
   `isInterview`/`isDenied`/`isOffer` flag and render the group or `null`, so a
   value the user typed before switching types never sits in an invisible
-  control. `toTimelineEventPayload`/`toFinalizePayload` go one step further
-  than "omit the field for the wrong type": for `start_time`/`end_time`/
-  `timezone` they read the CURRENT `event_type`, not whatever is in
-  react-hook-form state, and send `null` for every non-interview type —
-  otherwise a value filled while Interview was selected, then left behind
-  after switching away (or already stored on a migrated non-interview event
-  being edited), would ride through as a stale schedule. `timezone` is
-  additionally nulled whenever `start_time` is blank, because `TimezoneSelect`
-  cannot be cleared and always holds a real zone.
+  control. For `start_time`/`end_time`/`timezone`, `toTimelineEventPayload`
+  reads the CURRENT `event_type` from form state, never react-hook-form's
+  stale leftovers, PLUS the event's ORIGINAL stored type/schedule (an
+  `original?: TimelineEventView | null` second argument, undefined on
+  create) — the coordinator's interim rule while the owner decides the final
+  behaviour (2026-09-18): editing an event whose stored type was ALREADY
+  non-interview and STAYS non-interview in this edit sends that stored
+  schedule back UNCHANGED (straight from `original`, not from form state), so
+  an edit that only touches the observation does not wipe a schedule a
+  migrated event already carries; every other case — a brand-new event, or an
+  edit that switches the type FROM interview TO a non-interview type — still
+  nulls all three, exactly as before. `toFinalizePayload` is unaffected: it
+  has no such stored-schedule case. Interview behaviour is unchanged either
+  way: `timezone` is nulled whenever `start_time` is blank, because
+  `TimezoneSelect` cannot be cleared and always holds a real zone.
 - **`TimezoneSelect` (`timezone-select.tsx`) and `timezone-options.ts`
   (KODI-014)** are the pattern for any future searchable single-choice
   combobox: a `Popover` + `Command` over `Intl.supportedValuesOf("timeZone")`
