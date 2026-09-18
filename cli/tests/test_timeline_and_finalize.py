@@ -1083,6 +1083,468 @@ def test_timeline_edit_tolerates_missing_denied_reason_in_response(
     assert FakeApiClient.captured_put_payload['denied_reason'] == 'unknown'
 
 
+# --------------------------------------------------------------------------
+# KODI-016: schedule (start-time/end-time/timezone) refused off interview,
+# a stored schedule never re-sent once the resulting type is not interview,
+# and a timeline event dict missing the three schedule keys is tolerated.
+# --------------------------------------------------------------------------
+
+
+def _interview_event(**overrides):
+    event = {
+        'id': '700',
+        'application_id': '99',
+        'user_id': '1',
+        'event_type': 'interview',
+        'interview_type': 'technical',
+        'event_date': '2026-06-05',
+        'start_time': '10:00:00',
+        'end_time': '11:00:00',
+        'timezone': 'America/Sao_Paulo',
+        'observation': None,
+        'salary_amount': None,
+        'salary_currency': None,
+        'salary_period': None,
+        'created_at': '2026-06-05T00:00:00Z',
+        'updated_at': None,
+    }
+    event.update(overrides)
+    return event
+
+
+def test_timeline_add_start_and_end_time_on_non_interview_refused(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'note',
+            '--date',
+            '2026-06-05',
+            '--start-time',
+            '10:00',
+            '--end-time',
+            '11:00',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert (
+        '--start-time, --end-time and --timezone are only allowed with '
+        '--type interview' in result.output
+    )
+    assert FakeApiClient.captured_post_payload is None
+
+
+def test_timeline_add_timezone_alone_on_non_interview_refused(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'denied',
+            '--date',
+            '2026-06-05',
+            '--timezone',
+            'America/Sao_Paulo',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert (
+        '--start-time, --end-time and --timezone are only allowed with '
+        '--type interview' in result.output
+    )
+    assert FakeApiClient.captured_post_payload is None
+
+
+def test_timeline_add_interview_schedule_still_accepted(monkeypatch, runner):
+    """Interview add behaviour is unchanged by KODI-016."""
+    _setup(monkeypatch)
+    FakeApiClient.event_created_response = {
+        'id': '703',
+        'event_type': 'interview',
+        'event_date': '2026-06-06',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'interview',
+            '--date',
+            '2026-06-06',
+            '--start-time',
+            '10:00',
+            '--end-time',
+            '11:00',
+            '--timezone',
+            'America/Sao_Paulo',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_post_payload['start_time'] == '10:00'
+    assert FakeApiClient.captured_post_payload['end_time'] == '11:00'
+    assert (
+        FakeApiClient.captured_post_payload['timezone'] == 'America/Sao_Paulo'
+    )
+
+
+def test_timeline_edit_start_and_end_time_on_non_interview_event_refused(
+    monkeypatch, runner
+):
+    """No --type given: the resulting type is the event's current type."""
+    _setup(monkeypatch)
+    note_event = {
+        'id': '700',
+        'application_id': '99',
+        'user_id': '1',
+        'event_type': 'note',
+        'interview_type': None,
+        'event_date': '2026-06-05',
+        'start_time': None,
+        'end_time': None,
+        'timezone': None,
+        'observation': None,
+        'salary_amount': None,
+        'salary_currency': None,
+        'salary_period': None,
+        'created_at': '2026-06-05T00:00:00Z',
+        'updated_at': None,
+    }
+    FakeApiClient.timeline_events = {'99': [note_event]}
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'edit',
+            '99',
+            '700',
+            '--start-time',
+            '10:00',
+            '--end-time',
+            '11:00',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert (
+        '--start-time, --end-time and --timezone are only allowed with '
+        '--type interview' in result.output
+    )
+    assert FakeApiClient.captured_put_payload is None
+
+
+def test_timeline_edit_schedule_flags_on_type_change_away_from_interview_refused(
+    monkeypatch, runner
+):
+    """The resulting type (the --type given) governs the refusal, not the
+    event's current type."""
+    _setup(monkeypatch)
+    FakeApiClient.timeline_events = {'99': [_interview_event()]}
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'edit',
+            '99',
+            '700',
+            '--type',
+            'note',
+            '--start-time',
+            '10:00',
+            '--end-time',
+            '11:00',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert (
+        '--start-time, --end-time and --timezone are only allowed with '
+        '--type interview' in result.output
+    )
+    assert FakeApiClient.captured_put_payload is None
+
+
+def test_timeline_edit_type_change_away_from_interview_clears_stored_schedule(
+    monkeypatch, runner
+):
+    """AC1: editing away from interview never re-sends the stored
+    schedule - the PUT is a full replace and sends null for all three
+    fields, even though the event being edited has a real one."""
+    _setup(monkeypatch)
+    FakeApiClient.timeline_events = {'99': [_interview_event()]}
+    FakeApiClient.event_updated_response = {
+        'id': '700',
+        'event_type': 'note',
+        'event_date': '2026-06-05',
+    }
+
+    result = runner.invoke(
+        app,
+        ['applications', 'timeline', 'edit', '99', '700', '--type', 'note'],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_put_payload == {
+        'event_type': 'note',
+        'interview_type': None,
+        'denied_reason': None,
+        'event_date': '2026-06-05',
+        'start_time': None,
+        'end_time': None,
+        'timezone': None,
+        'observation': None,
+        'salary_amount': None,
+        'salary_currency': None,
+        'salary_period': None,
+    }
+
+
+def test_timeline_edit_legacy_stored_schedule_on_non_interview_event_not_resent(
+    monkeypatch, runner
+):
+    """AC1, legacy-data variant: a non-interview event that (from before
+    the schedule-only-on-interview rule) still carries a stored schedule
+    must not have it re-sent on an unrelated edit."""
+    _setup(monkeypatch)
+    legacy_note_with_schedule = {
+        'id': '700',
+        'application_id': '99',
+        'user_id': '1',
+        'event_type': 'note',
+        'interview_type': None,
+        'event_date': '2026-06-05',
+        'start_time': '09:00:00',
+        'end_time': '09:30:00',
+        'timezone': 'America/Sao_Paulo',
+        'observation': 'Old note',
+        'salary_amount': None,
+        'salary_currency': None,
+        'salary_period': None,
+        'created_at': '2026-06-05T00:00:00Z',
+        'updated_at': None,
+    }
+    FakeApiClient.timeline_events = {'99': [legacy_note_with_schedule]}
+    FakeApiClient.event_updated_response = {
+        'id': '700',
+        'event_type': 'note',
+        'event_date': '2026-06-05',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'edit',
+            '99',
+            '700',
+            '--observation',
+            'Updated note',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_put_payload['start_time'] is None
+    assert FakeApiClient.captured_put_payload['end_time'] is None
+    assert FakeApiClient.captured_put_payload['timezone'] is None
+
+
+def test_timeline_edit_interview_schedule_kept_when_type_unchanged(
+    monkeypatch, runner
+):
+    """Interview edit behaviour is unchanged: an edit that neither passes
+    --type nor touches the schedule flags keeps resending the event's
+    current schedule, same as interview_type/denied_reason."""
+    _setup(monkeypatch)
+    FakeApiClient.timeline_events = {'99': [_interview_event()]}
+    FakeApiClient.event_updated_response = {
+        'id': '700',
+        'event_type': 'interview',
+        'event_date': '2026-06-05',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'edit',
+            '99',
+            '700',
+            '--observation',
+            'Rescheduled internally',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_put_payload['start_time'] == '10:00:00'
+    assert FakeApiClient.captured_put_payload['end_time'] == '11:00:00'
+    assert FakeApiClient.captured_put_payload['timezone'] == 'America/Sao_Paulo'
+
+
+def test_timeline_edit_schedule_flags_allowed_on_type_change_to_interview(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    note_event = {
+        'id': '700',
+        'application_id': '99',
+        'user_id': '1',
+        'event_type': 'note',
+        'interview_type': None,
+        'event_date': '2026-06-05',
+        'start_time': None,
+        'end_time': None,
+        'timezone': None,
+        'observation': None,
+        'salary_amount': None,
+        'salary_currency': None,
+        'salary_period': None,
+        'created_at': '2026-06-05T00:00:00Z',
+        'updated_at': None,
+    }
+    FakeApiClient.timeline_events = {'99': [note_event]}
+    FakeApiClient.event_updated_response = {
+        'id': '700',
+        'event_type': 'interview',
+        'event_date': '2026-06-05',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'edit',
+            '99',
+            '700',
+            '--type',
+            'interview',
+            '--start-time',
+            '14:00',
+            '--end-time',
+            '15:00',
+            '--timezone',
+            'America/Sao_Paulo',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_put_payload['start_time'] == '14:00'
+    assert FakeApiClient.captured_put_payload['end_time'] == '15:00'
+    assert FakeApiClient.captured_put_payload['timezone'] == 'America/Sao_Paulo'
+
+
+def test_timeline_list_tolerates_absent_schedule_keys(monkeypatch, runner):
+    """The API now omits start_time/end_time/timezone entirely on
+    non-interview events (not null) - the CLI must not KeyError."""
+    _setup(monkeypatch)
+    event_without_schedule_keys = {
+        'id': '700',
+        'application_id': '99',
+        'user_id': '1',
+        'event_type': 'note',
+        'interview_type': None,
+        'event_date': '2026-06-05',
+        'observation': 'No schedule keys at all',
+        'salary_amount': None,
+        'salary_currency': None,
+        'salary_period': None,
+        'created_at': '2026-06-05T00:00:00Z',
+        'updated_at': None,
+    }
+    FakeApiClient.timeline_events = {'99': [event_without_schedule_keys]}
+
+    table_result = runner.invoke(
+        app, ['applications', 'timeline', 'list', '99']
+    )
+    assert table_result.exit_code == 0
+    assert 'No schedule keys at all' in table_result.output
+    assert 'None' not in table_result.output
+
+    json_result = runner.invoke(
+        app,
+        ['applications', 'timeline', 'list', '99', '--output-format', 'json'],
+    )
+    assert json_result.exit_code == 0
+    payload = json.loads(json_result.output)
+    assert 'start_time' not in payload[0]
+    assert 'end_time' not in payload[0]
+    assert 'timezone' not in payload[0]
+
+
+def test_timeline_edit_existing_event_without_schedule_keys_tolerated(
+    monkeypatch, runner
+):
+    """_get_timeline_event_or_exit reads the event the API returns; an
+    absent schedule key on a non-interview event must not crash the
+    resolution/fallback logic."""
+    _setup(monkeypatch)
+    event_without_schedule_keys = {
+        'id': '700',
+        'application_id': '99',
+        'user_id': '1',
+        'event_type': 'note',
+        'interview_type': None,
+        'event_date': '2026-06-05',
+        'observation': 'No schedule keys at all',
+        'salary_amount': None,
+        'salary_currency': None,
+        'salary_period': None,
+        'created_at': '2026-06-05T00:00:00Z',
+        'updated_at': None,
+    }
+    FakeApiClient.timeline_events = {'99': [event_without_schedule_keys]}
+    FakeApiClient.event_updated_response = {
+        'id': '700',
+        'event_type': 'note',
+        'event_date': '2026-06-05',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'edit',
+            '99',
+            '700',
+            '--observation',
+            'Updated note',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_put_payload['start_time'] is None
+    assert FakeApiClient.captured_put_payload['end_time'] is None
+    assert FakeApiClient.captured_put_payload['timezone'] is None
+
+
 def test_timeline_edit_not_found_reports_clean_error(monkeypatch, runner):
     _setup(monkeypatch)
     FakeApiClient.timeline_events = {'99': []}

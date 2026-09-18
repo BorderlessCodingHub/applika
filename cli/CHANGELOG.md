@@ -82,6 +82,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   owner accepted this). The server-side `alembic downgrade d3f7b1c9e2a4`
   remaps `annually` back to `annual` but cannot remap a currency, and it is
   what brings timeline events written since KODI-011 back as steps.
+- KODI-016 The deprecated `POST/PUT /applications/{id}/steps*` route now
+  silently stores `null` for `start_time`/`end_time`/`timezone` when the
+  step maps to a non-`interview` timeline event, instead of the value the
+  0.1.4 request body sent — still 200/201, never 422. The `/steps`
+  response keeps 0.1.4's exact shape (the keys are always present), just
+  `null` where a schedule was sent on a non-interview step.
+  `applications steps add|edit` in this CLI are unaffected: they still
+  send whatever `--start-time`/`--end-time`/`--timezone` the caller gives,
+  with no client-side type restriction (`.claude/rules/cli-compatibility.md`).
 
 ### Deprecated
 
@@ -189,6 +198,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   application is closed (a closed application can be reopened now);
   the 0.1.4 `applications steps *` / legacy `applications finalize` local
   "already been finalized" guards are unchanged.
+- KODI-016 `applications timeline add|edit --start-time`/`--end-time`/
+  `--timezone` are now valid only with `--type interview` (`add`) or when
+  the resulting type — the `--type` given, else the event's current type —
+  is `interview` (`edit`); refused client-side before any write request
+  is sent, same `--interview-type`/`--reason` pattern. `edit` never re-sends
+  a stored schedule once the resulting type is not `interview`: the `PUT`
+  is a full replace, so those three fields go out `null`, even if the
+  event being edited already has a schedule (including a legacy one from
+  before this rule existed). Interview `add`/`edit` behaviour is
+  unchanged.
+- KODI-016 Backend contract change this CLI consumes: `POST/PUT
+  .../timeline[/{event_id}]` now answer 422 if `start_time`/`end_time`/
+  `timezone` are set on anything other than an `interview` event
+  (`ck_timeline_events_schedule_interview_only`, same mechanism as
+  `interview_type`). `TimelineEvent` responses (list, add, edit) now omit
+  the three keys entirely — not `null` — when `event_type` is not
+  `interview`. `TimelineEventEntry` marks them optional and every read in
+  this CLI already goes through `.get()`, so a response missing the keys
+  renders the same `-` it showed for `null`; no `KeyError`.
 
 ### Deprecated
 

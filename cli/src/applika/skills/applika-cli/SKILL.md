@@ -313,6 +313,9 @@ Position filled, Role closed, Ghosted, Salary mismatch, Other in
 `timeline list`/`add`/`edit` output).
 
 `--interview-type` is only valid with `--type interview`.
+`--start-time`/`--end-time`/`--timezone` are only valid with `--type
+interview` (refused for every other type, `add` and `edit` alike; the API
+returns 422 for the same reason if the check is ever bypassed).
 `--salary`/`--currency`/`--period` are only valid with `--type offer`, and
 then all three are required together; `--period` is `monthly` or `annually`
 only (an hourly offer is refused).
@@ -326,7 +329,11 @@ drops the interview type, away from `denied` drops the reason; changing to
 `offer` requires the salary triad unless the event already had one;
 `--reason` is valid when `--type denied` is given, or when `--type` is
 omitted and the event is already `denied` — an edit that does not pass
-`--reason` preserves the event's current reason.
+`--reason` preserves the event's current reason. The resulting type — the
+`--type` given, else the event's current type — governs `--start-time`/
+`--end-time`/`--timezone` too: changing away from `interview` never
+re-sends a stored schedule (the PUT is a full replace, so it goes out
+null), even if the event being edited still has one.
 
 If an application is closed, a write to its timeline is refused (409) with
 a hint to run `applika applications reopen <application-id>`.

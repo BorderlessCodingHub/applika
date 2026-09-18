@@ -1,7 +1,7 @@
 import datetime
 
 from pydantic import BaseModel, model_validator
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
 
 from applika.schemas.enums import (
     Currency,
@@ -83,6 +83,23 @@ class _TimelineEventBase(BaseModel):
             )
         return self
 
+    @model_validator(mode='after')
+    def validate_schedule(self) -> '_TimelineEventBase':
+        # KODI-016: start/end time and timezone are refused (client-side,
+        # same mechanism as --interview-type / --reason) unless the
+        # resulting event type is interview. The API mirrors this with a
+        # 422; this check just saves the round trip.
+        if self.event_type is not EventType.INTERVIEW and (
+            self.start_time is not None
+            or self.end_time is not None
+            or self.timezone is not None
+        ):
+            raise ValueError(
+                '--start-time, --end-time and --timezone are only allowed '
+                'with --type interview'
+            )
+        return self
+
 
 class TimelineEventCreate(_TimelineEventBase): ...
 
@@ -98,12 +115,14 @@ class TimelineEventEntry(TypedDict):
     interview_type: str | None
     denied_reason: str | None
     event_date: str
-    start_time: str | None
-    end_time: str | None
-    timezone: str | None
     observation: str | None
     salary_amount: str | None
     salary_currency: str | None
     salary_period: str | None
     created_at: str
     updated_at: str | None
+    # KODI-016: absent (not null) on every non-interview event — the API
+    # omits these keys entirely instead of sending them as null.
+    start_time: NotRequired[str | None]
+    end_time: NotRequired[str | None]
+    timezone: NotRequired[str | None]
