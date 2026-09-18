@@ -626,27 +626,45 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   body can grow tall should copy this shape rather than centring + `max-h` on
   the whole `DialogContent`.
 - **A type-specific field group is UNMOUNTED, never CSS-hidden, and its
-  payload is nulled from the wire side, not just left unfilled (KODI-014).**
-  The interview-only schedule (start/end/`TimezoneSelect`) and the
-  denied-only `DeniedReasonSelect` follow the same shape as the offer salary
-  group before them: `TimelineEventFormFields`/`FinalizeOutcomeFields` take an
+  payload is nulled or omitted from the wire side, not just left unfilled
+  (KODI-014, revised KODI-016).** The interview-only schedule
+  (start/end/`TimezoneSelect`) and the denied-only `DeniedReasonSelect`
+  follow the same shape as the offer salary group before them:
+  `TimelineEventFormFields`/`FinalizeOutcomeFields` take an
   `isInterview`/`isDenied`/`isOffer` flag and render the group or `null`, so a
   value the user typed before switching types never sits in an invisible
-  control. For `start_time`/`end_time`/`timezone`, `toTimelineEventPayload`
-  reads the CURRENT `event_type` from form state, never react-hook-form's
-  stale leftovers, PLUS the event's ORIGINAL stored type/schedule (an
-  `original?: TimelineEventView | null` second argument, undefined on
-  create) — the coordinator's interim rule while the owner decides the final
-  behaviour (2026-09-18): editing an event whose stored type was ALREADY
-  non-interview and STAYS non-interview in this edit sends that stored
-  schedule back UNCHANGED (straight from `original`, not from form state), so
-  an edit that only touches the observation does not wipe a schedule a
-  migrated event already carries; every other case — a brand-new event, or an
-  edit that switches the type FROM interview TO a non-interview type — still
-  nulls all three, exactly as before. `toFinalizePayload` is unaffected: it
-  has no such stored-schedule case. Interview behaviour is unchanged either
-  way: `timezone` is nulled whenever `start_time` is blank, because
-  `TimezoneSelect` cannot be cleared and always holds a real zone.
+  control. **A non-interview event never sends a schedule, on CREATE or
+  EDIT, whatever was stored (KODI-016).** `toTimelineEventPayload` takes only
+  the form values — no `original`/stored-event argument any more — and reads
+  the CURRENT `event_type`: for `interview` it sends `start_time`/`end_time`/
+  `timezone` (nulling `timezone` whenever `start_time` is blank, because
+  `TimezoneSelect` cannot be cleared and always holds a real zone); for every
+  other type it OMITS the three keys from the payload ENTIRELY — not `null`,
+  ABSENT — even when editing an event that already carries a legacy stored
+  schedule. This replaces KODI-014's interim rule, which kept an already
+  non-interview event's stored schedule unchanged on an edit that left the
+  type alone; the owner's final call (2026-09-18) is that a non-interview
+  event is blocked from ever carrying a schedule, full stop, so there is
+  nothing left to preserve. `toFinalizePayload` is unaffected: it never had a
+  stored-schedule case.
+- **The response mirrors the rule: `start_time`/`end_time`/`timezone` are
+  ABSENT (not `null`) on a non-interview `TimelineEvent`, never REQUIRED
+  fields (KODI-016).** `services/types/timeline.ts`'s `TimelineEvent` marks
+  all three optional (`?:`); `toHourMinute` in `lib/timeline-view.ts` passes
+  `undefined` through unchanged rather than crashing or coercing it to
+  `null`, and `timelineEventToFormValues`'s `event.startTime ?? ""` /
+  `event.timezone || browserTimeZone()` already tolerate a missing key the
+  same way they tolerate `null`. Nothing may crash or render the string
+  `"undefined"` when the keys are absent — see
+  `timeline-event-card.test.tsx` and `lib/timeline-view.test.ts`.
+- **A card shows the zone READABLE, exactly like `TimezoneSelect`
+  (KODI-016).** `formatTimeRange` (`timeline-format.ts`) renders the zone
+  through `timeZoneLabel` from `timezone-options.ts` — the SAME formatter the
+  select's trigger and options use (underscores as spaces, e.g.
+  `America/Sao Paulo`) — never the raw IANA id and never a second
+  implementation of the same substitution. The STORED and SENT value is
+  always the raw id (`America/Sao_Paulo`); only the on-screen label is
+  reformatted.
 - **`TimezoneSelect` (`timezone-select.tsx`) and `timezone-options.ts`
   (KODI-014)** are the pattern for any future searchable single-choice
   combobox: a `Popover` + `Command` over `Intl.supportedValuesOf("timeZone")`

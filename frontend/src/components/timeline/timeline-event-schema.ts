@@ -22,17 +22,17 @@ import type { CreateTimelineEventPayload } from "@/services/types/timeline";
  * a non-negative amount, and one of the 20 currencies) and no `interview_type`;
  * the `denied` branch REQUIRES `denied_reason` (one of the 10 hardcoded
  * reasons, default `unknown`, KODI-014); `note`/`feedback` carry none of the
- * above. Scheduling fields are optional and collapse to `null` on the wire —
- * the `interview` branch is the only one that can ever WRITE a new
- * start/end/timezone from form input. A non-interview branch sends `null`
- * on CREATE, and on EDIT clears the schedule only if the event's type just
- * changed away from interview; editing an already non-interview event that
- * stays non-interview sends its STORED schedule back unchanged (see
- * `toTimelineEventPayload`'s `original` parameter, KODI-014 interim rule) —
- * so nothing stale ever reaches the API, but nothing already stored is wiped
- * by an unrelated edit either. Salary/amount numerics stay strings (they are
- * strings on the wire) — the amount is only checked to be a valid
- * non-negative number.
+ * above. The `interview` branch is the only one that can ever WRITE a
+ * start/end/timezone from form input. A non-interview event never sends a
+ * schedule (KODI-016): `start_time`/`end_time`/`timezone` are OMITTED from
+ * the wire body entirely (not sent as `null`) for every non-interview
+ * `event_type`, on both CREATE and EDIT, whatever schedule the event
+ * previously had stored. This replaces KODI-014's interim
+ * keep-the-stored-schedule-on-edit rule: the backend also accepts an
+ * explicit `null` for these keys, but this module picks omission and pins
+ * it in tests. Interview behaviour is unchanged. Salary/amount numerics
+ * stay strings (they are strings on the wire) — the amount is only checked
+ * to be a valid non-negative number.
  */
 
 /** Offer salary period is restricted to monthly/annually. */
@@ -272,25 +272,20 @@ function blankToNull(value: string): string | null {
 }
 
 /**
- * Convert validated form values into the wire payload (KODI-014, revised by
- * the coordinator as a safer interim rule while the owner decides the final
- * behaviour).
+ * Convert validated form values into the wire payload (KODI-016: a
+ * non-interview event never sends a schedule, on CREATE or EDIT — this
+ * replaces KODI-014's interim rule that kept an already non-interview
+ * event's STORED schedule on an unrelated edit).
  *
- * The scheduling trio is sent ONLY for `interview` from the FORM values (the
- * schedule inputs are unmounted for every other type, so a value the user
- * typed before switching types must never ride through). For every
- * non-interview type there are two cases:
- *
- * - EDITING an event whose ORIGINAL stored type was already non-interview,
- *   and that stays non-interview in this edit (`original` is passed and
- *   `original.type !== "interview"`): the stored `start_time`/`end_time`/
- *   `timezone` are sent BACK UNCHANGED, straight from `original`, never from
- *   form state — so an edit that only touches, say, the observation does not
- *   wipe a schedule a migrated event (or a prior interview edit) already
- *   carries.
- * - Everything else — a fresh CREATE (`original` is null/undefined) for a
- *   non-interview type, or an EDIT that switches the type FROM interview TO
- *   a non-interview type — sends `null` for all three, exactly as before.
+ * The scheduling trio is sent ONLY for `interview`, read from the FORM
+ * values (the schedule inputs are unmounted for every other type, so a
+ * value the user typed before switching types must never ride through). For
+ * every non-interview `event_type` the three keys are OMITTED from the
+ * payload entirely — not sent as `null` — whatever schedule the event
+ * previously had stored: a fresh CREATE, an EDIT that switches the type FROM
+ * interview TO a non-interview type, and an EDIT of an event that was
+ * ALREADY non-interview and stays non-interview (even one carrying a legacy
+ * stored schedule) are all the same case now.
  *
  * Interview behaviour is unchanged: `timezone` is nulled whenever
  * `start_time` is blank, because the `TimezoneSelect` cannot be cleared and
@@ -301,25 +296,19 @@ function blankToNull(value: string): string | null {
  */
 export function toTimelineEventPayload(
   values: TimelineEventFormValues,
-  original?: TimelineEventView | null,
 ): CreateTimelineEventPayload {
   const isInterview = values.event_type === "interview";
   const hasStart = isInterview && blankToNull(values.start_time) !== null;
-  const keepsStoredSchedule =
-    !isInterview && original != null && original.type !== "interview";
-  const base = keepsStoredSchedule
+  const base = isInterview
     ? {
         event_date: values.event_date,
-        start_time: original.startTime ?? null,
-        end_time: original.endTime ?? null,
-        timezone: original.timezone ?? null,
+        start_time: blankToNull(values.start_time),
+        end_time: blankToNull(values.end_time),
+        timezone: hasStart ? blankToNull(values.timezone) : null,
         observation: blankToNull(values.observation),
       }
     : {
         event_date: values.event_date,
-        start_time: isInterview ? blankToNull(values.start_time) : null,
-        end_time: isInterview ? blankToNull(values.end_time) : null,
-        timezone: hasStart ? blankToNull(values.timezone) : null,
         observation: blankToNull(values.observation),
       };
 

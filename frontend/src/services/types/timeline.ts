@@ -31,7 +31,9 @@ import type {
 /**
  * A timeline event as returned by `GET /applications/{id}/timeline`,
  * `POST …/timeline`, and `PUT …/timeline/{event_id}`. The scheduling trio
- * (`start_time`/`end_time`/`timezone`) is optional; `interview_type` is non-null
+ * (`start_time`/`end_time`/`timezone`) is OPTIONAL — the keys themselves are
+ * ABSENT (not merely `null`) whenever `event_type !== "interview"` (KODI-016:
+ * the API omits them for non-interview events). `interview_type` is non-null
  * only for `interview` events and the salary trio only for `offer` events.
  * `salary_period` can be the legacy `hourly` on an offer migrated from a step or
  * written by an old CLI.
@@ -51,12 +53,12 @@ export interface TimelineEvent {
   denied_reason: DeniedReason | null;
   /** ISO-8601 calendar date (`YYYY-MM-DD`). Required. */
   event_date: string;
-  /** Optional scheduled start time (`HH:mm`, 24h). */
-  start_time: string | null;
-  /** Optional scheduled end time (`HH:mm`, 24h). */
-  end_time: string | null;
-  /** Optional IANA timezone for the scheduled range. */
-  timezone: string | null;
+  /** Scheduled start time (`HH:mm`, 24h). ABSENT on a non-interview event. */
+  start_time?: string | null;
+  /** Scheduled end time (`HH:mm`, 24h). ABSENT on a non-interview event. */
+  end_time?: string | null;
+  /** IANA timezone for the scheduled range. ABSENT on a non-interview event. */
+  timezone?: string | null;
   /** Free-text note / observation. */
   observation: string | null;
   /** Offer-only: salary period (`hourly` only on legacy offers). */

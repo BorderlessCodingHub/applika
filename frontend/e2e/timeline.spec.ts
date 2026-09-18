@@ -418,3 +418,80 @@ test.describe("Timeline: timezone pre-fill (AC3, KODI-014)", () => {
     );
   });
 });
+
+test.describe("Timeline: schedule display (AC2, KODI-016)", () => {
+  test("an interview's card shows the readable zone (underscores as spaces), exactly like the select", async ({
+    page,
+    request,
+  }) => {
+    const stamp = Date.now();
+    const role = `Schedule Engineer ${stamp}`;
+    const company = `Schedule Co ${stamp}`;
+    await seedApplication(request, role, company);
+
+    await loginAs(page, "user");
+    await page.goto("/applications");
+    await openRow(page, role);
+
+    await page
+      .getByRole("button", { name: /add event/i })
+      .first()
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Add event" });
+    await expect(dialog).toBeVisible();
+
+    await dialog.getByRole("radio", { name: "Interview", exact: true }).click();
+    await dialog.getByLabel("Start").fill("10:00");
+    await dialog.getByLabel("End").fill("11:00");
+
+    const timezoneSelect = dialog.getByRole("combobox", { name: "Timezone" });
+    await timezoneSelect.click();
+    await page
+      .getByPlaceholder("Search city, region or offset")
+      .fill("Sao Paulo");
+    await page.getByRole("option", { name: /Sao Paulo/i }).click();
+    await expect(timezoneSelect).toHaveText(/Sao Paulo/);
+
+    await dialog.getByRole("button", { name: /add event/i }).click();
+    await expect(dialog).toBeHidden({ timeout: 15_000 });
+
+    // The card reads the readable form — underscores as spaces — never the
+    // raw IANA id the request actually stored and sent.
+    await expect(
+      page.getByText(/10:00–11:00\s*·\s*America\/Sao Paulo/),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/America\/Sao_Paulo/)).toHaveCount(0);
+  });
+
+  test("a non-interview event shows no schedule on its card", async ({
+    page,
+    request,
+  }) => {
+    const stamp = Date.now();
+    const role = `No Schedule Engineer ${stamp}`;
+    const company = `No Schedule Co ${stamp}`;
+    await seedApplication(request, role, company);
+
+    await loginAs(page, "user");
+    await page.goto("/applications");
+    await openRow(page, role);
+
+    await page
+      .getByRole("button", { name: /add event/i })
+      .first()
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Add event" });
+    await expect(dialog).toBeVisible();
+
+    await dialog.getByRole("radio", { name: "Note", exact: true }).click();
+    const noteText = `No schedule note ${stamp}`;
+    await dialog.getByLabel(/notes/i).fill(noteText);
+    await dialog.getByRole("button", { name: /add event/i }).click();
+    await expect(dialog).toBeHidden({ timeout: 15_000 });
+
+    await expect(page.getByText(noteText)).toBeVisible({ timeout: 15_000 });
+    // No time-range text (the "start–end · zone" pattern) renders anywhere
+    // on the card — the API never received a schedule for this event.
+    await expect(page.getByText(/\d{2}:\d{2}–\d{2}:\d{2}/)).toHaveCount(0);
+  });
+});

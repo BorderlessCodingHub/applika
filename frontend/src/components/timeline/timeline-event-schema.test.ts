@@ -25,9 +25,10 @@ import type { TimelineEventView } from "@/components/timeline/timeline-types";
  *   default `unknown`)
  * - note/feedback carry none of the above, and `toTimelineEventPayload` OMITS
  *   interview_type/denied_reason/the salary trio entirely from the wire payload
- * - scheduling fields collapse blanks to `null` on the wire, and are sent
- *   ONLY for `interview` — every other type sends `null` even if a stale
- *   value lingers in form state
+ * - scheduling fields collapse blanks to `null` on the wire and are sent ONLY
+ *   for `interview`; every other `event_type` OMITS the three keys entirely
+ *   (KODI-016), on CREATE and EDIT alike, replacing KODI-014's interim rule
+ *   that kept an already non-interview event's stored schedule on edit
  */
 
 function offerValues(
@@ -416,11 +417,11 @@ describe("toTimelineEventPayload", () => {
     expect(payload.event_type).toBe("feedback");
   });
 
-  it("collapses blank scheduling fields to null", () => {
+  it("omits the scheduling fields for a non-interview event, and still collapses observation to null", () => {
     const payload = toTimelineEventPayload(noteValues());
-    expect(payload.start_time).toBeNull();
-    expect(payload.end_time).toBeNull();
-    expect(payload.timezone).toBeNull();
+    expect(payload).not.toHaveProperty("start_time");
+    expect(payload).not.toHaveProperty("end_time");
+    expect(payload).not.toHaveProperty("timezone");
     expect(payload.observation).toBeNull();
   });
 
@@ -448,7 +449,7 @@ describe("toTimelineEventPayload", () => {
     expect(payload.timezone).toBeNull();
   });
 
-  it("nulls the schedule for a non-interview event even if stale values linger in form state (KODI-014)", () => {
+  it("omits the schedule for a non-interview event even if stale values linger in form state", () => {
     const payload = toTimelineEventPayload(
       noteValues({
         start_time: "09:00",
@@ -457,44 +458,36 @@ describe("toTimelineEventPayload", () => {
         observation: "Phone screen",
       }),
     );
-    expect(payload.start_time).toBeNull();
-    expect(payload.end_time).toBeNull();
-    expect(payload.timezone).toBeNull();
-    // Only the schedule is cleared — the observation is a real field on
+    expect(payload).not.toHaveProperty("start_time");
+    expect(payload).not.toHaveProperty("end_time");
+    expect(payload).not.toHaveProperty("timezone");
+    // Only the schedule is omitted — the observation is a real field on
     // every type and must survive.
     expect(payload.observation).toBe("Phone screen");
   });
 
-  it("nulls the schedule when CREATING a denied event, even if stale values linger in form state (KODI-014)", () => {
+  it("omits the schedule when CREATING a denied event, even if stale values linger in form state", () => {
     const payload = toTimelineEventPayload(
       deniedValues({
         start_time: "09:00",
         end_time: "10:00",
         timezone: "Europe/London",
       }),
-      // No `original` — this is a create, not an edit.
     );
-    expect(payload.start_time).toBeNull();
-    expect(payload.end_time).toBeNull();
-    expect(payload.timezone).toBeNull();
+    expect(payload).not.toHaveProperty("start_time");
+    expect(payload).not.toHaveProperty("end_time");
+    expect(payload).not.toHaveProperty("timezone");
   });
 
-  // Coordinator's interim rule (2026-09-18): editing an event whose stored
-  // type was already non-interview, and that stays non-interview in this
-  // edit, must send the STORED schedule back unchanged — only a switch away
-  // from interview (or a brand-new event) clears it.
-  describe("editing a non-interview event with a stored schedule (KODI-014 interim rule)", () => {
-    // The form values deliberately carry a DIFFERENT start/end/timezone than
-    // `original` (form state can still hold whatever the last interview
-    // selection left behind, even though the fields are unmounted and the
-    // user cannot see or edit them — see the schema module's doc comment).
-    // Asserting the STORED 09:00/10:00/Europe/London comes out, not the
-    // 14:00/15:00/Asia/Tokyo sitting in form state, is what actually proves
-    // the payload is read from `original` and not from `values`.
+  // KODI-016: a non-interview event never sends a schedule — on CREATE or
+  // EDIT, whatever was stored. This replaces KODI-014's interim rule, which
+  // sent an already non-interview event's STORED schedule back unchanged on
+  // an edit that left the type alone.
+  describe("a non-interview event never sends a schedule (KODI-016)", () => {
     it.each(["note", "feedback", "offer", "denied"] as const)(
-      "keeps the ORIGINAL's stored start, end and timezone when editing a %s and changing only the observation, even when form state disagrees",
+      "omits the schedule when editing a stored %s that already carries a legacy schedule",
       (type) => {
-        const original: TimelineEventView = {
+        const stored: TimelineEventView = {
           id: "orig-1",
           type,
           eventDate: "2026-07-02",
@@ -511,49 +504,24 @@ describe("toTimelineEventPayload", () => {
             : {}),
           ...(type === "denied" ? { deniedReason: "unknown" as const } : {}),
         };
-        const staleFormSchedule = {
-          start_time: "14:00",
-          end_time: "15:00",
-          timezone: "Asia/Tokyo",
+        // The edit form is seeded from the STORED event (proving this is a
+        // real edit of a record that already had a schedule), then the user
+        // changes only the observation.
+        const formValues = timelineEventToFormValues(stored);
+        const payload = toTimelineEventPayload({
+          ...formValues,
           observation: "New note",
-        };
-        const values =
-          type === "offer"
-            ? offerValues(staleFormSchedule)
-            : type === "denied"
-              ? deniedValues(staleFormSchedule)
-              : noteValues({ event_type: type, ...staleFormSchedule });
+        });
 
-        const payload = toTimelineEventPayload(values, original);
-
-        expect(payload.start_time).toBe("09:00");
-        expect(payload.end_time).toBe("10:00");
-        expect(payload.timezone).toBe("Europe/London");
+        expect(payload).not.toHaveProperty("start_time");
+        expect(payload).not.toHaveProperty("end_time");
+        expect(payload).not.toHaveProperty("timezone");
         expect(payload.observation).toBe("New note");
       },
     );
 
-    it("sends the original's null schedule as null when editing a non-interview event that never had one", () => {
-      const original: TimelineEventView = {
-        id: "orig-2",
-        type: "note",
-        eventDate: "2026-07-02",
-        startTime: null,
-        endTime: null,
-        timezone: null,
-        observation: "Old note",
-      };
-      const payload = toTimelineEventPayload(
-        noteValues({ observation: "New note" }),
-        original,
-      );
-      expect(payload.start_time).toBeNull();
-      expect(payload.end_time).toBeNull();
-      expect(payload.timezone).toBeNull();
-    });
-
-    it("nulls the schedule when the edit switches the type FROM interview TO a non-interview type", () => {
-      const original: TimelineEventView = {
+    it("omits the schedule when editing switches the type FROM interview TO a non-interview type", () => {
+      const stored: TimelineEventView = {
         id: "orig-3",
         type: "interview",
         interviewType: "technical",
@@ -563,28 +531,29 @@ describe("toTimelineEventPayload", () => {
         timezone: "Europe/London",
         observation: "Old note",
       };
-      const payload = toTimelineEventPayload(
-        noteValues({ observation: "Switched to note" }),
-        original,
-      );
-      expect(payload.start_time).toBeNull();
-      expect(payload.end_time).toBeNull();
-      expect(payload.timezone).toBeNull();
+      const formValues = timelineEventToFormValues(stored);
+      const payload = toTimelineEventPayload({
+        ...formValues,
+        event_type: "note",
+        observation: "Switched to note",
+      } as TimelineEventFormValues);
+
+      expect(payload).not.toHaveProperty("start_time");
+      expect(payload).not.toHaveProperty("end_time");
+      expect(payload).not.toHaveProperty("timezone");
     });
 
-    it("still applies the interview nulling rules when an interview stays an interview on edit", () => {
-      const original: TimelineEventView = {
-        id: "orig-4",
-        type: "interview",
-        interviewType: "technical",
-        eventDate: "2026-07-02",
-        startTime: "09:00",
-        endTime: "10:00",
-        timezone: "Europe/London",
-        observation: "Old note",
-      };
+    it("omits the schedule when CREATING a non-interview event", () => {
+      const payload = toTimelineEventPayload(noteValues());
+      expect(payload).not.toHaveProperty("start_time");
+      expect(payload).not.toHaveProperty("end_time");
+      expect(payload).not.toHaveProperty("timezone");
+    });
+
+    it("still applies the interview nulling rules unaffected by the non-interview omission", () => {
       // Editing the interview and blanking the start time still nulls the
-      // timezone, exactly as before (unchanged interview behaviour).
+      // timezone, exactly as before (unchanged interview behaviour) — the
+      // fields are still PRESENT (nulled), never omitted, for an interview.
       const payload = toTimelineEventPayload(
         interviewValues({
           start_time: "",
@@ -592,7 +561,6 @@ describe("toTimelineEventPayload", () => {
           timezone: "UTC",
           observation: "Blanked schedule",
         }),
-        original,
       );
       expect(payload.start_time).toBeNull();
       expect(payload.end_time).toBeNull();

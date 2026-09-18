@@ -13,10 +13,14 @@ import type { TimelineEvent } from "@/services/types/timeline";
 
 /**
  * The API sends times as `HH:MM:SS`; the view-model (and `<input type="time">`
- * in the edit form) is `HH:mm`. Trim once, here.
+ * in the edit form) is `HH:mm`. Trim once, here. The key itself is ABSENT on a
+ * non-interview event (KODI-016), so this also has to pass `undefined`
+ * through unchanged rather than crashing or coercing it to `null`.
  */
-function toHourMinute(value: string | null): string | null {
-  return value == null ? null : value.slice(0, 5);
+function toHourMinute(
+  value: string | null | undefined,
+): string | null | undefined {
+  return value == null ? value : value.slice(0, 5);
 }
 
 /** Map a single timeline event DTO into its card/list view-model. */

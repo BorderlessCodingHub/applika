@@ -10,6 +10,7 @@ import {
   formatSalary,
 } from "@/components/applications/application-format";
 import type { TimelineEventView } from "@/components/timeline/timeline-types";
+import { timeZoneLabel } from "@/components/timeline/timezone-options";
 
 function hasValue(value: string | null | undefined): value is string {
   return value != null && value.trim() !== "";
@@ -33,7 +34,13 @@ export function formatEventDate(
 /**
  * Builds a scheduled time-range string, e.g. "10:00–11:00 · Europe/London".
  * `startTime`/`endTime` are `HH:mm` strings. Returns `null` when there is no
- * start time (i.e. the event is not scheduled).
+ * start time (i.e. the event is not scheduled) — true both for an
+ * interview with a blank schedule and for a non-interview event, whose
+ * `startTime`/`endTime`/`timezone` are absent from the wire entirely
+ * (KODI-016). The zone is rendered READABLE (underscores as spaces, e.g.
+ * `America/Sao Paulo`) via `timeZoneLabel` — the exact formatter
+ * `TimezoneSelect` uses — never the raw IANA id and never a second
+ * implementation of the same substitution.
  */
 export function formatTimeRange(
   startTime?: string | null,
@@ -42,7 +49,7 @@ export function formatTimeRange(
 ): string | null {
   if (!hasValue(startTime)) return null;
   const range = hasValue(endTime) ? `${startTime}–${endTime}` : startTime;
-  return hasValue(timezone) ? `${range} · ${timezone}` : range;
+  return hasValue(timezone) ? `${range} · ${timeZoneLabel(timezone)}` : range;
 }
 
 /**

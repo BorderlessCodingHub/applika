@@ -233,7 +233,7 @@ describe("TimelineEventForm — schedule visibility (AC2, KODI-014)", () => {
     },
   );
 
-  it("clears the schedule from the payload after switching away from Interview (AC2/AC3, KODI-014)", async () => {
+  it("omits the schedule from the payload after switching away from Interview (AC2/AC3, KODI-014/KODI-016)", async () => {
     const user = userEvent.setup();
     vi.mocked(services.timeline.create).mockResolvedValue({
       id: "e-2",
@@ -270,17 +270,19 @@ describe("TimelineEventForm — schedule visibility (AC2, KODI-014)", () => {
         "app-1",
         expect.objectContaining({
           event_type: "note",
-          start_time: null,
-          end_time: null,
-          timezone: null,
         }),
       ),
     );
+    const [, createdPayload] = vi.mocked(services.timeline.create).mock
+      .calls[0];
+    expect(createdPayload).not.toHaveProperty("start_time");
+    expect(createdPayload).not.toHaveProperty("end_time");
+    expect(createdPayload).not.toHaveProperty("timezone");
   });
 });
 
-describe("TimelineEventForm — stored schedule on edit (KODI-014 interim rule)", () => {
-  const STORED_NOTE_WITH_SCHEDULE: TimelineEventView = {
+describe("TimelineEventForm — a non-interview event never sends a schedule (KODI-016)", () => {
+  const STORED_NOTE_WITH_LEGACY_SCHEDULE: TimelineEventView = {
     id: "note-1",
     type: "note",
     eventDate: "2026-06-01",
@@ -299,9 +301,6 @@ describe("TimelineEventForm — stored schedule on edit (KODI-014 interim rule)"
       interview_type: null,
       denied_reason: null,
       event_date: "2026-06-01",
-      start_time: "09:00",
-      end_time: "10:00",
-      timezone: "Europe/London",
       observation: "Updated note",
       salary_period: null,
       salary_amount: null,
@@ -311,10 +310,10 @@ describe("TimelineEventForm — stored schedule on edit (KODI-014 interim rule)"
     });
   }
 
-  it("keeps the stored start, end and timezone in the PUT when only the observation changes (regression: the payload builder must be called WITH the original event)", async () => {
+  it("sends no schedule in the PUT when editing a stored non-interview event that already carries a legacy schedule, even when only the observation changes", async () => {
     const user = userEvent.setup();
     mockUpdatedEvent();
-    renderForm({ event: STORED_NOTE_WITH_SCHEDULE, otherEvents: [] });
+    renderForm({ event: STORED_NOTE_WITH_LEGACY_SCHEDULE, otherEvents: [] });
 
     // The schedule inputs stay hidden — Note is not Interview.
     expect(screen.queryByLabelText("Start")).not.toBeInTheDocument();
@@ -330,21 +329,23 @@ describe("TimelineEventForm — stored schedule on edit (KODI-014 interim rule)"
         "note-1",
         expect.objectContaining({
           event_type: "note",
-          start_time: "09:00",
-          end_time: "10:00",
-          timezone: "Europe/London",
           observation: "Updated note",
         }),
       ),
     );
+    const [, , updatedPayload] = vi.mocked(services.timeline.update).mock
+      .calls[0];
+    expect(updatedPayload).not.toHaveProperty("start_time");
+    expect(updatedPayload).not.toHaveProperty("end_time");
+    expect(updatedPayload).not.toHaveProperty("timezone");
   });
 
-  it("keeps the ORIGINAL stored schedule, not a value typed while briefly switched to Interview, when the edit ends back on a non-interview type", async () => {
+  it("sends no schedule when a briefly-Interview detour ends back on a non-interview type", async () => {
     const user = userEvent.setup();
     mockUpdatedEvent();
-    renderForm({ event: STORED_NOTE_WITH_SCHEDULE, otherEvents: [] });
+    renderForm({ event: STORED_NOTE_WITH_LEGACY_SCHEDULE, otherEvents: [] });
 
-    // Toggle to Interview, type different times, then switch back to Note.
+    // Toggle to Interview, type times, then switch back to Note.
     await user.click(screen.getByRole("radio", { name: "Interview" }));
     await user.clear(screen.getByLabelText("Start"));
     await user.type(screen.getByLabelText("Start"), "14:00");
@@ -358,17 +359,17 @@ describe("TimelineEventForm — stored schedule on edit (KODI-014 interim rule)"
       expect(services.timeline.update).toHaveBeenCalledWith(
         "app-1",
         "note-1",
-        expect.objectContaining({
-          event_type: "note",
-          start_time: "09:00",
-          end_time: "10:00",
-          timezone: "Europe/London",
-        }),
+        expect.objectContaining({ event_type: "note" }),
       ),
     );
+    const [, , updatedPayload] = vi.mocked(services.timeline.update).mock
+      .calls[0];
+    expect(updatedPayload).not.toHaveProperty("start_time");
+    expect(updatedPayload).not.toHaveProperty("end_time");
+    expect(updatedPayload).not.toHaveProperty("timezone");
   });
 
-  it("nulls the schedule when the edit switches the type FROM Interview TO a non-interview type", async () => {
+  it("sends no schedule when the edit switches the type FROM Interview TO a non-interview type", async () => {
     const user = userEvent.setup();
     const STORED_INTERVIEW: TimelineEventView = {
       id: "interview-2",
@@ -388,9 +389,6 @@ describe("TimelineEventForm — stored schedule on edit (KODI-014 interim rule)"
       interview_type: null,
       denied_reason: null,
       event_date: "2026-06-01",
-      start_time: null,
-      end_time: null,
-      timezone: null,
       observation: null,
       salary_period: null,
       salary_amount: null,
@@ -407,14 +405,14 @@ describe("TimelineEventForm — stored schedule on edit (KODI-014 interim rule)"
       expect(services.timeline.update).toHaveBeenCalledWith(
         "app-1",
         "interview-2",
-        expect.objectContaining({
-          event_type: "note",
-          start_time: null,
-          end_time: null,
-          timezone: null,
-        }),
+        expect.objectContaining({ event_type: "note" }),
       ),
     );
+    const [, , updatedPayload] = vi.mocked(services.timeline.update).mock
+      .calls[0];
+    expect(updatedPayload).not.toHaveProperty("start_time");
+    expect(updatedPayload).not.toHaveProperty("end_time");
+    expect(updatedPayload).not.toHaveProperty("timezone");
   });
 });
 
