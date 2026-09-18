@@ -21,7 +21,7 @@ async def reset_pk_sequences(db_session: AsyncSession):
     resets every sequence to MAX(id) of its table so auto-increments work.
     """
     tables = ['users', 'companies', 'platforms', 'feedbacks_definition',
-              'steps_definition', 'applications', 'application_steps',
+              'steps_definition', 'applications', 'timeline_events',
               'cycles', 'quinzenal_reports', 'user_feedbacks', 'base_cvs',
               'tailored_cvs']
     for table in tables:

@@ -7,12 +7,12 @@ from httpx import AsyncClient
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.enums import EventType, InterviewType
 from app.domain.models import (
     ApplicationModel,
-    ApplicationStepModel,
     CycleModel,
     QuinzenalReportModel,
-    StepDefinitionModel,
+    TimelineEventModel,
 )
 from tests import msg
 from tests.base_db_setup import base_data
@@ -52,13 +52,6 @@ async def _seed_cycle_with_data(db_session: AsyncSession) -> int:
     cycle = CycleModel(id=100, user_id=bd['user'].id, name='Old Cycle')
     db_session.add(cycle)
 
-    # Step definition
-    db_session.add(
-        StepDefinitionModel(
-            id=1, name='Applied', color='#aaa', strict=False
-        )
-    )
-
     # 3 applications in this cycle
     apps = [
         ApplicationModel(
@@ -71,21 +64,34 @@ async def _seed_cycle_with_data(db_session: AsyncSession) -> int:
             mode='active',
             application_date=date(2025, 12, 1),
             cycle_id=100,
+            # A closed application swept into the cycle stays closed.
+            finalized_at=(
+                datetime(2025, 12, 3, tzinfo=timezone.utc) if i == 0 else None
+            ),
         )
         for i in range(3)
     ]
     db_session.add_all(apps)
+    await db_session.flush()
 
-    # Application steps for first app
-    db_session.add(
-        ApplicationStepModel(
+    # Timeline events of the first app
+    db_session.add_all([
+        TimelineEventModel(
             id=300,
             application_id=200,
-            step_id=1,
-            step_date=date(2025, 12, 2),
             user_id=bd['user'].id,
-        )
-    )
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.INITIAL_SCREENING,
+            event_date=date(2025, 12, 2),
+        ),
+        TimelineEventModel(
+            id=301,
+            application_id=200,
+            user_id=bd['user'].id,
+            event_type=EventType.DENIED,
+            event_date=date(2025, 12, 3),
+        ),
+    ])
 
     # 1 report in this cycle
     db_session.add(
@@ -123,17 +129,13 @@ async def test_delete_cycle_removes_all_data(
     )
     assert app_count == 0, msg(0, app_count)
 
-    # Verify application steps are gone
-    step_count = await db_session.scalar(
-        select(func.count(ApplicationStepModel.id)).where(
-            ApplicationStepModel.application_id.in_(
-                select(ApplicationModel.id).where(
-                    ApplicationModel.cycle_id == cycle_id
-                )
-            )
+    # Verify the timeline events of those applications are gone
+    event_count = await db_session.scalar(
+        select(func.count(TimelineEventModel.id)).where(
+            TimelineEventModel.id.in_([300, 301])
         )
     )
-    assert step_count == 0, msg(0, step_count)
+    assert event_count == 0, msg(0, event_count)
 
     # Verify reports are gone
     report_count = await db_session.scalar(

@@ -1,5 +1,7 @@
+import logging
 from datetime import datetime, timezone
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import (
@@ -14,6 +16,17 @@ from app.domain.models import Base
 from app.main import app as main_app
 from app.presentation.dependencies import get_current_user
 from tests.base_db_setup import base_data
+
+
+@pytest.fixture(autouse=True)
+def _app_logger_enabled():
+    """Keep the ``app`` logger alive for the audit-log assertions.
+
+    The migration tests run the real Alembic chain, and ``migrations/env.py``
+    calls ``logging.config.fileConfig``, which disables every logger that
+    already exists, ``app`` included, for the rest of the session.
+    """
+    logging.getLogger('app').disabled = False
 
 
 @pytest_asyncio.fixture(scope="session")

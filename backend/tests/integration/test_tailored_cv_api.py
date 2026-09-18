@@ -253,17 +253,13 @@ async def _setup(client: AsyncClient) -> tuple[dict, dict, dict]:
 async def _finalize(db_session: AsyncSession, application_id: str) -> None:
     """Mark the application finalized straight in the database.
 
-    Going through ``POST /finalize`` would need a strict step definition and a
-    matching step; the criterion here is about ``feedback_id`` being set, and
-    that is exactly what the guard reads.
+    ``finalized_at`` set is what "closed" means since PRD 0008, and it is
+    exactly what the guard reads.
     """
     await db_session.execute(
         sa.update(ApplicationModel)
         .where(ApplicationModel.id == int(application_id))
-        .values(
-            feedback_id=base_data()['fb_denied'].id,
-            feedback_date=date(2025, 12, 10),
-        )
+        .values(finalized_at=datetime(2025, 12, 10, tzinfo=timezone.utc))
     )
     await db_session.commit()
 
@@ -773,7 +769,7 @@ async def test_finalized_application_refuses_create(
 
     assert response.status_code == 409, msg(409, response.text)
     assert response.json()['detail'] == (
-        'This application has already been finalized'
+        'Reopen the application to edit it (it is currently closed)'
     )
 
 

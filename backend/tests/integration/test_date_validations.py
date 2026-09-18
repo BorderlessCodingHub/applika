@@ -18,6 +18,7 @@ from freezegun import freeze_time
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.enums import EventType, InterviewType
 from app.domain.models import ApplicationModel, StepDefinitionModel
 from tests import msg
 from tests.base_db_setup import base_data
@@ -45,10 +46,20 @@ async def _seed_steps_and_app(
 ) -> None:
     db_session.add_all([
         StepDefinitionModel(
-            id=1, name='Applied', color='#007bff', strict=False
+            id=1,
+            name='Applied',
+            color='#007bff',
+            strict=False,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
         ),
         StepDefinitionModel(
-            id=2, name='Interview', color='#17a2b8', strict=False
+            id=2,
+            name='Interview',
+            color='#17a2b8',
+            strict=False,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
         ),
     ])
     db_session.add(ApplicationModel(
@@ -152,12 +163,15 @@ async def test_update_application_with_future_date_returns_422(
 
 
 # ---------------------------------------------------------------------------
-# ApplicationStep.step_date must be >= application.application_date
+# Step dates: the order rules are gone (PRD 0008 "Assumptions")
+#
+# A step is a timeline event now, and timeline events follow mynextjob: no
+# rule ties the date to the application date or to the previous step.
 # ---------------------------------------------------------------------------
 
 
 @freeze_time(FROZEN_NOW, ignore=['snowflake'])
-async def test_create_step_before_application_date_returns_422(
+async def test_create_step_before_application_date_is_allowed(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     await _seed_steps_and_app(db_session, application_date=date(2026, 4, 1))
@@ -167,9 +181,7 @@ async def test_create_step_before_application_date_returns_422(
         '/applications/1/steps', json=payload
     )
 
-    assert response.status_code == 422, msg(422, response.status_code)
-    body = response.json()
-    assert 'application_date' in str(body), msg('application_date', body)
+    assert response.status_code == 201, msg(201, response.status_code)
 
 
 @freeze_time(FROZEN_NOW, ignore=['snowflake'])
@@ -202,10 +214,10 @@ async def test_create_step_after_application_date_succeeds(
 
 
 @freeze_time(FROZEN_NOW, ignore=['snowflake'])
-async def test_create_step_earlier_than_previous_step_returns_422(
+async def test_create_step_earlier_than_previous_step_is_allowed(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """Chronological order: new step cannot regress past the last one."""
+    """No chronological rule any more: the timeline orders by date."""
     await _seed_steps_and_app(db_session, application_date=date(2026, 4, 1))
 
     first = await async_client.post(
@@ -219,13 +231,16 @@ async def test_create_step_earlier_than_previous_step_returns_422(
         json={'step_id': 2, 'step_date': '2026-04-03'},
     )
 
-    assert second.status_code == 422, msg(422, second.status_code)
-    body = second.json()
-    assert 'previous step' in str(body), msg('previous step', body)
+    assert second.status_code == 201, msg(201, second.status_code)
+    listed = await async_client.get('/applications/1/steps')
+    assert [s['step_date'] for s in listed.json()] == [
+        '2026-04-03',
+        '2026-04-05',
+    ]
 
 
 @freeze_time(FROZEN_NOW, ignore=['snowflake'])
-async def test_update_step_before_application_date_returns_422(
+async def test_update_step_before_application_date_is_allowed(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     await _seed_steps_and_app(db_session, application_date=date(2026, 4, 1))
@@ -242,4 +257,4 @@ async def test_update_step_before_application_date_returns_422(
         json={'step_id': 1, 'step_date': '2026-03-20'},
     )
 
-    assert update.status_code == 422, msg(422, update.status_code)
+    assert update.status_code == 200, msg(200, update.status_code)

@@ -3,14 +3,20 @@ from datetime import date, timedelta
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.models import (
-    ApplicationModel,
-    ApplicationStepModel,
-    FeedbackDefinitionModel,
-    StepDefinitionModel,
-)
+from app.core.enums import EventType, InterviewType
+from app.domain.models import QuinzenalReportModel
 from tests import msg
 from tests.base_db_setup import base_data
+from tests.integration import timeline_seed as ts
+
+SCREENING = {
+    'event_type': EventType.INTERVIEW,
+    'interview_type': InterviewType.INITIAL_SCREENING,
+}
+UNKNOWN_INTERVIEW = {
+    'event_type': EventType.INTERVIEW,
+    'interview_type': InterviewType.UNKNOWN,
+}
 
 
 def _payload(start_date: str | None = None) -> dict:
@@ -40,95 +46,31 @@ async def test_list_reports(async_client: AsyncClient):
 
 
 async def test_submit_day_one_report(async_client: AsyncClient, db_session: AsyncSession):
+    """R-024: new reports are computed from the timeline.
+
+    App 1 (closed): initial screening, an unknown interview, an offer.
+    App 2 (open): initial screening, an unknown interview.
+    """
     today = date.today()
-    db_session.add(FeedbackDefinitionModel(id=2, name='On going', color='#47bfd7'))
-    db_session.add(
-        StepDefinitionModel(
-            id=1,
-            name='Initial Screen',
-            color='#a892d3',
-            strict=False,
-        )
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        ts.application(
+            1, application_date=today, finalized_at=ts.closed_at(today)
+        ),
+        ts.application(2, application_date=today, company_name='Beta'),
+        ts.event(1, 1, event_date=today, **SCREENING),
+        ts.event(2, 1, event_date=today, **UNKNOWN_INTERVIEW),
+        ts.event(
+            3,
+            1,
+            event_date=today,
+            event_type=EventType.OFFER,
+            **ts.offer_salary('1'),
+        ),
+        ts.event(4, 2, event_date=today, **SCREENING),
+        ts.event(5, 2, event_date=today, **UNKNOWN_INTERVIEW),
     )
-    db_session.add(
-        StepDefinitionModel(id=2, name='Phase 2', color='#9373d3', strict=False)
-    )
-    db_session.add(
-        StepDefinitionModel(id=3, name='Phase 3', color='#7b52cb', strict=False)
-    )
-    db_session.add(
-        StepDefinitionModel(id=5, name='Offer', color='#31d845', strict=True)
-    )
-    db_session.add(
-        ApplicationModel(
-            id=1,
-            user_id=base_data()['user'].id,
-            platform_id=base_data()['plat_linkedin'].id,
-            application_date=today,
-            company_name='Acme',
-            role='Software Engineer',
-            mode='active',
-            feedback_id=base_data()['fb_denied'].id,
-            feedback_date=today,
-        )
-    )
-    db_session.add(
-        ApplicationModel(
-            id=2,
-            user_id=base_data()['user'].id,
-            platform_id=base_data()['plat_linkedin'].id,
-            application_date=today,
-            company_name='Beta',
-            role='Software Engineer',
-            mode='active',
-        )
-    )
-    db_session.add(
-        ApplicationStepModel(
-            id=1,
-            application_id=1,
-            step_id=1,
-            step_date=today,
-            user_id=base_data()['user'].id,
-        )
-    )
-    db_session.add(
-        ApplicationStepModel(
-            id=2,
-            application_id=1,
-            step_id=2,
-            step_date=today,
-            user_id=base_data()['user'].id,
-        )
-    )
-    db_session.add(
-        ApplicationStepModel(
-            id=3,
-            application_id=1,
-            step_id=5,
-            step_date=today,
-            user_id=base_data()['user'].id,
-        )
-    )
-    db_session.add(
-        ApplicationStepModel(
-            id=4,
-            application_id=2,
-            step_id=1,
-            step_date=today,
-            user_id=base_data()['user'].id,
-        )
-    )
-    db_session.add(
-        ApplicationStepModel(
-            id=5,
-            application_id=2,
-            step_id=3,
-            step_date=today,
-            user_id=base_data()['user'].id,
-        )
-    )
-    await db_session.commit()
 
     response = await async_client.post(
         '/reports/1/submit',
@@ -147,7 +89,9 @@ async def test_submit_day_one_report(async_client: AsyncClient, db_session: Asyn
     assert report_data['metrics']['applications_count'] == 2
     assert report_data['metrics']['initial_screenings_count'] == 2
     assert report_data['metrics']['callback_rate'] == 100
-    assert report_data['metrics']['interviews_completed_fortnight'] == 2
+    # Interview events held, of every type (mynextjob's rule).
+    assert report_data['metrics']['interviews_completed_fortnight'] == 4
+    # Open applications past their initial screening.
     assert report_data['metrics']['active_processes_count'] == 1
     assert report_data['metrics']['offers_count'] == 1
     assert report_data['metrics']['offer_rate'] == 50
@@ -203,58 +147,28 @@ async def test_day_twenty_eight_uses_accumulated_rates(
     start_date = date.today() - timedelta(days=27)
     fortnight_start = date.today() - timedelta(days=13)
 
-    db_session.add(
-        StepDefinitionModel(
-            id=1,
-            name='Initial Screen',
-            color='#a892d3',
-            strict=False,
-        )
-    )
-    db_session.add(
-        StepDefinitionModel(id=5, name='Offer', color='#31d845', strict=True)
-    )
-    db_session.add(
-        ApplicationModel(
-            id=1,
-            user_id=base_data()['user'].id,
-            platform_id=base_data()['plat_linkedin'].id,
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        ts.application(
+            1,
             application_date=start_date + timedelta(days=4),
             company_name='LegacyCo',
-            role='Software Engineer',
-            mode='active',
-        )
-    )
-    db_session.add(
-        ApplicationModel(
-            id=2,
-            user_id=base_data()['user'].id,
-            platform_id=base_data()['plat_linkedin'].id,
+        ),
+        ts.application(
+            2,
             application_date=fortnight_start + timedelta(days=2),
             company_name='NewCo',
-            role='Software Engineer',
-            mode='active',
-        )
+        ),
+        ts.event(1, 1, event_date=start_date + timedelta(days=6), **SCREENING),
+        ts.event(
+            2,
+            1,
+            event_date=fortnight_start + timedelta(days=3),
+            event_type=EventType.OFFER,
+            **ts.offer_salary('1'),
+        ),
     )
-    db_session.add(
-        ApplicationStepModel(
-            id=1,
-            application_id=1,
-            step_id=1,
-            step_date=start_date + timedelta(days=6),
-            user_id=base_data()['user'].id,
-        )
-    )
-    db_session.add(
-        ApplicationStepModel(
-            id=2,
-            application_id=1,
-            step_id=5,
-            step_date=fortnight_start + timedelta(days=3),
-            user_id=base_data()['user'].id,
-        )
-    )
-    await db_session.commit()
 
     day_one = await async_client.post(
         '/reports/1/submit',
@@ -285,3 +199,99 @@ async def test_day_twenty_eight_uses_accumulated_rates(
     assert report_data['metrics']['callback_rate'] == 50
     assert report_data['metrics']['offer_rate'] == 100
     assert report_data['metrics']['overall_conversion_rate'] == 50
+
+
+async def test_unknown_only_user_reports_zero_screenings(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """R-024, owner 2026-09-15 "No, explicit only": interviews of type
+    unknown or any other type are not initial screenings."""
+    today = date.today()
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        ts.application(1, application_date=today),
+        ts.application(2, application_date=today, company_name='Beta'),
+        ts.event(1, 1, event_date=today, **UNKNOWN_INTERVIEW),
+        ts.event(
+            2,
+            2,
+            event_date=today,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.TECHNICAL,
+        ),
+    )
+
+    await async_client.post('/reports/1/submit', json=_payload(today.isoformat()))
+    metrics = (await async_client.get('/reports/1')).json()['metrics']
+
+    assert metrics['applications_count'] == 2
+    assert metrics['initial_screenings_count'] == 0
+    assert metrics['total_initial_screenings_count'] == 0
+    assert metrics['callback_rate'] == 0
+    assert metrics['interviews_completed_fortnight'] == 2
+    assert metrics['active_processes_count'] == 0
+
+
+async def test_pending_report_preview_counts_only_initial_screenings(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    today = date.today()
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        ts.application(1, application_date=today),
+        ts.event(1, 1, event_date=today, **UNKNOWN_INTERVIEW),
+    )
+    await async_client.post('/reports/1/submit', json=_payload(
+        (today - timedelta(days=13)).isoformat()
+    ))
+
+    preview = (await async_client.get('/reports/14')).json()
+
+    assert preview['metrics']['initial_screenings_count'] == 0
+
+
+async def test_stored_report_is_never_recomputed(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """R-025: a report submitted with the steps-era numbers keeps them,
+    whatever the timeline says now."""
+    today = date.today()
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        ts.application(1, application_date=today),
+        QuinzenalReportModel(
+            user_id=base_data()['user'].id,
+            report_day=1,
+            start_date=today,
+            phase=1,
+            applications_count=7,
+            callback_rate=42.5,
+            initial_screenings_count=3,
+            interviews_completed_fortnight=9,
+            active_processes_count=2,
+            offers_count=1,
+            offer_rate=33.33,
+            total_applications_count=7,
+            overall_conversion_rate=42.5,
+            total_initial_screenings_count=3,
+            mock_interviews_count=1,
+            linkedin_posts_count=1,
+            strategic_connections_count=1,
+            biggest_win='w',
+            biggest_challenge='c',
+            next_fortnight_goal='g',
+            submitted_at=ts.closed_at(today),
+        ),
+        ts.event(1, 1, event_date=today, **SCREENING),
+    )
+
+    metrics = (await async_client.get('/reports/1')).json()['metrics']
+
+    assert metrics['applications_count'] == 7
+    assert metrics['initial_screenings_count'] == 3
+    assert metrics['interviews_completed_fortnight'] == 9
+    assert metrics['callback_rate'] == 42.5
+    assert metrics['offers_count'] == 1

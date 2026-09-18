@@ -128,7 +128,11 @@ async def test_create_application_with_optional_fields(
     assert response.status_code == 201, msg(201, response.status_code)
     data = response.json()
     assert data['currency'] == 'USD', msg('USD', data['currency'])
-    assert data['salary_period'] == 'annual', msg('annual', data['salary_period'])
+    # R-031: `annual` from an installed CLI is accepted and read back as
+    # annually.
+    assert data['salary_period'] == 'annually', msg(
+        'annually', data['salary_period']
+    )
     assert data['experience_level'] == 'senior', msg('senior', data['experience_level'])
     assert data['work_mode'] == 'remote', msg('remote', data['work_mode'])
     assert data['country'] == 'United States', msg('United States', data['country'])
