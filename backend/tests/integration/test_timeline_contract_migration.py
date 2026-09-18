@@ -72,6 +72,10 @@ from app.config.settings import envs
 
 REVISION = 'ad747aba90fc'
 PARENT_REVISION = 'afd4074c70c2'
+# R1's own down_revision - two hops below head. Used only by the
+# remediation-round-1 regression test that crosses both R2's and R1's
+# downgrade()/upgrade() in a single alembic command.
+GRANDPARENT_REVISION = 'd3f7b1c9e2a4'
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 _ALEMBIC_INI = _BACKEND_ROOT / 'alembic.ini'
@@ -1102,6 +1106,81 @@ def test_denied_with_salary_survives_the_round_trip(migration_db: str) -> None:
     apps = _app_rows(migration_db, suffix='_old')
     assert apps[APP_DENIED_SALARY]['salary_offer'] == Decimal('3000.00')
     assert apps[APP_DENIED_SALARY]['currency'] == 'USD'
+
+
+def test_single_command_downgrade_and_upgrade_cross_two_revisions(
+    migration_db: str,
+) -> None:
+    """Remediation round 1 regression (AC7 R-029, AC8): a single ``alembic
+    downgrade``/``upgrade`` command that crosses this revision's
+    downgrade()/upgrade() *and* R1's in the same run must not collide.
+
+    ``migrations/env.py`` wraps a whole ``run_migrations()`` call in one
+    outer transaction (no ``transaction_per_migration``), so a single
+    ``alembic downgrade d3f7b1c9e2a4`` from head runs this revision's
+    downgrade() and then R1's downgrade() (``afd4074c70c2``) inside that
+    same still-open transaction. Before the fix, both created a temp table
+    named ``timeline_downgrade_touched`` with ``ON COMMIT DROP`` - which
+    only fires once the *whole* command's transaction commits, not between
+    the two revisions - so R1's ``CREATE TEMPORARY TABLE`` raised
+    ``asyncpg.exceptions.DuplicateTableError`` and the whole command rolled
+    back. ``alembic downgrade -1`` run twice (one revision per command, one
+    transaction each) never showed the bug, which is why the by-hand walk
+    caught it and the per-revision round-trip tests above did not: each of
+    them only ever crosses one revision's downgrade per ``_downgrade()``
+    call. Fixed in R2 only (``ad747aba90fc``) by scoping its temp table to
+    its own name (``_TOUCHED_TABLE`` in the revision module) and dropping it
+    explicitly at the end of its own ``downgrade()``, so it no longer
+    depends on a commit boundary a later revision's downgrade might share.
+    R1 (Release A, released) is untouched.
+    """
+    _upgrade(migration_db, GRANDPARENT_REVISION)
+    pre_r1_columns = _columns(migration_db)
+    pre_r1_tables = _tables(migration_db)
+
+    _upgrade(migration_db, PARENT_REVISION)
+    _seed_at_r1(migration_db)
+    _upgrade(migration_db, REVISION)
+
+    # -- One command, crossing this revision's downgrade() then R1's.
+    #    Used to raise asyncpg.exceptions.DuplicateTableError before the fix.
+    _downgrade(migration_db, GRANDPARENT_REVISION)
+
+    assert _query(migration_db, 'SELECT version_num FROM alembic_version') == [
+        {'version_num': GRANDPARENT_REVISION}
+    ]
+    assert _columns(migration_db) == pre_r1_columns
+    assert _tables(migration_db) == pre_r1_tables
+
+    # The legacy data is back, restored all the way to the pre-R1 shape by
+    # the two chained downgrades: the KODI-010 flag and a step the R1
+    # trigger never got the chance to sync (application_steps.timezone
+    # widening reversed too, since we are back before that revision ran).
+    # ``applications.finalized_at`` does not exist at all pre-R1, so this
+    # reads the legacy columns directly rather than through ``_app_rows()``
+    # (which selects it).
+    steps = _steps(migration_db)
+    step_rows = _step_rows(migration_db)
+    apps = {
+        row['id']: row
+        for row in _query(
+            migration_db,
+            'SELECT id, last_step_id, salary_offer FROM applications '
+            'ORDER BY id',
+        )
+    }
+    assert apps[APP_DENIED_SALARY]['salary_offer'] == Decimal('3000.00')
+    assert apps[APP_OFFER_SALARY]['last_step_id'] == steps['Offer']
+    assert step_rows[S_UNSYNCED]['step_id'] == steps['Phase 3']
+    assert (
+        step_rows[S_UNSYNCED]['observation'] == 'Written during the switch-over'
+    )
+
+    # -- The other direction: one command crossing R1's upgrade() then R2's.
+    _upgrade(migration_db, REVISION)
+    assert _query(migration_db, 'SELECT version_num FROM alembic_version') == [
+        {'version_num': REVISION}
+    ]
 
 
 # ==========================================================================
