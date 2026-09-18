@@ -1,4 +1,9 @@
 import type { Application } from "@/services/types/applications";
+import { stageLabel } from "@/components/timeline/timeline-options";
+import type {
+  InterviewType,
+  TimelineEventType,
+} from "@/components/timeline/timeline-types";
 
 const APP_NAME = "Applika.dev";
 
@@ -102,9 +107,15 @@ export function genApplicationStepIcsFile(
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Agenda item shape needed for the .ics export (PRD 0008, ADR 0012). Labelled
+ * from `event_type`/`interview_type` via `stageLabel`, NEVER from the
+ * now-nullable, legacy `step_name`/`step_color` (AC6, R-026).
+ */
 export function genAgendaStepIcsFile(step: {
   step_date: string;
-  step_name?: string;
+  event_type: TimelineEventType;
+  interview_type?: InterviewType | null;
   company_name: string;
   role: string;
   start_time?: string;
@@ -114,7 +125,7 @@ export function genAgendaStepIcsFile(step: {
   application_id: string;
 }) {
   const dateClean = step.step_date.replace(/-/g, "");
-  const stepName = step.step_name ?? "Step";
+  const stepName = stageLabel(step.event_type, step.interview_type);
   const title = `${step.company_name} — ${stepName}`;
   const tz = step.timezone;
 
