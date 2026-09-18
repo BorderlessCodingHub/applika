@@ -460,3 +460,194 @@ async def test_delete_application(
     await db_session.run_sync(lambda s: s.expire_all())
     deleted = await db_session.get(ApplicationModel, 1)
     assert deleted is None, msg(None, deleted)
+
+
+# ---------------------------------------------------------------------------
+# job_description
+#
+# Optional, additive, at most 50 000 characters. The interesting half is the
+# PUT: every other optional field clears when omitted (the full-replace
+# semantics applika-cli 0.1.4 has always relied on), but job_description is
+# sticky, because a published CLI that has never heard of the field must not
+# wipe it. Both halves are asserted over HTTP here, because the set-ness the
+# rule depends on is created in the route and would be destroyed by a plain
+# model_dump().
+# ---------------------------------------------------------------------------
+
+JOB_DESCRIPTION = 'We are looking for a backend engineer. Python, Postgres.'
+MAX_JOB_DESCRIPTION = 50_000
+
+
+async def _create_application(client: AsyncClient, **overrides) -> dict:
+    response = await client.post(
+        '/applications', json=_base_payload(**overrides)
+    )
+    assert response.status_code == 201, msg(201, response.text)
+    return response.json()
+
+
+async def test_create_application_with_job_description(
+    async_client: AsyncClient,
+):
+    """AC8: the posting is stored on create and comes back on the wire."""
+    data = await _create_application(
+        async_client, job_description=JOB_DESCRIPTION
+    )
+
+    assert data['job_description'] == JOB_DESCRIPTION, msg(
+        JOB_DESCRIPTION, data['job_description']
+    )
+
+
+async def test_create_application_without_job_description_is_null(
+    async_client: AsyncClient,
+):
+    """AC13: the field is optional - a CLI that omits it still gets a 201."""
+    data = await _create_application(async_client)
+
+    assert data['job_description'] is None, msg(
+        None, data['job_description']
+    )
+
+
+async def test_create_application_job_description_too_long_is_422(
+    async_client: AsyncClient,
+):
+    """50 001 characters is one too many."""
+    response = await async_client.post(
+        '/applications',
+        json=_base_payload(job_description='x' * (MAX_JOB_DESCRIPTION + 1)),
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+
+
+async def test_create_application_job_description_at_the_limit_is_201(
+    async_client: AsyncClient,
+):
+    """Exactly 50 000 characters is accepted."""
+    response = await async_client.post(
+        '/applications',
+        json=_base_payload(job_description='x' * MAX_JOB_DESCRIPTION),
+    )
+
+    assert response.status_code == 201, msg(201, response.status_code)
+
+
+async def test_update_without_job_description_keeps_the_stored_text(
+    async_client: AsyncClient,
+):
+    """AC13: the applika-cli 0.1.4 PUT body, which has no such key.
+
+    This is the test that fails if the route ever goes back to a plain
+    ``model_dump()``: every key would be present in ``model_fields_set`` and
+    the stored posting would be wiped by a client that never mentioned it.
+    """
+    created = await _create_application(
+        async_client, job_description=JOB_DESCRIPTION
+    )
+
+    response = await async_client.put(
+        f'/applications/{created["id"]}',
+        json=_base_payload(role='Senior Engineer'),
+    )
+
+    assert response.status_code == 200, msg(200, response.text)
+    assert response.json()['job_description'] == JOB_DESCRIPTION, msg(
+        JOB_DESCRIPTION, response.json()['job_description']
+    )
+    assert response.json()['role'] == 'Senior Engineer'
+
+
+async def test_update_with_explicit_null_clears_the_job_description(
+    async_client: AsyncClient,
+):
+    """AC8: sending ``null`` on purpose really does clear the stored text."""
+    created = await _create_application(
+        async_client, job_description=JOB_DESCRIPTION
+    )
+
+    response = await async_client.put(
+        f'/applications/{created["id"]}',
+        json=_base_payload(job_description=None),
+    )
+
+    assert response.status_code == 200, msg(200, response.text)
+    assert response.json()['job_description'] is None, msg(
+        None, response.json()['job_description']
+    )
+
+
+async def test_update_replaces_the_job_description(async_client: AsyncClient):
+    """AC8: the posting is editable when updating the application."""
+    created = await _create_application(
+        async_client, job_description=JOB_DESCRIPTION
+    )
+
+    response = await async_client.put(
+        f'/applications/{created["id"]}',
+        json=_base_payload(job_description='A different posting.'),
+    )
+
+    assert response.json()['job_description'] == 'A different posting.'
+
+
+async def test_update_still_clears_other_omitted_optional_fields(
+    async_client: AsyncClient,
+):
+    """The regression guard on PUT semantics for everything else.
+
+    ``observation``, ``link_to_job`` and ``expected_salary`` are full-replace
+    fields and must keep clearing when omitted. Only ``job_description`` is
+    sticky; if carrying its set-ness had leaked into the other fields, this
+    fails.
+    """
+    created = await _create_application(
+        async_client,
+        job_description=JOB_DESCRIPTION,
+        observation='A stale note',
+        link_to_job='https://example.com/job/7',
+        expected_salary=4321.0,
+    )
+    assert created['observation'] == 'A stale note'
+
+    response = await async_client.put(
+        f'/applications/{created["id"]}', json=_base_payload()
+    )
+
+    data = response.json()
+    assert data['observation'] is None, msg(None, data['observation'])
+    assert data['link_to_job'] is None, msg(None, data['link_to_job'])
+    assert data['expected_salary'] is None, msg(
+        None, data['expected_salary']
+    )
+    # ...and the sticky field survived the same request.
+    assert data['job_description'] == JOB_DESCRIPTION
+
+
+async def test_update_job_description_too_long_is_422(
+    async_client: AsyncClient,
+):
+    created = await _create_application(async_client)
+
+    response = await async_client.put(
+        f'/applications/{created["id"]}',
+        json=_base_payload(job_description='x' * (MAX_JOB_DESCRIPTION + 1)),
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+
+
+async def test_list_applications_carries_the_job_description(
+    async_client: AsyncClient,
+):
+    """AC8: the list endpoint carries the field too."""
+    await _create_application(async_client, job_description=JOB_DESCRIPTION)
+
+    response = await async_client.get('/applications')
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    descriptions = [item['job_description'] for item in response.json()]
+    assert JOB_DESCRIPTION in descriptions, msg(
+        JOB_DESCRIPTION, descriptions
+    )

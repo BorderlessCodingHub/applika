@@ -75,6 +75,11 @@ const PAGES: PageCase[] = [
     assert: heading("Applications", 1),
   },
   {
+    path: "/cvs",
+    visitors: ["user", "admin"],
+    assert: heading("CVs", 1),
+  },
+  {
     path: "/agenda",
     visitors: ["user", "admin"],
     assert: heading("Agenda", 1),
@@ -102,6 +107,18 @@ const PAGES: PageCase[] = [
     // The h1 is the user's display name (data-dependent); "Details" is the
     // first unconditional static heading on the page.
     assert: heading("Details"),
+  },
+
+  {
+    // KODI-003. The route is only USEFUL with `?id=<application>` — the picker
+    // and the editor both need one — so the data-driven surfaces are covered by
+    // `cv-builder.spec.ts` against a seeded application, not here. What this row
+    // is worth is exactly what this suite is for: the route exists in the static
+    // export, boots under its Suspense boundary and renders its own shell with
+    // no uncaught error, which is what a `useSearchParams` page gets wrong first.
+    path: "/applications/cv",
+    visitors: ["user", "admin"],
+    assert: heading("Application CV", 1),
   },
 
   // ---- admin -----------------------------------------------------------
@@ -155,13 +172,14 @@ test.describe("every page renders against the real stack", () => {
 test("the suite covers every page named in the acceptance criteria", () => {
   // Guards the table itself, because the suite is only as good as this list: a
   // route silently dropped from PAGES would leave the suite green while
-  // covering less. The invariant is 14 routes, ALL of them exercised — the
+  // covering less. The invariant is 15 routes, ALL of them exercised — the
   // `pending`/`pendingReason` parking mechanism is gone, so there is no longer
   // any way to keep a row in the table while skipping it at runtime.
-  expect(PAGES).toHaveLength(14);
+  // 14 until KODI-002 added `/cvs`.
+  expect(PAGES).toHaveLength(16);
 
   // A row with no visitors generates no tests at all, which the length check
-  // above cannot see. Same for a duplicated path: 14 rows covering 13 routes.
+  // above cannot see. Same for a duplicated path: 15 rows covering 14 routes.
   // These two are the remaining ways to lose coverage without deleting a row.
   for (const pageCase of PAGES) {
     expect(

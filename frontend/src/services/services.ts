@@ -1,4 +1,5 @@
 import { AdminService } from "./implementations/admin-service";
+import { BaseCvService } from "./implementations/base-cv-service";
 import { CycleService } from "./implementations/cycle-service";
 import { FeedbackService } from "./implementations/feedback-service";
 import { AuthService } from "./implementations/auth-service";
@@ -8,6 +9,7 @@ import { StatisticsService } from "@/services/implementations/statistics-service
 import { SupportsService } from "@/services/implementations/supports-service";
 import { CompanyService } from "@/services/implementations/company-service";
 import { ReportsService } from "@/services/implementations/reports-service";
+import { TailoredCvService } from "@/services/implementations/tailored-cv-service";
 
 class ServiceContainer {
   admin = new AdminService();
@@ -20,6 +22,8 @@ class ServiceContainer {
   reports = new ReportsService();
   feedbacks = new FeedbackService();
   cycles = new CycleService();
+  baseCvs = new BaseCvService();
+  tailoredCvs = new TailoredCvService();
 }
 
 export const services = new ServiceContainer();

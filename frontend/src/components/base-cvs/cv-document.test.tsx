@@ -1,0 +1,722 @@
+import { render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+
+import {
+  CV_DATE_PRESENT,
+  CV_DATE_RANGE_SEPARATOR,
+  CV_DOCUMENT_SECTIONS,
+  CV_EDUCATION_DEGREE_JOINER,
+  CV_KEYWORD_SEPARATOR,
+  educationDegreeLine,
+  formatCvDatePeriod,
+  getPopulatedCvSections,
+  skillCategoryHeading,
+  visibleEducation,
+  visibleSkillCategories,
+  type CvDocumentData,
+  type CvDocumentSection,
+} from "./cv-document";
+import { CvDocumentPreview } from "./cv-document-preview";
+
+/**
+ * The live preview, against the owner's template (KODI-006).
+ *
+ * The owner reviewed the built feature on a real stack and named what was
+ * wrong. Every assertion here is one of his sentences:
+ *
+ *  - AC2 — "Summary MUST BE ON TOP, followed by experience, languages, skills,
+ *    projects (optionally), education and certifications (optionally)";
+ *  - AC3 — "skills isn't simply a section where i put "tags" or just
+ *    "keywords" it's a section where i can create a category and inside this
+ *    caregory add keywords";
+ *  - AC4 — "I never said to cut out education, only key achievements";
+ *  - AC5 — "One line displaying the project name, the second like the link to
+ *    access this project with the current behavior if link label is missing,
+ *    just display the raw link and in a third link the project description";
+ *  - AC6 — "the languages is alignes to the center when I have only one
+ *    languages or two … fix the live preview to align to the left as well and
+ *    remove the dots in live preview only display the language name and the
+ *    level".
+ *
+ * The preview and the server's PDF are two renderers of ONE document, so the
+ * separator, the category colon, the three-line project and the degree joiner
+ * are pinned here against `cv_rendering/mapper.py`.
+ *
+ * Every one of them is asserted against `CvDocumentPreview` — the ONE container
+ * the user ever sees (KODI-008). They used to run against `CvDocument`, the
+ * continuous renderer, which by then nothing in `src/` rendered; markup nobody
+ * renders cannot pin anything.
+ */
+
+/** A CV with something in every section. Invented, like every fixture here. */
+const FULL_CV: CvDocumentData = {
+  name: "Backend CV",
+  full_name: "Ada Lovelace",
+  headline: "Senior Backend Engineer",
+  location: "London, United Kingdom",
+  email: "ada@example.com",
+  phone: "+44 20 7946 0958",
+  summary: "Backend engineer with eight years on payment systems.",
+  links: [{ id: "l-1", label: "GitHub", url: "https://github.com/ada" }],
+  skills: [
+    {
+      id: "s-1",
+      category: "Languages and frameworks",
+      keywords: ["Python", "TypeScript", "Go"],
+    },
+    { id: "s-2", category: "Data stores", keywords: ["PostgreSQL", "Redis"] },
+  ],
+  experience: [
+    {
+      id: "e-1",
+      company: "Northwind Payments",
+      role: "Senior Backend Engineer",
+      start: "2021-03",
+      bullets: ["Cut settlement latency by 40%"],
+    },
+  ],
+  projects: [
+    {
+      id: "p-1",
+      name: "difference-engine",
+      description: "A mechanical computer, in Rust.",
+      link: "https://example.com/difference-engine",
+      link_label: "Live demo",
+    },
+  ],
+  education: [
+    {
+      id: "d-1",
+      institution: "University of Edinburgh",
+      degree: "BSc",
+      area: "Computer Science",
+      start: "2010-09",
+      end: "2013-06",
+    },
+  ],
+  certifications: [
+    { id: "c-1", name: "AWS SAA", issuer: "Amazon Web Services" },
+  ],
+  languages: [{ id: "g-1", name: "English", level: "Native" }],
+};
+
+function cv(over: Partial<CvDocumentData> = {}): CvDocumentData {
+  return { ...FULL_CV, ...over };
+}
+
+/**
+ * Everything ONE section of the rendered document prints, as a single element
+ * `within()` can be pointed at.
+ *
+ * The paginated renderer has no `<section>` wrapper to reach for: a section's
+ * atoms are flat `[data-cv-block]` children of whichever SHEET they landed on,
+ * because no wrapper can span a page break. They are found by their block keys
+ * instead — `experience:heading`, `experience:<id>` — and copied into a host so
+ * a query can be scoped to one section without moving a node of the tree under
+ * test.
+ *
+ * The host is attached, because `toBeInTheDocument()` means nothing on a
+ * detached node, and torn down after every test. The lookup reads only nodes
+ * inside a real `[data-slot="cv-page-sheet"]`, so a host never feeds itself.
+ *
+ * This is the container the USER sees. The whole table below used to run
+ * against `CvDocument`, the continuous renderer — which, once
+ * `CvDocumentPreview` stopped rendering it, nothing in `src/` rendered at all
+ * (KODI-008).
+ */
+function documentSection(section: CvDocumentSection): HTMLElement {
+  const blocks = document.querySelectorAll<HTMLElement>(
+    `[data-slot="cv-page-sheet"] [data-cv-block^="${section}:"]`,
+  );
+  if (blocks.length === 0) {
+    throw new Error(`the ${section} section rendered no block`);
+  }
+
+  const host = document.createElement("div");
+  host.setAttribute("data-test-section-host", section);
+  for (const block of blocks) host.appendChild(block.cloneNode(true));
+  document.body.appendChild(host);
+  return host;
+}
+
+afterEach(() => {
+  for (const host of document.querySelectorAll("[data-test-section-host]")) {
+    host.remove();
+  }
+});
+
+describe("the owner's section order", () => {
+  it("is summary, experience, languages, skills, projects, education, certifications", () => {
+    // The order the owner dictated, and the order `SECTION_ORDER` in
+    // `cv_rendering/mapper.py` typesets. The first cut printed them
+    // alphabetically, with the summary at the bottom.
+    expect(CV_DOCUMENT_SECTIONS).toEqual([
+      "summary",
+      "experience",
+      "languages",
+      "skills",
+      "projects",
+      "education",
+      "certifications",
+    ]);
+    expect(getPopulatedCvSections(FULL_CV)).toEqual([
+      "summary",
+      "experience",
+      "languages",
+      "skills",
+      "projects",
+      "education",
+      "certifications",
+    ]);
+  });
+
+  it("keeps that order no matter how the data is shaped", () => {
+    // A CV with only the optional tail still prints projects before education
+    // before certifications.
+    expect(
+      getPopulatedCvSections(
+        cv({ summary: "", experience: [], languages: [], skills: [] }),
+      ),
+    ).toEqual(["projects", "education", "certifications"]);
+  });
+
+  it("omits a section that has nothing in it", () => {
+    expect(
+      getPopulatedCvSections(
+        cv({ projects: [], education: [], certifications: [] }),
+      ),
+    ).toEqual(["summary", "experience", "languages", "skills"]);
+    expect(getPopulatedCvSections(cv({ summary: "   " }))).not.toContain(
+      "summary",
+    );
+  });
+
+  it("renders the headings in that order too", () => {
+    render(<CvDocumentPreview cv={FULL_CV} />);
+
+    expect(
+      screen
+        .getAllByRole("heading", { level: 3 })
+        .map((heading) => heading.textContent),
+    ).toEqual([
+      "Summary",
+      "Experience",
+      "Languages",
+      "Skills",
+      "Projects",
+      "Education",
+      "Certifications",
+    ]);
+  });
+});
+
+describe("skillCategoryHeading (AC3)", () => {
+  it("closes a category with a colon", () => {
+    expect(skillCategoryHeading("Languages and frameworks")).toBe(
+      "Languages and frameworks:",
+    );
+  });
+
+  it("does not double a colon the user already typed", () => {
+    // The owner typed the colon into his own category names by hand; a user
+    // who does the same must not get "Testing & QA::".
+    expect(skillCategoryHeading("Testing and QA:")).toBe("Testing and QA:");
+  });
+
+  it("trims, and gives a blank category no colon at all", () => {
+    // Parity with the server's `_skill_category_label`, which returns the
+    // empty string rather than a lone ":".
+    expect(skillCategoryHeading("  DevOps  ")).toBe("DevOps:");
+    expect(skillCategoryHeading("   ")).toBe("");
+  });
+});
+
+describe("the skills section (AC3)", () => {
+  it("joins keywords with a middle dot, not a bullet and not a comma", () => {
+    // U+00B7 with a space each side — the same constant the server's
+    // `SKILLS_SEPARATOR` uses. U+2022 is the contact line's glyph.
+    expect(CV_KEYWORD_SEPARATOR).toBe(" · ");
+    expect(CV_KEYWORD_SEPARATOR).not.toContain("•");
+  });
+
+  it("prints one block per category: the name, then its keywords", () => {
+    render(<CvDocumentPreview cv={FULL_CV} />);
+    const skills = within(documentSection("skills"));
+
+    expect(skills.getByText("Languages and frameworks:")).toBeInTheDocument();
+    expect(skills.getByText("Python · TypeScript · Go")).toBeInTheDocument();
+    expect(skills.getByText("Data stores:")).toBeInTheDocument();
+    expect(skills.getByText("PostgreSQL · Redis")).toBeInTheDocument();
+  });
+
+  it("is not a flat tag list: the keywords never leave their category", () => {
+    render(<CvDocumentPreview cv={FULL_CV} />);
+    const skills = documentSection("skills");
+
+    // Each category heading and its keyword line share one block, and there
+    // are exactly as many blocks as categories.
+    expect(skills.textContent).toContain(
+      "Languages and frameworks:Python · TypeScript · Go",
+    );
+    expect(skills.textContent).toContain("Data stores:PostgreSQL · Redis");
+  });
+
+  it("keeps a named category that has no keywords yet", () => {
+    // The server's `_skill_entries` emits its heading too; the preview must
+    // not drop a line the PDF prints.
+    const only = [{ id: "s-9", category: "Monitoring", keywords: [] }];
+    expect(visibleSkillCategories(only)).toHaveLength(1);
+
+    render(<CvDocumentPreview cv={cv({ skills: only })} />);
+    expect(
+      within(documentSection("skills")).getByText("Monitoring:"),
+    ).toBeInTheDocument();
+  });
+
+  it("drops a category with neither a name nor a keyword", () => {
+    expect(
+      visibleSkillCategories([{ id: "s-9", category: "  ", keywords: [] }]),
+    ).toEqual([]);
+    expect(
+      getPopulatedCvSections(
+        cv({ skills: [{ id: "s-9", category: " ", keywords: [] }] }),
+      ),
+    ).not.toContain("skills");
+  });
+});
+
+describe("the languages section (AC6)", () => {
+  it("shows the name and the level, and nothing else", () => {
+    render(<CvDocumentPreview cv={FULL_CV} />);
+    const languages = documentSection("languages");
+
+    expect(languages.textContent).toBe("LanguagesEnglishNative");
+  });
+
+  it("prints no separator dot of any kind", () => {
+    // "remove the dots in live preview only display the language name and the
+    // level" — neither U+00B7 nor U+2022 nor a filled proficiency meter.
+    render(
+      <CvDocumentPreview
+        cv={cv({
+          languages: [
+            { id: "g-1", name: "English", level: "Native" },
+            { id: "g-2", name: "Portuguese", level: "Conversational" },
+          ],
+        })}
+      />,
+    );
+    const languages = documentSection("languages");
+
+    expect(languages.textContent).not.toContain("·");
+    expect(languages.textContent).not.toContain("•");
+    // The old meter was a run of decorative spans per row.
+    expect(languages.querySelectorAll("[aria-hidden]")).toHaveLength(0);
+  });
+
+  it("sits hard left at one language and at two, by structure", () => {
+    // The old row was `justify-around`, which centres one or two entries and
+    // is exactly what the owner saw. A three-column grid fills from the left
+    // at any count, so there is no count to tune.
+    for (const count of [1, 2, 3]) {
+      const { unmount } = render(
+        <CvDocumentPreview
+          cv={cv({
+            languages: Array.from({ length: count }, (_, i) => ({
+              id: `g-${i}`,
+              name: `Language ${i}`,
+              level: "Native" as const,
+            })),
+          })}
+        />,
+      );
+
+      const list = within(documentSection("languages")).getByRole("list");
+      expect(list.className, `${count} language(s)`).toContain("grid-cols-3");
+      expect(list.className).not.toMatch(/justify-(around|center|between)/);
+      expect(list.className).not.toMatch(/\btext-center\b/);
+      expect(within(list).getAllByRole("listitem")).toHaveLength(count);
+      unmount();
+    }
+  });
+});
+
+describe("the projects section (AC5)", () => {
+  it("renders three lines: the name, then the link, then the description", () => {
+    render(<CvDocumentPreview cv={FULL_CV} />);
+    const lines = Array.from(
+      documentSection("projects").querySelectorAll("p"),
+    ).map((line) => line.textContent?.trim());
+
+    expect(lines).toEqual([
+      "difference-engine",
+      "Live demo ↗",
+      "A mechanical computer, in Rust.",
+    ]);
+  });
+
+  it("shows the RAW url on line two when no link label is set", () => {
+    render(
+      <CvDocumentPreview
+        cv={cv({
+          projects: [
+            {
+              id: "p-1",
+              name: "difference-engine",
+              description: "A mechanical computer, in Rust.",
+              link: "https://example.com/difference-engine",
+            },
+          ],
+        })}
+      />,
+    );
+    const lines = Array.from(
+      documentSection("projects").querySelectorAll("p"),
+    ).map((line) => line.textContent?.trim());
+
+    expect(lines).toEqual([
+      "difference-engine",
+      "https://example.com/difference-engine ↗",
+      "A mechanical computer, in Rust.",
+    ]);
+  });
+
+  it("treats a blank link label the same as a missing one", () => {
+    render(
+      <CvDocumentPreview
+        cv={cv({
+          projects: [
+            {
+              id: "p-1",
+              name: "difference-engine",
+              description: "",
+              link: "https://example.com/de",
+              link_label: "   ",
+            },
+          ],
+        })}
+      />,
+    );
+
+    const lines = Array.from(
+      documentSection("projects").querySelectorAll("p"),
+    ).map((line) => line.textContent?.trim());
+
+    expect(lines).toEqual(["difference-engine", "https://example.com/de ↗"]);
+  });
+
+  it("drops the link line, not the order, for a project with no link", () => {
+    render(
+      <CvDocumentPreview
+        cv={cv({
+          projects: [
+            { id: "p-1", name: "difference-engine", description: "In Rust." },
+          ],
+        })}
+      />,
+    );
+    const lines = Array.from(
+      documentSection("projects").querySelectorAll("p"),
+    ).map((line) => line.textContent?.trim());
+
+    expect(lines).toEqual(["difference-engine", "In Rust."]);
+  });
+});
+
+describe("educationDegreeLine (AC4)", () => {
+  it("joins a degree and its field of study with ' in '", () => {
+    // RenderCV's own `DEGREE_WITH_AREA` phrase, mirrored so the preview reads
+    // the way the PDF prints.
+    expect(CV_EDUCATION_DEGREE_JOINER).toBe(" in ");
+    expect(
+      educationDegreeLine({
+        id: "d",
+        institution: "X",
+        degree: "BSc",
+        area: "Computer Science",
+        start: "2010-09",
+      }),
+    ).toBe("BSc in Computer Science");
+  });
+
+  it("prints the degree alone when there is no field of study", () => {
+    expect(
+      educationDegreeLine({
+        id: "d",
+        institution: "X",
+        degree: "BSc",
+        start: "2010-09",
+      }),
+    ).toBe("BSc");
+    expect(
+      educationDegreeLine({
+        id: "d",
+        institution: "X",
+        degree: "BSc",
+        area: "   ",
+        start: "2010-09",
+      }),
+    ).toBe("BSc");
+  });
+
+  it("prints the field of study alone when there is no degree", () => {
+    expect(
+      educationDegreeLine({
+        id: "d",
+        institution: "X",
+        degree: "",
+        area: "Computer Science",
+        start: "2010-09",
+      }),
+    ).toBe("Computer Science");
+  });
+
+  it("prints nothing when it has neither, so no dangling 'in' is typeset", () => {
+    expect(
+      educationDegreeLine({
+        id: "d",
+        institution: "X",
+        degree: "",
+        area: "",
+        start: "",
+      }),
+    ).toBe("");
+  });
+});
+
+describe("the education section (AC4)", () => {
+  it("renders between projects and certifications", () => {
+    render(<CvDocumentPreview cv={FULL_CV} />);
+    const headings = screen
+      .getAllByRole("heading", { level: 3 })
+      .map((heading) => heading.textContent);
+
+    expect(headings.indexOf("Education")).toBe(
+      headings.indexOf("Projects") + 1,
+    );
+    expect(headings.indexOf("Certifications")).toBe(
+      headings.indexOf("Education") + 1,
+    );
+  });
+
+  it("prints the institution with its period, then the degree line", () => {
+    render(<CvDocumentPreview cv={FULL_CV} />);
+    const education = within(documentSection("education"));
+
+    expect(education.getByText("University of Edinburgh")).toBeInTheDocument();
+    expect(education.getByText("09/2010 - 06/2013")).toBeInTheDocument();
+    expect(education.getByText("BSc in Computer Science")).toBeInTheDocument();
+  });
+
+  it("drops a row with nothing typed into it at all", () => {
+    expect(
+      visibleEducation([
+        {
+          id: "d",
+          institution: " ",
+          degree: "  ",
+          area: "",
+          start: " ",
+          end: " ",
+        },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("keeps a row the user has only started, whichever field they began with", () => {
+    // The server's `_education_entries` keeps a row if ANY of its fields is
+    // present. A narrower rule here would make the whole section vanish from
+    // the LIVE preview mid-edit — the user fills the start and the heading
+    // they were looking at disappears.
+    for (const partial of [
+      { institution: "University of Edinburgh" },
+      { degree: "BSc" },
+      { area: "Computer Science" },
+      { start: "2010-09" },
+      { end: "2013-06" },
+    ]) {
+      expect(
+        visibleEducation([
+          { id: "d", institution: "", degree: "", start: "", ...partial },
+        ]),
+        JSON.stringify(partial),
+      ).toHaveLength(1);
+    }
+  });
+});
+
+describe("the date text, the fifth pinned twin of the PDF (KODI-007 / AC5)", () => {
+  // The owner: "instead of a bare text input it needs to ask when started and
+  // when finished (finish is optional, when empty is counted as Present)".
+  //
+  // The server typesets these dates with RenderCV through the frozen `applika`
+  // theme: `single_date='MONTH_IN_TWO_DIGITS/YEAR'`,
+  // `date_range='START_DATE - END_DATE'`, the English locale's `present`, and
+  // an empty `show_time_spans_in` so nothing like "(1 year 2 months)" is
+  // appended. The preview must print the SAME characters — that is AC5.
+  it("prints two dates as MM/yyyy around a spaced ASCII hyphen", () => {
+    expect(formatCvDatePeriod("2023-02", "2024-02")).toBe("02/2023 - 02/2024");
+    expect(CV_DATE_RANGE_SEPARATOR).toBe(" - ");
+    // A hyphen-minus, NOT RenderCV's own en-dash default.
+    expect(CV_DATE_RANGE_SEPARATOR).toBe(" \u002d ");
+    expect(CV_DATE_RANGE_SEPARATOR).not.toContain("\u2013");
+  });
+
+  it("says a lowercase 'present' when there is no finish", () => {
+    expect(CV_DATE_PRESENT).toBe("present");
+    expect(formatCvDatePeriod("2024-02", undefined)).toBe("02/2024 - present");
+    expect(formatCvDatePeriod("2024-02", null)).toBe("02/2024 - present");
+    expect(formatCvDatePeriod("2024-02", "")).toBe("02/2024 - present");
+  });
+
+  it("prints nothing at all while the start is still half typed", () => {
+    // In the LIVE preview a row is typed one character at a time. A dangling
+    // separator, or a lone "present", is never on screen.
+    for (const start of ["", "2024", "2024-13", "02/2024", null, undefined]) {
+      expect(formatCvDatePeriod(start, "2025-01"), String(start)).toBe("");
+    }
+  });
+
+  it("ignores a finish it cannot read, rather than printing it raw", () => {
+    expect(formatCvDatePeriod("2024-02", "2024-13")).toBe("02/2024 - present");
+  });
+
+  it("shows the same text in the experience block as the PDF prints", () => {
+    render(
+      <CvDocumentPreview
+        cv={cv({
+          experience: [
+            {
+              id: "e-1",
+              company: "Northwind Payments",
+              role: "Senior Backend Engineer",
+              start: "2021-03",
+              end: "2024-02",
+              bullets: [],
+            },
+            {
+              id: "e-2",
+              company: "Stripe",
+              role: "Staff Engineer",
+              start: "2024-03",
+              bullets: [],
+            },
+          ],
+        })}
+      />,
+    );
+    const experience = within(documentSection("experience"));
+
+    expect(experience.getByText("03/2021 - 02/2024")).toBeInTheDocument();
+    expect(experience.getByText("03/2024 - present")).toBeInTheDocument();
+  });
+
+  it("shows the same text in the education block, present included", () => {
+    render(
+      <CvDocumentPreview
+        cv={cv({
+          education: [
+            {
+              id: "d-1",
+              institution: "University of Edinburgh",
+              degree: "BSc",
+              start: "2010-09",
+              end: "2013-06",
+            },
+            {
+              id: "d-2",
+              institution: "University of Bath",
+              degree: "MSc",
+              start: "2025-09",
+            },
+          ],
+        })}
+      />,
+    );
+    const education = within(documentSection("education"));
+
+    expect(education.getByText("09/2010 - 06/2013")).toBeInTheDocument();
+    expect(education.getByText("09/2025 - present")).toBeInTheDocument();
+  });
+
+  it("renders no empty date box beside a role whose start is half typed", () => {
+    // The experience date span used to render unconditionally. With no date to
+    // print it would be an empty box holding a line of its own.
+    render(
+      <CvDocumentPreview
+        cv={cv({
+          experience: [
+            {
+              id: "e-1",
+              company: "Northwind Payments",
+              role: "Senior Backend Engineer",
+              start: "",
+              bullets: [],
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(
+      within(documentSection("experience")).queryByText(
+        new RegExp(CV_DATE_PRESENT),
+      ),
+    ).not.toBeInTheDocument();
+    expect(documentSection("experience").querySelectorAll("span")).toHaveLength(
+      0,
+    );
+  });
+});
+
+describe("the certifications section", () => {
+  it("bolds the NAME and leaves the issuer plain", () => {
+    // The server emits `**name** issuer` (`_labelled_line`) and the owner's
+    // reference CV prints it that way. This used to be the other way round,
+    // which read as though the issuer were the qualification.
+    render(<CvDocumentPreview cv={FULL_CV} />);
+    const entry = within(documentSection("certifications")).getByRole(
+      "listitem",
+    );
+
+    const name = entry.querySelector("span:first-child") as HTMLElement;
+    const issuer = entry.querySelector("span:last-child") as HTMLElement;
+
+    expect(name.textContent).toBe("AWS SAA");
+    expect(issuer.textContent).toBe("Amazon Web Services");
+    expect(name.className).toMatch(/font-semibold/);
+    expect(issuer.className).not.toMatch(/font-(semibold|medium|bold)/);
+  });
+});
+
+describe("the identity header", () => {
+  it("carries no decorative rule between the headline and the contacts", () => {
+    // The owner: "HUGE PROBLEM, is the spacing's between Full name, headline
+    // and links/contacts/location, reduce the spacing". The accent bar WAS
+    // that spacing, and his reference CV has no such rule.
+    const { container } = render(<CvDocumentPreview cv={FULL_CV} />);
+    const header = container.querySelector("header");
+
+    expect(header?.querySelector(".bg-blue-700")).toBeNull();
+    expect(header?.textContent).toContain("Ada Lovelace");
+    expect(header?.textContent).toContain("Senior Backend Engineer");
+  });
+});
+
+describe("the document's typeface", () => {
+  it("typesets the page in the app's sans family, not a serif", () => {
+    // The owner's template typesets in Source Sans 3 throughout, so the
+    // preview must not be a serif. Source Sans 3 is the Typst compiler's font,
+    // vendored under the backend, and is NOT served to the browser — the
+    // preview uses the app's own self-hosted sans stack instead.
+    //
+    // Asserted as the CLASS on the document root: jsdom resolves no CSS
+    // variable, so a computed-style check would read an empty string.
+    const { container } = render(<CvDocumentPreview cv={FULL_CV} />);
+    const root = container.querySelector('[data-slot="cv-document"]');
+
+    expect(root).not.toBeNull();
+    expect(root?.className).toMatch(/\bfont-sans\b/);
+    expect(root?.className).not.toMatch(/\bfont-serif\b/);
+  });
+});

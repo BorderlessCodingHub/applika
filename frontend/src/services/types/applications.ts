@@ -70,6 +70,8 @@ export interface Application {
   work_mode?: WorkModeType;
   country?: string;
   observation?: string;
+  /** The job posting's text, kept beside the application's CV copy (KODI-003). */
+  job_description?: string | null;
   finalized: boolean;
   last_step?: { name: string; color: string };
   feedback?: { name: string; color: string };
@@ -91,6 +93,7 @@ export interface CreateApplicationPayload {
   work_mode?: WorkModeType;
   country?: string;
   observation?: string;
+  job_description?: string | null;
 }
 
 export const WorkModeValues = ["remote", "hybrid", "on_site"] as const;

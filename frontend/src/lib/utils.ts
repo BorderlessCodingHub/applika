@@ -7,9 +7,23 @@ import { extendTailwindMerge } from "tailwind-merge";
  * `shadow` group. Without this, `cn("shadow-elevated", "shadow-none")` keeps
  * BOTH and the later rule in the stylesheet wins — the override silently does
  * nothing. Register them so a caller can actually replace them.
+ *
+ * `h-viewport`, `min-h-viewport`, `max-h-scrollport` and
+ * `max-h-editor-scrollport` are the same story in the `h`, `min-h` and `max-h`
+ * groups. The two `max-h-*` ones must both be listed: they are siblings, so
+ * without this `cn("max-h-scrollport", "max-h-editor-scrollport")` would keep
+ * BOTH and the winner would be whichever `@utility` `globals.css` declares
+ * last — not the one the caller wrote last.
  */
 const twMerge = extendTailwindMerge({
-  extend: { classGroups: { shadow: ["shadow-card", "shadow-elevated"] } },
+  extend: {
+    classGroups: {
+      shadow: ["shadow-card", "shadow-elevated"],
+      h: ["h-viewport"],
+      "min-h": ["min-h-viewport"],
+      "max-h": ["max-h-scrollport", "max-h-editor-scrollport"],
+    },
+  },
 });
 
 export function cn(...inputs: ClassValue[]) {

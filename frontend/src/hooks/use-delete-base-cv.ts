@@ -1,0 +1,28 @@
+"use client";
+
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { AxiosError } from "axios";
+import { toast } from "sonner";
+
+import { BASE_CVS_QUERY_KEY } from "@/hooks/use-base-cvs";
+import { getApiError } from "@/lib/api-client";
+import { services } from "@/services/services";
+
+/** Delete one master CV. Frees a slot, so the create affordance comes back. */
+export function useDeleteBaseCv(opts?: {
+  onSuccess?: () => void;
+  onSettled?: () => void;
+}) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => services.baseCvs.remove(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: BASE_CVS_QUERY_KEY });
+      toast.success("Master CV deleted");
+      opts?.onSuccess?.();
+    },
+    onError: (error: AxiosError) => toast.error(getApiError(error)),
+    onSettled: () => opts?.onSettled?.(),
+  });
+}

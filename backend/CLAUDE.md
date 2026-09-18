@@ -37,6 +37,9 @@ When you add or modify any of the following, update the seed script accordingly:
 - Renamed or removed fields that the seed script currently sends
 - New endpoints the seed script should exercise to keep coverage complete
 - Changes to authentication (cookie name, token format)
+- New or changed fields on `POST /base-cvs` — `seed_base_cvs()` creates 3 master CVs and asserts the 4th is refused with 409
+- New or changed behaviour on the `/pdf` export routes — `seed_cv_pdfs()` posts to both at the end of the run and checks the bytes start with `%PDF-`
+- New or changed fields on `/applications/{id}/cv` — `seed_application_cv()` gives roughly half the applications a CV copy and runs the full create → read → update → delete → recreate round trip on the first one, asserting the 2nd copy is refused with 409
 
 After any such change, mentally walk through the seed script from top to bottom and confirm it would still run without errors against a fresh database.
 
@@ -187,9 +190,143 @@ Domain exceptions in `app/core/exceptions.py`:
 - `ResourceNotFound` → 404
 - `ResourceConflict` → 409
 - `ApplicationFinalized` → 409
+- `BusinessRuleViolation` → 422
+- `InvalidDate` → 422
+- `ForbiddenAccess` → 403
+- `PdfRenderFailed` → 500
 - `NotImplementedError` → 501
 
 Handlers registered in `app/presentation/handlers.py` via `register_handlers(app)`.
+
+### CV PDF Rendering
+
+`app/application/services/cv_rendering/` turns a stored CV document — a master
+CV or an application's copy — into PDF bytes with **RenderCV 2.8 + Typst**
+(`rendercv==2.8` + `typst==0.15.0`, both pinned). All wheels, no system
+packages, no Dockerfile change.
+
+Deliberately **not** `rendercv[full]`: that extra pulls `rendercv-fonts` — 59 MB
+of fifteen font families — for a theme that typesets in Source Sans 3 alone,
+plus the CLI-only `typer`, `watchdog` and `packaging`. The single module in
+RenderCV that imports it is `renderer/pdf_png.py`, and nothing else in the
+render path needs that module, so `renderer.py` never imports it and drives
+`typst.Compiler` itself. Schema validation is unaffected — RenderCV hardcodes
+`available_font_families` as a literal list, so `Source Sans 3` stays valid.
+
+- `mapper.py` — a pure `document → RenderCV dict/YAML` map. An empty section is
+  omitted, never printed blank. It also defuses the three ways ordinary stored
+  data would otherwise 500: an email or phone RenderCV refuses is dropped from
+  the header instead of aborting the render, a link URL `pydantic.HttpUrl`
+  would refuse is dropped the same way, and `#word` — which RenderCV reads as a
+  *Typst command* — is rewritten to `#sym.hash`.
+
+  **`Links` is never a section.** The owner: *"Links isn't a section, it must
+  appear in bellow the headline, alongside with my email, location and links."*
+  Every stored link becomes a **header connection**, on the same line as the
+  location, the email and the phone. One RenderCV recognises goes to
+  `social_networks`; every other one goes to `custom_connections`, emitted
+  **after** `social_networks` because `Cv.capture_input_order` records this
+  dict's key order as `cv._key_order` and `parse_connections` walks it.
+  `custom_connections` and not `cv.website`: both are unbounded, but
+  `parse_connections` sets a website's body to `clean_url(url)` and throws the
+  user's label away, while a custom connection's body **is** its `placeholder`,
+  so `label` survives (blank label ⇒ the cleaned URL). `fontawesome_icon` is
+  `'link'` — required by the model, never typeset, because the theme sets
+  `header.connections.show_icons=False`. This is also what puts the PDF back on
+  parity with the on-screen preview, which always rendered links inline in the
+  header. A link URL `pydantic.HttpUrl` refuses (`not a url`, a scheme-less
+  `github.com/ada`) is **dropped from the header** rather than raising — before
+  the section was retired it printed under a `Links` heading instead.
+
+  **Section order is insertion order, and it only survives the dump because
+  `sort_base_mapping_type_on_output` is off.** The order the owner asked for is
+  Summary, Experience, Languages, Skills, Projects, Education, Certifications,
+  and **nothing follows Certifications**; `ruamel.yaml`'s representer sorts
+  mapping keys by default, which is what once put the summary at the bottom of
+  the page. `SECTION_ORDER` names it and `tests/unit/test_cv_rendering.py`
+  asserts it on the generated YAML text and on the generated `.typ`, never by
+  reading a parsed dict back.
+
+  Section shapes: skills are NormalEntries (`{name: "<category>:", summary:
+  "<keywords joined by ' · '>"}`, U+00B7 MIDDLE DOT — *not* the U+2022 BULLET
+  the header separator uses); projects are NormalEntries whose summary is
+  `"<markdown link>\n<description>"`, so the entry reads name / link /
+  description on three lines, with the raw URL standing in for a missing link
+  label; education is an EducationEntry, dated exactly like experience.
+
+  **Experience and education dates go to RenderCV's `start_date`/`end_date`,
+  never to its arbitrary `date`.** The stored `start` / optional `end` are ISO
+  `YYYY-MM`, which `start_date`/`end_date` accept verbatim, and the theme's
+  `templates.single_date` (`MONTH_IN_TWO_DIGITS/YEAR`) and
+  `templates.date_range` (`START_DATE - END_DATE`) typeset them as
+  `02/2023 - 02/2024`. An entry with no `end` omits `end_date` and RenderCV's
+  own `check_and_adjust_dates` fills in `present` — the mapper never writes
+  that word. The two are **mutually exclusive**: setting `date` makes RenderCV
+  discard `start_date`/`end_date` silently, so `_apply_period()` is the single
+  place either key is written and `date` is never emitted for these sections.
+  A blank `start` omits both keys rather than emitting a half range.
+- `renderer.py` — compiles in `anyio.to_thread.run_sync` under
+  `CV_PDF_RENDER_TIMEOUT_SECONDS`, in a temp directory removed in `finally`.
+  The directory is mandatory: RenderCV resolves a custom theme by looking for a
+  folder named after it **next to the input YAML**, so every render gets its own
+  copy of `themes/applika/`. Failure or timeout → `PdfRenderFailed`, with a
+  fixed message — RenderCV's own errors quote the CV field that upset them.
+- `fonts/` — the four Source Sans 3 faces the theme uses, plus their `OFL.txt`
+  (the licence has to travel with the files). They are the **only** fonts on
+  the compiler's path, and `ignore_system_fonts=True` keeps the host's own out,
+  so a developer machine and the API image — which has no system fonts at all —
+  render the same row identically. A glyph Source Sans 3 lacks does not fail
+  the compile: Typst silently falls back to a built-in face and embeds that,
+  which is why the integration test asserts the embedded font set holds Source
+  Sans 3 **and nothing else**. Kept outside `themes/applika/` on purpose — that
+  folder is copied per render.
+- `themes/applika/` — the one theme, `ApplikaTheme(ClassicTheme)` plus four
+  `.j2.typ` templates, vendored from the owner's own theme and renamed
+  `custom` → `applika`. Every design token is an overridden field default, so
+  the generated YAML only ever says `design: {theme: applika}`. The user does
+  not choose a theme. **Every** token of the owner's `design` block is set
+  here, including the ones that happen to equal RenderCV's own default — the
+  file reproduces *his block*, not the delta against `ClassicTheme`, so a
+  RenderCV release that moves a default cannot move the product's look.
+  `OWNER_DESIGN_TOKENS` in `tests/unit/test_cv_rendering.py` pins all of them
+  one parametrized case per dotted path, and a companion test re-reads his
+  file when it is on disk and fails if the table does not cover it key for key.
+  Education needs no vendored template: `templates.education_entry` in that
+  block drives ClassicTheme's own `EducationEntry`.
+  `themes/applika/__init__.py` is loaded by RenderCV via
+  `importlib.util.spec_from_file_location`, outside the `app` package — its
+  imports must stay absolute and must never reach into `app`.
+
+**The four `.j2.typ` files are the owner's, and they are frozen.** The owner:
+*"Just use the template as is in the reference directory removing the key
+achievements section, I won't accept any deviation of the original template."*
+The only edit the theme carries is dropping `key_achievements` from the grid
+branch of `SectionBeginning.j2.typ`. `tests/unit/test_cv_rendering.py` enforces
+that twice — a diff against the owner's folder when it is on disk, and a sha256
+pin that also runs in CI. A layout problem is fixed in `mapper.py`, never in a
+template; a change that genuinely needs one goes back to the owner.
+
+One consequence to know before touching `mapper.py`: `SectionBeginning.j2.typ`
+opens a `#grid(` only for `languages` while `SectionEnding.j2.typ` closes one
+for **every** OneLineEntry section, so **`Languages` is the only section that
+may map to OneLineEntry**. Certifications are TextEntry lines
+(`**label** details`) for exactly that reason. Adding a second
+OneLineEntry section does not fail the compile — Typst prints the orphan `[`,
+`],` and `)` as text — so the guard is a delimiter-balance assertion on the
+generated `.typ`, not on the PDF.
+
+### The Tailoring Port
+`TailoringService` (`app/application/services/tailoring.py`) is a `Protocol`
+describing "tailor a master CV to a job posting": one `async def tailor(request)
+-> TailoringResult`. It exists so a model-backed implementation can be dropped
+in later without changing the stored CV shape or the API.
+
+Today there is exactly **one** binding, `CloneTailoringService`
+(`clone_tailoring.py`), and it copies the master CV verbatim — identity and
+contact included — with `was_ai_generated=False` and `adjustments=[]`. There is
+no AI in this codebase, no resolver and nothing to configure;
+`get_tailoring_service()` in `dependencies.py` is the single line that would
+change. The port is `async` even though the clone does no I/O.
 
 ### Snowflake IDs
 All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUIDs or auto-increment. Defined in `app/lib/types.py` with Pydantic serialization to string for JSON/OpenAPI.
@@ -228,6 +365,14 @@ All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUID
 | DELETE | `/applications/{id}` | Yes | Delete application (204) |
 | POST | `/applications/{id}/finalize` | Yes | Finalize with feedback (201) |
 
+`job_description` (optional, max 50 000 chars) carries the pasted job posting.
+On `PUT /applications/{id}` it is the **one** sticky field: omitting the key
+keeps the stored text, sending `null` clears it. Every other optional field is
+still a full replace and clears when omitted — that is the PUT contract
+published `applika-cli` versions rely on. `app/presentation/api/application.py`
+carries the distinction by dropping the key from the DTO when it is absent from
+`payload.model_fields_set`.
+
 ### Application Steps (`/applications/{id}/steps`)
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
@@ -262,6 +407,65 @@ All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUID
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
 | POST | `/feedbacks` | Yes | Submit app feedback (201) |
+
+### Base CVs (`/base-cvs`)
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| GET | `/base-cvs` | Yes | List the user's own master CVs (newest first) |
+| POST | `/base-cvs` | Yes | Create a master CV (201); 4th is 409 |
+| GET | `/base-cvs/{id}` | Yes | Get one own master CV (404 if not owned) |
+| PATCH | `/base-cvs/{id}` | Yes | Partial update (404 if not owned) |
+| DELETE | `/base-cvs/{id}` | Yes | Delete a master CV (204, never blocked) |
+
+A user may hold at most **3** master CVs. The cap lives in
+`CreateBaseCVUseCase`, not in a trigger or a constraint: one transaction takes
+a `SELECT ... FOR UPDATE` lock on the owning user row, counts, refuses with
+`ResourceConflict('Base CV limit reached (max 3 per user)')` at 3, then
+inserts. The lock is what keeps concurrent creates from overshooting.
+
+### Application CVs (`/applications/{id}/cv`)
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| POST | `/{id}/cv` | Yes | Copy a master CV onto the application (201) |
+| GET | `/{id}/cv` | Yes | Get the application's CV copy |
+| PUT | `/{id}/cv` | Yes | Replace the copy whole (every field editable) |
+| DELETE | `/{id}/cv` | Yes | Delete the copy (204); a new one can then be made |
+
+At most **one** CV copy per application (UNIQUE on
+`tailored_cvs.application_id`); a second POST is a 409. Writes are refused
+exactly as an application step is refused: archived in a cycle →
+`BusinessRuleViolation` (422), finalized → `ApplicationFinalized` (409), in
+that order. `GET` has **no** such guard — viewing a finished application's CV
+always works.
+
+Ownership is enforced at the use-case layer only: nothing in the schema ties
+`tailored_cvs.user_id` to `applications.user_id` or `base_cvs.user_id`, so
+every route authorizes against the **application's** owner, and POST
+additionally authorizes the source master CV on its own. Another user's row is
+a 404, for admins too.
+
+### CV PDF export
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| POST | `/base-cvs/{id}/pdf` | Yes | Download the master CV as a PDF |
+| POST | `/applications/{id}/cv/pdf` | Yes | Download the application's CV copy as a PDF |
+
+Both return `application/pdf` with
+`Content-Disposition: attachment; filename="<slug>.pdf"`, where `<slug>` comes
+from the row's `name` (the CV **label**, not the person): lowercased, every run
+of non-`[a-z0-9]` collapsed to one `-`, trimmed, `cv` when nothing is left. The
+`Content-Disposition` header is in `expose_headers` on the CORS middleware, or
+the browser could not read the filename.
+
+`POST`, not `GET`: the server does a real Typst compile. There is **no request
+body and no theme parameter** — the look is fixed. A row that does not exist or
+is not owned is a 404; a failed or timed-out render is a
+`PdfRenderFailed` → 500. Neither route writes anything.
+
+Unlike every write on `/applications/{id}/cv`, the export carries **no**
+finalized or archived guard — the CV of a finished application is exactly the
+one a user wants to download.
 
 ### Support Data (`/supports`)
 | Method | Route | Auth | Description |
@@ -305,6 +509,7 @@ Optional (with defaults):
 - `REFRESH_TOKEN_EXPIRE_DAYS`: Refresh token TTL in days (default: 7)
 - `REDIS_URL`: Redis connection URL (default: redis://localhost:6379/0)
 - `GITHUB_CACHE_TTL_SECONDS`: Redis cache TTL for GitHub API checks (default: 600)
+- `CV_PDF_RENDER_TIMEOUT_SECONDS`: wall-clock ceiling for one CV PDF render (default: 30); past it the request is a 500
 - `GITHUB_TOKEN_ENCRYPTION_KEY`: Fernet key for encrypting GitHub tokens (generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
 - `DISCORD_REPORTS_ORGANIZATION`: GitHub org name; only org members get reports posted to Discord
 - `DISCORD_REPORTS_WEBHOOK`: Discord webhook for biweekly reports
@@ -331,6 +536,20 @@ Optional (with defaults):
   - Includes manual metrics (mock interviews, LinkedIn posts, strategic connections)
   - Discord integration for posting reports
 - **UserFeedback**: In-app feedback from users (score 1-5 + optional text)
+- **BaseCV**: A user's master CV, capped at 3 per user
+  - Identity and contact (`name` label, `full_name`, `headline`, `location`, `email`, optional `phone`) plus a `summary`
+  - Seven repeatable sections stored as JSONB arrays, never NULL: `links`, `skills`, `experience`, `projects`, `education`, `certifications`, `languages`
+  - `skills` is a list of **categories**, not tags: `{id, category, keywords[]}`. The owner: *"skills isn't simply a section where i put "tags" or just "keywords" it's a section where i can create a category and inside this caregory add keywords"*. There is no `list[str]` back-compat shim — revision `f2a9c1d4b6e8` was amended in place before it ever ran anywhere
+  - `experience` is `{id, company, company_description?, role, start, end?, location?, bullets[]}` and `education` is `{id, institution, degree, area?, start, end?}`
+  - **`start` is required on both, `end` is optional**, and both are ISO `YYYY-MM` in storage and on the wire (regex `^\d{4}-(0[1-9]|1[0-2])$`). An absent `end` means the entry is current and the PDF prints `present`. A finish earlier than its start is a 422, enforced on the item model so create, PATCH and the tailored-CV copy all refuse it. The owner: *"instead of a bare text input it needs to ask when started and when finished (finish is optional, when empty is counted as Present), it's a date input but only for month and year "MM/yyyy""* — `MM/yyyy` is the **input and display** format and lives in the frontend; ISO is what the API stores, because ISO is what RenderCV's `start_date`/`end_date` take
+  - The free-text `period` both sections used to carry is retired: revision `d3f7b1c9e2a4` renamed the columns to `experience_old` / `education_old` on `base_cvs` and `tailored_cvs` and seeded every migrated item with `start` and `end` of `2026-01`. Nothing was parsed; the original text lives on in the `_old` columns, which no application code and no ORM model touches
+  - Section sub-item `id`s are **client-generated strings** preserved round-trip, never minted server-side
+  - Read and written whole (a document aggregate), so there are no child tables
+- **TailoredCV**: an application's CV copy — at most one per application
+  - A **full snapshot** of the master CV it was made from: same identity, contact, summary and seven sections, stored on its own row
+  - Editing or deleting the master never changes it; when the master is deleted `base_cv_id` becomes NULL and the copy keeps every field ("source CV deleted")
+  - `was_ai_generated` / `adjustments` are the tailoring port's provenance fields, always `false` / `[]` today
+  - Created through `TailoringService`, never assembled in the use case
 
 ### Key Relationships
 - Application → User (many-to-one, cascade delete)
@@ -344,6 +563,10 @@ Optional (with defaults):
 - Company → User (many-to-one via created_by, cascade delete)
 - QuinzenalReport → User (many-to-one, cascade delete), unique on (user_id, report_day)
 - UserFeedback → User (many-to-one, cascade delete)
+- BaseCV → User (many-to-one, cascade delete), at most 3 per user
+- TailoredCV → Application (one-to-one, cascade delete, `passive_deletes=True`), UNIQUE on application_id
+- TailoredCV → User (many-to-one, cascade delete)
+- TailoredCV → BaseCV (many-to-one, nullable, **SET NULL** on delete — the copy outlives its master)
 
 Applications are "finalized" when `feedback_id` is set (irreversible).
 
@@ -369,7 +592,7 @@ DiscordServiceDp = Annotated[DiscordService, Depends(get_discord_service)]
 ```
 
 ### File Organization
-- Use cases grouped in subdirectories by feature (applications/, application_steps/, user_stats/, quinzenal_reports/, companies/, user_feedbacks/)
+- Use cases grouped in subdirectories by feature (applications/, application_steps/, user_stats/, quinzenal_reports/, companies/, user_feedbacks/, base_cvs/, tailored_cvs/)
 - One repository per model in `domain/repositories/`
 - API routes in `presentation/api/` match resource names
 

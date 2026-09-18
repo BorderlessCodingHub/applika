@@ -23,7 +23,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="noise-overlay relative flex min-h-screen items-center justify-center bg-background p-4">
+    <div className="noise-overlay relative flex min-h-viewport items-center justify-center bg-background p-4">
       {/* Background decoration */}
       <div className="absolute inset-0 gradient-mesh" />
       <div className="absolute inset-0 dot-grid opacity-30" />

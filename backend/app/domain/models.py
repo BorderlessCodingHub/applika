@@ -1,8 +1,9 @@
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.core.enums import (
@@ -289,6 +290,11 @@ class ApplicationModel(BaseMixin, Base):
     )
     observation: Mapped[str | None] = mapped_column(sa.Text)
     link_to_job: Mapped[str | None] = mapped_column(sa.String(2083))
+    # The pasted job posting, shown beside the application's CV copy and the
+    # only application field the tailoring port reads. Nullable and additive
+    # (revision f2a9c1d4b6e8), so a published CLI that never sends it keeps
+    # working.
+    job_description: Mapped[str | None] = mapped_column(sa.Text)
 
     salary_offer: Mapped[float | None] = mapped_column(sa.Numeric(10, 2))
     expected_salary: Mapped[float | None] = mapped_column(sa.Numeric(10, 2))
@@ -362,6 +368,18 @@ class ApplicationModel(BaseMixin, Base):
     )
     cycle: Mapped[CycleModel | None] = relationship(
         back_populates='applications'
+    )
+    # At most one CV copy per application (UNIQUE on
+    # tailored_cvs.application_id). ``passive_deletes`` is load-bearing:
+    # ApplicationRepository.delete_by_id issues a bulk DELETE statement, which
+    # runs no ORM cascade, so the copy disappears because of the FK
+    # ON DELETE CASCADE. Without this flag SQLAlchemy would try to null out
+    # the child's NOT NULL application_id whenever the relationship happens to
+    # be loaded, fighting the database instead of leaving it to do the work.
+    tailored_cv: Mapped['TailoredCVModel | None'] = relationship(
+        back_populates='application',
+        uselist=False,
+        passive_deletes=True,
     )
 
     @property
@@ -501,3 +519,190 @@ class UserFeedbackModel(BaseMixin, Base):
     text: Mapped[str | None] = mapped_column(sa.String(2000))
 
     user: Mapped[UserModel] = relationship(back_populates='user_feedbacks')
+
+
+def _empty_jsonb_list() -> Mapped[Any]:
+    """A NOT NULL JSONB column whose empty value is ``[]``, never NULL.
+
+    The Python-side ``default`` covers ORM inserts; the ``server_default``
+    mirrors revision ``f2a9c1d4b6e8`` so the ``Base.metadata.create_all``
+    test schema and the migrated production schema agree on what an omitted
+    section stores.
+    """
+    return mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sa.text("'[]'::jsonb"),
+    )
+
+
+class BaseCVModel(BaseMixin, Base):
+    """A master CV, owned by one user and capped at 3 per user.
+
+    The owner's words: "a user can create up to 3 master CV's". The cap is
+    enforced in ``CreateBaseCVUseCase`` under a ``SELECT ... FOR UPDATE`` lock
+    on the owning user row - there is no trigger and no database constraint.
+
+    A master CV is a document aggregate: it is read and written whole, so its
+    seven repeatable sections (``links``, ``skills``, ``experience``,
+    ``projects``, ``education``, ``certifications``, ``languages``) are JSONB
+    arrays instead of child tables. Section sub-item ids are client-generated
+    strings, preserved round-trip and never minted server-side.
+
+    ``skills`` is a list of *categories* - ``{id, category, keywords[]}`` -
+    not a flat list of strings. The owner: "skills isn't simply a section
+    where i put "tags" or just "keywords" it's a section where i can create a
+    category and inside this caregory add keywords".
+
+    The mapping mirrors revision ``f2a9c1d4b6e8`` column for column, including
+    every ``server_default``. The primary key is the inherited Snowflake
+    ``BaseMixin.id`` (BIGINT, generated in Python, no sequence, no server
+    default - docs/applika/adr/0003-snowflake-string-ids.md).
+    """
+
+    __tablename__ = 'base_cvs'
+
+    __table_args__ = (sa.Index('idx_base_cvs_user_id', 'user_id'),)
+
+    user_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'users.id', ondelete='CASCADE', name='fk_base_cvs_user_id'
+        ),
+        nullable=False,
+    )
+
+    # --- Identity and contact ---
+    name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
+    full_name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
+    headline: Mapped[str] = mapped_column(sa.String(300), nullable=False)
+    location: Mapped[str] = mapped_column(sa.String(200), nullable=False)
+    email: Mapped[str] = mapped_column(sa.String(255), nullable=False)
+    phone: Mapped[str | None] = mapped_column(sa.String(50), nullable=True)
+
+    # --- Summary (empty string, never NULL) ---
+    summary: Mapped[str] = mapped_column(
+        sa.Text,
+        nullable=False,
+        default='',
+        server_default=sa.text("''"),
+    )
+
+    # --- Repeatable sections (JSONB arrays, never NULL) ---
+    links: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+    skills: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+    experience: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+    projects: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+    education: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+    certifications: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+    languages: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+
+
+class TailoredCVModel(BaseMixin, Base):
+    """An application's CV copy: a full snapshot of a master CV.
+
+    The owner's words: "each job application will store a "copy" of this
+    master CV but edited to the job application". The copy is a *snapshot*,
+    not a view: it carries its own identity, contact, summary and seven
+    sections, so editing or deleting the master CV never touches it. When the
+    master is deleted the database sets ``base_cv_id`` to NULL
+    (``ON DELETE SET NULL``) and the copy keeps every field - it has simply
+    forgotten where it came from.
+
+    At most one copy per application, enforced by the UNIQUE constraint on
+    ``application_id``; a second create is refused as a conflict before it
+    ever reaches the database. The copy dies with its application
+    (``ON DELETE CASCADE``) and with its owner.
+
+    ``was_ai_generated`` and ``adjustments`` are the tailoring port's
+    provenance fields. Nothing in this slice generates anything with a model:
+    the only binding today copies verbatim, so they are always ``False`` and
+    ``[]``. They exist so a real model can be swapped in later without
+    changing the stored shape.
+
+    The mapping mirrors revision ``f2a9c1d4b6e8`` column for column, including
+    every ``server_default``, both FK ``ondelete`` clauses, the UNIQUE
+    constraint and the ``user_id`` index. The primary key is the inherited
+    Snowflake ``BaseMixin.id`` (BIGINT, generated in Python, no sequence, no
+    server default - docs/applika/adr/0003-snowflake-string-ids.md).
+
+    There is deliberately no index on ``base_cv_id``: it has none in the
+    migration either, and at current volume the sequential scan
+    ``ON DELETE SET NULL`` performs is negligible.
+    """
+
+    __tablename__ = 'tailored_cvs'
+
+    __table_args__ = (
+        sa.UniqueConstraint(
+            'application_id', name='uq_tailored_cvs_application_id'
+        ),
+        sa.Index('idx_tailored_cvs_user_id', 'user_id'),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'users.id', ondelete='CASCADE', name='fk_tailored_cvs_user_id'
+        ),
+        nullable=False,
+    )
+    application_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'applications.id',
+            ondelete='CASCADE',
+            name='fk_tailored_cvs_application_id',
+        ),
+        nullable=False,
+    )
+    # Nullable on purpose: the source master CV may be deleted at any time and
+    # deleting it is never blocked.
+    base_cv_id: Mapped[int | None] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'base_cvs.id',
+            ondelete='SET NULL',
+            name='fk_tailored_cvs_base_cv_id',
+        ),
+        nullable=True,
+    )
+
+    # --- Identity and contact (snapshotted from the master CV) ---
+    name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
+    full_name: Mapped[str] = mapped_column(sa.String(200), nullable=False)
+    headline: Mapped[str] = mapped_column(sa.String(300), nullable=False)
+    location: Mapped[str] = mapped_column(sa.String(200), nullable=False)
+    email: Mapped[str] = mapped_column(sa.String(255), nullable=False)
+    phone: Mapped[str | None] = mapped_column(sa.String(50), nullable=True)
+
+    # --- Summary (empty string, never NULL) ---
+    summary: Mapped[str] = mapped_column(
+        sa.Text,
+        nullable=False,
+        default='',
+        server_default=sa.text("''"),
+    )
+
+    # --- Repeatable sections (JSONB arrays, never NULL) ---
+    links: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+    skills: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+    experience: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+    projects: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+    education: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+    certifications: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+    languages: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+
+    # --- Tailoring provenance (always false / [] in this slice) ---
+    was_ai_generated: Mapped[bool] = mapped_column(
+        sa.Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa.text('false'),
+    )
+    adjustments: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+
+    application: Mapped[ApplicationModel] = relationship(
+        back_populates='tailored_cv'
+    )

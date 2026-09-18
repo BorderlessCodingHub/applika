@@ -151,6 +151,321 @@ STEP_OBSERVATIONS = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Master CVs (max 3 per user)
+# ---------------------------------------------------------------------------
+# The owner's rule: "a user can create up to 3 master CV's". The seeder
+# creates exactly three and then attempts a fourth on purpose, so a run also
+# proves the 409 refusal is still wired up.
+MAX_BASE_CVS = 3
+
+BASE_CVS = [
+    {
+        'name': 'Backend CV',
+        'full_name': 'Alex Moreira',
+        'headline': 'Senior Backend Engineer',
+        'location': 'Lisbon, Portugal',
+        'email': 'alex.moreira@example.com',
+        'phone': '+351 910 000 000',
+        'summary': 'Ten years building Python services at scale.',
+        'links': [
+            {
+                'id': 'lnk-gh',
+                'label': 'GitHub',
+                'url': 'https://github.com/alexmoreira',
+            },
+            {
+                'id': 'lnk-li',
+                'label': 'LinkedIn',
+                'url': 'https://www.linkedin.com/in/alexmoreira',
+            },
+        ],
+        'skills': [
+            {
+                'id': 'skl-lang',
+                'category': 'Languages & Frameworks',
+                'keywords': ['Python', 'FastAPI', 'TypeScript'],
+            },
+            {
+                'id': 'skl-data',
+                'category': 'Data & Messaging',
+                'keywords': ['PostgreSQL', 'Redis'],
+            },
+            {
+                'id': 'skl-plat',
+                'category': 'Platform & Delivery',
+                'keywords': ['Docker', 'GitHub Actions'],
+            },
+        ],
+        'experience': [
+            {
+                'id': 'exp-1',
+                'company': 'Acme Corp',
+                'company_description': 'Payments platform, 300 engineers',
+                'role': 'Senior Backend Engineer',
+                # No 'end': this is the job Alex holds today, so the seeded
+                # data exercises the 'present' path through the PDF as well
+                # as the ordinary closed range below.
+                'start': '2021-03',
+                'location': 'Remote',
+                'bullets': [
+                    'Cut p99 latency from 1.2s to 180ms',
+                    'Led the migration to async SQLAlchemy',
+                ],
+            }
+        ],
+        'projects': [
+            {
+                'id': 'prj-1',
+                'name': 'applika',
+                'description': 'Job application tracker with analytics',
+                'link': 'https://applika.dev',
+                'link_label': 'applika.dev',
+            }
+        ],
+        'education': [
+            {
+                'id': 'edu-1',
+                'institution': 'Universidade de Lisboa',
+                'degree': "Bachelor's degree",
+                'area': 'Computer Science',
+                'start': '2012-09',
+                'end': '2016-07',
+            }
+        ],
+        'certifications': [
+            {'id': 'crt-1', 'name': 'AWS Solutions Architect', 'issuer': 'AWS'}
+        ],
+        'languages': [
+            {'id': 'lng-pt', 'name': 'Portuguese', 'level': 'Native'},
+            {'id': 'lng-en', 'name': 'English', 'level': 'C2'},
+        ],
+    },
+    {
+        'name': 'Platform CV',
+        'full_name': 'Alex Moreira',
+        'headline': 'Platform / DevOps Engineer',
+        'location': 'Lisbon, Portugal',
+        'email': 'alex.moreira@example.com',
+        'summary': 'Infrastructure as code, CI/CD and observability.',
+        'skills': [
+            {
+                'id': 'skl-iac',
+                'category': 'Infrastructure',
+                'keywords': ['Terraform', 'Kubernetes'],
+            },
+            {
+                'id': 'skl-obs',
+                'category': 'Delivery & Observability',
+                'keywords': ['GitHub Actions', 'Grafana'],
+            },
+        ],
+        'experience': [
+            {
+                'id': 'exp-2',
+                'company': 'Globex',
+                'role': 'Platform Engineer',
+                'start': '2019-01',
+                'end': '2021-02',
+                'bullets': ['Built the deployment pipeline from scratch'],
+            }
+        ],
+        'languages': [{'id': 'lng-en', 'name': 'English', 'level': 'C2'}],
+    },
+    {
+        'name': 'Leadership CV',
+        'full_name': 'Alex Moreira',
+        'headline': 'Engineering Manager',
+        'location': 'Lisbon, Portugal',
+        'email': 'alex.moreira@example.com',
+        'summary': 'Grew and led two product teams.',
+        'skills': [
+            {
+                'id': 'skl-lead',
+                'category': 'Leadership',
+                'keywords': ['Coaching', 'Hiring', 'Roadmapping'],
+            }
+        ],
+        'languages': [{'id': 'lng-en', 'name': 'English', 'level': 'C2'}],
+    },
+]
+
+
+def seed_base_cvs(client: httpx.Client) -> list[str]:
+    """Create the 3 allowed master CVs, then prove the 4th is refused."""
+    print(f'Creating {MAX_BASE_CVS} master CVs...')
+    created_ids: list[str] = []
+
+    for index, base_cv in enumerate(BASE_CVS[:MAX_BASE_CVS], start=1):
+        resp = client.post('/base-cvs', json=base_cv)
+        if resp.status_code != 201:
+            print(
+                f'  [{index}] Failed to create master CV: '
+                f'{resp.status_code} {resp.text}'
+            )
+            continue
+        created_ids.append(resp.json()['id'])
+        print(f'  [{index}/{MAX_BASE_CVS}] {base_cv["name"]}')
+
+    # The 4th must come back 409 with the limit message.
+    overflow = dict(BASE_CVS[0], name='Fourth CV (must be refused)')
+    resp = client.post('/base-cvs', json=overflow)
+    if resp.status_code == 409:
+        print(f'  4th master CV refused as expected: {resp.json()["detail"]}')
+    else:
+        print(
+            f'  WARNING: the 4th master CV was NOT refused: '
+            f'{resp.status_code} {resp.text}'
+        )
+
+    return created_ids
+
+
+JOB_DESCRIPTIONS = [
+    'We are looking for a backend engineer comfortable with Python, '
+    'FastAPI and PostgreSQL. You will own services end to end, from the '
+    'schema to the deploy.',
+    'Senior full-stack role. React on the front, Go on the back, '
+    'Kubernetes in between. Strong testing culture, trunk-based '
+    'development, no on-call rotation.',
+    'Platform team. You will spend your days on CI, observability and '
+    'developer experience. Terraform and AWS are a must.',
+    None,
+]
+
+
+def seed_application_cv(
+    client: httpx.Client,
+    app_id: str,
+    base_cv_ids: list[str],
+    full_cycle: bool = False,
+) -> bool:
+    """Give one application a CV copy, exercising the /cv endpoints.
+
+    ``full_cycle`` runs every verb once - create, read, update, delete, then
+    create again from a different master CV - so a single seed run proves all
+    four routes still work. The other applications only get the create, which
+    is what a realistic database looks like.
+
+    Returns whether the application ends up holding a copy.
+    """
+    if not base_cv_ids:
+        return False
+
+    resp = client.post(
+        f'/applications/{app_id}/cv',
+        json={'base_cv_id': random.choice(base_cv_ids)},
+    )
+    if resp.status_code != 201:
+        print(
+            f'  Failed to create the CV copy: {resp.status_code} {resp.text}'
+        )
+        return False
+    if not full_cycle:
+        return True
+
+    copy = resp.json()
+    print(f'  CV copy created from master CV {copy["base_cv_id"]}')
+
+    # A second copy must be refused - one per application.
+    resp = client.post(
+        f'/applications/{app_id}/cv',
+        json={'base_cv_id': random.choice(base_cv_ids)},
+    )
+    if resp.status_code == 409:
+        print(f'  2nd CV copy refused as expected: {resp.json()["detail"]}')
+    else:
+        print(
+            f'  WARNING: the 2nd CV copy was NOT refused: '
+            f'{resp.status_code} {resp.text}'
+        )
+
+    # Edit it: a PUT carries every editable field.
+    edited = {
+        field: copy[field]
+        for field in (
+            'name', 'full_name', 'headline', 'location', 'email', 'phone',
+            'summary', 'links', 'skills', 'experience', 'projects',
+            'education', 'certifications', 'languages',
+        )
+    }
+    edited['summary'] = 'Tailored to this posting during the seed run.'
+    resp = client.put(f'/applications/{app_id}/cv', json=edited)
+    if resp.status_code != 200:
+        print(f'  Failed to edit the CV copy: {resp.status_code} {resp.text}')
+    else:
+        print('  CV copy edited')
+
+    resp = client.get(f'/applications/{app_id}/cv')
+    if resp.status_code != 200:
+        print(f'  Failed to read the CV copy: {resp.status_code} {resp.text}')
+
+    # Delete it, then make a fresh one - deleting frees the application.
+    resp = client.delete(f'/applications/{app_id}/cv')
+    if resp.status_code != 204:
+        print(
+            f'  Failed to delete the CV copy: {resp.status_code} {resp.text}'
+        )
+        return True
+    print('  CV copy deleted')
+
+    resp = client.post(
+        f'/applications/{app_id}/cv',
+        json={'base_cv_id': random.choice(base_cv_ids)},
+    )
+    if resp.status_code != 201:
+        print(
+            f'  Failed to recreate the CV copy: '
+            f'{resp.status_code} {resp.text}'
+        )
+        return False
+    print('  CV copy recreated from another master CV')
+    return True
+
+
+def seed_cv_pdfs(
+    client: httpx.Client,
+    base_cv_id: str | None,
+    application_id: str | None,
+) -> None:
+    """Exercise both PDF export routes and check what came back is a PDF.
+
+    Run at the very end, after the applications have been finalized: the copy
+    of a finalized application must still export, and this is the cheapest
+    place to notice if that ever stops being true.
+    """
+    print('\nExporting CV PDFs...')
+    targets = [
+        ('master CV', f'/base-cvs/{base_cv_id}/pdf' if base_cv_id else None),
+        (
+            "application's CV copy",
+            f'/applications/{application_id}/cv/pdf'
+            if application_id
+            else None,
+        ),
+    ]
+    for label, url in targets:
+        if url is None:
+            print(f'  Skipped the {label}: nothing to export')
+            continue
+        resp = client.post(url)
+        if resp.status_code != 200:
+            print(
+                f'  Failed to export the {label}: '
+                f'{resp.status_code} {resp.text}'
+            )
+            continue
+        content_type = resp.headers.get('content-type')
+        disposition = resp.headers.get('content-disposition')
+        if not resp.content.startswith(b'%PDF-'):
+            print(f'  WARNING: the {label} export is not a PDF')
+            continue
+        print(
+            f'  {label}: {len(resp.content)} bytes, {content_type}, '
+            f'{disposition}'
+        )
+
+
 def random_date(start: date, end: date) -> date:
     delta = (end - start).days
     return start + timedelta(days=random.randint(0, delta))
@@ -209,6 +524,13 @@ def main():
             f'Feedbacks: {len(feedback_defs)}'
         )
 
+        # ----- Master CVs -----
+        base_cv_ids = seed_base_cvs(client)
+
+        # The first application to keep a CV copy is the one the PDF export
+        # is exercised against, once everything else has run.
+        pdf_application_id: str | None = None
+
         # company_id_cache maps company name → ID returned from the API
         # so the same company is reused across applications instead of
         # being re-created every time (which would hit the unique index).
@@ -241,6 +563,10 @@ def main():
         created = 0
         finalized_count = 0
         accepted_count = 0
+        cv_copies = 0
+        # Roughly half the applications get a CV copy; the first one that
+        # does gets the full create/read/update/delete round trip.
+        seed_cv_plan = [i % 2 == 0 for i in range(NUM_APPLICATIONS)]
 
         for i in range(NUM_APPLICATIONS):
             company_name, company_url = random.choice(COMPANIES)
@@ -292,6 +618,7 @@ def main():
                 'experience_level': random.choice(exp_levels),
                 'work_mode': random.choice(work_modes),
                 'country': random.choice(COUNTRIES),
+                'job_description': random.choice(JOB_DESCRIPTIONS),
             }
 
             resp = client.post('/applications', json=payload)
@@ -307,6 +634,16 @@ def main():
             created += 1
             if company_name not in company_id_cache and app.get('company_id'):
                 company_id_cache[company_name] = app['company_id']
+
+            # ----- CV copy -----
+            # Before the steps and the finalize: writing to the copy of a
+            # finalized application is refused, by design.
+            if seed_cv_plan[i] and seed_application_cv(
+                client, app_id, base_cv_ids, full_cycle=(cv_copies == 0)
+            ):
+                cv_copies += 1
+                if pdf_application_id is None:
+                    pdf_application_id = app_id
 
             # ----- Add 3-5 steps -----
             num_steps = random.randint(3, 5)
@@ -387,6 +724,14 @@ def main():
         print(f'Finalized: {finalized_count}')
         print(f'Accepted: {accepted_count}')
         print(f'In progress: {created - finalized_count}')
+        print(f'Master CVs created: {len(base_cv_ids)}')
+        print(f'Application CV copies created: {cv_copies}')
+
+        seed_cv_pdfs(
+            client,
+            base_cv_ids[0] if base_cv_ids else None,
+            pdf_application_id,
+        )
 
 
 if __name__ == '__main__':

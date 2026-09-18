@@ -12,6 +12,7 @@ import {
   CreateApplicationPayload,
 } from "@/services/types/applications";
 import { getApiError } from "@/lib/api-client";
+import { TAILORED_CVS_QUERY_KEY } from "@/hooks/use-tailored-cv";
 
 export interface ApplicationFilters {
   mode: "all" | "active" | "passive";
@@ -129,6 +130,44 @@ export function useApplications(cycleId?: string | null) {
   };
 }
 
+/**
+ * One application out of the cycle's list, by id.
+ *
+ * The API has no `GET /applications/{id}`, so the single application is read
+ * out of the list — and deliberately under the SAME query key as
+ * `useApplications`, so the two share one cache entry and one round trip
+ * instead of racing each other.
+ *
+ * `cycleId` is the cycle currently being viewed (`null` is the open one). An
+ * application only appears in the list of the cycle it belongs to, which is
+ * also what makes "this one is archived" knowable on the client at all: the
+ * wire carries no `cycle_id` per application.
+ */
+export function useApplicationById(
+  applicationId: string | null | undefined,
+  cycleId?: string | null,
+) {
+  const query = useQuery({
+    queryKey: ["applications", cycleId ?? "current"],
+    queryFn: () => services.applications.getApplications(cycleId),
+    // Idle until the route names an application: `?id=` is `null` on the first
+    // client frame, and on `/applications/cv` with no id there is nothing to
+    // look up at all.
+    enabled: Boolean(applicationId),
+  });
+
+  const application = useMemo(
+    () => query.data?.find((app) => app.id === applicationId) ?? null,
+    [query.data, applicationId],
+  );
+
+  return {
+    application,
+    isLoading: query.isLoading,
+    error: query.error as Error | null,
+  };
+}
+
 export function useApplicationDelete() {
   const queryClient = useQueryClient();
 
@@ -136,6 +175,11 @@ export function useApplicationDelete() {
     mutationFn: (id: string) => services.applications.deleteApplication(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["applications"] });
+      // Deleting an application takes its CV copy with it, so the cached copy
+      // is gone too — the client mirror of that cascade.
+      await queryClient.invalidateQueries({
+        queryKey: TAILORED_CVS_QUERY_KEY,
+      });
       toast.success("Application deleted");
     },
     onError: () => toast.error("Failed to delete"),

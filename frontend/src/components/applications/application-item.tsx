@@ -22,6 +22,7 @@ import {
   Dot,
   Edit,
   ExternalLink,
+  FileText,
   Flag,
   Plus,
   Pencil,
@@ -39,7 +40,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { formatSalary } from "@/options";
-import { Button } from "../ui/button";
+import { Button, LinkButton } from "../ui/button";
 
 interface ApplicationItemProps {
   app: Application;
@@ -179,6 +180,21 @@ export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
                 )}
               </>
             )}
+            {/*
+              Outside the `!finalized` block on purpose: a finalized
+              application's CV copy is still readable, so its link stays.
+            */}
+            <LinkButton
+              href={`/applications/cv?id=${props.app.id}`}
+              size="sm"
+              variant="link"
+              className="gap-1.5 text-muted-foreground hover:text-foreground"
+              title="CV"
+              aria-label={`CV for ${props.app.role} at ${props.app.company_name}`}
+            >
+              <FileText className="h-4 w-4" />
+            </LinkButton>
+
             {props.onDeleteClick && (
               <Button
                 size="sm"

@@ -1,11 +1,14 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl
 
 from app.core.enums import Currency, ExperienceLevel, SalaryPeriod, WorkMode
 from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema, TimeSchema
+
+MAX_JOB_DESCRIPTION = 50_000
+"""Upper bound on the pasted job posting; 50 001 characters is a 422."""
 
 
 class ApplicationCompany(BaseSchema):
@@ -29,9 +32,22 @@ class CreateApplication(BaseSchema):
     experience_level: ExperienceLevel | None = None
     work_mode: WorkMode | None = None
     country: str | None = None
+    job_description: str | None = Field(
+        default=None, max_length=MAX_JOB_DESCRIPTION
+    )
 
 
 class UpdateApplication(BaseModel):
+    """Full-replace update body - with one deliberate exception.
+
+    Every other optional field clears its stored value when omitted; that is
+    the PUT contract published ``applika-cli`` versions depend on and it does
+    not change here. ``job_description`` is sticky instead: omit the key and
+    the stored text stays, send ``null`` and it is cleared. The route carries
+    that distinction to the DTO by only forwarding the key when it is present
+    in ``model_fields_set``.
+    """
+
     company: SnowflakeID | ApplicationCompany
     role: str
     mode: Literal['active', 'passive']
@@ -47,6 +63,9 @@ class UpdateApplication(BaseModel):
     experience_level: ExperienceLevel | None = None
     work_mode: WorkMode | None = None
     country: str | None = None
+    job_description: str | None = Field(
+        default=None, max_length=MAX_JOB_DESCRIPTION
+    )
 
 
 class ApplicationLastStep(BaseSchema):
@@ -82,6 +101,7 @@ class Application(BaseSchema, TimeSchema):
     experience_level: ExperienceLevel | None = None
     work_mode: WorkMode | None = None
     country: str | None = None
+    job_description: str | None = None
 
     finalized: bool
     last_step: ApplicationLastStep | None = None

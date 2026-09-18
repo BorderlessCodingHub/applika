@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.application.dto.application import (
+    ApplicationCompanyInputDTO,
     ApplicationCreateDTO,
     ApplicationUpdateDTO,
     FinalizeApplicationDTO,
@@ -41,6 +42,46 @@ from app.presentation.schemas.application import (
 router = APIRouter(
     tags=['Applications'], responses={'403': {'model': DetailSchema}}
 )
+
+# The one update field whose *absence* is meaningful. Everything else on
+# UpdateApplication is a full replace, so a plain model_dump() is exactly
+# right for it.
+STICKY_UPDATE_FIELDS = ('job_description',)
+
+
+def _build_update_dto(
+    payload: UpdateApplication,
+    user_id: int,
+) -> ApplicationUpdateDTO:
+    """Map the update body to its DTO, carrying set-ness for sticky fields.
+
+    ``payload.model_dump()`` emits every key, defaults included, so the DTO
+    built from it would claim the client sent ``job_description`` even when it
+    did not - and an ``applika-cli`` 0.1.4 PUT, which has never heard of the
+    field, would silently wipe the stored job description.
+
+    Dropping the key when it is absent from ``payload.model_fields_set`` is
+    what keeps that from happening: the DTO's own ``model_fields_set`` then
+    mirrors what the client actually sent, and
+    ``UpdateApplicationUseCase`` applies the field only when it is there.
+    Every other optional field is still passed through with its dumped value,
+    so an omitted ``observation`` keeps clearing the stored observation
+    exactly as before.
+    """
+    company: int | ApplicationCompanyInputDTO = (
+        payload.company
+        if isinstance(payload.company, int)
+        else ApplicationCompanyInputDTO(**payload.company.model_dump())
+    )
+    dumped = payload.model_dump(exclude={'company'})
+    for field in STICKY_UPDATE_FIELDS:
+        if field not in payload.model_fields_set:
+            dumped.pop(field, None)
+    return ApplicationUpdateDTO(
+        **dumped,
+        company=company,
+        user_id=user_id,
+    )
 
 
 @router.post(
@@ -99,17 +140,9 @@ async def update_application(
     company_repo: CompanyRepositoryDp,
 ):
     use_case = UpdateApplicationUseCase(app_repo, platform_repo, company_repo)
-    company = (
-        payload.company
-        if isinstance(payload.company, int)
-        else payload.company.model_dump()
+    application = await use_case.execute(
+        application_id, _build_update_dto(payload, c_user.id)
     )
-    data = ApplicationUpdateDTO(
-        **payload.model_dump(exclude={'company'}),
-        company=company,
-        user_id=c_user.id,
-    )
-    application = await use_case.execute(application_id, data)
     return Application.model_validate(application)
 
 

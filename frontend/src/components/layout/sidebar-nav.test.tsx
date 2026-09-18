@@ -243,3 +243,39 @@ describe("SidebarNav rendering", () => {
     expect(onNavigate).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("the CVs entry (KODI-002 / R-001)", () => {
+  const cvs = PRIMARY_NAV.find((item) => item.href === "/cvs")!;
+
+  it("sits in the primary nav, labelled CVs, right after Applications", () => {
+    expect(cvs).toBeDefined();
+    expect(cvs.label).toBe("CVs");
+    expect(hrefsOf(PRIMARY_NAV).indexOf("/cvs")).toBe(
+      hrefsOf(PRIMARY_NAV).indexOf("/applications") + 1,
+    );
+  });
+
+  it("stays lit on the create and editor routes under it", () => {
+    // Not `exact`: `/cvs/new` and `/cvs/editor` are the same feature.
+    expect(cvs.exact).toBeUndefined();
+    expect(isNavItemActive(cvs, "/cvs")).toBe(true);
+    expect(isNavItemActive(cvs, "/cvs/new")).toBe(true);
+    expect(isNavItemActive(cvs, "/cvs/editor")).toBe(true);
+  });
+
+  it("does not light up a sibling route that merely starts the same way", () => {
+    expect(isNavItemActive(cvs, "/cvsomething")).toBe(false);
+  });
+
+  it("is the one entry marked current while the editor is open", () => {
+    renderNav("/cvs/editor", navItemsFor(true));
+
+    const current = screen
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("aria-current") === "page");
+
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveAccessibleName("CVs");
+    expect(current[0]).toHaveAttribute("href", "/cvs");
+  });
+});
