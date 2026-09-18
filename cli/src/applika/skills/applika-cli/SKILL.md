@@ -316,8 +316,8 @@ Position filled, Role closed, Ghosted, Salary mismatch, Other in
 `--salary`/`--currency`/`--period` are only valid with `--type offer`, and
 then all three are required together; `--period` is `monthly` or `annually`
 only (an hourly offer is refused).
-`--reason` is only valid with `--type denied`; if omitted on a denied
-event, the server defaults it to `unknown`.
+`--reason` is only valid with `--type denied`; defaults to `unknown` if
+omitted on a denied event.
 
 `edit` fetches the current event and overlays the flags given: changing
 `--type` away from `offer` drops the salary fields, away from `interview`
