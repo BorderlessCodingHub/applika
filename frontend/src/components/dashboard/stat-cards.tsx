@@ -50,15 +50,11 @@ function StatCard({
 export function StatCards({ cycleId }: { cycleId?: string | null }) {
   const { data, isLoading } = useGeneralStats(cycleId);
 
-  const active = data
-    ? data.total_applications - (data.denials ?? 0) - (data.offers ?? 0)
-    : 0;
-
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
       <StatCard
         label="Active"
-        value={active}
+        value={data?.active ?? 0}
         colorKey="active"
         loading={isLoading}
       />

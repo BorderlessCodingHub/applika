@@ -3,6 +3,13 @@ export interface GeneralStats {
   success_rate: number;
   offers: number;
   denials: number;
+  /**
+   * AC23 (KODI-013 addendum): the number of the current user's applications in
+   * the same scope/cycle filter as `total_applications` whose `finalized_at`
+   * is `null` — "Active" = not closed. Computed server-side; the web must not
+   * recompute it from `total_applications`/`offers`/`denials`.
+   */
+  active: number;
 }
 
 export interface ApiTrendPoint {
