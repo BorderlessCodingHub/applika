@@ -69,7 +69,7 @@ export function ApplicationDetailTile({
         />
         {label}
       </dt>
-      <dd className="text-base font-semibold break-words text-foreground">
+      <dd className="text-sm font-semibold break-words text-foreground">
         {children}
       </dd>
     </div>

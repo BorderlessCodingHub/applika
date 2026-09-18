@@ -95,9 +95,10 @@ describe("ApplicationItem — open application", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows the Active status pill (KODI-015 G1/G2)", () => {
+  it("shows the Active status pill with tone=success (KODI-015 G1/G2)", () => {
     renderItem(baseApplication());
-    expect(screen.getByText("Active")).toBeInTheDocument();
+    const pill = screen.getByText("Active").closest("[data-tone]");
+    expect(pill).toHaveAttribute("data-tone", "success");
   });
 
   it("composes accessible names with the role and company (WCAG 2.5.3, KODI-015)", () => {
@@ -173,6 +174,10 @@ describe("ApplicationItem — closed application", () => {
     ).toBeGreaterThan(0);
     expect(screen.queryByText("Offer")).not.toBeInTheDocument();
     expect(screen.queryByText("Denied")).not.toBeInTheDocument();
+    const pill = screen
+      .getAllByText(APPLICATION_CLOSED_LABEL)[0]
+      .closest("[data-tone]");
+    expect(pill).toHaveAttribute("data-tone", "neutral");
   });
 
   it("keeps the CV link even when closed", () => {
@@ -212,6 +217,42 @@ describe("ApplicationItem — closed application", () => {
       screen.queryByRole("button", { name: /add event/i }),
     ).not.toBeInTheDocument();
     expect(services.timeline.list).toHaveBeenCalledWith("app-1");
+  });
+});
+
+describe("ApplicationItem — details tile order (KODI-015 G4/G5)", () => {
+  it("renders the five image tiles first, then the extras, with Notes last", async () => {
+    const user = userEvent.setup();
+    renderItem(
+      baseApplication({
+        experience_level: "senior",
+        work_mode: "remote",
+        link_to_job: "https://example.com/job",
+        country: "Brazil",
+        currency: "USD",
+        salary_period: "monthly",
+        salary_range_min: 4000,
+        salary_range_max: 6000,
+        expected_salary: 5000,
+        observation: "olar",
+      }),
+    );
+    await user.click(screen.getByText("Backend engineer"));
+    await screen.findByText("Platform");
+
+    const dts = screen.getAllByRole("term").map((dt) => dt.textContent?.trim());
+    expect(dts).toEqual([
+      "Platform",
+      "Source",
+      "Date",
+      "Experience",
+      "Work Mode",
+      "Job posting",
+      "Country",
+      "Salary Range",
+      "Expected Salary",
+      "Notes",
+    ]);
   });
 });
 

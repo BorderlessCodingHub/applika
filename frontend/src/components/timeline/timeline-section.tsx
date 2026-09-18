@@ -169,7 +169,7 @@ export function TimelineSection({
   }
 
   const addButton = (
-    <Button size="sm" onClick={openCreate} className="w-full sm:w-auto">
+    <Button onClick={openCreate} className="w-full sm:w-auto">
       <Plus aria-hidden />
       {TIMELINE_PANEL_COPY.addEvent}
     </Button>

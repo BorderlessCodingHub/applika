@@ -84,8 +84,11 @@ export function useApplications(cycleId?: string | null) {
     filters.platformId != null ||
     filters.dateRange != null;
 
+  // `hasAnyFilter` drives the empty state (search vs. "Clear all"), so it
+  // counts the toolbar `status` control too, even though `hasAdvancedFilters`
+  // (G7) deliberately does not.
   const hasAnyFilter =
-    !!filters.search || filters.mode !== "all" || hasAdvancedFilters;
+    !!filters.search || filters.status !== "all" || hasAdvancedFilters;
 
   const filtered = useMemo(() => {
     if (!query.data) return [];

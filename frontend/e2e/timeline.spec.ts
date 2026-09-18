@@ -118,10 +118,14 @@ test.describe("Timeline: add events, close, reopen", () => {
     await page.goto("/applications");
 
     // KODI-015 G1/G2: an open application shows the "Active" status pill.
-    // Not `exact` — the pill's accessible name carries a sr-only "Status: "
-    // prefix in the same element, the same convention `getByText("Closed")`
-    // already relies on elsewhere in this file.
-    await expect(page.getByText("Active").first()).toBeVisible();
+    // Scoped to this application's own row (`aria-labelledby` names it by
+    // company) rather than `.first()`, and not `exact` — the pill's
+    // accessible name carries a sr-only "Status: " prefix in the same
+    // element, the same convention `getByText("Closed")` already relies on
+    // elsewhere in this file.
+    await expect(
+      page.getByRole("article", { name: company }).getByText("Active"),
+    ).toBeVisible();
 
     await openRow(page, role);
 

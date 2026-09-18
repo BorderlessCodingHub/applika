@@ -90,16 +90,23 @@ describe("ApplicationsPage — error state (G8)", () => {
 });
 
 describe("ApplicationsPage — advanced filters button (G7)", () => {
-  it("does not mark the sliders button active for a status-only filter", () => {
+  it("stays outline (inactive) when hasAdvancedFilters is false, e.g. a status-only filter", () => {
     setHookState({ hasAdvancedFilters: false });
     render(<ApplicationsPage />);
     const sliders = screen.getByRole("button", { name: "Advanced filters" });
-    expect(sliders).not.toHaveAttribute("aria-expanded", "true");
+    expect(sliders).toHaveAttribute("data-variant", "outline");
+  });
+
+  it("turns secondary (active) when hasAdvancedFilters is true, e.g. Source is set", () => {
+    setHookState({ hasAdvancedFilters: true });
+    render(<ApplicationsPage />);
+    const sliders = screen.getByRole("button", { name: "Advanced filters" });
+    expect(sliders).toHaveAttribute("data-variant", "secondary");
   });
 });
 
 describe("ApplicationsPage — empty state", () => {
-  it("shows the found-count line and no results message", () => {
+  it("shows the no-results message when the list is empty", () => {
     setHookState({ filtered: [] });
     render(<ApplicationsPage />);
     expect(screen.getByText(/no applications found/i)).toBeInTheDocument();
