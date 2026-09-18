@@ -128,6 +128,7 @@ def _stages(data: list[dict]) -> dict[tuple, dict]:
 # General statistics
 # ---------------------------------------------------------------------------
 
+
 async def test_general_statistics(
     async_client: AsyncClient, db_session: AsyncSession
 ):
@@ -143,6 +144,8 @@ async def test_general_statistics(
     assert data['offers'] == 1, msg(1, data['offers'])
     assert data['denials'] == 1, msg(1, data['denials'])
     assert data['success_rate'] == 33.3
+    # AC23: application 1 is closed, 2 and 3 are open.
+    assert data['active'] == 2, msg(2, data['active'])
 
 
 async def test_general_statistics_empty(
@@ -152,14 +155,13 @@ async def test_general_statistics_empty(
 
     assert response.status_code == 200, msg(200, response.status_code)
     data = response.json()
-    assert data['total_applications'] == 0, msg(
-        0, data['total_applications']
-    )
+    assert data['total_applications'] == 0, msg(0, data['total_applications'])
 
 
 # ---------------------------------------------------------------------------
 # Conversion rate
 # ---------------------------------------------------------------------------
+
 
 async def test_step_conversion_rate(
     async_client: AsyncClient, db_session: AsyncSession
@@ -196,6 +198,7 @@ async def test_step_conversion_rate(
 # Average days per step
 # ---------------------------------------------------------------------------
 
+
 async def test_step_average_days(
     async_client: AsyncClient, db_session: AsyncSession
 ):
@@ -217,6 +220,70 @@ async def test_step_average_days(
     assert stages[('offer', None)]['average_days'] == 5.0
     assert stages[('denied', None)]['average_days'] == 5.0
     assert stages[('interview', 'final')]['average_days'] == 0.0
+
+
+async def test_active_count_open_closed_reopened_other_user_other_cycle(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """AC23: ``active`` = current user's applications in the same
+    scope/cycle filter as ``total_applications`` whose ``finalized_at`` is
+    NULL.
+
+    Covers: an open application, one closed with a bodyless finalize, one
+    closed with the new outcome finalize, one closed then reopened (active
+    again), another user's application (never counted) and another cycle's
+    application (counted only when ``cycle_id`` selects it).
+    """
+    today = date.today()
+    user = base_data()['user'].id
+    other_user = base_data()['admin_user'].id
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        CycleModel(id=77, user_id=user, name='Past'),
+        ts.application(id=1, application_date=today),  # stays open
+        ts.application(id=2, application_date=today),  # bodyless finalize
+        ts.application(id=3, application_date=today),  # outcome finalize
+        ts.application(id=4, application_date=today),  # finalize then reopen
+        ts.application(
+            id=5, application_date=today, cycle_id=77
+        ),  # other cycle
+        ts.application(id=6, application_date=today, user_id=other_user),
+    )
+
+    bodyless = await async_client.post('/applications/2/finalize')
+    assert bodyless.status_code == 200, msg(200, bodyless.status_code)
+
+    outcome = await async_client.post(
+        '/applications/3/finalize', json={'outcome': 'denied'}
+    )
+    assert outcome.status_code == 200, msg(200, outcome.status_code)
+
+    closed_then_reopened = await async_client.post('/applications/4/finalize')
+    assert closed_then_reopened.status_code == 200, msg(
+        200, closed_then_reopened.status_code
+    )
+    reopened = await async_client.post('/applications/4/reopen')
+    assert reopened.status_code == 200, msg(200, reopened.status_code)
+
+    current = await async_client.get('/applications/statistics')
+    assert current.status_code == 200, msg(200, current.status_code)
+    current_data = current.json()
+    # Applications 1-4 are in the default (cycle_id IS NULL) scope; 5 is in
+    # cycle 77 and 6 belongs to another user, so neither is in scope here.
+    assert current_data['total_applications'] == 4, msg(
+        4, current_data['total_applications']
+    )
+    # Only 1 (open) and 4 (reopened) are not closed.
+    assert current_data['active'] == 2, msg(2, current_data['active'])
+
+    past = await async_client.get('/applications/statistics?cycle_id=77')
+    assert past.status_code == 200, msg(200, past.status_code)
+    past_data = past.json()
+    assert past_data['total_applications'] == 1, msg(
+        1, past_data['total_applications']
+    )
+    assert past_data['active'] == 1, msg(1, past_data['active'])
 
 
 async def test_statistics_per_cycle_scope(
@@ -248,14 +315,15 @@ async def test_statistics_per_cycle_scope(
     assert current['total_applications'] == 2
     assert past['total_applications'] == 1
     assert past['offers'] == 0
-    assert past_rates[('interview', 'initial_screening')]['conversion_rate'] == (
-        100.0
-    )
+    assert past_rates[('interview', 'initial_screening')][
+        'conversion_rate'
+    ] == (100.0)
 
 
 # ---------------------------------------------------------------------------
 # Platform stats
 # ---------------------------------------------------------------------------
+
 
 async def test_platform_stats(
     async_client: AsyncClient, db_session: AsyncSession
@@ -274,9 +342,8 @@ async def test_platform_stats(
 # Mode stats
 # ---------------------------------------------------------------------------
 
-async def test_mode_stats(
-    async_client: AsyncClient, db_session: AsyncSession
-):
+
+async def test_mode_stats(async_client: AsyncClient, db_session: AsyncSession):
     await _seed_stats_data(db_session)
 
     response = await async_client.get('/applications/statistics/mode')
@@ -291,9 +358,8 @@ async def test_mode_stats(
 # Trends
 # ---------------------------------------------------------------------------
 
-async def test_trends(
-    async_client: AsyncClient, db_session: AsyncSession
-):
+
+async def test_trends(async_client: AsyncClient, db_session: AsyncSession):
     await _seed_stats_data(db_session)
 
     response = await async_client.get('/applications/statistics/trends')
