@@ -93,6 +93,7 @@ const APPLICATION: Application = {
   application_date: "2026-01-05",
   job_description: "We need someone who has run Postgres in anger.",
   finalized: false,
+  finalized_at: null,
 };
 
 const MASTER_CVS: BaseCv[] = [
@@ -372,7 +373,9 @@ describe("ApplicationCvPage", () => {
   });
 
   it("locks the editor of a finalized application but still shows the copy (AC10)", async () => {
-    getApplications.mockResolvedValue([{ ...APPLICATION, finalized: true }]);
+    getApplications.mockResolvedValue([
+      { ...APPLICATION, finalized: true, finalized_at: "2026-01-10T12:00:00Z" },
+    ]);
     getCopy.mockResolvedValue(COPY);
     renderPage();
 
@@ -398,7 +401,9 @@ describe("ApplicationCvPage", () => {
       .mockImplementation(function (this: HTMLAnchorElement) {
         saved.push(this.download);
       });
-    getApplications.mockResolvedValue([{ ...APPLICATION, finalized: true }]);
+    getApplications.mockResolvedValue([
+      { ...APPLICATION, finalized: true, finalized_at: "2026-01-10T12:00:00Z" },
+    ]);
     getCopy.mockResolvedValue(COPY);
     renderPage();
 
