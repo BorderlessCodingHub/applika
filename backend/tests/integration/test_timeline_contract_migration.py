@@ -8,11 +8,16 @@ upgrade and the data asserted after every step.
 What is proved here, by acceptance criterion of KODI-013 (Engineer A's
 ownership - see the slice brief):
 
-* AC1 (R-015) - the **reconcile design**: an old-code write the R1 trigger
-  failed to sync is copied into ``timeline_events`` by the upgrade; an event
-  a Release B/C user deleted is **not** resurrected. Both cases are seeded
-  side by side and asserted separately
-  (``test_reconcile_copies_unsynced_writes_and_never_resurrects_deletions``).
+* AC1 (R-015) - the **reconcile design**: this revision ships with no
+  reconcile copy - an old-code write the R1 trigger failed to sync and a
+  step whose migrated event a Release B/C user deleted are
+  indistinguishable from the data alone, so neither is copied into
+  ``timeline_events`` by the upgrade. Both stay intact under
+  ``application_steps_old``. Pinned side by side by
+  ``test_upgrade_never_resurrects_orphaned_application_steps_rows``. See
+  "Reconcile design (why there is no reconcile)" in the revision's own
+  docstring for the full reasoning and the open question it raises for the
+  owner.
 * AC7 (R-029), AC8, AC9 - the round trip: every rename reverses, the
   triggers come back working, ``downgrade()`` is not empty, nothing is ever
   dropped (``op.drop_column``/``op.drop_table`` do not appear anywhere in
@@ -42,7 +47,7 @@ import importlib.util
 import inspect
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from types import ModuleType
@@ -343,10 +348,14 @@ _INSERT_EVENT = (
 
 
 def _seed_at_r1(url: str) -> None:
-    module = _load_migration_module()
-    cutover = module._R1_MIGRATION_RAN_AT
-    before_cutover = cutover - timedelta(days=400)
-    after_cutover = cutover + timedelta(hours=2)
+    # Two application_steps rows the R2 upgrade must leave alone either way
+    # (see "Reconcile design" in the revision's own docstring): one written
+    # long before R1 (whatever the R1 backfill would have synced), one
+    # written well into the switch-over (an old-code write, synced
+    # successfully or not - upgrade() never copies from application_steps
+    # any more, so both stay exactly as they are).
+    long_before_r1 = datetime(2025, 6, 1, 10, 0, tzinfo=timezone.utc)
+    switchover_era = datetime(2026, 9, 18, 2, 0, tzinfo=timezone.utc)
     now = datetime(2025, 7, 1, 12, 0, tzinfo=timezone.utc)
 
     _apply(
@@ -575,10 +584,10 @@ def _seed_at_r1(url: str) -> None:
         ],
     )
 
-    # -- APP_BDELETED: the step existed before R1 ran (created_at before the
-    #    cutover), its event synced normally, then a Release B/C user
-    #    deleted the event. The step row is left orphaned - reconcile must
-    #    NOT bring it back.
+    # -- APP_BDELETED: a step written long before R1, synced normally (the
+    #    trigger fires on any insert), then a Release B/C user deleted the
+    #    migrated event. The step row is left orphaned - upgrade() must NOT
+    #    bring it back (it never copies from application_steps at all).
     _sql(
         url,
         _INSERT_STEP,
@@ -591,18 +600,19 @@ def _seed_at_r1(url: str) -> None:
         timezone=None,
         observation='Pre-R1 step',
         user_id=USER_ID,
-        now=before_cutover,
+        now=long_before_r1,
     )
-    # The trigger synced it (application_steps existed before R1's cutover,
-    # but the trigger fires on any INSERT regardless of created_at - so the
-    # insert above already produced a timeline_events row with the same id;
-    # simulate the B/C deletion of that migrated event).
+    # The trigger synced it (it fires on any INSERT); simulate the B/C
+    # deletion of that migrated event.
     _sql(url, 'DELETE FROM timeline_events WHERE id = :id', id=S_BDELETED)
 
-    # -- APP_UNSYNCED: an old-code write during the switch-over
-    #    (created_at after the cutover) whose sync the trigger fails - block
-    #    every sync with a temporary CHECK, insert, then lift the block. The
-    #    write itself must still succeed (the trigger swallows the error).
+    # -- APP_UNSYNCED: an old-code write well into the switch-over whose
+    #    sync the trigger fails - block every sync with a temporary CHECK,
+    #    insert, then lift the block. The write itself must still succeed
+    #    (the trigger swallows the error). upgrade() must not bring this one
+    #    back either - it is exactly as unrecoverable-by-data-alone from
+    #    APP_BDELETED's case as R1's trigger can make it (see "Reconcile
+    #    design" in the revision's docstring).
     _sql(
         url,
         'ALTER TABLE timeline_events ADD CONSTRAINT '
@@ -620,7 +630,7 @@ def _seed_at_r1(url: str) -> None:
         timezone=None,
         observation='Written during the switch-over',
         user_id=USER_ID,
-        now=after_cutover,
+        now=switchover_era,
     )
     assert S_UNSYNCED not in {
         row['id'] for row in _query(url, 'SELECT id FROM timeline_events')
@@ -817,12 +827,15 @@ def test_upgrade_renames_and_drops_nothing(migration_db: str) -> None:
 # --------------------------------------------------------------------------
 
 
-def test_reconcile_copies_unsynced_writes_and_never_resurrects_deletions(
+def test_upgrade_never_resurrects_orphaned_application_steps_rows(
     migration_db: str,
 ) -> None:
-    """AC1: an old-code write the trigger failed to sync during the
-    switch-over reaches the timeline; a step whose migrated event a
-    Release B/C user deleted is never brought back."""
+    """AC1: upgrade() ships with no reconcile ("Reconcile design (why there
+    is no reconcile)" in the revision's docstring) - a genuinely unsynced
+    old-code write from the switch-over and a step whose migrated event a
+    Release B/C user deleted are indistinguishable from the data alone, so
+    neither is copied into the timeline. Both stay fully intact, queryable,
+    under ``application_steps_old`` - a rename destroys no data."""
     _upgrade(migration_db, PARENT_REVISION)
     _seed_at_r1(migration_db)
 
@@ -831,17 +844,17 @@ def test_reconcile_copies_unsynced_writes_and_never_resurrects_deletions(
     events = _events(migration_db)
     steps_old = _step_rows(migration_db, 'application_steps_old')
 
-    # The unsynced old-code write: copied, decision (a) mapping applied.
-    assert S_UNSYNCED in events
-    unsynced = events[S_UNSYNCED]
-    assert unsynced['application_id'] == APP_UNSYNCED
-    assert unsynced['event_type'] == 'interview'
-    assert unsynced['interview_type'] == 'unknown'  # Phase 3
-    assert unsynced['observation'] == 'Written during the switch-over'
-    assert unsynced['event_date'] == date(2026, 9, 18)
+    # The unsynced old-code write: not copied, but not lost either.
+    assert S_UNSYNCED not in events
+    assert S_UNSYNCED in steps_old
+    assert (
+        steps_old[S_UNSYNCED]['observation'] == 'Written during the switch-over'
+    )
+    assert steps_old[S_UNSYNCED]['application_id'] == APP_UNSYNCED
 
-    # The B-deleted event: NOT resurrected, but the step row survives
-    # untouched under _old (rule: a rename destroys no data).
+    # The B-deleted event: NOT resurrected, and its step row survives
+    # untouched under _old (rule: a rename destroys no data) - treated
+    # identically to the unsynced write above, on purpose.
     assert S_BDELETED not in events
     assert S_BDELETED in steps_old
     assert steps_old[S_BDELETED]['observation'] == 'Pre-R1 step'
@@ -1037,9 +1050,12 @@ def test_downgrade_brings_release_c_back_with_its_writes(
     apps = _app_rows(migration_db)
 
     assert step_rows[S_BDELETED]['observation'] == 'Pre-R1 step'
-    # The reconciled old-code write came back as a step too (it is a step,
-    # under application_steps' real name again).
+    # Neither was ever copied into the timeline (no reconcile), so the
+    # rename-back is all it takes to bring them back exactly as they were.
     assert step_rows[S_UNSYNCED]['step_id'] == steps['Phase 3']
+    assert (
+        step_rows[S_UNSYNCED]['observation'] == 'Written during the switch-over'
+    )
 
     # APP_TOUCHED_BY_C: C's new events -> steps via the reverse map; the
     # edited one keeps its id and definition, carries the edit.
