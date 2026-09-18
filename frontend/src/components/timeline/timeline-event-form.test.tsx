@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TimelineEventForm } from "@/components/timeline/timeline-event-form";
 import {
@@ -34,6 +34,12 @@ vi.mock("@/services/services", () => ({
     },
   },
 }));
+// Every test sets its own `mockResolvedValue`; reset so no test reads a call
+// another test made (`mock.calls[0]`, `toHaveBeenCalledWith`).
+beforeEach(() => {
+  vi.mocked(services.timeline.create).mockReset();
+  vi.mocked(services.timeline.update).mockReset();
+});
 
 function renderForm(
   props: Partial<React.ComponentProps<typeof TimelineEventForm>> = {},
@@ -425,7 +431,9 @@ describe("TimelineEventForm — denied reason (AC4, KODI-014)", () => {
 
       const submitLabel = /add event/i;
       await user.click(screen.getByRole("button", { name: submitLabel }));
-      await waitFor(() => expect(services.timeline.create).toHaveBeenCalled());
+      await waitFor(() =>
+        expect(services.timeline.create).toHaveBeenCalledTimes(1),
+      );
       const [, payload] = vi.mocked(services.timeline.create).mock.calls[0];
       expect(payload).not.toHaveProperty("denied_reason");
     },
