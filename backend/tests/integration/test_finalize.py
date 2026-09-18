@@ -217,10 +217,16 @@ async def test_cross_user_finalize_and_reopen_return_404(
     legacy = await async_client.post(
         '/applications/77/finalize', json=_legacy_body()
     )
+    outcome = await async_client.post(
+        '/applications/77/finalize', json={'outcome': 'denied'}
+    )
 
     assert (finalize.status_code, reopen.status_code) == (404, 404)
     assert legacy.status_code == 404
     _deprecated(legacy)
+    assert outcome.status_code == 404, msg(404, outcome.status_code)
+    assert 'Deprecation' not in outcome.headers
+    assert await _events(db_session, app_id=77) == []
 
 
 async def test_finalize_non_numeric_id_is_a_validation_error(
@@ -258,6 +264,251 @@ def test_openapi_documents_reopen_and_the_optional_finalize_body():
         ]
     )
     assert '/applications/{application_id}/reopen' in paths
+
+
+# ===========================================================================
+# New optional outcome body (R-032)
+# ===========================================================================
+
+
+async def test_finalize_offer_outcome_writes_event_and_closes_no_deprecation(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await ts.seed_open_application(db_session)
+
+    response = await async_client.post(
+        '/applications/1/finalize',
+        json={
+            'outcome': 'offer',
+            'event_date': '2025-12-20',
+            'observation': 'Great offer',
+            'salary_amount': '9500.00',
+            'salary_currency': 'EUR',
+            'salary_period': 'monthly',
+        },
+    )
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    assert 'Deprecation' not in response.headers
+    data = response.json()
+    assert data['finalized'] is True
+    assert data['finalized_at'] is not None
+    assert data['salary_offer'] == 9500.0
+    assert data['last_step']['date'] == '2025-12-20'
+
+    [event] = await _events(db_session)
+    assert event.event_type is EventType.OFFER
+    assert event.interview_type is None
+    assert event.event_date == date(2025, 12, 20)
+    assert event.observation == 'Great offer'
+    assert event.salary_amount == Decimal('9500.00')
+    assert event.salary_currency is Currency.EUR
+    assert event.salary_period is SalaryPeriod.MONTHLY
+    application = await _application(db_session)
+    assert application.finalized_at is not None
+
+
+async def test_finalize_denied_outcome_writes_event_without_salary(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await ts.seed_open_application(db_session)
+
+    response = await async_client.post(
+        '/applications/1/finalize',
+        json={'outcome': 'denied', 'observation': 'Not a fit'},
+    )
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    assert 'Deprecation' not in response.headers
+    data = response.json()
+    assert data['finalized'] is True
+    assert data['salary_offer'] is None
+
+    [event] = await _events(db_session)
+    assert event.event_type is EventType.DENIED
+    assert event.observation == 'Not a fit'
+    assert event.salary_amount is None
+
+
+async def test_finalize_outcome_event_date_defaults_to_today(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """The server's UTC ``today``, not the test runner's local date - this
+    machine is not UTC, so pinning ``date.today()`` fails in the evening."""
+    await ts.seed_open_application(db_session)
+
+    before = datetime.now(UTC).date()
+    response = await async_client.post(
+        '/applications/1/finalize', json={'outcome': 'denied'}
+    )
+    after = datetime.now(UTC).date()
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    [event] = await _events(db_session)
+    assert before <= event.event_date <= after
+
+
+async def test_finalize_outcome_offer_missing_salary_field_is_422(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await ts.seed_open_application(db_session)
+
+    response = await async_client.post(
+        '/applications/1/finalize',
+        json={'outcome': 'offer', 'salary_amount': '100.00'},
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+    assert 'Deprecation' not in response.headers
+    assert await _events(db_session) == []
+    assert (await _application(db_session)).finalized_at is None
+
+
+async def test_finalize_outcome_salary_without_offer_is_422(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await ts.seed_open_application(db_session)
+
+    response = await async_client.post(
+        '/applications/1/finalize',
+        json={
+            'outcome': 'denied',
+            'salary_amount': '100.00',
+            'salary_currency': 'USD',
+            'salary_period': 'monthly',
+        },
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+    assert await _events(db_session) == []
+
+
+async def test_finalize_outcome_fields_without_outcome_is_422(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """The orchestrator's pin: event_date/observation never silently
+    dropped when there is no outcome."""
+    await ts.seed_open_application(db_session)
+
+    by_event_date = await async_client.post(
+        '/applications/1/finalize', json={'event_date': '2025-12-20'}
+    )
+    by_observation = await async_client.post(
+        '/applications/1/finalize', json={'observation': 'no outcome here'}
+    )
+
+    assert by_event_date.status_code == 422, msg(422, by_event_date.status_code)
+    assert by_observation.status_code == 422, msg(
+        422, by_observation.status_code
+    )
+    assert (await _application(db_session)).finalized_at is None
+
+
+async def test_finalize_outcome_invalid_value_is_422(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await ts.seed_open_application(db_session)
+
+    response = await async_client.post(
+        '/applications/1/finalize', json={'outcome': 'interview'}
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+
+
+async def test_finalize_all_null_outcome_body_is_the_idempotent_close(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """A body whose only keys are absent/null counts as no outcome."""
+    await ts.seed_open_application(db_session)
+
+    response = await async_client.post(
+        '/applications/1/finalize',
+        json={
+            'outcome': None,
+            'event_date': None,
+            'observation': None,
+            'salary_amount': None,
+            'salary_currency': None,
+            'salary_period': None,
+        },
+    )
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    assert 'Deprecation' not in response.headers
+    assert response.json()['finalized'] is True
+    assert await _events(db_session) == []
+
+    again = await async_client.post(
+        '/applications/1/finalize', json={'outcome': None}
+    )
+    assert again.status_code == 200
+    assert again.json()['finalized_at'] == response.json()['finalized_at']
+
+
+async def test_finalize_outcome_on_closed_application_is_409(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await ts.seed_open_application(
+        db_session, finalized_at=ts.closed_at(date(2025, 12, 10))
+    )
+
+    response = await async_client.post(
+        '/applications/1/finalize', json={'outcome': 'denied'}
+    )
+
+    assert response.status_code == 409, msg(409, response.status_code)
+    assert response.json()['detail'] == (
+        'Reopen the application to edit it (it is currently closed)'
+    )
+    assert 'Deprecation' not in response.headers
+
+
+async def test_finalize_outcome_on_archived_application_is_422_before_closed(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        CycleModel(id=901, user_id=ts.USER_ID, name='Past'),
+        ts.application(
+            cycle_id=901, finalized_at=ts.closed_at(date(2025, 12, 10))
+        ),
+    )
+
+    response = await async_client.post(
+        '/applications/1/finalize', json={'outcome': 'denied'}
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+
+
+async def test_finalize_outcome_future_event_date_is_422(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await ts.seed_open_application(db_session)
+    future = (date.today() + timedelta(days=10)).isoformat()
+
+    response = await async_client.post(
+        '/applications/1/finalize',
+        json={'outcome': 'denied', 'event_date': future},
+    )
+
+    assert response.status_code == 422, msg(422, response.status_code)
+    assert await _events(db_session) == []
+
+
+async def test_finalize_outcome_nonexistent_app_returns_404(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await ts.seed(db_session, *ts.catalog())
+
+    response = await async_client.post(
+        '/applications/999/finalize', json={'outcome': 'denied'}
+    )
+
+    assert response.status_code == 404, msg(404, response.status_code)
+    assert 'Deprecation' not in response.headers
 
 
 # ===========================================================================
