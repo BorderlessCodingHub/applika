@@ -141,15 +141,7 @@ export interface AdminPlatform {
   url?: string;
 }
 
-export interface AdminStepDefinition {
-  id: string;
-  name: string;
-  color: string;
-  strict: boolean;
-}
-
-export interface AdminFeedbackDefinition {
-  id: string;
-  name: string;
-  color: string;
-}
+// AdminStepDefinition / AdminFeedbackDefinition removed (PRD 0008, ADR 0012,
+// R-021): admins can no longer create, edit or delete step or feedback
+// definitions — `/admin/step-definitions*` and `/admin/feedback-definitions*`
+// now 404.
