@@ -2,8 +2,13 @@
 
 ``.claude/rules/migration-tests.md``: the **real Alembic chain** against a
 dedicated testcontainers Postgres - upgrade to the revision, downgrade to its
-parent ``afd4074c70c2`` (R1), upgrade again - with rows seeded before the
-upgrade and the data asserted after every step.
+parent, upgrade again - with rows seeded before the upgrade and the data
+asserted after every step. **KODI-014 re-parented R2 onto R3**
+(``c8b3e9f4a1d6``, denied_reason, folded into Release A): the chain is now
+R1 (``afd4074c70c2``) -> R3 (``c8b3e9f4a1d6``) -> R2 (this revision), so
+R2's own "parent" for the round trip is R3, not R1 directly (see
+``PARENT_REVISION``/``GRANDPARENT_REVISION``/``GREATGRANDPARENT_REVISION``
+below).
 
 What is proved here, by acceptance criterion of KODI-013 (Engineer A's
 ownership - see the slice brief):
@@ -71,11 +76,15 @@ from testcontainers.postgres import PostgresContainer
 from app.config.settings import envs
 
 REVISION = 'ad747aba90fc'
-PARENT_REVISION = 'afd4074c70c2'
-# R1's own down_revision - two hops below head. Used only by the
-# remediation-round-1 regression test that crosses both R2's and R1's
+# KODI-014 re-parented R2 onto R3 (``c8b3e9f4a1d6``, denied_reason, folded
+# into Release A): the chain is now R1 -> R3 -> R2, not R1 -> R2 directly.
+PARENT_REVISION = 'c8b3e9f4a1d6'
+# R3's own down_revision (R1) - two hops below head.
+GRANDPARENT_REVISION = 'afd4074c70c2'
+# R1's own down_revision - three hops below head. Used only by the
+# remediation-round-1 regression test that crosses R2's, R3's and R1's
 # downgrade()/upgrade() in a single alembic command.
-GRANDPARENT_REVISION = 'd3f7b1c9e2a4'
+GREATGRANDPARENT_REVISION = 'd3f7b1c9e2a4'
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 _ALEMBIC_INI = _BACKEND_ROOT / 'alembic.ini'
@@ -89,7 +98,13 @@ _R1_MIGRATION_PATH = (
     _BACKEND_ROOT
     / 'migrations'
     / 'versions'
-    / f'{PARENT_REVISION}_timeline_events_expand.py'
+    / f'{GRANDPARENT_REVISION}_timeline_events_expand.py'
+)
+_R3_MIGRATION_PATH = (
+    _BACKEND_ROOT
+    / 'migrations'
+    / 'versions'
+    / f'{PARENT_REVISION}_timeline_events_denied_reason.py'
 )
 
 USER_ID = 7300000000000000001
@@ -244,6 +259,12 @@ def _load_r1_module() -> ModuleType:
     )
 
 
+def _load_r3_module() -> ModuleType:
+    return _load_module(
+        _R3_MIGRATION_PATH, 'timeline_denied_reason_migration_reference'
+    )
+
+
 # --------------------------------------------------------------------------
 # Schema inventory
 # --------------------------------------------------------------------------
@@ -282,6 +303,26 @@ def _enum_labels(url: str, name: str) -> list[str]:
             {'name': name},
         )
     ]
+
+
+def _types(url: str) -> set[str]:
+    return {
+        row['typname']
+        for row in _query(
+            url, "SELECT typname FROM pg_type WHERE typtype = 'e'"
+        )
+    }
+
+
+def _checks(url: str) -> set[str]:
+    return {
+        row['conname']
+        for row in _query(
+            url,
+            "SELECT conname FROM pg_constraint WHERE contype = 'c' "
+            "AND conrelid = 'timeline_events'::regclass",
+        )
+    }
 
 
 def _triggers(url: str) -> list[str]:
@@ -342,10 +383,12 @@ _INSERT_STEP = (
 
 _INSERT_EVENT = (
     'INSERT INTO timeline_events '
-    '(id, application_id, user_id, event_type, interview_type, event_date, '
+    '(id, application_id, user_id, event_type, interview_type, '
+    'denied_reason, event_date, '
     'observation, salary_amount, salary_currency, salary_period, created_at) '
     'VALUES (:id, :application_id, :user_id, CAST(:event_type AS event_type), '
-    'CAST(:interview_type AS interview_type), :event_date, :observation, '
+    'CAST(:interview_type AS interview_type), '
+    'CAST(:denied_reason AS denied_reason), :event_date, :observation, '
     ':salary_amount, CAST(:salary_currency AS currency), '
     'CAST(:salary_period AS salaryperiod), :now)'
 )
@@ -472,6 +515,7 @@ def _seed_at_r1(url: str) -> None:
                     'user_id': USER_ID,
                     'event_type': 'offer',
                     'interview_type': None,
+                    'denied_reason': None,
                     'event_date': date(2025, 8, 20),
                     'observation': 'Feedback: Accepted',
                     'salary_amount': Decimal('5000.00'),
@@ -488,6 +532,9 @@ def _seed_at_r1(url: str) -> None:
                     'user_id': USER_ID,
                     'event_type': 'denied',
                     'interview_type': None,
+                    # KODI-014 (R3): matches APP_DENIED_SALARY's legacy
+                    # feedback 'Not good enough' -> not_good_enough.
+                    'denied_reason': 'not_good_enough',
                     'event_date': date(2025, 8, 15),
                     'observation': 'Feedback: Not good enough',
                     'salary_amount': None,
@@ -504,6 +551,7 @@ def _seed_at_r1(url: str) -> None:
                     'user_id': USER_ID,
                     'event_type': 'interview',
                     'interview_type': 'unknown',
+                    'denied_reason': None,
                     'event_date': date(2025, 8, 9),
                     'observation': None,
                     'salary_amount': None,
@@ -520,6 +568,7 @@ def _seed_at_r1(url: str) -> None:
                     'user_id': USER_ID,
                     'event_type': 'offer',
                     'interview_type': None,
+                    'denied_reason': None,
                     'event_date': date(2025, 8, 18),
                     'observation': None,
                     'salary_amount': Decimal('90000.00'),
@@ -727,20 +776,44 @@ def test_upgrade_source_drops_no_column_or_table() -> None:
     assert len(downgrade_source.splitlines()) > 5
 
 
-def test_the_revision_is_a_child_of_r1() -> None:
+def test_the_revision_is_a_child_of_r3() -> None:
+    """KODI-014 re-parented R2 onto R3 (``c8b3e9f4a1d6``)."""
     module = _load_migration_module()
 
     assert module.revision == REVISION
     assert module.down_revision == PARENT_REVISION
 
 
-def test_duplicated_constants_match_revision_afd4074c70c2_and_step_translation() -> (
+def test_only_one_head() -> None:
+    """The re-parenting must not leave a fork: the real Alembic
+    ``ScriptDirectory`` sees exactly one head, and the R1 -> R3 -> R2 chain
+    resolves as expected."""
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    config = Config(str(_ALEMBIC_INI))
+    script = ScriptDirectory.from_config(config)
+
+    heads = script.get_heads()
+    assert list(heads) == [REVISION]
+
+    r2 = script.get_revision(REVISION)
+    assert r2.down_revision == PARENT_REVISION
+    r3 = script.get_revision(PARENT_REVISION)
+    assert r3.down_revision == GRANDPARENT_REVISION
+
+
+def test_duplicated_constants_match_revision_c8b3e9f4a1d6_and_step_translation() -> (
     None
 ):
     """A revision must not import another revision, so R2 copies R1's
-    constants and SQL - this pins the copies against drift."""
+    constants and SQL - this pins the copies against drift. The two trigger
+    bodies are the one exception since the KODI-014 re-parenting: they are
+    now copied from R3 (``c8b3e9f4a1d6``), not R1 directly - see "R3's
+    trigger bodies, not R1's" in the revision's own docstring."""
     r2 = _load_migration_module()
     r1 = _load_r1_module()
+    r3 = _load_r3_module()
 
     assert r2.REVERSE_STEP_MAP == r1.REVERSE_STEP_MAP
     assert r2.REVERSE_FEEDBACK_MAP == r1.REVERSE_FEEDBACK_MAP
@@ -756,8 +829,11 @@ def test_duplicated_constants_match_revision_afd4074c70c2_and_step_translation()
     assert r2._APP_TRIGGER == r1._APP_TRIGGER
     assert r2._STEP_FUNCTION == r1._STEP_FUNCTION
     assert r2._APP_FUNCTION == r1._APP_FUNCTION
-    assert r2._STEP_FUNCTION_SQL == r1._STEP_FUNCTION_SQL
-    assert r2._APP_FUNCTION_SQL == r1._APP_FUNCTION_SQL
+    # The trigger bodies themselves: R3's versions, denied_reason-aware.
+    assert r2._STEP_FUNCTION_SQL == r3._STEP_FUNCTION_SQL
+    assert r2._APP_FUNCTION_SQL == r3._APP_FUNCTION_SQL
+    assert r2.FEEDBACK_TO_DENIED_REASON == r3.FEEDBACK_TO_DENIED_REASON
+    assert r2.DENIED_REASON_FALLBACK == r3.DENIED_REASON_FALLBACK
 
     from app.application.use_cases.compat.step_translation import (
         REVERSE_STEP_NAMES,
@@ -935,6 +1011,7 @@ def _release_c_writes(url: str) -> None:
         user_id=USER_ID,
         event_type='note',
         interview_type=None,
+        denied_reason=None,
         event_date=date(2026, 9, 25),
         observation='Recruiter follow-up',
         salary_amount=None,
@@ -958,6 +1035,9 @@ def _release_c_writes(url: str) -> None:
         user_id=USER_ID,
         event_type='denied',
         interview_type=None,
+        # A fresh Release C write with no legacy feedback context - the
+        # app's own default (KODI-014's ``normalize_event``).
+        denied_reason='unknown',
         event_date=date(2026, 10, 2),
         observation=None,
         salary_amount=None,
@@ -1108,33 +1188,98 @@ def test_denied_with_salary_survives_the_round_trip(migration_db: str) -> None:
     assert apps[APP_DENIED_SALARY]['currency'] == 'USD'
 
 
-def test_single_command_downgrade_and_upgrade_cross_two_revisions(
+# --------------------------------------------------------------------------
+# R2 must not break the reason column (KODI-014 re-parenting, brief item f)
+# --------------------------------------------------------------------------
+
+
+def test_r2_does_not_touch_the_denied_reason_column(migration_db: str) -> None:
+    """R3's column, enum and CHECK are additive to R2 (rule 3 - R2 never
+    renames or drops anything ``timeline_events`` already carries), and the
+    data on it survives R2's own upgrade and downgrade untouched."""
+    _upgrade(migration_db, PARENT_REVISION)
+    _seed_at_r1(migration_db)
+    assert 'denied_reason' in _types(migration_db)
+    assert 'ck_timeline_events_denied_reason' in _checks(migration_db)
+
+    # -- After R2's upgrade: column, enum, CHECK and the seeded reason are
+    #    all still there.
+    _upgrade(migration_db, REVISION)
+    assert 'denied_reason' in _types(migration_db)
+    assert 'ck_timeline_events_denied_reason' in _checks(migration_db)
+    assert ('timeline_events', 'denied_reason') in _columns(migration_db)
+    events = _query(
+        migration_db,
+        'SELECT denied_reason::text AS denied_reason FROM timeline_events '
+        'WHERE id = :id',
+        {'id': S_DENIED},
+    )
+    assert events == [{'denied_reason': 'not_good_enough'}]
+
+    # -- After R2's downgrade (back to R3): still there, unchanged.
+    _downgrade(migration_db, PARENT_REVISION)
+    assert 'denied_reason' in _types(migration_db)
+    assert 'ck_timeline_events_denied_reason' in _checks(migration_db)
+    events = _query(
+        migration_db,
+        'SELECT denied_reason::text AS denied_reason FROM timeline_events '
+        'WHERE id = :id',
+        {'id': S_DENIED},
+    )
+    assert events == [{'denied_reason': 'not_good_enough'}]
+
+    # -- And the CHECK is still live: an old-code write through the
+    #    restored (R3-aware) trigger still gets a reason, satisfying it.
+    steps = _steps(migration_db)
+    _sql(
+        migration_db,
+        'INSERT INTO application_steps '
+        '(id, application_id, step_id, step_date, user_id, created_at) '
+        'VALUES (:id, :app_id, :step_id, :day, :user_id, now())',
+        id=7300000000000009001,
+        app_id=APP_DENIED_SALARY,
+        step_id=steps['Denied'],
+        day=date(2025, 9, 10),
+        user_id=USER_ID,
+    )
+    new_event = _query(
+        migration_db,
+        'SELECT event_type::text AS event_type, '
+        'denied_reason::text AS denied_reason FROM timeline_events '
+        'WHERE id = :id',
+        {'id': 7300000000000009001},
+    )
+    assert new_event == [
+        {'event_type': 'denied', 'denied_reason': 'not_good_enough'}
+    ]
+
+
+def test_single_command_downgrade_and_upgrade_cross_three_revisions(
     migration_db: str,
 ) -> None:
-    """Remediation round 1 regression (AC7 R-029, AC8): a single ``alembic
-    downgrade``/``upgrade`` command that crosses this revision's
-    downgrade()/upgrade() *and* R1's in the same run must not collide.
+    """Remediation round 1 regression (AC7 R-029, AC8), widened by the
+    KODI-014 re-parenting: a single ``alembic downgrade``/``upgrade`` command
+    that crosses this revision's downgrade(), *then* R3's
+    (``c8b3e9f4a1d6``), *then* R1's (``afd4074c70c2``) in the same run must
+    not collide.
 
     ``migrations/env.py`` wraps a whole ``run_migrations()`` call in one
     outer transaction (no ``transaction_per_migration``), so a single
-    ``alembic downgrade d3f7b1c9e2a4`` from head runs this revision's
-    downgrade() and then R1's downgrade() (``afd4074c70c2``) inside that
-    same still-open transaction. Before the fix, both created a temp table
-    named ``timeline_downgrade_touched`` with ``ON COMMIT DROP`` - which
-    only fires once the *whole* command's transaction commits, not between
-    the two revisions - so R1's ``CREATE TEMPORARY TABLE`` raised
-    ``asyncpg.exceptions.DuplicateTableError`` and the whole command rolled
-    back. ``alembic downgrade -1`` run twice (one revision per command, one
-    transaction each) never showed the bug, which is why the by-hand walk
-    caught it and the per-revision round-trip tests above did not: each of
-    them only ever crosses one revision's downgrade per ``_downgrade()``
-    call. Fixed in R2 only (``ad747aba90fc``) by scoping its temp table to
-    its own name (``_TOUCHED_TABLE`` in the revision module) and dropping it
-    explicitly at the end of its own ``downgrade()``, so it no longer
-    depends on a commit boundary a later revision's downgrade might share.
+    ``alembic downgrade d3f7b1c9e2a4`` from head now runs three
+    downgrade()s in that same still-open transaction where it used to run
+    two. Before the original fix (KODI-013 remediation round 1), R2 and R1
+    both created a temp table named ``timeline_downgrade_touched`` with
+    ``ON COMMIT DROP`` - which only fires once the *whole* command's
+    transaction commits, not between revisions - so R1's ``CREATE TEMPORARY
+    TABLE`` raised ``asyncpg.exceptions.DuplicateTableError``. R2 was fixed
+    by scoping its temp table to its own name
+    (``timeline_downgrade_touched_ad747aba90fc``) and dropping it explicitly
+    at the end of its own ``downgrade()``. R3 (KODI-014) sidesteps the whole
+    class of bug by using no temporary table anywhere, so inserting it
+    between R2 and R1 introduces no new collision - this test is the proof.
     R1 (Release A, released) is untouched.
     """
-    _upgrade(migration_db, GRANDPARENT_REVISION)
+    _upgrade(migration_db, GREATGRANDPARENT_REVISION)
     pre_r1_columns = _columns(migration_db)
     pre_r1_tables = _tables(migration_db)
 
@@ -1142,18 +1287,20 @@ def test_single_command_downgrade_and_upgrade_cross_two_revisions(
     _seed_at_r1(migration_db)
     _upgrade(migration_db, REVISION)
 
-    # -- One command, crossing this revision's downgrade() then R1's.
-    #    Used to raise asyncpg.exceptions.DuplicateTableError before the fix.
-    _downgrade(migration_db, GRANDPARENT_REVISION)
+    # -- One command, crossing this revision's downgrade(), then R3's, then
+    #    R1's. Used to raise asyncpg.exceptions.DuplicateTableError (R2/R1
+    #    only) before the original fix.
+    _downgrade(migration_db, GREATGRANDPARENT_REVISION)
 
     assert _query(migration_db, 'SELECT version_num FROM alembic_version') == [
-        {'version_num': GRANDPARENT_REVISION}
+        {'version_num': GREATGRANDPARENT_REVISION}
     ]
     assert _columns(migration_db) == pre_r1_columns
     assert _tables(migration_db) == pre_r1_tables
+    assert 'denied_reason' not in _types(migration_db)
 
     # The legacy data is back, restored all the way to the pre-R1 shape by
-    # the two chained downgrades: the KODI-010 flag and a step the R1
+    # the three chained downgrades: the KODI-010 flag and a step the R1
     # trigger never got the chance to sync (application_steps.timezone
     # widening reversed too, since we are back before that revision ran).
     # ``applications.finalized_at`` does not exist at all pre-R1, so this
@@ -1176,11 +1323,13 @@ def test_single_command_downgrade_and_upgrade_cross_two_revisions(
         step_rows[S_UNSYNCED]['observation'] == 'Written during the switch-over'
     )
 
-    # -- The other direction: one command crossing R1's upgrade() then R2's.
+    # -- The other direction: one command crossing R1's upgrade(), R3's,
+    #    then R2's.
     _upgrade(migration_db, REVISION)
     assert _query(migration_db, 'SELECT version_num FROM alembic_version') == [
         {'version_num': REVISION}
     ]
+    assert 'denied_reason' in _types(migration_db)
 
 
 # ==========================================================================
