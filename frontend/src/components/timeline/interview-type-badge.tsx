@@ -4,6 +4,7 @@ import {
   INTERVIEW_TYPE_LABELS,
 } from "@/components/timeline/timeline-options";
 import { type InterviewType } from "@/components/timeline/timeline-types";
+import { cn } from "@/lib/utils";
 
 interface InterviewTypeBadgeProps {
   /** The interview type; `null`/absent reads as `unknown`. */
@@ -12,7 +13,7 @@ interface InterviewTypeBadgeProps {
 }
 
 /**
- * Outline pill naming an interview's type, set beside the `Interview`
+ * Neutral filled pill naming an interview's type, set beside the `Interview`
  * `EventTypeBadge`. Presentational.
  */
 export function InterviewTypeBadge({
@@ -20,7 +21,10 @@ export function InterviewTypeBadge({
   className,
 }: InterviewTypeBadgeProps) {
   return (
-    <Badge variant="outline" className={className}>
+    <Badge
+      variant="secondary"
+      className={cn("px-2.5 font-semibold", className)}
+    >
       <span className="sr-only">Interview type: </span>
       {INTERVIEW_TYPE_LABELS[type ?? DEFAULT_INTERVIEW_TYPE]}
     </Badge>

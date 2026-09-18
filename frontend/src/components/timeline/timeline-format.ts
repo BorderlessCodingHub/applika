@@ -52,6 +52,26 @@ export function formatTimeRange(
   return hasValue(timezone) ? `${range} · ${timeZoneLabel(timezone)}` : range;
 }
 
+/** The pieces of a scheduled time range, split so a card can wrap the layout
+ * at the `·` instead of inside the timezone label. `null` under the same
+ * condition as `formatTimeRange` (no start time). */
+export interface TimeRangeParts {
+  /** e.g. "10:00–11:00" or "10:00" with no end time. */
+  range: string;
+  /** Readable zone label (`timeZoneLabel`), or `null` when none is stored. */
+  zone: string | null;
+}
+
+export function formatTimeRangeParts(
+  startTime?: string | null,
+  endTime?: string | null,
+  timezone?: string | null,
+): TimeRangeParts | null {
+  if (!hasValue(startTime)) return null;
+  const range = hasValue(endTime) ? `${startTime}–${endTime}` : startTime;
+  return { range, zone: hasValue(timezone) ? timeZoneLabel(timezone) : null };
+}
+
 /**
  * Builds the Offer salary string from the offer-only fields, e.g.
  * "GBP 160,000 /mo" (a legacy hourly offer reads "/hr"). Returns `null` if the

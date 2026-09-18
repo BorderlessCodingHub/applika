@@ -1,11 +1,14 @@
 import { type ReactNode } from "react";
 import { Clock, Lock } from "lucide-react";
 
+import { IconTile } from "@/components/applications/icon-tile";
 import { EmptyState } from "@/components/common/empty-state";
-import { TIMELINE_READ_ONLY_COPY } from "@/components/timeline/timeline-copy";
+import {
+  TIMELINE_PANEL_COPY,
+  TIMELINE_READ_ONLY_COPY,
+} from "@/components/timeline/timeline-copy";
 import { TimelineEventList } from "@/components/timeline/timeline-event-list";
 import { type TimelineEventView } from "@/components/timeline/timeline-types";
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface TimelinePanelProps {
@@ -35,11 +38,13 @@ interface TimelinePanelProps {
 }
 
 /**
- * Titled "Timeline" card, mounted in an application row's expansion. Renders
- * the vertical `TimelineEventList`, an empty state when there are no events,
- * and a read-only notice when the application is closed/archived: the header
- * `action`, every `renderActions` slot and the empty-state action are then
- * withheld. Presentational — the page owns data and the add/edit wiring.
+ * Titled "Timeline" panel (KODI-015 reference image), mounted in an
+ * application row's expansion. Flat below `sm`, bordered from `sm` up — the
+ * card shell it sits in already carries the border at that width. Renders the
+ * event list, an empty state when there are no events, and a read-only notice
+ * when the application is closed/archived: the header `action`, every
+ * `renderActions` slot and the empty-state action are then withheld.
+ * Presentational — the section owns data and the add/edit wiring.
  */
 export function TimelinePanel({
   events,
@@ -53,42 +58,52 @@ export function TimelinePanel({
   const hasEvents = events.length > 0;
 
   return (
-    <Card className={cn("gap-0 py-0", className)}>
-      <div className="p-5">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="font-display text-sm font-semibold text-foreground">
-            Timeline
-          </h2>
-          {readOnly ? null : action}
-        </div>
-
-        {readOnly ? (
-          <div className="mt-4 flex items-start gap-2 rounded-md border border-border bg-surface/50 px-3 py-2 text-xs text-muted-foreground">
-            <Lock aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-            <span>{readOnlyReason}</span>
+    <section
+      className={cn(
+        "flex flex-col gap-4 sm:rounded-xl sm:border sm:border-border sm:p-5",
+        className,
+      )}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <IconTile icon={Clock} size="sm" />
+          <div>
+            <h2 className="font-display text-base font-semibold text-foreground">
+              {TIMELINE_PANEL_COPY.title}
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              {TIMELINE_PANEL_COPY.description}
+            </p>
           </div>
-        ) : null}
-
-        {hasEvents ? (
-          <TimelineEventList
-            events={events}
-            renderActions={readOnly ? undefined : renderActions}
-            className="mt-5"
-          />
-        ) : (
-          <EmptyState
-            icon={Clock}
-            title="No events yet"
-            description={
-              readOnly
-                ? "There is no activity recorded for this application."
-                : "Log interviews, notes, feedback, offers, and rejections to build the story of this application."
-            }
-            action={readOnly ? undefined : emptyAction}
-            className="mt-4 border-none bg-transparent px-0 py-8"
-          />
-        )}
+        </div>
+        {readOnly ? null : action}
       </div>
-    </Card>
+
+      {readOnly ? (
+        <div className="flex items-start gap-2 rounded-lg border border-border bg-surface-elevated px-3 py-2 text-xs text-muted-foreground">
+          <Lock aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+          <span>{readOnlyReason}</span>
+        </div>
+      ) : null}
+
+      {hasEvents ? (
+        <TimelineEventList
+          events={events}
+          renderActions={readOnly ? undefined : renderActions}
+        />
+      ) : (
+        <EmptyState
+          icon={Clock}
+          title="No events yet"
+          description={
+            readOnly
+              ? "There is no activity recorded for this application."
+              : "Log interviews, notes, feedback, offers, and rejections to build the story of this application."
+          }
+          action={readOnly ? undefined : emptyAction}
+          className="border-none bg-transparent px-0 py-8"
+        />
+      )}
+    </section>
   );
 }

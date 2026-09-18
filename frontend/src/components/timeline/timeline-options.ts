@@ -18,10 +18,10 @@
 import type { ComponentType } from "react";
 import {
   BadgeCheck,
-  CalendarClock,
   CircleX,
   MessageSquareText,
   StickyNote,
+  Users,
   type LucideProps,
 } from "lucide-react";
 
@@ -77,7 +77,7 @@ export const EVENT_TYPE_CONFIG: Record<TimelineEventType, EventTypeConfig> = {
   interview: {
     value: "interview",
     label: "Interview",
-    icon: CalendarClock,
+    icon: Users,
     hint: "A scheduled conversation or assessment.",
     badgeClass: "bg-info/15 text-info",
     tileClass: "bg-info/15 text-info ring-info/25",

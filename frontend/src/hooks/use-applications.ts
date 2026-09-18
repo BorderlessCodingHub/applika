@@ -75,8 +75,12 @@ export function useApplications(cycleId?: string | null) {
     queryFn: () => services.applications.getApplications(cycleId),
   });
 
+  // G7: the advanced panel holds `mode`, `platformId` and `dateRange` — not
+  // `status`, which is a toolbar control. Counting `status` here used to make
+  // the sliders button light up on a toolbar-only filter and hide "Clear all"
+  // when only a panel field was set.
   const hasAdvancedFilters =
-    filters.status !== "all" ||
+    filters.mode !== "all" ||
     filters.platformId != null ||
     filters.dateRange != null;
 
@@ -117,6 +121,8 @@ export function useApplications(cycleId?: string | null) {
   return {
     filtered,
     isLoading: query.isLoading,
+    isError: query.isError,
+    refetch: query.refetch,
     filters,
     updateFilter,
     clearFilters,

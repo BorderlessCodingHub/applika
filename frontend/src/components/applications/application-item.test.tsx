@@ -94,6 +94,53 @@ describe("ApplicationItem — open application", () => {
       screen.queryByRole("button", { name: /reopen/i }),
     ).not.toBeInTheDocument();
   });
+
+  it("shows the Active status pill (KODI-015 G1/G2)", () => {
+    renderItem(baseApplication());
+    expect(screen.getByText("Active")).toBeInTheDocument();
+  });
+
+  it("composes accessible names with the role and company (WCAG 2.5.3, KODI-015)", () => {
+    renderItem(baseApplication());
+    expect(
+      screen.getByRole("button", {
+        name: "Edit Backend engineer at Acme",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", {
+        name: "CV for Backend engineer at Acme",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Delete Backend engineer at Acme",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Details for Backend engineer at Acme",
+      }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("ApplicationItem — archived cycle", () => {
+  it("only offers CV and the chevron (page passes undefined handlers)", () => {
+    renderItem(baseApplication(), {
+      onEditClick: undefined,
+      onFinalizeClick: undefined,
+      onDeleteClick: undefined,
+      onReopenClick: undefined,
+    });
+    expect(screen.queryByTitle("Edit")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Close")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Delete")).not.toBeInTheDocument();
+    expect(screen.getByTitle("CV")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /details for/i }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("ApplicationItem — closed application", () => {
@@ -112,6 +159,20 @@ describe("ApplicationItem — closed application", () => {
     ).toBeInTheDocument();
     expect(screen.queryByTitle("Edit")).not.toBeInTheDocument();
     expect(screen.queryByTitle("Close")).not.toBeInTheDocument();
+  });
+
+  it("shows the neutral Closed status pill, not an outcome (KODI-015 G1)", () => {
+    renderItem(
+      baseApplication({
+        finalized: true,
+        finalized_at: "2026-06-10T00:00:00Z",
+      }),
+    );
+    expect(
+      screen.getAllByText(APPLICATION_CLOSED_LABEL).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText("Offer")).not.toBeInTheDocument();
+    expect(screen.queryByText("Denied")).not.toBeInTheDocument();
   });
 
   it("keeps the CV link even when closed", () => {

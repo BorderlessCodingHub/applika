@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
 import type { Application } from "@/services/types/applications";
@@ -10,10 +10,16 @@ import {
 } from "@/hooks/use-applications";
 import { useReopenApplication } from "@/hooks/use-reopen-application";
 import { getApiError } from "@/lib/api-client";
-import { Search, Plus, SlidersHorizontal, X } from "lucide-react";
+import {
+  Briefcase,
+  Plus,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -35,7 +41,12 @@ import {
 import { ApplicationFormSheet } from "@/components/applications/application-form-sheet";
 import { FinalizeDialog } from "@/components/applications/finalize-dialog";
 import { ApplicationItem } from "@/components/applications/application-item";
-import { Card } from "@/components/ui/card";
+import { ApplicationCardSkeleton } from "@/components/applications/application-card-skeleton";
+import {
+  APPLICATIONS_PAGE_COPY,
+  foundApplicationsLabel,
+} from "@/components/applications/application-card-copy";
+import { EmptyState } from "@/components/common/empty-state";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { useCycleContext } from "@/contexts/cycle-context";
 
@@ -49,10 +60,13 @@ export function ApplicationsPage() {
   const {
     filtered,
     isLoading,
+    isError,
+    refetch,
     filters,
     updateFilter,
     clearFilters,
     hasAdvancedFilters,
+    hasAnyFilter,
     supports,
   } = useApplications(selectedCycleId);
   const { deleteApplication } = useApplicationDelete();
@@ -63,6 +77,7 @@ export function ApplicationsPage() {
   });
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [reopeningId, setReopeningId] = useState<string | null>(null);
+  const advancedPanelId = useId();
 
   function handleNewClick() {
     setAppAction({ action: "new", data: undefined });
@@ -97,208 +112,235 @@ export function ApplicationsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground">
-              Applications
+            <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground sm:text-3xl">
+              {APPLICATIONS_PAGE_COPY.title}
             </h1>
-            <p className="mt-0.5 text-base text-muted-foreground">
+            <p className="mt-1 text-base text-muted-foreground">
               {isViewingPastCycle
-                ? "Viewing archived cycle"
-                : `${filtered.length} items`}
+                ? APPLICATIONS_PAGE_COPY.archivedSubtitle
+                : APPLICATIONS_PAGE_COPY.subtitle}
             </p>
           </div>
           {!isViewingPastCycle && (
-            <Button onClick={handleNewClick} size="sm" className="gap-1.5">
-              <Plus className="h-4 w-4" />
-              New Application
+            <Button
+              onClick={handleNewClick}
+              size="lg"
+              className="w-full gap-1.5 sm:w-auto"
+            >
+              <Plus aria-hidden data-icon="inline-start" />
+              {APPLICATIONS_PAGE_COPY.newApplication}
             </Button>
           )}
         </div>
 
-        {/* Filters */}
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-3">
-            <div className="relative min-w-[200px] flex-1">
-              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search company or role…"
-                value={filters.search ?? ""}
-                onChange={(e) =>
-                  updateFilter("search", e.target.value || undefined)
-                }
-                className="pl-9"
-              />
-            </div>
-
-            <Select
-              value={filters.status}
-              onValueChange={(v) =>
-                updateFilter("status", v as typeof filters.status)
+        {/* Toolbar */}
+        <div className="flex flex-wrap gap-3">
+          <div className="relative min-w-0 basis-full sm:flex-1 sm:basis-0">
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              placeholder={APPLICATIONS_PAGE_COPY.searchPlaceholder}
+              aria-label={APPLICATIONS_PAGE_COPY.searchLabel}
+              value={filters.search ?? ""}
+              onChange={(e) =>
+                updateFilter("search", e.target.value || undefined)
               }
-            >
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="finalized">Finalized</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant={
-                showAdvanced || hasAdvancedFilters ? "secondary" : "outline"
-              }
-              size="icon"
-              onClick={() => setShowAdvanced((v) => !v)}
-              title="Advanced filters"
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-            </Button>
+              className="h-11 pl-10"
+            />
           </div>
 
-          {/* Advanced filters */}
-          {showAdvanced && (
-            <Card className="flex animate-fade-in-up flex-wrap items-end gap-4 bg-background p-3">
-              <div className="w-40 space-y-1.5">
-                <Label className="pl-1 text-sm text-muted-foreground">
-                  Source
-                </Label>
+          <Select
+            value={filters.status}
+            onValueChange={(v) =>
+              updateFilter("status", v as typeof filters.status)
+            }
+          >
+            <SelectTrigger
+              aria-label={APPLICATIONS_PAGE_COPY.statusFilterLabel}
+              className="h-11 flex-1 data-[size=default]:h-11 sm:w-44 sm:flex-none"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                {APPLICATIONS_PAGE_COPY.allStatuses}
+              </SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              {/* G6: option label reads "Closed"; the value stays "finalized". */}
+              <SelectItem value="finalized">Closed</SelectItem>
+            </SelectContent>
+          </Select>
 
+          <Button
+            variant={
+              showAdvanced || hasAdvancedFilters ? "secondary" : "outline"
+            }
+            size="icon"
+            className="size-11"
+            onClick={() => setShowAdvanced((v) => !v)}
+            title={APPLICATIONS_PAGE_COPY.advancedFilters}
+            aria-label={APPLICATIONS_PAGE_COPY.advancedFilters}
+            aria-expanded={showAdvanced}
+            aria-controls={advancedPanelId}
+          >
+            <SlidersHorizontal aria-hidden />
+          </Button>
+        </div>
+
+        {/* Advanced filters */}
+        {showAdvanced && (
+          <div
+            id={advancedPanelId}
+            className="grid animate-fade-in-up grid-cols-2 items-end gap-3 rounded-xl border border-border bg-card p-4 shadow-card motion-reduce:animate-none sm:flex sm:flex-wrap"
+          >
+            <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
+              <Label htmlFor="applications-filter-mode">Source</Label>
+              <Select
+                value={filters.mode}
+                onValueChange={(v) =>
+                  updateFilter("mode", v as typeof filters.mode)
+                }
+              >
+                <SelectTrigger id="applications-filter-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All modes</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="passive">Passive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(supports?.platforms?.length ?? 0) > 0 && (
+              <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
+                <Label htmlFor="applications-filter-platform">Platform</Label>
                 <Select
-                  value={filters.mode}
+                  value={
+                    filters.platformId != null ? filters.platformId : "all"
+                  }
                   onValueChange={(v) =>
-                    updateFilter("mode", v as typeof filters.mode)
+                    updateFilter("platformId", v === "all" ? undefined : v)
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="applications-filter-platform">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All modes</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="passive">Passive</SelectItem>
+                    <SelectItem value="all">All platforms</SelectItem>
+                    {supports?.platforms?.map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
+            )}
 
-              {(supports?.platforms?.length ?? 0) > 0 && (
-                <div className="w-40 space-y-1.5">
-                  <Label className="pl-1 text-sm text-muted-foreground">
-                    Platform
-                  </Label>
-                  <Select
-                    value={
-                      filters.platformId != null ? filters.platformId : "all"
-                    }
-                    onValueChange={(v) =>
-                      updateFilter("platformId", v === "all" ? undefined : v)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All platforms</SelectItem>
-                      {supports?.platforms?.map((p) => (
-                        <SelectItem key={p.id} value={String(p.id)}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+            <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
+              <Label htmlFor="applications-filter-from">From</Label>
+              <DatePickerInput
+                id="applications-filter-from"
+                value={filters.dateRange?.start}
+                maxDate={new Date()}
+                onChange={(value) => {
+                  if (!value) {
+                    updateFilter("dateRange", undefined);
+                  } else {
+                    updateFilter("dateRange", {
+                      start: value,
+                      end: filters.dateRange?.end,
+                    });
+                  }
+                }}
+              />
+            </div>
 
-              <div className="w-40 space-y-1.5">
-                <Label className="pl-1 text-sm text-muted-foreground">
-                  From
-                </Label>
-                <DatePickerInput
-                  value={filters.dateRange?.start}
-                  maxDate={new Date()}
-                  onChange={(value) => {
-                    if (!value) {
-                      updateFilter("dateRange", undefined);
-                    } else {
-                      updateFilter("dateRange", {
-                        start: value,
-                        end: filters.dateRange?.end,
-                      });
-                    }
-                  }}
-                />
-              </div>
+            <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
+              <Label htmlFor="applications-filter-to">To</Label>
+              <DatePickerInput
+                id="applications-filter-to"
+                value={filters.dateRange?.end}
+                maxDate={new Date()}
+                onChange={(value) => {
+                  if (!value) {
+                    updateFilter("dateRange", undefined);
+                  } else {
+                    updateFilter("dateRange", {
+                      start: filters.dateRange?.start,
+                      end: value,
+                    });
+                  }
+                }}
+              />
+            </div>
 
-              <div className="w-40 space-y-1.5">
-                <Label className="pl-1 text-sm text-muted-foreground">To</Label>
-                <DatePickerInput
-                  value={filters.dateRange?.end}
-                  maxDate={new Date()}
-                  onChange={(value) => {
-                    if (!value) {
-                      updateFilter("dateRange", undefined);
-                    } else {
-                      updateFilter("dateRange", {
-                        start: filters.dateRange?.start,
-                        end: value,
-                      });
-                    }
-                  }}
-                />
-              </div>
-
-              {hasAdvancedFilters && (
-                <Button
-                  variant="secondary"
-                  onClick={clearFilters}
-                  className="gap-1.5 text-muted-foreground"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Clear all
-                </Button>
-              )}
-            </Card>
-          )}
-        </div>
+            {hasAdvancedFilters && (
+              <Button
+                variant="ghost"
+                onClick={clearFilters}
+                className="col-span-2 gap-1.5 text-muted-foreground sm:col-span-1"
+              >
+                <X aria-hidden data-icon="inline-start" />
+                {APPLICATIONS_PAGE_COPY.clearFilters}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* List */}
-      {isLoading ? (
-        <div className="space-y-2">
+      {isError ? (
+        <EmptyState
+          icon={RefreshCw}
+          title="We couldn't load applications"
+          description="Something went wrong fetching your applications."
+          action={
+            <Button onClick={() => void refetch()}>
+              <RefreshCw aria-hidden />
+              Retry
+            </Button>
+          }
+        />
+      ) : isLoading ? (
+        <div aria-busy="true" className="flex flex-col gap-4">
           {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-16 rounded-xl" />
+            <ApplicationCardSkeleton key={i} />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border-2 border-dashed border-border p-12 text-center">
-          <p className="pl-1 text-sm text-muted-foreground">
-            No applications found
-          </p>
-          <Button
-            onClick={handleNewClick}
-            variant="outline"
-            size="sm"
-            className="mt-3 gap-1.5"
-          >
-            <Plus className="h-4 w-4" /> Create your first application
-          </Button>
-        </div>
+        <EmptyState
+          icon={Briefcase}
+          title={APPLICATIONS_PAGE_COPY.emptyTitle}
+          action={
+            !isViewingPastCycle && !hasAnyFilter ? (
+              <Button onClick={handleNewClick} variant="outline">
+                <Plus aria-hidden data-icon="inline-start" />
+                {APPLICATIONS_PAGE_COPY.emptyAction}
+              </Button>
+            ) : hasAnyFilter ? (
+              <Button variant="ghost" onClick={clearFilters}>
+                {APPLICATIONS_PAGE_COPY.clearFilters}
+              </Button>
+            ) : null
+          }
+        />
       ) : (
         <>
-          <div className="mb-4 text-sm text-muted-foreground">
-            Found {filtered.length} application
-            {filtered.length !== 1 ? "s" : ""}
-          </div>
-          <div className="space-y-3">
-            {filtered.map((app) => {
-              return (
+          <p className="text-sm text-muted-foreground">
+            {foundApplicationsLabel(filtered.length)}
+          </p>
+          <ul className="flex flex-col gap-4">
+            {filtered.map((app) => (
+              <li key={app.id}>
                 <ApplicationItem
-                  key={app.id}
                   app={app}
                   onEditClick={isViewingPastCycle ? undefined : handleEditClick}
                   onFinalizeClick={
@@ -314,9 +356,9 @@ export function ApplicationsPage() {
                     reopeningId === app.id && reopenApplication.isPending
                   }
                 />
-              );
-            })}
-          </div>
+              </li>
+            ))}
+          </ul>
         </>
       )}
 

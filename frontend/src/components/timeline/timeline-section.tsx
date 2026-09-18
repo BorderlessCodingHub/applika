@@ -2,26 +2,23 @@
 
 import { useMemo, useState } from "react";
 import { isAxiosError } from "axios";
-import { MoreHorizontal, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Clock, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
+import { IconTile } from "@/components/applications/icon-tile";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { EmptyState } from "@/components/common/empty-state";
-import { TIMELINE_READ_ONLY_COPY } from "@/components/timeline/timeline-copy";
+import { TimelineEventActionsMenu } from "@/components/timeline/timeline-event-actions-menu";
+import {
+  TIMELINE_PANEL_COPY,
+  TIMELINE_READ_ONLY_COPY,
+} from "@/components/timeline/timeline-copy";
 import { TimelineEventForm } from "@/components/timeline/timeline-event-form";
 import { formatEventDate } from "@/components/timeline/timeline-format";
 import { stageLabel } from "@/components/timeline/timeline-options";
 import { TimelinePanel } from "@/components/timeline/timeline-panel";
 import { type TimelineEventView } from "@/components/timeline/timeline-types";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCycleContext } from "@/contexts/cycle-context";
 import { useDeleteTimelineEvent } from "@/hooks/use-delete-timeline-event";
@@ -113,20 +110,40 @@ export function TimelineSection({
 
   if (isPending) {
     return (
-      <Card className={cn("gap-0 p-5", className)}>
-        <Skeleton className="h-5 w-24" />
-        <Skeleton className="mt-5 h-24 w-full rounded-lg" />
-        <Skeleton className="mt-4 h-24 w-full rounded-lg" />
-      </Card>
+      <section
+        aria-busy="true"
+        className={cn(
+          "flex flex-col gap-4 sm:rounded-xl sm:border sm:border-border sm:p-5",
+          className,
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <Skeleton className="size-10 shrink-0 rounded-lg" />
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-3 w-64 max-w-full" />
+          </div>
+        </div>
+        <Skeleton className="h-[4.25rem] w-full rounded-lg" />
+        <Skeleton className="h-[4.25rem] w-full rounded-lg" />
+      </section>
     );
   }
 
   if (isError) {
     return (
-      <Card className={cn("gap-0 p-5", className)}>
-        <h2 className="font-display text-sm font-semibold text-foreground">
-          Timeline
-        </h2>
+      <section
+        className={cn(
+          "flex flex-col gap-4 sm:rounded-xl sm:border sm:border-border sm:p-5",
+          className,
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <IconTile icon={Clock} size="sm" />
+          <h2 className="font-display text-base font-semibold text-foreground">
+            {TIMELINE_PANEL_COPY.title}
+          </h2>
+        </div>
         <EmptyState
           icon={RefreshCw}
           title="We couldn't load the timeline"
@@ -145,16 +162,16 @@ export function TimelineSection({
               Retry
             </Button>
           }
-          className="mt-4 border-none bg-transparent px-0 py-8"
+          className="border-none bg-transparent px-0 py-8"
         />
-      </Card>
+      </section>
     );
   }
 
   const addButton = (
-    <Button size="sm" onClick={openCreate}>
+    <Button size="sm" onClick={openCreate} className="w-full sm:w-auto">
       <Plus aria-hidden />
-      Add event
+      {TIMELINE_PANEL_COPY.addEvent}
     </Button>
   );
 
@@ -168,32 +185,11 @@ export function TimelineSection({
         action={addButton}
         emptyAction={addButton}
         renderActions={(event) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-7"
-                aria-label={`Event actions: ${stageLabel(event.type, event.interviewType)}, ${formatEventDate(event.eventDate) ?? event.eventDate}`}
-              >
-                <MoreHorizontal aria-hidden />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => openEdit(event)}>
-                <Pencil aria-hidden />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                onSelect={() => setDeleteTarget(event)}
-              >
-                <Trash2 aria-hidden />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <TimelineEventActionsMenu
+            label={`Event actions: ${stageLabel(event.type, event.interviewType)}, ${formatEventDate(event.eventDate) ?? event.eventDate}`}
+            onEdit={() => openEdit(event)}
+            onDelete={() => setDeleteTarget(event)}
+          />
         )}
       />
 
