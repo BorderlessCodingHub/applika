@@ -676,7 +676,7 @@ test("a finalized application's CV copy is readable but locked", async ({
   await page.goto(`/applications/cv?id=${applicationId}`);
 
   // AC10 — refused, and said out loud rather than left to a failed click.
-  await expect(page.getByText("This application is finalized")).toBeVisible();
+  await expect(page.getByText("This application is closed.")).toBeVisible();
 
   // Still READABLE: the whole copy is on screen, just not editable.
   const label = page.getByLabel("CV label", { exact: true });
@@ -1116,8 +1116,10 @@ test("the CV pages spend the whole shell width (AC5)", async ({
 
   await loginAs(page, "user");
   // Wider than `max-w-7xl`, or the reading column would not bind and there
-  // would be no dead space to remove.
-  await page.setViewportSize({ width: 1600, height: 900 });
+  // would be no dead space to remove. 1920px (Recommended, owner-ordered
+  // KODI-013 addendum) so the >100px dead-space precondition holds reliably;
+  // this widens only the viewport this test runs at, never the layout itself.
+  await page.setViewportSize({ width: 1920, height: 1080 });
 
   await page.goto("/applications");
   await expect(
@@ -1126,7 +1128,7 @@ test("the CV pages spend the whole shell width (AC5)", async ({
   const capped = await contentGeometry(page);
   expect(
     capped.dead,
-    "the reading column does not bind at 1600px, so this test proves nothing",
+    "the reading column does not bind at 1920px, so this test proves nothing",
   ).toBeGreaterThan(100);
 
   for (const route of [
