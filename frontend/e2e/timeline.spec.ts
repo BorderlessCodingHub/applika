@@ -116,6 +116,10 @@ test.describe("Timeline: add events, close, reopen", () => {
 
     await loginAs(page, "user");
     await page.goto("/applications");
+
+    // KODI-015 G1/G2: an open application shows the "Active" status pill.
+    await expect(page.getByText("Active", { exact: true })).toBeVisible();
+
     await openRow(page, role);
 
     await expect(
@@ -185,7 +189,9 @@ test.describe("Timeline: add events, close, reopen", () => {
     await expect(page.getByText(noteText)).toBeVisible({ timeout: 15_000 });
 
     // ---- Close with no outcome: the confirmation says "reversible" -------
-    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: `Close ${role} at ${company}`, exact: true })
+      .click();
     const closeDialog = page.getByRole("alertdialog");
     await expect(closeDialog).toBeVisible();
     await expect(closeDialog.getByText(/reversible/i)).toBeVisible();
@@ -248,7 +254,9 @@ test.describe("Timeline: add events, close, reopen", () => {
     await page.goto("/applications");
     await openRow(page, role);
 
-    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: `Close ${role} at ${company}`, exact: true })
+      .click();
     const closeDialog = page.getByRole("alertdialog");
     await expect(closeDialog).toBeVisible();
     await expect(closeDialog.getByText(/reversible/i)).toBeVisible();
@@ -332,7 +340,38 @@ test.describe("Timeline: denied reason (AC4, KODI-014)", () => {
     // The reason badge's visible text is "Ghosted", preceded by a sr-only
     // "Reason: " prefix in the same element (same pattern as the interview
     // type badge above) — not an exact match on "Ghosted" alone.
-    await expect(page.getByText(/reason:\s*ghosted/i)).toBeVisible();
+    await expect(page.getByText(/feedback:\s*ghosted/i)).toBeVisible();
+  });
+
+  test("hides the Feedback title line when the denied reason is left Unknown (G3, KODI-015)", async ({
+    page,
+    request,
+  }) => {
+    const stamp = Date.now();
+    const role = `Denied Unknown Engineer ${stamp}`;
+    const company = `Denied Unknown Co ${stamp}`;
+    await seedApplication(request, role, company);
+
+    await loginAs(page, "user");
+    await page.goto("/applications");
+    await openRow(page, role);
+
+    await page
+      .getByRole("button", { name: /add event/i })
+      .first()
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Add event" });
+    await expect(dialog).toBeVisible();
+
+    await dialog.getByRole("radio", { name: "Denied", exact: true }).click();
+    // Leave the reason select at its default (Unknown).
+    await dialog.getByRole("button", { name: /add event/i }).click();
+    await expect(dialog).toBeHidden({ timeout: 15_000 });
+
+    await expect(page.getByText("Denied", { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText(/feedback:/i)).toHaveCount(0);
   });
 
   test("closes with a denied outcome and a reason", async ({
@@ -348,7 +387,9 @@ test.describe("Timeline: denied reason (AC4, KODI-014)", () => {
     await page.goto("/applications");
     await openRow(page, role);
 
-    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await page
+      .getByRole("button", { name: `Close ${role} at ${company}`, exact: true })
+      .click();
     const closeDialog = page.getByRole("alertdialog");
     await expect(closeDialog).toBeVisible();
 
@@ -372,7 +413,7 @@ test.describe("Timeline: denied reason (AC4, KODI-014)", () => {
       timeout: 15_000,
     });
     await expect(page.getByText("Denied", { exact: true })).toBeVisible();
-    await expect(page.getByText(/reason:\s*position filled/i)).toBeVisible();
+    await expect(page.getByText(/feedback:\s*position filled/i)).toBeVisible();
   });
 });
 

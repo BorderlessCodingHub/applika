@@ -588,7 +588,9 @@ test("an application's CV copy is picked, tailored, deleted and picked again", a
   await page.goto("/applications");
 
   // ---- AC8: the job description is written on the application form -----
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page
+    .getByRole("button", { name: `Edit ${ROLE} at ${COMPANY}`, exact: true })
+    .click();
   const sheet = page.getByRole("dialog", { name: "Edit Application" });
   await sheet.getByLabel("Job description").fill(JOB_DESCRIPTION);
   await sheet.getByRole("button", { name: "Save changes" }).click();
