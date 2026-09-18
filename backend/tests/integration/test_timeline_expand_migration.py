@@ -1843,13 +1843,15 @@ def _release_b_code_writes(url: str) -> dict[str, Any]:
             )
 
         # APP_FRESH: a note and a technical interview on the web, then an
-        # installed CLI finalizes it with the 0.1.4 body.
+        # installed CLI finalizes it with the 0.1.4 body. The long timezone
+        # sits on the interview, not the note - KODI-016 (R-038/R-039)
+        # refuses a schedule on a non-interview event, even at this
+        # pre-R4 schema state (the rule lives in the use case, not the DB).
         note = await create.execute(
             event(
                 APP_FRESH,
                 date(2025, 8, 20),
                 event_type=EventType.NOTE,
-                timezone=LONG_TIMEZONE,
                 observation='Recruiter pinged',
             )
         )
@@ -1859,6 +1861,7 @@ def _release_b_code_writes(url: str) -> dict[str, Any]:
                 date(2025, 8, 21),
                 event_type=EventType.INTERVIEW,
                 interview_type=InterviewType.TECHNICAL,
+                timezone=LONG_TIMEZONE,
             )
         )
         await LegacyFinalizeApplicationUseCase(
@@ -1979,9 +1982,9 @@ def test_release_b_code_runs_on_r1_and_rolls_back_with_its_data(
     steps_back = _step_rows(migration_db)
     apps = _app_rows(migration_db)
     assert steps_back[written['note']]['step_id'] == steps['Phase 2']
-    assert steps_back[written['note']]['timezone'] == LONG_TIMEZONE
     assert steps_back[written['note']]['observation'] == 'Recruiter pinged'
     assert steps_back[written['tech']]['step_id'] == steps['Phase 2']
+    assert steps_back[written['tech']]['timezone'] == LONG_TIMEZONE
     assert steps_back[written['denied']]['step_id'] == steps['Denied']
     assert steps_back[written['phase_3']]['step_id'] == steps['Phase 2']
     assert steps_back[offer[0]['id']]['step_id'] == steps['Offer']

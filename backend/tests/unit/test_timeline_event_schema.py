@@ -212,10 +212,16 @@ def test_unknown_denied_reason_value_is_rejected(schema):
 # -- Scheduling -----------------------------------------------------------------
 
 
+def _interview_body(**overrides: object) -> dict:
+    data: dict = {'event_type': 'interview', 'event_date': '2026-07-01'}
+    data.update(overrides)
+    return data
+
+
 @pytest.mark.parametrize('schema', WRITE_SCHEMAS)
 def test_scheduled_event_with_valid_range_is_valid(schema):
     model = schema(
-        **_note_body(
+        **_interview_body(
             start_time='09:00', end_time='10:00', timezone='Europe/London'
         )
     )
@@ -230,7 +236,7 @@ def test_scheduled_event_with_valid_range_is_valid(schema):
 )
 def test_scheduling_requires_both_times(schema, partial):
     with pytest.raises(ValidationError):
-        schema(**_note_body(**partial))
+        schema(**_interview_body(**partial))
 
 
 @pytest.mark.parametrize('schema', WRITE_SCHEMAS)
@@ -239,7 +245,53 @@ def test_scheduling_requires_both_times(schema, partial):
 )
 def test_end_time_must_be_after_start_time(schema, start, end):
     with pytest.raises(ValidationError):
-        schema(**_note_body(start_time=start, end_time=end))
+        schema(**_interview_body(start_time=start, end_time=end))
+
+
+# -- Schedule only on interview (KODI-016, R-038/R-039, the same pattern) ---
+
+
+@pytest.mark.parametrize('schema', WRITE_SCHEMAS)
+@pytest.mark.parametrize('event_type', ['note', 'feedback', 'offer', 'denied'])
+@pytest.mark.parametrize(
+    'field',
+    [
+        {'start_time': '09:00', 'end_time': '10:00'},
+        {'timezone': 'Europe/London'},
+    ],
+)
+def test_schedule_on_non_interview_is_rejected(schema, event_type, field):
+    body = (
+        _offer_body(**field)
+        if event_type == 'offer'
+        else _note_body(event_type=event_type, **field)
+    )
+    with pytest.raises(ValidationError, match='only allowed on interview'):
+        schema(**body)
+
+
+@pytest.mark.parametrize('schema', WRITE_SCHEMAS)
+@pytest.mark.parametrize('event_type', ['note', 'feedback', 'denied'])
+def test_explicit_null_schedule_on_non_interview_is_valid(schema, event_type):
+    model = schema(
+        **_note_body(
+            event_type=event_type,
+            start_time=None,
+            end_time=None,
+            timezone=None,
+        )
+    )
+    assert model.start_time is None
+    assert model.end_time is None
+    assert model.timezone is None
+
+
+@pytest.mark.parametrize('schema', WRITE_SCHEMAS)
+def test_absent_schedule_keys_on_non_interview_is_valid(schema):
+    model = schema(**_note_body())
+    assert model.start_time is None
+    assert model.end_time is None
+    assert model.timezone is None
 
 
 # -- Field hygiene ----------------------------------------------------------------
@@ -267,9 +319,9 @@ def test_salary_amount_beyond_numeric_12_2_is_rejected(schema):
 
 @pytest.mark.parametrize('schema', WRITE_SCHEMAS)
 def test_timezone_is_at_most_100_characters(schema):
-    assert schema(**_note_body(timezone='x' * 100)).timezone
+    assert schema(**_interview_body(timezone='x' * 100)).timezone
     with pytest.raises(ValidationError):
-        schema(**_note_body(timezone='x' * 101))
+        schema(**_interview_body(timezone='x' * 101))
 
 
 @pytest.mark.parametrize('schema', WRITE_SCHEMAS)
@@ -339,3 +391,107 @@ def test_out_serializes_the_denied_reason():
     })
     dumped = out.model_dump(mode='json')
     assert dumped['denied_reason'] == 'salary_mismatch'
+
+
+# -- Schedule omitted on non-interview (KODI-016, R-038/R-039) --------------
+
+
+@pytest.mark.parametrize('event_type', ['note', 'feedback', 'offer', 'denied'])
+def test_out_omits_schedule_keys_for_non_interview(event_type):
+    payload = {
+        'id': 1,
+        'application_id': 2,
+        'user_id': 3,
+        'event_type': event_type,
+        'event_date': date(2026, 7, 1),
+        'created_at': '2026-07-01T12:00:00Z',
+    }
+    if event_type == 'offer':
+        payload.update(
+            salary_period=SalaryPeriod.MONTHLY,
+            salary_amount=1000,
+            salary_currency=Currency.USD,
+        )
+    if event_type == 'denied':
+        payload['denied_reason'] = DeniedReason.UNKNOWN
+    out = TimelineEventOut.model_validate(payload)
+    dumped = out.model_dump(mode='json')
+    assert 'start_time' not in dumped
+    assert 'end_time' not in dumped
+    assert 'timezone' not in dumped
+
+
+def test_out_keeps_schedule_keys_for_interview():
+    out = TimelineEventOut.model_validate({
+        'id': 1,
+        'application_id': 2,
+        'user_id': 3,
+        'event_type': EventType.INTERVIEW,
+        'interview_type': InterviewType.TECHNICAL,
+        'event_date': date(2026, 7, 1),
+        'start_time': '09:00',
+        'end_time': '10:00',
+        'timezone': 'Europe/London',
+        'created_at': '2026-07-01T12:00:00Z',
+    })
+    dumped = out.model_dump(mode='json')
+    assert dumped['start_time'] == '09:00:00'
+    assert dumped['end_time'] == '10:00:00'
+    assert dumped['timezone'] == 'Europe/London'
+
+
+def test_out_serialization_schema_still_lists_every_field():
+    """A ``@model_serializer`` makes Pydantic unable to statically infer the
+    output shape, which by default degrades the *serialization*-mode JSON
+    schema (the one FastAPI builds for ``response_model``) to an opaque
+    ``{"type": "object", "additionalProperties": true}`` - losing every
+    field's type and the ``required`` list the pinned contract cares about.
+    ``TimelineEventOut.__get_pydantic_json_schema__`` works around it by
+    building the schema from the inner (unwrapped) model-fields core
+    schema instead. This pins that the OpenAPI schema stays fully typed."""
+    schema = TimelineEventOut.model_json_schema(mode='serialization')
+    assert 'additionalProperties' not in schema
+    assert set(schema['properties']) == {
+        'id',
+        'application_id',
+        'user_id',
+        'event_type',
+        'interview_type',
+        'denied_reason',
+        'event_date',
+        'start_time',
+        'end_time',
+        'timezone',
+        'observation',
+        'salary_period',
+        'salary_amount',
+        'salary_currency',
+        'created_at',
+        'updated_at',
+    }
+    assert set(schema['required']) == {
+        'id',
+        'application_id',
+        'user_id',
+        'event_type',
+        'event_date',
+        'created_at',
+    }
+    for field in ('start_time', 'end_time', 'timezone'):
+        assert field not in schema['required']
+
+
+def test_out_keeps_null_schedule_keys_for_unscheduled_interview():
+    out = TimelineEventOut.model_validate({
+        'id': 1,
+        'application_id': 2,
+        'user_id': 3,
+        'event_type': EventType.INTERVIEW,
+        'interview_type': InterviewType.TECHNICAL,
+        'event_date': date(2026, 7, 1),
+        'created_at': '2026-07-01T12:00:00Z',
+    })
+    dumped = out.model_dump(mode='json')
+    assert dumped['start_time'] is None
+    assert dumped['end_time'] is None
+    assert dumped['timezone'] is None

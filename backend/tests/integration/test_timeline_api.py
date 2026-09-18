@@ -48,6 +48,9 @@ EVENT_KEYS = {
     'created_at',
     'updated_at',
 }
+# KODI-016 (R-038/R-039): a non-interview event's response omits the three
+# schedule keys entirely (not null - absent).
+EVENT_KEYS_NON_INTERVIEW = EVENT_KEYS - {'start_time', 'end_time', 'timezone'}
 
 
 def _note(**overrides: object) -> dict:
@@ -132,7 +135,7 @@ async def test_full_crud_round_trip(
     create = await async_client.post(BASE, json=_note(observation='kickoff'))
     assert create.status_code == 201, create.text
     body = create.json()
-    assert set(body) == EVENT_KEYS
+    assert set(body) == EVENT_KEYS_NON_INTERVIEW
     event_id = body['id']
     assert isinstance(body['id'], str)
     assert body['application_id'] == '1'
@@ -167,24 +170,31 @@ async def test_full_crud_round_trip(
 async def test_put_is_a_full_replacement(
     async_client: AsyncClient, db_session: AsyncSession
 ):
+    # KODI-016: the schedule is interview-only, so the "full body" this PUT
+    # replaces from is an interview - the switch to note below both drops
+    # observation (the original rule this test pins) and the schedule.
     await ts.seed_open_application(db_session)
     created = await async_client.post(
         BASE,
-        json=_note(
+        json=_interview(
+            'technical',
             observation='x',
             timezone='UTC',
             start_time='09:00',
             end_time='10:00',
         ),
     )
+    assert created.status_code == 201, created.text
 
     put = await async_client.put(f'{BASE}/{created.json()["id"]}', json=_note())
 
     assert put.status_code == 200
     body = put.json()
     assert body['observation'] is None
-    assert body['timezone'] is None
-    assert body['start_time'] is None
+    # A non-interview event's response omits the schedule keys entirely.
+    assert 'timezone' not in body
+    assert 'start_time' not in body
+    assert 'end_time' not in body
 
 
 @pytest.mark.parametrize('event_type', ['note', 'feedback', 'denied'])
@@ -216,6 +226,8 @@ async def test_list_is_ordered_by_date_then_start_time_nulls_first(
         ts.event(
             2,
             event_date=date(2025, 12, 4),
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
             start_time=datetime(2025, 1, 1, 15).time(),
             end_time=datetime(2025, 1, 1, 16).time(),
         ),

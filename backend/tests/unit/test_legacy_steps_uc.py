@@ -154,6 +154,33 @@ async def test_add_offer_step_gets_decision_b_salary():
     assert values['salary_period'] is SalaryPeriod.HOURLY
 
 
+async def test_add_non_interview_step_with_times_drops_them_never_422():
+    """KODI-016 (R-038/R-039): a 0.1.4 client always sends
+    start_time/end_time/timezone; a step mapping to a non-interview event
+    stores none of them, silently - never a 422
+    (``.claude/rules/cli-compatibility.md``)."""
+    repos = _repos()
+    result = await CreateLegacyStepUseCase(*repos).execute(
+        10,
+        1,
+        _body(
+            step_id=7,  # Verbal offer -> offer, not interview.
+            start_time=time(9),
+            end_time=time(10),
+            timezone='UTC',
+        ),
+    )
+
+    values = repos[2].create.call_args.args[0]
+    assert values['event_type'] is EventType.OFFER
+    assert 'start_time' not in values or values['start_time'] is None
+    assert 'end_time' not in values or values['end_time'] is None
+    assert 'timezone' not in values or values['timezone'] is None
+    assert result.start_time is None
+    assert result.end_time is None
+    assert result.timezone is None
+
+
 async def test_add_second_initial_screening_is_409():
     repos = _repos(screening=True)
     with pytest.raises(ResourceConflict):
@@ -242,6 +269,42 @@ async def test_edit_offer_to_interview_drops_the_salary():
     assert changes['event_type'] is IV
     assert changes['salary_amount'] is None
     assert changes['salary_currency'] is None
+
+
+async def test_edit_interview_to_a_non_interview_step_drops_the_schedule():
+    """KODI-016 (R-038/R-039): same as the create path - never a 422, the
+    schedule is silently dropped once the event stops being an interview."""
+    event = make_event(
+        id=42,
+        application_id=10,
+        event_type=IV,
+        interview_type=InterviewType.TECHNICAL,
+        start_time=time(9),
+        end_time=time(10),
+        timezone='UTC',
+    )
+    repos = _repos(event=event)
+
+    result = await UpdateLegacyStepUseCase(*repos).execute(
+        42,
+        10,
+        1,
+        _body(
+            step_id=7,  # Verbal offer -> offer, not interview.
+            start_time=time(9),
+            end_time=time(10),
+            timezone='UTC',
+        ),
+    )
+
+    changes = repos[2].update.call_args.args[1]
+    assert changes['event_type'] is EventType.OFFER
+    assert 'start_time' not in changes or changes['start_time'] is None
+    assert 'end_time' not in changes or changes['end_time'] is None
+    assert 'timezone' not in changes or changes['timezone'] is None
+    assert result.start_time is None
+    assert result.end_time is None
+    assert result.timezone is None
 
 
 async def test_edit_offer_to_another_offer_step_keeps_the_salary():

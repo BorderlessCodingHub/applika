@@ -61,12 +61,23 @@ async def test_agenda_lists_events_inside_the_default_window(
 async def test_agenda_respects_explicit_from_and_to_date(
     async_client: AsyncClient, db_session: AsyncSession
 ):
+    # KODI-016: the agenda is interview events only.
     await ts.seed(
         db_session,
         *ts.catalog(),
         ts.application(),
-        ts.event(1, event_date=TODAY + timedelta(days=2)),
-        ts.event(2, event_date=TODAY + timedelta(days=50)),
+        ts.event(
+            1,
+            event_date=TODAY + timedelta(days=2),
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
+        ),
+        ts.event(
+            2,
+            event_date=TODAY + timedelta(days=50),
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
+        ),
     )
 
     response = await async_client.get(
@@ -84,19 +95,41 @@ async def test_agenda_respects_explicit_from_and_to_date(
 async def test_agenda_is_ordered_by_date_then_start_time_unscheduled_last(
     async_client: AsyncClient, db_session: AsyncSession
 ):
+    # KODI-016: the agenda is interview events only, so every seeded row
+    # here is an interview (only interview events may carry a schedule).
     day = TODAY + timedelta(days=1)
     await ts.seed(
         db_session,
         *ts.catalog(),
         ts.application(),
         ts.event(
-            1, event_date=day, start_time=time(15, 0), end_time=time(16, 0)
+            1,
+            event_date=day,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
+            start_time=time(15, 0),
+            end_time=time(16, 0),
         ),
-        ts.event(2, event_date=day),  # unscheduled: no start_time
         ts.event(
-            3, event_date=day, start_time=time(9, 0), end_time=time(9, 30)
+            2,
+            event_date=day,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
+        ),  # unscheduled: no start_time
+        ts.event(
+            3,
+            event_date=day,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
+            start_time=time(9, 0),
+            end_time=time(9, 30),
         ),
-        ts.event(4, event_date=day - timedelta(days=1)),
+        ts.event(
+            4,
+            event_date=day - timedelta(days=1),
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
+        ),
     )
 
     response = await async_client.get('/users/me/agenda')
@@ -107,23 +140,61 @@ async def test_agenda_is_ordered_by_date_then_start_time_unscheduled_last(
 async def test_agenda_is_scoped_to_the_acting_user(
     async_client: AsyncClient, db_session: AsyncSession
 ):
+    # KODI-016: the agenda is interview events only.
     await ts.seed(
         db_session,
         *ts.catalog(),
         ts.application(),
-        ts.event(1, event_date=TODAY + timedelta(days=1)),
+        ts.event(
+            1,
+            event_date=TODAY + timedelta(days=1),
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
+        ),
         ts.application(id=77, user_id=ts.OTHER_USER_ID),
         ts.event(
             2,
             application_id=77,
             user_id=ts.OTHER_USER_ID,
             event_date=TODAY + timedelta(days=1),
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
         ),
     )
 
     response = await async_client.get('/users/me/agenda')
 
     assert [item['id'] for item in response.json()] == ['1']
+
+
+async def test_agenda_excludes_non_interview_events(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """KODI-016 (R-038/R-039): a non-interview event carries no schedule
+    any more, so the agenda - once the steps agenda's window/order for
+    scheduled entries - now shows interview events only."""
+    day = TODAY + timedelta(days=1)
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        ts.application(),
+        ts.event(1, event_date=day, event_type=EventType.NOTE),
+        ts.event(
+            2, event_date=day, event_type=EventType.OFFER, **ts.offer_salary()
+        ),
+        ts.event(3, event_date=day, event_type=EventType.DENIED),
+        ts.event(
+            4,
+            event_date=day,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
+        ),
+    )
+
+    response = await async_client.get('/users/me/agenda')
+
+    assert response.status_code == 200, response.text
+    assert [item['id'] for item in response.json()] == ['4']
 
 
 async def test_agenda_empty_returns_empty_list(

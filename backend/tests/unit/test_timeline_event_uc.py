@@ -44,6 +44,7 @@ from app.application.use_cases.timeline_events.rules import (
     INTERVIEW_TYPE_ONLY_ON_INTERVIEW,
     OFFER_NEEDS_SALARY,
     SALARY_ONLY_ON_OFFER,
+    SCHEDULE_ONLY_ON_INTERVIEW,
     TIMES_TOGETHER,
     normalize_event,
 )
@@ -269,6 +270,7 @@ def test_end_must_be_after_start(start, end):
 def test_a_scheduled_event_with_timezone_and_observation_is_valid():
     result = normalize_event(
         _update_dto(
+            event_type='interview',
             start_time=time(9),
             end_time=time(10, 30),
             timezone='America/Sao_Paulo',
@@ -277,6 +279,56 @@ def test_a_scheduled_event_with_timezone_and_observation_is_valid():
     )
     assert (result.start_time, result.end_time) == (time(9), time(10, 30))
     assert result.timezone == 'America/Sao_Paulo'
+
+
+# -- Schedule only on interview (KODI-016, R-038/R-039, same pattern) -------
+
+
+@pytest.mark.parametrize('event_type', ['note', 'feedback', 'offer', 'denied'])
+@pytest.mark.parametrize(
+    'field',
+    [
+        {'start_time': time(9), 'end_time': time(10)},
+        {'timezone': 'America/Sao_Paulo'},
+    ],
+)
+def test_schedule_on_a_non_interview_is_refused(event_type, field):
+    overrides = {'event_type': event_type, **field}
+    if event_type == 'offer':
+        overrides.update(OFFER_SALARY)
+    with pytest.raises(BusinessRuleViolation) as exc:
+        normalize_event(_update_dto(**overrides))
+    assert str(exc.value) == SCHEDULE_ONLY_ON_INTERVIEW
+
+
+@pytest.mark.parametrize('event_type', ['note', 'feedback', 'denied'])
+def test_explicit_null_schedule_on_non_interview_is_accepted(event_type):
+    result = normalize_event(
+        _update_dto(
+            event_type=event_type,
+            start_time=None,
+            end_time=None,
+            timezone=None,
+        )
+    )
+    assert result.start_time is None
+    assert result.end_time is None
+    assert result.timezone is None
+
+
+def test_interview_changed_to_note_must_drop_the_schedule():
+    """Same shape as ``test_offer_changed_to_interview_must_drop_the_
+    salary``/``test_denied_changed_to_note_must_drop_the_reason``: a PUT
+    that changes an event's type away from interview must clear the
+    schedule in the same request, never leave it dangling for the
+    database CHECK to catch."""
+    with pytest.raises(BusinessRuleViolation) as exc:
+        normalize_event(
+            _update_dto(
+                event_type='note', start_time=time(9), end_time=time(10)
+            )
+        )
+    assert str(exc.value) == SCHEDULE_ONLY_ON_INTERVIEW
 
 
 async def test_no_date_order_rule_against_application_or_previous_event():

@@ -659,8 +659,20 @@ async def test_create_step_invalid_time_ranges_return_422(
 async def test_update_step_with_both_times_succeeds(
     async_client: AsyncClient, db_session: AsyncSession
 ):
+    # KODI-016: the schedule is interview-only, so the event has to already
+    # be the interview STEP_PHASE_2 maps to (the 0.1.4 "resend the reverse
+    # step, keep the event's own type" branch keeps it interview here -
+    # see ``test_update_step_of_different_reverse_type_drops_the_schedule``
+    # for a step whose reverse type is not interview).
     await _seed_app_and_steps(db_session)
-    await ts.seed(db_session, ts.event(61))
+    await ts.seed(
+        db_session,
+        ts.event(
+            61,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
+        ),
+    )
 
     payload = {
         'step_id': str(ts.STEP_PHASE_2),
@@ -674,6 +686,33 @@ async def test_update_step_with_both_times_succeeds(
     data = response.json()
     assert data['start_time'] == '09:00:00', msg('09:00:00', data['start_time'])
     assert data['end_time'] == '10:00:00', msg('10:00:00', data['end_time'])
+
+
+async def test_update_step_of_a_non_interview_kind_drops_the_schedule(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """KODI-016 (R-038/R-039): a 0.1.4 client always sends times; when the
+    event stays (or becomes) a non-interview kind, the compat route stores
+    it without them, silently, never a 422
+    (``.claude/rules/cli-compatibility.md``)."""
+    await _seed_app_and_steps(db_session)
+    await ts.seed(db_session, ts.event(61, event_type=EventType.NOTE))
+
+    payload = {
+        # NOTE's own reverse step is Phase 2, so resending it keeps the
+        # event a note (the same "keep what it is" branch above) - and a
+        # note is refused a schedule.
+        'step_id': str(ts.STEP_PHASE_2),
+        'step_date': '2025-12-05',
+        'start_time': '09:00',
+        'end_time': '10:00',
+    }
+    response = await async_client.put('/applications/1/steps/61', json=payload)
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    data = response.json()
+    assert data['start_time'] is None
+    assert data['end_time'] is None
 
 
 async def test_update_step_invalid_time_ranges_return_422(
@@ -704,7 +743,13 @@ async def test_update_step_clear_times_succeeds(
     await _seed_app_and_steps(db_session)
     await ts.seed(
         db_session,
-        ts.event(63, start_time=time(9, 0), end_time=time(10, 0)),
+        ts.event(
+            63,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
+            start_time=time(9, 0),
+            end_time=time(10, 0),
+        ),
     )
 
     payload = {
