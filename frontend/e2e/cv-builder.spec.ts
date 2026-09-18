@@ -162,31 +162,23 @@ async function seedTailoredCv(
   expect(response.ok(), await response.text()).toBeTruthy();
 }
 
-/** Finalize the application out of band, so the UI meets it already locked. */
+/**
+ * Finalize the application out of band, so the UI meets it already locked.
+ *
+ * PRD 0008 / ADR 0012, R-032: the web's close dialog now POSTs with NO body
+ * for the "none" outcome (idempotent) — this mirrors that, rather than the
+ * legacy `{step_id, feedback_id, finalize_date}` shape, which is
+ * CLI-0.1.4-only and which the web never sends (`.claude/rules/
+ * cli-compatibility.md`). Only `finalized_at` being set matters for this
+ * spec's "readable but locked" assertions, so no outcome is needed.
+ */
 async function finalizeApplication(
   request: APIRequestContext,
   applicationId: string,
 ) {
-  const { steps, feedbacks } = await supports(request);
-  // Finalizing accepts a STRICT step definition only
-  // (`StepDefinitionRepository.get_by_id_strict_only`); any other one is a 404
-  // reading "Step not found or is invalid".
-  const strictStep = steps.find((step) => step.strict);
-  expect(
-    strictStep,
-    "the seeded supports data has no strict step definition to finalize with",
-  ).toBeDefined();
-
   const response = await request.post(
     apiUrl(`/applications/${applicationId}/finalize`),
-    {
-      headers: apiHeaders(),
-      data: {
-        step_id: strictStep!.id,
-        feedback_id: feedbacks[0].id,
-        finalize_date: yesterday(),
-      },
-    },
+    { headers: apiHeaders() },
   );
   expect(response.ok(), await response.text()).toBeTruthy();
 }
