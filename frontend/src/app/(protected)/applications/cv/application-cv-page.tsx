@@ -156,11 +156,12 @@ export function ApplicationCvPage() {
   // selects itself), so it has to be stable or the effect re-runs every render.
   const handleSelect = useCallback((id: string) => setSelectedBaseCvId(id), []);
 
-  const readOnlyReason: TailoredCvReadOnlyReason | null = application?.finalized
-    ? "finalized"
-    : isViewingPastCycle
-      ? "archived"
-      : null;
+  const readOnlyReason: TailoredCvReadOnlyReason | null =
+    application?.finalized_at != null
+      ? "finalized"
+      : isViewingPastCycle
+        ? "archived"
+        : null;
 
   const noCopyYet = copyDeleted || isNoTailoredCv(cvError);
   const sourceCvName =
