@@ -5,7 +5,13 @@ from typing import Literal
 from pydantic import BaseModel, HttpUrl
 
 from app.application.dto import BaseSchema
-from app.core.enums import Currency, ExperienceLevel, SalaryPeriod, WorkMode
+from app.core.enums import (
+    Currency,
+    DeniedReason,
+    ExperienceLevel,
+    SalaryPeriod,
+    WorkMode,
+)
 
 
 class ApplicationCompanyInputDTO(BaseModel):
@@ -96,6 +102,7 @@ class FinalizeOutcomeDTO(BaseModel):
     salary_amount: Decimal | None = None
     salary_currency: Currency | None = None
     salary_period: SalaryPeriod | None = None
+    denied_reason: DeniedReason | None = None
 
 
 class ApplicationLastStep(BaseModel):

@@ -7,10 +7,11 @@ patch): the offer-salary and interview-type invariants are cross-field on
 ``event_type``, so every write carries the whole event. ``TimelineEventDTO``
 is the read model the use cases return.
 
-Applika adds ``interview_type`` (R-002). The DTOs do not validate the
-cross-field rules themselves: ``normalize_event`` in
-``use_cases/timeline_events/rules.py`` does, so the web routes, the
-``/steps`` compat routes and the legacy finalize all go through one rule set.
+Applika adds ``interview_type`` (R-002) and ``denied_reason`` (KODI-014,
+R-033..R-036, same pattern). The DTOs do not validate the cross-field rules
+themselves: ``normalize_event`` in ``use_cases/timeline_events/rules.py``
+does, so the web routes, the ``/steps`` compat routes and the legacy
+finalize all go through one rule set.
 """
 
 from datetime import date, time
@@ -19,7 +20,13 @@ from decimal import Decimal
 from pydantic import BaseModel
 
 from app.application.dto import BaseSchema
-from app.core.enums import Currency, EventType, InterviewType, SalaryPeriod
+from app.core.enums import (
+    Currency,
+    DeniedReason,
+    EventType,
+    InterviewType,
+    SalaryPeriod,
+)
 
 
 class TimelineEventWriteDTO(BaseModel):
@@ -27,6 +34,7 @@ class TimelineEventWriteDTO(BaseModel):
 
     event_type: EventType
     interview_type: InterviewType | None = None
+    denied_reason: DeniedReason | None = None
     event_date: date
     start_time: time | None = None
     end_time: time | None = None
@@ -56,6 +64,7 @@ class TimelineEventDTO(BaseSchema):
     user_id: int
     event_type: EventType
     interview_type: InterviewType | None = None
+    denied_reason: DeniedReason | None = None
     event_date: date
     start_time: time | None = None
     end_time: time | None = None

@@ -109,3 +109,28 @@ class InterviewType(StrEnum):
     HIRING_MANAGER = 'hiring_manager'
     TAKE_HOME = 'take_home'
     FINAL = 'final'
+
+
+class DeniedReason(StrEnum):
+    """The reason on a ``denied`` event only (KODI-014, R-033..R-036).
+
+    The owner: "to event type denied, add a select input to select a reason
+    with unknown pre-filled (add some options by yourself or based in the
+    oldes feedback definition values)" — "Catalog-based list (Recommended)".
+    Fixed in code, no catalog, exactly like ``InterviewType``. Migration R3
+    (``c8b3e9f4a1d6``) backfills every existing ``denied`` event from the
+    application's legacy feedback name, matched by name (see
+    ``use_cases/compat/legacy_finalize.LEGACY_FEEDBACK_TO_DENIED_REASON``,
+    pinned equal to the migration's own map).
+    """
+
+    UNKNOWN = 'unknown'
+    NOT_GOOD_ENOUGH = 'not_good_enough'
+    SKILLS_MISMATCH = 'skills_mismatch'
+    ASSESSMENT_FAILED = 'assessment_failed'
+    TOO_MANY_CANDIDATES = 'too_many_candidates'
+    POSITION_FILLED = 'position_filled'
+    ROLE_CLOSED = 'role_closed'
+    GHOSTED = 'ghosted'
+    SALARY_MISMATCH = 'salary_mismatch'
+    OTHER = 'other'

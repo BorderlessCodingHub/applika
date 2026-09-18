@@ -9,6 +9,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from app.core.enums import (
     Availability,
     Currency,
+    DeniedReason,
     EventType,
     ExperienceLevel,
     InterviewType,
@@ -66,9 +67,11 @@ class SalaryPeriodType(sa.types.TypeDecorator[SalaryPeriod]):
 
 
 def _lower_case_enum(
-    enum_class: type[EventType] | type[InterviewType], name: str
+    enum_class: type[EventType] | type[InterviewType] | type[DeniedReason],
+    name: str,
 ):
-    """A PG enum whose labels are the member *values* (R1 created them so)."""
+    """A PG enum whose labels are the member *values* (R1/R3 created them
+    so)."""
     return sa.Enum(
         enum_class,
         name=name,
@@ -390,12 +393,16 @@ class TimelineEventModel(BaseMixin, Base):
     three ``ix_timeline_events_*`` indexes and the partial unique index
     ``uq_timeline_events_one_initial_screening`` carry the revision's names and
     definitions, because the tests build their schema with ``create_all`` and
-    the code relies on every one of them.
+    the code relies on every one of them. ``denied_reason`` and its CHECK
+    were added by migration R3 (``c8b3e9f4a1d6``, KODI-014), folded into
+    Release A ahead of this ORM mapping (Release B).
 
     * ``event_type`` is one of five fixed values; ``interview_type`` is set on
       interview events only (``ck_timeline_events_interview_type``).
     * The salary triple is set on offer events only, all three or none
       (``ck_timeline_events_offer_salary``).
+    * ``denied_reason`` is set on ``denied`` events only, defaulting to
+      ``unknown`` (``ck_timeline_events_denied_reason``, R-033..R-036).
     * At most one ``initial_screening`` interview per application (R-030,
       owner decision (a)).
     * Rows migrated from ``application_steps`` keep the step's id (R-013).
@@ -418,6 +425,11 @@ class TimelineEventModel(BaseMixin, Base):
             "OR (event_type <> 'offer' AND salary_amount IS NULL "
             'AND salary_currency IS NULL AND salary_period IS NULL)',
             name='ck_timeline_events_offer_salary',
+        ),
+        sa.CheckConstraint(
+            "(event_type = 'denied' AND denied_reason IS NOT NULL) "
+            "OR (event_type <> 'denied' AND denied_reason IS NULL)",
+            name='ck_timeline_events_denied_reason',
         ),
         sa.Index('ix_timeline_events_application_id', 'application_id'),
         sa.Index('ix_timeline_events_user_id', 'user_id'),
@@ -453,6 +465,9 @@ class TimelineEventModel(BaseMixin, Base):
     )
     interview_type: Mapped[InterviewType | None] = mapped_column(
         _lower_case_enum(InterviewType, 'interview_type'), nullable=True
+    )
+    denied_reason: Mapped[DeniedReason | None] = mapped_column(
+        _lower_case_enum(DeniedReason, 'denied_reason'), nullable=True
     )
     event_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
     start_time: Mapped[time | None] = mapped_column(sa.Time, nullable=True)

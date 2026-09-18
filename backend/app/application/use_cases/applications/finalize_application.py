@@ -148,6 +148,7 @@ class FinalizeApplicationWithOutcomeUseCase:
                 'application_id': application.id,
                 'event_type': event_type,
                 'interview_type': None,
+                'denied_reason': data.denied_reason,
                 'event_date': event_date,
                 'observation': data.observation,
                 'salary_amount': data.salary_amount,

@@ -8,7 +8,13 @@ from app.application.use_cases.timeline_events.rules import (
     OFFER_PERIOD_INVALID,
     OFFER_PERIODS,
 )
-from app.core.enums import Currency, ExperienceLevel, SalaryPeriod, WorkMode
+from app.core.enums import (
+    Currency,
+    DeniedReason,
+    ExperienceLevel,
+    SalaryPeriod,
+    WorkMode,
+)
 from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema, TimeSchema
 from app.presentation.schemas.timeline_event import MAX_OBSERVATION
@@ -141,6 +147,9 @@ FIELDS_NEED_AN_OUTCOME = (
     'event_date, observation and the salary fields require an outcome '
     '(offer or denied); send no body, {} or null to close with no outcome'
 )
+DENIED_REASON_ONLY_ON_DENIED_OUTCOME = (
+    'denied_reason is only allowed when outcome is denied'
+)
 
 
 class FinalizeWithOutcome(BaseSchema):
@@ -176,6 +185,11 @@ class FinalizeWithOutcome(BaseSchema):
       through ``/finalize``, or the reverse. The legacy 0.1.4 finalize body
       is untouched: it still fills the period from the application, which
       can itself be hourly.
+    * ``denied_reason`` (KODI-014, R-033..R-036) is only allowed when
+      ``outcome`` is ``denied``; refused on ``offer`` and refused with no
+      outcome, same as the salary triad's own restriction. It defaults to
+      ``unknown`` when absent (``rules.normalize_event``), same as the
+      timeline write schema.
     """
 
     outcome: Literal['offer', 'denied'] | None = None
@@ -186,6 +200,7 @@ class FinalizeWithOutcome(BaseSchema):
     )
     salary_currency: Currency | None = None
     salary_period: SalaryPeriod | None = None
+    denied_reason: DeniedReason | None = None
 
     @model_validator(mode='after')
     def _validate_outcome(self) -> 'FinalizeWithOutcome':
@@ -201,6 +216,9 @@ class FinalizeWithOutcome(BaseSchema):
                 raise ValueError(OFFER_PERIOD_INVALID)
         elif any(field is not None for field in salary):
             raise ValueError(SALARY_ONLY_ON_OFFER_OUTCOME)
+
+        if self.outcome != 'denied' and self.denied_reason is not None:
+            raise ValueError(DENIED_REASON_ONLY_ON_DENIED_OUTCOME)
 
         if self.outcome is None and (
             self.event_date is not None or self.observation is not None

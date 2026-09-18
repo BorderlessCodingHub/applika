@@ -9,7 +9,7 @@ are the last line.
 """
 
 from app.application.dto.timeline_event import TimelineEventWriteDTO
-from app.core.enums import EventType, InterviewType, SalaryPeriod
+from app.core.enums import DeniedReason, EventType, InterviewType, SalaryPeriod
 from app.core.exceptions import BusinessRuleViolation, ResourceConflict
 from app.domain.repositories.timeline_event_repository import (
     ONE_INITIAL_SCREENING_MESSAGE,
@@ -26,6 +26,7 @@ SALARY_ONLY_ON_OFFER = (
     'salary_amount, salary_currency and salary_period are only allowed on '
     'offer events'
 )
+DENIED_REASON_ONLY_ON_DENIED = 'denied_reason is only allowed on denied events'
 TIMES_TOGETHER = 'start_time and end_time must be provided together'
 END_AFTER_START = 'end_time must be after start_time'
 
@@ -45,13 +46,18 @@ OFFER_PERIOD_INVALID = 'offer salary_period must be monthly or annually'
 
 
 def normalize_event[T: TimelineEventWriteDTO](data: T) -> T:
-    """Check an event's cross-field rules and fill the interview default.
+    """Check an event's cross-field rules and fill the interview/denied
+    defaults.
 
     * An interview without a type is ``unknown`` (R-002).
     * An interview type on any other event is refused (R-003).
     * An offer needs amount, currency and period; every other type refuses
       all three (R-005). Changing an offer to another type therefore has to
       drop the salary in the same request.
+    * A denied event without a reason is ``unknown`` (KODI-014,
+      R-033..R-036 — the same pattern as ``interview_type``). A reason on
+      any other event type is refused; changing an event away from denied
+      therefore drops the reason in the same request.
     * ``start_time`` and ``end_time`` come together, the end after the start
       (R-004). There is no rule on the date against the application date or
       the previous event (PRD 0008 "Assumptions").
@@ -63,6 +69,12 @@ def normalize_event[T: TimelineEventWriteDTO](data: T) -> T:
         interview_type = interview_type or InterviewType.UNKNOWN
     elif interview_type is not None:
         raise BusinessRuleViolation(INTERVIEW_TYPE_ONLY_ON_INTERVIEW)
+
+    denied_reason = data.denied_reason
+    if data.event_type is EventType.DENIED:
+        denied_reason = denied_reason or DeniedReason.UNKNOWN
+    elif denied_reason is not None:
+        raise BusinessRuleViolation(DENIED_REASON_ONLY_ON_DENIED)
 
     salary = (data.salary_amount, data.salary_currency, data.salary_period)
     if data.event_type is EventType.OFFER:
@@ -80,7 +92,12 @@ def normalize_event[T: TimelineEventWriteDTO](data: T) -> T:
     ):
         raise BusinessRuleViolation(END_AFTER_START)
 
-    return data.model_copy(update={'interview_type': interview_type})
+    return data.model_copy(
+        update={
+            'interview_type': interview_type,
+            'denied_reason': denied_reason,
+        }
+    )
 
 
 def ensure_offer_period_allowed[T: TimelineEventWriteDTO](data: T) -> None:

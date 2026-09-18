@@ -13,6 +13,9 @@ every violation is a 422 before any I/O:
   salary). ``annual`` from an installed CLI is accepted as ``annually``.
 * **Interview type** (applika, R-002/R-003): only on an ``interview``, where
   it defaults to ``unknown``; on any other type it is refused.
+* **Denied reason** (KODI-014, R-033..R-036, the same pattern): only on a
+  ``denied`` event, where it defaults to ``unknown``; on any other type it
+  is refused.
 
 Create and update carry the **full** event (a PUT replaces, it does not
 patch) because every rule is cross-field on ``event_type``. The same rules
@@ -27,10 +30,17 @@ from decimal import Decimal
 from pydantic import Field, field_serializer, model_validator
 
 from app.application.use_cases.timeline_events.rules import (
+    DENIED_REASON_ONLY_ON_DENIED,
     OFFER_PERIOD_INVALID,
     OFFER_PERIODS,
 )
-from app.core.enums import Currency, EventType, InterviewType, SalaryPeriod
+from app.core.enums import (
+    Currency,
+    DeniedReason,
+    EventType,
+    InterviewType,
+    SalaryPeriod,
+)
 from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema
 
@@ -43,6 +53,7 @@ class _TimelineEventWrite(BaseSchema):
 
     event_type: EventType
     interview_type: InterviewType | None = None
+    denied_reason: DeniedReason | None = None
     event_date: date
     start_time: time | None = None
     end_time: time | None = None
@@ -101,6 +112,15 @@ class _TimelineEventWrite(BaseSchema):
             )
         return self
 
+    @model_validator(mode='after')
+    def _validate_denied_reason(self) -> '_TimelineEventWrite':
+        if self.event_type is EventType.DENIED:
+            if self.denied_reason is None:
+                self.denied_reason = DeniedReason.UNKNOWN
+        elif self.denied_reason is not None:
+            raise ValueError(DENIED_REASON_ONLY_ON_DENIED)
+        return self
+
 
 class TimelineEventCreate(_TimelineEventWrite):
     """Create body. ``user_id`` and ``application_id`` are server-stamped
@@ -117,6 +137,7 @@ class TimelineEventOut(BaseSchema):
     user_id: SnowflakeID
     event_type: EventType
     interview_type: InterviewType | None = None
+    denied_reason: DeniedReason | None = None
     event_date: date
     start_time: time | None = None
     end_time: time | None = None

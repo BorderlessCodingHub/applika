@@ -47,6 +47,19 @@ INTERVIEW_TYPES = [
     'take_home',
     'final',
 ]
+# KODI-014: a denied event/finalize picks one of these at random, some of the
+# time; the rest stay unset and default to `unknown` server-side.
+DENIED_REASONS = [
+    'not_good_enough',
+    'skills_mismatch',
+    'assessment_failed',
+    'too_many_candidates',
+    'position_filled',
+    'role_closed',
+    'ghosted',
+    'salary_mismatch',
+    'other',
+]
 # applika's 9 and mynextjob's 11 (R-031); None = no currency.
 CURRENCIES = ['USD', 'BRL', 'EUR', 'GBP', 'SEK', 'CNY', 'AED', None]
 
@@ -569,6 +582,8 @@ def seed_timeline(
             }
         else:
             body = {'outcome': 'denied', 'observation': 'Not selected'}
+            if random.random() < 0.5:
+                body['denied_reason'] = random.choice(DENIED_REASONS)
         resp = client.post(
             f'/applications/{app_id}/finalize',
             json={**body, 'event_date': day.isoformat()},
@@ -594,6 +609,8 @@ def seed_timeline(
         }
     else:
         outcome = {'event_type': 'denied', 'observation': 'Not selected'}
+        if random.random() < 0.5:
+            outcome['denied_reason'] = random.choice(DENIED_REASONS)
     resp = client.post(url, json={**outcome, 'event_date': day.isoformat()})
     if resp.status_code != 201:
         print(f'  Failed to add outcome: {resp.status_code} {resp.text}')

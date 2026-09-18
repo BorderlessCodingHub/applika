@@ -15,7 +15,13 @@ so both paths leave the same shape behind:
   or USD, and its salary period or monthly: owner decision (b), the
   revision's convention;
 * ``finalized_at`` is ``finalize_date`` at 00:00 UTC, as the revision
-  backfills it from ``feedback_date``.
+  backfills it from ``feedback_date``;
+* a denied event's ``denied_reason`` is mapped from the legacy feedback's
+  *name* (KODI-014, R-036), with :data:`LEGACY_FEEDBACK_TO_DENIED_REASON` -
+  the exact map migration R3 (``c8b3e9f4a1d6``) uses for its own backfill,
+  pinned equal to it by
+  ``tests/unit/test_denied_reason_mapping.py``. An unmapped feedback name
+  (or none) is ``unknown``, same as everywhere else this reason defaults.
 
 Checks, in the order the steps version ran them (so a 0.1.4 client sees the
 answers it always saw): future date 422, application 404, archived 422,
@@ -46,7 +52,7 @@ from app.application.use_cases.timeline_events.rules import (
 )
 from app.application.validators.application_date import ensure_not_in_future
 from app.config.logging import logger
-from app.core.enums import Currency, EventType, SalaryPeriod
+from app.core.enums import Currency, DeniedReason, EventType, SalaryPeriod
 from app.core.exceptions import (
     ApplicationFinalized,
     BusinessRuleViolation,
@@ -75,6 +81,28 @@ SALARY_ONLY_ON_OFFER_STEP = (
 
 OFFER_DEFAULT_CURRENCY = Currency.USD
 OFFER_DEFAULT_PERIOD = SalaryPeriod.MONTHLY
+
+# KODI-014 (R-036): the SAME map migration R3 (``c8b3e9f4a1d6``,
+# ``FEEDBACK_TO_DENIED_REASON``) uses for its own backfill of legacy denied
+# events - match by feedback *name*, never by id. Pinned equal to the
+# migration's copy by ``tests/unit/test_denied_reason_mapping.py``.
+LEGACY_FEEDBACK_TO_DENIED_REASON: dict[str, DeniedReason] = {
+    'Not good enough': DeniedReason.NOT_GOOD_ENOUGH,
+    'Skills': DeniedReason.SKILLS_MISMATCH,
+    'Assessment failed': DeniedReason.ASSESSMENT_FAILED,
+    'Too many candidates': DeniedReason.TOO_MANY_CANDIDATES,
+    'Position filled': DeniedReason.POSITION_FILLED,
+    'Role closed': DeniedReason.ROLE_CLOSED,
+    'Ghost': DeniedReason.GHOSTED,
+}
+
+
+def denied_reason_for_feedback(feedback_name: str) -> DeniedReason:
+    """The legacy feedback name, mapped to a ``DeniedReason``, ``unknown``
+    when unmapped."""
+    return LEGACY_FEEDBACK_TO_DENIED_REASON.get(
+        feedback_name, DeniedReason.UNKNOWN
+    )
 
 
 def append_feedback(observation: str | None, feedback_name: str) -> str:
@@ -149,11 +177,17 @@ class LegacyFinalizeApplicationUseCase:
             if event_type is EventType.OFFER
             else {}
         )
+        denied_reason = (
+            denied_reason_for_feedback(feedback.name)
+            if event_type is EventType.DENIED
+            else None
+        )
         event = normalize_event(
             CreateTimelineEventDTO.model_validate({
                 'user_id': user_id,
                 'application_id': application.id,
                 'event_type': event_type,
+                'denied_reason': denied_reason,
                 'interview_type': interview_type,
                 'event_date': data.finalize_date,
                 'observation': append_feedback(data.observation, feedback.name),

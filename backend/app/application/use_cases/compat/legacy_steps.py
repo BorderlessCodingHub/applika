@@ -197,6 +197,14 @@ class UpdateLegacyStepUseCase(_LegacyStepsBase):
             'salary_currency': event.salary_currency,
             'salary_period': event.salary_period,
         }
+        # Preserved only when the event was already denied: a step switch
+        # into Denied with no prior reason defaults to unknown, same as a
+        # fresh legacy write (``normalize_event``).
+        keep_denied_reason = (
+            {'denied_reason': event.denied_reason}
+            if event.event_type is EventType.DENIED
+            else {}
+        )
         if current is not None and current.id == data.step_id:
             # The step the list showed: the event keeps what it is.
             shown = current
@@ -212,6 +220,9 @@ class UpdateLegacyStepUseCase(_LegacyStepsBase):
                 salary = keep_salary
             else:
                 salary = offer_salary(application, None)
+        denied_reason = (
+            keep_denied_reason if event_type is EventType.DENIED else {}
+        )
 
         updated = await UpdateTimelineEventUseCase(
             self.application_repo, self.timeline_event_repo
@@ -228,6 +239,7 @@ class UpdateLegacyStepUseCase(_LegacyStepsBase):
                 'timezone': data.timezone,
                 'observation': data.observation,
                 **salary,
+                **denied_reason,
             }),
         )
         return _to_legacy(updated, shown)
