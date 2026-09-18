@@ -95,3 +95,98 @@ with salary period `annually` (the owner accepted this). The server-side
 `alembic downgrade d3f7b1c9e2a4` remaps `annually` back to `annual` but
 cannot remap a currency, and it is what brings timeline events written since
 KODI-011 back as steps.
+
+## [0.2.0]
+
+### Added
+
+- KODI-013 `applications timeline list <application-id>` lists an
+  application's timeline events (table or `--output-format json`), in the
+  API's own order (`event_date`, `start_time`, `created_at`).
+- KODI-013 `applications timeline add <application-id>` adds an event:
+  `--type` (`note`/`interview`/`feedback`/`offer`/`denied`, required),
+  `--date` (required), `--interview-type` (only with `--type interview`,
+  defaults to `unknown`), `--start-time`/`--end-time` (together),
+  `--timezone`, `--observation`, and `--salary`/`--currency`/`--period`
+  (only with `--type offer`, then all three required, `--period` restricted
+  to `monthly`/`annually`).
+- KODI-013 `applications timeline edit <application-id> <event-id>` replaces
+  an event (the API's `PUT` is a full body): unspecified flags keep the
+  event's current value. Changing `--type` away from `offer` drops the
+  salary fields; away from `interview` drops the interview type; to
+  `interview` without `--interview-type` defaults to `unknown`; to `offer`
+  requires the salary triad unless the event already had one.
+- KODI-013 `applications timeline delete <application-id> <event-id>`
+  deletes an event.
+- KODI-013 `applications finalize` accepts `--outcome offer|denied` plus
+  `--date`, `--observation` and, for `offer`, `--salary`/`--currency`/
+  `--period`. No flags at all is the same idempotent close as before
+  (bodyless — the CLI never sends `{}` either).
+- KODI-013 `applications reopen [<application-id>]` reopens a closed
+  application (idempotent).
+- KODI-013 `Application` responses' `finalized_at` is read by
+  `applications list --output-format json` and `applications edit` (passed
+  through, not yet surfaced as its own flag).
+- KODI-013 `EventType` and `InterviewType` vendored in `schemas/enums.py`,
+  matching `applika/backend/app/core/enums.py`.
+
+### Changed
+
+- KODI-013 The CLI's `Currency` enum grows from 9 to the 20 currencies of
+  applika and mynextjob combined (CNY, SEK, NOK, DKK, PLN, SGD, HKD, NZD,
+  MXN, ZAR, AED added), same order as the backend.
+  `applications new`/`edit --currency` now offer all 20.
+  `applications timeline add|edit --currency` and
+  `applications finalize --currency` offer the same 20.
+- KODI-013 A new `OfferPeriod` choice (`monthly`/`annually` only — no
+  `hourly`, no `annual`) backs `applications timeline add|edit --period` and
+  `applications finalize --period`, matching the API's offer restriction
+  (`hourly` is a 422 on an offer). The CLI's own `SalaryPeriod` (used by
+  `applications new`/`edit --salary-period`) keeps accepting `annual` (see
+  Deviation note below) and gains `annually` as a valid value too, so
+  `applications edit` can round-trip an application the API reports as
+  `annually`.
+- KODI-013 `applications finalize --step`, `--feedback` and
+  `--salary-offer` are deprecated (help text says so) but still work
+  exactly as in 0.1.4, sending the same legacy body. They cannot be
+  combined with `--outcome`/`--salary`/`--currency`/`--period`; combining
+  them is refused client-side before any request is made.
+- KODI-013 `applications steps *` still work unchanged; the `steps` sub-app
+  and each of its commands now say `[DEPRECATED]` in their help text and
+  point at `applications timeline`.
+- KODI-013 A `409` from the timeline/finalize/reopen routes prints the
+  API's message plus a hint to run `applications reopen` when the
+  application is closed (a closed application is reversible now, R-007);
+  the 0.1.4 `applications steps *` / legacy `applications finalize` local
+  "already been finalized" guards are unchanged.
+
+### Deviation
+
+- KODI-013 The brief's CLI enum plan said "drop `annual`" from the general
+  `SalaryPeriod` enum. That enum is also the type of
+  `applications new`/`edit --salary-period`, and the 0.1.4 test
+  `test_applications_new_builds_matching_payload` pins
+  `--salary-period annual` sending the literal string `annual`
+  end-to-end — a 0.1.4 test this release must not change
+  (`.claude/rules/ticket-completion.md`-adjacent build rule: every 0.1.4
+  test still passes unchanged). Resolution: `SalaryPeriod` keeps `ANNUAL`
+  for that one flag (unchanged 0.1.4 behavior, not new 0.2.0 behavior) and
+  gains `ANNUALLY` (the bug fix below). Every genuinely *new* 0.2.0 command
+  (`timeline add|edit --period`, `finalize --period`) uses the separate
+  `OfferPeriod` enum, which never had `annual` and never sends it.
+
+### Deprecated
+
+- KODI-013 `applications steps list|add|edit|delete`: use
+  `applications timeline list|add|edit|delete` instead.
+- KODI-013 `applications finalize --step`, `--feedback` and
+  `--salary-offer`: use `--outcome`, `--salary`, `--currency` and
+  `--period` instead.
+
+### Fixed
+
+- KODI-013 The 0.1.4 `applications edit` failure on an application whose
+  `salary_period` is `annually` or whose `currency` is one of the 11
+  currencies KODI-011 added (CNY, SEK, NOK, DKK, PLN, SGD, HKD, NZD, MXN,
+  ZAR, AED) is fixed by upgrading to `applika-cli` 0.2.0: both values now
+  parse, so `edit` can fetch, merge and resend such an application.

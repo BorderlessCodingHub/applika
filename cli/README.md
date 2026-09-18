@@ -160,8 +160,8 @@ applika applications new \
 | `--expected-salary FLOAT` | The salary you expect or asked for |
 | `--salary-min FLOAT` | Lower bound of a posted salary range |
 | `--salary-max FLOAT` | Upper bound of a posted salary range |
-| `--currency` | `USD` · `BRL` · `EUR` · `GBP` · `CAD` · `AUD` · `JPY` · `CHF` · `INR` |
-| `--salary-period` | `hourly` · `monthly` · `annual` |
+| `--currency` | `USD` · `BRL` · `EUR` · `GBP` · `CAD` · `AUD` · `JPY` · `CHF` · `INR` · `CNY` · `SEK` · `NOK` · `DKK` · `PLN` · `SGD` · `HKD` · `NZD` · `MXN` · `ZAR` · `AED` (20 total) |
+| `--salary-period` | `hourly` · `monthly` · `annual` · `annually` (both mean the same; the API always reports `annually`) |
 
 > **Salary rule:** if any salary amount is provided (`--expected-salary`, `--salary-min`, or `--salary-max`), both `--currency` and `--salary-period` become required. The CLI enforces this before making any API call.
 
@@ -214,6 +214,90 @@ applika applications list --search "company name" --output-format json
 > Finalized applications (those with a recorded outcome) are read-only and cannot be edited. The CLI checks this before sending the request.
 
 ---
+
+### `applika applications timeline list|add|edit|delete`
+
+Manages an application's timeline: notes, typed interviews, feedback, an offer, or a denial. Closing an application is reversible (`applications reopen`), so the timeline is editable again after a reopen.
+
+```bash
+# List events (table or JSON)
+applika applications timeline list 42
+applika applications timeline list 42 --output-format json
+
+# Add a note
+applika applications timeline add 42 --type note --date 2026-06-01 --observation "Applied via referral"
+
+# Add a typed interview (defaults --interview-type to unknown if omitted)
+applika applications timeline add 42 \
+  --type interview --interview-type technical --date 2026-06-05 \
+  --start-time 14:00 --end-time 15:00 --timezone America/Sao_Paulo
+
+# Add an offer (the salary triad is required together; period is monthly or annually only)
+applika applications timeline add 42 \
+  --type offer --date 2026-06-10 --salary 180000 --currency USD --period annually
+
+# Edit an event - PUT replaces the whole event; unspecified flags keep the current value
+applika applications timeline edit 42 700 --observation "Updated"
+
+# Delete an event
+applika applications timeline delete 42 700
+```
+
+| Flag | Applies to | Notes |
+|---|---|---|
+| `--type` | `add` (required), `edit` | `note` · `interview` · `feedback` · `offer` · `denied` |
+| `--date` | `add` (required), `edit` | Event date (YYYY-MM-DD) |
+| `--interview-type` | `add`, `edit` | Only with `--type interview`; defaults to `unknown` |
+| `--start-time`/`--end-time` | `add`, `edit` | Must be given together |
+| `--timezone`, `--observation` | `add`, `edit` | |
+| `--salary`, `--currency`, `--period` | `add`, `edit` | Only with `--type offer`; then all three required. `--period` is `monthly` or `annually` (an hourly offer is refused) |
+
+`edit` fetches the current event and overlays the flags given: changing `--type` away from `offer` drops the salary fields, away from `interview` drops the interview type; changing to `interview` without `--interview-type` defaults to `unknown`; changing to `offer` requires the salary triad unless the event already had one.
+
+A write to a closed application's timeline is refused (409) with a hint to run `applika applications reopen <application-id>`.
+
+---
+
+### `applika applications finalize [<application-id>]`
+
+Closes (finalizes) an application. Closing is reversible: `applika applications reopen` reopens it.
+
+```bash
+# Plain close - idempotent, no outcome recorded, safe to run more than once
+applika applications finalize 42
+
+# Close with an offer
+applika applications finalize 42 \
+  --outcome offer --salary 180000 --currency USD --period annually \
+  --date 2026-06-18 --observation "Signed"
+
+# Close with a denial
+applika applications finalize 42 --outcome denied --date 2026-06-18 --observation "Not a fit"
+```
+
+Rules:
+- No flags at all: idempotent bodyless close (no outcome).
+- `--outcome offer|denied`: closes with a timeline event of that outcome. `--date` and `--observation` are only valid together with `--outcome`.
+- `--salary`/`--currency`/`--period` are only valid with `--outcome offer`, and then all three are required; `--period` is `monthly` or `annually` only.
+- A 409 on an already-closed application suggests `applika applications reopen <application-id>`.
+
+**Deprecated flags** (still work exactly as in 0.1.4, but cannot be combined with the flags above): `--step`, `--feedback`, `--salary-offer`. See "Application Steps and the deprecated finalize flags" below.
+
+---
+
+### `applika applications reopen [<application-id>]`
+
+Reopens a closed application so its timeline is editable again. Idempotent — reopening an already-open application is a no-op.
+
+```bash
+applika applications reopen 42
+```
+
+---
+
+## Application Steps and the deprecated finalize flags
+
+**Deprecated.** Prefer `applications timeline` and `applications finalize --outcome` above. Everything in this section still works exactly as in 0.1.4 — it exists only so installed CLIs and existing scripts keep working.
 
 ### `applika applications steps list <application-id>`
 
@@ -325,11 +409,11 @@ applika applications steps delete 42 500
 
 ---
 
-### `applika applications finalize <application-id>`
+### `applika applications finalize <application-id>` (deprecated flags)
 
-Finalizes an application by recording a strict final step plus a feedback
-definition. This is the CLI path for outcomes like rejected, denied, accepted,
-or offer, depending on the backend definitions available in `/supports`.
+The deprecated 0.1.4 body: finalizes an application by recording a strict
+final step plus a feedback definition. Prefer `--outcome` (documented
+above) instead — these flags cannot be combined with it.
 
 ```bash
 # Finalize as rejected
@@ -433,26 +517,33 @@ cli/
         │       └── SKILL.md     # Bundled AI skill — installed via `applika skill`
         │
         ├── schemas/             # Vendored Pydantic models (no backend import)
-        │   ├── enums.py         # Enum types: Currency, SalaryPeriod, WorkMode, ClearField, etc.
-        │   ├── application.py   # ApplicationCreate, ApplicationUpdate with validators
+        │   ├── enums.py         # Enum types: Currency (20), SalaryPeriod, OfferPeriod,
+        │   │                    #   EventType, InterviewType, FinalizeOutcome, WorkMode, ClearField, etc.
+        │   ├── application.py   # ApplicationCreate, ApplicationUpdate, FinalizeOutcomePayload
+        │   ├── application_step.py # ApplicationStepCreate/Update, FinalizeApplication (0.1.4 legacy body)
+        │   ├── timeline_event.py   # TimelineEventCreate/Update, TimelineEventEntry
         │   └── supports.py      # SupportSchema — platforms and companies from /supports
         │
         ├── lib/                 # Infrastructure — no Typer dependency
-        │   ├── api.py           # ApiClient (httpx + cookie auth), ApiError, AuthError
+        │   ├── api.py           # ApiClient (httpx + cookie auth), ApiError, AuthError;
+        │   │                    #   post() sends no body at all when payload is None
         │   ├── session.py       # SessionData, SessionStore (~/.config/applika/session.json)
         │   └── loopback.py      # LoopbackLoginServer for OAuth browser callback
         │
         ├── utils/               # Pure helpers — no httpx, no Typer
-        │   └── output.py        # render_application_table, print_application_summary
+        │   └── output.py        # render_application_table, render_timeline_event_table,
+        │                        #   print_application_summary, print_timeline_event_summary
         │
         └── commands/
             ├── auth.py          # login, logout, whoami commands
             ├── skill.py         # skill command — installs the AI skill
             └── applications/
-                ├── __init__.py    # applications_app Typer sub-app, default-to-list callback
-                ├── commands.py    # list_applications, new_application, edit_application
+                ├── __init__.py    # applications_app Typer sub-app: list/new/edit/finalize/reopen,
+                │                  #   the deprecated `steps` sub-app, the `timeline` sub-app
+                ├── commands.py    # list/new/edit_application, finalize_application (legacy + --outcome),
+                │                  #   reopen_application, steps and timeline list/add/edit/delete
                 ├── filter.py      # filter_applications
-                └── api_resolve.py # resolve_platform_id, resolve_company_input
+                └── api_resolve.py # resolve_platform_id, resolve_company_input, resolve_step_id, resolve_feedback_id
 ```
 
 **Layer rules:**

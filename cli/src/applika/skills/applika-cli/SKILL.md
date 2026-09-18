@@ -125,8 +125,8 @@ applika applications new \
 | `--expected-salary FLOAT` | Expected salary amount | Requires `--currency` + `--salary-period` |
 | `--salary-min FLOAT` | Salary range minimum | Requires `--currency` + `--salary-period` |
 | `--salary-max FLOAT` | Salary range maximum | Requires `--currency` + `--salary-period` |
-| `--currency` | `USD` · `BRL` · `EUR` · `GBP` · `CAD` · `AUD` · `JPY` · `CHF` · `INR` | Required when any salary field is set |
-| `--salary-period` | `hourly` · `monthly` · `annual` | Required when any salary field is set |
+| `--currency` | `USD` · `BRL` · `EUR` · `GBP` · `CAD` · `AUD` · `JPY` · `CHF` · `INR` · `CNY` · `SEK` · `NOK` · `DKK` · `PLN` · `SGD` · `HKD` · `NZD` · `MXN` · `ZAR` · `AED` (20 total) | Required when any salary field is set |
+| `--salary-period` | `hourly` · `monthly` · `annual` · `annually` | Required when any salary field is set. `annual` and `annually` mean the same thing; the API always reports `annually` back. |
 
 **Salary cross-field rule:** if any salary amount is provided (`--expected-salary`,
 `--salary-min`, or `--salary-max`), both `--currency` and `--salary-period` are
@@ -255,10 +255,96 @@ applika whoami
 
 ---
 
-## 8. Application Steps and Finalization
+## 8. Application Timeline (use this, not "Application Steps")
 
-Application steps are timeline entries inside one application. Finalization is
-separate and irreversible.
+An application's timeline is its list of events: notes, interviews (typed),
+feedback, an offer, or a denial. Finalizing (closing) an application is now
+**reversible** with `applications reopen` — it is no longer permanent.
+
+```bash
+# List events
+applika applications timeline list <application-id>
+applika applications timeline list <application-id> --output-format json
+
+# Add a note
+applika applications timeline add <application-id> \
+  --type note --date 2026-06-01 --observation "Applied via referral"
+
+# Add an interview (defaults --interview-type to "unknown" if omitted)
+applika applications timeline add <application-id> \
+  --type interview --interview-type technical --date 2026-06-05 \
+  --start-time 14:00 --end-time 15:00 --timezone America/Sao_Paulo
+
+# Add an offer (salary triad is required together, period is monthly or annually only)
+applika applications timeline add <application-id> \
+  --type offer --date 2026-06-10 \
+  --salary 180000 --currency USD --period annually
+
+# Edit an event (PUT replaces the whole event; unspecified flags keep current values)
+applika applications timeline edit <application-id> <event-id> --observation "Updated"
+
+# Delete an event
+applika applications timeline delete <application-id> <event-id>
+```
+
+Event types: `note`, `interview`, `feedback`, `offer`, `denied`.
+Interview types: `unknown` (default), `initial_screening`, `technical`,
+`cultural`, `hiring_manager`, `take_home`, `final`. An application can have
+at most one `initial_screening` interview (409 on a second one).
+
+`--interview-type` is only valid with `--type interview`.
+`--salary`/`--currency`/`--period` are only valid with `--type offer`, and
+then all three are required together; `--period` is `monthly` or `annually`
+only (an hourly offer is refused).
+
+`edit` fetches the current event and overlays the flags given: changing
+`--type` away from `offer` drops the salary fields, away from `interview`
+drops the interview type; changing to `interview` without
+`--interview-type` defaults to `unknown`; changing to `offer` requires the
+salary triad unless the event already had one.
+
+If an application is closed, a write to its timeline is refused (409) with
+a hint to run `applika applications reopen <application-id>`.
+
+## 9. Finalizing (closing) an application
+
+```bash
+# Plain close, no outcome (idempotent - safe to run more than once)
+applika applications finalize <application-id>
+
+# Close with an offer
+applika applications finalize <application-id> \
+  --outcome offer --salary 180000 --currency USD --period annually \
+  --date 2026-06-18 --observation "Signed"
+
+# Close with a denial
+applika applications finalize <application-id> \
+  --outcome denied --date 2026-06-18 --observation "Not a fit"
+
+# Reopen a closed application (idempotent) so its timeline is editable again
+applika applications reopen <application-id>
+```
+
+Rules:
+- No flags at all: idempotent bodyless close, no outcome recorded.
+- `--outcome offer|denied` closes with a timeline event of that outcome.
+  `--date` and `--observation` are only valid together with `--outcome`.
+- `--salary`/`--currency`/`--period` are only valid with `--outcome offer`,
+  and then all three are required; `--period` is `monthly` or `annually`
+  only.
+- `--step`, `--feedback` and `--salary-offer` are the **deprecated** 0.1.4
+  body — still work exactly as before, but print as deprecated in
+  `--help`. They cannot be combined with `--outcome`/`--salary`/
+  `--currency`/`--period`.
+- A 409 on an already-closed application suggests
+  `applika applications reopen <application-id>`.
+
+## 10. Application Steps and legacy finalize flags (deprecated)
+
+**Deprecated — prefer `applications timeline` (section 8) and
+`applications finalize --outcome` (section 9).** Kept only so installed
+CLIs and existing scripts keep working; every command below still works
+exactly as in 0.1.4.
 
 Important distinction:
 - Normal steps are used while the application is active.
@@ -364,8 +450,13 @@ Rules:
 - `--step` must be a strict final step definition.
 - `--feedback` must be a feedback definition.
 - `--salary-offer` is optional and useful for accepted/offer outcomes.
-- Once finalized, the application and its steps are no longer editable.
+- Once finalized, the application and its steps are no longer editable —
+  unless reopened with `applika applications reopen <application-id>`
+  (section 9), after which it is editable again.
 - `--output-format` supports `table` (default summary output) and `json`.
+- Deprecated (section 9's `--outcome` replaces it): `--step`, `--feedback`
+  and `--salary-offer` cannot be combined with `--outcome`, `--salary`,
+  `--currency` or `--period`.
 
 ### Common step/finalize workflows
 
