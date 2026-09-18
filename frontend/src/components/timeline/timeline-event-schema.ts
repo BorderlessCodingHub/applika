@@ -27,6 +27,17 @@ import type { CreateTimelineEventPayload } from "@/services/types/timeline";
 /** Offer salary period is restricted to monthly/annually. */
 const OFFER_SALARY_PERIOD_VALUES = ["monthly", "annually"] as const;
 
+/**
+ * Mirrors the backend's `_TimelineEventWrite` limits exactly
+ * (`backend/app/presentation/schemas/timeline_event.py`), so a 422 is
+ * unreachable from this form: `timezone` <= 100, `observation` <= 5000,
+ * `salary_amount` up to 10 integer digits and 2 decimal places
+ * (`max_digits=12, decimal_places=2`).
+ */
+const MAX_TIMEZONE = 100;
+const MAX_OBSERVATION = 5000;
+const SALARY_AMOUNT_PATTERN = /^\d{1,10}(\.\d{1,2})?$/;
+
 /** Shared, non-salary, non-interview-type fields present on every branch. */
 const commonShape = {
   event_date: z
@@ -37,9 +48,38 @@ const commonShape = {
     }),
   start_time: z.string(),
   end_time: z.string(),
-  timezone: z.string(),
-  observation: z.string(),
+  timezone: z.string().max(MAX_TIMEZONE, "Timezone is too long"),
+  observation: z.string().max(MAX_OBSERVATION, "Notes are too long"),
 };
+
+/**
+ * `start_time`/`end_time` must both be blank or both be set, and — when set
+ * — the end must be strictly after the start (`HH:mm` compares correctly as
+ * a string). Applied once, after the discriminated union, since the pair is
+ * shared by every branch.
+ */
+function validateSchedule(
+  values: { start_time: string; end_time: string },
+  ctx: z.RefinementCtx,
+): void {
+  const hasStart = values.start_time.trim() !== "";
+  const hasEnd = values.end_time.trim() !== "";
+  if (hasStart !== hasEnd) {
+    ctx.addIssue({
+      code: "custom",
+      path: [hasStart ? "end_time" : "start_time"],
+      message: "Provide both a start and an end time, or neither",
+    });
+    return;
+  }
+  if (hasStart && hasEnd && values.end_time <= values.start_time) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["end_time"],
+      message: "End time must be after start time",
+    });
+  }
+}
 
 /** Interview branch — `interview_type` is required (default `unknown`). No salary. */
 const interviewSchema = z.object({
@@ -76,15 +116,16 @@ const offerSchema = z.object({
     .refine((raw) => Number.isFinite(Number(raw)), {
       message: "Enter a valid number",
     })
-    .refine((raw) => Number(raw) >= 0, { message: "Must be zero or more" }),
+    .refine((raw) => Number(raw) >= 0, { message: "Must be zero or more" })
+    .refine((raw) => SALARY_AMOUNT_PATTERN.test(raw), {
+      message: "Up to 10 digits and 2 decimal places",
+    }),
   salary_currency: z.enum(SALARY_CURRENCIES, { message: "Select a currency" }),
 });
 
-export const timelineEventSchema = z.discriminatedUnion("event_type", [
-  interviewSchema,
-  offerSchema,
-  otherSchema,
-]);
+export const timelineEventSchema = z
+  .discriminatedUnion("event_type", [interviewSchema, offerSchema, otherSchema])
+  .superRefine(validateSchedule);
 
 export type TimelineEventFormValues = z.infer<typeof timelineEventSchema>;
 

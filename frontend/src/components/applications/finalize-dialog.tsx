@@ -56,6 +56,16 @@ import type { FinalizeApplicationPayload } from "@/services/types/applications";
 const OFFER_SALARY_PERIOD_VALUES = ["monthly", "annually"] as const;
 
 /**
+ * Mirrors `FinalizeWithOutcome`'s limits exactly
+ * (`backend/app/presentation/schemas/application.py`): `observation` <= 5000,
+ * `salary_amount` up to 10 integer digits and 2 decimal places
+ * (`max_digits=12, decimal_places=2`) — same ceilings as the timeline event
+ * form's offer branch, so a 422 is unreachable here too.
+ */
+const MAX_OBSERVATION = 5000;
+const SALARY_AMOUNT_PATTERN = /^\d{1,10}(\.\d{1,2})?$/;
+
+/**
  * Close-application form schema (PRD 0008, ADR 0012, R-032 — supersedes the
  * plan's original confirm-only finalize). `outcome` gates everything else:
  * `none` needs nothing (a bodyless POST); `offer`/`denied` need a date; `offer`
@@ -65,7 +75,7 @@ const finalizeSchema = z
   .object({
     outcome: z.enum(FINALIZE_OUTCOMES),
     event_date: z.string(),
-    observation: z.string(),
+    observation: z.string().max(MAX_OBSERVATION, "Notes are too long"),
     salary_amount: z.string(),
     salary_currency: z.string(),
     salary_period: z.string(),
@@ -105,6 +115,12 @@ const finalizeSchema = z
         code: "custom",
         path: ["salary_amount"],
         message: "Enter a valid, non-negative number",
+      });
+    } else if (!SALARY_AMOUNT_PATTERN.test(amount)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["salary_amount"],
+        message: "Up to 10 digits and 2 decimal places",
       });
     }
     if (!values.salary_currency) {
