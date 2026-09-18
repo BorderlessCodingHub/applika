@@ -76,6 +76,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `.../steps/avarage_days` return one row per stage
   (`{event_type, interview_type, ...}`) instead of one per step definition
   (`{id, name, color, ...}`). 0.1.4 does not call them.
+- KODI-011 Rollback (Release B): if the server is rolled back to the image
+  before KODI-011, that image cannot read a row written since KODI-011 with
+  one of the 11 new currencies, nor one with salary period `annually` (the
+  owner accepted this). The server-side `alembic downgrade d3f7b1c9e2a4`
+  remaps `annually` back to `annual` but cannot remap a currency, and it is
+  what brings timeline events written since KODI-011 back as steps.
 
 ### Deprecated
 
@@ -86,15 +92,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   removal date: 0.1.4 keeps working.
 - KODI-011 The `steps` and `feedbacks` lists of `GET /supports` are frozen:
   still returned, never edited again.
-
-### Rollback note (Release B)
-
-If the server is rolled back to the image before KODI-011, that image cannot
-read a row written since KODI-011 with one of the 11 new currencies, nor one
-with salary period `annually` (the owner accepted this). The server-side
-`alembic downgrade d3f7b1c9e2a4` remaps `annually` back to `annual` but
-cannot remap a currency, and it is what brings timeline events written since
-KODI-011 back as steps.
 
 ## [0.2.0]
 
@@ -160,7 +157,7 @@ KODI-011 back as steps.
   point at `applications timeline`.
 - KODI-013 A `409` from the timeline/finalize/reopen routes prints the
   API's message plus a hint to run `applications reopen` when the
-  application is closed (a closed application is reversible now, R-007);
+  application is closed (a closed application can be reopened now);
   the 0.1.4 `applications steps *` / legacy `applications finalize` local
   "already been finalized" guards are unchanged.
 
