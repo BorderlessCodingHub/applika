@@ -694,8 +694,13 @@ def test_finalize_bodyless_sends_no_body(monkeypatch, runner):
         'company_name': 'Acme',
         'role': 'Backend Engineer',
         'salary_offer': None,
-        'last_step': None,
+        # Deliberately misleading: a future interview sorts after the
+        # close and would be Application.last_step, even though this close
+        # carried no outcome at all - the output must not read it.
+        'last_step': {'name': 'Initial Screen', 'date': '2026-09-22'},
         'feedback': None,
+        'finalized': True,
+        'finalized_at': '2026-06-01T00:00:00+00:00',
     }
 
     result = runner.invoke(app, ['applications', 'finalize', '99'])
@@ -703,6 +708,12 @@ def test_finalize_bodyless_sends_no_body(monkeypatch, runner):
     assert result.exit_code == 0
     assert FakeApiClient.captured_post_path == '/applications/99/finalize'
     assert FakeApiClient.captured_post_payload is None
+    assert (
+        'Finalized application: id=99 company=Acme role=Backend Engineer '
+        'status=closed finalized_at=2026-06-01T00:00:00+00:00' in result.output
+    )
+    assert 'final_step' not in result.output
+    assert 'outcome=' not in result.output
 
 
 def test_finalize_outcome_offer_payload(monkeypatch, runner):
@@ -712,8 +723,11 @@ def test_finalize_outcome_offer_payload(monkeypatch, runner):
         'company_name': 'Acme',
         'role': 'Backend Engineer',
         'salary_offer': 9000.0,
-        'last_step': {'name': 'Offer', 'date': '2026-06-10'},
+        # Same trap as above: last_step must not be what the output reads.
+        'last_step': {'name': 'Initial Screen', 'date': '2026-09-22'},
         'feedback': None,
+        'finalized': True,
+        'finalized_at': '2026-06-10T00:00:00+00:00',
     }
 
     result = runner.invoke(
@@ -746,6 +760,12 @@ def test_finalize_outcome_offer_payload(monkeypatch, runner):
         'salary_currency': 'EUR',
         'salary_period': 'annually',
     }
+    assert (
+        'Finalized application: id=99 company=Acme role=Backend Engineer '
+        'status=closed finalized_at=2026-06-10T00:00:00+00:00 '
+        'outcome=offer' in result.output
+    )
+    assert 'final_step' not in result.output
 
 
 def test_finalize_outcome_denied_payload(monkeypatch, runner):
@@ -755,8 +775,10 @@ def test_finalize_outcome_denied_payload(monkeypatch, runner):
         'company_name': 'Acme',
         'role': 'Backend Engineer',
         'salary_offer': None,
-        'last_step': {'name': 'Denied', 'date': '2026-06-10'},
+        'last_step': {'name': 'Initial Screen', 'date': '2026-09-22'},
         'feedback': None,
+        'finalized': True,
+        'finalized_at': '2026-06-10T00:00:00+00:00',
     }
 
     result = runner.invoke(
@@ -772,6 +794,12 @@ def test_finalize_outcome_denied_payload(monkeypatch, runner):
         'salary_currency': None,
         'salary_period': None,
     }
+    assert (
+        'Finalized application: id=99 company=Acme role=Backend Engineer '
+        'status=closed finalized_at=2026-06-10T00:00:00+00:00 '
+        'outcome=denied' in result.output
+    )
+    assert 'final_step' not in result.output
 
 
 def test_finalize_outcome_offer_without_salary_triad_refused(
@@ -946,6 +974,8 @@ def test_finalize_bodyless_idempotent_output(monkeypatch, runner):
         'salary_offer': None,
         'last_step': None,
         'feedback': None,
+        'finalized': True,
+        'finalized_at': '2026-06-01T00:00:00+00:00',
     }
 
     first = runner.invoke(app, ['applications', 'finalize', '99'])
@@ -954,6 +984,8 @@ def test_finalize_bodyless_idempotent_output(monkeypatch, runner):
     assert first.exit_code == 0
     assert second.exit_code == 0
     assert first.output == second.output
+    assert 'status=closed' in first.output
+    assert 'finalized_at=2026-06-01T00:00:00+00:00' in first.output
 
 
 # --------------------------------------------------------------------------
@@ -968,6 +1000,11 @@ def test_reopen_sends_no_body_and_is_idempotent(monkeypatch, runner):
         'company_name': 'Acme',
         'role': 'Backend Engineer',
         'application_date': '2026-01-01',
+        # Deliberately misleading, same as the finalize traps above: a
+        # stale last_step must not leak into the reopen output either.
+        'last_step': {'name': 'Initial Screen', 'date': '2026-09-22'},
+        'finalized': False,
+        'finalized_at': None,
     }
 
     first = runner.invoke(app, ['applications', 'reopen', '99'])
@@ -977,7 +1014,11 @@ def test_reopen_sends_no_body_and_is_idempotent(monkeypatch, runner):
     assert first.exit_code == 0
     assert second.exit_code == 0
     assert FakeApiClient.captured_post_path == '/applications/99/reopen'
-    assert 'Reopened application: id=99' in first.output
+    assert (
+        'Reopened application: id=99 company=Acme role=Backend Engineer '
+        'status=open finalized_at=-' in first.output
+    )
+    assert 'final_step' not in first.output
     assert first.output == second.output
 
 
