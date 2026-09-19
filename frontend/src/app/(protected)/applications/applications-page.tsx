@@ -119,7 +119,7 @@ export function ApplicationsPage() {
             <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground sm:text-3xl">
               {APPLICATIONS_PAGE_COPY.title}
             </h1>
-            <p className="mt-1 text-base text-muted-foreground">
+            <p className="mt-1 text-sm text-muted-foreground">
               {isViewingPastCycle
                 ? APPLICATIONS_PAGE_COPY.archivedSubtitle
                 : APPLICATIONS_PAGE_COPY.subtitle}
