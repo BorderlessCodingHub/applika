@@ -48,4 +48,15 @@ export class BaseCvService implements IBaseCvService {
         ),
       }));
   }
+
+  exportMarkdown(id: string): Promise<CvPdfExport> {
+    return api
+      .get<Blob>(`/base-cvs/${id}/markdown`, { responseType: "blob" })
+      .then((r) => ({
+        blob: r.data,
+        filename: parseContentDispositionFilename(
+          r.headers["content-disposition"] as string | undefined,
+        ),
+      }));
+  }
 }

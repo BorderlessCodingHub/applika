@@ -58,6 +58,10 @@ export interface BaseCvPickerProps {
   onExport: (cv: BaseCv) => void;
   /** Id of the master CV whose PDF render is in flight. */
   exportingId?: string | null;
+  /** Asks the server for one master CV's Markdown (KODI-017 part 3), beside the PDF. */
+  onExportMarkdown: (cv: BaseCv) => void;
+  /** Id of the master CV whose Markdown render is in flight. */
+  exportingMarkdownId?: string | null;
   /** Builds a master CV's editor link. */
   editHref?: (cv: BaseCv) => string;
   /** Destination of every "write a master CV" affordance. */
@@ -95,6 +99,8 @@ export function BaseCvPicker({
   deletingId,
   onExport,
   exportingId,
+  onExportMarkdown,
+  exportingMarkdownId,
   editHref = baseCvEditorHref,
   newHref = "/cvs/new",
   max = BASE_CVS_MAX,
@@ -138,6 +144,8 @@ export function BaseCvPicker({
     deletingId,
     onExport,
     exportingId,
+    onExportMarkdown,
+    exportingMarkdownId,
     max,
   };
 

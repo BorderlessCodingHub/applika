@@ -6,6 +6,7 @@ import { BaseCvList } from "@/components/base-cvs/base-cv-list";
 import { BASE_CVS_MAX } from "@/components/base-cvs/types";
 import { useBaseCvs } from "@/hooks/use-base-cvs";
 import { useDeleteBaseCv } from "@/hooks/use-delete-base-cv";
+import { useExportBaseCvMarkdown } from "@/hooks/use-export-base-cv-markdown";
 import { useExportBaseCvPdf } from "@/hooks/use-export-base-cv-pdf";
 import { getApiError } from "@/lib/api-client";
 import type { BaseCv } from "@/services/types/base-cv";
@@ -35,12 +36,16 @@ export function CvsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [exportingId, setExportingId] = useState<string | null>(null);
+  const [exportingMarkdownId, setExportingMarkdownId] = useState<string | null>(
+    null,
+  );
 
   const deleteMutation = useDeleteBaseCv({
     onSettled: () => setDeletingId(null),
   });
 
   const exportMutation = useExportBaseCvPdf();
+  const exportMarkdownMutation = useExportBaseCvMarkdown();
 
   const handleDelete = (cv: BaseCv) => {
     setDeletingId(cv.id);
@@ -52,6 +57,14 @@ export function CvsPage() {
     exportMutation.mutate(
       { id: cv.id, name: cv.name },
       { onSettled: () => setExportingId(null) },
+    );
+  };
+
+  const handleExportMarkdown = (cv: BaseCv) => {
+    setExportingMarkdownId(cv.id);
+    exportMarkdownMutation.mutate(
+      { id: cv.id, name: cv.name },
+      { onSettled: () => setExportingMarkdownId(null) },
     );
   };
 
@@ -76,6 +89,8 @@ export function CvsPage() {
         deletingId={deletingId}
         onExport={handleExport}
         exportingId={exportingId}
+        onExportMarkdown={handleExportMarkdown}
+        exportingMarkdownId={exportingMarkdownId}
         max={BASE_CVS_MAX}
       />
     </div>

@@ -20,6 +20,7 @@ import { LinkButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CvFormValues } from "@/components/base-cvs/types";
 import { useBaseCv } from "@/hooks/use-base-cv";
+import { useExportBaseCvMarkdown } from "@/hooks/use-export-base-cv-markdown";
 import { useExportBaseCvPdf } from "@/hooks/use-export-base-cv-pdf";
 import { useUpdateBaseCv } from "@/hooks/use-update-base-cv";
 import { getApiError } from "@/lib/api-client";
@@ -91,6 +92,7 @@ export function CvEditorPage() {
   // filename has to match the document the server renders, not the unsaved
   // edits on screen.
   const exportMutation = useExportBaseCvPdf();
+  const exportMarkdownMutation = useExportBaseCvMarkdown();
 
   return (
     <div className="space-y-6">
@@ -152,6 +154,13 @@ export function CvEditorPage() {
                 exportMutation.mutate({ id: id ?? "", name: cv?.name ?? "" })
               }
               isExporting={exportMutation.isPending}
+              onExportMarkdown={() =>
+                exportMarkdownMutation.mutate({
+                  id: id ?? "",
+                  name: cv?.name ?? "",
+                })
+              }
+              isExportingMarkdown={exportMarkdownMutation.isPending}
             />
           }
         />

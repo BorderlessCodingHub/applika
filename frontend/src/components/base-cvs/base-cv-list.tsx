@@ -47,6 +47,10 @@ export interface BaseCvListProps {
   onExport?: (cv: BaseCv) => void;
   /** Id of the CV whose PDF render is in flight. */
   exportingId?: string | null;
+  /** Asks the server for one CV's Markdown (KODI-017 part 3), beside the PDF. */
+  onExportMarkdown?: (cv: BaseCv) => void;
+  /** Id of the CV whose Markdown render is in flight. */
+  exportingMarkdownId?: string | null;
   max?: number;
   /** Overrides the on-screen reason on the disabled create tile. */
   limitReason?: string;
@@ -75,6 +79,8 @@ export function BaseCvList({
   deletingId,
   onExport,
   exportingId,
+  onExportMarkdown,
+  exportingMarkdownId,
   max = BASE_CVS_MAX,
   limitReason,
   selection,
@@ -166,6 +172,10 @@ export function BaseCvList({
           isDeleting={deletingId === cv.id}
           onExport={onExport ? () => onExport(cv) : undefined}
           isExporting={exportingId === cv.id}
+          onExportMarkdown={
+            onExportMarkdown ? () => onExportMarkdown(cv) : undefined
+          }
+          isExportingMarkdown={exportingMarkdownId === cv.id}
           selection={
             selection
               ? {

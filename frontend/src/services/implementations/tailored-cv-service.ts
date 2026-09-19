@@ -65,4 +65,43 @@ export class TailoredCvService implements ITailoredCvService {
         ),
       }));
   }
+
+  exportMarkdown(applicationId: string): Promise<CvPdfExport> {
+    return api
+      .get<Blob>(`/applications/${applicationId}/cv/markdown`, {
+        responseType: "blob",
+      })
+      .then((r) => ({
+        blob: r.data,
+        filename: parseContentDispositionFilename(
+          r.headers["content-disposition"] as string | undefined,
+        ),
+      }));
+  }
+
+  exportDiffMarkdown(applicationId: string): Promise<CvPdfExport> {
+    return api
+      .get<Blob>(`/applications/${applicationId}/cv/diff/markdown`, {
+        responseType: "blob",
+      })
+      .then((r) => ({
+        blob: r.data,
+        filename: parseContentDispositionFilename(
+          r.headers["content-disposition"] as string | undefined,
+        ),
+      }));
+  }
+
+  exportDiffPdf(applicationId: string): Promise<CvPdfExport> {
+    return api
+      .get<Blob>(`/applications/${applicationId}/cv/diff/pdf`, {
+        responseType: "blob",
+      })
+      .then((r) => ({
+        blob: r.data,
+        filename: parseContentDispositionFilename(
+          r.headers["content-disposition"] as string | undefined,
+        ),
+      }));
+  }
 }

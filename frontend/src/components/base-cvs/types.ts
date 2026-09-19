@@ -212,3 +212,13 @@ export const CV_PDF_EXPORT_PENDING =
 
 /** Visible text and accessible name of the export action. */
 export const CV_PDF_EXPORT_LABEL = "Download PDF";
+
+/**
+ * The Markdown twin of the PDF export (KODI-017 part 3). The owner: "create a
+ * version of the CV in markdown along side with pdf (that already exists) for
+ * download". Rendered on the server, like the PDF (ADR 0011).
+ */
+export const CV_MARKDOWN_EXPORT_LABEL = "Download Markdown";
+
+/** Announced while the server renders the Markdown file. */
+export const CV_MARKDOWN_EXPORT_PENDING = "Preparing your Markdown file.";

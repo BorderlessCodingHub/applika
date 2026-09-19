@@ -1,10 +1,12 @@
 "use client";
 
 import { useId } from "react";
-import { Download, Loader2 } from "lucide-react";
+import { Download, FileText, Loader2 } from "lucide-react";
 
 import { Button, type ButtonProps } from "@/components/ui/button";
 import {
+  CV_MARKDOWN_EXPORT_LABEL,
+  CV_MARKDOWN_EXPORT_PENDING,
   CV_PDF_EXPORT_LABEL,
   CV_PDF_EXPORT_PENDING,
   CV_PDF_LAYOUT_NOTICE,
@@ -16,8 +18,16 @@ export interface ExportCvButtonProps {
   onExport: () => void | Promise<void>;
   /** Disables the button and swaps the icon for a spinner while the server renders. */
   isExporting?: boolean;
+  /**
+   * Asks the server for the SAME CV as Markdown (KODI-017 part 3), rendered
+   * beside the PDF button. Omit only for a surface with no Markdown route yet
+   * — every call site the slice names passes it.
+   */
+  onExportMarkdown?: () => void | Promise<void>;
+  isExportingMarkdown?: boolean;
   /** Visible text and accessible name. Keep the two identical (WCAG 2.5.3). */
   label?: string;
+  markdownLabel?: string;
   /** Secondary by default: the export sits beside a save, never instead of it. */
   variant?: ButtonProps["variant"];
   /**
@@ -27,8 +37,8 @@ export interface ExportCvButtonProps {
    */
   cvName?: string;
   /**
-   * `"inline"` is the editor footer: a full-size button beside the visible
-   * layout notice. `"compact"` is a gallery tile: a small button and NO
+   * `"inline"` is the editor footer: full-size buttons beside the visible
+   * layout notice. `"compact"` is a gallery tile: small buttons and NO
    * notice at all — see the note on the notice below.
    */
   layout?: "inline" | "compact";
@@ -36,35 +46,36 @@ export interface ExportCvButtonProps {
 }
 
 /**
- * Asks for the server-rendered PDF of the CV on screen, and says in the same
- * breath that the preview beside it is not that PDF.
+ * Asks for the server-rendered PDF (and, since KODI-017 part 3, Markdown) of
+ * the CV on screen, and says in the same breath that the preview beside it is
+ * not the final PDF layout.
  *
- * Presentational: it imports no service and no hook. It takes `onExport` and
- * `isExporting` and renders the three states the export has — idle, in flight,
- * and available on a CV that can no longer be edited.
+ * Presentational: it imports no service and no hook. It takes `onExport` /
+ * `onExportMarkdown` and their own `isExporting*` flags and renders the three
+ * states each export has — idle, in flight, and available on a CV that can no
+ * longer be edited.
  *
  * The notice is part of the component, not a decoration the caller adds, so it
  * travels with the button to every EDITOR footer the button is dropped into and
- * stays wired to it through `aria-describedby`. The button is NEVER disabled by
- * a read-only application or by a deleted source CV — reading and exporting a
- * locked CV copy is allowed; only a render already in flight disables it.
+ * stays wired to it through `aria-describedby`. Neither button is EVER
+ * disabled by a read-only application or a deleted source CV — reading and
+ * exporting a locked CV copy is allowed; only a render already in flight
+ * disables its own button.
  *
  * `layout="compact"` renders NO notice: no `<p>`, and no `aria-describedby`
  * pointing at one. The notice qualifies a PREVIEW the user could mistake for
  * the PDF, and a gallery tile renders no preview — so on `/cvs` it described
- * nothing. It was `sr-only` there, which made it the worst of both: a screen
- * reader heard "Preview does not show the final PDF layout." up to three times,
- * once per tile, about a document the page never shows, while a sighted user
- * never saw it at all. The download button stands alone on a tile.
- *
- * This changes WHERE the notice is said, never WHAT it says.
- * `CV_PDF_LAYOUT_NOTICE` is byte-identical and `layout="inline"` — the default,
- * and the editors' copy — is untouched.
+ * nothing. This changes WHERE the notice is said, never WHAT it says.
+ * `CV_PDF_LAYOUT_NOTICE` is byte-identical and `layout="inline"` — the
+ * default, and the editors' copy — is untouched.
  */
 export function ExportCvButton({
   onExport,
   isExporting = false,
+  onExportMarkdown,
+  isExportingMarkdown = false,
   label = CV_PDF_EXPORT_LABEL,
+  markdownLabel = CV_MARKDOWN_EXPORT_LABEL,
   variant = "outline",
   cvName,
   layout = "inline",
@@ -72,35 +83,66 @@ export function ExportCvButton({
 }: ExportCvButtonProps) {
   const noticeId = useId();
   const compact = layout === "compact";
+  const pending = isExporting
+    ? CV_PDF_EXPORT_PENDING
+    : isExportingMarkdown
+      ? CV_MARKDOWN_EXPORT_PENDING
+      : "";
 
   return (
     <div
       className={cn(
         compact
-          ? // `display: contents` so the button is a direct flex item of the
-            // tile's footer row and the two hidden nodes add no box.
+          ? // `display: contents` so the buttons are direct flex items of the
+            // tile's own footer row and the two hidden nodes add no box.
             "contents"
           : "flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-3",
         className,
       )}
     >
-      <Button
-        type="button"
-        variant={variant}
-        size={compact ? "sm" : undefined}
-        onClick={() => void onExport()}
-        disabled={isExporting}
-        aria-busy={isExporting}
-        aria-label={cvName ? `${label} ${cvName}` : undefined}
-        aria-describedby={compact ? undefined : noticeId}
-      >
-        {isExporting ? (
-          <Loader2 aria-hidden className="animate-spin" />
-        ) : (
-          <Download aria-hidden />
+      <div
+        className={cn(
+          compact ? "contents" : "flex flex-wrap items-center gap-2",
         )}
-        {label}
-      </Button>
+      >
+        <Button
+          type="button"
+          variant={variant}
+          size={compact ? "sm" : undefined}
+          onClick={() => void onExport()}
+          disabled={isExporting}
+          aria-busy={isExporting}
+          aria-label={cvName ? `${label} ${cvName}` : undefined}
+          aria-describedby={compact ? undefined : noticeId}
+        >
+          {isExporting ? (
+            <Loader2 aria-hidden className="animate-spin" />
+          ) : (
+            <Download aria-hidden />
+          )}
+          {label}
+        </Button>
+
+        {onExportMarkdown ? (
+          <Button
+            type="button"
+            variant={variant}
+            size={compact ? "sm" : undefined}
+            onClick={() => void onExportMarkdown()}
+            disabled={isExportingMarkdown}
+            aria-busy={isExportingMarkdown}
+            aria-label={cvName ? `${markdownLabel} ${cvName}` : undefined}
+            aria-describedby={compact ? undefined : noticeId}
+          >
+            {isExportingMarkdown ? (
+              <Loader2 aria-hidden className="animate-spin" />
+            ) : (
+              <FileText aria-hidden />
+            )}
+            {markdownLabel}
+          </Button>
+        ) : null}
+      </div>
 
       {compact ? null : (
         <p
@@ -113,7 +155,7 @@ export function ExportCvButton({
 
       {/* Empty but mounted: a live region inserted at the same tick may not announce. */}
       <span aria-live="polite" className="sr-only">
-        {isExporting ? CV_PDF_EXPORT_PENDING : ""}
+        {pending}
       </span>
     </div>
   );
