@@ -22,7 +22,6 @@ import {
 import {
   ApplicationDetailsPanel,
   ApplicationDetailTile,
-  computeDividerVisibility,
 } from "@/components/applications/application-detail-tile";
 import { ApplicationIconAction } from "@/components/applications/application-icon-action";
 import {
@@ -102,42 +101,6 @@ export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
    * (no mutation) so the tiles below — rendered as individual conditional
    * JSX blocks, not a `.map()` — can each read their own entry by key.
    */
-  const detailTileKeys = [
-    "platform",
-    "source",
-    "date",
-    ...(app.experience_level ? (["experience"] as const) : []),
-    ...(app.work_mode ? (["workMode"] as const) : []),
-    ...(app.link_to_job ? (["jobPosting"] as const) : []),
-    ...(app.country ? (["country"] as const) : []),
-    ...(app.salary_range_min != null ? (["salaryRange"] as const) : []),
-    ...(app.expected_salary != null ? (["expectedSalary"] as const) : []),
-    ...(app.observation ? (["notes"] as const) : []),
-  ] as const;
-  const detailTileSpans: (1 | 2 | "full")[] = detailTileKeys.map((key) =>
-    key === "salaryRange" || key === "expectedSalary"
-      ? 2
-      : key === "notes"
-        ? "full"
-        : 1,
-  );
-  const dividerAtMd = computeDividerVisibility(
-    detailTileSpans.map((span) => (span === "full" ? 2 : span)),
-    2,
-  );
-  const dividerAtXl = computeDividerVisibility(
-    detailTileSpans.map((span) => (span === "full" ? 4 : span)),
-    4,
-  );
-  const dividerPropsByKey = Object.fromEntries(
-    detailTileKeys.map((key, i) => [
-      key,
-      { showDividerAtMd: dividerAtMd[i], showDividerAtXl: dividerAtXl[i] },
-    ]),
-  ) as Record<
-    (typeof detailTileKeys)[number],
-    { showDividerAtMd: boolean; showDividerAtXl: boolean }
-  >;
 
   return (
     <Collapsible open={isExpanded} onOpenChange={setExpanded} asChild>
@@ -285,7 +248,6 @@ export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
               icon={Building2}
               label={APPLICATION_DETAIL_LABELS.platform}
               tone="primary"
-              {...dividerPropsByKey.platform}
             >
               {getPlatformName(app.platform_id)}
             </ApplicationDetailTile>
@@ -293,7 +255,6 @@ export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
               icon={CircleCheck}
               label={APPLICATION_DETAIL_LABELS.source}
               tone="success"
-              {...dividerPropsByKey.source}
             >
               {app.mode === "active" ? "Active" : "Passive"}
             </ApplicationDetailTile>
@@ -301,7 +262,6 @@ export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
               icon={Calendar}
               label={APPLICATION_DETAIL_LABELS.date}
               tone="neutral"
-              {...dividerPropsByKey.date}
             >
               {app.application_date}
             </ApplicationDetailTile>
@@ -310,7 +270,6 @@ export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
                 icon={GraduationCap}
                 label={APPLICATION_DETAIL_LABELS.experience}
                 tone="info"
-                {...dividerPropsByKey.experience}
               >
                 {optionLabel(SelectOptions.SENIORITY, app.experience_level)}
               </ApplicationDetailTile>
@@ -320,7 +279,6 @@ export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
                 icon={Wifi}
                 label={APPLICATION_DETAIL_LABELS.workMode}
                 tone="info"
-                {...dividerPropsByKey.workMode}
               >
                 {optionLabel(SelectOptions.WORK_MODE, app.work_mode)}
               </ApplicationDetailTile>
@@ -329,7 +287,6 @@ export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
               <ApplicationDetailTile
                 icon={ExternalLink}
                 label={APPLICATION_DETAIL_LABELS.jobPosting}
-                {...dividerPropsByKey.jobPosting}
               >
                 <a
                   href={app.link_to_job}
@@ -345,7 +302,6 @@ export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
               <ApplicationDetailTile
                 icon={MapPin}
                 label={APPLICATION_DETAIL_LABELS.country}
-                {...dividerPropsByKey.country}
               >
                 {app.country}
               </ApplicationDetailTile>
@@ -354,8 +310,6 @@ export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
               <ApplicationDetailTile
                 icon={Banknote}
                 label={APPLICATION_DETAIL_LABELS.salaryRange}
-                className="@md/details:col-span-2"
-                {...dividerPropsByKey.salaryRange}
               >
                 <span className="font-numeric break-normal sm:whitespace-nowrap">
                   {formatSalary({
@@ -371,8 +325,6 @@ export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
               <ApplicationDetailTile
                 icon={Wallet}
                 label={APPLICATION_DETAIL_LABELS.expectedSalary}
-                className="@md/details:col-span-2"
-                {...dividerPropsByKey.expectedSalary}
               >
                 <span className="font-numeric break-normal sm:whitespace-nowrap">
                   {formatSalary({
@@ -388,7 +340,6 @@ export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
                 icon={NotebookText}
                 label={APPLICATION_DETAIL_LABELS.notes}
                 wide
-                {...dividerPropsByKey.notes}
               >
                 <span className="block text-sm leading-relaxed font-normal whitespace-pre-wrap text-foreground/90">
                   {app.observation}
