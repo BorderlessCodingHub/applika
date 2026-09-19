@@ -12,6 +12,16 @@
 
 import type { CvScalars, CvSections } from "@/components/base-cvs/types";
 
+/**
+ * The master CV's content, captured once at copy-creation time (KODI-017,
+ * R5). Exactly the copy's own content fields — same shape, same item ids — so
+ * `cv-diff.ts` can compare it against the form values directly. `null` on a
+ * copy created before this field existed (no backfill) and on every copy
+ * forever after: it is written once and never rewritten, not by a PUT, not by
+ * editing or deleting the master CV.
+ */
+export type TailoredCvSnapshot = CvScalars & CvSections;
+
 /** A persisted CV copy as returned by the API. */
 export interface TailoredCv extends CvScalars, CvSections {
   id: string;
@@ -22,6 +32,11 @@ export interface TailoredCv extends CvScalars, CvSections {
    * The copy keeps ALL of its content either way — only the provenance is lost.
    */
   base_cv_id: string | null;
+  /**
+   * The diff baseline (KODI-017). Read-only, never sent on `PUT` — see
+   * `toTailoredCvPayload`, which never emits this key.
+   */
+  base_snapshot: TailoredCvSnapshot | null;
   /** Always `false` today. Nothing in the product generates a CV. */
   was_ai_generated: boolean;
   /** Always empty today. Reserved by the API contract. */

@@ -24,6 +24,7 @@ import {
 } from "@/components/base-cvs/cv-form-sections";
 import { CvDocumentPreview } from "@/components/base-cvs/cv-document-preview";
 import { CvEditorFooter } from "@/components/base-cvs/cv-editor-footer";
+import type { CvFormDiffSlots } from "@/components/base-cvs/cv-form-diff";
 import type { CvFormValues } from "@/components/base-cvs/types";
 import { JobDescriptionPanel } from "@/components/tailored-cvs/job-description-panel";
 import { TailoredCvReadOnlyBanner } from "@/components/tailored-cvs/tailored-cv-read-only-banner";
@@ -46,7 +47,7 @@ export interface TailoredCvEditorProps {
   baseCvId: string | null;
   /** The master CV's label, when it still exists. */
   sourceCvName?: string | null;
-  /** The application's job description, shown beside the fields. */
+  /** The application's job description, shown above the fields. */
   jobDescription?: string | null;
   /** Opens the application form so a missing job description can be added. */
   onAddJobDescription?: () => void;
@@ -69,6 +70,10 @@ export interface TailoredCvEditorProps {
   actions?: ReactNode;
   /** Overrides id generation for new rows. Defaults to `crypto.randomUUID()`. */
   newItemId?: () => string;
+  /** `CvDiffSummaryBar`, above Identity and contact; omit when the copy has no baseline. */
+  diffSummary?: ReactNode;
+  /** Marker slots for the form body while "Show changes" is on; see `CvFormDiffSlots`. */
+  diff?: CvFormDiffSlots;
   className?: string;
 }
 
@@ -103,6 +108,8 @@ export function TailoredCvEditor({
   readOnlyReason,
   actions,
   newItemId = defaultNewItemId,
+  diffSummary,
+  diff,
   className,
 }: TailoredCvEditorProps) {
   const previewCv = useCvPreviewData(form.control);
@@ -144,52 +151,39 @@ export function TailoredCvEditor({
       </div>
 
       {/*
-        `display: contents` below `md` so the three blocks are direct children of
-        the flex column and can be ordered: job description, then the fields,
-        then the preview — read the job, edit, check the render. At `md` the
-        wrapper becomes the sticky right column again.
+        50/50 at every width from `md`, like `BaseCvEditor` (KODI-009); no `2xl`
+        cap (KODI-017). The job description leads the FORM column, so the DOM
+        order is the mobile order too: job description, fields, preview.
       */}
-      <div className="flex flex-col gap-6 md:grid md:grid-cols-2 md:items-start 2xl:grid-cols-[minmax(0,1fr)_38rem]">
-        <CvFormSections
-          form={form}
-          disabled={locked}
-          newItemId={newItemId}
-          className="order-2 md:order-none"
-        />
-
-        {/*
-          The same fix as `BaseCvEditor`'s aside, for the same reason: stuck to
-          the TOP of the scrollport (`main`'s only chrome, the shell `Header`,
-          is OUTSIDE it, so `top-20` reserved 5rem of dead band) and capped by
-          the SCROLLPORT MINUS the sticky footer below rather than by `100dvh`
-          — otherwise the preview's `<figcaption>`, which carries the layout
-          notice, ends under that footer. The column is a flex column,
-          so the preview takes whatever the job description leaves instead of
-          the two adding up past the viewport — which is what used to put the
-          bottom of a CV copy's preview out of reach for good, a sticky box
-          taller than the scrollport never scrolling to its own end.
-        */}
-        <div className="contents md:sticky md:top-0 md:flex md:max-h-editor-scrollport md:min-w-0 md:flex-col md:gap-4">
+      <div className="grid gap-6 md:grid-cols-2 md:items-start">
+        <div className="flex min-w-0 flex-col gap-4">
           <JobDescriptionPanel
             jobDescription={jobDescription}
             onAdd={onAddJobDescription}
             disabled={readOnly}
-            className="order-1 md:order-none md:shrink-0"
           />
-
-          <section
-            aria-label="CV preview"
-            className="order-3 min-w-0 space-y-2 md:order-none md:flex md:min-h-0 md:flex-1 md:flex-col"
-          >
-            <p className="shrink-0 text-xs font-medium tracking-wide-label text-muted-foreground uppercase">
-              Live preview
-            </p>
-            <CvDocumentPreview
-              cv={previewCv}
-              className="md:min-h-0 md:flex-1"
-            />
-          </section>
+          {diffSummary}
+          <CvFormSections
+            form={form}
+            disabled={locked}
+            newItemId={newItemId}
+            diff={diff}
+          />
         </div>
+
+        {/* Same sticky scrollport rules as `BaseCvEditor`'s aside; see frontend/CLAUDE.md "App shell". */}
+        <section
+          aria-label="CV preview"
+          className={cn(
+            "min-w-0 space-y-2",
+            "md:sticky md:top-0 md:flex md:max-h-editor-scrollport md:flex-col",
+          )}
+        >
+          <p className="shrink-0 text-xs font-medium tracking-wide-label text-muted-foreground uppercase">
+            Live preview
+          </p>
+          <CvDocumentPreview cv={previewCv} className="md:min-h-0 md:flex-1" />
+        </section>
       </div>
 
       {/*

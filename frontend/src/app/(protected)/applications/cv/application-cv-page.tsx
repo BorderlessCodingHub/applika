@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { AxiosError } from "axios";
 import { ArrowLeft } from "lucide-react";
@@ -13,6 +13,8 @@ import { ExportCvButton } from "@/components/base-cvs/export-cv-button";
 import type { BaseCv, CvFormValues } from "@/components/base-cvs/types";
 import { FullWidthContent } from "@/components/layout/content-width";
 import { BaseCvPicker } from "@/components/tailored-cvs/base-cv-picker";
+import { CvDiffDownloadRow } from "@/components/tailored-cvs/cv-diff-download-row";
+import type { CvDiffSnapshot } from "@/components/tailored-cvs/cv-diff";
 import { TailoredCvEditor } from "@/components/tailored-cvs/tailored-cv-editor";
 import {
   emptyTailoredCvValues,
@@ -22,6 +24,7 @@ import {
   toTailoredCvPayload,
 } from "@/components/tailored-cvs/tailored-cv-schema";
 import type { TailoredCvReadOnlyReason } from "@/components/tailored-cvs/types";
+import { useCvDiff } from "@/components/tailored-cvs/use-cv-diff";
 import { LinkButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCycleContext } from "@/contexts/cycle-context";
@@ -30,7 +33,13 @@ import { useBaseCvs } from "@/hooks/use-base-cvs";
 import { useCreateTailoredCv } from "@/hooks/use-create-tailored-cv";
 import { useDeleteBaseCv } from "@/hooks/use-delete-base-cv";
 import { useDeleteTailoredCv } from "@/hooks/use-delete-tailored-cv";
+import { useExportBaseCvMarkdown } from "@/hooks/use-export-base-cv-markdown";
 import { useExportBaseCvPdf } from "@/hooks/use-export-base-cv-pdf";
+import {
+  useExportCvDiffMarkdown,
+  useExportCvDiffPdf,
+} from "@/hooks/use-export-cv-diff";
+import { useExportTailoredCvMarkdown } from "@/hooks/use-export-tailored-cv-markdown";
 import { useExportTailoredCvPdf } from "@/hooks/use-export-tailored-cv-pdf";
 import { isNoTailoredCv, useTailoredCv } from "@/hooks/use-tailored-cv";
 import { useUpdateTailoredCv } from "@/hooks/use-update-tailored-cv";
@@ -114,7 +123,14 @@ export function ApplicationCvPage() {
   const [exportingBaseCvId, setExportingBaseCvId] = useState<string | null>(
     null,
   );
+  const [exportingBaseCvMarkdownId, setExportingBaseCvMarkdownId] = useState<
+    string | null
+  >(null);
   const [editingApplication, setEditingApplication] = useState(false);
+  /** Set on a 409/unresolvable baseline from the diff download routes; cleared on retry. */
+  const [diffDownloadError, setDiffDownloadError] = useState<string | null>(
+    null,
+  );
   /**
    * The copy was deleted in this session. The query is invalidated at the same
    * moment, but a refetch is not instant: without this the editor would flash
@@ -158,6 +174,24 @@ export function ApplicationCvPage() {
     applicationId ?? "",
     cv?.name ?? "",
   );
+  const exportMarkdownMutation = useExportTailoredCvMarkdown(
+    applicationId ?? "",
+    cv?.name ?? "",
+  );
+
+  // The diff downloads (KODI-017 part 3): the SAVED copy vs. its baseline,
+  // rendered by the server. A 409 (no baseline) or any other failure sets
+  // `diffDownloadError`, which disables the row with the server's own reason.
+  const exportDiffMarkdownMutation = useExportCvDiffMarkdown(
+    applicationId ?? "",
+    cv?.name ?? "",
+    { onError: setDiffDownloadError },
+  );
+  const exportDiffPdfMutation = useExportCvDiffPdf(
+    applicationId ?? "",
+    cv?.name ?? "",
+    { onError: setDiffDownloadError },
+  );
 
   // Master CV delete/export for the picker (KODI-017), the same pattern
   // `cvs-page.tsx` uses — named distinctly from the tailored-CV `exportMutation`
@@ -166,6 +200,7 @@ export function ApplicationCvPage() {
     onSettled: () => setDeletingBaseCvId(null),
   });
   const exportBaseCvMutation = useExportBaseCvPdf();
+  const exportBaseCvMarkdownMutation = useExportBaseCvMarkdown();
 
   const handleDeleteBaseCv = useCallback(
     (baseCv: BaseCv) => {
@@ -194,6 +229,17 @@ export function ApplicationCvPage() {
     [exportBaseCvMutation],
   );
 
+  const handleExportBaseCvMarkdown = useCallback(
+    (baseCv: BaseCv) => {
+      setExportingBaseCvMarkdownId(baseCv.id);
+      exportBaseCvMarkdownMutation.mutate(
+        { id: baseCv.id, name: baseCv.name },
+        { onSettled: () => setExportingBaseCvMarkdownId(null) },
+      );
+    },
+    [exportBaseCvMarkdownMutation],
+  );
+
   // `onValueChange` feeds a `useEffect` inside the picker (the lone option
   // selects itself), so it has to be stable or the effect re-runs every render.
   const handleSelect = useCallback((id: string) => setSelectedBaseCvId(id), []);
@@ -208,6 +254,36 @@ export function ApplicationCvPage() {
   const noCopyYet = copyDeleted || isNoTailoredCv(cvError);
   const sourceCvName =
     baseCvs.data?.find((item) => item.id === cv?.base_cv_id)?.name ?? null;
+
+  // Baseline resolution (KODI-017): the snapshot taken at copy time, else the
+  // CURRENT master CV via `base_cv_id`, else no diff UI at all — the "source
+  // CV deleted" note above stays exactly as it is either way.
+  const baselineSnapshot: CvDiffSnapshot | null = useMemo(() => {
+    if (!cv) return null;
+    if (cv.base_snapshot) return cv.base_snapshot;
+    if (cv.base_cv_id) {
+      const master = baseCvs.data?.find((item) => item.id === cv.base_cv_id);
+      if (master) return master;
+    }
+    return null;
+  }, [cv, baseCvs.data]);
+
+  // The bar renders even though `baselineSnapshot` did not resolve YET when
+  // the copy names a source that should give us one — that is the "download
+  // disabled with a reason" case the master-CV fetch itself failing.
+  const diffUnresolved = Boolean(
+    cv &&
+    (cv.base_snapshot != null || cv.base_cv_id != null) &&
+    !baselineSnapshot &&
+    baseCvs.error,
+  );
+
+  const cvDiff = useCvDiff({
+    form,
+    baseline: baselineSnapshot,
+    baselineLabel: sourceCvName,
+    readOnly: Boolean(readOnlyReason),
+  });
 
   function renderBody() {
     if (!applicationId) {
@@ -265,6 +341,8 @@ export function ApplicationCvPage() {
           deletingId={deletingBaseCvId}
           onExport={handleExportBaseCv}
           exportingId={exportingBaseCvId}
+          onExportMarkdown={handleExportBaseCvMarkdown}
+          exportingMarkdownId={exportingBaseCvMarkdownId}
           readOnlyReason={readOnlyReason}
         />
       );
@@ -320,10 +398,40 @@ export function ApplicationCvPage() {
           onDelete={() => deleteMutation.mutate()}
           isDeleting={deleteMutation.isPending}
           readOnlyReason={readOnlyReason}
+          diffSummary={
+            cvDiff.hasBaseline ? (
+              <div className="flex flex-col gap-3">
+                {cvDiff.diffSummary}
+                <CvDiffDownloadRow
+                  onExportPdf={() => {
+                    setDiffDownloadError(null);
+                    exportDiffPdfMutation.mutate();
+                  }}
+                  onExportMarkdown={() => {
+                    setDiffDownloadError(null);
+                    exportDiffMarkdownMutation.mutate();
+                  }}
+                  isExportingPdf={exportDiffPdfMutation.isPending}
+                  isExportingMarkdown={exportDiffMarkdownMutation.isPending}
+                  disabledReason={diffDownloadError}
+                  dirty={form.formState.isDirty}
+                />
+              </div>
+            ) : diffUnresolved ? (
+              <CvDiffDownloadRow
+                onExportPdf={() => {}}
+                onExportMarkdown={() => {}}
+                disabledReason="Could not check the original master CV to compare against. Try reloading the page."
+              />
+            ) : undefined
+          }
+          diff={cvDiff.slots}
           actions={
             <ExportCvButton
               onExport={() => exportMutation.mutate()}
               isExporting={exportMutation.isPending}
+              onExportMarkdown={() => exportMarkdownMutation.mutate()}
+              isExportingMarkdown={exportMarkdownMutation.isPending}
             />
           }
         />

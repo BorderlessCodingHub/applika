@@ -1,9 +1,15 @@
 "use client";
 
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { BadgeCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { CvField } from "@/components/base-cvs/cv-editor-fields";
+import {
+  CV_FIELD_MARKED_CLASS,
+  CV_FIELD_MARKER_GUTTER,
+  CvField,
+  hasMarker,
+} from "@/components/base-cvs/cv-editor-fields";
+import type { CvRemovedRowSlot } from "@/components/base-cvs/cv-form-diff";
 import {
   CV_KEYWORDS_HINT,
   CvKeywordsInput,
@@ -37,6 +43,17 @@ export interface CvSkillsSectionProps extends CvCollapsibleProps {
   /** Optional caps. */
   maxCategories?: number;
   maxKeywordsPerCategory?: number;
+  /** Diff slots; see `CvRepeatableSection` and `CvField`. */
+  status?: ReactNode;
+  statusId?: string;
+  itemBadge?: (item: CvSkillCategory, index: number) => ReactNode;
+  itemClassName?: (item: CvSkillCategory, index: number) => string | undefined;
+  removedRows?: readonly CvRemovedRowSlot[];
+  fieldMarker?: (
+    item: CvSkillCategory,
+    index: number,
+    field: "category" | "keywords",
+  ) => ReactNode;
   className?: string;
 }
 
@@ -59,6 +76,12 @@ export function CvSkillsSection({
   errorId,
   maxCategories,
   maxKeywordsPerCategory,
+  status,
+  statusId,
+  itemBadge,
+  itemClassName,
+  removedRows,
+  fieldMarker,
   className,
   collapsible,
   defaultOpen,
@@ -81,6 +104,11 @@ export function CvSkillsSection({
       emptyHint={CV_SKILLS_EMPTY_HINT}
       max={maxCategories}
       disabled={disabled}
+      status={status}
+      statusId={statusId}
+      itemBadge={itemBadge}
+      itemClassName={itemClassName}
+      removedRows={removedRows}
       className={className}
       collapsible={collapsible}
       defaultOpen={defaultOpen}
@@ -93,7 +121,7 @@ export function CvSkillsSection({
           </p>
         ) : null
       }
-      renderItem={({ item, update }) => {
+      renderItem={({ item, index, update }) => {
         const hintId = `${hintBaseId}-${item.id}`;
         // THIS row is the one at fault only when it is the shape the section
         // error describes: keywords with no category to print them under. A
@@ -108,9 +136,14 @@ export function CvSkillsSection({
           Boolean(error) &&
           item.category.trim() === "" &&
           item.keywords.some((keyword) => keyword.trim() !== "");
+        const keywordsMarker = fieldMarker?.(item, index, "keywords");
+        const keywordsMarked = hasMarker(keywordsMarker);
         return (
           <div className="space-y-3">
-            <CvField label="Category">
+            <CvField
+              label="Category"
+              marker={fieldMarker?.(item, index, "category")}
+            >
               <Input
                 value={item.category}
                 disabled={disabled}
@@ -130,10 +163,21 @@ export function CvSkillsSection({
               labelable node inside a keyword field is a chip button — the
               label would name that button instead of the field.
             */}
-            <div className="space-y-1.5">
-              <span className="block text-sm leading-none font-medium">
+            <div
+              className={cn(
+                "space-y-1.5",
+                keywordsMarked && CV_FIELD_MARKED_CLASS,
+              )}
+            >
+              <span
+                className={cn(
+                  "block text-sm leading-none font-medium",
+                  keywordsMarked && CV_FIELD_MARKER_GUTTER,
+                )}
+              >
                 Keywords
               </span>
+              {keywordsMarker}
               <CvKeywordsInput
                 value={item.keywords}
                 groupLabel={item.category || "this category"}
