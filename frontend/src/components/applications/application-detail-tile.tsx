@@ -21,7 +21,15 @@ export function ApplicationDetailsPanel({
         className,
       )}
     >
-      <dl className="grid grid-cols-1 gap-x-2 gap-y-4 @md/details:grid-cols-2 @3xl/details:grid-cols-4">
+      {/*
+        Owner's breakpoints are window widths: 4 columns from 1400px, 3 from
+        1171px to 1399px, 2 at 1170px and below, 1 on narrow screens. The grid
+        is 388px narrower than the window (sidebar + page and panel padding),
+        so they map to these container widths: 1012px and 783px. All three are
+        written in px so Tailwind orders the rules by value (mixing rem and px
+        breaks the order and a narrower rule wins).
+      */}
+      <dl className="grid grid-cols-1 gap-x-2 gap-y-4 @min-[448px]/details:grid-cols-2 @min-[783px]/details:grid-cols-3 @min-[1012px]/details:grid-cols-4">
         {children}
       </dl>
     </div>
