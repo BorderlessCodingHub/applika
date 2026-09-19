@@ -71,6 +71,7 @@ function pickerProps(
     onCreate: vi.fn(),
     onDelete: vi.fn(),
     onExport: vi.fn(),
+    onExportMarkdown: vi.fn(),
     ...over,
   };
 }
@@ -172,14 +173,17 @@ describe("the CV copy carries the same sections as a master CV (KODI-006)", () =
   it("renders its sections in the owner's order, education included", () => {
     render(<Editor />);
 
-    // Scoped to the CV field body: the copy's own panels (the job
-    // description, the provenance badge) are headings of the same level.
+    // The job description panel (KODI-017) now leads the FORM column, above
+    // Identity and contact — it is a `CvSectionCard` too, so its own `h2`
+    // heading is first. Scoped to the CV field body otherwise: the copy's own
+    // provenance badge carries no heading.
     expect(
       screen
         .getAllByRole("heading", { level: 2 })
         .map((heading) => heading.textContent)
-        .slice(0, 9),
+        .slice(0, 10),
     ).toEqual([
+      "Job description",
       "Identity and contact",
       "Links",
       "Summary",
@@ -454,6 +458,7 @@ describe("the tailored CV surface", () => {
             setValue((current) => (current === cv.id ? null : current));
           }}
           onExport={() => {}}
+          onExportMarkdown={() => {}}
         />
       );
     }

@@ -148,6 +148,7 @@ const COPY: TailoredCv = {
   id: "9001",
   application_id: "42",
   base_cv_id: "7",
+  base_snapshot: null,
   was_ai_generated: false,
   adjustments: [],
   name: "Backend CV for Applika",

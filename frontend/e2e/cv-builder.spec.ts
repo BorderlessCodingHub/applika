@@ -2285,3 +2285,205 @@ test("the CV gallery says nothing about a preview it does not render (13)", asyn
   await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(0);
   await expect(download).not.toHaveAttribute("aria-describedby", /./);
 });
+
+/* ---------------------------------------------------------------------------
+ * KODI-017 — the copy's diff against its baseline, and the Markdown/diff
+ * downloads (parts 2 and 3).
+ * ------------------------------------------------------------------------ */
+
+/** The route really answers with Markdown, containing `expectedContains`. */
+async function expectMarkdownRoute(
+  request: APIRequestContext,
+  path: string,
+  expectedContains: string,
+) {
+  const response = await request.get(apiUrl(path), {
+    headers: { Cookie: authCookieHeader("user") },
+  });
+
+  expect(response.status(), await response.text()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("text/markdown");
+  expect(response.headers()["content-disposition"]).toMatch(
+    /^attachment; filename="[a-z0-9-]+\.md"$/,
+  );
+
+  const body = await response.text();
+  expect(body).toContain(expectedContains);
+}
+
+test("the copy's diff: Changed + Revert, an Added badge on a new row, and Restore on a removed one (KODI-017)", async ({
+  page,
+  request,
+}) => {
+  const response = await request.post(apiUrl("/base-cvs"), {
+    headers: apiHeaders(),
+    data: {
+      name: CV_NAME,
+      full_name: "E2E Candidate",
+      headline: "Engineer",
+      location: "Remote",
+      email: "e2e-user@e2e.applika.dev",
+      phone: null,
+      summary: "Seeded by the E2E suite.",
+      links: [],
+      skills: [],
+      experience: [
+        {
+          id: "seed-x-1",
+          company: "Old Co",
+          role: "Backend Engineer",
+          start: "2019-01",
+          end: "2021-01",
+          bullets: [],
+        },
+      ],
+      projects: [],
+      education: [],
+      certifications: [],
+      languages: [],
+    },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const baseCvId = ((await response.json()) as { id: string }).id;
+  const applicationId = await seedApplication(request, JOB_DESCRIPTION);
+  await seedTailoredCv(request, applicationId, baseCvId);
+
+  await loginAs(page, "user");
+  await page.goto(`/applications/cv?id=${applicationId}`);
+  await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+    CV_NAME,
+  );
+
+  // No baseline diff shown until the toggle is on.
+  await expect(page.getByText("Changed: Headline")).toHaveCount(0);
+  await page.getByLabel("Show changes").click();
+  await expect(page.getByText(/Compared with .*: no changes/)).toBeVisible();
+
+  // ---- Changed + Revert on a scalar field ----
+  const headline = page.getByLabel("Headline", { exact: true });
+  await headline.fill("");
+  await headline.fill("Staff Engineer");
+  const marker = page.getByRole("button", { name: "Changed: Headline" });
+  await expect(marker).toBeVisible();
+  await marker.click();
+  await page.getByRole("button", { name: "Revert Headline" }).click();
+  await expect(headline).toHaveValue("Engineer");
+  await expect(page.getByText(/Compared with .*: no changes/)).toBeVisible();
+
+  // ---- Added badge on a brand-new experience row ----
+  await page.getByRole("button", { name: "Add experience" }).click();
+  const newRow = page.getByRole("group", { name: "experience 2" });
+  await expect(newRow.getByText("Added")).toBeVisible();
+
+  // ---- Removed row + Restore on the BASELINE experience row ------------
+  await page
+    .getByRole("group", { name: "experience 1" })
+    .getByRole("button", { name: "Remove experience 1" })
+    .click();
+  await expect(
+    page.getByRole("group", { name: /Removed experience/ }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Restore experience Backend Engineer" })
+    .click();
+  await expect(
+    page.getByRole("group", { name: /Removed experience/ }),
+  ).toHaveCount(0);
+  await expect(page.getByText("Backend Engineer")).toBeVisible();
+});
+
+test("a master CV and a CV copy download as Markdown beside the PDF (KODI-017 part 3)", async ({
+  page,
+  request,
+}) => {
+  const baseCvId = await seedBaseCv(request, CV_NAME);
+  const applicationId = await seedApplication(request, JOB_DESCRIPTION);
+  await seedTailoredCv(request, applicationId, baseCvId);
+
+  await expectMarkdownRoute(request, `/base-cvs/${baseCvId}/markdown`, "#");
+  await expectMarkdownRoute(
+    request,
+    `/applications/${applicationId}/cv/markdown`,
+    "#",
+  );
+
+  await loginAs(page, "user");
+
+  // ---- The master CV editor ----------------------------------------------
+  await page.goto(`/cvs/editor?id=${baseCvId}`);
+  await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+    CV_NAME,
+  );
+  const masterMd = page.getByRole("button", { name: "Download Markdown" });
+  await expect(masterMd).toBeVisible();
+  const startedMasterMd = page.waitForEvent("download");
+  await masterMd.click();
+  const savedMasterMd = await startedMasterMd;
+  expect(savedMasterMd.suggestedFilename()).toBe("e2e-master-cv.md");
+  expect((await readDownload(savedMasterMd)).toString("utf-8")).toContain("#");
+
+  // ---- The CV copy editor -------------------------------------------------
+  await page.goto(`/applications/cv?id=${applicationId}`);
+  await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+    CV_NAME,
+  );
+  const copyMd = page.getByRole("button", { name: "Download Markdown" });
+  await expect(copyMd).toBeVisible();
+  const startedCopyMd = page.waitForEvent("download");
+  await copyMd.click();
+  const savedCopyMd = await startedCopyMd;
+  expect(savedCopyMd.suggestedFilename()).toBe("e2e-master-cv.md");
+});
+
+test("the diff downloads as Markdown and PDF, and the Markdown carries the saved change (KODI-017 part 3)", async ({
+  page,
+  request,
+}) => {
+  const baseCvId = await seedBaseCv(request, CV_NAME);
+  const applicationId = await seedApplication(request, JOB_DESCRIPTION);
+  await seedTailoredCv(request, applicationId, baseCvId);
+
+  await loginAs(page, "user");
+  await page.goto(`/applications/cv?id=${applicationId}`);
+  await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+    CV_NAME,
+  );
+
+  const headline = page.getByLabel("Headline", { exact: true });
+  await headline.fill("");
+  await headline.fill("Staff Engineer, tailored");
+  await expectReachableWithCookieNoticeUp(page, "Save CV copy");
+  await page.getByRole("button", { name: "Save CV copy" }).click();
+  await expect(page.getByText("CV copy saved")).toBeVisible();
+
+  // The route itself, before the UI: proves the diff was computed from the
+  // SAVED copy against its baseline.
+  await expectMarkdownRoute(
+    request,
+    `/applications/${applicationId}/cv/diff/markdown`,
+    "Staff Engineer, tailored",
+  );
+
+  const diffMd = page.getByRole("button", {
+    name: "Download changes as Markdown",
+  });
+  await expect(diffMd).toBeVisible();
+  const startedMd = page.waitForEvent("download");
+  await diffMd.click();
+  const savedMd = await startedMd;
+  expect(savedMd.suggestedFilename()).toBe("e2e-master-cv-changes.md");
+  expect((await readDownload(savedMd)).toString("utf-8")).toContain(
+    "Staff Engineer, tailored",
+  );
+
+  const diffPdf = page.getByRole("button", {
+    name: "Download changes as PDF",
+  });
+  const startedPdf = page.waitForEvent("download");
+  await diffPdf.click();
+  const savedPdf = await startedPdf;
+  expect(savedPdf.suggestedFilename()).toBe("e2e-master-cv-changes.pdf");
+  expect((await readDownload(savedPdf)).subarray(0, 5).toString("latin1")).toBe(
+    "%PDF-",
+  );
+});
