@@ -2,6 +2,7 @@
 
 from app.application.dto.base_cv import BaseCVDTO
 from app.application.dto.tailored_cv import (
+    TailoredCVContent,
     TailoredCVCreateDTO,
     TailoredCVDTO,
     TailoringRequest,
@@ -76,9 +77,27 @@ class CreateTailoredCVUseCase:
         if existing:
             raise ResourceConflict('This application already has a CV copy')
 
+        base_cv_dto = BaseCVDTO.model_validate(base_cv)
+
+        # The snapshot the diff baseline reads (R5, KODI-017 part 2) is the
+        # master CV's content *at this moment*, built **before** the port
+        # runs and from a deep copy of the master's own dump - not a
+        # reference to ``base_cv_dto`` and not from ``result.content``.
+        # Pydantic v2 does not copy nested model instances on
+        # ``model_validate``, so validating straight from ``base_cv_dto``
+        # would leave every section item shared by reference with whatever
+        # the tailoring port hands back; a future model-backed binding that
+        # mutates ``result.content`` items in place could then silently move
+        # the snapshot too. The round trip through ``model_dump()`` forces a
+        # real copy, so the snapshot stays the untailored master no matter
+        # what the binding does to its own output afterwards.
+        base_snapshot = TailoredCVContent.model_validate(
+            base_cv_dto.model_dump(include=set(TailoredCVContent.model_fields))
+        )
+
         result = await self.tailoring_service.tailor(
             TailoringRequest(
-                base_cv=BaseCVDTO.model_validate(base_cv),
+                base_cv=base_cv_dto,
                 job_description=application.job_description,
             )
         )
@@ -88,6 +107,7 @@ class CreateTailoredCVUseCase:
             application_id=data.application_id,
             base_cv_id=data.base_cv_id,
             result=result,
+            base_snapshot=base_snapshot,
         )
         logger.info(
             f'CV copy created for application {data.application_id}',

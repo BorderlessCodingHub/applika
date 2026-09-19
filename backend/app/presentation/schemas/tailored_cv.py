@@ -42,8 +42,9 @@ class TailoredCVUpdate(BaseSchema):
 
     There is no partial update here and no sticky field - unlike the master
     CV's PATCH, this is a PUT and the client always sends the whole document.
-    Provenance (``base_cv_id``, ``was_ai_generated``, ``adjustments``) is not
-    accepted; ``extra='forbid'`` turns an attempt into a 422.
+    Provenance (``base_cv_id``, ``was_ai_generated``, ``adjustments``) and the
+    diff baseline (``base_snapshot``, R5) are not accepted; ``extra='forbid'``
+    turns an attempt to send any of them into a 422.
     """
 
     name: str = Field(min_length=1, max_length=200)
@@ -69,12 +70,44 @@ class CVAdjustmentOut(BaseSchema):
     description: str
 
 
+class TailoredCVSnapshotOut(BaseSchema):
+    """The master CV's content, frozen at copy-creation time (R5).
+
+    Exactly the copy's own editable document shape - identity, contact,
+    summary and the seven sections - so the web diff can compare it against
+    the copy's current form values field for field. Read-only: there is no
+    corresponding ``*In`` schema, because nothing ever writes this shape
+    back through the API.
+    """
+
+    name: str
+    full_name: str
+    headline: str
+    location: str
+    email: str
+    phone: str | None = None
+    summary: str = ''
+    links: list[LinkIn] = []
+    skills: list[SkillCategoryIn] = []
+    experience: list[ExperienceIn] = []
+    projects: list[ProjectIn] = []
+    education: list[EducationIn] = []
+    certifications: list[CertificationIn] = []
+    languages: list[LanguageIn] = []
+
+
 class TailoredCVOut(BaseSchema, TimeSchema):
     id: SnowflakeID
     application_id: SnowflakeID
     base_cv_id: SnowflakeID | None = None
     was_ai_generated: bool = False
     adjustments: list[CVAdjustmentOut] = []
+    # Written once, at creation, from the master CV (never the tailoring
+    # result); ``null`` for a copy made before revision ``c1d9f4a7b3e6``
+    # (no backfill) and never written by ``PUT`` - ``TailoredCVUpdate``
+    # below carries no such field, and ``extra='forbid'`` turns an attempt
+    # to send one into a 422.
+    base_snapshot: TailoredCVSnapshotOut | None = None
     name: str
     full_name: str
     headline: str

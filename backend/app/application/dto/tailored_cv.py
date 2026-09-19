@@ -122,6 +122,12 @@ class TailoredCVDTO(BaseSchema):
     base_cv_id: int | None = None
     was_ai_generated: bool = False
     adjustments: list[CVAdjustment] = []
+    # The master CV's content, snapshotted once at copy creation (revision
+    # ``c1d9f4a7b3e6``, R5). ``None`` for a copy created before that
+    # revision or, in principle, for one whose tailoring binding was never
+    # given a snapshot. Read-only: nothing in this layer ever assigns it
+    # after ``create()``.
+    base_snapshot: TailoredCVContent | None = None
     name: str
     full_name: str
     headline: str

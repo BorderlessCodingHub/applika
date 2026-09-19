@@ -48,6 +48,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-017 (part 2, T086/T087) `tailored_cvs.base_snapshot`: a nullable
+  JSONB column (migration `c1d9f4a7b3e6`, R5, `down_revision =
+  'ad747aba90fc'`, no backfill) holding a one-time snapshot of the master
+  CV a copy was made from, taken from the master at copy-creation time
+  (never from the tailoring result). Exposed read-only as `base_snapshot`
+  on `TailoredCVOut` for `GET`/`POST`/`PUT /applications/{id}/cv`, `null`
+  for a copy created before this revision; never written by `PUT`
+  (`TailoredCVUpdate` is unchanged, `extra='forbid'` turns an attempt into
+  a 422). It survives editing or deleting the master CV, exactly like the
+  copy's own fields. Exists so the web CV copy editor can diff the copy
+  against its baseline (R-021..R-023).
+  **Migration placement, owner-accepted exception to
+  `prod-release-runbook.md` rule 4**: this column ships in the same
+  release as the code that reads and writes it, instead of an earlier,
+  code-free release. Between the CD image deploy and the owner's manual
+  `alembic upgrade head`, the new API image briefly runs against the old
+  schema and every verb on `/applications/{id}/cv` (including
+  `POST .../cv/pdf`) fails until the migration is applied — recorded in
+  the migration's own docstring, not an oversight.
 - KODI-010 Migration `afd4074c70c2` (release A, expand only): table
   `timeline_events` with PG enums `event_type` (note, interview, feedback,
   offer, denied) and `interview_type` (unknown, initial_screening, technical,

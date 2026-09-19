@@ -727,6 +727,8 @@ class TailoredCVModel(BaseMixin, Base):
     constraint and the ``user_id`` index. The primary key is the inherited
     Snowflake ``BaseMixin.id`` (BIGINT, generated in Python, no sequence, no
     server default - docs/applika/adr/0003-snowflake-string-ids.md).
+    ``base_snapshot`` mirrors revision ``c1d9f4a7b3e6`` (R5, KODI-017 part
+    2): nullable JSONB, no server default, no backfill.
 
     There is deliberately no index on ``base_cv_id``: it has none in the
     migration either, and at current volume the sequential scan
@@ -803,6 +805,19 @@ class TailoredCVModel(BaseMixin, Base):
         server_default=sa.text('false'),
     )
     adjustments: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+
+    # A snapshot of the master CV this copy was made from, taken once at
+    # create time (revision ``c1d9f4a7b3e6``, R5, KODI-017 part 2). Nullable,
+    # no server default, never backfilled: a copy created before this
+    # revision reads back ``None``, and the web diff falls back to the
+    # current master CV via ``base_cv_id`` for it. Never changed after
+    # creation - not by PUT (``TailoredCVUpdateDTO`` carries no such field),
+    # not by editing the master, not by deleting it. Its shape is exactly
+    # ``TailoredCVContent`` (identity/contact, summary, seven sections) -
+    # the same document shape the copy itself stores.
+    base_snapshot: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB, nullable=True, default=None
+    )
 
     application: Mapped[ApplicationModel] = relationship(
         back_populates='tailored_cv'

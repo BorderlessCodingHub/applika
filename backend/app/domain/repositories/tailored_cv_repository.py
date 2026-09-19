@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dto.tailored_cv import (
+    TailoredCVContent,
     TailoredCVUpdateDTO,
     TailoringResult,
 )
@@ -45,12 +46,19 @@ class TailoredCVRepository:
         application_id: int,
         base_cv_id: int,
         result: TailoringResult,
+        base_snapshot: TailoredCVContent | None = None,
     ) -> TailoredCVModel:
         """Insert the CV copy produced by the tailoring port.
 
         The content arrives already tailored, so this method only persists it.
         Section items are stored as plain JSON, preserving the
         client-generated sub-item ids that came from the master CV.
+
+        ``base_snapshot`` is the master CV's content at the moment of this
+        same create - not the tailoring result - written once, in the same
+        transaction as the copy itself (revision ``c1d9f4a7b3e6``, R5). It is
+        never touched again by this repository: ``update()`` below has no
+        parameter for it.
         """
         content = result.content
         try:
@@ -76,6 +84,9 @@ class TailoredCVRepository:
                 languages=[item.model_dump() for item in content.languages],
                 was_ai_generated=result.was_ai_generated,
                 adjustments=[item.model_dump() for item in result.adjustments],
+                base_snapshot=(
+                    base_snapshot.model_dump() if base_snapshot else None
+                ),
             )
             self.session.add(tailored_cv)
             await self.session.commit()
