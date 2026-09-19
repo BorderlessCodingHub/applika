@@ -543,6 +543,137 @@ async def test_the_copy_survives_deleting_every_master_cv(
     assert listed.json() == [], msg([], listed.json())
 
 
+# --- R5: base_snapshot (KODI-017 part 2) ------------------------------------
+
+
+async def test_create_writes_a_snapshot_of_the_master_cv(
+    async_client: AsyncClient,
+):
+    """The snapshot is written at create time, matching the master field for
+    field - the same document shape the copy itself carries."""
+    base_cv, _application, copy = await _setup(async_client)
+
+    snapshot = copy['base_snapshot']
+    assert snapshot is not None
+    # The pinned shape and nothing else - no extra key slips through.
+    assert set(snapshot) == set(SNAPSHOT_FIELDS), msg(
+        set(SNAPSHOT_FIELDS), set(snapshot)
+    )
+    for field in SNAPSHOT_FIELDS:
+        assert snapshot[field] == base_cv[field], field
+
+
+async def test_snapshot_is_unchanged_after_put_of_the_copy(
+    async_client: AsyncClient,
+):
+    """R5: PUT edits the copy's own body only - the baseline never moves."""
+    base_cv, application, copy = await _setup(async_client)
+
+    updated = await async_client.put(
+        f'/applications/{application["id"]}/cv', json=update_payload()
+    )
+
+    assert updated.status_code == 200, msg(200, updated.text)
+    assert updated.json()['base_snapshot'] == copy['base_snapshot']
+    for field in SNAPSHOT_FIELDS:
+        assert updated.json()['base_snapshot'][field] == base_cv[field], field
+
+
+async def test_snapshot_is_unchanged_after_editing_the_master(
+    async_client: AsyncClient,
+):
+    """R5: the snapshot is frozen at copy time - a later master edit cannot
+    move it, exactly like the copy's own fields (AC4)."""
+    base_cv, application, copy = await _setup(async_client)
+
+    patched = await async_client.patch(
+        f'/base-cvs/{base_cv["id"]}',
+        json={
+            'full_name': 'Someone Else',
+            'summary': 'A completely different summary.',
+        },
+    )
+    fetched = await async_client.get(f'/applications/{application["id"]}/cv')
+
+    assert patched.status_code == 200, msg(200, patched.text)
+    assert fetched.json()['base_snapshot'] == copy['base_snapshot']
+    assert fetched.json()['base_snapshot']['full_name'] == 'Ada Lovelace'
+
+
+async def test_snapshot_survives_deleting_the_master(
+    async_client: AsyncClient,
+):
+    """R5: base_cv_id becomes null, the snapshot stays exactly as it was."""
+    base_cv, application, copy = await _setup(async_client)
+
+    deleted = await async_client.delete(f'/base-cvs/{base_cv["id"]}')
+    fetched = await async_client.get(f'/applications/{application["id"]}/cv')
+
+    assert deleted.status_code == 204, msg(204, deleted.text)
+    after = fetched.json()
+    assert after['base_cv_id'] is None, msg(None, after['base_cv_id'])
+    assert after['base_snapshot'] == copy['base_snapshot']
+    for field in SNAPSHOT_FIELDS:
+        assert after['base_snapshot'][field] == base_cv[field], field
+
+
+async def test_put_with_base_snapshot_is_refused(async_client: AsyncClient):
+    """R5: PUT never writes the baseline - ``extra='forbid'`` catches it."""
+    _, application, _ = await _setup(async_client)
+
+    response = await async_client.put(
+        f'/applications/{application["id"]}/cv',
+        json=update_payload(base_snapshot={'name': 'hack'}),
+    )
+
+    assert response.status_code == 422, msg(422, response.text)
+
+
+async def test_a_copy_created_before_r5_reads_base_snapshot_as_null(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """A pre-R5 row (``base_snapshot`` never backfilled) reads back
+    ``null`` - the exact fallback case the web diff's baseline resolution
+    relies on."""
+    application_id = await _seed_foreign_application(
+        db_session, base_data()['user'].id
+    )
+    old_copy = TailoredCVModel(
+        user_id=base_data()['user'].id,
+        application_id=application_id,
+        base_cv_id=None,
+        name='Pre-R5 copy',
+        full_name='Ada Lovelace',
+        headline='Backend Engineer',
+        location='Lisbon, PT',
+        email='ada@example.com',
+    )
+    db_session.add(old_copy)
+    await db_session.commit()
+
+    fetched = await async_client.get(f'/applications/{application_id}/cv')
+
+    assert fetched.status_code == 200, msg(200, fetched.text)
+    assert fetched.json()['base_snapshot'] is None, msg(
+        None, fetched.json()['base_snapshot']
+    )
+
+
+def test_openapi_exposes_base_snapshot():
+    """The field is discoverable on the wire, not just in the ORM."""
+    from app.main import app
+
+    schema = app.openapi()
+    tailored_cv_out = schema['components']['schemas']['TailoredCVOut']
+    assert 'base_snapshot' in tailored_cv_out['properties'], msg(
+        'base_snapshot', tailored_cv_out['properties']
+    )
+    tailored_cv_update = schema['components']['schemas']['TailoredCVUpdate']
+    assert 'base_snapshot' not in tailored_cv_update['properties'], msg(
+        'base_snapshot absent', tailored_cv_update['properties']
+    )
+
+
 # --- AC6: every field is editable ------------------------------------------
 
 

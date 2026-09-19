@@ -805,7 +805,14 @@ def test_the_revision_is_a_child_of_r4() -> None:
 def test_only_one_head() -> None:
     """The re-parenting must not leave a fork: the real Alembic
     ``ScriptDirectory`` sees exactly one head, and the
-    R1 -> R3 -> R4 -> R2 chain resolves as expected."""
+    R1 -> R3 -> R4 -> R2 chain resolves as expected.
+
+    R5 (``c1d9f4a7b3e6``, KODI-017 part 2, ``tailored_cvs.base_snapshot``)
+    is a later, unrelated child of R2 - the owner's own "new revision at
+    head" placement - so it is now the sole head instead of R2, and this
+    test is updated to look one revision further rather than re-asserting
+    R2 is the head it no longer is.
+    """
     from alembic.config import Config
     from alembic.script import ScriptDirectory
 
@@ -813,8 +820,10 @@ def test_only_one_head() -> None:
     script = ScriptDirectory.from_config(config)
 
     heads = script.get_heads()
-    assert list(heads) == [REVISION]
+    assert list(heads) == ['c1d9f4a7b3e6']
 
+    r5 = script.get_revision('c1d9f4a7b3e6')
+    assert r5.down_revision == REVISION
     r2 = script.get_revision(REVISION)
     assert r2.down_revision == PARENT_REVISION
     r4 = script.get_revision(PARENT_REVISION)
@@ -1466,11 +1475,20 @@ async def contract_client(
 def test_orm_maps_only_objects_that_exist_post_r2_and_nothing_old(
     contract_db_url: str,
 ) -> None:
-    """T052: every ORM-mapped table/column exists in the post-R2 schema,
-    and the ORM maps no ``_old`` object (rule 7, still true after R2 - it
-    was already true since Release B, R1's own test pins it at R1)."""
+    """T052: every ORM-mapped table/column exists in the schema, and the
+    ORM maps no ``_old`` object (rule 7, still true after R2 - it was
+    already true since Release B, R1's own test pins it at R1).
+
+    ``contract_db_url`` stops at R2 (``REVISION``, the module constant); R5
+    (``c1d9f4a7b3e6``, KODI-017 part 2) is a later, unrelated child of R2
+    that adds ``tailored_cvs.base_snapshot`` and the ORM maps it, so this
+    test upgrades its own dedicated, function-scoped database the rest of
+    the way to ``head`` before comparing - the R2-only parity this test
+    title still describes is unaffected, R5 only adds to it.
+    """
     from app.domain import models
 
+    _upgrade(contract_db_url, 'head')
     live_tables = _tables(contract_db_url)
     live_columns = _columns(contract_db_url)
 
