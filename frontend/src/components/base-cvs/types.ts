@@ -60,19 +60,6 @@ export interface CvSkillCategory {
 }
 
 /**
- * The names of the skill categories that carry one, in print order.
- *
- * What the COPY PICKER shows in place of the full keyword lists: it has room
- * for a handful of chips, not for six categories of keywords. The `/cvs` card
- * does NOT use this — it badges the keywords themselves ({@link skillKeywords}).
- * A category with keywords but no name cannot be saved (the API declares
- * `category` `min_length=1`), so it has no label to show.
- */
-export function skillCategoryNames(skills: CvSkillCategory[]): string[] {
-  return skills.map((entry) => entry.category.trim()).filter(Boolean);
-}
-
-/**
  * Every keyword of every category, flattened into ONE list and DEDUPLICATED,
  * in print order.
  *

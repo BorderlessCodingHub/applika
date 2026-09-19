@@ -10,7 +10,8 @@ import { toast } from "sonner";
 
 import { ApplicationFormSheet } from "@/components/applications/application-form-sheet";
 import { ExportCvButton } from "@/components/base-cvs/export-cv-button";
-import type { CvFormValues } from "@/components/base-cvs/types";
+import type { BaseCv, CvFormValues } from "@/components/base-cvs/types";
+import { FullWidthContent } from "@/components/layout/content-width";
 import { BaseCvPicker } from "@/components/tailored-cvs/base-cv-picker";
 import { TailoredCvEditor } from "@/components/tailored-cvs/tailored-cv-editor";
 import {
@@ -27,7 +28,9 @@ import { useCycleContext } from "@/contexts/cycle-context";
 import { useApplicationById } from "@/hooks/use-applications";
 import { useBaseCvs } from "@/hooks/use-base-cvs";
 import { useCreateTailoredCv } from "@/hooks/use-create-tailored-cv";
+import { useDeleteBaseCv } from "@/hooks/use-delete-base-cv";
 import { useDeleteTailoredCv } from "@/hooks/use-delete-tailored-cv";
+import { useExportBaseCvPdf } from "@/hooks/use-export-base-cv-pdf";
 import { useExportTailoredCvPdf } from "@/hooks/use-export-tailored-cv-pdf";
 import { isNoTailoredCv, useTailoredCv } from "@/hooks/use-tailored-cv";
 import { useUpdateTailoredCv } from "@/hooks/use-update-tailored-cv";
@@ -107,6 +110,10 @@ export function ApplicationCvPage() {
   const baseCvs = useBaseCvs();
 
   const [selectedBaseCvId, setSelectedBaseCvId] = useState<string | null>(null);
+  const [deletingBaseCvId, setDeletingBaseCvId] = useState<string | null>(null);
+  const [exportingBaseCvId, setExportingBaseCvId] = useState<string | null>(
+    null,
+  );
   const [editingApplication, setEditingApplication] = useState(false);
   /**
    * The copy was deleted in this session. The query is invalidated at the same
@@ -150,6 +157,41 @@ export function ApplicationCvPage() {
   const exportMutation = useExportTailoredCvPdf(
     applicationId ?? "",
     cv?.name ?? "",
+  );
+
+  // Master CV delete/export for the picker (KODI-017), the same pattern
+  // `cvs-page.tsx` uses — named distinctly from the tailored-CV `exportMutation`
+  // above since both mount on this page.
+  const deleteBaseCvMutation = useDeleteBaseCv({
+    onSettled: () => setDeletingBaseCvId(null),
+  });
+  const exportBaseCvMutation = useExportBaseCvPdf();
+
+  const handleDeleteBaseCv = useCallback(
+    (baseCv: BaseCv) => {
+      setDeletingBaseCvId(baseCv.id);
+      deleteBaseCvMutation.mutate(baseCv.id, {
+        onSuccess: () => {
+          // The deleted CV is no longer a valid selection; a lone remaining
+          // CV re-preselects itself through the picker's own effect.
+          setSelectedBaseCvId((current) =>
+            current === baseCv.id ? null : current,
+          );
+        },
+      });
+    },
+    [deleteBaseCvMutation],
+  );
+
+  const handleExportBaseCv = useCallback(
+    (baseCv: BaseCv) => {
+      setExportingBaseCvId(baseCv.id);
+      exportBaseCvMutation.mutate(
+        { id: baseCv.id, name: baseCv.name },
+        { onSettled: () => setExportingBaseCvId(null) },
+      );
+    },
+    [exportBaseCvMutation],
   );
 
   // `onValueChange` feeds a `useEffect` inside the picker (the lone option
@@ -219,6 +261,10 @@ export function ApplicationCvPage() {
             if (selectedBaseCvId) createMutation.mutate(selectedBaseCvId);
           }}
           isCreating={createMutation.isPending}
+          onDelete={handleDeleteBaseCv}
+          deletingId={deletingBaseCvId}
+          onExport={handleExportBaseCv}
+          exportingId={exportingBaseCvId}
           readOnlyReason={readOnlyReason}
         />
       );
@@ -248,30 +294,40 @@ export function ApplicationCvPage() {
     }
 
     return (
-      <TailoredCvEditor
-        form={form}
-        onSubmit={form.handleSubmit(
-          (values) => updateMutation.mutate(toTailoredCvPayload(values)),
-          (errors) => {
-            const message = sectionErrorMessage(errors);
-            if (message) toast.error(message);
-          },
-        )}
-        baseCvId={cv.base_cv_id}
-        sourceCvName={sourceCvName}
-        jobDescription={application.job_description}
-        onAddJobDescription={() => setEditingApplication(true)}
-        isSubmitting={updateMutation.isPending}
-        onDelete={() => deleteMutation.mutate()}
-        isDeleting={deleteMutation.isPending}
-        readOnlyReason={readOnlyReason}
-        actions={
-          <ExportCvButton
-            onExport={() => exportMutation.mutate()}
-            isExporting={exportMutation.isPending}
-          />
-        }
-      />
+      <>
+        {/*
+          The editor is the ONLY surface on this route that spends the whole
+          shell width (KODI-017) — every other branch above (no application,
+          loading, error, the picker in every one of its states) stays in the
+          reading column. `readOnlyReason` does not branch the return here, so
+          one marker covers both the editable and the read-only editor.
+        */}
+        <FullWidthContent />
+        <TailoredCvEditor
+          form={form}
+          onSubmit={form.handleSubmit(
+            (values) => updateMutation.mutate(toTailoredCvPayload(values)),
+            (errors) => {
+              const message = sectionErrorMessage(errors);
+              if (message) toast.error(message);
+            },
+          )}
+          baseCvId={cv.base_cv_id}
+          sourceCvName={sourceCvName}
+          jobDescription={application.job_description}
+          onAddJobDescription={() => setEditingApplication(true)}
+          isSubmitting={updateMutation.isPending}
+          onDelete={() => deleteMutation.mutate()}
+          isDeleting={deleteMutation.isPending}
+          readOnlyReason={readOnlyReason}
+          actions={
+            <ExportCvButton
+              onExport={() => exportMutation.mutate()}
+              isExporting={exportMutation.isPending}
+            />
+          }
+        />
+      </>
     );
   }
 

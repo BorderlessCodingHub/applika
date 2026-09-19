@@ -10,11 +10,7 @@
  * provenance fields the API always returns.
  */
 
-import type {
-  BaseCv,
-  CvScalars,
-  CvSections,
-} from "@/components/base-cvs/types";
+import type { CvScalars, CvSections } from "@/components/base-cvs/types";
 
 /** A persisted CV copy as returned by the API. */
 export interface TailoredCv extends CvScalars, CvSections {
@@ -35,15 +31,6 @@ export interface TailoredCv extends CvScalars, CvSections {
   /** `null` until the copy is first updated — the API's `TimeSchema` allows it. */
   updated_at: string | null;
 }
-
-/**
- * What the picker renders per master CV. `BaseCv[]` is assignable to
- * `BaseCvOption[]`, so the page can hand `useBaseCvs()` straight over.
- */
-export type BaseCvOption = Pick<
-  BaseCv,
-  "id" | "name" | "full_name" | "headline" | "skills" | "updated_at"
->;
 
 /** Why a CV copy is read-only. The application is the authority, never the copy. */
 export type TailoredCvReadOnlyReason = "finalized" | "archived";
