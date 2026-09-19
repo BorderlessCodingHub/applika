@@ -397,12 +397,20 @@ year "MM/yyyy" for both start and finish".
 **The PDF is rendered on the SERVER** (`docs/applika/adr/0011`, Accepted):
 RenderCV/Typst, one fixed theme named `applika`, no theme parameter, no user
 choice. **Never add `html2pdf`, a `cv-pdf.ts` or any client-side rasteriser.**
+So is its Markdown twin (KODI-017 part 3) — RenderCV's own Markdown renderer,
+the same reason: no client-side Markdown generation either.
 
 - `export-cv-button.tsx` is the whole affordance and is PRESENTATIONAL: no hook,
   no service, no axios. It takes `onExport` and `isExporting` and it has NO
   `disabled` prop — only a render already in flight locks it, so no caller can
   take the download away from a finalized or archived CV copy, or from a copy
-  whose master CV was deleted.
+  whose master CV was deleted. Since KODI-017 part 3 it ALSO takes the optional
+  `onExportMarkdown`/`isExportingMarkdown` pair: given, a second "Download
+  Markdown" button renders beside "Download PDF", same pending/live-region
+  pattern, same "no `disabled` prop but the render in flight" rule. Every call
+  site the slice names passes both: `/cvs` tiles (`CvCard`, itself threaded
+  through `BaseCvList`/`BaseCvPicker`), `/cvs/editor?id=` and the copy editor
+  (`/applications/cv?id=`, both read-write and read-only).
 - It mounts in the editors' `actions` slot: `/cvs/editor?id=` (never `/cvs/new`
   — the server typesets the STORED CV, so there is nothing to render until it
   has been saved once) and `/applications/cv?id=` in BOTH modes.
@@ -545,6 +553,93 @@ step/feedback-driven "finalize" with a real application TIMELINE. Both fields
 are set together server-side, but every read-only derivation on the web keys
 on `finalized_at != null` — including the tailored-CV `readOnlyReason` above,
 which was `application.finalized ? "finalized" : …` before this slice.
+
+**The copy editor is 50/50 at every width from `md`, with the job description
+above Identity and contact (KODI-017 part 2).** The owner: "instead of showing
+the job description in the right side just above cv preview, move to the
+left above identity and contact" — and drop the `2xl` cap `BaseCvEditor` never
+had either, so the two editors match at every width, not just up to `2xl`
+(KODI-009's note on the cap is superseded). `TailoredCvEditor`'s form column is
+now `JobDescriptionPanel`, then the diff `diffSummary` slot, then
+`CvFormSections`, in DOM order — which is also the mobile stacking order. The
+preview column is unchanged: sticky, `max-h-editor-scrollport`, the same
+layout-notice rules as `BaseCvEditor`. Because `JobDescriptionPanel` is a
+`CvSectionCard`, it carries its own `h2` — the copy editor's field body now has
+TEN level-2 headings where the master CV editor has nine; any test asserting
+that list has to count the job description first.
+
+**The copy's diff against its baseline is computed TWICE, independently, on
+the web and on the server, from one PINNED shared contract (KODI-017 parts 2
+and 3).** Baseline resolution: `cv.base_snapshot` (the master CV's content,
+captured once at copy-creation time, `TailoredCvSnapshot` in `types.ts`) when
+present, else the CURRENT master CV fetched via `base_cv_id`, else no diff UI
+at all — the `source CV deleted` note stays exactly as it was. Neither is ever
+written by the client: `base_snapshot` rides on `GET`/`POST`/`PUT` responses
+only, and `toTailoredCvPayload` never emits it (the API's `extra=forbid` would
+422 it anyway).
+
+- `cv-diff.ts` is the pure engine, no React, no I/O. `computeCvDiff(baseline,
+  current)` returns the rich internal shape (`CvDiffDetail`) `use-cv-diff.tsx`
+  reads to build markers: per-field before/after, added items, removed items
+  WITH their baseline position (`at`, for `Restore`), and skill-keyword
+  add/remove sets. `diffCv(baseline, current)` is
+  `computeCvDiff(...).canonical` — the flat `{total, sections, changes[]}`
+  shape the slice brief PINS, identical in field names and semantics to the
+  server's own diff. Matching is by the client-generated item `id`, never by
+  position — a pure reorder is zero changes. `null`/`undefined`/`""` compare
+  equal; bullets compare as ONE whole-value change; skill keywords compare as
+  a SET per category, so each added/removed keyword is its own change.
+  `cv-diff.fixtures.test.ts` loads every file in `applika/fixtures/cv-diff/
+*.json` (backend-owned) and asserts `diffCv()` matches the server's
+  `expected` output; it `describe.skipIf`s itself away while that folder does
+  not exist, so it activates with no code change once the backend adds it.
+- `use-cv-diff.tsx` is the ONLY thing that watches the form (`useWatch`) and
+  turns a `CvDiffDetail` into `TailoredCvEditor`'s `diffSummary` (a
+  `CvDiffSummaryBar`) and `diff` (`CvFormDiffSlots`) props, live — a Revert or
+  an edit recomputes on the next keystroke. It owns the "Show changes" toggle
+  state (default OFF, no persistence) and every `form.setValue`/`getValues`
+  call behind Revert and Restore. Read-only passes `onRevert`/`onRestore` as
+  `undefined` rather than omitting the marker — markers and badges still show
+  on a locked copy, only the actions that would write to it are gone.
+- The marker components (`ui-designer`-delivered, KODI-017 part 2 spec) are
+  `cv-diff-summary-bar.tsx` (`CvDiffSummaryBar`, the toggle and the "Compared
+  with `<label>`: N changes" text — `<label>` is the CURRENT master's name
+  when `base_cv_id` resolves, else "the original master CV", ALWAYS, even
+  when the diff is read off the frozen snapshot), `cv-changed-marker.tsx`
+  (`CvChangedMarker`, the popover with the original value and Revert),
+  `cv-added-badge.tsx`, `cv-removed-row.tsx` (Restore reinserts at the row's
+  `CvRemovedRowSlot.at` index) and `cv-diff-section-count.tsx`. The slots
+  themselves (`CvFormDiffSlots` in `base-cvs/cv-form-diff.ts`) are optional
+  props threaded through `CvFormSections`/`CvSectionCard`/
+  `CvRepeatableSection`/`CvSkillsSection`/`CvField` — absent, every one of
+  those renders BYTE-IDENTICAL to before this slice, which is what keeps the
+  master CV editor untouched.
+- **"Download changes"** (`cv-diff-download-row.tsx`, `CvDiffDownloadRow`,
+  KODI-017 part 3) sits under `CvDiffSummaryBar` in the same `diffSummary`
+  slot, offering the diff as a Markdown file or a PDF —
+  `GET /applications/{id}/cv/diff/{markdown|pdf}`, rendered on the SERVER
+  from the SAVED copy (ADR 0011: no client rasteriser), never the form's
+  unsaved edits. Its two buttons are named "Download changes as PDF" /
+  "Download changes as Markdown" — never bare "PDF"/"Markdown" — precisely so
+  a `getByRole("button", {name})` substring match cannot also catch the
+  unrelated "Download PDF"/"Download Markdown" buttons the same screen
+  renders (the ui-designer's `getByLabel` ambiguity note, applied to these
+  too). A 409 ("This CV copy has no baseline to compare with.") or an
+  unresolved baseline (the master CV fetch itself failing while
+  `base_cv_id` is set) disables both buttons WITH the reason on screen,
+  via `aria-describedby`; while `form.formState.isDirty`, a `"Downloads
+reflect the last saved version."` note sits beside them — the export is
+  always of the saved row, never a preview of the edit in progress.
+- `ExportCvButton` gained a Markdown button beside the PDF one
+  (`onExportMarkdown`/`isExportingMarkdown`, KODI-017 part 3): every surface
+  that renders the PDF button renders both — `/cvs` tiles, `/cvs/editor`, the
+  picker's `CvCard`s and the copy editor. Same pending/live-region pattern,
+  one shared layout notice. `src/lib/pdf-download.ts` gained
+  `cvMarkdownFilename`/`cvDiffMarkdownFilename`/`cvDiffPdfFilename` beside
+  `cvPdfFilename`, and the services gained `exportMarkdown` (both
+  `IBaseCvService`/`ITailoredCvService`) plus `exportDiffMarkdown`/
+  `exportDiffPdf` (`ITailoredCvService` only) — all `GET` with
+  `responseType: "blob"`, unlike the `POST` PDF routes.
 
 ### Application Timeline (`src/components/timeline/`)
 
