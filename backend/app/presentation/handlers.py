@@ -9,7 +9,7 @@ from app.core import exceptions
 # accepting ``(Request, Exception, /) -> ...`` - contravariant in ``exc`` - so
 # a handler typed against a narrower subclass is not actually a valid
 # ``ExceptionHandler`` by that signature, and ``ty`` flags every one of the
-# nine registrations below for it (KODI-017 QA finding B1). The assert keeps
+# nine registrations below for it (KODI-017 QA finding N1). The assert keeps
 # the handler body reading exactly as it did before - ``exc.message`` still
 # resolves against the real subclass - while making the file ``ty``-clean,
 # per quality-gates.md's "files a slice creates or changes must be clean".

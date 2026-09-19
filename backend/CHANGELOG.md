@@ -66,6 +66,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - New exception `CVExportFailed` (`app/core/exceptions.py`) → 500, for all
     four routes' render failures; same fixed-message discipline as
     `PdfRenderFailed` (never quotes CV content).
+  - `app/presentation/handlers.py`: every exception handler is now typed
+    `exc: Exception` and narrows with `assert isinstance(...)`, which clears
+    the Starlette `add_exception_handler` signature diagnostic on all nine
+    registrations. Behaviour is unchanged. The backend `ty` baseline drops
+    from 28 to 20.
   - No CLI changelog entry: `applika-cli` does not call any of the four
     routes (checked: no `/cv`, `/base-cvs/.../markdown` or `/diff` in
     `cli/src`).
