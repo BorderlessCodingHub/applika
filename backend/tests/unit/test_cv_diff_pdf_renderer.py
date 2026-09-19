@@ -26,7 +26,7 @@ PDF_MAGIC = b'%PDF-'
 
 async def test_diff_pdf_compiles_and_starts_with_the_pdf_magic_bytes():
     rendered = await CVDiffPdfRenderer().render(
-        '# Changes to Backend CV\n\nCompared with Master CV: 1 changes\n\n'
+        '# Changes to Backend CV\n\nCompared with Master CV: 1 change\n\n'
         '## Identity and contact (1)\n- Changed Headline: A -> B\n',
         'backend-cv',
     )
@@ -43,7 +43,7 @@ async def test_diff_pdf_handles_markup_special_characters_unescaped():
     """
     rendered = await CVDiffPdfRenderer().render(
         '# Changes to Weird CV\n\n'
-        'Compared with Master CV: 1 changes\n\n'
+        'Compared with Master CV: 1 change\n\n'
         '## Summary (1)\n'
         '- Changed Summary: #opentowork [old] -> "new" * text\n',
         'weird-cv',

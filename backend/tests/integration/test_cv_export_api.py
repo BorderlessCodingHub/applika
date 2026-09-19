@@ -409,7 +409,7 @@ async def test_diff_markdown_zero_changes_right_after_copy_creation(
         f'/applications/{application_id}/cv/diff/markdown'
     )
     _assert_is_markdown(response, 'backend-cv-changes.md')
-    assert 'Compared with Backend CV: 0 changes' in response.text
+    assert 'Compared with Backend CV: no changes' in response.text
     assert response.text.rstrip().endswith('No changes.')
 
 
@@ -427,7 +427,8 @@ async def test_diff_markdown_reflects_an_edit_against_the_snapshot(
         f'/applications/{application_id}/cv/diff/markdown'
     )
     _assert_is_markdown(response, 'backend-cv-changes.md')
-    assert 'Compared with Backend CV: 1 changes' in response.text
+    assert 'Compared with Backend CV: 1 change' in response.text
+    assert 'Compared with Backend CV: 1 changes' not in response.text
     assert (
         'Changed Headline: Staff Backend Engineer -> Principal Backend Engineer'
     ) in response.text
@@ -475,7 +476,8 @@ async def test_diff_baseline_falls_back_to_the_current_master_cv(
     _assert_is_markdown(response, 'backend-cv-changes.md')
     # The copy's own headline (unedited) is "Staff Backend Engineer"; the
     # master's is now "New Master Title" - diffed against the LIVE master.
-    assert 'Compared with Backend CV: 1 changes' in response.text
+    assert 'Compared with Backend CV: 1 change' in response.text
+    assert 'Compared with Backend CV: 1 changes' not in response.text
     assert (
         'Changed Headline: New Master Title -> Staff Backend Engineer'
     ) in response.text
@@ -493,7 +495,7 @@ async def test_diff_label_is_the_original_master_cv_when_it_was_deleted(
         f'/applications/{application_id}/cv/diff/markdown'
     )
     _assert_is_markdown(response, 'backend-cv-changes.md')
-    assert 'Compared with the original master CV: 0 changes' in response.text
+    assert ('Compared with the original master CV: no changes') in response.text
 
 
 async def test_diff_is_409_with_no_snapshot_and_no_master(

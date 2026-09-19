@@ -52,9 +52,46 @@ def _result(changes: list[CVDiffChange]) -> CVDiffResult:
 def test_zero_changes_prints_the_header_and_no_changes():
     document = render_diff_markdown('Backend CV', 'Master CV', _result([]))
     assert document.startswith('# Changes to Backend CV\n')
-    assert 'Compared with Master CV: 0 changes' in document
+    assert 'Compared with Master CV: no changes' in document
     assert document.rstrip().endswith('No changes.')
     assert '##' not in document
+
+
+def test_one_change_pluralises_like_the_web_summary_bar():
+    """Mirrors ``cvDiffCountLabel(1)`` -> "1 change", not "1 changes"."""
+    changes = [
+        CVDiffChange(
+            kind=CHANGED,
+            section=IDENTITY_SECTION,
+            path='headline',
+            before='A',
+            after='B',
+        )
+    ]
+    document = render_diff_markdown('Backend CV', 'Master CV', _result(changes))
+    assert 'Compared with Master CV: 1 change' in document
+    assert 'Compared with Master CV: 1 changes' not in document
+
+
+def test_two_changes_pluralise_like_the_web_summary_bar():
+    changes = [
+        CVDiffChange(
+            kind=CHANGED,
+            section=IDENTITY_SECTION,
+            path='headline',
+            before='A',
+            after='B',
+        ),
+        CVDiffChange(
+            kind=CHANGED,
+            section=IDENTITY_SECTION,
+            path='location',
+            before='X',
+            after='Y',
+        ),
+    ]
+    document = render_diff_markdown('Backend CV', 'Master CV', _result(changes))
+    assert 'Compared with Master CV: 2 changes' in document
 
 
 def test_scalar_change_bullet_matches_the_pinned_wording():
@@ -68,7 +105,7 @@ def test_scalar_change_bullet_matches_the_pinned_wording():
         )
     ]
     document = render_diff_markdown('Backend CV', 'Master CV', _result(changes))
-    assert 'Compared with Master CV: 1 changes' in document
+    assert 'Compared with Master CV: 1 change' in document
     assert '## Identity and contact (1)' in document
     assert '- Changed Headline: A -> B' in document
 

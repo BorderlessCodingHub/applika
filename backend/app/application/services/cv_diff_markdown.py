@@ -18,6 +18,14 @@ titles, so this module extends the same "<Verb> <label>: <before> -> <after>"
 / "<Verb> <section>: <item>" shape to every section, documented field by
 field below, and is exercised end to end in
 ``tests/unit/test_cv_diff_markdown.py``.
+
+KODI-017 remediation (round 1): the ticket's literal "N changes" wording is
+matched to the web's ``cvDiffCountLabel`` (see ``_count_label`` below) rather
+than printed verbatim, so the summary line reads "no changes" / "1 change" /
+"N changes" exactly like ``cv-diff-summary-bar.tsx``, on both the Markdown
+document and the diff PDF (which renders the same Markdown, see
+``cv_rendering/diff_pdf_renderer.py``). The per-section "## <Section> (n)"
+headings are unaffected by this fix and keep the bare count.
 """
 
 from app.application.dto.tailored_cv import TailoredCVContent
@@ -144,6 +152,21 @@ def _inline(value: object) -> str:
     return ' '.join(str(value).split())
 
 
+def _count_label(count: int) -> str:
+    """The "N changes" text, pluralised like the web's ``cvDiffCountLabel``.
+
+    KODI-017 remediation (round 1): the server used to always say "N
+    changes", even for 0 or 1, while
+    ``frontend/src/components/tailored-cvs/cv-diff-summary-bar.tsx``'s
+    ``cvDiffCountLabel`` says "no changes" for 0 and "1 change" for 1. This
+    mirrors that function exactly so the server's summary line (Markdown
+    and, through it, the PDF) reads the same as the web bar.
+    """
+    if count == 0:
+        return 'no changes'
+    return '1 change' if count == 1 else f'{count} changes'
+
+
 ItemIndex = dict[tuple[str, str], dict]
 
 
@@ -218,7 +241,7 @@ def render_diff_markdown(
     lines = [
         f'# Changes to {_inline(copy_name)}',
         '',
-        f'Compared with {_inline(baseline_label)}: {diff.total} changes',
+        f'Compared with {_inline(baseline_label)}: {_count_label(diff.total)}',
         '',
     ]
 
