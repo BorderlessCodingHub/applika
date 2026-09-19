@@ -4,7 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import { CycleProvider } from "@/contexts/cycle-context";
 import { AppShell } from "./app-shell";
-import { FULL_WIDTH_PATHS, isFullWidthPath } from "./content-width";
+import {
+  FULL_WIDTH_PATHS,
+  FullWidthContent,
+  isFullWidthPath,
+} from "./content-width";
 
 // The shell's header reaches for the cycle list; nothing here is about that.
 vi.mock("@/services/services", () => ({
@@ -12,20 +16,24 @@ vi.mock("@/services/services", () => ({
 }));
 
 /**
- * The full-width opt-out (KODI-008, AC5).
+ * The full-width opt-out (KODI-008, revised KODI-017, AC1).
  *
- * The owner: "also, use the full page width for this page". `AppShell` renders
- * the content container itself, so the opt-out lives beside the shell and is
- * matched on the same `activePath` the nav is matched on — not threaded as a
- * prop through every page.
+ * The owner: "also, use the full page width for this page" (KODI-008), then
+ * "only full width when we have a cv copy to the application" (KODI-017).
+ * `AppShell` renders the content container itself, so the opt-out lives
+ * beside the shell in two forms: by PATH (`/cvs/new`, `/cvs/editor`, full
+ * width in every state) and by CONTENT (`FullWidthContent`, mounted by
+ * `/applications/cv` only from its editor branch).
  *
  * jsdom has no layout engine, so "the CV pages really fill the width" is
- * measured as GEOMETRY in `e2e/cv-builder.spec.ts`, on all three routes. What
- * is pinned here is the rule that makes it true, and that it is scoped to the
- * CV routes and nothing else.
+ * measured as GEOMETRY in `e2e/cv-builder.spec.ts`. What is pinned here is
+ * the rule that makes it true.
  */
 
-function renderShell(activePath: string) {
+function renderShell(
+  activePath: string,
+  children: React.ReactNode = <p>page content</p>,
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -33,7 +41,7 @@ function renderShell(activePath: string) {
     <QueryClientProvider client={client}>
       <CycleProvider>
         <AppShell activePath={activePath} user={null} onLogout={vi.fn()}>
-          <p>page content</p>
+          {children}
         </AppShell>
       </CycleProvider>
     </QueryClientProvider>,
@@ -49,23 +57,20 @@ function contentContainer(container: HTMLElement): HTMLElement {
 }
 
 describe("isFullWidthPath", () => {
-  it("claims the three CV editing routes and nothing else", () => {
-    expect([...FULL_WIDTH_PATHS]).toEqual([
-      "/cvs/new",
-      "/cvs/editor",
-      "/applications/cv",
-    ]);
+  it("claims the two CV editing routes and nothing else", () => {
+    expect([...FULL_WIDTH_PATHS]).toEqual(["/cvs/new", "/cvs/editor"]);
 
     for (const path of FULL_WIDTH_PATHS) {
       expect(isFullWidthPath(path), path).toBe(true);
     }
   });
 
-  it("leaves every other signed-in route in the reading column", () => {
+  it("leaves every other signed-in route in the reading column, including /applications/cv by default", () => {
     for (const path of [
       "/",
       "/dashboard",
       "/applications",
+      "/applications/cv",
       "/cvs",
       "/profile",
       "/admin",
@@ -76,7 +81,6 @@ describe("isFullWidthPath", () => {
 
   it("tolerates the trailing slash the static export also serves", () => {
     expect(isFullWidthPath("/cvs/new/")).toBe(true);
-    expect(isFullWidthPath("/applications/cv/")).toBe(true);
     expect(isFullWidthPath("/")).toBe(false);
   });
 
@@ -96,6 +100,7 @@ describe("the shell's content container", () => {
 
       expect(box.className, path).not.toMatch(/\bmax-w-/);
       expect(box.className, path).not.toMatch(/\bmx-auto\b/);
+      expect(box.dataset.width, path).toBe("full");
       unmount();
     }
   });
@@ -106,6 +111,7 @@ describe("the shell's content container", () => {
 
     expect(box.className).toContain("max-w-7xl");
     expect(box.className).toContain("mx-auto");
+    expect(box.dataset.width).toBe("reading");
   });
 
   it("is still the only content container: no page renders its own", () => {
@@ -115,5 +121,73 @@ describe("the shell's content container", () => {
     const main = container.querySelector("main");
 
     expect(main?.children).toHaveLength(1);
+  });
+
+  it("keeps /applications/cv in the reading column when nothing asks for the width", () => {
+    const { container } = renderShell("/applications/cv");
+    const box = contentContainer(container);
+
+    expect(box.className).toContain("max-w-7xl");
+    expect(box.className).toContain("mx-auto");
+    expect(box.dataset.width).toBe("reading");
+  });
+
+  it("spends the whole width on /applications/cv once FullWidthContent mounts", () => {
+    const { container } = renderShell(
+      "/applications/cv",
+      <>
+        <FullWidthContent />
+        <p>the editor</p>
+      </>,
+    );
+    const box = contentContainer(container);
+
+    expect(box.className).not.toMatch(/\bmax-w-/);
+    expect(box.className).not.toMatch(/\bmx-auto\b/);
+    expect(box.dataset.width).toBe("full");
+  });
+
+  it("returns to the reading column once FullWidthContent unmounts", () => {
+    const { container, rerender } = render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <CycleProvider>
+          <AppShell
+            activePath="/applications/cv"
+            user={null}
+            onLogout={vi.fn()}
+          >
+            <FullWidthContent />
+          </AppShell>
+        </CycleProvider>
+      </QueryClientProvider>,
+    );
+    expect(contentContainer(container).dataset.width).toBe("full");
+
+    rerender(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <CycleProvider>
+          <AppShell
+            activePath="/applications/cv"
+            user={null}
+            onLogout={vi.fn()}
+          >
+            <p>picker</p>
+          </AppShell>
+        </CycleProvider>
+      </QueryClientProvider>,
+    );
+    expect(contentContainer(container).dataset.width).toBe("reading");
+  });
+
+  it("is a no-op outside AppShell: FullWidthContent alone renders nothing and throws nothing", () => {
+    expect(() => render(<FullWidthContent />)).not.toThrow();
   });
 });

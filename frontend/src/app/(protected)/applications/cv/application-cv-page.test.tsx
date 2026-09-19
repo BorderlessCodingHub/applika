@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApplicationCvPage } from "./application-cv-page";
+import { FullWidthRequestProvider } from "@/components/layout/content-width";
 import type { Application } from "@/services/types/applications";
 import type { BaseCv } from "@/services/types/base-cv";
 import type { TailoredCv } from "@/services/types/tailored-cv";
@@ -36,6 +37,8 @@ const updateCopy = vi.fn();
 const removeCopy = vi.fn();
 const exportCopyPdf = vi.fn();
 const listBaseCvs = vi.fn();
+const removeBaseCv = vi.fn();
+const exportBaseCvPdf = vi.fn();
 const getApplications = vi.fn();
 
 vi.mock("@/services/services", () => ({
@@ -52,7 +55,8 @@ vi.mock("@/services/services", () => ({
       get: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
-      remove: vi.fn(),
+      remove: (...args: unknown[]) => removeBaseCv(...args),
+      exportPdf: (...args: unknown[]) => exportBaseCvPdf(...args),
     },
     applications: {
       getApplications: (...args: unknown[]) => getApplications(...args),
@@ -197,19 +201,28 @@ function noCopy() {
   };
 }
 
+// Tracks whether the page asks the shell for the full width (KODI-017, AC1),
+// without paying for a real `AppShell` (its header pulls in cycles/statistics
+// queries this suite does not mock). `release` is returned fresh per call, the
+// same COUNT contract `useFullWidthRequests` implements.
+let fullWidthRequest: ReturnType<typeof vi.fn>;
+
 function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <ApplicationCvPage />
+      <FullWidthRequestProvider value={fullWidthRequest}>
+        <ApplicationCvPage />
+      </FullWidthRequestProvider>
     </QueryClientProvider>,
   );
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  fullWidthRequest = vi.fn(() => vi.fn());
   searchParams = new URLSearchParams("id=42");
   cycleContext = {
     selectedCycleId: null,
@@ -222,6 +235,11 @@ beforeEach(() => {
   createCopy.mockResolvedValue(COPY);
   updateCopy.mockResolvedValue(COPY);
   removeCopy.mockResolvedValue(undefined);
+  removeBaseCv.mockResolvedValue(undefined);
+  exportBaseCvPdf.mockResolvedValue({
+    blob: new Blob(["%PDF-1.7"], { type: "application/pdf" }),
+    filename: null,
+  });
   // No `Content-Disposition` on purpose: the page must fall back to the slug of
   // the copy's own label, which is the rule the server uses too.
   exportCopyPdf.mockResolvedValue({
@@ -455,5 +473,145 @@ describe("ApplicationCvPage", () => {
       await screen.findByText("No application selected"),
     ).toBeInTheDocument();
     expect(getCopy).not.toHaveBeenCalled();
+  });
+
+  it("deletes a master CV from the picker, clearing the selection if it was selected, and re-preselects the lone survivor (AC2)", async () => {
+    const user = userEvent.setup();
+    // The mutation invalidates the master-CV list and the query refetches; the
+    // mock mirrors the real API dropping the deleted CV from that refetch.
+    removeBaseCv.mockImplementation(async (id: string) => {
+      listBaseCvs.mockResolvedValue(MASTER_CVS.filter((cv) => cv.id !== id));
+    });
+    renderPage();
+
+    await user.click(await screen.findByRole("radio", { name: /Frontend CV/ }));
+    await user.click(
+      screen.getByRole("button", { name: "Delete Frontend CV" }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(removeBaseCv).toHaveBeenCalledWith("8"));
+    // The deleted CV is gone and was the selection, so the lone survivor
+    // ("Backend CV") re-preselects and Create is enabled again.
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: /Backend CV/ })).toBeChecked(),
+    );
+    expect(
+      screen.getByRole("button", { name: "Create the CV copy" }),
+    ).toBeEnabled();
+    expect(screen.queryByText("Frontend CV")).not.toBeInTheDocument();
+  });
+
+  it("downloads a master CV's PDF from the picker (AC2)", async () => {
+    const saved: string[] = [];
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        saved.push(this.download);
+      });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Download PDF Backend CV" }),
+    );
+
+    await waitFor(() => expect(exportBaseCvPdf).toHaveBeenCalledWith("7"));
+    await waitFor(() => expect(saved).toEqual(["backend-cv.pdf"]));
+    click.mockRestore();
+  });
+
+  describe("full width only when the editor is on screen (KODI-017, AC1)", () => {
+    it("does not ask for the full width while the application is loading", () => {
+      getApplications.mockReturnValue(new Promise(() => {}));
+      renderPage();
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the full width when the application cannot be opened", async () => {
+      getApplications.mockResolvedValue([]);
+      renderPage();
+      await screen.findByText("Could not open this application");
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the full width on the picker's list state", async () => {
+      renderPage();
+      await screen.findByRole("button", { name: "Create the CV copy" });
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the full width while the picker's master CVs are loading", async () => {
+      listBaseCvs.mockReturnValue(new Promise(() => {}));
+      renderPage();
+      await screen.findByLabelText("Loading your master CVs");
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the full width when the picker's master CVs fail to load", async () => {
+      listBaseCvs.mockRejectedValue({
+        isAxiosError: true,
+        response: { status: 500, data: { detail: "boom" } },
+      });
+      renderPage();
+      await screen.findByText("Could not load your master CVs");
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the full width on the picker's empty state", async () => {
+      listBaseCvs.mockResolvedValue([]);
+      renderPage();
+      await screen.findByRole("heading", { name: "No master CVs yet" });
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the full width on the picker's read-only state", async () => {
+      cycleContext = {
+        selectedCycleId: "c-2024",
+        setSelectedCycleId: vi.fn(),
+        isViewingPastCycle: true,
+      };
+      renderPage();
+      await screen.findByRole("status");
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the full width while the CV copy is loading", async () => {
+      getCopy.mockReturnValue(new Promise(() => {}));
+      renderPage();
+      await screen.findByLabelText("Loading this CV copy");
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the full width when the CV copy fails to load", async () => {
+      getCopy.mockRejectedValue({
+        isAxiosError: true,
+        response: { status: 500, data: { detail: "boom" } },
+      });
+      renderPage();
+      await screen.findByText("Could not load this CV copy");
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("asks for the full width once the editable editor is on screen", async () => {
+      getCopy.mockResolvedValue(COPY);
+      renderPage();
+      await screen.findByLabelText("CV label");
+      expect(fullWidthRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it("asks for the full width in the read-only editor too", async () => {
+      getApplications.mockResolvedValue([
+        {
+          ...APPLICATION,
+          finalized: true,
+          finalized_at: "2026-01-10T12:00:00Z",
+        },
+      ]);
+      getCopy.mockResolvedValue(COPY);
+      renderPage();
+      await screen.findByRole("status");
+      expect(fullWidthRequest).toHaveBeenCalledTimes(1);
+    });
   });
 });

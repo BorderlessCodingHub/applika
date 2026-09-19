@@ -609,6 +609,25 @@ test("an application's CV copy is picked, tailored, deleted and picked again", a
   await expect(option).toHaveCount(1);
   await expect(option).toBeChecked();
 
+  // ---- AC2: the picker is the /cvs components — same cards, same actions,
+  // same new-CV card, no "Manage master CVs" (owner decision, 2026-09-19) ---
+  await expect(
+    page.getByRole("link", { name: `Edit ${CV_NAME}` }),
+  ).toHaveAttribute("href", new RegExp(`/cvs/editor\\?id=`));
+  await expect(
+    page.getByRole("button", { name: `Delete ${CV_NAME}` }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: `Download PDF ${CV_NAME}` }),
+  ).toBeVisible();
+  await expect(page.getByText(/2 of 3 slot/)).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "New master CV" }),
+  ).toHaveAttribute("href", "/cvs/new");
+  await expect(
+    page.getByRole("link", { name: /manage master cvs/i }),
+  ).toHaveCount(0);
+
   const create = page.getByRole("button", { name: "Create the CV copy" });
   await expect(create).toBeEnabled();
   await create.click();
@@ -661,6 +680,46 @@ test("an application's CV copy is picked, tailored, deleted and picked again", a
   await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
     CV_NAME,
   );
+});
+
+test("the picker on the application CV route shows keywords, not skill category names (AC2)", async ({
+  page,
+  request,
+}) => {
+  // The owner: "we're still displaying the skills categories names instead
+  // of the keywords, change it to match with the '/cvs' page".
+  const response = await request.post(apiUrl("/base-cvs"), {
+    headers: apiHeaders(),
+    data: {
+      name: CV_NAME,
+      full_name: "E2E Candidate",
+      headline: "Engineer",
+      location: "Remote",
+      email: "e2e-user@e2e.applika.dev",
+      phone: null,
+      summary: "Seeded by the E2E suite.",
+      links: [],
+      skills: [
+        { id: "s-1", category: SKILL_CATEGORY, keywords: ["Python", "Rust"] },
+      ],
+      experience: [],
+      projects: [],
+      education: [],
+      certifications: [],
+      languages: [],
+    },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const applicationId = await seedApplication(request);
+
+  await loginAs(page, "user");
+  await page.goto(`/applications/cv?id=${applicationId}`);
+
+  const card = page.locator('[data-slot="card"]').filter({ hasText: CV_NAME });
+  await expect(card).toBeVisible();
+  await expect(card.getByText("Python", { exact: true })).toBeVisible();
+  await expect(card.getByText("Rust", { exact: true })).toBeVisible();
+  await expect(card.getByText(SKILL_CATEGORY, { exact: true })).toHaveCount(0);
 });
 
 test("a finalized application's CV copy is readable but locked", async ({
@@ -1104,17 +1163,24 @@ async function contentGeometry(page: Page) {
   });
 }
 
-test("the CV pages spend the whole shell width (AC5)", async ({
+test("the CV pages spend the whole shell width once there is an editor to show (AC1)", async ({
   page,
   request,
 }) => {
-  // The owner: "also, use the full page width for this page" — his
-  // screenshot showed the dead space to the right of the editor. Asserted as
-  // GEOMETRY on all three CV routes, never as a class: a capped container is
-  // only visible as width nobody uses.
+  // The owner, KODI-008: "also, use the full page width for this page" — his
+  // screenshot showed the dead space to the right of the editor. Revised by
+  // KODI-017: "only full width when we have a cv copy to the application" —
+  // `/applications/cv` now spends the full width ONLY once the editor is on
+  // screen (a copy exists); every other state of that route, including the
+  // picker, stays in the reading column like every other page. Asserted as
+  // GEOMETRY, never as a class: a capped container is only visible as width
+  // nobody uses.
   const cvId = await seedBaseCv(request, CV_NAME);
   const applicationId = await seedApplication(request, JOB_DESCRIPTION);
   await seedTailoredCv(request, applicationId, cvId);
+  // A second application with NO copy — the picker state this test proves
+  // stays in the reading column.
+  const noCopyApplicationId = await seedApplication(request);
 
   await loginAs(page, "user");
   // Wider than `max-w-7xl`, or the reading column would not bind and there
@@ -1132,6 +1198,18 @@ test("the CV pages spend the whole shell width (AC5)", async ({
     capped.dead,
     "the reading column does not bind at 1920px, so this test proves nothing",
   ).toBeGreaterThan(100);
+
+  // ---- the picker (no copy yet) stays in the reading column -------------
+  await page.goto(`/applications/cv?id=${noCopyApplicationId}`);
+  await expect(
+    page.getByRole("button", { name: "Create the CV copy" }),
+  ).toBeVisible();
+  const pickerGeometry = await contentGeometry(page);
+  expect(
+    pickerGeometry.dead,
+    "the picker spent the full width — it must stay in the reading column",
+  ).toBeGreaterThan(100);
+  expect(pickerGeometry.contentWidth).toBe(capped.contentWidth);
 
   for (const route of [
     "/cvs/new",
