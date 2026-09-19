@@ -807,3 +807,35 @@ describe("Markdown downloads beside the PDF ones (KODI-017 part 3)", () => {
     await waitFor(() => expect(exportBaseCvMarkdown).toHaveBeenCalledWith("7"));
   });
 });
+
+describe("the diff download row calls the right mutation per button (KODI-017 part 3)", () => {
+  it("Markdown calls exportDiffMarkdown, never exportDiffPdf", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue({ ...COPY, base_snapshot: null });
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Download changes as Markdown",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(exportCopyDiffMarkdown).toHaveBeenCalledWith("42"),
+    );
+    expect(exportCopyDiffPdf).not.toHaveBeenCalled();
+  });
+
+  it("PDF calls exportDiffPdf, never exportDiffMarkdown", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue({ ...COPY, base_snapshot: null });
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Download changes as PDF" }),
+    );
+
+    await waitFor(() => expect(exportCopyDiffPdf).toHaveBeenCalledWith("42"));
+    expect(exportCopyDiffMarkdown).not.toHaveBeenCalled();
+  });
+});
