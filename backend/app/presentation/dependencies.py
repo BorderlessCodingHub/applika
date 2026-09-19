@@ -7,6 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dto.user import UserDTO
 from app.application.services.clone_tailoring import CloneTailoringService
+from app.application.services.cv_rendering.diff_pdf_renderer import (
+    CVDiffPdfRenderer,
+    get_cv_diff_pdf_renderer,
+)
+from app.application.services.cv_rendering.markdown_renderer import (
+    CVMarkdownRenderer,
+    get_cv_markdown_renderer,
+)
 from app.application.services.cv_rendering.renderer import (
     CVPdfRenderer,
     get_cv_pdf_renderer,
@@ -24,6 +32,9 @@ from app.application.use_cases.base_cvs.create import CreateBaseCVUseCase
 from app.application.use_cases.base_cvs.delete import DeleteBaseCVUseCase
 from app.application.use_cases.base_cvs.get import GetBaseCVUseCase
 from app.application.use_cases.base_cvs.list import ListBaseCVsUseCase
+from app.application.use_cases.base_cvs.render_markdown import (
+    RenderBaseCVMarkdownUseCase,
+)
 from app.application.use_cases.base_cvs.render_pdf import (
     RenderBaseCVPdfUseCase,
 )
@@ -35,7 +46,19 @@ from app.application.use_cases.tailored_cvs.create import (
 from app.application.use_cases.tailored_cvs.delete import (
     DeleteTailoredCVUseCase,
 )
+from app.application.use_cases.tailored_cvs.diff import (
+    ComputeTailoredCVDiffUseCase,
+)
 from app.application.use_cases.tailored_cvs.get import GetTailoredCVUseCase
+from app.application.use_cases.tailored_cvs.render_diff_markdown import (
+    RenderTailoredCVDiffMarkdownUseCase,
+)
+from app.application.use_cases.tailored_cvs.render_diff_pdf import (
+    RenderTailoredCVDiffPdfUseCase,
+)
+from app.application.use_cases.tailored_cvs.render_markdown import (
+    RenderTailoredCVMarkdownUseCase,
+)
 from app.application.use_cases.tailored_cvs.render_pdf import (
     RenderTailoredCVPdfUseCase,
 )
@@ -326,6 +349,39 @@ RenderBaseCVPdfUseCaseDp = Annotated[
 ]
 
 
+def get_cv_markdown_renderer_service() -> CVMarkdownRenderer:
+    """Bind the Markdown renderer. Stateless, same as the PDF renderer."""
+    return get_cv_markdown_renderer()
+
+
+CVMarkdownRendererDp = Annotated[
+    CVMarkdownRenderer, Depends(get_cv_markdown_renderer_service)
+]
+
+
+def get_cv_diff_pdf_renderer_service() -> CVDiffPdfRenderer:
+    """Bind the diff PDF renderer. Stateless, same as the CV PDF renderer."""
+    return get_cv_diff_pdf_renderer()
+
+
+CVDiffPdfRendererDp = Annotated[
+    CVDiffPdfRenderer, Depends(get_cv_diff_pdf_renderer_service)
+]
+
+
+def get_render_base_cv_markdown_use_case(
+    base_cv_repo: BaseCVRepositoryDp,
+    renderer: CVMarkdownRendererDp,
+):
+    return RenderBaseCVMarkdownUseCase(base_cv_repo, renderer)
+
+
+RenderBaseCVMarkdownUseCaseDp = Annotated[
+    RenderBaseCVMarkdownUseCase,
+    Depends(get_render_base_cv_markdown_use_case),
+]
+
+
 def get_tailored_cv_repository(session: DbSession):
     return TailoredCVRepository(session)
 
@@ -412,4 +468,61 @@ def get_render_tailored_cv_pdf_use_case(
 
 RenderTailoredCVPdfUseCaseDp = Annotated[
     RenderTailoredCVPdfUseCase, Depends(get_render_tailored_cv_pdf_use_case)
+]
+
+
+def get_render_tailored_cv_markdown_use_case(
+    tailored_cv_repo: TailoredCVRepositoryDp,
+    application_repo: ApplicationRepositoryDp,
+    renderer: CVMarkdownRendererDp,
+):
+    return RenderTailoredCVMarkdownUseCase(
+        tailored_cv_repo, application_repo, renderer
+    )
+
+
+RenderTailoredCVMarkdownUseCaseDp = Annotated[
+    RenderTailoredCVMarkdownUseCase,
+    Depends(get_render_tailored_cv_markdown_use_case),
+]
+
+
+def get_compute_tailored_cv_diff_use_case(
+    tailored_cv_repo: TailoredCVRepositoryDp,
+    application_repo: ApplicationRepositoryDp,
+    base_cv_repo: BaseCVRepositoryDp,
+):
+    return ComputeTailoredCVDiffUseCase(
+        tailored_cv_repo, application_repo, base_cv_repo
+    )
+
+
+ComputeTailoredCVDiffUseCaseDp = Annotated[
+    ComputeTailoredCVDiffUseCase,
+    Depends(get_compute_tailored_cv_diff_use_case),
+]
+
+
+def get_render_tailored_cv_diff_markdown_use_case(
+    compute_diff: ComputeTailoredCVDiffUseCaseDp,
+):
+    return RenderTailoredCVDiffMarkdownUseCase(compute_diff)
+
+
+RenderTailoredCVDiffMarkdownUseCaseDp = Annotated[
+    RenderTailoredCVDiffMarkdownUseCase,
+    Depends(get_render_tailored_cv_diff_markdown_use_case),
+]
+
+
+def get_render_tailored_cv_diff_pdf_use_case(
+    compute_diff: ComputeTailoredCVDiffUseCaseDp,
+    renderer: CVDiffPdfRendererDp,
+):
+    return RenderTailoredCVDiffPdfUseCase(compute_diff, renderer)
+
+
+RenderTailoredCVDiffPdfUseCaseDp = Annotated[
+    RenderTailoredCVDiffPdfUseCase,
+    Depends(get_render_tailored_cv_diff_pdf_use_case),
 ]

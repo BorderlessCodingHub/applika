@@ -6,6 +6,70 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- KODI-017 (part 3, T090/T091) Four new read-side GET export routes, all
+  owner-scoped, all 404 when not owned / no copy, none carrying a
+  finalized/archived guard (R-024/R-025):
+  - `GET /base-cvs/{base_cv_id}/markdown` and
+    `GET /applications/{application_id}/cv/markdown` — the CV as
+    `text/markdown; charset=utf-8`, `Content-Disposition: attachment;
+    filename="<pdf slug>.md"`. Built from the SAME `RenderCVModel` the PDF
+    path maps (`cv_rendering/mapper.py`), rendered in memory with RenderCV
+    2.8's own Markdown templater
+    (`rendercv.renderer.templater.templater.render_full_template(model,
+    "markdown")`) — same section order, same `SECTION_ORDER`. One documented
+    override: RenderCV's bundled `Header.j2.md` computes
+    `cv._connections` (every header contact, including a link that is not a
+    known social network) but never reads it, so a `custom_connections`
+    link — present in the PDF header — is silently dropped from RenderCV's
+    stock Markdown output; `markdown_overrides/Header.j2.md` is a one-file
+    template override (RenderCV's own override mechanism, not a parallel
+    renderer) that lists `cv._connections` instead and prints the headline
+    under the name, as the applika Typst header does (the stock Markdown
+    header omits it). The mapper's Typst escape for `#word` is turned back
+    into a literal `#` after rendering. Failure →
+    `CVExportFailed` (new, 500, sibling of `PdfRenderFailed`).
+  - `GET /applications/{application_id}/cv/diff/markdown` and
+    `GET /applications/{application_id}/cv/diff/pdf` — the diff between the
+    copy and its baseline. Baseline: `base_snapshot` if present, else the
+    current master CV via `base_cv_id`, else `ResourceConflict` (409, "This
+    CV copy has no baseline to compare with."). Baseline label: the current
+    master's name when `base_cv_id` still resolves, else "the original
+    master CV" — independent of whether the content came from the snapshot
+    or the live master. The diff itself is a new pure, framework-free
+    function, `app/application/services/cv_diff.py`
+    (`diff_cv(baseline, current) -> CVDiffResult`): list items matched by
+    client-generated `id`, never position (a pure reorder is zero changes);
+    `None`/`""` normalise equal; `bullets` compares as one whole value;
+    `keywords` compares as a set per skill category. Canonical JSON output
+    `{total, sections: {identity, links, summary, experience, languages,
+    skills, projects, education, certifications}, changes: [{kind, section,
+    path, before, after}]}`, pinned identical to the web diff
+    (`frontend/src/components/tailored-cvs/cv-diff.ts`) by a shared fixture
+    set under `applika/fixtures/cv-diff/*.json` (see its `README.md`), loaded
+    by both the backend pytest and the frontend vitest suites. The Markdown
+    document (`cv_diff_markdown.py`) is deterministic: `# Changes to <copy
+    name>`, `Compared with <label>: N changes`, one `## <Section> (n)` per
+    section with changes (order: Identity and contact, Links, Summary, then
+    Experience, Languages, Skills, Projects, Education, Certifications), one
+    bullet per change, `No changes.` at zero. Every value is rendered on one
+    line (lists such as `bullets` joined with `; `, newlines collapsed), so
+    a change is always exactly one bullet; a changed item field or keyword
+    names its item (`Changed experience Role (<role> at <company>): ...`,
+    `Added keyword Go to <category>`). The PDF is the same content
+    compiled through Typst (`diff_pdf_renderer.py` + a minimal
+    `diff_template/diff.typ`) via `sys.inputs` — the diff content, which is
+    free CV text and may itself contain Typst markup characters, needs no
+    escaping this way. Filenames `"<pdf slug>-changes.md"` /
+    `"<pdf slug>-changes.pdf"`.
+  - New exception `CVExportFailed` (`app/core/exceptions.py`) → 500, for all
+    four routes' render failures; same fixed-message discipline as
+    `PdfRenderFailed` (never quotes CV content).
+  - No CLI changelog entry: `applika-cli` does not call any of the four
+    routes (checked: no `/cv`, `/base-cvs/.../markdown` or `/diff` in
+    `cli/src`).
+
 ### Fixed
 
 - KODI-011 `GET /users/me/agenda` now honours `to_date`. `from_date` and

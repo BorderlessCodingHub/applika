@@ -27,3 +27,13 @@ class ForbiddenAccess(UnicornException): ...
 
 
 class PdfRenderFailed(UnicornException): ...
+
+
+class CVExportFailed(UnicornException):
+    """A CV Markdown or diff export could not be produced (KODI-017, T090/T091).
+
+    Sibling of :class:`PdfRenderFailed` for the four new export routes
+    (Markdown, diff Markdown, diff PDF): same fixed-message discipline, for
+    the same reason - a Jinja or Typst failure message can quote the CV
+    content that upset it, and CV content has no business in an HTTP body.
+    """

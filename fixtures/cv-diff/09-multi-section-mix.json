@@ -1,0 +1,209 @@
+{
+  "name": "Changes across identity, summary, links, experience and education in one diff",
+  "baseline": {
+    "name": "Backend CV",
+    "full_name": "Ada Example",
+    "headline": "Staff Backend Engineer",
+    "location": "Lisbon, PT",
+    "email": "ada@example.com",
+    "phone": "+1 202 555 0147",
+    "summary": "Ten years of backend engineering.",
+    "links": [
+      {
+        "id": "lnk-1",
+        "label": "GitHub",
+        "url": "https://github.com/ada"
+      }
+    ],
+    "skills": [
+      {
+        "id": "skl-1",
+        "category": "Languages",
+        "keywords": [
+          "Python",
+          "SQL"
+        ]
+      }
+    ],
+    "experience": [
+      {
+        "id": "exp-1",
+        "company": "Acme",
+        "company_description": "Anvils, mostly",
+        "role": "Staff Engineer",
+        "location": "Lisbon, PT",
+        "start": "2024-02",
+        "end": null,
+        "bullets": [
+          "Cut p99 by half",
+          "Owned the billing rewrite"
+        ]
+      }
+    ],
+    "projects": [
+      {
+        "id": "prj-1",
+        "name": "applika",
+        "description": "Job application tracker",
+        "link": "https://applika.example.com",
+        "link_label": "applika.example.com"
+      }
+    ],
+    "education": [
+      {
+        "id": "edu-1",
+        "institution": "Riverside Institute",
+        "degree": "Master's degree",
+        "area": "Distributed Systems",
+        "start": "2016-09",
+        "end": "2018-07"
+      }
+    ],
+    "certifications": [
+      {
+        "id": "crt-1",
+        "name": "AWS SAA",
+        "issuer": "Amazon"
+      }
+    ],
+    "languages": [
+      {
+        "id": "lng-1",
+        "name": "Portuguese",
+        "level": "Native"
+      }
+    ]
+  },
+  "current": {
+    "name": "Backend CV",
+    "full_name": "Ada Example",
+    "headline": "Principal Backend Engineer",
+    "location": "Lisbon, PT",
+    "email": "ada@example.com",
+    "phone": "+1 202 555 0147",
+    "summary": "Twelve years of backend engineering.",
+    "links": [
+      {
+        "id": "lnk-1",
+        "label": "GitHub",
+        "url": "https://github.com/ada"
+      },
+      {
+        "id": "lnk-2",
+        "label": "Site",
+        "url": "https://ada.example.com"
+      }
+    ],
+    "skills": [
+      {
+        "id": "skl-1",
+        "category": "Languages",
+        "keywords": [
+          "Python",
+          "SQL"
+        ]
+      }
+    ],
+    "experience": [
+      {
+        "id": "exp-1",
+        "company": "Acme",
+        "company_description": "Anvils, mostly",
+        "role": "Principal Engineer",
+        "location": "Lisbon, PT",
+        "start": "2024-02",
+        "end": null,
+        "bullets": [
+          "Cut p99 by half",
+          "Owned the billing rewrite"
+        ]
+      }
+    ],
+    "projects": [
+      {
+        "id": "prj-1",
+        "name": "applika",
+        "description": "Job application tracker",
+        "link": "https://applika.example.com",
+        "link_label": "applika.example.com"
+      }
+    ],
+    "education": [],
+    "certifications": [
+      {
+        "id": "crt-1",
+        "name": "AWS SAA",
+        "issuer": "Amazon"
+      }
+    ],
+    "languages": [
+      {
+        "id": "lng-1",
+        "name": "Portuguese",
+        "level": "Native"
+      }
+    ]
+  },
+  "expected": {
+    "total": 5,
+    "sections": {
+      "identity": 1,
+      "links": 1,
+      "summary": 1,
+      "experience": 1,
+      "languages": 0,
+      "skills": 0,
+      "projects": 0,
+      "education": 1,
+      "certifications": 0
+    },
+    "changes": [
+      {
+        "kind": "changed",
+        "section": "identity",
+        "path": "headline",
+        "before": "Staff Backend Engineer",
+        "after": "Principal Backend Engineer"
+      },
+      {
+        "kind": "changed",
+        "section": "summary",
+        "path": "summary",
+        "before": "Ten years of backend engineering.",
+        "after": "Twelve years of backend engineering."
+      },
+      {
+        "kind": "added",
+        "section": "links",
+        "path": "links:lnk-2",
+        "before": null,
+        "after": {
+          "id": "lnk-2",
+          "label": "Site",
+          "url": "https://ada.example.com"
+        }
+      },
+      {
+        "kind": "changed",
+        "section": "experience",
+        "path": "experience:exp-1.role",
+        "before": "Staff Engineer",
+        "after": "Principal Engineer"
+      },
+      {
+        "kind": "removed",
+        "section": "education",
+        "path": "education:edu-1",
+        "before": {
+          "start": "2016-09",
+          "end": "2018-07",
+          "id": "edu-1",
+          "institution": "Riverside Institute",
+          "degree": "Master's degree",
+          "area": "Distributed Systems"
+        },
+        "after": null
+      }
+    ]
+  }
+}
