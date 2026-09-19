@@ -185,12 +185,12 @@ export function ApplicationCvPage() {
   const exportDiffMarkdownMutation = useExportCvDiffMarkdown(
     applicationId ?? "",
     cv?.name ?? "",
-    { onError: setDiffDownloadError },
+    { onNoBaseline: setDiffDownloadError },
   );
   const exportDiffPdfMutation = useExportCvDiffPdf(
     applicationId ?? "",
     cv?.name ?? "",
-    { onError: setDiffDownloadError },
+    { onNoBaseline: setDiffDownloadError },
   );
 
   // Master CV delete/export for the picker (KODI-017), the same pattern

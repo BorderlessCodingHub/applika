@@ -198,11 +198,25 @@ export function useCvDiff({
     const items = form.getValues(section) as unknown as AnyItem[];
     const index = items.findIndex((item) => item.id === itemId);
     if (index === -1) return;
-    form.setValue(
-      `${section}.${index}.${fieldName}` as FieldPath<CvFormValues>,
-      (before ?? (fieldName === "bullets" ? [] : "")) as never,
-      { shouldDirty: true, shouldValidate: true },
+    // The list sections are ONE `Controller` over the whole array
+    // (`cv-form-sections.tsx`): `setValue` on a NESTED path
+    // (`experience.0.role`) updates `getValues()`/`useWatch` but never
+    // notifies that Controller's own subscription, so the input on screen
+    // keeps showing the value the user typed until an unrelated edit forces
+    // a re-render. Rebuild the array and set the WHOLE section instead, the
+    // same shape `restoreItem` below already uses.
+    const next = items.map((item, i) =>
+      i === index
+        ? {
+            ...item,
+            [fieldName]: before ?? (fieldName === "bullets" ? [] : ""),
+          }
+        : item,
     );
+    form.setValue(section as FieldPath<CvFormValues>, next as never, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
   };
 
   const restoreItem = (

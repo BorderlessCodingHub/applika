@@ -14,11 +14,14 @@ import { services } from "@/services/services";
 
 export interface UseExportCvDiffOptions {
   /**
-   * Fired with the server's own message on failure — in particular the 409
-   * "This CV copy has no baseline to compare with." — so the caller can
-   * disable the download row with the reason on screen, beside the toast.
+   * Fired ONLY on a 409 ("This CV copy has no baseline to compare with."),
+   * with the server's own message, so the caller can disable the download row
+   * WITH that reason on screen, beside the toast. Every OTHER failure (a
+   * transient 500, a network error) reaches the user through the toast alone
+   * — it must not leave the row disabled after one bad request, since nothing
+   * ever calls this back to clear it.
    */
-  onError?: (message: string) => void;
+  onNoBaseline?: (message: string) => void;
 }
 
 /**
@@ -39,7 +42,7 @@ export function useExportCvDiffMarkdown(
     },
     onError: async (error: AxiosError) => {
       const message = await getBlobApiError(error);
-      options.onError?.(message);
+      if (error.response?.status === 409) options.onNoBaseline?.(message);
       toast.error(message);
     },
   });
@@ -59,7 +62,7 @@ export function useExportCvDiffPdf(
     },
     onError: async (error: AxiosError) => {
       const message = await getBlobApiError(error);
-      options.onError?.(message);
+      if (error.response?.status === 409) options.onNoBaseline?.(message);
       toast.error(message);
     },
   });

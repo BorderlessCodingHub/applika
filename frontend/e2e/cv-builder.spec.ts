@@ -1514,6 +1514,40 @@ test("the form and the preview each take half the editor, with no cap on either 
     );
   }
 
+  // ---- The COPY editor gets the same 50/50, with no `2xl` cap either
+  // (KODI-017 criterion 4). Its preview landmark is a `<section
+  // aria-label="CV preview">`, not the master editor's `<aside>` above, so
+  // the selector is tag-agnostic on purpose — both are ARIA regions with the
+  // same accessible name.
+  {
+    const applicationId = await seedApplication(request, JOB_DESCRIPTION);
+    await seedTailoredCv(request, applicationId, cvId);
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await page.goto(`/applications/cv?id=${applicationId}`);
+    await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+      CV_NAME,
+    );
+
+    const copyHalves = await page.evaluate(() => {
+      const split = document.querySelector<HTMLElement>("form > div.grid");
+      const form = split?.firstElementChild as HTMLElement | null;
+      const preview = document.querySelector<HTMLElement>(
+        '[aria-label="CV preview"]',
+      );
+      if (!split || !form || !preview) throw new Error("the editor restacked");
+      return {
+        split: Math.round(split.getBoundingClientRect().width),
+        form: Math.round(form.getBoundingClientRect().width),
+        preview: Math.round(preview.getBoundingClientRect().width),
+      };
+    });
+    expect(
+      Math.abs(copyHalves.form - copyHalves.preview),
+      `copy editor at 1600px is not a 50/50 split: ${JSON.stringify(copyHalves)}`,
+    ).toBeLessThanOrEqual(1);
+    expect(copyHalves.form * 2).toBeGreaterThan(copyHalves.split - 48);
+  }
+
   // Below `md` the two stack, form first — the halves are a `md:` rule, not a
   // 50% the phone inherits.
   await page.setViewportSize({ width: 390, height: 844 });
@@ -2354,8 +2388,12 @@ test("the copy's diff: Changed + Revert, an Added badge on a new row, and Restor
     CV_NAME,
   );
 
-  // No baseline diff shown until the toggle is on.
-  await expect(page.getByText("Changed: Headline")).toHaveCount(0);
+  // No baseline diff shown until the toggle is on. "Changed: Headline" is the
+  // MARKER's accessible name (an `aria-label`), not rendered text — check the
+  // role, not `getByText`, which would find nothing here whatever the toggle.
+  await expect(
+    page.getByRole("button", { name: "Changed: Headline" }),
+  ).toHaveCount(0);
   await page.getByLabel("Show changes").click();
   await expect(page.getByText(/Compared with .*: no changes/)).toBeVisible();
 
@@ -2389,7 +2427,14 @@ test("the copy's diff: Changed + Revert, an Added badge on a new row, and Restor
   await expect(
     page.getByRole("group", { name: /Removed experience/ }),
   ).toHaveCount(0);
-  await expect(page.getByText("Backend Engineer")).toBeVisible();
+  // "Backend Engineer" appears TWICE once restored — the row's own Role
+  // field and the live preview both say it — so assert the row itself, not
+  // a bare `getByText` (which would hit Playwright's strict-mode ambiguity).
+  const restoredRow = page.getByRole("group", { name: "experience 1" });
+  await expect(restoredRow).toBeVisible();
+  await expect(restoredRow.getByRole("textbox", { name: "Role" })).toHaveValue(
+    "Backend Engineer",
+  );
 });
 
 test("a master CV and a CV copy download as Markdown beside the PDF (KODI-017 part 3)", async ({

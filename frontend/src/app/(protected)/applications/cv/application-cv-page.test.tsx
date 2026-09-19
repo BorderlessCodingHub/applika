@@ -36,10 +36,16 @@ const createCopy = vi.fn();
 const updateCopy = vi.fn();
 const removeCopy = vi.fn();
 const exportCopyPdf = vi.fn();
+const exportCopyMarkdown = vi.fn();
+const exportCopyDiffMarkdown = vi.fn();
+const exportCopyDiffPdf = vi.fn();
 const listBaseCvs = vi.fn();
 const removeBaseCv = vi.fn();
 const exportBaseCvPdf = vi.fn();
+const exportBaseCvMarkdown = vi.fn();
 const getApplications = vi.fn();
+
+const NO_FILE = { blob: new Blob(["x"]), filename: null };
 
 vi.mock("@/services/services", () => ({
   services: {
@@ -49,6 +55,10 @@ vi.mock("@/services/services", () => ({
       update: (...args: unknown[]) => updateCopy(...args),
       remove: (...args: unknown[]) => removeCopy(...args),
       exportPdf: (...args: unknown[]) => exportCopyPdf(...args),
+      exportMarkdown: (...args: unknown[]) => exportCopyMarkdown(...args),
+      exportDiffMarkdown: (...args: unknown[]) =>
+        exportCopyDiffMarkdown(...args),
+      exportDiffPdf: (...args: unknown[]) => exportCopyDiffPdf(...args),
     },
     baseCvs: {
       list: (...args: unknown[]) => listBaseCvs(...args),
@@ -57,6 +67,7 @@ vi.mock("@/services/services", () => ({
       update: vi.fn(),
       remove: (...args: unknown[]) => removeBaseCv(...args),
       exportPdf: (...args: unknown[]) => exportBaseCvPdf(...args),
+      exportMarkdown: (...args: unknown[]) => exportBaseCvMarkdown(...args),
     },
     applications: {
       getApplications: (...args: unknown[]) => getApplications(...args),
@@ -247,6 +258,10 @@ beforeEach(() => {
     blob: new Blob(["%PDF-1.7"], { type: "application/pdf" }),
     filename: null,
   });
+  exportCopyMarkdown.mockResolvedValue(NO_FILE);
+  exportCopyDiffMarkdown.mockResolvedValue(NO_FILE);
+  exportCopyDiffPdf.mockResolvedValue(NO_FILE);
+  exportBaseCvMarkdown.mockResolvedValue(NO_FILE);
   URL.createObjectURL = (() =>
     "blob:applika/pdf") as unknown as typeof URL.createObjectURL;
   URL.revokeObjectURL = () => {};
@@ -614,5 +629,181 @@ describe("ApplicationCvPage", () => {
       await screen.findByRole("status");
       expect(fullWidthRequest).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe("the diff baseline resolution (KODI-017)", () => {
+  /** A master CV that has since drifted from what the snapshot captured. */
+  const DRIFTED_MASTER: BaseCv = {
+    ...MASTER_CVS[0],
+    headline: "Staff Backend Engineer",
+  };
+
+  it("prefers `base_snapshot` over the current master CV, even when both resolve", async () => {
+    // The snapshot still says "Senior Backend Engineer" (COPY's own headline);
+    // the "current" master CV was edited afterwards. If the page compared
+    // against the master instead, the diff would report a headline change
+    // that the user never made.
+    listBaseCvs.mockResolvedValue([DRIFTED_MASTER, MASTER_CVS[1]]);
+    getCopy.mockResolvedValue({
+      ...COPY,
+      base_snapshot: {
+        name: COPY.name,
+        full_name: COPY.full_name,
+        headline: COPY.headline,
+        location: COPY.location,
+        email: COPY.email,
+        phone: COPY.phone,
+        summary: COPY.summary,
+        links: COPY.links,
+        skills: COPY.skills,
+        experience: COPY.experience,
+        projects: COPY.projects,
+        education: COPY.education,
+        certifications: COPY.certifications,
+        languages: COPY.languages,
+      },
+    });
+    renderPage();
+
+    expect(
+      await screen.findByText(/Compared with Backend CV: no changes/),
+    ).toBeInTheDocument();
+  });
+
+  it("falls back to the current master CV when there is no snapshot", async () => {
+    // Matches COPY's own content field for field, except the headline — so
+    // the fallback-to-master diff reports EXACTLY one change, isolating the
+    // resolution rule from every other field the two fixtures might differ on.
+    // `BaseCv.name` IS the "CV label" content field `diffCv` compares (the
+    // same one the badge/label text reads), so it has to match COPY's own
+    // name too, or it would count as a SECOND change alongside the headline.
+    const matchingMaster: BaseCv = {
+      id: "7",
+      name: COPY.name,
+      full_name: COPY.full_name,
+      headline: "Staff Backend Engineer",
+      location: COPY.location,
+      email: COPY.email,
+      phone: COPY.phone,
+      summary: COPY.summary,
+      links: COPY.links,
+      skills: COPY.skills,
+      experience: COPY.experience,
+      projects: COPY.projects,
+      education: COPY.education,
+      certifications: COPY.certifications,
+      languages: COPY.languages,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: null,
+    };
+    listBaseCvs.mockResolvedValue([matchingMaster, MASTER_CVS[1]]);
+    getCopy.mockResolvedValue({ ...COPY, base_snapshot: null });
+    renderPage();
+
+    expect(
+      await screen.findByText(/Compared with Backend CV for Applika: 1 change/),
+    ).toBeInTheDocument();
+  });
+
+  it("only 409 disables the diff downloads; a transient failure does not stick", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue({ ...COPY, base_snapshot: null });
+    exportCopyDiffPdf.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: {
+        status: 500,
+        data: new Blob([JSON.stringify({ detail: "Render failed" })]),
+      },
+    });
+    renderPage();
+
+    const pdfButton = await screen.findByRole("button", {
+      name: "Download changes as PDF",
+    });
+    await user.click(pdfButton);
+    // A transient 500 must not leave the row disabled — only a 409 ("no
+    // baseline") does, and clicking again must still be possible.
+    await waitFor(() => expect(pdfButton).toBeEnabled());
+  });
+
+  it("disables both diff downloads with the server's reason on a 409", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue({ ...COPY, base_snapshot: null });
+    exportCopyDiffPdf.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: new Blob([
+          JSON.stringify({
+            detail: "This CV copy has no baseline to compare with.",
+          }),
+        ]),
+      },
+    });
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Download changes as PDF" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("This CV copy has no baseline to compare with."),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("button", { name: "Download changes as PDF" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Download changes as Markdown" }),
+    ).toBeDisabled();
+  });
+
+  it("says downloads reflect the last saved version while the form is dirty", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue({ ...COPY, base_snapshot: null });
+    renderPage();
+
+    const headline = await screen.findByLabelText("Headline", {
+      exact: true,
+    });
+    expect(
+      screen.queryByText("Downloads reflect the last saved version."),
+    ).toBeNull();
+
+    await user.type(headline, "!");
+    expect(
+      await screen.findByText("Downloads reflect the last saved version."),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("Markdown downloads beside the PDF ones (KODI-017 part 3)", () => {
+  it("mounts the copy's Markdown export beside its PDF one", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue(COPY);
+    renderPage();
+
+    const button = await screen.findByRole("button", {
+      name: "Download Markdown",
+    });
+    expect(button).toBeEnabled();
+
+    await user.click(button);
+    await waitFor(() => expect(exportCopyMarkdown).toHaveBeenCalledWith("42"));
+  });
+
+  it("mounts a master CV's Markdown export on the picker's tiles", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const button = await screen.findByRole("button", {
+      name: "Download Markdown Backend CV",
+    });
+    expect(button).toBeEnabled();
+
+    await user.click(button);
+    await waitFor(() => expect(exportBaseCvMarkdown).toHaveBeenCalledWith("7"));
   });
 });

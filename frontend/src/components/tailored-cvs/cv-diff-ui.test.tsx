@@ -49,18 +49,20 @@ function baselineFormValues(): CvFormValues {
 
 function Harness({
   readOnly = false,
-  initial = baselineFormValues(),
+  baseline = BASELINE,
+  initial,
 }: {
   readOnly?: boolean;
+  baseline?: CvDiffSnapshot;
   initial?: CvFormValues;
 }) {
   const form = useForm<CvFormValues>({
     resolver: zodResolver(tailoredCvSchema),
-    defaultValues: initial,
+    defaultValues: initial ?? { ...baseline, phone: baseline.phone ?? "" },
   });
   const cvDiff = useCvDiff({
     form,
-    baseline: BASELINE,
+    baseline,
     baselineLabel: "Backend CV",
     readOnly,
   });
@@ -155,6 +157,115 @@ describe("the diff UI (KODI-017)", () => {
     expect(
       screen.getByRole("group", { name: "experience 1" }),
     ).toBeInTheDocument();
+  });
+
+  it("Revert on a LIST-ITEM field puts the original value back on screen, and a later edit does not resurrect the typed one", async () => {
+    // Regression: the list sections are one whole-array `Controller`
+    // (`cv-form-sections.tsx`); reverting via `setValue` on a NESTED path
+    // (`experience.0.role`) updates `getValues()`/`useWatch` but never
+    // notifies that Controller, so the ROLE input kept showing the typed
+    // value after Revert, and a later edit to a SIBLING field on the same row
+    // silently brought the typed value back (`use-cv-diff.tsx`).
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(screen.getByLabelText("Show changes"));
+
+    const row = within(screen.getByRole("group", { name: "experience 1" }));
+    const role = row.getByLabelText("Role");
+    await user.clear(role);
+    await user.type(role, "Staff Engineer");
+    expect(role).toHaveValue("Staff Engineer");
+
+    await user.click(
+      row.getByRole("button", { name: "Changed: Role, experience 1" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Revert Role, experience 1" }),
+    );
+    expect(role).toHaveValue("Backend Engineer");
+    expect(
+      screen.getByText("Compared with Backend CV: no changes"),
+    ).toBeInTheDocument();
+
+    // Editing a SIBLING field on the same row must not resurrect the
+    // reverted value — the row has to hold ONE consistent object, not a
+    // stale reference the sibling edit accidentally restores.
+    const company = row.getByLabelText("Company");
+    await user.type(company, "!");
+    expect(role).toHaveValue("Backend Engineer");
+    expect(
+      screen.getByText("Compared with Backend CV: 1 change"),
+    ).toBeInTheDocument();
+  });
+
+  it("read-only: a removed item shows the row, but never a Restore button", async () => {
+    render(
+      <Harness
+        readOnly
+        initial={{ ...baselineFormValues(), experience: [] }}
+      />,
+    );
+    await userEvent.click(screen.getByLabelText("Show changes"));
+
+    expect(
+      screen.getByRole("group", { name: /Removed experience/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Restore/ })).toBeNull();
+  });
+
+  it("Restore reinserts a removed row at its baseline position among several survivors", async () => {
+    const threeRoles: CvDiffSnapshot = {
+      ...BASELINE,
+      experience: [
+        {
+          id: "x-1",
+          company: "A Co",
+          role: "First",
+          start: "2018-01",
+          end: "2019-01",
+          bullets: [],
+        },
+        {
+          id: "x-2",
+          company: "B Co",
+          role: "Middle",
+          start: "2019-01",
+          end: "2020-01",
+          bullets: [],
+        },
+        {
+          id: "x-3",
+          company: "C Co",
+          role: "Last",
+          start: "2020-01",
+          end: null,
+          bullets: [],
+        },
+      ],
+    };
+    const user = userEvent.setup();
+    render(
+      <Harness
+        baseline={threeRoles}
+        initial={{
+          ...baselineFormValues(),
+          experience: [threeRoles.experience[0], threeRoles.experience[2]],
+        }}
+      />,
+    );
+    await user.click(screen.getByLabelText("Show changes"));
+
+    await user.click(
+      screen.getByRole("button", { name: "Restore experience Middle" }),
+    );
+
+    // Restored BETWEEN "First" and "Last" — its baseline position among the
+    // survivors — not appended after "Last".
+    const groups = screen.getAllByRole("group", { name: /^experience \d/ });
+    const roles = groups.map(
+      (g) => (within(g).getByLabelText("Role") as HTMLInputElement).value,
+    );
+    expect(roles).toEqual(["First", "Middle", "Last"]);
   });
 
   it("read-only: markers and badges show, but no Revert or Restore", async () => {
