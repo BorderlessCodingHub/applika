@@ -1,6 +1,6 @@
 import datetime
 
-from pydantic import BaseModel, HttpUrl, model_validator
+from pydantic import BaseModel, Field, HttpUrl, model_validator
 from typing_extensions import TypedDict
 
 from applika.schemas.enums import (
@@ -13,6 +13,8 @@ from applika.schemas.enums import (
     SalaryPeriod,
     WorkMode,
 )
+
+MAX_JOB_DESCRIPTION = 50_000
 
 
 class ApplicationCompany(TypedDict):
@@ -36,6 +38,13 @@ class ApplicationCreate(BaseModel):
     experience_level: ExperienceLevel | None = None
     work_mode: WorkMode | None = None
     country: str | None = None
+    # KODI-018: the posting's free text. The API's ``UpdateApplication``
+    # treats it as *sticky* - omit the key and the stored text stays, send
+    # ``null`` and it is cleared - so ``applications edit`` pops the key
+    # from the dumped payload unless the caller actually asked for it.
+    job_description: str | None = Field(
+        default=None, max_length=MAX_JOB_DESCRIPTION
+    )
 
     @model_validator(mode='after')
     def validate_salary(self) -> 'ApplicationCreate':
@@ -87,6 +96,7 @@ class ApplicationEntry(TypedDict):
     experience_level: str | None
     work_mode: str | None
     country: str | None
+    job_description: str | None
     salary_offer: float | None
     finalized_at: str | None
     finalized: bool

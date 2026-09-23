@@ -12,9 +12,19 @@ from applika.commands.applications.api_resolve import (
     resolve_platform_id,
     resolve_step_id,
 )
+from applika.commands.applications.file_input import (
+    conflict_message,
+    file_conflicts,
+    job_description_input,
+    load_application_file,
+    missing_message,
+    missing_required,
+    resolve_file_company,
+)
 from applika.commands.applications.filter import filter_applications
 from applika.config import AppConfig
 from applika.lib.api import ApiClient, ApiError, require_session
+from applika.lib.cv_file import USAGE_EXIT_CODE, FileInputError
 from applika.schemas.application import (
     ApplicationCreate,
     ApplicationEntry,
@@ -146,27 +156,27 @@ def list_applications(
 def new_application(
     ctx: typer.Context,
     company: Annotated[
-        str,
+        str | None,
         typer.Option('--company', help='Company name.'),
-    ],
+    ] = None,
     role: Annotated[
-        str,
+        str | None,
         typer.Option('--role', help='Job title or role.'),
-    ],
+    ] = None,
     platform: Annotated[
-        str,
+        str | None,
         typer.Option(
             '--platform', help='Platform name (e.g. LinkedIn, Indeed).'
         ),
-    ],
+    ] = None,
     mode: Annotated[
-        ApplicationMode,
+        ApplicationMode | None,
         typer.Option('--mode', help='Application mode: active or passive.'),
-    ],
+    ] = None,
     application_date: Annotated[
-        str,
+        str | None,
         typer.Option('--date', help='Application date (YYYY-MM-DD).'),
-    ],
+    ] = None,
     company_url: Annotated[
         str | None,
         typer.Option('--company-url', help='Company website URL.'),
@@ -220,6 +230,31 @@ def new_application(
         str | None,
         typer.Option('--country', help='Country where the job is located.'),
     ] = None,
+    file: Annotated[
+        str | None,
+        typer.Option(
+            '--file',
+            help=(
+                'JSON/YAML file (.json/.yaml/.yml, - for stdin) holding the '
+                'whole create payload with the API field names, instead of '
+                'the named options. Mutually exclusive with them.'
+            ),
+        ),
+    ] = None,
+    job_description: Annotated[
+        str | None,
+        typer.Option(
+            '--job-description',
+            help="The posting's text. Also accepted as job_description in --file.",
+        ),
+    ] = None,
+    job_description_file: Annotated[
+        str | None,
+        typer.Option(
+            '--job-description-file',
+            help="Read the posting's text (plain text/Markdown) from a file.",
+        ),
+    ] = None,
 ) -> None:
     """Create a new job application."""
     config: AppConfig = ctx.obj
@@ -227,27 +262,84 @@ def new_application(
     client = ApiClient(session, config.store)
 
     try:
-        payload = ApplicationCreate(
-            company=resolve_company_input(client, company, company_url),
-            role=role,
-            mode=mode,
-            platform_id=resolve_platform_id(client, platform),
-            application_date=application_date,
-            link_to_job=job_url,
-            observation=observation,
-            expected_salary=expected_salary,
-            salary_range_min=salary_min,
-            salary_range_max=salary_max,
-            currency=currency,
-            salary_period=salary_period,
-            experience_level=experience_level,
-            work_mode=work_mode,
-            country=country,
+        described, description = job_description_input(
+            job_description, job_description_file
         )
-        created = client.post_json(
-            '/applications', payload.model_dump(mode='json')
-        )
+        named = {
+            '--company': company,
+            '--role': role,
+            '--platform': platform,
+            '--mode': mode,
+            '--date': application_date,
+            '--company-url': company_url,
+            '--job-url': job_url,
+            '--observation': observation,
+            '--expected-salary': expected_salary,
+            '--salary-min': salary_min,
+            '--salary-max': salary_max,
+            '--currency': currency,
+            '--salary-period': salary_period,
+            '--experience-level': experience_level,
+            '--work-mode': work_mode,
+            '--country': country,
+        }
+        if file is not None:
+            conflicts = file_conflicts(named)
+            if conflicts:
+                _usage_exit(conflict_message(conflicts))
+            document = load_application_file(file)
+            missing = missing_required(document)
+            if missing:
+                _usage_exit(missing_message(missing))
+            if described:
+                document['job_description'] = description
+            document['company'] = resolve_file_company(
+                client, document['company']
+            )
+            payload = ApplicationCreate.model_validate(document)
+            described = described or 'job_description' in document
+        else:
+            missing = [
+                option
+                for option, value in (
+                    ('--company', company),
+                    ('--role', role),
+                    ('--platform', platform),
+                    ('--mode', mode),
+                    ('--date', application_date),
+                )
+                if value is None
+            ]
+            if missing:
+                _usage_exit(missing_message(missing))
+            payload = ApplicationCreate(
+                company=resolve_company_input(client, company, company_url),
+                role=role,
+                mode=mode,
+                platform_id=resolve_platform_id(client, platform),
+                application_date=application_date,
+                link_to_job=job_url,
+                observation=observation,
+                expected_salary=expected_salary,
+                salary_range_min=salary_min,
+                salary_range_max=salary_max,
+                currency=currency,
+                salary_period=salary_period,
+                experience_level=experience_level,
+                work_mode=work_mode,
+                country=country,
+                job_description=description,
+            )
+        body = payload.model_dump(mode='json')
+        if not described:
+            # Keep the exact 0.1.4/0.2.0 create payload when no job
+            # description was asked for: the key did not exist then, and
+            # `.claude/rules/cli-compatibility.md` freezes what goes out.
+            body.pop('job_description', None)
+        created = client.post_json('/applications', body)
         print_application_summary(created, 'Created application')
+    except FileInputError as exc:
+        _usage_exit(str(exc))
     except ValidationError as exc:
         _echo_validation_error(exc)
     except ValueError as exc:
@@ -340,6 +432,34 @@ def edit_application(
             ),
         ),
     ] = None,
+    file: Annotated[
+        str | None,
+        typer.Option(
+            '--file',
+            help=(
+                'JSON/YAML file (.json/.yaml/.yml, - for stdin) whose keys '
+                'are updated and whose absent keys are left unchanged. '
+                'Mutually exclusive with the named options.'
+            ),
+        ),
+    ] = None,
+    job_description: Annotated[
+        str | None,
+        typer.Option(
+            '--job-description',
+            help=(
+                "The posting's text. An empty string clears it. Also "
+                'accepted as job_description in --file.'
+            ),
+        ),
+    ] = None,
+    job_description_file: Annotated[
+        str | None,
+        typer.Option(
+            '--job-description-file',
+            help="Read the posting's text (plain text/Markdown) from a file.",
+        ),
+    ] = None,
 ) -> None:
     """Edit an existing job application. Unspecified fields keep their current values."""
     config: AppConfig = ctx.obj
@@ -347,6 +467,33 @@ def edit_application(
     client = ApiClient(session, config.store)
 
     try:
+        described, description = job_description_input(
+            job_description, job_description_file
+        )
+        document: dict[str, Any] = {}
+        if file is not None:
+            conflicts = file_conflicts({
+                '--company': company,
+                '--role': role,
+                '--platform': platform,
+                '--mode': mode,
+                '--date': application_date,
+                '--company-url': company_url,
+                '--job-url': job_url,
+                '--observation': observation,
+                '--expected-salary': expected_salary,
+                '--salary-min': salary_min,
+                '--salary-max': salary_max,
+                '--currency': currency,
+                '--salary-period': salary_period,
+                '--experience-level': experience_level,
+                '--work-mode': work_mode,
+                '--country': country,
+                '--clear': clear,
+            })
+            if conflicts:
+                _usage_exit(conflict_message(conflicts))
+            document = load_application_file(file)
         applications: list[ApplicationEntry] = client.get_json('/applications')
         existing = next(
             (app for app in applications if str(app['id']) == application_id),
@@ -448,11 +595,29 @@ def edit_application(
                 else work_mode or existing.get('work_mode')
             ),
         )
-        updated = client.put_json(
-            f'/applications/{application_id}',
-            payload.model_dump(mode='json'),
-        )
+        merged = payload.model_dump(mode='json')
+        for key, value in document.items():
+            if key == 'company':
+                continue
+            merged[key] = value
+        if 'company' in document:
+            merged['company'] = _company_payload(
+                resolve_file_company(client, document['company'])
+            )
+        # Re-validate the merged result, not just the stored half: a file
+        # that adds a salary without a currency must fail here, not as a 422.
+        body = ApplicationUpdate.model_validate(merged).model_dump(mode='json')
+        if described:
+            body['job_description'] = description
+        elif 'job_description' not in document:
+            # The API's job_description is sticky on PUT: omit the key and
+            # the stored text stays. Never send it just because the model
+            # carries the field.
+            body.pop('job_description', None)
+        updated = client.put_json(f'/applications/{application_id}', body)
         print_application_summary(updated, 'Updated application')
+    except FileInputError as exc:
+        _usage_exit(str(exc))
     except ValidationError as exc:
         _echo_validation_error(exc)
     except ValueError as exc:
@@ -1602,3 +1767,17 @@ def _get_timeline_event_or_exit(
 
 def _as_float(value: Any) -> float | None:
     return float(value) if value is not None else None
+
+
+def _usage_exit(message: str) -> None:
+    """A usage/file-validation failure: nothing was sent, exit 2 (KODI-018)."""
+    typer.echo(message, err=True)
+    raise typer.Exit(USAGE_EXIT_CODE)
+
+
+def _company_payload(company: Any) -> Any:
+    """A resolved company as the API wants it on the wire."""
+    if isinstance(company, dict):
+        url = company.get('url')
+        return {'name': company['name'], 'url': str(url) if url else None}
+    return company
