@@ -484,6 +484,109 @@ Once installed, the AI assistant automatically loads the skill context in every 
 
 ---
 
+## Master CVs and application CV copies
+
+Since **1.0.0**. Up to three master CVs per user; one CV copy per application.
+
+### `applika cvs list|get|create|edit|delete|download`
+
+```bash
+applika cvs list                                  # --output table|json|yaml|md
+applika cvs get <cv-id> --output md               # text|json|yaml|md
+applika cvs create --file cv.yaml --name "Backend CV"
+applika cvs edit <cv-id> --file headline.json     # partial; --name also works alone
+applika cvs delete <cv-id> --yes
+applika cvs download <cv-id> --type pdf --dir ./out --filename backend-cv --force
+```
+
+| Command | Options |
+|---|---|
+| `cvs list` | `--output table\|json\|yaml\|md` (`md` = a Markdown table) |
+| `cvs get <cv-id>` | `--output text\|json\|yaml\|md` (`md` = the server-rendered CV) |
+| `cvs create` | `--file` (required) · `--name` (required unless the file has `name`) · `--output` |
+| `cvs edit <cv-id>` | `--file` and/or `--name` (at least one) · `--output` |
+| `cvs delete <cv-id>` | `--yes` |
+| `cvs download <cv-id>` | `--type pdf\|md` (required) · `--dir` · `--filename` · `--force` |
+
+### `applika applications cv get|create|edit|delete|download|diff`
+
+```bash
+applika applications cv create <application-id> --from <cv-id> --file tailoring.yaml
+applika applications cv edit <application-id> --name "Acme — Staff"
+applika applications cv get <application-id> --output md
+applika applications cv download <application-id> --type pdf --dir ./out
+applika applications cv diff <application-id> --type md --print
+applika applications cv delete <application-id> --yes
+```
+
+| Command | Options |
+|---|---|
+| `applications cv get <id>` | `--output text\|json\|yaml\|md` |
+| `applications cv create <id>` | `--from <cv-id>` (required) · `--file` · `--name` · `--output` |
+| `applications cv edit <id>` | `--file` and/or `--name` (at least one) · `--output` |
+| `applications cv delete <id>` | `--yes` |
+| `applications cv download <id>` | `--type pdf\|md` (required) · `--dir` · `--filename` · `--force` |
+| `applications cv diff <id>` | `--type pdf\|md` (required) · `--dir` · `--filename` · `--force` · `--print` (md only) |
+
+A closed or archived application refuses writes and the API's message is
+printed; reads and downloads keep working. A copy with no baseline answers
+"nothing to compare against".
+
+### `--file`
+
+JSON (`.json`) or YAML (`.yaml`/`.yml`), picked by the extension; `-` reads
+stdin. Keys are the API field names — `name`, `full_name`, `headline`,
+`location`, `email`, `phone`, `summary`, `links`, `skills`, `experience`,
+`projects`, `education`, `certifications`, `languages`. The document is
+validated locally (types, required fields, lengths, `YYYY-MM` dates, an
+`end` earlier than its `start`, unknown keys) before anything is sent.
+Edits are **partial**: a section present in the file replaces that whole
+section, an absent key is left unchanged. Section items may carry a client
+`id`; missing ids are generated and given ids are kept.
+
+`get --output json|yaml` prints a document `--file` accepts, so
+export → edit → `edit --file` round-trips. `--file` never reads Markdown.
+
+### Downloads
+
+`--type pdf|md` is required. `--dir` defaults to the current directory and is
+created when missing. `--filename` defaults to the server's file name, and
+the extension matching `--type` is appended when missing. An existing file is
+never overwritten unless `--force`.
+
+---
+
+## `--file` and the job description on applications
+
+Since **1.0.0**. `applications new` and `applications edit` accept the whole
+payload as a file instead of the named options (mutually exclusive with
+them); every existing invocation keeps working unchanged.
+
+```bash
+applika applications new --file application.json
+applika applications new --file application.json --job-description-file jd.md
+applika applications edit <application-id> --file patch.yaml
+applika applications edit <application-id> --job-description "We need…"
+applika applications edit <application-id> --job-description ""   # clears it
+```
+
+`company` in the file may be a company id, a company name (resolved like
+`--company`) or `{"name": …, "url": …}`. `job_description` is also accepted
+as a file key; the option wins when both are given. On `edit` the key is
+never sent unless you asked for it, so the stored text is left alone.
+
+---
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | Success |
+| 1 | The API refused the request (its `detail` is printed) |
+| 2 | A usage or file-validation error — nothing was sent |
+
+---
+
 ## Global options
 
 These flags apply to every command and are passed before the subcommand name:
@@ -520,28 +623,39 @@ cli/
         │   ├── enums.py         # Enum types: Currency (20), SalaryPeriod, OfferPeriod,
         │   │                    #   EventType, InterviewType, FinalizeOutcome, WorkMode, ClearField, etc.
         │   ├── application.py   # ApplicationCreate, ApplicationUpdate, FinalizeOutcomePayload
+        │   ├── application_file.py # ApplicationFile — the `applications new|edit --file` payload
         │   ├── application_step.py # ApplicationStepCreate/Update, FinalizeApplication (0.1.4 legacy body)
+        │   ├── cv.py            # CVDocument and the seven CV section item models
         │   ├── timeline_event.py   # TimelineEventCreate/Update, TimelineEventEntry
         │   └── supports.py      # SupportSchema — platforms and companies from /supports
         │
         ├── lib/                 # Infrastructure — no Typer dependency
         │   ├── api.py           # ApiClient (httpx + cookie auth), ApiError, AuthError;
-        │   │                    #   post() sends no body at all when payload is None
+        │   │                    #   post() sends no body at all when payload is None;
+        │   │                    #   patch_json() and fetch_raw() -> (bytes, headers)
+        │   ├── cv_file.py       # --file loading (JSON/YAML/stdin) and local validation
+        │   ├── download.py      # --type/--dir/--filename/--force naming rules
         │   ├── session.py       # SessionData, SessionStore (~/.config/applika/session.json)
         │   └── loopback.py      # LoopbackLoginServer for OAuth browser callback
         │
         ├── utils/               # Pure helpers — no httpx, no Typer
-        │   └── output.py        # render_application_table, render_timeline_event_table,
-        │                        #   print_application_summary, print_timeline_event_summary
+        │   ├── output.py        # render_application_table, render_timeline_event_table,
+        │   │                    #   print_application_summary, print_timeline_event_summary
+        │   └── cv_output.py     # dump_json/dump_yaml, print_cv_summary, render_cv_table,
+        │                        #   render_cv_markdown_table
         │
         └── commands/
             ├── auth.py          # login, logout, whoami commands
             ├── skill.py         # skill command — installs the AI skill
+            ├── cv_shared.py     # behaviour shared by `cvs` and `applications cv`
+            ├── cvs/             # cvs_app: list/get/create/edit/delete/download
             └── applications/
                 ├── __init__.py    # applications_app Typer sub-app: list/new/edit/finalize/reopen,
                 │                  #   the deprecated `steps` sub-app, the `timeline` sub-app
                 ├── commands.py    # list/new/edit_application, finalize_application (legacy + --outcome),
                 │                  #   reopen_application, steps and timeline list/add/edit/delete
+                ├── cv.py          # the `applications cv` sub-app commands
+                ├── file_input.py  # --file + --job-description plumbing for new/edit
                 ├── filter.py      # filter_applications
                 └── api_resolve.py # resolve_platform_id, resolve_company_input, resolve_step_id, resolve_feedback_id
 ```
