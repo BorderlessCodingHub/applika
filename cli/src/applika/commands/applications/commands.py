@@ -340,6 +340,11 @@ def new_application(
         print_application_summary(created, 'Created application')
     except FileInputError as exc:
         _usage_exit(str(exc))
+    except ApiError as exc:
+        # KODI-018: the spec pins "print the API's detail, exit 1". Before
+        # this the refusal escaped as a traceback; an invocation that used
+        # to succeed is unaffected.
+        _echo_api_error(exc)
     except ValidationError as exc:
         _echo_validation_error(exc)
     except ValueError as exc:
@@ -618,6 +623,8 @@ def edit_application(
         print_application_summary(updated, 'Updated application')
     except FileInputError as exc:
         _usage_exit(str(exc))
+    except ApiError as exc:
+        _echo_api_error(exc, reopen_hint_id=application_id)
     except ValidationError as exc:
         _echo_validation_error(exc)
     except ValueError as exc:

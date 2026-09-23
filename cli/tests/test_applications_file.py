@@ -11,6 +11,7 @@ from conftest import FakeApiClient, FakeStore, make_session, reset_fake_client
 import applika.app as cli_app
 import applika.commands.applications.commands as applications_commands
 from applika.app import app
+from applika.lib.api import ApiError
 
 SUPPORTS = {
     'platforms': [{'id': '10', 'name': 'LinkedIn'}],
@@ -473,3 +474,27 @@ def test_edit_round_trips_an_application_entry(monkeypatch, runner, tmp_path):
     assert payload['job_description'] == 'stored description'
     assert 'finalized' not in payload
     assert 'last_step' not in payload
+
+
+# --- API errors (KODI-018: print the detail, exit 1) ---------------------
+
+
+def test_new_api_error_prints_the_detail(monkeypatch, runner, tmp_path):
+    _setup(monkeypatch)
+    FakeApiClient.post_json_error = ApiError(
+        'A company with this name and URL already exists.', 409
+    )
+    result = runner.invoke(
+        app, ['applications', 'new', '--file', _file(tmp_path, FILE_PAYLOAD)]
+    )
+    assert result.exit_code == 1
+    assert 'already exists' in result.output
+
+
+def test_edit_api_error_prints_the_detail(monkeypatch, runner, tmp_path):
+    _setup(monkeypatch)
+    FakeApiClient.put_json_error = ApiError('Nope', 422)
+    path = _file(tmp_path, {'role': 'Staff Engineer'})
+    result = runner.invoke(app, ['applications', 'edit', '1', '--file', path])
+    assert result.exit_code == 1
+    assert 'Nope' in result.output
