@@ -19,6 +19,7 @@ import type { BaseCv } from "@/services/types/base-cv";
 const listMock = vi.fn();
 const removeMock = vi.fn();
 const exportPdfMock = vi.fn();
+const exportMarkdownMock = vi.fn();
 
 vi.mock("@/services/services", () => ({
   services: {
@@ -26,6 +27,7 @@ vi.mock("@/services/services", () => ({
       list: (...args: unknown[]) => listMock(...args),
       remove: (...args: unknown[]) => removeMock(...args),
       exportPdf: (...args: unknown[]) => exportPdfMock(...args),
+      exportMarkdown: (...args: unknown[]) => exportMarkdownMock(...args),
       get: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -80,6 +82,10 @@ beforeEach(() => {
   exportPdfMock.mockResolvedValue({
     blob: new Blob(["%PDF-1.7"], { type: "application/pdf" }),
     filename: "data-cv.pdf",
+  });
+  exportMarkdownMock.mockResolvedValue({
+    blob: new Blob(["# Data CV"], { type: "text/markdown" }),
+    filename: "data-cv.md",
   });
   // jsdom has no object URLs; assign onto the real `URL` rather than replacing
   // it, so `new URL(...)` keeps working elsewhere.
@@ -225,6 +231,24 @@ describe("CvsPage", () => {
  * the editor already uses (ADR 0011, the PDF is typeset on the server); there
  * is no second path and nothing is rendered in the browser.
  */
+describe("CvsPage downloads a CV as Markdown (KODI-017 part 3)", () => {
+  it("asks the Markdown route for the pressed CV, distinct from the PDF one", async () => {
+    const user = userEvent.setup();
+    listMock.mockResolvedValue([cv("1", "Backend CV"), cv("2", "Data CV")]);
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Download Markdown Data CV" }),
+    );
+
+    await waitFor(() => expect(exportMarkdownMock).toHaveBeenCalledTimes(1));
+    expect(exportMarkdownMock).toHaveBeenCalledWith("2");
+    expect(exportPdfMock).not.toHaveBeenCalled();
+    await waitFor(() => expect(saved).toHaveLength(1));
+    expect(saved[0].download).toBe("data-cv.md");
+  });
+});
+
 describe("CvsPage downloads a CV as a PDF", () => {
   it("asks the existing export route for the CV that was pressed", async () => {
     const user = userEvent.setup();

@@ -60,9 +60,13 @@ A PR to `develop` is ready only when the whole chain is green
 pnpm lint && pnpm prettier --check . && pnpm tsc --noEmit && pnpm test && pnpm build
 ```
 
-`pnpm lint` currently emits warnings on pre-existing files (React Compiler vs.
-`react-hook-form`'s `watch()`, and an unused local in `step-form-dialog.tsx`).
-Warnings do not fail the gate; errors do. Do not add new ones.
+`pnpm lint` currently emits warnings on pre-existing files: `application-form-
+sheet.tsx` (a `useMemo` missing dependency, and React Compiler skipping
+memoization because `react-hook-form`'s `watch()` cannot be memoized safely)
+and `company-select.tsx` (a `useEffect` missing dependency). Warnings do not
+fail the gate; errors do. Do not add new ones — in particular, watch a form
+field with `useWatch` (from `react-hook-form`), never `form.watch()`, in any
+new form (see the timeline and finalize forms below for the pattern).
 
 ### E2E
 
@@ -122,6 +126,11 @@ Application CV copy route (KODI-003):
 route is reached from the CV link on an application row, and
 `e2e/shell-responsive.spec.ts` pins `PRIMARY_NAV` at seven entries.
 
+**`/applications/cv?id=` is the reading column while it shows the picker, and
+full width only once it shows the editor (KODI-017)** — see **App shell**
+below for the mechanism. `/cvs/new` and `/cvs/editor` stay full width in every
+state, path-based, unchanged.
+
 ### Providers
 
 Providers are split into two layers:
@@ -158,8 +167,8 @@ User profile is fetched separately via `useUserProfile()` only after auth succee
 
 - **Server state**: TanStack React Query with a 5-minute stale time and `retry: false`
 - **Auth state**: `AuthContext` (wraps the entire app via `RootProviders`)
-- **Supports data**: `SupportsContext` — shared lookup data (platforms, step definitions, feedback definitions) available via `useSupports()`
-- **Feature state**: custom hooks in `src/hooks/` (e.g., `useApplications`, `useApplicationSteps`)
+- **Supports data**: `SupportsContext` — shared lookup data (platforms only, since PRD 0008/ADR 0012: step and feedback definitions are gone, R-021) available via `useSupports()`
+- **Feature state**: custom hooks in `src/hooks/` (e.g., `useApplications`, `useTimeline`)
 
 Mutations always call `queryClient.invalidateQueries()` on success and show a `sonner` toast on error.
 
@@ -176,6 +185,9 @@ const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues:
 - Show inline error messages below each field using `form.formState.errors.field?.message`
 - Highlight invalid fields with `cn(error && "border-destructive focus-visible:ring-destructive")`
 - Trigger validation on Select/custom inputs with `form.setValue("field", value, { shouldValidate: true })`
+- Watch a discriminated-union form field (e.g. `event_type`, `outcome`) with
+  `useWatch` from `react-hook-form`, never `form.watch()` — see the lint note
+  above and `### Application Timeline` below for the pattern.
 
 ### Master CVs (`src/components/base-cvs/`)
 
@@ -195,6 +207,23 @@ the pages wire data to them:
   submit. It MINTS section-item ids via its `newItemId` prop. Section item ids
   are CLIENT-generated and preserved round-trip — never regenerate them on load.
 - `base-cv-list.tsx` owns all four list states and the delete confirmation.
+- **`BaseCvList`/`CvCard` carry an optional `selection` variant (KODI-017)**,
+  which is how `tailored-cvs/base-cv-picker.tsx` reuses them instead of
+  forking them. Absent, both render EXACTLY as they do on `/cvs` today — the
+  prop only ADDS behaviour, it never changes the unselected render.
+  `BaseCvListSelection` (`{ value, onValueChange, describedBy? }`) mints ONE
+  group name (`useId`) and hands each tile a `CvCardSelection` (`{ name,
+checked, onSelect, describedBy? }`). `CvCard` turns that into a native
+  `<input type="radio">` — not Radix `RadioGroup`: its roving-focus root is
+  itself a tab stop and would steal focus from the tile's own Edit/Delete/
+  Download buttons, and a `radiogroup` may only contain radios, which real
+  buttons are not. The radio's LABEL is the CV's name (so the accessible name
+  is exactly the visible one), stretched over the tile with
+  `before:absolute before:inset-0` so clicking anywhere selects it, while the
+  action row stays `relative` and paints above that pseudo-element — no
+  interactive control is ever nested inside another. Selected state is a
+  filled radio dot AND a `border-primary`/`ring-primary` outline — never
+  colour alone. The radio disables while `isDeleting` is true on that tile.
 - The cap is told on screen by `NewCvCard`, whose default `BASE_CV_LIMIT_REASON`
   contains the words "the limit is three". Do NOT pass an API message as
   `reason`: the server's `detail` belongs in the 409 toast, and overriding the
@@ -368,12 +397,20 @@ year "MM/yyyy" for both start and finish".
 **The PDF is rendered on the SERVER** (`docs/applika/adr/0011`, Accepted):
 RenderCV/Typst, one fixed theme named `applika`, no theme parameter, no user
 choice. **Never add `html2pdf`, a `cv-pdf.ts` or any client-side rasteriser.**
+So is its Markdown twin (KODI-017 part 3) — RenderCV's own Markdown renderer,
+the same reason: no client-side Markdown generation either.
 
 - `export-cv-button.tsx` is the whole affordance and is PRESENTATIONAL: no hook,
   no service, no axios. It takes `onExport` and `isExporting` and it has NO
   `disabled` prop — only a render already in flight locks it, so no caller can
   take the download away from a finalized or archived CV copy, or from a copy
-  whose master CV was deleted.
+  whose master CV was deleted. Since KODI-017 part 3 it ALSO takes the optional
+  `onExportMarkdown`/`isExportingMarkdown` pair: given, a second "Download
+  Markdown" button renders beside "Download PDF", same pending/live-region
+  pattern, same "no `disabled` prop but the render in flight" rule. Every call
+  site the slice names passes both: `/cvs` tiles (`CvCard`, itself threaded
+  through `BaseCvList`/`BaseCvPicker`), `/cvs/editor?id=` and the copy editor
+  (`/applications/cv?id=`, both read-write and read-only).
 - It mounts in the editors' `actions` slot: `/cvs/editor?id=` (never `/cvs/new`
   — the server typesets the STORED CV, so there is nothing to render until it
   has been saved once) and `/applications/cv?id=` in BOTH modes.
@@ -445,12 +482,30 @@ and the picker reports it through `onValueChange`, so the PAGE stays the single
 source of truth for the selection. With none, the picker becomes an invitation
 to write a master CV first.
 
+**The picker IS the `/cvs` gallery (KODI-017).** The owner: "basically just use
+the same components there in here with the same buttons to delete, edit and
+download." `BaseCvPicker` is rebuilt on `BaseCvList`/`CvCard` rather than its
+own markup — no more `BaseCvOption`, no more skill-CATEGORY badges or a hidden
+"+N": the tiles show KEYWORDS, exactly like `/cvs` (`CvCard`'s `selection?`
+prop turns a tile into one radio of a native group, the whole card still a
+real `<Card>` with its own Edit/Delete/Download buttons — no nested
+interactive content inside a `<label>`, see **Master CVs** below). Same
+`NewCvCard` while slots are left, same limit state at three. The "Manage
+master CVs" link is GONE (owner decision, 2026-09-19: "remove the button to
+'manage master cvs' since all operations to manage cvs will also be available
+in the page") — every master CV operation (edit, delete, download, create) is
+already on this screen. The empty state (zero master CVs) is `/cvs`'s own
+(`BASE_CV_EMPTY_TITLE`/`BODY`/`CTA` in `base-cvs/base-cv-list.tsx`), not a
+picker-specific invitation. **Read-only renders no cards at all** — just the
+`TailoredCvReadOnlyBanner` and `BASE_CV_PICKER_LOCKED_BODY`, no list, no
+create, exactly as before this slice.
+
 The module mirrors `base-cvs/` rather than forking it:
 
-- `types.ts` is the vocabulary (`TailoredCv`, `BaseCvOption`,
-  `TailoredCvReadOnlyReason`) and owns the on-screen copy constants
-  (`TAILORED_CV_READ_ONLY_COPY`, `TAILORED_CV_SOURCE_DELETED`). Assert the
-  WORDS, never the classes. `src/services/types/tailored-cv.ts` re-exports it.
+- `types.ts` is the vocabulary (`TailoredCv`, `TailoredCvReadOnlyReason`) and
+  owns the on-screen copy constants (`TAILORED_CV_READ_ONLY_COPY`,
+  `TAILORED_CV_SOURCE_DELETED`). Assert the WORDS, never the classes.
+  `src/services/types/tailored-cv.ts` re-exports it.
 - `tailored-cv-schema.ts` mirrors `base-cv-schema.ts` field for field and
   carries every length ceiling explicitly. **Keep every client ceiling at or
   under the server's.** `getApiError` returns `detail` unguarded and FastAPI's
@@ -466,8 +521,10 @@ The module mirrors `base-cvs/` rather than forking it:
   will.
 
 **Read-only is the application's state, never the copy's.** The page derives
-`readOnlyReason` as `application.finalized ? "finalized" : isViewingPastCycle ?
-"archived" : null` and both the picker and the editor take it: the banner goes
+`readOnlyReason` as `application.finalized_at != null ? "finalized" :
+isViewingPastCycle ? "archived" : null` (PRD 0008/ADR 0012: keyed on
+`finalized_at`, not the derived `finalized` boolean — see **Application
+Timeline** below) and both the picker and the editor take it: the banner goes
 up, every control is disabled and no Save, Cancel or Delete is rendered at all,
 so there is nothing to WRITE by accident. The footer itself survives when
 `actions` is given, carrying the PDF export and nothing else — refusing to let a
@@ -489,6 +546,282 @@ list with that cycle selected.
 A 404 from `GET /applications/{id}/cv` is NOT a failure — it is the ordinary
 "no copy yet" answer and the page renders the picker for it. Use
 `isNoTailoredCv(error)` to tell it apart from a real one.
+
+**`application.finalized_at` (not the `finalized` boolean) is the source of
+truth for "closed" everywhere (KODI-012, PRD 0008, ADR 0012).** It replaced a
+step/feedback-driven "finalize" with a real application TIMELINE. Both fields
+are set together server-side, but every read-only derivation on the web keys
+on `finalized_at != null` — including the tailored-CV `readOnlyReason` above,
+which was `application.finalized ? "finalized" : …` before this slice.
+
+**The copy editor is 50/50 at every width from `md`, with the job description
+above Identity and contact (KODI-017 part 2).** The owner: "instead of showing
+the job description in the right side just above cv preview, move to the
+left above identity and contact" — and drop the `2xl` cap `BaseCvEditor` never
+had either, so the two editors match at every width, not just up to `2xl`
+(KODI-009's note on the cap is superseded). `TailoredCvEditor`'s form column is
+now `JobDescriptionPanel`, then the diff `diffSummary` slot, then
+`CvFormSections`, in DOM order — which is also the mobile stacking order. The
+preview column is unchanged: sticky, `max-h-editor-scrollport`, the same
+layout-notice rules as `BaseCvEditor`. Because `JobDescriptionPanel` is a
+`CvSectionCard`, it carries its own `h2` — the copy editor's field body now has
+TEN level-2 headings where the master CV editor has nine; any test asserting
+that list has to count the job description first.
+
+**The copy's diff against its baseline is computed TWICE, independently, on
+the web and on the server, from one PINNED shared contract (KODI-017 parts 2
+and 3).** Baseline resolution: `cv.base_snapshot` (the master CV's content,
+captured once at copy-creation time, `TailoredCvSnapshot` in `types.ts`) when
+present, else the CURRENT master CV fetched via `base_cv_id`, else no diff UI
+at all — the `source CV deleted` note stays exactly as it was. Neither is ever
+written by the client: `base_snapshot` rides on `GET`/`POST`/`PUT` responses
+only, and `toTailoredCvPayload` never emits it (the API's `extra=forbid` would
+422 it anyway).
+
+- `cv-diff.ts` is the pure engine, no React, no I/O. `computeCvDiff(baseline,
+  current)` returns the rich internal shape (`CvDiffDetail`) `use-cv-diff.tsx`
+  reads to build markers: per-field before/after, added items, removed items
+  WITH their baseline position (`at`, for `Restore`), and skill-keyword
+  add/remove sets. `diffCv(baseline, current)` is
+  `computeCvDiff(...).canonical` — the flat `{total, sections, changes[]}`
+  shape the slice brief PINS, identical in field names and semantics to the
+  server's own diff. Matching is by the client-generated item `id`, never by
+  position — a pure reorder is zero changes. `null`/`undefined`/`""` compare
+  equal; bullets compare as ONE whole-value change; skill keywords compare as
+  a SET per category, so each added/removed keyword is its own change.
+  `cv-diff.fixtures.test.ts` loads every file in `applika/fixtures/cv-diff/
+*.json` (backend-owned) and asserts `diffCv()` matches the server's
+  `expected` output; it `describe.skipIf`s itself away while that folder does
+  not exist, so it activates with no code change once the backend adds it.
+- `use-cv-diff.tsx` is the ONLY thing that watches the form (`useWatch`) and
+  turns a `CvDiffDetail` into `TailoredCvEditor`'s `diffSummary` (a
+  `CvDiffSummaryBar`) and `diff` (`CvFormDiffSlots`) props, live — a Revert or
+  an edit recomputes on the next keystroke. It owns the "Show changes" toggle
+  state (default OFF, no persistence) and every `form.setValue`/`getValues`
+  call behind Revert and Restore. Read-only passes `onRevert`/`onRestore` as
+  `undefined` rather than omitting the marker — markers and badges still show
+  on a locked copy, only the actions that would write to it are gone.
+- The marker components (`ui-designer`-delivered, KODI-017 part 2 spec) are
+  `cv-diff-summary-bar.tsx` (`CvDiffSummaryBar`, the toggle and the "Compared
+  with `<label>`: N changes" text — `<label>` is the CURRENT master's name
+  when `base_cv_id` resolves, else "the original master CV", ALWAYS, even
+  when the diff is read off the frozen snapshot), `cv-changed-marker.tsx`
+  (`CvChangedMarker`, the popover with the original value and Revert),
+  `cv-added-badge.tsx`, `cv-removed-row.tsx` (Restore reinserts at the row's
+  `CvRemovedRowSlot.at` index) and `cv-diff-section-count.tsx`. The slots
+  themselves (`CvFormDiffSlots` in `base-cvs/cv-form-diff.ts`) are optional
+  props threaded through `CvFormSections`/`CvSectionCard`/
+  `CvRepeatableSection`/`CvSkillsSection`/`CvField` — absent, every one of
+  those renders BYTE-IDENTICAL to before this slice, which is what keeps the
+  master CV editor untouched.
+- **"Download changes"** (`cv-diff-download-row.tsx`, `CvDiffDownloadRow`,
+  KODI-017 part 3) sits under `CvDiffSummaryBar` in the same `diffSummary`
+  slot, offering the diff as a Markdown file or a PDF —
+  `GET /applications/{id}/cv/diff/{markdown|pdf}`, rendered on the SERVER
+  from the SAVED copy (ADR 0011: no client rasteriser), never the form's
+  unsaved edits. Its two buttons are named "Download changes as PDF" /
+  "Download changes as Markdown" — never bare "PDF"/"Markdown" — precisely so
+  a `getByRole("button", {name})` substring match cannot also catch the
+  unrelated "Download PDF"/"Download Markdown" buttons the same screen
+  renders (the ui-designer's `getByLabel` ambiguity note, applied to these
+  too). A 409 ("This CV copy has no baseline to compare with.") or an
+  unresolved baseline (the master CV fetch itself failing while
+  `base_cv_id` is set) disables both buttons WITH the reason on screen,
+  via `aria-describedby`; while `form.formState.isDirty`, a `"Downloads
+reflect the last saved version."` note sits beside them — the export is
+  always of the saved row, never a preview of the edit in progress.
+- `ExportCvButton` gained a Markdown button beside the PDF one
+  (`onExportMarkdown`/`isExportingMarkdown`, KODI-017 part 3): every surface
+  that renders the PDF button renders both — `/cvs` tiles, `/cvs/editor`, the
+  picker's `CvCard`s and the copy editor. Same pending/live-region pattern,
+  one shared layout notice. `src/lib/pdf-download.ts` gained
+  `cvMarkdownFilename`/`cvDiffMarkdownFilename`/`cvDiffPdfFilename` beside
+  `cvPdfFilename`, and the services gained `exportMarkdown` (both
+  `IBaseCvService`/`ITailoredCvService`) plus `exportDiffMarkdown`/
+  `exportDiffPdf` (`ITailoredCvService` only) — all `GET` with
+  `responseType: "blob"`, unlike the `POST` PDF routes.
+
+### Application Timeline (`src/components/timeline/`)
+
+Ported from `mynextjob/frontend/src/components/timeline/` (16 files) plus its
+service layer, hooks and `lib/timeline-view.ts` — mynextjob has no interview
+types at all, so `interview_type` and the R-030/R-032 behaviour below are
+applika-only additions on top of the port, never present in the mynextjob
+source. When touching this area, port a NAMED mynextjob source WHOLE (a
+prose-subset port cost a 40% deviation on a prior feature) and extend it,
+rather than reimplementing from scratch.
+
+- **Vocabulary.** `timeline-types.ts` is the single vocabulary: the hardcoded
+  5-value `event_type` (`note | interview | feedback | offer | denied`, NOT a
+  DB catalog — R-021 removed the old step/feedback definition catalogs
+  entirely, admins can no longer create/edit/delete them), the hardcoded
+  7-value `interview_type` (`unknown | initial_screening | technical |
+cultural | hiring_manager | take_home | final`, `unknown` is the default),
+  the 20 `SALARY_CURRENCIES` and the 3 `SALARY_PERIODS` (`hourly | monthly |
+annually` — an OFFER's own period is further restricted to `monthly |
+annually`; `hourly` survives only on a legacy offer migrated from a step or
+  written by an old CLI). `timeline-options.ts` carries the presentation
+  config (`EVENT_TYPE_CONFIG`, `INTERVIEW_TYPE_CONFIG`, `CURRENCY_OPTIONS`,
+  `SALARY_PERIOD_OPTIONS`) and `TIMELINE_STAGES` — the 9 dashboard/API stages
+  (each interview type, then offer, then denied) plus `stageLabel()` /
+  `stageShortLabel()`.
+- **AC9 (R-031): one source of the 20 currencies and the 3 periods.**
+  `src/services/types/users.ts`'s `SalaryPeriodValues`/`SalaryCurrencyValues`
+  and `src/options.ts`'s `CURRENCY`/`SALARY_PERIOD` are DERIVED from
+  `timeline-options.ts`/`timeline-types.ts`, not redefined — every currency or
+  period list in the app (profile, application create/edit, the timeline
+  offer form, the finalize offer fields) is therefore the same 20/3 list, and
+  the stale `"annual"` (vs. the API's `"annually"`) cannot resurface on the
+  web. Never hand-roll a second currency or period list.
+- **Data layer.** `src/services/types/timeline.ts` is the wire DTO
+  (`TimelineEvent`, `CreateTimelineEventPayload` — a discriminated union on
+  `event_type` so `interview_type` only ever rides with `interview` and the
+  salary trio only with `offer`). `src/lib/timeline-view.ts` maps the DTO to
+  `TimelineEventView` (camelCase) and sorts newest-first — components never
+  see the raw DTO. `src/hooks/use-timeline.ts` (+ the create/update/delete
+  mutation hooks) own the `["timeline","list",applicationId]` query key.
+  `use-application-steps.ts` and `step-form-dialog.tsx` are GONE (R-021); the
+  web must never call `/applications/{id}/steps*` or
+  `/admin/{step,feedback}-definitions*` (all now CLI-0.1.4-only or 404).
+- **`TimelineSection`** (mounted directly inside `application-item.tsx`'s
+  expanded area, not passed in as `children`) owns the add/edit dialog and the
+  delete confirmation, and derives read-only from TWO signals:
+  `application.finalized_at != null` (closed) OR
+  `useCycleContext().isViewingPastCycle` (archived) — the same
+  `isViewingPastCycle` convention the tailored-CV page already uses, since
+  applika's `Application` carries no per-row `cycle_id` on the wire (unlike
+  mynextjob's, which the ported `timeline-section.tsx` read directly).
+- **R-030 (at most one initial-screening interview).** `TimelineEventForm`
+  takes `otherEvents` (every event but the one being edited) and disables
+  `initial_screening` in `InterviewTypeSelect` — disabled, not hidden, with
+  `INITIAL_SCREENING_TAKEN_HINT` under the trigger — whenever another event is
+  already `interview`/`initial_screening`. The API 409s the same rule
+  server-side; its detail reaches the user through the mutation's toast
+  (`getApiError`).
+- **The interview type select needs an explicit default.** Its trigger DISPLAYS
+  "Unknown" the moment `event_type` becomes `interview` (a presentational
+  fallback in `InterviewTypeSelect`), but nothing writes that back into
+  react-hook-form state until the user touches the control — `TimelineEventForm`
+  has a small `useEffect` that seeds `interview_type` to `DEFAULT_INTERVIEW_TYPE`
+  the moment the branch becomes active, precisely so a save with the select left
+  untouched still validates instead of failing silently on a blank value. Keep
+  this if you touch the form; deleting it reintroduces that bug invisibly (the
+  select LOOKS fine, the save just fails).
+- **Legacy hourly offers (R-031 WATCH).** `SalaryPeriodToggle` shows NOTHING
+  selected when the loaded value is `hourly` (its own zod branch only accepts
+  `monthly | annually`), and the edit form renders `LEGACY_HOURLY_OFFER_HINT`
+  under it — the user must actively repick a period before the edit can save.
+  Never default a legacy hourly offer to monthly/annually silently.
+- **Close/reopen is an outcome picker, not confirm-only (R-032).** The plan's
+  original "finalize" line is superseded by the owner's 2026-09-18 decision:
+  `FinalizeDialog` (`src/components/applications/finalize-dialog.tsx`) lets the
+  user pick None (default, bodyless `POST /applications/{id}/finalize`), Offer
+  or Denied; Offer/Denied reveal a date + observation, and only Offer also
+  reveals the salary triad. The confirmation copy always contains the word
+  "reversible" (`FINALIZE_REVERSIBLE_COPY`) — this used to be an
+  irreversible-warning `AlertTriangle`; it is now a muted `RotateCcw`, because
+  `useReopenApplication` makes the promise real. `useFinalizeApplication` takes
+  an OPTIONAL payload (`{applicationId, payload?}`) rather than mynextjob's
+  bodyless-only mutation, and invalidates `["applications"]`, `["statistics"]`
+  and that application's timeline key (an outcome lands as a new event).
+- **Closed application UI.** `ApplicationClosedBadge` (keyed on `finalized_at`)
+  and `ApplicationReopenButton` (accessible name composed as `` `Reopen
+${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
+  A closed row hides Add/Edit/Close entirely — not merely disables them — and
+  shows Reopen instead; the CV link always stays (a closed application's CV
+  copy is still readable, mirroring the tailored-CV read-only pattern above).
+- **Dashboard + agenda read from `TIMELINE_STAGES`/`stageLabel`, never
+  `step_name`/`step_color`.** Both statistics endpoints ALWAYS return exactly
+  the 9 stages in `TIMELINE_STAGES` order; `step-conversion-chart.tsx` and
+  `avg-days-per-step-chart.tsx` map every stage to a row (defaulting to 0 when
+  the API omits one, never a missing bar) rather than rendering only the rows
+  the API happens to send. The agenda item's `step_name`/`step_color` are now
+  nullable, legacy, reverse-mapped fields kept only for the CLI; the agenda
+  page, the agenda dropdown, agenda notifications and `lib/calendar.ts`'s ICS
+  generation all label from `stageLabel(event_type, interview_type)` instead.
+  The old step dialog's "Add to calendar (.ics)" button went with
+  `step-form-dialog.tsx`, and its `genApplicationStepIcsFile` was deleted as
+  dead code; `.ics` export now lives only on the agenda page
+  (`genAgendaStepIcsFile`). Porting it to the timeline form is an open owner
+  call, not an oversight.
+- **jsdom polyfills for Radix in `src/test/setup.ts`.** `hasPointerCapture` /
+  `setPointerCapture` / `releasePointerCapture` / `scrollIntoView` and a
+  `ResizeObserver` stub were added here (KODI-012) — jsdom implements none of
+  them, and Radix `Select`/`RadioGroup` (the interview type select, the event
+  type selector, the salary period toggle, the finalize outcome picker) reach
+  for all of them when opening or measuring. Any future test that opens a
+  Radix `Select` needs nothing extra; these are global.
+- **The event dialog is `max-w-3xl`, top-anchored, only its body scrolls
+  (KODI-014).** `timeline-event-dialog.tsx`'s `DialogContent` is
+  `top-4 translate-y-0 … sm:top-[8dvh] sm:max-h-[84dvh] sm:max-w-3xl` with
+  `flex flex-col gap-0 p-0`; the header and footer are fixed `px-6` bands and
+  only the middle `overflow-y-auto` div scrolls. Picking an event type grows
+  or shrinks the form (schedule group, offer salary group, denied-reason box)
+  without moving the footer's submit button off screen. Any other dialog whose
+  body can grow tall should copy this shape rather than centring + `max-h` on
+  the whole `DialogContent`.
+- **A type-specific field group is UNMOUNTED, never CSS-hidden, and its
+  payload is nulled or omitted from the wire side, not just left unfilled
+  (KODI-014, revised KODI-016).** The interview-only schedule
+  (start/end/`TimezoneSelect`) and the denied-only `DeniedReasonSelect`
+  follow the same shape as the offer salary group before them:
+  `TimelineEventFormFields`/`FinalizeOutcomeFields` take an
+  `isInterview`/`isDenied`/`isOffer` flag and render the group or `null`, so a
+  value the user typed before switching types never sits in an invisible
+  control. **A non-interview event never sends a schedule, on CREATE or
+  EDIT, whatever was stored (KODI-016).** `toTimelineEventPayload` takes only
+  the form values — no `original`/stored-event argument any more — and reads
+  the CURRENT `event_type`: for `interview` it sends `start_time`/`end_time`/
+  `timezone` (nulling `timezone` whenever `start_time` is blank, because
+  `TimezoneSelect` cannot be cleared and always holds a real zone); for every
+  other type it OMITS the three keys from the payload ENTIRELY — not `null`,
+  ABSENT — even when editing an event that already carries a legacy stored
+  schedule. This replaces KODI-014's interim rule, which kept an already
+  non-interview event's stored schedule unchanged on an edit that left the
+  type alone; the owner's final call (2026-09-18) is that a non-interview
+  event is blocked from ever carrying a schedule, full stop, so there is
+  nothing left to preserve. `toFinalizePayload` is unaffected: it never had a
+  stored-schedule case.
+- **The response mirrors the rule: `start_time`/`end_time`/`timezone` are
+  ABSENT (not `null`) on a non-interview `TimelineEvent`, never REQUIRED
+  fields (KODI-016).** `services/types/timeline.ts`'s `TimelineEvent` marks
+  all three optional (`?:`); `toHourMinute` in `lib/timeline-view.ts` passes
+  `undefined` through unchanged rather than crashing or coercing it to
+  `null`, and `timelineEventToFormValues`'s `event.startTime ?? ""` /
+  `event.timezone || browserTimeZone()` already tolerate a missing key the
+  same way they tolerate `null`. Nothing may crash or render the string
+  `"undefined"` when the keys are absent — see
+  `timeline-event-card.test.tsx` and `lib/timeline-view.test.ts`.
+- **A card shows the zone READABLE, exactly like `TimezoneSelect`
+  (KODI-016).** `formatTimeRange` (`timeline-format.ts`) renders the zone
+  through `timeZoneLabel` from `timezone-options.ts` — the SAME formatter the
+  select's trigger and options use (underscores as spaces, e.g.
+  `America/Sao Paulo`) — never the raw IANA id and never a second
+  implementation of the same substitution. The STORED and SENT value is
+  always the raw id (`America/Sao_Paulo`); only the on-screen label is
+  reformatted.
+- **`TimezoneSelect` (`timezone-select.tsx`) and `timezone-options.ts`
+  (KODI-014)** are the pattern for any future searchable single-choice
+  combobox: a `Popover` + `Command` over `Intl.supportedValuesOf("timeZone")`
+  (`UTC` force-included), grouped by region via `groupTimeZones`, with a
+  stored value the browser does not list shown FIRST in its own `"Selected"`
+  group — never dropped. It is not clearable (a schedule with no zone is the
+  times left blank, not an empty zone). `browserTimeZone()` — wrapping
+  `Intl.DateTimeFormat().resolvedOptions().timeZone` in a try/catch —
+  pre-fills a new event; the stored value always wins on edit
+  (`timelineEventToFormValues`), falling back to `browserTimeZone()` only when
+  nothing is stored. `timeZoneFilter` is a literal case-insensitive substring
+  match (id + offset), never cmdk's fuzzy default — fuzzy would match `"zzzz"`
+  into `Brazzaville`.
+- **`DeniedReasonSelect`/`DeniedReasonBadge` (KODI-014)** are the
+  `denied_reason` counterpart of `InterviewTypeSelect`/`InterviewTypeBadge`:
+  a plain Radix `Select` (not a combobox — only 10 fixed values), grouped
+  Unknown | the 8 named reasons | Other, defaulting to `unknown`
+  (`DEFAULT_DENIED_REASON`) via the same "seed on the effect that flips
+  `isDenied`" pattern `interview_type` already used. The card badge reads
+  `null`/absent as `unknown` and carries a `sr-only` `"Reason: "` prefix —
+  assert on `/reason:\s*<label>/i`, never an exact string, the same convention
+  `InterviewTypeBadge` already set.
 
 ### Date Inputs
 
@@ -661,13 +994,36 @@ content container itself, so no page component renders one — including the
 pages that do NOT want it.
 
 - **The width opt-out lives in `src/components/layout/content-width.ts`**, not
-  as a prop. `isFullWidthPath(activePath)` picks `w-full` over
-  `mx-auto max-w-7xl`, and `FULL_WIDTH_PATHS` is the CV editing routes
-  (`/cvs/new`, `/cvs/editor`, `/applications/cv`) — the owner: "also, use the
-  full page width for this page". It is matched on the same `activePath` the
-  nav is matched on, tolerates the trailing slash the static export serves, and
-  is deliberately kept OUT of `nav.ts`: these are not nav entries, and
-  `PRIMARY_NAV` is pinned at seven by `e2e/shell-responsive.spec.ts`.
+  as a prop, and comes in TWO forms. The container carries
+  `data-slot="app-content"` and `data-width="full"|"reading"` — assert on
+  that, never on the classes.
+  - **By PATH**, for a route that is full width in every state:
+    `isFullWidthPath(activePath)` checks `FULL_WIDTH_PATHS`, today
+    `/cvs/new` and `/cvs/editor` — the owner: "also, use the full page width
+    for this page" (KODI-008). Matched on the same `activePath` the nav is
+    matched on, tolerates the trailing slash the static export serves, and is
+    deliberately kept OUT of `nav.ts`: these are not nav entries, and
+    `PRIMARY_NAV` is pinned at seven by `e2e/shell-responsive.spec.ts`.
+  - **By CONTENT**, for a route that is full width only while one surface is
+    on screen: `/applications/cv` left `FULL_WIDTH_PATHS` with KODI-017 — the
+    owner: "only full width when we have a cv copy to the application" — and
+    the page instead renders `<FullWidthContent />` (a component that renders
+    `null`) from the SAME branch as the surface that wants the width, so the
+    two mount and unmount together. `AppShell` provides a
+    `FullWidthRequestProvider`; `FullWidthContent` asks it, in a
+    `useLayoutEffect` so the shell re-renders BEFORE paint — the surface never
+    shows a frame in the reading column. The request is COUNTED, not a
+    boolean (`useFullWidthRequests`): React Strict Mode remounts every effect,
+    and one marker leaving must not release the width another still holds.
+    `application-cv-page.tsx` renders it ONLY in its editor branch (both the
+    editable and the read-only editor — `readOnlyReason` does not branch the
+    `return` there, so one marker covers both); the picker, in every one of
+    its states (loading, error, empty, list, read-only), and every state
+    before it (no application, loading, error) stay in the reading column.
+    `FullWidthContent` is a no-op — renders `null`, requests nothing — when
+    mounted outside `AppShell`.
+  - `isFullWidthPath` and `FullWidthContent` compose: `isFullWidth =
+isFullWidthPath(activePath) || fullWidth.requested`.
 - The opt-out only works because the container is rendered HERE. A page that
   rendered its own would cap the width again from the inside.
 
@@ -705,39 +1061,44 @@ pages that do NOT want it.
 
 ## Key Files
 
-| File                                             | Purpose                                                                 |
-| ------------------------------------------------ | ----------------------------------------------------------------------- |
-| `src/services/services.ts`                       | Service DI container (single import point for all API calls)            |
-| `src/lib/api-client.ts`                          | Axios instance with cookie auth (`withCredentials`)                     |
-| `src/lib/query-client.ts`                        | React Query configuration                                               |
-| `src/contexts/auth-context.tsx`                  | Auth state + polling-based token refresh                                |
-| `src/contexts/supports-context.tsx`              | Shared lookup data (platforms, steps, feedbacks)                        |
-| `src/components/layout/root-providers.tsx`       | Root-level providers (QueryClient, Theme, Auth, Tooltip, Sonner)        |
-| `src/components/layout/protected-providers.tsx`  | Protected-route providers (nested AuthProvider)                         |
-| `src/components/layout/app-shell.tsx`            | Signed-in shell: rail, header, mobile sheet, feedback dialog            |
-| `src/components/layout/nav.ts`                   | Nav entries, `navItemsFor()` admin filter, `isNavItemActive()`          |
-| `src/components/layout/sidebar.tsx`              | Rail body: brand, nav, account menu (rail AND mobile sheet)             |
-| `src/components/layout/sidebar-nav.tsx`          | Nav entry list; owns `aria-current="page"`                              |
-| `src/components/layout/header.tsx`               | Shell header: menu trigger, cycle selector, agenda, theme               |
-| `src/components/layout/user-menu.tsx`            | Account menu (`card` in the rail, `avatar` in the header)               |
-| `src/app/globals.css`                            | ALL design tokens (`@theme`) and `@utility` definitions                 |
-| `src/hooks/use-applications.ts`                  | Application list, client-side filtering, CRUD mutations                 |
-| `src/hooks/use-base-cvs.ts`                      | Master CV list + the `base-cvs` cache key every write invalidates       |
-| `src/components/base-cvs/types.ts`               | Master CV vocabulary (`BaseCv`, `CvFormValues`, `BASE_CVS_MAX`)         |
-| `src/components/base-cvs/cv-document-blocks.tsx` | The typeset CV's leaves, its pure helpers and `buildCvDocumentBlocks`   |
-| `src/components/base-cvs/cv-page-sheet.tsx`      | A4 geometry, the page-indicator words, `CvPageStack` / `CvPageSheet`    |
-| `src/components/base-cvs/use-cv-page-flow.ts`    | `distributeCvBlocks` (pure) and the only code that measures the preview |
-| `src/components/layout/content-width.ts`         | `FULL_WIDTH_PATHS` — which routes skip the reading column               |
-| `src/components/base-cvs/base-cv-schema.ts`      | Master CV zod schema and the form/wire translations                     |
-| `src/components/tailored-cvs/types.ts`           | CV copy vocabulary and its on-screen copy constants                     |
-| `src/hooks/use-tailored-cv.ts`                   | CV copy query + the `tailored-cvs` key every write invalidates          |
-| `src/components/base-cvs/export-cv-button.tsx`   | The PDF export affordance + the "not the final layout" notice           |
-| `src/components/base-cvs/cv-editor-footer.tsx`   | The editors' sticky submit row; owns `--cv-editor-footer-height`        |
-| `src/lib/pdf-download.ts`                        | `downloadBlob`, and the slug rule mirrored from the server              |
-| `src/lib/blob-error.ts`                          | `getBlobApiError` — `getApiError` for a `responseType: "blob"`          |
-| `src/components/ui/date-picker.tsx`              | Timezone-safe date picker (use instead of `<input type="date">`)        |
-| `src/components/ui/month-year-input.tsx`         | Masked CV month+year field (`MM/yyyy` in, ISO `YYYY-MM` out)            |
-| `src/lib/month-year.ts`                          | The one ISO `YYYY-MM` <-> `MM/yyyy` conversion and the mask             |
+| File                                              | Purpose                                                                               |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `src/services/services.ts`                        | Service DI container (single import point for all API calls)                          |
+| `src/lib/api-client.ts`                           | Axios instance with cookie auth (`withCredentials`)                                   |
+| `src/lib/query-client.ts`                         | React Query configuration                                                             |
+| `src/contexts/auth-context.tsx`                   | Auth state + polling-based token refresh                                              |
+| `src/contexts/supports-context.tsx`               | Shared lookup data (platforms only — steps/feedbacks removed, R-021)                  |
+| `src/components/layout/root-providers.tsx`        | Root-level providers (QueryClient, Theme, Auth, Tooltip, Sonner)                      |
+| `src/components/layout/protected-providers.tsx`   | Protected-route providers (nested AuthProvider)                                       |
+| `src/components/layout/app-shell.tsx`             | Signed-in shell: rail, header, mobile sheet, feedback dialog                          |
+| `src/components/layout/nav.ts`                    | Nav entries, `navItemsFor()` admin filter, `isNavItemActive()`                        |
+| `src/components/layout/sidebar.tsx`               | Rail body: brand, nav, account menu (rail AND mobile sheet)                           |
+| `src/components/layout/sidebar-nav.tsx`           | Nav entry list; owns `aria-current="page"`                                            |
+| `src/components/layout/header.tsx`                | Shell header: menu trigger, cycle selector, agenda, theme                             |
+| `src/components/layout/user-menu.tsx`             | Account menu (`card` in the rail, `avatar` in the header)                             |
+| `src/app/globals.css`                             | ALL design tokens (`@theme`) and `@utility` definitions                               |
+| `src/hooks/use-applications.ts`                   | Application list, client-side filtering, CRUD mutations                               |
+| `src/hooks/use-base-cvs.ts`                       | Master CV list + the `base-cvs` cache key every write invalidates                     |
+| `src/components/base-cvs/types.ts`                | Master CV vocabulary (`BaseCv`, `CvFormValues`, `BASE_CVS_MAX`)                       |
+| `src/components/base-cvs/cv-document-blocks.tsx`  | The typeset CV's leaves, its pure helpers and `buildCvDocumentBlocks`                 |
+| `src/components/base-cvs/cv-page-sheet.tsx`       | A4 geometry, the page-indicator words, `CvPageStack` / `CvPageSheet`                  |
+| `src/components/base-cvs/use-cv-page-flow.ts`     | `distributeCvBlocks` (pure) and the only code that measures the preview               |
+| `src/components/layout/content-width.ts`          | `FULL_WIDTH_PATHS` (by path) + `FullWidthContent`/`useFullWidthRequests` (by content) |
+| `src/components/base-cvs/base-cv-schema.ts`       | Master CV zod schema and the form/wire translations                                   |
+| `src/components/tailored-cvs/types.ts`            | CV copy vocabulary and its on-screen copy constants                                   |
+| `src/hooks/use-tailored-cv.ts`                    | CV copy query + the `tailored-cvs` key every write invalidates                        |
+| `src/components/base-cvs/export-cv-button.tsx`    | The PDF export affordance + the "not the final layout" notice                         |
+| `src/components/base-cvs/cv-editor-footer.tsx`    | The editors' sticky submit row; owns `--cv-editor-footer-height`                      |
+| `src/lib/pdf-download.ts`                         | `downloadBlob`, and the slug rule mirrored from the server                            |
+| `src/lib/blob-error.ts`                           | `getBlobApiError` — `getApiError` for a `responseType: "blob"`                        |
+| `src/components/ui/date-picker.tsx`               | Timezone-safe date picker (use instead of `<input type="date">`)                      |
+| `src/components/ui/month-year-input.tsx`          | Masked CV month+year field (`MM/yyyy` in, ISO `YYYY-MM` out)                          |
+| `src/lib/month-year.ts`                           | The one ISO `YYYY-MM` <-> `MM/yyyy` conversion and the mask                           |
+| `src/components/timeline/timeline-types.ts`       | Timeline vocabulary: event/interview types, 20 currencies, periods                    |
+| `src/components/timeline/timeline-options.ts`     | Presentation config, `TIMELINE_STAGES`, `stageLabel()`/`stageShortLabel()`            |
+| `src/components/timeline/timeline-section.tsx`    | Data-wired timeline region mounted in `application-item.tsx`                          |
+| `src/hooks/use-timeline.ts`                       | Timeline query key factory + `useTimeline(applicationId)`                             |
+| `src/components/applications/finalize-dialog.tsx` | Close-application outcome picker (R-032), reversible confirmation                     |
 
 ---
 

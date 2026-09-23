@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { BaseCvList } from "./base-cv-list";
 import { CvCard } from "./cv-card";
 import {
+  CV_MARKDOWN_EXPORT_LABEL,
   CV_PDF_EXPORT_LABEL,
   CV_PDF_EXPORT_PENDING,
   CV_PDF_LAYOUT_NOTICE,
@@ -391,6 +392,50 @@ describe("the tile's download (AC2)", () => {
   });
 });
 
+describe("the tile's Markdown download (KODI-017 part 3)", () => {
+  it("renders no Markdown button without `onExportMarkdown`", () => {
+    render(
+      <CvCard
+        cv={cv()}
+        href="/cvs/editor?id=1"
+        onDelete={vi.fn()}
+        onExport={vi.fn()}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", {
+        name: new RegExp(CV_MARKDOWN_EXPORT_LABEL),
+      }),
+    ).toBeNull();
+  });
+
+  it("asks the parent for this CV's Markdown, beside the PDF", async () => {
+    const user = userEvent.setup();
+    const onExportMarkdown = vi.fn();
+    render(
+      <CvCard
+        cv={cv()}
+        href="/cvs/editor?id=1"
+        onDelete={vi.fn()}
+        onExport={vi.fn()}
+        onExportMarkdown={onExportMarkdown}
+      />,
+    );
+
+    const markdownButton = screen.getByRole("button", {
+      name: `${CV_MARKDOWN_EXPORT_LABEL} Backend CV`,
+    });
+    const pdfButton = screen.getByRole("button", {
+      name: `${CV_PDF_EXPORT_LABEL} Backend CV`,
+    });
+    expect(markdownButton).toBeEnabled();
+    expect(pdfButton).toBeEnabled();
+
+    await user.click(markdownButton);
+    expect(onExportMarkdown).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("the gallery's downloads (AC2)", () => {
   const CVS = [
     cv({ id: "1", name: "Backend CV" }),
@@ -448,6 +493,25 @@ describe("the gallery's downloads (AC2)", () => {
     expect(idle).toBeEnabled();
     // The pending announcement belongs to the busy tile alone.
     expect(screen.getAllByText(CV_PDF_EXPORT_PENDING)).toHaveLength(1);
+  });
+
+  it("hands the Markdown export through to the right tile, distinct from the PDF one", async () => {
+    const user = userEvent.setup();
+    const onExportMarkdown = vi.fn();
+    renderList({ onExportMarkdown, exportingMarkdownId: "1" });
+
+    const busyMarkdown = screen.getByRole("button", {
+      name: `${CV_MARKDOWN_EXPORT_LABEL} Backend CV`,
+    });
+    const idleMarkdown = screen.getByRole("button", {
+      name: `${CV_MARKDOWN_EXPORT_LABEL} Data CV`,
+    });
+    expect(busyMarkdown).toBeDisabled();
+    expect(idleMarkdown).toBeEnabled();
+
+    await user.click(idleMarkdown);
+    expect(onExportMarkdown).toHaveBeenCalledTimes(1);
+    expect(onExportMarkdown.mock.calls[0][0]).toMatchObject({ id: "2" });
   });
 
   it("renders no download at all on a surface that cannot export", () => {

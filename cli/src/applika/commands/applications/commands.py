@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from pydantic import ValidationError
@@ -12,13 +12,24 @@ from applika.commands.applications.api_resolve import (
     resolve_platform_id,
     resolve_step_id,
 )
+from applika.commands.applications.file_input import (
+    conflict_message,
+    file_conflicts,
+    job_description_input,
+    load_application_file,
+    missing_message,
+    missing_required,
+    resolve_file_company,
+)
 from applika.commands.applications.filter import filter_applications
 from applika.config import AppConfig
-from applika.lib.api import ApiClient, require_session
+from applika.lib.api import ApiClient, ApiError, require_session
+from applika.lib.cv_file import USAGE_EXIT_CODE, FileInputError
 from applika.schemas.application import (
     ApplicationCreate,
     ApplicationEntry,
     ApplicationUpdate,
+    FinalizeOutcomePayload,
 )
 from applika.schemas.application_step import (
     ApplicationStepCreate,
@@ -30,8 +41,13 @@ from applika.schemas.enums import (
     ApplicationMode,
     ClearField,
     Currency,
+    DeniedReason,
+    EventType,
     ExperienceLevel,
+    FinalizeOutcome,
+    InterviewType,
     ModeFilter,
+    OfferPeriod,
     OutputFormat,
     SalaryPeriod,
     StatusFilter,
@@ -39,12 +55,20 @@ from applika.schemas.enums import (
     WorkMode,
 )
 from applika.schemas.supports import SupportSchema
+from applika.schemas.timeline_event import (
+    TimelineEventCreate,
+    TimelineEventEntry,
+    TimelineEventUpdate,
+)
 from applika.utils.output import (
     print_application_step_summary,
     print_application_summary,
+    print_finalize_outcome_summary,
     print_finalize_summary,
+    print_timeline_event_summary,
     render_application_step_table,
     render_application_table,
+    render_timeline_event_table,
 )
 
 
@@ -132,27 +156,27 @@ def list_applications(
 def new_application(
     ctx: typer.Context,
     company: Annotated[
-        str,
+        str | None,
         typer.Option('--company', help='Company name.'),
-    ],
+    ] = None,
     role: Annotated[
-        str,
+        str | None,
         typer.Option('--role', help='Job title or role.'),
-    ],
+    ] = None,
     platform: Annotated[
-        str,
+        str | None,
         typer.Option(
             '--platform', help='Platform name (e.g. LinkedIn, Indeed).'
         ),
-    ],
+    ] = None,
     mode: Annotated[
-        ApplicationMode,
+        ApplicationMode | None,
         typer.Option('--mode', help='Application mode: active or passive.'),
-    ],
+    ] = None,
     application_date: Annotated[
-        str,
+        str | None,
         typer.Option('--date', help='Application date (YYYY-MM-DD).'),
-    ],
+    ] = None,
     company_url: Annotated[
         str | None,
         typer.Option('--company-url', help='Company website URL.'),
@@ -206,6 +230,31 @@ def new_application(
         str | None,
         typer.Option('--country', help='Country where the job is located.'),
     ] = None,
+    file: Annotated[
+        str | None,
+        typer.Option(
+            '--file',
+            help=(
+                'JSON/YAML file (.json/.yaml/.yml, - for stdin) holding the '
+                'whole create payload with the API field names, instead of '
+                'the named options. Mutually exclusive with them.'
+            ),
+        ),
+    ] = None,
+    job_description: Annotated[
+        str | None,
+        typer.Option(
+            '--job-description',
+            help="The posting's text. Also accepted as job_description in --file.",
+        ),
+    ] = None,
+    job_description_file: Annotated[
+        str | None,
+        typer.Option(
+            '--job-description-file',
+            help="Read the posting's text (plain text/Markdown) from a file.",
+        ),
+    ] = None,
 ) -> None:
     """Create a new job application."""
     config: AppConfig = ctx.obj
@@ -213,27 +262,89 @@ def new_application(
     client = ApiClient(session, config.store)
 
     try:
-        payload = ApplicationCreate(
-            company=resolve_company_input(client, company, company_url),
-            role=role,
-            mode=mode,
-            platform_id=resolve_platform_id(client, platform),
-            application_date=application_date,
-            link_to_job=job_url,
-            observation=observation,
-            expected_salary=expected_salary,
-            salary_range_min=salary_min,
-            salary_range_max=salary_max,
-            currency=currency,
-            salary_period=salary_period,
-            experience_level=experience_level,
-            work_mode=work_mode,
-            country=country,
+        described, description = job_description_input(
+            job_description, job_description_file
         )
-        created = client.post_json(
-            '/applications', payload.model_dump(mode='json')
-        )
+        named = {
+            '--company': company,
+            '--role': role,
+            '--platform': platform,
+            '--mode': mode,
+            '--date': application_date,
+            '--company-url': company_url,
+            '--job-url': job_url,
+            '--observation': observation,
+            '--expected-salary': expected_salary,
+            '--salary-min': salary_min,
+            '--salary-max': salary_max,
+            '--currency': currency,
+            '--salary-period': salary_period,
+            '--experience-level': experience_level,
+            '--work-mode': work_mode,
+            '--country': country,
+        }
+        if file is not None:
+            conflicts = file_conflicts(named)
+            if conflicts:
+                _usage_exit(conflict_message(conflicts))
+            document = load_application_file(file)
+            missing = missing_required(document)
+            if missing:
+                _usage_exit(missing_message(missing))
+            if described:
+                document['job_description'] = description
+            document['company'] = resolve_file_company(
+                client, document['company']
+            )
+            payload = ApplicationCreate.model_validate(document)
+            described = described or 'job_description' in document
+        else:
+            missing = [
+                option
+                for option, value in (
+                    ('--company', company),
+                    ('--role', role),
+                    ('--platform', platform),
+                    ('--mode', mode),
+                    ('--date', application_date),
+                )
+                if value is None
+            ]
+            if missing:
+                _usage_exit(missing_message(missing))
+            payload = ApplicationCreate(
+                company=resolve_company_input(client, company, company_url),
+                role=role,
+                mode=mode,
+                platform_id=resolve_platform_id(client, platform),
+                application_date=application_date,
+                link_to_job=job_url,
+                observation=observation,
+                expected_salary=expected_salary,
+                salary_range_min=salary_min,
+                salary_range_max=salary_max,
+                currency=currency,
+                salary_period=salary_period,
+                experience_level=experience_level,
+                work_mode=work_mode,
+                country=country,
+                job_description=description,
+            )
+        body = payload.model_dump(mode='json')
+        if not described:
+            # Keep the exact 0.1.4/0.2.0 create payload when no job
+            # description was asked for: the key did not exist then, and
+            # `.claude/rules/cli-compatibility.md` freezes what goes out.
+            body.pop('job_description', None)
+        created = client.post_json('/applications', body)
         print_application_summary(created, 'Created application')
+    except FileInputError as exc:
+        _usage_exit(str(exc))
+    except ApiError as exc:
+        # KODI-018: the spec pins "print the API's detail, exit 1". Before
+        # this the refusal escaped as a traceback; an invocation that used
+        # to succeed is unaffected.
+        _echo_api_error(exc)
     except ValidationError as exc:
         _echo_validation_error(exc)
     except ValueError as exc:
@@ -326,6 +437,34 @@ def edit_application(
             ),
         ),
     ] = None,
+    file: Annotated[
+        str | None,
+        typer.Option(
+            '--file',
+            help=(
+                'JSON/YAML file (.json/.yaml/.yml, - for stdin) whose keys '
+                'are updated and whose absent keys are left unchanged. '
+                'Mutually exclusive with the named options.'
+            ),
+        ),
+    ] = None,
+    job_description: Annotated[
+        str | None,
+        typer.Option(
+            '--job-description',
+            help=(
+                "The posting's text. An empty string clears it. Also "
+                'accepted as job_description in --file.'
+            ),
+        ),
+    ] = None,
+    job_description_file: Annotated[
+        str | None,
+        typer.Option(
+            '--job-description-file',
+            help="Read the posting's text (plain text/Markdown) from a file.",
+        ),
+    ] = None,
 ) -> None:
     """Edit an existing job application. Unspecified fields keep their current values."""
     config: AppConfig = ctx.obj
@@ -333,6 +472,33 @@ def edit_application(
     client = ApiClient(session, config.store)
 
     try:
+        described, description = job_description_input(
+            job_description, job_description_file
+        )
+        document: dict[str, Any] = {}
+        if file is not None:
+            conflicts = file_conflicts({
+                '--company': company,
+                '--role': role,
+                '--platform': platform,
+                '--mode': mode,
+                '--date': application_date,
+                '--company-url': company_url,
+                '--job-url': job_url,
+                '--observation': observation,
+                '--expected-salary': expected_salary,
+                '--salary-min': salary_min,
+                '--salary-max': salary_max,
+                '--currency': currency,
+                '--salary-period': salary_period,
+                '--experience-level': experience_level,
+                '--work-mode': work_mode,
+                '--country': country,
+                '--clear': clear,
+            })
+            if conflicts:
+                _usage_exit(conflict_message(conflicts))
+            document = load_application_file(file)
         applications: list[ApplicationEntry] = client.get_json('/applications')
         existing = next(
             (app for app in applications if str(app['id']) == application_id),
@@ -434,11 +600,31 @@ def edit_application(
                 else work_mode or existing.get('work_mode')
             ),
         )
-        updated = client.put_json(
-            f'/applications/{application_id}',
-            payload.model_dump(mode='json'),
-        )
+        merged = payload.model_dump(mode='json')
+        for key, value in document.items():
+            if key == 'company':
+                continue
+            merged[key] = value
+        if 'company' in document:
+            merged['company'] = _company_payload(
+                resolve_file_company(client, document['company'])
+            )
+        # Re-validate the merged result, not just the stored half: a file
+        # that adds a salary without a currency must fail here, not as a 422.
+        body = ApplicationUpdate.model_validate(merged).model_dump(mode='json')
+        if described:
+            body['job_description'] = description
+        elif 'job_description' not in document:
+            # The API's job_description is sticky on PUT: omit the key and
+            # the stored text stays. Never send it just because the model
+            # carries the field.
+            body.pop('job_description', None)
+        updated = client.put_json(f'/applications/{application_id}', body)
         print_application_summary(updated, 'Updated application')
+    except FileInputError as exc:
+        _usage_exit(str(exc))
+    except ApiError as exc:
+        _echo_api_error(exc, reopen_hint_id=application_id)
     except ValidationError as exc:
         _echo_validation_error(exc)
     except ValueError as exc:
@@ -769,33 +955,95 @@ def finalize_application(
         ),
     ] = None,
     step: Annotated[
-        str,
+        str | None,
         typer.Option(
             '--step',
-            help='Final strict step definition name or ID (e.g. Offer, Denied).',
+            help=(
+                '[DEPRECATED] Final strict step definition name or ID '
+                '(e.g. Offer, Denied). Use --outcome instead. Requires '
+                '--feedback and --date; cannot be combined with --outcome, '
+                '--salary, --currency or --period.'
+            ),
         ),
-    ] = ...,
+    ] = None,
     feedback: Annotated[
-        str,
+        str | None,
         typer.Option(
             '--feedback',
             help=(
-                'Feedback definition name or ID '
-                '(e.g. Accepted, Not good enough).'
+                '[DEPRECATED] Feedback definition name or ID '
+                '(e.g. Accepted, Not good enough). Part of the deprecated '
+                '--step body.'
             ),
         ),
-    ] = ...,
+    ] = None,
     finalize_date: Annotated[
-        str,
-        typer.Option('--date', help='Finalization date (YYYY-MM-DD).'),
-    ] = ...,
+        str | None,
+        typer.Option(
+            '--date',
+            help=(
+                'Date (YYYY-MM-DD). With --step, the deprecated finalize '
+                'date; with --outcome, the event date (defaults to today).'
+            ),
+        ),
+    ] = None,
     salary_offer: Annotated[
         float | None,
-        typer.Option('--salary-offer', help='Final salary offer amount.'),
+        typer.Option(
+            '--salary-offer',
+            help=(
+                '[DEPRECATED] Final salary offer amount. Part of the '
+                'deprecated --step body; use --salary with --outcome offer '
+                'instead.'
+            ),
+        ),
     ] = None,
     observation: Annotated[
         str | None,
-        typer.Option('--observation', help='Final notes or observations.'),
+        typer.Option('--observation', help='Notes or observations.'),
+    ] = None,
+    outcome: Annotated[
+        FinalizeOutcome | None,
+        typer.Option(
+            '--outcome',
+            help=(
+                'Close with an outcome: offer or denied. Omit for a plain '
+                'idempotent close.'
+            ),
+        ),
+    ] = None,
+    salary: Annotated[
+        float | None,
+        typer.Option(
+            '--salary', help='Offer salary amount. Only with --outcome offer.'
+        ),
+    ] = None,
+    currency: Annotated[
+        Currency | None,
+        typer.Option(
+            '--currency',
+            help='Offer salary currency. Only with --outcome offer.',
+        ),
+    ] = None,
+    period: Annotated[
+        OfferPeriod | None,
+        typer.Option(
+            '--period',
+            help=(
+                'Offer salary period: monthly or annually. Only with '
+                '--outcome offer.'
+            ),
+        ),
+    ] = None,
+    reason: Annotated[
+        DeniedReason | None,
+        typer.Option(
+            '--reason',
+            help=(
+                'Denied reason. Only with --outcome denied; defaults to '
+                'unknown.'
+            ),
+        ),
     ] = None,
     output_format: Annotated[
         OutputFormat,
@@ -804,7 +1052,9 @@ def finalize_application(
         ),
     ] = OutputFormat.TABLE,
 ) -> None:
-    """Finalize an application with a strict final step and feedback."""
+    """Close an application. No flags: idempotent close, no outcome.
+    --outcome offer|denied: close with an outcome event (--reason only
+    with --outcome denied). --step (deprecated): the 0.1.4 finalize body."""
     config: AppConfig = ctx.obj
     session = require_session(config.store)
     client = ApiClient(session, config.store)
@@ -816,26 +1066,594 @@ def finalize_application(
             option=application_id,
             option_name='--application-id',
         )
-        supports: SupportSchema = client.get_json('/supports')
-        payload = FinalizeApplication(
-            step_id=resolve_step_id(supports, step, strict=True),
-            feedback_id=resolve_feedback_id(supports, feedback),
-            finalize_date=finalize_date,
-            salary_offer=salary_offer,
-            observation=observation,
+        legacy_given = any(
+            value is not None for value in (step, feedback, salary_offer)
         )
-        finalized = client.post_json(
-            f'/applications/{resolved_application_id}/finalize',
-            payload.model_dump(mode='json'),
+        outcome_given = any(
+            value is not None
+            for value in (outcome, salary, currency, period, reason)
         )
-        if output_format == OutputFormat.JSON:
-            print(json.dumps(finalized, indent=2, sort_keys=True))
+        if legacy_given and outcome_given:
+            raise ValueError(
+                '--step, --feedback and --salary-offer (deprecated) cannot '
+                'be combined with --outcome, --salary, --currency, '
+                '--period or --reason'
+            )
+
+        if legacy_given:
+            if step is None or feedback is None or finalize_date is None:
+                raise ValueError(
+                    'the deprecated finalize body requires --step, '
+                    '--feedback and --date together'
+                )
+            supports: SupportSchema = client.get_json('/supports')
+            payload = FinalizeApplication(
+                step_id=resolve_step_id(supports, step, strict=True),
+                feedback_id=resolve_feedback_id(supports, feedback),
+                finalize_date=finalize_date,
+                salary_offer=salary_offer,
+                observation=observation,
+            )
+            finalized = client.post_json(
+                f'/applications/{resolved_application_id}/finalize',
+                payload.model_dump(mode='json'),
+            )
+
+            if output_format == OutputFormat.JSON:
+                print(json.dumps(finalized, indent=2, sort_keys=True))
+            else:
+                # 0.1.4's own output, pinned - do not change (KODI-013
+                # remediation round 1: only the 0.2.0 paths below changed).
+                print_finalize_summary(finalized, 'Finalized application')
         else:
-            print_finalize_summary(finalized, 'Finalized application')
+            outcome_payload = FinalizeOutcomePayload(
+                outcome=outcome,
+                event_date=finalize_date,
+                observation=observation,
+                salary_amount=salary,
+                salary_currency=currency,
+                salary_period=period,
+                denied_reason=reason,
+            )
+            if outcome_payload.outcome is None:
+                finalized = client.post(
+                    f'/applications/{resolved_application_id}/finalize'
+                )
+            else:
+                finalized = client.post(
+                    f'/applications/{resolved_application_id}/finalize',
+                    outcome_payload.model_dump(mode='json'),
+                )
+
+            if output_format == OutputFormat.JSON:
+                print(json.dumps(finalized, indent=2, sort_keys=True))
+            else:
+                # KODI-013 remediation round 1: Application.last_step is the
+                # latest-dated timeline event, not the closing one - a
+                # future-dated interview added before closing can sort
+                # after the outcome event. Print what actually happened -
+                # status, finalized_at and (for --outcome) the outcome the
+                # request itself carried - instead.
+                print_finalize_outcome_summary(
+                    finalized,
+                    'Finalized application',
+                    outcome=(
+                        outcome_payload.outcome.value
+                        if outcome_payload.outcome is not None
+                        else None
+                    ),
+                )
     except ValidationError as exc:
         _echo_validation_error(exc)
     except ValueError as exc:
         _echo_value_error(exc)
+    except ApiError as exc:
+        _echo_api_error(exc, reopen_hint_id=resolved_application_id)
+    finally:
+        client.close()
+
+
+def reopen_application(
+    ctx: typer.Context,
+    application_id_arg: Annotated[
+        str | None,
+        typer.Argument(help='ID of the application to reopen.'),
+    ] = None,
+    application_id: Annotated[
+        str | None,
+        typer.Option(
+            '--application-id', help='ID of the application to reopen.'
+        ),
+    ] = None,
+) -> None:
+    """Reopen a closed application so its timeline is editable again.
+    Idempotent: reopening an already-open application is a no-op."""
+    config: AppConfig = ctx.obj
+    session = require_session(config.store)
+    client = ApiClient(session, config.store)
+
+    try:
+        resolved_application_id = _resolve_identifier(
+            label='application id',
+            positional=application_id_arg,
+            option=application_id,
+            option_name='--application-id',
+        )
+        reopened = client.post(
+            f'/applications/{resolved_application_id}/reopen'
+        )
+        # KODI-013 remediation round 1: status/finalized_at instead of the
+        # plain date= print_application_summary gave, for the same status-
+        # over-timeline-derived-fields reasoning as the 0.2.0 finalize paths.
+        print_finalize_outcome_summary(reopened, 'Reopened application')
+    except ApiError as exc:
+        _echo_api_error(exc)
+    finally:
+        client.close()
+
+
+def list_timeline_events(
+    ctx: typer.Context,
+    application_id_arg: Annotated[
+        str | None,
+        typer.Argument(help='ID of the application to inspect.'),
+    ] = None,
+    application_id: Annotated[
+        str | None,
+        typer.Option(
+            '--application-id', help='ID of the application to inspect.'
+        ),
+    ] = None,
+    output_format: Annotated[
+        OutputFormat,
+        typer.Option(
+            '--output-format', help='Output format: table (default) or json.'
+        ),
+    ] = OutputFormat.TABLE,
+) -> None:
+    """List the timeline events of an application, in the API's own order
+    (event_date, start_time, created_at)."""
+    config: AppConfig = ctx.obj
+    session = require_session(config.store)
+    client = ApiClient(session, config.store)
+
+    try:
+        resolved_application_id = _resolve_identifier(
+            label='application id',
+            positional=application_id_arg,
+            option=application_id,
+            option_name='--application-id',
+        )
+        events: list[TimelineEventEntry] = client.get_json(
+            f'/applications/{resolved_application_id}/timeline'
+        )
+        if output_format == OutputFormat.JSON:
+            print(json.dumps(events, indent=2, sort_keys=True))
+        else:
+            render_timeline_event_table(events)
+    except ApiError as exc:
+        _echo_api_error(exc)
+    finally:
+        client.close()
+
+
+def add_timeline_event(
+    ctx: typer.Context,
+    application_id_arg: Annotated[
+        str | None,
+        typer.Argument(help='ID of the application to update.'),
+    ] = None,
+    application_id: Annotated[
+        str | None,
+        typer.Option(
+            '--application-id', help='ID of the application to update.'
+        ),
+    ] = None,
+    event_type: Annotated[
+        EventType,
+        typer.Option(
+            '--type',
+            help='Event type: note, interview, feedback, offer, denied.',
+        ),
+    ] = ...,
+    event_date: Annotated[
+        str,
+        typer.Option('--date', help='Event date (YYYY-MM-DD).'),
+    ] = ...,
+    interview_type: Annotated[
+        InterviewType | None,
+        typer.Option(
+            '--interview-type',
+            help=(
+                'Interview type. Only with --type interview; defaults to '
+                'unknown.'
+            ),
+        ),
+    ] = None,
+    start_time: Annotated[
+        str | None,
+        typer.Option(
+            '--start-time',
+            help=(
+                'Event start time (HH:MM or HH:MM:SS). Only with '
+                '--type interview.'
+            ),
+        ),
+    ] = None,
+    end_time: Annotated[
+        str | None,
+        typer.Option(
+            '--end-time',
+            help=(
+                'Event end time (HH:MM or HH:MM:SS). Only with '
+                '--type interview.'
+            ),
+        ),
+    ] = None,
+    timezone: Annotated[
+        str | None,
+        typer.Option(
+            '--timezone',
+            help=(
+                'IANA timezone (e.g. America/Sao_Paulo). Only with '
+                '--type interview.'
+            ),
+        ),
+    ] = None,
+    observation: Annotated[
+        str | None,
+        typer.Option('--observation', help='Notes for this event.'),
+    ] = None,
+    salary: Annotated[
+        float | None,
+        typer.Option(
+            '--salary', help='Offer salary amount. Only with --type offer.'
+        ),
+    ] = None,
+    currency: Annotated[
+        Currency | None,
+        typer.Option(
+            '--currency', help='Offer salary currency. Only with --type offer.'
+        ),
+    ] = None,
+    period: Annotated[
+        OfferPeriod | None,
+        typer.Option(
+            '--period',
+            help=(
+                'Offer salary period: monthly or annually. Only with '
+                '--type offer.'
+            ),
+        ),
+    ] = None,
+    reason: Annotated[
+        DeniedReason | None,
+        typer.Option(
+            '--reason',
+            help=(
+                'Denied reason. Only with --type denied; defaults to unknown.'
+            ),
+        ),
+    ] = None,
+) -> None:
+    """Add a timeline event to an application."""
+    config: AppConfig = ctx.obj
+    session = require_session(config.store)
+    client = ApiClient(session, config.store)
+
+    try:
+        resolved_application_id = _resolve_identifier(
+            label='application id',
+            positional=application_id_arg,
+            option=application_id,
+            option_name='--application-id',
+        )
+        payload = TimelineEventCreate(
+            event_type=event_type,
+            interview_type=interview_type,
+            denied_reason=reason,
+            event_date=event_date,
+            start_time=start_time,
+            end_time=end_time,
+            timezone=timezone,
+            observation=observation,
+            salary_amount=salary,
+            salary_currency=currency,
+            salary_period=period,
+        )
+        created = client.post_json(
+            f'/applications/{resolved_application_id}/timeline',
+            payload.model_dump(mode='json'),
+        )
+        print_timeline_event_summary(created, 'Added event')
+    except ValidationError as exc:
+        _echo_validation_error(exc)
+    except ValueError as exc:
+        _echo_value_error(exc)
+    except ApiError as exc:
+        _echo_api_error(exc, reopen_hint_id=resolved_application_id)
+    finally:
+        client.close()
+
+
+def edit_timeline_event(
+    ctx: typer.Context,
+    application_id_arg: Annotated[
+        str | None,
+        typer.Argument(help='ID of the application to update.'),
+    ] = None,
+    event_id_arg: Annotated[
+        str | None,
+        typer.Argument(help='Timeline event ID to edit.'),
+    ] = None,
+    application_id: Annotated[
+        str | None,
+        typer.Option(
+            '--application-id', help='ID of the application to update.'
+        ),
+    ] = None,
+    event_id: Annotated[
+        str | None,
+        typer.Option('--event-id', help='Timeline event ID to edit.'),
+    ] = None,
+    event_type: Annotated[
+        EventType | None,
+        typer.Option(
+            '--type', help='New event type. Unspecified keeps the current type.'
+        ),
+    ] = None,
+    event_date: Annotated[
+        str | None,
+        typer.Option('--date', help='New event date (YYYY-MM-DD).'),
+    ] = None,
+    interview_type: Annotated[
+        InterviewType | None,
+        typer.Option('--interview-type', help='New interview type.'),
+    ] = None,
+    start_time: Annotated[
+        str | None,
+        typer.Option(
+            '--start-time',
+            help=(
+                'New start time (HH:MM or HH:MM:SS). Valid only when the '
+                'resulting type is interview.'
+            ),
+        ),
+    ] = None,
+    end_time: Annotated[
+        str | None,
+        typer.Option(
+            '--end-time',
+            help=(
+                'New end time (HH:MM or HH:MM:SS). Valid only when the '
+                'resulting type is interview.'
+            ),
+        ),
+    ] = None,
+    timezone: Annotated[
+        str | None,
+        typer.Option(
+            '--timezone',
+            help=(
+                'New IANA timezone. Valid only when the resulting type is '
+                'interview.'
+            ),
+        ),
+    ] = None,
+    observation: Annotated[
+        str | None,
+        typer.Option('--observation', help='New notes for this event.'),
+    ] = None,
+    salary: Annotated[
+        float | None,
+        typer.Option('--salary', help='New offer salary amount.'),
+    ] = None,
+    currency: Annotated[
+        Currency | None,
+        typer.Option('--currency', help='New offer salary currency.'),
+    ] = None,
+    period: Annotated[
+        OfferPeriod | None,
+        typer.Option(
+            '--period', help='New offer salary period: monthly or annually.'
+        ),
+    ] = None,
+    reason: Annotated[
+        DeniedReason | None,
+        typer.Option(
+            '--reason',
+            help=(
+                'New denied reason. Valid with --type denied, or with no '
+                '--type when the event is already denied.'
+            ),
+        ),
+    ] = None,
+) -> None:
+    """Edit a timeline event. PUT replaces the full event: unspecified
+    fields keep their current value. Changing --type away from offer drops
+    the salary fields; away from interview drops --interview-type; to
+    interview without --interview-type defaults to unknown; to offer
+    requires the salary triad unless the event already had one. Changing
+    --type away from denied drops --reason; an edit that keeps --type
+    denied (or omits --type on an already-denied event) and does not pass
+    --reason preserves the event's current reason. --start-time, --end-time
+    and --timezone are only accepted when the resulting type is interview
+    (the --type given, else the event's current type); a stored schedule is
+    never re-sent once the resulting type is not interview."""
+    config: AppConfig = ctx.obj
+    session = require_session(config.store)
+    client = ApiClient(session, config.store)
+
+    try:
+        resolved_application_id = _resolve_identifier(
+            label='application id',
+            positional=application_id_arg,
+            option=application_id,
+            option_name='--application-id',
+        )
+        resolved_event_id = _resolve_identifier(
+            label='event id',
+            positional=event_id_arg,
+            option=event_id,
+            option_name='--event-id',
+        )
+        existing = _get_timeline_event_or_exit(
+            client, resolved_application_id, resolved_event_id
+        )
+        new_event_type = (
+            event_type
+            if event_type is not None
+            else EventType(existing['event_type'])
+        )
+
+        resolved_interview_type = (
+            interview_type
+            if interview_type is not None
+            else (
+                existing.get('interview_type')
+                if new_event_type == EventType.INTERVIEW
+                else None
+            )
+        )
+
+        if new_event_type == EventType.OFFER:
+            resolved_salary = (
+                salary
+                if salary is not None
+                else _as_float(existing.get('salary_amount'))
+            )
+            resolved_currency = (
+                currency
+                if currency is not None
+                else existing.get('salary_currency')
+            )
+            resolved_period = (
+                period if period is not None else existing.get('salary_period')
+            )
+        else:
+            resolved_salary = salary
+            resolved_currency = currency
+            resolved_period = period
+
+        resolved_denied_reason = (
+            reason
+            if reason is not None
+            else (
+                existing.get('denied_reason')
+                if new_event_type == EventType.DENIED
+                else None
+            )
+        )
+
+        # KODI-016: a stored schedule is never re-sent once the resulting
+        # type is not interview — the PUT is a full replace, so an
+        # unspecified schedule flag on a non-interview edit sends null
+        # (or omits the key), same as interview_type/denied_reason above.
+        resolved_start_time = (
+            start_time
+            if start_time is not None
+            else (
+                existing.get('start_time')
+                if new_event_type == EventType.INTERVIEW
+                else None
+            )
+        )
+        resolved_end_time = (
+            end_time
+            if end_time is not None
+            else (
+                existing.get('end_time')
+                if new_event_type == EventType.INTERVIEW
+                else None
+            )
+        )
+        resolved_timezone = (
+            timezone
+            if timezone is not None
+            else (
+                existing.get('timezone')
+                if new_event_type == EventType.INTERVIEW
+                else None
+            )
+        )
+
+        payload = TimelineEventUpdate(
+            event_type=new_event_type,
+            interview_type=resolved_interview_type,
+            denied_reason=resolved_denied_reason,
+            event_date=event_date or existing['event_date'],
+            start_time=resolved_start_time,
+            end_time=resolved_end_time,
+            timezone=resolved_timezone,
+            observation=(
+                observation
+                if observation is not None
+                else existing.get('observation')
+            ),
+            salary_amount=resolved_salary,
+            salary_currency=resolved_currency,
+            salary_period=resolved_period,
+        )
+        updated = client.put_json(
+            f'/applications/{resolved_application_id}/timeline/{resolved_event_id}',
+            payload.model_dump(mode='json'),
+        )
+        print_timeline_event_summary(updated, 'Updated event')
+    except ValidationError as exc:
+        _echo_validation_error(exc)
+    except ValueError as exc:
+        _echo_value_error(exc)
+    except ApiError as exc:
+        _echo_api_error(exc, reopen_hint_id=resolved_application_id)
+    finally:
+        client.close()
+
+
+def delete_timeline_event(
+    ctx: typer.Context,
+    application_id_arg: Annotated[
+        str | None,
+        typer.Argument(help='ID of the application to update.'),
+    ] = None,
+    event_id_arg: Annotated[
+        str | None,
+        typer.Argument(help='Timeline event ID to delete.'),
+    ] = None,
+    application_id: Annotated[
+        str | None,
+        typer.Option(
+            '--application-id', help='ID of the application to update.'
+        ),
+    ] = None,
+    event_id: Annotated[
+        str | None,
+        typer.Option('--event-id', help='Timeline event ID to delete.'),
+    ] = None,
+) -> None:
+    """Delete a timeline event."""
+    config: AppConfig = ctx.obj
+    session = require_session(config.store)
+    client = ApiClient(session, config.store)
+
+    try:
+        resolved_application_id = _resolve_identifier(
+            label='application id',
+            positional=application_id_arg,
+            option=application_id,
+            option_name='--application-id',
+        )
+        resolved_event_id = _resolve_identifier(
+            label='event id',
+            positional=event_id_arg,
+            option=event_id,
+            option_name='--event-id',
+        )
+        client.delete(
+            f'/applications/{resolved_application_id}/timeline/{resolved_event_id}'
+        )
+        typer.echo(f'Deleted event: id={resolved_event_id}')
+    except ApiError as exc:
+        _echo_api_error(exc, reopen_hint_id=resolved_application_id)
     finally:
         client.close()
 
@@ -919,3 +1737,54 @@ def _sorted_steps(
             str(step['id']),
         ),
     )
+
+
+def _echo_api_error(
+    exc: ApiError, *, reopen_hint_id: str | None = None
+) -> None:
+    message = exc.detail
+    if (
+        exc.status_code == 409
+        and reopen_hint_id is not None
+        and 'closed' in message.lower()
+    ):
+        message = (
+            f'{message} Run `applika applications reopen {reopen_hint_id}`.'
+        )
+    typer.echo(message, err=True)
+    raise typer.Exit(1)
+
+
+def _get_timeline_event_or_exit(
+    client: ApiClient,
+    application_id: str,
+    event_id: str,
+) -> TimelineEventEntry:
+    events: list[TimelineEventEntry] = client.get_json(
+        f'/applications/{application_id}/timeline'
+    )
+    existing = next(
+        (event for event in events if str(event['id']) == event_id), None
+    )
+    if existing is None:
+        typer.echo('Timeline event not found', err=True)
+        raise typer.Exit(1)
+    return existing
+
+
+def _as_float(value: Any) -> float | None:
+    return float(value) if value is not None else None
+
+
+def _usage_exit(message: str) -> None:
+    """A usage/file-validation failure: nothing was sent, exit 2 (KODI-018)."""
+    typer.echo(message, err=True)
+    raise typer.Exit(USAGE_EXIT_CODE)
+
+
+def _company_payload(company: Any) -> Any:
+    """A resolved company as the API wants it on the wire."""
+    if isinstance(company, dict):
+        url = company.get('url')
+        return {'name': company['name'], 'url': str(url) if url else None}
+    return company

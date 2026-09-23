@@ -1,28 +1,30 @@
-from fastapi import APIRouter
+"""The deprecated steps routes, kept for installed ``applika-cli`` 0.1.4
+(R-016, R-020, .claude/rules/cli-compatibility.md).
 
-from app.application.dto.application_step import (
-    ApplicationStepCreateDTO,
-    ApplicationStepUpdateDTO,
-)
-from app.application.use_cases.application_steps.create_application_step import (
-    CreateApplicationStepUseCase,
-)
-from app.application.use_cases.application_steps.delete_application_step import (
-    DeleteApplicationStepUseCase,
-)
-from app.application.use_cases.application_steps.list_application_steps import (
-    ListApplicationStepsUseCase,
-)
-from app.application.use_cases.application_steps.update_application_step import (
-    UpdateApplicationStepUseCase,
+Same paths, same request and response shapes as before; the data is the
+timeline, reached through the compat use cases. Every route is marked
+``deprecated`` in OpenAPI and every response, errors included, carries the
+``Deprecation`` header (``app/presentation/deprecation.py``). New clients use
+``/applications/{id}/timeline``.
+"""
+
+from fastapi import APIRouter, Depends
+
+from app.application.dto.legacy_step import LegacyStepWriteDTO
+from app.application.use_cases.compat.legacy_steps import (
+    CreateLegacyStepUseCase,
+    DeleteLegacyStepUseCase,
+    ListLegacyStepsUseCase,
+    UpdateLegacyStepUseCase,
 )
 from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     ApplicationRepositoryDp,
-    ApplicationStepRepositoryDp,
     CurrentUserDp,
     StepDefinitionRepositoryDp,
+    TimelineEventRepositoryDp,
 )
+from app.presentation.deprecation import mark_deprecated
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.application_step import (
     ApplicationStep,
@@ -32,9 +34,20 @@ from app.presentation.schemas.application_step import (
 
 router = APIRouter(
     prefix='/applications',
-    tags=['Applications Steps'],
+    tags=['Applications Steps (deprecated)'],
     responses={'403': {'model': DetailSchema}},
+    dependencies=[Depends(mark_deprecated)],
+    deprecated=True,
 )
+
+_WRITE_RESPONSES: dict[int | str, dict] = {
+    '404': {'model': DetailSchema},
+    '409': {
+        'model': DetailSchema,
+        'description': 'Application closed, or a second initial screening',
+    },
+    '422': {'description': 'Application archived in a cycle, or invalid'},
+}
 
 
 @router.get(
@@ -46,47 +59,41 @@ async def get_all_application_steps(
     c_user: CurrentUserDp,
     application_id: SnowflakeID,
     app_repo: ApplicationRepositoryDp,
-    app_step_repo: ApplicationStepRepositoryDp,
+    step_repo: StepDefinitionRepositoryDp,
+    timeline_repo: TimelineEventRepositoryDp,
 ):
-    use_case = ListApplicationStepsUseCase(
-        app_repo=app_repo, app_step_repo=app_step_repo
-    )
-    app_steps = await use_case.execute(application_id, c_user.id)
-    return app_steps
+    """Deprecated. Every timeline event, shown as a legacy step."""
+    use_case = ListLegacyStepsUseCase(app_repo, step_repo, timeline_repo)
+    steps = await use_case.execute(application_id, c_user.id)
+    return [ApplicationStep.model_validate(step) for step in steps]
 
 
 @router.post(
     '/{application_id}/steps',
     status_code=201,
     response_model=ApplicationStep,
-    responses={'404': {'model': DetailSchema}, '409': {'model': DetailSchema}},
+    responses=_WRITE_RESPONSES,
 )
 async def add_step(
     c_user: CurrentUserDp,
     application_id: SnowflakeID,
     payload: CreateApplicationStep,
-    step_repo: StepDefinitionRepositoryDp,
     app_repo: ApplicationRepositoryDp,
-    app_step_repo: ApplicationStepRepositoryDp,
+    step_repo: StepDefinitionRepositoryDp,
+    timeline_repo: TimelineEventRepositoryDp,
 ):
-    use_case = CreateApplicationStepUseCase(
-        step_repo=step_repo,
-        application_repo=app_repo,
-        application_step_repo=app_step_repo,
+    """Deprecated. Adds the timeline event the (non-strict) step maps to."""
+    use_case = CreateLegacyStepUseCase(app_repo, step_repo, timeline_repo)
+    step = await use_case.execute(
+        application_id, c_user.id, LegacyStepWriteDTO(**payload.model_dump())
     )
-    data = ApplicationStepCreateDTO(
-        user_id=c_user.id,
-        application_id=application_id,
-        **payload.model_dump(),
-    )
-    app_step = await use_case.execute(c_user.id, data)
-    return ApplicationStep.model_validate(app_step)
+    return ApplicationStep.model_validate(step)
 
 
 @router.put(
     '/{application_id}/steps/{step_id}',
     response_model=ApplicationStep,
-    responses={'404': {'model': DetailSchema}, '409': {'model': DetailSchema}},
+    responses=_WRITE_RESPONSES,
 )
 async def update_step(
     c_user: CurrentUserDp,
@@ -95,33 +102,33 @@ async def update_step(
     payload: UpdateApplicationStep,
     app_repo: ApplicationRepositoryDp,
     step_repo: StepDefinitionRepositoryDp,
-    app_step_repo: ApplicationStepRepositoryDp,
+    timeline_repo: TimelineEventRepositoryDp,
 ):
-    use_case = UpdateApplicationStepUseCase(
-        step_repo=step_repo,
-        application_repo=app_repo,
-        application_step_repo=app_step_repo,
+    """Deprecated. Replaces the timeline event ``step_id`` (the recorded
+    step's id, i.e. the event id)."""
+    use_case = UpdateLegacyStepUseCase(app_repo, step_repo, timeline_repo)
+    step = await use_case.execute(
+        step_id,
+        application_id,
+        c_user.id,
+        LegacyStepWriteDTO(**payload.model_dump()),
     )
-    data = ApplicationStepUpdateDTO(
-        application_id=application_id, **payload.model_dump()
-    )
-    app_step = await use_case.execute(step_id, c_user.id, data)
-    return ApplicationStep.model_validate(app_step)
+    return ApplicationStep.model_validate(step)
 
 
 @router.delete(
     '/{application_id}/steps/{step_id}',
     status_code=204,
-    responses={'404': {'model': DetailSchema}, '409': {'model': DetailSchema}},
+    responses=_WRITE_RESPONSES,
 )
 async def delete_step(
     c_user: CurrentUserDp,
     application_id: SnowflakeID,
     step_id: SnowflakeID,
     app_repo: ApplicationRepositoryDp,
-    app_step_repo: ApplicationStepRepositoryDp,
+    step_repo: StepDefinitionRepositoryDp,
+    timeline_repo: TimelineEventRepositoryDp,
 ):
-    use_case = DeleteApplicationStepUseCase(
-        application_repo=app_repo, application_step_repo=app_step_repo
-    )
+    """Deprecated. Deletes the timeline event."""
+    use_case = DeleteLegacyStepUseCase(app_repo, step_repo, timeline_repo)
     await use_case.execute(step_id, application_id, c_user.id)

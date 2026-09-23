@@ -1,4 +1,8 @@
-import type { Application } from "@/services/types/applications";
+import { stageLabel } from "@/components/timeline/timeline-options";
+import type {
+  InterviewType,
+  TimelineEventType,
+} from "@/components/timeline/timeline-types";
 
 const APP_NAME = "Applika.dev";
 
@@ -11,100 +15,15 @@ function toIcsTime(t: string): string {
   return `${hh}${mm}${ss}`;
 }
 
-interface CalendarOptions {
-  startTime?: string;
-  endTime?: string;
-  timezone?: string;
-}
-
-export function genApplicationStepIcsFile(
-  date: string,
-  stepName: string,
-  application: Application,
-  options?: CalendarOptions,
-) {
-  const dateClean = date.replace(/-/g, "");
-  const title = `${application.company_name} — ${stepName}`;
-  const tz = options?.timezone;
-
-  let dtStart: string;
-  let dtEnd: string;
-
-  if (options?.startTime) {
-    const startClean = toIcsTime(options.startTime);
-    dtStart = tz
-      ? `DTSTART;TZID=${tz}:${dateClean}T${startClean}`
-      : `DTSTART:${dateClean}T${startClean}`;
-
-    if (options.endTime) {
-      const endClean = toIcsTime(options.endTime);
-      dtEnd = tz
-        ? `DTEND;TZID=${tz}:${dateClean}T${endClean}`
-        : `DTEND:${dateClean}T${endClean}`;
-    } else {
-      // Default 1-hour event
-      const [h, m] = options.startTime.split(":").map(Number);
-      const endH = String(Math.min(h + 1, 23)).padStart(2, "0");
-      const endClean = `${endH}${String(m).padStart(2, "0")}00`;
-      dtEnd = tz
-        ? `DTEND;TZID=${tz}:${dateClean}T${endClean}`
-        : `DTEND:${dateClean}T${endClean}`;
-    }
-  } else {
-    // All-day event
-    const [y, mo, d] = date.split("-").map(Number);
-    const nextDay = new Date(y, mo - 1, d + 1);
-    const end = `${nextDay.getFullYear()}${String(nextDay.getMonth() + 1).padStart(2, "0")}${String(nextDay.getDate()).padStart(2, "0")}`;
-    dtStart = `DTSTART;VALUE=DATE:${dateClean}`;
-    dtEnd = `DTEND;VALUE=DATE:${end}`;
-  }
-
-  const descriptionLines = [
-    `Role: ${application.role}`,
-    `Company: ${application.company_name}`,
-    `Mode: ${application.mode}`,
-    application.work_mode ? `Work Mode: ${application.work_mode}` : "",
-    application.experience_level
-      ? `Experience: ${application.experience_level}`
-      : "",
-    application.link_to_job ? `Job Link: ${application.link_to_job}` : "",
-    application.observation ? `Notes: ${application.observation}` : "",
-    "",
-    `Managed by ${APP_NAME}`,
-  ].filter(Boolean);
-
-  const description = descriptionLines.join(" — ");
-
-  const now = new Date();
-  const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}T${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
-
-  const ics = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    `PRODID:-//${APP_NAME}//EN`,
-    "BEGIN:VEVENT",
-    dtStart,
-    dtEnd,
-    `DTSTAMP:${stamp}`,
-    `UID:${application.id}-${dateClean}-${stepName}@applika`,
-    `SUMMARY:${title}`,
-    `DESCRIPTION:${description}`,
-    "END:VEVENT",
-    "END:VCALENDAR",
-  ].join("\r\n");
-
-  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${application.company_name}-${stepName}.ics`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
+/**
+ * Agenda item shape needed for the .ics export (PRD 0008, ADR 0012). Labelled
+ * from `event_type`/`interview_type` via `stageLabel`, NEVER from the
+ * now-nullable, legacy `step_name`/`step_color` (AC6, R-026).
+ */
 export function genAgendaStepIcsFile(step: {
   step_date: string;
-  step_name?: string;
+  event_type: TimelineEventType;
+  interview_type?: InterviewType | null;
   company_name: string;
   role: string;
   start_time?: string;
@@ -114,7 +33,7 @@ export function genAgendaStepIcsFile(step: {
   application_id: string;
 }) {
   const dateClean = step.step_date.replace(/-/g, "");
-  const stepName = step.step_name ?? "Step";
+  const stepName = stageLabel(step.event_type, step.interview_type);
   const title = `${step.company_name} — ${stepName}`;
   const tz = step.timezone;
 

@@ -1,12 +1,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 
 import { ExportCvButton } from "@/components/base-cvs/export-cv-button";
 import {
   CV_PDF_EXPORT_LABEL,
+  type BaseCv,
   type CvFormValues,
 } from "@/components/base-cvs/types";
 import { BaseCvPicker } from "./base-cv-picker";
@@ -16,28 +18,63 @@ import {
   tailoredCvSchema,
   toTailoredCvPayload,
 } from "./tailored-cv-schema";
-import type { BaseCvOption } from "./types";
+import { TAILORED_CV_READ_ONLY_COPY } from "./types";
 
-const OPTIONS: BaseCvOption[] = [
-  {
+/** A full `BaseCv` fixture — the picker is built on `BaseCvList`/`CvCard`,
+ * which take the wire shape, not the old picker-only `BaseCvOption`. */
+function baseCv(over: Partial<BaseCv> = {}): BaseCv {
+  return {
     id: "1",
     name: "Backend CV",
     full_name: "Ada",
     headline: "Eng",
+    location: "London",
+    email: "ada@example.com",
+    phone: null,
+    summary: "",
+    links: [],
+    skills: [],
+    experience: [],
+    projects: [],
+    education: [],
+    certifications: [],
+    languages: [],
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: null,
+    ...over,
+  };
+}
+
+const OPTIONS: BaseCv[] = [
+  baseCv({
+    id: "1",
+    name: "Backend CV",
     skills: [
       { id: "s-1", category: "Languages and frameworks", keywords: ["Python"] },
     ],
-    updated_at: null,
-  },
-  {
+  }),
+  baseCv({
     id: "2",
     name: "Frontend CV",
-    full_name: "Ada",
-    headline: "Eng",
     skills: [],
     updated_at: "2026-01-02T10:00:00Z",
-  },
+  }),
 ];
+
+/** The picker always needs `onDelete`/`onExport` — pass no-ops when a test
+ * does not care which CV was acted on. */
+function pickerProps(
+  over: Partial<React.ComponentProps<typeof BaseCvPicker>> = {},
+) {
+  return {
+    onValueChange: vi.fn(),
+    onCreate: vi.fn(),
+    onDelete: vi.fn(),
+    onExport: vi.fn(),
+    onExportMarkdown: vi.fn(),
+    ...over,
+  };
+}
 
 function Editor(props: Partial<React.ComponentProps<typeof TailoredCvEditor>>) {
   const form = useForm<CvFormValues>({
@@ -136,14 +173,17 @@ describe("the CV copy carries the same sections as a master CV (KODI-006)", () =
   it("renders its sections in the owner's order, education included", () => {
     render(<Editor />);
 
-    // Scoped to the CV field body: the copy's own panels (the job
-    // description, the provenance badge) are headings of the same level.
+    // The job description panel (KODI-017) now leads the FORM column, above
+    // Identity and contact — it is a `CvSectionCard` too, so its own `h2`
+    // heading is first. Scoped to the CV field body otherwise: the copy's own
+    // provenance badge carries no heading.
     expect(
       screen
         .getAllByRole("heading", { level: 2 })
         .map((heading) => heading.textContent)
-        .slice(0, 9),
+        .slice(0, 10),
     ).toEqual([
+      "Job description",
       "Identity and contact",
       "Links",
       "Summary",
@@ -211,8 +251,7 @@ describe("the tailored CV surface", () => {
     render(
       <BaseCvPicker
         options={[OPTIONS[0]]}
-        onValueChange={onValueChange}
-        onCreate={() => {}}
+        {...pickerProps({ onValueChange })}
       />,
     );
     expect(onValueChange).toHaveBeenCalledWith("1");
@@ -221,11 +260,7 @@ describe("the tailored CV surface", () => {
   it("picker does not preselect with two options and disables create", () => {
     const onValueChange = vi.fn();
     render(
-      <BaseCvPicker
-        options={OPTIONS}
-        onValueChange={onValueChange}
-        onCreate={() => {}}
-      />,
+      <BaseCvPicker options={OPTIONS} {...pickerProps({ onValueChange })} />,
     );
     expect(onValueChange).not.toHaveBeenCalled();
     expect(
@@ -234,32 +269,214 @@ describe("the tailored CV surface", () => {
     expect(screen.getAllByRole("radio")).toHaveLength(2);
   });
 
-  it("picker shows the empty state with no master CVs", () => {
-    render(
-      <BaseCvPicker
-        options={[]}
-        onValueChange={() => {}}
-        onCreate={() => {}}
-      />,
-    );
+  it("picker shows the empty state with no master CVs (the /cvs gallery's own words)", () => {
+    render(<BaseCvPicker options={[]} {...pickerProps()} />);
     expect(
-      screen.getByRole("link", { name: "Create a master CV" }),
+      screen.getByRole("heading", { name: "No master CVs yet" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Create your first CV" }),
     ).toHaveAttribute("href", "/cvs/new");
   });
 
-  it("picker blocks create in read-only mode", () => {
+  it("picker blocks create in read-only mode and renders no cards", () => {
     render(
       <BaseCvPicker
         options={OPTIONS}
-        onValueChange={() => {}}
-        onCreate={() => {}}
+        {...pickerProps()}
         readOnlyReason="finalized"
       />,
     );
     expect(
       screen.queryByRole("button", { name: "Create the CV copy" }),
     ).toBeNull();
-    expect(screen.getByRole("status")).toHaveTextContent("finalized");
+    expect(screen.queryAllByRole("radio")).toHaveLength(0);
+    expect(screen.queryByText("Backend CV")).not.toBeInTheDocument();
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("This application is closed.");
+    // AC21 (KODI-013 addendum): the banner also says what to do about it.
+    expect(status).toHaveTextContent(TAILORED_CV_READ_ONLY_COPY.finalized.body);
+  });
+
+  it("picker cards show keywords, not skill category names (AC2)", () => {
+    render(
+      <BaseCvPicker
+        options={[
+          baseCv({
+            id: "1",
+            name: "Backend CV",
+            skills: [
+              {
+                id: "s-1",
+                category: "Languages and frameworks",
+                keywords: ["Python", "TypeScript"],
+              },
+            ],
+          }),
+        ]}
+        {...pickerProps()}
+      />,
+    );
+    expect(screen.getByText("Python")).toBeInTheDocument();
+    expect(screen.getByText("TypeScript")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Languages and frameworks"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("picker card edit link goes to /cvs/editor?id= (AC2)", () => {
+    render(<BaseCvPicker options={[OPTIONS[0]]} {...pickerProps()} />);
+    expect(
+      screen.getByRole("link", { name: "Edit Backend CV" }),
+    ).toHaveAttribute("href", "/cvs/editor?id=1");
+  });
+
+  it("picker card delete asks for confirmation, then calls onDelete with the CV (AC2)", async () => {
+    const onDelete = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <BaseCvPicker options={[OPTIONS[0]]} {...pickerProps({ onDelete })} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Delete Backend CV" }));
+    expect(onDelete).not.toHaveBeenCalled();
+    await user.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Delete",
+      }),
+    );
+    expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
+  });
+
+  it("picker card download calls onExport with the CV (AC2)", async () => {
+    const onExport = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <BaseCvPicker options={[OPTIONS[0]]} {...pickerProps({ onExport })} />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: `${CV_PDF_EXPORT_LABEL} Backend CV` }),
+    );
+    expect(onExport).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
+  });
+
+  it("picker shows the new-CV card with slots left and its limit state at 3 (AC2)", () => {
+    const { rerender } = render(
+      <BaseCvPicker options={OPTIONS} {...pickerProps()} />,
+    );
+    expect(screen.getByText(/1 of 3 slot left/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "New master CV" })).toHaveAttribute(
+      "href",
+      "/cvs/new",
+    );
+
+    rerender(
+      <BaseCvPicker
+        options={[...OPTIONS, baseCv({ id: "3", name: "Third CV" })]}
+        {...pickerProps()}
+      />,
+    );
+    // At the cap the tile shows its disabled/limit reason instead of a link.
+    expect(
+      screen.queryByRole("link", { name: "New master CV" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "New master CV" }),
+    ).toBeDisabled();
+    expect(screen.getByText(/the limit is three/i)).toBeInTheDocument();
+  });
+
+  it("picker never renders a Manage master CVs link (owner decision, 2026-09-19)", () => {
+    render(<BaseCvPicker options={OPTIONS} {...pickerProps()} />);
+    expect(
+      screen.queryByRole("link", { name: /manage master cvs/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("picker disables every radio and delete button while a copy is being created", () => {
+    render(<BaseCvPicker options={OPTIONS} {...pickerProps()} isCreating />);
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio).toBeDisabled();
+    }
+    expect(
+      screen.getByRole("button", { name: "Delete Backend CV" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Delete Frontend CV" }),
+    ).toBeDisabled();
+  });
+
+  it("picker's radios are described by the hint (a11y)", () => {
+    render(<BaseCvPicker options={OPTIONS} {...pickerProps()} />);
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio).toHaveAccessibleDescription(
+        "Pick the master CV this application starts from. The copy is yours to edit for this job — the master CV never changes.",
+      );
+    }
+  });
+
+  it("picker refuses to keep a selected id the options no longer carry, even when the caller does not clear it itself", () => {
+    // A page that (unlike the wired-up ApplicationCvPage) never reacts to
+    // `onDelete` by itself: `value` stays a stale id forever. The picker's
+    // OWN fallback — never trust `value` blindly — must still refuse to check
+    // a radio for an id that is not among `options`.
+    const onValueChange = vi.fn();
+    render(
+      <BaseCvPicker
+        options={[OPTIONS[0]]}
+        value="2"
+        {...pickerProps({ onValueChange })}
+      />,
+    );
+    expect(screen.queryByRole("radio", { checked: true })).toBeNull();
+    // Nothing is really selected, so Create must stay disabled — a stale id
+    // must never leave Create enabled for a CV that does not exist any more.
+    expect(
+      screen.getByRole("button", { name: "Create the CV copy" }),
+    ).toBeDisabled();
+    // The lone remaining option is still reported as the preselect through
+    // the picker's normal effect — it is up to the PAGE to act on it; the
+    // picker itself never trusts the stale `value` to render a checked radio.
+    expect(onValueChange).toHaveBeenCalledWith("1");
+  });
+
+  it("picker selection clears once the selected CV is deleted, and a lone remaining CV re-preselects", async () => {
+    const user = userEvent.setup();
+
+    function Controlled() {
+      const [options, setOptions] = useState<BaseCv[]>(OPTIONS);
+      const [value, setValue] = useState<string | null>("2");
+      return (
+        <BaseCvPicker
+          options={options}
+          value={value}
+          onValueChange={setValue}
+          onCreate={() => {}}
+          onDelete={(cv) => {
+            setOptions((current) => current.filter((o) => o.id !== cv.id));
+            setValue((current) => (current === cv.id ? null : current));
+          }}
+          onExport={() => {}}
+          onExportMarkdown={() => {}}
+        />
+      );
+    }
+    render(<Controlled />);
+    expect(screen.getByRole("radio", { name: "Frontend CV" })).toBeChecked();
+
+    await user.click(
+      screen.getByRole("button", { name: "Delete Frontend CV" }),
+    );
+    await user.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Delete",
+      }),
+    );
+
+    // The lone remaining CV ("Backend CV") re-preselects itself.
+    expect(screen.queryByText("Frontend CV")).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Backend CV" })).toBeChecked();
   });
 
   it("gives the job description ONE disclosure, the card's own header (10)", async () => {

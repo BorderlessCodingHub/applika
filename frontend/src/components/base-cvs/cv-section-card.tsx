@@ -39,6 +39,10 @@ export interface CvSectionCardProps extends CvCollapsibleProps {
   icon?: ComponentType<LucideProps>;
   /** Heading level, so the page outline stays correct. */
   as?: "h2" | "h3";
+  /** Non-interactive line under the description (a CV copy's change count); the stretched trigger covers it. */
+  status?: ReactNode;
+  /** Id of the status wrapper; the trigger is `aria-describedby` it. */
+  statusId?: string;
   children: ReactNode;
   className?: string;
   contentClassName?: string;
@@ -84,6 +88,8 @@ export function CvSectionCard({
   description,
   icon: Icon,
   as: Heading = "h2",
+  status,
+  statusId,
   collapsible = true,
   defaultOpen = true,
   open,
@@ -92,6 +98,8 @@ export function CvSectionCard({
   className,
   contentClassName,
 }: CvSectionCardProps) {
+  const hasStatus = status !== undefined && status !== null && status !== false;
+
   const header = (
     <div
       data-slot="cv-section-header"
@@ -117,6 +125,7 @@ export function CvSectionCard({
           {collapsible ? (
             <CollapsibleTrigger
               data-slot="cv-section-trigger"
+              aria-describedby={hasStatus ? statusId : undefined}
               className={cn(
                 "block w-full rounded-sm text-left outline-none",
                 "cursor-pointer hover:text-primary",
@@ -136,6 +145,11 @@ export function CvSectionCard({
           <p className="text-sm text-pretty text-muted-foreground">
             {description}
           </p>
+        ) : null}
+        {hasStatus ? (
+          <div id={statusId} data-slot="cv-section-status" className="pt-1">
+            {status}
+          </div>
         ) : null}
       </div>
       {collapsible ? (

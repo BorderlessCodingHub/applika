@@ -13,6 +13,22 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
+/** Room the absolutely positioned diff marker takes at the end of a label row. */
+export const CV_FIELD_MARKER_GUTTER = "pe-22";
+
+/** Wrapper of a marked field: positions the marker and puts an inset accent on the control it marks. */
+export const CV_FIELD_MARKED_CLASS = cn(
+  "relative",
+  "[&_[data-slot=input]]:shadow-[inset_3px_0_0_var(--color-primary)]",
+  "[&_[data-slot=textarea]]:shadow-[inset_3px_0_0_var(--color-primary)]",
+  "[&_[data-slot=select-trigger]]:shadow-[inset_3px_0_0_var(--color-primary)]",
+  "[&_[data-slot=cv-keywords-input]]:shadow-[inset_3px_0_0_var(--color-primary)]",
+);
+
+export function hasMarker(marker: ReactNode): boolean {
+  return marker !== undefined && marker !== null && marker !== false;
+}
+
 export interface CvFieldProps {
   /** Visible label. It is also the control's accessible name (implicit label). */
   label: string;
@@ -24,6 +40,8 @@ export interface CvFieldProps {
   errorId?: string;
   /** Helper copy under the control. */
   hint?: ReactNode;
+  /** Diff marker, rendered after the `<label>` so it never joins the control's name. */
+  marker?: ReactNode;
   children: ReactNode;
   className?: string;
 }
@@ -41,13 +59,23 @@ export function CvField({
   error,
   errorId,
   hint,
+  marker,
   children,
   className,
 }: CvFieldProps) {
+  const marked = hasMarker(marker);
+
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div
+      className={cn("space-y-1.5", marked && CV_FIELD_MARKED_CLASS, className)}
+    >
       <label className="block space-y-1.5">
-        <span className="flex items-center gap-0.5 text-sm leading-none font-medium">
+        <span
+          className={cn(
+            "flex items-center gap-0.5 text-sm leading-none font-medium",
+            marked && CV_FIELD_MARKER_GUTTER,
+          )}
+        >
           {label}
           {required ? (
             <span
@@ -58,6 +86,7 @@ export function CvField({
         </span>
         {children}
       </label>
+      {marker}
       {error ? (
         <p id={errorId} className="text-xs text-destructive">
           {error}
@@ -76,6 +105,8 @@ export interface CvSelectFieldProps<T extends string> {
   options: readonly T[];
   placeholder?: string;
   disabled?: boolean;
+  /** Diff marker; see `CvField`. */
+  marker?: ReactNode;
   className?: string;
 }
 
@@ -90,6 +121,7 @@ export function CvSelectField<T extends string>({
   options,
   placeholder,
   disabled,
+  marker,
   className,
 }: CvSelectFieldProps<T>) {
   const labelId = useId();
@@ -99,10 +131,23 @@ export function CvSelectField<T extends string>({
     // `<select>` with `position: absolute`. Without a positioned ancestor its
     // containing block is the viewport, so it escapes the shell's clip and
     // stretches the DOCUMENT to its own offset — a second scrollbar.
-    <div className={cn("relative space-y-1.5", className)}>
-      <span id={labelId} className="block text-sm leading-none font-medium">
+    <div
+      className={cn(
+        "relative space-y-1.5",
+        hasMarker(marker) && CV_FIELD_MARKED_CLASS,
+        className,
+      )}
+    >
+      <span
+        id={labelId}
+        className={cn(
+          "block text-sm leading-none font-medium",
+          hasMarker(marker) && CV_FIELD_MARKER_GUTTER,
+        )}
+      >
         {label}
       </span>
+      {marker}
       <Select
         value={value}
         disabled={disabled}
@@ -133,6 +178,8 @@ export interface CvStringListFieldProps {
   addLabel: string;
   placeholder?: string;
   disabled?: boolean;
+  /** Diff marker; see `CvField`. */
+  marker?: ReactNode;
   className?: string;
 }
 
@@ -149,13 +196,25 @@ export function CvStringListField({
   addLabel,
   placeholder,
   disabled,
+  marker,
   className,
 }: CvStringListFieldProps) {
   const capitalised = noun.charAt(0).toUpperCase() + noun.slice(1);
+  const marked = hasMarker(marker);
 
   return (
-    <div className={cn("space-y-2", className)}>
-      <span className="block text-sm leading-none font-medium">{label}</span>
+    <div
+      className={cn("space-y-2", marked && CV_FIELD_MARKED_CLASS, className)}
+    >
+      <span
+        className={cn(
+          "block text-sm leading-none font-medium",
+          marked && CV_FIELD_MARKER_GUTTER,
+        )}
+      >
+        {label}
+      </span>
+      {marker}
       {value.length > 0 ? (
         <ul className="space-y-2">
           {value.map((entry, index) => (

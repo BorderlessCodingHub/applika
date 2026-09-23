@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { FileText, RotateCcw, TriangleAlert } from "lucide-react";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +14,15 @@ export const BASE_CV_EMPTY_TITLE = "No master CVs yet";
 export const BASE_CV_EMPTY_BODY =
   "A master CV holds everything about you — identity and contact, a summary, links, skills, experience, projects, certifications and languages. Write it once and reuse it for every application. You can keep up to three.";
 export const BASE_CV_EMPTY_CTA = "Create your first CV";
+
+/** Makes the list a single-choice picker. See `BaseCvListProps.selection`. */
+export interface BaseCvListSelection {
+  /** The selected CV's id, or `null`. Controlled. */
+  value: string | null;
+  onValueChange: (id: string) => void;
+  /** Id of the text that says what choosing does; describes every radio. */
+  describedBy?: string;
+}
 
 export interface BaseCvListProps {
   /** The user's master CVs. `undefined` while unknown. */
@@ -37,9 +47,19 @@ export interface BaseCvListProps {
   onExport?: (cv: BaseCv) => void;
   /** Id of the CV whose PDF render is in flight. */
   exportingId?: string | null;
+  /** Asks the server for one CV's Markdown (KODI-017 part 3), beside the PDF. */
+  onExportMarkdown?: (cv: BaseCv) => void;
+  /** Id of the CV whose Markdown render is in flight. */
+  exportingMarkdownId?: string | null;
   max?: number;
   /** Overrides the on-screen reason on the disabled create tile. */
   limitReason?: string;
+  /**
+   * Gives every tile a radio in ONE group; the edit, download and delete stay.
+   * Only the list state changes. The caller names the group (a `fieldset` and
+   * `legend`) and owns the confirm action. Absent on `/cvs`.
+   */
+  selection?: BaseCvListSelection;
   className?: string;
 }
 
@@ -59,10 +79,15 @@ export function BaseCvList({
   deletingId,
   onExport,
   exportingId,
+  onExportMarkdown,
+  exportingMarkdownId,
   max = BASE_CVS_MAX,
   limitReason,
+  selection,
   className,
 }: BaseCvListProps) {
+  const groupName = useId();
+
   if (isLoading) {
     return (
       <div
@@ -135,7 +160,9 @@ export function BaseCvList({
   }
 
   return (
-    <div className={cn("grid gap-4 md:grid-cols-2", className)}>
+    // `grid-cols-1` below `md`: the implicit `auto` column grows to a tile's
+    // min-content, so a long CV name widened the page instead of truncating.
+    <div className={cn("grid grid-cols-1 gap-4 md:grid-cols-2", className)}>
       {items.map((cv) => (
         <CvCard
           key={cv.id}
@@ -145,6 +172,20 @@ export function BaseCvList({
           isDeleting={deletingId === cv.id}
           onExport={onExport ? () => onExport(cv) : undefined}
           isExporting={exportingId === cv.id}
+          onExportMarkdown={
+            onExportMarkdown ? () => onExportMarkdown(cv) : undefined
+          }
+          isExportingMarkdown={exportingMarkdownId === cv.id}
+          selection={
+            selection
+              ? {
+                  name: groupName,
+                  checked: selection.value === cv.id,
+                  onSelect: () => selection.onValueChange(cv.id),
+                  describedBy: selection.describedBy,
+                }
+              : undefined
+          }
         />
       ))}
       <NewCvCard

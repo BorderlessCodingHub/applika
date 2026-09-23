@@ -7,7 +7,7 @@ Two things are pinned here that the integration suite cannot pin as sharply.
   compares field name sets rather than a hand-written list, so a field added to
   the stored shape later cannot quietly stop being copied.
 * The read-only refusal is exactly the step refusal: archived first as a
-  business-rule violation, finalized second as a conflict, on create, update
+  business-rule violation, closed (``finalized_at`` set) second as a conflict, on create, update
   **and** delete - and on neither of them for a read.
 """
 
@@ -44,6 +44,9 @@ from app.core.exceptions import (
 )
 from tests import msg
 from tests.unit.conftest import make_application
+
+# Closed = finalized_at set (PRD 0008): the guard no longer reads feedback_id.
+CLOSED_AT = datetime(2026, 1, 2, tzinfo=timezone.utc)
 
 SECTIONS: dict[str, Any] = {
     'links': [{'id': 'lnk-1', 'label': 'GitHub', 'url': 'https://gh/ada'}],
@@ -132,6 +135,7 @@ def make_tailored_cv(**overrides):
         'base_cv_id': 10,
         'was_ai_generated': False,
         'adjustments': [],
+        'base_snapshot': None,
         'name': 'Backend CV',
         'full_name': 'Ada Lovelace',
         'headline': 'Staff Backend Engineer',
@@ -324,10 +328,13 @@ async def test_create_second_copy_is_a_conflict():
 async def test_create_on_a_finalized_application_is_a_conflict():
     """AC10: same exception and message a step refusal uses."""
     use_case, _ = make_create_use_case(
-        application=make_application(feedback_id=1), base_cv=make_base_cv()
+        application=make_application(finalized_at=CLOSED_AT),
+        base_cv=make_base_cv(),
     )
 
-    with pytest.raises(ApplicationFinalized, match='already been finalized'):
+    with pytest.raises(
+        ApplicationFinalized, match='Reopen the application to edit it'
+    ):
         await use_case.execute(create_dto())
 
 
@@ -344,7 +351,7 @@ async def test_create_on_an_archived_application_is_a_rule_violation():
 async def test_archived_is_refused_before_finalized():
     """The guard order is the step guard order, not an approximation."""
     use_case, _ = make_create_use_case(
-        application=make_application(cycle_id=42, feedback_id=1),
+        application=make_application(cycle_id=42, finalized_at=CLOSED_AT),
         base_cv=make_base_cv(),
     )
 
@@ -364,6 +371,68 @@ async def test_create_never_writes_to_the_master_cv():
     base_cv_repo.update.assert_not_called()
     base_cv_repo.create.assert_not_called()
     base_cv_repo.delete.assert_not_called()
+
+
+# --- base_snapshot (R5, KODI-017 part 2) ------------------------------------
+
+
+async def test_create_passes_the_master_cv_as_the_snapshot():
+    """The snapshot is the master CV's content field for field, not the
+    tailoring result - the two happen to be equal for the clone binding, but
+    the snapshot must come from ``base_cv``, not from ``result.content``."""
+    base_cv = make_base_cv(headline='Staff Backend Engineer')
+    use_case, tailored_cv_repo = make_create_use_case(
+        application=make_application(), base_cv=base_cv
+    )
+
+    await use_case.execute(create_dto())
+
+    snapshot = tailored_cv_repo.create.call_args.kwargs['base_snapshot']
+    assert snapshot is not None
+    assert snapshot.headline == 'Staff Backend Engineer'
+    for field in TailoredCVContent.model_fields:
+        assert getattr(snapshot, field) == getattr(base_cv, field), field
+
+
+async def test_create_snapshot_is_the_master_even_when_the_binding_diverges():
+    """A binding whose ``content`` diverges from the master must not leak
+    into the baseline: the snapshot always compares against the real master,
+    exactly what makes it useful once a real tailoring model exists.
+
+    Mutates a **nested** item in place (``experience[0].role``), not just a
+    top-level scalar: pydantic v2 does not deep-copy nested model instances
+    on ``model_validate``, so a snapshot built by validating straight from
+    the master's DTO would still share those item objects with whatever the
+    binding hands back in ``result.content``, and this in-place mutation
+    would move the snapshot too if the use case did not force a real copy.
+    """
+    base_cv = make_base_cv(headline='Staff Backend Engineer')
+
+    class _MutatingTailoringService:
+        async def tailor(self, request: TailoringRequest):
+            result = await CloneTailoringService().tailor(request)
+            result.content.headline = 'Tailored Headline'
+            result.content.experience[0].role = 'Tailored Role'
+            return result
+
+    use_case, tailored_cv_repo = make_create_use_case(
+        application=make_application(),
+        base_cv=base_cv,
+        tailoring_service=_MutatingTailoringService(),
+    )
+
+    await use_case.execute(create_dto())
+
+    snapshot = tailored_cv_repo.create.call_args.kwargs['base_snapshot']
+    result = tailored_cv_repo.create.call_args.kwargs['result']
+    assert snapshot.headline == 'Staff Backend Engineer', msg(
+        'Staff Backend Engineer', snapshot.headline
+    )
+    assert snapshot.experience[0].role == 'Staff Engineer', msg(
+        'Staff Engineer', snapshot.experience[0].role
+    )
+    assert result.content.headline == 'Tailored Headline'
+    assert result.content.experience[0].role == 'Tailored Role'
 
 
 # --- Get: no editability guard ---------------------------------------------
@@ -388,9 +457,9 @@ def make_read_write_use_cases(application, tailored_cv=make_tailored_cv()):
 @pytest.mark.parametrize(
     'application',
     [
-        make_application(feedback_id=1),
+        make_application(finalized_at=CLOSED_AT),
         make_application(cycle_id=42),
-        make_application(cycle_id=42, feedback_id=1),
+        make_application(cycle_id=42, finalized_at=CLOSED_AT),
     ],
     ids=['finalized', 'archived', 'both'],
 )
@@ -436,10 +505,12 @@ async def test_update_replaces_every_field():
 
 async def test_update_on_a_finalized_application_is_a_conflict():
     _, update_uc, _, _ = make_read_write_use_cases(
-        make_application(feedback_id=1)
+        make_application(finalized_at=CLOSED_AT)
     )
 
-    with pytest.raises(ApplicationFinalized, match='already been finalized'):
+    with pytest.raises(
+        ApplicationFinalized, match='Reopen the application to edit it'
+    ):
         await update_uc.execute(1, 1, update_dto())
 
 
@@ -473,10 +544,12 @@ async def test_delete_removes_the_copy():
 
 async def test_delete_on_a_finalized_application_is_a_conflict():
     _, _, delete_uc, _ = make_read_write_use_cases(
-        make_application(feedback_id=1)
+        make_application(finalized_at=CLOSED_AT)
     )
 
-    with pytest.raises(ApplicationFinalized, match='already been finalized'):
+    with pytest.raises(
+        ApplicationFinalized, match='Reopen the application to edit it'
+    ):
         await delete_uc.execute(1, 1)
 
 

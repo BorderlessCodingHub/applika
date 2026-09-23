@@ -26,4 +26,14 @@ export interface ITailoredCvService {
    * a locked copy still downloads, which is half of what makes it readable.
    */
   exportPdf(applicationId: string): Promise<CvPdfExport>;
+  /** The same copy as Markdown (KODI-017 part 3), `GET .../cv/markdown`. */
+  exportMarkdown(applicationId: string): Promise<CvPdfExport>;
+  /**
+   * The diff between the copy and its baseline, as Markdown
+   * (`GET .../cv/diff/markdown`). 409s with "This CV copy has no baseline to
+   * compare with." when neither `base_snapshot` nor `base_cv_id` resolves.
+   */
+  exportDiffMarkdown(applicationId: string): Promise<CvPdfExport>;
+  /** The same diff, typeset as a PDF (`GET .../cv/diff/pdf`). Same 409. */
+  exportDiffPdf(applicationId: string): Promise<CvPdfExport>;
 }

@@ -1,25 +1,33 @@
+"""User statistics, read-only aggregates (R-021, R-022).
+
+Every statement filters on ``user_id`` (ADR 0004). ``cycle_id`` selects the
+scope the applications board uses: ``None`` is the current board
+(``cycle_id IS NULL``), an id is that archived cycle.
+
+The pipeline aggregates were keyed on the step catalog; since the timeline
+they are keyed on a *stage*, the pair ``(event_type, interview_type)``,
+ported from mynextjob's per-``event_type`` aggregates plus applika's
+``interview_type`` split (owner: "with this type we can migrate current steps
+definitions and still have the statistics per steps").
+"""
+
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Literal, TypedDict
 
 import sqlalchemy as sa
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.enums import EventType, InterviewType
 from app.domain.models import (
     ApplicationModel,
-    ApplicationStepModel,
     PlatformModel,
-    StepDefinitionModel,
+    TimelineEventModel,
 )
 
-
-class ApplicationStepCount(TypedDict):
-    step_id: int
-    step_name: str
-    step_color: str
-    step_strict: bool
-    count: int
+Stage = tuple[EventType, InterviewType | None]
+"""A statistics stage: an event type, and the interview type on interviews."""
 
 
 class ApplicationsPerPlatform(TypedDict):
@@ -38,15 +46,7 @@ class DailyApplicationsLastMonth(TypedDict):
     count: int
 
 
-class AverageDaysPerStep(TypedDict):
-    step_id: int
-    step_name: str
-    step_color: str
-    step_strict: bool
-    avg_days: Decimal
-
-
-def _cycle_filter(cycle_id: int | None):
+def _cycle_filter(cycle_id: int | None) -> ColumnElement[bool]:
     if cycle_id is not None:
         return ApplicationModel.cycle_id == cycle_id
     return ApplicationModel.cycle_id.is_(None)
@@ -58,102 +58,96 @@ class UserStatsRepository:
 
     async def get_applications_count(
         self, user_id: int, cycle_id: int | None = None
-    ) -> int | None:
-        return await self.session.scalar(
+    ) -> int:
+        total = await self.session.scalar(
             select(func.count(ApplicationModel.id).label('total')).where(
                 ApplicationModel.user_id == user_id,
                 _cycle_filter(cycle_id),
             )
         )
+        return int(total or 0)
 
-    async def count_applications_per_strict_step(
+    async def get_active_applications_count(
         self, user_id: int, cycle_id: int | None = None
-    ) -> list[ApplicationStepCount]:
-        app_ids_subq = (
-            select(ApplicationModel.id)
+    ) -> int:
+        """Applications in scope whose ``finalized_at`` is NULL (AC23,
+        KODI-013): the same scope/cycle filter as :meth:`get_applications_count`,
+        plus the open-application condition."""
+        total = await self.session.scalar(
+            select(func.count(ApplicationModel.id).label('total')).where(
+                ApplicationModel.user_id == user_id,
+                ApplicationModel.finalized_at.is_(None),
+                _cycle_filter(cycle_id),
+            )
+        )
+        return int(total or 0)
+
+    async def count_applications_per_stage(
+        self, user_id: int, cycle_id: int | None = None
+    ) -> dict[Stage, int]:
+        """``stage -> number of DISTINCT in-scope applications`` carrying at
+        least one event of that stage (an application counts once per stage
+        however many such events it has)."""
+        stmt = (
+            select(
+                TimelineEventModel.event_type,
+                TimelineEventModel.interview_type,
+                func.count(func.distinct(TimelineEventModel.application_id)),
+            )
+            .join(
+                ApplicationModel,
+                ApplicationModel.id == TimelineEventModel.application_id,
+            )
             .where(
+                TimelineEventModel.user_id == user_id,
                 ApplicationModel.user_id == user_id,
                 _cycle_filter(cycle_id),
             )
-            .subquery()
+            .group_by(
+                TimelineEventModel.event_type,
+                TimelineEventModel.interview_type,
+            )
         )
+        result = await self.session.execute(stmt)
+        return {
+            (event_type, interview_type): int(count)
+            for event_type, interview_type, count in result.tuples().all()
+        }
 
+    async def average_days_per_stage(
+        self, user_id: int, cycle_id: int | None = None
+    ) -> dict[Stage, Decimal]:
+        """``stage -> average days`` between an application's
+        ``application_date`` and its events of that stage, over every
+        in-scope event (Postgres ``date - date`` is whole days)."""
         stmt = (
             select(
-                StepDefinitionModel.id.label('step_id'),
-                StepDefinitionModel.name.label('step_name'),
-                StepDefinitionModel.strict.label('step_strict'),
-                StepDefinitionModel.color.label('step_color'),
-                func.coalesce(
-                    func.count(ApplicationStepModel.application_id), 0
-                ).label('count'),
-            )
-            .outerjoin(
-                ApplicationStepModel,
-                (StepDefinitionModel.id == ApplicationStepModel.step_id)
-                & (ApplicationStepModel.user_id == user_id)
-                & (
-                    ApplicationStepModel.application_id.in_(
-                        select(app_ids_subq.c.id)
-                    )
+                TimelineEventModel.event_type,
+                TimelineEventModel.interview_type,
+                func.avg(
+                    TimelineEventModel.event_date
+                    - ApplicationModel.application_date
                 ),
             )
-            .where(StepDefinitionModel.strict.is_(True))
-            .group_by(
-                StepDefinitionModel.id,
-                StepDefinitionModel.name,
-                StepDefinitionModel.color,
-                StepDefinitionModel.strict,
+            .join(
+                ApplicationModel,
+                ApplicationModel.id == TimelineEventModel.application_id,
             )
-            .order_by(StepDefinitionModel.id)
-        )
-
-        result = await self.session.execute(stmt)
-        return result.mappings().all()
-
-    async def count_applications_per_step(
-        self, user_id: int, cycle_id: int | None = None
-    ) -> list[ApplicationStepCount]:
-        app_ids_subq = (
-            select(ApplicationModel.id)
             .where(
+                TimelineEventModel.user_id == user_id,
                 ApplicationModel.user_id == user_id,
                 _cycle_filter(cycle_id),
             )
-            .subquery()
-        )
-
-        stmt = (
-            select(
-                StepDefinitionModel.id.label('step_id'),
-                StepDefinitionModel.name.label('step_name'),
-                StepDefinitionModel.strict.label('step_strict'),
-                StepDefinitionModel.color.label('step_color'),
-                func.coalesce(
-                    func.count(ApplicationStepModel.application_id), 0
-                ).label('count'),
-            )
-            .outerjoin(
-                ApplicationStepModel,
-                (StepDefinitionModel.id == ApplicationStepModel.step_id)
-                & (ApplicationStepModel.user_id == user_id)
-                & (
-                    ApplicationStepModel.application_id.in_(
-                        select(app_ids_subq.c.id)
-                    )
-                ),
-            )
             .group_by(
-                StepDefinitionModel.id,
-                StepDefinitionModel.name,
-                StepDefinitionModel.color,
-                StepDefinitionModel.strict,
+                TimelineEventModel.event_type,
+                TimelineEventModel.interview_type,
             )
-            .order_by(StepDefinitionModel.id)
         )
-
         result = await self.session.execute(stmt)
-        return result.mappings().all()
+        return {
+            (event_type, interview_type): Decimal(avg or 0)
+            for event_type, interview_type, avg in result.tuples().all()
+        }
 
     async def count_applications_grouped_by_platform(
         self, user_id: int, cycle_id: int | None = None
@@ -179,7 +173,12 @@ class UserStatsRepository:
         )
 
         result = await self.session.execute(stmt)
-        return result.mappings().all()
+        return [
+            ApplicationsPerPlatform(
+                platform_id=platform_id, platform_name=name, count=count
+            )
+            for platform_id, name, count in result.tuples().all()
+        ]
 
     async def count_applications_grouped_by_mode(
         self, user_id: int, cycle_id: int | None = None
@@ -197,7 +196,10 @@ class UserStatsRepository:
         )
 
         result = await self.session.execute(stmt)
-        return result.mappings().all()
+        return [
+            ApplicationsPerMode(mode=mode, count=count)
+            for mode, count in result.tuples().all()
+        ]
 
     async def count_applications_per_day_last_month(
         self, user_id: int, cycle_id: int | None = None
@@ -218,42 +220,7 @@ class UserStatsRepository:
         )
 
         result = await self.session.execute(stmt)
-        return result.mappings().all()
-
-    async def average_days_per_step(
-        self, user_id: int, cycle_id: int | None = None
-    ) -> list[AverageDaysPerStep]:
-        subq = (
-            select(
-                ApplicationStepModel.step_id.label('step_id'),
-                func.avg(
-                    ApplicationStepModel.step_date
-                    - ApplicationModel.application_date
-                ).label('avg_days'),
-            )
-            .outerjoin(
-                ApplicationModel,
-                ApplicationModel.id == ApplicationStepModel.application_id,
-            )
-            .where(
-                ApplicationModel.user_id == user_id,
-                _cycle_filter(cycle_id),
-            )
-            .group_by(ApplicationStepModel.step_id)
-            .subquery('savg')
-        )
-
-        stmt = (
-            select(
-                StepDefinitionModel.id.label('step_id'),
-                StepDefinitionModel.name.label('step_name'),
-                StepDefinitionModel.strict.label('step_strict'),
-                StepDefinitionModel.color.label('step_color'),
-                func.coalesce(subq.c.avg_days, 0).label('avg_days'),
-            )
-            .outerjoin(subq, StepDefinitionModel.id == subq.c.step_id)
-            .order_by(StepDefinitionModel.id)
-        )
-
-        result = await self.session.execute(stmt)
-        return result.mappings().all()
+        return [
+            DailyApplicationsLastMonth(application_date=day, count=count)
+            for day, count in result.tuples().all()
+        ]

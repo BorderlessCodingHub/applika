@@ -4,6 +4,9 @@ from app.application.dto.application import (
     ApplicationUpdateDTO,
 )
 from app.application.dto.company import CompanyCreateDTO
+from app.application.use_cases.applications.read_model import (
+    ApplicationReadModel,
+)
 from app.application.validators.application_date import ensure_not_in_future
 from app.core.exceptions import BusinessRuleViolation, ResourceNotFound
 from app.domain.repositories.application_repository import (
@@ -19,10 +22,12 @@ class UpdateApplicationUseCase:
         application_repo: ApplicationRepository,
         platform_repo: PlatformRepository,
         company_repo: CompanyRepository,
+        read_model: ApplicationReadModel,
     ):
         self.application_repo = application_repo
         self.platform_repo = platform_repo
         self.company_repo = company_repo
+        self.read_model = read_model
 
     async def execute(
         self, id: int, data: ApplicationUpdateDTO
@@ -76,7 +81,7 @@ class UpdateApplicationUseCase:
             application.job_description = data.job_description
 
         application = await self.application_repo.update(application)
-        return ApplicationDTO.model_validate(application)
+        return await self.read_model.one(application)
 
     async def _resolve_company(
         self,

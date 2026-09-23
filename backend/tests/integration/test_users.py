@@ -204,8 +204,9 @@ async def test_update_user_full_profile(
     assert data['salary_currency'] == 'USD', msg(
         'USD', data['salary_currency']
     )
-    assert data['salary_period'] == 'annual', msg(
-        'annual', data['salary_period']
+    # R-031: `annual` is accepted, stored and returned as annually.
+    assert data['salary_period'] == 'annually', msg(
+        'annually', data['salary_period']
     )
     assert data['experience_years'] == 12, msg(12, data['experience_years'])
     assert data['seniority_level'] == 'staff', msg(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { Fragment, useCallback, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
 import { ArrowDown, ArrowUp, ChevronDown, Plus, Trash2 } from "lucide-react";
 import type { LucideProps } from "lucide-react";
@@ -10,6 +10,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import type { CvRemovedRowSlot } from "@/components/base-cvs/cv-form-diff";
 import {
   CV_COLLAPSIBLE_CONTENT_CLASS,
   CvSectionCard,
@@ -74,6 +75,14 @@ export interface CvRepeatableSectionProps<
   onItemOpenChange?: (item: T, open: boolean) => void;
   /** Rendered inside the card under the list — the section's own error line. */
   footer?: ReactNode;
+  /** See `CvSectionCard`. */
+  status?: ReactNode;
+  statusId?: string;
+  /** Non-interactive, beside a row's caption (the CV copy's "Added" badge). */
+  itemBadge?: (item: T, index: number) => ReactNode;
+  itemClassName?: (item: T, index: number) => string | undefined;
+  /** Read-only rows interleaved by `at`. With any diff slot given, rows carry `data-item-id` for Restore's focus hand-off. */
+  removedRows?: readonly CvRemovedRowSlot[];
   className?: string;
 }
 
@@ -92,6 +101,27 @@ export interface CvRepeatableSectionProps<
  * the row label, while move and remove stay right — different icon family,
  * different side, different accessible names.
  */
+const NO_REMOVED_ROWS: readonly CvRemovedRowSlot[] = [];
+
+function removedRowsAt(
+  rows: readonly CvRemovedRowSlot[] | undefined,
+  index: number,
+  items: readonly unknown[],
+): readonly CvRemovedRowSlot[] {
+  if (!rows?.length) return NO_REMOVED_ROWS;
+  return rows.filter(
+    (row) => Math.max(0, Math.min(row.at, items.length)) === index,
+  );
+}
+
+function renderRemovedRow(row: CvRemovedRowSlot) {
+  return (
+    <li key={`removed:${row.key}`} data-slot="cv-repeatable-removed-item">
+      {row.node}
+    </li>
+  );
+}
+
 export function CvRepeatableSection<T extends { id: string }>({
   title,
   description,
@@ -112,6 +142,11 @@ export function CvRepeatableSection<T extends { id: string }>({
   revealNonce = "",
   onItemOpenChange,
   footer,
+  status,
+  statusId,
+  itemBadge,
+  itemClassName,
+  removedRows,
   className,
   collapsible,
   defaultOpen,
@@ -119,6 +154,10 @@ export function CvRepeatableSection<T extends { id: string }>({
   onOpenChange,
 }: CvRepeatableSectionProps<T>) {
   const atMax = max != null && items.length >= max;
+  const diffMode =
+    itemBadge !== undefined ||
+    itemClassName !== undefined ||
+    removedRows !== undefined;
   const canAdd = !disabled && !atMax;
 
   // Open is the ABSENCE of an entry, so a row the user has never touched — and
@@ -181,6 +220,8 @@ export function CvRepeatableSection<T extends { id: string }>({
       title={title}
       description={description}
       icon={icon}
+      status={status}
+      statusId={statusId}
       className={className}
       collapsible={collapsible}
       defaultOpen={defaultOpen}
@@ -192,9 +233,23 @@ export function CvRepeatableSection<T extends { id: string }>({
           <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-pretty text-muted-foreground">
             {emptyHint}
           </p>
-        ) : (
+        ) : null}
+        {items.length === 0 && removedRows?.length ? (
+          <ul className="mt-3 space-y-3">
+            {removedRows.map(renderRemovedRow)}
+          </ul>
+        ) : null}
+        {items.length > 0 ? (
           <ul className="space-y-3">
             {items.map((item, index) => {
+              const removedBefore = removedRowsAt(removedRows, index, items);
+              const removedAfter =
+                index === items.length - 1
+                  ? removedRowsAt(removedRows, items.length, items)
+                  : NO_REMOVED_ROWS;
+              const badge = itemBadge?.(item, index);
+              const hasBadge =
+                badge !== undefined && badge !== null && badge !== false;
               const position = `${itemNoun} ${index + 1}`;
               const label = itemLabel
                 ? itemLabel(item, index)
@@ -224,11 +279,19 @@ export function CvRepeatableSection<T extends { id: string }>({
                         {label}
                       </span>
                     </CollapsibleTrigger>
+                  ) : hasBadge ? (
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className="truncate text-xs font-medium tracking-wide-label text-muted-foreground uppercase">
+                        {label}
+                      </span>
+                      {badge}
+                    </div>
                   ) : (
                     <span className="truncate text-xs font-medium tracking-wide-label text-muted-foreground uppercase">
                       {label}
                     </span>
                   )}
+                  {collapsibleItems && hasBadge ? badge : null}
                   <div className="flex shrink-0 items-center gap-1">
                     {reorderable ? (
                       <>
@@ -292,40 +355,47 @@ export function CvRepeatableSection<T extends { id: string }>({
               );
 
               return (
-                <li
-                  key={item.id}
-                  data-slot="cv-repeatable-item"
-                  role="group"
-                  aria-label={position}
-                  className="rounded-lg border border-border bg-surface/60 p-3"
-                >
-                  {collapsibleItems ? (
-                    <Collapsible
-                      open={isOpen}
-                      onOpenChange={(next) => {
-                        setItemOpen(item.id, next);
-                        onItemOpenChange?.(item, next);
-                      }}
-                    >
-                      {header}
-                      <CollapsibleContent
-                        data-slot="cv-item-content"
-                        className={CV_COLLAPSIBLE_CONTENT_CLASS}
+                <Fragment key={item.id}>
+                  {removedBefore.map(renderRemovedRow)}
+                  <li
+                    data-slot="cv-repeatable-item"
+                    data-item-id={diffMode ? item.id : undefined}
+                    role="group"
+                    aria-label={position}
+                    className={cn(
+                      "rounded-lg border border-border bg-surface/60 p-3",
+                      itemClassName?.(item, index),
+                    )}
+                  >
+                    {collapsibleItems ? (
+                      <Collapsible
+                        open={isOpen}
+                        onOpenChange={(next) => {
+                          setItemOpen(item.id, next);
+                          onItemOpenChange?.(item, next);
+                        }}
                       >
+                        {header}
+                        <CollapsibleContent
+                          data-slot="cv-item-content"
+                          className={CV_COLLAPSIBLE_CONTENT_CLASS}
+                        >
+                          {body}
+                        </CollapsibleContent>
+                      </Collapsible>
+                    ) : (
+                      <>
+                        {header}
                         {body}
-                      </CollapsibleContent>
-                    </Collapsible>
-                  ) : (
-                    <>
-                      {header}
-                      {body}
-                    </>
-                  )}
-                </li>
+                      </>
+                    )}
+                  </li>
+                  {removedAfter.map(renderRemovedRow)}
+                </Fragment>
               );
             })}
           </ul>
-        )}
+        ) : null}
 
         {/*
           The add control, INSIDE the disclosure and directly below the last

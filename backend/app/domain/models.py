@@ -1,6 +1,6 @@
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
@@ -9,11 +9,76 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from app.core.enums import (
     Availability,
     Currency,
+    DeniedReason,
+    EventType,
     ExperienceLevel,
+    InterviewType,
     SalaryPeriod,
     WorkMode,
 )
 from app.lib.types import generate_snowflake_id
+
+# ``salaryperiod`` stores enum *names* (upper case). ``ANNUAL`` is the legacy
+# label: rows written before R-031 still hold it until the contract migration
+# remaps them, and it must read back as ``annually``. ``ANNUALLY`` is what
+# every write stores now. The order is the one production has
+# (``a1b2c3d4e5f6`` created the first three, ``afd4074c70c2`` appended
+# ``ANNUALLY``), so the ``create_all`` test schema carries all four labels.
+SALARY_PERIOD_LABELS = ('HOURLY', 'MONTHLY', 'ANNUAL', 'ANNUALLY')
+LEGACY_SALARY_PERIOD_LABELS: dict[str, SalaryPeriod] = {
+    'ANNUAL': SalaryPeriod.ANNUALLY,
+}
+
+
+class SalaryPeriodType(sa.types.TypeDecorator[SalaryPeriod]):
+    """The ``salaryperiod`` PG enum, mapped to ``SalaryPeriod``.
+
+    A plain ``sa.Enum(SalaryPeriod)`` cannot read a label that is not a
+    member name, and ``ANNUAL`` no longer is one (owner decision (c): "rename
+    to annually"). This type binds ``SalaryPeriod.ANNUALLY`` as ``ANNUALLY``
+    and reads both ``ANNUAL`` and ``ANNUALLY`` as ``SalaryPeriod.ANNUALLY``,
+    so the API never returns ``annual`` and never writes ``ANNUAL``. The
+    labels themselves are untouched: remapping the rows is the contract
+    migration's job (R2, KODI-013).
+    """
+
+    impl = sa.Enum(
+        *SALARY_PERIOD_LABELS,
+        name='salaryperiod',
+        create_constraint=False,
+        native_enum=True,
+    )
+    cache_ok = True
+
+    def process_bind_param(
+        self, value: SalaryPeriod | str | None, dialect: sa.Dialect
+    ) -> str | None:
+        if value is None:
+            return None
+        return SalaryPeriod(value).name
+
+    def process_result_value(
+        self, value: str | None, dialect: sa.Dialect
+    ) -> SalaryPeriod | None:
+        if value is None:
+            return None
+        legacy = LEGACY_SALARY_PERIOD_LABELS.get(value)
+        return legacy if legacy is not None else SalaryPeriod[value]
+
+
+def _lower_case_enum(
+    enum_class: type[EventType] | type[InterviewType] | type[DeniedReason],
+    name: str,
+):
+    """A PG enum whose labels are the member *values* (R1/R3 created them
+    so)."""
+    return sa.Enum(
+        enum_class,
+        name=name,
+        values_callable=lambda members: [member.value for member in members],
+        create_constraint=False,
+        native_enum=True,
+    )
 
 
 class BaseMixin:
@@ -64,12 +129,7 @@ class UserModel(BaseMixin, Base):
         )
     )
     salary_period: Mapped[SalaryPeriod | None] = mapped_column(
-        sa.Enum(
-            SalaryPeriod,
-            name='salaryperiod',
-            create_constraint=False,
-            native_enum=True,
-        )
+        SalaryPeriodType()
     )
     seniority_level: Mapped[ExperienceLevel | None] = mapped_column(
         sa.Enum(
@@ -101,9 +161,6 @@ class UserModel(BaseMixin, Base):
     )
 
     applications: Mapped[list[ApplicationModel]] = relationship(
-        back_populates='user'
-    )
-    applications_steps: Mapped[list[ApplicationStepModel]] = relationship(
         back_populates='user'
     )
     created_companies: Mapped[list[CompanyModel]] = relationship(
@@ -179,12 +236,15 @@ class StepDefinitionModel(BaseMixin, Base):
     color: Mapped[str] = mapped_column(sa.String(7), default='#007bff')
     # strict steps is only used in application finalization form
     strict: Mapped[bool] = mapped_column(sa.Boolean, default=False)
-
-    applications: Mapped[list[ApplicationModel]] = relationship(
-        back_populates='last_step_def'
+    # The mapping store of the compat layer (revision afd4074c70c2, owner
+    # decision (a)): which timeline event a legacy step becomes. NULL on a
+    # definition created after that revision; the translator then falls back
+    # to interview/unknown, like the revision's STEP_FALLBACK.
+    event_type: Mapped[EventType | None] = mapped_column(
+        _lower_case_enum(EventType, 'event_type'), nullable=True
     )
-    application_steps: Mapped[list[ApplicationStepModel]] = relationship(
-        back_populates='step_def'
+    interview_type: Mapped[InterviewType | None] = mapped_column(
+        _lower_case_enum(InterviewType, 'interview_type'), nullable=True
     )
 
 
@@ -193,10 +253,6 @@ class FeedbackDefinitionModel(BaseMixin, Base):
 
     name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
     color: Mapped[str] = mapped_column(sa.String(7), default='#28a745')
-
-    applications: Mapped[list[ApplicationModel]] = relationship(
-        back_populates='feedback_def'
-    )
 
 
 class CycleModel(BaseMixin, Base):
@@ -216,54 +272,6 @@ class CycleModel(BaseMixin, Base):
     quinzenal_reports: Mapped[list[QuinzenalReportModel]] = relationship(
         back_populates='cycle'
     )
-
-
-class ApplicationStepModel(BaseMixin, Base):
-    __tablename__ = 'application_steps'
-
-    application_id: Mapped[int] = mapped_column(
-        sa.ForeignKey('applications.id', ondelete='CASCADE'), nullable=False
-    )
-    step_id: Mapped[int] = mapped_column(
-        sa.ForeignKey('steps_definition.id'), nullable=False
-    )
-    step_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
-    start_time: Mapped[time | None] = mapped_column(sa.Time)
-    end_time: Mapped[time | None] = mapped_column(sa.Time)
-    timezone: Mapped[str | None] = mapped_column(sa.String(50))
-    observation: Mapped[str | None] = mapped_column(sa.Text)
-    user_id: Mapped[int] = mapped_column(
-        sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
-    )
-
-    user: Mapped[UserModel] = relationship(back_populates='applications_steps')
-    application: Mapped[ApplicationModel] = relationship(
-        back_populates='application_steps'
-    )
-    step_def: Mapped[StepDefinitionModel] = relationship(
-        back_populates='application_steps'
-    )
-
-    @property
-    def step_name(self) -> str:
-        try:
-            return self.step_def.name
-        except Exception:
-            return None
-
-
-class ApplicationLastStep(TypedDict):
-    id: int
-    name: str
-    color: str
-    date: date
-
-
-class ApplicationFeedback(TypedDict):
-    id: int
-    name: str
-    color: str
-    date: date
 
 
 class ApplicationModel(BaseMixin, Base):
@@ -296,7 +304,6 @@ class ApplicationModel(BaseMixin, Base):
     # working.
     job_description: Mapped[str | None] = mapped_column(sa.Text)
 
-    salary_offer: Mapped[float | None] = mapped_column(sa.Numeric(10, 2))
     expected_salary: Mapped[float | None] = mapped_column(sa.Numeric(10, 2))
     salary_range_min: Mapped[float | None] = mapped_column(sa.Numeric(10, 2))
     salary_range_max: Mapped[float | None] = mapped_column(sa.Numeric(10, 2))
@@ -313,13 +320,7 @@ class ApplicationModel(BaseMixin, Base):
         )
     )
     salary_period: Mapped[SalaryPeriod | None] = mapped_column(
-        sa.Enum(
-            SalaryPeriod,
-            name='salaryperiod',
-            create_constraint=False,
-            native_enum=True,
-            create_type=False,
-        )
+        SalaryPeriodType()
     )
     experience_level: Mapped[ExperienceLevel | None] = mapped_column(
         sa.Enum(
@@ -340,15 +341,15 @@ class ApplicationModel(BaseMixin, Base):
     )
     country: Mapped[str | None] = mapped_column(sa.String(100))
 
-    last_step_id: Mapped[int | None] = mapped_column(
-        sa.ForeignKey('steps_definition.id')
+    # Closed (reversible) when set, open when NULL (R-007, R-008). Revision
+    # afd4074c70c2 backfilled it from the legacy feedback_date. The legacy
+    # last_step_id, last_step_date, feedback_id, feedback_date and
+    # salary_offer columns still exist in the table but are no longer mapped:
+    # the timeline is the single source of truth, and the contract migration
+    # (R2) retires them.
+    finalized_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True
     )
-    last_step_date: Mapped[date | None] = mapped_column(sa.Date)
-
-    feedback_id: Mapped[int | None] = mapped_column(
-        sa.ForeignKey('feedbacks_definition.id')
-    )
-    feedback_date: Mapped[date | None] = mapped_column(sa.Date)
 
     user: Mapped[UserModel] = relationship(back_populates='applications')
     company_rel: Mapped[CompanyModel | None] = relationship(
@@ -357,14 +358,10 @@ class ApplicationModel(BaseMixin, Base):
     platform: Mapped[PlatformModel] = relationship(
         back_populates='applications'
     )
-    last_step_def: Mapped[StepDefinitionModel | None] = relationship(
-        back_populates='applications'
-    )
-    feedback_def: Mapped[FeedbackDefinitionModel | None] = relationship(
-        back_populates='applications'
-    )
-    application_steps: Mapped[list[ApplicationStepModel]] = relationship(
-        back_populates='application'
+    # Bulk DELETEs (ApplicationRepository.delete_by_id, the cycle cascade)
+    # rely on the FK ON DELETE CASCADE, hence ``passive_deletes``.
+    timeline_events: Mapped[list['TimelineEventModel']] = relationship(
+        back_populates='application', passive_deletes=True
     )
     cycle: Mapped[CycleModel | None] = relationship(
         back_populates='applications'
@@ -383,28 +380,132 @@ class ApplicationModel(BaseMixin, Base):
     )
 
     @property
-    def last_step(self) -> ApplicationLastStep | None:
-        if self.last_step_def:
-            return ApplicationLastStep(
-                id=self.last_step_def.id,
-                name=self.last_step_def.name,
-                color=self.last_step_def.color,
-                date=self.last_step_date,
-            )
-
-    @property
-    def feedback(self) -> ApplicationFeedback | None:
-        if self.feedback_def:
-            return ApplicationLastStep(
-                id=self.feedback_def.id,
-                name=self.feedback_def.name,
-                color=self.feedback_def.color,
-                date=self.feedback_date,
-            )
-
-    @property
     def finalized(self) -> bool:
-        return self.feedback_id is not None
+        """Closed. Reversible since R-008, kept for installed CLIs (R-019)."""
+        return self.finalized_at is not None
+
+
+class TimelineEventModel(BaseMixin, Base):
+    """One entry on an application's timeline (R-001..R-005).
+
+    Ported from mynextjob's ``TimelineEventModel`` and mapped onto the table
+    revision ``afd4074c70c2`` created, object for object: the two CHECKs, the
+    three ``ix_timeline_events_*`` indexes and the partial unique index
+    ``uq_timeline_events_one_initial_screening`` carry the revision's names and
+    definitions, because the tests build their schema with ``create_all`` and
+    the code relies on every one of them. ``denied_reason`` and its CHECK
+    were added by migration R3 (``c8b3e9f4a1d6``, KODI-014), folded into
+    Release A ahead of this ORM mapping (Release B).
+    ``ck_timeline_events_schedule_interview_only`` was added by migration R4
+    (``af50c83911a7``, KODI-016), folded into Release A the same way.
+
+    * ``event_type`` is one of five fixed values; ``interview_type`` is set on
+      interview events only (``ck_timeline_events_interview_type``).
+    * The salary triple is set on offer events only, all three or none
+      (``ck_timeline_events_offer_salary``).
+    * ``denied_reason`` is set on ``denied`` events only, defaulting to
+      ``unknown`` (``ck_timeline_events_denied_reason``, R-033..R-036).
+    * ``start_time``, ``end_time`` and ``timezone`` are set on interview
+      events only (``ck_timeline_events_schedule_interview_only``, KODI-016,
+      R-038/R-039). Owner: "if event type is different from interview,
+      these attributes must be blocked".
+    * At most one ``initial_screening`` interview per application (R-030,
+      owner decision (a)).
+    * Rows migrated from ``application_steps`` keep the step's id (R-013).
+
+    Every read and write is scoped to ``user_id`` (ADR 0004).
+    """
+
+    __tablename__ = 'timeline_events'
+
+    __table_args__ = (
+        sa.PrimaryKeyConstraint('id', name='pk_timeline_events'),
+        sa.CheckConstraint(
+            "(event_type = 'interview' AND interview_type IS NOT NULL) "
+            "OR (event_type <> 'interview' AND interview_type IS NULL)",
+            name='ck_timeline_events_interview_type',
+        ),
+        sa.CheckConstraint(
+            "(event_type = 'offer' AND salary_amount IS NOT NULL "
+            'AND salary_currency IS NOT NULL AND salary_period IS NOT NULL) '
+            "OR (event_type <> 'offer' AND salary_amount IS NULL "
+            'AND salary_currency IS NULL AND salary_period IS NULL)',
+            name='ck_timeline_events_offer_salary',
+        ),
+        sa.CheckConstraint(
+            "(event_type = 'denied' AND denied_reason IS NOT NULL) "
+            "OR (event_type <> 'denied' AND denied_reason IS NULL)",
+            name='ck_timeline_events_denied_reason',
+        ),
+        sa.CheckConstraint(
+            "event_type = 'interview' "
+            'OR (start_time IS NULL AND end_time IS NULL '
+            'AND timezone IS NULL)',
+            name='ck_timeline_events_schedule_interview_only',
+        ),
+        sa.Index('ix_timeline_events_application_id', 'application_id'),
+        sa.Index('ix_timeline_events_user_id', 'user_id'),
+        sa.Index(
+            'ix_timeline_events_user_id_start_time', 'user_id', 'start_time'
+        ),
+        sa.Index(
+            'uq_timeline_events_one_initial_screening',
+            'application_id',
+            unique=True,
+            postgresql_where=sa.text("interview_type = 'initial_screening'"),
+        ),
+    )
+
+    application_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'applications.id',
+            ondelete='CASCADE',
+            name='fk_timeline_events_application_id',
+        ),
+        nullable=False,
+    )
+    user_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'users.id', ondelete='CASCADE', name='fk_timeline_events_user_id'
+        ),
+        nullable=False,
+    )
+    event_type: Mapped[EventType] = mapped_column(
+        _lower_case_enum(EventType, 'event_type'), nullable=False
+    )
+    interview_type: Mapped[InterviewType | None] = mapped_column(
+        _lower_case_enum(InterviewType, 'interview_type'), nullable=True
+    )
+    denied_reason: Mapped[DeniedReason | None] = mapped_column(
+        _lower_case_enum(DeniedReason, 'denied_reason'), nullable=True
+    )
+    event_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    start_time: Mapped[time | None] = mapped_column(sa.Time, nullable=True)
+    end_time: Mapped[time | None] = mapped_column(sa.Time, nullable=True)
+    timezone: Mapped[str | None] = mapped_column(sa.String(100), nullable=True)
+    observation: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    salary_amount: Mapped[Decimal | None] = mapped_column(
+        sa.Numeric(12, 2), nullable=True
+    )
+    salary_currency: Mapped[Currency | None] = mapped_column(
+        sa.Enum(
+            Currency,
+            name='currency',
+            create_constraint=False,
+            native_enum=True,
+            create_type=False,
+        ),
+        nullable=True,
+    )
+    salary_period: Mapped[SalaryPeriod | None] = mapped_column(
+        SalaryPeriodType(), nullable=True
+    )
+
+    application: Mapped[ApplicationModel] = relationship(
+        back_populates='timeline_events'
+    )
 
 
 ReportDays = Literal[1, 14, 28, 42, 56, 70, 84, 98, 112, 120]
@@ -626,6 +727,8 @@ class TailoredCVModel(BaseMixin, Base):
     constraint and the ``user_id`` index. The primary key is the inherited
     Snowflake ``BaseMixin.id`` (BIGINT, generated in Python, no sequence, no
     server default - docs/applika/adr/0003-snowflake-string-ids.md).
+    ``base_snapshot`` mirrors revision ``c1d9f4a7b3e6`` (R5, KODI-017 part
+    2): nullable JSONB, no server default, no backfill.
 
     There is deliberately no index on ``base_cv_id``: it has none in the
     migration either, and at current volume the sequential scan
@@ -702,6 +805,19 @@ class TailoredCVModel(BaseMixin, Base):
         server_default=sa.text('false'),
     )
     adjustments: Mapped[list[dict[str, Any]]] = _empty_jsonb_list()
+
+    # A snapshot of the master CV this copy was made from, taken once at
+    # create time (revision ``c1d9f4a7b3e6``, R5, KODI-017 part 2). Nullable,
+    # no server default, never backfilled: a copy created before this
+    # revision reads back ``None``, and the web diff falls back to the
+    # current master CV via ``base_cv_id`` for it. Never changed after
+    # creation - not by PUT (``TailoredCVUpdateDTO`` carries no such field),
+    # not by editing the master, not by deleting it. Its shape is exactly
+    # ``TailoredCVContent`` (identity/contact, summary, seven sections) -
+    # the same document shape the copy itself stores.
+    base_snapshot: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB, nullable=True, default=None
+    )
 
     application: Mapped[ApplicationModel] = relationship(
         back_populates='tailored_cv'

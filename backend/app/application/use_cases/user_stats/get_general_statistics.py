@@ -1,38 +1,45 @@
 from app.application.dto.statistic import GeneralStatsDTO
+from app.application.use_cases.user_stats.get_conversion_rate import (
+    conversion_rate,
+)
+from app.core.enums import EventType
 from app.domain.repositories.user_statistic_repository import (
     UserStatsRepository,
 )
 
 
 class GeneralStatisticsUseCase:
+    """Totals for the dashboard (R-022).
+
+    Offers and denials are the applications with at least one offer or
+    denied event, counted independently: an application with both counts
+    in both. The success rate is offers over all applications. Keyed on the
+    event type, no longer on the "Offer"/"Denied" step names.
+
+    ``active`` (AC23, KODI-013) is the applications in the same scope/cycle
+    as ``total_applications`` whose ``finalized_at`` is NULL — not closed,
+    regardless of outcome.
+    """
+
     def __init__(self, stats_repo: UserStatsRepository):
         self.stats_repo = stats_repo
 
     async def execute(
         self, user_id: int, cycle_id: int | None = None
     ) -> GeneralStatsDTO:
-        total_a = await self.stats_repo.get_applications_count(
+        total = await self.stats_repo.get_applications_count(user_id, cycle_id)
+        reached = await self.stats_repo.count_applications_per_stage(
             user_id, cycle_id
         )
-        stricts = await self.stats_repo.count_applications_per_strict_step(
+        active = await self.stats_repo.get_active_applications_count(
             user_id, cycle_id
         )
-
-        offers, denials, success_rate = 0, 0, 0
-        for strict in stricts:
-            if strict['step_name'].lower() == 'offer':
-                offers = strict['count']
-                success_rate = (
-                    round((strict['count'] / total_a * 100), 1)
-                    if total_a > 0
-                    else 0
-                )
-            elif strict['step_name'].lower() == 'denied':
-                denials = strict['count']
-
+        offers = reached.get((EventType.OFFER, None), 0)
+        denials = reached.get((EventType.DENIED, None), 0)
         return GeneralStatsDTO(
+            active=active,
             denials=denials,
             offers=offers,
-            success_rate=success_rate,
-            total_applications=total_a,
+            success_rate=conversion_rate(total, offers),
+            total_applications=total,
         )

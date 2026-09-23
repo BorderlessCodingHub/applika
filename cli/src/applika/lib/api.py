@@ -134,11 +134,38 @@ class ApiClient:
     def post_json(self, path: str, payload: dict[str, Any]) -> Any:
         return self.request('POST', path, json=payload).json()
 
+    def post(self, path: str, payload: dict[str, Any] | None = None) -> Any:
+        """POST with an optional body. ``payload=None`` sends no body at
+        all (no ``json`` kwarg reaches httpx, so no ``Content-Type`` header
+        and no bytes go out) - used for the bodyless finalize/reopen close,
+        which must be indistinguishable from a client that never heard of
+        the outcome body."""
+        return self.request('POST', path, json=payload).json()
+
     def put_json(self, path: str, payload: dict[str, Any]) -> Any:
         return self.request('PUT', path, json=payload).json()
 
+    def patch_json(self, path: str, payload: dict[str, Any]) -> Any:
+        """PATCH with a body - the master CV's partial update (KODI-018)."""
+        return self.request('PATCH', path, json=payload).json()
+
     def delete(self, path: str) -> None:
         self.request('DELETE', path)
+
+    def fetch_raw(
+        self,
+        method: str,
+        path: str,
+    ) -> tuple[bytes, dict[str, str]]:
+        """The response body as bytes plus its headers (KODI-018).
+
+        The CV download routes answer ``application/pdf`` or
+        ``text/markdown`` and carry the file name in ``Content-Disposition``,
+        so a ``.json()`` helper cannot serve them. Additive: every existing
+        method keeps its signature and its behaviour.
+        """
+        response = self.request(method, path)
+        return response.content, dict(response.headers)
 
     def logout(self) -> None:
         try:

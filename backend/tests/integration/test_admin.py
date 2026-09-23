@@ -1,9 +1,13 @@
+from datetime import date
+
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.enums import EventType
+from app.main import app as main_app
 from tests import msg
 from tests.base_db_setup import base_data
-
+from tests.integration import timeline_seed as ts
 
 # ── Access Control: non-admin user gets 403 on every admin route ────
 
@@ -19,8 +23,6 @@ ADMIN_GET_ROUTES = [
     f'/admin/users/{base_data()["admin_user"].id}',
     '/admin/companies',
     '/admin/platforms',
-    '/admin/step-definitions',
-    '/admin/feedback-definitions',
 ]
 
 
@@ -41,14 +43,6 @@ async def test_non_admin_gets_403_on_post_routes(
     post_routes = [
         ('/admin/companies', {'name': 'X', 'url': 'https://x.com'}),
         ('/admin/platforms', {'name': 'X', 'url': 'https://x.com'}),
-        (
-            '/admin/step-definitions',
-            {'name': 'X', 'color': '#000000', 'strict': False},
-        ),
-        (
-            '/admin/feedback-definitions',
-            {'name': 'X', 'color': '#000000'},
-        ),
     ]
     for route, payload in post_routes:
         resp = await async_client.post(route, json=payload)
@@ -64,8 +58,6 @@ async def test_non_admin_gets_403_on_patch_routes(
         ('/admin/users/1', {'is_admin': True}),
         ('/admin/companies/1', {'name': 'Y'}),
         ('/admin/platforms/1', {'name': 'Y'}),
-        ('/admin/step-definitions/1', {'name': 'Y'}),
-        ('/admin/feedback-definitions/1', {'name': 'Y'}),
     ]
     for route, payload in patch_routes:
         resp = await async_client.patch(route, json=payload)
@@ -80,8 +72,6 @@ async def test_non_admin_gets_403_on_delete_routes(
     delete_routes = [
         '/admin/companies/9999',
         '/admin/platforms/9999',
-        '/admin/step-definitions/9999',
-        '/admin/feedback-definitions/9999',
     ]
     for route in delete_routes:
         resp = await async_client.delete(route)
@@ -323,111 +313,111 @@ async def test_admin_delete_platform_no_refs(
     assert resp.status_code == 204, msg(204, resp.status_code)
 
 
-# ── Admin Step Definitions CRUD ───────────────────────────────────
+# ── Step and feedback catalogs: retired (R-021) ────────────────────
+
+CATALOG_ROUTES = [
+    ('GET', '/admin/step-definitions', None),
+    ('POST', '/admin/step-definitions', {'name': 'X', 'color': '#000000'}),
+    ('PATCH', '/admin/step-definitions/100', {'name': 'Y'}),
+    ('DELETE', '/admin/step-definitions/100', None),
+    ('GET', '/admin/feedback-definitions', None),
+    ('POST', '/admin/feedback-definitions', {'name': 'X', 'color': '#000'}),
+    ('PATCH', '/admin/feedback-definitions/1', {'name': 'Y'}),
+    ('DELETE', '/admin/feedback-definitions/1', None),
+]
 
 
-async def test_admin_create_step_definition(
+async def test_catalog_routes_are_gone_for_admins(
     admin_client: AsyncClient, db_session: AsyncSession
 ):
-    resp = await admin_client.post(
-        '/admin/step-definitions',
-        json={'name': 'Phone Screen', 'color': '#ff5500', 'strict': False},
+    """Nobody may create, edit or delete a step or feedback definition."""
+    for method, route, payload in CATALOG_ROUTES:
+        resp = await admin_client.request(method, route, json=payload)
+        assert resp.status_code == 404, f'{method} {route}: {resp.status_code}'
+
+    supports = (await admin_client.get('/supports')).json()
+    assert [(s['id'], s['name']) for s in supports['steps']] == [
+        (str(base_data()['step_applied'].id), 'Applied')
+    ]
+    assert {f['name'] for f in supports['feedbacks']} == {'Denied', 'Accepted'}
+
+
+async def test_catalog_routes_are_gone_for_users(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    for method, route, payload in CATALOG_ROUTES:
+        resp = await async_client.request(method, route, json=payload)
+        assert resp.status_code == 404, f'{method} {route}: {resp.status_code}'
+
+
+def test_catalog_routes_are_not_in_openapi():
+    paths = main_app.openapi()['paths']
+    assert not [p for p in paths if 'step-definitions' in p]
+    assert not [p for p in paths if 'feedback-definitions' in p]
+
+
+# ── Admin stats on the timeline (T030) ────────────────────────────
+
+
+async def _seed_outcomes(db_session: AsyncSession) -> None:
+    """Base user: 4 applications.
+
+    1 offer event, closed; 2 denied event, closed; 3 offer AND denied,
+    open; 4 nothing, open.
+    """
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        ts.application(1, finalized_at=ts.closed_at(date(2025, 12, 9))),
+        ts.application(2, finalized_at=ts.closed_at(date(2025, 12, 9))),
+        ts.application(3),
+        ts.application(4),
+        ts.event(11, 1, event_type=EventType.OFFER, **ts.offer_salary('1')),
+        ts.event(12, 2, event_type=EventType.DENIED),
+        ts.event(13, 3, event_type=EventType.OFFER, **ts.offer_salary('1')),
+        ts.event(14, 3, event_type=EventType.DENIED),
     )
-    assert resp.status_code == 201, msg(201, resp.status_code)
-    assert resp.json()['name'] == 'Phone Screen'
 
 
-async def test_admin_list_step_definitions(
+async def test_admin_stats_read_the_timeline(
     admin_client: AsyncClient, db_session: AsyncSession
 ):
-    resp = await admin_client.get('/admin/step-definitions')
-    assert resp.status_code == 200, msg(200, resp.status_code)
-    assert isinstance(resp.json(), list)
-    assert len(resp.json()) >= 1
+    await _seed_outcomes(db_session)
+
+    data = (await admin_client.get('/admin/stats')).json()
+
+    assert data['total_applications'] == 4
+    assert data['total_offers'] == 2  # accepted = has an offer event
+    assert data['total_denials'] == 2  # rejected = has a denied event
+    assert data['total_finalized'] == 2  # closed = finalized_at set
+    assert data['finalization_rate'] == 50.0
+    assert data['global_success_rate'] == 50.0
+    # Activity from applications and timeline_events created lately.
+    assert data['active_users_30d'] == 1
 
 
-async def test_admin_update_step_definition(
+async def test_admin_user_counts_read_the_timeline(
     admin_client: AsyncClient, db_session: AsyncSession
 ):
-    step_id = base_data()['step_applied'].id
-    resp = await admin_client.patch(
-        f'/admin/step-definitions/{step_id}',
-        json={'name': 'Applied (Updated)'},
-    )
-    assert resp.status_code == 200, msg(200, resp.status_code)
-    assert resp.json()['name'] == 'Applied (Updated)'
+    await _seed_outcomes(db_session)
+    user_id = base_data()['user'].id
+
+    detail = (await admin_client.get(f'/admin/users/{user_id}')).json()
+    rows = (await admin_client.get('/admin/users')).json()
+    [row] = [r for r in rows['items'] if r['id'] == str(user_id)]
+
+    for counts in (detail, row):
+        assert counts['total_applications'] == 4
+        assert counts['offers'] == 2
+        assert counts['denials'] == 2
+        assert counts['active_applications'] == 2  # finalized_at IS NULL
 
 
-async def test_admin_delete_step_definition_no_refs(
+async def test_admin_activity_heatmap_counts_timeline_events(
     admin_client: AsyncClient, db_session: AsyncSession
 ):
-    create_resp = await admin_client.post(
-        '/admin/step-definitions',
-        json={'name': 'TempStep', 'color': '#aabbcc', 'strict': False},
-    )
-    step_id = create_resp.json()['id']
+    await _seed_outcomes(db_session)
 
-    resp = await admin_client.delete(
-        f'/admin/step-definitions/{step_id}'
-    )
-    assert resp.status_code == 204, msg(204, resp.status_code)
+    cells = (await admin_client.get('/admin/stats/activity-heatmap')).json()
 
-
-# ── Admin Feedback Definitions CRUD ───────────────────────────────
-
-
-async def test_admin_create_feedback_definition(
-    admin_client: AsyncClient, db_session: AsyncSession
-):
-    resp = await admin_client.post(
-        '/admin/feedback-definitions',
-        json={'name': 'Ghosted', 'color': '#888888'},
-    )
-    assert resp.status_code == 201, msg(201, resp.status_code)
-    assert resp.json()['name'] == 'Ghosted'
-
-
-async def test_admin_list_feedback_definitions(
-    admin_client: AsyncClient, db_session: AsyncSession
-):
-    resp = await admin_client.get('/admin/feedback-definitions')
-    assert resp.status_code == 200, msg(200, resp.status_code)
-    assert isinstance(resp.json(), list)
-    assert len(resp.json()) >= 1
-
-
-async def test_admin_update_feedback_definition(
-    admin_client: AsyncClient, db_session: AsyncSession
-):
-    fb_id = base_data()['fb_denied'].id
-    resp = await admin_client.patch(
-        f'/admin/feedback-definitions/{fb_id}',
-        json={'name': 'Rejected'},
-    )
-    assert resp.status_code == 200, msg(200, resp.status_code)
-    assert resp.json()['name'] == 'Rejected'
-
-
-async def test_admin_update_feedback_definition_not_found(
-    admin_client: AsyncClient, db_session: AsyncSession
-):
-    resp = await admin_client.patch(
-        '/admin/feedback-definitions/999999',
-        json={'name': 'Ghost'},
-    )
-    assert resp.status_code == 404, msg(404, resp.status_code)
-
-
-async def test_admin_delete_feedback_definition_no_refs(
-    admin_client: AsyncClient, db_session: AsyncSession
-):
-    create_resp = await admin_client.post(
-        '/admin/feedback-definitions',
-        json={'name': 'TempFB', 'color': '#cccccc'},
-    )
-    fb_id = create_resp.json()['id']
-
-    resp = await admin_client.delete(
-        f'/admin/feedback-definitions/{fb_id}'
-    )
-    assert resp.status_code == 204, msg(204, resp.status_code)
+    assert sum(cell['count'] for cell in cells) == 4

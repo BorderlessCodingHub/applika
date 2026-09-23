@@ -27,6 +27,9 @@ from app.presentation.dependencies import (
     CurrentUserDp,
     DeleteTailoredCVUseCaseDp,
     GetTailoredCVUseCaseDp,
+    RenderTailoredCVDiffMarkdownUseCaseDp,
+    RenderTailoredCVDiffPdfUseCaseDp,
+    RenderTailoredCVMarkdownUseCaseDp,
     RenderTailoredCVPdfUseCaseDp,
     UpdateTailoredCVUseCaseDp,
 )
@@ -164,6 +167,116 @@ async def export_tailored_cv_pdf(
     is exactly the one the user is most likely to want a PDF of. 404 when
     the application is unknown, not owned, or has no copy; 500 when the
     render fails, with nothing written.
+    """
+    rendered = await use_case.execute(application_id, c_user.id)
+    return Response(
+        content=rendered.content,
+        media_type='application/pdf',
+        headers={
+            'Content-Disposition': (
+                f'attachment; filename="{rendered.filename}"'
+            )
+        },
+    )
+
+
+@router.get(
+    '/{application_id}/cv/markdown',
+    response_class=Response,
+    responses={
+        '200': {
+            'content': {'text/markdown': {}},
+            'description': 'The CV copy as Markdown.',
+        },
+        '404': {'model': DetailSchema},
+        '500': {'model': DetailSchema},
+    },
+)
+async def export_tailored_cv_markdown(
+    application_id: SnowflakeID,
+    c_user: CurrentUserDp,
+    use_case: RenderTailoredCVMarkdownUseCaseDp,
+):
+    """Download this application's CV copy as Markdown.
+
+    Like ``GET`` and the PDF download, and unlike every write here, this
+    carries **no** finalized or archived guard. 404 when the application
+    is unknown, not owned, or has no copy; 500 when the render fails,
+    with nothing written.
+    """
+    rendered = await use_case.execute(application_id, c_user.id)
+    return Response(
+        content=rendered.content,
+        media_type='text/markdown; charset=utf-8',
+        headers={
+            'Content-Disposition': (
+                f'attachment; filename="{rendered.filename}"'
+            )
+        },
+    )
+
+
+@router.get(
+    '/{application_id}/cv/diff/markdown',
+    response_class=Response,
+    responses={
+        '200': {
+            'content': {'text/markdown': {}},
+            'description': 'The diff between the copy and its baseline.',
+        },
+        '404': {'model': DetailSchema},
+        '409': {'model': DetailSchema},
+        '500': {'model': DetailSchema},
+    },
+)
+async def export_tailored_cv_diff_markdown(
+    application_id: SnowflakeID,
+    c_user: CurrentUserDp,
+    use_case: RenderTailoredCVDiffMarkdownUseCaseDp,
+):
+    """Download the diff between this CV copy and its baseline as Markdown.
+
+    The baseline is ``base_snapshot`` when present, else the current
+    master CV via ``base_cv_id``; when neither resolves the answer is
+    409 "This CV copy has no baseline to compare with." No finalized or
+    archived guard, same as ``GET`` and the other exports. 404 when the
+    application is unknown, not owned, or has no copy.
+    """
+    rendered = await use_case.execute(application_id, c_user.id)
+    return Response(
+        content=rendered.content,
+        media_type='text/markdown; charset=utf-8',
+        headers={
+            'Content-Disposition': (
+                f'attachment; filename="{rendered.filename}"'
+            )
+        },
+    )
+
+
+@router.get(
+    '/{application_id}/cv/diff/pdf',
+    response_class=Response,
+    responses={
+        '200': {
+            'content': {'application/pdf': {}},
+            'description': 'The diff between the copy and its baseline.',
+        },
+        '404': {'model': DetailSchema},
+        '409': {'model': DetailSchema},
+        '500': {'model': DetailSchema},
+    },
+)
+async def export_tailored_cv_diff_pdf(
+    application_id: SnowflakeID,
+    c_user: CurrentUserDp,
+    use_case: RenderTailoredCVDiffPdfUseCaseDp,
+):
+    """Download the diff between this CV copy and its baseline as a PDF.
+
+    Same content and the same baseline/409 rule as
+    ``.../cv/diff/markdown``, compiled through Typst
+    (docs/applika/adr/0011-server-side-cv-pdf-rendercv.md).
     """
     rendered = await use_case.execute(application_id, c_user.id)
     return Response(

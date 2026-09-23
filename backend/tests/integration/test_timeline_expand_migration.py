@@ -14,13 +14,17 @@ What is proved here, by acceptance criterion of KODI-010:
 * 5 - every finalized application is closed (``finalized_at``), its feedback
   name is on the terminal event and its salary on the offer event (decision
   (b)), including one finalized with no step row at all;
-* 6 - writes made by the **old use cases themselves** (create, update, delete
-  step, finalize, admin-created definition) reach ``timeline_events`` through
-  the transitional triggers, and a trigger failure never fails the old write;
+* 6 - writes shaped like the **old use cases' own SQL** (create, update,
+  delete step, finalize, admin-created definition) reach ``timeline_events``
+  through the transitional triggers, and a trigger failure never fails the
+  old write. Release B (KODI-011) removed those use cases, so the helpers now
+  issue the statements they issued;
 * 7, 10 - downgrade restores the originals and brings Release B events back
   as steps; the second upgrade equals the first;
-* 8, 9, 11 - downgrade works, upgrade drops nothing, no ORM model maps a new
-  object;
+* 8, 9, 11 - downgrade works, upgrade drops nothing; since Release B the ORM
+  maps exactly R1's new objects and nothing ``_old``;
+* KODI-011 criterion 26 - the **Release B code itself** runs on this schema,
+  and what it writes comes back as steps on ``alembic downgrade``;
 * 13 - the 20 currencies and ``ANNUALLY`` exist, ``ANNUAL`` still works.
 
 The plumbing is the one of ``test_migration_cv_period.py``. Every row here is
@@ -52,6 +56,11 @@ from app.config.settings import envs
 
 REVISION = 'afd4074c70c2'
 PARENT_REVISION = 'd3f7b1c9e2a4'
+# KODI-014: "Fold into Release A" chains R1 -> R3 -> R2, so R3 ships in the
+# same release as R1. Used only by the Release B round-trip test below,
+# which needs the true Release A shape (R1 + R3) before running Release B's
+# own use cases - they always write ``denied_reason``.
+R3_REVISION = 'c8b3e9f4a1d6'
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 _ALEMBIC_INI = _BACKEND_ROOT / 'alembic.ini'
@@ -825,26 +834,35 @@ def test_the_mapping_constants_carry_the_owner_decisions() -> None:
     assert set(module.CURRENCIES_ADDED) == ADDED_CURRENCIES
 
 
-def test_no_orm_model_maps_a_new_object() -> None:
-    """prod-release-runbook.md 4: Release A code reads nothing new."""
+def test_release_b_orm_maps_the_new_objects_and_nothing_old() -> None:
+    """Release A read nothing new (prod-release-runbook.md 4); Release B
+    (KODI-011) maps R1's objects and stops mapping the legacy columns, and
+    still never touches an ``_old`` object (non-destructive-migrations 7)."""
     from app.domain import models
     from app.domain.models import ApplicationModel, StepDefinitionModel
 
     tables = set(models.Base.metadata.tables)
-    assert 'timeline_events' not in tables
-    assert 'finalized_at' not in ApplicationModel.__table__.columns
+    assert 'timeline_events' in tables
+    assert 'application_steps' not in tables
+    app_columns = ApplicationModel.__table__.columns
+    assert 'finalized_at' in app_columns
+    for legacy in (
+        'last_step_id',
+        'last_step_date',
+        'feedback_id',
+        'feedback_date',
+        'salary_offer',
+    ):
+        assert legacy not in app_columns, legacy
     step_columns = StepDefinitionModel.__table__.columns
-    assert 'event_type' not in step_columns
-    assert 'interview_type' not in step_columns
+    assert 'event_type' in step_columns
+    assert 'interview_type' in step_columns
 
     app_dir = _BACKEND_ROOT / 'app'
     offenders = [
         path.relative_to(_BACKEND_ROOT)
         for path in app_dir.rglob('*.py')
-        if any(
-            word in path.read_text(encoding='utf-8')
-            for word in ('_old', 'timeline_events', 'finalized_at')
-        )
+        if '_old' in path.read_text(encoding='utf-8')
     ]
     assert offenders == [], offenders
 
@@ -923,7 +941,7 @@ def test_currencies_and_salary_periods(migration_db: str) -> None:
     )
     from app.core.enums import SalaryPeriod
 
-    assert SalaryPeriod('annual') is SalaryPeriod.ANNUAL
+    assert SalaryPeriod('annual') is SalaryPeriod.ANNUALLY
 
 
 _VALID_EVENT = {
@@ -1208,120 +1226,64 @@ def test_offer_salaries_follow_decision_b(migration_db: str) -> None:
 # --------------------------------------------------------------------------
 
 
-async def _old_code_session_run(url: str, work: Callable[..., Any]) -> Any:
-    engine = create_async_engine(url, poolclass=NullPool)
-    try:
-        maker = async_sessionmaker(
-            engine, autoflush=False, expire_on_commit=False
-        )
-        async with maker() as session:
-            return await work(session)
-    finally:
-        await engine.dispose()
-
-
-def _old_code(url: str, work: Callable[..., Any]) -> Any:
-    return _run(_old_code_session_run(url, work))
+# The statements the old (Release A) use cases issued. Their Python code is
+# gone since Release B, so the helpers issue the same SQL: an ORM insert of
+# every column, an update of the step's columns plus ``updated_at``, a delete
+# by id, and finalize's step insert followed by the ``applications`` update.
 
 
 def _create_step(
     url: str, app_id: int, step_id: int, day: date, **fields: Any
 ) -> int:
-    from app.application.dto.application_step import (
-        ApplicationStepCreateDTO,
-    )
-    from app.application.use_cases.application_steps.create_application_step import (
-        CreateApplicationStepUseCase,
-    )
-    from app.domain.repositories.application_repository import (
-        ApplicationRepository,
-    )
-    from app.domain.repositories.application_step_repository import (
-        ApplicationStepRepository,
-    )
-    from app.domain.repositories.step_definition_repository import (
-        StepDefinitionRepository,
-    )
+    from app.lib.types import generate_snowflake_id
 
-    async def work(session: Any) -> int:
-        use_case = CreateApplicationStepUseCase(
-            StepDefinitionRepository(session),
-            ApplicationRepository(session),
-            ApplicationStepRepository(session),
-        )
-        created = await use_case.execute(
-            USER_ID,
-            ApplicationStepCreateDTO(
-                user_id=USER_ID,
-                application_id=app_id,
-                step_id=step_id,
-                step_date=day,
-                **fields,
-            ),
-        )
-        return int(created.id)
-
-    return _old_code(url, work)
+    new_id = generate_snowflake_id()
+    _sql(
+        url,
+        'INSERT INTO application_steps (id, application_id, step_id, '
+        'step_date, start_time, end_time, timezone, observation, user_id, '
+        'created_at, updated_at) VALUES (:id, :app, :step, :day, :start, '
+        ':end, :tz, :obs, :user_id, now(), NULL)',
+        id=new_id,
+        app=app_id,
+        step=step_id,
+        day=day,
+        start=fields.get('start_time'),
+        end=fields.get('end_time'),
+        tz=fields.get('timezone'),
+        obs=fields.get('observation'),
+        user_id=USER_ID,
+    )
+    return new_id
 
 
 def _update_step(
     url: str, app_id: int, id: int, step_id: int, day: date, **fields: Any
 ) -> None:
-    from app.application.dto.application_step import (
-        ApplicationStepUpdateDTO,
+    _sql(
+        url,
+        'UPDATE application_steps SET application_id = :app, '
+        'step_id = :step, step_date = :day, start_time = :start, '
+        'end_time = :end, timezone = :tz, observation = :obs, '
+        'updated_at = now() WHERE id = :id',
+        id=id,
+        app=app_id,
+        step=step_id,
+        day=day,
+        start=fields.get('start_time'),
+        end=fields.get('end_time'),
+        tz=fields.get('timezone'),
+        obs=fields.get('observation'),
     )
-    from app.application.use_cases.application_steps.update_application_step import (
-        UpdateApplicationStepUseCase,
-    )
-    from app.domain.repositories.application_repository import (
-        ApplicationRepository,
-    )
-    from app.domain.repositories.application_step_repository import (
-        ApplicationStepRepository,
-    )
-    from app.domain.repositories.step_definition_repository import (
-        StepDefinitionRepository,
-    )
-
-    async def work(session: Any) -> None:
-        use_case = UpdateApplicationStepUseCase(
-            StepDefinitionRepository(session),
-            ApplicationRepository(session),
-            ApplicationStepRepository(session),
-        )
-        await use_case.execute(
-            id,
-            USER_ID,
-            ApplicationStepUpdateDTO(
-                application_id=app_id,
-                step_id=step_id,
-                step_date=day,
-                **fields,
-            ),
-        )
-
-    _old_code(url, work)
 
 
 def _delete_step(url: str, app_id: int, id: int) -> None:
-    from app.application.use_cases.application_steps.delete_application_step import (
-        DeleteApplicationStepUseCase,
+    _sql(
+        url,
+        'DELETE FROM application_steps WHERE id = :id AND application_id = :app',
+        id=id,
+        app=app_id,
     )
-    from app.domain.repositories.application_repository import (
-        ApplicationRepository,
-    )
-    from app.domain.repositories.application_step_repository import (
-        ApplicationStepRepository,
-    )
-
-    async def work(session: Any) -> None:
-        use_case = DeleteApplicationStepUseCase(
-            ApplicationRepository(session),
-            ApplicationStepRepository(session),
-        )
-        await use_case.execute(id, app_id, USER_ID)
-
-    _old_code(url, work)
 
 
 def _finalize(
@@ -1333,61 +1295,40 @@ def _finalize(
     salary: float | None = None,
     observation: str | None = None,
 ) -> None:
-    from app.application.dto.application import FinalizeApplicationDTO
-    from app.application.use_cases.applications.finalize_application import (
-        FinalizeApplicationUseCase,
+    _create_step(url, app_id, step_id, day, observation=observation)
+    # The ORM update listed only the changed columns: salary_offer only
+    # when one was sent.
+    salary_set = ', salary_offer = :salary' if salary is not None else ''
+    _sql(
+        url,
+        'UPDATE applications SET last_step_id = :step, '
+        'last_step_date = :day, feedback_id = :feedback, '
+        f'feedback_date = :day{salary_set}, updated_at = now() '
+        'WHERE id = :id',
+        id=app_id,
+        step=step_id,
+        day=day,
+        feedback=feedback_id,
+        **({'salary': salary} if salary is not None else {}),
     )
-    from app.domain.repositories.application_repository import (
-        ApplicationRepository,
-    )
-    from app.domain.repositories.application_step_repository import (
-        ApplicationStepRepository,
-    )
-    from app.domain.repositories.feedback_definition_repository import (
-        FeedbackDefinitionRepository,
-    )
-    from app.domain.repositories.step_definition_repository import (
-        StepDefinitionRepository,
-    )
-
-    async def work(session: Any) -> None:
-        use_case = FinalizeApplicationUseCase(
-            StepDefinitionRepository(session),
-            FeedbackDefinitionRepository(session),
-            ApplicationRepository(session),
-            ApplicationStepRepository(session),
-        )
-        await use_case.execute(
-            app_id,
-            USER_ID,
-            FinalizeApplicationDTO(
-                step_id=step_id,
-                feedback_id=feedback_id,
-                finalize_date=day,
-                salary_offer=salary,
-                observation=observation,
-            ),
-        )
-
-    _old_code(url, work)
 
 
 def _admin_creates_definition(url: str, name: str) -> int:
-    from app.domain.repositories.step_definition_repository import (
-        StepDefinitionRepository,
+    from app.lib.types import generate_snowflake_id
+
+    new_id = generate_snowflake_id()
+    _sql(
+        url,
+        'INSERT INTO steps_definition (id, name, color, strict, created_at) '
+        "VALUES (:id, :name, '#654321', false, now())",
+        id=new_id,
+        name=name,
     )
-
-    async def work(session: Any) -> int:
-        created = await StepDefinitionRepository(session).create(
-            name=name, color='#654321', strict=False
-        )
-        return int(created.id)
-
-    return _old_code(url, work)
+    return new_id
 
 
 def test_old_code_step_writes_reach_the_timeline(migration_db: str) -> None:
-    """Criterion 6 with the old use cases, not hand-written SQL."""
+    """Criterion 6 with the statements the old use cases issued."""
     _migrated(migration_db)
     steps = _steps(migration_db)
 
@@ -1818,3 +1759,243 @@ def test_downgrade_brings_release_b_back_to_the_previous_release(
         date(2025, 8, 22)
     )
     assert _finalized_at(migration_db)[APP_OFFER] is None
+
+
+# --------------------------------------------------------------------------
+# Release B code on this schema, then rolled back (KODI-011 criterion 26)
+# --------------------------------------------------------------------------
+
+
+async def _session_run(url: str, work: Callable[..., Any]) -> Any:
+    engine = create_async_engine(url, poolclass=NullPool)
+    try:
+        maker = async_sessionmaker(
+            engine, autoflush=False, expire_on_commit=False
+        )
+        async with maker() as session:
+            return await work(session)
+    finally:
+        await engine.dispose()
+
+
+def _app_code(url: str, work: Callable[..., Any]) -> Any:
+    """Run ``work(session)`` with the application's own repositories."""
+    return _run(_session_run(url, work))
+
+
+def _release_b_code_writes(url: str) -> dict[str, Any]:
+    """What users do in Release B, through the Release B use cases."""
+    from app.application.dto.application import LegacyFinalizeApplicationDTO
+    from app.application.dto.legacy_step import LegacyStepWriteDTO
+    from app.application.dto.timeline_event import CreateTimelineEventDTO
+    from app.application.use_cases.applications.finalize_application import (
+        FinalizeApplicationUseCase,
+    )
+    from app.application.use_cases.applications.list_applications import (
+        ListApplicationsUseCase,
+    )
+    from app.application.use_cases.applications.read_model import (
+        ApplicationReadModel,
+    )
+    from app.application.use_cases.applications.reopen_application import (
+        ReopenApplicationUseCase,
+    )
+    from app.application.use_cases.compat.legacy_finalize import (
+        LegacyFinalizeApplicationUseCase,
+    )
+    from app.application.use_cases.compat.legacy_steps import (
+        CreateLegacyStepUseCase,
+        UpdateLegacyStepUseCase,
+    )
+    from app.application.use_cases.timeline_events.create import (
+        CreateTimelineEventUseCase,
+    )
+    from app.core.enums import EventType, InterviewType
+    from app.domain.repositories.application_repository import (
+        ApplicationRepository,
+    )
+    from app.domain.repositories.feedback_definition_repository import (
+        FeedbackDefinitionRepository,
+    )
+    from app.domain.repositories.step_definition_repository import (
+        StepDefinitionRepository,
+    )
+    from app.domain.repositories.timeline_event_repository import (
+        TimelineEventRepository,
+    )
+
+    steps = _steps(url)
+    feedbacks = _feedbacks(url)
+
+    async def work(session: Any) -> dict[str, Any]:
+        apps = ApplicationRepository(session)
+        step_repo = StepDefinitionRepository(session)
+        timeline = TimelineEventRepository(session)
+        read_model = ApplicationReadModel(timeline, step_repo)
+        create = CreateTimelineEventUseCase(apps, timeline)
+
+        def event(app_id: int, day: date, **fields: Any) -> Any:
+            return CreateTimelineEventDTO(
+                user_id=USER_ID,
+                application_id=app_id,
+                event_date=day,
+                **fields,
+            )
+
+        # APP_FRESH: a note and a technical interview on the web, then an
+        # installed CLI finalizes it with the 0.1.4 body. The long timezone
+        # sits on the interview, not the note - KODI-016 (R-038/R-039)
+        # refuses a schedule on a non-interview event, even at this
+        # pre-R4 schema state (the rule lives in the use case, not the DB).
+        note = await create.execute(
+            event(
+                APP_FRESH,
+                date(2025, 8, 20),
+                event_type=EventType.NOTE,
+                observation='Recruiter pinged',
+            )
+        )
+        tech = await create.execute(
+            event(
+                APP_FRESH,
+                date(2025, 8, 21),
+                event_type=EventType.INTERVIEW,
+                interview_type=InterviewType.TECHNICAL,
+                timezone=LONG_TIMEZONE,
+            )
+        )
+        await LegacyFinalizeApplicationUseCase(
+            apps,
+            step_repo,
+            FeedbackDefinitionRepository(session),
+            timeline,
+            read_model,
+        ).execute(
+            APP_FRESH,
+            USER_ID,
+            LegacyFinalizeApplicationDTO(
+                step_id=steps['Offer'],
+                feedback_id=feedbacks['Accepted'],
+                finalize_date=date(2025, 8, 31),
+                salary_offer=1234.5,
+            ),
+        )
+
+        # APP_TO_DENY: a 0.1.4 client edits the migrated step, the web
+        # adds a denied event and closes it without a body.
+        await UpdateLegacyStepUseCase(apps, step_repo, timeline).execute(
+            S_TO_DENY_P2,
+            APP_TO_DENY,
+            USER_ID,
+            LegacyStepWriteDTO(
+                step_id=steps['Phase 2'],
+                step_date=date(2025, 8, 15),
+                observation='Edited in B',
+            ),
+        )
+        denied = await create.execute(
+            event(APP_TO_DENY, date(2025, 8, 22), event_type=EventType.DENIED)
+        )
+        await FinalizeApplicationUseCase(apps, read_model).execute(
+            APP_TO_DENY, USER_ID
+        )
+
+        # APP_OPEN: a 0.1.4 client adds a Phase 3 step.
+        phase_3 = await CreateLegacyStepUseCase(
+            apps, step_repo, timeline
+        ).execute(
+            APP_OPEN,
+            USER_ID,
+            LegacyStepWriteDTO(
+                step_id=steps['Phase 3'], step_date=date(2025, 8, 25)
+            ),
+        )
+
+        # APP_OFFER, closed before the switch, is reopened.
+        await ReopenApplicationUseCase(apps, read_model).execute(
+            APP_OFFER, USER_ID
+        )
+
+        listed = await ListApplicationsUseCase(apps, read_model).execute(
+            USER_ID
+        )
+        return {
+            'note': note.id,
+            'tech': tech.id,
+            'denied': denied.id,
+            'phase_3': phase_3.id,
+            'listed': {dto.id: dto for dto in listed},
+        }
+
+    return _app_code(url, work)
+
+
+def test_release_b_code_runs_on_r1_and_rolls_back_with_its_data(
+    migration_db: str,
+) -> None:
+    """KODI-011 criterion 26: Release B's own use cases run on the schema
+    Release A leaves (the ORM mapping matches it), and ``alembic downgrade``
+    to R1's own parent brings everything they wrote back to the previous
+    release.
+
+    KODI-014 folded R3 (``c8b3e9f4a1d6``, ``denied_reason``) into Release A,
+    chaining R1 -> R3 -> R2, so the schema Release B's code actually runs
+    against always has R3 too (the owner's ``alembic upgrade head`` applies
+    the whole Release A migration set in one go) - every event write since
+    then carries ``denied_reason``. The single ``alembic downgrade`` to
+    ``PARENT_REVISION`` below now crosses both R3's and R1's ``downgrade()``
+    in one command, composing them the same way
+    ``test_timeline_contract_migration.py``'s single-command test proves for
+    R2 + R3 + R1.
+    """
+    _migrated(migration_db)
+    _upgrade(migration_db, R3_REVISION)
+    steps = _steps(migration_db)
+    feedbacks = _feedbacks(migration_db)
+
+    written = _release_b_code_writes(migration_db)
+
+    # Release B reads R1's data: the legacy fields come from the timeline.
+    listed = written['listed']
+    assert listed[APP_FRESH].finalized is True
+    assert listed[APP_FRESH].salary_offer == 1234.5
+    assert listed[APP_FRESH].last_step is not None
+    assert listed[APP_FRESH].last_step.id == steps['Offer']
+    assert listed[APP_OFFER].finalized is False
+    assert listed[APP_TO_DENY].last_step is not None
+    assert listed[APP_TO_DENY].last_step.id == steps['Denied']
+    # B wrote timeline_events only; the steps table knows nothing yet.
+    step_rows = _step_rows(migration_db)
+    for key in ('note', 'tech', 'denied', 'phase_3'):
+        assert written[key] not in step_rows, key
+    offer = [
+        e
+        for e in _events(migration_db).values()
+        if e['application_id'] == APP_FRESH and e['event_type'] == 'offer'
+    ]
+    assert len(offer) == 1
+    assert offer[0]['observation'] == 'Feedback: Accepted'
+    assert _salary(offer[0]) == (Decimal('1234.50'), 'EUR', 'MONTHLY')
+
+    _downgrade(migration_db, PARENT_REVISION)
+
+    steps_back = _step_rows(migration_db)
+    apps = _app_rows(migration_db)
+    assert steps_back[written['note']]['step_id'] == steps['Phase 2']
+    assert steps_back[written['note']]['observation'] == 'Recruiter pinged'
+    assert steps_back[written['tech']]['step_id'] == steps['Phase 2']
+    assert steps_back[written['tech']]['timezone'] == LONG_TIMEZONE
+    assert steps_back[written['denied']]['step_id'] == steps['Denied']
+    assert steps_back[written['phase_3']]['step_id'] == steps['Phase 2']
+    assert steps_back[offer[0]['id']]['step_id'] == steps['Offer']
+    assert steps_back[S_TO_DENY_P2]['observation'] == 'Edited in B'
+    assert steps_back[S_TO_DENY_P2]['step_date'] == date(2025, 8, 15)
+
+    assert apps[APP_FRESH]['feedback_id'] == feedbacks['Accepted']
+    assert apps[APP_FRESH]['feedback_date'] == date(2025, 8, 31)
+    assert apps[APP_FRESH]['last_step_id'] == steps['Offer']
+    assert apps[APP_FRESH]['salary_offer'] == Decimal('1234.50')
+    assert apps[APP_TO_DENY]['feedback_id'] == feedbacks['Not good enough']
+    assert apps[APP_TO_DENY]['last_step_id'] == steps['Denied']
+    assert apps[APP_OFFER]['feedback_id'] is None
+    assert apps[APP_OFFER]['feedback_date'] is None

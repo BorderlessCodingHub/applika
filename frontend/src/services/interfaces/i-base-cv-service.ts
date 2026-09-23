@@ -16,4 +16,6 @@ export interface IBaseCvService {
    * parameter: the theme is fixed `applika` and the user does not choose it.
    */
   exportPdf(id: string): Promise<CvPdfExport>;
+  /** The same document as Markdown (KODI-017 part 3), `GET /base-cvs/{id}/markdown`. */
+  exportMarkdown(id: string): Promise<CvPdfExport>;
 }

@@ -21,6 +21,7 @@ import type { BaseCv } from "@/services/types/base-cv";
 const getMock = vi.fn();
 const updateMock = vi.fn();
 const exportPdfMock = vi.fn();
+const exportMarkdownMock = vi.fn();
 const pushMock = vi.fn();
 let searchParams = new URLSearchParams("id=7001");
 
@@ -30,6 +31,7 @@ vi.mock("@/services/services", () => ({
       get: (...args: unknown[]) => getMock(...args),
       update: (...args: unknown[]) => updateMock(...args),
       exportPdf: (...args: unknown[]) => exportPdfMock(...args),
+      exportMarkdown: (...args: unknown[]) => exportMarkdownMock(...args),
       list: vi.fn(),
       create: vi.fn(),
       remove: vi.fn(),
@@ -105,6 +107,10 @@ beforeEach(() => {
     blob: new Blob(["%PDF-1.7"], { type: "application/pdf" }),
     filename: "backend-cv.pdf",
   });
+  exportMarkdownMock.mockResolvedValue({
+    blob: new Blob(["# Backend CV"], { type: "text/markdown" }),
+    filename: "backend-cv.md",
+  });
   URL.createObjectURL = (() =>
     "blob:applika/pdf") as unknown as typeof URL.createObjectURL;
   URL.revokeObjectURL = () => {};
@@ -131,6 +137,29 @@ describe("CvEditorPage", () => {
 
     await waitFor(() => expect(exportPdfMock).toHaveBeenCalledWith("7001"));
     await waitFor(() => expect(saved).toEqual(["backend-cv.pdf"]));
+    click.mockRestore();
+  });
+
+  it("mounts the Markdown export beside the PDF one (KODI-017 part 3)", async () => {
+    const saved: string[] = [];
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        saved.push(this.download);
+      });
+    renderPage();
+
+    const button = await screen.findByRole("button", {
+      name: "Download Markdown",
+    });
+    expect(button).toBeEnabled();
+
+    await userEvent.click(button);
+
+    await waitFor(() =>
+      expect(exportMarkdownMock).toHaveBeenCalledWith("7001"),
+    );
+    await waitFor(() => expect(saved).toEqual(["backend-cv.md"]));
     click.mockRestore();
   });
 

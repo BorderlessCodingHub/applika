@@ -10,7 +10,7 @@ from app.application.use_cases.applications.update_application import (
 )
 from app.core.exceptions import BusinessRuleViolation, ResourceNotFound
 from tests import msg
-from tests.unit.conftest import make_application
+from tests.unit.conftest import make_application, make_read_model
 
 
 def _dto(**overrides) -> ApplicationUpdateDTO:
@@ -29,7 +29,9 @@ async def test_update_not_found():
     company_repo = AsyncMock()
     app_repo.get_by_id_and_user_id.return_value = None
 
-    uc = UpdateApplicationUseCase(app_repo, platform_repo, company_repo)
+    uc = UpdateApplicationUseCase(
+        app_repo, platform_repo, company_repo, make_read_model()
+    )
 
     with pytest.raises(ResourceNotFound, match='Application not found'):
         await uc.execute(id=1, data=_dto())
@@ -43,7 +45,9 @@ async def test_update_application_archived_cycle():
         cycle_id=42
     )
 
-    uc = UpdateApplicationUseCase(app_repo, platform_repo, company_repo)
+    uc = UpdateApplicationUseCase(
+        app_repo, platform_repo, company_repo, make_read_model()
+    )
 
     with pytest.raises(BusinessRuleViolation, match='archived cycle'):
         await uc.execute(id=1, data=_dto())
@@ -56,7 +60,9 @@ async def test_update_platform_not_found():
     app_repo.get_by_id_and_user_id.return_value = make_application()
     platform_repo.get_by_id.return_value = None
 
-    uc = UpdateApplicationUseCase(app_repo, platform_repo, company_repo)
+    uc = UpdateApplicationUseCase(
+        app_repo, platform_repo, company_repo, make_read_model()
+    )
 
     with pytest.raises(ResourceNotFound, match='Platform not found'):
         await uc.execute(id=1, data=_dto(platform_id=999))
@@ -73,7 +79,9 @@ async def test_update_success():
     company_repo.get_by_id.return_value = SimpleNamespace(id=1, name='Acme')
     app_repo.update.return_value = app
 
-    uc = UpdateApplicationUseCase(app_repo, platform_repo, company_repo)
+    uc = UpdateApplicationUseCase(
+        app_repo, platform_repo, company_repo, make_read_model()
+    )
     await uc.execute(
         id=1, data=_dto(role='Senior Eng', mode='passive')
     )
@@ -101,7 +109,9 @@ def _update_use_case(app):
     platform_repo.get_by_id.return_value = MagicMock()
     company_repo.get_by_id.return_value = SimpleNamespace(id=1, name='Acme')
     app_repo.update.return_value = app
-    return UpdateApplicationUseCase(app_repo, platform_repo, company_repo)
+    return UpdateApplicationUseCase(
+        app_repo, platform_repo, company_repo, make_read_model()
+    )
 
 
 async def test_update_without_job_description_keeps_the_stored_text():

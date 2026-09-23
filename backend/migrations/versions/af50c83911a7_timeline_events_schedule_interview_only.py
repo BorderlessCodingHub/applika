@@ -68,14 +68,16 @@ no column's width, precision or scale changes here).
    ``timeline_events_sync_application_finalize`` is **not** replaced.
    Checked line by line against R3's current body
    (``_APP_FUNCTION_SQL`` below, R3's, unmodified by this revision): it
-   only ever writes ``finalized_at``, ``observation`` (the appended
+   only ever *writes* ``finalized_at``, ``observation`` (the appended
    ``Feedback: <name>`` line), ``denied_reason`` and the offer salary
-   triple (``salary_amount``/``salary_currency``/``salary_period``) — no
-   statement in it reads or writes ``start_time``, ``end_time`` or
-   ``timezone``, so it cannot violate the new CHECK and recreating it
-   identically would be a no-op. It is left as R3 defined it; ``downgrade()``
-   below restores only the step function, the one this revision actually
-   changed.
+   triple (``salary_amount``/``salary_currency``/``salary_period``). It
+   does *read* ``start_time`` once, inside ``_latest_order()``'s
+   ``ORDER BY ... start_time DESC NULLS LAST`` (choosing the latest event
+   to update) — a read, never a write, so it cannot put a schedule value
+   into a row and cannot violate the new CHECK; recreating this function
+   identically would be a no-op. It is left as R3 defined it;
+   ``downgrade()`` below restores only the step function, the one this
+   revision actually changed.
 
 No temporary table is used anywhere in this revision (R3's own
 precedent, sidestepping the KODI-013 temp-table name collision class of
@@ -91,8 +93,16 @@ copies), then the CHECK is dropped, then every non-interview event's
 schedule is restored from ``application_steps`` by id:
 ``UPDATE timeline_events t SET start_time = s.start_time, end_time =
 s.end_time, timezone = s.timezone FROM application_steps s WHERE s.id =
-t.id``. Only ``downgrade()`` drops (``.claude/rules/non-destructive-
-migrations.md`` 1/2).
+t.id AND t.event_type <> 'interview'``. The ``event_type <> 'interview'``
+guard matters: an interview event's schedule was never touched by
+``upgrade()`` (only non-interview rows were cleared), so a downgrade must
+not touch it either — without the guard, an interview event a Release B/C
+user *edited* after this revision's own upgrade (new ``start_time``/
+``end_time``/``timezone``, still the same id as its migrated step) would
+have that edit silently overwritten by ``application_steps``' stale,
+pre-edit values on downgrade, destroying data a rollback must preserve
+(``.claude/rules/non-destructive-migrations.md`` 1). Only ``downgrade()``
+drops (rule 1/2).
 
 ## non-destructive-migrations.md
 
@@ -543,7 +553,7 @@ _RESTORE_SCHEDULE_SQL = """
         end_time = s.end_time,
         timezone = s.timezone
     FROM application_steps s
-    WHERE s.id = t.id
+    WHERE s.id = t.id AND t.event_type <> 'interview'
 """
 
 

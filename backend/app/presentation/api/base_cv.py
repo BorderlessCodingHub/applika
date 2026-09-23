@@ -20,6 +20,7 @@ from app.presentation.dependencies import (
     DeleteBaseCVUseCaseDp,
     GetBaseCVUseCaseDp,
     ListBaseCVsUseCaseDp,
+    RenderBaseCVMarkdownUseCaseDp,
     RenderBaseCVPdfUseCaseDp,
     UpdateBaseCVUseCaseDp,
 )
@@ -149,6 +150,44 @@ async def export_base_cv_pdf(
     return Response(
         content=rendered.content,
         media_type='application/pdf',
+        headers={
+            'Content-Disposition': (
+                f'attachment; filename="{rendered.filename}"'
+            )
+        },
+    )
+
+
+@router.get(
+    '/base-cvs/{base_cv_id}/markdown',
+    response_class=Response,
+    responses={
+        '200': {
+            'content': {'text/markdown': {}},
+            'description': 'The CV as Markdown.',
+        },
+        '404': {'model': DetailSchema},
+        '500': {'model': DetailSchema},
+    },
+)
+async def export_base_cv_markdown(
+    base_cv_id: SnowflakeID,
+    c_user: CurrentUserDp,
+    use_case: RenderBaseCVMarkdownUseCaseDp,
+):
+    """Download one of the acting user's own master CVs as Markdown.
+
+    ``GET``, unlike the PDF export: rendering here is Jinja over the same
+    mapped document the PDF path builds, cheap enough to treat as an
+    ordinary read (docs/applika/adr/0011-server-side-cv-pdf-rendercv.md
+    still governs the theme and the fixed look; there is no theme
+    parameter here either). 404 if the CV does not exist or is not
+    owned, 500 if the render fails - nothing is written either way.
+    """
+    rendered = await use_case.execute(base_cv_id, c_user.id)
+    return Response(
+        content=rendered.content,
+        media_type='text/markdown; charset=utf-8',
         headers={
             'Content-Disposition': (
                 f'attachment; filename="{rendered.filename}"'

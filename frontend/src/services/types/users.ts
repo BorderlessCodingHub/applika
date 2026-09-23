@@ -1,3 +1,8 @@
+import {
+  SALARY_CURRENCIES,
+  SALARY_PERIODS,
+} from "@/components/timeline/timeline-types";
+
 export interface User {
   id: string;
   username: string;
@@ -59,18 +64,17 @@ export const AvailabilityValues = [
 ] as const;
 export type AvailabilityType = (typeof AvailabilityValues)[number];
 
-export const SalaryPeriodValues = ["hourly", "monthly", "annual"] as const;
+/**
+ * AC9 (R-031): the single source of truth for the salary periods and the 20
+ * currencies (applika's original 9 + mynextjob's) is
+ * `@/components/timeline/timeline-types` — re-exported here (not redefined)
+ * so profile and application forms show the same list the timeline and
+ * finalize dialogs do, and so `"annual"` cannot resurface on the web (the
+ * API now returns `"annually"`; only the CLI keeps sending `"annual"`, which
+ * is a backend/CLI compatibility concern, not a web one).
+ */
+export const SalaryPeriodValues = SALARY_PERIODS;
 export type SalaryPeriodType = (typeof SalaryPeriodValues)[number];
 
-export const SalaryCurrencyValues = [
-  "USD",
-  "BRL",
-  "EUR",
-  "GBP",
-  "CAD",
-  "AUD",
-  "JPY",
-  "CHF",
-  "INR",
-] as const;
+export const SalaryCurrencyValues = SALARY_CURRENCIES;
 export type SalaryCurrencyType = (typeof SalaryCurrencyValues)[number];

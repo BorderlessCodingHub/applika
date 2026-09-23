@@ -3,6 +3,13 @@ export interface GeneralStats {
   success_rate: number;
   offers: number;
   denials: number;
+  /**
+   * AC23 (KODI-013 addendum): the number of the current user's applications in
+   * the same scope/cycle filter as `total_applications` whose `finalized_at`
+   * is `null` — "Active" = not closed. Computed server-side; the web must not
+   * recompute it from `total_applications`/`offers`/`denials`.
+   */
+  active: number;
 }
 
 export interface ApiTrendPoint {
@@ -16,18 +23,31 @@ export interface TrendPoint {
   total_applications: number;
 }
 
+import type {
+  InterviewType,
+  TimelineEventType,
+} from "@/components/timeline/timeline-types";
+
+/**
+ * One row of `GET /applications/statistics/steps/conversion_rate` (PRD 0008,
+ * ADR 0012). A "step" is now a timeline STAGE — an interview type, or
+ * `offer`/`denied` — never a step-definition row (R-021/R-023). Always 9 rows,
+ * in `TIMELINE_STAGES` order (`@/components/timeline/timeline-options`).
+ */
 export interface StepConversion {
-  id: string;
-  name: string;
-  color: string;
+  event_type: TimelineEventType;
+  interview_type: InterviewType | null;
   conversion_rate: number;
   total_applications: number;
 }
 
+/**
+ * One row of `GET /applications/statistics/steps/avarage_days` (sic — the
+ * real path). Same stage shape as `StepConversion`.
+ */
 export interface StepAvgDays {
-  id: string;
-  name: string;
-  color: string;
+  event_type: TimelineEventType;
+  interview_type: InterviewType | null;
   average_days: number;
 }
 

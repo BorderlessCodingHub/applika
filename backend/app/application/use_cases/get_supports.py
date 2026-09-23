@@ -14,6 +14,15 @@ from app.domain.repositories.step_definition_repository import (
 
 
 class GetSupportsUseCase:
+    """The ``/supports`` lists, unchanged in shape (R-018).
+
+    The step and feedback lists are the frozen catalogs: nothing writes them
+    since the admin catalog routes were removed (R-021), and they are served
+    only so installed ``applika-cli`` 0.1.4 can keep resolving step and
+    feedback names. New clients use the fixed ``EventType`` and
+    ``InterviewType`` enums instead.
+    """
+
     def __init__(
         self,
         feedback_repo: FeedbackDefinitionRepository,

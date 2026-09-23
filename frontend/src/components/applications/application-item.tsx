@@ -1,601 +1,356 @@
 "use client";
 
-import type {
-  Application,
-  ApplicationStep,
-} from "@/services/types/applications";
-import type { Step } from "@/services/types/supports";
+import { useId, useState } from "react";
 import {
-  useApplicationStepDelete,
-  useApplicationSteps,
-} from "@/hooks/use-application-steps";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useSupports } from "@/contexts/supports-context";
-import { cn } from "@/lib/utils";
-import {
+  Banknote,
   Building2,
   Calendar,
   ChevronDown,
-  ChevronUp,
-  Clock,
-  Dot,
-  Edit,
+  CircleCheck,
   ExternalLink,
+  GraduationCap,
+  MapPin,
+  NotebookText,
+  SquarePen,
   FileText,
   Flag,
-  Plus,
-  Pencil,
   Trash2,
+  Wallet,
+  Wifi,
 } from "lucide-react";
-import { useState } from "react";
+
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { formatSalary } from "@/options";
-import { Button, LinkButton } from "../ui/button";
+  ApplicationDetailsPanel,
+  ApplicationDetailTile,
+} from "@/components/applications/application-detail-tile";
+import { ApplicationIconAction } from "@/components/applications/application-icon-action";
+import {
+  APPLICATION_ACTION_COPY,
+  APPLICATION_ACTIVE_LABEL,
+  APPLICATION_DETAIL_LABELS,
+  applicationName,
+} from "@/components/applications/application-card-copy";
+import {
+  APPLICATION_CLOSED_LABEL,
+  CLOSE_ACTION_LABEL,
+} from "@/components/applications/application-close-copy";
+import { ApplicationReopenButton } from "@/components/applications/application-reopen-button";
+import { ApplicationStatusPill } from "@/components/applications/application-status-pill";
+import { formatSalary } from "@/components/applications/application-format";
+import { IconTile } from "@/components/applications/icon-tile";
+import { TimelineSection } from "@/components/timeline/timeline-section";
+import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Separator } from "@/components/ui/separator";
+import { SelectOptions } from "@/options";
+import { useSupports } from "@/contexts/supports-context";
+import { cn } from "@/lib/utils";
+import type { Application } from "@/services/types/applications";
 
 interface ApplicationItemProps {
   app: Application;
-  onNewStepClick?: (app: Application) => void;
   onEditClick?: (app: Application) => void;
   onFinalizeClick?: (app: Application) => void;
   onDeleteClick?: (app: Application) => void;
-  children: React.ReactNode;
+  onReopenClick?: (app: Application) => void;
+  reopenPending?: boolean;
 }
 
-export function ApplicationItem({ children, ...props }: ApplicationItemProps) {
+/** value -> label lookup, capitalising the raw value when the option list has
+ * nothing (never happens for these two selects, but keeps the tile honest). */
+function optionLabel(
+  options: readonly { value: string; label: string }[],
+  value: string,
+): string {
+  return options.find((o) => o.value === value)?.label ?? value;
+}
+
+/**
+ * Application row + inline expansion (PRD 0008, ADR 0012; KODI-015 reference
+ * image). Owns the status pill and the Reopen affordance, both derived from
+ * `app.finalized_at` (the single source of truth for "closed" — see
+ * `TimelineSection`). A closed application hides Edit/Close and offers Reopen
+ * instead; the CV link always stays, a closed application's CV copy is still
+ * readable.
+ *
+ * Mounts `TimelineSection` directly in the expanded area.
+ */
+export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
   const [isExpanded, setExpanded] = useState<boolean>(false);
   const { supports } = useSupports();
+  const companyId = useId();
 
   if (!supports) return null;
+
+  const isClosed = app.finalized_at != null;
+  const name = applicationName(app.role, app.company_name);
 
   const getPlatformName = (id: string) =>
     supports.platforms.find((p) => p.id === id)?.name ?? String(id);
 
-  return (
-    <>
-      <div
-        className={cn(
-          "overflow-hidden rounded-xl border border-border/60 bg-card shadow-card transition-all duration-200",
-          isExpanded && "shadow-elevated",
-        )}
-        style={{ animationDelay: "30ms" }}
-        onClick={() => setExpanded((current) => !current)}
-      >
-        <div className="flex cursor-pointer items-center gap-4 px-5 py-4 transition-colors hover:bg-accent/40">
-          {/* Company icon */}
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Building2 className="h-5 w-5" />
-          </div>
+  /**
+   * Divider visibility per tile, keyed by which tile it is (KODI-015
+   * remediation): the five image tiles are always 1-column; Salary Range and
+   * Expected Salary span 2; Notes spans the full row. A "full" span is
+   * passed as `columns` itself so the packing simulation always starts and
+   * fills its own row for it, at either breakpoint. Built as one pure lookup
+   * (no mutation) so the tiles below — rendered as individual conditional
+   * JSX blocks, not a `.map()` — can each read their own entry by key.
+   */
 
-          {/* Main info */}
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-sm font-semibold text-foreground">
-              {props.app.company_name}
-            </p>
-            <div className="mt-0.5 flex items-center truncate text-sm text-muted-foreground">
-              <span className="truncate">{props.app.role}</span>
-              {props.app.experience_level && (
+  return (
+    <Collapsible open={isExpanded} onOpenChange={setExpanded} asChild>
+      <article
+        aria-labelledby={companyId}
+        className="@container/app-card rounded-xl border border-border bg-card shadow-card transition-shadow data-[state=open]:shadow-elevated"
+      >
+        <div
+          onClick={() => setExpanded((current) => !current)}
+          className="flex cursor-pointer items-start gap-4 p-4 sm:gap-5 sm:px-5 sm:py-3.5 @4xl/app-card:items-center"
+        >
+          <IconTile
+            icon={Building2}
+            tone="primary"
+            className="max-sm:size-10 max-sm:[&_svg]:size-5"
+          />
+
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-3">
+            <div className="min-w-0 flex-1 basis-full @4xl/app-card:basis-0">
+              <p
+                id={companyId}
+                className="truncate font-display text-base font-semibold text-foreground"
+              >
+                {app.company_name}
+              </p>
+              <div className="mt-0.5 flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+                <span className="truncate">{app.role}</span>
+                {app.experience_level ? (
+                  <>
+                    <span aria-hidden>•</span>
+                    <span className="shrink-0">
+                      {optionLabel(
+                        SelectOptions.SENIORITY,
+                        app.experience_level,
+                      )}
+                    </span>
+                  </>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <span className="inline-flex items-center gap-2 font-numeric text-sm text-muted-foreground">
+                <Calendar aria-hidden className="size-4" />
+                <time dateTime={app.application_date}>
+                  {app.application_date}
+                </time>
+              </span>
+              <ApplicationStatusPill
+                label={
+                  isClosed ? APPLICATION_CLOSED_LABEL : APPLICATION_ACTIVE_LABEL
+                }
+                tone={isClosed ? "neutral" : "success"}
+              />
+            </div>
+
+            <Separator
+              orientation="vertical"
+              className="hidden data-[orientation=vertical]:h-8 @4xl/app-card:block"
+            />
+
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="ml-auto flex items-center gap-1 sm:gap-2"
+            >
+              {isClosed ? (
+                props.onReopenClick && (
+                  <ApplicationReopenButton
+                    onReopen={() => props.onReopenClick!(app)}
+                    pending={props.reopenPending}
+                    applicationName={name}
+                  />
+                )
+              ) : (
                 <>
-                  <Dot />
-                  <span className="shrink-0 capitalize">
-                    {props.app.experience_level.replace("_", " ")}
-                  </span>
+                  {props.onEditClick && (
+                    <ApplicationIconAction
+                      icon={SquarePen}
+                      label={`${APPLICATION_ACTION_COPY.edit} ${name}`}
+                      title={APPLICATION_ACTION_COPY.edit}
+                      onClick={() => props.onEditClick!(app)}
+                    />
+                  )}
+                  {props.onFinalizeClick && (
+                    <ApplicationIconAction
+                      icon={Flag}
+                      label={`${CLOSE_ACTION_LABEL} ${name}`}
+                      title={CLOSE_ACTION_LABEL}
+                      tone="warning"
+                      onClick={() => props.onFinalizeClick!(app)}
+                    />
+                  )}
                 </>
               )}
-            </div>
-          </div>
 
-          {/* Status badges */}
-          <div className="hidden items-center gap-2 lg:flex">
-            {props.app.last_step && (
-              <Badge
-                variant="outline"
-                className="gap-1.5 px-2.5 py-1 text-xs font-medium"
-              >
-                <span
-                  className="h-2 w-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: props.app.last_step.color }}
+              {/*
+                Outside the closed guard on purpose: a finalized application's
+                CV copy is still readable, so its link stays.
+              */}
+              <ApplicationIconAction
+                icon={FileText}
+                href={`/applications/cv?id=${app.id}`}
+                label={`${APPLICATION_ACTION_COPY.cv} for ${name}`}
+                title={APPLICATION_ACTION_COPY.cv}
+              />
+
+              {/*
+                Outside the closed guard too: the API allows deleting a closed
+                application (only an ARCHIVED one is refused).
+              */}
+              {props.onDeleteClick && (
+                <ApplicationIconAction
+                  icon={Trash2}
+                  label={`${APPLICATION_ACTION_COPY.delete} ${name}`}
+                  title={APPLICATION_ACTION_COPY.delete}
+                  tone="destructive"
+                  onClick={() => props.onDeleteClick!(app)}
                 />
-                {props.app.last_step.name}
-              </Badge>
-            )}
-            {props.app.feedback && (
-              <div className="hidden xl:block">
-                <Badge
-                  variant="outline"
-                  className="gap-1.5 px-2.5 py-1 text-xs font-medium"
-                >
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: props.app.feedback.color }}
-                  />
-                  {props.app.feedback.name}
-                </Badge>
-              </div>
-            )}
-          </div>
-
-          {/* Meta info */}
-          <div className="hidden items-center gap-3 text-xs text-muted-foreground lg:flex">
-            {/* <span className="flex items-center gap-1">
-              <Zap className="h-3.5 w-3.5" />
-              <span className="capitalize">{props.app.mode}</span>
-            </span>
-            <span className="text-border">|</span> */}
-
-            <div className="hidden items-center gap-1.5 font-numeric text-xs text-muted-foreground sm:flex">
-              <Calendar className="h-3.5 w-3.5" />
-              {props.app.application_date}
+              )}
             </div>
           </div>
 
-          {/* Actions */}
-          <div
-            className="flex items-center gap-1"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {!props.app.finalized && props.onNewStepClick && (
-              <>
-                <Button
-                  size="sm"
-                  variant="link"
-                  onClick={() => props.onNewStepClick!(props.app)}
-                  className="gap-1.5 text-primary/80 hover:text-primary"
-                  title="Add step"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-
-                {props.onEditClick && (
-                  <Button
-                    size="sm"
-                    variant="link"
-                    onClick={() => props.onEditClick!(props.app)}
-                    className="gap-1.5 text-muted-foreground hover:text-foreground"
-                    title="Edit"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                )}
-
-                {props.onFinalizeClick && (
-                  <Button
-                    size="sm"
-                    variant="link"
-                    onClick={() => props.onFinalizeClick!(props.app)}
-                    className="gap-1.5 text-amber-500/80 hover:text-amber-500"
-                    title="Finalize"
-                  >
-                    <Flag className="h-4 w-4" />
-                  </Button>
-                )}
-              </>
-            )}
-            {/*
-              Outside the `!finalized` block on purpose: a finalized
-              application's CV copy is still readable, so its link stays.
-            */}
-            <LinkButton
-              href={`/applications/cv?id=${props.app.id}`}
-              size="sm"
-              variant="link"
-              className="gap-1.5 text-muted-foreground hover:text-foreground"
-              title="CV"
-              aria-label={`CV for ${props.app.role} at ${props.app.company_name}`}
-            >
-              <FileText className="h-4 w-4" />
-            </LinkButton>
-
-            {props.onDeleteClick && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <CollapsibleTrigger asChild>
               <Button
-                size="sm"
-                variant="link"
-                onClick={() => props.onDeleteClick!(props.app)}
-                className="gap-1.5 text-destructive/80 hover:text-destructive"
-                title="Delete"
+                type="button"
+                variant="ghost"
+                size="icon-lg"
+                aria-label={`${APPLICATION_ACTION_COPY.details} for ${name}`}
+                className={cn(
+                  "shrink-0 text-muted-foreground hover:text-foreground",
+                  "[&_svg:not([class*='size-'])]:size-5",
+                  "[&>svg]:transition-transform motion-reduce:[&>svg]:transition-none [&[data-state=open]>svg]:rotate-180",
+                )}
               >
-                <Trash2 className="h-4 w-4" />
+                <ChevronDown aria-hidden />
               </Button>
-            )}
-            <Button
-              size="sm"
-              variant="link"
-              onClick={() => setExpanded((current) => !current)}
-              className="gap-1.5 text-muted-foreground hover:text-foreground"
-            >
-              {isExpanded ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-            </Button>
+            </CollapsibleTrigger>
           </div>
         </div>
 
-        {/* Mobile badges row */}
-        <div className="flex flex-wrap items-center gap-2 px-5 pt-3 pb-3 lg:hidden">
-          {props.app.mode && (
-            <Badge
-              variant="secondary"
-              className="px-2 py-0.5 text-xs capitalize"
+        <CollapsibleContent className="flex animate-fade-in-up flex-col gap-4 px-4 pb-4 motion-reduce:animate-none sm:px-5 sm:pb-5">
+          <ApplicationDetailsPanel>
+            <ApplicationDetailTile
+              icon={Building2}
+              label={APPLICATION_DETAIL_LABELS.platform}
+              tone="primary"
             >
-              {props.app.mode}
-            </Badge>
-          )}
-
-          {props.app.work_mode && (
-            <Badge
-              variant="secondary"
-              className="px-2 py-0.5 text-xs capitalize"
+              {getPlatformName(app.platform_id)}
+            </ApplicationDetailTile>
+            <ApplicationDetailTile
+              icon={CircleCheck}
+              label={APPLICATION_DETAIL_LABELS.source}
+              tone="success"
             >
-              {props.app.work_mode.replace("_", " ")}
-            </Badge>
-          )}
-
-          <Badge variant="secondary" className="px-2 py-0.5 text-xs capitalize">
-            {props.app.company_name}
-          </Badge>
-
-          {props.app.last_step && (
-            <Badge
-              variant="outline"
-              className="gap-1.5 px-2 py-0.5 text-xs font-medium"
+              {app.mode === "active" ? "Active" : "Passive"}
+            </ApplicationDetailTile>
+            <ApplicationDetailTile
+              icon={Calendar}
+              label={APPLICATION_DETAIL_LABELS.date}
+              tone="neutral"
             >
-              <span
-                className="h-2 w-2 shrink-0 rounded-full"
-                style={{ backgroundColor: props.app.last_step.color }}
-              />
-              {props.app.last_step.name}
-            </Badge>
-          )}
-
-          {props.app.feedback && (
-            <Badge
-              variant="outline"
-              className="gap-1.5 px-2 py-0.5 text-xs font-medium"
-            >
-              <span
-                className="h-2 w-2 shrink-0 rounded-full"
-                style={{ backgroundColor: props.app.feedback.color }}
-              />
-              {props.app.feedback.name}
-            </Badge>
-          )}
-
-          <span className="ml-auto font-numeric text-xs text-muted-foreground">
-            {props.app.application_date}
-          </span>
-        </div>
-
-        {/* Inline expansion */}
-        {isExpanded && (
-          <div
-            className="animate-fade-in-up border-t border-border px-5 pt-1 pb-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mt-3 grid grid-cols-2 gap-4 text-xs sm:grid-cols-3 lg:grid-cols-4">
-              {props.app.link_to_job && (
+              {app.application_date}
+            </ApplicationDetailTile>
+            {app.experience_level ? (
+              <ApplicationDetailTile
+                icon={GraduationCap}
+                label={APPLICATION_DETAIL_LABELS.experience}
+                tone="info"
+              >
+                {optionLabel(SelectOptions.SENIORITY, app.experience_level)}
+              </ApplicationDetailTile>
+            ) : null}
+            {app.work_mode ? (
+              <ApplicationDetailTile
+                icon={Wifi}
+                label={APPLICATION_DETAIL_LABELS.workMode}
+                tone="info"
+              >
+                {optionLabel(SelectOptions.WORK_MODE, app.work_mode)}
+              </ApplicationDetailTile>
+            ) : null}
+            {app.link_to_job ? (
+              <ApplicationDetailTile
+                icon={ExternalLink}
+                label={APPLICATION_DETAIL_LABELS.jobPosting}
+              >
                 <a
-                  href={props.app.link_to_job}
+                  href={app.link_to_job}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                  className="text-primary underline-offset-4 hover:underline"
                 >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  View job posting
+                  {APPLICATION_DETAIL_LABELS.jobPostingLink}
                 </a>
-              )}
-
-              <div>
-                <span className="text-muted-foreground">Platform</span>
-                <p className="mt-0.5 font-medium text-foreground">
-                  {getPlatformName(props.app.platform_id)}
-                </p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Source</span>
-                <p className="mt-0.5 font-medium text-foreground">
-                  {props.app.mode === "active" ? "Active" : "Passive"}
-                </p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Date</span>
-                <p className="mt-0.5 font-numeric font-medium text-foreground">
-                  {props.app.application_date}
-                </p>
-              </div>
-
-              {props.app.experience_level && (
-                <div>
-                  <span className="text-muted-foreground">Experience</span>
-                  <p className="mt-0.5 font-medium text-foreground capitalize">
-                    {props.app.experience_level.replace("_", " ")}
-                  </p>
-                </div>
-              )}
-              {props.app.work_mode && (
-                <div>
-                  <span className="text-muted-foreground">Work Mode</span>
-                  <p className="mt-0.5 font-medium text-foreground capitalize">
-                    {props.app.work_mode.replace("_", " ")}
-                  </p>
-                </div>
-              )}
-              {props.app.country && (
-                <div>
-                  <span className="text-muted-foreground">Country</span>
-                  <p className="mt-0.5 font-medium text-foreground">
-                    {props.app.country}
-                  </p>
-                </div>
-              )}
-              {props.app.salary_range_min != null && (
-                <div>
-                  <span className="text-muted-foreground">Salary Range</span>
-                  <p className="mt-0.5 font-numeric font-medium text-foreground">
-                    {formatSalary(
-                      props.app.salary_range_min,
-                      props.app.currency,
-                    )}
-                    {" – "}
-                    {formatSalary(
-                      props.app.salary_range_max,
-                      props.app.currency,
-                      props.app.salary_period,
-                    )}
-                  </p>
-                </div>
-              )}
-              {props.app.expected_salary != null && (
-                <div>
-                  <span className="text-muted-foreground">Expected Salary</span>
-                  <p className="mt-0.5 font-numeric font-medium text-foreground">
-                    {formatSalary(
-                      props.app.expected_salary,
-                      props.app.currency,
-                      props.app.salary_period,
-                    )}
-                  </p>
-                </div>
-              )}
-              {props.app.observation && (
-                <div className="col-span-full">
-                  <span className="text-muted-foreground">Notes</span>
-                  <p className="mt-0.5 font-medium text-foreground">
-                    {props.app.observation}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Steps timeline */}
-            {isExpanded && <>{children}</>}
-          </div>
-        )}
-      </div>
-    </>
-  );
-}
-
-function getRelativeTimeLabel(dateStr: string) {
-  const stepDate = new Date(dateStr + "T00:00:00");
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diffMs = today.getTime() - stepDate.getTime();
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays < 0) {
-    return {
-      label: diffDays === -1 ? "Tomorrow" : `In ${Math.abs(diffDays)} days`,
-      isFuture: true,
-    };
-  } else if (diffDays === 0) {
-    return { label: "Today", isFuture: false };
-  } else if (diffDays === 1) {
-    return { label: "Yesterday", isFuture: false };
-  } else if (diffDays < 7) {
-    return { label: `${diffDays} days ago`, isFuture: false };
-  } else if (diffDays < 30) {
-    const weeks = Math.floor(diffDays / 7);
-    return {
-      label: weeks === 1 ? "1 week ago" : `${weeks} weeks ago`,
-      isFuture: false,
-    };
-  } else {
-    const months = Math.floor(diffDays / 30);
-    return {
-      label: months === 1 ? "1 month ago" : `${months} months ago`,
-      isFuture: false,
-    };
-  }
-}
-
-interface StepDelete {
-  open: boolean;
-  id?: string;
-}
-
-export function ApplicationStepTimeline({
-  id,
-  isDisabled,
-  stepsSupports,
-  onEditStep,
-}: {
-  id: string;
-  isDisabled?: boolean;
-  stepsSupports: Step[];
-  onEditStep?: (step: ApplicationStep) => void;
-}) {
-  const [stepDelete, setStepDelete] = useState<StepDelete>({ open: false });
-
-  const { steps, isLoading: stepsLoading } = useApplicationSteps(id);
-  const { deleteStep } = useApplicationStepDelete({ applicationId: id });
-
-  const resolveStep = (stepId: string) =>
-    stepsSupports.find((s) => s.id === stepId);
-
-  if (stepsLoading)
-    return (
-      <div className="mt-4 border-t border-border/50 pt-3">
-        <span className="text-xs font-semibold tracking-wider text-foreground uppercase">
-          Steps
-        </span>
-        <div className="mt-3 space-y-2">
-          {[...Array(2)].map((_, i) => (
-            <Skeleton key={i} className="h-16 rounded-lg" />
-          ))}
-        </div>
-      </div>
-    );
-
-  return (
-    <div className="mt-4 border-t border-border/50 pt-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold tracking-wider text-foreground uppercase">
-          Steps
-        </span>
-        <span className="text-xs text-muted-foreground">
-          {steps.length} recorded
-        </span>
-      </div>
-
-      {steps.length === 0 ? (
-        <p className="mt-3 text-xs text-muted-foreground">
-          No steps recorded yet.
-        </p>
-      ) : (
-        <div className="relative mt-3 space-y-0">
-          {/* Vertical timeline line */}
-          <div className="absolute top-2 bottom-2 left-[7px] hidden w-px border-2 border-dashed border-border sm:block" />
-
-          {steps.map((step) => {
-            const supportStep = resolveStep(step.step_id);
-            const stepName = supportStep?.name ?? `Step #${step.step_id}`;
-            const stepColor = supportStep?.color ?? "#888888";
-            const { label: timeLabel, isFuture } = getRelativeTimeLabel(
-              step.step_date,
-            );
-
-            return (
-              <div
-                key={step.id}
-                className="group relative flex gap-3 pb-4 last:pb-0"
+              </ApplicationDetailTile>
+            ) : null}
+            {app.country ? (
+              <ApplicationDetailTile
+                icon={MapPin}
+                label={APPLICATION_DETAIL_LABELS.country}
               >
-                {/* Timeline dot */}
-                <div
-                  className={cn(
-                    "relative right-px z-10 my-auto hidden h-5 w-5 shrink-0 rounded-full border-2 bg-background sm:block",
-                    isFuture && "border-dashed",
-                  )}
-                  style={{ borderColor: stepColor }}
-                >
-                  <div
-                    className="absolute inset-1 rounded-full"
-                    style={{ backgroundColor: stepColor }}
-                  />
-                </div>
+                {app.country}
+              </ApplicationDetailTile>
+            ) : null}
+            {app.salary_range_min != null ? (
+              <ApplicationDetailTile
+                icon={Banknote}
+                label={APPLICATION_DETAIL_LABELS.salaryRange}
+              >
+                <span className="font-numeric break-normal sm:whitespace-nowrap">
+                  {formatSalary({
+                    salaryRangeMin: app.salary_range_min?.toString(),
+                    salaryRangeMax: app.salary_range_max?.toString(),
+                    currency: app.currency,
+                    salaryPeriod: app.salary_period,
+                  })}
+                </span>
+              </ApplicationDetailTile>
+            ) : null}
+            {app.expected_salary != null ? (
+              <ApplicationDetailTile
+                icon={Wallet}
+                label={APPLICATION_DETAIL_LABELS.expectedSalary}
+              >
+                <span className="font-numeric break-normal sm:whitespace-nowrap">
+                  {formatSalary({
+                    expectedSalary: app.expected_salary?.toString(),
+                    currency: app.currency,
+                    salaryPeriod: app.salary_period,
+                  })}
+                </span>
+              </ApplicationDetailTile>
+            ) : null}
+            {app.observation ? (
+              <ApplicationDetailTile
+                icon={NotebookText}
+                label={APPLICATION_DETAIL_LABELS.notes}
+                wide
+              >
+                <span className="block text-sm leading-relaxed font-normal whitespace-pre-wrap text-foreground/90">
+                  {app.observation}
+                </span>
+              </ApplicationDetailTile>
+            ) : null}
+          </ApplicationDetailsPanel>
 
-                {/* Content */}
-                <div className="min-w-0 flex-1 rounded-lg border border-border/50 bg-accent/30 px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <Badge
-                      variant="outline"
-                      className="shrink-0 gap-1.5 px-2.5 py-1 text-xs font-semibold"
-                      style={{
-                        borderColor: stepColor,
-                        color: stepColor,
-                      }}
-                    >
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: stepColor }}
-                      />
-                      {stepName}
-                    </Badge>
-
-                    {/* Actions */}
-                    {!isDisabled && (
-                      <div className="flex shrink-0 items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="link"
-                          onClick={() => onEditStep?.(step)}
-                          className="gap-1.5 text-muted-foreground hover:text-foreground"
-                          title="Edit step"
-                        >
-                          <Pencil className="h-5 w-5" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="link"
-                          onClick={() =>
-                            setStepDelete({ open: true, id: step.id })
-                          }
-                          className="gap-1.5 text-destructive/80 hover:text-destructive"
-                          title="Delete step"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Date row */}
-                  <div className="mt-2 flex items-center gap-1.5 text-xs text-foreground/70">
-                    <Clock className="h-3.5 w-3.5 shrink-0" />
-                    <span className="font-numeric">{step.step_date}</span>
-                    <span className="text-border">·</span>
-                    <span
-                      className={cn(isFuture && "font-medium text-primary")}
-                    >
-                      {timeLabel}
-                    </span>
-                  </div>
-
-                  {/* Observation */}
-                  {step.observation && (
-                    <p className="mt-2 text-xs leading-relaxed whitespace-pre-wrap text-foreground/70">
-                      {step.observation}
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <AlertDialog
-        open={stepDelete.open}
-        onOpenChange={(open) => setStepDelete({ open })}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete step?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => stepDelete.id && deleteStep(stepDelete.id)}
-              variant="destructive"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+          <TimelineSection application={app} />
+        </CollapsibleContent>
+      </article>
+    </Collapsible>
   );
 }

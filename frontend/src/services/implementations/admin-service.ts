@@ -3,10 +3,8 @@ import type {
   ActivityHeatmapPoint,
   AdminCompaniesParams,
   AdminCompanyRow,
-  AdminFeedbackDefinition,
   AdminPlatform,
   AdminPlatformStats,
-  AdminStepDefinition,
   AdminUpdateUser,
   AdminUserDetail,
   AdminUserRow,
@@ -128,66 +126,7 @@ export class AdminService {
     return api.delete(`/admin/platforms/${id}`).then(() => undefined);
   }
 
-  // ── Supports: Step Definitions ────────────────────────────────────
-
-  getStepDefinitions(): Promise<AdminStepDefinition[]> {
-    return api
-      .get<AdminStepDefinition[]>("/admin/step-definitions")
-      .then((r) => r.data);
-  }
-
-  createStepDefinition(data: {
-    name: string;
-    color: string;
-    strict: boolean;
-  }): Promise<AdminStepDefinition> {
-    return api
-      .post<AdminStepDefinition>("/admin/step-definitions", data)
-      .then((r) => r.data);
-  }
-
-  updateStepDefinition(
-    id: string,
-    data: { name?: string; color?: string; strict?: boolean },
-  ): Promise<AdminStepDefinition> {
-    return api
-      .patch<AdminStepDefinition>(`/admin/step-definitions/${id}`, data)
-      .then((r) => r.data);
-  }
-
-  deleteStepDefinition(id: string): Promise<void> {
-    return api.delete(`/admin/step-definitions/${id}`).then(() => undefined);
-  }
-
-  // ── Supports: Feedback Definitions ────────────────────────────────
-
-  getFeedbackDefinitions(): Promise<AdminFeedbackDefinition[]> {
-    return api
-      .get<AdminFeedbackDefinition[]>("/admin/feedback-definitions")
-      .then((r) => r.data);
-  }
-
-  createFeedbackDefinition(data: {
-    name: string;
-    color: string;
-  }): Promise<AdminFeedbackDefinition> {
-    return api
-      .post<AdminFeedbackDefinition>("/admin/feedback-definitions", data)
-      .then((r) => r.data);
-  }
-
-  updateFeedbackDefinition(
-    id: string,
-    data: { name?: string; color?: string },
-  ): Promise<AdminFeedbackDefinition> {
-    return api
-      .patch<AdminFeedbackDefinition>(`/admin/feedback-definitions/${id}`, data)
-      .then((r) => r.data);
-  }
-
-  deleteFeedbackDefinition(id: string): Promise<void> {
-    return api
-      .delete(`/admin/feedback-definitions/${id}`)
-      .then(() => undefined);
-  }
+  // Step/feedback definition CRUD removed (PRD 0008, ADR 0012, R-021):
+  // `/admin/step-definitions*` and `/admin/feedback-definitions*` now 404 —
+  // the web must never call them.
 }

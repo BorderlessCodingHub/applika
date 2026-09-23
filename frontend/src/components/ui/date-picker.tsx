@@ -21,6 +21,12 @@ interface DatePickerInputProps {
   maxDate?: Date;
   disabled?: boolean;
   className?: string;
+  /** Trigger id; `<FormControl>` passes the one its `<FormLabel>` points at. */
+  id?: string;
+  "aria-invalid"?: boolean;
+  "aria-labelledby"?: string;
+  /** Hint/error ids; `<FormControl>` passes these through. */
+  "aria-describedby"?: string;
 }
 
 /**
@@ -47,6 +53,10 @@ export function DatePickerInput({
   maxDate,
   disabled,
   className,
+  id,
+  "aria-invalid": ariaInvalid,
+  "aria-labelledby": ariaLabelledby,
+  "aria-describedby": ariaDescribedby,
 }: DatePickerInputProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -77,6 +87,10 @@ export function DatePickerInput({
       <PopoverTrigger asChild>
         <Button
           data-slot="date-picker-trigger"
+          id={id}
+          aria-invalid={ariaInvalid}
+          aria-labelledby={ariaLabelledby}
+          aria-describedby={ariaDescribedby}
           variant={disabled ? "ghost" : "outline"}
           className={cn(
             "w-full justify-start bg-card text-left font-normal",

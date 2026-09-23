@@ -3,9 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.models import (
     ApplicationModel,
-    ApplicationStepModel,
     CycleModel,
     QuinzenalReportModel,
+    TimelineEventModel,
 )
 
 
@@ -63,7 +63,7 @@ class CycleRepository:
             )
             .values(cycle_id=cycle_id)
         )
-        return result.rowcount
+        return int(getattr(result, 'rowcount', 0) or 0)
 
     async def archive_current_reports(self, user_id: int, cycle_id: int) -> int:
         result = await self.session.execute(
@@ -74,11 +74,17 @@ class CycleRepository:
             )
             .values(cycle_id=cycle_id)
         )
-        return result.rowcount
+        return int(getattr(result, 'rowcount', 0) or 0)
 
     async def delete_cycle_cascade(self, cycle_id: int, user_id: int) -> None:
-        """Delete a cycle and all its associated data atomically."""
-        # 1. Delete application steps for apps in this cycle
+        """Delete a cycle and all its associated data atomically.
+
+        Archiving (``archive_current_applications``) only stamps
+        ``cycle_id``: a closed application swept into a cycle keeps its
+        ``finalized_at`` and becomes read-only for good, because every write
+        guard refuses an archived application first (422).
+        """
+        # 1. Delete the timeline events of the apps in this cycle
         app_ids_subq = (
             select(ApplicationModel.id)
             .where(
@@ -88,8 +94,9 @@ class CycleRepository:
             .scalar_subquery()
         )
         await self.session.execute(
-            delete(ApplicationStepModel).where(
-                ApplicationStepModel.application_id.in_(app_ids_subq)
+            delete(TimelineEventModel).where(
+                TimelineEventModel.user_id == user_id,
+                TimelineEventModel.application_id.in_(app_ids_subq),
             )
         )
         # 2. Delete applications in this cycle

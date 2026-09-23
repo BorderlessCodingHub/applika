@@ -10,11 +10,17 @@
  * provenance fields the API always returns.
  */
 
-import type {
-  BaseCv,
-  CvScalars,
-  CvSections,
-} from "@/components/base-cvs/types";
+import type { CvScalars, CvSections } from "@/components/base-cvs/types";
+
+/**
+ * The master CV's content, captured once at copy-creation time (KODI-017,
+ * R5). Exactly the copy's own content fields — same shape, same item ids — so
+ * `cv-diff.ts` can compare it against the form values directly. `null` on a
+ * copy created before this field existed (no backfill) and on every copy
+ * forever after: it is written once and never rewritten, not by a PUT, not by
+ * editing or deleting the master CV.
+ */
+export type TailoredCvSnapshot = CvScalars & CvSections;
 
 /** A persisted CV copy as returned by the API. */
 export interface TailoredCv extends CvScalars, CvSections {
@@ -26,6 +32,11 @@ export interface TailoredCv extends CvScalars, CvSections {
    * The copy keeps ALL of its content either way — only the provenance is lost.
    */
   base_cv_id: string | null;
+  /**
+   * The diff baseline (KODI-017). Read-only, never sent on `PUT` — see
+   * `toTailoredCvPayload`, which never emits this key.
+   */
+  base_snapshot: TailoredCvSnapshot | null;
   /** Always `false` today. Nothing in the product generates a CV. */
   was_ai_generated: boolean;
   /** Always empty today. Reserved by the API contract. */
@@ -35,15 +46,6 @@ export interface TailoredCv extends CvScalars, CvSections {
   /** `null` until the copy is first updated — the API's `TimeSchema` allows it. */
   updated_at: string | null;
 }
-
-/**
- * What the picker renders per master CV. `BaseCv[]` is assignable to
- * `BaseCvOption[]`, so the page can hand `useBaseCvs()` straight over.
- */
-export type BaseCvOption = Pick<
-  BaseCv,
-  "id" | "name" | "full_name" | "headline" | "skills" | "updated_at"
->;
 
 /** Why a CV copy is read-only. The application is the authority, never the copy. */
 export type TailoredCvReadOnlyReason = "finalized" | "archived";
@@ -60,8 +62,8 @@ export const TAILORED_CV_READ_ONLY_COPY: Record<
   { title: string; body: string }
 > = {
   finalized: {
-    title: "This application is finalized",
-    body: "Its CV copy stays exactly as it was. You can read it, but it can no longer be edited or deleted.",
+    title: "This application is closed.",
+    body: "Reopen it to edit this CV.",
   },
   archived: {
     title: "This application is in a closed cycle",

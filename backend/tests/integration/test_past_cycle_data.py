@@ -7,15 +7,16 @@ from decimal import Decimal
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.enums import EventType, InterviewType
 from app.domain.models import (
     ApplicationModel,
-    ApplicationStepModel,
     CycleModel,
     QuinzenalReportModel,
-    StepDefinitionModel,
+    TimelineEventModel,
 )
 from tests import msg
 from tests.base_db_setup import base_data
+from tests.integration import timeline_seed as ts
 
 
 def _make_report(**kwargs):
@@ -52,18 +53,8 @@ async def _seed_and_archive(
     today = date.today()
     bd = base_data()
 
-    # -- Step definitions (shared across cycles)
-    db_session.add_all([
-        StepDefinitionModel(
-            id=1, name='Initial Screen', color='#a892d3', strict=False
-        ),
-        StepDefinitionModel(
-            id=2, name='Offer', color='#31d845', strict=True
-        ),
-        StepDefinitionModel(
-            id=3, name='Denied', color='#a80000', strict=True
-        ),
-    ])
+    # -- Step definitions (shared across cycles), mapped as R1 maps them
+    db_session.add_all(ts.catalog())
 
     # -- Applications for the "old" cycle (will be archived, need >= 10)
     old_apps = [
@@ -76,8 +67,7 @@ async def _seed_and_archive(
             role='Backend Engineer',
             mode='active',
             application_date=today - timedelta(days=30),
-            feedback_id=bd['fb_denied'].id,
-            feedback_date=today - timedelta(days=10),
+            finalized_at=ts.closed_at(today - timedelta(days=10)),
         ),
         ApplicationModel(
             id=2,
@@ -113,23 +103,27 @@ async def _seed_and_archive(
             application_date=today - timedelta(days=15),
         ))
     db_session.add_all(old_apps)
+    await db_session.flush()
 
-    # -- Steps for old-cycle applications
+    # -- Timeline events of old-cycle applications
+    screening = {
+        'event_type': EventType.INTERVIEW,
+        'interview_type': InterviewType.INITIAL_SCREENING,
+    }
     db_session.add_all([
-        ApplicationStepModel(
-            id=1, application_id=1, step_id=1,
-            step_date=today - timedelta(days=28),
-            user_id=bd['user'].id,
+        TimelineEventModel(
+            id=1, application_id=1, user_id=bd['user'].id,
+            event_date=today - timedelta(days=28), **screening,
         ),
-        ApplicationStepModel(
-            id=2, application_id=1, step_id=2,
-            step_date=today - timedelta(days=15),
-            user_id=bd['user'].id,
+        TimelineEventModel(
+            id=2, application_id=1, user_id=bd['user'].id,
+            event_type=EventType.OFFER,
+            event_date=today - timedelta(days=15),
+            **ts.offer_salary('3000'),
         ),
-        ApplicationStepModel(
-            id=3, application_id=2, step_id=1,
-            step_date=today - timedelta(days=22),
-            user_id=bd['user'].id,
+        TimelineEventModel(
+            id=3, application_id=2, user_id=bd['user'].id,
+            event_date=today - timedelta(days=22), **screening,
         ),
     ])
 
@@ -258,9 +252,18 @@ async def test_past_cycle_conversion_rate(
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert isinstance(data, list)
-    # Past cycle has steps, so conversion data should exist
-    assert len(data) > 0, 'Expected conversion rate data for past cycle'
+    stages = {(i['event_type'], i['interview_type']): i for i in data}
+    assert len(data) == 9
+    assert stages[('interview', 'initial_screening')][
+        'total_applications'
+    ] == 2
+    assert stages[('interview', 'initial_screening')]['conversion_rate'] == 20.0
+    assert stages[('offer', None)]['conversion_rate'] == 10.0
+
+    current = await async_client.get(
+        '/applications/statistics/steps/conversion_rate'
+    )
+    assert {i['total_applications'] for i in current.json()} == {0}
 
 
 async def test_past_cycle_avg_days(
@@ -273,7 +276,55 @@ async def test_past_cycle_avg_days(
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert isinstance(data, list)
+    stages = {(i['event_type'], i['interview_type']): i for i in data}
+    # Screenings at +2 (app 1) and +3 (app 2); the offer at +15.
+    assert stages[('interview', 'initial_screening')]['average_days'] == 2.5
+    assert stages[('offer', None)]['average_days'] == 15.0
+
+
+async def test_past_cycle_general_statistics_offers(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    cycle_id = await _seed_and_archive(async_client, db_session)
+
+    past = (
+        await async_client.get(f'/applications/statistics?cycle_id={cycle_id}')
+    ).json()
+
+    assert (past['offers'], past['denials']) == (1, 0)
+    assert past['success_rate'] == 10.0
+
+
+async def test_closed_application_swept_into_a_cycle_stays_closed(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """PRD 0008 edge case: closed + archived = read-only for good."""
+    cycle_id = await _seed_and_archive(async_client, db_session)
+
+    [closed] = [
+        app
+        for app in (
+            await async_client.get(f'/applications?cycle_id={cycle_id}')
+        ).json()
+        if app['id'] == '1'
+    ]
+    reopen = await async_client.post('/applications/1/reopen')
+    finalize = await async_client.post('/applications/2/finalize')
+    add = await async_client.post(
+        '/applications/1/timeline',
+        json={'event_type': 'note', 'event_date': str(date.today())},
+    )
+
+    assert closed['finalized'] is True
+    assert closed['last_step']['name'] == 'Offer'
+    assert (reopen.status_code, finalize.status_code, add.status_code) == (
+        422,
+        422,
+        422,
+    )
+    timeline = await async_client.get('/applications/1/timeline')
+    assert timeline.status_code == 200
+    assert len(timeline.json()) == 2
 
 
 async def test_past_cycle_platform_stats(

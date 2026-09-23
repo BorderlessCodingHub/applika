@@ -30,6 +30,21 @@ export function cvPdfFilename(name: string): string {
   return `${cvFilenameSlug(name)}.pdf`;
 }
 
+/** `<slug>.md` — the Markdown twin of `cvPdfFilename` (KODI-017 part 3). */
+export function cvMarkdownFilename(name: string): string {
+  return `${cvFilenameSlug(name)}.md`;
+}
+
+/** `<slug>-changes.md` — the diff export's Markdown filename fallback. */
+export function cvDiffMarkdownFilename(name: string): string {
+  return `${cvFilenameSlug(name)}-changes.md`;
+}
+
+/** `<slug>-changes.pdf` — the diff export's PDF filename fallback. */
+export function cvDiffPdfFilename(name: string): string {
+  return `${cvFilenameSlug(name)}-changes.pdf`;
+}
+
 /**
  * The filename out of a `Content-Disposition` header, or `null` when the header
  * is missing, carries no filename, or is malformed.

@@ -162,31 +162,23 @@ async function seedTailoredCv(
   expect(response.ok(), await response.text()).toBeTruthy();
 }
 
-/** Finalize the application out of band, so the UI meets it already locked. */
+/**
+ * Finalize the application out of band, so the UI meets it already locked.
+ *
+ * PRD 0008 / ADR 0012, R-032: the web's close dialog now POSTs with NO body
+ * for the "none" outcome (idempotent) — this mirrors that, rather than the
+ * legacy `{step_id, feedback_id, finalize_date}` shape, which is
+ * CLI-0.1.4-only and which the web never sends (`.claude/rules/
+ * cli-compatibility.md`). Only `finalized_at` being set matters for this
+ * spec's "readable but locked" assertions, so no outcome is needed.
+ */
 async function finalizeApplication(
   request: APIRequestContext,
   applicationId: string,
 ) {
-  const { steps, feedbacks } = await supports(request);
-  // Finalizing accepts a STRICT step definition only
-  // (`StepDefinitionRepository.get_by_id_strict_only`); any other one is a 404
-  // reading "Step not found or is invalid".
-  const strictStep = steps.find((step) => step.strict);
-  expect(
-    strictStep,
-    "the seeded supports data has no strict step definition to finalize with",
-  ).toBeDefined();
-
   const response = await request.post(
     apiUrl(`/applications/${applicationId}/finalize`),
-    {
-      headers: apiHeaders(),
-      data: {
-        step_id: strictStep!.id,
-        feedback_id: feedbacks[0].id,
-        finalize_date: yesterday(),
-      },
-    },
+    { headers: apiHeaders() },
   );
   expect(response.ok(), await response.text()).toBeTruthy();
 }
@@ -596,7 +588,9 @@ test("an application's CV copy is picked, tailored, deleted and picked again", a
   await page.goto("/applications");
 
   // ---- AC8: the job description is written on the application form -----
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page
+    .getByRole("button", { name: `Edit ${ROLE} at ${COMPANY}`, exact: true })
+    .click();
   const sheet = page.getByRole("dialog", { name: "Edit Application" });
   await sheet.getByLabel("Job description").fill(JOB_DESCRIPTION);
   await sheet.getByRole("button", { name: "Save changes" }).click();
@@ -614,6 +608,25 @@ test("an application's CV copy is picked, tailored, deleted and picked again", a
   const option = page.getByRole("radio");
   await expect(option).toHaveCount(1);
   await expect(option).toBeChecked();
+
+  // ---- AC2: the picker is the /cvs components — same cards, same actions,
+  // same new-CV card, no "Manage master CVs" (owner decision, 2026-09-19) ---
+  await expect(
+    page.getByRole("link", { name: `Edit ${CV_NAME}` }),
+  ).toHaveAttribute("href", new RegExp(`/cvs/editor\\?id=`));
+  await expect(
+    page.getByRole("button", { name: `Delete ${CV_NAME}` }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: `Download PDF ${CV_NAME}` }),
+  ).toBeVisible();
+  await expect(page.getByText(/2 of 3 slot/)).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "New master CV" }),
+  ).toHaveAttribute("href", "/cvs/new");
+  await expect(
+    page.getByRole("link", { name: /manage master cvs/i }),
+  ).toHaveCount(0);
 
   const create = page.getByRole("button", { name: "Create the CV copy" });
   await expect(create).toBeEnabled();
@@ -669,6 +682,46 @@ test("an application's CV copy is picked, tailored, deleted and picked again", a
   );
 });
 
+test("the picker on the application CV route shows keywords, not skill category names (AC2)", async ({
+  page,
+  request,
+}) => {
+  // The owner: "we're still displaying the skills categories names instead
+  // of the keywords, change it to match with the '/cvs' page".
+  const response = await request.post(apiUrl("/base-cvs"), {
+    headers: apiHeaders(),
+    data: {
+      name: CV_NAME,
+      full_name: "E2E Candidate",
+      headline: "Engineer",
+      location: "Remote",
+      email: "e2e-user@e2e.applika.dev",
+      phone: null,
+      summary: "Seeded by the E2E suite.",
+      links: [],
+      skills: [
+        { id: "s-1", category: SKILL_CATEGORY, keywords: ["Python", "Rust"] },
+      ],
+      experience: [],
+      projects: [],
+      education: [],
+      certifications: [],
+      languages: [],
+    },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const applicationId = await seedApplication(request);
+
+  await loginAs(page, "user");
+  await page.goto(`/applications/cv?id=${applicationId}`);
+
+  const card = page.locator('[data-slot="card"]').filter({ hasText: CV_NAME });
+  await expect(card).toBeVisible();
+  await expect(card.getByText("Python", { exact: true })).toBeVisible();
+  await expect(card.getByText("Rust", { exact: true })).toBeVisible();
+  await expect(card.getByText(SKILL_CATEGORY, { exact: true })).toHaveCount(0);
+});
+
 test("a finalized application's CV copy is readable but locked", async ({
   page,
   request,
@@ -684,7 +737,7 @@ test("a finalized application's CV copy is readable but locked", async ({
   await page.goto(`/applications/cv?id=${applicationId}`);
 
   // AC10 — refused, and said out loud rather than left to a failed click.
-  await expect(page.getByText("This application is finalized")).toBeVisible();
+  await expect(page.getByText("This application is closed.")).toBeVisible();
 
   // Still READABLE: the whole copy is on screen, just not editable.
   const label = page.getByLabel("CV label", { exact: true });
@@ -1110,22 +1163,31 @@ async function contentGeometry(page: Page) {
   });
 }
 
-test("the CV pages spend the whole shell width (AC5)", async ({
+test("the CV pages spend the whole shell width once there is an editor to show (AC1)", async ({
   page,
   request,
 }) => {
-  // The owner: "also, use the full page width for this page" — his
-  // screenshot showed the dead space to the right of the editor. Asserted as
-  // GEOMETRY on all three CV routes, never as a class: a capped container is
-  // only visible as width nobody uses.
+  // The owner, KODI-008: "also, use the full page width for this page" — his
+  // screenshot showed the dead space to the right of the editor. Revised by
+  // KODI-017: "only full width when we have a cv copy to the application" —
+  // `/applications/cv` now spends the full width ONLY once the editor is on
+  // screen (a copy exists); every other state of that route, including the
+  // picker, stays in the reading column like every other page. Asserted as
+  // GEOMETRY, never as a class: a capped container is only visible as width
+  // nobody uses.
   const cvId = await seedBaseCv(request, CV_NAME);
   const applicationId = await seedApplication(request, JOB_DESCRIPTION);
   await seedTailoredCv(request, applicationId, cvId);
+  // A second application with NO copy — the picker state this test proves
+  // stays in the reading column.
+  const noCopyApplicationId = await seedApplication(request);
 
   await loginAs(page, "user");
   // Wider than `max-w-7xl`, or the reading column would not bind and there
-  // would be no dead space to remove.
-  await page.setViewportSize({ width: 1600, height: 900 });
+  // would be no dead space to remove. 1920px (Recommended, owner-ordered
+  // KODI-013 addendum) so the >100px dead-space precondition holds reliably;
+  // this widens only the viewport this test runs at, never the layout itself.
+  await page.setViewportSize({ width: 1920, height: 1080 });
 
   await page.goto("/applications");
   await expect(
@@ -1134,8 +1196,20 @@ test("the CV pages spend the whole shell width (AC5)", async ({
   const capped = await contentGeometry(page);
   expect(
     capped.dead,
-    "the reading column does not bind at 1600px, so this test proves nothing",
+    "the reading column does not bind at 1920px, so this test proves nothing",
   ).toBeGreaterThan(100);
+
+  // ---- the picker (no copy yet) stays in the reading column -------------
+  await page.goto(`/applications/cv?id=${noCopyApplicationId}`);
+  await expect(
+    page.getByRole("button", { name: "Create the CV copy" }),
+  ).toBeVisible();
+  const pickerGeometry = await contentGeometry(page);
+  expect(
+    pickerGeometry.dead,
+    "the picker spent the full width — it must stay in the reading column",
+  ).toBeGreaterThan(100);
+  expect(pickerGeometry.contentWidth).toBe(capped.contentWidth);
 
   for (const route of [
     "/cvs/new",
@@ -1438,6 +1512,40 @@ test("the form and the preview each take half the editor, with no cap on either 
     console.log(
       `[KODI-009] 50/50 at ${width}px: ${JSON.stringify(halves)}, ${sheets} sheets`,
     );
+  }
+
+  // ---- The COPY editor gets the same 50/50, with no `2xl` cap either
+  // (KODI-017 criterion 4). Its preview landmark is a `<section
+  // aria-label="CV preview">`, not the master editor's `<aside>` above, so
+  // the selector is tag-agnostic on purpose — both are ARIA regions with the
+  // same accessible name.
+  {
+    const applicationId = await seedApplication(request, JOB_DESCRIPTION);
+    await seedTailoredCv(request, applicationId, cvId);
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await page.goto(`/applications/cv?id=${applicationId}`);
+    await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+      CV_NAME,
+    );
+
+    const copyHalves = await page.evaluate(() => {
+      const split = document.querySelector<HTMLElement>("form > div.grid");
+      const form = split?.firstElementChild as HTMLElement | null;
+      const preview = document.querySelector<HTMLElement>(
+        '[aria-label="CV preview"]',
+      );
+      if (!split || !form || !preview) throw new Error("the editor restacked");
+      return {
+        split: Math.round(split.getBoundingClientRect().width),
+        form: Math.round(form.getBoundingClientRect().width),
+        preview: Math.round(preview.getBoundingClientRect().width),
+      };
+    });
+    expect(
+      Math.abs(copyHalves.form - copyHalves.preview),
+      `copy editor at 1600px is not a 50/50 split: ${JSON.stringify(copyHalves)}`,
+    ).toBeLessThanOrEqual(1);
+    expect(copyHalves.form * 2).toBeGreaterThan(copyHalves.split - 48);
   }
 
   // Below `md` the two stack, form first — the halves are a `md:` rule, not a
@@ -2210,4 +2318,217 @@ test("the CV gallery says nothing about a preview it does not render (13)", asyn
   // `getByText` matches it, it is only visually hidden.
   await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(0);
   await expect(download).not.toHaveAttribute("aria-describedby", /./);
+});
+
+/* ---------------------------------------------------------------------------
+ * KODI-017 — the copy's diff against its baseline, and the Markdown/diff
+ * downloads (parts 2 and 3).
+ * ------------------------------------------------------------------------ */
+
+/** The route really answers with Markdown, containing `expectedContains`. */
+async function expectMarkdownRoute(
+  request: APIRequestContext,
+  path: string,
+  expectedContains: string,
+) {
+  const response = await request.get(apiUrl(path), {
+    headers: { Cookie: authCookieHeader("user") },
+  });
+
+  expect(response.status(), await response.text()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("text/markdown");
+  expect(response.headers()["content-disposition"]).toMatch(
+    /^attachment; filename="[a-z0-9-]+\.md"$/,
+  );
+
+  const body = await response.text();
+  expect(body).toContain(expectedContains);
+}
+
+test("the copy's diff: Changed + Revert, an Added badge on a new row, and Restore on a removed one (KODI-017)", async ({
+  page,
+  request,
+}) => {
+  const response = await request.post(apiUrl("/base-cvs"), {
+    headers: apiHeaders(),
+    data: {
+      name: CV_NAME,
+      full_name: "E2E Candidate",
+      headline: "Engineer",
+      location: "Remote",
+      email: "e2e-user@e2e.applika.dev",
+      phone: null,
+      summary: "Seeded by the E2E suite.",
+      links: [],
+      skills: [],
+      experience: [
+        {
+          id: "seed-x-1",
+          company: "Old Co",
+          role: "Backend Engineer",
+          start: "2019-01",
+          end: "2021-01",
+          bullets: [],
+        },
+      ],
+      projects: [],
+      education: [],
+      certifications: [],
+      languages: [],
+    },
+  });
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const baseCvId = ((await response.json()) as { id: string }).id;
+  const applicationId = await seedApplication(request, JOB_DESCRIPTION);
+  await seedTailoredCv(request, applicationId, baseCvId);
+
+  await loginAs(page, "user");
+  await page.goto(`/applications/cv?id=${applicationId}`);
+  await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+    CV_NAME,
+  );
+
+  // No baseline diff shown until the toggle is on. "Changed: Headline" is the
+  // MARKER's accessible name (an `aria-label`), not rendered text — check the
+  // role, not `getByText`, which would find nothing here whatever the toggle.
+  await expect(
+    page.getByRole("button", { name: "Changed: Headline" }),
+  ).toHaveCount(0);
+  await page.getByLabel("Show changes").click();
+  await expect(page.getByText(/Compared with .*: no changes/)).toBeVisible();
+
+  // ---- Changed + Revert on a scalar field ----
+  const headline = page.getByLabel("Headline", { exact: true });
+  await headline.fill("");
+  await headline.fill("Staff Engineer");
+  const marker = page.getByRole("button", { name: "Changed: Headline" });
+  await expect(marker).toBeVisible();
+  await marker.click();
+  await page.getByRole("button", { name: "Revert Headline" }).click();
+  await expect(headline).toHaveValue("Engineer");
+  await expect(page.getByText(/Compared with .*: no changes/)).toBeVisible();
+
+  // ---- Added badge on a brand-new experience row ----
+  await page.getByRole("button", { name: "Add experience" }).click();
+  const newRow = page.getByRole("group", { name: "experience 2" });
+  await expect(newRow.getByText("Added")).toBeVisible();
+
+  // ---- Removed row + Restore on the BASELINE experience row ------------
+  await page
+    .getByRole("group", { name: "experience 1" })
+    .getByRole("button", { name: "Remove experience 1" })
+    .click();
+  await expect(
+    page.getByRole("group", { name: /Removed experience/ }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Restore experience Backend Engineer" })
+    .click();
+  await expect(
+    page.getByRole("group", { name: /Removed experience/ }),
+  ).toHaveCount(0);
+  // "Backend Engineer" appears TWICE once restored — the row's own Role
+  // field and the live preview both say it — so assert the row itself, not
+  // a bare `getByText` (which would hit Playwright's strict-mode ambiguity).
+  const restoredRow = page.getByRole("group", { name: "experience 1" });
+  await expect(restoredRow).toBeVisible();
+  await expect(restoredRow.getByRole("textbox", { name: "Role" })).toHaveValue(
+    "Backend Engineer",
+  );
+});
+
+test("a master CV and a CV copy download as Markdown beside the PDF (KODI-017 part 3)", async ({
+  page,
+  request,
+}) => {
+  const baseCvId = await seedBaseCv(request, CV_NAME);
+  const applicationId = await seedApplication(request, JOB_DESCRIPTION);
+  await seedTailoredCv(request, applicationId, baseCvId);
+
+  await expectMarkdownRoute(request, `/base-cvs/${baseCvId}/markdown`, "#");
+  await expectMarkdownRoute(
+    request,
+    `/applications/${applicationId}/cv/markdown`,
+    "#",
+  );
+
+  await loginAs(page, "user");
+
+  // ---- The master CV editor ----------------------------------------------
+  await page.goto(`/cvs/editor?id=${baseCvId}`);
+  await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+    CV_NAME,
+  );
+  const masterMd = page.getByRole("button", { name: "Download Markdown" });
+  await expect(masterMd).toBeVisible();
+  const startedMasterMd = page.waitForEvent("download");
+  await masterMd.click();
+  const savedMasterMd = await startedMasterMd;
+  expect(savedMasterMd.suggestedFilename()).toBe("e2e-master-cv.md");
+  expect((await readDownload(savedMasterMd)).toString("utf-8")).toContain("#");
+
+  // ---- The CV copy editor -------------------------------------------------
+  await page.goto(`/applications/cv?id=${applicationId}`);
+  await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+    CV_NAME,
+  );
+  const copyMd = page.getByRole("button", { name: "Download Markdown" });
+  await expect(copyMd).toBeVisible();
+  const startedCopyMd = page.waitForEvent("download");
+  await copyMd.click();
+  const savedCopyMd = await startedCopyMd;
+  expect(savedCopyMd.suggestedFilename()).toBe("e2e-master-cv.md");
+});
+
+test("the diff downloads as Markdown and PDF, and the Markdown carries the saved change (KODI-017 part 3)", async ({
+  page,
+  request,
+}) => {
+  const baseCvId = await seedBaseCv(request, CV_NAME);
+  const applicationId = await seedApplication(request, JOB_DESCRIPTION);
+  await seedTailoredCv(request, applicationId, baseCvId);
+
+  await loginAs(page, "user");
+  await page.goto(`/applications/cv?id=${applicationId}`);
+  await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+    CV_NAME,
+  );
+
+  const headline = page.getByLabel("Headline", { exact: true });
+  await headline.fill("");
+  await headline.fill("Staff Engineer, tailored");
+  await expectReachableWithCookieNoticeUp(page, "Save CV copy");
+  await page.getByRole("button", { name: "Save CV copy" }).click();
+  await expect(page.getByText("CV copy saved")).toBeVisible();
+
+  // The route itself, before the UI: proves the diff was computed from the
+  // SAVED copy against its baseline.
+  await expectMarkdownRoute(
+    request,
+    `/applications/${applicationId}/cv/diff/markdown`,
+    "Staff Engineer, tailored",
+  );
+
+  const diffMd = page.getByRole("button", {
+    name: "Download changes as Markdown",
+  });
+  await expect(diffMd).toBeVisible();
+  const startedMd = page.waitForEvent("download");
+  await diffMd.click();
+  const savedMd = await startedMd;
+  expect(savedMd.suggestedFilename()).toBe("e2e-master-cv-changes.md");
+  expect((await readDownload(savedMd)).toString("utf-8")).toContain(
+    "Staff Engineer, tailored",
+  );
+
+  const diffPdf = page.getByRole("button", {
+    name: "Download changes as PDF",
+  });
+  const startedPdf = page.waitForEvent("download");
+  await diffPdf.click();
+  const savedPdf = await startedPdf;
+  expect(savedPdf.suggestedFilename()).toBe("e2e-master-cv-changes.pdf");
+  expect((await readDownload(savedPdf)).subarray(0, 5).toString("latin1")).toBe(
+    "%PDF-",
+  );
 });

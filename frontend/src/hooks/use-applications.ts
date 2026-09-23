@@ -7,10 +7,7 @@ import { isAfter, isBefore, isEqual, parseISO } from "date-fns";
 import { AxiosError } from "axios";
 import { services } from "@/services/services";
 import { useSupports } from "@/contexts/supports-context";
-import {
-  ApplicationFinalizePayload,
-  CreateApplicationPayload,
-} from "@/services/types/applications";
+import { CreateApplicationPayload } from "@/services/types/applications";
 import { getApiError } from "@/lib/api-client";
 import { TAILORED_CVS_QUERY_KEY } from "@/hooks/use-tailored-cv";
 
@@ -78,13 +75,20 @@ export function useApplications(cycleId?: string | null) {
     queryFn: () => services.applications.getApplications(cycleId),
   });
 
+  // G7: the advanced panel holds `mode`, `platformId` and `dateRange` — not
+  // `status`, which is a toolbar control. Counting `status` here used to make
+  // the sliders button light up on a toolbar-only filter and hide "Clear all"
+  // when only a panel field was set.
   const hasAdvancedFilters =
-    filters.status !== "all" ||
+    filters.mode !== "all" ||
     filters.platformId != null ||
     filters.dateRange != null;
 
+  // `hasAnyFilter` drives the empty state (search vs. "Clear all"), so it
+  // counts the toolbar `status` control too, even though `hasAdvancedFilters`
+  // (G7) deliberately does not.
   const hasAnyFilter =
-    !!filters.search || filters.mode !== "all" || hasAdvancedFilters;
+    !!filters.search || filters.status !== "all" || hasAdvancedFilters;
 
   const filtered = useMemo(() => {
     if (!query.data) return [];
@@ -120,6 +124,8 @@ export function useApplications(cycleId?: string | null) {
   return {
     filtered,
     isLoading: query.isLoading,
+    isError: query.isError,
+    refetch: query.refetch,
     filters,
     updateFilter,
     clearFilters,
@@ -234,33 +240,7 @@ export function useApplicationMutate(props: ApplicationMutateProps) {
   };
 }
 
-interface ApplicationFinalizeProps {
-  applicationId: string;
-  onSuccess?: () => Promise<void> | void;
-}
-
-export function useFinalizeApplication(props: ApplicationFinalizeProps) {
-  const queryClient = useQueryClient();
-
-  const mutation = useMutation({
-    mutationFn: (data: ApplicationFinalizePayload) =>
-      services.applications.finalizeApplication(props.applicationId, data),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["applications"] });
-      await queryClient.invalidateQueries({ queryKey: ["statistics"] });
-      toast.success("Application finalized");
-      if (props.onSuccess) await props.onSuccess();
-    },
-    onError: () => toast.error("Failed to finalize"),
-  });
-
-  async function finalize(payload: ApplicationFinalizePayload) {
-    await mutation.mutate(payload);
-  }
-
-  return {
-    finalize,
-    isPending: mutation.isPending,
-    error: mutation.error as Error | null,
-  };
-}
+// Finalize/reopen moved to `@/hooks/use-finalize-application` and
+// `@/hooks/use-reopen-application` (PRD 0008, ADR 0012, R-032): the legacy
+// `ApplicationFinalizePayload` (`step_id`/`feedback_id`) is CLI-0.1.4-only —
+// the web now sends the outcome-based body (or none) instead.

@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Check, FileText, Loader2, Pencil, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +32,16 @@ function formatUpdated(value: string | null): string | null {
   });
 }
 
+/** Makes the tile one option of a radio group. See `CvCardProps.selection`. */
+export interface CvCardSelection {
+  /** The `name` every tile of the group shares. */
+  name: string;
+  checked: boolean;
+  onSelect: () => void;
+  /** Id of the text that says what choosing does. */
+  describedBy?: string;
+}
+
 export interface CvCardProps {
   cv: BaseCv;
   /** Destination of the edit action. */
@@ -48,6 +58,16 @@ export interface CvCardProps {
   onExport?: () => void;
   /** Reflects an in-flight PDF render on this card. */
   isExporting?: boolean;
+  /** Asks the server for this CV's Markdown (KODI-017 part 3), beside the PDF. */
+  onExportMarkdown?: () => void;
+  /** Reflects an in-flight Markdown render on this card. */
+  isExportingMarkdown?: boolean;
+  /**
+   * Turns the tile into a radio option: a radio before the name, the name its
+   * label, the whole tile its click target, the actions still on top. Absent
+   * on `/cvs`, where the tile renders exactly as it did before.
+   */
+  selection?: CvCardSelection;
   className?: string;
 }
 
@@ -63,6 +83,9 @@ export function CvCard({
   isDeleting = false,
   onExport,
   isExporting = false,
+  onExportMarkdown,
+  isExportingMarkdown = false,
+  selection,
   className,
 }: CvCardProps) {
   // Every keyword of every category, flattened, deduplicated, uncapped. The
@@ -75,6 +98,10 @@ export function CvCard({
     <Card
       className={cn(
         "min-h-52 gap-0 py-0 transition-colors hover:border-primary/40",
+        selection &&
+          "relative has-[input:focus-visible]:ring-[3px] has-[input:focus-visible]:ring-ring/50",
+        selection?.checked &&
+          "border-primary ring-1 ring-primary hover:border-primary",
         className,
       )}
     >
@@ -90,8 +117,39 @@ export function CvCard({
           ) : null}
         </div>
 
-        <h3 className="mt-4 truncate font-display text-sm font-semibold">
-          {cv.name}
+        <h3
+          className={cn(
+            "mt-4 font-display text-sm font-semibold",
+            selection ? "min-w-0" : "truncate",
+          )}
+        >
+          {selection ? (
+            // The name is the radio's label, so the accessible name is exactly
+            // the visible one. `before:inset-0` stretches the label over the
+            // tile; the `relative` radio, name and action row paint above it.
+            <label className="flex min-w-0 cursor-pointer items-center gap-2 before:absolute before:inset-0 before:rounded-xl has-[input:disabled]:cursor-not-allowed">
+              <span className="relative flex size-4 shrink-0">
+                <input
+                  type="radio"
+                  name={selection.name}
+                  value={cv.id}
+                  checked={selection.checked}
+                  onChange={selection.onSelect}
+                  disabled={isDeleting}
+                  aria-describedby={selection.describedBy}
+                  className="peer size-4 cursor-pointer appearance-none rounded-full border border-muted-foreground transition-colors outline-none checked:border-primary checked:bg-primary disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <Check
+                  aria-hidden
+                  strokeWidth={3}
+                  className="pointer-events-none absolute inset-0 m-auto size-3 text-primary-foreground opacity-0 peer-checked:opacity-100"
+                />
+              </span>
+              <span className="relative truncate">{cv.name}</span>
+            </label>
+          ) : (
+            cv.name
+          )}
         </h3>
         <p className="mt-0.5 truncate text-xs text-muted-foreground">
           {cv.full_name}
@@ -138,7 +196,12 @@ export function CvCard({
           `flex-wrap`: three controls no longer fit one 320px row. Least
           destructive first, destructive last — download, edit, delete.
         */}
-        <div className="mt-auto flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4">
+        <div
+          className={cn(
+            "mt-auto flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4",
+            selection && "relative",
+          )}
+        >
           {onExport ? (
             <ExportCvButton
               layout="compact"
@@ -146,6 +209,8 @@ export function CvCard({
               cvName={cv.name}
               isExporting={isExporting}
               onExport={onExport}
+              onExportMarkdown={onExportMarkdown}
+              isExportingMarkdown={isExportingMarkdown}
             />
           ) : null}
 

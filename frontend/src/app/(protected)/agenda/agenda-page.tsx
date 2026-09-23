@@ -27,6 +27,10 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { cn, getAgendaUrgencyColor } from "@/lib/utils";
 import { useAgendaNotifications } from "@/contexts/agenda-notifications-context";
+import {
+  EVENT_TYPE_CONFIG,
+  stageLabel,
+} from "@/components/timeline/timeline-options";
 
 function getUserTimezone(): string {
   try {
@@ -254,13 +258,12 @@ function StepCard({
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <Badge
-                variant="secondary"
-                style={{
-                  borderColor: step.step_color ?? undefined,
-                  borderWidth: step.step_color ? 1 : undefined,
-                }}
+                className={cn(
+                  "gap-1",
+                  EVENT_TYPE_CONFIG[step.event_type].badgeClass,
+                )}
               >
-                {step.step_name}
+                {stageLabel(step.event_type, step.interview_type)}
               </Badge>
               {step.start_time && !isPast && (
                 <Tooltip>

@@ -3,26 +3,31 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
+from app.core.enums import EventType, InterviewType
+
 
 class GeneralStatsDTO(BaseModel):
     total_applications: int
     success_rate: float
     offers: int
     denials: int
+    active: int
 
 
-class StepConversionDTO(BaseModel):
-    id: int
-    name: str
-    color: str
+class StageConversionDTO(BaseModel):
+    """Applications that reached a stage, and their share of all (R-023)."""
+
+    event_type: EventType
+    interview_type: InterviewType | None = None
     total_applications: int
     conversion_rate: float
 
 
-class AvarageDaysDTO(BaseModel):
-    id: int
-    name: str
-    color: str
+class StageAverageDaysDTO(BaseModel):
+    """Average days from application to a stage's events (R-023)."""
+
+    event_type: EventType
+    interview_type: InterviewType | None = None
     average_days: Decimal
 
 

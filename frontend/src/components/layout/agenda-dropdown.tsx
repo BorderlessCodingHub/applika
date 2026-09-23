@@ -13,6 +13,7 @@ import {
 import { format, addDays, isToday, isTomorrow } from "date-fns";
 import type { AgendaStep } from "@/services/types/applications";
 import { getAgendaUrgencyColor } from "@/lib/utils";
+import { stageLabel } from "@/components/timeline/timeline-options";
 
 function getUserTimezone(): string {
   try {
@@ -182,7 +183,7 @@ export function AgendaDropdown() {
                           variant="secondary"
                           className="px-1.5 py-0 text-[10px]"
                         >
-                          {step.step_name}
+                          {stageLabel(step.event_type, step.interview_type)}
                         </Badge>
                         {getDisplayTime(step) && (
                           <span className="text-xs text-muted-foreground">

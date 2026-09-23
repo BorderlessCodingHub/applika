@@ -212,10 +212,7 @@ async def _finalize(db_session: AsyncSession, application_id: str) -> None:
         sa
         .update(ApplicationModel)
         .where(ApplicationModel.id == int(application_id))
-        .values(
-            feedback_id=base_data()['fb_denied'].id,
-            feedback_date=date(2025, 12, 10),
-        )
+        .values(finalized_at=datetime(2025, 12, 10, tzinfo=timezone.utc))
     )
     await db_session.commit()
 

@@ -162,6 +162,10 @@ _TYPST_COMMAND_START = re.compile(r'#(?=[A-Za-z])')
 # part of the symbol's name. Same trick RenderCV itself uses for ``*``.
 _ESCAPED_HASH = '#sym.hash#h(0pt, weak: true)'
 
+# Public name for the same escape: the Markdown export (markdown_renderer.py)
+# maps through this module too and has to turn it back into a plain ``#``.
+TYPST_ESCAPED_HASH = _ESCAPED_HASH
+
 
 def _clean(value: str | None) -> str:
     """Strip a stored value. Used for URLs and anything not typeset as text."""

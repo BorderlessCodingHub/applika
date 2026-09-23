@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApplicationCvPage } from "./application-cv-page";
+import { FullWidthRequestProvider } from "@/components/layout/content-width";
 import type { Application } from "@/services/types/applications";
 import type { BaseCv } from "@/services/types/base-cv";
 import type { TailoredCv } from "@/services/types/tailored-cv";
@@ -35,8 +36,16 @@ const createCopy = vi.fn();
 const updateCopy = vi.fn();
 const removeCopy = vi.fn();
 const exportCopyPdf = vi.fn();
+const exportCopyMarkdown = vi.fn();
+const exportCopyDiffMarkdown = vi.fn();
+const exportCopyDiffPdf = vi.fn();
 const listBaseCvs = vi.fn();
+const removeBaseCv = vi.fn();
+const exportBaseCvPdf = vi.fn();
+const exportBaseCvMarkdown = vi.fn();
 const getApplications = vi.fn();
+
+const NO_FILE = { blob: new Blob(["x"]), filename: null };
 
 vi.mock("@/services/services", () => ({
   services: {
@@ -46,13 +55,19 @@ vi.mock("@/services/services", () => ({
       update: (...args: unknown[]) => updateCopy(...args),
       remove: (...args: unknown[]) => removeCopy(...args),
       exportPdf: (...args: unknown[]) => exportCopyPdf(...args),
+      exportMarkdown: (...args: unknown[]) => exportCopyMarkdown(...args),
+      exportDiffMarkdown: (...args: unknown[]) =>
+        exportCopyDiffMarkdown(...args),
+      exportDiffPdf: (...args: unknown[]) => exportCopyDiffPdf(...args),
     },
     baseCvs: {
       list: (...args: unknown[]) => listBaseCvs(...args),
       get: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
-      remove: vi.fn(),
+      remove: (...args: unknown[]) => removeBaseCv(...args),
+      exportPdf: (...args: unknown[]) => exportBaseCvPdf(...args),
+      exportMarkdown: (...args: unknown[]) => exportBaseCvMarkdown(...args),
     },
     applications: {
       getApplications: (...args: unknown[]) => getApplications(...args),
@@ -93,6 +108,7 @@ const APPLICATION: Application = {
   application_date: "2026-01-05",
   job_description: "We need someone who has run Postgres in anger.",
   finalized: false,
+  finalized_at: null,
 };
 
 const MASTER_CVS: BaseCv[] = [
@@ -143,6 +159,7 @@ const COPY: TailoredCv = {
   id: "9001",
   application_id: "42",
   base_cv_id: "7",
+  base_snapshot: null,
   was_ai_generated: false,
   adjustments: [],
   name: "Backend CV for Applika",
@@ -196,19 +213,28 @@ function noCopy() {
   };
 }
 
+// Tracks whether the page asks the shell for the full width (KODI-017, AC1),
+// without paying for a real `AppShell` (its header pulls in cycles/statistics
+// queries this suite does not mock). `release` is returned fresh per call, the
+// same COUNT contract `useFullWidthRequests` implements.
+let fullWidthRequest: ReturnType<typeof vi.fn>;
+
 function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <ApplicationCvPage />
+      <FullWidthRequestProvider value={fullWidthRequest}>
+        <ApplicationCvPage />
+      </FullWidthRequestProvider>
     </QueryClientProvider>,
   );
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  fullWidthRequest = vi.fn(() => vi.fn());
   searchParams = new URLSearchParams("id=42");
   cycleContext = {
     selectedCycleId: null,
@@ -221,12 +247,21 @@ beforeEach(() => {
   createCopy.mockResolvedValue(COPY);
   updateCopy.mockResolvedValue(COPY);
   removeCopy.mockResolvedValue(undefined);
+  removeBaseCv.mockResolvedValue(undefined);
+  exportBaseCvPdf.mockResolvedValue({
+    blob: new Blob(["%PDF-1.7"], { type: "application/pdf" }),
+    filename: null,
+  });
   // No `Content-Disposition` on purpose: the page must fall back to the slug of
   // the copy's own label, which is the rule the server uses too.
   exportCopyPdf.mockResolvedValue({
     blob: new Blob(["%PDF-1.7"], { type: "application/pdf" }),
     filename: null,
   });
+  exportCopyMarkdown.mockResolvedValue(NO_FILE);
+  exportCopyDiffMarkdown.mockResolvedValue(NO_FILE);
+  exportCopyDiffPdf.mockResolvedValue(NO_FILE);
+  exportBaseCvMarkdown.mockResolvedValue(NO_FILE);
   URL.createObjectURL = (() =>
     "blob:applika/pdf") as unknown as typeof URL.createObjectURL;
   URL.revokeObjectURL = () => {};
@@ -372,11 +407,15 @@ describe("ApplicationCvPage", () => {
   });
 
   it("locks the editor of a finalized application but still shows the copy (AC10)", async () => {
-    getApplications.mockResolvedValue([{ ...APPLICATION, finalized: true }]);
+    getApplications.mockResolvedValue([
+      { ...APPLICATION, finalized: true, finalized_at: "2026-01-10T12:00:00Z" },
+    ]);
     getCopy.mockResolvedValue(COPY);
     renderPage();
 
-    expect(await screen.findByRole("status")).toHaveTextContent("finalized");
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "This application is closed.",
+    );
     expect(screen.getByLabelText("CV label")).toHaveValue(
       "Backend CV for Applika",
     );
@@ -398,7 +437,9 @@ describe("ApplicationCvPage", () => {
       .mockImplementation(function (this: HTMLAnchorElement) {
         saved.push(this.download);
       });
-    getApplications.mockResolvedValue([{ ...APPLICATION, finalized: true }]);
+    getApplications.mockResolvedValue([
+      { ...APPLICATION, finalized: true, finalized_at: "2026-01-10T12:00:00Z" },
+    ]);
     getCopy.mockResolvedValue(COPY);
     renderPage();
 
@@ -448,5 +489,353 @@ describe("ApplicationCvPage", () => {
       await screen.findByText("No application selected"),
     ).toBeInTheDocument();
     expect(getCopy).not.toHaveBeenCalled();
+  });
+
+  it("deletes a master CV from the picker, clearing the selection if it was selected, and re-preselects the lone survivor (AC2)", async () => {
+    const user = userEvent.setup();
+    // The mutation invalidates the master-CV list and the query refetches; the
+    // mock mirrors the real API dropping the deleted CV from that refetch.
+    removeBaseCv.mockImplementation(async (id: string) => {
+      listBaseCvs.mockResolvedValue(MASTER_CVS.filter((cv) => cv.id !== id));
+    });
+    renderPage();
+
+    await user.click(await screen.findByRole("radio", { name: /Frontend CV/ }));
+    await user.click(
+      screen.getByRole("button", { name: "Delete Frontend CV" }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(removeBaseCv).toHaveBeenCalledWith("8"));
+    // The deleted CV is gone and was the selection, so the lone survivor
+    // ("Backend CV") re-preselects and Create is enabled again.
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: /Backend CV/ })).toBeChecked(),
+    );
+    expect(
+      screen.getByRole("button", { name: "Create the CV copy" }),
+    ).toBeEnabled();
+    expect(screen.queryByText("Frontend CV")).not.toBeInTheDocument();
+  });
+
+  it("downloads a master CV's PDF from the picker (AC2)", async () => {
+    const saved: string[] = [];
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        saved.push(this.download);
+      });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Download PDF Backend CV" }),
+    );
+
+    await waitFor(() => expect(exportBaseCvPdf).toHaveBeenCalledWith("7"));
+    await waitFor(() => expect(saved).toEqual(["backend-cv.pdf"]));
+    click.mockRestore();
+  });
+
+  describe("full width only when the editor is on screen (KODI-017, AC1)", () => {
+    it("does not ask for the full width while the application is loading", () => {
+      getApplications.mockReturnValue(new Promise(() => {}));
+      renderPage();
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the full width when the application cannot be opened", async () => {
+      getApplications.mockResolvedValue([]);
+      renderPage();
+      await screen.findByText("Could not open this application");
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the full width on the picker's list state", async () => {
+      renderPage();
+      await screen.findByRole("button", { name: "Create the CV copy" });
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the full width while the picker's master CVs are loading", async () => {
+      listBaseCvs.mockReturnValue(new Promise(() => {}));
+      renderPage();
+      await screen.findByLabelText("Loading your master CVs");
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the full width when the picker's master CVs fail to load", async () => {
+      listBaseCvs.mockRejectedValue({
+        isAxiosError: true,
+        response: { status: 500, data: { detail: "boom" } },
+      });
+      renderPage();
+      await screen.findByText("Could not load your master CVs");
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the full width on the picker's empty state", async () => {
+      listBaseCvs.mockResolvedValue([]);
+      renderPage();
+      await screen.findByRole("heading", { name: "No master CVs yet" });
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the full width on the picker's read-only state", async () => {
+      cycleContext = {
+        selectedCycleId: "c-2024",
+        setSelectedCycleId: vi.fn(),
+        isViewingPastCycle: true,
+      };
+      renderPage();
+      await screen.findByRole("status");
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the full width while the CV copy is loading", async () => {
+      getCopy.mockReturnValue(new Promise(() => {}));
+      renderPage();
+      await screen.findByLabelText("Loading this CV copy");
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for the full width when the CV copy fails to load", async () => {
+      getCopy.mockRejectedValue({
+        isAxiosError: true,
+        response: { status: 500, data: { detail: "boom" } },
+      });
+      renderPage();
+      await screen.findByText("Could not load this CV copy");
+      expect(fullWidthRequest).not.toHaveBeenCalled();
+    });
+
+    it("asks for the full width once the editable editor is on screen", async () => {
+      getCopy.mockResolvedValue(COPY);
+      renderPage();
+      await screen.findByLabelText("CV label");
+      expect(fullWidthRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it("asks for the full width in the read-only editor too", async () => {
+      getApplications.mockResolvedValue([
+        {
+          ...APPLICATION,
+          finalized: true,
+          finalized_at: "2026-01-10T12:00:00Z",
+        },
+      ]);
+      getCopy.mockResolvedValue(COPY);
+      renderPage();
+      await screen.findByRole("status");
+      expect(fullWidthRequest).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
+describe("the diff baseline resolution (KODI-017)", () => {
+  /** A master CV that has since drifted from what the snapshot captured. */
+  const DRIFTED_MASTER: BaseCv = {
+    ...MASTER_CVS[0],
+    headline: "Staff Backend Engineer",
+  };
+
+  it("prefers `base_snapshot` over the current master CV, even when both resolve", async () => {
+    // The snapshot still says "Senior Backend Engineer" (COPY's own headline);
+    // the "current" master CV was edited afterwards. If the page compared
+    // against the master instead, the diff would report a headline change
+    // that the user never made.
+    listBaseCvs.mockResolvedValue([DRIFTED_MASTER, MASTER_CVS[1]]);
+    getCopy.mockResolvedValue({
+      ...COPY,
+      base_snapshot: {
+        name: COPY.name,
+        full_name: COPY.full_name,
+        headline: COPY.headline,
+        location: COPY.location,
+        email: COPY.email,
+        phone: COPY.phone,
+        summary: COPY.summary,
+        links: COPY.links,
+        skills: COPY.skills,
+        experience: COPY.experience,
+        projects: COPY.projects,
+        education: COPY.education,
+        certifications: COPY.certifications,
+        languages: COPY.languages,
+      },
+    });
+    renderPage();
+
+    expect(
+      await screen.findByText(/Compared with Backend CV: no changes/),
+    ).toBeInTheDocument();
+  });
+
+  it("falls back to the current master CV when there is no snapshot", async () => {
+    // Matches COPY's own content field for field, except the headline — so
+    // the fallback-to-master diff reports EXACTLY one change, isolating the
+    // resolution rule from every other field the two fixtures might differ on.
+    // `BaseCv.name` IS the "CV label" content field `diffCv` compares (the
+    // same one the badge/label text reads), so it has to match COPY's own
+    // name too, or it would count as a SECOND change alongside the headline.
+    const matchingMaster: BaseCv = {
+      id: "7",
+      name: COPY.name,
+      full_name: COPY.full_name,
+      headline: "Staff Backend Engineer",
+      location: COPY.location,
+      email: COPY.email,
+      phone: COPY.phone,
+      summary: COPY.summary,
+      links: COPY.links,
+      skills: COPY.skills,
+      experience: COPY.experience,
+      projects: COPY.projects,
+      education: COPY.education,
+      certifications: COPY.certifications,
+      languages: COPY.languages,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: null,
+    };
+    listBaseCvs.mockResolvedValue([matchingMaster, MASTER_CVS[1]]);
+    getCopy.mockResolvedValue({ ...COPY, base_snapshot: null });
+    renderPage();
+
+    expect(
+      await screen.findByText(/Compared with Backend CV for Applika: 1 change/),
+    ).toBeInTheDocument();
+  });
+
+  it("only 409 disables the diff downloads; a transient failure does not stick", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue({ ...COPY, base_snapshot: null });
+    exportCopyDiffPdf.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: {
+        status: 500,
+        data: new Blob([JSON.stringify({ detail: "Render failed" })]),
+      },
+    });
+    renderPage();
+
+    const pdfButton = await screen.findByRole("button", {
+      name: "Download changes as PDF",
+    });
+    await user.click(pdfButton);
+    // A transient 500 must not leave the row disabled — only a 409 ("no
+    // baseline") does, and clicking again must still be possible.
+    await waitFor(() => expect(pdfButton).toBeEnabled());
+  });
+
+  it("disables both diff downloads with the server's reason on a 409", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue({ ...COPY, base_snapshot: null });
+    exportCopyDiffPdf.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: new Blob([
+          JSON.stringify({
+            detail: "This CV copy has no baseline to compare with.",
+          }),
+        ]),
+      },
+    });
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Download changes as PDF" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("This CV copy has no baseline to compare with."),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("button", { name: "Download changes as PDF" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Download changes as Markdown" }),
+    ).toBeDisabled();
+  });
+
+  it("says downloads reflect the last saved version while the form is dirty", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue({ ...COPY, base_snapshot: null });
+    renderPage();
+
+    const headline = await screen.findByLabelText("Headline", {
+      exact: true,
+    });
+    expect(
+      screen.queryByText("Downloads reflect the last saved version."),
+    ).toBeNull();
+
+    await user.type(headline, "!");
+    expect(
+      await screen.findByText("Downloads reflect the last saved version."),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("Markdown downloads beside the PDF ones (KODI-017 part 3)", () => {
+  it("mounts the copy's Markdown export beside its PDF one", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue(COPY);
+    renderPage();
+
+    const button = await screen.findByRole("button", {
+      name: "Download Markdown",
+    });
+    expect(button).toBeEnabled();
+
+    await user.click(button);
+    await waitFor(() => expect(exportCopyMarkdown).toHaveBeenCalledWith("42"));
+  });
+
+  it("mounts a master CV's Markdown export on the picker's tiles", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const button = await screen.findByRole("button", {
+      name: "Download Markdown Backend CV",
+    });
+    expect(button).toBeEnabled();
+
+    await user.click(button);
+    await waitFor(() => expect(exportBaseCvMarkdown).toHaveBeenCalledWith("7"));
+  });
+});
+
+describe("the diff download row calls the right mutation per button (KODI-017 part 3)", () => {
+  it("Markdown calls exportDiffMarkdown, never exportDiffPdf", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue({ ...COPY, base_snapshot: null });
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Download changes as Markdown",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(exportCopyDiffMarkdown).toHaveBeenCalledWith("42"),
+    );
+    expect(exportCopyDiffPdf).not.toHaveBeenCalled();
+  });
+
+  it("PDF calls exportDiffPdf, never exportDiffMarkdown", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue({ ...COPY, base_snapshot: null });
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Download changes as PDF" }),
+    );
+
+    await waitFor(() => expect(exportCopyDiffPdf).toHaveBeenCalledWith("42"));
+    expect(exportCopyDiffMarkdown).not.toHaveBeenCalled();
   });
 });

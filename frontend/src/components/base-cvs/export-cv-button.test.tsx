@@ -5,12 +5,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CvDocumentPreview } from "@/components/base-cvs/cv-document-preview";
 import { ExportCvButton } from "@/components/base-cvs/export-cv-button";
 import {
+  CV_MARKDOWN_EXPORT_LABEL,
+  CV_MARKDOWN_EXPORT_PENDING,
   CV_PDF_EXPORT_LABEL,
   CV_PDF_EXPORT_PENDING,
   CV_PDF_LAYOUT_NOTICE,
 } from "@/components/base-cvs/types";
 import {
+  cvDiffMarkdownFilename,
+  cvDiffPdfFilename,
   cvFilenameSlug,
+  cvMarkdownFilename,
   cvPdfFilename,
   downloadBlob,
   parseContentDispositionFilename,
@@ -133,6 +138,68 @@ describe("the export button", () => {
   });
 });
 
+describe("the Markdown download (KODI-017 part 3)", () => {
+  it("renders no Markdown button at all without `onExportMarkdown`", () => {
+    render(<ExportCvButton onExport={() => {}} />);
+    expect(
+      screen.queryByRole("button", { name: CV_MARKDOWN_EXPORT_LABEL }),
+    ).toBeNull();
+  });
+
+  it("renders it beside the PDF button when given, same pending pattern", async () => {
+    const onExportMarkdown = vi.fn();
+    const { rerender } = render(
+      <ExportCvButton
+        onExport={() => {}}
+        onExportMarkdown={onExportMarkdown}
+      />,
+    );
+
+    const pdfButton = screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL });
+    const markdownButton = screen.getByRole("button", {
+      name: CV_MARKDOWN_EXPORT_LABEL,
+    });
+    expect(pdfButton).toBeEnabled();
+    expect(markdownButton).toBeEnabled();
+
+    await userEvent.click(markdownButton);
+    expect(onExportMarkdown).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <ExportCvButton
+        onExport={() => {}}
+        onExportMarkdown={onExportMarkdown}
+        isExportingMarkdown
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: CV_MARKDOWN_EXPORT_LABEL }),
+    ).toBeDisabled();
+    expect(screen.getByText(CV_MARKDOWN_EXPORT_PENDING)).toBeInTheDocument();
+    // The PDF button is untouched by the Markdown render being in flight.
+    expect(
+      screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL }),
+    ).toBeEnabled();
+  });
+
+  it("keeps both buttons on the compact layout, with no layout notice", () => {
+    render(
+      <ExportCvButton
+        onExport={() => {}}
+        onExportMarkdown={() => {}}
+        layout="compact"
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: CV_MARKDOWN_EXPORT_LABEL }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(CV_PDF_LAYOUT_NOTICE)).toBeNull();
+  });
+});
+
 describe("the preview", () => {
   it("carries the same notice in its caption (AC3, near the preview)", () => {
     const { container } = render(<CvDocumentPreview cv={CV} />);
@@ -157,6 +224,16 @@ describe("the download filename", () => {
   it("is the slug plus .pdf", () => {
     expect(cvPdfFilename("Backend CV")).toBe("backend-cv.pdf");
     expect(cvPdfFilename("   ")).toBe("cv.pdf");
+  });
+
+  it("is the slug plus .md for the Markdown twin (KODI-017 part 3)", () => {
+    expect(cvMarkdownFilename("Backend CV")).toBe("backend-cv.md");
+    expect(cvMarkdownFilename("   ")).toBe("cv.md");
+  });
+
+  it("suffixes -changes for the diff downloads", () => {
+    expect(cvDiffMarkdownFilename("Backend CV")).toBe("backend-cv-changes.md");
+    expect(cvDiffPdfFilename("Backend CV")).toBe("backend-cv-changes.pdf");
   });
 
   it("prefers the name the server sent", () => {

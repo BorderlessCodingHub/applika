@@ -55,6 +55,16 @@ class FakeApiClient:
     captured_put_payload = None
     captured_delete_path = None
     captured_application_params = None
+    # KODI-013 additions below - additive only, existing attributes/behavior
+    # above are untouched.
+    timeline_events = {}
+    event_created_response = {}
+    event_updated_response = {}
+    reopened_response = {}
+    post_error = None
+    post_json_error = None
+    put_json_error = None
+    delete_error = None
 
     def __init__(self, session, store):
         self.session = session
@@ -70,6 +80,9 @@ class FakeApiClient:
         match = re.fullmatch(r'/applications/([^/]+)/steps', path)
         if match:
             return FakeApiClient.application_steps.get(match.group(1), [])
+        match = re.fullmatch(r'/applications/([^/]+)/timeline', path)
+        if match:
+            return FakeApiClient.timeline_events.get(match.group(1), [])
         if path == '/supports':
             return FakeApiClient.supports
         if path == '/companies':
@@ -81,25 +94,46 @@ class FakeApiClient:
     def post_json(self, path, payload):
         FakeApiClient.captured_post_path = path
         FakeApiClient.captured_post_payload = payload
+        if FakeApiClient.post_json_error is not None:
+            raise FakeApiClient.post_json_error
         if path == '/applications':
             return FakeApiClient.created_response
         if re.fullmatch(r'/applications/[^/]+/steps', path):
             return FakeApiClient.step_created_response
         if re.fullmatch(r'/applications/[^/]+/finalize', path):
             return FakeApiClient.finalized_response
+        if re.fullmatch(r'/applications/[^/]+/timeline', path):
+            return FakeApiClient.event_created_response
+        raise AssertionError(f'Unexpected POST path: {path}')
+
+    def post(self, path, payload=None):
+        FakeApiClient.captured_post_path = path
+        FakeApiClient.captured_post_payload = payload
+        if FakeApiClient.post_error is not None:
+            raise FakeApiClient.post_error
+        if re.fullmatch(r'/applications/[^/]+/finalize', path):
+            return FakeApiClient.finalized_response
+        if re.fullmatch(r'/applications/[^/]+/reopen', path):
+            return FakeApiClient.reopened_response
         raise AssertionError(f'Unexpected POST path: {path}')
 
     def put_json(self, path, payload):
         FakeApiClient.captured_put_path = path
         FakeApiClient.captured_put_payload = payload
+        if FakeApiClient.put_json_error is not None:
+            raise FakeApiClient.put_json_error
         if re.fullmatch(r'/applications/[^/]+/steps/[^/]+', path):
             return FakeApiClient.step_updated_response
+        if re.fullmatch(r'/applications/[^/]+/timeline/[^/]+', path):
+            return FakeApiClient.event_updated_response
         if path.startswith('/applications/'):
             return FakeApiClient.updated_response
         raise AssertionError(f'Unexpected PUT path: {path}')
 
     def delete(self, path):
         FakeApiClient.captured_delete_path = path
+        if FakeApiClient.delete_error is not None:
+            raise FakeApiClient.delete_error
 
 
 def reset_fake_client():
@@ -119,3 +153,11 @@ def reset_fake_client():
     FakeApiClient.captured_put_payload = None
     FakeApiClient.captured_delete_path = None
     FakeApiClient.captured_application_params = None
+    FakeApiClient.timeline_events = {}
+    FakeApiClient.event_created_response = {}
+    FakeApiClient.event_updated_response = {}
+    FakeApiClient.reopened_response = {}
+    FakeApiClient.post_error = None
+    FakeApiClient.post_json_error = None
+    FakeApiClient.put_json_error = None
+    FakeApiClient.delete_error = None

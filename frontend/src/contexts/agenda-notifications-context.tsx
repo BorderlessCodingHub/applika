@@ -11,6 +11,7 @@ import {
 import type { ReactNode } from "react";
 import type { AgendaStep } from "@/services/types/applications";
 import { useAgenda } from "@/hooks/use-user";
+import { stageLabel } from "@/components/timeline/timeline-options";
 
 const STORAGE_KEY = "agenda-notifications";
 const ALERT_MINUTES = [30, 15, 5] as const;
@@ -114,7 +115,7 @@ export function AgendaNotificationsProvider({
               Notification.permission === "granted"
             ) {
               new Notification(
-                `${step.company_name} — ${step.step_name ?? "Step"}`,
+                `${step.company_name} — ${stageLabel(step.event_type, step.interview_type)}`,
                 { body: `Starts in ${minBefore} minutes` },
               );
             }

@@ -5,22 +5,14 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.enums import EventType, InterviewType
 from app.core.exceptions import ResourceConflict
 from app.domain.models import (
     ApplicationModel,
-    ApplicationStepModel,
     QuinzenalReportModel,
-    StepDefinitionModel,
+    TimelineEventModel,
 )
 
-INITIAL_SCREEN_STEP_NAME = 'Initial Screen'
-OFFER_STEP_NAME = 'Offer'
-INTERVIEW_FUNNEL_STEP_NAMES = (
-    INITIAL_SCREEN_STEP_NAME,
-    'Phase 2',
-    'Phase 3',
-    'Phase 4',
-)
 UNIQUE_REPORT_DAY_CONSTRAINT = 'uq_quinzenal_reports_user_day'
 UNIQUE_REPORT_DAY_CYCLE_CONSTRAINT = 'uq_quinzenal_reports_user_day_cycle'
 UNIQUE_REPORT_DAY_NULL_CYCLE_CONSTRAINT = (
@@ -115,6 +107,142 @@ class QuinzenalReportRepository:
             await self.session.rollback()
             raise
 
+    # --- Computed metrics, from the timeline (R-024) --------------------
+    #
+    # Only NEW reports are computed here. A submitted report is a stored
+    # row and is never recomputed (R-025).
+
+    def _events_in_scope(self, user_id: int, cycle_id: int | None):
+        return (
+            select(TimelineEventModel.application_id)
+            .select_from(TimelineEventModel)
+            .join(
+                ApplicationModel,
+                ApplicationModel.id == TimelineEventModel.application_id,
+            )
+            .where(
+                ApplicationModel.user_id == user_id,
+                TimelineEventModel.user_id == user_id,
+                _app_cycle_filter(cycle_id),
+            )
+        )
+
+    async def _count_applications(
+        self,
+        user_id: int,
+        start_date: date,
+        end_date: date,
+        cycle_id: int | None,
+    ) -> int:
+        total = await self.session.scalar(
+            select(func.count())
+            .select_from(ApplicationModel)
+            .where(
+                ApplicationModel.user_id == user_id,
+                _app_cycle_filter(cycle_id),
+                ApplicationModel.application_date >= start_date,
+                ApplicationModel.application_date <= end_date,
+            )
+        )
+        return int(total or 0)
+
+    async def _count_distinct_apps(self, stmt: Any) -> int:
+        subquery = stmt.distinct().subquery()
+        total = await self.session.scalar(
+            select(func.count()).select_from(subquery)
+        )
+        return int(total or 0)
+
+    async def _count_initial_screenings(
+        self,
+        user_id: int,
+        cycle_id: int | None,
+        events_from: date | None,
+        events_to: date,
+        applied_from: date | None = None,
+        applied_to: date | None = None,
+    ) -> int:
+        """Distinct applications with an ``initial_screening`` interview.
+
+        The owner, 2026-09-15: "No, explicit only". An interview of type
+        ``unknown``, or of any other type, is not an initial screening, so a
+        user who never picks a type reports 0 here and a 0% callback rate.
+        """
+        stmt = self._events_in_scope(user_id, cycle_id).where(
+            TimelineEventModel.event_type == EventType.INTERVIEW,
+            TimelineEventModel.interview_type
+            == InterviewType.INITIAL_SCREENING,
+            TimelineEventModel.event_date <= events_to,
+        )
+        if events_from is not None:
+            stmt = stmt.where(TimelineEventModel.event_date >= events_from)
+        if applied_from is not None:
+            stmt = stmt.where(ApplicationModel.application_date >= applied_from)
+        if applied_to is not None:
+            stmt = stmt.where(ApplicationModel.application_date <= applied_to)
+        return await self._count_distinct_apps(stmt)
+
+    async def _count_offers(
+        self,
+        user_id: int,
+        cycle_id: int | None,
+        events_from: date | None,
+        events_to: date,
+        applied_from: date | None = None,
+        applied_to: date | None = None,
+    ) -> int:
+        """Distinct applications with at least one ``offer`` event."""
+        stmt = self._events_in_scope(user_id, cycle_id).where(
+            TimelineEventModel.event_type == EventType.OFFER,
+            TimelineEventModel.event_date <= events_to,
+        )
+        if events_from is not None:
+            stmt = stmt.where(TimelineEventModel.event_date >= events_from)
+        if applied_from is not None:
+            stmt = stmt.where(ApplicationModel.application_date >= applied_from)
+        if applied_to is not None:
+            stmt = stmt.where(ApplicationModel.application_date <= applied_to)
+        return await self._count_distinct_apps(stmt)
+
+    async def _count_interview_events(
+        self,
+        user_id: int,
+        start_date: date,
+        end_date: date,
+        cycle_id: int | None,
+    ) -> int:
+        """``interview`` events dated in the window, every type: one per
+        interview held, not distinct applications (mynextjob's rule)."""
+        total = await self.session.scalar(
+            select(func.count()).select_from(
+                self
+                ._events_in_scope(user_id, cycle_id)
+                .where(
+                    TimelineEventModel.event_type == EventType.INTERVIEW,
+                    TimelineEventModel.event_date >= start_date,
+                    TimelineEventModel.event_date <= end_date,
+                )
+                .subquery()
+            )
+        )
+        return int(total or 0)
+
+    async def _count_active_processes(
+        self, user_id: int, end_date: date, cycle_id: int | None
+    ) -> int:
+        """Open applications (``finalized_at`` NULL) that had their initial
+        screening by ``end_date``: the rule the steps version applied
+        (Initial Screen step, no feedback), on the timeline."""
+        stmt = self._events_in_scope(user_id, cycle_id).where(
+            ApplicationModel.finalized_at.is_(None),
+            ApplicationModel.application_date <= end_date,
+            TimelineEventModel.event_type == EventType.INTERVIEW,
+            TimelineEventModel.interview_type
+            == InterviewType.INITIAL_SCREENING,
+            TimelineEventModel.event_date <= end_date,
+        )
+        return await self._count_distinct_apps(stmt)
+
     async def calculate_fortnight_metrics(
         self,
         user_id: int,
@@ -122,119 +250,24 @@ class QuinzenalReportRepository:
         end_date: date,
         cycle_id: int | None = None,
     ) -> dict[str, Any]:
-        applications_count = await self.session.scalar(
-            select(func.count())
-            .select_from(ApplicationModel)
-            .where(
-                ApplicationModel.user_id == user_id,
-                ApplicationModel.application_date >= start_date,
-                ApplicationModel.application_date <= end_date,
-                _app_cycle_filter(cycle_id),
-            )
-        )
-        applications_count = int(applications_count or 0)
-
-        initial_screenings_count = await self.session.scalar(
-            select(
-                func.count(func.distinct(ApplicationStepModel.application_id))
-            )
-            .select_from(ApplicationStepModel)
-            .join(
-                ApplicationModel,
-                ApplicationModel.id == ApplicationStepModel.application_id,
-            )
-            .join(
-                StepDefinitionModel,
-                StepDefinitionModel.id == ApplicationStepModel.step_id,
-            )
-            .where(
-                ApplicationModel.user_id == user_id,
-                _app_cycle_filter(cycle_id),
-                ApplicationStepModel.step_date >= start_date,
-                ApplicationStepModel.step_date <= end_date,
-                StepDefinitionModel.name == INITIAL_SCREEN_STEP_NAME,
-            )
-        )
-        initial_screenings_count = int(initial_screenings_count or 0)
-
-        interviews_completed_fortnight = await self.session.scalar(
-            select(
-                func.count(func.distinct(ApplicationStepModel.application_id))
-            )
-            .select_from(ApplicationStepModel)
-            .join(
-                ApplicationModel,
-                ApplicationModel.id == ApplicationStepModel.application_id,
-            )
-            .join(
-                StepDefinitionModel,
-                StepDefinitionModel.id == ApplicationStepModel.step_id,
-            )
-            .where(
-                ApplicationModel.user_id == user_id,
-                _app_cycle_filter(cycle_id),
-                ApplicationStepModel.step_date >= start_date,
-                ApplicationStepModel.step_date <= end_date,
-                StepDefinitionModel.name.in_(INTERVIEW_FUNNEL_STEP_NAMES),
-            )
-        )
-        interviews_completed_fortnight = int(
-            interviews_completed_fortnight or 0
-        )
-
-        offers_count = await self.session.scalar(
-            select(
-                func.count(func.distinct(ApplicationStepModel.application_id))
-            )
-            .select_from(ApplicationStepModel)
-            .join(
-                ApplicationModel,
-                ApplicationModel.id == ApplicationStepModel.application_id,
-            )
-            .join(
-                StepDefinitionModel,
-                StepDefinitionModel.id == ApplicationStepModel.step_id,
-            )
-            .where(
-                ApplicationModel.user_id == user_id,
-                _app_cycle_filter(cycle_id),
-                ApplicationStepModel.step_date >= start_date,
-                ApplicationStepModel.step_date <= end_date,
-                StepDefinitionModel.name == OFFER_STEP_NAME,
-            )
-        )
-        offers_count = int(offers_count or 0)
-
-        active_processes_count = await self.session.scalar(
-            select(
-                func.count(func.distinct(ApplicationStepModel.application_id))
-            )
-            .select_from(ApplicationStepModel)
-            .join(
-                ApplicationModel,
-                ApplicationModel.id == ApplicationStepModel.application_id,
-            )
-            .join(
-                StepDefinitionModel,
-                StepDefinitionModel.id == ApplicationStepModel.step_id,
-            )
-            .where(
-                ApplicationModel.user_id == user_id,
-                _app_cycle_filter(cycle_id),
-                ApplicationModel.feedback_id.is_(None),
-                ApplicationModel.application_date <= end_date,
-                ApplicationStepModel.step_date <= end_date,
-                StepDefinitionModel.name == INITIAL_SCREEN_STEP_NAME,
-            )
-        )
-        active_processes_count = int(active_processes_count or 0)
-
         return {
-            'applications_count': applications_count,
-            'initial_screenings_count': initial_screenings_count,
-            'interviews_completed_fortnight': interviews_completed_fortnight,
-            'active_processes_count': active_processes_count,
-            'offers_count': offers_count,
+            'applications_count': await self._count_applications(
+                user_id, start_date, end_date, cycle_id
+            ),
+            'initial_screenings_count': await self._count_initial_screenings(
+                user_id, cycle_id, start_date, end_date
+            ),
+            'interviews_completed_fortnight': (
+                await self._count_interview_events(
+                    user_id, start_date, end_date, cycle_id
+                )
+            ),
+            'active_processes_count': await self._count_active_processes(
+                user_id, end_date, cycle_id
+            ),
+            'offers_count': await self._count_offers(
+                user_id, cycle_id, start_date, end_date
+            ),
         }
 
     async def calculate_accumulated_metrics(
@@ -244,67 +277,25 @@ class QuinzenalReportRepository:
         end_date: date,
         cycle_id: int | None = None,
     ) -> dict[str, Any]:
-        total_applications_count = await self.session.scalar(
-            select(func.count())
-            .select_from(ApplicationModel)
-            .where(
-                ApplicationModel.user_id == user_id,
-                _app_cycle_filter(cycle_id),
-                ApplicationModel.application_date >= start_date,
-                ApplicationModel.application_date <= end_date,
-            )
+        total_applications_count = await self._count_applications(
+            user_id, start_date, end_date, cycle_id
         )
-        total_applications_count = int(total_applications_count or 0)
-
-        total_initial_screenings_count = await self.session.scalar(
-            select(
-                func.count(func.distinct(ApplicationStepModel.application_id))
-            )
-            .select_from(ApplicationStepModel)
-            .join(
-                ApplicationModel,
-                ApplicationModel.id == ApplicationStepModel.application_id,
-            )
-            .join(
-                StepDefinitionModel,
-                StepDefinitionModel.id == ApplicationStepModel.step_id,
-            )
-            .where(
-                ApplicationModel.user_id == user_id,
-                _app_cycle_filter(cycle_id),
-                ApplicationModel.application_date >= start_date,
-                ApplicationModel.application_date <= end_date,
-                ApplicationStepModel.step_date <= end_date,
-                StepDefinitionModel.name == INITIAL_SCREEN_STEP_NAME,
-            )
+        total_initial_screenings_count = await self._count_initial_screenings(
+            user_id,
+            cycle_id,
+            None,
+            end_date,
+            applied_from=start_date,
+            applied_to=end_date,
         )
-        total_initial_screenings_count = int(
-            total_initial_screenings_count or 0
+        total_offers_count = await self._count_offers(
+            user_id,
+            cycle_id,
+            None,
+            end_date,
+            applied_from=start_date,
+            applied_to=end_date,
         )
-
-        total_offers_count = await self.session.scalar(
-            select(
-                func.count(func.distinct(ApplicationStepModel.application_id))
-            )
-            .select_from(ApplicationStepModel)
-            .join(
-                ApplicationModel,
-                ApplicationModel.id == ApplicationStepModel.application_id,
-            )
-            .join(
-                StepDefinitionModel,
-                StepDefinitionModel.id == ApplicationStepModel.step_id,
-            )
-            .where(
-                ApplicationModel.user_id == user_id,
-                _app_cycle_filter(cycle_id),
-                ApplicationModel.application_date >= start_date,
-                ApplicationModel.application_date <= end_date,
-                ApplicationStepModel.step_date <= end_date,
-                StepDefinitionModel.name == OFFER_STEP_NAME,
-            )
-        )
-        total_offers_count = int(total_offers_count or 0)
 
         callback_rate = (
             total_initial_screenings_count / total_applications_count * 100
