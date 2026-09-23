@@ -6,6 +6,7 @@ import typer
 
 from applika.commands.applications import applications_app
 from applika.commands.auth import login, logout, whoami
+from applika.commands.cvs import cvs_app
 from applika.commands.skill import skill
 from applika.commands.version import installed_version, version
 from applika.config import AppConfig, resolve_api_base_url
@@ -18,6 +19,7 @@ app = typer.Typer(
 )
 
 app.add_typer(applications_app, name='applications')
+app.add_typer(cvs_app, name='cvs')
 app.command('skill')(skill)
 app.command('login')(login)
 app.command('logout')(logout)

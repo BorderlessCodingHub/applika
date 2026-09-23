@@ -136,8 +136,44 @@ class StatusFilter(str, Enum):
 
 
 class OutputFormat(str, Enum):
+    """The 0.1.4/0.2.0 ``--output-format`` of ``applications list`` and
+    ``applications steps|timeline list``. Frozen at ``table``/``json``:
+    widening it would change what those published commands accept
+    (``.claude/rules/cli-compatibility.md``). The CV commands use
+    ``CvListOutput``/``CvOutput`` below instead."""
+
     TABLE = 'table'
     JSON = 'json'
+
+
+class CvListOutput(str, Enum):
+    """``cvs list --output`` (KODI-018): ``md`` is a Markdown table."""
+
+    TABLE = 'table'
+    JSON = 'json'
+    YAML = 'yaml'
+    MD = 'md'
+
+
+class CvOutput(str, Enum):
+    """``--output`` of every single-CV command (KODI-018).
+
+    ``md`` is the CV as the *server* renders it - a second call to
+    ``GET /base-cvs/{id}/markdown`` or ``GET /applications/{id}/cv/markdown``,
+    the same bytes ``download --type md`` writes - never a client-side
+    rendering."""
+
+    TEXT = 'text'
+    JSON = 'json'
+    YAML = 'yaml'
+    MD = 'md'
+
+
+class DownloadType(str, Enum):
+    """``--type`` of every download/diff command (KODI-018). Required."""
+
+    PDF = 'pdf'
+    MD = 'md'
 
 
 class ClearField(str, Enum):
