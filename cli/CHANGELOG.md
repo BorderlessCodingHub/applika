@@ -4,10 +4,80 @@ All notable changes to `applika-cli` are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [1.0.0] - 2026-09-23
+
+Master CV and application-CV-copy commands, `--file` input everywhere, and
+the first published major. No command and no flag of 0.1.4 / 0.2.0 was
+removed or changed (`.claude/rules/cli-compatibility.md`); 0.x scripts keep
+working unchanged.
 
 ### Added
 
+- KODI-018 `applika cvs list` lists your master CVs:
+  `--output table|json|yaml|md` (`md` is a Markdown table of id, name,
+  headline, updated). `GET /base-cvs`.
+- KODI-018 `applika cvs get <cv-id>` shows one master CV:
+  `--output text|json|yaml|md`. `GET /base-cvs/{id}`.
+- KODI-018 `applika cvs create` creates a master CV (max 3 per user; the
+  API's 409 is printed): `--file <path>` (required), `--name <text>`
+  (required unless the file carries `name`), `--output text|json|yaml|md`.
+  `POST /base-cvs`.
+- KODI-018 `applika cvs edit <cv-id>` edits a master CV: `--file <path>`
+  and/or `--name <text>` (at least one), `--output text|json|yaml|md`.
+  Partial: a section present in the file replaces that whole section, an
+  absent key is left unchanged. `PATCH /base-cvs/{id}`.
+- KODI-018 `applika cvs delete <cv-id>`: `--yes` skips the confirmation.
+  `DELETE /base-cvs/{id}`. Existing copies keep their content.
+- KODI-018 `applika cvs download <cv-id>`: `--type pdf|md` (required),
+  `--dir <path>`, `--filename <name>`, `--force`.
+  `POST /base-cvs/{id}/pdf` or `GET /base-cvs/{id}/markdown`.
+- KODI-018 `applika applications cv get <application-id>`:
+  `--output text|json|yaml|md`. `GET /applications/{id}/cv`.
+- KODI-018 `applika applications cv create <application-id>` copies a master
+  CV into an application and applies the edits in the same command:
+  `--from <cv-id>` (required), `--file <path>`, `--name <text>`,
+  `--output text|json|yaml|md`. `POST /applications/{id}/cv` followed, only
+  when `--file` or `--name` is given, by `PUT /applications/{id}/cv`.
+- KODI-018 `applika applications cv edit <application-id>`: `--file <path>`
+  and/or `--name <text>` (at least one), `--output text|json|yaml|md`. The
+  API's `PUT` is a full replace, so the CLI reads the copy, applies the
+  file's keys and sends the whole document.
+- KODI-018 `applika applications cv delete <application-id>`: `--yes`.
+  `DELETE /applications/{id}/cv`.
+- KODI-018 `applika applications cv download <application-id>`:
+  `--type pdf|md` (required), `--dir`, `--filename`, `--force`.
+- KODI-018 `applika applications cv diff <application-id>` downloads the
+  diff between the copy and the master CV it came from: `--type pdf|md`
+  (required), `--dir`, `--filename`, `--force`, and `--print` (with
+  `--type md`: print to stdout instead of writing a file). A copy with no
+  baseline answers 409 and is shown as "nothing to compare against".
+- KODI-018 `--file` accepts JSON (`.json`) or YAML (`.yaml`/`.yml`), picked
+  by the extension; `-` reads JSON or YAML from stdin. Its keys are the API
+  field names and it is validated locally — types, required fields, lengths,
+  `YYYY-MM` dates, an `end` earlier than its `start`, and unknown keys —
+  before anything is sent.
+- KODI-018 `get --output json` / `--output yaml` prints a document `--file`
+  accepts: the server-only keys (`id`, `created_at`, `updated_at`,
+  `application_id`, `base_cv_id`, `was_ai_generated`, `adjustments`,
+  `base_snapshot`) are accepted and ignored on input, so export → edit →
+  `edit --file` round-trips for both a master CV and a copy.
+- KODI-018 Section items (`links`, `skills`, `experience`, `projects`,
+  `education`, `certifications`, `languages`) need a client `id`; ids missing
+  from the file are generated, ids already present are kept, so the web diff
+  keeps matching items.
+- KODI-018 `applications new --file <path>` takes the whole create payload
+  (API field names) instead of the named options, and
+  `applications edit <id> --file <path>` updates the keys present and leaves
+  the rest unchanged. Both are mutually exclusive with the named options.
+  `company` may be a company id, a company name (resolved through
+  `/companies`, like `--company`) or `{"name": …, "url": …}`.
+- KODI-018 `applications new|edit --job-description <text>` and
+  `--job-description-file <path>` (plain text / Markdown) set the
+  application's `job_description`; it is also accepted as the
+  `job_description` key in `--file`. On `edit`, `--job-description ""`
+  clears it, and the key is never sent when neither option nor file key was
+  given — the API's `job_description` is sticky on `PUT`.
+- KODI-018 `pyyaml` is a runtime dependency (`--file` reads YAML).
 - KODI-011 The API accepts 11 more salary currencies: CNY, SEK, NOK, DKK,
   PLN, SGD, HKD, NZD, MXN, ZAR, AED (20 in total). A 0.1.4 CLI only offers
   its 9 on input, but may now receive the new ones in `currency` from
@@ -33,6 +103,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- KODI-018 `applications new`'s `--company`, `--role`, `--platform`,
+  `--mode` and `--date` are no longer Typer-required, because `--file` can
+  supply them instead. Every invocation that already worked behaves
+  identically; an invocation missing one of the five still fails with exit
+  code 2, now with a message naming the missing options and pointing at
+  `--file`.
+- KODI-018 The CLI's exit codes are explicit on the CV and `--file` paths:
+  1 for an API error (the API's `detail` is printed), 2 for a usage or
+  file-validation error (nothing was sent).
+- KODI-018 The CLI's vendored `Application` create/update payload carries
+  `job_description`. It is only put on the wire when the caller asked for
+  it, so the bytes a 0.1.4/0.2.0-style invocation sends are unchanged.
 - KODI-011 Salary period `annual` is renamed `annually`. The API still
   accepts `annual` (what 0.1.4 sends) on applications and `/users/me`, but
   every response now says `annually`: `salary_period` read by 0.1.4 is
