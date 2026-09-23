@@ -13,10 +13,13 @@ from __future__ import annotations
 from typing import Any, NoReturn
 
 import typer
+from pydantic import ValidationError
 
 from applika.lib.api import ApiClient, ApiError
 from applika.lib.cv_file import (
     USAGE_EXIT_CODE,
+    FileInputError,
+    format_validation_error,
     load_payload_file,
     strip_read_only,
     validate_cv_document,
@@ -29,6 +32,7 @@ from applika.lib.download import (
 from applika.schemas.cv import (
     DOCUMENT_KEYS,
     READ_ONLY_KEYS,
+    CVDocument,
     assign_item_ids,
     missing_create_fields,
 )
@@ -59,9 +63,19 @@ def load_document(file: str | None) -> dict[str, Any]:
 
 
 def apply_name(document: dict[str, Any], name: str | None) -> dict[str, Any]:
-    """``--name`` overrides the file's ``name`` (the spec's conventions)."""
+    """``--name`` overrides the file's ``name`` (the spec's conventions).
+
+    Validated through the same model as the file, so the spec's 1-200 bound
+    on ``--name`` is a local exit 2 like every other input failure, not a
+    422 the user pays a round trip for.
+    """
     if name is not None:
-        document['name'] = name
+        try:
+            document['name'] = CVDocument(name=name).name
+        except ValidationError as exc:
+            raise FileInputError(
+                f'--name: {format_validation_error(exc)}'
+            ) from exc
     return document
 
 

@@ -577,3 +577,42 @@ def test_cvs_requires_a_session(monkeypatch, runner, args):
     result = runner.invoke(app, args)
     assert result.exit_code != 0
     assert 'applika login' in str(result.exception)
+
+
+# --- backend-qa round 1 -------------------------------------------------
+
+
+def test_cvs_edit_output_md_calls_the_markdown_route(
+    monkeypatch, runner, tmp_path
+):
+    _setup(monkeypatch)
+    FakeCvClient.responses[('GET', '/base-cvs/900')] = sample_cv()
+    FakeCvClient.responses[('PATCH', '/base-cvs/900')] = sample_cv()
+    FakeCvClient.raw_responses[('GET', '/base-cvs/900/markdown')] = (
+        MARKDOWN,
+        {},
+    )
+    path = _file(tmp_path, {'headline': 'Staff Engineer'})
+    result = runner.invoke(
+        app, ['cvs', 'edit', '900', '--file', path, '--output', 'md']
+    )
+    assert result.exit_code == 0
+    assert result.output == MARKDOWN.decode()
+    assert called('GET', '/base-cvs/900/markdown')
+
+
+def test_cvs_name_over_200_is_a_local_error(monkeypatch, runner):
+    """The spec bounds --name at 1-200; that must be a local exit 2, not a
+    422 the user pays a round trip for."""
+    _setup(monkeypatch)
+    result = runner.invoke(app, ['cvs', 'edit', '900', '--name', 'x' * 201])
+    assert result.exit_code == 2
+    assert '--name' in result.output
+    assert not called('PATCH', '/base-cvs/900')
+
+
+def test_cvs_edit_empty_name_is_a_local_error(monkeypatch, runner):
+    _setup(monkeypatch)
+    result = runner.invoke(app, ['cvs', 'edit', '900', '--name', ''])
+    assert result.exit_code == 2
+    assert not called('PATCH', '/base-cvs/900')

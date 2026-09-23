@@ -514,3 +514,56 @@ def test_cv_requires_a_session(monkeypatch, runner, args):
     result = runner.invoke(app, args)
     assert result.exit_code != 0
     assert 'applika login' in str(result.exception)
+
+
+# --- backend-qa round 1 -------------------------------------------------
+
+
+def test_cv_create_output_md_calls_the_markdown_route(
+    monkeypatch, runner, tmp_path
+):
+    _setup(monkeypatch)
+    FakeCvClient.responses[('POST', CV_PATH)] = sample_tailored_cv()
+    FakeCvClient.responses[('PUT', CV_PATH)] = sample_tailored_cv()
+    FakeCvClient.raw_responses[('GET', f'{CV_PATH}/markdown')] = (MARKDOWN, {})
+    path = _file(tmp_path, {'headline': 'Staff Engineer'})
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'cv',
+            'create',
+            '1',
+            '--from',
+            '900',
+            '--file',
+            path,
+            '--output',
+            'md',
+        ],
+    )
+    assert result.exit_code == 0
+    assert result.output == MARKDOWN.decode()
+    assert called('GET', f'{CV_PATH}/markdown')
+
+
+def test_cv_edit_output_md_calls_the_markdown_route(monkeypatch, runner):
+    _setup(monkeypatch)
+    FakeCvClient.responses[('GET', CV_PATH)] = sample_tailored_cv()
+    FakeCvClient.responses[('PUT', CV_PATH)] = sample_tailored_cv()
+    FakeCvClient.raw_responses[('GET', f'{CV_PATH}/markdown')] = (MARKDOWN, {})
+    result = runner.invoke(
+        app,
+        ['applications', 'cv', 'edit', '1', '--name', 'Acme', '--output', 'md'],
+    )
+    assert result.exit_code == 0
+    assert result.output == MARKDOWN.decode()
+
+
+def test_cv_name_over_200_is_a_local_error(monkeypatch, runner):
+    _setup(monkeypatch)
+    result = runner.invoke(
+        app, ['applications', 'cv', 'edit', '1', '--name', 'x' * 201]
+    )
+    assert result.exit_code == 2
+    assert not called('PUT', CV_PATH)
