@@ -15,6 +15,14 @@ from applika.commands.applications.commands import (
     new_application,
     reopen_application,
 )
+from applika.commands.applications.cv import (
+    create_application_cv,
+    delete_application_cv,
+    diff_application_cv,
+    download_application_cv,
+    edit_application_cv,
+    get_application_cv,
+)
 
 applications_app = typer.Typer(
     name='applications',
@@ -89,3 +97,18 @@ timeline_app.command('edit')(edit_timeline_event)
 timeline_app.command('delete')(delete_timeline_event)
 
 applications_app.add_typer(timeline_app, name='timeline')
+
+cv_app = typer.Typer(
+    name='cv',
+    help="Manage an application's CV copy (KODI-018).",
+    no_args_is_help=True,
+)
+
+cv_app.command('get')(get_application_cv)
+cv_app.command('create')(create_application_cv)
+cv_app.command('edit')(edit_application_cv)
+cv_app.command('delete')(delete_application_cv)
+cv_app.command('download')(download_application_cv)
+cv_app.command('diff')(diff_application_cv)
+
+applications_app.add_typer(cv_app, name='cv')
