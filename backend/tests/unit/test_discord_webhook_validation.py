@@ -65,8 +65,12 @@ def test_validate_webhook_url_accepts_every_documented_host_variant(url):
         # trailing newline (backend-qa finding B2: `$` alone matches just
         # before a final newline, so `match()` + `$` let this through)
         f'https://discord.com/api/webhooks/{VALID_ID}/{VALID_TOKEN}\n',
-        # non-ASCII "digits" in the webhook id (Arabic-Indic 1-2-3...)
-        f'https://discord.com/api/webhooks/١٢٣456789012345/{VALID_TOKEN}',
+        # non-ASCII "digits" in the webhook id (Arabic-Indic 1-2-3...),
+        # same length (18 chars) as VALID_ID so this is a length-independent
+        # regression test for `re.ASCII` (backend-qa B2-residual: a shorter
+        # non-ASCII string would already fail on length alone, proving
+        # nothing about the ASCII flag)
+        f'https://discord.com/api/webhooks/١٢٣{VALID_ID[3:]}/{VALID_TOKEN}',
         # non-ASCII letters in the token
         f'https://discord.com/api/webhooks/{VALID_ID}/' + 'é' * 20,
     ],
@@ -109,7 +113,9 @@ def test_validate_guild_id_accepts_a_valid_snowflake_string():
         '123',
         OVERFLOW_ID,
         VALID_ID + '\n',  # trailing newline (B2)
-        '١٢٣456789012345',  # non-ASCII digits (B2)
+        # non-ASCII digits, same length (18 chars) as VALID_ID (B2-residual:
+        # a shorter value would fail on length alone regardless of re.ASCII)
+        '١٢٣' + VALID_ID[3:],
     ],
 )
 def test_validate_guild_id_refuses_bad_or_overflowing_ids(value):
@@ -145,6 +151,15 @@ def test_validate_role_ids_25_distinct_ids_is_accepted():
 def test_validate_role_ids_refuses_a_malformed_id():
     with pytest.raises(BusinessRuleViolation) as excinfo:
         validate_role_ids(['not-a-snowflake'])
+    assert str(excinfo.value) == INVALID_ROLE_ID
+
+
+def test_validate_role_ids_refuses_non_ascii_digits():
+    """B2-residual: same length (18 chars) as VALID_ID, so this fails only
+    because of the ASCII digit check, not because of length."""
+    non_ascii_id = '١٢٣' + VALID_ID[3:]
+    with pytest.raises(BusinessRuleViolation) as excinfo:
+        validate_role_ids([non_ascii_id])
     assert str(excinfo.value) == INVALID_ROLE_ID
 
 
