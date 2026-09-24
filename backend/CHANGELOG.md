@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-023 Migration ba44f9cfd3c1 (Release A2, expand only): enum
+  discord_connection_status, tables discord_connections and
+  discord_report_webhooks; users untouched; no code reads them yet.
 - KODI-017 (part 3, T090/T091) Four new read-side GET export routes, all
   owner-scoped, all 404 when not owned / no copy, none carrying a
   finalized/archived guard (R-024/R-025):

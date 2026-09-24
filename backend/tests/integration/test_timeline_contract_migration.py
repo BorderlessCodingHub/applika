@@ -805,13 +805,15 @@ def test_the_revision_is_a_child_of_r4() -> None:
 def test_only_one_head() -> None:
     """The re-parenting must not leave a fork: the real Alembic
     ``ScriptDirectory`` sees exactly one head, and the
-    R1 -> R3 -> R4 -> R2 chain resolves as expected.
+    R1 -> R3 -> R4 -> R2 -> R5 chain resolves as expected.
 
-    R5 (``c1d9f4a7b3e6``, KODI-017 part 2, ``tailored_cvs.base_snapshot``)
-    is a later, unrelated child of R2 - the owner's own "new revision at
-    head" placement - so it is now the sole head instead of R2, and this
-    test is updated to look one revision further rather than re-asserting
-    R2 is the head it no longer is.
+    K5 (KODI-023, ``ba44f9cfd3c1``, ``discord_connections`` +
+    ``discord_report_webhooks``, Release A2) is a later, unrelated child of
+    R5 (``c1d9f4a7b3e6``, KODI-017 part 2, ``tailored_cvs.base_snapshot``) -
+    a plain "new revision at head" placement, same as R5 itself was onto R2
+    - so it is now the sole head instead of R5, and this test is updated to
+    look one revision further rather than re-asserting R5 is the head it no
+    longer is.
     """
     from alembic.config import Config
     from alembic.script import ScriptDirectory
@@ -820,8 +822,10 @@ def test_only_one_head() -> None:
     script = ScriptDirectory.from_config(config)
 
     heads = script.get_heads()
-    assert list(heads) == ['c1d9f4a7b3e6']
+    assert list(heads) == ['ba44f9cfd3c1']
 
+    k5 = script.get_revision('ba44f9cfd3c1')
+    assert k5.down_revision == 'c1d9f4a7b3e6'
     r5 = script.get_revision('c1d9f4a7b3e6')
     assert r5.down_revision == REVISION
     r2 = script.get_revision(REVISION)
