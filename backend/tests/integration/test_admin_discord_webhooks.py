@@ -217,6 +217,72 @@ async def test_create_with_26_roles_is_422_and_never_leaks_the_url(
     assert resp.json() == {'detail': 'A webhook may hold at most 25 role ids'}
 
 
+async def test_create_with_url_as_a_list_never_leaks_it_in_the_422_body(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
+    """backend-qa finding B3: a type-mismatch error's ``input`` is the
+    caller's own bad value - here that value directly contains the URL."""
+    resp = await admin_client.post(
+        '/admin/discord-webhooks',
+        json=_create_payload(webhook_url=[VALID_URL]),
+    )
+    assert resp.status_code == 422, msg(422, resp.status_code)
+    body_text = resp.text
+    assert VALID_URL not in body_text
+    assert VALID_TOKEN not in body_text
+
+
+async def test_patch_with_url_as_a_list_never_leaks_it_in_the_422_body(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
+    created = await admin_client.post(
+        '/admin/discord-webhooks', json=_create_payload()
+    )
+    webhook_id = created.json()['id']
+
+    resp = await admin_client.patch(
+        f'/admin/discord-webhooks/{webhook_id}',
+        json={'webhook_url': [OTHER_URL]},
+    )
+    assert resp.status_code == 422, msg(422, resp.status_code)
+    body_text = resp.text
+    assert OTHER_URL not in body_text
+    assert OTHER_TOKEN not in body_text
+
+
+async def test_create_with_form_encoded_body_never_leaks_the_url(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
+    """A form-encoded body fails pydantic's JSON decode; the raw body,
+    ``webhook_url`` included, must not surface in the 422."""
+    resp = await admin_client.post(
+        '/admin/discord-webhooks',
+        content=f'webhook_url={VALID_URL}&guild_id={GUILD_ID}',
+        headers={'content-type': 'application/x-www-form-urlencoded'},
+    )
+    assert resp.status_code == 422, msg(422, resp.status_code)
+    body_text = resp.text
+    assert VALID_URL not in body_text
+    assert VALID_TOKEN not in body_text
+
+
+async def test_create_with_json_string_body_never_leaks_the_url(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
+    """A bare JSON string (not an object) also fails to validate; the
+    string itself - which could be attacker-supplied and contain the URL -
+    must not surface in the 422."""
+    resp = await admin_client.post(
+        '/admin/discord-webhooks',
+        content=f'"{VALID_URL}"',
+        headers={'content-type': 'application/json'},
+    )
+    assert resp.status_code == 422, msg(422, resp.status_code)
+    body_text = resp.text
+    assert VALID_URL not in body_text
+    assert VALID_TOKEN not in body_text
+
+
 # ── AC2/AC3: duplicate URL is a 409, never the DB error ──────────
 
 
@@ -355,3 +421,43 @@ async def test_patch_omitting_label_keeps_it(
     assert resp.status_code == 200, msg(200, resp.status_code)
     assert resp.json()['label'] == 'Community reports'
     assert resp.json()['guild_id'] == GUILD_ID_2
+
+
+# ── list_by_guild_ids (K8's submit-time lookup) ──────────────────
+
+
+async def test_list_by_guild_ids_returns_only_the_matching_servers(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
+    """No route calls this yet (K8); exercised directly through the
+    repository, same session the app uses."""
+    from app.domain.repositories.discord_report_webhook_repository import (
+        DiscordReportWebhookRepository,
+    )
+
+    first = await admin_client.post(
+        '/admin/discord-webhooks', json=_create_payload()
+    )
+    second = await admin_client.post(
+        '/admin/discord-webhooks',
+        json=_create_payload(webhook_url=OTHER_URL, guild_id=GUILD_ID_2),
+    )
+    assert first.status_code == 201
+    assert second.status_code == 201
+
+    repo = DiscordReportWebhookRepository(db_session)
+
+    matched = await repo.list_by_guild_ids([int(GUILD_ID)])
+    assert {w.id for w in matched} == {int(first.json()['id'])}
+
+    matched_both = await repo.list_by_guild_ids([
+        int(GUILD_ID),
+        int(GUILD_ID_2),
+    ])
+    assert {w.id for w in matched_both} == {
+        int(first.json()['id']),
+        int(second.json()['id']),
+    }
+
+    assert await repo.list_by_guild_ids([]) == []
+    assert await repo.list_by_guild_ids([999999999]) == []

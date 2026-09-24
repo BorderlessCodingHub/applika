@@ -62,6 +62,13 @@ def test_validate_webhook_url_accepts_every_documented_host_variant(url):
         None,
         # empty string
         '',
+        # trailing newline (backend-qa finding B2: `$` alone matches just
+        # before a final newline, so `match()` + `$` let this through)
+        f'https://discord.com/api/webhooks/{VALID_ID}/{VALID_TOKEN}\n',
+        # non-ASCII "digits" in the webhook id (Arabic-Indic 1-2-3...)
+        f'https://discord.com/api/webhooks/١٢٣456789012345/{VALID_TOKEN}',
+        # non-ASCII letters in the token
+        f'https://discord.com/api/webhooks/{VALID_ID}/' + 'é' * 20,
     ],
 )
 def test_validate_webhook_url_refuses_everything_else(url):
@@ -94,7 +101,16 @@ def test_validate_guild_id_accepts_a_valid_snowflake_string():
 
 
 @pytest.mark.parametrize(
-    'value', [None, '', 'not-a-number', '123', OVERFLOW_ID]
+    'value',
+    [
+        None,
+        '',
+        'not-a-number',
+        '123',
+        OVERFLOW_ID,
+        VALID_ID + '\n',  # trailing newline (B2)
+        '١٢٣456789012345',  # non-ASCII digits (B2)
+    ],
 )
 def test_validate_guild_id_refuses_bad_or_overflowing_ids(value):
     with pytest.raises(BusinessRuleViolation) as excinfo:

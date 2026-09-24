@@ -18,11 +18,19 @@ BIGINT_MAX = 9223372036854775807
 MAX_ROLE_IDS = 25
 MAX_LABEL_LENGTH = 100
 
+#: ``re.ASCII`` is load-bearing here (backend-qa finding B2): without it
+#: ``\d`` and ``\w`` also match non-ASCII digit/letter code points (e.g.
+#: Arabic-Indic digits), which ``int()`` silently normalizes to their ASCII
+#: value - a non-ASCII "digit" id would otherwise pass validation and reach
+#: the database. ``fullmatch`` (rather than ``match`` + a trailing ``$``) is
+#: used instead of ``match``/``$`` so a trailing ``\n`` can never sneak past
+#: the anchor - ``$`` alone matches immediately before a final newline.
 WEBHOOK_URL_RE = re.compile(
-    r'^https://(?:(?:ptb|canary)\.)?discord(?:app)?\.com'
-    r'/api(?:/v\d+)?/webhooks/(\d{17,20})/([\w-]{20,})$'
+    r'https://(?:(?:ptb|canary)\.)?discord(?:app)?\.com'
+    r'/api(?:/v\d+)?/webhooks/(\d{17,20})/([\w-]{20,})',
+    re.ASCII,
 )
-SNOWFLAKE_RE = re.compile(r'^\d{17,20}$')
+SNOWFLAKE_RE = re.compile(r'\d{17,20}', re.ASCII)
 
 INVALID_WEBHOOK_URL = 'Invalid Discord webhook URL'
 INVALID_GUILD_ID = 'Invalid Discord server id'
@@ -43,7 +51,7 @@ def validate_webhook_url(value: str | None) -> str:
     """
     if not isinstance(value, str) or not value:
         raise BusinessRuleViolation(INVALID_WEBHOOK_URL)
-    match = WEBHOOK_URL_RE.match(value)
+    match = WEBHOOK_URL_RE.fullmatch(value)
     if not match:
         raise BusinessRuleViolation(INVALID_WEBHOOK_URL)
     if int(match.group(1)) > BIGINT_MAX:
@@ -52,7 +60,7 @@ def validate_webhook_url(value: str | None) -> str:
 
 
 def _validate_snowflake(value: str, error_message: str) -> int:
-    if not isinstance(value, str) or not SNOWFLAKE_RE.match(value):
+    if not isinstance(value, str) or not SNOWFLAKE_RE.fullmatch(value):
         raise BusinessRuleViolation(error_message)
     int_value = int(value)
     if int_value > BIGINT_MAX:
@@ -97,7 +105,7 @@ def mask(url: str) -> str:
     accepted host/API-version variant the stored URL used - the masked form
     is a display value, not an echo of the stored address.
     """
-    match = WEBHOOK_URL_RE.match(url)
+    match = WEBHOOK_URL_RE.fullmatch(url)
     if not match:
         return 'https://discord.com/api/webhooks/…'
     webhook_id, token = match.group(1), match.group(2)
