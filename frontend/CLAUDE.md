@@ -823,6 +823,63 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   assert on `/reason:\s*<label>/i`, never an exact string, the same convention
   `InterviewTypeBadge` already set.
 
+### Profile — connected accounts (`src/components/profile/`, KODI-022)
+
+The owner: "Keep github login but add an option in user profile to sincronize
+with discord." `/profile` gained a **Connected accounts** card, above Delete
+account, for Discord only (GitHub stays login-only, never a link/unlink
+target).
+
+- `connected-accounts.tsx` (`ConnectedAccounts`) is presentational: `linked`,
+  `onConnect`, `onDisconnect`, `isConnecting?`, `isDisconnecting?`. It never
+  takes a Discord id, name or avatar prop — `GET /users/me` exposes only
+  `discord_linked: boolean`, and the API never returns more. Unlinked shows
+  "Connect Discord"; linked shows the badge "Discord connected" and
+  "Disconnect Discord" behind an `AlertDialog` ("Cancel" / "Disconnect").
+  Hooks: `li[data-provider="discord"][data-state="linked"|"unlinked"]`.
+- `discord-link-notice.tsx` (`DiscordLinkNotice`, `DISCORD_LINK_STATUSES`,
+  `isDiscordLinkStatus`) renders the post-redirect outcome: `linked` ("Discord
+  connected. Your reports and feedback will mention you.", `role="status"`),
+  `conflict` ("This Discord account is linked to another Applika account",
+  `role="alert"`) or `error` ("Discord was not connected, try again",
+  `role="alert"`). Assert the exact WORDS — `getByText("Discord connected")`
+  also matches the card's shorter badge; scope with `exact: true` or
+  `[data-slot="discord-link-notice"]`.
+- `hooks/use-account-links.ts`: `useStartDiscordLink` calls
+  `POST /auth/link/discord` and does a TOP-LEVEL navigation
+  (`window.location.assign(authorize_url)`) on success — never an in-app
+  router push, OAuth must own the tab — so there is no success toast, only a
+  failure one (503 → "Discord linking is unavailable", anything else →
+  `getApiError`). `useUnlinkDiscord` calls `DELETE /auth/link/discord`,
+  invalidates `USER_QUERY_KEY` (now exported from `hooks/use-user.ts`) and
+  toasts. `services/types/auth.ts` carries the two wire shapes
+  (`AccountLinkStart`, `AccountLinkOut`).
+- **`/profile`'s outcome route.** Discord's OAuth callback 307s the browser
+  back to `/profile?account=discord&status=linked|conflict|error`.
+  `profile-page.tsx` reads `status` via a LAZY `useState` initializer (not an
+  effect — `react-hooks/set-state-in-effect`), so the notice survives the URL
+  cleanup that immediately follows. An effect does the one-shot side effects
+  (guarded by a `useRef` so React Strict Mode's double-invoke does not
+  double-fire them): invalidate `USER_QUERY_KEY` and clear the query string
+  back to `/profile`. **The clear is `window.history.replaceState(null, "",
+"/profile")`, not `useRouter().replace()`** — verified against the real e2e
+  stack that on this fully static export (`output: "export"`, Next 16, no
+  server to resolve a transition against) `router.replace()` to the SAME
+  pathname with only the query string changed is a no-op: the address bar
+  keeps the original `?account=&status=` indefinitely. Driving the History
+  API directly is what actually updates it. `page.tsx` wraps the page in a
+  `Suspense` boundary — precedent `(protected)/cvs/editor/page.tsx` — because
+  `useSearchParams` suspends and `output: "export"` fails the build otherwise.
+- **E2E** (`e2e/profile-discord.spec.ts`, serial): a third seeded role,
+  `discord` (`SeededRole`, `e2e-discord`), whose `discord_id` is RE-SET on
+  every `scripts/e2e.sh` seed run — so the suite's own Disconnect test is
+  undone by the next run. `E2E_DISCORD_USER_ID` / `E2E_DISCORD_ACCESS_TOKEN` /
+  `E2E_DISCORD_REFRESH_TOKEN` are exported by `scripts/e2e.sh` alongside the
+  existing `E2E_*`/`E2E_ADMIN_*` pairs. Real `discord.com` is never reached:
+  the spec's `page.route("**://discord.com/**", ...)` aborts the navigation
+  and asserts the ATTEMPTED authorize URL (`scope=identify`, a `state`
+  param) instead of following it.
+
 ### Date Inputs
 
 **`DatePickerInput` for a day; `MonthYearInput` for a CV month+year, which never
