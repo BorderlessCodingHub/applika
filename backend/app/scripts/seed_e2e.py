@@ -1,10 +1,10 @@
-"""Seed the two deterministic E2E users and mint REAL sessions.
+"""Seed the three deterministic E2E users and mint REAL sessions.
 
 Part of the production-simulating E2E harness (see
 ``docker-compose.e2e.yml`` and ``scripts/e2e.sh``). GitHub OAuth is the
 only login path and it cannot run in a headless CI browser, so instead of
 mocking auth in the browser we mint a genuine session out of band: this
-CLI upserts two synthetic users through the REAL ``UserRepository`` and
+CLI upserts three synthetic users through the REAL ``UserRepository`` and
 mints REAL tokens with the app's own ``app.core.tokens`` code against the
 stack's own secrets. The E2E browser then carries a real cookie and every
 request afterwards hits the real API, the real Postgres and the real
@@ -26,18 +26,26 @@ Two token facts that are easy to get wrong:
 
 ``/auth/refresh`` works for these users because
 ``app/application/use_cases/refresh_token.py`` skips the GitHub token
-check when ``user.encrypted_github_token`` is empty — which is why both
-seeded users are stored with ``encrypted_github_token = NULL``.
+check when ``user.encrypted_github_token`` is empty — which is why every
+seeded user is stored with ``encrypted_github_token = NULL``.
 
 Support data (platforms, steps_definition, feedbacks_definition) is NOT
 seeded here: the initial revision ``e3abe9dc93d4_init_db`` bulk-inserts
 all three tables, so ``alembic upgrade head`` already provides them.
 
+The third user, ``e2e-discord``, is seeded already linked to a fixed
+Discord id (``E2E_DISCORD_ID``): the id is re-set on every upsert, not
+just at creation, so a Disconnect performed by the E2E is undone the next
+time this script runs. ``e2e-user`` and ``e2e-admin`` get their
+``discord_id`` reset to ``None`` on every upsert too, so both stay
+deterministically unlinked run after run.
+
 Prints exactly one JSON line to stdout::
 
     {"user_id": "...", "access_token": "...", "refresh_token": "...",
      "admin_user_id": "...", "admin_access_token": "...",
-     "admin_refresh_token": "..."}
+     "admin_refresh_token": "...", "discord_user_id": "...",
+     "discord_access_token": "...", "discord_refresh_token": "..."}
 """
 
 import asyncio
@@ -71,6 +79,17 @@ E2E_ADMIN = UserCreateDTO(
     username='e2e-admin',
     email='e2e-admin@e2e.applika.dev',
 )
+E2E_DISCORD = UserCreateDTO(
+    github_id=999000000003,
+    username='e2e-discord',
+    email='e2e-discord@e2e.applika.dev',
+)
+
+# Fixed synthetic Discord id, re-linked to E2E_DISCORD on every seed run
+# (see ``upsert_user``). Unlike the github_ids above it need not stay
+# JS-safe: ``discord_id`` is never a field on any schema (UserDTO's own
+# comment - "Internal only") so it never reaches the browser as a number.
+E2E_DISCORD_ID = 999000000000000003
 
 
 class Identity(NamedTuple):
@@ -85,8 +104,15 @@ async def upsert_user(
     dto: UserCreateDTO,
     *,
     is_admin: bool,
+    discord_id: int | None,
 ) -> Identity:
-    """Create or refresh one seeded user. Idempotent by ``github_id``."""
+    """Create or refresh one seeded user. Idempotent by ``github_id``.
+
+    ``discord_id`` is re-set on every call, not only at creation, so the
+    seed can undo whatever the previous E2E run did through the app
+    (a Disconnect clears it; nothing in the app can set it to a value
+    other than ``E2E_DISCORD_ID`` for this user).
+    """
     user = await repo.get_by_github_id(dto.github_id)
     if user is None:
         user = await repo.create(dto)
@@ -94,6 +120,7 @@ async def upsert_user(
     user.username = dto.username
     user.email = dto.email
     user.is_admin = is_admin
+    user.discord_id = discord_id
     # Empty on purpose: it makes /auth/refresh skip the GitHub call.
     user.encrypted_github_token = None
     user = await repo.update(user)
@@ -101,13 +128,20 @@ async def upsert_user(
     return Identity(github_id=user.github_id, user_id=user.id)
 
 
-async def upsert_users() -> tuple[Identity, Identity]:
-    """Upsert the regular user and the admin user, in that order."""
+async def upsert_users() -> tuple[Identity, Identity, Identity]:
+    """Upsert the regular, admin and Discord-linked users, in order."""
     async with AsyncLocalSession() as session:
         repo = UserRepository(session)
-        user = await upsert_user(repo, E2E_USER, is_admin=False)
-        admin = await upsert_user(repo, E2E_ADMIN, is_admin=True)
-    return user, admin
+        user = await upsert_user(
+            repo, E2E_USER, is_admin=False, discord_id=None
+        )
+        admin = await upsert_user(
+            repo, E2E_ADMIN, is_admin=True, discord_id=None
+        )
+        discord_user = await upsert_user(
+            repo, E2E_DISCORD, is_admin=False, discord_id=E2E_DISCORD_ID
+        )
+    return user, admin, discord_user
 
 
 async def mint_session(
@@ -125,12 +159,15 @@ async def mint_session(
 
 
 async def seed() -> dict[str, str]:
-    """Upsert both users and return the E2E contract payload."""
-    user, admin = await upsert_users()
+    """Upsert all three users and return the E2E contract payload."""
+    user, admin, discord_user = await upsert_users()
     try:
         access_token, refresh_token = await mint_session(user, redis_client)
         admin_access_token, admin_refresh_token = await mint_session(
             admin, redis_client
+        )
+        discord_access_token, discord_refresh_token = await mint_session(
+            discord_user, redis_client
         )
     finally:
         await redis_client.aclose()
@@ -142,6 +179,9 @@ async def seed() -> dict[str, str]:
         'admin_user_id': str(admin.user_id),
         'admin_access_token': admin_access_token,
         'admin_refresh_token': admin_refresh_token,
+        'discord_user_id': str(discord_user.user_id),
+        'discord_access_token': discord_access_token,
+        'discord_refresh_token': discord_refresh_token,
     }
 
 

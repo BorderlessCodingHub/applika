@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-022 `app/scripts/seed_e2e.py` seeds a third deterministic E2E user,
+  `e2e-discord` (`github_id 999000000003`), already linked to a fixed
+  synthetic Discord id (`E2E_DISCORD_ID`, re-set on every seed run so an
+  E2E Disconnect is undone the next time it runs); `e2e-user` and
+  `e2e-admin` get `discord_id` reset to `None` on every run. The seed's
+  JSON contract gains `discord_user_id`, `discord_access_token`,
+  `discord_refresh_token` for a real minted session, alongside the
+  existing `user_id`/`admin_user_id` pairs. No route, schema or migration
+  change - test/harness only, for the KODI-022 frontend E2E.
 - KODI-020 Discord account link (connect, conflict, disconnect, failed
   consent; Release B, code that reads `users.discord_id`). Keeps GitHub as
   the only way to sign in - the flow never creates, changes or reads an
