@@ -64,6 +64,12 @@ services:
       DISCORD_REPORTS_WEBHOOK: ${DISCORD_REPORTS_WEBHOOK:-}
       DISCORD_FEEDBACK_WEBHOOK: ${DISCORD_FEEDBACK_WEBHOOK:-}
       DISCORD_REPORTS_ORGANIZATION: ${DISCORD_REPORTS_ORGANIZATION:-}
+      # Discord account link (KODI-020): Connect Discord answers 503 until both
+      # the client id and secret are set.
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+      DISCORD_LINK_REDIRECT_URI: ${DISCORD_LINK_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/link/discord/callback}
+      ACCOUNT_LINK_REDIRECT_URI: ${ACCOUNT_LINK_REDIRECT_URI:-http://127.0.0.1:8080/profile}
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck:

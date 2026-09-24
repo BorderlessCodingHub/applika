@@ -152,6 +152,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- KODI-020 the dev stack (`docker-compose.yml`) now passes `DISCORD_CLIENT_ID`,
+  `DISCORD_CLIENT_SECRET`, `DISCORD_LINK_REDIRECT_URI` and
+  `ACCOUNT_LINK_REDIRECT_URI` to the `api` container, and `.env.example`
+  documents them; before, setting them in `.env` left Connect Discord at 503.
 - KODI-011 `GET /users/me/agenda` now honours `to_date`. `from_date` and
   `to_date` shared one `Query(None)` default object, so FastAPI resolved
   both parameters from the first one's query key and the window silently
