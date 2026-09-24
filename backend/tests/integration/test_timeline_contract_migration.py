@@ -1399,6 +1399,13 @@ def contract_container() -> Iterator[PostgresContainer]:
 
 @pytest.fixture
 def contract_db_url(contract_container: PostgresContainer) -> str:
+    """Migrates to ``head``, not the pinned ``REVISION`` (R2): the API-level
+    AC tests below share the ORM with the rest of the app, and every later
+    migration this branch adds a mapped column for (KODI-019/020's
+    ``users.discord_id``, and any future one) must be present for an ORM
+    insert to work at all. ``REVISION``'s own upgrade/downgrade round-trip
+    tests above are unaffected - they drive raw SQL, not the ORM, and stay
+    pinned to R2 on purpose."""
     url = contract_container.get_connection_url()
     _apply(
         url,
@@ -1407,7 +1414,7 @@ def contract_db_url(contract_container: PostgresContainer) -> str:
             ('CREATE SCHEMA public', {}),
         ],
     )
-    _upgrade(url, REVISION)
+    _upgrade(url, 'head')
     return url
 
 

@@ -29,9 +29,9 @@ def _app_logger_enabled():
     logging.getLogger('app').disabled = False
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope='session')
 async def db_container():
-    container = PostgresContainer("postgres:14", driver="asyncpg")
+    container = PostgresContainer('postgres:14', driver='asyncpg')
     container.start()
     yield container
     container.stop()
@@ -40,7 +40,7 @@ async def db_container():
 @pytest_asyncio.fixture
 async def async_engine(db_container: PostgresContainer):
     db_url = db_container.get_connection_url().replace(
-        "postgresql://", "postgresql+asyncpg://"
+        'postgresql://', 'postgresql+asyncpg://'
     )
     async_engine = create_async_engine(db_url, echo=False)
 
@@ -80,6 +80,16 @@ async def async_client(async_engine: AsyncEngine):
 
     async def override_get_current_user():
         from app.application.dto.user import UserDTO
+        from app.domain.models import UserModel
+
+        # discord_id is read fresh from the DB (not the static base_data()
+        # snapshot) so a test that links/unlinks it and then hits
+        # GET/PATCH /users/me sees the current value (KODI-020).
+        discord_id = None
+        async with SessionLocal() as session:
+            row = await session.get(UserModel, base_data()['user'].id)
+            if row is not None:
+                discord_id = row.discord_id
 
         return UserDTO(
             id=base_data()['user'].id,
@@ -87,6 +97,7 @@ async def async_client(async_engine: AsyncEngine):
             username=base_data()['user'].username,
             email=base_data()['user'].email,
             created_at=datetime.now(timezone.utc),
+            discord_id=discord_id,
         )
 
     main_app.dependency_overrides[get_current_user] = override_get_current_user

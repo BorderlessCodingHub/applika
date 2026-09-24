@@ -502,10 +502,13 @@ def test_round_trip_upgrade_downgrade_upgrade(migration_db: str) -> None:
     assert _discord_id_of(migration_db, USER_TWO_ID) is None
 
 
-def test_no_orm_model_maps_discord_id_yet() -> None:
-    """prod-release-runbook.md rule 4: Release A is migration only - the
-    ORM does not map ``discord_id`` in this ticket (KODI-020/K2 does)."""
+def test_orm_model_maps_discord_id() -> None:
+    """Release A (this migration, KODI-019) shipped the column with no ORM
+    mapping (prod-release-runbook.md rule 4: expand first, code second).
+    Release B (KODI-020) is the code release that maps it - confirmed here
+    instead of asserting its absence, now that K2 has shipped on this same
+    branch."""
     from app.domain.models import UserModel
 
     mapped = {column.name for column in UserModel.__table__.columns}
-    assert 'discord_id' not in mapped
+    assert 'discord_id' in mapped
