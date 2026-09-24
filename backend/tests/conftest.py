@@ -80,24 +80,17 @@ async def async_client(async_engine: AsyncEngine):
 
     async def override_get_current_user():
         from app.application.dto.user import UserDTO
-        from app.domain.models import UserModel
 
-        # discord_id is read fresh from the DB (not the static base_data()
-        # snapshot) so a test that links/unlinks it and then hits
-        # GET/PATCH /users/me sees the current value (KODI-020).
-        discord_id = None
-        async with SessionLocal() as session:
-            row = await session.get(UserModel, base_data()['user'].id)
-            if row is not None:
-                discord_id = row.discord_id
-
+        # KODI-024: discord_id is no longer a field on UserDTO/UserModel -
+        # the Discord connection lives in its own table and routes read it
+        # through DiscordConnectionRepositoryDp, not through the current
+        # user override.
         return UserDTO(
             id=base_data()['user'].id,
             github_id=base_data()['user'].github_id,
             username=base_data()['user'].username,
             email=base_data()['user'].email,
             created_at=datetime.now(timezone.utc),
-            discord_id=discord_id,
         )
 
     main_app.dependency_overrides[get_current_user] = override_get_current_user

@@ -1,8 +1,20 @@
+import pytest
+from cryptography.fernet import Fernet
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config.settings import envs
 from tests import msg
 from tests.base_db_setup import base_data
+
+
+@pytest.fixture(autouse=True)
+def _discord_encryption_key(monkeypatch):
+    """A valid Fernet key so ``_seed_connection`` can encrypt a refresh
+    token for the rows this module seeds directly."""
+    monkeypatch.setattr(
+        envs, 'DISCORD_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
+    )
 
 
 async def test_get_me_returns_new_fields_as_none(
@@ -238,24 +250,70 @@ async def test_get_me_discord_linked_false_when_unlinked(
     assert response.status_code == 200, msg(200, response.status_code)
     data = response.json()
     assert data['discord_linked'] is False
+    assert data['discord'] is None
     assert 'discord_id' not in data
 
 
 async def test_get_me_discord_linked_true_when_linked(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    from tests.integration.test_account_link_discord import _get_user
+    from tests.integration.test_account_link_discord import _seed_connection
 
-    user = await _get_user(db_session, base_data()['user'].id)
-    user.discord_id = 555
-    await db_session.commit()
+    await _seed_connection(
+        db_session, base_data()['user'].id, discord_id=555, username='ada'
+    )
 
     response = await async_client.get('/users/me')
 
     assert response.status_code == 200, msg(200, response.status_code)
     data = response.json()
     assert data['discord_linked'] is True
+    assert data['discord']['username'] == 'ada'
+    assert data['discord']['status'] == 'active'
+    assert data['discord']['avatar_url'] is None
     assert 'discord_id' not in data
+    assert 'discord_id' not in data['discord']
+
+
+async def test_get_me_discord_avatar_url_is_computed(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    from tests.integration.test_account_link_discord import _seed_connection
+
+    connection = await _seed_connection(
+        db_session, base_data()['user'].id, discord_id=555
+    )
+    connection.avatar = 'avatar-hash'
+    db_session.add(connection)
+    await db_session.commit()
+
+    response = await async_client.get('/users/me')
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    data = response.json()
+    assert data['discord']['avatar_url'] == (
+        'https://cdn.discordapp.com/avatars/555/avatar-hash.png?size=64'
+    )
+
+
+async def test_get_me_discord_needs_reconnect_status(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    from app.core.enums import DiscordConnectionStatus
+    from tests.integration.test_account_link_discord import _seed_connection
+
+    await _seed_connection(
+        db_session,
+        base_data()['user'].id,
+        discord_id=555,
+        status=DiscordConnectionStatus.NEEDS_RECONNECT,
+    )
+
+    response = await async_client.get('/users/me')
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    data = response.json()
+    assert data['discord']['status'] == 'needs_reconnect'
 
 
 async def test_patch_me_discord_linked_present_no_discord_id(
@@ -266,6 +324,7 @@ async def test_patch_me_discord_linked_present_no_discord_id(
     assert response.status_code == 200, msg(200, response.status_code)
     data = response.json()
     assert 'discord_linked' in data
+    assert 'discord' in data
     assert 'discord_id' not in data
 
 

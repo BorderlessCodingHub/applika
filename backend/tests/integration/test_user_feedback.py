@@ -9,11 +9,12 @@ the account-link OAuth app.
 """
 
 import pytest
+from cryptography.fernet import Fernet
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import envs
-from app.domain.models import UserModel
+from app.core.enums import DiscordConnectionStatus
 from app.main import app as main_app
 from app.presentation.dependencies import get_discord_feedback_service
 from tests import msg
@@ -24,9 +25,14 @@ from tests.base_db_setup import base_data
 def _no_discord_oauth_app(monkeypatch):
     """Forces DISCORD_CLIENT_ID/SECRET unset for this whole module (T046): a
     server without a configured Discord OAuth app must still mention linked
-    users, since the mention feature only needs ``users.discord_id``."""
+    users, since the mention feature only needs the connection's
+    ``discord_id``. ``DISCORD_TOKEN_ENCRYPTION_KEY`` is still set so
+    ``_seed_connection`` can encrypt a refresh token for the seeded row."""
     monkeypatch.setattr(envs, 'DISCORD_CLIENT_ID', None)
     monkeypatch.setattr(envs, 'DISCORD_CLIENT_SECRET', None)
+    monkeypatch.setattr(
+        envs, 'DISCORD_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
+    )
 
 
 class FakeDiscordFeedbackService:
@@ -52,20 +58,27 @@ def _override() -> FakeDiscordFeedbackService:
     return fake
 
 
-async def _set_discord_id(
-    db_session: AsyncSession, discord_id: int | None
+async def _link_discord(
+    db_session: AsyncSession,
+    discord_id: int,
+    *,
+    status: DiscordConnectionStatus = DiscordConnectionStatus.ACTIVE,
 ) -> None:
-    user = await db_session.get(UserModel, base_data()['user'].id)
-    assert user is not None
-    user.discord_id = discord_id
-    await db_session.commit()
+    from tests.integration.test_account_link_discord import _seed_connection
+
+    await _seed_connection(
+        db_session,
+        base_data()['user'].id,
+        discord_id=discord_id,
+        status=status,
+    )
 
 
 async def test_linked_user_feedback_mentions_user(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     fake = _override()
-    await _set_discord_id(db_session, 555)
+    await _link_discord(db_session, 555)
 
     response = await async_client.post(
         '/feedbacks', json={'score': 5, 'text': 'great'}
@@ -96,11 +109,29 @@ async def test_unlinked_user_feedback_mentions_nobody(
     ), msg('unlinked header with no mention', header)
 
 
+async def test_needs_reconnect_user_feedback_still_mentions(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """R-041: the mention reads the connection in any status, not just
+    ``active``."""
+    fake = _override()
+    await _link_discord(
+        db_session, 555, status=DiscordConnectionStatus.NEEDS_RECONNECT
+    )
+
+    response = await async_client.post(
+        '/feedbacks', json={'score': 5, 'text': 'still linked'}
+    )
+
+    assert response.status_code == 201, msg(201, response.status_code)
+    assert fake.calls == [555], msg([555], fake.calls)
+
+
 async def test_feedback_after_unlink_carries_no_mention(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     fake = _override()
-    await _set_discord_id(db_session, 555)
+    await _link_discord(db_session, 555)
 
     first = await async_client.post(
         '/feedbacks', json={'score': 5, 'text': 'first'}

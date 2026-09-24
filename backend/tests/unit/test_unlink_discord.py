@@ -1,89 +1,114 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from app.application.use_cases.account_links.unlink_discord import (
     UnlinkDiscordUseCase,
 )
-from app.domain.repositories.user_repository import UserRepository
-from tests.unit.conftest import make_user
+
+
+def _connection(encrypted_refresh_token='ciphertext'):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        user_id=1, encrypted_refresh_token=encrypted_refresh_token
+    )
+
+
+def _discord_oauth(*, configured: bool) -> MagicMock:
+    """``is_configured`` is sync on the real service, unlike ``revoke`` -
+    a bare ``AsyncMock`` would make ``is_configured()`` return an unawaited
+    (always-truthy) coroutine instead of ``configured``."""
+    mock = MagicMock()
+    mock.is_configured.return_value = configured
+    mock.revoke = AsyncMock()
+    return mock
 
 
 @pytest.mark.asyncio
-async def test_use_case_delegates_to_repository():
-    repo = AsyncMock()
-    user = make_user(id=1, discord_id=None)
-    repo.unlink_discord.return_value = user
+async def test_unlink_deletes_then_revokes(monkeypatch):
+    conn_repo = AsyncMock()
+    discord_oauth = _discord_oauth(configured=True)
+    conn_repo.get_by_user_id_for_update.return_value = _connection()
 
-    uc = UnlinkDiscordUseCase(repo)
-    result = await uc.execute(user_id=1)
+    monkeypatch.setattr(
+        'app.application.use_cases.account_links.unlink_discord.'
+        'decrypt_discord_token',
+        lambda ciphertext: 'plaintext-refresh',
+    )
 
-    repo.unlink_discord.assert_called_once_with(1)
-    assert result is user
+    uc = UnlinkDiscordUseCase(conn_repo, discord_oauth)
+    await uc.execute(user_id=1)
 
-
-# --- Repository-level tests (T031, T034) ---
-
-
-@pytest.mark.asyncio
-async def test_repository_unlink_clears_the_id():
-    session = AsyncMock()
-    user = make_user(id=1, discord_id=999)
-    session.scalar.return_value = user
-    repo = UserRepository(session)
-
-    result = await repo.unlink_discord(user_id=1)
-
-    assert result is not None
-    assert result.discord_id is None
-    session.commit.assert_called_once()
+    conn_repo.delete_by_user_id.assert_called_once_with(1)
+    discord_oauth.revoke.assert_called_once_with('plaintext-refresh')
 
 
 @pytest.mark.asyncio
-async def test_repository_unlink_already_unlinked_is_no_op():
-    session = AsyncMock()
-    user = make_user(id=1, discord_id=None)
-    session.scalar.return_value = user
-    repo = UserRepository(session)
+async def test_unlink_revoke_failure_is_swallowed(monkeypatch):
+    conn_repo = AsyncMock()
+    discord_oauth = _discord_oauth(configured=True)
+    conn_repo.get_by_user_id_for_update.return_value = _connection()
+    discord_oauth.revoke.side_effect = Exception('should not propagate')
 
-    result = await repo.unlink_discord(user_id=1)
+    monkeypatch.setattr(
+        'app.application.use_cases.account_links.unlink_discord.'
+        'decrypt_discord_token',
+        lambda ciphertext: 'plaintext-refresh',
+    )
 
-    assert result is user
-    session.commit.assert_not_called()
-    session.add.assert_not_called()
+    uc = UnlinkDiscordUseCase(conn_repo, discord_oauth)
 
-
-@pytest.mark.asyncio
-async def test_repository_unlink_missing_user_returns_none():
-    session = AsyncMock()
-    session.scalar.return_value = None
-    repo = UserRepository(session)
-
-    result = await repo.unlink_discord(user_id=999)
-
-    assert result is None
-    session.commit.assert_not_called()
+    # The use case itself does not catch - the service's own revoke() is
+    # what swallows Discord failures (T096); this test proves the use case
+    # does not add its own try/except around a well-behaved revoke() by
+    # calling straight through to it (see the OAuth-service unit tests for
+    # the actual swallow behaviour).
+    with pytest.raises(Exception, match='should not propagate'):
+        await uc.execute(user_id=1)
 
 
 @pytest.mark.asyncio
-async def test_repository_unlink_makes_zero_http_requests(monkeypatch):
-    """Disconnect never talks to Discord: no httpx client is even
-    imported/used from the repository or the use case."""
-    import httpx
+async def test_unlink_skips_revoke_when_unconfigured():
+    conn_repo = AsyncMock()
+    discord_oauth = _discord_oauth(configured=False)
+    conn_repo.get_by_user_id_for_update.return_value = _connection()
 
-    def _fail(*args, **kwargs):
-        raise AssertionError('unlink must not perform HTTP requests')
+    uc = UnlinkDiscordUseCase(conn_repo, discord_oauth)
+    await uc.execute(user_id=1)
 
-    monkeypatch.setattr(httpx.AsyncClient, 'post', _fail)
-    monkeypatch.setattr(httpx.AsyncClient, 'get', _fail)
+    conn_repo.delete_by_user_id.assert_called_once_with(1)
+    discord_oauth.revoke.assert_not_called()
 
-    session = AsyncMock()
-    user = make_user(id=1, discord_id=999)
-    session.scalar.return_value = user
-    repo = UserRepository(session)
 
-    uc = UnlinkDiscordUseCase(repo)
-    result = await uc.execute(user_id=1)
+@pytest.mark.asyncio
+async def test_unlink_skips_revoke_when_decrypt_returns_none(monkeypatch):
+    conn_repo = AsyncMock()
+    discord_oauth = _discord_oauth(configured=True)
+    conn_repo.get_by_user_id_for_update.return_value = _connection()
 
-    assert result is not None
-    assert result.discord_id is None
+    monkeypatch.setattr(
+        'app.application.use_cases.account_links.unlink_discord.'
+        'decrypt_discord_token',
+        lambda ciphertext: None,
+    )
+
+    uc = UnlinkDiscordUseCase(conn_repo, discord_oauth)
+    await uc.execute(user_id=1)
+
+    conn_repo.delete_by_user_id.assert_called_once_with(1)
+    discord_oauth.revoke.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_unlink_unlinked_user_is_a_no_op_with_no_http():
+    conn_repo = AsyncMock()
+    discord_oauth = _discord_oauth(configured=True)
+    conn_repo.get_by_user_id_for_update.return_value = None
+
+    uc = UnlinkDiscordUseCase(conn_repo, discord_oauth)
+    await uc.execute(user_id=1)
+
+    conn_repo.delete_by_user_id.assert_not_called()
+    discord_oauth.revoke.assert_not_called()
+    discord_oauth.is_configured.assert_not_called()

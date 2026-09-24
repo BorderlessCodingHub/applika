@@ -1,10 +1,22 @@
+import pytest
+from cryptography.fernet import Fernet
 from httpx import AsyncClient
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config.settings import envs
 from app.domain.models import UserModel
 from tests import msg
 from tests.base_db_setup import base_data
+
+
+@pytest.fixture(autouse=True)
+def _discord_encryption_key(monkeypatch):
+    """A valid Fernet key so ``_seed_connection`` can encrypt a refresh
+    token for the rows this module seeds directly."""
+    monkeypatch.setattr(
+        envs, 'DISCORD_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
+    )
 
 
 async def test_delete_own_account_returns_204(
@@ -106,16 +118,15 @@ async def test_delete_linked_account_frees_discord_id_for_another_user(
     from app.core.tokens import create_access_token
     from tests.integration.test_account_link_discord import (
         FakeDiscordOAuthService,
-        _get_user,
+        _get_connection,
         _override_discord_service,
+        _seed_connection,
         _status,
     )
 
     user_id = base_data()['user'].id
     other_id = base_data()['admin_user'].id
-    user = await _get_user(db_session, user_id)
-    user.discord_id = 555
-    await db_session.commit()
+    await _seed_connection(db_session, user_id, discord_id=555)
 
     resp = await async_client.delete('/users/me')
     assert resp.status_code == 204, msg(204, resp.status_code)
@@ -124,6 +135,9 @@ async def test_delete_linked_account_frees_discord_id_for_another_user(
         select(UserModel).where(UserModel.id == user_id)
     )
     assert result.scalar_one_or_none() is None
+
+    connection = await _get_connection(db_session, user_id)
+    assert connection is None
 
     _override_discord_service(FakeDiscordOAuthService(discord_id=555))
     state_uc = AccountLinkStateUseCase(redis_client)
@@ -137,5 +151,41 @@ async def test_delete_linked_account_frees_discord_id_for_another_user(
     )
     assert _status(response.headers['location']) == 'linked'
 
-    other = await _get_user(db_session, other_id)
-    assert other.discord_id == 555
+    other_connection = await _get_connection(db_session, other_id)
+    assert other_connection is not None
+    assert other_connection.discord_id == 555
+
+
+async def test_delete_linked_account_tries_to_revoke(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    redis_client,
+    monkeypatch,
+):
+    """Delete's own revoke attempt (T102): best-effort, before the row goes
+    by cascade."""
+    from cryptography.fernet import Fernet
+
+    from app.config.settings import envs
+    from tests.integration.test_account_link_discord import (
+        FakeDiscordOAuthService,
+        _override_discord_service,
+        _seed_connection,
+    )
+
+    monkeypatch.setattr(
+        envs, 'DISCORD_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
+    )
+    fake = FakeDiscordOAuthService()
+    _override_discord_service(fake)
+    await _seed_connection(
+        db_session,
+        base_data()['user'].id,
+        discord_id=555,
+        refresh_token='the-refresh-token',
+    )
+
+    resp = await async_client.delete('/users/me')
+
+    assert resp.status_code == 204, msg(204, resp.status_code)
+    assert fake.revoke_calls == ['the-refresh-token']

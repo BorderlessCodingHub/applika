@@ -1,84 +1,110 @@
+from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from sqlalchemy.exc import IntegrityError
 
+from app.application.services.discord_oauth_service import (
+    DiscordGrant,
+    DiscordProfile,
+)
 from app.application.use_cases.account_links.link_discord import (
     LinkDiscordUseCase,
 )
+from app.core.enums import DiscordConnectionStatus
 from app.core.exceptions import ResourceConflict
-from app.domain.repositories.user_repository import UserRepository
-from tests.unit.conftest import make_user
+
+
+def _connection(**kwargs) -> SimpleNamespace:
+    defaults = {
+        'id': 1,
+        'created_at': datetime(2026, 1, 1, tzinfo=timezone.utc),
+        'updated_at': None,
+        'user_id': 1,
+        'discord_id': 999,
+        'username': 'ada',
+        'global_name': None,
+        'avatar': None,
+        'scopes': 'identify guilds guilds.members.read',
+        'access_token_expires_at': None,
+        'status': DiscordConnectionStatus.ACTIVE,
+        'linked_at': datetime(2026, 1, 1, tzinfo=timezone.utc),
+    }
+    defaults.update(kwargs)
+    return SimpleNamespace(**defaults)
+
+
+_GRANT = DiscordGrant(
+    access_token='access-tok',
+    refresh_token='refresh-tok',
+    expires_in=604800,
+    scope='identify guilds guilds.members.read',
+)
+_PROFILE = DiscordProfile(id=999, username='ada', global_name=None, avatar=None)
 
 
 @pytest.mark.asyncio
-async def test_link_stores_the_id():
-    repo = AsyncMock()
-    user = make_user(id=1, discord_id=None)
-    repo.link_discord.return_value = user
+async def test_link_encrypts_refresh_token_and_stores(monkeypatch):
+    conn_repo = AsyncMock()
+    discord_oauth = AsyncMock()
+    conn_repo.link.return_value = _connection()
 
-    uc = LinkDiscordUseCase(repo)
-    result = await uc.execute(user_id=1, discord_id=999)
+    monkeypatch.setattr(
+        'app.application.use_cases.account_links.link_discord.'
+        'encrypt_discord_token',
+        lambda plaintext: f'encrypted:{plaintext}',
+    )
 
-    repo.link_discord.assert_called_once_with(1, 999)
-    assert result is user
+    uc = LinkDiscordUseCase(conn_repo, discord_oauth)
+    await uc.execute(user_id=1, grant=_GRANT, profile=_PROFILE)
 
-
-@pytest.mark.asyncio
-async def test_relink_same_user_same_id_is_a_no_op():
-    repo = AsyncMock()
-    user = make_user(id=1, discord_id=999)
-    repo.link_discord.return_value = user
-
-    uc = LinkDiscordUseCase(repo)
-    result = await uc.execute(user_id=1, discord_id=999)
-
-    assert result.discord_id == 999
-    repo.link_discord.assert_called_once_with(1, 999)
-
-
-# --- Repository-level tests (T026, T028) ---
+    conn_repo.link.assert_called_once()
+    _, kwargs = conn_repo.link.call_args
+    assert kwargs['encrypted_refresh_token'] == 'encrypted:refresh-tok'
+    assert kwargs['discord_id'] == 999
+    assert kwargs['username'] == 'ada'
+    assert kwargs['scopes'] == 'identify guilds guilds.members.read'
+    discord_oauth.revoke.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_repository_link_discord_conflict_when_another_user_holds_id():
-    session = AsyncMock()
-    other_owner = make_user(id=2, discord_id=999)
-    session.scalar.return_value = other_owner
-    repo = UserRepository(session)
+async def test_link_conflict_revokes_new_grant_and_reraises(monkeypatch):
+    conn_repo = AsyncMock()
+    discord_oauth = AsyncMock()
+    conn_repo.link.side_effect = ResourceConflict('already linked')
+
+    monkeypatch.setattr(
+        'app.application.use_cases.account_links.link_discord.'
+        'encrypt_discord_token',
+        lambda plaintext: f'encrypted:{plaintext}',
+    )
+
+    uc = LinkDiscordUseCase(conn_repo, discord_oauth)
 
     with pytest.raises(ResourceConflict):
-        await repo.link_discord(user_id=1, discord_id=999)
+        await uc.execute(user_id=1, grant=_GRANT, profile=_PROFILE)
 
-    session.commit.assert_not_called()
-    session.add.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_repository_link_discord_integrity_error_is_conflict():
-    session = AsyncMock()
-    user = make_user(id=1, discord_id=None)
-    # First scalar() call: get_by_discord_id -> no owner.
-    # Second scalar() call: get_by_id -> the target user.
-    session.scalar.side_effect = [None, user]
-    session.commit.side_effect = IntegrityError('stmt', {}, Exception('dup'))
-    repo = UserRepository(session)
-
-    with pytest.raises(ResourceConflict):
-        await repo.link_discord(user_id=1, discord_id=999)
-
-    session.rollback.assert_called_once()
+    discord_oauth.revoke.assert_called_once_with('refresh-tok')
 
 
 @pytest.mark.asyncio
-async def test_repository_link_discord_same_user_relink_is_no_op():
-    session = AsyncMock()
-    user = make_user(id=1, discord_id=999)
-    session.scalar.side_effect = [user, user]
-    repo = UserRepository(session)
+async def test_link_reconnect_updates_in_place(monkeypatch):
+    """A reconnect (same or another account) delegates straight to the
+    repository - the reconnect-in-place / clear-the-mark rule lives there
+    (T095), exercised at the repository/integration level."""
+    conn_repo = AsyncMock()
+    discord_oauth = AsyncMock()
+    conn_repo.link.return_value = _connection(
+        status=DiscordConnectionStatus.ACTIVE
+    )
 
-    result = await repo.link_discord(user_id=1, discord_id=999)
+    monkeypatch.setattr(
+        'app.application.use_cases.account_links.link_discord.'
+        'encrypt_discord_token',
+        lambda plaintext: 'encrypted',
+    )
 
-    assert result is user
-    session.commit.assert_not_called()
-    session.add.assert_not_called()
+    uc = LinkDiscordUseCase(conn_repo, discord_oauth)
+    result = await uc.execute(user_id=1, grant=_GRANT, profile=_PROFILE)
+
+    assert result.status == DiscordConnectionStatus.ACTIVE

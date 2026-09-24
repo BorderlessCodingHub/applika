@@ -1,7 +1,11 @@
 """Unit tests for the E2E session seeder.
 
-Fast by design: the database session and the Redis client are replaced,
-so the real token code is exercised without any container.
+Fast by design: the database session, the Redis client and the two
+repositories are replaced, so the real token code is exercised without any
+container.
+
+KODI-024: the Discord link moved off ``users.discord_id`` onto its own
+connection row, written through ``DiscordConnectionRepository``.
 """
 
 import json
@@ -9,6 +13,7 @@ from typing import cast
 
 import pytest
 import redis.asyncio as redis
+from cryptography.fernet import Fernet
 
 from app.application.dto.user import UserCreateDTO
 from app.config.settings import envs
@@ -31,11 +36,21 @@ class FakeRedis:
         self.closed = True
 
 
+class FakeUserRow:
+    def __init__(self, id: int, github_id: int, username: str, email: str):
+        self.id = id
+        self.github_id = github_id
+        self.username = username
+        self.email = email
+        self.is_admin = False
+        self.encrypted_github_token = 'stale-token'
+
+
 class FakeUserRepository:
     """In-memory UserRepository double keyed by github_id."""
 
     def __init__(self):
-        self.rows: dict[int, 'FakeUserRow'] = {}
+        self.rows: dict[int, FakeUserRow] = {}
         self.next_id = 1000
 
     async def get_by_github_id(self, id: int):
@@ -57,15 +72,77 @@ class FakeUserRepository:
         return user
 
 
-class FakeUserRow:
-    def __init__(self, id: int, github_id: int, username: str, email: str):
-        self.id = id
-        self.github_id = github_id
+class FakeConnectionRow:
+    def __init__(
+        self,
+        *,
+        user_id: int,
+        discord_id: int | None = None,
+        username: str | None = None,
+        global_name: str | None = None,
+        avatar: str | None = None,
+        scopes: str | None = None,
+        encrypted_refresh_token: str | None = None,
+        access_token_expires_at=None,
+        status: str | None = None,
+    ):
+        self.user_id = user_id
+        self.discord_id = discord_id
         self.username = username
-        self.email = email
-        self.is_admin = False
-        self.encrypted_github_token = 'stale-token'
-        self.discord_id: int | None = None
+        self.global_name = global_name
+        self.avatar = avatar
+        self.scopes = scopes
+        self.encrypted_refresh_token = encrypted_refresh_token
+        self.access_token_expires_at = access_token_expires_at
+        self.status = status
+
+
+class FakeDiscordConnectionRepository:
+    """In-memory DiscordConnectionRepository double keyed by user_id."""
+
+    def __init__(self):
+        self.rows: dict[int, FakeConnectionRow] = {}
+
+    async def delete_by_user_id(self, user_id: int) -> None:
+        self.rows.pop(user_id, None)
+
+    async def link(
+        self,
+        *,
+        user_id: int,
+        discord_id: int,
+        username: str,
+        global_name: str | None,
+        avatar: str | None,
+        scopes: str,
+        encrypted_refresh_token: str,
+        access_token_expires_at,
+    ) -> FakeConnectionRow:
+        row = FakeConnectionRow(
+            user_id=user_id,
+            discord_id=discord_id,
+            username=username,
+            global_name=global_name,
+            avatar=avatar,
+            scopes=scopes,
+            encrypted_refresh_token=encrypted_refresh_token,
+            access_token_expires_at=access_token_expires_at,
+            status='active',
+        )
+        self.rows[user_id] = row
+        return row
+
+
+class FakeSession:
+    """Stands in for the async-context-managed DB session ``upsert_users``
+    opens; nothing in it is used directly since both repositories are
+    faked too."""
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc_info):
+        return False
 
 
 def test_refuses_to_run_in_prod(monkeypatch, capsys):
@@ -99,12 +176,8 @@ async def test_upsert_creates_then_updates_idempotently():
     fake_repo = FakeUserRepository()
     repo = cast(UserRepository, fake_repo)
 
-    first = await seed_e2e.upsert_user(
-        repo, seed_e2e.E2E_ADMIN, is_admin=True, discord_id=None
-    )
-    second = await seed_e2e.upsert_user(
-        repo, seed_e2e.E2E_ADMIN, is_admin=True, discord_id=None
-    )
+    first = await seed_e2e.upsert_user(repo, seed_e2e.E2E_ADMIN, is_admin=True)
+    second = await seed_e2e.upsert_user(repo, seed_e2e.E2E_ADMIN, is_admin=True)
 
     assert first == second
     assert first.github_id == seed_e2e.E2E_ADMIN.github_id
@@ -114,73 +187,63 @@ async def test_upsert_creates_then_updates_idempotently():
     assert row.encrypted_github_token is None
 
 
-async def test_upsert_sets_the_fixed_discord_id_on_every_call():
-    """e2e-discord gets E2E_DISCORD_ID re-set on every upsert."""
-    fake_repo = FakeUserRepository()
-    repo = cast(UserRepository, fake_repo)
-
-    await seed_e2e.upsert_user(
-        repo,
-        seed_e2e.E2E_DISCORD,
-        is_admin=False,
-        discord_id=seed_e2e.E2E_DISCORD_ID,
-    )
-    row = fake_repo.rows[seed_e2e.E2E_DISCORD.github_id]
-    assert row.discord_id == seed_e2e.E2E_DISCORD_ID
-
-    # Simulate the E2E performing a Disconnect between two seed runs.
-    row.discord_id = None
-    await seed_e2e.upsert_user(
-        repo,
-        seed_e2e.E2E_DISCORD,
-        is_admin=False,
-        discord_id=seed_e2e.E2E_DISCORD_ID,
-    )
-    assert row.discord_id == seed_e2e.E2E_DISCORD_ID
-
-
-async def test_upsert_resets_discord_id_to_none_for_unlinked_users():
-    """e2e-user / e2e-admin always come back out unlinked."""
-    fake_repo = FakeUserRepository()
-    repo = cast(UserRepository, fake_repo)
-
-    await seed_e2e.upsert_user(
-        repo, seed_e2e.E2E_USER, is_admin=False, discord_id=None
-    )
-    row = fake_repo.rows[seed_e2e.E2E_USER.github_id]
-    # Simulate a stray discord_id somehow set on this user's row.
-    row.discord_id = 123
-    await seed_e2e.upsert_user(
-        repo, seed_e2e.E2E_USER, is_admin=False, discord_id=None
-    )
-    assert row.discord_id is None
-
-
-class FakeSession:
-    """Stands in for the async-context-managed DB session ``upsert_users``
-    opens; nothing in it is used directly since the repository is faked
-    too."""
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *exc_info):
-        return False
-
-
-async def test_upsert_users_assigns_discord_id_only_to_e2e_discord(
+async def test_upsert_users_links_discord_connection_only_for_e2e_discord(
     monkeypatch,
 ):
-    """upsert_users() itself wires is_admin/discord_id to the right user.
-
-    Exercises the function the seed script actually calls (not just
-    upsert_user() with hand-picked arguments), so a swapped discord_id or
-    is_admin between the three calls in upsert_users() would fail this.
-    """
+    """upsert_users() links e2e-discord's connection and deletes the other
+    two's, deterministically re-set on every run."""
     fake_repo = FakeUserRepository()
+    fake_conn_repo = FakeDiscordConnectionRepository()
 
+    monkeypatch.setattr(
+        envs, 'DISCORD_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
+    )
     monkeypatch.setattr(seed_e2e, 'AsyncLocalSession', lambda: FakeSession())
     monkeypatch.setattr(seed_e2e, 'UserRepository', lambda session: fake_repo)
+    monkeypatch.setattr(
+        seed_e2e, 'DiscordConnectionRepository', lambda session: fake_conn_repo
+    )
+
+    user, admin, discord_user = await seed_e2e.upsert_users()
+
+    assert set(fake_conn_repo.rows) == {discord_user.user_id}
+    connection = fake_conn_repo.rows[discord_user.user_id]
+    assert connection.discord_id == seed_e2e.E2E_DISCORD_ID
+    assert connection.username == seed_e2e.E2E_DISCORD_USERNAME
+    assert connection.global_name == seed_e2e.E2E_DISCORD_GLOBAL_NAME
+    assert connection.avatar is None
+    assert connection.scopes == seed_e2e.SCOPE
+    assert connection.encrypted_refresh_token is not None
+
+    # Simulate the E2E performing a Disconnect and a stray link between two
+    # seed runs; the next run must undo both.
+    fake_conn_repo.rows.pop(discord_user.user_id, None)
+    fake_conn_repo.rows[user.user_id] = FakeConnectionRow(user_id=user.user_id)
+    fake_conn_repo.rows[admin.user_id] = FakeConnectionRow(
+        user_id=admin.user_id
+    )
+
+    await seed_e2e.upsert_users()
+
+    assert set(fake_conn_repo.rows) == {discord_user.user_id}
+
+
+async def test_upsert_users_assigns_admin_flag_to_the_right_user(
+    monkeypatch,
+):
+    """upsert_users() itself wires is_admin to the right user (not just
+    upsert_user() with hand-picked arguments)."""
+    fake_repo = FakeUserRepository()
+    fake_conn_repo = FakeDiscordConnectionRepository()
+
+    monkeypatch.setattr(
+        envs, 'DISCORD_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
+    )
+    monkeypatch.setattr(seed_e2e, 'AsyncLocalSession', lambda: FakeSession())
+    monkeypatch.setattr(seed_e2e, 'UserRepository', lambda session: fake_repo)
+    monkeypatch.setattr(
+        seed_e2e, 'DiscordConnectionRepository', lambda session: fake_conn_repo
+    )
 
     user, admin, discord_user = await seed_e2e.upsert_users()
 
@@ -192,25 +255,9 @@ async def test_upsert_users_assigns_discord_id_only_to_e2e_discord(
 
     user_row = fake_repo.rows[seed_e2e.E2E_USER.github_id]
     admin_row = fake_repo.rows[seed_e2e.E2E_ADMIN.github_id]
-    discord_row = fake_repo.rows[seed_e2e.E2E_DISCORD.github_id]
 
-    assert (user_row.is_admin, user_row.discord_id) == (False, None)
-    assert (admin_row.is_admin, admin_row.discord_id) == (True, None)
-    assert (discord_row.is_admin, discord_row.discord_id) == (
-        False,
-        seed_e2e.E2E_DISCORD_ID,
-    )
-
-    # A second run must undo a stray discord_id on the wrong users and
-    # re-affirm the fixed one on e2e-discord (the "every upsert" rule).
-    user_row.discord_id = 111
-    admin_row.discord_id = 222
-    discord_row.discord_id = None
-    await seed_e2e.upsert_users()
-
-    assert user_row.discord_id is None
-    assert admin_row.discord_id is None
-    assert discord_row.discord_id == seed_e2e.E2E_DISCORD_ID
+    assert user_row.is_admin is False
+    assert admin_row.is_admin is True
 
 
 async def test_minted_access_token_subject_is_the_github_id():
@@ -316,7 +363,9 @@ def test_e2e_discord_identity():
 
 
 def test_e2e_discord_id_is_fixed_and_not_js_safe():
-    """discord_id is internal-only, so it need not stay a JS-safe number."""
+    """The Discord id is internal-only, so it need not stay a JS-safe
+    number - it is never a field on any API schema (DiscordAccountOut
+    carries no id)."""
     max_safe_integer = 2**53 - 1
     assert seed_e2e.E2E_DISCORD_ID == 999000000000000003
     assert seed_e2e.E2E_DISCORD_ID > max_safe_integer

@@ -56,6 +56,9 @@ async def _make_org_member(
     monkeypatch.setattr(
         envs, 'GITHUB_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
     )
+    monkeypatch.setattr(
+        envs, 'DISCORD_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
+    )
     user = await db_session.get(UserModel, base_data()['user'].id)
     assert user is not None
     user.encrypted_github_token = encrypt_token('gh-token')
@@ -376,11 +379,10 @@ async def test_stored_report_is_never_recomputed(
 async def test_linked_org_member_report_mentions_user(
     async_client: AsyncClient, db_session: AsyncSession, monkeypatch
 ):
+    from tests.integration.test_account_link_discord import _seed_connection
+
     recording = await _make_org_member(monkeypatch, db_session, is_member=True)
-    user = await db_session.get(UserModel, base_data()['user'].id)
-    assert user is not None
-    user.discord_id = 555
-    await db_session.commit()
+    await _seed_connection(db_session, base_data()['user'].id, discord_id=555)
 
     response = await async_client.post(
         '/reports/1/submit', json=_payload(date.today().isoformat())
@@ -414,11 +416,10 @@ async def test_unlinked_org_member_report_mentions_nobody(
 async def test_non_member_report_never_posts_to_discord(
     async_client: AsyncClient, db_session: AsyncSession, monkeypatch
 ):
+    from tests.integration.test_account_link_discord import _seed_connection
+
     recording = await _make_org_member(monkeypatch, db_session, is_member=False)
-    user = await db_session.get(UserModel, base_data()['user'].id)
-    assert user is not None
-    user.discord_id = 555
-    await db_session.commit()
+    await _seed_connection(db_session, base_data()['user'].id, discord_id=555)
 
     response = await async_client.post(
         '/reports/1/submit', json=_payload(date.today().isoformat())

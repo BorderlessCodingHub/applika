@@ -862,15 +862,18 @@ def test_round_trip_upgrade_downgrade_upgrade(migration_db: str) -> None:
     )
 
 
-def test_no_orm_model_maps_the_new_tables() -> None:
-    """non-destructive-migrations.md 7 / prod-release-runbook.md 4 - this
-    revision is code-free: no ORM model maps ``discord_connections`` or
-    ``discord_report_webhooks`` yet (that lands in K6/K8). Reads
+def test_orm_maps_discord_connections_but_not_report_webhooks() -> None:
+    """K5 shipped this revision code-free (non-destructive-migrations.md 7 /
+    prod-release-runbook.md 4): no ORM model mapped either table.
+
+    K6 (KODI-024) adds ``DiscordConnectionModel``, mapped onto
+    ``discord_connections`` - this assertion follows that change.
+    ``discord_report_webhooks`` stays unmapped until K7/K8. Reads
     ``Base.metadata.tables`` directly rather than scanning
     ``app.domain.models``' namespace, so it also catches a model declared
     but not imported at module level."""
     from app.domain.models import Base
 
     mapped_tables = set(Base.metadata.tables)
-    assert 'discord_connections' not in mapped_tables
+    assert 'discord_connections' in mapped_tables
     assert 'discord_report_webhooks' not in mapped_tables
