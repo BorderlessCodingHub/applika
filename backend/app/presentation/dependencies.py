@@ -91,6 +91,9 @@ from app.domain.repositories.cycle_repository import CycleRepository
 from app.domain.repositories.discord_connection_repository import (
     DiscordConnectionRepository,
 )
+from app.domain.repositories.discord_report_webhook_repository import (
+    DiscordReportWebhookRepository,
+)
 from app.domain.repositories.feedback_definition_repository import (
     FeedbackDefinitionRepository,
 )
@@ -166,6 +169,16 @@ StepDefinitionRepositoryDp = Annotated[
 
 PlatformRepositoryDp = Annotated[
     PlatformRepository, Depends(get_platform_repository)
+]
+
+
+def get_discord_report_webhook_repository(session: DbSession):
+    return DiscordReportWebhookRepository(session)
+
+
+DiscordReportWebhookRepositoryDp = Annotated[
+    DiscordReportWebhookRepository,
+    Depends(get_discord_report_webhook_repository),
 ]
 
 QuinzenalReportRepositoryDp = Annotated[

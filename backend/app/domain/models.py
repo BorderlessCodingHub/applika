@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any, Literal
 
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.core.enums import (
@@ -258,6 +258,45 @@ class DiscordConnectionModel(BaseMixin, Base):
         default=sa.func.now(),
         server_default=sa.func.now(),
     )
+
+
+class DiscordReportWebhookModel(BaseMixin, Base):
+    """Admin-managed report webhook catalog (KODI-025, ADR-0013).
+
+    Mapped object-for-object onto migration ``ba44f9cfd3c1``: a platform
+    catalog row, no ``user_id`` (ADR-0004 - admin-only, not owned by a
+    user), a unique ``webhook_url`` and an indexed ``guild_id`` - K8's
+    submit-time lookup "selects the webhooks of those servers". Optional
+    ``role_ids`` defaults to an empty array; ``label`` is optional free
+    text. ``webhook_url`` is ``repr=False``-equivalent here: ``__repr__`` is
+    overridden so the URL never appears in a log line or a debugger dump
+    (R-030/AC3).
+    """
+
+    __tablename__ = 'discord_report_webhooks'
+
+    __table_args__ = (
+        sa.UniqueConstraint(
+            'webhook_url', name='uq_discord_report_webhooks_webhook_url'
+        ),
+        sa.Index('ix_discord_report_webhooks_guild_id', 'guild_id'),
+    )
+
+    guild_id: Mapped[int] = mapped_column(sa.BigInteger, nullable=False)
+    webhook_url: Mapped[str] = mapped_column(sa.String(500), nullable=False)
+    role_ids: Mapped[list[int]] = mapped_column(
+        ARRAY(sa.BigInteger),
+        nullable=False,
+        default=list,
+        server_default='{}',
+    )
+    label: Mapped[str | None] = mapped_column(sa.String(100))
+
+    def __repr__(self) -> str:
+        return (
+            f'<DiscordReportWebhookModel id={self.id} '
+            f'guild_id={self.guild_id} label={self.label!r}>'
+        )
 
 
 class CompanyModel(BaseMixin, Base):
