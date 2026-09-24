@@ -392,16 +392,23 @@ that user to be the one the nonce was issued to, then exchanges the code
 (`fetch_profile`). Any refusal at any step - unknown/expired/replayed state,
 session mismatch, a Discord `error` param, a missing `code`, an unconfigured
 app, or `DiscordLinkError` from the exchange/profile fetch - answers
-`status=error` with nothing written. A Discord id that already belongs to
-another Applika user answers `status=conflict`
-(`DiscordConnectionRepository.link`: a pre-check plus an `IntegrityError` on
-`uq_discord_connections_discord_id` for a race), with neither user's
-connection changed and the new grant revoked best-effort
-(`LinkDiscordUseCase`). Disconnect (`UnlinkDiscordUseCase`) deletes the
-connection row, then asks Discord to revoke the stored refresh token
-best-effort - a Discord failure never blocks the disconnect, and there is no
-`is_configured` gate on the route itself (only on whether the revoke call is
-attempted).
+`status=error` with nothing written. **A Discord id that already belongs to
+another Applika user moves to the caller** (R-008, rewritten 2026-09-24 -
+the owner: "drop the old connection and create the new one"):
+`DiscordConnectionRepository.link` deletes that user's row and writes the
+caller's row with the caller's new grant, in one transaction, and the
+callback answers `status=linked`. Nothing is revoked at Discord for either
+user - a revoke could cancel the caller's own just-granted access, since it
+is the same Discord user authorizing the same app. `status=conflict` is left
+for exactly one case: two users completing consent for the same Discord
+account at the same instant, where the loser's write hits the database's own
+`uq_discord_connections_discord_id` as an `IntegrityError` on commit
+(mapped by `DiscordConnectionRepository.link`) - the loser's row is never
+written and nothing is revoked there either. Disconnect
+(`UnlinkDiscordUseCase`) deletes the connection row, then asks Discord to
+revoke the stored refresh token best-effort - a Discord failure never blocks
+the disconnect, and there is no `is_configured` gate on the route itself
+(only on whether the revoke call is attempted).
 
 **The connection is a record of its own, apart from `users`** (R-012,
 `DiscordConnectionModel`, table `discord_connections`, migration
@@ -416,12 +423,14 @@ Fernet secret distinct from `GITHUB_TOKEN_ENCRYPTION_KEY`); the Discord
 **access** token is never stored at all, only ever held in a local variable
 for the request that needs it.
 
-**No revoke at connect** (unlike the old KODI-020 flow): `LinkDiscordUseCase`
-encrypts the refresh token and stores the grant; nothing is revoked unless the
-connect turns out to be a conflict. **Revoke on disconnect and on account
-delete**: `UnlinkDiscordUseCase` runs before `user_repo.delete` in
-`DELETE /users/me`, so the row is gone and the grant is revoked
-best-effort before the cascade would have removed the row anyway.
+**No revoke at connect, in any outcome** (unlike the old KODI-020 flow, and
+rewritten again 2026-09-24 for the transfer above): `LinkDiscordUseCase`
+encrypts the refresh token and stores the grant; it calls nothing at Discord
+whether the connect is fresh, a reconnect, a transfer, or the losing side of
+a race. **Revoke on disconnect and on account delete**: `UnlinkDiscordUseCase`
+runs before `user_repo.delete` in `DELETE /users/me`, so the row is gone and
+the grant is revoked best-effort before the cascade would have removed the
+row anyway.
 
 **Reconnect** runs the exact same consent flow: `DiscordConnectionRepository
 .link` on the caller's own row refreshes every field (username, global_name,
@@ -429,8 +438,8 @@ avatar, scopes, the encrypted token, the expiry) and sets `status=active` and
 `linked_at=now()`, clearing a `needs_reconnect` mark in place - never a second
 row. A `needs_reconnect` user who authorises a *different* Discord account
 still gets their own row replaced in place; if another user already holds
-that account, it is the same conflict as a fresh connect (old row unchanged,
-new grant revoked).
+that account, it moves exactly as above - that user's row is deleted, the
+caller's row takes the id, and nothing is revoked.
 
 `needs_reconnect` (`DiscordConnectionRepository.mark_needs_reconnect`) is set
 when a scheduled access-token renewal (`DiscordOAuthService.refresh`, K8) gets

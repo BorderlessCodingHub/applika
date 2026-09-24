@@ -573,10 +573,12 @@ async def test_after_failure_retry_with_new_nonce_links(
     assert _status(retried.headers['location']) == 'linked'
 
 
-# --- Conflict (T105) ---
+# --- Transfer and race (T101/T105, reopened 2026-09-24 for the R-008
+# rewrite: a Discord id held by one other user moves to the caller instead
+# of refusing the link; ``conflict`` is left only for the two-user race) ---
 
 
-async def test_callback_conflict_when_id_belongs_to_another_user(
+async def test_callback_transfers_link_when_id_belongs_to_another_user(
     raw_client: AsyncClient, db_session: AsyncSession, redis_client
 ):
     from app.application.use_cases.account_link_state import (
@@ -598,7 +600,9 @@ async def test_callback_conflict_when_id_belongs_to_another_user(
     )
     assert _status(first.headers['location']) == 'linked'
 
-    # User B tries to link the same Discord id: their own grant is revoked.
+    # User B completes consent for the same Discord id: the link moves to
+    # B. A's row is deleted, B's row holds B's new grant, and nothing is
+    # revoked at Discord for either user.
     fake_b = FakeDiscordOAuthService(discord_id=555)
     _override_discord_service(fake_b)
     raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=2))
@@ -608,24 +612,27 @@ async def test_callback_conflict_when_id_belongs_to_another_user(
         params={'code': 'def', 'state': nonce_b},
     )
 
-    assert _status(second.headers['location']) == 'conflict'
-    assert fake_b.revoke_calls == ['fake-refresh-555']
+    assert _status(second.headers['location']) == 'linked'
+    assert fake_a.revoke_calls == []
+    assert fake_b.revoke_calls == []
 
     connection_a = await _get_connection(db_session, user_a_id)
     connection_b = await _get_connection(db_session, user_b_id)
-    assert connection_a is not None
-    assert connection_a.discord_id == 555
-    assert connection_b is None
+    assert connection_a is None
+    assert connection_b is not None
+    assert connection_b.discord_id == 555
+    assert connection_b.encrypted_refresh_token != ''
 
 
 async def test_race_integrity_error_is_conflict(
     raw_client: AsyncClient, db_session: AsyncSession, redis_client, monkeypatch
 ):
-    """A second connect for the same Discord id that LOSES the pre-check
-    race - ``get_by_discord_id`` returns ``None`` right before another
-    request's row commits - is caught as an ``IntegrityError`` on
-    ``uq_discord_connections_discord_id`` and mapped to the same conflict
-    as the pre-check path above (T095's ``except IntegrityError`` branch)."""
+    """Two users completing consent for the same Discord id at the same
+    instant is the one case that still conflicts: B's own pre-check sees no
+    owner (as if A's row had not committed yet), so it proceeds straight to
+    the INSERT, which the database's own unique constraint refuses. Mapped
+    to ``ResourceConflict`` (T095's ``except IntegrityError`` branch), and
+    nothing is revoked - the loser's grant was never stored."""
     from app.application.use_cases.account_link_state import (
         AccountLinkStateUseCase,
     )
@@ -659,7 +666,7 @@ async def test_race_integrity_error_is_conflict(
     )
 
     assert _status(response.headers['location']) == 'conflict'
-    assert fake_b.revoke_calls == ['fake-refresh-555']
+    assert fake_b.revoke_calls == []
 
     connection_a = await _get_connection(db_session, user_a_id)
     connection_b = await _get_connection(db_session, user_b_id)
@@ -1026,12 +1033,14 @@ async def test_reconnect_needs_reconnect_different_account_replaces_row(
     assert len(all_connections) == 1
 
 
-async def test_reconnect_another_user_holds_that_account_is_conflict(
+async def test_reconnect_switch_to_account_another_user_holds_transfers(
     raw_client: AsyncClient, db_session: AsyncSession, redis_client
 ):
-    """``needs_reconnect`` trying to authorise an account another user
-    already holds: the old row stays unchanged and the new grant is
-    revoked."""
+    """``needs_reconnect`` authorising an account another user already
+    holds moves it the same way a fresh connect would (T101/T103): B's row
+    is deleted, A's own row is refreshed in place with the held id and
+    A's new grant, ``status`` clears to ``active``, and nothing is revoked
+    at Discord."""
     from app.application.use_cases.account_link_state import (
         AccountLinkStateUseCase,
     )
@@ -1057,10 +1066,12 @@ async def test_reconnect_another_user_holds_that_account_is_conflict(
         params={'code': 'abc', 'state': nonce},
     )
 
-    assert _status(response.headers['location']) == 'conflict'
-    assert fake.revoke_calls == ['fake-refresh-999']
+    assert _status(response.headers['location']) == 'linked'
+    assert fake.revoke_calls == []
 
     connection_a = await _get_connection(db_session, user_a_id)
+    connection_b = await _get_connection(db_session, user_b_id)
     assert connection_a is not None
-    assert connection_a.discord_id == 555
-    assert connection_a.status == DiscordConnectionStatus.NEEDS_RECONNECT
+    assert connection_a.discord_id == 999
+    assert connection_a.status == DiscordConnectionStatus.ACTIVE
+    assert connection_b is None

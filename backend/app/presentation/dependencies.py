@@ -294,9 +294,8 @@ DiscordConnectionRepositoryDp = Annotated[
 
 def get_link_discord_use_case(
     conn_repo: DiscordConnectionRepositoryDp,
-    discord_oauth: DiscordOAuthServiceDp,
 ):
-    return LinkDiscordUseCase(conn_repo, discord_oauth)
+    return LinkDiscordUseCase(conn_repo)
 
 
 LinkDiscordUseCaseDp = Annotated[

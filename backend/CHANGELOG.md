@@ -31,8 +31,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     encrypted. A Discord-side `error` query param, a missing `code`, an
     unconfigured app or any exchange/profile failure (`DiscordLinkError`)
     all answer `status=error` with nothing written; the id already
-    belonging to another Applika user answers `status=conflict`, the new
-    grant is revoked best-effort, and neither user's connection changes.
+    belonging to another Applika user **moves to the caller** (see the
+    2026-09-24 rewrite below) - `status=conflict` is left only for a
+    two-user race.
   - `DELETE /auth/link/discord` (auth required): 200
     `{"provider": "discord", "linked": false}`, idempotent. Deletes the
     connection row, then asks Discord to revoke the stored refresh token
@@ -50,6 +51,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Reconnect runs the identical consent flow: linking on the caller's own
     row refreshes every field in place and clears a `needs_reconnect` mark,
     rather than creating a second row.
+  - **Reopened 2026-09-24 (R-008 rewrite): a Discord id already linked to
+    another Applika user moves to the caller instead of refusing the link.**
+    Owner: "drop the old connection and create the new one". The other
+    user's connection row is deleted, the caller's row is written with the
+    caller's new grant, in one transaction, and nothing is revoked at
+    Discord for either user - a revoke could cancel the caller's own
+    just-granted access, since it is the same Discord user authorizing the
+    same app. The callback answers `status=linked`, the previous holder's
+    `/users/me` `discord` goes back to `null`, and their feedback stops
+    carrying a mention. `status=conflict` is now reached only when two
+    users complete consent for the same Discord account at the same
+    instant; the loser's write is refused by the database's own
+    `uq_discord_connections_discord_id` (`IntegrityError` -> `ResourceConflict`),
+    nothing is stored for the loser, and nothing is revoked there either.
+    This supersedes the "new grant revoked best-effort" conflict behaviour
+    described above when this same KODI-024 entry first shipped.
   - `GET/PATCH /users/me` gain `discord: {username, global_name, avatar_url,
     status} | null` and keep `discord_linked: bool` (now `discord is not
     null`); the Discord id is never a field on any schema. Additive - see

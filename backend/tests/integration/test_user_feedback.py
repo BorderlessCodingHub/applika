@@ -11,10 +11,13 @@ the account-link OAuth app.
 import pytest
 from cryptography.fernet import Fernet
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import envs
+from app.core.crypto import encrypt_discord_token
 from app.core.enums import DiscordConnectionStatus
+from app.domain.models import DiscordConnectionModel
 from app.main import app as main_app
 from app.presentation.dependencies import get_discord_feedback_service
 from tests import msg
@@ -154,3 +157,52 @@ async def test_feedback_after_unlink_carries_no_mention(
     username = base_data()['user'].username
     assert first_header == f'\U0001f4ac **USER FEEDBACK** - @{username} <@555>'
     assert second_header == f'\U0001f4ac **USER FEEDBACK** - @{username}'
+
+
+async def test_feedback_after_link_moved_to_another_user_carries_no_mention(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """T101/R-008: once another user completes consent for the same
+    Discord id, the previous holder's connection row is gone, so their
+    feedback carries no mention any more - the mention read
+    (``DiscordConnectionRepositoryDp``) is fresh per request, not cached."""
+    from app.domain.repositories.discord_connection_repository import (
+        DiscordConnectionRepository,
+    )
+
+    fake = _override()
+    user_a_id = base_data()['user'].id
+    user_b_id = base_data()['admin_user'].id
+    await _link_discord(db_session, 555)
+
+    # B completes consent for the same Discord id: the link transfers.
+    conn_repo = DiscordConnectionRepository(db_session)
+    await conn_repo.link(
+        user_id=user_b_id,
+        discord_id=555,
+        username='bea',
+        global_name=None,
+        avatar=None,
+        scopes='identify guilds guilds.members.read',
+        encrypted_refresh_token=encrypt_discord_token('b-refresh')
+        or 'unreachable',
+        access_token_expires_at=None,
+    )
+
+    connection_a = await db_session.scalar(
+        select(DiscordConnectionModel)
+        .where(DiscordConnectionModel.user_id == user_a_id)
+        .execution_options(populate_existing=True)
+    )
+    assert connection_a is None
+
+    response = await async_client.post(
+        '/feedbacks', json={'score': 2, 'text': 'lost my link'}
+    )
+
+    assert response.status_code == 201, msg(201, response.status_code)
+    assert fake.calls == [None], msg([None], fake.calls)
+    header = fake.messages[0].splitlines()[0]
+    assert header == (
+        f'\U0001f4ac **USER FEEDBACK** - @{base_data()["user"].username}'
+    ), msg('previous holder header with no mention', header)

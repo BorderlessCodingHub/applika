@@ -70,6 +70,12 @@ async def discord_link_callback(
     the caller's own session, then require the two to agree on the user,
     then talk to Discord - now an ``exchange_code`` + ``fetch_profile`` pair
     instead of the old ``fetch_discord_id``.
+
+    Reopened 2026-09-24 (R-008 rewrite): a Discord id already held by
+    another user is a *transfer*, not a conflict - the link use case moves
+    it and this still answers ``linked``. ``ResourceConflict`` now only
+    happens on a genuine two-user race (both completing consent for the
+    same Discord account at the same instant); the loser gets ``conflict``.
     """
     state = request.query_params.get('state')
     nonce_user_id = await state_use_case.consume(state) if state else None
@@ -130,6 +136,8 @@ async def discord_link_callback(
     try:
         await link_discord_use_case.execute(current_user.id, grant, profile)
     except ResourceConflict:
+        # Only a lost two-user race reaches here now (R-008): a Discord id
+        # already held by a single other user is transferred, not refused.
         return _redirect('conflict')
 
     return _redirect('linked')

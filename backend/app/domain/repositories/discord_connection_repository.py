@@ -1,10 +1,12 @@
 """Discord connection repository (KODI-024, ADR-0013).
 
-The conflict/no-op rules that used to live on ``UserRepository.link_discord``
-move here, now scoped to the connection row instead of a ``users`` column:
-another user holding the Discord id is a pre-checked ``ResourceConflict``,
-and a race lost to an ``IntegrityError`` on ``uq_discord_connections_discord_id``
-is mapped to the same conflict.
+Reopened 2026-09-24 for the R-008 rewrite: a Discord id already held by
+another Applika user is no longer a conflict. The link *transfers* - the
+holder's row is deleted and the caller's row is written with the caller's
+new grant, in one transaction, and nothing is revoked at Discord. The only
+remaining ``ResourceConflict`` is a genuine two-user race lost to the
+database's own ``uq_discord_connections_discord_id`` (``IntegrityError`` on
+commit), mapped to ``DISCORD_ALREADY_LINKED``.
 """
 
 from datetime import datetime, timezone
@@ -64,21 +66,27 @@ class DiscordConnectionRepository:
         encrypted_refresh_token: str,
         access_token_expires_at: datetime | None,
     ) -> DiscordConnectionModel:
-        """Connect or reconnect (T095/T103).
+        """Connect, reconnect or transfer (T095/T101/T103).
 
-        Another user already holding ``discord_id`` is a pre-checked
-        ``ResourceConflict``; a race lost to the database's own
-        ``uq_discord_connections_discord_id`` is caught as an
-        ``IntegrityError`` and mapped to the same conflict. The caller's own
-        row - present or absent - is written in place: a fresh connect
-        inserts, a reconnect (same account or a different one while
-        ``needs_reconnect``) refreshes every field and clears the mark.
+        Another user already holding ``discord_id`` is a transfer, not a
+        conflict: that user's row is deleted and flushed first, so the
+        delete lands before the caller's row claims the id under the same
+        unique constraint. The caller's own row - present or absent - is
+        then written in place: a fresh connect inserts, a reconnect (same
+        account, or a different one while ``needs_reconnect``, including a
+        different account someone else currently holds) refreshes every
+        field and clears the mark. A race lost to the database's own
+        ``uq_discord_connections_discord_id`` - two users completing consent
+        for the same account at the same instant - is caught as an
+        ``IntegrityError`` on commit and mapped to ``ResourceConflict``; the
+        loser's row is never written.
         """
-        owner = await self.get_by_discord_id(discord_id)
-        if owner is not None and owner.user_id != user_id:
-            raise ResourceConflict(DISCORD_ALREADY_LINKED)
-
         try:
+            owner = await self.get_by_discord_id(discord_id)
+            if owner is not None and owner.user_id != user_id:
+                await self.session.delete(owner)
+                await self.session.flush()
+
             connection = await self.get_by_user_id(user_id)
             now = datetime.now(timezone.utc)
             if connection is None:
