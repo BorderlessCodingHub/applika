@@ -86,6 +86,18 @@ class Settings(BaseSettings):
     DISCORD_REPORTS_WEBHOOK: str | None = None
     DISCORD_FEEDBACK_WEBHOOK: str | None = None
 
+    # Discord account link (KODI-020, ADR 0008): connecting Discord from the
+    # profile is optional and separate from GitHub login. Unset by default -
+    # ``DiscordOAuthService.is_configured()`` is False until both the client
+    # id and secret are set, and the begin route answers 503 until then.
+    DISCORD_CLIENT_ID: str | None = None
+    DISCORD_CLIENT_SECRET: str | None = None
+    DISCORD_LINK_REDIRECT_URI: str = (
+        'http://127.0.0.1:8000/api/auth/link/discord/callback'
+    )
+    ACCOUNT_LINK_REDIRECT_URI: str = 'http://127.0.0.1:8080/profile'
+    ACCOUNT_LINK_STATE_TTL_SECONDS: int = 600
+
     @property
     def openapi_url(self):
         if self.ENVIRONMENT == 'PROD':

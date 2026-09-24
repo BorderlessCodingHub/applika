@@ -23,7 +23,7 @@ router = APIRouter(tags=['Users'], responses={'403': {'model': DetailSchema}})
 
 @router.get('/users/me', response_model=UserProfile)
 def get_me(c_user: CurrentUserDp):
-    return UserProfile.model_validate(c_user)
+    return UserProfile.from_user(c_user)
 
 
 @router.patch('/users/me', response_model=UserProfile)
@@ -35,7 +35,7 @@ async def update_me(
     use_case = UpdateUserUseCase(user_repo)
     data = UserUpdateDTO(**payload.model_dump(exclude_unset=True))
     user = await use_case.execute(c_user.id, data)
-    return UserProfile.model_validate(user)
+    return UserProfile.from_user(user)
 
 
 @router.get('/users/me/agenda', response_model=list[AgendaStepSchema])

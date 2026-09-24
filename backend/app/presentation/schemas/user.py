@@ -30,6 +30,17 @@ class UserProfile(BaseSchema, TimeSchema):
     bio: str | None = None
     linkedin_url: str | None = None
     is_admin: bool = False
+    # Whether Discord is linked (KODI-020, R-018). Never the id itself - that
+    # stays internal to ``UserDTO``/``UserModel`` and is never a field here.
+    # ``from_discord_id`` is the one place that reads it, so the presentation
+    # layer never has to name ``discord_id``.
+    discord_linked: bool = False
+
+    @classmethod
+    def from_user(cls, user) -> 'UserProfile':
+        profile = cls.model_validate(user)
+        profile.discord_linked = getattr(user, 'discord_id', None) is not None
+        return profile
 
 
 class UpdateUserProfile(BaseSchema):

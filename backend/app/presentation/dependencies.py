@@ -19,9 +19,21 @@ from app.application.services.cv_rendering.renderer import (
     CVPdfRenderer,
     get_cv_pdf_renderer,
 )
+from app.application.services.discord_oauth_service import (
+    DiscordOAuthService,
+)
 from app.application.services.discord_service import DiscordService
 from app.application.services.github_service import GitHubService
 from app.application.services.tailoring import TailoringService
+from app.application.use_cases.account_link_state import (
+    AccountLinkStateUseCase,
+)
+from app.application.use_cases.account_links.link_discord import (
+    LinkDiscordUseCase,
+)
+from app.application.use_cases.account_links.unlink_discord import (
+    UnlinkDiscordUseCase,
+)
 from app.application.use_cases.applications.read_model import (
     ApplicationReadModel,
 )
@@ -245,6 +257,44 @@ async def get_auth_handoff_state_use_case(
 
 AuthHandoffStateUseCaseDp = Annotated[
     AuthHandoffStateUseCase, Depends(get_auth_handoff_state_use_case)
+]
+
+
+def get_discord_oauth_service() -> DiscordOAuthService:
+    return DiscordOAuthService()
+
+
+DiscordOAuthServiceDp = Annotated[
+    DiscordOAuthService, Depends(get_discord_oauth_service)
+]
+
+
+async def get_account_link_state_use_case(
+    redis_client: RedisDp,
+) -> AccountLinkStateUseCase:
+    return AccountLinkStateUseCase(redis_client)
+
+
+AccountLinkStateUseCaseDp = Annotated[
+    AccountLinkStateUseCase, Depends(get_account_link_state_use_case)
+]
+
+
+def get_link_discord_use_case(user_repo: UserRepositoryDp):
+    return LinkDiscordUseCase(user_repo)
+
+
+LinkDiscordUseCaseDp = Annotated[
+    LinkDiscordUseCase, Depends(get_link_discord_use_case)
+]
+
+
+def get_unlink_discord_use_case(user_repo: UserRepositoryDp):
+    return UnlinkDiscordUseCase(user_repo)
+
+
+UnlinkDiscordUseCaseDp = Annotated[
+    UnlinkDiscordUseCase, Depends(get_unlink_discord_use_case)
 ]
 
 

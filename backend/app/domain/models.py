@@ -159,6 +159,13 @@ class UserModel(BaseMixin, Base):
     is_admin: Mapped[bool] = mapped_column(
         sa.Boolean, default=False, server_default='false', nullable=False
     )
+    # Nullable, unique (revision a7e5c2f19b4d, KODI-019, Release A). Set once
+    # a user connects Discord from the profile (KODI-020); GitHub stays the
+    # only way to sign in, so this column is never read by auth. No Discord
+    # token is ever stored - only the numeric id.
+    discord_id: Mapped[int | None] = mapped_column(
+        sa.BigInteger, unique=True, index=True, nullable=True
+    )
 
     applications: Mapped[list[ApplicationModel]] = relationship(
         back_populates='user'
