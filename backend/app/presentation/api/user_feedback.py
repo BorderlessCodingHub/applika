@@ -30,5 +30,7 @@ async def submit_feedback(
 ):
     use_case = SubmitFeedbackUseCase(feedback_repo, discord_service)
     data = SubmitFeedbackPayloadDTO(**payload.model_dump())
-    result = await use_case.execute(c_user.id, c_user.username, data)
+    result = await use_case.execute(
+        c_user.id, c_user.username, data, discord_id=c_user.discord_id
+    )
     return SubmitFeedbackResponse.model_validate(result.model_dump())

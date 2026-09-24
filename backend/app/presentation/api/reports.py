@@ -104,5 +104,7 @@ async def submit_report(
         user_repo,
     )
     data = SubmitReportPayloadDTO(**payload.model_dump())
-    report = await use_case.execute(c_user.id, c_user.username, day, data)
+    report = await use_case.execute(
+        c_user.id, c_user.username, day, data, discord_id=c_user.discord_id
+    )
     return SubmitReportResponse.model_validate(report.model_dump())

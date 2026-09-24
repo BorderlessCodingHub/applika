@@ -51,11 +51,15 @@ class DiscordService:
             return False, 'Webhook timeout'
 
     async def post_report_message(
-        self, message: str
+        self, message: str, mention_user_id: int | None = None
     ) -> tuple[bool, str | None]:
-        payload = {
+        allowed_mentions: dict[str, object] = {'parse': []}
+        if mention_user_id is not None:
+            allowed_mentions['users'] = [str(mention_user_id)]
+
+        payload: dict[str, object] = {
             'content': message,
-            'allowed_mentions': {'parse': []},
+            'allowed_mentions': allowed_mentions,
         }
 
         discord_posted, discord_error = await asyncio.to_thread(

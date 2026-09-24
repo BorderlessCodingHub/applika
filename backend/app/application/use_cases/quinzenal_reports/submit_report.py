@@ -78,6 +78,7 @@ class SubmitReportUseCase:
         phase: int,
         metrics: ReportMetricsDTO,
         payload: SubmitReportPayloadDTO,
+        discord_id: int | None = None,
     ) -> str:
         safe_username = cls._sanitize_discord_text(username, max_length=100)
         safe_biggest_win = cls._sanitize_discord_text(
@@ -92,9 +93,11 @@ class SubmitReportUseCase:
             payload.next_fortnight_goal,
             max_length=500,
         )
+        mention = f' <@{discord_id}>' if discord_id is not None else ''
 
         return (
-            f'🏁 **REPORT - DAY {report_day} OF 120** - @{safe_username}\n'
+            f'🏁 **REPORT - DAY {report_day} OF 120** - @{safe_username}'
+            f'{mention}\n'
             f'📅 Phase: {phase}\n\n'
             '📊 **FORTNIGHT METRICS:**\n'
             f'• Applications sent: {metrics.applications_count}\n'
@@ -138,6 +141,7 @@ class SubmitReportUseCase:
         username: str,
         report_day: ReportDays,
         payload: SubmitReportPayloadDTO,
+        discord_id: int | None = None,
     ) -> SubmitReportResultDTO:
         # Start date is only used in the first day of the report
         if report_day > 1:
@@ -247,11 +251,14 @@ class SubmitReportUseCase:
                 phase=report.phase,
                 metrics=metrics,
                 payload=payload,
+                discord_id=discord_id,
             )
             (
                 discord_posted,
                 discord_error,
-            ) = await self.discord_service.post_report_message(discord_message)
+            ) = await self.discord_service.post_report_message(
+                discord_message, mention_user_id=discord_id
+            )
 
             if discord_posted and not saved_report.discord_posted:
                 saved_report.discord_posted = True
