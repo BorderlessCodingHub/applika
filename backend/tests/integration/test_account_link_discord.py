@@ -13,7 +13,7 @@ network-free stand-in for the KODI-024 ``exchange_code``/``fetch_profile``/
 ``revoke`` surface (T105).
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -139,23 +139,26 @@ def _status(location: str) -> str:
     return query['status'][0]
 
 
-async def _get_user(session: AsyncSession, user_id: int) -> UserModel:
-    """``AsyncSession.get`` types as ``UserModel | None``; every caller here
-    already knows the row must exist, so this narrows it once instead of
-    repeating the assert at every call site."""
-    user = await session.get(UserModel, user_id)
-    assert user is not None
-    return user
-
-
 async def _get_connection(
     session: AsyncSession, user_id: int
 ) -> DiscordConnectionModel | None:
+    """Read the connection row fresh from the database.
+
+    ``db_session`` is built with ``expire_on_commit=False``
+    (``tests/conftest.py``), so a plain ``session.commit()`` followed by a
+    plain ``select()`` can return the SAME, now-stale Python object out of
+    the session's identity map whenever the caller (or an earlier
+    ``_seed_connection``) still holds a live reference to it - the row was
+    written by the app's own request-scoped session, not this one.
+    ``populate_existing()`` forces the freshly queried row to overwrite
+    whatever is already tracked, closing that gap deterministically instead
+    of relying on the identity map entry having been garbage collected.
+    """
     await session.commit()
     return await session.scalar(
-        select(DiscordConnectionModel).where(
-            DiscordConnectionModel.user_id == user_id
-        )
+        select(DiscordConnectionModel)
+        .where(DiscordConnectionModel.user_id == user_id)
+        .execution_options(populate_existing=True)
     )
 
 
@@ -296,6 +299,19 @@ async def test_callback_links_every_r021_field(
     assert connection.status == DiscordConnectionStatus.ACTIVE
     assert connection.linked_at is not None
     assert connection.created_at is not None
+    # AC12 (access expiry): the fake grant's expires_in is 604800s (7 days),
+    # so the stored expiry sits within a wide, deterministic tolerance of
+    # now + 604800s.
+    assert connection.access_token_expires_at is not None
+    expected_expiry = datetime.now(timezone.utc) + timedelta(seconds=604800)
+    assert (
+        abs(
+            (
+                connection.access_token_expires_at - expected_expiry
+            ).total_seconds()
+        )
+        < 60
+    )
 
     from app.core.crypto import decrypt_discord_token, decrypt_token
 
@@ -603,19 +619,34 @@ async def test_callback_conflict_when_id_belongs_to_another_user(
 
 
 async def test_race_integrity_error_is_conflict(
-    raw_client: AsyncClient, db_session: AsyncSession, redis_client
+    raw_client: AsyncClient, db_session: AsyncSession, redis_client, monkeypatch
 ):
-    """A second connect for the same Discord id, once the first already
-    committed, is caught as an IntegrityError and mapped to a conflict -
-    same observable outcome as the pre-check path above."""
+    """A second connect for the same Discord id that LOSES the pre-check
+    race - ``get_by_discord_id`` returns ``None`` right before another
+    request's row commits - is caught as an ``IntegrityError`` on
+    ``uq_discord_connections_discord_id`` and mapped to the same conflict
+    as the pre-check path above (T095's ``except IntegrityError`` branch)."""
     from app.application.use_cases.account_link_state import (
         AccountLinkStateUseCase,
+    )
+    from app.domain.repositories.discord_connection_repository import (
+        DiscordConnectionRepository,
     )
 
     state_uc = AccountLinkStateUseCase(redis_client)
     user_a_id = base_data()['user'].id
     user_b_id = base_data()['admin_user'].id
     await _seed_connection(db_session, user_a_id, discord_id=555)
+
+    # Simulate B's transaction losing the race: its own pre-check sees no
+    # owner (as if A's row had not committed yet), so it proceeds straight
+    # to the INSERT, which the database's own unique constraint refuses.
+    async def _no_owner_found(self, discord_id):
+        return None
+
+    monkeypatch.setattr(
+        DiscordConnectionRepository, 'get_by_discord_id', _no_owner_found
+    )
 
     fake_b = FakeDiscordOAuthService(discord_id=555)
     _override_discord_service(fake_b)
@@ -628,6 +659,13 @@ async def test_race_integrity_error_is_conflict(
     )
 
     assert _status(response.headers['location']) == 'conflict'
+    assert fake_b.revoke_calls == ['fake-refresh-555']
+
+    connection_a = await _get_connection(db_session, user_a_id)
+    connection_b = await _get_connection(db_session, user_b_id)
+    assert connection_a is not None
+    assert connection_a.discord_id == 555
+    assert connection_b is None
 
 
 # --- Disconnect (T105) ---
@@ -800,13 +838,14 @@ async def test_reconnect_needs_reconnect_row_refreshes_and_clears_mark(
     )
 
     user_id = base_data()['user'].id
-    await _seed_connection(
+    seeded = await _seed_connection(
         db_session,
         user_id,
         discord_id=555,
         username='stale-name',
         status=DiscordConnectionStatus.NEEDS_RECONNECT,
     )
+    original_linked_at = seeded.linked_at
 
     fake = FakeDiscordOAuthService(
         discord_id=555, username='fresh-name', global_name='Fresh Name'
@@ -827,6 +866,117 @@ async def test_reconnect_needs_reconnect_row_refreshes_and_clears_mark(
     assert connection.status == DiscordConnectionStatus.ACTIVE
     assert connection.username == 'fresh-name'
     assert connection.global_name == 'Fresh Name'
+    # AC12/AC16: the reconnect is a real update, not a fresh insert -
+    # `updated_at` fires (SQLAlchemy `onupdate`) and `linked_at` moves
+    # forward rather than staying at the original connect time.
+    assert connection.updated_at is not None
+    assert connection.linked_at > original_linked_at
+    # R-017 (K6 share): the reconnect replaced the stored refresh token -
+    # the seeded ciphertext decrypted to 'seeded-refresh-token'; the row now
+    # decrypts to the fresh grant's token instead.
+    from app.core.crypto import decrypt_discord_token
+
+    assert (
+        decrypt_discord_token(connection.encrypted_refresh_token)
+        == 'fake-refresh-555'
+    )
+
+
+async def test_store_grant_replaces_encrypted_token_and_expiry(
+    db_session: AsyncSession,
+):
+    """R-017 (K6 share): each successful renewal
+    (``DiscordOAuthService.refresh``, K8) persists the rotated refresh
+    token through ``store_grant``, encrypted, replacing the old one."""
+    from app.core.crypto import decrypt_discord_token
+    from app.domain.repositories.discord_connection_repository import (
+        DiscordConnectionRepository,
+    )
+
+    user_id = base_data()['user'].id
+    await _seed_connection(
+        db_session, user_id, discord_id=555, refresh_token='original-token'
+    )
+
+    repo = DiscordConnectionRepository(db_session)
+    new_expiry = datetime.now(timezone.utc) + timedelta(seconds=3600)
+    rotated_ciphertext = encrypt_discord_token('rotated-refresh-token')
+    assert rotated_ciphertext is not None
+
+    updated = await repo.store_grant(
+        user_id,
+        rotated_ciphertext,
+        new_expiry,
+        'identify guilds guilds.members.read',
+    )
+
+    assert updated is not None
+    assert (
+        decrypt_discord_token(updated.encrypted_refresh_token)
+        == 'rotated-refresh-token'
+    )
+    assert updated.access_token_expires_at == new_expiry
+    assert updated.scopes == 'identify guilds guilds.members.read'
+
+    reread = await _get_connection(db_session, user_id)
+    assert reread is not None
+    assert (
+        decrypt_discord_token(reread.encrypted_refresh_token)
+        == 'rotated-refresh-token'
+    )
+
+
+async def test_store_grant_on_unlinked_user_returns_none(
+    db_session: AsyncSession,
+):
+    from app.domain.repositories.discord_connection_repository import (
+        DiscordConnectionRepository,
+    )
+
+    repo = DiscordConnectionRepository(db_session)
+
+    result = await repo.store_grant(
+        base_data()['user'].id,
+        'whatever-ciphertext',
+        None,
+        'identify guilds guilds.members.read',
+    )
+
+    assert result is None
+
+
+async def test_mark_needs_reconnect_sets_status(db_session: AsyncSession):
+    """Sibling of ``store_grant``: K8 calls this on a 400 ``invalid_grant``
+    from ``DiscordOAuthService.refresh``; unused by K6's own routes but
+    owned by this repository."""
+    from app.domain.repositories.discord_connection_repository import (
+        DiscordConnectionRepository,
+    )
+
+    user_id = base_data()['user'].id
+    await _seed_connection(db_session, user_id, discord_id=555)
+    repo = DiscordConnectionRepository(db_session)
+
+    await repo.mark_needs_reconnect(user_id)
+
+    connection = await _get_connection(db_session, user_id)
+    assert connection is not None
+    assert connection.status == DiscordConnectionStatus.NEEDS_RECONNECT
+
+
+async def test_mark_needs_reconnect_on_unlinked_user_is_a_no_op(
+    db_session: AsyncSession,
+):
+    from app.domain.repositories.discord_connection_repository import (
+        DiscordConnectionRepository,
+    )
+
+    repo = DiscordConnectionRepository(db_session)
+
+    await repo.mark_needs_reconnect(base_data()['user'].id)  # must not raise
+
+    connection = await _get_connection(db_session, base_data()['user'].id)
+    assert connection is None
 
 
 async def test_reconnect_needs_reconnect_different_account_replaces_row(

@@ -45,7 +45,7 @@ async def test_unlink_deletes_then_revokes(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_unlink_revoke_failure_is_swallowed(monkeypatch):
+async def test_unlink_does_not_wrap_revoke(monkeypatch):
     conn_repo = AsyncMock()
     discord_oauth = _discord_oauth(configured=True)
     conn_repo.get_by_user_id_for_update.return_value = _connection()
