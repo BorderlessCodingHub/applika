@@ -8,27 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- KODI-023 Migration ba44f9cfd3c1 (Release A2, expand only): enum
-  discord_connection_status, tables discord_connections and
-  discord_report_webhooks; users untouched; no code reads them yet.
-- KODI-022 `app/scripts/seed_e2e.py` seeds a third deterministic E2E user,
-  `e2e-discord` (`github_id 999000000003`), already linked to a fixed
-  synthetic Discord id (`E2E_DISCORD_ID`, re-set on every seed run so an
-  E2E Disconnect is undone the next time it runs); `e2e-user` and
-  `e2e-admin` get `discord_id` reset to `None` on every run. The seed's
-  JSON contract gains `discord_user_id`, `discord_access_token`,
-  `discord_refresh_token` for a real minted session, alongside the
-  existing `user_id`/`admin_user_id` pairs. No route, schema or migration
-  change - test/harness only, for the KODI-022 frontend E2E.
-- KODI-020 Discord account link (connect, conflict, disconnect, failed
-  consent; Release B, code that reads `users.discord_id`). Keeps GitHub as
-  the only way to sign in - the flow never creates, changes or reads an
-  Applika session cookie beyond resolving who is already signed in.
+- KODI-024 Discord connection record (ADR-0013, supersedes ADR-0008/KODI-020):
+  connect, conflict, disconnect, reconnect, `/users/me` `discord` object.
+  Keeps GitHub as the only way to sign in - the flow never creates, changes
+  or reads an Applika session cookie beyond resolving who is already signed
+  in.
   - `POST /auth/link/discord` (auth required): 200
     `{"authorize_url": "https://discord.com/oauth2/authorize?...&scope=
-    identify&state=<nonce>"}`, 401 when signed out, 503
-    `{"detail": "Discord linking is not configured"}` when
-    `DISCORD_CLIENT_ID`/`DISCORD_CLIENT_SECRET` are unset. The nonce is a
+    identify+guilds+guilds.members.read&state=<nonce>"}`, 401 when signed
+    out, 503 `{"detail": "Discord linking is not configured"}` when the id,
+    the secret or the new encryption key below is missing. The nonce is a
     single-use, 10-minute Redis value (`AccountLinkStateUseCase`,
     `applika:account_link:discord:{nonce}` -> the user id who started it).
   - `GET /auth/link/discord/callback?code&state`: always a 307 to
@@ -36,35 +25,63 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     never JSON, never sets or clears a cookie. Consumes the nonce first (a
     replay never matches twice), then requires the caller's own `__access`
     cookie to name the same user the nonce was issued to, then exchanges the
-    code for a Discord access token, reads the numeric Discord user id from
-    `GET /users/@me`, revokes the access token
-    (`POST /oauth2/token/revoke`) and only then stores the id - no Discord
-    token is ever stored, returned or logged. A Discord-side `error` query
-    param, a missing `code`, an unconfigured app or any exchange failure
-    (`DiscordLinkError`) all answer `status=error` with nothing written; the
-    id already belonging to another Applika user answers `status=conflict`
-    with neither user changed.
+    code (`DiscordOAuthService.exchange_code`) and reads the Discord profile
+    (`fetch_profile`) - unlike the retired KODI-020 flow, the access token
+    is never revoked at connect time, and the refresh token is stored
+    encrypted. A Discord-side `error` query param, a missing `code`, an
+    unconfigured app or any exchange/profile failure (`DiscordLinkError`)
+    all answer `status=error` with nothing written; the id already
+    belonging to another Applika user answers `status=conflict`, the new
+    grant is revoked best-effort, and neither user's connection changes.
   - `DELETE /auth/link/discord` (auth required): 200
-    `{"provider": "discord", "linked": false}`, idempotent, no
-    `is_configured` check, and calls nothing at Discord (the token was
-    already revoked at connect time).
-  - `GET/PATCH /users/me` gain `discord_linked: bool`, derived from
-    `discord_id is not None`; the id itself is never a field on any schema.
-    Additive - see `cli/CHANGELOG.md`.
-  - New settings: `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` (both
-    optional, `None` unset), `DISCORD_LINK_REDIRECT_URI`,
-    `ACCOUNT_LINK_REDIRECT_URI`, `ACCOUNT_LINK_STATE_TTL_SECONDS` (600).
-  - `DiscordOAuthService` (`app/application/services/
-    discord_oauth_service.py`) does its own `httpx` code exchange and
-    userinfo/revoke calls rather than `fastapi_sso.sso.discord.DiscordSSO`
-    (T013 decision, recorded in the module docstring): the library sets an
-    `sso_state` cookie whenever a caller-chosen `state` is passed to
-    `get_login_redirect`, which would break the callback's "sets no cookie"
-    contract; the existing Redis nonce is already the CSRF check.
-  - `user_repository.link_discord` refuses a Discord id already owned by
-    another user (`ResourceConflict`, pre-check and an `IntegrityError` on
-    `ix_users_discord_id` for a race) and is a no-op when the same user
-    relinks the same id; `unlink_discord` is idempotent.
+    `{"provider": "discord", "linked": false}`, idempotent. Deletes the
+    connection row, then asks Discord to revoke the stored refresh token
+    best-effort - a Discord failure never blocks the disconnect.
+    `DELETE /users/me` now runs the same revoke before the row goes by
+    cascade.
+  - The connection is its own record, apart from `users`
+    (`DiscordConnectionModel`, table `discord_connections`, migration
+    `ba44f9cfd3c1`, shipped code-free in KODI-023/Release A2): Discord user
+    id, username, display name, avatar, granted scopes, access expiry,
+    `status` (`active` | `needs_reconnect`) and both `linked_at` and
+    `updated_at`. `user_id` and `discord_id` are each UNIQUE. The refresh
+    token is encrypted with its own Fernet secret; the access token is
+    never stored.
+  - Reconnect runs the identical consent flow: linking on the caller's own
+    row refreshes every field in place and clears a `needs_reconnect` mark,
+    rather than creating a second row.
+  - `GET/PATCH /users/me` gain `discord: {username, global_name, avatar_url,
+    status} | null` and keep `discord_linked: bool` (now `discord is not
+    null`); the Discord id is never a field on any schema. Additive - see
+    `cli/CHANGELOG.md`.
+  - New setting: `DISCORD_TOKEN_ENCRYPTION_KEY` (optional, `None` unset) -
+    its own Fernet key, distinct from `GITHUB_TOKEN_ENCRYPTION_KEY`. Connect
+    Discord answers 503 until `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`
+    AND this key are all set.
+  - `app/core/crypto.py` gains `encrypt_discord_token`/`decrypt_discord_token`
+    (`None` on `InvalidToken` or an unset key), a Discord-only Fernet pair
+    beside the existing GitHub ones.
+  - `app/domain/repositories/discord_connection_repository.py` (new) owns
+    the connection row: `link` (connect/reconnect, `ResourceConflict` on a
+    Discord id already owned by another user, pre-check plus an
+    `IntegrityError` on `uq_discord_connections_discord_id` for a race),
+    `store_grant`, `mark_needs_reconnect`, `delete_by_user_id` (idempotent).
+    `user_repository.link_discord`/`unlink_discord`/`get_by_discord_id` and
+    `users.discord_id` are gone; `UserDTO.discord_id` is gone too.
+- KODI-023 Migration ba44f9cfd3c1 (Release A2, expand only): enum
+  discord_connection_status, tables discord_connections and
+  discord_report_webhooks; users untouched. KODI-024 adds the ORM mapping
+  for `discord_connections`; `discord_report_webhooks` stays unmapped until
+  K7/K8.
+- KODI-022 `app/scripts/seed_e2e.py` seeds a third deterministic E2E user,
+  `e2e-discord` (`github_id 999000000003`), whose Discord connection row
+  (KODI-024) is re-linked to a fixed synthetic Discord id (`E2E_DISCORD_ID`)
+  on every seed run, so an E2E Disconnect is undone the next time it runs;
+  `e2e-user` and `e2e-admin` have their connection deleted on every run.
+  The seed's JSON contract gains `discord_user_id`, `discord_access_token`,
+  `discord_refresh_token` for a real minted session, alongside the
+  existing `user_id`/`admin_user_id` pairs. No route or schema change -
+  test/harness only, for the KODI-022 frontend E2E.
 - KODI-017 (part 3, T090/T091) Four new read-side GET export routes, all
   owner-scoped, all 404 when not owned / no copy, none carrying a
   finalized/archived guard (R-024/R-025):
@@ -135,9 +152,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - KODI-021 Biweekly report and user-feedback Discord webhook posts now
-  mention the submitting user when their account is Discord-linked
-  (KODI-020's `users.discord_id`); an unlinked user's post is byte-identical
-  to before. No route contract change.
+  mention the submitting user when their account holds a Discord connection
+  (KODI-024's `discord_connections`, in any connection status, R-041); an
+  unlinked user's post is byte-identical to before. No route contract
+  change.
   - `DiscordService.post_report_message(message, mention_user_id=None)`:
     `allowed_mentions` is `{'parse': []}` when `mention_user_id` is `None`
     (unchanged), else `{'parse': [], 'users': [str(mention_user_id)]}` —
@@ -145,10 +163,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - `SubmitReportUseCase.execute` and `SubmitFeedbackUseCase.execute` take an
     optional `discord_id`; the header line gains `<@discord_id>` after
     `@username` when linked. `presentation/api/reports.py` and
-    `presentation/api/user_feedback.py` pass `c_user.discord_id` (read fresh
-    per request, so unlinking takes effect on the very next post).
+    `presentation/api/user_feedback.py` now read it fresh from
+    `DiscordConnectionRepositoryDp` per request (KODI-024 - the connection
+    replaced `users.discord_id`), so unlinking takes effect on the very next
+    post.
   - Works with `DISCORD_CLIENT_ID`/`DISCORD_CLIENT_SECRET` unset: the mention
-    only needs `users.discord_id`, not a configured Discord OAuth app.
+    only needs the connection row, not a configured Discord OAuth app.
   - No CLI changelog entry: no route, request or response field changes.
 
 ### Fixed
@@ -157,6 +177,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `DISCORD_CLIENT_SECRET`, `DISCORD_LINK_REDIRECT_URI` and
   `ACCOUNT_LINK_REDIRECT_URI` to the `api` container, and `.env.example`
   documents them; before, setting them in `.env` left Connect Discord at 503.
+  Superseded by KODI-024's connection-record flow.
 - KODI-011 `GET /users/me/agenda` now honours `to_date`. `from_date` and
   `to_date` shared one `Query(None)` default object, so FastAPI resolved
   both parameters from the first one's query key and the window silently
