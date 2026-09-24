@@ -35,8 +35,6 @@ class UserDTO(BaseSchema):
     linkedin_url: str | None = None
     is_org_member: bool = False
     is_admin: bool = False
-    # Internal only - never a field on an API schema (T018).
-    discord_id: int | None = None
 
 
 class UserUpdateDTO(BaseModel):

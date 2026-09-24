@@ -1,9 +1,10 @@
 """Discord account link: connect, conflict, disconnect, failed consent.
 
 Keeps GitHub as the only way to sign in (R-001): the callback never sets or
-clears a session cookie, it only stores a Discord id on the already
-signed-in user. See ``app/application/services/discord_oauth_service.py``
-for the T013 decision on why this does not use ``fastapi_sso``.
+clears a session cookie, it only writes the already signed-in user's own
+Discord connection row. See
+``app/application/services/discord_oauth_service.py`` for the T013 decision
+on why this does not use ``fastapi_sso``.
 """
 
 from urllib.parse import urlencode
@@ -64,10 +65,11 @@ async def discord_link_callback(
 ):
     """Never returns JSON, and never sets or clears a cookie (R-001, R-007).
 
-    Order (T017, T037): consume the nonce first (so a replay never matches
-    again, even on a Discord-side error), then resolve the caller's own
-    session, then require the two to agree on the user, then talk to
-    Discord.
+    Order (T017/T037, unchanged by KODI-024): consume the nonce first (so a
+    replay never matches again, even on a Discord-side error), then resolve
+    the caller's own session, then require the two to agree on the user,
+    then talk to Discord - now an ``exchange_code`` + ``fetch_profile`` pair
+    instead of the old ``fetch_discord_id``.
     """
     state = request.query_params.get('state')
     nonce_user_id = await state_use_case.consume(state) if state else None
@@ -116,16 +118,17 @@ async def discord_link_callback(
 
     code = request.query_params['code']
     try:
-        discord_id = await discord_service.fetch_discord_id(code)
+        grant = await discord_service.exchange_code(code)
+        profile = await discord_service.fetch_profile(grant.access_token)
     except DiscordLinkError:
         logger.info(
-            'Discord link callback: fetch_discord_id failed',
+            'Discord link callback: exchange or profile fetch failed',
             extra={'extra_data': {'event': 'discord_link_failed'}},
         )
         return _redirect('error')
 
     try:
-        await link_discord_use_case.execute(current_user.id, discord_id)
+        await link_discord_use_case.execute(current_user.id, grant, profile)
     except ResourceConflict:
         return _redirect('conflict')
 
@@ -137,7 +140,8 @@ async def disconnect_discord(
     c_user: CurrentUserDp,
     unlink_discord_use_case: UnlinkDiscordUseCaseDp,
 ):
-    """Idempotent, and calls nothing at Discord (R-009): the token was
-    already revoked at connect time, there is no ``is_configured`` check."""
+    """Idempotent. Deletes the connection row and asks Discord to revoke the
+    stored grant, best-effort - a Discord failure never blocks the
+    disconnect (R-009)."""
     await unlink_discord_use_case.execute(c_user.id)
     return AccountLinkOut(provider='discord', linked=False)

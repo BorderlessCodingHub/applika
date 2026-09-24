@@ -21,6 +21,7 @@ from app.application.use_cases.quinzenal_reports.submit_report import (
 from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     CurrentUserDp,
+    DiscordConnectionRepositoryDp,
     DiscordServiceDp,
     GitHubServiceDp,
     QuinzenalReportRepositoryDp,
@@ -96,6 +97,7 @@ async def submit_report(
     discord_service: DiscordServiceDp,
     gh_service: GitHubServiceDp,
     user_repo: UserRepositoryDp,
+    conn_repo: DiscordConnectionRepositoryDp,
 ):
     use_case = SubmitReportUseCase(
         report_repo,
@@ -104,7 +106,11 @@ async def submit_report(
         user_repo,
     )
     data = SubmitReportPayloadDTO(**payload.model_dump())
+    # Interim read (K6): the connection replaces ``users.discord_id``; the
+    # org gate stays, K8 replaces this route's dependencies wholesale.
+    connection = await conn_repo.get_by_user_id(c_user.id)
+    discord_id = connection.discord_id if connection else None
     report = await use_case.execute(
-        c_user.id, c_user.username, day, data, discord_id=c_user.discord_id
+        c_user.id, c_user.username, day, data, discord_id=discord_id
     )
     return SubmitReportResponse.model_validate(report.model_dump())

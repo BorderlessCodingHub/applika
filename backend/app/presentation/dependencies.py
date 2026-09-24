@@ -88,6 +88,9 @@ from app.domain.repositories.application_repository import (
 from app.domain.repositories.base_cv_repository import BaseCVRepository
 from app.domain.repositories.company_repository import CompanyRepository
 from app.domain.repositories.cycle_repository import CycleRepository
+from app.domain.repositories.discord_connection_repository import (
+    DiscordConnectionRepository,
+)
 from app.domain.repositories.feedback_definition_repository import (
     FeedbackDefinitionRepository,
 )
@@ -280,8 +283,20 @@ AccountLinkStateUseCaseDp = Annotated[
 ]
 
 
-def get_link_discord_use_case(user_repo: UserRepositoryDp):
-    return LinkDiscordUseCase(user_repo)
+def get_discord_connection_repository(session: DbSession):
+    return DiscordConnectionRepository(session)
+
+
+DiscordConnectionRepositoryDp = Annotated[
+    DiscordConnectionRepository, Depends(get_discord_connection_repository)
+]
+
+
+def get_link_discord_use_case(
+    conn_repo: DiscordConnectionRepositoryDp,
+    discord_oauth: DiscordOAuthServiceDp,
+):
+    return LinkDiscordUseCase(conn_repo, discord_oauth)
 
 
 LinkDiscordUseCaseDp = Annotated[
@@ -289,8 +304,11 @@ LinkDiscordUseCaseDp = Annotated[
 ]
 
 
-def get_unlink_discord_use_case(user_repo: UserRepositoryDp):
-    return UnlinkDiscordUseCase(user_repo)
+def get_unlink_discord_use_case(
+    conn_repo: DiscordConnectionRepositoryDp,
+    discord_oauth: DiscordOAuthServiceDp,
+):
+    return UnlinkDiscordUseCase(conn_repo, discord_oauth)
 
 
 UnlinkDiscordUseCaseDp = Annotated[

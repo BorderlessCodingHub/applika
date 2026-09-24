@@ -33,12 +33,15 @@ Support data (platforms, steps_definition, feedbacks_definition) is NOT
 seeded here: the initial revision ``e3abe9dc93d4_init_db`` bulk-inserts
 all three tables, so ``alembic upgrade head`` already provides them.
 
-The third user, ``e2e-discord``, is seeded already linked to a fixed
-Discord id (``E2E_DISCORD_ID``): the id is re-set on every upsert, not
-just at creation, so a Disconnect performed by the E2E is undone the next
-time this script runs. ``e2e-user`` and ``e2e-admin`` get their
-``discord_id`` reset to ``None`` on every upsert too, so both stay
-deterministically unlinked run after run.
+KODI-024: the Discord link moved off ``users.discord_id`` onto its own
+``discord_connections`` row (revision ``ba44f9cfd3c1``). The third user,
+``e2e-discord``, gets its connection row re-created on every run through
+``DiscordConnectionRepository.link`` (a fixed Discord id, username and
+scope, a dummy refresh token encrypted with the stack's own
+``DISCORD_TOKEN_ENCRYPTION_KEY``, status ``active``) — so a Disconnect
+performed by the E2E is undone the next time this script runs.
+``e2e-user`` and ``e2e-admin`` have their connection deleted on every
+upsert, so both stay deterministically unlinked run after run.
 
 Prints exactly one JSON line to stdout::
 
@@ -56,10 +59,15 @@ from typing import NamedTuple
 import redis.asyncio as redis
 
 from app.application.dto.user import UserCreateDTO
+from app.application.services.discord_oauth_service import SCOPE
 from app.config.db import AsyncLocalSession
 from app.config.redis import redis_client
 from app.config.settings import envs
+from app.core.crypto import encrypt_discord_token
 from app.core.tokens import create_access_token, create_refresh_token_value
+from app.domain.repositories.discord_connection_repository import (
+    DiscordConnectionRepository,
+)
 from app.domain.repositories.user_repository import UserRepository
 
 # Deterministic, synthetic identities — NOT real data. The github_id
@@ -85,11 +93,17 @@ E2E_DISCORD = UserCreateDTO(
     email='e2e-discord@e2e.applika.dev',
 )
 
-# Fixed synthetic Discord id, re-linked to E2E_DISCORD on every seed run
-# (see ``upsert_user``). Unlike the github_ids above it need not stay
-# JS-safe: ``discord_id`` is never a field on any schema (UserDTO's own
-# comment - "Internal only") so it never reaches the browser as a number.
+# Fixed synthetic Discord id, re-linked to E2E_DISCORD's connection row on
+# every seed run. Unlike the github_ids above it need not stay JS-safe:
+# the Discord id is never a field on any schema (``DiscordAccountOut``
+# carries no id) so it never reaches the browser as a number.
 E2E_DISCORD_ID = 999000000000000003
+E2E_DISCORD_USERNAME = 'e2e-discord'
+E2E_DISCORD_GLOBAL_NAME = 'E2E Discord'
+# Not a real Discord refresh token - the E2E stack revokes it best-effort
+# against discord.com with dummy OAuth credentials, and that revoke is
+# swallowed within the 5s timeout (plan corrections, K6).
+E2E_DISCORD_REFRESH_TOKEN = 'e2e-dummy-refresh-token'
 
 
 class Identity(NamedTuple):
@@ -104,14 +118,12 @@ async def upsert_user(
     dto: UserCreateDTO,
     *,
     is_admin: bool,
-    discord_id: int | None,
 ) -> Identity:
     """Create or refresh one seeded user. Idempotent by ``github_id``.
 
-    ``discord_id`` is re-set on every call, not only at creation, so the
-    seed can undo whatever the previous E2E run did through the app
-    (a Disconnect clears it; nothing in the app can set it to a value
-    other than ``E2E_DISCORD_ID`` for this user).
+    KODI-024: the Discord link is no longer set here - it is a separate
+    connection row, written by ``upsert_users`` through
+    ``DiscordConnectionRepository``.
     """
     user = await repo.get_by_github_id(dto.github_id)
     if user is None:
@@ -120,7 +132,6 @@ async def upsert_user(
     user.username = dto.username
     user.email = dto.email
     user.is_admin = is_admin
-    user.discord_id = discord_id
     # Empty on purpose: it makes /auth/refresh skip the GitHub call.
     user.encrypted_github_token = None
     user = await repo.update(user)
@@ -129,18 +140,41 @@ async def upsert_user(
 
 
 async def upsert_users() -> tuple[Identity, Identity, Identity]:
-    """Upsert the regular, admin and Discord-linked users, in order."""
+    """Upsert the regular, admin and Discord-linked users, in order, and
+    reset every seeded user's Discord connection to its deterministic
+    state (KODI-024)."""
     async with AsyncLocalSession() as session:
         repo = UserRepository(session)
-        user = await upsert_user(
-            repo, E2E_USER, is_admin=False, discord_id=None
+        conn_repo = DiscordConnectionRepository(session)
+
+        user = await upsert_user(repo, E2E_USER, is_admin=False)
+        admin = await upsert_user(repo, E2E_ADMIN, is_admin=True)
+        discord_user = await upsert_user(repo, E2E_DISCORD, is_admin=False)
+
+        # Always unlinked, run after run.
+        await conn_repo.delete_by_user_id(user.user_id)
+        await conn_repo.delete_by_user_id(admin.user_id)
+
+        # Always linked to the fixed synthetic Discord id, refreshed in
+        # place: ``link`` re-sets every field including ``status=active``
+        # and ``linked_at``, undoing a Disconnect performed by the E2E.
+        encrypted_refresh_token = encrypt_discord_token(
+            E2E_DISCORD_REFRESH_TOKEN
         )
-        admin = await upsert_user(
-            repo, E2E_ADMIN, is_admin=True, discord_id=None
+        assert encrypted_refresh_token is not None, (
+            'DISCORD_TOKEN_ENCRYPTION_KEY must be set in the E2E stack'
         )
-        discord_user = await upsert_user(
-            repo, E2E_DISCORD, is_admin=False, discord_id=E2E_DISCORD_ID
+        await conn_repo.link(
+            user_id=discord_user.user_id,
+            discord_id=E2E_DISCORD_ID,
+            username=E2E_DISCORD_USERNAME,
+            global_name=E2E_DISCORD_GLOBAL_NAME,
+            avatar=None,
+            scopes=SCOPE,
+            encrypted_refresh_token=encrypted_refresh_token,
+            access_token_expires_at=None,
         )
+
     return user, admin, discord_user
 
 

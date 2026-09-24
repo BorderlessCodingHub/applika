@@ -10,8 +10,10 @@ from app.application.use_cases.update_user import UpdateUserUseCase
 from app.config.settings import envs
 from app.presentation.dependencies import (
     CurrentUserDp,
+    DiscordConnectionRepositoryDp,
     StepDefinitionRepositoryDp,
     TimelineEventRepositoryDp,
+    UnlinkDiscordUseCaseDp,
     UserRepositoryDp,
 )
 from app.presentation.schemas import DetailSchema
@@ -22,8 +24,12 @@ router = APIRouter(tags=['Users'], responses={'403': {'model': DetailSchema}})
 
 
 @router.get('/users/me', response_model=UserProfile)
-def get_me(c_user: CurrentUserDp):
-    return UserProfile.from_user(c_user)
+async def get_me(
+    c_user: CurrentUserDp,
+    conn_repo: DiscordConnectionRepositoryDp,
+):
+    connection = await conn_repo.get_by_user_id(c_user.id)
+    return UserProfile.from_user(c_user, connection)
 
 
 @router.patch('/users/me', response_model=UserProfile)
@@ -31,11 +37,13 @@ async def update_me(
     payload: UpdateUserProfile,
     c_user: CurrentUserDp,
     user_repo: UserRepositoryDp,
+    conn_repo: DiscordConnectionRepositoryDp,
 ):
     use_case = UpdateUserUseCase(user_repo)
     data = UserUpdateDTO(**payload.model_dump(exclude_unset=True))
     user = await use_case.execute(c_user.id, data)
-    return UserProfile.from_user(user)
+    connection = await conn_repo.get_by_user_id(c_user.id)
+    return UserProfile.from_user(user, connection)
 
 
 @router.get('/users/me/agenda', response_model=list[AgendaStepSchema])
@@ -63,8 +71,14 @@ async def get_my_agenda(
 async def delete_me(
     c_user: CurrentUserDp,
     user_repo: UserRepositoryDp,
+    unlink_discord_use_case: UnlinkDiscordUseCaseDp,
     response: Response,
 ):
+    # Revoke the Discord grant best-effort before the row goes by cascade
+    # (T102): the connection would disappear either way once the user is
+    # deleted, but only this call actually asks Discord to revoke it.
+    await unlink_discord_use_case.execute(c_user.id)
+
     user = await user_repo.get_by_id(c_user.id)
     if user:
         await user_repo.delete(user)

@@ -98,6 +98,13 @@ class Settings(BaseSettings):
     ACCOUNT_LINK_REDIRECT_URI: str = 'http://127.0.0.1:8080/profile'
     ACCOUNT_LINK_STATE_TTL_SECONDS: int = 600
 
+    # Fernet key for the Discord connection's encrypted refresh token
+    # (KODI-024, ADR-0013). Its own secret, distinct from
+    # ``GITHUB_TOKEN_ENCRYPTION_KEY``. Unset by default:
+    # ``DiscordOAuthService.is_configured()`` is False until the id, the
+    # secret AND this key are all set.
+    DISCORD_TOKEN_ENCRYPTION_KEY: str | None = None
+
     @property
     def openapi_url(self):
         if self.ENVIRONMENT == 'PROD':

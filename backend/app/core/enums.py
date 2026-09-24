@@ -111,6 +111,22 @@ class InterviewType(StrEnum):
     FINAL = 'final'
 
 
+class DiscordConnectionStatus(StrEnum):
+    """A Discord connection's state (KODI-024, ADR-0013, PG type
+    ``discord_connection_status``, lower-case labels - revision
+    ``ba44f9cfd3c1``).
+
+    ``active`` is a fresh or successfully refreshed grant. ``needs_reconnect``
+    is set when Discord itself revokes the stored refresh token (a 400
+    ``invalid_grant`` on renewal) or when the granted scopes turn out to be
+    missing what report routing needs; the user has to run the consent flow
+    again, which replaces the row in place and clears the mark.
+    """
+
+    ACTIVE = 'active'
+    NEEDS_RECONNECT = 'needs_reconnect'
+
+
 class DeniedReason(StrEnum):
     """The reason on a ``denied`` event only (KODI-014, R-033..R-036).
 
