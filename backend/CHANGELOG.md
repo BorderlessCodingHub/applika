@@ -8,6 +8,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-025 admin report webhook catalog (ADR-0013, K7): an admin can list,
+  add, change and remove the Discord webhooks reports may be posted to.
+  `discord_report_webhooks` (added by K5 migration `ba44f9cfd3c1`, no
+  `user_id` - a platform catalog, admin-only per ADR-0004) is now mapped by
+  `DiscordReportWebhookModel`; no new migration.
+  - `GET /admin/discord-webhooks` (admin-only): 200 list, each row
+    `{id, label, guild_id, role_ids, webhook_url_masked, created_at,
+    updated_at}` - the full webhook address is **never** returned, only a
+    masked form (`https://discord.com/api/webhooks/<id>/…<last4>`).
+  - `POST /admin/discord-webhooks`: 201, `{webhook_url, guild_id, role_ids?,
+    label?}`. `webhook_url` must be a secure (`https://`) Discord webhook
+    address (`discord.com`/`discordapp.com`, `ptb`/`canary` subdomains, an
+    optional `/v<n>` segment); `guild_id`/`role_ids` must be Discord
+    snowflake ids (17-20 digits and within Postgres `BIGINT`, so an
+    over-length numeric string is a 422, not a 500); at most 25 role ids,
+    deduped; `label` <= 100 chars. A duplicate `webhook_url` is 409 `"This
+    webhook is already configured"`. Every field on this route is optional
+    at the schema level and the required-ness is enforced in the use case
+    on purpose: FastAPI's own `RequestValidationError` for a missing field
+    echoes the *whole* submitted body, which would leak `webhook_url` into
+    an unrelated 422 - here a missing/blank field is instead a fixed-string
+    `BusinessRuleViolation` that never contains the submitted value.
+  - `PATCH /admin/discord-webhooks/{id}`: 200, partial. An omitted or
+    blank/whitespace `webhook_url` keeps the stored one; a real new value is
+    re-validated and a duplicate is still 409; `role_ids` fully replaces the
+    stored list when present; `label: null` clears it, omitting the key
+    keeps it. Unknown id -> 404 `"Discord webhook not found"`.
+  - `DELETE /admin/discord-webhooks/{id}`: 204; unknown id -> 404.
+  - Not a CLI route (`/admin/*`); `DiscordReportWebhookRepository
+    .list_by_guild_ids` is provided for K8's submit-time routing, not wired
+    to anything yet.
 - KODI-024 Discord connection record (ADR-0013, supersedes ADR-0008/KODI-020):
   connect, transfer, disconnect, reconnect, `/users/me` `discord` object.
   Keeps GitHub as the only way to sign in - the flow never creates, changes

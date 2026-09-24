@@ -777,6 +777,57 @@ denials/rejected = with a denied event, open/active = `finalized_at` NULL,
 finalized = `finalized_at` set, and activity (30-day active users, the
 heatmap) comes from `timeline_events.created_at`.
 
+### Admin report webhooks (`/admin/discord-webhooks`, KODI-025, ADR-0013)
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| GET | `/admin/discord-webhooks` | Admin | List every configured report webhook |
+| POST | `/admin/discord-webhooks` | Admin | Add one (201) |
+| PATCH | `/admin/discord-webhooks/{id}` | Admin | Partial update (200); unknown id 404 |
+| DELETE | `/admin/discord-webhooks/{id}` | Admin | Remove it (204); unknown id 404 |
+
+An admin-managed catalog (ADR-0004), not owned by a user: `guild_id` (the
+Discord server whose membership K8 will check at submit time),
+`webhook_url` (unique) and up to 25 optional `role_ids`, plus a free-text
+`label`. Table `discord_report_webhooks`, added by migration `ba44f9cfd3c1`
+(K5) with **no** ORM model until this ticket; `DiscordReportWebhookModel`
+now maps it object-for-object (no new migration). Not a CLI route.
+
+**The full webhook address is never returned or logged** (AC3): every
+response carries `webhook_url_masked`
+(`https://discord.com/api/webhooks/<webhook_id>/…<last 4 chars of the
+token>`, `app/application/validators/discord_webhook.mask`) and use-case
+logs name the webhook's own id, never the URL. The repository's own
+`IntegrityError` on the unique `webhook_url` (asyncpg's error text quotes
+the URL in its `DETAIL`) is caught and replaced with a fixed-string
+`ResourceConflict('This webhook is already configured')` before it ever
+reaches a log line or a response.
+
+`webhook_url` must be a secure Discord webhook address
+(`discord.com`/`discordapp.com`, the `ptb`/`canary` subdomains, an optional
+`/v<n>` API version segment); `guild_id`/`role_ids` must be Discord
+snowflake ids - 17 to 20 digits **and** within Postgres `BIGINT`
+(`9223372036854775807`), since a 20-digit numeric string can already
+overflow it (a 422, not an unhandled 500). Every field on
+`CreateDiscordWebhookSchema`/`UpdateDiscordWebhookSchema` is optional at the
+schema level on purpose, even the ones required by the API contract:
+FastAPI's default `RequestValidationError` for a *missing* field reports
+`input` as the whole submitted body, which would put `webhook_url` into a
+422 that has nothing to do with it. Making every field optional means a
+missing/blank required field never fails pydantic's own validation - it
+reaches `app/application/validators/discord_webhook.py`, which raises a
+fixed-string `BusinessRuleViolation` (422) instead. `PATCH` is a true
+partial: an omitted or blank/whitespace `webhook_url` keeps the stored one
+(a real new value is re-validated, and a duplicate is still 409);
+`role_ids` fully replaces the stored list whenever the key is present
+(including `[]`); `label: null` clears it, an absent key keeps it -
+`UpdateDiscordWebhookUseCase` reads `model_dump(exclude_unset=True)` to
+tell "omitted" from "sent as null" for exactly that field.
+
+`DiscordReportWebhookRepository.list_by_guild_ids` exists for K8's
+submit-time routing ("selects the webhooks of those servers") and is not
+called by anything yet.
+
 ### Agenda (`/users/me/agenda`)
 Every **interview** event dated inside the window (`from_date`/`to_date`,
 default 30 days either side of today), ordered by date then start time — the
@@ -857,6 +908,7 @@ Optional (with defaults):
 ### Core Entities
 - **User**: GitHub OAuth authenticated users with profile (company, role, salary, tech stack, seniority, availability). `users` carries **no** Discord column (KODI-024/ADR-0013 retired `users.discord_id`); the optional Discord account link is its own `DiscordConnectionModel` row, below - never GitHub login, never a second sign-in path
 - **DiscordConnection**: one row per linked user (table `discord_connections`, migration `ba44f9cfd3c1`), a record of its own apart from `users` (R-012). `user_id` and `discord_id` are each UNIQUE. Holds the Discord user id, username, display name (`global_name`), avatar, the granted `scopes`, `access_token_expires_at`, `status` (`active` | `needs_reconnect`) and `linked_at`; the refresh token is stored **encrypted** (`encrypted_refresh_token`) and there is **no** access-token column - see **Account links** above for the full flow
+- **DiscordReportWebhook**: admin-managed catalog (KODI-025, ADR-0004/ADR-0013), table `discord_report_webhooks`, added by migration `ba44f9cfd3c1` but unmapped until this ticket - not owned by a `user_id`. `webhook_url` is UNIQUE; `guild_id` is indexed for K8's submit-time lookup; `role_ids` (`BIGINT[]`, default `{}`) and `label` are optional. See **Admin report webhooks** above
 - **Company**: Job companies, user-created, unique on lower(name)+url
 - **Application**: Job applications with tracking, salary info, and country
 - **TimelineEvent**: one entry of an application's timeline (`timeline_events`), typed by `EventType`, with `interview_type` on interviews and the salary triple on offers; rows migrated from `application_steps` kept the step's id
