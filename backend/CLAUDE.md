@@ -185,6 +185,20 @@ See `app/application/use_cases/applications/create_application.py` for reference
 - `GitHubService` (`app/application/services/github_service.py`) validates tokens and checks org membership
 - Redis cache with configurable TTL (default 10 min) for `applika:github:token_valid:{user_id}`
 - Discord report webhook only fires for confirmed org members
+- **Webhook mentions (KODI-021).** `DiscordService.post_report_message(message,
+  mention_user_id=None)` builds `allowed_mentions` itself: `{'parse': []}` when
+  `mention_user_id` is `None` (unchanged, byte-identical to before KODI-021),
+  else `{'parse': [], 'users': [str(mention_user_id)]}` — never `everyone` or
+  `roles`, and never another user's id. Both `SubmitReportUseCase.execute` and
+  `SubmitFeedbackUseCase.execute` take an optional `discord_id` and pass it
+  straight through as `mention_user_id`; the presentation routes
+  (`reports.py`, `user_feedback.py`) pass `c_user.discord_id`, so a report or
+  feedback post mentions the submitting user only when their account is
+  Discord-linked (KODI-020) — `DISCORD_CLIENT_ID`/`DISCORD_CLIENT_SECRET`
+  being unset does not disable this: the mention only needs `users.discord_id`,
+  not a working OAuth app. The message header itself also gets `<@discord_id>`
+  appended after the `@username` for a linked user; an unlinked user's header
+  is exactly today's string.
 
 ### Exception Handling
 Domain exceptions in `app/core/exceptions.py`:
@@ -390,6 +404,11 @@ check is already the Redis nonce above. The access token lives in a local
 variable only inside `fetch_discord_id`: never logged, returned or stored,
 and revoked immediately after the id is read - a revoke failure is swallowed
 and logged without the token value, and never blocks the connection.
+
+Disconnecting takes effect on the **next** webhook post: `Submit*UseCase.execute`
+reads `discord_id` from the current request's `c_user` (fresh from the DB via
+`get_current_user`), never a cached value, so a report or feedback submitted
+right after `DELETE /auth/link/discord` carries no mention (KODI-021, below).
 
 ### Users (`/users`)
 | Method | Route | Auth | Description |

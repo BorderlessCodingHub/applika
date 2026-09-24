@@ -122,6 +122,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     routes (checked: no `/cv`, `/base-cvs/.../markdown` or `/diff` in
     `cli/src`).
 
+### Changed
+
+- KODI-021 Biweekly report and user-feedback Discord webhook posts now
+  mention the submitting user when their account is Discord-linked
+  (KODI-020's `users.discord_id`); an unlinked user's post is byte-identical
+  to before. No route contract change.
+  - `DiscordService.post_report_message(message, mention_user_id=None)`:
+    `allowed_mentions` is `{'parse': []}` when `mention_user_id` is `None`
+    (unchanged), else `{'parse': [], 'users': [str(mention_user_id)]}` —
+    never `everyone`, `roles`, or any user other than the submitter.
+  - `SubmitReportUseCase.execute` and `SubmitFeedbackUseCase.execute` take an
+    optional `discord_id`; the header line gains `<@discord_id>` after
+    `@username` when linked. `presentation/api/reports.py` and
+    `presentation/api/user_feedback.py` pass `c_user.discord_id` (read fresh
+    per request, so unlinking takes effect on the very next post).
+  - Works with `DISCORD_CLIENT_ID`/`DISCORD_CLIENT_SECRET` unset: the mention
+    only needs `users.discord_id`, not a configured Discord OAuth app.
+  - No CLI changelog entry: no route, request or response field changes.
+
 ### Fixed
 
 - KODI-011 `GET /users/me/agenda` now honours `to_date`. `from_date` and
