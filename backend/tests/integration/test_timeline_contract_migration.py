@@ -809,9 +809,10 @@ def test_only_one_head() -> None:
 
     R5 (``c1d9f4a7b3e6``, KODI-017 part 2, ``tailored_cvs.base_snapshot``)
     is a later, unrelated child of R2 - the owner's own "new revision at
-    head" placement - so it is now the sole head instead of R2, and this
-    test is updated to look one revision further rather than re-asserting
-    R2 is the head it no longer is.
+    head" placement - so it was the sole head instead of R2. KODI-019
+    (plan 0009 K1, ``a7e5c2f19b4d``, ``users.discord_id``) is now a further
+    child of R5, so the pin moves one more hop: this test looks past R5
+    instead of re-asserting R5 is the head it no longer is.
     """
     from alembic.config import Config
     from alembic.script import ScriptDirectory
@@ -820,8 +821,10 @@ def test_only_one_head() -> None:
     script = ScriptDirectory.from_config(config)
 
     heads = script.get_heads()
-    assert list(heads) == ['c1d9f4a7b3e6']
+    assert list(heads) == ['a7e5c2f19b4d']
 
+    r6 = script.get_revision('a7e5c2f19b4d')
+    assert r6.down_revision == 'c1d9f4a7b3e6'
     r5 = script.get_revision('c1d9f4a7b3e6')
     assert r5.down_revision == REVISION
     r2 = script.get_revision(REVISION)

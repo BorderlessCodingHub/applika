@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-019 `users.discord_id` BIGINT NULL, unique index
+  `ix_users_discord_id`; no code reads it yet (Release A).
 - KODI-017 (part 3, T090/T091) Four new read-side GET export routes, all
   owner-scoped, all 404 when not owned / no copy, none carrying a
   finalized/archived guard (R-024/R-025):
