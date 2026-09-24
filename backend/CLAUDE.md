@@ -351,11 +351,57 @@ All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUID
 | GET | `/auth/refresh` | No | Validate refresh token, re-issue access cookie |
 | GET | `/auth/logout` | No | Revoke refresh token, clear both cookies |
 
+### Account links (`/auth/link`, KODI-020)
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| POST | `/auth/link/discord` | Yes | Start the Discord link: 200 `{authorize_url}`, 401, or 503 when unconfigured |
+| GET | `/auth/link/discord/callback` | No (cookie resolved internally) | Discord consent lands here; always a 307 to `ACCOUNT_LINK_REDIRECT_URI?account=discord&status=linked\|conflict\|error`, never JSON |
+| DELETE | `/auth/link/discord` | Yes | Disconnect: 200 `{"provider": "discord", "linked": false}`, idempotent |
+
+Connecting Discord from the profile is **separate from GitHub login**: the
+callback never sets, clears or reads a session cookie except to check who is
+already signed in, and it never issues a new one. `POST` creates a single-use,
+10-minute Redis nonce (`AccountLinkStateUseCase`,
+`applika:account_link:discord:{nonce}` -> the user id who started it) and
+returns Discord's authorize URL with `scope=identify` only. The callback, in
+order: consumes the nonce (so a replay never matches twice, even on a later
+Discord-side failure), resolves the caller's own `__access` cookie through
+`GetCurrentUserUseCase` (bypassing `CurrentUserDp` on purpose, since the
+callback is a redirect target, not an authenticated JSON endpoint), requires
+that user to be the one the nonce was issued to, then exchanges the code and
+reads the numeric Discord id. Any refusal at any step - unknown/expired/
+replayed state, session mismatch, a Discord `error` param, a missing `code`,
+an unconfigured app, or `DiscordLinkError` from the exchange - answers
+`status=error` with nothing written. A Discord id that already belongs to
+another Applika user answers `status=conflict`
+(`user_repository.link_discord`: a pre-check plus an `IntegrityError` on
+`ix_users_discord_id` for a race), with neither user changed. Disconnect has
+no `is_configured` check and calls nothing at Discord - the token was already
+revoked at connect time (below), so there is nothing left to revoke.
+
+`DiscordOAuthService` (`app/application/services/discord_oauth_service.py`,
+distinct from the webhook `DiscordService` above) does its own `httpx` code
+exchange, `GET /users/@me` and `POST /oauth2/token/revoke` rather than
+`fastapi_sso.sso.discord.DiscordSSO`: the library sets an `sso_state` cookie
+whenever a caller-chosen `state` is passed to `get_login_redirect`, which
+would break the callback's "sets no cookie" contract, and the flow's CSRF
+check is already the Redis nonce above. The access token lives in a local
+variable only inside `fetch_discord_id`: never logged, returned or stored,
+and revoked immediately after the id is read - a revoke failure is swallowed
+and logged without the token value, and never blocks the connection.
+
 ### Users (`/users`)
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
 | GET | `/users/me` | Yes | Get current user profile |
 | PATCH | `/users/me` | Yes | Update profile |
+
+`UserProfile.discord_linked` is `true` when `users.discord_id` is set, `false`
+otherwise; the id itself is never a field on `UserProfile` or on any admin
+schema. Built with `UserProfile.from_user(user)`
+(`app/presentation/schemas/user.py`), not the bare `model_validate`, so the
+derivation has one call site.
 
 ### Applications (`/applications`)
 | Method | Route | Auth | Description |
@@ -707,6 +753,16 @@ Optional (with defaults):
 - `DISCORD_REPORTS_ORGANIZATION`: GitHub org name; only org members get reports posted to Discord
 - `DISCORD_REPORTS_WEBHOOK`: Discord webhook for biweekly reports
 - `DISCORD_FEEDBACK_WEBHOOK`: Discord webhook for user feedback
+- `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET`: Discord OAuth app for the
+  account-link flow (KODI-020, default `None`); the link routes answer 503
+  until both are set. Unrelated to `DISCORD_REPORTS_*`/`DISCORD_FEEDBACK_
+  WEBHOOK` above, which are webhooks, not an OAuth app
+- `DISCORD_LINK_REDIRECT_URI`: the API's own Discord OAuth callback
+  (default `http://127.0.0.1:8000/api/auth/link/discord/callback`)
+- `ACCOUNT_LINK_REDIRECT_URI`: the profile page the callback redirects back
+  to (default `http://127.0.0.1:8080/profile`)
+- `ACCOUNT_LINK_STATE_TTL_SECONDS`: TTL of the account-link CSRF nonce in
+  Redis (default: 600)
 - `CORS_ORIGINS`, `CORS_HEADERS`, `CORS_METHODS`: CORS configuration
 - `LOG_LEVEL`, `LOG_FORMAT`: Logging configuration
 - `API_PREFIX`: Route prefix (default: /api)
@@ -715,7 +771,7 @@ Optional (with defaults):
 ## Domain Model Relationships
 
 ### Core Entities
-- **User**: GitHub OAuth authenticated users with profile (company, role, salary, tech stack, seniority, availability)
+- **User**: GitHub OAuth authenticated users with profile (company, role, salary, tech stack, seniority, availability). `discord_id` (BIGINT, nullable, unique, KODI-020) is the optional Discord account link - never GitHub login, never a second sign-in path - set by the Account links flow above and read by nothing outside it and the KODI-021 webhook mentions
 - **Company**: Job companies, user-created, unique on lower(name)+url
 - **Application**: Job applications with tracking, salary info, and country
 - **TimelineEvent**: one entry of an application's timeline (`timeline_events`), typed by `EventType`, with `interview_type` on interviews and the salary triple on offers; rows migrated from `application_steps` kept the step's id

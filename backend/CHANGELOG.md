@@ -8,6 +8,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-020 Discord account link (connect, conflict, disconnect, failed
+  consent; Release B, code that reads `users.discord_id`). Keeps GitHub as
+  the only way to sign in - the flow never creates, changes or reads an
+  Applika session cookie beyond resolving who is already signed in.
+  - `POST /auth/link/discord` (auth required): 200
+    `{"authorize_url": "https://discord.com/oauth2/authorize?...&scope=
+    identify&state=<nonce>"}`, 401 when signed out, 503
+    `{"detail": "Discord linking is not configured"}` when
+    `DISCORD_CLIENT_ID`/`DISCORD_CLIENT_SECRET` are unset. The nonce is a
+    single-use, 10-minute Redis value (`AccountLinkStateUseCase`,
+    `applika:account_link:discord:{nonce}` -> the user id who started it).
+  - `GET /auth/link/discord/callback?code&state`: always a 307 to
+    `ACCOUNT_LINK_REDIRECT_URI?account=discord&status=linked|conflict|error`,
+    never JSON, never sets or clears a cookie. Consumes the nonce first (a
+    replay never matches twice), then requires the caller's own `__access`
+    cookie to name the same user the nonce was issued to, then exchanges the
+    code for a Discord access token, reads the numeric Discord user id from
+    `GET /users/@me`, revokes the access token
+    (`POST /oauth2/token/revoke`) and only then stores the id - no Discord
+    token is ever stored, returned or logged. A Discord-side `error` query
+    param, a missing `code`, an unconfigured app or any exchange failure
+    (`DiscordLinkError`) all answer `status=error` with nothing written; the
+    id already belonging to another Applika user answers `status=conflict`
+    with neither user changed.
+  - `DELETE /auth/link/discord` (auth required): 200
+    `{"provider": "discord", "linked": false}`, idempotent, no
+    `is_configured` check, and calls nothing at Discord (the token was
+    already revoked at connect time).
+  - `GET/PATCH /users/me` gain `discord_linked: bool`, derived from
+    `discord_id is not None`; the id itself is never a field on any schema.
+    Additive - see `cli/CHANGELOG.md`.
+  - New settings: `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` (both
+    optional, `None` unset), `DISCORD_LINK_REDIRECT_URI`,
+    `ACCOUNT_LINK_REDIRECT_URI`, `ACCOUNT_LINK_STATE_TTL_SECONDS` (600).
+  - `DiscordOAuthService` (`app/application/services/
+    discord_oauth_service.py`) does its own `httpx` code exchange and
+    userinfo/revoke calls rather than `fastapi_sso.sso.discord.DiscordSSO`
+    (T013 decision, recorded in the module docstring): the library sets an
+    `sso_state` cookie whenever a caller-chosen `state` is passed to
+    `get_login_redirect`, which would break the callback's "sets no cookie"
+    contract; the existing Redis nonce is already the CSRF check.
+  - `user_repository.link_discord` refuses a Discord id already owned by
+    another user (`ResourceConflict`, pre-check and an `IntegrityError` on
+    `ix_users_discord_id` for a race) and is a no-op when the same user
+    relinks the same id; `unlink_discord` is idempotent.
 - KODI-019 `users.discord_id` BIGINT NULL, unique index
   `ix_users_discord_id`; no code reads it yet (Release A).
 - KODI-017 (part 3, T090/T091) Four new read-side GET export routes, all
