@@ -70,6 +70,9 @@ services:
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
       DISCORD_LINK_REDIRECT_URI: ${DISCORD_LINK_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/link/discord/callback}
       ACCOUNT_LINK_REDIRECT_URI: ${ACCOUNT_LINK_REDIRECT_URI:-http://127.0.0.1:8080/profile}
+      # KODI-024: Connect Discord also answers 503 until this is set - its
+      # own Fernet key, distinct from GITHUB_TOKEN_ENCRYPTION_KEY.
+      DISCORD_TOKEN_ENCRYPTION_KEY: ${DISCORD_TOKEN_ENCRYPTION_KEY:-}
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck:

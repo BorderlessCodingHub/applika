@@ -192,13 +192,15 @@ See `app/application/use_cases/applications/create_application.py` for reference
   `roles`, and never another user's id. Both `SubmitReportUseCase.execute` and
   `SubmitFeedbackUseCase.execute` take an optional `discord_id` and pass it
   straight through as `mention_user_id`; the presentation routes
-  (`reports.py`, `user_feedback.py`) pass `c_user.discord_id`, so a report or
-  feedback post mentions the submitting user only when their account is
-  Discord-linked (KODI-020) — `DISCORD_CLIENT_ID`/`DISCORD_CLIENT_SECRET`
-  being unset does not disable this: the mention only needs `users.discord_id`,
-  not a working OAuth app. The message header itself also gets `<@discord_id>`
-  appended after the `@username` for a linked user; an unlinked user's header
-  is exactly today's string.
+  (`reports.py`, `user_feedback.py`) read it fresh from
+  `DiscordConnectionRepositoryDp` (KODI-024 - the connection replaced
+  `users.discord_id`), in any connection status, so a report or feedback post
+  mentions the submitting user whenever they hold a Discord connection —
+  `DISCORD_CLIENT_ID`/`DISCORD_CLIENT_SECRET` being unset does not disable
+  this: the mention only needs the connection row, not a working OAuth app.
+  The message header itself also gets `<@discord_id>` appended after the
+  `@username` for a linked user; an unlinked user's header is exactly today's
+  string.
 
 ### Exception Handling
 Domain exceptions in `app/core/exceptions.py`:
@@ -365,11 +367,11 @@ All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUID
 | GET | `/auth/refresh` | No | Validate refresh token, re-issue access cookie |
 | GET | `/auth/logout` | No | Revoke refresh token, clear both cookies |
 
-### Account links (`/auth/link`, KODI-020)
+### Account links (`/auth/link`, KODI-024, ADR-0013, supersedes ADR-0008/KODI-020)
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| POST | `/auth/link/discord` | Yes | Start the Discord link: 200 `{authorize_url}`, 401, or 503 when unconfigured |
+| POST | `/auth/link/discord` | Yes | Start the Discord link: 200 `{authorize_url}`, 401, or 503 when the id, the secret or the token key is missing |
 | GET | `/auth/link/discord/callback` | No (cookie resolved internally) | Discord consent lands here; always a 307 to `ACCOUNT_LINK_REDIRECT_URI?account=discord&status=linked\|conflict\|error`, never JSON |
 | DELETE | `/auth/link/discord` | Yes | Disconnect: 200 `{"provider": "discord", "linked": false}`, idempotent |
 
@@ -378,37 +380,81 @@ callback never sets, clears or reads a session cookie except to check who is
 already signed in, and it never issues a new one. `POST` creates a single-use,
 10-minute Redis nonce (`AccountLinkStateUseCase`,
 `applika:account_link:discord:{nonce}` -> the user id who started it) and
-returns Discord's authorize URL with `scope=identify` only. The callback, in
-order: consumes the nonce (so a replay never matches twice, even on a later
+returns Discord's authorize URL with scope `identify guilds
+guilds.members.read` - identity, the servers the user is in, and the user's
+roles in those servers, and nothing more (R-014). The callback, in order:
+consumes the nonce (so a replay never matches twice, even on a later
 Discord-side failure), resolves the caller's own `__access` cookie through
 `GetCurrentUserUseCase` (bypassing `CurrentUserDp` on purpose, since the
 callback is a redirect target, not an authenticated JSON endpoint), requires
-that user to be the one the nonce was issued to, then exchanges the code and
-reads the numeric Discord id. Any refusal at any step - unknown/expired/
-replayed state, session mismatch, a Discord `error` param, a missing `code`,
-an unconfigured app, or `DiscordLinkError` from the exchange - answers
+that user to be the one the nonce was issued to, then exchanges the code
+(`DiscordOAuthService.exchange_code`) and reads the Discord profile
+(`fetch_profile`). Any refusal at any step - unknown/expired/replayed state,
+session mismatch, a Discord `error` param, a missing `code`, an unconfigured
+app, or `DiscordLinkError` from the exchange/profile fetch - answers
 `status=error` with nothing written. A Discord id that already belongs to
 another Applika user answers `status=conflict`
-(`user_repository.link_discord`: a pre-check plus an `IntegrityError` on
-`ix_users_discord_id` for a race), with neither user changed. Disconnect has
-no `is_configured` check and calls nothing at Discord - the token was already
-revoked at connect time (below), so there is nothing left to revoke.
+(`DiscordConnectionRepository.link`: a pre-check plus an `IntegrityError` on
+`uq_discord_connections_discord_id` for a race), with neither user's
+connection changed and the new grant revoked best-effort
+(`LinkDiscordUseCase`). Disconnect (`UnlinkDiscordUseCase`) deletes the
+connection row, then asks Discord to revoke the stored refresh token
+best-effort - a Discord failure never blocks the disconnect, and there is no
+`is_configured` gate on the route itself (only on whether the revoke call is
+attempted).
+
+**The connection is a record of its own, apart from `users`** (R-012,
+`DiscordConnectionModel`, table `discord_connections`, migration
+`ba44f9cfd3c1`): the Discord user id, username, display name (`global_name`),
+avatar, the granted `scopes`, `access_token_expires_at`, `status` (`active` |
+`needs_reconnect`) and both `linked_at` and the inherited `updated_at`. Both
+`user_id` and `discord_id` are UNIQUE - a Discord account links to at most one
+Applika user, and a user holds at most one connection (AC1/AC2). The refresh
+token is stored **encrypted** (`encrypt_discord_token`/`decrypt_discord_token`
+in `app/core/crypto.py`, keyed by `DISCORD_TOKEN_ENCRYPTION_KEY`, its own
+Fernet secret distinct from `GITHUB_TOKEN_ENCRYPTION_KEY`); the Discord
+**access** token is never stored at all, only ever held in a local variable
+for the request that needs it.
+
+**No revoke at connect** (unlike the old KODI-020 flow): `LinkDiscordUseCase`
+encrypts the refresh token and stores the grant; nothing is revoked unless the
+connect turns out to be a conflict. **Revoke on disconnect and on account
+delete**: `UnlinkDiscordUseCase` runs before `user_repo.delete` in
+`DELETE /users/me`, so the row is gone and the grant is revoked
+best-effort before the cascade would have removed the row anyway.
+
+**Reconnect** runs the exact same consent flow: `DiscordConnectionRepository
+.link` on the caller's own row refreshes every field (username, global_name,
+avatar, scopes, the encrypted token, the expiry) and sets `status=active` and
+`linked_at=now()`, clearing a `needs_reconnect` mark in place - never a second
+row. A `needs_reconnect` user who authorises a *different* Discord account
+still gets their own row replaced in place; if another user already holds
+that account, it is the same conflict as a fresh connect (old row unchanged,
+new grant revoked).
+
+`needs_reconnect` (`DiscordConnectionRepository.mark_needs_reconnect`) is set
+when a scheduled access-token renewal (`DiscordOAuthService.refresh`, K8) gets
+a 400 `invalid_grant` from Discord (`DiscordGrantRevoked`) - a 429, a 5xx or a
+network error (`DiscordUnavailable`) is transient and never marks the
+connection. Each successful renewal replaces the stored refresh token with the
+new one, encrypted (`DiscordConnectionRepository.store_grant`, R-017).
 
 `DiscordOAuthService` (`app/application/services/discord_oauth_service.py`,
-distinct from the webhook `DiscordService` above) does its own `httpx` code
-exchange, `GET /users/@me` and `POST /oauth2/token/revoke` rather than
+distinct from the webhook `DiscordService` above) does its own `httpx`
+`exchange_code`/`fetch_profile`/`refresh`/`revoke` rather than
 `fastapi_sso.sso.discord.DiscordSSO`: the library sets an `sso_state` cookie
 whenever a caller-chosen `state` is passed to `get_login_redirect`, which
 would break the callback's "sets no cookie" contract, and the flow's CSRF
-check is already the Redis nonce above. The access token lives in a local
-variable only inside `fetch_discord_id`: never logged, returned or stored,
-and revoked immediately after the id is read - a revoke failure is swallowed
-and logged without the token value, and never blocks the connection.
+check is already the Redis nonce above. No Discord access or refresh token is
+ever logged or appears in `repr()` (`DiscordGrant`'s token fields are
+`repr=False`); a revoke failure is swallowed and logged without the token
+value, and never blocks the caller.
 
-Disconnecting takes effect on the **next** webhook post: `Submit*UseCase.execute`
-reads `discord_id` from the current request's `c_user` (fresh from the DB via
-`get_current_user`), never a cached value, so a report or feedback submitted
-right after `DELETE /auth/link/discord` carries no mention (KODI-021, below).
+Mention-reading routes (`user_feedback.py`, `reports.py` interim) read the
+connection's `discord_id` fresh through `DiscordConnectionRepositoryDp` on
+every request, in **any** connection status (R-041) - never a cached value on
+the user, so a report or feedback submitted right after
+`DELETE /auth/link/discord` carries no mention (KODI-021, below).
 
 ### Users (`/users`)
 | Method | Route | Auth | Description |
@@ -416,11 +462,16 @@ right after `DELETE /auth/link/discord` carries no mention (KODI-021, below).
 | GET | `/users/me` | Yes | Get current user profile |
 | PATCH | `/users/me` | Yes | Update profile |
 
-`UserProfile.discord_linked` is `true` when `users.discord_id` is set, `false`
-otherwise; the id itself is never a field on `UserProfile` or on any admin
-schema. Built with `UserProfile.from_user(user)`
-(`app/presentation/schemas/user.py`), not the bare `model_validate`, so the
-derivation has one call site.
+Both routes read the caller's Discord connection through
+`DiscordConnectionRepositoryDp` and build the response with
+`UserProfile.from_user(user, connection)` (`app/presentation/schemas/user.py`),
+never the bare `model_validate`, so the derivation has one call site.
+`UserProfile.discord` is `DiscordAccountOut {username, global_name,
+avatar_url, status}` or `null`; `avatar_url` is computed
+(`https://cdn.discordapp.com/avatars/{discord_id}/{avatar}.png?size=64`, or
+`null` without a stored avatar) - the Discord id itself is **never** a field
+on `UserProfile` or on any admin schema. `discord_linked` is `discord is not
+null`.
 
 ### Applications (`/applications`)
 | Method | Route | Auth | Description |
@@ -773,15 +824,20 @@ Optional (with defaults):
 - `DISCORD_REPORTS_WEBHOOK`: Discord webhook for biweekly reports
 - `DISCORD_FEEDBACK_WEBHOOK`: Discord webhook for user feedback
 - `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET`: Discord OAuth app for the
-  account-link flow (KODI-020, default `None`); the link routes answer 503
-  until both are set. Unrelated to `DISCORD_REPORTS_*`/`DISCORD_FEEDBACK_
-  WEBHOOK` above, which are webhooks, not an OAuth app
+  account-link flow (KODI-024, default `None`); the link routes answer 503
+  until the id, the secret AND `DISCORD_TOKEN_ENCRYPTION_KEY` below are all
+  set. Unrelated to `DISCORD_REPORTS_*`/`DISCORD_FEEDBACK_WEBHOOK` above,
+  which are webhooks, not an OAuth app
 - `DISCORD_LINK_REDIRECT_URI`: the API's own Discord OAuth callback
   (default `http://127.0.0.1:8000/api/auth/link/discord/callback`)
 - `ACCOUNT_LINK_REDIRECT_URI`: the profile page the callback redirects back
   to (default `http://127.0.0.1:8080/profile`)
 - `ACCOUNT_LINK_STATE_TTL_SECONDS`: TTL of the account-link CSRF nonce in
   Redis (default: 600)
+- `DISCORD_TOKEN_ENCRYPTION_KEY`: Fernet key for encrypting the Discord
+  connection's stored refresh token (KODI-024, default `None`); its own
+  secret, distinct from `GITHUB_TOKEN_ENCRYPTION_KEY` - generate it the same
+  way
 - `CORS_ORIGINS`, `CORS_HEADERS`, `CORS_METHODS`: CORS configuration
 - `LOG_LEVEL`, `LOG_FORMAT`: Logging configuration
 - `API_PREFIX`: Route prefix (default: /api)
@@ -790,7 +846,8 @@ Optional (with defaults):
 ## Domain Model Relationships
 
 ### Core Entities
-- **User**: GitHub OAuth authenticated users with profile (company, role, salary, tech stack, seniority, availability). `discord_id` (BIGINT, nullable, unique, KODI-020) is the optional Discord account link - never GitHub login, never a second sign-in path - set by the Account links flow above and read by nothing outside it and the KODI-021 webhook mentions
+- **User**: GitHub OAuth authenticated users with profile (company, role, salary, tech stack, seniority, availability). `users` carries **no** Discord column (KODI-024/ADR-0013 retired `users.discord_id`); the optional Discord account link is its own `DiscordConnectionModel` row, below - never GitHub login, never a second sign-in path
+- **DiscordConnection**: one row per linked user (table `discord_connections`, migration `ba44f9cfd3c1`), a record of its own apart from `users` (R-012). `user_id` and `discord_id` are each UNIQUE. Holds the Discord user id, username, display name (`global_name`), avatar, the granted `scopes`, `access_token_expires_at`, `status` (`active` | `needs_reconnect`) and `linked_at`; the refresh token is stored **encrypted** (`encrypted_refresh_token`) and there is **no** access-token column - see **Account links** above for the full flow
 - **Company**: Job companies, user-created, unique on lower(name)+url
 - **Application**: Job applications with tracking, salary info, and country
 - **TimelineEvent**: one entry of an application's timeline (`timeline_events`), typed by `EventType`, with `interview_type` on interviews and the salary triple on offers; rows migrated from `application_steps` kept the step's id
@@ -832,6 +889,7 @@ Optional (with defaults):
 - TailoredCV → Application (one-to-one, cascade delete, `passive_deletes=True`), UNIQUE on application_id
 - TailoredCV → User (many-to-one, cascade delete)
 - TailoredCV → BaseCV (many-to-one, nullable, **SET NULL** on delete — the copy outlives its master)
+- DiscordConnection → User (one-to-one, cascade delete — deleting the user removes the connection; no ORM relationship is declared back on `UserModel`, same as BaseCV/TailoredCV)
 
 Applications are closed ("finalized") when `finalized_at` is set; reopen clears it.
 

@@ -69,6 +69,11 @@ services:
       DISCORD_CLIENT_ID: e2e-dummy-discord-client-id
       DISCORD_CLIENT_SECRET: e2e-dummy-discord-client-secret
       ACCOUNT_LINK_REDIRECT_URI: http://127.0.0.1:8180/profile
+      # KODI-024: a fixed, throwaway Fernet key, distinct from
+      # GITHUB_TOKEN_ENCRYPTION_KEY above - encrypts the seeded e2e-discord
+      # connection's dummy refresh token and whatever the spec's own
+      # Connect/Disconnect/Reconnect flow stores. Not for production.
+      DISCORD_TOKEN_ENCRYPTION_KEY: 8K328DvEKBxnNKoQ_B4ytFTe4FbJCgIcgBnVlgm7Rfs=
       # The browser's origin is the `web` service, not the API's own port.
       # allow_credentials is already True in app/main.py; CORS_HEADERS is
       # widened here (the default is only X-Request-ID + Content-Type) so the

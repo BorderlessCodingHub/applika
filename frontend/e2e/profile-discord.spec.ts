@@ -40,7 +40,7 @@ test.describe("KODI-022 connected accounts — Discord", () => {
     ).toHaveCount(0);
   });
 
-  test("Connect asks Discord only for the identify scope, never reaching discord.com", async ({
+  test("Connect asks Discord only for identify+guilds+guilds.members.read, never reaching discord.com", async ({
     page,
   }) => {
     await loginAs(page, "user");
@@ -65,9 +65,11 @@ test.describe("KODI-022 connected accounts — Discord", () => {
     const url = new URL(attemptedUrl as unknown as string);
     expect(url.hostname).toBe("discord.com");
     expect(url.pathname).toBe("/oauth2/authorize");
-    // AC2 (frontend proof): the ONLY permission requested is the one that
-    // reveals the Discord user id — never a broader scope.
-    expect(url.searchParams.get("scope")).toBe("identify");
+    // AC11 (frontend proof, KODI-024): identity, the servers the user is
+    // in, and the user's roles in those servers - and nothing more.
+    expect(url.searchParams.get("scope")).toBe(
+      "identify guilds guilds.members.read",
+    );
     expect(url.searchParams.get("state")).toBeTruthy();
   });
 
