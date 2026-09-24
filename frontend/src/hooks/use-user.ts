@@ -6,7 +6,7 @@ import { getApiError } from "@/lib/api-client";
 import { services } from "@/services/services";
 import { UpdateUserPayload } from "@/services/types/users";
 
-const USER_QUERY_KEY = ["user", "me"] as const;
+export const USER_QUERY_KEY = ["user", "me"] as const;
 
 export function useUserProfile(enabled = true) {
   return useQuery({

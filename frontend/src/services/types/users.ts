@@ -23,6 +23,11 @@ export interface User {
   linkedin_url?: string;
   tech_stack?: string[];
   is_admin?: boolean;
+  /**
+   * Whether a Discord account is linked (KODI-022). Never carries the
+   * Discord id, name or avatar — the profile only ever renders this flag.
+   */
+  discord_linked: boolean;
 }
 
 export type UpdateUserPayload = Partial<
