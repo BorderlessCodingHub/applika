@@ -32,7 +32,7 @@ class UserProfile(BaseSchema, TimeSchema):
     is_admin: bool = False
     # Whether Discord is linked (KODI-020, R-018). Never the id itself - that
     # stays internal to ``UserDTO``/``UserModel`` and is never a field here.
-    # ``from_discord_id`` is the one place that reads it, so the presentation
+    # ``from_user`` is the one place that reads it, so the presentation
     # layer never has to name ``discord_id``.
     discord_linked: bool = False
 

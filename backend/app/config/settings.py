@@ -105,4 +105,4 @@ class Settings(BaseSettings):
         return '/openapi.json'
 
 
-envs = Settings()
+envs = Settings()  # ty: ignore[missing-argument]
