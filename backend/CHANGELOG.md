@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - KODI-024 Discord connection record (ADR-0013, supersedes ADR-0008/KODI-020):
-  connect, conflict, disconnect, reconnect, `/users/me` `discord` object.
+  connect, transfer, disconnect, reconnect, `/users/me` `discord` object.
   Keeps GitHub as the only way to sign in - the flow never creates, changes
   or reads an Applika session cookie beyond resolving who is already signed
   in.
@@ -79,9 +79,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     (`None` on `InvalidToken` or an unset key), a Discord-only Fernet pair
     beside the existing GitHub ones.
   - `app/domain/repositories/discord_connection_repository.py` (new) owns
-    the connection row: `link` (connect/reconnect, `ResourceConflict` on a
-    Discord id already owned by another user, pre-check plus an
-    `IntegrityError` on `uq_discord_connections_discord_id` for a race),
+    the connection row: `link` (connect/reconnect/transfer - a Discord id
+    held by another user moves to the caller, that user's row deleted in
+    the same transaction; `ResourceConflict` only on a two-user race, an
+    `IntegrityError` on `uq_discord_connections_discord_id`),
     `store_grant`, `mark_needs_reconnect`, `delete_by_user_id` (idempotent).
     `user_repository.link_discord`/`unlink_discord`/`get_by_discord_id` and
     `users.discord_id` are gone; `UserDTO.discord_id` is gone too.

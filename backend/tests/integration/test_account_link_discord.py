@@ -110,8 +110,19 @@ def _override_discord_service(fake: FakeDiscordOAuthService):
 @pytest_asyncio.fixture
 async def raw_client(async_engine):
     """A client with no auth override: exercises the real cookie/session
-    flow the callback and the 401 paths need."""
-    SessionLocal = async_sessionmaker(bind=async_engine, expire_on_commit=False)
+    flow the callback and the 401 paths need.
+
+    ``autoflush=False`` matches ``app/config/db.py``'s production
+    sessionmaker (backend-qa finding B1, KODI-024 R-008 delta): with the
+    default ``autoflush=True`` this fixture had, the SELECT inside
+    ``get_by_user_id`` implicitly flushed the pending holder-row DELETE in
+    ``DiscordConnectionRepository.link`` before the caller's row was
+    written, silently covering for a missing explicit ``flush()`` in
+    production code. Matching production's ``autoflush=False`` here makes
+    the transfer tests actually exercise (and protect) that flush."""
+    SessionLocal = async_sessionmaker(
+        bind=async_engine, expire_on_commit=False, autoflush=False
+    )
 
     async def override_get_session():
         async with SessionLocal() as session:
