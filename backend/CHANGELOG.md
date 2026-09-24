@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-023 Migration ba44f9cfd3c1 (Release A2, expand only): enum
+  discord_connection_status, tables discord_connections and
+  discord_report_webhooks; users untouched; no code reads them yet.
 - KODI-022 `app/scripts/seed_e2e.py` seeds a third deterministic E2E user,
   `e2e-discord` (`github_id 999000000003`), already linked to a fixed
   synthetic Discord id (`E2E_DISCORD_ID`, re-set on every seed run so an
@@ -62,8 +65,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     another user (`ResourceConflict`, pre-check and an `IntegrityError` on
     `ix_users_discord_id` for a race) and is a no-op when the same user
     relinks the same id; `unlink_discord` is idempotent.
-- KODI-019 `users.discord_id` BIGINT NULL, unique index
-  `ix_users_discord_id`; no code reads it yet (Release A).
 - KODI-017 (part 3, T090/T091) Four new read-side GET export routes, all
   owner-scoped, all 404 when not owned / no copy, none carrying a
   finalized/archived guard (R-024/R-025):
