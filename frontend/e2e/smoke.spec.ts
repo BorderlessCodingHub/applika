@@ -142,6 +142,11 @@ const PAGES: PageCase[] = [
     visitors: ["admin"],
     assert: heading("User Management", 1),
   },
+  {
+    path: "/admin/discord-webhooks",
+    visitors: ["admin"],
+    assert: heading("Discord webhooks", 1),
+  },
 ];
 
 test.describe("every page renders against the real stack", () => {

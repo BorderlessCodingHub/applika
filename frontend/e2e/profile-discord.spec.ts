@@ -94,16 +94,27 @@ test.describe("KODI-022 connected accounts — Discord", () => {
     ).toBeVisible();
   });
 
-  test("a linked user sees Discord connected and no Connect action", async ({
+  test("a linked user sees Connected as E2E Discord, the icon fallback and no id text", async ({
     page,
   }) => {
     await loginAs(page, "discord");
     await page.goto("/profile");
 
     const discordRow = page.locator('li[data-provider="discord"]');
+    await expect(discordRow).toHaveAttribute("data-state", "linked");
     await expect(
       discordRow.getByText("Discord connected", { exact: true }),
     ).toBeVisible();
+    // AC4: "Connected as <name>", the seeded global_name — never the id.
+    await expect(
+      discordRow.getByText("Connected as E2E Discord", { exact: true }),
+    ).toBeVisible();
+    // The seed links e2e-discord with no avatar, so only the Discord icon
+    // fallback renders — never an <img> (no avatar_url to point one at).
+    await expect(discordRow.getByRole("img")).toHaveCount(0);
+    // AC4: the Discord id (a snowflake) is never on the card.
+    const rowText = await discordRow.innerText();
+    expect(rowText).not.toMatch(/\d{15,25}/);
     await expect(
       page.getByRole("button", { name: "Connect Discord", exact: true }),
     ).toHaveCount(0);
@@ -137,7 +148,11 @@ test.describe("KODI-022 connected accounts — Discord", () => {
       headers: { Cookie: authCookieHeader("discord") },
     });
     expect(res.status()).toBe(200);
-    const body = (await res.json()) as { discord_linked: boolean };
+    const body = (await res.json()) as {
+      discord_linked: boolean;
+      discord: unknown;
+    };
     expect(body.discord_linked).toBe(false);
+    expect(body.discord).toBeNull();
   });
 });

@@ -20,6 +20,7 @@ const ADMIN_PATHS = [
   "/admin/companies",
   "/admin/supports",
   "/admin/users",
+  "/admin/discord-webhooks",
 ];
 
 test.describe("a non-admin cannot reach the admin surface", () => {
