@@ -15,6 +15,8 @@ import type {
   AdminCompaniesParams,
   AdminUpdateUser,
   AdminUsersParams,
+  CreateDiscordWebhook,
+  UpdateDiscordWebhook,
 } from "@/services/types/admin";
 
 // ── Dashboard Analytics ─────────────────────────────────────────────
@@ -213,3 +215,51 @@ export function useDeleteAdminPlatform() {
 
 // Step/feedback definition hooks removed (PRD 0008, ADR 0012, R-021): admins
 // can no longer create, edit or delete step or feedback definitions.
+
+// ── Report webhooks (KODI-027) ──────────────────────────────────────────
+
+const DISCORD_WEBHOOKS_KEY = ["admin", "discord-webhooks"] as const;
+
+export function useAdminDiscordWebhooks() {
+  return useQuery({
+    queryKey: DISCORD_WEBHOOKS_KEY,
+    queryFn: () => services.admin.getDiscordWebhooks(),
+    staleTime: 60_000,
+  });
+}
+
+export function useCreateDiscordWebhook() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: CreateDiscordWebhook) =>
+      services.admin.createDiscordWebhook(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: DISCORD_WEBHOOKS_KEY });
+      toast.success("Webhook added");
+    },
+  });
+}
+
+export function useUpdateDiscordWebhook() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateDiscordWebhook }) =>
+      services.admin.updateDiscordWebhook(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: DISCORD_WEBHOOKS_KEY });
+      toast.success("Webhook updated");
+    },
+  });
+}
+
+export function useDeleteDiscordWebhook() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => services.admin.deleteDiscordWebhook(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: DISCORD_WEBHOOKS_KEY });
+      toast.success("Webhook deleted");
+    },
+    onError: (err: AxiosError) => toast.error(getApiError(err)),
+  });
+}

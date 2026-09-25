@@ -96,7 +96,6 @@ export interface AdminUserDetail extends AdminUserRow {
   linkedin_url?: string;
   tech_stack?: string[];
   availability?: string;
-  is_org_member: boolean;
 }
 
 export interface AdminUpdateUser {
@@ -145,3 +144,36 @@ export interface AdminPlatform {
 // R-021): admins can no longer create, edit or delete step or feedback
 // definitions — `/admin/step-definitions*` and `/admin/feedback-definitions*`
 // now 404.
+
+/**
+ * Admin report webhook (KODI-027, plan 0009 · `/admin/discord-webhooks`,
+ * ADR-0013). `webhook_url_masked` is the ONLY address form the API ever
+ * returns — the full URL is never sent back after creation (AC3/AC9).
+ */
+export interface AdminDiscordWebhook {
+  id: string;
+  label: string | null;
+  guild_id: string;
+  role_ids: string[];
+  webhook_url_masked: string;
+  created_at: string;
+  updated_at: string | null;
+}
+
+/** `POST /admin/discord-webhooks` body. Every field but `webhook_url` and
+ * `guild_id` is optional. */
+export interface CreateDiscordWebhook {
+  webhook_url: string;
+  guild_id: string;
+  role_ids?: string[];
+  label?: string | null;
+}
+
+/** `PATCH /admin/discord-webhooks/{id}` body — the server uses
+ * `exclude_unset`, so only the keys present here are changed. */
+export interface UpdateDiscordWebhook {
+  webhook_url?: string;
+  guild_id?: string;
+  role_ids?: string[];
+  label?: string | null;
+}

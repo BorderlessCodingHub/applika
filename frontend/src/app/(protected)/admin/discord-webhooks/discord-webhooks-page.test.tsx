@@ -1,0 +1,253 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+
+import { DiscordWebhooksPage } from "./discord-webhooks-page";
+import { services } from "@/services/services";
+import type { AdminDiscordWebhook } from "@/services/types/admin";
+
+/**
+ * KODI-027 (plan 0009, T146) — the admin Discord webhooks page: the masked
+ * list, the zod validation mirroring the server, role-id parsing/dedupe, the
+ * edit form's "blank URL keeps the stored one" contract, and the delete
+ * confirmation. Pattern: `admin/supports/supports-page.test.tsx` (mock
+ * `services`, not the hooks).
+ */
+
+vi.mock("@/services/services", () => ({
+  services: {
+    admin: {
+      getDiscordWebhooks: vi.fn(),
+      createDiscordWebhook: vi.fn(),
+      updateDiscordWebhook: vi.fn(),
+      deleteDiscordWebhook: vi.fn(),
+    },
+  },
+}));
+
+const ROW: AdminDiscordWebhook = {
+  id: "w1",
+  label: "Main reports",
+  guild_id: "111111111111111111",
+  role_ids: ["222222222222222222"],
+  webhook_url_masked:
+    "https://discord.com/api/webhooks/111111111111111111/…wxyz",
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: null,
+};
+
+function renderPage() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <DiscordWebhooksPage />
+    </QueryClientProvider>,
+  );
+}
+
+beforeEach(() => {
+  vi.mocked(services.admin.getDiscordWebhooks).mockReset();
+  vi.mocked(services.admin.createDiscordWebhook).mockReset();
+  vi.mocked(services.admin.updateDiscordWebhook).mockReset();
+  vi.mocked(services.admin.deleteDiscordWebhook).mockReset();
+});
+
+describe("DiscordWebhooksPage", () => {
+  it("shows the loading state, then an empty state with no webhooks", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([]);
+    renderPage();
+
+    expect(screen.getByText("Loading webhooks")).toBeInTheDocument();
+
+    await waitFor(() =>
+      expect(screen.getByText("No webhooks yet")).toBeInTheDocument(),
+    );
+  });
+
+  it("renders a masked row and never the full webhook address", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([ROW]);
+    const { container } = renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("Main reports")).toBeInTheDocument(),
+    );
+
+    expect(screen.getByText(ROW.webhook_url_masked)).toBeInTheDocument();
+    // The real token never appears anywhere on the page (AC9).
+    expect(container.textContent).not.toMatch(/wxyz.*wxyz/);
+    expect(container.textContent).not.toContain("real-token-should-not-leak");
+  });
+
+  it("Add webhook: refuses an empty submit with the server's own messages", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("No webhooks yet")).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Add webhook" }));
+    await user.click(screen.getByRole("button", { name: "Save webhook" }));
+
+    expect(
+      await screen.findByText("Webhook URL is required"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Server id is required")).toBeInTheDocument();
+    expect(services.admin.createDiscordWebhook).not.toHaveBeenCalled();
+  });
+
+  it("Add webhook: refuses an invalid URL, server id, role id and an over-long label", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("No webhooks yet")).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Add webhook" }));
+
+    await user.type(
+      screen.getByLabelText("Webhook URL"),
+      "https://example.com/not-discord",
+    );
+    await user.type(screen.getByLabelText("Server id"), "not-an-id");
+    await user.type(screen.getByLabelText("Role ids"), "also-not-an-id");
+    await user.click(screen.getByLabelText("Label"));
+    await user.paste("x".repeat(101));
+    await user.click(screen.getByRole("button", { name: "Save webhook" }));
+
+    expect(
+      await screen.findByText("Invalid Discord webhook URL"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Invalid Discord server id")).toBeInTheDocument();
+    expect(screen.getByText("Invalid Discord role id")).toBeInTheDocument();
+    expect(
+      screen.getByText("Label must be at most 100 characters"),
+    ).toBeInTheDocument();
+    expect(services.admin.createDiscordWebhook).not.toHaveBeenCalled();
+  });
+
+  it("Add webhook: refuses more than 25 role ids", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("No webhooks yet")).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Add webhook" }));
+
+    const tooMany = Array.from({ length: 26 }, (_, i) =>
+      (BigInt("100000000000000000") + BigInt(i)).toString(),
+    ).join(",");
+    await user.type(
+      screen.getByLabelText("Webhook URL"),
+      "https://discord.com/api/webhooks/111111111111111111/" + "a".repeat(20),
+    );
+    await user.type(screen.getByLabelText("Server id"), "111111111111111111");
+    await user.click(screen.getByLabelText("Role ids"));
+    await user.paste(tooMany);
+    await user.click(screen.getByRole("button", { name: "Save webhook" }));
+
+    expect(
+      await screen.findByText("A webhook may hold at most 25 role ids"),
+    ).toBeInTheDocument();
+    expect(services.admin.createDiscordWebhook).not.toHaveBeenCalled();
+  });
+
+  it("Add webhook: parses, splits and dedupes role ids on submit", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([]);
+    vi.mocked(services.admin.createDiscordWebhook).mockResolvedValue(ROW);
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("No webhooks yet")).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Add webhook" }));
+
+    await user.type(
+      screen.getByLabelText("Webhook URL"),
+      "https://discord.com/api/webhooks/111111111111111111/" + "a".repeat(20),
+    );
+    await user.type(screen.getByLabelText("Server id"), "111111111111111111");
+    await user.type(
+      screen.getByLabelText("Role ids"),
+      "222222222222222222, 333333333333333333 222222222222222222{enter}444444444444444444",
+    );
+    await user.type(screen.getByLabelText("Label"), "Main");
+    await user.click(screen.getByRole("button", { name: "Save webhook" }));
+
+    await waitFor(() =>
+      expect(services.admin.createDiscordWebhook).toHaveBeenCalledTimes(1),
+    );
+    const payload = vi.mocked(services.admin.createDiscordWebhook).mock
+      .calls[0][0];
+    expect(payload.role_ids).toEqual([
+      "222222222222222222",
+      "333333333333333333",
+      "444444444444444444",
+    ]);
+    expect(payload.label).toBe("Main");
+  });
+
+  it("Edit: leaving the URL blank omits webhook_url and only sends changed fields", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([ROW]);
+    vi.mocked(services.admin.updateDiscordWebhook).mockResolvedValue(ROW);
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("Main reports")).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Edit Main reports" }));
+
+    const urlInput = await screen.findByLabelText("Webhook URL");
+    expect(urlInput).toHaveValue("");
+
+    const labelInput = screen.getByLabelText("Label");
+    await user.clear(labelInput);
+    await user.type(labelInput, "Renamed");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(services.admin.updateDiscordWebhook).toHaveBeenCalledTimes(1),
+    );
+    const [id, payload] = vi.mocked(services.admin.updateDiscordWebhook).mock
+      .calls[0];
+    expect(id).toBe("w1");
+    expect(payload).toEqual({ label: "Renamed" });
+    expect(payload.webhook_url).toBeUndefined();
+  });
+
+  it("Delete: Cancel does not delete, confirming does", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([ROW]);
+    vi.mocked(services.admin.deleteDiscordWebhook).mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("Main reports")).toBeInTheDocument(),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Delete Main reports" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(services.admin.deleteDiscordWebhook).not.toHaveBeenCalled();
+
+    await user.click(
+      screen.getByRole("button", { name: "Delete Main reports" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    await waitFor(() =>
+      expect(services.admin.deleteDiscordWebhook).toHaveBeenCalledWith("w1"),
+    );
+  });
+});

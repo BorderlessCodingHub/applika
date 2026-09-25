@@ -3,6 +3,7 @@ import type {
   ActivityHeatmapPoint,
   AdminCompaniesParams,
   AdminCompanyRow,
+  AdminDiscordWebhook,
   AdminPlatform,
   AdminPlatformStats,
   AdminUpdateUser,
@@ -10,11 +11,13 @@ import type {
   AdminUserRow,
   AdminUsersParams,
   CreateCompany,
+  CreateDiscordWebhook,
   PaginatedResponse,
   SeniorityBreakdown,
   TopCompanyStat,
   TopPlatformStat,
   UpdateCompany,
+  UpdateDiscordWebhook,
   UserGrowthPoint,
 } from "@/services/types/admin";
 
@@ -129,4 +132,33 @@ export class AdminService {
   // Step/feedback definition CRUD removed (PRD 0008, ADR 0012, R-021):
   // `/admin/step-definitions*` and `/admin/feedback-definitions*` now 404 —
   // the web must never call them.
+
+  // ── Report webhooks (KODI-027) ──────────────────────────────────────
+
+  getDiscordWebhooks(): Promise<AdminDiscordWebhook[]> {
+    return api
+      .get<AdminDiscordWebhook[]>("/admin/discord-webhooks")
+      .then((r) => r.data);
+  }
+
+  createDiscordWebhook(
+    data: CreateDiscordWebhook,
+  ): Promise<AdminDiscordWebhook> {
+    return api
+      .post<AdminDiscordWebhook>("/admin/discord-webhooks", data)
+      .then((r) => r.data);
+  }
+
+  updateDiscordWebhook(
+    id: string,
+    data: UpdateDiscordWebhook,
+  ): Promise<AdminDiscordWebhook> {
+    return api
+      .patch<AdminDiscordWebhook>(`/admin/discord-webhooks/${id}`, data)
+      .then((r) => r.data);
+  }
+
+  deleteDiscordWebhook(id: string): Promise<void> {
+    return api.delete(`/admin/discord-webhooks/${id}`).then(() => undefined);
+  }
 }
