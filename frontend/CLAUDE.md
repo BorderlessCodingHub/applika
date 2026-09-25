@@ -955,11 +955,16 @@ static export). Nav tab "Discord" in `components/admin/admin-nav.tsx`
   when their own field is dirty — an untouched `role_ids` never resends the
   same list, and a dirty-but-emptied one sends `[]` (clears, per the
   server's `PATCH` contract), same for `label: null`.
-- The server's 409/422 `detail` is always a single fixed string on this
-  route (`_NoInputEchoRoute`, backend `CLAUDE.md`); `serverErrorFrom` renders
-  it verbatim into `div[role="alert"][data-slot="discord-webhook-form-error"]`
-  — never into a toast, and never the generic `getApiError` array-shaped
-  fallback other admin forms use.
+- **`serverErrorFrom` never hands a non-string to `<p>{serverError}</p>`.**
+  Every business-rule 409/422 on this route carries a single fixed string
+  `detail` (`_NoInputEchoRoute`, backend `CLAUDE.md`, which strips FastAPI's
+  own array-shaped validation errors from this router's 422s) and
+  `serverErrorFrom` renders it verbatim into
+  `div[role="alert"][data-slot="discord-webhook-form-error"]` — never a toast.
+  A `detail` that is still an array (a raw framework-level 422 slipping past
+  the router) or missing (a non-JSON 5xx body) falls back to a fixed message
+  instead of the generic `getApiError`, which would hand back that same
+  non-string value unguarded and either crash the render or show "undefined".
 - **E2E** (`e2e/admin-discord-webhooks.spec.ts`, serial, new for KODI-027): a
   valid-FORMAT fake webhook URL and ids — the backend never calls Discord on
   save (an explicit non-goal), so no `discord.com` mock is needed at all. The
