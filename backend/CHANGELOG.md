@@ -200,6 +200,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- KODI-029 `users.is_org_member` renamed `is_org_member_old` (Release C,
+  migration only, revision `583226ca46bc`); values kept; nothing reads it.
 - KODI-026 Report submission now routes to Discord by the submitting user's
   live server (guild) membership and, optionally, their roles in it — the
   single `DISCORD_REPORTS_WEBHOOK`/`DISCORD_REPORTS_ORGANIZATION` gate is
