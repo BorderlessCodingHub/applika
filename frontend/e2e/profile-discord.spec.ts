@@ -111,7 +111,13 @@ test.describe("KODI-022 connected accounts — Discord", () => {
     ).toBeVisible();
     // The seed links e2e-discord with no avatar, so only the Discord icon
     // fallback renders — never an <img> (no avatar_url to point one at).
-    await expect(discordRow.getByRole("img")).toHaveCount(0);
+    // `locator("img")` rather than `getByRole("img")`: the avatar wrapper is
+    // `aria-hidden` and an `<img alt="">` carries no accessible role either,
+    // so a role-based query would find zero even if an image DID render.
+    await expect(discordRow.locator("img")).toHaveCount(0);
+    await expect(
+      discordRow.locator('[data-slot="avatar-fallback"] svg'),
+    ).toBeVisible();
     // AC4: the Discord id (a snowflake) is never on the card.
     const rowText = await discordRow.innerText();
     expect(rowText).not.toMatch(/\d{15,25}/);
