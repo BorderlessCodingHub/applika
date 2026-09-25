@@ -19,7 +19,10 @@ import { SelectOptions } from "@/options";
 import { LinkedinIcon } from "../brand-icons";
 import { Badge } from "../ui/badge";
 import { getCurrencySymbol } from "./edit-form-config";
-import { ConnectedAccounts } from "./connected-accounts";
+import {
+  ConnectedAccounts,
+  toConnectedDiscordAccount,
+} from "./connected-accounts";
 import { useDeleteAccount } from "@/hooks/use-user";
 import {
   useStartDiscordLink,
@@ -253,15 +256,7 @@ export function UserProfileView({
 
       {/* Connected accounts */}
       <ConnectedAccounts
-        account={
-          user.discord
-            ? {
-                name: user.discord.global_name || user.discord.username,
-                avatarUrl: user.discord.avatar_url,
-                needsReconnect: user.discord.status === "needs_reconnect",
-              }
-            : null
-        }
+        account={toConnectedDiscordAccount(user.discord)}
         onConnect={() => startDiscordLink.mutate()}
         onDisconnect={() => unlinkDiscord.mutate()}
         isConnecting={startDiscordLink.isPending || startDiscordLink.isSuccess}

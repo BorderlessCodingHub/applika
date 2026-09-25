@@ -1,7 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 
-import { ConnectedAccounts } from "./connected-accounts";
+import {
+  ConnectedAccounts,
+  toConnectedDiscordAccount,
+} from "./connected-accounts";
+import type { DiscordAccount } from "@/services/types/users";
 
 /**
  * KODI-027 (plan 0009, T140/T141/T142) — the "Connected accounts" card,
@@ -10,10 +14,31 @@ import { ConnectedAccounts } from "./connected-accounts";
  * can show "Connected as <name>" and a Reconnect state. Covers all three
  * states (unlinked, linked, needs_reconnect), the Connect/Reconnect/
  * Disconnect wiring, the AlertDialog confirmation, and pins the privacy
- * rule: never render a Discord id, and never an avatar `<img>` in jsdom
- * (Radix `AvatarImage` never mounts without a real image load, so only the
- * fallback renders — see the design note).
+ * rule: never render a Discord id. `toConnectedDiscordAccount` (the
+ * `User.discord` -> `account` mapping `profile-view.tsx` uses) is tested
+ * directly here rather than only through a fixture that already holds the
+ * computed name, so the `global_name || username` fallback and the
+ * `needsReconnect` derivation are actually exercised.
  */
+
+/**
+ * Radix `AvatarImage` resolves synchronously off `image.complete` /
+ * `image.naturalWidth` (`resolveLoadingStatus` in
+ * `@radix-ui/react-avatar`) — never off jsdom's real (never-firing) image
+ * load. A stub with both set renders the `<img>`; the default jsdom `Image`
+ * (used everywhere else in this file) never satisfies that check, so those
+ * tests correctly see only the fallback.
+ */
+class LoadedImageStub {
+  complete = true;
+  naturalWidth = 64;
+  addEventListener() {}
+  removeEventListener() {}
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 function renderCard(
   overrides: Partial<React.ComponentProps<typeof ConnectedAccounts>> = {},
@@ -86,6 +111,28 @@ describe("ConnectedAccounts", () => {
     const fallback = document.querySelector('[data-slot="avatar-fallback"]');
     expect(fallback).toBeInTheDocument();
     expect(fallback?.querySelector("svg")).toBeInTheDocument();
+  });
+
+  it("linked with an avatarUrl renders the avatar image, not the fallback", () => {
+    vi.stubGlobal("Image", LoadedImageStub);
+
+    renderCard({
+      account: {
+        name: "Ada",
+        avatarUrl: "https://cdn.discordapp.com/avatars/1/a.png",
+        needsReconnect: false,
+      },
+    });
+
+    const image = document.querySelector('img[data-slot="avatar-image"]');
+    expect(image).toHaveAttribute(
+      "src",
+      "https://cdn.discordapp.com/avatars/1/a.png",
+    );
+    expect(image).toHaveAttribute("alt", "");
+    expect(
+      document.querySelector('[data-slot="avatar-fallback"]'),
+    ).not.toBeInTheDocument();
   });
 
   it("never renders a Discord id anywhere", () => {
@@ -236,5 +283,55 @@ describe("ConnectedAccounts", () => {
     });
     expect(disconnect).toBeDisabled();
     expect(disconnect).toHaveAttribute("aria-busy", "true");
+  });
+});
+
+describe("toConnectedDiscordAccount", () => {
+  const BASE: DiscordAccount = {
+    username: "adalovelace",
+    global_name: "Ada Lovelace",
+    avatar_url: "https://cdn.discordapp.com/avatars/1/a.png",
+    status: "active",
+  };
+
+  it("maps null to null (unlinked)", () => {
+    expect(toConnectedDiscordAccount(null)).toBeNull();
+  });
+
+  it("prefers global_name over username", () => {
+    expect(toConnectedDiscordAccount(BASE)).toEqual({
+      name: "Ada Lovelace",
+      avatarUrl: BASE.avatar_url,
+      needsReconnect: false,
+    });
+  });
+
+  it("falls back to username when global_name is an empty string (|| not ??)", () => {
+    expect(toConnectedDiscordAccount({ ...BASE, global_name: "" })!.name).toBe(
+      "adalovelace",
+    );
+  });
+
+  it("falls back to username when global_name is null", () => {
+    expect(
+      toConnectedDiscordAccount({ ...BASE, global_name: null })!.name,
+    ).toBe("adalovelace");
+  });
+
+  it("maps status: needs_reconnect to needsReconnect: true", () => {
+    expect(
+      toConnectedDiscordAccount({ ...BASE, status: "needs_reconnect" })!
+        .needsReconnect,
+    ).toBe(true);
+  });
+
+  it("maps status: active to needsReconnect: false", () => {
+    expect(toConnectedDiscordAccount(BASE)!.needsReconnect).toBe(false);
+  });
+
+  it("passes a null avatar_url through as avatarUrl: null", () => {
+    expect(
+      toConnectedDiscordAccount({ ...BASE, avatar_url: null })!.avatarUrl,
+    ).toBeNull();
   });
 });

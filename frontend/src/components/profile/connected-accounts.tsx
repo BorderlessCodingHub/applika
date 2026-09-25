@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { DiscordAccount } from "@/services/types/users";
 
 export interface ConnectedDiscordAccount {
   name: string;
@@ -27,6 +28,23 @@ export interface ConnectedDiscordAccount {
 }
 
 export type DiscordCardState = "linked" | "unlinked" | "needs_reconnect";
+
+/**
+ * `User.discord` (the wire shape) to the card's own `account` prop — the ONE
+ * place `global_name || username` (never `??`, an empty string still falls
+ * back) and `status === "needs_reconnect"` are derived, so `profile-view.tsx`
+ * and any test can both exercise the real mapping instead of pre-built props.
+ */
+export function toConnectedDiscordAccount(
+  discord: DiscordAccount | null,
+): ConnectedDiscordAccount | null {
+  if (!discord) return null;
+  return {
+    name: discord.global_name || discord.username,
+    avatarUrl: discord.avatar_url,
+    needsReconnect: discord.status === "needs_reconnect",
+  };
+}
 
 export interface ConnectedAccountsProps {
   account?: ConnectedDiscordAccount | null;
