@@ -823,20 +823,38 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   assert on `/reason:\s*<label>/i`, never an exact string, the same convention
   `InterviewTypeBadge` already set.
 
-### Profile — connected accounts (`src/components/profile/`, KODI-022)
+### Profile — connected accounts (`src/components/profile/`, KODI-022, revised KODI-027)
 
 The owner: "Keep github login but add an option in user profile to sincronize
 with discord." `/profile` gained a **Connected accounts** card, above Delete
 account, for Discord only (GitHub stays login-only, never a link/unlink
 target).
 
-- `connected-accounts.tsx` (`ConnectedAccounts`) is presentational: `linked`,
-  `onConnect`, `onDisconnect`, `isConnecting?`, `isDisconnecting?`. It never
-  takes a Discord id, name or avatar prop — `GET /users/me` exposes only
-  `discord_linked: boolean`, and the API never returns more. Unlinked shows
-  "Connect Discord"; linked shows the badge "Discord connected" and
-  "Disconnect Discord" behind an `AlertDialog` ("Cancel" / "Disconnect").
-  Hooks: `li[data-provider="discord"][data-state="linked"|"unlinked"]`.
+- `connected-accounts.tsx` (`ConnectedAccounts`) is presentational and takes
+  `account?: { name; avatarUrl; needsReconnect } | null` (KODI-027 — replaced
+  the KODI-022 `linked: boolean`, once `GET /users/me` grew a real
+  `discord: DiscordAccount | null` beyond the bare `discord_linked` flag) plus
+  `onConnect`, `onDisconnect`, `isConnecting?`, `isDisconnecting?`. It still
+  never takes the Discord **id** — `discordCardState(account)` derives one of
+  three states, `li[data-provider="discord"][data-state="unlinked"|"linked"|
+"needs_reconnect"]`:
+  - **unlinked** (`account` null): badge "Not connected", "Connect Discord".
+  - **linked**: `Avatar` (`AvatarImage` when `avatarUrl`, else the
+    `DiscordIcon` fallback — Radix `AvatarImage` never mounts in jsdom, so a
+    vitest assertion on the fallback has to read
+    `[data-slot="avatar-fallback"]`, never `getByRole("img")`), a green status
+    dot, badge "Discord connected", `p[data-slot="discord-account-name"]`
+    reading exactly "Connected as `<name>`" (`global_name || username`, `||`
+    not `??` — an empty `global_name` string still falls back), and
+    "Disconnect Discord" behind an `AlertDialog` ("Cancel" / "Disconnect").
+  - **needs_reconnect** (AC5/AC6, `account.needsReconnect`): the same avatar
+    and name line, an amber dot, badge "Reconnect needed", a primary
+    "Reconnect Discord" button wired to the **same** `onConnect` as
+    "Connect Discord" (same OAuth consent flow, AC6), THEN "Disconnect
+    Discord" — "Connect Discord" never renders while a connection exists,
+    reconnected or not.
+  - `profile-view.tsx` maps `user.discord` to the prop; `ConnectedAccounts`
+    itself owns none of that derivation.
 - `discord-link-notice.tsx` (`DiscordLinkNotice`, `DISCORD_LINK_STATUSES`,
   `isDiscordLinkStatus`) renders the post-redirect outcome: `linked` ("Discord
   connected. Your reports and feedback will mention you.", `role="status"`),
@@ -877,8 +895,80 @@ target).
   `E2E_DISCORD_REFRESH_TOKEN` are exported by `scripts/e2e.sh` alongside the
   existing `E2E_*`/`E2E_ADMIN_*` pairs. Real `discord.com` is never reached:
   the spec's `page.route("**://discord.com/**", ...)` aborts the navigation
-  and asserts the ATTEMPTED authorize URL (`scope=identify`, a `state`
-  param) instead of following it.
+  and asserts the ATTEMPTED authorize URL (`scope=identify guilds
+guilds.members.read`, a `state` param) instead of following it. Since
+  KODI-027 the linked-state test also asserts the seeded row directly:
+  "Connected as E2E Discord" (the seed's `global_name`), no `<img>` (the seed
+  links with no avatar, so only the `DiscordIcon` fallback renders) and no
+  snowflake-shaped text anywhere in the card; the final Disconnect test reads
+  back `GET /users/me` and asserts both `discord_linked: false` AND
+  `discord: null`.
+
+### Admin — Discord webhooks (`app/(protected)/admin/discord-webhooks/`, KODI-027)
+
+The owner: "as an admin user i can configure which webhooks to send my
+reports (new table to save the discord webhook url, the server id … and
+multiples roles id …)". Pattern: `admin/supports/supports-page.tsx` (a thin
+`page.tsx` shell over a `*-page.tsx`, no dynamic route segment — this is a
+static export). Nav tab "Discord" in `components/admin/admin-nav.tsx`
+(`/admin/discord-webhooks`, lucide `Webhook` icon).
+
+- `services/types/admin.ts` carries `AdminDiscordWebhook` (`id`, `label`,
+  `guild_id`, `role_ids: string[]`, `webhook_url_masked`, `created_at`,
+  `updated_at`) plus the `CreateDiscordWebhook`/`UpdateDiscordWebhook` request
+  shapes. **The full webhook address never reaches the client after
+  creation** — the API returns only `webhook_url_masked`
+  (`https://discord.com/api/webhooks/<id>/…<last 4>`), so there is no wire
+  type that carries a real `webhook_url` back.
+- `admin-service.ts` adds the CRUD (`getDiscordWebhooks`,
+  `createDiscordWebhook`, `updateDiscordWebhook`, `deleteDiscordWebhook`) and
+  `hooks/use-admin.ts` adds the matching hooks under the query key
+  `["admin", "discord-webhooks"]`. The create/update hooks raise **no** error
+  toast themselves — the PAGE catches the mutation's `onError` so a 409/422
+  can be shown inline in the dialog (see below); only `useDeleteDiscordWebhook`
+  toasts its own errors, since delete has no form to show them in.
+- `discord-webhook-list.tsx` / `discord-webhook-form-dialog.tsx`
+  (`ui-designer` components, composed by `discord-webhooks-page.tsx`) own the
+  four list states (loading/error/empty/ready,
+  `section[data-slot="discord-webhooks"][data-state]`) and the Add/Edit
+  dialog layout; the page owns the query, the zod schema and the wiring.
+- **The zod schema mirrors the server's own validators byte for byte**
+  (`backend/app/application/validators/discord_webhook.py`): the webhook URL
+  regex (`discord.com`/`discordapp.com`, `ptb`/`canary`, an optional
+  `/v<n>`, a 17-20 digit webhook id, a >=20-char token), a guild/role id
+  regex (17-20 digits) and the Postgres `BIGINT` ceiling
+  (`9223372036854775807`) — compared as **`BigInt`, never `Number`**, since a
+  20-digit numeric string already loses precision in a JS double. The five
+  fixed messages ("Invalid Discord webhook URL", "Invalid Discord server
+  id", "Invalid Discord role id", "A webhook may hold at most 25 role ids",
+  "Label must be at most 100 characters") are copied verbatim so a client
+  refusal reads exactly like the server's. `parseRoleIds` in
+  `discord-webhooks-page.tsx` splits the role-ids textarea on comma, space or
+  newline and dedupes by string value before validating the count.
+- **Edit sends only dirty fields, and a blank URL keeps the stored one.**
+  `discordWebhookToFormValues` always resets the URL field to `""` on open
+  (the stored address is a secret, never pre-filled — AC9) and joins
+  `role_ids` with `\n`. On submit, `handleUpdate` reads RHF's own
+  `formState.dirtyFields`: `webhook_url` is sent only when dirty AND
+  non-blank (so leaving it untouched, or touching and then re-blanking it,
+  both keep the stored value); `guild_id`/`role_ids`/`label` are sent only
+  when their own field is dirty — an untouched `role_ids` never resends the
+  same list, and a dirty-but-emptied one sends `[]` (clears, per the
+  server's `PATCH` contract), same for `label: null`.
+- The server's 409/422 `detail` is always a single fixed string on this
+  route (`_NoInputEchoRoute`, backend `CLAUDE.md`); `serverErrorFrom` renders
+  it verbatim into `div[role="alert"][data-slot="discord-webhook-form-error"]`
+  — never into a toast, and never the generic `getApiError` array-shaped
+  fallback other admin forms use.
+- **E2E** (`e2e/admin-discord-webhooks.spec.ts`, serial, new for KODI-027): a
+  valid-FORMAT fake webhook URL and ids — the backend never calls Discord on
+  save (an explicit non-goal), so no `discord.com` mock is needed at all. The
+  suite adds one webhook, asserts the row shows the masked form and
+  `page.content()` never contains the real token, edits its role ids without
+  resending the URL (asserts the URL input reopens blank), then deletes it as
+  its own cleanup — a rerun of the suite must never accumulate rows in the
+  shared database. `admin-gating.spec.ts` and `smoke.spec.ts` both gained the
+  `/admin/discord-webhooks` route alongside the other three admin pages.
 
 ### Date Inputs
 
