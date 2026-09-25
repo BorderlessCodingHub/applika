@@ -357,3 +357,135 @@ async def test_revoke_network_error_is_swallowed(monkeypatch):
     monkeypatch.setattr(httpx, 'AsyncClient', _mock_client(handler))
 
     await service.revoke('a-refresh-token')  # must not raise
+
+
+# --- list_guild_ids / get_member_role_ids (K8, T131) ---
+
+
+@pytest.mark.asyncio
+async def test_list_guild_ids_parses_ids(monkeypatch):
+    service = _service(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == '/api/users/@me/guilds'
+        assert request.url.params['limit'] == '200'
+        assert request.headers['Authorization'] == 'Bearer tok-123'
+        return httpx.Response(
+            200,
+            json=[{'id': '111'}, {'id': '222'}],
+        )
+
+    monkeypatch.setattr(httpx, 'AsyncClient', _mock_client(handler))
+
+    guild_ids = await service.list_guild_ids('tok-123')
+
+    assert guild_ids == {111, 222}
+
+
+@pytest.mark.asyncio
+async def test_list_guild_ids_429_raises_unavailable(monkeypatch):
+    service = _service(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429)
+
+    monkeypatch.setattr(httpx, 'AsyncClient', _mock_client(handler))
+
+    with pytest.raises(DiscordUnavailable):
+        await service.list_guild_ids('tok-123')
+
+
+@pytest.mark.asyncio
+async def test_list_guild_ids_5xx_raises_unavailable(monkeypatch):
+    service = _service(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503)
+
+    monkeypatch.setattr(httpx, 'AsyncClient', _mock_client(handler))
+
+    with pytest.raises(DiscordUnavailable):
+        await service.list_guild_ids('tok-123')
+
+
+@pytest.mark.asyncio
+async def test_list_guild_ids_network_error_raises_unavailable(monkeypatch):
+    service = _service(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError('boom', request=request)
+
+    monkeypatch.setattr(httpx, 'AsyncClient', _mock_client(handler))
+
+    with pytest.raises(DiscordUnavailable):
+        await service.list_guild_ids('tok-123')
+
+
+@pytest.mark.asyncio
+async def test_get_member_role_ids_parses_roles(monkeypatch):
+    service = _service(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == '/api/users/@me/guilds/555/member'
+        return httpx.Response(200, json={'roles': ['1', '2', '3']})
+
+    monkeypatch.setattr(httpx, 'AsyncClient', _mock_client(handler))
+
+    role_ids = await service.get_member_role_ids('tok-123', 555)
+
+    assert role_ids == {1, 2, 3}
+
+
+@pytest.mark.asyncio
+async def test_get_member_role_ids_404_is_empty(monkeypatch):
+    service = _service(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404)
+
+    monkeypatch.setattr(httpx, 'AsyncClient', _mock_client(handler))
+
+    role_ids = await service.get_member_role_ids('tok-123', 555)
+
+    assert role_ids == set()
+
+
+@pytest.mark.asyncio
+async def test_get_member_role_ids_429_raises_unavailable(monkeypatch):
+    service = _service(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429)
+
+    monkeypatch.setattr(httpx, 'AsyncClient', _mock_client(handler))
+
+    with pytest.raises(DiscordUnavailable):
+        await service.get_member_role_ids('tok-123', 555)
+
+
+@pytest.mark.asyncio
+async def test_get_member_role_ids_5xx_raises_unavailable(monkeypatch):
+    service = _service(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500)
+
+    monkeypatch.setattr(httpx, 'AsyncClient', _mock_client(handler))
+
+    with pytest.raises(DiscordUnavailable):
+        await service.get_member_role_ids('tok-123', 555)
+
+
+@pytest.mark.asyncio
+async def test_get_member_role_ids_network_error_raises_unavailable(
+    monkeypatch,
+):
+    service = _service(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError('boom', request=request)
+
+    monkeypatch.setattr(httpx, 'AsyncClient', _mock_client(handler))
+
+    with pytest.raises(DiscordUnavailable):
+        await service.get_member_role_ids('tok-123', 555)

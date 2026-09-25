@@ -4,9 +4,12 @@
 network call. Covers T045: the service's ``allowed_mentions`` payload with
 and without ``mention_user_id``, that ``parse`` never carries ``everyone``,
 ``roles`` or ``users``, and that the report/feedback header is mention-free
-and byte-identical to today's string when the user is unlinked.
+and byte-identical to today's string when the user is unlinked. K8 (T131)
+adds the ``webhook_url`` per-call parameter and pins that a webhook address
+never reaches a log line or a returned error.
 """
 
+import logging
 from unittest.mock import patch
 
 import pytest
@@ -31,8 +34,9 @@ async def test_post_message_without_mention_keeps_parse_empty():
     service = DiscordService(webhook_url='https://discord.test/webhook')
     captured = {}
 
-    def fake_post(payload):
+    def fake_post(payload, webhook_url):
         captured['payload'] = payload
+        captured['webhook_url'] = webhook_url
         return True, None
 
     with patch.object(service, '_post_message', side_effect=fake_post):
@@ -47,7 +51,7 @@ async def test_post_message_with_mention_adds_users_only():
     service = DiscordService(webhook_url='https://discord.test/webhook')
     captured = {}
 
-    def fake_post(payload):
+    def fake_post(payload, webhook_url):
         captured['payload'] = payload
         return True, None
 
@@ -63,7 +67,7 @@ async def test_post_message_never_allows_everyone_or_roles():
     service = DiscordService(webhook_url='https://discord.test/webhook')
     captured = {}
 
-    def fake_post(payload):
+    def fake_post(payload, webhook_url):
         captured['payload'] = payload
         return True, None
 
@@ -75,6 +79,61 @@ async def test_post_message_never_allows_everyone_or_roles():
     assert 'everyone' not in allowed_mentions
     assert 'roles' not in allowed_mentions
     assert allowed_mentions['users'] == ['999']
+
+
+# --- Per-call webhook_url (K8, T131) ---
+
+
+@pytest.mark.asyncio
+async def test_post_message_uses_per_call_webhook_url_over_ctor_url():
+    service = DiscordService(webhook_url='https://discord.test/ctor-webhook')
+    captured = {}
+
+    def fake_post(payload, webhook_url):
+        captured['webhook_url'] = webhook_url
+        return True, None
+
+    with patch.object(service, '_post_message', side_effect=fake_post):
+        await service.post_report_message(
+            'hello', webhook_url='https://discord.test/call-webhook'
+        )
+
+    assert captured['webhook_url'] == 'https://discord.test/call-webhook'
+
+
+@pytest.mark.asyncio
+async def test_post_message_falls_back_to_ctor_url_when_none_given():
+    service = DiscordService(webhook_url='https://discord.test/ctor-webhook')
+    captured = {}
+
+    def fake_post(payload, webhook_url):
+        captured['webhook_url'] = webhook_url
+        return True, None
+
+    with patch.object(service, '_post_message', side_effect=fake_post):
+        await service.post_report_message('hello')
+
+    assert captured['webhook_url'] == 'https://discord.test/ctor-webhook'
+
+
+@pytest.mark.asyncio
+async def test_webhook_url_absent_from_logs_and_errors(caplog):
+    secret_url = 'https://discord.test/webhooks/123/super-secret-token'
+    service = DiscordService()
+
+    def fake_post(payload, webhook_url):
+        return False, 'Webhook returned status 404: not found'
+
+    with caplog.at_level(logging.DEBUG):
+        with patch.object(service, '_post_message', side_effect=fake_post):
+            posted, error = await service.post_report_message(
+                'hello', webhook_url=secret_url
+            )
+
+    assert posted is False
+    assert secret_url not in caplog.text
+    assert error is not None
+    assert secret_url not in error
 
 
 # --- Report header (T042) ---

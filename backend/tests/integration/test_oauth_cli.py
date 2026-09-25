@@ -1,3 +1,5 @@
+from urllib.parse import parse_qs, urlparse
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -48,7 +50,7 @@ async def test_cli_start_stores_pending_login(
 
     assert response.status_code == 201
     data = response.json()
-    assert data['login_url'].endswith(f"/auth/cli/login/{data['login_id']}")
+    assert data['login_url'].endswith(f'/auth/cli/login/{data["login_id"]}')
 
     stored = await auth_handoff_state_use_case.get_login(data['login_id'])
     assert stored == {
@@ -91,3 +93,40 @@ async def test_cli_exchange_redeems_code_once(
         json={'code': code},
     )
     assert reuse_response.status_code == 401
+
+
+# --- Organisation membership retired (K8, T135) ---
+
+
+@pytest.mark.asyncio
+async def test_cli_login_redirect_asks_user_email_scope_only(
+    local_async_client,
+    auth_handoff_state_use_case,
+):
+    """The CLI login redirect (`GET /auth/cli/login/{id}`, which reuses the
+    same ``github_sso`` instance as `/auth/github/login`) still reaches
+    GitHub, now asking for `user:email` only - no `read:org` (R-042/R-043).
+    That there is no `/user/orgs` call anywhere in the codebase is a
+    separate, static check: `.claude/rules` T135's
+    `grep -rn check_org_membership applika/backend/app`."""
+    start_response = await local_async_client.post(
+        '/auth/cli/start',
+        json={
+            'callback_url': 'http://127.0.0.1:43129/callback',
+            'state': 'abc',
+        },
+    )
+    assert start_response.status_code == 201
+    login_id = start_response.json()['login_id']
+
+    login_response = await local_async_client.get(
+        f'/auth/cli/login/{login_id}',
+        follow_redirects=False,
+    )
+
+    assert login_response.status_code in {302, 303, 307}
+    location = login_response.headers['location']
+    parsed = urlparse(location)
+    assert parsed.hostname == 'github.com'
+    params = parse_qs(parsed.query)
+    assert params['scope'] == ['user:email']
