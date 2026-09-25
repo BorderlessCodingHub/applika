@@ -339,9 +339,11 @@ describe("DiscordWebhooksPage", () => {
       screen.getByLabelText("Webhook URL"),
       "https://discord.com/api/webhooks/111111111111111111/" + "a".repeat(20),
     );
-    // 20 digits, within the regex, but past Number.MAX_SAFE_INTEGER AND the
-    // BIGINT ceiling — must be refused, not silently coerced by Number().
-    await user.type(screen.getByLabelText("Server id"), "99999999999999999999");
+    // One past the exact BIGINT ceiling (9223372036854775807) — must be
+    // refused by a real BigInt comparison, not a string-length heuristic
+    // that would also happen to reject any 20-digit value, or a Number()
+    // coercion that would silently round-trip this back to the ceiling.
+    await user.type(screen.getByLabelText("Server id"), "9223372036854775808");
     await user.click(screen.getByRole("button", { name: "Save webhook" }));
 
     expect(
@@ -371,6 +373,65 @@ describe("DiscordWebhooksPage", () => {
       await screen.findByText("Invalid Discord webhook URL"),
     ).toBeInTheDocument();
     expect(services.admin.createDiscordWebhook).not.toHaveBeenCalled();
+  });
+
+  it("Add webhook: refuses a role id past the BIGINT ceiling", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("No webhooks yet")).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Add webhook" }));
+
+    await user.type(
+      screen.getByLabelText("Webhook URL"),
+      "https://discord.com/api/webhooks/111111111111111111/" + "a".repeat(20),
+    );
+    await user.type(screen.getByLabelText("Server id"), "111111111111111111");
+    // One past the ceiling, but still 19 digits — within the regex's 17-20
+    // digit range, so only a real BigInt comparison (not the regex alone)
+    // catches it.
+    await user.click(screen.getByLabelText("Role ids"));
+    await user.paste("9223372036854775808");
+    await user.click(screen.getByRole("button", { name: "Save webhook" }));
+
+    expect(
+      await screen.findByText("Invalid Discord role id"),
+    ).toBeInTheDocument();
+    expect(services.admin.createDiscordWebhook).not.toHaveBeenCalled();
+  });
+
+  it("Add webhook: accepts a 100-character label made of astral-plane emoji", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([]);
+    vi.mocked(services.admin.createDiscordWebhook).mockResolvedValue(ROW);
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("No webhooks yet")).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Add webhook" }));
+
+    await user.type(
+      screen.getByLabelText("Webhook URL"),
+      "https://discord.com/api/webhooks/111111111111111111/" + "a".repeat(20),
+    );
+    await user.type(screen.getByLabelText("Server id"), "111111111111111111");
+    // Each emoji is a surrogate pair (2 UTF-16 units, 1 code point). 100 of
+    // them is exactly the server's own Python len() ceiling; .length in JS
+    // would wrongly count 200 and refuse it.
+    await user.click(screen.getByLabelText("Label"));
+    await user.paste("😀".repeat(100));
+    await user.click(screen.getByRole("button", { name: "Save webhook" }));
+
+    await waitFor(() =>
+      expect(services.admin.createDiscordWebhook).toHaveBeenCalledTimes(1),
+    );
+    expect(
+      screen.queryByText("Label must be at most 100 characters"),
+    ).not.toBeInTheDocument();
   });
 
   it("Add webhook: refuses a plain http:// address", async () => {
