@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,7 +24,6 @@ import {
   useDeleteDiscordWebhook,
   useUpdateDiscordWebhook,
 } from "@/hooks/use-admin";
-import { getApiError } from "@/lib/api-client";
 import type {
   CreateDiscordWebhook,
   UpdateDiscordWebhook,
@@ -136,7 +135,10 @@ function discordWebhookSchema(mode: DiscordWebhookFormMode) {
         });
       }
 
-      if (values.label.length > 100) {
+      // Spread to count Unicode code points, matching the server's Python
+      // `len()` — `.length` counts UTF-16 units and would refuse a label the
+      // server accepts (e.g. one holding astral-plane emoji).
+      if ([...values.label].length > 100) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["label"],
@@ -149,11 +151,21 @@ function discordWebhookSchema(mode: DiscordWebhookFormMode) {
 const ADD_SCHEMA = discordWebhookSchema("add");
 const EDIT_SCHEMA = discordWebhookSchema("edit");
 
-/** The server's single `detail` string for a 409/422, else a generic fallback. */
+/**
+ * The server's single `detail` string for a 409/422. On this route `detail`
+ * is a fixed string for every business-rule refusal
+ * (`app/application/validators/discord_webhook.py`); it can still be an
+ * ARRAY on a raw FastAPI validation error (`_NoInputEchoRoute`) or `undefined`
+ * on a non-JSON 5xx body, and `<p>{serverError}</p>` cannot render either —
+ * both fall back to a fixed message instead of `getApiError`, which would
+ * hand back that same non-string value unguarded.
+ */
 function serverErrorFrom(err: AxiosError): string {
   const detail = (err.response?.data as { detail?: unknown } | undefined)
     ?.detail;
-  return typeof detail === "string" ? detail : getApiError(err);
+  return typeof detail === "string"
+    ? detail
+    : "Could not save the webhook. Try again.";
 }
 
 export function DiscordWebhooksPage() {
@@ -172,6 +184,11 @@ export function DiscordWebhooksPage() {
   const [editTarget, setEditTarget] = useState<DiscordWebhookRow | null>(null);
   const [editServerError, setEditServerError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Kept across the close animation: `editTarget` clears immediately on
+  // close, but the dialog stays mounted (and visible) for its exit
+  // transition, and it must keep showing "Current: <masked>" for that beat
+  // rather than snapping to the Add-mode helper text.
+  const lastEditMasked = useRef<string | null>(null);
 
   const addForm = useForm<DiscordWebhookFormValues>({
     resolver: zodResolver(ADD_SCHEMA),
@@ -195,6 +212,7 @@ export function DiscordWebhooksPage() {
   useEffect(() => {
     if (editTarget) {
       setEditServerError(null);
+      lastEditMasked.current = editTarget.webhook_url_masked;
       editForm.reset(discordWebhookToFormValues(editTarget));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -292,7 +310,9 @@ export function DiscordWebhooksPage() {
         onSubmit={handleUpdate}
         isPending={updateMutation.isPending}
         serverError={editServerError}
-        currentUrlMasked={editTarget?.webhook_url_masked ?? null}
+        currentUrlMasked={
+          editTarget?.webhook_url_masked ?? lastEditMasked.current
+        }
       />
     </div>
   );

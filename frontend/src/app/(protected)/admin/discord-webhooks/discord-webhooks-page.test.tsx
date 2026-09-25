@@ -195,6 +195,263 @@ describe("DiscordWebhooksPage", () => {
     expect(payload.label).toBe("Main");
   });
 
+  it("Add webhook: shows the server's 409 detail inline and keeps the dialog open", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([]);
+    vi.mocked(services.admin.createDiscordWebhook).mockRejectedValue({
+      response: {
+        status: 409,
+        data: { detail: "This webhook is already configured" },
+      },
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("No webhooks yet")).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Add webhook" }));
+
+    await user.type(
+      screen.getByLabelText("Webhook URL"),
+      "https://discord.com/api/webhooks/111111111111111111/" + "a".repeat(20),
+    );
+    await user.type(screen.getByLabelText("Server id"), "111111111111111111");
+    await user.click(screen.getByRole("button", { name: "Save webhook" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("This webhook is already configured");
+    expect(screen.getByRole("dialog", { name: "Add webhook" })).toBeVisible();
+  });
+
+  it("Add webhook: falls back to a fixed message when the server sends no detail string", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([]);
+    vi.mocked(services.admin.createDiscordWebhook).mockRejectedValue({
+      response: { status: 500, data: "Internal Server Error" },
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("No webhooks yet")).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Add webhook" }));
+
+    await user.type(
+      screen.getByLabelText("Webhook URL"),
+      "https://discord.com/api/webhooks/111111111111111111/" + "a".repeat(20),
+    );
+    await user.type(screen.getByLabelText("Server id"), "111111111111111111");
+    await user.click(screen.getByRole("button", { name: "Save webhook" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not save the webhook. Try again.",
+    );
+  });
+
+  it("Add webhook: the server error is cleared when the dialog is reopened", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([]);
+    vi.mocked(services.admin.createDiscordWebhook).mockRejectedValue({
+      response: {
+        status: 409,
+        data: { detail: "This webhook is already configured" },
+      },
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("No webhooks yet")).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Add webhook" }));
+    await user.type(
+      screen.getByLabelText("Webhook URL"),
+      "https://discord.com/api/webhooks/111111111111111111/" + "a".repeat(20),
+    );
+    await user.type(screen.getByLabelText("Server id"), "111111111111111111");
+    await user.click(screen.getByRole("button", { name: "Save webhook" }));
+    await screen.findByRole("alert");
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Add webhook" }));
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("Edit webhook: shows the server's 422 detail inline", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([ROW]);
+    vi.mocked(services.admin.updateDiscordWebhook).mockRejectedValue({
+      response: { status: 422, data: { detail: "Invalid Discord server id" } },
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("Main reports")).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Edit Main reports" }));
+    await user.clear(screen.getByLabelText("Server id"));
+    await user.type(screen.getByLabelText("Server id"), "999999999999999999");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Invalid Discord server id",
+    );
+    expect(screen.getByRole("dialog", { name: "Edit webhook" })).toBeVisible();
+  });
+
+  it("Add webhook: accepts a server id right at the BIGINT ceiling", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([]);
+    vi.mocked(services.admin.createDiscordWebhook).mockResolvedValue(ROW);
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("No webhooks yet")).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Add webhook" }));
+
+    await user.type(
+      screen.getByLabelText("Webhook URL"),
+      "https://discord.com/api/webhooks/111111111111111111/" + "a".repeat(20),
+    );
+    await user.type(screen.getByLabelText("Server id"), "9223372036854775807");
+    await user.click(screen.getByRole("button", { name: "Save webhook" }));
+
+    await waitFor(() =>
+      expect(services.admin.createDiscordWebhook).toHaveBeenCalledTimes(1),
+    );
+    expect(
+      screen.queryByText("Invalid Discord server id"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Add webhook: refuses a server id one past the BIGINT ceiling", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("No webhooks yet")).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Add webhook" }));
+
+    await user.type(
+      screen.getByLabelText("Webhook URL"),
+      "https://discord.com/api/webhooks/111111111111111111/" + "a".repeat(20),
+    );
+    // 20 digits, within the regex, but past Number.MAX_SAFE_INTEGER AND the
+    // BIGINT ceiling — must be refused, not silently coerced by Number().
+    await user.type(screen.getByLabelText("Server id"), "99999999999999999999");
+    await user.click(screen.getByRole("button", { name: "Save webhook" }));
+
+    expect(
+      await screen.findByText("Invalid Discord server id"),
+    ).toBeInTheDocument();
+    expect(services.admin.createDiscordWebhook).not.toHaveBeenCalled();
+  });
+
+  it("Add webhook: refuses a webhook id past the BIGINT ceiling in the URL", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("No webhooks yet")).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Add webhook" }));
+
+    await user.type(
+      screen.getByLabelText("Webhook URL"),
+      "https://discord.com/api/webhooks/99999999999999999999/" + "a".repeat(20),
+    );
+    await user.type(screen.getByLabelText("Server id"), "111111111111111111");
+    await user.click(screen.getByRole("button", { name: "Save webhook" }));
+
+    expect(
+      await screen.findByText("Invalid Discord webhook URL"),
+    ).toBeInTheDocument();
+    expect(services.admin.createDiscordWebhook).not.toHaveBeenCalled();
+  });
+
+  it("Add webhook: refuses a plain http:// address", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("No webhooks yet")).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Add webhook" }));
+
+    await user.type(
+      screen.getByLabelText("Webhook URL"),
+      "http://discord.com/api/webhooks/111111111111111111/" + "a".repeat(20),
+    );
+    await user.type(screen.getByLabelText("Server id"), "111111111111111111");
+    await user.click(screen.getByRole("button", { name: "Save webhook" }));
+
+    expect(
+      await screen.findByText("Invalid Discord webhook URL"),
+    ).toBeInTheDocument();
+    expect(services.admin.createDiscordWebhook).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      "ptb subdomain",
+      "https://ptb.discord.com/api/webhooks/111111111111111111/",
+    ],
+    [
+      "canary + discordapp + /v10",
+      "https://canary.discordapp.com/api/v10/webhooks/111111111111111111/",
+    ],
+    [
+      "plain discordapp.com",
+      "https://discordapp.com/api/webhooks/111111111111111111/",
+    ],
+  ])("Add webhook: accepts a %s webhook URL", async (_label, prefix) => {
+    vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([]);
+    vi.mocked(services.admin.createDiscordWebhook).mockResolvedValue(ROW);
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText("No webhooks yet")).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Add webhook" }));
+
+    await user.click(screen.getByLabelText("Webhook URL"));
+    await user.paste(prefix + "a".repeat(20));
+    await user.type(screen.getByLabelText("Server id"), "111111111111111111");
+    await user.click(screen.getByRole("button", { name: "Save webhook" }));
+
+    await waitFor(() =>
+      expect(services.admin.createDiscordWebhook).toHaveBeenCalledTimes(1),
+    );
+    expect(
+      screen.queryByText("Invalid Discord webhook URL"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the error state with Try again, which refetches", async () => {
+    vi.mocked(services.admin.getDiscordWebhooks)
+      .mockRejectedValueOnce(new Error("network down"))
+      .mockResolvedValueOnce([ROW]);
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(
+      await screen.findByText("Could not load webhooks"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("Main reports")).toBeInTheDocument(),
+    );
+  });
+
   it("Edit: leaving the URL blank omits webhook_url and only sends changed fields", async () => {
     vi.mocked(services.admin.getDiscordWebhooks).mockResolvedValue([ROW]);
     vi.mocked(services.admin.updateDiscordWebhook).mockResolvedValue(ROW);
