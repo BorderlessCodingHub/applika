@@ -167,7 +167,7 @@ Use cases encapsulate business operations:
 See `app/application/use_cases/applications/create_application.py` for reference.
 
 ### Authentication
-- GitHub OAuth via `fastapi-sso` with scopes `user:email`, `read:org`
+- GitHub OAuth via `fastapi-sso` with scope `user:email` (KODI-026: `read:org` and organisation membership are retired, R-042/R-043)
 - **Access token**: short-lived JWT in HTTP-only cookie (`__access`), payload `{sub: github_id, kind: 'access', exp: ...}`
 - **Refresh token**: opaque UUID stored in Redis, referenced via HTTP-only cookie (`__refresh`), TTL configurable (default 7 days)
 - **CLI login handoff**: external-browser GitHub sign-in with loopback redirect and short-lived Redis-backed exchange code; the CLI receives the same `__access` and `__refresh` session values in JSON and stores them locally
@@ -182,25 +182,43 @@ See `app/application/use_cases/applications/create_application.py` for reference
 - Cookie settings: HTTPOnly, Secure in PROD, SameSite=Lax
 
 ### GitHub Integration
-- `GitHubService` (`app/application/services/github_service.py`) validates tokens and checks org membership
+- `GitHubService` (`app/application/services/github_service.py`) validates tokens only. Organisation membership is retired (KODI-026, R-042/R-043): there is no `check_org_membership`, no `org_name`, and `UserRegistrationUseCase.execute` takes no `is_org_member` — sign-in never checks, records or returns it
 - Redis cache with configurable TTL (default 10 min) for `applika:github:token_valid:{user_id}`
-- Discord report webhook only fires for confirmed org members
-- **Webhook mentions (KODI-021).** `DiscordService.post_report_message(message,
-  mention_user_id=None)` builds `allowed_mentions` itself: `{'parse': []}` when
-  `mention_user_id` is `None` (unchanged, byte-identical to before KODI-021),
-  else `{'parse': [], 'users': [str(mention_user_id)]}` — never `everyone` or
-  `roles`, and never another user's id. Both `SubmitReportUseCase.execute` and
-  `SubmitFeedbackUseCase.execute` take an optional `discord_id` and pass it
-  straight through as `mention_user_id`; the presentation routes
-  (`reports.py`, `user_feedback.py`) read it fresh from
-  `DiscordConnectionRepositoryDp` (KODI-024 - the connection replaced
-  `users.discord_id`), in any connection status, so a report or feedback post
-  mentions the submitting user whenever they hold a Discord connection —
-  `DISCORD_CLIENT_ID`/`DISCORD_CLIENT_SECRET` being unset does not disable
-  this: the mention only needs the connection row, not a working OAuth app.
-  The message header itself also gets `<@discord_id>` appended after the
-  `@username` for a linked user; an unlinked user's header is exactly today's
-  string.
+- **Webhook mentions (KODI-021), payload shape.** `DiscordService.post_report_message(message,
+  mention_user_id=None, webhook_url=None)` builds `allowed_mentions` itself:
+  `{'parse': []}` when `mention_user_id` is `None` (byte-identical to before
+  KODI-021), else `{'parse': [], 'users': [str(mention_user_id)]}` — never
+  `everyone` or `roles`, and never another user's id. `webhook_url` posts to
+  that address, else to the constructor's own URL (`get_discord_feedback_service`
+  unchanged); the ctor no longer falls back to an env webhook — see **Report
+  routing** below for how a report's URLs are picked.
+- **Report routing (KODI-026, replaces the org-gated single webhook,
+  R-032..R-040).** `ResolveReportWebhooksUseCase.execute(user_id)`
+  (`app/application/use_cases/quinzenal_reports/resolve_report_webhooks.py`)
+  is the only rule that decides where a submitted report is posted: no
+  connection, a `needs_reconnect` connection, an unconfigured Discord app, or
+  stored `scopes` missing `guilds` all resolve to an empty route (a missing
+  `guilds` scope also marks the row `needs_reconnect`). Otherwise it locks the
+  connection row (`get_by_user_id_for_update`), renews the grant
+  (`DiscordOAuthService.refresh`) — `DiscordGrantRevoked` marks
+  `needs_reconnect`, `DiscordUnavailable` releases the lock, both leaving the
+  report unposted and the connection otherwise untouched — stores the rotated
+  refresh token (`store_grant`, encrypted, R-017) **before** any further
+  Discord call, then reads the user's live guild ids
+  (`list_guild_ids`) and selects every `DiscordReportWebhookModel` configured
+  for one of those guilds (`list_by_guild_ids`). A webhook with `role_ids` set
+  additionally needs one `get_member_role_ids` call per distinct guild (a
+  failure there drops only that guild's role-limited hooks) and is kept only
+  when the user holds at least one of the listed roles. The access token, the
+  guild ids and the role ids are never stored or logged — only the DTO's
+  `discord_id` and the resulting `webhook_urls` (`ReportRouteDTO`,
+  `webhook_urls` `repr=False`) leave the use case. `SubmitReportUseCase`
+  (`quinzenal_reports/submit_report.py`) saves the report first, always
+  answers 201 whatever Discord does, then posts the same message once per
+  resolved URL — `discord_posted` is true if any post succeeded,
+  `discord_error` is every failure's message joined by `'; '` (≤ 500 chars),
+  `None` when there was nothing to post. A Discord failure never raises past
+  this use case.
 
 ### Exception Handling
 Domain exceptions in `app/core/exceptions.py`:
@@ -459,11 +477,15 @@ ever logged or appears in `repr()` (`DiscordGrant`'s token fields are
 `repr=False`); a revoke failure is swallowed and logged without the token
 value, and never blocks the caller.
 
-Mention-reading routes (`user_feedback.py`, `reports.py` interim) read the
-connection's `discord_id` fresh through `DiscordConnectionRepositoryDp` on
-every request, in **any** connection status (R-041) - never a cached value on
-the user, so a report or feedback submitted right after
-`DELETE /auth/link/discord` carries no mention (KODI-021, below).
+`user_feedback.py` reads the connection's `discord_id` fresh through
+`DiscordConnectionRepositoryDp` on every request, in **any** connection
+status (R-041) - never a cached value on the user, so feedback submitted
+right after `DELETE /auth/link/discord` carries no mention (KODI-021,
+below). `reports.py` no longer reads the connection directly at all
+(KODI-026 retired that interim read): a report's mention comes from
+`ResolveReportWebhooksUseCase`'s `ReportRouteDTO.discord_id`, which is
+`None` whenever the connection is absent, `needs_reconnect`, or the
+Discord app is unconfigured - see **Report routing** below.
 
 ### Users (`/users`)
 | Method | Route | Auth | Description |
@@ -880,14 +902,16 @@ Optional (with defaults):
 - `GITHUB_CACHE_TTL_SECONDS`: Redis cache TTL for GitHub API checks (default: 600)
 - `CV_PDF_RENDER_TIMEOUT_SECONDS`: wall-clock ceiling for one CV PDF render (default: 30); past it the request is a 500
 - `GITHUB_TOKEN_ENCRYPTION_KEY`: Fernet key for encrypting GitHub tokens (generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
-- `DISCORD_REPORTS_ORGANIZATION`: GitHub org name; only org members get reports posted to Discord
-- `DISCORD_REPORTS_WEBHOOK`: Discord webhook for biweekly reports
 - `DISCORD_FEEDBACK_WEBHOOK`: Discord webhook for user feedback
 - `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET`: Discord OAuth app for the
   account-link flow (KODI-024, default `None`); the link routes answer 503
   until the id, the secret AND `DISCORD_TOKEN_ENCRYPTION_KEY` below are all
-  set. Unrelated to `DISCORD_REPORTS_*`/`DISCORD_FEEDBACK_WEBHOOK` above,
-  which are webhooks, not an OAuth app
+  set. Unrelated to `DISCORD_FEEDBACK_WEBHOOK` above, which is a webhook, not
+  an OAuth app. `DISCORD_REPORTS_ORGANIZATION` and `DISCORD_REPORTS_WEBHOOK`
+  are retired (KODI-026): report routing now comes from the admin-managed
+  `discord_report_webhooks` table (**Report routing** above), matched against
+  the servers and roles read live from the submitting user's own Discord
+  connection
 - `DISCORD_LINK_REDIRECT_URI`: the API's own Discord OAuth callback
   (default `http://127.0.0.1:8000/api/auth/link/discord/callback`)
 - `ACCOUNT_LINK_REDIRECT_URI`: the profile page the callback redirects back
@@ -906,7 +930,7 @@ Optional (with defaults):
 ## Domain Model Relationships
 
 ### Core Entities
-- **User**: GitHub OAuth authenticated users with profile (company, role, salary, tech stack, seniority, availability). `users` carries **no** Discord column (KODI-024/ADR-0013 retired `users.discord_id`); the optional Discord account link is its own `DiscordConnectionModel` row, below - never GitHub login, never a second sign-in path
+- **User**: GitHub OAuth authenticated users with profile (company, role, salary, tech stack, seniority, availability). `users` carries **no** Discord column (KODI-024/ADR-0013 retired `users.discord_id`); the optional Discord account link is its own `DiscordConnectionModel` row, below - never GitHub login, never a second sign-in path. `users.is_org_member` is UNMAPPED (KODI-026, R-042/R-043): the column stays in the database, untouched, kept aside for a later Release C migration (`.claude/rules/non-destructive-migrations.md`), but no ORM model, use case, DTO or schema reads or writes it any more
 - **DiscordConnection**: one row per linked user (table `discord_connections`, migration `ba44f9cfd3c1`), a record of its own apart from `users` (R-012). `user_id` and `discord_id` are each UNIQUE. Holds the Discord user id, username, display name (`global_name`), avatar, the granted `scopes`, `access_token_expires_at`, `status` (`active` | `needs_reconnect`) and `linked_at`; the refresh token is stored **encrypted** (`encrypted_refresh_token`) and there is **no** access-token column - see **Account links** above for the full flow
 - **DiscordReportWebhook**: admin-managed catalog (KODI-025, ADR-0004/ADR-0013), table `discord_report_webhooks`, added by migration `ba44f9cfd3c1` but unmapped until this ticket - not owned by a `user_id`. `webhook_url` is UNIQUE; `guild_id` is indexed for K8's submit-time lookup; `role_ids` (`BIGINT[]`, default `{}`) and `label` are optional. See **Admin report webhooks** above
 - **Company**: Job companies, user-created, unique on lower(name)+url

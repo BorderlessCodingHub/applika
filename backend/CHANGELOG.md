@@ -200,25 +200,86 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- KODI-021 Biweekly report and user-feedback Discord webhook posts now
-  mention the submitting user when their account holds a Discord connection
-  (KODI-024's `discord_connections`, in any connection status, R-041); an
-  unlinked user's post is byte-identical to before. No route contract
-  change.
-  - `DiscordService.post_report_message(message, mention_user_id=None)`:
-    `allowed_mentions` is `{'parse': []}` when `mention_user_id` is `None`
-    (unchanged), else `{'parse': [], 'users': [str(mention_user_id)]}` —
-    never `everyone`, `roles`, or any user other than the submitter.
-  - `SubmitReportUseCase.execute` and `SubmitFeedbackUseCase.execute` take an
-    optional `discord_id`; the header line gains `<@discord_id>` after
-    `@username` when linked. `presentation/api/reports.py` and
-    `presentation/api/user_feedback.py` now read it fresh from
-    `DiscordConnectionRepositoryDp` per request (KODI-024 - the connection
-    replaced `users.discord_id`), so unlinking takes effect on the very next
-    post.
-  - Works with `DISCORD_CLIENT_ID`/`DISCORD_CLIENT_SECRET` unset: the mention
-    only needs the connection row, not a configured Discord OAuth app.
+- KODI-026 Report submission now routes to Discord by the submitting user's
+  live server (guild) membership and, optionally, their roles in it — the
+  single `DISCORD_REPORTS_WEBHOOK`/`DISCORD_REPORTS_ORGANIZATION` gate is
+  gone (ADR-0013, R-032..R-040, R-014).
+  - `POST /reports/{day}/submit` keeps its request/response shape
+    (`{success, report_id, discord_posted, discord_error}`) but now answers
+    **201** whatever Discord does (previously 200); the report is always
+    saved before Discord is contacted, and a Discord failure never blocks or
+    unwinds the submission.
+  - New `ResolveReportWebhooksUseCase.execute(user_id)` -> `ReportRouteDTO`:
+    uses the user's stored Discord grant to fetch their live guild ids
+    (`DiscordOAuthService.list_guild_ids`), looks up every admin-configured
+    `discord_report_webhooks` row for those guilds
+    (`DiscordReportWebhookRepository.list_by_guild_ids`), and for a
+    role-limited row reads the user's roles in that server
+    (`get_member_role_ids`) — the webhook is kept only when the user holds at
+    least one of the listed roles. A guild's role lookup failing drops only
+    that guild's role-limited hooks. The access token, the guild ids and the
+    role ids are read fresh on every call and never stored or logged
+    (R-014/R-042).
+  - Each successful renewal (`DiscordOAuthService.refresh`) replaces the
+    stored refresh token with the new one, encrypted, **before** any further
+    Discord call (R-017); a revoked grant (`DiscordGrantRevoked`) marks the
+    connection `needs_reconnect` (`GET /users/me` then reports
+    `discord.status == "needs_reconnect"`); a transient failure
+    (`DiscordUnavailable`) leaves the connection exactly as it was and the
+    report simply posts nowhere.
+  - `SubmitReportUseCase` no longer takes `github_service`/`user_repo` and no
+    longer validates GitHub org membership; it posts the same message once
+    per resolved webhook URL, `discord_posted` is true if any post
+    succeeded, and `discord_error` joins every failure's message with `'; '`
+    (≤ 500 chars, `None` when no post failed).
+  - No CLI changelog entry: `applika-cli` does not call `/reports/*`.
+- KODI-026 GitHub sign-in now asks for scope `user:email` only (was
+  `user:email read:org`); the organisation-membership check that ran on
+  every `GET /auth/github/callback` is gone. No CLI changelog entry:
+  `applika-cli` never reads the granted OAuth scope, and this is not a route
+  the installed CLI calls in a way that depends on it.
+- KODI-021 User-feedback Discord webhook posts mention the submitting user
+  when their account holds a Discord connection; an unlinked user's post is
+  byte-identical to before. No route contract change. (Originally this entry
+  also covered biweekly reports; KODI-026 above replaced that path
+  end-to-end — a report's mention now depends on `ResolveReportWebhooksUseCase`
+  finding a live, configured route, not merely on the connection row, and an
+  unlinked or unconfigured user's report is not posted at all, not "posted
+  without a mention".)
+  - `DiscordService.post_report_message(message, mention_user_id=None,
+    webhook_url=None)`: `allowed_mentions` is `{'parse': []}` when
+    `mention_user_id` is `None` (unchanged), else `{'parse': [],
+    'users': [str(mention_user_id)]}` — never `everyone`, `roles`, or any
+    user other than the submitter. `webhook_url` (KODI-026) posts to that
+    address instead of the constructor's own URL.
+  - `SubmitFeedbackUseCase.execute` takes an optional `discord_id`; the
+    header line gains `<@discord_id>` after `@username` when linked.
+    (`SubmitReportUseCase.execute` no longer takes `discord_id` — KODI-026
+    above.)
+  - Feedback mentions still work with `DISCORD_CLIENT_ID`/
+    `DISCORD_CLIENT_SECRET` unset: `user_feedback.py` reads the connection
+    row directly, not through the Discord OAuth app. Reports no longer do:
+    `ResolveReportWebhooksUseCase` gates on `DiscordOAuthService
+    .is_configured()` first.
   - No CLI changelog entry: no route, request or response field changes.
+
+### Removed
+
+- KODI-026 `DISCORD_REPORTS_WEBHOOK` and `DISCORD_REPORTS_ORGANIZATION`
+  settings, from `config/settings.py`, `.env.example` and both
+  `docker-compose.yml` files — report routing is now the admin-managed
+  `discord_report_webhooks` table (KODI-025) matched against a user's live
+  Discord servers and roles (KODI-026 above).
+- KODI-026 the `read:org` GitHub OAuth scope and
+  `GitHubService.check_org_membership`/`org_name` — GitHub organisation
+  membership is no longer checked, recorded or returned anywhere.
+- KODI-026 `is_org_member` from `GET /admin/users/{id}`
+  (`AdminUserDetailSchema`/`AdminUserDetailDTO`) and from `UserDTO`. The
+  underlying `users.is_org_member` column is **not** dropped
+  (`.claude/rules/non-destructive-migrations.md`): it stays in the database,
+  unmapped by the ORM, kept aside for a later, explicit migration (K11,
+  Release C). No CLI changelog entry: `/admin/users/{id}` is not a CLI route
+  and `/users/me` never carried `is_org_member`.
 
 ### Fixed
 
