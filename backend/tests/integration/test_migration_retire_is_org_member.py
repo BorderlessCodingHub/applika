@@ -233,14 +233,12 @@ _USERS_COLUMN_DETAILS_SQL = (
     'SELECT column_name, udt_name, is_nullable, column_default '
     'FROM information_schema.columns '
     "WHERE table_schema = 'public' AND table_name = 'users' "
-    "AND column_name = :column_name"
+    'AND column_name = :column_name'
 )
 
 
 def _column_detail(url: str, column_name: str) -> dict[str, Any] | None:
-    rows = _query(
-        url, _USERS_COLUMN_DETAILS_SQL, {'column_name': column_name}
-    )
+    rows = _query(url, _USERS_COLUMN_DETAILS_SQL, {'column_name': column_name})
     return rows[0] if rows else None
 
 
@@ -454,9 +452,9 @@ def test_round_trip_upgrade_downgrade_upgrade(migration_db: str) -> None:
 
     assert _columns(migration_db) == parent_columns
     assert _tables(migration_db) == parent_tables
-    assert _query(
-        migration_db, 'SELECT version_num FROM alembic_version'
-    ) == [{'version_num': PARENT_REVISION}]
+    assert _query(migration_db, 'SELECT version_num FROM alembic_version') == [
+        {'version_num': PARENT_REVISION}
+    ]
     downgraded_users = _users_snapshot(migration_db, 'is_org_member')
     assert downgraded_users == parent_users
     detail = _column_detail(migration_db, 'is_org_member')
