@@ -3,6 +3,20 @@ import {
   SALARY_PERIODS,
 } from "@/components/timeline/timeline-types";
 
+export type DiscordAccountStatus = "active" | "needs_reconnect";
+
+/**
+ * The caller's own Discord connection (KODI-027, plan 0009). Never carries
+ * the Discord id — the profile only ever renders `username`/`global_name`/
+ * `avatar_url`/`status`. `null` means unlinked.
+ */
+export interface DiscordAccount {
+  username: string;
+  global_name: string | null;
+  avatar_url: string | null;
+  status: DiscordAccountStatus;
+}
+
 export interface User {
   id: string;
   username: string;
@@ -24,9 +38,11 @@ export interface User {
   tech_stack?: string[];
   is_admin?: boolean;
   /**
-   * Whether a Discord account is linked (KODI-022). Never carries the
-   * Discord id, name or avatar — the profile only ever renders this flag.
+   * The caller's own Discord connection, or `null` when unlinked (KODI-027).
+   * `discord_linked` is kept as `discord != null` for any caller that only
+   * needs the flag.
    */
+  discord: DiscordAccount | null;
   discord_linked: boolean;
 }
 

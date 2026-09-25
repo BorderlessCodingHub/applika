@@ -253,7 +253,15 @@ export function UserProfileView({
 
       {/* Connected accounts */}
       <ConnectedAccounts
-        linked={user.discord_linked}
+        account={
+          user.discord
+            ? {
+                name: user.discord.global_name || user.discord.username,
+                avatarUrl: user.discord.avatar_url,
+                needsReconnect: user.discord.status === "needs_reconnect",
+              }
+            : null
+        }
         onConnect={() => startDiscordLink.mutate()}
         onDisconnect={() => unlinkDiscord.mutate()}
         isConnecting={startDiscordLink.isPending || startDiscordLink.isSuccess}

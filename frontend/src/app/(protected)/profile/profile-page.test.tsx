@@ -27,6 +27,7 @@ const USER: User = {
   username: "ada",
   email: "ada@example.com",
   github_id: "gh1",
+  discord: null,
   discord_linked: false,
 };
 

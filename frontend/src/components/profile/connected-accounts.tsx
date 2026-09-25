@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
-import { CircleCheck, Link2, Loader2 } from "lucide-react";
+import { CircleCheck, Link2, Loader2, TriangleAlert } from "lucide-react";
 
 import { DiscordIcon } from "@/components/brand-icons";
 import {
@@ -15,12 +15,21 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+export interface ConnectedDiscordAccount {
+  name: string;
+  avatarUrl: string | null;
+  needsReconnect: boolean;
+}
+
+export type DiscordCardState = "linked" | "unlinked" | "needs_reconnect";
+
 export interface ConnectedAccountsProps {
-  linked: boolean;
+  account?: ConnectedDiscordAccount | null;
   onConnect: () => void;
   onDisconnect: () => void;
   isConnecting?: boolean;
@@ -28,8 +37,24 @@ export interface ConnectedAccountsProps {
   className?: string;
 }
 
+const HELPER: Record<DiscordCardState, string> = {
+  unlinked:
+    "Connect to post your reports to the configured Discord servers you are in. Posts mention you.",
+  linked:
+    "Your reports are posted to the configured Discord servers you are in, and posts mention you.",
+  needs_reconnect:
+    "Discord no longer accepts this connection, so your reports are not posted until you reconnect. Feedback posts still mention you.",
+};
+
+export function discordCardState(
+  account: ConnectedDiscordAccount | null | undefined,
+): DiscordCardState {
+  if (!account) return "unlinked";
+  return account.needsReconnect ? "needs_reconnect" : "linked";
+}
+
 export function ConnectedAccounts({
-  linked,
+  account = null,
   onConnect,
   onDisconnect,
   isConnecting = false,
@@ -38,6 +63,8 @@ export function ConnectedAccounts({
 }: ConnectedAccountsProps) {
   const headingId = useId();
   const actionRef = useRef<HTMLDivElement>(null);
+  const state = discordCardState(account);
+  const linked = account != null;
   const previousLinked = useRef(linked);
   const handOffFocus = useRef(false);
 
@@ -56,6 +83,10 @@ export function ConnectedAccounts({
     handOffFocus.current = true;
     onDisconnect();
   };
+
+  const busyIcon = (
+    <Loader2 aria-hidden data-icon="inline-start" className="animate-spin" />
+  );
 
   return (
     <section
@@ -77,31 +108,42 @@ export function ConnectedAccounts({
       <ul className="divide-y divide-border">
         <li
           data-provider="discord"
-          data-state={linked ? "linked" : "unlinked"}
+          data-state={state}
           className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
         >
           <div className="flex min-w-0 items-start gap-3">
-            <span
-              aria-hidden
-              className={cn(
-                "relative flex size-10 shrink-0 items-center justify-center rounded-lg transition-colors",
-                linked
-                  ? "bg-primary/10 text-primary"
-                  : "bg-muted text-muted-foreground",
-              )}
-            >
-              <DiscordIcon className="size-5" />
-              {linked ? (
-                <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-success ring-2 ring-card" />
-              ) : null}
-            </span>
+            {account ? (
+              <span aria-hidden className="relative shrink-0">
+                <Avatar size="lg">
+                  {account.avatarUrl ? (
+                    <AvatarImage src={account.avatarUrl} alt="" />
+                  ) : null}
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    <DiscordIcon aria-hidden className="size-5" />
+                  </AvatarFallback>
+                </Avatar>
+                <span
+                  className={cn(
+                    "absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full ring-2 ring-card",
+                    account.needsReconnect ? "bg-warning" : "bg-success",
+                  )}
+                />
+              </span>
+            ) : (
+              <span
+                aria-hidden
+                className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+              >
+                <DiscordIcon className="size-5" />
+              </span>
+            )}
 
-            <div className="min-w-0 space-y-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <h3 className="text-sm leading-none font-semibold text-foreground">
                   Discord
                 </h3>
-                {linked ? (
+                {state === "linked" ? (
                   <Badge
                     variant="outline"
                     className="border-success/30 bg-success/10 text-success"
@@ -109,21 +151,52 @@ export function ConnectedAccounts({
                     <CircleCheck aria-hidden />
                     Discord connected
                   </Badge>
+                ) : state === "needs_reconnect" ? (
+                  <Badge
+                    variant="outline"
+                    className="border-warning/40 bg-warning/10 text-foreground"
+                  >
+                    <TriangleAlert aria-hidden className="text-warning" />
+                    Reconnect needed
+                  </Badge>
                 ) : (
                   <Badge variant="outline" className="text-muted-foreground">
                     Not connected
                   </Badge>
                 )}
               </div>
+              {account ? (
+                <p
+                  data-slot="discord-account-name"
+                  className="text-sm font-medium break-words text-foreground"
+                >
+                  Connected as {account.name}
+                </p>
+              ) : null}
               <p className="text-sm text-pretty text-muted-foreground">
-                A connected Discord account is mentioned in report and feedback
-                posts.
+                {HELPER[state]}
               </p>
             </div>
           </div>
 
-          <div ref={actionRef} className="sm:shrink-0">
-            {linked ? (
+          <div
+            ref={actionRef}
+            className="flex flex-col gap-2 sm:shrink-0 sm:flex-row"
+          >
+            {state === "needs_reconnect" ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={onConnect}
+                disabled={isConnecting}
+                aria-busy={isConnecting || undefined}
+                className="w-full sm:w-auto"
+              >
+                {isConnecting ? busyIcon : null}
+                Reconnect Discord
+              </Button>
+            ) : null}
+            {account ? (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
@@ -134,13 +207,7 @@ export function ConnectedAccounts({
                     aria-busy={isDisconnecting || undefined}
                     className="w-full hover:border-destructive/40 sm:w-auto"
                   >
-                    {isDisconnecting ? (
-                      <Loader2
-                        aria-hidden
-                        data-icon="inline-start"
-                        className="animate-spin"
-                      />
-                    ) : null}
+                    {isDisconnecting ? busyIcon : null}
                     Disconnect Discord
                   </Button>
                 </AlertDialogTrigger>
@@ -148,8 +215,9 @@ export function ConnectedAccounts({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Disconnect Discord?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Report and feedback posts will stop mentioning you. You
-                      can connect Discord again at any time.
+                      Your reports will no longer be posted to Discord, and
+                      feedback posts will stop mentioning you. You can connect
+                      Discord again at any time.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -172,13 +240,7 @@ export function ConnectedAccounts({
                 aria-busy={isConnecting || undefined}
                 className="w-full sm:w-auto"
               >
-                {isConnecting ? (
-                  <Loader2
-                    aria-hidden
-                    data-icon="inline-start"
-                    className="animate-spin"
-                  />
-                ) : null}
+                {isConnecting ? busyIcon : null}
                 Connect Discord
               </Button>
             )}
