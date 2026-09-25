@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from app.application.dto import BaseSchema
 from app.core.enums import DiscordConnectionStatus
@@ -19,6 +19,22 @@ class DiscordReportWebhookDTO(BaseSchema):
     webhook_url: str = Field(repr=False)
     role_ids: list[int] = []
     label: str | None = None
+
+
+class ReportRouteDTO(BaseModel):
+    """Where a submitted report should be posted (K8).
+
+    Not a ``BaseSchema``: this is a plain value returned by a use case, not
+    an entity with an id/created_at. ``webhook_urls`` is ``repr=False`` for
+    the same reason as ``DiscordReportWebhookDTO.webhook_url`` - a stray
+    ``repr()``/log of this DTO never prints an address (R-030).
+    ``discord_id`` is ``None`` when the submitting user has no usable
+    connection; ``webhook_urls`` is empty whenever there is nothing to post
+    to.
+    """
+
+    discord_id: int | None = None
+    webhook_urls: list[str] = Field(default_factory=list, repr=False)
 
 
 class DiscordConnectionDTO(BaseSchema):

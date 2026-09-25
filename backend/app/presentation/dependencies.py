@@ -52,6 +52,9 @@ from app.application.use_cases.base_cvs.render_pdf import (
 )
 from app.application.use_cases.base_cvs.update import UpdateBaseCVUseCase
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
+from app.application.use_cases.quinzenal_reports.resolve_report_webhooks import (
+    ResolveReportWebhooksUseCase,
+)
 from app.application.use_cases.tailored_cvs.create import (
     CreateTailoredCVUseCase,
 )
@@ -313,6 +316,20 @@ def get_link_discord_use_case(
 
 LinkDiscordUseCaseDp = Annotated[
     LinkDiscordUseCase, Depends(get_link_discord_use_case)
+]
+
+
+def get_resolve_report_webhooks_use_case(
+    conn_repo: DiscordConnectionRepositoryDp,
+    webhook_repo: DiscordReportWebhookRepositoryDp,
+    discord_oauth: DiscordOAuthServiceDp,
+):
+    return ResolveReportWebhooksUseCase(conn_repo, webhook_repo, discord_oauth)
+
+
+ResolveReportWebhooksUseCaseDp = Annotated[
+    ResolveReportWebhooksUseCase,
+    Depends(get_resolve_report_webhooks_use_case),
 ]
 
 

@@ -154,9 +154,6 @@ class UserModel(BaseMixin, Base):
     encrypted_github_token: Mapped[str | None] = mapped_column(
         sa.Text, nullable=True
     )
-    is_org_member: Mapped[bool] = mapped_column(
-        sa.Boolean, default=False, server_default='false', nullable=False
-    )
     is_admin: Mapped[bool] = mapped_column(
         sa.Boolean, default=False, server_default='false', nullable=False
     )
@@ -165,6 +162,10 @@ class UserModel(BaseMixin, Base):
     # (revision ``ba44f9cfd3c1``), read through
     # ``DiscordConnectionRepository``. ``users`` carries no Discord column at
     # all, and GitHub stays the only way to sign in.
+    # KODI-026/ADR-0013: GitHub organisation membership is retired (R-042,
+    # R-043). The retired flag column stays in the database (never dropped,
+    # `.claude/rules/non-destructive-migrations.md`) but is intentionally
+    # left off this model - no code reads or writes it any more.
 
     applications: Mapped[list[ApplicationModel]] = relationship(
         back_populates='user'

@@ -1,10 +1,9 @@
 """GitHub API service with Redis-cached validation.
 
-Provides methods to:
-- Validate a GitHub access token (GET /user)
-- Check organization membership (GET /user/orgs)
-
-Both results are cached in Redis to avoid excessive GitHub API calls.
+Provides a method to validate a GitHub access token (GET /user), cached in
+Redis to avoid excessive GitHub API calls. Organisation membership is
+retired (K8, R-042/R-043): the service no longer checks it and no longer
+reads a configured org name.
 """
 
 import httpx
@@ -24,7 +23,6 @@ class GitHubService:
     def __init__(self, redis_client: redis.Redis):
         self.redis = redis_client
         self.cache_ttl = envs.GITHUB_CACHE_TTL_SECONDS
-        self.org_name = envs.DISCORD_REPORTS_ORGANIZATION
 
     def _auth_headers(self, token: str) -> dict:
         return {**self._HEADERS, 'Authorization': f'Bearer {token}'}
@@ -54,38 +52,6 @@ class GitHubService:
                 cache_key, '1' if is_valid else '0', ex=self.cache_ttl
             )
         return is_valid
-
-    async def check_org_membership(self, github_token: str) -> bool:
-        """Check if user belongs to the configured org. Not cached."""
-        if not self.org_name:
-            return False
-
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f'{self._API_BASE}/user/orgs',
-                    headers=self._auth_headers(github_token),
-                    timeout=10,
-                )
-                logger.debug(
-                    'GitHub /user/orgs response: \n'
-                    + f'{response.status_code} - {response.text}'
-                )
-                if response.status_code != 200:
-                    logger.warning(
-                        f'GitHub /user/orgs returned status {response.status_code}'
-                    )
-                    is_member = False
-                else:
-                    orgs = response.json()
-                    is_member = any(
-                        org.get('login') == self.org_name for org in orgs
-                    )
-        except httpx.HTTPError as exc:
-            logger.error(f'GitHub org membership check failed: {exc}')
-            is_member = False
-
-        return is_member
 
     async def invalidate_cache(self, user_id: int) -> None:
         """Remove all cached GitHub data for a user."""

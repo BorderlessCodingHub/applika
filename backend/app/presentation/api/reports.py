@@ -21,11 +21,9 @@ from app.application.use_cases.quinzenal_reports.submit_report import (
 from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     CurrentUserDp,
-    DiscordConnectionRepositoryDp,
     DiscordServiceDp,
-    GitHubServiceDp,
     QuinzenalReportRepositoryDp,
-    UserRepositoryDp,
+    ResolveReportWebhooksUseCaseDp,
 )
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.quinzenal_report import (
@@ -84,6 +82,7 @@ async def get_report(
 @router.post(
     '/reports/{day}/submit',
     response_model=SubmitReportResponse,
+    status_code=201,
     responses={
         '404': {'model': DetailSchema},
         '409': {'model': DetailSchema},
@@ -95,22 +94,13 @@ async def submit_report(
     c_user: CurrentUserDp,
     report_repo: QuinzenalReportRepositoryDp,
     discord_service: DiscordServiceDp,
-    gh_service: GitHubServiceDp,
-    user_repo: UserRepositoryDp,
-    conn_repo: DiscordConnectionRepositoryDp,
+    resolve_webhooks: ResolveReportWebhooksUseCaseDp,
 ):
     use_case = SubmitReportUseCase(
         report_repo,
         discord_service,
-        gh_service,
-        user_repo,
+        resolve_webhooks,
     )
     data = SubmitReportPayloadDTO(**payload.model_dump())
-    # Interim read (K6): the connection replaces ``users.discord_id``; the
-    # org gate stays, K8 replaces this route's dependencies wholesale.
-    connection = await conn_repo.get_by_user_id(c_user.id)
-    discord_id = connection.discord_id if connection else None
-    report = await use_case.execute(
-        c_user.id, c_user.username, day, data, discord_id=discord_id
-    )
+    report = await use_case.execute(c_user.id, c_user.username, day, data)
     return SubmitReportResponse.model_validate(report.model_dump())

@@ -75,7 +75,6 @@ class Settings(BaseSettings):
     GITHUB_CACHE_TTL_SECONDS: int = 600  # 10 minutes
 
     GITHUB_TOKEN_ENCRYPTION_KEY: str = 'changeme-set-a-fernet-key-in-production'
-    DISCORD_REPORTS_ORGANIZATION: str | None = None
 
     # Wall-clock ceiling for one server-side CV PDF render (RenderCV +
     # Typst). Past it the request fails with 500 rather than holding a
@@ -83,7 +82,6 @@ class Settings(BaseSettings):
     CV_PDF_RENDER_TIMEOUT_SECONDS: int = 30
 
     LOGIN_REDIRECT_URI: str = 'http://127.0.0.1:8000/api/docs'
-    DISCORD_REPORTS_WEBHOOK: str | None = None
     DISCORD_FEEDBACK_WEBHOOK: str | None = None
 
     # Discord account link (KODI-020, ADR 0008): connecting Discord from the

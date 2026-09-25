@@ -164,6 +164,12 @@ class DiscordConnectionRepository:
             await self.session.rollback()
             raise e
 
+    async def rollback(self) -> None:
+        """Release a ``FOR UPDATE`` lock taken by ``get_by_user_id_for_update``
+        without writing anything (K8 - Discord unavailable at report time
+        leaves the connection exactly as it was)."""
+        await self.session.rollback()
+
     async def delete_by_user_id(self, user_id: int) -> None:
         """Idempotent: deleting an absent row is a no-op."""
         try:

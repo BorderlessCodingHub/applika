@@ -33,6 +33,12 @@ _AUTHORIZE_URL = 'https://discord.com/oauth2/authorize'
 _TOKEN_URL = 'https://discord.com/api/oauth2/token'
 _REVOKE_URL = 'https://discord.com/api/oauth2/token/revoke'
 _USERINFO_URL = 'https://discord.com/api/users/@me'
+_GUILDS_URL = 'https://discord.com/api/users/@me/guilds'
+
+
+def _member_url(guild_id: int) -> str:
+    return f'https://discord.com/api/users/@me/guilds/{guild_id}/member'
+
 
 SCOPE = 'identify guilds guilds.members.read'
 
@@ -276,9 +282,23 @@ class DiscordOAuthService:
         if response.status_code >= 400:
             raise DiscordUnavailable('Discord refresh refused')
 
-        body = response.json()
-        access_token = body.get('access_token')
-        refresh_token_out = body.get('refresh_token') or refresh_token
+        try:
+            body = response.json()
+            access_token = body.get('access_token')
+            refresh_token_out = body.get('refresh_token') or refresh_token
+            expires_in = int(body.get('expires_in') or 0)
+            scope = body.get('scope') or ''
+        except (ValueError, AttributeError, TypeError) as exc:
+            # A 2xx that is not the JSON object Discord promises (an HTML
+            # error page from an edge proxy, a plain string) - treated the
+            # same as any other unusable answer, never an unhandled raise
+            # past this method (T123: "any other non-2xx or an
+            # httpx.HTTPError -> DiscordUnavailable"; a malformed 2xx body
+            # is just as unusable).
+            raise DiscordUnavailable(
+                'Discord refresh response was not usable'
+            ) from exc
+
         if not access_token:
             raise DiscordUnavailable(
                 'Discord refresh response carried no access token'
@@ -287,9 +307,108 @@ class DiscordOAuthService:
         return DiscordGrant(
             access_token=access_token,
             refresh_token=refresh_token_out,
-            expires_in=int(body.get('expires_in') or 0),
-            scope=body.get('scope') or '',
+            expires_in=expires_in,
+            scope=scope,
         )
+
+    async def list_guild_ids(self, access_token: str) -> set[int]:
+        """List the ids of the Discord servers the user is in (K8).
+
+        Never logs or stores the access token - it lives only in this
+        call's headers. A non-2xx answer or a network error is
+        ``DiscordUnavailable``; there is no retry, so a 429 is never slept
+        on here.
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    _GUILDS_URL,
+                    params={'limit': 200},
+                    headers={'Authorization': f'Bearer {access_token}'},
+                    timeout=_TIMEOUT_SECONDS,
+                )
+        except httpx.HTTPError as exc:
+            logger.warning(
+                f'Discord guild list request failed: {type(exc).__name__}',
+                extra={
+                    'extra_data': {
+                        'event': 'discord_guild_list_failed',
+                        'reason': 'network_error',
+                    }
+                },
+            )
+            raise DiscordUnavailable('Discord was unreachable') from exc
+
+        if response.status_code >= 400:
+            logger.warning(
+                'Discord guild list request refused',
+                extra={
+                    'extra_data': {
+                        'event': 'discord_guild_list_failed',
+                        'status_code': response.status_code,
+                    }
+                },
+            )
+            raise DiscordUnavailable('Discord guild list request refused')
+
+        try:
+            body = response.json()
+            return {int(guild['id']) for guild in body if guild.get('id')}
+        except (ValueError, AttributeError, TypeError) as exc:
+            raise DiscordUnavailable(
+                'Discord guild list response was not usable'
+            ) from exc
+
+    async def get_member_role_ids(
+        self, access_token: str, guild_id: int
+    ) -> set[int]:
+        """Read the user's role ids in one server (K8).
+
+        A 404 (the user is not a member of that server any more) is an
+        empty set, not an error. Any other non-2xx or a network error is
+        ``DiscordUnavailable``; no retry, no sleep on a 429.
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    _member_url(guild_id),
+                    headers={'Authorization': f'Bearer {access_token}'},
+                    timeout=_TIMEOUT_SECONDS,
+                )
+        except httpx.HTTPError as exc:
+            logger.warning(
+                f'Discord member request failed: {type(exc).__name__}',
+                extra={
+                    'extra_data': {
+                        'event': 'discord_member_lookup_failed',
+                        'reason': 'network_error',
+                    }
+                },
+            )
+            raise DiscordUnavailable('Discord was unreachable') from exc
+
+        if response.status_code == 404:
+            return set()
+
+        if response.status_code >= 400:
+            logger.warning(
+                'Discord member request refused',
+                extra={
+                    'extra_data': {
+                        'event': 'discord_member_lookup_failed',
+                        'status_code': response.status_code,
+                    }
+                },
+            )
+            raise DiscordUnavailable('Discord member request refused')
+
+        try:
+            body = response.json()
+            return {int(role) for role in body.get('roles') or []}
+        except (ValueError, AttributeError, TypeError) as exc:
+            raise DiscordUnavailable(
+                'Discord member response was not usable'
+            ) from exc
 
     async def revoke(self, refresh_token: str) -> None:
         """Best-effort revoke of the stored refresh token

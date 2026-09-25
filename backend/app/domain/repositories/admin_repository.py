@@ -419,7 +419,6 @@ class AdminRepository:
                 user.availability.value if user.availability else None
             ),
             'is_admin': user.is_admin,
-            'is_org_member': user.is_org_member,
             'total_applications': counts['total'] if counts else 0,
             'offers': counts['offers'] if counts else 0,
             'denials': counts['denials'] if counts else 0,
