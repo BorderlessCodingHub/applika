@@ -402,6 +402,9 @@ async def test_admin_companies_list_shows_private_rows_with_created_by(
         assert row['is_public'] is False
         assert row['created_by']['id'] == str(base_data()['user'].id)
         assert row['created_by']['username'] == base_data()['user'].username
+        # Kept alongside the nested created_by: the shipped frontend admin
+        # companies screen still reads this flat field (B2, backend-qa).
+        assert row['created_by_username'] == base_data()['user'].username
 
         public_only = await async_client.get(
             '/admin/companies?visibility=public'
