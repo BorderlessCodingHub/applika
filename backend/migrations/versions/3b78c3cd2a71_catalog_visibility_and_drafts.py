@@ -62,6 +62,21 @@ adding a fresh column, so a downgrade/upgrade cycle never loses a value a
 user wrote after the first upgrade — same rule the retire-and-rename
 revisions (``583226ca46bc``) apply the other direction.
 
+**Pre-check before building ``uq_companies_public_name_url`` (owner decision,
+2026-09-26, "Pre-check in upgrade (Recommended)").** A rollback that lands on
+the ``ix_companies_name_url`` (non-unique) branch of ``downgrade()`` below
+lets old code insert a new public company that duplicates an existing
+``(lower(name), url)`` pair; the next ``alembic upgrade head`` would then die
+with a raw Postgres unique-violation while creating
+``uq_companies_public_name_url``. ``upgrade()`` now runs a duplicate check
+*first*, before any DDL, so nothing is half-applied if it stops: it groups
+"public" companies — ``is_public_old`` when that column exists (a re-upgrade
+after a downgrade), else every row (first upgrade, where the pre-existing
+``uq_companies_name_url`` already guarantees no duplicates) — by
+``(lower(name), url)`` and raises ``RuntimeError`` naming
+``uq_companies_public_name_url`` and every colliding group's ids when one has
+``count(*) > 1``, instead of letting Postgres raise its own error mid-DDL.
+
 ## What downgrade() does
 
 Drops the five new indexes, then renames ``applications.is_draft``,
@@ -125,6 +140,45 @@ def _foreign_key_names(
     }
 
 
+def _check_no_duplicate_public_companies(
+    bind: sa.engine.Connection, company_columns: set[str]
+) -> None:
+    """Owner decision, 2026-09-26: stop with a clear message naming
+    ``uq_companies_public_name_url`` and the colliding ids, before any DDL
+    runs, instead of letting Postgres raise its own unique-violation while
+    that index is being built."""
+    public_clause = (
+        'WHERE is_public_old' if 'is_public_old' in company_columns else ''
+    )
+    duplicates = (
+        bind
+        .execute(
+            sa.text(
+                'SELECT lower(name) AS lname, url, '
+                'array_agg(id ORDER BY id) AS ids '
+                'FROM companies '
+                f'{public_clause} '
+                'GROUP BY lower(name), url '
+                'HAVING count(*) > 1'
+            )
+        )
+        .mappings()
+        .all()
+    )
+    if not duplicates:
+        return
+    groups = '; '.join(
+        f'name={row["lname"]!r} url={row["url"]!r} ids={list(row["ids"])}'
+        for row in duplicates
+    )
+    raise RuntimeError(
+        'Cannot build uq_companies_public_name_url: duplicate public '
+        'companies found on (lower(name), url). Resolve the duplicates '
+        f'(merge or rename one of each pair) then rerun '
+        f'`alembic upgrade head`. Colliding groups: {groups}'
+    )
+
+
 def upgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
@@ -132,6 +186,10 @@ def upgrade() -> None:
     company_columns = _column_names(inspector, 'companies')
     platform_columns = _column_names(inspector, 'platforms')
     application_columns = _column_names(inspector, 'applications')
+
+    # Run first, before any DDL, so a refusal here leaves the schema exactly
+    # as it was (see the module docstring's "Pre-check" section).
+    _check_no_duplicate_public_companies(bind, company_columns)
 
     # ---------------------------------------------------------------
     # companies.is_public / platforms.is_public

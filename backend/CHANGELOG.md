@@ -24,7 +24,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `ix_applications_user_id_drafts` (`user_id` where draft). No ORM
   mapping, route or frontend change ships in this release — `app/` reads
   and writes none of these columns yet; that is Release B (K2). Not a CLI
-  change: no route or payload shape moves.
+  change: no route or payload shape moves. Follow-up (owner decision,
+  2026-09-26): `upgrade()` now pre-checks for duplicate public companies on
+  `(lower(name), url)` before building `uq_companies_public_name_url` and
+  stops with a clear `RuntimeError` naming the index and every colliding
+  group's ids, instead of a raw Postgres unique-violation, in case a prior
+  rollback left the non-unique `ix_companies_name_url` branch and old code
+  inserted a new duplicate public company.
 - KODI-025 admin report webhook catalog (ADR-0013, K7): an admin can list,
   add, change and remove the Discord webhooks reports may be posted to.
   `discord_report_webhooks` (added by K5 migration `ba44f9cfd3c1`, no

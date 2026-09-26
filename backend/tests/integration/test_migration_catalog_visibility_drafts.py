@@ -1120,6 +1120,201 @@ def test_downgrade_with_duplicate_companies_builds_non_unique_index_and_logs(
 
 
 # --------------------------------------------------------------------------
+# Owner decision, 2026-09-26 — upgrade() pre-checks duplicate public
+# companies before building uq_companies_public_name_url
+# --------------------------------------------------------------------------
+
+
+def test_upgrade_refuses_duplicate_public_companies_with_clear_message(
+    migration_db: str,
+) -> None:
+    """After a rollback onto the non-unique ``ix_companies_name_url``
+    branch, old code can insert a new public company that duplicates an
+    existing ``(lower(name), url)`` pair. The next ``alembic upgrade head``
+    must stop with a clear ``RuntimeError`` naming
+    ``uq_companies_public_name_url`` and both colliding ids — not a raw
+    Postgres unique-violation — and must leave the schema exactly as the
+    downgraded state, nothing half-applied."""
+    _upgrade(migration_db, PARENT_REVISION)
+    _seed_at_parent(migration_db)
+    _upgrade(migration_db, REVISION)
+
+    now = datetime.now(timezone.utc)
+    public_row = COMPANY_A_ID + 30
+    private_row = COMPANY_A_ID + 31
+    _apply(
+        migration_db,
+        [
+            (
+                _INSERT_COMPANY_SCOPED,
+                {
+                    'id': public_row,
+                    'name': 'Pending Dup Co',
+                    'url': 'https://pending-dup.example.com',
+                    'is_public': True,
+                    'created_by': None,
+                    'now': now,
+                },
+            ),
+            (
+                _INSERT_COMPANY_SCOPED,
+                {
+                    'id': private_row,
+                    'name': 'Pending Dup Co',
+                    'url': 'https://pending-dup.example.com',
+                    'is_public': False,
+                    'created_by': USER_A_ID,
+                    'now': now,
+                },
+            ),
+        ],
+    )
+
+    # This pair collides on (lower(name), url) across the whole table (one
+    # public, one private), which forces downgrade()'s non-unique
+    # ix_companies_name_url branch — the state a rollback actually leaves in
+    # production.
+    _downgrade(migration_db, PARENT_REVISION)
+    downgraded_columns = _columns(migration_db)
+    downgraded_indexes = _indexes(migration_db, 'companies')
+    assert 'ix_companies_name_url' in downgraded_indexes
+    assert 'uq_companies_name_url' not in downgraded_indexes
+
+    # Old code — unaware of is_public_old — inserts a second row that
+    # duplicates the *public* row's (lower(name), url); the non-unique index
+    # allows it.
+    new_public_duplicate = COMPANY_A_ID + 32
+    _apply(
+        migration_db,
+        [
+            (
+                _INSERT_COMPANY,
+                {
+                    'id': new_public_duplicate,
+                    'name': 'Pending Dup Co',
+                    'url': 'https://pending-dup.example.com',
+                    'now': now,
+                },
+            ),
+        ],
+    )
+
+    with pytest.raises(RuntimeError) as excinfo:
+        _upgrade(migration_db, REVISION)
+
+    message = str(excinfo.value)
+    assert 'uq_companies_public_name_url' in message
+    assert str(public_row) in message
+    assert str(new_public_duplicate) in message
+    # The private row does not collide under is_public_old and must not be
+    # named as part of this group.
+    assert str(private_row) not in message
+
+    # Nothing half-applied: still exactly the downgraded state.
+    assert _query(migration_db, 'SELECT version_num FROM alembic_version') == [
+        {'version_num': PARENT_REVISION}
+    ]
+    assert _columns(migration_db) == downgraded_columns
+    assert _indexes(migration_db, 'companies') == downgraded_indexes
+    rows = _query(
+        migration_db,
+        'SELECT id FROM companies WHERE id IN (:a, :b, :c)',
+        {'a': public_row, 'b': private_row, 'c': new_public_duplicate},
+    )
+    assert {r['id'] for r in rows} == {
+        public_row,
+        private_row,
+        new_public_duplicate,
+    }
+
+    # Resolve the duplicate by hand, then upgrade succeeds.
+    _apply(
+        migration_db,
+        [
+            (
+                'DELETE FROM companies WHERE id = :id',
+                {'id': new_public_duplicate},
+            ),
+        ],
+    )
+    _upgrade(migration_db, REVISION)
+    assert _query(migration_db, 'SELECT version_num FROM alembic_version') == [
+        {'version_num': REVISION}
+    ]
+
+
+def test_upgrade_pre_check_does_not_fire_without_duplicates(
+    migration_db: str,
+) -> None:
+    """The clean path (no duplicate public companies) is unchanged: the
+    pre-check finds nothing and every regular index/column assertion from
+    the round-trip test above still holds after a second clean upgrade."""
+    _upgrade(migration_db, PARENT_REVISION)
+    _seed_at_parent(migration_db)
+    _upgrade(migration_db, REVISION)
+    _downgrade(migration_db, PARENT_REVISION)
+
+    downgrade_indexes = _indexes(migration_db, 'companies')
+    assert 'uq_companies_name_url' in downgrade_indexes
+    assert 'ix_companies_name_url' not in downgrade_indexes
+
+    _upgrade(migration_db, REVISION)
+
+    assert _query(migration_db, 'SELECT version_num FROM alembic_version') == [
+        {'version_num': REVISION}
+    ]
+    upgraded_indexes = _indexes(migration_db, 'companies')
+    assert 'uq_companies_public_name_url' in upgraded_indexes
+
+
+# --------------------------------------------------------------------------
+# N2 — a private platform (is_public false, created_by set) survives the
+# clean round trip
+# --------------------------------------------------------------------------
+
+
+def test_round_trip_carries_a_private_platform(migration_db: str) -> None:
+    _upgrade(migration_db, PARENT_REVISION)
+    _seed_at_parent(migration_db)
+    _upgrade(migration_db, REVISION)
+
+    now = datetime.now(timezone.utc)
+    private_platform = PLATFORM_A_ID + 8
+    _apply(
+        migration_db,
+        [
+            (
+                _INSERT_PLATFORM_SCOPED,
+                {
+                    'id': private_platform,
+                    'name': 'My Private Board',
+                    'url': None,
+                    'is_public': False,
+                    'created_by': USER_A_ID,
+                    'now': now,
+                },
+            ),
+        ],
+    )
+
+    _downgrade(migration_db, PARENT_REVISION)
+    row = _query(
+        migration_db,
+        'SELECT is_public_old, created_by_old FROM platforms WHERE id = :id',
+        {'id': private_platform},
+    )
+    assert row == [{'is_public_old': False, 'created_by_old': USER_A_ID}]
+
+    _upgrade(migration_db, REVISION)
+    row = _query(
+        migration_db,
+        'SELECT is_public, created_by FROM platforms WHERE id = :id',
+        {'id': private_platform},
+    )
+    assert row == [{'is_public': False, 'created_by': USER_A_ID}]
+
+
+# --------------------------------------------------------------------------
 # non-destructive-migrations.md rule 7 — no ORM model maps the new columns
 # --------------------------------------------------------------------------
 
