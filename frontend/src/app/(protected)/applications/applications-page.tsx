@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { isAxiosError } from "axios";
+import { isAxiosError, type AxiosError } from "axios";
 import { toast } from "sonner";
 import type { Application } from "@/services/types/applications";
 import {
@@ -41,6 +41,9 @@ import {
 import { ApplicationFormSheet } from "@/components/applications/application-form-sheet";
 import { FinalizeDialog } from "@/components/applications/finalize-dialog";
 import { ApplicationItem } from "@/components/applications/application-item";
+import { NewApplicationActions } from "@/components/applications/new-application-actions";
+import { DraftsSection } from "@/components/application-drafts/drafts-section";
+import { useDeleteDraft, useDrafts } from "@/hooks/use-application-drafts";
 import { ApplicationCardSkeleton } from "@/components/applications/application-card-skeleton";
 import {
   APPLICATIONS_PAGE_COPY,
@@ -77,7 +80,29 @@ export function ApplicationsPage() {
   });
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [reopeningId, setReopeningId] = useState<string | null>(null);
+  const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
   const advancedPanelId = useId();
+
+  // Drafts (PRD 0010, AC11): shown only where the create actions are — the
+  // current cycle, hidden on an archived one, per the orchestrator's decision.
+  const draftsQuery = useDrafts();
+  const deleteDraft = useDeleteDraft();
+
+  function handleDeleteDraft(draft: { id: string }) {
+    setDeletingDraftId(draft.id);
+    deleteDraft.mutate(draft.id, {
+      onSuccess: () => {
+        toast.success("Draft deleted");
+        setDeletingDraftId(null);
+      },
+      onError: (error) => {
+        toast.error(
+          isAxiosError(error) ? getApiError(error) : "Could not delete it",
+        );
+        setDeletingDraftId(null);
+      },
+    });
+  }
 
   function handleNewClick() {
     setAppAction({ action: "new", data: undefined });
@@ -126,16 +151,24 @@ export function ApplicationsPage() {
             </p>
           </div>
           {!isViewingPastCycle && (
-            <Button
-              onClick={handleNewClick}
-              size="lg"
-              className="w-full gap-1.5 sm:w-auto"
-            >
-              <Plus aria-hidden data-icon="inline-start" />
-              {APPLICATIONS_PAGE_COPY.newApplication}
-            </Button>
+            <NewApplicationActions onNewApplication={handleNewClick} />
           )}
         </div>
+
+        {!isViewingPastCycle && (
+          <DraftsSection
+            drafts={draftsQuery.data}
+            isLoading={draftsQuery.isLoading}
+            error={
+              draftsQuery.isError
+                ? getApiError(draftsQuery.error as AxiosError)
+                : null
+            }
+            onRetry={() => void draftsQuery.refetch()}
+            onDelete={handleDeleteDraft}
+            deletingId={deletingDraftId}
+          />
+        )}
 
         {/* Toolbar */}
         <div className="flex flex-wrap gap-3">

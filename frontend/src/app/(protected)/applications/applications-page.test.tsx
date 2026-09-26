@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -37,10 +37,37 @@ vi.mock("@/hooks/use-applications", () => ({
     supports: { platforms: [] },
   }),
   useApplicationDelete: () => ({ deleteApplication: vi.fn() }),
+  useApplicationMutate: () => ({ submit: vi.fn(), isPending: false }),
+}));
+
+vi.mock("@/hooks/use-companies", () => ({
+  useCompanySearch: () => ({
+    fetchCompanies: vi.fn().mockResolvedValue([]),
+    isLoading: false,
+    error: null,
+  }),
+}));
+
+vi.mock("@/hooks/use-create-platform", () => ({
+  useCreatePlatformOutcome: () => vi.fn(),
 }));
 
 vi.mock("@/hooks/use-reopen-application", () => ({
   useReopenApplication: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
+const deleteDraft = vi.fn();
+let draftsState: { data: unknown[] | undefined } = { data: undefined };
+
+vi.mock("@/hooks/use-application-drafts", () => ({
+  useDrafts: () => ({
+    data: draftsState.data,
+    isLoading: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+  useDeleteDraft: () => ({ mutate: deleteDraft, isPending: false }),
 }));
 
 vi.mock("@/contexts/cycle-context", () => ({
@@ -60,6 +87,10 @@ function setHookState(overrides: Partial<typeof hookState>) {
     hasAnyFilter: false,
     ...overrides,
   };
+}
+
+function setDraftsState(data: unknown[] | undefined) {
+  draftsState = { data };
 }
 
 describe("ApplicationsPage — status filter label (G6)", () => {
@@ -110,5 +141,83 @@ describe("ApplicationsPage — empty state", () => {
     setHookState({ filtered: [] });
     render(<ApplicationsPage />);
     expect(screen.getByText(/no applications found/i)).toBeInTheDocument();
+  });
+});
+
+describe("ApplicationsPage — create actions (AC1, T071)", () => {
+  it("shows both New Application and New with CV, the second linking to /applications/new-with-cv", () => {
+    setHookState({});
+    render(<ApplicationsPage />);
+
+    expect(
+      screen.getByRole("button", { name: "New Application" }),
+    ).toBeInTheDocument();
+
+    const newWithCv = screen.getByRole("link", { name: "New with CV" });
+    expect(newWithCv).toHaveAttribute("href", "/applications/new-with-cv");
+  });
+
+  it("New Application still opens the side sheet", async () => {
+    setHookState({});
+    const user = userEvent.setup();
+    render(<ApplicationsPage />);
+
+    await user.click(screen.getByRole("button", { name: "New Application" }));
+    expect(
+      screen.getByRole("heading", { name: "New Application" }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("ApplicationsPage — Drafts section wiring (AC11/AC13)", () => {
+  const draft = {
+    id: "d-1",
+    company_name: "Acme Inc",
+    role: "Senior Engineer",
+    has_cv: false,
+    updated_at: new Date().toISOString(),
+  };
+
+  it("renders the Drafts section on the page with real draft data", () => {
+    setHookState({});
+    setDraftsState([draft]);
+    render(<ApplicationsPage />);
+
+    expect(screen.getByRole("heading", { name: "Drafts" })).toBeInTheDocument();
+    expect(screen.getByText("Acme Inc")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", {
+        name: /resume senior engineer at acme inc/i,
+      }),
+    ).toHaveAttribute("href", "/applications/new-with-cv?id=d-1");
+  });
+
+  it("is absent when there are no drafts", () => {
+    setHookState({});
+    setDraftsState([]);
+    render(<ApplicationsPage />);
+
+    expect(
+      screen.queryByRole("heading", { name: "Drafts" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Delete confirmed calls the delete-draft mutation with the draft's id", async () => {
+    setHookState({});
+    setDraftsState([draft]);
+    const user = userEvent.setup();
+    render(<ApplicationsPage />);
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /delete draft senior engineer at acme inc/i,
+      }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Delete draft" }),
+    );
+
+    expect(deleteDraft).toHaveBeenCalledWith("d-1", expect.anything());
   });
 });
