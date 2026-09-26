@@ -122,6 +122,12 @@ Application CV copy route (KODI-003):
 | ---------------------- | -------------------------------------- | --------------------------------------------- |
 | `/applications/cv?id=` | `(protected)/applications/cv/page.tsx` | `application-cv-page.tsx` — picker AND editor |
 
+New application with CV, i.e. a draft (PRD 0010, KODI-033):
+
+| Route                                 | Shell                                           | Component                                                         |
+| ------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------- |
+| `/applications/new-with-cv?id=&step=` | `(protected)/applications/new-with-cv/page.tsx` | `new-with-cv-page.tsx` — both steps, owns both forms and autosave |
+
 `?id=` is the APPLICATION's id, never the copy's. There is no nav entry: the
 route is reached from the CV link on an application row, and
 `e2e/shell-responsive.spec.ts` pins `PRIMARY_NAV` at seven entries.
@@ -822,6 +828,114 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   `null`/absent as `unknown` and carries a `sr-only` `"Reason: "` prefix —
   assert on `/reason:\s*<label>/i`, never an exact string, the same convention
   `InterviewTypeBadge` already set.
+
+### Application drafts (`src/components/application-drafts/`, PRD 0010, KODI-033)
+
+The owner: "i want to add option to the user to create a job application and a
+cv together (this option will be available only in the web app, no support to
+the cli) … open a new page where the user selects a master cv to use as
+template, let the user edit the cv to the job and then in the next step the
+user fills the data about the application." Clarified: step order reversed —
+"the user first fill the data related to the application and then in the
+second step select a master cv to edit, this way i can create a draft
+application entry."
+
+- **Two steps, one draft, one page.** `/applications/new-with-cv?id=&step=`
+  (`new-with-cv-page.tsx`) owns BOTH react-hook-form instances (the
+  application fields and the CV fields) and both autosave loops, mirroring
+  `application-cv-page.tsx`'s "the page owns the schema, the presentational
+  components render it" convention. `draft-application-step.tsx` is
+  `ApplicationFields` with `showDate={false}` (AC3 — no application date is
+  ever asked here; the finish date comes from the browser's own calendar day,
+  never `toISOString()` — see `localCalendarDay()` in `draft-copy.ts`).
+  `draft-cv-step.tsx` is the same picker/editor split as
+  `application-cv-page.tsx`, reused against a DRAFT id — the backend accepts a
+  draft id under `/applications/{id}/cv` exactly like a real application id.
+- **`application-fields.tsx` is the field set the side sheet and the draft
+  page share.** It was extracted from `application-form-sheet.tsx`
+  (characterized first in `application-form-sheet.test.tsx` — the payload
+  shapes for an existing company id, a brand-new `{name, url}` company and a
+  name-only company, plus the validation messages — so the extraction could
+  not silently change any of them). The sheet still owns its own zod schema,
+  its own submit and its own Sheet chrome; `ApplicationFields` owns only the
+  fields and is generic enough that a caller with no `application_date` in its
+  form (the draft page) still type-checks.
+- **The autosave contract (`use-debounced-autosave.ts`).** One request in
+  flight, the latest value always wins: a change mid-flight is queued and
+  fires the instant the first request settles, with NO extra debounce wait.
+  ~1000ms after the last change, `PUT` is always a FULL replace of
+  `DraftInput` — never a partial, exactly like the application's own update.
+  `AutosaveStatus` treats the debounce WAIT itself as `"saving"` so `Saved`
+  never shows over unsaved typing; the flip happens during RENDER (React's own
+  "adjust state when a prop changes" pattern), never inside a `useEffect` body
+  — a synchronous `setState` in an effect is a lint error in this repo
+  (`react-hooks/set-state-in-effect`), and this project's `react-compiler`
+  ESLint plugin ALSO forbids reading or writing a `ref.current` during render;
+  keep every piece of render-visible derived state in `useState`, and move
+  ref-only bookkeeping (things only an async callback reads) into refs
+  updated from effects or event handlers, never from the render body.
+- **No draft until company, role and platform are all set (AC6).** Before
+  that, what the user types lives only in the page's own React state — nothing
+  is ever written to `localStorage`/`sessionStorage`/IndexedDB — and a
+  `beforeunload` listener warns before closing or reloading while typing is
+  unsaved (before the draft exists, or while an autosave is `saving`/`error`).
+  The first successful save is a `POST /applications/drafts` that mints the
+  draft id and `router.replace`s `?id=` onto the URL; every later save on
+  either step is a `PUT`.
+- **Company/platform resolution on the draft is NOT the sheet's.** The
+  sheet's `CreateApplicationPayload.company` accepts an id OR a bare
+  `{name, url}` object and lets the SERVER decide; `DraftInput` requires an
+  explicit `company_id: string | null` and `company_name`. So the draft page
+  resolves a brand-new company itself: a URL confirmed for it calls
+  `POST /companies` (`useCreateCompany`) and takes the 201/200 id back
+  (AC18); no URL means `company_id: null` and the typed name stays free text
+  forever (AC16, matches the sheet). `CompanySelect` gained an optional
+  `onCompanyChange` callback (existing pick, inline create, or clear) purely
+  so the draft page can recover the NAME of an existing selection, which the
+  polymorphic form field alone does not carry — the sheet ignores it.
+- **The platform picker (`components/applications/platform-select.tsx`,
+  AC14).** A Popover+Command combobox, the `CompanySelect`/`TimezoneSelect`
+  pattern: an exact case-insensitive match is offered instead of "Create"
+  (AC17); "Create "X"" swaps the list for a name + optional URL form
+  (`POST /platforms`); a 409 refetches `["supports"]` and selects the
+  colliding row with the server's `detail` shown verbatim (`useCreatePlatformOutcome`
+  in `hooks/use-create-platform.ts`). It replaces the plain `<Select>` in
+  `application-fields.tsx`, so both the sheet and the draft page get it for
+  free. A platform may have no URL, whoever adds it — every list renders a
+  `url: null` row without error.
+- **Private rows (AC15).** `OnlyYouBadge` (`components/applications/only-you-badge.tsx`)
+  marks a `is_public === false` company or platform in both pickers with
+  "Only you"; the admin screens pass `label="Private"`. The backend already
+  filters visibility; this is the UI half only.
+- **Drafts section (`drafts-section.tsx`, AC11).** Renders on the applications
+  page in the SAME place and under the SAME condition as the create actions
+  (current cycle only, hidden on an archived one) — `null` while loading and
+  when the user has no drafts. Resume (`draftResumeHref`) always targets
+  `/applications/new-with-cv?id=`; the PAGE decides step 1 vs step 2 from
+  `has_cv` (AC12). Delete is an `AlertDialog` confirm; deleting a draft takes
+  its CV copy with it, same cascade as deleting a real application.
+- **Finish (AC9/AC10).** Disabled with the missing list
+  (`DRAFT_REQUIREMENT_ORDER`: company, role, platform, then "CV copy") shown
+  via `missingLabel()`. Before calling `POST /applications/drafts/{id}/finish`
+  it flushes both forms with one more full-replace `PUT` each, so nothing
+  typed in the last debounce window is lost even if it has not fired yet. A
+  422 (no CV copy, or a future date) surfaces as the server's own `detail` in
+  `[data-slot="draft-finish-error"]`.
+
+### Admin — private company/platform rows (`components/admin/catalog-visibility.tsx`, `approve-catalog-button.tsx`, PRD 0010, AC19/AC20)
+
+The public companies/platforms admin screens (`admin/companies/companies-page.tsx`,
+`admin/supports/supports-page.tsx`) gained a `VisibilityFilter` (All/Public/Private,
+sends `visibility=public|private`, `all` sends no param), an "Added by" column
+reading the row's nested `created_by.username` (a dash when absent — the
+LEGACY flat `created_by_username` field is still on the wire for the CLI but
+the web no longer reads it) and, on private rows only, `ApproveCatalogButton` —
+`Approve` behind an `AlertDialog` confirm, calling
+`POST /admin/{companies|platforms}/{id}/publish`. A 409 (the row would
+duplicate a public one) keeps the dialog open and shows the server's `detail`
+VERBATIM in `[data-slot="approve-catalog-error"]`, naming the colliding public
+row — never a generic message. A private row's own name carries `OnlyYouBadge`
+with `label="Private"`.
 
 ### Profile — connected accounts (`src/components/profile/`, KODI-022, revised KODI-027)
 
