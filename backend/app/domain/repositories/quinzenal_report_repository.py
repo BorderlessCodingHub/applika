@@ -1,6 +1,7 @@
 from datetime import date
 from typing import Any
 
+import sqlalchemy as sa
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,7 @@ from app.domain.models import (
     QuinzenalReportModel,
     TimelineEventModel,
 )
+from app.domain.repositories.application_filters import NOT_DRAFT
 
 UNIQUE_REPORT_DAY_CONSTRAINT = 'uq_quinzenal_reports_user_day'
 UNIQUE_REPORT_DAY_CYCLE_CONSTRAINT = 'uq_quinzenal_reports_user_day_cycle'
@@ -27,9 +29,11 @@ def _report_cycle_filter(cycle_id: int | None):
 
 
 def _app_cycle_filter(cycle_id: int | None):
+    """Scope + draft exclusion (KODI-032): a draft never counts toward a
+    report, whatever the cycle scope."""
     if cycle_id is not None:
-        return ApplicationModel.cycle_id == cycle_id
-    return ApplicationModel.cycle_id.is_(None)
+        return sa.and_(ApplicationModel.cycle_id == cycle_id, NOT_DRAFT)
+    return sa.and_(ApplicationModel.cycle_id.is_(None), NOT_DRAFT)
 
 
 class QuinzenalReportRepository:

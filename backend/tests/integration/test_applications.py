@@ -758,3 +758,27 @@ async def test_update_application_with_foreign_private_company_is_404(
     unchanged = await async_client.get('/applications')
     row = next(a for a in unchanged.json() if a['id'] == created['id'])
     assert row['company_id'] == created['company_id']
+
+
+async def test_get_applications_omits_open_draft(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """GET /applications never includes a draft (KODI-032, ADR-0014)."""
+    created = await async_client.post('/applications', json=_base_payload())
+    assert created.status_code == 201
+
+    draft_resp = await async_client.post(
+        '/applications/drafts',
+        json={
+            'company_id': base_data()['company_acme'].id,
+            'company_name': 'Acme Corp',
+            'role': 'Draft Role',
+            'platform_id': base_data()['plat_linkedin'].id,
+        },
+    )
+    assert draft_resp.status_code == 201, msg(201, draft_resp.text)
+
+    listed = await async_client.get('/applications')
+    ids = [row['id'] for row in listed.json()]
+    assert created.json()['id'] in ids
+    assert draft_resp.json()['id'] not in ids

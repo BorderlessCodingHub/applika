@@ -26,7 +26,8 @@ from sqlalchemy.orm import joinedload
 
 from app.core.enums import EventType, InterviewType
 from app.core.exceptions import ResourceConflict
-from app.domain.models import TimelineEventModel
+from app.domain.models import ApplicationModel, TimelineEventModel
+from app.domain.repositories.application_filters import NOT_DRAFT
 
 ONE_INITIAL_SCREENING_INDEX = 'uq_timeline_events_one_initial_screening'
 ONE_INITIAL_SCREENING_MESSAGE = (
@@ -212,17 +213,25 @@ class TimelineEventRepository:
         then ``start_time`` (unscheduled last on a day). KODI-016
         (R-038/R-039): only ``interview`` events carry a schedule any more,
         so an agenda of anything else would be a list of unscheduled
-        entries - narrowed to interview events only."""
+        entries - narrowed to interview events only. A draft has no
+        timeline (KODI-032) and its application is excluded here too, so a
+        pre-existing event could never surface for one anyway - this join
+        is belt and suspenders should that ever change."""
         today = date.today()
         start = from_date or (today - timedelta(days=30))
         end = to_date or (today + timedelta(days=30))
         result = await self.session.scalars(
             select(TimelineEventModel)
+            .join(
+                ApplicationModel,
+                ApplicationModel.id == TimelineEventModel.application_id,
+            )
             .where(
                 TimelineEventModel.user_id == user_id,
                 TimelineEventModel.event_type == EventType.INTERVIEW,
                 TimelineEventModel.event_date >= start,
                 TimelineEventModel.event_date <= end,
+                NOT_DRAFT,
             )
             .order_by(
                 TimelineEventModel.event_date.asc(),

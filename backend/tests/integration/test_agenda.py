@@ -217,3 +217,27 @@ async def test_agenda_requires_authentication(async_client: AsyncClient):
         main_app.dependency_overrides[get_current_user] = override
 
     assert response.status_code in (401, 403)
+
+
+async def test_agenda_excludes_draft_application_events(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """A draft has no timeline (KODI-032, acceptance #14); should one ever
+    be seeded with events anyway, the agenda must still exclude it."""
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        ts.application(1, is_draft=True),
+        ts.event(
+            1,
+            1,
+            event_date=TODAY + timedelta(days=5),
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.INITIAL_SCREENING,
+        ),
+    )
+
+    response = await async_client.get('/users/me/agenda')
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    assert response.json() == [], msg([], response.json())

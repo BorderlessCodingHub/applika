@@ -6,6 +6,9 @@ from app.config.settings import envs
 from app.presentation.api.account_link import router as account_link_router
 from app.presentation.api.admin import routers as admin_routers
 from app.presentation.api.application import router as application_router
+from app.presentation.api.application_draft import (
+    router as application_draft_router,
+)
 from app.presentation.api.application_step import router as app_step_router
 from app.presentation.api.base_cv import router as base_cv_router
 from app.presentation.api.company import router as company_router
@@ -61,6 +64,7 @@ app.include_router(profile_router)
 app.include_router(support_router)
 app.include_router(company_router)
 app.include_router(platform_router)
+app.include_router(application_draft_router)
 app.include_router(application_router)
 app.include_router(timeline_router)
 app.include_router(app_step_router)

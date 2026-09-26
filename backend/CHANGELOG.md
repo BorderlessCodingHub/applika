@@ -8,6 +8,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-032 draft applications API - "new application with CV" (ADR-0014,
+  Release B of PRD 0010, S3). `ApplicationModel.is_draft` is now mapped
+  (the migration `3b78c3cd2a71` column KODI-030 left unmapped) and
+  `app/domain/repositories/application_filters.NOT_DRAFT` is the one
+  filter every application read path applies by default.
+  - `POST /applications/drafts` (new, web only, not a CLI route): create a
+    draft - `{company_id?, company_name, role, platform_id, mode?,
+    link_to_job?, observation?, expected_salary?, salary_range_min?,
+    salary_range_max?, currency?, salary_period?, experience_level?,
+    work_mode?, country?, job_description?}` - 201. No `application_date`
+    is asked; the row gets a server-today placeholder until it is
+    finished. `company_id` wins over `company_name` when both are sent
+    (the row's own name is stored); a bare `company_name` stays free text,
+    same as the ordinary application's `{name, url: null}`. An invisible
+    `company_id`/`platform_id` is 404 and writes nothing.
+  - `GET /applications/drafts` (new): the caller's own drafts as
+    `DraftSummary {id, company_name, role, platform_id, has_cv,
+    created_at, updated_at}`, most recently saved first, `[]` when there
+    are none.
+  - `GET /applications/drafts/{id}` (new): one draft, full shape (`Draft`),
+    404 if not owned or not a draft.
+  - `PUT /applications/drafts/{id}` (new): full replace of the draft's
+    application data. Never touches its CV copy - going back to step 1,
+    editing, and returning to step 2 keeps the copy.
+  - `DELETE /applications/drafts/{id}` (new): 204; its CV copy is
+    cascade-deleted with it.
+  - `POST /applications/drafts/{id}/finish` (new): `{application_date}` -
+    200, the same `Application` shape `GET /applications` returns. 422
+    `"Pick a master CV before finishing"` with no CV copy; 422 when
+    `application_date` is past `UTC today + 1` (the same rule every other
+    application date uses). On success `is_draft` flips to false,
+    `cycle_id` stays NULL, and the row appears in every ordinary read
+    model from then on.
+  - `/applications/{id}/cv*` (create/get/update/delete/pdf/markdown/diff)
+    now accept a draft id - the CV copy page (PRD 0007) is reused as step 2
+    of the draft flow (`tailored_cvs/guards.load_owned_application` is the
+    one caller that opts back into seeing a draft).
+
+### Changed
+
+- KODI-032: `GET /applications`, statistics, reports, cycles, the agenda
+  and admin statistics/user counts now all exclude drafts
+  (`NOT_DRAFT`); starting a new cycle never archives one.
+  `count_entity_references` (admin platform/company delete refusal) is
+  unchanged on purpose - a platform or company a draft uses still blocks
+  the delete. A draft id on any ordinary application route (`PUT`/`DELETE
+  /applications/{id}`, timeline, steps, finalize, reopen, the 0.1.4
+  compat routes) is a 404, same as an application owned by someone else.
+
 - KODI-031 private companies and platforms, admin Approve (ADR-0014,
   Release B of PRD 0010, S2). `CompanyModel`/`PlatformModel` now map
   `is_public` and `PlatformModel.created_by` (the migration `3b78c3cd2a71`

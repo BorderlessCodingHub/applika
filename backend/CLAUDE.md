@@ -41,6 +41,7 @@ When you add or modify any of the following, update the seed script accordingly:
 - New or changed fields on `POST /base-cvs` — `seed_base_cvs()` creates 3 master CVs and asserts the 4th is refused with 409
 - New or changed behaviour on the `/pdf` export routes — `seed_cv_pdfs()` posts to both at the end of the run and checks the bytes start with `%PDF-`
 - New or changed fields on `/applications/{id}/cv` — `seed_application_cv()` gives roughly half the applications a CV copy and runs the full create → read → update → delete → recreate round trip on the first one, asserting the 2nd copy is refused with 409
+- New or changed fields on `/applications/drafts*` — `seed_drafts()` creates one draft that gets a CV copy and is finished into a normal application, and one draft that is left open with a CV copy attached; it asserts the open one never appears in `GET /applications`
 
 After any such change, mentally walk through the seed script from top to bottom and confirm it would still run without errors against a fresh database.
 
@@ -513,6 +514,47 @@ null`.
 | DELETE | `/applications/{id}` | Yes | Delete application (204); its events go with it |
 | POST | `/applications/{id}/finalize` | Yes | Close it. No body → 200, idempotent. New optional outcome body → 200, no Deprecation. 0.1.4 body → 201, deprecated |
 | POST | `/applications/{id}/reopen` | Yes | Reopen a closed application (200, idempotent) |
+
+### Application drafts (`/applications/drafts`, KODI-032, ADR-0014, web only - not a CLI route)
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| POST | `/applications/drafts` | Yes | Create a draft (201) |
+| GET | `/applications/drafts` | Yes | List the caller's own drafts, most recently saved first, `[]` when none |
+| GET | `/applications/drafts/{id}` | Yes | Get one own draft (404 otherwise) |
+| PUT | `/applications/drafts/{id}` | Yes | Full replace of the draft's data; never touches its CV copy |
+| DELETE | `/applications/drafts/{id}` | Yes | Delete it (204); its CV copy is cascade-deleted |
+| POST | `/applications/drafts/{id}/finish` | Yes | `{application_date}` → 200 `Application` (same shape `GET /applications` returns); 422 with no CV copy; 422 past `UTC today + 1` |
+
+**`is_draft` and the `NOT_DRAFT` rule.** A draft is a plain `applications` row
+with `is_draft = true` (`ApplicationModel.is_draft`, migration `3b78c3cd2a71`
+column, mapped by this ticket; `ix_applications_user_id_drafts` mirrored in
+`__table_args__` because the test schema is built with `create_all`). It is
+the "new application with CV" flow: create the draft with its data (no
+`application_date` - it gets a server-today placeholder), attach a CV copy
+through the ordinary `/applications/{id}/cv*` routes (`tailored_cvs/
+guards.load_owned_application` passes `include_drafts=True`, the **one**
+caller that ever sees a draft through the application repository), then
+`finish` it with the caller's own calendar day. Finishing needs a CV copy
+(422 `"Pick a master CV before finishing"` otherwise), applies
+`ensure_not_in_future` to the submitted date, flips `is_draft` to `false` and
+leaves `cycle_id` NULL - the row then behaves like any application created
+the ordinary way.
+
+`app/domain/repositories/application_filters.NOT_DRAFT` (`ApplicationModel
+.is_draft.is_(False)`) is the one condition every other application read
+path applies: `ApplicationRepository.get_all_by_user_id`/
+`get_by_id_and_user_id` (default; `include_drafts=True` is the one opt-in,
+above), `UserStatsRepository._cycle_filter`, `QuinzenalReportRepository
+._app_cycle_filter`, `CycleRepository.count_current_applications`/
+`archive_current_applications` (a draft is never swept into a new cycle),
+`TimelineEventRepository.list_agenda`, and every `ApplicationModel` query in
+`AdminRepository` **except** `count_entity_references` - a platform or
+company a draft uses still blocks the admin delete, on purpose. A draft id on
+any ordinary application route (`PUT`/`DELETE /applications/{id}`, timeline,
+steps, finalize, reopen, the 0.1.4 compat routes) is a 404, exactly like an
+application owned by someone else - a draft has no timeline and is changed
+only through the drafts routes above.
 
 **Closed is reversible** (PRD 0008). `finalized_at` set = closed, NULL = open;
 `finalized` is `finalized_at is not null`. Closing asks for no step, feedback
@@ -989,7 +1031,7 @@ Optional (with defaults):
 - **DiscordConnection**: one row per linked user (table `discord_connections`, migration `ba44f9cfd3c1`), a record of its own apart from `users` (R-012). `user_id` and `discord_id` are each UNIQUE. Holds the Discord user id, username, display name (`global_name`), avatar, the granted `scopes`, `access_token_expires_at`, `status` (`active` | `needs_reconnect`) and `linked_at`; the refresh token is stored **encrypted** (`encrypted_refresh_token`) and there is **no** access-token column - see **Account links** above for the full flow
 - **DiscordReportWebhook**: admin-managed catalog (KODI-025, ADR-0004/ADR-0013), table `discord_report_webhooks`, added by migration `ba44f9cfd3c1` but unmapped until this ticket - not owned by a `user_id`. `webhook_url` is UNIQUE; `guild_id` is indexed for K8's submit-time lookup; `role_ids` (`BIGINT[]`, default `{}`) and `label` are optional. See **Admin report webhooks** above
 - **Company**: Job companies (ADR-0014). `is_public` (default `True`) and `created_by` (nullable, `ON DELETE SET NULL`) decide visibility - see **Companies and Platforms** above. Uniqueness is two scoped partial indexes, not one global one: `uq_companies_public_name_url` (`lower(name), url` where public) and `uq_companies_private_owner_name_url` (`created_by, lower(name), url` where private) - two users may hold a private company with the same name and url
-- **Application**: Job applications with tracking, salary info, and country
+- **Application**: Job applications with tracking, salary info, and country. `is_draft` (KODI-032, ADR-0014) marks a "new application with CV" draft, excluded from every read model by default (`NOT_DRAFT`, see **Application drafts** above)
 - **TimelineEvent**: one entry of an application's timeline (`timeline_events`), typed by `EventType`, with `interview_type` on interviews and the salary triple on offers; rows migrated from `application_steps` kept the step's id
 - **StepDefinition**: the frozen legacy step catalog, read only by the compat layer; `event_type`/`interview_type` are its mapping onto the timeline (`strict=True` steps were the finalize-only ones)
 - **FeedbackDefinition**: the frozen legacy outcome catalog, read only by `/supports` and the 0.1.4 finalize body

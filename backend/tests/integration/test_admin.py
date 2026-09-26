@@ -781,3 +781,83 @@ async def test_admin_activity_heatmap_counts_timeline_events(
     cells = (await admin_client.get('/admin/stats/activity-heatmap')).json()
 
     assert sum(cell['count'] for cell in cells) == 4
+
+
+# ---------------------------------------------------------------------------
+# Drafts are excluded from admin statistics and user counts (KODI-032)
+# ---------------------------------------------------------------------------
+
+
+async def test_admin_stats_and_user_counts_exclude_draft(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
+    """A draft with an offer event and created recently must not move
+    ``/admin/stats``, top platforms/companies or a user's counts - only
+    ``count_entity_references`` still sees a draft (a platform/company it
+    uses cannot be deleted)."""
+    await _seed_outcomes(db_session)
+    user_id = base_data()['user'].id
+
+    before_stats = (await admin_client.get('/admin/stats')).json()
+    before_platforms = (
+        await admin_client.get('/admin/stats/top-platforms')
+    ).json()
+    before_companies = (
+        await admin_client.get('/admin/stats/top-companies')
+    ).json()
+    before_detail = (await admin_client.get(f'/admin/users/{user_id}')).json()
+
+    await ts.seed(
+        db_session,
+        ts.application(999, is_draft=True),
+        ts.event(199, 999, event_type=EventType.OFFER, **ts.offer_salary('1')),
+    )
+
+    after_stats = (await admin_client.get('/admin/stats')).json()
+    after_platforms = (
+        await admin_client.get('/admin/stats/top-platforms')
+    ).json()
+    after_companies = (
+        await admin_client.get('/admin/stats/top-companies')
+    ).json()
+    after_detail = (await admin_client.get(f'/admin/users/{user_id}')).json()
+
+    assert (
+        after_stats['total_applications'] == before_stats['total_applications']
+    )
+    assert after_stats['total_offers'] == before_stats['total_offers']
+    assert after_platforms == before_platforms
+    assert after_companies == before_companies
+    assert (
+        after_detail['total_applications']
+        == before_detail['total_applications']
+    )
+    assert after_detail['offers'] == before_detail['offers']
+
+
+async def test_admin_delete_platform_in_use_by_a_draft_is_still_refused(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """``count_entity_references`` keeps counting drafts on purpose - a
+    platform a draft uses cannot be deleted from under it."""
+    create_resp = await async_client.post(
+        '/platforms', json={'name': 'Draft-only Board'}
+    )
+    platform_id = create_resp.json()['id']
+
+    draft_resp = await async_client.post(
+        '/applications/drafts',
+        json={
+            'company_id': base_data()['company_acme'].id,
+            'company_name': 'Acme Corp',
+            'role': 'Draft Role',
+            'platform_id': platform_id,
+        },
+    )
+    assert draft_resp.status_code == 201, msg(201, draft_resp.text)
+
+    async with as_user(
+        base_data()['admin_user'].id, 'adminuser', is_admin=True
+    ):
+        resp = await async_client.delete(f'/admin/platforms/{platform_id}')
+    assert resp.status_code == 409, msg(409, resp.status_code)

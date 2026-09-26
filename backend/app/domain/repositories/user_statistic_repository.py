@@ -25,6 +25,7 @@ from app.domain.models import (
     PlatformModel,
     TimelineEventModel,
 )
+from app.domain.repositories.application_filters import NOT_DRAFT
 
 Stage = tuple[EventType, InterviewType | None]
 """A statistics stage: an event type, and the interview type on interviews."""
@@ -47,9 +48,11 @@ class DailyApplicationsLastMonth(TypedDict):
 
 
 def _cycle_filter(cycle_id: int | None) -> ColumnElement[bool]:
+    """Scope + draft exclusion (KODI-032, R-012 in this ticket): a draft
+    never counts toward statistics, whatever the cycle scope."""
     if cycle_id is not None:
-        return ApplicationModel.cycle_id == cycle_id
-    return ApplicationModel.cycle_id.is_(None)
+        return sa.and_(ApplicationModel.cycle_id == cycle_id, NOT_DRAFT)
+    return sa.and_(ApplicationModel.cycle_id.is_(None), NOT_DRAFT)
 
 
 class UserStatsRepository:

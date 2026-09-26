@@ -12,6 +12,7 @@ from app.domain.models import (
     TimelineEventModel,
     UserModel,
 )
+from app.domain.repositories.application_filters import NOT_DRAFT
 
 
 def _has_event(event_type: EventType) -> ColumnElement[bool]:
@@ -50,7 +51,10 @@ class AdminRepository:
         thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
         active_users_subq = (
             select(ApplicationModel.user_id)
-            .where(ApplicationModel.created_at >= thirty_days_ago)
+            .where(
+                ApplicationModel.created_at >= thirty_days_ago,
+                NOT_DRAFT,
+            )
             .union(
                 select(TimelineEventModel.user_id).where(
                     TimelineEventModel.created_at >= thirty_days_ago
@@ -63,16 +67,18 @@ class AdminRepository:
         )
 
         total_applications = await self.session.scalar(
-            select(func.count(ApplicationModel.id))
+            select(func.count(ApplicationModel.id)).where(NOT_DRAFT)
         )
 
         total_finalized = await self.session.scalar(
-            select(func.count(ApplicationModel.id)).where(~_is_open())
+            select(func.count(ApplicationModel.id)).where(
+                ~_is_open(), NOT_DRAFT
+            )
         )
         total_offers = (
             await self.session.scalar(
                 select(func.count(ApplicationModel.id)).where(
-                    _has_event(EventType.OFFER)
+                    _has_event(EventType.OFFER), NOT_DRAFT
                 )
             )
             or 0
@@ -80,7 +86,7 @@ class AdminRepository:
         total_denials = (
             await self.session.scalar(
                 select(func.count(ApplicationModel.id)).where(
-                    _has_event(EventType.DENIED)
+                    _has_event(EventType.DENIED), NOT_DRAFT
                 )
             )
             or 0
@@ -97,7 +103,7 @@ class AdminRepository:
         apps_last_30d = (
             await self.session.scalar(
                 select(func.count(ApplicationModel.id)).where(
-                    ApplicationModel.created_at >= thirty_days_ago
+                    ApplicationModel.created_at >= thirty_days_ago, NOT_DRAFT
                 )
             )
             or 0
@@ -159,6 +165,7 @@ class AdminRepository:
                 ),
                 func.max(ApplicationModel.created_at).label('last_activity'),
             )
+            .where(NOT_DRAFT)
             .group_by(ApplicationModel.user_id)
             .subquery('app_counts')
         )
@@ -318,6 +325,7 @@ class AdminRepository:
                 ApplicationModel,
                 ApplicationModel.platform_id == PlatformModel.id,
             )
+            .where(NOT_DRAFT)
             .group_by(PlatformModel.name)
             .order_by(sa.desc('total_across_users'))
             .limit(limit)
@@ -339,6 +347,7 @@ class AdminRepository:
                 ApplicationModel,
                 ApplicationModel.company_id == CompanyModel.id,
             )
+            .where(NOT_DRAFT)
             .group_by(CompanyModel.name)
             .order_by(sa.desc('total_across_users'))
             .limit(limit)
@@ -395,7 +404,7 @@ class AdminRepository:
                 ),
                 func.count(sa.case((_is_open(), 1))).label('active'),
                 func.max(ApplicationModel.created_at).label('last_activity'),
-            ).where(ApplicationModel.user_id == user_id)
+            ).where(ApplicationModel.user_id == user_id, NOT_DRAFT)
         )
         counts = app_counts.mappings().first()
 
@@ -434,7 +443,7 @@ class AdminRepository:
                 ApplicationModel.company_id,
                 func.count(ApplicationModel.id).label('applications_count'),
             )
-            .where(ApplicationModel.company_id.isnot(None))
+            .where(ApplicationModel.company_id.isnot(None), NOT_DRAFT)
             .group_by(ApplicationModel.company_id)
             .subquery('app_counts')
         )

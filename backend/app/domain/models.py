@@ -458,7 +458,29 @@ class CycleModel(BaseMixin, Base):
 
 
 class ApplicationModel(BaseMixin, Base):
+    """Job applications (R-001..R-020) plus the draft flag (ADR-0014,
+    KODI-032). ``is_draft`` (``server_default false``, migration
+    ``3b78c3cd2a71``) marks a "new application with CV" draft: it is
+    excluded from every read model by default
+    (``domain/repositories/application_filters.NOT_DRAFT``) - the
+    applications list, statistics, reports, cycles, the agenda and admin
+    counts all see only ``is_draft = false`` rows. The one caller that opts
+    back in is ``tailored_cvs/guards.load_owned_application``, so the CV
+    copy routes (create/get/update/delete/diff/pdf/markdown) work on a
+    draft the same as on a finished application. ``__table_args__`` mirrors
+    ``ix_applications_user_id_drafts`` object for object, because the test
+    schema is built with ``create_all``.
+    """
+
     __tablename__ = 'applications'
+
+    __table_args__ = (
+        sa.Index(
+            'ix_applications_user_id_drafts',
+            'user_id',
+            postgresql_where=sa.text('is_draft'),
+        ),
+    )
 
     user_id: Mapped[int] = mapped_column(
         sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
@@ -532,6 +554,15 @@ class ApplicationModel(BaseMixin, Base):
     # (R2) retires them.
     finalized_at: Mapped[datetime | None] = mapped_column(
         sa.DateTime(timezone=True), nullable=True
+    )
+
+    # KODI-032, ADR-0014: a "new application with CV" draft. Excluded from
+    # every read model by default (NOT_DRAFT); see the class docstring.
+    is_draft: Mapped[bool] = mapped_column(
+        sa.Boolean,
+        default=False,
+        server_default=sa.text('false'),
+        nullable=False,
     )
 
     user: Mapped[UserModel] = relationship(back_populates='applications')

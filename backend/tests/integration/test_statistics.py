@@ -368,3 +368,68 @@ async def test_trends(async_client: AsyncClient, db_session: AsyncSession):
     assert response.status_code == 200, msg(200, response.status_code)
     data = response.json()
     assert isinstance(data, list)
+
+
+# ---------------------------------------------------------------------------
+# Drafts are excluded (KODI-032, ADR-0014)
+# ---------------------------------------------------------------------------
+
+
+async def test_statistics_exclude_open_draft_with_cv_copy(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """An open draft, even with a CV copy attached, must not move any
+    statistics number - it is not a real application until it is
+    finished."""
+    await _seed_stats_data(db_session)
+
+    before_general = (await async_client.get('/applications/statistics')).json()
+    before_platforms = (
+        await async_client.get('/applications/statistics/platforms')
+    ).json()
+    before_mode = (
+        await async_client.get('/applications/statistics/mode')
+    ).json()
+
+    draft_resp = await async_client.post(
+        '/applications/drafts',
+        json={
+            'company_id': base_data()['company_acme'].id,
+            'company_name': 'Acme Corp',
+            'role': 'Draft Role',
+            'platform_id': base_data()['plat_linkedin'].id,
+        },
+    )
+    assert draft_resp.status_code == 201, msg(201, draft_resp.text)
+    draft_id = draft_resp.json()['id']
+
+    base_cv_resp = await async_client.post(
+        '/base-cvs',
+        json={
+            'name': 'Draft Master',
+            'full_name': 'Ada Lovelace',
+            'headline': 'Engineer',
+            'location': 'Lisbon, PT',
+            'email': 'ada@example.com',
+        },
+    )
+    assert base_cv_resp.status_code == 201, msg(201, base_cv_resp.text)
+    cv_resp = await async_client.post(
+        f'/applications/{draft_id}/cv',
+        json={'base_cv_id': base_cv_resp.json()['id']},
+    )
+    assert cv_resp.status_code == 201, msg(201, cv_resp.text)
+
+    after_general = (await async_client.get('/applications/statistics')).json()
+    after_platforms = (
+        await async_client.get('/applications/statistics/platforms')
+    ).json()
+    after_mode = (
+        await async_client.get('/applications/statistics/mode')
+    ).json()
+
+    assert after_general == before_general, msg(before_general, after_general)
+    assert after_platforms == before_platforms, msg(
+        before_platforms, after_platforms
+    )
+    assert after_mode == before_mode, msg(before_mode, after_mode)
