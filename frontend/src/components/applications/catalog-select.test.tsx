@@ -60,6 +60,15 @@ describe("CatalogSelect", () => {
     vi.useRealTimers();
   });
 
+  it("calls onSearchChange immediately (not debounced) on open, with the current search (KODI-035, AC1 (b))", async () => {
+    const onSearchChange = vi.fn();
+    const user = userEvent.setup();
+    setup({ onSearchChange });
+
+    await user.click(screen.getByRole("combobox", { name: "Platform" }));
+    expect(onSearchChange).toHaveBeenCalledWith("");
+  });
+
   it("hides Create for an exact match only when exactMatchReplacesCreate", async () => {
     const user = userEvent.setup();
     setup({ exactMatchReplacesCreate: true });

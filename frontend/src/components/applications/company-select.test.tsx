@@ -37,6 +37,81 @@ beforeEach(() => {
 });
 
 describe("CompanySelect", () => {
+  it("lists the visible companies on open, including a private one (KODI-035, AC1 (b))", async () => {
+    const fetchCompanies = vi.fn().mockResolvedValue([
+      {
+        id: "co-1",
+        name: "Acme Inc",
+        url: "https://acme.example",
+        is_public: true,
+      },
+      { id: "co-2", name: "Secret Co", url: null, is_public: false },
+    ]);
+    const user = userEvent.setup();
+    setup(fetchCompanies);
+
+    // A blank query, not just a typed one — the list shows before any typing.
+    await waitFor(() => expect(fetchCompanies).toHaveBeenCalledWith(""));
+    await user.click(screen.getByRole("combobox"));
+
+    expect(await screen.findByText("Acme Inc")).toBeInTheDocument();
+    const privateRow = (await screen.findByText("Secret Co")).closest(
+      '[role="option"]',
+    ) as HTMLElement;
+    expect(privateRow).toHaveTextContent("Only you");
+  });
+
+  it("narrows the open list as the user types", async () => {
+    const fetchCompanies = vi.fn().mockImplementation((query: string) => {
+      const all = [
+        {
+          id: "co-1",
+          name: "Acme Inc",
+          url: "https://acme.example",
+          is_public: true,
+        },
+        { id: "co-2", name: "Beta LLC", url: null, is_public: true },
+      ];
+      const q = query.trim().toLowerCase();
+      return Promise.resolve(
+        q ? all.filter((c) => c.name.toLowerCase().includes(q)) : all,
+      );
+    });
+    const user = userEvent.setup();
+    setup(fetchCompanies);
+
+    await waitFor(() => expect(fetchCompanies).toHaveBeenCalledWith(""));
+    await user.click(screen.getByRole("combobox"));
+    expect(await screen.findByText("Acme Inc")).toBeInTheDocument();
+    expect(await screen.findByText("Beta LLC")).toBeInTheDocument();
+
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Acme",
+    );
+    await waitFor(() => expect(fetchCompanies).toHaveBeenCalledWith("Acme"));
+    expect(await screen.findByText("Acme Inc")).toBeInTheDocument();
+    expect(screen.queryByText("Beta LLC")).not.toBeInTheDocument();
+  });
+
+  it("selecting from the list opened with no search still works", async () => {
+    const fetchCompanies = vi
+      .fn()
+      .mockResolvedValue([
+        { id: "co-1", name: "Acme Inc", url: null, is_public: true },
+      ]);
+    const user = userEvent.setup();
+    setup(fetchCompanies);
+
+    await waitFor(() => expect(fetchCompanies).toHaveBeenCalledWith(""));
+    await user.click(screen.getByRole("combobox"));
+    await user.click(await screen.findByText("Acme Inc"));
+
+    expect(setValue).toHaveBeenCalledWith("company", "co-1", {
+      shouldValidate: true,
+    });
+  });
+
   it("searches and selects an existing company", async () => {
     const fetchCompanies = vi.fn().mockResolvedValue([
       {
