@@ -11,6 +11,7 @@ import {
   useCreateAdminPlatform,
   useUpdateAdminPlatform,
   useDeleteAdminPlatform,
+  usePublishPlatform,
 } from "@/hooks/use-admin";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
@@ -26,6 +27,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { AdminPlatform } from "@/services/types/admin";
+import { safeErrorMessage } from "@/components/application-drafts/draft-copy";
+import {
+  AddedBy,
+  VisibilityFilter,
+  visibilityParam,
+  type CatalogVisibility,
+} from "@/components/admin/catalog-visibility";
+import { ApproveCatalogButton } from "@/components/admin/approve-catalog-button";
+import { OnlyYouBadge } from "@/components/applications/only-you-badge";
 
 /**
  * Admin supports page (PRD 0008, ADR 0012, R-021): step and feedback
@@ -65,10 +75,14 @@ const platformSchema = z.object({
 type PlatformFormValues = z.infer<typeof platformSchema>;
 
 function PlatformsTab() {
-  const { data: platforms, isLoading } = useAdminPlatforms();
+  const [visibility, setVisibility] = useState<CatalogVisibility>("all");
+  const { data: platforms, isLoading } = useAdminPlatforms({
+    visibility: visibilityParam(visibility),
+  });
   const createMutation = useCreateAdminPlatform();
   const updateMutation = useUpdateAdminPlatform();
   const deleteMutation = useDeleteAdminPlatform();
+  const publishMutation = usePublishPlatform();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<AdminPlatform | null>(null);
@@ -86,7 +100,8 @@ function PlatformsTab() {
 
   return (
     <>
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <VisibilityFilter value={visibility} onValueChange={setVisibility} />
         <Button
           size="sm"
           className="gap-1.5"
@@ -114,6 +129,9 @@ function PlatformsTab() {
                 <th className="hidden px-3 py-2.5 text-left font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase md:table-cell">
                   URL
                 </th>
+                <th className="hidden px-3 py-2.5 text-left font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase md:table-cell">
+                  Added by
+                </th>
                 <th className="px-5 py-2.5 text-right font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                   Actions
                 </th>
@@ -125,12 +143,47 @@ function PlatformsTab() {
                   key={p.id}
                   className="border-b border-border/20 transition-colors hover:bg-accent/30"
                 >
-                  <td className="px-5 py-3 font-medium">{p.name}</td>
+                  <td className="px-5 py-3 font-medium">
+                    <div className="flex items-center gap-1.5">
+                      <span>{p.name}</span>
+                      {!p.is_public ? <OnlyYouBadge label="Private" /> : null}
+                    </div>
+                  </td>
                   <td className="hidden px-3 py-3 text-xs text-muted-foreground md:table-cell">
                     {p.url || "—"}
                   </td>
+                  <td className="hidden px-3 py-3 md:table-cell">
+                    <AddedBy username={p.created_by?.username} />
+                  </td>
                   <td className="px-5 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
+                      {!p.is_public ? (
+                        <ApproveCatalogButton
+                          kind="platform"
+                          name={p.name}
+                          url={p.url}
+                          addedBy={p.created_by?.username}
+                          onApprove={async () => {
+                            try {
+                              await publishMutation.mutateAsync(p.id);
+                            } catch (error) {
+                              return safeErrorMessage(
+                                error,
+                                "Could not approve it. Try again.",
+                              );
+                            }
+                          }}
+                          onApproved={() => {
+                            // Orchestrator decision 3: move focus to the
+                            // visibility filter once the trigger unmounts.
+                            document
+                              .querySelector<HTMLElement>(
+                                '[data-slot="visibility-filter"]',
+                              )
+                              ?.focus();
+                          }}
+                        />
+                      ) : null}
                       <Button
                         variant="ghost"
                         size="icon"

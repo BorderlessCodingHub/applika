@@ -19,7 +19,17 @@ import {
   useCreateAdminCompany,
   useUpdateAdminCompany,
   useDeleteAdminCompany,
+  usePublishCompany,
 } from "@/hooks/use-admin";
+import { safeErrorMessage } from "@/components/application-drafts/draft-copy";
+import {
+  AddedBy,
+  VisibilityFilter,
+  visibilityParam,
+  type CatalogVisibility,
+} from "@/components/admin/catalog-visibility";
+import { ApproveCatalogButton } from "@/components/admin/approve-catalog-button";
+import { OnlyYouBadge } from "@/components/applications/only-you-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +66,7 @@ function formatDate(iso: string): string {
 export function CompaniesPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
+  const [visibility, setVisibility] = useState<CatalogVisibility>("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<AdminCompanyRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminCompanyRow | null>(
@@ -64,6 +75,7 @@ export function CompaniesPage() {
 
   const { data, isLoading, isFetching } = useAdminCompanies({
     search: search || undefined,
+    visibility: visibilityParam(visibility),
     page: page + 1,
     per_page: PAGE_SIZE,
   });
@@ -71,6 +83,7 @@ export function CompaniesPage() {
   const createCompany = useCreateAdminCompany();
   const updateCompany = useUpdateAdminCompany();
   const deleteCompany = useDeleteAdminCompany();
+  const publishCompany = usePublishCompany();
 
   const companies = data?.items ?? [];
   const totalPages = data?.total_pages ?? 0;
@@ -143,17 +156,26 @@ export function CompaniesPage() {
           <span className="font-numeric text-xs text-muted-foreground/60">
             {data?.total ?? 0} companies
           </span>
-          <div className="relative">
-            <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
-            <Input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
+          <div className="flex flex-wrap items-center gap-2">
+            <VisibilityFilter
+              value={visibility}
+              onValueChange={(next) => {
+                setVisibility(next);
                 setPage(0);
               }}
-              placeholder="Search companies..."
-              className="h-8 w-full pl-8 sm:w-64"
             />
+            <div className="relative">
+              <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
+              <Input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(0);
+                }}
+                placeholder="Search companies..."
+                className="h-8 w-full pl-8 sm:w-64"
+              />
+            </div>
           </div>
         </div>
 
@@ -183,6 +205,9 @@ export function CompaniesPage() {
                     <th className="px-3 py-2.5 text-center font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                       Status
                     </th>
+                    <th className="hidden px-3 py-2.5 text-left font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase md:table-cell">
+                      Added by
+                    </th>
                     <th className="px-3 py-2.5 text-right font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
                       Apps
                     </th>
@@ -204,15 +229,13 @@ export function CompaniesPage() {
                       className="border-b border-border/20 transition-colors hover:bg-accent/30"
                     >
                       <td className="px-5 py-3">
-                        <div>
+                        <div className="flex items-center gap-1.5">
                           <span className="font-display font-medium text-foreground">
                             {company.name}
                           </span>
-                          {company.created_by_username && (
-                            <p className="text-[11px] text-muted-foreground/70">
-                              by {company.created_by_username}
-                            </p>
-                          )}
+                          {!company.is_public ? (
+                            <OnlyYouBadge label="Private" />
+                          ) : null}
                         </div>
                       </td>
                       <td className="hidden px-3 py-3 md:table-cell">
@@ -241,6 +264,9 @@ export function CompaniesPage() {
                           {company.is_active ? "active" : "inactive"}
                         </Badge>
                       </td>
+                      <td className="hidden px-3 py-3 md:table-cell">
+                        <AddedBy username={company.created_by?.username} />
+                      </td>
                       <td className="px-3 py-3 text-right font-numeric text-foreground">
                         {company.applications_count}
                       </td>
@@ -249,6 +275,33 @@ export function CompaniesPage() {
                       </td>
                       <td className="px-5 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {!company.is_public ? (
+                            <ApproveCatalogButton
+                              kind="company"
+                              name={company.name}
+                              url={company.url}
+                              addedBy={company.created_by?.username}
+                              onApprove={async () => {
+                                try {
+                                  await publishCompany.mutateAsync(company.id);
+                                } catch (error) {
+                                  return safeErrorMessage(
+                                    error,
+                                    "Could not approve it. Try again.",
+                                  );
+                                }
+                              }}
+                              onApproved={() => {
+                                // Orchestrator decision 3: move focus to the
+                                // visibility filter once the trigger unmounts.
+                                document
+                                  .querySelector<HTMLElement>(
+                                    '[data-slot="visibility-filter"]',
+                                  )
+                                  ?.focus();
+                              }}
+                            />
+                          ) : null}
                           <Button
                             variant="ghost"
                             size="icon"
