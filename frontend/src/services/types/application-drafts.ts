@@ -47,7 +47,10 @@ export interface Draft extends DraftInput {
    * or stored value fills the gap). */
   application_date: string;
   created_at: string;
-  updated_at: string;
+  /** `null` until the draft has been saved a SECOND time (`TimeSchema`,
+   * backend) — a draft that only ever got its one creating `POST` has never
+   * been updated. Never assume this is set. */
+  updated_at: string | null;
 }
 
 /** `GET /applications/drafts` row — the Drafts section's list. */
@@ -58,5 +61,6 @@ export interface DraftSummary {
   platform_id: string;
   has_cv: boolean;
   created_at: string;
-  updated_at: string;
+  /** See `Draft.updated_at` — `null` before the first edit after creation. */
+  updated_at: string | null;
 }

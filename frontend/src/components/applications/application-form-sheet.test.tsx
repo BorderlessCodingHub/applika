@@ -95,6 +95,47 @@ beforeEach(() => {
   fetchCompanies.mockClear();
 });
 
+describe("ApplicationFormSheet — wide sheet, larger title (KODI-036, AC6/AC7)", () => {
+  it("opens up to 4xl with a larger, unchanged-wording title", () => {
+    render(
+      <ApplicationFormSheet open onOpenChange={() => {}} application={null} />,
+    );
+
+    // The Sheet is a Radix Dialog: its content portals to `document.body`,
+    // outside the render container.
+    const sheet = document.querySelector('[data-slot="sheet-content"]');
+    expect(sheet?.className ?? "").toContain("sm:max-w-4xl");
+
+    const title = screen.getByRole("heading", { name: "New Application" });
+    expect(title.className).toContain("font-display");
+    expect(title.className).toContain("text-xl");
+  });
+
+  it("keeps the same title words when editing", () => {
+    render(
+      <ApplicationFormSheet
+        open
+        onOpenChange={() => {}}
+        application={{
+          id: "app-1",
+          company_id: "co-1",
+          company_name: "Acme Inc",
+          platform_id: "p-1",
+          role: "Senior Engineer",
+          mode: "active",
+          application_date: "2025-01-10",
+          finalized: false,
+          finalized_at: null,
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Edit Application" }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("ApplicationFormSheet — create payload (characterization)", () => {
   it("sends an existing company id when one is picked", async () => {
     const user = userEvent.setup();

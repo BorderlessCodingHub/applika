@@ -19,6 +19,7 @@ const DRAFT: DraftsSectionItem = {
   company_name: "Acme Inc",
   role: "Senior Engineer",
   has_cv: true,
+  created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };
 
@@ -59,6 +60,18 @@ describe("DraftsSection", () => {
       name: /resume senior engineer at acme inc/i,
     });
     expect(resume).toHaveAttribute("href", "/applications/new-with-cv?id=d-1");
+  });
+
+  it("falls back to created_at when updated_at is null, never 'Saved 56 years ago' (KODI-036 B2)", () => {
+    const neverUpdated: DraftsSectionItem = {
+      ...DRAFT,
+      created_at: new Date().toISOString(),
+      updated_at: null,
+    };
+    render(<DraftsSection drafts={[neverUpdated]} onDelete={vi.fn()} />);
+
+    expect(screen.getByText("Saved just now")).toBeInTheDocument();
+    expect(screen.queryByText(/1969|1970/)).not.toBeInTheDocument();
   });
 
   it("Delete asks for confirmation; Cancel keeps the row", async () => {

@@ -87,13 +87,28 @@ describe("ApplicationFields — three-section layout (KODI-035 T110, KODI-036 AC
     const sections = container.querySelectorAll('[data-slot="form-section"]');
     expect(sections).toHaveLength(3);
     for (const section of sections) {
-      expect(
-        section.querySelector('[data-slot="form-section-description"]'),
-      ).not.toBeNull();
+      const description = section.querySelector(
+        '[data-slot="form-section-description"]',
+      );
+      expect(description).not.toBeNull();
+      expect(description?.className).toContain("text-muted-foreground");
       // No icon beside the section TITLE itself (fields may still have their
       // own icons, e.g. a Select's chevron).
       const title = section.querySelector('[data-slot="form-section-title"]');
       expect(title?.querySelector("svg")).toBeNull();
+    }
+  });
+
+  it("every section carries the hairline-divider rule (AC12) — a CSS sibling selector that only paints on the SECOND+ section, so jsdom sees it on all three", () => {
+    const { container } = render(<Harness />);
+    const sections = Array.from(
+      container.querySelectorAll('[data-slot="form-section"]'),
+    );
+    expect(sections).toHaveLength(3);
+    for (const section of sections) {
+      expect(section.className).toContain(
+        "[[data-slot=form-section]+&]:border-t",
+      );
     }
   });
 
@@ -124,6 +139,11 @@ describe("ApplicationFields — three-section layout (KODI-035 T110, KODI-036 AC
     const row = (el: HTMLElement) =>
       el.closest('[class*="@md/app-form:grid-cols-2"]');
     expect(row(dateField)).toBe(row(jobLinkField));
+    // AC4 also pins the ORDER: the date comes first, then the job link.
+    expect(
+      dateField.compareDocumentPosition(jobLinkField) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("Details section: work mode/experience/country, currency/period, expected/min/max", () => {

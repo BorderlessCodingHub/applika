@@ -43,7 +43,10 @@ export interface DraftsSectionItem {
   company_name: string;
   role: string;
   has_cv: boolean;
-  updated_at: string;
+  created_at: string;
+  /** `null` before the draft's first edit after creation (`TimeSchema`,
+   * backend) — fall back to `created_at`, never render it raw. */
+  updated_at: string | null;
 }
 
 export interface DraftsSectionProps {
@@ -158,6 +161,12 @@ function DraftRow({
 }) {
   const confirmed = useRef(false);
   const name = applicationName(draft.role, draft.company_name);
+  // A draft that has never been edited past its creating POST comes back
+  // with `updated_at: null` (`TimeSchema`, backend) — `created_at` is the
+  // last time it was actually saved. Never render the `null` verbatim: `new
+  // Date(null)` is 1 Jan 1970, not NaN, which used to read "Saved 56 years
+  // ago" (frontend-qa KODI-036 round 1, B2).
+  const lastSavedAt = draft.updated_at ?? draft.created_at;
 
   return (
     <li
@@ -174,11 +183,8 @@ function DraftRow({
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:flex-nowrap">
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <ClockIcon aria-hidden className="size-3.5 shrink-0" />
-          <time
-            dateTime={draft.updated_at}
-            title={lastSavedTitle(draft.updated_at)}
-          >
-            {lastSavedLabel(draft.updated_at)}
+          <time dateTime={lastSavedAt} title={lastSavedTitle(lastSavedAt)}>
+            {lastSavedLabel(lastSavedAt)}
           </time>
         </p>
         {draft.has_cv ? (

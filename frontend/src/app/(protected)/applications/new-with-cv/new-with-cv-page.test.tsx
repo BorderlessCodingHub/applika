@@ -170,6 +170,85 @@ describe("NewWithCvPage — step 1 fields (AC1/AC3)", () => {
     vi.unstubAllEnvs();
   });
 
+  it("accepts today's own preset date in a zone AHEAD of UTC (frontend-qa KODI-036 round 1, B1)", async () => {
+    // At 22:30 UTC, Tokyo (UTC+9) is already the NEXT calendar day. The
+    // original `new Date(v) <= new Date()` refine compared against UTC "now"
+    // and refused this preset as "in the future" — this pins the fix.
+    vi.stubEnv("TZ", "Asia/Tokyo");
+    const fixed = new Date(Date.UTC(2026, 8, 26, 22, 30, 0));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(fixed);
+
+    createDraftMock.mockResolvedValue(
+      draftFrom({
+        id: "draft-tokyo",
+        company_name: "Acme",
+        role: "Engineer",
+        platform_id: "plt-1",
+        application_date: "2026-09-27",
+      }),
+    );
+    const user = userEvent.setup({ delay: null });
+    renderPage();
+
+    await screen.findByRole("combobox", { name: /platform/i });
+    expect(screen.getByLabelText(/application date/i)).toHaveTextContent(
+      "2026-09-27",
+    );
+    expect(
+      screen.queryByText("Date cannot be in the future"),
+    ).not.toBeInTheDocument();
+
+    await user.type(
+      screen.getByPlaceholderText(/senior engineer/i),
+      "Engineer",
+    );
+    await user.click(await screen.findByRole("combobox", { name: "Company" }));
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Acme",
+    );
+    await user.click(await screen.findByText('Create "Acme"'));
+    await user.click(screen.getByRole("button", { name: /^add company$/i }));
+    await user.click(screen.getByRole("combobox", { name: /platform/i }));
+    await user.click(await screen.findByRole("option", { name: "LinkedIn" }));
+
+    await waitFor(() => expect(createDraftMock).toHaveBeenCalledTimes(1), {
+      timeout: 3000,
+    });
+    expect(createDraftMock).toHaveBeenCalledWith(
+      expect.objectContaining({ application_date: "2026-09-27" }),
+    );
+    // The draft was actually created (URL picked up ?id=) — the future-date
+    // refusal never fired and blocked the save.
+    await waitFor(() =>
+      expect(replaceMock).toHaveBeenCalledWith(
+        expect.stringContaining("id=draft-tokyo"),
+      ),
+    );
+
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+  }, 10_000);
+
+  it("the calendar disables a day past today (maxDate wiring, kills a dropped-maxDate mutant)", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole("combobox", { name: /platform/i });
+
+    await user.click(screen.getByLabelText(/application date/i));
+    const nextMonth = await screen.findByRole("button", {
+      name: "Go to the Next Month",
+    });
+    // A day in a future month is always past `maxDate={new Date()}` — every
+    // day cell in that grid must be disabled.
+    await user.click(nextMonth);
+    const futureDay = screen.getAllByRole("button", {
+      name: /\d{4}$/,
+    })[10];
+    expect(futureDay).toBeDisabled();
+  });
+
   it("renders the two-step stepper with step 2 disabled until a draft exists", async () => {
     renderPage();
     await screen.findByRole("combobox", { name: /platform/i });
@@ -281,6 +360,45 @@ describe("NewWithCvPage — autosave gating and draft creation (AC6/AC7)", () =>
     window.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(false);
+  });
+});
+
+describe("NewWithCvPage — step 1 Cancel (AC15, KODI-036)", () => {
+  it("forces a real top-level navigation when unsaved typing is at risk", async () => {
+    const assignSpy = vi.fn();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...window.location, assign: assignSpy },
+    });
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByRole("combobox", { name: /platform/i });
+    // Before the draft exists, typing alone puts unsaved work at risk.
+    await user.type(screen.getByPlaceholderText(/senior engineer/i), "Eng");
+
+    await user.click(screen.getByRole("link", { name: "Cancel" }));
+
+    expect(assignSpy).toHaveBeenCalledWith("/applications");
+  });
+
+  it("is a plain link with nothing unsaved", async () => {
+    const assignSpy = vi.fn();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...window.location, assign: assignSpy },
+    });
+
+    renderPage();
+    await screen.findByRole("combobox", { name: /platform/i });
+
+    const cancel = screen.getByRole("link", { name: "Cancel" });
+    expect(cancel).toHaveAttribute("href", "/applications");
+
+    fireEvent.click(cancel);
+
+    expect(assignSpy).not.toHaveBeenCalled();
   });
 });
 

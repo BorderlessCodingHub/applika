@@ -20,6 +20,7 @@ import type { TailoredCv } from "@/components/tailored-cvs/types";
 import {
   DRAFT_REQUIREMENT_ORDER,
   NEW_WITH_CV_HREF,
+  isNotFutureCalendarDay,
   localCalendarDay,
   safeErrorMessage,
   type DraftRequirement,
@@ -86,10 +87,13 @@ const draftApplicationSchema = z
       .min(1, "Role is required")
       .max(200, "Keep this under 200 characters"),
     mode: z.enum(ModeValues, { error: "Source is required" }),
+    // See `isNotFutureCalendarDay` (frontend-qa KODI-036 round 1, B1): a
+    // `Date`-object comparison here used to refuse a user's own TODAY once
+    // their local calendar day was ahead of UTC's.
     application_date: z
       .string()
       .min(1, "Application date is required")
-      .refine((v) => new Date(v) <= new Date(), "Date cannot be in the future"),
+      .refine((v) => isNotFutureCalendarDay(v), "Date cannot be in the future"),
     link_to_job: z.union([z.literal(""), z.httpUrl({ error: "Invalid url." })]),
     currency: z.enum(SalaryCurrencyValues).optional(),
     salary_period: z.enum(SalaryPeriodValues).optional(),

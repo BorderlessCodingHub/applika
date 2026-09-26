@@ -120,6 +120,24 @@ export function localCalendarDay(date: Date = new Date()): string {
 }
 
 /**
+ * `value` (a `YYYY-MM-DD` application date) is today or earlier, compared as
+ * CALENDAR STRINGS against `localCalendarDay()` — never as `Date` objects
+ * (frontend-qa KODI-036 round 1, B1). `new Date(v) <= new Date()` reads "now"
+ * at whatever precision `Date` gives it, which is really UTC-relative once
+ * both sides are compared as instants; a user whose local calendar day is
+ * already ahead of UTC's (most of Asia/Oceania, and Europe past midnight) had
+ * their own TODAY refused as "in the future". Two `YYYY-MM-DD` strings
+ * compare correctly with `<=` lexicographically — there is no timezone left
+ * to get wrong once both sides are already calendar days, not instants.
+ */
+export function isNotFutureCalendarDay(
+  value: string,
+  today: string = localCalendarDay(),
+): boolean {
+  return value <= today;
+}
+
+/**
  * `getApiError` returns FastAPI's `detail` UNGUARDED, and a 422's `detail` is
  * an array — rendering it directly into `<p>{message}</p>` throws "Objects
  * are not valid as a React child" (KODI-033 QA round 1, B1). Every place on

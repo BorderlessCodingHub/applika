@@ -142,10 +142,16 @@ test("a draft created with New with CV autosaves, resumes and finishes into a re
   // AC14 — at 390px step 1 never scrolls sideways.
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByLabel(/application date/i)).toBeVisible();
-  const step1Metrics = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-  }));
+  // `main` is the page's own scroll container (`max-h-scrollport`), so the
+  // DOCUMENT never overflows even if a field inside `main` runs wide
+  // (frontend-qa KODI-036 round 1, test-gap #3) — measure `main` itself.
+  const step1Metrics = await page.evaluate(() => {
+    const main = document.querySelector("main");
+    return {
+      scrollWidth: main?.scrollWidth ?? -1,
+      clientWidth: main?.clientWidth ?? -1,
+    };
+  });
   expect(
     step1Metrics.scrollWidth,
     `step 1 scrolled sideways at 390px: ${JSON.stringify(step1Metrics)}`,
