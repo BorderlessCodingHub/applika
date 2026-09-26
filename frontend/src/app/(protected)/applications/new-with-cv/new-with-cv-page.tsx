@@ -279,6 +279,22 @@ export function NewWithCvPage() {
     null,
   );
 
+  // Mirrors `draftId` for the async autosave loop (`saveApplication` below).
+  // `draftId` itself is a derived value (`idParam ?? createdId`), so a normal
+  // render always sees it correctly — but `useDebouncedAutosave`'s internal
+  // loop can call `saveApplication` a SECOND time, synchronously in the same
+  // microtask right after the first `POST` resolves and BEFORE React commits
+  // the `setCreatedId` that would otherwise flip `draftId` (KODI-033 QA round
+  // 1, B2): that second call would still see the OLD closure's `draftId ===
+  // null` and `POST` a second draft. Writing this ref synchronously, inside
+  // `saveApplication` itself, the moment the first `POST` resolves, is what
+  // the second call actually reads — a ref survives a stale closure because
+  // its IDENTITY (not its value) is what got captured.
+  const draftIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    draftIdRef.current = draftId;
+  });
+
   const draftQuery = useDraft(draftId);
   const draft = draftQuery.data;
   const draftNotFound =
@@ -487,8 +503,11 @@ export function NewWithCvPage() {
     if (lastSavedDraftInput && draftInputsEqual(lastSavedDraftInput, input)) {
       return;
     }
-    if (!draftId) {
+    if (!draftIdRef.current) {
       const created = await createDraft.mutateAsync(input);
+      // Set synchronously, BEFORE any state update — see the note on
+      // `draftIdRef` above (KODI-033 QA round 1, B2).
+      draftIdRef.current = created.id;
       setCreatedId(created.id);
       setSeededFor(created.id);
       setLastSavedDraftInput(created);
@@ -499,7 +518,10 @@ export function NewWithCvPage() {
       qs.set("id", created.id);
       router.replace(`${NEW_WITH_CV_HREF}?${qs.toString()}`);
     } else {
-      const saved = await updateDraft.mutateAsync({ id: draftId, data: input });
+      const saved = await updateDraft.mutateAsync({
+        id: draftIdRef.current,
+        data: input,
+      });
       setLastSavedDraftInput(saved);
     }
   }, [
@@ -508,7 +530,6 @@ export function NewWithCvPage() {
     createDraft,
     updateDraft,
     router,
-    draftId,
     lastSavedDraftInput,
   ]);
 
@@ -569,6 +590,42 @@ export function NewWithCvPage() {
       company && company.id ? { id: company.id, name: company.name } : null,
     );
   }, []);
+
+  // Rebuilds the value handed to `CompanySelect` from the CURRENT form state
+  // (never from the server's `draft`, which is what D3 fixed away from) —
+  // needed because `DraftApplicationStep` UNMOUNTS on step change and
+  // `CompanySelect` re-seeds its own internal selection from this prop the
+  // moment it remounts (KODI-033 QA round 1, B1): without this, going to step
+  // 2 and back showed whatever `companySelectValue` held at the draft's
+  // ORIGINAL load — reverting a company changed since, or wiping a
+  // free-text company's typed URL back to `""` — and the next autosave PUT
+  // then re-sent the stale value.
+  const syncCompanySelectValueFromForm = useCallback((): Company | null => {
+    const raw = applicationForm.getValues("company");
+    if (typeof raw === "string" && raw.trim()) {
+      return {
+        id: raw,
+        name: companyMeta?.id === raw ? companyMeta.name : "",
+        url: "",
+      };
+    }
+    if (raw && typeof raw === "object") {
+      const name = (raw.name ?? "").trim();
+      if (!name) return null;
+      return { id: "", name, url: raw.url ?? "" };
+    }
+    return null;
+  }, [applicationForm, companyMeta]);
+
+  const goToStep = useCallback(
+    (next: DraftStep) => {
+      if (next === "application") {
+        setCompanySelectValue(syncCompanySelectValueFromForm());
+      }
+      setStep(next);
+    },
+    [syncCompanySelectValueFromForm],
+  );
 
   const missing = useMemo<DraftRequirement[]>(() => {
     const list: DraftRequirement[] = [];
@@ -701,7 +758,7 @@ export function NewWithCvPage() {
       }
       canContinue={Boolean(draftId)}
       onContinue={() => setStep("cv")}
-      onBack={() => setStep("application")}
+      onBack={() => goToStep("application")}
       missing={missing}
       onFinish={() => void handleFinish()}
       isFinishing={finishDraft.isPending}
@@ -717,7 +774,7 @@ export function NewWithCvPage() {
       <DraftPageHeader subtitle={subtitle}>
         <DraftStepper
           step={step}
-          onStepChange={setStep}
+          onStepChange={goToStep}
           canOpenCv={Boolean(draftId)}
           applicationComplete={applicationReady}
           cvComplete={hasCv}
@@ -750,7 +807,7 @@ export function NewWithCvPage() {
           onDelete={() => deleteTailoredCv.mutate()}
           isDeleting={deleteTailoredCv.isPending}
           footer={hasCv ? footerActions : undefined}
-          onAddJobDescription={() => setStep("application")}
+          onAddJobDescription={() => goToStep("application")}
           jobDescription={watchedApplication.job_description}
         />
       ) : null}

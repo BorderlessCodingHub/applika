@@ -1,5 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -24,6 +31,7 @@ const updateDraftMock = vi.fn();
 const getDraftMock = vi.fn();
 const finishDraftMock = vi.fn();
 const searchCompaniesMock = vi.fn();
+const createCompanyMock = vi.fn();
 const createPlatformMock = vi.fn();
 const getSupportsMock = vi.fn();
 const listBaseCvsMock = vi.fn();
@@ -47,7 +55,7 @@ vi.mock("@/services/services", () => ({
     },
     companies: {
       searchCompanies: (...args: unknown[]) => searchCompaniesMock(...args),
-      create: vi.fn(),
+      create: (...args: unknown[]) => createCompanyMock(...args),
     },
     platforms: {
       create: (...args: unknown[]) => createPlatformMock(...args),
@@ -124,6 +132,15 @@ beforeEach(() => {
     Promise.resolve(draftFrom({ id })),
   );
 });
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const lastPut = () =>
+  updateDraftMock.mock.calls.at(-1)?.[1] as DraftInput | undefined;
+function statusState() {
+  return document
+    .querySelector('[data-slot="autosave-status"]')
+    ?.getAttribute("data-state");
+}
 
 describe("NewWithCvPage — step 1 fields (AC2/AC3)", () => {
   it("asks for no application date and presets Source to Active", async () => {
@@ -549,4 +566,418 @@ describe("NewWithCvPage — creating and deleting the CV copy (AC4/AC7, QA round
     ).toBeInTheDocument();
     expect(screen.queryByLabelText("Headline")).not.toBeInTheDocument();
   });
+});
+
+describe("NewWithCvPage — step 1 survives Back (AC5, QA round 1 B1)", () => {
+  it("keeps the picked company visible after Continue -> Back on a NEW draft", async () => {
+    createDraftMock.mockResolvedValue(
+      draftFrom({
+        id: "draft-9",
+        company_name: "Acme",
+        role: "Engineer",
+        platform_id: "plt-1",
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByRole("combobox", { name: /platform/i });
+    await user.type(
+      screen.getByPlaceholderText(/senior engineer/i),
+      "Engineer",
+    );
+    await user.click(screen.getByText("Search companies…"));
+    await user.type(screen.getByPlaceholderText(/search companies/i), "Acme");
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("combobox", { name: /platform/i }));
+    await user.click(await screen.findByRole("option", { name: "LinkedIn" }));
+    await waitFor(() => expect(createDraftMock).toHaveBeenCalledTimes(1), {
+      timeout: 3000,
+    });
+    expect(screen.getByText("Acme")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Continue to CV" }));
+    await user.click(await screen.findByRole("button", { name: "Back" }));
+
+    await screen.findByPlaceholderText(/senior engineer/i);
+    expect(screen.queryByText("Search companies…")).not.toBeInTheDocument();
+    expect(screen.getByText("Acme")).toBeInTheDocument();
+  }, 15_000);
+
+  it("keeps a company CHANGED after resume visible (not reverted) after Continue -> Back", async () => {
+    searchParams = new URLSearchParams("id=draft-9");
+    getDraftMock.mockResolvedValue(
+      draftFrom({
+        id: "draft-9",
+        company_id: "cmp-A",
+        company_name: "Alpha",
+        role: "Engineer",
+        platform_id: "plt-1",
+      }),
+    );
+    searchCompaniesMock.mockResolvedValue([
+      { id: "cmp-B", name: "Beta", url: "https://beta.io", is_public: true },
+    ]);
+    updateDraftMock.mockImplementation((id: string, data: DraftInput) =>
+      Promise.resolve(
+        draftFrom({
+          ...data,
+          id,
+          company_name:
+            data.company_id === "cmp-B"
+              ? "Beta"
+              : data.company_id === "cmp-A"
+                ? "Alpha"
+                : data.company_name,
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("Alpha"));
+    await user.type(screen.getByPlaceholderText(/search companies/i), "Beta");
+    await user.click(
+      await screen.findByRole("option", { name: /Beta/ }, { timeout: 3000 }),
+    );
+    await waitFor(() => expect(lastPut()?.company_id).toBe("cmp-B"), {
+      timeout: 3000,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Continue to CV" }));
+    await user.click(await screen.findByRole("button", { name: "Back" }));
+    await screen.findByPlaceholderText(/senior engineer/i);
+    // Give the autosave a full debounce window to (wrongly) re-send Alpha.
+    await sleep(1600);
+
+    expect(lastPut()?.company_id).toBe("cmp-B");
+    expect(lastPut()?.company_name).toBe("Beta");
+    expect(screen.getByText("Beta")).toBeInTheDocument();
+  }, 20_000);
+
+  it("keeps a free-text company's confirmed URL after Continue -> Back", async () => {
+    searchParams = new URLSearchParams("id=draft-9");
+    getDraftMock.mockResolvedValue(
+      draftFrom({
+        id: "draft-9",
+        company_id: null,
+        company_name: "Acme",
+        role: "Engineer",
+        platform_id: "plt-1",
+      }),
+    );
+    createCompanyMock.mockResolvedValue({
+      id: "cmp-N",
+      name: "Acme",
+      url: "https://acme.com",
+      is_public: false,
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    const url = await screen.findByPlaceholderText("https://company.com");
+    await user.type(url, "https://acme.com");
+    fireEvent.blur(url);
+    await waitFor(() => expect(lastPut()?.company_id).toBe("cmp-N"), {
+      timeout: 3000,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Continue to CV" }));
+    await user.click(await screen.findByRole("button", { name: "Back" }));
+
+    expect(screen.getByPlaceholderText("https://company.com")).toHaveValue(
+      "https://acme.com",
+    );
+    expect(lastPut()?.company_id).toBe("cmp-N");
+  }, 20_000);
+});
+
+describe("NewWithCvPage — autosave race safety (QA round 1 B2)", () => {
+  it("a change typed while the first POST is in flight becomes a PUT, never a second POST", async () => {
+    let resolvePost: (d: Draft) => void = () => {};
+    createDraftMock.mockImplementation(
+      () =>
+        new Promise<Draft>((resolve) => {
+          resolvePost = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByRole("combobox", { name: /platform/i });
+    await user.type(
+      screen.getByPlaceholderText(/senior engineer/i),
+      "Engineer",
+    );
+    await user.click(screen.getByText("Search companies…"));
+    await user.type(screen.getByPlaceholderText(/search companies/i), "Acme");
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("combobox", { name: /platform/i }));
+    await user.click(await screen.findByRole("option", { name: "LinkedIn" }));
+    await waitFor(() => expect(createDraftMock).toHaveBeenCalledTimes(1), {
+      timeout: 3000,
+    });
+
+    // A second change lands (and its own 1s debounce elapses) WHILE the first
+    // POST is still unresolved — this is the race B2 exploited.
+    await user.type(screen.getByPlaceholderText(/senior engineer/i), " Two");
+    await sleep(1400);
+    await act(async () => {
+      resolvePost(
+        draftFrom({
+          id: "draft-9",
+          company_name: "Acme",
+          role: "Engineer",
+          platform_id: "plt-1",
+        }),
+      );
+    });
+    await sleep(1500);
+
+    expect(createDraftMock).toHaveBeenCalledTimes(1);
+    expect(updateDraftMock).toHaveBeenCalledWith(
+      "draft-9",
+      expect.objectContaining({ role: "Engineer Two" }),
+    );
+  }, 20_000);
+});
+
+describe("NewWithCvPage — new company reuse and creation-blur gating (AC16/AC18, QA round 2 D3/D4)", () => {
+  it("POSTs a brand-new company only on URL blur, never while typing, and the PUT carries the returned id (AC18)", async () => {
+    searchParams = new URLSearchParams("id=draft-9");
+    getDraftMock.mockResolvedValue(
+      draftFrom({
+        id: "draft-9",
+        company_id: null,
+        company_name: "Acme",
+        role: "Engineer",
+        platform_id: "plt-1",
+      }),
+    );
+    createCompanyMock.mockResolvedValue({
+      id: "cmp-N",
+      name: "Acme",
+      url: "https://acme.com",
+      is_public: false,
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    const url = await screen.findByPlaceholderText("https://company.com");
+    await user.type(url, "https://acme.com");
+    await sleep(1400);
+    expect(createCompanyMock).not.toHaveBeenCalled();
+
+    fireEvent.blur(url);
+    await waitFor(
+      () =>
+        expect(createCompanyMock).toHaveBeenCalledWith({
+          name: "Acme",
+          url: "https://acme.com",
+        }),
+      { timeout: 3000 },
+    );
+    await waitFor(() => expect(lastPut()?.company_id).toBe("cmp-N"), {
+      timeout: 3000,
+    });
+    expect(createCompanyMock).toHaveBeenCalledTimes(1);
+  }, 15_000);
+
+  it("does not stomp a half-typed company URL with a PUT that lands mid-edit (D3)", async () => {
+    searchParams = new URLSearchParams("id=draft-9");
+    getDraftMock.mockResolvedValue(
+      draftFrom({
+        id: "draft-9",
+        company_id: null,
+        company_name: "Acme",
+        role: "Engineer",
+        platform_id: "plt-1",
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const url = await screen.findByPlaceholderText("https://company.com");
+    await user.type(url, "https://acme.co");
+    fireEvent.change(screen.getByPlaceholderText(/senior engineer/i), {
+      target: { value: "Engineer X" },
+    });
+    await waitFor(() => expect(lastPut()?.role).toBe("Engineer X"), {
+      timeout: 3000,
+    });
+    await sleep(300);
+
+    expect(screen.getByPlaceholderText("https://company.com")).toHaveValue(
+      "https://acme.co",
+    );
+    expect(createCompanyMock).not.toHaveBeenCalled();
+  }, 15_000);
+});
+
+describe("NewWithCvPage — required-fields message and full-body PUT (AC7/AC8)", () => {
+  it("clearing a required field sends nothing and shows the exact required-fields copy", async () => {
+    searchParams = new URLSearchParams("id=draft-9");
+    getDraftMock.mockResolvedValue(
+      draftFrom({
+        id: "draft-9",
+        company_name: "Acme",
+        role: "Engineer",
+        platform_id: "plt-1",
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const role = await screen.findByPlaceholderText(/senior engineer/i);
+    await user.clear(role);
+    await sleep(1500);
+
+    expect(updateDraftMock).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Not saved: company, role and platform are required"),
+    ).toBeInTheDocument();
+  }, 15_000);
+
+  it("a failed save keeps the typing, shows Not saved with Retry, and the next change sends the latest FULL body (AC8)", async () => {
+    searchParams = new URLSearchParams("id=draft-9");
+    getDraftMock.mockResolvedValue(
+      draftFrom({
+        id: "draft-9",
+        company_name: "Acme",
+        role: "Engineer",
+        platform_id: "plt-1",
+      }),
+    );
+    updateDraftMock.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 500, data: "Internal Server Error" },
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    const role = await screen.findByPlaceholderText(/senior engineer/i);
+    await user.type(role, " A");
+    await waitFor(() => expect(statusState()).toBe("error"), {
+      timeout: 3000,
+    });
+    expect(screen.getByText("Not saved")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+    expect(role).toHaveValue("Engineer A");
+
+    await user.type(role, "B");
+    await waitFor(() => expect(updateDraftMock).toHaveBeenCalledTimes(2), {
+      timeout: 3000,
+    });
+    const body = lastPut()!;
+    expect(body.role).toBe("Engineer AB");
+    for (const key of [
+      "company_id",
+      "company_name",
+      "role",
+      "platform_id",
+      "mode",
+      "link_to_job",
+      "observation",
+      "expected_salary",
+      "salary_range_min",
+      "salary_range_max",
+      "currency",
+      "salary_period",
+      "experience_level",
+      "work_mode",
+      "country",
+      "job_description",
+    ]) {
+      expect(Object.prototype.hasOwnProperty.call(body, key), key).toBe(true);
+    }
+    await waitFor(() => expect(statusState()).toBe("saved"));
+  }, 15_000);
+
+  it("typing the job description on step 1 is part of the autosaved payload (AC2)", async () => {
+    searchParams = new URLSearchParams("id=draft-9");
+    getDraftMock.mockResolvedValue(
+      draftFrom({
+        id: "draft-9",
+        company_name: "Acme",
+        role: "Engineer",
+        platform_id: "plt-1",
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const jobDescription = await screen.findByLabelText("Job description");
+    await user.type(jobDescription, "We need a Rust wizard");
+
+    await waitFor(
+      () => expect(lastPut()?.job_description).toBe("We need a Rust wizard"),
+      { timeout: 3000 },
+    );
+  }, 15_000);
+});
+
+describe("NewWithCvPage — CV copy autosave and step 2 job description/diff (AC4/AC7)", () => {
+  it("PUTs a CV copy edit through autosave ~1s later, with no save button on screen", async () => {
+    searchParams = new URLSearchParams("id=draft-9");
+    getDraftMock.mockResolvedValue(
+      draftFrom({
+        id: "draft-9",
+        company_name: "Acme",
+        role: "Engineer",
+        platform_id: "plt-1",
+        has_cv: true,
+      }),
+    );
+    getTailoredCvMock.mockResolvedValue(SAVED_CV);
+    updateTailoredCvMock.mockImplementation(
+      (_id: string, data: object) =>
+        Promise.resolve({ ...SAVED_CV, ...data }) as Promise<typeof SAVED_CV>,
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const headline = await screen.findByLabelText("Headline", {
+      exact: true,
+    });
+    await user.clear(headline);
+    await user.type(headline, "Tailored");
+    await sleep(400);
+    expect(updateTailoredCvMock).not.toHaveBeenCalled();
+
+    await waitFor(() => expect(updateTailoredCvMock).toHaveBeenCalledTimes(1), {
+      timeout: 3000,
+    });
+    expect(updateTailoredCvMock.mock.calls[0][0]).toBe("draft-9");
+    expect(
+      (updateTailoredCvMock.mock.calls[0][1] as { headline: string }).headline,
+    ).toBe("Tailored");
+    expect(
+      screen.queryByRole("button", { name: /^save/i }),
+    ).not.toBeInTheDocument();
+  }, 15_000);
+
+  it("shows the application's job description beside the editor and the diff summary against the master (AC4)", async () => {
+    searchParams = new URLSearchParams("id=draft-9");
+    getDraftMock.mockResolvedValue({
+      ...draftFrom({
+        id: "draft-9",
+        company_name: "Acme",
+        role: "Engineer",
+        platform_id: "plt-1",
+        has_cv: true,
+      }),
+      job_description: "We need a Rust wizard",
+    } as Draft);
+    getTailoredCvMock.mockResolvedValue({
+      ...SAVED_CV,
+      base_snapshot: { ...SAVED_CV, headline: "Master headline" },
+    });
+    renderPage();
+
+    await screen.findByLabelText("Headline", { exact: true });
+    expect(
+      await screen.findByText(/We need a Rust wizard/),
+    ).toBeInTheDocument();
+    expect(await screen.findByText(/Compared with/i)).toBeInTheDocument();
+  }, 15_000);
 });
