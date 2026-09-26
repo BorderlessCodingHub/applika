@@ -68,14 +68,14 @@ async function wipeBaseCvs(request: APIRequestContext) {
 
 /** Deletes every admin-visible platform whose name starts with `E2E Private`. */
 async function wipeE2ePlatforms(request: APIRequestContext) {
-  const response = await request.get(apiUrl("/admin/platforms"), {
-    headers: apiHeaders("admin"),
-  });
+  const response = await request.get(
+    apiUrl("/admin/platforms?search=E2E Private"),
+    { headers: apiHeaders("admin") },
+  );
   if (!response.ok()) return;
-  const platforms = (await response.json()) as Array<{
-    id: string;
-    name: string;
-  }>;
+  const { items: platforms } = (await response.json()) as {
+    items: Array<{ id: string; name: string }>;
+  };
   for (const platform of platforms) {
     if (!platform.name.startsWith("E2E Private")) continue;
     await request.delete(apiUrl(`/admin/platforms/${platform.id}`), {
@@ -140,9 +140,13 @@ test("a draft created with New with CV autosaves, resumes and finishes into a re
   await expect(page.getByText(/application date/i)).toHaveCount(0);
 
   // ---- step 1: company (free text), role, a brand-new PRIVATE platform ----
-  await page.getByText("Search companies…").click();
-  await page.getByPlaceholder(/search companies/i).fill(COMPANY);
-  await page.keyboard.press("Escape");
+  await page.getByRole("combobox", { name: "Company", exact: true }).click();
+  await page.getByPlaceholder(/search or add a company/i).fill(COMPANY);
+  await page.getByText(`Create "${COMPANY}"`).click();
+  await page.getByRole("button", { name: "Add company" }).click();
+
+  // AC2/R-019 — no URL given, the name stays free text on this application only.
+  await expect(page.getByText(COMPANY, { exact: true })).toBeVisible();
 
   await page.getByPlaceholder(/senior engineer/i).fill(ROLE);
 

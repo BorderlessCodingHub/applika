@@ -925,7 +925,7 @@ application entry."
 ### Admin — private company/platform rows (`components/admin/catalog-visibility.tsx`, `approve-catalog-button.tsx`, PRD 0010, AC19/AC20)
 
 The public companies/platforms admin screens (`admin/companies/companies-page.tsx`,
-`admin/supports/supports-page.tsx`) gained a `VisibilityFilter` (All/Public/Private,
+`admin/platforms/platforms-page.tsx`) gained a `VisibilityFilter` (All/Public/Private,
 sends `visibility=public|private`, `all` sends no param), an "Added by" column
 reading the row's nested `created_by.username` (a dash when absent — the
 LEGACY flat `created_by_username` field is still on the wire for the CLI but
@@ -936,6 +936,49 @@ duplicate a public one) keeps the dialog open and shows the server's `detail`
 VERBATIM in `[data-slot="approve-catalog-error"]`, naming the colliding public
 row — never a generic message. A private row's own name carries `OnlyYouBadge`
 with `label="Private"`.
+
+### Company picker = platform picker; a three-section application form; a paginated admin Platforms page (PRD 0010, KODI-035)
+
+The owner: "i liked how you did the select input for platform, do the same for
+company as well, same select component with same behavior." Both pickers are
+now one component.
+
+- **`components/applications/catalog-select.tsx`** is the WHOLE picker
+  (`Popover` + `Command`, search, an exact-match rule, "Create "X"" → a name +
+  optional URL form, `OnlyYouBadge`), extracted from what used to be
+  `platform-select.tsx` alone. `platform-select.tsx` and `company-select.tsx`
+  are now thin wrappers: `exactMatchReplacesCreate` is `true` for platforms
+  (an exact match replaces Create, R-017/R-020 unchanged) and `false` for
+  companies (a matching name is listed first but Create still shows, R-021 —
+  the server only reuses a company when BOTH name and URL match). Confirming
+  a URL calls `POST /companies`/`POST /platforms` from inside the picker
+  itself and selects the id (201 new or 200 reused); a blank URL keeps the
+  typed name as free text on that application only (`id: ""`). There is no
+  more separate "Company URL" input or `onCompanyUrlBlur` — the picker owns
+  the whole create flow now, for both catalogs.
+- **`hooks/use-platforms.ts`** (`usePlatforms(name?)`) reads the new
+  `GET /platforms?name=` for the web picker — visible platforms only, search
+  substring, ordered by name. `GET /supports` is UNCHANGED and still what the
+  CLI reads; the web no longer uses it for the platform picker.
+- **`components/applications/form-section.tsx`** (`FormSection`, ported from
+  `mynextjob/frontend/src/components/profile/form-section.tsx`) is the Card
+  shell every application form section uses. `application-fields.tsx` groups
+  its fields into three: "Role & company" (role+source, company+platform, job
+  link, and the application date in the sheet only), "Details" (work
+  mode+experience+country, currency+period, the salary trio), "Posting &
+  notes" (job description, then additional notes). The sheet passes
+  `as="h3"` sections (its own `SheetTitle` is the `h2`); the new-with-cv page
+  keeps the default `h2` sections under its own page `h1`.
+- **`components/admin/catalog-table.tsx`** is the shared admin table
+  `companies-page.tsx` and `platforms-page.tsx` both render: search,
+  `VisibilityFilter`, paging, Added by, Apps and Approve, plus a Status
+  column only when a caller passes `onToggleActive` (companies only).
+- **`/admin/platforms`** replaced `/admin/supports` (the step/feedback
+  definition catalogs were already gone, R-021 — a lone "Platforms" tab is
+  now the page itself) and is now PAGINATED like `/admin/companies`, with an
+  `applications_count` that excludes drafts. `admin/supports/page.tsx` is a
+  client-side `router.replace("/admin/platforms")` so a saved link still
+  works — this is a static export, so there is no server-side rewrite.
 
 ### Profile — connected accounts (`src/components/profile/`, KODI-022, revised KODI-027)
 

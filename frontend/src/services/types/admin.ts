@@ -154,8 +154,26 @@ export interface AdminPlatform {
   created_by?: AdminCatalogCreatedBy | null;
 }
 
+/** `GET /admin/platforms` row (PRD 0010, KODI-035): paginated, like `AdminCompanyRow`. */
+export interface AdminPlatformRow {
+  id: string;
+  name: string;
+  url: string | null;
+  is_public: boolean;
+  created_by?: AdminCatalogCreatedBy | null;
+  applications_count: number;
+  created_at: string;
+}
+
+export type PaginatedPlatforms = PaginatedResponse<AdminPlatformRow>;
+
 export interface AdminPlatformsParams {
+  search?: string;
   visibility?: AdminCatalogVisibility;
+  sort_by?: "name" | "created_at" | "applications_count";
+  sort_order?: "asc" | "desc";
+  page?: number;
+  per_page?: number;
 }
 
 // AdminStepDefinition / AdminFeedbackDefinition removed (PRD 0008, ADR 0012,

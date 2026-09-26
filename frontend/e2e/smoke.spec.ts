@@ -133,9 +133,9 @@ const PAGES: PageCase[] = [
     assert: heading("Company Management", 1),
   },
   {
-    path: "/admin/supports",
+    path: "/admin/platforms",
     visitors: ["admin"],
-    assert: heading("Supports Data", 1),
+    assert: heading("Platforms", 1),
   },
   {
     path: "/admin/users",
@@ -172,6 +172,15 @@ test.describe("every page renders against the real stack", () => {
       });
     }
   }
+});
+
+test("/admin/supports redirects to /admin/platforms", async ({ page }) => {
+  await loginAs(page, "admin");
+  await page.goto("/admin/supports");
+  await page.waitForURL("**/admin/platforms");
+  await expect(
+    page.getByRole("heading", { name: "Platforms", level: 1 }),
+  ).toBeVisible();
 });
 
 test("the suite covers every page named in the acceptance criteria", () => {

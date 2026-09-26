@@ -18,7 +18,7 @@ import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
 const ADMIN_PATHS = [
   "/admin",
   "/admin/companies",
-  "/admin/supports",
+  "/admin/platforms",
   "/admin/users",
   "/admin/discord-webhooks",
 ];

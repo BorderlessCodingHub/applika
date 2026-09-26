@@ -11,7 +11,7 @@ import type { AdminDiscordWebhook } from "@/services/types/admin";
  * KODI-027 (plan 0009, T146) — the admin Discord webhooks page: the masked
  * list, the zod validation mirroring the server, role-id parsing/dedupe, the
  * edit form's "blank URL keeps the stored one" contract, and the delete
- * confirmation. Pattern: `admin/supports/supports-page.test.tsx` (mock
+ * confirmation. Pattern: `admin/platforms/platforms-page.test.tsx` (mock
  * `services`, not the hooks).
  */
 

@@ -180,6 +180,7 @@ export function useAdminPlatforms(params?: AdminPlatformsParams) {
     queryKey: ["admin", "platforms", params],
     queryFn: () => services.admin.getPlatforms(params),
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
   });
 }
 

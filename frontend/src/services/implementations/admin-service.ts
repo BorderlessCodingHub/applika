@@ -13,6 +13,7 @@ import type {
   AdminUsersParams,
   CreateCompany,
   CreateDiscordWebhook,
+  PaginatedPlatforms,
   PaginatedResponse,
   SeniorityBreakdown,
   TopCompanyStat,
@@ -114,9 +115,9 @@ export class AdminService {
 
   // ── Supports: Platforms ───────────────────────────────────────────
 
-  getPlatforms(params?: AdminPlatformsParams): Promise<AdminPlatform[]> {
+  getPlatforms(params?: AdminPlatformsParams): Promise<PaginatedPlatforms> {
     return api
-      .get<AdminPlatform[]>("/admin/platforms", { params })
+      .get<PaginatedPlatforms>("/admin/platforms", { params })
       .then((r) => r.data);
   }
 
