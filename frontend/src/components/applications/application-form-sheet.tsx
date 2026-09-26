@@ -10,7 +10,7 @@ import {
   type Application,
   type CreateApplicationPayload,
 } from "@/services/types/applications";
-import { useSupports } from "@/contexts/supports-context";
+import { usePlatforms } from "@/hooks/use-platforms";
 import {
   Sheet,
   SheetContent,
@@ -144,7 +144,7 @@ export function ApplicationFormSheet({
   onOpenChange,
   application,
 }: Props) {
-  const { supports } = useSupports();
+  const { data: platforms, isLoading: platformsLoading } = usePlatforms();
   const { fetchCompanies } = useCompanySearch();
   const createPlatformOutcome = useCreatePlatformOutcome();
   const { submit: applicationSubmit, isPending } = useApplicationMutate({
@@ -205,7 +205,8 @@ export function ApplicationFormSheet({
             }
             fetchCompanies={fetchCompanies}
             companySelectValue={companySelectValue}
-            platforms={supports?.platforms}
+            platforms={platforms}
+            platformsLoading={platformsLoading}
             onCreatePlatform={createPlatformOutcome}
           />
 

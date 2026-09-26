@@ -52,6 +52,14 @@ vi.mock("@/hooks/use-create-platform", () => ({
   useCreatePlatformOutcome: () => vi.fn(),
 }));
 
+vi.mock("@/hooks/use-platforms", () => ({
+  usePlatforms: () => ({ data: [], isLoading: false }),
+}));
+
+vi.mock("@/hooks/use-create-company", () => ({
+  useCreateCompany: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
 vi.mock("@/hooks/use-reopen-application", () => ({
   useReopenApplication: () => ({ mutate: vi.fn(), isPending: false }),
 }));

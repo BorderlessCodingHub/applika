@@ -33,6 +33,7 @@ const finishDraftMock = vi.fn();
 const searchCompaniesMock = vi.fn();
 const createCompanyMock = vi.fn();
 const createPlatformMock = vi.fn();
+const listPlatformsMock = vi.fn();
 const getSupportsMock = vi.fn();
 const listBaseCvsMock = vi.fn();
 const getTailoredCvMock = vi.fn();
@@ -58,6 +59,7 @@ vi.mock("@/services/services", () => ({
       create: (...args: unknown[]) => createCompanyMock(...args),
     },
     platforms: {
+      list: (...args: unknown[]) => listPlatformsMock(...args),
       create: (...args: unknown[]) => createPlatformMock(...args),
     },
     supports: {
@@ -120,6 +122,9 @@ beforeEach(() => {
   getSupportsMock.mockResolvedValue({
     platforms: [{ id: "plt-1", name: "LinkedIn", url: null, is_public: true }],
   });
+  listPlatformsMock.mockResolvedValue([
+    { id: "plt-1", name: "LinkedIn", url: null, is_public: true },
+  ]);
   listBaseCvsMock.mockResolvedValue([]);
   getTailoredCvMock.mockRejectedValue({
     isAxiosError: true,
@@ -193,9 +198,13 @@ describe("NewWithCvPage — autosave gating and draft creation (AC6/AC7)", () =>
       screen.getByPlaceholderText(/senior engineer/i),
       "Engineer",
     );
-    await user.click(screen.getByText("Search companies…"));
-    await user.type(screen.getByPlaceholderText(/search companies/i), "Acme");
-    await user.keyboard("{Escape}");
+    await user.click(await screen.findByRole("combobox", { name: "Company" }));
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Acme",
+    );
+    await user.click(await screen.findByText('Create "Acme"'));
+    await user.click(screen.getByRole("button", { name: /^add company$/i }));
     await user.click(screen.getByRole("combobox", { name: /platform/i }));
     await user.click(await screen.findByRole("option", { name: "LinkedIn" }));
 
@@ -586,9 +595,13 @@ describe("NewWithCvPage — step 1 survives Back (AC5, QA round 1 B1)", () => {
       screen.getByPlaceholderText(/senior engineer/i),
       "Engineer",
     );
-    await user.click(screen.getByText("Search companies…"));
-    await user.type(screen.getByPlaceholderText(/search companies/i), "Acme");
-    await user.keyboard("{Escape}");
+    await user.click(await screen.findByRole("combobox", { name: "Company" }));
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Acme",
+    );
+    await user.click(await screen.findByText('Create "Acme"'));
+    await user.click(screen.getByRole("button", { name: /^add company$/i }));
     await user.click(screen.getByRole("combobox", { name: /platform/i }));
     await user.click(await screen.findByRole("option", { name: "LinkedIn" }));
     await waitFor(() => expect(createDraftMock).toHaveBeenCalledTimes(1), {
@@ -636,10 +649,11 @@ describe("NewWithCvPage — step 1 survives Back (AC5, QA round 1 B1)", () => {
     renderPage();
 
     await user.click(await screen.findByText("Alpha"));
-    await user.type(screen.getByPlaceholderText(/search companies/i), "Beta");
-    await user.click(
-      await screen.findByRole("option", { name: /Beta/ }, { timeout: 3000 }),
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Beta",
     );
+    await user.click(await screen.findByText("Beta"));
     await waitFor(() => expect(lastPut()?.company_id).toBe("cmp-B"), {
       timeout: 3000,
     });
@@ -675,9 +689,14 @@ describe("NewWithCvPage — step 1 survives Back (AC5, QA round 1 B1)", () => {
     const user = userEvent.setup();
     renderPage();
 
-    const url = await screen.findByPlaceholderText("https://company.com");
-    await user.type(url, "https://acme.com");
-    fireEvent.blur(url);
+    await user.click(await screen.findByRole("combobox", { name: "Company" }));
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Acme",
+    );
+    await user.click(await screen.findByText('Create "Acme"'));
+    await user.type(screen.getByLabelText(/^url/i), "https://acme.com");
+    await user.click(screen.getByRole("button", { name: /^add company$/i }));
     await waitFor(() => expect(lastPut()?.company_id).toBe("cmp-N"), {
       timeout: 3000,
     });
@@ -685,9 +704,7 @@ describe("NewWithCvPage — step 1 survives Back (AC5, QA round 1 B1)", () => {
     await user.click(screen.getByRole("button", { name: "Continue to CV" }));
     await user.click(await screen.findByRole("button", { name: "Back" }));
 
-    expect(screen.getByPlaceholderText("https://company.com")).toHaveValue(
-      "https://acme.com",
-    );
+    expect(screen.getByText("Acme")).toBeInTheDocument();
     expect(lastPut()?.company_id).toBe("cmp-N");
   }, 20_000);
 
@@ -728,10 +745,11 @@ describe("NewWithCvPage — step 1 survives Back (AC5, QA round 1 B1)", () => {
     renderPage();
 
     await user.click(await screen.findByText("Alpha"));
-    await user.type(screen.getByPlaceholderText(/search companies/i), "Beta");
-    await user.click(
-      await screen.findByRole("option", { name: /Beta/ }, { timeout: 3000 }),
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Beta",
     );
+    await user.click(await screen.findByText("Beta"));
     await waitFor(() => expect(lastPut()?.company_id).toBe("cmp-B"), {
       timeout: 3000,
     });
@@ -773,9 +791,14 @@ describe("NewWithCvPage — step 1 survives Back (AC5, QA round 1 B1)", () => {
     const user = userEvent.setup();
     renderPage();
 
-    const url = await screen.findByPlaceholderText("https://company.com");
-    await user.type(url, "https://acme.com");
-    fireEvent.blur(url);
+    await user.click(await screen.findByRole("combobox", { name: "Company" }));
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Acme",
+    );
+    await user.click(await screen.findByText('Create "Acme"'));
+    await user.type(screen.getByLabelText(/^url/i), "https://acme.com");
+    await user.click(screen.getByRole("button", { name: /^add company$/i }));
     await waitFor(() => expect(lastPut()?.company_id).toBe("cmp-N"), {
       timeout: 3000,
     });
@@ -785,8 +808,7 @@ describe("NewWithCvPage — step 1 survives Back (AC5, QA round 1 B1)", () => {
     await user.click(
       await screen.findByRole("button", { name: "Add a job description" }),
     );
-    const urlAgain = await screen.findByPlaceholderText("https://company.com");
-    expect(urlAgain).toHaveValue("https://acme.com");
+    expect(screen.getByText("Acme")).toBeInTheDocument();
     await sleep(1600);
     for (const call of updateDraftMock.mock.calls.slice(putsBefore)) {
       expect((call[1] as DraftInput).company_id).toBe("cmp-N");
@@ -811,9 +833,13 @@ describe("NewWithCvPage — autosave race safety (QA round 1 B2)", () => {
       screen.getByPlaceholderText(/senior engineer/i),
       "Engineer",
     );
-    await user.click(screen.getByText("Search companies…"));
-    await user.type(screen.getByPlaceholderText(/search companies/i), "Acme");
-    await user.keyboard("{Escape}");
+    await user.click(await screen.findByRole("combobox", { name: "Company" }));
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Acme",
+    );
+    await user.click(await screen.findByText('Create "Acme"'));
+    await user.click(screen.getByRole("button", { name: /^add company$/i }));
     await user.click(screen.getByRole("combobox", { name: /platform/i }));
     await user.click(await screen.findByRole("option", { name: "LinkedIn" }));
     await waitFor(() => expect(createDraftMock).toHaveBeenCalledTimes(1), {
@@ -844,8 +870,8 @@ describe("NewWithCvPage — autosave race safety (QA round 1 B2)", () => {
   }, 20_000);
 });
 
-describe("NewWithCvPage — new company reuse and creation-blur gating (AC16/AC18, QA round 2 D3/D4)", () => {
-  it("POSTs a brand-new company only on URL blur, never while typing, and the PUT carries the returned id (AC18)", async () => {
+describe("NewWithCvPage — new company reuse and confirm-only creation (AC16/AC18, KODI-035 T111)", () => {
+  it("POSTs a brand-new company only once the picker's create form is submitted, and the PUT carries the returned id (AC18)", async () => {
     searchParams = new URLSearchParams("id=draft-9");
     getDraftMock.mockResolvedValue(
       draftFrom({
@@ -865,12 +891,17 @@ describe("NewWithCvPage — new company reuse and creation-blur gating (AC16/AC1
     const user = userEvent.setup();
     renderPage();
 
-    const url = await screen.findByPlaceholderText("https://company.com");
-    await user.type(url, "https://acme.com");
+    await user.click(await screen.findByRole("combobox", { name: "Company" }));
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Acme",
+    );
+    await user.click(await screen.findByText('Create "Acme"'));
+    await user.type(screen.getByLabelText(/^url/i), "https://acme.com");
     await sleep(1400);
     expect(createCompanyMock).not.toHaveBeenCalled();
 
-    fireEvent.blur(url);
+    await user.click(screen.getByRole("button", { name: /^add company$/i }));
     await waitFor(
       () =>
         expect(createCompanyMock).toHaveBeenCalledWith({
@@ -885,7 +916,7 @@ describe("NewWithCvPage — new company reuse and creation-blur gating (AC16/AC1
     expect(createCompanyMock).toHaveBeenCalledTimes(1);
   }, 15_000);
 
-  it("does not stomp a half-typed company URL with a PUT that lands mid-edit (D3)", async () => {
+  it("does not create a company from an unsubmitted, half-typed URL while another field autosaves (D3)", async () => {
     searchParams = new URLSearchParams("id=draft-9");
     getDraftMock.mockResolvedValue(
       draftFrom({
@@ -899,8 +930,14 @@ describe("NewWithCvPage — new company reuse and creation-blur gating (AC16/AC1
     const user = userEvent.setup();
     renderPage();
 
-    const url = await screen.findByPlaceholderText("https://company.com");
-    await user.type(url, "https://acme.co");
+    await user.click(await screen.findByRole("combobox", { name: "Company" }));
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Acme",
+    );
+    await user.click(await screen.findByText('Create "Acme"'));
+    await user.type(screen.getByLabelText(/^url/i), "https://acme.co");
+
     fireEvent.change(screen.getByPlaceholderText(/senior engineer/i), {
       target: { value: "Engineer X" },
     });
@@ -909,9 +946,7 @@ describe("NewWithCvPage — new company reuse and creation-blur gating (AC16/AC1
     });
     await sleep(300);
 
-    expect(screen.getByPlaceholderText("https://company.com")).toHaveValue(
-      "https://acme.co",
-    );
+    expect(screen.getByLabelText(/^url/i)).toHaveValue("https://acme.co");
     expect(createCompanyMock).not.toHaveBeenCalled();
   }, 15_000);
 });

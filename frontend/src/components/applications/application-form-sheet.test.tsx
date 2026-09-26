@@ -25,6 +25,7 @@ const fetchCompanies = vi.fn().mockResolvedValue([
   },
 ]);
 const createPlatformOutcome = vi.fn();
+const createCompanyMock = vi.fn();
 
 vi.mock("@/hooks/use-applications", () => ({
   useApplicationMutate: () => ({ submit, isPending: false }),
@@ -36,6 +37,20 @@ vi.mock("@/hooks/use-companies", () => ({
 
 vi.mock("@/hooks/use-create-platform", () => ({
   useCreatePlatformOutcome: () => createPlatformOutcome,
+}));
+
+vi.mock("@/hooks/use-create-company", () => ({
+  useCreateCompany: () => ({ mutateAsync: createCompanyMock }),
+}));
+
+vi.mock("@/hooks/use-platforms", () => ({
+  usePlatforms: () => ({
+    data: [
+      { id: "p-1", name: "LinkedIn", url: null, is_public: true },
+      { id: "p-2", name: "Indeed", url: "https://indeed.com", is_public: true },
+    ],
+    isLoading: false,
+  }),
 }));
 
 // The real DatePickerInput is a calendar popover with no keyboard-typable
@@ -55,23 +70,6 @@ vi.mock("@/components/ui/date-picker", () => ({
       onChange={(event) => onChange(event.target.value || undefined)}
     />
   ),
-}));
-
-vi.mock("@/contexts/supports-context", () => ({
-  useSupports: () => ({
-    supports: {
-      platforms: [
-        { id: "p-1", name: "LinkedIn", url: null, is_public: true },
-        {
-          id: "p-2",
-          name: "Indeed",
-          url: "https://indeed.com",
-          is_public: true,
-        },
-      ],
-    },
-    isLoading: false,
-  }),
 }));
 
 async function pickPlatform(user: ReturnType<typeof userEvent.setup>) {
@@ -104,8 +102,11 @@ describe("ApplicationFormSheet — create payload (characterization)", () => {
       <ApplicationFormSheet open onOpenChange={() => {}} application={null} />,
     );
 
-    await user.click(screen.getByText("Search companies…"));
-    await user.type(screen.getByPlaceholderText(/search companies/i), "Acme");
+    await user.click(screen.getByRole("combobox", { name: "Company" }));
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Acme",
+    );
     await waitFor(() => expect(fetchCompanies).toHaveBeenCalled());
     await user.click(await screen.findByText("Acme Inc"));
 
@@ -120,33 +121,39 @@ describe("ApplicationFormSheet — create payload (characterization)", () => {
     expect(payload.platform_id).toBe("p-1");
   });
 
-  it("sends {name, url} for a brand-new company with a URL", async () => {
+  it("resolves a brand-new company with a URL to its id (R-021)", async () => {
+    createCompanyMock.mockResolvedValue({
+      id: "co-2",
+      name: "Brand New Co",
+      url: "https://brandnew.example",
+      is_public: false,
+    });
     const user = userEvent.setup();
     render(
       <ApplicationFormSheet open onOpenChange={() => {}} application={null} />,
     );
 
-    await user.click(screen.getByText("Search companies…"));
-    const search = screen.getByPlaceholderText(/search companies/i);
-    await user.type(search, "Brand New Co");
-    // Closing the popover with typed text that matches nothing creates it inline.
-    await user.keyboard("{Escape}");
-
+    await user.click(screen.getByRole("combobox", { name: "Company" }));
     await user.type(
-      screen.getByPlaceholderText("https://company.com"),
-      "https://brandnew.example",
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Brand New Co",
     );
+    await user.click(await screen.findByText('Create "Brand New Co"'));
+    await user.type(screen.getByLabelText(/^url/i), "https://brandnew.example");
+    await user.click(screen.getByRole("button", { name: /^add company$/i }));
+
     await fillRequiredScalarFields(user);
     await user.click(
       screen.getByRole("button", { name: /create application/i }),
     );
 
     await waitFor(() => expect(submit).toHaveBeenCalled());
-    const payload = submit.mock.calls[0][0];
-    expect(payload.company).toEqual({
+    expect(createCompanyMock).toHaveBeenCalledWith({
       name: "Brand New Co",
       url: "https://brandnew.example",
     });
+    const payload = submit.mock.calls[0][0];
+    expect(payload.company).toBe("co-2");
   });
 
   it("keeps a name-only company as free text (company_id null, AC16)", async () => {
@@ -155,12 +162,13 @@ describe("ApplicationFormSheet — create payload (characterization)", () => {
       <ApplicationFormSheet open onOpenChange={() => {}} application={null} />,
     );
 
-    await user.click(screen.getByText("Search companies…"));
+    await user.click(screen.getByRole("combobox", { name: "Company" }));
     await user.type(
-      screen.getByPlaceholderText(/search companies/i),
+      screen.getByPlaceholderText(/search or add a company/i),
       "Just A Name",
     );
-    await user.keyboard("{Escape}");
+    await user.click(await screen.findByText('Create "Just A Name"'));
+    await user.click(screen.getByRole("button", { name: /^add company$/i }));
 
     await fillRequiredScalarFields(user);
     await user.click(

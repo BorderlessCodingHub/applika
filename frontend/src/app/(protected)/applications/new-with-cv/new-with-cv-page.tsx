@@ -49,9 +49,8 @@ import {
   SeniorityLevelValues,
 } from "@/services/types/users";
 import { CvEditorFooter } from "@/components/base-cvs/cv-editor-footer";
-import { useSupports } from "@/contexts/supports-context";
 import { useCompanySearch } from "@/hooks/use-companies";
-import { useCreateCompany } from "@/hooks/use-create-company";
+import { usePlatforms } from "@/hooks/use-platforms";
 import { useCreatePlatformOutcome } from "@/hooks/use-create-platform";
 import {
   useCreateDraft,
@@ -246,10 +245,6 @@ export function NewWithCvPage() {
   const [hasCv, setHasCv] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
   const [companyMeta, setCompanyMeta] = useState<CompanyMeta | null>(null);
-  // Confirmed once the Company URL field is blurred (B4) — a brand-new
-  // company is created/reused only then, or at Finish, never on every
-  // autosave tick while the user is still typing the URL.
-  const [companyUrlConfirmed, setCompanyUrlConfirmed] = useState(false);
   // The draft id / CV copy id this component has already seeded the forms
   // from — a plain render-time comparison (React's own "adjust state when a
   // prop changes" pattern), not an effect: a synchronous `setState` inside a
@@ -264,11 +259,6 @@ export function NewWithCvPage() {
     null,
   );
 
-  const lastCreatedCompanyRef = useRef<{
-    name: string;
-    url: string;
-    id: string;
-  } | null>(null);
   // The last DraftInput/CV payload known to match the server, so a `PUT` is
   // sent only when something actually changed since load (KODI-033 QA round
   // 1, B2/P3) — state, not a ref: both are also SET from the render-phase
@@ -300,10 +290,9 @@ export function NewWithCvPage() {
   const draftNotFound =
     isAxiosError(draftQuery.error) && draftQuery.error.response?.status === 404;
 
-  const { supports } = useSupports();
+  const { data: platforms, isLoading: platformsLoading } = usePlatforms();
   const { fetchCompanies } = useCompanySearch();
   const createPlatformOutcome = useCreatePlatformOutcome();
-  const createCompany = useCreateCompany();
 
   const createDraft = useCreateDraft();
   const updateDraft = useUpdateDraft();
@@ -408,92 +397,60 @@ export function NewWithCvPage() {
     watchedApplication.platform_id,
   );
 
-  // Reset the URL confirmation the moment the URL text changes again, so a
-  // further edit needs its own blur before another company is created/reused.
-  const companyUrl =
-    companyValue && typeof companyValue === "object"
-      ? (companyValue.url ?? "")
-      : "";
-  const [lastCompanyUrlSeen, setLastCompanyUrlSeen] = useState(companyUrl);
-  if (lastCompanyUrlSeen !== companyUrl) {
-    setLastCompanyUrlSeen(companyUrl);
-    if (companyUrlConfirmed) setCompanyUrlConfirmed(false);
-  }
+  // The picker itself resolves a URL-having company to a real id at confirm
+  // time (KODI-035, T111) — there is no URL-blur/confirm step left here.
+  const resolveCompany = useCallback(async (): Promise<{
+    company_id: string | null;
+    company_name: string;
+  } | null> => {
+    const raw = applicationForm.getValues("company");
+    if (typeof raw === "string" && raw.trim()) {
+      const name = companyMeta?.id === raw ? companyMeta.name : "";
+      return { company_id: raw, company_name: name };
+    }
+    if (raw && typeof raw === "object") {
+      const name = (raw.name ?? "").trim();
+      if (!name) return null;
+      return { company_id: null, company_name: name };
+    }
+    return null;
+  }, [applicationForm, companyMeta]);
 
-  const resolveCompany = useCallback(
-    async (options?: {
-      forceConfirm?: boolean;
-    }): Promise<{ company_id: string | null; company_name: string } | null> => {
-      const raw = applicationForm.getValues("company");
-      if (typeof raw === "string" && raw.trim()) {
-        const name = companyMeta?.id === raw ? companyMeta.name : "";
-        return { company_id: raw, company_name: name };
-      }
-      if (raw && typeof raw === "object") {
-        const name = (raw.name ?? "").trim();
-        if (!name) return null;
-        const url = (raw.url ?? "").trim();
-        if (!url) return { company_id: null, company_name: name };
-        if (!companyUrlConfirmed && !options?.forceConfirm) {
-          // The URL is still being typed — stay free text for now (AC16-like
-          // interim state) rather than creating a row per keystroke pause.
-          return { company_id: null, company_name: name };
-        }
-        const cached = lastCreatedCompanyRef.current;
-        if (cached && cached.name === name && cached.url === url) {
-          return { company_id: cached.id, company_name: name };
-        }
-        const created = await createCompany.mutateAsync({ name, url });
-        lastCreatedCompanyRef.current = { name, url, id: created.id };
-        return { company_id: created.id, company_name: created.name };
-      }
-      return null;
-    },
-    [applicationForm, createCompany, companyMeta, companyUrlConfirmed],
-  );
-
-  const buildDraftInput = useCallback(
-    async (options?: {
-      forceConfirmCompany?: boolean;
-    }): Promise<DraftInput | null> => {
-      const resolved = await resolveCompany({
-        forceConfirm: options?.forceConfirmCompany,
-      });
-      if (!resolved) return null;
-      const values = applicationForm.getValues();
-      const includeSalary = Boolean(values.currency && values.salary_period);
-      return {
-        company_id: resolved.company_id,
-        company_name: resolved.company_name,
-        role: (values.role ?? "").trim(),
-        platform_id: values.platform_id,
-        mode: values.mode as ModeType,
-        link_to_job: values.link_to_job || undefined,
-        observation: values.observation || undefined,
-        expected_salary:
-          includeSalary && !Number.isNaN(values.expected_salary)
-            ? values.expected_salary
-            : undefined,
-        salary_range_min:
-          includeSalary && !Number.isNaN(values.salary_range_min)
-            ? values.salary_range_min
-            : undefined,
-        salary_range_max:
-          includeSalary && !Number.isNaN(values.salary_range_max)
-            ? values.salary_range_max
-            : undefined,
-        currency: includeSalary ? values.currency : undefined,
-        salary_period: includeSalary ? values.salary_period : undefined,
-        experience_level: values.experience_level,
-        work_mode: values.work_mode,
-        country: values.country || undefined,
-        job_description: values.job_description?.trim()
-          ? values.job_description
-          : null,
-      };
-    },
-    [applicationForm, resolveCompany],
-  );
+  const buildDraftInput = useCallback(async (): Promise<DraftInput | null> => {
+    const resolved = await resolveCompany();
+    if (!resolved) return null;
+    const values = applicationForm.getValues();
+    const includeSalary = Boolean(values.currency && values.salary_period);
+    return {
+      company_id: resolved.company_id,
+      company_name: resolved.company_name,
+      role: (values.role ?? "").trim(),
+      platform_id: values.platform_id,
+      mode: values.mode as ModeType,
+      link_to_job: values.link_to_job || undefined,
+      observation: values.observation || undefined,
+      expected_salary:
+        includeSalary && !Number.isNaN(values.expected_salary)
+          ? values.expected_salary
+          : undefined,
+      salary_range_min:
+        includeSalary && !Number.isNaN(values.salary_range_min)
+          ? values.salary_range_min
+          : undefined,
+      salary_range_max:
+        includeSalary && !Number.isNaN(values.salary_range_max)
+          ? values.salary_range_max
+          : undefined,
+      currency: includeSalary ? values.currency : undefined,
+      salary_period: includeSalary ? values.salary_period : undefined,
+      experience_level: values.experience_level,
+      work_mode: values.work_mode,
+      country: values.country || undefined,
+      job_description: values.job_description?.trim()
+        ? values.job_description
+        : null,
+    };
+  }, [applicationForm, resolveCompany]);
 
   const saveApplication = useCallback(async () => {
     const valid = await applicationForm.trigger();
@@ -533,13 +490,9 @@ export function NewWithCvPage() {
     lastSavedDraftInput,
   ]);
 
-  // QA round 2, D4: without `companyUrlConfirmed` in the watched value, a
-  // blur that flips it true (but changes no form FIELD) never armed the
-  // debounce — the confirmed URL then only got saved if some OTHER field
-  // happened to change afterward.
   const applicationAutosaveValue = useMemo(
-    () => ({ values: watchedApplication, companyUrlConfirmed }),
-    [watchedApplication, companyUrlConfirmed],
+    () => ({ values: watchedApplication }),
+    [watchedApplication],
   );
   const applicationAutosave = useDebouncedAutosave({
     value: applicationAutosaveValue,
@@ -654,9 +607,8 @@ export function NewWithCvPage() {
       }
       // Flush: PUT is a full replace, so sending it once more right before
       // finishing guarantees the server has the latest typed values even if
-      // the debounce has not fired yet. The company URL is confirmed
-      // unconditionally here — finishing is the user's last word on it.
-      const input = await buildDraftInput({ forceConfirmCompany: true });
+      // the debounce has not fired yet.
+      const input = await buildDraftInput();
       if (input) {
         const saved = await updateDraft.mutateAsync({
           id: draftId,
@@ -790,8 +742,8 @@ export function NewWithCvPage() {
             fetchCompanies={fetchCompanies}
             companySelectValue={companySelectValue}
             onCompanyChange={handleCompanyChange}
-            onCompanyUrlBlur={() => setCompanyUrlConfirmed(true)}
-            platforms={supports?.platforms}
+            platforms={platforms}
+            platformsLoading={platformsLoading}
             onCreatePlatform={createPlatformOutcome}
           />
           <CvEditorFooter>{footerActions}</CvEditorFooter>

@@ -22,6 +22,7 @@ export function useCreatePlatform() {
       services.platforms.create({ name: input.name, url: input.url }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["supports"] });
+      queryClient.invalidateQueries({ queryKey: ["platforms"] });
     },
   });
 }

@@ -21,7 +21,6 @@ export interface DraftApplicationStepProps {
   platforms: readonly PlatformOption[] | undefined;
   platformsLoading?: boolean;
   onCreatePlatform: (input: NewPlatformInput) => Promise<PlatformCreateOutcome>;
-  onCompanyUrlBlur?: () => void;
 }
 
 /**
@@ -40,7 +39,6 @@ export function DraftApplicationStep({
   platforms,
   platformsLoading,
   onCreatePlatform,
-  onCompanyUrlBlur,
 }: DraftApplicationStepProps) {
   return (
     <ApplicationFields
@@ -52,7 +50,8 @@ export function DraftApplicationStep({
       platformsLoading={platformsLoading}
       onCreatePlatform={onCreatePlatform}
       showDate={false}
-      onCompanyUrlBlur={onCompanyUrlBlur}
+      className="max-w-4xl"
+      sectionHeadingAs="h2"
     />
   );
 }
