@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-030 catalog visibility and draft flag columns (migration only,
+  ADR-0014, ADR-0005, Release A of PRD 0010). Revision `3b78c3cd2a71` adds
+  `companies.is_public` and `platforms.is_public` (`NOT NULL`, default
+  `true` — every row that exists today stays public),
+  `platforms.created_by` (nullable, `fk_platforms_created_by` ->
+  `users.id ON DELETE SET NULL`, `ix_platforms_created_by`) and
+  `applications.is_draft` (`NOT NULL`, default `false`). Replaces the
+  global `uq_companies_name_url` with two scoped partial unique indexes,
+  `uq_companies_public_name_url` (`lower(name), url` where public) and
+  `uq_companies_private_owner_name_url` (`created_by, lower(name), url`
+  where private), and adds `uq_platforms_private_owner_name`
+  (`created_by, lower(name)` where private; no public-platform index,
+  since production may already hold duplicate public platform names) and
+  `ix_applications_user_id_drafts` (`user_id` where draft). No ORM
+  mapping, route or frontend change ships in this release — `app/` reads
+  and writes none of these columns yet; that is Release B (K2). Not a CLI
+  change: no route or payload shape moves.
 - KODI-025 admin report webhook catalog (ADR-0013, K7): an admin can list,
   add, change and remove the Discord webhooks reports may be posted to.
   `discord_report_webhooks` (added by K5 migration `ba44f9cfd3c1`, no
