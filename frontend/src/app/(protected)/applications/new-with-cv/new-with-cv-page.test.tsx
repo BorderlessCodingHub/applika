@@ -690,6 +690,108 @@ describe("NewWithCvPage — step 1 survives Back (AC5, QA round 1 B1)", () => {
     );
     expect(lastPut()?.company_id).toBe("cmp-N");
   }, 20_000);
+
+  // The Back BUTTON is one of three paths that put step 1 back on screen —
+  // the stepper's own tab and the CV step's "Add a job description" link are
+  // the other two (QA round 1 re-verification, findings 2). Each goes through
+  // the SAME `goToStep` wrapper, but only the Back button had a committed
+  // test; these two close that gap.
+  it("keeps a company CHANGED after resume visible via the STEPPER TAB, not the Back button", async () => {
+    searchParams = new URLSearchParams("id=draft-9");
+    getDraftMock.mockResolvedValue(
+      draftFrom({
+        id: "draft-9",
+        company_id: "cmp-A",
+        company_name: "Alpha",
+        role: "Engineer",
+        platform_id: "plt-1",
+      }),
+    );
+    searchCompaniesMock.mockResolvedValue([
+      { id: "cmp-B", name: "Beta", url: "https://beta.io", is_public: true },
+    ]);
+    updateDraftMock.mockImplementation((id: string, data: DraftInput) =>
+      Promise.resolve(
+        draftFrom({
+          ...data,
+          id,
+          company_name:
+            data.company_id === "cmp-B"
+              ? "Beta"
+              : data.company_id === "cmp-A"
+                ? "Alpha"
+                : data.company_name,
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByText("Alpha"));
+    await user.type(screen.getByPlaceholderText(/search companies/i), "Beta");
+    await user.click(
+      await screen.findByRole("option", { name: /Beta/ }, { timeout: 3000 }),
+    );
+    await waitFor(() => expect(lastPut()?.company_id).toBe("cmp-B"), {
+      timeout: 3000,
+    });
+    const putsBefore = updateDraftMock.mock.calls.length;
+
+    await user.click(screen.getByRole("button", { name: "Continue to CV" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Step 1: Application" }),
+    );
+    await screen.findByPlaceholderText(/senior engineer/i);
+    await sleep(1600);
+
+    expect(screen.getByText("Beta")).toBeInTheDocument();
+    expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
+    for (const call of updateDraftMock.mock.calls.slice(putsBefore)) {
+      expect((call[1] as DraftInput).company_id).toBe("cmp-B");
+    }
+  }, 20_000);
+
+  it("keeps a free-text company's confirmed URL when returning via 'Add a job description'", async () => {
+    searchParams = new URLSearchParams("id=draft-9&step=application");
+    getDraftMock.mockResolvedValue(
+      draftFrom({
+        id: "draft-9",
+        company_id: null,
+        company_name: "Acme",
+        role: "Engineer",
+        platform_id: "plt-1",
+        has_cv: true,
+      }),
+    );
+    getTailoredCvMock.mockResolvedValue(SAVED_CV);
+    createCompanyMock.mockResolvedValue({
+      id: "cmp-N",
+      name: "Acme",
+      url: "https://acme.com",
+      is_public: false,
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    const url = await screen.findByPlaceholderText("https://company.com");
+    await user.type(url, "https://acme.com");
+    fireEvent.blur(url);
+    await waitFor(() => expect(lastPut()?.company_id).toBe("cmp-N"), {
+      timeout: 3000,
+    });
+    const putsBefore = updateDraftMock.mock.calls.length;
+
+    await user.click(screen.getByRole("button", { name: "Continue to CV" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Add a job description" }),
+    );
+    const urlAgain = await screen.findByPlaceholderText("https://company.com");
+    expect(urlAgain).toHaveValue("https://acme.com");
+    await sleep(1600);
+    for (const call of updateDraftMock.mock.calls.slice(putsBefore)) {
+      expect((call[1] as DraftInput).company_id).toBe("cmp-N");
+    }
+  }, 20_000);
 });
 
 describe("NewWithCvPage — autosave race safety (QA round 1 B2)", () => {
