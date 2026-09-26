@@ -52,4 +52,17 @@ class UpdatePlatformUseCase:
             },
         )
 
-        return PlatformDTO.model_validate(platform)
+        return PlatformDTO(
+            id=platform.id,
+            created_at=platform.created_at,
+            updated_at=platform.updated_at,
+            name=platform.name,
+            url=platform.url,
+            is_public=platform.is_public,
+            created_by=platform.created_by,
+            created_by_username=(
+                platform.created_by_user.username
+                if platform.created_by_user
+                else None
+            ),
+        )

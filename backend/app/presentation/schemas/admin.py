@@ -105,13 +105,22 @@ class AdminUpdateUserSchema(BaseModel):
     location: str | None = None
 
 
+class CreatedBySchema(BaseSchema):
+    """Who added a private catalog row (ADR-0014): kept even after the row
+    is published (R-025)."""
+
+    id: SnowflakeID
+    username: str
+
+
 class AdminCompanyRowSchema(BaseSchema):
     id: SnowflakeID
     name: str
     url: str
     is_active: bool
+    is_public: bool = True
     applications_count: int = 0
-    created_by_username: str | None = None
+    created_by: CreatedBySchema | None = None
     created_at: datetime
 
 
@@ -148,3 +157,5 @@ class PlatformSchema(BaseSchema):
     id: SnowflakeID
     name: str
     url: str | None = None
+    is_public: bool = True
+    created_by: CreatedBySchema | None = None

@@ -17,6 +17,7 @@ class ListAdminCompaniesUseCase:
         admin_id: int,
         search: str | None = None,
         is_active: bool | None = None,
+        visibility: str | None = None,
         sort_by: str = 'name',
         sort_order: str = 'asc',
         page: int = 1,
@@ -30,6 +31,7 @@ class ListAdminCompaniesUseCase:
                     'admin_id': admin_id,
                     'search': search,
                     'is_active': is_active,
+                    'visibility': visibility,
                     'page': page,
                 }
             },
@@ -37,6 +39,7 @@ class ListAdminCompaniesUseCase:
         rows, total = await self.admin_repo.get_admin_companies(
             search=search,
             is_active=is_active,
+            visibility=visibility,
             sort_by=sort_by,
             sort_order=sort_order,
             page=page,

@@ -120,7 +120,9 @@ class AdminCompanyRowDTO(_AdminDTO):
     name: str
     url: str
     is_active: bool
+    is_public: bool = True
     applications_count: int = 0
+    created_by: int | None = None
     created_by_username: str | None = None
     created_at: datetime
 

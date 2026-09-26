@@ -428,15 +428,7 @@ class AdminRepository:
             'joined_at': user.created_at,
         }
 
-    async def get_admin_companies(
-        self,
-        search: str | None = None,
-        is_active: bool | None = None,
-        sort_by: str = 'name',
-        sort_order: str = 'asc',
-        page: int = 1,
-        per_page: int = 25,
-    ) -> tuple[list, int]:
+    def _admin_company_row_query(self):
         app_counts = (
             select(
                 ApplicationModel.company_id,
@@ -447,12 +439,14 @@ class AdminRepository:
             .subquery('app_counts')
         )
 
-        stmt = (
+        return (
             select(
                 CompanyModel.id,
                 CompanyModel.name,
                 CompanyModel.url,
                 CompanyModel.is_active,
+                CompanyModel.is_public,
+                CompanyModel.created_by,
                 CompanyModel.created_at,
                 func.coalesce(app_counts.c.applications_count, 0).label(
                     'applications_count'
@@ -466,10 +460,37 @@ class AdminRepository:
             .outerjoin(UserModel, CompanyModel.created_by == UserModel.id)
         )
 
+    async def get_admin_company_row(self, company_id: int) -> dict | None:
+        """One admin company row, shaped exactly like ``get_admin_companies``
+        - used by ``PublishCompanyUseCase`` to return the row after a
+        publish without re-running the paginated list."""
+        stmt = self._admin_company_row_query().where(
+            CompanyModel.id == company_id
+        )
+        result = await self.session.execute(stmt)
+        row = result.mappings().first()
+        return dict(row) if row else None
+
+    async def get_admin_companies(
+        self,
+        search: str | None = None,
+        is_active: bool | None = None,
+        visibility: str | None = None,
+        sort_by: str = 'name',
+        sort_order: str = 'asc',
+        page: int = 1,
+        per_page: int = 25,
+    ) -> tuple[list, int]:
+        stmt = self._admin_company_row_query()
+
         if search:
             stmt = stmt.where(CompanyModel.name.ilike(f'%{search}%'))
         if is_active is not None:
             stmt = stmt.where(CompanyModel.is_active == is_active)
+        if visibility == 'public':
+            stmt = stmt.where(CompanyModel.is_public.is_(True))
+        elif visibility == 'private':
+            stmt = stmt.where(CompanyModel.is_public.is_(False))
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = await self.session.scalar(count_stmt)
