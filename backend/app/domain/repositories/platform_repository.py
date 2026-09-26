@@ -46,14 +46,26 @@ class PlatformRepository:
             )
         )
 
-    async def list_visible(self, user_id: int) -> list[PlatformModel]:
+    async def list_visible(
+        self,
+        user_id: int,
+        name: str | None = None,
+        *,
+        order_by_name: bool = False,
+    ) -> list[PlatformModel]:
         """``/supports`` and every other user-facing platform list: public
-        rows plus the caller's own private ones (R-018)."""
-        result = await self.session.scalars(
-            select(PlatformModel)
-            .where(visible_to(PlatformModel, user_id))
-            .order_by(PlatformModel.id)
+        rows plus the caller's own private ones (R-018). ``GET /platforms``
+        (S7) passes ``name`` for a case-insensitive substring match and
+        ``order_by_name=True``; ``/supports`` passes neither and keeps
+        ``ORDER BY id`` (R-036 - its content, shape and order are
+        unchanged)."""
+        query = select(PlatformModel).where(visible_to(PlatformModel, user_id))
+        if name:
+            query = query.where(PlatformModel.name.ilike(f'%{name}%'))
+        query = query.order_by(
+            PlatformModel.name if order_by_name else PlatformModel.id
         )
+        result = await self.session.scalars(query)
         return list(result.all())
 
     async def find_visible_by_name(
