@@ -1041,6 +1041,7 @@ def test_downgrade_with_duplicate_companies_builds_non_unique_index_and_logs(
         _upgrade(migration_db, PARENT_REVISION)
         _seed_at_parent(migration_db)
         _upgrade(migration_db, REVISION)
+        first_upgrade_company_indexes = _indexes(migration_db, 'companies')
 
         now = datetime.now(timezone.utc)
         public_row = COMPANY_A_ID + 20
@@ -1075,22 +1076,47 @@ def test_downgrade_with_duplicate_companies_builds_non_unique_index_and_logs(
 
         _downgrade(migration_db, PARENT_REVISION)
 
-    company_indexes = _indexes(migration_db, 'companies')
-    assert 'ix_companies_name_url' in company_indexes
-    assert 'uq_companies_name_url' not in company_indexes
+        downgrade_company_indexes = _indexes(migration_db, 'companies')
+        assert 'ix_companies_name_url' in downgrade_company_indexes
+        assert 'uq_companies_name_url' not in downgrade_company_indexes
 
-    rows = _query(
-        migration_db,
-        'SELECT id FROM companies WHERE id IN (:a, :b)',
-        {'a': public_row, 'b': private_row},
-    )
-    assert {r['id'] for r in rows} == {public_row, private_row}
+        rows = _query(
+            migration_db,
+            'SELECT id FROM companies WHERE id IN (:a, :b)',
+            {'a': public_row, 'b': private_row},
+        )
+        assert {r['id'] for r in rows} == {public_row, private_row}
 
-    logged = [record.getMessage() for record in caplog.records]
-    assert any(
-        str(public_row) in message and str(private_row) in message
-        for message in logged
-    ), caplog.text
+        logged = [record.getMessage() for record in caplog.records]
+        assert any(
+            str(public_row) in message and str(private_row) in message
+            for message in logged
+        ), caplog.text
+
+        # migration-tests.md 3: upgrading again from the *non-unique*
+        # duplicate branch must still reproduce the first upgrade's index
+        # set exactly — ``ix_companies_name_url`` dropped, the two scoped
+        # partial indexes back, and both colliding rows keeping the
+        # visibility/ownership the upgrade gives them (T007's "upgrade
+        # again -> ... ix_companies_name_url gone", proven on this branch
+        # too, not only on the no-duplicate one covered by
+        # ``test_round_trip_upgrade_downgrade_upgrade``).
+        _upgrade(migration_db, REVISION)
+
+        second_upgrade_company_indexes = _indexes(migration_db, 'companies')
+        assert second_upgrade_company_indexes == first_upgrade_company_indexes
+        assert 'ix_companies_name_url' not in second_upgrade_company_indexes
+
+        restored_rows = _query(
+            migration_db,
+            'SELECT id, is_public, created_by FROM companies '
+            'WHERE id IN (:a, :b) ORDER BY id',
+            {'a': public_row, 'b': private_row},
+        )
+        assert restored_rows == [
+            {'id': public_row, 'is_public': True, 'created_by': None},
+            {'id': private_row, 'is_public': False, 'created_by': USER_A_ID},
+        ]
 
 
 # --------------------------------------------------------------------------
