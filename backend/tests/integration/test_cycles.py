@@ -151,3 +151,31 @@ async def test_create_cycle_never_archives_a_draft(
 
     drafts = await async_client.get('/applications/drafts')
     assert len(drafts.json()) == 1, msg(1, len(drafts.json()))
+
+
+async def test_create_cycle_with_nine_apps_and_a_draft_is_still_rejected(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """A draft never counts toward the 10-application minimum: 9 real
+    applications plus 1 draft must still be refused, exactly like 9 real
+    applications alone."""
+    bd = base_data()
+    apps = _make_apps(9)
+    draft = ApplicationModel(
+        id=8888,
+        user_id=bd['user'].id,
+        platform_id=bd['plat_linkedin'].id,
+        company_id=None,
+        company_name='Draft Co',
+        role='Draft Role',
+        mode='active',
+        application_date=date(2025, 12, 1),
+        is_draft=True,
+    )
+    db_session.add_all([*apps, draft])
+    await db_session.commit()
+
+    response = await async_client.post('/cycles', json={'name': 'Too Early'})
+
+    assert response.status_code == 422, msg(422, response.status_code)
+    assert 'At least 10' in response.json()['detail']

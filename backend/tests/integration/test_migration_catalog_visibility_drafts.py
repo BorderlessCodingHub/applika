@@ -1323,8 +1323,8 @@ def test_round_trip_carries_a_private_platform(migration_db: str) -> None:
 def test_orm_maps_only_what_its_own_release_ships() -> None:
     """Release A (this revision) shipped no ORM change. Release B (K2,
     KODI-031) mapped ``is_public`` on both tables and ``created_by`` on
-    ``platforms`` - this test now confirms *those* are mapped. ``is_draft``
-    is S3 (drafts, a later ticket) and must stay unmapped until then."""
+    ``platforms``; S3 (KODI-032, drafts) later mapped ``is_draft`` on
+    ``applications`` - this test now confirms all four are mapped."""
     from app.domain.models import ApplicationModel, CompanyModel, PlatformModel
 
     company_columns = {c.name for c in CompanyModel.__table__.columns}
@@ -1334,4 +1334,4 @@ def test_orm_maps_only_what_its_own_release_ships() -> None:
     assert 'is_public' in company_columns
     assert 'is_public' in platform_columns
     assert 'created_by' in platform_columns
-    assert 'is_draft' not in application_columns
+    assert 'is_draft' in application_columns

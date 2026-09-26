@@ -37,7 +37,10 @@ from app.main import app as main_app
 from tests import msg
 from tests.base_db_setup import base_data
 from tests.integration.conftest import as_user
-from tests.integration.test_tailored_cv_api import base_cv_payload
+from tests.integration.test_tailored_cv_api import (
+    base_cv_payload,
+    update_payload,
+)
 
 
 def draft_payload(**overrides: Any) -> dict:
@@ -267,6 +270,23 @@ async def test_draft_cv_copy_full_round_trip(async_client: AsyncClient):
     assert pdf.status_code == 200, msg(200, pdf.status_code)
     assert pdf.content.startswith(b'%PDF-')
 
+    updated = await async_client.put(
+        f'/applications/{draft["id"]}/cv', json=update_payload()
+    )
+    assert updated.status_code == 200, msg(200, updated.text)
+    assert updated.json()['summary'] == update_payload()['summary']
+
+    diff_markdown = await async_client.get(
+        f'/applications/{draft["id"]}/cv/diff/markdown'
+    )
+    assert diff_markdown.status_code == 200, msg(200, diff_markdown.text)
+
+    diff_pdf = await async_client.get(
+        f'/applications/{draft["id"]}/cv/diff/pdf'
+    )
+    assert diff_pdf.status_code == 200, msg(200, diff_pdf.status_code)
+    assert diff_pdf.content.startswith(b'%PDF-')
+
     deleted = await async_client.delete(f'/applications/{draft["id"]}/cv')
     assert deleted.status_code == 204, msg(204, deleted.status_code)
 
@@ -325,6 +345,8 @@ async def test_finish_draft_appears_in_applications_with_copy_and_date(
     base_cv = await _create_base_cv(async_client)
     await _attach_cv(async_client, draft['id'], base_cv['id'])
 
+    before_stats = (await async_client.get('/applications/statistics')).json()
+
     finish_date = datetime.now(UTC).date().isoformat()
     response = await async_client.post(
         f'/applications/drafts/{draft["id"]}/finish',
@@ -342,6 +364,16 @@ async def test_finish_draft_appears_in_applications_with_copy_and_date(
 
     drafts = await async_client.get('/applications/drafts')
     assert draft['id'] not in [row['id'] for row in drafts.json()]
+
+    # #8: it counts in statistics from the moment it is finished.
+    after_stats = (await async_client.get('/applications/statistics')).json()
+    assert (
+        after_stats['total_applications']
+        == before_stats['total_applications'] + 1
+    ), msg(
+        before_stats['total_applications'] + 1,
+        after_stats['total_applications'],
+    )
 
 
 # ---------------------------------------------------------------------------

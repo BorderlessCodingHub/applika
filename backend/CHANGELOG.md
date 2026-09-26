@@ -46,17 +46,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     of the draft flow (`tailored_cvs/guards.load_owned_application` is the
     one caller that opts back into seeing a draft).
 
-### Changed
-
-- KODI-032: `GET /applications`, statistics, reports, cycles, the agenda
-  and admin statistics/user counts now all exclude drafts
-  (`NOT_DRAFT`); starting a new cycle never archives one.
-  `count_entity_references` (admin platform/company delete refusal) is
-  unchanged on purpose - a platform or company a draft uses still blocks
-  the delete. A draft id on any ordinary application route (`PUT`/`DELETE
-  /applications/{id}`, timeline, steps, finalize, reopen, the 0.1.4
-  compat routes) is a 404, same as an application owned by someone else.
-
 - KODI-031 private companies and platforms, admin Approve (ADR-0014,
   Release B of PRD 0010, S2). `CompanyModel`/`PlatformModel` now map
   `is_public` and `PlatformModel.created_by` (the migration `3b78c3cd2a71`
@@ -315,6 +304,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- KODI-032: `GET /applications`, statistics, reports, cycles, the agenda
+  and admin statistics/user counts now all exclude drafts
+  (`NOT_DRAFT`); starting a new cycle never archives one.
+  `count_entity_references` (admin platform/company delete refusal) is
+  unchanged on purpose - a platform or company a draft uses still blocks
+  the delete. A draft id on any ordinary application route (`PUT`/`DELETE
+  /applications/{id}`, timeline, steps, finalize, reopen, the 0.1.4
+  compat routes) is a 404, same as an application owned by someone else.
 - KODI-029 `users.is_org_member` renamed `is_org_member_old` (Release C,
   migration only, revision `583226ca46bc`); values kept; nothing reads it.
 - KODI-026 Report submission now routes to Discord by the submitting user's

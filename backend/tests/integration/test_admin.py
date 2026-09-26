@@ -791,12 +791,14 @@ async def test_admin_activity_heatmap_counts_timeline_events(
 async def test_admin_stats_and_user_counts_exclude_draft(
     admin_client: AsyncClient, db_session: AsyncSession
 ):
-    """A draft with an offer event and created recently must not move
-    ``/admin/stats``, top platforms/companies or a user's counts - only
-    ``count_entity_references`` still sees a draft (a platform/company it
-    uses cannot be deleted)."""
+    """A draft that looks as "active" as possible - a company, an offer
+    event AND a denied event, closed (``finalized_at`` set), created just
+    now - must not move a single number anywhere admin reads applications.
+    Only ``count_entity_references`` still sees it (a platform/company it
+    uses cannot be deleted, checked separately below)."""
     await _seed_outcomes(db_session)
     user_id = base_data()['user'].id
+    company_id = base_data()['company_acme'].id
 
     before_stats = (await admin_client.get('/admin/stats')).json()
     before_platforms = (
@@ -806,11 +808,19 @@ async def test_admin_stats_and_user_counts_exclude_draft(
         await admin_client.get('/admin/stats/top-companies')
     ).json()
     before_detail = (await admin_client.get(f'/admin/users/{user_id}')).json()
+    before_users = (await admin_client.get('/admin/users')).json()
+    before_admin_companies = (await admin_client.get('/admin/companies')).json()
 
     await ts.seed(
         db_session,
-        ts.application(999, is_draft=True),
+        ts.application(
+            999,
+            is_draft=True,
+            company_id=company_id,
+            finalized_at=ts.closed_at(date.today()),
+        ),
         ts.event(199, 999, event_type=EventType.OFFER, **ts.offer_salary('1')),
+        ts.event(200, 999, event_type=EventType.DENIED),
     )
 
     after_stats = (await admin_client.get('/admin/stats')).json()
@@ -821,18 +831,17 @@ async def test_admin_stats_and_user_counts_exclude_draft(
         await admin_client.get('/admin/stats/top-companies')
     ).json()
     after_detail = (await admin_client.get(f'/admin/users/{user_id}')).json()
+    after_users = (await admin_client.get('/admin/users')).json()
+    after_admin_companies = (await admin_client.get('/admin/companies')).json()
 
-    assert (
-        after_stats['total_applications'] == before_stats['total_applications']
-    )
-    assert after_stats['total_offers'] == before_stats['total_offers']
+    assert after_stats == before_stats, msg(before_stats, after_stats)
     assert after_platforms == before_platforms
     assert after_companies == before_companies
-    assert (
-        after_detail['total_applications']
-        == before_detail['total_applications']
+    assert after_detail == before_detail, msg(before_detail, after_detail)
+    assert after_users == before_users, msg(before_users, after_users)
+    assert after_admin_companies == before_admin_companies, msg(
+        before_admin_companies, after_admin_companies
     )
-    assert after_detail['offers'] == before_detail['offers']
 
 
 async def test_admin_delete_platform_in_use_by_a_draft_is_still_refused(
