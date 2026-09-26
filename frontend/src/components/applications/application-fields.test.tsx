@@ -6,6 +6,7 @@ import {
   ApplicationFields,
   type ApplicationFieldsValues,
 } from "@/components/applications/application-fields";
+import { DraftApplicationStep } from "@/components/application-drafts/draft-application-step";
 
 /**
  * KODI-035 T110/B2 (frontend-qa round 1): a committed test asserting the
@@ -166,5 +167,65 @@ describe("ApplicationFields — three-section layout (KODI-035 T110, AC3-AC6)", 
     expect(
       expectedInput.closest(gridClass("@md/app-form:grid-cols-3")),
     ).not.toBeNull();
+  });
+});
+
+function DraftHarness() {
+  const form = useForm<ApplicationFieldsValues>({
+    defaultValues: { platform_id: "", role: "", mode: "active" },
+  });
+  return (
+    <DraftApplicationStep
+      form={form}
+      fetchCompanies={vi.fn().mockResolvedValue([])}
+      companySelectValue={null}
+      onCompanyChange={vi.fn()}
+      platforms={[]}
+      onCreatePlatform={vi.fn()}
+    />
+  );
+}
+
+describe("DraftApplicationStep — what the new-with-cv page actually passes (QA round 2 M8/M9)", () => {
+  it("renders h2 sections and a max-w-4xl root with no date", () => {
+    const { container } = render(<DraftHarness />);
+
+    expect(
+      screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent),
+    ).toEqual(["Role & company", "Details", "Posting & notes"]);
+    expect(screen.queryAllByRole("heading", { level: 3 })).toHaveLength(0);
+    const root = container.querySelector('[data-slot="application-fields"]');
+    expect(root?.className).toContain("max-w-4xl");
+    expect(screen.queryByText(/application date/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("ApplicationFields — row grouping (QA round 2 M10/M11)", () => {
+  it("declares the @container/app-form the row classes query", () => {
+    const { container } = render(<Harness showDate />);
+    const root = container.querySelector('[data-slot="application-fields"]');
+    expect(root?.className).toContain("@container/app-form");
+  });
+
+  it("puts paired and tripled fields in the same row element", () => {
+    render(<Harness showDate />);
+    const row = (el: HTMLElement) =>
+      el.closest('[class*="@md/app-form:grid-cols-"]');
+
+    expect(row(screen.getByRole("combobox", { name: "Company" }))).toBe(
+      row(screen.getByRole("combobox", { name: "Platform" })),
+    );
+    expect(row(screen.getByLabelText(/^role/i))).toBe(
+      row(screen.getByRole("combobox", { name: "Source" })),
+    );
+    const workMode = row(screen.getByLabelText(/work mode/i));
+    expect(row(screen.getByLabelText(/experience level/i))).toBe(workMode);
+    expect(row(screen.getByLabelText(/^country/i))).toBe(workMode);
+    expect(row(screen.getByLabelText(/salary period/i))).toBe(
+      row(screen.getByLabelText(/^currency/i)),
+    );
+    const salary = row(screen.getByLabelText(/^expected/i));
+    expect(row(screen.getByLabelText(/^min/i))).toBe(salary);
+    expect(row(screen.getByLabelText(/^max/i))).toBe(salary);
   });
 });
