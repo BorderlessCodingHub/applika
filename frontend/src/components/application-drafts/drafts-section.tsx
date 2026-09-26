@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef } from "react";
+import { useRef } from "react";
 import {
   ClockIcon,
   FileTextIcon,
@@ -12,12 +12,16 @@ import {
 
 import {
   DRAFTS_SECTION_COPY,
+  NEW_WITH_CV_HREF,
   deleteDraftDescription,
   draftResumeHref,
   lastSavedLabel,
   lastSavedTitle,
 } from "@/components/application-drafts/draft-copy";
-import { applicationName } from "@/components/applications/application-card-copy";
+import {
+  APPLICATIONS_PAGE_COPY,
+  applicationName,
+} from "@/components/applications/application-card-copy";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,8 +62,13 @@ export interface DraftsSectionProps {
 }
 
 /**
- * The applications page's Drafts: company, role, last saved, Resume and Delete.
- * Absent (`null`) while loading and when the user has no drafts.
+ * The Drafts tab body on the applications page (KODI-036, AC2/AC8): company,
+ * role, last saved, Resume and Delete. Since it IS the tab's whole content —
+ * not a section floating alongside the applications list any more — it owns
+ * no heading of its own (the tab trigger already says "Drafts"); the count
+ * that used to sit beside that heading now rides the tab trigger instead
+ * (`applications-page.tsx`). It stays visible with no drafts, including
+ * right after the last one is deleted, and says so with a way to start one.
  */
 export function DraftsSection({
   drafts,
@@ -71,53 +80,23 @@ export function DraftsSection({
   resumeHref = (draft) => draftResumeHref(draft.id),
   className,
 }: DraftsSectionProps) {
-  const headingId = useId();
-  const headingRef = useRef<HTMLHeadingElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   if (isLoading) return null;
-  if (!error && (!drafts || drafts.length === 0)) return null;
 
   const items = drafts ?? [];
 
   return (
-    <section
-      aria-labelledby={headingId}
+    <div
+      ref={containerRef}
+      tabIndex={-1}
       data-slot="drafts-section"
-      className={cn(
-        "rounded-xl border border-dashed border-border-strong bg-surface/60",
-        className,
-      )}
+      className={cn("flex flex-col gap-4 outline-none", className)}
     >
-      <div className="flex items-start gap-3 px-4 pt-4 pb-3 sm:px-5">
-        <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-muted text-primary">
-          <FilePenLineIcon aria-hidden className="size-4" />
-        </span>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h2
-              id={headingId}
-              ref={headingRef}
-              tabIndex={-1}
-              className="font-display text-base font-semibold text-foreground outline-none"
-            >
-              {DRAFTS_SECTION_COPY.title}
-            </h2>
-            {items.length > 0 ? (
-              <Badge aria-hidden variant="secondary" className="font-numeric">
-                {items.length}
-              </Badge>
-            ) : null}
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {DRAFTS_SECTION_COPY.description}
-          </p>
-        </div>
-      </div>
-
       {error ? (
         <div
           role="alert"
-          className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3 sm:px-5"
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-border px-4 py-3"
         >
           <p className="text-sm text-foreground">
             {DRAFTS_SECTION_COPY.loadError}
@@ -129,8 +108,25 @@ export function DraftsSection({
             </Button>
           ) : null}
         </div>
+      ) : items.length === 0 ? (
+        <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-border px-6 py-14 text-center">
+          <span className="flex size-10 items-center justify-center rounded-full bg-primary-muted text-primary">
+            <FilePenLineIcon aria-hidden className="size-5" />
+          </span>
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              {DRAFTS_SECTION_COPY.emptyTitle}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {DRAFTS_SECTION_COPY.description}
+            </p>
+          </div>
+          <LinkButton href={NEW_WITH_CV_HREF} variant="outline">
+            {APPLICATIONS_PAGE_COPY.newWithCv}
+          </LinkButton>
+        </div>
       ) : (
-        <ul className="divide-y divide-border border-t border-border">
+        <ul className="divide-y divide-border rounded-xl border border-border">
           {items.map((draft) => (
             <DraftRow
               key={draft.id}
@@ -138,12 +134,12 @@ export function DraftsSection({
               href={resumeHref(draft)}
               deleting={deletingId === draft.id}
               onDelete={onDelete}
-              onDeleted={() => headingRef.current?.focus()}
+              onDeleted={() => containerRef.current?.focus()}
             />
           ))}
         </ul>
       )}
-    </section>
+    </div>
   );
 }
 

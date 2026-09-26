@@ -187,9 +187,9 @@ export function ApplicationFormSheet({
 
   return (
     <Sheet open={open}>
-      <SheetContent className="overflow-y-auto" hideClose>
+      <SheetContent className="overflow-y-auto" size="wide" hideClose>
         <SheetHeader>
-          <SheetTitle>
+          <SheetTitle className="font-display text-xl">
             {application ? "Edit Application" : "New Application"}
           </SheetTitle>
         </SheetHeader>

@@ -78,11 +78,15 @@ vi.mock("@/hooks/use-application-drafts", () => ({
   useDeleteDraft: () => ({ mutate: deleteDraft, isPending: false }),
 }));
 
+let isViewingPastCycle = false;
+
 vi.mock("@/contexts/cycle-context", () => ({
   useCycleContext: () => ({
     selectedCycleId: null,
     setSelectedCycleId: () => {},
-    isViewingPastCycle: false,
+    get isViewingPastCycle() {
+      return isViewingPastCycle;
+    },
   }),
 }));
 
@@ -177,7 +181,31 @@ describe("ApplicationsPage — create actions (AC1, T071)", () => {
   });
 });
 
-describe("ApplicationsPage — Drafts section wiring (AC11/AC13)", () => {
+describe("ApplicationsPage — archived cycle shows no tabs and no drafts (AC9)", () => {
+  it("renders the toolbar and list directly, with no tablist and no Drafts anywhere", () => {
+    isViewingPastCycle = true;
+    setHookState({});
+    setDraftsState([
+      {
+        id: "d-1",
+        company_name: "Acme Inc",
+        role: "Senior Engineer",
+        has_cv: false,
+        updated_at: new Date().toISOString(),
+      },
+    ]);
+
+    render(<ApplicationsPage />);
+
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByText(/drafts/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Acme Inc")).not.toBeInTheDocument();
+
+    isViewingPastCycle = false;
+  });
+});
+
+describe("ApplicationsPage — Applications | Drafts tabs (KODI-036, AC8)", () => {
   const draft = {
     id: "d-1",
     company_name: "Acme Inc",
@@ -186,12 +214,24 @@ describe("ApplicationsPage — Drafts section wiring (AC11/AC13)", () => {
     updated_at: new Date().toISOString(),
   };
 
-  it("renders the Drafts section on the page with real draft data", () => {
+  it("Applications is selected on open and the Drafts tab carries the count", () => {
     setHookState({});
     setDraftsState([draft]);
     render(<ApplicationsPage />);
 
-    expect(screen.getByRole("heading", { name: "Drafts" })).toBeInTheDocument();
+    const applicationsTab = screen.getByRole("tab", { name: "Applications" });
+    expect(applicationsTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Drafts (1)" })).toBeInTheDocument();
+  });
+
+  it("switching to the Drafts tab shows the draft with a Resume link, and back keeps the applications list as today", async () => {
+    setHookState({});
+    setDraftsState([draft]);
+    const user = userEvent.setup();
+    render(<ApplicationsPage />);
+
+    await user.click(screen.getByRole("tab", { name: /drafts/i }));
+
     expect(screen.getByText("Acme Inc")).toBeInTheDocument();
     expect(
       screen.getByRole("link", {
@@ -200,14 +240,22 @@ describe("ApplicationsPage — Drafts section wiring (AC11/AC13)", () => {
     ).toHaveAttribute("href", "/applications/new-with-cv?id=d-1");
   });
 
-  it("is absent when there are no drafts", () => {
+  it("stays visible with no drafts and says so, with a way to start one (AC8)", async () => {
     setHookState({});
     setDraftsState([]);
+    const user = userEvent.setup();
     render(<ApplicationsPage />);
 
+    expect(screen.getByRole("tab", { name: "Drafts (0)" })).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: /drafts/i }));
+
+    expect(screen.getByText("No drafts yet.")).toBeInTheDocument();
+    const draftsSection = document.querySelector(
+      '[data-slot="drafts-section"]',
+    ) as HTMLElement;
     expect(
-      screen.queryByRole("heading", { name: "Drafts" }),
-    ).not.toBeInTheDocument();
+      within(draftsSection).getByRole("link", { name: "New with CV" }),
+    ).toHaveAttribute("href", "/applications/new-with-cv");
   });
 
   it("Delete confirmed calls the delete-draft mutation with the draft's id", async () => {
@@ -216,6 +264,7 @@ describe("ApplicationsPage — Drafts section wiring (AC11/AC13)", () => {
     const user = userEvent.setup();
     render(<ApplicationsPage />);
 
+    await user.click(screen.getByRole("tab", { name: /drafts/i }));
     await user.click(
       screen.getByRole("button", {
         name: /delete draft senior engineer at acme inc/i,

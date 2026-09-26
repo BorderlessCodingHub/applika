@@ -24,12 +24,14 @@ export interface DraftApplicationStepProps {
 }
 
 /**
- * Step 1 of `/applications/new-with-cv` (PRD 0010, KODI-033): the same fields
- * the side sheet asks for, minus the application date (AC3 — the draft is
- * dated on finish, from the browser's own calendar day) and with `mode`
- * preset to `active` by the page's default values. The page owns the form,
- * the autosave wiring and the company-resolution side effect
- * (`onCompanyChange`); this component only composes `ApplicationFields`.
+ * Step 1 of `/applications/new-with-cv` (PRD 0010, KODI-033, revised
+ * KODI-036): the same fields the side sheet asks for, including the
+ * application date (AC1/AC3 — preset to today, saved with the draft, kept on
+ * resume) and with `mode` preset to `active` by the page's default values.
+ * No width limit of its own (AC5) — the form fills the page's content
+ * column. The page owns the form, the autosave wiring and the
+ * company-resolution side effect (`onCompanyChange`); this component only
+ * composes `ApplicationFields`.
  */
 export function DraftApplicationStep({
   form,
@@ -49,8 +51,6 @@ export function DraftApplicationStep({
       platforms={platforms}
       platformsLoading={platformsLoading}
       onCreatePlatform={onCreatePlatform}
-      showDate={false}
-      className="max-w-4xl"
       sectionHeadingAs="h2"
     />
   );

@@ -7,7 +7,12 @@ import {
   type DraftsSectionItem,
 } from "@/components/application-drafts/drafts-section";
 
-/** PRD 0010 (KODI-033, T077): AC11/AC13. */
+/**
+ * PRD 0010 (KODI-033, T077): AC11/AC13. Revised KODI-036, T142: this is now
+ * the Drafts TAB's whole body (AC2/AC8) — no own heading (the tab trigger
+ * already says "Drafts"), and it stays VISIBLE with no drafts instead of
+ * rendering `null`, offering a way to start one.
+ */
 
 const DRAFT: DraftsSectionItem = {
   id: "d-1",
@@ -25,11 +30,24 @@ describe("DraftsSection", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("is absent when there are no drafts", () => {
-    const { container } = render(
-      <DraftsSection drafts={[]} onDelete={vi.fn()} />,
+  it("stays visible with no drafts, saying there are none, with a way to start one (AC8)", () => {
+    render(<DraftsSection drafts={[]} onDelete={vi.fn()} />);
+
+    expect(screen.getByText("No drafts yet.")).toBeInTheDocument();
+    const cta = screen.getByRole("link", { name: "New with CV" });
+    expect(cta).toHaveAttribute("href", "/applications/new-with-cv");
+  });
+
+  it("leaves the tab on its empty state once the last draft's row is gone", () => {
+    const { rerender } = render(
+      <DraftsSection drafts={[DRAFT]} onDelete={vi.fn()} />,
     );
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByText("Acme Inc")).toBeInTheDocument();
+
+    rerender(<DraftsSection drafts={[]} onDelete={vi.fn()} />);
+
+    expect(screen.queryByText("Acme Inc")).not.toBeInTheDocument();
+    expect(screen.getByText("No drafts yet.")).toBeInTheDocument();
   });
 
   it("lists a draft with company, role, last-saved and a Resume link to ?id=", () => {

@@ -86,6 +86,10 @@ const draftApplicationSchema = z
       .min(1, "Role is required")
       .max(200, "Keep this under 200 characters"),
     mode: z.enum(ModeValues, { error: "Source is required" }),
+    application_date: z
+      .string()
+      .min(1, "Application date is required")
+      .refine((v) => new Date(v) <= new Date(), "Date cannot be in the future"),
     link_to_job: z.union([z.literal(""), z.httpUrl({ error: "Invalid url." })]),
     currency: z.enum(SalaryCurrencyValues).optional(),
     salary_period: z.enum(SalaryPeriodValues).optional(),
@@ -146,6 +150,7 @@ function defaultApplicationValues(): DraftFormData {
     role: "",
     platform_id: "",
     mode: "active",
+    application_date: localCalendarDay(),
     link_to_job: "",
     currency: undefined,
     salary_period: undefined,
@@ -170,6 +175,7 @@ function applicationValuesFromDraft(draft: DraftInput): DraftFormData {
     role: draft.role ?? "",
     platform_id: draft.platform_id ?? "",
     mode: draft.mode ?? "active",
+    application_date: draft.application_date ?? localCalendarDay(),
     link_to_job: draft.link_to_job ?? "",
     currency: draft.currency ?? undefined,
     salary_period: draft.salary_period ?? undefined,
@@ -200,6 +206,7 @@ function draftInputsEqual(a: DraftInput, b: DraftInput): boolean {
     a.role === b.role &&
     a.platform_id === b.platform_id &&
     a.mode === b.mode &&
+    (a.application_date ?? null) === (b.application_date ?? null) &&
     (a.link_to_job ?? null) === (b.link_to_job ?? null) &&
     (a.observation ?? null) === (b.observation ?? null) &&
     (a.expected_salary ?? null) === (b.expected_salary ?? null) &&
@@ -427,6 +434,7 @@ export function NewWithCvPage() {
       role: (values.role ?? "").trim(),
       platform_id: values.platform_id,
       mode: values.mode as ModeType,
+      application_date: values.application_date,
       link_to_job: values.link_to_job || undefined,
       observation: values.observation || undefined,
       expected_salary:
@@ -609,12 +617,14 @@ export function NewWithCvPage() {
       // finishing guarantees the server has the latest typed values even if
       // the debounce has not fired yet.
       const input = await buildDraftInput();
+      let savedApplicationDate = lastSavedDraftInput?.application_date;
       if (input) {
         const saved = await updateDraft.mutateAsync({
           id: draftId,
           data: input,
         });
         setLastSavedDraftInput(saved);
+        savedApplicationDate = saved.application_date;
       }
       if (hasCv) {
         const validCv = await cvForm.trigger();
@@ -630,7 +640,7 @@ export function NewWithCvPage() {
       }
       await finishDraft.mutateAsync({
         id: draftId,
-        applicationDate: localCalendarDay(),
+        applicationDate: savedApplicationDate ?? localCalendarDay(),
       });
       toast.success("Application created");
       router.push("/applications");
@@ -645,6 +655,7 @@ export function NewWithCvPage() {
     applicationForm,
     buildDraftInput,
     updateDraft,
+    lastSavedDraftInput,
     hasCv,
     cvForm,
     updateTailoredCvSilently,
@@ -711,6 +722,7 @@ export function NewWithCvPage() {
       canContinue={Boolean(draftId)}
       onContinue={() => setStep("cv")}
       onBack={() => goToStep("application")}
+      hasUnsavedRisk={hasUnsavedRisk}
       missing={missing}
       onFinish={() => void handleFinish()}
       isFinishing={finishDraft.isPending}

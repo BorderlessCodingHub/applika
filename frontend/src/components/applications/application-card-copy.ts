@@ -3,6 +3,8 @@ export const APPLICATIONS_PAGE_COPY = {
   subtitle: "Manage and track all applications in your organization.",
   newApplication: "New Application",
   newWithCv: "New with CV",
+  applicationsTab: "Applications",
+  draftsTab: "Drafts",
   archivedSubtitle: "Viewing archived cycle",
   searchPlaceholder: "Search company or role…",
   searchLabel: "Search company or role",

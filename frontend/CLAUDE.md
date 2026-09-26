@@ -844,13 +844,24 @@ application entry."
   (`new-with-cv-page.tsx`) owns BOTH react-hook-form instances (the
   application fields and the CV fields) and both autosave loops, mirroring
   `application-cv-page.tsx`'s "the page owns the schema, the presentational
-  components render it" convention. `draft-application-step.tsx` is
-  `ApplicationFields` with `showDate={false}` (AC3 — no application date is
-  ever asked here; the finish date comes from the browser's own calendar day,
-  never `toISOString()` — see `localCalendarDay()` in `draft-copy.ts`).
-  `draft-cv-step.tsx` is the same picker/editor split as
-  `application-cv-page.tsx`, reused against a DRAFT id — the backend accepts a
-  draft id under `/applications/{id}/cv` exactly like a real application id.
+  components render it" convention. `draft-cv-step.tsx` is the same
+  picker/editor split as `application-cv-page.tsx`, reused against a DRAFT id
+  — the backend accepts a draft id under `/applications/{id}/cv` exactly like
+  a real application id.
+- **The draft carries a date from the moment step 1 exists (KODI-036, AC1,
+  R-003).** `showDate` is GONE from `ApplicationFields` — both callers ask for
+  the application date now. A new draft presets it to the browser's own
+  calendar day, never `toISOString()` (`localCalendarDay()` in
+  `draft-copy.ts`); a resumed draft shows its STORED value
+  (`applicationValuesFromDraft`, `services/types/application-drafts.ts`'s
+  `DraftInput.application_date`); every autosave POST/PUT sends it, like every
+  other field; and Finish flushes the current value with one more PUT and
+  sends THAT SAME value to `POST /applications/drafts/{id}/finish` — never a
+  freshly computed "now", even if "now" has moved on since the draft was
+  created. `maxDate={new Date()}` refuses a future pick client-side; the
+  server's own `ensure_not_in_future` is the real gate (a 422 shows "Not
+  saved", the sheet's and the draft page's existing failed-autosave copy,
+  unchanged).
 - **`application-fields.tsx` is the field set the side sheet and the draft
   page share.** It was extracted from `application-form-sheet.tsx`
   (characterized first in `application-form-sheet.test.tsx` — the payload
@@ -858,8 +869,37 @@ application entry."
   name-only company, plus the validation messages — so the extraction could
   not silently change any of them). The sheet still owns its own zod schema,
   its own submit and its own Sheet chrome; `ApplicationFields` owns only the
-  fields and is generic enough that a caller with no `application_date` in its
-  form (the draft page) still type-checks.
+  fields. The first section's third line is the application date and then the
+  job link, side by side (KODI-036, AC3/AC4, R-037) — same `ROW2` grid both
+  fields before it use, not a full-width row of its own any more.
+- **Card-free, flat sections (KODI-036, AC10-AC16, R-043..R-049).**
+  `form-section.tsx`'s `FormSection` dropped its `icon` prop and its `Card`
+  shell: a section is now a bare `<section>`, a title (`as="h2"` on the page,
+  `as="h3"` in the sheet, under the sheet's own `h2` title) plus a muted
+  description, and its fields — no card, no icon, anywhere, in either caller.
+  A `FormSection` immediately after another one gets
+  `border-t border-border/60 pt-5` from a CSS sibling selector
+  (`[[data-slot=form-section]+&]`) — the hairline AND the whitespace AC12
+  asks for, on TOP of the `application-fields.tsx` root's own `gap-5` between
+  sections. Rows inside a section are `gap-3` (`ROW2`/`ROW3`), still
+  `grid-cols-1` narrow and `@md/app-form:grid-cols-2|3` wide — nothing here
+  needed a media query, `application-fields.tsx`'s root was already
+  `@container/app-form`. Neither caller puts a width limit of its own on the
+  form any more (AC5) — `draft-application-step.tsx` dropped the `max-w-4xl`
+  it used to pass, and the new-with-cv PAGE (not the fields) is what bounds
+  the content column, same as any other page.
+- **Step 1's bottom row is Cancel + Continue to CV (KODI-036, AC15).**
+  `DraftFooterActions`' step-1 branch grew a `LinkButton` to `/applications`
+  beside the existing Continue button. Cancel never deletes an existing
+  draft — it is a plain navigation, not a mutation. Its one piece of behaviour
+  is the `hasUnsavedRisk` prop (the SAME condition `new-with-cv-page.tsx`'s
+  own `beforeunload` guard already computes): risky, the click is intercepted
+  and replaced with `window.location.assign("/applications")` — a REAL
+  top-level navigation, so the browser's native `beforeunload` prompt gets a
+  chance to fire, which a Next.js client-side transition would skip
+  entirely; with nothing at risk it is left as a plain link. This is
+  deliberately narrower than `draft-page-states.tsx`'s "Back to applications"
+  link, which stays exactly as it was.
 - **The autosave contract (`use-debounced-autosave.ts`).** One request in
   flight, the latest value always wins: a change mid-flight is queued and
   fires the instant the first request settles, with NO extra debounce wait.
@@ -907,13 +947,27 @@ application entry."
   marks a `is_public === false` company or platform in both pickers with
   "Only you"; the admin screens pass `label="Private"`. The backend already
   filters visibility; this is the UI half only.
-- **Drafts section (`drafts-section.tsx`, AC11).** Renders on the applications
-  page in the SAME place and under the SAME condition as the create actions
-  (current cycle only, hidden on an archived one) — `null` while loading and
-  when the user has no drafts. Resume (`draftResumeHref`) always targets
-  `/applications/new-with-cv?id=`; the PAGE decides step 1 vs step 2 from
-  `has_cv` (AC12). Delete is an `AlertDialog` confirm; deleting a draft takes
-  its CV copy with it, same cascade as deleting a real application.
+- **Applications | Drafts tabs (KODI-036, AC8/AC9, R-041/R-042).** On the
+  current cycle, `applications-page.tsx` wraps the toolbar+filters+list in a
+  shadcn `Tabs` (`variant="line"`): "Applications" (`defaultValue`, so it is
+  always the one selected when the page opens — Tabs state is not persisted
+  across a remount) holds the list, its filters and its empty state exactly as
+  before this slice; "Drafts" holds `DraftsSection` and carries the draft
+  count as a small pill PLUS one `sr-only` span reading the whole accessible
+  name `` `Drafts (${n})` `` (the visible pill stays `aria-hidden` — do not
+  read the count off it in a test, read the tab's accessible name). On an
+  ARCHIVED cycle there is no `Tabs` at all — the toolbar and list render
+  directly, with no drafts, unchanged from before tabs existed.
+- **`drafts-section.tsx` (AC2) is now the Drafts tab's WHOLE body, not a
+  section that floats beside the list.** It lost its own `h2`/description
+  header (the tab trigger already says "Drafts") and its early-return on an
+  empty list: with no drafts it renders "No drafts yet." plus a "New with CV"
+  link (`APPLICATIONS_PAGE_COPY.newWithCv`) instead of `null` — including
+  right after the LAST draft is deleted, so the tab never goes blank. It still
+  returns `null` only while `isLoading`. Resume (`draftResumeHref`) always
+  targets `/applications/new-with-cv?id=`; the PAGE decides step 1 vs step 2
+  from `has_cv` (AC12). Delete is an `AlertDialog` confirm; deleting a draft
+  takes its CV copy with it, same cascade as deleting a real application.
 - **Finish (AC9/AC10).** Disabled with the missing list
   (`DRAFT_REQUIREMENT_ORDER`: company, role, platform, then "CV copy") shown
   via `missingLabel()`. Before calling `POST /applications/drafts/{id}/finish`
@@ -1185,11 +1239,29 @@ override it.
 
 - `hideClose` — suppress the default X button when the panel owns its own
   Cancel/Submit footer.
-- `size?: "form" | "nav"` — the width/padding preset, default `"form"`.
-  `"form"` is `w-full p-6 sm:max-w-2xl`, the wide form panel every sheet in the
-  app uses; `"nav"` is `w-[17rem] gap-0 p-0 sm:max-w-[17rem]`, the mobile
-  navigation panel. The preset is applied AFTER `className`, so a caller cannot
-  widen or pad a sheet from the outside — add a preset here instead.
+- `size?: "form" | "wide" | "nav"` — the width/padding preset, default
+  `"form"`. `"form"` is `w-full p-6 sm:max-w-2xl`, the wide form panel most
+  sheets in the app use; `"wide"` (KODI-036, AC6, R-039) is the same panel up
+  to `sm:max-w-4xl` — today only the application create/edit sheet
+  (`application-form-sheet.tsx`) asks for it; `"nav"` is
+  `w-[17rem] gap-0 p-0 sm:max-w-[17rem]`, the mobile navigation panel. The
+  preset is applied AFTER `className`, so a caller cannot widen or pad a sheet
+  from the outside — add a preset here instead.
+- **A sheet's title can be shown larger than the default** by passing a class
+  straight to `SheetTitle` (it forwards `className`, unlike the width preset
+  above) — `application-form-sheet.tsx` passes `font-display text-xl` (KODI-036,
+  AC7, R-040) on top of the base `font-semibold`. The words themselves ("New
+  Application" / "Edit Application") are unchanged — `e2e/cv-builder.spec.ts`'s
+  "Edit Application" assertion still matches them.
+
+**`components/ui/tabs.tsx`** is the shadcn `new-york` Tabs, unmodified from the
+registry except for one applika-only `variant` on `TabsList`/`TabsTrigger`:
+`"line"` — a full-width bar on a hairline (`border-b border-border`) with the
+active tab's underline covering it, instead of the default `"default"`'s
+pill-shaped `bg-muted` group. `applications-page.tsx`'s Applications | Drafts
+tabs (see **Application drafts** above) is `variant="line"`'s first caller;
+default a new caller to it unless it specifically wants the pill look
+`VisibilityFilter` (a hand-rolled segmented control, not this component) uses.
 
 **Fonts.** `font-display` is the heading family (Inter, self-hosted via
 `next/font`); `font-numeric` is the `@utility` in `globals.css` that switches a

@@ -55,10 +55,11 @@ function SheetContent({
   side?: "top" | "right" | "bottom" | "left";
   /**
    * applika-only: the panel's width and padding preset. "form" is the wide
-   * form panel every existing sheet uses; "nav" is the narrow, unpadded
+   * form panel every existing sheet uses; "wide" is the same panel up to
+   * `4xl` (the application create/edit sheet); "nav" is the narrow, unpadded
    * navigation rail the app shell opens below `md`.
    */
-  size?: "form" | "nav";
+  size?: "form" | "wide" | "nav";
   showCloseButton?: boolean;
   /**
    * applika-only: suppress the built-in close button so a form sheet can own
@@ -94,7 +95,9 @@ function SheetContent({
           // instead if a sheet ever needs a different one.
           size === "nav"
             ? "w-[17rem] gap-0 p-0 sm:max-w-[17rem]"
-            : "w-full p-6 sm:max-w-2xl",
+            : size === "wide"
+              ? "w-full p-6 sm:max-w-4xl"
+              : "w-full p-6 sm:max-w-2xl",
         )}
         {...props}
       >

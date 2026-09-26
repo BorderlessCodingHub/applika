@@ -1,41 +1,32 @@
-import { type ComponentType, type ReactNode } from "react";
-import { type LucideProps } from "lucide-react";
+import { type ReactNode } from "react";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface FormSectionProps {
   /** Section title (e.g. "Role & company", "Details", "Posting & notes"). */
   title: ReactNode;
-  /** Optional supporting copy under the title. */
+  /** Optional muted supporting copy under the title. */
   description?: ReactNode;
-  /** Optional Lucide icon shown in a tinted tile beside the title. */
-  icon?: ComponentType<LucideProps>;
-  /** The grouped fields. Wrap grids/rows as needed. */
+  /** The grouped fields, one row per child; rows are spaced by the content region. */
   children: ReactNode;
-  /** Optional footer, typically a Save action. Right-aligned with a top border. */
+  /** Optional footer, typically a Save action. Right-aligned under the fields. */
   footer?: ReactNode;
   /** Heading level for the title — keep the document outline correct. */
   as?: "h2" | "h3";
   className?: string;
-  /** Extra classes for the content region (e.g. grid layout). */
+  /** Extra classes for the content region; it is already a `gap-3` column. */
   contentClassName?: string;
 }
 
 /**
- * Card shell for a titled group of form fields. Presentational only: the
- * parent owns the `<form>`, the fields and any action passed via `footer`.
+ * A flat, titled group of form fields: no card, no icon. Consecutive sections
+ * are separated by a hairline and whitespace, so a stack of them reads as one
+ * continuous form. Presentational only: the parent owns the `<form>`, the
+ * fields and any action passed via `footer`.
  */
 export function FormSection({
   title,
   description,
-  icon: Icon,
   children,
   footer,
   as: Heading = "h2",
@@ -43,38 +34,43 @@ export function FormSection({
   contentClassName,
 }: FormSectionProps) {
   return (
-    <Card data-slot="form-section" className={cn("gap-0 py-0", className)}>
-      {/* `[.border-b]:pb-5`: CardHeader's own `[.border-b]:pb-6` outranks `p-5`. */}
-      <CardHeader className="flex flex-row items-start gap-3 border-b p-5 [.border-b]:pb-5">
-        {Icon ? (
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <Icon aria-hidden className="size-4.5" />
-          </span>
-        ) : null}
-        <div className="min-w-0 space-y-1">
-          <Heading
-            data-slot="card-title"
-            className="font-display text-base leading-none font-semibold tracking-tight"
+    <section
+      data-slot="form-section"
+      className={cn(
+        "flex min-w-0 flex-col gap-4",
+        "[[data-slot=form-section]+&]:border-t [[data-slot=form-section]+&]:border-border/60 [[data-slot=form-section]+&]:pt-5",
+        className,
+      )}
+    >
+      <div className="flex min-w-0 flex-col gap-1">
+        <Heading
+          data-slot="form-section-title"
+          className="font-display text-base leading-snug font-semibold tracking-tight text-foreground"
+        >
+          {title}
+        </Heading>
+        {description ? (
+          <p
+            data-slot="form-section-description"
+            className="text-sm text-pretty text-muted-foreground"
           >
-            {title}
-          </Heading>
-          {description ? (
-            <CardDescription className="text-pretty">
-              {description}
-            </CardDescription>
-          ) : null}
-        </div>
-      </CardHeader>
+            {description}
+          </p>
+        ) : null}
+      </div>
 
-      <CardContent className={cn("p-5", contentClassName)}>
+      <div
+        data-slot="form-section-content"
+        className={cn("flex min-w-0 flex-col gap-3", contentClassName)}
+      >
         {children}
-      </CardContent>
+      </div>
 
       {footer ? (
-        <CardFooter className="justify-end gap-2 border-t p-5 [.border-t]:pt-5">
+        <div data-slot="form-section-footer" className="flex justify-end gap-2">
           {footer}
-        </CardFooter>
+        </div>
       ) : null}
-    </Card>
+    </section>
   );
 }

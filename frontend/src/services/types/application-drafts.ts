@@ -6,9 +6,11 @@ import type {
 } from "@/services/types/users";
 
 /**
- * `/applications/drafts*` (PRD 0010, KODI-033). A draft is an application not
- * yet finished: no date, and no source-of-truth CV copy requirement until
- * `finish`.
+ * `/applications/drafts*` (PRD 0010, KODI-033; revised KODI-036). A draft is
+ * an application not yet finished, but it DOES carry a date from the moment
+ * step 1 exists: `application_date` presets to the browser's own calendar day
+ * (`localCalendarDay()`), autosaves like every other field, survives a
+ * resume, and is what `finish` dates the application with (AC1).
  *
  * `PUT /applications/drafts/{id}` is a FULL REPLACE, exactly like the
  * application's own update — autosave must always send the whole `DraftInput`,
@@ -21,6 +23,10 @@ export interface DraftInput {
   role: string;
   platform_id: string;
   mode: ModeType;
+  /** `YYYY-MM-DD`. Optional on the wire (server defaults to today when
+   * absent on POST, keeps the stored value when absent on PUT) but the web
+   * client always sends it — see the note above. */
+  application_date?: string;
   link_to_job?: string | null;
   observation?: string;
   expected_salary?: number;
@@ -37,6 +43,9 @@ export interface DraftInput {
 export interface Draft extends DraftInput {
   id: string;
   has_cv: boolean;
+  /** Always present on a response, whatever the request sent (server default
+   * or stored value fills the gap). */
+  application_date: string;
   created_at: string;
   updated_at: string;
 }

@@ -3,15 +3,17 @@ import { expect, test, type APIRequestContext } from "@playwright/test";
 import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
 
 /**
- * `/applications/new-with-cv` against the REAL stack (PRD 0010, KODI-033).
+ * `/applications/new-with-cv` against the REAL stack (PRD 0010, KODI-033;
+ * revised KODI-036).
  *
  * One draft, start to finish: step 1 (company, role, a brand-new PRIVATE
- * platform), autosave, a full page reload that resumes the same draft from
- * `?id=`, step 2 (pick the seeded master CV, edit the copy, autosave again),
- * then Finish — which turns the draft into a real application and empties the
- * Drafts section. Nothing here is mocked: the platform really is created via
- * `POST /platforms`, the draft via `POST /applications/drafts`, and the final
- * application via `POST /applications/drafts/{id}/finish`.
+ * platform, a PAST application date), autosave, a full page reload that
+ * resumes the same draft from `?id=`, step 2 (pick the seeded master CV, edit
+ * the copy, autosave again), then Finish — which turns the draft into a real
+ * application dated with that same day, and empties the Drafts tab. Nothing
+ * here is mocked: the platform really is created via `POST /platforms`, the
+ * draft via `POST /applications/drafts`, and the final application via
+ * `POST /applications/drafts/{id}/finish`.
  */
 
 const ROLE = "E2E New-With-CV Engineer";
@@ -130,14 +132,37 @@ test("a draft created with New with CV autosaves, resumes and finishes into a re
   await loginAs(page, "user");
   await page.goto("/applications");
 
-  // AC1 — the new action sits beside the existing one and opens its own page.
+  // AC5/R-003 — the new action sits beside the existing one and opens its own page.
   await page.getByRole("link", { name: "New with CV" }).click();
   await expect(page).toHaveURL(/\/applications\/new-with-cv$/);
   await expect(
     page.getByRole("heading", { name: "New application with CV", level: 1 }),
   ).toBeVisible();
-  // AC3 — no application date is asked here.
-  await expect(page.getByText(/application date/i)).toHaveCount(0);
+
+  // AC14 — at 390px step 1 never scrolls sideways.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByLabel(/application date/i)).toBeVisible();
+  const step1Metrics = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(
+    step1Metrics.scrollWidth,
+    `step 1 scrolled sideways at 390px: ${JSON.stringify(step1Metrics)}`,
+  ).toBeLessThanOrEqual(step1Metrics.clientWidth + 1);
+  await page.setViewportSize({ width: 1280, height: 800 });
+
+  // AC1/AC3 — step 1 asks for the application date, refusing a future one.
+  const dateTrigger = page.getByLabel(/application date/i);
+  await dateTrigger.click();
+  const calendar = page.locator('[data-slot="popover-content"]');
+  await calendar
+    .getByRole("button", { name: "Go to the Previous Month" })
+    .click();
+  await calendar.getByText("15", { exact: true }).click();
+  const dateText = (await dateTrigger.textContent()) ?? "";
+  const pickedDate = dateText.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+  expect(pickedDate, `no date was parsed from "${dateText}"`).toBeTruthy();
 
   // ---- step 1: company (free text), role, a brand-new PRIVATE platform ----
   await page.getByRole("combobox", { name: "Company", exact: true }).click();
@@ -203,6 +228,38 @@ test("a draft created with New with CV autosaves, resumes and finishes into a re
     page.getByRole("button", { name: `Edit ${ROLE} at ${COMPANY}` }),
   ).toBeVisible();
 
-  // The finished draft is gone from Drafts (AC11).
-  await expect(page.locator('[data-slot="drafts-section"]')).toHaveCount(0);
+  // AC1 — the finished application is dated with the SAME day step 1 picked.
+  await expect(page.getByText(pickedDate!, { exact: true })).toBeVisible();
+
+  // The Drafts tab replaces the former Drafts section (AC8) and is empty now
+  // that the draft finished.
+  await page.getByRole("tab", { name: /drafts/i }).click();
+  await expect(page.getByText("No drafts yet.")).toBeVisible();
+});
+
+test("the side sheet that creates/edits an application without a CV never scrolls sideways at 390px (AC6/AC14)", async ({
+  page,
+}) => {
+  await loginAs(page, "user");
+  await page.goto("/applications");
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await page.getByRole("button", { name: "New Application" }).click();
+  await expect(
+    page.getByRole("heading", { name: "New Application" }),
+  ).toBeVisible();
+
+  const sheetMetrics = await page.evaluate(() => {
+    const sheet = document.querySelector<HTMLElement>(
+      '[data-slot="sheet-content"]',
+    );
+    return {
+      scrollWidth: sheet?.scrollWidth ?? -1,
+      clientWidth: sheet?.clientWidth ?? -1,
+    };
+  });
+  expect(
+    sheetMetrics.scrollWidth,
+    `the side sheet scrolled sideways at 390px: ${JSON.stringify(sheetMetrics)}`,
+  ).toBeLessThanOrEqual(sheetMetrics.clientWidth + 1);
 });

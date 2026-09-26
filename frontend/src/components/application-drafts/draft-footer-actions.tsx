@@ -14,7 +14,7 @@ import {
   type DraftRequirement,
   type DraftStep,
 } from "@/components/application-drafts/draft-copy";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const APPLICATION_REQUIREMENTS: readonly DraftRequirement[] = [
@@ -22,6 +22,8 @@ const APPLICATION_REQUIREMENTS: readonly DraftRequirement[] = [
   "role",
   "platform",
 ];
+
+const APPLICATIONS_HREF = "/applications";
 
 export interface DraftFooterActionsProps {
   step: DraftStep;
@@ -32,6 +34,15 @@ export interface DraftFooterActionsProps {
   onContinue: () => void;
   /** Step 2 back to step 1. */
   onBack: () => void;
+  /**
+   * Step 1 only (AC15/AC17): true while closing this tab would lose unsaved
+   * work — the same condition the page's own `beforeunload` guard uses. The
+   * Cancel link then forces a real top-level navigation
+   * (`window.location.assign`) instead of the Next.js client-side transition,
+   * so the browser's native beforeunload prompt fires; with nothing at risk
+   * it is a plain link.
+   */
+  hasUnsavedRisk?: boolean;
   /** Everything that stops Finish; empty enables it. Step 1 shows only company, role, platform. */
   missing: readonly DraftRequirement[];
   onFinish: () => void;
@@ -53,6 +64,7 @@ export function DraftFooterActions({
   canContinue,
   onContinue,
   onBack,
+  hasUnsavedRisk = false,
   missing,
   onFinish,
   isFinishing = false,
@@ -107,15 +119,28 @@ export function DraftFooterActions({
       ) : null}
 
       {step === "application" ? (
-        <Button
-          type="button"
-          onClick={onContinue}
-          disabled={!canContinue}
-          aria-describedby={hint ? hintId : undefined}
-        >
-          {DRAFT_COPY.continueToCv}
-          <ArrowRightIcon aria-hidden data-icon="inline-end" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <LinkButton
+            href={APPLICATIONS_HREF}
+            variant="outline"
+            onClick={(event) => {
+              if (!hasUnsavedRisk) return;
+              event.preventDefault();
+              window.location.assign(APPLICATIONS_HREF);
+            }}
+          >
+            {DRAFT_COPY.cancel}
+          </LinkButton>
+          <Button
+            type="button"
+            onClick={onContinue}
+            disabled={!canContinue}
+            aria-describedby={hint ? hintId : undefined}
+          >
+            {DRAFT_COPY.continueToCv}
+            <ArrowRightIcon aria-hidden data-icon="inline-end" />
+          </Button>
+        </div>
       ) : (
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" onClick={onBack}>

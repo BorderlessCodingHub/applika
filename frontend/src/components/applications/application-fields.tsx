@@ -1,11 +1,6 @@
 "use client";
 
 import { useId } from "react";
-import {
-  BriefcaseIcon,
-  NotebookTextIcon,
-  SlidersHorizontalIcon,
-} from "lucide-react";
 import { useWatch, type UseFormReturn } from "react-hook-form";
 
 import { FormSection } from "@/components/applications/form-section";
@@ -43,8 +38,8 @@ import { DatePickerInput } from "../ui/date-picker";
 /** Server ceiling on `job_description`. The field is optional. */
 export const JOB_DESCRIPTION_MAX = 50_000;
 
-const ROW2 = "grid grid-cols-1 items-start gap-4 @md/app-form:grid-cols-2";
-const ROW3 = "grid grid-cols-1 items-start gap-4 @md/app-form:grid-cols-3";
+const ROW2 = "grid grid-cols-1 items-start gap-3 @md/app-form:grid-cols-2";
+const ROW3 = "grid grid-cols-1 items-start gap-3 @md/app-form:grid-cols-3";
 
 export function getCurrencySymbol(currency: string) {
   return (
@@ -54,9 +49,10 @@ export function getCurrencySymbol(currency: string) {
 
 /**
  * The field set the application-with-CV draft page (KODI-033) and the side
- * sheet share. `application_date` is optional here on purpose: the sheet's own
- * schema still requires it (unaffected by this extraction), while the draft
- * page never renders the field at all (AC3) and its own schema never asks.
+ * sheet share. `application_date` is optional at this type level only —
+ * both callers' own zod schemas require it (KODI-036, AC1/AC3): the sheet's
+ * schema already did, and the draft page's schema now does too, since every
+ * draft carries and autosaves an application date from step 1.
  */
 export interface ApplicationFieldsValues {
   company?: string | { name?: string; url?: string } | undefined;
@@ -84,10 +80,8 @@ export interface ApplicationFieldsProps {
   platforms: readonly PlatformOption[] | undefined;
   platformsLoading?: boolean;
   onCreatePlatform: (input: NewPlatformInput) => Promise<PlatformCreateOutcome>;
-  /** `false` on the new-with-cv draft page: no application-date question (AC3). */
-  showDate?: boolean;
   onCompanyChange?: (company: Company | null) => void;
-  /** Root class — the draft page passes `max-w-4xl` for step 1. */
+  /** Root class. Neither caller puts a width limit of its own on it (AC5). */
   className?: string;
   /** `"h3"` in the Sheet (its title is already an `h2`); the page keeps `"h2"`. */
   sectionHeadingAs?: "h2" | "h3";
@@ -107,7 +101,6 @@ export function ApplicationFields({
   platforms,
   platformsLoading = false,
   onCreatePlatform,
-  showDate = true,
   onCompanyChange,
   className,
   sectionHeadingAs = "h3",
@@ -178,16 +171,14 @@ export function ApplicationFields({
     <div
       data-slot="application-fields"
       className={cn(
-        "@container/app-form flex min-w-0 flex-col gap-4",
+        "@container/app-form flex min-w-0 flex-col gap-5",
         className,
       )}
     >
       <FormSection
         as={sectionHeadingAs}
-        icon={BriefcaseIcon}
         title="Role & company"
         description="What every application needs."
-        contentClassName="flex flex-col gap-4"
       >
         <div className={ROW2}>
           <div className="flex min-w-0 flex-col gap-1.5">
@@ -305,69 +296,67 @@ export function ApplicationFields({
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor={jobLinkId}>Job link</Label>
-          <Input
-            id={jobLinkId}
-            inputMode="url"
-            {...form.register("link_to_job")}
-            placeholder="https://www.linkedin.com/jobs/..."
-            aria-invalid={form.formState.errors.link_to_job ? true : undefined}
-            aria-describedby={
-              form.formState.errors.link_to_job
-                ? `${jobLinkId}-error`
-                : undefined
-            }
-            className={cn(
-              form.formState.errors.link_to_job &&
-                "border-destructive focus-visible:ring-destructive",
-            )}
-          />
-          {form.formState.errors.link_to_job && (
-            <p id={`${jobLinkId}-error`} className="text-xs text-destructive">
-              {form.formState.errors.link_to_job.message}
-            </p>
-          )}
-        </div>
-
-        {showDate ? (
-          <div className={ROW2}>
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor={dateFieldId}>
-                Application date<span aria-hidden="true">*</span>
-              </Label>
-              <DatePickerInput
-                id={dateFieldId}
-                value={watchApplicationDate}
-                onChange={(date) =>
-                  form.setValue(
-                    "application_date" as never,
-                    (date ?? "") as never,
-                    { shouldValidate: true },
-                  )
-                }
-                maxDate={new Date()}
-                className={cn(
-                  form.formState.errors.application_date &&
-                    "border-destructive focus-visible:ring-destructive",
-                )}
-              />
-              {form.formState.errors.application_date && (
-                <p className="text-xs text-destructive">
-                  {form.formState.errors.application_date.message}
-                </p>
+        <div className={ROW2}>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor={dateFieldId}>
+              Application date<span aria-hidden="true">*</span>
+            </Label>
+            <DatePickerInput
+              id={dateFieldId}
+              value={watchApplicationDate}
+              onChange={(date) =>
+                form.setValue(
+                  "application_date" as never,
+                  (date ?? "") as never,
+                  { shouldValidate: true },
+                )
+              }
+              maxDate={new Date()}
+              className={cn(
+                form.formState.errors.application_date &&
+                  "border-destructive focus-visible:ring-destructive",
               )}
-            </div>
+            />
+            {form.formState.errors.application_date && (
+              <p className="text-xs text-destructive">
+                {form.formState.errors.application_date.message}
+              </p>
+            )}
           </div>
-        ) : null}
+
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor={jobLinkId}>Job link</Label>
+            <Input
+              id={jobLinkId}
+              inputMode="url"
+              {...form.register("link_to_job")}
+              placeholder="https://www.linkedin.com/jobs/..."
+              aria-invalid={
+                form.formState.errors.link_to_job ? true : undefined
+              }
+              aria-describedby={
+                form.formState.errors.link_to_job
+                  ? `${jobLinkId}-error`
+                  : undefined
+              }
+              className={cn(
+                form.formState.errors.link_to_job &&
+                  "border-destructive focus-visible:ring-destructive",
+              )}
+            />
+            {form.formState.errors.link_to_job && (
+              <p id={`${jobLinkId}-error`} className="text-xs text-destructive">
+                {form.formState.errors.link_to_job.message}
+              </p>
+            )}
+          </div>
+        </div>
       </FormSection>
 
       <FormSection
         as={sectionHeadingAs}
-        icon={SlidersHorizontalIcon}
         title="Details"
         description="Optional — how you'd work and what it pays."
-        contentClassName="flex flex-col gap-4"
       >
         <div className={ROW3}>
           <div className="flex min-w-0 flex-col gap-1.5">
@@ -575,10 +564,8 @@ export function ApplicationFields({
 
       <FormSection
         as={sectionHeadingAs}
-        icon={NotebookTextIcon}
         title="Posting & notes"
         description="The job posting and anything you want to remember."
-        contentClassName="flex flex-col gap-4"
       >
         <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor={jobDescriptionId}>Job description</Label>

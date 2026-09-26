@@ -15,15 +15,16 @@ import { SupportsProvider } from "@/contexts/supports-context";
 import type { Draft, DraftInput } from "@/services/types/application-drafts";
 
 /**
- * `/applications/new-with-cv` (PRD 0010, KODI-033).
+ * `/applications/new-with-cv` (PRD 0010, KODI-033; revised KODI-036).
  *
- * AC2/AC3 — no application-date question, `mode` preset `active`.
+ * AC1/AC3 — step 1 asks for the application date, preset to the browser's own
+ * LOCAL calendar day, saved with the draft on autosave, kept on resume, and
+ * used to date the application on Finish. `mode` presets to `active`.
  * AC6/AC7 — no draft (and no POST) until company, role and platform are all
  * set; the first save is a POST, every later one a PUT; the URL picks up
  * `?id=`; nothing is ever written to browser storage; a `beforeunload`
  * listener is registered.
  * AC9 — Finish stays disabled with the missing list.
- * AC3 — Finish sends the browser's own LOCAL calendar day.
  */
 
 const createDraftMock = vi.fn();
@@ -109,6 +110,7 @@ function draftFrom(
     role: input.role ?? "",
     platform_id: input.platform_id ?? "",
     mode: input.mode ?? "active",
+    application_date: input.application_date ?? "2026-09-26",
     has_cv: input.has_cv ?? false,
     created_at: "2026-09-26T10:00:00Z",
     updated_at: "2026-09-26T10:00:00Z",
@@ -147,15 +149,25 @@ function statusState() {
     ?.getAttribute("data-state");
 }
 
-describe("NewWithCvPage — step 1 fields (AC2/AC3)", () => {
-  it("asks for no application date and presets Source to Active", async () => {
+describe("NewWithCvPage — step 1 fields (AC1/AC3)", () => {
+  it("asks for the application date preset to today's local calendar day, and presets Source to Active", async () => {
+    vi.stubEnv("TZ", "America/Sao_Paulo");
+    const fixed = new Date(2026, 8, 26, 23, 30, 0); // local 2026-09-26 23:30
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(fixed);
+
     renderPage();
 
     await screen.findByRole("combobox", { name: /platform/i });
-    expect(screen.queryByText(/application date/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/application date/i)).toHaveTextContent(
+      "2026-09-26",
+    );
     expect(screen.getByRole("combobox", { name: "Source" })).toHaveTextContent(
       /active/i,
     );
+
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
   });
 
   it("renders the two-step stepper with step 2 disabled until a draft exists", async () => {
@@ -272,7 +284,7 @@ describe("NewWithCvPage — autosave gating and draft creation (AC6/AC7)", () =>
   });
 });
 
-describe("NewWithCvPage — Finish (AC9, AC3)", () => {
+describe("NewWithCvPage — Finish (AC9, AC1)", () => {
   it("shows the missing list and keeps Finish disabled without company, role, platform, CV", async () => {
     searchParams = new URLSearchParams("id=draft-9&step=cv");
     getDraftMock.mockResolvedValue(draftFrom({ id: "draft-9" }));
@@ -286,13 +298,13 @@ describe("NewWithCvPage — Finish (AC9, AC3)", () => {
     );
   });
 
-  it("sends the browser's local calendar day, never toISOString(), and navigates on success", async () => {
-    // Pinned to a non-UTC zone (CI runs TZ=UTC): at 23:30 local in
-    // America/Sao_Paulo (UTC-3) it is already 2026-09-27 in UTC, so a
-    // `toISOString()` regression sends the WRONG day and this test catches it
-    // — under TZ=UTC the two dates coincide and the mutant would slip through.
+  it("finishes with the draft's own stored application date, not today's, and navigates on success (AC1)", async () => {
+    // The draft's stored date is a PAST day, deliberately different from
+    // "now" below — Finish must send that STORED value, never a freshly
+    // computed calendar day, proving the date travels with the draft (AC1)
+    // rather than being stamped at finish time.
     vi.stubEnv("TZ", "America/Sao_Paulo");
-    const fixed = new Date(2026, 8, 26, 23, 30, 0); // local 2026-09-26 23:30
+    const fixed = new Date(2026, 8, 26, 23, 30, 0); // local "now" 2026-09-26
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(fixed);
 
@@ -303,6 +315,7 @@ describe("NewWithCvPage — Finish (AC9, AC3)", () => {
         company_name: "Acme",
         role: "Engineer",
         platform_id: "plt-1",
+        application_date: "2026-09-10",
       }),
     );
     getTailoredCvMock.mockResolvedValue({
@@ -338,11 +351,59 @@ describe("NewWithCvPage — Finish (AC9, AC3)", () => {
     await user.click(screen.getByRole("button", { name: /^finish$/i }));
 
     await waitFor(() => expect(finishDraftMock).toHaveBeenCalled());
-    expect(finishDraftMock).toHaveBeenCalledWith("draft-9", "2026-09-26");
+    expect(finishDraftMock).toHaveBeenCalledWith("draft-9", "2026-09-10");
 
     vi.useRealTimers();
     vi.unstubAllEnvs();
   });
+
+  it("presets a brand-new draft's application date to the browser's LOCAL calendar day, never toISOString(), and autosaves it", async () => {
+    // Pinned to a non-UTC zone (CI runs TZ=UTC): at 23:30 local in
+    // America/Sao_Paulo (UTC-3) it is already 2026-09-27 in UTC, so a
+    // `toISOString()` regression sends the WRONG day and this test catches it
+    // — under TZ=UTC the two dates coincide and the mutant would slip through.
+    vi.stubEnv("TZ", "America/Sao_Paulo");
+    const fixed = new Date(2026, 8, 26, 23, 30, 0); // local 2026-09-26 23:30
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(fixed);
+
+    createDraftMock.mockResolvedValue(
+      draftFrom({
+        id: "draft-9",
+        company_name: "Acme",
+        role: "Engineer",
+        platform_id: "plt-1",
+        application_date: "2026-09-26",
+      }),
+    );
+    const user = userEvent.setup({ delay: null });
+    renderPage();
+
+    await screen.findByRole("combobox", { name: /platform/i });
+    await user.type(
+      screen.getByPlaceholderText(/senior engineer/i),
+      "Engineer",
+    );
+    await user.click(await screen.findByRole("combobox", { name: "Company" }));
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Acme",
+    );
+    await user.click(await screen.findByText('Create "Acme"'));
+    await user.click(screen.getByRole("button", { name: /^add company$/i }));
+    await user.click(screen.getByRole("combobox", { name: /platform/i }));
+    await user.click(await screen.findByRole("option", { name: "LinkedIn" }));
+
+    await waitFor(() => expect(createDraftMock).toHaveBeenCalledTimes(1), {
+      timeout: 3000,
+    });
+    expect(createDraftMock).toHaveBeenCalledWith(
+      expect.objectContaining({ application_date: "2026-09-26" }),
+    );
+
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+  }, 10_000);
 });
 
 describe("NewWithCvPage — Resume opens the right step (AC12)", () => {
@@ -1022,6 +1083,7 @@ describe("NewWithCvPage — required-fields message and full-body PUT (AC7/AC8)"
       "role",
       "platform_id",
       "mode",
+      "application_date",
       "link_to_job",
       "observation",
       "expected_salary",

@@ -43,6 +43,7 @@ export const DRAFT_COPY = {
     cv: { number: 2, title: "CV", hint: "A copy of a master CV" },
   },
   continueToCv: "Continue to CV",
+  cancel: "Cancel",
   back: "Back",
   finish: "Finish",
   saving: "Saving...",
@@ -66,6 +67,7 @@ export const DRAFT_COPY = {
 
 export const DRAFTS_SECTION_COPY = {
   title: "Drafts",
+  emptyTitle: "No drafts yet.",
   description: "Applications you started with a CV. They save as you type.",
   resume: "Resume",
   cvCopy: "CV copy",
