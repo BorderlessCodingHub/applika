@@ -189,6 +189,25 @@ async def test_list_platforms_name_filter_is_case_insensitive_substring(
     assert 'Linkedin' in names, msg('Linkedin in list', names)
 
 
+async def test_list_platforms_name_filter_excludes_non_matching_rows(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """The name filter must actually filter, not just include a match: a
+    row that does not match ``?name=`` must be absent from the result."""
+    create_resp = await async_client.post(
+        BASE, json={'name': 'Zeta Exclusive Board'}
+    )
+    assert create_resp.status_code == 201
+
+    resp = await async_client.get(BASE, params={'name': 'zeta'})
+
+    assert resp.status_code == 200, msg(200, resp.status_code)
+    names = [p['name'] for p in resp.json()]
+    assert names == ['Zeta Exclusive Board'], msg(
+        ['Zeta Exclusive Board'], names
+    )
+
+
 async def test_list_platforms_is_ordered_by_name(
     async_client: AsyncClient, db_session: AsyncSession
 ):
@@ -225,4 +244,4 @@ async def test_list_platforms_requires_authentication(
     finally:
         main_app.dependency_overrides[get_current_user] = override
 
-    assert resp.status_code in (401, 403), msg('401 or 403', resp.status_code)
+    assert resp.status_code == 401, msg(401, resp.status_code)

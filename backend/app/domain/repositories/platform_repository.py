@@ -12,24 +12,6 @@ class PlatformRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_all(
-        self, visibility: str | None = None
-    ) -> list[PlatformModel]:
-        """Every platform, for the admin screens (ADR-0014). ``visibility``
-        is ``'public'``, ``'private'`` or ``None`` (every row). Eager-loads
-        ``created_by_user`` so the admin row can show who added it."""
-        query = (
-            select(PlatformModel)
-            .options(selectinload(PlatformModel.created_by_user))
-            .order_by(PlatformModel.id)
-        )
-        if visibility == 'public':
-            query = query.where(PlatformModel.is_public.is_(True))
-        elif visibility == 'private':
-            query = query.where(PlatformModel.is_public.is_(False))
-        result = await self.session.scalars(query)
-        return list(result.all())
-
     async def get_by_id(self, id: int) -> PlatformModel | None:
         return await self.session.scalar(
             select(PlatformModel)

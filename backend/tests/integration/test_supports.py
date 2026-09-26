@@ -154,3 +154,31 @@ async def test_seeded_base_platform_is_public_for_every_user(
         other_response = await async_client.get('/supports')
     other_names = [p['name'] for p in other_response.json()['platforms']]
     assert 'Linkedin' in other_names, msg('Linkedin visible', other_names)
+
+
+async def test_supports_platforms_stay_ordered_by_id_not_name(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """R-036/S7 plan correction: KODI-035 widened ``list_visible`` with a
+    name-ordered mode for the new ``GET /platforms``, but ``/supports``
+    itself must keep passing neither ``name`` nor ``order_by_name`` and
+    stay ``ORDER BY id`` - name order and id order deliberately disagree
+    here so a regression to name order would fail this assertion."""
+    # base_data seeds plat_linkedin with a low id; these two straddle it in
+    # id but land on opposite ends alphabetically.
+    db_session.add_all([
+        PlatformModel(id=90, name='Zulu Board', url=None, is_public=True),
+        PlatformModel(id=91, name='Alpha Board', url=None, is_public=True),
+    ])
+    await db_session.commit()
+
+    response = await async_client.get('/supports')
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    ids = [p['id'] for p in response.json()['platforms']]
+    assert ids == sorted(ids, key=int), msg(sorted(ids, key=int), ids)
+    names = [p['name'] for p in response.json()['platforms']]
+    assert names != sorted(names), (
+        'fixture must make id order and name order disagree, else this '
+        'test cannot catch a regression to name order'
+    )

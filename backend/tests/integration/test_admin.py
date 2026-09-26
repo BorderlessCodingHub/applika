@@ -1,3 +1,4 @@
+import asyncio
 from datetime import date
 
 from httpx import AsyncClient
@@ -683,22 +684,46 @@ async def test_admin_delete_platform_in_use_is_still_refused(
 async def test_admin_platforms_paging_reports_total_and_total_pages(
     admin_client: AsyncClient, db_session: AsyncSession
 ):
-    for i in range(3):
+    for i in range(5):
         create_resp = await admin_client.post(
             '/admin/platforms', json={'name': f'Paging Board {i}'}
         )
         assert create_resp.status_code == 201
 
     resp = await admin_client.get(
-        '/admin/platforms', params={'per_page': 2, 'page': 1}
+        '/admin/platforms',
+        params={'per_page': 2, 'page': 1, 'search': 'Paging Board'},
     )
     assert resp.status_code == 200, msg(200, resp.status_code)
     data = resp.json()
     assert len(data['items']) == 2
-    assert data['total'] >= 4  # seeded Linkedin + the 3 created here
+    assert data['total'] == 5, msg(5, data['total'])
     assert data['page'] == 1
     assert data['per_page'] == 2
-    assert data['total_pages'] == -(-data['total'] // 2)
+    assert data['total_pages'] == 3, msg(3, data['total_pages'])
+
+    page2 = await admin_client.get(
+        '/admin/platforms',
+        params={
+            'per_page': 2,
+            'page': 2,
+            'search': 'Paging Board',
+            'sort_by': 'name',
+            'sort_order': 'asc',
+        },
+    )
+    assert page2.status_code == 200, msg(200, page2.status_code)
+    page1_ids = {item['id'] for item in data['items']}
+    page2_ids = {item['id'] for item in page2.json()['items']}
+    assert page1_ids.isdisjoint(page2_ids), msg(
+        'disjoint pages', (page1_ids, page2_ids)
+    )
+
+    page3 = await admin_client.get(
+        '/admin/platforms',
+        params={'per_page': 2, 'page': 3, 'search': 'Paging Board'},
+    )
+    assert len(page3.json()['items']) == 1, msg(1, len(page3.json()['items']))
 
 
 async def test_admin_platforms_search_filters_by_name(
@@ -768,20 +793,61 @@ async def test_admin_platforms_sort_by_name(
 async def test_admin_platforms_sort_by_created_at(
     admin_client: AsyncClient, db_session: AsyncSession
 ):
-    resp = await admin_client.get(
+    """Names are assigned in the opposite order of creation, so a
+    regression that maps ``sort_by=created_at`` onto the name column would
+    return these three in the wrong order."""
+    ids_in_creation_order = []
+    for name in [
+        'Zeta Created First',
+        'Middle Created Second',
+        'Alpha Created Third',
+    ]:
+        resp = await admin_client.post('/admin/platforms', json={'name': name})
+        assert resp.status_code == 201
+        ids_in_creation_order.append(resp.json()['id'])
+        await asyncio.sleep(0.01)
+
+    desc = await admin_client.get(
         '/admin/platforms',
-        params={'sort_by': 'created_at', 'sort_order': 'desc'},
+        params={
+            'sort_by': 'created_at',
+            'sort_order': 'desc',
+            'search': 'Created',
+        },
     )
-    assert resp.status_code == 200, msg(200, resp.status_code)
-    dates = [p['created_at'] for p in resp.json()['items']]
-    assert dates == sorted(dates, reverse=True)
+    assert desc.status_code == 200, msg(200, desc.status_code)
+    desc_ids = [p['id'] for p in desc.json()['items']]
+    assert desc_ids == list(reversed(ids_in_creation_order)), msg(
+        list(reversed(ids_in_creation_order)), desc_ids
+    )
+
+    asc = await admin_client.get(
+        '/admin/platforms',
+        params={
+            'sort_by': 'created_at',
+            'sort_order': 'asc',
+            'search': 'Created',
+        },
+    )
+    asc_ids = [p['id'] for p in asc.json()['items']]
+    assert asc_ids == ids_in_creation_order, msg(ids_in_creation_order, asc_ids)
 
 
 async def test_admin_platforms_sort_by_applications_count(
     admin_client: AsyncClient, db_session: AsyncSession
 ):
+    """The zero-application row's name sorts last alphabetically ascending
+    and first descending - the opposite of its applications_count rank - so
+    a regression that maps ``sort_by=applications_count`` onto the name
+    column instead would put it first, not the popular one."""
+    zero_apps_resp = await admin_client.post(
+        '/admin/platforms', json={'name': 'Zeta Count Zero Board'}
+    )
+    assert zero_apps_resp.status_code == 201
+    zero_apps_id = zero_apps_resp.json()['id']
+
     create_resp = await admin_client.post(
-        '/admin/platforms', json={'name': 'Popular Board'}
+        '/admin/platforms', json={'name': 'Alpha Count Popular Board'}
     )
     platform_id = create_resp.json()['id']
 
@@ -800,12 +866,35 @@ async def test_admin_platforms_sort_by_applications_count(
 
     resp = await admin_client.get(
         '/admin/platforms',
-        params={'sort_by': 'applications_count', 'sort_order': 'desc'},
+        params={
+            'sort_by': 'applications_count',
+            'sort_order': 'desc',
+            'search': 'Count',
+        },
     )
     assert resp.status_code == 200, msg(200, resp.status_code)
-    top = resp.json()['items'][0]
-    assert top['id'] == platform_id, msg(platform_id, top['id'])
-    assert top['applications_count'] == 2, msg(2, top['applications_count'])
+    items = resp.json()['items']
+    assert items[0]['id'] == platform_id, msg(platform_id, items[0]['id'])
+    assert items[0]['applications_count'] == 2, msg(
+        2, items[0]['applications_count']
+    )
+    assert items[-1]['id'] == zero_apps_id, msg(zero_apps_id, items[-1]['id'])
+    assert items[-1]['applications_count'] == 0, msg(
+        0, items[-1]['applications_count']
+    )
+
+    asc = await admin_client.get(
+        '/admin/platforms',
+        params={
+            'sort_by': 'applications_count',
+            'sort_order': 'asc',
+            'search': 'Count',
+        },
+    )
+    asc_items = asc.json()['items']
+    assert asc_items[-1]['id'] == platform_id, msg(
+        platform_id, asc_items[-1]['id']
+    )
 
 
 async def test_admin_platforms_applications_count_excludes_drafts(
