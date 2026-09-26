@@ -752,6 +752,27 @@ def main():
 
         platform_ids = [p['id'] for p in platforms]
 
+        # ----- Private catalog rows (KODI-031, ADR-0014) -----
+        # A platform with no url, and a company: both start private to this
+        # seed user, exercised end to end on one application below.
+        print('Seeding a private platform and a private company...')
+        priv_platform_resp = client.post(
+            '/platforms',
+            json={'name': 'Founder Referral Board', 'url': None},
+        )
+        priv_platform_resp.raise_for_status()
+        private_platform_id = priv_platform_resp.json()['id']
+
+        priv_company_resp = client.post(
+            '/companies',
+            json={
+                'name': 'Stealth Startup Inc',
+                'url': 'https://stealth-startup.example.com',
+            },
+        )
+        priv_company_resp.raise_for_status()
+        private_company_id = priv_company_resp.json()['id']
+
         # Separate strict vs non-strict steps
         normal_steps = [s for s in step_defs if not s.get('strict', False)]
         strict_steps = [s for s in step_defs if s.get('strict', False)]
@@ -841,6 +862,12 @@ def main():
             mode = random.choice(['active', 'active', 'active', 'passive'])
             platform_id = random.choice(platform_ids)
             app_date = random_date(DATE_START, DATE_END - timedelta(days=20))
+
+            # The first application exercises the private platform and
+            # company end to end (KODI-031).
+            if i == 0:
+                platform_id = private_platform_id
+                company_field = private_company_id
 
             currency = random.choice(CURRENCIES)
             exp_levels = [

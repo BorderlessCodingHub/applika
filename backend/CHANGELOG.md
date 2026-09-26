@@ -8,6 +8,49 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-031 private companies and platforms, admin Approve (ADR-0014,
+  Release B of PRD 0010, S2). `CompanyModel`/`PlatformModel` now map
+  `is_public` and `PlatformModel.created_by` (the migration `3b78c3cd2a71`
+  columns Release A left unmapped); `visible_to(model, user_id)`
+  (`app/domain/repositories/catalog_visibility.py`) is the one rule every
+  visibility check shares: public, or private and created by that user.
+  - `POST /platforms` (new): any user may add a platform not already
+    listed, `{name, url?}` - url is optional, whoever adds it. Starts
+    **private** to that caller (admins included - the owner's own
+    applications go through the same flow as anyone's). A name that
+    matches, ignoring case, a platform the caller already sees is a 409
+    naming that platform.
+  - `POST /companies` (new): `{name, url}` - 201 for a new private company,
+    200 reusing an existing one the caller can see with the same normalised
+    name and url. `{name}` with no url stays free text on the application,
+    as before, and is never listed.
+  - `GET /companies` and `GET /supports` now list every public row plus the
+    caller's own private ones, never another user's private row. Both
+    responses add `is_public`; a `/supports` platform's `url` is now
+    nullable (fixes a 500 on a url-less platform).
+  - `POST /applications` and `PUT /applications/{id}`: an invisible
+    `platform_id` or company id is a 404 (`"Platform not found"` /
+    `"Company not found"`) and writes nothing - checked before any row is
+    inserted or updated.
+  - `GET /admin/companies` and `GET /admin/platforms` add `?visibility=
+    public|private`, `is_public` and `created_by {id, username}|null` on
+    every row.
+  - `POST /admin/companies/{id}/publish` and `POST /admin/platforms/{id}/
+    publish` (new, `AdminUserDp`): publishes a private row (idempotent on
+    an already-public one), keeping `created_by`. Refused with a 409
+    naming the public row it would duplicate on `(lower(name), url)`
+    (companies) or `lower(name)` (platforms) - there is otherwise no
+    uniqueness among public platform names (production may already hold
+    duplicates).
+  - A company or platform created through the admin screens
+    (`POST /admin/companies`, `POST /admin/platforms`) is public at once;
+    one an admin adds through the ordinary user flows (`POST /companies`,
+    `POST /platforms`, `POST /applications`) is private like any user's
+    (owner decision, 2026-09-25: "an admin user is like any other non admin
+    user but with permissions to access some areas").
+  - Every company and platform that existed before this release stays
+    public (carried by migration `3b78c3cd2a71`'s `server_default true`).
+
 - KODI-030 catalog visibility and draft flag columns (migration only,
   ADR-0014, ADR-0005, Release A of PRD 0010). Revision `3b78c3cd2a71` adds
   `companies.is_public` and `platforms.is_public` (`NOT NULL`, default

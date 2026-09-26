@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- KODI-031 `GET /companies` and `GET /supports` now list only the public
+  companies/platforms plus the caller's own private ones (previously every
+  row); both add an `is_public` field, and a `/supports` platform's `url`
+  can now be `null`. A company or platform the CLI creates through
+  `POST /applications` (inline `{name, url}`) is now **private** to that
+  user until an admin publishes it, instead of immediately shared; a known
+  `{name, url}` match now **reuses** the existing visible company instead
+  of racing a 409 on the old global unique index. An invisible (someone
+  else's private) `platform_id` or company id on `POST /applications` /
+  `PUT /applications/{id}` is a 404 instead of succeeding. The CLI reads
+  only `id`/`name`/`url` off these dicts today and never reads a platform's
+  `url`, so no command changes; 0.1.4, 0.2.0 and 1.0.0 are all unaffected.
+
 - KODI-020 `GET/PATCH /users/me` now also returns a `discord_linked: bool`
   field (whether the profile has a Discord account connected). Additive,
   no CLI command reads it: `whoami` (`applika/cli/src/applika/commands/
