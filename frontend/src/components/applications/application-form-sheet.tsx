@@ -1,14 +1,11 @@
 "use client";
 
-import { useId, useMemo } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   Company,
-  ModeType,
   ModeValues,
-  WorkModeType,
   WorkModeValues,
   type Application,
   type CreateApplicationPayload,
@@ -20,41 +17,22 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
-import { SelectOptions } from "@/options";
 import {
-  SalaryCurrencyType,
   SalaryCurrencyValues,
-  SalaryPeriodType,
   SalaryPeriodValues,
-  SeniorityLevelType,
   SeniorityLevelValues,
 } from "@/services/types/users";
-import { CompanySelect, ZodType } from "./company-select";
+import { ZodType } from "./company-select";
+import {
+  ApplicationFields,
+  JOB_DESCRIPTION_MAX,
+  type ApplicationFieldsValues,
+} from "./application-fields";
 import { useCompanySearch } from "@/hooks/use-companies";
-import { DatePickerInput } from "../ui/date-picker";
 import { useApplicationMutate } from "@/hooks/use-applications";
-
-/** Server ceiling on `job_description`. The field is optional. */
-const JOB_DESCRIPTION_MAX = 50_000;
-
-function getCurrencySymbol(currency: string) {
-  return (
-    SelectOptions.CURRENCY.find((c) => c.value === currency)?.symbol ?? currency
-  );
-}
+import { useCreatePlatformOutcome } from "@/hooks/use-create-platform";
 
 const schema = z
   .object({
@@ -166,9 +144,9 @@ export function ApplicationFormSheet({
   onOpenChange,
   application,
 }: Props) {
-  const jobDescriptionId = useId();
   const { supports } = useSupports();
   const { fetchCompanies } = useCompanySearch();
+  const createPlatformOutcome = useCreatePlatformOutcome();
   const { submit: applicationSubmit, isPending } = useApplicationMutate({
     applicationId: application ? application.id : undefined,
     onSuccess: () => onOpenChange(false),
@@ -179,52 +157,7 @@ export function ApplicationFormSheet({
     defaultValues: buildDefaultValues(application),
   });
 
-  // Watch only company.name — avoids re-renders when company.url is typed into
-  const companyName = useWatch({
-    control: form.control,
-    name: "company.name" as never,
-  }) as string | undefined;
-  const isCompanyObject = companyName !== undefined;
-
-  const watchCurrency = useWatch({
-    control: form.control,
-    name: "currency",
-  });
-  const watchSalaryPeriod = useWatch({
-    control: form.control,
-    name: "salary_period",
-  });
-  const watchPlatformId = useWatch({
-    control: form.control,
-    name: "platform_id",
-  });
-  const watchMode = useWatch({
-    control: form.control,
-    name: "mode",
-  });
-  const watchWorkMode = useWatch({
-    control: form.control,
-    name: "work_mode",
-  });
-  const watchExperienceLevel = useWatch({
-    control: form.control,
-    name: "experience_level",
-  });
-  const salaryEnabled = !!watchCurrency && !!watchSalaryPeriod;
-  const currencySymbol = watchCurrency ? getCurrencySymbol(watchCurrency) : "$";
-
-  const companySelectValue = useMemo(
-    () => buildCompanySelectDefaultValue(application),
-    [application?.company_id, application?.company_name],
-  );
-
-  const companyUrlInputError = (() => {
-    if (!isCompanyObject) return undefined;
-
-    type CmpUrlError = undefined | { url?: { message?: string } };
-    const cmpErr = form.formState.errors.company as CmpUrlError;
-    return cmpErr?.url;
-  })();
+  const companySelectValue = buildCompanySelectDefaultValue(application);
 
   async function handleFormSubmit(data: FormData) {
     const includeSalary = !!data.currency && !!data.salary_period;
@@ -264,362 +197,17 @@ export function ApplicationFormSheet({
           onSubmit={form.handleSubmit(handleFormSubmit)}
           className="mt-6 space-y-4"
         >
-          <CompanySelect
-            value={companySelectValue}
-            form={form}
+          <ApplicationFields
+            form={
+              form as unknown as ReturnType<
+                typeof useForm<ApplicationFieldsValues>
+              >
+            }
             fetchCompanies={fetchCompanies}
+            companySelectValue={companySelectValue}
+            platforms={supports?.platforms}
+            onCreatePlatform={createPlatformOutcome}
           />
-          {isCompanyObject && (
-            <div className="space-y-1.5">
-              <Label>Company URL</Label>
-              <Input
-                {...form.register("company.url")}
-                placeholder="https://company.com"
-                className={cn(
-                  companyUrlInputError &&
-                    "border-destructive focus-visible:ring-destructive",
-                )}
-              />
-              {companyUrlInputError && (
-                <p className="text-xs text-destructive">
-                  {companyUrlInputError.message}
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <Label>Role *</Label>
-            <Input
-              {...form.register("role")}
-              placeholder="e.g. Senior Engineer"
-              className={cn(
-                form.formState.errors.role &&
-                  "border-destructive focus-visible:ring-destructive",
-              )}
-            />
-            {form.formState.errors.role && (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.role.message}
-              </p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Platform *</Label>
-              <Select
-                value={String(watchPlatformId || "")}
-                onValueChange={(v) => {
-                  form.setValue("platform_id", v);
-                  form.clearErrors("platform_id");
-                }}
-              >
-                <SelectTrigger
-                  className={cn(
-                    form.formState.errors.platform_id &&
-                      "border-destructive focus:ring-destructive",
-                  )}
-                >
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  {supports?.platforms.map((p) => (
-                    <SelectItem key={p.id} value={String(p.id)}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {form.formState.errors.platform_id && (
-                <p className="text-xs text-destructive">
-                  {form.formState.errors.platform_id.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Source *</Label>
-              <Select
-                value={watchMode}
-                onValueChange={(v) =>
-                  form.setValue("mode", v as ModeType, {
-                    shouldValidate: true,
-                  })
-                }
-              >
-                <SelectTrigger
-                  className={cn(
-                    form.formState.errors.mode &&
-                      "border-destructive focus:ring-destructive",
-                  )}
-                >
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SelectOptions.SOURCE.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {form.formState.errors.mode && (
-                <p className="text-xs text-destructive">
-                  {form.formState.errors.mode.message}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Application Date *</Label>
-              <DatePickerInput
-                value={form.watch("application_date")}
-                onChange={(date) =>
-                  form.setValue("application_date", date ? date : "", {
-                    shouldValidate: true,
-                  })
-                }
-                maxDate={new Date()}
-                className={cn(
-                  form.formState.errors.application_date &&
-                    "border-destructive focus-visible:ring-destructive",
-                )}
-              />
-              {form.formState.errors.application_date && (
-                <p className="text-xs text-destructive">
-                  {form.formState.errors.application_date.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Work Mode</Label>
-              <Select
-                value={watchWorkMode}
-                onValueChange={(v) =>
-                  form.setValue("work_mode", v as WorkModeType, {
-                    shouldValidate: true,
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SelectOptions.WORK_MODE.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Experience Level</Label>
-              <Select
-                value={watchExperienceLevel}
-                onValueChange={(v) =>
-                  form.setValue("experience_level", v as SeniorityLevelType, {
-                    shouldValidate: true,
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SelectOptions.SENIORITY.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Country</Label>
-              <Input {...form.register("country")} placeholder="e.g. Brazil" />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Job Link</Label>
-            <Input
-              {...form.register("link_to_job")}
-              placeholder="https://www.linkedin.com/jobs/..."
-            />
-          </div>
-
-          {/* Salary section */}
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Currency</Label>
-                <Select
-                  value={watchCurrency}
-                  onValueChange={(v) => {
-                    form.setValue("currency", v as SalaryCurrencyType, {
-                      shouldValidate: true,
-                    });
-                  }}
-                >
-                  <SelectTrigger
-                    className={cn(
-                      form.formState.errors.currency &&
-                        "border-destructive focus:ring-destructive",
-                    )}
-                  >
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SelectOptions.CURRENCY.map((c) => (
-                      <SelectItem key={c.value} value={c.value}>
-                        {c.symbol} — {c.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {form.formState.errors.currency && (
-                  <p className="text-xs text-destructive">
-                    {form.formState.errors.currency.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label>Salary Period</Label>
-                <Select
-                  value={watchSalaryPeriod}
-                  onValueChange={(v) => {
-                    form.setValue("salary_period", v as SalaryPeriodType, {
-                      shouldValidate: true,
-                    });
-                  }}
-                >
-                  <SelectTrigger
-                    className={cn(
-                      form.formState.errors.salary_period &&
-                        "border-destructive focus:ring-destructive",
-                    )}
-                  >
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SelectOptions.SALARY_PERIOD.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {form.formState.errors.salary_period && (
-                  <p className="text-xs text-destructive">
-                    {form.formState.errors.salary_period.message}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div
-              className={cn(
-                "grid grid-cols-3 gap-3",
-                !salaryEnabled && "opacity-50",
-              )}
-            >
-              <div className="space-y-1.5">
-                <Label>Expected</Label>
-                <div className="relative">
-                  <span className="absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground">
-                    {currencySymbol}
-                  </span>
-                  <Input
-                    type="number"
-                    disabled={!salaryEnabled}
-                    {...form.register("expected_salary", {
-                      valueAsNumber: true,
-                    })}
-                    className="pl-8"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Min</Label>
-                <div className="relative">
-                  <span className="absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground">
-                    {currencySymbol}
-                  </span>
-                  <Input
-                    type="number"
-                    disabled={!salaryEnabled}
-                    {...form.register("salary_range_min", {
-                      valueAsNumber: true,
-                    })}
-                    className="pl-8"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Max</Label>
-                <div className="relative">
-                  <span className="absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground">
-                    {currencySymbol}
-                  </span>
-                  <Input
-                    type="number"
-                    disabled={!salaryEnabled}
-                    {...form.register("salary_range_max", {
-                      valueAsNumber: true,
-                    })}
-                    className="pl-8"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Notes</Label>
-            <Textarea
-              {...form.register("observation")}
-              placeholder="Optional notes…"
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor={jobDescriptionId}>Job description</Label>
-            <Textarea
-              id={jobDescriptionId}
-              {...form.register("job_description")}
-              placeholder="Paste the job posting here — it sits beside this application's CV copy while you tailor it."
-              rows={6}
-              aria-invalid={
-                form.formState.errors.job_description ? true : undefined
-              }
-              className={cn(
-                form.formState.errors.job_description &&
-                  "border-destructive focus-visible:ring-destructive",
-              )}
-            />
-            {form.formState.errors.job_description ? (
-              <p className="text-xs text-destructive">
-                {form.formState.errors.job_description.message}
-              </p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Optional. Shown next to the CV copy on the application&apos;s CV
-                page.
-              </p>
-            )}
-          </div>
 
           <Button
             type="button"

@@ -41,6 +41,14 @@ interface CompanySelectProps<TForm extends CompanyFormReturn> {
   /** Async search function that returns matching companies from the API. */
   fetchCompanies: (query: string) => Promise<Company[]>;
   placeholder?: string;
+  /**
+   * Fired with the full `Company` whenever the selection changes: an existing
+   * pick, a new company typed inline, or `null` on clear. The form field only
+   * ever carries an id or a bare `{name, url}` — this is how a caller (the
+   * new-with-cv draft flow) recovers the NAME of an existing selection, which
+   * the form value alone does not carry.
+   */
+  onCompanyChange?: (company: Company | null) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -62,6 +70,7 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
   value,
   placeholder = "Search companies…",
   fetchCompanies,
+  onCompanyChange,
 }: CompanySelectProps<TForm>) {
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState("");
@@ -123,18 +132,21 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
     setCompanyValue("company", company ? company.id : "", {
       shouldValidate: company != null,
     });
+    onCompanyChange?.(company);
   }
 
   /** Create a new company inline (writes a { name, url } object to the form).
    *  Triggered when the user closes the popover with typed text that doesn't
    *  match any existing company. */
   function onCompanyCreate(prefill: string) {
-    setSelectedCompany({ id: "", name: prefill, url: "" });
+    const pseudo = { id: "", name: prefill, url: "" };
+    setSelectedCompany(pseudo);
     setCompanyValue(
       "company",
       { name: prefill, url: "" },
       { shouldValidate: false },
     );
+    onCompanyChange?.(pseudo);
   }
 
   /** Extracts the appropriate error message depending on whether the current
@@ -181,22 +193,25 @@ function CompanySelectBase<TForm extends CompanyFormReturn>({
       setCompanyValue("company", company.id, { shouldValidate: true });
       setInputValue(company.name);
       setOpen(false);
+      onCompanyChange?.(company);
     },
-    [setCompanyValue],
+    [setCompanyValue, onCompanyChange],
   );
 
   /** Called when the user clicks "Create new" in the dropdown. Uses the
    *  current search text as the new company name. */
   const handleCreateNew = React.useCallback(() => {
     const prefill = inputValueRef.current.trim();
-    setSelectedCompany({ id: "", name: prefill, url: "" });
+    const pseudo = { id: "", name: prefill, url: "" };
+    setSelectedCompany(pseudo);
     setCompanyValue(
       "company",
       { name: prefill, url: "" },
       { shouldValidate: false },
     );
     setOpen(false);
-  }, [setCompanyValue]);
+    onCompanyChange?.(pseudo);
+  }, [setCompanyValue, onCompanyChange]);
 
   // Plain function — intentionally captures fresh selectedCompany and inputValue
   // from closure (Radix fires onOpenChange in the same event batch as handleSelect,

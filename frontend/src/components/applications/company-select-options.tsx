@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/command";
 import { Company } from "@/services/types/applications";
 import { cn } from "@/lib/utils";
+import { OnlyYouBadge } from "./only-you-badge";
 
 // ---------------------------------------------------------------------------
 // CompanyOptionsList — owns fetch, cache, debounce, and the Command list UI
@@ -149,7 +150,7 @@ const CompanyOptionsListBase = React.memo(function CompanyOptionsList({
                       : "opacity-0",
                   )}
                 />
-                <div className="flex min-w-0 flex-col">
+                <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-sm">{company.name}</span>
                   {company.url && (
                     <span className="truncate text-xs text-muted-foreground">
@@ -157,6 +158,12 @@ const CompanyOptionsListBase = React.memo(function CompanyOptionsList({
                     </span>
                   )}
                 </div>
+                {company.is_public === false ? (
+                  <>
+                    <span className="sr-only">, </span>
+                    <OnlyYouBadge />
+                  </>
+                ) : null}
               </CommandItem>
             ))}
           </CommandGroup>

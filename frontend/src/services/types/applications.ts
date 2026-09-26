@@ -15,6 +15,8 @@ export interface Company {
   id: string;
   name: string;
   url: string;
+  /** `false` for a row only its creator sees (PRD 0010); absent on a typed-in name. */
+  is_public?: boolean;
 }
 
 /**
