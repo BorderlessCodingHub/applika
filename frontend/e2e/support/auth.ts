@@ -16,11 +16,16 @@ import type { Page } from "@playwright/test";
  * the real API against the real database.
  */
 
-export type SeededRole = "user" | "admin";
+export type SeededRole = "user" | "admin" | "discord";
 
 /**
  * The seeded identities, stable across runs. Specs assert against these real
  * values rather than against a browser stub.
+ *
+ * `discord` (KODI-022, plan 0009) is `e2e-discord`, seeded with a fixed
+ * Discord id RE-SET on every seed run — so a Disconnect performed by the E2E
+ * suite is undone the next time `scripts/e2e.sh` seeds, and the role is
+ * deterministically linked at the start of every run.
  */
 export const SEEDED_USERS = {
   user: {
@@ -32,6 +37,11 @@ export const SEEDED_USERS = {
     username: "e2e-admin",
     email: "e2e-admin@e2e.applika.dev",
     isAdmin: true,
+  },
+  discord: {
+    username: "e2e-discord",
+    email: "e2e-discord@e2e.applika.dev",
+    isAdmin: false,
   },
 } as const satisfies Record<
   SeededRole,
@@ -49,6 +59,11 @@ const ENV_VARS = {
     id: "E2E_ADMIN_USER_ID",
     access: "E2E_ADMIN_ACCESS_TOKEN",
     refresh: "E2E_ADMIN_REFRESH_TOKEN",
+  },
+  discord: {
+    id: "E2E_DISCORD_USER_ID",
+    access: "E2E_DISCORD_ACCESS_TOKEN",
+    refresh: "E2E_DISCORD_REFRESH_TOKEN",
   },
 } as const satisfies Record<
   SeededRole,

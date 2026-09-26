@@ -19,7 +19,15 @@ import { SelectOptions } from "@/options";
 import { LinkedinIcon } from "../brand-icons";
 import { Badge } from "../ui/badge";
 import { getCurrencySymbol } from "./edit-form-config";
+import {
+  ConnectedAccounts,
+  toConnectedDiscordAccount,
+} from "./connected-accounts";
 import { useDeleteAccount } from "@/hooks/use-user";
+import {
+  useStartDiscordLink,
+  useUnlinkDiscord,
+} from "@/hooks/use-account-links";
 
 function formatLabel(v?: string) {
   return v?.replace(/_/g, " ") ?? "";
@@ -45,6 +53,8 @@ export function UserProfileView({
   const badges = computeBadges(userStats);
   const earnedBadges = badges.filter((b) => b.earned);
   const lockedBadges = badges.filter((b) => !b.earned);
+  const startDiscordLink = useStartDiscordLink();
+  const unlinkDiscord = useUnlinkDiscord();
   const currencySymbol = getCurrencySymbol(user.salary_currency);
   const periodLabel =
     SelectOptions.SALARY_PERIOD.find(
@@ -243,6 +253,15 @@ export function UserProfileView({
           </div>
         )}
       </div>
+
+      {/* Connected accounts */}
+      <ConnectedAccounts
+        account={toConnectedDiscordAccount(user.discord)}
+        onConnect={() => startDiscordLink.mutate()}
+        onDisconnect={() => unlinkDiscord.mutate()}
+        isConnecting={startDiscordLink.isPending || startDiscordLink.isSuccess}
+        isDisconnecting={unlinkDiscord.isPending}
+      />
 
       {/* Delete Account */}
       <DeleteAccountCard username={user.username} />

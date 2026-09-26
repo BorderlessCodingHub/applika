@@ -33,10 +33,15 @@ class SubmitFeedbackUseCase:
         username: str,
         score: int,
         text: str | None,
+        discord_id: int | None = None,
     ) -> str:
         safe_username = cls._sanitize_discord_text(username, max_length=100)
         stars = '\u2b50' * score
-        message = f'\U0001f4ac **USER FEEDBACK** - @{safe_username}\n{stars} ({score}/5)\n'
+        mention = f' <@{discord_id}>' if discord_id is not None else ''
+        message = (
+            f'\U0001f4ac **USER FEEDBACK** - @{safe_username}{mention}\n'
+            f'{stars} ({score}/5)\n'
+        )
         if text:
             safe_text = cls._sanitize_discord_text(text, max_length=2000)
             message += f'\n{safe_text}'
@@ -47,6 +52,7 @@ class SubmitFeedbackUseCase:
         user_id: int,
         username: str,
         payload: SubmitFeedbackPayloadDTO,
+        discord_id: int | None = None,
     ) -> UserFeedbackDTO:
         feedback = UserFeedbackModel(
             user_id=user_id,
@@ -60,7 +66,10 @@ class SubmitFeedbackUseCase:
             username=username,
             score=payload.score,
             text=payload.text,
+            discord_id=discord_id,
         )
-        await self.discord_service.post_report_message(discord_message)
+        await self.discord_service.post_report_message(
+            discord_message, mention_user_id=discord_id
+        )
 
         return UserFeedbackDTO.model_validate(saved)

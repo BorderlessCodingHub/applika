@@ -91,7 +91,6 @@ class AdminUserDetailSchema(BaseSchema):
     tech_stack: list[str] | None = None
     availability: str | None = None
     is_admin: bool = False
-    is_org_member: bool = False
     total_applications: int = 0
     offers: int = 0
     denials: int = 0

@@ -805,13 +805,17 @@ def test_the_revision_is_a_child_of_r4() -> None:
 def test_only_one_head() -> None:
     """The re-parenting must not leave a fork: the real Alembic
     ``ScriptDirectory`` sees exactly one head, and the
-    R1 -> R3 -> R4 -> R2 chain resolves as expected.
+    R1 -> R3 -> R4 -> R2 -> R5 -> K5 -> S10 chain resolves as expected.
 
-    R5 (``c1d9f4a7b3e6``, KODI-017 part 2, ``tailored_cvs.base_snapshot``)
-    is a later, unrelated child of R2 - the owner's own "new revision at
-    head" placement - so it is now the sole head instead of R2, and this
-    test is updated to look one revision further rather than re-asserting
-    R2 is the head it no longer is.
+    K5 (KODI-023, ``ba44f9cfd3c1``, ``discord_connections`` +
+    ``discord_report_webhooks``, Release A2) was a later, unrelated child of
+    R5 (``c1d9f4a7b3e6``, KODI-017 part 2, ``tailored_cvs.base_snapshot``) -
+    a plain "new revision at head" placement, same as R5 itself was onto R2.
+    S10 (KODI-029, ``583226ca46bc``, ``users.is_org_member`` ->
+    ``is_org_member_old``, Release C) is now placed the same way, one more
+    revision beyond K5 - so it is the sole head instead of K5, and this test
+    is updated to look one revision further again rather than re-asserting
+    K5 is the head it no longer is.
     """
     from alembic.config import Config
     from alembic.script import ScriptDirectory
@@ -820,8 +824,12 @@ def test_only_one_head() -> None:
     script = ScriptDirectory.from_config(config)
 
     heads = script.get_heads()
-    assert list(heads) == ['c1d9f4a7b3e6']
+    assert list(heads) == ['583226ca46bc']
 
+    s10 = script.get_revision('583226ca46bc')
+    assert s10.down_revision == 'ba44f9cfd3c1'
+    k5 = script.get_revision('ba44f9cfd3c1')
+    assert k5.down_revision == 'c1d9f4a7b3e6'
     r5 = script.get_revision('c1d9f4a7b3e6')
     assert r5.down_revision == REVISION
     r2 = script.get_revision(REVISION)
@@ -1396,6 +1404,13 @@ def contract_container() -> Iterator[PostgresContainer]:
 
 @pytest.fixture
 def contract_db_url(contract_container: PostgresContainer) -> str:
+    """Migrates to ``head``, not the pinned ``REVISION`` (R2): the API-level
+    AC tests below share the ORM with the rest of the app, and every later
+    migration this branch adds a mapped column for (KODI-019/020's
+    ``users.discord_id``, and any future one) must be present for an ORM
+    insert to work at all. ``REVISION``'s own upgrade/downgrade round-trip
+    tests above are unaffected - they drive raw SQL, not the ORM, and stay
+    pinned to R2 on purpose."""
     url = contract_container.get_connection_url()
     _apply(
         url,
@@ -1404,7 +1419,7 @@ def contract_db_url(contract_container: PostgresContainer) -> str:
             ('CREATE SCHEMA public', {}),
         ],
     )
-    _upgrade(url, REVISION)
+    _upgrade(url, 'head')
     return url
 
 

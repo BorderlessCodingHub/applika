@@ -1,9 +1,11 @@
 from types import SimpleNamespace
+from typing import Any, cast
 from unittest.mock import AsyncMock
 from urllib.parse import parse_qs, urlparse
 
 from cryptography.fernet import Fernet
 from fastapi import Response
+from fastapi_sso import OpenID
 from starlette.requests import Request
 
 from app.config.settings import envs
@@ -30,10 +32,11 @@ class FakeGithubSSO:
         return RedirectResponse('https://github.example/login')
 
     async def verify_and_process(self, request):
-        return SimpleNamespace(
+        return OpenID(
             id='123',
             display_name='cli-user',
             email='cli@example.com',
+            provider='github',
         )
 
 
@@ -67,7 +70,6 @@ def _make_user_repo():
         username='cli-user',
         email='cli@example.com',
         encrypted_github_token=None,
-        is_org_member=False,
         is_admin=False,
     )
     repo = AsyncMock()
@@ -122,7 +124,7 @@ async def test_auth_callback_keeps_web_behavior(monkeypatch):
     user_repo = _make_user_repo()
     gh_service = AsyncMock()
     auth_handoff_state_use_case = AsyncMock()
-    redis_client = object()
+    redis_client = cast(Any, object())
 
     response = await oauth_api.auth_callback(
         _make_request('/auth/github/callback'),
@@ -170,7 +172,7 @@ async def test_auth_callback_redirects_cli_to_loopback(monkeypatch):
         Response(),
         user_repo,
         gh_service,
-        object(),
+        cast(Any, object()),
         auth_handoff_state_use_case,
     )
 

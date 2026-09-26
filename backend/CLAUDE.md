@@ -167,7 +167,7 @@ Use cases encapsulate business operations:
 See `app/application/use_cases/applications/create_application.py` for reference.
 
 ### Authentication
-- GitHub OAuth via `fastapi-sso` with scopes `user:email`, `read:org`
+- GitHub OAuth via `fastapi-sso` with scope `user:email` (KODI-026: `read:org` and organisation membership are retired, R-042/R-043)
 - **Access token**: short-lived JWT in HTTP-only cookie (`__access`), payload `{sub: github_id, kind: 'access', exp: ...}`
 - **Refresh token**: opaque UUID stored in Redis, referenced via HTTP-only cookie (`__refresh`), TTL configurable (default 7 days)
 - **CLI login handoff**: external-browser GitHub sign-in with loopback redirect and short-lived Redis-backed exchange code; the CLI receives the same `__access` and `__refresh` session values in JSON and stores them locally
@@ -182,9 +182,43 @@ See `app/application/use_cases/applications/create_application.py` for reference
 - Cookie settings: HTTPOnly, Secure in PROD, SameSite=Lax
 
 ### GitHub Integration
-- `GitHubService` (`app/application/services/github_service.py`) validates tokens and checks org membership
+- `GitHubService` (`app/application/services/github_service.py`) validates tokens only. Organisation membership is retired (KODI-026, R-042/R-043): there is no `check_org_membership`, no `org_name`, and `UserRegistrationUseCase.execute` takes no `is_org_member` — sign-in never checks, records or returns it
 - Redis cache with configurable TTL (default 10 min) for `applika:github:token_valid:{user_id}`
-- Discord report webhook only fires for confirmed org members
+- **Webhook mentions (KODI-021), payload shape.** `DiscordService.post_report_message(message,
+  mention_user_id=None, webhook_url=None)` builds `allowed_mentions` itself:
+  `{'parse': []}` when `mention_user_id` is `None` (byte-identical to before
+  KODI-021), else `{'parse': [], 'users': [str(mention_user_id)]}` — never
+  `everyone` or `roles`, and never another user's id. `webhook_url` posts to
+  that address, else to the constructor's own URL (`get_discord_feedback_service`
+  unchanged); the ctor no longer falls back to an env webhook — see **Report
+  routing** below for how a report's URLs are picked.
+- **Report routing (KODI-026, replaces the org-gated single webhook,
+  R-032..R-040).** `ResolveReportWebhooksUseCase.execute(user_id)`
+  (`app/application/use_cases/quinzenal_reports/resolve_report_webhooks.py`)
+  is the only rule that decides where a submitted report is posted: no
+  connection, a `needs_reconnect` connection, an unconfigured Discord app, or
+  stored `scopes` missing `guilds` all resolve to an empty route (a missing
+  `guilds` scope also marks the row `needs_reconnect`). Otherwise it locks the
+  connection row (`get_by_user_id_for_update`), renews the grant
+  (`DiscordOAuthService.refresh`) — `DiscordGrantRevoked` marks
+  `needs_reconnect`, `DiscordUnavailable` releases the lock, both leaving the
+  report unposted and the connection otherwise untouched — stores the rotated
+  refresh token (`store_grant`, encrypted, R-017) **before** any further
+  Discord call, then reads the user's live guild ids
+  (`list_guild_ids`) and selects every `DiscordReportWebhookModel` configured
+  for one of those guilds (`list_by_guild_ids`). A webhook with `role_ids` set
+  additionally needs one `get_member_role_ids` call per distinct guild (a
+  failure there drops only that guild's role-limited hooks) and is kept only
+  when the user holds at least one of the listed roles. The access token, the
+  guild ids and the role ids are never stored or logged — only the DTO's
+  `discord_id` and the resulting `webhook_urls` (`ReportRouteDTO`,
+  `webhook_urls` `repr=False`) leave the use case. `SubmitReportUseCase`
+  (`quinzenal_reports/submit_report.py`) saves the report first, always
+  answers 201 whatever Discord does, then posts the same message once per
+  resolved URL — `discord_posted` is true if any post succeeded,
+  `discord_error` is every failure's message joined by `'; '` (≤ 500 chars),
+  `None` when there was nothing to post. A Discord failure never raises past
+  this use case.
 
 ### Exception Handling
 Domain exceptions in `app/core/exceptions.py`:
@@ -351,11 +385,124 @@ All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUID
 | GET | `/auth/refresh` | No | Validate refresh token, re-issue access cookie |
 | GET | `/auth/logout` | No | Revoke refresh token, clear both cookies |
 
+### Account links (`/auth/link`, KODI-024, ADR-0013, supersedes ADR-0008/KODI-020)
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| POST | `/auth/link/discord` | Yes | Start the Discord link: 200 `{authorize_url}`, 401, or 503 when the id, the secret or the token key is missing |
+| GET | `/auth/link/discord/callback` | No (cookie resolved internally) | Discord consent lands here; always a 307 to `ACCOUNT_LINK_REDIRECT_URI?account=discord&status=linked\|conflict\|error`, never JSON |
+| DELETE | `/auth/link/discord` | Yes | Disconnect: 200 `{"provider": "discord", "linked": false}`, idempotent |
+
+Connecting Discord from the profile is **separate from GitHub login**: the
+callback never sets, clears or reads a session cookie except to check who is
+already signed in, and it never issues a new one. `POST` creates a single-use,
+10-minute Redis nonce (`AccountLinkStateUseCase`,
+`applika:account_link:discord:{nonce}` -> the user id who started it) and
+returns Discord's authorize URL with scope `identify guilds
+guilds.members.read` - identity, the servers the user is in, and the user's
+roles in those servers, and nothing more (R-014). The callback, in order:
+consumes the nonce (so a replay never matches twice, even on a later
+Discord-side failure), resolves the caller's own `__access` cookie through
+`GetCurrentUserUseCase` (bypassing `CurrentUserDp` on purpose, since the
+callback is a redirect target, not an authenticated JSON endpoint), requires
+that user to be the one the nonce was issued to, then exchanges the code
+(`DiscordOAuthService.exchange_code`) and reads the Discord profile
+(`fetch_profile`). Any refusal at any step - unknown/expired/replayed state,
+session mismatch, a Discord `error` param, a missing `code`, an unconfigured
+app, or `DiscordLinkError` from the exchange/profile fetch - answers
+`status=error` with nothing written. **A Discord id that already belongs to
+another Applika user moves to the caller** (R-008, rewritten 2026-09-24 -
+the owner: "drop the old connection and create the new one"):
+`DiscordConnectionRepository.link` deletes that user's row and writes the
+caller's row with the caller's new grant, in one transaction, and the
+callback answers `status=linked`. Nothing is revoked at Discord for either
+user - a revoke could cancel the caller's own just-granted access, since it
+is the same Discord user authorizing the same app. `status=conflict` is left
+for exactly one case: two users completing consent for the same Discord
+account at the same instant, where the loser's write hits the database's own
+`uq_discord_connections_discord_id` as an `IntegrityError` on commit
+(mapped by `DiscordConnectionRepository.link`) - the loser's row is never
+written and nothing is revoked there either. Disconnect
+(`UnlinkDiscordUseCase`) deletes the connection row, then asks Discord to
+revoke the stored refresh token best-effort - a Discord failure never blocks
+the disconnect, and there is no `is_configured` gate on the route itself
+(only on whether the revoke call is attempted).
+
+**The connection is a record of its own, apart from `users`** (R-012,
+`DiscordConnectionModel`, table `discord_connections`, migration
+`ba44f9cfd3c1`): the Discord user id, username, display name (`global_name`),
+avatar, the granted `scopes`, `access_token_expires_at`, `status` (`active` |
+`needs_reconnect`) and both `linked_at` and the inherited `updated_at`. Both
+`user_id` and `discord_id` are UNIQUE - a Discord account links to at most one
+Applika user, and a user holds at most one connection (AC1/AC2). The refresh
+token is stored **encrypted** (`encrypt_discord_token`/`decrypt_discord_token`
+in `app/core/crypto.py`, keyed by `DISCORD_TOKEN_ENCRYPTION_KEY`, its own
+Fernet secret distinct from `GITHUB_TOKEN_ENCRYPTION_KEY`); the Discord
+**access** token is never stored at all, only ever held in a local variable
+for the request that needs it.
+
+**No revoke at connect, in any outcome** (unlike the old KODI-020 flow, and
+rewritten again 2026-09-24 for the transfer above): `LinkDiscordUseCase`
+encrypts the refresh token and stores the grant; it calls nothing at Discord
+whether the connect is fresh, a reconnect, a transfer, or the losing side of
+a race. **Revoke on disconnect and on account delete**: `UnlinkDiscordUseCase`
+runs before `user_repo.delete` in `DELETE /users/me`, so the row is gone and
+the grant is revoked best-effort before the cascade would have removed the
+row anyway.
+
+**Reconnect** runs the exact same consent flow: `DiscordConnectionRepository
+.link` on the caller's own row refreshes every field (username, global_name,
+avatar, scopes, the encrypted token, the expiry) and sets `status=active` and
+`linked_at=now()`, clearing a `needs_reconnect` mark in place - never a second
+row. A `needs_reconnect` user who authorises a *different* Discord account
+still gets their own row replaced in place; if another user already holds
+that account, it moves exactly as above - that user's row is deleted, the
+caller's row takes the id, and nothing is revoked.
+
+`needs_reconnect` (`DiscordConnectionRepository.mark_needs_reconnect`) is set
+when a scheduled access-token renewal (`DiscordOAuthService.refresh`, K8) gets
+a 400 `invalid_grant` from Discord (`DiscordGrantRevoked`) - a 429, a 5xx or a
+network error (`DiscordUnavailable`) is transient and never marks the
+connection. Each successful renewal replaces the stored refresh token with the
+new one, encrypted (`DiscordConnectionRepository.store_grant`, R-017).
+
+`DiscordOAuthService` (`app/application/services/discord_oauth_service.py`,
+distinct from the webhook `DiscordService` above) does its own `httpx`
+`exchange_code`/`fetch_profile`/`refresh`/`revoke` rather than
+`fastapi_sso.sso.discord.DiscordSSO`: the library sets an `sso_state` cookie
+whenever a caller-chosen `state` is passed to `get_login_redirect`, which
+would break the callback's "sets no cookie" contract, and the flow's CSRF
+check is already the Redis nonce above. No Discord access or refresh token is
+ever logged or appears in `repr()` (`DiscordGrant`'s token fields are
+`repr=False`); a revoke failure is swallowed and logged without the token
+value, and never blocks the caller.
+
+`user_feedback.py` reads the connection's `discord_id` fresh through
+`DiscordConnectionRepositoryDp` on every request, in **any** connection
+status (R-041) - never a cached value on the user, so feedback submitted
+right after `DELETE /auth/link/discord` carries no mention (KODI-021,
+below). `reports.py` no longer reads the connection directly at all
+(KODI-026 retired that interim read): a report's mention comes from
+`ResolveReportWebhooksUseCase`'s `ReportRouteDTO.discord_id`, which is
+`None` whenever the connection is absent, `needs_reconnect`, or the
+Discord app is unconfigured - see **Report routing** below.
+
 ### Users (`/users`)
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
 | GET | `/users/me` | Yes | Get current user profile |
 | PATCH | `/users/me` | Yes | Update profile |
+
+Both routes read the caller's Discord connection through
+`DiscordConnectionRepositoryDp` and build the response with
+`UserProfile.from_user(user, connection)` (`app/presentation/schemas/user.py`),
+never the bare `model_validate`, so the derivation has one call site.
+`UserProfile.discord` is `DiscordAccountOut {username, global_name,
+avatar_url, status}` or `null`; `avatar_url` is computed
+(`https://cdn.discordapp.com/avatars/{discord_id}/{avatar}.png?size=64`, or
+`null` without a stored avatar) - the Discord id itself is **never** a field
+on `UserProfile` or on any admin schema. `discord_linked` is `discord is not
+null`.
 
 ### Applications (`/applications`)
 | Method | Route | Auth | Description |
@@ -652,6 +799,57 @@ denials/rejected = with a denied event, open/active = `finalized_at` NULL,
 finalized = `finalized_at` set, and activity (30-day active users, the
 heatmap) comes from `timeline_events.created_at`.
 
+### Admin report webhooks (`/admin/discord-webhooks`, KODI-025, ADR-0013)
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| GET | `/admin/discord-webhooks` | Admin | List every configured report webhook |
+| POST | `/admin/discord-webhooks` | Admin | Add one (201) |
+| PATCH | `/admin/discord-webhooks/{id}` | Admin | Partial update (200); unknown id 404 |
+| DELETE | `/admin/discord-webhooks/{id}` | Admin | Remove it (204); unknown id 404 |
+
+An admin-managed catalog (ADR-0004), not owned by a user: `guild_id` (the
+Discord server whose membership K8 will check at submit time),
+`webhook_url` (unique) and up to 25 optional `role_ids`, plus a free-text
+`label`. Table `discord_report_webhooks`, added by migration `ba44f9cfd3c1`
+(K5) with **no** ORM model until this ticket; `DiscordReportWebhookModel`
+now maps it object-for-object (no new migration). Not a CLI route.
+
+**The full webhook address is never returned or logged** (AC3): every
+response carries `webhook_url_masked`
+(`https://discord.com/api/webhooks/<webhook_id>/…<last 4 chars of the
+token>`, `app/application/validators/discord_webhook.mask`) and use-case
+logs name the webhook's own id, never the URL. The repository's own
+`IntegrityError` on the unique `webhook_url` (asyncpg's error text quotes
+the URL in its `DETAIL`) is caught and replaced with a fixed-string
+`ResourceConflict('This webhook is already configured')` before it ever
+reaches a log line or a response.
+
+`webhook_url` must be a secure Discord webhook address
+(`discord.com`/`discordapp.com`, the `ptb`/`canary` subdomains, an optional
+`/v<n>` API version segment); `guild_id`/`role_ids` must be Discord
+snowflake ids - 17 to 20 digits **and** within Postgres `BIGINT`
+(`9223372036854775807`), since a 20-digit numeric string can already
+overflow it (a 422, not an unhandled 500). Every field on
+`CreateDiscordWebhookSchema`/`UpdateDiscordWebhookSchema` is optional at the
+schema level on purpose, even the ones required by the API contract:
+FastAPI's default `RequestValidationError` for a *missing* field reports
+`input` as the whole submitted body, which would put `webhook_url` into a
+422 that has nothing to do with it. Making every field optional means a
+missing/blank required field never fails pydantic's own validation - it
+reaches `app/application/validators/discord_webhook.py`, which raises a
+fixed-string `BusinessRuleViolation` (422) instead. `PATCH` is a true
+partial: an omitted or blank/whitespace `webhook_url` keeps the stored one
+(a real new value is re-validated, and a duplicate is still 409);
+`role_ids` fully replaces the stored list whenever the key is present
+(including `[]`); `label: null` clears it, an absent key keeps it -
+`UpdateDiscordWebhookUseCase` reads `model_dump(exclude_unset=True)` to
+tell "omitted" from "sent as null" for exactly that field.
+
+`DiscordReportWebhookRepository.list_by_guild_ids` exists for K8's
+submit-time routing ("selects the webhooks of those servers") and is not
+called by anything yet.
+
 ### Agenda (`/users/me/agenda`)
 Every **interview** event dated inside the window (`from_date`/`to_date`,
 default 30 days either side of today), ordered by date then start time — the
@@ -704,9 +902,26 @@ Optional (with defaults):
 - `GITHUB_CACHE_TTL_SECONDS`: Redis cache TTL for GitHub API checks (default: 600)
 - `CV_PDF_RENDER_TIMEOUT_SECONDS`: wall-clock ceiling for one CV PDF render (default: 30); past it the request is a 500
 - `GITHUB_TOKEN_ENCRYPTION_KEY`: Fernet key for encrypting GitHub tokens (generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
-- `DISCORD_REPORTS_ORGANIZATION`: GitHub org name; only org members get reports posted to Discord
-- `DISCORD_REPORTS_WEBHOOK`: Discord webhook for biweekly reports
 - `DISCORD_FEEDBACK_WEBHOOK`: Discord webhook for user feedback
+- `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET`: Discord OAuth app for the
+  account-link flow (KODI-024, default `None`); the link routes answer 503
+  until the id, the secret AND `DISCORD_TOKEN_ENCRYPTION_KEY` below are all
+  set. Unrelated to `DISCORD_FEEDBACK_WEBHOOK` above, which is a webhook, not
+  an OAuth app. `DISCORD_REPORTS_ORGANIZATION` and `DISCORD_REPORTS_WEBHOOK`
+  are retired (KODI-026): report routing now comes from the admin-managed
+  `discord_report_webhooks` table (**Report routing** above), matched against
+  the servers and roles read live from the submitting user's own Discord
+  connection
+- `DISCORD_LINK_REDIRECT_URI`: the API's own Discord OAuth callback
+  (default `http://127.0.0.1:8000/api/auth/link/discord/callback`)
+- `ACCOUNT_LINK_REDIRECT_URI`: the profile page the callback redirects back
+  to (default `http://127.0.0.1:8080/profile`)
+- `ACCOUNT_LINK_STATE_TTL_SECONDS`: TTL of the account-link CSRF nonce in
+  Redis (default: 600)
+- `DISCORD_TOKEN_ENCRYPTION_KEY`: Fernet key for encrypting the Discord
+  connection's stored refresh token (KODI-024, default `None`); its own
+  secret, distinct from `GITHUB_TOKEN_ENCRYPTION_KEY` - generate it the same
+  way
 - `CORS_ORIGINS`, `CORS_HEADERS`, `CORS_METHODS`: CORS configuration
 - `LOG_LEVEL`, `LOG_FORMAT`: Logging configuration
 - `API_PREFIX`: Route prefix (default: /api)
@@ -715,7 +930,9 @@ Optional (with defaults):
 ## Domain Model Relationships
 
 ### Core Entities
-- **User**: GitHub OAuth authenticated users with profile (company, role, salary, tech stack, seniority, availability)
+- **User**: GitHub OAuth authenticated users with profile (company, role, salary, tech stack, seniority, availability). `users` carries **no** Discord column (KODI-024/ADR-0013 retired `users.discord_id`); the optional Discord account link is its own `DiscordConnectionModel` row, below - never GitHub login, never a second sign-in path. `users.is_org_member_old` (renamed from `is_org_member` by migration `583226ca46bc`, KODI-029, Release C) is UNMAPPED (KODI-026, R-042/R-043): the column stays in the database, values kept, but no ORM model, use case, DTO or schema reads or writes it any more; deletion only on a later explicit owner order (`.claude/rules/non-destructive-migrations.md` rule 9)
+- **DiscordConnection**: one row per linked user (table `discord_connections`, migration `ba44f9cfd3c1`), a record of its own apart from `users` (R-012). `user_id` and `discord_id` are each UNIQUE. Holds the Discord user id, username, display name (`global_name`), avatar, the granted `scopes`, `access_token_expires_at`, `status` (`active` | `needs_reconnect`) and `linked_at`; the refresh token is stored **encrypted** (`encrypted_refresh_token`) and there is **no** access-token column - see **Account links** above for the full flow
+- **DiscordReportWebhook**: admin-managed catalog (KODI-025, ADR-0004/ADR-0013), table `discord_report_webhooks`, added by migration `ba44f9cfd3c1` but unmapped until this ticket - not owned by a `user_id`. `webhook_url` is UNIQUE; `guild_id` is indexed for K8's submit-time lookup; `role_ids` (`BIGINT[]`, default `{}`) and `label` are optional. See **Admin report webhooks** above
 - **Company**: Job companies, user-created, unique on lower(name)+url
 - **Application**: Job applications with tracking, salary info, and country
 - **TimelineEvent**: one entry of an application's timeline (`timeline_events`), typed by `EventType`, with `interview_type` on interviews and the salary triple on offers; rows migrated from `application_steps` kept the step's id
@@ -757,6 +974,7 @@ Optional (with defaults):
 - TailoredCV → Application (one-to-one, cascade delete, `passive_deletes=True`), UNIQUE on application_id
 - TailoredCV → User (many-to-one, cascade delete)
 - TailoredCV → BaseCV (many-to-one, nullable, **SET NULL** on delete — the copy outlives its master)
+- DiscordConnection → User (one-to-one, cascade delete — deleting the user removes the connection; no ORM relationship is declared back on `UserModel`, same as BaseCV/TailoredCV)
 
 Applications are closed ("finalized") when `finalized_at` is set; reopen clears it.
 

@@ -14,8 +14,11 @@ class UserRegistrationUseCase:
         self,
         user: OpenID,
         github_token: str | None = None,
-        is_org_member: bool = False,
     ) -> UserDTO:
+        # GitHub always sends an id; the SSO library's own type is
+        # provider-agnostic (`str | None`), not GitHub-specific.
+        assert user.id is not None
+
         existing_user = await self.user_repository.get_by_github_id(
             int(user.id)
         )
@@ -24,7 +27,6 @@ class UserRegistrationUseCase:
                 existing_user.encrypted_github_token = encrypt_token(
                     github_token
                 )
-            existing_user.is_org_member = is_org_member
             await self.user_repository.update(existing_user)
 
             logger.info(
@@ -34,11 +36,19 @@ class UserRegistrationUseCase:
                         'event': 'user_login',
                         'user_id': existing_user.id,
                         'github_id': user.id,
-                        'is_org_member': is_org_member,
                     }
                 },
             )
             return UserDTO.model_validate(existing_user)
+
+        # Only a brand-new user needs these: GitHub's own profile always
+        # carries a login and an email, but `_get_primary_email` (called
+        # when the primary API response omits one) can genuinely return
+        # `None` if GitHub's emails endpoint answers non-200 - narrowed
+        # here, not at the top of `execute`, so that failure never breaks
+        # a *returning* user's login (B5, backend-qa 2026-09-25).
+        assert user.display_name is not None
+        assert user.email is not None
 
         user_data = UserCreateDTO(
             github_id=int(user.id),
@@ -50,7 +60,6 @@ class UserRegistrationUseCase:
 
         if github_token:
             created_user.encrypted_github_token = encrypt_token(github_token)
-        created_user.is_org_member = is_org_member
         await self.user_repository.update(created_user)
 
         logger.info(
@@ -61,7 +70,6 @@ class UserRegistrationUseCase:
                     'user_id': created_user.id,
                     'github_id': user.id,
                     'username': user.display_name,
-                    'is_org_member': is_org_member,
                 }
             },
         )

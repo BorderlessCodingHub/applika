@@ -29,9 +29,9 @@ def _app_logger_enabled():
     logging.getLogger('app').disabled = False
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope='session')
 async def db_container():
-    container = PostgresContainer("postgres:14", driver="asyncpg")
+    container = PostgresContainer('postgres:14', driver='asyncpg')
     container.start()
     yield container
     container.stop()
@@ -40,7 +40,7 @@ async def db_container():
 @pytest_asyncio.fixture
 async def async_engine(db_container: PostgresContainer):
     db_url = db_container.get_connection_url().replace(
-        "postgresql://", "postgresql+asyncpg://"
+        'postgresql://', 'postgresql+asyncpg://'
     )
     async_engine = create_async_engine(db_url, echo=False)
 
@@ -81,6 +81,10 @@ async def async_client(async_engine: AsyncEngine):
     async def override_get_current_user():
         from app.application.dto.user import UserDTO
 
+        # KODI-024: discord_id is no longer a field on UserDTO/UserModel -
+        # the Discord connection lives in its own table and routes read it
+        # through DiscordConnectionRepositoryDp, not through the current
+        # user override.
         return UserDTO(
             id=base_data()['user'].id,
             github_id=base_data()['user'].github_id,

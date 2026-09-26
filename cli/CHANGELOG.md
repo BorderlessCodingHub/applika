@@ -4,6 +4,21 @@ All notable changes to `applika-cli` are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Changed
+
+- KODI-020 `GET/PATCH /users/me` now also returns a `discord_linked: bool`
+  field (whether the profile has a Discord account connected). Additive,
+  no CLI command reads it: `whoami` (`applika/cli/src/applika/commands/
+  auth.py`) reads `username`/`first_name`/`last_name`/`email` off the
+  response dict and ignores unknown keys, so 0.1.4, 0.2.0 and 1.0.0 are all
+  unaffected. Corrected by KODI-024 below: `discord_linked` stays, but the
+  Discord id was never a field and still is not one.
+- KODI-024 `GET|PATCH /users/me` also return `discord {username,
+  global_name, avatar_url, status}` or `null`; additive; `discord_linked`
+  kept; 0.1.4, 0.2.0, 1.0.0 unaffected.
+
 ## [1.0.0] - 2026-09-23
 
 Master CV and application-CV-copy commands, `--file` input everywhere, and

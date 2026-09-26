@@ -1,8 +1,20 @@
+import pytest
+from cryptography.fernet import Fernet
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config.settings import envs
 from tests import msg
 from tests.base_db_setup import base_data
+
+
+@pytest.fixture(autouse=True)
+def _discord_encryption_key(monkeypatch):
+    """A valid Fernet key so ``_seed_connection`` can encrypt a refresh
+    token for the rows this module seeds directly."""
+    monkeypatch.setattr(
+        envs, 'DISCORD_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
+    )
 
 
 async def test_get_me_returns_new_fields_as_none(
@@ -16,13 +28,9 @@ async def test_get_me_returns_new_fields_as_none(
     data = response.json()
     assert data['username'] == base_data()['user'].username
     assert data['current_role'] is None, msg(None, data['current_role'])
-    assert data['salary_currency'] is None, msg(
-        None, data['salary_currency']
-    )
+    assert data['salary_currency'] is None, msg(None, data['salary_currency'])
     assert data['salary_period'] is None, msg(None, data['salary_period'])
-    assert data['seniority_level'] is None, msg(
-        None, data['seniority_level']
-    )
+    assert data['seniority_level'] is None, msg(None, data['seniority_level'])
     assert data['location'] is None, msg(None, data['location'])
     assert data['availability'] is None, msg(None, data['availability'])
     assert data['bio'] is None, msg(None, data['bio'])
@@ -55,9 +63,7 @@ async def test_update_user_profile_partial(
         'Sao Paulo, Brazil', data['location']
     )
     # Fields not sent should remain unchanged
-    assert data['salary_currency'] is None, msg(
-        None, data['salary_currency']
-    )
+    assert data['salary_currency'] is None, msg(None, data['salary_currency'])
     assert data['bio'] is None, msg(None, data['bio'])
 
 
@@ -80,9 +86,7 @@ async def test_update_user_profile_with_enums(
     # Assert
     assert response.status_code == 200, msg(200, response.status_code)
     data = response.json()
-    assert data['salary_currency'] == 'BRL', msg(
-        'BRL', data['salary_currency']
-    )
+    assert data['salary_currency'] == 'BRL', msg('BRL', data['salary_currency'])
     assert data['salary_period'] == 'monthly', msg(
         'monthly', data['salary_period']
     )
@@ -138,10 +142,8 @@ async def test_update_user_tech_stack(
     # Assert
     assert response.status_code == 200, msg(200, response.status_code)
     data = response.json()
-    assert data['tech_stack'] == [
-        'Python', 'FastAPI', 'React', 'TypeScript'
-    ], msg(
-        ['Python', 'FastAPI', 'React', 'TypeScript'], data['tech_stack']
+    assert data['tech_stack'] == ['Python', 'FastAPI', 'React', 'TypeScript'], (
+        msg(['Python', 'FastAPI', 'React', 'TypeScript'], data['tech_stack'])
     )
 
 
@@ -201,9 +203,7 @@ async def test_update_user_full_profile(
     assert data['current_company'] == 'Big Tech Co', msg(
         'Big Tech Co', data['current_company']
     )
-    assert data['salary_currency'] == 'USD', msg(
-        'USD', data['salary_currency']
-    )
+    assert data['salary_currency'] == 'USD', msg('USD', data['salary_currency'])
     # R-031: `annual` is accepted, stored and returned as annually.
     assert data['salary_period'] == 'annually', msg(
         'annually', data['salary_period']
@@ -240,3 +240,100 @@ async def test_update_user_empty_payload_no_changes(
     assert response.status_code == 200, msg(200, response.status_code)
     data = response.json()
     assert data['username'] == base_data()['user'].username
+
+
+async def test_get_me_discord_linked_false_when_unlinked(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    response = await async_client.get('/users/me')
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    data = response.json()
+    assert data['discord_linked'] is False
+    assert data['discord'] is None
+    assert 'discord_id' not in data
+
+
+async def test_get_me_discord_linked_true_when_linked(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    from tests.integration.test_account_link_discord import _seed_connection
+
+    await _seed_connection(
+        db_session, base_data()['user'].id, discord_id=555, username='ada'
+    )
+
+    response = await async_client.get('/users/me')
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    data = response.json()
+    assert data['discord_linked'] is True
+    assert data['discord']['username'] == 'ada'
+    assert data['discord']['status'] == 'active'
+    assert data['discord']['avatar_url'] is None
+    assert 'discord_id' not in data
+    assert 'discord_id' not in data['discord']
+
+
+async def test_get_me_discord_avatar_url_is_computed(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    from tests.integration.test_account_link_discord import _seed_connection
+
+    connection = await _seed_connection(
+        db_session, base_data()['user'].id, discord_id=555
+    )
+    connection.avatar = 'avatar-hash'
+    db_session.add(connection)
+    await db_session.commit()
+
+    response = await async_client.get('/users/me')
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    data = response.json()
+    assert data['discord']['avatar_url'] == (
+        'https://cdn.discordapp.com/avatars/555/avatar-hash.png?size=64'
+    )
+
+
+async def test_get_me_discord_needs_reconnect_status(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    from app.core.enums import DiscordConnectionStatus
+    from tests.integration.test_account_link_discord import _seed_connection
+
+    await _seed_connection(
+        db_session,
+        base_data()['user'].id,
+        discord_id=555,
+        status=DiscordConnectionStatus.NEEDS_RECONNECT,
+    )
+
+    response = await async_client.get('/users/me')
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    data = response.json()
+    assert data['discord']['status'] == 'needs_reconnect'
+
+
+async def test_patch_me_discord_linked_present_no_discord_id(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    response = await async_client.patch('/users/me', json={'first_name': 'Ada'})
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    data = response.json()
+    assert 'discord_linked' in data
+    assert 'discord' in data
+    assert 'discord_id' not in data
+
+
+async def test_admin_user_detail_has_no_discord_key(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
+    response = await admin_client.get(f'/admin/users/{base_data()["user"].id}')
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    data = response.json()
+    assert 'discord_id' not in data
+    assert 'discord_linked' not in data

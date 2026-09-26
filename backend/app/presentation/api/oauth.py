@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.responses import PlainTextResponse, RedirectResponse
+from fastapi_sso import OpenID
 from fastapi_sso.sso.github import GithubSSO
 
 from app.application.use_cases.refresh_token import (
@@ -45,7 +46,7 @@ github_sso = GithubSSO(
     client_secret=envs.GITHUB_CLIENT_SECRET,
     redirect_uri=envs.GITHUB_REDIRECT_URI,
     allow_insecure_http=True,
-    scope=['user:email', 'read:org'],
+    scope=['user:email'],
 )
 
 
@@ -156,19 +157,17 @@ async def auth_callback(
         user = await github_sso.verify_and_process(request)
         if not user:
             raise HTTPException(status_code=401, detail='Authentication failed')
+        # ``verify_and_process`` is typed to allow a raw dict when called
+        # with ``return_response=False`` (not how it is called here) - the
+        # default call always returns an ``OpenID`` instance.
+        assert isinstance(user, OpenID)
 
         github_token = github_sso.oauth_client.token.get('access_token')
-
-    # Check org membership with the fresh GitHub token
-    is_org_member = False
-    if github_token and envs.DISCORD_REPORTS_ORGANIZATION:
-        is_org_member = await gh_service.check_org_membership(github_token)
 
     use_case = UserRegistrationUseCase(user_repo)
     user_data = await use_case.execute(
         user,
         github_token=github_token,
-        is_org_member=is_org_member,
     )
 
     # Invalidate any stale cache for this user

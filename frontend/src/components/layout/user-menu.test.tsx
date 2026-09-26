@@ -22,6 +22,8 @@ const user: User = {
   username: LONG_NAME,
   email: LONG_EMAIL,
   github_id: "gh1",
+  discord: null,
+  discord_linked: false,
 };
 
 function renderMenu(

@@ -8,6 +8,129 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-025 admin report webhook catalog (ADR-0013, K7): an admin can list,
+  add, change and remove the Discord webhooks reports may be posted to.
+  `discord_report_webhooks` (added by K5 migration `ba44f9cfd3c1`, no
+  `user_id` - a platform catalog, admin-only per ADR-0004) is now mapped by
+  `DiscordReportWebhookModel`; no new migration.
+  - `GET /admin/discord-webhooks` (admin-only): 200 list, each row
+    `{id, label, guild_id, role_ids, webhook_url_masked, created_at,
+    updated_at}` - the full webhook address is **never** returned, only a
+    masked form (`https://discord.com/api/webhooks/<id>/…<last4>`).
+  - `POST /admin/discord-webhooks`: 201, `{webhook_url, guild_id, role_ids?,
+    label?}`. `webhook_url` must be a secure (`https://`) Discord webhook
+    address (`discord.com`/`discordapp.com`, `ptb`/`canary` subdomains, an
+    optional `/v<n>` segment); `guild_id`/`role_ids` must be Discord
+    snowflake ids (17-20 digits and within Postgres `BIGINT`, so an
+    over-length numeric string is a 422, not a 500); at most 25 role ids,
+    deduped; `label` <= 100 chars. A duplicate `webhook_url` is 409 `"This
+    webhook is already configured"`. Every field on this route is optional
+    at the schema level and the required-ness is enforced in the use case
+    on purpose: FastAPI's own `RequestValidationError` for a missing field
+    echoes the *whole* submitted body, which would leak `webhook_url` into
+    an unrelated 422 - here a missing/blank field is instead a fixed-string
+    `BusinessRuleViolation` that never contains the submitted value.
+  - `PATCH /admin/discord-webhooks/{id}`: 200, partial. An omitted or
+    blank/whitespace `webhook_url` keeps the stored one; a real new value is
+    re-validated and a duplicate is still 409; `role_ids` fully replaces the
+    stored list when present; `label: null` clears it, omitting the key
+    keeps it. Unknown id -> 404 `"Discord webhook not found"`.
+  - `DELETE /admin/discord-webhooks/{id}`: 204; unknown id -> 404.
+  - Not a CLI route (`/admin/*`); `DiscordReportWebhookRepository
+    .list_by_guild_ids` is provided for K8's submit-time routing, not wired
+    to anything yet.
+- KODI-024 Discord connection record (ADR-0013, supersedes ADR-0008/KODI-020):
+  connect, transfer, disconnect, reconnect, `/users/me` `discord` object.
+  Keeps GitHub as the only way to sign in - the flow never creates, changes
+  or reads an Applika session cookie beyond resolving who is already signed
+  in.
+  - `POST /auth/link/discord` (auth required): 200
+    `{"authorize_url": "https://discord.com/oauth2/authorize?...&scope=
+    identify+guilds+guilds.members.read&state=<nonce>"}`, 401 when signed
+    out, 503 `{"detail": "Discord linking is not configured"}` when the id,
+    the secret or the new encryption key below is missing. The nonce is a
+    single-use, 10-minute Redis value (`AccountLinkStateUseCase`,
+    `applika:account_link:discord:{nonce}` -> the user id who started it).
+  - `GET /auth/link/discord/callback?code&state`: always a 307 to
+    `ACCOUNT_LINK_REDIRECT_URI?account=discord&status=linked|conflict|error`,
+    never JSON, never sets or clears a cookie. Consumes the nonce first (a
+    replay never matches twice), then requires the caller's own `__access`
+    cookie to name the same user the nonce was issued to, then exchanges the
+    code (`DiscordOAuthService.exchange_code`) and reads the Discord profile
+    (`fetch_profile`) - unlike the retired KODI-020 flow, the access token
+    is never revoked at connect time, and the refresh token is stored
+    encrypted. A Discord-side `error` query param, a missing `code`, an
+    unconfigured app or any exchange/profile failure (`DiscordLinkError`)
+    all answer `status=error` with nothing written; the id already
+    belonging to another Applika user **moves to the caller** (see the
+    2026-09-24 rewrite below) - `status=conflict` is left only for a
+    two-user race.
+  - `DELETE /auth/link/discord` (auth required): 200
+    `{"provider": "discord", "linked": false}`, idempotent. Deletes the
+    connection row, then asks Discord to revoke the stored refresh token
+    best-effort - a Discord failure never blocks the disconnect.
+    `DELETE /users/me` now runs the same revoke before the row goes by
+    cascade.
+  - The connection is its own record, apart from `users`
+    (`DiscordConnectionModel`, table `discord_connections`, migration
+    `ba44f9cfd3c1`, shipped code-free in KODI-023/Release A2): Discord user
+    id, username, display name, avatar, granted scopes, access expiry,
+    `status` (`active` | `needs_reconnect`) and both `linked_at` and
+    `updated_at`. `user_id` and `discord_id` are each UNIQUE. The refresh
+    token is encrypted with its own Fernet secret; the access token is
+    never stored.
+  - Reconnect runs the identical consent flow: linking on the caller's own
+    row refreshes every field in place and clears a `needs_reconnect` mark,
+    rather than creating a second row.
+  - **Reopened 2026-09-24 (R-008 rewrite): a Discord id already linked to
+    another Applika user moves to the caller instead of refusing the link.**
+    Owner: "drop the old connection and create the new one". The other
+    user's connection row is deleted, the caller's row is written with the
+    caller's new grant, in one transaction, and nothing is revoked at
+    Discord for either user - a revoke could cancel the caller's own
+    just-granted access, since it is the same Discord user authorizing the
+    same app. The callback answers `status=linked`, the previous holder's
+    `/users/me` `discord` goes back to `null`, and their feedback stops
+    carrying a mention. `status=conflict` is now reached only when two
+    users complete consent for the same Discord account at the same
+    instant; the loser's write is refused by the database's own
+    `uq_discord_connections_discord_id` (`IntegrityError` -> `ResourceConflict`),
+    nothing is stored for the loser, and nothing is revoked there either.
+    This supersedes the "new grant revoked best-effort" conflict behaviour
+    described above when this same KODI-024 entry first shipped.
+  - `GET/PATCH /users/me` gain `discord: {username, global_name, avatar_url,
+    status} | null` and keep `discord_linked: bool` (now `discord is not
+    null`); the Discord id is never a field on any schema. Additive - see
+    `cli/CHANGELOG.md`.
+  - New setting: `DISCORD_TOKEN_ENCRYPTION_KEY` (optional, `None` unset) -
+    its own Fernet key, distinct from `GITHUB_TOKEN_ENCRYPTION_KEY`. Connect
+    Discord answers 503 until `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`
+    AND this key are all set.
+  - `app/core/crypto.py` gains `encrypt_discord_token`/`decrypt_discord_token`
+    (`None` on `InvalidToken` or an unset key), a Discord-only Fernet pair
+    beside the existing GitHub ones.
+  - `app/domain/repositories/discord_connection_repository.py` (new) owns
+    the connection row: `link` (connect/reconnect/transfer - a Discord id
+    held by another user moves to the caller, that user's row deleted in
+    the same transaction; `ResourceConflict` only on a two-user race, an
+    `IntegrityError` on `uq_discord_connections_discord_id`),
+    `store_grant`, `mark_needs_reconnect`, `delete_by_user_id` (idempotent).
+    `user_repository.link_discord`/`unlink_discord`/`get_by_discord_id` and
+    `users.discord_id` are gone; `UserDTO.discord_id` is gone too.
+- KODI-023 Migration ba44f9cfd3c1 (Release A2, expand only): enum
+  discord_connection_status, tables discord_connections and
+  discord_report_webhooks; users untouched. KODI-024 adds the ORM mapping
+  for `discord_connections`; `discord_report_webhooks` stays unmapped until
+  K7/K8.
+- KODI-022 `app/scripts/seed_e2e.py` seeds a third deterministic E2E user,
+  `e2e-discord` (`github_id 999000000003`), whose Discord connection row
+  (KODI-024) is re-linked to a fixed synthetic Discord id (`E2E_DISCORD_ID`)
+  on every seed run, so an E2E Disconnect is undone the next time it runs;
+  `e2e-user` and `e2e-admin` have their connection deleted on every run.
+  The seed's JSON contract gains `discord_user_id`, `discord_access_token`,
+  `discord_refresh_token` for a real minted session, alongside the
+  existing `user_id`/`admin_user_id` pairs. No route or schema change -
+  test/harness only, for the KODI-022 frontend E2E.
 - KODI-017 (part 3, T090/T091) Four new read-side GET export routes, all
   owner-scoped, all 404 when not owned / no copy, none carrying a
   finalized/archived guard (R-024/R-025):
@@ -75,8 +198,98 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     routes (checked: no `/cv`, `/base-cvs/.../markdown` or `/diff` in
     `cli/src`).
 
+### Changed
+
+- KODI-029 `users.is_org_member` renamed `is_org_member_old` (Release C,
+  migration only, revision `583226ca46bc`); values kept; nothing reads it.
+- KODI-026 Report submission now routes to Discord by the submitting user's
+  live server (guild) membership and, optionally, their roles in it — the
+  single `DISCORD_REPORTS_WEBHOOK`/`DISCORD_REPORTS_ORGANIZATION` gate is
+  gone (ADR-0013, R-032..R-040, R-014).
+  - `POST /reports/{day}/submit` keeps its request/response shape
+    (`{success, report_id, discord_posted, discord_error}`) but now answers
+    **201** whatever Discord does (previously 200); the report is always
+    saved before Discord is contacted, and a Discord failure never blocks or
+    unwinds the submission.
+  - New `ResolveReportWebhooksUseCase.execute(user_id)` -> `ReportRouteDTO`:
+    uses the user's stored Discord grant to fetch their live guild ids
+    (`DiscordOAuthService.list_guild_ids`), looks up every admin-configured
+    `discord_report_webhooks` row for those guilds
+    (`DiscordReportWebhookRepository.list_by_guild_ids`), and for a
+    role-limited row reads the user's roles in that server
+    (`get_member_role_ids`) — the webhook is kept only when the user holds at
+    least one of the listed roles. A guild's role lookup failing drops only
+    that guild's role-limited hooks. The access token, the guild ids and the
+    role ids are read fresh on every call and never stored or logged
+    (R-014/R-042).
+  - Each successful renewal (`DiscordOAuthService.refresh`) replaces the
+    stored refresh token with the new one, encrypted, **before** any further
+    Discord call (R-017); a revoked grant (`DiscordGrantRevoked`) marks the
+    connection `needs_reconnect` (`GET /users/me` then reports
+    `discord.status == "needs_reconnect"`); a transient failure
+    (`DiscordUnavailable`) leaves the connection exactly as it was and the
+    report simply posts nowhere.
+  - `SubmitReportUseCase` no longer takes `github_service`/`user_repo` and no
+    longer validates GitHub org membership; it posts the same message once
+    per resolved webhook URL, `discord_posted` is true if any post
+    succeeded, and `discord_error` joins every failure's message with `'; '`
+    (≤ 500 chars, `None` when no post failed).
+  - No CLI changelog entry: `applika-cli` does not call `/reports/*`.
+- KODI-026 GitHub sign-in now asks for scope `user:email` only (was
+  `user:email read:org`); the organisation-membership check that ran on
+  every `GET /auth/github/callback` is gone. No CLI changelog entry:
+  `applika-cli` never reads the granted OAuth scope, and this is not a route
+  the installed CLI calls in a way that depends on it.
+- KODI-021 User-feedback Discord webhook posts mention the submitting user
+  when their account holds a Discord connection; an unlinked user's post is
+  byte-identical to before. No route contract change. (Originally this entry
+  also covered biweekly reports; KODI-026 above replaced that path
+  end-to-end — a report's mention now depends on `ResolveReportWebhooksUseCase`
+  finding a live, configured route, not merely on the connection row, and an
+  unlinked or unconfigured user's report is not posted at all, not "posted
+  without a mention".)
+  - `DiscordService.post_report_message(message, mention_user_id=None,
+    webhook_url=None)`: `allowed_mentions` is `{'parse': []}` when
+    `mention_user_id` is `None` (unchanged), else `{'parse': [],
+    'users': [str(mention_user_id)]}` — never `everyone`, `roles`, or any
+    user other than the submitter. `webhook_url` (KODI-026) posts to that
+    address instead of the constructor's own URL.
+  - `SubmitFeedbackUseCase.execute` takes an optional `discord_id`; the
+    header line gains `<@discord_id>` after `@username` when linked.
+    (`SubmitReportUseCase.execute` no longer takes `discord_id` — KODI-026
+    above.)
+  - Feedback mentions still work with `DISCORD_CLIENT_ID`/
+    `DISCORD_CLIENT_SECRET` unset: `user_feedback.py` reads the connection
+    row directly, not through the Discord OAuth app. Reports no longer do:
+    `ResolveReportWebhooksUseCase` gates on `DiscordOAuthService
+    .is_configured()` first.
+  - No CLI changelog entry: no route, request or response field changes.
+
+### Removed
+
+- KODI-026 `DISCORD_REPORTS_WEBHOOK` and `DISCORD_REPORTS_ORGANIZATION`
+  settings, from `config/settings.py`, `.env.example` and both
+  `docker-compose.yml` files — report routing is now the admin-managed
+  `discord_report_webhooks` table (KODI-025) matched against a user's live
+  Discord servers and roles (KODI-026 above).
+- KODI-026 the `read:org` GitHub OAuth scope and
+  `GitHubService.check_org_membership`/`org_name` — GitHub organisation
+  membership is no longer checked, recorded or returned anywhere.
+- KODI-026 `is_org_member` from `GET /admin/users/{id}`
+  (`AdminUserDetailSchema`/`AdminUserDetailDTO`) and from `UserDTO`. The
+  underlying `users.is_org_member` column is **not** dropped
+  (`.claude/rules/non-destructive-migrations.md`): it stays in the database,
+  unmapped by the ORM, kept aside for a later, explicit migration (K11,
+  Release C). No CLI changelog entry: `/admin/users/{id}` is not a CLI route
+  and `/users/me` never carried `is_org_member`.
+
 ### Fixed
 
+- KODI-020 the dev stack (`docker-compose.yml`) now passes `DISCORD_CLIENT_ID`,
+  `DISCORD_CLIENT_SECRET`, `DISCORD_LINK_REDIRECT_URI` and
+  `ACCOUNT_LINK_REDIRECT_URI` to the `api` container, and `.env.example`
+  documents them; before, setting them in `.env` left Connect Discord at 503.
+  Superseded by KODI-024's connection-record flow.
 - KODI-011 `GET /users/me/agenda` now honours `to_date`. `from_date` and
   `to_date` shared one `Query(None)` default object, so FastAPI resolved
   both parameters from the first one's query key and the window silently

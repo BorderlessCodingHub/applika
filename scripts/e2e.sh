@@ -68,10 +68,14 @@ E2E_REFRESH_TOKEN="$(pick refresh_token)"
 E2E_ADMIN_USER_ID="$(pick admin_user_id)"
 E2E_ADMIN_ACCESS_TOKEN="$(pick admin_access_token)"
 E2E_ADMIN_REFRESH_TOKEN="$(pick admin_refresh_token)"
+E2E_DISCORD_USER_ID="$(pick discord_user_id)"
+E2E_DISCORD_ACCESS_TOKEN="$(pick discord_access_token)"
+E2E_DISCORD_REFRESH_TOKEN="$(pick discord_refresh_token)"
 export E2E_USER_ID E2E_ACCESS_TOKEN E2E_REFRESH_TOKEN
 export E2E_ADMIN_USER_ID E2E_ADMIN_ACCESS_TOKEN E2E_ADMIN_REFRESH_TOKEN
+export E2E_DISCORD_USER_ID E2E_DISCORD_ACCESS_TOKEN E2E_DISCORD_REFRESH_TOKEN
 export E2E_BASE_URL="$BASE_URL" E2E_API_URL="$API_URL"
-echo "[e2e] Seeded user ${E2E_USER_ID} and admin ${E2E_ADMIN_USER_ID}."
+echo "[e2e] Seeded user ${E2E_USER_ID}, admin ${E2E_ADMIN_USER_ID} and discord-linked user ${E2E_DISCORD_USER_ID}."
 
 echo "[e2e] Running Playwright against the real front door ${BASE_URL} ..."
 cd "$ROOT_DIR/frontend"

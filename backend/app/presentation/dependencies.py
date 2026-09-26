@@ -19,9 +19,21 @@ from app.application.services.cv_rendering.renderer import (
     CVPdfRenderer,
     get_cv_pdf_renderer,
 )
+from app.application.services.discord_oauth_service import (
+    DiscordOAuthService,
+)
 from app.application.services.discord_service import DiscordService
 from app.application.services.github_service import GitHubService
 from app.application.services.tailoring import TailoringService
+from app.application.use_cases.account_link_state import (
+    AccountLinkStateUseCase,
+)
+from app.application.use_cases.account_links.link_discord import (
+    LinkDiscordUseCase,
+)
+from app.application.use_cases.account_links.unlink_discord import (
+    UnlinkDiscordUseCase,
+)
 from app.application.use_cases.applications.read_model import (
     ApplicationReadModel,
 )
@@ -40,6 +52,9 @@ from app.application.use_cases.base_cvs.render_pdf import (
 )
 from app.application.use_cases.base_cvs.update import UpdateBaseCVUseCase
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
+from app.application.use_cases.quinzenal_reports.resolve_report_webhooks import (
+    ResolveReportWebhooksUseCase,
+)
 from app.application.use_cases.tailored_cvs.create import (
     CreateTailoredCVUseCase,
 )
@@ -76,6 +91,12 @@ from app.domain.repositories.application_repository import (
 from app.domain.repositories.base_cv_repository import BaseCVRepository
 from app.domain.repositories.company_repository import CompanyRepository
 from app.domain.repositories.cycle_repository import CycleRepository
+from app.domain.repositories.discord_connection_repository import (
+    DiscordConnectionRepository,
+)
+from app.domain.repositories.discord_report_webhook_repository import (
+    DiscordReportWebhookRepository,
+)
 from app.domain.repositories.feedback_definition_repository import (
     FeedbackDefinitionRepository,
 )
@@ -151,6 +172,16 @@ StepDefinitionRepositoryDp = Annotated[
 
 PlatformRepositoryDp = Annotated[
     PlatformRepository, Depends(get_platform_repository)
+]
+
+
+def get_discord_report_webhook_repository(session: DbSession):
+    return DiscordReportWebhookRepository(session)
+
+
+DiscordReportWebhookRepositoryDp = Annotated[
+    DiscordReportWebhookRepository,
+    Depends(get_discord_report_webhook_repository),
 ]
 
 QuinzenalReportRepositoryDp = Annotated[
@@ -245,6 +276,72 @@ async def get_auth_handoff_state_use_case(
 
 AuthHandoffStateUseCaseDp = Annotated[
     AuthHandoffStateUseCase, Depends(get_auth_handoff_state_use_case)
+]
+
+
+def get_discord_oauth_service() -> DiscordOAuthService:
+    return DiscordOAuthService()
+
+
+DiscordOAuthServiceDp = Annotated[
+    DiscordOAuthService, Depends(get_discord_oauth_service)
+]
+
+
+async def get_account_link_state_use_case(
+    redis_client: RedisDp,
+) -> AccountLinkStateUseCase:
+    return AccountLinkStateUseCase(redis_client)
+
+
+AccountLinkStateUseCaseDp = Annotated[
+    AccountLinkStateUseCase, Depends(get_account_link_state_use_case)
+]
+
+
+def get_discord_connection_repository(session: DbSession):
+    return DiscordConnectionRepository(session)
+
+
+DiscordConnectionRepositoryDp = Annotated[
+    DiscordConnectionRepository, Depends(get_discord_connection_repository)
+]
+
+
+def get_link_discord_use_case(
+    conn_repo: DiscordConnectionRepositoryDp,
+):
+    return LinkDiscordUseCase(conn_repo)
+
+
+LinkDiscordUseCaseDp = Annotated[
+    LinkDiscordUseCase, Depends(get_link_discord_use_case)
+]
+
+
+def get_resolve_report_webhooks_use_case(
+    conn_repo: DiscordConnectionRepositoryDp,
+    webhook_repo: DiscordReportWebhookRepositoryDp,
+    discord_oauth: DiscordOAuthServiceDp,
+):
+    return ResolveReportWebhooksUseCase(conn_repo, webhook_repo, discord_oauth)
+
+
+ResolveReportWebhooksUseCaseDp = Annotated[
+    ResolveReportWebhooksUseCase,
+    Depends(get_resolve_report_webhooks_use_case),
+]
+
+
+def get_unlink_discord_use_case(
+    conn_repo: DiscordConnectionRepositoryDp,
+    discord_oauth: DiscordOAuthServiceDp,
+):
+    return UnlinkDiscordUseCase(conn_repo, discord_oauth)
+
+
+UnlinkDiscordUseCaseDp = Annotated[
+    UnlinkDiscordUseCase, Depends(get_unlink_discord_use_case)
 ]
 
 

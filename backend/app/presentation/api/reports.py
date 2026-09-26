@@ -22,9 +22,8 @@ from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     CurrentUserDp,
     DiscordServiceDp,
-    GitHubServiceDp,
     QuinzenalReportRepositoryDp,
-    UserRepositoryDp,
+    ResolveReportWebhooksUseCaseDp,
 )
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.quinzenal_report import (
@@ -83,6 +82,7 @@ async def get_report(
 @router.post(
     '/reports/{day}/submit',
     response_model=SubmitReportResponse,
+    status_code=201,
     responses={
         '404': {'model': DetailSchema},
         '409': {'model': DetailSchema},
@@ -94,14 +94,12 @@ async def submit_report(
     c_user: CurrentUserDp,
     report_repo: QuinzenalReportRepositoryDp,
     discord_service: DiscordServiceDp,
-    gh_service: GitHubServiceDp,
-    user_repo: UserRepositoryDp,
+    resolve_webhooks: ResolveReportWebhooksUseCaseDp,
 ):
     use_case = SubmitReportUseCase(
         report_repo,
         discord_service,
-        gh_service,
-        user_repo,
+        resolve_webhooks,
     )
     data = SubmitReportPayloadDTO(**payload.model_dump())
     report = await use_case.execute(c_user.id, c_user.username, day, data)

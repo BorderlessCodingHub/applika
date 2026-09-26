@@ -20,15 +20,28 @@ async def reset_pk_sequences(db_session: AsyncSession):
     to reuse id=1 and hit a unique constraint violation. This fixture
     resets every sequence to MAX(id) of its table so auto-increments work.
     """
-    tables = ['users', 'companies', 'platforms', 'feedbacks_definition',
-              'steps_definition', 'applications', 'timeline_events',
-              'cycles', 'quinzenal_reports', 'user_feedbacks', 'base_cvs',
-              'tailored_cvs']
+    tables = [
+        'users',
+        'companies',
+        'platforms',
+        'feedbacks_definition',
+        'steps_definition',
+        'applications',
+        'timeline_events',
+        'cycles',
+        'quinzenal_reports',
+        'user_feedbacks',
+        'base_cvs',
+        'tailored_cvs',
+        'discord_connections',
+    ]
     for table in tables:
-        await db_session.execute(text(
-            f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
-            f"GREATEST(COALESCE((SELECT MAX(id) FROM {table}), 1), 1))"
-        ))
+        await db_session.execute(
+            text(
+                f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
+                f'GREATEST(COALESCE((SELECT MAX(id) FROM {table}), 1), 1))'
+            )
+        )
     await db_session.commit()
 
 

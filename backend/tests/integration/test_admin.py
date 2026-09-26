@@ -32,9 +32,7 @@ async def test_non_admin_gets_403_on_all_get_routes(
     """Regular (non-admin) user must get 403 on every admin GET."""
     for route in ADMIN_GET_ROUTES:
         resp = await async_client.get(route)
-        assert resp.status_code == 403, (
-            f'{route}: {msg(403, resp.status_code)}'
-        )
+        assert resp.status_code == 403, f'{route}: {msg(403, resp.status_code)}'
 
 
 async def test_non_admin_gets_403_on_post_routes(
@@ -46,9 +44,7 @@ async def test_non_admin_gets_403_on_post_routes(
     ]
     for route, payload in post_routes:
         resp = await async_client.post(route, json=payload)
-        assert resp.status_code == 403, (
-            f'{route}: {msg(403, resp.status_code)}'
-        )
+        assert resp.status_code == 403, f'{route}: {msg(403, resp.status_code)}'
 
 
 async def test_non_admin_gets_403_on_patch_routes(
@@ -61,9 +57,7 @@ async def test_non_admin_gets_403_on_patch_routes(
     ]
     for route, payload in patch_routes:
         resp = await async_client.patch(route, json=payload)
-        assert resp.status_code == 403, (
-            f'{route}: {msg(403, resp.status_code)}'
-        )
+        assert resp.status_code == 403, f'{route}: {msg(403, resp.status_code)}'
 
 
 async def test_non_admin_gets_403_on_delete_routes(
@@ -75,9 +69,7 @@ async def test_non_admin_gets_403_on_delete_routes(
     ]
     for route in delete_routes:
         resp = await async_client.delete(route)
-        assert resp.status_code == 403, (
-            f'{route}: {msg(403, resp.status_code)}'
-        )
+        assert resp.status_code == 403, f'{route}: {msg(403, resp.status_code)}'
 
 
 # ── Admin Stats ────────────────────────────────────────────────────
@@ -161,9 +153,7 @@ async def test_admin_list_users_search_filter(
     assert resp.status_code == 200
     data = resp.json()
     assert data['total'] >= 1
-    assert any(
-        u['username'] == 'adminuser' for u in data['items']
-    )
+    assert any(u['username'] == 'adminuser' for u in data['items'])
 
 
 async def test_admin_get_user_detail(
@@ -174,6 +164,7 @@ async def test_admin_get_user_detail(
     assert resp.status_code == 200, msg(200, resp.status_code)
     data = resp.json()
     assert data['username'] == 'testuser'
+    assert 'is_org_member' not in data, msg('no is_org_member key', data.keys())
 
 
 async def test_admin_get_user_detail_not_found(

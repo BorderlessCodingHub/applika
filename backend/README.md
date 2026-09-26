@@ -89,10 +89,10 @@ backend/
 | `GITHUB_REDIRECT_URI` | OAuth callback URL | `http://127.0.0.1:8000/api/auth/github/callback` |
 | `GITHUB_CACHE_TTL_SECONDS` | Redis cache TTL for GitHub API checks | `600` |
 | `GITHUB_TOKEN_ENCRYPTION_KEY` | Fernet key for encrypting GitHub tokens | changeme placeholder |
-| `DISCORD_REPORTS_ORGANIZATION` | GitHub org for gating Discord report webhook | `None` |
 | `LOGIN_REDIRECT_URI` | Post-login redirect | `http://127.0.0.1:8000/api/docs` |
-| `DISCORD_REPORTS_WEBHOOK` | Discord webhook for biweekly reports | `None` |
 | `DISCORD_FEEDBACK_WEBHOOK` | Discord webhook for user feedback | `None` |
+| `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` | Discord OAuth app for the profile account-link flow (KODI-024); Connect Discord answers 503 until the id, the secret AND the token key below are all set | `None` |
+| `DISCORD_TOKEN_ENCRYPTION_KEY` | Fernet key for encrypting the Discord connection's stored refresh token; its own secret, distinct from `GITHUB_TOKEN_ENCRYPTION_KEY` | `None` |
 | `CORS_ORIGINS` | Allowed CORS origins | `["http://127.0.0.1:8080","http://127.0.0.1:8000"]` |
 | `CORS_HEADERS` | Allowed CORS headers | `["X-Request-ID","Content-Type"]` |
 | `CORS_METHODS` | Allowed CORS methods | `["GET","PATCH","POST","PUT","DELETE","OPTIONS"]` |

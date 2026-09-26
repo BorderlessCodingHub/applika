@@ -3,13 +3,14 @@ from decimal import Decimal
 from typing import Any, Literal
 
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.core.enums import (
     Availability,
     Currency,
     DeniedReason,
+    DiscordConnectionStatus,
     EventType,
     ExperienceLevel,
     InterviewType,
@@ -153,12 +154,18 @@ class UserModel(BaseMixin, Base):
     encrypted_github_token: Mapped[str | None] = mapped_column(
         sa.Text, nullable=True
     )
-    is_org_member: Mapped[bool] = mapped_column(
-        sa.Boolean, default=False, server_default='false', nullable=False
-    )
     is_admin: Mapped[bool] = mapped_column(
         sa.Boolean, default=False, server_default='false', nullable=False
     )
+    # KODI-024/ADR-0013: the Discord account link is no longer a column on
+    # this table - it moved to its own ``DiscordConnectionModel`` row
+    # (revision ``ba44f9cfd3c1``), read through
+    # ``DiscordConnectionRepository``. ``users`` carries no Discord column at
+    # all, and GitHub stays the only way to sign in.
+    # KODI-026/ADR-0013: GitHub organisation membership is retired (R-042,
+    # R-043). The retired flag column stays in the database (never dropped,
+    # `.claude/rules/non-destructive-migrations.md`) but is intentionally
+    # left off this model - no code reads or writes it any more.
 
     applications: Mapped[list[ApplicationModel]] = relationship(
         back_populates='user'
@@ -187,6 +194,110 @@ class UserModel(BaseMixin, Base):
             self._tech_stack = ','.join(techs)
         else:
             self._tech_stack = None
+
+
+class DiscordConnectionModel(BaseMixin, Base):
+    """One Discord account connection per Applika user (KODI-024, ADR-0013).
+
+    Mapped object-for-object onto migration ``ba44f9cfd3c1``: ``user_id`` and
+    ``discord_id`` are each UNIQUE (AC1/AC2 - a Discord account links to at
+    most one Applika user, and a user holds at most one connection), the
+    refresh token is stored encrypted and there is **no** access-token
+    column - the access token is never persisted (R-013). The server list
+    and role ids are read live at submit time (K7/K8) and never stored here.
+
+    A record of its own, apart from the user's account data (R-012): no ORM
+    relationship is declared back on ``UserModel``, the same choice already
+    made for ``BaseCVModel``/``TailoredCVModel``. ``ondelete='CASCADE'`` is
+    what removes this row when the owning user is deleted (R-011).
+    """
+
+    __tablename__ = 'discord_connections'
+
+    __table_args__ = (
+        sa.UniqueConstraint('user_id', name='uq_discord_connections_user_id'),
+        sa.UniqueConstraint(
+            'discord_id', name='uq_discord_connections_discord_id'
+        ),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'users.id',
+            ondelete='CASCADE',
+            name='fk_discord_connections_user_id',
+        ),
+        nullable=False,
+    )
+    discord_id: Mapped[int] = mapped_column(sa.BigInteger, nullable=False)
+    username: Mapped[str] = mapped_column(sa.String(32), nullable=False)
+    global_name: Mapped[str | None] = mapped_column(sa.String(32))
+    avatar: Mapped[str | None] = mapped_column(sa.String(64))
+    scopes: Mapped[str] = mapped_column(sa.String(255), nullable=False)
+    encrypted_refresh_token: Mapped[str] = mapped_column(
+        sa.Text, nullable=False
+    )
+    access_token_expires_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True)
+    )
+    status: Mapped[DiscordConnectionStatus] = mapped_column(
+        sa.Enum(
+            DiscordConnectionStatus,
+            name='discord_connection_status',
+            values_callable=lambda members: [m.value for m in members],
+            create_constraint=False,
+            native_enum=True,
+        ),
+        nullable=False,
+        default=DiscordConnectionStatus.ACTIVE,
+        server_default='active',
+    )
+    linked_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=False,
+        default=sa.func.now(),
+        server_default=sa.func.now(),
+    )
+
+
+class DiscordReportWebhookModel(BaseMixin, Base):
+    """Admin-managed report webhook catalog (KODI-025, ADR-0013).
+
+    Mapped object-for-object onto migration ``ba44f9cfd3c1``: a platform
+    catalog row, no ``user_id`` (ADR-0004 - admin-only, not owned by a
+    user), a unique ``webhook_url`` and an indexed ``guild_id`` - K8's
+    submit-time lookup "selects the webhooks of those servers". Optional
+    ``role_ids`` defaults to an empty array; ``label`` is optional free
+    text. ``webhook_url`` is ``repr=False``-equivalent here: ``__repr__`` is
+    overridden so the URL never appears in a log line or a debugger dump
+    (R-030/AC3).
+    """
+
+    __tablename__ = 'discord_report_webhooks'
+
+    __table_args__ = (
+        sa.UniqueConstraint(
+            'webhook_url', name='uq_discord_report_webhooks_webhook_url'
+        ),
+        sa.Index('ix_discord_report_webhooks_guild_id', 'guild_id'),
+    )
+
+    guild_id: Mapped[int] = mapped_column(sa.BigInteger, nullable=False)
+    webhook_url: Mapped[str] = mapped_column(sa.String(500), nullable=False)
+    role_ids: Mapped[list[int]] = mapped_column(
+        ARRAY(sa.BigInteger),
+        nullable=False,
+        default=list,
+        server_default='{}',
+    )
+    label: Mapped[str | None] = mapped_column(sa.String(100))
+
+    def __repr__(self) -> str:
+        return (
+            f'<DiscordReportWebhookModel id={self.id} '
+            f'guild_id={self.guild_id} label={self.label!r}>'
+        )
 
 
 class CompanyModel(BaseMixin, Base):
