@@ -842,6 +842,16 @@ def main():
 
         platform_ids = [p['id'] for p in platforms]
 
+        # ----- GET /platforms (S7, KODI-035): the web picker's own route,
+        # visible platforms only, ordered by name instead of /supports' id
+        # order - same visible set either way. -----
+        web_platforms_resp = client.get('/platforms')
+        web_platforms_resp.raise_for_status()
+        web_platforms = web_platforms_resp.json()
+        assert set(p['id'] for p in web_platforms) == set(platform_ids), (
+            'GET /platforms must show the same visible set as /supports'
+        )
+
         # ----- Private catalog rows (KODI-031, ADR-0014) -----
         # A platform with no url, and a company: both start private to this
         # seed user, exercised end to end on one application below.

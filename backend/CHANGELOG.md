@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-035 GET /platforms?name=: visible platforms, searchable, ordered by
+  name (web picker).
 - KODI-032 draft applications API - "new application with CV" (ADR-0014,
   Release B of PRD 0010, S3). `ApplicationModel.is_draft` is now mapped
   (the migration `3b78c3cd2a71` column KODI-030 left unmapped) and
@@ -304,6 +306,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- KODI-035 GET /admin/platforms paginated with search, visibility, sort and
+  applications_count (drafts excluded); /supports unchanged.
 - KODI-032: `GET /applications`, statistics, reports, cycles, the agenda
   and admin statistics/user counts now all exclude drafts
   (`NOT_DRAFT`); starting a new cycle never archives one.

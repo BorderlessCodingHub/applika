@@ -724,6 +724,7 @@ validation errors carry it too. `Deprecation` is in the CORS
 |--------|-------|------|-------------|
 | GET | `/companies` | Yes | List/search companies visible to the caller |
 | POST | `/companies` | Yes | `{name, url}` → 201 new private company, or 200 reusing an existing visible one |
+| GET | `/platforms` | Yes | (S7, KODI-035) List/search platforms visible to the caller, ordered by name - the web platform picker; `/supports` below stays the CLI's route, unchanged |
 | POST | `/platforms` | Yes | `{name, url?}` → 201, private to the caller; url is optional |
 
 **Private until published.** `CompanyModel.is_public` / `PlatformModel.is_public`
@@ -772,8 +773,12 @@ Refused with a 409 naming the public row it would duplicate: on `(lower(name),
 url)` for a company, on `lower(name)` alone for a platform (there is
 deliberately no uniqueness among existing public platform names - production
 may already hold duplicates, migration `3b78c3cd2a71`'s own note). `GET
-/admin/companies`/`GET /admin/platforms` take `?visibility=public|private`
-and every row adds `is_public` and `created_by {id, username} | null`.
+/admin/companies` and `GET /admin/platforms` (the latter paginated since S7,
+KODI-035, on the same shape as companies) both take `?search=&visibility=
+public|private&sort_by=name|created_at|applications_count&sort_order=asc|
+desc&page&per_page` and answer `{items, total, page, per_page, total_pages}`,
+every row adding `is_public`, `created_by {id, username} | null` and
+`applications_count` (drafts excluded, `NOT_DRAFT`, R-035).
 
 ### Statistics (`/applications/statistics`)
 | Method | Route | Auth | Description |
@@ -888,7 +893,11 @@ are gone (404). They are served, unchanged in shape, only so installed
 `EventType`/`InterviewType` enums. The `platforms` list is **not** frozen
 (ADR-0014): it is the caller's visible platforms (`list_visible`, above), a
 platform's `url` is nullable (a platform may have none, whoever added it),
-and each row adds `is_public`.
+and each row adds `is_public`. **Unchanged by S7/KODI-035**: `/supports`
+still calls `list_visible(user_id)` with no `name` or `order_by_name`, so its
+content, shape and `ORDER BY id` are exactly what installed CLI clients read
+today (R-036) - the web platform picker reads the new `GET /platforms`
+instead, ordered by name and searchable, above.
 
 Admin statistics (`/admin/stats*`, `/admin/users*`, admin-only) read the
 timeline too: offers/accepted = applications with an offer event,
