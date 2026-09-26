@@ -1,28 +1,103 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.domain.models import PlatformModel
+from app.domain.repositories.catalog_visibility import visible_to
 
 
 class PlatformRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_all(self) -> list[PlatformModel]:
-        return await self.session.scalars(
-            select(PlatformModel).order_by(PlatformModel.id)
+    async def get_all(
+        self, visibility: str | None = None
+    ) -> list[PlatformModel]:
+        """Every platform, for the admin screens (ADR-0014). ``visibility``
+        is ``'public'``, ``'private'`` or ``None`` (every row). Eager-loads
+        ``created_by_user`` so the admin row can show who added it."""
+        query = (
+            select(PlatformModel)
+            .options(selectinload(PlatformModel.created_by_user))
+            .order_by(PlatformModel.id)
         )
+        if visibility == 'public':
+            query = query.where(PlatformModel.is_public.is_(True))
+        elif visibility == 'private':
+            query = query.where(PlatformModel.is_public.is_(False))
+        result = await self.session.scalars(query)
+        return list(result.all())
 
-    async def get_by_id(self, id: int) -> PlatformModel:
+    async def get_by_id(self, id: int) -> PlatformModel | None:
         return await self.session.scalar(
-            select(PlatformModel).where(PlatformModel.id == id)
+            select(PlatformModel)
+            .where(PlatformModel.id == id)
+            .options(selectinload(PlatformModel.created_by_user))
         )
 
-    async def create(self, **kwargs) -> PlatformModel:
+    async def get_visible(self, id: int, user_id: int) -> PlatformModel | None:
+        """The platform, only when ``user_id`` may see it (ADR-0014):
+        public, or private and created by that user."""
+        return await self.session.scalar(
+            select(PlatformModel).where(
+                PlatformModel.id == id, visible_to(PlatformModel, user_id)
+            )
+        )
+
+    async def list_visible(self, user_id: int) -> list[PlatformModel]:
+        """``/supports`` and every other user-facing platform list: public
+        rows plus the caller's own private ones (R-018)."""
+        result = await self.session.scalars(
+            select(PlatformModel)
+            .where(visible_to(PlatformModel, user_id))
+            .order_by(PlatformModel.id)
+        )
+        return list(result.all())
+
+    async def find_visible_by_name(
+        self, name: str, user_id: int
+    ) -> PlatformModel | None:
+        """A visible platform matching ``name`` case-insensitively, trimmed
+        (R-020: refuse a new platform whose name, ignoring case, matches one
+        the user already sees)."""
+        trimmed = name.strip()
+        return await self.session.scalar(
+            select(PlatformModel)
+            .where(
+                visible_to(PlatformModel, user_id),
+                func.lower(PlatformModel.name) == trimmed.lower(),
+            )
+            .order_by(PlatformModel.is_public.desc())
+        )
+
+    async def find_public_by_name(
+        self, name: str, exclude_id: int | None = None
+    ) -> PlatformModel | None:
+        """A public platform matching ``name`` case-insensitively - used by
+        the admin publish flow to name the row a publish would collide
+        with (R-026)."""
+        query = select(PlatformModel).where(
+            PlatformModel.is_public.is_(True),
+            func.lower(PlatformModel.name) == name.strip().lower(),
+        )
+        if exclude_id is not None:
+            query = query.where(PlatformModel.id != exclude_id)
+        return await self.session.scalar(query)
+
+    async def create(
+        self,
+        *,
+        name: str,
+        url: str | None,
+        is_public: bool,
+        created_by: int | None = None,
+    ) -> PlatformModel:
         try:
-            platform = PlatformModel(**kwargs)
+            platform = PlatformModel(
+                name=name, url=url, is_public=is_public, created_by=created_by
+            )
             self.session.add(platform)
             await self.session.commit()
             await self.session.refresh(platform)
