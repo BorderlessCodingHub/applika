@@ -129,6 +129,7 @@ export function ApplicationFields({
   const maxSalaryId = useId();
   const observationId = useId();
   const salaryHintId = useId();
+  const companyErrorId = useId();
 
   const watchCurrency = useWatch({ control: form.control, name: "currency" });
   const watchSalaryPeriod = useWatch({
@@ -155,6 +156,23 @@ export function ApplicationFields({
   const salaryEnabled = !!watchCurrency && !!watchSalaryPeriod;
   const currencySymbol = watchCurrency ? getCurrencySymbol(watchCurrency) : "$";
 
+  // `company` is a discriminated-union field (CompanySelect's `ZodType`):
+  // the string branch's own error carries `{message}`, the free-text object
+  // branch carries `{name: {message}}` (empty name) or `{url: {message}}`
+  // (bad URL) — show whichever is present.
+  type CompanyFieldError = {
+    message?: string;
+    name?: { message?: string };
+    url?: { message?: string };
+  };
+  const companyErrors = form.formState.errors.company as
+    | CompanyFieldError
+    | undefined;
+  const companyError =
+    companyErrors?.message ??
+    companyErrors?.name?.message ??
+    companyErrors?.url?.message;
+
   return (
     <div
       data-slot="application-fields"
@@ -179,7 +197,7 @@ export function ApplicationFields({
               id={roleId}
               {...form.register("role")}
               placeholder="e.g. Senior Engineer"
-              aria-required="true"
+              aria-required={true}
               aria-invalid={form.formState.errors.role ? true : undefined}
               aria-describedby={
                 form.formState.errors.role ? `${roleId}-error` : undefined
@@ -209,7 +227,7 @@ export function ApplicationFields({
               <SelectTrigger
                 id="application-fields-source"
                 aria-label="Source"
-                aria-required="true"
+                aria-required={true}
                 className={cn(
                   form.formState.errors.mode &&
                     "border-destructive focus:ring-destructive",
@@ -244,8 +262,15 @@ export function ApplicationFields({
               form={form}
               fetchCompanies={fetchCompanies}
               onCompanyChange={onCompanyChange}
-              aria-invalid={form.formState.errors.company ? true : undefined}
+              aria-invalid={companyError ? true : undefined}
+              aria-describedby={companyError ? companyErrorId : undefined}
+              aria-required={true}
             />
+            {companyError && (
+              <p id={companyErrorId} className="text-xs text-destructive">
+                {companyError}
+              </p>
+            )}
           </div>
 
           <div className="flex min-w-0 flex-col gap-1.5">
@@ -266,6 +291,7 @@ export function ApplicationFields({
               aria-invalid={
                 form.formState.errors.platform_id ? true : undefined
               }
+              aria-required={true}
             />
             {form.formState.errors.platform_id && (
               <p className="text-xs text-destructive">

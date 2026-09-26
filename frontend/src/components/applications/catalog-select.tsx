@@ -188,6 +188,7 @@ export interface CatalogSelectProps {
   "aria-labelledby"?: string;
   "aria-describedby"?: string;
   "aria-invalid"?: boolean;
+  "aria-required"?: boolean;
   className?: string;
 }
 
@@ -220,6 +221,7 @@ export function CatalogSelect({
   "aria-labelledby": ariaLabelledby,
   "aria-describedby": ariaDescribedby,
   "aria-invalid": ariaInvalid,
+  "aria-required": ariaRequired,
   className,
 }: CatalogSelectProps) {
   const [open, setOpen] = useState(false);
@@ -341,8 +343,16 @@ export function CatalogSelect({
             aria-labelledby={ariaLabelledby}
             aria-describedby={describedBy}
             aria-invalid={ariaInvalid}
+            aria-required={ariaRequired}
             onKeyDown={onTriggerKeyDown}
-            className="w-full min-w-0 justify-between gap-2 bg-card px-3 font-normal"
+            className={cn(
+              "w-full min-w-0 justify-between gap-2 bg-card px-3 font-normal",
+              // `dark:border-input` on the shared `outline` Button variant
+              // otherwise wins over `aria-invalid:border-destructive` in dark
+              // mode (same specificity, later in the compiled stylesheet) —
+              // a plain conditional class here beats it through tailwind-merge.
+              ariaInvalid && "border-destructive dark:border-destructive",
+            )}
           >
             <span className="flex min-w-0 items-center gap-2">
               <span

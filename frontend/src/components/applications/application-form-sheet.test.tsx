@@ -196,6 +196,33 @@ describe("ApplicationFormSheet — validation (characterization)", () => {
     expect(screen.getByText("Platform is required")).toBeInTheDocument();
     expect(submit).not.toHaveBeenCalled();
   });
+
+  it("shows a Company required message on empty submit, marks the trigger invalid, and clears once a company is picked (QA round 1 B1)", async () => {
+    const user = userEvent.setup();
+    render(
+      <ApplicationFormSheet open onOpenChange={() => {}} application={null} />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /create application/i }),
+    );
+
+    expect(await screen.findByText("Company is required")).toBeInTheDocument();
+    const companyTrigger = screen.getByRole("combobox", { name: "Company" });
+    expect(companyTrigger).toHaveAttribute("aria-invalid", "true");
+    expect(companyTrigger).toHaveAccessibleDescription("Company is required");
+
+    await user.click(companyTrigger);
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Just Enough",
+    );
+    await user.click(await screen.findByText('Create "Just Enough"'));
+    await user.click(screen.getByRole("button", { name: /^add company$/i }));
+
+    expect(screen.queryByText("Company is required")).not.toBeInTheDocument();
+    expect(companyTrigger).not.toHaveAttribute("aria-invalid", "true");
+  });
 });
 
 describe("ApplicationFormSheet — edit payload (characterization)", () => {

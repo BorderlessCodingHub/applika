@@ -70,6 +70,8 @@ export interface CompanySelectProps {
   placeholder?: string;
   id?: string;
   "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
+  "aria-required"?: boolean;
   /**
    * Fired with the full `Company` whenever the selection changes: an existing
    * pick, an id resolved for a brand-new company, a free-text name, or `null`
@@ -95,6 +97,8 @@ export function CompanySelect({
   placeholder,
   id,
   "aria-invalid": ariaInvalid,
+  "aria-describedby": ariaDescribedby,
+  "aria-required": ariaRequired,
   fetchCompanies,
   onCompanyChange,
 }: CompanySelectProps) {
@@ -161,7 +165,7 @@ export function CompanySelect({
       setCompanyValue(
         "company",
         { name: option.name, url: "" },
-        { shouldValidate: false },
+        { shouldValidate: true },
       );
       onCompanyChange?.({ id: "", name: option.name, url: "" });
     }
@@ -215,6 +219,8 @@ export function CompanySelect({
       id={id}
       placeholder={placeholder}
       aria-invalid={ariaInvalid}
+      aria-describedby={ariaDescribedby}
+      aria-required={ariaRequired}
     />
   );
 }

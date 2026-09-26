@@ -111,6 +111,7 @@ export interface PlatformSelectProps {
   "aria-labelledby"?: string;
   "aria-describedby"?: string;
   "aria-invalid"?: boolean;
+  "aria-required"?: boolean;
   className?: string;
 }
 
@@ -133,6 +134,7 @@ export function PlatformSelect({
   "aria-labelledby": ariaLabelledby,
   "aria-describedby": ariaDescribedby,
   "aria-invalid": ariaInvalid,
+  "aria-required": ariaRequired,
   className,
 }: PlatformSelectProps) {
   const catalogOptions: readonly CatalogOption[] | undefined = options;
@@ -169,6 +171,7 @@ export function PlatformSelect({
       aria-labelledby={ariaLabelledby}
       aria-describedby={ariaDescribedby}
       aria-invalid={ariaInvalid}
+      aria-required={ariaRequired}
       className={className}
     />
   );

@@ -148,10 +148,13 @@ describe("CompanySelect", () => {
     await user.click(screen.getByRole("button", { name: /^add company$/i }));
 
     expect(createCompanyMock).not.toHaveBeenCalled();
+    // `shouldValidate: true` (QA round 1 B1): picking a valid free-text
+    // company after a failed submit must clear a stale "Company is
+    // required" error, not just silently accept the new value.
     expect(setValue).toHaveBeenCalledWith(
       "company",
       { name: "Just A Name", url: "" },
-      { shouldValidate: false },
+      { shouldValidate: true },
     );
   });
 });
