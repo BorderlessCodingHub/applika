@@ -197,6 +197,11 @@ describe("ApplicationFormSheet — validation (characterization)", () => {
 
     expect(await screen.findByText("Role is required")).toBeInTheDocument();
     expect(screen.getByText("Platform is required")).toBeInTheDocument();
+    const platformTrigger = screen.getByRole("combobox", { name: "Platform" });
+    expect(platformTrigger).toHaveAttribute("aria-invalid", "true");
+    // KODI-035 remediation r1 (QA F2): the error text must be LINKED to the
+    // trigger via aria-describedby, same as the Company field below.
+    expect(platformTrigger).toHaveAccessibleDescription("Platform is required");
     expect(submit).not.toHaveBeenCalled();
   });
 

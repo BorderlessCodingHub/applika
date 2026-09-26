@@ -203,5 +203,14 @@ describe("CompanySelect", () => {
       { name: "Just A Name", url: "" },
       { shouldValidate: true },
     );
+    // QA F3: the free-text notice must be shown, WITHOUT the "now selected"
+    // suffix — a free-text pick has no id to have been "selected" from a list.
+    const notice = await screen.findByText(
+      "Just A Name is kept on this application only.",
+    );
+    expect(
+      notice.closest('[data-slot="catalog-select-notice"]'),
+    ).toHaveTextContent("Just A Name is kept on this application only.");
+    expect(screen.queryByText(/it is now selected/i)).not.toBeInTheDocument();
   });
 });
