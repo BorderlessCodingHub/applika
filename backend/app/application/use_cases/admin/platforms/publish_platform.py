@@ -34,13 +34,28 @@ class PublishPlatformUseCase:
                 f'{collision.name} (id {collision.id})'
             )
 
+        # Captured before the update: a rollback on the shared session (the
+        # repo's own IntegrityError handling) expires this ORM object, and a
+        # synchronous attribute read on an expired async object raises
+        # MissingGreenlet instead of the 409 below. There is today no unique
+        # index on public platform names, so this branch cannot yet run in
+        # production - kept as a defensive backstop, same shape as the
+        # company side, in case one is ever added.
+        name = platform.name
         platform.is_public = True
         try:
             platform = await self.platform_repo.update(platform)
         except IntegrityError as err:
+            collision = await self.platform_repo.find_public_by_name(
+                name, exclude_id=platform_id
+            )
+            if collision:
+                raise ResourceConflict(
+                    'A public platform with this name already exists: '
+                    f'{collision.name} (id {collision.id})'
+                ) from err
             raise ResourceConflict(
-                'A public platform with this name already exists: '
-                f'{platform.name}'
+                f'A public platform with this name already exists: {name}'
             ) from err
 
         logger.info(

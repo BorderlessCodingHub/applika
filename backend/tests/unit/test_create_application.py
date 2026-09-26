@@ -82,3 +82,31 @@ async def test_create_application_anonymous_company():
 
     assert result.company_id is None
     assert result.company_name == 'Stealth'
+
+
+async def test_create_application_invisible_platform_writes_no_company():
+    """T025/AC6: platform is checked before company - an invisible platform
+    id with an inline {name, url} company (a url is required here, or the
+    free-text branch would skip company_repo regardless of ordering) must
+    404 without ever creating that company row."""
+    app_repo = AsyncMock()
+    platform_repo = AsyncMock()
+    company_repo = AsyncMock()
+    platform_repo.get_visible.return_value = None
+
+    uc = CreateApplicationUseCase(app_repo, platform_repo, company_repo)
+
+    with pytest.raises(ResourceNotFound, match='Platform not found'):
+        await uc.execute(
+            _dto(
+                platform_id=999,
+                company={
+                    'name': 'Should Not Exist Co',
+                    'url': 'https://shouldnotexist.example.com',
+                },
+            )
+        )
+    company_repo.create.assert_not_called()
+    company_repo.get_visible.assert_not_called()
+    company_repo.find_visible_match.assert_not_called()
+    app_repo.create.assert_not_called()

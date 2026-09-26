@@ -54,6 +54,7 @@ def _row_schema(item) -> AdminCompanyRowSchema:
         is_public=item.is_public,
         applications_count=item.applications_count,
         created_by=created_by,
+        created_by_username=item.created_by_username,
         created_at=item.created_at,
     )
 

@@ -41,13 +41,27 @@ class PublishCompanyUseCase:
                 f'{collision.name} ({collision.url}, id {collision.id})'
             )
 
+        # Captured before the update: a rollback on the shared session (the
+        # repo's own IntegrityError handling) expires this ORM object, and a
+        # synchronous attribute read on an expired async object raises
+        # MissingGreenlet instead of the 409 below.
+        name, url = company.name, company.url
         company.is_public = True
         try:
             await self.company_repo.update(company)
         except IntegrityError as err:
+            collision = await self.company_repo.find_public_collision(
+                name, url, exclude_id=company_id
+            )
+            if collision:
+                raise ResourceConflict(
+                    'A public company with this name and URL already '
+                    f'exists: {collision.name} '
+                    f'({collision.url}, id {collision.id})'
+                ) from err
             raise ResourceConflict(
-                'A public company with this name and URL already exists: '
-                f'{company.name} ({company.url})'
+                f'A public company with this name and URL already exists: '
+                f'{name} ({url})'
             ) from err
 
         logger.info(

@@ -756,12 +756,23 @@ def main():
         # A platform with no url, and a company: both start private to this
         # seed user, exercised end to end on one application below.
         print('Seeding a private platform and a private company...')
-        priv_platform_resp = client.post(
-            '/platforms',
-            json={'name': 'Founder Referral Board', 'url': None},
+        existing_private_platform = next(
+            (p for p in platforms if p['name'] == 'Founder Referral Board'),
+            None,
         )
-        priv_platform_resp.raise_for_status()
-        private_platform_id = priv_platform_resp.json()['id']
+        if existing_private_platform:
+            # POST /platforms has no reuse semantics (a name collision is
+            # always 409, unlike POST /companies) - a rerun against a
+            # database that already has this seed's platform picks the
+            # existing one back up instead of failing.
+            private_platform_id = existing_private_platform['id']
+        else:
+            priv_platform_resp = client.post(
+                '/platforms',
+                json={'name': 'Founder Referral Board', 'url': None},
+            )
+            priv_platform_resp.raise_for_status()
+            private_platform_id = priv_platform_resp.json()['id']
 
         priv_company_resp = client.post(
             '/companies',

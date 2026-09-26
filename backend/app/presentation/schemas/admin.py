@@ -121,6 +121,12 @@ class AdminCompanyRowSchema(BaseSchema):
     is_public: bool = True
     applications_count: int = 0
     created_by: CreatedBySchema | None = None
+    # Kept alongside the new nested `created_by` (ADR-0014): the shipped
+    # frontend admin companies screen still reads this flat field directly
+    # (`company.created_by_username`), and cli-compatibility.md's
+    # "never remove a field a published client uses" applies here too, not
+    # only to the CLI routes.
+    created_by_username: str | None = None
     created_at: datetime
 
 

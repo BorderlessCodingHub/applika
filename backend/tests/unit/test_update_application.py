@@ -184,3 +184,36 @@ async def test_other_optional_fields_still_clear_when_omitted():
     assert app.observation is None, msg(None, app.observation)
     assert app.link_to_job is None, msg(None, app.link_to_job)
     assert app.expected_salary is None, msg(None, app.expected_salary)
+
+
+async def test_update_invisible_platform_writes_no_company_and_no_update():
+    """T025/AC6: platform is checked before company on PUT too - an
+    invisible platform id with an inline {name, url} company (a url is
+    required here, or the free-text branch would skip company_repo
+    regardless of ordering) must 404 without creating that company row or
+    updating the application."""
+    app_repo = AsyncMock()
+    platform_repo = AsyncMock()
+    company_repo = AsyncMock()
+    app_repo.get_by_id_and_user_id.return_value = make_application()
+    platform_repo.get_visible.return_value = None
+
+    uc = UpdateApplicationUseCase(
+        app_repo, platform_repo, company_repo, make_read_model()
+    )
+
+    with pytest.raises(ResourceNotFound, match='Platform not found'):
+        await uc.execute(
+            id=1,
+            data=_dto(
+                platform_id=999,
+                company={
+                    'name': 'Should Not Exist Co 2',
+                    'url': 'https://shouldnotexist2.example.com',
+                },
+            ),
+        )
+    company_repo.create.assert_not_called()
+    company_repo.get_visible.assert_not_called()
+    company_repo.find_visible_match.assert_not_called()
+    app_repo.update.assert_not_called()

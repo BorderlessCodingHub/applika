@@ -522,6 +522,59 @@ async def test_admin_publish_company_collision_names_the_public_row(
     assert 'Collision Co' in resp.json()['detail']
 
 
+async def test_admin_publish_company_race_hits_the_index_not_a_500(
+    async_client: AsyncClient, db_session: AsyncSession, monkeypatch
+):
+    """A same-instant race that slips past the pre-check (another publish or
+    create landed between the check and the update) hits the database's own
+    partial unique index as an IntegrityError - this must still answer 409
+    naming the row, never a 500 (the shared session's rollback on that
+    IntegrityError expires the in-flight ORM object, which is the trap the
+    ``except`` branch's own name/url capture guards against)."""
+    from app.domain.repositories.company_repository import CompanyRepository
+
+    private_resp = await async_client.post(
+        '/companies',
+        json={'name': 'Race Co', 'url': 'https://raceco.example.com'},
+    )
+    company_id = private_resp.json()['id']
+    private_row = await db_session.get(CompanyModel, int(company_id))
+    assert private_row is not None
+    stored_url = private_row.url
+
+    public = CompanyModel(
+        id=9010,
+        name='Race Co',
+        url=stored_url,
+        is_public=True,
+        created_by=base_data()['admin_user'].id,
+    )
+    db_session.add(public)
+    await db_session.commit()
+
+    # Make the pre-check miss the collision it would otherwise catch, so the
+    # flow falls through to the database's own unique-index refusal.
+    real_find_public_collision = CompanyRepository.find_public_collision
+    calls = {'n': 0}
+
+    async def _miss_once(self, name, url, exclude_id=None):
+        calls['n'] += 1
+        if calls['n'] == 1:
+            return None
+        return await real_find_public_collision(
+            self, name, url, exclude_id=exclude_id
+        )
+
+    monkeypatch.setattr(CompanyRepository, 'find_public_collision', _miss_once)
+
+    async with _admin_context():
+        resp = await async_client.post(f'/admin/companies/{company_id}/publish')
+
+    assert resp.status_code == 409, msg(409, resp.status_code)
+    assert str(public.id) in resp.json()['detail']
+    assert 'Race Co' in resp.json()['detail']
+
+
 async def test_admin_publish_platform_makes_it_visible_to_everyone(
     async_client: AsyncClient, db_session: AsyncSession, second_user
 ):

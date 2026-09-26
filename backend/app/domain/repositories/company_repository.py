@@ -12,13 +12,6 @@ class CompanyRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_by_id(self, id: int) -> CompanyModel | None:
-        return await self.session.scalar(
-            select(CompanyModel).where(
-                CompanyModel.id == id, CompanyModel.is_active.is_(True)
-            )
-        )
-
     async def get_visible(self, id: int, user_id: int) -> CompanyModel | None:
         """The company, only when ``user_id`` may see it (ADR-0014):
         public, or private and created by that user."""
@@ -29,17 +22,6 @@ class CompanyRepository:
                 visible_to(CompanyModel, user_id),
             )
         )
-
-    async def get_all(self, name: str | None = None) -> list[CompanyModel]:
-        query = (
-            select(CompanyModel)
-            .where(CompanyModel.is_active.is_(True))
-            .order_by(CompanyModel.name)
-        )
-        if name:
-            query = query.where(CompanyModel.name.ilike(f'%{name}%'))
-        result = await self.session.scalars(query)
-        return list(result.all())
 
     async def list_visible(
         self, user_id: int, name: str | None = None

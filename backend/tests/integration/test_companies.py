@@ -166,3 +166,25 @@ async def test_a_users_private_company_is_not_in_the_other_users_list(
     async with as_user(second_user.id, second_user.username):
         filtered = await async_client.get('/companies?name=Only Mine')
     assert filtered.json() == [], msg([], filtered.json())
+
+
+async def test_post_companies_reuses_a_public_match_case_insensitively(
+    async_client: AsyncClient, db_session: AsyncSession, second_user
+):
+    """T028/AC5: a public company (base_data's Acme Corp) is reused by
+    {name, url}, matching the name case-insensitively - by the creator and
+    by a different user, since it is public."""
+    acme = base_data()['company_acme']
+
+    resp = await async_client.post(
+        '/companies', json={'name': acme.name.upper(), 'url': acme.url}
+    )
+    assert resp.status_code == 200, msg(200, resp.status_code)
+    assert resp.json()['id'] == str(acme.id)
+
+    async with as_user(second_user.id, second_user.username):
+        other_resp = await async_client.post(
+            '/companies', json={'name': acme.name.lower(), 'url': acme.url}
+        )
+    assert other_resp.status_code == 200, msg(200, other_resp.status_code)
+    assert other_resp.json()['id'] == str(acme.id)
