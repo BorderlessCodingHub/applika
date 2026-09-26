@@ -429,7 +429,5 @@ def test_draft_input_application_date_defaults_to_none():
 
 
 def test_draft_input_accepts_an_explicit_application_date():
-    draft = DraftInput(
-        **_draft_input_payload(application_date='2026-01-15')
-    )
+    draft = DraftInput(**_draft_input_payload(application_date='2026-01-15'))
     assert draft.application_date == date(2026, 1, 15)

@@ -29,7 +29,7 @@ is saved. ``POST .../finish`` accepts no body, ``{}`` or
 stored date is used, still refused in the future.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pytest_asyncio
@@ -130,7 +130,7 @@ async def test_create_draft_without_date_defaults_to_server_today(
     async_client: AsyncClient,
 ):
     draft = await _create_draft(async_client)
-    assert draft['application_date'] == datetime.now(UTC).date().isoformat()
+    assert draft['application_date'] == date.today().isoformat()
 
 
 async def test_create_draft_with_date_stores_it(async_client: AsyncClient):
@@ -493,10 +493,7 @@ async def test_finish_draft_created_without_date_uses_creation_day(
         f'/applications/drafts/{draft["id"]}/finish'
     )
     assert response.status_code == 200, msg(200, response.text)
-    assert (
-        response.json()['application_date']
-        == datetime.now(UTC).date().isoformat()
-    )
+    assert response.json()['application_date'] == date.today().isoformat()
 
 
 async def test_finish_draft_appears_in_applications_with_copy_and_date(
