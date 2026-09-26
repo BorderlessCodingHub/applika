@@ -175,9 +175,7 @@ async def test_list_platforms_excludes_another_users_private_rows(
         resp = await async_client.get(BASE)
 
     names = [p['name'] for p in resp.json()]
-    assert 'Not Yours Board' not in names, msg(
-        'Not Yours Board absent', names
-    )
+    assert 'Not Yours Board' not in names, msg('Not Yours Board absent', names)
 
 
 async def test_list_platforms_name_filter_is_case_insensitive_substring(

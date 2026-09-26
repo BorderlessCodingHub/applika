@@ -525,6 +525,81 @@ class AdminRepository:
 
         return list(rows), total or 0
 
+    def _admin_platform_row_query(self):
+        app_counts = (
+            select(
+                ApplicationModel.platform_id,
+                func.count(ApplicationModel.id).label('applications_count'),
+            )
+            .where(ApplicationModel.platform_id.isnot(None), NOT_DRAFT)
+            .group_by(ApplicationModel.platform_id)
+            .subquery('platform_app_counts')
+        )
+
+        return (
+            select(
+                PlatformModel.id,
+                PlatformModel.name,
+                PlatformModel.url,
+                PlatformModel.is_public,
+                PlatformModel.created_by,
+                PlatformModel.created_at,
+                func.coalesce(app_counts.c.applications_count, 0).label(
+                    'applications_count'
+                ),
+                UserModel.username.label('created_by_username'),
+            )
+            .outerjoin(
+                app_counts,
+                PlatformModel.id == app_counts.c.platform_id,
+            )
+            .outerjoin(UserModel, PlatformModel.created_by == UserModel.id)
+        )
+
+    async def get_admin_platforms(
+        self,
+        search: str | None = None,
+        visibility: str | None = None,
+        sort_by: str = 'name',
+        sort_order: str = 'asc',
+        page: int = 1,
+        per_page: int = 25,
+    ) -> tuple[list, int]:
+        """Paginated ``GET /admin/platforms`` (S7), on ``get_admin_companies``:
+        ``applications_count`` excludes drafts (R-035, ``NOT_DRAFT``)."""
+        stmt = self._admin_platform_row_query()
+
+        if search:
+            stmt = stmt.where(PlatformModel.name.ilike(f'%{search}%'))
+        if visibility == 'public':
+            stmt = stmt.where(PlatformModel.is_public.is_(True))
+        elif visibility == 'private':
+            stmt = stmt.where(PlatformModel.is_public.is_(False))
+
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = await self.session.scalar(count_stmt)
+
+        sort_columns = {
+            'name': PlatformModel.name,
+            'created_at': PlatformModel.created_at,
+            'applications_count': 'applications_count',
+        }
+        sort_col = sort_columns.get(sort_by, PlatformModel.name)
+        if isinstance(sort_col, str):
+            sort_col = sa.literal_column(sort_col)
+
+        if sort_order == 'asc':
+            stmt = stmt.order_by(sa.asc(sort_col))
+        else:
+            stmt = stmt.order_by(sa.desc(sort_col))
+
+        stmt = stmt.offset((page - 1) * per_page).limit(per_page)
+
+        result = await self.session.execute(stmt)
+        rows = result.mappings().all()
+
+        return list(rows), total or 0
+
     async def count_entity_references(
         self,
         entity_type: str,

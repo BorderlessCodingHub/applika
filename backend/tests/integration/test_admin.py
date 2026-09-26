@@ -267,8 +267,12 @@ async def test_admin_list_platforms(
 ):
     resp = await admin_client.get('/admin/platforms')
     assert resp.status_code == 200, msg(200, resp.status_code)
-    assert isinstance(resp.json(), list)
-    assert len(resp.json()) >= 1
+    data = resp.json()
+    assert isinstance(data['items'], list)
+    assert len(data['items']) >= 1
+    assert data['total'] >= 1
+    assert data['page'] == 1
+    assert data['per_page'] == 25
 
 
 async def test_admin_update_platform(
@@ -424,14 +428,14 @@ async def test_admin_platforms_list_shows_private_rows_with_created_by(
     async with _admin_context():
         listing = await async_client.get('/admin/platforms?visibility=private')
         assert listing.status_code == 200
-        row = next(r for r in listing.json() if r['id'] == platform_id)
+        row = next(r for r in listing.json()['items'] if r['id'] == platform_id)
         assert row['is_public'] is False
         assert row['created_by']['id'] == str(base_data()['user'].id)
 
         public_only = await async_client.get(
             '/admin/platforms?visibility=public'
         )
-    ids = [r['id'] for r in public_only.json()]
+    ids = [r['id'] for r in public_only.json()['items']]
     assert platform_id not in ids
 
 
@@ -671,6 +675,201 @@ async def test_admin_delete_platform_in_use_is_still_refused(
     async with _admin_context():
         resp = await async_client.delete(f'/admin/platforms/{platform_id}')
     assert resp.status_code == 409, msg(409, resp.status_code)
+
+
+# ── Paginated GET /admin/platforms (S7, KODI-035) ───────────────────
+
+
+async def test_admin_platforms_paging_reports_total_and_total_pages(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
+    for i in range(3):
+        create_resp = await admin_client.post(
+            '/admin/platforms', json={'name': f'Paging Board {i}'}
+        )
+        assert create_resp.status_code == 201
+
+    resp = await admin_client.get(
+        '/admin/platforms', params={'per_page': 2, 'page': 1}
+    )
+    assert resp.status_code == 200, msg(200, resp.status_code)
+    data = resp.json()
+    assert len(data['items']) == 2
+    assert data['total'] >= 4  # seeded Linkedin + the 3 created here
+    assert data['page'] == 1
+    assert data['per_page'] == 2
+    assert data['total_pages'] == -(-data['total'] // 2)
+
+
+async def test_admin_platforms_search_filters_by_name(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
+    await admin_client.post(
+        '/admin/platforms', json={'name': 'Searchable Board'}
+    )
+
+    resp = await admin_client.get(
+        '/admin/platforms', params={'search': 'Searchable'}
+    )
+    names = [p['name'] for p in resp.json()['items']]
+    assert names == ['Searchable Board'], msg(['Searchable Board'], names)
+
+
+async def test_admin_platforms_visibility_filter(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    private_resp = await async_client.post(
+        '/platforms', json={'name': 'Private Filter Board'}
+    )
+    assert private_resp.json()['is_public'] is False
+
+    async with _admin_context():
+        public_resp = await async_client.post(
+            '/admin/platforms', json={'name': 'Public Filter Board'}
+        )
+        assert public_resp.json()['is_public'] is True
+
+        public_only = await async_client.get(
+            '/admin/platforms', params={'visibility': 'public'}
+        )
+        private_only = await async_client.get(
+            '/admin/platforms', params={'visibility': 'private'}
+        )
+
+    public_names = [p['name'] for p in public_only.json()['items']]
+    private_names = [p['name'] for p in private_only.json()['items']]
+    assert 'Public Filter Board' in public_names
+    assert 'Public Filter Board' not in private_names
+    assert 'Private Filter Board' in private_names
+    assert 'Private Filter Board' not in public_names
+
+
+async def test_admin_platforms_sort_by_name(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
+    await admin_client.post('/admin/platforms', json={'name': 'Zeta Sort'})
+    await admin_client.post('/admin/platforms', json={'name': 'Alpha Sort'})
+
+    asc = await admin_client.get(
+        '/admin/platforms', params={'sort_by': 'name', 'sort_order': 'asc'}
+    )
+    names = [p['name'] for p in asc.json()['items']]
+    assert names == sorted(names), msg(sorted(names), names)
+
+    desc = await admin_client.get(
+        '/admin/platforms', params={'sort_by': 'name', 'sort_order': 'desc'}
+    )
+    names_desc = [p['name'] for p in desc.json()['items']]
+    assert names_desc == sorted(names_desc, reverse=True), msg(
+        sorted(names_desc, reverse=True), names_desc
+    )
+
+
+async def test_admin_platforms_sort_by_created_at(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
+    resp = await admin_client.get(
+        '/admin/platforms',
+        params={'sort_by': 'created_at', 'sort_order': 'desc'},
+    )
+    assert resp.status_code == 200, msg(200, resp.status_code)
+    dates = [p['created_at'] for p in resp.json()['items']]
+    assert dates == sorted(dates, reverse=True)
+
+
+async def test_admin_platforms_sort_by_applications_count(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
+    create_resp = await admin_client.post(
+        '/admin/platforms', json={'name': 'Popular Board'}
+    )
+    platform_id = create_resp.json()['id']
+
+    for _ in range(2):
+        app_resp = await admin_client.post(
+            '/applications',
+            json={
+                'company': base_data()['company_acme'].id,
+                'role': 'Engineer',
+                'mode': 'active',
+                'platform_id': platform_id,
+                'application_date': '2025-12-01',
+            },
+        )
+        assert app_resp.status_code == 201
+
+    resp = await admin_client.get(
+        '/admin/platforms',
+        params={'sort_by': 'applications_count', 'sort_order': 'desc'},
+    )
+    assert resp.status_code == 200, msg(200, resp.status_code)
+    top = resp.json()['items'][0]
+    assert top['id'] == platform_id, msg(platform_id, top['id'])
+    assert top['applications_count'] == 2, msg(2, top['applications_count'])
+
+
+async def test_admin_platforms_applications_count_excludes_drafts(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    create_resp = await async_client.post(
+        '/platforms', json={'name': 'Draft Count Board'}
+    )
+    platform_id = create_resp.json()['id']
+
+    draft_resp = await async_client.post(
+        '/applications/drafts',
+        json={
+            'company_id': base_data()['company_acme'].id,
+            'company_name': 'Acme Corp',
+            'role': 'Draft Role',
+            'platform_id': platform_id,
+        },
+    )
+    assert draft_resp.status_code == 201, msg(201, draft_resp.text)
+
+    async with _admin_context():
+        listing = await async_client.get(
+            '/admin/platforms', params={'search': 'Draft Count Board'}
+        )
+        row = next(p for p in listing.json()['items'] if p['id'] == platform_id)
+        assert row['applications_count'] == 0, msg(0, row['applications_count'])
+
+        delete_resp = await async_client.delete(
+            f'/admin/platforms/{platform_id}'
+        )
+    assert delete_resp.status_code == 409, msg(409, delete_resp.status_code)
+    assert delete_resp.json()['detail']
+
+
+async def test_admin_platforms_created_by_seeded_public_row_is_null(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
+    resp = await admin_client.get(
+        '/admin/platforms', params={'search': 'Linkedin'}
+    )
+    row = next(
+        p
+        for p in resp.json()['items']
+        if p['id'] == str(base_data()['plat_linkedin'].id)
+    )
+    assert row['created_by'] is None, msg(None, row['created_by'])
+
+
+async def test_admin_platforms_created_by_own_private_row(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    create_resp = await async_client.post(
+        '/platforms', json={'name': 'Created By Board'}
+    )
+    platform_id = create_resp.json()['id']
+
+    async with _admin_context():
+        listing = await async_client.get(
+            '/admin/platforms', params={'search': 'Created By Board'}
+        )
+    row = next(p for p in listing.json()['items'] if p['id'] == platform_id)
+    assert row['created_by']['id'] == str(base_data()['user'].id)
+    assert row['created_by']['username'] == base_data()['user'].username
 
 
 # ── Step and feedback catalogs: retired (R-021) ────────────────────

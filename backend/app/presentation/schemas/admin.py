@@ -165,3 +165,21 @@ class PlatformSchema(BaseSchema):
     url: str | None = None
     is_public: bool = True
     created_by: CreatedBySchema | None = None
+
+
+class AdminPlatformRowSchema(BaseSchema):
+    id: SnowflakeID
+    name: str
+    url: str | None = None
+    is_public: bool = True
+    applications_count: int = 0
+    created_by: CreatedBySchema | None = None
+    created_at: datetime
+
+
+class PaginatedPlatformsSchema(BaseSchema):
+    items: list[AdminPlatformRowSchema]
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
