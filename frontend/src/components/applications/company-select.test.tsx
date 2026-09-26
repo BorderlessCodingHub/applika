@@ -100,12 +100,15 @@ describe("CompanySelect", () => {
     expect(await screen.findByText('Create "Acme Inc"')).toBeInTheDocument();
   });
 
-  it("confirming a URL creates the company and selects the returned id", async () => {
+  it("confirming a URL creates the company and selects the returned id (201, no notice)", async () => {
     createCompanyMock.mockResolvedValue({
-      id: "co-9",
-      name: "Brand New Co",
-      url: "https://brandnew.example",
-      is_public: false,
+      company: {
+        id: "co-9",
+        name: "Brand New Co",
+        url: "https://brandnew.example",
+        is_public: false,
+      },
+      created: true,
     });
     const user = userEvent.setup();
     const { onCompanyChange } = setup();
@@ -133,6 +136,50 @@ describe("CompanySelect", () => {
       name: "Brand New Co",
       url: "https://brandnew.example",
     });
+    expect(
+      screen.queryByText(/is already in your list/i),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox")).toHaveTextContent("Only you");
+  });
+
+  it("confirming a URL that matches an existing row reuses it and shows the notice (200, R-021)", async () => {
+    createCompanyMock.mockResolvedValue({
+      company: {
+        id: "co-1",
+        name: "Acme Inc",
+        url: "https://acme.example",
+        is_public: true,
+      },
+      created: false,
+    });
+    const user = userEvent.setup();
+    const { onCompanyChange } = setup();
+
+    await user.click(screen.getByRole("combobox"));
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Acme Inc",
+    );
+    await user.click(await screen.findByText('Create "Acme Inc"'));
+    await user.type(screen.getByLabelText(/^url/i), "https://acme.example");
+    await user.click(screen.getByRole("button", { name: /^add company$/i }));
+
+    await waitFor(() =>
+      expect(setValue).toHaveBeenCalledWith("company", "co-1", {
+        shouldValidate: true,
+      }),
+    );
+    expect(onCompanyChange).toHaveBeenCalledWith({
+      id: "co-1",
+      name: "Acme Inc",
+      url: "https://acme.example",
+    });
+    const notice = await screen.findByText("Acme Inc is already in your list.");
+    expect(
+      notice.closest('[data-slot="catalog-select-notice"]'),
+    ).toHaveTextContent(
+      "Acme Inc is already in your list. It is now selected.",
+    );
   });
 
   it("confirming with no URL keeps the name as free text (R-019)", async () => {

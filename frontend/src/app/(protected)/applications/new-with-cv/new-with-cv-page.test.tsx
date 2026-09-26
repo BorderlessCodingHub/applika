@@ -681,10 +681,13 @@ describe("NewWithCvPage — step 1 survives Back (AC5, QA round 1 B1)", () => {
       }),
     );
     createCompanyMock.mockResolvedValue({
-      id: "cmp-N",
-      name: "Acme",
-      url: "https://acme.com",
-      is_public: false,
+      company: {
+        id: "cmp-N",
+        name: "Acme",
+        url: "https://acme.com",
+        is_public: false,
+      },
+      created: true,
     });
     const user = userEvent.setup();
     renderPage();
@@ -783,10 +786,13 @@ describe("NewWithCvPage — step 1 survives Back (AC5, QA round 1 B1)", () => {
     );
     getTailoredCvMock.mockResolvedValue(SAVED_CV);
     createCompanyMock.mockResolvedValue({
-      id: "cmp-N",
-      name: "Acme",
-      url: "https://acme.com",
-      is_public: false,
+      company: {
+        id: "cmp-N",
+        name: "Acme",
+        url: "https://acme.com",
+        is_public: false,
+      },
+      created: true,
     });
     const user = userEvent.setup();
     renderPage();
@@ -883,10 +889,13 @@ describe("NewWithCvPage — new company reuse and confirm-only creation (AC16/AC
       }),
     );
     createCompanyMock.mockResolvedValue({
-      id: "cmp-N",
-      name: "Acme",
-      url: "https://acme.com",
-      is_public: false,
+      company: {
+        id: "cmp-N",
+        name: "Acme",
+        url: "https://acme.com",
+        is_public: false,
+      },
+      created: true,
     });
     const user = userEvent.setup();
     renderPage();

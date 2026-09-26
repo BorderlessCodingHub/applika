@@ -4,6 +4,7 @@ import * as React from "react";
 import { z } from "zod";
 
 import {
+  alreadyListedMessage,
   CatalogSelect,
   type CatalogCopy,
   type CatalogCreateOutcome,
@@ -199,7 +200,7 @@ export function CompanySelect({
             message: freeTextMessage(input.name),
           };
         }
-        const company = await createCompany.mutateAsync({
+        const { company, created } = await createCompany.mutateAsync({
           name: input.name,
           url: input.url,
         });
@@ -209,9 +210,15 @@ export function CompanySelect({
           url: company.url ?? null,
           is_public: company.is_public,
         };
-        // The service does not surface 200-vs-201; treat every success as a
-        // plain pick, matching the "created" no-notice path. See the
-        // KODI-035 handback notes for why the reuse notice is not shown.
+        if (!created) {
+          // 200: the server reused an existing visible name+url match
+          // (R-021) — same notice pattern as the platform picker's "exists".
+          return {
+            status: "reused",
+            option,
+            message: alreadyListedMessage(company.name),
+          };
+        }
         return { status: "created", option };
       }}
       exactMatchReplacesCreate={false}

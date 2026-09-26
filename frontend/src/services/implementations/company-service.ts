@@ -1,5 +1,6 @@
 import { api } from "@/lib/api-client";
 import type {
+  CreateCompanyResult,
   ICompanyService,
   NewCompanyPayload,
 } from "@/services/interfaces/i-company-service";
@@ -12,7 +13,9 @@ export class CompanyService implements ICompanyService {
       .then((r) => r.data);
   }
 
-  create(data: NewCompanyPayload): Promise<Company> {
-    return api.post<Company>("/companies", data).then((r) => r.data);
+  create(data: NewCompanyPayload): Promise<CreateCompanyResult> {
+    return api
+      .post<Company>("/companies", data)
+      .then((r) => ({ company: r.data, created: r.status === 201 }));
   }
 }

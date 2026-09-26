@@ -123,10 +123,13 @@ describe("ApplicationFormSheet — create payload (characterization)", () => {
 
   it("resolves a brand-new company with a URL to its id (R-021)", async () => {
     createCompanyMock.mockResolvedValue({
-      id: "co-2",
-      name: "Brand New Co",
-      url: "https://brandnew.example",
-      is_public: false,
+      company: {
+        id: "co-2",
+        name: "Brand New Co",
+        url: "https://brandnew.example",
+        is_public: false,
+      },
+      created: true,
     });
     const user = userEvent.setup();
     render(

@@ -130,6 +130,7 @@ export function ApplicationFields({
   const observationId = useId();
   const salaryHintId = useId();
   const companyErrorId = useId();
+  const platformErrorId = useId();
 
   const watchCurrency = useWatch({ control: form.control, name: "currency" });
   const watchSalaryPeriod = useWatch({
@@ -291,10 +292,13 @@ export function ApplicationFields({
               aria-invalid={
                 form.formState.errors.platform_id ? true : undefined
               }
+              aria-describedby={
+                form.formState.errors.platform_id ? platformErrorId : undefined
+              }
               aria-required={true}
             />
             {form.formState.errors.platform_id && (
-              <p className="text-xs text-destructive">
+              <p id={platformErrorId} className="text-xs text-destructive">
                 {form.formState.errors.platform_id.message}
               </p>
             )}
