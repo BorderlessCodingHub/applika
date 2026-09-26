@@ -33,9 +33,9 @@ class GetSupportsUseCase:
         self.platform_repository = platform_repo
         self.step_repository = step_repo
 
-    async def execute(self) -> SupportDTO:
+    async def execute(self, user_id: int) -> SupportDTO:
         feedbacks = await self.feedback_repository.get_all()
-        platforms = await self.platform_repository.get_all()
+        platforms = await self.platform_repository.list_visible(user_id)
         steps = await self.step_repository.get_all()
 
         return SupportDTO(

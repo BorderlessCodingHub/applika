@@ -11,6 +11,7 @@ from app.presentation.api.base_cv import router as base_cv_router
 from app.presentation.api.company import router as company_router
 from app.presentation.api.cycle import router as cycle_router
 from app.presentation.api.oauth import router as auth_router
+from app.presentation.api.platform import router as platform_router
 from app.presentation.api.reports import router as reports_router
 from app.presentation.api.statistic import router as statistic_router
 from app.presentation.api.support import router as support_router
@@ -59,6 +60,7 @@ app.include_router(account_link_router)
 app.include_router(profile_router)
 app.include_router(support_router)
 app.include_router(company_router)
+app.include_router(platform_router)
 app.include_router(application_router)
 app.include_router(timeline_router)
 app.include_router(app_step_router)

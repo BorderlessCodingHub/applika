@@ -20,7 +20,8 @@ class StepDefinitionSchema(BaseSchema):
 class PlatformSchema(BaseSchema):
     id: SnowflakeID
     name: str
-    url: str
+    url: str | None = None
+    is_public: bool = True
 
 
 class SupportSchema(BaseModel):
