@@ -7,10 +7,9 @@ import type {
 import type { Company } from "@/services/types/applications";
 
 export class CompanyService implements ICompanyService {
-  searchCompanies(name: string): Promise<Company[]> {
-    return api
-      .get<Company[]>(`/companies?name=${encodeURIComponent(name)}`)
-      .then((r) => r.data);
+  searchCompanies(name?: string): Promise<Company[]> {
+    const query = name ? `?name=${encodeURIComponent(name)}` : "";
+    return api.get<Company[]>(`/companies${query}`).then((r) => r.data);
   }
 
   create(data: NewCompanyPayload): Promise<CreateCompanyResult> {

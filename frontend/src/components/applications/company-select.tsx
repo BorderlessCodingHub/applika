@@ -131,12 +131,12 @@ export function CompanySelect({
 
   const handleSearchChange = React.useCallback(
     async (query: string) => {
+      // A blank query still fetches (KODI-035, AC1): `fetchCompanies("")`
+      // hits `GET /companies` with no `name`, i.e. every company the user
+      // sees, so the list shows on open — the same "list on open, typing
+      // narrows" behaviour as the platform picker — instead of staying
+      // empty until the user types.
       const trimmed = query.trim();
-      if (!trimmed) {
-        setOptions([]);
-        setIsLoading(false);
-        return;
-      }
       const id = ++requestId.current;
       setIsLoading(true);
       try {

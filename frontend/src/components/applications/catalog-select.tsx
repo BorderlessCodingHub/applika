@@ -170,7 +170,12 @@ export interface CatalogSelectProps {
   /** A row not (yet) present in `options` — a free-text pick or a just-created row. */
   selectedOption?: CatalogOption | null;
   onValueChange: (id: string, option: CatalogOption) => void;
-  /** Debounced 300ms; called with `""` immediately on close. */
+  /**
+   * Debounced 300ms while typing; called immediately (not debounced) with
+   * the current search on open and with `""` on close (KODI-035, AC1) — so
+   * a caller that fetches from it (the company picker) lists the visible
+   * rows as soon as the popover opens, and typing narrows from there.
+   */
   onSearchChange?: (query: string) => void;
   onCreate: (input: NewCatalogInput) => Promise<CatalogCreateOutcome>;
   /**
@@ -262,6 +267,11 @@ export function CatalogSelect({
     setOpen(next);
     if (next) {
       setNotice(null);
+      // Opening lists the visible rows right away (KODI-035, AC1: "list on
+      // open") rather than waiting for the 300ms debounce below — a caller
+      // with no `onSearchChange` (the platform picker, which preloads its
+      // whole list up front) is unaffected.
+      onSearchChange?.(search);
     } else {
       setMode("list");
       setSearch("");
