@@ -68,6 +68,7 @@ def _to_input_dto(payload: DraftInput, user_id: int) -> DraftInputDTO:
         role=payload.role,
         mode=payload.mode,
         platform_id=int(payload.platform_id),
+        application_date=payload.application_date,
         link_to_job=payload.link_to_job,
         observation=payload.observation,
         expected_salary=payload.expected_salary,
@@ -164,16 +165,17 @@ async def delete_draft(
 )
 async def finish_draft(
     draft_id: SnowflakeID,
-    payload: DraftFinish,
     c_user: CurrentUserDp,
     app_repo: ApplicationRepositoryDp,
     read_model: ApplicationReadModelDp,
+    payload: DraftFinish | None = None,
 ):
     use_case = FinishDraftUseCase(app_repo, read_model)
     application = await use_case.execute(
         int(draft_id),
         DraftFinishDTO(
-            user_id=c_user.id, application_date=payload.application_date
+            user_id=c_user.id,
+            application_date=payload.application_date if payload else None,
         ),
     )
     return application

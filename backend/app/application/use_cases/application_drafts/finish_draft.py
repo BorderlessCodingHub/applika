@@ -14,10 +14,12 @@ NEEDS_CV_MESSAGE = 'Pick a master CV before finishing'
 
 class FinishDraftUseCase:
     """Turn a draft into a normal application (KODI-032 acceptance #2, #7,
-    #8): a CV copy is required, the finish date is the caller's own
-    calendar day (refused in the future, same rule every other application
-    date uses), ``is_draft`` flips to false and ``cycle_id`` stays NULL - a
-    finished draft joins the current board like any other application."""
+    #8): a CV copy is required, ``is_draft`` flips to false and ``cycle_id``
+    stays NULL - a finished draft joins the current board like any other
+    application. KODI-036, R-003: the finish body's ``application_date`` is
+    optional - given, it wins; absent, the draft's own stored date (set on
+    create or on a later PUT) is used. Either way the date is refused in the
+    future, same rule every other application date uses."""
 
     def __init__(
         self,
@@ -35,9 +37,10 @@ class FinishDraftUseCase:
         if application.tailored_cv is None:
             raise BusinessRuleViolation(NEEDS_CV_MESSAGE)
 
-        ensure_not_in_future(data.application_date, 'application_date')
+        day = data.application_date or application.application_date
+        ensure_not_in_future(day, 'application_date')
 
-        application.application_date = data.application_date
+        application.application_date = day
         application.is_draft = False
 
         application = await self.application_repo.update(application)

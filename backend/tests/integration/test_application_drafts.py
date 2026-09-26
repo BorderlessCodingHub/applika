@@ -19,6 +19,14 @@ Covers, by acceptance criterion:
 * #15/#16 - company resolution: id wins, name-only stays free text, an
   invisible company/platform is 404 and writes nothing.
 * #6 backend half - two PUTs, last one wins.
+
+KODI-036 (AC1 server half): a POST without ``application_date`` defaults to
+the server's own day; a given date is stored and returned; a PUT that omits
+the key or sends it explicit ``null`` keeps the stored value, never clears;
+a date beyond ``UTC today + 1`` is a 422 on create and update, and nothing
+is saved. ``POST .../finish`` accepts no body, ``{}`` or
+``{application_date}``: the body date wins when given, else the draft's own
+stored date is used, still refused in the future.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -111,6 +119,99 @@ async def test_create_draft_has_cv_false(async_client: AsyncClient):
     assert draft['has_cv'] is False, msg(False, draft['has_cv'])
     assert draft['company_id'] == str(base_data()['company_acme'].id)
     assert draft['mode'] == 'active'
+
+
+# ---------------------------------------------------------------------------
+# application_date (KODI-036, R-003, AC1 server half)
+# ---------------------------------------------------------------------------
+
+
+async def test_create_draft_without_date_defaults_to_server_today(
+    async_client: AsyncClient,
+):
+    draft = await _create_draft(async_client)
+    assert draft['application_date'] == datetime.now(UTC).date().isoformat()
+
+
+async def test_create_draft_with_date_stores_it(async_client: AsyncClient):
+    given = '2026-01-02'
+    draft = await _create_draft(async_client, application_date=given)
+    assert draft['application_date'] == given
+
+    fetched = await async_client.get(f'/applications/drafts/{draft["id"]}')
+    assert fetched.json()['application_date'] == given
+
+
+async def test_create_draft_future_date_is_422_and_writes_nothing(
+    async_client: AsyncClient,
+):
+    too_far = (datetime.now(UTC) + timedelta(days=2)).date().isoformat()
+    response = await async_client.post(
+        '/applications/drafts',
+        json=draft_payload(application_date=too_far),
+    )
+    assert response.status_code == 422, msg(422, response.status_code)
+
+    listed = await async_client.get('/applications/drafts')
+    assert listed.json() == [], msg([], listed.json())
+
+
+async def test_update_draft_without_date_key_keeps_stored_value(
+    async_client: AsyncClient,
+):
+    given = '2026-01-02'
+    draft = await _create_draft(async_client, application_date=given)
+
+    payload = draft_payload(role='Touched')
+    payload.pop('application_date', None)
+    response = await async_client.put(
+        f'/applications/drafts/{draft["id"]}', json=payload
+    )
+    assert response.status_code == 200, msg(200, response.text)
+    assert response.json()['application_date'] == given
+
+
+async def test_update_draft_explicit_null_date_keeps_stored_value(
+    async_client: AsyncClient,
+):
+    given = '2026-01-02'
+    draft = await _create_draft(async_client, application_date=given)
+
+    response = await async_client.put(
+        f'/applications/drafts/{draft["id"]}',
+        json=draft_payload(application_date=None),
+    )
+    assert response.status_code == 200, msg(200, response.text)
+    assert response.json()['application_date'] == given
+
+
+async def test_update_draft_with_date_overwrites_stored_value(
+    async_client: AsyncClient,
+):
+    draft = await _create_draft(async_client, application_date='2026-01-02')
+
+    response = await async_client.put(
+        f'/applications/drafts/{draft["id"]}',
+        json=draft_payload(application_date='2026-02-10'),
+    )
+    assert response.status_code == 200, msg(200, response.text)
+    assert response.json()['application_date'] == '2026-02-10'
+
+
+async def test_update_draft_future_date_is_422_and_writes_nothing(
+    async_client: AsyncClient,
+):
+    draft = await _create_draft(async_client, application_date='2026-01-02')
+    too_far = (datetime.now(UTC) + timedelta(days=2)).date().isoformat()
+
+    response = await async_client.put(
+        f'/applications/drafts/{draft["id"]}',
+        json=draft_payload(application_date=too_far),
+    )
+    assert response.status_code == 422, msg(422, response.status_code)
+
+    fetched = await async_client.get(f'/applications/drafts/{draft["id"]}')
+    assert fetched.json()['application_date'] == '2026-01-02'
 
 
 async def test_create_draft_name_only_company_stays_free_text(
@@ -336,6 +437,66 @@ async def test_finish_draft_date_beyond_utc_plus_one_is_422(
         json={'application_date': too_far},
     )
     assert response.status_code == 422, msg(422, response.status_code)
+
+
+async def test_finish_draft_no_body_uses_stored_date(async_client: AsyncClient):
+    given = '2026-01-02'
+    draft = await _create_draft(async_client, application_date=given)
+    base_cv = await _create_base_cv(async_client)
+    await _attach_cv(async_client, draft['id'], base_cv['id'])
+
+    response = await async_client.post(
+        f'/applications/drafts/{draft["id"]}/finish'
+    )
+    assert response.status_code == 200, msg(200, response.text)
+    assert response.json()['application_date'] == given
+
+
+async def test_finish_draft_empty_body_uses_stored_date(
+    async_client: AsyncClient,
+):
+    given = '2026-01-02'
+    draft = await _create_draft(async_client, application_date=given)
+    base_cv = await _create_base_cv(async_client)
+    await _attach_cv(async_client, draft['id'], base_cv['id'])
+
+    response = await async_client.post(
+        f'/applications/drafts/{draft["id"]}/finish', json={}
+    )
+    assert response.status_code == 200, msg(200, response.text)
+    assert response.json()['application_date'] == given
+
+
+async def test_finish_draft_body_date_overrides_stored_value(
+    async_client: AsyncClient,
+):
+    draft = await _create_draft(async_client, application_date='2026-01-02')
+    base_cv = await _create_base_cv(async_client)
+    await _attach_cv(async_client, draft['id'], base_cv['id'])
+
+    response = await async_client.post(
+        f'/applications/drafts/{draft["id"]}/finish',
+        json={'application_date': '2026-01-20'},
+    )
+    assert response.status_code == 200, msg(200, response.text)
+    assert response.json()['application_date'] == '2026-01-20'
+
+
+async def test_finish_draft_created_without_date_uses_creation_day(
+    async_client: AsyncClient,
+):
+    draft = await _create_draft(async_client)
+    base_cv = await _create_base_cv(async_client)
+    await _attach_cv(async_client, draft['id'], base_cv['id'])
+
+    response = await async_client.post(
+        f'/applications/drafts/{draft["id"]}/finish'
+    )
+    assert response.status_code == 200, msg(200, response.text)
+    assert (
+        response.json()['application_date']
+        == datetime.now(UTC).date().isoformat()
+    )
 
 
 async def test_finish_draft_appears_in_applications_with_copy_and_date(

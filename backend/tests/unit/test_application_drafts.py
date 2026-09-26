@@ -150,6 +150,35 @@ async def test_create_draft_name_only_company_stays_free_text():
     company_repo.get_visible.assert_not_called()
 
 
+async def test_create_draft_stores_given_application_date():
+    app_repo = AsyncMock()
+    platform_repo = AsyncMock()
+    company_repo = AsyncMock()
+    platform_repo.get_visible.return_value = MagicMock()
+    given = date(2026, 1, 2)
+    app_repo.create_draft.return_value = _draft(application_date=given)
+
+    uc = CreateDraftUseCase(app_repo, platform_repo, company_repo)
+    result = await uc.execute(_input_dto(application_date=given))
+
+    assert result.application_date == given
+    passed_dto = app_repo.create_draft.call_args.args[0]
+    assert passed_dto.application_date == given
+
+
+async def test_create_draft_future_date_is_422_and_writes_nothing():
+    app_repo = AsyncMock()
+    platform_repo = AsyncMock()
+    company_repo = AsyncMock()
+    too_far = (datetime.now(UTC) + timedelta(days=2)).date()
+
+    uc = CreateDraftUseCase(app_repo, platform_repo, company_repo)
+    with pytest.raises(InvalidDate):
+        await uc.execute(_input_dto(application_date=too_far))
+    app_repo.create_draft.assert_not_called()
+    platform_repo.get_visible.assert_not_called()
+
+
 async def test_update_draft_not_found_is_404():
     app_repo = AsyncMock()
     platform_repo = AsyncMock()
@@ -177,6 +206,78 @@ async def test_update_draft_keeps_cv_copy_untouched():
 
     assert result.has_cv is True
     assert draft.tailored_cv is existing_copy
+
+
+async def test_update_draft_without_application_date_keeps_stored_value():
+    app_repo = AsyncMock()
+    platform_repo = AsyncMock()
+    company_repo = AsyncMock()
+    stored = date(2026, 1, 1)
+    draft = _draft(application_date=stored)
+    app_repo.get_draft.return_value = draft
+    platform_repo.get_visible.return_value = MagicMock()
+    app_repo.update.side_effect = lambda application: application
+
+    uc = UpdateDraftUseCase(app_repo, platform_repo, company_repo)
+    result = await uc.execute(
+        1, _input_dto(role='Staff Engineer', application_date=None)
+    )
+
+    assert draft.application_date == stored
+    assert result.application_date == stored
+
+
+async def test_update_draft_explicit_none_keeps_stored_value():
+    """Explicit ``null`` on PUT is treated exactly like an absent key -
+    never clears the stored date (API contract, KODI-036)."""
+    app_repo = AsyncMock()
+    platform_repo = AsyncMock()
+    company_repo = AsyncMock()
+    stored = date(2026, 1, 1)
+    draft = _draft(application_date=stored)
+    app_repo.get_draft.return_value = draft
+    platform_repo.get_visible.return_value = MagicMock()
+    app_repo.update.side_effect = lambda application: application
+
+    payload = DraftInput(**_draft_input_payload(application_date=None))
+    assert 'application_date' in payload.model_fields_set
+
+    uc = UpdateDraftUseCase(app_repo, platform_repo, company_repo)
+    dto = _input_dto(application_date=payload.application_date)
+    result = await uc.execute(1, dto)
+
+    assert draft.application_date == stored
+    assert result.application_date == stored
+
+
+async def test_update_draft_with_application_date_overwrites_stored_value():
+    app_repo = AsyncMock()
+    platform_repo = AsyncMock()
+    company_repo = AsyncMock()
+    draft = _draft(application_date=date(2026, 1, 1))
+    app_repo.get_draft.return_value = draft
+    platform_repo.get_visible.return_value = MagicMock()
+    app_repo.update.side_effect = lambda application: application
+
+    new_date = date(2026, 2, 2)
+    uc = UpdateDraftUseCase(app_repo, platform_repo, company_repo)
+    result = await uc.execute(1, _input_dto(application_date=new_date))
+
+    assert draft.application_date == new_date
+    assert result.application_date == new_date
+
+
+async def test_update_draft_future_date_is_422_and_writes_nothing():
+    app_repo = AsyncMock()
+    platform_repo = AsyncMock()
+    company_repo = AsyncMock()
+    too_far = (datetime.now(UTC) + timedelta(days=2)).date()
+
+    uc = UpdateDraftUseCase(app_repo, platform_repo, company_repo)
+    with pytest.raises(InvalidDate):
+        await uc.execute(1, _input_dto(application_date=too_far))
+    app_repo.get_draft.assert_not_called()
+    app_repo.update.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +321,39 @@ async def test_finish_draft_not_found_is_404():
         await uc.execute(
             1, DraftFinishDTO(user_id=1, application_date=date.today())
         )
+
+
+async def test_finish_draft_no_body_uses_stored_date():
+    app_repo = AsyncMock()
+    read_model = AsyncMock()
+    stored = date(2026, 1, 5)
+    draft = _draft(tailored_cv=SimpleNamespace(id=1), application_date=stored)
+    app_repo.get_draft.return_value = draft
+    app_repo.update.side_effect = lambda application: application
+    read_model.one.return_value = SimpleNamespace(id=draft.id)
+
+    uc = FinishDraftUseCase(app_repo, read_model)
+    await uc.execute(1, DraftFinishDTO(user_id=1, application_date=None))
+
+    assert draft.application_date == stored
+    assert draft.is_draft is False
+
+
+async def test_finish_draft_body_date_overrides_stored_value():
+    app_repo = AsyncMock()
+    read_model = AsyncMock()
+    draft = _draft(
+        tailored_cv=SimpleNamespace(id=1), application_date=date(2026, 1, 5)
+    )
+    app_repo.get_draft.return_value = draft
+    app_repo.update.side_effect = lambda application: application
+    read_model.one.return_value = SimpleNamespace(id=draft.id)
+
+    override = date(2026, 1, 20)
+    uc = FinishDraftUseCase(app_repo, read_model)
+    await uc.execute(1, DraftFinishDTO(user_id=1, application_date=override))
+
+    assert draft.application_date == override
 
 
 async def test_finish_draft_sets_is_draft_false_and_the_given_date():
@@ -286,3 +420,16 @@ def test_draft_input_accepts_job_description_at_max_length():
     draft = DraftInput(**_draft_input_payload(job_description='x' * 50_000))
     assert draft.job_description is not None
     assert len(draft.job_description) == 50_000
+
+
+def test_draft_input_application_date_defaults_to_none():
+    draft = DraftInput(**_draft_input_payload())
+    assert draft.application_date is None
+    assert 'application_date' not in draft.model_fields_set
+
+
+def test_draft_input_accepts_an_explicit_application_date():
+    draft = DraftInput(
+        **_draft_input_payload(application_date='2026-01-15')
+    )
+    assert draft.application_date == date(2026, 1, 15)

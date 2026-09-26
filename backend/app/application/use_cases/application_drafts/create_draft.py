@@ -1,5 +1,6 @@
 from app.application.dto.application_draft import DraftDTO, DraftInputDTO
 from app.application.use_cases.catalog.resolve import ensure_platform_visible
+from app.application.validators.application_date import ensure_not_in_future
 from app.core.exceptions import ResourceNotFound
 from app.domain.models import ApplicationModel
 from app.domain.repositories.application_repository import (
@@ -57,6 +58,7 @@ def to_draft_dto(application: ApplicationModel, has_cv: bool) -> DraftDTO:
         work_mode=application.work_mode,
         country=application.country,
         job_description=application.job_description,
+        application_date=application.application_date,
         has_cv=has_cv,
     )
 
@@ -73,8 +75,11 @@ class CreateDraftUseCase:
         self.company_repo = company_repo
 
     async def execute(self, data: DraftInputDTO) -> DraftDTO:
-        # Platform, then company, then the write - a 404 on either writes
-        # nothing (ADR-0014).
+        # Date, then platform, then company, then the write - a 422 or a
+        # 404 on any of them writes nothing (ADR-0014, KODI-036).
+        if data.application_date is not None:
+            ensure_not_in_future(data.application_date, 'application_date')
+
         await ensure_platform_visible(
             self.platform_repo, data.platform_id, data.user_id
         )

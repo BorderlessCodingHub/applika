@@ -1,14 +1,16 @@
-"""DTOs for the "new application with CV" draft flow (KODI-032, ADR-0014).
-
-A draft carries every field the ordinary application create/update flow does
-except ``application_date`` - the draft is never asked for one; it is dated
-with the server's own day as a placeholder on create
-(``ApplicationRepository.create_draft``) and with the caller's own calendar
-day, validated by ``ensure_not_in_future``, only when it is finished
-(``DraftFinishDTO``). The company is carried as ``company_id | company_name``
-(no URL, unlike the ordinary application's ``{name, url}`` input): an id
-wins and its row's name is stored; a bare name stays free text, exactly like
-the ordinary flow's ``{name, url: null}`` (R-024-3).
+"""DTOs for the "new application with CV" draft flow (KODI-032, ADR-0014,
+KODI-036). A draft carries every field the ordinary application
+create/update flow does. ``application_date`` (KODI-036, R-003) is optional
+on ``DraftInputDTO``: ``None`` means "create with the server's own day" on
+``ApplicationRepository.create_draft`` and "keep the stored value" on
+``UpdateDraftUseCase`` - it never clears a stored date. ``DraftFinishDTO
+.application_date`` is optional too: given, it wins (validated by
+``ensure_not_in_future``); absent, the draft's own stored date is used.
+``DraftDTO``, the response shape, always carries the field. The company is
+carried as ``company_id | company_name`` (no URL, unlike the ordinary
+application's ``{name, url}`` input): an id wins and its row's name is
+stored; a bare name stays free text, exactly like the ordinary flow's
+``{name, url: null}`` (R-024-3).
 """
 
 from datetime import date
@@ -32,6 +34,7 @@ class DraftInputDTO(BaseModel):
     role: str
     mode: Literal['active', 'passive'] = 'active'
     platform_id: int
+    application_date: date | None = None
     link_to_job: HttpUrl | None = None
     observation: str | None = None
     expected_salary: float | None = None
@@ -47,7 +50,7 @@ class DraftInputDTO(BaseModel):
 
 class DraftFinishDTO(BaseModel):
     user_id: int
-    application_date: date
+    application_date: date | None = None
 
 
 class DraftDTO(BaseSchema):
@@ -62,6 +65,7 @@ class DraftDTO(BaseSchema):
     role: str
     mode: Literal['active', 'passive']
     platform_id: int
+    application_date: date
     link_to_job: str | None = None
     observation: str | None = None
     expected_salary: float | None = None

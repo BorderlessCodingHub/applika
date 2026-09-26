@@ -97,9 +97,10 @@ class ApplicationRepository:
         company_id: int | None,
         company_name: str,
     ) -> ApplicationModel:
-        """A draft's ``application_date`` is a server-today placeholder -
-        it is never asked from the user and is overwritten by
-        ``finish_draft`` with the caller's own date."""
+        """KODI-036, R-003: ``data.application_date`` is optional - given, it
+        is stored as-is (already validated by ``CreateDraftUseCase``);
+        absent, the draft is dated with the server's own day, same as
+        before this ticket."""
         try:
             db_application = ApplicationModel(
                 **data.model_dump(
@@ -108,6 +109,7 @@ class ApplicationRepository:
                         'company_id',
                         'company_name',
                         'link_to_job',
+                        'application_date',
                     }
                 ),
                 user_id=data.user_id,
@@ -116,7 +118,7 @@ class ApplicationRepository:
                 link_to_job=(
                     str(data.link_to_job) if data.link_to_job else None
                 ),
-                application_date=date.today(),
+                application_date=data.application_date or date.today(),
                 is_draft=True,
                 cycle_id=None,
             )

@@ -306,6 +306,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- KODI-036 draft applications now carry `application_date` (S8 of PRD 0010,
+  R-003; reuses the existing `applications.application_date` column, no
+  migration). `DraftInput.application_date` is optional: `POST
+  /applications/drafts` without it still defaults to the server's own day
+  (unchanged), `PUT /applications/drafts/{id}` without the key, or with it
+  explicit `null`, keeps the stored value - it never clears, the only draft
+  field with that rule. Either way a given date beyond `UTC today + 1` is a
+  422 and nothing is written. `Draft` (every create/get/update response) now
+  always carries `application_date`. `POST
+  /applications/drafts/{id}/finish` now takes an **optional** body - no
+  body, `{}` or `{application_date}` - the body date wins when given, else
+  the draft's own stored date is used; the 422 "Pick a master CV before
+  finishing" and the future-date 422 are unchanged. Not a CLI route; no CLI
+  changelog entry.
 - KODI-035 GET /admin/platforms paginated with search, visibility, sort and
   applications_count (drafts excluded); /supports unchanged.
 - KODI-032: `GET /applications`, statistics, reports, cycles, the agenda

@@ -4,6 +4,7 @@ from app.application.use_cases.application_drafts.create_draft import (
     to_draft_dto,
 )
 from app.application.use_cases.catalog.resolve import ensure_platform_visible
+from app.application.validators.application_date import ensure_not_in_future
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -31,6 +32,11 @@ class UpdateDraftUseCase:
         self.company_repo = company_repo
 
     async def execute(self, id: int, data: DraftInputDTO) -> DraftDTO:
+        # KODI-036: validated up front, before the draft is even fetched,
+        # so a future date writes nothing.
+        if data.application_date is not None:
+            ensure_not_in_future(data.application_date, 'application_date')
+
         application = await self.application_repo.get_draft(id, data.user_id)
         if not application:
             raise ResourceNotFound('Draft not found')
@@ -61,6 +67,11 @@ class UpdateDraftUseCase:
         application.work_mode = data.work_mode
         application.country = data.country
         application.job_description = data.job_description
+        # KODI-036, R-003: application_date is sticky, unlike every other
+        # field above - an omitted key or an explicit null both mean "keep
+        # the stored value" (never clears), so only a given value is applied.
+        if data.application_date is not None:
+            application.application_date = data.application_date
 
         application = await self.application_repo.update(application)
         return to_draft_dto(

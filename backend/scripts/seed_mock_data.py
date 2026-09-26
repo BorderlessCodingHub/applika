@@ -473,12 +473,16 @@ def seed_drafts(
     base_cv_ids: list[str],
 ) -> None:
     """Exercise the "new application with CV" draft flow (KODI-032,
-    ADR-0014): one draft finished with a CV copy (it becomes an ordinary
-    application), one left open with a CV copy attached (it must stay out
-    of ``GET /applications`` and everything else that reads applications).
+    ADR-0014, KODI-036): one draft finished with a CV copy (it becomes an
+    ordinary application), one left open with a CV copy attached (it must
+    stay out of ``GET /applications`` and everything else that reads
+    applications). The finished draft sends its own ``application_date`` on
+    create and is finished with no body, so the stored date - not today -
+    is what the finished application carries.
     """
     print('\nSeeding draft applications...')
 
+    draft_date = date.today() - timedelta(days=5)
     finished_resp = client.post(
         '/applications/drafts',
         json={
@@ -486,6 +490,7 @@ def seed_drafts(
             'company_name': 'Acme Corp',
             'role': 'Platform Engineer (from a draft)',
             'platform_id': platform_id,
+            'application_date': draft_date.isoformat(),
         },
     )
     if finished_resp.status_code != 201:
@@ -505,11 +510,18 @@ def seed_drafts(
                 f'  Failed to attach a CV copy to the draft: {cv_resp.status_code}'
             )
 
+    # No body (KODI-036): the finish date comes from the draft's own stored
+    # application_date, not from today.
     finish_resp = client.post(
-        f'/applications/drafts/{finished_draft["id"]}/finish',
-        json={'application_date': date.today().isoformat()},
+        f'/applications/drafts/{finished_draft["id"]}/finish'
     )
     if finish_resp.status_code == 200:
+        if finish_resp.json().get('application_date') != draft_date.isoformat():
+            print(
+                '  Finished draft application_date mismatch: expected '
+                f'{draft_date.isoformat()}, got '
+                f'{finish_resp.json().get("application_date")}'
+            )
         print(f'  Draft {finished_draft["id"]} finished into an application')
     else:
         print(

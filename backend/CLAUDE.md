@@ -41,7 +41,7 @@ When you add or modify any of the following, update the seed script accordingly:
 - New or changed fields on `POST /base-cvs` — `seed_base_cvs()` creates 3 master CVs and asserts the 4th is refused with 409
 - New or changed behaviour on the `/pdf` export routes — `seed_cv_pdfs()` posts to both at the end of the run and checks the bytes start with `%PDF-`
 - New or changed fields on `/applications/{id}/cv` — `seed_application_cv()` gives roughly half the applications a CV copy and runs the full create → read → update → delete → recreate round trip on the first one, asserting the 2nd copy is refused with 409
-- New or changed fields on `/applications/drafts*` — `seed_drafts()` creates one draft that gets a CV copy and is finished into a normal application, and one draft that is left open with a CV copy attached; it asserts the open one never appears in `GET /applications`
+- New or changed fields on `/applications/drafts*` — `seed_drafts()` creates one draft that gets a CV copy and is finished into a normal application, and one draft that is left open with a CV copy attached; it asserts the open one never appears in `GET /applications`. The finished draft sends its own `application_date` on create and calls `finish` with no body (KODI-036), asserting the finished application keeps that stored date rather than today's
 
 After any such change, mentally walk through the seed script from top to bottom and confirm it would still run without errors against a fresh database.
 
@@ -515,31 +515,44 @@ null`.
 | POST | `/applications/{id}/finalize` | Yes | Close it. No body → 200, idempotent. New optional outcome body → 200, no Deprecation. 0.1.4 body → 201, deprecated |
 | POST | `/applications/{id}/reopen` | Yes | Reopen a closed application (200, idempotent) |
 
-### Application drafts (`/applications/drafts`, KODI-032, ADR-0014, web only - not a CLI route)
+### Application drafts (`/applications/drafts`, KODI-032, ADR-0014, KODI-036, web only - not a CLI route)
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| POST | `/applications/drafts` | Yes | Create a draft (201) |
+| POST | `/applications/drafts` | Yes | Create a draft (201); optional `application_date` |
 | GET | `/applications/drafts` | Yes | List the caller's own drafts, most recently saved first, `[]` when none |
 | GET | `/applications/drafts/{id}` | Yes | Get one own draft (404 otherwise) |
 | PUT | `/applications/drafts/{id}` | Yes | Full replace of the draft's data; never touches its CV copy |
 | DELETE | `/applications/drafts/{id}` | Yes | Delete it (204); its CV copy is cascade-deleted |
-| POST | `/applications/drafts/{id}/finish` | Yes | `{application_date}` → 200 `Application` (same shape `GET /applications` returns); 422 with no CV copy; 422 past `UTC today + 1` |
+| POST | `/applications/drafts/{id}/finish` | Yes | Body optional - no body, `{}` or `{application_date}` - → 200 `Application` (same shape `GET /applications` returns); 422 with no CV copy; 422 past `UTC today + 1` |
 
 **`is_draft` and the `NOT_DRAFT` rule.** A draft is a plain `applications` row
 with `is_draft = true` (`ApplicationModel.is_draft`, migration `3b78c3cd2a71`
 column, mapped by this ticket; `ix_applications_user_id_drafts` mirrored in
 `__table_args__` because the test schema is built with `create_all`). It is
-the "new application with CV" flow: create the draft with its data (no
-`application_date` - it gets a server-today placeholder), attach a CV copy
-through the ordinary `/applications/{id}/cv*` routes (`tailored_cvs/
+the "new application with CV" flow: create the draft with its data, attach a
+CV copy through the ordinary `/applications/{id}/cv*` routes (`tailored_cvs/
 guards.load_owned_application` passes `include_drafts=True`, the **one**
 caller that ever sees a draft through the application repository), then
-`finish` it with the caller's own calendar day. Finishing needs a CV copy
-(422 `"Pick a master CV before finishing"` otherwise), applies
-`ensure_not_in_future` to the submitted date, flips `is_draft` to `false` and
-leaves `cycle_id` NULL - the row then behaves like any application created
-the ordinary way.
+`finish` it. Finishing needs a CV copy (422 `"Pick a master CV before
+finishing"` otherwise), applies `ensure_not_in_future` to the date that will
+be used, flips `is_draft` to `false` and leaves `cycle_id` NULL - the row
+then behaves like any application created the ordinary way.
+
+**`application_date` is saved with the draft** (KODI-036, R-003, reusing the
+existing `applications.application_date` column - no migration).
+`DraftInput.application_date` is optional: a POST that omits it defaults to
+the server's own day (`ApplicationRepository.create_draft`); a PUT that omits
+the key, **or sends it explicit `null`**, keeps the stored value - it never
+clears, unlike every other draft field (which is a full replace, same as
+`job_description` being the one exception on `PUT /applications/{id}`,
+except here *every* absence/`null` of this one field means "leave it alone").
+A given value on create or update is refused past `UTC today + 1`
+(`ensure_not_in_future`) **before** the draft is even read, so a future date
+writes nothing. `Draft`, the response shape, **always** carries
+`application_date` - never null. The finish body's own `application_date` is
+optional too: given, it wins; absent (no body or `{}`), the draft's own
+stored date is used - either way still refused in the future.
 
 `app/domain/repositories/application_filters.NOT_DRAFT` (`ApplicationModel
 .is_draft.is_(False)`) is the one condition every other application read

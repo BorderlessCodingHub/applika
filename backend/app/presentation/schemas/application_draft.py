@@ -1,11 +1,16 @@
-"""Wire schemas for the "new application with CV" draft flow (KODI-032).
-
-``DraftInput`` mirrors ``CreateApplication``/``UpdateApplication``
-(``presentation/schemas/application.py``) field for field, minus
-``application_date`` (a draft is never asked for one) and with the company
+"""Wire schemas for the "new application with CV" draft flow (KODI-032,
+KODI-036). ``DraftInput`` mirrors ``CreateApplication``/``UpdateApplication``
+(``presentation/schemas/application.py``) field for field, with the company
 carried as ``company_id | company_name`` instead of ``{name, url}`` - the
 draft body has no company URL (the owner's decision). ``company_name`` and
 ``role`` are stripped and refused blank.
+
+``application_date`` (KODI-036, R-003) is optional on input: a POST that
+omits it is dated with the server's own day, a PUT that omits it (or sends
+it explicit ``null``) keeps the stored value - never clears, unlike
+``job_description`` on ``UpdateApplication``. ``Draft``, the response shape,
+always carries it. ``DraftFinish`` accepts it too, also optional: the body
+date wins when given, else the draft's own stored date is used.
 """
 
 from datetime import date
@@ -37,6 +42,7 @@ class DraftInput(BaseSchema):
     role: str = Field(min_length=1, max_length=200)
     platform_id: SnowflakeID
     mode: Literal['active', 'passive'] = 'active'
+    application_date: date | None = None
     link_to_job: HttpUrl | None = None
     observation: str | None = None
     expected_salary: float | None = None
@@ -65,6 +71,7 @@ class DraftInput(BaseSchema):
 class Draft(DraftInput, TimeSchema):
     id: SnowflakeID
     has_cv: bool
+    application_date: date
 
 
 class DraftSummary(BaseSchema, TimeSchema):
@@ -76,4 +83,4 @@ class DraftSummary(BaseSchema, TimeSchema):
 
 
 class DraftFinish(BaseSchema):
-    application_date: date
+    application_date: date | None = None
