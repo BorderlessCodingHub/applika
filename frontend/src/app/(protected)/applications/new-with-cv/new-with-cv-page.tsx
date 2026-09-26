@@ -73,10 +73,12 @@ const JOB_DESCRIPTION_MAX = 50_000;
 
 /**
  * The same rules the side sheet's schema enforces (KODI-033 QA round 1, B1),
- * minus `application_date` — this form never asks for one (AC3). Applying it
- * is what stops an invalid job link or an out-of-range job description from
- * ever reaching a `PUT`, and what puts an inline error on screen instead of a
- * silent "Not saved" with no reason.
+ * plus `application_date` (KODI-036, AC1/AC3): step 1 now asks for it too, and
+ * it is validated here the same way — required and never later than the
+ * user's own today. Applying this schema is what stops an invalid job link,
+ * an out-of-range job description or a future date from ever reaching a
+ * `PUT`, and what puts an inline error on screen instead of a silent
+ * "Not saved" with no reason.
  */
 const draftApplicationSchema = z
   .object({

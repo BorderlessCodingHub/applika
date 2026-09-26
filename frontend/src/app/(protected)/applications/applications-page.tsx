@@ -138,7 +138,12 @@ export function ApplicationsPage() {
     });
   }
 
-  const draftsCount = draftsQuery.data?.length ?? 0;
+  // AC8 / design section 6: the count shows only once the query has
+  // succeeded (0 included) — while loading or on error the tab's accessible
+  // name stays plain "Drafts" rather than falsely claiming a count of 0.
+  const draftsCount = draftsQuery.isSuccess
+    ? (draftsQuery.data?.length ?? 0)
+    : undefined;
 
   const toolbarAndFilters = (
     <div className="flex flex-col gap-4">
@@ -392,20 +397,28 @@ export function ApplicationsPage() {
         </div>
       ) : (
         <Tabs defaultValue="applications" className="gap-4">
-          <TabsList variant="line" aria-label={APPLICATIONS_PAGE_COPY.title}>
+          <TabsList variant="line">
             <TabsTrigger value="applications">
               {APPLICATIONS_PAGE_COPY.applicationsTab}
             </TabsTrigger>
-            <TabsTrigger value="drafts">
-              <span aria-hidden="true">{APPLICATIONS_PAGE_COPY.draftsTab}</span>
-              <Badge
-                aria-hidden="true"
-                variant="secondary"
-                className="font-numeric"
-              >
-                {draftsCount}
-              </Badge>
-              <span className="sr-only">{`${APPLICATIONS_PAGE_COPY.draftsTab} (${draftsCount})`}</span>
+            <TabsTrigger
+              value="drafts"
+              aria-label={
+                draftsCount === undefined
+                  ? undefined
+                  : `${APPLICATIONS_PAGE_COPY.draftsTab} (${draftsCount})`
+              }
+            >
+              {APPLICATIONS_PAGE_COPY.draftsTab}
+              {draftsCount !== undefined && (
+                <Badge
+                  aria-hidden="true"
+                  variant="secondary"
+                  className="font-numeric"
+                >
+                  {draftsCount}
+                </Badge>
+              )}
             </TabsTrigger>
           </TabsList>
           <TabsContent value="applications" className="flex flex-col gap-4">

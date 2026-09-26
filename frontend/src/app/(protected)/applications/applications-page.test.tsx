@@ -65,14 +65,22 @@ vi.mock("@/hooks/use-reopen-application", () => ({
 }));
 
 const deleteDraft = vi.fn();
-let draftsState: { data: unknown[] | undefined } = { data: undefined };
+let draftsState: {
+  data: unknown[] | undefined;
+  isLoading: boolean;
+  isError: boolean;
+  isSuccess: boolean;
+} = { data: undefined, isLoading: false, isError: false, isSuccess: true };
 
 vi.mock("@/hooks/use-application-drafts", () => ({
   useDrafts: () => ({
     data: draftsState.data,
-    isLoading: false,
-    isError: false,
-    error: null,
+    isLoading: draftsState.isLoading,
+    isError: draftsState.isError,
+    isSuccess: draftsState.isSuccess,
+    error: draftsState.isError
+      ? { response: { data: { detail: "Could not load drafts" } } }
+      : null,
     refetch: vi.fn(),
   }),
   useDeleteDraft: () => ({ mutate: deleteDraft, isPending: false }),
@@ -101,8 +109,17 @@ function setHookState(overrides: Partial<typeof hookState>) {
   };
 }
 
-function setDraftsState(data: unknown[] | undefined) {
-  draftsState = { data };
+function setDraftsState(
+  data: unknown[] | undefined,
+  overrides?: Partial<Omit<typeof draftsState, "data">>,
+) {
+  draftsState = {
+    data,
+    isLoading: false,
+    isError: false,
+    isSuccess: true,
+    ...overrides,
+  };
 }
 
 describe("ApplicationsPage — status filter label (G6)", () => {
@@ -256,6 +273,34 @@ describe("ApplicationsPage — Applications | Drafts tabs (KODI-036, AC8)", () =
     expect(
       within(draftsSection).getByRole("link", { name: "New with CV" }),
     ).toHaveAttribute("href", "/applications/new-with-cv");
+  });
+
+  it("shows no count while the drafts query is loading (design section 6 state 1)", () => {
+    setHookState({});
+    setDraftsState(undefined, {
+      isLoading: true,
+      isSuccess: false,
+    });
+    render(<ApplicationsPage />);
+
+    expect(screen.getByRole("tab", { name: "Drafts" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: /drafts \(/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows no count when the drafts query errors, never a false Drafts (0) (design section 6 state 4)", () => {
+    setHookState({});
+    setDraftsState(undefined, {
+      isError: true,
+      isSuccess: false,
+    });
+    render(<ApplicationsPage />);
+
+    expect(screen.getByRole("tab", { name: "Drafts" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: /drafts \(/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("Delete confirmed calls the delete-draft mutation with the draft's id", async () => {
