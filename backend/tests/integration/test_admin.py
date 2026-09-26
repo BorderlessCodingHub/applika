@@ -4,10 +4,12 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import EventType
+from app.domain.models import CompanyModel, PlatformModel
 from app.main import app as main_app
 from tests import msg
 from tests.base_db_setup import base_data
 from tests.integration import timeline_seed as ts
+from tests.integration.conftest import as_user
 
 # ── Access Control: non-admin user gets 403 on every admin route ────
 
@@ -302,6 +304,317 @@ async def test_admin_delete_platform_no_refs(
 
     resp = await admin_client.delete(f'/admin/platforms/{plat_id}')
     assert resp.status_code == 204, msg(204, resp.status_code)
+
+
+# ── Private catalog rows and admin Approve (ADR-0014, KODI-031) ────
+#
+# admin_client and async_client both mutate the SAME global
+# ``get_current_user`` override (they are not per-client identities), so a
+# test that needs both a regular user's and the admin's point of view uses
+# ``async_client`` throughout and switches identity with ``as_user`` -
+# mixing the two client fixtures in one test silently makes every call
+# answer as whichever fixture was instantiated last.
+
+
+def _admin_context():
+    admin = base_data()['admin_user']
+    return as_user(admin.id, admin.username, is_admin=True)
+
+
+async def test_admin_create_company_is_public_at_once(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    async with _admin_context():
+        resp = await async_client.post(
+            '/admin/companies',
+            json={
+                'name': 'Admin Screen Co',
+                'url': 'https://adminscreenco.com',
+            },
+        )
+    assert resp.status_code == 201
+    assert resp.json()['is_public'] is True
+
+
+async def test_admin_create_platform_is_public_at_once(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    async with _admin_context():
+        resp = await async_client.post(
+            '/admin/platforms', json={'name': 'Admin Screen Board'}
+        )
+    assert resp.status_code == 201
+    assert resp.json()['is_public'] is True
+
+
+async def test_admin_own_applications_flow_creates_private_rows(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """Owner decision, 2026-09-25: an admin using the ordinary user flows
+    (their own applications) gets a private row, exactly like any user."""
+    async with _admin_context():
+        company_resp = await async_client.post(
+            '/companies',
+            json={'name': 'Admin Own Co', 'url': 'https://adminownco.com'},
+        )
+        assert company_resp.status_code == 201
+        assert company_resp.json()['is_public'] is False
+
+        platform_resp = await async_client.post(
+            '/platforms', json={'name': 'Admin Own Board'}
+        )
+        assert platform_resp.status_code == 201
+        assert platform_resp.json()['is_public'] is False
+
+        app_resp = await async_client.post(
+            '/applications',
+            json={
+                'company': {
+                    'name': 'Admin Inline Co',
+                    'url': 'https://admininlineco.com',
+                },
+                'role': 'Engineer',
+                'mode': 'active',
+                'platform_id': platform_resp.json()['id'],
+                'application_date': '2025-12-01',
+            },
+        )
+        assert app_resp.status_code == 201
+        companies = (await async_client.get('/companies')).json()
+
+    inline = next(c for c in companies if c['name'] == 'Admin Inline Co')
+    assert inline['is_public'] is False
+
+
+async def test_admin_companies_list_shows_private_rows_with_created_by(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    resp = await async_client.post(
+        '/companies',
+        json={'name': 'Visible To Admin Co', 'url': 'https://vtaco.com'},
+    )
+    company_id = resp.json()['id']
+
+    async with _admin_context():
+        listing = await async_client.get('/admin/companies?visibility=private')
+        assert listing.status_code == 200
+        row = next(r for r in listing.json()['items'] if r['id'] == company_id)
+        assert row['is_public'] is False
+        assert row['created_by']['id'] == str(base_data()['user'].id)
+        assert row['created_by']['username'] == base_data()['user'].username
+
+        public_only = await async_client.get(
+            '/admin/companies?visibility=public'
+        )
+    ids = [r['id'] for r in public_only.json()['items']]
+    assert company_id not in ids
+
+
+async def test_admin_platforms_list_shows_private_rows_with_created_by(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    resp = await async_client.post(
+        '/platforms', json={'name': 'Visible To Admin Board'}
+    )
+    platform_id = resp.json()['id']
+
+    async with _admin_context():
+        listing = await async_client.get('/admin/platforms?visibility=private')
+        assert listing.status_code == 200
+        row = next(r for r in listing.json() if r['id'] == platform_id)
+        assert row['is_public'] is False
+        assert row['created_by']['id'] == str(base_data()['user'].id)
+
+        public_only = await async_client.get(
+            '/admin/platforms?visibility=public'
+        )
+    ids = [r['id'] for r in public_only.json()]
+    assert platform_id not in ids
+
+
+async def test_admin_publish_company_makes_it_visible_to_everyone(
+    async_client: AsyncClient, db_session: AsyncSession, second_user
+):
+    create_resp = await async_client.post(
+        '/companies',
+        json={'name': 'Publish Me Co', 'url': 'https://publishmeco.com'},
+    )
+    company_id = create_resp.json()['id']
+
+    async with _admin_context():
+        publish_resp = await async_client.post(
+            f'/admin/companies/{company_id}/publish'
+        )
+    assert publish_resp.status_code == 200, msg(200, publish_resp.status_code)
+    published = publish_resp.json()
+    assert published['is_public'] is True
+    assert published['created_by']['id'] == str(base_data()['user'].id)
+
+    async with as_user(second_user.id, second_user.username):
+        other_list = await async_client.get('/companies')
+    names = [c['name'] for c in other_list.json()]
+    assert 'Publish Me Co' in names, msg('Publish Me Co visible', names)
+
+
+async def test_admin_publish_company_is_idempotent(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    create_resp = await async_client.post(
+        '/companies',
+        json={'name': 'Idempotent Co', 'url': 'https://idempotentco.com'},
+    )
+    company_id = create_resp.json()['id']
+
+    async with _admin_context():
+        first = await async_client.post(
+            f'/admin/companies/{company_id}/publish'
+        )
+        second = await async_client.post(
+            f'/admin/companies/{company_id}/publish'
+        )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+
+async def test_admin_publish_company_not_found(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    async with _admin_context():
+        resp = await async_client.post('/admin/companies/999999/publish')
+    assert resp.status_code == 404, msg(404, resp.status_code)
+
+
+async def test_admin_publish_company_collision_names_the_public_row(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """A private company that would duplicate a public one on
+    (lower(name), url) refuses to publish, naming that public row. Neither
+    create flow can produce this pair on its own (both dedupe against
+    visible rows) - seeded directly, the way a stray legacy duplicate
+    would exist."""
+    private_resp = await async_client.post(
+        '/companies',
+        json={'name': 'Collision Co', 'url': 'https://collisionco.com'},
+    )
+    company_id = private_resp.json()['id']
+    # Read the raw stored url back, not the API's HttpUrl-serialised
+    # response (which may add a trailing slash the stored value lacks).
+    private_row = await db_session.get(CompanyModel, int(company_id))
+    assert private_row is not None
+    stored_url = private_row.url
+
+    public = CompanyModel(
+        id=9001,
+        name='Collision Co',
+        url=stored_url,
+        is_public=True,
+        created_by=base_data()['admin_user'].id,
+    )
+    db_session.add(public)
+    await db_session.commit()
+
+    async with _admin_context():
+        resp = await async_client.post(f'/admin/companies/{company_id}/publish')
+
+    assert resp.status_code == 409, msg(409, resp.status_code)
+    assert str(public.id) in resp.json()['detail']
+    assert 'Collision Co' in resp.json()['detail']
+
+
+async def test_admin_publish_platform_makes_it_visible_to_everyone(
+    async_client: AsyncClient, db_session: AsyncSession, second_user
+):
+    create_resp = await async_client.post(
+        '/platforms', json={'name': 'Publish Me Board'}
+    )
+    platform_id = create_resp.json()['id']
+
+    async with _admin_context():
+        publish_resp = await async_client.post(
+            f'/admin/platforms/{platform_id}/publish'
+        )
+    assert publish_resp.status_code == 200, msg(200, publish_resp.status_code)
+    assert publish_resp.json()['is_public'] is True
+    assert publish_resp.json()['created_by']['id'] == str(
+        base_data()['user'].id
+    )
+
+    async with as_user(second_user.id, second_user.username):
+        other_supports = await async_client.get('/supports')
+    names = [p['name'] for p in other_supports.json()['platforms']]
+    assert 'Publish Me Board' in names, msg('Publish Me Board visible', names)
+
+
+async def test_admin_publish_platform_not_found(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    async with _admin_context():
+        resp = await async_client.post('/admin/platforms/999999/publish')
+    assert resp.status_code == 404, msg(404, resp.status_code)
+
+
+async def test_admin_publish_platform_collision_names_the_public_row(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    private_resp = await async_client.post(
+        '/platforms', json={'name': 'Collision Board'}
+    )
+    platform_id = private_resp.json()['id']
+
+    public = PlatformModel(
+        id=9002,
+        name='Collision Board',
+        url=None,
+        is_public=True,
+        created_by=base_data()['admin_user'].id,
+    )
+    db_session.add(public)
+    await db_session.commit()
+
+    async with _admin_context():
+        resp = await async_client.post(
+            f'/admin/platforms/{platform_id}/publish'
+        )
+
+    assert resp.status_code == 409, msg(409, resp.status_code)
+    assert str(public.id) in resp.json()['detail']
+
+
+async def test_publish_routes_refuse_non_admin(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    resp1 = await async_client.post('/admin/companies/1/publish')
+    resp2 = await async_client.post('/admin/platforms/1/publish')
+    assert resp1.status_code == 403, msg(403, resp1.status_code)
+    assert resp2.status_code == 403, msg(403, resp2.status_code)
+
+
+async def test_admin_delete_platform_in_use_is_still_refused(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """count_entity_references is unchanged by ADR-0014: a private platform
+    referenced by an application still blocks the admin delete."""
+    create_resp = await async_client.post(
+        '/platforms', json={'name': 'In Use Board'}
+    )
+    platform_id = create_resp.json()['id']
+
+    app_resp = await async_client.post(
+        '/applications',
+        json={
+            'company': base_data()['company_acme'].id,
+            'role': 'Engineer',
+            'mode': 'active',
+            'platform_id': platform_id,
+            'application_date': '2025-12-01',
+        },
+    )
+    assert app_resp.status_code == 201
+
+    async with _admin_context():
+        resp = await async_client.delete(f'/admin/platforms/{platform_id}')
+    assert resp.status_code == 409, msg(409, resp.status_code)
 
 
 # ── Step and feedback catalogs: retired (R-021) ────────────────────

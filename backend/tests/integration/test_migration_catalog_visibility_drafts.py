@@ -1315,20 +1315,23 @@ def test_round_trip_carries_a_private_platform(migration_db: str) -> None:
 
 
 # --------------------------------------------------------------------------
-# non-destructive-migrations.md rule 7 — no ORM model maps the new columns
+# non-destructive-migrations.md rule 7 — Release A's columns, mapped only
+# where the owning release says so
 # --------------------------------------------------------------------------
 
 
-def test_orm_never_maps_the_new_columns() -> None:
-    """Release A ships no ORM change (Release B/K2 maps these). Confirms
-    the columns this revision adds are not on any current model."""
+def test_orm_maps_only_what_its_own_release_ships() -> None:
+    """Release A (this revision) shipped no ORM change. Release B (K2,
+    KODI-031) mapped ``is_public`` on both tables and ``created_by`` on
+    ``platforms`` - this test now confirms *those* are mapped. ``is_draft``
+    is S3 (drafts, a later ticket) and must stay unmapped until then."""
     from app.domain.models import ApplicationModel, CompanyModel, PlatformModel
 
     company_columns = {c.name for c in CompanyModel.__table__.columns}
     platform_columns = {c.name for c in PlatformModel.__table__.columns}
     application_columns = {c.name for c in ApplicationModel.__table__.columns}
 
-    assert 'is_public' not in company_columns
-    assert 'is_public' not in platform_columns
-    assert 'created_by' not in platform_columns
+    assert 'is_public' in company_columns
+    assert 'is_public' in platform_columns
+    assert 'created_by' in platform_columns
     assert 'is_draft' not in application_columns

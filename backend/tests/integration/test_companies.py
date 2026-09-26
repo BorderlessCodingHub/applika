@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.models import CompanyModel
 from tests import msg
 from tests.base_db_setup import base_data
+from tests.integration.conftest import as_user
 
 
 async def test_list_companies_returns_all(
@@ -79,14 +80,89 @@ async def test_list_companies_always_includes_seeded_company(
     assert 'Acme Corp' in names, msg('Acme Corp in names', names)
 
 
-async def test_post_companies_endpoint_no_longer_exists(
+async def test_seeded_base_company_is_public_for_every_user(
+    async_client: AsyncClient, db_session: AsyncSession, second_user
+):
+    """AC9/T036: base_data's company_acme predates this feature and must
+    stay public - visible to the seed user and to any other user."""
+    response = await async_client.get('/companies')
+    row = next(c for c in response.json() if c['name'] == 'Acme Corp')
+    assert row['is_public'] is True, msg(True, row['is_public'])
+
+    async with as_user(second_user.id, second_user.username):
+        other = await async_client.get('/companies')
+    other_names = [c['name'] for c in other.json()]
+    assert 'Acme Corp' in other_names, msg('Acme Corp visible', other_names)
+
+
+async def test_post_companies_creates_a_new_private_company(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """POST /companies was removed; the route must return 405 or 404."""
     response = await async_client.post(
-        '/companies', json={'name': 'Test', 'url': 'https://www.linkedin.com/company/test'}
+        '/companies',
+        json={'name': 'Stealth Co', 'url': 'https://stealth.example.com'},
     )
 
-    assert response.status_code in (404, 405), msg(
-        '404 or 405', response.status_code
+    assert response.status_code == 201, msg(201, response.status_code)
+    data = response.json()
+    assert data['name'] == 'Stealth Co'
+    assert data['is_public'] is False, msg(False, data['is_public'])
+
+
+async def test_post_companies_twice_returns_the_same_id(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    first = await async_client.post(
+        '/companies',
+        json={'name': 'Repeat Co', 'url': 'https://repeat.example.com'},
     )
+    assert first.status_code == 201
+
+    second = await async_client.post(
+        '/companies',
+        json={'name': 'Repeat Co', 'url': 'https://repeat.example.com'},
+    )
+
+    assert second.status_code == 200, msg(200, second.status_code)
+    assert second.json()['id'] == first.json()['id']
+
+
+async def test_two_users_private_company_with_same_name_are_two_rows(
+    async_client: AsyncClient, db_session: AsyncSession, second_user
+):
+    first = await async_client.post(
+        '/companies',
+        json={'name': 'Same Name Co', 'url': 'https://samename.example.com'},
+    )
+    assert first.status_code == 201
+
+    async with as_user(second_user.id, second_user.username):
+        second = await async_client.post(
+            '/companies',
+            json={
+                'name': 'Same Name Co',
+                'url': 'https://samename.example.com',
+            },
+        )
+    assert second.status_code == 201, msg(201, second.status_code)
+    assert second.json()['id'] != first.json()['id']
+
+
+async def test_a_users_private_company_is_not_in_the_other_users_list(
+    async_client: AsyncClient, db_session: AsyncSession, second_user
+):
+    resp = await async_client.post(
+        '/companies',
+        json={'name': 'Only Mine Co', 'url': 'https://onlymine.example.com'},
+    )
+    assert resp.status_code == 201
+
+    async with as_user(second_user.id, second_user.username):
+        other_list = await async_client.get('/companies')
+    names = [c['name'] for c in other_list.json()]
+    assert 'Only Mine Co' not in names, msg('Only Mine Co absent', names)
+
+    # ?name= keeps the visibility rule too.
+    async with as_user(second_user.id, second_user.username):
+        filtered = await async_client.get('/companies?name=Only Mine')
+    assert filtered.json() == [], msg([], filtered.json())

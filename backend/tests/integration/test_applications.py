@@ -7,11 +7,12 @@ from app.core.enums import Currency, ExperienceLevel, SalaryPeriod, WorkMode
 from app.domain.models import ApplicationModel, CompanyModel
 from tests import msg
 from tests.base_db_setup import base_data
-
+from tests.integration.conftest import as_user
 
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
+
 
 def _base_payload(**overrides) -> dict:
     """Minimal valid create/update payload using the existing company by ID."""
@@ -133,9 +134,13 @@ async def test_create_application_with_optional_fields(
     assert data['salary_period'] == 'annually', msg(
         'annually', data['salary_period']
     )
-    assert data['experience_level'] == 'senior', msg('senior', data['experience_level'])
+    assert data['experience_level'] == 'senior', msg(
+        'senior', data['experience_level']
+    )
     assert data['work_mode'] == 'remote', msg('remote', data['work_mode'])
-    assert data['country'] == 'United States', msg('United States', data['country'])
+    assert data['country'] == 'United States', msg(
+        'United States', data['country']
+    )
 
 
 async def test_create_application_without_optional_fields(
@@ -187,12 +192,14 @@ async def test_update_application_with_existing_company_id(
     await db_session.commit()
 
     # Add a second company to switch to
-    db_session.add(CompanyModel(
-        id=2,
-        name='TechCorp',
-        url='https://www.linkedin.com/company/techcorp',
-        created_by=base_data()['user'].id,
-    ))
+    db_session.add(
+        CompanyModel(
+            id=2,
+            name='TechCorp',
+            url='https://www.linkedin.com/company/techcorp',
+            created_by=base_data()['user'].id,
+        )
+    )
     await db_session.commit()
 
     update_payload = _base_payload(company=2, role='Senior Engineer')
@@ -201,7 +208,9 @@ async def test_update_application_with_existing_company_id(
     assert response.status_code == 200, msg(200, response.status_code)
     data = response.json()
     assert data['company_id'] == '2', msg('2', data['company_id'])
-    assert data['company_name'] == 'TechCorp', msg('TechCorp', data['company_name'])
+    assert data['company_name'] == 'TechCorp', msg(
+        'TechCorp', data['company_name']
+    )
 
 
 async def test_update_application_with_anonymous_company(
@@ -302,8 +311,12 @@ async def test_update_application_with_enum_fields(
         'Senior Software Engineer', data['role']
     )
     assert data['currency'] == 'EUR', msg('EUR', data['currency'])
-    assert data['salary_period'] == 'monthly', msg('monthly', data['salary_period'])
-    assert data['experience_level'] == 'staff', msg('staff', data['experience_level'])
+    assert data['salary_period'] == 'monthly', msg(
+        'monthly', data['salary_period']
+    )
+    assert data['experience_level'] == 'staff', msg(
+        'staff', data['experience_level']
+    )
     assert data['work_mode'] == 'hybrid', msg('hybrid', data['work_mode'])
     assert data['country'] == 'Germany', msg('Germany', data['country'])
 
@@ -363,16 +376,18 @@ async def test_list_applications_response_has_no_old_company(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     """old_company must not appear in the response schema."""
-    db_session.add(ApplicationModel(
-        id=1,
-        user_id=base_data()['user'].id,
-        platform_id=base_data()['plat_linkedin'].id,
-        company_id=base_data()['company_acme'].id,
-        company_name='Acme Corp',
-        role='Engineer',
-        mode='active',
-        application_date=date(2025, 12, 1),
-    ))
+    db_session.add(
+        ApplicationModel(
+            id=1,
+            user_id=base_data()['user'].id,
+            platform_id=base_data()['plat_linkedin'].id,
+            company_id=base_data()['company_acme'].id,
+            company_name='Acme Corp',
+            role='Engineer',
+            mode='active',
+            application_date=date(2025, 12, 1),
+        )
+    )
     await db_session.commit()
 
     response = await async_client.get('/applications')
@@ -429,8 +444,12 @@ async def test_list_applications_with_enum_fields(
 
     # Older application (id=1) has enum fields
     assert data[1]['currency'] == 'BRL', msg('BRL', data[1]['currency'])
-    assert data[1]['salary_period'] == 'monthly', msg('monthly', data[1]['salary_period'])
-    assert data[1]['experience_level'] == 'senior', msg('senior', data[1]['experience_level'])
+    assert data[1]['salary_period'] == 'monthly', msg(
+        'monthly', data[1]['salary_period']
+    )
+    assert data[1]['experience_level'] == 'senior', msg(
+        'senior', data[1]['experience_level']
+    )
     assert data[1]['work_mode'] == 'remote', msg('remote', data[1]['work_mode'])
     assert data[1]['country'] == 'Brazil', msg('Brazil', data[1]['country'])
 
@@ -509,9 +528,7 @@ async def test_create_application_without_job_description_is_null(
     """AC13: the field is optional - a CLI that omits it still gets a 201."""
     data = await _create_application(async_client)
 
-    assert data['job_description'] is None, msg(
-        None, data['job_description']
-    )
+    assert data['job_description'] is None, msg(None, data['job_description'])
 
 
 async def test_create_application_job_description_too_long_is_422(
@@ -622,9 +639,7 @@ async def test_update_still_clears_other_omitted_optional_fields(
     data = response.json()
     assert data['observation'] is None, msg(None, data['observation'])
     assert data['link_to_job'] is None, msg(None, data['link_to_job'])
-    assert data['expected_salary'] is None, msg(
-        None, data['expected_salary']
-    )
+    assert data['expected_salary'] is None, msg(None, data['expected_salary'])
     # ...and the sticky field survived the same request.
     assert data['job_description'] == JOB_DESCRIPTION
 
@@ -652,6 +667,94 @@ async def test_list_applications_carries_the_job_description(
 
     assert response.status_code == 200, msg(200, response.status_code)
     descriptions = [item['job_description'] for item in response.json()]
-    assert JOB_DESCRIPTION in descriptions, msg(
-        JOB_DESCRIPTION, descriptions
+    assert JOB_DESCRIPTION in descriptions, msg(JOB_DESCRIPTION, descriptions)
+
+
+# ---------------------------------------------------------------------------
+# ADR-0014: private companies and platforms (KODI-031)
+# ---------------------------------------------------------------------------
+
+
+async def test_create_application_same_name_and_url_twice_reuses_company(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    company = {
+        'name': 'Repeat Employer',
+        'url': 'https://repeat-employer.example.com',
+    }
+    first = await async_client.post(
+        '/applications', json=_base_payload(company=company, role='Eng 1')
     )
+    second = await async_client.post(
+        '/applications', json=_base_payload(company=company, role='Eng 2')
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert first.json()['company_id'] == second.json()['company_id']
+
+
+async def test_name_only_company_is_not_in_the_companies_list(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    payload = _base_payload(company={'name': 'Free Text Co', 'url': None})
+    response = await async_client.post('/applications', json=payload)
+    assert response.status_code == 201
+    assert response.json()['company_id'] is None
+
+    companies = (await async_client.get('/companies')).json()
+    names = [c['name'] for c in companies]
+    assert 'Free Text Co' not in names, msg('Free Text Co absent', names)
+
+
+async def test_create_application_with_foreign_private_company_is_404(
+    async_client: AsyncClient, db_session: AsyncSession, second_user
+):
+
+    async with as_user(second_user.id, second_user.username):
+        create_resp = await async_client.post(
+            '/companies',
+            json={
+                'name': 'Second User Co',
+                'url': 'https://seconduserco.example.com',
+            },
+        )
+    private_company_id = create_resp.json()['id']
+
+    response = await async_client.post(
+        '/applications', json=_base_payload(company=private_company_id)
+    )
+
+    assert response.status_code == 404, msg(404, response.status_code)
+    assert response.json()['detail'] == 'Company not found'
+    assert (await async_client.get('/applications')).json() == []
+
+
+async def test_update_application_with_foreign_private_company_is_404(
+    async_client: AsyncClient, db_session: AsyncSession, second_user
+):
+
+    created = await _create_application(async_client)
+
+    async with as_user(second_user.id, second_user.username):
+        create_resp = await async_client.post(
+            '/companies',
+            json={
+                'name': 'Second User Co 2',
+                'url': 'https://seconduserco2.example.com',
+            },
+        )
+    private_company_id = create_resp.json()['id']
+
+    response = await async_client.put(
+        f'/applications/{created["id"]}',
+        json=_base_payload(company=private_company_id),
+    )
+
+    assert response.status_code == 404, msg(404, response.status_code)
+    assert response.json()['detail'] == 'Company not found'
+
+    # The application's own company was not touched.
+    unchanged = await async_client.get('/applications')
+    row = next(a for a in unchanged.json() if a['id'] == created['id'])
+    assert row['company_id'] == created['company_id']

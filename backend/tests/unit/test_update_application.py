@@ -15,9 +15,13 @@ from tests.unit.conftest import make_application, make_read_model
 
 def _dto(**overrides) -> ApplicationUpdateDTO:
     defaults: dict[str, Any] = dict(
-        company=1, role='Eng', mode='active',
-        platform_id=1, application_date='2025-12-01',
-        user_id=1, link_to_job=None,
+        company=1,
+        role='Eng',
+        mode='active',
+        platform_id=1,
+        application_date='2025-12-01',
+        user_id=1,
+        link_to_job=None,
     )
     defaults.update(overrides)
     return ApplicationUpdateDTO(**defaults)
@@ -41,9 +45,7 @@ async def test_update_application_archived_cycle():
     app_repo = AsyncMock()
     platform_repo = AsyncMock()
     company_repo = AsyncMock()
-    app_repo.get_by_id_and_user_id.return_value = make_application(
-        cycle_id=42
-    )
+    app_repo.get_by_id_and_user_id.return_value = make_application(cycle_id=42)
 
     uc = UpdateApplicationUseCase(
         app_repo, platform_repo, company_repo, make_read_model()
@@ -58,7 +60,7 @@ async def test_update_platform_not_found():
     platform_repo = AsyncMock()
     company_repo = AsyncMock()
     app_repo.get_by_id_and_user_id.return_value = make_application()
-    platform_repo.get_by_id.return_value = None
+    platform_repo.get_visible.return_value = None
 
     uc = UpdateApplicationUseCase(
         app_repo, platform_repo, company_repo, make_read_model()
@@ -68,6 +70,24 @@ async def test_update_platform_not_found():
         await uc.execute(id=1, data=_dto(platform_id=999))
 
 
+async def test_update_company_not_found():
+    """R-024: an invisible company id is a 404, writing nothing."""
+    app_repo = AsyncMock()
+    platform_repo = AsyncMock()
+    company_repo = AsyncMock()
+    app_repo.get_by_id_and_user_id.return_value = make_application()
+    platform_repo.get_visible.return_value = MagicMock()
+    company_repo.get_visible.return_value = None
+
+    uc = UpdateApplicationUseCase(
+        app_repo, platform_repo, company_repo, make_read_model()
+    )
+
+    with pytest.raises(ResourceNotFound, match='Company not found'):
+        await uc.execute(id=1, data=_dto(company=999))
+    app_repo.update.assert_not_called()
+
+
 async def test_update_success():
     app_repo = AsyncMock()
     platform_repo = AsyncMock()
@@ -75,16 +95,14 @@ async def test_update_success():
 
     app = make_application()
     app_repo.get_by_id_and_user_id.return_value = app
-    platform_repo.get_by_id.return_value = MagicMock()
-    company_repo.get_by_id.return_value = SimpleNamespace(id=1, name='Acme')
+    platform_repo.get_visible.return_value = MagicMock()
+    company_repo.get_visible.return_value = SimpleNamespace(id=1, name='Acme')
     app_repo.update.return_value = app
 
     uc = UpdateApplicationUseCase(
         app_repo, platform_repo, company_repo, make_read_model()
     )
-    await uc.execute(
-        id=1, data=_dto(role='Senior Eng', mode='passive')
-    )
+    await uc.execute(id=1, data=_dto(role='Senior Eng', mode='passive'))
 
     assert app.role == 'Senior Eng'
     assert app.mode == 'passive'
@@ -106,8 +124,8 @@ def _update_use_case(app):
     platform_repo = AsyncMock()
     company_repo = AsyncMock()
     app_repo.get_by_id_and_user_id.return_value = app
-    platform_repo.get_by_id.return_value = MagicMock()
-    company_repo.get_by_id.return_value = SimpleNamespace(id=1, name='Acme')
+    platform_repo.get_visible.return_value = MagicMock()
+    company_repo.get_visible.return_value = SimpleNamespace(id=1, name='Acme')
     app_repo.update.return_value = app
     return UpdateApplicationUseCase(
         app_repo, platform_repo, company_repo, make_read_model()
