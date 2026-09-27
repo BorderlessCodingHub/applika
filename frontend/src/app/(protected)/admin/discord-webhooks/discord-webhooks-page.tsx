@@ -31,7 +31,7 @@ import type {
 
 /**
  * Admin report webhooks page (KODI-027, plan 0009 · T144/T145). Pattern:
- * `app/(protected)/admin/supports/supports-page.tsx`. The list and the
+ * `app/(protected)/admin/platforms/platforms-page.tsx`. The list and the
  * dialog shells are ui-designer components (`discord-webhook-list.tsx`,
  * `discord-webhook-form-dialog.tsx`); this component owns the query, the
  * zod schema mirroring the server's own validators

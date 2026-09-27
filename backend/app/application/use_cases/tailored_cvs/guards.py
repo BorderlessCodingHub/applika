@@ -29,9 +29,15 @@ async def load_owned_application(
     application is indistinguishable from one that does not exist
     (docs/applika/adr/0004-row-ownership-and-is-admin.md), and being an admin
     grants nothing.
+
+    ``include_drafts=True`` (KODI-032): the CV-copy routes are also how a
+    "new application with CV" draft's copy is created, read, edited and
+    deleted (PRD 0007's page reused for step 2, ADR-0014), so this is the
+    one caller that must see a draft - every other read path excludes it
+    (``application_filters.NOT_DRAFT``).
     """
     application = await application_repo.get_by_id_and_user_id(
-        application_id, user_id
+        application_id, user_id, include_drafts=True
     )
     if not application:
         raise ResourceNotFound('Application not found or not owned by user')

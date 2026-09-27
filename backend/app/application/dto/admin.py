@@ -120,7 +120,9 @@ class AdminCompanyRowDTO(_AdminDTO):
     name: str
     url: str
     is_active: bool
+    is_public: bool = True
     applications_count: int = 0
+    created_by: int | None = None
     created_by_username: str | None = None
     created_at: datetime
 
@@ -142,3 +144,25 @@ class AdminCompanyUpdateDTO(BaseModel):
     name: str | None = None
     url: str | None = None
     is_active: bool | None = None
+
+
+# --- Platforms ---
+
+
+class AdminPlatformRowDTO(_AdminDTO):
+    id: int
+    name: str
+    url: str | None = None
+    is_public: bool = True
+    applications_count: int = 0
+    created_by: int | None = None
+    created_by_username: str | None = None
+    created_at: datetime
+
+
+class PaginatedPlatformsDTO(_AdminDTO):
+    items: list[AdminPlatformRowDTO]
+    total: int
+    page: int
+    per_page: int
+    total_pages: int

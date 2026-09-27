@@ -7,7 +7,8 @@ from app.application.dto.step_definition import StepDefinitionDTO
 
 class PlatformDTO(BaseSchema):
     name: str
-    url: str
+    url: str | None = None
+    is_public: bool = True
 
 
 class SupportDTO(BaseModel):

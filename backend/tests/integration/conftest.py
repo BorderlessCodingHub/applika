@@ -1,14 +1,69 @@
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+
 import pytest_asyncio
 import redis.asyncio as redis
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from testcontainers.redis import RedisContainer
 
+from app.application.dto.user import UserDTO
 from app.application.use_cases.auth_handoff_state import (
     AuthHandoffStateUseCase,
 )
 from app.config.redis import get_redis
+from app.domain.models import UserModel
 from app.main import app as main_app
+from app.presentation.dependencies import get_current_user
+
+SECOND_USER_ID = 3
+
+
+@asynccontextmanager
+async def as_user(user_id: int, username: str, is_admin: bool = False):
+    """Temporarily swap ``get_current_user`` to answer as another seeded
+    user - for tests that need a second user's point of view (visibility
+    across users, ADR-0014) without a dedicated fixture per case."""
+
+    async def override():
+        return UserDTO(
+            id=user_id,
+            github_id=user_id,
+            username=username,
+            email=f'{username}@user.com',
+            is_admin=is_admin,
+            created_at=datetime.now(timezone.utc),
+        )
+
+    previous = main_app.dependency_overrides.get(get_current_user)
+    main_app.dependency_overrides[get_current_user] = override
+    try:
+        yield
+    finally:
+        if previous is not None:
+            main_app.dependency_overrides[get_current_user] = previous
+        else:
+            main_app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest_asyncio.fixture
+async def second_user(async_engine: AsyncEngine) -> UserModel:
+    """A second seeded user, for visibility-across-users tests. Not part of
+    ``base_data`` (most tests never need it), inserted only when a test asks
+    for this fixture."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    maker = async_sessionmaker(bind=async_engine, expire_on_commit=False)
+    async with maker() as session:
+        user = UserModel(
+            id=SECOND_USER_ID,
+            github_id=SECOND_USER_ID,
+            username='seconduser',
+            email='second@user.com',
+        )
+        session.add(user)
+        await session.commit()
+    return user
 
 
 @pytest_asyncio.fixture(autouse=True)

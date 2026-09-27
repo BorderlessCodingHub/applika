@@ -105,12 +105,27 @@ class AdminUpdateUserSchema(BaseModel):
     location: str | None = None
 
 
+class CreatedBySchema(BaseSchema):
+    """Who added a private catalog row (ADR-0014): kept even after the row
+    is published (R-025)."""
+
+    id: SnowflakeID
+    username: str
+
+
 class AdminCompanyRowSchema(BaseSchema):
     id: SnowflakeID
     name: str
     url: str
     is_active: bool
+    is_public: bool = True
     applications_count: int = 0
+    created_by: CreatedBySchema | None = None
+    # Kept alongside the new nested `created_by` (ADR-0014): the shipped
+    # frontend admin companies screen still reads this flat field directly
+    # (`company.created_by_username`), and cli-compatibility.md's
+    # "never remove a field a published client uses" applies here too, not
+    # only to the CLI routes.
     created_by_username: str | None = None
     created_at: datetime
 
@@ -148,3 +163,23 @@ class PlatformSchema(BaseSchema):
     id: SnowflakeID
     name: str
     url: str | None = None
+    is_public: bool = True
+    created_by: CreatedBySchema | None = None
+
+
+class AdminPlatformRowSchema(BaseSchema):
+    id: SnowflakeID
+    name: str
+    url: str | None = None
+    is_public: bool = True
+    applications_count: int = 0
+    created_by: CreatedBySchema | None = None
+    created_at: datetime
+
+
+class PaginatedPlatformsSchema(BaseSchema):
+    items: list[AdminPlatformRowSchema]
+    total: int
+    page: int
+    per_page: int
+    total_pages: int

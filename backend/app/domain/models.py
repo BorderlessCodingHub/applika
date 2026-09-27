@@ -173,6 +173,9 @@ class UserModel(BaseMixin, Base):
     created_companies: Mapped[list[CompanyModel]] = relationship(
         back_populates='created_by_user'
     )
+    created_platforms: Mapped[list[PlatformModel]] = relationship(
+        back_populates='created_by_user'
+    )
     quinzenal_reports: Mapped[list[QuinzenalReportModel]] = relationship(
         back_populates='user'
     )
@@ -301,14 +304,38 @@ class DiscordReportWebhookModel(BaseMixin, Base):
 
 
 class CompanyModel(BaseMixin, Base):
+    """A job company (ADR-0014). Public rows are shared catalog entries;
+    a private row is visible only to the user who created it, until an
+    admin publishes it (``PublishCompanyUseCase``).
+
+    ``__table_args__`` mirrors migration ``3b78c3cd2a71`` object for object:
+    one public row per ``(lower(name), url)`` and one private row per
+    ``(created_by, lower(name), url)`` - two users may hold a private company
+    with the same name and url (R-024), but neither a second identical
+    public row nor a second identical private row for the same creator is
+    allowed. ``create_all`` (the test schema) must build the same two
+    indexes the migration does, so the old single global
+    ``uq_companies_name_url`` declaration is gone - the migration replaced it
+    with these two.
+    """
+
     __tablename__ = 'companies'
 
     __table_args__ = (
         sa.Index(
-            'uq_companies_name_url',
+            'uq_companies_public_name_url',
             sa.text('lower(name)'),
-            sa.text('url'),
+            'url',
             unique=True,
+            postgresql_where=sa.text('is_public'),
+        ),
+        sa.Index(
+            'uq_companies_private_owner_name_url',
+            'created_by',
+            sa.text('lower(name)'),
+            'url',
+            unique=True,
+            postgresql_where=sa.text('NOT is_public'),
         ),
     )
 
@@ -316,6 +343,16 @@ class CompanyModel(BaseMixin, Base):
     url: Mapped[str] = mapped_column(sa.String(2083), nullable=False)
     is_active: Mapped[bool] = mapped_column(
         sa.Boolean, default=True, nullable=False
+    )
+    # ADR-0014: every row that existed before this ticket is public
+    # (server_default true, migration 3b78c3cd2a71); a row a user adds
+    # through the ordinary create flows is private until an admin publishes
+    # it.
+    is_public: Mapped[bool] = mapped_column(
+        sa.Boolean,
+        default=True,
+        server_default=sa.text('true'),
+        nullable=False,
     )
     created_by: Mapped[int | None] = mapped_column(
         sa.ForeignKey('users.id', ondelete='SET NULL')
@@ -330,11 +367,46 @@ class CompanyModel(BaseMixin, Base):
 
 
 class PlatformModel(BaseMixin, Base):
+    """A job platform (ADR-0014), same private-until-published shape as
+    ``CompanyModel``. Only *private* platform names are scoped unique per
+    creator (``uq_platforms_private_owner_name``) - there is deliberately no
+    uniqueness on public platform names, because production may already
+    hold duplicate public platform rows (migration ``3b78c3cd2a71``'s own
+    docstring).
+    """
+
     __tablename__ = 'platforms'
+
+    __table_args__ = (
+        sa.Index('ix_platforms_created_by', 'created_by'),
+        sa.Index(
+            'uq_platforms_private_owner_name',
+            'created_by',
+            sa.text('lower(name)'),
+            unique=True,
+            postgresql_where=sa.text('NOT is_public'),
+        ),
+    )
 
     name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
     url: Mapped[str | None] = mapped_column(sa.String(200))
+    is_public: Mapped[bool] = mapped_column(
+        sa.Boolean,
+        default=True,
+        server_default=sa.text('true'),
+        nullable=False,
+    )
+    created_by: Mapped[int | None] = mapped_column(
+        sa.ForeignKey(
+            'users.id',
+            ondelete='SET NULL',
+            name='fk_platforms_created_by',
+        )
+    )
 
+    created_by_user: Mapped[UserModel | None] = relationship(
+        back_populates='created_platforms'
+    )
     applications: Mapped[list[ApplicationModel]] = relationship(
         back_populates='platform'
     )
@@ -386,7 +458,29 @@ class CycleModel(BaseMixin, Base):
 
 
 class ApplicationModel(BaseMixin, Base):
+    """Job applications (R-001..R-020) plus the draft flag (ADR-0014,
+    KODI-032). ``is_draft`` (``server_default false``, migration
+    ``3b78c3cd2a71``) marks a "new application with CV" draft: it is
+    excluded from every read model by default
+    (``domain/repositories/application_filters.NOT_DRAFT``) - the
+    applications list, statistics, reports, cycles, the agenda and admin
+    counts all see only ``is_draft = false`` rows. The one caller that opts
+    back in is ``tailored_cvs/guards.load_owned_application``, so the CV
+    copy routes (create/get/update/delete/diff/pdf/markdown) work on a
+    draft the same as on a finished application. ``__table_args__`` mirrors
+    ``ix_applications_user_id_drafts`` object for object, because the test
+    schema is built with ``create_all``.
+    """
+
     __tablename__ = 'applications'
+
+    __table_args__ = (
+        sa.Index(
+            'ix_applications_user_id_drafts',
+            'user_id',
+            postgresql_where=sa.text('is_draft'),
+        ),
+    )
 
     user_id: Mapped[int] = mapped_column(
         sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False
@@ -460,6 +554,15 @@ class ApplicationModel(BaseMixin, Base):
     # (R2) retires them.
     finalized_at: Mapped[datetime | None] = mapped_column(
         sa.DateTime(timezone=True), nullable=True
+    )
+
+    # KODI-032, ADR-0014: a "new application with CV" draft. Excluded from
+    # every read model by default (NOT_DRAFT); see the class docstring.
+    is_draft: Mapped[bool] = mapped_column(
+        sa.Boolean,
+        default=False,
+        server_default=sa.text('false'),
+        nullable=False,
     )
 
     user: Mapped[UserModel] = relationship(back_populates='applications')

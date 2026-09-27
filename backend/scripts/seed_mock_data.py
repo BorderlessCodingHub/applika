@@ -466,6 +466,108 @@ def seed_application_cv(
     return True
 
 
+def seed_drafts(
+    client: httpx.Client,
+    platform_id: str,
+    company_id: str,
+    base_cv_ids: list[str],
+) -> None:
+    """Exercise the "new application with CV" draft flow (KODI-032,
+    ADR-0014, KODI-036): one draft finished with a CV copy (it becomes an
+    ordinary application), one left open with a CV copy attached (it must
+    stay out of ``GET /applications`` and everything else that reads
+    applications). The finished draft sends its own ``application_date`` on
+    create and is finished with no body, so the stored date - not today -
+    is what the finished application carries.
+    """
+    print('\nSeeding draft applications...')
+
+    draft_date = date.today() - timedelta(days=5)
+    finished_resp = client.post(
+        '/applications/drafts',
+        json={
+            'company_id': company_id,
+            'company_name': 'Acme Corp',
+            'role': 'Platform Engineer (from a draft)',
+            'platform_id': platform_id,
+            'application_date': draft_date.isoformat(),
+        },
+    )
+    if finished_resp.status_code != 201:
+        print(
+            f'  Failed to create draft: {finished_resp.status_code} {finished_resp.text}'
+        )
+        return
+    finished_draft = finished_resp.json()
+
+    if base_cv_ids:
+        cv_resp = client.post(
+            f'/applications/{finished_draft["id"]}/cv',
+            json={'base_cv_id': random.choice(base_cv_ids)},
+        )
+        if cv_resp.status_code != 201:
+            print(
+                f'  Failed to attach a CV copy to the draft: {cv_resp.status_code}'
+            )
+
+    # No body (KODI-036): the finish date comes from the draft's own stored
+    # application_date, not from today.
+    finish_resp = client.post(
+        f'/applications/drafts/{finished_draft["id"]}/finish'
+    )
+    if finish_resp.status_code == 200:
+        if finish_resp.json().get('application_date') != draft_date.isoformat():
+            print(
+                '  Finished draft application_date mismatch: expected '
+                f'{draft_date.isoformat()}, got '
+                f'{finish_resp.json().get("application_date")}'
+            )
+        print(f'  Draft {finished_draft["id"]} finished into an application')
+    else:
+        print(
+            f'  Failed to finish draft: {finish_resp.status_code} {finish_resp.text}'
+        )
+
+    open_resp = client.post(
+        '/applications/drafts',
+        json={
+            'company_id': None,
+            'company_name': 'Undecided Co',
+            'role': 'Still Drafting',
+            'platform_id': platform_id,
+        },
+    )
+    if open_resp.status_code != 201:
+        print(
+            f'  Failed to create open draft: {open_resp.status_code} {open_resp.text}'
+        )
+        return
+    open_draft = open_resp.json()
+
+    if base_cv_ids:
+        client.post(
+            f'/applications/{open_draft["id"]}/cv',
+            json={'base_cv_id': random.choice(base_cv_ids)},
+        )
+
+    # AC13/AC12: an open draft, even with a CV copy, never shows up in the
+    # ordinary applications list.
+    listed = client.get('/applications').json()
+    listed_ids = {row['id'] for row in listed}
+    if open_draft['id'] in listed_ids:
+        print(
+            f'  WARNING: open draft {open_draft["id"]} leaked into '
+            'GET /applications'
+        )
+    else:
+        print(
+            f'  Open draft {open_draft["id"]} correctly absent from GET /applications'
+        )
+
+    drafts_listed = client.get('/applications/drafts').json()
+    print(f'  GET /applications/drafts: {len(drafts_listed)} open draft(s)')
+
+
 def seed_cv_pdfs(
     client: httpx.Client,
     base_cv_id: str | None,
@@ -752,6 +854,48 @@ def main():
 
         platform_ids = [p['id'] for p in platforms]
 
+        # ----- GET /platforms (S7, KODI-035): the web picker's own route,
+        # visible platforms only, ordered by name instead of /supports' id
+        # order - same visible set either way. -----
+        web_platforms_resp = client.get('/platforms')
+        web_platforms_resp.raise_for_status()
+        web_platforms = web_platforms_resp.json()
+        assert set(p['id'] for p in web_platforms) == set(platform_ids), (
+            'GET /platforms must show the same visible set as /supports'
+        )
+
+        # ----- Private catalog rows (KODI-031, ADR-0014) -----
+        # A platform with no url, and a company: both start private to this
+        # seed user, exercised end to end on one application below.
+        print('Seeding a private platform and a private company...')
+        existing_private_platform = next(
+            (p for p in platforms if p['name'] == 'Founder Referral Board'),
+            None,
+        )
+        if existing_private_platform:
+            # POST /platforms has no reuse semantics (a name collision is
+            # always 409, unlike POST /companies) - a rerun against a
+            # database that already has this seed's platform picks the
+            # existing one back up instead of failing.
+            private_platform_id = existing_private_platform['id']
+        else:
+            priv_platform_resp = client.post(
+                '/platforms',
+                json={'name': 'Founder Referral Board', 'url': None},
+            )
+            priv_platform_resp.raise_for_status()
+            private_platform_id = priv_platform_resp.json()['id']
+
+        priv_company_resp = client.post(
+            '/companies',
+            json={
+                'name': 'Stealth Startup Inc',
+                'url': 'https://stealth-startup.example.com',
+            },
+        )
+        priv_company_resp.raise_for_status()
+        private_company_id = priv_company_resp.json()['id']
+
         # Separate strict vs non-strict steps
         normal_steps = [s for s in step_defs if not s.get('strict', False)]
         strict_steps = [s for s in step_defs if s.get('strict', False)]
@@ -841,6 +985,12 @@ def main():
             mode = random.choice(['active', 'active', 'active', 'passive'])
             platform_id = random.choice(platform_ids)
             app_date = random_date(DATE_START, DATE_END - timedelta(days=20))
+
+            # The first application exercises the private platform and
+            # company end to end (KODI-031).
+            if i == 0:
+                platform_id = private_platform_id
+                company_field = private_company_id
 
             currency = random.choice(CURRENCIES)
             exp_levels = [
@@ -937,6 +1087,13 @@ def main():
         print(f'In progress: {created - finalized_count}')
         print(f'Master CVs created: {len(base_cv_ids)}')
         print(f'Application CV copies created: {cv_copies}')
+
+        seed_drafts(
+            client,
+            platform_id=platform_ids[0],
+            company_id=private_company_id,
+            base_cv_ids=base_cv_ids,
+        )
 
         seed_cv_pdfs(
             client,

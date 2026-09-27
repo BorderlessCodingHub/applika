@@ -41,6 +41,7 @@ When you add or modify any of the following, update the seed script accordingly:
 - New or changed fields on `POST /base-cvs` — `seed_base_cvs()` creates 3 master CVs and asserts the 4th is refused with 409
 - New or changed behaviour on the `/pdf` export routes — `seed_cv_pdfs()` posts to both at the end of the run and checks the bytes start with `%PDF-`
 - New or changed fields on `/applications/{id}/cv` — `seed_application_cv()` gives roughly half the applications a CV copy and runs the full create → read → update → delete → recreate round trip on the first one, asserting the 2nd copy is refused with 409
+- New or changed fields on `/applications/drafts*` — `seed_drafts()` creates one draft that gets a CV copy and is finished into a normal application, and one draft that is left open with a CV copy attached; it asserts the open one never appears in `GET /applications`. The finished draft sends its own `application_date` on create and calls `finish` with no body (KODI-036), asserting the finished application keeps that stored date rather than today's
 
 After any such change, mentally walk through the seed script from top to bottom and confirm it would still run without errors against a fresh database.
 
@@ -514,6 +515,60 @@ null`.
 | POST | `/applications/{id}/finalize` | Yes | Close it. No body → 200, idempotent. New optional outcome body → 200, no Deprecation. 0.1.4 body → 201, deprecated |
 | POST | `/applications/{id}/reopen` | Yes | Reopen a closed application (200, idempotent) |
 
+### Application drafts (`/applications/drafts`, KODI-032, ADR-0014, KODI-036, web only - not a CLI route)
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| POST | `/applications/drafts` | Yes | Create a draft (201); optional `application_date` |
+| GET | `/applications/drafts` | Yes | List the caller's own drafts, most recently saved first, `[]` when none |
+| GET | `/applications/drafts/{id}` | Yes | Get one own draft (404 otherwise) |
+| PUT | `/applications/drafts/{id}` | Yes | Full replace of the draft's data; never touches its CV copy |
+| DELETE | `/applications/drafts/{id}` | Yes | Delete it (204); its CV copy is cascade-deleted |
+| POST | `/applications/drafts/{id}/finish` | Yes | Body optional - no body, `{}` or `{application_date}` - → 200 `Application` (same shape `GET /applications` returns); 422 with no CV copy; 422 past `UTC today + 1` |
+
+**`is_draft` and the `NOT_DRAFT` rule.** A draft is a plain `applications` row
+with `is_draft = true` (`ApplicationModel.is_draft`, migration `3b78c3cd2a71`
+column, mapped by this ticket; `ix_applications_user_id_drafts` mirrored in
+`__table_args__` because the test schema is built with `create_all`). It is
+the "new application with CV" flow: create the draft with its data, attach a
+CV copy through the ordinary `/applications/{id}/cv*` routes (`tailored_cvs/
+guards.load_owned_application` passes `include_drafts=True`, the **one**
+caller that ever sees a draft through the application repository), then
+`finish` it. Finishing needs a CV copy (422 `"Pick a master CV before
+finishing"` otherwise), applies `ensure_not_in_future` to the date that will
+be used, flips `is_draft` to `false` and leaves `cycle_id` NULL - the row
+then behaves like any application created the ordinary way.
+
+**`application_date` is saved with the draft** (KODI-036, R-003, reusing the
+existing `applications.application_date` column - no migration).
+`DraftInput.application_date` is optional: a POST that omits it defaults to
+the server's own day (`ApplicationRepository.create_draft`); a PUT that omits
+the key, **or sends it explicit `null`**, keeps the stored value - it never
+clears, unlike every other draft field (which is a full replace, same as
+`job_description` being the one exception on `PUT /applications/{id}`,
+except here *every* absence/`null` of this one field means "leave it alone").
+A given value on create or update is refused past `UTC today + 1`
+(`ensure_not_in_future`) **before** the draft is even read, so a future date
+writes nothing. `Draft`, the response shape, **always** carries
+`application_date` - never null. The finish body's own `application_date` is
+optional too: given, it wins; absent (no body or `{}`), the draft's own
+stored date is used - either way still refused in the future.
+
+`app/domain/repositories/application_filters.NOT_DRAFT` (`ApplicationModel
+.is_draft.is_(False)`) is the one condition every other application read
+path applies: `ApplicationRepository.get_all_by_user_id`/
+`get_by_id_and_user_id` (default; `include_drafts=True` is the one opt-in,
+above), `UserStatsRepository._cycle_filter`, `QuinzenalReportRepository
+._app_cycle_filter`, `CycleRepository.count_current_applications`/
+`archive_current_applications` (a draft is never swept into a new cycle),
+`TimelineEventRepository.list_agenda`, and every `ApplicationModel` query in
+`AdminRepository` **except** `count_entity_references` - a platform or
+company a draft uses still blocks the admin delete, on purpose. A draft id on
+any ordinary application route (`PUT`/`DELETE /applications/{id}`, timeline,
+steps, finalize, reopen, the 0.1.4 compat routes) is a 404, exactly like an
+application owned by someone else - a draft has no timeline and is changed
+only through the drafts routes above.
+
 **Closed is reversible** (PRD 0008). `finalized_at` set = closed, NULL = open;
 `finalized` is `finalized_at is not null`. Closing asks for no step, feedback
 or salary: the outcome is an `offer` or `denied` timeline event, and there is
@@ -676,10 +731,67 @@ calling it, as `/finalize` does once it sees a body); the
 validation errors carry it too. `Deprecation` is in the CORS
 `expose_headers`.
 
-### Companies (`/companies`)
+### Companies (`/companies`) and Platforms (`/platforms`), ADR-0014
+
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| GET | `/companies` | Yes | List/search companies |
+| GET | `/companies` | Yes | List/search companies visible to the caller |
+| POST | `/companies` | Yes | `{name, url}` → 201 new private company, or 200 reusing an existing visible one |
+| GET | `/platforms` | Yes | (S7, KODI-035) List/search platforms visible to the caller, ordered by name - the web platform picker; `/supports` below stays the CLI's route, unchanged |
+| POST | `/platforms` | Yes | `{name, url?}` → 201, private to the caller; url is optional |
+
+**Private until published.** `CompanyModel.is_public` / `PlatformModel.is_public`
+(default `True`, migration `3b78c3cd2a71`'s `server_default true` - every row
+that existed before KODI-031 stays public) and `PlatformModel.created_by`
+(nullable FK `users.id`, **`ON DELETE SET NULL`**) are the two columns this
+ticket maps onto the ORM; Release A (KODI-030) only added them to the schema.
+A row a user adds through `POST /companies`, `POST /platforms` or inline on
+`POST /applications` is **private**: visible and selectable only by its
+creator, until an admin publishes it. **There is no admin branch** - an admin
+adding a company/platform while tracking their own applications gets a
+private row exactly like anyone else (owner decision, 2026-09-25: "an admin
+user is like any other non admin user but with permissions to access some
+areas"). Only the admin screens (`POST /admin/companies`, `POST
+/admin/platforms`) create a row public at once, and it still records
+`created_by` = that admin.
+
+`visible_to(model, user_id)` (`app/domain/repositories/catalog_visibility.py`)
+is the one predicate every visibility check shares: `is_public OR created_by
+== user_id`. `GET /companies` and `GET /supports` (below) list public rows
+plus the caller's own private ones; `CompanyRepository`/`PlatformRepository`
+expose it as `get_visible`/`list_visible`/`find_visible_by_name`/
+`find_visible_match`. `POST /applications` and `PUT /applications/{id}`
+resolve `platform_id` and a company id the same way
+(`use_cases/catalog/resolve.py`: `ensure_platform_visible`,
+`resolve_company`) - an id the caller cannot see is `ResourceNotFound`
+(`"Platform not found"` / `"Company not found"`), checked before either
+write, so a 404 leaves nothing written. A `{name, url}` company input reuses
+a visible match (public preferred over private) on the normalised url and
+lower-cased name, else creates a new **private** row owned by the submitting
+user; `{name}` with no url stays free text, never a row, as before. A
+platform name that matches, ignoring case, one the caller already sees is a
+409 naming that platform, before any insert; the database's own partial
+unique indexes (`uq_companies_public_name_url`,
+`uq_companies_private_owner_name_url`, `uq_platforms_private_owner_name`,
+migration `3b78c3cd2a71`) turn a same-instant race into the same conflict
+instead of a duplicate row - two different users may still hold a private
+company or platform with the identical name (and, for companies, url).
+
+**Admin publish** (`POST /admin/companies/{id}/publish`, `POST
+/admin/platforms/{id}/publish`, `AdminUserDp`, `PublishCompanyUseCase`/
+`PublishPlatformUseCase`): flips a private row to `is_public=True`, keeping
+`created_by` untouched - publishing never re-parents a row to the admin who
+approved it. Idempotent: publishing an already-public row is a no-op 200.
+Refused with a 409 naming the public row it would duplicate: on `(lower(name),
+url)` for a company, on `lower(name)` alone for a platform (there is
+deliberately no uniqueness among existing public platform names - production
+may already hold duplicates, migration `3b78c3cd2a71`'s own note). `GET
+/admin/companies` and `GET /admin/platforms` (the latter paginated since S7,
+KODI-035, on the same shape as companies) both take `?search=&visibility=
+public|private&sort_by=name|created_at|applications_count&sort_order=asc|
+desc&page&per_page` and answer `{items, total, page, per_page, total_pages}`,
+every row adding `is_public`, `created_by {id, username} | null` and
+`applications_count` (drafts excluded, `NOT_DRAFT`, R-035).
 
 ### Statistics (`/applications/statistics`)
 | Method | Route | Auth | Description |
@@ -791,7 +903,14 @@ writes `steps_definition` or `feedbacks_definition` any more, and the admin
 catalog routes `/admin/step-definitions*` and `/admin/feedback-definitions*`
 are gone (404). They are served, unchanged in shape, only so installed
 `applika-cli` 0.1.4 can resolve step and feedback names; new clients use the
-`EventType`/`InterviewType` enums.
+`EventType`/`InterviewType` enums. The `platforms` list is **not** frozen
+(ADR-0014): it is the caller's visible platforms (`list_visible`, above), a
+platform's `url` is nullable (a platform may have none, whoever added it),
+and each row adds `is_public`. **Unchanged by S7/KODI-035**: `/supports`
+still calls `list_visible(user_id)` with no `name` or `order_by_name`, so its
+content, shape and `ORDER BY id` are exactly what installed CLI clients read
+today (R-036) - the web platform picker reads the new `GET /platforms`
+instead, ordered by name and searchable, above.
 
 Admin statistics (`/admin/stats*`, `/admin/users*`, admin-only) read the
 timeline too: offers/accepted = applications with an offer event,
@@ -933,12 +1052,12 @@ Optional (with defaults):
 - **User**: GitHub OAuth authenticated users with profile (company, role, salary, tech stack, seniority, availability). `users` carries **no** Discord column (KODI-024/ADR-0013 retired `users.discord_id`); the optional Discord account link is its own `DiscordConnectionModel` row, below - never GitHub login, never a second sign-in path. `users.is_org_member_old` (renamed from `is_org_member` by migration `583226ca46bc`, KODI-029, Release C) is UNMAPPED (KODI-026, R-042/R-043): the column stays in the database, values kept, but no ORM model, use case, DTO or schema reads or writes it any more; deletion only on a later explicit owner order (`.claude/rules/non-destructive-migrations.md` rule 9)
 - **DiscordConnection**: one row per linked user (table `discord_connections`, migration `ba44f9cfd3c1`), a record of its own apart from `users` (R-012). `user_id` and `discord_id` are each UNIQUE. Holds the Discord user id, username, display name (`global_name`), avatar, the granted `scopes`, `access_token_expires_at`, `status` (`active` | `needs_reconnect`) and `linked_at`; the refresh token is stored **encrypted** (`encrypted_refresh_token`) and there is **no** access-token column - see **Account links** above for the full flow
 - **DiscordReportWebhook**: admin-managed catalog (KODI-025, ADR-0004/ADR-0013), table `discord_report_webhooks`, added by migration `ba44f9cfd3c1` but unmapped until this ticket - not owned by a `user_id`. `webhook_url` is UNIQUE; `guild_id` is indexed for K8's submit-time lookup; `role_ids` (`BIGINT[]`, default `{}`) and `label` are optional. See **Admin report webhooks** above
-- **Company**: Job companies, user-created, unique on lower(name)+url
-- **Application**: Job applications with tracking, salary info, and country
+- **Company**: Job companies (ADR-0014). `is_public` (default `True`) and `created_by` (nullable, `ON DELETE SET NULL`) decide visibility - see **Companies and Platforms** above. Uniqueness is two scoped partial indexes, not one global one: `uq_companies_public_name_url` (`lower(name), url` where public) and `uq_companies_private_owner_name_url` (`created_by, lower(name), url` where private) - two users may hold a private company with the same name and url
+- **Application**: Job applications with tracking, salary info, and country. `is_draft` (KODI-032, ADR-0014) marks a "new application with CV" draft, excluded from every read model by default (`NOT_DRAFT`, see **Application drafts** above)
 - **TimelineEvent**: one entry of an application's timeline (`timeline_events`), typed by `EventType`, with `interview_type` on interviews and the salary triple on offers; rows migrated from `application_steps` kept the step's id
 - **StepDefinition**: the frozen legacy step catalog, read only by the compat layer; `event_type`/`interview_type` are its mapping onto the timeline (`strict=True` steps were the finalize-only ones)
 - **FeedbackDefinition**: the frozen legacy outcome catalog, read only by `/supports` and the 0.1.4 finalize body
-- **Platform**: Job platforms (LinkedIn, Indeed, etc.)
+- **Platform**: Job platforms (LinkedIn, Indeed, etc.), same private-until-published shape as Company (ADR-0014): `is_public` (default `True`) and `created_by` (nullable, `ON DELETE SET NULL`). `url` is optional - a platform may have none, whoever adds it. Only *private* platform names are scoped unique per creator (`uq_platforms_private_owner_name`, `created_by, lower(name)`) - there is deliberately no uniqueness among public platform names, since production may already hold duplicates
 - **QuinzenalReport**: Biweekly progress reports with fortnight + accumulated metrics
   - Report days: 1, 14, 28, 42, 56, 70, 84, 98, 112, 120
   - Phases: 1-4
@@ -967,7 +1086,8 @@ Optional (with defaults):
 - TimelineEvent → Application (many-to-one, cascade delete, `passive_deletes=True`)
 - TimelineEvent → User (many-to-one, cascade delete)
 - The contract migration (`ad747aba90fc`, R2, KODI-013) renamed the legacy `applications.last_step_id`, `last_step_date`, `feedback_id`, `feedback_date`, `salary_offer` columns to `*_old` and the `application_steps` table to `application_steps_old`, and dropped the two transitional sync triggers `afd4074c70c2` created. The renamed objects still exist in the database (rule: retire with `_old`, never drop) but **no model maps them** and no code reads them
-- Company → User (many-to-one via created_by, cascade delete)
+- Company → User (many-to-one via created_by, **SET NULL** on delete - a deleted user's private companies stay, `created_by` becomes NULL)
+- Platform → User (many-to-one via created_by, **SET NULL** on delete, same as Company - fixed 2026-09-26, KODI-031: this used to read "cascade delete" here, which was never true for either FK)
 - QuinzenalReport → User (many-to-one, cascade delete), unique on (user_id, report_day)
 - UserFeedback → User (many-to-one, cascade delete)
 - BaseCV → User (many-to-one, cascade delete), at most 3 per user

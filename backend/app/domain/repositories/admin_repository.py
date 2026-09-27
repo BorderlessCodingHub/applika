@@ -12,6 +12,7 @@ from app.domain.models import (
     TimelineEventModel,
     UserModel,
 )
+from app.domain.repositories.application_filters import NOT_DRAFT
 
 
 def _has_event(event_type: EventType) -> ColumnElement[bool]:
@@ -50,7 +51,10 @@ class AdminRepository:
         thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
         active_users_subq = (
             select(ApplicationModel.user_id)
-            .where(ApplicationModel.created_at >= thirty_days_ago)
+            .where(
+                ApplicationModel.created_at >= thirty_days_ago,
+                NOT_DRAFT,
+            )
             .union(
                 select(TimelineEventModel.user_id).where(
                     TimelineEventModel.created_at >= thirty_days_ago
@@ -63,16 +67,18 @@ class AdminRepository:
         )
 
         total_applications = await self.session.scalar(
-            select(func.count(ApplicationModel.id))
+            select(func.count(ApplicationModel.id)).where(NOT_DRAFT)
         )
 
         total_finalized = await self.session.scalar(
-            select(func.count(ApplicationModel.id)).where(~_is_open())
+            select(func.count(ApplicationModel.id)).where(
+                ~_is_open(), NOT_DRAFT
+            )
         )
         total_offers = (
             await self.session.scalar(
                 select(func.count(ApplicationModel.id)).where(
-                    _has_event(EventType.OFFER)
+                    _has_event(EventType.OFFER), NOT_DRAFT
                 )
             )
             or 0
@@ -80,7 +86,7 @@ class AdminRepository:
         total_denials = (
             await self.session.scalar(
                 select(func.count(ApplicationModel.id)).where(
-                    _has_event(EventType.DENIED)
+                    _has_event(EventType.DENIED), NOT_DRAFT
                 )
             )
             or 0
@@ -97,7 +103,7 @@ class AdminRepository:
         apps_last_30d = (
             await self.session.scalar(
                 select(func.count(ApplicationModel.id)).where(
-                    ApplicationModel.created_at >= thirty_days_ago
+                    ApplicationModel.created_at >= thirty_days_ago, NOT_DRAFT
                 )
             )
             or 0
@@ -159,6 +165,7 @@ class AdminRepository:
                 ),
                 func.max(ApplicationModel.created_at).label('last_activity'),
             )
+            .where(NOT_DRAFT)
             .group_by(ApplicationModel.user_id)
             .subquery('app_counts')
         )
@@ -318,6 +325,7 @@ class AdminRepository:
                 ApplicationModel,
                 ApplicationModel.platform_id == PlatformModel.id,
             )
+            .where(NOT_DRAFT)
             .group_by(PlatformModel.name)
             .order_by(sa.desc('total_across_users'))
             .limit(limit)
@@ -339,6 +347,7 @@ class AdminRepository:
                 ApplicationModel,
                 ApplicationModel.company_id == CompanyModel.id,
             )
+            .where(NOT_DRAFT)
             .group_by(CompanyModel.name)
             .order_by(sa.desc('total_across_users'))
             .limit(limit)
@@ -395,7 +404,7 @@ class AdminRepository:
                 ),
                 func.count(sa.case((_is_open(), 1))).label('active'),
                 func.max(ApplicationModel.created_at).label('last_activity'),
-            ).where(ApplicationModel.user_id == user_id)
+            ).where(ApplicationModel.user_id == user_id, NOT_DRAFT)
         )
         counts = app_counts.mappings().first()
 
@@ -428,31 +437,25 @@ class AdminRepository:
             'joined_at': user.created_at,
         }
 
-    async def get_admin_companies(
-        self,
-        search: str | None = None,
-        is_active: bool | None = None,
-        sort_by: str = 'name',
-        sort_order: str = 'asc',
-        page: int = 1,
-        per_page: int = 25,
-    ) -> tuple[list, int]:
+    def _admin_company_row_query(self):
         app_counts = (
             select(
                 ApplicationModel.company_id,
                 func.count(ApplicationModel.id).label('applications_count'),
             )
-            .where(ApplicationModel.company_id.isnot(None))
+            .where(ApplicationModel.company_id.isnot(None), NOT_DRAFT)
             .group_by(ApplicationModel.company_id)
             .subquery('app_counts')
         )
 
-        stmt = (
+        return (
             select(
                 CompanyModel.id,
                 CompanyModel.name,
                 CompanyModel.url,
                 CompanyModel.is_active,
+                CompanyModel.is_public,
+                CompanyModel.created_by,
                 CompanyModel.created_at,
                 func.coalesce(app_counts.c.applications_count, 0).label(
                     'applications_count'
@@ -466,10 +469,37 @@ class AdminRepository:
             .outerjoin(UserModel, CompanyModel.created_by == UserModel.id)
         )
 
+    async def get_admin_company_row(self, company_id: int) -> dict | None:
+        """One admin company row, shaped exactly like ``get_admin_companies``
+        - used by ``PublishCompanyUseCase`` to return the row after a
+        publish without re-running the paginated list."""
+        stmt = self._admin_company_row_query().where(
+            CompanyModel.id == company_id
+        )
+        result = await self.session.execute(stmt)
+        row = result.mappings().first()
+        return dict(row) if row else None
+
+    async def get_admin_companies(
+        self,
+        search: str | None = None,
+        is_active: bool | None = None,
+        visibility: str | None = None,
+        sort_by: str = 'name',
+        sort_order: str = 'asc',
+        page: int = 1,
+        per_page: int = 25,
+    ) -> tuple[list, int]:
+        stmt = self._admin_company_row_query()
+
         if search:
             stmt = stmt.where(CompanyModel.name.ilike(f'%{search}%'))
         if is_active is not None:
             stmt = stmt.where(CompanyModel.is_active == is_active)
+        if visibility == 'public':
+            stmt = stmt.where(CompanyModel.is_public.is_(True))
+        elif visibility == 'private':
+            stmt = stmt.where(CompanyModel.is_public.is_(False))
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = await self.session.scalar(count_stmt)
@@ -480,6 +510,81 @@ class AdminRepository:
             'applications_count': 'applications_count',
         }
         sort_col = sort_columns.get(sort_by, CompanyModel.name)
+        if isinstance(sort_col, str):
+            sort_col = sa.literal_column(sort_col)
+
+        if sort_order == 'asc':
+            stmt = stmt.order_by(sa.asc(sort_col))
+        else:
+            stmt = stmt.order_by(sa.desc(sort_col))
+
+        stmt = stmt.offset((page - 1) * per_page).limit(per_page)
+
+        result = await self.session.execute(stmt)
+        rows = result.mappings().all()
+
+        return list(rows), total or 0
+
+    def _admin_platform_row_query(self):
+        app_counts = (
+            select(
+                ApplicationModel.platform_id,
+                func.count(ApplicationModel.id).label('applications_count'),
+            )
+            .where(ApplicationModel.platform_id.isnot(None), NOT_DRAFT)
+            .group_by(ApplicationModel.platform_id)
+            .subquery('platform_app_counts')
+        )
+
+        return (
+            select(
+                PlatformModel.id,
+                PlatformModel.name,
+                PlatformModel.url,
+                PlatformModel.is_public,
+                PlatformModel.created_by,
+                PlatformModel.created_at,
+                func.coalesce(app_counts.c.applications_count, 0).label(
+                    'applications_count'
+                ),
+                UserModel.username.label('created_by_username'),
+            )
+            .outerjoin(
+                app_counts,
+                PlatformModel.id == app_counts.c.platform_id,
+            )
+            .outerjoin(UserModel, PlatformModel.created_by == UserModel.id)
+        )
+
+    async def get_admin_platforms(
+        self,
+        search: str | None = None,
+        visibility: str | None = None,
+        sort_by: str = 'name',
+        sort_order: str = 'asc',
+        page: int = 1,
+        per_page: int = 25,
+    ) -> tuple[list, int]:
+        """Paginated ``GET /admin/platforms`` (S7), on ``get_admin_companies``:
+        ``applications_count`` excludes drafts (R-035, ``NOT_DRAFT``)."""
+        stmt = self._admin_platform_row_query()
+
+        if search:
+            stmt = stmt.where(PlatformModel.name.ilike(f'%{search}%'))
+        if visibility == 'public':
+            stmt = stmt.where(PlatformModel.is_public.is_(True))
+        elif visibility == 'private':
+            stmt = stmt.where(PlatformModel.is_public.is_(False))
+
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = await self.session.scalar(count_stmt)
+
+        sort_columns = {
+            'name': PlatformModel.name,
+            'created_at': PlatformModel.created_at,
+            'applications_count': 'applications_count',
+        }
+        sort_col = sort_columns.get(sort_by, PlatformModel.name)
         if isinstance(sort_col, str):
             sort_col = sa.literal_column(sort_col)
 

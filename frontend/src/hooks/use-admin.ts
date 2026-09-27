@@ -13,6 +13,7 @@ import { getApiError } from "@/lib/api-client";
 import { services } from "@/services/services";
 import type {
   AdminCompaniesParams,
+  AdminPlatformsParams,
   AdminUpdateUser,
   AdminUsersParams,
   CreateDiscordWebhook,
@@ -157,13 +158,41 @@ export function useDeleteAdminCompany() {
   });
 }
 
+/**
+ * Publish a private company (PRD 0010, AC19/AC20). Deliberately raises NO
+ * toast on error — `ApproveCatalogButton` shows the 409/404 `detail` verbatim
+ * inside its own dialog, which a toast would duplicate or race.
+ */
+export function usePublishCompany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => services.admin.publishCompany(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "companies"] });
+    },
+  });
+}
+
 // ── Supports: Platforms ─────────────────────────────────────────────
 
-export function useAdminPlatforms() {
+export function useAdminPlatforms(params?: AdminPlatformsParams) {
   return useQuery({
-    queryKey: ["admin", "platforms"],
-    queryFn: () => services.admin.getPlatforms(),
+    queryKey: ["admin", "platforms", params],
+    queryFn: () => services.admin.getPlatforms(params),
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Publish a private platform (PRD 0010, AC19/AC20). See `usePublishCompany`. */
+export function usePublishPlatform() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => services.admin.publishPlatform(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "platforms"] });
+      qc.invalidateQueries({ queryKey: ["supports"] });
+    },
   });
 }
 

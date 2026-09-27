@@ -1953,6 +1953,21 @@ def test_release_b_code_runs_on_r1_and_rolls_back_with_its_data(
     steps = _steps(migration_db)
     feedbacks = _feedbacks(migration_db)
 
+    # KODI-032 (S3, well after this migration in the chain) mapped
+    # ``ApplicationModel.is_draft`` unconditionally, so any ``select
+    # (ApplicationModel)`` the Release B use cases below issue now names
+    # that column. Real production always has it by the time this code
+    # runs (prod-release-runbook.md's "expand first": migration
+    # ``3b78c3cd2a71`` ships and is applied before code that reads its
+    # columns does) - this ``ALTER TABLE`` mirrors that column existing
+    # ahead of the R3 snapshot this test otherwise pins, without pulling in
+    # the rest of that later revision's schema.
+    _sql(
+        migration_db,
+        'ALTER TABLE applications ADD COLUMN is_draft boolean '
+        'NOT NULL DEFAULT false',
+    )
+
     written = _release_b_code_writes(migration_db)
 
     # Release B reads R1's data: the legacy fields come from the timeline.

@@ -13,3 +13,4 @@ class Company(BaseSchema, TimeSchema):
     id: SnowflakeID
     name: str
     url: HttpUrl
+    is_public: bool = True

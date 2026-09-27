@@ -8,6 +8,112 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-035 GET /platforms?name=: visible platforms, searchable, ordered by
+  name (web picker).
+- KODI-032 draft applications API - "new application with CV" (ADR-0014,
+  Release B of PRD 0010, S3). `ApplicationModel.is_draft` is now mapped
+  (the migration `3b78c3cd2a71` column KODI-030 left unmapped) and
+  `app/domain/repositories/application_filters.NOT_DRAFT` is the one
+  filter every application read path applies by default.
+  - `POST /applications/drafts` (new, web only, not a CLI route): create a
+    draft - `{company_id?, company_name, role, platform_id, mode?,
+    link_to_job?, observation?, expected_salary?, salary_range_min?,
+    salary_range_max?, currency?, salary_period?, experience_level?,
+    work_mode?, country?, job_description?}` - 201. No `application_date`
+    is asked; the row gets a server-today placeholder until it is
+    finished. `company_id` wins over `company_name` when both are sent
+    (the row's own name is stored); a bare `company_name` stays free text,
+    same as the ordinary application's `{name, url: null}`. An invisible
+    `company_id`/`platform_id` is 404 and writes nothing.
+  - `GET /applications/drafts` (new): the caller's own drafts as
+    `DraftSummary {id, company_name, role, platform_id, has_cv,
+    created_at, updated_at}`, most recently saved first, `[]` when there
+    are none.
+  - `GET /applications/drafts/{id}` (new): one draft, full shape (`Draft`),
+    404 if not owned or not a draft.
+  - `PUT /applications/drafts/{id}` (new): full replace of the draft's
+    application data. Never touches its CV copy - going back to step 1,
+    editing, and returning to step 2 keeps the copy.
+  - `DELETE /applications/drafts/{id}` (new): 204; its CV copy is
+    cascade-deleted with it.
+  - `POST /applications/drafts/{id}/finish` (new): `{application_date}` -
+    200, the same `Application` shape `GET /applications` returns. 422
+    `"Pick a master CV before finishing"` with no CV copy; 422 when
+    `application_date` is past `UTC today + 1` (the same rule every other
+    application date uses). On success `is_draft` flips to false,
+    `cycle_id` stays NULL, and the row appears in every ordinary read
+    model from then on.
+  - `/applications/{id}/cv*` (create/get/update/delete/pdf/markdown/diff)
+    now accept a draft id - the CV copy page (PRD 0007) is reused as step 2
+    of the draft flow (`tailored_cvs/guards.load_owned_application` is the
+    one caller that opts back into seeing a draft).
+
+- KODI-031 private companies and platforms, admin Approve (ADR-0014,
+  Release B of PRD 0010, S2). `CompanyModel`/`PlatformModel` now map
+  `is_public` and `PlatformModel.created_by` (the migration `3b78c3cd2a71`
+  columns Release A left unmapped); `visible_to(model, user_id)`
+  (`app/domain/repositories/catalog_visibility.py`) is the one rule every
+  visibility check shares: public, or private and created by that user.
+  - `POST /platforms` (new): any user may add a platform not already
+    listed, `{name, url?}` - url is optional, whoever adds it. Starts
+    **private** to that caller (admins included - the owner's own
+    applications go through the same flow as anyone's). A name that
+    matches, ignoring case, a platform the caller already sees is a 409
+    naming that platform.
+  - `POST /companies` (new): `{name, url}` - 201 for a new private company,
+    200 reusing an existing one the caller can see with the same normalised
+    name and url. `{name}` with no url stays free text on the application,
+    as before, and is never listed.
+  - `GET /companies` and `GET /supports` now list every public row plus the
+    caller's own private ones, never another user's private row. Both
+    responses add `is_public`; a `/supports` platform's `url` is now
+    nullable (fixes a 500 on a url-less platform).
+  - `POST /applications` and `PUT /applications/{id}`: an invisible
+    `platform_id` or company id is a 404 (`"Platform not found"` /
+    `"Company not found"`) and writes nothing - checked before any row is
+    inserted or updated.
+  - `GET /admin/companies` and `GET /admin/platforms` add `?visibility=
+    public|private`, `is_public` and `created_by {id, username}|null` on
+    every row.
+  - `POST /admin/companies/{id}/publish` and `POST /admin/platforms/{id}/
+    publish` (new, `AdminUserDp`): publishes a private row (idempotent on
+    an already-public one), keeping `created_by`. Refused with a 409
+    naming the public row it would duplicate on `(lower(name), url)`
+    (companies) or `lower(name)` (platforms) - there is otherwise no
+    uniqueness among public platform names (production may already hold
+    duplicates).
+  - A company or platform created through the admin screens
+    (`POST /admin/companies`, `POST /admin/platforms`) is public at once;
+    one an admin adds through the ordinary user flows (`POST /companies`,
+    `POST /platforms`, `POST /applications`) is private like any user's
+    (owner decision, 2026-09-25: "an admin user is like any other non admin
+    user but with permissions to access some areas").
+  - Every company and platform that existed before this release stays
+    public (carried by migration `3b78c3cd2a71`'s `server_default true`).
+
+- KODI-030 catalog visibility and draft flag columns (migration only,
+  ADR-0014, ADR-0005, Release A of PRD 0010). Revision `3b78c3cd2a71` adds
+  `companies.is_public` and `platforms.is_public` (`NOT NULL`, default
+  `true` — every row that exists today stays public),
+  `platforms.created_by` (nullable, `fk_platforms_created_by` ->
+  `users.id ON DELETE SET NULL`, `ix_platforms_created_by`) and
+  `applications.is_draft` (`NOT NULL`, default `false`). Replaces the
+  global `uq_companies_name_url` with two scoped partial unique indexes,
+  `uq_companies_public_name_url` (`lower(name), url` where public) and
+  `uq_companies_private_owner_name_url` (`created_by, lower(name), url`
+  where private), and adds `uq_platforms_private_owner_name`
+  (`created_by, lower(name)` where private; no public-platform index,
+  since production may already hold duplicate public platform names) and
+  `ix_applications_user_id_drafts` (`user_id` where draft). No ORM
+  mapping, route or frontend change ships in this release — `app/` reads
+  and writes none of these columns yet; that is Release B (K2). Not a CLI
+  change: no route or payload shape moves. Follow-up (owner decision,
+  2026-09-26): `upgrade()` now pre-checks for duplicate public companies on
+  `(lower(name), url)` before building `uq_companies_public_name_url` and
+  stops with a clear `RuntimeError` naming the index and every colliding
+  group's ids, instead of a raw Postgres unique-violation, in case a prior
+  rollback left the non-unique `ix_companies_name_url` branch and old code
+  inserted a new duplicate public company.
 - KODI-025 admin report webhook catalog (ADR-0013, K7): an admin can list,
   add, change and remove the Discord webhooks reports may be posted to.
   `discord_report_webhooks` (added by K5 migration `ba44f9cfd3c1`, no
@@ -200,6 +306,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- KODI-036 draft applications now carry `application_date` (S8 of PRD 0010,
+  R-003; reuses the existing `applications.application_date` column, no
+  migration). `DraftInput.application_date` is optional: `POST
+  /applications/drafts` without it still defaults to the server's own day
+  (unchanged), `PUT /applications/drafts/{id}` without the key, or with it
+  explicit `null`, keeps the stored value - it never clears, the only draft
+  field with that rule. Either way a given date beyond `UTC today + 1` is a
+  422 and nothing is written. `Draft` (every create/get/update response) now
+  always carries `application_date`. `POST
+  /applications/drafts/{id}/finish` now takes an **optional** body - no
+  body, `{}` or `{application_date}` - the body date wins when given, else
+  the draft's own stored date is used; the 422 "Pick a master CV before
+  finishing" and the future-date 422 are unchanged. Not a CLI route; no CLI
+  changelog entry.
+- KODI-035 GET /admin/platforms paginated with search, visibility, sort and
+  applications_count (drafts excluded); /supports unchanged.
+- KODI-032: `GET /applications`, statistics, reports, cycles, the agenda
+  and admin statistics/user counts now all exclude drafts
+  (`NOT_DRAFT`); starting a new cycle never archives one.
+  `count_entity_references` (admin platform/company delete refusal) is
+  unchanged on purpose - a platform or company a draft uses still blocks
+  the delete. A draft id on any ordinary application route (`PUT`/`DELETE
+  /applications/{id}`, timeline, steps, finalize, reopen, the 0.1.4
+  compat routes) is a 404, same as an application owned by someone else.
 - KODI-029 `users.is_org_member` renamed `is_org_member_old` (Release C,
   migration only, revision `583226ca46bc`); values kept; nothing reads it.
 - KODI-026 Report submission now routes to Discord by the submitting user's

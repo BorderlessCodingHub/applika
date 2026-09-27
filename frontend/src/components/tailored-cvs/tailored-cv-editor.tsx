@@ -68,6 +68,12 @@ export interface TailoredCvEditorProps {
    * the ONLY thing the footer carries in read-only mode.
    */
   actions?: ReactNode;
+  /**
+   * Replaces Cancel and the submit button on the right of the footer. The draft
+   * page (KODI-033) saves as the user types and puts its status, Back and
+   * Finish here instead.
+   */
+  footerEnd?: ReactNode;
   /** Overrides id generation for new rows. Defaults to `crypto.randomUUID()`. */
   newItemId?: () => string;
   /** `CvDiffSummaryBar`, above Identity and contact; omit when the copy has no baseline. */
@@ -107,6 +113,7 @@ export function TailoredCvEditor({
   isDeleting = false,
   readOnlyReason,
   actions,
+  footerEnd,
   newItemId = defaultNewItemId,
   diffSummary,
   diff,
@@ -247,22 +254,26 @@ export function TailoredCvEditor({
             ) : null}
           </div>
 
-          {onCancel ? (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={locked}
-              onClick={onCancel}
-            >
-              {cancelLabel}
-            </Button>
-          ) : null}
-          <Button type="submit" disabled={locked} aria-busy={isSubmitting}>
-            {isSubmitting ? (
-              <Loader2 aria-hidden className="animate-spin" />
-            ) : null}
-            {submitLabel}
-          </Button>
+          {footerEnd ?? (
+            <>
+              {onCancel ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={locked}
+                  onClick={onCancel}
+                >
+                  {cancelLabel}
+                </Button>
+              ) : null}
+              <Button type="submit" disabled={locked} aria-busy={isSubmitting}>
+                {isSubmitting ? (
+                  <Loader2 aria-hidden className="animate-spin" />
+                ) : null}
+                {submitLabel}
+              </Button>
+            </>
+          )}
         </CvEditorFooter>
       )}
     </form>

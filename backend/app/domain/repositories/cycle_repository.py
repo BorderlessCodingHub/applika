@@ -7,6 +7,7 @@ from app.domain.models import (
     QuinzenalReportModel,
     TimelineEventModel,
 )
+from app.domain.repositories.application_filters import NOT_DRAFT
 
 
 class CycleRepository:
@@ -33,10 +34,14 @@ class CycleRepository:
         )
 
     async def count_current_applications(self, user_id: int) -> int:
+        """Excludes drafts (KODI-032): a draft never counts toward the
+        current board, and starting a new cycle never archives one
+        (``archive_current_applications``, below)."""
         result = await self.session.scalar(
             select(func.count(ApplicationModel.id)).where(
                 ApplicationModel.user_id == user_id,
                 ApplicationModel.cycle_id.is_(None),
+                NOT_DRAFT,
             )
         )
         return int(result or 0)
@@ -55,11 +60,14 @@ class CycleRepository:
     async def archive_current_applications(
         self, user_id: int, cycle_id: int
     ) -> int:
+        """A draft is never archived (KODI-032): it stays open and out of
+        every cycle until it is finished or deleted."""
         result = await self.session.execute(
             update(ApplicationModel)
             .where(
                 ApplicationModel.user_id == user_id,
                 ApplicationModel.cycle_id.is_(None),
+                NOT_DRAFT,
             )
             .values(cycle_id=cycle_id)
         )

@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { isAxiosError } from "axios";
+import { isAxiosError, type AxiosError } from "axios";
 import { toast } from "sonner";
 import type { Application } from "@/services/types/applications";
 import {
@@ -41,6 +41,9 @@ import {
 import { ApplicationFormSheet } from "@/components/applications/application-form-sheet";
 import { FinalizeDialog } from "@/components/applications/finalize-dialog";
 import { ApplicationItem } from "@/components/applications/application-item";
+import { NewApplicationActions } from "@/components/applications/new-application-actions";
+import { DraftsSection } from "@/components/application-drafts/drafts-section";
+import { useDeleteDraft, useDrafts } from "@/hooks/use-application-drafts";
 import { ApplicationCardSkeleton } from "@/components/applications/application-card-skeleton";
 import {
   APPLICATIONS_PAGE_COPY,
@@ -48,6 +51,8 @@ import {
 } from "@/components/applications/application-card-copy";
 import { EmptyState } from "@/components/common/empty-state";
 import { DatePickerInput } from "@/components/ui/date-picker";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCycleContext } from "@/contexts/cycle-context";
 
 interface ApplicationAction {
@@ -77,7 +82,29 @@ export function ApplicationsPage() {
   });
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [reopeningId, setReopeningId] = useState<string | null>(null);
+  const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
   const advancedPanelId = useId();
+
+  // Drafts (PRD 0010, AC11): shown only where the create actions are — the
+  // current cycle, hidden on an archived one, per the orchestrator's decision.
+  const draftsQuery = useDrafts();
+  const deleteDraft = useDeleteDraft();
+
+  function handleDeleteDraft(draft: { id: string }) {
+    setDeletingDraftId(draft.id);
+    deleteDraft.mutate(draft.id, {
+      onSuccess: () => {
+        toast.success("Draft deleted");
+        setDeletingDraftId(null);
+      },
+      onError: (error) => {
+        toast.error(
+          isAxiosError(error) ? getApiError(error) : "Could not delete it",
+        );
+        setDeletingDraftId(null);
+      },
+    });
+  }
 
   function handleNewClick() {
     setAppAction({ action: "new", data: undefined });
@@ -111,192 +138,173 @@ export function ApplicationsPage() {
     });
   }
 
-  return (
+  // AC8 / design section 6: the count shows only once the query has
+  // succeeded (0 included) — while loading or on error the tab's accessible
+  // name stays plain "Drafts" rather than falsely claiming a count of 0.
+  const draftsCount = draftsQuery.isSuccess
+    ? (draftsQuery.data?.length ?? 0)
+    : undefined;
+
+  const toolbarAndFilters = (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground sm:text-3xl">
-              {APPLICATIONS_PAGE_COPY.title}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {isViewingPastCycle
-                ? APPLICATIONS_PAGE_COPY.archivedSubtitle
-                : APPLICATIONS_PAGE_COPY.subtitle}
-            </p>
-          </div>
-          {!isViewingPastCycle && (
-            <Button
-              onClick={handleNewClick}
-              size="lg"
-              className="w-full gap-1.5 sm:w-auto"
-            >
-              <Plus aria-hidden data-icon="inline-start" />
-              {APPLICATIONS_PAGE_COPY.newApplication}
-            </Button>
-          )}
+      {/* Toolbar */}
+      <div className="flex flex-wrap gap-3">
+        <div className="relative min-w-0 basis-full sm:flex-1 sm:basis-0">
+          <Search
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            placeholder={APPLICATIONS_PAGE_COPY.searchPlaceholder}
+            aria-label={APPLICATIONS_PAGE_COPY.searchLabel}
+            value={filters.search ?? ""}
+            onChange={(e) =>
+              updateFilter("search", e.target.value || undefined)
+            }
+            className="h-11 pl-10"
+          />
         </div>
 
-        {/* Toolbar */}
-        <div className="flex flex-wrap gap-3">
-          <div className="relative min-w-0 basis-full sm:flex-1 sm:basis-0">
-            <Search
-              aria-hidden
-              className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              placeholder={APPLICATIONS_PAGE_COPY.searchPlaceholder}
-              aria-label={APPLICATIONS_PAGE_COPY.searchLabel}
-              value={filters.search ?? ""}
-              onChange={(e) =>
-                updateFilter("search", e.target.value || undefined)
+        <Select
+          value={filters.status}
+          onValueChange={(v) =>
+            updateFilter("status", v as typeof filters.status)
+          }
+        >
+          <SelectTrigger
+            aria-label={APPLICATIONS_PAGE_COPY.statusFilterLabel}
+            className="h-11 flex-1 data-[size=default]:h-11 sm:w-44 sm:flex-none"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              {APPLICATIONS_PAGE_COPY.allStatuses}
+            </SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            {/* G6: option label reads "Closed"; the value stays "finalized". */}
+            <SelectItem value="finalized">Closed</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Button
+          variant={showAdvanced || hasAdvancedFilters ? "secondary" : "outline"}
+          size="icon"
+          className="size-11"
+          onClick={() => setShowAdvanced((v) => !v)}
+          title={APPLICATIONS_PAGE_COPY.advancedFilters}
+          aria-label={APPLICATIONS_PAGE_COPY.advancedFilters}
+          aria-expanded={showAdvanced}
+          aria-controls={advancedPanelId}
+        >
+          <SlidersHorizontal aria-hidden />
+        </Button>
+      </div>
+
+      {/* Advanced filters */}
+      {showAdvanced && (
+        <div
+          id={advancedPanelId}
+          className="grid animate-fade-in-up grid-cols-2 items-end gap-3 rounded-xl border border-border bg-card p-4 shadow-card motion-reduce:animate-none sm:flex sm:flex-wrap"
+        >
+          <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
+            <Label htmlFor="applications-filter-mode">Source</Label>
+            <Select
+              value={filters.mode}
+              onValueChange={(v) =>
+                updateFilter("mode", v as typeof filters.mode)
               }
-              className="h-11 pl-10"
-            />
+            >
+              <SelectTrigger id="applications-filter-mode">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All modes</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="passive">Passive</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          <Select
-            value={filters.status}
-            onValueChange={(v) =>
-              updateFilter("status", v as typeof filters.status)
-            }
-          >
-            <SelectTrigger
-              aria-label={APPLICATIONS_PAGE_COPY.statusFilterLabel}
-              className="h-11 flex-1 data-[size=default]:h-11 sm:w-44 sm:flex-none"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">
-                {APPLICATIONS_PAGE_COPY.allStatuses}
-              </SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              {/* G6: option label reads "Closed"; the value stays "finalized". */}
-              <SelectItem value="finalized">Closed</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button
-            variant={
-              showAdvanced || hasAdvancedFilters ? "secondary" : "outline"
-            }
-            size="icon"
-            className="size-11"
-            onClick={() => setShowAdvanced((v) => !v)}
-            title={APPLICATIONS_PAGE_COPY.advancedFilters}
-            aria-label={APPLICATIONS_PAGE_COPY.advancedFilters}
-            aria-expanded={showAdvanced}
-            aria-controls={advancedPanelId}
-          >
-            <SlidersHorizontal aria-hidden />
-          </Button>
-        </div>
-
-        {/* Advanced filters */}
-        {showAdvanced && (
-          <div
-            id={advancedPanelId}
-            className="grid animate-fade-in-up grid-cols-2 items-end gap-3 rounded-xl border border-border bg-card p-4 shadow-card motion-reduce:animate-none sm:flex sm:flex-wrap"
-          >
+          {(supports?.platforms?.length ?? 0) > 0 && (
             <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
-              <Label htmlFor="applications-filter-mode">Source</Label>
+              <Label htmlFor="applications-filter-platform">Platform</Label>
               <Select
-                value={filters.mode}
+                value={filters.platformId != null ? filters.platformId : "all"}
                 onValueChange={(v) =>
-                  updateFilter("mode", v as typeof filters.mode)
+                  updateFilter("platformId", v === "all" ? undefined : v)
                 }
               >
-                <SelectTrigger id="applications-filter-mode">
+                <SelectTrigger id="applications-filter-platform">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All modes</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="passive">Passive</SelectItem>
+                  <SelectItem value="all">All platforms</SelectItem>
+                  {supports?.platforms?.map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
+          )}
 
-            {(supports?.platforms?.length ?? 0) > 0 && (
-              <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
-                <Label htmlFor="applications-filter-platform">Platform</Label>
-                <Select
-                  value={
-                    filters.platformId != null ? filters.platformId : "all"
-                  }
-                  onValueChange={(v) =>
-                    updateFilter("platformId", v === "all" ? undefined : v)
-                  }
-                >
-                  <SelectTrigger id="applications-filter-platform">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All platforms</SelectItem>
-                    {supports?.platforms?.map((p) => (
-                      <SelectItem key={p.id} value={String(p.id)}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
-              <Label htmlFor="applications-filter-from">From</Label>
-              <DatePickerInput
-                id="applications-filter-from"
-                value={filters.dateRange?.start}
-                maxDate={new Date()}
-                onChange={(value) => {
-                  if (!value) {
-                    updateFilter("dateRange", undefined);
-                  } else {
-                    updateFilter("dateRange", {
-                      start: value,
-                      end: filters.dateRange?.end,
-                    });
-                  }
-                }}
-              />
-            </div>
-
-            <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
-              <Label htmlFor="applications-filter-to">To</Label>
-              <DatePickerInput
-                id="applications-filter-to"
-                value={filters.dateRange?.end}
-                maxDate={new Date()}
-                onChange={(value) => {
-                  if (!value) {
-                    updateFilter("dateRange", undefined);
-                  } else {
-                    updateFilter("dateRange", {
-                      start: filters.dateRange?.start,
-                      end: value,
-                    });
-                  }
-                }}
-              />
-            </div>
-
-            {hasAdvancedFilters && (
-              <Button
-                variant="ghost"
-                onClick={clearFilters}
-                className="col-span-2 gap-1.5 text-muted-foreground sm:col-span-1"
-              >
-                <X aria-hidden data-icon="inline-start" />
-                {APPLICATIONS_PAGE_COPY.clearFilters}
-              </Button>
-            )}
+          <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
+            <Label htmlFor="applications-filter-from">From</Label>
+            <DatePickerInput
+              id="applications-filter-from"
+              value={filters.dateRange?.start}
+              maxDate={new Date()}
+              onChange={(value) => {
+                if (!value) {
+                  updateFilter("dateRange", undefined);
+                } else {
+                  updateFilter("dateRange", {
+                    start: value,
+                    end: filters.dateRange?.end,
+                  });
+                }
+              }}
+            />
           </div>
-        )}
-      </div>
 
-      {/* List */}
+          <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
+            <Label htmlFor="applications-filter-to">To</Label>
+            <DatePickerInput
+              id="applications-filter-to"
+              value={filters.dateRange?.end}
+              maxDate={new Date()}
+              onChange={(value) => {
+                if (!value) {
+                  updateFilter("dateRange", undefined);
+                } else {
+                  updateFilter("dateRange", {
+                    start: filters.dateRange?.start,
+                    end: value,
+                  });
+                }
+              }}
+            />
+          </div>
+
+          {hasAdvancedFilters && (
+            <Button
+              variant="ghost"
+              onClick={clearFilters}
+              className="col-span-2 gap-1.5 text-muted-foreground sm:col-span-1"
+            >
+              <X aria-hidden data-icon="inline-start" />
+              {APPLICATIONS_PAGE_COPY.clearFilters}
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  const applicationsList = (
+    <>
       {isError ? (
         <EmptyState
           icon={RefreshCw}
@@ -360,6 +368,78 @@ export function ApplicationsPage() {
             ))}
           </ul>
         </>
+      )}
+    </>
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground sm:text-3xl">
+            {APPLICATIONS_PAGE_COPY.title}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isViewingPastCycle
+              ? APPLICATIONS_PAGE_COPY.archivedSubtitle
+              : APPLICATIONS_PAGE_COPY.subtitle}
+          </p>
+        </div>
+        {!isViewingPastCycle && (
+          <NewApplicationActions onNewApplication={handleNewClick} />
+        )}
+      </div>
+
+      {isViewingPastCycle ? (
+        <div className="flex flex-col gap-4">
+          {toolbarAndFilters}
+          {applicationsList}
+        </div>
+      ) : (
+        <Tabs defaultValue="applications" className="gap-4">
+          <TabsList variant="line">
+            <TabsTrigger value="applications">
+              {APPLICATIONS_PAGE_COPY.applicationsTab}
+            </TabsTrigger>
+            <TabsTrigger
+              value="drafts"
+              aria-label={
+                draftsCount === undefined
+                  ? undefined
+                  : `${APPLICATIONS_PAGE_COPY.draftsTab} (${draftsCount})`
+              }
+            >
+              {APPLICATIONS_PAGE_COPY.draftsTab}
+              {draftsCount !== undefined && (
+                <Badge
+                  aria-hidden="true"
+                  variant="secondary"
+                  className="font-numeric"
+                >
+                  {draftsCount}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="applications" className="flex flex-col gap-4">
+            {toolbarAndFilters}
+            {applicationsList}
+          </TabsContent>
+          <TabsContent value="drafts">
+            <DraftsSection
+              drafts={draftsQuery.data}
+              isLoading={draftsQuery.isLoading}
+              error={
+                draftsQuery.isError
+                  ? getApiError(draftsQuery.error as AxiosError)
+                  : null
+              }
+              onRetry={() => void draftsQuery.refetch()}
+              onDelete={handleDeleteDraft}
+              deletingId={deletingDraftId}
+            />
+          </TabsContent>
+        </Tabs>
       )}
 
       {/* Sheets & dialogs */}

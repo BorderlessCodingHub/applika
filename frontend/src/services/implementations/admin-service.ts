@@ -5,6 +5,7 @@ import type {
   AdminCompanyRow,
   AdminDiscordWebhook,
   AdminPlatform,
+  AdminPlatformsParams,
   AdminPlatformStats,
   AdminUpdateUser,
   AdminUserDetail,
@@ -12,6 +13,7 @@ import type {
   AdminUsersParams,
   CreateCompany,
   CreateDiscordWebhook,
+  PaginatedPlatforms,
   PaginatedResponse,
   SeniorityBreakdown,
   TopCompanyStat,
@@ -104,10 +106,26 @@ export class AdminService {
     return api.delete(`/admin/companies/${id}`).then(() => undefined);
   }
 
+  /** `POST /admin/companies/{id}/publish` — 200 (idempotent) | 404 | 409 with the colliding row's detail. */
+  publishCompany(id: string): Promise<AdminCompanyRow> {
+    return api
+      .post<AdminCompanyRow>(`/admin/companies/${id}/publish`)
+      .then((r) => r.data);
+  }
+
   // ── Supports: Platforms ───────────────────────────────────────────
 
-  getPlatforms(): Promise<AdminPlatform[]> {
-    return api.get<AdminPlatform[]>("/admin/platforms").then((r) => r.data);
+  getPlatforms(params?: AdminPlatformsParams): Promise<PaginatedPlatforms> {
+    return api
+      .get<PaginatedPlatforms>("/admin/platforms", { params })
+      .then((r) => r.data);
+  }
+
+  /** `POST /admin/platforms/{id}/publish` — same contract as `publishCompany`. */
+  publishPlatform(id: string): Promise<AdminPlatform> {
+    return api
+      .post<AdminPlatform>(`/admin/platforms/${id}/publish`)
+      .then((r) => r.data);
   }
 
   createPlatform(data: { name: string; url?: string }): Promise<AdminPlatform> {

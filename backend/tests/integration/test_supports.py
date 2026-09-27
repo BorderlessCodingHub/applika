@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.models import PlatformModel, StepDefinitionModel
 from tests import msg
 from tests.base_db_setup import base_data
+from tests.integration.conftest import as_user
 
 
 async def test_get_supports_returns_expected_structure(
@@ -18,9 +19,13 @@ async def test_get_supports_returns_expected_structure(
     assert 'feedbacks' in data, msg('feedbacks key', data.keys())
     assert 'steps' in data, msg('steps key', data.keys())
     assert 'platforms' in data, msg('platforms key', data.keys())
-    assert isinstance(data['feedbacks'], list), msg('list', type(data['feedbacks']))
+    assert isinstance(data['feedbacks'], list), msg(
+        'list', type(data['feedbacks'])
+    )
     assert isinstance(data['steps'], list), msg('list', type(data['steps']))
-    assert isinstance(data['platforms'], list), msg('list', type(data['platforms']))
+    assert isinstance(data['platforms'], list), msg(
+        'list', type(data['platforms'])
+    )
 
 
 async def test_get_supports_returns_seeded_feedback(
@@ -62,8 +67,12 @@ async def test_get_supports_returns_seeded_steps(
 ):
     # Arrange: seed a couple of step definitions
     db_session.add_all([
-        StepDefinitionModel(id=1, name='Applied', color='#007bff', strict=False),
-        StepDefinitionModel(id=2, name='Interview', color='#17a2b8', strict=False),
+        StepDefinitionModel(
+            id=1, name='Applied', color='#007bff', strict=False
+        ),
+        StepDefinitionModel(
+            id=2, name='Interview', color='#17a2b8', strict=False
+        ),
         StepDefinitionModel(id=3, name='Offer', color='#28a745', strict=True),
     ])
     await db_session.commit()
@@ -87,7 +96,9 @@ async def test_get_supports_steps_include_strict_flag(
 ):
     # Arrange: one strict step, one non-strict
     db_session.add_all([
-        StepDefinitionModel(id=1, name='Applied', color='#007bff', strict=False),
+        StepDefinitionModel(
+            id=1, name='Applied', color='#007bff', strict=False
+        ),
         StepDefinitionModel(id=2, name='Denied', color='#a80000', strict=True),
     ])
     await db_session.commit()
@@ -127,3 +138,47 @@ async def test_get_supports_with_multiple_platforms(
     assert 'Linkedin' in names, msg('Linkedin in platforms', names)
     assert 'Indeed' in names, msg('Indeed in platforms', names)
     assert 'Glassdoor' in names, msg('Glassdoor in platforms', names)
+
+
+async def test_seeded_base_platform_is_public_for_every_user(
+    async_client: AsyncClient, db_session: AsyncSession, second_user
+):
+    """AC9/T036: base_data's plat_linkedin predates this feature and must
+    stay public - visible to the seed user and to any other user."""
+    response = await async_client.get('/supports')
+    row = response.json()['platforms'][0]
+    assert row['name'] == 'Linkedin'
+    assert row['is_public'] is True, msg(True, row['is_public'])
+
+    async with as_user(second_user.id, second_user.username):
+        other_response = await async_client.get('/supports')
+    other_names = [p['name'] for p in other_response.json()['platforms']]
+    assert 'Linkedin' in other_names, msg('Linkedin visible', other_names)
+
+
+async def test_supports_platforms_stay_ordered_by_id_not_name(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """R-036/S7 plan correction: KODI-035 widened ``list_visible`` with a
+    name-ordered mode for the new ``GET /platforms``, but ``/supports``
+    itself must keep passing neither ``name`` nor ``order_by_name`` and
+    stay ``ORDER BY id`` - name order and id order deliberately disagree
+    here so a regression to name order would fail this assertion."""
+    # base_data seeds plat_linkedin with a low id; these two straddle it in
+    # id but land on opposite ends alphabetically.
+    db_session.add_all([
+        PlatformModel(id=90, name='Zulu Board', url=None, is_public=True),
+        PlatformModel(id=91, name='Alpha Board', url=None, is_public=True),
+    ])
+    await db_session.commit()
+
+    response = await async_client.get('/supports')
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    ids = [p['id'] for p in response.json()['platforms']]
+    assert ids == sorted(ids, key=int), msg(sorted(ids, key=int), ids)
+    names = [p['name'] for p in response.json()['platforms']]
+    assert names != sorted(names), (
+        'fixture must make id order and name order disagree, else this '
+        'test cannot catch a regression to name order'
+    )

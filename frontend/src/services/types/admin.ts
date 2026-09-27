@@ -104,19 +104,31 @@ export interface AdminUpdateUser {
   location?: string;
 }
 
+/** The nested creator shape (PRD 0010). `null` when the row has no recorded creator. */
+export interface AdminCatalogCreatedBy {
+  id: string;
+  username: string;
+}
+
 export interface AdminCompanyRow {
   id: string;
   name: string;
   url: string;
   is_active: boolean;
   applications_count: number;
+  /** Legacy flat field, kept for the CLI. Prefer `created_by` on the web (PRD 0010). */
   created_by_username?: string;
+  created_by?: AdminCatalogCreatedBy | null;
+  is_public: boolean;
   created_at: string;
 }
+
+export type AdminCatalogVisibility = "public" | "private";
 
 export interface AdminCompaniesParams {
   search?: string;
   is_active?: boolean;
+  visibility?: AdminCatalogVisibility;
   sort_by?: string;
   sort_order?: "asc" | "desc";
   page?: number;
@@ -137,7 +149,31 @@ export interface UpdateCompany {
 export interface AdminPlatform {
   id: string;
   name: string;
-  url?: string;
+  url?: string | null;
+  is_public: boolean;
+  created_by?: AdminCatalogCreatedBy | null;
+}
+
+/** `GET /admin/platforms` row (PRD 0010, KODI-035): paginated, like `AdminCompanyRow`. */
+export interface AdminPlatformRow {
+  id: string;
+  name: string;
+  url: string | null;
+  is_public: boolean;
+  created_by?: AdminCatalogCreatedBy | null;
+  applications_count: number;
+  created_at: string;
+}
+
+export type PaginatedPlatforms = PaginatedResponse<AdminPlatformRow>;
+
+export interface AdminPlatformsParams {
+  search?: string;
+  visibility?: AdminCatalogVisibility;
+  sort_by?: "name" | "created_at" | "applications_count";
+  sort_order?: "asc" | "desc";
+  page?: number;
+  per_page?: number;
 }
 
 // AdminStepDefinition / AdminFeedbackDefinition removed (PRD 0008, ADR 0012,

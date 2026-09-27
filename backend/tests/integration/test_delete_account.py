@@ -189,3 +189,88 @@ async def test_delete_linked_account_tries_to_revoke(
 
     assert resp.status_code == 204, msg(204, resp.status_code)
     assert fake.revoke_calls == ['the-refresh-token']
+
+
+async def test_delete_account_keeps_private_catalog_rows_created_by_null(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """ADR-0014: a user's private companies/platforms are not deleted with
+    the account - only ``created_by`` is set NULL (``ON DELETE SET NULL``),
+    same as any other catalog row that outlives its creator."""
+    company_resp = await async_client.post(
+        '/companies',
+        json={'name': 'Orphan Co', 'url': 'https://orphanco.example.com'},
+    )
+    assert company_resp.status_code == 201
+    company_id = int(company_resp.json()['id'])
+
+    platform_resp = await async_client.post(
+        '/platforms', json={'name': 'Orphan Board'}
+    )
+    assert platform_resp.status_code == 201
+    platform_id = int(platform_resp.json()['id'])
+
+    resp = await async_client.delete('/users/me')
+    assert resp.status_code == 204
+
+    company_row = (
+        (
+            await db_session.execute(
+                text(
+                    'SELECT created_by, is_public FROM companies WHERE id = :id'
+                ),
+                {'id': company_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    assert company_row is not None
+    assert company_row['created_by'] is None
+    assert company_row['is_public'] is False
+
+    platform_row = (
+        (
+            await db_session.execute(
+                text(
+                    'SELECT created_by, is_public FROM platforms WHERE id = :id'
+                ),
+                {'id': platform_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    assert platform_row is not None
+    assert platform_row['created_by'] is None
+    assert platform_row['is_public'] is False
+
+
+async def test_delete_own_account_cascades_drafts(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """A draft is a plain ``applications`` row, so deleting the account
+    cascades it away (and its CV copy) the same as an ordinary
+    application (KODI-032, T054)."""
+    draft_resp = await async_client.post(
+        '/applications/drafts',
+        json={
+            'company_id': base_data()['company_acme'].id,
+            'company_name': 'Acme Corp',
+            'role': 'Draft Role',
+            'platform_id': base_data()['plat_linkedin'].id,
+        },
+    )
+    assert draft_resp.status_code == 201, msg(201, draft_resp.text)
+    draft_id = draft_resp.json()['id']
+
+    resp = await async_client.delete('/users/me')
+    assert resp.status_code == 204
+
+    result = await db_session.execute(
+        text('SELECT id FROM applications WHERE id = :id'),
+        {'id': int(draft_id)},
+    )
+    assert result.scalar_one_or_none() is None, (
+        'Draft applications should be cascade-deleted'
+    )

@@ -56,9 +56,7 @@ class UpdateAdminCompanyUseCase:
             },
         )
 
-        rows, _ = await self.admin_repo.get_admin_companies(
-            search=company.name, page=1, per_page=1
-        )
-        if rows:
-            return AdminCompanyRowDTO(**rows[0])
+        row = await self.admin_repo.get_admin_company_row(company_id)
+        if row:
+            return AdminCompanyRowDTO(**row)
         return AdminCompanyRowDTO.model_validate(company)
