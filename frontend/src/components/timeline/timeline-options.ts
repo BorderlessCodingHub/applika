@@ -314,8 +314,14 @@ export const TIMELINE_STAGES: readonly TimelineStage[] = [
 ];
 
 /**
- * Full stage label, e.g. "Interview · Technical", "Offer". Use it for tooltips,
- * agenda items and anywhere a type is named on its own.
+ * Full stage label, e.g. "Interview - Technical", "Offer" (R-027: a spaced
+ * hyphen, not the old "·", between the event type and the interview type).
+ * Every shared user-facing surface reads this — the agenda pill, the header
+ * agenda dropdown, agenda alerts, dashboard chart tooltips and timeline event
+ * action names. The calendar file's UID keeps the OLD "·" text on purpose
+ * (R-008, `legacyStageLabel` in `src/lib/calendar.ts`) so re-importing an
+ * already-downloaded event still updates the same entry; only the file's
+ * SUMMARY and file name follow this hyphenated label.
  */
 export function stageLabel(
   eventType: TimelineEventType,
@@ -323,13 +329,13 @@ export function stageLabel(
 ): string {
   const base = EVENT_TYPE_CONFIG[eventType].label;
   if (eventType !== "interview") return base;
-  return `${base} · ${INTERVIEW_TYPE_LABELS[interviewType ?? DEFAULT_INTERVIEW_TYPE]}`;
+  return `${base} - ${INTERVIEW_TYPE_LABELS[interviewType ?? DEFAULT_INTERVIEW_TYPE]}`;
 }
 
 /**
  * Compact stage label for a chart axis, e.g. "Screening", "Offer". Interview
- * stages drop the "Interview ·" prefix; pair the axis with `stageLabel` in the
- * tooltip.
+ * stages drop the "Interview - " prefix; pair the axis with `stageLabel` in
+ * the tooltip.
  */
 export function stageShortLabel(
   eventType: TimelineEventType,
