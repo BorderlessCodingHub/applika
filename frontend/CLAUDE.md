@@ -209,14 +209,39 @@ Authentication uses HTTP-only JWT cookies. Token refresh is handled via **pollin
 
 User profile is fetched separately via `useUserProfile()` only after auth succeeds.
 
+**A 429 on either query is temporary, never a sign-out (KODI-041, R-019/R-024).**
+The backend rate-limiter (KODI-039) answers a refused request with `429` +
+`Retry-After` (+ `X-RateLimit-*`, all CORS-exposed). `src/lib/rate-limit.ts` is
+the single place that reads that shape — `isRateLimited(error)` (an axios
+429), `retryAfterMs(error)` (the `retry-after` header, axios lowercases it, in
+seconds x 1000, clamped >= 1000ms, falling back to 60000ms when missing/NaN)
+and `rateLimitNotice(error)` (the 429's own `detail`, or `null`). It lives
+outside `api-client.ts` for the same circular-import reason `blob-error.ts`
+does. Both `AuthContext`'s refresh query and `useUserProfile()` pass
+`retry: (n, e) => isRateLimited(e)` / `retryDelay: (n, e) => retryAfterMs(e)`
+— a 429 is retried forever on the server's own wait and NEVER settles the
+query into `isError`, so a cached session stays `isAuthenticated` and a cold
+load stays `isLoading` (never redirected to `/login` by
+`(protected)/layout.tsx`) instead of being signed out. Any other error keeps
+today's behaviour: no retry, straight to `isError`. Do not change the 401
+interceptor in `api-client.ts` for this — it is unrelated to the refresh
+query's own retry.
+
 ### State Management
 
-- **Server state**: TanStack React Query with a 5-minute stale time and `retry: false`
+- **Server state**: TanStack React Query with a 5-minute stale time and
+  `retry: false` — **except** the auth refresh query and `useUserProfile()`,
+  which retry a 429 only (see above)
 - **Auth state**: `AuthContext` (wraps the entire app via `RootProviders`)
 - **Supports data**: `SupportsContext` — shared lookup data (platforms only, since PRD 0008/ADR 0012: step and feedback definitions are gone, R-021) available via `useSupports()`
 - **Feature state**: custom hooks in `src/hooks/` (e.g., `useApplications`, `useTimeline`)
 
-Mutations always call `queryClient.invalidateQueries()` on success and show a `sonner` toast on error.
+Mutations always call `queryClient.invalidateQueries()` on success and show a
+`sonner` toast on error. A mutation with a fixed error message shows the 429's
+own retry text instead, when there is one: `toast.error(rateLimitNotice(error)
+?? "Failed to …")` (KODI-041, R-025) — every toast already showing
+`getApiError(error)` (which returns the `detail` unconditionally) needs no
+change, since a 429's `detail` already flows through it.
 
 ### Forms
 
