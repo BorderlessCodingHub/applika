@@ -94,6 +94,11 @@ export function ApplicationsPage() {
   // notice/replaceState side effects below must fire at most once.
   const focusResolved = useRef(false);
   const listRef = useRef<HTMLUListElement>(null);
+  // Set once the scroll+focus effect actually runs (below). Without this, a
+  // row that gets hidden and shown again — a filter change, a cycle switch,
+  // a background refetch — would recompute `focusRowId` as truthy forever
+  // and re-steal scroll/focus on every remount (frontend-qa B1).
+  const [focusDone, setFocusDone] = useState(false);
 
   // Derived, not stored in state, and computed EVERY render: the row to
   // expand has to be known on the very render that first mounts it (the one
@@ -102,12 +107,19 @@ export function ApplicationsPage() {
   // already-mounted row would not reopen it. Recomputing it in a `useState`
   // set from an effect one render later would always be one render too late.
   const focusRowId =
-    focusId && !isLoading && filtered.some((app) => app.id === focusId)
+    focusId &&
+    !focusDone &&
+    !isLoading &&
+    filtered.some((app) => app.id === focusId)
       ? focusId
       : null;
 
   useEffect(() => {
-    if (!focusId || focusResolved.current || isLoading) return;
+    // `isError` guards against a load failure being read as "not in the
+    // list": with `isLoading` false and `filtered` empty on error, this
+    // would otherwise show the not-in-cycle notice on every failed load
+    // (frontend-qa B3) instead of leaving the resolution for the retry.
+    if (!focusId || focusResolved.current || isLoading || isError) return;
     focusResolved.current = true;
 
     if (!filtered.some((app) => app.id === focusId)) {
@@ -123,16 +135,19 @@ export function ApplicationsPage() {
     if (typeof window !== "undefined") {
       window.history.replaceState(null, "", "/applications");
     }
-  }, [focusId, isLoading, filtered]);
+  }, [focusId, isLoading, isError, filtered]);
 
   // Scroll the focused row into view and focus its details trigger, once the
   // row's `<article>` is actually in the DOM (`ApplicationItem` returns
-  // `null` until `useSupports()` resolves) — a single `requestAnimationFrame`
-  // after the render that first computes `focusRowId`, the same "wait a
-  // frame, then re-query by a stable data attribute" pattern used in
-  // `cv-removed-row.tsx`/`cv-changed-marker.tsx`.
+  // `null` until `useSupports()` resolves — hence the `supports` guard AND
+  // dependency below, not just the `requestAnimationFrame`: without it the
+  // effect can run and give up a frame before `supports` ever arrives, and
+  // its `[focusRowId]` deps would never call it again, frontend-qa B2) — a
+  // single `requestAnimationFrame` after the render that first computes
+  // `focusRowId`, the same "wait a frame, then re-query by a stable data
+  // attribute" pattern used in `cv-removed-row.tsx`/`cv-changed-marker.tsx`.
   useEffect(() => {
-    if (!focusRowId) return;
+    if (!focusRowId || !supports) return;
     const container = listRef.current;
     const frame = requestAnimationFrame(() => {
       if (!container?.isConnected) return;
@@ -151,9 +166,10 @@ export function ApplicationsPage() {
           '[data-slot="application-item-details-trigger"]',
         )
         ?.focus({ preventScroll: true });
+      setFocusDone(true);
     });
     return () => cancelAnimationFrame(frame);
-  }, [focusRowId]);
+  }, [focusRowId, supports]);
 
   // Drafts (PRD 0010, AC11): shown only where the create actions are — the
   // current cycle, hidden on an archived one, per the orchestrator's decision.
