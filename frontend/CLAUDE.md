@@ -137,6 +137,33 @@ full width only once it shows the editor (KODI-017)** — see **App shell**
 below for the mechanism. `/cvs/new` and `/cvs/editor` stay full width in every
 state, path-based, unchanged.
 
+**`/applications?focus=<application_id>` (R-011, KODI-038)** is how the
+agenda card's note-row link opens the applications list with one row already
+expanded. `applications-page.tsx` follows the same shell-owns-the-Suspense-
+boundary/one-shot-read/`replaceState` shape as `cvs/editor` and
+`profile-page.tsx`: `?focus=` is read once via a lazy `useState` initializer,
+never an effect. Whether the id is IN the list is a value DERIVED every
+render from `useApplications(selectedCycleId).filtered` — not stored in
+state and not resolved from an effect — because `ApplicationItem`'s
+`defaultExpanded` (`application-item.tsx`) only seeds that row's OWN initial
+`isExpanded` on mount; a prop update to an already-mounted row would not
+reopen it, so the match has to be known on the exact render that first mounts
+the row (the one where `isLoading` flips to `false`), one render earlier than
+any state set from an effect could deliver it. A found id also drives a
+`requestAnimationFrame`-guarded scroll of its `<li>` into view (`block:
+"start"`, `"auto"` under `prefers-reduced-motion: reduce`) once its
+`<article>` is actually in the DOM (`ApplicationItem` returns `null` until
+`useSupports()` resolves), the same "wait a frame, then re-query by a stable
+data attribute" pattern `cv-removed-row.tsx`/`cv-changed-marker.tsx` use. A
+separate, ref-guarded effect (Strict Mode's double-invoke included) fires the
+SIDE EFFECTS exactly once: an id absent from the list — e.g. it belongs to an
+archived cycle — shows the one-off notice "This application is not in the
+cycle you are viewing." (`toast.info`, `richColors: false`, a fixed `id` so
+Strict Mode cannot double it); either branch then clears the query string
+with `window.history.replaceState(null, "", "/applications")` — never
+`router.replace()`, a no-op here for the same reason `profile-page.tsx`
+documents.
+
 ### Providers
 
 Providers are split into two layers:
@@ -880,9 +907,17 @@ window, same `AgendaStep` fields (R-014/R-012).
   (`formatAgendaDate` + `agendaGroupCountLabel`). Both components are
   presentational: the PAGE wires `onDownloadCalendar` (`genAgendaStepIcsFile`
   - a `"Calendar event downloaded"` toast) and the `alert` prop. The
-    chevron's `CollapsibleContent` is always mounted but empty in this
-    ticket — the read-only timeline it will reveal is KODI-038's job, not this
-    one's.
+    chevron's `CollapsibleContent` reveals `AgendaCardTimeline`
+    (`components/agenda/agenda-card-timeline.tsx`, ui-designer-delivered,
+    KODI-038, R-012) — loaded on open, read-only (no `renderActions`, no
+    actions menu, ever). `agenda-page.tsx` wires it as a small child,
+    `AgendaCardTimelineBody`, passed as `AgendaItemCard`'s `children`: it
+    calls `useTimeline(step.application_id)` unconditionally, and it is
+    Radix `CollapsibleContent` unmounting while closed (`ui/collapsible.tsx`,
+    no `forceMount`) that makes the fetch happen only once the card opens —
+    no `open` state is lifted into the page for this. Reopening a card shows
+    the CACHED result immediately (TanStack Query's 5-minute stale time), no
+    skeleton flash.
 - **The sound alert button is Upcoming-only, and only with a `start_time`
   (R-013, AC11).** `agenda-page.tsx` passes `alert` to `AgendaItemCard` ONLY
   from the Upcoming panel AND only when the step has a `start_time` —
