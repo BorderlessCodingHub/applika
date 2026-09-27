@@ -15,8 +15,10 @@ import { toast } from "sonner";
 
 import {
   AGENDA_PAGE_COPY,
+  agendaItemNames,
   agendaTabLabel,
 } from "@/components/agenda/agenda-copy";
+import { AgendaCardTimeline } from "@/components/agenda/agenda-card-timeline";
 import { AgendaDateGroup } from "@/components/agenda/agenda-date-group";
 import { AgendaItemCard } from "@/components/agenda/agenda-item-card";
 import { AgendaSkeleton } from "@/components/agenda/agenda-skeleton";
@@ -43,8 +45,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAgendaNotifications } from "@/contexts/agenda-notifications-context";
 import { useAgenda } from "@/hooks/use-user";
+import { useTimeline } from "@/hooks/use-timeline";
 import { getApiError } from "@/lib/api-client";
 import { genAgendaStepIcsFile } from "@/lib/calendar";
+import { toTimelineEventViews } from "@/lib/timeline-view";
 import type { AgendaStep } from "@/services/types/applications";
 
 interface AgendaTabPanelProps {
@@ -53,6 +57,30 @@ interface AgendaTabPanelProps {
   hadItemsBeforeFilter: boolean;
   isEnabled: (id: string) => boolean;
   toggle: (id: string) => void;
+}
+
+/**
+ * The chevron body (R-012, KODI-038). Rendered as `AgendaItemCard`'s
+ * `children`, so Radix `CollapsibleContent` (unmounts while closed, see
+ * `collapsible.tsx`) is what makes this load only once the card is opened —
+ * no `open` state is lifted into the page. Read-only: no `renderActions`.
+ */
+function AgendaCardTimelineBody({ step }: { step: AgendaStep }) {
+  const { data, isPending, isError, error, refetch, isFetching } = useTimeline(
+    step.application_id,
+  );
+  const names = agendaItemNames(step.role, step.company_name);
+
+  return (
+    <AgendaCardTimeline
+      status={isPending ? "loading" : isError ? "error" : "success"}
+      label={names.timeline}
+      events={toTimelineEventViews(data ?? [])}
+      errorDetail={isError ? getApiError(error as AxiosError) : undefined}
+      onRetry={() => void refetch()}
+      retrying={isFetching}
+    />
+  );
 }
 
 function AgendaTabPanel({
@@ -117,7 +145,9 @@ function AgendaTabPanel({
                 displayTime={displayTime}
                 onDownloadCalendar={() => handleDownload(step)}
                 alert={alert}
-              />
+              >
+                <AgendaCardTimelineBody step={step} />
+              </AgendaItemCard>
             );
           })}
         </AgendaDateGroup>

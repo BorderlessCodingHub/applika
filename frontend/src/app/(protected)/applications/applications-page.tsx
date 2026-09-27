@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { isAxiosError, type AxiosError } from "axios";
 import { toast } from "sonner";
 import type { Application } from "@/services/types/applications";
@@ -84,6 +85,75 @@ export function ApplicationsPage() {
   const [reopeningId, setReopeningId] = useState<string | null>(null);
   const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
   const advancedPanelId = useId();
+
+  // `?focus=` (R-011, KODI-038): read once, off the incoming URL, via a LAZY
+  // useState initializer — never an effect (`react-hooks/set-state-in-effect`).
+  const searchParams = useSearchParams();
+  const [focusId] = useState<string | null>(() => searchParams.get("focus"));
+  // Guards React Strict Mode's deliberate double-invoke of effects: the
+  // notice/replaceState side effects below must fire at most once.
+  const focusResolved = useRef(false);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  // Derived, not stored in state, and computed EVERY render: the row to
+  // expand has to be known on the very render that first mounts it (the one
+  // where `isLoading` flips to `false`), because `ApplicationItem`'s
+  // `defaultExpanded` only seeds its OWN initial state — a prop change to an
+  // already-mounted row would not reopen it. Recomputing it in a `useState`
+  // set from an effect one render later would always be one render too late.
+  const focusRowId =
+    focusId && !isLoading && filtered.some((app) => app.id === focusId)
+      ? focusId
+      : null;
+
+  useEffect(() => {
+    if (!focusId || focusResolved.current || isLoading) return;
+    focusResolved.current = true;
+
+    if (!filtered.some((app) => app.id === focusId)) {
+      toast.info(APPLICATIONS_PAGE_COPY.focusNotInCycle, {
+        id: "applications-focus-not-in-cycle",
+        richColors: false,
+        duration: 6000,
+      });
+    }
+    // Static export (`output: "export"`): `router.replace()` to the same
+    // path with only the query string changed is a no-op here (see
+    // `profile-page.tsx`'s note) — drive the History API directly.
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", "/applications");
+    }
+  }, [focusId, isLoading, filtered]);
+
+  // Scroll the focused row into view and focus its details trigger, once the
+  // row's `<article>` is actually in the DOM (`ApplicationItem` returns
+  // `null` until `useSupports()` resolves) — a single `requestAnimationFrame`
+  // after the render that first computes `focusRowId`, the same "wait a
+  // frame, then re-query by a stable data attribute" pattern used in
+  // `cv-removed-row.tsx`/`cv-changed-marker.tsx`.
+  useEffect(() => {
+    if (!focusRowId) return;
+    const container = listRef.current;
+    const frame = requestAnimationFrame(() => {
+      if (!container?.isConnected) return;
+      const row = Array.from(
+        container.querySelectorAll<HTMLLIElement>("li[data-application-id]"),
+      ).find((element) => element.dataset.applicationId === focusRowId);
+      if (!row || !row.querySelector("article")) return;
+      row.scrollIntoView({
+        block: "start",
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+      });
+      row
+        .querySelector<HTMLButtonElement>(
+          '[data-slot="application-item-details-trigger"]',
+        )
+        ?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusRowId]);
 
   // Drafts (PRD 0010, AC11): shown only where the create actions are — the
   // current cycle, hidden on an archived one, per the orchestrator's decision.
@@ -345,11 +415,16 @@ export function ApplicationsPage() {
           <p className="text-sm text-muted-foreground">
             {foundApplicationsLabel(filtered.length)}
           </p>
-          <ul className="flex flex-col gap-4">
+          <ul ref={listRef} className="flex flex-col gap-4">
             {filtered.map((app) => (
-              <li key={app.id}>
+              <li
+                key={app.id}
+                data-application-id={app.id}
+                className="scroll-mt-6 md:scroll-mt-8"
+              >
                 <ApplicationItem
                   app={app}
+                  defaultExpanded={app.id === focusRowId}
                   onEditClick={isViewingPastCycle ? undefined : handleEditClick}
                   onFinalizeClick={
                     isViewingPastCycle ? undefined : handleFinalizeClick

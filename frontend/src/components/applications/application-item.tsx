@@ -58,6 +58,8 @@ interface ApplicationItemProps {
   onDeleteClick?: (app: Application) => void;
   onReopenClick?: (app: Application) => void;
   reopenPending?: boolean;
+  /** Initial `isExpanded` (R-011, KODI-038 `?focus=`). Absent = today's behaviour (closed). */
+  defaultExpanded?: boolean;
 }
 
 /** value -> label lookup, capitalising the raw value when the option list has
@@ -79,8 +81,12 @@ function optionLabel(
  *
  * Mounts `TimelineSection` directly in the expanded area.
  */
-export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
-  const [isExpanded, setExpanded] = useState<boolean>(false);
+export function ApplicationItem({
+  app,
+  defaultExpanded,
+  ...props
+}: ApplicationItemProps) {
+  const [isExpanded, setExpanded] = useState<boolean>(defaultExpanded ?? false);
   const { supports } = useSupports();
   const companyId = useId();
 
@@ -230,6 +236,7 @@ export function ApplicationItem({ app, ...props }: ApplicationItemProps) {
                 variant="ghost"
                 size="icon-lg"
                 aria-label={`${APPLICATION_ACTION_COPY.details} for ${name}`}
+                data-slot="application-item-details-trigger"
                 className={cn(
                   "shrink-0 text-muted-foreground hover:text-foreground",
                   "[&_svg:not([class*='size-'])]:size-5",
