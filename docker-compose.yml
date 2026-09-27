@@ -71,6 +71,12 @@ services:
       # KODI-024: Connect Discord also answers 503 until this is set - its
       # own Fernet key, distinct from GITHUB_TOKEN_ENCRYPTION_KEY.
       DISCORD_TOKEN_ENCRYPTION_KEY: ${DISCORD_TOKEN_ENCRYPTION_KEY:-}
+      # KODI-039/ADR-0015: the rate limiter is ON by default, but this dev
+      # stack raises both limits well above anything a developer or the
+      # seed script would hit - the point here is the API being wired up
+      # end to end, not exercising 429s.
+      RATE_LIMIT_DEFAULT: "100000"
+      RATE_LIMIT_AUTH: "10000"
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck:
