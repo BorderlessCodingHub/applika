@@ -40,7 +40,7 @@ describe("AgendaDropdown — labels from event_type/interview_type", () => {
 
     await user.click(screen.getByRole("button", { name: /upcoming steps/i }));
 
-    expect(screen.getByText("Interview · Technical")).toBeInTheDocument();
+    expect(screen.getByText("Interview - Technical")).toBeInTheDocument();
   });
 
   it("labels an offer item as Offer (no interview_type)", async () => {

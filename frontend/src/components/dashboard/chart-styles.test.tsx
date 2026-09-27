@@ -9,13 +9,13 @@ describe("CustomTooltip", () => {
       <CustomTooltip
         active
         label="Screening"
-        labelFormatter={() => "Interview · Initial screening"}
+        labelFormatter={() => "Interview - Initial screening"}
         payload={[{ name: "conversion_rate", value: 40 }]}
         sufix="%"
       />,
     );
     expect(
-      screen.getByText("Interview · Initial screening"),
+      screen.getByText("Interview - Initial screening"),
     ).toBeInTheDocument();
     expect(screen.queryByText("Screening")).not.toBeInTheDocument();
   });
