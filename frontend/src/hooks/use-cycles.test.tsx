@@ -5,20 +5,23 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 
-import { useCreateCycle } from "@/hooks/use-cycles";
+import { useCreateCycle, useDeleteCycle } from "@/hooks/use-cycles";
 
 /**
- * T042/T043 (KODI-041): a rate-limited create shows the server's own
+ * T042/T043 (KODI-041): a rate-limited create/delete shows the server's own
  * `detail` in the usual error toast instead of the fixed "Failed to create
- * cycle" text (R-025); any other failure keeps that fixed text.
+ * cycle"/"Failed to delete cycle" text (R-025); any other failure keeps that
+ * fixed text.
  */
 
 const createCycle = vi.fn();
+const deleteCycle = vi.fn();
 
 vi.mock("@/services/services", () => ({
   services: {
     cycles: {
       createCycle: (...args: unknown[]) => createCycle(...args),
+      deleteCycle: (...args: unknown[]) => deleteCycle(...args),
     },
   },
 }));
@@ -101,5 +104,33 @@ describe("useCreateCycle — 429 toast (T042)", () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(toast.error).toHaveBeenCalledWith("Failed to create cycle");
+  });
+});
+
+describe("useDeleteCycle — 429 toast (T042)", () => {
+  it("shows the server's detail on a 429", async () => {
+    deleteCycle.mockRejectedValueOnce(rateLimitError());
+    const { result } = renderHook(() => useDeleteCycle(), {
+      wrapper: wrapper(),
+    });
+
+    act(() => result.current.mutate("cycle-1"));
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(toast.error).toHaveBeenCalledWith(
+      "Too many requests. Try again in 30 seconds.",
+    );
+  });
+
+  it("still shows the fixed message on a non-429 failure", async () => {
+    deleteCycle.mockRejectedValueOnce(serverError());
+    const { result } = renderHook(() => useDeleteCycle(), {
+      wrapper: wrapper(),
+    });
+
+    act(() => result.current.mutate("cycle-1"));
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(toast.error).toHaveBeenCalledWith("Failed to delete cycle");
   });
 });
