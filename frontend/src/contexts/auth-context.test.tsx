@@ -1,5 +1,9 @@
 import { AxiosError, AxiosHeaders } from "axios";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  focusManager,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -111,7 +115,13 @@ describe("AuthProvider — 429 handling (T040/T041)", () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    vi.clearAllMocks();
+    // A paused retry (see the hidden-tab tests below) can leave a queued
+    // `mockResolvedValueOnce`/`mockRejectedValueOnce` value unconsumed —
+    // `vi.clearAllMocks()` clears CALL HISTORY, not queued return values, so
+    // it would silently leak into the next test. `mockReset` clears both.
+    vi.mocked(services.auth.refresh).mockReset();
+    vi.mocked(services.users.getMe).mockReset();
+    focusManager.setFocused(undefined);
   });
 
   it("a refresh 429 with Retry-After 30 keeps a cached session authenticated, and retries at 30s", async () => {
@@ -177,10 +187,12 @@ describe("AuthProvider — 429 handling (T040/T041)", () => {
     expect(screen.getByTestId("authenticated").textContent).toBe("false");
   });
 
-  it("a /users/me 429 keeps the session authenticated", async () => {
-    vi.mocked(services.auth.refresh).mockResolvedValue({ detail: "refreshed" });
+  it("a /users/me 429 with Retry-After 30 stays loading, then authenticated, retrying at exactly 30s", async () => {
+    vi.mocked(services.auth.refresh).mockResolvedValue({
+      detail: "refreshed",
+    });
     vi.mocked(services.users.getMe)
-      .mockRejectedValueOnce(rateLimitError(1))
+      .mockRejectedValueOnce(rateLimitError(30))
       .mockResolvedValueOnce(user());
 
     renderAuth();
@@ -192,8 +204,84 @@ describe("AuthProvider — 429 handling (T040/T041)", () => {
     expect(screen.getByTestId("authenticated").textContent).toBe("false");
     expect(screen.getByTestId("loading").textContent).toBe("true");
 
-    await flush(1_000);
+    // Retry-After is 30s: nothing happens before that. Using a longer,
+    // distinctive delay (not the 1s that also happens to be TanStack's own
+    // default first retryDelay) is what proves useUserProfile's own
+    // `retryDelay` — not react-query's default — decides the wait.
+    await flush(29_000);
+    expect(services.users.getMe).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("authenticated").textContent).toBe("false");
+    expect(screen.getByTestId("loading").textContent).toBe("true");
 
+    await flush(1_000);
+    expect(services.users.getMe).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId("authenticated").textContent).toBe("true");
+    expect(screen.getByTestId("loading").textContent).toBe("false");
+  });
+
+  describe("hidden tab (a paused retry must not report done)", () => {
+    // TanStack pauses a retry whose sleep ends while the document is
+    // hidden — `fetchStatus` becomes `"paused"`. A derivation built on
+    // `isLoading` (`isPending && isFetching`) would then read false the
+    // moment the retry pauses, even though the query is still `pending`
+    // and has not settled — which is exactly the bug `isPending` in
+    // auth-context.tsx fixes. These tests fail on the pre-fix derivation.
+    afterEach(() => {
+      focusManager.setFocused(undefined);
+    });
+
+    it("a cold-load refresh 429 does not report signed-out while its retry is paused", async () => {
+      vi.mocked(services.auth.refresh)
+        .mockRejectedValueOnce(rateLimitError(5))
+        .mockResolvedValueOnce({ detail: "refreshed" });
+      vi.mocked(services.users.getMe).mockResolvedValue(user());
+
+      renderAuth();
+      await flush();
+      expect(screen.getByTestId("loading").textContent).toBe("true");
+
+      act(() => focusManager.setFocused(false));
+      await flush(5_000);
+
+      // The retry paused instead of firing — must still read as loading,
+      // never as "done and signed out".
+      expect(services.auth.refresh).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("loading").textContent).toBe("true");
+      expect(screen.getByTestId("authenticated").textContent).toBe("false");
+
+      act(() => focusManager.setFocused(true));
+      await flush();
+
+      expect(services.auth.refresh).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("authenticated").textContent).toBe("true");
+      expect(screen.getByTestId("loading").textContent).toBe("false");
+    });
+
+    it("a /users/me 429 does not report signed-out while its retry is paused", async () => {
+      vi.mocked(services.auth.refresh).mockResolvedValue({
+        detail: "refreshed",
+      });
+      vi.mocked(services.users.getMe)
+        .mockRejectedValueOnce(rateLimitError(5))
+        .mockResolvedValueOnce(user());
+
+      renderAuth();
+      await flush();
+      expect(screen.getByTestId("loading").textContent).toBe("true");
+
+      act(() => focusManager.setFocused(false));
+      await flush(5_000);
+
+      expect(services.users.getMe).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("loading").textContent).toBe("true");
+      expect(screen.getByTestId("authenticated").textContent).toBe("false");
+
+      act(() => focusManager.setFocused(true));
+      await flush();
+
+      expect(services.users.getMe).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("authenticated").textContent).toBe("true");
+      expect(screen.getByTestId("loading").textContent).toBe("false");
+    });
   });
 });

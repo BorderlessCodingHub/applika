@@ -29,7 +29,15 @@ const DISCONNECTED_INTERVAL = 30_000; // 30 seconds on failure
 export function AuthProvider({ children }: { children: ReactNode }) {
   const {
     isSuccess: isAuthSuccess,
-    isLoading: isAuthLoading,
+    // `isPending`, not `isLoading`: while a 429 retry's `retryDelay` sleep
+    // ends with the tab hidden, TanStack pauses the retry (`fetchStatus`
+    // becomes `"paused"`), and `isLoading` — `isPending && isFetching` —
+    // goes false even though the query is still `pending`. `isLoading`
+    // would then read as "done, and not authenticated", and the protected
+    // layout would redirect to `/login` on a cold load that is merely
+    // waiting out its wait in a backgrounded tab. `isPending` alone stays
+    // true until the query actually settles.
+    isPending: isAuthPending,
     isError: isAuthError,
   } = useQuery({
     queryKey: ["applika-auth"],
@@ -48,11 +56,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const {
     data: user,
-    isLoading: isUserLoading,
+    isPending: isUserPending,
     isError: isUserError,
   } = useUserProfile(isAuthSuccess);
 
-  const isLoading = isAuthLoading || (isAuthSuccess && isUserLoading);
+  const isLoading = isAuthPending || (isAuthSuccess && isUserPending);
 
   const handleLogout = async () => {
     try {
