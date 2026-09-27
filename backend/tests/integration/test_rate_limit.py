@@ -5,6 +5,7 @@ and low limits set through ``monkeypatch`` on ``envs``. The limiter is OFF
 by default (``tests/conftest.py``); every test here turns it back on.
 """
 
+import time
 from datetime import UTC, datetime, timedelta
 
 import jwt
@@ -359,11 +360,22 @@ async def test_window_setting_is_actually_read(
     """AC5: RATE_LIMIT_WINDOW_SECONDS itself comes from configuration, not
     a hard-coded literal - a small, distinctive window (5, not the 60 every
     other test in this module uses) has to show up in Retry-After,
-    X-RateLimit-Reset and the key's own Redis TTL."""
+    X-RateLimit-Reset and the key's own window index.
+
+    The bound is on the window INDEX (``int(now // window)``), not on the
+    header/TTL values directly: those alone are clock-dependent (a
+    hard-coded 60 still produces small values near a minute boundary,
+    backend-qa measured about a 9% flake rate asserting on them directly).
+    A window of 5 buckets ``now`` about 12x finer than a window of 60, so
+    comparing the actual key's index against one computed with the real
+    window catches a hard-coded 60 at every second of the minute.
+    """
     _enable_limiter(monkeypatch, default=1, window=5)
 
+    t0 = time.time()
     await async_client.get('/supports')
     refused = await async_client.get('/supports')
+    t1 = time.time()
     assert refused.status_code == 429
 
     assert 1 <= int(refused.headers['Retry-After']) <= 5
@@ -371,6 +383,9 @@ async def test_window_setting_is_actually_read(
 
     keys = await redis_client.keys('applika:ratelimit:default:*')
     assert len(keys) == 1
+    window_index = int(keys[0].rsplit(':', 1)[1])
+    assert int(t0 // 5) <= window_index <= int(t1 // 5)
+
     ttl = await redis_client.ttl(keys[0])
     assert 0 < ttl <= 6
 

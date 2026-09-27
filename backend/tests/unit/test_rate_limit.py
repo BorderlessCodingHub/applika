@@ -17,12 +17,26 @@ if TYPE_CHECKING:
     import redis.asyncio as redis
 
 
-def test_settings_rate_limit_defaults():
+_RATE_LIMIT_ENV_NAMES = (
+    'RATE_LIMIT_ENABLED',
+    'RATE_LIMIT_DEFAULT',
+    'RATE_LIMIT_AUTH',
+    'RATE_LIMIT_WINDOW_SECONDS',
+)
+
+
+def test_settings_rate_limit_defaults(monkeypatch):
     """AC2/AC5: the shipped defaults are 120/min default, 10/min /auth/*,
     a 60s window, and the limiter on - pinned so a default cannot silently
     drift (a fresh Settings(), not the process-wide `envs` other fixtures
-    mutate)."""
-    settings = Settings()  # ty: ignore[missing-argument]
+    mutate). Hermetic: ignores both a real backend/.env and any
+    RATE_LIMIT_* already in the process environment, neither of which
+    exists in this repo or in CI today, but either would otherwise make
+    this test lie about the shipped default."""
+    for name in _RATE_LIMIT_ENV_NAMES:
+        monkeypatch.delenv(name, raising=False)
+
+    settings = Settings(_env_file=None)  # ty: ignore[missing-argument, unknown-argument]
     assert settings.RATE_LIMIT_ENABLED is True
     assert settings.RATE_LIMIT_DEFAULT == 120
     assert settings.RATE_LIMIT_AUTH == 10
@@ -37,7 +51,7 @@ def test_settings_rate_limit_env_var_names(monkeypatch):
     monkeypatch.setenv('RATE_LIMIT_AUTH', '3')
     monkeypatch.setenv('RATE_LIMIT_WINDOW_SECONDS', '15')
 
-    settings = Settings()  # ty: ignore[missing-argument]
+    settings = Settings(_env_file=None)  # ty: ignore[missing-argument, unknown-argument]
 
     assert settings.RATE_LIMIT_ENABLED is False
     assert settings.RATE_LIMIT_DEFAULT == 7
