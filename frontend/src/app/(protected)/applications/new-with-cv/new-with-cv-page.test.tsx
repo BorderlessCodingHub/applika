@@ -1,4 +1,8 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  onlineManager,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 import {
   act,
   fireEvent,
@@ -8,7 +12,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { NewWithCvPage } from "./new-with-cv-page";
 import { SupportsProvider } from "@/contexts/supports-context";
@@ -1305,5 +1309,55 @@ describe("NewWithCvPage — CV copy autosave and step 2 job description/diff (AC
       await screen.findByText(/We need a Rust wizard/),
     ).toBeInTheDocument();
     expect(await screen.findByText(/Compared with/i)).toBeInTheDocument();
+  }, 15_000);
+});
+
+describe("NewWithCvPage — offline autosave (KODI-034, AC7, PRD 0010 edge case l.148)", () => {
+  afterEach(() => {
+    // Never leak "offline" into a later test regardless of pass/fail.
+    onlineManager.setOnline(true);
+  });
+
+  it("with the browser offline, autosave goes to Not saved (not stuck on Saving...), keeps what was typed, and saves once back online", async () => {
+    searchParams = new URLSearchParams("id=draft-9");
+    getDraftMock.mockResolvedValue(
+      draftFrom({
+        id: "draft-9",
+        company_name: "Acme",
+        role: "Engineer",
+        platform_id: "plt-1",
+      }),
+    );
+    // `networkMode: "always"` makes the mutationFn run even while
+    // `onlineManager` reports offline, so the SERVICE call itself has to be
+    // the one that fails, exactly like a real fetch would offline.
+    updateDraftMock.mockRejectedValueOnce(new Error("network error"));
+    const user = userEvent.setup();
+    renderPage();
+
+    const role = await screen.findByPlaceholderText(/senior engineer/i);
+
+    onlineManager.setOnline(false);
+    await user.type(role, " A");
+
+    // The bug this pins: with the default `networkMode: "online"`, TanStack
+    // Query PAUSES the mutation while offline instead of running it, so the
+    // status sticks on "saving" forever instead of failing into "error".
+    await waitFor(() => expect(statusState()).toBe("error"), {
+      timeout: 3000,
+    });
+    expect(statusState()).not.toBe("saving");
+    expect(screen.getByText("Not saved")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+    expect(role).toHaveValue("Engineer A");
+
+    onlineManager.setOnline(true);
+    await user.type(role, "B");
+
+    await waitFor(() => expect(updateDraftMock).toHaveBeenCalledTimes(2), {
+      timeout: 3000,
+    });
+    expect(lastPut()?.role).toBe("Engineer AB");
+    await waitFor(() => expect(statusState()).toBe("saved"));
   }, 15_000);
 });

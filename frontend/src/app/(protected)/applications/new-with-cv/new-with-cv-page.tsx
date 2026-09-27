@@ -346,9 +346,18 @@ export function NewWithCvPage() {
   // A SILENT update for autosave — the toasting `useUpdateTailoredCv` would
   // pop a "CV copy saved" toast about once a second while the user types
   // (KODI-033 QA round 1, should-fix P6).
+  //
+  // `networkMode: "always"` (KODI-034, owner-ordered 2026-09-26): same
+  // offline-autosave fix as `useCreateDraft`/`useUpdateDraft`
+  // (`use-application-drafts.ts`) — R-008 covers both the application data
+  // and the CV copy, so this step-2 autosave mutation gets the same option
+  // rather than flipping the shared `QueryClient`'s default (`query-client.ts`
+  // keeps `retry: false` for QUERIES only): a per-mutation option is narrower
+  // and cannot change how any query behaves offline.
   const updateTailoredCvSilently = useMutation({
     mutationFn: (data: UpdateTailoredCvPayload) =>
       services.tailoredCvs.update(draftId as string, data),
+    networkMode: "always",
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: TAILORED_CVS_QUERY_KEY });
     },
