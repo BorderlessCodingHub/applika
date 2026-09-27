@@ -307,6 +307,99 @@ describe("ApplicationFormSheet — edit payload (characterization)", () => {
   });
 });
 
+describe("ApplicationFormSheet — application date, own local today (KODI-034, T147)", () => {
+  // Owner order 2026-09-26 (found in KODI-036): `new Date(v) <= new Date()`
+  // refused the user's own TODAY whenever their local calendar day was
+  // already ahead of UTC's. On a UTC-hosted CI runner, faking the system
+  // time alone is not enough to reproduce that — local day would equal UTC
+  // day and the old code would still pass. Forcing the runtime TZ to
+  // Asia/Tokyo (UTC+9) is what makes the local calendar day 2026-09-27 while
+  // UTC is still 2026-09-26, which is exactly the bug: this test FAILS if
+  // `application-form-sheet.tsx` is reverted to the `Date`-object
+  // comparison, on ANY host TZ including CI's UTC.
+  const originalTz = process.env.TZ;
+
+  beforeEach(() => {
+    process.env.TZ = "Asia/Tokyo";
+    vi.useFakeTimers({ toFake: ["Date"] });
+    // 2026-09-26T17:00:00Z is 2026-09-27 02:00 local in Asia/Tokyo (UTC+9).
+    vi.setSystemTime(new Date("2026-09-26T17:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    process.env.TZ = originalTz;
+  });
+
+  it("accepts the user's own local today (2026-09-27) even though UTC is still 2026-09-26", async () => {
+    const user = userEvent.setup({
+      advanceTimers: vi.advanceTimersByTime,
+    });
+    render(
+      <ApplicationFormSheet open onOpenChange={() => {}} application={null} />,
+    );
+
+    await user.click(screen.getByRole("combobox", { name: "Company" }));
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Acme",
+    );
+    await user.click(await screen.findByText("Acme Inc"));
+
+    await user.type(
+      screen.getByPlaceholderText(/senior engineer/i),
+      "Senior Engineer",
+    );
+    await pickPlatform(user);
+    await user.click(screen.getByRole("combobox", { name: /source/i }));
+    await user.click(await screen.findByRole("option", { name: /^active/i }));
+    await user.type(screen.getByLabelText(/application date/i), "2026-09-27");
+
+    await user.click(
+      screen.getByRole("button", { name: /create application/i }),
+    );
+
+    await waitFor(() => expect(submit).toHaveBeenCalled());
+    expect(
+      screen.queryByText("Date cannot be in the future"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("still refuses a later day (2026-09-28) as in the future", async () => {
+    const user = userEvent.setup({
+      advanceTimers: vi.advanceTimersByTime,
+    });
+    render(
+      <ApplicationFormSheet open onOpenChange={() => {}} application={null} />,
+    );
+
+    await user.click(screen.getByRole("combobox", { name: "Company" }));
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Acme",
+    );
+    await user.click(await screen.findByText("Acme Inc"));
+
+    await user.type(
+      screen.getByPlaceholderText(/senior engineer/i),
+      "Senior Engineer",
+    );
+    await pickPlatform(user);
+    await user.click(screen.getByRole("combobox", { name: /source/i }));
+    await user.click(await screen.findByRole("option", { name: /^active/i }));
+    await user.type(screen.getByLabelText(/application date/i), "2026-09-28");
+
+    await user.click(
+      screen.getByRole("button", { name: /create application/i }),
+    );
+
+    expect(
+      await screen.findByText("Date cannot be in the future"),
+    ).toBeInTheDocument();
+    expect(submit).not.toHaveBeenCalled();
+  });
+});
+
 describe("ApplicationFormSheet — adds a platform inline (AC14, T082)", () => {
   it("creates a new platform and selects it", async () => {
     createPlatformOutcome.mockResolvedValue({

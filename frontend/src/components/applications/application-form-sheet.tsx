@@ -11,6 +11,7 @@ import {
   type CreateApplicationPayload,
 } from "@/services/types/applications";
 import { usePlatforms } from "@/hooks/use-platforms";
+import { isNotFutureCalendarDay } from "@/components/application-drafts/draft-copy";
 import {
   Sheet,
   SheetContent,
@@ -45,7 +46,7 @@ const schema = z
     application_date: z
       .string()
       .min(1, "Application date is required")
-      .refine((v) => new Date(v) <= new Date(), "Date cannot be in the future"),
+      .refine((v) => isNotFutureCalendarDay(v), "Date cannot be in the future"),
     link_to_job: z.union([
       z.literal(""),
       z.httpUrl({
