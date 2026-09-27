@@ -829,6 +829,94 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   assert on `/reason:\s*<label>/i`, never an exact string, the same convention
   `InterviewTypeBadge` already set.
 
+### Agenda (`src/components/agenda/`, `app/(protected)/agenda/agenda-page.tsx`, KODI-037)
+
+Rewritten after `docs/refs/agenda-rework.png`: Upcoming | Past tabs (Upcoming
+always selected on open), date groups, rich cards, a toolbar search + stage
+filter with tab counts. `GET /users/me/agenda` is UNCHANGED — same ±30-day
+window, same `AgendaStep` fields (R-014/R-012).
+
+- **`agenda-view.ts` is pure — no React, no I/O — and every zone computation
+  goes through ONE Intl-based primitive, `zonedTimeToUtc`/`timeZoneOffsetMs`.**
+  `parseTime`, `convertToLocalTime`, `getDisplayTime` and `isStepPast` were
+  moved here from the old page component, but `isStepPast`/`convertToLocalTime`
+  were REWRITTEN on top of `Intl.DateTimeFormat` with an explicit `timeZone`
+  rather than `Date#toLocaleString()`/`Date#getHours()` with none: the old pair
+  silently reads the PROCESS's own `TZ`, which made both the "today" boundary
+  and the converted HH:mm depend on the machine running the test — real under
+  a developer's local zone, wrong the moment CI (UTC) or any other zone runs
+  it. `now`/`localTz` are INJECTABLE parameters on top of that fix, so a test
+  pins both the clock AND the zone rather than relying on the process's
+  ambient ones. Verify a change here against more than one zone:
+  `TZ=UTC pnpm vitest run src/components/agenda` and `TZ=Asia/Tokyo …` must
+  both stay green.
+  `splitAgenda(items, now, localTz)` returns `{upcoming, past}`: Upcoming is
+  not-yet-started, soonest first; Past is already-started, most recent first.
+  An untimed step (no `start_time`) stays Upcoming until its calendar day is
+  over (R-005) — it is never "past" on its own date. Within one tab, cards are
+  ordered by `step_date` FIRST (so a group's cards never interleave with
+  another date's) and by each step's own real START INSTANT second — never by
+  comparing the raw `HH:mm` strings, which gets a same-day, cross-timezone
+  pair backwards (a 10:00 New York card is later in real time than a 10:30
+  São Paulo one). `groupByDate(items)` groups an ALREADY-ordered list by
+  `step_date`, preserving order both across and within groups (R-006).
+  `filterAgenda(items, {search, interviewType})` is case-insensitive substring
+  on `company_name` OR `role` SEPARATELY (R-009) — never concatenated, or a
+  search matching one word from each field would wrongly match neither — plus
+  an exact `interview_type` match (R-010), `"all"` or omitted keeping
+  everything. **`agenda-page.tsx` runs `filterAgenda` BEFORE
+  `splitAgenda`/`groupByDate`**, so both tabs' counts and contents already
+  reflect the search and the stage filter — never filter after splitting, or a
+  match in one tab could still show the other tab's stale, unfiltered count.
+- **The card anatomy is `AgendaItemCard`** (`components/agenda/agenda-item-card.tsx`,
+  ui-designer-delivered): a left time column (bold start, muted end, or "All
+  day" when `displayTime` is `null`), an `IconTile` company tile, company +
+  role, a meta row (date, time range + "(converted)", readable timezone via
+  `timeZoneLabel`), a stage pill (`EVENT_TYPE_CONFIG[type].badgeClass` + dot +
+  `stageLabel`), an alert button, a calendar button and a `CollapsibleTrigger`
+  chevron, then a nested note row (`FileText` + the trimmed `observation` or
+  "No notes" + an `ExternalLink` to `/applications?focus=<application_id>`).
+  `AgendaDateGroup` wraps a date's cards with a header bar
+  (`formatAgendaDate` + `agendaGroupCountLabel`). Both components are
+  presentational: the PAGE wires `onDownloadCalendar` (`genAgendaStepIcsFile`
+  - a `"Calendar event downloaded"` toast) and the `alert` prop. The
+    chevron's `CollapsibleContent` is always mounted but empty in this
+    ticket — the read-only timeline it will reveal is KODI-038's job, not this
+    one's.
+- **The sound alert button is Upcoming-only, and only with a `start_time`
+  (R-013, AC11).** `agenda-page.tsx` passes `alert` to `AgendaItemCard` ONLY
+  from the Upcoming panel AND only when the step has a `start_time` —
+  `undefined` on every Past card and on an untimed Upcoming card, which hides
+  the button entirely rather than disabling it.
+  `useAgendaNotifications().isEnabled`/`toggle` are unchanged (still
+  `localStorage`-backed, still firing at 30/15/5 minutes before).
+- **The hyphenated stage label is R-027; the calendar UID is R-008, and the
+  two never merge.** `stageLabel()` (`timeline/timeline-options.ts`) now joins
+  with `" - "` (`"Interview - Initial screening"`), not `"·"` — every reader
+  (the agenda pill, the header `agenda-dropdown`, agenda sound-alert
+  notifications, dashboard chart tooltips, `TimelineEventActionsMenu`'s
+  accessible name, and the calendar file's SUMMARY/file name) gets the hyphen
+  for free since they all call this one function. **The calendar event's
+  IDENTITY does not follow it.** `lib/calendar.ts` has a local, UNEXPORTED
+  `legacyStageLabel()` — a byte-for-byte copy of the OLD `"·"`-joined
+  logic — used ONLY in the ICS `UID:` line, so re-downloading and
+  re-importing the same event still updates the same calendar entry instead
+  of creating a duplicate. Every other line in the file (`SUMMARY`, the
+  downloaded file's name) calls the real `stageLabel()`. `calendar.test.ts`
+  pins both halves independently and is written to fail if either is
+  reverted onto the other.
+- **Empty and error states (R-015, AC13).** Three distinct messages, never
+  conflated: "No upcoming interviews" / "No past interviews in the last 30
+  days" (the tab is genuinely empty, before any filter — each with a "Go to
+  Applications" action) vs. "No interviews match your search" (the tab had
+  items before `filterAgenda` ran, shown with no action). A load error
+  renders `getApiError(error)` verbatim inside `role="alert"`, with the tabs
+  themselves showing no counts (`countsReady` is `false` while `isLoading` or
+  `isError`) rather than a stale or fabricated number.
+- **Tab state is never in the URL.** `Tabs defaultValue="upcoming"` means a
+  fresh page load — including a hard refresh — always opens on Upcoming,
+  which is the owner's explicit ask ("upcoming first and active by default").
+
 ### Application drafts (`src/components/application-drafts/`, PRD 0010, KODI-033)
 
 The owner: "i want to add option to the user to create a job application and a
