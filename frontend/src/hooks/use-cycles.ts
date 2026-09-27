@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { services } from "@/services/services";
+import { rateLimitNotice } from "@/lib/rate-limit";
 import type { CreateCyclePayload } from "@/services/types/cycles";
 
 export function useCycles() {
@@ -28,7 +29,8 @@ export function useCreateCycle(opts?: { onSuccess?: () => void }) {
       toast.success("New cycle started successfully");
       opts?.onSuccess?.();
     },
-    onError: () => toast.error("Failed to create cycle"),
+    onError: (error) =>
+      toast.error(rateLimitNotice(error) ?? "Failed to create cycle"),
   });
 }
 
@@ -47,6 +49,7 @@ export function useDeleteCycle(opts?: { onSuccess?: () => void }) {
       toast.success("Cycle deleted permanently");
       opts?.onSuccess?.();
     },
-    onError: () => toast.error("Failed to delete cycle"),
+    onError: (error) =>
+      toast.error(rateLimitNotice(error) ?? "Failed to delete cycle"),
   });
 }

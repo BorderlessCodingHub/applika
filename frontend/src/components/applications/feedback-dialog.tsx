@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { services } from "@/services/services";
+import { rateLimitNotice } from "@/lib/rate-limit";
 import { FeedbackScore } from "@/services/types/feedbacks";
 
 export function FeedbackButton() {
@@ -61,8 +62,8 @@ export function FeedbackDialog({
       toast.success("Thanks for your feedback!");
       reset();
       onOpenChange(false);
-    } catch {
-      toast.error("Failed to send feedback");
+    } catch (error) {
+      toast.error(rateLimitNotice(error) ?? "Failed to send feedback");
     } finally {
       setPending(false);
     }
