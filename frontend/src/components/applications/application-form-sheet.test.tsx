@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 import { ApplicationFormSheet } from "@/components/applications/application-form-sheet";
 import type { Application } from "@/services/types/applications";
@@ -317,10 +317,8 @@ describe("ApplicationFormSheet — application date, own local today (KODI-034, 
   // UTC is still 2026-09-26, which is exactly the bug: this test FAILS if
   // `application-form-sheet.tsx` is reverted to the `Date`-object
   // comparison, on ANY host TZ including CI's UTC.
-  const originalTz = process.env.TZ;
-
   beforeEach(() => {
-    process.env.TZ = "Asia/Tokyo";
+    vi.stubEnv("TZ", "Asia/Tokyo");
     vi.useFakeTimers({ toFake: ["Date"] });
     // 2026-09-26T17:00:00Z is 2026-09-27 02:00 local in Asia/Tokyo (UTC+9).
     vi.setSystemTime(new Date("2026-09-26T17:00:00Z"));
@@ -328,7 +326,7 @@ describe("ApplicationFormSheet — application date, own local today (KODI-034, 
 
   afterEach(() => {
     vi.useRealTimers();
-    process.env.TZ = originalTz;
+    vi.unstubAllEnvs();
   });
 
   it("accepts the user's own local today (2026-09-27) even though UTC is still 2026-09-26", async () => {
