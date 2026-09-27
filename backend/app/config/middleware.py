@@ -19,14 +19,16 @@ class HTTPLifecycleMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         request_id = str(uuid.uuid4())
-        request_id_ctx.set(request_id)
+        # request_id_ctx's inferred type is ContextVar[None] (its
+        # constructor default is None); ty cannot see it also holds str.
+        # Pre-existing false positive (KODI-039 touches this file for the
+        # client_ip fix below and the gate now requires it clean).
+        request_id_ctx.set(request_id)  # ty: ignore[invalid-argument-type]
 
-        client_ip = (
-            request.headers
-            .get('X-Forwarded-For', request.client.host)
-            .split(',')[0]
-            .strip()
-        )
+        # The address uvicorn resolved, trusting X-Forwarded-For only from
+        # FORWARDED_ALLOW_IPS (KODI-039, ADR-0015, Plan corrections 1,
+        # R-022). The raw header is never read here: anyone can forge it.
+        client_ip = request.client.host if request.client else 'unknown'
 
         user_agent = request.headers.get('User-Agent', '-')
         content_type = request.headers.get('Content-Type', '-')
@@ -103,7 +105,9 @@ class WebSocketLifecycleMiddleware:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         request_id = str(uuid.uuid4())
-        request_id_ctx.set(request_id)
+        # Same request_id_ctx false positive as HTTPLifecycleMiddleware
+        # above.
+        request_id_ctx.set(request_id)  # ty: ignore[invalid-argument-type]
 
         if scope['type'] == 'websocket':
             client = scope.get('client')
@@ -159,5 +163,7 @@ class WebSocketLifecycleMiddleware:
 
 
 def register_middleware(app: FastAPI) -> None:
-    app.add_middleware(HTTPLifecycleMiddleware)
-    app.add_middleware(WebSocketLifecycleMiddleware)
+    # Same ParamSpec-based _MiddlewareFactory false positive ty hits on
+    # every add_middleware(<custom class>) call - see app/main.py.
+    app.add_middleware(HTTPLifecycleMiddleware)  # ty: ignore[invalid-argument-type]
+    app.add_middleware(WebSocketLifecycleMiddleware)  # ty: ignore[invalid-argument-type]

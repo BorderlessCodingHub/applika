@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.middleware import register_middleware
+from app.config.rate_limit import RateLimitMiddleware
 from app.config.settings import envs
 from app.presentation.api.account_link import router as account_link_router
 from app.presentation.api.admin import routers as admin_routers
@@ -36,6 +37,11 @@ app = FastAPI(
 )
 
 
+# The rate limiter (KODI-039, ADR-0015) is installed BEFORE (= inside) the
+# CORS middleware below, so CORS wraps it: a 429 still carries
+# Access-Control-Allow-Origin, and a browser preflight (OPTIONS) is answered
+# by CORSMiddleware before this middleware ever counts it.
+app.add_middleware(RateLimitMiddleware)  # ty: ignore[invalid-argument-type]
 # CORS
 app.add_middleware(
     CORSMiddleware,  # ty: ignore[invalid-argument-type]
@@ -46,8 +52,17 @@ app.add_middleware(
     # The API and the web app are separate origins, so the browser cannot
     # read the PDF download's filename unless this header is exposed.
     # ``Deprecation`` is exposed for the same reason: a browser client of a
-    # deprecated route can read it (R-020).
-    expose_headers=['Content-Disposition', DEPRECATION_HEADER],
+    # deprecated route can read it (R-020). The rate limiter's headers
+    # (KODI-039, ADR-0015) are exposed so the web app can read them and
+    # Retry-After across origins (R-019).
+    expose_headers=[
+        'Content-Disposition',
+        DEPRECATION_HEADER,
+        'Retry-After',
+        'X-RateLimit-Limit',
+        'X-RateLimit-Remaining',
+        'X-RateLimit-Reset',
+    ],
 )
 # The Deprecation header of the compat routes, on errors too. The ignores:
 # ty cannot match a middleware class against Starlette's ParamSpec-based
