@@ -80,6 +80,12 @@ services:
       # axios preflight from the SPA passes without editing settings.py.
       CORS_ORIGINS: '["http://127.0.0.1:8180"]'
       CORS_HEADERS: '["X-Request-ID", "Content-Type", "Accept", "Authorization"]'
+      # KODI-039/ADR-0015: the rate limiter wraps every route, so it would
+      # otherwise trip on the seed script and on a Playwright run driving
+      # many requests in this one 60s window - raised so the limiter stays
+      # wired up (still ON) without the E2E suite ever hitting a 429.
+      RATE_LIMIT_DEFAULT: "100000"
+      RATE_LIMIT_AUTH: "10000"
     ports:
       - "127.0.0.1:8100:8000"
     healthcheck:

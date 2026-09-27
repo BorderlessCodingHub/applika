@@ -1,0 +1,107 @@
+import { AxiosError, AxiosHeaders } from "axios";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { renderHook, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { toast } from "sonner";
+
+import { useReportSubmit } from "@/hooks/use-repports";
+
+/**
+ * T042/T043 (KODI-041): a rate-limited report submit shows the server's
+ * own `detail` in the usual error toast instead of the fixed "Failed to
+ * submit report" text (R-025); any other failure keeps that fixed text.
+ */
+
+const submitReport = vi.fn();
+
+vi.mock("@/services/services", () => ({
+  services: {
+    reports: {
+      submitReport: (...args: unknown[]) => submitReport(...args),
+    },
+  },
+}));
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
+function rateLimitError() {
+  const headers = new AxiosHeaders();
+  headers.set("retry-after", "30");
+  return new AxiosError(
+    "Too Many Requests",
+    "ERR_BAD_REQUEST",
+    undefined,
+    undefined,
+    {
+      status: 429,
+      statusText: "Too Many Requests",
+      headers,
+      config: {} as never,
+      data: { detail: "Too many requests. Try again in 30 seconds." },
+    },
+  );
+}
+
+function serverError() {
+  return new AxiosError(
+    "Server error",
+    "ERR_BAD_RESPONSE",
+    undefined,
+    undefined,
+    {
+      status: 500,
+      statusText: "Internal Server Error",
+      headers: new AxiosHeaders(),
+      config: {} as never,
+      data: { detail: "Internal error" },
+    },
+  );
+}
+
+function wrapper() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+  };
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("useReportSubmit — 429 toast (T042)", () => {
+  it("shows the server's detail on a 429", async () => {
+    submitReport.mockRejectedValueOnce(rateLimitError());
+    const { result } = renderHook(() => useReportSubmit(), {
+      wrapper: wrapper(),
+    });
+
+    result.current.submit(14 as never, { hours: 2 } as never).catch(() => {});
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "Too many requests. Try again in 30 seconds.",
+      ),
+    );
+  });
+
+  it("still shows the fixed message on a non-429 failure", async () => {
+    submitReport.mockRejectedValueOnce(serverError());
+    const { result } = renderHook(() => useReportSubmit(), {
+      wrapper: wrapper(),
+    });
+
+    result.current.submit(14 as never, { hours: 2 } as never).catch(() => {});
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Failed to submit report"),
+    );
+  });
+});

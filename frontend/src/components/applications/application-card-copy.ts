@@ -14,6 +14,8 @@ export const APPLICATIONS_PAGE_COPY = {
   clearFilters: "Clear all",
   emptyTitle: "No applications found",
   emptyAction: "Create your first application",
+  /** `?focus=` (R-011, KODI-038): the application isn't in the list shown. */
+  focusNotInCycle: "This application is not in the cycle you are viewing.",
 } as const;
 
 export function foundApplicationsLabel(count: number): string {

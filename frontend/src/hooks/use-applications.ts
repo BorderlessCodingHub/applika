@@ -9,6 +9,7 @@ import { services } from "@/services/services";
 import { useSupports } from "@/contexts/supports-context";
 import { CreateApplicationPayload } from "@/services/types/applications";
 import { getApiError } from "@/lib/api-client";
+import { rateLimitNotice } from "@/lib/rate-limit";
 import { TAILORED_CVS_QUERY_KEY } from "@/hooks/use-tailored-cv";
 
 export interface ApplicationFilters {
@@ -188,7 +189,8 @@ export function useApplicationDelete() {
       });
       toast.success("Application deleted");
     },
-    onError: () => toast.error("Failed to delete"),
+    onError: (error) =>
+      toast.error(rateLimitNotice(error) ?? "Failed to delete"),
   });
 
   async function deleteApplication(id: string) {

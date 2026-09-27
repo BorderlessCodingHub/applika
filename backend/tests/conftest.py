@@ -12,10 +12,21 @@ from sqlalchemy.ext.asyncio import (
 from testcontainers.postgres import PostgresContainer
 
 from app.config.db import get_session
+from app.config.settings import envs
 from app.domain.models import Base
 from app.main import app as main_app
 from app.presentation.dependencies import get_current_user
 from tests.base_db_setup import base_data
+
+
+@pytest.fixture(autouse=True, scope='session')
+def _rate_limit_disabled():
+    """The limiter is OFF by default in every test (KODI-039, T032): tests
+    that exercise it turn it back on with ``monkeypatch`` on ``envs``."""
+    previous = envs.RATE_LIMIT_ENABLED
+    envs.RATE_LIMIT_ENABLED = False
+    yield
+    envs.RATE_LIMIT_ENABLED = previous
 
 
 @pytest.fixture(autouse=True)

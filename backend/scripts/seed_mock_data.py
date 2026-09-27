@@ -19,6 +19,7 @@ Usage:
 """
 
 import random
+import time
 from datetime import date, timedelta
 
 import httpx
@@ -838,10 +839,36 @@ def build_headers() -> dict:
     }
 
 
+class RetryOn429Transport(httpx.HTTPTransport):
+    """Waits out the API's rate limiter (KODI-039, ADR-0015).
+
+    The dev/e2e compose stacks raise ``RATE_LIMIT_DEFAULT``/
+    ``RATE_LIMIT_AUTH`` so a normal seed run never trips the limiter, but a
+    developer running this script against a stock, un-raised stack still
+    gets one retry instead of a hard failure: wait the answered
+    ``Retry-After`` seconds, then send the exact same request once more.
+    """
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        response = super().handle_request(request)
+        if response.status_code != 429:
+            return response
+        retry_after = int(response.headers.get('Retry-After', '1'))
+        response.close()
+        print(f'  Rate limited - waiting {retry_after}s before retrying...')
+        time.sleep(retry_after)
+        return super().handle_request(request)
+
+
 def main():
     headers = build_headers()
 
-    with httpx.Client(base_url=BASE_URL, headers=headers, timeout=30) as client:
+    with httpx.Client(
+        base_url=BASE_URL,
+        headers=headers,
+        timeout=30,
+        transport=RetryOn429Transport(),
+    ) as client:
         # ----- Fetch support data (platforms, steps, feedbacks) -----
         print('Fetching support data...')
         resp = client.get('/supports')

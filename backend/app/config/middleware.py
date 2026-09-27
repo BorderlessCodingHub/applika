@@ -21,12 +21,11 @@ class HTTPLifecycleMiddleware(BaseHTTPMiddleware):
         request_id = str(uuid.uuid4())
         request_id_ctx.set(request_id)
 
-        client_ip = (
-            request.headers
-            .get('X-Forwarded-For', request.client.host)
-            .split(',')[0]
-            .strip()
-        )
+        # The address uvicorn resolved, trusting the forwarded header only
+        # from FORWARDED_ALLOW_IPS (KODI-039, ADR-0015, Plan corrections 1,
+        # R-022). The raw header is never read directly here: anyone can
+        # forge it.
+        client_ip = request.client.host if request.client else 'unknown'
 
         user_agent = request.headers.get('User-Agent', '-')
         content_type = request.headers.get('Content-Type', '-')
@@ -159,5 +158,7 @@ class WebSocketLifecycleMiddleware:
 
 
 def register_middleware(app: FastAPI) -> None:
-    app.add_middleware(HTTPLifecycleMiddleware)
-    app.add_middleware(WebSocketLifecycleMiddleware)
+    # Same ParamSpec-based _MiddlewareFactory false positive ty hits on
+    # every add_middleware(<custom class>) call - see app/main.py.
+    app.add_middleware(HTTPLifecycleMiddleware)  # ty: ignore[invalid-argument-type]
+    app.add_middleware(WebSocketLifecycleMiddleware)  # ty: ignore[invalid-argument-type]

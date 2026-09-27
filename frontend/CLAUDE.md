@@ -137,6 +137,50 @@ full width only once it shows the editor (KODI-017)** — see **App shell**
 below for the mechanism. `/cvs/new` and `/cvs/editor` stay full width in every
 state, path-based, unchanged.
 
+**`/applications?focus=<application_id>` (R-011, KODI-038)** is how the
+agenda card's note-row link opens the applications list with one row already
+expanded. `applications-page.tsx` follows the same shell-owns-the-Suspense-
+boundary/one-shot-read/`replaceState` shape as `cvs/editor` and
+`profile-page.tsx`: `?focus=` is read once via a lazy `useState` initializer,
+never an effect. Whether the id is IN the list is a value DERIVED every
+render from `useApplications(selectedCycleId).filtered` — not stored in
+state and not resolved from an effect — because `ApplicationItem`'s
+`defaultExpanded` (`application-item.tsx`) only seeds that row's OWN initial
+`isExpanded` on mount; a prop update to an already-mounted row would not
+reopen it, so the match has to be known on the exact render that first mounts
+the row (the one where `isLoading` flips to `false`), one render earlier than
+any state set from an effect could deliver it. **`focusRowId` also carries a
+`focusDone` guard**, set once the scroll+focus effect below actually runs:
+without it, a row that gets hidden and shown again — a search/filter change,
+a cycle switch, a background refetch — would recompute `focusRowId` as truthy
+forever and re-steal scroll/focus on every remount. A found id drives a
+`requestAnimationFrame`-guarded scroll of its `<li>` to the top of `<main>`
+through `scrollIntoContainer` (`src/lib/scroll-into-container.ts`; `"auto"`
+under `prefers-reduced-motion: reduce`) — **never `Element.scrollIntoView()`**,
+which also scrolls the shell's `overflow-hidden` root once `<main>` runs out
+of room and shifts the whole layout up, sidebar included, over a blank band —
+gated (in the
+effect's condition AND its dependency array) on `useApplications`'s own
+`supports` becoming truthy — `ApplicationItem` returns `null` until
+`useSupports()` resolves, so scheduling the `requestAnimationFrame` before
+that is settled would find no `<article>` and, with `focusRowId` as the only
+dependency, never retry; gating on `supports` instead makes the effect
+RE-RUN the moment it arrives. This is the same "wait a frame, then re-query
+by a stable data attribute" pattern `cv-removed-row.tsx`/`cv-changed-marker.tsx`
+use, just re-armed by a real dependency rather than a one-shot deadline. A
+separate, ref-guarded effect (Strict Mode's double-invoke included) fires the
+SIDE EFFECTS exactly once: an id absent from the list — e.g. it belongs to an
+archived cycle — shows the one-off notice "This application is not in the
+cycle you are viewing." (`toast.info`, `richColors: false`, a fixed `id` so
+Strict Mode cannot double it); either branch then clears the query string
+with `window.history.replaceState(null, "", "/applications")` — never
+`router.replace()`, a no-op here for the same reason `profile-page.tsx`
+documents. **This effect also waits out `isError`**: a load FAILURE is
+`isLoading: false` with an empty `filtered`, which without the guard reads
+identically to "the id isn't in this list" and would show the false notice
+on every failed load instead of leaving the resolution for a successful
+retry.
+
 ### Providers
 
 Providers are split into two layers:
@@ -169,14 +213,39 @@ Authentication uses HTTP-only JWT cookies. Token refresh is handled via **pollin
 
 User profile is fetched separately via `useUserProfile()` only after auth succeeds.
 
+**A 429 on either query is temporary, never a sign-out (KODI-041, R-019/R-024).**
+The backend rate-limiter (KODI-039) answers a refused request with `429` +
+`Retry-After` (+ `X-RateLimit-*`, all CORS-exposed). `src/lib/rate-limit.ts` is
+the single place that reads that shape — `isRateLimited(error)` (an axios
+429), `retryAfterMs(error)` (the `retry-after` header, axios lowercases it, in
+seconds x 1000, clamped >= 1000ms, falling back to 60000ms when missing/NaN)
+and `rateLimitNotice(error)` (the 429's own `detail`, or `null`). It lives
+outside `api-client.ts` for the same circular-import reason `blob-error.ts`
+does. Both `AuthContext`'s refresh query and `useUserProfile()` pass
+`retry: (n, e) => isRateLimited(e)` / `retryDelay: (n, e) => retryAfterMs(e)`
+— a 429 is retried forever on the server's own wait and NEVER settles the
+query into `isError`, so a cached session stays `isAuthenticated` and a cold
+load stays `isLoading` (never redirected to `/login` by
+`(protected)/layout.tsx`) instead of being signed out. Any other error keeps
+today's behaviour: no retry, straight to `isError`. Do not change the 401
+interceptor in `api-client.ts` for this — it is unrelated to the refresh
+query's own retry.
+
 ### State Management
 
-- **Server state**: TanStack React Query with a 5-minute stale time and `retry: false`
+- **Server state**: TanStack React Query with a 5-minute stale time and
+  `retry: false` — **except** the auth refresh query and `useUserProfile()`,
+  which retry a 429 only (see above)
 - **Auth state**: `AuthContext` (wraps the entire app via `RootProviders`)
 - **Supports data**: `SupportsContext` — shared lookup data (platforms only, since PRD 0008/ADR 0012: step and feedback definitions are gone, R-021) available via `useSupports()`
 - **Feature state**: custom hooks in `src/hooks/` (e.g., `useApplications`, `useTimeline`)
 
-Mutations always call `queryClient.invalidateQueries()` on success and show a `sonner` toast on error.
+Mutations always call `queryClient.invalidateQueries()` on success and show a
+`sonner` toast on error. A mutation with a fixed error message shows the 429's
+own retry text instead, when there is one: `toast.error(rateLimitNotice(error)
+?? "Failed to …")` (KODI-041, R-025) — every toast already showing
+`getApiError(error)` (which returns the `detail` unconditionally) needs no
+change, since a 429's `detail` already flows through it.
 
 ### Forms
 
@@ -828,6 +897,102 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   `null`/absent as `unknown` and carries a `sr-only` `"Reason: "` prefix —
   assert on `/reason:\s*<label>/i`, never an exact string, the same convention
   `InterviewTypeBadge` already set.
+
+### Agenda (`src/components/agenda/`, `app/(protected)/agenda/agenda-page.tsx`, KODI-037)
+
+Rewritten after `docs/refs/agenda-rework.png`: Upcoming | Past tabs (Upcoming
+always selected on open), date groups, rich cards, a toolbar search + stage
+filter with tab counts. `GET /users/me/agenda` is UNCHANGED — same ±30-day
+window, same `AgendaStep` fields (R-014/R-012).
+
+- **`agenda-view.ts` is pure — no React, no I/O — and every zone computation
+  goes through ONE Intl-based primitive, `zonedTimeToUtc`/`timeZoneOffsetMs`.**
+  `parseTime`, `convertToLocalTime`, `getDisplayTime` and `isStepPast` were
+  moved here from the old page component, but `isStepPast`/`convertToLocalTime`
+  were REWRITTEN on top of `Intl.DateTimeFormat` with an explicit `timeZone`
+  rather than `Date#toLocaleString()`/`Date#getHours()` with none: the old pair
+  silently reads the PROCESS's own `TZ`, which made both the "today" boundary
+  and the converted HH:mm depend on the machine running the test — real under
+  a developer's local zone, wrong the moment CI (UTC) or any other zone runs
+  it. `now`/`localTz` are INJECTABLE parameters on top of that fix, so a test
+  pins both the clock AND the zone rather than relying on the process's
+  ambient ones. Verify a change here against more than one zone:
+  `TZ=UTC pnpm vitest run src/components/agenda` and `TZ=Asia/Tokyo …` must
+  both stay green.
+  `splitAgenda(items, now, localTz)` returns `{upcoming, past}`: Upcoming is
+  not-yet-started, soonest first; Past is already-started, most recent first.
+  An untimed step (no `start_time`) stays Upcoming until its calendar day is
+  over (R-005) — it is never "past" on its own date. Within one tab, cards are
+  ordered by `step_date` FIRST (so a group's cards never interleave with
+  another date's) and by each step's own real START INSTANT second — never by
+  comparing the raw `HH:mm` strings, which gets a same-day, cross-timezone
+  pair backwards (a 10:00 New York card is later in real time than a 10:30
+  São Paulo one). `groupByDate(items)` groups an ALREADY-ordered list by
+  `step_date`, preserving order both across and within groups (R-006).
+  `filterAgenda(items, {search, interviewType})` is case-insensitive substring
+  on `company_name` OR `role` SEPARATELY (R-009) — never concatenated, or a
+  search matching one word from each field would wrongly match neither — plus
+  an exact `interview_type` match (R-010), `"all"` or omitted keeping
+  everything. **`agenda-page.tsx` runs `filterAgenda` BEFORE
+  `splitAgenda`/`groupByDate`**, so both tabs' counts and contents already
+  reflect the search and the stage filter — never filter after splitting, or a
+  match in one tab could still show the other tab's stale, unfiltered count.
+- **The card anatomy is `AgendaItemCard`** (`components/agenda/agenda-item-card.tsx`,
+  ui-designer-delivered): a left time column (bold start, muted end, or "All
+  day" when `displayTime` is `null`), an `IconTile` company tile, company +
+  role, a meta row (date, time range + "(converted)", readable timezone via
+  `timeZoneLabel`), a stage pill (`EVENT_TYPE_CONFIG[type].badgeClass` + dot +
+  `stageLabel`), an alert button, a calendar button and a `CollapsibleTrigger`
+  chevron, then a nested note row (`FileText` + the trimmed `observation` or
+  "No notes" + an `ExternalLink` to `/applications?focus=<application_id>`).
+  `AgendaDateGroup` wraps a date's cards with a header bar
+  (`formatAgendaDate` + `agendaGroupCountLabel`). Both components are
+  presentational: the PAGE wires `onDownloadCalendar` (`genAgendaStepIcsFile`
+  - a `"Calendar event downloaded"` toast) and the `alert` prop. The
+    chevron's `CollapsibleContent` reveals `AgendaCardTimeline`
+    (`components/agenda/agenda-card-timeline.tsx`, ui-designer-delivered,
+    KODI-038, R-012) — loaded on open, read-only (no `renderActions`, no
+    actions menu, ever). `agenda-page.tsx` wires it as a small child,
+    `AgendaCardTimelineBody`, passed as `AgendaItemCard`'s `children`: it
+    calls `useTimeline(step.application_id)` unconditionally, and it is
+    Radix `CollapsibleContent` unmounting while closed (`ui/collapsible.tsx`,
+    no `forceMount`) that makes the fetch happen only once the card opens —
+    no `open` state is lifted into the page for this. Reopening a card shows
+    the CACHED result immediately (TanStack Query's 5-minute stale time), no
+    skeleton flash.
+- **The sound alert button is Upcoming-only, and only with a `start_time`
+  (R-013, AC11).** `agenda-page.tsx` passes `alert` to `AgendaItemCard` ONLY
+  from the Upcoming panel AND only when the step has a `start_time` —
+  `undefined` on every Past card and on an untimed Upcoming card, which hides
+  the button entirely rather than disabling it.
+  `useAgendaNotifications().isEnabled`/`toggle` are unchanged (still
+  `localStorage`-backed, still firing at 30/15/5 minutes before).
+- **The hyphenated stage label is R-027; the calendar UID is R-008, and the
+  two never merge.** `stageLabel()` (`timeline/timeline-options.ts`) now joins
+  with `" - "` (`"Interview - Initial screening"`), not `"·"` — every reader
+  (the agenda pill, the header `agenda-dropdown`, agenda sound-alert
+  notifications, dashboard chart tooltips, `TimelineEventActionsMenu`'s
+  accessible name, and the calendar file's SUMMARY/file name) gets the hyphen
+  for free since they all call this one function. **The calendar event's
+  IDENTITY does not follow it.** `lib/calendar.ts` has a local, UNEXPORTED
+  `legacyStageLabel()` — a byte-for-byte copy of the OLD `"·"`-joined
+  logic — used ONLY in the ICS `UID:` line, so re-downloading and
+  re-importing the same event still updates the same calendar entry instead
+  of creating a duplicate. Every other line in the file (`SUMMARY`, the
+  downloaded file's name) calls the real `stageLabel()`. `calendar.test.ts`
+  pins both halves independently and is written to fail if either is
+  reverted onto the other.
+- **Empty and error states (R-015, AC13).** Three distinct messages, never
+  conflated: "No upcoming interviews" / "No past interviews in the last 30
+  days" (the tab is genuinely empty, before any filter — each with a "Go to
+  Applications" action) vs. "No interviews match your search" (the tab had
+  items before `filterAgenda` ran, shown with no action). A load error
+  renders `getApiError(error)` verbatim inside `role="alert"`, with the tabs
+  themselves showing no counts (`countsReady` is `false` while `isLoading` or
+  `isError`) rather than a stale or fabricated number.
+- **Tab state is never in the URL.** `Tabs defaultValue="upcoming"` means a
+  fresh page load — including a hard refresh — always opens on Upcoming,
+  which is the owner's explicit ask ("upcoming first and active by default").
 
 ### Application drafts (`src/components/application-drafts/`, PRD 0010, KODI-033)
 

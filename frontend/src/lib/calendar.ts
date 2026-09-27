@@ -1,10 +1,32 @@
-import { stageLabel } from "@/components/timeline/timeline-options";
+import {
+  INTERVIEW_TYPE_LABELS,
+  EVENT_TYPE_CONFIG,
+  DEFAULT_INTERVIEW_TYPE,
+  stageLabel,
+} from "@/components/timeline/timeline-options";
 import type {
   InterviewType,
   TimelineEventType,
 } from "@/components/timeline/timeline-types";
 
 const APP_NAME = "Applika.dev";
+
+/**
+ * The event's OLD stage text, joined with "·" (never the R-027 hyphen from
+ * `stageLabel`). Used ONLY in the UID line below: the UID is the event's
+ * identity inside the calendar file, and changing it would make re-importing
+ * the same event create a duplicate instead of updating it (R-008). The
+ * SUMMARY line and the downloaded file's name follow `stageLabel` (the
+ * hyphen) like every other stage-label surface.
+ */
+function legacyStageLabel(
+  eventType: TimelineEventType,
+  interviewType?: InterviewType | null,
+): string {
+  const base = EVENT_TYPE_CONFIG[eventType].label;
+  if (eventType !== "interview") return base;
+  return `${base} · ${INTERVIEW_TYPE_LABELS[interviewType ?? DEFAULT_INTERVIEW_TYPE]}`;
+}
 
 /** Converts "HH:MM" or "HH:MM:SS" to ICS "HHMMSS" format */
 function toIcsTime(t: string): string {
@@ -88,7 +110,7 @@ export function genAgendaStepIcsFile(step: {
     dtStart,
     dtEnd,
     `DTSTAMP:${stamp}`,
-    `UID:${step.application_id}-${dateClean}-${stepName}@applika`,
+    `UID:${step.application_id}-${dateClean}-${legacyStageLabel(step.event_type, step.interview_type)}@applika`,
     `SUMMARY:${title}`,
     `DESCRIPTION:${description}`,
     "END:VEVENT",

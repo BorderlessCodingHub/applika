@@ -42,6 +42,7 @@ When you add or modify any of the following, update the seed script accordingly:
 - New or changed behaviour on the `/pdf` export routes — `seed_cv_pdfs()` posts to both at the end of the run and checks the bytes start with `%PDF-`
 - New or changed fields on `/applications/{id}/cv` — `seed_application_cv()` gives roughly half the applications a CV copy and runs the full create → read → update → delete → recreate round trip on the first one, asserting the 2nd copy is refused with 409
 - New or changed fields on `/applications/drafts*` — `seed_drafts()` creates one draft that gets a CV copy and is finished into a normal application, and one draft that is left open with a CV copy attached; it asserts the open one never appears in `GET /applications`. The finished draft sends its own `application_date` on create and calls `finish` with no body (KODI-036), asserting the finished application keeps that stored date rather than today's
+- **A 429 is waited out, never treated as a failure** (KODI-039, ADR-0015): the script's `httpx.Client` uses `RetryOn429Transport`, which reads `Retry-After` on a 429 and resends the exact same request once. The dev/e2e compose stacks already raise `RATE_LIMIT_DEFAULT`/`RATE_LIMIT_AUTH` so a normal run never trips it; the retry only matters against a stock, un-raised stack
 
 After any such change, mentally walk through the seed script from top to bottom and confirm it would still run without errors against a fresh database.
 
@@ -372,6 +373,62 @@ All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUID
 - Request ID propagated via context variable (`request_id_ctx`)
 - Added to logs via `RequestIdFilter`
 - Returned in response header `X-Request-ID`
+- `client_ip` is the address **uvicorn resolved** (KODI-039, ADR-0015):
+  uvicorn's `proxy_headers` (on by default) rewrites `request.client.host`
+  from `X-Forwarded-For` only when the connecting peer is in
+  `FORWARDED_ALLOW_IPS`. The middleware reads `request.client.host` only —
+  it never reads the raw header itself, since anyone can forge it
+
+### Rate limiting (ADR-0015)
+
+`RateLimitMiddleware` (`app/config/rate_limit.py`, pure ASGI, same shape as
+`DeprecationHeaderMiddleware`) wraps every HTTP route in a fixed-window
+limiter backed by Redis (`app/core/rate_limit.py`). Installed in
+`app/main.py` **inside** (added before) the CORS middleware, so CORS wraps
+it: a 429 still carries `Access-Control-Allow-Origin`, and a browser
+preflight (`OPTIONS`) is answered by `CORSMiddleware` before this
+middleware ever counts it.
+
+- **Subject**: a request whose `__access` cookie holds a valid, unexpired
+  access token is counted against that token's subject (`user:<sub>`); any
+  other request is counted against the client IP (`ip:<addr>`) — the same
+  `client.host` uvicorn resolved, above.
+- **Buckets**: `/auth/*` counts against `RATE_LIMIT_AUTH` (default 10);
+  every other route against `RATE_LIMIT_DEFAULT` (default 120). The two are
+  counted separately, `RATE_LIMIT_WINDOW_SECONDS` (default 60) wide.
+- **Fixed window + `EXPIREAT`**: the key is
+  `applika:ratelimit:{bucket}:{subject}:{window_index}`
+  (`window_index = floor(now / window)`); one Redis pipeline runs `INCR`
+  then `EXPIREAT (window_index + 1) * window + 1` — the key always expires
+  one second after its window ends, and a refused request never pushes
+  that end out (the value only depends on `window_index`, not the count).
+- **Fail open, bounded**: the pipeline runs under `asyncio.timeout(0.5)`; a
+  `RedisError`, `OSError` or a timeout returns `None` and logs a WARNING
+  (`rate_limit_unavailable`, naming the bucket only, never the subject) —
+  the request goes through with no `X-RateLimit-*` headers.
+  `RATE_LIMIT_ENABLED` (default `True`) is read on every request, so it
+  switches with a restart, no release.
+- **Over the limit**: `429`
+  `{"detail": "Too many requests. Try again in <n> seconds."}` +
+  `Retry-After: <n>` + `X-RateLimit-Limit`/`X-RateLimit-Remaining: 0`/
+  `X-RateLimit-Reset: <n>`. The route handler never runs. Under the limit,
+  the same three `X-RateLimit-*` headers ride the real answer.
+  `CORSMiddleware.expose_headers` includes `Retry-After` and the three
+  `X-RateLimit-*` headers, so the web app can read them across origins.
+- **Traefik + `FORWARDED_ALLOW_IPS`**: production runs behind Traefik on
+  the swarm (ADR-0010). `FORWARDED_ALLOW_IPS` must hold Traefik's overlay
+  subnet or every anonymous request looks like it comes from Traefik
+  itself, and shares one IP bucket. Deploy order (plan 0011 `## Release`):
+  raise `RATE_LIMIT_AUTH`, set `FORWARDED_ALLOW_IPS`, confirm the request
+  log's `client_ip` shows real, varying addresses, then drop the raise.
+- **Tests off by default**: `tests/conftest.py` sets
+  `envs.RATE_LIMIT_ENABLED = False` for the whole session; a test that
+  exercises the limiter turns it back on with `monkeypatch`.
+- **Compose stacks raised**: `docker-compose.yml` and
+  `docker-compose.e2e.yml` set `RATE_LIMIT_DEFAULT`/`RATE_LIMIT_AUTH` far
+  above anything a dev session, the seed script or the E2E suite would hit,
+  so the limiter stays wired up (still on) without either ever seeing a
+  429.
 
 ## API Endpoints
 
@@ -1042,6 +1099,16 @@ Optional (with defaults):
   secret, distinct from `GITHUB_TOKEN_ENCRYPTION_KEY` - generate it the same
   way
 - `CORS_ORIGINS`, `CORS_HEADERS`, `CORS_METHODS`: CORS configuration
+- `RATE_LIMIT_ENABLED`: on/off switch for the API rate limiter (KODI-039,
+  ADR-0015, default `True`), read on every request
+- `RATE_LIMIT_DEFAULT`: requests per window on every route outside
+  `/auth/*` (default `120`)
+- `RATE_LIMIT_AUTH`: requests per window on `/auth/*` (default `10`)
+- `RATE_LIMIT_WINDOW_SECONDS`: the fixed window width, seconds (default `60`)
+- `FORWARDED_ALLOW_IPS`: uvicorn's own setting (not a Pydantic `Settings`
+  field), default `127.0.0.1`. The trusted proxy hop(s) `X-Forwarded-For`
+  is honoured from — in production, Traefik's overlay subnet. See
+  **Rate limiting (ADR-0015)** below
 - `LOG_LEVEL`, `LOG_FORMAT`: Logging configuration
 - `API_PREFIX`: Route prefix (default: /api)
 - `DATABASE_ECHO`: SQLAlchemy echo (default: False)

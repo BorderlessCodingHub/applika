@@ -15,7 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 
 interface TimelineEventActionsMenuProps {
-  /** Trigger's accessible name, e.g. "Event actions: Interview · Unknown, …". */
+  /** Trigger's accessible name, e.g. "Event actions: Interview - Unknown, …" (R-027: hyphen via `stageLabel`). */
   label: string;
   onEdit: () => void;
   onDelete: () => void;

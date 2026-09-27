@@ -49,7 +49,7 @@ uv tool install --force --editable .
 
 ## Authentication
 
-The CLI authenticates via GitHub OAuth. On `applika login`, your browser opens to GitHub's authorization page. Once you authorize, the callback is captured locally on a loopback port and the session (access + refresh tokens) is saved to `~/.config/applika/session.json`. The session refreshes automatically on expiry — you only need to log in once per device.
+The CLI authenticates via GitHub OAuth. On `applika login`, your browser opens to GitHub's authorization page. Once you authorize, the callback is captured locally on a loopback port and the session (access + refresh tokens) is saved to `~/.config/applika/session.json`. The session refreshes automatically on expiry — you only need to log in once per device. A refresh refused with 429 keeps the session; run the command again after the wait.
 
 ```bash
 # Open browser and complete GitHub OAuth

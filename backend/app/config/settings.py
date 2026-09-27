@@ -103,6 +103,14 @@ class Settings(BaseSettings):
     # secret AND this key are all set.
     DISCORD_TOKEN_ENCRYPTION_KEY: str | None = None
 
+    # API rate limiter (KODI-039, ADR-0015): per user with an IP fallback,
+    # fixed window in Redis. Environment settings, so changing them takes a
+    # restart, not a release (R-020).
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_DEFAULT: int = 120
+    RATE_LIMIT_AUTH: int = 10
+    RATE_LIMIT_WINDOW_SECONDS: int = 60
+
     @property
     def openapi_url(self):
         if self.ENVIRONMENT == 'PROD':

@@ -6,8 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-27
+
 ### Changed
 
+- KODI-039 every route may answer 429 `{detail}` + `Retry-After` +
+  `X-RateLimit-*`; no route or field change. 0.1.4, 0.2.0 and 1.0.0 print
+  the `detail` and fail, and work again after the wait; a 429 on the
+  automatic session refresh clears the stored session in these versions
+  (`lib/api.py` `_refresh`) - run `applika login` again. Settled by the
+  owner on 2026-09-27: fixed in 1.0.1 (K6), which keeps the session.
 - KODI-031 `GET /companies` and `GET /supports` now list only the public
   companies/platforms plus the caller's own private ones (previously every
   row); both add an `is_public` field, and a `/supports` platform's `url`
@@ -31,6 +39,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - KODI-024 `GET|PATCH /users/me` also return `discord {username,
   global_name, avatar_url, status}` or `null`; additive; `discord_linked`
   kept; 0.1.4, 0.2.0, 1.0.0 unaffected.
+
+### Fixed
+
+- KODI-040 a session refresh refused with 429 keeps the stored session; the
+  command fails with the server's retry message (no wait, no retry). Every
+  other refresh failure still ends the session. 0.1.4, 0.2.0 and 1.0.0 are
+  unchanged and still log out.
 
 ## [1.0.0] - 2026-09-23
 
