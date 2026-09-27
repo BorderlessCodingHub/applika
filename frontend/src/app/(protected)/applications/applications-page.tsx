@@ -55,6 +55,7 @@ import { DatePickerInput } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCycleContext } from "@/contexts/cycle-context";
+import { scrollIntoContainer } from "@/lib/scroll-into-container";
 
 interface ApplicationAction {
   action: "none" | "new" | "inspect" | "edit" | "delete" | "finalize";
@@ -155,12 +156,14 @@ export function ApplicationsPage() {
         container.querySelectorAll<HTMLLIElement>("li[data-application-id]"),
       ).find((element) => element.dataset.applicationId === focusRowId);
       if (!row || !row.querySelector("article")) return;
-      row.scrollIntoView({
-        block: "start",
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      // Not `row.scrollIntoView()`: it also scrolls the shell's
+      // `overflow-hidden` root and shifts the whole layout up.
+      scrollIntoContainer(
+        row,
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches
           ? "auto"
           : "smooth",
-      });
+      );
       row
         .querySelector<HTMLButtonElement>(
           '[data-slot="application-item-details-trigger"]',

@@ -102,6 +102,11 @@ vi.mock("next/navigation", () => ({
 }));
 
 const toastInfoMock = vi.fn();
+const scrollIntoContainerMock = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/scroll-into-container", () => ({
+  scrollIntoContainer: scrollIntoContainerMock,
+}));
+
 vi.mock("sonner", () => ({
   toast: {
     success: vi.fn(),
@@ -422,6 +427,7 @@ describe("ApplicationsPage — ?focus= (R-011, KODI-038)", () => {
     searchParams = new URLSearchParams();
     window.history.replaceState(null, "", "/applications");
     toastInfoMock.mockClear();
+    scrollIntoContainerMock.mockClear();
     supportsReady = true;
   });
 
@@ -431,9 +437,7 @@ describe("ApplicationsPage — ?focus= (R-011, KODI-038)", () => {
   });
 
   it("an id in the list: expands the row, scrolls it into view and replaces the URL", async () => {
-    const scrollSpy = vi
-      .spyOn(Element.prototype, "scrollIntoView")
-      .mockImplementation(() => {});
+    const scrollSpy = scrollIntoContainerMock;
     searchParams = new URLSearchParams("focus=app-1");
     setHookState({ filtered: [focusApplication()] });
 
@@ -441,7 +445,10 @@ describe("ApplicationsPage — ?focus= (R-011, KODI-038)", () => {
 
     await waitFor(() => expect(scrollSpy).toHaveBeenCalled());
     expect(scrollSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ block: "start" }),
+      expect.objectContaining({
+        dataset: expect.objectContaining({ applicationId: "app-1" }),
+      }),
+      "smooth",
     );
     expect(
       screen.getByRole("button", {
@@ -452,7 +459,7 @@ describe("ApplicationsPage — ?focus= (R-011, KODI-038)", () => {
     expect(window.location.search).toBe("");
     expect(toastInfoMock).not.toHaveBeenCalled();
 
-    scrollSpy.mockRestore();
+    scrollSpy.mockClear();
   });
 
   it("an id NOT in the list: shows the not-in-cycle notice once and replaces the URL", async () => {
@@ -515,9 +522,7 @@ describe("ApplicationsPage — ?focus= (R-011, KODI-038)", () => {
   });
 
   it("hiding then reshowing the row does not re-steal scroll/focus a second time (frontend-qa B1)", async () => {
-    const scrollSpy = vi
-      .spyOn(Element.prototype, "scrollIntoView")
-      .mockImplementation(() => {});
+    const scrollSpy = scrollIntoContainerMock;
     searchParams = new URLSearchParams("focus=app-1");
     setHookState({ filtered: [focusApplication()] });
 
@@ -542,13 +547,11 @@ describe("ApplicationsPage — ?focus= (R-011, KODI-038)", () => {
 
     expect(scrollSpy).not.toHaveBeenCalled();
 
-    scrollSpy.mockRestore();
+    scrollSpy.mockClear();
   });
 
   it("scrolls once `supports` arrives, even if it resolves after the list (frontend-qa B2)", async () => {
-    const scrollSpy = vi
-      .spyOn(Element.prototype, "scrollIntoView")
-      .mockImplementation(() => {});
+    const scrollSpy = scrollIntoContainerMock;
     searchParams = new URLSearchParams("focus=app-1");
     supportsReady = false;
     setHookState({ filtered: [focusApplication()] });
@@ -575,7 +578,7 @@ describe("ApplicationsPage — ?focus= (R-011, KODI-038)", () => {
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(trigger).toHaveFocus();
 
-    scrollSpy.mockRestore();
+    scrollSpy.mockClear();
   });
 
   it("a load error never reads as 'not in the cycle', and a successful retry still resolves it (frontend-qa B3)", async () => {

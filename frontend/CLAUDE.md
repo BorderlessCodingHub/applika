@@ -154,8 +154,12 @@ any state set from an effect could deliver it. **`focusRowId` also carries a
 without it, a row that gets hidden and shown again — a search/filter change,
 a cycle switch, a background refetch — would recompute `focusRowId` as truthy
 forever and re-steal scroll/focus on every remount. A found id drives a
-`requestAnimationFrame`-guarded scroll of its `<li>` into view (`block:
-"start"`, `"auto"` under `prefers-reduced-motion: reduce`), gated (in the
+`requestAnimationFrame`-guarded scroll of its `<li>` to the top of `<main>`
+through `scrollIntoContainer` (`src/lib/scroll-into-container.ts`; `"auto"`
+under `prefers-reduced-motion: reduce`) — **never `Element.scrollIntoView()`**,
+which also scrolls the shell's `overflow-hidden` root once `<main>` runs out
+of room and shifts the whole layout up, sidebar included, over a blank band —
+gated (in the
 effect's condition AND its dependency array) on `useApplications`'s own
 `supports` becoming truthy — `ApplicationItem` returns `null` until
 `useSupports()` resolves, so scheduling the `requestAnimationFrame` before
