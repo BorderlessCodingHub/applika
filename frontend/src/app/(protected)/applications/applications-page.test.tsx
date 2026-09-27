@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
@@ -180,6 +180,15 @@ function renderWithQueryClient() {
         </QueryClientProvider>,
       ),
   };
+}
+
+// Lets every pending requestAnimationFrame callback run (they fire in
+// scheduling order, so one queued after the page's own frame runs after it).
+function nextFrame() {
+  return act(
+    () =>
+      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  );
 }
 
 function setHookState(overrides: Partial<typeof hookState>) {
@@ -471,6 +480,26 @@ describe("ApplicationsPage — ?focus= (R-011, KODI-038)", () => {
     ).toHaveAttribute("aria-expanded", "false");
   });
 
+  it("an id in the list, landing uncached: no notice while loading, then the row expands", async () => {
+    searchParams = new URLSearchParams("focus=app-1");
+    setHookState({ isLoading: true, filtered: [] });
+
+    const { rerenderPage } = renderWithQueryClient();
+    expect(toastInfoMock).not.toHaveBeenCalled();
+
+    setHookState({ isLoading: false, filtered: [focusApplication()] });
+    rerenderPage();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", {
+          name: "Details for Backend engineer at Acme",
+        }),
+      ).toHaveAttribute("aria-expanded", "true"),
+    );
+    expect(toastInfoMock).not.toHaveBeenCalled();
+  });
+
   it("no ?focus=: nothing is expanded, no notice, no URL change", () => {
     searchParams = new URLSearchParams();
     setHookState({ filtered: [focusApplication()] });
@@ -509,6 +538,7 @@ describe("ApplicationsPage — ?focus= (R-011, KODI-038)", () => {
         }),
       ).toBeInTheDocument(),
     );
+    await nextFrame();
 
     expect(scrollSpy).not.toHaveBeenCalled();
 
@@ -531,17 +561,19 @@ describe("ApplicationsPage — ?focus= (R-011, KODI-038)", () => {
         name: "Details for Backend engineer at Acme",
       }),
     ).not.toBeInTheDocument();
+    // A frame passes before `supports` arrives, as it does in a browser.
+    await nextFrame();
     expect(scrollSpy).not.toHaveBeenCalled();
 
     supportsReady = true;
     rerenderPage();
 
     await waitFor(() => expect(scrollSpy).toHaveBeenCalledTimes(1));
-    expect(
-      screen.getByRole("button", {
-        name: "Details for Backend engineer at Acme",
-      }),
-    ).toHaveAttribute("aria-expanded", "true");
+    const trigger = screen.getByRole("button", {
+      name: "Details for Backend engineer at Acme",
+    });
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(trigger).toHaveFocus();
 
     scrollSpy.mockRestore();
   });
