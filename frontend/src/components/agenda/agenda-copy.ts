@@ -30,6 +30,20 @@ export const AGENDA_CARD_COPY = {
   openTooltip: "Open in Applications",
 } as const;
 
+/** The read-only timeline the card's chevron reveals (KODI-038, R-012). */
+export const AGENDA_TIMELINE_COPY = {
+  loading: "Loading timeline",
+  loadErrorTitle: "We couldn't load the timeline",
+  loadErrorFallback: "Something went wrong fetching this application's events.",
+  emptyTitle: "No events yet",
+  emptyDescription: "There is no activity recorded for this application.",
+} as const;
+
+/** Event count beside the card timeline's heading, e.g. "1 event", "3 events". */
+export function agendaTimelineCountLabel(count: number): string {
+  return `${count} event${count === 1 ? "" : "s"}`;
+}
+
 /** Tab accessible name, e.g. "Upcoming (3)"; the visible Badge is aria-hidden. */
 export function agendaTabLabel(tab: string, count: number): string {
   return `${tab} (${count})`;
