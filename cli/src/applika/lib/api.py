@@ -82,6 +82,8 @@ class ApiClient:
 
     def _refresh(self) -> bool:
         response = self.client.get('/auth/refresh')
+        if response.status_code == 429:
+            raise ApiError(_extract_error_detail(response), 429)
         if response.status_code != 200:
             self.store.clear()
             return False
