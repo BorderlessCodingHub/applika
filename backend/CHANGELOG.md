@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-039 API rate limiter (ADR-0015): per user, IP without a session;
+  120/min, 10/min on /auth/*; 429 {"detail": "Too many requests. Try again
+  in <n> seconds."} + Retry-After + X-RateLimit-*; RATE_LIMIT_* settings;
+  fail open.
 - KODI-035 GET /platforms?name=: visible platforms, searchable, ordered by
   name (web picker).
 - KODI-032 draft applications API - "new application with CV" (ADR-0014,
@@ -306,6 +310,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- KODI-039 request log client_ip is the uvicorn-resolved address
+  (FORWARDED_ALLOW_IPS), no longer the raw X-Forwarded-For.
 - KODI-036 draft applications now carry `application_date` (S8 of PRD 0010,
   R-003; reuses the existing `applications.application_date` column, no
   migration). `DraftInput.application_date` is optional: `POST
