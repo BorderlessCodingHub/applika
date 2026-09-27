@@ -25,6 +25,13 @@ let hookState: {
   hasAnyFilter: boolean;
 };
 
+// `?focus=` (R-011, KODI-038): the scroll+focus effect gates on this SAME
+// `supports` value (real `useApplications` proxies it straight from
+// `useSupports()`) — mutable so a test can simulate it arriving late,
+// same as the real world where `ApplicationItem` renders `null` until it
+// resolves (frontend-qa B2).
+let supportsReady = true;
+
 vi.mock("@/hooks/use-applications", () => ({
   useApplications: () => ({
     filtered: hookState.filtered,
@@ -36,7 +43,7 @@ vi.mock("@/hooks/use-applications", () => ({
     clearFilters,
     hasAdvancedFilters: hookState.hasAdvancedFilters,
     hasAnyFilter: hookState.hasAnyFilter,
-    supports: { platforms: [] },
+    supports: supportsReady ? { platforms: [] } : undefined,
   }),
   useApplicationDelete: () => ({ deleteApplication: vi.fn() }),
   useApplicationMutate: () => ({ submit: vi.fn(), isPending: false }),
@@ -71,8 +78,10 @@ vi.mock("@/hooks/use-reopen-application", () => ({
 // mocked service — same shape as `application-item.test.tsx`.
 vi.mock("@/contexts/supports-context", () => ({
   useSupports: () => ({
-    supports: { platforms: [{ id: "p-1", name: "LinkedIn" }] },
-    isLoading: false,
+    supports: supportsReady
+      ? { platforms: [{ id: "p-1", name: "LinkedIn" }] }
+      : undefined,
+    isLoading: !supportsReady,
   }),
 }));
 
@@ -154,11 +163,23 @@ function renderWithQueryClient() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
+  const result = render(
     <QueryClientProvider client={client}>
       <ApplicationsPage />
     </QueryClientProvider>,
   );
+  return {
+    ...result,
+    // Re-renders the SAME QueryClientProvider/ApplicationsPage tree after a
+    // `setHookState`/`supportsReady` mutation, for tests that simulate a
+    // remount-inducing change (a filter, a late `supports`, a retry).
+    rerenderPage: () =>
+      result.rerender(
+        <QueryClientProvider client={client}>
+          <ApplicationsPage />
+        </QueryClientProvider>,
+      ),
+  };
 }
 
 function setHookState(overrides: Partial<typeof hookState>) {
@@ -392,10 +413,12 @@ describe("ApplicationsPage — ?focus= (R-011, KODI-038)", () => {
     searchParams = new URLSearchParams();
     window.history.replaceState(null, "", "/applications");
     toastInfoMock.mockClear();
+    supportsReady = true;
   });
 
   afterEach(() => {
     window.history.replaceState(null, "", "/applications");
+    supportsReady = true;
   });
 
   it("an id in the list: expands the row, scrolls it into view and replaces the URL", async () => {
@@ -460,5 +483,91 @@ describe("ApplicationsPage — ?focus= (R-011, KODI-038)", () => {
       }),
     ).toHaveAttribute("aria-expanded", "false");
     expect(toastInfoMock).not.toHaveBeenCalled();
+  });
+
+  it("hiding then reshowing the row does not re-steal scroll/focus a second time (frontend-qa B1)", async () => {
+    const scrollSpy = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockImplementation(() => {});
+    searchParams = new URLSearchParams("focus=app-1");
+    setHookState({ filtered: [focusApplication()] });
+
+    const { rerenderPage } = renderWithQueryClient();
+    await waitFor(() => expect(scrollSpy).toHaveBeenCalledTimes(1));
+
+    scrollSpy.mockClear();
+    // The row disappears (e.g. a search/filter change) and reappears (e.g.
+    // the filter is cleared, or a background refetch remounts it).
+    setHookState({ filtered: [] });
+    rerenderPage();
+    setHookState({ filtered: [focusApplication()] });
+    rerenderPage();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", {
+          name: "Details for Backend engineer at Acme",
+        }),
+      ).toBeInTheDocument(),
+    );
+
+    expect(scrollSpy).not.toHaveBeenCalled();
+
+    scrollSpy.mockRestore();
+  });
+
+  it("scrolls once `supports` arrives, even if it resolves after the list (frontend-qa B2)", async () => {
+    const scrollSpy = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockImplementation(() => {});
+    searchParams = new URLSearchParams("focus=app-1");
+    supportsReady = false;
+    setHookState({ filtered: [focusApplication()] });
+
+    const { rerenderPage } = renderWithQueryClient();
+    // `ApplicationItem` itself renders null without `supports`, so there is
+    // nothing to scroll to yet.
+    expect(
+      screen.queryByRole("button", {
+        name: "Details for Backend engineer at Acme",
+      }),
+    ).not.toBeInTheDocument();
+    expect(scrollSpy).not.toHaveBeenCalled();
+
+    supportsReady = true;
+    rerenderPage();
+
+    await waitFor(() => expect(scrollSpy).toHaveBeenCalledTimes(1));
+    expect(
+      screen.getByRole("button", {
+        name: "Details for Backend engineer at Acme",
+      }),
+    ).toHaveAttribute("aria-expanded", "true");
+
+    scrollSpy.mockRestore();
+  });
+
+  it("a load error never reads as 'not in the cycle', and a successful retry still resolves it (frontend-qa B3)", async () => {
+    searchParams = new URLSearchParams("focus=app-1");
+    setHookState({ isError: true, filtered: [] });
+
+    const { rerenderPage } = renderWithQueryClient();
+    expect(toastInfoMock).not.toHaveBeenCalled();
+    // The effect must not have consumed its one shot on the error render —
+    // the URL (reset to a bare path in `beforeEach`) is still untouched.
+    expect(window.location.search).toBe("");
+
+    // A successful retry: the id turns out to be in the list.
+    setHookState({ isError: false, filtered: [focusApplication()] });
+    rerenderPage();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", {
+          name: "Details for Backend engineer at Acme",
+        }),
+      ).toHaveAttribute("aria-expanded", "true"),
+    );
+    expect(toastInfoMock).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("");
   });
 });

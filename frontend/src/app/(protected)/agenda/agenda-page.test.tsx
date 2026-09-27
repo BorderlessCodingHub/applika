@@ -717,6 +717,151 @@ describe("AgendaPage", () => {
     expect(timelineListMock).toHaveBeenCalledTimes(1);
   });
 
+  it("the card timeline region is gone once the chevron closes again (AC3)", async () => {
+    const user = userEvent.setup();
+    timelineListMock.mockResolvedValue([]);
+    useAgendaMock.mockReturnValue({
+      data: [step({ id: "timed", application_id: "app-9" })],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    renderPage();
+
+    const card = document.querySelector(
+      '[data-step-id="timed"]',
+    ) as HTMLElement;
+    const chevron = within(card).getByRole("button", {
+      name: "Timeline for Backend Engineer at Acme",
+    });
+    await user.click(chevron);
+    await within(card).findByRole("region", { name: /timeline for/i });
+
+    await user.click(chevron);
+
+    expect(
+      within(card).queryByRole("region", { name: /timeline for/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("the card timeline shows a loading skeleton with no count while pending (S1)", async () => {
+    const user = userEvent.setup();
+    let resolveList!: (value: unknown[]) => void;
+    timelineListMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveList = resolve;
+      }),
+    );
+    useAgendaMock.mockReturnValue({
+      data: [step({ id: "timed", application_id: "app-9" })],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    renderPage();
+
+    const card = document.querySelector(
+      '[data-step-id="timed"]',
+    ) as HTMLElement;
+    await user.click(
+      within(card).getByRole("button", {
+        name: "Timeline for Backend Engineer at Acme",
+      }),
+    );
+
+    const region = within(card).getByRole("region", {
+      name: "Timeline for Backend Engineer at Acme",
+    });
+    expect(within(region).getByRole("status")).toBeInTheDocument();
+    expect(within(region).getByText("Loading timeline")).toBeInTheDocument();
+    expect(within(region).queryByText(/event/)).not.toBeInTheDocument();
+    expect(within(region).queryAllByRole("button")).toHaveLength(0);
+
+    resolveList([]);
+    await waitFor(() =>
+      expect(within(region).queryByRole("status")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("the card timeline shows the error detail and Retry, which refetches (S2)", async () => {
+    const user = userEvent.setup();
+    timelineListMock.mockRejectedValueOnce({
+      response: { data: { detail: "Server exploded" } },
+    });
+    useAgendaMock.mockReturnValue({
+      data: [step({ id: "timed", application_id: "app-9" })],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    renderPage();
+
+    const card = document.querySelector(
+      '[data-step-id="timed"]',
+    ) as HTMLElement;
+    await user.click(
+      within(card).getByRole("button", {
+        name: "Timeline for Backend Engineer at Acme",
+      }),
+    );
+
+    const region = await within(card).findByRole("region", {
+      name: "Timeline for Backend Engineer at Acme",
+    });
+    await waitFor(() =>
+      expect(within(region).getByRole("alert")).toHaveTextContent(
+        "Server exploded",
+      ),
+    );
+    const retry = within(region).getByRole("button", { name: "Retry" });
+
+    timelineListMock.mockResolvedValueOnce([]);
+    await user.click(retry);
+
+    await waitFor(() =>
+      expect(within(region).getByText("No events yet")).toBeInTheDocument(),
+    );
+    expect(timelineListMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("the card timeline shows the empty state with no events (S3)", async () => {
+    const user = userEvent.setup();
+    timelineListMock.mockResolvedValue([]);
+    useAgendaMock.mockReturnValue({
+      data: [step({ id: "timed", application_id: "app-9" })],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    renderPage();
+
+    const card = document.querySelector(
+      '[data-step-id="timed"]',
+    ) as HTMLElement;
+    await user.click(
+      within(card).getByRole("button", {
+        name: "Timeline for Backend Engineer at Acme",
+      }),
+    );
+
+    const region = await within(card).findByRole("region", {
+      name: "Timeline for Backend Engineer at Acme",
+    });
+    await waitFor(() =>
+      expect(within(region).getByText("No events yet")).toBeInTheDocument(),
+    );
+    expect(
+      within(region).getByText(
+        "There is no activity recorded for this application.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(region).queryAllByRole("button")).toHaveLength(0);
+  });
+
   it("shows the load error's detail", () => {
     useAgendaMock.mockReturnValue({
       data: undefined,
