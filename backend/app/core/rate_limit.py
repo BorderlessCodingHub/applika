@@ -31,10 +31,12 @@ logger = logging.getLogger('app')
 
 _KEY_PREFIX = 'applika:ratelimit'
 _HIT_TIMEOUT_SECONDS = 0.5
-# A tuple, not written inline in the `except` clause below: a ruff format
-# preview-mode quirk (`[tool.ruff.format] preview = true`) strips the
-# parentheses off an inline multi-exception tuple there, which is invalid
-# syntax. A named constant sidesteps it.
+# A named tuple rather than written inline in the `except` clause below:
+# ruff's formatter (preview mode, `[tool.ruff.format] preview = true`,
+# targeting this project's Python 3.14) rewrites an inline multi-exception
+# tuple there into PEP 758's unparenthesized form (`except A, B, C:` -
+# valid new Python 3.14 syntax, not the old Python 2 comma-bind form). Kept
+# as a constant purely for readability, not because the rewrite is wrong.
 _TRANSIENT_REDIS_ERRORS = (RedisError, OSError, TimeoutError)
 
 

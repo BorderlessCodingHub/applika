@@ -353,6 +353,28 @@ async def test_key_ttl_is_bounded_by_window_end_plus_one(
     assert 0 < ttl <= 61
 
 
+async def test_window_setting_is_actually_read(
+    async_client, redis_client, monkeypatch
+):
+    """AC5: RATE_LIMIT_WINDOW_SECONDS itself comes from configuration, not
+    a hard-coded literal - a small, distinctive window (5, not the 60 every
+    other test in this module uses) has to show up in Retry-After,
+    X-RateLimit-Reset and the key's own Redis TTL."""
+    _enable_limiter(monkeypatch, default=1, window=5)
+
+    await async_client.get('/supports')
+    refused = await async_client.get('/supports')
+    assert refused.status_code == 429
+
+    assert 1 <= int(refused.headers['Retry-After']) <= 5
+    assert 1 <= int(refused.headers['X-RateLimit-Reset']) <= 5
+
+    keys = await redis_client.keys('applika:ratelimit:default:*')
+    assert len(keys) == 1
+    ttl = await redis_client.ttl(keys[0])
+    assert 0 < ttl <= 6
+
+
 # ---------------------------------------------------------------------------
 # AC7 — the forwarded header only counts from a trusted proxy
 # ---------------------------------------------------------------------------

@@ -9,12 +9,40 @@ import jwt
 import pytest
 from redis.exceptions import RedisError
 
-from app.config.settings import ACCESS_COOKIE_NAME, envs
+from app.config.settings import ACCESS_COOKIE_NAME, Settings, envs
 from app.core.rate_limit import Decision, bucket_for, hit, subject_for
 from app.core.tokens import create_access_token
 
 if TYPE_CHECKING:
     import redis.asyncio as redis
+
+
+def test_settings_rate_limit_defaults():
+    """AC2/AC5: the shipped defaults are 120/min default, 10/min /auth/*,
+    a 60s window, and the limiter on - pinned so a default cannot silently
+    drift (a fresh Settings(), not the process-wide `envs` other fixtures
+    mutate)."""
+    settings = Settings()  # ty: ignore[missing-argument]
+    assert settings.RATE_LIMIT_ENABLED is True
+    assert settings.RATE_LIMIT_DEFAULT == 120
+    assert settings.RATE_LIMIT_AUTH == 10
+    assert settings.RATE_LIMIT_WINDOW_SECONDS == 60
+
+
+def test_settings_rate_limit_env_var_names(monkeypatch):
+    """AC5: the owner changes these with a restart, through these exact
+    environment variable names."""
+    monkeypatch.setenv('RATE_LIMIT_ENABLED', 'false')
+    monkeypatch.setenv('RATE_LIMIT_DEFAULT', '7')
+    monkeypatch.setenv('RATE_LIMIT_AUTH', '3')
+    monkeypatch.setenv('RATE_LIMIT_WINDOW_SECONDS', '15')
+
+    settings = Settings()  # ty: ignore[missing-argument]
+
+    assert settings.RATE_LIMIT_ENABLED is False
+    assert settings.RATE_LIMIT_DEFAULT == 7
+    assert settings.RATE_LIMIT_AUTH == 3
+    assert settings.RATE_LIMIT_WINDOW_SECONDS == 15
 
 
 def test_bucket_for_auth_prefix():
