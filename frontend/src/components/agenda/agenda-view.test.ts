@@ -108,6 +108,23 @@ describe("isStepPast / splitAgenda — the boundary (R-005)", () => {
     });
     expect(isStepPast(s, laNow, "America/Los_Angeles")).toBe(true);
   });
+
+  it("judges a timed step upcoming even when its step_date is BEHIND the viewer's today, as long as the real instant has not arrived (AC5, the other cross-midnight direction)", () => {
+    // Tokyo viewer at 00:30 on the 19th (their "today" is already the 19th).
+    // The step's OWN step_date, "2026-09-18", is one day BEHIND that only
+    // because it was recorded in New York (UTC-4): 12:00 New York on the 18th
+    // is 01:00 UTC on the 19th, i.e. 10:00 Tokyo on the 19th — still hours
+    // AFTER the viewer's "now" (00:30 Tokyo on the 19th). A naive
+    // `step_date < today` short-circuit would wrongly call this past; the
+    // real instant says it has not started yet.
+    const tokyoNow = new Date("2026-09-19T00:30:00+09:00");
+    const s = step({
+      step_date: "2026-09-18",
+      start_time: "12:00:00",
+      timezone: "America/New_York",
+    });
+    expect(isStepPast(s, tokyoNow, "Asia/Tokyo")).toBe(false);
+  });
 });
 
 describe("getDisplayTime", () => {

@@ -56,6 +56,14 @@ function renderPage() {
 // clock (the suite otherwise runs on whatever day CI happens to be).
 const FIXED_NOW = new Date("2026-09-18T08:00:00");
 
+// A step zone guaranteed to differ from whatever zone the test runner's host
+// resolves to (`getDisplayTime`'s default `localTz`), so "converted" is
+// reliably true regardless of where this suite runs.
+const OTHER_TZ =
+  Intl.DateTimeFormat().resolvedOptions().timeZone === "Asia/Tokyo"
+    ? "Europe/London"
+    : "Asia/Tokyo";
+
 beforeEach(() => {
   vi.clearAllMocks();
   isEnabledMock.mockReturnValue(false);
@@ -521,6 +529,114 @@ describe("AgendaPage", () => {
     expect(
       screen.getByText("No interviews match your search"),
     ).toBeInTheDocument();
+  });
+
+  it("shows the header subtitle, and the stage filter defaults to All stages with the full option list (AC2, AC10)", async () => {
+    const user = userEvent.setup();
+    useAgendaMock.mockReturnValue({
+      data: [
+        step({
+          id: "hm",
+          step_date: "2026-09-20",
+          interview_type: "hiring_manager",
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    renderPage();
+
+    expect(
+      screen.getByText("Your application steps organized by date"),
+    ).toBeInTheDocument();
+
+    const combo = screen.getByRole("combobox", { name: "Filter by stage" });
+    expect(combo).toHaveTextContent("All stages");
+    expect(
+      screen.getByRole("tab", { name: "Upcoming (1)" }),
+    ).toBeInTheDocument();
+
+    await user.click(combo);
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "All stages",
+      "Unknown",
+      "Initial screening",
+      "Technical",
+      "Cultural",
+      "Hiring manager",
+      "Take-home",
+      "Final",
+    ]);
+  });
+
+  it("shows the card's time column, meta date/range/converted, All day, a singular group count and toggles the chevron (AC6, AC7)", async () => {
+    const user = userEvent.setup();
+    useAgendaMock.mockReturnValue({
+      data: [
+        step({
+          id: "timed",
+          step_date: "2026-09-20",
+          start_time: "14:00:00",
+          end_time: "15:00:00",
+        }),
+        step({
+          id: "untimed",
+          step_date: "2026-09-21",
+          start_time: undefined,
+          company_name: "Globex",
+        }),
+        step({
+          id: "foreign",
+          step_date: "2026-09-22",
+          start_time: "13:00:00",
+          end_time: "14:00:00",
+          timezone: OTHER_TZ,
+          company_name: "Initech",
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    renderPage();
+
+    const timedCard = document.querySelector(
+      '[data-step-id="timed"]',
+    ) as HTMLElement;
+    const timeCol = timedCard.querySelector(
+      '[data-slot="agenda-time"]',
+    ) as HTMLElement;
+    expect(within(timeCol).getByText("14:00")).toBeInTheDocument();
+    expect(within(timeCol).getByText("15:00")).toBeInTheDocument();
+    expect(within(timedCard).getByText("14:00 - 15:00")).toBeInTheDocument();
+    expect(within(timedCard).getByText("Sep 20, 2026")).toBeInTheDocument();
+    expect(within(timedCard).queryByText("(converted)")).toBeNull();
+
+    const foreignCard = document.querySelector(
+      '[data-step-id="foreign"]',
+    ) as HTMLElement;
+    expect(within(foreignCard).getByText("(converted)")).toBeInTheDocument();
+
+    const untimedCard = document.querySelector(
+      '[data-step-id="untimed"]',
+    ) as HTMLElement;
+    expect(within(untimedCard).getByText("All day")).toBeInTheDocument();
+    expect(within(untimedCard).queryByText(/^\d\d:\d\d$/)).toBeNull();
+
+    const timedGroup = document.querySelector(
+      '[data-slot="agenda-date-group"][data-date="2026-09-20"]',
+    ) as HTMLElement;
+    expect(within(timedGroup).getByText("1 application")).toBeInTheDocument();
+
+    const chevron = within(timedCard).getByRole("button", {
+      name: "Timeline for Backend Engineer at Acme",
+    });
+    expect(chevron).toHaveAttribute("aria-expanded", "false");
+    await user.click(chevron);
+    expect(chevron).toHaveAttribute("aria-expanded", "true");
   });
 
   it("shows the load error's detail", () => {
