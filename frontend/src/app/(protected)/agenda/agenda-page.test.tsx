@@ -141,6 +141,12 @@ describe("AgendaPage", () => {
     useAgendaMock.mockReturnValue({
       data: [
         step({
+          // A future step_date, not "today" (2026-09-18): a step at 14:00 in
+          // a zone far ahead of the fixed clock must never already read as
+          // past no matter which zone this suite runs in (e.g. Honolulu, at
+          // UTC-10, is already past 2026-09-18T14:00 São Paulo by the time
+          // its own local day starts).
+          step_date: "2026-09-20",
           start_time: "14:00:00",
           timezone: "America/Sao_Paulo",
           observation: undefined,

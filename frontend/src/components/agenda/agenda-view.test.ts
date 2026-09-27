@@ -113,7 +113,7 @@ describe("isStepPast / splitAgenda — the boundary (R-005)", () => {
     // Tokyo viewer at 00:30 on the 19th (their "today" is already the 19th).
     // The step's OWN step_date, "2026-09-18", is one day BEHIND that only
     // because it was recorded in New York (UTC-4): 12:00 New York on the 18th
-    // is 01:00 UTC on the 19th, i.e. 10:00 Tokyo on the 19th — still hours
+    // is 16:00 UTC on the 18th, i.e. 01:00 Tokyo on the 19th — 30 minutes
     // AFTER the viewer's "now" (00:30 Tokyo on the 19th). A naive
     // `step_date < today` short-circuit would wrongly call this past; the
     // real instant says it has not started yet.
