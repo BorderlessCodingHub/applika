@@ -3,6 +3,7 @@ import { AxiosError } from "axios";
 import { toast } from "sonner";
 
 import { getApiError } from "@/lib/api-client";
+import { isRateLimited, rateLimitNotice, retryAfterMs } from "@/lib/rate-limit";
 import { services } from "@/services/services";
 import { UpdateUserPayload } from "@/services/types/users";
 
@@ -13,6 +14,11 @@ export function useUserProfile(enabled = true) {
     queryKey: USER_QUERY_KEY,
     queryFn: () => services.users.getMe(),
     enabled,
+    // Same 429 exception as the auth refresh query (T040): a `/users/me`
+    // refetch refused with 429 must not flip `isUserError`, or AuthContext
+    // would sign a still-valid session out (R-024).
+    retry: (_failureCount, error) => isRateLimited(error),
+    retryDelay: (_failureCount, error) => retryAfterMs(error),
   });
 }
 
@@ -25,7 +31,8 @@ export function useMutateUserProfile() {
       queryClient.invalidateQueries({ queryKey: USER_QUERY_KEY });
       toast.success("Profile updated");
     },
-    onError: () => toast.error("Failed to update profile"),
+    onError: (error) =>
+      toast.error(rateLimitNotice(error) ?? "Failed to update profile"),
   });
 
   async function submit(data: UpdateUserPayload) {

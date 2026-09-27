@@ -5,6 +5,7 @@ import type { User } from "@/services/types/users";
 import { useUserProfile } from "@/hooks/use-user";
 import { services } from "@/services/services";
 import { useQuery } from "@tanstack/react-query";
+import { isRateLimited, retryAfterMs } from "@/lib/rate-limit";
 
 interface AuthContextType {
   user: User | null;
@@ -33,7 +34,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } = useQuery({
     queryKey: ["applika-auth"],
     queryFn: () => services.auth.refresh(),
-    retry: false,
+    // A 429 is temporary (R-019/R-024): keep retrying on the server's own
+    // wait instead of ever settling into `isError`, which would sign a
+    // still-valid session out. Any other error keeps today's behaviour —
+    // no retry, straight to `isError`.
+    retry: (_failureCount, error) => isRateLimited(error),
+    retryDelay: (_failureCount, error) => retryAfterMs(error),
     staleTime: 0,
     refetchInterval: (query) =>
       query.state.error ? DISCONNECTED_INTERVAL : CONNECTED_INTERVAL,
