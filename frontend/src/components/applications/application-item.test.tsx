@@ -126,6 +126,28 @@ describe("ApplicationItem — open application", () => {
   });
 });
 
+describe("ApplicationItem — defaultExpanded (R-011, KODI-038)", () => {
+  it("starts expanded when defaultExpanded is true", async () => {
+    renderItem(baseApplication(), { defaultExpanded: true });
+    expect(
+      screen.getByRole("button", {
+        name: "Details for Backend engineer at Acme",
+      }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(await screen.findByText("Platform")).toBeInTheDocument();
+  });
+
+  it("starts closed when defaultExpanded is absent (today's behaviour)", () => {
+    renderItem(baseApplication());
+    expect(
+      screen.getByRole("button", {
+        name: "Details for Backend engineer at Acme",
+      }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Platform")).not.toBeInTheDocument();
+  });
+});
+
 describe("ApplicationItem — archived cycle", () => {
   it("only offers CV and the chevron (page passes undefined handlers)", () => {
     renderItem(baseApplication(), {

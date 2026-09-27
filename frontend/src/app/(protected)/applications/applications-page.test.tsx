@@ -1,8 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 import { ApplicationsPage } from "@/app/(protected)/applications/applications-page";
+import type { Application } from "@/services/types/applications";
 
 /**
  * KODI-015 (T075): the new toolbar/list structure. Exercises `useApplications`
@@ -64,6 +66,41 @@ vi.mock("@/hooks/use-reopen-application", () => ({
   useReopenApplication: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
+// `?focus=` (R-011, KODI-038): ApplicationItem's own TimelineSection reaches
+// for real hooks (useSupports, useTimeline), which need a provider + a
+// mocked service — same shape as `application-item.test.tsx`.
+vi.mock("@/contexts/supports-context", () => ({
+  useSupports: () => ({
+    supports: { platforms: [{ id: "p-1", name: "LinkedIn" }] },
+    isLoading: false,
+  }),
+}));
+
+vi.mock("@/services/services", () => ({
+  services: {
+    timeline: {
+      list: vi.fn().mockResolvedValue([]),
+      create: vi.fn(),
+      update: vi.fn(),
+      remove: vi.fn(),
+    },
+  },
+}));
+
+let searchParams = new URLSearchParams();
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => searchParams,
+}));
+
+const toastInfoMock = vi.fn();
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    info: (...args: unknown[]) => toastInfoMock(...args),
+  },
+}));
+
 const deleteDraft = vi.fn();
 let draftsState: {
   data: unknown[] | undefined;
@@ -97,6 +134,32 @@ vi.mock("@/contexts/cycle-context", () => ({
     },
   }),
 }));
+
+function focusApplication(overrides: Partial<Application> = {}): Application {
+  return {
+    id: "app-1",
+    company_id: "c-1",
+    company_name: "Acme",
+    platform_id: "p-1",
+    role: "Backend engineer",
+    mode: "active",
+    application_date: "2026-06-01",
+    finalized: false,
+    finalized_at: null,
+    ...overrides,
+  };
+}
+
+function renderWithQueryClient() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <ApplicationsPage />
+    </QueryClientProvider>,
+  );
+}
 
 function setHookState(overrides: Partial<typeof hookState>) {
   hookState = {
@@ -321,5 +384,81 @@ describe("ApplicationsPage — Applications | Drafts tabs (KODI-036, AC8)", () =
     );
 
     expect(deleteDraft).toHaveBeenCalledWith("d-1", expect.anything());
+  });
+});
+
+describe("ApplicationsPage — ?focus= (R-011, KODI-038)", () => {
+  beforeEach(() => {
+    searchParams = new URLSearchParams();
+    window.history.replaceState(null, "", "/applications");
+    toastInfoMock.mockClear();
+  });
+
+  afterEach(() => {
+    window.history.replaceState(null, "", "/applications");
+  });
+
+  it("an id in the list: expands the row, scrolls it into view and replaces the URL", async () => {
+    const scrollSpy = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockImplementation(() => {});
+    searchParams = new URLSearchParams("focus=app-1");
+    setHookState({ filtered: [focusApplication()] });
+
+    renderWithQueryClient();
+
+    await waitFor(() => expect(scrollSpy).toHaveBeenCalled());
+    expect(scrollSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ block: "start" }),
+    );
+    expect(
+      screen.getByRole("button", {
+        name: "Details for Backend engineer at Acme",
+      }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(window.location.pathname).toBe("/applications");
+    expect(window.location.search).toBe("");
+    expect(toastInfoMock).not.toHaveBeenCalled();
+
+    scrollSpy.mockRestore();
+  });
+
+  it("an id NOT in the list: shows the not-in-cycle notice once and replaces the URL", async () => {
+    searchParams = new URLSearchParams("focus=missing-app");
+    setHookState({ filtered: [focusApplication()] });
+
+    renderWithQueryClient();
+
+    await waitFor(() =>
+      expect(toastInfoMock).toHaveBeenCalledWith(
+        "This application is not in the cycle you are viewing.",
+        expect.objectContaining({
+          id: "applications-focus-not-in-cycle",
+          richColors: false,
+        }),
+      ),
+    );
+    expect(toastInfoMock).toHaveBeenCalledTimes(1);
+    expect(window.location.pathname).toBe("/applications");
+    expect(window.location.search).toBe("");
+    expect(
+      screen.getByRole("button", {
+        name: "Details for Backend engineer at Acme",
+      }),
+    ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("no ?focus=: nothing is expanded, no notice, no URL change", () => {
+    searchParams = new URLSearchParams();
+    setHookState({ filtered: [focusApplication()] });
+
+    renderWithQueryClient();
+
+    expect(
+      screen.getByRole("button", {
+        name: "Details for Backend engineer at Acme",
+      }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(toastInfoMock).not.toHaveBeenCalled();
   });
 });

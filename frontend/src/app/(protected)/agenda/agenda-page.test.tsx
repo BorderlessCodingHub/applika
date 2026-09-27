@@ -1,4 +1,5 @@
-import { render, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
@@ -9,6 +10,17 @@ import type { AgendaStep } from "@/services/types/applications";
 const useAgendaMock = vi.fn();
 vi.mock("@/hooks/use-user", () => ({
   useAgenda: (...args: unknown[]) => useAgendaMock(...args),
+}));
+
+// The chevron body (KODI-038, R-012) mounts a wired `useTimeline` once opened
+// — a real service call, so it needs a mocked service module.
+const timelineListMock = vi.fn().mockResolvedValue([]);
+vi.mock("@/services/services", () => ({
+  services: {
+    timeline: {
+      list: (...args: unknown[]) => timelineListMock(...args),
+    },
+  },
 }));
 
 const toggleMock = vi.fn();
@@ -45,10 +57,20 @@ function step(overrides: Partial<AgendaStep> = {}): AgendaStep {
 }
 
 function renderPage() {
+  const client = new QueryClient({
+    // `staleTime` mirrors `src/lib/query-client.ts` (5 minutes): reopening a
+    // card within that window must hit the cache, not refetch.
+    defaultOptions: {
+      queries: { retry: false, staleTime: 5 * 60 * 1000 },
+      mutations: { retry: false },
+    },
+  });
   return render(
-    <TooltipProvider>
-      <AgendaPage />
-    </TooltipProvider>,
+    <QueryClientProvider client={client}>
+      <TooltipProvider>
+        <AgendaPage />
+      </TooltipProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -643,6 +665,56 @@ describe("AgendaPage", () => {
     expect(chevron).toHaveAttribute("aria-expanded", "false");
     await user.click(chevron);
     expect(chevron).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("the card timeline loads only when the chevron opens, cards start closed, and it is read-only (R-012, AC3)", async () => {
+    const user = userEvent.setup();
+    timelineListMock.mockResolvedValue([
+      {
+        id: "ev-1",
+        event_type: "note",
+        event_date: "2026-09-01",
+        created_at: "2026-09-01T00:00:00Z",
+      },
+    ]);
+    useAgendaMock.mockReturnValue({
+      data: [step({ id: "timed", application_id: "app-9" })],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    renderPage();
+
+    const card = document.querySelector(
+      '[data-step-id="timed"]',
+    ) as HTMLElement;
+
+    // Closed by default: no timeline fetch, no region.
+    expect(timelineListMock).not.toHaveBeenCalled();
+    expect(
+      within(card).queryByRole("region", { name: /timeline for/i }),
+    ).not.toBeInTheDocument();
+
+    const chevron = within(card).getByRole("button", {
+      name: "Timeline for Backend Engineer at Acme",
+    });
+    await user.click(chevron);
+
+    expect(timelineListMock).toHaveBeenCalledWith("app-9");
+    const region = await within(card).findByRole("region", {
+      name: "Timeline for Backend Engineer at Acme",
+    });
+    await waitFor(() =>
+      expect(within(region).getByText("1 event")).toBeInTheDocument(),
+    );
+    // Read-only: no per-event actions menu anywhere in the region.
+    expect(within(region).queryAllByRole("button")).toHaveLength(0);
+
+    // Closing and reopening does not re-fetch (cache hit, still one call).
+    await user.click(chevron);
+    await user.click(chevron);
+    expect(timelineListMock).toHaveBeenCalledTimes(1);
   });
 
   it("shows the load error's detail", () => {
