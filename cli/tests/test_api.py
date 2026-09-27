@@ -119,9 +119,13 @@ def test_refresh_refused_with_429_keeps_the_session(tmp_path):
     assert session_bytes_after == session_bytes_before
 
 
-def test_refresh_refused_with_401_still_clears_the_session(tmp_path):
+@pytest.mark.parametrize('refresh_status', [401, 403, 500, 503])
+def test_refresh_refused_with_401_still_clears_the_session(
+    tmp_path, refresh_status
+):
     """Pins the unchanged path: any refresh failure other than 429 still
-    ends the session with AuthError."""
+    ends the session with AuthError - including a 503, which (like 429)
+    also means "retry later" but must not keep the session."""
     state = {'refresh_calls': 0, 'applications_calls': 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -130,7 +134,9 @@ def test_refresh_refused_with_401_still_clears_the_session(tmp_path):
             return httpx.Response(401, json={'detail': 'Token expired'})
         if request.url.path == '/api/auth/refresh':
             state['refresh_calls'] += 1
-            return httpx.Response(401, json={'detail': 'Refresh token expired'})
+            return httpx.Response(
+                refresh_status, json={'detail': 'Refresh token expired'}
+            )
         raise AssertionError(f'Unexpected request: {request.url}')
 
     store = SessionStore(tmp_path / 'session.json')
