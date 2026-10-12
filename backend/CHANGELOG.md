@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-043 history import of Ían Muliterno's job_scrapping (his upstream pull
+  request, head IanniMuliterno/applika:job_scrapping), no behaviour change.
 - KODI-039 API rate limiter (ADR-0015): per user, IP without a session;
   120/min, 10/min on /auth/*; 429 {"detail": "Too many requests. Try again
   in <n> seconds."} + Retry-After + X-RateLimit-*; RATE_LIMIT_* settings;
