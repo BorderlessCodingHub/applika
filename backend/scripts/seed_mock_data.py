@@ -686,7 +686,7 @@ def seed_draft_from_job(client: httpx.Client, base_cv_ids: list[str]) -> None:
         },
     )
     if resp.status_code == 422:
-        print(f'  Job {job["id"]} has no description to tailor by: skipped')
+        print(f'  Job {job["id"]} skipped: {resp.json()["detail"]}')
         return
     assert resp.status_code == 201, f'{resp.status_code} {resp.text}'
     draft = resp.json()
