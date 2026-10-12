@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, StrictBool
 
 from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema
@@ -183,3 +184,34 @@ class PaginatedPlatformsSchema(BaseSchema):
     page: int
     per_page: int
     total_pages: int
+
+
+class JobSourceAdminRow(BaseSchema):
+    """One job source on the admin screen (KODI-046, R-033)."""
+
+    id: SnowflakeID
+    code: str
+    name: str
+    base_url: str
+    platform_id: SnowflakeID | None
+    is_enabled: bool
+    last_run_at: datetime | None
+    last_run_status: Literal['ok', 'failed', 'blocked'] | None
+    last_run_error: str | None
+    last_run_found: int | None
+    last_run_saved: int | None
+    active_jobs: int
+
+
+class JobSourceUpdate(BaseModel):
+    """Switch a source off or on (R-034); nothing else is editable."""
+
+    model_config = ConfigDict(extra='forbid')
+
+    is_enabled: StrictBool
+
+
+class RunQueued(BaseModel):
+    """``POST /admin/jobs/runs`` answer: the run is queued (R-035)."""
+
+    queued: Literal[True] = True
