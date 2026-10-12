@@ -28,6 +28,60 @@
 # Normally you don't call those directly — `scripts/e2e.sh` does.
 name: applika-e2e
 
+# The API's environment, shared by `api`, `worker` and `scheduler` (KODI-049,
+# Plan corrections 10/11): the worker and the scheduler run the same image with
+# the same settings, the way `docker-compose.yml` shares `*api-environment`.
+x-api-environment: &api-environment
+  ENVIRONMENT: DEV
+  DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/applika_e2e
+  REDIS_URL: redis://redis:6379/0
+  # Synthetic, non-secret E2E values. JWT_SECRET is shared with the seed
+  # CLI (it runs via `compose exec api`, same env) so the tokens it mints
+  # validate. GITHUB_TOKEN_ENCRYPTION_KEY is a valid, throwaway Fernet key
+  # so app/core/crypto.py can build its Fernet. The GitHub client id and
+  # secret are required settings with no default; the OAuth flow is never
+  # exercised in E2E, so these dummies only satisfy the settings model.
+  # NOT for production.
+  JWT_SECRET: e2e-jwt-secret-not-for-production
+  GITHUB_TOKEN_ENCRYPTION_KEY: auiKtUcX-v_oZqv-A4viHsBK8MPYwDE_AFvK_EIj7WU=
+  GITHUB_CLIENT_ID: e2e-dummy-github-client-id
+  GITHUB_CLIENT_SECRET: e2e-dummy-github-client-secret
+  # Discord account linking (KODI-022, plan 0009). The OAuth handshake
+  # itself is never exercised in E2E (real discord.com must never be
+  # reached — the spec aborts the navigation and asserts the attempted
+  # URL), so these are dummies that only satisfy the settings model, the
+  # same way the GitHub pair above does. ACCOUNT_LINK_REDIRECT_URI is the
+  # web origin the callback 307s back to.
+  DISCORD_CLIENT_ID: e2e-dummy-discord-client-id
+  DISCORD_CLIENT_SECRET: e2e-dummy-discord-client-secret
+  ACCOUNT_LINK_REDIRECT_URI: http://127.0.0.1:8180/profile
+  # KODI-024: a fixed, throwaway Fernet key, distinct from
+  # GITHUB_TOKEN_ENCRYPTION_KEY above - encrypts the seeded e2e-discord
+  # connection's dummy refresh token and whatever the spec's own
+  # Connect/Disconnect/Reconnect flow stores. Not for production.
+  DISCORD_TOKEN_ENCRYPTION_KEY: 8K328DvEKBxnNKoQ_B4ytFTe4FbJCgIcgBnVlgm7Rfs=
+  # The browser's origin is the `web` service, not the API's own port.
+  # allow_credentials is already True in app/main.py; CORS_HEADERS is
+  # widened here (the default is only X-Request-ID + Content-Type) so the
+  # axios preflight from the SPA passes without editing settings.py.
+  CORS_ORIGINS: '["http://127.0.0.1:8180"]'
+  CORS_HEADERS: '["X-Request-ID", "Content-Type", "Accept", "Authorization"]'
+  # KODI-039/ADR-0015: the rate limiter wraps every route, so it would
+  # otherwise trip on the seed script and on a Playwright run driving
+  # many requests in this one 60s window - raised so the limiter stays
+  # wired up (still ON) without the E2E suite ever hitting a 429.
+  RATE_LIMIT_DEFAULT: "100000"
+  RATE_LIMIT_AUTH: "10000"
+  # Job board (KODI-049). The FIXTURE scraper serves every enabled source
+  # (himalayas, remoteok) from `backend/tests/fixtures/jobs/postings.json`,
+  # mounted read-only below: nothing ever reaches himalayas.app or
+  # remoteok.com. The settings model refuses `fixture` in PROD. The cron is
+  # 00:00 on January 1st, so the scheduler never fires during a run - every
+  # E2E run is started by the admin's "Run now".
+  JOBS_SCRAPERS: fixture
+  JOBS_FIXTURE_PATH: /fixtures/postings.json
+  JOBS_INGEST_CRON: "0 0 1 1 *"
+
 services:
   # The real API image. `ENVIRONMENT: DEV` overrides the Dockerfile's PROD:
   # it keeps /api/openapi.json reachable (the readiness probe) and — crucially
@@ -45,47 +99,9 @@ services:
       - /bin/sh
       - -c
       - alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000
-    environment:
-      ENVIRONMENT: DEV
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/applika_e2e
-      REDIS_URL: redis://redis:6379/0
-      # Synthetic, non-secret E2E values. JWT_SECRET is shared with the seed
-      # CLI (it runs via `compose exec api`, same env) so the tokens it mints
-      # validate. GITHUB_TOKEN_ENCRYPTION_KEY is a valid, throwaway Fernet key
-      # so app/core/crypto.py can build its Fernet. The GitHub client id and
-      # secret are required settings with no default; the OAuth flow is never
-      # exercised in E2E, so these dummies only satisfy the settings model.
-      # NOT for production.
-      JWT_SECRET: e2e-jwt-secret-not-for-production
-      GITHUB_TOKEN_ENCRYPTION_KEY: auiKtUcX-v_oZqv-A4viHsBK8MPYwDE_AFvK_EIj7WU=
-      GITHUB_CLIENT_ID: e2e-dummy-github-client-id
-      GITHUB_CLIENT_SECRET: e2e-dummy-github-client-secret
-      # Discord account linking (KODI-022, plan 0009). The OAuth handshake
-      # itself is never exercised in E2E (real discord.com must never be
-      # reached — the spec aborts the navigation and asserts the attempted
-      # URL), so these are dummies that only satisfy the settings model, the
-      # same way the GitHub pair above does. ACCOUNT_LINK_REDIRECT_URI is the
-      # web origin the callback 307s back to.
-      DISCORD_CLIENT_ID: e2e-dummy-discord-client-id
-      DISCORD_CLIENT_SECRET: e2e-dummy-discord-client-secret
-      ACCOUNT_LINK_REDIRECT_URI: http://127.0.0.1:8180/profile
-      # KODI-024: a fixed, throwaway Fernet key, distinct from
-      # GITHUB_TOKEN_ENCRYPTION_KEY above - encrypts the seeded e2e-discord
-      # connection's dummy refresh token and whatever the spec's own
-      # Connect/Disconnect/Reconnect flow stores. Not for production.
-      DISCORD_TOKEN_ENCRYPTION_KEY: 8K328DvEKBxnNKoQ_B4ytFTe4FbJCgIcgBnVlgm7Rfs=
-      # The browser's origin is the `web` service, not the API's own port.
-      # allow_credentials is already True in app/main.py; CORS_HEADERS is
-      # widened here (the default is only X-Request-ID + Content-Type) so the
-      # axios preflight from the SPA passes without editing settings.py.
-      CORS_ORIGINS: '["http://127.0.0.1:8180"]'
-      CORS_HEADERS: '["X-Request-ID", "Content-Type", "Accept", "Authorization"]'
-      # KODI-039/ADR-0015: the rate limiter wraps every route, so it would
-      # otherwise trip on the seed script and on a Playwright run driving
-      # many requests in this one 60s window - raised so the limiter stays
-      # wired up (still ON) without the E2E suite ever hitting a 429.
-      RATE_LIMIT_DEFAULT: "100000"
-      RATE_LIMIT_AUTH: "10000"
+    environment: *api-environment
+    volumes:
+      - ./backend/tests/fixtures/jobs:/fixtures:ro
     ports:
       - "127.0.0.1:8100:8000"
     healthcheck:
@@ -104,6 +120,38 @@ services:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+
+  # ADR-0016: the taskiq worker consuming the `applika:tasks` queue - it runs
+  # the ingest "Run now" enqueues. Same image as `api` (built once there),
+  # same env, the fixture postings mounted read-only. Healthy api = migrated:
+  # the worker never runs Alembic.
+  worker:
+    container_name: applika-e2e-worker
+    image: applika-e2e-api
+    # Built by `api`; never pulled (there is no such image on a registry).
+    pull_policy: never
+    command: ["taskiq", "worker", "app.worker.broker:broker", "app.worker.tasks"]
+    environment: *api-environment
+    volumes:
+      - ./backend/tests/fixtures/jobs:/fixtures:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # Exactly one scheduler (ADR-0016). Its cron never fires during a run (see
+  # JOBS_INGEST_CRON above); it is here so the stack matches production.
+  scheduler:
+    container_name: applika-e2e-scheduler
+    image: applika-e2e-api
+    # Built by `api`; never pulled (there is no such image on a registry).
+    pull_policy: never
+    command: ["taskiq", "scheduler", "app.worker.broker:scheduler", "app.worker.tasks"]
+    environment: *api-environment
+    volumes:
+      - ./backend/tests/fixtures/jobs:/fixtures:ro
+    depends_on:
+      api:
         condition: service_healthy
 
   # The real frontend image: the static export built with the API base URL
