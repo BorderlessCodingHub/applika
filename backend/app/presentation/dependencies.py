@@ -122,6 +122,9 @@ from app.domain.repositories.platform_repository import PlatformRepository
 from app.domain.repositories.quinzenal_report_repository import (
     QuinzenalReportRepository,
 )
+from app.domain.repositories.saved_job_search_repository import (
+    SavedJobSearchRepository,
+)
 from app.domain.repositories.step_definition_repository import (
     StepDefinitionRepository,
 )
@@ -351,6 +354,17 @@ def get_job_dismissal_repository(
 
 JobDismissalRepositoryDp = Annotated[
     JobDismissalRepository, Depends(get_job_dismissal_repository)
+]
+
+
+def get_saved_job_search_repository(
+    session: DbSession,
+) -> SavedJobSearchRepository:
+    return SavedJobSearchRepository(session)
+
+
+SavedJobSearchRepositoryDp = Annotated[
+    SavedJobSearchRepository, Depends(get_saved_job_search_repository)
 ]
 
 

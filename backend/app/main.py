@@ -16,6 +16,7 @@ from app.presentation.api.application_step import router as app_step_router
 from app.presentation.api.base_cv import router as base_cv_router
 from app.presentation.api.company import router as company_router
 from app.presentation.api.cycle import router as cycle_router
+from app.presentation.api.job_searches import router as job_search_router
 from app.presentation.api.jobs import router as jobs_router
 from app.presentation.api.oauth import router as auth_router
 from app.presentation.api.platform import router as platform_router
@@ -105,6 +106,7 @@ app.include_router(cycle_router)
 app.include_router(base_cv_router)
 app.include_router(tailored_cv_router)
 app.include_router(jobs_router)
+app.include_router(job_search_router)
 # REST Admin routes
 for _r in admin_routers:
     app.include_router(_r)
