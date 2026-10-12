@@ -13,7 +13,16 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import Select, and_, func, or_, select, update
+from sqlalchemy import (
+    ColumnElement,
+    Row,
+    Select,
+    and_,
+    func,
+    or_,
+    select,
+    update,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dto.job import JobFiltersDTO, JobRecordDTO
@@ -57,7 +66,7 @@ def _escape_like(value: str) -> str:
     return value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
 
 
-def published_at():
+def published_at() -> ColumnElement[datetime]:
     """When a posting counts as published: ``posted_at``, else the first
     time the worker saw it - the same date the expiry pass uses."""
     return func.coalesce(JobModel.posted_at, JobModel.first_seen_at)
@@ -263,7 +272,7 @@ class JobRepository:
         return stmt, best.c.score
 
     @staticmethod
-    def _row(row) -> JobUserRow:
+    def _row(row: Row[Any]) -> JobUserRow:
         return JobUserRow(
             job=row[0],
             source_code=row[1],

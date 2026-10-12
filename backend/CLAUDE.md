@@ -1200,7 +1200,8 @@ ignored (`JobListQuery`).
 `use_cases/application_drafts/create_draft_from_job.py`, a port of Ían
 Muliterno's `create_application_from_job.py`). Checks before any write: job
 listed (404 `"Job not found"`), no application of the caller with that
-`job_id` (409), the source's `platform_id` visible (`ensure_platform_visible`,
+`job_id` (409), a non-blank title and company name (422 `"This job has no
+title or company name to start from"` - scrapers may store an empty company), the source's `platform_id` visible (`ensure_platform_visible`,
 R-019), the base CV the caller's own (404), `keywords` needs a description
 (422). Then: a valid http(s) `company_url` goes through `resolve_company`
 unchanged (visible match reused, else a new **private** company, which

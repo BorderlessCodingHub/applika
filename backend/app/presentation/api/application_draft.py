@@ -145,7 +145,9 @@ async def create_draft_from_job(
     return await use_case.execute(
         int(payload.job_id),
         c_user.id,
-        base_cv_id=int(payload.base_cv_id) if payload.base_cv_id else None,
+        base_cv_id=(
+            int(payload.base_cv_id) if payload.base_cv_id is not None else None
+        ),
         tailoring=payload.tailoring,
     )
 

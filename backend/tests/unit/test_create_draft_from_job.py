@@ -266,6 +266,19 @@ async def test_inactive_job_is_404():
     deps.nothing_written()
 
 
+@pytest.mark.parametrize(
+    'overrides', [{'company_name': ''}, {'company_name': '   '}, {'title': ' '}]
+)
+async def test_a_job_without_title_or_company_is_422(overrides):
+    deps = Deps(job(company_url='https://globex.example', **overrides))
+    with patch.object(module, 'resolve_company', AsyncMock()) as resolve:
+        with pytest.raises(BusinessRuleViolation, match='no title or company'):
+            await deps.use_case().execute(7, USER, base_cv_id=11)
+
+    resolve.assert_not_awaited()
+    deps.nothing_written()
+
+
 async def test_existing_application_is_409():
     deps = Deps()
     deps.app_repo.get_by_job_id.return_value = SimpleNamespace(id=5)

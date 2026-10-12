@@ -13,7 +13,8 @@ unconditional create; one application per user per job (R-021); and an
 optional master CV copy is made in the same request (R-020).
 
 Checks, all before any write: the job is listed (404), the caller has no
-application from it (409), the source's platform is visible (404), the
+application from it (409), it has a title and a company name (422), the
+source's platform is visible (404), the
 master CV is the caller's own (404) and ``keywords`` has a job description
 to match (422). Then the writes:
 
@@ -67,6 +68,10 @@ from app.domain.repositories.job_source_repository import JobSourceRepository
 from app.domain.repositories.platform_repository import PlatformRepository
 
 ALREADY_APPLIED = 'You already have an application for this job'
+# A draft needs a role and a company name (PRD 0010, ``DraftInput``); a
+# scraped posting may lack the company. Refused before any write, so no
+# unreadable draft and no private company named ``''`` is left behind.
+MISSING_JOB_FIELDS = 'This job has no title or company name to start from'
 
 # Plan corrections 21: the application's limits; a longer job value is cut.
 MAX_ROLE = 200
@@ -133,6 +138,11 @@ class CreateDraftFromJobUseCase:
         if await self.application_repo.get_by_job_id(user_id, job.id):
             raise ResourceConflict(ALREADY_APPLIED)
 
+        role = _cut(job.title, MAX_ROLE)
+        company_name = _cut(job.company_name, MAX_COMPANY_NAME)
+        if not role or not company_name:
+            raise BusinessRuleViolation(MISSING_JOB_FIELDS)
+
         platform_id = await self._platform_id(job, user_id)
 
         job_description = job.description_text[:MAX_JOB_DESCRIPTION] or None
@@ -144,7 +154,6 @@ class CreateDraftFromJobUseCase:
             if tailoring == 'keywords' and not (job_description or '').strip():
                 raise BusinessRuleViolation(NO_JOB_DESCRIPTION_MESSAGE)
 
-        company_name = _cut(job.company_name, MAX_COMPANY_NAME)
         company_url = web_url(job.company_url)
         company_id: int | None = None
         if company_url is not None:
@@ -158,7 +167,7 @@ class CreateDraftFromJobUseCase:
             user_id=user_id,
             company_id=company_id,
             company_name=company_name,
-            role=_cut(job.title, MAX_ROLE),
+            role=role,
             mode='active',
             platform_id=platform_id,
             application_date=date.today(),

@@ -791,8 +791,8 @@ async def test_list_applications_item_never_carries_job_id(
     ``job_id`` in the database, but the ``Application`` shape every
     published CLI reads stays unchanged - no ``job_id`` key, in the list or
     in the OpenAPI schema."""
-    from tests.integration.test_jobs_api import add_job
     from tests.integration.jobs_seed import seed_sources
+    from tests.integration.test_jobs_api import add_job
 
     await seed_sources(db_session)
     job_id = await add_job(db_session)

@@ -4,8 +4,10 @@ ignoring case, per user only (admins included), and nothing that notifies.
 """
 
 import asyncio
+import re
 from typing import Any
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
@@ -162,12 +164,8 @@ async def test_the_user_lock_serialises_the_count(
         assert not b.done()
         await repo_a.create(user_id, 'A', {})
 
-        try:
+        with pytest.raises(ResourceConflict, match=re.escape(LIMIT)):
             await b
-        except ResourceConflict as conflict:
-            assert str(conflict) == LIMIT
-        else:
-            raise AssertionError('B made an eleventh search')
 
     assert len(await names(async_client)) == 10
 

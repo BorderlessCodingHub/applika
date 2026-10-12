@@ -495,3 +495,54 @@ async def test_application_keeps_its_link_after_the_job_leaves_the_list(
     detail = await async_client.get(f'/jobs/{job_id}')
     assert detail.status_code == 200, msg(200, detail.text)
     assert detail.json()['application']['id'] == draft['id']
+
+
+async def test_a_job_without_company_name_is_422_and_writes_nothing(
+    async_client: AsyncClient, db_session: AsyncSession, sources
+):
+    """QA B2: scrapers may store ``company_name=''``; a draft needs one, so
+    the start is refused before any write - no unreadable draft, no private
+    company named ``''``, the job stays startable."""
+    companies = await db_session.scalar(select(func.count(CompanyModel.id)))
+    for url in (None, 'https://nameless.example'):
+        job_id = await add_job(db_session, company_name='  ', company_url=url)
+
+        response = await start(async_client, job_id)
+
+        assert response.status_code == 422, msg(422, response.text)
+        assert response.json() == {
+            'detail': 'This job has no title or company name to start from'
+        }
+        assert await rows_for_job(db_session, job_id) == 0
+        job = (await async_client.get(f'/jobs/{job_id}')).json()
+        assert job['application'] is None
+    assert (
+        await db_session.scalar(select(func.count(CompanyModel.id)))
+        == companies
+    )
+
+
+async def test_losing_the_race_at_the_unique_index_is_the_same_409(
+    async_client: AsyncClient, db_session: AsyncSession, sources, monkeypatch
+):
+    """QA N1: with the pre-check blinded, the second start reaches
+    ``uq_applications_user_job`` on the real database and still answers
+    the fixed 409, leaving one row - with and without a master CV."""
+    from app.domain.repositories.application_repository import (
+        ApplicationRepository,
+    )
+
+    async def never_found(self, user_id, job_id):
+        return None
+
+    monkeypatch.setattr(ApplicationRepository, 'get_by_job_id', never_found)
+    cv = await master_cv(async_client)
+    for body in ({}, {'base_cv_id': cv}):
+        job_id = await add_job(db_session)
+        await started(async_client, job_id, **body)
+
+        again = await start(async_client, job_id, **body)
+
+        assert again.status_code == 409, msg(409, again.text)
+        assert again.json() == {'detail': ALREADY}
+        assert await rows_for_job(db_session, job_id) == 1

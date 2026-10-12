@@ -654,15 +654,10 @@ def seed_job_searches(client: httpx.Client) -> None:
         '/job-searches',
         json={'name': 'Eleventh (must be refused)', 'filters': {}},
     )
-    if resp.status_code == 409:
-        print(
-            f'  11th saved search refused as expected: {resp.json()["detail"]}'
-        )
-    else:
-        print(
-            f'  WARNING: the 11th saved search was NOT refused: '
-            f'{resp.status_code} {resp.text}'
-        )
+    assert resp.status_code == 409, (
+        f'the 11th saved search was NOT refused: {resp.status_code} {resp.text}'
+    )
+    print(f'  11th saved search refused as expected: {resp.json()["detail"]}')
 
 
 def seed_draft_from_job(client: httpx.Client, base_cv_ids: list[str]) -> None:
