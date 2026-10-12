@@ -148,11 +148,13 @@ export function TailoredCvEditor({
             </p>
           </>
         ) : (
+          // A long master CV name wraps inside the badge instead of pushing
+          // the page sideways at 375px (KODI-049).
           <Badge
             variant="secondary"
-            className="gap-1.5 px-2.5 py-1 text-xs font-medium"
+            className="h-auto max-w-full gap-1.5 px-2.5 py-1 text-xs font-medium wrap-anywhere whitespace-normal"
           >
-            <FileText aria-hidden className="size-3.5" />
+            <FileText aria-hidden className="size-3.5 shrink-0" />
             {sourceCvName
               ? `Copied from ${sourceCvName}`
               : "Copied from a master CV"}
