@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -28,12 +30,24 @@ from app.presentation.deprecation import (
     DeprecationHeaderMiddleware,
 )
 from app.presentation.handlers import register_handlers
+from app.worker import broker as task_broker
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # ADR-0016: the API only produces tasks. Starting the broker client
+    # never fails the boot (plan corrections 12).
+    await task_broker.start_client()
+    yield
+    await task_broker.stop_client()
+
 
 app = FastAPI(
     title='Applika 2.2 API',
     version='2.2.0',
     root_path=envs.API_PREFIX,
     openapi_url=envs.openapi_url,
+    lifespan=lifespan,
 )
 
 

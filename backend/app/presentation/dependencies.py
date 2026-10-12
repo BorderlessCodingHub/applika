@@ -25,6 +25,7 @@ from app.application.services.discord_oauth_service import (
 )
 from app.application.services.discord_service import DiscordService
 from app.application.services.github_service import GitHubService
+from app.application.services.job_queue import JobQueue
 from app.application.services.keyword_tailoring import (
     KeywordTailoringService,
 )
@@ -110,6 +111,9 @@ from app.domain.repositories.discord_report_webhook_repository import (
 from app.domain.repositories.feedback_definition_repository import (
     FeedbackDefinitionRepository,
 )
+from app.domain.repositories.job_source_repository import (
+    JobSourceRepository,
+)
 from app.domain.repositories.platform_repository import PlatformRepository
 from app.domain.repositories.quinzenal_report_repository import (
     QuinzenalReportRepository,
@@ -130,6 +134,7 @@ from app.domain.repositories.user_repository import UserRepository
 from app.domain.repositories.user_statistic_repository import (
     UserStatsRepository,
 )
+from app.worker.queue import TaskiqJobQueue
 
 DbSession = Annotated[AsyncSession, Depends(get_session)]
 
@@ -306,6 +311,24 @@ async def get_account_link_state_use_case(
 
 AccountLinkStateUseCaseDp = Annotated[
     AccountLinkStateUseCase, Depends(get_account_link_state_use_case)
+]
+
+
+async def get_job_queue(redis_client: RedisDp) -> JobQueue:
+    """The background worker's queue (ADR-0016), bound to taskiq; the lock
+    it reads lives on the API's own Redis."""
+    return TaskiqJobQueue(redis_client)
+
+
+JobQueueDp = Annotated[JobQueue, Depends(get_job_queue)]
+
+
+def get_job_source_repository(session: DbSession) -> JobSourceRepository:
+    return JobSourceRepository(session)
+
+
+JobSourceRepositoryDp = Annotated[
+    JobSourceRepository, Depends(get_job_source_repository)
 ]
 
 
