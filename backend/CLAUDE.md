@@ -43,6 +43,8 @@ When you add or modify any of the following, update the seed script accordingly:
 - New or changed fields on `/applications/{id}/cv` — `seed_application_cv()` gives roughly half the applications a CV copy and runs the full create → read → update → delete → recreate round trip on the first one, asserting the 2nd copy is refused with 409
 - Tailoring by keywords and the fit (KODI-045, ADR-0017) — `seed_keyword_copy()` makes the second seeded CV copy with `tailoring: 'keywords'` on the first master CV, against `KEYWORDS_JOB_DESCRIPTION` (written so the reorder is guaranteed), asserts `adjustments` is non-empty and `was_ai_generated` is false, then asserts `GET /applications/{id}/cv/fit` answers a `score` from 0 to 100
 - New or changed fields on `/applications/drafts*` — `seed_drafts()` creates one draft that gets a CV copy and is finished into a normal application, and one draft that is left open with a CV copy attached; it asserts the open one never appears in `GET /applications`. The finished draft sends its own `application_date` on create and calls `finish` with no body (KODI-036), asserting the finished application keeps that stored date rather than today's
+- Saved job searches (KODI-047) — `seed_job_searches()` deletes any left from a previous run, then creates, renames, lists and deletes one, fills the cap of 10 and asserts the 11th is refused with 409
+- Drafts from a job (KODI-047) — `seed_draft_from_job()` starts one draft from the first job of `GET /jobs` with no application, the first master CV and `tailoring: 'keywords'`, and asserts `job_id`, `has_cv` and the job's `application` mark; with no jobs (no worker run on the dev stack) it logs the skip
 - **A 429 is waited out, never treated as a failure** (KODI-039, ADR-0015): the script's `httpx.Client` uses `RetryOn429Transport`, which reads `Retry-After` on a 429 and resends the exact same request once. The dev/e2e compose stacks already raise `RATE_LIMIT_DEFAULT`/`RATE_LIMIT_AUTH` so a normal run never trips it; the retry only matters against a stock, un-raised stack
 
 After any such change, mentally walk through the seed script from top to bottom and confirm it would still run without errors against a fresh database.
@@ -704,6 +706,7 @@ null`.
 | GET | `/applications/drafts/{id}` | Yes | Get one own draft (404 otherwise) |
 | PUT | `/applications/drafts/{id}` | Yes | Full replace of the draft's data; never touches its CV copy |
 | DELETE | `/applications/drafts/{id}` | Yes | Delete it (204); its CV copy is cascade-deleted |
+| POST | `/applications/drafts/from-job` | Yes | KODI-047: `{job_id, base_cv_id?, tailoring?: 'copy' \| 'keywords' = 'copy'}` → 201 `Draft` filled from the job; 404 job unknown or off the list, or base CV not own; 409 `"You already have an application for this job"`; 422 `keywords` without a job description |
 | POST | `/applications/drafts/{id}/finish` | Yes | Body optional - no body, `{}` or `{application_date}` - → 200 `Application` (same shape `GET /applications` returns); 422 with no CV copy; 422 past `UTC today + 1` |
 
 **`is_draft` and the `NOT_DRAFT` rule.** A draft is a plain `applications` row
@@ -1164,6 +1167,72 @@ CLI route. The platform a source points at (R-019) cannot be deleted from
 `/admin/platforms` - `count_entity_references('platform', id)` counts
 `job_sources.platform_id` as well as applications.
 
+### Jobs (`/jobs`, KODI-047, PRD 0012, web only - not a CLI route)
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| GET | `/jobs` | Yes | `?search&source&tags&min_fit&posted_within_days&sort=newest\|fit&include_dismissed&page&per_page=1..100 (25)` → `{items: JobSummary[], total, page, per_page, total_pages}` |
+| GET | `/jobs/{id}` | Yes | `JobDetail` = summary + `description_text`, `company_url`, `fits[]`; 404 unknown, or off the list unless the caller has an application from it |
+| PUT | `/jobs/{id}/dismissal` | Yes | Dismiss for the caller (204, idempotent); unknown 404 |
+| DELETE | `/jobs/{id}/dismissal` | Yes | Restore (204, idempotent); unknown 404 |
+
+`JobSummary` is `{id, source {code, name}, title, company_name, location_text,
+employment_type, salary_text, tags, posted_at, job_url, is_active, best_fit
+{base_cv_id, score} | null, dismissed, application {id, is_draft} | null}`.
+Every per-user part is the **caller's own**, admins included (ADR-0004, no
+admin bypass): `best_fit` is the caller's highest `job_fit_scores` row (ties:
+lowest master CV id), `dismissed` the caller's `job_dismissals` row,
+`application` the caller's application with this `job_id` in any state (draft,
+open, closed, archived - "Draft" vs "Applied"). The list shows active jobs
+only (`JobRepository.list_for_user`): `search` is `ILIKE` on title, company
+and description with `%`/`_` escaped; `tags` needs every chosen tag
+(`tags @> :tags`, exact case); `min_fit` drops a job with no fit;
+`posted_within_days` (1..15) and `newest` count from `coalesce(posted_at,
+first_seen_at)`, then `id DESC`; `fit` sorts `best_fit DESC NULLS LAST`, then
+newest. The detail's `fits` are computed **live** for each of the caller's
+master CVs (`score_fit(job.keywords, cv_text(cv))`), with matched and missing
+keywords; a job without keywords has none, and `best_fit` there is the best
+live fit. `JobFilters` (`schemas/jobs.py`) is also the saved search body:
+unknown keys 422 there; as `GET /jobs` query parameters unknown keys are
+ignored (`JobListQuery`).
+
+**Draft from a job** (`POST /applications/drafts/from-job`,
+`use_cases/application_drafts/create_draft_from_job.py`, a port of Ían
+Muliterno's `create_application_from_job.py`). Checks before any write: job
+listed (404 `"Job not found"`), no application of the caller with that
+`job_id` (409), the source's `platform_id` visible (`ensure_platform_visible`,
+R-019), the base CV the caller's own (404), `keywords` needs a description
+(422). Then: a valid http(s) `company_url` goes through `resolve_company`
+unchanged (visible match reused, else a new **private** company, which
+commits on its own and stays on a later failure); none or invalid → free
+text. The draft: role = title (cut to 200), company name (200), platform,
+`link_to_job` = `job_url` when a valid URL ≤ 2083, `job_description` =
+description (cut to 50 000), `work_mode` remote, `mode` active, today, no
+country, `job_id`. With a base CV, `ApplicationRepository.create_draft(...,
+commit=False)` flushes and `CreateTailoredCVUseCase` (same session) commits
+both; any failure rolls the draft back. An `IntegrityError` on
+`uq_applications_user_job` (double click) is the same 409. `job_id` appears on
+`Draft` only - never on `Application` / `GET /applications`; `update_draft`
+never touches it (not in `DraftInput`, a PUT naming it is 422) and finishing
+keeps it.
+
+### Job searches (`/job-searches`, KODI-047, R-030, R-032)
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| GET | `/job-searches` | Yes | `[{id, name, filters, created_at, updated_at}]`, by name ignoring case |
+| POST | `/job-searches` | Yes | `{name 1..100 (stripped), filters: JobFilters}` → 201; 409 `"A saved search with this name already exists"` (any case); 409 `"Saved search limit reached (max 10)"` |
+| PUT | `/job-searches/{id}` | Yes | `{name?, filters?}` (at least one) → 200; 404; 409 name taken |
+| DELETE | `/job-searches/{id}` | Yes | 204; 404 |
+
+The cap of 10 is `CreateJobSearchUseCase` under a `SELECT ... FOR UPDATE` on
+the user row (the `base_cvs/create.py` pattern); the name rule is checked
+first and backed by `uq_saved_job_searches_user_name` (`user_id,
+lower(name)`), whose violation the repository turns into the same 409.
+Another user's search is a 404, admins included. `filters` is stored as the
+keys the caller set and read back as a full `JobFilters`. A saved search has
+no notification field, route or side effect (R-032).
+
 ### Agenda (`/users/me/agenda`)
 Every **interview** event dated inside the window (`from_date`/`to_date`,
 default 30 days either side of today), ordered by date then start time — the
@@ -1302,7 +1371,10 @@ Optional (with defaults):
 - **JobSource** (KODI-046, table `job_sources`, revision `b28d5134631f`): the admin-managed catalog of job boards (`himalayas`, `remoteok`, seeded by the migration), no owner. `code` UNIQUE; `platform_id` → the public platform named after the source (`ON DELETE SET NULL`, but the admin delete refuses it); `is_enabled`; `last_run_at/status/error/found/saved` (status CHECK `ok`/`failed`/`blocked`)
 - **Job** (table `jobs`): one shared posting per `(source_id, external_id)` (`uq_jobs_source_external`): title, company, company url, location (default `Remote`), job url, plain-text description, employment type, salary text, `tags TEXT[]` (GIN `ix_jobs_tags`), `keywords` JSONB (ADR-0017), `content_hash`, `posted_at`, `first_seen_at`, `last_seen_at`, `is_active` (`ix_jobs_active_posted`). Never deleted
 - **JobFitScore** (table `job_fit_scores`): the fit 0..100 (CHECK) of one master CV for one job, UNIQUE `(base_cv_id, job_id)`, `user_id` = the CV's owner, `computed_at`; `ix_job_fit_scores_user_job`
-- `job_dismissals`, `saved_job_searches` and `applications.job_id` exist (same revision) but are unmapped until K5
+- **JobDismissal** (KODI-047, table `job_dismissals`): a job one user took off their own list, UNIQUE `(user_id, job_id)` (`uq_job_dismissals_user_job`), both FKs CASCADE. Per user, no admin access
+- **SavedJobSearch** (KODI-047, table `saved_job_searches`): a user's named `JobFilters` (`filters` JSONB), at most 10 per user, `uq_saved_job_searches_user_name` on `(user_id, lower(name))`, user FK CASCADE. Never notifies
+- `Application.job_id` (KODI-047): nullable FK `jobs.id` `ON DELETE SET NULL` (`fk_applications_job_id`); one application per user per job (`uq_applications_user_job`, partial on `job_id IS NOT NULL`); on `Draft` only, absent from `GET /applications` and the `Application` schema
+- Fits, dismissals and saved searches are per user; no admin route reads another user's (ADR-0004)
 
 ### Key Relationships
 - Application → User (many-to-one, cascade delete)
@@ -1322,6 +1394,9 @@ Optional (with defaults):
 - Job → JobSource (many-to-one, **RESTRICT** on delete)
 - JobSource → Platform (many-to-one, nullable, SET NULL on delete; the admin platform delete refuses it)
 - JobFitScore → User, Job and BaseCV (many-to-one, **CASCADE** on each - deleting a master CV removes its fit everywhere)
+- JobDismissal → User and Job (many-to-one, **CASCADE** on each)
+- SavedJobSearch → User (many-to-one, **CASCADE**)
+- Application → Job (many-to-one, optional, **SET NULL** on delete - jobs are never deleted, so in practice the link stays)
 - DiscordConnection → User (one-to-one, cascade delete — deleting the user removes the connection; no ORM relationship is declared back on `UserModel`, same as BaseCV/TailoredCV)
 
 Applications are closed ("finalized") when `finalized_at` is set; reopen clears it.
@@ -1348,7 +1423,7 @@ DiscordServiceDp = Annotated[DiscordService, Depends(get_discord_service)]
 ```
 
 ### File Organization
-- Use cases grouped in subdirectories by feature (applications/, timeline_events/, compat/, user_stats/, quinzenal_reports/, companies/, user_feedbacks/, base_cvs/, tailored_cvs/, jobs/ - the worker's ingest and fit recompute, admin/jobs/)
+- Use cases grouped in subdirectories by feature (applications/, timeline_events/, compat/, user_stats/, quinzenal_reports/, companies/, user_feedbacks/, base_cvs/, tailored_cvs/, jobs/ - the worker's ingest and fit recompute plus the user's list/detail/dismiss/restore, job_searches/, admin/jobs/)
 - `app/worker/` is the background worker's delivery layer (ADR-0016): `broker.py`, `tasks.py`, `queue.py`; scrapers live in `app/application/services/job_ingestion/scrapers/`
 - `use_cases/compat/` holds the layer for installed `applika-cli` 0.1.4 (step translation, legacy steps, legacy finalize); nothing there owns data
 - One repository per model in `domain/repositories/`
