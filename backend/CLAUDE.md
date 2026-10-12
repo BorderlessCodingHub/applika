@@ -41,6 +41,7 @@ When you add or modify any of the following, update the seed script accordingly:
 - New or changed fields on `POST /base-cvs` — `seed_base_cvs()` creates 3 master CVs and asserts the 4th is refused with 409
 - New or changed behaviour on the `/pdf` export routes — `seed_cv_pdfs()` posts to both at the end of the run and checks the bytes start with `%PDF-`
 - New or changed fields on `/applications/{id}/cv` — `seed_application_cv()` gives roughly half the applications a CV copy and runs the full create → read → update → delete → recreate round trip on the first one, asserting the 2nd copy is refused with 409
+- Tailoring by keywords and the fit (KODI-045, ADR-0017) — `seed_keyword_copy()` makes the second seeded CV copy with `tailoring: 'keywords'` on the first master CV, against `KEYWORDS_JOB_DESCRIPTION` (written so the reorder is guaranteed), asserts `adjustments` is non-empty and `was_ai_generated` is false, then asserts `GET /applications/{id}/cv/fit` answers a `score` from 0 to 100
 - New or changed fields on `/applications/drafts*` — `seed_drafts()` creates one draft that gets a CV copy and is finished into a normal application, and one draft that is left open with a CV copy attached; it asserts the open one never appears in `GET /applications`. The finished draft sends its own `application_date` on create and calls `finish` with no body (KODI-036), asserting the finished application keeps that stored date rather than today's
 - **A 429 is waited out, never treated as a failure** (KODI-039, ADR-0015): the script's `httpx.Client` uses `RetryOn429Transport`, which reads `Retry-After` on a 429 and resends the exact same request once. The dev/e2e compose stacks already raise `RATE_LIMIT_DEFAULT`/`RATE_LIMIT_AUTH` so a normal run never trips it; the retry only matters against a stock, un-raised stack
 
@@ -358,12 +359,40 @@ describing "tailor a master CV to a job posting": one `async def tailor(request)
 -> TailoringResult`. It exists so a model-backed implementation can be dropped
 in later without changing the stored CV shape or the API.
 
-Today there is exactly **one** binding, `CloneTailoringService`
-(`clone_tailoring.py`), and it copies the master CV verbatim — identity and
-contact included — with `was_ai_generated=False` and `adjustments=[]`. There is
-no AI in this codebase, no resolver and nothing to configure;
-`get_tailoring_service()` in `dependencies.py` is the single line that would
-change. The port is `async` even though the clone does no I/O.
+There are **two** bindings (ADR-0017, amending ADR-0007), both deterministic,
+with no model, no network and no external service:
+
+- `CloneTailoringService` (`clone_tailoring.py`) copies the master CV verbatim
+  — identity and contact included — with `was_ai_generated=False` and
+  `adjustments=[]`. It is the **default** everywhere.
+- `KeywordTailoringService` (`keyword_tailoring.py`, a port of Ían
+  Muliterno's `cv_tailor_service.py`) starts from the clone, then only
+  reorders, stably, by match with the job description's keywords: keywords
+  within each skill category, skill categories, bullets within each
+  experience entry. It never adds, removes or rewrites text, never reorders
+  entries or other sections, keeps `was_ai_generated=False` and records one
+  `{section, description}` adjustment per section it moved. A blank job
+  description gives exactly the clone.
+
+The binding is picked **per request**: `POST /applications/{id}/cv` takes
+`tailoring: "copy" | "keywords"` (default `"copy"`), and
+`get_tailoring_resolver()` in `dependencies.py` returns `resolve_tailoring`,
+a `TailoringResolver` (`Callable[[TailoringMode], TailoringService]`) the
+create use case calls with that value. A body without `tailoring` — every
+installed `applika-cli` — gets the clone. `"keywords"` on an application with
+a blank `job_description` is a 422 `"Add a job description to tailor by
+keywords"`, checked after the editability guard and before anything else is
+read. There is no AI in this codebase. The port is `async` even though
+neither binding does I/O.
+
+The keyword fit (`keyword_fit.py`, a port of Ían's `keywords_service.py`) is
+pure functions: `job_keywords(text, tags)` (25 most frequent terms + 25 most
+frequent word pairs, stop words removed, plus tags), `cv_text(content)`
+(headline, summary, skill keywords, experience roles and bullets, project
+names and descriptions, certifications) and `score_fit(keywords, text)`
+(whole word/phrase, case-insensitive, `round(100 × matched ÷ keywords)` half
+up, `score=None` without keywords). Commits that port or change either file
+carry `Co-authored-by: Ían Muliterno <iannimuliterno@gmail.com>`.
 
 ### Snowflake IDs
 All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUIDs or auto-increment. Defined in `app/lib/types.py` with Pydantic serialization to string for JSON/OpenAPI.
@@ -908,8 +937,9 @@ inserts. The lock is what keeps concurrent creates from overshooting.
 ### Application CVs (`/applications/{id}/cv`)
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| POST | `/{id}/cv` | Yes | Copy a master CV onto the application (201) |
+| POST | `/{id}/cv` | Yes | Copy a master CV onto the application (201); optional `tailoring: "copy"` (default) \| `"keywords"` |
 | GET | `/{id}/cv` | Yes | Get the application's CV copy |
+| GET | `/{id}/cv/fit` | Yes | Keyword fit of the copy for the job description: `{score: int \| null, matched_keywords, missing_keywords}` (`null`, `[]`, `[]` on a blank description); drafts included, no read-only guard; 404 not owned or no copy |
 | PUT | `/{id}/cv` | Yes | Replace the copy whole (every field editable) |
 | DELETE | `/{id}/cv` | Yes | Delete the copy (204); a new one can then be made |
 
@@ -1143,7 +1173,7 @@ Optional (with defaults):
 - **TailoredCV**: an application's CV copy — at most one per application
   - A **full snapshot** of the master CV it was made from: same identity, contact, summary and seven sections, stored on its own row
   - Editing or deleting the master never changes it; when the master is deleted `base_cv_id` becomes NULL and the copy keeps every field ("source CV deleted")
-  - `was_ai_generated` / `adjustments` are the tailoring port's provenance fields, always `false` / `[]` today
+  - `was_ai_generated` / `adjustments` are the tailoring port's provenance fields: `was_ai_generated` is always `false`; `adjustments` is `[]` for a verbatim copy and filled by the keyword binding (one `{section, description}` per reordered section, ADR-0017)
   - Created through `TailoringService`, never assembled in the use case
 
 ### Key Relationships

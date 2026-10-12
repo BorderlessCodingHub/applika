@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-045 keyword tailoring binding (ADR-0017) and GET /applications/{id}/cv/fit.
 - KODI-044 tables job_sources, jobs, job_fit_scores, job_dismissals,
   saved_job_searches and applications.job_id; Himalayas and RemoteOK sources
   seeded, each with a public platform (an existing public one with the same
@@ -316,6 +317,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- KODI-045 POST /applications/{id}/cv takes an optional tailoring ("copy" default, "keywords").
 - KODI-039 request log client_ip is the uvicorn-resolved address
   (FORWARDED_ALLOW_IPS), no longer the raw X-Forwarded-For.
 - KODI-036 draft applications now carry `application_date` (S8 of PRD 0010,
