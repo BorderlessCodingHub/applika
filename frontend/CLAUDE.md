@@ -128,9 +128,17 @@ New application with CV, i.e. a draft (PRD 0010, KODI-033):
 | ------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------- |
 | `/applications/new-with-cv?id=&step=` | `(protected)/applications/new-with-cv/page.tsx` | `new-with-cv-page.tsx` — both steps, owns both forms and autosave |
 
+Job board (PRD 0012, KODI-048) — see **Job board** below:
+
+| Route            | Shell                            | Component                                         |
+| ---------------- | -------------------------------- | ------------------------------------------------- |
+| `/jobs`          | `(protected)/jobs/page.tsx`      | `jobs-page.tsx` — list, filters in the URL, marks |
+| `/jobs/view?id=` | `(protected)/jobs/view/page.tsx` | `job-view-page.tsx` — description, fit per CV     |
+
 `?id=` is the APPLICATION's id, never the copy's. There is no nav entry: the
 route is reached from the CV link on an application row, and
-`e2e/shell-responsive.spec.ts` pins `PRIMARY_NAV` at seven entries.
+`e2e/shell-responsive.spec.ts` pins `PRIMARY_NAV` at eight entries
+(Jobs right after Applications since KODI-048).
 
 **`/applications/cv?id=` is the reading column while it shows the picker, and
 full width only once it shows the editor (KODI-017)** — see **App shell**
@@ -1351,6 +1359,87 @@ static export). Nav tab "Discord" in `components/admin/admin-nav.tsx`
   shared database. `admin-gating.spec.ts` and `smoke.spec.ts` both gained the
   `/admin/discord-webhooks` route alongside the other three admin pages.
 
+### Job board (`src/components/jobs/`, PRD 0012)
+
+Ported from Ían Muliterno's `job_scrapping` branch (`e670914`, his job-card,
+job-filters, job-list, job-detail-sheet, types, service and hook) onto the
+KODI-047 contract. Every commit porting his logic ends with the trailer
+`Co-authored-by: Ían Muliterno <iannimuliterno@gmail.com>` (R-003).
+
+- **Routes.** `/jobs` (`jobs-page.tsx`) and `/jobs/view?id=`
+  (`job-view-page.tsx`), each a Suspense shell. A 404 on `GET /jobs/{id}` (or
+  no `id`) renders `JobNotListed` — its own h1 "This job is no longer listed"
+  and "Back to jobs".
+- **Filters live in the URL** with the SAME keys `GET /jobs` takes (`search`,
+  `source`, repeated `tags`, `min_fit`, `posted_within_days`, `sort`,
+  `include_dismissed`, plus `page`). `job-filters-url.ts` is the single pure
+  translation: `filtersFromSearchParams` (garbage reads as the default,
+  numbers clamp to the server's ranges, tags trim/dedupe/cap at 10 x 100),
+  `filtersToSearchParams` (defaults OMITTED, so `/jobs` is the default view and
+  a saved search normalises to its shortest URL), `sameJobFilters`,
+  `normalizeJobFilters`. The page reads with `useSearchParams` and writes with
+  `window.history.pushState` (a page past the end: `replaceState` to the last
+  one) — never `router.replace`, a no-op here (see **Profile** below).
+- **The tags TRAP.** axios serialises an array as `tags[]=a&tags[]=b`, a key
+  the API ignores, so the tag filter would silently do nothing.
+  `JobService.list` builds the query string itself (`jobListQuery`) from
+  `filtersToSearchParams`: repeated `tags=` keys, `page`, `per_page=25`.
+  `job-service.test.ts` pins the exact string.
+- **Query keys** (`hooks/use-jobs.ts`): `["jobs", filters, page]`
+  (`keepPreviousData`, so a filter change does not flash the skeleton) and
+  `["job", id]`. `useDismissJob`/`useRestoreJob` are OPTIMISTIC: a list without
+  dismissed jobs drops the job at once (total - 1), a "Show dismissed" list
+  marks it, the detail flips; rollback + `getApiError` toast on failure;
+  invalidate `["jobs"]` and `["job", id]` on settle.
+  `useStartApplicationFromJob` invalidates `["jobs"]`, `["job"]` and
+  `["application-drafts"]` and toasts nothing. `use-job-searches.ts` owns
+  `["job-searches"]`; its mutations toast nothing either (the menu shows a 409
+  inline). **`useCreateBaseCv`/`useUpdateBaseCv`/`useDeleteBaseCv` also
+  invalidate `["jobs"]` and `["job"]`** (R-016, Plan corrections 14): a fit
+  depends on the master CVs.
+- **Fit words.** `FitBadge` reads `Fit 72%` (rounded, clamped 0..100) and
+  never colour alone; bands strong >= 70, partial >= 40, low (neutral) below.
+  The list item shows NO badge when `best_fit` is null; the detail lists one
+  row per master CV, best first, and a CV missing from `fits` reads "No fit
+  yet". The list shows the STORED score and the detail the LIVE one; they may
+  differ until the worker recomputes. Do not "fix" that in the UI. A user with
+  no master CV (`useBaseCvs()` loaded empty) gets `MasterCvInvitation`
+  ("Create a master CV to see how well you fit each job", `/cvs/new`), no fit
+  anywhere (the page strips `best_fit`) and a disabled "Minimum fit".
+- **Draft / Applied.** `JobStatusBadge` links "Draft" to
+  `/applications/new-with-cv?id=<id>` and "Applied" to
+  `/applications?focus=<id>` (`jobApplicationHref`). "Start application" is
+  rendered ALWAYS, beside the badge (orchestrator decision, KODI-048):
+  starting again is how AC8's "offers to open the one that exists" is
+  reached.
+- **The start flow.** `StartApplicationFlow` (`start-application-flow.tsx`)
+  is the data half of `StartApplicationDialog`, mounted once per page: master
+  CVs from `useBaseCvs`, fit labels and `canTailor` from `useJob(job.id)` —
+  `JobSummary` has no `description_text`, so the dialog MUST read the detail.
+  "Verbatim copy" is preselected; "Tailor by keywords" is NOT RENDERED for a
+  blank description (R-026), never just disabled. No CV picked sends only
+  `{job_id}`; a CV sends `{job_id, base_cv_id, tailoring}`. Success
+  `router.push("/applications/new-with-cv?id=<id>&step=cv")` and the dialog
+  stays pending until the page changes. A 404/422 `detail` shows INLINE
+  (`data-slot="start-application-error"`, e.g. "This job has no title to start
+  from"); a 409 refetches the job and offers "Open draft" / "Open
+  application". The success signal — Start, "Tailor by keywords", "Create
+  draft" = 3 clicks after the CV is picked — is counted in
+  `jobs-page.test.tsx`.
+- **Saved searches** (`SavedSearchesMenu`, R-031/R-032): apply pushes the
+  saved filters through `normalizeJobFilters` (the server returns them FULL,
+  defaults included); save sends `normalizeJobFilters(current)` — only
+  `JobFilters` keys, never `page` (an unknown key is a 422). At 10 "Save
+  current search" is disabled with "You can keep up to 10 saved searches". A
+  4xx `detail` resolves into the dialog inline. No notification control
+  exists anywhere, by design (R-032).
+- **Sources.** No user route lists them: `JOB_SOURCES` in
+  `services/types/jobs.ts` fixes Himalayas and RemoteOK (Plan corrections 18).
+- **Accessible-name collisions** for e2e (substring match): "Dismiss" /
+  "Dismissed", "Draft" / "Open draft", nav "Jobs" / "Back to jobs", "Rename" /
+  "Rename <name>". Use `exact: true`. A dialog has its own sr-only "Close", so
+  the conflict panel's "Close" is not unique by name.
+
 ### Date Inputs
 
 **`DatePickerInput` for a day; `MonthYearInput` for a CV month+year, which never
@@ -1418,6 +1507,14 @@ override it.
   AC7, R-040) on top of the base `font-semibold`. The words themselves ("New
   Application" / "Edit Application") are unchanged — `e2e/cv-builder.spec.ts`'s
   "Edit Application" assertion still matches them.
+
+**`components/ui/radio-group.tsx`** (KODI-048) is the shadcn `new-york`
+RadioGroup with ONE applika-only change: the unchecked ring is
+`border-muted-foreground`, because the stock `border-input` is 1.3:1 against
+the card and fails the 3:1 non-text contrast. Keep it when regenerating. Its
+`RadioGroupItem` takes its name from `aria-labelledby` in the job start
+dialog; drive it with a click or `.check()` in Playwright (arrow keys move
+focus but do not check a Radix radio there).
 
 **`components/ui/tabs.tsx`** is the shadcn `new-york` Tabs, unmodified from the
 registry except for one applika-only `variant` on `TabsList`/`TabsTrigger`:
@@ -1549,7 +1646,7 @@ pages that do NOT want it.
     for this page" (KODI-008). Matched on the same `activePath` the nav is
     matched on, tolerates the trailing slash the static export serves, and is
     deliberately kept OUT of `nav.ts`: these are not nav entries, and
-    `PRIMARY_NAV` is pinned at seven by `e2e/shell-responsive.spec.ts`.
+    `PRIMARY_NAV` is pinned at eight by `e2e/shell-responsive.spec.ts`.
   - **By CONTENT**, for a route that is full width only while one surface is
     on screen: `/applications/cv` left `FULL_WIDTH_PATHS` with KODI-017 — the
     owner: "only full width when we have a cv copy to the application" — and
