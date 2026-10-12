@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-044 tables job_sources, jobs, job_fit_scores, job_dismissals,
+  saved_job_searches and applications.job_id; Himalayas and RemoteOK sources
+  seeded, each with a public platform (an existing public one with the same
+  name is reused); no code reads them yet (Release A).
 - KODI-043 history import of Ían Muliterno's job_scrapping (his upstream pull
   request, head IanniMuliterno/applika:job_scrapping), no behaviour change.
 - KODI-039 API rate limiter (ADR-0015): per user, IP without a session;

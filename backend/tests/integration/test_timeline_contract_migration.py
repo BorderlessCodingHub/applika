@@ -805,8 +805,8 @@ def test_the_revision_is_a_child_of_r4() -> None:
 def test_only_one_head() -> None:
     """The re-parenting must not leave a fork: the real Alembic
     ``ScriptDirectory`` sees exactly one head, and the
-    R1 -> R3 -> R4 -> R2 -> R5 -> K5 -> S10 -> KODI-030 chain resolves as
-    expected.
+    R1 -> R3 -> R4 -> R2 -> R5 -> K5 -> S10 -> KODI-030 -> KODI-044 chain
+    resolves as expected.
 
     K5 (KODI-023, ``ba44f9cfd3c1``, ``discord_connections`` +
     ``discord_report_webhooks``, Release A2) was a later, unrelated child of
@@ -817,7 +817,9 @@ def test_only_one_head() -> None:
     revision beyond K5. KODI-030 (``3b78c3cd2a71``, catalog visibility and
     draft flag columns, Release A) is now the sole head instead of S10, and
     this test is updated to look one revision further again rather than
-    re-asserting S10 is the head it no longer is.
+    re-asserting S10 is the head it no longer is. KODI-044 (``b28d5134631f``,
+    job board tables, Release A of plan 0012) is now the sole head, one
+    revision beyond KODI-030.
     """
     from alembic.config import Config
     from alembic.script import ScriptDirectory
@@ -826,8 +828,10 @@ def test_only_one_head() -> None:
     script = ScriptDirectory.from_config(config)
 
     heads = script.get_heads()
-    assert list(heads) == ['3b78c3cd2a71']
+    assert list(heads) == ['b28d5134631f']
 
+    kodi_044 = script.get_revision('b28d5134631f')
+    assert kodi_044.down_revision == '3b78c3cd2a71'
     kodi_030 = script.get_revision('3b78c3cd2a71')
     assert kodi_030.down_revision == '583226ca46bc'
     s10 = script.get_revision('583226ca46bc')
