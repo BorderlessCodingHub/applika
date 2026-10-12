@@ -111,6 +111,10 @@ from app.domain.repositories.discord_report_webhook_repository import (
 from app.domain.repositories.feedback_definition_repository import (
     FeedbackDefinitionRepository,
 )
+from app.domain.repositories.job_dismissal_repository import (
+    JobDismissalRepository,
+)
+from app.domain.repositories.job_repository import JobRepository
 from app.domain.repositories.job_source_repository import (
     JobSourceRepository,
 )
@@ -329,6 +333,24 @@ def get_job_source_repository(session: DbSession) -> JobSourceRepository:
 
 JobSourceRepositoryDp = Annotated[
     JobSourceRepository, Depends(get_job_source_repository)
+]
+
+
+def get_job_repository(session: DbSession) -> JobRepository:
+    return JobRepository(session)
+
+
+JobRepositoryDp = Annotated[JobRepository, Depends(get_job_repository)]
+
+
+def get_job_dismissal_repository(
+    session: DbSession,
+) -> JobDismissalRepository:
+    return JobDismissalRepository(session)
+
+
+JobDismissalRepositoryDp = Annotated[
+    JobDismissalRepository, Depends(get_job_dismissal_repository)
 ]
 
 
