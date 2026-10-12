@@ -6,6 +6,7 @@ import type {
   DraftInput,
   DraftSummary,
 } from "@/services/types/application-drafts";
+import type { DraftFromJobInput } from "@/services/types/jobs";
 
 export class ApplicationDraftService implements IApplicationDraftService {
   list(): Promise<DraftSummary[]> {
@@ -18,6 +19,12 @@ export class ApplicationDraftService implements IApplicationDraftService {
 
   create(data: DraftInput): Promise<Draft> {
     return api.post<Draft>("/applications/drafts", data).then((r) => r.data);
+  }
+
+  createFromJob(data: DraftFromJobInput): Promise<Draft> {
+    return api
+      .post<Draft>("/applications/drafts/from-job", data)
+      .then((r) => r.data);
   }
 
   update(id: string, data: DraftInput): Promise<Draft> {

@@ -5,6 +5,7 @@ import type { AxiosError } from "axios";
 import { toast } from "sonner";
 
 import { BASE_CVS_QUERY_KEY } from "@/hooks/use-base-cvs";
+import { JOB_QUERY_KEY, JOBS_QUERY_KEY } from "@/hooks/use-jobs";
 import { getApiError } from "@/lib/api-client";
 import { services } from "@/services/services";
 import type { BaseCv, CreateBaseCvPayload } from "@/services/types/base-cv";
@@ -22,7 +23,12 @@ export function useCreateBaseCv(opts?: { onSuccess?: (cv: BaseCv) => void }) {
   return useMutation({
     mutationFn: (data: CreateBaseCvPayload) => services.baseCvs.create(data),
     onSuccess: async (cv) => {
-      await queryClient.invalidateQueries({ queryKey: BASE_CVS_QUERY_KEY });
+      // R-016: every job's fit depends on the master CVs (Plan corrections 14).
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: BASE_CVS_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: JOBS_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: JOB_QUERY_KEY }),
+      ]);
       toast.success("Master CV created");
       opts?.onSuccess?.(cv);
     },

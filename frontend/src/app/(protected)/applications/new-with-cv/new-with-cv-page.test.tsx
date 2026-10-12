@@ -109,6 +109,7 @@ function draftFrom(
 ): Draft {
   return {
     id: input.id ?? "draft-1",
+    job_id: null,
     company_id: input.company_id ?? null,
     company_name: input.company_name ?? "",
     role: input.role ?? "",

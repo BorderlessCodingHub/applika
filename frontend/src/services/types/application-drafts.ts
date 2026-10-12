@@ -43,6 +43,9 @@ export interface DraftInput {
 export interface Draft extends DraftInput {
   id: string;
   has_cv: boolean;
+  /** The job board job this draft was started from (PRD 0012, KODI-047);
+   * `null` for a draft started from scratch. Response-only. */
+  job_id: string | null;
   /** Always present on a response, whatever the request sent (server default
    * or stored value fills the gap). */
   application_date: string;
