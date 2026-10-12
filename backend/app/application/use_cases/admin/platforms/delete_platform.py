@@ -33,7 +33,8 @@ class DeletePlatformUseCase:
                 },
             )
             raise ResourceConflict(
-                f'Cannot delete: {refs} application(s) reference this platform'
+                f'Cannot delete: {refs} application(s) or job source(s) '
+                'reference this platform'
             )
 
         await self.platform_repo.delete(platform_id)

@@ -8,6 +8,7 @@ from app.core.enums import EventType
 from app.domain.models import (
     ApplicationModel,
     CompanyModel,
+    JobSourceModel,
     PlatformModel,
     TimelineEventModel,
     UserModel,
@@ -605,10 +606,22 @@ class AdminRepository:
         entity_type: str,
         entity_id: int,
     ) -> int:
-        """Count how many records reference the given entity."""
+        """Count how many records reference the given entity.
+
+        A platform counts its applications (drafts included) and, since
+        KODI-046 (R-019, plan corrections 13), the job sources pointing at
+        it: deleting a source's platform would null ``job_sources.
+        platform_id`` and break job -> draft.
+        """
         if entity_type == 'platform':
-            stmt = select(func.count(ApplicationModel.id)).where(
+            applications = select(func.count(ApplicationModel.id)).where(
                 ApplicationModel.platform_id == entity_id
+            )
+            sources = select(func.count(JobSourceModel.id)).where(
+                JobSourceModel.platform_id == entity_id
+            )
+            return (await self.session.scalar(applications) or 0) + (
+                await self.session.scalar(sources) or 0
             )
         elif entity_type == 'company':
             stmt = select(func.count(ApplicationModel.id)).where(
