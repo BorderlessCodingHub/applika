@@ -5,6 +5,7 @@ from fastapi import Depends, Security
 from fastapi.security import APIKeyCookie
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.dto.tailored_cv import TailoringMode
 from app.application.dto.user import UserDTO
 from app.application.services.clone_tailoring import CloneTailoringService
 from app.application.services.cv_rendering.diff_pdf_renderer import (
@@ -24,7 +25,13 @@ from app.application.services.discord_oauth_service import (
 )
 from app.application.services.discord_service import DiscordService
 from app.application.services.github_service import GitHubService
-from app.application.services.tailoring import TailoringService
+from app.application.services.keyword_tailoring import (
+    KeywordTailoringService,
+)
+from app.application.services.tailoring import (
+    TailoringResolver,
+    TailoringService,
+)
 from app.application.use_cases.account_link_state import (
     AccountLinkStateUseCase,
 )
@@ -63,6 +70,9 @@ from app.application.use_cases.tailored_cvs.delete import (
 )
 from app.application.use_cases.tailored_cvs.diff import (
     ComputeTailoredCVDiffUseCase,
+)
+from app.application.use_cases.tailored_cvs.fit import (
+    GetTailoredCVFitUseCase,
 )
 from app.application.use_cases.tailored_cvs.get import GetTailoredCVUseCase
 from app.application.use_cases.tailored_cvs.render_diff_markdown import (
@@ -488,27 +498,36 @@ TailoredCVRepositoryDp = Annotated[
 ]
 
 
-def get_tailoring_service() -> TailoringService:
-    """Bind the tailoring port to its one implementation: the verbatim clone.
+def resolve_tailoring(tailoring: TailoringMode) -> TailoringService:
+    """Pick the tailoring binding for one request (ADR-0017).
 
-    There is no resolver and nothing to configure. The owner's words: "In the
-    future i want to connect this to real models, but this is to the future."
-    When that future arrives, this factory is the single line that changes.
+    ``'copy'`` is the verbatim clone - the default everywhere, and what every
+    installed ``applika-cli`` gets because it never sends the field.
+    ``'keywords'`` is the keyword binding. Neither uses a model.
     """
+    if tailoring == 'keywords':
+        return KeywordTailoringService()
     return CloneTailoringService()
 
 
-TailoringServiceDp = Annotated[TailoringService, Depends(get_tailoring_service)]
+def get_tailoring_resolver() -> TailoringResolver:
+    """The per-request binding resolver; a test overrides this to fake one."""
+    return resolve_tailoring
+
+
+TailoringResolverDp = Annotated[
+    TailoringResolver, Depends(get_tailoring_resolver)
+]
 
 
 def get_create_tailored_cv_use_case(
     tailored_cv_repo: TailoredCVRepositoryDp,
     base_cv_repo: BaseCVRepositoryDp,
     application_repo: ApplicationRepositoryDp,
-    tailoring_service: TailoringServiceDp,
+    tailoring_resolver: TailoringResolverDp,
 ):
     return CreateTailoredCVUseCase(
-        tailored_cv_repo, base_cv_repo, application_repo, tailoring_service
+        tailored_cv_repo, base_cv_repo, application_repo, tailoring_resolver
     )
 
 
@@ -526,6 +545,18 @@ def get_get_tailored_cv_use_case(
 
 GetTailoredCVUseCaseDp = Annotated[
     GetTailoredCVUseCase, Depends(get_get_tailored_cv_use_case)
+]
+
+
+def get_get_tailored_cv_fit_use_case(
+    tailored_cv_repo: TailoredCVRepositoryDp,
+    application_repo: ApplicationRepositoryDp,
+):
+    return GetTailoredCVFitUseCase(tailored_cv_repo, application_repo)
+
+
+GetTailoredCVFitUseCaseDp = Annotated[
+    GetTailoredCVFitUseCase, Depends(get_get_tailored_cv_fit_use_case)
 ]
 
 

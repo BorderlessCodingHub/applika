@@ -7,13 +7,17 @@ from app.application.dto.tailored_cv import (
     TailoredCVDTO,
     TailoringRequest,
 )
-from app.application.services.tailoring import TailoringService
+from app.application.services.tailoring import TailoringResolver
 from app.application.use_cases.tailored_cvs.guards import (
     ensure_application_is_editable,
     load_owned_application,
 )
 from app.config.logging import logger
-from app.core.exceptions import ResourceConflict, ResourceNotFound
+from app.core.exceptions import (
+    BusinessRuleViolation,
+    ResourceConflict,
+    ResourceNotFound,
+)
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
@@ -21,6 +25,8 @@ from app.domain.repositories.base_cv_repository import BaseCVRepository
 from app.domain.repositories.tailored_cv_repository import (
     TailoredCVRepository,
 )
+
+NO_JOB_DESCRIPTION_MESSAGE = 'Add a job description to tailor by keywords'
 
 
 class CreateTailoredCVUseCase:
@@ -38,11 +44,15 @@ class CreateTailoredCVUseCase:
     the source of this user's copy. At most one copy per application: a second
     create is a 409 before the UNIQUE constraint ever sees it.
 
+    ``tailoring: 'keywords'`` (ADR-0017) needs something to match against:
+    on an application with a blank job description it is a 422, checked
+    right after the editability guard and before any other read, so a
+    refusal writes nothing. ``'copy'`` - the default - never needs one.
+
     The copy itself is produced by the tailoring port, never assembled here -
-    that indirection is what lets a real model replace the clone later without
-    changing the stored shape. The master CV is only read, so a binding
-    failure would be raised before the single write and would leave the master
-    provably intact.
+    the resolver picks the binding for this request (the clone by default).
+    The master CV is only read, so a binding failure would be raised before
+    the single write and would leave the master provably intact.
     """
 
     def __init__(
@@ -50,18 +60,24 @@ class CreateTailoredCVUseCase:
         tailored_cv_repo: TailoredCVRepository,
         base_cv_repo: BaseCVRepository,
         application_repo: ApplicationRepository,
-        tailoring_service: TailoringService,
+        tailoring_resolver: TailoringResolver,
     ):
         self.tailored_cv_repo = tailored_cv_repo
         self.base_cv_repo = base_cv_repo
         self.application_repo = application_repo
-        self.tailoring_service = tailoring_service
+        self.tailoring_resolver = tailoring_resolver
 
     async def execute(self, data: TailoredCVCreateDTO) -> TailoredCVDTO:
         application = await load_owned_application(
             self.application_repo, data.application_id, data.user_id
         )
         ensure_application_is_editable(application)
+
+        if (
+            data.tailoring == 'keywords'
+            and not (application.job_description or '').strip()
+        ):
+            raise BusinessRuleViolation(NO_JOB_DESCRIPTION_MESSAGE)
 
         base_cv = await self.base_cv_repo.get_by_id_and_user_id(
             data.base_cv_id, data.user_id
@@ -95,7 +111,7 @@ class CreateTailoredCVUseCase:
             base_cv_dto.model_dump(include=set(TailoredCVContent.model_fields))
         )
 
-        result = await self.tailoring_service.tailor(
+        result = await self.tailoring_resolver(data.tailoring).tailor(
             TailoringRequest(
                 base_cv=base_cv_dto,
                 job_description=application.job_description,
@@ -118,6 +134,7 @@ class CreateTailoredCVUseCase:
                     'application_id': data.application_id,
                     'base_cv_id': data.base_cv_id,
                     'user_id': data.user_id,
+                    'tailoring': data.tailoring,
                     'was_ai_generated': tailored_cv.was_ai_generated,
                 }
             },

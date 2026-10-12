@@ -14,6 +14,7 @@ once the master CV it came from has been deleted.
 
 from pydantic import Field
 
+from app.application.dto.tailored_cv import TailoringMode
 from app.lib.types import SnowflakeID
 from app.presentation.schemas import BaseSchema, TimeSchema
 from app.presentation.schemas.base_cv import (
@@ -30,11 +31,17 @@ from app.presentation.schemas.base_cv import (
 class TailoredCVCreate(BaseSchema):
     """Request body for creating an application's CV copy.
 
-    The chosen master CV and nothing else: ``user_id`` comes from the acting
-    user and ``application_id`` from the path.
+    The chosen master CV and, optionally, how to tailor it: ``user_id``
+    comes from the acting user and ``application_id`` from the path.
+
+    ``tailoring`` (ADR-0017) is ``'copy'`` - the verbatim copy - unless the
+    client opts in to ``'keywords'``. A body without it, as every installed
+    ``applika-cli`` sends, keeps getting the verbatim copy; any other value
+    is a 422.
     """
 
     base_cv_id: SnowflakeID
+    tailoring: TailoringMode = 'copy'
 
 
 class TailoredCVUpdate(BaseSchema):
@@ -64,7 +71,7 @@ class TailoredCVUpdate(BaseSchema):
 
 
 class CVAdjustmentOut(BaseSchema):
-    """One tailoring adjustment. Always absent in this slice."""
+    """One tailoring adjustment; only the keyword binding records any."""
 
     section: str
     description: str
@@ -122,3 +129,15 @@ class TailoredCVOut(BaseSchema, TimeSchema):
     education: list[EducationIn] = []
     certifications: list[CertificationIn] = []
     languages: list[LanguageIn] = []
+
+
+class CVFit(BaseSchema):
+    """The keyword fit of the CV copy for the application's job description.
+
+    ``score`` is a whole number from 0 to 100, ``null`` (with both lists
+    empty) when the application has no job description.
+    """
+
+    score: int | None
+    matched_keywords: list[str]
+    missing_keywords: list[str]

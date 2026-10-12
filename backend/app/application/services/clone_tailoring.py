@@ -1,12 +1,15 @@
-"""The only tailoring binding this slice ships: a verbatim clone.
+"""The default tailoring binding: a verbatim clone.
 
 ``CloneTailoringService`` implements the ``TailoringService`` port by copying
 the source master CV field for field - identity and contact included - into
 the tailored content. It sets ``was_ai_generated`` to ``False`` and returns an
 empty ``adjustments`` list, because nothing here generates anything.
 
-There is no AI in this slice and none is planned in it. The owner: "In the
-future i want to connect this to real models, but this is to the future."
+It is the default binding everywhere (ADR-0017): a request that does not ask
+for ``tailoring: 'keywords'`` - every installed ``applika-cli`` - gets this
+copy. ``KeywordTailoringService`` starts from its output. There is no AI in
+either binding. The owner: "In the future i want to connect this to real
+models, but this is to the future."
 
 It does no I/O and makes no external call, so it cannot fail on a third party
 and cannot touch the source master CV.

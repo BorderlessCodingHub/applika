@@ -26,6 +26,7 @@ from app.presentation.dependencies import (
     CreateTailoredCVUseCaseDp,
     CurrentUserDp,
     DeleteTailoredCVUseCaseDp,
+    GetTailoredCVFitUseCaseDp,
     GetTailoredCVUseCaseDp,
     RenderTailoredCVDiffMarkdownUseCaseDp,
     RenderTailoredCVDiffPdfUseCaseDp,
@@ -35,6 +36,7 @@ from app.presentation.dependencies import (
 )
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.tailored_cv import (
+    CVFit,
     TailoredCVCreate,
     TailoredCVOut,
     TailoredCVUpdate,
@@ -65,14 +67,19 @@ async def create_tailored_cv(
 ):
     """Copy one of the acting user's master CVs onto this application.
 
+    ``tailoring`` is ``'copy'`` (the verbatim copy, the default) or
+    ``'keywords'`` (the same copy reordered by job match, ADR-0017).
+
     404 when the application or the chosen master CV is unknown or not owned,
     409 when the application already has a copy or has been finalized, 422
-    when it is archived in a cycle.
+    when it is archived in a cycle or when ``'keywords'`` is asked for on an
+    application without a job description.
     """
     data = TailoredCVCreateDTO(
         user_id=c_user.id,
         application_id=application_id,
         base_cv_id=payload.base_cv_id,
+        tailoring=payload.tailoring,
     )
     tailored_cv = await use_case.execute(data)
     return TailoredCVOut.model_validate(tailored_cv)
@@ -95,6 +102,28 @@ async def get_tailored_cv(
     """
     tailored_cv = await use_case.execute(application_id, c_user.id)
     return TailoredCVOut.model_validate(tailored_cv)
+
+
+@router.get(
+    '/{application_id}/cv/fit',
+    response_model=CVFit,
+    responses={'404': {'model': DetailSchema}},
+)
+async def get_tailored_cv_fit(
+    application_id: SnowflakeID,
+    c_user: CurrentUserDp,
+    use_case: GetTailoredCVFitUseCaseDp,
+):
+    """The keyword fit of this application's CV copy for its job description.
+
+    A whole number from 0 to 100 with the matched and missing keywords;
+    ``null`` and two empty lists when the application has no job
+    description. Drafts included; never refused on a finalized or archived
+    application (a read). 404 when the application is not owned or has no
+    copy.
+    """
+    fit = await use_case.execute(application_id, c_user.id)
+    return CVFit.model_validate(fit.model_dump())
 
 
 @router.put(

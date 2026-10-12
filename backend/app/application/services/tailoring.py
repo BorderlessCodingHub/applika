@@ -6,20 +6,32 @@ an ABC: it matches the duck-typed style of ``application/services/`` and lets a
 test supply a fake without inheriting anything.
 
 The owner's words: "In the future i want to connect this to real models, but
-this is to the future." That future is the only reason this port exists. Today
-there is exactly one binding, ``CloneTailoringService``, and it copies the
-master CV verbatim. Because the port's output is the full stored CV shape
-(``TailoredCVContent``), a model-backed binding can replace the clone later
-without changing a single stored field or touching the API.
+this is to the future." Today there are two bindings (ADR-0017, amending
+ADR-0007), both deterministic and model-free:
+
+* ``CloneTailoringService`` copies the master CV verbatim. It is the default
+  everywhere, and the only one an installed ``applika-cli`` ever gets.
+* ``KeywordTailoringService`` makes the same copy, then only reorders skill
+  keywords, skill categories and experience bullets by job match.
+
+The binding is chosen per request by a :data:`TailoringResolver`, keyed by
+the request's ``tailoring`` value. Because the port's output is the full
+stored CV shape (``TailoredCVContent``), a model-backed binding can be added
+later without changing a single stored field.
 
 The method is ``async`` even though the clone does no I/O at all: the whole
 codebase is async, and a binding that really calls a model must not need a
 signature change to do it.
 """
 
+from collections.abc import Callable
 from typing import Protocol
 
-from app.application.dto.tailored_cv import TailoringRequest, TailoringResult
+from app.application.dto.tailored_cv import (
+    TailoringMode,
+    TailoringRequest,
+    TailoringResult,
+)
 
 
 class TailoringService(Protocol):
@@ -32,3 +44,9 @@ class TailoringService(Protocol):
     """
 
     async def tailor(self, request: TailoringRequest) -> TailoringResult: ...
+
+
+# Picks the binding for one request: ``'copy'`` -> the clone,
+# ``'keywords'`` -> the keyword binding. Wired in
+# ``app/presentation/dependencies.py`` (``get_tailoring_resolver``).
+type TailoringResolver = Callable[[TailoringMode], TailoringService]
