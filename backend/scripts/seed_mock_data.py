@@ -611,6 +611,92 @@ def seed_drafts(
     print(f'  GET /applications/drafts: {len(drafts_listed)} open draft(s)')
 
 
+MAX_SAVED_SEARCHES = 10
+
+
+def seed_job_searches(client: httpx.Client) -> None:
+    """Saved job searches (KODI-047, R-030): create, rename, list and
+    delete one, then fill the cap and prove the 11th is refused with 409.
+    Leaves the ten behind. A saved search notifies no one (R-032)."""
+    print('Seeding saved job searches...')
+    # A re-run on a database that already holds the ten starts clean.
+    for row in client.get('/job-searches').json():
+        client.delete(f'/job-searches/{row["id"]}')
+    resp = client.post(
+        '/job-searches',
+        json={
+            'name': 'Remote Python',
+            'filters': {'search': 'python', 'sort': 'fit', 'min_fit': 50},
+        },
+    )
+    assert resp.status_code == 201, f'{resp.status_code} {resp.text}'
+    search = resp.json()
+    resp = client.put(
+        f'/job-searches/{search["id"]}', json={'name': 'Remote Python (EU)'}
+    )
+    assert resp.status_code == 200, f'{resp.status_code} {resp.text}'
+    listed = client.get('/job-searches').json()
+    assert [row['name'] for row in listed] == ['Remote Python (EU)'], listed
+    resp = client.delete(f'/job-searches/{search["id"]}')
+    assert resp.status_code == 204, f'{resp.status_code} {resp.text}'
+    print('  create, rename, list and delete: ok')
+
+    for index in range(MAX_SAVED_SEARCHES):
+        resp = client.post(
+            '/job-searches',
+            json={
+                'name': f'Saved search {index + 1}',
+                'filters': {'posted_within_days': 1 + index},
+            },
+        )
+        assert resp.status_code == 201, f'{resp.status_code} {resp.text}'
+    resp = client.post(
+        '/job-searches',
+        json={'name': 'Eleventh (must be refused)', 'filters': {}},
+    )
+    assert resp.status_code == 409, (
+        f'the 11th saved search was NOT refused: {resp.status_code} {resp.text}'
+    )
+    print(f'  11th saved search refused as expected: {resp.json()["detail"]}')
+
+
+def seed_draft_from_job(client: httpx.Client, base_cv_ids: list[str]) -> None:
+    """Start one draft from a job with a master CV tailored by keywords
+    (KODI-047, R-017/R-020). Jobs only exist once the worker has run on the
+    dev stack; with an empty list the step is skipped and says so."""
+    resp = client.get('/jobs', params={'per_page': 25})
+    assert resp.status_code == 200, f'{resp.status_code} {resp.text}'
+    jobs = [job for job in resp.json()['items'] if job['application'] is None]
+    if not jobs:
+        print(
+            'No job without an application in GET /jobs (no worker run?): '
+            'draft from a job skipped'
+        )
+        return
+    if not base_cv_ids:
+        print('No master CV: draft from a job skipped')
+        return
+    job = jobs[0]
+    resp = client.post(
+        '/applications/drafts/from-job',
+        json={
+            'job_id': job['id'],
+            'base_cv_id': base_cv_ids[0],
+            'tailoring': 'keywords',
+        },
+    )
+    if resp.status_code == 422:
+        print(f'  Job {job["id"]} skipped: {resp.json()["detail"]}')
+        return
+    assert resp.status_code == 201, f'{resp.status_code} {resp.text}'
+    draft = resp.json()
+    assert draft['job_id'] == job['id'], draft
+    assert draft['has_cv'] is True, draft
+    detail = client.get(f'/jobs/{job["id"]}').json()
+    assert detail['application'] == {'id': draft['id'], 'is_draft': True}
+    print(f'  Draft started from job "{job["title"]}" with a keyword copy')
+
+
 def seed_cv_pdfs(
     client: httpx.Client,
     base_cv_id: str | None,
@@ -1178,6 +1264,9 @@ def main():
             company_id=private_company_id,
             base_cv_ids=base_cv_ids,
         )
+
+        seed_job_searches(client)
+        seed_draft_from_job(client, base_cv_ids)
 
         seed_cv_pdfs(
             client,

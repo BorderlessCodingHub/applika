@@ -96,11 +96,20 @@ class ApplicationRepository:
         data: DraftInputDTO,
         company_id: int | None,
         company_name: str,
+        job_id: int | None = None,
+        commit: bool = True,
     ) -> ApplicationModel:
         """KODI-036, R-003: ``data.application_date`` is optional - given, it
         is stored as-is (already validated by ``CreateDraftUseCase``);
         absent, the draft is dated with the server's own day, same as
-        before this ticket."""
+        before this ticket.
+
+        KODI-047: ``job_id`` is the job a draft was started from
+        (``CreateDraftFromJobUseCase``). ``commit=False`` adds and flushes
+        the row without committing, so the request's next write (the CV
+        copy, on the same session) commits both; on a failed flush the
+        transaction is rolled back and the error raised - an
+        ``IntegrityError`` on ``uq_applications_user_job`` included."""
         try:
             db_application = ApplicationModel(
                 **data.model_dump(
@@ -121,14 +130,36 @@ class ApplicationRepository:
                 application_date=data.application_date or date.today(),
                 is_draft=True,
                 cycle_id=None,
+                job_id=job_id,
             )
             self.session.add(db_application)
-            await self.session.commit()
+            if commit:
+                await self.session.commit()
+            else:
+                await self.session.flush([db_application])
             await self.session.refresh(db_application)
             return db_application
         except Exception as e:
             await self.session.rollback()
             raise e
+
+    async def get_by_job_id(
+        self, user_id: int, job_id: int
+    ) -> ApplicationModel | None:
+        """The caller's application started from ``job_id``, in any state -
+        draft, open, closed or archived (``uq_applications_user_job``
+        allows one)."""
+        return await self.session.scalar(
+            select(ApplicationModel).where(
+                ApplicationModel.user_id == user_id,
+                ApplicationModel.job_id == job_id,
+            )
+        )
+
+    async def rollback(self) -> None:
+        """Abandon the current transaction (a write flushed with
+        ``commit=False`` included)."""
+        await self.session.rollback()
 
     async def get_draft(self, id: int, user_id: int) -> ApplicationModel | None:
         """The caller's own draft, its CV copy eager-loaded so ``has_cv``

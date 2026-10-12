@@ -480,6 +480,15 @@ class ApplicationModel(BaseMixin, Base):
             'user_id',
             postgresql_where=sa.text('is_draft'),
         ),
+        # KODI-047, revision b28d5134631f: one application per user per job
+        # (R-021). NULLs are free, so hand-made applications never collide.
+        sa.Index(
+            'uq_applications_user_job',
+            'user_id',
+            'job_id',
+            unique=True,
+            postgresql_where=sa.text('job_id IS NOT NULL'),
+        ),
     )
 
     user_id: Mapped[int] = mapped_column(
@@ -563,6 +572,20 @@ class ApplicationModel(BaseMixin, Base):
         default=False,
         server_default=sa.text('false'),
         nullable=False,
+    )
+
+    # KODI-047 (PRD 0012 R-017/R-021): the job this application was started
+    # from, kept when the job leaves the list (R-007) and cleared only when
+    # the job row itself is deleted (``ON DELETE SET NULL``). Read only by the
+    # drafts and the jobs routes: the ``Application`` response schema - what
+    # ``GET /applications`` and every published CLI read - never carries it
+    # (``.claude/rules/cli-compatibility.md``).
+    job_id: Mapped[int | None] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'jobs.id', ondelete='SET NULL', name='fk_applications_job_id'
+        ),
+        nullable=True,
     )
 
     user: Mapped[UserModel] = relationship(back_populates='applications')
@@ -1234,3 +1257,65 @@ class JobFitScoreModel(BaseMixin, Base):
     computed_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), nullable=False
     )
+
+
+class JobDismissalModel(BaseMixin, Base):
+    """A job one user took off their own list (R-029), until they restore
+    it. One row per ``(user_id, job_id)``; both FKs cascade. Per user, with
+    no admin access (ADR-0004)."""
+
+    __tablename__ = 'job_dismissals'
+
+    __table_args__ = (
+        sa.PrimaryKeyConstraint('id', name='pk_job_dismissals'),
+        sa.UniqueConstraint(
+            'user_id', 'job_id', name='uq_job_dismissals_user_job'
+        ),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'users.id', ondelete='CASCADE', name='fk_job_dismissals_user_id'
+        ),
+        nullable=False,
+    )
+    job_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'jobs.id', ondelete='CASCADE', name='fk_job_dismissals_job_id'
+        ),
+        nullable=False,
+    )
+
+
+class SavedJobSearchModel(BaseMixin, Base):
+    """A named job-list search of one user (R-030): ``filters`` is a
+    ``JobFilters`` body. At most ten per user (enforced under a lock on the
+    user row), names unique per user ignoring case
+    (``uq_saved_job_searches_user_name`` on ``lower(name)``). It never
+    notifies anyone (R-032)."""
+
+    __tablename__ = 'saved_job_searches'
+
+    __table_args__ = (
+        sa.PrimaryKeyConstraint('id', name='pk_saved_job_searches'),
+        sa.Index(
+            'uq_saved_job_searches_user_name',
+            'user_id',
+            sa.text('lower(name)'),
+            unique=True,
+        ),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'users.id',
+            ondelete='CASCADE',
+            name='fk_saved_job_searches_user_id',
+        ),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    filters: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)

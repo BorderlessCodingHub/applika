@@ -61,6 +61,7 @@ def _draft(**kwargs) -> SimpleNamespace:
         'finalized_at': None,
         'is_draft': True,
         'tailored_cv': None,
+        'job_id': None,
     }
     defaults.update(kwargs)
     return SimpleNamespace(**defaults)

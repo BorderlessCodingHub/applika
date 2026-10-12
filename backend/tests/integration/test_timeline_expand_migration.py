@@ -1967,6 +1967,10 @@ def test_release_b_code_runs_on_r1_and_rolls_back_with_its_data(
         'ALTER TABLE applications ADD COLUMN is_draft boolean '
         'NOT NULL DEFAULT false',
     )
+    # KODI-047 mapped ``ApplicationModel.job_id`` (revision
+    # ``b28d5134631f``) the same way, so the column is added here for the
+    # same reason. No FK: ``jobs`` does not exist at R3.
+    _sql(migration_db, 'ALTER TABLE applications ADD COLUMN job_id bigint')
 
     written = _release_b_code_writes(migration_db)
 

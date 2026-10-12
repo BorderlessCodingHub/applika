@@ -37,7 +37,9 @@ async def resolve_draft_company(
 def to_draft_dto(application: ApplicationModel, has_cv: bool) -> DraftDTO:
     """Build the ``Draft`` response DTO - ``ApplicationModel`` has no
     ``has_cv`` attribute, so this is a manual mapping rather than
-    ``model_validate``."""
+    ``model_validate``. ``job_id`` (KODI-047) is the job the draft was
+    started from, ``None`` for a draft made by hand; only the draft shape
+    carries it, never ``Application``."""
     return DraftDTO(
         id=application.id,
         created_at=application.created_at,
@@ -60,6 +62,7 @@ def to_draft_dto(application: ApplicationModel, has_cv: bool) -> DraftDTO:
         job_description=application.job_description,
         application_date=application.application_date,
         has_cv=has_cv,
+        job_id=application.job_id,
     )
 
 

@@ -274,3 +274,51 @@ async def test_delete_own_account_cascades_drafts(
     assert result.scalar_one_or_none() is None, (
         'Draft applications should be cascade-deleted'
     )
+
+
+async def test_delete_own_account_removes_job_board_rows_but_not_jobs(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """KODI-047: the user's fits, dismissals, saved searches and drafts from
+    jobs go with the account (FK CASCADE); the shared jobs and sources stay.
+    """
+    from tests.integration.jobs_seed import seed_base_cv, seed_sources
+    from tests.integration.test_jobs_api import add_fit, add_job
+
+    user_id = base_data()['user'].id
+    await seed_sources(db_session)
+    job_id = await add_job(db_session)
+    cv = await seed_base_cv(db_session, user_id, ['python'])
+    await add_fit(db_session, user_id, job_id, cv, 80)
+    assert (
+        await async_client.put(f'/jobs/{job_id}/dismissal')
+    ).status_code == 204
+    search = await async_client.post(
+        '/job-searches', json={'name': 'Mine', 'filters': {}}
+    )
+    assert search.status_code == 201, msg(201, search.text)
+    draft = await async_client.post(
+        '/applications/drafts/from-job', json={'job_id': str(job_id)}
+    )
+    assert draft.status_code == 201, msg(201, draft.text)
+
+    resp = await async_client.delete('/users/me')
+    assert resp.status_code == 204
+
+    for table in (
+        'job_fit_scores',
+        'job_dismissals',
+        'saved_job_searches',
+        'applications',
+    ):
+        count = await db_session.scalar(
+            text(f'SELECT count(*) FROM {table} WHERE user_id = :id'),
+            {'id': user_id},
+        )
+        assert count == 0, msg(f'0 rows in {table}', count)
+    jobs = await db_session.scalar(
+        text('SELECT count(*) FROM jobs WHERE id = :id'), {'id': job_id}
+    )
+    sources = await db_session.scalar(text('SELECT count(*) FROM job_sources'))
+    assert jobs == 1
+    assert sources == 2

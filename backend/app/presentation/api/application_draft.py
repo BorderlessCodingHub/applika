@@ -21,6 +21,9 @@ from app.application.dto.application_draft import (
 from app.application.use_cases.application_drafts.create_draft import (
     CreateDraftUseCase,
 )
+from app.application.use_cases.application_drafts.create_draft_from_job import (
+    CreateDraftFromJobUseCase,
+)
 from app.application.use_cases.application_drafts.delete_draft import (
     DeleteDraftUseCase,
 )
@@ -40,8 +43,12 @@ from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     ApplicationReadModelDp,
     ApplicationRepositoryDp,
+    BaseCVRepositoryDp,
     CompanyRepositoryDp,
+    CreateTailoredCVUseCaseDp,
     CurrentUserDp,
+    JobRepositoryDp,
+    JobSourceRepositoryDp,
     PlatformRepositoryDp,
 )
 from app.presentation.schemas import DetailSchema
@@ -49,6 +56,7 @@ from app.presentation.schemas.application import Application
 from app.presentation.schemas.application_draft import (
     Draft,
     DraftFinish,
+    DraftFromJob,
     DraftInput,
     DraftSummary,
 )
@@ -99,6 +107,49 @@ async def create_draft(
     use_case = CreateDraftUseCase(app_repo, platform_repo, company_repo)
     draft = await use_case.execute(_to_input_dto(payload, c_user.id))
     return draft
+
+
+@router.post(
+    '/from-job',
+    response_model=Draft,
+    status_code=201,
+    responses={
+        '404': {'model': DetailSchema},
+        '409': {'model': DetailSchema},
+        '422': {'model': DetailSchema},
+    },
+)
+async def create_draft_from_job(
+    payload: DraftFromJob,
+    c_user: CurrentUserDp,
+    job_repo: JobRepositoryDp,
+    job_source_repo: JobSourceRepositoryDp,
+    app_repo: ApplicationRepositoryDp,
+    platform_repo: PlatformRepositoryDp,
+    company_repo: CompanyRepositoryDp,
+    base_cv_repo: BaseCVRepositoryDp,
+    create_tailored_cv: CreateTailoredCVUseCaseDp,
+):
+    """KODI-047: a draft filled from a job, optionally with a master CV
+    copy (verbatim by default). Declared before the ``/{draft_id}`` routes.
+    """
+    use_case = CreateDraftFromJobUseCase(
+        job_repo,
+        job_source_repo,
+        app_repo,
+        platform_repo,
+        company_repo,
+        base_cv_repo,
+        create_tailored_cv,
+    )
+    return await use_case.execute(
+        int(payload.job_id),
+        c_user.id,
+        base_cv_id=(
+            int(payload.base_cv_id) if payload.base_cv_id is not None else None
+        ),
+        tailoring=payload.tailoring,
+    )
 
 
 @router.get('', response_model=list[DraftSummary])
