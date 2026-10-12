@@ -15,6 +15,7 @@ import type {
   AdminCompaniesParams,
   AdminPlatformsParams,
   AdminUpdateUser,
+  AdminJobSource,
   AdminUsersParams,
   CreateDiscordWebhook,
   UpdateDiscordWebhook,
@@ -290,5 +291,77 @@ export function useDeleteDiscordWebhook() {
       toast.success("Webhook deleted");
     },
     onError: (err: AxiosError) => toast.error(getApiError(err)),
+  });
+}
+
+// ── Job sources (KODI-049, R-033..R-035) ────────────────────────────────
+
+export const ADMIN_JOB_SOURCES_KEY = ["admin", "job-sources"] as const;
+
+/**
+ * `GET /admin/jobs/sources`. `refetchInterval` is the caller's: the page polls
+ * for a bounded while after a run starts, because the API has no "running" state.
+ */
+export function useAdminJobSources(opts?: {
+  refetchInterval?: number | false;
+}) {
+  return useQuery({
+    queryKey: ADMIN_JOB_SOURCES_KEY,
+    queryFn: () => services.admin.getJobSources(),
+    refetchInterval: opts?.refetchInterval ?? false,
+  });
+}
+
+/**
+ * `PATCH /admin/jobs/sources/{id}` (R-034). Optimistic: the switch shows the
+ * requested value at once and rolls back, with the server's `detail` in a
+ * toast, when the PATCH fails.
+ */
+export function useUpdateAdminJobSource() {
+  const qc = useQueryClient();
+  return useMutation<
+    AdminJobSource,
+    AxiosError,
+    { id: string; is_enabled: boolean },
+    { previous: AdminJobSource[] | undefined }
+  >({
+    mutationFn: ({ id, is_enabled }) =>
+      services.admin.updateJobSource(id, { is_enabled }),
+    onMutate: async ({ id, is_enabled }) => {
+      await qc.cancelQueries({ queryKey: ADMIN_JOB_SOURCES_KEY });
+      const previous = qc.getQueryData<AdminJobSource[]>(ADMIN_JOB_SOURCES_KEY);
+      qc.setQueryData<AdminJobSource[]>(ADMIN_JOB_SOURCES_KEY, (rows) =>
+        rows?.map((row) => (row.id === id ? { ...row, is_enabled } : row)),
+      );
+      return { previous };
+    },
+    onError: (err, _vars, context) => {
+      if (context?.previous) {
+        qc.setQueryData(ADMIN_JOB_SOURCES_KEY, context.previous);
+      }
+      toast.error(getApiError(err));
+    },
+    onSuccess: (row) => {
+      qc.setQueryData<AdminJobSource[]>(ADMIN_JOB_SOURCES_KEY, (rows) =>
+        rows?.map((item) => (item.id === row.id ? row : item)),
+      );
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ADMIN_JOB_SOURCES_KEY });
+    },
+  });
+}
+
+/**
+ * `POST /admin/jobs/runs` (R-035). No toast here: the page toasts the 202 and
+ * keeps a 409/503 `detail` on screen as a notice.
+ */
+export function useStartJobRun() {
+  const qc = useQueryClient();
+  return useMutation<unknown, AxiosError>({
+    mutationFn: () => services.admin.startJobRun(),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ADMIN_JOB_SOURCES_KEY });
+    },
   });
 }
