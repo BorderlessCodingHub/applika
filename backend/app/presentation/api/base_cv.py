@@ -13,12 +13,14 @@ an ``int`` by ``SnowflakeID``.
 from fastapi import APIRouter, Response
 
 from app.application.dto.base_cv import BaseCVCreateDTO, BaseCVUpdateDTO
+from app.application.services.job_queue import request_fit_recompute
 from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     CreateBaseCVUseCaseDp,
     CurrentUserDp,
     DeleteBaseCVUseCaseDp,
     GetBaseCVUseCaseDp,
+    JobQueueDp,
     ListBaseCVsUseCaseDp,
     RenderBaseCVMarkdownUseCaseDp,
     RenderBaseCVPdfUseCaseDp,
@@ -56,14 +58,17 @@ async def create_base_cv(
     payload: BaseCVCreate,
     c_user: CurrentUserDp,
     use_case: CreateBaseCVUseCaseDp,
+    job_queue: JobQueueDp,
 ):
     """Create a master CV owned by the acting user.
 
     ``user_id`` is stamped from the acting user; a fourth master CV is refused
-    with 409 and the message the user is shown.
+    with 409 and the message the user is shown. Then, best effort, its fit on
+    the listed jobs is queued for a recompute (KODI-046, R-016).
     """
     data = BaseCVCreateDTO(user_id=c_user.id, **payload.model_dump())
     base_cv = await use_case.execute(data)
+    await request_fit_recompute(job_queue, base_cv.id)
     return BaseCVOut.model_validate(base_cv)
 
 
@@ -92,14 +97,17 @@ async def update_base_cv(
     payload: BaseCVUpdate,
     c_user: CurrentUserDp,
     use_case: UpdateBaseCVUseCaseDp,
+    job_queue: JobQueueDp,
 ):
     """Partially update one of the acting user's own master CVs.
 
     Only the fields explicitly provided are applied; a section provided
-    replaces that section whole. 404 if not owned.
+    replaces that section whole. 404 if not owned. Then, best effort, its fit
+    is queued for a recompute (KODI-046, R-016).
     """
     data = BaseCVUpdateDTO(**payload.model_dump(exclude_unset=True))
     base_cv = await use_case.execute(base_cv_id, c_user.id, data)
+    await request_fit_recompute(job_queue, base_cv.id)
     return BaseCVOut.model_validate(base_cv)
 
 
@@ -116,6 +124,8 @@ async def delete_base_cv(
     """Delete one of the acting user's own master CVs.
 
     Never blocked: 204 on success, 404 when it does not exist or is not owned.
+    Its fit rows go with it (FK ``ON DELETE CASCADE``, R-016); nothing is
+    queued.
     """
     await use_case.execute(base_cv_id, c_user.id)
 

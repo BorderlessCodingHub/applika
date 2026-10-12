@@ -5,12 +5,18 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import EventType
-from app.domain.models import CompanyModel, PlatformModel
+from app.domain.models import CompanyModel, JobSourceModel, PlatformModel
+from app.domain.repositories.admin_repository import AdminRepository
 from app.main import app as main_app
 from tests import msg
 from tests.base_db_setup import base_data
 from tests.integration import timeline_seed as ts
 from tests.integration.conftest import as_user
+from tests.integration.jobs_seed import (
+    HIMALAYAS_ID,
+    HIMALAYAS_PLATFORM_ID,
+    seed_sources,
+)
 
 # ── Access Control: non-admin user gets 403 on every admin route ────
 
@@ -1158,3 +1164,59 @@ async def test_admin_delete_platform_in_use_by_a_draft_is_still_refused(
     ):
         resp = await async_client.delete(f'/admin/platforms/{platform_id}')
     assert resp.status_code == 409, msg(409, resp.status_code)
+
+
+# ── R-019 guard (KODI-046, plan corrections 13) ─────────────────────
+
+
+async def test_admin_delete_of_a_job_sources_platform_is_refused(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
+    """A platform a job source points at is "in use", exactly like one an
+    application uses: deleting it would null ``job_sources.platform_id``
+    and break job -> draft (R-019)."""
+    await seed_sources(db_session)
+
+    resp = await admin_client.delete(
+        f'/admin/platforms/{HIMALAYAS_PLATFORM_ID}'
+    )
+
+    assert resp.status_code == 409, msg(409, resp.status_code)
+    assert resp.json() == {
+        'detail': 'Cannot delete: 1 application(s) or job source(s) '
+        'reference this platform'
+    }
+    db_session.expire_all()
+    assert await db_session.get(PlatformModel, HIMALAYAS_PLATFORM_ID)
+    source = await db_session.get(JobSourceModel, HIMALAYAS_ID)
+    assert source is not None
+    assert source.platform_id == HIMALAYAS_PLATFORM_ID
+
+
+async def test_platform_references_add_applications_and_job_sources(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await seed_sources(db_session)
+    app_resp = await async_client.post(
+        '/applications',
+        json={
+            'company': base_data()['company_acme'].id,
+            'role': 'Engineer',
+            'mode': 'active',
+            'platform_id': str(HIMALAYAS_PLATFORM_ID),
+            'application_date': '2025-12-01',
+        },
+    )
+    assert app_resp.status_code == 201, msg(201, app_resp.text)
+    repo = AdminRepository(db_session)
+
+    assert (
+        await repo.count_entity_references('platform', HIMALAYAS_PLATFORM_ID)
+        == 2
+    )
+    assert (
+        await repo.count_entity_references(
+            'platform', base_data()['plat_linkedin'].id
+        )
+        == 0
+    )

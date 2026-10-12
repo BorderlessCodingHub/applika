@@ -371,6 +371,48 @@ JOB_DESCRIPTIONS = [
     None,
 ]
 
+# The one application tailored by keywords (ADR-0017) gets this posting, so
+# the reorder is guaranteed on the Backend CV (the first master CV): Redis and
+# Docker move their categories above "Languages & Frameworks", and
+# SQLAlchemy moves the migration bullet first.
+KEYWORDS_JOB_DESCRIPTION = (
+    'Redis and Docker in production. You will run Redis, Docker and '
+    'SQLAlchemy services.'
+)
+
+
+def seed_keyword_copy(
+    client: httpx.Client, app_id: str, base_cv_id: str
+) -> bool:
+    """Tailor one copy by keywords and read its fit (ADR-0017).
+
+    Asserts the copy records its moves and is not AI-generated, and that
+    ``GET /cv/fit`` answers a whole number from 0 to 100.
+    """
+    resp = client.post(
+        f'/applications/{app_id}/cv',
+        json={'base_cv_id': base_cv_id, 'tailoring': 'keywords'},
+    )
+    if resp.status_code != 201:
+        print(
+            f'  Failed to tailor the CV copy by keywords: '
+            f'{resp.status_code} {resp.text}'
+        )
+        return False
+    copy = resp.json()
+    assert copy['adjustments'], 'a keyword copy must record its moves'
+    assert copy['was_ai_generated'] is False, copy['was_ai_generated']
+    sections = ', '.join(a['section'] for a in copy['adjustments'])
+    print(f'  CV copy tailored by keywords (reordered: {sections})')
+
+    resp = client.get(f'/applications/{app_id}/cv/fit')
+    assert resp.status_code == 200, f'{resp.status_code} {resp.text}'
+    score = resp.json()['score']
+    assert isinstance(score, int), score
+    assert 0 <= score <= 100, score
+    print(f'  CV fit for the job: {score}%')
+    return True
+
 
 def seed_application_cv(
     client: httpx.Client,
@@ -996,8 +1038,10 @@ def main():
         finalized_count = 0
         accepted_count = 0
         cv_copies = 0
+        keyword_copies = 0
         # Roughly half the applications get a CV copy; the first one that
-        # does gets the full create/read/update/delete round trip.
+        # does gets the full create/read/update/delete round trip, and the
+        # second one is tailored by keywords instead of copied verbatim.
         seed_cv_plan = [i % 2 == 0 for i in range(NUM_APPLICATIONS)]
 
         for i in range(NUM_APPLICATIONS):
@@ -1056,6 +1100,14 @@ def main():
                 'country': random.choice(COUNTRIES),
                 'job_description': random.choice(JOB_DESCRIPTIONS),
             }
+            tailor_by_keywords = (
+                seed_cv_plan[i]
+                and cv_copies == 1
+                and keyword_copies == 0
+                and bool(base_cv_ids)
+            )
+            if tailor_by_keywords:
+                payload['job_description'] = KEYWORDS_JOB_DESCRIPTION
 
             resp = client.post('/applications', json=payload)
             if resp.status_code != 201:
@@ -1074,7 +1126,11 @@ def main():
             # ----- CV copy -----
             # Before the steps and the finalize: writing to the copy of a
             # finalized application is refused, by design.
-            if seed_cv_plan[i] and seed_application_cv(
+            if tailor_by_keywords:
+                if seed_keyword_copy(client, app_id, base_cv_ids[0]):
+                    cv_copies += 1
+                    keyword_copies += 1
+            elif seed_cv_plan[i] and seed_application_cv(
                 client, app_id, base_cv_ids, full_cycle=(cv_copies == 0)
             ):
                 cv_copies += 1
@@ -1114,6 +1170,7 @@ def main():
         print(f'In progress: {created - finalized_count}')
         print(f'Master CVs created: {len(base_cv_ids)}')
         print(f'Application CV copies created: {cv_copies}')
+        print(f'  of which tailored by keywords: {keyword_copies}')
 
         seed_drafts(
             client,

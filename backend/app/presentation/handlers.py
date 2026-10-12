@@ -60,6 +60,11 @@ async def _cv_export_failed_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={'detail': exc.message})
 
 
+async def _service_unavailable_handler(request: Request, exc: Exception):
+    assert isinstance(exc, exceptions.ServiceUnavailable)
+    return JSONResponse(status_code=503, content={'detail': exc.message})
+
+
 def register_handlers(app: FastAPI):
     """Register all errors handlers for the app"""
     app.add_exception_handler(NotImplementedError, _not_implemented_handler)
@@ -84,4 +89,7 @@ def register_handlers(app: FastAPI):
     )
     app.add_exception_handler(
         exceptions.CVExportFailed, _cv_export_failed_handler
+    )
+    app.add_exception_handler(
+        exceptions.ServiceUnavailable, _service_unavailable_handler
     )

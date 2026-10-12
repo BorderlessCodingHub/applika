@@ -31,7 +31,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.schema import CreateTable
 
-from app.domain.models import BaseCVModel
+from app.domain.models import BaseCVModel, JobFitScoreModel
 from app.domain.repositories.base_cv_repository import BaseCVRepository
 from app.lib.types import generate_snowflake_id
 from app.main import app as main_app
@@ -41,6 +41,7 @@ from app.presentation.dependencies import (
 )
 from tests import msg
 from tests.base_db_setup import base_data
+from tests.integration.jobs_seed import HIMALAYAS_ID, seed_job, seed_sources
 
 LIMIT_MESSAGE = 'Base CV limit reached (max 3 per user)'
 
@@ -1028,3 +1029,89 @@ async def test_deleting_the_user_deletes_their_master_cvs(
     await db_session.commit()
 
     assert await _count_rows(db_session, user_id) == 0
+
+
+# --- KODI-046 (R-016): a master CV save asks for a fit recompute ------------
+
+
+async def test_create_and_patch_queue_a_fit_recompute(
+    async_client: AsyncClient, job_queue
+):
+    created = await _create(async_client)
+
+    response = await async_client.patch(
+        f'/base-cvs/{created["id"]}', json={'headline': 'Staff Engineer'}
+    )
+
+    assert response.status_code == 200, msg(200, response.text)
+    assert job_queue.recomputes == [int(created['id'])] * 2
+
+
+async def test_a_failing_queue_never_changes_the_answer(
+    async_client: AsyncClient, job_queue, caplog
+):
+    job_queue.fail = ConnectionError('redis is down')
+
+    create = await async_client.post('/base-cvs', json=payload())
+    assert create.status_code == 201, msg(201, create.text)
+    patch = await async_client.patch(
+        f'/base-cvs/{create.json()["id"]}', json={'headline': 'Lead'}
+    )
+
+    assert patch.status_code == 200, msg(200, patch.text)
+    assert patch.json()['headline'] == 'Lead'
+    warnings = [
+        r
+        for r in caplog.records
+        if r.levelname == 'WARNING' and 'Fit recompute not queued' in r.message
+    ]
+    assert len(warnings) == 2
+    assert job_queue.recomputes == []
+
+
+async def test_a_refused_create_or_patch_queues_nothing(
+    async_client: AsyncClient, job_queue
+):
+    for _ in range(3):
+        await _create(async_client)
+    job_queue.recomputes.clear()
+
+    refused = await async_client.post('/base-cvs', json=payload())
+    missing = await async_client.patch(
+        '/base-cvs/123456789', json={'headline': 'x'}
+    )
+
+    assert refused.status_code == 409
+    assert missing.status_code == 404
+    assert job_queue.recomputes == []
+
+
+async def test_delete_removes_the_fit_rows_and_queues_nothing(
+    async_client: AsyncClient, db_session: AsyncSession, job_queue
+):
+    created = await _create(async_client)
+    cv_id = int(created['id'])
+    await seed_sources(db_session)
+    job_id = await seed_job(db_session, HIMALAYAS_ID, 'a')
+    db_session.add(
+        JobFitScoreModel(
+            user_id=base_data()['user'].id,
+            job_id=job_id,
+            base_cv_id=cv_id,
+            score=70,
+            computed_at=datetime.now(timezone.utc),
+        )
+    )
+    await db_session.commit()
+    job_queue.recomputes.clear()
+
+    response = await async_client.delete(f'/base-cvs/{cv_id}')
+
+    assert response.status_code == 204
+    count = await db_session.scalar(
+        sa.select(sa.func.count(JobFitScoreModel.id)).where(
+            JobFitScoreModel.base_cv_id == cv_id
+        )
+    )
+    assert count == 0
+    assert job_queue.recomputes == []

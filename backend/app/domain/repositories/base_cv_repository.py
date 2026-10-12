@@ -59,6 +59,20 @@ class BaseCVRepository:
         )
         return list(result.all())
 
+    async def list_all(self) -> list[BaseCVModel]:
+        """Every master CV of every user, oldest first - for the fit
+        recompute (KODI-046), which scores each one against new jobs."""
+        result = await self.session.scalars(
+            select(BaseCVModel).order_by(BaseCVModel.id)
+        )
+        return list(result.all())
+
+    async def get_by_id(self, id: int) -> BaseCVModel | None:
+        """One master CV whoever owns it - for the fit recompute only
+        (KODI-046); every user route goes through
+        ``get_by_id_and_user_id``."""
+        return await self.session.get(BaseCVModel, id)
+
     async def get_by_id_and_user_id(
         self, id: int, user_id: int
     ) -> BaseCVModel | None:

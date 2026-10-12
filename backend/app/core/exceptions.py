@@ -37,3 +37,9 @@ class CVExportFailed(UnicornException):
     the same reason - a Jinja or Typst failure message can quote the CV
     content that upset it, and CV content has no business in an HTTP body.
     """
+
+
+class ServiceUnavailable(UnicornException):
+    """A service the request needs cannot be reached right now (KODI-046):
+    the background worker's queue on ``POST /admin/jobs/runs``. Mapped to
+    503 with the fixed message the admin screen shows."""

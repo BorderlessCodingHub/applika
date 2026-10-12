@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from pydantic import Field, PostgresDsn, UrlConstraints
+from pydantic import Field, PostgresDsn, UrlConstraints, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ACCESS_COOKIE_NAME = '__access'
@@ -110,6 +110,43 @@ class Settings(BaseSettings):
     RATE_LIMIT_DEFAULT: int = 120
     RATE_LIMIT_AUTH: int = 10
     RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    # Background jobs (KODI-046, ADR-0016): the taskiq broker and the hourly
+    # job collection. ``TASKIQ_BROKER_URL`` unset means the broker shares
+    # ``REDIS_URL`` (owner, at plan approval). ``JOBS_SCRAPERS`` is a comma
+    # list of scraper codes; ``fixture`` serves every source from
+    # ``JOBS_FIXTURE_PATH`` (tests and the e2e stack) and is refused in PROD.
+    TASKIQ_BROKER_URL: str | None = None
+    JOBS_INGEST_ENABLED: bool = True
+    JOBS_INGEST_CRON: str = '0 * * * *'
+    JOBS_LOOKBACK_DAYS: int = Field(default=7, ge=1)
+    JOBS_RETENTION_DAYS: int = Field(default=15, ge=1)
+    JOBS_SCRAPER_TIMEOUT_SECONDS: int = Field(default=30, ge=1)
+    JOBS_INGEST_LOCK_SECONDS: int = Field(default=900, ge=1)
+    JOBS_SCRAPERS: str = 'himalayas,remoteok'
+    JOBS_FIXTURE_PATH: str | None = None
+
+    @model_validator(mode='after')
+    def _no_fixture_scraper_in_prod(self) -> 'Settings':
+        if self.ENVIRONMENT == 'PROD' and 'fixture' in self.jobs_scrapers:
+            raise ValueError(
+                'JOBS_SCRAPERS must not name the fixture scraper in PROD'
+            )
+        return self
+
+    @property
+    def jobs_scrapers(self) -> list[str]:
+        """``JOBS_SCRAPERS`` as a list of codes: trimmed, lower case, no
+        blanks."""
+        return [
+            code.strip().lower()
+            for code in self.JOBS_SCRAPERS.split(',')
+            if code.strip()
+        ]
+
+    @property
+    def taskiq_broker_url(self) -> str:
+        return self.TASKIQ_BROKER_URL or self.REDIS_URL
 
     @property
     def openapi_url(self):

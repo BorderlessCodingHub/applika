@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-046 taskiq worker and scheduler (ADR-0016): hourly Himalayas and RemoteOK collection, fit recompute, GET/PATCH /admin/jobs/sources and POST /admin/jobs/runs; TASKIQ_BROKER_URL and JOBS_* settings; CD updates the worker and scheduler services when they exist.
+- KODI-045 keyword tailoring binding (ADR-0017) and GET /applications/{id}/cv/fit.
 - KODI-044 tables job_sources, jobs, job_fit_scores, job_dismissals,
   saved_job_searches and applications.job_id; Himalayas and RemoteOK sources
   seeded, each with a public platform (an existing public one with the same
@@ -316,6 +318,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- KODI-046 the keyword matcher keeps and matches tags with digits and
+  non-English letters (5G, 3D, 2FA, Vue 3, Résumé); .NET no longer matches
+  "Net income"; "Python," is "python"; "machine- learning" is no pair.
+- KODI-046 deleting a platform a job source uses is refused (409), like one
+  an application uses; the message now reads "application(s) or job
+  source(s)".
+- KODI-046 redis-py 7.4 -> 8.1 (taskiq-redis 1.2.4 requires it); its new
+  5-second default read timeout now applies to the API's Redis client.
+- KODI-045 POST /applications/{id}/cv takes an optional tailoring ("copy" default, "keywords").
 - KODI-039 request log client_ip is the uvicorn-resolved address
   (FORWARDED_ALLOW_IPS), no longer the raw X-Forwarded-For.
 - KODI-036 draft applications now carry `application_date` (S8 of PRD 0010,

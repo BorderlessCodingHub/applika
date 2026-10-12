@@ -5,11 +5,17 @@
 #   Down:  docker compose down            # keeps the database
 #   Nuke:  docker compose down -v         # drops the database too
 #
-# Four services, wired the way production serves them: `api` from
+# Six services, wired the way production serves them: `api` from
 # `backend/Dockerfile` (uvicorn under the `/api` prefix) and `web` from
 # `frontend/docker/Dockerfile` (the Next.js static export served by nginx),
 # against a real Postgres and a real Redis. The schema comes from the real
 # Alembic chain — `alembic upgrade head` runs on every `api` start.
+# `worker` and `scheduler` (ADR-0016, KODI-046) run the same backend image
+# with taskiq instead of uvicorn: the hourly job collection and the fit
+# recompute. They start once `api` is healthy, i.e. after the migration ran,
+# and never run Alembic themselves.
+#
+#   Worker logs:  docker compose logs -f worker
 #
 #   web  http://127.0.0.1:8080
 #   api  http://127.0.0.1:8000/api      docs at /api/docs
@@ -32,6 +38,41 @@
 # "Iterating on the frontend" in README.md.
 name: applika
 
+# One environment for `api`, `worker` and `scheduler`: the worker reads the
+# same database, Redis and settings the API does (ADR-0016).
+x-api-environment: &api-environment
+  # DEV (not the Dockerfile's PROD) keeps /api/openapi.json and /api/docs
+  # reachable and makes the session cookies non-Secure, so they work over
+  # plain http — see backend/app/core/tokens.py.
+  ENVIRONMENT: DEV
+  DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/applika
+  REDIS_URL: redis://redis:6379/0
+  # The browser's origin is `web`, not the api's own port.
+  CORS_ORIGINS: '["http://127.0.0.1:8080"]'
+  CORS_HEADERS: '["X-Request-ID", "Content-Type", "Accept", "Authorization"]'
+  JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-not-for-production}
+  GITHUB_TOKEN_ENCRYPTION_KEY: ${GITHUB_TOKEN_ENCRYPTION_KEY}
+  GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+  GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+  GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/github/callback}
+  LOGIN_REDIRECT_URI: ${LOGIN_REDIRECT_URI:-http://127.0.0.1:8080/dashboard}
+  DISCORD_FEEDBACK_WEBHOOK: ${DISCORD_FEEDBACK_WEBHOOK:-}
+  # Discord account link (KODI-020): Connect Discord answers 503 until both
+  # the client id and secret are set.
+  DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+  DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+  DISCORD_LINK_REDIRECT_URI: ${DISCORD_LINK_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/link/discord/callback}
+  ACCOUNT_LINK_REDIRECT_URI: ${ACCOUNT_LINK_REDIRECT_URI:-http://127.0.0.1:8080/profile}
+  # KODI-024: Connect Discord also answers 503 until this is set - its
+  # own Fernet key, distinct from GITHUB_TOKEN_ENCRYPTION_KEY.
+  DISCORD_TOKEN_ENCRYPTION_KEY: ${DISCORD_TOKEN_ENCRYPTION_KEY:-}
+  # KODI-039/ADR-0015: the rate limiter is ON by default, but this dev
+  # stack raises both limits well above anything a developer or the
+  # seed script would hit - the point here is the API being wired up
+  # end to end, not exercising 429s.
+  RATE_LIMIT_DEFAULT: "100000"
+  RATE_LIMIT_AUTH: "10000"
+
 services:
   api:
     container_name: applika-api
@@ -45,38 +86,7 @@ services:
       - /bin/sh
       - -c
       - alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000
-    environment:
-      # DEV (not the Dockerfile's PROD) keeps /api/openapi.json and /api/docs
-      # reachable and makes the session cookies non-Secure, so they work over
-      # plain http — see backend/app/core/tokens.py.
-      ENVIRONMENT: DEV
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/applika
-      REDIS_URL: redis://redis:6379/0
-      # The browser's origin is `web`, not the api's own port.
-      CORS_ORIGINS: '["http://127.0.0.1:8080"]'
-      CORS_HEADERS: '["X-Request-ID", "Content-Type", "Accept", "Authorization"]'
-      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-not-for-production}
-      GITHUB_TOKEN_ENCRYPTION_KEY: ${GITHUB_TOKEN_ENCRYPTION_KEY}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
-      GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/github/callback}
-      LOGIN_REDIRECT_URI: ${LOGIN_REDIRECT_URI:-http://127.0.0.1:8080/dashboard}
-      DISCORD_FEEDBACK_WEBHOOK: ${DISCORD_FEEDBACK_WEBHOOK:-}
-      # Discord account link (KODI-020): Connect Discord answers 503 until both
-      # the client id and secret are set.
-      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
-      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
-      DISCORD_LINK_REDIRECT_URI: ${DISCORD_LINK_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/link/discord/callback}
-      ACCOUNT_LINK_REDIRECT_URI: ${ACCOUNT_LINK_REDIRECT_URI:-http://127.0.0.1:8080/profile}
-      # KODI-024: Connect Discord also answers 503 until this is set - its
-      # own Fernet key, distinct from GITHUB_TOKEN_ENCRYPTION_KEY.
-      DISCORD_TOKEN_ENCRYPTION_KEY: ${DISCORD_TOKEN_ENCRYPTION_KEY:-}
-      # KODI-039/ADR-0015: the rate limiter is ON by default, but this dev
-      # stack raises both limits well above anything a developer or the
-      # seed script would hit - the point here is the API being wired up
-      # end to end, not exercising 429s.
-      RATE_LIMIT_DEFAULT: "100000"
-      RATE_LIMIT_AUTH: "10000"
+    environment: *api-environment
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck:
@@ -95,6 +105,34 @@ services:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    container_name: applika-worker
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # ADR-0016: one worker service consuming the `applika:tasks` queue;
+    # `taskiq worker` forks 2 worker processes by default (`--workers`).
+    command: ["taskiq", "worker", "app.worker.broker:broker", "app.worker.tasks"]
+    environment: *api-environment
+    depends_on:
+      api:
+        # Healthy = the migration ran: the worker never runs Alembic.
+        condition: service_healthy
+    restart: unless-stopped
+
+  scheduler:
+    container_name: applika-scheduler
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # Exactly one scheduler: it enqueues `ingest_jobs` on JOBS_INGEST_CRON.
+    command: ["taskiq", "scheduler", "app.worker.broker:scheduler", "app.worker.tasks"]
+    environment: *api-environment
+    depends_on:
+      api:
         condition: service_healthy
     restart: unless-stopped
 

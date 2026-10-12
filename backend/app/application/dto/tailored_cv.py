@@ -19,6 +19,8 @@ fills it with a verbatim copy, and a real model can replace that binding later
 without changing a single stored field.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
 
 from app.application.dto import BaseSchema
@@ -38,9 +40,9 @@ from app.application.dto.base_cv import (
 class CVAdjustment(BaseModel):
     """One tailoring adjustment: which section changed and how.
 
-    Always empty in this slice - the clone binding returns ``[]``. The shape
-    exists so a future model-backed binding can explain what it changed
-    without a migration.
+    The clone binding returns none; the keyword binding (ADR-0017) records
+    one per section it reordered, e.g. ``{section: 'skills', description:
+    'Skill categories and keywords reordered by job match'}``.
     """
 
     model_config = ConfigDict(extra='forbid', from_attributes=True)
@@ -91,11 +93,18 @@ class TailoringResult(BaseModel):
     was_ai_generated: bool = False
 
 
+# Which tailoring binding makes the copy (ADR-0017). ``copy`` - the verbatim
+# clone - is the default everywhere, so a client that never sends the field
+# (every installed ``applika-cli``) keeps getting the verbatim copy.
+TailoringMode = Literal['copy', 'keywords']
+
+
 class TailoredCVCreateDTO(BaseModel):
     """Transport-agnostic input for creating an application's CV copy.
 
     ``user_id`` is stamped from the acting user and ``application_id`` from
-    the path; only ``base_cv_id`` comes from the request body.
+    the path; ``base_cv_id`` and the optional ``tailoring`` come from the
+    request body.
     """
 
     model_config = ConfigDict(extra='forbid')
@@ -103,6 +112,22 @@ class TailoredCVCreateDTO(BaseModel):
     user_id: int
     application_id: int
     base_cv_id: int
+    tailoring: TailoringMode = 'copy'
+
+
+class CVFitDTO(BaseModel):
+    """The keyword fit of an application's CV copy for its job description.
+
+    ``score`` is a whole number from 0 to 100, or ``None`` when the
+    application has no job description (no fit is shown). The two lists are
+    the job keywords found and not found in the copy.
+    """
+
+    model_config = ConfigDict(extra='forbid')
+
+    score: int | None
+    matched_keywords: list[str] = []
+    missing_keywords: list[str] = []
 
 
 class TailoredCVUpdateDTO(TailoredCVContent):

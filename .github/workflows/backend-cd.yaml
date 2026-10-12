@@ -50,3 +50,12 @@ jobs:
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
             docker service update --image ${{ secrets.DOCKER_HUB_USER }}/${{ vars.IMAGE_NAME_BACKEND }}:api-latest ${{ vars.SWARM_BACKEND_SERVICE_NAME }} --force
+            # ADR-0016 (KODI-046): the worker and the scheduler run the same
+            # api-latest image with a taskiq command. Each is updated only when
+            # its repository variable is set AND the service exists, so a stack
+            # without them still deploys. Migrations stay manual.
+            for NAME in "${{ vars.SWARM_WORKER_SERVICE_NAME }}" "${{ vars.SWARM_SCHEDULER_SERVICE_NAME }}"; do
+              if [ -n "$NAME" ] && docker service inspect "$NAME" >/dev/null 2>&1; then
+                docker service update --image ${{ secrets.DOCKER_HUB_USER }}/${{ vars.IMAGE_NAME_BACKEND }}:api-latest "$NAME" --force
+              fi
+            done

@@ -15,7 +15,7 @@ from app.config.db import get_session
 from app.config.settings import envs
 from app.domain.models import Base
 from app.main import app as main_app
-from app.presentation.dependencies import get_current_user
+from app.presentation.dependencies import get_current_user, get_job_queue
 from tests.base_db_setup import base_data
 
 
@@ -38,6 +38,39 @@ def _app_logger_enabled():
     already exists, ``app`` included, for the rest of the session.
     """
     logging.getLogger('app').disabled = False
+
+
+class FakeJobQueue:
+    """The ``JobQueue`` the API sees in tests (KODI-046, ADR-0016): records
+    every call instead of reaching taskiq. ``fail`` makes every call raise,
+    ``running`` is what ``ingest_running`` answers."""
+
+    def __init__(self) -> None:
+        self.ingests = 0
+        self.recomputes: list[int] = []
+        self.running = False
+        self.fail: Exception | None = None
+
+    def _maybe_fail(self) -> None:
+        if self.fail is not None:
+            raise self.fail
+
+    async def enqueue_ingest(self) -> None:
+        self._maybe_fail()
+        self.ingests += 1
+
+    async def enqueue_recompute_fit(self, base_cv_id: int) -> None:
+        self._maybe_fail()
+        self.recomputes.append(base_cv_id)
+
+    async def ingest_running(self) -> bool:
+        self._maybe_fail()
+        return self.running
+
+
+@pytest.fixture
+def job_queue() -> FakeJobQueue:
+    return FakeJobQueue()
 
 
 @pytest_asyncio.fixture(scope='session')
@@ -77,7 +110,7 @@ async def db_session(async_engine: AsyncEngine):
 
 
 @pytest_asyncio.fixture
-async def async_client(async_engine: AsyncEngine):
+async def async_client(async_engine: AsyncEngine, job_queue: FakeJobQueue):
     SessionLocal = async_sessionmaker(
         bind=async_engine,
         expire_on_commit=False,
@@ -88,6 +121,7 @@ async def async_client(async_engine: AsyncEngine):
             yield session
 
     main_app.dependency_overrides[get_session] = override_get_session
+    main_app.dependency_overrides[get_job_queue] = lambda: job_queue
 
     async def override_get_current_user():
         from app.application.dto.user import UserDTO
@@ -116,7 +150,7 @@ async def async_client(async_engine: AsyncEngine):
 
 
 @pytest_asyncio.fixture
-async def admin_client(async_engine: AsyncEngine):
+async def admin_client(async_engine: AsyncEngine, job_queue: FakeJobQueue):
     SessionLocal = async_sessionmaker(
         bind=async_engine,
         expire_on_commit=False,
@@ -127,6 +161,7 @@ async def admin_client(async_engine: AsyncEngine):
             yield session
 
     main_app.dependency_overrides[get_session] = override_get_session
+    main_app.dependency_overrides[get_job_queue] = lambda: job_queue
 
     async def override_get_current_user():
         from app.application.dto.user import UserDTO

@@ -1036,3 +1036,201 @@ class TailoredCVModel(BaseMixin, Base):
     application: Mapped[ApplicationModel] = relationship(
         back_populates='tailored_cv'
     )
+
+
+# --- Job board (KODI-046, plan 0012 ``## Data``, revision b28d5134631f) ---
+#
+# The three tables the background worker (ADR-0016) writes. Each mapping
+# mirrors revision ``b28d5134631f`` object for object - column names, types,
+# lengths, server defaults, FK names and ``ondelete``, UNIQUE, CHECK and the
+# B-tree / GIN indexes - so the ``Base.metadata.create_all`` test schema is
+# the migrated schema. ``job_dismissals``, ``saved_job_searches`` and
+# ``applications.job_id`` are mapped by the slice that reads them (K5).
+
+JOB_RUN_STATUSES = ('ok', 'failed', 'blocked')
+
+
+class JobSourceModel(BaseMixin, Base):
+    """A job board the worker collects from (``himalayas``, ``remoteok``).
+
+    A shared catalog row with no owner (ADR-0004: admin-managed). The seed
+    rows come from the migration; nothing in ``app/`` creates a source.
+    ``platform_id`` points at the public platform named after the source
+    (R-019), ``ON DELETE SET NULL`` - the admin platform delete refuses a
+    platform a source uses (``AdminRepository.count_entity_references``).
+    ``last_run_*`` record the outcome of the source's latest run (R-008).
+    """
+
+    __tablename__ = 'job_sources'
+
+    __table_args__ = (
+        sa.PrimaryKeyConstraint('id', name='pk_job_sources'),
+        sa.UniqueConstraint('code', name='uq_job_sources_code'),
+        sa.CheckConstraint(
+            "last_run_status IN ('ok', 'failed', 'blocked')",
+            name='ck_job_sources_last_run_status',
+        ),
+    )
+
+    code: Mapped[str] = mapped_column(sa.String(50), nullable=False)
+    name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    base_url: Mapped[str] = mapped_column(sa.String(500), nullable=False)
+    platform_id: Mapped[int | None] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'platforms.id',
+            ondelete='SET NULL',
+            name='fk_job_sources_platform_id',
+        ),
+        nullable=True,
+    )
+    is_enabled: Mapped[bool] = mapped_column(
+        sa.Boolean,
+        nullable=False,
+        default=True,
+        server_default=sa.text('true'),
+    )
+    last_run_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True
+    )
+    last_run_status: Mapped[str | None] = mapped_column(
+        sa.String(20), nullable=True
+    )
+    last_run_error: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    last_run_found: Mapped[int | None] = mapped_column(
+        sa.Integer, nullable=True
+    )
+    last_run_saved: Mapped[int | None] = mapped_column(
+        sa.Integer, nullable=True
+    )
+
+
+class JobModel(BaseMixin, Base):
+    """One posting of one source, unique on ``(source_id, external_id)``.
+
+    Shared by every user. ``description_text`` is plain text (the scrapers
+    strip HTML); ``keywords`` is ``job_keywords(description, tags)``
+    (ADR-0017), refreshed whenever ``content_hash`` changes. A posting leaves
+    the list ``JOBS_RETENTION_DAYS`` after ``coalesce(posted_at,
+    first_seen_at)`` by ``is_active = false`` - the row is never deleted
+    (R-007), so an application started from it keeps its link.
+    """
+
+    __tablename__ = 'jobs'
+
+    __table_args__ = (
+        sa.PrimaryKeyConstraint('id', name='pk_jobs'),
+        sa.UniqueConstraint(
+            'source_id', 'external_id', name='uq_jobs_source_external'
+        ),
+        sa.Index(
+            'ix_jobs_active_posted', 'is_active', sa.text('posted_at DESC')
+        ),
+        sa.Index('ix_jobs_tags', 'tags', postgresql_using='gin'),
+    )
+
+    source_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'job_sources.id', ondelete='RESTRICT', name='fk_jobs_source_id'
+        ),
+        nullable=False,
+    )
+    external_id: Mapped[str] = mapped_column(sa.String(500), nullable=False)
+    title: Mapped[str] = mapped_column(sa.String(500), nullable=False)
+    company_name: Mapped[str] = mapped_column(sa.String(300), nullable=False)
+    company_url: Mapped[str | None] = mapped_column(
+        sa.String(2083), nullable=True
+    )
+    location_text: Mapped[str] = mapped_column(
+        sa.String(300),
+        nullable=False,
+        default='Remote',
+        server_default=sa.text("'Remote'"),
+    )
+    job_url: Mapped[str] = mapped_column(sa.String(2083), nullable=False)
+    description_text: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    employment_type: Mapped[str | None] = mapped_column(
+        sa.String(100), nullable=True
+    )
+    salary_text: Mapped[str | None] = mapped_column(
+        sa.String(200), nullable=True
+    )
+    tags: Mapped[list[str]] = mapped_column(
+        ARRAY(sa.Text),
+        nullable=False,
+        default=list,
+        server_default=sa.text("'{}'"),
+    )
+    keywords: Mapped[list[str]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sa.text("'[]'::jsonb"),
+    )
+    content_hash: Mapped[str] = mapped_column(sa.String(64), nullable=False)
+    posted_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True
+    )
+    first_seen_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False
+    )
+    is_active: Mapped[bool] = mapped_column(
+        sa.Boolean,
+        nullable=False,
+        default=True,
+        server_default=sa.text('true'),
+    )
+
+
+class JobFitScoreModel(BaseMixin, Base):
+    """The fit of one master CV for one job (ADR-0017), 0..100.
+
+    One row per ``(base_cv_id, job_id)``; ``user_id`` is the CV's owner.
+    Every FK cascades: deleting the master CV, the job or the user removes
+    the row (R-016). A ``None`` fit (a job with no keywords) has no row.
+    """
+
+    __tablename__ = 'job_fit_scores'
+
+    __table_args__ = (
+        sa.PrimaryKeyConstraint('id', name='pk_job_fit_scores'),
+        sa.UniqueConstraint(
+            'base_cv_id', 'job_id', name='uq_job_fit_scores_cv_job'
+        ),
+        sa.CheckConstraint(
+            'score BETWEEN 0 AND 100', name='ck_job_fit_scores_score'
+        ),
+        sa.Index('ix_job_fit_scores_user_job', 'user_id', 'job_id'),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'users.id', ondelete='CASCADE', name='fk_job_fit_scores_user_id'
+        ),
+        nullable=False,
+    )
+    job_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'jobs.id', ondelete='CASCADE', name='fk_job_fit_scores_job_id'
+        ),
+        nullable=False,
+    )
+    base_cv_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'base_cvs.id',
+            ondelete='CASCADE',
+            name='fk_job_fit_scores_base_cv_id',
+        ),
+        nullable=False,
+    )
+    score: Mapped[int] = mapped_column(sa.SmallInteger, nullable=False)
+    computed_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False
+    )

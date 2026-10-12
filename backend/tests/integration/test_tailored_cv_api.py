@@ -216,9 +216,7 @@ def update_payload(**overrides: Any) -> dict:
 
 
 async def _create_base_cv(client: AsyncClient, **overrides: Any) -> dict:
-    response = await client.post(
-        '/base-cvs', json=base_cv_payload(**overrides)
-    )
+    response = await client.post('/base-cvs', json=base_cv_payload(**overrides))
     assert response.status_code == 201, msg(201, response.text)
     return response.json()
 
@@ -257,7 +255,8 @@ async def _finalize(db_session: AsyncSession, application_id: str) -> None:
     exactly what the guard reads.
     """
     await db_session.execute(
-        sa.update(ApplicationModel)
+        sa
+        .update(ApplicationModel)
         .where(ApplicationModel.id == int(application_id))
         .values(finalized_at=datetime(2025, 12, 10, tzinfo=timezone.utc))
     )
@@ -280,16 +279,15 @@ async def _archive(db_session: AsyncSession, application_id: str) -> None:
         },
     )
     await db_session.execute(
-        sa.update(ApplicationModel)
+        sa
+        .update(ApplicationModel)
         .where(ApplicationModel.id == int(application_id))
         .values(cycle_id=cycle_id)
     )
     await db_session.commit()
 
 
-async def _seed_foreign_base_cv(
-    db_session: AsyncSession, user_id: int
-) -> int:
+async def _seed_foreign_base_cv(db_session: AsyncSession, user_id: int) -> int:
     """Insert a master CV owned by ``user_id`` straight into the database."""
     base_cv = BaseCVModel(
         user_id=user_id,
@@ -343,9 +341,7 @@ async def _seed_foreign_copy(
 async def _row(db_session: AsyncSession, copy_id: str) -> Any:
     await db_session.commit()
     return await db_session.scalar(
-        sa.select(TailoredCVModel).where(
-            TailoredCVModel.id == int(copy_id)
-        )
+        sa.select(TailoredCVModel).where(TailoredCVModel.id == int(copy_id))
     )
 
 
@@ -392,9 +388,7 @@ async def test_create_uses_the_master_label_verbatim(
     base_cv = await _create_base_cv(async_client, name='Platform CV')
     application = await _create_application(async_client)
 
-    copy = await _create_copy(
-        async_client, application['id'], base_cv['id']
-    )
+    copy = await _create_copy(async_client, application['id'], base_cv['id'])
 
     assert copy['name'] == 'Platform CV', msg('Platform CV', copy['name'])
 
@@ -502,9 +496,7 @@ async def test_editing_the_master_leaves_the_copy_untouched(
     assert fetched.json()['full_name'] == 'Ada Lovelace'
     assert fetched.json()['summary'] == 'Ten years of backend engineering.'
     assert fetched.json()['skills'] == FULL_SECTIONS['skills']
-    assert fetched.json() == copy | {
-        'updated_at': fetched.json()['updated_at']
-    }
+    assert fetched.json() == copy | {'updated_at': fetched.json()['updated_at']}
 
 
 async def test_deleting_the_master_is_never_blocked_and_keeps_the_copy(
@@ -838,9 +830,7 @@ async def test_delete_frees_the_application_for_a_new_copy(
     _, application, _ = await _setup(async_client)
     other_master = await _create_base_cv(async_client, name='Frontend CV')
 
-    deleted = await async_client.delete(
-        f'/applications/{application["id"]}/cv'
-    )
+    deleted = await async_client.delete(f'/applications/{application["id"]}/cv')
     recreated = await async_client.post(
         f'/applications/{application["id"]}/cv',
         json={'base_cv_id': other_master['id']},
@@ -914,9 +904,7 @@ async def test_finalized_application_refuses_update_and_delete_but_not_get(
     updated = await async_client.put(
         f'/applications/{application["id"]}/cv', json=update_payload()
     )
-    deleted = await async_client.delete(
-        f'/applications/{application["id"]}/cv'
-    )
+    deleted = await async_client.delete(f'/applications/{application["id"]}/cv')
     fetched = await async_client.get(f'/applications/{application["id"]}/cv')
 
     assert updated.status_code == 409, msg(409, updated.text)
@@ -955,9 +943,7 @@ async def test_archived_application_refuses_update_and_delete_but_not_get(
     updated = await async_client.put(
         f'/applications/{application["id"]}/cv', json=update_payload()
     )
-    deleted = await async_client.delete(
-        f'/applications/{application["id"]}/cv'
-    )
+    deleted = await async_client.delete(f'/applications/{application["id"]}/cv')
     fetched = await async_client.get(f'/applications/{application["id"]}/cv')
 
     assert updated.status_code == 422, msg(422, updated.text)
@@ -1062,9 +1048,7 @@ async def test_another_users_application_is_404_on_get(
     foreign_application = await _seed_foreign_application(db_session, owner_id)
     await _seed_foreign_copy(db_session, owner_id, foreign_application)
 
-    response = await async_client.get(
-        f'/applications/{foreign_application}/cv'
-    )
+    response = await async_client.get(f'/applications/{foreign_application}/cv')
 
     assert response.status_code == 404, msg(404, response.text)
 
@@ -1263,9 +1247,7 @@ async def test_orm_server_defaults_match_the_migration(
     assert row['summary'] == '', msg('', row['summary'])
     assert row['phone'] is None, msg(None, row['phone'])
     assert row['base_cv_id'] is None, msg(None, row['base_cv_id'])
-    assert row['was_ai_generated'] is False, msg(
-        False, row['was_ai_generated']
-    )
+    assert row['was_ai_generated'] is False, msg(False, row['was_ai_generated'])
     assert row['adjustments'] == [], msg([], row['adjustments'])
     for section in SECTIONS:
         assert row[section] == [], section
@@ -1315,9 +1297,7 @@ def test_orm_mirrors_the_migrations_constraints():
         'idx_tailored_cvs_user_id'
     }
     # Landmine 8: base_cv_id deliberately has no index.
-    assert all(
-        'base_cv_id' not in index.columns for index in table.indexes
-    )
+    assert all('base_cv_id' not in index.columns for index in table.indexes)
 
 
 def test_primary_key_follows_adr_0003():
@@ -1349,3 +1329,358 @@ def test_the_application_relationship_leaves_the_cascade_to_the_database():
 
     assert relationship.passive_deletes is True
     assert relationship.uselist is False
+
+
+# --- Tailor by keywords (ADR-0017, PRD 0012 R-023..R-027) ------------------
+
+# Matches the ``Platform`` category (Docker) and the billing bullet, and
+# nothing in the ``Languages & Frameworks`` category.
+KEYWORDS_JOB_DESCRIPTION = 'Docker and billing. Docker, Kubernetes.'
+
+
+async def _post_copy(
+    client: AsyncClient, application_id: str, body: dict
+) -> Any:
+    return await client.post(f'/applications/{application_id}/cv', json=body)
+
+
+def _strings(value: Any) -> list[str]:
+    """Every string inside ``value``, sorted: the text, whatever its order."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return sorted(s for item in value.values() for s in _strings(item))
+    if isinstance(value, list):
+        return sorted(s for item in value for s in _strings(item))
+    return []
+
+
+async def test_a_cli_shaped_body_gets_the_verbatim_copy(
+    async_client: AsyncClient,
+):
+    """R-027: ``{base_cv_id}`` alone, as applika-cli sends it, is a copy."""
+    base_cv = await _create_base_cv(async_client)
+    application = await _create_application(
+        async_client, job_description=KEYWORDS_JOB_DESCRIPTION
+    )
+
+    response = await _post_copy(
+        async_client, application['id'], {'base_cv_id': base_cv['id']}
+    )
+
+    assert response.status_code == 201, msg(201, response.text)
+    copy = response.json()
+    for field in SNAPSHOT_FIELDS:
+        assert copy[field] == base_cv[field], field
+    assert copy['adjustments'] == [], msg([], copy['adjustments'])
+    assert copy['was_ai_generated'] is False
+
+
+async def test_tailoring_copy_is_the_verbatim_copy(async_client: AsyncClient):
+    base_cv = await _create_base_cv(async_client)
+    application = await _create_application(
+        async_client, job_description=KEYWORDS_JOB_DESCRIPTION
+    )
+
+    response = await _post_copy(
+        async_client,
+        application['id'],
+        {'base_cv_id': base_cv['id'], 'tailoring': 'copy'},
+    )
+
+    assert response.status_code == 201, msg(201, response.text)
+    copy = response.json()
+    assert copy['skills'] == base_cv['skills']
+    assert copy['adjustments'] == []
+
+
+async def test_tailoring_keywords_reorders_and_records_the_moves(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """R-023/R-024/R-025: reordered, same text, not AI, moves recorded."""
+    base_cv = await _create_base_cv(async_client)
+    application = await _create_application(
+        async_client, job_description=KEYWORDS_JOB_DESCRIPTION
+    )
+
+    response = await _post_copy(
+        async_client,
+        application['id'],
+        {'base_cv_id': base_cv['id'], 'tailoring': 'keywords'},
+    )
+
+    assert response.status_code == 201, msg(201, response.text)
+    copy = response.json()
+    assert [c['id'] for c in copy['skills']] == ['skl-2', 'skl-1']
+    assert copy['experience'][0]['bullets'] == [
+        'Owned the billing rewrite',
+        'Cut p99 by half',
+    ]
+    for field in SNAPSHOT_FIELDS:
+        assert _strings(copy[field]) == _strings(base_cv[field]), field
+    for section in ('experience', 'projects', 'education', 'links'):
+        assert [i['id'] for i in copy[section]] == [
+            i['id'] for i in base_cv[section]
+        ], section
+    assert copy['was_ai_generated'] is False
+    assert copy['adjustments'] == [
+        {
+            'section': 'skills',
+            'description': 'Skill categories reordered by job match',
+        },
+        {
+            'section': 'experience',
+            'description': 'Bullets reordered by job match in 1 entry',
+        },
+    ], copy['adjustments']
+    # The diff baseline is the master, untailored.
+    assert copy['base_snapshot']['skills'] == base_cv['skills']
+
+    row = await _row(db_session, copy['id'])
+    assert row.adjustments == copy['adjustments']
+    assert row.was_ai_generated is False
+    fetched = await async_client.get(f'/applications/{application["id"]}/cv')
+    assert fetched.json()['skills'] == copy['skills']
+
+
+async def test_the_diff_of_a_keyword_copy_still_exports(
+    async_client: AsyncClient,
+):
+    """R-025: the existing comparison still answers on a keyword copy and
+    shows the bullet reorder as a bullets change."""
+    base_cv = await _create_base_cv(async_client)
+    application = await _create_application(
+        async_client, job_description=KEYWORDS_JOB_DESCRIPTION
+    )
+    await _post_copy(
+        async_client,
+        application['id'],
+        {'base_cv_id': base_cv['id'], 'tailoring': 'keywords'},
+    )
+
+    response = await async_client.get(
+        f'/applications/{application["id"]}/cv/diff/markdown'
+    )
+
+    assert response.status_code == 200, msg(200, response.text)
+    assert (
+        'Cut p99 by half; Owned the billing rewrite -> '
+        'Owned the billing rewrite; Cut p99 by half'
+    ) in response.text, response.text
+
+
+@pytest.mark.parametrize('job_description', [None, '   '])
+async def test_tailoring_keywords_without_a_job_description_is_refused(
+    async_client: AsyncClient, db_session: AsyncSession, job_description
+):
+    base_cv = await _create_base_cv(async_client)
+    application = await _create_application(
+        async_client, job_description=job_description
+    )
+
+    response = await _post_copy(
+        async_client,
+        application['id'],
+        {'base_cv_id': base_cv['id'], 'tailoring': 'keywords'},
+    )
+
+    assert response.status_code == 422, msg(422, response.text)
+    assert response.json() == {
+        'detail': 'Add a job description to tailor by keywords'
+    }, response.json()
+    assert await _count_rows(db_session) == 0
+
+
+@pytest.mark.parametrize('tailoring', ['ai', 'KEYWORDS', '', None])
+async def test_an_unknown_tailoring_is_refused(
+    async_client: AsyncClient, db_session: AsyncSession, tailoring
+):
+    base_cv = await _create_base_cv(async_client)
+    application = await _create_application(async_client)
+
+    response = await _post_copy(
+        async_client,
+        application['id'],
+        {'base_cv_id': base_cv['id'], 'tailoring': tailoring},
+    )
+
+    assert response.status_code == 422, msg(422, response.text)
+    assert await _count_rows(db_session) == 0
+
+
+def test_openapi_exposes_tailoring_and_fit():
+    from app.main import app
+
+    schema = app.openapi()
+    create = schema['components']['schemas']['TailoredCVCreate']
+    assert create['required'] == ['base_cv_id'], create
+    tailoring = create['properties']['tailoring']
+    assert tailoring['enum'] == ['copy', 'keywords'], tailoring
+    assert tailoring['default'] == 'copy', tailoring
+    fit = schema['paths']['/applications/{application_id}/cv/fit']['get']
+    assert fit['responses']['200']['content']['application/json']['schema'][
+        '$ref'
+    ].endswith('/CVFit'), fit
+
+
+# --- Fit (ADR-0017, PRD 0012 R-028) ----------------------------------------
+
+
+async def test_fit_of_an_application_copy(async_client: AsyncClient):
+    base_cv = await _create_base_cv(async_client)
+    application = await _create_application(
+        async_client, job_description='Python and Kubernetes. Python.'
+    )
+    await _create_copy(async_client, application['id'], base_cv['id'])
+
+    response = await async_client.get(
+        f'/applications/{application["id"]}/cv/fit'
+    )
+
+    assert response.status_code == 200, msg(200, response.text)
+    assert response.json() == {
+        'score': 50,
+        'matched_keywords': ['python'],
+        'missing_keywords': ['kubernetes'],
+    }, response.json()
+
+
+async def test_fit_is_the_same_on_every_call(async_client: AsyncClient):
+    """R-014: the same CV and job always give the same score."""
+    _, application, _ = await _setup(async_client)
+    url = f'/applications/{application["id"]}/cv/fit'
+
+    first = await async_client.get(url)
+    second = await async_client.get(url)
+
+    assert first.status_code == 200, msg(200, first.text)
+    body = first.json()
+    assert isinstance(body['score'], int)
+    assert 0 <= body['score'] <= 100
+    assert isinstance(body['matched_keywords'], list)
+    assert isinstance(body['missing_keywords'], list)
+    assert second.json() == body
+
+
+async def test_fit_of_a_draft_copy(async_client: AsyncClient):
+    """ADR-0014: the ``cv*`` routes serve drafts too."""
+    base_cv = await _create_base_cv(async_client)
+    draft = await async_client.post(
+        '/applications/drafts',
+        json={
+            'company_id': base_data()['company_acme'].id,
+            'company_name': 'Acme Corp',
+            'role': 'Software Engineer',
+            'platform_id': base_data()['plat_linkedin'].id,
+            'job_description': 'FastAPI and Rust.',
+        },
+    )
+    assert draft.status_code == 201, msg(201, draft.text)
+    draft_id = draft.json()['id']
+    await _create_copy(async_client, draft_id, base_cv['id'])
+
+    response = await async_client.get(f'/applications/{draft_id}/cv/fit')
+
+    assert response.status_code == 200, msg(200, response.text)
+    assert response.json() == {
+        'score': 50,
+        'matched_keywords': ['fastapi'],
+        'missing_keywords': ['rust'],
+    }, response.json()
+
+
+@pytest.mark.parametrize('job_description', [None, '', '  \n '])
+async def test_fit_without_a_job_description_is_no_fit(
+    async_client: AsyncClient, job_description
+):
+    base_cv = await _create_base_cv(async_client)
+    application = await _create_application(
+        async_client, job_description=job_description
+    )
+    await _create_copy(async_client, application['id'], base_cv['id'])
+
+    response = await async_client.get(
+        f'/applications/{application["id"]}/cv/fit'
+    )
+
+    assert response.status_code == 200, msg(200, response.text)
+    assert response.json() == {
+        'score': None,
+        'matched_keywords': [],
+        'missing_keywords': [],
+    }
+
+
+async def test_fit_without_a_copy_is_404(async_client: AsyncClient):
+    application = await _create_application(async_client)
+
+    response = await async_client.get(
+        f'/applications/{application["id"]}/cv/fit'
+    )
+
+    assert response.status_code == 404, msg(404, response.text)
+    assert response.json() == {'detail': 'CV copy not found'}
+
+
+async def test_fit_of_another_users_application_is_404(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    owner_id = base_data()['admin_user'].id
+    foreign_application = await _seed_foreign_application(db_session, owner_id)
+    await db_session.execute(
+        sa
+        .update(ApplicationModel)
+        .where(ApplicationModel.id == foreign_application)
+        .values(job_description='Python')
+    )
+    await db_session.commit()
+    await _seed_foreign_copy(db_session, owner_id, foreign_application)
+
+    response = await async_client.get(
+        f'/applications/{foreign_application}/cv/fit'
+    )
+
+    assert response.status_code == 404, msg(404, response.text)
+
+
+async def test_fit_is_allowed_on_a_finalized_and_archived_application(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """A read: never refused on a closed or archived application."""
+    _, application, _ = await _setup(async_client)
+    await _finalize(db_session, application['id'])
+    await _archive(db_session, application['id'])
+
+    response = await async_client.get(
+        f'/applications/{application["id"]}/cv/fit'
+    )
+
+    assert response.status_code == 200, msg(200, response.text)
+    assert response.json()['score'] is not None
+
+
+async def test_fit_scores_the_copy_not_its_master(async_client: AsyncClient):
+    """An edited copy is what is scored, never the snapshot of its master."""
+    base_cv = await _create_base_cv(async_client)
+    application = await _create_application(
+        async_client, job_description='Python and Kubernetes. Python.'
+    )
+    copy = await _create_copy(async_client, application['id'], base_cv['id'])
+    url = f'/applications/{application["id"]}/cv/fit'
+    before = await async_client.get(url)
+    assert before.json()['score'] == 50, before.json()
+
+    edited = {field: copy[field] for field in SNAPSHOT_FIELDS}
+    edited['headline'] = 'Kubernetes Engineer'
+    put = await async_client.put(
+        f'/applications/{application["id"]}/cv', json=edited
+    )
+    assert put.status_code == 200, msg(200, put.text)
+
+    after = await async_client.get(url)
+
+    assert after.json() == {
+        'score': 100,
+        'matched_keywords': ['python', 'kubernetes'],
+        'missing_keywords': [],
+    }, after.json()
