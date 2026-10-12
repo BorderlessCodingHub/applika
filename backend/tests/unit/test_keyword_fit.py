@@ -374,3 +374,26 @@ def test_a_certification_issuer_counts():
     )
 
     assert score_fit(['kubernetes'], cv_text(content)).score == 100
+
+
+@pytest.mark.parametrize(
+    ('keyword', 'text'),
+    [
+        ('docker', 'Python, Docker'),
+        ('machine learning', 'Built (machine learning) tools'),
+        ('python', 'Built APIs (Python)'),
+    ],
+)
+def test_punctuation_before_a_keyword_does_not_hide_it(keyword, text):
+    """Only the punctuation *between* a keyword's words is compared."""
+    assert matched_keywords([keyword], text) == [keyword]
+
+
+def test_a_phrase_never_spans_two_cv_fields():
+    content = make_content(headline='Senior machine', summary='Learning fast.')
+
+    assert matched_keywords(['machine learning'], cv_text(content)) == []
+
+
+def test_inner_whitespace_in_a_tag_is_collapsed():
+    assert job_keywords('', ['  Machine \t  Learning ']) == ['machine learning']

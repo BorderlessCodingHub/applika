@@ -387,7 +387,9 @@ neither binding does I/O.
 
 The keyword fit (`keyword_fit.py`, a port of Ían's `keywords_service.py`) is
 pure functions: `job_keywords(text, tags)` (25 most frequent terms + 25 most
-frequent word pairs, stop words removed, plus tags), `cv_text(content)`
+frequent word pairs, stop words removed, plus tags; a tag is matched
+as written, its own punctuation included, and dropped when it holds no word,
+a letter or digit the word pattern drops (`5G`) or a lone stop word), `cv_text(content)`
 (headline, summary, skill keywords, experience roles and bullets, project
 names and descriptions, certifications) and `score_fit(keywords, text)`
 (whole word/phrase, case-insensitive, `round(100 × matched ÷ keywords)` half
