@@ -73,6 +73,17 @@ make lint
 make test
 ```
 
+### Background worker (ADR-0016)
+```bash
+# The worker (consumes the `applika:tasks` queue) and the single scheduler
+# (enqueues `ingest_jobs` on JOBS_INGEST_CRON); both need REDIS_URL/DATABASE_URL
+uv run taskiq worker app.worker.broker:broker app.worker.tasks
+uv run taskiq scheduler app.worker.broker:scheduler app.worker.tasks
+
+# In the dev compose stack: `worker` and `scheduler` services
+docker compose logs -f worker
+```
+
 ### Database Migrations
 ```bash
 # Create new migration (auto-generate from models)
@@ -232,6 +243,7 @@ Domain exceptions in `app/core/exceptions.py`:
 - `InvalidDate` → 422
 - `ForbiddenAccess` → 403
 - `PdfRenderFailed` → 500
+- `ServiceUnavailable` → 503 (KODI-046: the background worker's queue cannot be reached, `POST /admin/jobs/runs` → "Background service unavailable")
 - `NotImplementedError` → 501
 
 Handlers registered in `app/presentation/handlers.py` via `register_handlers(app)`.
@@ -401,6 +413,78 @@ names and descriptions, certifications) and `score_fit(keywords, text)`
 (whole word/phrase, case-insensitive, `round(100 × matched ÷ keywords)` half
 up, `score=None` without keywords). Commits that port or change either file
 carry `Co-authored-by: Ían Muliterno <iannimuliterno@gmail.com>`.
+
+### Background worker (ADR-0016)
+
+Job collection and fit recompute run in a **taskiq** worker, a delivery layer
+of its own (`app/worker/`, next to `app/presentation/`), never in the API
+process. The API only produces tasks.
+
+- **Broker** (`app/worker/broker.py`): `ListQueueBroker` on
+  `TASKIQ_BROKER_URL` (unset → `REDIS_URL`), queue `applika:tasks`, **no
+  result backend** - a run's outcome lives in `job_sources.last_run_*`.
+  `socket_timeout=None` is deliberate: redis-py 8 reads with a 5-second
+  default and the worker's `BRPOP` would die every 5 seconds; connecting is
+  bounded (2 s). `TaskiqScheduler` + `LabelScheduleSource` reads the tasks'
+  `schedule` labels; run **exactly one** scheduler. Under
+  `ENVIRONMENT=TEST` the broker is `InMemoryBroker(await_inplace=True)`, so
+  `.kiq()` runs the task inline in a test.
+- **Tasks** (`app/worker/tasks.py`, thin): `ingest_jobs` on
+  `JOBS_INGEST_CRON` (default hourly, UTC) takes the lock
+  `applika:jobs:ingest:lock` with `SET NX EX JOBS_INGEST_LOCK_SECONDS` on the
+  API's own `REDIS_URL` Redis; held → logs and returns (R-009); released in
+  `finally` by a compare-and-delete, so a run that outlived its lock never
+  frees the next run's. `recompute_fit(base_cv_id)`. Each task opens its own
+  session (`AsyncLocalSession`) - never a request's.
+- **Port**: `JobQueue` (`app/application/services/job_queue.py`:
+  `enqueue_ingest`, `enqueue_recompute_fit`, `ingest_running`) bound by
+  `TaskiqJobQueue` (`app/worker/queue.py`, every call under a 2-second
+  timeout, raises on failure). `JobQueueDp` in `dependencies.py`;
+  `tests/conftest.py` overrides it with `FakeJobQueue` (the `job_queue`
+  fixture) for `async_client`/`admin_client`.
+- **Lifespan** (`app/main.py`): starts/stops the broker client
+  (`start_client`/`stop_client`); a failure is a WARNING, **never** a failed
+  boot. Redis down = runs and recomputes pause, the API keeps serving.
+- **What a run does** (`use_cases/jobs/ingest_jobs.py`): for each enabled
+  source that has a scraper, fetch the last `JOBS_LOOKBACK_DAYS` (undated
+  postings too), upsert on `(source_id, external_id)` (new → insert;
+  same `content_hash` → only `last_seen_at`; changed → every field, fresh
+  `keywords`, `is_active` back on; fields cut to their columns; `keywords`
+  are part of the hash, so a matcher change refreshes every posting), and
+  record `last_run_at`/`status` (`ok`|`failed`|`blocked`)/`found`/`saved`
+  (= inserted + changed)/`error` (the scraper's own fixed text, or
+  `Unexpected error: <Type>` - never a stack or a message that could quote
+  a secret). One source failing never stops the other. Then postings past
+  `coalesce(posted_at, first_seen_at) + JOBS_RETENTION_DAYS` get
+  `is_active=false` (rows kept, R-007) and lose their fit rows, and
+  `RecomputeFitUseCase` scores new/changed jobs × every master CV, then every
+  stale CV (`coalesce(updated_at, created_at)` past its newest
+  `computed_at`, or no row) × every listed job. `score_fit(...)` `None` → no
+  row. The worker writes jobs, sources and fit scores only - nothing under
+  `app/worker/` or `use_cases/jobs/` imports an application, CV copy or
+  saved search repository (a test greps for it).
+- **Master CV save** (`api/base_cv.py`): POST and PATCH call
+  `request_fit_recompute` after the write - a queue failure is a WARNING,
+  the answer is unchanged; DELETE queues nothing (FK CASCADE removes the
+  fit rows).
+- **Scrapers** (`app/application/services/job_ingestion/scrapers/`, ports of
+  Ían Muliterno's, commits carry his `Co-authored-by`): `himalayas`
+  (`cloudscraper` behind the one typed wrapper `cloudscraper_get`, paging
+  in `anyio.to_thread`, 50 pages × 20 - about seven hours of Himalayas
+  postings, a WARNING when the budget runs out), `remoteok` (`httpx`), each
+  with `JOBS_SCRAPER_TIMEOUT_SECONDS`; a Cloudflare challenge, 403 or 429 is
+  `SourceBlocked`, anything else `SourceFailed`. HTML descriptions go
+  through the stdlib `HTMLParser` to plain text (script/style dropped).
+  `fixture` serves every source code from `JOBS_FIXTURE_PATH`
+  (`tests/fixtures/jobs/postings.json`, `posted_days_ago` dates relative to
+  today's midnight UTC) and is **refused in PROD** by `Settings`.
+  `registry.build_registry` builds them from `JOBS_SCRAPERS`.
+- **Deploy**: compose runs `worker` and `scheduler` from the backend image,
+  the API's environment, after `api` is healthy (the migration ran); they
+  never run Alembic. CD updates the swarm services named by
+  `vars.SWARM_WORKER_SERVICE_NAME`/`vars.SWARM_SCHEDULER_SERVICE_NAME` only
+  when they exist. `taskiq worker` starts **2 processes** by default
+  (`--workers`).
 
 ### Snowflake IDs
 All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUIDs or auto-increment. Defined in `app/lib/types.py` with Pydantic serialization to string for JSON/OpenAPI.
@@ -1064,6 +1148,20 @@ tell "omitted" from "sent as null" for exactly that field.
 submit-time routing ("selects the webhooks of those servers") and is not
 called by anything yet.
 
+### Admin job sources (`/admin/jobs`, KODI-046, ADR-0016)
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| GET | `/admin/jobs/sources` | Admin | `[{id, code, name, base_url, platform_id, is_enabled, last_run_at, last_run_status \| null, last_run_error, last_run_found, last_run_saved, active_jobs}]` (ids are Snowflake strings) |
+| PATCH | `/admin/jobs/sources/{id}` | Admin | `{is_enabled: bool}` (strict, extra fields 422) → 200 row; unknown 404 |
+| POST | `/admin/jobs/runs` | Admin | 202 `{queued: true}`; 409 `"A run is already in progress"` while the lock is held; 503 `"Background service unavailable"` when the queue cannot be reached |
+
+`active_jobs` counts the source's listed (`is_active`) jobs. A source that is
+off is skipped by every run; its jobs stay listed until they expire. Not a
+CLI route. The platform a source points at (R-019) cannot be deleted from
+`/admin/platforms` - `count_entity_references('platform', id)` counts
+`job_sources.platform_id` as well as applications.
+
 ### Agenda (`/users/me/agenda`)
 Every **interview** event dated inside the window (`from_date`/`to_date`,
 default 30 days either side of today), ordered by date then start time — the
@@ -1147,6 +1245,21 @@ Optional (with defaults):
   field), default `127.0.0.1`. The trusted proxy hop(s) `X-Forwarded-For`
   is honoured from — in production, Traefik's overlay subnet. See
   **Rate limiting (ADR-0015)** below
+- `TASKIQ_BROKER_URL`: the taskiq broker's Redis (KODI-046, ADR-0016,
+  default unset → `REDIS_URL`)
+- `JOBS_INGEST_ENABLED`: `false` makes every collection run a no-op
+  (default `true`)
+- `JOBS_INGEST_CRON`: the collection schedule, UTC (default `0 * * * *`)
+- `JOBS_LOOKBACK_DAYS`: postings published this many days back are
+  collected (default `7`)
+- `JOBS_RETENTION_DAYS`: a posting leaves the list this many days after
+  publication, else first seen (default `15`)
+- `JOBS_SCRAPER_TIMEOUT_SECONDS`: per request to a job board (default `30`)
+- `JOBS_INGEST_LOCK_SECONDS`: TTL of the run lock (default `900`)
+- `JOBS_SCRAPERS`: comma list of scraper codes (default
+  `himalayas,remoteok`); `fixture` serves every source from
+  `JOBS_FIXTURE_PATH` and is refused when `ENVIRONMENT=PROD`
+- `JOBS_FIXTURE_PATH`: the fixture scraper's JSON file (default unset)
 - `LOG_LEVEL`, `LOG_FORMAT`: Logging configuration
 - `API_PREFIX`: Route prefix (default: /api)
 - `DATABASE_ECHO`: SQLAlchemy echo (default: False)
@@ -1184,6 +1297,11 @@ Optional (with defaults):
   - `was_ai_generated` / `adjustments` are the tailoring port's provenance fields: `was_ai_generated` is always `false`; `adjustments` is `[]` for a verbatim copy and filled by the keyword binding (one `{section, description}` per reordered section, ADR-0017)
   - Created through `TailoringService`, never assembled in the use case
 
+- **JobSource** (KODI-046, table `job_sources`, revision `b28d5134631f`): the admin-managed catalog of job boards (`himalayas`, `remoteok`, seeded by the migration), no owner. `code` UNIQUE; `platform_id` → the public platform named after the source (`ON DELETE SET NULL`, but the admin delete refuses it); `is_enabled`; `last_run_at/status/error/found/saved` (status CHECK `ok`/`failed`/`blocked`)
+- **Job** (table `jobs`): one shared posting per `(source_id, external_id)` (`uq_jobs_source_external`): title, company, company url, location (default `Remote`), job url, plain-text description, employment type, salary text, `tags TEXT[]` (GIN `ix_jobs_tags`), `keywords` JSONB (ADR-0017), `content_hash`, `posted_at`, `first_seen_at`, `last_seen_at`, `is_active` (`ix_jobs_active_posted`). Never deleted
+- **JobFitScore** (table `job_fit_scores`): the fit 0..100 (CHECK) of one master CV for one job, UNIQUE `(base_cv_id, job_id)`, `user_id` = the CV's owner, `computed_at`; `ix_job_fit_scores_user_job`
+- `job_dismissals`, `saved_job_searches` and `applications.job_id` exist (same revision) but are unmapped until K5
+
 ### Key Relationships
 - Application → User (many-to-one, cascade delete)
 - Application → Platform (many-to-one)
@@ -1199,6 +1317,9 @@ Optional (with defaults):
 - TailoredCV → Application (one-to-one, cascade delete, `passive_deletes=True`), UNIQUE on application_id
 - TailoredCV → User (many-to-one, cascade delete)
 - TailoredCV → BaseCV (many-to-one, nullable, **SET NULL** on delete — the copy outlives its master)
+- Job → JobSource (many-to-one, **RESTRICT** on delete)
+- JobSource → Platform (many-to-one, nullable, SET NULL on delete; the admin platform delete refuses it)
+- JobFitScore → User, Job and BaseCV (many-to-one, **CASCADE** on each - deleting a master CV removes its fit everywhere)
 - DiscordConnection → User (one-to-one, cascade delete — deleting the user removes the connection; no ORM relationship is declared back on `UserModel`, same as BaseCV/TailoredCV)
 
 Applications are closed ("finalized") when `finalized_at` is set; reopen clears it.
@@ -1225,7 +1346,8 @@ DiscordServiceDp = Annotated[DiscordService, Depends(get_discord_service)]
 ```
 
 ### File Organization
-- Use cases grouped in subdirectories by feature (applications/, timeline_events/, compat/, user_stats/, quinzenal_reports/, companies/, user_feedbacks/, base_cvs/, tailored_cvs/)
+- Use cases grouped in subdirectories by feature (applications/, timeline_events/, compat/, user_stats/, quinzenal_reports/, companies/, user_feedbacks/, base_cvs/, tailored_cvs/, jobs/ - the worker's ingest and fit recompute, admin/jobs/)
+- `app/worker/` is the background worker's delivery layer (ADR-0016): `broker.py`, `tasks.py`, `queue.py`; scrapers live in `app/application/services/job_ingestion/scrapers/`
 - `use_cases/compat/` holds the layer for installed `applika-cli` 0.1.4 (step translation, legacy steps, legacy finalize); nothing there owns data
 - One repository per model in `domain/repositories/`
 - API routes in `presentation/api/` match resource names
