@@ -144,6 +144,8 @@ def test_parse_job_rejects_missing_required_fields(item):
         (100000, None, 'EUR from 100,000'),
         (None, 90000, 'EUR up to 90,000'),
         ('n/a', None, None),
+        (1e400, None, None),
+        ('inf', None, None),
     ],
 )
 def test_salary_with_one_bound(low, high, expected):
@@ -390,3 +392,16 @@ def test_wrapper_maps_a_transport_error_to_failed(error):
         f'Himalayas request failed: {type(error).__name__}'
     )
     session.close.assert_called_once()
+
+
+def test_nul_characters_never_reach_the_database():
+    posting = parse_job({
+        **_job('nul\x00id'),
+        'title': 'Engi\x00neer',
+        'description': '<p>Py\x00thon</p>',
+    })
+
+    assert posting is not None
+    assert posting.external_id == 'nulid'
+    assert posting.title == 'Engineer'
+    assert posting.description_text == 'Python'

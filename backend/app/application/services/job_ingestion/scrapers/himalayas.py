@@ -125,7 +125,8 @@ def _amount(value: Any) -> int | None:
         return None
     try:
         return int(float(value))
-    except TypeError, ValueError:
+    # 1e400 and 'inf' overflow int(): no salary rather than a failed run.
+    except TypeError, ValueError, OverflowError:
         return None
 
 

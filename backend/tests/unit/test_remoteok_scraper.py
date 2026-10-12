@@ -178,3 +178,18 @@ def test_parse_item_salary_with_only_a_maximum():
 
     assert posting is not None
     assert posting.salary_text == 'USD up to 80,000'
+
+
+@pytest.mark.parametrize('value', ['Infinity', 1e400, '-5'])
+def test_an_unusable_salary_is_no_salary(value):
+    posting = parse_item({
+        'id': '9',
+        'position': 'P',
+        'url': 'https://remoteok.com/9',
+        'salary_min': value,
+        'description': 'a\x00b',
+    })
+
+    assert posting is not None
+    assert posting.salary_text is None
+    assert posting.description_text == 'ab'

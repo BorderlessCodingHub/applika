@@ -66,10 +66,13 @@ class BaseScraper(Protocol):
 
 
 def text(value: Any) -> str:
-    """A scalar from a JSON payload as trimmed text (``None`` is ``''``)."""
+    """A scalar from a JSON payload as trimmed text (``None`` is ``''``).
+
+    NUL characters are dropped: Postgres text cannot hold them, and one in
+    a single posting would fail the whole source's save every hour."""
     if value is None or isinstance(value, (dict, list)):
         return ''
-    return str(value).strip()
+    return str(value).replace('\x00', '').strip()
 
 
 def text_list(value: Any) -> list[str]:
@@ -195,4 +198,4 @@ def html_to_text(markup: str | None) -> str:
     lines = (
         ' '.join(line.split()) for line in ''.join(extractor.parts).split('\n')
     )
-    return '\n'.join(line for line in lines if line)
+    return '\n'.join(line for line in lines if line).replace('\x00', '')
