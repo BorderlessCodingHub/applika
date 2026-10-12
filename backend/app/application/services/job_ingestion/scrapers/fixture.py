@@ -4,8 +4,9 @@ PROD - ``Settings`` refuses ``fixture`` in ``JOBS_SCRAPERS`` there.
 
 The file is ``{<source_code>: [<posting>, ...]}``. A posting carries the
 :class:`ScrapedPosting` fields; ``posted_at`` is ISO 8601, or
-``posted_days_ago`` (a whole number) dates it relative to the run, so a
-committed file never ages out of the lookback window. A source code absent
+``posted_days_ago`` (a whole number) dates it that many days before
+today's midnight UTC, so a committed file never ages out of the lookback
+window and two runs on one day see the same date. A source code absent
 from the file has no postings. A missing or malformed file is
 :class:`SourceFailed`.
 """
@@ -70,9 +71,13 @@ class FixtureScraper:
             raise SourceFailed(
                 f'The jobs fixture for {self.code} is not a list'
             )
-        now = datetime.now(timezone.utc)
+        # Midnight UTC: a relative date stays the same all day, so two runs
+        # on one day see an unchanged posting.
+        today = datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
         postings = [
-            _posting(item, now) for item in items if isinstance(item, dict)
+            _posting(item, today) for item in items if isinstance(item, dict)
         ]
         return [
             p

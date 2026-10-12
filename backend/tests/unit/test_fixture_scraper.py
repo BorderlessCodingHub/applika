@@ -49,11 +49,12 @@ async def test_the_file_is_keyed_by_source_code():
 
 
 async def test_postings_carry_every_field_and_a_relative_date():
-    before = datetime.now(timezone.utc)
     posting = (
         await FixtureScraper('himalayas', str(POSTINGS)).fetch(_since())
     )[0]
-    after = datetime.now(timezone.utc)
+    midnight = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
 
     assert posting.title == 'Senior Python Backend Engineer'
     assert posting.company_name == 'Fixture Remote Co'
@@ -62,12 +63,8 @@ async def test_postings_carry_every_field_and_a_relative_date():
     assert posting.employment_type == 'Full Time'
     assert posting.salary_text == 'USD 150,000-190,000'
     assert posting.tags == ('Python', 'PostgreSQL', 'FastAPI')
-    assert posting.posted_at is not None
-    assert (
-        before - timedelta(days=1)
-        <= posting.posted_at
-        <= after - timedelta(days=1)
-    )
+    # ``posted_days_ago: 1`` -> yesterday's midnight UTC, stable all day.
+    assert posting.posted_at == midnight - timedelta(days=1)
 
 
 async def test_an_unknown_code_has_no_postings():
