@@ -671,7 +671,28 @@ def test_upgrade_adds_tables_and_column_and_nothing_is_missing(
     } | {('applications', 'job_id')}
     assert _tables(migration_db) == tables_before | set(NEW_TABLES)
     assert _columns(migration_db) == columns_before | expected_columns
-    assert CREATED_INDEXES <= set(_index_defs(migration_db))
+    index_defs = _index_defs(migration_db)
+    assert CREATED_INDEXES <= set(index_defs)
+    # The shape of each index, not just its name.
+    assert index_defs['ix_jobs_active_posted'].endswith(
+        '(is_active, posted_at DESC)'
+    )
+    assert 'USING gin (tags)' in index_defs['ix_jobs_tags']
+    assert index_defs['ix_job_fit_scores_user_job'].endswith(
+        '(user_id, job_id)'
+    )
+    assert index_defs['uq_saved_job_searches_user_name'].startswith(
+        'CREATE UNIQUE INDEX'
+    )
+    assert index_defs['uq_saved_job_searches_user_name'].endswith(
+        '(user_id, lower((name)::text))'
+    )
+    assert index_defs['uq_applications_user_job'].startswith(
+        'CREATE UNIQUE INDEX'
+    )
+    assert index_defs['uq_applications_user_job'].endswith(
+        '(user_id, job_id) WHERE (job_id IS NOT NULL)'
+    )
 
 
 # --------------------------------------------------------------------------
@@ -952,6 +973,13 @@ def test_cascades_and_set_null(migration_db: str) -> None:
     _upgraded(migration_db)
     _write_feature_rows(migration_db)
 
+    # A source with jobs cannot be deleted (RESTRICT).
+    _refused(
+        migration_db,
+        "DELETE FROM job_sources WHERE code = 'remoteok'",
+        {},
+    )
+
     # Deleting a base CV removes its fit rows only.
     _apply(
         migration_db,
@@ -974,14 +1002,31 @@ def test_cascades_and_set_null(migration_db: str) -> None:
     assert application == [{'id': APPLICATION_A_ID, 'job_id': None}]
     assert _query(migration_db, 'SELECT id FROM job_fit_scores') == []
 
-    # A source with jobs cannot be deleted (RESTRICT).
-    _refused(
+    # Deleting a job removes its dismissals (CASCADE).
+    _apply(
         migration_db,
-        "DELETE FROM job_sources WHERE code = 'remoteok'",
-        {},
+        [('DELETE FROM jobs WHERE id = :id', {'id': JOB_2_ID})],
     )
+    assert _query(migration_db, 'SELECT id FROM job_dismissals') == []
 
     # Deleting a user removes their dismissals and searches.
+    remoteok = _sources(migration_db)['remoteok']['id']
+    _apply(
+        migration_db,
+        [
+            (_INSERT_JOB, _job(JOB_2_ID + 5, remoteok, 'rk-5')),
+            (
+                _INSERT_DISMISSAL,
+                {
+                    'id': 7600000000000000605,
+                    'user_id': USER_B_ID,
+                    'job_id': JOB_2_ID + 5,
+                    'now': _now(),
+                },
+            ),
+        ],
+    )
+    assert len(_query(migration_db, 'SELECT id FROM job_dismissals')) == 1
     _apply(
         migration_db,
         [('DELETE FROM users WHERE id = :id', {'id': USER_B_ID})],
