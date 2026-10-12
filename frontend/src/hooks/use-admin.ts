@@ -323,21 +323,29 @@ export function useUpdateAdminJobSource() {
     AdminJobSource,
     AxiosError,
     { id: string; is_enabled: boolean },
-    { previous: AdminJobSource[] | undefined }
+    { previous: AdminJobSource | undefined }
   >({
     mutationFn: ({ id, is_enabled }) =>
       services.admin.updateJobSource(id, { is_enabled }),
     onMutate: async ({ id, is_enabled }) => {
       await qc.cancelQueries({ queryKey: ADMIN_JOB_SOURCES_KEY });
-      const previous = qc.getQueryData<AdminJobSource[]>(ADMIN_JOB_SOURCES_KEY);
+      const previous = qc
+        .getQueryData<AdminJobSource[]>(ADMIN_JOB_SOURCES_KEY)
+        ?.find((row) => row.id === id);
       qc.setQueryData<AdminJobSource[]>(ADMIN_JOB_SOURCES_KEY, (rows) =>
         rows?.map((row) => (row.id === id ? { ...row, is_enabled } : row)),
       );
       return { previous };
     },
-    onError: (err, _vars, context) => {
-      if (context?.previous) {
-        qc.setQueryData(ADMIN_JOB_SOURCES_KEY, context.previous);
+    // Rolls back THIS row only: another PATCH in flight keeps its own value.
+    onError: (err, { id }, context) => {
+      const previous = context?.previous;
+      if (previous) {
+        qc.setQueryData<AdminJobSource[]>(ADMIN_JOB_SOURCES_KEY, (rows) =>
+          rows?.map((row) =>
+            row.id === id ? { ...row, is_enabled: previous.is_enabled } : row,
+          ),
+        );
       }
       toast.error(getApiError(err));
     },

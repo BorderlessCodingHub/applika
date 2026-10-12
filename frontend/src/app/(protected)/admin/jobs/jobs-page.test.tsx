@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
@@ -339,5 +339,111 @@ describe("JobsPage", () => {
     expect(
       await screen.findByText("Could not start a run. Try again."),
     ).toBeInTheDocument();
+  });
+  it("two sources toggled back to back both leave the pending state (QA B1)", async () => {
+    const state = { s1: true, s2: true } as Record<string, boolean>;
+    vi.mocked(services.admin.getJobSources).mockImplementation(async () => [
+      { ...HIMALAYAS, is_enabled: state.s1 },
+      { ...REMOTEOK, is_enabled: state.s2 },
+    ]);
+    const settles: Record<string, () => void> = {};
+    vi.mocked(services.admin.updateJobSource).mockImplementation(
+      (id: string, data: { is_enabled: boolean }) =>
+        new Promise((resolve) => {
+          settles[id] = () => {
+            state[id] = data.is_enabled;
+            resolve({
+              ...(id === "s1" ? HIMALAYAS : REMOTEOK),
+              is_enabled: data.is_enabled,
+            });
+          };
+        }),
+    );
+    renderPage();
+    const himalayas = await screen.findByRole("switch", {
+      name: "Collect from Himalayas",
+    });
+    const remoteok = screen.getByRole("switch", {
+      name: "Collect from RemoteOK",
+    });
+    await userEvent.click(himalayas);
+    await userEvent.click(remoteok);
+    expect(himalayas).toHaveAttribute("aria-busy", "true");
+    expect(remoteok).toHaveAttribute("aria-busy", "true");
+
+    await act(async () => settles.s1());
+    await act(async () => settles.s2());
+
+    await waitFor(() => expect(remoteok).not.toHaveAttribute("aria-busy"));
+    // The first one must not stay pending forever.
+    await waitFor(() => expect(himalayas).not.toHaveAttribute("aria-busy"), {
+      timeout: 2000,
+    });
+  });
+
+  it("Run now: a 409 notice is the info tone, a 503 the error tone, and each POST clears the last notice", async () => {
+    vi.mocked(services.admin.getJobSources).mockResolvedValue([HIMALAYAS]);
+    vi.mocked(services.admin.startJobRun)
+      .mockRejectedValueOnce(
+        Object.assign(new Error("409"), {
+          isAxiosError: true,
+          response: {
+            status: 409,
+            data: { detail: "A run is already in progress" },
+          },
+        }),
+      )
+      .mockRejectedValueOnce(
+        Object.assign(new Error("503"), {
+          isAxiosError: true,
+          response: {
+            status: 503,
+            data: { detail: "Background service unavailable" },
+          },
+        }),
+      );
+    const { container } = renderPage();
+    await screen.findByRole("rowheader", { name: /Himalayas/ });
+    await userEvent.click(screen.getByRole("button", { name: "Run now" }));
+    await screen.findByText("A run is already in progress");
+    expect(
+      container.querySelector('[data-slot="job-run-notice"]'),
+    ).toHaveAttribute("data-tone", "info");
+    await userEvent.click(screen.getByRole("button", { name: "Run now" }));
+    await screen.findByText("Background service unavailable");
+    expect(
+      container.querySelector('[data-slot="job-run-notice"]'),
+    ).toHaveAttribute("data-tone", "error");
+    expect(screen.queryByText("A run is already in progress")).toBeNull();
+  });
+
+  it("Run now: after a 202 the list keeps refetching for a bounded while", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.mocked(services.admin.getJobSources).mockResolvedValue([HIMALAYAS]);
+      vi.mocked(services.admin.startJobRun).mockResolvedValue({ queued: true });
+      renderPage();
+      await screen.findByRole("rowheader", { name: /Himalayas/ });
+      await userEvent.click(screen.getByRole("button", { name: "Run now" }));
+      await waitFor(() =>
+        expect(services.admin.getJobSources).toHaveBeenCalledTimes(2),
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3_100);
+      });
+      await waitFor(() =>
+        expect(services.admin.getJobSources).toHaveBeenCalledTimes(3),
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(61_000);
+      });
+      const settled = vi.mocked(services.admin.getJobSources).mock.calls.length;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      expect(services.admin.getJobSources).toHaveBeenCalledTimes(settled);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

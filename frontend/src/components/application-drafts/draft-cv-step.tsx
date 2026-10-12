@@ -80,6 +80,9 @@ export function DraftCvStep({
 
   // Off by default, every time the picker shows (R-026: the verbatim copy is the default).
   const [tailorByKeywords, setTailorByKeywords] = useState(false);
+  // This step stays mounted through create and delete: once a copy exists the
+  // choice is spent, so a picker that comes back after a delete starts off.
+  if (cv && tailorByKeywords) setTailorByKeywords(false);
   const [selectedBaseCvId, setSelectedBaseCvId] = useState<string | null>(null);
   const [deletingBaseCvId, setDeletingBaseCvId] = useState<string | null>(null);
   const [exportingBaseCvId, setExportingBaseCvId] = useState<string | null>(

@@ -1473,4 +1473,54 @@ describe("NewWithCvPage — step 2 'Tailor by keywords' and the CV fit (KODI-049
     expect(screen.queryByText("CV fit for this job")).not.toBeInTheDocument();
     expect(getFitMock).not.toHaveBeenCalled();
   }, 15_000);
+
+  it("the switch is off again when the picker comes back after a delete", async () => {
+    searchParams = new URLSearchParams("id=draft-9&step=cv");
+    getDraftMock.mockResolvedValue(draftWithJd("We need a Rust wizard"));
+    listBaseCvsMock.mockResolvedValue([MOCK_BASE_CV]);
+    createTailoredCvMock.mockResolvedValue(SAVED_CV);
+    removeTailoredCvMock.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("switch", { name: "Tailor by keywords" }),
+    );
+    getTailoredCvMock.mockResolvedValue(SAVED_CV);
+    await user.click(
+      screen.getByRole("button", { name: "Create the CV copy" }),
+    );
+    await screen.findByRole("button", { name: "Delete this CV copy" });
+    getTailoredCvMock.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 404 },
+    });
+    await user.click(
+      screen.getByRole("button", { name: "Delete this CV copy" }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    const again = await screen.findByRole("switch", {
+      name: "Tailor by keywords",
+    });
+    expect(again).not.toBeChecked();
+  }, 15_000);
+
+  it("refetches the fit once a changed job description is autosaved (T093)", async () => {
+    searchParams = new URLSearchParams("id=draft-9&step=cv");
+    getDraftMock.mockResolvedValue(draftWithJd("We need a Rust wizard", true));
+    getTailoredCvMock.mockResolvedValue(SAVED_CV);
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText("Fit 64%")).toBeInTheDocument();
+    expect(getFitMock).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    const jd = await screen.findByLabelText("Job description", { exact: true });
+    await user.type(jd, " and Kafka");
+    await waitFor(() => expect(updateDraftMock).toHaveBeenCalled(), {
+      timeout: 4000,
+    });
+    await waitFor(() => expect(getFitMock).toHaveBeenCalledTimes(2));
+  }, 15_000);
 });

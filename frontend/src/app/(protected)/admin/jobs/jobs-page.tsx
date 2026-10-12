@@ -85,13 +85,16 @@ export function JobsPage() {
     (source: JobSourceRow, enabled: boolean) => {
       if (pendingIds.includes(source.id)) return;
       setPendingIds((ids) => [...ids, source.id]);
-      updateMutation.mutate(
-        { id: source.id, is_enabled: enabled },
-        {
-          onSettled: () =>
-            setPendingIds((ids) => ids.filter((id) => id !== source.id)),
-        },
-      );
+      // Not `mutate(vars, { onSettled })`: TanStack Query 5 runs per-call
+      // callbacks only for the LATEST call, so a second switch toggled before
+      // the first PATCH returns would leave the first one pending for good.
+      // The hook already toasts and rolls back a failure.
+      void updateMutation
+        .mutateAsync({ id: source.id, is_enabled: enabled })
+        .catch(() => undefined)
+        .finally(() =>
+          setPendingIds((ids) => ids.filter((id) => id !== source.id)),
+        );
     },
     [pendingIds, updateMutation],
   );

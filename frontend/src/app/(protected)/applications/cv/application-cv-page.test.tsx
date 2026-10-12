@@ -1023,4 +1023,69 @@ describe("Tailor by keywords and the CV fit (KODI-049)", () => {
     const list = screen.getByRole("list", { name: "Reordered by job match" });
     expect(list).toHaveTextContent("Skill categories reordered by job match");
   });
+
+  it("turns the switch back off after a create, so a later copy is verbatim again", async () => {
+    const user = userEvent.setup();
+    getCopy.mockRejectedValueOnce(noCopy()).mockResolvedValue(COPY);
+    renderPage();
+
+    await user.click(await screen.findByRole("radio", { name: /Backend CV/ }));
+    await user.click(
+      screen.getByRole("switch", { name: "Tailor by keywords" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Create the CV copy" }),
+    );
+    await screen.findByRole("button", { name: "Save CV copy" });
+
+    getCopy.mockRejectedValue(noCopy());
+    await user.click(
+      screen.getByRole("button", { name: "Delete this CV copy" }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+    expect(
+      await screen.findByRole("switch", { name: "Tailor by keywords" }),
+    ).not.toBeChecked();
+  });
+
+  it("refetches the fit when the copy is deleted and created again", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue(COPY);
+    renderPage();
+
+    await screen.findByText("Fit 72%");
+    const before = getFit.mock.calls.length;
+    getCopy.mockRejectedValue(noCopy());
+    await user.click(
+      screen.getByRole("button", { name: "Delete this CV copy" }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await user.click(await screen.findByRole("radio", { name: /Backend CV/ }));
+    getCopy.mockResolvedValue(COPY);
+    getFit.mockResolvedValue({ ...FIT, score: 41 });
+    await user.click(
+      screen.getByRole("button", { name: "Create the CV copy" }),
+    );
+
+    expect(await screen.findByText("Fit 41%")).toBeInTheDocument();
+    expect(getFit.mock.calls.length).toBeGreaterThan(before);
+  });
+
+  it("says the fit reflects the last saved version while the copy has unsaved edits", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue(COPY);
+    renderPage();
+
+    await screen.findByText("Fit 72%");
+    expect(
+      screen.queryByText("The fit reflects the last saved version."),
+    ).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText("Headline", { exact: true }), "!");
+    expect(
+      await screen.findByText("The fit reflects the last saved version."),
+    ).toBeInTheDocument();
+  });
 });
