@@ -400,8 +400,16 @@ function SavedSearchNameDialog({
   onSubmit: (name: string) => Promise<SavedSearchOutcome>;
   returnFocusRef: RefObject<HTMLElement | null>;
 }) {
+  const [pending, setPending] = useState(false);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // A late 409 must land in an open dialog (Escape/overlay wait).
+        if (!next && pending) return;
+        onOpenChange(next);
+      }}
+    >
       <DialogContent
         data-slot="saved-search-name-dialog"
         data-mode={mode}
@@ -424,6 +432,7 @@ function SavedSearchNameDialog({
             mode === "rename" ? JOBS_COPY.renameSubmit : JOBS_COPY.saveSubmit
           }
           onSubmit={onSubmit}
+          onPendingChange={setPending}
           onDone={() => onOpenChange(false)}
         />
       </DialogContent>
@@ -436,11 +445,13 @@ function NameForm({
   defaultName,
   submitLabel,
   onSubmit,
+  onPendingChange,
   onDone,
 }: {
   defaultName: string;
   submitLabel: string;
   onSubmit: (name: string) => Promise<SavedSearchOutcome>;
+  onPendingChange: (pending: boolean) => void;
   onDone: () => void;
 }) {
   const form = useForm<NameValues>({
@@ -453,6 +464,7 @@ function NameForm({
   async function submit(values: NameValues) {
     if (pending) return;
     setPending(true);
+    onPendingChange(true);
     setServerError(null);
     try {
       const outcome = await onSubmit(values.name);
@@ -462,6 +474,7 @@ function NameForm({
       setServerError(GENERIC_ERROR);
     } finally {
       setPending(false);
+      onPendingChange(false);
     }
   }
 
@@ -540,8 +553,15 @@ function SavedSearchDeleteDialog({
   onConfirm: () => Promise<SavedSearchOutcome> | undefined;
   returnFocusRef: RefObject<HTMLElement | null>;
 }) {
+  const [pending, setPending] = useState(false);
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && pending) return;
+        onOpenChange(next);
+      }}
+    >
       <AlertDialogContent
         data-slot="saved-search-delete-dialog"
         onCloseAutoFocus={(event) => returnFocus(returnFocusRef, event)}
@@ -554,6 +574,7 @@ function SavedSearchDeleteDialog({
         </AlertDialogHeader>
         <DeleteActions
           onConfirm={onConfirm}
+          onPendingChange={setPending}
           onDone={() => onOpenChange(false)}
         />
       </AlertDialogContent>
@@ -563,9 +584,11 @@ function SavedSearchDeleteDialog({
 
 function DeleteActions({
   onConfirm,
+  onPendingChange,
   onDone,
 }: {
   onConfirm: () => Promise<SavedSearchOutcome> | undefined;
+  onPendingChange: (pending: boolean) => void;
   onDone: () => void;
 }) {
   const [pending, setPending] = useState(false);
@@ -574,6 +597,7 @@ function DeleteActions({
   async function confirm() {
     if (pending) return;
     setPending(true);
+    onPendingChange(true);
     setServerError(null);
     try {
       const outcome = await onConfirm();
@@ -583,6 +607,7 @@ function DeleteActions({
       setServerError(GENERIC_ERROR);
     } finally {
       setPending(false);
+      onPendingChange(false);
     }
   }
 

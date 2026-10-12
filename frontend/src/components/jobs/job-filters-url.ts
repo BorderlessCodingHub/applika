@@ -17,6 +17,9 @@ interface SearchParamsLike {
   getAll(name: string): string[];
 }
 
+/** Far past any real list; past the last page the page itself replaces it. */
+const MAX_PAGE = 100_000;
+
 function readInt(raw: string | null): number | null {
   if (raw == null || raw.trim() === "") return null;
   const value = Number(raw);
@@ -81,7 +84,9 @@ export function filtersFromSearchParams(params: SearchParamsLike): JobFilters {
 /** `?page=`; anything that is not a whole number of at least 1 is page 1. */
 export function pageFromSearchParams(params: SearchParamsLike): number {
   const page = readInt(params.get("page"));
-  return page == null || page < 1 ? 1 : page;
+  if (page == null || page < 1) return 1;
+  // A hand-edited `?page=1e22` would reach the API as "1e+22" (a 422).
+  return Math.min(page, MAX_PAGE);
 }
 
 /**

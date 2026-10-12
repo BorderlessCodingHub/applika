@@ -52,7 +52,7 @@ export function JobFitList({
       aria-labelledby={headingId}
       data-slot="job-fit-list"
       className={cn(
-        "flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-card",
+        "flex min-w-0 flex-col gap-4 rounded-xl border bg-card p-5 shadow-card",
         className,
       )}
     >

@@ -49,6 +49,7 @@ import {
   useRestoreJob,
 } from "@/hooks/use-jobs";
 import { scrollIntoContainer } from "@/lib/scroll-into-container";
+import { cn } from "@/lib/utils";
 import type { JobSearch } from "@/services/types/job-searches";
 import type { JobFilters, JobSummary } from "@/services/types/jobs";
 
@@ -243,7 +244,14 @@ export function JobsPage() {
         />
       ) : (
         <>
-          <ul className="flex flex-col gap-3" data-slot="job-list">
+          <ul
+            aria-busy={jobs.isPlaceholderData || undefined}
+            data-slot="job-list"
+            className={cn(
+              "flex flex-col gap-3 transition-opacity",
+              jobs.isPlaceholderData && "opacity-60",
+            )}
+          >
             {data.items.map((job) => (
               <li key={job.id} data-job-id={job.id}>
                 <JobListItem

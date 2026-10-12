@@ -163,14 +163,13 @@ export function useStartApplicationFromJob() {
   return useMutation({
     mutationFn: (data: DraftFromJobInput) =>
       services.applicationDrafts.createFromJob(data),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: JOBS_QUERY_KEY }),
-        queryClient.invalidateQueries({ queryKey: JOB_QUERY_KEY }),
-        queryClient.invalidateQueries({
-          queryKey: APPLICATION_DRAFTS_QUERY_KEY,
-        }),
-      ]);
+    // Not awaited: the page navigates away at once, nothing here waits on the refetch.
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: JOBS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: JOB_QUERY_KEY });
+      void queryClient.invalidateQueries({
+        queryKey: APPLICATION_DRAFTS_QUERY_KEY,
+      });
     },
   });
 }

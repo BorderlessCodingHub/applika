@@ -124,6 +124,29 @@ describe("SavedSearchesMenu", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
+  it("keeps the dialog open on Escape while the save is in flight", async () => {
+    const handlers = renderMenu();
+    let finish: (value: string) => void = () => {};
+    handlers.onSave.mockReturnValue(new Promise((r) => (finish = r)));
+    await openMenu();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Save current search" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.type(within(dialog).getByLabelText("Name"), "Late");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Save search" }),
+    );
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    finish("A saved search with this name already exists");
+    expect(
+      await within(dialog).findByText(
+        "A saved search with this name already exists",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("renames a saved search", async () => {
     const handlers = renderMenu();
     await openMenu();

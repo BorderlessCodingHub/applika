@@ -78,10 +78,11 @@ beforeEach(() => {
   restoreJob.mockReset().mockResolvedValue(undefined);
   listBaseCvs
     .mockReset()
+    // Deliberately NOT best-first: the fit list sorts them.
     .mockResolvedValue([
-      makeCv("7", "Backend CV"),
-      makeCv("8", "Data CV"),
       makeCv("9", "Design CV"),
+      makeCv("8", "Data CV"),
+      makeCv("7", "Backend CV"),
     ]);
   createFromJob.mockReset().mockResolvedValue({ id: "555" });
   push.mockReset();
@@ -154,6 +155,32 @@ describe("/jobs/view (AC4)", () => {
       }),
     ).toHaveAttribute("href", "/cvs/new");
     expect(screen.queryByText(/^Fit \d+%$/)).toBeNull();
+  });
+});
+
+describe("/jobs/view: scraped links", () => {
+  it("renders no link for a non-http(s) job or company URL", async () => {
+    getJob.mockResolvedValue(
+      makeDetail({
+        job_url: "javascript:alert(1)",
+        company_url: "data:text/html,hi",
+      }),
+    );
+    renderPage();
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "Senior Backend Engineer",
+    });
+    expect(screen.queryByRole("link", { name: /View on/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Company website" })).toBeNull();
+  });
+
+  it("says so when the description is blank", async () => {
+    getJob.mockResolvedValue(makeDetail({ description_text: "   " }));
+    renderPage();
+    expect(
+      await screen.findByText("This job has no description."),
+    ).toBeInTheDocument();
   });
 });
 
@@ -267,6 +294,29 @@ describe("/jobs/view: actions", () => {
     expect(push).toHaveBeenCalledWith(
       "/applications/new-with-cv?id=555&step=cv",
     );
+  });
+
+  it("offers 'Open application' when a no-longer-listed job answers 404 (AC8)", async () => {
+    getJob.mockResolvedValue(
+      makeDetail({
+        is_active: false,
+        application: { id: "901", is_draft: false },
+      }),
+    );
+    createFromJob.mockRejectedValue(apiError(404, "Job not found"));
+    renderPage();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Start application" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(listBaseCvs).toHaveBeenCalled());
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Create draft" }),
+    );
+    expect(
+      await within(dialog).findByRole("link", { name: "Open application" }),
+    ).toHaveAttribute("href", "/applications?focus=901");
+    expect(within(dialog).queryByText("Job not found")).toBeNull();
   });
 
   it("shows the Draft link and still offers Start application (AC8, AC11)", async () => {

@@ -67,6 +67,7 @@ describe("job filters in the URL (T079, Plan corrections 17)", () => {
     ).toEqual(DEFAULT_JOB_FILTERS);
     expect(pageFromSearchParams(new URLSearchParams("page=-2"))).toBe(1);
     expect(pageFromSearchParams(new URLSearchParams("page=abc"))).toBe(1);
+    expect(pageFromSearchParams(new URLSearchParams("page=1e22"))).toBe(100000);
   });
 
   it("trims, dedupes (case-sensitively) and caps tags at 10 of 100 characters", () => {

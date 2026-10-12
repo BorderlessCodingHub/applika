@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   StartApplicationDialog,
@@ -11,6 +12,7 @@ import {
 import { isBlankDescription } from "@/components/jobs/job-copy";
 import { useBaseCvs } from "@/hooks/use-base-cvs";
 import {
+  JOBS_QUERY_KEY,
   apiStatus,
   jobApiDetail,
   useJob,
@@ -57,6 +59,7 @@ export function StartApplicationFlow({
   onOpenChange,
 }: StartApplicationFlowProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const baseCvs = useBaseCvs();
   const detail = useJob(job?.id);
   const start = useStartApplicationFromJob();
@@ -92,13 +95,22 @@ export function StartApplicationFlow({
         router.push(draftCvStepHref(draft.id));
       },
       onError: async (failure) => {
-        if (apiStatus(failure) !== 409) {
+        const status = apiStatus(failure);
+        // A 409 is the existing application. So is a 404 on a job that left
+        // the list while the user holds one: the API answers 404 for an
+        // inactive job before it checks for the duplicate.
+        const knownApplication =
+          status === 404 ? (detail.data?.application ?? null) : null;
+        if (status !== 409 && !knownApplication) {
           setError(jobApiDetail(failure));
           return;
         }
-        setConflict({ application: null, isLoading: true });
+        setConflict({ application: knownApplication, isLoading: true });
         const refetched = await detail.refetch();
-        const application = refetched.data?.application ?? null;
+        const application =
+          refetched.data?.application ?? knownApplication ?? null;
+        // The list may still miss its Draft/Applied mark.
+        void queryClient.invalidateQueries({ queryKey: JOBS_QUERY_KEY });
         if (application) {
           setConflict({ application });
         } else {

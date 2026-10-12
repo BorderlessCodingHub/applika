@@ -254,6 +254,8 @@ describe("/jobs: filters live in the URL (AC3, Plan corrections 17)", () => {
     renderPage();
     await screen.findByRole("article", { name: "Senior Backend Engineer" });
 
+    // The next page never lands, so the old one stays as placeholder.
+    listJobs.mockReturnValue(new Promise(() => {}));
     await userEvent.type(
       screen.getByRole("searchbox", { name: "Search jobs" }),
       "rust{Enter}",
@@ -261,6 +263,8 @@ describe("/jobs: filters live in the URL (AC3, Plan corrections 17)", () => {
 
     expect(pushSpy).toHaveBeenCalled();
     expect(currentQuery()).toBe("search=rust");
+    // The old page stays, marked busy, until the new one lands.
+    expect(screen.getByRole("list", { busy: true })).toBeInTheDocument();
     await waitFor(() =>
       expect(lastListCall()).toEqual([
         { ...DEFAULT_JOB_FILTERS, search: "rust" },
@@ -386,6 +390,19 @@ describe("/jobs: no master CV (AC5)", () => {
     expect(invitation).toHaveAttribute("href", "/cvs/new");
     await screen.findByRole("article", { name: "Senior Backend Engineer" });
     expect(screen.queryByText(/^Fit \d+%$/)).toBeNull();
+  });
+
+  it("disables Minimum fit without a master CV", async () => {
+    listBaseCvs.mockResolvedValue([]);
+    renderPage();
+    await screen.findByRole("link", {
+      name: "Create a master CV to see how well you fit each job",
+    });
+    await userEvent.click(screen.getByRole("button", { name: /More filters/ }));
+    expect(
+      screen.getByRole("combobox", { name: "Minimum fit" }),
+    ).toBeDisabled();
+    expect(screen.getByText("Needs a master CV.")).toBeInTheDocument();
   });
 
   it("does not invite a user who has one", async () => {
