@@ -72,6 +72,20 @@ class Draft(DraftInput, TimeSchema):
     id: SnowflakeID
     has_cv: bool
     application_date: date
+    # KODI-047: the job the draft was started from (``POST
+    # /applications/drafts/from-job``), ``null`` otherwise. Response only:
+    # ``DraftInput`` forbids it, so a PUT never sets or clears it.
+    job_id: SnowflakeID | None = None
+
+
+class DraftFromJob(BaseSchema):
+    """``POST /applications/drafts/from-job`` (KODI-047, R-017, R-020,
+    R-026): the job, and optionally a master CV to copy into the draft -
+    verbatim by default, ``keywords`` only on request (ADR-0017)."""
+
+    job_id: SnowflakeID
+    base_cv_id: SnowflakeID | None = None
+    tailoring: Literal['copy', 'keywords'] = 'copy'
 
 
 class DraftSummary(BaseSchema, TimeSchema):

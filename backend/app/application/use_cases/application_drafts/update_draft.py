@@ -18,7 +18,9 @@ class UpdateDraftUseCase:
 
     The CV copy is untouched: this use case never reads or writes
     ``tailored_cv`` (KODI-032 acceptance #4 - going back to step 1, changing
-    the data and returning to step 2 must not lose the copy).
+    the data and returning to step 2 must not lose the copy). ``job_id``
+    (KODI-047) is untouched too: it is not part of ``DraftInputDTO``, so a
+    draft started from a job stays tied to it (plan 0012 corrections 19).
     """
 
     def __init__(

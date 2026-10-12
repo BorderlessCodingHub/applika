@@ -782,3 +782,42 @@ async def test_get_applications_omits_open_draft(
     ids = [row['id'] for row in listed.json()]
     assert created.json()['id'] in ids
     assert draft_resp.json()['id'] not in ids
+
+
+async def test_list_applications_item_never_carries_job_id(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """KODI-047 (cli-compatibility): an application started from a job keeps
+    ``job_id`` in the database, but the ``Application`` shape every
+    published CLI reads stays unchanged - no ``job_id`` key, in the list or
+    in the OpenAPI schema."""
+    from tests.integration.test_jobs_api import add_job
+    from tests.integration.jobs_seed import seed_sources
+
+    await seed_sources(db_session)
+    job_id = await add_job(db_session)
+    db_session.add(
+        ApplicationModel(
+            id=1,
+            user_id=base_data()['user'].id,
+            platform_id=base_data()['plat_linkedin'].id,
+            company_name='Acme Corp',
+            role='Engineer',
+            mode='active',
+            application_date=date(2025, 12, 1),
+            job_id=job_id,
+        )
+    )
+    await db_session.commit()
+
+    response = await async_client.get('/applications')
+
+    assert response.status_code == 200, msg(200, response.status_code)
+    data = response.json()
+    assert len(data) == 1
+    assert 'job_id' not in data[0], msg('no job_id', list(data[0].keys()))
+    schema = (await async_client.get('/openapi.json')).json()
+    assert (
+        'job_id'
+        not in schema['components']['schemas']['Application']['properties']
+    )

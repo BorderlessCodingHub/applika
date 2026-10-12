@@ -660,3 +660,48 @@ async def test_foreign_draft_is_404_on_every_route(async_client: AsyncClient):
 
         cv_resp = await async_client.get(f'/applications/{draft["id"]}/cv')
         assert cv_resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# KODI-047: job_id on the draft shape
+# ---------------------------------------------------------------------------
+
+
+async def test_ordinary_draft_has_null_job_id(async_client: AsyncClient):
+    draft = await _create_draft(async_client)
+
+    assert draft['job_id'] is None
+    fetched = await async_client.get(f'/applications/drafts/{draft["id"]}')
+    assert fetched.json()['job_id'] is None
+
+
+async def test_put_keeps_a_from_job_drafts_job_id_and_cannot_set_it(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    from tests.integration.jobs_seed import seed_sources
+    from tests.integration.test_jobs_api import add_job
+
+    await seed_sources(db_session)
+    job_id = await add_job(db_session)
+    created = await async_client.post(
+        '/applications/drafts/from-job', json={'job_id': str(job_id)}
+    )
+    assert created.status_code == 201, msg(201, created.text)
+    draft = created.json()
+
+    put = await async_client.put(
+        f'/applications/drafts/{draft["id"]}',
+        json=draft_payload(role='Edited role'),
+    )
+    assert put.status_code == 200, msg(200, put.text)
+    assert put.json()['role'] == 'Edited role'
+    assert put.json()['job_id'] == str(job_id)
+
+    # job_id is not part of the input: a PUT naming it is refused.
+    refused = await async_client.put(
+        f'/applications/drafts/{draft["id"]}',
+        json=draft_payload(job_id=None),
+    )
+    assert refused.status_code == 422, msg(422, refused.text)
+    fetched = await async_client.get(f'/applications/drafts/{draft["id"]}')
+    assert fetched.json()['job_id'] == str(job_id)

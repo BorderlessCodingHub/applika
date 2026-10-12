@@ -78,6 +78,10 @@ class DraftDTO(BaseSchema):
     country: str | None = None
     job_description: str | None = None
     has_cv: bool
+    # KODI-047: the job the draft was started from, ``None`` for a draft
+    # made by hand. Kept by update and finish (never part of
+    # ``DraftInputDTO``, so a full-replace PUT cannot clear it).
+    job_id: int | None = None
 
 
 class DraftSummaryDTO(BaseSchema):
