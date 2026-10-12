@@ -24,15 +24,20 @@ from app.config.settings import envs
 
 QUEUE_NAME = 'applika:tasks'
 # A Redis that does not answer must not hold an API request (an enqueue)
-# for long; the blocking BRPOP of the worker has no read timeout.
+# for long, so connecting is bounded.
 CONNECT_TIMEOUT_SECONDS = 2
 
 
-def build_broker(url: str) -> AsyncBroker:
+def build_broker(url: str) -> ListQueueBroker:
+    """``socket_timeout=None`` is required: redis-py 8 reads with a 5-second
+    default timeout, and the worker's BRPOP blocks until a task arrives - with
+    the default it dies every 5 seconds. An API enqueue is bounded by
+    ``app/worker/queue.py`` instead."""
     return ListQueueBroker(
         url,
         queue_name=QUEUE_NAME,
         socket_connect_timeout=CONNECT_TIMEOUT_SECONDS,
+        socket_timeout=None,
     )
 
 

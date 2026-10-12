@@ -254,6 +254,18 @@ async def test_the_queue_binding_enqueues_and_reads_the_lock(
     assert await queue.ingest_running() is True
 
 
+def test_the_real_broker_blocks_on_brpop_without_a_read_timeout():
+    """redis-py 8 defaults ``socket_timeout`` to 5 seconds; the worker's
+    BRPOP would die every 5 seconds with it (found in the KODI-046 compose
+    check). Connecting stays bounded."""
+    broker = build_broker('redis://redis:6379/0')
+
+    kwargs = broker.connection_pool.connection_kwargs
+    assert kwargs['socket_timeout'] is None
+    assert kwargs['socket_connect_timeout'] == 2
+    assert broker.queue_name == QUEUE_NAME
+
+
 async def test_a_real_broker_on_a_closed_port_fails_fast():
     """What ``POST /admin/jobs/runs`` turns into a 503: a kick on a Redis
     that is not there raises at once, it never hangs."""
