@@ -63,6 +63,10 @@ _STOP_WORDS: frozenset[str] = frozenset(
 # (``node.js``). A trailing dot or hyphen is punctuation, not the word.
 _WORD_RE = re.compile(r'[a-z][a-z0-9+#\-]*(?:\.[a-z0-9+#\-]+)*')
 _TRAILING_JUNK_RE = re.compile(r'[.\-]+$')
+_WHITESPACE_RE = re.compile(r'\s+')
+# A letter or digit the word pattern could not take (``5`` in ``5G``, an
+# accented letter): a tag that holds one would be matched truncated.
+_UNMATCHABLE_RE = re.compile(r'[^\W_]')
 
 # Single letters are noise except the two that are languages.
 _SINGLE_LETTER_TERMS = frozenset({'c', 'r'})
@@ -85,29 +89,41 @@ def _clean(token: str) -> str:
     return _TRAILING_JUNK_RE.sub('', token)
 
 
+def _words(line: str) -> list[tuple[str, str]]:
+    """The words of one line, each with the punctuation just before it.
+
+    The gap before a word keeps only its non-whitespace characters, so any
+    run of spaces - non-breaking ones from a pasted posting included - is
+    ``''`` and ``CI / CD`` and ``CI/CD`` both carry ``'/'``.
+    """
+    lowered = line.lower()
+    words: list[tuple[str, str]] = []
+    previous_end = 0
+    for match in _WORD_RE.finditer(lowered):
+        gap = _WHITESPACE_RE.sub('', lowered[previous_end : match.start()])
+        words.append((_clean(match.group(0)), gap))
+        previous_end = match.end()
+    return words
+
+
 def _segments(text: str) -> list[list[str]]:
     """Split text into runs of words that stand next to each other.
 
-    Two words are adjacent only when nothing but spaces or tabs separates
-    them; any punctuation or line break ends the run. Word pairs are taken
-    within a run only, so a pair is always a real phrase of the text and a
-    CV phrase never spans two bullets or two fields.
+    Two words are adjacent only when nothing but whitespace on one line
+    separates them; any punctuation or line break ends the run. Word pairs
+    are taken within a run only, so a pair is always a real phrase of the
+    text.
     """
     segments: list[list[str]] = []
-    current: list[str] = []
-    lowered = text.lower()
-    previous_end = 0
-    for match in _WORD_RE.finditer(lowered):
-        gap = lowered[previous_end : match.start()]
-        if current and gap.strip(' \t'):
-            segments.append(current)
-            current = []
-        word = _clean(match.group(0))
-        if word:
+    for line in text.splitlines():
+        current: list[str] = []
+        for word, gap in _words(line):
+            if current and gap:
+                segments.append(current)
+                current = []
             current.append(word)
-        previous_end = match.end()
-    if current:
-        segments.append(current)
+        if current:
+            segments.append(current)
     return segments
 
 
@@ -123,11 +139,27 @@ def _most_frequent(counter: Counter[str], limit: int) -> list[str]:
     return [term for term, _ in ranked[:limit]]
 
 
+def _tag_keyword(tag: str) -> str | None:
+    """A tag as a keyword: trimmed, lower case, inner whitespace collapsed.
+
+    ``None`` for a tag that could never be matched as written: no word at
+    all (``-``, ``#``), a letter or digit the word pattern drops (``5G``
+    would shrink to ``g``), or a single stop word or stray letter.
+    """
+    keyword = ' '.join(tag.split()).lower()
+    words = _words(keyword)
+    if not words or _UNMATCHABLE_RE.search(_WORD_RE.sub('', keyword)):
+        return None
+    if len(words) == 1 and not _is_term(words[0][0]):
+        return None
+    return keyword
+
+
 def job_keywords(text: str | None, tags: Iterable[str]) -> list[str]:
     """The keywords a job is scored on.
 
     The 25 most frequent terms, then the 25 most frequent word pairs, then
-    the tags (trimmed and lower-cased). A stop word is never a term and
+    the tags (trimmed and lower-cased, see :func:`_tag_keyword`). A stop word is never a term and
     breaks a pair: "design of systems" yields no pair. De-duplicated in that
     order, so a tag already found in the text is listed once.
     """
@@ -146,7 +178,7 @@ def job_keywords(text: str | None, tags: Iterable[str]) -> list[str]:
     keywords = [
         *_most_frequent(terms, TOP_TERMS),
         *_most_frequent(pairs, TOP_PAIRS),
-        *(tag.strip().lower() for tag in tags),
+        *(_tag_keyword(tag) for tag in tags),
     ]
     seen: set[str] = set()
     unique: list[str] = []
@@ -176,24 +208,36 @@ def cv_text(content: TailoredCVContent | BaseCVDTO) -> str:
     return '\n'.join(lines)
 
 
-def _contains(haystack: Sequence[str], needle: Sequence[str]) -> bool:
+def _contains(
+    line: list[tuple[str, str]], needle: list[tuple[str, str]]
+) -> bool:
+    """Whether ``needle``'s words stand in ``line`` in a row, same gaps.
+
+    The gap before the needle's first word is not compared: ``CI/CD`` is
+    found in ``Built CI/CD`` and ``machine learning`` in ``(machine
+    learning)``, but ``machine learning`` is not ``machine, learning``.
+    """
     width = len(needle)
-    return any(
-        list(haystack[i : i + width]) == list(needle)
-        for i in range(len(haystack) - width + 1)
-    )
+    for start in range(len(line) - width + 1):
+        window = line[start : start + width]
+        if all(w == n for (w, _), (n, _) in zip(window, needle)) and all(
+            g == n for (_, g), (_, n) in zip(window[1:], needle[1:])
+        ):
+            return True
+    return False
 
 
 def matched_keywords(keywords: Sequence[str], text: str) -> list[str]:
     """The keywords found in ``text`` as whole words or whole phrases.
 
-    Case-insensitive. Kept in the keywords' own order.
+    Case-insensitive, on one line at a time, with the keyword's own
+    punctuation between its words. Kept in the keywords' own order.
     """
-    segments = _segments(text)
+    lines = [_words(line) for line in text.splitlines()]
     found: list[str] = []
     for keyword in keywords:
-        words = [w for segment in _segments(keyword) for w in segment]
-        if words and any(_contains(segment, words) for segment in segments):
+        needle = _words(' '.join(keyword.split()))
+        if needle and any(_contains(line, needle) for line in lines):
             found.append(keyword)
     return found
 

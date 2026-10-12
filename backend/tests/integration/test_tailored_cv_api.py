@@ -1657,3 +1657,30 @@ async def test_fit_is_allowed_on_a_finalized_and_archived_application(
 
     assert response.status_code == 200, msg(200, response.text)
     assert response.json()['score'] is not None
+
+
+async def test_fit_scores_the_copy_not_its_master(async_client: AsyncClient):
+    """An edited copy is what is scored, never the snapshot of its master."""
+    base_cv = await _create_base_cv(async_client)
+    application = await _create_application(
+        async_client, job_description='Python and Kubernetes. Python.'
+    )
+    copy = await _create_copy(async_client, application['id'], base_cv['id'])
+    url = f'/applications/{application["id"]}/cv/fit'
+    before = await async_client.get(url)
+    assert before.json()['score'] == 50, before.json()
+
+    edited = {field: copy[field] for field in SNAPSHOT_FIELDS}
+    edited['headline'] = 'Kubernetes Engineer'
+    put = await async_client.put(
+        f'/applications/{application["id"]}/cv', json=edited
+    )
+    assert put.status_code == 200, msg(200, put.text)
+
+    after = await async_client.get(url)
+
+    assert after.json() == {
+        'score': 100,
+        'matched_keywords': ['python', 'kubernetes'],
+        'missing_keywords': [],
+    }, after.json()

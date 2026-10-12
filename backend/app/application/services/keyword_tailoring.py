@@ -71,7 +71,12 @@ def _reorder_skills(
         categories,
         lambda category: sum(map(is_match, category.keywords)),
     )
-    categories_moved = [c.id for c in ordered] != [c.id for c in categories]
+    # Compared by position, not by id: ids are client-generated and not
+    # guaranteed unique.
+    categories_moved = any(
+        moved is not kept
+        for moved, kept in zip(ordered, categories, strict=True)
+    )
 
     if categories_moved and keywords_moved:
         description = 'Skill categories and keywords reordered by job match'

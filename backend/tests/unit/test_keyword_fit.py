@@ -322,3 +322,55 @@ def test_cv_text_takes_a_master_cv_too():
     })
 
     assert score_fit(['rust'], cv_text(base_cv)).score == 100
+
+
+# --- Tags with punctuation, and the gaps between words ------------------------
+
+
+@pytest.mark.parametrize(
+    ('tag', 'text'),
+    [
+        ('CI/CD', 'Built CI/CD pipelines'),
+        ('UI/UX', 'Led UI / UX research'),
+        ('Go (Golang)', 'Wrote Go (Golang) services'),
+        ('R&D', 'Ran the R&D lab'),
+        ('Node.js', 'Node.js and TypeScript'),
+    ],
+)
+def test_a_tag_with_punctuation_matches_as_written(tag, text):
+    keywords = job_keywords('', [tag])
+
+    assert keywords == [' '.join(tag.split()).lower()], keywords
+    assert score_fit(keywords, text).score == 100
+
+
+def test_a_tag_with_punctuation_needs_the_same_punctuation():
+    assert score_fit(job_keywords('', ['CI/CD']), 'CI and CD').score == 0
+
+
+@pytest.mark.parametrize('tag', ['5G', '-', '#', 'the', 'x', 'Résumé'])
+def test_a_tag_that_cannot_be_matched_as_written_is_dropped(tag):
+    """``5G`` would shrink to ``g`` and match "Plan G"; ``-`` never matches."""
+    assert job_keywords('', [tag]) == []
+
+
+def test_a_pair_never_matches_across_punctuation():
+    assert matched_keywords(['machine learning'], 'machine, learning') == []
+
+
+def test_non_breaking_spaces_are_spaces():
+    """A posting pasted from a web page keeps its U+00A0 spaces."""
+    keywords = job_keywords('Machine\xa0learning. Machine\xa0learning.', [])
+
+    assert 'machine learning' in keywords, keywords
+    assert matched_keywords(['machine learning'], 'Machine\xa0learning') == [
+        'machine learning'
+    ]
+
+
+def test_a_certification_issuer_counts():
+    content = make_content(
+        certifications=[{'id': 'c', 'name': 'CKA', 'issuer': 'Kubernetes'}]
+    )
+
+    assert score_fit(['kubernetes'], cv_text(content)).score == 100

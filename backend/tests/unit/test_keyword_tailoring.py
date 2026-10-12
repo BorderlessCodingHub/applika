@@ -398,3 +398,68 @@ def test_the_module_imports_only_the_standard_library_and_app():
         if root != 'app' and root not in sys.stdlib_module_names
     }
     assert outside == set(), msg(set(), outside)
+
+
+async def test_a_bullet_with_more_matches_overtakes_one_with_fewer():
+    """Ranked by the number of matches, not just matched or not."""
+    base_cv = make_base_cv(
+        skills=[],
+        experience=[
+            {
+                'id': 'exp-1',
+                'company': 'Acme',
+                'role': 'Engineer',
+                'start': '2020-01',
+                'bullets': ['Python only', 'Python and Docker'],
+            }
+        ],
+    )
+
+    result = await tailor(base_cv, 'Python and Docker')
+
+    assert result.content.experience[0].bullets == [
+        'Python and Docker',
+        'Python only',
+    ]
+    assert result.adjustments == [
+        CVAdjustment(
+            section='experience',
+            description='Bullets reordered by job match in 1 entry',
+        )
+    ]
+
+
+async def test_a_skill_keyword_matches_when_it_contains_a_job_term():
+    """ "React Native" holds the job's "react", so it counts as a match."""
+    base_cv = make_base_cv(
+        skills=[
+            {'id': 's1', 'category': 'A', 'keywords': ['Swift']},
+            {
+                'id': 's2',
+                'category': 'B',
+                'keywords': ['Kotlin', 'React Native'],
+            },
+        ],
+        experience=[],
+    )
+
+    result = await tailor(base_cv, 'React')
+
+    assert [c.id for c in result.content.skills] == ['s2', 's1']
+    assert result.content.skills[0].keywords == ['React Native', 'Kotlin']
+
+
+async def test_categories_sharing_an_id_are_still_reordered():
+    """Sub-item ids are client-generated and not checked for uniqueness."""
+    base_cv = make_base_cv(
+        skills=[
+            {'id': 'dup', 'category': 'A', 'keywords': ['Java']},
+            {'id': 'dup', 'category': 'B', 'keywords': ['Python']},
+        ],
+        experience=[],
+    )
+
+    result = await tailor(base_cv, 'Python')
+
+    assert [c.category for c in result.content.skills] == ['B', 'A']
+    assert [a.section for a in result.adjustments] == ['skills']
