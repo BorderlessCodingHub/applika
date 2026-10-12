@@ -23,6 +23,14 @@ dependencies = [
     # Typst compiler is driven directly, so only `typst` is added back.
     "rendercv==2.8",
     "typst==0.15.0",
+    # Background jobs (ADR-0016, KODI-046): the taskiq worker and scheduler
+    # on the Redis broker, httpx for RemoteOK (was only transitive) and
+    # cloudscraper for Himalayas' Cloudflare check (owner: "Keep
+    # cloudscraper"). Pinned: the worker runs unattended.
+    "taskiq==0.13.0",
+    "taskiq-redis==1.2.4",
+    "httpx==0.28.1",
+    "cloudscraper==1.2.71",
 ]
 
 [dependency-groups]
