@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from httpx import ASGITransport, AsyncClient
 from redis.exceptions import ConnectionError as RedisConnectionError
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from taskiq import InMemoryBroker
 from taskiq.exceptions import SendTaskError
@@ -18,7 +18,12 @@ from app.application.services.job_ingestion.scrapers.registry import (
 )
 from app.application.services.job_queue import INGEST_LOCK_KEY
 from app.config.settings import envs
-from app.domain.models import JobFitScoreModel, JobModel, JobSourceModel
+from app.domain.models import (
+    BaseCVModel,
+    JobFitScoreModel,
+    JobModel,
+    JobSourceModel,
+)
 from app.main import app as main_app
 from app.worker import broker as broker_module
 from app.worker import tasks
@@ -330,3 +335,63 @@ def test_the_worker_never_imports_user_owned_repositories(path):
         'saved_job_search',
     ):
         assert forbidden not in source, (path.name, forbidden)
+
+
+async def test_a_cv_edit_whose_enqueue_was_lost_is_rescored_by_a_run_with_new_postings(
+    worker, db_session
+):
+    """QA finding B1 (R-016): scoring the run's new postings stamps every
+    CV's ``computed_at``; the stale CVs must be read before that, or an
+    edit made after the last recompute (enqueue lost) stays hidden."""
+    cv_id = await seed_base_cv(db_session, USER_ID, ['Java'])
+    old_job = await seed_job(
+        db_session, HIMALAYAS_ID, 'old-python', keywords=['python']
+    )
+    await tasks.recompute_fit.kiq(cv_id)
+    assert await _score(db_session, cv_id, old_job) == 0
+
+    # The edit lands, its recompute is never queued.
+    await db_session.execute(
+        update(BaseCVModel)
+        .where(BaseCVModel.id == cv_id)
+        .values(
+            skills=[{'id': 's1', 'category': 'Tech', 'keywords': ['Python']}]
+        )
+    )
+    await db_session.commit()
+
+    # The hourly run brings new postings (the fixture file).
+    await tasks.ingest_jobs.kiq()
+
+    assert await _score(db_session, cv_id, old_job) == 100
+
+
+async def _score(session: AsyncSession, cv_id: int, job_id: int) -> int | None:
+    return await session.scalar(
+        select(JobFitScoreModel.score)
+        .where(
+            JobFitScoreModel.base_cv_id == cv_id,
+            JobFitScoreModel.job_id == job_id,
+        )
+        .execution_options(populate_existing=True)
+    )
+
+
+async def test_the_queue_never_waits_on_a_silent_redis(monkeypatch):
+    """A Redis that accepts the connection and never answers must not hold
+    a CV save or a "run now": every queue call is bounded."""
+    import asyncio
+
+    from app.worker import queue as queue_module
+
+    class Silent:
+        async def exists(self, key):
+            await asyncio.sleep(30)
+
+    monkeypatch.setattr(queue_module, 'QUEUE_TIMEOUT_SECONDS', 0.05)
+    started = time.monotonic()
+
+    with pytest.raises(TimeoutError):
+        await TaskiqJobQueue(Silent()).ingest_running()  # ty: ignore[invalid-argument-type]
+
+    assert time.monotonic() - started < 5

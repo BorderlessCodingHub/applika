@@ -184,11 +184,16 @@ class IngestJobsUseCase:
         fit = FitRecomputeDTO(removed=removed)
         gone = set(expired)
         fresh = [job_id for job_id in touched if job_id not in gone]
+        # Stale CVs are read BEFORE the new postings are scored: scoring
+        # them writes ``computed_at = now`` for every CV, which would hide a
+        # CV edited since its last recompute (its enqueue lost) whenever a
+        # run brings a new posting.
+        stale = await self.fit_repo.stale_base_cv_ids()
         for part in [
             await self.recompute_fit.execute(job_ids=fresh),
             *[
                 await self.recompute_fit.execute(base_cv_id=cv_id)
-                for cv_id in await self.fit_repo.stale_base_cv_ids()
+                for cv_id in stale
             ],
         ]:
             fit.scored += part.scored

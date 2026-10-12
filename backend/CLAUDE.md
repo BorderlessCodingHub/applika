@@ -459,7 +459,9 @@ process. The API only produces tasks.
   `is_active=false` (rows kept, R-007) and lose their fit rows, and
   `RecomputeFitUseCase` scores new/changed jobs × every master CV, then every
   stale CV (`coalesce(updated_at, created_at)` past its newest
-  `computed_at`, or no row) × every listed job. `score_fit(...)` `None` → no
+  `computed_at`, or no row) × every listed job. The stale list is read
+  **before** the new jobs are scored - scoring them stamps every CV's
+  `computed_at`, which would hide an edit whose enqueue was lost. `score_fit(...)` `None` → no
   row. The worker writes jobs, sources and fit scores only - nothing under
   `app/worker/` or `use_cases/jobs/` imports an application, CV copy or
   saved search repository (a test greps for it).
