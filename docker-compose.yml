@@ -113,7 +113,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    # ADR-0016: one worker process consuming the `applika:tasks` queue.
+    # ADR-0016: one worker service consuming the `applika:tasks` queue;
+    # `taskiq worker` forks 2 worker processes by default (`--workers`).
     command: ["taskiq", "worker", "app.worker.broker:broker", "app.worker.tasks"]
     environment: *api-environment
     depends_on:
