@@ -388,8 +388,14 @@ neither binding does I/O.
 The keyword fit (`keyword_fit.py`, a port of Ían's `keywords_service.py`) is
 pure functions: `job_keywords(text, tags)` (25 most frequent terms + 25 most
 frequent word pairs, stop words removed, plus tags; a tag is matched
-as written, its own punctuation included, and dropped when it holds no word,
-a letter or digit the word pattern drops (`5G`) or a lone stop word), `cv_text(content)`
+as written, its own punctuation included, and dropped when it holds no word
+(`-`, `#`) or is a lone stop word or letter). Since KODI-046 (owner,
+2026-10-12) a word may start with a digit and hold letters of any script
+(`5G`, `3D`, `2FA`, `Vue 3`, `Résumé` are kept and matched), a token with no
+letter is never a term (`2024`, `10+`), a leading dot is part of the word
+(`.NET` never matches "Net income"), sentence punctuation around a tag goes
+(`Python,` is `python`), and a hyphen cut off a word still separates it from
+the next one (`machine- learning` is no pair), `cv_text(content)`
 (headline, summary, skill keywords, experience roles and bullets, project
 names and descriptions, certifications) and `score_fit(keywords, text)`
 (whole word/phrase, case-insensitive, `round(100 × matched ÷ keywords)` half

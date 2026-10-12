@@ -348,10 +348,129 @@ def test_a_tag_with_punctuation_needs_the_same_punctuation():
     assert score_fit(job_keywords('', ['CI/CD']), 'CI and CD').score == 0
 
 
-@pytest.mark.parametrize('tag', ['5G', '-', '#', 'the', 'x', 'Résumé'])
-def test_a_tag_that_cannot_be_matched_as_written_is_dropped(tag):
-    """``5G`` would shrink to ``g`` and match "Plan G"; ``-`` never matches."""
+@pytest.mark.parametrize('tag', ['-', '#', 'the', 'x', ',', '?!', ' . '])
+def test_a_punctuation_only_or_lone_stop_word_tag_is_dropped(tag):
+    """``-`` never matches; ``the`` and a stray letter say nothing."""
     assert job_keywords('', [tag]) == []
+
+
+# --- KODI-046 widening (owner, 2026-10-12): digits, any script, ``.NET``,
+# ``Python,`` and ``machine- learning`` -------------------------------------
+
+
+@pytest.mark.parametrize(
+    ('tag', 'keyword', 'found_in', 'not_in'),
+    [
+        ('5G', '5g', 'Built 5G radio stacks', 'Plan G subscribers'),
+        ('3D', '3d', 'Real-time 3D rendering', 'D3 charts in 2D'),
+        ('2FA', '2fa', 'Shipped 2FA for every login', 'The FA cup'),
+        ('Vue 3', 'vue 3', 'Vue 3 and Pinia', 'Vue 2, 3 years'),
+        ('Résumé', 'résumé', 'RÉSUMÉ parsing service', 'Resume parsing'),
+        ('Português', 'português', 'Fluent in Português', 'Portugues'),
+    ],
+)
+def test_a_tag_with_digits_or_non_ascii_letters_is_kept_and_matched(
+    tag, keyword, found_in, not_in
+):
+    keywords = job_keywords('', [tag])
+
+    assert keywords == [keyword], keywords
+    assert score_fit(keywords, found_in).score == 100
+    assert score_fit(keywords, not_in).score == 0
+
+
+@pytest.mark.parametrize(
+    'text', ['Built C#/.NET services', '.NET 8 on Azure', 'Senior (.NET)']
+)
+def test_dot_net_matches_dot_net(text):
+    assert job_keywords('', ['.NET']) == ['.net']
+    assert matched_keywords(['.net'], text) == ['.net']
+
+
+@pytest.mark.parametrize(
+    'text', ['Net income grew', 'Grew net revenue', 'Visit acme.net today']
+)
+def test_dot_net_never_matches_a_bare_net(text):
+    assert score_fit(job_keywords('', ['.NET']), text).score == 0
+
+
+def test_dot_net_in_a_posting_is_the_term_dot_net():
+    keywords = job_keywords('Senior .NET engineer. We love .NET.', [])
+
+    assert '.net' in keywords, keywords
+    assert 'net' not in keywords, keywords
+
+
+def test_a_sentence_end_before_net_is_no_leading_dot():
+    """``end. Net`` is a full stop, then a word: the dot is not glued."""
+    keywords = job_keywords('Ship it. Net promoter score. Net promoter.', [])
+
+    assert 'net' in keywords, keywords
+    assert '.net' not in keywords, keywords
+
+
+@pytest.mark.parametrize(
+    'tags', [['Python,'], ['python;'], [' Python. '], ['Python!', 'python']]
+)
+def test_sentence_punctuation_around_a_tag_is_dropped_and_deduplicated(tags):
+    assert job_keywords('', tags) == ['python']
+
+
+def test_a_comma_tag_deduplicates_against_the_job_term():
+    keywords = job_keywords('Python services in Python.', ['Python,'])
+
+    assert keywords.count('python') == 1, keywords
+    assert 'python,' not in keywords, keywords
+
+
+def test_a_trailing_dot_is_dropped_but_an_inner_one_kept():
+    assert job_keywords('', ['Node.js.']) == ['node.js']
+
+
+@pytest.mark.parametrize(
+    'text', ['Machine- learning. Machine- learning.', 'Machine -learning.']
+)
+def test_a_dangling_hyphen_never_forms_a_word_pair(text):
+    keywords = job_keywords(text, [])
+
+    assert 'machine learning' not in keywords, keywords
+
+
+def test_a_dangling_hyphen_hides_the_pair_in_the_cv_too():
+    assert matched_keywords(['machine learning'], 'machine- learning') == []
+    assert matched_keywords(['machine learning'], 'machine learning') == [
+        'machine learning'
+    ]
+
+
+def test_a_hyphenated_word_is_still_one_term():
+    assert job_keywords('Machine-learning, machine-learning.', []) == [
+        'machine-learning'
+    ]
+
+
+def test_a_token_without_a_letter_is_never_a_term():
+    """``5 years``, ``2024`` and ``10+``: numbers alone say nothing."""
+    keywords = job_keywords('5 years in 2024 with 10+ Python engineers', [])
+
+    assert keywords == ['engineers', 'python', 'years', 'python engineers']
+
+
+def test_a_number_breaks_a_pair_like_a_stop_word():
+    assert 'python 3' not in job_keywords('Python 3. Python 3.', [])
+
+
+def test_words_in_other_scripts_stay_whole():
+    """No more ``experi`` / ``ncia`` fragments."""
+    keywords = job_keywords('Experiência em Python. Experiência.', [])
+
+    assert keywords[0] == 'experiência', keywords
+    assert 'experi' not in keywords
+    assert 'ncia' not in keywords
+
+
+def test_an_underscore_still_splits_words():
+    assert matched_keywords(['snake'], 'snake_case') == ['snake']
 
 
 def test_a_pair_never_matches_across_punctuation():

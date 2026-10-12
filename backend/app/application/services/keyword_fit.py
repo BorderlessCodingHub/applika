@@ -58,15 +58,25 @@ _STOP_WORDS: frozenset[str] = frozenset(
     """.split()
 )
 
-# A word: starts with a letter, may carry digits and the ``+ # -`` that make
-# ``c++``, ``c#`` and ``full-stack`` single terms, and inner dots
-# (``node.js``). A trailing dot or hyphen is punctuation, not the word.
-_WORD_RE = re.compile(r'[a-z][a-z0-9+#\-]*(?:\.[a-z0-9+#\-]+)*')
+# A word: starts with a letter or a digit - any script, so ``5g``, ``3d``,
+# ``2fa`` and ``résumé`` are words - and may carry letters, digits and the
+# ``+ # -`` that make ``c++``, ``c#`` and ``full-stack`` single terms, inner
+# dots (``node.js``), and one leading dot (``.net``, so the tag ``.NET``
+# never matches "Net income"; a dot after a word is already that word's
+# inner dot, ``acme.net``). A trailing dot or hyphen is punctuation, not
+# the word. ``_`` is not a word character, as before (KODI-046 widening,
+# owner 2026-10-12).
+_WORD_CHAR = r'(?:[^\W_]|[+#\-])'
+_WORD_RE = re.compile(rf'\.?[^\W_]{_WORD_CHAR}*(?:\.{_WORD_CHAR}+)*')
 _TRAILING_JUNK_RE = re.compile(r'[.\-]+$')
 _WHITESPACE_RE = re.compile(r'\s+')
-# A letter or digit the word pattern could not take (``5`` in ``5G``, an
-# accented letter): a tag that holds one would be matched truncated.
+# A letter or digit the word pattern could not take: a tag that holds one
+# would be matched truncated, so it is dropped. With the pattern above only
+# a letter or digit glued to ``_`` is left out.
 _UNMATCHABLE_RE = re.compile(r'[^\W_]')
+# Sentence punctuation around a whole tag (``Python,``) is not part of it.
+_TAG_EDGE_RE = re.compile(r'^[,;:!?]+|[,;:!?.]+$')
+_LETTER_RE = re.compile(r'[^\W\d_]')
 
 # Single letters are noise except the two that are languages.
 _SINGLE_LETTER_TERMS = frozenset({'c', 'r'})
@@ -94,14 +104,21 @@ def _words(line: str) -> list[tuple[str, str]]:
 
     The gap before a word keeps only its non-whitespace characters, so any
     run of spaces - non-breaking ones from a pasted posting included - is
-    ``''`` and ``CI / CD`` and ``CI/CD`` both carry ``'/'``.
+    ``''`` and ``CI / CD`` and ``CI/CD`` both carry ``'/'``. Punctuation cut
+    off the end of the previous word belongs to the gap too: in
+    ``machine- learning`` the gap before ``learning`` is ``'-'``, so the
+    two never form the pair ``machine learning``.
     """
     lowered = line.lower()
     words: list[tuple[str, str]] = []
     previous_end = 0
+    carried = ''
     for match in _WORD_RE.finditer(lowered):
         gap = _WHITESPACE_RE.sub('', lowered[previous_end : match.start()])
-        words.append((_clean(match.group(0)), gap))
+        raw = match.group(0)
+        word = _clean(raw)
+        words.append((word, carried + gap))
+        carried = raw[len(word) :]
         previous_end = match.end()
     return words
 
@@ -128,7 +145,9 @@ def _segments(text: str) -> list[list[str]]:
 
 
 def _is_term(word: str) -> bool:
-    if word in _STOP_WORDS:
+    """A stop word, a lone letter (but ``c``/``r``) or a token with no
+    letter at all (``2024``, ``3``, ``10+``) is never a term."""
+    if word in _STOP_WORDS or not _LETTER_RE.search(word):
         return False
     return len(word) > 1 or word in _SINGLE_LETTER_TERMS
 
@@ -140,13 +159,15 @@ def _most_frequent(counter: Counter[str], limit: int) -> list[str]:
 
 
 def _tag_keyword(tag: str) -> str | None:
-    """A tag as a keyword: trimmed, lower case, inner whitespace collapsed.
+    """A tag as a keyword: trimmed, lower case, inner whitespace collapsed,
+    sentence punctuation around it removed (``Python,`` is ``python``).
 
     ``None`` for a tag that could never be matched as written: no word at
-    all (``-``, ``#``), a letter or digit the word pattern drops (``5G``
-    would shrink to ``g``), or a single stop word or stray letter.
+    all (``-``, ``#``), a letter or digit the word pattern drops, or a
+    single stop word or stray letter. Digits and letters of any script are
+    words (``5G``, ``Vue 3``, ``Résumé``).
     """
-    keyword = ' '.join(tag.split()).lower()
+    keyword = _TAG_EDGE_RE.sub('', ' '.join(tag.split()).lower()).strip()
     words = _words(keyword)
     if not words or _UNMATCHABLE_RE.search(_WORD_RE.sub('', keyword)):
         return None
