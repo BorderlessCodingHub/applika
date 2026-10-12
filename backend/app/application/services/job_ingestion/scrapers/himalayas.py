@@ -46,6 +46,7 @@ from app.application.services.job_ingestion.scrapers.base import (
     text,
     text_list,
 )
+from app.config.logging import logger
 
 API_URL = 'https://himalayas.app/jobs/api'
 PAGE_LIMIT = 20
@@ -215,6 +216,21 @@ def fetch_pages(
         total = payload.get('totalCount')
         if isinstance(total, int) and offset >= total:
             break
+    else:
+        # Ían's "results are partial" warning: the budget ran out before
+        # the cutoff. Himalayas lists newest first and the run is hourly, so
+        # a new posting is still seen while it is among the newest
+        # MAX_PAGES x PAGE_LIMIT; only the first backfill is short.
+        logger.warning(
+            'Himalayas page budget reached before the lookback cutoff',
+            extra={
+                'extra_data': {
+                    'event': 'himalayas_page_budget_reached',
+                    'pages': MAX_PAGES,
+                    'postings': len(postings),
+                }
+            },
+        )
     return postings
 
 

@@ -282,8 +282,10 @@ def test_paging_stops_once_a_whole_page_is_older_than_the_cutoff():
     )
     pauses: list[float] = []
 
-    postings = fetch_pages(SINCE, 30, getter, sleep=pauses.append)
+    with patch.object(himalayas.logger, 'warning') as warning:
+        postings = fetch_pages(SINCE, 30, getter, sleep=pauses.append)
 
+    warning.assert_not_called()
     assert [p.external_id for p in postings] == ['a']
     assert [c[1]['offset'] for c in getter.calls] == [0, 20]
     assert pauses == [himalayas.REQUEST_DELAY_SECONDS]
@@ -309,10 +311,13 @@ def test_paging_stops_at_the_page_budget(monkeypatch):
         _reply({'jobs': [_job('never')], 'totalCount': 1000}),
     )
 
-    postings = fetch_pages(_FUTURE, 30, getter, sleep=lambda _: None)
+    with patch.object(himalayas.logger, 'warning') as warning:
+        postings = fetch_pages(_FUTURE, 30, getter, sleep=lambda _: None)
 
     assert [p.external_id for p in postings] == ['job-0', 'job-1']
     assert len(getter.calls) == 2
+    warning.assert_called_once()
+    assert 'page budget' in warning.call_args.args[0]
 
 
 # --- the scraper and the cloudscraper wrapper --------------------------------
