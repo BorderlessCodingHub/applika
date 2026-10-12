@@ -1,0 +1,58 @@
+[
+  {
+    "last_updated": 1791806400,
+    "legal": "Invented feed for applika's tests (KODI-046); the real feed's first element is its legal notice."
+  },
+  {
+    "slug": "remote-platform-engineer-hooli-2001",
+    "id": "2001",
+    "epoch": 1791633600,
+    "date": "2026-10-10T12:00:00+00:00",
+    "company": "Hooli",
+    "position": "Platform Engineer",
+    "tags": [
+      "devops",
+      "kubernetes",
+      "aws",
+      "Kubernetes"
+    ],
+    "description": "<div><h2>About</h2><p>Run <em>Kubernetes</em> on AWS.</p><br>Terraform &gt; clicks.</div>",
+    "location": "Worldwide",
+    "salary_min": 120000,
+    "salary_max": 160000,
+    "url": "https://remoteok.com/remote-jobs/remote-platform-engineer-hooli-2001"
+  },
+  {
+    "slug": "remote-support-lead-vandelay-2002",
+    "id": "2002",
+    "date": "2026-10-08T12:00:00+00:00",
+    "company": "Vandelay Industries",
+    "position": "Support Lead",
+    "tags": [
+      "support"
+    ],
+    "description": "Plain text, no markup.",
+    "location": "",
+    "salary_min": 0,
+    "salary_max": 0,
+    "url": "https://remoteok.com/remote-jobs/remote-support-lead-vandelay-2002"
+  },
+  {
+    "slug": "remote-old-posting-2003",
+    "id": "2003",
+    "epoch": 1791115200,
+    "company": "Old Co",
+    "position": "Old Posting",
+    "tags": [],
+    "description": "Too old.",
+    "url": "https://remoteok.com/remote-jobs/remote-old-posting-2003"
+  },
+  {
+    "slug": "no-position-2004",
+    "id": "2004",
+    "epoch": 1791720000,
+    "company": "Broken",
+    "position": "",
+    "url": "https://remoteok.com/remote-jobs/2004"
+  }
+]

@@ -1,0 +1,82 @@
+{
+  "comments": "Invented postings for applika's tests (KODI-046); no real company or job.",
+  "offset": 0,
+  "limit": 20,
+  "totalCount": 3,
+  "jobs": [
+    {
+      "guid": "acme-senior-backend-engineer-1001",
+      "title": "Senior Backend Engineer",
+      "companyName": "Acme Remote",
+      "companySlug": "acme-remote",
+      "employmentType": "Full Time",
+      "seniority": [
+        "Senior"
+      ],
+      "currency": "USD",
+      "minSalary": 150000,
+      "maxSalary": 190000,
+      "locationRestrictions": [
+        {
+          "alpha2": "US",
+          "name": "United States"
+        },
+        {
+          "alpha2": "CA",
+          "name": "Canada"
+        }
+      ],
+      "timezoneRestrictions": [
+        "UTC-8",
+        "UTC-5"
+      ],
+      "categories": [
+        "Backend",
+        "Python"
+      ],
+      "parentCategories": [
+        "Software Development"
+      ],
+      "excerpt": "Build the payments backend.",
+      "description": "<p>We build <strong>Python</strong> services on PostgreSQL &amp; Redis.</p><ul><li>FastAPI</li><li>Docker</li></ul><script>alert(1)</script>",
+      "pubDate": 1791720000000,
+      "applicationLink": "https://himalayas.app/companies/acme-remote/jobs/senior-backend-engineer-1001"
+    },
+    {
+      "guid": "globex-frontend-developer-1002",
+      "title": "Frontend Developer",
+      "companyName": "Globex Labs",
+      "employmentType": "Contractor",
+      "seniority": [
+        "Mid-level"
+      ],
+      "locationRestrictions": [],
+      "categories": [
+        "Frontend"
+      ],
+      "parentCategories": [],
+      "excerpt": "React and TypeScript for a design tool.",
+      "description": "",
+      "pubDate": "2026-10-09T12:00:00Z",
+      "applicationLink": "https://himalayas.app/companies/globex-labs/jobs/frontend-developer-1002"
+    },
+    {
+      "guid": "initech-data-engineer-1003",
+      "title": "Data Engineer",
+      "companyName": "Initech",
+      "employmentType": "Full Time",
+      "seniority": [
+        "Senior"
+      ],
+      "locationRestrictions": [
+        "Worldwide"
+      ],
+      "categories": [
+        "Data"
+      ],
+      "description": "<p>Spark and Airflow.</p>",
+      "pubDate": 1791115200,
+      "applicationLink": "https://himalayas.app/companies/initech/jobs/data-engineer-1003"
+    }
+  ]
+}
