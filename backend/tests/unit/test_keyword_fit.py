@@ -410,7 +410,15 @@ def test_a_sentence_end_before_net_is_no_leading_dot():
 
 
 @pytest.mark.parametrize(
-    'tags', [['Python,'], ['python;'], [' Python. '], ['Python!', 'python']]
+    'tags',
+    [
+        ['Python,'],
+        ['python;'],
+        [' Python. '],
+        ['Python!', 'python'],
+        ['Python ,'],
+        [';Python'],
+    ],
 )
 def test_sentence_punctuation_around_a_tag_is_dropped_and_deduplicated(tags):
     assert job_keywords('', tags) == ['python']
@@ -516,3 +524,8 @@ def test_a_phrase_never_spans_two_cv_fields():
 
 def test_inner_whitespace_in_a_tag_is_collapsed():
     assert job_keywords('', ['  Machine \t  Learning ']) == ['machine learning']
+
+
+def test_a_word_with_no_ascii_letter_is_still_a_term():
+    """The "has a letter" rule is any script, not ``[a-z]``."""
+    assert job_keywords('Ωμέγα.', []) == ['ωμέγα']

@@ -70,10 +70,6 @@ _WORD_CHAR = r'(?:[^\W_]|[+#\-])'
 _WORD_RE = re.compile(rf'\.?[^\W_]{_WORD_CHAR}*(?:\.{_WORD_CHAR}+)*')
 _TRAILING_JUNK_RE = re.compile(r'[.\-]+$')
 _WHITESPACE_RE = re.compile(r'\s+')
-# A letter or digit the word pattern could not take: a tag that holds one
-# would be matched truncated, so it is dropped. With the pattern above only
-# a letter or digit glued to ``_`` is left out.
-_UNMATCHABLE_RE = re.compile(r'[^\W_]')
 # Sentence punctuation around a whole tag (``Python,``) is not part of it.
 _TAG_EDGE_RE = re.compile(r'^[,;:!?]+|[,;:!?.]+$')
 _LETTER_RE = re.compile(r'[^\W\d_]')
@@ -163,13 +159,12 @@ def _tag_keyword(tag: str) -> str | None:
     sentence punctuation around it removed (``Python,`` is ``python``).
 
     ``None`` for a tag that could never be matched as written: no word at
-    all (``-``, ``#``), a letter or digit the word pattern drops, or a
-    single stop word or stray letter. Digits and letters of any script are
+    all (``-``, ``#``), or a single stop word or stray letter. Digits and letters of any script are
     words (``5G``, ``Vue 3``, ``Résumé``).
     """
     keyword = _TAG_EDGE_RE.sub('', ' '.join(tag.split()).lower()).strip()
     words = _words(keyword)
-    if not words or _UNMATCHABLE_RE.search(_WORD_RE.sub('', keyword)):
+    if not words:
         return None
     if len(words) == 1 and not _is_term(words[0][0]):
         return None
