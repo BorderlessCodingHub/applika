@@ -497,21 +497,48 @@ async def test_application_keeps_its_link_after_the_job_leaves_the_list(
     assert detail.json()['application']['id'] == draft['id']
 
 
-async def test_a_job_without_company_name_is_422_and_writes_nothing(
+async def test_a_job_without_company_name_starts_as_unknown_company(
     async_client: AsyncClient, db_session: AsyncSession, sources
 ):
-    """QA B2: scrapers may store ``company_name=''``; a draft needs one, so
-    the start is refused before any write - no unreadable draft, no private
-    company named ``''``, the job stays startable."""
+    """Human ruling (round 1): scrapers may store ``company_name=''``; the
+    draft is created with the free text ``Unknown company`` and no company
+    row is resolved or created, even when the job has a valid website."""
     companies = await db_session.scalar(select(func.count(CompanyModel.id)))
     for url in (None, 'https://nameless.example'):
         job_id = await add_job(db_session, company_name='  ', company_url=url)
+
+        draft = await started(async_client, job_id)
+
+        assert draft['company_name'] == 'Unknown company'
+        assert draft['company_id'] is None
+        row = await db_session.get(ApplicationModel, int(draft['id']))
+        assert row is not None
+        assert (row.company_id, row.company_name, row.job_id) == (
+            None,
+            'Unknown company',
+            job_id,
+        )
+    assert (
+        await db_session.scalar(select(func.count(CompanyModel.id)))
+        == companies
+    )
+
+
+async def test_a_job_without_title_is_422_and_writes_nothing(
+    async_client: AsyncClient, db_session: AsyncSession, sources
+):
+    """A draft needs a role: a blank title is refused before any write - no
+    application, no company row (even with a valid website), the job stays
+    startable."""
+    companies = await db_session.scalar(select(func.count(CompanyModel.id)))
+    for url in (None, 'https://untitled.example'):
+        job_id = await add_job(db_session, title='   ', company_url=url)
 
         response = await start(async_client, job_id)
 
         assert response.status_code == 422, msg(422, response.text)
         assert response.json() == {
-            'detail': 'This job has no title or company name to start from'
+            'detail': 'This job has no title to start from'
         }
         assert await rows_for_job(db_session, job_id) == 0
         job = (await async_client.get(f'/jobs/{job_id}')).json()

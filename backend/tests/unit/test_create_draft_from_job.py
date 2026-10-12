@@ -266,17 +266,35 @@ async def test_inactive_job_is_404():
     deps.nothing_written()
 
 
-@pytest.mark.parametrize(
-    'overrides', [{'company_name': ''}, {'company_name': '   '}, {'title': ' '}]
-)
-async def test_a_job_without_title_or_company_is_422(overrides):
-    deps = Deps(job(company_url='https://globex.example', **overrides))
+@pytest.mark.parametrize('title', ['', '   '])
+async def test_a_job_without_title_is_422(title):
+    deps = Deps(job(title=title, company_url='https://globex.example'))
     with patch.object(module, 'resolve_company', AsyncMock()) as resolve:
-        with pytest.raises(BusinessRuleViolation, match='no title or company'):
+        with pytest.raises(BusinessRuleViolation) as raised:
             await deps.use_case().execute(7, USER, base_cv_id=11)
 
+    assert str(raised.value) == 'This job has no title to start from'
     resolve.assert_not_awaited()
     deps.nothing_written()
+
+
+@pytest.mark.parametrize('url', [None, 'https://globex.example'])
+@pytest.mark.parametrize('name', ['', '   '])
+async def test_a_job_without_company_name_starts_as_unknown_company(name, url):
+    """Human ruling: a blank company is the free text ``Unknown company``;
+    ``resolve_company`` is never called, even with a valid website."""
+    deps = Deps(job(company_name=name, company_url=url))
+    with patch.object(module, 'resolve_company', AsyncMock()) as resolve:
+        await deps.use_case().execute(7, USER)
+
+    resolve.assert_not_awaited()
+    kwargs = deps.app_repo.create_draft.await_args.kwargs
+    assert (kwargs['company_id'], kwargs['company_name']) == (
+        None,
+        'Unknown company',
+    )
+    data = draft_input(deps)
+    assert (data.company_id, data.company_name) == (None, 'Unknown company')
 
 
 async def test_existing_application_is_409():

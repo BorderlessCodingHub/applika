@@ -13,10 +13,13 @@ unconditional create; one application per user per job (R-021); and an
 optional master CV copy is made in the same request (R-020).
 
 Checks, all before any write: the job is listed (404), the caller has no
-application from it (409), it has a title and a company name (422), the
+application from it (409), it has a title (422), the
 source's platform is visible (404), the
 master CV is the caller's own (404) and ``keywords`` has a job description
-to match (422). Then the writes:
+to match (422). A job without a company name (scrapers may store ``''``)
+is started anyway: the draft's company is the free text ``Unknown company``
+and no company row is resolved or created, even with a ``company_url``.
+Then the writes:
 
 1. ``resolve_company`` - a new private company commits on its own (plan
    corrections 5): on a later failure it stays, private to the caller, and
@@ -68,10 +71,12 @@ from app.domain.repositories.job_source_repository import JobSourceRepository
 from app.domain.repositories.platform_repository import PlatformRepository
 
 ALREADY_APPLIED = 'You already have an application for this job'
-# A draft needs a role and a company name (PRD 0010, ``DraftInput``); a
-# scraped posting may lack the company. Refused before any write, so no
-# unreadable draft and no private company named ``''`` is left behind.
-MISSING_JOB_FIELDS = 'This job has no title or company name to start from'
+# A draft needs a role (PRD 0010, ``DraftInput``): a job without a title is
+# refused before any write.
+MISSING_JOB_TITLE = 'This job has no title to start from'
+# A scraped posting may lack the company: the draft gets this free text and
+# never a company row (no private company named ``''`` or after a URL alone).
+UNKNOWN_COMPANY = 'Unknown company'
 
 # Plan corrections 21: the application's limits; a longer job value is cut.
 MAX_ROLE = 200
@@ -139,9 +144,9 @@ class CreateDraftFromJobUseCase:
             raise ResourceConflict(ALREADY_APPLIED)
 
         role = _cut(job.title, MAX_ROLE)
+        if not role:
+            raise BusinessRuleViolation(MISSING_JOB_TITLE)
         company_name = _cut(job.company_name, MAX_COMPANY_NAME)
-        if not role or not company_name:
-            raise BusinessRuleViolation(MISSING_JOB_FIELDS)
 
         platform_id = await self._platform_id(job, user_id)
 
@@ -154,9 +159,11 @@ class CreateDraftFromJobUseCase:
             if tailoring == 'keywords' and not (job_description or '').strip():
                 raise BusinessRuleViolation(NO_JOB_DESCRIPTION_MESSAGE)
 
-        company_url = web_url(job.company_url)
         company_id: int | None = None
-        if company_url is not None:
+        company_url = web_url(job.company_url)
+        if not company_name:
+            company_name = UNKNOWN_COMPANY
+        elif company_url is not None:
             company_id, company_name = await resolve_company(
                 self.company_repo,
                 ApplicationCompanyInputDTO(name=company_name, url=company_url),
