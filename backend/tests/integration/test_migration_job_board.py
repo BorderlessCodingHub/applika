@@ -29,7 +29,11 @@ What is asserted here:
 * the second upgrade renames everything back: rows, columns and index
   definitions equal the first upgrade's, no second source or platform; a
   source whose platform vanished while rolled back gets one again;
-* nothing in ``app/`` maps any of it (AC5, Release A shape).
+* Release B (KODI-046): ``app/`` maps ``job_sources``, ``jobs`` and
+  ``job_fit_scores`` exactly as this revision builds them - autogenerate
+  finds no difference, and ``create_all`` builds the same constraints and
+  indexes - and maps no ``*_old`` object; ``job_dismissals``,
+  ``saved_job_searches`` and ``applications.job_id`` stay unmapped until K5.
 
 Plumbing (dedicated container, synchronous tests around ``asyncio.run``,
 ``envs.DATABASE_URL`` patched because ``migrations/env.py`` overwrites
@@ -1189,17 +1193,135 @@ def test_reupgrade_repeats_the_platform_lookup(migration_db: str) -> None:
 
 
 # --------------------------------------------------------------------------
-# AC5 / Release A shape - nothing in app/ maps the new objects
+# AC5, as amended by Release B (KODI-046): app/ maps job_sources, jobs and
+# job_fit_scores exactly as this revision builds them; job_dismissals,
+# saved_job_searches and applications.job_id wait for the slice that reads
+# them (K5); no ``*_old`` object is ever mapped
 # --------------------------------------------------------------------------
 
+MAPPED_BY_K4 = ('job_sources', 'jobs', 'job_fit_scores')
 
-def test_orm_maps_none_of_the_new_objects() -> None:
+
+def test_orm_maps_only_the_worker_tables_and_no_old_object() -> None:
     from app.domain.models import ApplicationModel, Base
 
     mapped_tables = set(Base.metadata.tables)
     for table in NEW_TABLES:
-        assert table not in mapped_tables
+        assert (table in mapped_tables) is (table in MAPPED_BY_K4)
         assert f'{table}_old' not in mapped_tables
     application_columns = {c.name for c in ApplicationModel.__table__.columns}
     assert 'job_id' not in application_columns
     assert 'job_id_old' not in application_columns
+
+
+def _metadata_diffs(url: str) -> list[Any]:
+    from alembic.autogenerate import compare_metadata
+    from alembic.migration import MigrationContext
+
+    from app.domain.models import Base
+
+    def compare(connection: sa.Connection) -> list[Any]:
+        context = MigrationContext.configure(
+            connection,
+            opts={'compare_type': True, 'compare_server_default': True},
+        )
+        return list(compare_metadata(context, Base.metadata))
+
+    async def run() -> list[Any]:
+        engine = create_async_engine(url, poolclass=NullPool)
+        try:
+            async with engine.connect() as conn:
+                return await conn.run_sync(compare)
+        finally:
+            await engine.dispose()
+
+    return _run(run())
+
+
+def _touches(diff: Any, tables: tuple[str, ...]) -> bool:
+    """Whether an autogenerate diff entry concerns one of ``tables``."""
+    entries = diff if isinstance(diff, list) else [diff]
+    for entry in entries:
+        for part in entry:
+            name = getattr(part, 'name', None)
+            table = getattr(part, 'table', None)
+            if name in tables or getattr(table, 'name', None) in tables:
+                return True
+            if isinstance(part, str) and part in tables:
+                return True
+    return False
+
+
+def test_orm_mapping_equals_the_migrated_worker_tables(
+    migration_db: str,
+) -> None:
+    """``alembic`` autogenerate against a database at this revision finds
+    nothing to change on the three tables the ORM maps: the ``create_all``
+    test schema and production's migrated schema are the same objects."""
+    _upgrade(migration_db, REVISION)
+
+    diffs = [
+        d for d in _metadata_diffs(migration_db) if _touches(d, MAPPED_BY_K4)
+    ]
+
+    assert diffs == []
+
+
+def _catalog(url: str) -> dict[str, set[tuple[str, str]]]:
+    """Every constraint (name, definition) and index (name, definition) of
+    the three mapped tables, read from ``pg_catalog``."""
+    constraints = _query(
+        url,
+        'SELECT c.conrelid::regclass::text AS tbl, c.conname AS name, '
+        'pg_get_constraintdef(c.oid) AS def FROM pg_constraint c '
+        'WHERE c.conrelid::regclass::text = ANY(:tables)',
+        {'tables': list(MAPPED_BY_K4)},
+    )
+    indexes = _query(
+        url,
+        'SELECT tablename AS tbl, indexname AS name, indexdef AS def '
+        'FROM pg_indexes WHERE tablename = ANY(:tables)',
+        {'tables': list(MAPPED_BY_K4)},
+    )
+    return {
+        'constraints': {
+            (f'{r["tbl"]}.{r["name"]}', r['def']) for r in constraints
+        },
+        'indexes': {(r['name'], r['def']) for r in indexes},
+    }
+
+
+def test_create_all_builds_the_same_constraints_and_indexes(
+    migration_db: str,
+) -> None:
+    """Names, FK targets and ``ondelete``, UNIQUE, CHECK, the PKs and the
+    B-tree/GIN index definitions, which autogenerate does not compare:
+    ``Base.metadata.create_all`` (the test schema) and this revision build
+    them identically."""
+    from app.domain.models import Base
+
+    _upgrade(migration_db, REVISION)
+    migrated = _catalog(migration_db)
+
+    _apply(
+        migration_db,
+        [
+            ('DROP SCHEMA public CASCADE', {}),
+            ('CREATE SCHEMA public', {}),
+        ],
+    )
+
+    async def create_all() -> None:
+        engine = create_async_engine(migration_db, poolclass=NullPool)
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+        finally:
+            await engine.dispose()
+
+    _run(create_all())
+    created = _catalog(migration_db)
+
+    assert created == migrated
+    assert migrated['constraints']
+    assert migrated['indexes']
