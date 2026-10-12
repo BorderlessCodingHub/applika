@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 
+import { useApplicationCvFit } from "@/hooks/use-application-cv-fit";
 import { useCreateTailoredCv } from "@/hooks/use-create-tailored-cv";
 import { useDeleteTailoredCv } from "@/hooks/use-delete-tailored-cv";
 import { isNoTailoredCv, useTailoredCv } from "@/hooks/use-tailored-cv";
@@ -155,17 +156,61 @@ describe("the CV copy hooks", () => {
     expect(isNoTailoredCv(result.current.error)).toBe(false);
   });
 
-  it("creates the copy with POST and the chosen master CV as the only field", async () => {
+  it("creates the copy with POST, the chosen master CV and the verbatim default", async () => {
     const { result } = renderHook(() => useCreateTailoredCv(APPLICATION_ID), {
       wrapper: wrapper(),
     });
 
-    result.current.mutate("7");
+    result.current.mutate({ baseCvId: "7" });
 
     await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
     expect(post).toHaveBeenCalledWith("/applications/42/cv", {
       base_cv_id: "7",
+      tailoring: "copy",
     });
+  });
+
+  it("sends tailoring: keywords only when asked (R-026)", async () => {
+    const { result } = renderHook(() => useCreateTailoredCv(APPLICATION_ID), {
+      wrapper: wrapper(),
+    });
+
+    result.current.mutate({ baseCvId: "7", tailoring: "keywords" });
+
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    expect(post).toHaveBeenCalledWith("/applications/42/cv", {
+      base_cv_id: "7",
+      tailoring: "keywords",
+    });
+  });
+
+  it("reads the fit with GET .../cv/fit, and stays idle until enabled (R-028)", async () => {
+    get.mockResolvedValue({
+      data: { score: 72, matched_keywords: ["python"], missing_keywords: [] },
+    });
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) =>
+        useApplicationCvFit(APPLICATION_ID, enabled),
+      { wrapper: wrapper(), initialProps: { enabled: false } },
+    );
+
+    expect(get).not.toHaveBeenCalled();
+    rerender({ enabled: true });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(get).toHaveBeenCalledWith("/applications/42/cv/fit");
+    expect(result.current.data?.score).toBe(72);
+  });
+
+  it("tells a fit 404 apart as 'no copy'", async () => {
+    get.mockRejectedValue({ isAxiosError: true, response: { status: 404 } });
+    const { result } = renderHook(
+      () => useApplicationCvFit(APPLICATION_ID, true),
+      { wrapper: wrapper() },
+    );
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(isNoTailoredCv(result.current.error)).toBe(true);
   });
 
   it("saves the copy with PUT and the full editable field set", async () => {

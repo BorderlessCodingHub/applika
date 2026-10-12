@@ -22,6 +22,16 @@ import type { CvScalars, CvSections } from "@/components/base-cvs/types";
  */
 export type TailoredCvSnapshot = CvScalars & CvSections;
 
+/**
+ * One section the keyword tailoring reordered (ADR-0017), written once at
+ * creation. `section` is a `CvFormSectionId` today (`skills`, `experience`);
+ * `description` is the server's sentence, shown verbatim.
+ */
+export interface TailoredCvAdjustment {
+  section: string;
+  description: string;
+}
+
 /** A persisted CV copy as returned by the API. */
 export interface TailoredCv extends CvScalars, CvSections {
   id: string;
@@ -39,8 +49,8 @@ export interface TailoredCv extends CvScalars, CvSections {
   base_snapshot: TailoredCvSnapshot | null;
   /** Always `false` today. Nothing in the product generates a CV. */
   was_ai_generated: boolean;
-  /** Always empty today. Reserved by the API contract. */
-  adjustments: unknown[];
+  /** What "Tailor by keywords" reordered, per section; empty for a verbatim copy. */
+  adjustments: TailoredCvAdjustment[];
   phone: string | null;
   created_at: string;
   /** `null` until the copy is first updated — the API's `TimeSchema` allows it. */

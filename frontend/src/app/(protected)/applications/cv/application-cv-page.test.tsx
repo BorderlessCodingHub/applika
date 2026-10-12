@@ -35,6 +35,7 @@ const getCopy = vi.fn();
 const createCopy = vi.fn();
 const updateCopy = vi.fn();
 const removeCopy = vi.fn();
+const getFit = vi.fn();
 const exportCopyPdf = vi.fn();
 const exportCopyMarkdown = vi.fn();
 const exportCopyDiffMarkdown = vi.fn();
@@ -54,6 +55,7 @@ vi.mock("@/services/services", () => ({
       create: (...args: unknown[]) => createCopy(...args),
       update: (...args: unknown[]) => updateCopy(...args),
       remove: (...args: unknown[]) => removeCopy(...args),
+      getFit: (...args: unknown[]) => getFit(...args),
       exportPdf: (...args: unknown[]) => exportCopyPdf(...args),
       exportMarkdown: (...args: unknown[]) => exportCopyMarkdown(...args),
       exportDiffMarkdown: (...args: unknown[]) =>
@@ -154,6 +156,12 @@ const MASTER_CVS: BaseCv[] = [
   },
 ];
 
+const FIT = {
+  score: 72,
+  matched_keywords: ["python", "postgres"],
+  missing_keywords: ["kubernetes"],
+};
+
 /** A copy with every section populated, so the round trip has something to lose. */
 const COPY: TailoredCv = {
   id: "9001",
@@ -247,6 +255,7 @@ beforeEach(() => {
   createCopy.mockResolvedValue(COPY);
   updateCopy.mockResolvedValue(COPY);
   removeCopy.mockResolvedValue(undefined);
+  getFit.mockResolvedValue(FIT);
   removeBaseCv.mockResolvedValue(undefined);
   exportBaseCvPdf.mockResolvedValue({
     blob: new Blob(["%PDF-1.7"], { type: "application/pdf" }),
@@ -284,7 +293,7 @@ describe("ApplicationCvPage", () => {
     await user.click(create);
 
     await waitFor(() =>
-      expect(createCopy).toHaveBeenCalledWith("42", { base_cv_id: "8" }),
+      expect(createCopy).toHaveBeenCalledWith("42", "8", "copy"),
     );
   });
 
@@ -302,7 +311,7 @@ describe("ApplicationCvPage", () => {
 
     await user.click(create);
     await waitFor(() =>
-      expect(createCopy).toHaveBeenCalledWith("42", { base_cv_id: "7" }),
+      expect(createCopy).toHaveBeenCalledWith("42", "7", "copy"),
     );
   });
 
@@ -837,5 +846,181 @@ describe("the diff download row calls the right mutation per button (KODI-017 pa
 
     await waitFor(() => expect(exportCopyDiffPdf).toHaveBeenCalledWith("42"));
     expect(exportCopyDiffMarkdown).not.toHaveBeenCalled();
+  });
+});
+
+describe("Tailor by keywords and the CV fit (KODI-049)", () => {
+  const BLANK_JD: Application = { ...APPLICATION, job_description: "   " };
+
+  it("offers the switch, off, when the application has a job description (R-026)", async () => {
+    renderPage();
+
+    const toggle = await screen.findByRole("switch", {
+      name: "Tailor by keywords",
+    });
+    expect(toggle).not.toBeChecked();
+    expect(toggle).toHaveAccessibleDescription(
+      "Reorders skills and bullets by how well they match the job description. No text is added or changed.",
+    );
+  });
+
+  it("does not render the switch at all with a blank job description", async () => {
+    getApplications.mockResolvedValue([BLANK_JD]);
+    renderPage();
+
+    await screen.findByRole("button", { name: "Create the CV copy" });
+    expect(
+      screen.queryByRole("switch", { name: "Tailor by keywords" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Tailor by keywords")).not.toBeInTheDocument();
+  });
+
+  it("creates a verbatim copy unless the switch is on, then sends tailoring: keywords", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("radio", { name: /Backend CV/ }));
+    await user.click(
+      screen.getByRole("switch", { name: "Tailor by keywords" }),
+    );
+    expect(
+      screen.getByRole("switch", { name: "Tailor by keywords" }),
+    ).toBeChecked();
+    await user.click(
+      screen.getByRole("button", { name: "Create the CV copy" }),
+    );
+
+    await waitFor(() =>
+      expect(createCopy).toHaveBeenCalledWith("42", "7", "keywords"),
+    );
+  });
+
+  it("shows the fit with its score and both keyword lists once a copy exists (R-028)", async () => {
+    getCopy.mockResolvedValue(COPY);
+    renderPage();
+
+    const title = await screen.findByRole("button", {
+      name: "CV fit for this job",
+    });
+    const panel = title.closest('[data-slot="cv-fit-panel"]') as HTMLElement;
+    expect(getFit).toHaveBeenCalledWith("42");
+    expect(await within(panel).findByText("Fit 72%")).toBeInTheDocument();
+    expect(within(panel).getByText("python")).toBeInTheDocument();
+    expect(within(panel).getByText("postgres")).toBeInTheDocument();
+    expect(within(panel).getByText("kubernetes")).toBeInTheDocument();
+    expect(within(panel).getByText("Matched")).toBeInTheDocument();
+    expect(within(panel).getByText("Missing")).toBeInTheDocument();
+  });
+
+  it("shows the same fit on a finalized (read-only) application", async () => {
+    getApplications.mockResolvedValue([
+      { ...APPLICATION, finalized: true, finalized_at: "2026-02-01T00:00:00Z" },
+    ]);
+    getCopy.mockResolvedValue(COPY);
+    renderPage();
+
+    expect(
+      await screen.findByRole("button", { name: "CV fit for this job" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("Fit 72%")).toBeInTheDocument();
+  });
+
+  it("shows no fit and asks for none with a blank job description", async () => {
+    getApplications.mockResolvedValue([BLANK_JD]);
+    getCopy.mockResolvedValue(COPY);
+    renderPage();
+
+    await screen.findByRole("button", { name: "Save CV copy" });
+    expect(screen.queryByText("CV fit for this job")).not.toBeInTheDocument();
+    expect(getFit).not.toHaveBeenCalled();
+  });
+
+  it("shows no fit while there is no copy", async () => {
+    renderPage();
+
+    await screen.findByRole("button", { name: "Create the CV copy" });
+    expect(screen.queryByText("CV fit for this job")).not.toBeInTheDocument();
+    expect(getFit).not.toHaveBeenCalled();
+  });
+
+  it("shows no fit when the server answers score: null", async () => {
+    getCopy.mockResolvedValue(COPY);
+    getFit.mockResolvedValue({
+      score: null,
+      matched_keywords: [],
+      missing_keywords: [],
+    });
+    renderPage();
+
+    await screen.findByRole("button", { name: "Save CV copy" });
+    await waitFor(() => expect(getFit).toHaveBeenCalled());
+    expect(screen.queryByText("CV fit for this job")).not.toBeInTheDocument();
+  });
+
+  it("treats a fit 404 as no panel, not an error", async () => {
+    getCopy.mockResolvedValue(COPY);
+    getFit.mockRejectedValue(noCopy());
+    renderPage();
+
+    await screen.findByRole("button", { name: "Save CV copy" });
+    await waitFor(() => expect(getFit).toHaveBeenCalled());
+    expect(screen.queryByText("CV fit for this job")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Could not load the fit for this job."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("says when the fit could not load, and retries", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue(COPY);
+    getFit
+      .mockRejectedValueOnce({ isAxiosError: true, response: { status: 500 } })
+      .mockResolvedValueOnce(FIT);
+    renderPage();
+
+    expect(
+      await screen.findByText("Could not load the fit for this job."),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Fit 72%")).toBeInTheDocument();
+  });
+
+  it("refetches the fit after the copy is saved", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue(COPY);
+    renderPage();
+
+    await screen.findByText("Fit 72%");
+    expect(getFit).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "Save CV copy" }));
+    await waitFor(() => expect(getFit).toHaveBeenCalledTimes(2));
+  });
+
+  it("lists the copy's adjustments under 'Reordered by job match' only with Show changes on (R-025)", async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue({
+      ...COPY,
+      adjustments: [
+        {
+          section: "skills",
+          description: "Skill categories reordered by job match",
+        },
+      ],
+    });
+    renderPage();
+
+    await screen.findByRole("button", { name: "Save CV copy" });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("switch", { name: "Show changes" }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByRole("list", { name: "Reordered by job match" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("switch", { name: "Show changes" }));
+    const list = screen.getByRole("list", { name: "Reordered by job match" });
+    expect(list).toHaveTextContent("Skill categories reordered by job match");
   });
 });

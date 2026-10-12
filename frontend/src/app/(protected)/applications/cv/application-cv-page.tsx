@@ -14,6 +14,7 @@ import type { BaseCv, CvFormValues } from "@/components/base-cvs/types";
 import { FullWidthContent } from "@/components/layout/content-width";
 import { BaseCvPicker } from "@/components/tailored-cvs/base-cv-picker";
 import { CvDiffDownloadRow } from "@/components/tailored-cvs/cv-diff-download-row";
+import { CvFitPanel } from "@/components/tailored-cvs/cv-fit-panel";
 import type { CvDiffSnapshot } from "@/components/tailored-cvs/cv-diff";
 import { TailoredCvEditor } from "@/components/tailored-cvs/tailored-cv-editor";
 import {
@@ -28,6 +29,7 @@ import { useCvDiff } from "@/components/tailored-cvs/use-cv-diff";
 import { LinkButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCycleContext } from "@/contexts/cycle-context";
+import { useApplicationCvFit } from "@/hooks/use-application-cv-fit";
 import { useApplicationById } from "@/hooks/use-applications";
 import { useBaseCvs } from "@/hooks/use-base-cvs";
 import { useCreateTailoredCv } from "@/hooks/use-create-tailored-cv";
@@ -119,6 +121,8 @@ export function ApplicationCvPage() {
   const baseCvs = useBaseCvs();
 
   const [selectedBaseCvId, setSelectedBaseCvId] = useState<string | null>(null);
+  /** "Tailor by keywords" (R-026): off by default, back off after every create. */
+  const [tailorByKeywords, setTailorByKeywords] = useState(false);
   const [deletingBaseCvId, setDeletingBaseCvId] = useState<string | null>(null);
   const [exportingBaseCvId, setExportingBaseCvId] = useState<string | null>(
     null,
@@ -156,7 +160,10 @@ export function ApplicationCvPage() {
   }, [cv, form]);
 
   const createMutation = useCreateTailoredCv(applicationId ?? "", {
-    onSuccess: () => setCopyDeleted(false),
+    onSuccess: () => {
+      setCopyDeleted(false);
+      setTailorByKeywords(false);
+    },
   });
   const updateMutation = useUpdateTailoredCv(applicationId ?? "");
   const deleteMutation = useDeleteTailoredCv(applicationId ?? "", {
@@ -252,6 +259,14 @@ export function ApplicationCvPage() {
         : null;
 
   const noCopyYet = copyDeleted || isNoTailoredCv(cvError);
+  /** R-026/R-028: the switch and the fit exist only with a job description. */
+  const hasJobDescription = Boolean(application?.job_description?.trim());
+  const fit = useApplicationCvFit(
+    applicationId,
+    Boolean(cv) && !noCopyYet && hasJobDescription,
+  );
+  /** A 404 is "no copy" (or a race with a delete): no panel, not an error. */
+  const fitIsNoCopy = isNoTailoredCv(fit.error);
   const sourceCvName =
     baseCvs.data?.find((item) => item.id === cv?.base_cv_id)?.name ?? null;
 
@@ -282,6 +297,7 @@ export function ApplicationCvPage() {
     form,
     baseline: baselineSnapshot,
     baselineLabel: sourceCvName,
+    adjustments: cv?.adjustments,
     readOnly: Boolean(readOnlyReason),
   });
 
@@ -334,9 +350,18 @@ export function ApplicationCvPage() {
           value={selectedBaseCvId}
           onValueChange={handleSelect}
           onCreate={() => {
-            if (selectedBaseCvId) createMutation.mutate(selectedBaseCvId);
+            if (!selectedBaseCvId) return;
+            createMutation.mutate({
+              baseCvId: selectedBaseCvId,
+              tailoring:
+                hasJobDescription && tailorByKeywords ? "keywords" : "copy",
+            });
           }}
           isCreating={createMutation.isPending}
+          tailorByKeywords={tailorByKeywords}
+          onTailorByKeywordsChange={
+            hasJobDescription ? setTailorByKeywords : undefined
+          }
           onDelete={handleDeleteBaseCv}
           deletingId={deletingBaseCvId}
           onExport={handleExportBaseCv}
@@ -394,6 +419,18 @@ export function ApplicationCvPage() {
           sourceCvName={sourceCvName}
           jobDescription={application.job_description}
           onAddJobDescription={() => setEditingApplication(true)}
+          fit={
+            hasJobDescription && !fitIsNoCopy ? (
+              <CvFitPanel
+                fit={fit.data}
+                isLoading={fit.isLoading}
+                isError={fit.isError}
+                onRetry={() => void fit.refetch()}
+                isRetrying={fit.isFetching}
+                dirty={!readOnlyReason && form.formState.isDirty}
+              />
+            ) : undefined
+          }
           isSubmitting={updateMutation.isPending}
           onDelete={() => deleteMutation.mutate()}
           isDeleting={deleteMutation.isPending}

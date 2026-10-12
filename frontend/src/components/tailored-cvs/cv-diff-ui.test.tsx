@@ -8,6 +8,7 @@ import type { CvFormValues } from "@/components/base-cvs/types";
 import type { CvDiffSnapshot } from "./cv-diff";
 import { TailoredCvEditor } from "./tailored-cv-editor";
 import { tailoredCvSchema } from "./tailored-cv-schema";
+import type { TailoredCvAdjustment } from "./types";
 import { useCvDiff } from "./use-cv-diff";
 
 /**
@@ -51,10 +52,12 @@ function Harness({
   readOnly = false,
   baseline = BASELINE,
   initial,
+  adjustments,
 }: {
   readOnly?: boolean;
   baseline?: CvDiffSnapshot;
   initial?: CvFormValues;
+  adjustments?: TailoredCvAdjustment[];
 }) {
   const form = useForm<CvFormValues>({
     resolver: zodResolver(tailoredCvSchema),
@@ -65,6 +68,7 @@ function Harness({
     baseline,
     baselineLabel: "Backend CV",
     readOnly,
+    adjustments,
   });
 
   return (
@@ -291,5 +295,75 @@ describe("the diff UI (KODI-017)", () => {
     expect(
       screen.queryByRole("button", { name: "Revert Headline" }),
     ).toBeNull();
+  });
+});
+
+describe("keyword-tailoring moves in the comparison (KODI-049, R-025)", () => {
+  const ADJUSTMENTS: TailoredCvAdjustment[] = [
+    {
+      section: "skills",
+      description: "Skill categories reordered by job match",
+    },
+    {
+      section: "experience",
+      description: "Bullets reordered by job match in 1 role",
+    },
+  ];
+
+  it("lists the adjustments under 'Reordered by job match' only while Show changes is on", async () => {
+    const user = userEvent.setup();
+    render(<Harness adjustments={ADJUSTMENTS} />);
+
+    expect(
+      screen.queryByRole("list", { name: "Reordered by job match" }),
+    ).toBeNull();
+    expect(
+      screen.queryByText("Skill categories reordered by job match"),
+    ).toBeNull();
+
+    await user.click(screen.getByLabelText("Show changes"));
+    const list = screen.getByRole("list", { name: "Reordered by job match" });
+    const items = within(list).getAllByRole("listitem");
+    expect(items.map((item) => item.textContent)).toEqual([
+      "Skill categories reordered by job match",
+      "Bullets reordered by job match in 1 role",
+    ]);
+    // The summary line itself is unchanged.
+    expect(
+      screen.getByText("Compared with Backend CV: no changes"),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Show changes"));
+    expect(
+      screen.queryByRole("list", { name: "Reordered by job match" }),
+    ).toBeNull();
+  });
+
+  it("says 'reordered' on the matching section headers while Show changes is on", async () => {
+    const user = userEvent.setup();
+    render(<Harness adjustments={ADJUSTMENTS} />);
+    expect(screen.queryByText("reordered")).toBeNull();
+
+    await user.click(screen.getByLabelText("Show changes"));
+    expect(screen.getAllByText("reordered")).toHaveLength(2);
+
+    await user.click(screen.getByRole("button", { name: "Add experience" }));
+    expect(await screen.findByText("1 change, reordered")).toBeInTheDocument();
+    expect(screen.getAllByText("reordered")).toHaveLength(1);
+  });
+
+  it("renders as before with adjustments: []", async () => {
+    const user = userEvent.setup();
+    render(<Harness adjustments={[]} />);
+    await user.click(screen.getByLabelText("Show changes"));
+
+    expect(
+      screen.queryByRole("list", { name: "Reordered by job match" }),
+    ).toBeNull();
+    expect(screen.queryByText("Reordered by job match")).toBeNull();
+    expect(screen.queryByText("reordered")).toBeNull();
+    expect(
+      screen.getByText("Compared with Backend CV: no changes"),
+    ).toBeInTheDocument();
   });
 });

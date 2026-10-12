@@ -11,6 +11,7 @@ import { CreateApplicationPayload } from "@/services/types/applications";
 import { getApiError } from "@/lib/api-client";
 import { rateLimitNotice } from "@/lib/rate-limit";
 import { TAILORED_CVS_QUERY_KEY } from "@/hooks/use-tailored-cv";
+import { APPLICATION_CV_FIT_QUERY_KEY } from "@/hooks/use-application-cv-fit";
 
 export interface ApplicationFilters {
   mode: "all" | "active" | "passive";
@@ -187,6 +188,9 @@ export function useApplicationDelete() {
       await queryClient.invalidateQueries({
         queryKey: TAILORED_CVS_QUERY_KEY,
       });
+      await queryClient.invalidateQueries({
+        queryKey: APPLICATION_CV_FIT_QUERY_KEY,
+      });
       toast.success("Application deleted");
     },
     onError: (error) =>
@@ -218,6 +222,10 @@ export function useApplicationMutate(props: ApplicationMutateProps) {
     await queryClient.invalidateQueries({ queryKey: ["applications"] });
     await queryClient.invalidateQueries({ queryKey: ["statistics"] });
     await queryClient.invalidateQueries({ queryKey: ["company-search"] });
+    // An edit may change the job description the copy's fit is scored against (R-028).
+    await queryClient.invalidateQueries({
+      queryKey: APPLICATION_CV_FIT_QUERY_KEY,
+    });
     toast.success(
       props.applicationId ? "Application updated" : "Application created",
     );

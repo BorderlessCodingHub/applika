@@ -3,6 +3,8 @@
 import { useId } from "react";
 import { GitCompareArrows } from "lucide-react";
 
+import { CvDiffAdjustments } from "@/components/tailored-cvs/cv-diff-adjustments";
+import type { TailoredCvAdjustment } from "@/components/tailored-cvs/types";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +32,8 @@ export interface CvDiffSummaryBarProps {
   count: number;
   showChanges: boolean;
   onShowChangesChange: (next: boolean) => void;
+  /** The copy's `adjustments`, listed under "Reordered by job match" while `showChanges` is on. */
+  adjustments?: readonly TailoredCvAdjustment[];
   className?: string;
 }
 
@@ -38,10 +42,12 @@ export function CvDiffSummaryBar({
   count,
   showChanges,
   onShowChangesChange,
+  adjustments,
   className,
 }: CvDiffSummaryBarProps) {
   const switchId = useId();
   const summaryId = useId();
+  const showAdjustments = showChanges && !!adjustments?.length;
 
   return (
     <div
@@ -73,6 +79,12 @@ export function CvDiffSummaryBar({
           {CV_DIFF_TOGGLE_LABEL}
         </label>
       </div>
+      {showAdjustments && adjustments ? (
+        <CvDiffAdjustments
+          adjustments={adjustments}
+          className="basis-full border-t border-border/60 pt-3"
+        />
+      ) : null}
     </div>
   );
 }

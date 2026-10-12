@@ -1,6 +1,7 @@
 import type { CvPdfExport } from "@/services/types/cv-pdf";
 import type {
-  CreateTailoredCvPayload,
+  CvFit,
+  TailoringMode,
   TailoredCv,
   UpdateTailoredCvPayload,
 } from "@/services/types/tailored-cv";
@@ -11,10 +12,14 @@ import type {
  */
 export interface ITailoredCvService {
   get(applicationId: string): Promise<TailoredCv>;
+  /** `tailoring` defaults to `"copy"` (verbatim); `"keywords"` is opt-in (R-026). */
   create(
     applicationId: string,
-    data: CreateTailoredCvPayload,
+    baseCvId: string,
+    tailoring?: TailoringMode,
   ): Promise<TailoredCv>;
+  /** `GET .../cv/fit` (R-028). 404 when there is no copy. Drafts allowed. */
+  getFit(applicationId: string): Promise<CvFit>;
   update(
     applicationId: string,
     data: UpdateTailoredCvPayload,

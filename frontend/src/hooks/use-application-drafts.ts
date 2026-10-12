@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { services } from "@/services/services";
 import type { Draft, DraftInput } from "@/services/types/application-drafts";
+import { APPLICATION_CV_FIT_QUERY_KEY } from "@/hooks/use-application-cv-fit";
 import { TAILORED_CVS_QUERY_KEY } from "@/hooks/use-tailored-cv";
 
 /** Root cache key for drafts. `GET /applications/drafts` (newest first). */
@@ -64,6 +65,10 @@ export function useUpdateDraft() {
     networkMode: "always",
     onSuccess: (draft: Draft) => {
       queryClient.invalidateQueries({ queryKey: APPLICATION_DRAFTS_QUERY_KEY });
+      // The job description may have changed: the copy's fit is scored against it (R-028).
+      queryClient.invalidateQueries({
+        queryKey: [...APPLICATION_CV_FIT_QUERY_KEY, draft.id],
+      });
       queryClient.setQueryData(
         [...APPLICATION_DRAFTS_QUERY_KEY, draft.id],
         draft,

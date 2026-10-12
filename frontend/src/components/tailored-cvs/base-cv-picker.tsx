@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { BaseCvList } from "@/components/base-cvs/base-cv-list";
 import { BASE_CVS_MAX, type BaseCv } from "@/components/base-cvs/types";
 import { Button } from "@/components/ui/button";
+import { TailorByKeywordsSwitch } from "@/components/tailored-cvs/tailor-by-keywords-switch";
 import { TailoredCvReadOnlyBanner } from "@/components/tailored-cvs/tailored-cv-read-only-banner";
 import type { TailoredCvReadOnlyReason } from "@/components/tailored-cvs/types";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,10 @@ export interface BaseCvPickerProps {
   isCreating?: boolean;
   /** Visible text and accessible name of the create action. */
   createLabel?: string;
+  /** "Tailor by keywords" (R-026). Off by default. */
+  tailorByKeywords?: boolean;
+  /** Renders the "Tailor by keywords" switch when given; pass it only when the application has a job description. */
+  onTailorByKeywordsChange?: (checked: boolean) => void;
   /** Called once the user confirms a master CV's deletion. */
   onDelete: (cv: BaseCv) => void;
   /** Id of the master CV whose delete is in flight. */
@@ -95,6 +100,8 @@ export function BaseCvPicker({
   onCreate,
   isCreating = false,
   createLabel = "Create the CV copy",
+  tailorByKeywords = false,
+  onTailorByKeywordsChange,
   onDelete,
   deletingId,
   onExport,
@@ -180,12 +187,32 @@ export function BaseCvPicker({
         />
       </fieldset>
 
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4">
+      <div
+        className={cn(
+          "flex flex-wrap items-center border-t border-border pt-4",
+          onTailorByKeywordsChange
+            ? "gap-x-6 gap-y-4 sm:flex-nowrap"
+            : "justify-end gap-2",
+        )}
+      >
+        {onTailorByKeywordsChange ? (
+          <TailorByKeywordsSwitch
+            checked={tailorByKeywords}
+            onCheckedChange={onTailorByKeywordsChange}
+            disabled={isCreating}
+            className="max-w-prose flex-1 basis-72"
+          />
+        ) : null}
+        {/* Pending keeps focus: aria-disabled, not disabled (KODI-048). */}
         <Button
           type="button"
-          onClick={onCreate}
-          disabled={!selectedId || isCreating || deletingId === selectedId}
-          aria-busy={isCreating}
+          onClick={() => {
+            if (!isCreating) onCreate();
+          }}
+          disabled={!selectedId || deletingId === selectedId}
+          aria-disabled={isCreating || undefined}
+          aria-busy={isCreating || undefined}
+          className="ml-auto shrink-0 aria-disabled:opacity-60"
         >
           {isCreating ? <Loader2 aria-hidden className="animate-spin" /> : null}
           {createLabel}
