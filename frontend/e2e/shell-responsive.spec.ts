@@ -42,6 +42,7 @@ const CLI_BANNER = '[role="region"][aria-label="applika-cli announcement"]';
 const PRIMARY_LABELS = [
   "Dashboard",
   "Applications",
+  "Jobs",
   "CVs",
   "Agenda",
   "Reports",

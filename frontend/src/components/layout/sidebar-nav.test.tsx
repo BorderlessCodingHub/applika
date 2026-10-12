@@ -244,14 +244,45 @@ describe("SidebarNav rendering", () => {
   });
 });
 
+describe("the Jobs entry (KODI-048, Plan corrections 8)", () => {
+  const jobs = PRIMARY_NAV.find((item) => item.href === "/jobs")!;
+
+  it("sits in the primary nav, labelled Jobs, right after Applications", () => {
+    expect(jobs).toBeDefined();
+    expect(jobs.label).toBe("Jobs");
+    expect(hrefsOf(PRIMARY_NAV).indexOf("/jobs")).toBe(
+      hrefsOf(PRIMARY_NAV).indexOf("/applications") + 1,
+    );
+  });
+
+  it("makes the primary nav eight entries, in the pinned order", () => {
+    expect(PRIMARY_NAV.map((item) => item.label)).toEqual([
+      "Dashboard",
+      "Applications",
+      "Jobs",
+      "CVs",
+      "Agenda",
+      "Reports",
+      "Cycles",
+      "Profile",
+    ]);
+  });
+
+  it("stays lit on the job detail route under it", () => {
+    expect(isNavItemActive(jobs, "/jobs")).toBe(true);
+    expect(isNavItemActive(jobs, "/jobs/view")).toBe(true);
+    expect(isNavItemActive(jobs, "/jobsearch")).toBe(false);
+  });
+});
+
 describe("the CVs entry (KODI-002 / R-001)", () => {
   const cvs = PRIMARY_NAV.find((item) => item.href === "/cvs")!;
 
-  it("sits in the primary nav, labelled CVs, right after Applications", () => {
+  it("sits in the primary nav, labelled CVs, right after Jobs", () => {
     expect(cvs).toBeDefined();
     expect(cvs.label).toBe("CVs");
     expect(hrefsOf(PRIMARY_NAV).indexOf("/cvs")).toBe(
-      hrefsOf(PRIMARY_NAV).indexOf("/applications") + 1,
+      hrefsOf(PRIMARY_NAV).indexOf("/jobs") + 1,
     );
   });
 
