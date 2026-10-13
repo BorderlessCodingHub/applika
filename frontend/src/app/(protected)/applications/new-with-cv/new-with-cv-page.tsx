@@ -36,6 +36,7 @@ import {
 } from "@/components/application-drafts/draft-page-states";
 import { DraftApplicationStep } from "@/components/application-drafts/draft-application-step";
 import { DraftCvStep } from "@/components/application-drafts/draft-cv-step";
+import { CvFitPanel } from "@/components/tailored-cvs/cv-fit-panel";
 import type { ApplicationFieldsValues } from "@/components/applications/application-fields";
 import { ZodType } from "@/components/applications/company-select";
 import type { Company } from "@/services/types/applications";
@@ -63,6 +64,10 @@ import { useCreateTailoredCv } from "@/hooks/use-create-tailored-cv";
 import { useDeleteTailoredCv } from "@/hooks/use-delete-tailored-cv";
 import { isNoTailoredCv, useTailoredCv } from "@/hooks/use-tailored-cv";
 import { TAILORED_CVS_QUERY_KEY } from "@/hooks/use-tailored-cv";
+import {
+  APPLICATION_CV_FIT_QUERY_KEY,
+  useApplicationCvFit,
+} from "@/hooks/use-application-cv-fit";
 import { useDebouncedAutosave } from "@/hooks/use-debounced-autosave";
 import { services } from "@/services/services";
 import type { UpdateTailoredCvPayload } from "@/services/types/tailored-cv";
@@ -360,6 +365,9 @@ export function NewWithCvPage() {
     networkMode: "always",
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: TAILORED_CVS_QUERY_KEY });
+      void queryClient.invalidateQueries({
+        queryKey: APPLICATION_CV_FIT_QUERY_KEY,
+      });
     },
   });
 
@@ -538,6 +546,17 @@ export function NewWithCvPage() {
       setLastSavedCvPayload(serialized);
     },
   });
+
+  // R-026/R-028 key off the SAVED job description: the server tailors and
+  // scores against what it has, not what is still being typed.
+  const savedHasJobDescription = Boolean(
+    lastSavedDraftInput?.job_description?.trim(),
+  );
+  const fitQuery = useApplicationCvFit(
+    draftId,
+    Boolean(cv) && savedHasJobDescription,
+  );
+  const fitIsNoCopy = isNoTailoredCv(fitQuery.error);
 
   // beforeunload while typing is unsaved — before the draft exists, or while
   // an autosave is in flight or failed (AC6/AC7/AC8).
@@ -781,13 +800,31 @@ export function NewWithCvPage() {
           cv={cv ?? null}
           isLoadingCv={cvLoading}
           cvLoadErrorMessage={cvLoadErrorMessage}
-          onCreate={(baseCvId) => createTailoredCv.mutate(baseCvId)}
+          onCreate={(baseCvId, tailoring) =>
+            createTailoredCv.mutate({ baseCvId, tailoring })
+          }
           isCreating={createTailoredCv.isPending}
           onDelete={() => deleteTailoredCv.mutate()}
           isDeleting={deleteTailoredCv.isPending}
           footer={hasCv ? footerActions : undefined}
           onAddJobDescription={() => goToStep("application")}
           jobDescription={watchedApplication.job_description}
+          canTailorByKeywords={savedHasJobDescription}
+          fit={
+            savedHasJobDescription && cv && !fitIsNoCopy ? (
+              <CvFitPanel
+                fit={fitQuery.data}
+                isLoading={fitQuery.isLoading}
+                isError={fitQuery.isError}
+                onRetry={() => void fitQuery.refetch()}
+                isRetrying={fitQuery.isFetching}
+                dirty={
+                  cvAutosave.status === "saving" ||
+                  cvAutosave.status === "error"
+                }
+              />
+            ) : undefined
+          }
         />
       ) : null}
       {step === "cv" && draftId && !hasCv ? (

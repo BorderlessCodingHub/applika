@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Building2, Globe, Users, Webhook } from "lucide-react";
+import {
+  BarChart3,
+  Building2,
+  Globe,
+  Search,
+  Users,
+  Webhook,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -10,6 +17,7 @@ const tabs = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/companies", label: "Companies", icon: Building2 },
   { href: "/admin/platforms", label: "Platforms", icon: Globe },
+  { href: "/admin/jobs", label: "Jobs", icon: Search },
   { href: "/admin/discord-webhooks", label: "Discord", icon: Webhook },
 ];
 

@@ -407,6 +407,47 @@ describe("the tailored CV surface", () => {
     ).toBeDisabled();
   });
 
+  it("picker's 'Tailor by keywords' switch is off by default and toggles (KODI-049, R-026)", async () => {
+    const onTailorByKeywordsChange = vi.fn();
+    render(
+      <BaseCvPicker
+        options={OPTIONS}
+        {...pickerProps({ onTailorByKeywordsChange })}
+      />,
+    );
+    const toggle = screen.getByRole("switch", { name: "Tailor by keywords" });
+    expect(toggle).not.toBeChecked();
+    expect(toggle).toHaveAccessibleDescription(
+      "Reorders skills and bullets by how well they match the job description. No text is added or changed.",
+    );
+    await userEvent.click(screen.getByText("Tailor by keywords"));
+    expect(onTailorByKeywordsChange).toHaveBeenCalledWith(true);
+  });
+
+  it("picker renders no 'Tailor by keywords' switch when the caller offers none (blank job description)", () => {
+    render(<BaseCvPicker options={OPTIONS} {...pickerProps()} />);
+    expect(
+      screen.queryByRole("switch", { name: "Tailor by keywords" }),
+    ).toBeNull();
+  });
+
+  it("picker's switch is disabled and Create is aria-busy while a copy is being created", () => {
+    render(
+      <BaseCvPicker
+        options={OPTIONS}
+        value="1"
+        {...pickerProps({ onTailorByKeywordsChange: vi.fn() })}
+        isCreating
+      />,
+    );
+    expect(
+      screen.getByRole("switch", { name: "Tailor by keywords" }),
+    ).toBeDisabled();
+    const create = screen.getByRole("button", { name: "Create the CV copy" });
+    expect(create).toHaveAttribute("aria-busy", "true");
+    expect(create).toHaveAttribute("aria-disabled", "true");
+  });
+
   it("picker's radios are described by the hint (a11y)", () => {
     render(<BaseCvPicker options={OPTIONS} {...pickerProps()} />);
     for (const radio of screen.getAllByRole("radio")) {

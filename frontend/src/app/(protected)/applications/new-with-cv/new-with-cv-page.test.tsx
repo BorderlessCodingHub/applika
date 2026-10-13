@@ -45,6 +45,7 @@ const getTailoredCvMock = vi.fn();
 const updateTailoredCvMock = vi.fn();
 const createTailoredCvMock = vi.fn();
 const removeTailoredCvMock = vi.fn();
+const getFitMock = vi.fn();
 const replaceMock = vi.fn();
 const pushMock = vi.fn();
 let searchParams = new URLSearchParams();
@@ -78,6 +79,7 @@ vi.mock("@/services/services", () => ({
       create: (...args: unknown[]) => createTailoredCvMock(...args),
       update: (...args: unknown[]) => updateTailoredCvMock(...args),
       remove: (...args: unknown[]) => removeTailoredCvMock(...args),
+      getFit: (...args: unknown[]) => getFitMock(...args),
     },
   },
 }));
@@ -109,6 +111,7 @@ function draftFrom(
 ): Draft {
   return {
     id: input.id ?? "draft-1",
+    job_id: null,
     company_id: input.company_id ?? null,
     company_name: input.company_name ?? "",
     role: input.role ?? "",
@@ -135,6 +138,11 @@ beforeEach(() => {
   getTailoredCvMock.mockRejectedValue({
     isAxiosError: true,
     response: { status: 404 },
+  });
+  getFitMock.mockResolvedValue({
+    score: 64,
+    matched_keywords: ["rust"],
+    missing_keywords: ["kafka"],
   });
   updateDraftMock.mockImplementation((id: string, data: DraftInput) =>
     Promise.resolve(draftFrom({ ...data, id })),
@@ -1359,5 +1367,160 @@ describe("NewWithCvPage — offline autosave (KODI-034, AC7, PRD 0010 edge case 
     });
     expect(lastPut()?.role).toBe("Engineer AB");
     await waitFor(() => expect(statusState()).toBe("saved"));
+  }, 15_000);
+});
+
+describe("NewWithCvPage — step 2 'Tailor by keywords' and the CV fit (KODI-049)", () => {
+  function draftWithJd(jd: string | null, hasCv = false): Draft {
+    return {
+      ...draftFrom({
+        id: "draft-9",
+        company_name: "Acme",
+        role: "Engineer",
+        platform_id: "plt-1",
+        has_cv: hasCv,
+      }),
+      job_description: jd,
+    } as Draft;
+  }
+
+  it("offers the same switch, off, and creates with tailoring: keywords once turned on (R-026)", async () => {
+    searchParams = new URLSearchParams("id=draft-9&step=cv");
+    getDraftMock.mockResolvedValue(draftWithJd("We need a Rust wizard"));
+    listBaseCvsMock.mockResolvedValue([MOCK_BASE_CV]);
+    createTailoredCvMock.mockResolvedValue(SAVED_CV);
+
+    const user = userEvent.setup();
+    renderPage();
+
+    const toggle = await screen.findByRole("switch", {
+      name: "Tailor by keywords",
+    });
+    expect(toggle).not.toBeChecked();
+    await user.click(toggle);
+    await user.click(
+      screen.getByRole("button", { name: "Create the CV copy" }),
+    );
+
+    await waitFor(() =>
+      expect(createTailoredCvMock).toHaveBeenCalledWith(
+        "draft-9",
+        MOCK_BASE_CV.id,
+        "keywords",
+      ),
+    );
+  });
+
+  it("creates a verbatim copy when the switch is left off", async () => {
+    searchParams = new URLSearchParams("id=draft-9&step=cv");
+    getDraftMock.mockResolvedValue(draftWithJd("We need a Rust wizard"));
+    listBaseCvsMock.mockResolvedValue([MOCK_BASE_CV]);
+    createTailoredCvMock.mockResolvedValue(SAVED_CV);
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByRole("switch", { name: "Tailor by keywords" });
+    await user.click(
+      screen.getByRole("button", { name: "Create the CV copy" }),
+    );
+    await waitFor(() =>
+      expect(createTailoredCvMock).toHaveBeenCalledWith(
+        "draft-9",
+        MOCK_BASE_CV.id,
+        "copy",
+      ),
+    );
+  });
+
+  it("renders no switch on a draft with no job description", async () => {
+    searchParams = new URLSearchParams("id=draft-9&step=cv");
+    getDraftMock.mockResolvedValue(draftWithJd(null));
+    listBaseCvsMock.mockResolvedValue([MOCK_BASE_CV]);
+
+    renderPage();
+
+    await screen.findByRole("button", { name: "Create the CV copy" });
+    expect(
+      screen.queryByRole("switch", { name: "Tailor by keywords" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the copy's fit with score, matched and missing beside the job description (R-028)", async () => {
+    searchParams = new URLSearchParams("id=draft-9&step=cv");
+    getDraftMock.mockResolvedValue(draftWithJd("We need a Rust wizard", true));
+    getTailoredCvMock.mockResolvedValue(SAVED_CV);
+
+    renderPage();
+
+    expect(await screen.findByText("Fit 64%")).toBeInTheDocument();
+    expect(getFitMock).toHaveBeenCalledWith("draft-9");
+    expect(
+      screen.getByRole("button", { name: "CV fit for this job" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("rust")).toBeInTheDocument();
+    expect(screen.getByText("kafka")).toBeInTheDocument();
+  }, 15_000);
+
+  it("shows no fit on a draft with no job description", async () => {
+    searchParams = new URLSearchParams("id=draft-9&step=cv");
+    getDraftMock.mockResolvedValue(draftWithJd(null, true));
+    getTailoredCvMock.mockResolvedValue(SAVED_CV);
+
+    renderPage();
+
+    await screen.findByLabelText("Headline", { exact: true });
+    expect(screen.queryByText("CV fit for this job")).not.toBeInTheDocument();
+    expect(getFitMock).not.toHaveBeenCalled();
+  }, 15_000);
+
+  it("the switch is off again when the picker comes back after a delete", async () => {
+    searchParams = new URLSearchParams("id=draft-9&step=cv");
+    getDraftMock.mockResolvedValue(draftWithJd("We need a Rust wizard"));
+    listBaseCvsMock.mockResolvedValue([MOCK_BASE_CV]);
+    createTailoredCvMock.mockResolvedValue(SAVED_CV);
+    removeTailoredCvMock.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("switch", { name: "Tailor by keywords" }),
+    );
+    getTailoredCvMock.mockResolvedValue(SAVED_CV);
+    await user.click(
+      screen.getByRole("button", { name: "Create the CV copy" }),
+    );
+    await screen.findByRole("button", { name: "Delete this CV copy" });
+    getTailoredCvMock.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 404 },
+    });
+    await user.click(
+      screen.getByRole("button", { name: "Delete this CV copy" }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    const again = await screen.findByRole("switch", {
+      name: "Tailor by keywords",
+    });
+    expect(again).not.toBeChecked();
+  }, 15_000);
+
+  it("refetches the fit once a changed job description is autosaved (T093)", async () => {
+    searchParams = new URLSearchParams("id=draft-9&step=cv");
+    getDraftMock.mockResolvedValue(draftWithJd("We need a Rust wizard", true));
+    getTailoredCvMock.mockResolvedValue(SAVED_CV);
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText("Fit 64%")).toBeInTheDocument();
+    expect(getFitMock).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    const jd = await screen.findByLabelText("Job description", { exact: true });
+    await user.type(jd, " and Kafka");
+    await waitFor(() => expect(updateDraftMock).toHaveBeenCalled(), {
+      timeout: 4000,
+    });
+    await waitFor(() => expect(getFitMock).toHaveBeenCalledTimes(2));
   }, 15_000);
 });

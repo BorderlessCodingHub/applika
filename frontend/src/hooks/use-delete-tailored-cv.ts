@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { AxiosError } from "axios";
 import { toast } from "sonner";
 
+import { APPLICATION_CV_FIT_QUERY_KEY } from "@/hooks/use-application-cv-fit";
 import { TAILORED_CVS_QUERY_KEY } from "@/hooks/use-tailored-cv";
 import { getApiError } from "@/lib/api-client";
 import { services } from "@/services/services";
@@ -24,7 +25,12 @@ export function useDeleteTailoredCv(
   return useMutation({
     mutationFn: () => services.tailoredCvs.remove(applicationId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: TAILORED_CVS_QUERY_KEY });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: TAILORED_CVS_QUERY_KEY }),
+        queryClient.invalidateQueries({
+          queryKey: APPLICATION_CV_FIT_QUERY_KEY,
+        }),
+      ]);
       toast.success("CV copy deleted");
       opts?.onSuccess?.();
     },

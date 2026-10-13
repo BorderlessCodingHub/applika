@@ -12,6 +12,7 @@ import type { CvDiffSnapshot } from "@/components/tailored-cvs/cv-diff";
 import { TailoredCvEditor } from "@/components/tailored-cvs/tailored-cv-editor";
 import { useCvDiff } from "@/components/tailored-cvs/use-cv-diff";
 import type { TailoredCv } from "@/components/tailored-cvs/types";
+import type { TailoringMode } from "@/services/types/tailored-cv";
 import { useBaseCvs } from "@/hooks/use-base-cvs";
 import { useDeleteBaseCv } from "@/hooks/use-delete-base-cv";
 import { useExportBaseCvMarkdown } from "@/hooks/use-export-base-cv-markdown";
@@ -25,7 +26,8 @@ export interface DraftCvStepProps {
   isLoadingCv: boolean;
   /** A load failure OTHER than "no copy yet" — a real error to show. */
   cvLoadErrorMessage: string | null;
-  onCreate: (baseCvId: string) => void;
+  /** `tailoring` is `"keywords"` only when the user turned the switch on (R-026). */
+  onCreate: (baseCvId: string, tailoring: TailoringMode) => void;
   isCreating: boolean;
   onDelete: () => void;
   isDeleting: boolean;
@@ -33,6 +35,14 @@ export interface DraftCvStepProps {
   footer: ReactNode;
   onAddJobDescription: () => void;
   jobDescription?: string | null;
+  /**
+   * The draft's SAVED job description is not blank. Governs "Tailor by
+   * keywords": without one the switch is not rendered at all (Plan corrections
+   * 16) — the server would refuse it with a 422 anyway.
+   */
+  canTailorByKeywords?: boolean;
+  /** `CvFitPanel` for the copy, under the job description (R-028). */
+  fit?: ReactNode;
 }
 
 /**
@@ -63,9 +73,16 @@ export function DraftCvStep({
   footer,
   onAddJobDescription,
   jobDescription,
+  canTailorByKeywords = false,
+  fit,
 }: DraftCvStepProps) {
   const baseCvs = useBaseCvs();
 
+  // Off by default, every time the picker shows (R-026: the verbatim copy is the default).
+  const [tailorByKeywords, setTailorByKeywords] = useState(false);
+  // This step stays mounted through create and delete: once a copy exists the
+  // choice is spent, so a picker that comes back after a delete starts off.
+  if (cv && tailorByKeywords) setTailorByKeywords(false);
   const [selectedBaseCvId, setSelectedBaseCvId] = useState<string | null>(null);
   const [deletingBaseCvId, setDeletingBaseCvId] = useState<string | null>(null);
   const [exportingBaseCvId, setExportingBaseCvId] = useState<string | null>(
@@ -136,6 +153,7 @@ export function DraftCvStep({
     form,
     baseline: baselineSnapshot,
     baselineLabel: sourceCvName,
+    adjustments: cv?.adjustments,
     readOnly: false,
   });
 
@@ -164,9 +182,18 @@ export function DraftCvStep({
         value={selectedBaseCvId}
         onValueChange={handleSelect}
         onCreate={() => {
-          if (selectedBaseCvId) onCreate(selectedBaseCvId);
+          if (selectedBaseCvId) {
+            onCreate(
+              selectedBaseCvId,
+              canTailorByKeywords && tailorByKeywords ? "keywords" : "copy",
+            );
+          }
         }}
         isCreating={isCreating}
+        tailorByKeywords={tailorByKeywords}
+        onTailorByKeywordsChange={
+          canTailorByKeywords ? setTailorByKeywords : undefined
+        }
         onDelete={handleDeleteBaseCv}
         deletingId={deletingBaseCvId}
         onExport={handleExportBaseCv}
@@ -187,6 +214,7 @@ export function DraftCvStep({
         sourceCvName={sourceCvName}
         jobDescription={jobDescription}
         onAddJobDescription={onAddJobDescription}
+        fit={fit}
         onDelete={onDelete}
         isDeleting={isDeleting}
         diffSummary={cvDiff.diffSummary}

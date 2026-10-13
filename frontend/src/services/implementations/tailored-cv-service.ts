@@ -4,6 +4,8 @@ import type { ITailoredCvService } from "@/services/interfaces/i-tailored-cv-ser
 import type { CvPdfExport } from "@/services/types/cv-pdf";
 import type {
   CreateTailoredCvPayload,
+  CvFit,
+  TailoringMode,
   TailoredCv,
   UpdateTailoredCvPayload,
 } from "@/services/types/tailored-cv";
@@ -31,10 +33,18 @@ export class TailoredCvService implements ITailoredCvService {
 
   create(
     applicationId: string,
-    data: CreateTailoredCvPayload,
+    baseCvId: string,
+    tailoring: TailoringMode = "copy",
   ): Promise<TailoredCv> {
+    const body: CreateTailoredCvPayload = { base_cv_id: baseCvId, tailoring };
     return api
-      .post<TailoredCv>(`/applications/${applicationId}/cv`, data)
+      .post<TailoredCv>(`/applications/${applicationId}/cv`, body)
+      .then((r) => r.data);
+  }
+
+  getFit(applicationId: string): Promise<CvFit> {
+    return api
+      .get<CvFit>(`/applications/${applicationId}/cv/fit`)
       .then((r) => r.data);
   }
 

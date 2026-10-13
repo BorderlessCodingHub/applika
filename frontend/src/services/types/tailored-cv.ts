@@ -12,14 +12,32 @@ import type { TailoredCv } from "@/components/tailored-cvs/types";
 export type { TailoredCv };
 
 /**
+ * How the copy is made (ADR-0017). `copy` is verbatim and the default
+ * everywhere; `keywords` reorders skills and bullets by the job description
+ * (the server 422s it when the application has no job description).
+ */
+export type TailoringMode = "copy" | "keywords";
+
+/**
  * `POST /applications/{id}/cv` body.
  *
  * The copy is made by the server from the chosen master CV — the client sends
- * nothing but the source. That is the tailoring step: today it copies verbatim,
- * and the request shape does not change when it one day does more.
+ * the source and, opt-in, `tailoring: "keywords"` (R-026).
  */
 export interface CreateTailoredCvPayload {
   base_cv_id: string;
+  tailoring?: TailoringMode;
+}
+
+/**
+ * `GET /applications/{id}/cv/fit` (R-028): the copy's keyword fit against the
+ * application's job description. `score` is `null` (and both lists empty) when
+ * the job description is blank. A 404 means no copy (or not owned): no panel.
+ */
+export interface CvFit {
+  score: number | null;
+  matched_keywords: string[];
+  missing_keywords: string[];
 }
 
 /**

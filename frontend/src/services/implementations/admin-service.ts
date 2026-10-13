@@ -4,6 +4,8 @@ import type {
   AdminCompaniesParams,
   AdminCompanyRow,
   AdminDiscordWebhook,
+  AdminJobRunQueued,
+  AdminJobSource,
   AdminPlatform,
   AdminPlatformsParams,
   AdminPlatformStats,
@@ -19,6 +21,7 @@ import type {
   TopCompanyStat,
   TopPlatformStat,
   UpdateCompany,
+  UpdateAdminJobSource,
   UpdateDiscordWebhook,
   UserGrowthPoint,
 } from "@/services/types/admin";
@@ -178,5 +181,26 @@ export class AdminService {
 
   deleteDiscordWebhook(id: string): Promise<void> {
     return api.delete(`/admin/discord-webhooks/${id}`).then(() => undefined);
+  }
+
+  // ── Job sources (KODI-049) ──────────────────────────────────────────
+
+  getJobSources(): Promise<AdminJobSource[]> {
+    return api.get<AdminJobSource[]>("/admin/jobs/sources").then((r) => r.data);
+  }
+
+  /** R-034: a source that is off is skipped by every run. */
+  updateJobSource(
+    id: string,
+    data: UpdateAdminJobSource,
+  ): Promise<AdminJobSource> {
+    return api
+      .patch<AdminJobSource>(`/admin/jobs/sources/${id}`, data)
+      .then((r) => r.data);
+  }
+
+  /** R-035: 202 queues a run; 409 "A run is already in progress"; 503 "Background service unavailable". */
+  startJobRun(): Promise<AdminJobRunQueued> {
+    return api.post<AdminJobRunQueued>("/admin/jobs/runs").then((r) => r.data);
   }
 }

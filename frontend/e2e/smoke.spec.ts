@@ -110,6 +110,14 @@ const PAGES: PageCase[] = [
   },
 
   {
+    // KODI-048/049 (Plan corrections 23): the job board. Its data-driven
+    // surfaces are `jobs.spec.ts`; this row proves the route boots.
+    path: "/jobs",
+    visitors: ["user", "admin"],
+    assert: heading("Jobs", 1),
+  },
+
+  {
     // KODI-003. The route is only USEFUL with `?id=<application>` — the picker
     // and the editor both need one — so the data-driven surfaces are covered by
     // `cv-builder.spec.ts` against a seeded application, not here. What this row
@@ -146,6 +154,12 @@ const PAGES: PageCase[] = [
     path: "/admin/discord-webhooks",
     visitors: ["admin"],
     assert: heading("Discord webhooks", 1),
+  },
+  {
+    // KODI-049 (Plan corrections 23).
+    path: "/admin/jobs",
+    visitors: ["admin"],
+    assert: heading("Job sources", 1),
   },
 ];
 
@@ -186,12 +200,13 @@ test("/admin/supports redirects to /admin/platforms", async ({ page }) => {
 test("the suite covers every page named in the acceptance criteria", () => {
   // Guards the table itself, because the suite is only as good as this list: a
   // route silently dropped from PAGES would leave the suite green while
-  // covering less. The invariant is 17 routes, ALL of them exercised — the
+  // covering less. The invariant is 19 routes, ALL of them exercised — the
   // `pending`/`pendingReason` parking mechanism is gone, so there is no longer
   // any way to keep a row in the table while skipping it at runtime.
   // 14 until KODI-002 added `/cvs`; 17 since KODI-027 added
-  // `/admin/discord-webhooks`.
-  expect(PAGES).toHaveLength(17);
+  // `/admin/discord-webhooks`; 19 since KODI-049 added `/jobs` and
+  // `/admin/jobs` (Plan corrections 23).
+  expect(PAGES).toHaveLength(19);
 
   // A row with no visitors generates no tests at all, which the length check
   // above cannot see. Same for a duplicated path: 15 rows covering 14 routes.

@@ -76,6 +76,8 @@ export interface TailoredCvEditorProps {
   footerEnd?: ReactNode;
   /** Overrides id generation for new rows. Defaults to `crypto.randomUUID()`. */
   newItemId?: () => string;
+  /** `CvFitPanel`, right under the job description; omit when there is no fit to show. */
+  fit?: ReactNode;
   /** `CvDiffSummaryBar`, above Identity and contact; omit when the copy has no baseline. */
   diffSummary?: ReactNode;
   /** Marker slots for the form body while "Show changes" is on; see `CvFormDiffSlots`. */
@@ -115,6 +117,7 @@ export function TailoredCvEditor({
   actions,
   footerEnd,
   newItemId = defaultNewItemId,
+  fit,
   diffSummary,
   diff,
   className,
@@ -145,11 +148,13 @@ export function TailoredCvEditor({
             </p>
           </>
         ) : (
+          // A long master CV name wraps inside the badge instead of pushing
+          // the page sideways at 375px (KODI-049).
           <Badge
             variant="secondary"
-            className="gap-1.5 px-2.5 py-1 text-xs font-medium"
+            className="h-auto max-w-full gap-1.5 px-2.5 py-1 text-xs font-medium wrap-anywhere whitespace-normal"
           >
-            <FileText aria-hidden className="size-3.5" />
+            <FileText aria-hidden className="size-3.5 shrink-0" />
             {sourceCvName
               ? `Copied from ${sourceCvName}`
               : "Copied from a master CV"}
@@ -169,6 +174,7 @@ export function TailoredCvEditor({
             onAdd={onAddJobDescription}
             disabled={readOnly}
           />
+          {fit}
           {diffSummary}
           <CvFormSections
             form={form}

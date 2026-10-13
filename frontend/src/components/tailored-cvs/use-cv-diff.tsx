@@ -24,6 +24,7 @@ import {
 import { CvDiffSectionCount } from "@/components/tailored-cvs/cv-diff-section-count";
 import { CvDiffSummaryBar } from "@/components/tailored-cvs/cv-diff-summary-bar";
 import { CvRemovedRow } from "@/components/tailored-cvs/cv-removed-row";
+import type { TailoredCvAdjustment } from "@/components/tailored-cvs/types";
 import { isoToMonthYear } from "@/lib/month-year";
 
 /** Lowercase singular per section, for `CvRemovedRow`'s caption. */
@@ -134,6 +135,8 @@ function parseItemPath(
   return { section, itemId: rest.slice(0, dot), field: rest.slice(dot + 1) };
 }
 
+const NO_ADJUSTMENTS: readonly TailoredCvAdjustment[] = [];
+
 export interface UseCvDiffOptions {
   form: UseFormReturn<CvFormValues>;
   /** The baseline to compare against, or `null` when none resolves. */
@@ -142,6 +145,12 @@ export interface UseCvDiffOptions {
   baselineLabel: string | null;
   /** A locked copy shows markers with no Revert/Restore. */
   readOnly: boolean;
+  /**
+   * The copy's `adjustments` (R-025): what "Tailor by keywords" reordered, per
+   * section. Listed in the summary bar and marked "reordered" on the section
+   * header while "Show changes" is on. Empty or absent renders as before.
+   */
+  adjustments?: readonly TailoredCvAdjustment[];
 }
 
 export interface UseCvDiffResult {
@@ -171,6 +180,7 @@ export function useCvDiff({
   baseline,
   baselineLabel,
   readOnly,
+  adjustments = NO_ADJUSTMENTS,
 }: UseCvDiffOptions): UseCvDiffResult {
   const [showChanges, setShowChanges] = useState(false);
   const watched = useWatch({ control: form.control }) as Partial<CvFormValues>;
@@ -312,8 +322,9 @@ export function useCvDiff({
 
     const sectionStatus = (section: CvFormSectionId): ReactNode => {
       const count = detail.canonical.sections[section] ?? 0;
-      if (count <= 0) return undefined;
-      return <CvDiffSectionCount count={count} />;
+      const reordered = adjustments.some((a) => a.section === section);
+      if (count <= 0 && !reordered) return undefined;
+      return <CvDiffSectionCount count={count} reordered={reordered} />;
     };
 
     const itemBadge = (
@@ -365,7 +376,7 @@ export function useCvDiff({
     // `form` is stable (react-hook-form) and only read through `getValues`/
     // `setValue` inside the callbacks, so it is deliberately not a dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showChanges, detail, baseline, readOnly]);
+  }, [showChanges, detail, baseline, readOnly, adjustments]);
 
   const diffSummary: ReactNode = useMemo(() => {
     if (!hasBaseline || !detail) return undefined;
@@ -375,9 +386,10 @@ export function useCvDiff({
         count={detail.canonical.total}
         showChanges={showChanges}
         onShowChangesChange={setShowChanges}
+        adjustments={adjustments}
       />
     );
-  }, [hasBaseline, detail, baselineLabel, showChanges]);
+  }, [hasBaseline, detail, baselineLabel, showChanges, adjustments]);
 
   return {
     hasBaseline,

@@ -213,3 +213,35 @@ export interface UpdateDiscordWebhook {
   role_ids?: string[];
   label?: string | null;
 }
+
+// ── Job sources (KODI-049, R-033..R-035) ────────────────────────────────
+
+/** How a source's last run ended. `null` on the row until it first runs. */
+export type AdminJobRunStatus = "ok" | "failed" | "blocked";
+
+/** `GET /admin/jobs/sources` row. */
+export interface AdminJobSource {
+  id: string;
+  code: string;
+  name: string;
+  base_url: string;
+  platform_id: string | null;
+  is_enabled: boolean;
+  last_run_at: string | null;
+  last_run_status: AdminJobRunStatus | null;
+  last_run_error: string | null;
+  last_run_found: number | null;
+  last_run_saved: number | null;
+  /** Listed (not removed) jobs from this source. */
+  active_jobs: number;
+}
+
+/** `PATCH /admin/jobs/sources/{id}` body (`extra=forbid`, a strict bool). */
+export interface UpdateAdminJobSource {
+  is_enabled: boolean;
+}
+
+/** `POST /admin/jobs/runs` 202 body. 409 / 503 carry a `{detail}` instead. */
+export interface AdminJobRunQueued {
+  queued: true;
+}

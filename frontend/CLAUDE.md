@@ -85,6 +85,28 @@ variables that `scripts/e2e.sh` exports after seeding the real users. The suite
 runs serially (`workers: 1`) against one shared real database, so specs must be
 read-only or clean up after themselves.
 
+**The job board in E2E (KODI-049).** `docker-compose.e2e.yml` also runs
+`worker` and `scheduler` (`applika-e2e-worker`/`-scheduler`, the
+`applika-e2e-api` image with `pull_policy: never`, the commands of ADR-0016,
+`depends_on: api: service_healthy`). They share the API's env through the
+`x-api-environment` anchor, which sets `JOBS_SCRAPERS: fixture` and
+`JOBS_FIXTURE_PATH: /fixtures/postings.json`
+(`./backend/tests/fixtures/jobs:/fixtures:ro`): the fixture scraper serves
+every enabled source from that file, so the suite never reaches himalayas.app
+or remoteok.com — and never navigate a job's `job_url`. `JOBS_INGEST_CRON` is
+`0 0 1 1 *` so the scheduler never fires during a run; the only ingest is the
+admin's "Run now". `e2e/jobs.spec.ts` (serial) runs it and polls by reload
+until both sources read OK, turns RemoteOK off (and proves the next run skips
+it by its unchanged `last_run_at`) and back on, then drives the user half:
+fits (the worker recomputes them after the master CV is seeded, so poll),
+search + source filter in the URL, a saved search, the job's fit, Start
+application with "Tailor by keywords", the reorder under "Show changes", the
+CV fit panel, Finish → "Applied", start again → "Open application", dismiss
+and restore — plus no sideways scroll at 375px with a long CV name on the job
+pages. It wipes the seeded user's drafts, applications, saved searches and
+master CVs before it starts, and `afterAll` restores dismissals and turns
+every source back on.
+
 ---
 
 ## Architecture
@@ -128,9 +150,17 @@ New application with CV, i.e. a draft (PRD 0010, KODI-033):
 | ------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------- |
 | `/applications/new-with-cv?id=&step=` | `(protected)/applications/new-with-cv/page.tsx` | `new-with-cv-page.tsx` — both steps, owns both forms and autosave |
 
+Job board (PRD 0012, KODI-048) — see **Job board** below:
+
+| Route            | Shell                            | Component                                         |
+| ---------------- | -------------------------------- | ------------------------------------------------- |
+| `/jobs`          | `(protected)/jobs/page.tsx`      | `jobs-page.tsx` — list, filters in the URL, marks |
+| `/jobs/view?id=` | `(protected)/jobs/view/page.tsx` | `job-view-page.tsx` — description, fit per CV     |
+
 `?id=` is the APPLICATION's id, never the copy's. There is no nav entry: the
 route is reached from the CV link on an application row, and
-`e2e/shell-responsive.spec.ts` pins `PRIMARY_NAV` at seven entries.
+`e2e/shell-responsive.spec.ts` pins `PRIMARY_NAV` at eight entries
+(Jobs right after Applications since KODI-048).
 
 **`/applications/cv?id=` is the reading column while it shows the picker, and
 full width only once it shows the editor (KODI-017)** — see **App shell**
@@ -591,9 +621,56 @@ The module mirrors `base-cvs/` rather than forking it:
   provenance badge and read-only mode. Like `BaseCvEditor` it does NOT own
   `useForm`; the page does. Its `actions` slot is where `ExportCvButton` mounts,
   and in read-only mode it is the ONLY thing the footer carries.
-- `was_ai_generated` and `adjustments` exist on the wire type and render
-  NOWHERE. Nothing in this product generates a CV, and no UI may suggest it
-  will.
+- `was_ai_generated` exists on the wire type and renders NOWHERE. Nothing in
+  this product generates a CV, and no UI may suggest it will. `adjustments`
+  (`TailoredCvAdjustment[]`, `{section, description}`) DOES render since
+  KODI-049 — see "Tailor by keywords" below.
+
+**"Tailor by keywords" and the CV fit (PRD 0012, KODI-049, R-025/R-026/R-028,
+ADR-0017).** The verbatim copy stays the default everywhere; keyword tailoring
+is opt-in.
+
+- `TailorByKeywordsSwitch` (`tailor-by-keywords-switch.tsx`, label "Tailor by
+  keywords", description "Reorders skills and bullets by how well they match
+  the job description. No text is added or changed.") renders inside
+  `BaseCvPicker`'s footer ONLY when the caller passes
+  `onTailorByKeywordsChange`. Both callers pass it only when the application's
+  job description is not blank — `application-cv-page.tsx` reads
+  `application.job_description`, `new-with-cv-page.tsx` the draft's SAVED one
+  (`lastSavedDraftInput`), since the server tailors against what it has. A
+  blank JD renders no switch at all, never a disabled one (Plan corrections
+  16). Off by default; on sends `tailoring: "keywords"`. The create hook takes
+  `{baseCvId, tailoring?}` and the service always sends `tailoring` (`"copy"`
+  by default). The job start dialog's own "Tailor by keywords" is a RADIO, not
+  this switch — select by role in tests.
+- `CvFitPanel` (`cv-fit-panel.tsx`) is `FitBadge` + `FitKeywords` (K6, reused,
+  never forked) in `TailoredCvEditor`'s `fit` slot, right under
+  `JobDescriptionPanel` — so the editor then has ELEVEN h2s (Job description,
+  CV fit for this job, Identity…). `useApplicationCvFit(applicationId,
+enabled)` (`hooks/use-application-cv-fit.ts`, key `["application-cv-fit",
+id]`) reads `GET /applications/{id}/cv/fit`; `enabled` is "a copy exists
+  AND the JD is not blank", so a blank JD asks for nothing. A 404 (no copy)
+  renders no panel (`isNoTailoredCv`), `score: null` renders nothing, any other
+  failure renders the panel's own alert + "Try again". Same panel editable and
+  read-only, on both the application CV page and draft step 2. "The fit
+  reflects the last saved version." shows while the form is dirty (draft: while
+  the CV autosave is saving or failed). Every write that can move the score
+  invalidates the key: the copy's create/update/delete (incl. the draft's
+  silent autosave), `useUpdateDraft` (step 1 autosave carries the JD),
+  `useApplicationMutate` (the application edit sheet) and the application
+  delete.
+- **The moves in the comparison.** `useCvDiff` takes `adjustments`
+  (`cv.adjustments`). While "Show changes" is on and the list is not empty,
+  `CvDiffSummaryBar` lists them under "Reordered by job match"
+  (`cv-diff-adjustments.tsx`, one `li[data-section]` per entry, the server's
+  `description` verbatim, `getByRole("list", {name: "Reordered by job
+match"})`), and a section an adjustment names gets "reordered" on its header
+  count (`CvDiffSectionCount` `reordered`, `data-reordered`: "reordered", "1
+  change, reordered"). The "Compared with X: N changes" line is unchanged.
+  `cv-diff.ts`, `applika/fixtures/cv-diff/` and the server diff are UNCHANGED
+  (KODI-045 AC6): skill-category and keyword reorders show ONLY through
+  `adjustments`; a pure reorder is still zero diff changes. `adjustments` is
+  written once at creation and can go stale after edits — a known gap.
 
 **Read-only is the application's state, never the copy's.** The page derives
 `readOnlyReason` as `application.finalized_at != null ? "finalized" :
@@ -1351,6 +1428,125 @@ static export). Nav tab "Discord" in `components/admin/admin-nav.tsx`
   shared database. `admin-gating.spec.ts` and `smoke.spec.ts` both gained the
   `/admin/discord-webhooks` route alongside the other three admin pages.
 
+### Admin — Jobs (`app/(protected)/admin/jobs/`, PRD 0012, KODI-049, R-033..R-035)
+
+`/admin/jobs` (`page.tsx` shell over `jobs-page.tsx`), nav tab "Jobs" (lucide
+`Search`, after Platforms) in `admin-nav.tsx`. Pattern:
+`admin/discord-webhooks/`. The h1 is "Job sources".
+
+- `services/types/admin.ts` carries `AdminJobSource` (`id`, `code`, `name`,
+  `base_url`, `platform_id`, `is_enabled`, `last_run_at`, `last_run_status`
+  `"ok"|"failed"|"blocked"|null`, `last_run_error`, `last_run_found`,
+  `last_run_saved`, `active_jobs`). `admin-service.ts`: `getJobSources()`,
+  `updateJobSource(id, {is_enabled})` (a strict bool, `extra=forbid`),
+  `startJobRun()`. `use-admin.ts`: key `["admin", "job-sources"]`
+  (`ADMIN_JOB_SOURCES_KEY`).
+- The ui-designer components are `components/admin/job-sources-table.tsx`
+  (loading/error/empty/ready, one row per source: Source | On | Last run |
+  Status | Found | Saved | Listed jobs | Last error, the table scrolling in its
+  own focusable region), `job-run-controls.tsx` (`JobSourcesHeader`: h1, Run
+  now, the always-mounted notice live region) and `job-sources-copy.ts` (every
+  string, `formatJobLastRun` in UTC, the outcome words "OK"/"Failed"/
+  "Blocked"/"Not run yet"). Row hook:
+  `tr[data-slot="job-source-row"][data-source-code][data-enabled]`; outcome
+  hook `[data-slot="job-source-outcome"][data-status]`. "OK" is also a
+  substring of "RemoteOK" — use `exact: true` or the hooks.
+- **The switch PATCH is optimistic** (`useUpdateAdminJobSource`): the cache
+  flips at once, the switch is `aria-disabled`/`aria-busy` with a spinner
+  while its own PATCH is in flight (the page tracks `pendingIds`), and a
+  failure rolls back and toasts `getApiError`. A source that is off keeps its
+  last outcome; there is no "Off" status.
+- **Run now** (`useStartJobRun`, no toast in the hook): the page clears the
+  notice BEFORE each POST (or the same words twice are not re-announced). 202
+  → toast "Run started", the list refetches, and then refetches every 3 s for
+  60 s (`JOB_RUN_POLL_*`) — the API has no "running" state or end signal. 409
+  → an info notice with the server's `detail` ("A run is already in
+  progress"); 503 and anything else → an error notice with the `detail`
+  ("Background service unavailable"), or "Could not start a run. Try again."
+  when there is no string `detail`. Pending uses the KODI-048 pattern
+  (`aria-disabled` + `aria-busy`, focus stays).
+
+### Job board (`src/components/jobs/`, PRD 0012)
+
+Ported from Ían Muliterno's `job_scrapping` branch (`e670914`, his job-card,
+job-filters, job-list, job-detail-sheet, types, service and hook) onto the
+KODI-047 contract. Every commit porting his logic ends with the trailer
+`Co-authored-by: Ían Muliterno <iannimuliterno@gmail.com>` (R-003).
+
+- **Routes.** `/jobs` (`jobs-page.tsx`) and `/jobs/view?id=`
+  (`job-view-page.tsx`), each a Suspense shell. A 404 on `GET /jobs/{id}` (or
+  no `id`) renders `JobNotListed` — its own h1 "This job is no longer listed"
+  and "Back to jobs".
+- **Filters live in the URL** with the SAME keys `GET /jobs` takes (`search`,
+  `source`, repeated `tags`, `min_fit`, `posted_within_days`, `sort`,
+  `include_dismissed`, plus `page`). `job-filters-url.ts` is the single pure
+  translation: `filtersFromSearchParams` (garbage reads as the default,
+  numbers clamp to the server's ranges, tags trim/dedupe/cap at 10 x 100),
+  `filtersToSearchParams` (defaults OMITTED, so `/jobs` is the default view and
+  a saved search normalises to its shortest URL), `sameJobFilters`,
+  `normalizeJobFilters`. The page reads with `useSearchParams` and writes with
+  `window.history.pushState` (a page past the end: `replaceState` to the last
+  one) — never `router.replace`, a no-op here (see **Profile** below).
+- **The tags TRAP.** axios serialises an array as `tags[]=a&tags[]=b`, a key
+  the API ignores, so the tag filter would silently do nothing.
+  `JobService.list` builds the query string itself (`jobListQuery`) from
+  `filtersToSearchParams`: repeated `tags=` keys, `page`, `per_page=25`.
+  `job-service.test.ts` pins the exact string.
+- **Query keys** (`hooks/use-jobs.ts`): `["jobs", filters, page]`
+  (`keepPreviousData`, so a filter change does not flash the skeleton) and
+  `["job", id]`. `useDismissJob`/`useRestoreJob` are OPTIMISTIC: a list without
+  dismissed jobs drops the job at once (total - 1), a "Show dismissed" list
+  marks it, the detail flips; rollback + `getApiError` toast on failure;
+  invalidate `["jobs"]` and `["job", id]` on settle.
+  `useStartApplicationFromJob` invalidates `["jobs"]`, `["job"]` and
+  `["application-drafts"]` and toasts nothing. `use-job-searches.ts` owns
+  `["job-searches"]`; its mutations toast nothing either (the menu shows a 409
+  inline). **`useCreateBaseCv`/`useUpdateBaseCv`/`useDeleteBaseCv` also
+  invalidate `["jobs"]` and `["job"]`** (R-016, Plan corrections 14): a fit
+  depends on the master CVs.
+- **Fit words.** `FitBadge` reads `Fit 72%` (rounded, clamped 0..100) and
+  never colour alone; bands strong >= 70, partial >= 40, low (neutral) below.
+  The list item shows NO badge when `best_fit` is null; the detail lists one
+  row per master CV, best first, and a CV missing from `fits` reads "No fit
+  yet". The list shows the STORED score and the detail the LIVE one; they may
+  differ until the worker recomputes. Do not "fix" that in the UI. A user with
+  no master CV (`useBaseCvs()` loaded empty) gets `MasterCvInvitation`
+  ("Create a master CV to see how well you fit each job", `/cvs/new`), no fit
+  anywhere (the page strips `best_fit`) and a disabled "Minimum fit".
+- **Draft / Applied.** `JobStatusBadge` links "Draft" to
+  `/applications/new-with-cv?id=<id>` and "Applied" to
+  `/applications?focus=<id>` (`jobApplicationHref`). "Start application" is
+  rendered ALWAYS, beside the badge (orchestrator decision, KODI-048):
+  starting again is how AC8's "offers to open the one that exists" is
+  reached.
+- **The start flow.** `StartApplicationFlow` (`start-application-flow.tsx`)
+  is the data half of `StartApplicationDialog`, mounted once per page: master
+  CVs from `useBaseCvs`, fit labels and `canTailor` from `useJob(job.id)` —
+  `JobSummary` has no `description_text`, so the dialog MUST read the detail.
+  "Verbatim copy" is preselected; "Tailor by keywords" is NOT RENDERED for a
+  blank description (R-026), never just disabled. No CV picked sends only
+  `{job_id}`; a CV sends `{job_id, base_cv_id, tailoring}`. Success
+  `router.push("/applications/new-with-cv?id=<id>&step=cv")` and the dialog
+  stays pending until the page changes. A 404/422 `detail` shows INLINE
+  (`data-slot="start-application-error"`, e.g. "This job has no title to start
+  from"); a 409 refetches the job and offers "Open draft" / "Open
+  application". The success signal — Start, "Tailor by keywords", "Create
+  draft" = 3 clicks after the CV is picked — is counted in
+  `jobs-page.test.tsx`.
+- **Saved searches** (`SavedSearchesMenu`, R-031/R-032): apply pushes the
+  saved filters through `normalizeJobFilters` (the server returns them FULL,
+  defaults included); save sends `normalizeJobFilters(current)` — only
+  `JobFilters` keys, never `page` (an unknown key is a 422). At 10 "Save
+  current search" is disabled with "You can keep up to 10 saved searches". A
+  4xx `detail` resolves into the dialog inline. No notification control
+  exists anywhere, by design (R-032).
+- **Sources.** No user route lists them: `JOB_SOURCES` in
+  `services/types/jobs.ts` fixes Himalayas and RemoteOK (Plan corrections 18).
+- **Accessible-name collisions** for e2e (substring match): "Dismiss" /
+  "Dismissed", "Draft" / "Open draft", nav "Jobs" / "Back to jobs", "Rename" /
+  "Rename <name>". Use `exact: true`. A dialog has its own sr-only "Close", so
+  the conflict panel's "Close" is not unique by name.
+
 ### Date Inputs
 
 **`DatePickerInput` for a day; `MonthYearInput` for a CV month+year, which never
@@ -1418,6 +1614,14 @@ override it.
   AC7, R-040) on top of the base `font-semibold`. The words themselves ("New
   Application" / "Edit Application") are unchanged — `e2e/cv-builder.spec.ts`'s
   "Edit Application" assertion still matches them.
+
+**`components/ui/radio-group.tsx`** (KODI-048) is the shadcn `new-york`
+RadioGroup with ONE applika-only change: the unchecked ring is
+`border-muted-foreground`, because the stock `border-input` is 1.3:1 against
+the card and fails the 3:1 non-text contrast. Keep it when regenerating. Its
+`RadioGroupItem` takes its name from `aria-labelledby` in the job start
+dialog; drive it with a click or `.check()` in Playwright (arrow keys move
+focus but do not check a Radix radio there).
 
 **`components/ui/tabs.tsx`** is the shadcn `new-york` Tabs, unmodified from the
 registry except for one applika-only `variant` on `TabsList`/`TabsTrigger`:
@@ -1549,7 +1753,7 @@ pages that do NOT want it.
     for this page" (KODI-008). Matched on the same `activePath` the nav is
     matched on, tolerates the trailing slash the static export serves, and is
     deliberately kept OUT of `nav.ts`: these are not nav entries, and
-    `PRIMARY_NAV` is pinned at seven by `e2e/shell-responsive.spec.ts`.
+    `PRIMARY_NAV` is pinned at eight by `e2e/shell-responsive.spec.ts`.
   - **By CONTENT**, for a route that is full width only while one surface is
     on screen: `/applications/cv` left `FULL_WIDTH_PATHS` with KODI-017 — the
     owner: "only full width when we have a cv copy to the application" — and
