@@ -647,14 +647,14 @@ async def test_east_of_utc_before_utc_midnight_dates_the_local_day(
     ('day', 'detail'),
     [
         (
-            '2026-10-14',
+            '2030-01-17',
             'application_date cannot be in the future '
-            '(max allowed: 2026-10-13)',
+            '(max allowed: 2030-01-16)',
         ),
         (
-            '2026-10-10',
+            '2030-01-13',
             'application_date cannot be more than one day in the past '
-            '(min allowed: 2026-10-11)',
+            '(min allowed: 2030-01-14)',
         ),
     ],
 )
@@ -675,7 +675,7 @@ async def test_a_day_outside_the_window_is_422_and_writes_nothing(
     cv = await master_cv(async_client)
     companies = await count(db_session, CompanyModel)
     copies = await count(db_session, TailoredCVModel)
-    server_utc(monkeypatch, datetime(2026, 10, 12, 12, 0, tzinfo=UTC))
+    server_utc(monkeypatch, datetime(2030, 1, 15, 12, 0, tzinfo=UTC))
 
     response = await start(
         async_client, job_id, base_cv_id=cv, application_date=day

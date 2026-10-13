@@ -1198,7 +1198,8 @@ ignored (`JobListQuery`).
 
 **Draft from a job** (`POST /applications/drafts/from-job`,
 `use_cases/application_drafts/create_draft_from_job.py`, a port of Ían
-Muliterno's `create_application_from_job.py`). Checks before any write: job
+Muliterno's `create_application_from_job.py`). Checks before any write: a sent
+`application_date` within UTC today ± 1 (422, first, KODI-050), job
 listed (404 `"Job not found"`), no application of the caller with that
 `job_id` (409), a non-blank title (422 `"This job has no title to start
 from"`), the source's `platform_id` visible (`ensure_platform_visible`,

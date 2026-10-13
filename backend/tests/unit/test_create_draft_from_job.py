@@ -425,7 +425,9 @@ async def test_another_integrity_error_is_not_disguised():
 
 
 # ---------------------------------------------------------------------------
-# KODI-050: the draft carries the caller's local day
+# KODI-050: the draft carries the caller's local day. The window tests freeze
+# a UTC day far from any real run day, so a limit read from the host's clock
+# instead of utc_today() always fails them.
 # ---------------------------------------------------------------------------
 
 
@@ -460,11 +462,11 @@ async def test_east_of_utc_before_utc_midnight_keeps_the_local_day():
 
 
 @pytest.mark.parametrize(
-    'day', [date(2026, 10, 11), date(2026, 10, 12), date(2026, 10, 13)]
+    'day', [date(2030, 1, 14), date(2030, 1, 15), date(2030, 1, 16)]
 )
 async def test_any_day_within_one_of_utc_today_is_accepted(day: date):
     deps = Deps()
-    with server_utc(datetime(2026, 10, 12, 12, 0, tzinfo=UTC)):
+    with server_utc(datetime(2030, 1, 15, 12, 0, tzinfo=UTC)):
         await deps.use_case().execute(7, USER, application_date=day)
 
     assert draft_input(deps).application_date == day
@@ -474,14 +476,14 @@ async def test_any_day_within_one_of_utc_today_is_accepted(day: date):
     ('day', 'message'),
     [
         (
-            date(2026, 10, 14),
+            date(2030, 1, 17),
             'application_date cannot be in the future '
-            '(max allowed: 2026-10-13)',
+            '(max allowed: 2030-01-16)',
         ),
         (
-            date(2026, 10, 10),
+            date(2030, 1, 13),
             'application_date cannot be more than one day in the past '
-            '(min allowed: 2026-10-11)',
+            '(min allowed: 2030-01-14)',
         ),
     ],
 )
@@ -490,7 +492,7 @@ async def test_a_day_outside_the_window_is_422_before_any_read_or_write(
 ):
     deps = Deps(job(company_url='https://globex.example'))
     with (
-        server_utc(datetime(2026, 10, 12, 12, 0, tzinfo=UTC)),
+        server_utc(datetime(2030, 1, 15, 12, 0, tzinfo=UTC)),
         patch.object(module, 'resolve_company', AsyncMock()) as resolve,
         pytest.raises(InvalidDate) as raised,
     ):
@@ -530,12 +532,12 @@ async def test_the_default_follows_the_utc_clock(now: datetime, expected: date):
 
 
 def test_lower_bound_helper_edges():
-    with server_utc(datetime(2026, 10, 12, 0, 0, tzinfo=UTC)):
+    with server_utc(datetime(2030, 1, 15, 0, 0, tzinfo=UTC)):
         assert date_rules.ensure_not_before_yesterday(
-            date(2026, 10, 11), 'when'
-        ) == date(2026, 10, 11)
+            date(2030, 1, 14), 'when'
+        ) == date(2030, 1, 14)
         with pytest.raises(InvalidDate) as raised:
-            date_rules.ensure_not_before_yesterday(date(2026, 10, 10), 'when')
+            date_rules.ensure_not_before_yesterday(date(2030, 1, 13), 'when')
     assert raised.value.message == (
-        'when cannot be more than one day in the past (min allowed: 2026-10-11)'
+        'when cannot be more than one day in the past (min allowed: 2030-01-14)'
     )
