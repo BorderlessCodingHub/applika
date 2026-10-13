@@ -27,15 +27,6 @@ import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
 
 test.describe.configure({ mode: "serial" });
 
-// The browser runs on UTC, the API container's clock. BACKEND GAP (KODI-049,
-// reported, not patched here): `POST /applications/drafts/from-job` dates the
-// draft with the server's `date.today()` (UTC). West of UTC in the evening the
-// browser's local day is still "yesterday", so step 1 refuses the draft's own
-// date as "in the future" and Finish says "Some application fields need fixing
-// before this can finish." Pinning the zone keeps this spec about the job
-// board until the backend dates the draft in the user's day.
-test.use({ timezoneId: "UTC" });
-
 /** A long master CV name with a long unbroken word: the 375px check (KODI-048 follow-up). */
 const MASTER_CV =
   "E2E Jobs master CV Pneumonoultramicroscopicsilicovolcanoconiosis-backend";
