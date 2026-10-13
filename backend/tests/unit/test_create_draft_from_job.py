@@ -3,7 +3,9 @@ the prefill and the cuts, the company rule, the refusals and their order,
 the shared-session copy and the race on ``uq_applications_user_job``.
 Mocked repositories, no database."""
 
-from datetime import date
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -21,9 +23,11 @@ from app.application.use_cases.application_drafts.create_draft_from_job import (
     CreateDraftFromJobUseCase,
     web_url,
 )
+from app.application.validators import application_date as date_rules
 from app.core.enums import WorkMode
 from app.core.exceptions import (
     BusinessRuleViolation,
+    InvalidDate,
     ResourceConflict,
     ResourceNotFound,
 )
@@ -142,7 +146,7 @@ async def test_prefill_from_the_job():
     assert data.job_description == 'Python and Go.'
     assert data.work_mode is WorkMode.REMOTE
     assert data.mode == 'active'
-    assert data.application_date == date.today()
+    assert data.application_date == datetime.now(UTC).date()
     assert data.country is None
     kwargs = deps.app_repo.create_draft.await_args.kwargs
     assert kwargs == {
@@ -418,3 +422,120 @@ async def test_another_integrity_error_is_not_disguised():
 
     with pytest.raises(IntegrityError):
         await deps.use_case().execute(7, USER)
+
+
+# ---------------------------------------------------------------------------
+# KODI-050: the draft carries the caller's local day
+# ---------------------------------------------------------------------------
+
+
+@contextmanager
+def server_utc(now: datetime) -> Iterator[None]:
+    """Freeze the one clock the date rules and the use case read."""
+    clock = SimpleNamespace(now=lambda tz=None: now.astimezone(tz))
+    with patch.object(date_rules, 'datetime', clock):
+        yield
+
+
+async def test_west_of_utc_after_utc_midnight_keeps_the_local_day():
+    # (a) 2026-10-13 02:00 UTC is 2026-10-12 23:00 in UTC-3.
+    deps = Deps()
+    with server_utc(datetime(2026, 10, 13, 2, 0, tzinfo=UTC)):
+        await deps.use_case().execute(
+            7, USER, application_date=date(2026, 10, 12)
+        )
+
+    assert draft_input(deps).application_date == date(2026, 10, 12)
+
+
+async def test_east_of_utc_before_utc_midnight_keeps_the_local_day():
+    # (b) 2026-10-12 23:30 UTC is 2026-10-13 08:30 in UTC+9.
+    deps = Deps()
+    with server_utc(datetime(2026, 10, 12, 23, 30, tzinfo=UTC)):
+        await deps.use_case().execute(
+            7, USER, application_date=date(2026, 10, 13)
+        )
+
+    assert draft_input(deps).application_date == date(2026, 10, 13)
+
+
+@pytest.mark.parametrize(
+    'day', [date(2026, 10, 11), date(2026, 10, 12), date(2026, 10, 13)]
+)
+async def test_any_day_within_one_of_utc_today_is_accepted(day: date):
+    deps = Deps()
+    with server_utc(datetime(2026, 10, 12, 12, 0, tzinfo=UTC)):
+        await deps.use_case().execute(7, USER, application_date=day)
+
+    assert draft_input(deps).application_date == day
+
+
+@pytest.mark.parametrize(
+    ('day', 'message'),
+    [
+        (
+            date(2026, 10, 14),
+            'application_date cannot be in the future '
+            '(max allowed: 2026-10-13)',
+        ),
+        (
+            date(2026, 10, 10),
+            'application_date cannot be more than one day in the past '
+            '(min allowed: 2026-10-11)',
+        ),
+    ],
+)
+async def test_a_day_outside_the_window_is_422_before_any_read_or_write(
+    day: date, message: str
+):
+    deps = Deps(job(company_url='https://globex.example'))
+    with (
+        server_utc(datetime(2026, 10, 12, 12, 0, tzinfo=UTC)),
+        patch.object(module, 'resolve_company', AsyncMock()) as resolve,
+        pytest.raises(InvalidDate) as raised,
+    ):
+        await deps.use_case().execute(
+            7, USER, base_cv_id=11, application_date=day
+        )
+
+    assert raised.value.message == message
+    deps.job_repo.get_by_id.assert_not_awaited()
+    resolve.assert_not_awaited()
+    deps.nothing_written()
+
+
+async def test_without_a_day_the_draft_gets_the_server_utc_day():
+    # (d) 23:30 UTC on the 12th: UTC today is the 12th whatever the host's
+    # own zone says.
+    deps = Deps()
+    with server_utc(datetime(2026, 10, 12, 23, 30, tzinfo=UTC)):
+        await deps.use_case().execute(7, USER)
+
+    assert draft_input(deps).application_date == date(2026, 10, 12)
+
+
+@pytest.mark.parametrize(
+    ('now', 'expected'),
+    [
+        (datetime(2026, 10, 13, 2, 0, tzinfo=UTC), date(2026, 10, 13)),
+        (datetime(2026, 10, 12, 23, 59, tzinfo=UTC), date(2026, 10, 12)),
+    ],
+)
+async def test_the_default_follows_the_utc_clock(now: datetime, expected: date):
+    deps = Deps()
+    with server_utc(now):
+        await deps.use_case().execute(7, USER)
+
+    assert draft_input(deps).application_date == expected
+
+
+def test_lower_bound_helper_edges():
+    with server_utc(datetime(2026, 10, 12, 0, 0, tzinfo=UTC)):
+        assert date_rules.ensure_not_before_yesterday(
+            date(2026, 10, 11), 'when'
+        ) == date(2026, 10, 11)
+        with pytest.raises(InvalidDate) as raised:
+            date_rules.ensure_not_before_yesterday(date(2026, 10, 10), 'when')
+    assert raised.value.message == (
+        'when cannot be more than one day in the past (min allowed: 2026-10-11)'
+    )

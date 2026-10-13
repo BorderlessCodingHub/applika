@@ -149,6 +149,7 @@ async def create_draft_from_job(
             int(payload.base_cv_id) if payload.base_cv_id is not None else None
         ),
         tailoring=payload.tailoring,
+        application_date=payload.application_date,
     )
 
 

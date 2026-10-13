@@ -81,11 +81,14 @@ class Draft(DraftInput, TimeSchema):
 class DraftFromJob(BaseSchema):
     """``POST /applications/drafts/from-job`` (KODI-047, R-017, R-020,
     R-026): the job, and optionally a master CV to copy into the draft -
-    verbatim by default, ``keywords`` only on request (ADR-0017)."""
+    verbatim by default, ``keywords`` only on request (ADR-0017).
+    ``application_date`` (KODI-050) is the caller's local calendar day;
+    absent, the draft is dated with the server's UTC day."""
 
     job_id: SnowflakeID
     base_cv_id: SnowflakeID | None = None
     tailoring: Literal['copy', 'keywords'] = 'copy'
+    application_date: date | None = None
 
 
 class DraftSummary(BaseSchema, TimeSchema):

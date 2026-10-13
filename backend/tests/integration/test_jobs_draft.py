@@ -9,7 +9,8 @@ invented.
 """
 
 import asyncio
-from datetime import date
+from datetime import UTC, date, datetime
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -18,7 +19,13 @@ from httpx import AsyncClient
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.models import ApplicationModel, CompanyModel, JobModel
+from app.application.validators import application_date as date_rules
+from app.domain.models import (
+    ApplicationModel,
+    CompanyModel,
+    JobModel,
+    TailoredCVModel,
+)
 from app.main import app as main_app
 from app.presentation.dependencies import get_tailoring_resolver
 from tests import msg
@@ -103,7 +110,7 @@ async def test_draft_is_filled_from_the_job(
     assert draft['job_description'] == 'Python and Django.'
     assert draft['work_mode'] == 'remote'
     assert draft['mode'] == 'active'
-    assert draft['application_date'] == date.today().isoformat()
+    assert draft['application_date'] == datetime.now(UTC).date().isoformat()
     assert draft['country'] is None
     assert draft['job_id'] == str(job_id)
     assert draft['has_cv'] is False
@@ -573,3 +580,135 @@ async def test_losing_the_race_at_the_unique_index_is_the_same_409(
         assert again.status_code == 409, msg(409, again.text)
         assert again.json() == {'detail': ALREADY}
         assert await rows_for_job(db_session, job_id) == 1
+
+
+# ---------------------------------------------------------------------------
+# KODI-050: the draft carries the caller's local day
+# ---------------------------------------------------------------------------
+
+
+def server_utc(monkeypatch: pytest.MonkeyPatch, now: datetime) -> None:
+    """Freeze the one clock the date rules (and so the route) read."""
+    monkeypatch.setattr(
+        date_rules,
+        'datetime',
+        SimpleNamespace(now=lambda tz=None: now.astimezone(tz)),
+    )
+
+
+async def count(session: AsyncSession, model: Any) -> int:
+    return int(
+        await session.scalar(select(func.count()).select_from(model)) or 0
+    )
+
+
+async def test_west_of_utc_after_utc_midnight_dates_and_finishes_the_local_day(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    sources,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # (a) 2026-10-13 02:00 UTC is 2026-10-12 23:00 for a user in UTC-3.
+    job_id = await add_job(db_session)
+    cv = await master_cv(async_client)
+    server_utc(monkeypatch, datetime(2026, 10, 13, 2, 0, tzinfo=UTC))
+
+    draft = await started(
+        async_client, job_id, base_cv_id=cv, application_date='2026-10-12'
+    )
+    assert draft['application_date'] == '2026-10-12'
+
+    finish = await async_client.post(
+        f'/applications/drafts/{draft["id"]}/finish'
+    )
+    assert finish.status_code == 200, msg(200, finish.text)
+    assert finish.json()['application_date'] == '2026-10-12'
+
+
+async def test_east_of_utc_before_utc_midnight_dates_the_local_day(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    sources,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # (b) 2026-10-12 23:30 UTC is 2026-10-13 08:30 for a user in UTC+9.
+    job_id = await add_job(db_session)
+    server_utc(monkeypatch, datetime(2026, 10, 12, 23, 30, tzinfo=UTC))
+
+    draft = await started(async_client, job_id, application_date='2026-10-13')
+
+    assert draft['application_date'] == '2026-10-13'
+    row = await db_session.get(ApplicationModel, int(draft['id']))
+    assert row is not None
+    assert row.application_date == date(2026, 10, 13)
+
+
+@pytest.mark.parametrize(
+    ('day', 'detail'),
+    [
+        (
+            '2026-10-14',
+            'application_date cannot be in the future '
+            '(max allowed: 2026-10-13)',
+        ),
+        (
+            '2026-10-10',
+            'application_date cannot be more than one day in the past '
+            '(min allowed: 2026-10-11)',
+        ),
+    ],
+)
+async def test_a_day_outside_the_window_is_422_and_writes_nothing(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    sources,
+    monkeypatch: pytest.MonkeyPatch,
+    day: str,
+    detail: str,
+):
+    # (c) A new company website, a master CV: every write the start makes.
+    job_id = await add_job(
+        db_session,
+        company_name='Hooli',
+        company_url='https://hooli.example',
+    )
+    cv = await master_cv(async_client)
+    companies = await count(db_session, CompanyModel)
+    copies = await count(db_session, TailoredCVModel)
+    server_utc(monkeypatch, datetime(2026, 10, 12, 12, 0, tzinfo=UTC))
+
+    response = await start(
+        async_client, job_id, base_cv_id=cv, application_date=day
+    )
+
+    assert response.status_code == 422, msg(422, response.text)
+    assert response.json() == {'detail': detail}
+    assert await rows_for_job(db_session, job_id) == 0
+    assert await count(db_session, CompanyModel) == companies
+    assert await count(db_session, TailoredCVModel) == copies
+
+
+async def test_without_a_day_the_draft_gets_the_server_utc_day(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    sources,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # (d) Old clients send no application_date: UTC today, as before.
+    job_id = await add_job(db_session)
+    server_utc(monkeypatch, datetime(2026, 10, 13, 2, 0, tzinfo=UTC))
+
+    draft = await started(async_client, job_id)
+
+    assert draft['application_date'] == '2026-10-13'
+
+
+async def test_a_malformed_day_is_422(
+    async_client: AsyncClient, db_session: AsyncSession, sources
+):
+    job_id = await add_job(db_session)
+
+    response = await start(async_client, job_id, application_date='12/10/2026')
+
+    assert response.status_code == 422, msg(422, response.text)
+    assert await rows_for_job(db_session, job_id) == 0
