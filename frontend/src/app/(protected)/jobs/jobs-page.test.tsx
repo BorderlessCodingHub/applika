@@ -12,6 +12,7 @@ import {
   makeJob,
   makePage,
 } from "@/components/jobs/job-test-fixtures";
+import { localCalendarDay } from "@/components/application-drafts/draft-copy";
 import type { BaseCv } from "@/services/types/base-cv";
 import type { JobSearch } from "@/services/types/job-searches";
 import {
@@ -518,6 +519,7 @@ describe("/jobs: the success signal (AC7)", () => {
       job_id: "101",
       base_cv_id: "7",
       tailoring: "keywords",
+      application_date: localCalendarDay(),
     });
     expect(clicks).toBe(3);
   });
@@ -555,6 +557,7 @@ describe("/jobs: the success signal (AC7)", () => {
         job_id: "101",
         base_cv_id: "8",
         tailoring: "keywords",
+        application_date: localCalendarDay(),
       }),
     );
     expect(push).toHaveBeenCalledWith(

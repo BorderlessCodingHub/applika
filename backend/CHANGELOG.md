@@ -439,6 +439,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- KODI-050 a draft started from a job (`POST /applications/drafts/from-job`)
+  is dated with the caller's local calendar day: the body takes an optional
+  `application_date` (`YYYY-MM-DD`) and stores it; absent, the draft keeps
+  the server's UTC day as before. A given day must lie within UTC today
+  plus or minus one day (every real timezone), else 422 with nothing
+  written - past the top, the existing "cannot be in the future" message;
+  below it, `application_date cannot be more than one day in the past (min
+  allowed: <date>)`. Before, west of UTC in the evening Finish refused the
+  draft's own date as in the future, and east of UTC after midnight the
+  draft got yesterday. No CLI change: the route is web only.
+
 - KODI-020 the dev stack (`docker-compose.yml`) now passes `DISCORD_CLIENT_ID`,
   `DISCORD_CLIENT_SECRET`, `DISCORD_LINK_REDIRECT_URI` and
   `ACCOUNT_LINK_REDIRECT_URI` to the `api` container, and `.env.example`

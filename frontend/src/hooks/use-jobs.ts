@@ -10,6 +10,7 @@ import {
 import { isAxiosError, type AxiosError } from "axios";
 import { toast } from "sonner";
 
+import { localCalendarDay } from "@/components/application-drafts/draft-copy";
 import { APPLICATION_DRAFTS_QUERY_KEY } from "@/hooks/use-application-drafts";
 import { getApiError } from "@/lib/api-client";
 import { services } from "@/services/services";
@@ -157,12 +158,18 @@ export function useRestoreJob() {
 /**
  * `POST /applications/drafts/from-job` (R-020/R-021). No toast: the start
  * dialog shows a 404/422 `detail` inline and turns a 409 into "Open draft".
+ * Always sends the user's LOCAL day as `application_date` (KODI-050): the
+ * server's UTC day is yesterday or tomorrow for part of the world, and Finish
+ * refused a draft dated "tomorrow" as in the future.
  */
 export function useStartApplicationFromJob() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: DraftFromJobInput) =>
-      services.applicationDrafts.createFromJob(data),
+    mutationFn: (data: Omit<DraftFromJobInput, "application_date">) =>
+      services.applicationDrafts.createFromJob({
+        ...data,
+        application_date: localCalendarDay(),
+      }),
     // Not awaited: the page navigates away at once, nothing here waits on the refetch.
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: JOBS_QUERY_KEY });

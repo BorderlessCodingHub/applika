@@ -12,8 +12,7 @@ import { cn } from "@/lib/utils";
 
 export const CV_FIT_PANEL_COPY = {
   title: "CV fit for this job",
-  description:
-    "Keyword match between the job description and this CV copy. No AI.",
+  description: "Keyword match between the job description and this CV copy.",
   loading: "Loading the fit for this job",
   loadError: "Could not load the fit for this job.",
   retry: "Try again",

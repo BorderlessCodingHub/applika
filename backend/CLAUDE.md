@@ -706,7 +706,7 @@ null`.
 | GET | `/applications/drafts/{id}` | Yes | Get one own draft (404 otherwise) |
 | PUT | `/applications/drafts/{id}` | Yes | Full replace of the draft's data; never touches its CV copy |
 | DELETE | `/applications/drafts/{id}` | Yes | Delete it (204); its CV copy is cascade-deleted |
-| POST | `/applications/drafts/from-job` | Yes | KODI-047: `{job_id, base_cv_id?, tailoring?: 'copy' \| 'keywords' = 'copy'}` → 201 `Draft` filled from the job; 404 job unknown or off the list, or base CV not own; 409 `"You already have an application for this job"`; 422 `keywords` without a job description |
+| POST | `/applications/drafts/from-job` | Yes | KODI-047: `{job_id, base_cv_id?, tailoring?: 'copy' \| 'keywords' = 'copy', application_date?}` → 201 `Draft` filled from the job, dated `application_date` (the caller's local day, KODI-050) or the server's UTC day; 422 `application_date` outside UTC today ± 1; 404 job unknown or off the list, or base CV not own; 409 `"You already have an application for this job"`; 422 `keywords` without a job description |
 | POST | `/applications/drafts/{id}/finish` | Yes | Body optional - no body, `{}` or `{application_date}` - → 200 `Application` (same shape `GET /applications` returns); 422 with no CV copy; 422 past `UTC today + 1` |
 
 **`is_draft` and the `NOT_DRAFT` rule.** A draft is a plain `applications` row
@@ -1198,7 +1198,8 @@ ignored (`JobListQuery`).
 
 **Draft from a job** (`POST /applications/drafts/from-job`,
 `use_cases/application_drafts/create_draft_from_job.py`, a port of Ían
-Muliterno's `create_application_from_job.py`). Checks before any write: job
+Muliterno's `create_application_from_job.py`). Checks before any write: a sent
+`application_date` within UTC today ± 1 (422, first, KODI-050), job
 listed (404 `"Job not found"`), no application of the caller with that
 `job_id` (409), a non-blank title (422 `"This job has no title to start
 from"`), the source's `platform_id` visible (`ensure_platform_visible`,
@@ -1210,7 +1211,7 @@ unchanged (visible match reused, else a new **private** company, which
 commits on its own and stays on a later failure); none or invalid → free
 text. The draft: role = title (cut to 200), company name (200), platform,
 `link_to_job` = `job_url` when a valid URL ≤ 2083, `job_description` =
-description (cut to 50 000), `work_mode` remote, `mode` active, today, no
+description (cut to 50 000), `work_mode` remote, `mode` active, the sent `application_date` (checked first, within UTC today ± 1) else UTC today, no
 country, `job_id`. With a base CV, `ApplicationRepository.create_draft(...,
 commit=False)` flushes and `CreateTailoredCVUseCase` (same session) commits
 both; any failure rolls the draft back. An `IntegrityError` on

@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { localCalendarDay } from "@/components/application-drafts/draft-copy";
 import { JobViewPage } from "./job-view-page";
 import {
   apiError,
@@ -289,6 +290,7 @@ describe("/jobs/view: actions", () => {
         job_id: "101",
         base_cv_id: "7",
         tailoring: "keywords",
+        application_date: localCalendarDay(),
       }),
     );
     expect(push).toHaveBeenCalledWith(

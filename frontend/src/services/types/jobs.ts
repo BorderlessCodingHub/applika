@@ -118,4 +118,10 @@ export interface DraftFromJobInput {
   job_id: string;
   base_cv_id?: string;
   tailoring?: JobTailoring;
+  /**
+   * The caller's LOCAL calendar day, `YYYY-MM-DD` (KODI-050). The server dates
+   * the draft with it, so it matches the day Finish later checks against;
+   * absent, the server falls back to its own UTC day.
+   */
+  application_date?: string;
 }

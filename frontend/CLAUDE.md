@@ -1524,8 +1524,10 @@ KODI-047 contract. Every commit porting his logic ends with the trailer
   CVs from `useBaseCvs`, fit labels and `canTailor` from `useJob(job.id)` —
   `JobSummary` has no `description_text`, so the dialog MUST read the detail.
   "Verbatim copy" is preselected; "Tailor by keywords" is NOT RENDERED for a
-  blank description (R-026), never just disabled. No CV picked sends only
-  `{job_id}`; a CV sends `{job_id, base_cv_id, tailoring}`. Success
+  blank description (R-026), never just disabled. No CV picked sends
+  `{job_id}`; a CV sends `{job_id, base_cv_id, tailoring}`; both always add
+  `application_date: localCalendarDay()` (KODI-050), so the draft carries the
+  user's local day, never the server's UTC one. Success
   `router.push("/applications/new-with-cv?id=<id>&step=cv")` and the dialog
   stays pending until the page changes. A 404/422 `detail` shows INLINE
   (`data-slot="start-application-error"`, e.g. "This job has no title to start

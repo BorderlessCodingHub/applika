@@ -910,6 +910,14 @@ describe("Tailor by keywords and the CV fit (KODI-049)", () => {
     expect(within(panel).getByText("kubernetes")).toBeInTheDocument();
     expect(within(panel).getByText("Matched")).toBeInTheDocument();
     expect(within(panel).getByText("Missing")).toBeInTheDocument();
+    // KODI-050 (owner): the description no longer says "No AI.".
+    expect(
+      within(panel).getByText(
+        "Keyword match between the job description and this CV copy.",
+        { exact: true },
+      ),
+    ).toBeInTheDocument();
+    expect(within(panel).queryByText(/No AI/)).not.toBeInTheDocument();
   });
 
   it("shows the same fit on a finalized (read-only) application", async () => {

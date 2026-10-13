@@ -27,15 +27,6 @@ import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
 
 test.describe.configure({ mode: "serial" });
 
-// The browser runs on UTC, the API container's clock. BACKEND GAP (KODI-049,
-// reported, not patched here): `POST /applications/drafts/from-job` dates the
-// draft with the server's `date.today()` (UTC). West of UTC in the evening the
-// browser's local day is still "yesterday", so step 1 refuses the draft's own
-// date as "in the future" and Finish says "Some application fields need fixing
-// before this can finish." Pinning the zone keeps this spec about the job
-// board until the backend dates the draft in the user's day.
-test.use({ timezoneId: "UTC" });
-
 /** A long master CV name with a long unbroken word: the 375px check (KODI-048 follow-up). */
 const MASTER_CV =
   "E2E Jobs master CV Pneumonoultramicroscopicsilicovolcanoconiosis-backend";
@@ -443,11 +434,33 @@ test("user: list, filters, saved search, fit, tailored draft, Applied, dismiss (
   await expect(page).toHaveURL(/\/applications\/new-with-cv\?id=[^&]+&step=cv/);
   await expect(page.getByText(`Copied from ${MASTER_CV}`)).toBeVisible();
 
+  // KODI-050: the draft is dated with the BROWSER's calendar day, on either
+  // side of UTC (east of UTC the old server-UTC date was "yesterday", which
+  // Finish would still accept, so assert the date itself).
+  const draftId = new URL(page.url()).searchParams.get("id");
+  const browserDay = await page.evaluate(() => {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${now.getFullYear()}-${month}-${day}`;
+  });
+  const draft = await getJson<{ application_date: string | null }>(
+    request,
+    `/applications/drafts/${draftId}`,
+  );
+  expect(draft.application_date).toBe(browserDay);
+
   // R-028: the fit of the copy against the job description.
   const fitPanel = page.locator('[data-slot="cv-fit-panel"]');
   await expect(fitPanel).toHaveAttribute("data-state", "ready");
   await expect(
     fitPanel.getByRole("button", { name: "CV fit for this job" }),
+  ).toBeVisible();
+  await expect(
+    fitPanel.getByText(
+      "Keyword match between the job description and this CV copy.",
+      { exact: true },
+    ),
   ).toBeVisible();
   await expect(fitPanel.locator('[data-slot="fit-badge"]')).toHaveText(
     /Fit \d+%/,

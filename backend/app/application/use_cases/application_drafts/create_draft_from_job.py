@@ -4,7 +4,8 @@ R-026).
 Ported from Ían Muliterno's ``create_application_from_job.py``
 (``job_scrapping``, the PR this feature comes from): the job's title, company,
 company website, posting link and source fill the new application, dated
-today in mode "active", and a company with a website becomes a company row.
+the caller's local day (KODI-050; server UTC today when not sent) in mode
+"active", and a company with a website becomes a company row.
 Rebuilt on applika's model (PRD 0010, ADR-0014): the result is a *draft*,
 not an application; the platform is the source's own platform (R-019)
 instead of a lookup by name; the company goes through ``resolve_company``
@@ -12,7 +13,9 @@ instead of a lookup by name; the company goes through ``resolve_company``
 unconditional create; one application per user per job (R-021); and an
 optional master CV copy is made in the same request (R-020).
 
-Checks, all before any write: the job is listed (404), the caller has no
+Checks, all before any write: a given ``application_date`` lies within
+[UTC today - 1, UTC today + 1], every real timezone's "today" (422
+``InvalidDate``), the job is listed (404), the caller has no
 application from it (409), it has a title (422), the
 source's platform is visible (404), the
 master CV is the caller's own (404) and ``keywords`` has a job description
@@ -52,6 +55,11 @@ from app.application.use_cases.jobs.get_job import JOB_NOT_FOUND
 from app.application.use_cases.tailored_cvs.create import (
     NO_JOB_DESCRIPTION_MESSAGE,
     CreateTailoredCVUseCase,
+)
+from app.application.validators.application_date import (
+    ensure_not_before_yesterday,
+    ensure_not_in_future,
+    utc_today,
 )
 from app.config.logging import logger
 from app.core.enums import WorkMode
@@ -135,7 +143,14 @@ class CreateDraftFromJobUseCase:
         user_id: int,
         base_cv_id: int | None = None,
         tailoring: TailoringMode = 'copy',
+        application_date: date | None = None,
     ) -> DraftDTO:
+        if application_date is None:
+            application_date = utc_today()
+        else:
+            ensure_not_in_future(application_date, 'application_date')
+            ensure_not_before_yesterday(application_date, 'application_date')
+
         job = await self.job_repo.get_by_id(job_id)
         if job is None or not job.is_active:
             raise ResourceNotFound(JOB_NOT_FOUND)
@@ -177,7 +192,7 @@ class CreateDraftFromJobUseCase:
             role=role,
             mode='active',
             platform_id=platform_id,
-            application_date=date.today(),
+            application_date=application_date,
             link_to_job=web_url(job.job_url),
             work_mode=WorkMode.REMOTE,
             country=None,
