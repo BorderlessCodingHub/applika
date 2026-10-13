@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { StartApplicationDialog } from "./start-application-dialog";
+import { localCalendarDay } from "@/components/application-drafts/draft-copy";
 import { StartApplicationFlow } from "./start-application-flow";
 import { apiError, makeCv, makeDetail, makeJob } from "./job-test-fixtures";
 import type { BaseCv } from "@/services/types/base-cv";
@@ -86,6 +87,7 @@ describe("StartApplicationFlow", () => {
       job_id: "101",
       base_cv_id: "7",
       tailoring: "copy",
+      application_date: localCalendarDay(),
     });
   });
 
@@ -102,6 +104,7 @@ describe("StartApplicationFlow", () => {
         job_id: "101",
         base_cv_id: "7",
         tailoring: "keywords",
+        application_date: localCalendarDay(),
       }),
     );
   });
@@ -119,7 +122,10 @@ describe("StartApplicationFlow", () => {
     await userEvent.click(createDraft());
 
     await waitFor(() =>
-      expect(createFromJob).toHaveBeenCalledWith({ job_id: "101" }),
+      expect(createFromJob).toHaveBeenCalledWith({
+        job_id: "101",
+        application_date: localCalendarDay(),
+      }),
     );
     expect(push).toHaveBeenCalledWith(
       "/applications/new-with-cv?id=555&step=cv",
@@ -148,7 +154,10 @@ describe("StartApplicationFlow", () => {
     expect(within(dialog()).queryByRole("radio")).toBeNull();
     await userEvent.click(createDraft());
     await waitFor(() =>
-      expect(createFromJob).toHaveBeenCalledWith({ job_id: "101" }),
+      expect(createFromJob).toHaveBeenCalledWith({
+        job_id: "101",
+        application_date: localCalendarDay(),
+      }),
     );
   });
 

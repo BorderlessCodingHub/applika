@@ -62,16 +62,18 @@ describe("JobService (T078)", () => {
 });
 
 describe("ApplicationDraftService.createFromJob (T078)", () => {
-  it("posts the job, the CV and the tailoring", async () => {
+  it("posts the job, the CV, the tailoring and the local day", async () => {
     await new ApplicationDraftService().createFromJob({
       job_id: "101",
       base_cv_id: "7",
       tailoring: "keywords",
+      application_date: "2026-10-12",
     });
     expect(post).toHaveBeenCalledWith("/applications/drafts/from-job", {
       job_id: "101",
       base_cv_id: "7",
       tailoring: "keywords",
+      application_date: "2026-10-12",
     });
   });
 });

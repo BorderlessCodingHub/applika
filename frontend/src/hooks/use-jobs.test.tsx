@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useCreateBaseCv } from "./use-create-base-cv";
 import { useDeleteBaseCv } from "./use-delete-base-cv";
@@ -193,4 +193,67 @@ describe("useStartApplicationFromJob (AC11)", () => {
     );
     expect(toastError).not.toHaveBeenCalled();
   });
+});
+
+/**
+ * KODI-050: the draft carries the user's LOCAL calendar day, never the UTC one.
+ * Each case pins `process.env.TZ` (Node re-reads it at runtime) and fakes only
+ * `Date` at an instant where the local day and the UTC day differ, so the
+ * assertion holds in any runner timezone — in UTC both days would agree and
+ * the test would pass vacuously, which the guard assertions rule out.
+ */
+describe("useStartApplicationFromJob sends the local day (KODI-050)", () => {
+  const originalTz = process.env.TZ;
+
+  afterEach(() => {
+    vi.useRealTimers();
+    if (originalTz === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTz;
+  });
+
+  it.each([
+    {
+      side: "west of UTC, evening",
+      tz: "America/Sao_Paulo",
+      now: "2026-10-13T02:00:00Z",
+      utcDay: "2026-10-13",
+      localDay: "2026-10-12",
+    },
+    {
+      side: "east of UTC, after midnight",
+      tz: "Asia/Tokyo",
+      now: "2026-10-12T23:30:00Z",
+      utcDay: "2026-10-12",
+      localDay: "2026-10-13",
+    },
+  ])(
+    "$side: application_date is $localDay, not UTC's $utcDay",
+    async ({ tz, now, utcDay, localDay }) => {
+      process.env.TZ = tz;
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(now));
+      // Guard: the clock really sits on a local/UTC day boundary.
+      expect(new Date().toISOString().slice(0, 10)).toBe(utcDay);
+
+      const { wrapper } = setup();
+      const { result } = renderHook(() => useStartApplicationFromJob(), {
+        wrapper,
+      });
+      await act(async () => {
+        await result.current.mutateAsync({
+          job_id: "101",
+          base_cv_id: "7",
+          tailoring: "keywords",
+        });
+      });
+
+      expect(createFromJob).toHaveBeenCalledTimes(1);
+      expect(createFromJob).toHaveBeenCalledWith({
+        job_id: "101",
+        base_cv_id: "7",
+        tailoring: "keywords",
+        application_date: localDay,
+      });
+    },
+  );
 });
