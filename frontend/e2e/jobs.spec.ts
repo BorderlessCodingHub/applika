@@ -434,11 +434,33 @@ test("user: list, filters, saved search, fit, tailored draft, Applied, dismiss (
   await expect(page).toHaveURL(/\/applications\/new-with-cv\?id=[^&]+&step=cv/);
   await expect(page.getByText(`Copied from ${MASTER_CV}`)).toBeVisible();
 
+  // KODI-050: the draft is dated with the BROWSER's calendar day, on either
+  // side of UTC (east of UTC the old server-UTC date was "yesterday", which
+  // Finish would still accept, so assert the date itself).
+  const draftId = new URL(page.url()).searchParams.get("id");
+  const browserDay = await page.evaluate(() => {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${now.getFullYear()}-${month}-${day}`;
+  });
+  const draft = await getJson<{ application_date: string | null }>(
+    request,
+    `/applications/drafts/${draftId}`,
+  );
+  expect(draft.application_date).toBe(browserDay);
+
   // R-028: the fit of the copy against the job description.
   const fitPanel = page.locator('[data-slot="cv-fit-panel"]');
   await expect(fitPanel).toHaveAttribute("data-state", "ready");
   await expect(
     fitPanel.getByRole("button", { name: "CV fit for this job" }),
+  ).toBeVisible();
+  await expect(
+    fitPanel.getByText(
+      "Keyword match between the job description and this CV copy.",
+      { exact: true },
+    ),
   ).toBeVisible();
   await expect(fitPanel.locator('[data-slot="fit-badge"]')).toHaveText(
     /Fit \d+%/,
