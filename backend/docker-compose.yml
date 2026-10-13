@@ -7,7 +7,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    environment:
+    environment: &backend-environment
       - ENVIRONMENT=DEV
       - CORS_ORIGINS=["http://127.0.0.1:8080"]
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/applika
@@ -29,6 +29,42 @@ services:
         "-c",
         "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000",
       ]
+    healthcheck:
+      # openapi.json exists in every non-PROD environment and proves the app
+      # booted AFTER the migration ran; the worker and scheduler wait on it.
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/openapi.json')"
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 20s
+    restart: unless-stopped
+
+  # ADR-0016: the taskiq worker and its single scheduler run the same image
+  # with the api's settings. They start once the api is healthy, i.e. after
+  # its migration ran, and never run Alembic themselves.
+  worker:
+    build: .
+    container_name: applika.dev-worker
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment: *backend-environment
+    command: ["taskiq", "worker", "app.worker.broker:broker", "app.worker.tasks"]
+    restart: unless-stopped
+
+  scheduler:
+    build: .
+    container_name: applika.dev-scheduler
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment: *backend-environment
+    # Exactly one scheduler: it enqueues `ingest_jobs` on JOBS_INGEST_CRON.
+    command: ["taskiq", "scheduler", "app.worker.broker:scheduler", "app.worker.tasks"]
     restart: unless-stopped
 
   db:

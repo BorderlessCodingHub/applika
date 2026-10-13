@@ -99,8 +99,8 @@ applika applications finalize 123 \
 
 ## Quick Start (Docker Compose)
 
-One command brings up the whole app — api, static frontend, Postgres and Redis —
-wired the way production serves it. The schema is applied by the real Alembic
+One command brings up the whole app — api, static frontend, the taskiq worker
+and scheduler, Postgres and Redis — wired the way production serves it. The schema is applied by the real Alembic
 chain on every api start.
 
 1. **Configure the environment.**
@@ -142,6 +142,52 @@ chain on every api start.
    docker compose down -v     # drops the database too
    ```
 
+### Background worker (taskiq)
+
+Job collection (Himalayas and RemoteOK) and the CV fit recompute do not run in
+the api. They run in a [taskiq](https://taskiq-python.github.io/) worker that
+reads its tasks from a Redis queue (ADR-0016). Two processes, both built from
+the backend image with the api's environment:
+
+| Service | Command | Role |
+|---|---|---|
+| `worker` | `taskiq worker app.worker.broker:broker app.worker.tasks` | Runs the queued tasks: job collection, fit recompute. |
+| `scheduler` | `taskiq scheduler app.worker.broker:scheduler app.worker.tasks` | Enqueues job collection on `JOBS_INGEST_CRON` (hourly, UTC). Run **exactly one**. |
+
+`docker compose up` starts both once the api is healthy, so the migration has
+already run; they never run Alembic themselves. Without them the app still
+works, but `/jobs` stays empty and Admin → Jobs → Run now has nothing to pick
+the run up.
+
+```bash
+docker compose logs -f worker scheduler
+```
+
+To run them on the host instead (Postgres and Redis up, `DATABASE_URL` and
+`REDIS_URL` set as for the api):
+
+```bash
+cd backend
+uv run taskiq worker app.worker.broker:broker app.worker.tasks
+uv run taskiq scheduler app.worker.broker:scheduler app.worker.tasks
+```
+
+To collect right away instead of waiting for the next hour, sign in as an admin
+and use **Admin → Jobs → Run now**.
+
+Settings (all optional, shared with the api):
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `TASKIQ_BROKER_URL` | `REDIS_URL` | Redis the queue lives on. |
+| `JOBS_INGEST_ENABLED` | `true` | `false` makes every collection run a no-op. |
+| `JOBS_INGEST_CRON` | `0 * * * *` | Collection schedule, UTC. |
+| `JOBS_SCRAPERS` | `himalayas,remoteok` | Sources to collect from. `fixture` reads `JOBS_FIXTURE_PATH` instead of the live sites (tests and E2E; refused when `ENVIRONMENT=PROD`). |
+| `JOBS_LOOKBACK_DAYS` | `7` | Postings published this many days back are collected. |
+| `JOBS_RETENTION_DAYS` | `15` | A posting leaves the list this many days after publication. |
+| `JOBS_SCRAPER_TIMEOUT_SECONDS` | `30` | Timeout per request to a job board. |
+| `JOBS_INGEST_LOCK_SECONDS` | `900` | Run lock TTL, so two runs never overlap. |
+
 ### Iterating on the frontend
 
 The Next.js build is a **static export** and `NEXT_PUBLIC_API_BASE_URL` is baked
@@ -150,7 +196,7 @@ in at build time, so a source change only appears after
 Docker and the frontend on the host:
 
 ```bash
-docker compose up -d --wait api          # api, db and redis
+docker compose up -d --wait api worker scheduler   # api, worker, scheduler, db and redis
 cd frontend && pnpm install && pnpm dev   # http://127.0.0.1:3000
 ```
 
