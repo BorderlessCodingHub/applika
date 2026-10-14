@@ -128,11 +128,34 @@ function railJobs(page: Page): Locator {
   return rail(page).getByRole("link", { name: "Jobs", exact: true });
 }
 
-/** Opens the dashboard and waits until the gated entries have settled. */
-async function openDashboard(page: Page) {
-  await page.goto("/dashboard");
+/**
+ * Runs `navigate` (a goto or a reload) and waits for its `/users/me/features`
+ * answer: the gated Jobs entry joins the rail only after it, so a rail
+ * assertion made earlier could pass against the not-yet-gated nav.
+ */
+async function settleFeatures(page: Page, navigate: () => Promise<unknown>) {
+  const features = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname.endsWith("/users/me/features") &&
+      response.request().method() === "GET",
+  );
+  await navigate();
+  const body = (await (await features).json()) as {
+    features: Array<{ key: string }>;
+  };
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
   await expect(rail(page)).toBeVisible();
+  return body.features.some((feature) => feature.key === "jobs");
+}
+
+/** Opens the dashboard once the caller's features have answered. */
+async function openDashboard(page: Page) {
+  return settleFeatures(page, () => page.goto("/dashboard"));
+}
+
+/** Reloads the dashboard once the caller's features have answered. */
+async function reloadDashboard(page: Page) {
+  return settleFeatures(page, () => page.reload());
 }
 
 async function expectRail(
@@ -253,7 +276,7 @@ test("an admin turns jobs off for themselves only, and back on (AC8, AC9)", asyn
   request,
 }) => {
   await loginAs(page, "admin");
-  await openDashboard(page);
+  expect(await openDashboard(page)).toBe(true);
   await expectRail(page, BASE_LINKS + 2, "beta");
 
   await openFeaturePage(page);
@@ -263,7 +286,7 @@ test("an admin turns jobs off for themselves only, and back on (AC8, AC9)", asyn
   await expect(reason(page)).toHaveText(REASON.off);
   await expect(ownSwitch(page)).not.toBeChecked();
 
-  await openDashboard(page);
+  expect(await openDashboard(page)).toBe(false);
   await expectRail(page, BASE_LINKS + 1, "none");
   await page.goto("/jobs");
   await expect(page.getByText("Oops! Page not found")).toBeVisible();
@@ -280,7 +303,7 @@ test("an admin turns jobs off for themselves only, and back on (AC8, AC9)", asyn
   await expect(reason(page)).toHaveText(REASON.off);
   await ownSwitch(page).click();
   await expect(reason(page)).toHaveText(REASON.admin);
-  await openDashboard(page);
+  expect(await openDashboard(page)).toBe(true);
   await expectRail(page, BASE_LINKS + 2, "beta");
   expect(await jobsStatus(request, "admin")).toBe(200);
 });
@@ -293,7 +316,7 @@ test("an admin adds e2e-discord by username and removes them; e2e-discord follow
   const discord = await openAs(browser, "discord");
   try {
     // KODI-053's protected layout wiring: no jobs, seven entries, no Jobs.
-    await openDashboard(discord);
+    expect(await openDashboard(discord)).toBe(false);
     await expectRail(discord, BASE_LINKS, "none");
     expect(await jobsStatus(request, "discord")).toBe(404);
 
@@ -308,7 +331,7 @@ test("an admin adds e2e-discord by username and removes them; e2e-discord follow
       ),
     ).toHaveText(ADMIN);
 
-    await discord.reload();
+    expect(await reloadDashboard(discord)).toBe(true);
     await expect(railJobs(discord)).toBeVisible();
     const elapsed = Date.now() - started;
     expect(
@@ -349,10 +372,7 @@ test("an admin adds e2e-discord by username and removes them; e2e-discord follow
     await expect(betaRow(page, SEEDED_USERS.user.username)).toBeVisible();
 
     await removeUser(page, DISCORD);
-    await discord.reload();
-    await expect(
-      discord.getByRole("heading", { name: "Dashboard" }),
-    ).toBeVisible();
+    expect(await reloadDashboard(discord)).toBe(false);
     await expectRail(discord, BASE_LINKS, "none");
     expect(await jobsStatus(request, "discord")).toBe(404);
     // Removing someone who is not on the list changes nothing (AC4).
@@ -412,7 +432,7 @@ test("release to everyone and move back to beta keep the list and the admin's ch
     await expect(ownSwitch(page)).not.toBeChecked();
     expect(await betaListUsernames(request)).toEqual(listBefore);
 
-    await openDashboard(discord);
+    expect(await openDashboard(discord)).toBe(true);
     await expectRail(discord, BASE_LINKS + 1, "general");
     expect(await jobsStatus(request, "discord")).toBe(200);
     expect(await jobsStatus(request, "admin")).toBe(200);
@@ -442,10 +462,7 @@ test("release to everyone and move back to beta keep the list and the admin's ch
     // Back in beta: the admin's choice counts again, discord loses it, list unchanged.
     await expect(reason(page)).toHaveText(REASON.off);
     expect(await jobsStatus(request, "admin")).toBe(404);
-    await discord.reload();
-    await expect(
-      discord.getByRole("heading", { name: "Dashboard" }),
-    ).toBeVisible();
+    expect(await reloadDashboard(discord)).toBe(false);
     await expectRail(discord, BASE_LINKS, "none");
     expect(await jobsStatus(request, "discord")).toBe(404);
     expect(await jobsStatus(request, "user")).toBe(200);

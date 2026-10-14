@@ -54,10 +54,32 @@ const PRIMARY_LABELS = [
 
 async function openDashboard(page: Page, role: SeededRole = "user") {
   await loginAs(page, role);
+  // The gated Jobs entry joins the nav only once `/users/me/features`
+  // answers (KODI-053), AFTER the h1: wait for it, or a Tab walk or an entry
+  // count can run against the nav without Jobs (KODI-054 QA, a load flake).
+  const features = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname.endsWith("/users/me/features") &&
+      response.request().method() === "GET",
+  );
   await page.goto("/dashboard");
+  const body = (await (await features).json()) as {
+    features: Array<{ key: string }>;
+  };
   await expect(
     page.getByRole("heading", { name: "Dashboard", level: 1 }),
   ).toBeVisible();
+  // At md+ the rail proves the render too; below md the closed sheet renders
+  // no nav, and the received answer is what the sheet opens with.
+  const rail = page.locator("aside");
+  if (
+    body.features.some((feature) => feature.key === "jobs") &&
+    (await rail.isVisible())
+  ) {
+    await expect(
+      rail.getByRole("link", { name: "Jobs", exact: true }),
+    ).toBeVisible();
+  }
 }
 
 const menuTrigger = (page: Page) =>
