@@ -529,7 +529,11 @@ is hidden from everyone, admins included (fail closed).
   body that is not JSON answers its own 422 `json_invalid` on a gated route,
   and Starlette answers an undefined method with 405. Field validation runs
   after the dependencies, so a well-formed body with wrong fields is still the
-  404.
+  404. Likewise a trailing slash (`/jobs/`, `/job-searches/`) gets
+  Starlette's 307 redirect to the slash-less route before any dependency
+  runs (an unknown route with a slash is a plain 404); the redirected
+  request then gets the gate's 404. Found by QA in KODI-052, not part of the
+  owner's correction 5 approval.
 - **Tests**: `create_all` has no seed rows, so no feature exists in a test
   until a test inserts it. The `jobs_beta` fixture (`tests/conftest.py`)
   inserts `jobs` as revision `641001baff09` seeds it and enrols the
