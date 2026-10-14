@@ -39,6 +39,7 @@ from app.application.use_cases.application_drafts.list_drafts import (
 from app.application.use_cases.application_drafts.update_draft import (
     UpdateDraftUseCase,
 )
+from app.core.features import FeatureKey
 from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     ApplicationReadModelDp,
@@ -50,6 +51,7 @@ from app.presentation.dependencies import (
     JobRepositoryDp,
     JobSourceRepositoryDp,
     PlatformRepositoryDp,
+    require_feature,
 )
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.application import Application
@@ -113,6 +115,8 @@ async def create_draft(
     '/from-job',
     response_model=Draft,
     status_code=201,
+    # ADR-0018: without "jobs" this route is an unknown route (404).
+    dependencies=[require_feature(FeatureKey.JOBS)],
     responses={
         '404': {'model': DetailSchema},
         '409': {'model': DetailSchema},

@@ -20,10 +20,12 @@ from app.application.use_cases.job_searches.list_searches import (
 from app.application.use_cases.job_searches.update_search import (
     UpdateJobSearchUseCase,
 )
+from app.core.features import FeatureKey
 from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     CurrentUserDp,
     SavedJobSearchRepositoryDp,
+    require_feature,
 )
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.job_searches import (
@@ -35,6 +37,8 @@ from app.presentation.schemas.job_searches import (
 router = APIRouter(
     prefix='/job-searches',
     tags=['Job searches'],
+    # ADR-0018: without "jobs" every route here is an unknown route (404).
+    dependencies=[require_feature(FeatureKey.JOBS)],
     responses={'401': {'model': DetailSchema}},
 )
 

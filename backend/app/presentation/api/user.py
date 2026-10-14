@@ -3,6 +3,9 @@ from datetime import date
 from fastapi import APIRouter, Query, Response
 
 from app.application.dto.user import UserUpdateDTO
+from app.application.use_cases.features.list_my_features import (
+    ListMyFeaturesUseCase,
+)
 from app.application.use_cases.get_user_agenda import (
     GetUserAgendaUseCase,
 )
@@ -11,6 +14,7 @@ from app.config.settings import envs
 from app.presentation.dependencies import (
     CurrentUserDp,
     DiscordConnectionRepositoryDp,
+    FeatureRepositoryDp,
     StepDefinitionRepositoryDp,
     TimelineEventRepositoryDp,
     UnlinkDiscordUseCaseDp,
@@ -18,6 +22,7 @@ from app.presentation.dependencies import (
 )
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.application_step import AgendaStepSchema
+from app.presentation.schemas.features import MyFeature, MyFeatures
 from app.presentation.schemas.user import UpdateUserProfile, UserProfile
 
 router = APIRouter(tags=['Users'], responses={'403': {'model': DetailSchema}})
@@ -30,6 +35,24 @@ async def get_me(
 ):
     connection = await conn_repo.get_by_user_id(c_user.id)
     return UserProfile.from_user(c_user, connection)
+
+
+@router.get(
+    '/users/me/features',
+    response_model=MyFeatures,
+    responses={'401': {'model': DetailSchema}},
+)
+async def get_my_features(
+    c_user: CurrentUserDp, feature_repo: FeatureRepositoryDp
+):
+    """The features the caller has right now, by key, with their stages
+    (ADR-0018). The web hides what is missing; the API enforces it."""
+    features = await ListMyFeaturesUseCase(feature_repo).execute(
+        c_user.id, c_user.is_admin
+    )
+    return MyFeatures(
+        features=[MyFeature(key=f.key, stage=f.stage.value) for f in features]
+    )
 
 
 @router.patch('/users/me', response_model=UserProfile)

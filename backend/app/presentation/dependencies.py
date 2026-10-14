@@ -94,7 +94,8 @@ from app.application.use_cases.tailored_cvs.update import (
 from app.config.db import get_session
 from app.config.redis import get_redis
 from app.config.settings import ACCESS_COOKIE_NAME, envs
-from app.core.exceptions import ForbiddenAccess
+from app.core.exceptions import ForbiddenAccess, ResourceNotFound
+from app.core.features import NOT_FOUND_DETAIL, FeatureKey
 from app.domain.repositories.admin_repository import AdminRepository
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -108,6 +109,7 @@ from app.domain.repositories.discord_connection_repository import (
 from app.domain.repositories.discord_report_webhook_repository import (
     DiscordReportWebhookRepository,
 )
+from app.domain.repositories.feature_repository import FeatureRepository
 from app.domain.repositories.feedback_definition_repository import (
     FeedbackDefinitionRepository,
 )
@@ -434,6 +436,42 @@ async def get_admin_user(
 
 
 AdminUserDp = Annotated[UserDTO, Depends(get_admin_user)]
+
+
+def get_feature_repository(session: DbSession) -> FeatureRepository:
+    return FeatureRepository(session)
+
+
+FeatureRepositoryDp = Annotated[
+    FeatureRepository, Depends(get_feature_repository)
+]
+
+
+async def user_has_feature(
+    key: FeatureKey, user: UserDTO, feature_repo: FeatureRepository
+) -> bool:
+    """The access rule for one request: one indexed query, never cached
+    (ADR-0018, R-012). ``user.is_admin`` is read from the database by
+    ``get_current_user`` on every request."""
+    return await feature_repo.has_feature(key.value, user.id, user.is_admin)
+
+
+def require_feature(key: FeatureKey):
+    """A dependency that answers ``404 {"detail": "Not Found"}`` - the same
+    body as an unknown route - when the caller lacks ``key`` (ADR-0018).
+
+    Built on ``CurrentUserDp``, so an anonymous request gets today's auth
+    error first. Put it on a router (``dependencies=[...]``) when the whole
+    router is gated, on the route when one route of a shared router is.
+    """
+
+    async def _require_feature(
+        user: CurrentUserDp, feature_repo: FeatureRepositoryDp
+    ) -> None:
+        if not await user_has_feature(key, user, feature_repo):
+            raise ResourceNotFound(NOT_FOUND_DETAIL)
+
+    return Depends(_require_feature)
 
 
 def get_base_cv_repository(session: DbSession):
