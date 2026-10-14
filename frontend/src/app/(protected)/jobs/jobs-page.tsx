@@ -34,7 +34,10 @@ import {
   type SavedSearchOutcome,
 } from "@/components/jobs/saved-searches-menu";
 import { StartApplicationFlow } from "@/components/jobs/start-application-flow";
+import { BetaBadge } from "@/components/features/beta-badge";
+import { FeatureGate } from "@/components/features/feature-gate";
 import { useBaseCvs } from "@/hooks/use-base-cvs";
+import { useHasFeature } from "@/hooks/use-features";
 import {
   useCreateJobSearch,
   useDeleteJobSearch,
@@ -78,7 +81,20 @@ function savedSearchOutcome(error: unknown): SavedSearchOutcome {
   throw error;
 }
 
+/**
+ * `/jobs` behind the `jobs` feature (PRD 0013): without it, the app's "page
+ * not found" and not one job request — the gate sits above every job hook.
+ */
 export function JobsPage() {
+  return (
+    <FeatureGate feature="jobs">
+      <JobBoard />
+    </FeatureGate>
+  );
+}
+
+function JobBoard() {
+  const beta = useHasFeature("jobs").stage === "beta";
   const searchParams = useSearchParams();
   const filters = useMemo(
     () => filtersFromSearchParams(searchParams),
@@ -192,9 +208,12 @@ export function JobsPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="font-display text-2xl font-bold tracking-tight-display sm:text-3xl">
-            {JOBS_COPY.title}
-          </h1>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <h1 className="font-display text-2xl font-bold tracking-tight-display sm:text-3xl">
+              {JOBS_COPY.title}
+            </h1>
+            {beta ? <BetaBadge /> : null}
+          </div>
           <p className="mt-1 text-sm text-pretty text-muted-foreground">
             {JOBS_COPY.subtitle}
           </p>

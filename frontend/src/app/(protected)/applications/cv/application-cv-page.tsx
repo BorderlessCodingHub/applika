@@ -30,6 +30,7 @@ import { LinkButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCycleContext } from "@/contexts/cycle-context";
 import { useApplicationCvFit } from "@/hooks/use-application-cv-fit";
+import { useHasFeature } from "@/hooks/use-features";
 import { useApplicationById } from "@/hooks/use-applications";
 import { useBaseCvs } from "@/hooks/use-base-cvs";
 import { useCreateTailoredCv } from "@/hooks/use-create-tailored-cv";
@@ -261,9 +262,13 @@ export function ApplicationCvPage() {
   const noCopyYet = copyDeleted || isNoTailoredCv(cvError);
   /** R-026/R-028: the switch and the fit exist only with a job description. */
   const hasJobDescription = Boolean(application?.job_description?.trim());
+  // PRD 0013: both are job-board tools, shown only with `jobs`. An existing
+  // keyword copy keeps its "Reordered by job match" list either way.
+  const hasJobs = useHasFeature("jobs").has;
+  const jobTools = hasJobs && hasJobDescription;
   const fit = useApplicationCvFit(
     applicationId,
-    Boolean(cv) && !noCopyYet && hasJobDescription,
+    Boolean(cv) && !noCopyYet && jobTools,
   );
   /** A 404 is "no copy" (or a race with a delete): no panel, not an error. */
   const fitIsNoCopy = isNoTailoredCv(fit.error);
@@ -353,15 +358,12 @@ export function ApplicationCvPage() {
             if (!selectedBaseCvId) return;
             createMutation.mutate({
               baseCvId: selectedBaseCvId,
-              tailoring:
-                hasJobDescription && tailorByKeywords ? "keywords" : "copy",
+              tailoring: jobTools && tailorByKeywords ? "keywords" : "copy",
             });
           }}
           isCreating={createMutation.isPending}
           tailorByKeywords={tailorByKeywords}
-          onTailorByKeywordsChange={
-            hasJobDescription ? setTailorByKeywords : undefined
-          }
+          onTailorByKeywordsChange={jobTools ? setTailorByKeywords : undefined}
           onDelete={handleDeleteBaseCv}
           deletingId={deletingBaseCvId}
           onExport={handleExportBaseCv}
@@ -420,7 +422,7 @@ export function ApplicationCvPage() {
           jobDescription={application.job_description}
           onAddJobDescription={() => setEditingApplication(true)}
           fit={
-            hasJobDescription && !fitIsNoCopy ? (
+            jobTools && !fitIsNoCopy ? (
               <CvFitPanel
                 fit={fit.data}
                 isLoading={fit.isLoading}

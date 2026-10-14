@@ -59,6 +59,8 @@ export interface JobDetailViewProps {
   pending?: JobMarkPending;
   /** Pins "3 days ago" in tests. */
   now?: Date;
+  /** Beside the h1, never inside it (the heading's name stays the title): the "Beta" badge. */
+  titleBadge?: ReactNode;
   className?: string;
 }
 
@@ -76,6 +78,7 @@ export function JobDetailView({
   onRestore,
   pending = null,
   now,
+  titleBadge,
   className,
 }: JobDetailViewProps) {
   const titleId = useId();
@@ -115,12 +118,16 @@ export function JobDetailView({
               </>
             ) : null}
           </p>
-          <h1
-            id={titleId}
-            className="font-display text-2xl font-bold tracking-tight-display text-balance break-words text-foreground sm:text-3xl"
-          >
-            {job.title}
-          </h1>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            {/* `min-w-0`: `break-words` alone does not let a flex item shrink. */}
+            <h1
+              id={titleId}
+              className="min-w-0 font-display text-2xl font-bold tracking-tight-display text-balance break-words text-foreground sm:text-3xl"
+            >
+              {job.title}
+            </h1>
+            {titleBadge}
+          </div>
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-foreground/80">
             <span className="min-w-0 break-words">{job.company_name}</span>
             {isHttpUrl(job.company_url) ? (

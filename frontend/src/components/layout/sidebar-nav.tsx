@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { Fragment, useId } from "react";
 import { isNavItemActive, type NavItem } from "./nav";
+import { BetaBadge } from "@/components/features/beta-badge";
 import { cn } from "@/lib/utils";
 
-const slugify = (group: string) =>
-  group.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+const slugify = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
 interface SidebarNavProps {
   items: NavItem[];
@@ -35,6 +36,8 @@ export function SidebarNav({
    * privileged, so hiding it would leave that signal sighted-users-only.
    */
   const groupLabelId = (group: string) => `${uid}-group-${slugify(group)}`;
+  /** Id of an entry's "Beta" badge: instance-scoped for the same reason. */
+  const betaId = (href: string) => `${uid}-beta-${slugify(href)}`;
 
   return (
     <nav
@@ -45,6 +48,7 @@ export function SidebarNav({
         const active = isNavItemActive(item, activePath);
         const Icon = item.icon;
         const group = item.group;
+        const beta = item.beta === true;
         const startsGroup = group && group !== items[index - 1]?.group;
 
         return (
@@ -63,8 +67,12 @@ export function SidebarNav({
               aria-current={active ? "page" : undefined}
               // Describes, never names: the accessible name stays exactly the
               // label (`admin-gating.spec.ts` asserts "Admin" exactly), while
-              // the group is announced after it.
-              aria-describedby={group ? groupLabelId(group) : undefined}
+              // the group and the "Beta" badge are announced after it.
+              aria-describedby={
+                [group && groupLabelId(group), beta && betaId(item.href)]
+                  .filter(Boolean)
+                  .join(" ") || undefined
+              }
               className={cn(
                 "group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50",
                 active
@@ -82,6 +90,17 @@ export function SidebarNav({
                 )}
               />
               <span className="truncate">{item.label}</span>
+              {beta ? (
+                <>
+                  {" "}
+                  <BetaBadge
+                    id={betaId(item.href)}
+                    size="sm"
+                    aria-hidden
+                    className="ml-auto"
+                  />
+                </>
+              ) : null}
             </Link>
           </Fragment>
         );

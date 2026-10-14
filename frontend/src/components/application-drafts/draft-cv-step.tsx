@@ -36,12 +36,16 @@ export interface DraftCvStepProps {
   onAddJobDescription: () => void;
   jobDescription?: string | null;
   /**
-   * The draft's SAVED job description is not blank. Governs "Tailor by
-   * keywords": without one the switch is not rendered at all (Plan corrections
-   * 16) — the server would refuse it with a 422 anyway.
+   * The user has `jobs` (PRD 0013) AND the draft's SAVED job description is
+   * not blank. Governs "Tailor by keywords": without both the switch is not
+   * rendered at all (Plan corrections 16) — the server would refuse it with a
+   * 422 anyway.
    */
   canTailorByKeywords?: boolean;
-  /** `CvFitPanel` for the copy, under the job description (R-028). */
+  /**
+   * `CvFitPanel` for the copy, under the job description (R-028). The page
+   * passes it only with `jobs`.
+   */
   fit?: ReactNode;
 }
 

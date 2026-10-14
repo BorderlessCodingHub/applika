@@ -68,6 +68,7 @@ import {
   APPLICATION_CV_FIT_QUERY_KEY,
   useApplicationCvFit,
 } from "@/hooks/use-application-cv-fit";
+import { useHasFeature } from "@/hooks/use-features";
 import { useDebouncedAutosave } from "@/hooks/use-debounced-autosave";
 import { services } from "@/services/services";
 import type { UpdateTailoredCvPayload } from "@/services/types/tailored-cv";
@@ -552,10 +553,11 @@ export function NewWithCvPage() {
   const savedHasJobDescription = Boolean(
     lastSavedDraftInput?.job_description?.trim(),
   );
-  const fitQuery = useApplicationCvFit(
-    draftId,
-    Boolean(cv) && savedHasJobDescription,
-  );
+  // PRD 0013: "Tailor by keywords" and the fit are job-board tools, shown
+  // only with `jobs`; the draft itself and its copy work the same without.
+  const hasJobs = useHasFeature("jobs").has;
+  const jobTools = hasJobs && savedHasJobDescription;
+  const fitQuery = useApplicationCvFit(draftId, Boolean(cv) && jobTools);
   const fitIsNoCopy = isNoTailoredCv(fitQuery.error);
 
   // beforeunload while typing is unsaved — before the draft exists, or while
@@ -809,9 +811,9 @@ export function NewWithCvPage() {
           footer={hasCv ? footerActions : undefined}
           onAddJobDescription={() => goToStep("application")}
           jobDescription={watchedApplication.job_description}
-          canTailorByKeywords={savedHasJobDescription}
+          canTailorByKeywords={jobTools}
           fit={
-            savedHasJobDescription && cv && !fitIsNoCopy ? (
+            jobTools && cv && !fitIsNoCopy ? (
               <CvFitPanel
                 fit={fitQuery.data}
                 isLoading={fitQuery.isLoading}
