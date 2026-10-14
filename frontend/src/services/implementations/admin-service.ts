@@ -25,6 +25,12 @@ import type {
   UpdateDiscordWebhook,
   UserGrowthPoint,
 } from "@/services/types/admin";
+import type {
+  AdminFeature,
+  AdminFeatureUsersPage,
+  AdminFeatureUsersParams,
+  FeatureStage,
+} from "@/services/types/features";
 
 export class AdminService {
   // ── Dashboard Analytics ───────────────────────────────────────────
@@ -202,5 +208,62 @@ export class AdminService {
   /** R-035: 202 queues a run; 409 "A run is already in progress"; 503 "Background service unavailable". */
   startJobRun(): Promise<AdminJobRunQueued> {
     return api.post<AdminJobRunQueued>("/admin/jobs/runs").then((r) => r.data);
+  }
+
+  // ── Beta features (KODI-052 API, KODI-054) ──────────────────────────
+
+  /** `GET /admin/features`: every feature with its count, release date and the caller's own access. */
+  getFeatures(): Promise<AdminFeature[]> {
+    return api.get<AdminFeature[]>("/admin/features").then((r) => r.data);
+  }
+
+  /** `GET /admin/features/{key}/users`: the beta list, newest first; 404 "Feature not found". */
+  getFeatureUsers(
+    key: string,
+    params?: AdminFeatureUsersParams,
+  ): Promise<AdminFeatureUsersPage> {
+    return api
+      .get<AdminFeatureUsersPage>(
+        `/admin/features/${encodeURIComponent(key)}/users`,
+        { params },
+      )
+      .then((r) => r.data);
+  }
+
+  /** `PUT …/users/{user_id}`: 204, idempotent; 404 "Feature not found" | "User not found". */
+  addFeatureUser(key: string, userId: string): Promise<void> {
+    return api
+      .put(`/admin/features/${encodeURIComponent(key)}/users/${userId}`)
+      .then(() => undefined);
+  }
+
+  /** `DELETE …/users/{user_id}`: 204, idempotent; 404 "Feature not found". */
+  removeFeatureUser(key: string, userId: string): Promise<void> {
+    return api
+      .delete(`/admin/features/${encodeURIComponent(key)}/users/${userId}`)
+      .then(() => undefined);
+  }
+
+  /** `PATCH /admin/features/{key}` `{stage}`: release, or move back to beta. The list is kept. */
+  setFeatureStage(key: string, stage: FeatureStage): Promise<AdminFeature> {
+    return api
+      .patch<AdminFeature>(`/admin/features/${encodeURIComponent(key)}`, {
+        stage,
+      })
+      .then((r) => r.data);
+  }
+
+  /** `PUT …/opt-out`: the caller turns the feature off for themselves only. */
+  optOutFeature(key: string): Promise<void> {
+    return api
+      .put(`/admin/features/${encodeURIComponent(key)}/opt-out`)
+      .then(() => undefined);
+  }
+
+  /** `DELETE …/opt-out`: the caller turns it back on. */
+  optInFeature(key: string): Promise<void> {
+    return api
+      .delete(`/admin/features/${encodeURIComponent(key)}/opt-out`)
+      .then(() => undefined);
   }
 }
