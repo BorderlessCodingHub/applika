@@ -43,6 +43,14 @@ performed by the E2E is undone the next time this script runs.
 ``e2e-user`` and ``e2e-admin`` have their connection deleted on every
 upsert, so both stay deterministically unlinked run after run.
 
+KODI-052 (ADR-0018, plan 0013 corrections 2 and 8): every run also puts
+the beta features back in a known state - ``jobs`` in ``beta`` with
+``released_at`` NULL, ``e2e-user`` on its beta list, ``e2e-discord`` off it,
+and every opt-out of ``e2e-admin`` gone - so a crashed beta-features spec
+cannot leak into the next run. The ``jobs`` row itself comes from
+``alembic upgrade head`` (revision ``641001baff09``); without it the script
+fails loudly.
+
 Prints exactly one JSON line to stdout::
 
     {"user_id": "...", "access_token": "...", "refresh_token": "...",
@@ -64,10 +72,12 @@ from app.config.db import AsyncLocalSession
 from app.config.redis import redis_client
 from app.config.settings import envs
 from app.core.crypto import encrypt_discord_token
+from app.core.features import FeatureKey, FeatureStage
 from app.core.tokens import create_access_token, create_refresh_token_value
 from app.domain.repositories.discord_connection_repository import (
     DiscordConnectionRepository,
 )
+from app.domain.repositories.feature_repository import FeatureRepository
 from app.domain.repositories.user_repository import UserRepository
 
 # Deterministic, synthetic identities — NOT real data. The github_id
@@ -178,6 +188,27 @@ async def upsert_users() -> tuple[Identity, Identity, Identity]:
     return user, admin, discord_user
 
 
+async def reset_beta_features(
+    user: Identity, admin: Identity, discord_user: Identity
+) -> None:
+    """Put ``jobs`` back in ``beta`` (``released_at`` NULL), enrol
+    ``e2e-user`` (added by ``e2e-admin``), take ``e2e-discord`` off the list
+    and clear every opt-out of ``e2e-admin`` - the same state on every run
+    (KODI-052)."""
+    async with AsyncLocalSession() as session:
+        repo = FeatureRepository(session)
+        jobs = await repo.get_by_key(FeatureKey.JOBS.value)
+        if jobs is None:
+            raise RuntimeError(
+                'The "jobs" feature row is missing: run alembic upgrade '
+                'head (revision 641001baff09) before seeding.'
+            )
+        await repo.set_stage(jobs.id, FeatureStage.BETA)
+        await repo.add_user(jobs.id, user.user_id, admin.user_id)
+        await repo.remove_user(jobs.id, discord_user.user_id)
+        await repo.clear_opt_outs(admin.user_id)
+
+
 async def mint_session(
     identity: Identity,
     redis_conn: redis.Redis,
@@ -195,6 +226,7 @@ async def mint_session(
 async def seed() -> dict[str, str]:
     """Upsert all three users and return the E2E contract payload."""
     user, admin, discord_user = await upsert_users()
+    await reset_beta_features(user, admin, discord_user)
     try:
         access_token, refresh_token = await mint_session(user, redis_client)
         admin_access_token, admin_refresh_token = await mint_session(
