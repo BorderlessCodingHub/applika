@@ -537,10 +537,14 @@ is hidden from everyone, admins included (fail closed).
   `app/presentation/gated_slash.py`, called at the end of `api/jobs.py`,
   `api/job_searches.py`, and for the one gated route of
   `api/application_draft.py` and `api/tailored_cv.py`): same endpoint,
-  methods and dependencies. Without the feature `/jobs/`, `/jobs/{id}/`,
-  `/job-searches/` etc. answer the gate's 404, byte-equal to
-  `GET /no-such-route/`; with it the slash path is served directly by the
-  same handler; anonymous gets the 401. Every other route (the CLI's
+  methods and dependencies; its regex takes one trailing slash or more,
+  since Starlette's redirect strips them all. Without the feature `/jobs/`,
+  `/jobs//`, `/jobs/{id}/`, `/job-searches/` etc. answer the gate's 404,
+  byte-equal to `GET /no-such-route/`; with it the slash path is served
+  directly by the same handler; anonymous gets the 401. One side effect:
+  `GET`/`PUT`/`DELETE /applications/drafts/from-job/` is 405 (the twin is
+  POST-only), while the slash-less form reaches the ungated
+  `/applications/drafts/{draft_id}` route (422). Every other route (the CLI's
   `/supports/`, `/applications/`, `/users/me/`, the ungated drafts and CV
   routes) keeps Starlette's 307 - `redirect_slashes` stays on app-wide. A
   new gated router or route calls `add_slash_twins` too.

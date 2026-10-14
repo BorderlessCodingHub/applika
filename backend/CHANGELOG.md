@@ -326,7 +326,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - KODI-052 without the "jobs" feature, /jobs*, /job-searches*, POST /applications/drafts/from-job and GET /applications/{id}/cv/fit answer 404, and POST /applications/{id}/cv with tailoring "keywords" answers 422 "Unknown tailoring option".
-- KODI-052 without the "jobs" feature, the slash-suffixed gated paths (/jobs/, /jobs/{id}/, /job-searches/, /applications/drafts/from-job/, /applications/{id}/cv/fit/ ...) answer the same 404 instead of a 307 redirect; with it they are served directly. Every other route keeps its trailing-slash redirect.
+- KODI-052 without the "jobs" feature, the slash-suffixed gated paths (/jobs/, /jobs//, /jobs/{id}/, /job-searches/, /applications/drafts/from-job/, /applications/{id}/cv/fit/ ...) answer the same 404 instead of a 307 redirect; with it they are served directly. Every other route keeps its trailing-slash redirect.
 - KODI-046 the keyword matcher keeps and matches tags with digits and
   non-English letters (5G, 3D, 2FA, Vue 3, Résumé); .NET no longer matches
   "Net income"; "Python," is "python"; "machine- learning" is no pair.
