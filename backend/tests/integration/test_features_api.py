@@ -793,3 +793,48 @@ async def test_e2e_seed_reset_against_postgres(
     ).all()
     assert [(r.user_id, r.added_by) for r in listed] == [(USER_ID, ADMIN_ID)]
     assert await list_rows(db_session, 'feature_admin_opt_outs') == 0
+
+
+async def test_beta_list_search_escapes_percent(
+    async_client: AsyncClient, db_session: AsyncSession, jobs
+):
+    ids = await add_users(db_session, ['a%b', 'axxb'])
+    for user_id in ids:
+        await enrol(db_session, user_id)
+    async with as_admin():
+        page = (
+            await async_client.get(
+                '/admin/features/jobs/users', params={'search': 'a%b'}
+            )
+        ).json()
+    assert [i['username'] for i in page['items']] == ['a%b']
+
+
+async def test_stage_change_bumps_updated_at(
+    async_client: AsyncClient, db_session: AsyncSession, jobs
+):
+    async with as_admin():
+        before = (await admin_row(async_client))['updated_at']
+        after = (await set_stage(async_client, 'general')).json()['updated_at']
+    assert datetime.fromisoformat(after) > datetime.fromisoformat(before)
+    stored = await db_session.scalar(text('SELECT updated_at FROM features'))
+    assert stored is not None
+
+
+async def test_a_user_deleted_between_the_check_and_the_insert_is_404(
+    async_client: AsyncClient, db_session: AsyncSession, jobs, monkeypatch
+):
+    """The race branch of ``add_user``: the FK refuses the row, the answer
+    is the same 404 and the session is usable again."""
+    from app.domain.repositories.feature_repository import FeatureRepository
+
+    async def _exists(self, user_id: int) -> bool:
+        return True
+
+    monkeypatch.setattr(FeatureRepository, 'user_exists', _exists)
+    async with as_admin():
+        response = await put_user(async_client, 9999999999999999)
+        assert response.status_code == 404
+        assert response.json() == USER_NOT_FOUND
+        assert (await put_user(async_client, USER_ID)).status_code == 204
+    assert await list_rows(db_session, 'feature_beta_users') == 1

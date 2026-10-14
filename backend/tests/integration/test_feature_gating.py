@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.config.db import get_session
 from app.core.tokens import create_access_token
-from app.domain.models import SavedJobSearchModel
+from app.domain.models import FeatureModel, SavedJobSearchModel
 from app.main import app as main_app
 from tests import msg
 from tests.base_db_setup import base_data
@@ -580,3 +580,59 @@ async def test_losing_jobs_keeps_drafts_copies_searches_and_dismissals(
         'id': draft['id'],
         'is_draft': False,
     }
+
+
+async def test_another_feature_never_grants_jobs(
+    async_client: AsyncClient, db_session: AsyncSession, world
+):
+    """R-002: the check is per key - a released feature ``alpha`` the user
+    has gives nothing on ``jobs``."""
+    db_session.add(
+        FeatureModel(
+            id=8300000000000000011, key='alpha', name='A', stage='general'
+        )
+    )
+    await db_session.commit()
+    assert await my_keys(async_client) == ['alpha']
+    response = await async_client.get('/jobs')
+    assert response.status_code == 404
+    assert response.json() == NOT_FOUND
+
+
+async def test_a_missing_key_is_hidden_from_admins_while_others_exist(
+    async_client: AsyncClient, db_session: AsyncSession, world
+):
+    """R-003: no ``jobs`` row while another (general) feature exists - an
+    admin still gets the unknown-route 404 (code shipped before its seed
+    row)."""
+    db_session.add(
+        FeatureModel(
+            id=8300000000000000012, key='alpha', name='A', stage='general'
+        )
+    )
+    await db_session.execute(text("DELETE FROM features WHERE key = 'jobs'"))
+    await db_session.commit()
+    async with as_admin():
+        assert await my_keys(async_client) == ['alpha']
+        response = await async_client.get('/jobs')
+        assert response.status_code == 404
+        assert response.json() == NOT_FOUND
+
+
+async def my_keys(client: AsyncClient) -> list[str]:
+    response = await client.get('/users/me/features')
+    assert response.status_code == 200
+    return [f['key'] for f in response.json()['features']]
+
+
+async def test_trailing_slash_redirect_is_documented_not_hidden(
+    async_client: AsyncClient, world
+):
+    """Starlette redirects ``/jobs/`` to ``/jobs`` (307) before any
+    dependency runs, while an unknown route with a slash is 404 - recorded
+    in the backend CLAUDE.md next to plan correction 5."""
+    response = await async_client.get('/jobs/', follow_redirects=False)
+    assert response.status_code == 307
+    followed = await async_client.get('/jobs/', follow_redirects=True)
+    assert followed.status_code == 404
+    assert followed.json() == NOT_FOUND
