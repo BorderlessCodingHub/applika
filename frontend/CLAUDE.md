@@ -1522,9 +1522,13 @@ tab "Features" (lucide `FlaskConical`, after Jobs) in `admin-nav.tsx`.
   `detailOrThrow` is that adapter.
 - **Not found.** No `?key=`, a features list without the key, or a 404 on
   the beta-list GET renders `FeatureNotFound` (the 404 `detail` as its h1).
-- **Beta list.** Search (username only, debounced 250 ms, back to page 1),
-  25 per page, remove behind an AlertDialog. A page that emptied under the
-  admin offers "Go to page N".
+- **Beta list.** Search (username only, debounced 250 ms, back to page 1;
+  a CLEARED search applies at once, so the cached full list shows without an
+  "empty" flash), 25 per page, remove behind an AlertDialog. A page that
+  emptied under the admin offers "Go to page N". Added / Added by fold into
+  the username cell below `lg`, not `sm`: from `md` the rail takes 240px and
+  Remove would scroll off. A failed features load shows only the header
+  error — Your access and the list need the stage and name to word themselves.
 - **"Add user" dialog** searches `GET /admin/users?search=` (username or
   email, `useAdminUserSearch`, 10 rows, debounced; idle when blank).
   `GET /admin/users` has no "already listed" flag, so `listedUserIds` is
