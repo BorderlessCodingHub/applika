@@ -818,8 +818,9 @@ def test_only_one_head() -> None:
     draft flag columns, Release A) is now the sole head instead of S10, and
     this test is updated to look one revision further again rather than
     re-asserting S10 is the head it no longer is. KODI-044 (``b28d5134631f``,
-    job board tables, Release A of plan 0012) is now the sole head, one
-    revision beyond KODI-030.
+    job board tables, Release A of plan 0012) was then the head, one
+    revision beyond KODI-030. KODI-051 (``641001baff09``, feature registry
+    tables, Release A of plan 0013) is now the sole head, one beyond KODI-044.
     """
     from alembic.config import Config
     from alembic.script import ScriptDirectory
@@ -828,8 +829,10 @@ def test_only_one_head() -> None:
     script = ScriptDirectory.from_config(config)
 
     heads = script.get_heads()
-    assert list(heads) == ['b28d5134631f']
+    assert list(heads) == ['641001baff09']
 
+    kodi_051 = script.get_revision('641001baff09')
+    assert kodi_051.down_revision == 'b28d5134631f'
     kodi_044 = script.get_revision('b28d5134631f')
     assert kodi_044.down_revision == '3b78c3cd2a71'
     kodi_030 = script.get_revision('3b78c3cd2a71')
