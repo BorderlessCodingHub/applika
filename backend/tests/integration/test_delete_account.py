@@ -276,6 +276,7 @@ async def test_delete_own_account_cascades_drafts(
     )
 
 
+@pytest.mark.usefixtures('jobs_beta')  # KODI-052: needs "jobs"
 async def test_delete_own_account_removes_job_board_rows_but_not_jobs(
     async_client: AsyncClient, db_session: AsyncSession
 ):

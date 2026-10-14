@@ -1394,6 +1394,7 @@ async def test_tailoring_copy_is_the_verbatim_copy(async_client: AsyncClient):
     assert copy['adjustments'] == []
 
 
+@pytest.mark.usefixtures('jobs_beta')  # KODI-052: needs "jobs"
 async def test_tailoring_keywords_reorders_and_records_the_moves(
     async_client: AsyncClient, db_session: AsyncSession
 ):
@@ -1443,6 +1444,7 @@ async def test_tailoring_keywords_reorders_and_records_the_moves(
     assert fetched.json()['skills'] == copy['skills']
 
 
+@pytest.mark.usefixtures('jobs_beta')  # KODI-052: needs "jobs"
 async def test_the_diff_of_a_keyword_copy_still_exports(
     async_client: AsyncClient,
 ):
@@ -1469,6 +1471,7 @@ async def test_the_diff_of_a_keyword_copy_still_exports(
     ) in response.text, response.text
 
 
+@pytest.mark.usefixtures('jobs_beta')  # KODI-052: needs "jobs"
 @pytest.mark.parametrize('job_description', [None, '   '])
 async def test_tailoring_keywords_without_a_job_description_is_refused(
     async_client: AsyncClient, db_session: AsyncSession, job_description
@@ -1526,6 +1529,7 @@ def test_openapi_exposes_tailoring_and_fit():
 # --- Fit (ADR-0017, PRD 0012 R-028) ----------------------------------------
 
 
+@pytest.mark.usefixtures('jobs_beta')  # KODI-052: needs "jobs"
 async def test_fit_of_an_application_copy(async_client: AsyncClient):
     base_cv = await _create_base_cv(async_client)
     application = await _create_application(
@@ -1545,6 +1549,7 @@ async def test_fit_of_an_application_copy(async_client: AsyncClient):
     }, response.json()
 
 
+@pytest.mark.usefixtures('jobs_beta')  # KODI-052: needs "jobs"
 async def test_fit_is_the_same_on_every_call(async_client: AsyncClient):
     """R-014: the same CV and job always give the same score."""
     _, application, _ = await _setup(async_client)
@@ -1562,6 +1567,7 @@ async def test_fit_is_the_same_on_every_call(async_client: AsyncClient):
     assert second.json() == body
 
 
+@pytest.mark.usefixtures('jobs_beta')  # KODI-052: needs "jobs"
 async def test_fit_of_a_draft_copy(async_client: AsyncClient):
     """ADR-0014: the ``cv*`` routes serve drafts too."""
     base_cv = await _create_base_cv(async_client)
@@ -1589,6 +1595,7 @@ async def test_fit_of_a_draft_copy(async_client: AsyncClient):
     }, response.json()
 
 
+@pytest.mark.usefixtures('jobs_beta')  # KODI-052: needs "jobs"
 @pytest.mark.parametrize('job_description', [None, '', '  \n '])
 async def test_fit_without_a_job_description_is_no_fit(
     async_client: AsyncClient, job_description
@@ -1611,6 +1618,7 @@ async def test_fit_without_a_job_description_is_no_fit(
     }
 
 
+@pytest.mark.usefixtures('jobs_beta')  # KODI-052: needs "jobs"
 async def test_fit_without_a_copy_is_404(async_client: AsyncClient):
     application = await _create_application(async_client)
 
@@ -1622,6 +1630,7 @@ async def test_fit_without_a_copy_is_404(async_client: AsyncClient):
     assert response.json() == {'detail': 'CV copy not found'}
 
 
+@pytest.mark.usefixtures('jobs_beta')  # KODI-052: needs "jobs"
 async def test_fit_of_another_users_application_is_404(
     async_client: AsyncClient, db_session: AsyncSession
 ):
@@ -1643,6 +1652,7 @@ async def test_fit_of_another_users_application_is_404(
     assert response.status_code == 404, msg(404, response.text)
 
 
+@pytest.mark.usefixtures('jobs_beta')  # KODI-052: needs "jobs"
 async def test_fit_is_allowed_on_a_finalized_and_archived_application(
     async_client: AsyncClient, db_session: AsyncSession
 ):
@@ -1659,6 +1669,7 @@ async def test_fit_is_allowed_on_a_finalized_and_archived_application(
     assert response.json()['score'] is not None
 
 
+@pytest.mark.usefixtures('jobs_beta')  # KODI-052: needs "jobs"
 async def test_fit_scores_the_copy_not_its_master(async_client: AsyncClient):
     """An edited copy is what is scored, never the snapshot of its master."""
     base_cv = await _create_base_cv(async_client)

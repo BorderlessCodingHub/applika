@@ -10,13 +10,34 @@ from typing import Any
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+)
 
 from app.config.db import get_session
+from app.domain.models import UserModel
 from app.main import app as main_app
 from tests import msg
 from tests.base_db_setup import base_data
+from tests.features_seed import enrol
 from tests.integration.conftest import SECOND_USER_ID, as_user
+
+# KODI-052 (ADR-0018): every route here sits behind the "jobs" beta
+# feature; ``jobs_beta`` seeds it and puts the ``async_client`` user on its
+# list.
+pytestmark = pytest.mark.usefixtures('jobs_beta')
+
+
+@pytest_asyncio.fixture
+async def second_user(
+    second_user: UserModel, db_session: AsyncSession, jobs_beta: int
+) -> UserModel:
+    """The conftest second user, on the "jobs" beta list too (KODI-052)."""
+    await enrol(db_session, second_user.id, jobs_beta)
+    return second_user
+
 
 LIMIT = 'Saved search limit reached (max 10)'
 TAKEN = 'A saved search with this name already exists'

@@ -846,14 +846,128 @@ def test_reupgrade_seeds_jobs_again_when_it_went_missing(
 
 
 # --------------------------------------------------------------------------
-# AC7 / AC10 - nothing in app/ maps the new objects
+# KODI-052 (Release B) maps the three tables, never an ``*_old`` twin, and
+# the ``create_all`` test schema equals the migrated one
 # --------------------------------------------------------------------------
 
 
-def test_orm_maps_none_of_the_new_objects() -> None:
+def test_orm_maps_the_three_tables_and_no_old_object() -> None:
+    """Release A mapped nothing (KODI-051); Release B (KODI-052) maps the
+    three tables. No ``*_old`` object is ever mapped (rule 7)."""
     from app.domain.models import Base
 
     mapped_tables = set(Base.metadata.tables)
     for table in NEW_TABLES:
-        assert table not in mapped_tables
+        assert table in mapped_tables
         assert f'{table}_old' not in mapped_tables
+
+
+def _metadata_diffs(url: str) -> list[Any]:
+    from alembic.autogenerate import compare_metadata
+    from alembic.migration import MigrationContext
+
+    from app.domain.models import Base
+
+    def compare(connection: sa.Connection) -> list[Any]:
+        context = MigrationContext.configure(
+            connection,
+            opts={'compare_type': True, 'compare_server_default': True},
+        )
+        return list(compare_metadata(context, Base.metadata))
+
+    async def run() -> list[Any]:
+        engine = create_async_engine(url, poolclass=NullPool)
+        try:
+            async with engine.connect() as conn:
+                return await conn.run_sync(compare)
+        finally:
+            await engine.dispose()
+
+    return _run(run())
+
+
+def _touches(diff: Any, tables: tuple[str, ...]) -> bool:
+    """Whether an autogenerate diff entry concerns one of ``tables``."""
+    entries = diff if isinstance(diff, list) else [diff]
+    for entry in entries:
+        for part in entry:
+            name = getattr(part, 'name', None)
+            table = getattr(part, 'table', None)
+            if name in tables or getattr(table, 'name', None) in tables:
+                return True
+            if isinstance(part, str) and part in tables:
+                return True
+    return False
+
+
+def test_orm_mapping_equals_the_migrated_feature_tables(
+    migration_db: str,
+) -> None:
+    """Autogenerate against a database at this revision finds nothing to
+    change on the three tables."""
+    _upgrade(migration_db, REVISION)
+
+    diffs = [
+        d for d in _metadata_diffs(migration_db) if _touches(d, NEW_TABLES)
+    ]
+
+    assert diffs == []
+
+
+def _catalog(url: str) -> dict[str, set[tuple[str, str]]]:
+    """Every constraint and index (name, definition) of the three tables,
+    read from ``pg_catalog``."""
+    constraints = _query(
+        url,
+        'SELECT c.conrelid::regclass::text AS tbl, c.conname AS name, '
+        'pg_get_constraintdef(c.oid) AS def FROM pg_constraint c '
+        'WHERE c.conrelid::regclass::text = ANY(:tables)',
+        {'tables': list(NEW_TABLES)},
+    )
+    indexes = _query(
+        url,
+        'SELECT tablename AS tbl, indexname AS name, indexdef AS def '
+        'FROM pg_indexes WHERE tablename = ANY(:tables)',
+        {'tables': list(NEW_TABLES)},
+    )
+    return {
+        'constraints': {
+            (f'{r["tbl"]}.{r["name"]}', r['def']) for r in constraints
+        },
+        'indexes': {(r['name'], r['def']) for r in indexes},
+    }
+
+
+def test_create_all_builds_the_same_constraints_and_indexes(
+    migration_db: str,
+) -> None:
+    """Names, FK targets and ``ondelete``, UNIQUE, CHECK, the PKs and the
+    indexes, which autogenerate does not fully compare: ``create_all`` (the
+    test schema) and this revision build them identically."""
+    from app.domain.models import Base
+
+    _upgrade(migration_db, REVISION)
+    migrated = _catalog(migration_db)
+
+    _apply(
+        migration_db,
+        [
+            ('DROP SCHEMA public CASCADE', {}),
+            ('CREATE SCHEMA public', {}),
+        ],
+    )
+
+    async def create_all() -> None:
+        engine = create_async_engine(migration_db, poolclass=NullPool)
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+        finally:
+            await engine.dispose()
+
+    _run(create_all())
+    created = _catalog(migration_db)
+
+    assert created == migrated
+    assert migrated['constraints']
+    assert migrated['indexes']
