@@ -11,6 +11,7 @@ import {
   type NavItem,
 } from "./nav";
 import { SidebarNav } from "./sidebar-nav";
+import type { MyFeature } from "@/services/types/features";
 
 /**
  * Shell navigation (KODI-004 / R-017, R-020).
@@ -25,6 +26,11 @@ import { SidebarNav } from "./sidebar-nav";
  */
 
 const hrefsOf = (items: NavItem[]) => items.map((item) => item.href);
+
+/** The cases written before PRD 0013 run with `jobs` released: 8 entries, no badge. */
+const JOBS_GENERAL: MyFeature[] = [{ key: "jobs", stage: "general" }];
+const JOBS_BETA: MyFeature[] = [{ key: "jobs", stage: "beta" }];
+const NO_FEATURES: MyFeature[] = [];
 
 function renderNav(activePath: string, items: NavItem[] = PRIMARY_NAV) {
   return render(<SidebarNav items={items} activePath={activePath} />);
@@ -85,17 +91,19 @@ describe("isNavItemActive", () => {
 
 describe("navItemsFor", () => {
   it("hides the admin entry from a non-admin", () => {
-    expect(hrefsOf(navItemsFor(false))).not.toContain("/admin");
+    expect(hrefsOf(navItemsFor(false, JOBS_GENERAL))).not.toContain("/admin");
   });
 
   it("hides the admin entry while is_admin is still unknown", () => {
     // `user?.is_admin` is `undefined` for the frame before the profile lands
     // and for any user the API returns without the flag.
-    expect(hrefsOf(navItemsFor(undefined))).not.toContain("/admin");
+    expect(hrefsOf(navItemsFor(undefined, JOBS_GENERAL))).not.toContain(
+      "/admin",
+    );
   });
 
   it("appends the admin entry last for an admin", () => {
-    const items = navItemsFor(true);
+    const items = navItemsFor(true, JOBS_GENERAL);
 
     expect(hrefsOf(items)).toContain("/admin");
     expect(items.at(-1)).toBe(ADMIN_NAV);
@@ -103,22 +111,24 @@ describe("navItemsFor", () => {
   });
 
   it("keeps every primary entry in order for both identities", () => {
-    expect(hrefsOf(navItemsFor(false))).toEqual(hrefsOf(PRIMARY_NAV));
-    expect(hrefsOf(navItemsFor(true)).slice(0, PRIMARY_NAV.length)).toEqual(
+    expect(hrefsOf(navItemsFor(false, JOBS_GENERAL))).toEqual(
       hrefsOf(PRIMARY_NAV),
     );
+    expect(
+      hrefsOf(navItemsFor(true, JOBS_GENERAL)).slice(0, PRIMARY_NAV.length),
+    ).toEqual(hrefsOf(PRIMARY_NAV));
   });
 
   it("never mutates PRIMARY_NAV when it appends the admin entry", () => {
     const before = hrefsOf(PRIMARY_NAV);
-    navItemsFor(true);
+    navItemsFor(true, JOBS_GENERAL);
     expect(hrefsOf(PRIMARY_NAV)).toEqual(before);
   });
 });
 
 describe("SidebarNav rendering", () => {
   it("marks exactly one entry as the current page", () => {
-    renderNav("/applications/123", navItemsFor(true));
+    renderNav("/applications/123", navItemsFor(true, JOBS_GENERAL));
 
     const current = screen
       .getAllByRole("link")
@@ -129,7 +139,7 @@ describe("SidebarNav rendering", () => {
   });
 
   it("marks no entry as the current page on an unmatched pathname", () => {
-    renderNav("/somewhere-else", navItemsFor(true));
+    renderNav("/somewhere-else", navItemsFor(true, JOBS_GENERAL));
 
     expect(
       screen
@@ -139,7 +149,7 @@ describe("SidebarNav rendering", () => {
   });
 
   it("renders no Admin link for a non-admin", () => {
-    renderNav("/dashboard", navItemsFor(false));
+    renderNav("/dashboard", navItemsFor(false, JOBS_GENERAL));
 
     // A bare string `name` is a full-string match in Testing Library, so this
     // is the same "exactly Admin" the e2e admin-gating spec asserts.
@@ -149,7 +159,7 @@ describe("SidebarNav rendering", () => {
   });
 
   it("renders an Admin link named exactly Admin for an admin", () => {
-    renderNav("/admin/users", navItemsFor(true));
+    renderNav("/admin/users", navItemsFor(true, JOBS_GENERAL));
 
     const admin = screen.getByRole("link", { name: "Admin" });
     expect(admin).toHaveAttribute("href", "/admin");
@@ -157,15 +167,15 @@ describe("SidebarNav rendering", () => {
   });
 
   it("exposes the nav under a Primary landmark, in display order", () => {
-    renderNav("/dashboard", navItemsFor(true));
+    renderNav("/dashboard", navItemsFor(true, JOBS_GENERAL));
 
     expect(
       Array.from(renderedLinks()).map((link) => link.getAttribute("href")),
-    ).toEqual(hrefsOf(navItemsFor(true)));
+    ).toEqual(hrefsOf(navItemsFor(true, JOBS_GENERAL)));
   });
 
   it("labels the admin group so the entry reads as privileged", () => {
-    renderNav("/dashboard", navItemsFor(true));
+    renderNav("/dashboard", navItemsFor(true, JOBS_GENERAL));
 
     // The amber treatment is gone; position under a "System" divider is what
     // signals the entry now, so the label has to actually be rendered.
@@ -173,7 +183,7 @@ describe("SidebarNav rendering", () => {
   });
 
   it("announces the group label with the entry it qualifies", () => {
-    renderNav("/dashboard", navItemsFor(true));
+    renderNav("/dashboard", navItemsFor(true, JOBS_GENERAL));
 
     const admin = screen.getByRole("link", { name: "Admin" });
     const label = screen.getByText("System");
@@ -194,8 +204,14 @@ describe("SidebarNav rendering", () => {
     // rail's label.
     render(
       <>
-        <SidebarNav items={navItemsFor(true)} activePath="/dashboard" />
-        <SidebarNav items={navItemsFor(true)} activePath="/dashboard" />
+        <SidebarNav
+          items={navItemsFor(true, JOBS_GENERAL)}
+          activePath="/dashboard"
+        />
+        <SidebarNav
+          items={navItemsFor(true, JOBS_GENERAL)}
+          activePath="/dashboard"
+        />
       </>,
     );
 
@@ -211,7 +227,7 @@ describe("SidebarNav rendering", () => {
   });
 
   it("describes an ungrouped entry with nothing at all", () => {
-    renderNav("/dashboard", navItemsFor(true));
+    renderNav("/dashboard", navItemsFor(true, JOBS_GENERAL));
 
     expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute(
       "aria-describedby",
@@ -219,7 +235,7 @@ describe("SidebarNav rendering", () => {
   });
 
   it("renders no group divider when the admin entry is absent", () => {
-    renderNav("/dashboard", navItemsFor(false));
+    renderNav("/dashboard", navItemsFor(false, JOBS_GENERAL));
 
     expect(screen.queryByText("System")).not.toBeInTheDocument();
   });
@@ -231,7 +247,7 @@ describe("SidebarNav rendering", () => {
       // click a real click without the "navigation not implemented" noise.
       <div onClick={(event) => event.preventDefault()}>
         <SidebarNav
-          items={navItemsFor(false)}
+          items={navItemsFor(false, JOBS_GENERAL)}
           activePath="/dashboard"
           onNavigate={onNavigate}
         />
@@ -299,7 +315,7 @@ describe("the CVs entry (KODI-002 / R-001)", () => {
   });
 
   it("is the one entry marked current while the editor is open", () => {
-    renderNav("/cvs/editor", navItemsFor(true));
+    renderNav("/cvs/editor", navItemsFor(true, JOBS_GENERAL));
 
     const current = screen
       .getAllByRole("link")
@@ -308,5 +324,98 @@ describe("the CVs entry (KODI-002 / R-001)", () => {
     expect(current).toHaveLength(1);
     expect(current[0]).toHaveAccessibleName("CVs");
     expect(current[0]).toHaveAttribute("href", "/cvs");
+  });
+});
+
+describe("the Jobs entry behind the jobs feature (KODI-053, PRD 0013)", () => {
+  const primaryLinks = () =>
+    Array.from(renderedLinks()).map((link) => link.getAttribute("href"));
+
+  it("shows 8 entries with Jobs and its Beta badge while jobs is in beta", () => {
+    renderNav("/dashboard", navItemsFor(false, JOBS_BETA));
+
+    expect(primaryLinks()).toEqual(hrefsOf(PRIMARY_NAV));
+    const jobs = screen.getByRole("link", { name: "Jobs" });
+    // Describes, never renames: the name stays exactly "Jobs".
+    expect(jobs).toHaveAccessibleName("Jobs");
+    expect(jobs).toHaveAccessibleDescription("Beta");
+    expect(jobs).toHaveTextContent("Jobs Beta");
+    expect(screen.getAllByText("Beta")).toHaveLength(1);
+  });
+
+  it("shows Jobs with no badge once jobs is released", () => {
+    renderNav("/dashboard", navItemsFor(false, JOBS_GENERAL));
+
+    const jobs = screen.getByRole("link", { name: "Jobs" });
+    expect(jobs).not.toHaveAttribute("aria-describedby");
+    expect(screen.queryByText("Beta")).not.toBeInTheDocument();
+    expect(renderedLinks()).toHaveLength(8);
+  });
+
+  it("drops Jobs for a user without jobs: 7 entries", () => {
+    renderNav("/dashboard", navItemsFor(false, NO_FEATURES));
+
+    expect(renderedLinks()).toHaveLength(7);
+    expect(
+      screen.queryByRole("link", { name: "Jobs" }),
+    ).not.toBeInTheDocument();
+    expect(primaryLinks()).toEqual(
+      hrefsOf(PRIMARY_NAV).filter((href) => href !== "/jobs"),
+    );
+  });
+
+  it("drops Jobs while the features are loading (the empty list)", () => {
+    // `useMyFeatures` hands the layout `[]` until the first answer, so the
+    // entry never flashes in for a user who does not have it.
+    expect(hrefsOf(navItemsFor(false, NO_FEATURES))).not.toContain("/jobs");
+    expect(hrefsOf(navItemsFor(true, NO_FEATURES))).not.toContain("/jobs");
+  });
+
+  it("ignores a feature key it does not gate on", () => {
+    const unknown = [{ key: "other", stage: "beta" }] as unknown as MyFeature[];
+    expect(hrefsOf(navItemsFor(false, unknown))).not.toContain("/jobs");
+  });
+
+  it("adds Admin last for an admin, with or without jobs", () => {
+    const withJobs = navItemsFor(true, JOBS_BETA);
+    expect(withJobs).toHaveLength(9);
+    expect(withJobs.at(-1)).toBe(ADMIN_NAV);
+
+    const withoutJobs = navItemsFor(true, NO_FEATURES);
+    expect(withoutJobs).toHaveLength(8);
+    expect(withoutJobs.at(-1)).toBe(ADMIN_NAV);
+  });
+
+  it("keeps Admin's System description beside a Beta Jobs entry", () => {
+    renderNav("/dashboard", navItemsFor(true, JOBS_BETA));
+
+    expect(
+      screen.getByRole("link", { name: "Admin" }),
+    ).toHaveAccessibleDescription("System");
+    expect(
+      screen.getByRole("link", { name: "Jobs" }),
+    ).toHaveAccessibleDescription("Beta");
+  });
+
+  it("points each mounted nav's Jobs entry at its own badge", () => {
+    render(
+      <>
+        <SidebarNav items={navItemsFor(false, JOBS_BETA)} activePath="/jobs" />
+        <SidebarNav items={navItemsFor(false, JOBS_BETA)} activePath="/jobs" />
+      </>,
+    );
+
+    const links = screen.getAllByRole("link", { name: "Jobs" });
+    const ids = links.map((link) => link.getAttribute("aria-describedby"));
+    expect(ids[0]).not.toBe(ids[1]);
+    for (const link of links) {
+      expect(link).toHaveAccessibleDescription("Beta");
+      expect(link).toHaveAttribute("aria-current", "page");
+    }
+  });
+
+  it("never marks PRIMARY_NAV itself as beta", () => {
+    navItemsFor(false, JOBS_BETA);
+    expect(PRIMARY_NAV.some((item) => item.beta)).toBe(false);
   });
 });

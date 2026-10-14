@@ -3,6 +3,8 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { MY_FEATURES_QUERY_KEY } from "@/hooks/use-features";
+import type { MyFeature } from "@/services/types/features";
 import { localCalendarDay } from "@/components/application-drafts/draft-copy";
 import { JobViewPage } from "./job-view-page";
 import {
@@ -20,8 +22,14 @@ const listBaseCvs = vi.fn();
 const createFromJob = vi.fn();
 const push = vi.fn();
 
+/** KODI-053: the cases written before PRD 0013 run with `jobs` in beta. */
+let myFeatures: MyFeature[] = [{ key: "jobs", stage: "beta" }];
+const getMyFeatures = vi.fn();
+let seedFeatures = true;
+
 vi.mock("@/services/services", () => ({
   services: {
+    features: { getMine: (...args: unknown[]) => getMyFeatures(...args) },
     jobs: {
       get: (...args: unknown[]) => getJob(...args),
       dismiss: (...args: unknown[]) => dismissJob(...args),
@@ -46,6 +54,8 @@ function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  // Seeded, as after the shell's own fetch: the gate opens on the first frame.
+  if (seedFeatures) client.setQueryData(MY_FEATURES_QUERY_KEY, myFeatures);
   return render(
     <QueryClientProvider client={client}>
       <JobViewPage />
@@ -73,6 +83,9 @@ const TWO_FITS = makeDetail({
 });
 
 beforeEach(() => {
+  myFeatures = [{ key: "jobs", stage: "beta" }];
+  seedFeatures = true;
+  getMyFeatures.mockReset().mockImplementation(async () => myFeatures);
   searchParams = new URLSearchParams("id=101");
   getJob.mockReset().mockResolvedValue(TWO_FITS);
   dismissJob.mockReset().mockResolvedValue(undefined);
@@ -333,5 +346,63 @@ describe("/jobs/view: actions", () => {
     expect(
       screen.getByRole("button", { name: "Start application" }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("/jobs/view behind the jobs feature (KODI-053, PRD 0013)", () => {
+  it("shows the app's page not found to a user without jobs, and asks for no job", async () => {
+    myFeatures = [];
+    renderPage();
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "404" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Oops! Page not found")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Return to Home" }),
+    ).toHaveAttribute("href", "/");
+    await waitFor(() => expect(getMyFeatures).toHaveBeenCalled());
+    expect(getJob).not.toHaveBeenCalled();
+  });
+
+  it("shows a spinner and asks for no job while the features load", async () => {
+    seedFeatures = false;
+    getMyFeatures.mockReturnValue(new Promise(() => {}));
+    renderPage();
+
+    expect(screen.getByRole("status")).toHaveTextContent("Loading");
+    await waitFor(() => expect(getMyFeatures).toHaveBeenCalled());
+    expect(getJob).not.toHaveBeenCalled();
+  });
+
+  it("puts Beta beside the job title, outside the h1, while jobs is in beta", async () => {
+    renderPage();
+
+    const heading = await screen.findByRole("heading", {
+      level: 1,
+      name: "Senior Backend Engineer",
+    });
+    const badge = screen.getByText("Beta");
+    expect(heading).not.toContainElement(badge);
+    expect(heading.parentElement).toContainElement(badge);
+  });
+
+  it("shows no Beta once jobs is released", async () => {
+    myFeatures = [{ key: "jobs", stage: "general" }];
+    renderPage();
+
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "Senior Backend Engineer",
+    });
+    expect(screen.queryByText("Beta")).not.toBeInTheDocument();
+  });
+
+  it("shows no Beta on the job-no-longer-listed page", async () => {
+    getJob.mockRejectedValue(apiError(404, "Not Found"));
+    renderPage();
+
+    await screen.findByText("This job is no longer listed");
+    expect(screen.queryByText("Beta")).not.toBeInTheDocument();
   });
 });

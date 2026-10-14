@@ -3,6 +3,9 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { MY_FEATURES_QUERY_KEY } from "@/hooks/use-features";
+import type { MyFeature } from "@/services/types/features";
+
 import { ApplicationCvPage } from "./application-cv-page";
 import { FullWidthRequestProvider } from "@/components/layout/content-width";
 import type { Application } from "@/services/types/applications";
@@ -48,8 +51,13 @@ const getApplications = vi.fn();
 
 const NO_FILE = { blob: new Blob(["x"]), filename: null };
 
+/** KODI-053: the cases written before PRD 0013 run with `jobs`. */
+let myFeatures: MyFeature[] = [{ key: "jobs", stage: "beta" }];
+const getMyFeatures = vi.fn();
+
 vi.mock("@/services/services", () => ({
   services: {
+    features: { getMine: (...args: unknown[]) => getMyFeatures(...args) },
     tailoredCvs: {
       get: (...args: unknown[]) => getCopy(...args),
       create: (...args: unknown[]) => createCopy(...args),
@@ -231,6 +239,8 @@ function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  // Seeded, as after the shell's own fetch.
+  client.setQueryData(MY_FEATURES_QUERY_KEY, myFeatures);
   return render(
     <QueryClientProvider client={client}>
       <FullWidthRequestProvider value={fullWidthRequest}>
@@ -242,6 +252,8 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  myFeatures = [{ key: "jobs", stage: "beta" }];
+  getMyFeatures.mockImplementation(async () => myFeatures);
   fullWidthRequest = vi.fn(() => vi.fn());
   searchParams = new URLSearchParams("id=42");
   cycleContext = {
@@ -1095,5 +1107,74 @@ describe("Tailor by keywords and the CV fit (KODI-049)", () => {
     expect(
       await screen.findByText("The fit reflects the last saved version."),
     ).toBeInTheDocument();
+  });
+});
+
+describe("Tailor by keywords and the CV fit behind the jobs feature (KODI-053, PRD 0013)", () => {
+  beforeEach(() => {
+    myFeatures = [];
+  });
+
+  it("renders no switch and creates a verbatim copy for a user without jobs", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("radio", { name: /Backend CV/ }));
+    expect(
+      screen.queryByRole("switch", { name: "Tailor by keywords" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Tailor by keywords")).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Create the CV copy" }),
+    );
+
+    await waitFor(() =>
+      expect(createCopy).toHaveBeenCalledWith("42", "7", "copy"),
+    );
+  });
+
+  it("shows no fit panel and asks for no fit for a user without jobs", async () => {
+    getCopy.mockResolvedValue(COPY);
+    renderPage();
+
+    await screen.findByRole("button", { name: "Save CV copy" });
+    // The job description itself still shows: it is the application's own.
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Job description" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("CV fit for this job")).not.toBeInTheDocument();
+    expect(getFit).not.toHaveBeenCalled();
+  });
+
+  it('keeps an existing keyword copy\'s "Reordered by job match" list without jobs (AC9)', async () => {
+    const user = userEvent.setup();
+    getCopy.mockResolvedValue({
+      ...COPY,
+      adjustments: [
+        {
+          section: "skills",
+          description: "Skill categories reordered by job match",
+        },
+      ],
+    });
+    renderPage();
+
+    await screen.findByRole("button", { name: "Save CV copy" });
+    await user.click(
+      await screen.findByRole("switch", { name: "Show changes" }),
+    );
+    expect(
+      screen.getByRole("list", { name: "Reordered by job match" }),
+    ).toHaveTextContent("Skill categories reordered by job match");
+    expect(getFit).not.toHaveBeenCalled();
+  });
+
+  it("offers the switch and the fit again once the user has jobs back", async () => {
+    myFeatures = [{ key: "jobs", stage: "general" }];
+    getCopy.mockResolvedValue(COPY);
+    renderPage();
+
+    expect(await screen.findByText("Fit 72%")).toBeInTheDocument();
+    expect(getFit).toHaveBeenCalledWith("42");
   });
 });

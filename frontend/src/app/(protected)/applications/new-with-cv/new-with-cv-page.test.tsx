@@ -14,6 +14,9 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { MY_FEATURES_QUERY_KEY } from "@/hooks/use-features";
+import type { MyFeature } from "@/services/types/features";
+
 import { NewWithCvPage } from "./new-with-cv-page";
 import { SupportsProvider } from "@/contexts/supports-context";
 import type { Draft, DraftInput } from "@/services/types/application-drafts";
@@ -50,8 +53,13 @@ const replaceMock = vi.fn();
 const pushMock = vi.fn();
 let searchParams = new URLSearchParams();
 
+/** KODI-053: the cases written before PRD 0013 run with `jobs`. */
+let myFeatures: MyFeature[] = [{ key: "jobs", stage: "beta" }];
+const getMyFeatures = vi.fn();
+
 vi.mock("@/services/services", () => ({
   services: {
+    features: { getMine: (...args: unknown[]) => getMyFeatures(...args) },
     applicationDrafts: {
       list: vi.fn().mockResolvedValue([]),
       get: (...args: unknown[]) => getDraftMock(...args),
@@ -97,6 +105,8 @@ function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  // Seeded, as after the shell's own fetch.
+  client.setQueryData(MY_FEATURES_QUERY_KEY, myFeatures);
   return render(
     <QueryClientProvider client={client}>
       <SupportsProvider>
@@ -126,6 +136,8 @@ function draftFrom(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  myFeatures = [{ key: "jobs", stage: "beta" }];
+  getMyFeatures.mockImplementation(async () => myFeatures);
   searchParams = new URLSearchParams();
   searchCompaniesMock.mockResolvedValue([]);
   getSupportsMock.mockResolvedValue({
@@ -1522,5 +1534,61 @@ describe("NewWithCvPage — step 2 'Tailor by keywords' and the CV fit (KODI-049
       timeout: 4000,
     });
     await waitFor(() => expect(getFitMock).toHaveBeenCalledTimes(2));
+  }, 15_000);
+});
+
+describe("NewWithCvPage — step 2 behind the jobs feature (KODI-053, PRD 0013)", () => {
+  function draftWithJd(jd: string | null, hasCv = false): Draft {
+    return {
+      ...draftFrom({
+        id: "draft-9",
+        company_name: "Acme",
+        role: "Engineer",
+        platform_id: "plt-1",
+        has_cv: hasCv,
+      }),
+      job_description: jd,
+    } as Draft;
+  }
+
+  beforeEach(() => {
+    myFeatures = [];
+    searchParams = new URLSearchParams("id=draft-9&step=cv");
+  });
+
+  it("renders no switch and creates a verbatim copy for a user without jobs", async () => {
+    getDraftMock.mockResolvedValue(draftWithJd("We need a Rust wizard"));
+    listBaseCvsMock.mockResolvedValue([MOCK_BASE_CV]);
+    createTailoredCvMock.mockResolvedValue(SAVED_CV);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Create the CV copy" }),
+    );
+    expect(
+      screen.queryByRole("switch", { name: "Tailor by keywords" }),
+    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(createTailoredCvMock).toHaveBeenCalledWith(
+        "draft-9",
+        MOCK_BASE_CV.id,
+        "copy",
+      ),
+    );
+  });
+
+  it("shows no fit panel and asks for no fit for a user without jobs", async () => {
+    getDraftMock.mockResolvedValue(draftWithJd("We need a Rust wizard", true));
+    getTailoredCvMock.mockResolvedValue(SAVED_CV);
+    renderPage();
+
+    await screen.findByLabelText("Headline", { exact: true });
+    expect(screen.queryByText("CV fit for this job")).not.toBeInTheDocument();
+    expect(getFitMock).not.toHaveBeenCalled();
+    // The draft's copy itself still works: the editor and its actions are there.
+    expect(
+      screen.getByRole("button", { name: "Delete this CV copy" }),
+    ).toBeInTheDocument();
   }, 15_000);
 });
