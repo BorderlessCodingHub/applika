@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-052 GET /users/me/features and the feature gate require_feature (ADR-0018).
+- KODI-052 /admin/features: list, beta list (list, add, remove), release and move back to beta, the admin's own opt-out (ADR-0018).
 - KODI-050 backend/docker-compose.yml runs the taskiq `worker` and `scheduler` services (ADR-0016) once the api is healthy; the api gains a healthcheck. The root README documents the worker, the scheduler and the JOBS_* settings.
 - KODI-047 GET /jobs, GET /jobs/{id}, PUT|DELETE /jobs/{id}/dismissal, /job-searches (max 10 per user), POST /applications/drafts/from-job; Draft gains job_id; a job without a title is 422, a job without a company name starts a draft whose company is the free text "Unknown company". Ports Ían Muliterno's list_jobs, get_job and create_application_from_job (his job_scrapping pull request). No CLI change: jobs and drafts are web only, and GET /applications is unchanged (no job_id).
 - KODI-046 taskiq worker and scheduler (ADR-0016): hourly Himalayas and RemoteOK collection, fit recompute, GET/PATCH /admin/jobs/sources and POST /admin/jobs/runs; TASKIQ_BROKER_URL and JOBS_* settings; CD updates the worker and scheduler services when they exist.
@@ -323,6 +325,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- KODI-052 without the "jobs" feature, /jobs*, /job-searches*, POST /applications/drafts/from-job and GET /applications/{id}/cv/fit answer 404, and POST /applications/{id}/cv with tailoring "keywords" answers 422 "Unknown tailoring option".
 - KODI-046 the keyword matcher keeps and matches tags with digits and
   non-English letters (5G, 3D, 2FA, Vue 3, Résumé); .NET no longer matches
   "Net income"; "Python," is "python"; "machine- learning" is no pair.

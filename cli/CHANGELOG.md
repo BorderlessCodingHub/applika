@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- KODI-052 POST /applications/{id}/cv with tailoring "keywords" needs the "jobs" beta feature, else 422 "Unknown tailoring option". No CLI version sends it; 0.1.4, 0.2.0, 1.0.0 and 1.0.1 are unaffected.
 - KODI-045 POST /applications/{id}/cv accepts an optional tailoring field; without it the copy stays verbatim, so 0.1.4, 0.2.0, 1.0.0 and 1.0.1 are unaffected. A copy made with "keywords" in the web carries non-empty adjustments (a read-only key). New GET /applications/{id}/cv/fit.
 
 ## [1.0.1] - 2026-09-27
