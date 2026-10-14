@@ -494,6 +494,8 @@ process. The API only produces tasks.
 ### Beta features (ADR-0018)
 
 A user-facing feature starts in `beta` and is released to everyone later.
+Binding for every new user-facing feature: the workspace rule
+`.claude/rules/beta-features.md` (outside this repo, at the workspace root).
 The rule (`app/core/features.py` `access_via`, mirrored as ONE SQL predicate
 in `FeatureRepository.access_predicate`): a user has feature F when F is
 `general`, OR a `(F, user)` row is on `feature_beta_users`, OR
