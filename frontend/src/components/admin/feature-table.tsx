@@ -336,7 +336,7 @@ export function FeatureDescription({
     <p
       data-slot="feature-description"
       className={cn(
-        "text-pretty text-muted-foreground",
+        "text-pretty break-words text-muted-foreground",
         !text && "italic",
         className,
       )}

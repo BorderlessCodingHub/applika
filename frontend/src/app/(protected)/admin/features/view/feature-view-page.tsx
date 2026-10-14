@@ -51,13 +51,18 @@ async function detailOrThrow(run: () => Promise<unknown>) {
   }
 }
 
-function useDebouncedValue<T>(value: T, delay: number): T {
+/**
+ * `value` once typing has settled for `delay` ms. A cleared search applies at
+ * once: the unfiltered list is usually cached, so it shows without a flash of
+ * the "empty" state the raw-vs-debounced mismatch would otherwise render.
+ */
+function useDebouncedSearch(value: string, delay: number): string {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
     const timer = window.setTimeout(() => setDebounced(value), delay);
     return () => window.clearTimeout(timer);
   }, [value, delay]);
-  return debounced;
+  return value === "" ? "" : debounced;
 }
 
 /**
@@ -75,7 +80,7 @@ export function FeatureViewPage() {
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const listSearch = useDebouncedValue(
+  const listSearch = useDebouncedSearch(
     search.trim(),
     FEATURE_SEARCH_DEBOUNCE_MS,
   );
@@ -86,7 +91,7 @@ export function FeatureViewPage() {
   });
 
   const [addSearch, setAddSearch] = useState("");
-  const candidateSearch = useDebouncedValue(
+  const candidateSearch = useDebouncedSearch(
     addSearch.trim(),
     FEATURE_SEARCH_DEBOUNCE_MS,
   );
@@ -153,64 +158,71 @@ export function FeatureViewPage() {
         }
       />
 
+      {/* A failed features load leaves no stage or name to word the rest with. */}
       {headerError ? null : (
-        <FeatureOwnAccess
-          stage={feature?.stage}
-          me={feature?.me}
-          onUseChange={(use) => {
-            if (setOptOut.isPending) return;
-            setOptOut.mutate({ key, use });
-          }}
-          pending={setOptOut.isPending}
-          pendingValue={
-            setOptOut.isPending ? setOptOut.variables?.use : undefined
-          }
-        />
-      )}
-
-      <FeatureBetaList
-        featureName={feature?.name ?? key}
-        stage={feature?.stage ?? "beta"}
-        result={users.data}
-        isLoading={users.isLoading}
-        isError={users.isError}
-        errorMessage={serverDetail(users.error)}
-        onRetry={() => void users.refetch()}
-        isRetrying={users.isError && users.isFetching}
-        isRefreshing={users.isFetching && !users.isLoading && !users.isError}
-        search={search}
-        onSearchChange={(value) => {
-          setSearch(value);
-          setPage(1);
-        }}
-        onPageChange={setPage}
-        onRemove={(user) =>
-          detailOrThrow(() =>
-            removeUser.mutateAsync({ key, userId: user.user_id }),
-          )
-        }
-        action={
-          <FeatureAddUserDialog
-            featureName={feature?.name ?? key}
-            search={addSearch}
-            onSearchChange={setAddSearch}
-            users={candidateSearch ? candidates.data?.items : undefined}
-            total={candidateSearch ? candidates.data?.total : undefined}
-            isLoading={candidates.isLoading}
-            isError={candidates.isError}
-            onRetry={() => void candidates.refetch()}
-            isRetrying={candidates.isError && candidates.isFetching}
-            isRefreshing={
-              (candidates.isFetching && !candidates.isLoading) ||
-              (addSearch.trim() !== candidateSearch && !!candidates.data)
-            }
-            listedUserIds={listedUserIds}
-            onAdd={(user) =>
-              detailOrThrow(() => addUser.mutateAsync({ key, userId: user.id }))
+        <>
+          <FeatureOwnAccess
+            stage={feature?.stage}
+            me={feature?.me}
+            onUseChange={(use) => {
+              if (setOptOut.isPending) return;
+              setOptOut.mutate({ key, use });
+            }}
+            pending={setOptOut.isPending}
+            pendingValue={
+              setOptOut.isPending ? setOptOut.variables?.use : undefined
             }
           />
-        }
-      />
+
+          <FeatureBetaList
+            featureName={feature?.name ?? key}
+            stage={feature?.stage ?? "beta"}
+            result={users.data}
+            isLoading={users.isLoading}
+            isError={users.isError}
+            errorMessage={serverDetail(users.error)}
+            onRetry={() => void users.refetch()}
+            isRetrying={users.isError && users.isFetching}
+            isRefreshing={
+              users.isFetching && !users.isLoading && !users.isError
+            }
+            search={search}
+            onSearchChange={(value) => {
+              setSearch(value);
+              setPage(1);
+            }}
+            onPageChange={setPage}
+            onRemove={(user) =>
+              detailOrThrow(() =>
+                removeUser.mutateAsync({ key, userId: user.user_id }),
+              )
+            }
+            action={
+              <FeatureAddUserDialog
+                featureName={feature?.name ?? key}
+                search={addSearch}
+                onSearchChange={setAddSearch}
+                users={candidateSearch ? candidates.data?.items : undefined}
+                total={candidateSearch ? candidates.data?.total : undefined}
+                isLoading={candidates.isLoading}
+                isError={candidates.isError}
+                onRetry={() => void candidates.refetch()}
+                isRetrying={candidates.isError && candidates.isFetching}
+                isRefreshing={
+                  (candidates.isFetching && !candidates.isLoading) ||
+                  (addSearch.trim() !== candidateSearch && !!candidates.data)
+                }
+                listedUserIds={listedUserIds}
+                onAdd={(user) =>
+                  detailOrThrow(() =>
+                    addUser.mutateAsync({ key, userId: user.id }),
+                  )
+                }
+              />
+            }
+          />
+        </>
+      )}
     </div>
   );
 }

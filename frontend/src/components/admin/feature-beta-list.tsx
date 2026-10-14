@@ -111,8 +111,8 @@ export interface FeatureBetaListProps {
 const HEAD =
   "h-10 px-3 align-middle font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase";
 const CELL = "px-3 py-3 align-top";
-/** Below `sm` these columns fold into the username cell, so Remove stays on screen. */
-const FOLDED = "hidden sm:table-cell";
+/** Below `lg` (the rail takes 240px from `md`) these columns fold into the username cell, so Remove stays on screen. */
+const FOLDED = "hidden lg:table-cell";
 
 /** AC2/AC4: the beta list, searchable by username, 25 per page, remove behind a confirm. */
 export function FeatureBetaList({
@@ -374,7 +374,7 @@ export function FeatureBetaList({
                         {/* One text node: an exact date/username match never hits it in tests. */}
                         <span
                           data-slot="feature-beta-user-added-line"
-                          className="mt-1 block text-xs text-foreground/80 sm:hidden"
+                          className="mt-1 block text-xs text-foreground/80 lg:hidden"
                         >
                           {betaUserAddedLine(
                             user.added_at,

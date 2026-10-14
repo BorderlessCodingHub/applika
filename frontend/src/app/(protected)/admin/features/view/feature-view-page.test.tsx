@@ -125,11 +125,12 @@ function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       <FeatureViewPage />
     </QueryClientProvider>,
   );
+  return { ...view, client };
 }
 
 const admin = vi.mocked(services.admin);
@@ -265,13 +266,14 @@ describe("FeatureViewPage — header and states", () => {
   it("an unknown key shows the API's 404 detail word for word", async () => {
     searchParams = new URLSearchParams("key=gone");
     admin.getFeatures.mockReturnValue(new Promise(() => {}));
+    // Not the fallback title: proves the detail itself is passed through.
     admin.getFeatureUsers.mockRejectedValue(
-      axiosError(404, "Feature not found"),
+      axiosError(404, "No such feature here"),
     );
     renderPage();
 
     expect(
-      await screen.findByRole("heading", { name: "Feature not found" }),
+      await screen.findByRole("heading", { name: "No such feature here" }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -899,5 +901,113 @@ describe("FeatureViewPage — your access (AC8-AC11)", () => {
       expect(toast.error).toHaveBeenCalledWith("Feature not found"),
     );
     expect(ownSwitch()).toBeChecked();
+  });
+});
+
+describe("FeatureViewPage — wiring details", () => {
+  it("a failed features load shows only the header error, not access or list", async () => {
+    admin.getFeatures.mockRejectedValue(axiosError(500));
+    renderPage();
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Could not load this feature",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Your access" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("searchbox", { name: "Search the beta list" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("clearing the search shows the full list without an empty flash", async () => {
+    renderPage();
+    await waitFor(() => expect(betaRow("alice")).not.toBeNull());
+    const search = screen.getByRole("searchbox", {
+      name: "Search the beta list",
+    });
+    await userEvent.type(search, "zed");
+    expect(
+      await screen.findByText('No one on the list matches "zed"'),
+    ).toBeInTheDocument();
+
+    await userEvent.clear(search);
+    expect(betaRow("alice")).not.toBeNull();
+    expect(screen.queryByText("No one is on the beta list")).toBeNull();
+  });
+
+  it("marks a candidate listed from the beta list searched with the same text (per_page 100)", async () => {
+    // carol is listed but on another page: only the same-text search finds her.
+    const CAROL: AdminFeatureUser = {
+      ...ALICE,
+      user_id: "301",
+      username: "carol",
+    };
+    admin.getFeatureUsers.mockImplementation(async (_key, params) =>
+      params?.search === "carol" && params.per_page === 100
+        ? usersPage([CAROL])
+        : usersPage([ALICE]),
+    );
+    admin.getUsers.mockResolvedValue(candidates([candidate("301", "carol")]));
+    renderPage();
+    await waitFor(() => expect(betaRow("alice")).not.toBeNull());
+
+    await userEvent.click(screen.getByRole("button", { name: "Add user" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.type(
+      within(dialog).getByRole("searchbox", { name: "Search users" }),
+      "carol",
+    );
+    expect(
+      await within(dialog).findByRole("button", {
+        name: "carol is on the list",
+      }),
+    ).toHaveAttribute("aria-disabled", "true");
+    expect(admin.getFeatureUsers).toHaveBeenCalledWith("jobs", {
+      search: "carol",
+      per_page: 100,
+    });
+  });
+
+  it("marks a candidate listed from the page on screen", async () => {
+    // The same-text search never answers: the page on screen alone marks alice.
+    admin.getFeatureUsers.mockImplementation((_key, params) =>
+      params?.per_page === 100
+        ? new Promise(() => {})
+        : Promise.resolve(usersPage([ALICE])),
+    );
+    admin.getUsers.mockResolvedValue(candidates([candidate("101", "alice")]));
+    renderPage();
+    await waitFor(() => expect(betaRow("alice")).not.toBeNull());
+
+    await userEvent.click(screen.getByRole("button", { name: "Add user" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.type(
+      within(dialog).getByRole("searchbox", { name: "Search users" }),
+      "ali",
+    );
+    expect(
+      await within(dialog).findByRole("button", {
+        name: "alice is on the list",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("every change refreshes the caller's own features too", async () => {
+    const { client } = renderPage();
+    client.setQueryData(["user", "features"], [{ key: "jobs", stage: "beta" }]);
+    await waitFor(() => expect(ownSwitch()).toBeChecked());
+
+    await userEvent.click(ownSwitch());
+    await waitFor(() =>
+      expect(client.getQueryState(["user", "features"])?.isInvalidated).toBe(
+        true,
+      ),
+    );
+    expect(
+      client.getQueryState(["admin", "features"])?.dataUpdateCount,
+    ).toBeGreaterThan(1);
   });
 });
