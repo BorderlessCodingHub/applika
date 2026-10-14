@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-051 tables features, feature_beta_users and feature_admin_opt_outs;
+  feature "jobs" ("Job board") seeded in beta with an empty beta list; no
+  code reads them yet (Release A, ADR-0018).
 - KODI-044 tables job_sources, jobs, job_fit_scores, job_dismissals,
   saved_job_searches and applications.job_id; Himalayas and RemoteOK sources
   seeded, each with a public platform (an existing public one with the same
