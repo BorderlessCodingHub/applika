@@ -27,6 +27,7 @@ from app.presentation.dependencies import (
     SavedJobSearchRepositoryDp,
     require_feature,
 )
+from app.presentation.gated_slash import add_slash_twins
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.job_searches import (
     JobSearch,
@@ -110,3 +111,7 @@ async def delete_job_search(
     search_repo: SavedJobSearchRepositoryDp,
 ):
     await DeleteJobSearchUseCase(search_repo).execute(int(search_id), c_user.id)
+
+
+# ADR-0018: `/job-searches/` and friends hit the gate too, never a 307.
+add_slash_twins(router)

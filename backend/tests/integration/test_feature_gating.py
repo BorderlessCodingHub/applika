@@ -625,14 +625,176 @@ async def my_keys(client: AsyncClient) -> list[str]:
     return [f['key'] for f in response.json()['features']]
 
 
-async def test_trailing_slash_redirect_is_documented_not_hidden(
+# ---------------------------------------------------------------------------
+# Owner ruling 2026-10-14: a trailing slash on a gated path is an unknown
+# route too (no 307); every other route keeps Starlette's slash redirect.
+# ---------------------------------------------------------------------------
+
+
+def slashed(w: dict[str, Any]) -> list[tuple[str, str, dict | None]]:
+    return [(method, f'{path}/', body) for method, path, body in gated_calls(w)]
+
+
+async def unknown_slash_route(client: AsyncClient) -> Response:
+    response = await client.get('/no-such-route/', follow_redirects=False)
+    assert response.status_code == 404
+    return response
+
+
+async def test_slash_suffixed_gated_paths_are_unknown_routes_without_jobs(
+    async_client: AsyncClient, db_session: AsyncSession, world
+):
+    """Without "jobs", ``/jobs/``, ``/job-searches/``, ``/jobs/{id}/``,
+    ``/jobs/{id}/dismissal/``, ``/job-searches/{id}/``,
+    ``/applications/drafts/from-job/`` and ``/applications/{id}/cv/fit/``
+    answer exactly what ``GET /no-such-route/`` answers - never a 307."""
+    reference = await unknown_slash_route(async_client)
+    for method, path, body in slashed(world):
+        response = await async_client.request(
+            method,
+            path,
+            json=body,
+            follow_redirects=False,
+        )
+        assert response.status_code == 404, msg(404, (method, path))
+        assert 'location' not in response.headers, (method, path)
+        assert response.content == reference.content, (method, path)
+        assert (
+            response.headers['content-type']
+            == reference.headers['content-type']
+        )
+    written = await db_session.scalar(
+        text(
+            'SELECT (SELECT count(*) FROM job_dismissals)'
+            ' + (SELECT count(*) FROM applications WHERE job_id IS NOT NULL)'
+        )
+    )
+    assert written == 0
+    renamed = await db_session.scalar(
+        text('SELECT name FROM saved_job_searches WHERE id = :id'),
+        {'id': world['search_id']},
+    )
+    assert renamed == 'Mine'
+
+
+async def test_slash_suffixed_gated_paths_are_served_directly_with_jobs(
+    async_client: AsyncClient, db_session: AsyncSession, world
+):
+    """With "jobs" the slash variant reaches the same handler as the
+    slash-less path - the same statuses, no redirect."""
+    await enrol(db_session, USER_ID)
+    expected = [200, 200, 204, 204, 200, 201, 200, 204, 201, 200]
+    for (method, path, body), status in zip(
+        slashed(world), expected, strict=True
+    ):
+        response = await async_client.request(
+            method, path, json=body, follow_redirects=False
+        )
+        assert response.status_code == status, msg(
+            status, (method, path, response.text)
+        )
+    slashed_list = await async_client.get('/jobs/', follow_redirects=False)
+    plain_list = await async_client.get('/jobs')
+    assert slashed_list.json() == plain_list.json()
+
+
+async def test_slash_with_an_undefined_method_is_405_like_the_slashless_path(
+    async_client: AsyncClient, db_session: AsyncSession, world
+):
+    """Plan correction 5 holds with a slash: a known gated path with an
+    undefined method is 405, with or without "jobs", as the slash-less path
+    is; an unknown path with any method stays 404."""
+    app_id = world['application_id']
+    cases = [
+        ('POST', '/jobs'),
+        ('PATCH', f'/jobs/{world["job_id"]}'),
+        ('POST', f'/job-searches/{world["search_id"]}'),
+        ('GET', '/applications/drafts/from-job'),
+        ('POST', f'/applications/{app_id}/cv/fit'),
+    ]
+
+    async def check() -> None:
+        for method, path in cases:
+            plain = await async_client.request(method, path)
+            slash = await async_client.request(
+                method, f'{path}/', follow_redirects=False
+            )
+            assert slash.status_code == 405, msg(405, (method, path))
+            if not path.endswith('/from-job'):
+                assert plain.status_code == 405, msg(405, (method, path))
+
+    await check()
+    unknown = await async_client.post('/no-such-route/', follow_redirects=False)
+    assert unknown.status_code == 404
+    await enrol(db_session, USER_ID)
+    await check()
+
+
+async def test_anonymous_gets_todays_401_on_slash_suffixed_gated_paths(
+    async_engine: AsyncEngine, world
+):
+    """The slash variant carries the same dependencies, so anonymous gets
+    the same 401 as on the slash-less path (no redirect first)."""
+    maker = async_sessionmaker(bind=async_engine, expire_on_commit=False)
+
+    async def override_get_session():
+        async with maker() as session:
+            yield session
+
+    main_app.dependency_overrides.clear()
+    main_app.dependency_overrides[get_session] = override_get_session
+    async with AsyncClient(
+        transport=ASGITransport(app=main_app), base_url='http://test/api'
+    ) as client:
+        for method, path, body in slashed(world):
+            response = await client.request(
+                method, path, json=body, follow_redirects=False
+            )
+            assert response.status_code == 401, msg(401, (method, path))
+
+
+async def test_other_slash_paths_keep_the_redirect(
     async_client: AsyncClient, world
 ):
-    """Starlette redirects ``/jobs/`` to ``/jobs`` (307) before any
-    dependency runs, while an unknown route with a slash is 404 - recorded
-    in the backend CLAUDE.md next to plan correction 5."""
-    response = await async_client.get('/jobs/', follow_redirects=False)
-    assert response.status_code == 307
-    followed = await async_client.get('/jobs/', follow_redirects=True)
-    assert followed.status_code == 404
-    assert followed.json() == NOT_FOUND
+    """Only the gated routes changed: CLI routes and every ungated drafts
+    and CV route still get Starlette's 307 to the slash-less path."""
+    app_id = world['application_id']
+    for path in (
+        '/supports',
+        '/companies',
+        '/applications',
+        f'/applications/{app_id}',
+        f'/applications/{app_id}/steps',
+        f'/applications/{app_id}/finalize',
+        '/users/me',
+        '/applications/drafts',
+        f'/applications/{app_id}/cv',
+    ):
+        response = await async_client.get(f'{path}/', follow_redirects=False)
+        assert response.status_code == 307, msg(307, (path, response.text))
+        assert response.headers['location'].endswith(f'/api{path}'), path
+    followed = await async_client.get('/supports/', follow_redirects=True)
+    assert followed.status_code == 200
+
+
+def test_the_openapi_schema_has_no_slash_twins():
+    """The twins are schema-hidden: no gated path appears twice, no path
+    ends with a slash, and every operation id is unique."""
+    schema = main_app.openapi()
+    paths = schema['paths']
+    assert not [p for p in paths if p.endswith('/') and p != '/']
+    for gated in (
+        '/jobs',
+        '/jobs/{job_id}',
+        '/job-searches',
+        '/applications/drafts/from-job',
+        '/applications/{application_id}/cv/fit',
+    ):
+        assert any(p.endswith(gated) for p in paths), gated
+    ids = [
+        op['operationId']
+        for item in paths.values()
+        for op in item.values()
+        if isinstance(op, dict) and 'operationId' in op
+    ]
+    assert len(ids) == len(set(ids))

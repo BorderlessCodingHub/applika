@@ -53,6 +53,7 @@ from app.presentation.dependencies import (
     PlatformRepositoryDp,
     require_feature,
 )
+from app.presentation.gated_slash import add_slash_twins
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.application import Application
 from app.presentation.schemas.application_draft import (
@@ -235,3 +236,8 @@ async def finish_draft(
         ),
     )
     return application
+
+
+# ADR-0018: only the gated route gets a slash twin; every other drafts route
+# keeps Starlette's trailing-slash redirect.
+add_slash_twins(router, include=lambda route: route.path.endswith('/from-job'))

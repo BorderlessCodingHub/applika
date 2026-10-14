@@ -39,6 +39,7 @@ from app.presentation.dependencies import (
     require_feature,
     user_has_feature,
 )
+from app.presentation.gated_slash import add_slash_twins
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.tailored_cv import (
     CVFit,
@@ -335,3 +336,8 @@ async def export_tailored_cv_diff_pdf(
             )
         },
     )
+
+
+# ADR-0018: only the gated route gets a slash twin; every other CV route
+# keeps Starlette's trailing-slash redirect.
+add_slash_twins(router, include=lambda route: route.path.endswith('/cv/fit'))

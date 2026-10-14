@@ -529,11 +529,21 @@ is hidden from everyone, admins included (fail closed).
   body that is not JSON answers its own 422 `json_invalid` on a gated route,
   and Starlette answers an undefined method with 405. Field validation runs
   after the dependencies, so a well-formed body with wrong fields is still the
-  404. Likewise a trailing slash (`/jobs/`, `/job-searches/`) gets
-  Starlette's 307 redirect to the slash-less route before any dependency
-  runs (an unknown route with a slash is a plain 404); the redirected
-  request then gets the gate's 404. Found by QA in KODI-052, not part of the
-  owner's correction 5 approval.
+  404. Both hold on the slash-suffixed path too (`POST /jobs/` is 405).
+- **Trailing slash** (owner ruling 2026-10-14): Starlette redirects a path
+  that matches no route but would match without its slash (307) before any
+  dependency runs, which would reveal a gated route. So every gated route
+  gets a schema-hidden `<path>/` twin (`add_slash_twins`,
+  `app/presentation/gated_slash.py`, called at the end of `api/jobs.py`,
+  `api/job_searches.py`, and for the one gated route of
+  `api/application_draft.py` and `api/tailored_cv.py`): same endpoint,
+  methods and dependencies. Without the feature `/jobs/`, `/jobs/{id}/`,
+  `/job-searches/` etc. answer the gate's 404, byte-equal to
+  `GET /no-such-route/`; with it the slash path is served directly by the
+  same handler; anonymous gets the 401. Every other route (the CLI's
+  `/supports/`, `/applications/`, `/users/me/`, the ungated drafts and CV
+  routes) keeps Starlette's 307 - `redirect_slashes` stays on app-wide. A
+  new gated router or route calls `add_slash_twins` too.
 - **Tests**: `create_all` has no seed rows, so no feature exists in a test
   until a test inserts it. The `jobs_beta` fixture (`tests/conftest.py`)
   inserts `jobs` as revision `641001baff09` seeds it and enrols the

@@ -25,6 +25,7 @@ from app.presentation.dependencies import (
     JobRepositoryDp,
     require_feature,
 )
+from app.presentation.gated_slash import add_slash_twins
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.jobs import JobDetail, JobListQuery, JobPage
 
@@ -97,3 +98,7 @@ async def restore_job(
     await RestoreJobUseCase(job_repo, dismissal_repo).execute(
         int(job_id), c_user.id
     )
+
+
+# ADR-0018: `/jobs/` and friends hit the gate too, never Starlette's 307.
+add_slash_twins(router)
