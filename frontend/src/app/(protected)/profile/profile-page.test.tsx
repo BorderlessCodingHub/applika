@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 import { ProfilePage } from "./profile-page";
@@ -41,6 +42,16 @@ vi.mock("@/hooks/use-statistics", () => ({
 
 vi.mock("@/components/profile/profile-view", () => ({
   UserProfileView: () => <div>Profile View</div>,
+}));
+
+vi.mock("@/services/services", () => ({
+  services: {
+    sessions: {
+      list: vi.fn().mockResolvedValue([]),
+      revoke: vi.fn(),
+      revokeOthers: vi.fn(),
+    },
+  },
 }));
 
 vi.mock("@/components/profile/edit-form", () => ({
@@ -164,5 +175,67 @@ describe("ProfilePage discord link notices", () => {
     ).not.toBeInTheDocument();
     expect(invalidateSpy).not.toHaveBeenCalled();
     expect(replaceState).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * KODI-058 (AC2, AC8): "Profile" (today's content) and "Devices" tabs, side
+ * by side, for every user — no feature gate. `?tab=devices` (the `/device`
+ * page's "See your devices") opens Devices.
+ */
+describe("ProfilePage tabs", () => {
+  it("shows Profile and Devices tabs, Profile selected with today's content", () => {
+    renderPage();
+
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Profile", "Devices"]);
+    expect(screen.getByRole("tab", { name: "Profile" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByText("Profile View")).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="devices-tab"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it("the Devices tab shows the device list", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("tab", { name: "Devices" }));
+
+    expect(screen.getByRole("tab", { name: "Devices" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.queryByText("Profile View")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText("No active devices")).toBeInTheDocument(),
+    );
+  });
+
+  it("?tab=devices opens the Devices tab", () => {
+    searchParams = new URLSearchParams("tab=devices");
+    renderPage();
+
+    expect(screen.getByRole("tab", { name: "Devices" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(
+      document.querySelector('[data-slot="devices-tab"]'),
+    ).toBeInTheDocument();
+    expect(replaceState).not.toHaveBeenCalled();
+  });
+
+  it("an unknown ?tab= falls back to Profile", () => {
+    searchParams = new URLSearchParams("tab=bogus");
+    renderPage();
+
+    expect(screen.getByRole("tab", { name: "Profile" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 });
