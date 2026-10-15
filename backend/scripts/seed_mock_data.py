@@ -16,6 +16,15 @@ Usage:
     2. Log in via GitHub OAuth to get an access token
     3. Set ACCESS_TOKEN below with your JWT token
     4. Run: python scripts/seed_mock_data.py
+
+KODI-057 (ADR-0019): paste the ``__access`` cookie of a LIVE browser
+session. The JWT carries ``sid`` and every request checks that session in
+Redis, so a token from before the release, or from a browser that has
+since logged out or been revoked under Profile > Devices, answers 401
+``Session expired``: sign in again and copy the new cookie. The access
+token lives ``ACCESS_TOKEN_EXPIRE_MINUTES`` (15 by default) - long enough
+for one run. If Redis is down every request is a 503 ``Session service
+unavailable`` (``Retry-After: 5``).
 """
 
 import random

@@ -72,6 +72,11 @@ x-api-environment: &api-environment
   # wired up (still ON) without the E2E suite ever hitting a 429.
   RATE_LIMIT_DEFAULT: "100000"
   RATE_LIMIT_AUTH: "10000"
+  # KODI-057 (ADR-0019, plan 0014 correction 7): the device-code approval
+  # page and the PKCE manual-code page live on the e2e web, not on the dev
+  # stack's :8080 default, so `verification_uri_complete` opens this stack.
+  DEVICE_VERIFICATION_URI: http://127.0.0.1:8180/device
+  CLI_MANUAL_REDIRECT_URI: http://127.0.0.1:8180/cli/code
   # Job board (KODI-049). The FIXTURE scraper serves every enabled source
   # (himalayas, remoteok) from `backend/tests/fixtures/jobs/postings.json`,
   # mounted read-only below: nothing ever reaches himalayas.app or
