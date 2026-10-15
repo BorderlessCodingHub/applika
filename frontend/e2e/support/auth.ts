@@ -142,3 +142,14 @@ export function apiUrl(path = ""): string {
   const base = process.env.E2E_API_URL ?? "http://127.0.0.1:8100/api";
   return `${base}${path}`;
 }
+
+/**
+ * The `Authorization` header value of e2e-user's seeded CLI session
+ * (KODI-057: a `cli_device` session named "e2e-cli", exported by
+ * `scripts/e2e.sh` as `E2E_CLI_ACCESS_TOKEN`). The CLI sends its access token
+ * as a Bearer, never as a cookie. `e2e/devices.spec.ts` revokes this session,
+ * so it is refused for the rest of the run after that spec.
+ */
+export function cliBearerHeader(): string {
+  return `Bearer ${requireEnv("E2E_CLI_ACCESS_TOKEN")}`;
+}

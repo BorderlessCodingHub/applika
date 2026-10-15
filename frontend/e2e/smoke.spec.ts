@@ -167,6 +167,19 @@ const PAGES: PageCase[] = [
     visitors: ["admin"],
     assert: heading("Features", 1),
   },
+  {
+    // KODI-058: the CLI device approval page.
+    path: "/device",
+    visitors: ["user"],
+    assert: heading("Sign in a device", 1),
+  },
+  {
+    // KODI-058: outside the groups like `/login`, no session; with no
+    // `?code=&state=` it says the link is missing its code, same h1.
+    path: "/cli/code",
+    visitors: ["anon"],
+    assert: heading("Sign in to applika-cli", 1),
+  },
 ];
 
 test.describe("every page renders against the real stack", () => {
@@ -206,14 +219,14 @@ test("/admin/supports redirects to /admin/platforms", async ({ page }) => {
 test("the suite covers every page named in the acceptance criteria", () => {
   // Guards the table itself, because the suite is only as good as this list: a
   // route silently dropped from PAGES would leave the suite green while
-  // covering less. The invariant is 20 routes, ALL of them exercised — the
+  // covering less. The invariant is 22 routes, ALL of them exercised — the
   // `pending`/`pendingReason` parking mechanism is gone, so there is no longer
   // any way to keep a row in the table while skipping it at runtime.
   // 14 until KODI-002 added `/cvs`; 17 since KODI-027 added
   // `/admin/discord-webhooks`; 19 since KODI-049 added `/jobs` and
   // `/admin/jobs` (Plan corrections 23); 20 since KODI-054 added
-  // `/admin/features`.
-  expect(PAGES).toHaveLength(20);
+  // `/admin/features`; 22 since KODI-058 added `/device` and `/cli/code`.
+  expect(PAGES).toHaveLength(22);
 
   // A row with no visitors generates no tests at all, which the length check
   // above cannot see. Same for a duplicated path: 15 rows covering 14 routes.
