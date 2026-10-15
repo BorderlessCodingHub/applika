@@ -1,7 +1,7 @@
 """The caller's devices (KODI-057, ADR-0019, R-010..R-014).
 
 Every user has these routes at release: the owner chose "Gate nothing"
-(ADR-0019, the exception to ADR-0018), so there is no ``require_feature``
+(ADR-0019, the exception to ADR-0018), so no beta gate sits
 here. Another user's session is a 404, admins included (ADR-0004).
 """
 
