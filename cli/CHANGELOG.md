@@ -18,7 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- KODI-057 new routes for applika-cli 1.1.0 (KODI-060): `GET /auth/cli/authorize` (PKCE S256, loopback or `oob`), `POST /auth/token` (authorization_code, refresh_token, device_code grants; `Authorization: Bearer` access token), `POST /auth/revoke`, `POST /auth/device/code`.
+- KODI-057 new routes for applika-cli 1.1.0 (KODI-060): `GET /auth/cli/authorize` (PKCE S256, loopback or `oob`), `POST /auth/token` (authorization_code, refresh_token, device_code grants; `Authorization: Bearer` access token), `POST /auth/revoke` (204 for any value), `POST /auth/device/code`. Each answers 503 `{"detail": "Session service unavailable"}` + `Retry-After: 5` when the server's Redis cannot be reached, `POST /auth/revoke` included (fail closed: a 204 would claim the session ended).
 
 ### Deprecated
 
