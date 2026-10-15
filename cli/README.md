@@ -644,13 +644,15 @@ cli/
         │   └── supports.py      # SupportSchema — platforms and companies from /supports
         │
         ├── lib/                 # Infrastructure — no Typer dependency
-        │   ├── api.py           # ApiClient (httpx + cookie auth), ApiError, AuthError;
+        │   ├── api.py           # ApiClient (httpx + Authorization: Bearer, no cookies), ApiError, AuthError;
         │   │                    #   post() sends no body at all when payload is None;
         │   │                    #   patch_json() and fetch_raw() -> (bytes, headers)
         │   ├── cv_file.py       # --file loading (JSON/YAML/stdin) and local validation
         │   ├── download.py      # --type/--dir/--filename/--force naming rules
         │   ├── session.py       # SessionData, SessionStore (~/.config/applika/session.json)
-        │   └── loopback.py      # LoopbackLoginServer for OAuth browser callback
+        │   ├── loopback.py      # LoopbackLoginServer for OAuth browser callback
+        │   ├── pkce.py          # PKCE verifier, S256 challenge, state
+        │   └── device_flow.py   # device code sign-in: start + poll
         │
         ├── utils/               # Pure helpers — no httpx, no Typer
         │   ├── output.py        # render_application_table, render_timeline_event_table,
@@ -659,7 +661,7 @@ cli/
         │                        #   render_cv_markdown_table
         │
         └── commands/
-            ├── auth.py          # login, logout, whoami commands
+            ├── auth.py          # login [--device] [--manual] [--device-name], logout, whoami
             ├── skill.py         # skill command — installs the AI skill
             ├── cv_shared.py     # behaviour shared by `cvs` and `applications cv`
             ├── cvs/             # cvs_app: list/get/create/edit/delete/download
