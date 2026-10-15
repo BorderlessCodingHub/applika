@@ -8,8 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- KODI-057 every user signs in again at the release that ships device sessions (ADR-0019): a session stored by 0.1.4, 0.2.0, 1.0.0 or 1.0.1 is refused with 401, and these versions print "Please run `applika login` again".
+- KODI-057 the access token now carries `sid` (the session id); the values `POST /auth/cli/exchange` returns keep their JSON shape (the refresh value is a UUIDv7). Each CLI sign-in is a device of its own, listed in the web profile's Devices tab and revocable there.
+- KODI-057 a session ends 7 days after its last refresh; `GET /auth/refresh` slides it and re-sets `__refresh` (same value, full Max-Age) next to `__access`.
+- KODI-057 new 401 `{"detail": "Session expired"}` on every authenticated route when the session was revoked, signed out or expired.
+- KODI-057 new 503 `{"detail": "Session service unavailable"}` + `Retry-After: 5` on every authenticated route when the server's Redis cannot be reached. 0.1.4, 0.2.0, 1.0.0 and 1.0.1 print it and keep the session; a 503 on `GET /auth/refresh` (an access token that expires during the outage) still clears it, as any failed refresh does.
 - KODI-052 POST /applications/{id}/cv with tailoring "keywords" needs the "jobs" beta feature, else 422 "Unknown tailoring option". No CLI version sends it; 0.1.4, 0.2.0, 1.0.0 and 1.0.1 are unaffected.
 - KODI-045 POST /applications/{id}/cv accepts an optional tailoring field; without it the copy stays verbatim, so 0.1.4, 0.2.0, 1.0.0 and 1.0.1 are unaffected. A copy made with "keywords" in the web carries non-empty adjustments (a read-only key). New GET /applications/{id}/cv/fit.
+
+### Added
+
+- KODI-057 new routes for applika-cli 1.1.0 (KODI-060): `GET /auth/cli/authorize` (PKCE S256, loopback or `oob`), `POST /auth/token` (authorization_code, refresh_token, device_code grants; `Authorization: Bearer` access token), `POST /auth/revoke`, `POST /auth/device/code`.
+
+### Deprecated
+
+- KODI-057 `/auth/cli/start`, `/auth/cli/login/{login_id}` and `/auth/cli/exchange` are deprecated in OpenAPI; their request and response shapes are unchanged and 0.1.4, 0.2.0, 1.0.0 and 1.0.1 keep using them.
 
 ## [1.0.1] - 2026-09-27
 
