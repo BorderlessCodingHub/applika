@@ -7,6 +7,7 @@ cookie.
 """
 
 import asyncio
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 from unittest.mock import AsyncMock
@@ -231,16 +232,22 @@ async def test_oserror_on_touch_is_session_service_unavailable():
         await _use_case(_user_repo(), store).execute(_make_token('12345'))
 
 
-async def test_hanging_redis_times_out_into_503(monkeypatch):
-    monkeypatch.setattr(store_module, 'TOUCH_TIMEOUT_SECONDS', 0.05)
+async def test_hanging_redis_times_out_into_503_within_half_a_second():
+    """The real bound, not a patched one: a Redis that hangs for 5 s on the
+    session check is a 503 in under 1 s, so the touch is wired to
+    ``TOUCH_TIMEOUT_SECONDS`` (0.5 s) and not the 2 s default of
+    ``redis_guard``."""
 
     async def hang():
         await asyncio.sleep(5)
 
     store = SessionStore(cast(Any, _ScriptRedis(hang)))
     repo = _user_repo()
+    started = time.monotonic()
     with pytest.raises(SessionServiceUnavailable):
         await _use_case(repo, store).execute(_make_token('12345'))
+    elapsed = time.monotonic() - started
+    assert 0.4 <= elapsed < 1.0
     repo.get_by_github_id.assert_not_called()
 
 

@@ -545,7 +545,7 @@ async def test_refresh_grant_with_an_ended_session_is_invalid_grant(
 # --------------------------------------------------------------------------
 
 
-async def test_revoke_ends_the_cli_session_and_is_always_204(
+async def test_revoke_ends_the_cli_session_and_is_204_for_any_value_while_redis_is_up(
     real_client: AsyncClient, async_engine, redis_client
 ):
     tokens = await open_session(

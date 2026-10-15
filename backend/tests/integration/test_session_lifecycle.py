@@ -733,6 +733,27 @@ async def test_redis_down_is_503_on_the_cli_routes(
         assert response.headers['Retry-After'] == '5'
 
 
+async def test_redis_down_is_503_on_logout_and_keeps_the_cookies(
+    real_client: AsyncClient, async_engine, redis_client, redis_down
+):
+    """Fail closed on logout too: a 503 rather than a 200 that would claim
+    the session ended while its keys stay live."""
+    tokens = await open_session(
+        async_engine, redis_client, USER.id, USER.github_id
+    )
+
+    response = await real_client.get(
+        '/auth/logout', cookies={REFRESH_COOKIE_NAME: tokens.refresh_token}
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {'detail': 'Session service unavailable'}
+    assert response.headers['Retry-After'] == '5'
+    assert _set_cookie(response, ACCESS_COOKIE_NAME) is None
+    assert _set_cookie(response, REFRESH_COOKIE_NAME) is None
+    assert (await _row(async_engine, tokens.session_id)).ended_at is None
+
+
 async def test_a_sign_in_during_an_outage_leaves_no_device(
     real_client: AsyncClient,
     async_engine,
@@ -741,14 +762,29 @@ async def test_a_sign_in_during_an_outage_leaves_no_device(
     redis_down,
 ):
     """The row is written first; when the keys cannot be, the row goes
-    too - the device list never shows a session that was never live."""
+    too - the device list never shows a session that was never live. Only
+    that row goes: the user's other live device and another user's device
+    are untouched."""
+    # Opened on the real Redis before the callback hits the dead one.
+    laptop = await open_session(
+        async_engine, redis_client, USER.id, USER.github_id
+    )
+    other = await open_session(
+        async_engine, redis_client, ADMIN.id, ADMIN.github_id
+    )
+
     response = await real_client.get(
         '/auth/github/callback', follow_redirects=False
     )
 
     assert response.status_code == 503
     assert _set_cookie(response, ACCESS_COOKIE_NAME) is None
-    assert await _rows(async_engine, USER.id) == []
+    [kept] = await _rows(async_engine, USER.id)
+    assert kept.id == laptop.session_id
+    assert kept.ended_at is None
+    [others] = await _rows(async_engine, ADMIN.id)
+    assert others.id == other.session_id
+    assert others.ended_at is None
 
 
 async def test_a_refused_request_never_recreates_the_session_key(
