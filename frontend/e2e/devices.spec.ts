@@ -39,6 +39,9 @@ interface DeviceCode {
 
 test.describe.configure({ mode: "serial" });
 
+/** The device grant's access token from test 2; test 4 signs it out. */
+let grantedAccessToken = "";
+
 test.describe("devices", () => {
   test("Devices tab lists this device and the seeded CLI; Revoke refuses the CLI's next request", async ({
     page,
@@ -189,6 +192,7 @@ test.describe("devices", () => {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
     expect(me.status()).toBe(200);
+    grantedAccessToken = tokens.access_token;
 
     // A code works once: approving again on the web is refused in words.
     await page.goto(code.verification_uri_complete);
@@ -246,6 +250,45 @@ test.describe("devices", () => {
         name: "Sign-in denied. The device was not signed in.",
       }),
     ).toBeVisible();
+  });
+
+  test("Sign out all other devices ends the granted CLI and keeps this device", async ({
+    page,
+    request,
+  }) => {
+    // Safe on the shared database: e2e-user's seeded web session is the
+    // current one and stays; "e2e-cli" is already revoked, so the only
+    // other active session is the one test 2 granted.
+    expect(grantedAccessToken).toBeTruthy();
+    await loginAs(page, "user");
+    await openDevices(page);
+
+    await page.locator('[data-slot="sign-out-others"]').click();
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toContainText(/Sign out \d+ other devices?\?/);
+    await dialog
+      .getByRole("button", { name: "Sign out other devices", exact: true })
+      .click();
+
+    const granted = page
+      .locator('[data-slot="ended-devices"] [data-slot="device-row"]')
+      .filter({ has: deviceName(page, GRANTED_DEVICE) });
+    await expect(granted).toHaveAttribute("data-status", "revoked");
+    await expect(
+      page.locator('[data-slot="active-devices"] [data-slot="device-row"]'),
+    ).toHaveCount(1);
+    await expect(
+      page.locator('[data-slot="active-devices"] [data-current]'),
+    ).toHaveCount(1);
+    await expect(page.locator('[data-slot="sign-out-others"]')).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+
+    const after = await request.get(apiUrl("/users/me"), {
+      headers: { Authorization: `Bearer ${grantedAccessToken}` },
+    });
+    expect(after.status()).toBe(401);
   });
 
   test("/cli/code shows code#state to paste into the terminal, signed out", async ({

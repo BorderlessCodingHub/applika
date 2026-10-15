@@ -93,13 +93,16 @@ value the CLI would send. `e2e/devices.spec.ts` (serial): the Devices tab
 lists "This device" and "e2e-cli", Revoke (Cancel first) moves it to Ended and
 the same Bearer then gets 401 from `GET /users/me` — so **"e2e-cli" is dead
 for the rest of the run**; nothing after it may use `cliBearerHeader()`. It
-never revokes e2e-user's web session and never confirms "Sign out all other
-devices" (every later spec signs in with that session). Then
+never revokes e2e-user's web session (every later spec signs in with it);
+its "Sign out all other devices" step runs only once "e2e-cli" is gone, so
+the one other active session it ends is the device grant it made itself. Then
 `POST /auth/device/code` → `verification_uri_complete` (`:8180/device?code=`)
 → Approve → the device grant on `POST /auth/token` is 200 after waiting out
 `interval` (polling sooner is `slow_down`) and the row is listed; a signed-out
 `/device?code=` → `/login` → `loginAs` + `/dashboard` lands back on `/device`
-with the code filled in; `/cli/code?code=&state=` shows `code#state`.
+with the code filled in; "Sign out all other devices" ends the granted
+session (its Bearer gets 401) and keeps "This device"; `/cli/code?code=&state=`
+shows `code#state`.
 
 **The job board in E2E (KODI-049).** `docker-compose.e2e.yml` also runs
 `worker` and `scheduler` (`applika-e2e-worker`/`-scheduler`, the
