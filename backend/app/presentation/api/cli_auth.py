@@ -79,9 +79,13 @@ async def cli_authorize(
     login_id = await use_case.execute(
         redirect_uri, code_challenge, code_challenge_method, state
     )
-    return await oauth_api.redirect_to_github_for_cli(
+    response = await oauth_api.redirect_to_github_for_cli(
         login_id, use_case.handoff_state.login_ttl_seconds
     )
+    # fastapi-sso answers 303; the contract is a 307 (the legacy
+    # ``/auth/cli/login/{id}`` keeps its own status untouched).
+    response.status_code = status.HTTP_307_TEMPORARY_REDIRECT
+    return response
 
 
 @router.post(

@@ -85,6 +85,9 @@ local status = redis.call('HGET', code_key, 'status')
 if status == 'pending' then
   return {'pending'}
 end
+if status ~= 'approved' and status ~= 'denied' then
+  return {'expired'}
+end
 local fields = redis.call(
   'HMGET', code_key, 'user_id', 'github_id', 'device_name', 'user_agent',
   'ip'
@@ -94,7 +97,7 @@ redis.call('DEL', code_key)
 if user_code then
   redis.call('DEL', ARGV[3] .. user_code)
 end
-if status ~= 'approved' then
+if status == 'denied' then
   return {'denied'}
 end
 return {
