@@ -154,11 +154,12 @@ def test_429_waits_retry_after_then_back_to_interval():
         httpx.Response(
             429, json={'detail': 'slow'}, headers={'retry-after': '30'}
         ),
+        _oauth('authorization_pending'),
         httpx.Response(200, json=TOKEN),
     ])
 
     assert result == TOKEN
-    assert clock.waits == [10, 30]
+    assert clock.waits == [10, 30, 10]
 
 
 def test_retry_after_shorter_than_interval_never_polls_faster():
