@@ -14,6 +14,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - KODI-047 GET /jobs, GET /jobs/{id}, PUT|DELETE /jobs/{id}/dismissal, /job-searches (max 10 per user), POST /applications/drafts/from-job; Draft gains job_id; a job without a title is 422, a job without a company name starts a draft whose company is the free text "Unknown company". Ports Ían Muliterno's list_jobs, get_job and create_application_from_job (his job_scrapping pull request). No CLI change: jobs and drafts are web only, and GET /applications is unchanged (no job_id).
 - KODI-046 taskiq worker and scheduler (ADR-0016): hourly Himalayas and RemoteOK collection, fit recompute, GET/PATCH /admin/jobs/sources and POST /admin/jobs/runs; TASKIQ_BROKER_URL and JOBS_* settings; CD updates the worker and scheduler services when they exist.
 - KODI-045 keyword tailoring binding (ADR-0017) and GET /applications/{id}/cv/fit.
+- KODI-056 table user_sessions: one row per sign-in (device name, client,
+  sign-in method, sign-in and last IP, granted, last used, expiry, end and
+  reason); no code reads it yet (Release A, ADR-0019).
 - KODI-051 tables features, feature_beta_users and feature_admin_opt_outs;
   feature "jobs" ("Job board") seeded in beta with an empty beta list; no
   code reads them yet (Release A, ADR-0018).
