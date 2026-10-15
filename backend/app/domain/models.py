@@ -1438,3 +1438,77 @@ class FeatureAdminOptOutModel(BaseMixin, Base):
         ),
         nullable=False,
     )
+
+
+class UserSessionModel(BaseMixin, Base):
+    """One sign-in, which is one device (KODI-057, ADR-0019).
+
+    ``created_at`` is when access was granted. The row keeps the device's
+    details and history; the live state (the refresh value and the last
+    use) lives in Redis on ``REDIS_URL``. No refresh value and no hash of
+    it is ever stored here. An ended row stays, so ended devices remain
+    visible. ``__table_args__`` mirror revision ``ed39a0fad1e5`` (KODI-056)
+    name for name, so ``create_all`` builds the migrated schema.
+    """
+
+    __tablename__ = 'user_sessions'
+
+    __table_args__ = (
+        sa.PrimaryKeyConstraint('id', name='pk_user_sessions'),
+        sa.CheckConstraint(
+            "client_type IN ('web', 'cli')",
+            name='ck_user_sessions_client_type',
+        ),
+        sa.CheckConstraint(
+            'sign_in_method IN '
+            "('github_web', 'cli_browser', 'cli_device', 'cli_legacy')",
+            name='ck_user_sessions_sign_in_method',
+        ),
+        sa.CheckConstraint(
+            'end_reason IN '
+            "('logout', 'revoked', 'expired', 'github_revoked', 'replaced')",
+            name='ck_user_sessions_end_reason',
+        ),
+        sa.CheckConstraint(
+            '(ended_at IS NULL) = (end_reason IS NULL)',
+            name='ck_user_sessions_ended_pair',
+        ),
+        sa.Index(
+            'ix_user_sessions_user_id_created_at',
+            'user_id',
+            sa.text('created_at DESC'),
+        ),
+        sa.Index(
+            'ix_user_sessions_open',
+            'user_id',
+            postgresql_where=sa.text('ended_at IS NULL'),
+        ),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'users.id',
+            ondelete='CASCADE',
+            name='fk_user_sessions_user_id',
+        ),
+        nullable=False,
+    )
+    client_type: Mapped[str] = mapped_column(sa.String(10), nullable=False)
+    sign_in_method: Mapped[str] = mapped_column(sa.String(20), nullable=False)
+    device_name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    user_agent: Mapped[str | None] = mapped_column(
+        sa.String(512), nullable=True
+    )
+    created_ip: Mapped[str | None] = mapped_column(sa.String(45), nullable=True)
+    last_ip: Mapped[str | None] = mapped_column(sa.String(45), nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False
+    )
+    ended_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True
+    )
+    end_reason: Mapped[str | None] = mapped_column(sa.String(20), nullable=True)

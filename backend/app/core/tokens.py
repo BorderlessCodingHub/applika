@@ -1,16 +1,20 @@
-"""JWT token utilities and cookie management.
+"""JWT access token and the session cookies (ADR-0002, ADR-0019).
 
-Access token: short-lived JWT in HTTP-only cookie (__access).
-Refresh token: opaque UUID stored in Redis, referenced via HTTP-only
-cookie (__refresh).
+Access token: a short-lived JWT, ``{sub: github_id, sid: <session id>,
+kind: 'access', exp}``. The web carries it in the HTTP-only ``__access``
+cookie; ``applika-cli`` 1.1.0 and later send it as ``Authorization: Bearer``.
+``sid`` is the public ``user_sessions.id`` (a snowflake, as a string), never
+the refresh value.
+
+Refresh value: a random UUIDv7, the key of the session in Redis
+(``app/application/services/session_store.py``). The web carries it in the
+HTTP-only ``__refresh`` cookie.
 """
 
-import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict, cast
 
 import jwt
-import redis.asyncio as redis
 from fastapi import Response
 
 from app.config.settings import (
@@ -23,14 +27,21 @@ from app.config.settings import (
 class TokenPayload(TypedDict):
     sub: str
     kind: Literal['access']
+    # Absent from every token minted before KODI-057: such a token is
+    # refused with 401 "Session expired".
+    sid: NotRequired[str]
 
 
 def decode_token(token: str) -> TokenPayload:
-    return jwt.decode(token, envs.JWT_SECRET, algorithms=[envs.JWT_ALGORITHM])
+    payload = jwt.decode(
+        token, envs.JWT_SECRET, algorithms=[envs.JWT_ALGORITHM]
+    )
+    return cast(TokenPayload, payload)
 
 
 def create_access_token(
     sub: str,
+    sid: str,
 ) -> tuple[str, datetime, int]:
     utc_now = datetime.now(UTC)
     expires_dt = utc_now + timedelta(minutes=envs.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -38,6 +49,7 @@ def create_access_token(
 
     access_payload = {
         'sub': sub,
+        'sid': sid,
         'kind': 'access',
         'exp': expires_dt,
     }
@@ -47,8 +59,8 @@ def create_access_token(
     return access_token, expires_dt, max_age
 
 
-def set_access_cookie(sub: str, response: Response):
-    access_token, expires_dt, max_age = create_access_token(sub)
+def set_access_cookie(sub: str, sid: str, response: Response) -> None:
+    access_token, expires_dt, max_age = create_access_token(sub, sid)
     response.set_cookie(
         key=ACCESS_COOKIE_NAME,
         value=access_token,
@@ -60,42 +72,18 @@ def set_access_cookie(sub: str, response: Response):
     )
 
 
-def clear_access_cookie(response: Response):
+def clear_access_cookie(response: Response) -> None:
     response.delete_cookie(ACCESS_COOKIE_NAME)
 
 
-# --- Refresh token (Redis-backed) ---
-
-_REFRESH_PREFIX = 'applika:refresh_token:'
-
-
-def _refresh_key(token_id: str) -> str:
-    return f'{_REFRESH_PREFIX}{token_id}'
-
-
-async def create_refresh_token_value(
-    user_id: int,
-    redis_client: redis.Redis,
-) -> tuple[str, int]:
-    token_id = str(uuid.uuid4())
-    ttl_seconds = envs.REFRESH_TOKEN_EXPIRE_DAYS * 86400
-
-    await redis_client.set(
-        _refresh_key(token_id),
-        str(user_id),
-        ex=ttl_seconds,
-    )
-    return token_id, ttl_seconds
-
-
 def set_refresh_cookie(
-    token_id: str,
+    refresh_value: str,
     ttl_seconds: int,
     response: Response,
-):
+) -> None:
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
-        value=token_id,
+        value=refresh_value,
         httponly=True,
         secure=envs.ENVIRONMENT == 'PROD',
         samesite='lax',
@@ -103,33 +91,5 @@ def set_refresh_cookie(
     )
 
 
-async def create_refresh_token(
-    user_id: int, redis_client: redis.Redis, response: Response
-) -> str:
-    """Generate a refresh token, store in Redis, set cookie."""
-    token_id, ttl_seconds = await create_refresh_token_value(
-        user_id, redis_client
-    )
-    set_refresh_cookie(token_id, ttl_seconds, response)
-    return token_id
-
-
-async def validate_refresh_token(
-    token_id: str, redis_client: redis.Redis
-) -> int | None:
-    """Validate refresh token. Returns user_id if valid, else None."""
-    user_id_str = await redis_client.get(_refresh_key(token_id))
-    if user_id_str is None:
-        return None
-    return int(user_id_str)
-
-
-async def revoke_refresh_token(
-    token_id: str, redis_client: redis.Redis
-) -> None:
-    """Revoke a refresh token by deleting it from Redis."""
-    await redis_client.delete(_refresh_key(token_id))
-
-
-def clear_refresh_cookie(response: Response):
+def clear_refresh_cookie(response: Response) -> None:
     response.delete_cookie(REFRESH_COOKIE_NAME)
