@@ -6,8 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-15
+
+### Added
+
+- KODI-060 `applika login` signs in through a browser authorization protected by PKCE (S256) on `GET /auth/cli/authorize`, back on a local `127.0.0.1` callback, then `POST /auth/token` (`authorization_code` grant). The CLI gets a session of its own, listed in the web profile's Devices tab; it no longer calls `/auth/cli/start` or `/auth/cli/exchange`.
+- KODI-060 `applika login --manual`: for a browser that cannot reach the local callback, the browser shows `code#state` and the CLI prompts for it (`redirect_uri=oob`); the state is checked before the exchange.
+- KODI-060 `applika login --device`: device code sign-in (RFC 8628) for machines without a browser. The CLI prints a short code and a web address, and polls `POST /auth/token` until the code is approved or denied in a signed-in browser, or expires.
+- KODI-060 `applika login --device-name TEXT` names the device (at most 100 characters); the default is the machine's host name. `--device` and `--manual` together, a blank name or a longer one are usage errors (exit 2).
+- KODI-060 login ends the stored session on the server first (`POST /auth/revoke`) and prints `Logged in as <username> on <device_name>`.
+- KODI-060 every request sends `User-Agent: applika-cli/<version> (<OS>)`.
+- KODI-057 new routes for applika-cli 1.1.0 (KODI-060): `GET /auth/cli/authorize` (PKCE S256, loopback or `oob`), `POST /auth/token` (authorization_code, refresh_token, device_code grants; `Authorization: Bearer` access token), `POST /auth/revoke` (204 for any value), `POST /auth/device/code`. Each answers 503 `{"detail": "Session service unavailable"}` + `Retry-After: 5` when the server's Redis cannot be reached, `POST /auth/revoke` included (fail closed: a 204 would claim the session ended).
+
 ### Changed
 
+- KODI-060 the access token goes in `Authorization: Bearer`; the CLI no longer sends nor stores cookies. The session refreshes through `POST /auth/token` (`refresh_token` grant) instead of `GET /auth/refresh`. `~/.config/applika/session.json` keeps its four keys, so an older CLI can still read a 1.1.0 file and a 1.1.0 CLI reads a 1.0.1 file.
+- KODI-060 `applika logout` ends the session on the server (`POST /auth/revoke`) before clearing it locally. If the server answers 429 or 503, or cannot be reached, the local session is kept and logout exits 1: run it again later or revoke the device in the web profile's Devices tab.
+- KODI-060 fail closed: a 429 or 503 on the session refresh, and a 503 on any route, keep the stored session and print the server's message with the `Retry-After` wait; any other refused refresh clears it.
 - KODI-057 every user signs in again at the release that ships device sessions (ADR-0019): a session stored by 0.1.4, 0.2.0, 1.0.0 or 1.0.1 is refused with 401, and these versions print "Please run `applika login` again".
 - KODI-057 the access token now carries `sid` (the session id); the values `POST /auth/cli/exchange` returns keep their JSON shape (the refresh value is a UUIDv7). Each CLI sign-in is a device of its own, listed in the web profile's Devices tab and revocable there.
 - KODI-057 a session ends 7 days after its last refresh; `GET /auth/refresh` slides it and re-sets `__refresh` (same value, full Max-Age) next to `__access`.
@@ -15,10 +30,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - KODI-057 new 503 `{"detail": "Session service unavailable"}` + `Retry-After: 5` on every authenticated route when the server's Redis cannot be reached. 0.1.4, 0.2.0, 1.0.0 and 1.0.1 print it and keep the session; a 503 on `GET /auth/refresh` (an access token that expires during the outage) still clears it, as any failed refresh does.
 - KODI-052 POST /applications/{id}/cv with tailoring "keywords" needs the "jobs" beta feature, else 422 "Unknown tailoring option". No CLI version sends it; 0.1.4, 0.2.0, 1.0.0 and 1.0.1 are unaffected.
 - KODI-045 POST /applications/{id}/cv accepts an optional tailoring field; without it the copy stays verbatim, so 0.1.4, 0.2.0, 1.0.0 and 1.0.1 are unaffected. A copy made with "keywords" in the web carries non-empty adjustments (a read-only key). New GET /applications/{id}/cv/fit.
-
-### Added
-
-- KODI-057 new routes for applika-cli 1.1.0 (KODI-060): `GET /auth/cli/authorize` (PKCE S256, loopback or `oob`), `POST /auth/token` (authorization_code, refresh_token, device_code grants; `Authorization: Bearer` access token), `POST /auth/revoke` (204 for any value), `POST /auth/device/code`. Each answers 503 `{"detail": "Session service unavailable"}` + `Retry-After: 5` when the server's Redis cannot be reached, `POST /auth/revoke` included (fail closed: a 204 would claim the session ended).
 
 ### Deprecated
 

@@ -90,8 +90,12 @@ src/applika/
 │   ├── timeline_event.py   # TimelineEventCreate/Update, TimelineEventEntry (KODI-013)
 │   └── supports.py     # SupportSchema — platforms and companies from /supports
 ├── lib/
-│   ├── api.py           # ApiClient (httpx + cookie auth), ApiError, AuthError,
-│   │                    #   require_session, create_session_from_exchange;
+│   ├── api.py           # ApiClient (httpx + `Authorization: Bearer`, no cookies,
+│   │                    #   UA applika-cli/<version> (<OS>)), ApiError, AuthError,
+│   │                    #   require_session, open_client, session_from_token,
+│   │                    #   create_session_from_exchange (legacy shape);
+│   │                    #   refresh = POST /auth/token refresh_token grant;
+│   │                    #   logout() = POST /auth/revoke (KODI-060);
 │   │                    #   post() sends an optional body (None = no body at all);
 │   │                    #   patch_json() and fetch_raw() -> (bytes, headers) (KODI-018)
 │   ├── cv_file.py       # --file loading (JSON/YAML/stdin), local validation,
@@ -99,14 +103,17 @@ src/applika/
 │   ├── download.py      # --type/--dir/--filename/--force naming rules,
 │   │                    #   Content-Disposition parsing (KODI-018)
 │   ├── session.py       # SessionData, SessionStore (~/.config/applika/session.json)
-│   └── loopback.py      # LoopbackLoginServer for OAuth callback
+│   ├── loopback.py      # LoopbackLoginServer for OAuth callback
+│   ├── pkce.py          # PKCE verifier, S256 challenge, state (KODI-060)
+│   └── device_flow.py   # RFC 8628 device code: start + poll (KODI-060)
 ├── utils/
 │   ├── output.py        # render_application_table, render_timeline_event_table,
 │   │                     #   print_application_summary, print_timeline_event_summary, print_finalize_summary
 │   └── cv_output.py     # dump_json/dump_yaml, print_cv_summary, render_cv_table,
 │                         #   render_cv_markdown_table (KODI-018)
 └── commands/
-    ├── auth.py          # login + logout + whoami Typer commands
+    ├── auth.py          # login [--device] [--manual] [--device-name] + logout
+    │                    #   + whoami Typer commands (KODI-060)
     ├── skill.py         # skill install Typer sub-app
     ├── cv_shared.py     # behaviour shared by `cvs` and `applications cv`:
     │                    #   load_document, merge_document, emit_cv, download_document,
@@ -153,14 +160,20 @@ src/applika/
   puts the key on the wire when `--job-description`, `--job-description-file`
   or a `job_description` key in `--file` asked for it. `--job-description ""`
   sends `null` (clears it).
+- **Sessions fail closed (KODI-060)**: a 429 or 503 on the refresh, a 503 on
+  any route, and a 429/503/network error on `logout` keep `session.json`; any
+  other refused refresh clears it. The file keeps its four keys so older CLI
+  versions can read it. Tests never reach the network: `auth._transport` is a
+  refusing `httpx.MockTransport` by default (`tests/conftest.py`), and
+  `device_flow.poll` takes `sleep`/`monotonic`.
 - **Deprecated, not removed**: `applications steps *` and `applications finalize --step/--feedback/--salary-offer` still work exactly as in 0.1.4 (`.claude/rules/cli-compatibility.md`); only their `--help` text says deprecated. Typer's own `deprecated=True` is deliberately **not** used on them — it prints a `DeprecationWarning` to stderr on every invocation, which corrupts `--output-format json` output under `CliRunner`'s default stderr mixing.
 
 ## CLI Commands
 
 | Command | Description |
 |---|---|
-| `applika login` | GitHub OAuth login (opens browser) |
-| `applika logout` | Log out and clear session |
+| `applika login [--device] [--manual] [--device-name TEXT]` | GitHub sign-in with a session of the CLI's own: PKCE + local callback (default), paste `code#state` (`--manual`), device code (`--device`) |
+| `applika logout` | End the session on the server (`POST /auth/revoke`), then clear it locally |
 | `applika whoami` | Show the currently authenticated user |
 | `applika applications list` | List applications (filterable) |
 | `applika applications new` | Create a new application |
