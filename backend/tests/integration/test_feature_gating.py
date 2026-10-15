@@ -19,7 +19,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.config.db import get_session
-from app.core.tokens import create_access_token
+from app.config.redis import get_redis
 from app.domain.models import FeatureModel, SavedJobSearchModel
 from app.main import app as main_app
 from tests import msg
@@ -33,6 +33,7 @@ from tests.integration.test_tailored_cv_api import (
     application_payload,
     base_cv_payload,
 )
+from tests.sessions_seed import open_session
 
 USER_ID = base_data()['user'].id
 ADMIN_ID = base_data()['admin_user'].id
@@ -440,7 +441,7 @@ async def test_an_unknown_key_is_hidden_from_admins_too(
 
 
 async def test_user_made_admin_has_jobs_on_the_next_request(
-    async_engine: AsyncEngine, db_session: AsyncSession, world
+    async_engine: AsyncEngine, db_session: AsyncSession, world, redis_client
 ):
     """R-012: ``is_admin`` is read from the database on every request (the
     real cookie path, no ``get_current_user`` override) and nothing is
@@ -451,9 +452,17 @@ async def test_user_made_admin_has_jobs_on_the_next_request(
         async with maker() as session:
             yield session
 
+    async def override_get_redis():
+        return redis_client
+
     main_app.dependency_overrides.clear()
     main_app.dependency_overrides[get_session] = override_get_session
-    token, _, _ = create_access_token(str(base_data()['user'].github_id))
+    main_app.dependency_overrides[get_redis] = override_get_redis
+    # KODI-057: a real device session (row + Redis keys), plan correction 3.
+    tokens = await open_session(
+        async_engine, redis_client, USER_ID, base_data()['user'].github_id
+    )
+    token = tokens.access_token
     async with AsyncClient(
         transport=ASGITransport(app=main_app), base_url='http://test/api'
     ) as client:

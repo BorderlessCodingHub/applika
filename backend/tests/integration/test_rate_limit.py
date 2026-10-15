@@ -140,8 +140,8 @@ async def test_two_users_at_the_limit_on_the_same_ip_do_not_share_quota(
 ):
     _enable_limiter(monkeypatch, default=2)
 
-    token_a, _, _ = create_access_token('user-a')
-    token_b, _, _ = create_access_token('user-b')
+    token_a, _, _ = create_access_token('user-a', '1')
+    token_b, _, _ = create_access_token('user-b', '2')
 
     for _ in range(2):
         ok = await async_client.get(
@@ -159,6 +159,39 @@ async def test_two_users_at_the_limit_on_the_same_ip_do_not_share_quota(
         '/supports', cookies={ACCESS_COOKIE_NAME: token_b}
     )
     assert other_user.status_code == 200
+
+
+async def test_bearer_tokens_count_per_user_on_the_same_ip(
+    async_client, redis_client, monkeypatch
+):
+    """KODI-057 (ADR-0019): applika-cli 1.1.0 sends ``Authorization:
+    Bearer``; the limiter counts it against the token's user, not the IP."""
+    _enable_limiter(monkeypatch, default=2)
+
+    token_a, _, _ = create_access_token('user-a', '1')
+    token_b, _, _ = create_access_token('user-b', '2')
+
+    for _ in range(2):
+        ok = await async_client.get(
+            '/supports', headers={'Authorization': f'Bearer {token_a}'}
+        )
+        assert ok.status_code == 200
+
+    refused = await async_client.get(
+        '/supports', headers={'Authorization': f'Bearer {token_a}'}
+    )
+    assert refused.status_code == 429
+
+    # Same IP, another user's Bearer: a quota of its own.
+    other_user = await async_client.get(
+        '/supports', headers={'Authorization': f'Bearer {token_b}'}
+    )
+    assert other_user.status_code == 200
+    # And user A's quota is the same whether it comes as Bearer or cookie.
+    same_user_cookie = await async_client.get(
+        '/supports', cookies={ACCESS_COOKIE_NAME: token_a}
+    )
+    assert same_user_cookie.status_code == 429
 
 
 async def test_anonymous_requests_count_per_ip_second_ip_unaffected(

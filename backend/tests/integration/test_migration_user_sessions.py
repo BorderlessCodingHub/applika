@@ -23,7 +23,9 @@ What is asserted here:
 * the second upgrade renames it back: rows, columns, constraints and index
   definitions equal the first upgrade's (AC5);
 * ``upgrade()`` drops nothing and ``downgrade()`` is real (AC2, AC3);
-* nothing in ``app/`` maps the table, ``_old`` or not (AC4, AC7).
+* nothing in ``app/`` maps ``user_sessions_old`` (AC4, AC7); since
+  KODI-057 ``UserSessionModel`` maps ``user_sessions`` and ``create_all``
+  builds exactly the migrated table.
 
 Plumbing is copied from ``tests/integration/test_migration_feature_flags.py``.
 
@@ -737,13 +739,66 @@ def test_a_second_round_trip_keeps_the_rows(migration_db: str) -> None:
 
 
 # --------------------------------------------------------------------------
-# AC4 / AC7 - nothing in app/ maps the new objects
+# KODI-057 - the ORM maps the table (Release B), never its _old twin, and
+# create_all builds exactly the migrated schema
 # --------------------------------------------------------------------------
 
 
-def test_orm_maps_neither_the_table_nor_its_old_twin() -> None:
+def test_orm_maps_the_table_but_never_its_old_twin() -> None:
+    """KODI-056 (Release A) asserted nothing mapped ``user_sessions``;
+    KODI-057 (Release B) maps it as ``UserSessionModel``. ``_old`` stays
+    unmapped (non-destructive-migrations.md rule 7)."""
     from app.domain.models import Base
 
     mapped_tables = set(Base.metadata.tables)
-    assert TABLE not in mapped_tables
+    assert TABLE in mapped_tables
     assert OLD_TABLE not in mapped_tables
+
+
+async def _create_all(url: str) -> None:
+    from app.domain.models import Base
+
+    engine = create_async_engine(url, poolclass=NullPool)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    finally:
+        await engine.dispose()
+
+
+def test_create_all_builds_the_migrated_user_sessions(
+    migration_db: str,
+) -> None:
+    """``UserSessionModel.__table_args__`` mirror revision ``ed39a0fad1e5``
+    name for name: the tests' ``create_all`` schema equals the migrated one
+    - columns, the four CHECKs, the FK and both indexes."""
+    _upgrade(migration_db, REVISION)
+    migrated = (
+        _column_shapes(migration_db, TABLE),
+        _constraints(migration_db, TABLE),
+        {
+            name: definition
+            for name, definition in _index_defs(migration_db).items()
+            if name in CREATED_INDEXES | {'pk_user_sessions'}
+        },
+    )
+
+    _apply(
+        migration_db,
+        [
+            ('DROP SCHEMA IF EXISTS public CASCADE', {}),
+            ('CREATE SCHEMA public', {}),
+        ],
+    )
+    _run(_create_all(migration_db))
+    built = (
+        _column_shapes(migration_db, TABLE),
+        _constraints(migration_db, TABLE),
+        {
+            name: definition
+            for name, definition in _index_defs(migration_db).items()
+            if name in CREATED_INDEXES | {'pk_user_sessions'}
+        },
+    )
+
+    assert built == migrated

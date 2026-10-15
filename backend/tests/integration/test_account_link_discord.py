@@ -32,12 +32,12 @@ from app.config.db import get_session
 from app.config.settings import ACCESS_COOKIE_NAME, envs
 from app.core.crypto import encrypt_discord_token
 from app.core.enums import DiscordConnectionStatus
-from app.core.tokens import create_access_token
 from app.domain.models import DiscordConnectionModel, UserModel
 from app.main import app as main_app
 from app.presentation.dependencies import get_discord_oauth_service
 from tests import msg
 from tests.base_db_setup import base_data
+from tests.sessions_seed import live_access_token
 
 
 @pytest.fixture(autouse=True)
@@ -140,9 +140,10 @@ async def raw_client(async_engine):
     main_app.dependency_overrides.pop(get_discord_oauth_service, None)
 
 
-def _cookie_for(github_id: int) -> str:
-    token, _, _ = create_access_token(str(github_id))
-    return token
+async def _cookie_for(redis_client, github_id: int) -> str:
+    """A signed-in ``__access`` cookie (KODI-057: its session is live in
+    Redis, plan correction 3)."""
+    return await live_access_token(redis_client, github_id)
 
 
 def _status(location: str) -> str:
@@ -250,7 +251,9 @@ async def test_callback_links_and_redirects_status_linked(
     state_uc = AccountLinkStateUseCase(redis_client)
     user_id = base_data()['user'].id
     nonce = await state_uc.create(user_id)
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
 
     response = await raw_client.get(
         '/auth/link/discord/callback',
@@ -293,7 +296,9 @@ async def test_callback_links_every_r021_field(
     state_uc = AccountLinkStateUseCase(redis_client)
     user_id = base_data()['user'].id
     nonce = await state_uc.create(user_id)
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
 
     await raw_client.get(
         '/auth/link/discord/callback',
@@ -350,7 +355,9 @@ async def test_callback_relink_same_account_stays_linked(
     _override_discord_service(FakeDiscordOAuthService(discord_id=555))
     state_uc = AccountLinkStateUseCase(redis_client)
     user_id = base_data()['user'].id
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
 
     first_nonce = await state_uc.create(user_id)
     first = await raw_client.get(
@@ -378,7 +385,9 @@ async def test_callback_unknown_state_is_error(
     raw_client: AsyncClient, db_session: AsyncSession, redis_client
 ):
     _override_discord_service(FakeDiscordOAuthService(discord_id=555))
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
 
     response = await raw_client.get(
         '/auth/link/discord/callback',
@@ -388,6 +397,33 @@ async def test_callback_unknown_state_is_error(
     assert _status(response.headers['location']) == 'error'
     connection = await _get_connection(db_session, base_data()['user'].id)
     assert connection is None
+
+
+async def test_callback_with_an_ended_session_is_error(
+    raw_client: AsyncClient, db_session: AsyncSession, redis_client
+):
+    """KODI-057: the callback checks the cookie's session like any signed-in
+    request - a valid JWT whose session was revoked links nothing."""
+    from app.application.use_cases.account_link_state import (
+        AccountLinkStateUseCase,
+    )
+
+    _override_discord_service(FakeDiscordOAuthService(discord_id=555))
+    user_id = base_data()['user'].id
+    nonce = await AccountLinkStateUseCase(redis_client).create(user_id)
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
+    for key in await redis_client.keys('applika:session:*'):
+        await redis_client.delete(key)
+
+    response = await raw_client.get(
+        '/auth/link/discord/callback',
+        params={'code': 'abc', 'state': nonce},
+    )
+
+    assert _status(response.headers['location']) == 'error'
+    assert await _get_connection(db_session, user_id) is None
 
 
 async def test_callback_replayed_state_is_error(
@@ -403,7 +439,9 @@ async def test_callback_replayed_state_is_error(
     nonce = await state_uc.create(user_id)
     # Consume it out from under the callback (a replay).
     assert await state_uc.consume(nonce) == user_id
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
 
     response = await raw_client.get(
         '/auth/link/discord/callback',
@@ -416,7 +454,9 @@ async def test_callback_replayed_state_is_error(
 async def test_callback_expired_state_is_error(
     raw_client: AsyncClient, db_session: AsyncSession, redis_client
 ):
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
 
     response = await raw_client.get(
         '/auth/link/discord/callback',
@@ -438,7 +478,9 @@ async def test_callback_cookie_user_mismatch_is_error(
     user_a_id = base_data()['user'].id
     nonce = await state_uc.create(user_a_id)
     # Session cookie belongs to a different user (admin_user, github_id=2).
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=2))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=2)
+    )
 
     response = await raw_client.get(
         '/auth/link/discord/callback',
@@ -480,7 +522,9 @@ async def test_callback_discord_error_param_never_calls_discord(
     _override_discord_service(fake)
     state_uc = AccountLinkStateUseCase(redis_client)
     nonce = await state_uc.create(base_data()['user'].id)
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
 
     response = await raw_client.get(
         '/auth/link/discord/callback',
@@ -502,7 +546,9 @@ async def test_callback_missing_code_never_calls_discord(
     _override_discord_service(fake)
     state_uc = AccountLinkStateUseCase(redis_client)
     nonce = await state_uc.create(base_data()['user'].id)
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
 
     response = await raw_client.get(
         '/auth/link/discord/callback',
@@ -524,7 +570,9 @@ async def test_callback_discord_link_error_is_error(
     state_uc = AccountLinkStateUseCase(redis_client)
     user_id = base_data()['user'].id
     nonce = await state_uc.create(user_id)
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
 
     response = await raw_client.get(
         '/auth/link/discord/callback',
@@ -546,7 +594,9 @@ async def test_callback_unconfigured_is_error(
     _override_discord_service(FakeDiscordOAuthService(configured=False))
     state_uc = AccountLinkStateUseCase(redis_client)
     nonce = await state_uc.create(base_data()['user'].id)
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
 
     response = await raw_client.get(
         '/auth/link/discord/callback',
@@ -565,7 +615,9 @@ async def test_after_failure_retry_with_new_nonce_links(
 
     state_uc = AccountLinkStateUseCase(redis_client)
     user_id = base_data()['user'].id
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
 
     _override_discord_service(FakeDiscordOAuthService(discord_id=None))
     failing_nonce = await state_uc.create(user_id)
@@ -603,7 +655,9 @@ async def test_callback_transfers_link_when_id_belongs_to_another_user(
     # User A links Discord id 555 first.
     fake_a = FakeDiscordOAuthService(discord_id=555)
     _override_discord_service(fake_a)
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
     nonce_a = await state_uc.create(user_a_id)
     first = await raw_client.get(
         '/auth/link/discord/callback',
@@ -616,7 +670,9 @@ async def test_callback_transfers_link_when_id_belongs_to_another_user(
     # revoked at Discord for either user.
     fake_b = FakeDiscordOAuthService(discord_id=555)
     _override_discord_service(fake_b)
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=2))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=2)
+    )
     nonce_b = await state_uc.create(user_b_id)
     second = await raw_client.get(
         '/auth/link/discord/callback',
@@ -668,7 +724,9 @@ async def test_race_integrity_error_is_conflict(
 
     fake_b = FakeDiscordOAuthService(discord_id=555)
     _override_discord_service(fake_b)
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=2))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=2)
+    )
     nonce_b = await state_uc.create(user_b_id)
 
     response = await raw_client.get(
@@ -759,7 +817,9 @@ async def test_relink_same_id_after_disconnect(
 
     state_uc = AccountLinkStateUseCase(redis_client)
     user_id = base_data()['user'].id
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
 
     _override_discord_service(FakeDiscordOAuthService(discord_id=555))
     nonce = await state_uc.create(user_id)
@@ -788,7 +848,9 @@ async def test_relink_another_id_after_disconnect(
 
     state_uc = AccountLinkStateUseCase(redis_client)
     user_id = base_data()['user'].id
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
 
     _override_discord_service(FakeDiscordOAuthService(discord_id=555))
     nonce = await state_uc.create(user_id)
@@ -824,7 +886,9 @@ async def test_another_user_can_link_the_freed_id(
     user_b_id = base_data()['admin_user'].id
 
     _override_discord_service(FakeDiscordOAuthService(discord_id=555))
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
     nonce_a = await state_uc.create(user_a_id)
     await raw_client.get(
         '/auth/link/discord/callback', params={'code': 'a', 'state': nonce_a}
@@ -835,7 +899,9 @@ async def test_another_user_can_link_the_freed_id(
     await db_session.delete(connection_a)
     await db_session.commit()
 
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=2))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=2)
+    )
     nonce_b = await state_uc.create(user_b_id)
     response = await raw_client.get(
         '/auth/link/discord/callback', params={'code': 'b', 'state': nonce_b}
@@ -871,7 +937,9 @@ async def test_reconnect_needs_reconnect_row_refreshes_and_clears_mark(
     _override_discord_service(fake)
     state_uc = AccountLinkStateUseCase(redis_client)
     nonce = await state_uc.create(user_id)
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
 
     response = await raw_client.get(
         '/auth/link/discord/callback',
@@ -1017,7 +1085,9 @@ async def test_reconnect_needs_reconnect_different_account_replaces_row(
     _override_discord_service(FakeDiscordOAuthService(discord_id=999))
     state_uc = AccountLinkStateUseCase(redis_client)
     nonce = await state_uc.create(user_id)
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
 
     response = await raw_client.get(
         '/auth/link/discord/callback',
@@ -1070,7 +1140,9 @@ async def test_reconnect_switch_to_account_another_user_holds_transfers(
     _override_discord_service(fake)
     state_uc = AccountLinkStateUseCase(redis_client)
     nonce = await state_uc.create(user_a_id)
-    raw_client.cookies.set(ACCESS_COOKIE_NAME, _cookie_for(github_id=1))
+    raw_client.cookies.set(
+        ACCESS_COOKIE_NAME, await _cookie_for(redis_client, github_id=1)
+    )
 
     response = await raw_client.get(
         '/auth/link/discord/callback',

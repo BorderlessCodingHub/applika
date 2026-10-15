@@ -70,8 +70,8 @@ def test_bucket_for_default_bucket():
 
 
 def test_subject_for_valid_access_token():
-    token, _, _ = create_access_token('42')
-    subject = subject_for({ACCESS_COOKIE_NAME: token}, '10.0.0.1')
+    token, _, _ = create_access_token('42', '7')
+    subject = subject_for({}, {ACCESS_COOKIE_NAME: token}, '10.0.0.1')
     assert subject == 'user:42'
 
 
@@ -82,7 +82,7 @@ def test_subject_for_expired_token_falls_back_to_ip():
         'exp': datetime.now(UTC) - timedelta(minutes=1),
     }
     token = jwt.encode(payload, envs.JWT_SECRET, algorithm=envs.JWT_ALGORITHM)
-    subject = subject_for({ACCESS_COOKIE_NAME: token}, '10.0.0.1')
+    subject = subject_for({}, {ACCESS_COOKIE_NAME: token}, '10.0.0.1')
     assert subject == 'ip:10.0.0.1'
 
 
@@ -93,7 +93,7 @@ def test_subject_for_bad_signature_falls_back_to_ip():
         'exp': datetime.now(UTC) + timedelta(minutes=5),
     }
     token = jwt.encode(payload, 'wrong-secret', algorithm=envs.JWT_ALGORITHM)
-    subject = subject_for({ACCESS_COOKIE_NAME: token}, '10.0.0.1')
+    subject = subject_for({}, {ACCESS_COOKIE_NAME: token}, '10.0.0.1')
     assert subject == 'ip:10.0.0.1'
 
 
@@ -104,21 +104,52 @@ def test_subject_for_wrong_kind_falls_back_to_ip():
         'exp': datetime.now(UTC) + timedelta(minutes=5),
     }
     token = jwt.encode(payload, envs.JWT_SECRET, algorithm=envs.JWT_ALGORITHM)
-    subject = subject_for({ACCESS_COOKIE_NAME: token}, '10.0.0.1')
+    subject = subject_for({}, {ACCESS_COOKIE_NAME: token}, '10.0.0.1')
     assert subject == 'ip:10.0.0.1'
 
 
 def test_subject_for_absent_cookie_falls_back_to_ip():
-    assert subject_for({}, '10.0.0.1') == 'ip:10.0.0.1'
+    assert subject_for({}, {}, '10.0.0.1') == 'ip:10.0.0.1'
 
 
 def test_subject_for_garbage_token_falls_back_to_ip():
-    subject = subject_for({ACCESS_COOKIE_NAME: 'not-a-jwt'}, '10.0.0.1')
+    subject = subject_for({}, {ACCESS_COOKIE_NAME: 'not-a-jwt'}, '10.0.0.1')
     assert subject == 'ip:10.0.0.1'
 
 
 def test_subject_for_no_client_host():
-    assert subject_for({}, None) == 'ip:unknown'
+    assert subject_for({}, {}, None) == 'ip:unknown'
+
+
+# --- KODI-057 (ADR-0019): Bearer first, then the cookie, then the IP ---
+
+
+def test_subject_for_bearer_token_counts_against_its_user():
+    token, _, _ = create_access_token('42', '7')
+    headers = {'authorization': f'Bearer {token}'}
+    assert subject_for(headers, {}, '10.0.0.1') == 'user:42'
+
+
+def test_subject_for_bearer_wins_over_the_cookie():
+    bearer, _, _ = create_access_token('42', '7')
+    cookie, _, _ = create_access_token('99', '8')
+    headers = {'authorization': f'bearer {bearer}'}
+    subject = subject_for(headers, {ACCESS_COOKIE_NAME: cookie}, '10.0.0.1')
+    assert subject == 'user:42'
+
+
+def test_subject_for_bad_bearer_falls_back_to_the_cookie():
+    cookie, _, _ = create_access_token('99', '8')
+    headers = {'authorization': 'Bearer not-a-jwt'}
+    subject = subject_for(headers, {ACCESS_COOKIE_NAME: cookie}, '10.0.0.1')
+    assert subject == 'user:99'
+
+
+def test_subject_for_non_bearer_authorization_is_ignored():
+    token, _, _ = create_access_token('42', '7')
+    for header in (f'Basic {token}', 'Bearer ', 'Bearer'):
+        subject = subject_for({'authorization': header}, {}, '10.0.0.1')
+        assert subject == 'ip:10.0.0.1'
 
 
 class _StubPipeline:

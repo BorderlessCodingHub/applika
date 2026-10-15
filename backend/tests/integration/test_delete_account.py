@@ -8,6 +8,7 @@ from app.config.settings import envs
 from app.domain.models import UserModel
 from tests import msg
 from tests.base_db_setup import base_data
+from tests.sessions_seed import open_session
 
 
 @pytest.fixture(autouse=True)
@@ -108,14 +109,16 @@ async def test_delete_nonexistent_user_still_returns_204(
 
 
 async def test_delete_linked_account_frees_discord_id_for_another_user(
-    async_client: AsyncClient, db_session: AsyncSession, redis_client
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    redis_client,
+    async_engine,
 ):
     """Deleting a linked Applika account removes the Discord link (R-011):
     another user can then link the same Discord id."""
     from app.application.use_cases.account_link_state import (
         AccountLinkStateUseCase,
     )
-    from app.core.tokens import create_access_token
     from tests.integration.test_account_link_discord import (
         FakeDiscordOAuthService,
         _get_connection,
@@ -142,7 +145,9 @@ async def test_delete_linked_account_frees_discord_id_for_another_user(
     _override_discord_service(FakeDiscordOAuthService(discord_id=555))
     state_uc = AccountLinkStateUseCase(redis_client)
     nonce = await state_uc.create(other_id)
-    token, _, _ = create_access_token('2')
+    # KODI-057: the other user signs in for real (plan correction 3).
+    tokens = await open_session(async_engine, redis_client, other_id, 2)
+    token = tokens.access_token
 
     async_client.cookies.set('__access', token)
     response = await async_client.get(
@@ -323,3 +328,56 @@ async def test_delete_own_account_removes_job_board_rows_but_not_jobs(
     sources = await db_session.scalar(text('SELECT count(*) FROM job_sources'))
     assert jobs == 1
     assert sources == 2
+
+
+async def test_delete_account_ends_every_session_at_once(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    redis_client,
+    async_engine,
+):
+    """KODI-057 (R-008, AC8): every session of the account ends with it -
+    both Redis keys of each open session are gone (so its tokens are
+    refused, see test_session_lifecycle), the rows go by CASCADE. Another
+    user's session is untouched."""
+    from app.domain.models import UserSessionModel
+
+    user = base_data()['user']
+    other = base_data()['admin_user']
+    web = await open_session(async_engine, redis_client, user.id, 1)
+    cli = await open_session(
+        async_engine,
+        redis_client,
+        user.id,
+        1,
+        client_type='cli',
+        sign_in_method='cli_browser',
+    )
+    others = await open_session(async_engine, redis_client, other.id, 2)
+
+    resp = await async_client.delete('/users/me')
+    assert resp.status_code == 204, msg(204, resp.status_code)
+
+    for tokens in (web, cli):
+        assert (
+            await redis_client.exists(
+                f'applika:session:{tokens.refresh_token}',
+                f'applika:session:id:{tokens.session_id}',
+            )
+            == 0
+        )
+    rows = (
+        await db_session.execute(
+            select(UserSessionModel.id).where(
+                UserSessionModel.user_id == user.id
+            )
+        )
+    ).all()
+    assert rows == []
+    assert (
+        await redis_client.exists(
+            f'applika:session:{others.refresh_token}',
+            f'applika:session:id:{others.session_id}',
+        )
+        == 2
+    )
