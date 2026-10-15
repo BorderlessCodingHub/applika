@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Building2,
+  FlaskConical,
   Globe,
   Search,
   Users,
@@ -18,6 +19,7 @@ const tabs = [
   { href: "/admin/companies", label: "Companies", icon: Building2 },
   { href: "/admin/platforms", label: "Platforms", icon: Globe },
   { href: "/admin/jobs", label: "Jobs", icon: Search },
+  { href: "/admin/features", label: "Features", icon: FlaskConical },
   { href: "/admin/discord-webhooks", label: "Discord", icon: Webhook },
 ];
 

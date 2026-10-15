@@ -16,19 +16,24 @@ from app.application.use_cases.jobs.dismiss_job import DismissJobUseCase
 from app.application.use_cases.jobs.get_job import GetJobUseCase
 from app.application.use_cases.jobs.list_jobs import ListJobsUseCase
 from app.application.use_cases.jobs.restore_job import RestoreJobUseCase
+from app.core.features import FeatureKey
 from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     BaseCVRepositoryDp,
     CurrentUserDp,
     JobDismissalRepositoryDp,
     JobRepositoryDp,
+    require_feature,
 )
+from app.presentation.gated_slash import add_slash_twins
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.jobs import JobDetail, JobListQuery, JobPage
 
 router = APIRouter(
     prefix='/jobs',
     tags=['Jobs'],
+    # ADR-0018: without "jobs" every route here is an unknown route (404).
+    dependencies=[require_feature(FeatureKey.JOBS)],
     responses={'401': {'model': DetailSchema}},
 )
 
@@ -93,3 +98,7 @@ async def restore_job(
     await RestoreJobUseCase(job_repo, dismissal_repo).execute(
         int(job_id), c_user.id
     )
+
+
+# ADR-0018: `/jobs/` and friends hit the gate too, never Starlette's 307.
+add_slash_twins(router)

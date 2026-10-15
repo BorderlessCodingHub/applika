@@ -25,11 +25,13 @@ from app.domain.models import (
     CompanyModel,
     JobModel,
     TailoredCVModel,
+    UserModel,
 )
 from app.main import app as main_app
 from app.presentation.dependencies import get_tailoring_resolver
 from tests import msg
 from tests.base_db_setup import base_data
+from tests.features_seed import enrol
 from tests.integration.conftest import SECOND_USER_ID, as_user
 from tests.integration.jobs_seed import (
     HIMALAYAS_PLATFORM_ID,
@@ -43,6 +45,21 @@ from tests.integration.test_tailored_cv_api import (
     KEYWORDS_JOB_DESCRIPTION,
     base_cv_payload,
 )
+
+# KODI-052 (ADR-0018): every route here sits behind the "jobs" beta
+# feature; ``jobs_beta`` seeds it and puts the ``async_client`` user on its
+# list.
+pytestmark = pytest.mark.usefixtures('jobs_beta')
+
+
+@pytest_asyncio.fixture
+async def second_user(
+    second_user: UserModel, db_session: AsyncSession, jobs_beta: int
+) -> UserModel:
+    """The conftest second user, on the "jobs" beta list too (KODI-052)."""
+    await enrol(db_session, second_user.id, jobs_beta)
+    return second_user
+
 
 USER_ID = base_data()['user'].id
 ALREADY = 'You already have an application for this job'

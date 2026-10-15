@@ -17,6 +17,7 @@ from cryptography.fernet import Fernet
 
 from app.application.dto.user import UserCreateDTO
 from app.config.settings import envs
+from app.core.features import FeatureStage
 from app.core.tokens import decode_token
 from app.domain.repositories.user_repository import UserRepository
 from app.scripts import seed_e2e
@@ -34,6 +35,11 @@ class FakeRedis:
 
     async def aclose(self) -> None:
         self.closed = True
+
+
+async def _no_reset(*_identities) -> None:
+    """``seed()`` resets the beta features (KODI-052); the contract tests
+    here do not touch a database."""
 
 
 class FakeUserRow:
@@ -288,6 +294,7 @@ async def test_seed_returns_the_nine_contract_keys(monkeypatch):
         return user, admin, discord_user
 
     monkeypatch.setattr(seed_e2e, 'upsert_users', _identities)
+    monkeypatch.setattr(seed_e2e, 'reset_beta_features', _no_reset)
     monkeypatch.setattr(seed_e2e, 'redis_client', fake_redis)
 
     payload = await seed_e2e.seed()
@@ -327,6 +334,7 @@ def test_main_prints_one_json_line_with_the_contract(monkeypatch, capsys):
         return user, admin, discord_user
 
     monkeypatch.setattr(seed_e2e, 'upsert_users', _identities)
+    monkeypatch.setattr(seed_e2e, 'reset_beta_features', _no_reset)
     monkeypatch.setattr(seed_e2e, 'redis_client', FakeRedis())
 
     seed_e2e.main()
@@ -369,3 +377,92 @@ def test_e2e_discord_id_is_fixed_and_not_js_safe():
     max_safe_integer = 2**53 - 1
     assert seed_e2e.E2E_DISCORD_ID == 999000000000000003
     assert seed_e2e.E2E_DISCORD_ID > max_safe_integer
+
+
+# ---------------------------------------------------------------------------
+# KODI-052: the beta features are reset on every run
+# ---------------------------------------------------------------------------
+
+
+class FakeFeature:
+    id = 77
+
+
+class FakeFeatureRepository:
+    def __init__(self, feature: FakeFeature | None = None):
+        self.feature = feature
+        self.calls: list[tuple] = []
+
+    async def get_by_key(self, key: str):
+        self.calls.append(('get_by_key', key))
+        return self.feature
+
+    async def set_stage(self, feature_id, stage):
+        self.calls.append(('set_stage', feature_id, stage))
+
+    async def add_user(self, feature_id, user_id, added_by):
+        self.calls.append(('add_user', feature_id, user_id, added_by))
+        return True
+
+    async def remove_user(self, feature_id, user_id):
+        self.calls.append(('remove_user', feature_id, user_id))
+
+    async def clear_opt_outs(self, user_id):
+        self.calls.append(('clear_opt_outs', user_id))
+
+
+IDENTITIES = (
+    seed_e2e.Identity(github_id=999000000001, user_id=11),
+    seed_e2e.Identity(github_id=999000000002, user_id=22),
+    seed_e2e.Identity(github_id=999000000003, user_id=33),
+)
+
+
+async def test_reset_beta_features_puts_jobs_back_in_a_known_state(
+    monkeypatch,
+):
+    fake_repo = FakeFeatureRepository(FakeFeature())
+    monkeypatch.setattr(seed_e2e, 'AsyncLocalSession', lambda: FakeSession())
+    monkeypatch.setattr(seed_e2e, 'FeatureRepository', lambda s: fake_repo)
+
+    await seed_e2e.reset_beta_features(*IDENTITIES)
+
+    assert fake_repo.calls == [
+        ('get_by_key', 'jobs'),
+        ('set_stage', 77, FeatureStage.BETA),
+        ('add_user', 77, 11, 22),
+        ('remove_user', 77, 33),
+        ('clear_opt_outs', 22),
+    ]
+
+
+async def test_reset_beta_features_fails_loudly_without_the_jobs_row(
+    monkeypatch,
+):
+    monkeypatch.setattr(seed_e2e, 'AsyncLocalSession', lambda: FakeSession())
+    monkeypatch.setattr(
+        seed_e2e, 'FeatureRepository', lambda s: FakeFeatureRepository()
+    )
+
+    with pytest.raises(RuntimeError, match='alembic upgrade head'):
+        await seed_e2e.reset_beta_features(*IDENTITIES)
+
+
+async def test_seed_resets_the_beta_features_with_the_three_users(
+    monkeypatch,
+):
+    seen: list[tuple] = []
+
+    async def _identities():
+        return IDENTITIES
+
+    async def _reset(*identities):
+        seen.append(identities)
+
+    monkeypatch.setattr(seed_e2e, 'upsert_users', _identities)
+    monkeypatch.setattr(seed_e2e, 'reset_beta_features', _reset)
+    monkeypatch.setattr(seed_e2e, 'redis_client', FakeRedis())
+
+    await seed_e2e.seed()
+
+    assert seen == [IDENTITIES]

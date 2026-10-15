@@ -13,7 +13,10 @@ import { JOBS_COPY } from "@/components/jobs/job-copy";
 import type { JobMarkPending } from "@/components/jobs/job-list-item";
 import { JobLoadError } from "@/components/jobs/job-list-states";
 import { StartApplicationFlow } from "@/components/jobs/start-application-flow";
+import { BetaBadge } from "@/components/features/beta-badge";
+import { FeatureGate } from "@/components/features/feature-gate";
 import { useBaseCvs } from "@/hooks/use-base-cvs";
+import { useHasFeature } from "@/hooks/use-features";
 import {
   apiStatus,
   jobApiDetail,
@@ -28,6 +31,16 @@ import {
  * application of the user's) is "This job is no longer listed".
  */
 export function JobViewPage() {
+  return (
+    <FeatureGate feature="jobs">
+      <JobView />
+    </FeatureGate>
+  );
+}
+
+/** Mounted only with `jobs` (PRD 0013), so `useJob` never fires without it. */
+function JobView() {
+  const beta = useHasFeature("jobs").stage === "beta";
   const id = useSearchParams().get("id");
   const job = useJob(id);
   const baseCvs = useBaseCvs();
@@ -68,6 +81,7 @@ export function JobViewPage() {
         onDismiss={(target) => dismiss.mutate(target.id)}
         onRestore={(target) => restore.mutate(target.id)}
         pending={pending}
+        titleBadge={beta ? <BetaBadge /> : undefined}
       />
       <StartApplicationFlow
         job={job.data}

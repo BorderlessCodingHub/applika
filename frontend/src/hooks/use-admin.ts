@@ -20,6 +20,10 @@ import type {
   CreateDiscordWebhook,
   UpdateDiscordWebhook,
 } from "@/services/types/admin";
+import type {
+  AdminFeatureUsersParams,
+  FeatureStage,
+} from "@/services/types/features";
 
 // ── Dashboard Analytics ─────────────────────────────────────────────
 
@@ -371,5 +375,111 @@ export function useStartJobRun() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ADMIN_JOB_SOURCES_KEY });
     },
+  });
+}
+
+// ── Beta features (KODI-054, PRD 0013 R-006..R-017) ─────────────────────
+
+export const ADMIN_FEATURES_KEY = ["admin", "features"] as const;
+export const ADMIN_FEATURE_USERS_KEY = ["admin", "feature-users"] as const;
+/** `hooks/use-features.ts`: the caller's own features (nav, gates). */
+const MY_FEATURES_KEY = ["user", "features"] as const;
+
+/** `GET /admin/features`: every feature, with the caller's own `me`. */
+export function useAdminFeatures() {
+  return useQuery({
+    queryKey: ADMIN_FEATURES_KEY,
+    queryFn: () => services.admin.getFeatures(),
+  });
+}
+
+/** `GET /admin/features/{key}/users`; the last page stays on screen while the next loads. */
+export function useAdminFeatureUsers(
+  key: string | null,
+  params: AdminFeatureUsersParams,
+) {
+  return useQuery({
+    queryKey: [...ADMIN_FEATURE_USERS_KEY, key, params],
+    queryFn: () => services.admin.getFeatureUsers(key as string, params),
+    enabled: !!key,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * The "Add user" picker: `GET /admin/users?search=` (username or email), the
+ * same search as the admin users screen. Idle until there is something to
+ * look for; the last answer stays on screen while the next one loads.
+ */
+export function useAdminUserSearch(search: string, perPage = 10) {
+  const term = search.trim();
+  return useQuery({
+    queryKey: ["admin", "users", { search: term, per_page: perPage }],
+    queryFn: () => services.admin.getUsers({ search: term, per_page: perPage }),
+    enabled: term.length > 0,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * Every feature mutation refreshes the list, every beta list and the caller's
+ * own features: a release, a list change or an opt-out can change what the
+ * admin's own nav shows. Returned so the mutation stays pending until the new
+ * data is on screen. No toast: the screens show the server's `detail` in place.
+ */
+function invalidateFeatures(qc: ReturnType<typeof useQueryClient>) {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: ADMIN_FEATURES_KEY }),
+    qc.invalidateQueries({ queryKey: ADMIN_FEATURE_USERS_KEY }),
+    qc.invalidateQueries({ queryKey: MY_FEATURES_KEY }),
+  ]);
+}
+
+/** `PUT /admin/features/{key}/users/{user_id}` (idempotent, AC3). */
+export function useAddFeatureUser() {
+  const qc = useQueryClient();
+  return useMutation<void, AxiosError, { key: string; userId: string }>({
+    mutationFn: ({ key, userId }) => services.admin.addFeatureUser(key, userId),
+    onSuccess: () => invalidateFeatures(qc),
+  });
+}
+
+/** `DELETE /admin/features/{key}/users/{user_id}` (idempotent, AC4). */
+export function useRemoveFeatureUser() {
+  const qc = useQueryClient();
+  return useMutation<void, AxiosError, { key: string; userId: string }>({
+    mutationFn: ({ key, userId }) =>
+      services.admin.removeFeatureUser(key, userId),
+    onSuccess: () => invalidateFeatures(qc),
+  });
+}
+
+/** `PATCH /admin/features/{key}` `{stage}` (AC5, AC6). */
+export function useSetFeatureStage() {
+  const qc = useQueryClient();
+  return useMutation<unknown, AxiosError, { key: string; stage: FeatureStage }>(
+    {
+      mutationFn: ({ key, stage }) =>
+        services.admin.setFeatureStage(key, stage),
+      onSuccess: () => invalidateFeatures(qc),
+    },
+  );
+}
+
+/**
+ * "Use this feature myself" (AC8): `use=false` → `PUT …/opt-out`, `use=true`
+ * → `DELETE …/opt-out`. Only the caller's own choice; a failure toasts the
+ * server's `detail`, and the switch falls back to the stored choice.
+ */
+export function useSetFeatureOptOut() {
+  const qc = useQueryClient();
+  return useMutation<void, AxiosError, { key: string; use: boolean }>({
+    mutationFn: ({ key, use }) =>
+      use
+        ? services.admin.optInFeature(key)
+        : services.admin.optOutFeature(key),
+    onSuccess: () => invalidateFeatures(qc),
+    onError: (err) => toast.error(getApiError(err)),
   });
 }

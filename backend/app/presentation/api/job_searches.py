@@ -20,11 +20,14 @@ from app.application.use_cases.job_searches.list_searches import (
 from app.application.use_cases.job_searches.update_search import (
     UpdateJobSearchUseCase,
 )
+from app.core.features import FeatureKey
 from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     CurrentUserDp,
     SavedJobSearchRepositoryDp,
+    require_feature,
 )
+from app.presentation.gated_slash import add_slash_twins
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.job_searches import (
     JobSearch,
@@ -35,6 +38,8 @@ from app.presentation.schemas.job_searches import (
 router = APIRouter(
     prefix='/job-searches',
     tags=['Job searches'],
+    # ADR-0018: without "jobs" every route here is an unknown route (404).
+    dependencies=[require_feature(FeatureKey.JOBS)],
     responses={'401': {'model': DetailSchema}},
 )
 
@@ -106,3 +111,7 @@ async def delete_job_search(
     search_repo: SavedJobSearchRepositoryDp,
 ):
     await DeleteJobSearchUseCase(search_repo).execute(int(search_id), c_user.id)
+
+
+# ADR-0018: `/job-searches/` and friends hit the gate too, never a 307.
+add_slash_twins(router)

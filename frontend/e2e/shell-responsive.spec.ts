@@ -30,7 +30,9 @@ const COOKIE_NOTICE = '[role="dialog"][aria-label="Cookie notice"]';
 const CLI_BANNER = '[role="region"][aria-label="applika-cli announcement"]';
 
 /**
- * The primary entries a non-admin sees, in display order.
+ * The primary entries a non-admin sees, in display order. "Jobs" is there
+ * because the seeded `e2e-user` is on the `jobs` beta list (KODI-052 seed);
+ * a user without `jobs` sees seven (KODI-053).
  *
  * Kept BY HAND rather than derived from `PRIMARY_NAV`: this suite asserts tab
  * order and hit-testing against the list, so a derived copy would follow an
@@ -52,10 +54,32 @@ const PRIMARY_LABELS = [
 
 async function openDashboard(page: Page, role: SeededRole = "user") {
   await loginAs(page, role);
+  // The gated Jobs entry joins the nav only once `/users/me/features`
+  // answers (KODI-053), AFTER the h1: wait for it, or a Tab walk or an entry
+  // count can run against the nav without Jobs (KODI-054 QA, a load flake).
+  const features = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname.endsWith("/users/me/features") &&
+      response.request().method() === "GET",
+  );
   await page.goto("/dashboard");
+  const body = (await (await features).json()) as {
+    features: Array<{ key: string }>;
+  };
   await expect(
     page.getByRole("heading", { name: "Dashboard", level: 1 }),
   ).toBeVisible();
+  // At md+ the rail proves the render too; below md the closed sheet renders
+  // no nav, and the received answer is what the sheet opens with.
+  const rail = page.locator("aside");
+  if (
+    body.features.some((feature) => feature.key === "jobs") &&
+    (await rail.isVisible())
+  ) {
+    await expect(
+      rail.getByRole("link", { name: "Jobs", exact: true }),
+    ).toBeVisible();
+  }
 }
 
 const menuTrigger = (page: Page) =>
@@ -431,10 +455,16 @@ test.describe("at md and above the shell renders a fixed rail", () => {
     // `Primary` landmark, so the landmark's links are the entries alone.
     // Without this, a nav change surfaces as an unrelated tab-order failure
     // three tests away instead of here, naming the real cause.
+    // KODI-053: the Jobs link's TEXT also holds its "Beta" badge while the
+    // seeded user's `jobs` is in beta; its accessible name stays "Jobs".
     await expect(
       primary.getByRole("link"),
       "the rail's entries no longer match PRIMARY_LABELS — update the constant to mirror PRIMARY_NAV in src/components/layout/nav.ts",
-    ).toHaveText(PRIMARY_LABELS);
+    ).toHaveText(
+      PRIMARY_LABELS.map((label) =>
+        label === "Jobs" ? /^Jobs(?: Beta)?$/ : label,
+      ),
+    );
 
     // The breakpoint, proved from both sides: no hamburger above `md`.
     await expect(menuTrigger(page)).toHaveCount(0);

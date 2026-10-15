@@ -4,6 +4,8 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { MY_FEATURES_QUERY_KEY } from "@/hooks/use-features";
+import type { MyFeature } from "@/services/types/features";
 import { JobsPage } from "./jobs-page";
 import {
   apiError,
@@ -39,8 +41,14 @@ const removeSearch = vi.fn();
 const createFromJob = vi.fn();
 const push = vi.fn();
 
+/** KODI-053: the cases written before PRD 0013 run with `jobs` in beta. */
+let myFeatures: MyFeature[] = [{ key: "jobs", stage: "beta" }];
+const getMyFeatures = vi.fn();
+let seedFeatures = true;
+
 vi.mock("@/services/services", () => ({
   services: {
+    features: { getMine: (...args: unknown[]) => getMyFeatures(...args) },
     jobs: {
       list: (...args: unknown[]) => listJobs(...args),
       get: (...args: unknown[]) => getJob(...args),
@@ -106,6 +114,8 @@ function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  // Seeded, as after the shell's own fetch: the gate opens on the first frame.
+  if (seedFeatures) client.setQueryData(MY_FEATURES_QUERY_KEY, myFeatures);
   return render(
     <QueryClientProvider client={client}>
       <JobsPage />
@@ -114,6 +124,9 @@ function renderPage() {
 }
 
 beforeEach(() => {
+  myFeatures = [{ key: "jobs", stage: "beta" }];
+  seedFeatures = true;
+  getMyFeatures.mockReset().mockImplementation(async () => myFeatures);
   setUrl("");
   pushSpy = vi.fn((...args: Parameters<History["pushState"]>) => {
     originalPush(...args);
@@ -715,5 +728,67 @@ describe("/jobs: saved searches (AC12)", () => {
       within(confirm).getByRole("button", { name: "Delete search" }),
     );
     await waitFor(() => expect(removeSearch).toHaveBeenCalledWith("1"));
+  });
+});
+
+describe("/jobs behind the jobs feature (KODI-053, PRD 0013)", () => {
+  it("shows the app's page not found to a user without jobs, and asks for no job", async () => {
+    myFeatures = [];
+    renderPage();
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "404" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Oops! Page not found")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { level: 1, name: "Jobs" }),
+    ).not.toBeInTheDocument();
+    await waitFor(() => expect(getMyFeatures).toHaveBeenCalled());
+    expect(listJobs).not.toHaveBeenCalled();
+    expect(listSearches).not.toHaveBeenCalled();
+    expect(getJob).not.toHaveBeenCalled();
+  });
+
+  it("shows a spinner and asks for no job while the features load", async () => {
+    seedFeatures = false;
+    getMyFeatures.mockReturnValue(new Promise(() => {}));
+    renderPage();
+
+    expect(screen.getByRole("status")).toHaveTextContent("Loading");
+    await waitFor(() => expect(getMyFeatures).toHaveBeenCalled());
+    expect(listJobs).not.toHaveBeenCalled();
+    expect(listSearches).not.toHaveBeenCalled();
+  });
+
+  it("opens the board once the features arrive with jobs", async () => {
+    seedFeatures = false;
+    renderPage();
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Jobs" }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(listJobs).toHaveBeenCalled());
+  });
+
+  it("puts Beta beside the Jobs h1, outside it, while jobs is in beta", async () => {
+    renderPage();
+
+    const heading = screen.getByRole("heading", { level: 1, name: "Jobs" });
+    const badge = screen.getByText("Beta");
+    expect(heading).not.toContainElement(badge);
+    expect(heading.parentElement).toContainElement(badge);
+    expect(badge).toHaveAttribute("data-slot", "beta-badge");
+    await screen.findByRole("article", { name: "Senior Backend Engineer" });
+  });
+
+  it("shows no Beta once jobs is released", async () => {
+    myFeatures = [{ key: "jobs", stage: "general" }];
+    renderPage();
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Jobs" }),
+    ).toBeInTheDocument();
+    await screen.findByRole("article", { name: "Senior Backend Engineer" });
+    expect(screen.queryByText("Beta")).not.toBeInTheDocument();
   });
 });

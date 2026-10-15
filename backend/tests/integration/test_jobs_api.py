@@ -11,6 +11,7 @@ Every company, CV and posting here is invented.
 from datetime import UTC, date, datetime
 from typing import Any
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
@@ -20,10 +21,12 @@ from app.domain.models import (
     ApplicationModel,
     JobFitScoreModel,
     JobModel,
+    UserModel,
 )
 from app.main import app as main_app
 from tests import msg
 from tests.base_db_setup import base_data
+from tests.features_seed import enrol
 from tests.integration.conftest import SECOND_USER_ID, as_user
 from tests.integration.jobs_seed import (
     HIMALAYAS_ID,
@@ -32,6 +35,21 @@ from tests.integration.jobs_seed import (
     seed_base_cv,
     seed_sources,
 )
+
+# KODI-052 (ADR-0018): every route here sits behind the "jobs" beta
+# feature; ``jobs_beta`` seeds it and puts the ``async_client`` user on its
+# list.
+pytestmark = pytest.mark.usefixtures('jobs_beta')
+
+
+@pytest_asyncio.fixture
+async def second_user(
+    second_user: UserModel, db_session: AsyncSession, jobs_beta: int
+) -> UserModel:
+    """The conftest second user, on the "jobs" beta list too (KODI-052)."""
+    await enrol(db_session, second_user.id, jobs_beta)
+    return second_user
+
 
 USER_ID = base_data()['user'].id
 ADMIN_ID = base_data()['admin_user'].id

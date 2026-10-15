@@ -15,6 +15,7 @@ import { TailoredCvService } from "@/services/implementations/tailored-cv-servic
 import { TimelineService } from "@/services/implementations/timeline-service";
 import { JobService } from "@/services/implementations/job-service";
 import { JobSearchService } from "@/services/implementations/job-search-service";
+import { FeatureService } from "@/services/implementations/feature-service";
 
 class ServiceContainer {
   admin = new AdminService();
@@ -34,6 +35,7 @@ class ServiceContainer {
   timeline = new TimelineService();
   jobs = new JobService();
   jobSearches = new JobSearchService();
+  features = new FeatureService();
 }
 
 export const services = new ServiceContainer();

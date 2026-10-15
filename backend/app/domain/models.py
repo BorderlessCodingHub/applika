@@ -1319,3 +1319,122 @@ class SavedJobSearchModel(BaseMixin, Base):
     )
     name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
     filters: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+
+
+class FeatureModel(BaseMixin, Base):
+    """A feature behind the beta rule (ADR-0018, KODI-052).
+
+    A shared catalog row with no owner, managed by admins. A feature joins
+    only through an Alembic seed row (``641001baff09`` seeds ``jobs``) at
+    stage ``beta``; the API never creates, renames or deletes one.
+    ``released_at`` is set when it goes ``general`` and cleared when it moves
+    back to ``beta``. ``__table_args__`` mirror revision ``641001baff09``.
+    """
+
+    __tablename__ = 'features'
+
+    __table_args__ = (
+        sa.PrimaryKeyConstraint('id', name='pk_features'),
+        sa.UniqueConstraint('key', name='uq_features_key'),
+        sa.CheckConstraint(
+            "stage IN ('beta', 'general')", name='ck_features_stage'
+        ),
+    )
+
+    key: Mapped[str] = mapped_column(sa.String(50), nullable=False)
+    name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(
+        sa.String(500), nullable=True
+    )
+    stage: Mapped[str] = mapped_column(
+        sa.String(20),
+        nullable=False,
+        default='beta',
+        server_default=sa.text("'beta'"),
+    )
+    released_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True
+    )
+
+
+class FeatureBetaUserModel(BaseMixin, Base):
+    """One user on one feature's beta list (ADR-0018). Only admins write
+    it. The user FK cascades; ``added_by`` (the admin who added them) is
+    set NULL when that admin's account goes."""
+
+    __tablename__ = 'feature_beta_users'
+
+    __table_args__ = (
+        sa.PrimaryKeyConstraint('id', name='pk_feature_beta_users'),
+        sa.UniqueConstraint(
+            'feature_id',
+            'user_id',
+            name='uq_feature_beta_users_feature_user',
+        ),
+        sa.Index('ix_feature_beta_users_user_id', 'user_id'),
+    )
+
+    feature_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'features.id',
+            ondelete='CASCADE',
+            name='fk_feature_beta_users_feature_id',
+        ),
+        nullable=False,
+    )
+    user_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'users.id',
+            ondelete='CASCADE',
+            name='fk_feature_beta_users_user_id',
+        ),
+        nullable=False,
+    )
+    added_by: Mapped[int | None] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'users.id',
+            ondelete='SET NULL',
+            name='fk_feature_beta_users_added_by',
+        ),
+        nullable=True,
+    )
+
+
+class FeatureAdminOptOutModel(BaseMixin, Base):
+    """One admin who turned one feature off for themselves (ADR-0018). It
+    takes away only the automatic admin access, and only while the feature
+    is ``beta``; an admin writes only their own row. Both FKs cascade."""
+
+    __tablename__ = 'feature_admin_opt_outs'
+
+    __table_args__ = (
+        sa.PrimaryKeyConstraint('id', name='pk_feature_admin_opt_outs'),
+        sa.UniqueConstraint(
+            'feature_id',
+            'user_id',
+            name='uq_feature_admin_opt_outs_feature_user',
+        ),
+        sa.Index('ix_feature_admin_opt_outs_user_id', 'user_id'),
+    )
+
+    feature_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'features.id',
+            ondelete='CASCADE',
+            name='fk_feature_admin_opt_outs_feature_id',
+        ),
+        nullable=False,
+    )
+    user_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'users.id',
+            ondelete='CASCADE',
+            name='fk_feature_admin_opt_outs_user_id',
+        ),
+        nullable=False,
+    )

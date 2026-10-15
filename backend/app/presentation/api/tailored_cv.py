@@ -21,11 +21,14 @@ from app.application.dto.tailored_cv import (
     TailoredCVCreateDTO,
     TailoredCVUpdateDTO,
 )
+from app.core.exceptions import BusinessRuleViolation
+from app.core.features import FeatureKey
 from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     CreateTailoredCVUseCaseDp,
     CurrentUserDp,
     DeleteTailoredCVUseCaseDp,
+    FeatureRepositoryDp,
     GetTailoredCVFitUseCaseDp,
     GetTailoredCVUseCaseDp,
     RenderTailoredCVDiffMarkdownUseCaseDp,
@@ -33,7 +36,10 @@ from app.presentation.dependencies import (
     RenderTailoredCVMarkdownUseCaseDp,
     RenderTailoredCVPdfUseCaseDp,
     UpdateTailoredCVUseCaseDp,
+    require_feature,
+    user_has_feature,
 )
+from app.presentation.gated_slash import add_slash_twins
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.tailored_cv import (
     CVFit,
@@ -41,6 +47,11 @@ from app.presentation.schemas.tailored_cv import (
     TailoredCVOut,
     TailoredCVUpdate,
 )
+
+# ADR-0018: "keywords" without the "jobs" feature is refused as if the option
+# did not exist; "copy" and an absent field (every installed applika-cli)
+# never look at the feature.
+UNKNOWN_TAILORING = 'Unknown tailoring option'
 
 router = APIRouter(
     prefix='/applications',
@@ -64,6 +75,7 @@ async def create_tailored_cv(
     payload: TailoredCVCreate,
     c_user: CurrentUserDp,
     use_case: CreateTailoredCVUseCaseDp,
+    feature_repo: FeatureRepositoryDp,
 ):
     """Copy one of the acting user's master CVs onto this application.
 
@@ -73,8 +85,13 @@ async def create_tailored_cv(
     404 when the application or the chosen master CV is unknown or not owned,
     409 when the application already has a copy or has been finalized, 422
     when it is archived in a cycle or when ``'keywords'`` is asked for on an
-    application without a job description.
+    application without a job description. ``'keywords'`` without the
+    "jobs" feature is a 422 "Unknown tailoring option", nothing written.
     """
+    if payload.tailoring == 'keywords' and not await user_has_feature(
+        FeatureKey.JOBS, c_user, feature_repo
+    ):
+        raise BusinessRuleViolation(UNKNOWN_TAILORING)
     data = TailoredCVCreateDTO(
         user_id=c_user.id,
         application_id=application_id,
@@ -108,6 +125,8 @@ async def get_tailored_cv(
     '/{application_id}/cv/fit',
     response_model=CVFit,
     responses={'404': {'model': DetailSchema}},
+    # ADR-0018: without "jobs" this route is an unknown route (404).
+    dependencies=[require_feature(FeatureKey.JOBS)],
 )
 async def get_tailored_cv_fit(
     application_id: SnowflakeID,
@@ -317,3 +336,8 @@ async def export_tailored_cv_diff_pdf(
             )
         },
     )
+
+
+# ADR-0018: only the gated route gets a slash twin; every other CV route
+# keeps Starlette's trailing-slash redirect.
+add_slash_twins(router, include=lambda route: route.path.endswith('/cv/fit'))

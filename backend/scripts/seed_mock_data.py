@@ -614,6 +614,17 @@ def seed_drafts(
 MAX_SAVED_SEARCHES = 10
 
 
+def has_jobs_feature(client: httpx.Client) -> bool:
+    """Whether the seed user has the "jobs" beta feature (KODI-052,
+    ADR-0018). Without it every job route answers 404 and "keywords"
+    tailoring 422, so the job steps are skipped, never failed."""
+    resp = client.get('/users/me/features')
+    resp.raise_for_status()
+    keys = [feature['key'] for feature in resp.json()['features']]
+    print(f'Features of the seed user: {keys or "none"}')
+    return 'jobs' in keys
+
+
 def seed_job_searches(client: httpx.Client) -> None:
     """Saved job searches (KODI-047, R-030): create, rename, list and
     delete one, then fill the cap and prove the 11th is refused with 409.
@@ -1009,6 +1020,15 @@ def main():
 
         platform_ids = [p['id'] for p in platforms]
 
+        # ----- Beta features (KODI-052): no "jobs", no job steps -----
+        jobs_enabled = has_jobs_feature(client)
+        if not jobs_enabled:
+            print(
+                'No "jobs" feature for the seed user: the keyword CV copy, '
+                'saved job searches and the draft from a job are skipped '
+                '(an admin enrols the user at /admin/features)'
+            )
+
         # ----- GET /platforms (S7, KODI-035): the web picker's own route,
         # visible platforms only, ordered by name instead of /supports' id
         # order - same visible set either way. -----
@@ -1191,6 +1211,7 @@ def main():
                 and cv_copies == 1
                 and keyword_copies == 0
                 and bool(base_cv_ids)
+                and jobs_enabled
             )
             if tailor_by_keywords:
                 payload['job_description'] = KEYWORDS_JOB_DESCRIPTION
@@ -1265,8 +1286,9 @@ def main():
             base_cv_ids=base_cv_ids,
         )
 
-        seed_job_searches(client)
-        seed_draft_from_job(client, base_cv_ids)
+        if jobs_enabled:
+            seed_job_searches(client)
+            seed_draft_from_job(client, base_cv_ids)
 
         seed_cv_pdfs(
             client,

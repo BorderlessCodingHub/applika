@@ -32,6 +32,7 @@ stored date is used, still refused in the future.
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import (
@@ -675,6 +676,7 @@ async def test_ordinary_draft_has_null_job_id(async_client: AsyncClient):
     assert fetched.json()['job_id'] is None
 
 
+@pytest.mark.usefixtures('jobs_beta')  # KODI-052: needs "jobs"
 async def test_put_keeps_a_from_job_drafts_job_id_and_cannot_set_it(
     async_client: AsyncClient, db_session: AsyncSession
 ):

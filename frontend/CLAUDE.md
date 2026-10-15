@@ -107,6 +107,26 @@ pages. It wipes the seeded user's drafts, applications, saved searches and
 master CVs before it starts, and `afterAll` restores dismissals and turns
 every source back on.
 
+**Beta features in E2E (KODI-054).** `e2e/beta-features.spec.ts` (serial)
+drives `/admin/features` against the real KODI-052 API and the KODI-053 gate,
+with two browser sessions (`e2e-admin` and `e2e-discord`, a second
+`browser.newContext()`): the features row (count, "Yes, as an admin"); the
+admin turns `jobs` off for themselves (rail 8 entries with Admin, `/jobs`
+"Oops! Page not found", `GET /jobs` 404, `/admin/jobs` still opens, `e2e-user`
+unaffected) and back on; `e2e-discord`'s rail is 7 links with no Jobs, the
+admin adds them by username and a RELOAD shows Jobs + "Beta" — that step is
+timed and asserted under 60 s (AC7) — then removes them; release (Cancel
+first, then confirm) gives everyone Jobs without "Beta" while the admin's
+stored opt-out shows locked, the list stays editable, and move back to beta
+(the "lose access" sentence asserted) hides it again with the list unchanged
+and the opt-out counting again; an admin on the list keeps it after opting
+out (AC11). The seed resets the state every run (`seed_e2e.py`
+`reset_beta_features`: `jobs` in beta with `released_at` NULL, `e2e-user`
+listed, `e2e-discord` off the list, no `e2e-admin` opt-out), and the spec's
+`afterAll` (runs even after a failure) PATCHes `beta`, DELETEs `e2e-discord`
+and `e2e-admin` from the list and DELETEs the admin's opt-out. The feature's
+NAME is "Job board" (migration `641001baff09`); its rail entry is "Jobs".
+
 ---
 
 ## Architecture
@@ -159,8 +179,9 @@ Job board (PRD 0012, KODI-048) — see **Job board** below:
 
 `?id=` is the APPLICATION's id, never the copy's. There is no nav entry: the
 route is reached from the CV link on an application row, and
-`e2e/shell-responsive.spec.ts` pins `PRIMARY_NAV` at eight entries
-(Jobs right after Applications since KODI-048).
+`e2e/shell-responsive.spec.ts` pins `PRIMARY_NAV` at eight entries for a user
+with `jobs` (Jobs right after Applications since KODI-048; seven without it
+since KODI-053 — see **Beta features**).
 
 **`/applications/cv?id=` is the reading column while it shows the picker, and
 full width only once it shows the editor (KODI-017)** — see **App shell**
@@ -1466,6 +1487,77 @@ static export). Nav tab "Discord" in `components/admin/admin-nav.tsx`
   when there is no string `detail`. Pending uses the KODI-048 pattern
   (`aria-disabled` + `aria-busy`, focus stays).
 
+### Admin — Features (`app/(protected)/admin/features/`, PRD 0013, KODI-054)
+
+The owner: "with the jobs featurw implemented i would like to block this
+feature under beta features and release only to selected beta users". Nav
+tab "Features" (lucide `FlaskConical`, after Jobs) in `admin-nav.tsx`.
+
+| Route                       | Shell                                     | Component                                                               |
+| --------------------------- | ----------------------------------------- | ----------------------------------------------------------------------- |
+| `/admin/features`           | `admin/features/page.tsx`                 | `features-page.tsx` — key, name, stage, beta users, released, You       |
+| `/admin/features/view?key=` | `admin/features/view/page.tsx` (Suspense) | `feature-view-page.tsx` — header + stage action, Your access, beta list |
+
+- **The rows have no `id`: `key` is the identity** in URLs, React keys and
+  every `/admin/features/{key}*` call. Types in `services/types/features.ts`
+  (`AdminFeature`, `AdminFeatureMe`, `AdminFeatureUser`,
+  `AdminFeatureUsersPage`); calls in `admin-service.ts` (`getFeatures`,
+  `getFeatureUsers`, `addFeatureUser`, `removeFeatureUser`, `setFeatureStage`,
+  `optOutFeature`, `optInFeature`).
+- **Keys** (`hooks/use-admin.ts`): `["admin","features"]`
+  (`ADMIN_FEATURES_KEY`) and `["admin","feature-users",key,params]`
+  (`keepPreviousData`, so the search input never unmounts). EVERY feature
+  mutation invalidates both AND `["user","features"]` — a release, a list
+  change or an opt-out can change the admin's own nav — and its `onSuccess`
+  RETURNS that promise, so the mutation (and the switch's pending state)
+  lasts until the new `me` is on screen. No toast in the list/stage hooks:
+  the components show the server's `detail` in place. Only
+  `useSetFeatureOptOut` toasts (`getApiError`), since the switch has no error
+  slot.
+- **The ui-designer components are `components/admin/feature-*.tsx` and
+  `feature-copy.ts`** (every word, `formatFeatureDate`, `featureHref`). Their
+  promise callbacks (`onConfirm`, `onRemove`, `onAdd`) resolve with nothing
+  on success, with the server's string `detail` to show it verbatim, and
+  reject for anything else (a generic message); `feature-view-page.tsx`'s
+  `detailOrThrow` is that adapter.
+- **Not found.** No `?key=`, a features list without the key, or a 404 on
+  the beta-list GET renders `FeatureNotFound` (the 404 `detail` as its h1).
+- **Beta list.** Search (username only, debounced 250 ms, back to page 1;
+  a CLEARED search applies at once, so the cached full list shows without an
+  "empty" flash), 25 per page, remove behind an AlertDialog. A page that
+  emptied under the admin offers "Go to page N". Added / Added by fold into
+  the username cell below `lg`, not `sm`: from `md` the rail takes 240px and
+  Remove would scroll off. A failed features load shows only the header
+  error — Your access and the list need the stage and name to word themselves.
+- **"Add user" dialog** searches `GET /admin/users?search=` (username or
+  email, `useAdminUserSearch`, 10 rows, debounced; idle when blank).
+  `GET /admin/users` has no "already listed" flag, so `listedUserIds` is
+  DERIVED: the beta list searched with the same text (`per_page=100`) plus
+  the page on screen. A listed user found only by email can still show
+  "Add" — harmless, the PUT is idempotent (AC3).
+- **Stage.** `FeatureStageAction`: beta → "Release to everyone", general →
+  "Move back to beta", each behind an AlertDialog; the move-back body says
+  "Users who are neither on this list nor admins lose access." The list is
+  kept and editable in both stages.
+- **Your access** (`FeatureOwnAccess`): "Use this feature myself", on = no
+  opt-out (`true` → `DELETE …/opt-out`, `false` → `PUT …/opt-out`), the
+  reason from `me.via`/`me.opted_out`. LOCKED (`aria-disabled`, still
+  focusable, still showing the STORED choice) in general and while the
+  admin is on the beta list (Plan corrections 9), with the words "Released
+  to everyone. Your choice applies again if it moves back to beta." / "You're
+  on the beta list, so you keep access. Remove yourself from the list to
+  hide it." Pending passes `pendingValue` (the asked-for value) with
+  `aria-busy`; focus stays.
+- **Disabled checks.** Every disabled control here is `aria-disabled`, never
+  `disabled`: jest-dom's `toBeDisabled()` does not see it, assert
+  `toHaveAttribute("aria-disabled","true")`.
+- **Name clashes** for e2e (substring match): "Release to everyone" / "Move
+  back to beta" are both trigger and confirm, "Remove" is inside "Remove
+  <user>" — scope confirms to `getByRole("alertdialog")` and use
+  `exact: true`; "Beta list" is inside "Add users to the beta list"; reason
+  vs hint sentences ("…released to everyone." / "Released to everyone. …")
+  — assert the full strings.
+
 ### Job board (`src/components/jobs/`, PRD 0012)
 
 Ported from Ían Muliterno's `job_scrapping` branch (`e670914`, his job-card,
@@ -1548,6 +1640,60 @@ KODI-047 contract. Every commit porting his logic ends with the trailer
   "Dismissed", "Draft" / "Open draft", nav "Jobs" / "Back to jobs", "Rename" /
   "Rename <name>". Use `exact: true`. A dialog has its own sr-only "Close", so
   the conflict panel's "Close" is not unique by name.
+
+### Beta features (PRD 0013, KODI-053)
+
+The owner: "with the jobs featurw implemented i would like to block this
+feature under beta features and release only to selected beta users, all mew
+features in the feature will follow the same pattern, start as beta and then
+release to everyone". The workspace rule is `.claude/rules/beta-features.md`
+(at the workspace root, outside this repo): every new feature users who are
+not admins can see starts in beta, gated the way `jobs` is below.
+
+- **The API is the rule; the web only hides.** `GET /users/me/features`
+  (`services.features.getMine()`, `services/types/features.ts`) answers the
+  caller's own `{key, stage}` list; an absent key is no access, and the
+  server already 404s every gated route without it. `FeatureKey` is the union
+  of the keys the web gates on (`"jobs"` today) — a new feature adds its key
+  there.
+- **`hooks/use-features.ts`.** `useMyFeatures(enabled?)` (key
+  `["user", "features"]`) has `staleTime: 0` and `refetchOnWindowFocus: true`
+  — an admin's change reaches the screens on the next mount, page load or
+  focus, with no deploy (AC2). A failed call is NO features (a web deployed
+  before the migration gets a 500), keeping the last good answer if there is
+  one; no toast. `useHasFeature(key)` returns `{has, stage, isLoading}`, and
+  while loading `has` is `false`, so nothing gated flashes in.
+- **Nav.** A `NavItem` with `feature` renders only with that key:
+  `navItemsFor(isAdmin, features)` drops it, and marks it `beta` while the
+  stage is `beta`. `(protected)/layout.tsx` passes `useMyFeatures(isAuthenticated)`.
+  So the primary nav is 8 entries with `jobs` and 7 without (plus Admin for an
+  admin). `SidebarNav` renders `BetaBadge` on a `beta` entry, `aria-hidden`
+  and pointed at by `aria-describedby` — the link's accessible name stays
+  exactly the label ("Jobs"), its description is "Beta", its TEXT is
+  "Jobs Beta" (why `shell-responsive.spec.ts` pins Jobs with a regex).
+- **`components/features/feature-gate.tsx`** (`<FeatureGate feature>`): the
+  children with the feature, a `role="status"` spinner
+  (`data-slot="feature-gate-loading"`) while loading, else
+  `<NotFoundMessage variant="shell" />` — the SAME words as `app/not-found.tsx`
+  (`components/layout/not-found-message.tsx`, h1 "404"), so a gated route
+  never says the feature exists. Put the gate ABOVE the component that calls
+  the feature's hooks: `jobs-page.tsx` and `job-view-page.tsx` export a
+  `FeatureGate` wrapper over an inner component, so no job request goes out
+  without `jobs`.
+- **`components/features/beta-badge.tsx`** (`BetaBadge`, `BETA_LABEL`): the
+  word "Beta", never colour alone; `size="sm"` in the nav, default beside an
+  h1. Always a SIBLING of the h1, never inside it, so heading names stay
+  exact (`jobs.spec.ts`). `JobDetailView` takes it through `titleBadge`.
+- **Controls inside ungated screens.** "Tailor by keywords" and `CvFitPanel`
+  on `application-cv-page.tsx` and `new-with-cv-page.tsx` (draft step 2)
+  render only with `jobs`, and `useApplicationCvFit` is enabled only with it.
+  NOT gated, by design: an existing keyword copy's "Reordered by job match"
+  list, the Drafts tab, Finish, `/admin/jobs` and the admin-nav "Jobs" tab
+  (admin-only screens are never gated). Losing a feature hides controls; it
+  never deletes or alters what the user made with it.
+- Tests seed `["user", "features"]` with `client.setQueryData` before render
+  (plus a `services.features.getMine` mock) so the gate opens on the first
+  frame; the cases written before PRD 0013 run with `jobs`.
 
 ### Date Inputs
 
@@ -1755,7 +1901,8 @@ pages that do NOT want it.
     for this page" (KODI-008). Matched on the same `activePath` the nav is
     matched on, tolerates the trailing slash the static export serves, and is
     deliberately kept OUT of `nav.ts`: these are not nav entries, and
-    `PRIMARY_NAV` is pinned at eight by `e2e/shell-responsive.spec.ts`.
+    `PRIMARY_NAV` is pinned at eight (with `jobs`) by
+    `e2e/shell-responsive.spec.ts`.
   - **By CONTENT**, for a route that is full width only while one surface is
     on screen: `/applications/cv` left `FULL_WIDTH_PATHS` with KODI-017 — the
     owner: "only full width when we have a cv copy to the application" — and
@@ -1779,8 +1926,9 @@ isFullWidthPath(activePath) || fullWidth.requested`.
 - The opt-out only works because the container is rendered HERE. A page that
   rendered its own would cap the width again from the inside.
 
-- Nav entries live in `src/components/layout/nav.ts`. `navItemsFor(isAdmin)`
-  appends the `/admin` entry, which is deliberately kept OUT of `PRIMARY_NAV` so
+- Nav entries live in `src/components/layout/nav.ts`.
+  `navItemsFor(isAdmin, features)` drops an entry whose `feature` key the
+  caller lacks (see **Beta features**) and appends the `/admin` entry, which is deliberately kept OUT of `PRIMARY_NAV` so
   a non-admin render can never leak it. `isNavItemActive` matches `exact` items
   on the pathname only, and everything else on `href` or `href + "/"` — the
   trailing slash is what stops `/reports` lighting up a `/report` entry.
@@ -1823,7 +1971,7 @@ isFullWidthPath(activePath) || fullWidth.requested`.
 | `src/components/layout/root-providers.tsx`        | Root-level providers (QueryClient, Theme, Auth, Tooltip, Sonner)                      |
 | `src/components/layout/protected-providers.tsx`   | Protected-route providers (nested AuthProvider)                                       |
 | `src/components/layout/app-shell.tsx`             | Signed-in shell: rail, header, mobile sheet, feedback dialog                          |
-| `src/components/layout/nav.ts`                    | Nav entries, `navItemsFor()` admin filter, `isNavItemActive()`                        |
+| `src/components/layout/nav.ts`                    | Nav entries, `navItemsFor()` feature + admin filter, `isNavItemActive()`              |
 | `src/components/layout/sidebar.tsx`               | Rail body: brand, nav, account menu (rail AND mobile sheet)                           |
 | `src/components/layout/sidebar-nav.tsx`           | Nav entry list; owns `aria-current="page"`                                            |
 | `src/components/layout/header.tsx`                | Shell header: menu trigger, cycle selector, agenda, theme                             |

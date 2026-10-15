@@ -45,6 +45,7 @@ When you add or modify any of the following, update the seed script accordingly:
 - New or changed fields on `/applications/drafts*` — `seed_drafts()` creates one draft that gets a CV copy and is finished into a normal application, and one draft that is left open with a CV copy attached; it asserts the open one never appears in `GET /applications`. The finished draft sends its own `application_date` on create and calls `finish` with no body (KODI-036), asserting the finished application keeps that stored date rather than today's
 - Saved job searches (KODI-047) — `seed_job_searches()` deletes any left from a previous run, then creates, renames, lists and deletes one, fills the cap of 10 and asserts the 11th is refused with 409
 - Drafts from a job (KODI-047) — `seed_draft_from_job()` starts one draft from the first job of `GET /jobs` with no application, the first master CV and `tailoring: 'keywords'`, and asserts `job_id`, `has_cv` and the job's `application` mark; with no jobs (no worker run on the dev stack) it logs the skip
+- Beta features (KODI-052, ADR-0018) — `has_jobs_feature()` reads `GET /users/me/features` right after `/supports`; without `jobs` the script skips `seed_keyword_copy()`, `seed_job_searches()` and `seed_draft_from_job()` and prints why (an admin enrols the seed user at `/admin/features`), it never fails on the gate. A new gated feature adds its own check here. `app/scripts/seed_e2e.py` resets the features on every run: `jobs` back to `beta` (`released_at` NULL), `e2e-user` on its list, `e2e-discord` off it, every opt-out of `e2e-admin` gone; it fails loudly when the `jobs` row is missing (run `alembic upgrade head` first)
 - **A 429 is waited out, never treated as a failure** (KODI-039, ADR-0015): the script's `httpx.Client` uses `RetryOn429Transport`, which reads `Retry-After` on a 429 and resends the exact same request once. The dev/e2e compose stacks already raise `RATE_LIMIT_DEFAULT`/`RATE_LIMIT_AUTH` so a normal run never trips it; the retry only matters against a stock, un-raised stack
 
 After any such change, mentally walk through the seed script from top to bottom and confirm it would still run without errors against a fresh database.
@@ -490,6 +491,71 @@ process. The API only produces tasks.
   when they exist. `taskiq worker` starts **2 processes** by default
   (`--workers`).
 
+### Beta features (ADR-0018)
+
+A user-facing feature starts in `beta` and is released to everyone later.
+Binding for every new user-facing feature: the workspace rule
+`.claude/rules/beta-features.md` (outside this repo, at the workspace root).
+The rule (`app/core/features.py` `access_via`, mirrored as ONE SQL predicate
+in `FeatureRepository.access_predicate`): a user has feature F when F is
+`general`, OR a `(F, user)` row is on `feature_beta_users`, OR
+`users.is_admin` is true and no `(F, user)` row is on
+`feature_admin_opt_outs`. Nothing else grants F. An opt-out only removes the
+admin access: a listed admin keeps F, everyone has a `general` F, and an
+opt-out left by a former admin grants nothing. A key with no `features` row
+is hidden from everyone, admins included (fail closed).
+
+- **Keys**: one `StrEnum`, `FeatureKey` (`JOBS = 'jobs'`). A new feature adds
+  a member, its own Release A seed row, and `require_feature` on its routes.
+- **Gate**: `require_feature(FeatureKey.X)` in `dependencies.py`, built on
+  `CurrentUserDp` (anonymous gets today's 401 first) and `FeatureRepositoryDp`.
+  Without the feature it raises `ResourceNotFound('Not Found')`, so the body
+  is `{"detail": "Not Found"}` - byte-equal to an unknown route
+  (`NOT_FOUND_DETAIL`). Applied on the **router** when the whole router is
+  gated (`api/jobs.py`, `api/job_searches.py`), on the **route** inside a
+  shared router (`POST /applications/drafts/from-job`, `GET
+  /applications/{id}/cv/fit`), and **per value** for a gated option on a
+  shared route (`POST /applications/{id}/cv` with `tailoring: "keywords"` →
+  `BusinessRuleViolation('Unknown tailoring option')` 422 before the use case,
+  through `user_has_feature`; `copy` or no field never queries).
+- **No cache**: one indexed query per gated request; `is_admin` comes from the
+  database on every request (`get_current_user`), so an admin change applies
+  on the next request, no deploy, no restart.
+- **Never gated**: `app/worker/*` and `use_cases/jobs/` (they act for no
+  user; a test greps for `require_feature` there), the master CV fit
+  enqueue in `api/base_cv.py`, every `/admin/*` route (`AdminUserDp` guards
+  them; `/admin/jobs/sources` stays open to an opted-out admin), every other
+  drafts and CV route, `Draft.job_id` and `TailoredCVOut.adjustments`.
+- **What the gate cannot hide** (plan 0013 correction 5, owner-approved
+  2026-10-14): FastAPI decodes the JSON body before any dependency runs, so a
+  body that is not JSON answers its own 422 `json_invalid` on a gated route,
+  and Starlette answers an undefined method with 405. Field validation runs
+  after the dependencies, so a well-formed body with wrong fields is still the
+  404. Both hold on the slash-suffixed path too (`POST /jobs/` is 405).
+- **Trailing slash** (owner ruling 2026-10-14): Starlette redirects a path
+  that matches no route but would match without its slash (307) before any
+  dependency runs, which would reveal a gated route. So every gated route
+  gets a schema-hidden `<path>/` twin (`add_slash_twins`,
+  `app/presentation/gated_slash.py`, called at the end of `api/jobs.py`,
+  `api/job_searches.py`, and for the one gated route of
+  `api/application_draft.py` and `api/tailored_cv.py`): same endpoint,
+  methods and dependencies; its regex takes one trailing slash or more,
+  since Starlette's redirect strips them all. Without the feature `/jobs/`,
+  `/jobs//`, `/jobs/{id}/`, `/job-searches/` etc. answer the gate's 404,
+  byte-equal to `GET /no-such-route/`; with it the slash path is served
+  directly by the same handler; anonymous gets the 401. One side effect:
+  `GET`/`PUT`/`DELETE /applications/drafts/from-job/` is 405 (the twin is
+  POST-only), while the slash-less form reaches the ungated
+  `/applications/drafts/{draft_id}` route (422). Every other route (the CLI's
+  `/supports/`, `/applications/`, `/users/me/`, the ungated drafts and CV
+  routes) keeps Starlette's 307 - `redirect_slashes` stays on app-wide. A
+  new gated router or route calls `add_slash_twins` too.
+- **Tests**: `create_all` has no seed rows, so no feature exists in a test
+  until a test inserts it. The `jobs_beta` fixture (`tests/conftest.py`)
+  inserts `jobs` as revision `641001baff09` seeds it and enrols the
+  `async_client` user; `admin_client` has `jobs` once the row exists.
+  Helpers in `tests/features_seed.py`.
+
 ### Snowflake IDs
 All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUIDs or auto-increment. Defined in `app/lib/types.py` with Pydantic serialization to string for JSON/OpenAPI.
 
@@ -675,6 +741,7 @@ Discord app is unconfigured - see **Report routing** below.
 |--------|-------|------|-------------|
 | GET | `/users/me` | Yes | Get current user profile |
 | PATCH | `/users/me` | Yes | Update profile |
+| GET | `/users/me/features` | Yes | KODI-052: `{features: [{key, stage: 'beta' \| 'general'}]}`, the caller's own, by key (web only; `/users/me` is unchanged for the CLI) |
 
 Both routes read the caller's Discord connection through
 `DiscordConnectionRepositoryDp` and build the response with
@@ -708,6 +775,10 @@ null`.
 | DELETE | `/applications/drafts/{id}` | Yes | Delete it (204); its CV copy is cascade-deleted |
 | POST | `/applications/drafts/from-job` | Yes | KODI-047: `{job_id, base_cv_id?, tailoring?: 'copy' \| 'keywords' = 'copy', application_date?}` → 201 `Draft` filled from the job, dated `application_date` (the caller's local day, KODI-050) or the server's UTC day; 422 `application_date` outside UTC today ± 1; 404 job unknown or off the list, or base CV not own; 409 `"You already have an application for this job"`; 422 `keywords` without a job description |
 | POST | `/applications/drafts/{id}/finish` | Yes | Body optional - no body, `{}` or `{application_date}` - → 200 `Application` (same shape `GET /applications` returns); 422 with no CV copy; 422 past `UTC today + 1` |
+
+**Gate (KODI-052):** `POST /applications/drafts/from-job` needs the `jobs`
+beta feature, else the unknown-route 404; every other drafts route is open,
+and a draft started from a job keeps working without the feature.
 
 **`is_draft` and the `NOT_DRAFT` rule.** A draft is a plain `applications` row
 with `is_draft = true` (`ApplicationModel.is_draft`, migration `3b78c3cd2a71`
@@ -1040,6 +1111,11 @@ inserts. The lock is what keeps concurrent creates from overshooting.
 | PUT | `/{id}/cv` | Yes | Replace the copy whole (every field editable) |
 | DELETE | `/{id}/cv` | Yes | Delete the copy (204); a new one can then be made |
 
+**Gate (KODI-052):** `GET /{id}/cv/fit` needs the `jobs` beta feature, else
+the unknown-route 404; `POST /{id}/cv` with `tailoring: "keywords"` without
+it is a 422 `"Unknown tailoring option"`, nothing written. `copy`, no
+`tailoring` (every CLI) and every other CV route are untouched.
+
 At most **one** CV copy per application (UNIQUE on
 `tailored_cvs.application_id`); a second POST is a 409. Writes are refused
 exactly as a timeline event write is refused — it calls the same
@@ -1167,7 +1243,32 @@ CLI route. The platform a source points at (R-019) cannot be deleted from
 `/admin/platforms` - `count_entity_references('platform', id)` counts
 `job_sources.platform_id` as well as applications.
 
+### Admin features (`/admin/features`, KODI-052, ADR-0018)
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| GET | `/admin/features` | Admin | `[{key, name, description \| null, stage, beta_user_count, released_at \| null, updated_at, me {has, via: 'general' \| 'list' \| 'admin' \| null, opted_out}}]` by key |
+| PATCH | `/admin/features/{key}` | Admin | `{stage: 'beta' \| 'general'}` (strict) → 200 row; same stage a no-op 200; 404 `"Feature not found"` |
+| GET | `/admin/features/{key}/users` | Admin | `?search (≤100, username ILIKE, wildcards escaped)&page&per_page=1..100 (25)` → `{items: [{user_id, username, email, added_at, added_by {id, username} \| null}], total, page, per_page, total_pages}` newest first |
+| PUT | `/admin/features/{key}/users/{user_id}` | Admin | 204, idempotent (`ON CONFLICT DO NOTHING`); 404 `"Feature not found"` / `"User not found"` |
+| DELETE | `/admin/features/{key}/users/{user_id}` | Admin | 204, idempotent; 404 `"Feature not found"` |
+| PUT | `/admin/features/{key}/opt-out` | Admin | The caller's own opt-out, no body → 204, idempotent, stored in either stage |
+| DELETE | `/admin/features/{key}/opt-out` | Admin | Removes the caller's own opt-out → 204, idempotent |
+
+`beta_user_count` counts beta-list rows only - an admin who has the feature
+because they are an admin is never counted. `me` is the calling admin's own
+access and why. `updated_at` is `coalesce(updated_at, created_at)`, never
+null (the seed row has no `updated_at`). Release (`general`) sets
+`released_at = now()`, moving back to `beta` clears it; neither touches the
+beta list or the opt-outs, so an opt-out counts again after a move back. An
+admin writes only their own opt-out row - there is no route to opt someone
+else out. The API never creates, renames or deletes a feature; it joins
+through an Alembic seed row. Not a CLI route; never gated.
+
 ### Jobs (`/jobs`, KODI-047, PRD 0012, web only - not a CLI route)
+
+**Gate (KODI-052):** the whole router needs the `jobs` beta feature, else
+every route is the unknown-route 404.
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
@@ -1221,6 +1322,9 @@ never touches it (not in `DraftInput`, a PUT naming it is 422) and finishing
 keeps it.
 
 ### Job searches (`/job-searches`, KODI-047, R-030, R-032)
+
+**Gate (KODI-052):** the whole router needs the `jobs` beta feature, else
+every route is the unknown-route 404. The rows stay when a user loses it.
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
@@ -1379,6 +1483,9 @@ Optional (with defaults):
 - **SavedJobSearch** (KODI-047, table `saved_job_searches`): a user's named `JobFilters` (`filters` JSONB), at most 10 per user, `uq_saved_job_searches_user_name` on `(user_id, lower(name))`, user FK CASCADE. Never notifies
 - `Application.job_id` (KODI-047): nullable FK `jobs.id` `ON DELETE SET NULL` (`fk_applications_job_id`); one application per user per job (`uq_applications_user_job`, partial on `job_id IS NOT NULL`); on `Draft` only, absent from `GET /applications` and the `Application` schema
 - Fits, dismissals and saved searches are per user; no admin route reads another user's (ADR-0004)
+- **Feature** (KODI-052, ADR-0018, table `features`, revision `641001baff09`): the beta-feature registry, admin-managed, no owner. `key` UNIQUE (`uq_features_key`), `name`, `description` (nullable), `stage` `beta`|`general` (`ck_features_stage`, server default `beta`), `released_at`. Seeded by migrations only (`jobs` / "Job board")
+- **FeatureBetaUser** (table `feature_beta_users`): one user on one feature's beta list, UNIQUE `(feature_id, user_id)` (`uq_feature_beta_users_feature_user`), `ix_feature_beta_users_user_id`, `added_by` = the admin who added them
+- **FeatureAdminOptOut** (table `feature_admin_opt_outs`): one admin who turned one feature off for themselves, UNIQUE `(feature_id, user_id)` (`uq_feature_admin_opt_outs_feature_user`), `ix_feature_admin_opt_outs_user_id`. Its own table, never a flag on the list
 
 ### Key Relationships
 - Application → User (many-to-one, cascade delete)
@@ -1401,6 +1508,8 @@ Optional (with defaults):
 - JobDismissal → User and Job (many-to-one, **CASCADE** on each)
 - SavedJobSearch → User (many-to-one, **CASCADE**)
 - Application → Job (many-to-one, optional, **SET NULL** on delete - jobs are never deleted, so in practice the link stays)
+- FeatureBetaUser → Feature and User (many-to-one, **CASCADE** on each); `added_by` → User (**SET NULL**)
+- FeatureAdminOptOut → Feature and User (many-to-one, **CASCADE** on each)
 - DiscordConnection → User (one-to-one, cascade delete — deleting the user removes the connection; no ORM relationship is declared back on `UserModel`, same as BaseCV/TailoredCV)
 
 Applications are closed ("finalized") when `finalized_at` is set; reopen clears it.
@@ -1427,7 +1536,7 @@ DiscordServiceDp = Annotated[DiscordService, Depends(get_discord_service)]
 ```
 
 ### File Organization
-- Use cases grouped in subdirectories by feature (applications/, timeline_events/, compat/, user_stats/, quinzenal_reports/, companies/, user_feedbacks/, base_cvs/, tailored_cvs/, jobs/ - the worker's ingest and fit recompute plus the user's list/detail/dismiss/restore, job_searches/, admin/jobs/)
+- Use cases grouped in subdirectories by feature (applications/, timeline_events/, compat/, user_stats/, quinzenal_reports/, companies/, user_feedbacks/, base_cvs/, tailored_cvs/, jobs/ - the worker's ingest and fit recompute plus the user's list/detail/dismiss/restore, job_searches/, admin/jobs/, features/ - the caller's own beta features, admin/features/)
 - `app/worker/` is the background worker's delivery layer (ADR-0016): `broker.py`, `tasks.py`, `queue.py`; scrapers live in `app/application/services/job_ingestion/scrapers/`
 - `use_cases/compat/` holds the layer for installed `applika-cli` 0.1.4 (step translation, legacy steps, legacy finalize); nothing there owns data
 - One repository per model in `domain/repositories/`
