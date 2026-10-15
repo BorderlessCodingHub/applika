@@ -313,4 +313,25 @@ describe("DevicePage", () => {
       ),
     );
   });
+
+  it("while denying, Deny is aria-busy and Approve is locked", async () => {
+    const user = userEvent.setup();
+    searchParams = new URLSearchParams("code=BCDF-GHJK");
+    vi.mocked(services.auth.verifyDeviceCode).mockResolvedValue(REQUEST);
+    vi.mocked(services.auth.denyDeviceCode).mockReturnValue(
+      new Promise(() => {}),
+    );
+    renderPage();
+
+    await user.click(continueButton());
+    const deny = await screen.findByRole("button", { name: "Deny" });
+    await user.click(deny);
+
+    await waitFor(() => expect(deny).toHaveAttribute("aria-busy", "true"));
+    const approve = screen.getByRole("button", { name: "Approve" });
+    expect(approve).not.toHaveAttribute("aria-busy");
+    expect(approve).toHaveAttribute("aria-disabled", "true");
+    await user.click(approve);
+    expect(services.auth.approveDeviceCode).not.toHaveBeenCalled();
+  });
 });

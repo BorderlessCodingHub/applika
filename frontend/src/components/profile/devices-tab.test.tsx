@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
+import { AxiosError, AxiosHeaders } from "axios";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
@@ -564,5 +565,138 @@ describe("Devices tab wired to the API (use-sessions)", () => {
 
     await waitFor(() => row("101"));
     expect(services.sessions.list).toHaveBeenCalledTimes(2);
+  });
+
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  async function confirmOn(id: string, action: string, confirm: string) {
+    const user = userEvent.setup();
+    await user.click(
+      await within(await waitFor(() => row(id))).findByRole("button", {
+        name: action,
+      }),
+    );
+    await user.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: confirm,
+      }),
+    );
+  }
+
+  it("shows the loading skeleton while the list loads", async () => {
+    vi.mocked(services.sessions.list).mockReturnValue(new Promise(() => {}));
+    renderWired();
+
+    expect(screen.getByRole("status")).toHaveTextContent("Loading devices");
+    expect(screen.queryByText("No active devices")).not.toBeInTheDocument();
+  });
+
+  it("a revoke in flight marks its row pending, and only that row", async () => {
+    const pending = deferred<void>();
+    vi.mocked(services.sessions.list).mockResolvedValue([CURRENT, CLI]);
+    vi.mocked(services.sessions.revoke).mockReturnValue(pending.promise);
+    renderWired();
+
+    await confirmOn("102", "Revoke", "Revoke access");
+
+    const action = within(row("102")).getByRole("button", { name: "Revoke" });
+    await waitFor(() => expect(action).toHaveAttribute("aria-busy", "true"));
+    expect(
+      within(row("101")).getByRole("button", { name: "Sign out" }),
+    ).not.toHaveAttribute("aria-busy");
+    pending.resolve();
+    await waitFor(() => expect(action).not.toHaveAttribute("aria-busy"));
+  });
+
+  it("the current row stays pending after its DELETE, until the page leaves", async () => {
+    const pending = deferred<void>();
+    vi.mocked(services.sessions.list).mockResolvedValue([CURRENT, CLI]);
+    vi.mocked(services.sessions.revoke).mockReturnValue(pending.promise);
+    renderWired();
+
+    await confirmOn("101", "Sign out", "Sign out");
+    const action = within(row("101")).getByRole("button", { name: "Sign out" });
+    await waitFor(() => expect(action).toHaveAttribute("aria-busy", "true"));
+    expect(assign).not.toHaveBeenCalled();
+
+    pending.resolve();
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("/login"));
+    expect(action).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("sign out others in flight is aria-busy; a failure toasts", async () => {
+    const pending = deferred<{ revoked: number }>();
+    vi.mocked(services.sessions.list).mockResolvedValue([CURRENT, CLI]);
+    vi.mocked(services.sessions.revokeOthers).mockReturnValue(pending.promise);
+    const user = userEvent.setup();
+    renderWired();
+
+    await waitFor(() => row("102"));
+    await user.click(signOutOthers());
+    await user.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Sign out other devices",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(signOutOthers()).toHaveAttribute("aria-busy", "true"),
+    );
+    pending.reject(new Error("down"));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Failed to revoke device"),
+    );
+    expect(signOutOthers()).not.toHaveAttribute("aria-busy");
+  });
+
+  it("a rate-limited revoke toasts the server's own retry text", async () => {
+    vi.mocked(services.sessions.list).mockResolvedValue([CURRENT, CLI]);
+    vi.mocked(services.sessions.revoke).mockRejectedValue(
+      new AxiosError("429", "ERR_BAD_REQUEST", undefined, undefined, {
+        status: 429,
+        statusText: "Too Many Requests",
+        headers: new AxiosHeaders({ "retry-after": "30" }),
+        config: {} as never,
+        data: { detail: "Too many requests. Try again in 30 seconds." },
+      }),
+    );
+    renderWired();
+
+    await confirmOn("102", "Revoke", "Revoke access");
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "Too many requests. Try again in 30 seconds.",
+      ),
+    );
+  });
+
+  it("Try again keeps the error card, aria-busy, while the retry is in flight", async () => {
+    const pending = deferred<UserSession[]>();
+    vi.mocked(services.sessions.list)
+      .mockRejectedValueOnce(new Error("down"))
+      .mockReturnValueOnce(pending.promise);
+    const user = userEvent.setup();
+    renderWired();
+
+    const retry = await screen.findByRole("button", { name: "Try again" });
+    await user.click(retry);
+
+    await waitFor(() => expect(retry).toHaveAttribute("aria-busy", "true"));
+    expect(retry).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Could not load your devices",
+    );
+
+    pending.resolve([CURRENT]);
+    await waitFor(() => row("101"));
   });
 });
