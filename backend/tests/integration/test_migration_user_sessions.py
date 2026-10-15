@@ -302,6 +302,12 @@ def _constraints(url: str, table: str) -> dict[str, str]:
     }
 
 
+def _in_list_check(column: str, values: tuple[str, ...]) -> str:
+    """``pg_get_constraintdef`` of ``column IN (values)`` on a varchar."""
+    items = ', '.join(f"'{v}'::character varying" for v in values)
+    return f'CHECK ((({column})::text = ANY ((ARRAY[{items}])::text[])))'
+
+
 def _rows(url: str, table: str) -> list[dict[str, Any]]:
     return _query(url, f'SELECT * FROM {table} ORDER BY id')
 
@@ -485,15 +491,21 @@ def test_upgrade_adds_user_sessions_and_nothing_is_missing(
     assert constraints['fk_user_sessions_user_id'] == (
         'FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE'
     )
-    client_type = constraints['ck_user_sessions_client_type']
-    for value in ('web', 'cli'):
-        assert f"'{value}'" in client_type
-    sign_in = constraints['ck_user_sessions_sign_in_method']
-    for value in ('github_web', 'cli_browser', 'cli_device', 'cli_legacy'):
-        assert f"'{value}'" in sign_in
-    end_reason = constraints['ck_user_sessions_end_reason']
-    for value in ('logout', 'revoked', 'expired', 'github_revoked', 'replaced'):
-        assert f"'{value}'" in end_reason
+    # Exact definitions: a value missing from, or added to, a list fails.
+    for name, column, values in (
+        ('ck_user_sessions_client_type', 'client_type', ('web', 'cli')),
+        (
+            'ck_user_sessions_sign_in_method',
+            'sign_in_method',
+            ('github_web', 'cli_browser', 'cli_device', 'cli_legacy'),
+        ),
+        (
+            'ck_user_sessions_end_reason',
+            'end_reason',
+            ('logout', 'revoked', 'expired', 'github_revoked', 'replaced'),
+        ),
+    ):
+        assert constraints[name] == _in_list_check(column, values)
     assert constraints['ck_user_sessions_ended_pair'] == (
         'CHECK (((ended_at IS NULL) = (end_reason IS NULL)))'
     )
@@ -682,6 +694,32 @@ def test_round_trip_upgrade_downgrade_upgrade(migration_db: str) -> None:
         [('DELETE FROM users WHERE id = :id', {'id': USER_A_ID})],
     )
     assert [r['id'] for r in _rows(migration_db, TABLE)] == [SESSION_B_ID]
+
+
+def test_reupgrade_keeps_an_index_that_already_exists(
+    migration_db: str,
+) -> None:
+    """T004: the indexes are created only when missing - a rolled-back
+    table that still carries one of them is re-adopted without error."""
+    _upgraded(migration_db)
+    _write_sessions(migration_db)
+    first_indexes = _index_defs(migration_db)
+    _downgrade(migration_db, PARENT_REVISION)
+    _apply(
+        migration_db,
+        [
+            (
+                'CREATE INDEX ix_user_sessions_open ON user_sessions_old '
+                '(user_id) WHERE ended_at IS NULL',
+                {},
+            )
+        ],
+    )
+
+    _upgrade(migration_db, REVISION)
+
+    assert _index_defs(migration_db) == first_indexes
+    assert len(_rows(migration_db, TABLE)) == 2
 
 
 def test_a_second_round_trip_keeps_the_rows(migration_db: str) -> None:
