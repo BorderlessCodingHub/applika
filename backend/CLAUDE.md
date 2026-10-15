@@ -250,7 +250,7 @@ Domain exceptions in `app/core/exceptions.py`:
 - `ForbiddenAccess` → 403
 - `PdfRenderFailed` → 500
 - `ServiceUnavailable` → 503 (KODI-046: the background worker's queue cannot be reached, `POST /admin/jobs/runs` → "Background service unavailable")
-- `SessionServiceUnavailable(ServiceUnavailable)` → 503 `{"detail": "Session service unavailable"}` + `Retry-After: 5` (KODI-057: the session store cannot be reached, on every signed-in route, `/auth/refresh`, `/auth/token`, `/auth/revoke`, `/auth/device/*`)
+- `SessionServiceUnavailable(ServiceUnavailable)` → 503 `{"detail": "Session service unavailable"}` + `Retry-After: 5` (KODI-057: the session store cannot be reached, on every signed-in route, the GitHub callback, `/auth/refresh`, `/auth/logout` with a `__refresh` cookie, `/auth/token`, `/auth/revoke`, `/auth/device/*`; a sign-in that fails here leaves no `user_sessions` row)
 - `InvalidSession` → 401 `{detail}` (KODI-057: a refresh value that resolves to no live session)
 - `OAuthError` → 400 `{"error": <RFC 6749/8628 code>, "detail"}` (KODI-057: `POST /auth/token`)
 - `InvalidRequest` → 400 `{detail}` (KODI-057: a bad PKCE method or challenge on `/auth/cli/authorize`)
@@ -645,7 +645,7 @@ middleware ever counts it.
 | GET | `/auth/logout` | No (`__refresh`) | End the session (`logout`), clear both cookies |
 | GET | `/auth/cli/authorize` | No | KODI-057: `?redirect_uri&code_challenge&code_challenge_method=S256&state` → 307 GitHub + `__cli_login`; 400 loopback messages, `code_challenge_method must be S256`, `Invalid code_challenge` |
 | POST | `/auth/token` | No | KODI-057: `grant_type` `authorization_code` `{code, code_verifier, redirect_uri, device_name?}` · `refresh_token` · `urn:ietf:params:oauth:grant-type:device_code` → `{access_token, token_type: "Bearer", expires_in, refresh_token, refresh_expires_in}`; 400 `{error, detail}`; 422 bad shape |
-| POST | `/auth/revoke` | No | KODI-057: `{refresh_token}` → 204 always (ends the session as `logout`) |
+| POST | `/auth/revoke` | No | KODI-057: `{refresh_token}` → 204 for any value, live, ended or unknown (ends a live session as `logout`); 503 when Redis is down (fail closed: a 204 would claim an end that did not happen) |
 | POST | `/auth/device/code` | No | KODI-057: `{device_name?}` → `{device_code, user_code: "XXXX-XXXX", verification_uri, verification_uri_complete, expires_in: 600, interval: 10}` |
 | GET | `/auth/device/verify` | Yes | KODI-057: `?user_code=` → `{device_name, client_label, ip, requested_at, expires_at}`; 404 `Code not found or expired` |
 | POST | `/auth/device/approve`, `/auth/device/deny` | Yes | KODI-057: `{user_code}` → 204; 404; 409 `Code already used`. The poll then answers `authorization_pending`, `slow_down` (faster than `interval`), `access_denied`, `expired_token`, or the session (signed in as the approver, one use) |
