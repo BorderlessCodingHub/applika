@@ -712,3 +712,59 @@ async def test_a_revoked_session_stays_refused_during_an_outage(
         '/users/me', headers=_bearer(tokens.access_token)
     )
     assert response.status_code == 503
+
+
+async def test_redis_down_is_503_on_the_cli_routes(
+    real_client: AsyncClient, redis_client, redis_down
+):
+    """Fail closed on the CLI sign-in routes too (contract: 503 on
+    ``/auth/token``). ``/auth/revoke`` answers 503 rather than a 204 that
+    would claim the session ended (MET DIFFERENTLY, ADR-0019)."""
+    for response in (
+        await real_client.post(
+            '/auth/token',
+            json={'grant_type': 'refresh_token', 'refresh_token': 'x'},
+        ),
+        await real_client.post('/auth/revoke', json={'refresh_token': 'x'}),
+        await real_client.post('/auth/device/code', json={}),
+    ):
+        assert response.status_code == 503
+        assert response.json() == {'detail': 'Session service unavailable'}
+        assert response.headers['Retry-After'] == '5'
+
+
+async def test_a_sign_in_during_an_outage_leaves_no_device(
+    real_client: AsyncClient,
+    async_engine,
+    redis_client,
+    github_sign_in,
+    redis_down,
+):
+    """The row is written first; when the keys cannot be, the row goes
+    too - the device list never shows a session that was never live."""
+    response = await real_client.get(
+        '/auth/github/callback', follow_redirects=False
+    )
+
+    assert response.status_code == 503
+    assert _set_cookie(response, ACCESS_COOKIE_NAME) is None
+    assert await _rows(async_engine, USER.id) == []
+
+
+async def test_a_refused_request_never_recreates_the_session_key(
+    real_client: AsyncClient, async_engine, redis_client
+):
+    """The touch is EXISTS -> HSET in one script: a request on an ended
+    session stamps nothing, so no key without a TTL is left behind."""
+    tokens = await open_session(
+        async_engine, redis_client, USER.id, USER.github_id
+    )
+    refresh_key, id_key = _keys(tokens.refresh_token, tokens.session_id)
+    await redis_client.delete(refresh_key, id_key)
+
+    response = await real_client.get(
+        '/users/me', headers=_bearer(tokens.access_token)
+    )
+
+    assert response.status_code == 401
+    assert await redis_client.exists(id_key) == 0

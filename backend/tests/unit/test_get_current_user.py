@@ -310,3 +310,9 @@ async def test_neither_bearer_nor_cookie_is_not_authenticated():
         )
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail == 'Not authenticated'
+
+
+def test_the_session_check_is_bounded_by_half_a_second():
+    """ADR-0019: the per-request touch runs under ``asyncio.timeout(0.5)``,
+    the rate limiter's bound."""
+    assert store_module.TOUCH_TIMEOUT_SECONDS == 0.5
