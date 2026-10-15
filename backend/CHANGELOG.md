@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- KODI-056 table user_sessions: one row per sign-in (device name, client,
+  sign-in method, sign-in and last IP, granted, last used, expiry, end and
+  reason); no code reads it yet (Release A, ADR-0019).
 - KODI-051 tables features, feature_beta_users and feature_admin_opt_outs;
   feature "jobs" ("Job board") seeded in beta with an empty beta list; no
   code reads them yet (Release A, ADR-0018).
