@@ -401,3 +401,18 @@ def test_post_without_payload_sends_no_body(tmp_path):
     assert data == {'id': '1', 'finalized': True}
     assert captured['content'] == b''
     assert captured['content_type'] is None
+
+
+def test_session_from_token_uses_the_answers_expires_in():
+    before = datetime.now(timezone.utc)
+    payload = {
+        'access_token': 'a',
+        'refresh_token': 'r',
+        'expires_in': 60,
+    }
+
+    session = api_module.session_from_token('http://x/api', payload)
+
+    expires = datetime.fromisoformat(session.access_expires_at)
+    assert before + timedelta(seconds=55) < expires
+    assert expires < before + timedelta(seconds=65)

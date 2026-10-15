@@ -12,6 +12,7 @@ from applika.lib import device_flow, pkce
 from applika.lib.api import (
     ApiClient,
     ApiError,
+    AuthError,
     error_detail,
     open_client,
     require_session,
@@ -62,7 +63,10 @@ def login(
         ),
     ] = None,
 ) -> None:
-    """Log in to Applika via GitHub OAuth. Opens your browser to authenticate.
+    """Log in to Applika with GitHub. By default opens your browser.
+
+    Use --manual to paste the code the browser shows, or --device to approve
+    a short code in any signed-in browser.
 
     The CLI gets a session of its own, listed in your profile's Devices tab.
     """
@@ -84,6 +88,8 @@ def login(
             else:
                 tokens = _browser_login(client, config.api_base_url, name)
         session = session_from_token(config.api_base_url, tokens)
+    except typer.Abort:
+        raise
     except (RuntimeError, httpx.HTTPError, KeyError, ValueError) as exc:
         typer.echo(_error_text(exc), err=True)
         raise typer.Exit(1)
@@ -92,6 +98,9 @@ def login(
     api = ApiClient(session, config.store, transport=_transport)
     try:
         username = api.get_json('/users/me')['username']
+    except AuthError as exc:
+        typer.echo(exc.detail, err=True)
+        raise typer.Exit(1)
     except (ApiError, httpx.HTTPError, KeyError, ValueError) as exc:
         typer.echo(f'Logged in on {name}.')
         typer.echo(f'Could not read your profile: {_error_text(exc)}', err=True)
@@ -219,7 +228,9 @@ def _browser_login(
         webbrowser.open(url)
         typer.echo(
             'Opening your browser to sign in. If it does not open, '
-            f'visit this URL:\n{url}'
+            f'visit this URL:\n{url}\n'
+            'If the browser cannot reach this machine, stop and run '
+            '`applika login --manual` or `applika login --device`.'
         )
         code = server.wait_for_code(timeout_seconds=LOOPBACK_TIMEOUT_SECONDS)
         return _exchange_code(

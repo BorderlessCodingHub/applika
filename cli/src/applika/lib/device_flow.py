@@ -22,6 +22,8 @@ from applika.lib.api import (
 
 DEVICE_CODE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
 SLOW_DOWN_STEP_SECONDS = 5
+# A proxy answering while the API restarts: treated like a network error.
+GATEWAY_STATUSES = (502, 504)
 EXPIRED_MESSAGE = (
     'The device code expired before it was approved. '
     'Run `applika login --device` again.'
@@ -73,7 +75,7 @@ def poll(
     - ``slow_down``: ``interval`` grows by 5 seconds for good.
     - 429/503: wait ``Retry-After`` (default 5 s, never less than
       ``interval``) and keep polling.
-    - a network error: wait ``interval`` and keep polling.
+    - a network error, 502 or 504: wait ``interval`` and keep polling.
     - ``expired_token``, or ``expires_in`` elapsed here: ``DeviceFlowError``.
     - ``access_denied``: ``DeviceFlowError``.
     """
@@ -99,6 +101,8 @@ def poll(
             continue
         if response.status_code == 200:
             return response.json()
+        if response.status_code in GATEWAY_STATUSES:
+            continue
         if response.status_code in TRANSIENT_STATUSES:
             wait = max(interval, retry_after_seconds(response))
             continue

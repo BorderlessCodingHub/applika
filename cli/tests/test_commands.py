@@ -1493,6 +1493,43 @@ def test_login_profile_failure_still_keeps_the_new_session(login_env, runner):
     assert login_env.store.load().access_token == 'new-access'
 
 
+def test_login_whose_new_session_is_refused_at_once_exits_1(login_env, runner):
+    """/users/me 401 and a refused refresh: the session is gone, so the
+    login must not claim success."""
+    login_env.api.answers['/api/users/me'] = [
+        httpx.Response(401, json={'detail': 'Session expired'})
+    ]
+    login_env.api.answers['/api/auth/token'] = [
+        httpx.Response(200, json=TOKEN_ANSWER),
+        httpx.Response(400, json={'error': 'invalid_grant', 'detail': 'x'}),
+    ]
+
+    result = runner.invoke(app, ['--api-base-url', API, 'login', '--device'])
+
+    assert result.exit_code == 1
+    assert 'Logged in' not in result.stdout
+    assert 'applika login' in result.stderr
+    assert login_env.store.try_load() is None
+
+
+def test_login_manual_aborted_at_the_prompt_says_aborted(login_env, runner):
+    result = runner.invoke(
+        app, ['--api-base-url', API, 'login', '--manual'], input=''
+    )
+
+    assert result.exit_code == 1
+    assert 'Aborted' in result.output
+    assert '/api/auth/token' not in login_env.api.paths()
+
+
+def test_login_default_mentions_the_fallbacks(login_env, runner):
+    result = runner.invoke(app, ['--api-base-url', API, 'login'])
+
+    assert result.exit_code == 0, result.output
+    assert 'applika login --manual' in result.stdout
+    assert 'applika login --device' in result.stdout
+
+
 def test_root_help_still_lists_every_1_0_1_command_and_flag(runner):
     """AC7: 1.1.0 only adds; every 1.0.1 command and root flag is there."""
     result = runner.invoke(app, ['--help'])

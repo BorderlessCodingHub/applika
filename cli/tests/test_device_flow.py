@@ -246,3 +246,57 @@ def test_unknown_oauth_error_raises_api_error():
         _run([_oauth('invalid_grant')])
 
     assert excinfo.value.status_code == 400
+
+
+@pytest.mark.parametrize('status', [502, 504])
+def test_gateway_error_waits_interval_and_keeps_polling(status):
+    result, clock, _ = _run([
+        httpx.Response(status, text='Bad Gateway'),
+        httpx.Response(200, json=TOKEN),
+    ])
+
+    assert result == TOKEN
+    assert clock.waits == [10, 10]
+
+
+def test_no_poll_once_the_deadline_is_reached_exactly():
+    """At t == expires_in the code is dead: no request at that instant."""
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return _oauth('authorization_pending')
+
+    clock = Clock()
+    with httpx.Client(
+        base_url='http://api/api', transport=httpx.MockTransport(handler)
+    ) as client:
+        with pytest.raises(DeviceFlowError):
+            device_flow.poll(
+                client,
+                _code(interval=10, expires_in=20),
+                sleep=clock.sleep,
+                monotonic=clock.monotonic,
+            )
+
+    assert len(calls) == 1
+
+
+def test_start_floors_a_zero_interval_to_one_second():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                'device_code': 'd',
+                'user_code': 'ABCD-EFGH',
+                'verification_uri': 'http://web/device',
+                'verification_uri_complete': 'http://web/device?c=1',
+                'expires_in': 600,
+                'interval': 0,
+            },
+        )
+
+    with httpx.Client(
+        base_url='http://api/api', transport=httpx.MockTransport(handler)
+    ) as client:
+        assert device_flow.start(client, 'box').interval == 1
