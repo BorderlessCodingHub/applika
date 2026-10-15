@@ -6,9 +6,11 @@ request pipeline.
 
 - ``bucket_for``: an ``/auth/*`` route counts against ``RATE_LIMIT_AUTH``,
   every other route against ``RATE_LIMIT_DEFAULT`` (R-017).
-- ``subject_for``: a request whose ``__access`` cookie holds a valid,
-  unexpired access token is counted against that token's subject (the
-  user); any other request is counted against the client IP (R-016).
+- ``subject_for``: a request whose ``Authorization: Bearer`` header, else
+  whose ``__access`` cookie, holds a valid, unexpired access token is
+  counted against that token's subject (the user); any other request is
+  counted against the client IP (R-016; Bearer first since KODI-057,
+  ADR-0019).
 - ``hit``: one Redis pipeline (``INCR`` + ``EXPIREAT``) decides whether the
   request is allowed, bounded by a 0.5s timeout so a hanging Redis never
   holds a request open; a failure fails open (returns ``None``) with a
@@ -18,6 +20,7 @@ request pipeline.
 import asyncio
 import logging
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 import jwt
@@ -47,17 +50,40 @@ def bucket_for(route_path: str) -> str:
     return 'default'
 
 
-def subject_for(cookies: dict[str, str], client_host: str | None) -> str:
-    """``user:<sub>`` from a valid ``__access`` cookie, else ``ip:<host>``."""
-    token = cookies.get(ACCESS_COOKIE_NAME)
-    if token:
-        try:
-            payload = decode_token(token)
-        except jwt.PyJWTError:
-            pass
-        else:
-            if payload.get('kind') == 'access' and payload.get('sub'):
-                return f'user:{payload["sub"]}'
+def _bearer_token(headers: Mapping[str, str]) -> str | None:
+    authorization = headers.get('authorization') or ''
+    scheme, _, credentials = authorization.partition(' ')
+    if scheme.lower() == 'bearer' and credentials.strip():
+        return credentials.strip()
+    return None
+
+
+def _token_subject(token: str | None) -> str | None:
+    if not token:
+        return None
+    try:
+        payload = decode_token(token)
+    except jwt.PyJWTError:
+        return None
+    if payload.get('kind') == 'access' and payload.get('sub'):
+        return payload['sub']
+    return None
+
+
+def subject_for(
+    headers: Mapping[str, str],
+    cookies: Mapping[str, str],
+    client_host: str | None,
+) -> str:
+    """``user:<sub>`` from a valid Bearer token, else from a valid
+    ``__access`` cookie, else ``ip:<host>``. Only the JWT is read: the
+    session check is ``get_current_user``'s, the limiter stays a single
+    Redis call and fails open."""
+    subject = _token_subject(_bearer_token(headers)) or _token_subject(
+        cookies.get(ACCESS_COOKIE_NAME)
+    )
+    if subject:
+        return f'user:{subject}'
     return f'ip:{client_host or "unknown"}'
 
 

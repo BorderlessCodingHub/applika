@@ -14,6 +14,7 @@ from app.presentation.api.application_draft import (
 )
 from app.presentation.api.application_step import router as app_step_router
 from app.presentation.api.base_cv import router as base_cv_router
+from app.presentation.api.cli_auth import router as cli_auth_router
 from app.presentation.api.company import router as company_router
 from app.presentation.api.cycle import router as cycle_router
 from app.presentation.api.job_searches import router as job_search_router
@@ -27,6 +28,7 @@ from app.presentation.api.tailored_cv import router as tailored_cv_router
 from app.presentation.api.timeline_event import router as timeline_router
 from app.presentation.api.user import router as profile_router
 from app.presentation.api.user_feedback import router as feedback_router
+from app.presentation.api.user_sessions import router as user_sessions_router
 from app.presentation.deprecation import (
     DEPRECATION_HEADER,
     DeprecationHeaderMiddleware,
@@ -90,8 +92,10 @@ register_middleware(app)
 register_handlers(app)
 # REST Routes
 app.include_router(auth_router)
+app.include_router(cli_auth_router)
 app.include_router(account_link_router)
 app.include_router(profile_router)
+app.include_router(user_sessions_router)
 app.include_router(support_router)
 app.include_router(company_router)
 app.include_router(platform_router)

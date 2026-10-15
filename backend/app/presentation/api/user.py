@@ -15,6 +15,7 @@ from app.presentation.dependencies import (
     CurrentUserDp,
     DiscordConnectionRepositoryDp,
     FeatureRepositoryDp,
+    RevokeOtherSessionsUseCaseDp,
     StepDefinitionRepositoryDp,
     TimelineEventRepositoryDp,
     UnlinkDiscordUseCaseDp,
@@ -95,8 +96,13 @@ async def delete_me(
     c_user: CurrentUserDp,
     user_repo: UserRepositoryDp,
     unlink_discord_use_case: UnlinkDiscordUseCaseDp,
+    revoke_sessions: RevokeOtherSessionsUseCaseDp,
     response: Response,
 ):
+    # KODI-057 (R-008): every session of the account ends at once - their
+    # Redis keys go now, their rows with the user by CASCADE.
+    await revoke_sessions.end_all_keys(c_user.id)
+
     # Revoke the Discord grant best-effort before the row goes by cascade
     # (T102): the connection would disappear either way once the user is
     # deleted, but only this call actually asks Discord to revoke it.

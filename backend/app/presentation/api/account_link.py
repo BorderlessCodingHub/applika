@@ -16,14 +16,16 @@ from app.application.services.discord_oauth_service import DiscordLinkError
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
 from app.config.logging import logger
 from app.config.settings import ACCESS_COOKIE_NAME, envs
-from app.core.exceptions import ResourceConflict
+from app.core.exceptions import ResourceConflict, SessionServiceUnavailable
 from app.presentation.dependencies import (
     AccountLinkStateUseCaseDp,
     CurrentUserDp,
     DiscordOAuthServiceDp,
     LinkDiscordUseCaseDp,
+    SessionStoreDp,
     UnlinkDiscordUseCaseDp,
     UserRepositoryDp,
+    client_ip,
 )
 from app.presentation.schemas.account_link import (
     AccountLinkOut,
@@ -59,6 +61,7 @@ async def begin_discord_link(
 async def discord_link_callback(
     request: Request,
     user_repo: UserRepositoryDp,
+    session_store: SessionStoreDp,
     discord_service: DiscordOAuthServiceDp,
     state_use_case: AccountLinkStateUseCaseDp,
     link_discord_use_case: LinkDiscordUseCaseDp,
@@ -97,15 +100,19 @@ async def discord_link_callback(
 
     access_token = request.cookies.get(ACCESS_COOKIE_NAME)
     try:
-        current_user = await GetCurrentUserUseCase(user_repo).execute(
-            access_token
-        )
-    except HTTPException:
+        authenticated = await GetCurrentUserUseCase(
+            user_repo, session_store
+        ).execute(access_token, client_ip(request))
+    except HTTPException, SessionServiceUnavailable:
+        # KODI-057: the cookie's session is checked like on any signed-in
+        # request; a revoked session, or a session service that cannot be
+        # reached, is the same error redirect (fail closed).
         logger.info(
             'Discord link callback: missing or expired session',
             extra={'extra_data': {'event': 'discord_link_failed'}},
         )
         return _redirect('error')
+    current_user = authenticated.user
 
     if current_user.id != nonce_user_id:
         logger.info(

@@ -1,8 +1,12 @@
 from typing import Annotated
 
 import redis.asyncio as aioredis
-from fastapi import Depends, Security
-from fastapi.security import APIKeyCookie
+from fastapi import Depends, HTTPException, Request, Security, status
+from fastapi.security import (
+    APIKeyCookie,
+    HTTPAuthorizationCredentials,
+    HTTPBearer,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dto.tailored_cv import TailoringMode
@@ -29,6 +33,7 @@ from app.application.services.job_queue import JobQueue
 from app.application.services.keyword_tailoring import (
     KeywordTailoringService,
 )
+from app.application.services.session_store import SessionStore
 from app.application.services.tailoring import (
     TailoringResolver,
     TailoringService,
@@ -59,9 +64,25 @@ from app.application.use_cases.base_cvs.render_pdf import (
     RenderBaseCVPdfUseCase,
 )
 from app.application.use_cases.base_cvs.update import UpdateBaseCVUseCase
+from app.application.use_cases.cli_auth.authorize import CliAuthorizeUseCase
+from app.application.use_cases.cli_auth.device_code import DeviceCodeUseCase
+from app.application.use_cases.cli_auth.token import CliTokenUseCase
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
 from app.application.use_cases.quinzenal_reports.resolve_report_webhooks import (
     ResolveReportWebhooksUseCase,
+)
+from app.application.use_cases.sessions.end_session import EndSessionUseCase
+from app.application.use_cases.sessions.list_my_sessions import (
+    ListMySessionsUseCase,
+)
+from app.application.use_cases.sessions.open_session import (
+    OpenSessionUseCase,
+)
+from app.application.use_cases.sessions.refresh_session import (
+    RefreshSessionUseCase,
+)
+from app.application.use_cases.sessions.revoke_other_sessions import (
+    RevokeOtherSessionsUseCase,
 )
 from app.application.use_cases.tailored_cvs.create import (
     CreateTailoredCVUseCase,
@@ -140,6 +161,9 @@ from app.domain.repositories.user_feedback_repository import (
     UserFeedbackRepository,
 )
 from app.domain.repositories.user_repository import UserRepository
+from app.domain.repositories.user_session_repository import (
+    UserSessionRepository,
+)
 from app.domain.repositories.user_statistic_repository import (
     UserStatsRepository,
 )
@@ -416,15 +440,164 @@ UnlinkDiscordUseCaseDp = Annotated[
 ]
 
 
+def client_ip(request: Request) -> str | None:
+    """The address uvicorn resolved (``proxy_headers`` +
+    ``FORWARDED_ALLOW_IPS``), never a raw forwarded header."""
+    return request.client.host if request.client else None
+
+
+def client_user_agent(request: Request) -> str | None:
+    return request.headers.get('user-agent')
+
+
+def get_session_store(redis_client: RedisDp) -> SessionStore:
+    """The live half of every device session, on the limiter's Redis
+    (ADR-0019)."""
+    return SessionStore(redis_client)
+
+
+SessionStoreDp = Annotated[SessionStore, Depends(get_session_store)]
+
+
+def get_user_session_repository(session: DbSession) -> UserSessionRepository:
+    return UserSessionRepository(session)
+
+
+UserSessionRepositoryDp = Annotated[
+    UserSessionRepository, Depends(get_user_session_repository)
+]
+
+# Both read without auto_error, so the order is ours: the Bearer header
+# (applika-cli 1.1.0 and later) first, then the ``__access`` cookie (the web
+# and installed CLIs 0.1.4 to 1.0.1), else 401 ``Not authenticated``.
+_bearer_scheme = HTTPBearer(auto_error=False)
+_access_cookie_scheme = APIKeyCookie(name=ACCESS_COOKIE_NAME, auto_error=False)
+
+
 async def get_current_user(
+    request: Request,
     user_repo: UserRepositoryDp,
-    access_token: str = Security(APIKeyCookie(name=ACCESS_COOKIE_NAME)),
+    session_store: SessionStoreDp,
+    bearer: HTTPAuthorizationCredentials | None = Security(_bearer_scheme),
+    access_cookie: str | None = Security(_access_cookie_scheme),
 ) -> UserDTO:
-    use_case = GetCurrentUserUseCase(user_repo)
-    return await use_case.execute(access_token)
+    access_token = bearer.credentials if bearer else access_cookie
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='Not authenticated',
+        )
+    use_case = GetCurrentUserUseCase(user_repo, session_store)
+    authenticated = await use_case.execute(access_token, client_ip(request))
+    request.state.session_id = authenticated.session_id
+    return authenticated.user
 
 
 CurrentUserDp = Annotated[UserDTO, Depends(get_current_user)]
+
+
+async def get_current_session_id(
+    request: Request, _user: CurrentUserDp
+) -> int | None:
+    """The caller's own session id (the JWT's ``sid``), set by
+    ``get_current_user``. ``None`` only when a test overrides
+    ``get_current_user``."""
+    return getattr(request.state, 'session_id', None)
+
+
+CurrentSessionIdDp = Annotated[int | None, Depends(get_current_session_id)]
+
+
+def get_open_session_use_case(
+    session_repo: UserSessionRepositoryDp, store: SessionStoreDp
+) -> OpenSessionUseCase:
+    return OpenSessionUseCase(session_repo, store)
+
+
+OpenSessionUseCaseDp = Annotated[
+    OpenSessionUseCase, Depends(get_open_session_use_case)
+]
+
+
+def get_end_session_use_case(
+    session_repo: UserSessionRepositoryDp, store: SessionStoreDp
+) -> EndSessionUseCase:
+    return EndSessionUseCase(session_repo, store)
+
+
+EndSessionUseCaseDp = Annotated[
+    EndSessionUseCase, Depends(get_end_session_use_case)
+]
+
+
+def get_refresh_session_use_case(
+    user_repo: UserRepositoryDp,
+    session_repo: UserSessionRepositoryDp,
+    store: SessionStoreDp,
+    gh_service: GitHubServiceDp,
+) -> RefreshSessionUseCase:
+    return RefreshSessionUseCase(user_repo, session_repo, store, gh_service)
+
+
+RefreshSessionUseCaseDp = Annotated[
+    RefreshSessionUseCase, Depends(get_refresh_session_use_case)
+]
+
+
+def get_list_my_sessions_use_case(
+    session_repo: UserSessionRepositoryDp, store: SessionStoreDp
+) -> ListMySessionsUseCase:
+    return ListMySessionsUseCase(session_repo, store)
+
+
+ListMySessionsUseCaseDp = Annotated[
+    ListMySessionsUseCase, Depends(get_list_my_sessions_use_case)
+]
+
+
+def get_revoke_other_sessions_use_case(
+    session_repo: UserSessionRepositoryDp, store: SessionStoreDp
+) -> RevokeOtherSessionsUseCase:
+    return RevokeOtherSessionsUseCase(session_repo, store)
+
+
+RevokeOtherSessionsUseCaseDp = Annotated[
+    RevokeOtherSessionsUseCase, Depends(get_revoke_other_sessions_use_case)
+]
+
+
+def get_cli_authorize_use_case(
+    handoff_state: AuthHandoffStateUseCaseDp,
+) -> CliAuthorizeUseCase:
+    return CliAuthorizeUseCase(handoff_state)
+
+
+CliAuthorizeUseCaseDp = Annotated[
+    CliAuthorizeUseCase, Depends(get_cli_authorize_use_case)
+]
+
+
+def get_device_code_use_case(redis_client: RedisDp) -> DeviceCodeUseCase:
+    return DeviceCodeUseCase(redis_client)
+
+
+DeviceCodeUseCaseDp = Annotated[
+    DeviceCodeUseCase, Depends(get_device_code_use_case)
+]
+
+
+def get_cli_token_use_case(
+    handoff_state: AuthHandoffStateUseCaseDp,
+    open_session: OpenSessionUseCaseDp,
+    refresh_session: RefreshSessionUseCaseDp,
+    device_codes: DeviceCodeUseCaseDp,
+) -> CliTokenUseCase:
+    return CliTokenUseCase(
+        handoff_state, open_session, refresh_session, device_codes
+    )
+
+
+CliTokenUseCaseDp = Annotated[CliTokenUseCase, Depends(get_cli_token_use_case)]
 
 
 async def get_admin_user(
