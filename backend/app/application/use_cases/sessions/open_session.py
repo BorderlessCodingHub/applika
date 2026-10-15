@@ -7,6 +7,7 @@ from app.application.dto.user_session import (
 )
 from app.application.services.session_store import SessionStore
 from app.config.settings import envs
+from app.core.exceptions import SessionServiceUnavailable
 from app.core.tokens import create_access_token
 from app.core.user_agent import describe_user_agent
 from app.domain.repositories.user_session_repository import (
@@ -86,11 +87,17 @@ class OpenSessionUseCase:
             expires_at=expires_at,
         )
         session_id = row.id
-        refresh_value = await self.store.open(
-            session_id=session_id,
-            user_id=user_id,
-            github_id=github_id,
-            expires_at=expires_at,
-            last_ip=ip,
-        )
+        try:
+            refresh_value = await self.store.open(
+                session_id=session_id,
+                user_id=user_id,
+                github_id=github_id,
+                expires_at=expires_at,
+                last_ip=ip,
+            )
+        except SessionServiceUnavailable:
+            # The sign-in failed (503): drop the row so the device list
+            # never shows a session that was never live.
+            await self.session_repo.delete(session_id)
+            raise
         return session_tokens(session_id, github_id, refresh_value)

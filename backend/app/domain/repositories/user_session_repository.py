@@ -4,7 +4,7 @@ table."""
 
 from datetime import datetime
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.models import UserSessionModel
@@ -42,6 +42,20 @@ class UserSessionRepository:
             raise
         await self.session.refresh(row)
         return row
+
+    async def delete(self, session_id: int) -> None:
+        """Remove a row whose session never went live (its Redis keys could
+        not be written), so no phantom device is listed."""
+        try:
+            await self.session.execute(
+                delete(UserSessionModel).where(
+                    UserSessionModel.id == session_id
+                )
+            )
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
 
     async def get(self, session_id: int) -> UserSessionModel | None:
         return await self.session.get(UserSessionModel, session_id)
