@@ -1,14 +1,29 @@
 import re
 
+import httpx
 import pytest
 from typer.testing import CliRunner
 
+import applika.commands.auth as auth_commands
 from applika.lib.session import SessionData
 
 
 @pytest.fixture
 def runner():
     return CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _no_network_from_auth_commands(monkeypatch):
+    """KODI-060: login/logout never reach the network in tests. A test
+    that drives them installs its own ``httpx.MockTransport``."""
+
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(f'Unexpected network request: {request.url}')
+
+    monkeypatch.setattr(
+        auth_commands, '_transport', httpx.MockTransport(refuse)
+    )
 
 
 def make_session() -> SessionData:
