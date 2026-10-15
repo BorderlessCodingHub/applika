@@ -38,14 +38,21 @@ export function ProfileDevices() {
   const sessions = useSessions();
   const revoke = useRevokeSession();
   const revokeOthers = useRevokeOtherSessions();
+  // TanStack v5 puts an errored query with no data back to `pending` on
+  // refetch, which would swap the error card for the skeleton; holding the
+  // retry here keeps "Try again" on screen, aria-busy, until it settles.
+  const [retrying, setRetrying] = useState(false);
 
   return (
     <DevicesTab
       sessions={sessions.data}
       isLoading={sessions.isPending}
-      isError={sessions.isError}
-      onRetry={() => void sessions.refetch()}
-      isRetrying={sessions.isError && sessions.isFetching}
+      isError={sessions.isError || retrying}
+      onRetry={() => {
+        setRetrying(true);
+        void sessions.refetch().finally(() => setRetrying(false));
+      }}
+      isRetrying={retrying}
       onRevoke={(session) => revoke.mutate(session)}
       // A signed-out current row stays pending until the page has left.
       revokingId={

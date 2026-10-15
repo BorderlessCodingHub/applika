@@ -66,11 +66,11 @@ function Detail({
   return (
     <div
       className={cn(
-        "grid min-w-0 grid-cols-[7.5rem_minmax(0,1fr)] gap-x-3 sm:flex sm:flex-col sm:gap-0.5",
+        "grid min-w-0 grid-cols-[7.5rem_minmax(0,1fr)] gap-x-3 @xl/device-row:flex @xl/device-row:flex-col @xl/device-row:gap-0.5",
         className,
       )}
     >
-      <dt className="text-muted-foreground sm:text-xs">{term}</dt>
+      <dt className="text-muted-foreground @xl/device-row:text-xs">{term}</dt>
       <dd className="min-w-0 break-words text-foreground">{children}</dd>
     </div>
   );
@@ -103,7 +103,7 @@ export function DeviceRow({
       data-status={session.status}
       data-current={current || undefined}
       className={cn(
-        "relative flex flex-col gap-4 px-4 py-5 sm:px-6",
+        "@container/device-row relative flex flex-col gap-4 px-4 py-5 sm:px-6",
         current &&
           "bg-primary/4 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary",
         className,
@@ -189,24 +189,27 @@ export function DeviceRow({
         ) : null}
       </div>
 
-      <dl className="grid grid-cols-1 gap-y-2 text-sm sm:grid-cols-3 sm:gap-x-6 sm:gap-y-3 sm:pl-12">
+      <dl className="grid grid-cols-1 gap-y-2 text-sm @xl/device-row:grid-cols-3 @xl/device-row:gap-x-6 @xl/device-row:gap-y-3 @xl/device-row:pl-12">
         <Detail term={terms.client}>{session.client_label}</Detail>
         <Detail term={terms.method}>
           {SIGN_IN_METHOD_LABEL[session.sign_in_method]}
         </Detail>
         <Detail term={terms.ip}>
           {session.last_ip ? (
-            <span data-slot="device-last-ip" className="font-numeric break-all">
+            <span
+              data-slot="device-last-ip"
+              className="font-numeric wrap-anywhere"
+            >
               {session.last_ip}
             </span>
           ) : (
-            <span className="text-muted-foreground">
+            <span data-slot="device-last-ip" className="text-muted-foreground">
               {DEVICES_COPY.notRecorded}
             </span>
           )}
           <span
             data-slot="device-sign-in-ip"
-            className="block text-xs break-all text-muted-foreground"
+            className="block text-xs wrap-anywhere text-muted-foreground"
           >
             {signInIpLine(session.created_ip)}
           </span>

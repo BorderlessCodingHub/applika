@@ -187,7 +187,7 @@ export function DevicesTab({
               <div
                 key={row}
                 aria-hidden
-                className="flex flex-col gap-4 px-4 py-5 sm:px-6"
+                className="@container/device-row flex flex-col gap-4 px-4 py-5 sm:px-6"
               >
                 <div className="flex items-start gap-3">
                   <Skeleton className="size-9 shrink-0 rounded-lg" />
@@ -197,13 +197,13 @@ export function DevicesTab({
                   </div>
                   <Skeleton className="h-8 w-20" />
                 </div>
-                <div className="grid grid-cols-1 gap-y-2.5 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-3 sm:pl-12">
+                <div className="grid grid-cols-1 gap-y-2.5 @xl/device-row:grid-cols-3 @xl/device-row:gap-x-6 @xl/device-row:gap-y-3 @xl/device-row:pl-12">
                   {[0, 1, 2, 3, 4, 5].map((cell) => (
                     <div
                       key={cell}
-                      className="flex items-center gap-3 sm:flex-col sm:items-start sm:gap-1.5"
+                      className="flex items-center gap-3 @xl/device-row:flex-col @xl/device-row:items-start @xl/device-row:gap-1.5"
                     >
-                      <Skeleton className="h-3 w-30 sm:w-16" />
+                      <Skeleton className="h-3 w-30 @xl/device-row:w-16" />
                       <Skeleton className="h-4 w-28" />
                     </div>
                   ))}
