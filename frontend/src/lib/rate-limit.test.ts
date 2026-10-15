@@ -1,7 +1,13 @@
 import { AxiosError, AxiosHeaders } from "axios";
 import { describe, expect, it } from "vitest";
 
-import { isRateLimited, rateLimitNotice, retryAfterMs } from "@/lib/rate-limit";
+import {
+  isRateLimited,
+  isServiceUnavailable,
+  isTemporary,
+  rateLimitNotice,
+  retryAfterMs,
+} from "@/lib/rate-limit";
 
 function rateLimitError(opts?: {
   retryAfter?: string;
@@ -97,5 +103,56 @@ describe("rateLimitNotice", () => {
   it("returns null for a non-429 error", () => {
     expect(rateLimitNotice(rateLimitError({ status: 500 }))).toBeNull();
     expect(rateLimitNotice(new Error("boom"))).toBeNull();
+  });
+});
+
+/**
+ * KODI-058 (ADR-0019 "fail closed"): a 503 "Session service unavailable"
+ * means Redis is down, not that the session ended. It is temporary like a
+ * 429, so the web waits `Retry-After` and retries, never signs out.
+ */
+describe("isTemporary / isServiceUnavailable (KODI-058)", () => {
+  it("is true for a 429 and for a 503", () => {
+    expect(isTemporary(rateLimitError())).toBe(true);
+    expect(isTemporary(rateLimitError({ status: 503 }))).toBe(true);
+    expect(isServiceUnavailable(rateLimitError({ status: 503 }))).toBe(true);
+    expect(isServiceUnavailable(rateLimitError())).toBe(false);
+  });
+
+  it("is false for a 401, a 500, a plain error and nothing", () => {
+    expect(isTemporary(rateLimitError({ status: 401 }))).toBe(false);
+    expect(isTemporary(rateLimitError({ status: 500 }))).toBe(false);
+    expect(isTemporary(new Error("boom"))).toBe(false);
+    expect(isTemporary(undefined)).toBe(false);
+  });
+
+  it("a 503 is not rate limited, so its detail is no rate-limit notice", () => {
+    const unavailable = rateLimitError({
+      status: 503,
+      detail: "Session service unavailable",
+    });
+    expect(isRateLimited(unavailable)).toBe(false);
+    expect(rateLimitNotice(unavailable)).toBeNull();
+  });
+});
+
+describe("retryAfterMs on a 503 (KODI-058)", () => {
+  it("reads the 503's Retry-After: 5 as 5000ms", () => {
+    expect(retryAfterMs(rateLimitError({ status: 503, retryAfter: "5" }))).toBe(
+      5_000,
+    );
+  });
+
+  it("clamps a 503's Retry-After to at least one second", () => {
+    expect(retryAfterMs(rateLimitError({ status: 503, retryAfter: "0" }))).toBe(
+      1_000,
+    );
+  });
+
+  it("falls back to 5s, not 60s, when a 503 has no usable header", () => {
+    expect(retryAfterMs(rateLimitError({ status: 503 }))).toBe(5_000);
+    expect(
+      retryAfterMs(rateLimitError({ status: 503, retryAfter: "soon" })),
+    ).toBe(5_000);
   });
 });
