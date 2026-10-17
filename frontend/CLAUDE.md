@@ -85,6 +85,25 @@ variables that `scripts/e2e.sh` exports after seeding the real users. The suite
 runs serially (`workers: 1`) against one shared real database, so specs must be
 read-only or clean up after themselves.
 
+**Devices in E2E (KODI-058).** The seed also opens a `cli_device` session for
+`e2e-user` named "e2e-cli"; `scripts/e2e.sh` exports its tokens as
+`E2E_CLI_ACCESS_TOKEN` / `E2E_CLI_REFRESH_TOKEN`, and
+`e2e/support/auth.ts`'s `cliBearerHeader()` is the `Authorization: Bearer`
+value the CLI would send. `e2e/devices.spec.ts` (serial): the Devices tab
+lists "This device" and "e2e-cli", Revoke (Cancel first) moves it to Ended and
+the same Bearer then gets 401 from `GET /users/me` — so **"e2e-cli" is dead
+for the rest of the run**; nothing after it may use `cliBearerHeader()`. It
+never revokes e2e-user's web session (every later spec signs in with it);
+its "Sign out all other devices" step runs only once "e2e-cli" is gone, so
+the one other active session it ends is the device grant it made itself. Then
+`POST /auth/device/code` → `verification_uri_complete` (`:8180/device?code=`)
+→ Approve → the device grant on `POST /auth/token` is 200 after waiting out
+`interval` (polling sooner is `slow_down`) and the row is listed; a signed-out
+`/device?code=` → `/login` → `loginAs` + `/dashboard` lands back on `/device`
+with the code filled in; "Sign out all other devices" ends the granted
+session (its Bearer gets 401) and keeps "This device"; `/cli/code?code=&state=`
+shows `code#state`.
+
 **The job board in E2E (KODI-049).** `docker-compose.e2e.yml` also runs
 `worker` and `scheduler` (`applika-e2e-worker`/`-scheduler`, the
 `applika-e2e-api` image with `pull_policy: never`, the commands of ADR-0016,
@@ -143,6 +162,25 @@ Route groups control access:
 Each protected route has a thin `page.tsx` shell that renders a `*-page.tsx` component containing the actual logic.
 
 `/login` lives at `src/app/login/`, OUTSIDE the `(public)` group, so it renders no landing header or footer. The URL is unchanged.
+
+CLI sign-in routes (KODI-058, ADR-0019):
+
+| Route                    | Shell                                    | Component                                                   |
+| ------------------------ | ---------------------------------------- | ----------------------------------------------------------- |
+| `/device?code=`          | `(protected)/device/page.tsx` (Suspense) | `device-page.tsx` — code, request card, approve/deny        |
+| `/cli/code?code=&state=` | `cli/code/page.tsx` (Suspense)           | `cli-code-page.tsx` — `code#state` read-only, Copy, no auth |
+
+`/cli/code` sits OUTSIDE the groups like `/login` (no shell, no session): the
+API 307s there when the CLI cannot reach its local callback. `/device` reads
+`?code=` once into a lazy `useState` (normalized `XXXX-XXXX`) and never
+auto-submits. **Return-to.** A signed-out visit to `/device` makes
+`(protected)/layout.tsx` store path + query in
+`sessionStorage["applika:return-to"]` before `router.replace("/login")`; the
+first authenticated protected render consumes it ONCE (removed before
+navigating) and `router.replace`s to it. Only a same-origin path is followed
+(`/x`, never `//host` or `/\host`). `src/lib/return-to.ts` owns the key, the
+allowed paths (`/device` only) and the check; add a path there, not in the
+layout.
 
 **Search params under static export.** `output: "export"` FAILS THE BUILD on a
 page that reads `useSearchParams()` outside a `<Suspense>` boundary. The shell
@@ -282,11 +320,25 @@ today's behaviour: no retry, straight to `isError`. Do not change the 401
 interceptor in `api-client.ts` for this — it is unrelated to the refresh
 query's own retry.
 
+**A 503 is temporary too (KODI-058, ADR-0019 "fail closed").** When the API
+cannot reach Redis it refuses every signed-in request (and `/auth/refresh`)
+with `503 {"detail":"Session service unavailable"}` + `Retry-After: 5`. That
+is the session STORE being down, not the session ending, so it must never
+sign the web out. `isTemporary(error)` (429 or 503) is what both queries
+retry on; `retryAfterMs` reads `Retry-After` for both, falling back to 60s
+for a 429 and 5s for a 503. `isRateLimited`/`rateLimitNotice` stay 429-only.
+In the 401 interceptor, a refresh that answers 503 rejects the original call
+with that 503 (a temporary error to every caller), never a sign-out; only a
+401 from `/auth/refresh` really ends the session. Other queries show the
+503's `detail` through `getApiError`. The interceptor skips `/auth/*` on a
+401 (a failed refresh must not refresh) EXCEPT `/auth/device/*`, ordinary
+signed-in calls that refresh and replay like any other.
+
 ### State Management
 
 - **Server state**: TanStack React Query with a 5-minute stale time and
   `retry: false` — **except** the auth refresh query and `useUserProfile()`,
-  which retry a 429 only (see above)
+  which retry a 429 or a 503 only (`isTemporary`, see above)
 - **Auth state**: `AuthContext` (wraps the entire app via `RootProviders`)
 - **Supports data**: `SupportsContext` — shared lookup data (platforms only, since PRD 0008/ADR 0012: step and feedback definitions are gone, R-021) available via `useSupports()`
 - **Feature state**: custom hooks in `src/hooks/` (e.g., `useApplications`, `useTimeline`)
@@ -1377,6 +1429,43 @@ guilds.members.read`, a `state` param) instead of following it. Since
   snowflake-shaped text anywhere in the card; the final Disconnect test reads
   back `GET /users/me` and asserts both `discord_linked: false` AND
   `discord: null`.
+
+### Profile — Devices (`src/components/profile/devices-*.tsx`, KODI-058, ADR-0019)
+
+The owner: "a lost of devices connected and a section to revoke the access,
+this must be displayed in a new tab inside user profile". `/profile` is now
+two `Tabs` (`variant="line"`): "Profile" (today's content, the edit form and
+the Discord notice) and "Devices". `?tab=devices` (the `/device` page's "See
+your devices") opens Devices once, through a lazy `useState`; switching tabs
+is local state. **Not gated** (owner: "Gate nothing") — no `FeatureKey`, no
+`FeatureGate`, no `useHasFeature`.
+
+- `DevicesTab` / `DeviceRow` / `devices-copy.ts` are the ui-designer's
+  presentational components; `ProfileDevices` in `profile-page.tsx` wires
+  them, and Radix unmounting the inactive tab is what fetches the list only on
+  first open. Hooks in `hooks/use-sessions.ts`: `useSessions` (key
+  `["sessions"]`, `SESSIONS_QUERY_KEY`, server order kept: active by last use,
+  then ended within 30 days), `useRevokeSession`, `useRevokeOtherSessions`;
+  both invalidate on success and toast
+  `rateLimitNotice(error) ?? "Failed to revoke device"`.
+- A row: name (h3), "This device" on the current one, status in words
+  (Active / Signed out / Revoked / Expired), Client, How it signed in, IP
+  address (last, plus "Signed in from <ip>"), Granted, Last used ("Never"),
+  then Expires (active) or Ended (`ended_at ?? expires_at`). Hooks:
+  `li[data-slot="device-row"][data-session-id][data-status][data-current]`,
+  `[data-slot="device-status"]`, `[data-slot="this-device"]`,
+  `ul[data-slot="active-devices"|"ended-devices"]`,
+  `[data-slot="sign-out-others"]`.
+- Every action is behind a `ConfirmDialog`: "Revoke" → "Revoke access";
+  the CURRENT row's "Sign out" → "Sign out" → `DELETE /users/me/sessions/{id}`
+  (the server clears both cookies) → `window.location.assign("/login")` —
+  NOT `useAuth().logout`, which goes to `/`. "Sign out all other devices" →
+  `POST /users/me/sessions/revoke-others`, `aria-disabled` (still focusable,
+  described by "No other device is signed in.") when nothing else is active.
+- Name clashes for e2e (substring match): "Sign out" is inside "Sign out all
+  other devices"; "Revoke" inside "Revoke access"; "Active" is the h2 and
+  every badge; a web row's name equals its client label. Use `exact: true`,
+  the data hooks, and scope confirms to `getByRole("alertdialog")`.
 
 ### Admin — Discord webhooks (`app/(protected)/admin/discord-webhooks/`, KODI-027)
 

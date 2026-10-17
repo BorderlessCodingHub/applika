@@ -1,15 +1,19 @@
+import platform
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from http.cookiejar import CookieJar, DefaultCookiePolicy
 from typing import Any
-from urllib.parse import urlparse
 
 import httpx
 
-from applika.lib.session import (
-    SessionData,
-    SessionStore,
-    expiry_from_access_token,
-)
+from applika.commands.version import installed_version
+from applika.lib.session import SessionData, SessionStore
+
+REFRESH_TOKEN_GRANT = 'refresh_token'
+# Answers that mean "try again later": the stored session is kept (fail
+# closed, ADR-0019 / KODI-060).
+TRANSIENT_STATUSES = (429, 503)
+DEFAULT_RETRY_AFTER_SECONDS = 5
 
 
 class ApiError(RuntimeError):
@@ -30,6 +34,40 @@ def require_session(store: SessionStore) -> SessionData:
     return session
 
 
+def user_agent() -> str:
+    return f'applika-cli/{installed_version()} ({platform.system()})'
+
+
+class _NoCookies(DefaultCookiePolicy):
+    """1.1.0 authenticates with ``Authorization: Bearer`` only: a cookie
+    the server sets is never stored and never sent back."""
+
+    def set_ok(self, cookie, request) -> bool:
+        return False
+
+    def return_ok(self, cookie, request) -> bool:
+        return False
+
+
+def open_client(
+    api_base_url: str,
+    transport: httpx.BaseTransport | None = None,
+    access_token: str | None = None,
+) -> httpx.Client:
+    """An httpx client with the CLI's User-Agent and no cookie jar; with
+    ``access_token`` it also sends ``Authorization: Bearer``."""
+    headers = {'User-Agent': user_agent()}
+    if access_token:
+        headers['Authorization'] = f'Bearer {access_token}'
+    return httpx.Client(
+        base_url=api_base_url,
+        transport=transport,
+        timeout=30,
+        headers=headers,
+        cookies=CookieJar(policy=_NoCookies()),
+    )
+
+
 @dataclass
 class ApiClient:
     session: SessionData
@@ -37,57 +75,41 @@ class ApiClient:
     transport: httpx.BaseTransport | None = None
 
     def __post_init__(self):
-        parsed = urlparse(self.session.api_base_url)
-        self.cookie_domain = parsed.hostname
-        self.client = httpx.Client(
-            base_url=self.session.api_base_url,
-            transport=self.transport,
-            timeout=30,
+        self.client = open_client(
+            self.session.api_base_url,
+            self.transport,
+            self.session.access_token,
         )
-        self._set_cookie('__access', self.session.access_token)
-        self._set_cookie('__refresh', self.session.refresh_token)
 
     def close(self) -> None:
         self.client.close()
 
-    def _set_cookie(self, name: str, value: str) -> None:
-        self.client.cookies.set(
-            name,
-            value,
-            domain=self.cookie_domain,
-            path='/',
-        )
-
-    def _save_session(self) -> None:
-        access_token = self.client.cookies.get(
-            '__access',
-            domain=self.cookie_domain,
-            path='/',
-        )
-        refresh_token = self.client.cookies.get(
-            '__refresh',
-            domain=self.cookie_domain,
-            path='/',
-        )
-        if not access_token or not refresh_token:
-            self.store.clear()
-            raise AuthError('Please run `applika login` again.')
-        self.session = SessionData(
-            api_base_url=self.session.api_base_url,
-            access_token=access_token,
-            refresh_token=refresh_token,
-            access_expires_at=expiry_from_access_token(access_token),
-        )
-        self.store.save(self.session)
-
     def _refresh(self) -> bool:
-        response = self.client.get('/auth/refresh')
-        if response.status_code == 429:
-            raise ApiError(_extract_error_detail(response), 429)
+        """``POST /auth/token`` refresh grant. 429/503 keep the session and
+        raise ``ApiError``; any other non-200 clears it (returns False)."""
+        response = self.client.post(
+            '/auth/token',
+            json={
+                'grant_type': REFRESH_TOKEN_GRANT,
+                'refresh_token': self.session.refresh_token,
+            },
+        )
+        if response.status_code in TRANSIENT_STATUSES:
+            raise ApiError(error_detail(response), response.status_code)
         if response.status_code != 200:
             self.store.clear()
             return False
-        self._save_session()
+        try:
+            self.session = session_from_token(
+                self.session.api_base_url, response.json()
+            )
+        except (ValueError, KeyError, TypeError):
+            self.store.clear()
+            return False
+        self.store.save(self.session)
+        self.client.headers['Authorization'] = (
+            f'Bearer {self.session.access_token}'
+        )
         return True
 
     def request(
@@ -120,7 +142,7 @@ class ApiClient:
                 retry=False,
             )
         if response.is_error:
-            detail = _extract_error_detail(response)
+            detail = error_detail(response)
             error_cls = AuthError if response.status_code == 401 else ApiError
             raise error_cls(detail, response.status_code)
         return response
@@ -169,11 +191,26 @@ class ApiClient:
         response = self.request(method, path)
         return response.content, dict(response.headers)
 
-    def logout(self) -> None:
+    def logout(self) -> int:
+        """``POST /auth/revoke`` the stored refresh token, then clear the
+        local session; returns the server's status.
+
+        Fail closed (owner decision D1): a 429, a 503 or no answer at all
+        means the server may still hold the session, so the local file is
+        kept and ``ApiError`` is raised for the user to retry. Any other
+        answer clears it (the value is no longer usable).
+        """
         try:
-            self.client.get('/auth/logout')
-        finally:
-            self.store.clear()
+            response = self.client.post(
+                '/auth/revoke',
+                json={'refresh_token': self.session.refresh_token},
+            )
+        except httpx.TransportError as exc:
+            raise ApiError(f'Could not reach the server ({exc}).') from exc
+        if response.status_code in TRANSIENT_STATUSES:
+            raise ApiError(error_detail(response), response.status_code)
+        self.store.clear()
+        return response.status_code
 
 
 def create_session_from_exchange(
@@ -189,6 +226,39 @@ def create_session_from_exchange(
         refresh_token=payload['refresh_token'],
         access_expires_at=expires_at.isoformat(),
     )
+
+
+def session_from_token(
+    api_base_url: str,
+    payload: dict[str, Any],
+) -> SessionData:
+    """The four-key session from a ``POST /auth/token`` answer; the file
+    keeps the 1.0.1 shape so an older CLI can still read it."""
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        seconds=int(payload['expires_in'])
+    )
+    return SessionData(
+        api_base_url=api_base_url.rstrip('/'),
+        access_token=payload['access_token'],
+        refresh_token=payload['refresh_token'],
+        access_expires_at=expires_at.isoformat(),
+    )
+
+
+def retry_after_seconds(response: httpx.Response) -> int:
+    try:
+        return max(0, int(response.headers.get('retry-after', '')))
+    except ValueError:
+        return DEFAULT_RETRY_AFTER_SECONDS
+
+
+def error_detail(response: httpx.Response) -> str:
+    """The API's ``detail``; a 503 also says when to try again."""
+    detail = _extract_error_detail(response)
+    if response.status_code == 503:
+        seconds = retry_after_seconds(response)
+        detail = f'{detail.rstrip(".")}. Try again in {seconds} seconds.'
+    return detail
 
 
 def _extract_error_detail(response: httpx.Response) -> str:

@@ -11,7 +11,8 @@ description: >
 # applika-cli Usage Guide
 
 `applika-cli` is a terminal tool for tracking job applications on Applika.dev.
-It uses GitHub OAuth for login and stores a session cookie locally.
+It signs in with GitHub, gets a session of its own (a device in the web
+profile's Devices tab) and stores it locally, sent as `Authorization: Bearer`.
 
 ## 1. Pre-flight: Verify authentication first
 
@@ -29,28 +30,46 @@ If `whoami` prints an auth error, run login before proceeding:
 applika login
 ```
 
-`applika login` opens the user's browser to GitHub OAuth. The CLI listens on a
-local loopback port for the OAuth callback — the user just clicks "Authorize"
-in the browser and the session is saved automatically.
+`applika login` opens the user's browser to GitHub. The sign-in is protected
+by PKCE and comes back to a local loopback callback — the user just clicks
+"Authorize" in the browser and the session is saved automatically. It prints
+`Logged in as <username> on <device_name>`.
 
-**Important:** this is a browser-based flow. Claude cannot automate it. Tell
-the user to complete the browser step and confirm when done, then re-run
-`applika whoami` to verify the session is active.
+- `applika login --manual`: the browser cannot reach the local callback
+  (remote desktop, another machine). The CLI prints a URL; the browser shows a
+  `code#state` value with a Copy button; the user pastes it at the prompt.
+- `applika login --device`: no browser on this machine (SSH, container). The
+  CLI prints a web address and a short code (`XXXX-XXXX`); the user approves
+  it in any browser where they are signed in to Applika. The code lasts 10
+  minutes.
+- `--device-name "Work laptop"` names the device (default: the host name).
+
+**Important:** every flow needs the user in a browser. Claude cannot automate
+it. Tell the user to complete the browser step and confirm when done, then
+re-run `applika whoami` to verify the session is active.
 
 ### Login failure recovery
 
 | Symptom | Cause | Action |
 |---------|-------|--------|
-| `Auth error: no session found` | Not logged in | Run `applika login` |
-| `Login state mismatch` | Stale callback URL | Retry `applika login` |
-| `401` on exchange | Code expired in browser | Retry `applika login` |
-| Browser doesn't open | Headless environment | Copy the printed URL manually |
+| ``Please run `applika login` first.`` | Not logged in | Run `applika login` |
+| ``Please run `applika login` again.`` | Session ended (logged out, revoked in Devices, expired) | Run `applika login` |
+| `Login state mismatch` | Stale callback or pasted value | Retry `applika login` |
+| `Invalid or expired code` on the token exchange | Code used or older than 60 s | Retry `applika login` |
+| Browser doesn't open | Headless environment | Copy the printed URL, or use `applika login --device` |
+| `The device code expired ...` / `The sign-in was denied ...` | `--device` code not approved in time, or denied | Run `applika login --device` again |
+| `Session service unavailable. Try again in 5 seconds.` | Server outage; the session is kept | Wait and re-run the command |
 
 ### Logout
 
 ```bash
 applika logout
 ```
+
+`applika logout` ends the session on the server, then clears it locally. If
+the server cannot end it (503, 429, no network) the session is kept and the
+command exits 1: re-run it later, or revoke the device in the web profile's
+Devices tab.
 
 ---
 

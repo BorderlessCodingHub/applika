@@ -71,6 +71,18 @@ class Settings(BaseSettings):
 
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Device sessions and CLI sign-in (KODI-057, ADR-0019). A device code
+    # lives DEVICE_CODE_TTL_SECONDS and is polled no faster than every
+    # DEVICE_CODE_POLL_INTERVAL_SECONDS. DEVICE_VERIFICATION_URI is the web
+    # page that approves a device code; CLI_MANUAL_REDIRECT_URI is the web
+    # page that shows a PKCE code to paste (``redirect_uri=oob``). Ended
+    # devices stay listed SESSION_HISTORY_DAYS after they end.
+    DEVICE_CODE_TTL_SECONDS: int = 600
+    DEVICE_CODE_POLL_INTERVAL_SECONDS: int = 10
+    DEVICE_VERIFICATION_URI: str = 'http://127.0.0.1:8080/device'
+    CLI_MANUAL_REDIRECT_URI: str = 'http://127.0.0.1:8080/cli/code'
+    SESSION_HISTORY_DAYS: int = 30
+
     REDIS_URL: str = 'redis://localhost:6379/0'
     GITHUB_CACHE_TTL_SECONDS: int = 600  # 10 minutes
 

@@ -3,6 +3,8 @@ from fastapi.responses import JSONResponse
 
 from app.core import exceptions
 
+SESSION_RETRY_AFTER_SECONDS = 5
+
 # Every handler below is typed ``exc: Exception`` and narrows with an
 # ``assert isinstance(...)`` rather than the exact exception subclass.
 # Starlette's ``add_exception_handler`` declares its ``handler`` parameter as
@@ -65,6 +67,38 @@ async def _service_unavailable_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=503, content={'detail': exc.message})
 
 
+async def _session_service_unavailable_handler(
+    request: Request, exc: Exception
+):
+    # Fail closed (ADR-0019): 503 + Retry-After, never 401 - a 401 would
+    # send the web and every CLI to refresh, and a failed refresh signs
+    # them out.
+    assert isinstance(exc, exceptions.SessionServiceUnavailable)
+    return JSONResponse(
+        status_code=503,
+        content={'detail': exc.message},
+        headers={'Retry-After': str(SESSION_RETRY_AFTER_SECONDS)},
+    )
+
+
+async def _invalid_session_handler(request: Request, exc: Exception):
+    assert isinstance(exc, exceptions.InvalidSession)
+    return JSONResponse(status_code=401, content={'detail': exc.message})
+
+
+async def _invalid_request_handler(request: Request, exc: Exception):
+    assert isinstance(exc, exceptions.InvalidRequest)
+    return JSONResponse(status_code=400, content={'detail': exc.message})
+
+
+async def _oauth_error_handler(request: Request, exc: Exception):
+    assert isinstance(exc, exceptions.OAuthError)
+    return JSONResponse(
+        status_code=400,
+        content={'error': exc.error, 'detail': exc.message},
+    )
+
+
 def register_handlers(app: FastAPI):
     """Register all errors handlers for the app"""
     app.add_exception_handler(NotImplementedError, _not_implemented_handler)
@@ -92,4 +126,17 @@ def register_handlers(app: FastAPI):
     )
     app.add_exception_handler(
         exceptions.ServiceUnavailable, _service_unavailable_handler
+    )
+    # Starlette picks the handler by the exception's MRO, so the subclass
+    # wins over ``ServiceUnavailable`` whatever the registration order.
+    app.add_exception_handler(
+        exceptions.SessionServiceUnavailable,
+        _session_service_unavailable_handler,
+    )
+    app.add_exception_handler(
+        exceptions.InvalidSession, _invalid_session_handler
+    )
+    app.add_exception_handler(exceptions.OAuthError, _oauth_error_handler)
+    app.add_exception_handler(
+        exceptions.InvalidRequest, _invalid_request_handler
     )

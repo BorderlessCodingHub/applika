@@ -16,6 +16,7 @@ import { TimelineService } from "@/services/implementations/timeline-service";
 import { JobService } from "@/services/implementations/job-service";
 import { JobSearchService } from "@/services/implementations/job-search-service";
 import { FeatureService } from "@/services/implementations/feature-service";
+import { SessionService } from "@/services/implementations/session-service";
 
 class ServiceContainer {
   admin = new AdminService();
@@ -36,6 +37,7 @@ class ServiceContainer {
   jobs = new JobService();
   jobSearches = new JobSearchService();
   features = new FeatureService();
+  sessions = new SessionService();
 }
 
 export const services = new ServiceContainer();

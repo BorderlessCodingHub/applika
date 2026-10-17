@@ -3,7 +3,7 @@ import { AxiosError } from "axios";
 import { toast } from "sonner";
 
 import { getApiError } from "@/lib/api-client";
-import { isRateLimited, rateLimitNotice, retryAfterMs } from "@/lib/rate-limit";
+import { isTemporary, rateLimitNotice, retryAfterMs } from "@/lib/rate-limit";
 import { services } from "@/services/services";
 import { UpdateUserPayload } from "@/services/types/users";
 
@@ -14,10 +14,11 @@ export function useUserProfile(enabled = true) {
     queryKey: USER_QUERY_KEY,
     queryFn: () => services.users.getMe(),
     enabled,
-    // Same 429 exception as the auth refresh query (T040): a `/users/me`
-    // refetch refused with 429 must not flip `isUserError`, or AuthContext
-    // would sign a still-valid session out (R-024).
-    retry: (_failureCount, error) => isRateLimited(error),
+    // Same 429/503 exception as the auth refresh query (T040, KODI-058): a
+    // `/users/me` refetch refused with 429 or 503 must not flip
+    // `isUserError`, or AuthContext would sign a still-valid session out
+    // (R-024, ADR-0019).
+    retry: (_failureCount, error) => isTemporary(error),
     retryDelay: (_failureCount, error) => retryAfterMs(error),
   });
 }

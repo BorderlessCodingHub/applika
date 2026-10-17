@@ -1,4 +1,5 @@
 import json
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 import pytest
@@ -10,6 +11,8 @@ import applika.commands.auth as auth_commands
 import applika.commands.skill as skill_module
 import applika.commands.version as version_module
 from applika.app import app
+from applika.lib import device_flow, pkce
+from applika.lib.session import SessionData, SessionStore
 
 
 def _setup_auth(monkeypatch, session=None):
@@ -18,11 +21,6 @@ def _setup_auth(monkeypatch, session=None):
     reset_fake_client()
     monkeypatch.setattr(auth_commands, 'ApiClient', FakeApiClient)
     return store
-
-
-def _response(status_code: int, *, json_data=None, url: str):
-    request = httpx.Request('POST', url)
-    return httpx.Response(status_code, json=json_data, request=request)
 
 
 def _setup(monkeypatch, session=None):
@@ -816,85 +814,6 @@ def test_applications_finalize_rejects_non_strict_steps(monkeypatch, runner):
     assert 'Unknown step.' in result.output
 
 
-def test_login_error_on_state_mismatch(monkeypatch, runner):
-    store = FakeStore()
-    monkeypatch.setattr(cli_app, 'SessionStore', lambda: store)
-
-    class FakeServer:
-        def __init__(self, expected_state):
-            self.callback_url = 'http://127.0.0.1:43129/callback'
-
-        def start(self):
-            return None
-
-        def wait_for_code(self, timeout_seconds):
-            raise RuntimeError('Login state mismatch')
-
-        def close(self):
-            return None
-
-    responses = [
-        _response(
-            201,
-            json_data={'login_url': 'https://example.com/login'},
-            url='http://127.0.0.1:8000/api/auth/cli/start',
-        )
-    ]
-    monkeypatch.setattr(auth_commands, 'LoopbackLoginServer', FakeServer)
-    monkeypatch.setattr(auth_commands.webbrowser, 'open', lambda url: True)
-    monkeypatch.setattr(
-        auth_commands.httpx, 'post', lambda *a, **kw: responses.pop(0)
-    )
-
-    result = runner.invoke(app, ['login'])
-
-    assert result.exit_code == 1
-    assert store.saved is None
-    assert 'Login state mismatch' in result.output
-
-
-def test_login_error_when_exchange_fails(monkeypatch, runner):
-    store = FakeStore()
-    monkeypatch.setattr(cli_app, 'SessionStore', lambda: store)
-
-    class FakeServer:
-        def __init__(self, expected_state):
-            self.callback_url = 'http://127.0.0.1:43129/callback'
-
-        def start(self):
-            return None
-
-        def wait_for_code(self, timeout_seconds):
-            return 'exchange-code'
-
-        def close(self):
-            return None
-
-    responses = [
-        _response(
-            201,
-            json_data={'login_url': 'https://example.com/login'},
-            url='http://127.0.0.1:8000/api/auth/cli/start',
-        ),
-        _response(
-            401,
-            json_data={'detail': 'Invalid or expired CLI exchange code'},
-            url='http://127.0.0.1:8000/api/auth/cli/exchange',
-        ),
-    ]
-    monkeypatch.setattr(auth_commands, 'LoopbackLoginServer', FakeServer)
-    monkeypatch.setattr(auth_commands.webbrowser, 'open', lambda url: True)
-    monkeypatch.setattr(
-        auth_commands.httpx, 'post', lambda *a, **kw: responses.pop(0)
-    )
-
-    result = runner.invoke(app, ['login'])
-
-    assert result.exit_code == 1
-    assert store.saved is None
-    assert '401' in result.output
-
-
 def test_whoami_prints_user_info(monkeypatch, runner):
     _setup_auth(monkeypatch)
     FakeApiClient.whoami_response = {
@@ -1051,3 +970,588 @@ def test_skill_force_overwrites(monkeypatch, runner, tmp_path):
 
     assert result.exit_code == 0
     assert (dest / 'SKILL.md').exists()
+
+
+# --- KODI-060: login (browser PKCE, --manual, --device), logout ---------
+
+API = 'http://127.0.0.1:8000/api'
+TOKEN_ANSWER = {
+    'access_token': 'new-access',
+    'token_type': 'Bearer',
+    'expires_in': 900,
+    'refresh_token': 'new-refresh',
+    'refresh_expires_in': 604800,
+}
+DEVICE_ANSWER = {
+    'device_code': 'dev-code',
+    'user_code': 'ABCD-EFGH',
+    'verification_uri': 'http://127.0.0.1:3000/devices/approve',
+    'verification_uri_complete': (
+        'http://127.0.0.1:3000/devices/approve?user_code=ABCD-EFGH'
+    ),
+    'expires_in': 600,
+    'interval': 10,
+}
+
+
+class FakeApi:
+    """A MockTransport router: records every request, answers by path."""
+
+    def __init__(self, answers=None):
+        self.requests: list[httpx.Request] = []
+        self.answers = {
+            '/api/auth/revoke': [httpx.Response(204)],
+            '/api/auth/token': [httpx.Response(200, json=TOKEN_ANSWER)],
+            '/api/auth/device/code': [httpx.Response(200, json=DEVICE_ANSWER)],
+            '/api/users/me': [httpx.Response(200, json={'username': 'luis'})],
+        }
+        self.answers.update(answers or {})
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        request.read()
+        self.requests.append(request)
+        queue = self.answers.get(request.url.path)
+        if not queue:
+            raise AssertionError(f'Unexpected request: {request.url}')
+        answer = queue.pop(0) if len(queue) > 1 else queue[0]
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    def paths(self) -> list[str]:
+        return [r.url.path for r in self.requests]
+
+    def bodies(self, path: str) -> list[dict]:
+        return [
+            json.loads(r.content) for r in self.requests if r.url.path == path
+        ]
+
+
+class FakeLoopback:
+    instances: list['FakeLoopback'] = []
+    code: str | None = 'the-code'
+    error: str | None = None
+
+    def __init__(self, expected_state):
+        self.expected_state = expected_state
+        self.callback_url = 'http://127.0.0.1:43129/callback'
+        self.closed = False
+        FakeLoopback.instances.append(self)
+
+    def start(self):
+        return None
+
+    def wait_for_code(self, timeout_seconds):
+        if FakeLoopback.error:
+            raise RuntimeError(FakeLoopback.error)
+        return FakeLoopback.code
+
+    def close(self):
+        self.closed = True
+
+
+@pytest.fixture
+def login_env(monkeypatch, tmp_path):
+    """Real SessionStore under tmp_path, a FakeApi transport, a fake
+    loopback server, a recorded webbrowser.open, host name 'dev-box', and
+    no real sleeping in the device flow."""
+    store = SessionStore(tmp_path / 'session.json')
+    monkeypatch.setattr(cli_app, 'SessionStore', lambda: store)
+    api = FakeApi()
+    monkeypatch.setattr(auth_commands, '_transport', httpx.MockTransport(api))
+    FakeLoopback.instances = []
+    FakeLoopback.code = 'the-code'
+    FakeLoopback.error = None
+    monkeypatch.setattr(auth_commands, 'LoopbackLoginServer', FakeLoopback)
+    opened: list[str] = []
+    monkeypatch.setattr(
+        auth_commands.webbrowser, 'open', lambda url: opened.append(url)
+    )
+    monkeypatch.setattr(auth_commands.socket, 'gethostname', lambda: 'dev-box')
+    monkeypatch.setattr(device_flow.time, 'sleep', lambda seconds: None)
+
+    class Env:
+        pass
+
+    env = Env()
+    env.store = store
+    env.api = api
+    env.opened = opened
+    return env
+
+
+def _saved_session(store) -> SessionData:
+    session = SessionData(
+        api_base_url=API,
+        access_token='old-access',
+        refresh_token='old-refresh',
+        access_expires_at='2026-05-08T10:00:00+00:00',
+    )
+    store.save(session)
+    return session
+
+
+def _query(url: str) -> dict[str, str]:
+    return {k: v[0] for k, v in parse_qs(urlparse(url).query).items()}
+
+
+def test_login_default_is_pkce_through_the_loopback(login_env, runner):
+    """AC1: browser authorization with an S256 challenge, back on the
+    local callback; the code + verifier buy a session of the CLI's own."""
+    result = runner.invoke(app, ['--api-base-url', API, 'login'])
+
+    assert result.exit_code == 0, result.output
+    [url] = login_env.opened
+    assert url.startswith(f'{API}/auth/cli/authorize?')
+    query = _query(url)
+    server = FakeLoopback.instances[0]
+    assert query['redirect_uri'] == server.callback_url
+    assert query['code_challenge_method'] == 'S256'
+    assert query['state'] == server.expected_state
+    assert server.closed
+    [body] = login_env.api.bodies('/api/auth/token')
+    assert body['grant_type'] == 'authorization_code'
+    assert body['code'] == 'the-code'
+    assert body['redirect_uri'] == server.callback_url
+    assert body['device_name'] == 'dev-box'
+    assert pkce.s256_challenge(body['code_verifier']) == query['code_challenge']
+    assert url in result.output
+    saved = login_env.store.load()
+    assert saved.access_token == 'new-access'
+    assert saved.refresh_token == 'new-refresh'
+    assert saved.api_base_url == API
+    me = [r for r in login_env.api.requests if r.url.path == '/api/users/me']
+    assert me[0].headers['authorization'] == 'Bearer new-access'
+    assert 'cookie' not in me[0].headers
+    assert 'Logged in as luis on dev-box' in result.stdout
+    assert not any(
+        p.startswith('/api/auth/cli/start') or p.endswith('/exchange')
+        for p in login_env.api.paths()
+    )
+
+
+def test_login_sends_the_cli_user_agent(login_env, runner):
+    result = runner.invoke(app, ['--api-base-url', API, 'login'])
+
+    assert result.exit_code == 0, result.output
+    for request in login_env.api.requests:
+        assert request.headers['user-agent'].startswith('applika-cli/')
+
+
+def test_login_error_on_state_mismatch(login_env, runner):
+    FakeLoopback.error = 'Login state mismatch'
+
+    result = runner.invoke(app, ['--api-base-url', API, 'login'])
+
+    assert result.exit_code == 1
+    assert 'Login state mismatch' in result.stderr
+    assert login_env.store.try_load() is None
+    assert login_env.api.paths() == []
+
+
+def test_login_error_when_token_exchange_fails(login_env, runner):
+    login_env.api.answers['/api/auth/token'] = [
+        httpx.Response(
+            400,
+            json={
+                'error': 'invalid_grant',
+                'detail': 'Invalid or expired code',
+            },
+        )
+    ]
+
+    result = runner.invoke(app, ['--api-base-url', API, 'login'])
+
+    assert result.exit_code == 1
+    assert 'Invalid or expired code' in result.stderr
+    assert login_env.store.try_load() is None
+
+
+def test_login_manual_pastes_code_and_checks_state(
+    login_env, runner, monkeypatch
+):
+    """AC3: ``--manual`` uses redirect_uri=oob, prompts for the
+    ``code#state`` the browser shows, checks the state, then exchanges."""
+    monkeypatch.setattr(auth_commands.pkce, 'generate_state', lambda: 'st8')
+
+    result = runner.invoke(
+        app,
+        ['--api-base-url', API, 'login', '--manual'],
+        input='pasted-code#st8\n',
+    )
+
+    assert result.exit_code == 0, result.output
+    assert login_env.opened == []
+    assert 'Paste the code shown in the browser:' in result.output
+    printed = next(
+        line for line in result.output.splitlines() if 'authorize?' in line
+    )
+    query = _query(printed)
+    assert query['redirect_uri'] == 'oob'
+    assert query['state'] == 'st8'
+    assert query['code_challenge_method'] == 'S256'
+    [body] = login_env.api.bodies('/api/auth/token')
+    assert body['code'] == 'pasted-code'
+    assert body['redirect_uri'] == 'oob'
+    assert body['device_name'] == 'dev-box'
+    assert pkce.s256_challenge(body['code_verifier']) == query['code_challenge']
+    assert FakeLoopback.instances == []
+    assert 'Logged in as luis on dev-box' in result.stdout
+
+
+@pytest.mark.parametrize(
+    ('pasted', 'message'),
+    [
+        ('pasted-code#other-state', 'Login state mismatch'),
+        ('pasted-code', 'code#state'),
+        ('#st8', 'code#state'),
+    ],
+)
+def test_login_manual_rejects_a_bad_paste(
+    login_env, runner, monkeypatch, pasted, message
+):
+    monkeypatch.setattr(auth_commands.pkce, 'generate_state', lambda: 'st8')
+
+    result = runner.invoke(
+        app,
+        ['--api-base-url', API, 'login', '--manual'],
+        input=f'{pasted}\n',
+    )
+
+    assert result.exit_code == 1
+    assert message in result.stderr
+    assert '/api/auth/token' not in login_env.api.paths()
+    assert login_env.store.try_load() is None
+
+
+def test_login_device_shows_code_and_polls_until_approved(login_env, runner):
+    """AC2: ``--device`` prints the short code and the web address, polls
+    POST /auth/token and gets a session of its own."""
+    login_env.api.answers['/api/auth/token'] = [
+        httpx.Response(
+            400, json={'error': 'authorization_pending', 'detail': 'pending'}
+        ),
+        httpx.Response(200, json=TOKEN_ANSWER),
+    ]
+
+    result = runner.invoke(app, ['--api-base-url', API, 'login', '--device'])
+
+    assert result.exit_code == 0, result.output
+    assert 'ABCD-EFGH' in result.stdout
+    assert DEVICE_ANSWER['verification_uri'] in result.stdout
+    assert DEVICE_ANSWER['verification_uri_complete'] in result.stdout
+    assert login_env.api.bodies('/api/auth/device/code') == [
+        {'device_name': 'dev-box'}
+    ]
+    bodies = login_env.api.bodies('/api/auth/token')
+    assert len(bodies) == 2
+    assert bodies[0] == {
+        'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
+        'device_code': 'dev-code',
+    }
+    assert login_env.opened == []
+    assert login_env.store.load().access_token == 'new-access'
+    assert 'Logged in as luis on dev-box' in result.stdout
+
+
+def test_login_device_denied_exits_1(login_env, runner):
+    login_env.api.answers['/api/auth/token'] = [
+        httpx.Response(400, json={'error': 'access_denied', 'detail': 'no'})
+    ]
+
+    result = runner.invoke(app, ['--api-base-url', API, 'login', '--device'])
+
+    assert result.exit_code == 1
+    assert 'denied' in result.stderr
+    assert login_env.store.try_load() is None
+
+
+def test_login_device_expired_exits_1(login_env, runner):
+    login_env.api.answers['/api/auth/token'] = [
+        httpx.Response(400, json={'error': 'expired_token', 'detail': 'gone'})
+    ]
+
+    result = runner.invoke(app, ['--api-base-url', API, 'login', '--device'])
+
+    assert result.exit_code == 1
+    assert 'applika login --device' in result.stderr
+
+
+@pytest.mark.parametrize('flags', [[], ['--manual'], ['--device']])
+def test_login_device_name_is_sent(login_env, runner, monkeypatch, flags):
+    """AC5: a given ``--device-name`` replaces the host name, on every
+    flow."""
+    monkeypatch.setattr(auth_commands.pkce, 'generate_state', lambda: 'st8')
+
+    result = runner.invoke(
+        app,
+        ['--api-base-url', API, 'login', *flags, '--device-name', ' Work PC '],
+        input='c#st8\n',
+    )
+
+    assert result.exit_code == 0, result.output
+    path = (
+        '/api/auth/device/code' if flags == ['--device'] else '/api/auth/token'
+    )
+    assert login_env.api.bodies(path)[0]['device_name'] == 'Work PC'
+    assert 'Logged in as luis on Work PC' in result.stdout
+
+
+@pytest.mark.parametrize(
+    ('host', 'expected'),
+    [
+        ('dev-box', 'dev-box'),
+        ('h' * 150, 'h' * 100),
+        ('', 'applika-cli'),
+        ('   ', 'applika-cli'),
+    ],
+)
+def test_login_device_name_defaults_to_the_host_name(
+    login_env, runner, monkeypatch, host, expected
+):
+    monkeypatch.setattr(auth_commands.socket, 'gethostname', lambda: host)
+
+    result = runner.invoke(app, ['--api-base-url', API, 'login', '--device'])
+
+    assert result.exit_code == 0, result.output
+    assert login_env.api.bodies('/api/auth/device/code') == [
+        {'device_name': expected}
+    ]
+
+
+@pytest.mark.parametrize('name', ['x' * 101, '', '   '])
+def test_login_rejects_a_bad_device_name_before_any_request(
+    login_env, runner, name
+):
+    _saved_session(login_env.store)
+
+    result = runner.invoke(
+        app, ['--api-base-url', API, 'login', '--device-name', name]
+    )
+
+    assert result.exit_code == 2
+    assert '--device-name' in result.output
+    assert login_env.api.paths() == []
+    assert login_env.store.load().access_token == 'old-access'
+
+
+def test_login_accepts_a_100_character_device_name(login_env, runner):
+    result = runner.invoke(
+        app,
+        [
+            '--api-base-url',
+            API,
+            'login',
+            '--device',
+            '--device-name',
+            'n' * 100,
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert login_env.api.bodies('/api/auth/device/code') == [
+        {'device_name': 'n' * 100}
+    ]
+
+
+def test_login_device_and_manual_together_is_a_usage_error(login_env, runner):
+    result = runner.invoke(
+        app, ['--api-base-url', API, 'login', '--device', '--manual']
+    )
+
+    assert result.exit_code == 2
+    assert login_env.api.paths() == []
+
+
+def test_relogin_revokes_the_old_session_first(login_env, runner):
+    _saved_session(login_env.store)
+
+    result = runner.invoke(app, ['--api-base-url', API, 'login', '--device'])
+
+    assert result.exit_code == 0, result.output
+    paths = login_env.api.paths()
+    assert paths[0] == '/api/auth/revoke'
+    assert paths.index('/api/auth/revoke') < paths.index(
+        '/api/auth/device/code'
+    )
+    assert login_env.api.bodies('/api/auth/revoke') == [
+        {'refresh_token': 'old-refresh'}
+    ]
+    assert login_env.store.load().refresh_token == 'new-refresh'
+
+
+@pytest.mark.parametrize(
+    'answer',
+    [
+        httpx.Response(503, json={'detail': 'Session service unavailable'}),
+        httpx.Response(429, json={'detail': 'Too many requests'}),
+        httpx.ConnectError('down'),
+    ],
+)
+def test_relogin_goes_on_when_the_revoke_is_transient(
+    login_env, runner, answer
+):
+    _saved_session(login_env.store)
+    login_env.api.answers['/api/auth/revoke'] = [answer]
+
+    result = runner.invoke(app, ['--api-base-url', API, 'login', '--device'])
+
+    assert result.exit_code == 0, result.output
+    assert 'previous session could not be ended' in result.stderr
+    assert 'Devices tab' in result.stderr
+    assert login_env.store.load().refresh_token == 'new-refresh'
+
+
+def test_relogin_whose_new_sign_in_fails_drops_the_revoked_session(
+    login_env, runner
+):
+    _saved_session(login_env.store)
+    login_env.api.answers['/api/auth/token'] = [
+        httpx.Response(400, json={'error': 'access_denied', 'detail': 'no'})
+    ]
+
+    result = runner.invoke(app, ['--api-base-url', API, 'login', '--device'])
+
+    assert result.exit_code == 1
+    assert login_env.store.try_load() is None
+
+
+def test_logout_revokes_on_the_server_then_clears(login_env, runner):
+    """AC6: ``applika logout`` ends the CLI's own session on the server."""
+    _saved_session(login_env.store)
+
+    result = runner.invoke(app, ['logout'])
+
+    assert result.exit_code == 0, result.output
+    assert login_env.api.paths() == ['/api/auth/revoke']
+    assert login_env.api.bodies('/api/auth/revoke') == [
+        {'refresh_token': 'old-refresh'}
+    ]
+    assert login_env.api.requests[0].headers['authorization'] == (
+        'Bearer old-access'
+    )
+    assert result.stdout.strip() == 'Logged out.'
+    assert login_env.store.try_load() is None
+
+
+@pytest.mark.parametrize(
+    'answer',
+    [
+        httpx.Response(
+            503,
+            json={'detail': 'Session service unavailable'},
+            headers={'retry-after': '5'},
+        ),
+        httpx.Response(429, json={'detail': 'Too many requests'}),
+        httpx.ConnectError('connection refused'),
+    ],
+)
+def test_logout_keeps_the_session_when_the_server_cannot_end_it(
+    login_env, runner, answer
+):
+    """D1 fail closed: a 503, a 429 or no answer keeps session.json and
+    exits 1, so logout never claims an end the server did not make."""
+    _saved_session(login_env.store)
+    before = login_env.store.path.read_bytes()
+    login_env.api.answers['/api/auth/revoke'] = [answer]
+
+    result = runner.invoke(app, ['logout'])
+
+    assert result.exit_code == 1
+    assert 'could not end the session' in result.stderr
+    assert 'applika logout' in result.stderr
+    assert 'Devices tab' in result.stderr
+    assert 'Logged out.' not in result.output
+    assert login_env.store.path.read_bytes() == before
+
+
+@pytest.mark.parametrize('status', [400, 401, 422, 500])
+def test_logout_other_answer_clears_with_a_note(login_env, runner, status):
+    _saved_session(login_env.store)
+    login_env.api.answers['/api/auth/revoke'] = [
+        httpx.Response(status, json={'detail': 'x'})
+    ]
+
+    result = runner.invoke(app, ['logout'])
+
+    assert result.exit_code == 0, result.output
+    assert result.stdout.strip() == 'Logged out.'
+    assert f'answered {status}' in result.stderr
+    assert login_env.store.try_load() is None
+
+
+def test_login_profile_failure_still_keeps_the_new_session(login_env, runner):
+    login_env.api.answers['/api/users/me'] = [
+        httpx.Response(500, json={'detail': 'boom'})
+    ]
+
+    result = runner.invoke(app, ['--api-base-url', API, 'login', '--device'])
+
+    assert result.exit_code == 0, result.output
+    assert 'Logged in on dev-box.' in result.stdout
+    assert 'boom' in result.stderr
+    assert login_env.store.load().access_token == 'new-access'
+
+
+def test_login_whose_new_session_is_refused_at_once_exits_1(login_env, runner):
+    """/users/me 401 and a refused refresh: the session is gone, so the
+    login must not claim success."""
+    login_env.api.answers['/api/users/me'] = [
+        httpx.Response(401, json={'detail': 'Session expired'})
+    ]
+    login_env.api.answers['/api/auth/token'] = [
+        httpx.Response(200, json=TOKEN_ANSWER),
+        httpx.Response(400, json={'error': 'invalid_grant', 'detail': 'x'}),
+    ]
+
+    result = runner.invoke(app, ['--api-base-url', API, 'login', '--device'])
+
+    assert result.exit_code == 1
+    assert 'Logged in' not in result.stdout
+    assert 'applika login' in result.stderr
+    assert login_env.store.try_load() is None
+
+
+def test_login_manual_aborted_at_the_prompt_says_aborted(login_env, runner):
+    result = runner.invoke(
+        app, ['--api-base-url', API, 'login', '--manual'], input=''
+    )
+
+    assert result.exit_code == 1
+    assert 'Aborted' in result.output
+    assert '/api/auth/token' not in login_env.api.paths()
+
+
+def test_login_default_mentions_the_fallbacks(login_env, runner):
+    result = runner.invoke(app, ['--api-base-url', API, 'login'])
+
+    assert result.exit_code == 0, result.output
+    assert 'applika login --manual' in result.stdout
+    assert 'applika login --device' in result.stdout
+
+
+def test_root_help_still_lists_every_1_0_1_command_and_flag(runner):
+    """AC7: 1.1.0 only adds; every 1.0.1 command and root flag is there."""
+    result = runner.invoke(app, ['--help'])
+
+    assert result.exit_code == 0
+    for word in (
+        'login',
+        'logout',
+        'whoami',
+        'version',
+        'applications',
+        'cvs',
+        'skill',
+        '--api-base-url',
+        '--version',
+    ):
+        assert word in result.output
+
+
+def test_login_help_lists_the_new_flags(runner):
+    result = runner.invoke(app, ['login', '--help'])
+
+    assert result.exit_code == 0
+    for flag in ('--device', '--manual', '--device-name'):
+        assert flag in result.output

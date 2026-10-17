@@ -49,19 +49,33 @@ uv tool install --force --editable .
 
 ## Authentication
 
-The CLI authenticates via GitHub OAuth. On `applika login`, your browser opens to GitHub's authorization page. Once you authorize, the callback is captured locally on a loopback port and the session (access + refresh tokens) is saved to `~/.config/applika/session.json`. The session refreshes automatically on expiry — you only need to log in once per device. A refresh refused with 429 keeps the session; run the command again after the wait.
+The CLI signs in with GitHub and gets a session of its own: each sign-in is a device listed in your web profile's **Devices** tab, where you can revoke it. The session (access + refresh tokens) is saved to `~/.config/applika/session.json` and the access token is sent as `Authorization: Bearer`. It refreshes automatically — you only need to log in once per device.
 
 ```bash
-# Open browser and complete GitHub OAuth
+# Default: your browser opens; the sign-in comes back to a local callback (PKCE)
 applika login
+
+# The browser cannot reach this machine's callback: paste the code#state it shows
+applika login --manual
+
+# No browser on this machine (SSH, container): approve a short code elsewhere
+applika login --device
+# → To sign in, open: https://applika.dev/device
+# → and enter the code: ABCD-EFGH
+
+# Name the device (default: the host name, at most 100 characters)
+applika login --device-name "Work laptop"
+# → Logged in as luissoares on Work laptop
 
 # Verify the active session without making any other API call
 applika whoami
 # → Logged in as: username=luissoares  name=Luis Soares  email=luis@example.com
 
-# Revoke the session server-side and clear local storage
+# End the session on the server, then clear local storage
 applika logout
 ```
+
+Logging in again ends the previous session first. If the server answers "Session service unavailable" (503) or "Too many requests" (429), the stored session is kept: run the command again after the wait. `applika logout` in that case keeps the session too and exits 1 — run it again later, or revoke the device in the web profile's Devices tab.
 
 > `applika whoami` is the recommended pre-flight check. Run it before any other command, especially in scripts or AI-assisted workflows, to confirm a valid session exists before hitting the API.
 
@@ -630,13 +644,15 @@ cli/
         │   └── supports.py      # SupportSchema — platforms and companies from /supports
         │
         ├── lib/                 # Infrastructure — no Typer dependency
-        │   ├── api.py           # ApiClient (httpx + cookie auth), ApiError, AuthError;
+        │   ├── api.py           # ApiClient (httpx + Authorization: Bearer, no cookies), ApiError, AuthError;
         │   │                    #   post() sends no body at all when payload is None;
         │   │                    #   patch_json() and fetch_raw() -> (bytes, headers)
         │   ├── cv_file.py       # --file loading (JSON/YAML/stdin) and local validation
         │   ├── download.py      # --type/--dir/--filename/--force naming rules
         │   ├── session.py       # SessionData, SessionStore (~/.config/applika/session.json)
-        │   └── loopback.py      # LoopbackLoginServer for OAuth browser callback
+        │   ├── loopback.py      # LoopbackLoginServer for OAuth browser callback
+        │   ├── pkce.py          # PKCE verifier, S256 challenge, state
+        │   └── device_flow.py   # device code sign-in: start + poll
         │
         ├── utils/               # Pure helpers — no httpx, no Typer
         │   ├── output.py        # render_application_table, render_timeline_event_table,
@@ -645,7 +661,7 @@ cli/
         │                        #   render_cv_markdown_table
         │
         └── commands/
-            ├── auth.py          # login, logout, whoami commands
+            ├── auth.py          # login [--device] [--manual] [--device-name], logout, whoami
             ├── skill.py         # skill command — installs the AI skill
             ├── cv_shared.py     # behaviour shared by `cvs` and `applications cv`
             ├── cvs/             # cvs_app: list/get/create/edit/delete/download

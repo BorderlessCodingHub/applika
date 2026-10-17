@@ -23,18 +23,99 @@ from app.domain.repositories.user_repository import UserRepository
 from app.scripts import seed_e2e
 
 
+class FakePipeline:
+    """The MULTI ``SessionStore.open`` runs: SET, HSET, EXPIREAT."""
+
+    def __init__(self, redis_stub: 'FakeRedis'):
+        self.redis = redis_stub
+        self.ops: list[tuple] = []
+
+    def set(self, key: str, value: str, exat: int | None = None):
+        self.ops.append(('set', key, value, exat))
+
+    def hset(self, key: str, mapping: dict[str, str]):
+        self.ops.append(('hset', key, mapping))
+
+    def expireat(self, key: str, when: int):
+        self.ops.append(('expireat', key, when))
+
+    async def execute(self):
+        for op in self.ops:
+            if op[0] == 'set':
+                self.redis.store[op[1]] = op[2]
+                self.redis.expire_at[op[1]] = op[3]
+            elif op[0] == 'hset':
+                self.redis.hashes[op[1]] = dict(op[2])
+            else:
+                self.redis.expire_at[op[1]] = op[2]
+        return [True] * len(self.ops)
+
+
 class FakeRedis:
     """Minimal stand-in for the async Redis client the seeder uses."""
 
     def __init__(self):
         self.store: dict[str, str] = {}
+        self.hashes: dict[str, dict[str, str]] = {}
+        self.expire_at: dict[str, int | None] = {}
         self.closed = False
 
-    async def set(self, key: str, value: str, ex: int | None = None) -> None:
-        self.store[key] = value
+    def register_script(self, _source: str):
+        async def _unused(keys, args):
+            raise AssertionError('the seeder runs no script')
+
+        return _unused
+
+    def pipeline(self, transaction: bool = True) -> FakePipeline:
+        return FakePipeline(self)
 
     async def aclose(self) -> None:
         self.closed = True
+
+
+class FakeSessionRow:
+    def __init__(
+        self,
+        id: int,
+        *,
+        user_id: int,
+        client_type: str,
+        sign_in_method: str,
+        device_name: str,
+        user_agent: str | None,
+        ip: str | None,
+        expires_at,
+    ):
+        self.id = id
+        self.user_id = user_id
+        self.client_type = client_type
+        self.sign_in_method = sign_in_method
+        self.device_name = device_name
+        self.user_agent = user_agent
+        self.ip = ip
+        self.expires_at = expires_at
+
+
+class FakeUserSessionRepository:
+    """In-memory ``UserSessionRepository.create``."""
+
+    def __init__(self):
+        self.rows: list[FakeSessionRow] = []
+
+    async def create(self, **fields) -> FakeSessionRow:
+        row = FakeSessionRow(id=5000 + len(self.rows), **fields)
+        self.rows.append(row)
+        return row
+
+
+def _fake_sessions(monkeypatch) -> FakeUserSessionRepository:
+    """KODI-057: ``mint_session`` opens a real device session through
+    ``OpenSessionUseCase``; the row goes to this fake, the keys to
+    ``FakeRedis``."""
+    repo = FakeUserSessionRepository()
+    monkeypatch.setattr(seed_e2e, 'AsyncLocalSession', lambda: FakeSession())
+    monkeypatch.setattr(seed_e2e, 'UserSessionRepository', lambda s: repo)
+    return repo
 
 
 async def _no_reset(*_identities) -> None:
@@ -266,8 +347,13 @@ async def test_upsert_users_assigns_admin_flag_to_the_right_user(
     assert admin_row.is_admin is True
 
 
-async def test_minted_access_token_subject_is_the_github_id():
-    """The access token decodes and its sub is github_id, not the pk."""
+async def test_minted_session_is_a_real_device_session(monkeypatch):
+    """KODI-057: the access token's sub is the github_id and its sid the
+    session row's id; the refresh value is a uuid7 whose Redis key points
+    at that row, next to the session hash (ADR-0019)."""
+    import uuid
+
+    repo = _fake_sessions(monkeypatch)
     identity = seed_e2e.Identity(github_id=999000000001, user_id=4242)
     fake_redis = FakeRedis()
 
@@ -275,16 +361,59 @@ async def test_minted_access_token_subject_is_the_github_id():
         identity, cast(redis.Redis, fake_redis)
     )
 
+    [row] = repo.rows
+    assert row.user_id == identity.user_id
+    assert row.client_type == 'web'
+    assert row.sign_in_method == 'github_web'
+    assert row.device_name == 'Chrome on Linux'
+    assert row.ip == seed_e2e.E2E_IP
+
     payload = decode_token(access_token)
     assert payload['sub'] == str(identity.github_id)
     assert payload['kind'] == 'access'
-    # The refresh token resolves to the PRIMARY KEY, not the github_id.
-    key = f'applika:refresh_token:{refresh_token}'
-    assert fake_redis.store[key] == str(identity.user_id)
+    assert payload.get('sid') == str(row.id)
+
+    assert uuid.UUID(refresh_token).version == 7
+    assert fake_redis.store[f'applika:session:{refresh_token}'] == str(row.id)
+    session_hash = fake_redis.hashes[f'applika:session:id:{row.id}']
+    assert session_hash['rk'] == refresh_token
+    assert session_hash['user_id'] == str(identity.user_id)
+    assert session_hash['github_id'] == str(identity.github_id)
+    # Both keys end at the same instant.
+    assert (
+        fake_redis.expire_at[f'applika:session:{refresh_token}']
+        == fake_redis.expire_at[f'applika:session:id:{row.id}']
+    )
+    # Nothing reads or writes the pre-KODI-057 keys any more (R-023).
+    assert not any('refresh_token' in key for key in fake_redis.store)
 
 
-async def test_seed_returns_the_nine_contract_keys(monkeypatch):
-    """seed() returns all three sessions under the agreed contract keys."""
+async def test_minted_cli_session_is_named_and_typed(monkeypatch):
+    repo = _fake_sessions(monkeypatch)
+    identity = seed_e2e.Identity(github_id=999000000001, user_id=4242)
+
+    await seed_e2e.mint_session(
+        identity,
+        cast(redis.Redis, FakeRedis()),
+        client_type='cli',
+        sign_in_method='cli_device',
+        user_agent=seed_e2e.E2E_CLI_USER_AGENT,
+        device_name=seed_e2e.E2E_CLI_DEVICE_NAME,
+    )
+
+    [row] = repo.rows
+    assert (row.client_type, row.sign_in_method, row.device_name) == (
+        'cli',
+        'cli_device',
+        'e2e-cli',
+    )
+
+
+async def test_seed_returns_the_eleven_contract_keys(monkeypatch):
+    """seed() returns all three web sessions and e2e-user's CLI session
+    under the agreed contract keys (KODI-057: eleven, plan correction
+    4)."""
+    repo = _fake_sessions(monkeypatch)
     user = seed_e2e.Identity(github_id=999000000001, user_id=11)
     admin = seed_e2e.Identity(github_id=999000000002, user_id=22)
     discord_user = seed_e2e.Identity(github_id=999000000003, user_id=33)
@@ -309,8 +438,22 @@ async def test_seed_returns_the_nine_contract_keys(monkeypatch):
         'discord_user_id',
         'discord_access_token',
         'discord_refresh_token',
+        'cli_access_token',
+        'cli_refresh_token',
     }
     assert all(isinstance(value, str) for value in payload.values())
+    # Four sessions, the last one the CLI's, signed in as e2e-user.
+    assert [row.sign_in_method for row in repo.rows] == [
+        'github_web',
+        'github_web',
+        'github_web',
+        'cli_device',
+    ]
+    assert repo.rows[3].user_id == user.user_id
+    cli_payload = decode_token(payload['cli_access_token'])
+    assert cli_payload['sub'] == str(user.github_id)
+    assert cli_payload.get('sid') == str(repo.rows[3].id)
+    assert payload['cli_refresh_token'] != payload['refresh_token']
     assert payload['user_id'] == '11'
     assert payload['admin_user_id'] == '22'
     assert payload['discord_user_id'] == '33'
@@ -325,7 +468,7 @@ async def test_seed_returns_the_nine_contract_keys(monkeypatch):
 
 
 def test_main_prints_one_json_line_with_the_contract(monkeypatch, capsys):
-    """stdout is exactly one JSON line carrying the nine string keys."""
+    """stdout is exactly one JSON line carrying the eleven string keys."""
     user = seed_e2e.Identity(github_id=999000000001, user_id=11)
     admin = seed_e2e.Identity(github_id=999000000002, user_id=22)
     discord_user = seed_e2e.Identity(github_id=999000000003, user_id=33)
@@ -336,6 +479,7 @@ def test_main_prints_one_json_line_with_the_contract(monkeypatch, capsys):
     monkeypatch.setattr(seed_e2e, 'upsert_users', _identities)
     monkeypatch.setattr(seed_e2e, 'reset_beta_features', _no_reset)
     monkeypatch.setattr(seed_e2e, 'redis_client', FakeRedis())
+    _fake_sessions(monkeypatch)
 
     seed_e2e.main()
 
@@ -352,6 +496,8 @@ def test_main_prints_one_json_line_with_the_contract(monkeypatch, capsys):
         'discord_user_id',
         'discord_access_token',
         'discord_refresh_token',
+        'cli_access_token',
+        'cli_refresh_token',
     }
 
 
@@ -462,6 +608,7 @@ async def test_seed_resets_the_beta_features_with_the_three_users(
     monkeypatch.setattr(seed_e2e, 'upsert_users', _identities)
     monkeypatch.setattr(seed_e2e, 'reset_beta_features', _reset)
     monkeypatch.setattr(seed_e2e, 'redis_client', FakeRedis())
+    _fake_sessions(monkeypatch)
 
     await seed_e2e.seed()
 

@@ -10,6 +10,11 @@ import { navItemsFor } from "@/components/layout/nav";
 import { useMyFeatures } from "@/hooks/use-features";
 import { Loader2 } from "lucide-react";
 import { ProtectedProviders } from "@/components/layout/protected-providers";
+import {
+  consumeReturnTo,
+  remembersReturnTo,
+  storeReturnTo,
+} from "@/lib/return-to";
 
 export default function ProtectedLayout({
   children,
@@ -24,8 +29,22 @@ export default function ProtectedLayout({
   const { features } = useMyFeatures(isAuthenticated);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (isLoading) return;
+    if (!isAuthenticated) {
+      // `/device?code=` must survive the sign-in round trip (KODI-058).
+      if (remembersReturnTo(window.location.pathname)) {
+        storeReturnTo(window.location.pathname + window.location.search);
+      }
       router.replace("/login");
+      return;
+    }
+    // Consumed once: removed from storage before navigating.
+    const target = consumeReturnTo();
+    if (
+      target &&
+      target !== window.location.pathname + window.location.search
+    ) {
+      router.replace(target);
     }
   }, [isAuthenticated, isLoading, router]);
 

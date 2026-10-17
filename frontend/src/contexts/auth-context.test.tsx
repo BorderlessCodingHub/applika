@@ -58,6 +58,24 @@ function rateLimitError(retryAfterSeconds: number) {
   );
 }
 
+function unavailableError(retryAfterSeconds = 5) {
+  const headers = new AxiosHeaders();
+  headers.set("retry-after", String(retryAfterSeconds));
+  return new AxiosError(
+    "Service Unavailable",
+    "ERR_BAD_RESPONSE",
+    undefined,
+    undefined,
+    {
+      status: 503,
+      statusText: "Service Unavailable",
+      headers,
+      config: {} as never,
+      data: { detail: "Session service unavailable" },
+    },
+  );
+}
+
 function unauthorizedError() {
   return new AxiosError(
     "Unauthorized",
@@ -283,5 +301,91 @@ describe("AuthProvider — 429 handling (T040/T041)", () => {
       expect(screen.getByTestId("authenticated").textContent).toBe("true");
       expect(screen.getByTestId("loading").textContent).toBe("false");
     });
+  });
+});
+
+/**
+ * KODI-058 (ADR-0019 "fail closed", AC1 web half): when the API cannot reach
+ * Redis it refuses with 503 + `Retry-After: 5`. That is the session store
+ * being down, not the session ending: the web stays signed in and retries.
+ */
+describe("AuthProvider — 503 handling (KODI-058)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.mocked(services.auth.refresh).mockReset();
+    vi.mocked(services.users.getMe).mockReset();
+  });
+
+  it("a refresh 503 keeps a cached session signed in and retries after Retry-After", async () => {
+    vi.mocked(services.auth.refresh)
+      .mockResolvedValueOnce({ detail: "refreshed" })
+      .mockRejectedValueOnce(unavailableError(5))
+      .mockResolvedValueOnce({ detail: "refreshed" });
+    vi.mocked(services.users.getMe).mockResolvedValue(user());
+
+    renderAuth();
+    await flush();
+    expect(screen.getByTestId("authenticated").textContent).toBe("true");
+
+    await flush(10 * 60_000);
+    expect(services.auth.refresh).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("authenticated").textContent).toBe("true");
+    expect(screen.getByTestId("loading").textContent).toBe("false");
+
+    await flush(4_000);
+    expect(services.auth.refresh).toHaveBeenCalledTimes(2);
+
+    await flush(1_000);
+    expect(services.auth.refresh).toHaveBeenCalledTimes(3);
+    expect(screen.getByTestId("authenticated").textContent).toBe("true");
+  });
+
+  it("a cold-load refresh 503 stays loading (never redirected), then signs in once it recovers", async () => {
+    vi.mocked(services.auth.refresh)
+      .mockRejectedValueOnce(unavailableError(5))
+      .mockRejectedValueOnce(unavailableError(5))
+      .mockResolvedValueOnce({ detail: "refreshed" });
+    vi.mocked(services.users.getMe).mockResolvedValue(user());
+
+    renderAuth();
+    await flush();
+    expect(screen.getByTestId("loading").textContent).toBe("true");
+    expect(screen.getByTestId("authenticated").textContent).toBe("false");
+
+    await flush(5_000);
+    expect(services.auth.refresh).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("loading").textContent).toBe("true");
+
+    await flush(5_000);
+    expect(services.auth.refresh).toHaveBeenCalledTimes(3);
+    expect(screen.getByTestId("authenticated").textContent).toBe("true");
+    expect(screen.getByTestId("loading").textContent).toBe("false");
+  });
+
+  it("a /users/me 503 keeps the user signed in-pending and retries after Retry-After", async () => {
+    vi.mocked(services.auth.refresh).mockResolvedValue({
+      detail: "refreshed",
+    });
+    vi.mocked(services.users.getMe)
+      .mockRejectedValueOnce(unavailableError(5))
+      .mockResolvedValueOnce(user());
+
+    renderAuth();
+    await flush();
+    expect(services.users.getMe).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("loading").textContent).toBe("true");
+
+    await flush(4_000);
+    expect(services.users.getMe).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("loading").textContent).toBe("true");
+
+    await flush(1_000);
+    expect(services.users.getMe).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("authenticated").textContent).toBe("true");
+    expect(screen.getByTestId("loading").textContent).toBe("false");
   });
 });

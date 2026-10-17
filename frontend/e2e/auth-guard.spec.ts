@@ -25,6 +25,9 @@ const PROTECTED_PATHS = [
   "/reports",
   "/profile",
   "/admin",
+  // KODI-058: the device approval page; a signed-out visit also stores the
+  // return-to (`e2e/devices.spec.ts` follows it after sign-in).
+  "/device",
 ];
 
 test.describe("anonymous visitors are sent to /login", () => {

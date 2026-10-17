@@ -71,9 +71,14 @@ E2E_ADMIN_REFRESH_TOKEN="$(pick admin_refresh_token)"
 E2E_DISCORD_USER_ID="$(pick discord_user_id)"
 E2E_DISCORD_ACCESS_TOKEN="$(pick discord_access_token)"
 E2E_DISCORD_REFRESH_TOKEN="$(pick discord_refresh_token)"
+# KODI-057: e2e-user's seeded CLI session (cli_device, "e2e-cli"). The CLI
+# sends the access token as `Authorization: Bearer`.
+E2E_CLI_ACCESS_TOKEN="$(pick cli_access_token)"
+E2E_CLI_REFRESH_TOKEN="$(pick cli_refresh_token)"
 export E2E_USER_ID E2E_ACCESS_TOKEN E2E_REFRESH_TOKEN
 export E2E_ADMIN_USER_ID E2E_ADMIN_ACCESS_TOKEN E2E_ADMIN_REFRESH_TOKEN
 export E2E_DISCORD_USER_ID E2E_DISCORD_ACCESS_TOKEN E2E_DISCORD_REFRESH_TOKEN
+export E2E_CLI_ACCESS_TOKEN E2E_CLI_REFRESH_TOKEN
 export E2E_BASE_URL="$BASE_URL" E2E_API_URL="$API_URL"
 echo "[e2e] Seeded user ${E2E_USER_ID}, admin ${E2E_ADMIN_USER_ID} and discord-linked user ${E2E_DISCORD_USER_ID}."
 

@@ -11,6 +11,12 @@ class AuthHandoffStateUseCase:
     temporary server-side handoff before the backend issues the normal Applika
     session. This state is intentionally separate from the long-lived
     access/refresh token lifecycle.
+
+    KODI-057 (ADR-0019): the same state carries the PKCE browser sign-in of
+    ``applika-cli`` 1.1.0. A login or code with ``flow='pkce'`` also holds
+    the ``code_challenge`` and the ``redirect_uri`` it is bound to; a code
+    without ``flow`` is the legacy handoff. Codes stay one use (``GETDEL``)
+    and live 60 s either way.
     """
 
     _login_ttl_seconds = 300
@@ -33,12 +39,19 @@ class AuthHandoffStateUseCase:
         self,
         callback_url: str,
         state: str,
+        flow: str | None = None,
+        code_challenge: str | None = None,
     ) -> str:
         login_id = uuid.uuid4().hex
-        payload = json.dumps({
+        data: dict[str, str] = {
             'callback_url': callback_url,
             'state': state,
-        })
+        }
+        if flow is not None:
+            data['flow'] = flow
+        if code_challenge is not None:
+            data['code_challenge'] = code_challenge
+        payload = json.dumps(data)
         await self.redis.set(
             self._login_key(login_id),
             payload,
@@ -64,13 +77,23 @@ class AuthHandoffStateUseCase:
         login_id: str,
         user_id: int,
         github_id: int,
+        flow: str | None = None,
+        code_challenge: str | None = None,
+        redirect_uri: str | None = None,
     ) -> str:
         code = uuid.uuid4().hex
-        payload = json.dumps({
+        data: dict[str, str | int] = {
             'login_id': login_id,
             'user_id': user_id,
             'github_id': github_id,
-        })
+        }
+        if flow is not None:
+            data['flow'] = flow
+        if code_challenge is not None:
+            data['code_challenge'] = code_challenge
+        if redirect_uri is not None:
+            data['redirect_uri'] = redirect_uri
+        payload = json.dumps(data)
         await self.redis.set(
             self._code_key(code),
             payload,

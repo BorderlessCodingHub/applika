@@ -1,13 +1,12 @@
 from types import SimpleNamespace
-from typing import Any, cast
 from unittest.mock import AsyncMock
 from urllib.parse import parse_qs, urlparse
 
 from cryptography.fernet import Fernet
-from fastapi import Response
 from fastapi_sso import OpenID
 from starlette.requests import Request
 
+from app.application.dto.user_session import SessionTokensDTO
 from app.config.settings import envs
 from app.presentation.api import oauth as oauth_api
 from app.presentation.api.auth_handoff import CLI_LOGIN_COOKIE_NAME
@@ -101,7 +100,21 @@ async def test_cli_login_sets_marker_cookie(monkeypatch):
     assert CLI_LOGIN_COOKIE_NAME in response.headers.get('set-cookie', '')
 
 
+def _tokens() -> SessionTokensDTO:
+    return SessionTokensDTO(
+        session_id=77,
+        github_id=123,
+        access_token='access-jwt',
+        access_expires_in=900,
+        refresh_token='0192f0e1-0000-7000-8000-000000000000',
+        refresh_expires_in=604800,
+    )
+
+
 async def test_auth_callback_keeps_web_behavior(monkeypatch):
+    """The web branch opens a ``github_web`` session (KODI-057) and sets
+    both cookies; a valid same-user ``__refresh`` session ends as
+    ``replaced``."""
     monkeypatch.setattr(
         envs,
         'GITHUB_TOKEN_ENCRYPTION_KEY',
@@ -109,39 +122,41 @@ async def test_auth_callback_keeps_web_behavior(monkeypatch):
     )
     monkeypatch.setattr(oauth_api, 'github_sso', FakeGithubSSO())
 
-    create_refresh_token = AsyncMock(
-        side_effect=lambda user_id, redis_client, response: response.set_cookie(
-            '__refresh',
-            'refresh-token',
-        )
-    )
-    monkeypatch.setattr(
-        oauth_api,
-        'create_refresh_token',
-        create_refresh_token,
-    )
-
     user_repo = _make_user_repo()
     gh_service = AsyncMock()
     auth_handoff_state_use_case = AsyncMock()
-    redis_client = cast(Any, object())
+    open_session = AsyncMock()
+    open_session.execute.return_value = _tokens()
+    end_session = AsyncMock()
 
     response = await oauth_api.auth_callback(
-        _make_request('/auth/github/callback'),
-        Response(),
+        _make_request(
+            '/auth/github/callback', cookies={'__refresh': 'old-browser'}
+        ),
         user_repo,
         gh_service,
-        redis_client,
         auth_handoff_state_use_case,
+        open_session,
+        end_session,
     )
 
     assert response.status_code in {302, 307}
     assert response.headers['location'] == envs.LOGIN_REDIRECT_URI
     cookies = response.headers.getlist('set-cookie')
     assert any('__access=' in cookie for cookie in cookies)
-    assert any('__refresh=' in cookie for cookie in cookies)
+    assert any(
+        '__refresh=0192f0e1-0000-7000-8000-000000000000' in cookie
+        and 'Max-Age=604800' in cookie
+        for cookie in cookies
+    )
     gh_service.invalidate_cache.assert_awaited_once_with(1)
-    create_refresh_token.assert_awaited_once()
+    end_session.end_by_refresh.assert_awaited_once_with(
+        'old-browser', 'replaced', user_id=1
+    )
+    kwargs = open_session.execute.await_args.kwargs
+    assert kwargs['client_type'] == 'web'
+    assert kwargs['sign_in_method'] == 'github_web'
+    assert kwargs['ip'] == 'testclient'
 
 
 async def test_auth_callback_redirects_cli_to_loopback(monkeypatch):
@@ -163,17 +178,22 @@ async def test_auth_callback_redirects_cli_to_loopback(monkeypatch):
     auth_handoff_state_use_case.create_exchange_code.return_value = (
         'exchange-code'
     )
+    open_session = AsyncMock()
+    end_session = AsyncMock()
 
     response = await oauth_api.auth_callback(
         _make_request(
             '/auth/github/callback',
-            cookies={CLI_LOGIN_COOKIE_NAME: 'login-123'},
+            cookies={
+                CLI_LOGIN_COOKIE_NAME: 'login-123',
+                '__refresh': 'the-browser-session',
+            },
         ),
-        Response(),
         user_repo,
         gh_service,
-        cast(Any, object()),
         auth_handoff_state_use_case,
+        open_session,
+        end_session,
     )
 
     assert response.status_code in {302, 307}
@@ -186,3 +206,59 @@ async def test_auth_callback_redirects_cli_to_loopback(monkeypatch):
     assert params['code'] == ['exchange-code']
     assert CLI_LOGIN_COOKIE_NAME in response.headers.get('set-cookie', '')
     gh_service.invalidate_cache.assert_awaited_once_with(1)
+    # Plan correction 13: a CLI sign-in never ends the browser's own
+    # session, and opens none at the callback (the exchange does).
+    end_session.end_by_refresh.assert_not_awaited()
+    open_session.execute.assert_not_awaited()
+    assert '__access=' not in response.headers.get('set-cookie', '')
+
+
+async def test_auth_callback_pkce_oob_goes_to_the_manual_page(monkeypatch):
+    monkeypatch.setattr(
+        envs,
+        'GITHUB_TOKEN_ENCRYPTION_KEY',
+        Fernet.generate_key().decode(),
+    )
+    monkeypatch.setattr(oauth_api, 'github_sso', FakeGithubSSO())
+    monkeypatch.setattr(
+        envs, 'CLI_MANUAL_REDIRECT_URI', 'https://web.example/cli/code'
+    )
+
+    auth_handoff_state_use_case = AsyncMock()
+    auth_handoff_state_use_case.get_login.return_value = {
+        'login_id': 'login-9',
+        'callback_url': 'oob',
+        'state': 's1',
+        'flow': 'pkce',
+        'code_challenge': 'c' * 43,
+    }
+    auth_handoff_state_use_case.create_exchange_code.return_value = 'pk-code'
+    end_session = AsyncMock()
+
+    response = await oauth_api.auth_callback(
+        _make_request(
+            '/auth/github/callback',
+            cookies={CLI_LOGIN_COOKIE_NAME: 'login-9', '__refresh': 'web'},
+        ),
+        _make_user_repo(),
+        AsyncMock(),
+        auth_handoff_state_use_case,
+        AsyncMock(),
+        end_session,
+    )
+
+    parsed = urlparse(response.headers['location'])
+    assert f'{parsed.scheme}://{parsed.netloc}{parsed.path}' == (
+        'https://web.example/cli/code'
+    )
+    assert parse_qs(parsed.query) == {'code': ['pk-code'], 'state': ['s1']}
+    auth_handoff_state_use_case.create_exchange_code.assert_awaited_once_with(
+        login_id='login-9',
+        user_id=1,
+        github_id=123,
+        flow='pkce',
+        code_challenge='c' * 43,
+        redirect_uri='oob',
+    )
+    auth_handoff_state_use_case.delete_login.assert_awaited_once_with('login-9')
+    end_session.end_by_refresh.assert_not_awaited()

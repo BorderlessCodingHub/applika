@@ -15,6 +15,56 @@ import {
   type DiscordLinkStatus,
 } from "@/components/profile/discord-link-notice";
 import { USER_QUERY_KEY } from "@/hooks/use-user";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DevicesTab } from "@/components/profile/devices-tab";
+import {
+  useRevokeOtherSessions,
+  useRevokeSession,
+  useSessions,
+} from "@/hooks/use-sessions";
+
+export type ProfileTab = "profile" | "devices";
+
+function isProfileTab(value: string | null): value is ProfileTab {
+  return value === "profile" || value === "devices";
+}
+
+/**
+ * The Devices tab's data half (KODI-058). Mounted only while its tab is open
+ * (Radix unmounts an inactive `TabsContent`), so the list is fetched on first
+ * open, not with the profile.
+ */
+export function ProfileDevices() {
+  const sessions = useSessions();
+  const revoke = useRevokeSession();
+  const revokeOthers = useRevokeOtherSessions();
+  // TanStack v5 puts an errored query with no data back to `pending` on
+  // refetch, which would swap the error card for the skeleton; holding the
+  // retry here keeps "Try again" on screen, aria-busy, until it settles.
+  const [retrying, setRetrying] = useState(false);
+
+  return (
+    <DevicesTab
+      sessions={sessions.data}
+      isLoading={sessions.isPending}
+      isError={sessions.isError || retrying}
+      onRetry={() => {
+        setRetrying(true);
+        void sessions.refetch().finally(() => setRetrying(false));
+      }}
+      isRetrying={retrying}
+      onRevoke={(session) => revoke.mutate(session)}
+      // A signed-out current row stays pending until the page has left.
+      revokingId={
+        revoke.isPending || (revoke.isSuccess && revoke.variables?.current)
+          ? (revoke.variables?.id ?? null)
+          : null
+      }
+      onRevokeOthers={() => revokeOthers.mutate()}
+      isRevokingOthers={revokeOthers.isPending}
+    />
+  );
+}
 
 export function ProfilePage() {
   const [editing, setEditing] = useState(false);
@@ -33,6 +83,12 @@ export function ProfilePage() {
     const account = searchParams.get("account");
     const status = searchParams.get("status");
     return account === "discord" && isDiscordLinkStatus(status) ? status : null;
+  });
+  // `?tab=devices` (the `/device` page's "See your devices" link) opens the
+  // Devices tab once; switching tabs afterwards is local state only.
+  const [tab, setTab] = useState<ProfileTab>(() => {
+    const requested = searchParams.get("tab");
+    return isProfileTab(requested) ? requested : "profile";
   });
   // Guards against React Strict Mode's deliberate double-invoke of effects:
   // the invalidate/clear-URL side effects below must run exactly once per
@@ -63,29 +119,45 @@ export function ProfilePage() {
 
   if (!user) return <UserProfileSkeleton />;
 
-  if (editing)
-    return (
-      <UserProfileEditForm
-        user={user}
-        onSave={() => setEditing(false)}
-        onCancel={() => setEditing(false)}
-      />
-    );
-
   return (
-    <>
-      {notice ? (
-        <DiscordLinkNotice
-          status={notice}
-          onDismiss={() => setNotice(null)}
-          className="mx-auto mb-6 max-w-4xl"
-        />
-      ) : null}
-      <UserProfileView
-        user={user}
-        userStats={stats.data}
-        onEditClick={() => setEditing(true)}
-      />
-    </>
+    <Tabs
+      value={tab}
+      onValueChange={(value) => {
+        if (isProfileTab(value)) setTab(value);
+      }}
+      className="mx-auto w-full max-w-4xl gap-6"
+    >
+      <TabsList variant="line">
+        <TabsTrigger value="profile">Profile</TabsTrigger>
+        <TabsTrigger value="devices">Devices</TabsTrigger>
+      </TabsList>
+      <TabsContent value="profile">
+        {editing ? (
+          <UserProfileEditForm
+            user={user}
+            onSave={() => setEditing(false)}
+            onCancel={() => setEditing(false)}
+          />
+        ) : (
+          <>
+            {notice ? (
+              <DiscordLinkNotice
+                status={notice}
+                onDismiss={() => setNotice(null)}
+                className="mx-auto mb-6 max-w-4xl"
+              />
+            ) : null}
+            <UserProfileView
+              user={user}
+              userStats={stats.data}
+              onEditClick={() => setEditing(true)}
+            />
+          </>
+        )}
+      </TabsContent>
+      <TabsContent value="devices">
+        <ProfileDevices />
+      </TabsContent>
+    </Tabs>
   );
 }

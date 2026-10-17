@@ -15,3 +15,16 @@ export interface AccountLinkOut {
   provider: string;
   linked: boolean;
 }
+
+/**
+ * `GET /auth/device/verify?user_code=` response (KODI-058, ADR-0019): the
+ * device asking to sign in, shown on `/device` before the user approves.
+ * Structurally the `DeviceRequestInfo` the approval card renders.
+ */
+export interface DeviceCodeInfo {
+  device_name: string;
+  client_label: string;
+  ip: string | null;
+  requested_at: string;
+  expires_at: string;
+}

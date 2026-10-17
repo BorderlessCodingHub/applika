@@ -1,20 +1,26 @@
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 import pytest_asyncio
 import redis.asyncio as redis
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from testcontainers.redis import RedisContainer
 
 from app.application.dto.user import UserDTO
 from app.application.use_cases.auth_handoff_state import (
     AuthHandoffStateUseCase,
 )
+from app.config.db import get_session
 from app.config.redis import get_redis
 from app.domain.models import UserModel
 from app.main import app as main_app
-from app.presentation.dependencies import get_current_user
+from app.presentation.dependencies import (
+    get_current_user,
+    get_github_service,
+)
 
 SECOND_USER_ID = 3
 
@@ -130,3 +136,47 @@ async def redis_client(redis_container):
 @pytest_asyncio.fixture
 async def auth_handoff_state_use_case(redis_client):
     return AuthHandoffStateUseCase(redis_client)
+
+
+class FakeGitHubService:
+    """The GitHub token check without GitHub (KODI-057): ``valid`` is what
+    ``validate_token`` answers."""
+
+    def __init__(self) -> None:
+        self.valid = True
+        self.validated: list[int] = []
+
+    async def validate_token(self, user_id: int, github_token: str) -> bool:
+        self.validated.append(user_id)
+        return self.valid
+
+    async def invalidate_cache(self, user_id: int) -> None:
+        return None
+
+
+@pytest_asyncio.fixture
+async def github_service() -> AsyncIterator[FakeGitHubService]:
+    service = FakeGitHubService()
+    main_app.dependency_overrides[get_github_service] = lambda: service
+    yield service
+    main_app.dependency_overrides.pop(get_github_service, None)
+
+
+@pytest_asyncio.fixture
+async def real_client(async_engine: AsyncEngine, db_session, redis_client):
+    """A client with the REAL ``get_current_user`` (KODI-057): every
+    signed-in request goes through the session check on ``redis_client``.
+    Sign in with ``tests/sessions_seed.py``."""
+    maker = async_sessionmaker(bind=async_engine, expire_on_commit=False)
+
+    async def override_get_session():
+        async with maker() as session:
+            yield session
+
+    main_app.dependency_overrides[get_session] = override_get_session
+    main_app.dependency_overrides.pop(get_current_user, None)
+    async with AsyncClient(
+        transport=ASGITransport(app=main_app), base_url='http://test/api'
+    ) as client:
+        yield client
+    main_app.dependency_overrides.pop(get_session, None)

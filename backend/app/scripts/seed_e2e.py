@@ -16,18 +16,27 @@ app.scripts.seed_e2e``), never a route mounted in the app, so it exercises
 real code without adding any network-reachable test surface. It refuses to
 run when ``ENVIRONMENT == 'PROD'``.
 
-Two token facts that are easy to get wrong:
+KODI-057 (ADR-0019): every session is a REAL device session, opened
+through ``OpenSessionUseCase`` exactly as the GitHub callback opens one - a
+``user_sessions`` row plus its two Redis keys. Facts that are easy to get
+wrong:
 
-* the access token ``sub`` is the user's ``github_id``
-  (``get_current_user`` does ``get_by_github_id(int(sub))``);
-* the refresh token maps to the user's PRIMARY KEY ``id``
-  (``validate_refresh_token`` returns it and ``refresh_token`` looks the
-  user up with ``get_by_id``).
+* the access token ``sub`` is the user's ``github_id`` and its ``sid`` is
+  the session row's id; ``get_current_user`` refuses a token whose session
+  key is gone, so a spec that revokes a seeded session ends it for the
+  rest of the run;
+* the refresh value is the session's uuid7, the key of
+  ``applika:session:<uuid7>``, which points at the session id.
+
+Each run opens one ``github_web`` session per user ("Chrome on Linux") and
+one more ``cli_device`` session for ``e2e-user`` (device ``e2e-cli``), whose
+tokens are the ``cli_access_token`` / ``cli_refresh_token`` keys (the CLI
+sends the access token as ``Authorization: Bearer``).
 
 ``/auth/refresh`` works for these users because
-``app/application/use_cases/refresh_token.py`` skips the GitHub token
-check when ``user.encrypted_github_token`` is empty — which is why every
-seeded user is stored with ``encrypted_github_token = NULL``.
+``app/application/use_cases/sessions/refresh_session.py`` skips the GitHub
+token check when ``user.encrypted_github_token`` is empty — which is why
+every seeded user is stored with ``encrypted_github_token = NULL``.
 
 Support data (platforms, steps_definition, feedbacks_definition) is NOT
 seeded here: the initial revision ``e3abe9dc93d4_init_db`` bulk-inserts
@@ -56,7 +65,8 @@ Prints exactly one JSON line to stdout::
     {"user_id": "...", "access_token": "...", "refresh_token": "...",
      "admin_user_id": "...", "admin_access_token": "...",
      "admin_refresh_token": "...", "discord_user_id": "...",
-     "discord_access_token": "...", "discord_refresh_token": "..."}
+     "discord_access_token": "...", "discord_refresh_token": "...",
+     "cli_access_token": "...", "cli_refresh_token": "..."}
 """
 
 import asyncio
@@ -67,18 +77,25 @@ from typing import NamedTuple
 import redis.asyncio as redis
 
 from app.application.dto.user import UserCreateDTO
+from app.application.dto.user_session import ClientType, SignInMethod
 from app.application.services.discord_oauth_service import SCOPE
+from app.application.services.session_store import SessionStore
+from app.application.use_cases.sessions.open_session import (
+    OpenSessionUseCase,
+)
 from app.config.db import AsyncLocalSession
 from app.config.redis import redis_client
 from app.config.settings import envs
 from app.core.crypto import encrypt_discord_token
 from app.core.features import FeatureKey, FeatureStage
-from app.core.tokens import create_access_token, create_refresh_token_value
 from app.domain.repositories.discord_connection_repository import (
     DiscordConnectionRepository,
 )
 from app.domain.repositories.feature_repository import FeatureRepository
 from app.domain.repositories.user_repository import UserRepository
+from app.domain.repositories.user_session_repository import (
+    UserSessionRepository,
+)
 
 # Deterministic, synthetic identities — NOT real data. The github_id
 # values sit far above GitHub's real id range (9-digit today) so they can
@@ -114,6 +131,15 @@ E2E_DISCORD_GLOBAL_NAME = 'E2E Discord'
 # against discord.com with dummy OAuth credentials, and that revoke is
 # swallowed within the 5s timeout (plan corrections, K6).
 E2E_DISCORD_REFRESH_TOKEN = 'e2e-dummy-refresh-token'
+
+# What the seeded sessions look like in the device list.
+E2E_IP = '127.0.0.1'
+E2E_BROWSER_USER_AGENT = (
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
+    '(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+)
+E2E_CLI_USER_AGENT = 'applika-cli/1.1.0 (e2e)'
+E2E_CLI_DEVICE_NAME = 'e2e-cli'
 
 
 class Identity(NamedTuple):
@@ -212,15 +238,28 @@ async def reset_beta_features(
 async def mint_session(
     identity: Identity,
     redis_conn: redis.Redis,
+    *,
+    client_type: ClientType = 'web',
+    sign_in_method: SignInMethod = 'github_web',
+    user_agent: str = E2E_BROWSER_USER_AGENT,
+    device_name: str | None = None,
 ) -> tuple[str, str]:
-    """Mint a real access token + a real Redis-backed refresh token."""
-    access_token, _expires_dt, _max_age = create_access_token(
-        str(identity.github_id)
-    )
-    refresh_token, _ttl = await create_refresh_token_value(
-        identity.user_id, redis_conn
-    )
-    return access_token, refresh_token
+    """Open a real device session (row + Redis keys) through the app's own
+    ``OpenSessionUseCase``; answers its access JWT and refresh value."""
+    async with AsyncLocalSession() as session:
+        use_case = OpenSessionUseCase(
+            UserSessionRepository(session), SessionStore(redis_conn)
+        )
+        tokens = await use_case.execute(
+            user_id=identity.user_id,
+            github_id=identity.github_id,
+            client_type=client_type,
+            sign_in_method=sign_in_method,
+            user_agent=user_agent,
+            ip=E2E_IP,
+            device_name=device_name,
+        )
+    return tokens.access_token, tokens.refresh_token
 
 
 async def seed() -> dict[str, str]:
@@ -235,6 +274,14 @@ async def seed() -> dict[str, str]:
         discord_access_token, discord_refresh_token = await mint_session(
             discord_user, redis_client
         )
+        cli_access_token, cli_refresh_token = await mint_session(
+            user,
+            redis_client,
+            client_type='cli',
+            sign_in_method='cli_device',
+            user_agent=E2E_CLI_USER_AGENT,
+            device_name=E2E_CLI_DEVICE_NAME,
+        )
     finally:
         await redis_client.aclose()
 
@@ -248,6 +295,8 @@ async def seed() -> dict[str, str]:
         'discord_user_id': str(discord_user.user_id),
         'discord_access_token': discord_access_token,
         'discord_refresh_token': discord_refresh_token,
+        'cli_access_token': cli_access_token,
+        'cli_refresh_token': cli_refresh_token,
     }
 
 

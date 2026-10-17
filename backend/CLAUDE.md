@@ -46,6 +46,7 @@ When you add or modify any of the following, update the seed script accordingly:
 - Saved job searches (KODI-047) — `seed_job_searches()` deletes any left from a previous run, then creates, renames, lists and deletes one, fills the cap of 10 and asserts the 11th is refused with 409
 - Drafts from a job (KODI-047) — `seed_draft_from_job()` starts one draft from the first job of `GET /jobs` with no application, the first master CV and `tailoring: 'keywords'`, and asserts `job_id`, `has_cv` and the job's `application` mark; with no jobs (no worker run on the dev stack) it logs the skip
 - Beta features (KODI-052, ADR-0018) — `has_jobs_feature()` reads `GET /users/me/features` right after `/supports`; without `jobs` the script skips `seed_keyword_copy()`, `seed_job_searches()` and `seed_draft_from_job()` and prints why (an admin enrols the seed user at `/admin/features`), it never fails on the gate. A new gated feature adds its own check here. `app/scripts/seed_e2e.py` resets the features on every run: `jobs` back to `beta` (`released_at` NULL), `e2e-user` on its list, `e2e-discord` off it, every opt-out of `e2e-admin` gone; it fails loudly when the `jobs` row is missing (run `alembic upgrade head` first)
+- Device sessions (KODI-057, ADR-0019) — the pasted `ACCESS_TOKEN` must be the `__access` cookie of a **live** browser session (its JWT carries `sid`; a token from before the release, or from a browser that logged out or was revoked, is 401 `Session expired`). `app/scripts/seed_e2e.py` opens every e2e session through `OpenSessionUseCase` (a `user_sessions` row + its Redis keys): one `github_web` session per seeded user and one `cli_device` session ("e2e-cli") for `e2e-user`, printed as `cli_access_token`/`cli_refresh_token` and exported by `scripts/e2e.sh` as `E2E_CLI_ACCESS_TOKEN`/`E2E_CLI_REFRESH_TOKEN`
 - **A 429 is waited out, never treated as a failure** (KODI-039, ADR-0015): the script's `httpx.Client` uses `RetryOn429Transport`, which reads `Retry-After` on a 429 and resends the exact same request once. The dev/e2e compose stacks already raise `RATE_LIMIT_DEFAULT`/`RATE_LIMIT_AUTH` so a normal run never trips it; the retry only matters against a stock, un-raised stack
 
 After any such change, mentally walk through the seed script from top to bottom and confirm it would still run without errors against a fresh database.
@@ -185,18 +186,20 @@ See `app/application/use_cases/applications/create_application.py` for reference
 
 ### Authentication
 - GitHub OAuth via `fastapi-sso` with scope `user:email` (KODI-026: `read:org` and organisation membership are retired, R-042/R-043)
-- **Access token**: short-lived JWT in HTTP-only cookie (`__access`), payload `{sub: github_id, kind: 'access', exp: ...}`
-- **Refresh token**: opaque UUID stored in Redis, referenced via HTTP-only cookie (`__refresh`), TTL configurable (default 7 days)
-- **CLI login handoff**: external-browser GitHub sign-in with loopback redirect and short-lived Redis-backed exchange code; the CLI receives the same `__access` and `__refresh` session values in JSON and stores them locally
+- **One session per sign-in, one device** (KODI-057, ADR-0019). A session is a `user_sessions` row (`UserSessionModel`: device name, client, sign-in method, sign-in/last IP, granted, last used, `expires_at`, `ended_at` + `end_reason`; ended rows stay) plus two Redis keys on `REDIS_URL` (the rate limiter's instance), both `EXAT expires_at`: `applika:session:<uuid7>` → the session id, and `applika:session:id:<sid>` hash `{rk, user_id, github_id, last_used_at, last_ip}`. `SessionStore` (`app/application/services/session_store.py`) is the only code that touches them. **A missing key means the session has ended.** The refresh value is never stored in Postgres (not even hashed), never logged and never listed
+- **Access token**: short-lived JWT, payload `{sub: github_id, sid: <user_sessions.id as string>, kind: 'access', exp}`. The web sends it in the HTTP-only `__access` cookie; `applika-cli` 1.1.0+ sends `Authorization: Bearer`. `get_current_user()` reads **Bearer first, then the cookie**, else 401 `Not authenticated`
+- **Refresh value**: a random `uuid.uuid7()`, in the HTTP-only `__refresh` cookie (web and CLIs 0.1.4–1.0.1) or the CLI's own store (1.1.0). Never rotated
+- **The check on every signed-in request** (`GetCurrentUserUseCase`): JWT decode first (bad/expired → 401 as before); no `sid`, a session whose key is gone, or a session of another GitHub id → 401 `Session expired`; otherwise one Lua script (EXISTS → HSET `last_used_at`, `last_ip`) under `asyncio.timeout(0.5)`. Sets `request.state.session_id` (`CurrentSessionIdDp`). **Fail closed**: a `RedisError`, `OSError` or timeout raises `SessionServiceUnavailable` → 503 `{"detail": "Session service unavailable"}` + `Retry-After: 5`; the request never passes unchecked and nobody is signed out (a 401 would send every client to refresh). The Discord link callback runs the same check on its cookie
+- **Sliding lifetime**: a session ends `REFRESH_TOKEN_EXPIRE_DAYS` (7) after its **last refresh**. `GET /auth/refresh` and the `refresh_token` grant resolve the uuid7, re-check the GitHub token (revoked → the session ends `github_revoked`, 401 `GitHub token revoked`), then `EXPIREAT` both keys and `expires_at` a full window ahead and copy the live last use onto the row. `/auth/refresh` re-sets `__access` (new JWT, same `sid`) **and** `__refresh` (same value, full Max-Age); a refused refresh is 401 and clears both cookies, a 503 clears nothing
+- **Ending a session** (`EndSessionUseCase`): DEL both keys, then set `ended_at` + `end_reason` (`logout` = `GET /auth/logout` / `POST /auth/revoke`, `revoked` = Devices tab, `replaced` = a new web sign-in in the same browser, `github_revoked`) and copy the live last use. Only a live session ends; an ended row, a row past `expires_at` or one whose key is gone is a no-op (it already reads as ended/expired). `DELETE /users/me` DELs every open session's keys before the user goes (rows by CASCADE)
+- **Cutover** (the release that ships KODI-057): nothing reads `applika:refresh_token:*` any more and a JWT without `sid` is 401, so every web and CLI user signs in again; the old keys die on their TTL
+- **CLI login handoff (legacy, deprecated)**: `/auth/cli/start`, `/auth/cli/login/{id}`, `/auth/cli/exchange` keep their shapes for CLIs 0.1.4–1.0.1 (ADR-0009) and open a `cli_legacy` session at the exchange. A PKCE code is refused there (it is redeemed only with its verifier on `POST /auth/token`)
+- **CLI sign-in (1.1.0+)**: authorization code + PKCE S256 (`GET /auth/cli/authorize`, loopback `redirect_uri` or `oob` → the code is shown at `CLI_MANUAL_REDIRECT_URI`), or the RFC 8628 device code (`/auth/device/*`, approved by a signed-in web user at `DEVICE_VERIFICATION_URI`). Login state and codes live in `AuthHandoffStateUseCase` (`flow='pkce'`, `code_challenge`, `redirect_uri`; codes `GETDEL`, 60 s); device codes in `DeviceCodeUseCase` (`applika:device:code:<device_code>` hash + `applika:device:user_code:<CODE>`, `EX DEVICE_CODE_TTL_SECONDS`, decided and consumed by Lua). Each CLI sign-in is a session of its own (`client_type='cli'`); a CLI sign-in never ends the browser's own session
+- **Not gated**: the Devices API and every CLI sign-in route are open to every user (owner: "Gate nothing", the ADR-0019 exception to ADR-0018)
 - GitHub access token stored **encrypted** (Fernet) in `users.encrypted_github_token` — never logged or exposed
-- `get_current_user()` dependency extracts user from access cookie
-- `GET /auth/refresh` validates refresh token from Redis, verifies GitHub token via cached `GET /user`, re-issues access cookie; invalidates session if GitHub token revoked
-- `GET /auth/logout` revokes refresh token from Redis and clears both cookies
-- `POST /auth/cli/start` creates a pending CLI login in Redis and returns the browser login URL
-- `GET /auth/cli/login/{login_id}` marks the browser session as CLI-initiated, then redirects into GitHub OAuth
-- `POST /auth/cli/exchange` validates a short-lived one-time code and returns the normal session values in JSON instead of `Set-Cookie`
-- Token utilities in `app/core/tokens.py`, encryption in `app/core/crypto.py`
+- Token and cookie utilities in `app/core/tokens.py`, PKCE in `app/core/pkce.py`, user codes in `app/core/user_codes.py`, device labels (`describe_user_agent`: "Chrome on macOS", "applika-cli 1.1.0", httpx → "applika-cli (older version)") in `app/core/user_agent.py`, encryption in `app/core/crypto.py`
 - Cookie settings: HTTPOnly, Secure in PROD, SameSite=Lax
+- **Tests**: `async_client`/`admin_client` override `get_current_user` (no session needed). A test that sends a real token uses `real_client` (`tests/integration/conftest.py`, the real dependency on `redis_client`) and opens a session through `tests/sessions_seed.py` (`open_session` = row + keys, `live_access_token` = keys only)
 
 ### GitHub Integration
 - `GitHubService` (`app/application/services/github_service.py`) validates tokens only. Organisation membership is retired (KODI-026, R-042/R-043): there is no `check_org_membership`, no `org_name`, and `UserRegistrationUseCase.execute` takes no `is_org_member` — sign-in never checks, records or returns it
@@ -247,6 +250,10 @@ Domain exceptions in `app/core/exceptions.py`:
 - `ForbiddenAccess` → 403
 - `PdfRenderFailed` → 500
 - `ServiceUnavailable` → 503 (KODI-046: the background worker's queue cannot be reached, `POST /admin/jobs/runs` → "Background service unavailable")
+- `SessionServiceUnavailable(ServiceUnavailable)` → 503 `{"detail": "Session service unavailable"}` + `Retry-After: 5` (KODI-057: the session store cannot be reached, on every signed-in route, the GitHub callback, `/auth/refresh`, `/auth/logout` with a `__refresh` cookie, `/auth/token`, `/auth/revoke`, `/auth/device/*`; a sign-in that fails here leaves no `user_sessions` row)
+- `InvalidSession` → 401 `{detail}` (KODI-057: a refresh value that resolves to no live session)
+- `OAuthError` → 400 `{"error": <RFC 6749/8628 code>, "detail"}` (KODI-057: `POST /auth/token`)
+- `InvalidRequest` → 400 `{detail}` (KODI-057: a bad PKCE method or challenge on `/auth/cli/authorize`)
 - `NotImplementedError` → 501
 
 Handlers registered in `app/presentation/handlers.py` via `register_handlers(app)`.
@@ -580,10 +587,13 @@ it: a 429 still carries `Access-Control-Allow-Origin`, and a browser
 preflight (`OPTIONS`) is answered by `CORSMiddleware` before this
 middleware ever counts it.
 
-- **Subject**: a request whose `__access` cookie holds a valid, unexpired
-  access token is counted against that token's subject (`user:<sub>`); any
-  other request is counted against the client IP (`ip:<addr>`) — the same
-  `client.host` uvicorn resolved, above.
+- **Subject**: a request whose `Authorization: Bearer` header, else whose
+  `__access` cookie (KODI-057, ADR-0019: Bearer first), holds a valid,
+  unexpired access token is counted against that token's subject
+  (`user:<sub>`); any other request is counted against the client IP
+  (`ip:<addr>`) — the same `client.host` uvicorn resolved, above. The
+  limiter reads the JWT only: the session check is `get_current_user`'s,
+  and the limiter stays fail open.
 - **Buckets**: `/auth/*` counts against `RATE_LIMIT_AUTH` (default 10);
   every other route against `RATE_LIMIT_DEFAULT` (default 120). The two are
   counted separately, `RATE_LIMIT_WINDOW_SECONDS` (default 60) wide.
@@ -627,12 +637,18 @@ middleware ever counts it.
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
 | GET | `/auth/github/login` | No | Redirect to GitHub OAuth |
-| GET | `/auth/github/callback` | No | OAuth callback, sets access + refresh cookies |
-| POST | `/auth/cli/start` | No | Create pending CLI login and return browser login URL |
-| GET | `/auth/cli/login/{login_id}` | No | Mark browser flow as CLI login and redirect to GitHub OAuth |
-| POST | `/auth/cli/exchange` | No | Exchange CLI auth code for JSON `__access` and `__refresh` values |
-| GET | `/auth/refresh` | No | Validate refresh token, re-issue access cookie |
-| GET | `/auth/logout` | No | Revoke refresh token, clear both cookies |
+| GET | `/auth/github/callback` | No | OAuth callback: web → opens a `github_web` session (ends the browser's previous one as `replaced`), sets both cookies; CLI marker → 307 to the CLI with a one-use code |
+| POST | `/auth/cli/start` | No | Deprecated (0.1.4–1.0.1): create pending CLI login, return browser login URL |
+| GET | `/auth/cli/login/{login_id}` | No | Deprecated: mark browser flow as CLI login, redirect to GitHub |
+| POST | `/auth/cli/exchange` | No | Deprecated: exchange the code for `{access_token, refresh_token, access_expires_in, refresh_expires_in}`, a `cli_legacy` session |
+| GET | `/auth/refresh` | No (`__refresh`) | Slide the session 7 days, re-set `__access` + `__refresh`; 401 clears both; 503 when Redis is down |
+| GET | `/auth/logout` | No (`__refresh`) | End the session (`logout`), clear both cookies |
+| GET | `/auth/cli/authorize` | No | KODI-057: `?redirect_uri&code_challenge&code_challenge_method=S256&state` → 307 GitHub + `__cli_login`; 400 loopback messages, `code_challenge_method must be S256`, `Invalid code_challenge` |
+| POST | `/auth/token` | No | KODI-057: `grant_type` `authorization_code` `{code, code_verifier, redirect_uri, device_name?}` · `refresh_token` · `urn:ietf:params:oauth:grant-type:device_code` → `{access_token, token_type: "Bearer", expires_in, refresh_token, refresh_expires_in}`; 400 `{error, detail}`; 422 bad shape |
+| POST | `/auth/revoke` | No | KODI-057: `{refresh_token}` → 204 for any value, live, ended or unknown (ends a live session as `logout`); 503 when Redis is down (fail closed: a 204 would claim an end that did not happen) |
+| POST | `/auth/device/code` | No | KODI-057: `{device_name?}` → `{device_code, user_code: "XXXX-XXXX", verification_uri, verification_uri_complete, expires_in: 600, interval: 10}` |
+| GET | `/auth/device/verify` | Yes | KODI-057: `?user_code=` → `{device_name, client_label, ip, requested_at, expires_at}`; 404 `Code not found or expired` |
+| POST | `/auth/device/approve`, `/auth/device/deny` | Yes | KODI-057: `{user_code}` → 204; 404; 409 `Code already used`. The poll then answers `authorization_pending`, `slow_down` (faster than `interval`), `access_denied`, `expired_token`, or the session (signed in as the approver, one use) |
 
 ### Account links (`/auth/link`, KODI-024, ADR-0013, supersedes ADR-0008/KODI-020)
 
@@ -742,6 +758,9 @@ Discord app is unconfigured - see **Report routing** below.
 | GET | `/users/me` | Yes | Get current user profile |
 | PATCH | `/users/me` | Yes | Update profile |
 | GET | `/users/me/features` | Yes | KODI-052: `{features: [{key, stage: 'beta' \| 'general'}]}`, the caller's own, by key (web only; `/users/me` is unchanged for the CLI) |
+| GET | `/users/me/sessions` | Yes | KODI-057: the caller's devices `[{id, client_type, sign_in_method, device_name, client_label, created_ip, last_ip, created_at, last_used_at, expires_at, ended_at, status: active\|signed_out\|revoked\|expired, current}]`: active by `last_used_at` DESC NULLS LAST (live from Redis), then ended by `coalesce(ended_at, expires_at)` DESC within `SESSION_HISTORY_DAYS`. Status derived; the GET writes nothing |
+| DELETE | `/users/me/sessions/{id}` | Yes | KODI-057: revoke → 204 (ended/expired: no-op 204; the current one also clears both cookies); 404 `Session not found` for any other user's id, admins too |
+| POST | `/users/me/sessions/revoke-others` | Yes | KODI-057: every other live session ends as `revoked` → `{revoked: n}` |
 
 Both routes read the caller's Discord connection through
 `DiscordConnectionRepositoryDp` and build the response with
@@ -1388,7 +1407,12 @@ Optional (with defaults):
 - `ACCESS_TOKEN_EXPIRE_MINUTES`: 15 (default)
 - `GITHUB_REDIRECT_URI`: OAuth callback URL
 - `LOGIN_REDIRECT_URI`: Post-login redirect
-- `REFRESH_TOKEN_EXPIRE_DAYS`: Refresh token TTL in days (default: 7)
+- `REFRESH_TOKEN_EXPIRE_DAYS`: a session ends this many days after its last refresh (sliding, default: 7)
+- `DEVICE_CODE_TTL_SECONDS`: device-code lifetime (KODI-057, default 600)
+- `DEVICE_CODE_POLL_INTERVAL_SECONDS`: the device poll interval; faster is `slow_down` (default 10)
+- `DEVICE_VERIFICATION_URI`: the web approval page (default `http://127.0.0.1:8080/device`; prod `https://applika.dev/device`)
+- `CLI_MANUAL_REDIRECT_URI`: the web page that shows a PKCE code to paste (`redirect_uri=oob`, default `http://127.0.0.1:8080/cli/code`; prod `https://applika.dev/cli/code`)
+- `SESSION_HISTORY_DAYS`: ended devices stay listed this long (default 30); older rows are kept, not shown
 - `REDIS_URL`: Redis connection URL (default: redis://localhost:6379/0)
 - `GITHUB_CACHE_TTL_SECONDS`: Redis cache TTL for GitHub API checks (default: 600)
 - `CV_PDF_RENDER_TIMEOUT_SECONDS`: wall-clock ceiling for one CV PDF render (default: 30); past it the request is a 500
@@ -1447,6 +1471,7 @@ Optional (with defaults):
 
 ### Core Entities
 - **User**: GitHub OAuth authenticated users with profile (company, role, salary, tech stack, seniority, availability). `users` carries **no** Discord column (KODI-024/ADR-0013 retired `users.discord_id`); the optional Discord account link is its own `DiscordConnectionModel` row, below - never GitHub login, never a second sign-in path. `users.is_org_member_old` (renamed from `is_org_member` by migration `583226ca46bc`, KODI-029, Release C) is UNMAPPED (KODI-026, R-042/R-043): the column stays in the database, values kept, but no ORM model, use case, DTO or schema reads or writes it any more; deletion only on a later explicit owner order (`.claude/rules/non-destructive-migrations.md` rule 9)
+- **UserSession** (KODI-057, ADR-0019, table `user_sessions`, revision `ed39a0fad1e5`): one sign-in = one device. `client_type` `web`|`cli`, `sign_in_method` `github_web`|`cli_browser`|`cli_device`|`cli_legacy`, `device_name` (given ≤ 100, else from the user agent), `user_agent` (≤ 512), `created_ip`/`last_ip`, `last_used_at` (copied from Redis on refresh and on end), `expires_at` (slides), `ended_at` + `end_reason` (`logout`|`revoked`|`expired`|`github_revoked`|`replaced`, set together). `__table_args__` mirror the revision (four CHECKs, `ix_user_sessions_user_id_created_at`, partial `ix_user_sessions_open`). No refresh value column. The live half is in Redis (see **Authentication**)
 - **DiscordConnection**: one row per linked user (table `discord_connections`, migration `ba44f9cfd3c1`), a record of its own apart from `users` (R-012). `user_id` and `discord_id` are each UNIQUE. Holds the Discord user id, username, display name (`global_name`), avatar, the granted `scopes`, `access_token_expires_at`, `status` (`active` | `needs_reconnect`) and `linked_at`; the refresh token is stored **encrypted** (`encrypted_refresh_token`) and there is **no** access-token column - see **Account links** above for the full flow
 - **DiscordReportWebhook**: admin-managed catalog (KODI-025, ADR-0004/ADR-0013), table `discord_report_webhooks`, added by migration `ba44f9cfd3c1` but unmapped until this ticket - not owned by a `user_id`. `webhook_url` is UNIQUE; `guild_id` is indexed for K8's submit-time lookup; `role_ids` (`BIGINT[]`, default `{}`) and `label` are optional. See **Admin report webhooks** above
 - **Company**: Job companies (ADR-0014). `is_public` (default `True`) and `created_by` (nullable, `ON DELETE SET NULL`) decide visibility - see **Companies and Platforms** above. Uniqueness is two scoped partial indexes, not one global one: `uq_companies_public_name_url` (`lower(name), url` where public) and `uq_companies_private_owner_name_url` (`created_by, lower(name), url` where private) - two users may hold a private company with the same name and url
@@ -1510,6 +1535,7 @@ Optional (with defaults):
 - Application → Job (many-to-one, optional, **SET NULL** on delete - jobs are never deleted, so in practice the link stays)
 - FeatureBetaUser → Feature and User (many-to-one, **CASCADE** on each); `added_by` → User (**SET NULL**)
 - FeatureAdminOptOut → Feature and User (many-to-one, **CASCADE** on each)
+- UserSession → User (many-to-one, **CASCADE**; `DELETE /users/me` also DELs the Redis keys first)
 - DiscordConnection → User (one-to-one, cascade delete — deleting the user removes the connection; no ORM relationship is declared back on `UserModel`, same as BaseCV/TailoredCV)
 
 Applications are closed ("finalized") when `finalized_at` is set; reopen clears it.
