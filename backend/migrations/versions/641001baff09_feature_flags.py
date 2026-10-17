@@ -4,7 +4,7 @@ Revision ID: 641001baff09
 Revises: b28d5134631f
 Create Date: 2026-10-14 10:00:00.000000
 
-Plan ``docs/applika/plan/0013-beta-features.md`` ``## Data`` (S1), ADR-0018
+Plan ``docs/plan/0013-beta-features.md`` ``## Data`` (S1), ADR-0018
 (beta features registry and allowlist): three new tables, every id a
 snowflake ``BIGINT`` with no sequence (ADR-0003), every table carrying
 ``created_at`` / ``updated_at`` exactly like the other tables.

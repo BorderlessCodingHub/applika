@@ -3,17 +3,15 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * Pins T040: "Port all 16 files of mynextjob/frontend/src/components/timeline/
- * … into applika/frontend/src/components/timeline/". Per the owner's KODI-011
- * lesson ("port a named mynextjob source WHOLE, never a prose subset" —
- * feature 0007's "40% deviation"), this test hard-codes each mynextjob file's
- * export surface (captured 2026-09-18 via `grep -nE "^export "` on the
- * mynextjob tree) and asserts every one of those names still appears in the
- * applika file. It does NOT read mynextjob at test/CI time — CI has no
- * mynextjob checkout — so the expectations below are the pin, not a live diff.
+ * Pins T040: the 16 files of `src/components/timeline/`. Per the owner's
+ * KODI-011 lesson ("port a named source WHOLE, never a prose subset" —
+ * feature 0007's "40% deviation"), this test hard-codes each file's export
+ * surface (captured 2026-09-18 via `grep -nE "^export "`) and asserts every
+ * one of those names still appears in the file. The expectations below are
+ * the pin, not a live diff.
  *
  * A name is matched as a whole word in the applika source text rather than by
- * importing the module: several mynextjob exports are `export type` /
+ * importing the module: several pinned exports are `export type` /
  * `export interface`, which TypeScript erases at runtime, so a namespace
  * import would under-report. Text matching also works uniformly for the two
  * test files (T040 ports 16 FILES, and `timeline-event-schema.test.ts` is one
@@ -22,7 +20,7 @@ import { describe, expect, it } from "vitest";
 
 const TIMELINE_DIR = path.resolve(__dirname);
 
-/** file -> the mynextjob file's exported symbol names (types included). */
+/** file -> the file's pinned exported symbol names (types included). */
 const PORTED_FILES: Record<string, string[]> = {
   "event-type-badge.tsx": ["EventTypeBadge"],
   "event-type-selector.tsx": ["EventTypeSelector"],
@@ -86,7 +84,7 @@ const PORTED_FILES: Record<string, string[]> = {
   ],
 };
 
-describe("mynextjob components/timeline/ port (T040)", () => {
+describe("components/timeline/ exports (T040)", () => {
   it("ports exactly the 16 named files", () => {
     expect(Object.keys(PORTED_FILES)).toHaveLength(16);
   });
@@ -97,7 +95,7 @@ describe("mynextjob components/timeline/ port (T040)", () => {
     });
 
     if (exportNames.length > 0) {
-      it(`${file} still carries every mynextjob export`, () => {
+      it(`${file} still carries every pinned export`, () => {
         const source = readFileSync(path.join(TIMELINE_DIR, file), "utf8");
         for (const name of exportNames) {
           expect(source, `${file} is missing "${name}"`).toMatch(

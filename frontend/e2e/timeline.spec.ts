@@ -9,11 +9,11 @@ import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
 
 /**
  * The application timeline, close and reopen, against the REAL stack
- * (PRD 0008, ADR 0012). Ported from mynextjob's `e2e/timeline-flow.spec.ts`
- * (add-an-event happy path) and extended per the owner's KODI-012 decisions:
+ * (PRD 0008, ADR 0012): the add-an-event happy path, extended per the owner's
+ * KODI-012 decisions:
  * applika has no application detail route (a non-goal for this slice), so the
  * flow happens on `/applications`, expanding the row inline; and R-032
- * supersedes mynextjob's confirm-only finalize with an outcome picker.
+ * supersedes a confirm-only finalize with an outcome picker.
  *
  * Flow 1: add an interview (interview type select shown, defaults to
  * Unknown) -> add a note (select hidden) -> close with no outcome (the

@@ -1,6 +1,6 @@
 """Timeline-event DTOs (application layer, R-001..R-006).
 
-Ported from mynextjob. ``CreateTimelineEventDTO`` carries ``user_id`` and
+``CreateTimelineEventDTO`` carries ``user_id`` and
 ``application_id`` stamped from the acting user and the route, never from the
 body. ``UpdateTimelineEventDTO`` is a **full** representation (a PUT, not a
 patch): the offer-salary and interview-type invariants are cross-field on

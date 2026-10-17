@@ -3,17 +3,14 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * Pins T038: the whole port of mynextjob's timeline service layer
+ * Pins T038: the timeline service layer
  * (`types/timeline.ts`, `interfaces/i-timeline-service.ts`,
  * `implementations/timeline-service.ts`). Same approach as the sibling port
- * tests: the export list is hard-coded from mynextjob (captured 2026-09-18),
- * matched as text against the applika file — mynextjob is not read at test
- * time.
+ * tests: the export list is hard-coded (captured 2026-09-18) and matched as
+ * text against each file.
  *
- * `types/timeline.ts` additionally carries `interview_type` (applika-only —
- * mynextjob has no interview types) as an optional field of
- * `NonOfferTimelineEventPayload`; the exported symbol NAMES below are
- * otherwise identical to mynextjob's.
+ * `types/timeline.ts` also carries `interview_type` as an optional field of
+ * `NonOfferTimelineEventPayload`; it adds no exported symbol.
  */
 
 const SERVICES_DIR = path.resolve(__dirname);
@@ -30,7 +27,7 @@ const PORTED_FILES: Record<string, string[]> = {
   "implementations/timeline-service.ts": ["TimelineService"],
 };
 
-describe("mynextjob timeline service layer port (T038)", () => {
+describe("timeline service layer exports (T038)", () => {
   it("ports exactly the 3 named files", () => {
     expect(Object.keys(PORTED_FILES)).toHaveLength(3);
   });
@@ -40,7 +37,7 @@ describe("mynextjob timeline service layer port (T038)", () => {
       expect(existsSync(path.join(SERVICES_DIR, file))).toBe(true);
     });
 
-    it(`${file} still carries every mynextjob export`, () => {
+    it(`${file} still carries every pinned export`, () => {
       const source = readFileSync(path.join(SERVICES_DIR, file), "utf8");
       for (const name of exportNames) {
         expect(source, `${file} is missing "${name}"`).toMatch(

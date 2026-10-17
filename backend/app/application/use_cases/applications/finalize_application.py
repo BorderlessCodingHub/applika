@@ -1,6 +1,6 @@
 """Finalize-application use cases: close, reversibly (R-007, R-009, R-032).
 
-Ported from mynextjob's ``finalize.py``. Closing stamps
+Closing stamps
 ``applications.finalized_at`` with the server's current UTC time. Without an
 outcome it asks for no step, no feedback and no salary: the outcome and any
 offered salary live on the timeline (an offer or denied event), and there is

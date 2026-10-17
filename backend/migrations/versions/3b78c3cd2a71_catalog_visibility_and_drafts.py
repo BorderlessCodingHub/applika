@@ -4,7 +4,7 @@ Revision ID: 3b78c3cd2a71
 Revises: 583226ca46bc
 Create Date: 2026-09-25 10:00:00.000000
 
-Plan ``docs/applika/plan/0010-application-with-cv-drafts-private-catalogs.md``
+Plan ``docs/plan/0010-application-with-cv-drafts-private-catalogs.md``
 ``## Data``: ``companies.is_public`` / ``platforms.is_public`` (default
 ``true``, every existing row public), ``platforms.created_by`` (FK
 ``users.id`` ``ON DELETE SET NULL``), ``applications.is_draft`` (default
@@ -95,7 +95,7 @@ logs every colliding group's ids, exactly the choice the owner closed
 
 ADR-0014 (Accepted 2026-09-25, "Private-until-published catalog rows, and
 draft applications hidden from every read model") and
-``docs/applika/adr/0005-non-destructive-migrations.md`` are the two ADRs this
+``docs/adr/0005-non-destructive-migrations.md`` are the two ADRs this
 revision follows; ``.claude/rules/migration-tests.md`` names the round-trip
 test that proves every step above (``test_migration_catalog_visibility_drafts.py``).
 """

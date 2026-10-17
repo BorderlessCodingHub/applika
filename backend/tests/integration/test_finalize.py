@@ -9,9 +9,7 @@
   name in its observation, ``Deprecation`` on every answer, 409 on a closed
   application, no Offer <-> Accepted coupling.
 
-The new-body half is ported from mynextjob's
-``test_application_finalize_reopen_api.py`` with applika's codes (archived
-422, not 409).
+The new-body half pins the archived code (422, not 409).
 """
 
 import logging

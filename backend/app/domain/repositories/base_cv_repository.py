@@ -4,7 +4,7 @@ The constructor takes an ``AsyncSession`` and the repository owns its own
 commit/rollback. Methods return ORM models (``BaseCVModel``), never DTOs.
 
 Every read and every write is scoped to the owning user
-(docs/applika/adr/0004-row-ownership-and-is-admin.md): another user's master CV
+(docs/adr/0004-row-ownership-and-is-admin.md): another user's master CV
 is invisible here, so cross-user access surfaces as a not-found at the use-case
 layer - for admins too.
 

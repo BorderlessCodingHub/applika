@@ -27,7 +27,7 @@ async def load_owned_application(
     authorizing against the copy's own ``user_id`` alone would leave a hole:
     the *application's* owner is what decides access. Another user's
     application is indistinguishable from one that does not exist
-    (docs/applika/adr/0004-row-ownership-and-is-admin.md), and being an admin
+    (docs/adr/0004-row-ownership-and-is-admin.md), and being an admin
     grants nothing.
 
     ``include_drafts=True`` (KODI-032): the CV-copy routes are also how a

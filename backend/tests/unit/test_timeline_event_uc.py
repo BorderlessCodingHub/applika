@@ -1,12 +1,11 @@
 """Timeline-event use cases, guards and rules, unit level (R-001..R-006,
 R-010, R-011, R-030).
 
-Ported from mynextjob's ``test_timeline_event_use_cases.py`` with mocked
-repositories, plus applika's additions:
+With mocked repositories. Pinned:
 
 * the guard order: archived is a ``BusinessRuleViolation`` (422) checked
   first, closed an ``ApplicationFinalized`` (409) "Reopen the application to
-  edit it" (mynextjob: 409 for both);
+  edit it";
 * the rules every write goes through (``normalize_event``): interview type
   default and refusal, the offer salary invariant both ways (so offer ->
   interview must drop the salary), the start/end pair, no date-order rule;

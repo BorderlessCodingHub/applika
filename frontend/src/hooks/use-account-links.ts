@@ -8,12 +8,10 @@ import { services } from "@/services/services";
 import { AccountLinkStart } from "@/services/types/auth";
 
 /**
- * Discord account-link hooks (KODI-022, plan 0009 · Frontend). Pattern:
- * `mynextjob/frontend/src/hooks/use-account-links.ts` (read, never imported —
- * `.claude/rules/mynextjob-is-reference.md`).
+ * Discord account-link hooks (KODI-022, plan 0009 · Frontend).
  *
- * The profile screen only ever has ONE provider today (Discord), so unlike
- * the mynextjob precedent this is not a per-provider dispatch table.
+ * The profile screen only ever has ONE provider today (Discord), so this is
+ * not a per-provider dispatch table.
  */
 
 /**

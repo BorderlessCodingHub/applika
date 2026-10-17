@@ -3,7 +3,7 @@
 The whole job is synchronous and CPU-bound - Jinja renders Typst markup and the
 Typst compiler lays out the pages - so it runs in a worker thread through
 ``anyio.to_thread.run_sync`` and never blocks the event loop
-(docs/applika/adr/0011-server-side-cv-pdf-rendercv.md).
+(docs/adr/0011-server-side-cv-pdf-rendercv.md).
 
 Everything happens in a throwaway directory that is removed in ``finally``,
 success or failure. That directory is not an implementation detail we could

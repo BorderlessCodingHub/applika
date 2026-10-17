@@ -146,7 +146,7 @@ src/applika/
   (extension-driven, `-` = stdin) and validates against the vendored models
   before any request. A failure there is `FileInputError` → exit code **2**
   (nothing was sent); an `ApiError` prints the API's `detail` → exit code
-  **1**. Keep that split: the spec (`docs/applika/plan/0007-cli-cv-commands.md`)
+  **1**. Keep that split: the spec (`docs/plan/0007-cli-cv-commands.md`)
   pins both codes.
 - **Read-only keys are accepted and ignored on input**: `id`, `created_at`,
   `updated_at` and the CV copy's provenance (`application_id`, `base_cv_id`,

@@ -1,12 +1,11 @@
 """Timeline-event repository (R-001..R-006).
 
-Ported from mynextjob's ``TimelineEventRepository``. The constructor takes an
-``AsyncSession`` and the repository owns its commit/rollback. Methods return
-ORM models, never DTOs. Every single-event read is scoped to the owning user
+The constructor takes an ``AsyncSession`` and the repository owns its
+commit/rollback. Methods return ORM models, never DTOs. Every single-event read is scoped to the owning user
 and the parent application (ADR 0004): an event of another user, or of
 another application, is invisible here and surfaces as a 404 in the use case.
 
-Two applika additions:
+Two additions:
 
 * the partial unique index ``uq_timeline_events_one_initial_screening``
   (R-030) turns a race past the use case's pre-check into a

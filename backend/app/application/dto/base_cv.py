@@ -131,7 +131,7 @@ class _DatedSectionItem(_SectionItem):
 class LinkItem(_SectionItem):
     """A profile link.
 
-    Unlike the mynextjob prototype, applika's link carries a
+    The link carries a
     client-generated ``id`` like every other section item: the pinned API
     contract is ``links[{id, label, url}]``.
     """

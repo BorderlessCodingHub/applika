@@ -1,9 +1,8 @@
 """The timeline-event request/response schemas (R-002..R-005, R-031).
 
-Ported whole from mynextjob's ``test_timeline_event_schema.py``: every
-cross-field rule of ``TimelineEventCreate`` / ``TimelineEventUpdate`` is a
+Every cross-field rule of ``TimelineEventCreate`` / ``TimelineEventUpdate`` is a
 ``ValidationError`` (a 422 at the router) without touching the database.
-Applika additions: the interview-type rule (default ``unknown``, refused on
+Also: the interview-type rule (default ``unknown``, refused on
 non-interviews), the ``annual`` input alias, the 20 currencies, and the
 length limits of the Contract (timezone <= 100, observation <= 5000).
 """

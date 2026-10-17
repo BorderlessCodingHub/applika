@@ -625,7 +625,7 @@ class ApplicationModel(BaseMixin, Base):
 class TimelineEventModel(BaseMixin, Base):
     """One entry on an application's timeline (R-001..R-005).
 
-    Ported from mynextjob's ``TimelineEventModel`` and mapped onto the table
+    Mapped onto the table
     revision ``afd4074c70c2`` created, object for object: the two CHECKs, the
     three ``ix_timeline_events_*`` indexes and the partial unique index
     ``uq_timeline_events_one_initial_screening`` carry the revision's names and
@@ -896,7 +896,7 @@ class BaseCVModel(BaseMixin, Base):
     The mapping mirrors revision ``f2a9c1d4b6e8`` column for column, including
     every ``server_default``. The primary key is the inherited Snowflake
     ``BaseMixin.id`` (BIGINT, generated in Python, no sequence, no server
-    default - docs/applika/adr/0003-snowflake-string-ids.md).
+    default - docs/adr/0003-snowflake-string-ids.md).
     """
 
     __tablename__ = 'base_cvs'
@@ -963,7 +963,7 @@ class TailoredCVModel(BaseMixin, Base):
     every ``server_default``, both FK ``ondelete`` clauses, the UNIQUE
     constraint and the ``user_id`` index. The primary key is the inherited
     Snowflake ``BaseMixin.id`` (BIGINT, generated in Python, no sequence, no
-    server default - docs/applika/adr/0003-snowflake-string-ids.md).
+    server default - docs/adr/0003-snowflake-string-ids.md).
     ``base_snapshot`` mirrors revision ``c1d9f4a7b3e6`` (R5, KODI-017 part
     2): nullable JSONB, no server default, no backfill.
 

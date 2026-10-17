@@ -11,12 +11,8 @@
  * CHECK); the create/update payloads model that with a discriminated union so
  * the three fields are omitted for every other type and required for offers.
  *
- * Ported whole from mynextjob's `services/types/timeline.ts` (which has no
- * `interview_type` — mynextjob has no interview types at all, see the PRD's
- * "idk if this exists in mynextjob" clarification). `interview_type` is added
- * here as an optional field of `NonOfferTimelineEventPayload`, present only
- * when `event_type` is `"interview"`, so the ported export names/shapes are
- * otherwise unchanged.
+ * `interview_type` is an optional field of `NonOfferTimelineEventPayload`,
+ * present only when `event_type` is `"interview"`.
  */
 
 import type {

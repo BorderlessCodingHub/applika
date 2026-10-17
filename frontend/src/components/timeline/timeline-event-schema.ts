@@ -13,10 +13,8 @@ import type { CreateTimelineEventPayload } from "@/services/types/timeline";
  * Validation + value-mapping for the add/edit timeline-event form (PRD 0008,
  * ADR 0012, KODI-014).
  *
- * A zod DISCRIMINATED UNION keyed on `event_type`, ported from mynextjob's
- * timeline-event-schema and extended with the applika-only `interview_type`
- * (mynextjob has no interview types — see the PRD's "idk if this exists in
- * mynextjob" clarification): the `interview` branch carries `interview_type`
+ * A zod DISCRIMINATED UNION keyed on `event_type`, with `interview_type`:
+ * the `interview` branch carries `interview_type`
  * (one of the 7 hardcoded types, default `unknown`) and no salary; the `offer`
  * branch REQUIRES the salary trio (period restricted to `monthly | annually`,
  * a non-negative amount, and one of the 20 currencies) and no `interview_type`;

@@ -1,13 +1,12 @@
 """Application CV copy data-transfer objects (application layer).
 
 A CV copy is a per-application document derived from a chosen master CV, at
-most one per application. Unlike the mynextjob prototype it reads as reference,
-applika's copy is a **full snapshot**: it carries the identity and contact
-scalars as well as the summary and the seven sections, because the owner asked
-for a copy that survives its master ("each job application will store a "copy"
-of this master CV but edited to the job application"). Nothing is merged back
-from the master at read time, so editing or deleting the master cannot change
-the copy.
+most one per application. The copy is a **full snapshot**: it carries the
+identity and contact scalars as well as the summary and the seven sections,
+because the owner asked for a copy that survives its master ("each job
+application will store a "copy" of this master CV but edited to the job
+application"). Nothing is merged back from the master at read time, so
+editing or deleting the master cannot change the copy.
 
 The section item models are reused from ``application/dto/base_cv.py`` rather
 than redefined: the two documents share one shape by construction, and a

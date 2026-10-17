@@ -2,7 +2,7 @@ from enum import Enum
 
 
 class Currency(str, Enum):
-    """The 20 salary currencies of applika and mynextjob combined (R-031).
+    """The 20 supported salary currencies (R-031).
 
     Order matches ``applika/backend/app/core/enums.py``: the 9 known first,
     then the 11 KODI-011 added.

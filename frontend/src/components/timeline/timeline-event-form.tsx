@@ -88,9 +88,8 @@ interface TimelineEventFormProps {
  * the watched `event_type === "interview"` and the Offer salary group by
  * `event_type === "offer"` — each group's fields are only sent for their type.
  *
- * Ported from mynextjob's `timeline-event-form.tsx` (which has no interview
- * types — R-030/R-032 and the `interview_type` field are applika additions on
- * top of the port, per the PRD's "idk if this exists in mynextjob" note).
+ * R-030/R-032 and the `interview_type` field sit on top of the base event
+ * form.
  */
 export function TimelineEventForm({
   applicationId,

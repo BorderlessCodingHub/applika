@@ -932,8 +932,8 @@ carries the distinction by dropping the key from the DTO when it is absent from
 | PUT | `/{id}/timeline/{event_id}` | Yes | Replace an event (full body) |
 | DELETE | `/{id}/timeline/{event_id}` | Yes | Delete an event (204) |
 
-A timeline event (`TimelineEventModel`, table `timeline_events`, ported from
-mynextjob) is exactly one of `note`, `interview`, `feedback`, `offer`,
+A timeline event (`TimelineEventModel`, table `timeline_events`) is
+exactly one of `note`, `interview`, `feedback`, `offer`,
 `denied`. `interview_type` (`unknown`, `initial_screening`, `technical`,
 `cultural`, `hiring_manager`, `take_home`, `final`) is set on interviews only
 and defaults to `unknown`; on any other type it is a 422. An offer needs
@@ -1385,7 +1385,7 @@ See `app/tests/` for test fixtures and test files.
 ## Enums
 
 Defined in `app/core/enums.py`:
-- **Currency**: the 20 of applika and mynextjob combined — USD, BRL, EUR, GBP, CAD, AUD, JPY, CHF, INR, CNY, SEK, NOK, DKK, PLN, SGD, HKD, NZD, MXN, ZAR, AED
+- **Currency**: the 20 supported (applika's original 9 plus 11 added) — USD, BRL, EUR, GBP, CAD, AUD, JPY, CHF, INR, CNY, SEK, NOK, DKK, PLN, SGD, HKD, NZD, MXN, ZAR, AED
 - **SalaryPeriod**: hourly, monthly, annually. `annual` (what `applika-cli` 0.1.4 sends) is accepted on every input **forever** and means annually: `SalaryPeriod._missing_` maps it, so Pydantic accepts it without OpenAPI advertising it. In the database the `salaryperiod` labels are member names (HOURLY, MONTHLY, ANNUAL, ANNUALLY); `SalaryPeriodType` (`domain/models.py`) writes ANNUALLY and reads both ANNUAL and ANNUALLY as annually, so the API never returns `annual`. The contract migration (`ad747aba90fc`, R2, KODI-013) remapped every row that still held the legacy `ANNUAL` label to `ANNUALLY` on `applications`, `users` and `timeline_events`; the PG enum keeps both labels (Postgres cannot drop one) so a not-yet-remapped row, should one ever appear, still reads as `annually`
 - **EventType**: note, interview, feedback, offer, denied (PG type `event_type`, lower-case labels)
 - **InterviewType**: unknown, initial_screening, technical, cultural, hiring_manager, take_home, final (PG type `interview_type`); the declaration order is the statistics stage order

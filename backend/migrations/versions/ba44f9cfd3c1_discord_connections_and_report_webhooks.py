@@ -4,7 +4,7 @@ Revision ID: ba44f9cfd3c1
 Revises: c1d9f4a7b3e6
 Create Date: 2026-09-24 10:00:00.000000
 
-Plan ``docs/applika/plan/0009-discord-account-link.md`` ``## Data``,
+Plan ``docs/plan/0009-discord-account-link.md`` ``## Data``,
 ``## Scope Releases`` section K5. ADR-0013 (Accepted 2026-09-24, supersedes
 ADR-0008). Owner, 2026-09-24: "i would like to abandom the last ticket and
 expand this plan, when the user clicks to connect thir applika account with

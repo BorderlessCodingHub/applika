@@ -4,7 +4,7 @@ Derived from the owner's own RenderCV theme, renamed ``custom`` -> ``applika``
 and hardened into code: every design token the owner set by hand in a YAML
 ``design`` block is an overridden field default here, so the rendered YAML only
 ever has to say ``design: {theme: applika}`` and the user never picks a theme
-(docs/applika/adr/0011-server-side-cv-pdf-rendercv.md).
+(docs/adr/0011-server-side-cv-pdf-rendercv.md).
 
 **Every token, not a selection.** The first cut of this file reproduced about
 half the owner's block - the half a prose step list happened to name - and the

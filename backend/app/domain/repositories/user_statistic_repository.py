@@ -5,8 +5,8 @@ scope the applications board uses: ``None`` is the current board
 (``cycle_id IS NULL``), an id is that archived cycle.
 
 The pipeline aggregates were keyed on the step catalog; since the timeline
-they are keyed on a *stage*, the pair ``(event_type, interview_type)``,
-ported from mynextjob's per-``event_type`` aggregates plus applika's
+they are keyed on a *stage*, the pair ``(event_type, interview_type)``:
+per-``event_type`` aggregates plus an
 ``interview_type`` split (owner: "with this type we can migrate current steps
 definitions and still have the statistics per steps").
 """

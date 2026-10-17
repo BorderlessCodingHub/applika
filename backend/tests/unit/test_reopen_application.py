@@ -1,7 +1,6 @@
 """Reopen, unit level (R-008, R-009, R-011).
 
-Ported from mynextjob's ``test_application_finalize_reopen_use_cases.py``
-(the reopen half), with applika's archived code (422).
+The reopen half, with the archived code (422).
 
 Pinned:
 1. reopen clears ``finalized_at`` (closed -> open);
