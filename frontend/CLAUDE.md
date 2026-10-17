@@ -572,7 +572,7 @@ year "MM/yyyy" for both start and finish".
   and invents NO year range. Equal, not stricter, is what puts the 422 out of
   reach.
 
-**The PDF is rendered on the SERVER** (`docs/applika/adr/0011`, Accepted):
+**The PDF is rendered on the SERVER** (`docs/adr/0011`, Accepted):
 RenderCV/Typst, one fixed theme named `applika`, no theme parameter, no user
 choice. **Never add `html2pdf`, a `cv-pdf.ts` or any client-side rasteriser.**
 So is its Markdown twin (KODI-017 part 3) — RenderCV's own Markdown renderer,
@@ -868,11 +868,9 @@ reflect the last saved version."` note sits beside them — the export is
 
 ### Application Timeline (`src/components/timeline/`)
 
-Ported from `mynextjob/frontend/src/components/timeline/` (16 files) plus its
-service layer, hooks and `lib/timeline-view.ts` — mynextjob has no interview
-types at all, so `interview_type` and the R-030/R-032 behaviour below are
-applika-only additions on top of the port, never present in the mynextjob
-source. When touching this area, port a NAMED mynextjob source WHOLE (a
+16 component files plus a service layer, hooks and `lib/timeline-view.ts`;
+`interview_type` and the R-030/R-032 behaviour below sit on top of that base.
+When porting from a NAMED source into this area, port it WHOLE (a
 prose-subset port cost a 40% deviation on a prior feature) and extend it,
 rather than reimplementing from scratch.
 
@@ -914,8 +912,7 @@ annually`; `hourly` survives only on a legacy offer migrated from a step or
   `application.finalized_at != null` (closed) OR
   `useCycleContext().isViewingPastCycle` (archived) — the same
   `isViewingPastCycle` convention the tailored-CV page already uses, since
-  applika's `Application` carries no per-row `cycle_id` on the wire (unlike
-  mynextjob's, which the ported `timeline-section.tsx` read directly).
+  applika's `Application` carries no per-row `cycle_id` on the wire.
 - **R-030 (at most one initial-screening interview).** `TimelineEventForm`
   takes `otherEvents` (every event but the one being edited) and disables
   `initial_screening` in `InterviewTypeSelect` — disabled, not hidden, with
@@ -946,7 +943,7 @@ annually`; `hourly` survives only on a legacy offer migrated from a step or
   "reversible" (`FINALIZE_REVERSIBLE_COPY`) — this used to be an
   irreversible-warning `AlertTriangle`; it is now a muted `RotateCcw`, because
   `useReopenApplication` makes the promise real. `useFinalizeApplication` takes
-  an OPTIONAL payload (`{applicationId, payload?}`) rather than mynextjob's
+  an OPTIONAL payload (`{applicationId, payload?}`) rather than a
   bodyless-only mutation, and invalidates `["applications"]`, `["statistics"]`
   and that application's timeline key (an outcome lands as a new event).
 - **Closed application UI.** `ApplicationClosedBadge` (keyed on `finalized_at`)
@@ -1329,8 +1326,7 @@ now one component.
   `GET /platforms?name=` for the web picker — visible platforms only, search
   substring, ordered by name. `GET /supports` is UNCHANGED and still what the
   CLI reads; the web no longer uses it for the platform picker.
-- **`components/applications/form-section.tsx`** (`FormSection`, ported from
-  `mynextjob/frontend/src/components/profile/form-section.tsx`) is the Card
+- **`components/applications/form-section.tsx`** (`FormSection`) is the Card
   shell every application form section uses. `application-fields.tsx` groups
   its fields into three: "Role & company" (role+source, company+platform, job
   link, and the application date in the sheet only), "Details" (work

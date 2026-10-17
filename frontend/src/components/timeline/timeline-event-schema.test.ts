@@ -12,8 +12,7 @@ import type { TimelineEventView } from "@/components/timeline/timeline-types";
 
 /**
  * PRD 0008 / ADR 0012 (frontend): the timeline-event form zod DISCRIMINATED
- * UNION keyed on `event_type`, ported from mynextjob's
- * `timeline-event-schema.test.ts` and extended for the applika-only
+ * UNION keyed on `event_type`, including
  * `interview_type` and the 20-currency / `monthly|annually` offer trio, plus
  * KODI-014's `denied_reason`.
  *

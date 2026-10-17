@@ -43,11 +43,10 @@ interface TimelineSectionProps {
  * past cycle — a matching notice explains why and all editing affordances are
  * withheld.
  *
- * Ported from mynextjob's `timeline-section.tsx`. Adapted: mynextjob derives
- * "archived" from `application.cycle_id`, a field applika's `Application` does
- * not carry on the wire — applika already established (tailored-cvs, see
- * `frontend/CLAUDE.md`) that "archived" is only knowable from the cycle
- * currently being VIEWED, via `useCycleContext().isViewingPastCycle`. This
+ * "Archived" is not derived from `application.cycle_id`, a field applika's
+ * `Application` does not carry on the wire — applika already established
+ * (tailored-cvs, see `frontend/CLAUDE.md`) that "archived" is only knowable
+ * from the cycle currently being VIEWED, via `useCycleContext().isViewingPastCycle`. This
  * follows that existing convention instead of inventing a second one.
  */
 export function TimelineSection({

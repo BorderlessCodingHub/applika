@@ -26,10 +26,9 @@ interface FinalizeApplicationArgs {
  * closed — reopen first) or 422 (archived) propagates for a toast at the call
  * site.
  *
- * Adapted from mynextjob's `useFinalizeApplication` (which POSTs with no body
- * and primes a per-application detail cache applika does not have —
+ * There is no per-application detail cache to prime:
  * `useApplicationById` reads the SAME list cache as `useApplications`, so
- * there is nothing to prime here; invalidating `["applications"]` covers it).
+ * invalidating `["applications"]` covers it.
  */
 export function useFinalizeApplication() {
   const queryClient = useQueryClient();

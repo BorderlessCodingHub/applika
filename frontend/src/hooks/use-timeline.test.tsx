@@ -12,8 +12,7 @@ import { services } from "@/services/services";
 import type { TimelineEvent } from "@/services/types/timeline";
 
 /**
- * PRD 0008 / ADR 0012 (frontend): the timeline query + mutation hooks, ported
- * from mynextjob's `use-timeline.test.tsx`.
+ * PRD 0008 / ADR 0012 (frontend): the timeline query + mutation hooks.
  *
  * - `useTimeline` calls `services.timeline.list(appId)` and caches under
  *   `["timeline","list",appId]`; it stays disabled until an id is present.
