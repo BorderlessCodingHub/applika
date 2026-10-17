@@ -322,8 +322,8 @@ working unchanged.
 
 ### Changed
 
-- KODI-013 The CLI's `Currency` enum grows from 9 to the 20 currencies of
-  applika and mynextjob combined (CNY, SEK, NOK, DKK, PLN, SGD, HKD, NZD,
+- KODI-013 The CLI's `Currency` enum grows from 9 to 20 currencies
+  (CNY, SEK, NOK, DKK, PLN, SGD, HKD, NZD,
   MXN, ZAR, AED added), same order as the backend.
   `applications new`/`edit --currency` now offer all 20.
   `applications timeline add|edit --currency` and
