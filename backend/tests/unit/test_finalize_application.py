@@ -1,10 +1,9 @@
 """Finalize (close) and the archived guard, unit level (R-007, R-009, R-011).
 
-Ported from mynextjob's ``test_application_finalize_reopen_use_cases.py``
-(the finalize half and the ``ensure_not_archived`` guard), adapted to
-applika's deltas: the archived lock is a ``BusinessRuleViolation`` (422)
-and finalize answers the ``Application`` read model. The reopen half is
-``test_reopen_application.py``; the 0.1.4 body is ``test_legacy_finalize.py``.
+The finalize half and the ``ensure_not_archived`` guard: the archived lock
+is a ``BusinessRuleViolation`` (422) and finalize answers the
+``Application`` read model. The reopen half is ``test_reopen_application.py``;
+the 0.1.4 body is ``test_legacy_finalize.py``.
 
 Pinned:
 1. finalize stamps ``finalized_at`` (open -> closed), server-side, UTC;

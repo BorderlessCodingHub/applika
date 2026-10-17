@@ -216,7 +216,7 @@ class QuinzenalReportRepository:
         cycle_id: int | None,
     ) -> int:
         """``interview`` events dated in the window, every type: one per
-        interview held, not distinct applications (mynextjob's rule)."""
+        interview held, not distinct applications."""
         total = await self.session.scalar(
             select(func.count()).select_from(
                 self

@@ -1,19 +1,17 @@
 """Write guards for the applications aggregate (R-010, R-011).
 
-Ported whole from mynextjob's ``guards.py``. Two lifecycle locks protect a
-write, checked in this order:
+Two lifecycle locks protect a write, checked in this order:
 
 * **Archived** (``cycle_id`` set): the only *permanent* lock. A cycle is an
   archived snapshot and its applications are frozen for good.
 * **Closed** (``finalized_at`` set): a *reversible* soft lock. Editing a
   closed application is refused until it is reopened (R-008).
 
-Applika's deltas over mynextjob (PRD 0008 "Assumptions"): the archived lock
-keeps applika's ``BusinessRuleViolation`` (422) and message, "as it does
+The two locks answer different codes (PRD 0008 "Assumptions"): the archived
+lock keeps applika's ``BusinessRuleViolation`` (422) and message, "as it does
 today", and the closed lock is ``ApplicationFinalized`` (409), so installed
-CLIs and the CV-copy routes (PRD 0007) see the codes they always saw.
-mynextjob answers 409 for both. The closed message is mynextjob's, and it
-tells the user what to do.
+CLIs and the CV-copy routes (PRD 0007) see the codes they always saw. The
+closed message tells the user what to do.
 """
 
 from typing import Protocol

@@ -7,7 +7,7 @@ acting user, so the field carries no information on the wire.
 
 Section sub-item ``id``s are client-generated strings preserved round-trip; the
 master CV's own ``id`` is a Snowflake serialized as a string
-(docs/applika/adr/0003-snowflake-string-ids.md).
+(docs/adr/0003-snowflake-string-ids.md).
 """
 
 from typing import Self

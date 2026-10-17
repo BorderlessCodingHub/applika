@@ -1,6 +1,6 @@
 """Reopen-application use case (R-008, R-009).
 
-Ported from mynextjob's ``reopen.py``: the inverse of finalize. It clears
+The inverse of finalize. It clears
 ``applications.finalized_at``, and the closed lock ``ensure_mutable``
 enforces on event writes lifts at once.
 """

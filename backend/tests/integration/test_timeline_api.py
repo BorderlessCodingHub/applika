@@ -1,7 +1,6 @@
 """The application timeline API (R-001..R-006, R-010, R-011, R-030).
 
-Ported from mynextjob's ``test_timeline_api.py`` onto applika's fixtures
-(the ``async_client`` acts as base user 1) and applika's deltas: archived is
+Uses the ``async_client`` fixture (base user 1). Archived is
 a 422 business-rule violation and closed a 409 that says to reopen, every
 event carries ``interview_type``, and an application holds one initial
 screening at most. End to end: router, use case, repository, Postgres.

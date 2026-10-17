@@ -4,7 +4,7 @@ Revision ID: c8b3e9f4a1d6
 Revises: afd4074c70c2
 Create Date: 2026-09-18 15:00:00.000000
 
-Plan ``docs/applika/plan/0008-steps-as-timeline.md``, ticket KODI-014
+Plan ``docs/plan/0008-steps-as-timeline.md``, ticket KODI-014
 (R-033..R-036). Owner: "Fold into Release A" -- this revision chains
 R1 -> R3 -> R2, so it ships in the same release as R1
 (``.claude/rules/prod-release-runbook.md`` 4): **expand only**. Nothing

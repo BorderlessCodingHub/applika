@@ -70,7 +70,7 @@ DENIED_REASONS = [
     'salary_mismatch',
     'other',
 ]
-# applika's 9 and mynextjob's 11 (R-031); None = no currency.
+# applika's original 9 and the 11 added (R-031); None = no currency.
 CURRENCIES = ['USD', 'BRL', 'EUR', 'GBP', 'SEK', 'CNY', 'AED', None]
 
 # ---------------------------------------------------------------------------

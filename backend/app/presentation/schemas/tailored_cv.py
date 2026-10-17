@@ -8,7 +8,7 @@ client-generated sub-item ids travel through both unchanged.
 every route is already scoped to the acting user, so the field would carry no
 information on the wire. ``application_id``, ``base_cv_id`` and the copy's own
 ``id`` are Snowflakes serialized as strings
-(docs/applika/adr/0003-snowflake-string-ids.md); ``base_cv_id`` is ``null``
+(docs/adr/0003-snowflake-string-ids.md); ``base_cv_id`` is ``null``
 once the master CV it came from has been deleted.
 """
 

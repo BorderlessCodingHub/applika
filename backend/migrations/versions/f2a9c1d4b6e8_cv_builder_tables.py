@@ -14,7 +14,7 @@ one per application at most (UNIQUE on ``application_id``), and it dies with
 its application (FK ON DELETE CASCADE).
 
 Primary keys are Snowflake BigIntegers generated in Python
-(docs/applika/adr/0003-snowflake-string-ids.md): no sequence, no server
+(docs/adr/0003-snowflake-string-ids.md): no sequence, no server
 default, ``autoincrement=False``.
 
 ``upgrade()`` drops nothing. ``downgrade()`` drops only the objects this very

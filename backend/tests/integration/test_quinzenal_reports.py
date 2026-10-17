@@ -235,7 +235,7 @@ async def test_submit_day_one_report(
     assert report_data['metrics']['applications_count'] == 2
     assert report_data['metrics']['initial_screenings_count'] == 2
     assert report_data['metrics']['callback_rate'] == 100
-    # Interview events held, of every type (mynextjob's rule).
+    # Interview events held, of every type.
     assert report_data['metrics']['interviews_completed_fortnight'] == 4
     # Open applications past their initial screening.
     assert report_data['metrics']['active_processes_count'] == 1

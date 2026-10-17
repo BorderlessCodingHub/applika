@@ -4,7 +4,7 @@ Revision ID: 583226ca46bc
 Revises: ba44f9cfd3c1
 Create Date: 2026-09-25 09:00:00.000000
 
-Plan ``docs/applika/plan/0009-discord-account-link.md`` ``## Data`` S10:
+Plan ``docs/plan/0009-discord-account-link.md`` ``## Data`` S10:
 "``applika/backend/migrations/versions/<rev>_retire_users_is_org_member.py``
 (new), ``down_revision`` = head at slice time: upgrade ``op.alter_column(
 'users', 'is_org_member', new_column_name='is_org_member_old')`` (values,

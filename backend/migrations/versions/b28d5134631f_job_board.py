@@ -4,7 +4,7 @@ Revision ID: b28d5134631f
 Revises: 3b78c3cd2a71
 Create Date: 2026-10-12 10:00:00.000000
 
-Plan ``docs/applika/plan/0012-job-board-fit-and-keyword-tailoring.md``
+Plan ``docs/plan/0012-job-board-fit-and-keyword-tailoring.md``
 ``## Data`` (S2): five new tables and one new column, every id a snowflake
 ``BIGINT`` with no sequence (ADR-0003), every table carrying ``created_at`` /
 ``updated_at`` exactly like the other tables.

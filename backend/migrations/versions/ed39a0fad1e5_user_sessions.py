@@ -4,7 +4,7 @@ Revision ID: ed39a0fad1e5
 Revises: 641001baff09
 Create Date: 2026-10-15 10:00:00.000000
 
-Plan ``docs/applika/plan/0014-cli-device-sign-in-and-devices.md`` ``## Data``
+Plan ``docs/plan/0014-cli-device-sign-in-and-devices.md`` ``## Data``
 (Postgres part), ADR-0019 (device sessions and CLI OAuth): one new table,
 ``user_sessions``. Its id is a snowflake ``BIGINT`` with no sequence
 (ADR-0003); it carries ``created_at`` (the moment access was granted) and

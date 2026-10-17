@@ -9,7 +9,7 @@ the same document twice it returns the same dictionary.
 A few things this file is careful about.
 
 **The theme is not a parameter.** ``design`` is always ``{theme: applika}``.
-The user does not choose a look (docs/applika/adr/0011-server-side-cv-pdf-rendercv.md),
+The user does not choose a look (docs/adr/0011-server-side-cv-pdf-rendercv.md),
 so the caller cannot pass one in.
 
 **A section that is empty is omitted, never emitted blank.** RenderCV would

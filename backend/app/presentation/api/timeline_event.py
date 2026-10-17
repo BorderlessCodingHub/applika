@@ -1,6 +1,6 @@
 """Application timeline routes (R-001..R-006).
 
-Ported from mynextjob's ``api/timeline_event.py``. A thin router: every
+A thin router: every
 route acts for the current user and on that user's own application and
 events only; another user's application or event is a 404 (ADR 0004). No
 business rule lives here: ownership, the write guards (archived 422, closed

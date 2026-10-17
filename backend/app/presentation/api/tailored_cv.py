@@ -1,7 +1,7 @@
 """Application CV copy routes - one copy per application, under its owner.
 
 A thin router. Every endpoint resolves the acting user and the use cases scope
-to that user's own rows (docs/applika/adr/0004-row-ownership-and-is-admin.md),
+to that user's own rows (docs/adr/0004-row-ownership-and-is-admin.md),
 so another user's application is a 404 on all four verbs - for an admin too.
 No business logic lives here: the one-copy-per-application rule, the master
 CV's ownership check and the read-only refusal all belong to the use cases.
@@ -324,7 +324,7 @@ async def export_tailored_cv_diff_pdf(
 
     Same content and the same baseline/409 rule as
     ``.../cv/diff/markdown``, compiled through Typst
-    (docs/applika/adr/0011-server-side-cv-pdf-rendercv.md).
+    (docs/adr/0011-server-side-cv-pdf-rendercv.md).
     """
     rendered = await use_case.execute(application_id, c_user.id)
     return Response(

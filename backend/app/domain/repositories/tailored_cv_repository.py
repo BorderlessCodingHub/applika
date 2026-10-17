@@ -4,7 +4,7 @@ The constructor takes an ``AsyncSession`` and the repository owns its own
 commit/rollback. Methods return ORM models (``TailoredCVModel``), never DTOs.
 
 Every read and every write is scoped to the owning user
-(docs/applika/adr/0004-row-ownership-and-is-admin.md). That scoping is a
+(docs/adr/0004-row-ownership-and-is-admin.md). That scoping is a
 second line of defence, not the first: nothing in the schema ties
 ``tailored_cvs.user_id`` to ``applications.user_id``, so the use cases
 authorize against the *application's* owner before they ever call in here.

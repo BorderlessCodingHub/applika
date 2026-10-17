@@ -4,7 +4,7 @@ Revision ID: afd4074c70c2
 Revises: d3f7b1c9e2a4
 Create Date: 2026-09-17 12:00:00.000000
 
-Plan ``docs/applika/plan/0008-steps-as-timeline.md`` ``## Data``, revision R1,
+Plan ``docs/plan/0008-steps-as-timeline.md`` ``## Data``, revision R1,
 ticket KODI-010. Release A of the plan: **expand only**
 (``.claude/rules/prod-release-runbook.md`` 4). Nothing under ``app/`` reads or
 writes a single object this revision creates; the ORM maps none of them. The
@@ -28,7 +28,7 @@ code that uses them ships in Release B, after the owner confirms
   and missing period with monthly; the original amount stays in
   `applications.salary_offer` until R2 renames it `_old`.
 - (2026-09-17, KODI-010) Owner, decision (c): "(c) is combine from both
-  projects" — currencies are the union of applika and mynextjob (20). Salary
+  projects" — currencies grow from 9 to 20. Salary
   period: "rename to annually and update in cli as well. create a change log
   file for cli and annotate this change there. Any change in the backend that
   affects cli must be annotate there, create one changelog for backend too".
@@ -37,7 +37,7 @@ code that uses them ships in Release B, after the owner confirms
 
 ## What upgrade() does, in order
 
-1. ``currency`` gains the 11 mynextjob-only values (``CURRENCIES_ADDED``) and
+1. ``currency`` gains the 11 new values (``CURRENCIES_ADDED``) and
    ``salaryperiod`` gains ``ANNUALLY``, with ``ADD VALUE IF NOT EXISTS`` inside
    an autocommit block (``ADD VALUE`` cannot run inside the transaction that
    then uses it, so it goes first). **The labels are upper case** because the
@@ -193,8 +193,8 @@ INTERVIEW_TYPES = (
     'final',
 )
 
-# Decision (c). The 9 currencies the previous release knows, and the 11 the
-# mynextjob list adds (union = 20).
+# Decision (c). The 9 currencies the previous release knows, and the 11
+# added (total = 20).
 CURRENCIES_KNOWN = (
     'USD',
     'BRL',

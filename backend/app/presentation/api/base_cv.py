@@ -1,7 +1,7 @@
 """Master CV routes - the user's reusable CVs, capped at 3 per user.
 
 A thin router: every endpoint resolves the acting user and scopes to that
-user's own rows (docs/applika/adr/0004-row-ownership-and-is-admin.md), so a
+user's own rows (docs/adr/0004-row-ownership-and-is-admin.md), so a
 master CV belonging to another user is a 404 - for an admin too, because
 ``users.is_admin`` grants no extra access through the user routes. No business
 logic lives here: the 3-per-user cap belongs to ``CreateBaseCVUseCase``.
@@ -152,7 +152,7 @@ async def export_base_cv_pdf(
     ``POST`` rather than ``GET`` because the server does real work here -
     a Typst compile - and the result must never be cached as a resource.
     There is no body and no theme parameter: the look is fixed
-    (docs/applika/adr/0011-server-side-cv-pdf-rendercv.md). 404 if the CV
+    (docs/adr/0011-server-side-cv-pdf-rendercv.md). 404 if the CV
     does not exist or is not owned, 500 if the render fails - and nothing
     is written either way.
     """
@@ -189,7 +189,7 @@ async def export_base_cv_markdown(
 
     ``GET``, unlike the PDF export: rendering here is Jinja over the same
     mapped document the PDF path builds, cheap enough to treat as an
-    ordinary read (docs/applika/adr/0011-server-side-cv-pdf-rendercv.md
+    ordinary read (docs/adr/0011-server-side-cv-pdf-rendercv.md
     still governs the theme and the fixed look; there is no theme
     parameter here either). 404 if the CV does not exist or is not
     owned, 500 if the render fails - nothing is written either way.

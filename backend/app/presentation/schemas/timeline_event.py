@@ -1,8 +1,7 @@
 """Timeline-event request/response schemas (R-001..R-006).
 
-Ported whole from mynextjob's ``schemas/timeline_event.py``. The write body
-is validated in cross-field passes (``model_validator``, mode ``after``) so
-every violation is a 422 before any I/O:
+The write body is validated in cross-field passes (``model_validator``, mode
+``after``) so every violation is a 422 before any I/O:
 
 * **Scheduling**: ``start_time`` and ``end_time`` come together and the end
   is strictly after the start.

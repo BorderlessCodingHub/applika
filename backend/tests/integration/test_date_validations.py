@@ -165,7 +165,7 @@ async def test_update_application_with_future_date_returns_422(
 # ---------------------------------------------------------------------------
 # Step dates: the order rules are gone (PRD 0008 "Assumptions")
 #
-# A step is a timeline event now, and timeline events follow mynextjob: no
+# A step is a timeline event now, and for timeline events no
 # rule ties the date to the application date or to the previous step.
 # ---------------------------------------------------------------------------
 

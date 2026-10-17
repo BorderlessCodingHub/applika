@@ -5,7 +5,7 @@ Revision ID: af50c83911a7
 Revises: c8b3e9f4a1d6
 Create Date: 2026-09-18 16:00:00.000000
 
-Plan ``docs/applika/plan/0008-steps-as-timeline.md``, ticket KODI-016
+Plan ``docs/plan/0008-steps-as-timeline.md``, ticket KODI-016
 (R-038, R-039). Owner, verbatim: "clear it on edit, this must be blocked
 ever on backend, if event type is different from interview, these
 attributes must be blocked, you can remove the value in the database as

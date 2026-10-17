@@ -2,7 +2,7 @@ from enum import StrEnum
 
 
 class Currency(StrEnum):
-    """The 20 salary currencies: applika's 9 plus mynextjob's 11 (R-031).
+    """The 20 salary currencies: applika's original 9 plus 11 added (R-031).
 
     Owner decision (c), 2026-09-17: "(c) is combine from both projects".
     Revision ``afd4074c70c2`` added the 11 labels to the ``currency`` PG type;

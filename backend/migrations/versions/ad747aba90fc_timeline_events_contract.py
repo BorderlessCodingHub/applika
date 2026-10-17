@@ -6,7 +6,7 @@ Revision ID: ad747aba90fc
 Revises: af50c83911a7
 Create Date: 2026-09-18 09:00:00.000000
 
-Plan ``docs/applika/plan/0008-steps-as-timeline.md`` ``## Data``, revision R2,
+Plan ``docs/plan/0008-steps-as-timeline.md`` ``## Data``, revision R2,
 ticket KODI-013. Release C of the plan: **the contract migration**. Release B
 (KODI-011) already reads and writes nothing this revision renames — the ORM
 has not mapped ``application_steps`` or the legacy ``applications`` columns
