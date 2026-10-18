@@ -39,7 +39,7 @@ const DEFAULTS: Record<
   create: {
     title: "Add event",
     description:
-      "Record a note, interview, feedback, offer, or rejection for this application.",
+      "Record an interview, offer, or rejection for this application.",
   },
   edit: {
     title: "Edit event",

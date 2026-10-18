@@ -45,3 +45,28 @@ describe("TimelineEventDialog — width (AC1)", () => {
     ).toBeInTheDocument();
   });
 });
+
+/**
+ * The event form offers only interview, offer and denied: the create
+ * description names those three and never notes or feedback.
+ */
+describe("TimelineEventDialog — create description", () => {
+  it("names only the three event types the form offers", () => {
+    render(
+      <TimelineEventDialog
+        open
+        onOpenChange={() => {}}
+        mode="create"
+        footer={<button type="button">Save</button>}
+      >
+        <div>body</div>
+      </TimelineEventDialog>,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Add event" });
+    expect(dialog).toHaveAccessibleDescription(
+      "Record an interview, offer, or rejection for this application.",
+    );
+    expect(dialog).not.toHaveAccessibleDescription(/note|feedback/i);
+  });
+});
