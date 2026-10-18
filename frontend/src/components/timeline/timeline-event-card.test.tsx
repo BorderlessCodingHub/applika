@@ -31,7 +31,7 @@ describe("TimelineEventCard — schedule (AC1/AC2, KODI-016)", () => {
   it("shows no schedule for a non-interview event whose schedule keys are null", () => {
     const event: TimelineEventView = {
       id: "2",
-      type: "note",
+      type: "denied",
       eventDate: "2026-07-02",
       startTime: null,
       endTime: null,
@@ -47,7 +47,7 @@ describe("TimelineEventCard — schedule (AC1/AC2, KODI-016)", () => {
   it("renders without crashing, and shows no schedule, when a non-interview event's schedule keys are entirely absent (KODI-016)", () => {
     const event = {
       id: "3",
-      type: "feedback",
+      type: "denied",
       eventDate: "2026-07-02",
       observation: "Recruiter call",
       // start_time/end_time/timezone deliberately OMITTED — the API sends no

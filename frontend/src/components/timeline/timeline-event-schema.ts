@@ -19,8 +19,8 @@ import type { CreateTimelineEventPayload } from "@/services/types/timeline";
  * branch REQUIRES the salary trio (period restricted to `monthly | annually`,
  * a non-negative amount, and one of the 20 currencies) and no `interview_type`;
  * the `denied` branch REQUIRES `denied_reason` (one of the 10 hardcoded
- * reasons, default `unknown`, KODI-014); `note`/`feedback` carry none of the
- * above. The `interview` branch is the only one that can ever WRITE a
+ * reasons, default `unknown`, KODI-014). Note and feedback are gone (ADR 0020):
+ * the union has three branches only. The `interview` branch is the only one that can ever WRITE a
  * start/end/timezone from form input. A non-interview event never sends a
  * schedule (KODI-016): `start_time`/`end_time`/`timezone` are OMITTED from
  * the wire body entirely (not sent as `null`) for every non-interview
@@ -105,17 +105,6 @@ const interviewSchema = z.object({
   salary_currency: z.string().optional(),
 });
 
-/** note/feedback branch — no `interview_type`, no `denied_reason`, no salary. */
-const otherSchema = z.object({
-  event_type: z.enum(["note", "feedback"]),
-  interview_type: z.string().optional(),
-  denied_reason: z.string().optional(),
-  ...commonShape,
-  salary_period: z.string().optional(),
-  salary_amount: z.string().optional(),
-  salary_currency: z.string().optional(),
-});
-
 /** denied branch — `denied_reason` is required (default `unknown`, KODI-014). No salary. */
 const deniedSchema = z.object({
   event_type: z.literal("denied"),
@@ -155,7 +144,6 @@ export const timelineEventSchema = z
     interviewSchema,
     offerSchema,
     deniedSchema,
-    otherSchema,
   ])
   .superRefine(validateSchedule);
 
@@ -169,20 +157,21 @@ function todayIso(): string {
 }
 
 /**
- * Blank values for the create flow — defaults to a `note` on today's date.
+ * Blank values for the create flow — defaults to an `interview` of type
+ * `unknown` on today's date.
  * `timezone` pre-fills with the browser's own zone (KODI-014): the select
  * cannot be cleared, so a create flow that never touches the field still
  * carries a real zone once the type becomes `interview`.
  */
 export function emptyTimelineEventValues(): TimelineEventFormValues {
   return {
-    event_type: "note",
+    event_type: "interview",
     event_date: todayIso(),
     start_time: "",
     end_time: "",
     timezone: browserTimeZone(),
     observation: "",
-    interview_type: "",
+    interview_type: "unknown",
     denied_reason: "",
     salary_period: "",
     salary_amount: "",
@@ -193,7 +182,7 @@ export function emptyTimelineEventValues(): TimelineEventFormValues {
 /**
  * Map a loaded event view-model into editor form values (edit flow). The
  * stored `timezone` always wins over the browser's; only an EMPTY stored
- * value (legacy note/feedback/offer/denied events, or an interview recorded
+ * value (legacy offer/denied events, or an interview recorded
  * before this slice) falls back to `browserTimeZone()` (KODI-014).
  */
 export function timelineEventToFormValues(
@@ -239,23 +228,11 @@ export function timelineEventToFormValues(
     } as TimelineEventFormValues;
   }
 
-  if (event.type === "denied") {
-    return {
-      event_type: "denied",
-      interview_type: "",
-      // A missing/null stored reason (pre-KODI-014 data) reads as unknown.
-      denied_reason: event.deniedReason ?? "unknown",
-      ...common,
-      salary_period: "",
-      salary_amount: "",
-      salary_currency: "",
-    } as TimelineEventFormValues;
-  }
-
   return {
-    event_type: event.type,
+    event_type: "denied",
     interview_type: "",
-    denied_reason: "",
+    // A missing/null stored reason (pre-KODI-014 data) reads as unknown.
+    denied_reason: event.deniedReason ?? "unknown",
     ...common,
     salary_period: "",
     salary_amount: "",
@@ -328,16 +305,9 @@ export function toTimelineEventPayload(
     };
   }
 
-  if (values.event_type === "denied") {
-    return {
-      event_type: "denied",
-      ...base,
-      denied_reason: values.denied_reason,
-    };
-  }
-
   return {
-    event_type: values.event_type,
+    event_type: "denied",
     ...base,
+    denied_reason: values.denied_reason,
   };
 }

@@ -41,7 +41,7 @@ export interface TimelineEvent {
   application_id: string;
   /** Owning user id (string). */
   user_id: string;
-  /** Hardcoded 5-value type (`note | interview | feedback | offer | denied`). */
+  /** Hardcoded 3-value type (`interview | offer | denied`); note/feedback are gone (ADR 0020). */
   event_type: TimelineEventType;
   /** Interview-only: one of the 7 hardcoded interview types. */
   interview_type: InterviewType | null;

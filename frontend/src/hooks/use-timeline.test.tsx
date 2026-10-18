@@ -163,7 +163,11 @@ describe("useCreateTimelineEvent", () => {
 
     result.current.mutate({
       applicationId: APP_ID,
-      payload: { event_type: "note", event_date: "2026-07-02" },
+      payload: {
+        event_type: "interview",
+        interview_type: "unknown",
+        event_date: "2026-07-02",
+      },
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));

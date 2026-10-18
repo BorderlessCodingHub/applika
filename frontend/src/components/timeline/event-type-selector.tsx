@@ -24,15 +24,15 @@ interface EventTypeSelectorProps {
 }
 
 /**
- * Segmented, icon-led selector for the 5 timeline event types.
+ * Segmented, icon-led selector for the 3 timeline event types.
  * Built on Radix `RadioGroup` so it is a true `radiogroup` — arrow keys move the
  * selection, each chip is a labelled `radio`, and focus is managed for you. Each
  * chip carries its type's icon + accent tile so the choice reads by shape and
  * colour, not colour alone. Controlled + presentational — pass `value` /
  * `onValueChange` from react-hook-form.
  *
- * Responsive: 3 columns (3 + 2) on mobile, all 5 in a row from `sm`, where the
- * event dialog is `max-w-3xl`.
+ * Responsive: 3 in a row at every width, like the finalize outcome picker; the
+ * chip's side padding tightens below `sm` so "Interview" fits at 320px.
  */
 export function EventTypeSelector({
   value,
@@ -54,7 +54,7 @@ export function EventTypeSelector({
       aria-labelledby={ariaLabelledby}
       aria-describedby={ariaDescribedby}
       aria-label={ariaLabelledby ? undefined : "Event type"}
-      className={cn("grid grid-cols-3 gap-2 sm:grid-cols-5", className)}
+      className={cn("grid grid-cols-3 gap-2", className)}
     >
       {EVENT_TYPE_OPTIONS.map((option) => {
         const {
@@ -70,7 +70,7 @@ export function EventTypeSelector({
             key={type}
             value={type}
             className={cn(
-              "group flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
+              "group flex min-w-0 flex-col items-center gap-2 rounded-lg border px-1.5 py-3 text-center transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3",
               selected
                 ? selectedClass
                 : "border-border text-muted-foreground hover:border-border-strong hover:bg-accent/40",
