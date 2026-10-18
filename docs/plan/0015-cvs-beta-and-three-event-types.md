@@ -8,8 +8,8 @@ ADRs bound:
 - 0012: timeline + reversible finalize; "five-value `event_type`" amended by 0020.
 - 0016: worker never gated.
 - 0018: beta registry + allowlist + `require_feature`; "Only admins write it" amended by 0021.
-- 0020 (Proposed): `event_type` interview|offer|denied; note/feedback → interview/unknown; `event_type_old` copy; temp trigger A→B.
-- 0021 (Proposed): shipped feature gated later; Release A migration pre-fills list (`added_by` NULL); top-up at B.
+- 0020 (Accepted 2026-10-17): `event_type` interview|offer|denied; note/feedback → interview/unknown; `event_type_old` copy; temp trigger A→B.
+- 0021 (Accepted 2026-10-17): shipped feature gated later; Release A migration pre-fills list (`added_by` NULL); top-up at B.
 PRDs neighbouring: 0007 (CV builder, now gated), 0008 (R-001 five types, superseded), 0010 (drafts, now gated),
 0012 (start-from-job + fit now also need `cvs`), 0013 (gate mechanism; non-goal + R-004 superseded for `cvs`).
 
@@ -134,7 +134,8 @@ No `cvs` → 404 `{"detail":"Not Found"}`, byte-equal unknown route, slash twins
 
 ## Risks
 - Between the B deploy and R2, a user whose first CV came after A gets 404. The owner runs R2 at once.
-- Window A→B: an old-image POST of a note answers `note`; the next read says interview/unknown.
+- Window A→B: an old-image POST of a note answers `interview`/`unknown` at once: the old repository refreshes the row
+  after commit, so the trigger's conversion is in the response (`timeline_event_repository.py` `create`, `update`).
 - Many CV and draft tests use `async_client` with no feature; each module needs `cvs_beta`.
 - `create_all` builds a three-label type; only the R1 test sees the five-label one.
 - B must not reach `main` before A's migration ran: every CV route would 404 for everyone (fail closed).

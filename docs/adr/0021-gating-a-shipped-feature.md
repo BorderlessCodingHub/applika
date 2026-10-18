@@ -42,6 +42,22 @@ until an admin added them one by one.
 - The PRD 0013 non-goal "Gating features that shipped before the job board" no longer holds for `cvs`. It still
   holds for every other feature until the owner orders otherwise.
 
+**As-built note (2026-10-18), pending the owner's decision.** The Decision stands. Two places where the build departs
+from it or adds to it. The owner has not yet ruled on either, and this note follows the build until he does:
+- *Top-up and removed users* (plan 0015 tasks, Plan corrections 12). A delete leaves no trace, so the top-up
+  migration (`647a047921ec`) cannot see a removal. It enrols every user whose earliest `base_cvs` or `tailored_cvs` row
+  is newer than the `cvs` row. A pre-A owner an admin removed stays off. Two users can be added back: a user whose
+  first CV came after Release A, whom an admin added and then removed before the top-up ran; and a removed pre-A
+  owner who deleted every pre-A CV and then made a new one. The sentence "A user an admin removed from the list in between is
+  not added back" therefore holds only for users whose earliest CV predates the `cvs` row. The owner accepted the same
+  edge for plan 0015 on 2026-10-17 ("Accept the edge (Recommended)").
+- *Slash twins on a whole router.* `cvs` gates three whole routers (base CVs, application CVs, drafts), so
+  `add_slash_twins` gives every route on them a `<path>/` twin. For a user without `cvs`, a slash-suffixed path is the
+  gate's 404, as in ADR-0018. For an enrolled user it changes two answers. A trailing-slash path is now served directly
+  instead of a 307 to the bare path. `GET`, `PUT` and `DELETE` on `/applications/drafts/from-job/` answer 422 instead
+  of 405. The limits in the ADR-0018 as-built note still apply: the gate cannot hide a `json_invalid` 422, a 405 on an
+  undefined method, or `PUT /applications/drafts` falling through to `PUT /applications/{id}` (422).
+
 ## Non-goals
 
 - Gating any other shipped feature without an owner order.
