@@ -132,7 +132,8 @@ with two browser sessions (`e2e-admin` and `e2e-discord`, a second
 `browser.newContext()`): the features row (count, "Yes, as an admin"); the
 admin turns `jobs` off for themselves (rail 8 entries with Admin, `/jobs`
 "Oops! Page not found", `GET /jobs` 404, `/admin/jobs` still opens, `e2e-user`
-unaffected) and back on; `e2e-discord`'s rail is 7 links with no Jobs, the
+unaffected) and back on; `e2e-discord`'s rail is 6 links with no Jobs (it
+has no `cvs` either; the admin's counts include CVs, as an admin), the
 admin adds them by username and a RELOAD shows Jobs + "Beta" — that step is
 timed and asserted under 60 s (AC7) — then removes them; release (Cancel
 first, then confirm) gives everyone Jobs without "Beta" while the admin's
@@ -145,6 +146,27 @@ listed, `e2e-discord` off the list, no `e2e-admin` opt-out), and the spec's
 `afterAll` (runs even after a failure) PATCHes `beta`, DELETEs `e2e-discord`
 and `e2e-admin` from the list and DELETEs the admin's opt-out. The feature's
 NAME is "Job board" (migration `641001baff09`); its rail entry is "Jobs".
+
+**CVs behind `cvs` in E2E (PRD 0015).** `e2e/cvs-beta.spec.ts` (serial,
+`e2e-admin` and `e2e-discord` in two contexts): without `cvs`, e2e-discord's
+rail is 6 links with no CVs, `/cvs`, `/cvs/new`, `/cvs/editor`,
+`/applications/cv` and `/applications/new-with-cv` are "Oops! Page not found",
+`/applications` has no tabs and no "New with CV", `GET /base-cvs` and
+`GET /applications/drafts` are 404 and the browser sends no CV or draft
+request. The admin adds e2e-discord at `/admin/features/view?key=cvs` (the
+feature's NAME is "CV builder", migration `f28e3d9705dd`): a reload shows CVs
+
+- "Beta" and `/cvs` opens with the badge beside its h1; e2e-discord then makes
+  a master CV, an application with its CV copy and a draft through the API. With
+  `jobs` added (a collection run first if the board is empty) and `cvs` removed:
+  the browser's own `GET /jobs` carries `best_fit: null` everywhere, the board
+  shows no fit, no "Start application", no invitation and no Sort, the job page
+  no "Your fit", and `POST /applications/drafts/from-job` is 404. The data is
+  404 but kept; re-added, `GET` returns it unchanged, then removed again it
+  hides on reload. `e2e-user` (on the list from the seed) sees CVs + "Beta".
+  The seed resets `cvs` like `jobs` (beta, `e2e-user` listed, `e2e-discord`
+  off, no admin opt-out); `beforeAll`/`afterAll` delete e2e-discord's CVs,
+  drafts and applications (enrolling it for the wipe) and put that state back.
 
 ---
 
@@ -220,6 +242,14 @@ route is reached from the CV link on an application row, and
 `e2e/shell-responsive.spec.ts` pins `PRIMARY_NAV` at eight entries for a user
 with `jobs` (Jobs right after Applications since KODI-048; seven without it
 since KODI-053 — see **Beta features**).
+Since PRD 0015 the eight need `cvs` too: seven with one of the two features,
+six with neither.
+
+**Every CV route is gated on `cvs` (PRD 0015):** `/cvs`, `/cvs/new`,
+`/cvs/editor`, `/applications/cv` and `/applications/new-with-cv` each export
+a `FeatureGate feature="cvs"` wrapper over an inner component, so without it
+they render the app's "page not found" and send no CV or draft request. The
+inner `jobs` checks on the last two stay.
 
 **`/applications/cv?id=` is the reading column while it shows the picker, and
 full width only once it shows the editor (KODI-017)** — see **App shell**
@@ -875,9 +905,10 @@ prose-subset port cost a 40% deviation on a prior feature) and extend it,
 rather than reimplementing from scratch.
 
 - **Vocabulary.** `timeline-types.ts` is the single vocabulary: the hardcoded
-  5-value `event_type` (`note | interview | feedback | offer | denied`, NOT a
-  DB catalog — R-021 removed the old step/feedback definition catalogs
-  entirely, admins can no longer create/edit/delete them), the hardcoded
+  3-value `event_type` (`interview | offer | denied`, NOT a DB catalog — R-021
+  removed the old step/feedback definition catalogs entirely; PRD 0015 /
+  ADR 0020 removed `note` and `feedback`: the API refuses them with 422 and
+  stored ones read as interviews of type unknown), the hardcoded
   7-value `interview_type` (`unknown | initial_screening | technical |
 cultural | hiring_manager | take_home | final`, `unknown` is the default),
   the 20 `SALARY_CURRENCIES` and the 3 `SALARY_PERIODS` (`hourly | monthly |
@@ -920,6 +951,10 @@ annually`; `hourly` survives only on a legacy offer migrated from a step or
   already `interview`/`initial_screening`. The API 409s the same rule
   server-side; its detail reaches the user through the mutation's toast
   (`getApiError`).
+- **A new event opens as an interview of type unknown (PRD 0015).**
+  `emptyTimelineEventValues()` seeds `event_type: "interview"` and
+  `interview_type: "unknown"`; `EventTypeSelector` shows the three types in
+  one row at every width (`grid-cols-3`, the finalize outcome picker's shape).
 - **The interview type select needs an explicit default.** Its trigger DISPLAYS
   "Unknown" the moment `event_type` becomes `interview` (a presentational
   fallback in `InterviewTypeSelect`), but nothing writes that back into
@@ -1689,13 +1724,16 @@ KODI-047 contract. Every commit porting his logic ends with the trailer
   differ until the worker recomputes. Do not "fix" that in the UI. A user with
   no master CV (`useBaseCvs()` loaded empty) gets `MasterCvInvitation`
   ("Create a master CV to see how well you fit each job", `/cvs/new`), no fit
-  anywhere (the page strips `best_fit`) and a disabled "Minimum fit".
+  anywhere (the page strips `best_fit`) and a disabled "Minimum fit". Without
+  `cvs` there is no fit at all, and no invitation: see **Beta features**.
 - **Draft / Applied.** `JobStatusBadge` links "Draft" to
   `/applications/new-with-cv?id=<id>` and "Applied" to
   `/applications?focus=<id>` (`jobApplicationHref`). "Start application" is
   rendered ALWAYS, beside the badge (orchestrator decision, KODI-048):
   starting again is how AC8's "offers to open the one that exists" is
   reached.
+  That holds with `cvs`; without it (PRD 0015) there is no Start and "Draft"
+  is plain text (`linkDraft={false}`), while "Applied" always links.
 - **The start flow.** `StartApplicationFlow` (`start-application-flow.tsx`)
   is the data half of `StartApplicationDialog`, mounted once per page: master
   CVs from `useBaseCvs`, fit labels and `canTailor` from `useJob(job.id)` —
@@ -1739,8 +1777,8 @@ not admins can see starts in beta, gated the way `jobs` is below.
   (`services.features.getMine()`, `services/types/features.ts`) answers the
   caller's own `{key, stage}` list; an absent key is no access, and the
   server already 404s every gated route without it. `FeatureKey` is the union
-  of the keys the web gates on (`"jobs"` today) — a new feature adds its key
-  there.
+  of the keys the web gates on (`"jobs" | "cvs"` today) — a new feature adds
+  its key there.
 - **`hooks/use-features.ts`.** `useMyFeatures(enabled?)` (key
   `["user", "features"]`) has `staleTime: 0` and `refetchOnWindowFocus: true`
   — an admin's change reaches the screens on the next mount, page load or
@@ -1751,8 +1789,8 @@ not admins can see starts in beta, gated the way `jobs` is below.
 - **Nav.** A `NavItem` with `feature` renders only with that key:
   `navItemsFor(isAdmin, features)` drops it, and marks it `beta` while the
   stage is `beta`. `(protected)/layout.tsx` passes `useMyFeatures(isAuthenticated)`.
-  So the primary nav is 8 entries with `jobs` and 7 without (plus Admin for an
-  admin). `SidebarNav` renders `BetaBadge` on a `beta` entry, `aria-hidden`
+  So the primary nav is 6 entries with neither `jobs` nor `cvs`, 7 with one
+  and 8 with both (plus Admin for an admin). `SidebarNav` renders `BetaBadge` on a `beta` entry, `aria-hidden`
   and pointed at by `aria-describedby` — the link's accessible name stays
   exactly the label ("Jobs"), its description is "Beta", its TEXT is
   "Jobs Beta" (why `shell-responsive.spec.ts` pins Jobs with a regex).
@@ -1772,13 +1810,26 @@ not admins can see starts in beta, gated the way `jobs` is below.
 - **Controls inside ungated screens.** "Tailor by keywords" and `CvFitPanel`
   on `application-cv-page.tsx` and `new-with-cv-page.tsx` (draft step 2)
   render only with `jobs`, and `useApplicationCvFit` is enabled only with it.
-  NOT gated, by design: an existing keyword copy's "Reordered by job match"
-  list, the Drafts tab, Finish, `/admin/jobs` and the admin-nav "Jobs" tab
-  (admin-only screens are never gated). Losing a feature hides controls; it
-  never deletes or alters what the user made with it.
+  NOT gated on `jobs`, by design: an existing keyword copy's "Reordered by job
+  match" list, the Drafts tab, Finish, `/admin/jobs` and the admin-nav "Jobs"
+  tab (admin-only screens are never gated). Losing a feature hides controls;
+  it never deletes or alters what the user made with it.
+- **`cvs` (PRD 0015)** gates the CV builder, the CV copies and the drafts.
+  Without it: no CVs entry, the CV routes are "page not found" (see
+  **Routing**), no CV link on an application row (`showCvLink`), no Drafts tab
+  and no "New with CV" (`applications-page.tsx` takes the archived-cycle shape,
+  `NewApplicationActions` `showNewWithCv`), and `useDrafts(enabled)` and
+  `useBaseCvs()` (enabled only with `cvs`) send nothing. On the job board, fit,
+  "Start application" (and its "Tailor by keywords"), the master CV invitation
+  and the draft link need both `jobs` and `cvs`: without `cvs` the page strips
+  `best_fit`, hides the Sort select and "Minimum fit" (`showFit`) and drops
+  `min_fit` / `sort=fit` from the filters (a stale URL or saved search),
+  shows `JOBS_COPY.subtitleNoCvs`, and the detail renders no fit column. The
+  server sends no fit without `cvs` anyway.
 - Tests seed `["user", "features"]` with `client.setQueryData` before render
   (plus a `services.features.getMine` mock) so the gate opens on the first
-  frame; the cases written before PRD 0013 run with `jobs`.
+  frame; the cases written before PRD 0013 run with `jobs`, and those needing
+  CVs, drafts or fit also seed `cvs`.
 
 ### Date Inputs
 
@@ -1986,7 +2037,7 @@ pages that do NOT want it.
     for this page" (KODI-008). Matched on the same `activePath` the nav is
     matched on, tolerates the trailing slash the static export serves, and is
     deliberately kept OUT of `nav.ts`: these are not nav entries, and
-    `PRIMARY_NAV` is pinned at eight (with `jobs`) by
+    `PRIMARY_NAV` is pinned at eight (with `jobs` and `cvs`) by
     `e2e/shell-responsive.spec.ts`.
   - **By CONTENT**, for a route that is full width only while one surface is
     on screen: `/applications/cv` left `FULL_WIDTH_PATHS` with KODI-017 — the
@@ -2106,10 +2157,9 @@ The `docker-compose.yml` defaults `API_BASE_URL` to `http://127.0.0.1/api` if no
 ## Tooling
 
 - **Git**: plain `git` via the shell. There is no Git MCP in this workspace.
-  Commit after each logical unit of work using conventional commits with the
-  ticket key after the scope: `feat(frontend): KODI-004 ...`. Branch from
-  `develop` and open the PR against `develop`
-  (`.claude/rules/branches-and-commits.md`).
+  Commit after each logical unit of work using conventional commits with no
+  ticket key: `feat(frontend): ...`. Branch from `develop`; the owner merges
+  into `develop` (`.claude/rules/branches-and-commits.md`).
 - **shadcn/ui**: add or compose primitives through the CLI and fetch the
   canonical docs before using a pattern. Do not hand-roll what the registry has.
 - **Context7 MCP** (when available): look up docs for Next.js, React Query, Zod,
