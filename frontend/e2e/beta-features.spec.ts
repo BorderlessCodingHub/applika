@@ -2,7 +2,6 @@ import {
   expect,
   test,
   type APIRequestContext,
-  type Browser,
   type Locator,
   type Page,
 } from "@playwright/test";
@@ -10,11 +9,22 @@ import {
 import {
   SEEDED_USERS,
   apiUrl,
-  authCookieHeader,
   loginAs,
   seededUserId,
   type SeededRole,
 } from "./support/auth";
+import {
+  addByUsername,
+  betaRow,
+  expectOk,
+  headers,
+  openAs,
+  openFeaturePage,
+  rail,
+  removeUser,
+  restoreSeedState,
+  settleFeatures,
+} from "./support/beta-features";
 
 /**
  * Beta features end to end against the REAL stack (PRD 0013, KODI-054, T050).
@@ -34,7 +44,6 @@ import {
 
 test.describe.configure({ mode: "serial" });
 
-const FEATURE_PAGE = "/admin/features/view?key=jobs";
 /** The `jobs` row's name, from migration `641001baff09`. */
 const FEATURE_NAME = "Job board";
 const DISCORD = SEEDED_USERS.discord.username;
@@ -64,39 +73,6 @@ const HINT = {
     "Released to everyone. Your choice applies again if it moves back to beta.",
 } as const;
 
-function headers(role: SeededRole) {
-  return { Cookie: authCookieHeader(role), "Content-Type": "application/json" };
-}
-
-async function expectOk(
-  response: Awaited<ReturnType<APIRequestContext["get"]>>,
-) {
-  expect(response.ok(), await response.text()).toBeTruthy();
-}
-
-/** The seeded state back: stage beta, discord and admin off the list, no opt-out. */
-async function restoreSeedState(request: APIRequestContext) {
-  await expectOk(
-    await request.patch(apiUrl("/admin/features/jobs"), {
-      headers: headers("admin"),
-      data: { stage: "beta" },
-    }),
-  );
-  for (const role of ["discord", "admin"] as const) {
-    await expectOk(
-      await request.delete(
-        apiUrl(`/admin/features/jobs/users/${seededUserId(role)}`),
-        { headers: headers("admin") },
-      ),
-    );
-  }
-  await expectOk(
-    await request.delete(apiUrl("/admin/features/jobs/opt-out"), {
-      headers: headers("admin"),
-    }),
-  );
-}
-
 /** The usernames on the `jobs` beta list, as the API has them. */
 async function betaListUsernames(request: APIRequestContext) {
   const response = await request.get(
@@ -117,50 +93,20 @@ async function jobsStatus(request: APIRequestContext, role: SeededRole) {
   return response.status();
 }
 
-/** A second, independent browser session for `role`. */
-async function openAs(browser: Browser, role: SeededRole): Promise<Page> {
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  await loginAs(page, role);
-  return page;
-}
-
-function rail(page: Page): Locator {
-  return page.locator("aside").getByRole("navigation", { name: "Primary" });
-}
-
 function railJobs(page: Page): Locator {
   return rail(page).getByRole("link", { name: "Jobs", exact: true });
 }
 
-/**
- * Runs `navigate` (a goto or a reload) and waits for its `/users/me/features`
- * answer: the gated Jobs entry joins the rail only after it, so a rail
- * assertion made earlier could pass against the not-yet-gated nav.
- */
-async function settleFeatures(page: Page, navigate: () => Promise<unknown>) {
-  const features = page.waitForResponse(
-    (response) =>
-      new URL(response.url()).pathname.endsWith("/users/me/features") &&
-      response.request().method() === "GET",
-  );
-  await navigate();
-  const body = (await (await features).json()) as {
-    features: Array<{ key: string }>;
-  };
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-  await expect(rail(page)).toBeVisible();
-  return body.features.some((feature) => feature.key === "jobs");
-}
-
-/** Opens the dashboard once the caller's features have answered. */
+/** Opens the dashboard once the caller's features have answered: whether they have `jobs`. */
 async function openDashboard(page: Page) {
-  return settleFeatures(page, () => page.goto("/dashboard"));
+  return (await settleFeatures(page, () => page.goto("/dashboard"))).includes(
+    "jobs",
+  );
 }
 
-/** Reloads the dashboard once the caller's features have answered. */
+/** Reloads the dashboard once the caller's features have answered: whether they have `jobs`. */
 async function reloadDashboard(page: Page) {
-  return settleFeatures(page, () => page.reload());
+  return (await settleFeatures(page, () => page.reload())).includes("jobs");
 }
 
 async function expectRail(
@@ -193,52 +139,9 @@ function ownSwitch(page: Page): Locator {
   return page.getByRole("switch", { name: "Use this feature myself" });
 }
 
-function betaRow(page: Page, username: string): Locator {
-  return page.locator(
-    `tr[data-slot="feature-beta-user"][data-username="${username}"]`,
-  );
-}
-
-async function openFeaturePage(page: Page) {
-  await page.goto(FEATURE_PAGE);
-  await expect(
-    page.getByRole("heading", { name: FEATURE_NAME, level: 1 }),
-  ).toBeVisible();
-  await expect(reason(page)).toBeVisible();
-}
-
-/** Adds `username` through the "Add user" dialog (search by username, AC3). */
-async function addByUsername(page: Page, username: string) {
-  await page.getByRole("button", { name: "Add user" }).click();
-  const dialog = page.getByRole("dialog", {
-    name: "Add users to the beta list",
-  });
-  await dialog.getByRole("searchbox", { name: "Search users" }).fill(username);
-  await dialog
-    .getByRole("button", { name: `Add ${username}`, exact: true })
-    .click();
-  await expect(
-    dialog.locator('[data-slot="feature-add-user-status"]'),
-  ).toHaveText(`${username} is on the beta list now.`);
-  await dialog.getByRole("button", { name: "Done" }).click();
-  await expect(dialog).toBeHidden();
-  await expect(betaRow(page, username)).toBeVisible();
-}
-
-/** Removes `username` behind its confirm (AC4). */
-async function removeUser(page: Page, username: string) {
-  await page
-    .getByRole("button", { name: `Remove ${username}`, exact: true })
-    .click();
-  const confirm = page.getByRole("alertdialog");
-  await expect(confirm).toContainText(`Remove ${username} from the beta list?`);
-  await confirm.getByRole("button", { name: "Remove", exact: true }).click();
-  await expect(confirm).toBeHidden();
-  await expect(betaRow(page, username)).toHaveCount(0);
-}
-
+// The seeded state back: stage beta, discord and admin off the list, no opt-out.
 test.afterAll(async ({ request }) => {
-  await restoreSeedState(request);
+  await restoreSeedState(request, "jobs", ["discord", "admin"]);
 });
 
 test("the features list shows jobs with its count, stage and the admin's own access (AC1)", async ({
@@ -284,7 +187,7 @@ test("an admin turns jobs off for themselves only, and back on (AC8, AC9)", asyn
   expect(await openDashboard(page)).toBe(true);
   await expectRail(page, BASE_LINKS + 2, "beta");
 
-  await openFeaturePage(page);
+  await openFeaturePage(page, "jobs", FEATURE_NAME);
   await expect(reason(page)).toHaveText(REASON.admin);
   await expect(ownSwitch(page)).toBeChecked();
   await ownSwitch(page).click();
@@ -304,7 +207,7 @@ test("an admin turns jobs off for themselves only, and back on (AC8, AC9)", asyn
   // Only the admin's own view changed: the listed user keeps it.
   expect(await jobsStatus(request, "user")).toBe(200);
 
-  await openFeaturePage(page);
+  await openFeaturePage(page, "jobs", FEATURE_NAME);
   await expect(reason(page)).toHaveText(REASON.off);
   await ownSwitch(page).click();
   await expect(reason(page)).toHaveText(REASON.admin);
@@ -326,7 +229,7 @@ test("an admin adds e2e-discord by username and removes them; e2e-discord follow
     expect(await jobsStatus(request, "discord")).toBe(404);
 
     await loginAs(page, "admin");
-    await openFeaturePage(page);
+    await openFeaturePage(page, "jobs", FEATURE_NAME);
 
     const started = Date.now();
     await addByUsername(page, DISCORD);
@@ -404,7 +307,7 @@ test("release to everyone and move back to beta keep the list and the admin's ch
   const discord = await openAs(browser, "discord");
   try {
     await loginAs(page, "admin");
-    await openFeaturePage(page);
+    await openFeaturePage(page, "jobs", FEATURE_NAME);
     // The admin's own choice, to prove it survives the release (AC10).
     await ownSwitch(page).click();
     await expect(reason(page)).toHaveText(REASON.off);
@@ -485,7 +388,7 @@ test("an admin on the beta list keeps jobs after turning it off, and is told to 
   request,
 }) => {
   await loginAs(page, "admin");
-  await openFeaturePage(page);
+  await openFeaturePage(page, "jobs", FEATURE_NAME);
   await ownSwitch(page).click();
   await expect(reason(page)).toHaveText(REASON.off);
 
