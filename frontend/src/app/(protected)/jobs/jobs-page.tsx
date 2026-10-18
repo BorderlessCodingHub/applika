@@ -93,18 +93,33 @@ export function JobsPage() {
   );
 }
 
+/**
+ * Fit, "Start application" (with its "Tailor by keywords"), the master CV
+ * invitation and a draft link need `cvs` too. Without it the server sends no
+ * fit, and an old `?min_fit=` or `sort=fit` (a link, a saved search) is
+ * dropped here, since no control is left to clear it.
+ */
+function withoutFit(filters: JobFilters): JobFilters {
+  return {
+    ...filters,
+    min_fit: null,
+    sort: filters.sort === "fit" ? "newest" : filters.sort,
+  };
+}
+
 function JobBoard() {
   const beta = useHasFeature("jobs").stage === "beta";
+  const hasCvs = useHasFeature("cvs").has;
   const searchParams = useSearchParams();
-  const filters = useMemo(
-    () => filtersFromSearchParams(searchParams),
-    [searchParams],
-  );
+  const filters = useMemo(() => {
+    const fromUrl = filtersFromSearchParams(searchParams);
+    return hasCvs ? fromUrl : withoutFit(fromUrl);
+  }, [searchParams, hasCvs]);
   const page = pageFromSearchParams(searchParams);
 
   const jobs = useJobs(filters, page);
   const baseCvs = useBaseCvs();
-  const noMasterCv = baseCvs.isSuccess && baseCvs.data.length === 0;
+  const noMasterCv = hasCvs && baseCvs.isSuccess && baseCvs.data.length === 0;
 
   const dismiss = useDismissJob();
   const restore = useRestoreJob();
@@ -215,7 +230,7 @@ function JobBoard() {
             {beta ? <BetaBadge /> : null}
           </div>
           <p className="mt-1 text-sm text-pretty text-muted-foreground">
-            {JOBS_COPY.subtitle}
+            {hasCvs ? JOBS_COPY.subtitle : JOBS_COPY.subtitleNoCvs}
           </p>
         </div>
         <SavedSearchesMenu
@@ -225,7 +240,11 @@ function JobBoard() {
           onRetry={() => void searches.refetch()}
           activeId={activeSearchId}
           onApply={(search) =>
-            writeJobsUrl(normalizeJobFilters(search.filters))
+            writeJobsUrl(
+              normalizeJobFilters(
+                hasCvs ? search.filters : withoutFit(search.filters),
+              ),
+            )
           }
           onSave={saveSearch}
           onRename={renameSearch}
@@ -241,6 +260,7 @@ function JobBoard() {
           value={filters}
           onChange={(next) => writeJobsUrl(next)}
           fitAvailable={!noMasterCv}
+          showFit={hasCvs}
           summary={
             data ? <JobResultsCount ref={countRef} total={data.total} /> : null
           }
@@ -274,11 +294,16 @@ function JobBoard() {
             {data.items.map((job) => (
               <li key={job.id} data-job-id={job.id}>
                 <JobListItem
-                  job={noMasterCv ? { ...job, best_fit: null } : job}
-                  onStart={(target) => {
-                    setStarting(target);
-                    setStartOpen(true);
-                  }}
+                  job={noMasterCv || !hasCvs ? { ...job, best_fit: null } : job}
+                  onStart={
+                    hasCvs
+                      ? (target) => {
+                          setStarting(target);
+                          setStartOpen(true);
+                        }
+                      : undefined
+                  }
+                  linkDraft={hasCvs}
                   onDismiss={handleDismiss}
                   onRestore={handleRestore}
                   pending={marks[job.id] ?? null}
@@ -294,12 +319,14 @@ function JobBoard() {
         </>
       )}
 
-      <StartApplicationFlow
-        key={starting?.id}
-        job={starting}
-        open={startOpen}
-        onOpenChange={setStartOpen}
-      />
+      {hasCvs ? (
+        <StartApplicationFlow
+          key={starting?.id}
+          job={starting}
+          open={startOpen}
+          onOpenChange={setStartOpen}
+        />
+      ) : null}
     </div>
   );
 }

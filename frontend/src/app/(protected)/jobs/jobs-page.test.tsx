@@ -41,8 +41,15 @@ const removeSearch = vi.fn();
 const createFromJob = vi.fn();
 const push = vi.fn();
 
-/** KODI-053: the cases written before PRD 0013 run with `jobs` in beta. */
-let myFeatures: MyFeature[] = [{ key: "jobs", stage: "beta" }];
+/**
+ * The cases written before PRD 0013 run with `jobs` in beta, and with `cvs`
+ * too: fit, Start and the invitation need both.
+ */
+const JOBS_AND_CVS: MyFeature[] = [
+  { key: "jobs", stage: "beta" },
+  { key: "cvs", stage: "beta" },
+];
+let myFeatures: MyFeature[] = JOBS_AND_CVS;
 const getMyFeatures = vi.fn();
 let seedFeatures = true;
 
@@ -124,7 +131,7 @@ function renderPage() {
 }
 
 beforeEach(() => {
-  myFeatures = [{ key: "jobs", stage: "beta" }];
+  myFeatures = JOBS_AND_CVS;
   seedFeatures = true;
   getMyFeatures.mockReset().mockImplementation(async () => myFeatures);
   setUrl("");
@@ -782,7 +789,10 @@ describe("/jobs behind the jobs feature (KODI-053, PRD 0013)", () => {
   });
 
   it("shows no Beta once jobs is released", async () => {
-    myFeatures = [{ key: "jobs", stage: "general" }];
+    myFeatures = [
+      { key: "jobs", stage: "general" },
+      { key: "cvs", stage: "general" },
+    ];
     renderPage();
 
     expect(
@@ -790,5 +800,101 @@ describe("/jobs behind the jobs feature (KODI-053, PRD 0013)", () => {
     ).toBeInTheDocument();
     await screen.findByRole("article", { name: "Senior Backend Engineer" });
     expect(screen.queryByText("Beta")).not.toBeInTheDocument();
+  });
+});
+
+describe("/jobs with jobs but without cvs", () => {
+  beforeEach(() => {
+    myFeatures = [{ key: "jobs", stage: "beta" }];
+  });
+
+  it("shows no fit, no Start application, no invitation and never asks for master CVs", async () => {
+    listBaseCvs.mockResolvedValue([]);
+    renderPage();
+
+    const card = await screen.findByRole("article", {
+      name: "Senior Backend Engineer",
+    });
+    // The API item still carries a best fit: the page strips it anyway.
+    expect(within(card).queryByText("Fit 72%")).not.toBeInTheDocument();
+    expect(
+      within(card).queryByRole("button", { name: "Start application" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", {
+        name: "Create a master CV to see how well you fit each job",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Remote jobs from Himalayas and RemoteOK."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/matched against your master CVs/),
+    ).not.toBeInTheDocument();
+    expect(listBaseCvs).not.toHaveBeenCalled();
+  });
+
+  it("shows no sort and no Minimum fit field", async () => {
+    renderPage();
+    await screen.findByRole("article", { name: "Senior Backend Engineer" });
+
+    expect(
+      screen.queryByRole("combobox", { name: "Sort" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /More filters/ }));
+    expect(
+      screen.getByRole("combobox", { name: "Published within" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Minimum fit" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("drops an old min_fit and sort=fit from the request", async () => {
+    setUrl("min_fit=70&sort=fit&source=remoteok");
+    renderPage();
+    await screen.findByRole("article", { name: "Senior Backend Engineer" });
+
+    const [filters] = lastListCall();
+    expect(filters.min_fit).toBeNull();
+    expect(filters.sort).toBe("newest");
+    expect(filters.source).toBe("remoteok");
+    // No phantom count on More filters: the dropped min_fit is not active.
+    expect(
+      screen.getByRole("button", { name: "More filters" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows Draft as text, not a link, and keeps Applied a link", async () => {
+    listJobs.mockResolvedValue(
+      makePage([
+        makeJob({ application: { id: "900", is_draft: true } }),
+        makeJob({
+          id: "102",
+          title: "Platform Engineer",
+          application: { id: "901", is_draft: false },
+        }),
+      ]),
+    );
+    renderPage();
+
+    const draftCard = await screen.findByRole("article", {
+      name: "Senior Backend Engineer",
+    });
+    const draft = draftCard.querySelector(
+      '[data-slot="job-status-badge"][data-status="draft"]',
+    );
+    expect(draft).not.toBeNull();
+    expect(draft).toHaveTextContent("Draft");
+    expect(
+      within(draftCard).queryByRole("link", { name: "Draft" }),
+    ).not.toBeInTheDocument();
+
+    const appliedCard = screen.getByRole("article", {
+      name: "Platform Engineer",
+    });
+    expect(
+      within(appliedCard).getByRole("link", { name: "Applied" }),
+    ).toHaveAttribute("href", "/applications?focus=901");
   });
 });

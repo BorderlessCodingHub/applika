@@ -35,11 +35,14 @@ export type JobMarkPending = "dismiss" | "restore" | null;
 
 export interface JobListItemProps {
   job: JobSummary;
-  onStart: (job: JobSummary) => void;
+  /** Absent without the `cvs` feature: then no "Start application" at all. */
+  onStart?: (job: JobSummary) => void;
   onDismiss: (job: JobSummary) => void;
   onRestore: (job: JobSummary) => void;
   /** The mark in flight on this job: its button spins and ignores clicks. */
   pending?: JobMarkPending;
+  /** `false` without `cvs`: "Draft" is text, since resuming a draft needs it. */
+  linkDraft?: boolean;
   headingLevel?: 2 | 3;
   /** Pins "3 days ago" in tests. */
   now?: Date;
@@ -57,6 +60,7 @@ export function JobListItem({
   onDismiss,
   onRestore,
   pending = null,
+  linkDraft = true,
   headingLevel = 2,
   now,
   className,
@@ -167,6 +171,7 @@ export function JobListItem({
             <JobStatusBadge
               application={job.application}
               describedBy={titleId}
+              linkDraft={linkDraft}
               className="relative mr-auto sm:mr-1.5"
             />
           ) : null}
@@ -191,19 +196,21 @@ export function JobListItem({
             />
             {job.dismissed ? JOBS_COPY.restore : JOBS_COPY.dismiss}
           </Button>
-          {/* Always offered, even beside Draft/Applied: starting again is how
-              the user reaches "You already have an application" (AC8). */}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            aria-describedby={titleId}
-            onClick={() => onStart(job)}
-            className="relative"
-          >
-            <FilePlus2Icon aria-hidden data-icon="inline-start" />
-            {JOBS_COPY.start}
-          </Button>
+          {/* Always offered with `cvs`, even beside Draft/Applied: starting
+              again is how the user reaches "You already have an application". */}
+          {onStart ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-describedby={titleId}
+              onClick={() => onStart(job)}
+              className="relative"
+            >
+              <FilePlus2Icon aria-hidden data-icon="inline-start" />
+              {JOBS_COPY.start}
+            </Button>
+          ) : null}
         </div>
       </div>
     </article>

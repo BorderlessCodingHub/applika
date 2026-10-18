@@ -7,7 +7,9 @@ import { StartApplicationDialog } from "./start-application-dialog";
 import { localCalendarDay } from "@/components/application-drafts/draft-copy";
 import { StartApplicationFlow } from "./start-application-flow";
 import { apiError, makeCv, makeDetail, makeJob } from "./job-test-fixtures";
+import { MY_FEATURES_QUERY_KEY } from "@/hooks/use-features";
 import type { BaseCv } from "@/services/types/base-cv";
+import type { MyFeature } from "@/services/types/features";
 
 /**
  * T085 / AC7, AC8, AC9 (job flow): the start dialog wired to its data
@@ -15,12 +17,17 @@ import type { BaseCv } from "@/services/types/base-cv";
  */
 
 const getJob = vi.fn();
+const JOBS_AND_CVS_LIST = vi.hoisted(() => [
+  { key: "jobs" as const, stage: "beta" as const },
+  { key: "cvs" as const, stage: "beta" as const },
+]);
 const listBaseCvs = vi.fn();
 const createFromJob = vi.fn();
 const push = vi.fn();
 
 vi.mock("@/services/services", () => ({
   services: {
+    features: { getMine: async () => JOBS_AND_CVS_LIST },
     jobs: { get: (...args: unknown[]) => getJob(...args) },
     baseCvs: { list: (...args: unknown[]) => listBaseCvs(...args) },
     applicationDrafts: {
@@ -37,11 +44,14 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const JOB = makeJob();
 const ONE_CV: BaseCv[] = [makeCv("7", "Backend CV")];
+/** The flow mounts only with both features; its master CV query needs `cvs`. */
+const JOBS_AND_CVS: MyFeature[] = JOBS_AND_CVS_LIST;
 
 function renderFlow() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  client.setQueryData(MY_FEATURES_QUERY_KEY, JOBS_AND_CVS);
   const onOpenChange = vi.fn();
   render(
     <QueryClientProvider client={client}>

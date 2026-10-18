@@ -38,9 +38,14 @@ export function JobViewPage() {
   );
 }
 
-/** Mounted only with `jobs` (PRD 0013), so `useJob` never fires without it. */
+/**
+ * Mounted only with `jobs` (PRD 0013), so `useJob` never fires without it.
+ * Fit, "Start application" (with its "Tailor by keywords") and a draft link
+ * also need `cvs`: without it the server sends `fits: []` anyway.
+ */
 function JobView() {
   const beta = useHasFeature("jobs").stage === "beta";
+  const hasCvs = useHasFeature("cvs").has;
   const id = useSearchParams().get("id");
   const job = useJob(id);
   const baseCvs = useBaseCvs();
@@ -49,7 +54,7 @@ function JobView() {
   const [startOpen, setStartOpen] = useState(false);
 
   if (!id || apiStatus(job.error) === 404) return <JobNotListed />;
-  if (job.isLoading) return <JobDetailSkeleton />;
+  if (job.isLoading) return <JobDetailSkeleton showFit={hasCvs} />;
   if (job.isError || !job.data) {
     return (
       <div className="flex flex-col gap-6">
@@ -77,17 +82,21 @@ function JobView() {
         job={job.data}
         cvs={baseCvs.data}
         cvsLoading={baseCvs.isLoading}
-        onStart={() => setStartOpen(true)}
+        onStart={hasCvs ? () => setStartOpen(true) : undefined}
+        showFit={hasCvs}
+        linkDraft={hasCvs}
         onDismiss={(target) => dismiss.mutate(target.id)}
         onRestore={(target) => restore.mutate(target.id)}
         pending={pending}
         titleBadge={beta ? <BetaBadge /> : undefined}
       />
-      <StartApplicationFlow
-        job={job.data}
-        open={startOpen}
-        onOpenChange={setStartOpen}
-      />
+      {hasCvs ? (
+        <StartApplicationFlow
+          job={job.data}
+          open={startOpen}
+          onOpenChange={setStartOpen}
+        />
+      ) : null}
     </>
   );
 }

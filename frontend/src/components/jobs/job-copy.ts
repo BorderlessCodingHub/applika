@@ -27,6 +27,8 @@ export const JOBS_COPY = {
   title: "Jobs",
   subtitle:
     "Remote jobs from Himalayas and RemoteOK, matched against your master CVs.",
+  /** Without `cvs`: the board has no fit, so the subtitle does not promise one. */
+  subtitleNoCvs: "Remote jobs from Himalayas and RemoteOK.",
   invitation: "Create a master CV to see how well you fit each job",
   emptyTitle: "No jobs yet",
   emptyBody: "New jobs arrive every hour.",

@@ -108,3 +108,55 @@ describe("JobListItem (T082, AC2, AC11)", () => {
     expect(handlers.onDismiss).not.toHaveBeenCalled();
   });
 });
+
+describe("JobListItem without cvs", () => {
+  it("renders no Start application without onStart", () => {
+    render(
+      <JobListItem
+        job={makeJob({ application: { id: "900", is_draft: true } })}
+        now={NOW}
+        onDismiss={vi.fn()}
+        onRestore={vi.fn()}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: "Start application" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dismiss" })).toBeInTheDocument();
+  });
+
+  it("shows Draft as text with linkDraft false", () => {
+    const { container } = render(
+      <JobListItem
+        job={makeJob({ application: { id: "900", is_draft: true } })}
+        now={NOW}
+        linkDraft={false}
+        onDismiss={vi.fn()}
+        onRestore={vi.fn()}
+      />,
+    );
+    const draft = container.querySelector(
+      '[data-slot="job-status-badge"][data-status="draft"]',
+    );
+    expect(draft).toHaveTextContent("Draft");
+    expect(
+      screen.queryByRole("link", { name: "Draft" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps Applied a link with linkDraft false", () => {
+    render(
+      <JobListItem
+        job={makeJob({ application: { id: "901", is_draft: false } })}
+        now={NOW}
+        linkDraft={false}
+        onDismiss={vi.fn()}
+        onRestore={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Applied" })).toHaveAttribute(
+      "href",
+      "/applications?focus=901",
+    );
+  });
+});

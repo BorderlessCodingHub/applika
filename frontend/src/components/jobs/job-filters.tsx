@@ -58,6 +58,11 @@ export interface JobFiltersToolbarProps {
   onChange: (next: JobFilters) => void;
   /** `false` while the user has no master CV: "Minimum fit" is disabled (R-015). */
   fitAvailable?: boolean;
+  /**
+   * `false` without the `cvs` feature: no sort control (newest is the only
+   * order) and no "Minimum fit" field. The page clears both from the filters.
+   */
+  showFit?: boolean;
   sources?: readonly JobSourceRef[];
   /** Left end of the bottom row, e.g. `<JobResultsCount>`. */
   summary?: ReactNode;
@@ -74,6 +79,7 @@ export function JobFiltersToolbar({
   value,
   onChange,
   fitAvailable = true,
+  showFit = true,
   sources = JOB_SOURCES,
   summary,
   className,
@@ -217,26 +223,28 @@ export function JobFiltersToolbar({
           </SelectContent>
         </Select>
 
-        <Select
-          value={value.sort}
-          onValueChange={(next) =>
-            onChange({ ...value, sort: next as JobSort })
-          }
-        >
-          <SelectTrigger
-            aria-label={JOBS_COPY.sortLabel}
-            className="h-11 min-w-0 flex-1 data-[size=default]:h-11 *:data-[slot=select-value]:flex-1 sm:w-40 sm:flex-none"
+        {showFit ? (
+          <Select
+            value={value.sort}
+            onValueChange={(next) =>
+              onChange({ ...value, sort: next as JobSort })
+            }
           >
-            <ArrowDownUpIcon aria-hidden />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="newest">{JOBS_COPY.sortNewest}</SelectItem>
-              <SelectItem value="fit">{JOBS_COPY.sortFit}</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+            <SelectTrigger
+              aria-label={JOBS_COPY.sortLabel}
+              className="h-11 min-w-0 flex-1 data-[size=default]:h-11 *:data-[slot=select-value]:flex-1 sm:w-40 sm:flex-none"
+            >
+              <ArrowDownUpIcon aria-hidden />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="newest">{JOBS_COPY.sortNewest}</SelectItem>
+                <SelectItem value="fit">{JOBS_COPY.sortFit}</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        ) : null}
 
         <Button
           type="button"
@@ -268,9 +276,19 @@ export function JobFiltersToolbar({
         <div
           id={ids.panel}
           data-slot="job-filters-panel"
-          className="grid animate-fade-in-up gap-4 rounded-xl border bg-card p-4 shadow-card motion-reduce:animate-none sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_12rem_12rem]"
+          className={cn(
+            "grid animate-fade-in-up gap-4 rounded-xl border bg-card p-4 shadow-card motion-reduce:animate-none",
+            showFit
+              ? "sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_12rem_12rem]"
+              : "sm:grid-cols-[minmax(0,1fr)_12rem]",
+          )}
         >
-          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2 lg:col-span-1">
+          <div
+            className={cn(
+              "flex min-w-0 flex-col gap-1.5",
+              showFit && "sm:col-span-2 lg:col-span-1",
+            )}
+          >
             <Label htmlFor={ids.tags}>{JOBS_COPY.tagsLabel}</Label>
             <Input
               ref={tagInputRef}
@@ -318,41 +336,46 @@ export function JobFiltersToolbar({
             ) : null}
           </div>
 
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={ids.minFit}>{JOBS_COPY.minFitLabel}</Label>
-            <Select
-              disabled={!fitAvailable}
-              value={value.min_fit == null ? ANY : String(value.min_fit)}
-              onValueChange={(next) =>
-                onChange({
-                  ...value,
-                  min_fit: next === ANY ? null : Number(next),
-                })
-              }
-            >
-              <SelectTrigger
-                id={ids.minFit}
-                aria-describedby={fitAvailable ? undefined : ids.minFitHint}
+          {showFit ? (
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor={ids.minFit}>{JOBS_COPY.minFitLabel}</Label>
+              <Select
+                disabled={!fitAvailable}
+                value={value.min_fit == null ? ANY : String(value.min_fit)}
+                onValueChange={(next) =>
+                  onChange({
+                    ...value,
+                    min_fit: next === ANY ? null : Number(next),
+                  })
+                }
               >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value={ANY}>{JOBS_COPY.anyFit}</SelectItem>
-                  {minFitOptions.map((option) => (
-                    <SelectItem key={option} value={String(option)}>
-                      {minFitOptionLabel(option)}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            {fitAvailable ? null : (
-              <p id={ids.minFitHint} className="text-xs text-muted-foreground">
-                {JOBS_COPY.minFitNeedsCv}
-              </p>
-            )}
-          </div>
+                <SelectTrigger
+                  id={ids.minFit}
+                  aria-describedby={fitAvailable ? undefined : ids.minFitHint}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value={ANY}>{JOBS_COPY.anyFit}</SelectItem>
+                    {minFitOptions.map((option) => (
+                      <SelectItem key={option} value={String(option)}>
+                        {minFitOptionLabel(option)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              {fitAvailable ? null : (
+                <p
+                  id={ids.minFitHint}
+                  className="text-xs text-muted-foreground"
+                >
+                  {JOBS_COPY.minFitNeedsCv}
+                </p>
+              )}
+            </div>
+          ) : null}
 
           <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={ids.posted}>{JOBS_COPY.postedWithinLabel}</Label>

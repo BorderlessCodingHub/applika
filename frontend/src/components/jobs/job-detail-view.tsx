@@ -53,10 +53,15 @@ export interface JobDetailViewProps {
   /** The user's master CVs, for one fit row each. `[]` shows the invitation (R-015). */
   cvs: readonly JobFitListCv[] | undefined;
   cvsLoading?: boolean;
-  onStart: (job: JobDetail) => void;
+  /** Absent without the `cvs` feature: then no "Start application" at all. */
+  onStart?: (job: JobDetail) => void;
   onDismiss: (job: JobDetail) => void;
   onRestore: (job: JobDetail) => void;
   pending?: JobMarkPending;
+  /** `false` without `cvs`: no "Your fit" column (nor its invitation); the description runs full width. */
+  showFit?: boolean;
+  /** `false` without `cvs`: "Draft" is text, since resuming a draft needs it. */
+  linkDraft?: boolean;
   /** Pins "3 days ago" in tests. */
   now?: Date;
   /** Beside the h1, never inside it (the heading's name stays the title): the "Beta" badge. */
@@ -77,6 +82,8 @@ export function JobDetailView({
   onDismiss,
   onRestore,
   pending = null,
+  showFit = true,
+  linkDraft = true,
   now,
   titleBadge,
   className,
@@ -180,18 +187,21 @@ export function JobDetailView({
             <JobStatusBadge
               application={job.application}
               describedBy={titleId}
+              linkDraft={linkDraft}
               className="h-9 px-3 text-sm [&>svg]:size-4"
             />
           ) : null}
-          {/* Always offered (AC8): starting again opens the existing one. */}
-          <Button
-            type="button"
-            variant={job.application ? "outline" : "default"}
-            onClick={() => onStart(job)}
-          >
-            <FilePlus2Icon aria-hidden data-icon="inline-start" />
-            {JOBS_COPY.start}
-          </Button>
+          {/* Always offered with `cvs`: starting again opens the existing one. */}
+          {onStart ? (
+            <Button
+              type="button"
+              variant={job.application ? "outline" : "default"}
+              onClick={() => onStart(job)}
+            >
+              <FilePlus2Icon aria-hidden data-icon="inline-start" />
+              {JOBS_COPY.start}
+            </Button>
+          ) : null}
           {isHttpUrl(job.job_url) ? (
             <Button asChild variant="outline">
               <a href={job.job_url} target="_blank" rel="noopener noreferrer">
@@ -234,13 +244,20 @@ export function JobDetailView({
         </div>
       </header>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <JobFitList
-          cvs={cvs}
-          fits={job.fits}
-          isLoading={cvsLoading}
-          className="lg:col-start-2 lg:row-start-1"
-        />
+      <div
+        className={cn(
+          "grid items-start gap-6",
+          showFit && "lg:grid-cols-[minmax(0,1fr)_22rem]",
+        )}
+      >
+        {showFit ? (
+          <JobFitList
+            cvs={cvs}
+            fits={job.fits}
+            isLoading={cvsLoading}
+            className="lg:col-start-2 lg:row-start-1"
+          />
+        ) : null}
         <section
           aria-labelledby={descriptionId}
           className="min-w-0 rounded-xl border bg-card p-5 shadow-card sm:p-6 lg:col-start-1 lg:row-start-1"
@@ -284,7 +301,8 @@ function MetaItem({
   );
 }
 
-export function JobDetailSkeleton() {
+/** `showFit={false}` (no `cvs`) drops the fit column, like the view. */
+export function JobDetailSkeleton({ showFit = true }: { showFit?: boolean }) {
   return (
     <div className="flex flex-col gap-6" data-slot="job-detail-loading">
       <JobDetailBackLink />
@@ -306,9 +324,14 @@ export function JobDetailSkeleton() {
         </div>
         <div
           aria-hidden
-          className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]"
+          className={cn(
+            "grid items-start gap-6",
+            showFit && "lg:grid-cols-[minmax(0,1fr)_22rem]",
+          )}
         >
-          <Skeleton className="h-48 w-full rounded-xl lg:col-start-2 lg:row-start-1" />
+          {showFit ? (
+            <Skeleton className="h-48 w-full rounded-xl lg:col-start-2 lg:row-start-1" />
+          ) : null}
           <Skeleton className="h-96 w-full rounded-xl lg:col-start-1 lg:row-start-1" />
         </div>
       </div>
