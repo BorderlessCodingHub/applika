@@ -27,7 +27,8 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(
-            ['user_id'], ['users.id'],
+            ['user_id'],
+            ['users.id'],
             name='fk_cycles_user_id',
             ondelete='CASCADE',
         ),
@@ -42,8 +43,10 @@ def upgrade() -> None:
     )
     op.create_foreign_key(
         'fk_applications_cycle_id',
-        'applications', 'cycles',
-        ['cycle_id'], ['id'],
+        'applications',
+        'cycles',
+        ['cycle_id'],
+        ['id'],
         ondelete='SET NULL',
     )
 
@@ -54,8 +57,10 @@ def upgrade() -> None:
     )
     op.create_foreign_key(
         'fk_quinzenal_reports_cycle_id',
-        'quinzenal_reports', 'cycles',
-        ['cycle_id'], ['id'],
+        'quinzenal_reports',
+        'cycles',
+        ['cycle_id'],
+        ['id'],
         ondelete='SET NULL',
     )
 
@@ -97,9 +102,7 @@ def downgrade() -> None:
     )
 
     # Clear cycle_id before restoring unique constraint
-    op.execute(
-        sa.text('UPDATE quinzenal_reports SET cycle_id = NULL')
-    )
+    op.execute(sa.text('UPDATE quinzenal_reports SET cycle_id = NULL'))
     op.create_unique_constraint(
         'uq_quinzenal_reports_user_day',
         'quinzenal_reports',
