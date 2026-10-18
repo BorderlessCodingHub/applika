@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- the `cvs` beta feature gates master CVs, application CV copies and drafts (`FeatureKey.CVS`, ADR-0021). On release, revision `647a047921ec` adds to the `cvs` beta list every user whose first master CV or CV copy is newer than the `cvs` row, added by no admin (Release B). A user an admin removed from the list keeps off unless their first CV came after Release A.
 - feature "cvs" ("CV builder") seeded in beta; every user who owns a master CV or a CV copy is on its beta list, added by no admin (Release A, ADR-0021).
 - KODI-057 device sessions (ADR-0019): one session per sign-in, a `user_sessions` row (`UserSessionModel`) plus two Redis keys on `REDIS_URL` (`applika:session:<uuid7>` and `applika:session:id:<sid>`), the refresh value a random UUIDv7.
 - KODI-057 GET /users/me/sessions (the caller's devices, web and CLI: name, client, sign-in method, sign-in and last IP, granted, last used, expiry, status active|signed_out|revoked|expired, "This device"), DELETE /users/me/sessions/{id} (204; 404 "Session not found" for any other user's session, admins too) and POST /users/me/sessions/revoke-others ({revoked}). Not behind a beta flag (owner: "Gate nothing").
@@ -333,6 +334,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- without the `cvs` feature, `GET /jobs` and `GET /jobs/{id}` answer with no fit: `best_fit` null, `fits` [], `min_fit` matches no job (`total` 0), `sort=fit` sorts by newest. The `application` mark is unchanged.
+- without the `cvs` feature, every `/base-cvs*`, `/applications/{id}/cv*` and `/applications/drafts*` route answers 404 `{"detail": "Not Found"}`, the same as an unknown route, trailing-slash paths included; `GET /applications/{id}/cv/fit` and `POST /applications/drafts/from-job` need `cvs` and `jobs`. Anonymous callers still get the 401. Every master CV, CV copy and draft is kept and comes back with the feature; the worker keeps scoring every master CV.
+- revision `647a047921ec` drops the switch-over trigger `trg_timeline_events_legacy_event_type` and its function; `ck_timeline_events_event_type` now refuses any `note` or `feedback` write. Its downgrade recreates both (Release B).
 - timeline events of type note and feedback are now interviews of type unknown; the original type is kept in timeline_events.event_type_old, a CHECK allows only interview, offer and denied, and a temporary trigger converts what the previous release still writes (Release A, ADR-0020).
 - KODI-057 the access JWT carries `sid` (the session id) and every signed-in request checks that session in Redis: a token without `sid`, or whose session ended, is 401 "Session expired"; when Redis cannot be reached the request is 503 {"detail": "Session service unavailable"} + Retry-After: 5 (fail closed, nobody signed out). Every session that existed before this release ends: web and CLI users sign in again; `applika:refresh_token:*` keys are no longer read.
 - KODI-057 `Authorization: Bearer` is accepted before the `__access` cookie, and the rate limiter counts a Bearer token against its user.
@@ -442,6 +446,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
+- timeline event types `note` and `feedback` (ADR-0020): `POST /applications/{id}/timeline` and `PUT /applications/{id}/timeline/{event_id}` refuse them with 422; OpenAPI lists `interview`, `offer` and `denied`. Former notes and feedback read as interviews of type `unknown`, count in the statistics `unknown` stage, in new reports and in the agenda. The 0.1.4 `/steps*` routes show them as "Phase 2" with the same step id as before.
 - KODI-026 `DISCORD_REPORTS_WEBHOOK` and `DISCORD_REPORTS_ORGANIZATION`
   settings, from `config/settings.py`, `.env.example` and both
   `docker-compose.yml` files — report routing is now the admin-managed

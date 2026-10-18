@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- the API refuses event_type note and feedback (422); existing ones read as interview with interview_type unknown. 0.1.4 is unaffected: its steps keep their ids.
+- cvs *, applications cv * and drafts answer 404 without the "cvs" beta feature.
+
 ## [1.1.0] - 2026-10-15
 
 ### Added
