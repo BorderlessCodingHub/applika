@@ -823,6 +823,8 @@ def test_only_one_head() -> None:
     tables, Release A of plan 0013) was then the head, one beyond KODI-044.
     KODI-056 (``ed39a0fad1e5``, user_sessions table, Release A of plan 0014)
     is now the sole head, one beyond KODI-051.
+    ``f28e3d9705dd`` (cvs feature and three event types, plan 0015 Release A)
+    is now the sole head, one beyond ``ed39a0fad1e5``.
     """
     from alembic.config import Config
     from alembic.script import ScriptDirectory
@@ -831,8 +833,10 @@ def test_only_one_head() -> None:
     script = ScriptDirectory.from_config(config)
 
     heads = script.get_heads()
-    assert list(heads) == ['ed39a0fad1e5']
+    assert list(heads) == ['f28e3d9705dd']
 
+    cvs_event_types = script.get_revision('f28e3d9705dd')
+    assert cvs_event_types.down_revision == 'ed39a0fad1e5'
     kodi_056 = script.get_revision('ed39a0fad1e5')
     assert kodi_056.down_revision == '641001baff09'
     kodi_051 = script.get_revision('641001baff09')

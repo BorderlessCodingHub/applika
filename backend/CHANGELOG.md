@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- feature "cvs" ("CV builder") seeded in beta; every user who owns a master CV or a CV copy is on its beta list, added by no admin (Release A, ADR-0021).
 - KODI-057 device sessions (ADR-0019): one session per sign-in, a `user_sessions` row (`UserSessionModel`) plus two Redis keys on `REDIS_URL` (`applika:session:<uuid7>` and `applika:session:id:<sid>`), the refresh value a random UUIDv7.
 - KODI-057 GET /users/me/sessions (the caller's devices, web and CLI: name, client, sign-in method, sign-in and last IP, granted, last used, expiry, status active|signed_out|revoked|expired, "This device"), DELETE /users/me/sessions/{id} (204; 404 "Session not found" for any other user's session, admins too) and POST /users/me/sessions/revoke-others ({revoked}). Not behind a beta flag (owner: "Gate nothing").
 - KODI-057 CLI sign-in for applika-cli 1.1.0: GET /auth/cli/authorize (PKCE S256, loopback or `oob` redirect_uri), POST /auth/token (authorization_code, refresh_token and urn:ietf:params:oauth:grant-type:device_code grants; RFC 6749 400 {error, detail}), POST /auth/revoke (204 for any value; 503 when the session service is down, fail closed), POST /auth/device/code, GET /auth/device/verify, POST /auth/device/approve and /deny (RFC 8628, 10-minute code, 10 s interval). POST /auth/token, /auth/revoke and /auth/device/* answer 503 {"detail": "Session service unavailable"} + Retry-After: 5 when Redis cannot be reached.
@@ -332,6 +333,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- timeline events of type note and feedback are now interviews of type unknown; the original type is kept in timeline_events.event_type_old, a CHECK allows only interview, offer and denied, and a temporary trigger converts what the previous release still writes (Release A, ADR-0020).
 - KODI-057 the access JWT carries `sid` (the session id) and every signed-in request checks that session in Redis: a token without `sid`, or whose session ended, is 401 "Session expired"; when Redis cannot be reached the request is 503 {"detail": "Session service unavailable"} + Retry-After: 5 (fail closed, nobody signed out). Every session that existed before this release ends: web and CLI users sign in again; `applika:refresh_token:*` keys are no longer read.
 - KODI-057 `Authorization: Bearer` is accepted before the `__access` cookie, and the rate limiter counts a Bearer token against its user.
 - KODI-057 sessions slide: GET /auth/refresh (and the refresh_token grant) moves the session's end 7 days ahead and re-sets `__refresh` (same value, full Max-Age) with `__access`; a refused refresh (401) clears both cookies, a 503 clears none. GET /auth/logout ends the session (503 + Retry-After: 5 when Redis is down, cookies kept); signing in again in the same browser ends its previous session; deleting the account ends every session.
