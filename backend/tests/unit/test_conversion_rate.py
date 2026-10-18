@@ -39,8 +39,9 @@ async def test_conversion_rate_with_data():
         (EventType.INTERVIEW, InterviewType.INITIAL_SCREENING): 5,
         (EventType.INTERVIEW, InterviewType.TECHNICAL): 2,
         (EventType.OFFER, None): 1,
-        # Notes and feedback are not stages.
-        (EventType.NOTE, None): 10,
+        # A former note or feedback is an interview of type unknown and
+        # counts in that stage (ADR-0020).
+        (EventType.INTERVIEW, InterviewType.UNKNOWN): 3,
     }
 
     use_case = UserConversionRateUseCase(repo)
@@ -55,6 +56,9 @@ async def test_conversion_rate_with_data():
     assert screening.total_applications == 5
     assert screening.conversion_rate == 50.0
     assert by_stage[(EventType.OFFER, None)].conversion_rate == 10.0
+    unknown = by_stage[(EventType.INTERVIEW, InterviewType.UNKNOWN)]
+    assert unknown.total_applications == 3
+    assert unknown.conversion_rate == 30.0
     assert by_stage[(EventType.DENIED, None)].total_applications == 0
     assert by_stage[(EventType.DENIED, None)].conversion_rate == 0
 

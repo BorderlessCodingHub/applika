@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { ApplicationFormSheet } from "@/components/applications/application-form-sheet";
 import { ExportCvButton } from "@/components/base-cvs/export-cv-button";
 import type { BaseCv, CvFormValues } from "@/components/base-cvs/types";
+import { BetaBadge } from "@/components/features/beta-badge";
+import { FeatureGate } from "@/components/features/feature-gate";
 import { FullWidthContent } from "@/components/layout/content-width";
 import { BaseCvPicker } from "@/components/tailored-cvs/base-cv-picker";
 import { CvDiffDownloadRow } from "@/components/tailored-cvs/cv-diff-download-row";
@@ -102,8 +104,20 @@ function PageMessage({
  * editor's `actions` in BOTH modes and is never disabled by `readOnlyReason`
  * nor by a deleted source master CV: a finalized application's copy is exactly
  * the one a user needs to download.
+ *
+ * Behind the `cvs` feature: without it, the app's "page not found" and no CV
+ * request — the gate sits above every CV hook. The inner `jobs` check stays.
  */
 export function ApplicationCvPage() {
+  return (
+    <FeatureGate feature="cvs">
+      <ApplicationCv />
+    </FeatureGate>
+  );
+}
+
+function ApplicationCv() {
+  const beta = useHasFeature("cvs").stage === "beta";
   const searchParams = useSearchParams();
   const applicationId = searchParams.get("id");
   const { selectedCycleId, isViewingPastCycle } = useCycleContext();
@@ -491,9 +505,12 @@ export function ApplicationCvPage() {
           Back to applications
         </LinkButton>
         <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight">
-            Application CV
-          </h1>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <h1 className="font-display text-2xl font-bold tracking-tight">
+              Application CV
+            </h1>
+            {beta ? <BetaBadge /> : null}
+          </div>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {application
               ? `${application.role} · ${application.company_name}`

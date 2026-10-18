@@ -107,10 +107,14 @@ def event(
 ) -> TimelineEventModel:
     values: dict[str, Any] = {
         'user_id': USER_ID,
-        'event_type': EventType.NOTE,
+        'event_type': EventType.INTERVIEW,
         'event_date': date(2025, 12, 5),
     }
     values.update(fields)
+    # An interview defaults to unknown (what a former note is, ADR-0020),
+    # any other type has no interview type, as the CHECK requires.
+    if values['event_type'] is EventType.INTERVIEW:
+        values.setdefault('interview_type', InterviewType.UNKNOWN)
     # KODI-014: a denied event defaults to unknown unless the caller picks a
     # reason, same as a real write (``rules.normalize_event``).
     if values['event_type'] is EventType.DENIED:

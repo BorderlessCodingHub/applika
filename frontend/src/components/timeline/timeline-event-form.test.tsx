@@ -66,14 +66,23 @@ function renderForm(
 }
 
 describe("TimelineEventForm — interview type visibility (AC7)", () => {
-  it("hides the interview type select by default (note)", () => {
+  it("offers exactly Interview, Offer and Denied, and opens on Interview / Unknown (ADR 0020)", () => {
     renderForm();
+    const radios = screen.getAllByRole("radio");
+    expect(radios.map((radio) => radio.getAttribute("value"))).toEqual([
+      "interview",
+      "offer",
+      "denied",
+    ]);
+    expect(screen.queryByRole("radio", { name: "Note" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Feedback" })).toBeNull();
+    expect(screen.getByRole("radio", { name: "Interview" })).toBeChecked();
     expect(
-      screen.queryByRole("combobox", { name: "Interview type" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("combobox", { name: "Interview type" }),
+    ).toHaveTextContent("Unknown");
   });
 
-  it.each(["Note", "Feedback", "Offer", "Denied"])(
+  it.each(["Offer", "Denied"])(
     "hides the interview type select for %s",
     async (label) => {
       const user = userEvent.setup();
@@ -116,6 +125,39 @@ describe("TimelineEventForm — interview type visibility (AC7)", () => {
     });
     renderForm();
     await user.click(screen.getByRole("radio", { name: "Interview" }));
+    await user.click(screen.getByRole("button", { name: /add event/i }));
+    await waitFor(() =>
+      expect(services.timeline.create).toHaveBeenCalledWith(
+        "app-1",
+        expect.objectContaining({
+          event_type: "interview",
+          interview_type: "unknown",
+        }),
+      ),
+    );
+  });
+
+  it("saves a new event left completely untouched as an interview of type unknown", async () => {
+    const user = userEvent.setup();
+    vi.mocked(services.timeline.create).mockResolvedValue({
+      id: "e-1b",
+      application_id: "app-1",
+      user_id: "u-1",
+      event_type: "interview",
+      interview_type: "unknown",
+      denied_reason: null,
+      event_date: "2026-01-01",
+      start_time: null,
+      end_time: null,
+      timezone: null,
+      observation: null,
+      salary_period: null,
+      salary_amount: null,
+      salary_currency: null,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: null,
+    });
+    renderForm();
     await user.click(screen.getByRole("button", { name: /add event/i }));
     await waitFor(() =>
       expect(services.timeline.create).toHaveBeenCalledWith(
@@ -199,13 +241,13 @@ describe("TimelineEventForm — legacy hourly offer (R-031 WATCH)", () => {
 });
 
 describe("TimelineEventForm — schedule visibility (AC2, KODI-014)", () => {
-  it("hides the schedule inputs by default (note)", () => {
+  it("shows the schedule inputs by default (a new event is an interview)", () => {
     renderForm();
-    expect(screen.queryByLabelText("Start")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("End")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Start")).toBeInTheDocument();
+    expect(screen.getByLabelText("End")).toBeInTheDocument();
     expect(
-      screen.queryByRole("combobox", { name: "Timezone" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("combobox", { name: "Timezone" }),
+    ).toBeInTheDocument();
   });
 
   it("shows the schedule inputs for Interview", async () => {
@@ -219,7 +261,7 @@ describe("TimelineEventForm — schedule visibility (AC2, KODI-014)", () => {
     ).toBeInTheDocument();
   });
 
-  it.each(["Note", "Feedback", "Offer", "Denied"])(
+  it.each(["Offer", "Denied"])(
     "hides the schedule inputs for %s",
     async (label) => {
       const user = userEvent.setup();
@@ -239,7 +281,7 @@ describe("TimelineEventForm — schedule visibility (AC2, KODI-014)", () => {
       id: "e-2",
       application_id: "app-1",
       user_id: "u-1",
-      event_type: "note",
+      event_type: "denied",
       interview_type: null,
       denied_reason: null,
       event_date: "2026-01-01",
@@ -262,14 +304,14 @@ describe("TimelineEventForm — schedule visibility (AC2, KODI-014)", () => {
 
     // …then switch away. The inputs unmount and the stale values must never
     // reach the API.
-    await user.click(screen.getByRole("radio", { name: "Note" }));
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
     await user.click(screen.getByRole("button", { name: /add event/i }));
 
     await waitFor(() =>
       expect(services.timeline.create).toHaveBeenCalledWith(
         "app-1",
         expect.objectContaining({
-          event_type: "note",
+          event_type: "denied",
         }),
       ),
     );
@@ -282,9 +324,10 @@ describe("TimelineEventForm — schedule visibility (AC2, KODI-014)", () => {
 });
 
 describe("TimelineEventForm — a non-interview event never sends a schedule (KODI-016)", () => {
-  const STORED_NOTE_WITH_LEGACY_SCHEDULE: TimelineEventView = {
-    id: "note-1",
-    type: "note",
+  const STORED_DENIED_WITH_LEGACY_SCHEDULE: TimelineEventView = {
+    id: "denied-1",
+    type: "denied",
+    deniedReason: "unknown",
     eventDate: "2026-06-01",
     startTime: "09:00",
     endTime: "10:00",
@@ -294,10 +337,10 @@ describe("TimelineEventForm — a non-interview event never sends a schedule (KO
 
   function mockUpdatedEvent() {
     vi.mocked(services.timeline.update).mockResolvedValue({
-      id: "note-1",
+      id: "denied-1",
       application_id: "app-1",
       user_id: "u-1",
-      event_type: "note",
+      event_type: "denied",
       interview_type: null,
       denied_reason: null,
       event_date: "2026-06-01",
@@ -313,9 +356,9 @@ describe("TimelineEventForm — a non-interview event never sends a schedule (KO
   it("sends no schedule in the PUT when editing a stored non-interview event that already carries a legacy schedule, even when only the observation changes", async () => {
     const user = userEvent.setup();
     mockUpdatedEvent();
-    renderForm({ event: STORED_NOTE_WITH_LEGACY_SCHEDULE, otherEvents: [] });
+    renderForm({ event: STORED_DENIED_WITH_LEGACY_SCHEDULE, otherEvents: [] });
 
-    // The schedule inputs stay hidden — Note is not Interview.
+    // The schedule inputs stay hidden — Denied is not Interview.
     expect(screen.queryByLabelText("Start")).not.toBeInTheDocument();
 
     const notes = screen.getByLabelText("Notes (optional)");
@@ -326,9 +369,9 @@ describe("TimelineEventForm — a non-interview event never sends a schedule (KO
     await waitFor(() =>
       expect(services.timeline.update).toHaveBeenCalledWith(
         "app-1",
-        "note-1",
+        "denied-1",
         expect.objectContaining({
-          event_type: "note",
+          event_type: "denied",
           observation: "Updated note",
         }),
       ),
@@ -343,23 +386,23 @@ describe("TimelineEventForm — a non-interview event never sends a schedule (KO
   it("sends no schedule when a briefly-Interview detour ends back on a non-interview type", async () => {
     const user = userEvent.setup();
     mockUpdatedEvent();
-    renderForm({ event: STORED_NOTE_WITH_LEGACY_SCHEDULE, otherEvents: [] });
+    renderForm({ event: STORED_DENIED_WITH_LEGACY_SCHEDULE, otherEvents: [] });
 
-    // Toggle to Interview, type times, then switch back to Note.
+    // Toggle to Interview, type times, then switch back to Denied.
     await user.click(screen.getByRole("radio", { name: "Interview" }));
     await user.clear(screen.getByLabelText("Start"));
     await user.type(screen.getByLabelText("Start"), "14:00");
     await user.clear(screen.getByLabelText("End"));
     await user.type(screen.getByLabelText("End"), "15:00");
-    await user.click(screen.getByRole("radio", { name: "Note" }));
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
 
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() =>
       expect(services.timeline.update).toHaveBeenCalledWith(
         "app-1",
-        "note-1",
-        expect.objectContaining({ event_type: "note" }),
+        "denied-1",
+        expect.objectContaining({ event_type: "denied" }),
       ),
     );
     const [, , updatedPayload] = vi.mocked(services.timeline.update).mock
@@ -385,7 +428,7 @@ describe("TimelineEventForm — a non-interview event never sends a schedule (KO
       id: "interview-2",
       application_id: "app-1",
       user_id: "u-1",
-      event_type: "note",
+      event_type: "denied",
       interview_type: null,
       denied_reason: null,
       event_date: "2026-06-01",
@@ -398,14 +441,14 @@ describe("TimelineEventForm — a non-interview event never sends a schedule (KO
     });
     renderForm({ event: STORED_INTERVIEW, otherEvents: [] });
 
-    await user.click(screen.getByRole("radio", { name: "Note" }));
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() =>
       expect(services.timeline.update).toHaveBeenCalledWith(
         "app-1",
         "interview-2",
-        expect.objectContaining({ event_type: "note" }),
+        expect.objectContaining({ event_type: "denied" }),
       ),
     );
     const [, , updatedPayload] = vi.mocked(services.timeline.update).mock
@@ -448,7 +491,7 @@ describe("TimelineEventForm — timezone (AC3, KODI-014)", () => {
 });
 
 describe("TimelineEventForm — denied reason (AC4, KODI-014)", () => {
-  it("hides the reason select by default (note)", () => {
+  it("hides the reason select by default (interview)", () => {
     renderForm();
     expect(
       screen.queryByRole("combobox", { name: "Reason" }),
@@ -534,7 +577,7 @@ describe("TimelineEventForm — denied reason (AC4, KODI-014)", () => {
     );
   });
 
-  it.each(["Note", "Feedback", "Interview", "Offer"])(
+  it.each(["Interview", "Offer"])(
     "never sends denied_reason for %s",
     async (label) => {
       const user = userEvent.setup();
@@ -542,7 +585,7 @@ describe("TimelineEventForm — denied reason (AC4, KODI-014)", () => {
         id: "e-5",
         application_id: "app-1",
         user_id: "u-1",
-        event_type: "note",
+        event_type: "denied",
         interview_type: null,
         denied_reason: null,
         event_date: "2026-01-01",

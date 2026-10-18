@@ -44,7 +44,7 @@ describe("toTimelineEventView (AC1)", () => {
       id: "2",
       application_id: "a",
       user_id: "u",
-      event_type: "note",
+      event_type: "denied",
       interview_type: null,
       denied_reason: null,
       event_date: "2026-07-02",

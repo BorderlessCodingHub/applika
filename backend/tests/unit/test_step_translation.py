@@ -6,7 +6,9 @@ Pinned:
 * reverse: every (event_type, interview_type) pair resolves to a step,
   non-null, by name first, then by mapping, then the first non-strict row;
 * the constants are the ones revision afd4074c70c2 uses, so an id read in
-  one release resolves the same in the next (plan 0008 "Risks").
+  one release resolves the same in the next (plan 0008 "Risks"), minus its
+  ``note`` and ``feedback`` entries (ADR-0020): both name "Phase 2", the
+  step interview/unknown names, which is what a former note or feedback is.
 """
 
 import importlib.util
@@ -37,13 +39,22 @@ SEEDED = [
         interview_type=InterviewType.INITIAL_SCREENING,
     ),
     make_step_definition(
-        id=2, name='Phase 2', event_type=IV, interview_type=InterviewType.UNKNOWN
+        id=2,
+        name='Phase 2',
+        event_type=IV,
+        interview_type=InterviewType.UNKNOWN,
     ),
     make_step_definition(
-        id=3, name='Phase 3', event_type=IV, interview_type=InterviewType.UNKNOWN
+        id=3,
+        name='Phase 3',
+        event_type=IV,
+        interview_type=InterviewType.UNKNOWN,
     ),
     make_step_definition(
-        id=4, name='Phase 4', event_type=IV, interview_type=InterviewType.UNKNOWN
+        id=4,
+        name='Phase 4',
+        event_type=IV,
+        interview_type=InterviewType.UNKNOWN,
     ),
     make_step_definition(
         id=5, name='Offer', strict=True, event_type=EventType.OFFER
@@ -100,9 +111,9 @@ def test_forward_interview_without_type_is_unknown():
 
 def test_forward_non_interview_never_carries_an_interview_type():
     step = make_step_definition(
-        event_type=EventType.NOTE, interview_type=InterviewType.FINAL
+        event_type=EventType.OFFER, interview_type=InterviewType.FINAL
     )
-    assert event_kind_of(step) == (EventType.NOTE, None)
+    assert event_kind_of(step) == (EventType.OFFER, None)
 
 
 # -- Reverse -----------------------------------------------------------------
@@ -131,8 +142,6 @@ def test_reverse_by_name_on_the_seeded_catalog():
     for event_type, name in [
         (EventType.OFFER, 'Offer'),
         (EventType.DENIED, 'Denied'),
-        (EventType.NOTE, 'Phase 2'),
-        (EventType.FEEDBACK, 'Phase 2'),
     ]:
         step = translator.reverse(event_type, None)
         assert step is not None
@@ -154,7 +163,7 @@ def test_reverse_is_order_independent_and_takes_the_lowest_id():
         make_step_definition(id=9, name='Phase 2'),
         make_step_definition(id=3, name='Phase 2'),
     ]
-    step = StepTranslator(reversed(catalog)).reverse(EventType.NOTE, None)
+    step = StepTranslator(reversed(catalog)).reverse(IV, InterviewType.UNKNOWN)
     assert step is not None
     assert step.id == 3
 
@@ -187,13 +196,13 @@ def test_reverse_falls_back_to_first_non_strict_row():
 
 def test_reverse_falls_back_to_a_strict_row_when_all_are_strict():
     catalog = [make_step_definition(id=8, name='Final', strict=True)]
-    step = StepTranslator(catalog).reverse(EventType.NOTE, None)
+    step = StepTranslator(catalog).reverse(IV, InterviewType.UNKNOWN)
     assert step is not None
     assert step.id == 8
 
 
 def test_reverse_on_an_empty_catalog_is_none():
-    assert StepTranslator([]).reverse(EventType.NOTE, None) is None
+    assert StepTranslator([]).reverse(IV, InterviewType.UNKNOWN) is None
 
 
 # -- Same constants as the migration ----------------------------------------
@@ -202,12 +211,46 @@ def test_reverse_on_an_empty_catalog_is_none():
 def test_constants_match_revision_afd4074c70c2():
     """Stable across releases: B code resolves like R1's SQL does."""
     revision = _revision()
+    retired = {('note', None), ('feedback', None)}
     assert {
         (kind.value, interview and interview.value): name
         for (kind, interview), name in REVERSE_STEP_NAMES.items()
-    } == revision.REVERSE_STEP_MAP
+    } == {
+        key: name
+        for key, name in revision.REVERSE_STEP_MAP.items()
+        if key not in retired
+    }
+    # ADR-0020: the two retired keys named the same step interview/unknown
+    # names, so a former note or feedback keeps its step id.
+    for key in retired:
+        assert revision.REVERSE_STEP_MAP[key] == 'Phase 2'
+        assert (
+            revision.REVERSE_STEP_MAP[key]
+            == revision.REVERSE_STEP_MAP[('interview', 'unknown')]
+        )
     assert (
         STEP_FALLBACK[0].value,
         STEP_FALLBACK[1] and STEP_FALLBACK[1].value,
     ) == revision.STEP_FALLBACK
     assert set(REVERSE_STEP_NAMES) == set(ALL_PAIRS)
+
+
+def test_former_note_and_feedback_reverse_to_the_row_the_revision_named():
+    """ADR-0020: a former note or feedback is an interview of type unknown
+    now. Its reverse step is the row revision afd4074c70c2 named for note
+    and feedback ("Phase 2", id 2 here), not "Phase 3" or "Phase 4", which
+    share the interview/unknown mapping but sort after it."""
+    revision = _revision()
+    step = StepTranslator(SEEDED).reverse(IV, InterviewType.UNKNOWN)
+    assert step is not None
+    assert step.id == 2
+    assert step.name == revision.REVERSE_STEP_MAP[('note', None)]
+    assert step.name == revision.REVERSE_STEP_MAP[('feedback', None)]
+
+
+def test_event_type_has_exactly_three_members():
+    assert [kind.value for kind in EventType] == [
+        'interview',
+        'offer',
+        'denied',
+    ]

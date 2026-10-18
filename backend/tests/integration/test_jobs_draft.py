@@ -49,15 +49,21 @@ from tests.integration.test_tailored_cv_api import (
 # KODI-052 (ADR-0018): every route here sits behind the "jobs" beta
 # feature; ``jobs_beta`` seeds it and puts the ``async_client`` user on its
 # list.
-pytestmark = pytest.mark.usefixtures('jobs_beta')
+# ADR-0021: drafts and master CVs need "cvs" too; ``cvs_beta`` seeds it and
+# lists the same user.
+pytestmark = pytest.mark.usefixtures('jobs_beta', 'cvs_beta')
 
 
 @pytest_asyncio.fixture
 async def second_user(
-    second_user: UserModel, db_session: AsyncSession, jobs_beta: int
+    second_user: UserModel,
+    db_session: AsyncSession,
+    jobs_beta: int,
+    cvs_beta: int,
 ) -> UserModel:
-    """The conftest second user, on the "jobs" beta list too (KODI-052)."""
+    """The conftest second user, on the "jobs" and "cvs" beta lists too."""
     await enrol(db_session, second_user.id, jobs_beta)
+    await enrol(db_session, second_user.id, cvs_beta)
     return second_user
 
 

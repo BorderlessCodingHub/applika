@@ -40,6 +40,11 @@ ADMIN_ID = base_data()['admin_user'].id
 NOT_FOUND = {'detail': 'Not Found'}
 UNKNOWN_TAILORING = {'detail': 'Unknown tailoring option'}
 
+# ADR-0021: the CV and draft routes this module reaches need "cvs" too. The
+# ``async_client`` user is on its list (``cvs_beta``) and the admin has it as
+# an admin, so every answer here is the "jobs" gate's alone.
+pytestmark = pytest.mark.usefixtures('cvs_beta')
+
 
 def as_admin(is_admin: bool = True):
     return as_user(ADMIN_ID, 'adminuser', is_admin=is_admin)
@@ -539,8 +544,12 @@ async def test_losing_jobs_keeps_drafts_copies_searches_and_dismissals(
         await async_client.get('/jobs', params={'include_dismissed': True})
     ).json()['items']
 
-    # Off the list: the job controls go, the work stays usable.
-    await db_session.execute(text('DELETE FROM feature_beta_users'))
+    # Off the "jobs" list: the job controls go, the work stays usable (the
+    # user keeps "cvs", which the drafts and CV routes need).
+    await db_session.execute(
+        text('DELETE FROM feature_beta_users WHERE feature_id = :id'),
+        {'id': world['feature_id']},
+    )
     await db_session.commit()
     assert (await async_client.get('/job-searches')).status_code == 404
 
@@ -602,7 +611,8 @@ async def test_another_feature_never_grants_jobs(
         )
     )
     await db_session.commit()
-    assert await my_keys(async_client) == ['alpha']
+    # ``cvs`` comes from the module's ``cvs_beta``; still no ``jobs``.
+    assert await my_keys(async_client) == ['alpha', 'cvs']
     response = await async_client.get('/jobs')
     assert response.status_code == 404
     assert response.json() == NOT_FOUND
@@ -622,7 +632,8 @@ async def test_a_missing_key_is_hidden_from_admins_while_others_exist(
     await db_session.execute(text("DELETE FROM features WHERE key = 'jobs'"))
     await db_session.commit()
     async with as_admin():
-        assert await my_keys(async_client) == ['alpha']
+        # ``cvs`` the admin has as an admin; ``jobs`` has no row.
+        assert await my_keys(async_client) == ['alpha', 'cvs']
         response = await async_client.get('/jobs')
         assert response.status_code == 404
         assert response.json() == NOT_FOUND
@@ -728,7 +739,10 @@ async def test_slash_with_an_undefined_method_is_405_like_the_slashless_path(
 ):
     """Plan correction 5 holds with a slash: a known gated path with an
     undefined method is 405, with or without "jobs", as the slash-less path
-    is; an unknown path with any method stays 404."""
+    is; an unknown path with any method stays 404. ``GET
+    /applications/drafts/from-job`` reaches ``/applications/drafts/{draft_id}``
+    (422, "from-job" is no Snowflake id) with or without the slash, since
+    every drafts route has its twin (ADR-0021)."""
     app_id = world['application_id']
     cases = [
         ('POST', '/jobs'),
@@ -744,9 +758,12 @@ async def test_slash_with_an_undefined_method_is_405_like_the_slashless_path(
             slash = await async_client.request(
                 method, f'{path}{suffix}', follow_redirects=False
             )
+            if path.endswith('/from-job'):
+                assert plain.status_code == 422, msg(422, (method, path))
+                assert slash.status_code == 422, msg(422, (method, path))
+                continue
             assert slash.status_code == 405, msg(405, (method, path))
-            if not path.endswith('/from-job'):
-                assert plain.status_code == 405, msg(405, (method, path))
+            assert plain.status_code == 405, msg(405, (method, path))
 
     await check()
     unknown = await async_client.post(
@@ -784,8 +801,10 @@ async def test_anonymous_gets_todays_401_on_slash_suffixed_gated_paths(
 async def test_other_slash_paths_keep_the_redirect(
     async_client: AsyncClient, world
 ):
-    """Only the gated routes changed: CLI routes and every ungated drafts
-    and CV route still get Starlette's 307 to the slash-less path."""
+    """Only the gated routes changed: CLI routes still get Starlette's 307
+    to the slash-less path. The drafts and CV routes are gated on "cvs"
+    (ADR-0021), so they have twins: a user with "cvs" is served on the
+    slash path directly, as on the slash-less one."""
     app_id = world['application_id']
     for path in (
         '/supports',
@@ -795,12 +814,15 @@ async def test_other_slash_paths_keep_the_redirect(
         f'/applications/{app_id}/steps',
         f'/applications/{app_id}/finalize',
         '/users/me',
-        '/applications/drafts',
-        f'/applications/{app_id}/cv',
     ):
         response = await async_client.get(f'{path}/', follow_redirects=False)
         assert response.status_code == 307, msg(307, (path, response.text))
         assert response.headers['location'].endswith(f'/api{path}'), path
+    for path in ('/applications/drafts', f'/applications/{app_id}/cv'):
+        plain = await async_client.get(path)
+        slash = await async_client.get(f'{path}/', follow_redirects=False)
+        assert slash.status_code == 200, msg(200, (path, slash.text))
+        assert slash.json() == plain.json(), path
     followed = await async_client.get('/supports/', follow_redirects=True)
     assert followed.status_code == 200
 

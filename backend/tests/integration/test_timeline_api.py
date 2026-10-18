@@ -11,6 +11,7 @@ from datetime import UTC, date, datetime
 from typing import Any
 
 import pytest
+import sqlalchemy as sa
 from httpx import AsyncClient
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
@@ -52,8 +53,10 @@ EVENT_KEYS = {
 EVENT_KEYS_NON_INTERVIEW = EVENT_KEYS - {'start_time', 'end_time', 'timezone'}
 
 
-def _note(**overrides: object) -> dict:
-    data: dict = {'event_type': 'note', 'event_date': '2025-12-02'}
+def _plain(**overrides: object) -> dict:
+    """A denied event with nothing but a date (its reason defaults to
+    unknown): no salary, no schedule, no interview type."""
+    data: dict = {'event_type': 'denied', 'event_date': '2025-12-02'}
     data.update(overrides)
     return data
 
@@ -110,8 +113,8 @@ async def test_timeline_endpoints_require_authentication(
     try:
         responses = [
             await async_client.get(BASE),
-            await async_client.post(BASE, json=_note()),
-            await async_client.put(f'{BASE}/1', json=_note()),
+            await async_client.post(BASE, json=_plain()),
+            await async_client.put(f'{BASE}/1', json=_plain()),
             await async_client.delete(f'{BASE}/1'),
             await async_client.post('/applications/1/reopen'),
             await async_client.post('/applications/1/finalize'),
@@ -131,7 +134,7 @@ async def test_full_crud_round_trip(
 ):
     await ts.seed_open_application(db_session)
 
-    create = await async_client.post(BASE, json=_note(observation='kickoff'))
+    create = await async_client.post(BASE, json=_plain(observation='kickoff'))
     assert create.status_code == 201, create.text
     body = create.json()
     assert set(body) == EVENT_KEYS_NON_INTERVIEW
@@ -140,7 +143,7 @@ async def test_full_crud_round_trip(
     assert body['application_id'] == '1'
     assert body['user_id'] == str(ts.USER_ID)
     assert isinstance(body['created_at'], str)
-    assert body['event_type'] == 'note'
+    assert body['event_type'] == 'denied'
     assert body['interview_type'] is None
     assert body['observation'] == 'kickoff'
     assert body['salary_amount'] is None
@@ -185,7 +188,9 @@ async def test_put_is_a_full_replacement(
     )
     assert created.status_code == 201, created.text
 
-    put = await async_client.put(f'{BASE}/{created.json()["id"]}', json=_note())
+    put = await async_client.put(
+        f'{BASE}/{created.json()["id"]}', json=_plain()
+    )
 
     assert put.status_code == 200
     body = put.json()
@@ -196,22 +201,26 @@ async def test_put_is_a_full_replacement(
     assert 'end_time' not in body
 
 
-@pytest.mark.parametrize('event_type', ['note', 'feedback', 'denied'])
+@pytest.mark.parametrize(
+    'body', [_interview(), _offer(), _plain()], ids=lambda b: b['event_type']
+)
 async def test_each_event_type_is_stored(
-    async_client: AsyncClient, db_session: AsyncSession, event_type
+    async_client: AsyncClient, db_session: AsyncSession, async_engine, body
 ):
-    """R-001: exactly one of the five types per event."""
+    """ADR-0020: exactly one of the three types per event."""
     await ts.seed_open_application(db_session)
-    response = await async_client.post(BASE, json=_note(event_type=event_type))
+    response = await async_client.post(BASE, json=body)
     assert response.status_code == 201
-    assert response.json()['event_type'] == event_type
+    assert response.json()['event_type'] == body['event_type']
+    row = await _row(async_engine, response.json()['id'])
+    assert row.event_type.value == body['event_type']
 
 
 async def test_unknown_event_type_is_422(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     await ts.seed_open_application(db_session)
-    response = await async_client.post(BASE, json=_note(event_type='applied'))
+    response = await async_client.post(BASE, json=_plain(event_type='applied'))
     assert response.status_code == 422
 
 
@@ -267,13 +276,13 @@ async def test_every_interview_type_is_accepted(
     assert response.json()['interview_type'] == kind
 
 
-@pytest.mark.parametrize('event_type', ['note', 'feedback', 'denied'])
+@pytest.mark.parametrize('event_type', ['denied'])
 async def test_interview_type_on_non_interview_is_422(
     async_client: AsyncClient, db_session: AsyncSession, event_type
 ):
     await ts.seed_open_application(db_session)
     response = await async_client.post(
-        BASE, json=_note(event_type=event_type, interview_type='technical')
+        BASE, json=_plain(event_type=event_type, interview_type='technical')
     )
     assert response.status_code == 422
 
@@ -306,7 +315,7 @@ async def test_every_denied_reason_is_accepted(
     assert response.json()['denied_reason'] == reason
 
 
-@pytest.mark.parametrize('event_type', ['note', 'interview', 'offer'])
+@pytest.mark.parametrize('event_type', ['interview', 'offer'])
 async def test_denied_reason_on_non_denied_is_422(
     async_client: AsyncClient, db_session: AsyncSession, event_type
 ):
@@ -326,7 +335,7 @@ async def test_denied_changed_to_another_type_must_drop_the_reason(
     created = await async_client.post(BASE, json=_denied('skills_mismatch'))
     event_id = created.json()['id']
 
-    put = await async_client.put(f'{BASE}/{event_id}', json=_note())
+    put = await async_client.put(f'{BASE}/{event_id}', json=_interview())
 
     assert put.status_code == 200
     assert put.json()['denied_reason'] is None
@@ -390,7 +399,7 @@ async def test_timezone_over_100_and_observation_over_5000_are_422(
         BASE, json=_interview(timezone='x' * 101)
     )
     too_long_obs = await async_client.post(
-        BASE, json=_note(observation='x' * 5001)
+        BASE, json=_plain(observation='x' * 5001)
     )
     assert (too_long_tz.status_code, too_long_obs.status_code) == (422, 422)
 
@@ -410,13 +419,13 @@ async def test_schedule_on_non_interview_is_422(
     refuse a non-null schedule field on a non-interview event."""
     await ts.seed_open_application(db_session)
 
-    post = await async_client.post(BASE, json=_note(**field))
+    post = await async_client.post(BASE, json=_plain(**field))
     assert post.status_code == 422, post.text
 
-    created = await async_client.post(BASE, json=_note())
+    created = await async_client.post(BASE, json=_plain())
     assert created.status_code == 201, created.text
     put = await async_client.put(
-        f'{BASE}/{created.json()["id"]}', json=_note(**field)
+        f'{BASE}/{created.json()["id"]}', json=_plain(**field)
     )
     assert put.status_code == 422, put.text
 
@@ -426,7 +435,7 @@ async def test_event_before_the_application_date_is_allowed(
 ):
     await ts.seed_open_application(db_session)
     response = await async_client.post(
-        BASE, json=_note(event_date='2020-01-01')
+        BASE, json=_plain(event_date='2020-01-01')
     )
     assert response.status_code == 201
 
@@ -504,7 +513,7 @@ async def test_non_offer_with_salary_field_returns_422(
 ):
     await ts.seed_open_application(db_session)
     response = await async_client.post(
-        BASE, json=_note(event_type='feedback', **salary_field)
+        BASE, json=_plain(event_type='interview', **salary_field)
     )
     assert response.status_code == 422
 
@@ -554,7 +563,7 @@ async def test_offer_changed_to_interview_must_drop_the_salary(
         ({'event_type': EventType.OFFER}, 'ck_timeline_events_offer_salary'),
         (
             {
-                'event_type': EventType.NOTE,
+                'event_type': EventType.DENIED,
                 'salary_period': SalaryPeriod.MONTHLY,
                 'salary_amount': 1000,
                 'salary_currency': Currency.USD,
@@ -562,12 +571,12 @@ async def test_offer_changed_to_interview_must_drop_the_salary(
             'ck_timeline_events_offer_salary',
         ),
         (
-            {'event_type': EventType.INTERVIEW},
+            {'event_type': EventType.INTERVIEW, 'interview_type': None},
             'ck_timeline_events_interview_type',
         ),
         (
             {
-                'event_type': EventType.NOTE,
+                'event_type': EventType.DENIED,
                 'interview_type': InterviewType.FINAL,
             },
             'ck_timeline_events_interview_type',
@@ -578,7 +587,7 @@ async def test_offer_changed_to_interview_must_drop_the_salary(
         ),
         (
             {
-                'event_type': EventType.NOTE,
+                'event_type': EventType.INTERVIEW,
                 'denied_reason': DeniedReason.GHOSTED,
             },
             'ck_timeline_events_denied_reason',
@@ -704,9 +713,9 @@ async def test_cross_user_access_returns_404(
     base = '/applications/77/timeline'
 
     assert (await async_client.get(base)).status_code == 404
-    assert (await async_client.post(base, json=_note())).status_code == 404
+    assert (await async_client.post(base, json=_plain())).status_code == 404
     assert (
-        await async_client.put(f'{base}/78', json=_note())
+        await async_client.put(f'{base}/78', json=_plain())
     ).status_code == 404
     assert (await async_client.delete(f'{base}/78')).status_code == 404
 
@@ -717,12 +726,12 @@ async def test_event_scoped_to_owning_application(
     await ts.seed(
         db_session, *ts.catalog(), ts.application(), ts.application(2)
     )
-    created = await async_client.post(BASE, json=_note())
+    created = await async_client.post(BASE, json=_plain())
     event_id = created.json()['id']
 
     other_app = '/applications/2/timeline'
     assert (
-        await async_client.put(f'{other_app}/{event_id}', json=_note())
+        await async_client.put(f'{other_app}/{event_id}', json=_plain())
     ).status_code == 404
     assert (
         await async_client.delete(f'{other_app}/{event_id}')
@@ -737,7 +746,7 @@ async def test_missing_application_and_event_are_404(
         await async_client.get('/applications/999/timeline')
     ).status_code == 404
     assert (
-        await async_client.put(f'{BASE}/999', json=_note())
+        await async_client.put(f'{BASE}/999', json=_plain())
     ).status_code == 404
     assert (await async_client.delete(f'{BASE}/999')).status_code == 404
 
@@ -751,12 +760,12 @@ async def test_writes_on_closed_application_conflict_then_reopen_lifts_it(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     await ts.seed_open_application(db_session)
-    created = await async_client.post(BASE, json=_note())
+    created = await async_client.post(BASE, json=_plain())
     event_id = created.json()['id']
     await async_client.post('/applications/1/finalize')
 
-    post = await async_client.post(BASE, json=_note())
-    put = await async_client.put(f'{BASE}/{event_id}', json=_note())
+    post = await async_client.post(BASE, json=_plain())
+    put = await async_client.put(f'{BASE}/{event_id}', json=_plain())
     delete = await async_client.delete(f'{BASE}/{event_id}')
 
     assert (post.status_code, put.status_code, delete.status_code) == (
@@ -772,7 +781,7 @@ async def test_writes_on_closed_application_conflict_then_reopen_lifts_it(
     assert (
         await async_client.post('/applications/1/reopen')
     ).status_code == 200
-    assert (await async_client.post(BASE, json=_note())).status_code == 201
+    assert (await async_client.post(BASE, json=_plain())).status_code == 201
 
 
 async def test_writes_on_archived_application_are_422(
@@ -788,8 +797,8 @@ async def test_writes_on_archived_application_are_422(
         ts.event(5),
     )
 
-    post = await async_client.post(BASE, json=_note())
-    put = await async_client.put(f'{BASE}/5', json=_note())
+    post = await async_client.post(BASE, json=_plain())
+    put = await async_client.put(f'{BASE}/5', json=_plain())
     delete = await async_client.delete(f'{BASE}/5')
     reopen = await async_client.post('/applications/1/reopen')
 
@@ -810,9 +819,9 @@ async def test_write_paths_emit_audit_events(
     await ts.seed_open_application(db_session)
 
     with caplog.at_level(logging.INFO, logger='app'):
-        created = await async_client.post(BASE, json=_note())
+        created = await async_client.post(BASE, json=_plain())
         event_id = created.json()['id']
-        await async_client.put(f'{BASE}/{event_id}', json=_note())
+        await async_client.put(f'{BASE}/{event_id}', json=_plain())
         await async_client.delete(f'{BASE}/{event_id}')
 
     events = [
@@ -849,3 +858,98 @@ async def test_application_list_derives_last_step_and_salary_offer(
     assert application['feedback'] is None
     assert application['finalized'] is False
     assert application['finalized_at'] is None
+
+
+# ---------------------------------------------------------------------------
+# Three event types (ADR-0020): note and feedback are invalid values
+# ---------------------------------------------------------------------------
+
+
+async def _event_rows(engine: AsyncEngine) -> list[tuple]:
+    maker = async_sessionmaker(bind=engine, expire_on_commit=False)
+    async with maker() as session:
+        rows = await session.scalars(
+            select(TimelineEventModel).order_by(TimelineEventModel.id)
+        )
+        return [
+            (
+                row.id,
+                row.event_type,
+                row.interview_type,
+                row.event_date,
+                row.observation,
+                row.updated_at,
+            )
+            for row in rows
+        ]
+
+
+def _assert_enum_error(response) -> None:
+    assert response.status_code == 422, response.text
+    errors = response.json()['detail']
+    assert [(e['type'], e['loc'][-1]) for e in errors] == [
+        ('enum', 'event_type')
+    ]
+
+
+@pytest.mark.parametrize('retired', ['note', 'feedback'])
+async def test_post_of_a_retired_type_is_422_and_writes_nothing(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    async_engine: AsyncEngine,
+    retired: str,
+):
+    await ts.seed_open_application(db_session)
+
+    response = await async_client.post(
+        BASE, json={'event_type': retired, 'event_date': '2025-12-02'}
+    )
+
+    _assert_enum_error(response)
+    assert await _event_rows(async_engine) == []
+
+
+@pytest.mark.parametrize('retired', ['note', 'feedback'])
+async def test_put_of_a_retired_type_is_422_and_leaves_the_event(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    async_engine: AsyncEngine,
+    retired: str,
+):
+    await ts.seed_open_application(db_session)
+    created = await async_client.post(BASE, json=_interview(observation='kept'))
+    assert created.status_code == 201, created.text
+    before = await _event_rows(async_engine)
+
+    response = await async_client.put(
+        f'{BASE}/{created.json()["id"]}',
+        json={'event_type': retired, 'event_date': '2025-12-09'},
+    )
+
+    _assert_enum_error(response)
+    assert await _event_rows(async_engine) == before
+    assert before[0][1:3] == (EventType.INTERVIEW, InterviewType.UNKNOWN)
+
+
+async def test_openapi_lists_exactly_three_event_types(
+    async_client: AsyncClient,
+):
+    schema = (await async_client.get('/openapi.json')).json()
+    assert schema['components']['schemas']['EventType']['enum'] == [
+        'interview',
+        'offer',
+        'denied',
+    ]
+
+
+def test_the_model_mirrors_the_event_type_check():
+    """create_all builds ``ck_timeline_events_event_type`` with the
+    migration's text."""
+    checks = {
+        constraint.name: str(constraint.sqltext)
+        for constraint in TimelineEventModel.__table_args__
+        if isinstance(constraint, sa.CheckConstraint)
+    }
+    assert checks['ck_timeline_events_event_type'] == (
+        "event_type IN ('interview', 'offer', 'denied')"
+    )

@@ -6,16 +6,19 @@ import { Button, LinkButton } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * The applications page's two create actions: `New Application` opens the
- * side sheet as before; `New with CV` navigates to its own page.
+ * The applications page's create actions: `New Application` opens the side
+ * sheet as before; `New with CV` navigates to its own page, and only shows
+ * with the `cvs` feature (`showNewWithCv`).
  */
 export function NewApplicationActions({
   onNewApplication,
   newWithCvHref = NEW_WITH_CV_HREF,
+  showNewWithCv = false,
   className,
 }: {
   onNewApplication: () => void;
   newWithCvHref?: string;
+  showNewWithCv?: boolean;
   className?: string;
 }) {
   return (
@@ -30,10 +33,12 @@ export function NewApplicationActions({
         <PlusIcon aria-hidden data-icon="inline-start" />
         {APPLICATIONS_PAGE_COPY.newApplication}
       </Button>
-      <LinkButton href={newWithCvHref} variant="outline" size="lg">
-        <FilePlus2Icon aria-hidden data-icon="inline-start" />
-        {APPLICATIONS_PAGE_COPY.newWithCv}
-      </LinkButton>
+      {showNewWithCv ? (
+        <LinkButton href={newWithCvHref} variant="outline" size="lg">
+          <FilePlus2Icon aria-hidden data-icon="inline-start" />
+          {APPLICATIONS_PAGE_COPY.newWithCv}
+        </LinkButton>
+      ) : null}
     </div>
   );
 }

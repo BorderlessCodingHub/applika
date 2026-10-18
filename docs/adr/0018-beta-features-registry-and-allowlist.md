@@ -1,6 +1,6 @@
 # ADR-0018: Beta features: a feature registry with per-feature allowlists (extends ADR-0004)
 
-**Status:** Accepted by LuisMSoares on 2026-10-14 · **Date:** 2026-10-14 · **Deciders:** LuisMSoares
+**Status:** Accepted by LuisMSoares on 2026-10-14 · **Date:** 2026-10-14 · **Deciders:** LuisMSoares · **Amended by:** ADR-0021 (gating a shipped feature)
 
 ## Context
 

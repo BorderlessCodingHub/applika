@@ -17,7 +17,7 @@ from app.domain.models import Base
 from app.main import app as main_app
 from app.presentation.dependencies import get_current_user, get_job_queue
 from tests.base_db_setup import base_data
-from tests.features_seed import enrol, seed_jobs_feature
+from tests.features_seed import enrol, seed_cvs_feature, seed_jobs_feature
 
 
 @pytest.fixture(autouse=True, scope='session')
@@ -117,6 +117,17 @@ async def jobs_beta(db_session) -> int:
     ``async_client`` user on its beta list. ``admin_client`` has ``jobs``
     as an admin once the row exists. Returns the feature id."""
     feature_id = await seed_jobs_feature(db_session)
+    await enrol(db_session, base_data()['user'].id, feature_id)
+    return feature_id
+
+
+@pytest_asyncio.fixture
+async def cvs_beta(db_session) -> int:
+    """ADR-0021: the ``cvs`` feature row as revision ``f28e3d9705dd`` seeds
+    it (``create_all`` has no seed rows), with the ``async_client`` user on
+    its beta list. ``admin_client`` has ``cvs`` as an admin once the row
+    exists. Returns the feature id."""
+    feature_id = await seed_cvs_feature(db_session)
     await enrol(db_session, base_data()['user'].id, feature_id)
     return feature_id
 

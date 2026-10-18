@@ -1,5 +1,6 @@
 from datetime import date
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -112,6 +113,7 @@ async def test_list_cycles_returns_existing(
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures('cvs_beta')  # ADR-0021: drafts need "cvs"
 async def test_create_cycle_never_archives_a_draft(
     async_client: AsyncClient, db_session: AsyncSession
 ):
@@ -150,6 +152,7 @@ async def test_create_cycle_never_archives_a_draft(
     assert current.json() == [], msg([], current.json())
 
     drafts = await async_client.get('/applications/drafts')
+    assert drafts.status_code == 200, msg(200, drafts.text)
     assert len(drafts.json()) == 1, msg(1, len(drafts.json()))
 
 

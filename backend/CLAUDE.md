@@ -34,7 +34,7 @@ When you add or modify any of the following, update the seed script accordingly:
 - New required or optional fields on `POST /applications`, `POST /applications/{id}/timeline`, the deprecated `POST /applications/{id}/steps`, or `POST /applications/{id}/finalize` (both the no-body close and the deprecated 0.1.4 body)
 - New enums (e.g., `work_mode`, `experience_level`, `salary_period`, `currency`, `mode`, `availability`)
 - New support data endpoints (platforms, steps, feedbacks) — update the `/supports` fetch and field extraction
-- The timeline: `seed_timeline()` drives half the applications through `/timeline` (one initial screening each, typed interviews, notes, an offer or denied outcome), finalize without a body and, for some, reopen; `seed_legacy_steps()` drives the other half through the deprecated `/steps` and the 0.1.4 `/finalize` body and warns when an answer lacks the `Deprecation` header
+- The timeline: `seed_timeline()` drives half the applications through `/timeline` (one initial screening each, typed interviews, interviews of type `unknown` where it used to write notes - the API refuses `note` and `feedback` with 422, an offer or denied outcome), finalize without a body and, for some, reopen; `seed_legacy_steps()` drives the other half through the deprecated `/steps` and the 0.1.4 `/finalize` body and warns when an answer lacks the `Deprecation` header
 - Renamed or removed fields that the seed script currently sends
 - New endpoints the seed script should exercise to keep coverage complete
 - Changes to authentication (cookie name, token format)
@@ -45,7 +45,7 @@ When you add or modify any of the following, update the seed script accordingly:
 - New or changed fields on `/applications/drafts*` — `seed_drafts()` creates one draft that gets a CV copy and is finished into a normal application, and one draft that is left open with a CV copy attached; it asserts the open one never appears in `GET /applications`. The finished draft sends its own `application_date` on create and calls `finish` with no body (KODI-036), asserting the finished application keeps that stored date rather than today's
 - Saved job searches (KODI-047) — `seed_job_searches()` deletes any left from a previous run, then creates, renames, lists and deletes one, fills the cap of 10 and asserts the 11th is refused with 409
 - Drafts from a job (KODI-047) — `seed_draft_from_job()` starts one draft from the first job of `GET /jobs` with no application, the first master CV and `tailoring: 'keywords'`, and asserts `job_id`, `has_cv` and the job's `application` mark; with no jobs (no worker run on the dev stack) it logs the skip
-- Beta features (KODI-052, ADR-0018) — `has_jobs_feature()` reads `GET /users/me/features` right after `/supports`; without `jobs` the script skips `seed_keyword_copy()`, `seed_job_searches()` and `seed_draft_from_job()` and prints why (an admin enrols the seed user at `/admin/features`), it never fails on the gate. A new gated feature adds its own check here. `app/scripts/seed_e2e.py` resets the features on every run: `jobs` back to `beta` (`released_at` NULL), `e2e-user` on its list, `e2e-discord` off it, every opt-out of `e2e-admin` gone; it fails loudly when the `jobs` row is missing (run `alembic upgrade head` first)
+- Beta features (ADR-0018, ADR-0021) — `has_jobs_feature()` and `has_cvs_feature()` read `GET /users/me/features` right after `/supports`; without `jobs` the script skips `seed_job_searches()`; without `cvs` it skips `seed_base_cvs()`, `seed_cv_pdfs()`, `seed_application_cv()` and `seed_drafts()`; `seed_keyword_copy()` and `seed_draft_from_job()` need both. It prints why (an admin enrols the seed user at `/admin/features`) and never fails on the gate. A new gated feature adds its own check here. `app/scripts/seed_e2e.py` resets the features on every run, `jobs` and `cvs` alike: back to `beta` (`released_at` NULL), `e2e-user` on its list, `e2e-discord` off it, every opt-out of `e2e-admin` gone; it fails loudly when either row is missing (run `alembic upgrade head` first)
 - Device sessions (KODI-057, ADR-0019) — the pasted `ACCESS_TOKEN` must be the `__access` cookie of a **live** browser session (its JWT carries `sid`; a token from before the release, or from a browser that logged out or was revoked, is 401 `Session expired`). `app/scripts/seed_e2e.py` opens every e2e session through `OpenSessionUseCase` (a `user_sessions` row + its Redis keys): one `github_web` session per seeded user and one `cli_device` session ("e2e-cli") for `e2e-user`, printed as `cli_access_token`/`cli_refresh_token` and exported by `scripts/e2e.sh` as `E2E_CLI_ACCESS_TOKEN`/`E2E_CLI_REFRESH_TOKEN`
 - **A 429 is waited out, never treated as a failure** (KODI-039, ADR-0015): the script's `httpx.Client` uses `RetryOn429Transport`, which reads `Retry-After` on a 429 and resends the exact same request once. The dev/e2e compose stacks already raise `RATE_LIMIT_DEFAULT`/`RATE_LIMIT_AUTH` so a normal run never trips it; the retry only matters against a stock, un-raised stack
 
@@ -512,27 +512,42 @@ admin access: a listed admin keeps F, everyone has a `general` F, and an
 opt-out left by a former admin grants nothing. A key with no `features` row
 is hidden from everyone, admins included (fail closed).
 
-- **Keys**: one `StrEnum`, `FeatureKey` (`JOBS = 'jobs'`). A new feature adds
-  a member, its own Release A seed row, and `require_feature` on its routes.
+- **Keys**: one `StrEnum`, `FeatureKey` (`JOBS = 'jobs'`, `CVS = 'cvs'`). A
+  new feature adds a member, its own Release A seed row, and
+  `require_feature` on its routes. `cvs` (master CVs, CV copies, drafts) is
+  a feature gated after it shipped (ADR-0021): its Release A revision
+  `f28e3d9705dd` listed every CV owner, its Release B revision
+  `647a047921ec` tops the list up with the users whose first CV came after
+  Release A (`added_by` NULL both times). Only those two migrations write a
+  beta list outside `/admin/features`.
 - **Gate**: `require_feature(FeatureKey.X)` in `dependencies.py`, built on
   `CurrentUserDp` (anonymous gets today's 401 first) and `FeatureRepositoryDp`.
   Without the feature it raises `ResourceNotFound('Not Found')`, so the body
   is `{"detail": "Not Found"}` - byte-equal to an unknown route
   (`NOT_FOUND_DETAIL`). Applied on the **router** when the whole router is
-  gated (`api/jobs.py`, `api/job_searches.py`), on the **route** inside a
-  shared router (`POST /applications/drafts/from-job`, `GET
-  /applications/{id}/cv/fit`), and **per value** for a gated option on a
-  shared route (`POST /applications/{id}/cv` with `tailoring: "keywords"` →
+  gated (`api/jobs.py`, `api/job_searches.py` on `jobs`; `api/base_cv.py`,
+  `api/tailored_cv.py`, `api/application_draft.py` on `cvs`), on the
+  **route** for a second key inside a gated router (`POST
+  /applications/drafts/from-job` and `GET /applications/{id}/cv/fit` add
+  `jobs`, so they need both), and **per value** for a gated option on a
+  route (`POST /applications/{id}/cv` with `tailoring: "keywords"` →
   `BusinessRuleViolation('Unknown tailoring option')` 422 before the use case,
-  through `user_has_feature`; `copy` or no field never queries).
+  through `user_has_feature` on `jobs`; `copy` or no field never queries;
+  without `cvs` the router's 404 comes first). **Per request** in a handler:
+  `GET /jobs` and `GET /jobs/{id}` call `user_has_feature(FeatureKey.CVS,
+  ...)` and pass `with_fit` to the use case - without `cvs` no fit at all
+  (`best_fit` null, `fits` [], `min_fit` → empty page, `sort=fit` = newest).
 - **No cache**: one indexed query per gated request; `is_admin` comes from the
   database on every request (`get_current_user`), so an admin change applies
   on the next request, no deploy, no restart.
 - **Never gated**: `app/worker/*` and `use_cases/jobs/` (they act for no
-  user; a test greps for `require_feature` there), the master CV fit
-  enqueue in `api/base_cv.py`, every `/admin/*` route (`AdminUserDp` guards
-  them; `/admin/jobs/sources` stays open to an opted-out admin), every other
-  drafts and CV route, `Draft.job_id` and `TailoredCVOut.adjustments`.
+  user; a test greps for `require_feature` there; the worker scores every
+  master CV whoever owns it), every `/admin/*` route (`AdminUserDp` guards
+  them; `/admin/jobs/sources` stays open to an opted-out admin),
+  `/applications*` (an application keeps working without its CV link), the
+  timeline, `/steps*`, `/finalize`, `/supports`, `Draft.job_id` and
+  `TailoredCVOut.adjustments`. Losing a feature deletes nothing: CVs,
+  copies, drafts, searches and dismissals come back unchanged.
 - **What the gate cannot hide** (plan 0013 correction 5, owner-approved
   2026-10-14): FastAPI decodes the JSON body before any dependency runs, so a
   body that is not JSON answers its own 422 `json_invalid` on a gated route,
@@ -544,24 +559,28 @@ is hidden from everyone, admins included (fail closed).
   dependency runs, which would reveal a gated route. So every gated route
   gets a schema-hidden `<path>/` twin (`add_slash_twins`,
   `app/presentation/gated_slash.py`, called at the end of `api/jobs.py`,
-  `api/job_searches.py`, and for the one gated route of
-  `api/application_draft.py` and `api/tailored_cv.py`): same endpoint,
+  `api/job_searches.py`, `api/base_cv.py`, `api/tailored_cv.py` and
+  `api/application_draft.py`, over every route): same endpoint,
   methods and dependencies; its regex takes one trailing slash or more,
   since Starlette's redirect strips them all. Without the feature `/jobs/`,
   `/jobs//`, `/jobs/{id}/`, `/job-searches/` etc. answer the gate's 404,
   byte-equal to `GET /no-such-route/`; with it the slash path is served
-  directly by the same handler; anonymous gets the 401. One side effect:
-  `GET`/`PUT`/`DELETE /applications/drafts/from-job/` is 405 (the twin is
-  POST-only), while the slash-less form reaches the ungated
-  `/applications/drafts/{draft_id}` route (422). Every other route (the CLI's
-  `/supports/`, `/applications/`, `/users/me/`, the ungated drafts and CV
-  routes) keeps Starlette's 307 - `redirect_slashes` stays on app-wide. A
-  new gated router or route calls `add_slash_twins` too.
+  directly by the same handler; anonymous gets the 401. `GET`/`PUT`/`DELETE
+  /applications/drafts/from-job/` reach the `/applications/drafts/{draft_id}/`
+  twin, as the slash-less form reaches `/{draft_id}` (422 with `cvs`, the
+  404 without). Every other route (the CLI's `/supports/`, `/applications/`,
+  `/applications/{id}/`, `/users/me/`) keeps Starlette's 307 -
+  `redirect_slashes` stays on app-wide. A new gated router or route calls
+  `add_slash_twins` too.
 - **Tests**: `create_all` has no seed rows, so no feature exists in a test
   until a test inserts it. The `jobs_beta` fixture (`tests/conftest.py`)
   inserts `jobs` as revision `641001baff09` seeds it and enrols the
-  `async_client` user; `admin_client` has `jobs` once the row exists.
-  Helpers in `tests/features_seed.py`.
+  `async_client` user; `cvs_beta` does the same for `cvs` (revision
+  `f28e3d9705dd`'s name and description) and sits on every CV and draft
+  test module; `admin_client` has a feature once its row exists. Helpers
+  in `tests/features_seed.py` (`seed_jobs_feature`, `seed_cvs_feature`,
+  `enrol`, `opt_out`). The gate itself: `tests/integration/
+  test_feature_gating.py` (`jobs`) and `test_cvs_gating.py` (`cvs`).
 
 ### Snowflake IDs
 All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUIDs or auto-increment. Defined in `app/lib/types.py` with Pydantic serialization to string for JSON/OpenAPI.
@@ -795,9 +814,9 @@ null`.
 | POST | `/applications/drafts/from-job` | Yes | KODI-047: `{job_id, base_cv_id?, tailoring?: 'copy' \| 'keywords' = 'copy', application_date?}` → 201 `Draft` filled from the job, dated `application_date` (the caller's local day, KODI-050) or the server's UTC day; 422 `application_date` outside UTC today ± 1; 404 job unknown or off the list, or base CV not own; 409 `"You already have an application for this job"`; 422 `keywords` without a job description |
 | POST | `/applications/drafts/{id}/finish` | Yes | Body optional - no body, `{}` or `{application_date}` - → 200 `Application` (same shape `GET /applications` returns); 422 with no CV copy; 422 past `UTC today + 1` |
 
-**Gate (KODI-052):** `POST /applications/drafts/from-job` needs the `jobs`
-beta feature, else the unknown-route 404; every other drafts route is open,
-and a draft started from a job keeps working without the feature.
+**Gate (ADR-0018, ADR-0021):** every drafts route needs the `cvs` beta
+feature, else the unknown-route 404; `POST /applications/drafts/from-job`
+needs `jobs` too. A draft started from a job keeps working without `jobs`.
 
 **`is_draft` and the `NOT_DRAFT` rule.** A draft is a plain `applications` row
 with `is_draft = true` (`ApplicationModel.is_draft`, migration `3b78c3cd2a71`
@@ -933,8 +952,15 @@ carries the distinction by dropping the key from the DTO when it is absent from
 | DELETE | `/{id}/timeline/{event_id}` | Yes | Delete an event (204) |
 
 A timeline event (`TimelineEventModel`, table `timeline_events`) is
-exactly one of `note`, `interview`, `feedback`, `offer`,
-`denied`. `interview_type` (`unknown`, `initial_screening`, `technical`,
+exactly one of `interview`, `offer`, `denied` (ADR-0020). `note` and
+`feedback` are refused as an invalid value (422) on create and on edit, and
+by `ck_timeline_events_event_type` in the database (mirrored in
+`__table_args__`). Release A's revision `f28e3d9705dd` turned every stored
+note and feedback into an interview of type `unknown` and kept the original
+in `timeline_events.event_type_old`, which no model maps and no code reads;
+its switch-over trigger is dropped by `647a047921ec`. Former notes count in
+the `unknown` stage, in new reports' `interviews_completed_fortnight` and in
+the agenda. `interview_type` (`unknown`, `initial_screening`, `technical`,
 `cultural`, `hiring_manager`, `take_home`, `final`) is set on interviews only
 and defaults to `unknown`; on any other type it is a 422. An offer needs
 `salary_amount` (≥ 0, 2-decimal string on the way out), `salary_currency`
@@ -974,8 +1000,10 @@ observation}`); `deprecated: true` in OpenAPI. The translator is
 `use_cases/compat/step_translation.py`: forward, a step becomes
 `steps_definition.event_type/interview_type` (filled by revision
 `afd4074c70c2`; NULL → interview/unknown); reverse, an event becomes one step
-by name (`initial_screening` → "Initial Screen", other interviews, notes and
-feedback → "Phase 2", offer → "Offer", denied → "Denied"), else the first
+by name (`initial_screening` → "Initial Screen", other interviews → "Phase
+2", offer → "Offer", denied → "Denied"; `REVERSE_STEP_NAMES` no longer
+carries the revision map's note and feedback entries, which also named
+"Phase 2", so a former note keeps its step id), else the first
 row with the same mapping, else the first non-strict row — **identical** to
 the revision's SQL, so the ids a 0.1.4 client reads stay stable across
 releases. A PUT whose `step_id` is the event's own reverse step keeps the
@@ -1115,6 +1143,10 @@ recomputed.
 | PATCH | `/base-cvs/{id}` | Yes | Partial update (404 if not owned) |
 | DELETE | `/base-cvs/{id}` | Yes | Delete a master CV (204, never blocked) |
 
+**Gate (ADR-0018, ADR-0021):** every `/base-cvs*` route (the PDF and
+Markdown exports included) needs the `cvs` beta feature, else the
+unknown-route 404. Saving a master CV still queues its fit recompute.
+
 A user may hold at most **3** master CVs. The cap lives in
 `CreateBaseCVUseCase`, not in a trigger or a constraint: one transaction takes
 a `SELECT ... FOR UPDATE` lock on the owning user row, counts, refuses with
@@ -1130,10 +1162,11 @@ inserts. The lock is what keeps concurrent creates from overshooting.
 | PUT | `/{id}/cv` | Yes | Replace the copy whole (every field editable) |
 | DELETE | `/{id}/cv` | Yes | Delete the copy (204); a new one can then be made |
 
-**Gate (KODI-052):** `GET /{id}/cv/fit` needs the `jobs` beta feature, else
-the unknown-route 404; `POST /{id}/cv` with `tailoring: "keywords"` without
-it is a 422 `"Unknown tailoring option"`, nothing written. `copy`, no
-`tailoring` (every CLI) and every other CV route are untouched.
+**Gate (ADR-0018, ADR-0021):** every `/{id}/cv*` route needs the `cvs`
+beta feature, else the unknown-route 404 (the PDF, Markdown and diff routes
+below included). `GET /{id}/cv/fit` needs `jobs` too; `POST /{id}/cv` with
+`tailoring: "keywords"` without `jobs` is a 422 `"Unknown tailoring
+option"`, nothing written. `copy` and no `tailoring` never look at `jobs`.
 
 At most **one** CV copy per application (UNIQUE on
 `tailored_cvs.application_id`); a second POST is a 409. Writes are refused
@@ -1287,7 +1320,11 @@ through an Alembic seed row. Not a CLI route; never gated.
 ### Jobs (`/jobs`, KODI-047, PRD 0012, web only - not a CLI route)
 
 **Gate (KODI-052):** the whole router needs the `jobs` beta feature, else
-every route is the unknown-route 404.
+every route is the unknown-route 404. The fit also needs `cvs` (ADR-0021):
+without it `GET /jobs` sends `best_fit: null` on every item, `min_fit`
+matches no job (`items: []`, `total: 0`) and `sort=fit` is `newest`; `GET
+/jobs/{id}` sends `fits: []`, `best_fit: null` and reads no master CV. The
+`application` mark and everything else are unchanged.
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
@@ -1387,7 +1424,7 @@ See `app/tests/` for test fixtures and test files.
 Defined in `app/core/enums.py`:
 - **Currency**: the 20 supported (applika's original 9 plus 11 added) — USD, BRL, EUR, GBP, CAD, AUD, JPY, CHF, INR, CNY, SEK, NOK, DKK, PLN, SGD, HKD, NZD, MXN, ZAR, AED
 - **SalaryPeriod**: hourly, monthly, annually. `annual` (what `applika-cli` 0.1.4 sends) is accepted on every input **forever** and means annually: `SalaryPeriod._missing_` maps it, so Pydantic accepts it without OpenAPI advertising it. In the database the `salaryperiod` labels are member names (HOURLY, MONTHLY, ANNUAL, ANNUALLY); `SalaryPeriodType` (`domain/models.py`) writes ANNUALLY and reads both ANNUAL and ANNUALLY as annually, so the API never returns `annual`. The contract migration (`ad747aba90fc`, R2, KODI-013) remapped every row that still held the legacy `ANNUAL` label to `ANNUALLY` on `applications`, `users` and `timeline_events`; the PG enum keeps both labels (Postgres cannot drop one) so a not-yet-remapped row, should one ever appear, still reads as `annually`
-- **EventType**: note, interview, feedback, offer, denied (PG type `event_type`, lower-case labels)
+- **EventType**: interview, offer, denied (ADR-0020). The PG type `event_type` keeps all five lower-case labels (`note`, `feedback` too); `ck_timeline_events_event_type` allows the three
 - **InterviewType**: unknown, initial_screening, technical, cultural, hiring_manager, take_home, final (PG type `interview_type`); the declaration order is the statistics stage order
 - **ExperienceLevel**: intern, junior, mid_level, senior, staff, lead, principal, specialist
 - **WorkMode**: remote, hybrid, on_site
@@ -1508,7 +1545,7 @@ Optional (with defaults):
 - **SavedJobSearch** (KODI-047, table `saved_job_searches`): a user's named `JobFilters` (`filters` JSONB), at most 10 per user, `uq_saved_job_searches_user_name` on `(user_id, lower(name))`, user FK CASCADE. Never notifies
 - `Application.job_id` (KODI-047): nullable FK `jobs.id` `ON DELETE SET NULL` (`fk_applications_job_id`); one application per user per job (`uq_applications_user_job`, partial on `job_id IS NOT NULL`); on `Draft` only, absent from `GET /applications` and the `Application` schema
 - Fits, dismissals and saved searches are per user; no admin route reads another user's (ADR-0004)
-- **Feature** (KODI-052, ADR-0018, table `features`, revision `641001baff09`): the beta-feature registry, admin-managed, no owner. `key` UNIQUE (`uq_features_key`), `name`, `description` (nullable), `stage` `beta`|`general` (`ck_features_stage`, server default `beta`), `released_at`. Seeded by migrations only (`jobs` / "Job board")
+- **Feature** (ADR-0018, table `features`, revision `641001baff09`): the beta-feature registry, admin-managed, no owner. `key` UNIQUE (`uq_features_key`), `name`, `description` (nullable), `stage` `beta`|`general` (`ck_features_stage`, server default `beta`), `released_at`. Seeded by migrations only (`jobs` / "Job board", `cvs` / "CV builder")
 - **FeatureBetaUser** (table `feature_beta_users`): one user on one feature's beta list, UNIQUE `(feature_id, user_id)` (`uq_feature_beta_users_feature_user`), `ix_feature_beta_users_user_id`, `added_by` = the admin who added them
 - **FeatureAdminOptOut** (table `feature_admin_opt_outs`): one admin who turned one feature off for themselves, UNIQUE `(feature_id, user_id)` (`uq_feature_admin_opt_outs_feature_user`), `ix_feature_admin_opt_outs_user_id`. Its own table, never a flag on the list
 

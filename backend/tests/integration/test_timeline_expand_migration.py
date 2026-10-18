@@ -1847,11 +1847,14 @@ def _release_b_code_writes(url: str) -> dict[str, Any]:
         # sits on the interview, not the note - KODI-016 (R-038/R-039)
         # refuses a schedule on a non-interview event, even at this
         # pre-R4 schema state (the rule lives in the use case, not the DB).
+        # The code writes no note any more (ADR-0020): the "note" is the
+        # interview of type unknown a former note is now, same observation.
         note = await create.execute(
             event(
                 APP_FRESH,
                 date(2025, 8, 20),
-                event_type=EventType.NOTE,
+                event_type=EventType.INTERVIEW,
+                interview_type=InterviewType.UNKNOWN,
                 observation='Recruiter pinged',
             )
         )

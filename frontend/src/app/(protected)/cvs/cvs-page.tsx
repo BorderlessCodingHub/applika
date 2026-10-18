@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import type { AxiosError } from "axios";
+import { BetaBadge } from "@/components/features/beta-badge";
+import { FeatureGate } from "@/components/features/feature-gate";
 import { BaseCvList } from "@/components/base-cvs/base-cv-list";
 import { BASE_CVS_MAX } from "@/components/base-cvs/types";
 import { useBaseCvs } from "@/hooks/use-base-cvs";
 import { useDeleteBaseCv } from "@/hooks/use-delete-base-cv";
 import { useExportBaseCvMarkdown } from "@/hooks/use-export-base-cv-markdown";
 import { useExportBaseCvPdf } from "@/hooks/use-export-base-cv-pdf";
+import { useHasFeature } from "@/hooks/use-features";
 import { getApiError } from "@/lib/api-client";
 import type { BaseCv } from "@/services/types/base-cv";
 
@@ -30,8 +33,20 @@ import type { BaseCv } from "@/services/types/base-cv";
  * typeset on the server).
  *
  * No outer container: `AppShell` already renders the `max-w-7xl` one.
+ *
+ * Behind the `cvs` feature (PRD 0013): without it, the app's "page not found"
+ * and not one CV request — the gate sits above every CV hook.
  */
 export function CvsPage() {
+  return (
+    <FeatureGate feature="cvs">
+      <CvGallery />
+    </FeatureGate>
+  );
+}
+
+function CvGallery() {
+  const beta = useHasFeature("cvs").stage === "beta";
   const { data: cvs, isLoading, error, refetch } = useBaseCvs();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -71,7 +86,12 @@ export function CvsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight">CVs</h1>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <h1 className="font-display text-2xl font-bold tracking-tight">
+            CVs
+          </h1>
+          {beta ? <BetaBadge /> : null}
+        </div>
         <p className="mt-0.5 text-sm text-muted-foreground">
           Your master CVs. Keep up to three and reuse them for every
           application.

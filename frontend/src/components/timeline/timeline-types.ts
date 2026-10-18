@@ -9,16 +9,11 @@
  */
 
 /**
- * Hardcoded 5-value event type — NOT a DB catalog. Order here is the canonical
- * display/selector order.
+ * Hardcoded 3-value event type — NOT a DB catalog. Order here is the canonical
+ * display/selector order. Note and feedback are gone: the API refuses them and
+ * stored ones read as interviews of type unknown (ADR 0020).
  */
-export const TIMELINE_EVENT_TYPES = [
-  "note",
-  "interview",
-  "feedback",
-  "offer",
-  "denied",
-] as const;
+export const TIMELINE_EVENT_TYPES = ["interview", "offer", "denied"] as const;
 
 export type TimelineEventType = (typeof TIMELINE_EVENT_TYPES)[number];
 

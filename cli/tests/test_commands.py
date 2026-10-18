@@ -1555,3 +1555,20 @@ def test_login_help_lists_the_new_flags(runner):
     assert result.exit_code == 0
     for flag in ('--device', '--manual', '--device-name'):
         assert flag in result.output
+
+
+@pytest.mark.parametrize(
+    ('args', 'exit_code'),
+    [(['login', '--help'], 0), (['login', '--device-name', ''], 2)],
+)
+def test_rich_output_stays_plain_and_wide_under_forced_colour(
+    runner, args, exit_code
+):
+    """Guard for the conftest fixture: FORCE_COLOR and a narrow COLUMNS
+    would make Rich paint and wrap help and usage errors, splitting
+    ``--device-name``; the asserts above read plain text in any CI."""
+    result = runner.invoke(app, args, env={'FORCE_COLOR': '1', 'COLUMNS': '40'})
+
+    assert result.exit_code == exit_code
+    assert '\x1b[' not in result.output
+    assert '--device-name' in result.output

@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CvEditorPage } from "./cv-editor-page";
+import { MY_FEATURES_QUERY_KEY } from "@/hooks/use-features";
+import type { MyFeature } from "@/services/types/features";
 import type { BaseCv } from "@/services/types/base-cv";
 
 /**
@@ -25,8 +27,13 @@ const exportMarkdownMock = vi.fn();
 const pushMock = vi.fn();
 let searchParams = new URLSearchParams("id=7001");
 
+/** The caller's features: `cvs` in beta unless a test says otherwise. */
+let myFeatures: MyFeature[] = [{ key: "cvs", stage: "beta" }];
+const getMyFeatures = vi.fn();
+
 vi.mock("@/services/services", () => ({
   services: {
+    features: { getMine: (...args: unknown[]) => getMyFeatures(...args) },
     baseCvs: {
       get: (...args: unknown[]) => getMock(...args),
       update: (...args: unknown[]) => updateMock(...args),
@@ -91,6 +98,7 @@ function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  client.setQueryData(MY_FEATURES_QUERY_KEY, myFeatures);
   return render(
     <QueryClientProvider client={client}>
       <CvEditorPage />
@@ -100,6 +108,8 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  myFeatures = [{ key: "cvs", stage: "beta" }];
+  getMyFeatures.mockImplementation(async () => myFeatures);
   searchParams = new URLSearchParams("id=7001");
   getMock.mockResolvedValue(SAVED_CV);
   updateMock.mockResolvedValue(SAVED_CV);
@@ -233,5 +243,41 @@ describe("CvEditorPage", () => {
     expect(
       screen.queryByRole("button", { name: "Save changes" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("CvEditorPage behind the cvs feature (PRD 0015)", () => {
+  it("shows the app's page not found and asks for no CV without cvs", async () => {
+    myFeatures = [{ key: "jobs", stage: "beta" }];
+    renderPage();
+
+    expect(await screen.findByText("Oops! Page not found")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Edit master CV" }),
+    ).not.toBeInTheDocument();
+    expect(getMock).not.toHaveBeenCalled();
+  });
+
+  it("puts the Beta badge beside the h1, never inside it, while cvs is in beta", async () => {
+    renderPage();
+
+    const heading = await screen.findByRole("heading", {
+      level: 1,
+      name: "Edit master CV",
+    });
+    const badge = screen.getByText("Beta");
+    expect(badge).toHaveAttribute("data-slot", "beta-badge");
+    expect(heading).not.toContainElement(badge);
+    expect(heading.parentElement).toContainElement(badge);
+  });
+
+  it("shows no Beta badge once cvs is released", async () => {
+    myFeatures = [{ key: "cvs", stage: "general" }];
+    renderPage();
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Edit master CV" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Beta")).not.toBeInTheDocument();
   });
 });

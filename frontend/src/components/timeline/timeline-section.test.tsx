@@ -85,7 +85,7 @@ function baseEvent(overrides: Partial<TimelineEvent> = {}): TimelineEvent {
     id: "e-1",
     application_id: "app-1",
     user_id: "u-1",
-    event_type: "note",
+    event_type: "denied",
     interview_type: null,
     denied_reason: null,
     event_date: "2026-07-03",
@@ -168,7 +168,7 @@ describe("TimelineSection — offer and denied cards (AC2)", () => {
 });
 
 describe("TimelineSection — R-030 initial-screening dedup, end to end (AC8)", () => {
-  // Newest-first render order (event_date descending): NOTE (2026-07-03)
+  // Newest-first render order (event_date descending): DENIED (2026-07-03)
   // renders before SCREENING (2026-06-01).
   const SCREENING: TimelineEvent = baseEvent({
     id: "screening-1",
@@ -176,7 +176,10 @@ describe("TimelineSection — R-030 initial-screening dedup, end to end (AC8)", 
     interview_type: "initial_screening",
     event_date: "2026-06-01",
   });
-  const NOTE: TimelineEvent = baseEvent({ id: "note-1", event_type: "note" });
+  const DENIED: TimelineEvent = baseEvent({
+    id: "denied-3",
+    event_type: "denied",
+  });
 
   async function openEditDialogFor(
     user: ReturnType<typeof userEvent.setup>,
@@ -191,8 +194,8 @@ describe("TimelineSection — R-030 initial-screening dedup, end to end (AC8)", 
 
   it("disables initial_screening when adding a NEW interview", async () => {
     const user = userEvent.setup();
-    renderSection([SCREENING, NOTE]);
-    await screen.findByText("Note", { exact: true });
+    renderSection([SCREENING, DENIED]);
+    await screen.findByText("Denied", { exact: true });
 
     await user.click(screen.getByRole("button", { name: "Add event" }));
     await user.click(await screen.findByRole("radio", { name: "Interview" }));
@@ -205,10 +208,10 @@ describe("TimelineSection — R-030 initial-screening dedup, end to end (AC8)", 
 
   it("leaves initial_screening enabled when editing the screening event itself", async () => {
     const user = userEvent.setup();
-    renderSection([SCREENING, NOTE]);
-    await screen.findByText("Note", { exact: true });
+    renderSection([SCREENING, DENIED]);
+    await screen.findByText("Denied", { exact: true });
 
-    // index 1: the screening card (NOTE renders first, newest-first).
+    // index 1: the screening card (DENIED renders first, newest-first).
     await openEditDialogFor(user, 1);
 
     await user.click(screen.getByRole("combobox", { name: "Interview type" }));
@@ -232,8 +235,8 @@ describe("TimelineSection — R-030 initial-screening dedup, end to end (AC8)", 
         },
       }),
     );
-    renderSection([SCREENING, NOTE]);
-    await screen.findByText("Note", { exact: true });
+    renderSection([SCREENING, DENIED]);
+    await screen.findByText("Denied", { exact: true });
 
     await user.click(screen.getByRole("button", { name: "Add event" }));
     await user.click(await screen.findByRole("button", { name: /add event/i }));
@@ -243,5 +246,26 @@ describe("TimelineSection — R-030 initial-screening dedup, end to end (AC8)", 
         "This application already has an initial screening interview; an application can have only one",
       ),
     );
+  });
+});
+
+/**
+ * The event form offers only interview, offer and denied: the "Add event"
+ * dialog a user opens from the section describes those three, never notes or
+ * feedback.
+ */
+describe("TimelineSection — add event description", () => {
+  it("opens a dialog whose description has no note or feedback", async () => {
+    const user = userEvent.setup();
+    renderSection([baseEvent()]);
+    await screen.findByText("Denied", { exact: true });
+
+    await user.click(screen.getByRole("button", { name: "Add event" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Add event" });
+    expect(dialog).toHaveAccessibleDescription(
+      "Record an interview, offer, or rejection for this application.",
+    );
+    expect(dialog).not.toHaveAccessibleDescription(/note|feedback/i);
   });
 });

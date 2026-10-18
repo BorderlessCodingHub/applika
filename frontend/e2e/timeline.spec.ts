@@ -15,8 +15,9 @@ import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
  * flow happens on `/applications`, expanding the row inline; and R-032
  * supersedes a confirm-only finalize with an outcome picker.
  *
- * Flow 1: add an interview (interview type select shown, defaults to
- * Unknown) -> add a note (select hidden) -> close with no outcome (the
+ * Flow 1: add an interview (the dialog offers three types and opens on
+ * Interview / Unknown) -> add a denied event (interview type select hidden)
+ * -> close with no outcome (the
  * confirmation says "reversible") -> the UI offers no way to add an event
  * while closed, and the API itself refuses one (409) -> reopen -> add one
  * more event to prove the application is writable again.
@@ -105,7 +106,7 @@ test.afterEach(async ({ request }) => {
 });
 
 test.describe("Timeline: add events, close, reopen", () => {
-  test("adds an interview and a note, closes with no outcome, refuses further edits, reopens, and accepts a new event", async ({
+  test("adds an interview and a denied event, closes with no outcome, refuses further edits, reopens, and accepts a new event", async ({
     page,
     request,
   }) => {
@@ -141,7 +142,20 @@ test.describe("Timeline: add events, close, reopen", () => {
     let dialog = page.getByRole("dialog", { name: "Add event" });
     await expect(dialog).toBeVisible();
 
-    await dialog.getByRole("radio", { name: "Interview", exact: true }).click();
+    // Three event types only (ADR 0020): no Note, no Feedback. A new event
+    // opens on Interview of type Unknown, before anything is clicked.
+    const eventTypes = dialog
+      .getByRole("radiogroup", { name: "Event type" })
+      .getByRole("radio");
+    await expect(eventTypes).toHaveCount(3);
+    await expect(eventTypes).toHaveText(["Interview", "Offer", "Denied"]);
+    await expect(
+      dialog.getByRole("radio", { name: "Interview", exact: true }),
+    ).toBeChecked();
+    await expect(dialog.getByRole("radio", { name: "Note" })).toHaveCount(0);
+    await expect(dialog.getByRole("radio", { name: "Feedback" })).toHaveCount(
+      0,
+    );
     const interviewTypeSelect = dialog.getByRole("combobox", {
       name: "Interview type",
     });
@@ -169,7 +183,7 @@ test.describe("Timeline: add events, close, reopen", () => {
     // match on "Unknown" alone.
     await expect(page.getByText(/interview type:\s*unknown/i)).toBeVisible();
 
-    // ---- Add a note: the interview type select does NOT show -------------
+    // ---- Add a denied event: the interview type select does NOT show -----
     await page
       .getByRole("button", { name: /add event/i })
       .first()
@@ -177,12 +191,12 @@ test.describe("Timeline: add events, close, reopen", () => {
     dialog = page.getByRole("dialog", { name: "Add event" });
     await expect(dialog).toBeVisible();
 
-    await dialog.getByRole("radio", { name: "Note", exact: true }).click();
+    await dialog.getByRole("radio", { name: "Denied", exact: true }).click();
     await expect(
       dialog.getByRole("combobox", { name: "Interview type" }),
     ).not.toBeVisible();
 
-    // ---- The schedule inputs disappear for Note (AC2, KODI-014) -----------
+    // ---- The schedule inputs disappear for Denied (AC2) ------------------
     await expect(dialog.getByLabel("Start")).not.toBeVisible();
     await expect(dialog.getByLabel("End")).not.toBeVisible();
     await expect(
@@ -222,7 +236,11 @@ test.describe("Timeline: add events, close, reopen", () => {
       apiUrl(`/applications/${appId}/timeline`),
       {
         headers: apiHeaders(),
-        data: { event_type: "note", event_date: yesterday() },
+        data: {
+          event_type: "interview",
+          interview_type: "unknown",
+          event_date: yesterday(),
+        },
       },
     );
     expect(refused.status()).toBe(409);
@@ -238,7 +256,10 @@ test.describe("Timeline: add events, close, reopen", () => {
       .click();
     dialog = page.getByRole("dialog", { name: "Add event" });
     await expect(dialog).toBeVisible();
-    await dialog.getByRole("radio", { name: "Note", exact: true }).click();
+    // Saved as it opens: an interview of type Unknown.
+    await expect(
+      dialog.getByRole("radio", { name: "Interview", exact: true }),
+    ).toBeChecked();
     const postReopenNote = `Reopened and still works ${stamp}`;
     await dialog.getByLabel(/notes/i).fill(postReopenNote);
     await dialog.getByRole("button", { name: /add event/i }).click();
@@ -531,7 +552,13 @@ test.describe("Timeline: schedule display (AC2, KODI-016)", () => {
     const dialog = page.getByRole("dialog", { name: "Add event" });
     await expect(dialog).toBeVisible();
 
-    await dialog.getByRole("radio", { name: "Note", exact: true }).click();
+    // Offer: a non-interview type, so the schedule inputs never show.
+    await dialog.getByRole("radio", { name: "Offer", exact: true }).click();
+    await expect(dialog.getByLabel("Start")).not.toBeVisible();
+    await dialog.getByRole("radio", { name: "Monthly" }).click();
+    await dialog.getByLabel("Amount").fill("7000");
+    await dialog.getByRole("combobox", { name: "Currency" }).click();
+    await page.getByRole("option", { name: "EUR", exact: true }).click();
     const noteText = `No schedule note ${stamp}`;
     await dialog.getByLabel(/notes/i).fill(noteText);
     await dialog.getByRole("button", { name: /add event/i }).click();

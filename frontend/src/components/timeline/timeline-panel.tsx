@@ -98,7 +98,7 @@ export function TimelinePanel({
           description={
             readOnly
               ? "There is no activity recorded for this application."
-              : "Log interviews, notes, feedback, offers, and rejections to build the story of this application."
+              : "Log interviews, offers, and rejections to build the story of this application."
           }
           action={readOnly ? undefined : emptyAction}
           className="border-none bg-transparent px-0 py-8"

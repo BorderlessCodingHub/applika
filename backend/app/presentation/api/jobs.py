@@ -5,6 +5,9 @@ Each user sees the shared postings with *their own* fit, dismissal and
 application only - an admin included (ADR-0004: no admin access to other
 users' fits, dismissals or searches). The admin side of the board (sources,
 run now) is ``api/admin/jobs.py``.
+
+The fit needs "cvs" on top of "jobs" (ADR-0021): without it the list and the
+job answer as if the caller had no fit at all (``with_fit`` false).
 """
 
 from typing import Annotated
@@ -21,9 +24,11 @@ from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     BaseCVRepositoryDp,
     CurrentUserDp,
+    FeatureRepositoryDp,
     JobDismissalRepositoryDp,
     JobRepositoryDp,
     require_feature,
+    user_has_feature,
 )
 from app.presentation.gated_slash import add_slash_twins
 from app.presentation.schemas import DetailSchema
@@ -43,12 +48,17 @@ async def list_jobs(
     query: Annotated[JobListQuery, Query()],
     c_user: CurrentUserDp,
     job_repo: JobRepositoryDp,
+    feature_repo: FeatureRepositoryDp,
 ):
     filters = JobFiltersDTO.model_validate(
         query.model_dump(exclude={'page', 'per_page'})
     )
     return await ListJobsUseCase(job_repo).execute(
-        c_user.id, filters, query.page, query.per_page
+        c_user.id,
+        filters,
+        query.page,
+        query.per_page,
+        with_fit=await user_has_feature(FeatureKey.CVS, c_user, feature_repo),
     )
 
 
@@ -62,9 +72,12 @@ async def get_job(
     c_user: CurrentUserDp,
     job_repo: JobRepositoryDp,
     base_cv_repo: BaseCVRepositoryDp,
+    feature_repo: FeatureRepositoryDp,
 ):
     return await GetJobUseCase(job_repo, base_cv_repo).execute(
-        int(job_id), c_user.id
+        int(job_id),
+        c_user.id,
+        with_fit=await user_has_feature(FeatureKey.CVS, c_user, feature_repo),
     )
 
 

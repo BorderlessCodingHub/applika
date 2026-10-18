@@ -5,7 +5,7 @@
  */
 
 /** Every gated feature the web knows. A new feature adds its key here. */
-export type FeatureKey = "jobs";
+export type FeatureKey = "jobs" | "cvs";
 
 /** `beta` shows the "Beta" label to the users who have it; `general` does not. */
 export type FeatureStage = "beta" | "general";

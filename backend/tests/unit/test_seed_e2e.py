@@ -531,17 +531,21 @@ def test_e2e_discord_id_is_fixed_and_not_js_safe():
 
 
 class FakeFeature:
-    id = 77
+    def __init__(self, feature_id: int):
+        self.id = feature_id
+
+
+FEATURE_IDS = {'jobs': 77, 'cvs': 88}
 
 
 class FakeFeatureRepository:
-    def __init__(self, feature: FakeFeature | None = None):
-        self.feature = feature
+    def __init__(self, features: dict[str, FakeFeature] | None = None):
+        self.features = features or {}
         self.calls: list[tuple] = []
 
     async def get_by_key(self, key: str):
         self.calls.append(('get_by_key', key))
-        return self.feature
+        return self.features.get(key)
 
     async def set_stage(self, feature_id, stage):
         self.calls.append(('set_stage', feature_id, stage))
@@ -557,6 +561,10 @@ class FakeFeatureRepository:
         self.calls.append(('clear_opt_outs', user_id))
 
 
+def _all_features() -> dict[str, FakeFeature]:
+    return {key: FakeFeature(fid) for key, fid in FEATURE_IDS.items()}
+
+
 IDENTITIES = (
     seed_e2e.Identity(github_id=999000000001, user_id=11),
     seed_e2e.Identity(github_id=999000000002, user_id=22),
@@ -564,10 +572,10 @@ IDENTITIES = (
 )
 
 
-async def test_reset_beta_features_puts_jobs_back_in_a_known_state(
+async def test_reset_beta_features_puts_jobs_and_cvs_back_in_a_known_state(
     monkeypatch,
 ):
-    fake_repo = FakeFeatureRepository(FakeFeature())
+    fake_repo = FakeFeatureRepository(_all_features())
     monkeypatch.setattr(seed_e2e, 'AsyncLocalSession', lambda: FakeSession())
     monkeypatch.setattr(seed_e2e, 'FeatureRepository', lambda s: fake_repo)
 
@@ -575,23 +583,41 @@ async def test_reset_beta_features_puts_jobs_back_in_a_known_state(
 
     assert fake_repo.calls == [
         ('get_by_key', 'jobs'),
+        ('get_by_key', 'cvs'),
         ('set_stage', 77, FeatureStage.BETA),
         ('add_user', 77, 11, 22),
         ('remove_user', 77, 33),
+        ('set_stage', 88, FeatureStage.BETA),
+        ('add_user', 88, 11, 22),
+        ('remove_user', 88, 33),
         ('clear_opt_outs', 22),
     ]
 
 
-async def test_reset_beta_features_fails_loudly_without_the_jobs_row(
-    monkeypatch,
+@pytest.mark.parametrize(
+    ('missing', 'revision'),
+    [('jobs', '641001baff09'), ('cvs', 'f28e3d9705dd')],
+)
+async def test_reset_beta_features_fails_loudly_without_a_feature_row(
+    monkeypatch, missing: str, revision: str
 ):
+    features = _all_features()
+    del features[missing]
+    fake_repo = FakeFeatureRepository(features)
     monkeypatch.setattr(seed_e2e, 'AsyncLocalSession', lambda: FakeSession())
-    monkeypatch.setattr(
-        seed_e2e, 'FeatureRepository', lambda s: FakeFeatureRepository()
-    )
+    monkeypatch.setattr(seed_e2e, 'FeatureRepository', lambda s: fake_repo)
 
-    with pytest.raises(RuntimeError, match='alembic upgrade head'):
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            f'The "{missing}" feature row is missing: run alembic upgrade '
+            f'head \\(revision {revision}\\)'
+        ),
+    ):
         await seed_e2e.reset_beta_features(*IDENTITIES)
+
+    # Nothing is written before every row is found.
+    assert all(call[0] == 'get_by_key' for call in fake_repo.calls)
 
 
 async def test_seed_resets_the_beta_features_with_the_three_users(

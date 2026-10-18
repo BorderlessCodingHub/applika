@@ -357,7 +357,10 @@ async def test_unknown_only_user_reports_zero_screenings(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     """R-024, owner 2026-09-15 "No, explicit only": interviews of type
-    unknown or any other type are not initial screenings."""
+    unknown or any other type are not initial screenings. A former note or
+    feedback is such an unknown interview (ADR-0020): it counts in
+    ``interviews_completed_fortnight`` of a newly computed report, never in
+    ``initial_screenings_count``."""
     today = date.today()
     await ts.seed(
         db_session,

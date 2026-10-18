@@ -251,6 +251,7 @@ async def test_delete_account_keeps_private_catalog_rows_created_by_null(
     assert platform_row['is_public'] is False
 
 
+@pytest.mark.usefixtures('cvs_beta')  # ADR-0021: drafts need "cvs"
 async def test_delete_own_account_cascades_drafts(
     async_client: AsyncClient, db_session: AsyncSession
 ):
@@ -281,7 +282,7 @@ async def test_delete_own_account_cascades_drafts(
     )
 
 
-@pytest.mark.usefixtures('jobs_beta')  # KODI-052: needs "jobs"
+@pytest.mark.usefixtures('jobs_beta', 'cvs_beta')  # "jobs" and "cvs"
 async def test_delete_own_account_removes_job_board_rows_but_not_jobs(
     async_client: AsyncClient, db_session: AsyncSession
 ):

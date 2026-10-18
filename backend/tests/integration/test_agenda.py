@@ -178,11 +178,12 @@ async def test_agenda_excludes_non_interview_events(
         db_session,
         *ts.catalog(),
         ts.application(),
-        ts.event(1, event_date=day, event_type=EventType.NOTE),
         ts.event(
             2, event_date=day, event_type=EventType.OFFER, **ts.offer_salary()
         ),
         ts.event(3, event_date=day, event_type=EventType.DENIED),
+        # A former note, an interview of type unknown since ADR-0020 with no
+        # schedule: it is on the agenda, as its "Phase 2" step.
         ts.event(
             4,
             event_date=day,
@@ -195,6 +196,12 @@ async def test_agenda_excludes_non_interview_events(
 
     assert response.status_code == 200, response.text
     assert [item['id'] for item in response.json()] == ['4']
+    item = response.json()[0]
+    assert (item['event_type'], item['interview_type']) == (
+        'interview',
+        'unknown',
+    )
+    assert item['step_name'] == 'Phase 2'
 
 
 async def test_agenda_empty_returns_empty_list(

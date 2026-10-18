@@ -63,9 +63,7 @@ class OfferPeriod(str, Enum):
 
 
 class EventType(str, Enum):
-    NOTE = 'note'
     INTERVIEW = 'interview'
-    FEEDBACK = 'feedback'
     OFFER = 'offer'
     DENIED = 'denied'
 

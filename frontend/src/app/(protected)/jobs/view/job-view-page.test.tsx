@@ -22,8 +22,15 @@ const listBaseCvs = vi.fn();
 const createFromJob = vi.fn();
 const push = vi.fn();
 
-/** KODI-053: the cases written before PRD 0013 run with `jobs` in beta. */
-let myFeatures: MyFeature[] = [{ key: "jobs", stage: "beta" }];
+/**
+ * The cases written before PRD 0013 run with `jobs` in beta, and with `cvs`
+ * too: the fit and Start need both.
+ */
+const JOBS_AND_CVS: MyFeature[] = [
+  { key: "jobs", stage: "beta" },
+  { key: "cvs", stage: "beta" },
+];
+let myFeatures: MyFeature[] = JOBS_AND_CVS;
 const getMyFeatures = vi.fn();
 let seedFeatures = true;
 
@@ -83,7 +90,7 @@ const TWO_FITS = makeDetail({
 });
 
 beforeEach(() => {
-  myFeatures = [{ key: "jobs", stage: "beta" }];
+  myFeatures = JOBS_AND_CVS;
   seedFeatures = true;
   getMyFeatures.mockReset().mockImplementation(async () => myFeatures);
   searchParams = new URLSearchParams("id=101");
@@ -388,7 +395,10 @@ describe("/jobs/view behind the jobs feature (KODI-053, PRD 0013)", () => {
   });
 
   it("shows no Beta once jobs is released", async () => {
-    myFeatures = [{ key: "jobs", stage: "general" }];
+    myFeatures = [
+      { key: "jobs", stage: "general" },
+      { key: "cvs", stage: "general" },
+    ];
     renderPage();
 
     await screen.findByRole("heading", {
@@ -404,5 +414,73 @@ describe("/jobs/view behind the jobs feature (KODI-053, PRD 0013)", () => {
 
     await screen.findByText("This job is no longer listed");
     expect(screen.queryByText("Beta")).not.toBeInTheDocument();
+  });
+});
+
+describe("/jobs/view with jobs but without cvs", () => {
+  beforeEach(() => {
+    myFeatures = [{ key: "jobs", stage: "beta" }];
+  });
+
+  it("shows the description but no fit, no Start application and never asks for master CVs", async () => {
+    getJob.mockResolvedValue(makeDetail({ fits: [], best_fit: null }));
+    renderPage();
+
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "Senior Backend Engineer",
+    });
+    expect(screen.getByText(/We build APIs\./)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Your fit" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", {
+        name: "Create a master CV to see how well you fit each job",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Start application" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Fit \d+%$/)).toBeNull();
+    expect(listBaseCvs).not.toHaveBeenCalled();
+  });
+
+  it("shows Draft as text, not a link", async () => {
+    getJob.mockResolvedValue(
+      makeDetail({
+        application: { id: "900", is_draft: true },
+        fits: [],
+        best_fit: null,
+      }),
+    );
+    const { container } = renderPage();
+
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "Senior Backend Engineer",
+    });
+    const draft = container.querySelector(
+      '[data-slot="job-status-badge"][data-status="draft"]',
+    );
+    expect(draft).toHaveTextContent("Draft");
+    expect(
+      screen.queryByRole("link", { name: "Draft" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps Applied a link", async () => {
+    getJob.mockResolvedValue(
+      makeDetail({
+        application: { id: "901", is_draft: false },
+        fits: [],
+        best_fit: null,
+      }),
+    );
+    renderPage();
+
+    expect(
+      await screen.findByRole("link", { name: "Applied" }),
+    ).toHaveAttribute("href", "/applications?focus=901");
   });
 });

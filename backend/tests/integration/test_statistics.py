@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -98,11 +99,14 @@ async def _seed_stats_data(db_session: AsyncSession):
             interview_type=InterviewType.INITIAL_SCREENING,
             event_date=today - timedelta(days=1),
         ),
+        # A former note: an interview of type unknown since ADR-0020, so it
+        # counts in the unknown stage.
         TimelineEventModel(
             id=6,
             application_id=2,
             user_id=user,
-            event_type=EventType.NOTE,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
             event_date=today,
         ),
     )
@@ -190,7 +194,8 @@ async def test_step_conversion_rate(
     assert stages[('interview', 'initial_screening')]['total_applications'] == 2
     assert stages[('interview', 'initial_screening')]['conversion_rate'] == 66.7
     assert stages[('interview', 'technical')]['total_applications'] == 1
-    assert stages[('interview', 'unknown')]['total_applications'] == 0
+    assert stages[('interview', 'unknown')]['total_applications'] == 1
+    assert stages[('interview', 'unknown')]['conversion_rate'] == 33.3
     assert stages[('offer', None)]['conversion_rate'] == 33.3
     assert stages[('denied', None)]['total_applications'] == 1
 
@@ -218,6 +223,7 @@ async def test_step_average_days(
     # Screenings: +2 (app 1) and +2 (app 2).
     assert stages[('interview', 'initial_screening')]['average_days'] == 2.0
     assert stages[('interview', 'technical')]['average_days'] == 3.0
+    assert stages[('interview', 'unknown')]['average_days'] == 3.0
     assert stages[('offer', None)]['average_days'] == 5.0
     assert stages[('denied', None)]['average_days'] == 5.0
     assert stages[('interview', 'final')]['average_days'] == 0.0
@@ -375,6 +381,7 @@ async def test_trends(async_client: AsyncClient, db_session: AsyncSession):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures('cvs_beta')  # ADR-0021: drafts and CVs need "cvs"
 async def test_statistics_exclude_open_draft_with_cv_copy(
     async_client: AsyncClient, db_session: AsyncSession
 ):

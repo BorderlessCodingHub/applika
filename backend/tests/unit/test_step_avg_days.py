@@ -22,7 +22,7 @@ async def test_avg_days_per_stage():
     repo.average_days_per_stage.return_value = {
         (EventType.INTERVIEW, InterviewType.CULTURAL): Decimal('5.34'),
         (EventType.OFFER, None): Decimal('12.66'),
-        (EventType.FEEDBACK, None): Decimal('99'),
+        (EventType.INTERVIEW, InterviewType.UNKNOWN): Decimal('99'),
     }
 
     use_case = GetAvgDaysPerStepUseCase(repo)
@@ -36,7 +36,10 @@ async def test_avg_days_per_stage():
     ].average_days == Decimal('5.3')
     assert by_stage[(EventType.OFFER, None)].average_days == Decimal('12.7')
     assert by_stage[(EventType.DENIED, None)].average_days == Decimal('0.0')
-    assert (EventType.FEEDBACK, None) not in by_stage
+    # A former note or feedback is an interview of type unknown (ADR-0020).
+    assert by_stage[
+        (EventType.INTERVIEW, InterviewType.UNKNOWN)
+    ].average_days == Decimal('99.0')
     assert result[-2].event_type is EventType.OFFER
     assert result[-1].event_type is EventType.DENIED
 

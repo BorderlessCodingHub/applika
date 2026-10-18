@@ -60,6 +60,8 @@ interface ApplicationItemProps {
   reopenPending?: boolean;
   /** Initial `isExpanded` (R-011, KODI-038 `?focus=`). Absent = today's behaviour (closed). */
   defaultExpanded?: boolean;
+  /** The caller's `cvs` feature: without it the row has no CV link. */
+  showCvLink?: boolean;
 }
 
 /** value -> label lookup, capitalising the raw value when the option list has
@@ -76,14 +78,15 @@ function optionLabel(
  * image). Owns the status pill and the Reopen affordance, both derived from
  * `app.finalized_at` (the single source of truth for "closed" — see
  * `TimelineSection`). A closed application hides Edit/Close and offers Reopen
- * instead; the CV link always stays, a closed application's CV copy is still
- * readable.
+ * instead; the CV link always stays (with the `cvs` feature), a closed
+ * application's CV copy is still readable.
  *
  * Mounts `TimelineSection` directly in the expanded area.
  */
 export function ApplicationItem({
   app,
   defaultExpanded,
+  showCvLink = false,
   ...props
 }: ApplicationItemProps) {
   const [isExpanded, setExpanded] = useState<boolean>(defaultExpanded ?? false);
@@ -94,6 +97,14 @@ export function ApplicationItem({
 
   const isClosed = app.finalized_at != null;
   const name = applicationName(app.role, app.company_name);
+  // An archived cycle without `cvs` leaves no action at all: then neither the
+  // group nor its separator renders, so nothing dangles at the row's end.
+  const hasActions =
+    showCvLink ||
+    Boolean(props.onDeleteClick) ||
+    (isClosed
+      ? Boolean(props.onReopenClick)
+      : Boolean(props.onEditClick || props.onFinalizeClick));
 
   const getPlatformName = (id: string) =>
     supports.platforms.find((p) => p.id === id)?.name ?? String(id);
@@ -163,70 +174,76 @@ export function ApplicationItem({
               />
             </div>
 
-            <Separator
-              orientation="vertical"
-              className="hidden data-[orientation=vertical]:h-8 @4xl/app-card:block"
-            />
+            {hasActions ? (
+              <>
+                <Separator
+                  orientation="vertical"
+                  className="hidden data-[orientation=vertical]:h-8 @4xl/app-card:block"
+                />
 
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="ml-auto flex items-center gap-1 sm:gap-2"
-            >
-              {isClosed ? (
-                props.onReopenClick && (
-                  <ApplicationReopenButton
-                    onReopen={() => props.onReopenClick!(app)}
-                    pending={props.reopenPending}
-                    applicationName={name}
-                  />
-                )
-              ) : (
-                <>
-                  {props.onEditClick && (
-                    <ApplicationIconAction
-                      icon={SquarePen}
-                      label={`${APPLICATION_ACTION_COPY.edit} ${name}`}
-                      title={APPLICATION_ACTION_COPY.edit}
-                      onClick={() => props.onEditClick!(app)}
-                    />
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="ml-auto flex items-center gap-1 sm:gap-2"
+                >
+                  {isClosed ? (
+                    props.onReopenClick && (
+                      <ApplicationReopenButton
+                        onReopen={() => props.onReopenClick!(app)}
+                        pending={props.reopenPending}
+                        applicationName={name}
+                      />
+                    )
+                  ) : (
+                    <>
+                      {props.onEditClick && (
+                        <ApplicationIconAction
+                          icon={SquarePen}
+                          label={`${APPLICATION_ACTION_COPY.edit} ${name}`}
+                          title={APPLICATION_ACTION_COPY.edit}
+                          onClick={() => props.onEditClick!(app)}
+                        />
+                      )}
+                      {props.onFinalizeClick && (
+                        <ApplicationIconAction
+                          icon={Flag}
+                          label={`${CLOSE_ACTION_LABEL} ${name}`}
+                          title={CLOSE_ACTION_LABEL}
+                          tone="warning"
+                          onClick={() => props.onFinalizeClick!(app)}
+                        />
+                      )}
+                    </>
                   )}
-                  {props.onFinalizeClick && (
-                    <ApplicationIconAction
-                      icon={Flag}
-                      label={`${CLOSE_ACTION_LABEL} ${name}`}
-                      title={CLOSE_ACTION_LABEL}
-                      tone="warning"
-                      onClick={() => props.onFinalizeClick!(app)}
-                    />
-                  )}
-                </>
-              )}
 
-              {/*
+                  {/*
                 Outside the closed guard on purpose: a finalized application's
                 CV copy is still readable, so its link stays.
               */}
-              <ApplicationIconAction
-                icon={FileText}
-                href={`/applications/cv?id=${app.id}`}
-                label={`${APPLICATION_ACTION_COPY.cv} for ${name}`}
-                title={APPLICATION_ACTION_COPY.cv}
-              />
+                  {showCvLink && (
+                    <ApplicationIconAction
+                      icon={FileText}
+                      href={`/applications/cv?id=${app.id}`}
+                      label={`${APPLICATION_ACTION_COPY.cv} for ${name}`}
+                      title={APPLICATION_ACTION_COPY.cv}
+                    />
+                  )}
 
-              {/*
+                  {/*
                 Outside the closed guard too: the API allows deleting a closed
                 application (only an ARCHIVED one is refused).
               */}
-              {props.onDeleteClick && (
-                <ApplicationIconAction
-                  icon={Trash2}
-                  label={`${APPLICATION_ACTION_COPY.delete} ${name}`}
-                  title={APPLICATION_ACTION_COPY.delete}
-                  tone="destructive"
-                  onClick={() => props.onDeleteClick!(app)}
-                />
-              )}
-            </div>
+                  {props.onDeleteClick && (
+                    <ApplicationIconAction
+                      icon={Trash2}
+                      label={`${APPLICATION_ACTION_COPY.delete} ${name}`}
+                      title={APPLICATION_ACTION_COPY.delete}
+                      tone="destructive"
+                      onClick={() => props.onDeleteClick!(app)}
+                    />
+                  )}
+                </div>
+              </>
+            ) : null}
           </div>
 
           <div onClick={(e) => e.stopPropagation()}>

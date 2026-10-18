@@ -58,16 +58,21 @@ export function JobListEmpty({ className }: { className?: string }) {
 /** Filters set and nothing left. */
 export function JobListNoMatches({
   onClearFilters,
+  showFit = true,
   className,
 }: {
   onClearFilters: () => void;
+  /** `false` without `cvs`: the hint names no "minimum fit" the user cannot see. */
+  showFit?: boolean;
   className?: string;
 }) {
   return (
     <EmptyState
       icon={SearchXIcon}
       title={JOBS_COPY.noMatchesTitle}
-      description={JOBS_COPY.noMatchesBody}
+      description={
+        showFit ? JOBS_COPY.noMatchesBody : JOBS_COPY.noMatchesBodyNoCvs
+      }
       action={
         <Button type="button" variant="outline" onClick={onClearFilters}>
           {JOBS_COPY.clearFilters}

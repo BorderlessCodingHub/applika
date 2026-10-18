@@ -27,11 +27,15 @@ export const JOBS_COPY = {
   title: "Jobs",
   subtitle:
     "Remote jobs from Himalayas and RemoteOK, matched against your master CVs.",
+  /** Without `cvs`: the board has no fit, so the subtitle does not promise one. */
+  subtitleNoCvs: "Remote jobs from Himalayas and RemoteOK.",
   invitation: "Create a master CV to see how well you fit each job",
   emptyTitle: "No jobs yet",
   emptyBody: "New jobs arrive every hour.",
   noMatchesTitle: "No jobs match these filters",
   noMatchesBody: "Try fewer tags, a lower minimum fit or a longer time window.",
+  /** Without `cvs`: no "Minimum fit" control, so the hint does not name one. */
+  noMatchesBodyNoCvs: "Try fewer tags or a longer time window.",
   clearFilters: "Clear filters",
   clearAllFilters: "Clear all filters",
   loadErrorTitle: "Could not load jobs",

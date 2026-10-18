@@ -142,7 +142,7 @@ async def test_edit_blocked_while_closed_then_succeeds_after_reopen(
 ):
     """PRD 0008 edge case, through the real endpoints."""
     await ts.seed_open_application(db_session)
-    note = {'event_type': 'note', 'event_date': '2025-12-05'}
+    note = {'event_type': 'interview', 'event_date': '2025-12-05'}
     created = await async_client.post('/applications/1/timeline', json=note)
     event_id = created.json()['id']
 

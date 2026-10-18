@@ -3,7 +3,7 @@
  *
  * Hand-written snake_case types mirroring the backend contract by hand (no
  * OpenAPI codegen in this project). Ids are strings and the offer salary amount
- * is a decimal string on the wire. `event_type` is the hardcoded 5-value enum
+ * is a decimal string on the wire. `event_type` is the hardcoded 3-value enum
  * (NOT a DB catalog) and `interview_type` the hardcoded 7-value enum, carried
  * only by `interview` events — both canonical unions live once in
  * `@/components/timeline/timeline-types` and are reused here so there is a
@@ -41,7 +41,7 @@ export interface TimelineEvent {
   application_id: string;
   /** Owning user id (string). */
   user_id: string;
-  /** Hardcoded 5-value type (`note | interview | feedback | offer | denied`). */
+  /** Hardcoded 3-value type (`interview | offer | denied`); note/feedback are gone (ADR 0020). */
   event_type: TimelineEventType;
   /** Interview-only: one of the 7 hardcoded interview types. */
   interview_type: InterviewType | null;

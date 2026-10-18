@@ -39,7 +39,7 @@ export const PRIMARY_NAV: NavItem[] = [
   },
   { href: "/applications", label: "Applications", icon: Briefcase },
   { href: "/jobs", label: "Jobs", icon: Search, feature: "jobs" },
-  { href: "/cvs", label: "CVs", icon: FileText },
+  { href: "/cvs", label: "CVs", icon: FileText, feature: "cvs" },
   { href: "/agenda", label: "Agenda", icon: CalendarClock },
   { href: "/reports", label: "Reports", icon: NotepadText },
   { href: "/cycles", label: "Cycles", icon: History },

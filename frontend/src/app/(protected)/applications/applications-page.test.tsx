@@ -115,7 +115,21 @@ vi.mock("sonner", () => ({
   },
 }));
 
+// PRD 0015: CVs and drafts live behind `cvs`. The cases written before it run
+// with `cvs`; `hasCvs = false` is a user without it.
+let hasCvs = true;
+vi.mock("@/hooks/use-features", () => ({
+  useHasFeature: (key: string) => ({
+    has: key === "cvs" ? hasCvs : false,
+    stage: key === "cvs" && hasCvs ? "beta" : null,
+    isLoading: false,
+  }),
+}));
+
 const deleteDraft = vi.fn();
+/** Every `enabled` the page handed `useDrafts`: `false` means no request. */
+const useDraftsCalls: unknown[] = [];
+const listDrafts = vi.fn();
 let draftsState: {
   data: unknown[] | undefined;
   isLoading: boolean;
@@ -124,16 +138,21 @@ let draftsState: {
 } = { data: undefined, isLoading: false, isError: false, isSuccess: true };
 
 vi.mock("@/hooks/use-application-drafts", () => ({
-  useDrafts: () => ({
-    data: draftsState.data,
-    isLoading: draftsState.isLoading,
-    isError: draftsState.isError,
-    isSuccess: draftsState.isSuccess,
-    error: draftsState.isError
-      ? { response: { data: { detail: "Could not load drafts" } } }
-      : null,
-    refetch: vi.fn(),
-  }),
+  useDrafts: (enabled?: boolean) => {
+    useDraftsCalls.push(enabled);
+    // Stands in for the query: it only fetches when enabled.
+    if (enabled !== false) listDrafts();
+    return {
+      data: draftsState.data,
+      isLoading: draftsState.isLoading,
+      isError: draftsState.isError,
+      isSuccess: draftsState.isSuccess,
+      error: draftsState.isError
+        ? { response: { data: { detail: "Could not load drafts" } } }
+        : null,
+      refetch: vi.fn(),
+    };
+  },
   useDeleteDraft: () => ({ mutate: deleteDraft, isPending: false }),
 }));
 
@@ -604,5 +623,89 @@ describe("ApplicationsPage — ?focus= (R-011, KODI-038)", () => {
     );
     expect(toastInfoMock).not.toHaveBeenCalled();
     expect(window.location.search).toBe("");
+  });
+});
+
+describe("ApplicationsPage without the cvs feature (PRD 0015)", () => {
+  const draft = {
+    id: "d-1",
+    company_name: "Acme Inc",
+    role: "Senior Engineer",
+    has_cv: false,
+    updated_at: new Date().toISOString(),
+  };
+
+  beforeEach(() => {
+    hasCvs = false;
+    useDraftsCalls.length = 0;
+    listDrafts.mockClear();
+  });
+
+  afterEach(() => {
+    hasCvs = true;
+  });
+
+  it("shows the current cycle with no tabs, no Drafts and no New with CV", () => {
+    setHookState({ filtered: [focusApplication()] });
+    setDraftsState([draft]);
+
+    renderWithQueryClient();
+
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByText(/drafts/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Acme Inc")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "New with CV" }),
+    ).not.toBeInTheDocument();
+    // "New Application" and the list stay.
+    expect(
+      screen.getByRole("button", { name: "New Application" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: /search/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Backend engineer")).toBeInTheDocument();
+  });
+
+  it("never asks for the drafts", () => {
+    setHookState({});
+
+    renderWithQueryClient();
+
+    expect(useDraftsCalls.length).toBeGreaterThan(0);
+    expect(useDraftsCalls.every((enabled) => enabled === false)).toBe(true);
+    expect(listDrafts).not.toHaveBeenCalled();
+  });
+
+  it("renders no CV link on an application row", () => {
+    setHookState({ filtered: [focusApplication()] });
+
+    renderWithQueryClient();
+
+    expect(screen.getByText("Backend engineer")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /^CV for/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("with cvs: the tabs, New with CV, the CV link and the drafts request are back", () => {
+    hasCvs = true;
+    setHookState({ filtered: [focusApplication()] });
+    setDraftsState([draft]);
+
+    renderWithQueryClient();
+
+    expect(screen.getByRole("tablist")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Drafts (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "New with CV" })).toHaveAttribute(
+      "href",
+      "/applications/new-with-cv",
+    );
+    expect(screen.getByRole("link", { name: /^CV for/ })).toHaveAttribute(
+      "href",
+      "/applications/cv?id=app-1",
+    );
+    expect(useDraftsCalls.every((enabled) => enabled === true)).toBe(true);
+    expect(listDrafts).toHaveBeenCalled();
   });
 });

@@ -20,7 +20,7 @@ async def test_general_stats_with_data():
         (EventType.OFFER, None): 2,
         (EventType.DENIED, None): 3,
         (EventType.INTERVIEW, InterviewType.TECHNICAL): 6,
-        (EventType.NOTE, None): 9,
+        (EventType.INTERVIEW, InterviewType.UNKNOWN): 9,
     }
     repo.get_active_applications_count.return_value = 7
 

@@ -253,7 +253,7 @@ async def test_a_closed_migrated_application_is_read_only_until_reopened(
 ):
     await _seed_r1_shape(db_session)
     url = f'/applications/{APP_DENIED}/timeline'
-    note = {'event_type': 'note', 'event_date': '2025-08-21'}
+    note = {'event_type': 'interview', 'event_date': '2025-08-21'}
 
     refused = await async_client.post(url, json=note)
     await async_client.post(f'/applications/{APP_DENIED}/reopen')

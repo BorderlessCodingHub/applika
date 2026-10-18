@@ -312,7 +312,7 @@ async def test_closed_application_swept_into_a_cycle_stays_closed(
     finalize = await async_client.post('/applications/2/finalize')
     add = await async_client.post(
         '/applications/1/timeline',
-        json={'event_type': 'note', 'event_date': str(date.today())},
+        json={'event_type': 'interview', 'event_date': str(date.today())},
     )
 
     assert closed['finalized'] is True

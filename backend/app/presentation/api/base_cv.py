@@ -14,6 +14,7 @@ from fastapi import APIRouter, Response
 
 from app.application.dto.base_cv import BaseCVCreateDTO, BaseCVUpdateDTO
 from app.application.services.job_queue import request_fit_recompute
+from app.core.features import FeatureKey
 from app.lib.types import SnowflakeID
 from app.presentation.dependencies import (
     CreateBaseCVUseCaseDp,
@@ -25,7 +26,9 @@ from app.presentation.dependencies import (
     RenderBaseCVMarkdownUseCaseDp,
     RenderBaseCVPdfUseCaseDp,
     UpdateBaseCVUseCaseDp,
+    require_feature,
 )
+from app.presentation.gated_slash import add_slash_twins
 from app.presentation.schemas import DetailSchema
 from app.presentation.schemas.base_cv import (
     BaseCVCreate,
@@ -34,7 +37,11 @@ from app.presentation.schemas.base_cv import (
 )
 
 router = APIRouter(
-    tags=['Base CVs'], responses={'403': {'model': DetailSchema}}
+    tags=['Base CVs'],
+    # ADR-0018, ADR-0021: without "cvs" every route here is an unknown
+    # route (404).
+    dependencies=[require_feature(FeatureKey.CVS)],
+    responses={'403': {'model': DetailSchema}},
 )
 
 
@@ -204,3 +211,7 @@ async def export_base_cv_markdown(
             )
         },
     )
+
+
+# ADR-0018: `/base-cvs/` and friends hit the gate too, never Starlette's 307.
+add_slash_twins(router)

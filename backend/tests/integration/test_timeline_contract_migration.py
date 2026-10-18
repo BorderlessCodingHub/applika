@@ -823,6 +823,10 @@ def test_only_one_head() -> None:
     tables, Release A of plan 0013) was then the head, one beyond KODI-044.
     KODI-056 (``ed39a0fad1e5``, user_sessions table, Release A of plan 0014)
     is now the sole head, one beyond KODI-051.
+    ``f28e3d9705dd`` (cvs feature and three event types, plan 0015 Release A)
+    was then the head, one beyond ``ed39a0fad1e5``.
+    ``647a047921ec`` (cvs list top-up, switch-over trigger dropped, plan 0015
+    Release B) is now the sole head, one beyond ``f28e3d9705dd``.
     """
     from alembic.config import Config
     from alembic.script import ScriptDirectory
@@ -831,8 +835,12 @@ def test_only_one_head() -> None:
     script = ScriptDirectory.from_config(config)
 
     heads = script.get_heads()
-    assert list(heads) == ['ed39a0fad1e5']
+    assert list(heads) == ['647a047921ec']
 
+    cvs_topup = script.get_revision('647a047921ec')
+    assert cvs_topup.down_revision == 'f28e3d9705dd'
+    cvs_event_types = script.get_revision('f28e3d9705dd')
+    assert cvs_event_types.down_revision == 'ed39a0fad1e5'
     kodi_056 = script.get_revision('ed39a0fad1e5')
     assert kodi_056.down_revision == '641001baff09'
     kodi_051 = script.get_revision('641001baff09')
@@ -899,12 +907,24 @@ def test_duplicated_constants_match_revision_af50c83911a7_and_step_translation()
     )
     from app.core.enums import EventType, InterviewType
 
+    # ADR-0020: note and feedback left the enum; both named the step
+    # interview/unknown names, so dropping them moves no step id.
+    retired = {('note', None), ('feedback', None)}
+    for key in retired:
+        assert r2.REVERSE_STEP_MAP[key] == 'Phase 2'
+        assert (
+            r2.REVERSE_STEP_MAP[key]
+            == r2.REVERSE_STEP_MAP[('interview', 'unknown')]
+        )
     for (event_type, interview_type), name in r2.REVERSE_STEP_MAP.items():
+        if (event_type, interview_type) in retired:
+            continue
         key = (
             EventType(event_type),
             InterviewType(interview_type) if interview_type else None,
         )
         assert REVERSE_STEP_NAMES[key] == name, key
+    assert len(REVERSE_STEP_NAMES) == len(r2.REVERSE_STEP_MAP) - len(retired)
 
 
 def test_app_never_reads_or_writes_an_old_object() -> None:
@@ -1655,7 +1675,7 @@ async def test_release_c_api_runs_on_the_post_r2_schema(
 
     added = await contract_client.post(
         f'/applications/{second_id}/timeline',
-        json={'event_type': 'note', 'event_date': '2026-01-15'},
+        json={'event_type': 'interview', 'event_date': '2026-01-15'},
     )
     assert added.status_code == 201, added.text
     event_id = added.json()['id']
@@ -1666,7 +1686,7 @@ async def test_release_c_api_runs_on_the_post_r2_schema(
 
     updated = await contract_client.put(
         f'/applications/{second_id}/timeline/{event_id}',
-        json={'event_type': 'note', 'event_date': '2026-01-16'},
+        json={'event_type': 'interview', 'event_date': '2026-01-16'},
     )
     assert updated.status_code == 200, updated.text
     assert updated.json()['event_date'] == '2026-01-16'

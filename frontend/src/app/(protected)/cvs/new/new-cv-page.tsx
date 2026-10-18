@@ -14,10 +14,13 @@ import {
 } from "@/components/base-cvs/base-cv-schema";
 import { BASE_CV_LIMIT_REASON } from "@/components/base-cvs/new-cv-card";
 import { BASE_CVS_MAX, type CvFormValues } from "@/components/base-cvs/types";
+import { BetaBadge } from "@/components/features/beta-badge";
+import { FeatureGate } from "@/components/features/feature-gate";
 import { LinkButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBaseCvs } from "@/hooks/use-base-cvs";
 import { useCreateBaseCv } from "@/hooks/use-create-base-cv";
+import { useHasFeature } from "@/hooks/use-features";
 
 /**
  * `/cvs/new` — create a master CV.
@@ -26,8 +29,20 @@ import { useCreateBaseCv } from "@/hooks/use-create-base-cv";
  * when the list already holds `BASE_CVS_MAX`; and again as a toast carrying the
  * API's own `detail` if the server refuses the create with 409 — which is the
  * authority, and the only thing that can see a race between two tabs.
+ *
+ * Behind the `cvs` feature: without it, the app's "page not found" and no CV
+ * request.
  */
 export function NewCvPage() {
+  return (
+    <FeatureGate feature="cvs">
+      <NewCvForm />
+    </FeatureGate>
+  );
+}
+
+function NewCvForm() {
+  const beta = useHasFeature("cvs").stage === "beta";
   const router = useRouter();
   const { data: cvs, isLoading: isCountLoading } = useBaseCvs();
   const atLimit = (cvs?.length ?? 0) >= BASE_CVS_MAX;
@@ -54,9 +69,12 @@ export function NewCvPage() {
           Back to CVs
         </LinkButton>
         <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight">
-            New master CV
-          </h1>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <h1 className="font-display text-2xl font-bold tracking-tight">
+              New master CV
+            </h1>
+            {beta ? <BetaBadge /> : null}
+          </div>
           <p className="mt-0.5 text-sm text-muted-foreground">
             Write it once. Every application you tailor starts from here.
           </p>

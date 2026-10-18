@@ -39,11 +39,12 @@ REVERSE_STEP_NAMES: dict[EventKind, str] = {
     },
     (EventType.OFFER, None): 'Offer',
     (EventType.DENIED, None): 'Denied',
-    (EventType.NOTE, None): REVERSE_FALLBACK_NAME,
-    (EventType.FEEDBACK, None): REVERSE_FALLBACK_NAME,
 }
 """``(event_type, interview_type) -> steps_definition.name``, the
-revision's ``REVERSE_STEP_MAP`` with the enums instead of strings."""
+revision's ``REVERSE_STEP_MAP`` with the enums instead of strings, minus its
+``note`` and ``feedback`` entries (ADR-0020): those named "Phase 2", the same
+step as interview/unknown, which is what a former note or feedback is now,
+so no step id a 0.1.4 client reads moves."""
 
 
 def event_kind_of(step: StepDefinitionModel) -> EventKind:

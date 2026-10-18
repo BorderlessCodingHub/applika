@@ -3,9 +3,7 @@
  *
  * One entry per hardcoded `event_type`, pairing it with a distinct Lucide icon
  * and an accent drawn from the EXISTING semantic tokens (no new tokens):
- *   note      → neutral / muted
  *   interview → info (blue)
- *   feedback  → warning (amber)
  *   offer     → success (green)
  *   denied    → destructive (red)
  *
@@ -16,14 +14,7 @@
  */
 
 import type { ComponentType } from "react";
-import {
-  BadgeCheck,
-  CircleX,
-  MessageSquareText,
-  StickyNote,
-  Users,
-  type LucideProps,
-} from "lucide-react";
+import { BadgeCheck, CircleX, Users, type LucideProps } from "lucide-react";
 
 import {
   DENIED_REASONS,
@@ -63,17 +54,6 @@ export interface EventTypeConfig {
 }
 
 export const EVENT_TYPE_CONFIG: Record<TimelineEventType, EventTypeConfig> = {
-  note: {
-    value: "note",
-    label: "Note",
-    icon: StickyNote,
-    hint: "A general observation or reminder.",
-    badgeClass: "bg-muted text-muted-foreground",
-    tileClass: "bg-muted text-muted-foreground ring-border",
-    dotClass: "bg-muted-foreground/60",
-    selectedClass: "border-muted-foreground/40 bg-accent text-foreground",
-    chartColor: "var(--muted-foreground)",
-  },
   interview: {
     value: "interview",
     label: "Interview",
@@ -84,17 +64,6 @@ export const EVENT_TYPE_CONFIG: Record<TimelineEventType, EventTypeConfig> = {
     dotClass: "bg-info",
     selectedClass: "border-info/50 bg-info/10 text-foreground",
     chartColor: "var(--info)",
-  },
-  feedback: {
-    value: "feedback",
-    label: "Feedback",
-    icon: MessageSquareText,
-    hint: "Response or notes received about you.",
-    badgeClass: "bg-warning/15 text-warning",
-    tileClass: "bg-warning/15 text-warning ring-warning/25",
-    dotClass: "bg-warning",
-    selectedClass: "border-warning/50 bg-warning/10 text-foreground",
-    chartColor: "var(--warning)",
   },
   offer: {
     value: "offer",

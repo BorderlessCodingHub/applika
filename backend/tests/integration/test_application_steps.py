@@ -134,11 +134,18 @@ async def test_list_steps_names_every_web_created_event(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     """Edge case: events created in the web app list with a step name and
-    id each, whatever their type."""
+    id each, whatever their type. 11 and 13 are a former note and a former
+    feedback, interviews of type unknown since ADR-0020: they list as the
+    same "Phase 2" step, with the same id, as before."""
     await _seed_app_and_steps(db_session)
     await ts.seed(
         db_session,
-        ts.event(11, event_type=EventType.NOTE, event_date=date(2025, 12, 2)),
+        ts.event(
+            11,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
+            event_date=date(2025, 12, 2),
+        ),
         ts.event(
             12,
             event_type=EventType.INTERVIEW,
@@ -146,7 +153,10 @@ async def test_list_steps_names_every_web_created_event(
             event_date=date(2025, 12, 3),
         ),
         ts.event(
-            13, event_type=EventType.FEEDBACK, event_date=date(2025, 12, 4)
+            13,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
+            event_date=date(2025, 12, 4),
         ),
         ts.event(
             14,
@@ -384,13 +394,21 @@ async def test_update_step(async_client: AsyncClient, db_session: AsyncSession):
     assert stored.event_date == date(2025, 12, 8)
 
 
-async def test_edit_without_step_keeps_a_note_a_note(
+async def test_edit_without_step_keeps_the_interview_type(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     """0.1.4 `steps edit` without --step resends the listed step_id: the
-    event keeps its type instead of turning into interview/unknown."""
+    event keeps its interview type instead of turning into
+    interview/unknown (its listed step, Phase 2, maps to unknown)."""
     await _seed_app_and_steps(db_session)
-    await ts.seed(db_session, ts.event(21, event_type=EventType.NOTE))
+    await ts.seed(
+        db_session,
+        ts.event(
+            21,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.FINAL,
+        ),
+    )
     listed = (await async_client.get('/applications/1/steps')).json()[0]
 
     response = await async_client.put(
@@ -403,9 +421,10 @@ async def test_edit_without_step_keeps_a_note_a_note(
     )
 
     assert response.status_code == 200
+    assert listed['step_id'] == str(ts.STEP_PHASE_2)
     stored = await _event(db_session, 21)
-    assert stored.event_type is EventType.NOTE
-    assert stored.interview_type is None
+    assert stored.event_type is EventType.INTERVIEW
+    assert stored.interview_type is InterviewType.FINAL
     assert stored.observation == 'edited from the CLI'
 
 
@@ -480,7 +499,7 @@ async def test_edit_switching_a_new_step_to_denied_is_404(
     never pick it as a *new* step - ``_non_strict_step`` refuses it exactly
     as ``test_create_step_strict_step_returns_404`` does for create."""
     await _seed_app_and_steps(db_session)
-    await ts.seed(db_session, ts.event(24, event_type=EventType.NOTE))
+    await ts.seed(db_session, ts.event(24))
 
     response = await async_client.put(
         '/applications/1/steps/24',
@@ -489,7 +508,8 @@ async def test_edit_switching_a_new_step_to_denied_is_404(
 
     assert response.status_code == 404, response.text
     stored = await _event(db_session, 24)
-    assert stored.event_type is EventType.NOTE
+    assert stored.event_type is EventType.INTERVIEW
+    assert stored.interview_type is InterviewType.UNKNOWN
     assert stored.denied_reason is None
 
 
@@ -696,13 +716,13 @@ async def test_update_step_of_a_non_interview_kind_drops_the_schedule(
     it without them, silently, never a 422
     (``.claude/rules/cli-compatibility.md``)."""
     await _seed_app_and_steps(db_session)
-    await ts.seed(db_session, ts.event(61, event_type=EventType.NOTE))
+    await ts.seed(db_session, ts.event(61, event_type=EventType.DENIED))
 
     payload = {
-        # NOTE's own reverse step is Phase 2, so resending it keeps the
-        # event a note (the same "keep what it is" branch above) - and a
-        # note is refused a schedule.
-        'step_id': str(ts.STEP_PHASE_2),
+        # A denied event's own reverse step is Denied, so resending it keeps
+        # the event a denied (the same "keep what it is" branch above) - and
+        # a denied is refused a schedule.
+        'step_id': str(ts.STEP_DENIED),
         'step_date': '2025-12-05',
         'start_time': '09:00',
         'end_time': '10:00',

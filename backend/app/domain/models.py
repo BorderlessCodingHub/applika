@@ -636,8 +636,10 @@ class TimelineEventModel(BaseMixin, Base):
     ``ck_timeline_events_schedule_interview_only`` was added by migration R4
     (``af50c83911a7``, KODI-016), folded into Release A the same way.
 
-    * ``event_type`` is one of five fixed values; ``interview_type`` is set on
-      interview events only (``ck_timeline_events_interview_type``).
+    * ``event_type`` is one of three fixed values, interview, offer or denied
+      (``ck_timeline_events_event_type``, ADR-0020); ``interview_type`` is set
+      on interview events only (``ck_timeline_events_interview_type``). The
+      revision's copy of the former type is never mapped.
     * The salary triple is set on offer events only, all three or none
       (``ck_timeline_events_offer_salary``).
     * ``denied_reason`` is set on ``denied`` events only, defaulting to
@@ -679,6 +681,10 @@ class TimelineEventModel(BaseMixin, Base):
             'OR (start_time IS NULL AND end_time IS NULL '
             'AND timezone IS NULL)',
             name='ck_timeline_events_schedule_interview_only',
+        ),
+        sa.CheckConstraint(
+            "event_type IN ('interview', 'offer', 'denied')",
+            name='ck_timeline_events_event_type',
         ),
         sa.Index('ix_timeline_events_application_id', 'application_id'),
         sa.Index('ix_timeline_events_user_id', 'user_id'),

@@ -18,6 +18,7 @@ from decimal import Decimal
 from unittest.mock import AsyncMock
 
 import pytest
+from pydantic import ValidationError
 
 from app.application.dto.timeline_event import (
     CreateTimelineEventDTO,
@@ -99,7 +100,7 @@ def _create_dto(**overrides) -> CreateTimelineEventDTO:
     data: dict = {
         'user_id': 1,
         'application_id': 800,
-        'event_type': 'note',
+        'event_type': 'interview',
         'event_date': date(2026, 7, 1),
     }
     data.update(overrides)
@@ -107,7 +108,7 @@ def _create_dto(**overrides) -> CreateTimelineEventDTO:
 
 
 def _update_dto(**overrides) -> UpdateTimelineEventDTO:
-    data: dict = {'event_type': 'note', 'event_date': date(2026, 7, 2)}
+    data: dict = {'event_type': 'interview', 'event_date': date(2026, 7, 2)}
     data.update(overrides)
     return UpdateTimelineEventDTO(**data)
 
@@ -166,7 +167,7 @@ def test_interview_keeps_the_type_it_was_given(kind):
     assert result.interview_type is kind
 
 
-@pytest.mark.parametrize('event_type', ['note', 'feedback', 'offer', 'denied'])
+@pytest.mark.parametrize('event_type', ['offer', 'denied'])
 def test_interview_type_on_a_non_interview_is_refused(event_type):
     extra = OFFER_SALARY if event_type == 'offer' else {}
     with pytest.raises(BusinessRuleViolation) as exc:
@@ -191,9 +192,7 @@ def test_denied_keeps_the_reason_it_was_given(reason):
     assert result.denied_reason is reason
 
 
-@pytest.mark.parametrize(
-    'event_type', ['note', 'interview', 'feedback', 'offer']
-)
+@pytest.mark.parametrize('event_type', ['interview', 'offer'])
 def test_denied_reason_on_a_non_denied_is_refused(event_type):
     extra = OFFER_SALARY if event_type == 'offer' else {}
     with pytest.raises(BusinessRuleViolation) as exc:
@@ -203,12 +202,14 @@ def test_denied_reason_on_a_non_denied_is_refused(event_type):
     assert str(exc.value) == DENIED_REASON_ONLY_ON_DENIED
 
 
-def test_denied_changed_to_note_must_drop_the_reason():
+def test_denied_changed_to_interview_must_drop_the_reason():
     """PRD 0008 edge case, symmetric to the offer/salary one below: the
     reason goes in the same change that moves the event away from denied."""
     with pytest.raises(BusinessRuleViolation):
-        normalize_event(_update_dto(event_type='note', denied_reason='ghosted'))
-    dropped = normalize_event(_update_dto(event_type='note'))
+        normalize_event(
+            _update_dto(event_type='interview', denied_reason='ghosted')
+        )
+    dropped = normalize_event(_update_dto(event_type='interview'))
     assert dropped.denied_reason is None
 
 
@@ -228,9 +229,7 @@ def test_offer_missing_any_salary_field_is_refused(missing):
     assert str(exc.value) == OFFER_NEEDS_SALARY
 
 
-@pytest.mark.parametrize(
-    'event_type', ['note', 'interview', 'feedback', 'denied']
-)
+@pytest.mark.parametrize('event_type', ['interview', 'denied'])
 @pytest.mark.parametrize('field', list(OFFER_SALARY))
 def test_salary_on_a_non_offer_is_refused(event_type, field):
     with pytest.raises(BusinessRuleViolation) as exc:
@@ -283,7 +282,7 @@ def test_a_scheduled_event_with_timezone_and_observation_is_valid():
 # -- Schedule only on interview (KODI-016, R-038/R-039, same pattern) -------
 
 
-@pytest.mark.parametrize('event_type', ['note', 'feedback', 'offer', 'denied'])
+@pytest.mark.parametrize('event_type', ['offer', 'denied'])
 @pytest.mark.parametrize(
     'field',
     [
@@ -300,7 +299,7 @@ def test_schedule_on_a_non_interview_is_refused(event_type, field):
     assert str(exc.value) == SCHEDULE_ONLY_ON_INTERVIEW
 
 
-@pytest.mark.parametrize('event_type', ['note', 'feedback', 'denied'])
+@pytest.mark.parametrize('event_type', ['denied'])
 def test_explicit_null_schedule_on_non_interview_is_accepted(event_type):
     result = normalize_event(
         _update_dto(
@@ -315,16 +314,16 @@ def test_explicit_null_schedule_on_non_interview_is_accepted(event_type):
     assert result.timezone is None
 
 
-def test_interview_changed_to_note_must_drop_the_schedule():
+def test_interview_changed_to_denied_must_drop_the_schedule():
     """Same shape as ``test_offer_changed_to_interview_must_drop_the_
-    salary``/``test_denied_changed_to_note_must_drop_the_reason``: a PUT
+    salary``/``test_denied_changed_to_interview_must_drop_the_reason``: a PUT
     that changes an event's type away from interview must clear the
     schedule in the same request, never leave it dangling for the
     database CHECK to catch."""
     with pytest.raises(BusinessRuleViolation) as exc:
         normalize_event(
             _update_dto(
-                event_type='note', start_time=time(9), end_time=time(10)
+                event_type='denied', start_time=time(9), end_time=time(10)
             )
         )
     assert str(exc.value) == SCHEDULE_ONLY_ON_INTERVIEW
@@ -414,7 +413,7 @@ async def test_create_refuses_invalid_event_before_writing():
 
     with pytest.raises(BusinessRuleViolation):
         await CreateTimelineEventUseCase(app_repo, event_repo).execute(
-            _create_dto(event_type='note', interview_type='cultural')
+            _create_dto(event_type='denied', interview_type='cultural')
         )
     event_repo.create.assert_not_called()
 
@@ -699,3 +698,13 @@ async def test_delete_happy_path_emits_audit_event(caplog):
 
     event_repo.delete.assert_awaited_once()
     assert 'timeline_event.deleted' in _events_of(caplog)
+
+
+@pytest.mark.parametrize('event_type', ['note', 'feedback'])
+def test_note_and_feedback_never_reach_the_use_case(event_type):
+    """ADR-0020: the DTOs take the three-value enum, so a retired type is
+    an invalid value before any rule runs, on create and on edit."""
+    with pytest.raises(ValidationError):
+        _create_dto(event_type=event_type)
+    with pytest.raises(ValidationError):
+        _update_dto(event_type=event_type)

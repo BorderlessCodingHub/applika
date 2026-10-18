@@ -21,12 +21,15 @@ export interface DraftPageHeaderProps {
   subtitle?: string | null;
   /** `<DraftStepper />`; omit on the loading, 404 and error states. */
   children?: ReactNode;
+  /** Beside the h1 (a sibling, never inside): the "Beta" badge while `cvs` is in beta. */
+  titleBadge?: ReactNode;
   className?: string;
 }
 
 export function DraftPageHeader({
   subtitle,
   children,
+  titleBadge,
   className,
 }: DraftPageHeaderProps) {
   return (
@@ -45,9 +48,12 @@ export function DraftPageHeader({
           {DRAFT_COPY.backToApplications}
         </LinkButton>
         <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground sm:text-3xl">
-            {DRAFT_COPY.pageTitle}
-          </h1>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground sm:text-3xl">
+              {DRAFT_COPY.pageTitle}
+            </h1>
+            {titleBadge}
+          </div>
           <p className="mt-1 max-w-2xl text-sm text-pretty text-muted-foreground">
             {subtitle || DRAFT_COPY.pageSubtitle}
           </p>

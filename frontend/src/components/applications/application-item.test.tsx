@@ -76,6 +76,8 @@ function renderItem(app: Application, extraProps = {}) {
       onFinalizeClick={() => {}}
       onDeleteClick={() => {}}
       onReopenClick={() => {}}
+      // The cases written before PRD 0015 run with the `cvs` feature.
+      showCvLink
       {...extraProps}
     />,
     { wrapper: Wrapper },
@@ -300,5 +302,54 @@ describe("ApplicationItem — salary display (AC22)", () => {
       new Intl.NumberFormat(undefined).format(50000),
     );
     expect(range).not.toHaveTextContent(/kr/i);
+  });
+});
+
+describe("ApplicationItem — without the cvs feature (PRD 0015)", () => {
+  it("renders no CV link, and keeps the other actions", () => {
+    renderItem(baseApplication(), { showCvLink: false });
+
+    expect(screen.queryByTitle("CV")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "CV for Backend engineer at Acme" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Edit Backend engineer at Acme" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Delete Backend engineer at Acme" }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders no CV link on a closed application either", () => {
+    renderItem(
+      baseApplication({
+        finalized: true,
+        finalized_at: "2026-06-02T00:00:00Z",
+      }),
+      { showCvLink: false },
+    );
+
+    expect(screen.queryByTitle("CV")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /reopen/i })).toBeInTheDocument();
+  });
+
+  it("leaves no empty action group nor its separator on an archived cycle", () => {
+    const { container } = renderItem(baseApplication(), {
+      showCvLink: false,
+      onEditClick: undefined,
+      onFinalizeClick: undefined,
+      onDeleteClick: undefined,
+      onReopenClick: undefined,
+    });
+
+    expect(screen.queryByTitle("CV")).not.toBeInTheDocument();
+    expect(
+      container.querySelector('[data-slot="separator"]'),
+    ).not.toBeInTheDocument();
+    expect(container.querySelector(".ml-auto")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /details for/i }),
+    ).toBeInTheDocument();
   });
 });

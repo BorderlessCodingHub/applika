@@ -672,7 +672,7 @@ describe("AgendaPage", () => {
     timelineListMock.mockResolvedValue([
       {
         id: "ev-1",
-        event_type: "note",
+        event_type: "denied",
         event_date: "2026-09-01",
         created_at: "2026-09-01T00:00:00Z",
       },

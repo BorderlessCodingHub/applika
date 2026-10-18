@@ -51,8 +51,11 @@ const getApplications = vi.fn();
 
 const NO_FILE = { blob: new Blob(["x"]), filename: null };
 
-/** KODI-053: the cases written before PRD 0013 run with `jobs`. */
-let myFeatures: MyFeature[] = [{ key: "jobs", stage: "beta" }];
+/** The cases written before PRD 0013 run with `jobs`; PRD 0015 adds `cvs`. */
+let myFeatures: MyFeature[] = [
+  { key: "jobs", stage: "beta" },
+  { key: "cvs", stage: "beta" },
+];
 const getMyFeatures = vi.fn();
 
 vi.mock("@/services/services", () => ({
@@ -252,7 +255,10 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  myFeatures = [{ key: "jobs", stage: "beta" }];
+  myFeatures = [
+    { key: "jobs", stage: "beta" },
+    { key: "cvs", stage: "beta" },
+  ];
   getMyFeatures.mockImplementation(async () => myFeatures);
   fullWidthRequest = vi.fn(() => vi.fn());
   searchParams = new URLSearchParams("id=42");
@@ -1112,7 +1118,7 @@ describe("Tailor by keywords and the CV fit (KODI-049)", () => {
 
 describe("Tailor by keywords and the CV fit behind the jobs feature (KODI-053, PRD 0013)", () => {
   beforeEach(() => {
-    myFeatures = [];
+    myFeatures = [{ key: "cvs", stage: "beta" }];
   });
 
   it("renders no switch and creates a verbatim copy for a user without jobs", async () => {
@@ -1170,11 +1176,55 @@ describe("Tailor by keywords and the CV fit behind the jobs feature (KODI-053, P
   });
 
   it("offers the switch and the fit again once the user has jobs back", async () => {
-    myFeatures = [{ key: "jobs", stage: "general" }];
+    myFeatures = [
+      { key: "jobs", stage: "general" },
+      { key: "cvs", stage: "beta" },
+    ];
     getCopy.mockResolvedValue(COPY);
     renderPage();
 
     expect(await screen.findByText("Fit 72%")).toBeInTheDocument();
     expect(getFit).toHaveBeenCalledWith("42");
+  });
+});
+
+describe("ApplicationCvPage behind the cvs feature (PRD 0015)", () => {
+  it("shows the app's page not found and asks for no CV without cvs", async () => {
+    myFeatures = [{ key: "jobs", stage: "beta" }];
+    renderPage();
+
+    expect(await screen.findByText("Oops! Page not found")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Application CV" }),
+    ).not.toBeInTheDocument();
+    expect(getCopy).not.toHaveBeenCalled();
+    expect(listBaseCvs).not.toHaveBeenCalled();
+    expect(getFit).not.toHaveBeenCalled();
+  });
+
+  it("puts the Beta badge beside the h1, never inside it, while cvs is in beta", async () => {
+    renderPage();
+
+    const heading = await screen.findByRole("heading", {
+      level: 1,
+      name: "Application CV",
+    });
+    const badge = screen.getByText("Beta");
+    expect(badge).toHaveAttribute("data-slot", "beta-badge");
+    expect(heading).not.toContainElement(badge);
+    expect(heading.parentElement).toContainElement(badge);
+  });
+
+  it("shows no Beta badge once cvs is released", async () => {
+    myFeatures = [
+      { key: "jobs", stage: "beta" },
+      { key: "cvs", stage: "general" },
+    ];
+    renderPage();
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Application CV" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Beta")).not.toBeInTheDocument();
   });
 });
