@@ -2210,9 +2210,8 @@ def test_timeline_add_removed_type_refused_and_nothing_sent(
     )
 
     assert result.exit_code == 2
-    plain = result.output
-    assert f"'{removed_type}' is not one of" in plain
-    assert "'interview', 'offer', 'denied'" in plain
+    assert f"'{removed_type}' is not one of" in result.output
+    assert "'interview', 'offer', 'denied'" in result.output
     assert built == []
     assert FakeApiClient.captured_post_payload is None
 
@@ -2256,12 +2255,11 @@ def test_timeline_help_lists_only_the_three_event_types(
     )
 
     assert result.exit_code == 0
-    plain = result.output
-    assert '[interview|offer|denied]' in plain
-    assert 'interview, offer, denied' in plain
-    assert 'feedback' not in plain.lower()
+    assert '[interview|offer|denied]' in result.output
+    assert 'interview, offer, denied' in result.output
+    assert 'feedback' not in result.output.lower()
     # 'notes' (the --observation help) is fine; the event type 'note' is not.
-    assert re.search(r'\bnote\b', plain, re.IGNORECASE) is None
+    assert re.search(r'\bnote\b', result.output, re.IGNORECASE) is None
 
 
 def test_timeline_group_help_names_the_three_event_types(monkeypatch, runner):
@@ -2270,6 +2268,5 @@ def test_timeline_group_help_names_the_three_event_types(monkeypatch, runner):
     result = runner.invoke(app, ['applications', 'timeline', '--help'])
 
     assert result.exit_code == 0
-    plain = result.output
-    assert 'interviews, offers and denials' in plain
-    assert re.search(r'\bnotes?\b', plain, re.IGNORECASE) is None
+    assert 'interviews, offers and denials' in result.output
+    assert re.search(r'\bnotes?\b', result.output, re.IGNORECASE) is None
