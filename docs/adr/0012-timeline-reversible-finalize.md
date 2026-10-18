@@ -1,6 +1,6 @@
 # ADR-0012: Timeline events, reversible finalize and the steps switch-over
 
-**Status:** Accepted by LuisMSoares on 2026-09-15 · **Date:** 2026-09-15 · **Deciders:** LuisMSoares
+**Status:** Accepted by LuisMSoares on 2026-09-15 · **Date:** 2026-09-15 · **Deciders:** LuisMSoares · **Amended by:** ADR-0020 (three event types)
 
 ## Context
 
