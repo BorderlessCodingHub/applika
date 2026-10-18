@@ -802,40 +802,17 @@ def test_the_revision_is_a_child_of_r4() -> None:
     assert module.down_revision == PARENT_REVISION
 
 
-def test_only_one_head() -> None:
-    """The re-parenting must not leave a fork: the real Alembic
-    ``ScriptDirectory`` sees exactly one head, and the
-    R1 -> R3 -> R4 -> R2 -> R5 -> K5 -> S10 -> KODI-030 -> KODI-044 chain
-    resolves as expected.
-
-    K5 (KODI-023, ``ba44f9cfd3c1``, ``discord_connections`` +
-    ``discord_report_webhooks``, Release A2) was a later, unrelated child of
-    R5 (``c1d9f4a7b3e6``, KODI-017 part 2, ``tailored_cvs.base_snapshot``) -
-    a plain "new revision at head" placement, same as R5 itself was onto R2.
-    S10 (KODI-029, ``583226ca46bc``, ``users.is_org_member`` ->
-    ``is_org_member_old``, Release C) was placed the same way, one more
-    revision beyond K5. KODI-030 (``3b78c3cd2a71``, catalog visibility and
-    draft flag columns, Release A) is now the sole head instead of S10, and
-    this test is updated to look one revision further again rather than
-    re-asserting S10 is the head it no longer is. KODI-044 (``b28d5134631f``,
-    job board tables, Release A of plan 0012) was then the head, one
-    revision beyond KODI-030. KODI-051 (``641001baff09``, feature registry
-    tables, Release A of plan 0013) was then the head, one beyond KODI-044.
-    KODI-056 (``ed39a0fad1e5``, user_sessions table, Release A of plan 0014)
-    is now the sole head, one beyond KODI-051.
-    ``f28e3d9705dd`` (cvs feature and three event types, plan 0015 Release A)
-    was then the head, one beyond ``ed39a0fad1e5``.
-    ``647a047921ec`` (cvs list top-up, switch-over trigger dropped, plan 0015
-    Release B) is now the sole head, one beyond ``f28e3d9705dd``.
+def test_the_revision_chain_above_r3_resolves() -> None:
+    """The re-parenting must not leave a broken link: the real Alembic
+    ``ScriptDirectory`` resolves the chain from R3 up to the cvs top-up
+    exactly as it was laid down. Those links are history and never need
+    editing; the single-head check is ``test_migration_single_head.py``.
     """
     from alembic.config import Config
     from alembic.script import ScriptDirectory
 
     config = Config(str(_ALEMBIC_INI))
     script = ScriptDirectory.from_config(config)
-
-    heads = script.get_heads()
-    assert list(heads) == ['647a047921ec']
 
     cvs_topup = script.get_revision('647a047921ec')
     assert cvs_topup.down_revision == 'f28e3d9705dd'
