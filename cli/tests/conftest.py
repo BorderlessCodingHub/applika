@@ -30,8 +30,8 @@ def _plain_wide_rich_output(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _no_network_from_auth_commands(monkeypatch):
-    """KODI-060: login/logout never reach the network in tests. A test
-    that drives them installs its own ``httpx.MockTransport``."""
+    """login/logout never reach the network in tests. A test that drives
+    them installs its own ``httpx.MockTransport``."""
 
     def refuse(request: httpx.Request) -> httpx.Response:
         raise AssertionError(f'Unexpected network request: {request.url}')
@@ -85,7 +85,7 @@ class FakeApiClient:
     captured_put_payload = None
     captured_delete_path = None
     captured_application_params = None
-    # KODI-013 additions below - additive only, existing attributes/behavior
+    # Later additions below - additive only, existing attributes/behavior
     # above are untouched.
     timeline_events = {}
     event_created_response = {}
