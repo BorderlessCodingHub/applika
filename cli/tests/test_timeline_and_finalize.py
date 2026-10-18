@@ -2174,19 +2174,6 @@ def test_finalize_help_marks_legacy_flags_deprecated(monkeypatch, runner):
 # feedback are refused by Typer itself (exit 2) before anything is sent.
 # --------------------------------------------------------------------------
 
-_ANSI_ESCAPE = re.compile(r'\x1b\[[0-9;]*[A-Za-z]')
-
-# Wide enough that Rich never wraps a choice list or an error line, so the
-# assertions hold whatever the CI terminal width.
-_WIDE_ENV = {'COLUMNS': '200'}
-
-
-def _plain(text):
-    """Rich output without ANSI escapes: typer/rich_utils.py forces a
-    terminal at import time under GITHUB_ACTIONS / FORCE_COLOR, so colour
-    codes may split any word of the rendered text."""
-    return _ANSI_ESCAPE.sub('', text)
-
 
 def _forbid_api_client(monkeypatch):
     """Replace the API client with one that records any construction, so a
@@ -2220,11 +2207,10 @@ def test_timeline_add_removed_type_refused_and_nothing_sent(
             '--date',
             '2026-06-01',
         ],
-        env=_WIDE_ENV,
     )
 
     assert result.exit_code == 2
-    plain = _plain(result.output)
+    plain = result.output
     assert f"'{removed_type}' is not one of" in plain
     assert "'interview', 'offer', 'denied'" in plain
     assert built == []
@@ -2250,11 +2236,10 @@ def test_timeline_edit_removed_type_refused_and_nothing_sent(
             '--type',
             removed_type,
         ],
-        env=_WIDE_ENV,
     )
 
     assert result.exit_code == 2
-    assert f"'{removed_type}' is not one of" in _plain(result.output)
+    assert f"'{removed_type}' is not one of" in result.output
     assert built == []
     assert FakeApiClient.captured_put_payload is None
 
@@ -2268,11 +2253,10 @@ def test_timeline_help_lists_only_the_three_event_types(
     result = runner.invoke(
         app,
         ['applications', 'timeline', subcommand, '--help'],
-        env=_WIDE_ENV,
     )
 
     assert result.exit_code == 0
-    plain = _plain(result.output)
+    plain = result.output
     assert '[interview|offer|denied]' in plain
     assert 'interview, offer, denied' in plain
     assert 'feedback' not in plain.lower()
@@ -2283,11 +2267,9 @@ def test_timeline_help_lists_only_the_three_event_types(
 def test_timeline_group_help_names_the_three_event_types(monkeypatch, runner):
     _setup(monkeypatch)
 
-    result = runner.invoke(
-        app, ['applications', 'timeline', '--help'], env=_WIDE_ENV
-    )
+    result = runner.invoke(app, ['applications', 'timeline', '--help'])
 
     assert result.exit_code == 0
-    plain = _plain(result.output)
+    plain = result.output
     assert 'interviews, offers and denials' in plain
     assert re.search(r'\bnotes?\b', plain, re.IGNORECASE) is None

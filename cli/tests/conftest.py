@@ -2,15 +2,30 @@ import re
 
 import httpx
 import pytest
+from typer import rich_utils as typer_rich_utils
 from typer.testing import CliRunner
 
 import applika.commands.auth as auth_commands
 from applika.lib.session import SessionData
 
+RICH_TEST_WIDTH = 200
+
 
 @pytest.fixture
 def runner():
     return CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _plain_wide_rich_output(monkeypatch):
+    """Every assert on Rich-rendered text (help, usage errors) reads plain,
+    unwrapped text. typer/rich_utils.py forces a terminal at import time
+    under GITHUB_ACTIONS / FORCE_COLOR / PY_COLORS, so colour codes would
+    split words like ``--device-name``; an env given to CliRunner comes too
+    late. A fixed wide console also stops Rich wrapping at a narrow
+    COLUMNS. Typer reads both values each time it builds a console."""
+    monkeypatch.setattr(typer_rich_utils, 'FORCE_TERMINAL', False)
+    monkeypatch.setattr(typer_rich_utils, 'MAX_WIDTH', RICH_TEST_WIDTH)
 
 
 @pytest.fixture(autouse=True)
