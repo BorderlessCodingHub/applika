@@ -20,6 +20,9 @@ class FeatureKey(StrEnum):
     seed row (ADR-0018); until that row exists the feature is hidden."""
 
     JOBS = 'jobs'
+    # Master CVs, CV copies on applications and drafts (ADR-0021: gated
+    # after it shipped; its Release A migration listed the CV owners).
+    CVS = 'cvs'
 
 
 class FeatureStage(StrEnum):

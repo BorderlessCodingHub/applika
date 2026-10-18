@@ -56,6 +56,9 @@ UNKNOWN_TAILORING = 'Unknown tailoring option'
 router = APIRouter(
     prefix='/applications',
     tags=['Application CVs'],
+    # ADR-0018, ADR-0021: without "cvs" every route here is an unknown
+    # route (404).
+    dependencies=[require_feature(FeatureKey.CVS)],
     responses={'403': {'model': DetailSchema}},
 )
 
@@ -125,7 +128,8 @@ async def get_tailored_cv(
     '/{application_id}/cv/fit',
     response_model=CVFit,
     responses={'404': {'model': DetailSchema}},
-    # ADR-0018: without "jobs" this route is an unknown route (404).
+    # ADR-0018: without "jobs" this route is an unknown route (404), on top
+    # of the router's "cvs" gate: it needs both.
     dependencies=[require_feature(FeatureKey.JOBS)],
 )
 async def get_tailored_cv_fit(
@@ -338,6 +342,5 @@ async def export_tailored_cv_diff_pdf(
     )
 
 
-# ADR-0018: only the gated route gets a slash twin; every other CV route
-# keeps Starlette's trailing-slash redirect.
-add_slash_twins(router, include=lambda route: route.path.endswith('/cv/fit'))
+# ADR-0018: every route here is gated, so every one gets a slash twin.
+add_slash_twins(router)

@@ -67,6 +67,9 @@ from app.presentation.schemas.application_draft import (
 router = APIRouter(
     prefix='/applications/drafts',
     tags=['Application Drafts'],
+    # ADR-0018, ADR-0021: without "cvs" every route here is an unknown
+    # route (404).
+    dependencies=[require_feature(FeatureKey.CVS)],
     responses={'403': {'model': DetailSchema}},
 )
 
@@ -116,7 +119,8 @@ async def create_draft(
     '/from-job',
     response_model=Draft,
     status_code=201,
-    # ADR-0018: without "jobs" this route is an unknown route (404).
+    # ADR-0018: without "jobs" this route is an unknown route (404), on top
+    # of the router's "cvs" gate: it needs both.
     dependencies=[require_feature(FeatureKey.JOBS)],
     responses={
         '404': {'model': DetailSchema},
@@ -238,6 +242,5 @@ async def finish_draft(
     return application
 
 
-# ADR-0018: only the gated route gets a slash twin; every other drafts route
-# keeps Starlette's trailing-slash redirect.
-add_slash_twins(router, include=lambda route: route.path.endswith('/from-job'))
+# ADR-0018: every route here is gated, so every one gets a slash twin.
+add_slash_twins(router)

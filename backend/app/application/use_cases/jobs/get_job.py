@@ -14,7 +14,9 @@ full description and its fit. Rebuilt on applika's model:
   has no entry; a caller with no master CV gets ``fits: []`` and
   ``best_fit: null`` (R-015);
 * ``best_fit`` is the highest of those live fits (ties: the lowest master
-  CV id, as the list's stored best fit).
+  CV id, as the list's stored best fit);
+* without the "cvs" feature (``with_fit`` false, ADR-0021) the caller's
+  master CVs are not read: ``fits: []`` and ``best_fit: null``.
 """
 
 from pydantic import ValidationError
@@ -63,22 +65,26 @@ class GetJobUseCase:
         self.job_repo = job_repo
         self.base_cv_repo = base_cv_repo
 
-    async def execute(self, job_id: int, user_id: int) -> JobDetailDTO:
+    async def execute(
+        self, job_id: int, user_id: int, *, with_fit: bool
+    ) -> JobDetailDTO:
         row = await self.job_repo.get_for_user(job_id, user_id)
         if row is None or (
             not row.job.is_active and row.application_id is None
         ):
             raise ResourceNotFound(JOB_NOT_FOUND)
 
-        keywords = list(row.job.keywords)
-        fits = [
-            fit
-            for cv in await self.base_cv_repo.list_by_user_id(user_id)
-            if (fit := _fit(keywords, cv)) is not None
-        ]
+        fits: list[JobFitDTO] = []
+        if with_fit:
+            keywords = list(row.job.keywords)
+            fits = [
+                fit
+                for cv in await self.base_cv_repo.list_by_user_id(user_id)
+                if (fit := _fit(keywords, cv)) is not None
+            ]
         best = max(fits, key=lambda f: (f.score, -f.base_cv_id), default=None)
 
-        summary = to_job_summary(row)
+        summary = to_job_summary(row, with_fit=with_fit)
         return JobDetailDTO.model_validate({
             **dict(summary),
             'best_fit': (

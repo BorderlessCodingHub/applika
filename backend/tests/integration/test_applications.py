@@ -1,5 +1,6 @@
 from datetime import date
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -760,6 +761,7 @@ async def test_update_application_with_foreign_private_company_is_404(
     assert row['company_id'] == created['company_id']
 
 
+@pytest.mark.usefixtures('cvs_beta')  # ADR-0021: drafts need "cvs"
 async def test_get_applications_omits_open_draft(
     async_client: AsyncClient, db_session: AsyncSession
 ):

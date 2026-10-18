@@ -1,6 +1,7 @@
 import asyncio
 from datetime import date
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -903,6 +904,7 @@ async def test_admin_platforms_sort_by_applications_count(
     )
 
 
+@pytest.mark.usefixtures('cvs_beta')  # ADR-0021: drafts need "cvs"
 async def test_admin_platforms_applications_count_excludes_drafts(
     async_client: AsyncClient, db_session: AsyncSession
 ):
@@ -1138,6 +1140,7 @@ async def test_admin_stats_and_user_counts_exclude_draft(
     )
 
 
+@pytest.mark.usefixtures('cvs_beta')  # ADR-0021: drafts need "cvs"
 async def test_admin_delete_platform_in_use_by_a_draft_is_still_refused(
     async_client: AsyncClient, db_session: AsyncSession
 ):

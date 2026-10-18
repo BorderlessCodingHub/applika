@@ -43,6 +43,10 @@ from tests import msg
 from tests.base_db_setup import base_data
 from tests.integration.jobs_seed import HIMALAYAS_ID, seed_job, seed_sources
 
+# ADR-0021: every route here needs the "cvs" beta feature; ``cvs_beta``
+# seeds it and puts the ``async_client`` user on its list.
+pytestmark = pytest.mark.usefixtures('cvs_beta')
+
 LIMIT_MESSAGE = 'Base CV limit reached (max 3 per user)'
 
 # How many creates race each other, and how long the deterministic race

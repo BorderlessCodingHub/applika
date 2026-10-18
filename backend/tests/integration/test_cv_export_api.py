@@ -44,6 +44,10 @@ from app.presentation.dependencies import (
 from tests import msg
 from tests.base_db_setup import base_data
 
+# ADR-0021: every route here needs the "cvs" beta feature; ``cvs_beta``
+# seeds it and puts the ``async_client`` user on its list.
+pytestmark = pytest.mark.usefixtures('cvs_beta')
+
 PDF_MAGIC = b'%PDF-'
 
 FULL_SECTIONS: dict[str, Any] = {

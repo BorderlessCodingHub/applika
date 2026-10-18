@@ -51,6 +51,10 @@ from tests.integration.test_tailored_cv_api import (
     update_payload,
 )
 
+# ADR-0021: every route here needs the "cvs" beta feature; ``cvs_beta``
+# seeds it and puts the ``async_client`` user on its list.
+pytestmark = pytest.mark.usefixtures('cvs_beta')
+
 
 def draft_payload(**overrides: Any) -> dict:
     payload: dict[str, Any] = {

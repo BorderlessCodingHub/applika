@@ -26,6 +26,7 @@ from tests.features_seed import (
     JOBS_NAME,
     enrol,
     opt_out,
+    seed_cvs_feature,
     seed_jobs_feature,
 )
 from tests.integration.conftest import as_user
@@ -759,12 +760,15 @@ async def test_e2e_seed_reset_against_postgres(
     monkeypatch,
 ):
     """Whatever a crashed spec left - released, the Discord user listed,
-    the admin opted out - one reset gives the same state."""
+    the admin opted out - one reset gives the same state, for ``jobs`` and
+    ``cvs`` alike."""
     from app.scripts import seed_e2e
 
+    cvs = await seed_cvs_feature(db_session)
     discord_id = (await add_users(db_session, ['e2e-discord']))[0]
-    await enrol(db_session, discord_id)
-    await opt_out(db_session, ADMIN_ID)
+    for feature_id in (jobs, cvs):
+        await enrol(db_session, discord_id, feature_id)
+        await opt_out(db_session, ADMIN_ID, feature_id)
     await db_session.execute(
         text("UPDATE features SET stage = 'general', released_at = now()")
     )
@@ -780,18 +784,26 @@ async def test_e2e_seed_reset_against_postgres(
     for _ in range(2):  # idempotent
         await seed_e2e.reset_beta_features(*identities)
 
-    feature = (
+    features = (
         await db_session.execute(
-            text('SELECT stage, released_at FROM features')
-        )
-    ).one()
-    assert (feature.stage, feature.released_at) == ('beta', None)
-    listed = (
-        await db_session.execute(
-            text('SELECT user_id, added_by FROM feature_beta_users')
+            text('SELECT key, stage, released_at FROM features ORDER BY key')
         )
     ).all()
-    assert [(r.user_id, r.added_by) for r in listed] == [(USER_ID, ADMIN_ID)]
+    assert [(f.key, f.stage, f.released_at) for f in features] == [
+        ('cvs', 'beta', None),
+        ('jobs', 'beta', None),
+    ]
+    listed = (
+        await db_session.execute(
+            text(
+                'SELECT feature_id, user_id, added_by FROM feature_beta_users '
+                'ORDER BY feature_id'
+            )
+        )
+    ).all()
+    assert sorted((r.feature_id, r.user_id, r.added_by) for r in listed) == (
+        sorted([(jobs, USER_ID, ADMIN_ID), (cvs, USER_ID, ADMIN_ID)])
+    )
     assert await list_rows(db_session, 'feature_admin_opt_outs') == 0
 
 
