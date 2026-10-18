@@ -11,15 +11,14 @@ import { SEEDED_USERS, apiUrl, loginAs, type SeededRole } from "./support/auth";
 import {
   addByUsername,
   betaRow,
-  clearOptOut,
   expectOk,
   headers,
   openAs,
   openFeaturePage,
   rail,
   removeUser,
+  restoreCvsSeedState,
   setListed,
-  setStage,
   settleFeatures,
 } from "./support/beta-features";
 
@@ -148,15 +147,6 @@ async function wipeDiscordData(request: APIRequestContext) {
   }
 }
 
-/** The seeded state back: both features in beta, e2e-discord off both lists, no `cvs` opt-out. */
-async function restoreSeedState(request: APIRequestContext) {
-  for (const feature of ["cvs", "jobs"] as const) {
-    await setStage(request, feature, "beta");
-    await setListed(request, feature, "discord", false);
-  }
-  await clearOptOut(request, "cvs");
-}
-
 function railCvs(page: Page): Locator {
   return rail(page).getByRole("link", { name: "CVs", exact: true });
 }
@@ -241,13 +231,13 @@ async function ensureJobs(request: APIRequestContext) {
 }
 
 test.beforeAll(async ({ request }) => {
-  await restoreSeedState(request);
+  await restoreCvsSeedState(request);
   await wipeDiscordData(request);
 });
 
 test.afterAll(async ({ request }) => {
   await wipeDiscordData(request);
-  await restoreSeedState(request);
+  await restoreCvsSeedState(request);
 });
 
 test("e2e-discord without cvs: no CVs entry, the CV routes are not found, no Drafts, no New with CV, the API answers 404 (AC2, AC7)", async ({

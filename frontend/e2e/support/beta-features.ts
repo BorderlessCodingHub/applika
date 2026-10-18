@@ -87,6 +87,19 @@ export async function restoreSeedState(
   await clearOptOut(request, feature);
 }
 
+/**
+ * The seeded state back for the `cvs` spec: both `cvs` and `jobs` in beta,
+ * e2e-discord off both lists, no `cvs` opt-out. The order is interleaved:
+ * `cvs` stage and list, then `jobs` stage and list, then the `cvs` opt-out.
+ */
+export async function restoreCvsSeedState(request: APIRequestContext) {
+  for (const feature of ["cvs", "jobs"] as const) {
+    await setStage(request, feature, "beta");
+    await setListed(request, feature, "discord", false);
+  }
+  await clearOptOut(request, "cvs");
+}
+
 /** A second, independent browser session for `role`. */
 export async function openAs(
   browser: Browser,
