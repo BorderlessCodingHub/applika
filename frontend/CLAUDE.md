@@ -155,18 +155,18 @@ rail is 6 links with no CVs, `/cvs`, `/cvs/new`, `/cvs/editor`,
 `GET /applications/drafts` are 404 and the browser sends no CV or draft
 request. The admin adds e2e-discord at `/admin/features/view?key=cvs` (the
 feature's NAME is "CV builder", migration `f28e3d9705dd`): a reload shows CVs
-
-- "Beta" and `/cvs` opens with the badge beside its h1; e2e-discord then makes
-  a master CV, an application with its CV copy and a draft through the API. With
-  `jobs` added (a collection run first if the board is empty) and `cvs` removed:
-  the browser's own `GET /jobs` carries `best_fit: null` everywhere, the board
-  shows no fit, no "Start application", no invitation and no Sort, the job page
-  no "Your fit", and `POST /applications/drafts/from-job` is 404. The data is
-  404 but kept; re-added, `GET` returns it unchanged, then removed again it
-  hides on reload. `e2e-user` (on the list from the seed) sees CVs + "Beta".
-  The seed resets `cvs` like `jobs` (beta, `e2e-user` listed, `e2e-discord`
-  off, no admin opt-out); `beforeAll`/`afterAll` delete e2e-discord's CVs,
-  drafts and applications (enrolling it for the wipe) and put that state back.
+and "Beta" and `/cvs` opens with the badge beside its h1; e2e-discord then
+makes a master CV, an application with its CV copy and a draft through the
+API. With
+`jobs` added (a collection run first if the board is empty) and `cvs` removed:
+the browser's own `GET /jobs` carries `best_fit: null` everywhere, the board
+shows no fit, no "Start application", no invitation and no Sort, the job page
+no "Your fit", and `POST /applications/drafts/from-job` is 404. The data is
+404 but kept; re-added, `GET` returns it unchanged, then removed again it
+hides on reload. `e2e-user` (on the list from the seed) sees CVs and "Beta".
+The seed resets `cvs` like `jobs` (beta, `e2e-user` listed, `e2e-discord`
+off, no admin opt-out); `beforeAll`/`afterAll` delete e2e-discord's CVs,
+drafts and applications (enrolling it for the wipe) and put that state back.
 
 ---
 
