@@ -248,3 +248,24 @@ describe("TimelineSection — R-030 initial-screening dedup, end to end (AC8)", 
     );
   });
 });
+
+/**
+ * The event form offers only interview, offer and denied: the "Add event"
+ * dialog a user opens from the section describes those three, never notes or
+ * feedback.
+ */
+describe("TimelineSection — add event description", () => {
+  it("opens a dialog whose description has no note or feedback", async () => {
+    const user = userEvent.setup();
+    renderSection([baseEvent()]);
+    await screen.findByText("Denied", { exact: true });
+
+    await user.click(screen.getByRole("button", { name: "Add event" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Add event" });
+    expect(dialog).toHaveAccessibleDescription(
+      "Record an interview, offer, or rejection for this application.",
+    );
+    expect(dialog).not.toHaveAccessibleDescription(/note|feedback/i);
+  });
+});
