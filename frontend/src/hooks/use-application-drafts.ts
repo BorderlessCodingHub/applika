@@ -10,10 +10,15 @@ import { TAILORED_CVS_QUERY_KEY } from "@/hooks/use-tailored-cv";
 /** Root cache key for drafts. `GET /applications/drafts` (newest first). */
 export const APPLICATION_DRAFTS_QUERY_KEY = ["application-drafts"] as const;
 
-export function useDrafts() {
+/**
+ * `enabled` is the caller's `cvs` feature: drafts live behind it, and without
+ * it `GET /applications/drafts` is a 404, so the list is never asked for.
+ */
+export function useDrafts(enabled = true) {
   return useQuery({
     queryKey: APPLICATION_DRAFTS_QUERY_KEY,
     queryFn: () => services.applicationDrafts.list(),
+    enabled,
   });
 }
 

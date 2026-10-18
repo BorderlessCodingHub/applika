@@ -53,8 +53,15 @@ const replaceMock = vi.fn();
 const pushMock = vi.fn();
 let searchParams = new URLSearchParams();
 
-/** KODI-053: the cases written before PRD 0013 run with `jobs`. */
-let myFeatures: MyFeature[] = [{ key: "jobs", stage: "beta" }];
+/**
+ * KODI-053: the cases written before PRD 0013 run with `jobs`; PRD 0015 adds
+ * `cvs`, released here so its "Beta" badge never collides with the "Beta"
+ * company some cases pick.
+ */
+let myFeatures: MyFeature[] = [
+  { key: "jobs", stage: "beta" },
+  { key: "cvs", stage: "general" },
+];
 const getMyFeatures = vi.fn();
 
 vi.mock("@/services/services", () => ({
@@ -136,7 +143,10 @@ function draftFrom(
 
 beforeEach(() => {
   vi.clearAllMocks();
-  myFeatures = [{ key: "jobs", stage: "beta" }];
+  myFeatures = [
+    { key: "jobs", stage: "beta" },
+    { key: "cvs", stage: "general" },
+  ];
   getMyFeatures.mockImplementation(async () => myFeatures);
   searchParams = new URLSearchParams();
   searchCompaniesMock.mockResolvedValue([]);
@@ -1552,7 +1562,7 @@ describe("NewWithCvPage — step 2 behind the jobs feature (KODI-053, PRD 0013)"
   }
 
   beforeEach(() => {
-    myFeatures = [];
+    myFeatures = [{ key: "cvs", stage: "general" }];
     searchParams = new URLSearchParams("id=draft-9&step=cv");
   });
 
@@ -1591,4 +1601,49 @@ describe("NewWithCvPage — step 2 behind the jobs feature (KODI-053, PRD 0013)"
       screen.getByRole("button", { name: "Delete this CV copy" }),
     ).toBeInTheDocument();
   }, 15_000);
+});
+
+describe("NewWithCvPage behind the cvs feature (PRD 0015)", () => {
+  it("shows the app's page not found and asks for no draft or CV without cvs", async () => {
+    myFeatures = [{ key: "jobs", stage: "beta" }];
+    searchParams = new URLSearchParams("id=draft-9&step=cv");
+    renderPage();
+
+    expect(await screen.findByText("Oops! Page not found")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "New application with CV" }),
+    ).not.toBeInTheDocument();
+    expect(getDraftMock).not.toHaveBeenCalled();
+    expect(listBaseCvsMock).not.toHaveBeenCalled();
+    expect(getTailoredCvMock).not.toHaveBeenCalled();
+  });
+
+  it("puts the Beta badge beside the h1, never inside it, while cvs is in beta", async () => {
+    myFeatures = [
+      { key: "jobs", stage: "beta" },
+      { key: "cvs", stage: "beta" },
+    ];
+    renderPage();
+
+    const heading = await screen.findByRole("heading", {
+      level: 1,
+      name: "New application with CV",
+    });
+    const badge = screen.getByText("Beta");
+    expect(badge).toHaveAttribute("data-slot", "beta-badge");
+    expect(heading).not.toContainElement(badge);
+    expect(heading.parentElement).toContainElement(badge);
+  });
+
+  it("shows no Beta badge once cvs is released", async () => {
+    renderPage();
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "New application with CV",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Beta")).not.toBeInTheDocument();
+  });
 });

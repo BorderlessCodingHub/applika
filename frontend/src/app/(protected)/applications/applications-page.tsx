@@ -55,6 +55,7 @@ import { DatePickerInput } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCycleContext } from "@/contexts/cycle-context";
+import { useHasFeature } from "@/hooks/use-features";
 import { scrollIntoContainer } from "@/lib/scroll-into-container";
 
 interface ApplicationAction {
@@ -78,6 +79,9 @@ export function ApplicationsPage() {
   } = useApplications(selectedCycleId);
   const { deleteApplication } = useApplicationDelete();
   const reopenApplication = useReopenApplication();
+  // CVs and drafts live behind `cvs`: without it no CV link, no Drafts tab,
+  // no "New with CV" and no drafts request (the archived-cycle shape).
+  const { has: hasCvs } = useHasFeature("cvs");
 
   const [appAction, setAppAction] = useState<ApplicationAction>({
     action: "none",
@@ -176,7 +180,7 @@ export function ApplicationsPage() {
 
   // Drafts (PRD 0010, AC11): shown only where the create actions are — the
   // current cycle, hidden on an archived one, per the orchestrator's decision.
-  const draftsQuery = useDrafts();
+  const draftsQuery = useDrafts(hasCvs);
   const deleteDraft = useDeleteDraft();
 
   function handleDeleteDraft(draft: { id: string }) {
@@ -443,6 +447,7 @@ export function ApplicationsPage() {
               >
                 <ApplicationItem
                   app={app}
+                  showCvLink={hasCvs}
                   defaultExpanded={app.id === focusRowId}
                   onEditClick={isViewingPastCycle ? undefined : handleEditClick}
                   onFinalizeClick={
@@ -480,11 +485,14 @@ export function ApplicationsPage() {
           </p>
         </div>
         {!isViewingPastCycle && (
-          <NewApplicationActions onNewApplication={handleNewClick} />
+          <NewApplicationActions
+            onNewApplication={handleNewClick}
+            showNewWithCv={hasCvs}
+          />
         )}
       </div>
 
-      {isViewingPastCycle ? (
+      {isViewingPastCycle || !hasCvs ? (
         <div className="flex flex-col gap-4">
           {toolbarAndFilters}
           {applicationsList}

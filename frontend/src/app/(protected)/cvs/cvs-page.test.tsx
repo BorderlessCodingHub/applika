@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CvsPage } from "./cvs-page";
+import { MY_FEATURES_QUERY_KEY } from "@/hooks/use-features";
+import type { MyFeature } from "@/services/types/features";
 import { BASE_CV_LIMIT_REASON } from "@/components/base-cvs/new-cv-card";
 import type { BaseCv } from "@/services/types/base-cv";
 
@@ -21,8 +23,13 @@ const removeMock = vi.fn();
 const exportPdfMock = vi.fn();
 const exportMarkdownMock = vi.fn();
 
+/** The caller's features: `cvs` in beta unless a test says otherwise. */
+let myFeatures: MyFeature[] = [{ key: "cvs", stage: "beta" }];
+const getMyFeatures = vi.fn();
+
 vi.mock("@/services/services", () => ({
   services: {
+    features: { getMine: (...args: unknown[]) => getMyFeatures(...args) },
     baseCvs: {
       list: (...args: unknown[]) => listMock(...args),
       remove: (...args: unknown[]) => removeMock(...args),
@@ -65,6 +72,7 @@ function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  client.setQueryData(MY_FEATURES_QUERY_KEY, myFeatures);
   return render(
     <QueryClientProvider client={client}>
       <CvsPage />
@@ -77,6 +85,8 @@ let saved: { download: string; href: string }[] = [];
 
 beforeEach(() => {
   vi.clearAllMocks();
+  myFeatures = [{ key: "cvs", stage: "beta" }];
+  getMyFeatures.mockImplementation(async () => myFeatures);
   saved = [];
   removeMock.mockResolvedValue(undefined);
   exportPdfMock.mockResolvedValue({
@@ -356,5 +366,41 @@ describe("CvsPage downloads a CV as a PDF", () => {
     expect(
       screen.getByRole("button", { name: "Download PDF Backend CV" }),
     ).toBeEnabled();
+  });
+});
+
+describe("CvsPage behind the cvs feature (PRD 0015)", () => {
+  it("shows the app's page not found and asks for no CV without cvs", async () => {
+    myFeatures = [{ key: "jobs", stage: "beta" }];
+    renderPage();
+
+    expect(await screen.findByText("Oops! Page not found")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "CVs" }),
+    ).not.toBeInTheDocument();
+    expect(listMock).not.toHaveBeenCalled();
+  });
+
+  it("puts the Beta badge beside the h1, never inside it, while cvs is in beta", async () => {
+    renderPage();
+
+    const heading = await screen.findByRole("heading", {
+      level: 1,
+      name: "CVs",
+    });
+    const badge = screen.getByText("Beta");
+    expect(badge).toHaveAttribute("data-slot", "beta-badge");
+    expect(heading).not.toContainElement(badge);
+    expect(heading.parentElement).toContainElement(badge);
+  });
+
+  it("shows no Beta badge once cvs is released", async () => {
+    myFeatures = [{ key: "cvs", stage: "general" }];
+    renderPage();
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "CVs" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Beta")).not.toBeInTheDocument();
   });
 });

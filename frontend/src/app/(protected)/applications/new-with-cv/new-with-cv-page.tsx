@@ -68,6 +68,8 @@ import {
   APPLICATION_CV_FIT_QUERY_KEY,
   useApplicationCvFit,
 } from "@/hooks/use-application-cv-fit";
+import { BetaBadge } from "@/components/features/beta-badge";
+import { FeatureGate } from "@/components/features/feature-gate";
 import { useHasFeature } from "@/hooks/use-features";
 import { useDebouncedAutosave } from "@/hooks/use-debounced-autosave";
 import { services } from "@/services/services";
@@ -244,8 +246,22 @@ function draftInputsEqual(a: DraftInput, b: DraftInput): boolean {
  * out of the DOM on every step change, so anything it held as local state or
  * a ref would reset on remount and either autosave an empty CV over a real
  * copy or revert an unsaved edit the instant the user came back to step 2.
+ *
+ * Behind the `cvs` feature: without it, the app's "page not found" and no
+ * draft or CV request. The inner `jobs` checks stay.
  */
 export function NewWithCvPage() {
+  return (
+    <FeatureGate feature="cvs">
+      <NewWithCv />
+    </FeatureGate>
+  );
+}
+
+function NewWithCv() {
+  // Computed once for all four headers, so the badge never blinks between states.
+  const titleBadge =
+    useHasFeature("cvs").stage === "beta" ? <BetaBadge /> : undefined;
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -711,7 +727,7 @@ export function NewWithCvPage() {
   if (idParam && draftQuery.isLoading) {
     return (
       <div className="space-y-6">
-        <DraftPageHeader subtitle={subtitle} />
+        <DraftPageHeader subtitle={subtitle} titleBadge={titleBadge} />
         <DraftLoading />
       </div>
     );
@@ -720,7 +736,7 @@ export function NewWithCvPage() {
   if (idParam && draftNotFound) {
     return (
       <div className="space-y-6">
-        <DraftPageHeader />
+        <DraftPageHeader titleBadge={titleBadge} />
         <DraftLoadMessage kind="not-found" />
       </div>
     );
@@ -729,7 +745,7 @@ export function NewWithCvPage() {
   if (idParam && draftQuery.isError && !draftNotFound) {
     return (
       <div className="space-y-6">
-        <DraftPageHeader />
+        <DraftPageHeader titleBadge={titleBadge} />
         <DraftLoadMessage
           kind="error"
           detail={safeErrorMessage(draftQuery.error)}
@@ -771,7 +787,7 @@ export function NewWithCvPage() {
 
   return (
     <div className="space-y-6">
-      <DraftPageHeader subtitle={subtitle}>
+      <DraftPageHeader subtitle={subtitle} titleBadge={titleBadge}>
         <DraftStepper
           step={step}
           onStepChange={goToStep}

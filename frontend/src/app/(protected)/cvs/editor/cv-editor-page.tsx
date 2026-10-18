@@ -16,12 +16,15 @@ import {
   sectionErrorMessage,
   toBaseCvPayload,
 } from "@/components/base-cvs/base-cv-schema";
+import { BetaBadge } from "@/components/features/beta-badge";
+import { FeatureGate } from "@/components/features/feature-gate";
 import { LinkButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CvFormValues } from "@/components/base-cvs/types";
 import { useBaseCv } from "@/hooks/use-base-cv";
 import { useExportBaseCvMarkdown } from "@/hooks/use-export-base-cv-markdown";
 import { useExportBaseCvPdf } from "@/hooks/use-export-base-cv-pdf";
+import { useHasFeature } from "@/hooks/use-features";
 import { useUpdateBaseCv } from "@/hooks/use-update-base-cv";
 import { getApiError } from "@/lib/api-client";
 
@@ -62,8 +65,20 @@ function EditorMessage({
  * The PDF export lives HERE and not on `/cvs/new`: it is the server that
  * typesets it (ADR 0011) from the STORED CV, so there is nothing to render
  * until the CV has been saved once.
+ *
+ * Behind the `cvs` feature: without it, the app's "page not found" and no CV
+ * request.
  */
 export function CvEditorPage() {
+  return (
+    <FeatureGate feature="cvs">
+      <CvEditor />
+    </FeatureGate>
+  );
+}
+
+function CvEditor() {
+  const beta = useHasFeature("cvs").stage === "beta";
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
@@ -107,9 +122,12 @@ export function CvEditorPage() {
           Back to CVs
         </LinkButton>
         <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight">
-            Edit master CV
-          </h1>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <h1 className="font-display text-2xl font-bold tracking-tight">
+              Edit master CV
+            </h1>
+            {beta ? <BetaBadge /> : null}
+          </div>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {cv ? cv.name : "Change anything and save it back."}
           </p>
