@@ -1,5 +1,9 @@
 """Timeline-event request/response schemas (R-001..R-006).
 
+``event_type`` is ``interview``, ``offer`` or ``denied`` (ADR-0020): a
+``note`` or a ``feedback`` is refused as an invalid enum value (422), on
+create and on edit.
+
 The write body is validated in cross-field passes (``model_validator``, mode
 ``after``) so every violation is a 422 before any I/O:
 

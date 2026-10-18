@@ -83,11 +83,15 @@ class Availability(StrEnum):
 
 
 class EventType(StrEnum):
-    """The five timeline event types (R-001). Fixed in code, no catalog."""
+    """The three timeline event types (ADR-0020). Fixed in code, no catalog.
 
-    NOTE = 'note'
+    ``note`` and ``feedback`` were retired: the stored ones became interviews
+    of type ``unknown``, and the API refuses both as an invalid value. The PG
+    type ``event_type`` keeps all five labels; ``ck_timeline_events_event_type``
+    allows these three only.
+    """
+
     INTERVIEW = 'interview'
-    FEEDBACK = 'feedback'
     OFFER = 'offer'
     DENIED = 'denied'
 

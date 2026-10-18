@@ -136,7 +136,8 @@ async def test_agenda_items_carry_event_and_interview_type():
             id=32,
             application_id=1,
             application=application,
-            event_type=EventType.NOTE,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.UNKNOWN,
             event_date=date(2026, 2, 2),
         ),
     ]
@@ -163,8 +164,10 @@ async def test_agenda_items_carry_event_and_interview_type():
     assert first.step_date == date(2026, 2, 1)
     assert (first.start_time, first.end_time) == (time(9), time(10))
     assert (first.company_name, first.role) == ('Acme', 'Dev')
-    assert second.event_type is EventType.NOTE
-    assert second.interview_type is None
+    # A former note: an interview of type unknown, shown as "Phase 2".
+    assert second.event_type is EventType.INTERVIEW
+    assert second.interview_type is InterviewType.UNKNOWN
+    assert (second.step_id, second.step_name) == (2, 'Phase 2')
 
 
 async def test_agenda_empty_reads_no_catalog():

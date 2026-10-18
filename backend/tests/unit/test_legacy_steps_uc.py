@@ -213,7 +213,7 @@ async def test_add_on_foreign_application_is_404():
 @pytest.mark.parametrize(
     ('event_type', 'interview_type', 'salary', 'reverse_id'),
     [
-        (EventType.NOTE, None, {}, 2),
+        (IV, InterviewType.UNKNOWN, {}, 2),
         (IV, InterviewType.TECHNICAL, {}, 2),
         (EventType.OFFER, None, SALARY, 5),
     ],
@@ -245,7 +245,7 @@ async def test_edit_with_its_own_reverse_step_keeps_the_event(
 
 
 async def test_edit_with_another_step_remaps_it():
-    event = make_event(id=42, application_id=10, event_type=EventType.NOTE)
+    event = make_event(id=42, application_id=10)
     repos = _repos(event=event)
 
     result = await UpdateLegacyStepUseCase(*repos).execute(
@@ -355,7 +355,7 @@ async def test_edit_denied_to_interview_drops_the_reason():
 
 
 async def test_edit_interview_to_offer_step_fills_decision_b():
-    event = make_event(id=42, application_id=10, event_type=EventType.NOTE)
+    event = make_event(id=42, application_id=10)
     repos = _repos(event=event)
 
     await UpdateLegacyStepUseCase(*repos).execute(42, 10, 1, _body(step_id=7))
@@ -367,7 +367,7 @@ async def test_edit_interview_to_offer_step_fills_decision_b():
 
 
 async def test_edit_to_a_strict_step_that_is_not_its_own_is_404():
-    event = make_event(id=42, application_id=10, event_type=EventType.NOTE)
+    event = make_event(id=42, application_id=10)
     repos = _repos(event=event)
     with pytest.raises(ResourceNotFound, match='Step not found'):
         await UpdateLegacyStepUseCase(*repos).execute(
@@ -398,7 +398,7 @@ async def test_edit_on_closed_application_is_409():
 async def test_list_shows_every_event_as_its_reverse_step():
     repos = _repos()
     repos[2].list_by_application.return_value = [
-        make_event(id=1, event_type=EventType.NOTE),
+        make_event(id=1),  # interview/unknown, a former note
         make_event(
             id=2, event_type=IV, interview_type=InterviewType.INITIAL_SCREENING
         ),

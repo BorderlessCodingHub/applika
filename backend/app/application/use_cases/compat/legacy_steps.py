@@ -14,7 +14,7 @@ rules of the steps version are gone with them (PRD 0008 "Assumptions").
 * Edit: 0.1.4 ``steps edit`` without ``--step`` resends the ``step_id`` it
   read from the list, i.e. the event's *reverse* step. When the incoming
   ``step_id`` is that reverse step the event keeps its own type, interview
-  type and salary, so a note, a technical interview or an offer is never
+  type and salary, so a technical interview or an offer is never
   flattened into interview/unknown by an edit that did not ask for it. The
   reverse step may be strict (Offer, Denied): that is accepted here, it is
   the event's own step and not a new pick.

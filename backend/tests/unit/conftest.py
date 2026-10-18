@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 from app.application.use_cases.applications.read_model import (
     ApplicationReadModel,
 )
-from app.core.enums import EventType
+from app.core.enums import EventType, InterviewType
 
 
 def make_model(**kwargs):
@@ -53,15 +53,18 @@ def make_application(**kwargs):
 
 
 def make_event(**kwargs):
-    """SimpleNamespace mimicking TimelineEventModel."""
+    """SimpleNamespace mimicking TimelineEventModel. Defaults to an
+    interview of type unknown (what a former note is, ADR-0020); another
+    ``event_type`` without an ``interview_type`` gets none, as the CHECK
+    requires."""
     defaults = {
         'id': 700,
         'created_at': datetime(2026, 1, 1, tzinfo=timezone.utc),
         'updated_at': None,
         'application_id': 1,
         'user_id': 1,
-        'event_type': EventType.NOTE,
-        'interview_type': None,
+        'event_type': EventType.INTERVIEW,
+        'interview_type': InterviewType.UNKNOWN,
         'denied_reason': None,
         'event_date': date(2025, 12, 5),
         'start_time': None,
@@ -72,6 +75,8 @@ def make_event(**kwargs):
         'salary_currency': None,
         'salary_period': None,
     }
+    if kwargs.get('event_type', EventType.INTERVIEW) is not EventType.INTERVIEW:
+        defaults['interview_type'] = None
     defaults.update(kwargs)
     return SimpleNamespace(**defaults)
 

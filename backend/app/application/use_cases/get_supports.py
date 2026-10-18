@@ -19,8 +19,8 @@ class GetSupportsUseCase:
     The step and feedback lists are the frozen catalogs: nothing writes them
     since the admin catalog routes were removed (R-021), and they are served
     only so installed ``applika-cli`` 0.1.4 can keep resolving step and
-    feedback names. New clients use the fixed ``EventType`` and
-    ``InterviewType`` enums instead.
+    feedback names. New clients use the fixed ``EventType`` (three
+    values, ADR-0020) and ``InterviewType`` enums instead.
     """
 
     def __init__(

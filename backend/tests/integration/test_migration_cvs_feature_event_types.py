@@ -32,12 +32,11 @@ from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 from testcontainers.postgres import PostgresContainer
 
 from app.config.settings import envs
-from app.core.enums import EventType
 from app.domain.models import TimelineEventModel
 
 REVISION = 'f28e3d9705dd'
@@ -529,10 +528,13 @@ def test_upgrade_source_drops_nothing() -> None:
     assert 'UPDATE timeline_events' in downgrade_src
 
 
-def test_revision_is_the_only_head_on_user_sessions() -> None:
+def test_revision_sits_on_user_sessions_below_the_topup() -> None:
+    """Release A on ``ed39a0fad1e5``; Release B's top-up revision
+    ``647a047921ec`` (the sole head) sits on it."""
     script = ScriptDirectory.from_config(Config(str(_ALEMBIC_INI)))
-    assert list(script.get_heads()) == [REVISION]
     assert script.get_revision(REVISION).down_revision == PARENT_REVISION
+    assert list(script.get_heads()) == ['647a047921ec']
+    assert script.get_revision('647a047921ec').down_revision == REVISION
 
 
 def test_no_app_code_maps_event_type_old() -> None:
@@ -1004,27 +1006,73 @@ def test_guard_raises_before_any_write(migration_db: str, legacy: str) -> None:
     assert not _trigger_exists(migration_db)
 
 
+# The previous release's mapping of ``timeline_events``: its ``EventType``
+# had five members, so its ORM bound ``note`` and ``feedback`` as any other
+# value. That model is gone from the code (ADR-0020); this Core table binds
+# the same five labels to the same columns, the way it did.
+_PREVIOUS_RELEASE_EVENTS = sa.Table(
+    'timeline_events',
+    sa.MetaData(),
+    sa.Column('id', sa.BigInteger, primary_key=True),
+    sa.Column('application_id', sa.BigInteger),
+    sa.Column('user_id', sa.BigInteger),
+    sa.Column(
+        'event_type',
+        sa.Enum(
+            'note',
+            'interview',
+            'feedback',
+            'offer',
+            'denied',
+            name='event_type',
+            create_type=False,
+        ),
+    ),
+    sa.Column('event_date', sa.Date),
+    sa.Column('observation', sa.Text),
+    sa.Column('salary_amount', sa.Numeric(12, 2)),
+    sa.Column(
+        'salary_currency',
+        sa.Enum(name='currency', create_type=False, native_enum=True),
+    ),
+    sa.Column(
+        'salary_period',
+        sa.Enum(name='salaryperiod', create_type=False, native_enum=True),
+    ),
+    sa.Column('created_at', sa.DateTime(timezone=True)),
+    sa.Column('updated_at', sa.DateTime(timezone=True)),
+)
+
+
 async def _orm_writes(url: str) -> None:
+    table = _PREVIOUS_RELEASE_EVENTS
     engine = create_async_engine(url, poolclass=NullPool)
     try:
-        async with AsyncSession(engine, expire_on_commit=False) as session:
-            note = TimelineEventModel(
-                id=RAW_NOTE_ID,
-                application_id=APP_A,
-                user_id=USER_A,
-                event_type=EventType.NOTE,
-                event_date=date(2026, 3, 20),
-                observation='through the ORM',
+        async with engine.begin() as conn:
+            await conn.execute(
+                table.insert().values(
+                    id=RAW_NOTE_ID,
+                    application_id=APP_A,
+                    user_id=USER_A,
+                    event_type='note',
+                    event_date=date(2026, 3, 20),
+                    observation='through the ORM',
+                    created_at=datetime.now(timezone.utc),
+                )
             )
-            session.add(note)
-            await session.commit()
-            edited = await session.get(TimelineEventModel, OFFER_ID)
-            assert edited is not None
-            edited.event_type = EventType.FEEDBACK
-            edited.salary_amount = None
-            edited.salary_currency = None
-            edited.salary_period = None
-            await session.commit()
+        async with engine.begin() as conn:
+            await conn.execute(
+                table
+                .update()
+                .where(table.c.id == OFFER_ID)
+                .values(
+                    event_type='feedback',
+                    salary_amount=None,
+                    salary_currency=None,
+                    salary_period=None,
+                    updated_at=datetime.now(timezone.utc),
+                )
+            )
     finally:
         await engine.dispose()
 
@@ -1032,9 +1080,10 @@ async def _orm_writes(url: str) -> None:
 def test_the_previous_release_orm_writes_are_converted(
     migration_db: str,
 ) -> None:
-    """The model the running image maps (five-member ``EventType``) writes a
-    note and turns an offer into a feedback: both are stored as interviews
-    of type unknown, the original type in ``event_type_old``."""
+    """What the running image's model (five-member ``EventType``) sends -
+    a note insert and an offer turned into a feedback, bound as that model
+    bound them - is converted: both are stored as interviews of type
+    unknown, the original type in ``event_type_old``."""
     _seed_at_parent(migration_db)
     _upgrade(migration_db, REVISION)
 
