@@ -231,15 +231,12 @@ applika applications list --search "company name" --output-format json
 
 ### `applika applications timeline list|add|edit|delete`
 
-Manages an application's timeline: notes, typed interviews, feedback, an offer, or a denial. Closing an application is reversible (`applications reopen`), so the timeline is editable again after a reopen.
+Manages an application's timeline: typed interviews, an offer, or a denial. Notes and feedback are no longer event types; the ones recorded before read as an interview with interview type `unknown`. Closing an application is reversible (`applications reopen`), so the timeline is editable again after a reopen.
 
 ```bash
 # List events (table or JSON)
 applika applications timeline list 42
 applika applications timeline list 42 --output-format json
-
-# Add a note
-applika applications timeline add 42 --type note --date 2026-06-01 --observation "Applied via referral"
 
 # Add a typed interview (defaults --interview-type to unknown if omitted)
 applika applications timeline add 42 \
@@ -250,6 +247,10 @@ applika applications timeline add 42 \
 applika applications timeline add 42 \
   --type offer --date 2026-06-10 --salary 180000 --currency USD --period annually
 
+# Add a denial with a reason (defaults --reason to unknown if omitted)
+applika applications timeline add 42 \
+  --type denied --date 2026-06-11 --reason skills_mismatch --observation "Rejected after the technical round"
+
 # Edit an event - PUT replaces the whole event; unspecified flags keep the current value
 applika applications timeline edit 42 700 --observation "Updated"
 
@@ -259,7 +260,7 @@ applika applications timeline delete 42 700
 
 | Flag | Applies to | Notes |
 |---|---|---|
-| `--type` | `add` (required), `edit` | `note` · `interview` · `feedback` · `offer` · `denied` |
+| `--type` | `add` (required), `edit` | `interview` · `offer` · `denied` |
 | `--date` | `add` (required), `edit` | Event date (YYYY-MM-DD) |
 | `--interview-type` | `add`, `edit` | Only with `--type interview`; defaults to `unknown` |
 | `--start-time`/`--end-time` | `add`, `edit` | Must be given together |

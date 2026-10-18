@@ -283,18 +283,14 @@ applika whoami
 
 ## 8. Application Timeline (use this, not "Application Steps")
 
-An application's timeline is its list of events: notes, interviews (typed),
-feedback, an offer, or a denial. Finalizing (closing) an application is now
+An application's timeline is its list of events: interviews (typed), an
+offer, or a denial. Finalizing (closing) an application is now
 **reversible** with `applications reopen` — it is no longer permanent.
 
 ```bash
 # List events
 applika applications timeline list <application-id>
 applika applications timeline list <application-id> --output-format json
-
-# Add a note
-applika applications timeline add <application-id> \
-  --type note --date 2026-06-01 --observation "Applied via referral"
 
 # Add an interview (defaults --interview-type to "unknown" if omitted)
 applika applications timeline add <application-id> \
@@ -320,7 +316,10 @@ applika applications timeline edit <application-id> <event-id> --reason ghosted
 applika applications timeline delete <application-id> <event-id>
 ```
 
-Event types: `note`, `interview`, `feedback`, `offer`, `denied`.
+Event types: `interview`, `offer`, `denied`. `note` and `feedback` are not
+event types: `--type note` and `--type feedback` are usage errors (exit 2),
+and the ones recorded before read as `interview` with interview type
+`unknown`. Put free-form notes in `--observation` on any event.
 Interview types: `unknown` (default), `initial_screening`, `technical`,
 `cultural`, `hiring_manager`, `take_home`, `final`. An application can have
 at most one `initial_screening` interview (409 on a second one).
