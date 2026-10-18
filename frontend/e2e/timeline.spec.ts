@@ -196,7 +196,7 @@ test.describe("Timeline: add events, close, reopen", () => {
       dialog.getByRole("combobox", { name: "Interview type" }),
     ).not.toBeVisible();
 
-    // ---- The schedule inputs disappear for Denied (AC2, KODI-014) ---------
+    // ---- The schedule inputs disappear for Denied (AC2) ------------------
     await expect(dialog.getByLabel("Start")).not.toBeVisible();
     await expect(dialog.getByLabel("End")).not.toBeVisible();
     await expect(

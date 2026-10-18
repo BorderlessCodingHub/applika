@@ -320,7 +320,7 @@ test("an admin adds e2e-discord by username and removes them; e2e-discord follow
 }) => {
   const discord = await openAs(browser, "discord");
   try {
-    // KODI-053's protected layout wiring: no jobs (and no cvs), six entries, no Jobs.
+    // The protected layout wiring: no jobs (and no cvs), six entries, no Jobs.
     expect(await openDashboard(discord)).toBe(false);
     await expectRail(discord, DISCORD_BASE_LINKS, "none");
     expect(await jobsStatus(request, "discord")).toBe(404);

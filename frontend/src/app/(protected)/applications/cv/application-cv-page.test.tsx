@@ -51,7 +51,7 @@ const getApplications = vi.fn();
 
 const NO_FILE = { blob: new Blob(["x"]), filename: null };
 
-/** KODI-053: the cases written before PRD 0013 run with `jobs`; PRD 0015 adds `cvs`. */
+/** The cases written before PRD 0013 run with `jobs`; PRD 0015 adds `cvs`. */
 let myFeatures: MyFeature[] = [
   { key: "jobs", stage: "beta" },
   { key: "cvs", stage: "beta" },

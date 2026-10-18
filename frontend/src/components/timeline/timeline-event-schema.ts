@@ -19,7 +19,7 @@ import type { CreateTimelineEventPayload } from "@/services/types/timeline";
  * branch REQUIRES the salary trio (period restricted to `monthly | annually`,
  * a non-negative amount, and one of the 20 currencies) and no `interview_type`;
  * the `denied` branch REQUIRES `denied_reason` (one of the 10 hardcoded
- * reasons, default `unknown`, KODI-014). Note and feedback are gone (ADR 0020):
+ * reasons, default `unknown`). Note and feedback are gone (ADR 0020):
  * the union has three branches only. The `interview` branch is the only one that can ever WRITE a
  * start/end/timezone from form input. A non-interview event never sends a
  * schedule (KODI-016): `start_time`/`end_time`/`timezone` are OMITTED from
@@ -231,7 +231,7 @@ export function timelineEventToFormValues(
   return {
     event_type: "denied",
     interview_type: "",
-    // A missing/null stored reason (pre-KODI-014 data) reads as unknown.
+    // A missing/null stored reason (older data) reads as unknown.
     denied_reason: event.deniedReason ?? "unknown",
     ...common,
     salary_period: "",

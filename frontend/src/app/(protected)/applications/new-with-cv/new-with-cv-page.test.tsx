@@ -54,7 +54,7 @@ const pushMock = vi.fn();
 let searchParams = new URLSearchParams();
 
 /**
- * KODI-053: the cases written before PRD 0013 run with `jobs`; PRD 0015 adds
+ * The cases written before PRD 0013 run with `jobs`; PRD 0015 adds
  * `cvs`, released here so its "Beta" badge never collides with the "Beta"
  * company some cases pick.
  */
