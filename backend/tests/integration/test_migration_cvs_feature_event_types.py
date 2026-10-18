@@ -977,13 +977,14 @@ def test_reupgrade_writes_no_list_row(migration_db: str) -> None:
 # --------------------------------------------------------------------------
 
 
-def test_guard_raises_before_any_write(migration_db: str) -> None:
+@pytest.mark.parametrize('legacy', ['note', 'feedback'])
+def test_guard_raises_before_any_write(migration_db: str, legacy: str) -> None:
     extra = [
         (
             'INSERT INTO steps_definition '
             '(id, name, color, strict, event_type, created_at) '
             "VALUES (:id, 'Odd step', '#000000', false, "
-            "CAST('note' AS event_type), :now)",
+            f"CAST('{legacy}' AS event_type), :now)",
             {'id': 7815000000000000501, 'now': CREATED},
         )
     ]
@@ -1052,3 +1053,41 @@ def test_the_previous_release_orm_writes_are_converted(
         'unknown',
     )
     assert edited['event_type_old'] == 'feedback'
+
+
+def test_downgrade_restores_rows_the_trigger_converted(
+    migration_db: str,
+) -> None:
+    """A note or feedback the previous release wrote during Release A (and
+    the trigger stored as an interview of type unknown) is a note or
+    feedback again after the rollback."""
+    _seed_at_parent(migration_db)
+    _upgrade(migration_db, REVISION)
+    _apply(
+        migration_db,
+        [
+            (
+                _INSERT_EVENT,
+                _event_params(RAW_NOTE_ID, 'note', observation='during A'),
+            ),
+            (
+                "UPDATE timeline_events SET event_type = 'feedback', "
+                'interview_type = NULL, start_time = NULL, end_time = NULL, '
+                'timezone = NULL WHERE id = :id',
+                {'id': TECHNICAL_ID},
+            ),
+        ],
+    )
+    assert _event(migration_db, RAW_NOTE_ID)['event_type'] == 'interview'
+    assert _event(migration_db, TECHNICAL_ID)['event_type'] == 'interview'
+
+    _downgrade(migration_db, PARENT_REVISION)
+
+    note = _event(migration_db, RAW_NOTE_ID)
+    assert (note['event_type'], note['interview_type']) == ('note', None)
+    assert note['observation'] == 'during A'
+    feedback = _event(migration_db, TECHNICAL_ID)
+    assert (feedback['event_type'], feedback['interview_type']) == (
+        'feedback',
+        None,
+    )
