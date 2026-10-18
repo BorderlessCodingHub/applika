@@ -2,6 +2,7 @@ import re
 
 import httpx
 import pytest
+import typer
 from typer import rich_utils as typer_rich_utils
 from typer.testing import CliRunner
 
@@ -16,6 +17,34 @@ def runner():
     return CliRunner()
 
 
+TYPER_CONSOLE_KNOBS = ('FORCE_TERMINAL', 'MAX_WIDTH')
+
+
+def require_typer_console_knobs(module=typer_rich_utils) -> None:
+    """Fail every test with one clear message when Typer renames or drops a
+    console knob the fixture below patches. A plain AttributeError from
+    monkeypatch would not say what moved or what to update."""
+    missing = [
+        name for name in TYPER_CONSOLE_KNOBS if not hasattr(module, name)
+    ]
+    if missing:
+        names = ', '.join(f'typer.rich_utils.{name}' for name in missing)
+        pytest.fail(
+            f'{names} not found in typer {typer.__version__}. Typer renamed '
+            'or removed it. Update _plain_wide_rich_output and '
+            'TYPER_CONSOLE_KNOBS in cli/tests/conftest.py to the knobs this '
+            'typer version reads to force a terminal and to fix the console '
+            'width, or pin typer to a version that has them.',
+            pytrace=False,
+        )
+
+
+def apply_plain_wide_rich_output(monkeypatch, module=typer_rich_utils) -> None:
+    require_typer_console_knobs(module)
+    monkeypatch.setattr(module, 'FORCE_TERMINAL', False)
+    monkeypatch.setattr(module, 'MAX_WIDTH', RICH_TEST_WIDTH)
+
+
 @pytest.fixture(autouse=True)
 def _plain_wide_rich_output(monkeypatch):
     """Every assert on Rich-rendered text (help, usage errors) reads plain,
@@ -24,8 +53,7 @@ def _plain_wide_rich_output(monkeypatch):
     split words like ``--device-name``; an env given to CliRunner comes too
     late. A fixed wide console also stops Rich wrapping at a narrow
     COLUMNS. Typer reads both values each time it builds a console."""
-    monkeypatch.setattr(typer_rich_utils, 'FORCE_TERMINAL', False)
-    monkeypatch.setattr(typer_rich_utils, 'MAX_WIDTH', RICH_TEST_WIDTH)
+    apply_plain_wide_rich_output(monkeypatch)
 
 
 @pytest.fixture(autouse=True)
