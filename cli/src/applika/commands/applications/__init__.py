@@ -87,7 +87,7 @@ applications_app.add_typer(
 
 timeline_app = typer.Typer(
     name='timeline',
-    help='Manage an application timeline (notes, interviews, offers).',
+    help='Manage an application timeline (interviews, offers and denials).',
     no_args_is_help=True,
 )
 

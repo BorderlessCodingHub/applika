@@ -1253,7 +1253,7 @@ def add_timeline_event(
         EventType,
         typer.Option(
             '--type',
-            help='Event type: note, interview, feedback, offer, denied.',
+            help='Event type: interview, offer, denied.',
         ),
     ] = ...,
     event_date: Annotated[
@@ -1399,7 +1399,11 @@ def edit_timeline_event(
     event_type: Annotated[
         EventType | None,
         typer.Option(
-            '--type', help='New event type. Unspecified keeps the current type.'
+            '--type',
+            help=(
+                'New event type: interview, offer, denied. Unspecified '
+                'keeps the current type.'
+            ),
         ),
     ] = None,
     event_date: Annotated[

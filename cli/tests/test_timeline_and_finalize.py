@@ -2,7 +2,9 @@
 reopen. New tests only; the 0.1.4 tests in test_commands.py are untouched."""
 
 import json
+import re
 
+import pytest
 from conftest import FakeApiClient, FakeStore, make_session, reset_fake_client
 
 import applika.app as cli_app
@@ -32,8 +34,8 @@ def test_timeline_list_outputs_table(monkeypatch, runner):
                 'id': '700',
                 'application_id': '99',
                 'user_id': '1',
-                'event_type': 'note',
-                'interview_type': None,
+                'event_type': 'interview',
+                'interview_type': 'unknown',
                 'event_date': '2026-06-01',
                 'start_time': None,
                 'end_time': None,
@@ -63,8 +65,8 @@ def test_timeline_list_outputs_json(monkeypatch, runner):
                 'id': '700',
                 'application_id': '99',
                 'user_id': '1',
-                'event_type': 'note',
-                'interview_type': None,
+                'event_type': 'interview',
+                'interview_type': 'unknown',
                 'event_date': '2026-06-01',
                 'start_time': None,
                 'end_time': None,
@@ -187,11 +189,11 @@ def test_timeline_add_denied_prints_reason_label_in_summary(
 # --------------------------------------------------------------------------
 
 
-def test_timeline_add_note_builds_matching_payload(monkeypatch, runner):
+def test_timeline_add_interview_builds_matching_payload(monkeypatch, runner):
     _setup(monkeypatch)
     FakeApiClient.event_created_response = {
         'id': '700',
-        'event_type': 'note',
+        'event_type': 'interview',
         'event_date': '2026-06-01',
     }
 
@@ -203,7 +205,7 @@ def test_timeline_add_note_builds_matching_payload(monkeypatch, runner):
             'add',
             '99',
             '--type',
-            'note',
+            'interview',
             '--date',
             '2026-06-01',
             '--observation',
@@ -214,8 +216,8 @@ def test_timeline_add_note_builds_matching_payload(monkeypatch, runner):
     assert result.exit_code == 0
     assert FakeApiClient.captured_post_path == '/applications/99/timeline'
     assert FakeApiClient.captured_post_payload == {
-        'event_type': 'note',
-        'interview_type': None,
+        'event_type': 'interview',
+        'interview_type': 'unknown',
         'denied_reason': None,
         'event_date': '2026-06-01',
         'start_time': None,
@@ -269,7 +271,7 @@ def test_timeline_add_interview_type_on_non_interview_refused(
             'add',
             '99',
             '--type',
-            'note',
+            'denied',
             '--date',
             '2026-06-02',
             '--interview-type',
@@ -375,7 +377,7 @@ def test_timeline_add_salary_on_non_offer_refused(monkeypatch, runner):
             'add',
             '99',
             '--type',
-            'note',
+            'denied',
             '--date',
             '2026-06-03',
             '--salary',
@@ -449,7 +451,7 @@ def test_timeline_add_start_time_without_end_time_refused(monkeypatch, runner):
             'add',
             '99',
             '--type',
-            'note',
+            'interview',
             '--date',
             '2026-06-04',
             '--start-time',
@@ -473,7 +475,7 @@ def test_timeline_add_end_time_before_start_time_refused(monkeypatch, runner):
             'add',
             '99',
             '--type',
-            'note',
+            'interview',
             '--date',
             '2026-06-04',
             '--start-time',
@@ -613,7 +615,7 @@ def test_timeline_add_reason_on_non_denied_refused(monkeypatch, runner):
             'add',
             '99',
             '--type',
-            'note',
+            'interview',
             '--date',
             '2026-06-11',
             '--reason',
@@ -640,7 +642,7 @@ def test_timeline_add_409_prints_reopen_hint(monkeypatch, runner):
             'add',
             '99',
             '--type',
-            'note',
+            'interview',
             '--date',
             '2026-06-03',
         ],
@@ -683,21 +685,21 @@ def test_timeline_edit_type_change_away_from_offer_drops_salary(
     FakeApiClient.timeline_events = {'99': [_offer_event()]}
     FakeApiClient.event_updated_response = {
         'id': '700',
-        'event_type': 'note',
+        'event_type': 'denied',
         'event_date': '2026-06-05',
     }
 
     result = runner.invoke(
         app,
-        ['applications', 'timeline', 'edit', '99', '700', '--type', 'note'],
+        ['applications', 'timeline', 'edit', '99', '700', '--type', 'denied'],
     )
 
     assert result.exit_code == 0
     assert FakeApiClient.captured_put_path == '/applications/99/timeline/700'
     assert FakeApiClient.captured_put_payload == {
-        'event_type': 'note',
+        'event_type': 'denied',
         'interview_type': None,
-        'denied_reason': None,
+        'denied_reason': 'unknown',
         'event_date': '2026-06-05',
         'start_time': None,
         'end_time': None,
@@ -713,11 +715,11 @@ def test_timeline_edit_type_change_to_interview_defaults_unknown(
     monkeypatch, runner
 ):
     _setup(monkeypatch)
-    note_event = {
+    source_event = {
         'id': '700',
         'application_id': '99',
         'user_id': '1',
-        'event_type': 'note',
+        'event_type': 'denied',
         'interview_type': None,
         'event_date': '2026-06-05',
         'start_time': None,
@@ -730,7 +732,7 @@ def test_timeline_edit_type_change_to_interview_defaults_unknown(
         'created_at': '2026-06-05T00:00:00Z',
         'updated_at': None,
     }
-    FakeApiClient.timeline_events = {'99': [note_event]}
+    FakeApiClient.timeline_events = {'99': [source_event]}
     FakeApiClient.event_updated_response = {
         'id': '700',
         'event_type': 'interview',
@@ -758,12 +760,12 @@ def test_timeline_edit_to_offer_requires_triad_when_event_lacked_one(
     monkeypatch, runner
 ):
     _setup(monkeypatch)
-    note_event = {
+    source_event = {
         'id': '700',
         'application_id': '99',
         'user_id': '1',
-        'event_type': 'note',
-        'interview_type': None,
+        'event_type': 'interview',
+        'interview_type': 'unknown',
         'event_date': '2026-06-05',
         'start_time': None,
         'end_time': None,
@@ -775,7 +777,7 @@ def test_timeline_edit_to_offer_requires_triad_when_event_lacked_one(
         'created_at': '2026-06-05T00:00:00Z',
         'updated_at': None,
     }
-    FakeApiClient.timeline_events = {'99': [note_event]}
+    FakeApiClient.timeline_events = {'99': [source_event]}
 
     result = runner.invoke(
         app,
@@ -915,13 +917,21 @@ def test_timeline_edit_type_change_away_from_denied_drops_reason(
     FakeApiClient.timeline_events = {'99': [_denied_event('skills_mismatch')]}
     FakeApiClient.event_updated_response = {
         'id': '700',
-        'event_type': 'note',
+        'event_type': 'interview',
         'event_date': '2026-06-05',
     }
 
     result = runner.invoke(
         app,
-        ['applications', 'timeline', 'edit', '99', '700', '--type', 'note'],
+        [
+            'applications',
+            'timeline',
+            'edit',
+            '99',
+            '700',
+            '--type',
+            'interview',
+        ],
     )
 
     assert result.exit_code == 0
@@ -943,7 +953,7 @@ def test_timeline_edit_reason_on_type_change_away_from_denied_refused(
             '99',
             '700',
             '--type',
-            'note',
+            'interview',
             '--reason',
             'ghosted',
         ],
@@ -959,14 +969,14 @@ def test_timeline_edit_reason_with_no_type_on_non_denied_event_refused(
 ):
     """--reason with no --type at all, on an event that is not (and does
     not become) denied, must be refused too - not just the explicit
-    --type note case."""
+    --type interview case."""
     _setup(monkeypatch)
-    note_event = {
+    source_event = {
         'id': '700',
         'application_id': '99',
         'user_id': '1',
-        'event_type': 'note',
-        'interview_type': None,
+        'event_type': 'interview',
+        'interview_type': 'unknown',
         'event_date': '2026-06-05',
         'start_time': None,
         'end_time': None,
@@ -978,7 +988,7 @@ def test_timeline_edit_reason_with_no_type_on_non_denied_event_refused(
         'created_at': '2026-06-05T00:00:00Z',
         'updated_at': None,
     }
-    FakeApiClient.timeline_events = {'99': [note_event]}
+    FakeApiClient.timeline_events = {'99': [source_event]}
 
     result = runner.invoke(
         app,
@@ -1002,12 +1012,12 @@ def test_timeline_edit_type_change_to_denied_without_reason_defaults_unknown(
     monkeypatch, runner
 ):
     _setup(monkeypatch)
-    note_event = {
+    source_event = {
         'id': '700',
         'application_id': '99',
         'user_id': '1',
-        'event_type': 'note',
-        'interview_type': None,
+        'event_type': 'interview',
+        'interview_type': 'unknown',
         'event_date': '2026-06-05',
         'start_time': None,
         'end_time': None,
@@ -1019,7 +1029,7 @@ def test_timeline_edit_type_change_to_denied_without_reason_defaults_unknown(
         'created_at': '2026-06-05T00:00:00Z',
         'updated_at': None,
     }
-    FakeApiClient.timeline_events = {'99': [note_event]}
+    FakeApiClient.timeline_events = {'99': [source_event]}
     FakeApiClient.event_updated_response = {
         'id': '700',
         'event_type': 'denied',
@@ -1125,7 +1135,7 @@ def test_timeline_add_start_and_end_time_on_non_interview_refused(
             'add',
             '99',
             '--type',
-            'note',
+            'denied',
             '--date',
             '2026-06-05',
             '--start-time',
@@ -1214,11 +1224,11 @@ def test_timeline_edit_start_and_end_time_on_non_interview_event_refused(
 ):
     """No --type given: the resulting type is the event's current type."""
     _setup(monkeypatch)
-    note_event = {
+    source_event = {
         'id': '700',
         'application_id': '99',
         'user_id': '1',
-        'event_type': 'note',
+        'event_type': 'denied',
         'interview_type': None,
         'event_date': '2026-06-05',
         'start_time': None,
@@ -1231,7 +1241,7 @@ def test_timeline_edit_start_and_end_time_on_non_interview_event_refused(
         'created_at': '2026-06-05T00:00:00Z',
         'updated_at': None,
     }
-    FakeApiClient.timeline_events = {'99': [note_event]}
+    FakeApiClient.timeline_events = {'99': [source_event]}
 
     result = runner.invoke(
         app,
@@ -1273,7 +1283,7 @@ def test_timeline_edit_schedule_flags_on_type_change_away_from_interview_refused
             '99',
             '700',
             '--type',
-            'note',
+            'denied',
             '--start-time',
             '10:00',
             '--end-time',
@@ -1299,20 +1309,20 @@ def test_timeline_edit_type_change_away_from_interview_clears_stored_schedule(
     FakeApiClient.timeline_events = {'99': [_interview_event()]}
     FakeApiClient.event_updated_response = {
         'id': '700',
-        'event_type': 'note',
+        'event_type': 'denied',
         'event_date': '2026-06-05',
     }
 
     result = runner.invoke(
         app,
-        ['applications', 'timeline', 'edit', '99', '700', '--type', 'note'],
+        ['applications', 'timeline', 'edit', '99', '700', '--type', 'denied'],
     )
 
     assert result.exit_code == 0
     assert FakeApiClient.captured_put_payload == {
-        'event_type': 'note',
+        'event_type': 'denied',
         'interview_type': None,
-        'denied_reason': None,
+        'denied_reason': 'unknown',
         'event_date': '2026-06-05',
         'start_time': None,
         'end_time': None,
@@ -1331,11 +1341,11 @@ def test_timeline_edit_legacy_stored_schedule_on_non_interview_event_not_resent(
     the schedule-only-on-interview rule) still carries a stored schedule
     must not have it re-sent on an unrelated edit."""
     _setup(monkeypatch)
-    legacy_note_with_schedule = {
+    legacy_denied_with_schedule = {
         'id': '700',
         'application_id': '99',
         'user_id': '1',
-        'event_type': 'note',
+        'event_type': 'denied',
         'interview_type': None,
         'event_date': '2026-06-05',
         'start_time': '09:00:00',
@@ -1348,10 +1358,10 @@ def test_timeline_edit_legacy_stored_schedule_on_non_interview_event_not_resent(
         'created_at': '2026-06-05T00:00:00Z',
         'updated_at': None,
     }
-    FakeApiClient.timeline_events = {'99': [legacy_note_with_schedule]}
+    FakeApiClient.timeline_events = {'99': [legacy_denied_with_schedule]}
     FakeApiClient.event_updated_response = {
         'id': '700',
-        'event_type': 'note',
+        'event_type': 'denied',
         'event_date': '2026-06-05',
     }
 
@@ -1411,11 +1421,11 @@ def test_timeline_edit_schedule_flags_allowed_on_type_change_to_interview(
     monkeypatch, runner
 ):
     _setup(monkeypatch)
-    note_event = {
+    source_event = {
         'id': '700',
         'application_id': '99',
         'user_id': '1',
-        'event_type': 'note',
+        'event_type': 'denied',
         'interview_type': None,
         'event_date': '2026-06-05',
         'start_time': None,
@@ -1428,7 +1438,7 @@ def test_timeline_edit_schedule_flags_allowed_on_type_change_to_interview(
         'created_at': '2026-06-05T00:00:00Z',
         'updated_at': None,
     }
-    FakeApiClient.timeline_events = {'99': [note_event]}
+    FakeApiClient.timeline_events = {'99': [source_event]}
     FakeApiClient.event_updated_response = {
         'id': '700',
         'event_type': 'interview',
@@ -1468,7 +1478,7 @@ def test_timeline_list_tolerates_absent_schedule_keys(monkeypatch, runner):
         'id': '700',
         'application_id': '99',
         'user_id': '1',
-        'event_type': 'note',
+        'event_type': 'denied',
         'interview_type': None,
         'event_date': '2026-06-05',
         'observation': 'No schedule keys at all',
@@ -1509,7 +1519,7 @@ def test_timeline_edit_existing_event_without_schedule_keys_tolerated(
         'id': '700',
         'application_id': '99',
         'user_id': '1',
-        'event_type': 'note',
+        'event_type': 'denied',
         'interview_type': None,
         'event_date': '2026-06-05',
         'observation': 'No schedule keys at all',
@@ -1522,7 +1532,7 @@ def test_timeline_edit_existing_event_without_schedule_keys_tolerated(
     FakeApiClient.timeline_events = {'99': [event_without_schedule_keys]}
     FakeApiClient.event_updated_response = {
         'id': '700',
-        'event_type': 'note',
+        'event_type': 'denied',
         'event_date': '2026-06-05',
     }
 
@@ -1551,7 +1561,15 @@ def test_timeline_edit_not_found_reports_clean_error(monkeypatch, runner):
 
     result = runner.invoke(
         app,
-        ['applications', 'timeline', 'edit', '99', '999', '--type', 'note'],
+        [
+            'applications',
+            'timeline',
+            'edit',
+            '99',
+            '999',
+            '--type',
+            'interview',
+        ],
     )
 
     assert result.exit_code == 1
@@ -2149,3 +2167,127 @@ def test_finalize_help_marks_legacy_flags_deprecated(monkeypatch, runner):
 
     assert result.exit_code == 0
     assert '[DEPRECATED]' in result.output
+
+
+# --------------------------------------------------------------------------
+# timeline --type offers interview, offer and denied only: note and
+# feedback are refused by Typer itself (exit 2) before anything is sent.
+# --------------------------------------------------------------------------
+
+_ANSI_ESCAPE = re.compile(r'\x1b\[[0-9;]*[A-Za-z]')
+
+# Wide enough that Rich never wraps a choice list or an error line, so the
+# assertions hold whatever the CI terminal width.
+_WIDE_ENV = {'COLUMNS': '200'}
+
+
+def _plain(text):
+    """Rich output without ANSI escapes: typer/rich_utils.py forces a
+    terminal at import time under GITHUB_ACTIONS / FORCE_COLOR, so colour
+    codes may split any word of the rendered text."""
+    return _ANSI_ESCAPE.sub('', text)
+
+
+def _forbid_api_client(monkeypatch):
+    """Replace the API client with one that records any construction, so a
+    test can prove no request (GET included) was even attempted."""
+    built = []
+
+    def _client(*args, **kwargs):
+        built.append(args)
+        return FakeApiClient(*args, **kwargs)
+
+    monkeypatch.setattr(applications_commands, 'ApiClient', _client)
+    return built
+
+
+@pytest.mark.parametrize('removed_type', ['note', 'feedback'])
+def test_timeline_add_removed_type_refused_and_nothing_sent(
+    monkeypatch, runner, removed_type
+):
+    _setup(monkeypatch)
+    built = _forbid_api_client(monkeypatch)
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            removed_type,
+            '--date',
+            '2026-06-01',
+        ],
+        env=_WIDE_ENV,
+    )
+
+    assert result.exit_code == 2
+    plain = _plain(result.output)
+    assert f"'{removed_type}' is not one of" in plain
+    assert "'interview', 'offer', 'denied'" in plain
+    assert built == []
+    assert FakeApiClient.captured_post_payload is None
+
+
+@pytest.mark.parametrize('removed_type', ['note', 'feedback'])
+def test_timeline_edit_removed_type_refused_and_nothing_sent(
+    monkeypatch, runner, removed_type
+):
+    _setup(monkeypatch)
+    FakeApiClient.timeline_events = {'99': [_interview_event()]}
+    built = _forbid_api_client(monkeypatch)
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'edit',
+            '99',
+            '700',
+            '--type',
+            removed_type,
+        ],
+        env=_WIDE_ENV,
+    )
+
+    assert result.exit_code == 2
+    assert f"'{removed_type}' is not one of" in _plain(result.output)
+    assert built == []
+    assert FakeApiClient.captured_put_payload is None
+
+
+@pytest.mark.parametrize('subcommand', ['add', 'edit'])
+def test_timeline_help_lists_only_the_three_event_types(
+    monkeypatch, runner, subcommand
+):
+    _setup(monkeypatch)
+
+    result = runner.invoke(
+        app,
+        ['applications', 'timeline', subcommand, '--help'],
+        env=_WIDE_ENV,
+    )
+
+    assert result.exit_code == 0
+    plain = _plain(result.output)
+    assert '[interview|offer|denied]' in plain
+    assert 'interview, offer, denied' in plain
+    assert 'feedback' not in plain.lower()
+    # 'notes' (the --observation help) is fine; the event type 'note' is not.
+    assert re.search(r'\bnote\b', plain, re.IGNORECASE) is None
+
+
+def test_timeline_group_help_names_the_three_event_types(monkeypatch, runner):
+    _setup(monkeypatch)
+
+    result = runner.invoke(
+        app, ['applications', 'timeline', '--help'], env=_WIDE_ENV
+    )
+
+    assert result.exit_code == 0
+    plain = _plain(result.output)
+    assert 'interviews, offers and denials' in plain
+    assert re.search(r'\bnotes?\b', plain, re.IGNORECASE) is None
