@@ -31,7 +31,7 @@ def require_typer_console_knobs(module=typer_rich_utils) -> None:
         names = ', '.join(f'typer.rich_utils.{name}' for name in missing)
         pytest.fail(
             f'{names} not found in typer {typer.__version__}. Typer renamed '
-            'or removed it. Update _plain_wide_rich_output and '
+            'or removed it. Update apply_plain_wide_rich_output and '
             'TYPER_CONSOLE_KNOBS in cli/tests/conftest.py to the knobs this '
             'typer version reads to force a terminal and to fix the console '
             'width, or pin typer to a version that has them.',

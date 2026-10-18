@@ -25,8 +25,10 @@ def test_guard_names_the_missing_knob_and_the_typer_version(missing):
     del knobs[missing]
     stand_in = SimpleNamespace(**knobs)
 
-    with pytest.raises(pytest.fail.Exception) as failure:
+    with pytest.raises(BaseException, match='not found in typer') as failure:
         require_typer_console_knobs(stand_in)
+
+    assert failure.type is pytest.fail.Exception
 
     message = str(failure.value)
     assert f'typer.rich_utils.{missing} not found' in message
@@ -37,8 +39,10 @@ def test_guard_names_the_missing_knob_and_the_typer_version(missing):
 
 
 def test_guard_names_every_missing_knob():
-    with pytest.raises(pytest.fail.Exception) as failure:
+    with pytest.raises(BaseException, match='not found in typer') as failure:
         require_typer_console_knobs(SimpleNamespace())
+
+    assert failure.type is pytest.fail.Exception
 
     message = str(failure.value)
     assert 'typer.rich_utils.FORCE_TERMINAL' in message
@@ -48,15 +52,19 @@ def test_guard_names_every_missing_knob():
 def test_renamed_knob_in_the_real_module_fails_before_patching(monkeypatch):
     monkeypatch.delattr(typer_rich_utils, 'MAX_WIDTH')
 
-    with pytest.raises(pytest.fail.Exception, match='MAX_WIDTH not found'):
+    with pytest.raises(BaseException, match='MAX_WIDTH not found') as failure:
         apply_plain_wide_rich_output(monkeypatch)
+
+    assert failure.type is pytest.fail.Exception
 
 
 def test_guard_runs_before_anything_is_patched(monkeypatch):
     stand_in = SimpleNamespace(FORCE_TERMINAL=True)
 
-    with pytest.raises(pytest.fail.Exception):
+    with pytest.raises(BaseException, match='not found in typer') as failure:
         apply_plain_wide_rich_output(monkeypatch, stand_in)
+
+    assert failure.type is pytest.fail.Exception
 
     assert stand_in.FORCE_TERMINAL is True
     assert not hasattr(stand_in, 'MAX_WIDTH')
