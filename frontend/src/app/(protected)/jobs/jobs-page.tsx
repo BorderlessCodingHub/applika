@@ -185,8 +185,21 @@ function JobBoard() {
     });
   }
 
+  // Without `cvs` a search saved with a fit sort or minimum reads (and
+  // applies, and matches the board) without them, like the URL does.
+  const savedSearches = useMemo(
+    () =>
+      hasCvs
+        ? searches.data
+        : searches.data?.map((search) => ({
+            ...search,
+            filters: withoutFit(search.filters),
+          })),
+    [searches.data, hasCvs],
+  );
+
   const activeSearchId =
-    searches.data?.find((search) => sameJobFilters(search.filters, filters))
+    savedSearches?.find((search) => sameJobFilters(search.filters, filters))
       ?.id ?? null;
 
   async function saveSearch(name: string): Promise<SavedSearchOutcome> {
@@ -234,17 +247,13 @@ function JobBoard() {
           </p>
         </div>
         <SavedSearchesMenu
-          searches={searches.data}
+          searches={savedSearches}
           isLoading={searches.isLoading}
           error={searches.isError ? jobApiDetail(searches.error) : null}
           onRetry={() => void searches.refetch()}
           activeId={activeSearchId}
           onApply={(search) =>
-            writeJobsUrl(
-              normalizeJobFilters(
-                hasCvs ? search.filters : withoutFit(search.filters),
-              ),
-            )
+            writeJobsUrl(normalizeJobFilters(search.filters))
           }
           onSave={saveSearch}
           onRename={renameSearch}
@@ -279,6 +288,7 @@ function JobBoard() {
         <JobListEmpty />
       ) : data.total === 0 ? (
         <JobListNoMatches
+          showFit={hasCvs}
           onClearFilters={() => writeJobsUrl(clearJobFilters(filters))}
         />
       ) : (

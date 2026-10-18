@@ -808,6 +808,54 @@ describe("/jobs with jobs but without cvs", () => {
     myFeatures = [{ key: "jobs", stage: "beta" }];
   });
 
+  it("words the no-matches hint without a minimum fit", async () => {
+    setUrl("tags=cobol");
+    listJobs.mockResolvedValue(makePage([]));
+    renderPage();
+
+    expect(
+      await screen.findByText("No jobs match these filters"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Try fewer tags or a longer time window."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/minimum fit/i)).not.toBeInTheDocument();
+  });
+
+  it("reads and applies a saved search without its fit sort and minimum", async () => {
+    const saved: JobSearch = {
+      id: "7",
+      name: "Python with fit",
+      filters: {
+        ...DEFAULT_JOB_FILTERS,
+        tags: ["python"],
+        sort: "fit",
+        min_fit: 60,
+      },
+      created_at: "2026-10-01T00:00:00Z",
+      updated_at: null,
+    };
+    listSearches.mockResolvedValue([saved]);
+    renderPage();
+    await screen.findByRole("article", { name: "Senior Backend Engineer" });
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Saved searches" }),
+    );
+    const item = await screen.findByRole("button", {
+      name: "Python with fit",
+    });
+    const menu =
+      item.closest("[role=menu], [role=dialog], ul") ?? document.body;
+    // The summary line is there, read without the fit parts.
+    expect(menu).toHaveTextContent("Newest · python");
+    expect(menu).not.toHaveTextContent("Best fit");
+    expect(menu).not.toHaveTextContent("Fit 60%+");
+
+    await userEvent.click(item);
+    expect(currentQuery()).toBe("tags=python");
+  });
+
   it("shows no fit, no Start application, no invitation and never asks for master CVs", async () => {
     listBaseCvs.mockResolvedValue([]);
     renderPage();
