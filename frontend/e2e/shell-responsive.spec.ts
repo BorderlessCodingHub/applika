@@ -30,9 +30,10 @@ const COOKIE_NOTICE = '[role="dialog"][aria-label="Cookie notice"]';
 const CLI_BANNER = '[role="region"][aria-label="applika-cli announcement"]';
 
 /**
- * The primary entries a non-admin sees, in display order. "Jobs" is there
- * because the seeded `e2e-user` is on the `jobs` beta list (KODI-052 seed);
- * a user without `jobs` sees seven (KODI-053).
+ * The primary entries a non-admin sees, in display order. "Jobs" and "CVs"
+ * are there because the seeded `e2e-user` is on both the `jobs` and the `cvs`
+ * beta lists (the e2e seed); a user with one of them sees seven, with neither
+ * six.
  *
  * Kept BY HAND rather than derived from `PRIMARY_NAV`: this suite asserts tab
  * order and hit-testing against the list, so a derived copy would follow an
@@ -456,13 +457,18 @@ test.describe("at md and above the shell renders a fixed rail", () => {
     // Without this, a nav change surfaces as an unrelated tab-order failure
     // three tests away instead of here, naming the real cause.
     // KODI-053: the Jobs link's TEXT also holds its "Beta" badge while the
-    // seeded user's `jobs` is in beta; its accessible name stays "Jobs".
+    // seeded user's `jobs` is in beta; its accessible name stays "Jobs". The
+    // CVs link does the same while `cvs` is in beta.
     await expect(
       primary.getByRole("link"),
       "the rail's entries no longer match PRIMARY_LABELS — update the constant to mirror PRIMARY_NAV in src/components/layout/nav.ts",
     ).toHaveText(
       PRIMARY_LABELS.map((label) =>
-        label === "Jobs" ? /^Jobs(?: Beta)?$/ : label,
+        label === "Jobs"
+          ? /^Jobs(?: Beta)?$/
+          : label === "CVs"
+            ? /^CVs(?: Beta)?$/
+            : label,
       ),
     );
 

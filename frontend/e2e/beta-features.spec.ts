@@ -40,8 +40,13 @@ const FEATURE_NAME = "Job board";
 const DISCORD = SEEDED_USERS.discord.username;
 const ADMIN = SEEDED_USERS.admin.username;
 
-/** The primary nav without `jobs`; `jobs` adds one, an admin adds "Admin". */
+/**
+ * The admin's primary nav without `jobs`: six ungated entries plus CVs (an
+ * admin has `cvs` as an admin); `jobs` adds one, an admin adds "Admin".
+ */
 const BASE_LINKS = 7;
+/** `e2e-discord` has no `cvs` (the seed leaves it off that list): one fewer. */
+const DISCORD_BASE_LINKS = BASE_LINKS - 1;
 
 /** AC7: "applies from the user's next request … no deploy and no restart". */
 const AC7_BUDGET_MS = 60_000;
@@ -315,9 +320,9 @@ test("an admin adds e2e-discord by username and removes them; e2e-discord follow
 }) => {
   const discord = await openAs(browser, "discord");
   try {
-    // KODI-053's protected layout wiring: no jobs, seven entries, no Jobs.
+    // KODI-053's protected layout wiring: no jobs (and no cvs), six entries, no Jobs.
     expect(await openDashboard(discord)).toBe(false);
-    await expectRail(discord, BASE_LINKS, "none");
+    await expectRail(discord, DISCORD_BASE_LINKS, "none");
     expect(await jobsStatus(request, "discord")).toBe(404);
 
     await loginAs(page, "admin");
@@ -338,7 +343,7 @@ test("an admin adds e2e-discord by username and removes them; e2e-discord follow
       elapsed,
       `the add reached e2e-discord in ${elapsed} ms`,
     ).toBeLessThan(AC7_BUDGET_MS);
-    await expectRail(discord, BASE_LINKS + 1, "beta");
+    await expectRail(discord, DISCORD_BASE_LINKS + 1, "beta");
     expect(await jobsStatus(request, "discord")).toBe(200);
 
     // Adding again changes nothing (AC3): the dialog marks them, the API is idempotent.
@@ -373,7 +378,7 @@ test("an admin adds e2e-discord by username and removes them; e2e-discord follow
 
     await removeUser(page, DISCORD);
     expect(await reloadDashboard(discord)).toBe(false);
-    await expectRail(discord, BASE_LINKS, "none");
+    await expectRail(discord, DISCORD_BASE_LINKS, "none");
     expect(await jobsStatus(request, "discord")).toBe(404);
     // Removing someone who is not on the list changes nothing (AC4).
     await expectOk(
@@ -433,7 +438,7 @@ test("release to everyone and move back to beta keep the list and the admin's ch
     expect(await betaListUsernames(request)).toEqual(listBefore);
 
     expect(await openDashboard(discord)).toBe(true);
-    await expectRail(discord, BASE_LINKS + 1, "general");
+    await expectRail(discord, DISCORD_BASE_LINKS + 1, "general");
     expect(await jobsStatus(request, "discord")).toBe(200);
     expect(await jobsStatus(request, "admin")).toBe(200);
 
@@ -463,7 +468,7 @@ test("release to everyone and move back to beta keep the list and the admin's ch
     await expect(reason(page)).toHaveText(REASON.off);
     expect(await jobsStatus(request, "admin")).toBe(404);
     expect(await reloadDashboard(discord)).toBe(false);
-    await expectRail(discord, BASE_LINKS, "none");
+    await expectRail(discord, DISCORD_BASE_LINKS, "none");
     expect(await jobsStatus(request, "discord")).toBe(404);
     expect(await jobsStatus(request, "user")).toBe(200);
     expect(await betaListUsernames(request)).toEqual(listBefore);
