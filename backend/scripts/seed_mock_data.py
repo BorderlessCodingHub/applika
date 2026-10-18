@@ -623,15 +623,26 @@ def seed_drafts(
 MAX_SAVED_SEARCHES = 10
 
 
+def _feature_keys(client: httpx.Client) -> list[str]:
+    resp = client.get('/users/me/features')
+    resp.raise_for_status()
+    return [feature['key'] for feature in resp.json()['features']]
+
+
 def has_jobs_feature(client: httpx.Client) -> bool:
     """Whether the seed user has the "jobs" beta feature (KODI-052,
     ADR-0018). Without it every job route answers 404 and "keywords"
     tailoring 422, so the job steps are skipped, never failed."""
-    resp = client.get('/users/me/features')
-    resp.raise_for_status()
-    keys = [feature['key'] for feature in resp.json()['features']]
+    keys = _feature_keys(client)
     print(f'Features of the seed user: {keys or "none"}')
     return 'jobs' in keys
+
+
+def has_cvs_feature(client: httpx.Client) -> bool:
+    """Whether the seed user has the "cvs" beta feature (ADR-0021). Without
+    it every master CV, CV copy and draft route answers 404, so the CV and
+    draft steps are skipped, never failed."""
+    return 'cvs' in _feature_keys(client)
 
 
 def seed_job_searches(client: httpx.Client) -> None:
@@ -775,7 +786,7 @@ def seed_timeline(
     """The web app's path: timeline events, then finalize.
 
     One initial screening (an application holds at most one), then a mix of
-    typed interviews and notes, then the outcome. Half the finalized
+    typed interviews, some of type unknown, then the outcome. Half the finalized
     applications get their outcome through the new optional finalize body
     (R-032: the outcome event and the close in one atomic request); the
     other half keep adding the outcome as a plain `/timeline` event and
@@ -789,7 +800,12 @@ def seed_timeline(
     ]
     for _ in range(random.randint(2, 4)):
         if random.random() < 0.25:
-            events.append({'event_type': 'note'})
+            # The three event types (ADR-0020): what was a note is an
+            # interview of type unknown.
+            events.append({
+                'event_type': 'interview',
+                'interview_type': 'unknown',
+            })
         else:
             events.append({
                 'event_type': 'interview',
@@ -874,7 +890,12 @@ def seed_timeline(
         # Reversible close: a closed timeline refuses events (409) until
         # the application is reopened.
         refused = client.post(
-            url, json={'event_type': 'note', 'event_date': day.isoformat()}
+            url,
+            json={
+                'event_type': 'interview',
+                'interview_type': 'unknown',
+                'event_date': day.isoformat(),
+            },
         )
         if refused.status_code != 409:
             print('  WARNING: closed application accepted an event')
@@ -882,7 +903,8 @@ def seed_timeline(
         client.post(
             url,
             json={
-                'event_type': 'feedback',
+                'event_type': 'interview',
+                'interview_type': 'unknown',
                 'event_date': day.isoformat(),
                 'observation': 'Recruiter sent written feedback',
             },
@@ -1037,6 +1059,14 @@ def main():
                 'saved job searches and the draft from a job are skipped '
                 '(an admin enrols the user at /admin/features)'
             )
+        cvs_enabled = has_cvs_feature(client)
+        if not cvs_enabled:
+            print(
+                'No "cvs" feature for the seed user: master CVs, CV copies, '
+                'the keyword CV copy, the PDF exports, drafts and the draft '
+                'from a job are skipped (an admin enrols the user at '
+                '/admin/features)'
+            )
 
         # ----- GET /platforms (S7, KODI-035): the web picker's own route,
         # visible platforms only, ordered by name instead of /supports' id
@@ -1117,7 +1147,7 @@ def main():
         )
 
         # ----- Master CVs -----
-        base_cv_ids = seed_base_cvs(client)
+        base_cv_ids = seed_base_cvs(client) if cvs_enabled else []
 
         # The first application to keep a CV copy is the one the PDF export
         # is exercised against, once everything else has run.
@@ -1221,6 +1251,7 @@ def main():
                 and keyword_copies == 0
                 and bool(base_cv_ids)
                 and jobs_enabled
+                and cvs_enabled
             )
             if tailor_by_keywords:
                 payload['job_description'] = KEYWORDS_JOB_DESCRIPTION
@@ -1246,8 +1277,12 @@ def main():
                 if seed_keyword_copy(client, app_id, base_cv_ids[0]):
                     cv_copies += 1
                     keyword_copies += 1
-            elif seed_cv_plan[i] and seed_application_cv(
-                client, app_id, base_cv_ids, full_cycle=(cv_copies == 0)
+            elif (
+                cvs_enabled
+                and seed_cv_plan[i]
+                and seed_application_cv(
+                    client, app_id, base_cv_ids, full_cycle=(cv_copies == 0)
+                )
             ):
                 cv_copies += 1
                 if pdf_application_id is None:
@@ -1288,22 +1323,25 @@ def main():
         print(f'Application CV copies created: {cv_copies}')
         print(f'  of which tailored by keywords: {keyword_copies}')
 
-        seed_drafts(
-            client,
-            platform_id=platform_ids[0],
-            company_id=private_company_id,
-            base_cv_ids=base_cv_ids,
-        )
+        if cvs_enabled:
+            seed_drafts(
+                client,
+                platform_id=platform_ids[0],
+                company_id=private_company_id,
+                base_cv_ids=base_cv_ids,
+            )
 
         if jobs_enabled:
             seed_job_searches(client)
-            seed_draft_from_job(client, base_cv_ids)
+            if cvs_enabled:
+                seed_draft_from_job(client, base_cv_ids)
 
-        seed_cv_pdfs(
-            client,
-            base_cv_ids[0] if base_cv_ids else None,
-            pdf_application_id,
-        )
+        if cvs_enabled:
+            seed_cv_pdfs(
+                client,
+                base_cv_ids[0] if base_cv_ids else None,
+                pdf_application_id,
+            )
 
 
 if __name__ == '__main__':

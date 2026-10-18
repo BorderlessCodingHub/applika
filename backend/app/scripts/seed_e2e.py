@@ -58,7 +58,8 @@ the beta features back in a known state - ``jobs`` in ``beta`` with
 and every opt-out of ``e2e-admin`` gone - so a crashed beta-features spec
 cannot leak into the next run. The ``jobs`` row itself comes from
 ``alembic upgrade head`` (revision ``641001baff09``); without it the script
-fails loudly.
+fails loudly. ``cvs`` (ADR-0021) gets the same reset, its row from revision
+``f28e3d9705dd``; other users already on its list are left as they are.
 
 Prints exactly one JSON line to stdout::
 
@@ -214,24 +215,36 @@ async def upsert_users() -> tuple[Identity, Identity, Identity]:
     return user, admin, discord_user
 
 
+# Every gated feature the E2E resets, with the revision that seeds its row.
+BETA_FEATURE_REVISIONS: tuple[tuple[FeatureKey, str], ...] = (
+    (FeatureKey.JOBS, '641001baff09'),
+    (FeatureKey.CVS, 'f28e3d9705dd'),
+)
+
+
 async def reset_beta_features(
     user: Identity, admin: Identity, discord_user: Identity
 ) -> None:
-    """Put ``jobs`` back in ``beta`` (``released_at`` NULL), enrol
-    ``e2e-user`` (added by ``e2e-admin``), take ``e2e-discord`` off the list
-    and clear every opt-out of ``e2e-admin`` - the same state on every run
-    (KODI-052)."""
+    """Put ``jobs`` and ``cvs`` back in ``beta`` (``released_at`` NULL),
+    enrol ``e2e-user`` (added by ``e2e-admin``), take ``e2e-discord`` off
+    each list and clear every opt-out of ``e2e-admin`` - the same state on
+    every run (ADR-0018). Every row is looked up before anything is
+    written, so a missing one fails the run with nothing changed."""
     async with AsyncLocalSession() as session:
         repo = FeatureRepository(session)
-        jobs = await repo.get_by_key(FeatureKey.JOBS.value)
-        if jobs is None:
-            raise RuntimeError(
-                'The "jobs" feature row is missing: run alembic upgrade '
-                'head (revision 641001baff09) before seeding.'
-            )
-        await repo.set_stage(jobs.id, FeatureStage.BETA)
-        await repo.add_user(jobs.id, user.user_id, admin.user_id)
-        await repo.remove_user(jobs.id, discord_user.user_id)
+        feature_ids: list[int] = []
+        for key, revision in BETA_FEATURE_REVISIONS:
+            feature = await repo.get_by_key(key.value)
+            if feature is None:
+                raise RuntimeError(
+                    f'The "{key.value}" feature row is missing: run alembic '
+                    f'upgrade head (revision {revision}) before seeding.'
+                )
+            feature_ids.append(feature.id)
+        for feature_id in feature_ids:
+            await repo.set_stage(feature_id, FeatureStage.BETA)
+            await repo.add_user(feature_id, user.user_id, admin.user_id)
+            await repo.remove_user(feature_id, discord_user.user_id)
         await repo.clear_opt_outs(admin.user_id)
 
 
