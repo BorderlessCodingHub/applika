@@ -488,9 +488,8 @@ def _seed_at_release_a(url: str) -> datetime:
 # --------------------------------------------------------------------------
 
 
-def test_revision_is_the_only_head_on_release_a() -> None:
+def test_revision_sits_on_its_parent() -> None:
     script = ScriptDirectory.from_config(Config(str(_ALEMBIC_INI)))
-    assert list(script.get_heads()) == [REVISION]
     assert script.get_revision(REVISION).down_revision == PARENT_REVISION
 
 

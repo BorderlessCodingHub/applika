@@ -1,4 +1,4 @@
-"""'de quinzenal reports' 
+"""'de quinzenal reports'
 
 Revision ID: 79f1d9bc77de
 Revises: d997fc17b3d3
@@ -45,7 +45,9 @@ def upgrade() -> None:
             sa.Numeric(precision=5, scale=2),
             nullable=False,
         ),
-        sa.Column('total_initial_screenings_count', sa.Integer(), nullable=False),
+        sa.Column(
+            'total_initial_screenings_count', sa.Integer(), nullable=False
+        ),
         sa.Column('mock_interviews_count', sa.Integer(), nullable=False),
         sa.Column('linkedin_posts_count', sa.Integer(), nullable=False),
         sa.Column('strategic_connections_count', sa.Integer(), nullable=False),
@@ -96,7 +98,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index('idx_quinzenal_reports_user_id', table_name='quinzenal_reports')
+    op.drop_index(
+        'idx_quinzenal_reports_user_id', table_name='quinzenal_reports'
+    )
     op.drop_index(
         'idx_quinzenal_reports_user_day',
         table_name='quinzenal_reports',

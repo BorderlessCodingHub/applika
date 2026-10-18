@@ -3,19 +3,24 @@ import {
   test,
   type APIRequestContext,
   type APIResponse,
-  type Browser,
   type Locator,
   type Page,
 } from "@playwright/test";
 
+import { SEEDED_USERS, apiUrl, loginAs, type SeededRole } from "./support/auth";
 import {
-  SEEDED_USERS,
-  apiUrl,
-  authCookieHeader,
-  loginAs,
-  seededUserId,
-  type SeededRole,
-} from "./support/auth";
+  addByUsername,
+  betaRow,
+  expectOk,
+  headers,
+  openAs,
+  openFeaturePage,
+  rail,
+  removeUser,
+  restoreCvsSeedState,
+  setListed,
+  settleFeatures,
+} from "./support/beta-features";
 
 /**
  * The `cvs` feature end to end against the REAL stack (PRD 0015).
@@ -38,7 +43,6 @@ import {
 
 test.describe.configure({ mode: "serial" });
 
-const FEATURE_PAGE = "/admin/features/view?key=cvs";
 /** The `cvs` row's name, from migration `f28e3d9705dd`. */
 const FEATURE_NAME = "CV builder";
 const DISCORD = SEEDED_USERS.discord.username;
@@ -76,14 +80,6 @@ const made: {
   draft?: unknown;
 } = {};
 
-function headers(role: SeededRole) {
-  return { Cookie: authCookieHeader(role), "Content-Type": "application/json" };
-}
-
-async function expectOk(response: APIResponse) {
-  expect(response.ok(), await response.text()).toBeTruthy();
-}
-
 async function get(
   request: APIRequestContext,
   role: SeededRole,
@@ -102,26 +98,13 @@ async function getJson<T>(
   return (await response.json()) as T;
 }
 
-async function setList(
-  request: APIRequestContext,
-  feature: "cvs" | "jobs",
-  role: SeededRole,
-  on: boolean,
-) {
-  const path = apiUrl(`/admin/features/${feature}/users/${seededUserId(role)}`);
-  const response = on
-    ? await request.put(path, { headers: headers("admin") })
-    : await request.delete(path, { headers: headers("admin") });
-  await expectOk(response);
-}
-
 /**
  * e2e-discord's CVs, drafts and applications gone (a CV copy goes with its
  * application). Deleting them needs `cvs`, so e2e-discord is on the list for
  * the length of the wipe.
  */
 async function wipeDiscordData(request: APIRequestContext) {
-  await setList(request, "cvs", "discord", true);
+  await setListed(request, "cvs", "discord", true);
   try {
     const drafts = await getJson<Array<{ id: string }>>(
       request,
@@ -160,64 +143,12 @@ async function wipeDiscordData(request: APIRequestContext) {
       );
     }
   } finally {
-    await setList(request, "cvs", "discord", false);
+    await setListed(request, "cvs", "discord", false);
   }
-}
-
-/** The seeded state back: both features in beta, e2e-discord off both lists, no `cvs` opt-out. */
-async function restoreSeedState(request: APIRequestContext) {
-  for (const feature of ["cvs", "jobs"] as const) {
-    await expectOk(
-      await request.patch(apiUrl(`/admin/features/${feature}`), {
-        headers: headers("admin"),
-        data: { stage: "beta" },
-      }),
-    );
-    await setList(request, feature, "discord", false);
-  }
-  await expectOk(
-    await request.delete(apiUrl("/admin/features/cvs/opt-out"), {
-      headers: headers("admin"),
-    }),
-  );
-}
-
-/** A second, independent browser session for `role`. */
-async function openAs(browser: Browser, role: SeededRole): Promise<Page> {
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  await loginAs(page, role);
-  return page;
-}
-
-function rail(page: Page): Locator {
-  return page.locator("aside").getByRole("navigation", { name: "Primary" });
 }
 
 function railCvs(page: Page): Locator {
   return rail(page).getByRole("link", { name: "CVs", exact: true });
-}
-
-/**
- * Runs `navigate` and waits for its `/users/me/features` answer: the gated
- * entries join the rail only after it. Returns the caller's feature keys.
- */
-async function settleFeatures(
-  page: Page,
-  navigate: () => Promise<unknown>,
-): Promise<string[]> {
-  const features = page.waitForResponse(
-    (response) =>
-      new URL(response.url()).pathname.endsWith("/users/me/features") &&
-      response.request().method() === "GET",
-  );
-  await navigate();
-  const body = (await (await features).json()) as {
-    features: Array<{ key: string }>;
-  };
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-  await expect(rail(page)).toBeVisible();
-  return body.features.map((feature) => feature.key).sort();
 }
 
 async function openDashboard(page: Page) {
@@ -234,52 +165,6 @@ async function expectRail(page: Page, links: number, cvs: "beta" | "none") {
   await expect(railCvs(page)).toBeVisible();
   await expect(railCvs(page)).toHaveAccessibleDescription("Beta");
   await expect(railCvs(page)).toHaveText(/^CVs Beta$/);
-}
-
-function betaRow(page: Page, username: string): Locator {
-  return page.locator(
-    `tr[data-slot="feature-beta-user"][data-username="${username}"]`,
-  );
-}
-
-async function openFeaturePage(page: Page) {
-  await page.goto(FEATURE_PAGE);
-  await expect(
-    page.getByRole("heading", { name: FEATURE_NAME, level: 1 }),
-  ).toBeVisible();
-  await expect(
-    page.locator('[data-slot="feature-own-access-reason"]'),
-  ).toBeVisible();
-}
-
-/** Adds `username` through the "Add user" dialog. */
-async function addByUsername(page: Page, username: string) {
-  await page.getByRole("button", { name: "Add user" }).click();
-  const dialog = page.getByRole("dialog", {
-    name: "Add users to the beta list",
-  });
-  await dialog.getByRole("searchbox", { name: "Search users" }).fill(username);
-  await dialog
-    .getByRole("button", { name: `Add ${username}`, exact: true })
-    .click();
-  await expect(
-    dialog.locator('[data-slot="feature-add-user-status"]'),
-  ).toHaveText(`${username} is on the beta list now.`);
-  await dialog.getByRole("button", { name: "Done" }).click();
-  await expect(dialog).toBeHidden();
-  await expect(betaRow(page, username)).toBeVisible();
-}
-
-/** Removes `username` behind its confirm. */
-async function removeUser(page: Page, username: string) {
-  await page
-    .getByRole("button", { name: `Remove ${username}`, exact: true })
-    .click();
-  const confirm = page.getByRole("alertdialog");
-  await expect(confirm).toContainText(`Remove ${username} from the beta list?`);
-  await confirm.getByRole("button", { name: "Remove", exact: true }).click();
-  await expect(confirm).toBeHidden();
-  await expect(betaRow(page, username)).toHaveCount(0);
 }
 
 /** Every request the page sends for a CV, a CV copy or a draft. */
@@ -346,13 +231,13 @@ async function ensureJobs(request: APIRequestContext) {
 }
 
 test.beforeAll(async ({ request }) => {
-  await restoreSeedState(request);
+  await restoreCvsSeedState(request);
   await wipeDiscordData(request);
 });
 
 test.afterAll(async ({ request }) => {
   await wipeDiscordData(request);
-  await restoreSeedState(request);
+  await restoreCvsSeedState(request);
 });
 
 test("e2e-discord without cvs: no CVs entry, the CV routes are not found, no Drafts, no New with CV, the API answers 404 (AC2, AC7)", async ({
@@ -392,7 +277,7 @@ test("an admin adds e2e-discord to cvs: CVs and its Beta label show, and the CV 
   const discord = await openAs(browser, "discord");
   try {
     await loginAs(page, "admin");
-    await openFeaturePage(page);
+    await openFeaturePage(page, "cvs", FEATURE_NAME);
     await addByUsername(page, DISCORD);
     await expect(
       betaRow(page, DISCORD).locator(
@@ -519,7 +404,7 @@ test("with jobs but without cvs: no fit, no Start application, no invitation, an
 }) => {
   test.setTimeout(2 * RUN_TIMEOUT);
   await ensureJobs(request);
-  await setList(request, "jobs", "discord", true);
+  await setListed(request, "jobs", "discord", true);
 
   // With both features, e2e-discord's master CV gets a fit from the worker.
   let jobId = "";
@@ -534,7 +419,7 @@ test("with jobs but without cvs: no fit, no Start application, no invitation, an
 
   // The admin takes e2e-discord off cvs; jobs stays.
   await loginAs(page, "admin");
-  await openFeaturePage(page);
+  await openFeaturePage(page, "cvs", FEATURE_NAME);
   await removeUser(page, DISCORD);
   await page.context().clearCookies();
 
@@ -638,7 +523,7 @@ test("losing cvs keeps the master CV, the CV copy and the draft, and getting it 
 
     // The admin adds e2e-discord back.
     await loginAs(page, "admin");
-    await openFeaturePage(page);
+    await openFeaturePage(page, "cvs", FEATURE_NAME);
     await addByUsername(page, DISCORD);
 
     expect(

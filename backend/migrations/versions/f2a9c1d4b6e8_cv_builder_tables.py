@@ -91,15 +91,14 @@ def upgrade() -> None:
     # -- 1. Create base_cvs table (the master CV, one or more per user)
     op.create_table(
         'base_cvs',
-        sa.Column(
-            'id', sa.BigInteger(), autoincrement=False, nullable=False
-        ),
+        sa.Column('id', sa.BigInteger(), autoincrement=False, nullable=False),
         sa.Column('user_id', sa.BigInteger(), nullable=False),
         *_identity_columns(),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(
-            ['user_id'], ['users.id'],
+            ['user_id'],
+            ['users.id'],
             name='fk_base_cvs_user_id',
             ondelete='CASCADE',
         ),
@@ -112,9 +111,7 @@ def upgrade() -> None:
     #        survives edits to - and deletion of - its base CV.
     op.create_table(
         'tailored_cvs',
-        sa.Column(
-            'id', sa.BigInteger(), autoincrement=False, nullable=False
-        ),
+        sa.Column('id', sa.BigInteger(), autoincrement=False, nullable=False),
         sa.Column('user_id', sa.BigInteger(), nullable=False),
         sa.Column('application_id', sa.BigInteger(), nullable=False),
         sa.Column('base_cv_id', sa.BigInteger(), nullable=True),
@@ -134,17 +131,20 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(
-            ['user_id'], ['users.id'],
+            ['user_id'],
+            ['users.id'],
             name='fk_tailored_cvs_user_id',
             ondelete='CASCADE',
         ),
         sa.ForeignKeyConstraint(
-            ['application_id'], ['applications.id'],
+            ['application_id'],
+            ['applications.id'],
             name='fk_tailored_cvs_application_id',
             ondelete='CASCADE',
         ),
         sa.ForeignKeyConstraint(
-            ['base_cv_id'], ['base_cvs.id'],
+            ['base_cv_id'],
+            ['base_cvs.id'],
             name='fk_tailored_cvs_base_cv_id',
             ondelete='SET NULL',
         ),

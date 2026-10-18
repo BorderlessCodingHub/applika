@@ -83,13 +83,14 @@ class Availability(StrEnum):
 
 
 class EventType(StrEnum):
-    """The three timeline event types (ADR-0020). Fixed in code, no catalog.
+    """Timeline event type: interview, offer or denied."""
 
-    ``note`` and ``feedback`` were retired: the stored ones became interviews
-    of type ``unknown``, and the API refuses both as an invalid value. The PG
-    type ``event_type`` keeps all five labels; ``ck_timeline_events_event_type``
-    allows these three only.
-    """
+    # The three timeline event types (ADR-0020), fixed in code, no catalog.
+    # The docstring above is the public OpenAPI description; internals stay
+    # here. ``note`` and ``feedback`` were retired: the stored ones became
+    # interviews of type ``unknown``, and the API refuses both as an invalid
+    # value. The PG type ``event_type`` keeps all five labels;
+    # ``ck_timeline_events_event_type`` allows these three only.
 
     INTERVIEW = 'interview'
     OFFER = 'offer'

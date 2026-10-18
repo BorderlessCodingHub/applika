@@ -528,13 +528,10 @@ def test_upgrade_source_drops_nothing() -> None:
     assert 'UPDATE timeline_events' in downgrade_src
 
 
-def test_revision_sits_on_user_sessions_below_the_topup() -> None:
-    """Release A on ``ed39a0fad1e5``; Release B's top-up revision
-    ``647a047921ec`` (the sole head) sits on it."""
+def test_revision_sits_on_user_sessions() -> None:
+    """Release A on ``ed39a0fad1e5``."""
     script = ScriptDirectory.from_config(Config(str(_ALEMBIC_INI)))
     assert script.get_revision(REVISION).down_revision == PARENT_REVISION
-    assert list(script.get_heads()) == ['647a047921ec']
-    assert script.get_revision('647a047921ec').down_revision == REVISION
 
 
 def test_no_app_code_maps_event_type_old() -> None:

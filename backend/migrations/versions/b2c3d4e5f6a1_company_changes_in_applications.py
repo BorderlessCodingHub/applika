@@ -87,9 +87,7 @@ def upgrade() -> None:
     # =========================================================
     # Step 3 — Rename applications.company → company_name
     # =========================================================
-    op.alter_column(
-        'applications', 'company', new_column_name='company_name'
-    )
+    op.alter_column('applications', 'company', new_column_name='company_name')
 
     # =========================================================
     # Step 4 — Add nullable company_id FK to applications
@@ -119,9 +117,7 @@ def downgrade() -> None:
     # =========================================================
     # Step 2 — Rename company_name back to company
     # =========================================================
-    op.alter_column(
-        'applications', 'company_name', new_column_name='company'
-    )
+    op.alter_column('applications', 'company_name', new_column_name='company')
 
     # =========================================================
     # Step 3 — Drop companies table (index dropped automatically)

@@ -334,6 +334,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- the OpenAPI description of `EventType` names the three event types only; the database internals moved to a code comment. No value changed.
 - without the `cvs` feature, `GET /jobs` and `GET /jobs/{id}` answer with no fit: `best_fit` null, `fits` [], `min_fit` matches no job (`total` 0), `sort=fit` sorts by newest. The `application` mark is unchanged.
 - without the `cvs` feature, every `/base-cvs*`, `/applications/{id}/cv*` and `/applications/drafts*` route answers 404 `{"detail": "Not Found"}`, the same as an unknown route, trailing-slash paths included; `GET /applications/{id}/cv/fit` and `POST /applications/drafts/from-job` need `cvs` and `jobs`. Anonymous callers still get the 401. Every master CV, CV copy and draft is kept and comes back with the feature; the worker keeps scoring every master CV.
 - revision `647a047921ec` drops the switch-over trigger `trg_timeline_events_legacy_event_type` and its function; `ck_timeline_events_event_type` now refuses any `note` or `feedback` write. Its downgrade recreates both (Release B).
