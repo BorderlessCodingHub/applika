@@ -9,23 +9,25 @@ import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
 
 /**
  * The application timeline, close and reopen, against the REAL stack
- * (PRD 0008, ADR 0012): the add-an-event happy path, extended per the owner's
- * KODI-012 decisions:
+ * (PRD 0008, ADR 0012, PRD 0016): the add-an-event happy path, extended per
+ * the owner's decisions:
  * applika has no application detail route (a non-goal for this slice), so the
- * flow happens on `/applications`, expanding the row inline; and R-032
- * supersedes a confirm-only finalize with an outcome picker.
+ * flow happens on `/applications`, expanding the row inline; and closing is
+ * the SAME event dialog as Add event, opened from the row's flag in close
+ * mode: a `dialog` named "Close application" offering None, Offer and Denied
+ * (never Interview), opening on None, with no checkbox — there is no separate
+ * close `alertdialog` any more.
  *
  * Flow 1: add an interview (the dialog offers three types and opens on
  * Interview / Unknown) -> add a denied event (interview type select hidden)
- * -> close with no outcome (the
- * confirmation says "reversible") -> the UI offers no way to add an event
- * while closed, and the API itself refuses one (409) -> reopen -> add one
- * more event to prove the application is writable again.
+ * -> close from the flag with None (the dialog offers None, Offer and Denied
+ * with None checked, and says closing is "reversible") -> the UI offers no
+ * way to add an event while closed, and the API itself refuses one (409) ->
+ * reopen -> add one more event to prove the application is writable again.
  *
- * Flow 2: close with outcome "offer" (the salary triad, `annually`, a
- * NON-legacy currency) -> the offer event renders in the (read-only)
- * timeline with its formatted salary -> closed still refuses a new event ->
- * reopen.
+ * Flow 2: close with Offer (the salary triad, `annually`, a NON-legacy
+ * currency) -> the offer event renders in the (read-only) timeline with its
+ * formatted salary -> closed still refuses a new event -> reopen.
  *
  * The suite shares ONE real database (`workers: 1`), so this spec cleans up
  * after itself in `beforeEach`/`afterEach`.
@@ -213,9 +215,28 @@ test.describe("Timeline: add events, close, reopen", () => {
     await page
       .getByRole("button", { name: `Close ${role} at ${company}`, exact: true })
       .click();
-    const closeDialog = page.getByRole("alertdialog");
+    const closeDialog = page.getByRole("dialog", {
+      name: "Close application",
+    });
     await expect(closeDialog).toBeVisible();
     await expect(closeDialog.getByText(/reversible/i)).toBeVisible();
+    // The close dialog offers None, Offer and Denied — never Interview —
+    // opens on None, and shows no "close the application" checkbox.
+    await expect(closeDialog.getByRole("radio")).toHaveText([
+      "None",
+      "Offer",
+      "Denied",
+    ]);
+    await expect(
+      closeDialog.getByRole("radio", { name: "None", exact: true }),
+    ).toBeChecked();
+    await expect(
+      closeDialog.getByRole("radio", { name: "Interview" }),
+    ).toHaveCount(0);
+    await expect(closeDialog.getByRole("checkbox")).toHaveCount(0);
+    // None shows no date and no notes.
+    await expect(closeDialog.getByLabel("Date")).toHaveCount(0);
+    await expect(closeDialog.getByLabel(/notes/i)).toHaveCount(0);
     await closeDialog
       .getByRole("button", { name: "Close application" })
       .click();
@@ -285,7 +306,9 @@ test.describe("Timeline: add events, close, reopen", () => {
     await page
       .getByRole("button", { name: `Close ${role} at ${company}`, exact: true })
       .click();
-    const closeDialog = page.getByRole("alertdialog");
+    const closeDialog = page.getByRole("dialog", {
+      name: "Close application",
+    });
     await expect(closeDialog).toBeVisible();
     await expect(closeDialog.getByText(/reversible/i)).toBeVisible();
 
@@ -418,7 +441,9 @@ test.describe("Timeline: denied reason (AC4, KODI-014)", () => {
     await page
       .getByRole("button", { name: `Close ${role} at ${company}`, exact: true })
       .click();
-    const closeDialog = page.getByRole("alertdialog");
+    const closeDialog = page.getByRole("dialog", {
+      name: "Close application",
+    });
     await expect(closeDialog).toBeVisible();
 
     await closeDialog
