@@ -1391,11 +1391,7 @@ def add_timeline_event(
             print_finalize_outcome_summary(
                 finalized,
                 'Added event and closed application',
-                outcome=(
-                    outcome_payload.outcome.value
-                    if outcome_payload.outcome is not None
-                    else None
-                ),
+                outcome=payload.event_type.value,
             )
         else:
             created = client.post_json(

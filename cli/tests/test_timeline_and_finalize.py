@@ -940,7 +940,7 @@ def test_timeline_add_offer_future_date_prints_server_refusal(
 ):
     _setup(monkeypatch)
     _only_finalize_allowed(monkeypatch)
-    detail = 'event_date cannot be later than today'
+    detail = 'event_date cannot be in the future (max allowed: 2026-10-20)'
     FakeApiClient.post_error = ApiError(detail, 422)
 
     result = runner.invoke(
