@@ -13,7 +13,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - applications timeline add --type offer|denied closes the application with that event (POST /applications/{id}/finalize outcome body); --keep-open keeps it open; ignored with --type interview.
-
 - the API refuses event_type note and feedback (422); existing ones read as interview with interview_type unknown. 0.1.4 is unaffected: its steps keep their ids.
 - cvs *, applications cv * and drafts answer 404 without the "cvs" beta feature.
 
