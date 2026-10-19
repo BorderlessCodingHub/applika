@@ -565,7 +565,7 @@ describe("toTimelineEventPayload", () => {
 describe("emptyTimelineEventValues", () => {
   it("defaults to an interview of type unknown on today's date with blank fields", () => {
     const values = emptyTimelineEventValues();
-    expect(values.close_application).toBe(false);
+    expect(values.close_application).toBe(true);
     expect(values.event_type).toBe("interview");
     expect(values.interview_type).toBe("unknown");
     expect(values.event_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -783,8 +783,8 @@ describe("emptyCloseValues", () => {
 });
 
 describe("close_application on Add event and Edit event", () => {
-  it("is false for a new event and for every edited type", () => {
-    expect(emptyTimelineEventValues().close_application).toBe(false);
+  it("is ticked for a new event and false for every edited type", () => {
+    expect(emptyTimelineEventValues().close_application).toBe(true);
     for (const type of ["interview", "offer", "denied"] as const) {
       const values = timelineEventToFormValues({
         id: "e",
@@ -798,6 +798,44 @@ describe("close_application on Add event and Edit event", () => {
       expect(values.close_application).toBe(false);
     }
   });
+
+  it.each(["offer", "denied"] as const)(
+    "a new %s from Add event caps the date while ticked, not once unticked",
+    (type) => {
+      const fields =
+        type === "offer"
+          ? {
+              salary_period: "monthly",
+              salary_amount: "9000",
+              salary_currency: "EUR",
+            }
+          : { denied_reason: "unknown" };
+      const ticked = {
+        ...emptyTimelineEventValues(),
+        ...fields,
+        event_type: type,
+        event_date: daysFromToday(2),
+      } as TimelineEventFormValues;
+      const tickedResult = timelineEventSchema.safeParse(ticked);
+      expect(tickedResult.success).toBe(false);
+      expect(tickedResult.error?.issues).toEqual([
+        expect.objectContaining({
+          path: ["event_date"],
+          message: CLOSING_DATE_MESSAGE,
+        }),
+      ]);
+      expect(
+        timelineEventSchema.safeParse({ ...ticked, close_application: false })
+          .success,
+      ).toBe(true);
+      expect(
+        timelineEventSchema.safeParse({
+          ...ticked,
+          event_date: daysFromToday(0),
+        }).success,
+      ).toBe(true);
+    },
+  );
 
   it("is required on every branch", () => {
     const { close_application: _omit, ...withoutFlag } = deniedValues();
