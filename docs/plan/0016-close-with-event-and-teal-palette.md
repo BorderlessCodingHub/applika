@@ -5,7 +5,7 @@ ADRs bound:
 - 0004: rows owned by user; another user's row = 404, admins too. 0009 / 0012: 0.1.4 routes + finalize body keep shapes;
   reversible finalize; closed write = 409, archived = 422. 0020: event types interview|offer|denied. 0018: unused (point 7).
 - 0006: platform + identity; colours amended by 0022; Inter/JetBrains Mono, sidebar shell, new-york, light+dark, dark default stay.
-- 0022 (Proposed): colours = original palette of `9661a38`, written as oklch; fixed rules for tokens with no twin.
+- 0022 (Accepted 2026-10-19): colours = original palette of `9661a38`, written as oklch; fixed rules for tokens with no twin.
 PRDs neighbouring: 0006 (R-011, R-012 superseded), 0008 (R-027 reversible copy kept, R-032 outcome close reused, R-037
 reworded), 0015 (R-015/R-016 three types unchanged; CLI changelog precedent).
 
@@ -146,4 +146,4 @@ offer on timeline; Reopen; Add event → Denied unticked → stays open.
 - Footer checkbox outside `<form>` needs the lifted `FormProvider`. "none" stays in selector/close schema only; tsc guards.
 
 ## Open
-- ADR-0022 Proposed: owner accepts at sign-off; orchestrator then adds "Amended by: ADR-0022" to ADR-0006. No markers.
+None. ADR-0022 Accepted 2026-10-19; ADR-0006 carries Amended by: ADR-0022.
