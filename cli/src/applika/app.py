@@ -10,6 +10,7 @@ from applika.commands.cvs import cvs_app
 from applika.commands.skill import skill
 from applika.commands.version import installed_version, version
 from applika.config import AppConfig, resolve_api_base_url
+from applika.lib import updater
 from applika.lib.session import SessionStore
 
 app = typer.Typer(
@@ -61,3 +62,5 @@ def _root(
         api_base_url=resolve_api_base_url(api_base_url, store),
         store=store,
     )
+    # The daily auto update, once the command (and its exit code) is done.
+    ctx.call_on_close(lambda: updater.after_command(ctx.obj))

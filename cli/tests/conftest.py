@@ -1,3 +1,4 @@
+import io
 import re
 
 import httpx
@@ -102,8 +103,8 @@ class UpdaterGuard:
 
 @pytest.fixture(autouse=True)
 def updater_guard(monkeypatch, tmp_path):
-    """No test reaches PyPI, runs an installer or touches the real
-    ``~/.config/applika/``. A test that drives the updater monkeypatches
+    """No test reaches PyPI, runs an installer, touches the real
+    ``~/.config/applika/`` or reads the real ``CI`` and terminal. A test that drives the updater monkeypatches
     ``updater._transport`` / ``updater._run`` itself; the guard then never
     sees a call."""
     guard = UpdaterGuard()
@@ -113,6 +114,14 @@ def updater_guard(monkeypatch, tmp_path):
     monkeypatch.setattr(updater, '_run', guard.refuse_run)
     state_dir = tmp_path / 'applika-config'
     monkeypatch.setattr(updater, '_state_dir', lambda: state_dir)
+    # Never the real CI variable or the real terminal: a test that wants
+    # the interactive path patches these seams itself.
+    monkeypatch.setattr(updater, '_env', dict)
+    monkeypatch.setattr(
+        updater,
+        '_streams',
+        lambda: (io.StringIO(), io.StringIO(), io.StringIO()),
+    )
     yield guard
     guard.check()
 

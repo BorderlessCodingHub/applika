@@ -103,6 +103,9 @@ src/applika/
 │   ├── download.py      # --type/--dir/--filename/--force naming rules,
 │   │                    #   Content-Disposition parsing (KODI-018)
 │   ├── session.py       # SessionData, SessionStore (~/.config/applika/session.json)
+│   ├── updater.py       # daily auto update: PyPI read, detect_install, blockers,
+│   │                    #   install (+ fresh-interpreter verify), after_command,
+│   │                    #   update.json + update.lock; never imports commands/
 │   ├── loopback.py      # LoopbackLoginServer for OAuth callback
 │   ├── pkce.py          # PKCE verifier, S256 challenge, state (KODI-060)
 │   └── device_flow.py   # RFC 8628 device code: start + poll (KODI-060)
@@ -166,6 +169,16 @@ src/applika/
   versions can read it. Tests never reach the network: `auth._transport` is a
   refusing `httpx.MockTransport` by default (`tests/conftest.py`), and
   `device_flow.poll` takes `sleep`/`monotonic`.
+- **Daily auto update**: `app.py` `_root` registers `updater.after_command(ctx.obj)`
+  with `ctx.call_on_close` after building `AppConfig` (`--version` and bare
+  `applika` exit before it). It swallows every error and Ctrl-C, writes only
+  `Updated applika-cli <old> → <new>` on stderr, and reads env, streams, clock,
+  distribution, prefix, `which` and user site through module seams in
+  `lib/updater.py`. Tests never reach PyPI, spawn an installer or touch
+  `~/.config/applika/`: the autouse `updater_guard` (`tests/conftest.py`)
+  refuses and records `_transport`/`_run`, points `_state_dir` at `tmp_path`,
+  and gives `_env`/`_streams` an empty env and non-TTY streams; a test that
+  drives the update patches those seams itself.
 - **Deprecated, not removed**: `applications steps *` and `applications finalize --step/--feedback/--salary-offer` still work exactly as in 0.1.4 (`.claude/rules/cli-compatibility.md`); only their `--help` text says deprecated. Typer's own `deprecated=True` is deliberately **not** used on them — it prints a `DeprecationWarning` to stderr on every invocation, which corrupts `--output-format json` output under `CliRunner`'s default stderr mixing.
 
 ## CLI Commands
@@ -189,3 +202,5 @@ src/applika/
 ## Environment Variables
 
 - `APPLIKA_API_BASE_URL`: Override the default API URL (`https://applika.dev/api`)
+- `APPLIKA_DISABLE_AUTOUPDATE`: any value except empty, `0` or `false` turns the daily auto update off
+- `CI` (read): set = not interactive, so the daily auto update stays off

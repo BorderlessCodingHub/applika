@@ -25,3 +25,15 @@ def resolve_api_base_url(
     if existing:
         return existing.api_base_url.rstrip('/')
     return DEFAULT_API_BASE_URL
+
+
+def is_default_api_base_url(url: str) -> bool:
+    """True when ``url`` is ``DEFAULT_API_BASE_URL``. A trailing slash and
+    the case of the scheme and host are ignored; the rest must match
+    exactly, so ``http://applika.dev/api`` is not the default."""
+    scheme, separator, rest = url.rstrip('/').partition('://')
+    if not separator:
+        return False
+    host, slash, path = rest.partition('/')
+    normalized = f'{scheme.lower()}://{host.lower()}{slash}{path}'
+    return normalized == DEFAULT_API_BASE_URL

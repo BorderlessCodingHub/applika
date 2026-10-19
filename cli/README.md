@@ -621,6 +621,48 @@ applika --api-base-url https://staging.applika.dev/api applications list
 |---|---|---|
 | `--api-base-url TEXT` | `https://applika.dev/api` | `APPLIKA_API_BASE_URL` |
 
+| Env variable | Effect |
+|---|---|
+| `APPLIKA_DISABLE_AUTOUPDATE` | Any value except empty, `0` or `false` turns the daily auto update off (see [Updates](#updates)) |
+
+---
+
+## Updates
+
+At most once a day, after a command finishes, `applika` checks PyPI for a newer
+`applika-cli` (it gives up after 3 seconds). When there is one, it installs it
+with the tool it was installed with (it gives up after 2 minutes), then prints
+one line on stderr:
+
+```
+Updated applika-cli 1.1.0 → 1.2.0
+```
+
+The next run uses the new version. The command's own output and exit status
+never change: it runs after a failed command too, a failed check or install
+prints nothing and waits for the next day, and Ctrl-C during the install only
+stops the install. It needs no sign-in and calls no Applika API.
+
+It stays off, quietly, when:
+
+- the API base URL is not `https://applika.dev/api`, whether it comes from
+  `--api-base-url`, `APPLIKA_API_BASE_URL` or the saved session;
+- it is not an interactive terminal: `CI` is set, or stdin, stdout or stderr is
+  a pipe or a redirect (scripts, CI jobs, AI agents running `applika`);
+- the CLI runs from a source checkout: the editable install from
+  [Installation](#installation) (`uv tool install --force --editable .`) and
+  `uv tool install --force .` from [Development](#development) never update;
+- it cannot tell how the CLI was installed;
+- `APPLIKA_DISABLE_AUTOUPDATE` is set to anything but empty, `0` or `false`.
+
+To update by hand, use the tool you installed with:
+
+```bash
+uv tool upgrade applika-cli                 # uv tool install applika-cli
+pipx upgrade applika-cli                    # pipx install applika-cli
+python -m pip install --upgrade applika-cli # pip install applika-cli
+```
+
 ---
 
 ## Package structure
@@ -658,6 +700,8 @@ cli/
         │   ├── cv_file.py       # --file loading (JSON/YAML/stdin) and local validation
         │   ├── download.py      # --type/--dir/--filename/--force naming rules
         │   ├── session.py       # SessionData, SessionStore (~/.config/applika/session.json)
+        │   ├── updater.py       # daily auto update: PyPI check, install detection, gates,
+        │   │                    #   update.json + update.lock (~/.config/applika/)
         │   ├── loopback.py      # LoopbackLoginServer for OAuth browser callback
         │   ├── pkce.py          # PKCE verifier, S256 challenge, state
         │   └── device_flow.py   # device code sign-in: start + poll
