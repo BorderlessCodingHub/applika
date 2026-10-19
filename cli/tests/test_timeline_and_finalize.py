@@ -2581,7 +2581,11 @@ def test_timeline_help_lists_only_the_three_event_types(
     )
 
     assert result.exit_code == 0
-    assert '[interview|offer|denied]' in result.output
+    # Older Typer shows the choices as [a|b], newer Typer as <a|b>.
+    assert re.search(
+        r'\[interview\|offer\|denied\]|<interview\|offer\|denied>',
+        result.output,
+    )
     assert 'interview, offer, denied' in result.output
     assert 'feedback' not in result.output.lower()
     # 'notes' (the --observation help) is fine; the event type 'note' is not.

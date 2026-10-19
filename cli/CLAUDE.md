@@ -144,7 +144,7 @@ src/applika/
 
 ## Key Patterns
 
-- **Global state**: `AppConfig` (dataclass with `api_base_url`, `store` and `api_base_url_source`) lives on `ctx.obj`, set by the root `@app.callback()` in `app.py`. The source comes from `ctx.get_parameter_source('api_base_url')` (flag or env), else the saved session, else the default.
+- **Global state**: `AppConfig` (dataclass with `api_base_url`, `store` and `api_base_url_source`) lives on `ctx.obj`, set by the root `@app.callback()` in `app.py`. The source comes from `ctx.get_parameter_source('api_base_url')` (flag or env; compared by enum name, never by importing `click`: newer Typer vendors its own Click and does not install it), else the saved session, else the default.
 - **Auth required**: Commands call `require_session(config.store)` → raises `AuthError` if no session.
 - **Payload validation**: Pydantic models (one per command family) validate inputs before API calls; commands catch `ValidationError`/`ValueError` and print via `typer.echo(..., err=True)` + `typer.Exit(1)`. New in 0.2.0: commands that hit the timeline/finalize/reopen routes also catch `ApiError` (`_echo_api_error`) and, on a 409 mentioning "closed", append a hint to run `applications reopen`.
 - **Schemas are vendored**: everything under `schemas/` is a standalone copy (no backend import). Keep in sync with `backend/app/core/enums.py`, `backend/app/application/dto/application.py` and `backend/app/presentation/schemas/timeline_event.py` when the backend changes.
