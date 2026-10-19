@@ -75,18 +75,18 @@ frontend behind nginx, a real Postgres migrated with `alembic upgrade head` and
 a real Redis. Nothing is mocked, and there is no `webServer` block.
 
 ```bash
-../scripts/e2e.sh                          # full run: up -> seed -> test -> down
-../scripts/e2e.sh e2e/smoke.spec.ts        # args are forwarded to `playwright test`
-KEEP_STACK=1 ../scripts/e2e.sh             # leave the stack up to debug
+./scripts/e2e.sh                           # from frontend/: up -> seed -> test -> down
+./scripts/e2e.sh e2e/smoke.spec.ts         # args are forwarded to `playwright test`
+KEEP_STACK=1 ./scripts/e2e.sh              # leave the stack up to debug
 ```
 
 `pnpm e2e` on its own will NOT work: `e2e/support/auth.ts` needs the `E2E_*`
-variables that `scripts/e2e.sh` exports after seeding the real users. The suite
+variables that `frontend/scripts/e2e.sh` exports after seeding the real users. The suite
 runs serially (`workers: 1`) against one shared real database, so specs must be
 read-only or clean up after themselves.
 
 **Devices in E2E (KODI-058).** The seed also opens a `cli_device` session for
-`e2e-user` named "e2e-cli"; `scripts/e2e.sh` exports its tokens as
+`e2e-user` named "e2e-cli"; `frontend/scripts/e2e.sh` exports its tokens as
 `E2E_CLI_ACCESS_TOKEN` / `E2E_CLI_REFRESH_TOKEN`, and
 `e2e/support/auth.ts`'s `cliBearerHeader()` is the `Authorization: Bearer`
 value the CLI would send. `e2e/devices.spec.ts` (serial): the Devices tab
@@ -770,7 +770,7 @@ id]`) reads `GET /applications/{id}/cv/fit`; `enabled` is "a copy exists
 match"})`), and a section an adjustment names gets "reordered" on its header
   count (`CvDiffSectionCount` `reordered`, `data-reordered`: "reordered", "1
   change, reordered"). The "Compared with X: N changes" line is unchanged.
-  `cv-diff.ts`, `applika/fixtures/cv-diff/` and the server diff are UNCHANGED
+  `cv-diff.ts`, `applika/backend/tests/fixtures/cv-diff/` and the server diff are UNCHANGED
   (KODI-045 AC6): skill-category and keyword reorders show ONLY through
   `adjustments`; a pure reorder is still zero diff changes. `adjustments` is
   written once at creation and can go stale after edits — a known gap.
@@ -833,21 +833,23 @@ written by the client: `base_snapshot` rides on `GET`/`POST`/`PUT` responses
 only, and `toTailoredCvPayload` never emits it (the API's `extra=forbid` would
 422 it anyway).
 
-- `cv-diff.ts` is the pure engine, no React, no I/O. `computeCvDiff(baseline,
-  current)` returns the rich internal shape (`CvDiffDetail`) `use-cv-diff.tsx`
-  reads to build markers: per-field before/after, added items, removed items
-  WITH their baseline position (`at`, for `Restore`), and skill-keyword
-  add/remove sets. `diffCv(baseline, current)` is
+- `cv-diff.ts` is the pure engine, no React, no I/O.
+  `computeCvDiff(baseline, current)` returns the rich internal shape
+  (`CvDiffDetail`) `use-cv-diff.tsx` reads to build markers: per-field
+  before/after, added items, removed items WITH their baseline position
+  (`at`, for `Restore`), and skill-keyword add/remove sets.
+  `diffCv(baseline, current)` is
   `computeCvDiff(...).canonical` — the flat `{total, sections, changes[]}`
   shape the slice brief PINS, identical in field names and semantics to the
   server's own diff. Matching is by the client-generated item `id`, never by
   position — a pure reorder is zero changes. `null`/`undefined`/`""` compare
   equal; bullets compare as ONE whole-value change; skill keywords compare as
   a SET per category, so each added/removed keyword is its own change.
-  `cv-diff.fixtures.test.ts` loads every file in `applika/fixtures/cv-diff/
-*.json` (backend-owned) and asserts `diffCv()` matches the server's
-  `expected` output; it `describe.skipIf`s itself away while that folder does
-  not exist, so it activates with no code change once the backend adds it.
+  `cv-diff.fixtures.test.ts` loads every file in
+  `applika/backend/tests/fixtures/cv-diff/*.json` (backend-owned, the backend
+  suite reads the same folder) and asserts `diffCv()` matches the server's
+  `expected` output; it fails, naming the path, when the folder is missing or
+  empty — it never skips itself.
 - `use-cv-diff.tsx` is the ONLY thing that watches the form (`useWatch`) and
   turns a `CvDiffDetail` into `TailoredCvEditor`'s `diffSummary` (a
   `CvDiffSummaryBar`) and `diff` (`CvFormDiffSlots`) props, live — a Revert or
@@ -1493,9 +1495,9 @@ target).
   `useSearchParams` suspends and `output: "export"` fails the build otherwise.
 - **E2E** (`e2e/profile-discord.spec.ts`, serial): a third seeded role,
   `discord` (`SeededRole`, `e2e-discord`), whose `discord_id` is RE-SET on
-  every `scripts/e2e.sh` seed run — so the suite's own Disconnect test is
+  every `frontend/scripts/e2e.sh` seed run — so the suite's own Disconnect test is
   undone by the next run. `E2E_DISCORD_USER_ID` / `E2E_DISCORD_ACCESS_TOKEN` /
-  `E2E_DISCORD_REFRESH_TOKEN` are exported by `scripts/e2e.sh` alongside the
+  `E2E_DISCORD_REFRESH_TOKEN` are exported by `frontend/scripts/e2e.sh` alongside the
   existing `E2E_*`/`E2E_ADMIN_*` pairs. Real `discord.com` is never reached:
   the spec's `page.route("**://discord.com/**", ...)` aborts the navigation
   and asserts the ATTEMPTED authorize URL (`scope=identify guilds

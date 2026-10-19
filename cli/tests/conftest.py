@@ -1,3 +1,4 @@
+import io
 import re
 
 import httpx
@@ -7,6 +8,7 @@ from typer import rich_utils as typer_rich_utils
 from typer.testing import CliRunner
 
 import applika.commands.auth as auth_commands
+from applika.lib import updater
 from applika.lib.session import SessionData
 
 RICH_TEST_WIDTH = 200
@@ -67,6 +69,61 @@ def _no_network_from_auth_commands(monkeypatch):
     monkeypatch.setattr(
         auth_commands, '_transport', httpx.MockTransport(refuse)
     )
+
+
+class UpdaterGuard:
+    """Records every PyPI request and installer run that reached the
+    updater's default seams. Raising alone is not enough: the auto update
+    swallows every exception, so a refusal raised inside it would let the
+    test pass. ``check()`` fails the test on any recorded call."""
+
+    def __init__(self):
+        self.requests: list[str] = []
+        self.runs: list[list[str]] = []
+
+    def refuse_request(self, request: httpx.Request) -> httpx.Response:
+        self.requests.append(str(request.url))
+        raise AssertionError(f'Unexpected PyPI request: {request.url}')
+
+    def refuse_run(self, argv, timeout):
+        self.runs.append(list(argv))
+        raise AssertionError(f'Unexpected installer run: {list(argv)}')
+
+    def check(self) -> None:
+        if self.requests or self.runs:
+            pytest.fail(
+                'The updater reached a guarded seam the test did not '
+                f'install itself. PyPI requests: {self.requests}; '
+                f'installer runs: {self.runs}. Monkeypatch '
+                'applika.lib.updater._transport (an httpx.MockTransport) '
+                'or applika.lib.updater._run in the test.',
+                pytrace=False,
+            )
+
+
+@pytest.fixture(autouse=True)
+def updater_guard(monkeypatch, tmp_path):
+    """No test reaches PyPI, runs an installer, touches the real
+    ``~/.config/applika/`` or reads the real ``CI`` and terminal. A test
+    that drives the updater monkeypatches ``updater._transport`` /
+    ``updater._run`` itself; the guard then never sees a call."""
+    guard = UpdaterGuard()
+    monkeypatch.setattr(
+        updater, '_transport', httpx.MockTransport(guard.refuse_request)
+    )
+    monkeypatch.setattr(updater, '_run', guard.refuse_run)
+    state_dir = tmp_path / 'applika-config'
+    monkeypatch.setattr(updater, '_state_dir', lambda: state_dir)
+    # Never the real CI variable or the real terminal: a test that wants
+    # the interactive path patches these seams itself.
+    monkeypatch.setattr(updater, '_env', dict)
+    monkeypatch.setattr(
+        updater,
+        '_streams',
+        lambda: (io.StringIO(), io.StringIO(), io.StringIO()),
+    )
+    yield guard
+    guard.check()
 
 
 def make_session() -> SessionData:

@@ -12,7 +12,7 @@ import { loginAs, type SeededRole } from "./support/auth";
  * ships a single Desktop Chrome project, so the viewport is overridden per
  * describe block instead of adding a project.
  *
- * Everything here runs against the REAL stack `scripts/e2e.sh` stands up, and
+ * Everything here runs against the REAL stack `frontend/scripts/e2e.sh` stands up, and
  * asserts on roles, accessible names and GEOMETRY — never on class names — so
  * it survives a later repaint.
  *

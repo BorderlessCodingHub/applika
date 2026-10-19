@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 /**
  * Playwright E2E — drives the REAL application stack (KODI-001 / R-002).
  *
- * `scripts/e2e.sh` at the repo root is the single entry point: it builds and
+ * `frontend/scripts/e2e.sh` is the single entry point: it builds and
  * starts `docker-compose.e2e.yml` (the built API, the built static frontend
  * behind nginx, a real Postgres migrated with `alembic upgrade head` and a real
  * Redis), seeds two real users, exports the `E2E_*` variables this config and

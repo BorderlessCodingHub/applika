@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test";
 /**
  * Real seeded sessions for the E2E suite (KODI-001 / R-003).
  *
- * `scripts/e2e.sh` runs the backend's own seed script inside the API container.
+ * `frontend/scripts/e2e.sh` runs the backend's own seed script inside the API container.
  * It creates two genuine user rows in the real database and mints real session
  * material with the backend's own token code — a signed `__access` JWT and an
  * opaque `__refresh` token stored in the real Redis — then exports them as the
@@ -24,7 +24,7 @@ export type SeededRole = "user" | "admin" | "discord";
  *
  * `discord` (KODI-022, plan 0009) is `e2e-discord`, seeded with a fixed
  * Discord id RE-SET on every seed run — so a Disconnect performed by the E2E
- * suite is undone the next time `scripts/e2e.sh` seeds, and the role is
+ * suite is undone the next time `frontend/scripts/e2e.sh` seeds, and the role is
  * deterministically linked at the start of every run.
  */
 export const SEEDED_USERS = {
@@ -48,7 +48,7 @@ export const SEEDED_USERS = {
   { username: string; email: string; isAdmin: boolean }
 >;
 
-/** The env var names `scripts/e2e.sh` exports for each role. */
+/** The env var names `frontend/scripts/e2e.sh` exports for each role. */
 const ENV_VARS = {
   user: {
     id: "E2E_USER_ID",
@@ -74,7 +74,8 @@ function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
     throw new Error(
-      `${name} is not set. Run the suite through \`scripts/e2e.sh\` from the ` +
+      `${name} is not set. Run the suite through ` +
+        `\`frontend/scripts/e2e.sh\` from the ` +
         `repo root — it stands up the real stack, seeds the real users and ` +
         `exports this variable. Playwright is not meant to be run standalone ` +
         `here (\`pnpm e2e\` alone will not work).`,
@@ -146,7 +147,7 @@ export function apiUrl(path = ""): string {
 /**
  * The `Authorization` header value of e2e-user's seeded CLI session
  * (KODI-057: a `cli_device` session named "e2e-cli", exported by
- * `scripts/e2e.sh` as `E2E_CLI_ACCESS_TOKEN`). The CLI sends its access token
+ * `frontend/scripts/e2e.sh` as `E2E_CLI_ACCESS_TOKEN`). The CLI sends its access token
  * as a Bearer, never as a cookie. `e2e/devices.spec.ts` revokes this session,
  * so it is refused for the rest of the run after that spec.
  */

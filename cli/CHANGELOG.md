@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - applications timeline add --keep-open: with --type offer or denied, adds the event and keeps the application open; ignored with --type interview.
+- daily auto update: at most once a day, after a command finishes, applika-cli checks PyPI and installs a newer release with the tool it was installed with (uv tool, pipx or pip), then prints "Updated applika-cli <old> → <new>" on stderr. It stays off when the API base URL is not https://applika.dev/api (flag, APPLIKA_API_BASE_URL or saved session), when APPLIKA_DISABLE_AUTOUPDATE is set, outside an interactive terminal (CI, pipes, AI agents) and for source or editable installs. A failed check or install prints nothing and never changes the command's exit status.
+- applika update [--force]: checks PyPI now and installs the latest applika-cli with the tool it was installed with, in a terminal, in CI, in a pipe or from an AI agent. It lists every reason it refuses: an API base URL other than https://applika.dev/api (with where it comes from and the way back, --force or not), a source or editable install, an install it cannot identify, or APPLIKA_DISABLE_AUTOUPDATE (lifted by --force, the only thing --force does).
 
 ### Changed
 
@@ -19,6 +21,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Removed
 
 - applications timeline add and edit no longer take --type note or --type feedback; existing ones read as interview with interview_type unknown.
+
+### Fixed
+
+- README: the `--api-base-url` example points at a local API instead of a staging host that does not exist, and a duplicated `steps delete` example is gone.
 
 ## [1.1.0] - 2026-10-15
 

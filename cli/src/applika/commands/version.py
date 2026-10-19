@@ -4,13 +4,12 @@ from importlib.metadata import version as package_version
 import httpx
 import typer
 
-_PACKAGE_NAME = 'applika-cli'
-_PYPI_JSON_URL = f'https://pypi.org/pypi/{_PACKAGE_NAME}/json'
+from applika.lib.updater import PACKAGE_NAME, PYPI_JSON_URL
 
 
 def installed_version() -> str:
     try:
-        return package_version(_PACKAGE_NAME)
+        return package_version(PACKAGE_NAME)
     except PackageNotFoundError:
         return 'unknown'
 
@@ -20,7 +19,7 @@ def version() -> None:
     installed = installed_version()
 
     try:
-        response = httpx.get(_PYPI_JSON_URL, timeout=10)
+        response = httpx.get(PYPI_JSON_URL, timeout=10)
         response.raise_for_status()
         published = response.json()['info']['version']
     except (httpx.HTTPError, KeyError, ValueError) as exc:

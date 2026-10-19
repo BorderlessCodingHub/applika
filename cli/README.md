@@ -4,6 +4,10 @@ Command-line interface for [Applika.dev](https://applika.dev) — a structured j
 
 Track every application you send, filter and review your pipeline from the terminal, and keep your AI coding assistant (Claude Code, Gemini, Codex) aware of the CLI through a bundled skill file.
 
+- Website: <https://applika.dev>
+- Package: <https://pypi.org/project/applika-cli/>
+- API: `https://applika.dev/api` by default (see [Global options](#global-options))
+
 ## Requirements
 
 - Python 3.10+
@@ -317,6 +321,19 @@ applika applications reopen 42
 
 ---
 
+### `applika update [--force]`
+
+Checks PyPI now and installs the latest `applika-cli` with the tool it was
+installed with, or lists every reason it cannot. `--force` only lifts
+`APPLIKA_DISABLE_AUTOUPDATE`. See [Updates](#updates).
+
+```bash
+applika update
+applika update --force
+```
+
+---
+
 ## Application Steps and the deprecated finalize flags
 
 **Deprecated.** Prefer `applications timeline` and `applications finalize --outcome` above. Everything in this section still works exactly as in 0.1.4 — it exists only so installed CLIs and existing scripts keep working.
@@ -420,10 +437,6 @@ applika applications steps delete \
 ```
 
 The positional form still works:
-
-```bash
-applika applications steps delete 42 500
-```
 
 ```bash
 applika applications steps delete 42 500
@@ -614,12 +627,100 @@ never sent unless you asked for it, so the stored text is left alone.
 These flags apply to every command and are passed before the subcommand name:
 
 ```bash
-applika --api-base-url https://staging.applika.dev/api applications list
+applika --api-base-url http://127.0.0.1:8000/api applications list   # a local API
 ```
 
 | Flag | Default | Env variable |
 |---|---|---|
 | `--api-base-url TEXT` | `https://applika.dev/api` | `APPLIKA_API_BASE_URL` |
+
+| Env variable | Effect |
+|---|---|
+| `APPLIKA_DISABLE_AUTOUPDATE` | Any value except empty, `0` or `false` turns the daily auto update off (see [Updates](#updates)) |
+
+---
+
+## Updates
+
+At most once a day, after a command finishes, `applika` checks PyPI for a newer
+`applika-cli` (it gives up after 3 seconds). When there is one, it installs it
+with the tool it was installed with (it gives up after 2 minutes), then prints
+one line on stderr:
+
+```
+Updated applika-cli 1.1.0 → 1.2.0
+```
+
+The next run uses the new version. The command's own output and exit status
+never change: it runs after a failed command too, a failed check or install
+prints nothing and waits for the next day, and Ctrl-C during the install only
+stops the install. It needs no sign-in and calls no Applika API.
+
+It stays off, quietly, when:
+
+- the API base URL is not `https://applika.dev/api`, whether it comes from
+  `--api-base-url`, `APPLIKA_API_BASE_URL` or the saved session;
+- it is not an interactive terminal: `CI` is set, or stdin, stdout or stderr is
+  a pipe or a redirect (scripts, CI jobs, AI agents running `applika`);
+- the CLI runs from a source checkout: the editable install from
+  [Installation](#installation) (`uv tool install --force --editable .`) and
+  `uv tool install --force .` from [Development](#development) never update;
+- it cannot tell how the CLI was installed;
+- `APPLIKA_DISABLE_AUTOUPDATE` is set to anything but empty, `0` or `false`.
+
+### Update now with `applika update`
+
+Updates now, without waiting for the daily check. It checks PyPI at once (it
+gives up after 10 seconds) and installs the latest `applika-cli` with the tool
+it was installed with. Unlike the daily update it runs anywhere: in a
+terminal, in CI, in a pipe, or typed by an AI agent. It needs no sign-in and
+calls no Applika API.
+
+```bash
+applika update            # update now
+applika update --force    # update even when APPLIKA_DISABLE_AUTOUPDATE is set
+```
+
+It refuses, and exits `1`, when something blocks the update. It prints every
+reason, one line each on stderr, each with the way back:
+
+| Reason | Way back |
+|---|---|
+| The API base URL is not `https://applika.dev/api`, from `--api-base-url` | Run without `--api-base-url` |
+| … from `APPLIKA_API_BASE_URL` | Unset `APPLIKA_API_BASE_URL` |
+| … from your saved session | `applika logout`, then `applika login` without `--api-base-url` |
+| The CLI runs from a source checkout (an editable install or `uv tool install --force .`) | Update it with git |
+| It cannot tell how the CLI was installed | Upgrade with the tool you used (below) |
+| `APPLIKA_DISABLE_AUTOUPDATE` is set to anything but empty, `0` or `false` | `applika update --force` |
+
+`--force` only lifts `APPLIKA_DISABLE_AUTOUPDATE`; it changes nothing else.
+An overridden URL, a source checkout or an unknown install refuse with or
+without it. Another `applika update` (or the daily update) running at the same
+time also refuses: `Another applika update is running.`
+
+What it prints when nothing blocks it:
+
+| Result | Output | Exit |
+|---|---|---|
+| Nothing newer on PyPI | `applika-cli 1.2.0 is up to date.` | 0 |
+| Updated | `Updating applika-cli 1.1.0 → 1.2.0 (uv tool upgrade applika-cli)…` then `Updated applika-cli 1.1.0 → 1.2.0` | 0 |
+| PyPI cannot be read | `Could not reach PyPI: <reason>`, then `Run it yourself: <command>` | 1 |
+| A version that is not plain numbers | `Cannot compare installed <a> with published <b>.`, then `Run it yourself: <command>` | 1 |
+| The installer failed | `Update failed: <command> exited <code>.`, its last 20 stderr lines, then `Run it yourself: <command>` | 1 |
+| The installer ran past 2 minutes | `Update failed: <command> timed out after 120 s.`, then `Run it yourself: <command>` | 1 |
+| The installer ran but the new version could not be confirmed | `Update failed: <command> ran, but the new version could not be confirmed…`, then `Run it yourself: <command>` | 1 |
+| A pin kept the old version | `<uv\|pipx\|pip> kept applika-cli 1.1.0: your install pins that version. Reinstall without the pin to update.` | 1 |
+
+Every check, failed or not, restarts the once-a-day clock, and the daily
+update never runs right after `applika update`.
+
+To update by hand, use the tool you installed with:
+
+```bash
+uv tool upgrade applika-cli                 # uv tool install applika-cli
+pipx upgrade applika-cli                    # pipx install applika-cli
+python -m pip install --upgrade applika-cli # pip install applika-cli
+```
 
 ---
 
@@ -658,6 +759,8 @@ cli/
         │   ├── cv_file.py       # --file loading (JSON/YAML/stdin) and local validation
         │   ├── download.py      # --type/--dir/--filename/--force naming rules
         │   ├── session.py       # SessionData, SessionStore (~/.config/applika/session.json)
+        │   ├── updater.py       # daily auto update: PyPI check, install detection, gates,
+        │   │                    #   update.json + update.lock (~/.config/applika/)
         │   ├── loopback.py      # LoopbackLoginServer for OAuth browser callback
         │   ├── pkce.py          # PKCE verifier, S256 challenge, state
         │   └── device_flow.py   # device code sign-in: start + poll

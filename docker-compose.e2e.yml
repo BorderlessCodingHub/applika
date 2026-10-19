@@ -8,7 +8,7 @@
 # The schema comes from the real Alembic chain (`alembic upgrade head`) on the
 # api command, against a real Postgres and a real Redis. Playwright drives the
 # `web` origin and every request it makes hits the real API — nothing is mocked.
-# See `scripts/e2e.sh` (the runner) and `backend/app/scripts/seed_e2e.py`
+# See `frontend/scripts/e2e.sh` (the runner) and `backend/app/scripts/seed_e2e.py`
 # (real-session seeding, since GitHub OAuth cannot run headless).
 #
 # Isolation: a distinct compose PROJECT name (`applika-e2e`) and `applika-e2e-*`
@@ -25,7 +25,7 @@
 #
 #   Up:   docker compose -f docker-compose.e2e.yml up -d --build --wait
 #   Down: docker compose -f docker-compose.e2e.yml down -v --remove-orphans
-# Normally you don't call those directly — `scripts/e2e.sh` does.
+# Normally you don't call those directly — `frontend/scripts/e2e.sh` does.
 name: applika-e2e
 
 # The API's environment, shared by `api`, `worker` and `scheduler` (KODI-049,

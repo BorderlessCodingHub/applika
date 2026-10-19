@@ -83,6 +83,11 @@ is an owner exception to the first Consequence above. The owner chose "Gate noth
 member, no seed row, no `require_feature`, no web gate (ADR-0019 Decision, "Beta exception"). The rule holds for every
 other feature.
 
+**Note (2026-10-19, PRD 0017).** The applika-cli self-update (the daily auto update and `applika update`) is an owner
+exception to the first Consequence above. The owner chose "No gate, an exception" on 2026-10-19: no `FeatureKey`
+member, no seed row, no route and no API call (ADR-0023 Decision, "Beta exception"). The rule holds for every other
+feature.
+
 ## Non-goals
 
 - RBAC, permission strings, plan tiers and entitlements. The ADR-0004 Non-goals stand.

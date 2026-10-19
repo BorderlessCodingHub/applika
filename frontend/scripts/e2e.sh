@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# scripts/e2e.sh — the single E2E entrypoint (local AND CI).
+# frontend/scripts/e2e.sh — the single E2E entrypoint (local AND CI).
 #
 # Stands up the dedicated, ephemeral, isolated E2E stack
 # (docker-compose.e2e.yml: the REAL API image + the REAL frontend image, a real
@@ -10,13 +10,13 @@
 # real front door, then tears everything down (always, via a trap). CI calls
 # this same script so local and CI can't drift.
 #
-# Usage:
-#   scripts/e2e.sh                 # full run: up -> seed -> playwright -> down
-#   KEEP_STACK=1 scripts/e2e.sh    # leave the stack up afterwards (debugging)
-#   scripts/e2e.sh <pw args>       # forwarded to `playwright test` (e.g. a spec)
+# Usage (from the repo root; from frontend/ run ./scripts/e2e.sh instead):
+#   frontend/scripts/e2e.sh                 # full run: up -> seed -> playwright -> down
+#   KEEP_STACK=1 frontend/scripts/e2e.sh    # leave the stack up afterwards (debugging)
+#   frontend/scripts/e2e.sh <pw args>       # forwarded to `playwright test` (e.g. a spec)
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 COMPOSE=(docker compose -f "$ROOT_DIR/docker-compose.e2e.yml")

@@ -2,11 +2,12 @@ name: Frontend CI
 
 # The `paths` filter is a property of the EVENT, not of a job, so one workflow
 # gets exactly one path list. It is therefore the UNION of what the frontend
-# jobs need (`frontend/**`) and what the `e2e` job needs (`backend/**`,
-# `docker-compose.e2e.yml`, `scripts/e2e.sh`) — the E2E suite drives the real
-# API, so a backend-only change must still run it. The consequence is that the
-# five frontend-only jobs also run on a backend-only change; they are fast and
-# can only pass, so the trade is a little CI time for never missing an E2E run.
+# jobs need (`frontend/**`, which holds the runner `frontend/scripts/e2e.sh`)
+# and what the `e2e` job needs on top (`backend/**`, `docker-compose.e2e.yml`)
+# — the E2E suite drives the real API, so a backend-only change must still run
+# it. The consequence is that the five frontend-only jobs also run on a
+# backend-only change; they are fast and can only pass, so the trade is a
+# little CI time for never missing an E2E run.
 on:
   workflow_dispatch:
   push:
@@ -19,7 +20,6 @@ on:
       - "frontend/**"
       - "backend/**"
       - "docker-compose.e2e.yml"
-      - "scripts/e2e.sh"
   pull_request:
     branches:
       - develop
@@ -28,7 +28,6 @@ on:
       - "frontend/**"
       - "backend/**"
       - "docker-compose.e2e.yml"
-      - "scripts/e2e.sh"
 
 permissions:
   contents: read
@@ -157,11 +156,12 @@ jobs:
   e2e:
     name: E2E (real stack)
     runs-on: ubuntu-latest
-    # No `working-directory` default: scripts/e2e.sh must run from the repo
-    # root, where docker-compose.e2e.yml lives. It builds and starts the real
-    # API, the real frontend image, a real Postgres migrated with
-    # `alembic upgrade head` and a real Redis, seeds real sessions, runs
-    # Playwright and tears the stack down. Same single command as local.
+    # No `working-directory` default: frontend/scripts/e2e.sh is called from
+    # the checkout root and cds to the repo root, where docker-compose.e2e.yml
+    # lives, by itself. It builds and starts the real API, the real frontend
+    # image, a real Postgres migrated with `alembic upgrade head` and a real
+    # Redis, seeds real sessions, runs Playwright and tears the stack down.
+    # Same single command as local.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -182,7 +182,7 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
         working-directory: frontend
       - name: Run the E2E suite against the real stack
-        run: ./scripts/e2e.sh
+        run: ./frontend/scripts/e2e.sh
       - name: Upload the Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4
