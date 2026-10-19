@@ -1,8 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { AxiosError, AxiosHeaders } from "axios";
 import { type ReactNode } from "react";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import {
+  FINALIZE_OUTCOME_COPY,
+  FINALIZE_REVERSIBLE_COPY,
+} from "@/components/applications/application-close-copy";
 
 import { TimelineEventForm } from "@/components/timeline/timeline-event-form";
 import {
@@ -32,13 +39,22 @@ vi.mock("@/services/services", () => ({
       remove: vi.fn(),
       list: vi.fn(),
     },
+    applications: {
+      finalize: vi.fn(),
+    },
   },
+}));
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
 }));
 // Every test sets its own `mockResolvedValue`; reset so no test reads a call
 // another test made (`mock.calls[0]`, `toHaveBeenCalledWith`).
 beforeEach(() => {
   vi.mocked(services.timeline.create).mockReset();
   vi.mocked(services.timeline.update).mockReset();
+  vi.mocked(services.applications.finalize).mockReset();
+  vi.mocked(toast.success).mockReset();
+  vi.mocked(toast.error).mockReset();
 });
 
 function renderForm(
@@ -76,6 +92,8 @@ describe("TimelineEventForm — interview type visibility (AC7)", () => {
     ]);
     expect(screen.queryByRole("radio", { name: "Note" })).toBeNull();
     expect(screen.queryByRole("radio", { name: "Feedback" })).toBeNull();
+    // None only closes an application: Add event never offers it.
+    expect(screen.queryByRole("radio", { name: "None" })).toBeNull();
     expect(screen.getByRole("radio", { name: "Interview" })).toBeChecked();
     expect(
       screen.getByRole("combobox", { name: "Interview type" }),
@@ -618,4 +636,512 @@ describe("TimelineEventForm — denied reason (AC4, KODI-014)", () => {
       expect(payload).not.toHaveProperty("denied_reason");
     },
   );
+});
+
+// ---------------------------------------------------------------------------
+// Close mode: the flag's dialog (`purpose="close"`). The old close dialog's
+// cases, every describe of it, ported here: reversible copy, outcome-gated
+// fields, server-limit parity, outcome date and the denied reason.
+// ---------------------------------------------------------------------------
+
+const RENDER_CLOSE = { purpose: "close" as const };
+
+function todayLocalIso() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+}
+
+function closedApplication() {
+  return { id: "app-1" } as never;
+}
+
+describe("TimelineEventForm close mode — the choices", () => {
+  it("is the Close application dialog, offering None, Offer and Denied in that order, never Interview", () => {
+    renderForm(RENDER_CLOSE);
+    expect(
+      screen.getByRole("dialog", { name: "Close application" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "Outcome" })).toBeVisible();
+    const radios = screen.getAllByRole("radio");
+    expect(radios.map((radio) => radio.getAttribute("value"))).toEqual([
+      "none",
+      "offer",
+      "denied",
+    ]);
+    expect(radios.map((radio) => radio.textContent)).toEqual([
+      "None",
+      "Offer",
+      "Denied",
+    ]);
+    expect(screen.queryByRole("radio", { name: "Interview" })).toBeNull();
+  });
+
+  it("opens on None, with no checkbox and the Close application button", () => {
+    renderForm(RENDER_CLOSE);
+    expect(screen.getByRole("radio", { name: "None" })).toBeChecked();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Close application" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /add event/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens on None again after it was closed on another choice", async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderForm(RENDER_CLOSE);
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    expect(screen.getByRole("radio", { name: "Denied" })).toBeChecked();
+
+    const props = {
+      applicationId: "app-1",
+      onOpenChange: () => {},
+      otherEvents: [],
+      purpose: "close" as const,
+    };
+    rerender(<TimelineEventForm {...props} open={false} />);
+    rerender(<TimelineEventForm {...props} open />);
+    expect(screen.getByRole("radio", { name: "None" })).toBeChecked();
+  });
+
+  it("explains the picked choice under the chips, as the group's description", async () => {
+    const user = userEvent.setup();
+    renderForm(RENDER_CLOSE);
+    const group = screen.getByRole("radiogroup", { name: "Outcome" });
+    expect(group).toHaveAccessibleDescription(
+      FINALIZE_OUTCOME_COPY.none.description,
+    );
+    await user.click(screen.getByRole("radio", { name: "Offer" }));
+    expect(group).toHaveAccessibleDescription(
+      FINALIZE_OUTCOME_COPY.offer.description,
+    );
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    expect(group).toHaveAccessibleDescription(
+      FINALIZE_OUTCOME_COPY.denied.description,
+    );
+  });
+
+  it("Add event shows no explanation line under its chips", () => {
+    renderForm();
+    expect(
+      screen.queryByText(FINALIZE_OUTCOME_COPY.none.description),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("radiogroup", { name: "Event type" }),
+    ).not.toHaveAccessibleDescription(/close/i);
+  });
+});
+
+describe("TimelineEventForm close mode — reversible copy", () => {
+  it("always says closing is reversible, as the dialog's description", () => {
+    renderForm(RENDER_CLOSE);
+    expect(screen.getByText(FINALIZE_REVERSIBLE_COPY)).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Close application" }),
+    ).toHaveAccessibleDescription(/reversible/i);
+  });
+});
+
+describe("TimelineEventForm close mode — outcome-gated fields", () => {
+  it("None shows no date, notes, salary or reason field", () => {
+    renderForm(RENDER_CLOSE);
+    expect(screen.queryByLabelText("Date")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/notes/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Amount")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Reason" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Denied reveals date + notes but no salary triad", async () => {
+    const user = userEvent.setup();
+    renderForm(RENDER_CLOSE);
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    expect(screen.getByLabelText("Date")).toBeInTheDocument();
+    expect(screen.getByLabelText(/notes/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Amount")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Currency" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Denied reveals the reason select, defaulted to Unknown", async () => {
+    const user = userEvent.setup();
+    renderForm(RENDER_CLOSE);
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    const select = screen.getByRole("combobox", { name: "Reason" });
+    expect(select).toBeInTheDocument();
+    expect(select).toHaveTextContent("Unknown");
+  });
+
+  it("None and Offer show no reason select", async () => {
+    const user = userEvent.setup();
+    renderForm(RENDER_CLOSE);
+    expect(
+      screen.queryByRole("combobox", { name: "Reason" }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Offer" }));
+    expect(
+      screen.queryByRole("combobox", { name: "Reason" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Offer reveals date, notes and the full salary triad, monthly|annually only", async () => {
+    const user = userEvent.setup();
+    renderForm(RENDER_CLOSE);
+    await user.click(screen.getByRole("radio", { name: "Offer" }));
+    expect(screen.getByLabelText("Date")).toBeInTheDocument();
+    expect(screen.getByLabelText(/notes/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Amount")).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Currency" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Monthly" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Annually" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("radio", { name: "Hourly" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Offer's currency select lists all 20 currencies", async () => {
+    const user = userEvent.setup();
+    renderForm(RENDER_CLOSE);
+    await user.click(screen.getByRole("radio", { name: "Offer" }));
+    await user.click(screen.getByRole("combobox", { name: "Currency" }));
+    expect(screen.getAllByRole("option")).toHaveLength(20);
+  });
+
+  it("Offer and Denied ask for the same fields as Add event does", async () => {
+    const user = userEvent.setup();
+    const fieldsOf = () =>
+      ["Date", "Amount"]
+        .filter((label) => screen.queryByLabelText(label))
+        .concat(
+          screen.queryByLabelText(/notes/i) ? ["Notes"] : [],
+          screen.queryByRole("combobox", { name: "Currency" })
+            ? ["Currency"]
+            : [],
+          screen.queryByRole("radio", { name: "Monthly" }) ? ["Period"] : [],
+          screen.queryByRole("combobox", { name: "Reason" }) ? ["Reason"] : [],
+        );
+
+    const seen: Record<string, string[]> = {};
+    for (const purpose of ["event", "close"] as const) {
+      const view = renderForm({ purpose });
+      for (const label of ["Offer", "Denied"]) {
+        await user.click(screen.getByRole("radio", { name: label }));
+        seen[`${purpose}:${label}`] = fieldsOf();
+      }
+      view.unmount();
+    }
+    expect(seen["close:Offer"]).toEqual(seen["event:Offer"]);
+    expect(seen["close:Denied"]).toEqual(seen["event:Denied"]);
+    expect(seen["close:Offer"]).toEqual([
+      "Date",
+      "Amount",
+      "Notes",
+      "Currency",
+      "Period",
+    ]);
+    expect(seen["close:Denied"]).toEqual(["Date", "Notes", "Reason"]);
+  });
+});
+
+describe("TimelineEventForm close mode — server-limit parity (mirrors FinalizeWithOutcome)", () => {
+  it("blocks the close on an amount with more than 2 decimal places", async () => {
+    const user = userEvent.setup();
+    renderForm(RENDER_CLOSE);
+    await user.click(screen.getByRole("radio", { name: "Offer" }));
+    await user.type(screen.getByLabelText("Amount"), "100.555");
+    await user.click(screen.getByRole("combobox", { name: "Currency" }));
+    await user.click(screen.getAllByRole("option")[0]);
+    await user.click(screen.getByRole("radio", { name: "Monthly" }));
+
+    await user.click(screen.getByRole("button", { name: "Close application" }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "Please fix the highlighted fields before closing",
+      ),
+    );
+    expect(services.applications.finalize).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Up to 10 digits and 2 decimal places"),
+    ).toBeInTheDocument();
+  });
+
+  it("blocks the close on notes longer than 5000 characters", async () => {
+    const user = userEvent.setup();
+    renderForm(RENDER_CLOSE);
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    fireEvent.change(screen.getByLabelText(/notes/i), {
+      target: { value: "a".repeat(5001) },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Close application" }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(services.applications.finalize).not.toHaveBeenCalled();
+    expect(screen.getByText("Notes are too long")).toBeInTheDocument();
+  });
+
+  it("a stale over-limit note left over from Denied does not block a None close", async () => {
+    // None unmounts the notes field: a value typed while Denied was picked
+    // must not block the close once switched back to None, since nothing
+    // left on screen could fix it.
+    const user = userEvent.setup();
+    vi.mocked(services.applications.finalize).mockResolvedValue(
+      closedApplication(),
+    );
+    renderForm(RENDER_CLOSE);
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    fireEvent.change(screen.getByLabelText(/notes/i), {
+      target: { value: "a".repeat(5001) },
+    });
+    await user.click(screen.getByRole("radio", { name: "None" }));
+
+    await user.click(screen.getByRole("button", { name: "Close application" }));
+
+    await waitFor(() =>
+      expect(services.applications.finalize).toHaveBeenCalledWith(
+        "app-1",
+        undefined,
+      ),
+    );
+  });
+});
+
+describe("TimelineEventForm close mode — outcome date", () => {
+  it("defaults the date to today and disables tomorrow", async () => {
+    const user = userEvent.setup();
+    renderForm(RENDER_CLOSE);
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    const trigger = screen.getByLabelText("Date");
+    expect(trigger).toHaveTextContent(todayLocalIso());
+
+    await user.click(trigger);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    // Only assert when tomorrow is in the month the calendar opened on.
+    if (tomorrow.getMonth() === today.getMonth()) {
+      const cells = screen
+        .getAllByRole("button")
+        .filter(
+          (b) =>
+            b.closest('[role="grid"]') &&
+            b.textContent === String(tomorrow.getDate()),
+        );
+      expect(cells.length).toBeGreaterThan(0);
+      expect(cells[0]).toBeDisabled();
+    }
+  });
+
+  it("Offer caps the date at today too", async () => {
+    const user = userEvent.setup();
+    renderForm(RENDER_CLOSE);
+    await user.click(screen.getByRole("radio", { name: "Offer" }));
+    await user.click(screen.getByLabelText("Date"));
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    if (tomorrow.getMonth() === today.getMonth()) {
+      const cell = screen
+        .getAllByRole("button")
+        .find(
+          (b) =>
+            b.closest('[role="grid"]') &&
+            b.textContent === String(tomorrow.getDate()),
+        );
+      expect(cell).toBeDisabled();
+    }
+  });
+
+  it("Add event (no close) still allows a future date", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    await user.click(screen.getByLabelText("Date"));
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    if (tomorrow.getMonth() === today.getMonth()) {
+      const cell = screen
+        .getAllByRole("button")
+        .find(
+          (b) =>
+            b.closest('[role="grid"]') &&
+            b.textContent === String(tomorrow.getDate()),
+        );
+      expect(cell).not.toBeDisabled();
+    }
+  });
+});
+
+describe("TimelineEventForm close mode — saving", () => {
+  it("None closes with a bodyless finalize and adds nothing to the timeline", async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    vi.mocked(services.applications.finalize).mockResolvedValue(
+      closedApplication(),
+    );
+    renderForm({ ...RENDER_CLOSE, onOpenChange });
+    await user.click(screen.getByRole("button", { name: "Close application" }));
+    await waitFor(() =>
+      expect(services.applications.finalize).toHaveBeenCalledWith(
+        "app-1",
+        undefined,
+      ),
+    );
+    expect(services.applications.finalize).toHaveBeenCalledTimes(1);
+    expect(services.timeline.create).not.toHaveBeenCalled();
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    expect(toast.success).toHaveBeenCalledWith("Application closed");
+  });
+
+  it("Offer sends the outcome body with the salary trio, in one finalize call", async () => {
+    const user = userEvent.setup();
+    vi.mocked(services.applications.finalize).mockResolvedValue(
+      closedApplication(),
+    );
+    renderForm(RENDER_CLOSE);
+    await user.click(screen.getByRole("radio", { name: "Offer" }));
+    await user.click(screen.getByRole("radio", { name: "Annually" }));
+    await user.type(screen.getByLabelText("Amount"), " 120000 ");
+    await user.click(screen.getByRole("combobox", { name: "Currency" }));
+    await user.click(await screen.findByRole("option", { name: "SEK" }));
+    await user.type(screen.getByLabelText(/notes/i), "  Verbal offer  ");
+    await user.click(screen.getByRole("button", { name: "Close application" }));
+
+    await waitFor(() =>
+      expect(services.applications.finalize).toHaveBeenCalledTimes(1),
+    );
+    expect(services.applications.finalize).toHaveBeenCalledWith("app-1", {
+      outcome: "offer",
+      event_date: todayLocalIso(),
+      observation: "Verbal offer",
+      salary_amount: "120000",
+      salary_currency: "SEK",
+      salary_period: "annually",
+    });
+    expect(services.timeline.create).not.toHaveBeenCalled();
+  });
+
+  it("sends denied_reason 'unknown' when the select is left untouched", async () => {
+    const user = userEvent.setup();
+    vi.mocked(services.applications.finalize).mockResolvedValue(
+      closedApplication(),
+    );
+    renderForm(RENDER_CLOSE);
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    await user.click(screen.getByRole("button", { name: "Close application" }));
+    await waitFor(() =>
+      expect(services.applications.finalize).toHaveBeenCalledWith("app-1", {
+        outcome: "denied",
+        event_date: todayLocalIso(),
+        observation: undefined,
+        denied_reason: "unknown",
+      }),
+    );
+    expect(services.timeline.create).not.toHaveBeenCalled();
+  });
+
+  it("sends the picked reason", async () => {
+    const user = userEvent.setup();
+    vi.mocked(services.applications.finalize).mockResolvedValue(
+      closedApplication(),
+    );
+    renderForm(RENDER_CLOSE);
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    await user.click(screen.getByRole("combobox", { name: "Reason" }));
+    await user.click(
+      await screen.findByRole("option", { name: "Salary mismatch" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Close application" }));
+    await waitFor(() =>
+      expect(services.applications.finalize).toHaveBeenCalledWith(
+        "app-1",
+        expect.objectContaining({
+          outcome: "denied",
+          denied_reason: "salary_mismatch",
+        }),
+      ),
+    );
+  });
+
+  it("never sends denied_reason for an Offer close", async () => {
+    const user = userEvent.setup();
+    vi.mocked(services.applications.finalize).mockResolvedValue(
+      closedApplication(),
+    );
+    renderForm(RENDER_CLOSE);
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    await user.click(screen.getByRole("radio", { name: "Offer" }));
+    await user.click(screen.getByRole("radio", { name: "Monthly" }));
+    await user.type(screen.getByLabelText("Amount"), "1000");
+    await user.click(screen.getByRole("combobox", { name: "Currency" }));
+    await user.click((await screen.findAllByRole("option"))[0]);
+    await user.click(screen.getByRole("button", { name: "Close application" }));
+    await waitFor(() =>
+      expect(services.applications.finalize).toHaveBeenCalled(),
+    );
+    const [, payload] = vi.mocked(services.applications.finalize).mock.calls[0];
+    expect(payload).not.toHaveProperty("denied_reason");
+  });
+
+  it("a None close after visiting Denied sends no body, and no denied_reason", async () => {
+    const user = userEvent.setup();
+    vi.mocked(services.applications.finalize).mockResolvedValue(
+      closedApplication(),
+    );
+    renderForm(RENDER_CLOSE);
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    await user.click(screen.getByRole("radio", { name: "None" }));
+    await user.click(screen.getByRole("button", { name: "Close application" }));
+    await waitFor(() =>
+      expect(services.applications.finalize).toHaveBeenCalledWith(
+        "app-1",
+        undefined,
+      ),
+    );
+  });
+
+  it("a refused close (409: already closed) shows the server's words and keeps the dialog open", async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    const detail = "Reopen the application to edit it (it is currently closed)";
+    vi.mocked(services.applications.finalize).mockRejectedValue(
+      new AxiosError("Conflict", "ERR_BAD_REQUEST", undefined, undefined, {
+        status: 409,
+        statusText: "Conflict",
+        headers: new AxiosHeaders(),
+        config: {} as never,
+        data: { detail },
+      }),
+    );
+    renderForm({ ...RENDER_CLOSE, onOpenChange });
+    await user.click(screen.getByRole("radio", { name: "Denied" }));
+    await user.click(screen.getByRole("button", { name: "Close application" }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(detail));
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("dialog", { name: "Close application" }),
+    ).toBeInTheDocument();
+  });
+
+  it("a failure with no server answer falls back to 'Could not close it'", async () => {
+    const user = userEvent.setup();
+    vi.mocked(services.applications.finalize).mockRejectedValue(
+      new Error("boom"),
+    );
+    renderForm(RENDER_CLOSE);
+    await user.click(screen.getByRole("button", { name: "Close application" }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Could not close it"),
+    );
+  });
 });

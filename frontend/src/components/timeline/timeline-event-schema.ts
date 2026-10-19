@@ -7,6 +7,7 @@ import {
   type TimelineEventView,
 } from "@/components/timeline/timeline-types";
 import { browserTimeZone } from "@/components/timeline/timezone-options";
+import type { FinalizeApplicationPayload } from "@/services/types/applications";
 import type { CreateTimelineEventPayload } from "@/services/types/timeline";
 
 /**
@@ -20,7 +21,7 @@ import type { CreateTimelineEventPayload } from "@/services/types/timeline";
  * a non-negative amount, and one of the 20 currencies) and no `interview_type`;
  * the `denied` branch REQUIRES `denied_reason` (one of the 10 hardcoded
  * reasons, default `unknown`). Note and feedback are gone (ADR 0020):
- * the union has three branches only. The `interview` branch is the only one that can ever WRITE a
+ * the union has three event branches. The `interview` branch is the only one that can ever WRITE a
  * start/end/timezone from form input. A non-interview event never sends a
  * schedule (KODI-016): `start_time`/`end_time`/`timezone` are OMITTED from
  * the wire body entirely (not sent as `null`) for every non-interview
@@ -31,6 +32,15 @@ import type { CreateTimelineEventPayload } from "@/services/types/timeline";
  * it in tests. Interview behaviour is unchanged. Salary/amount numerics
  * stay strings (they are strings on the wire) — the amount is only checked
  * to be a valid non-negative number.
+ *
+ * The close dialog (`TimelineEventForm purpose="close"`) adds a fourth,
+ * `none` branch: close the application with no outcome. It validates nothing
+ * — every field is unmounted for it, so a stale value can never block the
+ * close — and it never reaches `toTimelineEventPayload`. `close_application`
+ * rides on every branch: `true` when saving closes the application (always
+ * in the close dialog), `false` for Add event and Edit event. Closing with an
+ * Offer or Denied goes through `toFinalizeOutcomePayload` to
+ * `POST /applications/{id}/finalize`, and its date cannot be later than today.
  */
 
 /** Offer salary period is restricted to monthly/annually. */
@@ -47,8 +57,9 @@ const MAX_TIMEZONE = 100;
 const MAX_OBSERVATION = 5000;
 const SALARY_AMOUNT_PATTERN = /^\d{1,10}(\.\d{1,2})?$/;
 
-/** Shared, non-salary, non-classifier fields present on every branch. */
+/** Shared, non-salary, non-classifier fields present on every event branch. */
 const commonShape = {
+  close_application: z.boolean(),
   event_date: z
     .string()
     .min(1, "Event date is required")
@@ -139,15 +150,30 @@ const offerSchema = z.object({
   salary_currency: z.enum(SALARY_CURRENCIES, { message: "Select a currency" }),
 });
 
-export const timelineEventSchema = z
-  .discriminatedUnion("event_type", [
-    interviewSchema,
-    offerSchema,
-    deniedSchema,
-  ])
-  .superRefine(validateSchedule);
+/**
+ * `none` branch — the close dialog's "close without an outcome". Validates
+ * nothing: the date, notes and every type group are unmounted for it, so a
+ * value typed while Offer or Denied was picked (an over-long note, say) must
+ * never block the close.
+ */
+const noneSchema = z.object({
+  event_type: z.literal("none"),
+  close_application: z.boolean(),
+  interview_type: z.string().optional(),
+  denied_reason: z.string().optional(),
+  event_date: z.string(),
+  start_time: z.string(),
+  end_time: z.string(),
+  timezone: z.string(),
+  observation: z.string(),
+  salary_period: z.string().optional(),
+  salary_amount: z.string().optional(),
+  salary_currency: z.string().optional(),
+});
 
-export type TimelineEventFormValues = z.infer<typeof timelineEventSchema>;
+/** The message when a closing save carries a date later than today. */
+export const CLOSING_DATE_MESSAGE =
+  "Pick today or an earlier date to close the application";
 
 /** Local-timezone `YYYY-MM-DD` for the date input's initial value. */
 function todayIso(): string {
@@ -157,13 +183,62 @@ function todayIso(): string {
 }
 
 /**
+ * A save that closes the application (an Offer or Denied with
+ * `close_application`) records the outcome on a day that already happened:
+ * its date cannot be later than the user's own today. `YYYY-MM-DD` compares
+ * correctly as a string.
+ */
+function validateClosingDate(
+  values: {
+    event_type: string;
+    close_application: boolean;
+    event_date: string;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  if (values.event_type !== "offer" && values.event_type !== "denied") return;
+  if (!values.close_application) return;
+  if (values.event_date.slice(0, 10) > todayIso()) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["event_date"],
+      message: CLOSING_DATE_MESSAGE,
+    });
+  }
+}
+
+export const timelineEventSchema = z
+  .discriminatedUnion("event_type", [
+    interviewSchema,
+    offerSchema,
+    deniedSchema,
+    noneSchema,
+  ])
+  .superRefine(validateSchedule)
+  .superRefine(validateClosingDate);
+
+export type TimelineEventFormValues = z.infer<typeof timelineEventSchema>;
+
+/** Form values of a real event: what `toTimelineEventPayload` accepts. */
+export type TimelineEventEventValues = Exclude<
+  TimelineEventFormValues,
+  { event_type: "none" }
+>;
+
+/** Form values that can close the application: None, Offer or Denied. */
+export type TimelineEventCloseValues = Exclude<
+  TimelineEventFormValues,
+  { event_type: "interview" }
+>;
+
+/**
  * Blank values for the create flow — defaults to an `interview` of type
  * `unknown` on today's date.
  * `timezone` pre-fills with the browser's own zone (KODI-014): the select
  * cannot be cleared, so a create flow that never touches the field still
  * carries a real zone once the type becomes `interview`.
  */
-export function emptyTimelineEventValues(): TimelineEventFormValues {
+export function emptyTimelineEventValues(): TimelineEventEventValues {
   return {
     event_type: "interview",
     event_date: todayIso(),
@@ -176,7 +251,30 @@ export function emptyTimelineEventValues(): TimelineEventFormValues {
     salary_period: "",
     salary_amount: "",
     salary_currency: "",
-  } as TimelineEventFormValues;
+    close_application: false,
+  } as TimelineEventEventValues;
+}
+
+/**
+ * Values for the close dialog: None on today's date, every other field blank,
+ * and `close_application` true (never shown — the close dialog always
+ * closes).
+ */
+export function emptyCloseValues(): TimelineEventFormValues {
+  return {
+    event_type: "none",
+    event_date: todayIso(),
+    start_time: "",
+    end_time: "",
+    timezone: "",
+    observation: "",
+    interview_type: "",
+    denied_reason: "",
+    salary_period: "",
+    salary_amount: "",
+    salary_currency: "",
+    close_application: true,
+  };
 }
 
 /**
@@ -187,8 +285,9 @@ export function emptyTimelineEventValues(): TimelineEventFormValues {
  */
 export function timelineEventToFormValues(
   event: TimelineEventView,
-): TimelineEventFormValues {
+): TimelineEventEventValues {
   const common = {
+    close_application: false,
     event_date: event.eventDate.slice(0, 10),
     start_time: event.startTime ?? "",
     end_time: event.endTime ?? "",
@@ -213,7 +312,7 @@ export function timelineEventToFormValues(
       // A stored offer always carries a valid currency; fall back defensively.
       salary_currency: (event.salaryCurrency ??
         "USD") as (typeof SALARY_CURRENCIES)[number],
-    } as TimelineEventFormValues;
+    } as TimelineEventEventValues;
   }
 
   if (event.type === "interview") {
@@ -225,7 +324,7 @@ export function timelineEventToFormValues(
       salary_period: "",
       salary_amount: "",
       salary_currency: "",
-    } as TimelineEventFormValues;
+    } as TimelineEventEventValues;
   }
 
   return {
@@ -237,7 +336,7 @@ export function timelineEventToFormValues(
     salary_period: "",
     salary_amount: "",
     salary_currency: "",
-  } as TimelineEventFormValues;
+  } as TimelineEventEventValues;
 }
 
 /** Trim a string; return `null` when blank so the API stores nothing. */
@@ -270,7 +369,7 @@ function blankToNull(value: string): string | null {
  * offers — all three are omitted entirely for every other type.
  */
 export function toTimelineEventPayload(
-  values: TimelineEventFormValues,
+  values: TimelineEventEventValues,
 ): CreateTimelineEventPayload {
   const isInterview = values.event_type === "interview";
   const hasStart = isInterview && blankToNull(values.start_time) !== null;
@@ -307,6 +406,40 @@ export function toTimelineEventPayload(
 
   return {
     event_type: "denied",
+    ...base,
+    denied_reason: values.denied_reason,
+  };
+}
+
+/**
+ * Convert validated closing values into the finalize body
+ * (`POST /applications/{id}/finalize`). `none` sends `undefined` — a bodyless
+ * POST, no timeline event — and Offer or Denied send only the fields their
+ * outcome uses: the server records the event and closes the application in
+ * one commit, so both happen or neither does.
+ */
+export function toFinalizeOutcomePayload(
+  values: TimelineEventCloseValues,
+): FinalizeApplicationPayload | undefined {
+  if (values.event_type === "none") return undefined;
+
+  const base = {
+    event_date: values.event_date,
+    observation: values.observation.trim() || undefined,
+  };
+
+  if (values.event_type === "offer") {
+    return {
+      outcome: "offer",
+      ...base,
+      salary_amount: values.salary_amount.trim(),
+      salary_currency: values.salary_currency,
+      salary_period: values.salary_period,
+    };
+  }
+
+  return {
+    outcome: "denied",
     ...base,
     denied_reason: values.denied_reason,
   };

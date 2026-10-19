@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { FINALIZE_REVERSIBLE_COPY } from "@/components/applications/application-close-copy";
 import { TimelineEventDialog } from "@/components/timeline/timeline-event-dialog";
 
 /**
@@ -68,5 +69,52 @@ describe("TimelineEventDialog — create description", () => {
       "Record an interview, offer, or rejection for this application.",
     );
     expect(dialog).not.toHaveAccessibleDescription(/note|feedback/i);
+  });
+});
+
+/**
+ * The flag's dialog is this same shell in `close` mode: named "Close
+ * application", described by the sentence that says closing is reversible,
+ * with the same top-anchored `max-w-3xl` shape.
+ */
+describe("TimelineEventDialog — close mode", () => {
+  it("is the Close application dialog, described as reversible, same shape", () => {
+    render(
+      <TimelineEventDialog
+        open
+        onOpenChange={() => {}}
+        mode="close"
+        footer={<button type="button">Close application</button>}
+      >
+        <div>body</div>
+      </TimelineEventDialog>,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Close application" });
+    expect(dialog).toHaveAccessibleDescription(FINALIZE_REVERSIBLE_COPY);
+    expect(dialog).toHaveAccessibleDescription(/reversible/i);
+    expect(dialog.className).toContain("sm:max-w-3xl");
+    expect(dialog.className).toContain("top-4");
+    // The RotateCcw icon sits beside the sentence and is hidden from AT.
+    const icon = dialog.querySelector("svg.lucide-rotate-ccw");
+    expect(icon).not.toBeNull();
+    expect(icon).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("wraps its footer on narrow screens", () => {
+    render(
+      <TimelineEventDialog
+        open
+        onOpenChange={() => {}}
+        mode="close"
+        footer={<button type="button">Close application</button>}
+      >
+        <div>body</div>
+      </TimelineEventDialog>,
+    );
+    const footer = screen
+      .getByRole("button", { name: "Close application" })
+      .closest('[data-slot="dialog-footer"]');
+    expect(footer?.className).toContain("flex-wrap");
   });
 });
