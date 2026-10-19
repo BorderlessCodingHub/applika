@@ -318,8 +318,8 @@
     oklch per CSS Color 4. Tokens added since follow fixed rules: surface =
     card, surface-elevated = popover, primary-muted = primary / 0.12, info =
     primary, chart-1..5 = primary, success, warning, destructive,
-    muted-foreground. globals-palette.test.ts pins every value; one changes
-    only with an ADR.
+    muted-foreground; border-strong has its own pinned value.
+    globals-palette.test.ts pins every value; one changes only with an ADR.
   */
   :root {
     --radius: 0.5rem;
