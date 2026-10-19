@@ -246,10 +246,16 @@ applika applications new \
 
 ### Record an offer
 
-An offer is a timeline event or a finalize outcome, not an `applications edit` flag:
+An offer is a timeline event or a finalize outcome, not an `applications edit` flag.
+`timeline add --type offer` closes the application unless `--keep-open` is given:
 
 ```bash
 # Add it to the timeline without closing the application
+applika applications timeline add 1234567890123456789 \
+  --type offer --date 2026-06-18 \
+  --salary 180000 --currency USD --period annually --keep-open
+
+# Add it to the timeline and close the application with it
 applika applications timeline add 1234567890123456789 \
   --type offer --date 2026-06-18 \
   --salary 180000 --currency USD --period annually
@@ -297,14 +303,18 @@ applika applications timeline add <application-id> \
   --type interview --interview-type technical --date 2026-06-05 \
   --start-time 14:00 --end-time 15:00 --timezone America/Sao_Paulo
 
-# Add an offer (salary triad is required together, period is monthly or annually only)
+# Add an offer and close the application (salary triad is required together, period is monthly or annually only)
 applika applications timeline add <application-id> \
   --type offer --date 2026-06-10 \
   --salary 180000 --currency USD --period annually
 
-# Add a denial with a reason (defaults --reason to "unknown" if omitted)
+# Add a denial with a reason and close the application (defaults --reason to "unknown" if omitted)
 applika applications timeline add <application-id> \
   --type denied --date 2026-06-11 --reason skills_mismatch
+
+# Add an offer or a denial and keep the application open
+applika applications timeline add <application-id> \
+  --type denied --date 2026-06-11 --keep-open
 
 # Edit an event (PUT replaces the whole event; unspecified flags keep current values)
 applika applications timeline edit <application-id> <event-id> --observation "Updated"
@@ -315,6 +325,12 @@ applika applications timeline edit <application-id> <event-id> --reason ghosted
 # Delete an event
 applika applications timeline delete <application-id> <event-id>
 ```
+
+An `offer` or `denied` event added without `--keep-open` closes the
+application (it prints `Added event and closed application: ... status=closed
+... outcome=<offer|denied>`); its date cannot be later than today (the server
+refuses it and nothing changes). `--keep-open` is ignored with
+`--type interview`.
 
 Event types: `interview`, `offer`, `denied`. `note` and `feedback` are not
 event types: `--type note` and `--type feedback` are usage errors (exit 2),

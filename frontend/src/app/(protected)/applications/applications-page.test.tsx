@@ -441,6 +441,52 @@ describe("ApplicationsPage — Applications | Drafts tabs (KODI-036, AC8)", () =
   });
 });
 
+describe("ApplicationsPage — the flag opens the one event dialog in close mode", () => {
+  beforeEach(() => {
+    searchParams = new URLSearchParams();
+    supportsReady = true;
+    isViewingPastCycle = false;
+    hasCvs = true;
+    setDraftsState([]);
+  });
+
+  it("opens a dialog named Close application with None, Offer and Denied, and no alertdialog", async () => {
+    const user = userEvent.setup();
+    setHookState({ filtered: [focusApplication()] });
+    renderWithQueryClient();
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Close Backend engineer at Acme",
+      }),
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Close application",
+    });
+    expect(dialog).toHaveAccessibleDescription(/reversible/i);
+    const radios = within(dialog).getAllByRole("radio");
+    expect(radios.map((radio) => radio.textContent)).toEqual([
+      "None",
+      "Offer",
+      "Denied",
+    ]);
+    expect(within(dialog).getByRole("radio", { name: "None" })).toBeChecked();
+    expect(
+      within(dialog).queryByRole("radio", { name: "Interview" }),
+    ).toBeNull();
+    expect(within(dialog).queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Close application" }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+});
+
 describe("ApplicationsPage — ?focus= (R-011, KODI-038)", () => {
   beforeEach(() => {
     searchParams = new URLSearchParams();

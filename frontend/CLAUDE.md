@@ -66,7 +66,7 @@ memoization because `react-hook-form`'s `watch()` cannot be memoized safely)
 and `company-select.tsx` (a `useEffect` missing dependency). Warnings do not
 fail the gate; errors do. Do not add new ones — in particular, watch a form
 field with `useWatch` (from `react-hook-form`), never `form.watch()`, in any
-new form (see the timeline and finalize forms below for the pattern).
+new form (see the timeline event form below for the pattern).
 
 ### E2E
 
@@ -924,7 +924,7 @@ annually`; `hourly` survives only on a legacy offer migrated from a step or
   and `src/options.ts`'s `CURRENCY`/`SALARY_PERIOD` are DERIVED from
   `timeline-options.ts`/`timeline-types.ts`, not redefined — every currency or
   period list in the app (profile, application create/edit, the timeline
-  offer form, the finalize offer fields) is therefore the same 20/3 list, and
+  offer form and its close mode) is therefore the same 20/3 list, and
   the stale `"annual"` (vs. the API's `"annually"`) cannot resurface on the
   web. Never hand-roll a second currency or period list.
 - **Data layer.** `src/services/types/timeline.ts` is the wire DTO
@@ -954,7 +954,7 @@ annually`; `hourly` survives only on a legacy offer migrated from a step or
 - **A new event opens as an interview of type unknown (PRD 0015).**
   `emptyTimelineEventValues()` seeds `event_type: "interview"` and
   `interview_type: "unknown"`; `EventTypeSelector` shows the three types in
-  one row at every width (`grid-cols-3`, the finalize outcome picker's shape).
+  one row at every width (`grid-cols-3`, the close dialog's shape too).
 - **The interview type select needs an explicit default.** Its trigger DISPLAYS
   "Unknown" the moment `event_type` becomes `interview` (a presentational
   fallback in `InterviewTypeSelect`), but nothing writes that back into
@@ -969,18 +969,64 @@ annually`; `hourly` survives only on a legacy offer migrated from a step or
   `monthly | annually`), and the edit form renders `LEGACY_HOURLY_OFFER_HINT`
   under it — the user must actively repick a period before the edit can save.
   Never default a legacy hourly offer to monthly/annually silently.
-- **Close/reopen is an outcome picker, not confirm-only (R-032).** The plan's
-  original "finalize" line is superseded by the owner's 2026-09-18 decision:
-  `FinalizeDialog` (`src/components/applications/finalize-dialog.tsx`) lets the
-  user pick None (default, bodyless `POST /applications/{id}/finalize`), Offer
-  or Denied; Offer/Denied reveal a date + observation, and only Offer also
-  reveals the salary triad. The confirmation copy always contains the word
-  "reversible" (`FINALIZE_REVERSIBLE_COPY`) — this used to be an
-  irreversible-warning `AlertTriangle`; it is now a muted `RotateCcw`, because
-  `useReopenApplication` makes the promise real. `useFinalizeApplication` takes
-  an OPTIONAL payload (`{applicationId, payload?}`) rather than a
-  bodyless-only mutation, and invalidates `["applications"]`, `["statistics"]`
-  and that application's timeline key (an outcome lands as a new event).
+- **Closing is the event dialog in close mode (PRD 0016).** The owner: "Just
+  one component for both uses". The row's flag opens
+  `TimelineEventForm purpose="close"` (mounted by `applications-page.tsx`
+  under its `"finalize"` action) — there is no separate close dialog and no
+  close `alertdialog`. Close mode is a `dialog` named "Close application"
+  (`TimelineEventDialog mode="close"`), offering `CLOSE_TYPE_OPTIONS` — None,
+  Offer, Denied, never Interview — with the picked choice explained under
+  the chips (`EventTypeSelector showHint`, `FINALIZE_OUTCOME_COPY`, wired as
+  the group's description). It opens on None (`emptyCloseValues()` on every
+  open), shows no checkbox and always closes. None shows no other field (the
+  form passes `null` for the date and notes slots; the zod `none` branch
+  validates nothing, so a stale note never blocks it) and sends a bodyless
+  `POST /applications/{id}/finalize`. Offer/Denied show exactly Add event's
+  fields and send the outcome body (`toFinalizeOutcomePayload`): the server
+  writes the event and closes in one commit, so both happen or neither does.
+  A save that closes caps the date at today (`DatePickerInput maxDate` plus
+  the schema's "Pick today or an earlier date to close the application",
+  keyed on Offer/Denied + `close_application`, which is `true` in close mode,
+  `true` on every Add event open (the box below) and `false` for Edit event).
+  Toasts: "Application closed";
+  `getApiError` (fallback "Could not close it", the dialog stays open — a 409
+  reopen message reaches the user this way); "Please fix the highlighted
+  fields before closing". The description always contains the word
+  "reversible" (`FINALIZE_REVERSIBLE_COPY`) beside a muted `RotateCcw`,
+  because `useReopenApplication` makes the promise real.
+  `useFinalizeApplication` takes an OPTIONAL payload
+  (`{applicationId, payload?}`) and invalidates `["applications"]`,
+  `["statistics"]` and that application's timeline key (an outcome lands as
+  a new event).
+- **Add event closes with an Offer or Denied unless the box is unticked
+  (PRD 0016).** The owner: "i want a checkbox - that is checked by default -
+  this checkbox tells that opon creation this this event type, the job
+  application will be closed automatically, the user can uncheck this
+  checkbox to keep the application open". In create mode only, an Offer or
+  Denied renders the `close_application` `FormField` with `ui/checkbox.tsx`
+  FIRST in the dialog's footer, before Cancel: label "Close the application",
+  `FormDescription` "You can reopen it later." (no `FormMessage`; a date
+  error stays on the date field). `basis-full` below `sm` puts it on its own
+  row above Cancel and "Add event"; `sm:basis-auto sm:mr-auto` keeps it left
+  on the same row from `sm`. Because the footer sits OUTSIDE the `<form>`,
+  `<Form {...form}>` wraps the whole `TimelineEventDialog`, not just the
+  form — keep it lifted, or the footer `FormField` loses its context.
+  `emptyTimelineEventValues()` seeds `close_application: true` and the
+  open-effect's `form.reset` re-ticks it on every open; the field is
+  UNMOUNTED for Interview but RHF keeps its value (no `shouldUnregister`), so
+  Offer, untick, Interview, Offer shows it still unticked. Ticked, the save
+  is ONE `POST /applications/{id}/finalize` with `toFinalizeOutcomePayload`
+  — never a create then a finalize — toasting "Application closed" (an error
+  toasts `getApiError` and the dialog stays open); unticked, or an Interview,
+  it is `POST /applications/{id}/timeline` as before ("Event added"). Ticked
+  also caps the date at today (`maxDate` + the closing message), and
+  unticking lifts the cap. The submit stays "Add event"; `isSaving` (create,
+  update or finalize) disables the box too. Edit event never shows the box
+  and never finalizes (`timelineEventToFormValues` sets `false`, and the
+  submit and `maxDate` both check `mode === "create"`). Tests toggle it by
+  `getByRole("checkbox", { name: "Close the application" })`; Playwright's
+  `.uncheck()` works on the Radix checkbox. Any e2e that adds an Offer or
+  Denied to an application that must stay open unticks it first.
 - **Closed application UI.** `ApplicationClosedBadge` (keyed on `finalized_at`)
   and `ApplicationReopenButton` (accessible name composed as `` `Reopen
 ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
@@ -1005,7 +1051,7 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   `setPointerCapture` / `releasePointerCapture` / `scrollIntoView` and a
   `ResizeObserver` stub were added here (KODI-012) — jsdom implements none of
   them, and Radix `Select`/`RadioGroup` (the interview type select, the event
-  type selector, the salary period toggle, the finalize outcome picker) reach
+  type selector and its close-mode chips, the salary period toggle) reach
   for all of them when opening or measuring. Any future test that opens a
   Radix `Select` needs nothing extra; these are global.
 - **The event dialog is `max-w-3xl`, top-anchored, only its body scrolls
@@ -1022,7 +1068,7 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   (KODI-014, revised KODI-016).** The interview-only schedule
   (start/end/`TimezoneSelect`) and the denied-only `DeniedReasonSelect`
   follow the same shape as the offer salary group before them:
-  `TimelineEventFormFields`/`FinalizeOutcomeFields` take an
+  `TimelineEventFormFields` takes an
   `isInterview`/`isDenied`/`isOffer` flag and render the group or `null`, so a
   value the user typed before switching types never sits in an invisible
   control. **A non-interview event never sends a schedule, on CREATE or
@@ -1037,7 +1083,7 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   non-interview event's stored schedule unchanged on an edit that left the
   type alone; the owner's final call (2026-09-18) is that a non-interview
   event is blocked from ever carrying a schedule, full stop, so there is
-  nothing left to preserve. `toFinalizePayload` is unaffected: it never had a
+  nothing left to preserve. `toFinalizeOutcomePayload` is unaffected: it never had a
   stored-schedule case.
 - **The response mirrors the rule: `start_time`/`end_time`/`timezone` are
   ABSENT (not `null`) on a non-interview `TimelineEvent`, never REQUIRED
@@ -1859,6 +1905,22 @@ for conditional class merging.
 Tailwind 4 is CSS-first: every token lives in `@theme` in `src/app/globals.css`.
 There is no `tailwind.config.ts`.
 
+**The palette is the original teal one (ADR-0022, amending ADR-0006).** The
+colour tokens in `globals.css`'s first `@layer base` (`:root` light, `.dark`
+dark; dark is the default theme) are the palette of commit `9661a38`, written
+in oklch: each original HSL value converted per CSS Color 4. Tokens with no
+twin there follow fixed rules: `--surface` = card, `--surface-elevated` =
+popover, `--primary-muted` = primary `/ 0.12`, `--info` = primary,
+`--chart-1..5` = primary, success, warning, destructive, muted-foreground, and
+`--border-strong` is its own pinned value. The dark shadows, `--shadow-glow`
+and the `gradient-mesh` stops are the original ones too.
+`src/app/globals-palette.test.ts` pins all of it — every token, light and
+dark, within 1.5/255 per sRGB channel, plus the browser `themeColor` in
+`layout.tsx` — and its `canonicalOklch()` is the only source of the oklch
+numbers: never convert by hand. A value changes only with an ADR. The CV
+preview's print colours (`neutral-*`/`blue-700`) and the categorical colours
+(seniority badges, admin charts, agenda urgency) are not tokens and stay.
+
 **`cn()` and custom utilities.** `shadow-card` and `shadow-elevated` are custom
 `@utility` rules, so stock tailwind-merge does not know they are shadows and
 would keep BOTH sides of an override — leaving the loser to win on stylesheet
@@ -1906,6 +1968,17 @@ the card and fails the 3:1 non-text contrast. Keep it when regenerating. Its
 `RadioGroupItem` takes its name from `aria-labelledby` in the job start
 dialog; drive it with a click or `.check()` in Playwright (arrow keys move
 focus but do not check a Radix radio there).
+
+**`components/ui/checkbox.tsx`** is the shadcn `new-york` Checkbox with the
+same ONE applika-only change as `radio-group.tsx`: the unchecked border is
+`border-muted-foreground` (3:1 on the dialog/card background, WCAG 1.4.11)
+instead of the stock `border-input`. Keep it when regenerating. `ui/label`
+dims through `peer-disabled`, so put the label as a LATER SIBLING of the box
+(a `grid-cols-[auto_1fr]` `FormItem`: box, label, description in
+`col-start-2`), never wrapped apart from it. Outside a `<form>` Radix renders
+no hidden input, so the value must live in react-hook-form through a
+`FormField`; `onCheckedChange` yields a `CheckedState`, coerce with
+`checked === true`.
 
 **`components/ui/tabs.tsx`** is the shadcn `new-york` Tabs, unmodified from the
 registry except for one applika-only `variant` on `TabsList`/`TabsTrigger`:
@@ -2134,7 +2207,7 @@ isFullWidthPath(activePath) || fullWidth.requested`.
 | `src/components/timeline/timeline-options.ts`     | Presentation config, `TIMELINE_STAGES`, `stageLabel()`/`stageShortLabel()`            |
 | `src/components/timeline/timeline-section.tsx`    | Data-wired timeline region mounted in `application-item.tsx`                          |
 | `src/hooks/use-timeline.ts`                       | Timeline query key factory + `useTimeline(applicationId)`                             |
-| `src/components/applications/finalize-dialog.tsx` | Close-application outcome picker (R-032), reversible confirmation                     |
+| `src/components/timeline/timeline-event-form.tsx` | The one event dialog: Add event, Edit event, and the flag's Close application         |
 
 ---
 

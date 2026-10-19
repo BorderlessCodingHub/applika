@@ -7,6 +7,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 
+import { FINALIZE_DIALOG_COPY } from "@/components/applications/application-close-copy";
 import {
   DENIED_REASON_FIELD_LABEL,
   LEGACY_HOURLY_OFFER_HINT,
@@ -16,6 +17,7 @@ import { DeniedReasonSelect } from "@/components/timeline/denied-reason-select";
 import { EventTypeSelector } from "@/components/timeline/event-type-selector";
 import { InterviewTypeSelect } from "@/components/timeline/interview-type-select";
 import {
+  CLOSE_TYPE_OPTIONS,
   CURRENCY_OPTIONS,
   DEFAULT_DENIED_REASON,
   DEFAULT_INTERVIEW_TYPE,
@@ -24,10 +26,13 @@ import { SalaryPeriodToggle } from "@/components/timeline/salary-period-toggle";
 import { TimelineEventDialog } from "@/components/timeline/timeline-event-dialog";
 import { TimelineEventFormFields } from "@/components/timeline/timeline-event-form-fields";
 import {
+  emptyCloseValues,
   emptyTimelineEventValues,
   timelineEventSchema,
   timelineEventToFormValues,
+  toFinalizeOutcomePayload,
   toTimelineEventPayload,
+  type TimelineEventCloseValues,
   type TimelineEventFormValues,
 } from "@/components/timeline/timeline-event-schema";
 import {
@@ -38,6 +43,7 @@ import {
 } from "@/components/timeline/timeline-types";
 import { TimezoneSelect } from "@/components/timeline/timezone-select";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import {
   Form,
@@ -58,18 +64,36 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useCreateTimelineEvent } from "@/hooks/use-create-timeline-event";
+import { useFinalizeApplication } from "@/hooks/use-finalize-application";
 import { useUpdateTimelineEvent } from "@/hooks/use-update-timeline-event";
 import { getApiError } from "@/lib/api-client";
 
 const FORM_ID = "timeline-event-form";
 
-interface TimelineEventFormProps {
+/**
+ * Why the dialog opened: `event` is Add event (no `event`) or Edit event (an
+ * `event`); `close` is the flag on an application row — close the
+ * application, with no outcome (None) or with an Offer or Denied event.
+ */
+export type TimelineEventFormPurpose = "event" | "close";
+
+/** What the dialog is doing, derived from `purpose` and `event`. */
+export type TimelineEventFormMode = "create" | "edit" | "close";
+
+export interface TimelineEventFormProps {
   /** Application the event belongs to. */
   applicationId: string;
   /** Controlled dialog open state. */
   open: boolean;
   /** Controlled open-change handler. */
   onOpenChange: (open: boolean) => void;
+  /**
+   * `"event"` (default): Add event or Edit event. `"close"`: the close
+   * dialog — None, Offer and Denied (never Interview), opens on None, and
+   * saving always closes the application through
+   * `POST /applications/{id}/finalize`. `event` is ignored when closing.
+   */
+  purpose?: TimelineEventFormPurpose;
   /** When set, the dialog edits this event; when null/undefined it creates one. */
   event?: TimelineEventView | null;
   /**
@@ -81,12 +105,27 @@ interface TimelineEventFormProps {
 }
 
 /**
- * Wired add/edit timeline-event dialog (PRD 0008, ADR 0012). Owns the
- * react-hook-form control (zod discriminated union keyed on `event_type`), the
- * create/update mutation, and the toasts. Drops one controlled `FormField` into
+ * The one timeline-event dialog (PRD 0008, ADR 0012, PRD 0016): Add event,
+ * Edit event, and the flag's Close application. Owns the react-hook-form
+ * control (zod discriminated union keyed on `event_type`), the create/update/
+ * finalize mutation, and the toasts. Drops one controlled `FormField` into
  * each `TimelineEventFormFields` slot; the interview type group is revealed by
  * the watched `event_type === "interview"` and the Offer salary group by
  * `event_type === "offer"` — each group's fields are only sent for their type.
+ *
+ * Close mode (`purpose="close"`) offers None, Offer and Denied with the line
+ * under the chips explaining the pick, opens on None, and shows no checkbox:
+ * it always closes. None shows no other field and sends a bodyless finalize;
+ * Offer or Denied send the outcome body (`toFinalizeOutcomePayload`), which
+ * records the event and closes in one commit. A save that closes caps the
+ * date at today.
+ *
+ * Add event with an Offer or Denied shows the "Close the application" box in
+ * the footer, before Cancel, ticked on every open. Ticked, the save is that
+ * same one finalize request; unticked (or an Interview, which never shows
+ * the box), it is `POST /applications/{id}/timeline` as before. The box
+ * lives in the footer, outside the `<form>`, so `<Form>` wraps the whole
+ * dialog. Edit event shows no box and never closes.
  *
  * R-030/R-032 and the `interview_type` field sit on top of the base event
  * form.
@@ -95,17 +134,24 @@ export function TimelineEventForm({
   applicationId,
   open,
   onOpenChange,
+  purpose = "event",
   event,
   otherEvents,
 }: TimelineEventFormProps) {
-  const mode = event ? "edit" : "create";
+  const mode: TimelineEventFormMode =
+    purpose === "close" ? "close" : event ? "edit" : "create";
   const createEvent = useCreateTimelineEvent();
   const updateEvent = useUpdateTimelineEvent();
+  const finalizeApplication = useFinalizeApplication();
 
   const defaults = useMemo<TimelineEventFormValues>(
     () =>
-      event ? timelineEventToFormValues(event) : emptyTimelineEventValues(),
-    [event],
+      mode === "close"
+        ? emptyCloseValues()
+        : event
+          ? timelineEventToFormValues(event)
+          : emptyTimelineEventValues(),
+    [mode, event],
   );
 
   const form = useForm<TimelineEventFormValues>({
@@ -114,16 +160,35 @@ export function TimelineEventForm({
   });
 
   // Re-seed the form each time the dialog opens (or the edited event changes) so
-  // a reused dialog instance never carries stale values between opens.
+  // a reused dialog instance never carries stale values between opens. The
+  // close dialog reseeds fresh values (today's date) on every open, so it
+  // always opens on None.
   useEffect(() => {
-    if (open) form.reset(defaults);
-  }, [open, defaults, form]);
+    if (!open) return;
+    form.reset(mode === "close" ? emptyCloseValues() : defaults);
+  }, [open, mode, defaults, form]);
 
-  const isSaving = createEvent.isPending || updateEvent.isPending;
+  const isSaving =
+    createEvent.isPending ||
+    updateEvent.isPending ||
+    finalizeApplication.isPending;
   const eventType = useWatch({ control: form.control, name: "event_type" });
+  const closeApplication = useWatch({
+    control: form.control,
+    name: "close_application",
+  });
+  const isNone = eventType === "none";
   const isInterview = eventType === "interview";
   const isOffer = eventType === "offer";
   const isDenied = eventType === "denied";
+  // Saving closes the application: always in the close dialog, and for an
+  // Offer or Denied whose `close_application` is set. Closing with an event
+  // records a day that already happened, so its date stops at today.
+  const showsCloseBox = mode === "create" && (isOffer || isDenied);
+  const closesWithEvent =
+    (isOffer || isDenied) &&
+    (mode === "close" || (mode === "create" && closeApplication));
+  const isClosing = mode === "close" || closesWithEvent;
 
   // The interview type select shows "Unknown" the moment event_type becomes
   // "interview" (the display falls back to DEFAULT_INTERVIEW_TYPE when the
@@ -168,13 +233,43 @@ export function TimelineEventForm({
     event.salaryPeriod === "hourly";
 
   const onInvalid = () => {
-    toast.error("Please fix the highlighted fields before saving");
+    toast.error(
+      isClosing
+        ? "Please fix the highlighted fields before closing"
+        : "Please fix the highlighted fields before saving",
+    );
+  };
+
+  const closeWith = (values: TimelineEventCloseValues) => {
+    finalizeApplication.mutate(
+      { applicationId, payload: toFinalizeOutcomePayload(values) },
+      {
+        onSuccess: () => {
+          toast.success("Application closed");
+          onOpenChange(false);
+        },
+        onError: (error) => {
+          toast.error(
+            isAxiosError(error) ? getApiError(error) : "Could not close it",
+          );
+        },
+      },
+    );
   };
 
   const onValid = (values: TimelineEventFormValues) => {
-    // A non-interview event never sends a schedule (KODI-016) — the payload
-    // builder needs only the current form values, not the original stored
-    // event; see the schema module's doc comment.
+    if (
+      values.event_type === "none" ||
+      (values.event_type !== "interview" &&
+        (mode === "close" || (mode === "create" && values.close_application)))
+    ) {
+      closeWith(values);
+      return;
+    }
+
+    // A non-interview event never sends a schedule — the payload builder
+    // needs only the current form values, not the original stored event; see
+    // the schema module's doc comment.
     const payload = toTimelineEventPayload(values);
 
     if (mode === "create") {
@@ -218,37 +313,72 @@ export function TimelineEventForm({
   const onSubmit = form.handleSubmit(onValid, onInvalid);
 
   return (
-    <TimelineEventDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      mode={mode}
-      footer={
-        <>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isSaving}
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" form={FORM_ID} disabled={isSaving}>
-            {isSaving ? (
-              <>
-                <Loader2 className="animate-spin" aria-hidden />
-                Saving
-              </>
-            ) : (
-              <>
-                <Save aria-hidden />
-                {mode === "create" ? "Add event" : "Save changes"}
-              </>
-            )}
-          </Button>
-        </>
-      }
-    >
-      <Form {...form}>
+    <Form {...form}>
+      <TimelineEventDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        mode={mode}
+        footer={
+          <>
+            {showsCloseBox ? (
+              <FormField
+                control={form.control}
+                name="close_application"
+                render={({ field }) => (
+                  <FormItem className="basis-full grid-cols-[auto_1fr] items-center gap-y-0.5 sm:mr-auto sm:basis-auto">
+                    <FormControl>
+                      <Checkbox
+                        ref={field.ref}
+                        name={field.name}
+                        checked={field.value}
+                        onCheckedChange={(checked) =>
+                          field.onChange(checked === true)
+                        }
+                        onBlur={field.onBlur}
+                        disabled={isSaving}
+                      />
+                    </FormControl>
+                    <FormLabel>Close the application</FormLabel>
+                    <FormDescription className="col-start-2">
+                      You can reopen it later.
+                    </FormDescription>
+                  </FormItem>
+                )}
+              />
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isSaving}
+              onClick={() => onOpenChange(false)}
+            >
+              {FINALIZE_DIALOG_COPY.cancel}
+            </Button>
+            <Button type="submit" form={FORM_ID} disabled={isSaving}>
+              {mode === "close" ? (
+                <>
+                  {isSaving ? (
+                    <Loader2 className="animate-spin" aria-hidden />
+                  ) : (
+                    <Save aria-hidden />
+                  )}
+                  {FINALIZE_DIALOG_COPY.submit}
+                </>
+              ) : isSaving ? (
+                <>
+                  <Loader2 className="animate-spin" aria-hidden />
+                  Saving
+                </>
+              ) : (
+                <>
+                  <Save aria-hidden />
+                  {mode === "create" ? "Add event" : "Save changes"}
+                </>
+              )}
+            </Button>
+          </>
+        }
+      >
         <form id={FORM_ID} onSubmit={onSubmit} noValidate>
           <TimelineEventFormFields
             isInterview={isInterview}
@@ -260,11 +390,24 @@ export function TimelineEventForm({
                 name="event_type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Event type</FormLabel>
+                    <FormLabel>
+                      {mode === "close"
+                        ? FINALIZE_DIALOG_COPY.outcomeLabel
+                        : "Event type"}
+                    </FormLabel>
                     <FormControl>
                       <EventTypeSelector
                         value={field.value}
                         onValueChange={field.onChange}
+                        options={
+                          mode === "close" ? CLOSE_TYPE_OPTIONS : undefined
+                        }
+                        showHint={mode === "close"}
+                        label={
+                          mode === "close"
+                            ? FINALIZE_DIALOG_COPY.outcomeLabel
+                            : undefined
+                        }
                         disabled={isSaving}
                         aria-invalid={Boolean(form.formState.errors.event_type)}
                       />
@@ -325,24 +468,29 @@ export function TimelineEventForm({
               />
             }
             eventDateField={
-              <FormField
-                control={form.control}
-                name="event_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Date</FormLabel>
-                    <FormControl>
-                      <DatePickerInput
-                        value={field.value}
-                        onChange={(date) => field.onChange(date ?? "")}
-                        disabled={isSaving}
-                        aria-invalid={Boolean(form.formState.errors.event_date)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              isNone ? null : (
+                <FormField
+                  control={form.control}
+                  name="event_date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date</FormLabel>
+                      <FormControl>
+                        <DatePickerInput
+                          value={field.value}
+                          onChange={(date) => field.onChange(date ?? "")}
+                          maxDate={closesWithEvent ? new Date() : undefined}
+                          disabled={isSaving}
+                          aria-invalid={Boolean(
+                            form.formState.errors.event_date,
+                          )}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )
             }
             startTimeField={
               <FormField
@@ -475,28 +623,30 @@ export function TimelineEventForm({
               />
             }
             observationField={
-              <FormField
-                control={form.control}
-                name="observation"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notes (optional)</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        rows={3}
-                        placeholder="Anything you want to remember…"
-                        disabled={isSaving}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              isNone ? null : (
+                <FormField
+                  control={form.control}
+                  name="observation"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes (optional)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          rows={3}
+                          placeholder="Anything you want to remember…"
+                          disabled={isSaving}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )
             }
           />
         </form>
-      </Form>
-    </TimelineEventDialog>
+      </TimelineEventDialog>
+    </Form>
   );
 }

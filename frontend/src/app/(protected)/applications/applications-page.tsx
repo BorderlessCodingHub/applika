@@ -40,8 +40,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ApplicationFormSheet } from "@/components/applications/application-form-sheet";
-import { FinalizeDialog } from "@/components/applications/finalize-dialog";
 import { ApplicationItem } from "@/components/applications/application-item";
+import { TimelineEventForm } from "@/components/timeline/timeline-event-form";
 import { NewApplicationActions } from "@/components/applications/new-application-actions";
 import { DraftsSection } from "@/components/application-drafts/drafts-section";
 import { useDeleteDraft, useDrafts } from "@/hooks/use-application-drafts";
@@ -562,10 +562,12 @@ export function ApplicationsPage() {
       )}
 
       {appAction?.action === "finalize" && (
-        <FinalizeDialog
+        <TimelineEventForm
+          purpose="close"
           applicationId={appAction.data!.id}
-          open={appAction.action === "finalize"}
+          open
           onOpenChange={() => setAppAction({ action: "none" })}
+          otherEvents={[]}
         />
       )}
 

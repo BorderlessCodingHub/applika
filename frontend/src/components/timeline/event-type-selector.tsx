@@ -1,16 +1,34 @@
 "use client";
 
+import { useId } from "react";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 
-import { EVENT_TYPE_OPTIONS } from "@/components/timeline/timeline-options";
-import { type TimelineEventType } from "@/components/timeline/timeline-types";
+import {
+  EVENT_TYPE_OPTIONS,
+  type EventTypeChoice,
+  type EventTypeOption,
+} from "@/components/timeline/timeline-options";
 import { cn } from "@/lib/utils";
 
 interface EventTypeSelectorProps {
-  /** Currently selected event type. */
-  value: TimelineEventType;
-  /** Fired with the newly selected type. */
-  onValueChange: (value: TimelineEventType) => void;
+  /** Currently selected chip: an event type, or `none` in the close dialog. */
+  value: EventTypeChoice;
+  /** Fired with the newly selected chip's value. */
+  onValueChange: (value: EventTypeChoice) => void;
+  /**
+   * The chips, in order. Defaults to `EVENT_TYPE_OPTIONS` (Interview, Offer,
+   * Denied — Add event and Edit event); the close dialog passes
+   * `CLOSE_TYPE_OPTIONS` (None, Offer, Denied).
+   */
+  options?: readonly EventTypeOption[];
+  /**
+   * Shows the picked chip's `hint` under the chips and adds it to the group's
+   * description (`aria-describedby`). The close dialog turns it on, so the
+   * user reads what closing with that choice does.
+   */
+  showHint?: boolean;
+  /** The group's accessible name when no `aria-labelledby` is given. */
+  label?: string;
   /** Disable the whole group (e.g. while saving, or read-only application). */
   disabled?: boolean;
   /** Marks the group invalid for styling + a11y (wire to your field error). */
@@ -24,19 +42,26 @@ interface EventTypeSelectorProps {
 }
 
 /**
- * Segmented, icon-led selector for the 3 timeline event types.
- * Built on Radix `RadioGroup` so it is a true `radiogroup` — arrow keys move the
- * selection, each chip is a labelled `radio`, and focus is managed for you. Each
- * chip carries its type's icon + accent tile so the choice reads by shape and
- * colour, not colour alone. Controlled + presentational — pass `value` /
- * `onValueChange` from react-hook-form.
+ * Segmented, icon-led selector for the timeline event types — Interview,
+ * Offer and Denied by default, or the close dialog's None, Offer and Denied
+ * through `options`. Built on Radix `RadioGroup` so it is a true
+ * `radiogroup` — arrow keys move the selection, each chip is a labelled
+ * `radio`, and focus is managed for you. Each chip carries its icon + accent
+ * tile so the choice reads by shape and colour, not colour alone. Controlled +
+ * presentational — pass `value` / `onValueChange` from react-hook-form.
  *
- * Responsive: 3 in a row at every width, like the finalize outcome picker; the
- * chip's side padding tightens below `sm` so "Interview" fits at 320px.
+ * `showHint` adds a line under the chips explaining the picked one, wired as
+ * the group's description (the close dialog's outcome line).
+ *
+ * Responsive: 3 in a row at every width for both option sets; the chip's side
+ * padding tightens below `sm` so "Interview" fits at 320px.
  */
 export function EventTypeSelector({
   value,
   onValueChange,
+  options = EVENT_TYPE_OPTIONS,
+  showHint = false,
+  label = "Event type",
   disabled,
   id,
   className,
@@ -44,22 +69,30 @@ export function EventTypeSelector({
   "aria-labelledby": ariaLabelledby,
   "aria-describedby": ariaDescribedby,
 }: EventTypeSelectorProps) {
-  return (
+  const hintId = useId();
+  const hint = showHint
+    ? options.find((option) => option.value === value)?.hint
+    : undefined;
+  const describedBy =
+    [ariaDescribedby, hint ? hintId : undefined].filter(Boolean).join(" ") ||
+    undefined;
+
+  const group = (
     <RadioGroupPrimitive.Root
       id={id}
       value={value}
-      onValueChange={(next) => onValueChange(next as TimelineEventType)}
+      onValueChange={(next) => onValueChange(next as EventTypeChoice)}
       disabled={disabled}
       aria-invalid={ariaInvalid}
       aria-labelledby={ariaLabelledby}
-      aria-describedby={ariaDescribedby}
-      aria-label={ariaLabelledby ? undefined : "Event type"}
-      className={cn("grid grid-cols-3 gap-2", className)}
+      aria-describedby={describedBy}
+      aria-label={ariaLabelledby ? undefined : label}
+      className={cn("grid grid-cols-3 gap-2", !showHint && className)}
     >
-      {EVENT_TYPE_OPTIONS.map((option) => {
+      {options.map((option) => {
         const {
           value: type,
-          label,
+          label: optionLabel,
           icon: Icon,
           tileClass,
           selectedClass,
@@ -85,10 +118,23 @@ export function EventTypeSelector({
             >
               <Icon className="size-4.5" />
             </span>
-            <span className="text-xs font-medium">{label}</span>
+            <span className="text-xs font-medium">{optionLabel}</span>
           </RadioGroupPrimitive.Item>
         );
       })}
     </RadioGroupPrimitive.Root>
+  );
+
+  if (!showHint) return group;
+
+  return (
+    <div className={cn("flex flex-col gap-2", className)}>
+      {group}
+      {hint ? (
+        <p id={hintId} className="text-xs text-muted-foreground">
+          {hint}
+        </p>
+      ) : null}
+    </div>
   );
 }

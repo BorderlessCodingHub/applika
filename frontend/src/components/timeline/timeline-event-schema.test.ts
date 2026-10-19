@@ -1,10 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  CLOSING_DATE_MESSAGE,
+  emptyCloseValues,
   emptyTimelineEventValues,
   timelineEventSchema,
   timelineEventToFormValues,
+  toFinalizeOutcomePayload,
   toTimelineEventPayload,
+  type TimelineEventCloseValues,
+  type TimelineEventEventValues,
   type TimelineEventFormValues,
 } from "./timeline-event-schema";
 import { browserTimeZone } from "@/components/timeline/timezone-options";
@@ -32,7 +37,7 @@ import type { TimelineEventView } from "@/components/timeline/timeline-types";
 
 function offerValues(
   overrides: Partial<TimelineEventFormValues> = {},
-): TimelineEventFormValues {
+): TimelineEventEventValues {
   return {
     ...emptyTimelineEventValues(),
     event_type: "offer",
@@ -41,31 +46,31 @@ function offerValues(
     salary_amount: "150000",
     salary_currency: "USD",
     ...overrides,
-  } as TimelineEventFormValues;
+  } as TimelineEventEventValues;
 }
 
 function interviewValues(
   overrides: Partial<TimelineEventFormValues> = {},
-): TimelineEventFormValues {
+): TimelineEventEventValues {
   return {
     ...emptyTimelineEventValues(),
     event_type: "interview",
     event_date: "2026-07-02",
     interview_type: "unknown",
     ...overrides,
-  } as TimelineEventFormValues;
+  } as TimelineEventEventValues;
 }
 
 function deniedValues(
   overrides: Partial<TimelineEventFormValues> = {},
-): TimelineEventFormValues {
+): TimelineEventEventValues {
   return {
     ...emptyTimelineEventValues(),
     event_type: "denied",
     event_date: "2026-07-02",
     denied_reason: "unknown",
     ...overrides,
-  } as TimelineEventFormValues;
+  } as TimelineEventEventValues;
 }
 
 describe("timelineEventSchema — offer variant", () => {
@@ -524,7 +529,7 @@ describe("toTimelineEventPayload", () => {
         event_type: "denied",
         denied_reason: "unknown",
         observation: "Switched to denied",
-      } as TimelineEventFormValues);
+      } as TimelineEventEventValues);
 
       expect(payload).not.toHaveProperty("start_time");
       expect(payload).not.toHaveProperty("end_time");
@@ -560,6 +565,7 @@ describe("toTimelineEventPayload", () => {
 describe("emptyTimelineEventValues", () => {
   it("defaults to an interview of type unknown on today's date with blank fields", () => {
     const values = emptyTimelineEventValues();
+    expect(values.close_application).toBe(true);
     expect(values.event_type).toBe("interview");
     expect(values.interview_type).toBe("unknown");
     expect(values.event_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -725,5 +731,424 @@ describe("timelineEventToFormValues", () => {
       };
       expect(timelineEventToFormValues(event).timezone).toBe(browserTimeZone());
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Close mode: the `none` branch, `close_application`, the closing date and
+// `toFinalizeOutcomePayload` (the old close dialog's `toFinalizePayload`,
+// ported whole).
+// ---------------------------------------------------------------------------
+
+function localIso(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function daysFromToday(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return localIso(date);
+}
+
+function closeValues(
+  overrides: Partial<TimelineEventFormValues> = {},
+): TimelineEventCloseValues {
+  return {
+    ...emptyCloseValues(),
+    event_date: "2026-09-10",
+    denied_reason: "unknown",
+    ...overrides,
+  } as TimelineEventCloseValues;
+}
+
+describe("emptyCloseValues", () => {
+  it("opens on None, today, blank fields, and always closes", () => {
+    const values = emptyCloseValues();
+    expect(values).toEqual({
+      event_type: "none",
+      event_date: localIso(new Date()),
+      start_time: "",
+      end_time: "",
+      timezone: "",
+      observation: "",
+      interview_type: "",
+      denied_reason: "",
+      salary_period: "",
+      salary_amount: "",
+      salary_currency: "",
+      close_application: true,
+    });
+    expect(timelineEventSchema.safeParse(values).success).toBe(true);
+  });
+});
+
+describe("close_application on Add event and Edit event", () => {
+  it("is ticked for a new event and false for every edited type", () => {
+    expect(emptyTimelineEventValues().close_application).toBe(true);
+    for (const type of ["interview", "offer", "denied"] as const) {
+      const values = timelineEventToFormValues({
+        id: "e",
+        type,
+        eventDate: "2026-07-02",
+        startTime: null,
+        endTime: null,
+        timezone: null,
+        observation: null,
+      });
+      expect(values.close_application).toBe(false);
+    }
+  });
+
+  it.each(["offer", "denied"] as const)(
+    "a new %s from Add event caps the date while ticked, not once unticked",
+    (type) => {
+      const fields =
+        type === "offer"
+          ? {
+              salary_period: "monthly",
+              salary_amount: "9000",
+              salary_currency: "EUR",
+            }
+          : { denied_reason: "unknown" };
+      const ticked = {
+        ...emptyTimelineEventValues(),
+        ...fields,
+        event_type: type,
+        event_date: daysFromToday(2),
+      } as TimelineEventFormValues;
+      const tickedResult = timelineEventSchema.safeParse(ticked);
+      expect(tickedResult.success).toBe(false);
+      expect(tickedResult.error?.issues).toEqual([
+        expect.objectContaining({
+          path: ["event_date"],
+          message: CLOSING_DATE_MESSAGE,
+        }),
+      ]);
+      expect(
+        timelineEventSchema.safeParse({ ...ticked, close_application: false })
+          .success,
+      ).toBe(true);
+      expect(
+        timelineEventSchema.safeParse({
+          ...ticked,
+          event_date: daysFromToday(0),
+        }).success,
+      ).toBe(true);
+    },
+  );
+
+  it("is required on every branch", () => {
+    const { close_application: _omit, ...withoutFlag } = deniedValues();
+    void _omit;
+    expect(timelineEventSchema.safeParse(withoutFlag).success).toBe(false);
+    const { close_application: _omitNone, ...noneWithoutFlag } =
+      emptyCloseValues();
+    void _omitNone;
+    expect(timelineEventSchema.safeParse(noneWithoutFlag).success).toBe(false);
+  });
+});
+
+describe("timelineEventSchema — the none branch validates nothing", () => {
+  it("accepts a stale over-limit note, a blank date and stale offer values", () => {
+    const result = timelineEventSchema.safeParse(
+      closeValues({
+        event_type: "none",
+        observation: "a".repeat(5001),
+        event_date: "",
+        salary_amount: "100.555",
+        salary_period: "hourly",
+        denied_reason: "not-a-reason",
+        start_time: "10:00",
+        end_time: "09:00",
+      }),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a future date: None records no event, so it has no date", () => {
+    expect(
+      timelineEventSchema.safeParse(
+        closeValues({ event_type: "none", event_date: daysFromToday(3) }),
+      ).success,
+    ).toBe(true);
+  });
+});
+
+describe("timelineEventSchema — the closing date stops at today", () => {
+  it.each(["offer", "denied"] as const)(
+    "a closing %s dated later than today is refused with the closing message",
+    (type) => {
+      const values =
+        type === "offer"
+          ? offerValues({
+              close_application: true,
+              event_date: daysFromToday(1),
+            })
+          : deniedValues({
+              close_application: true,
+              event_date: daysFromToday(1),
+            });
+      const result = timelineEventSchema.safeParse(values);
+      expect(result.success).toBe(false);
+      expect(result.error?.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: ["event_date"],
+            message: CLOSING_DATE_MESSAGE,
+          }),
+        ]),
+      );
+      expect(CLOSING_DATE_MESSAGE).toBe(
+        "Pick today or an earlier date to close the application",
+      );
+    },
+  );
+
+  it.each(["offer", "denied"] as const)(
+    "a closing %s dated today or earlier is accepted",
+    (type) => {
+      const build = type === "offer" ? offerValues : deniedValues;
+      for (const event_date of [daysFromToday(0), daysFromToday(-30)]) {
+        expect(
+          timelineEventSchema.safeParse(
+            build({ close_application: true, event_date }),
+          ).success,
+        ).toBe(true);
+      }
+    },
+  );
+
+  it("an event that does not close keeps any date (Add event, Edit event)", () => {
+    expect(
+      timelineEventSchema.safeParse(
+        deniedValues({
+          close_application: false,
+          event_date: daysFromToday(5),
+        }),
+      ).success,
+    ).toBe(true);
+    expect(
+      timelineEventSchema.safeParse(
+        offerValues({ close_application: false, event_date: daysFromToday(5) }),
+      ).success,
+    ).toBe(true);
+  });
+
+  describe("compares against the user's LOCAL day, never UTC's", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.unstubAllEnvs();
+    });
+
+    it("Tokyo at 22:30 UTC: the local today is accepted, the local tomorrow refused", () => {
+      vi.stubEnv("TZ", "Asia/Tokyo");
+      vi.useFakeTimers({ toFake: ["Date"] });
+      // 2026-10-15 22:30 UTC is 2026-10-16 07:30 in Tokyo.
+      vi.setSystemTime(new Date(Date.UTC(2026, 9, 15, 22, 30)));
+      expect(
+        timelineEventSchema.safeParse(
+          deniedValues({ close_application: true, event_date: "2026-10-16" }),
+        ).success,
+      ).toBe(true);
+      expect(
+        timelineEventSchema.safeParse(
+          deniedValues({ close_application: true, event_date: "2026-10-17" }),
+        ).success,
+      ).toBe(false);
+    });
+
+    it("Honolulu at 08:30 UTC: the local today is accepted, UTC's today refused", () => {
+      vi.stubEnv("TZ", "Pacific/Honolulu");
+      vi.useFakeTimers({ toFake: ["Date"] });
+      // 2026-10-16 08:30 UTC is 2026-10-15 22:30 in Honolulu.
+      vi.setSystemTime(new Date(Date.UTC(2026, 9, 16, 8, 30)));
+      expect(
+        timelineEventSchema.safeParse(
+          deniedValues({ close_application: true, event_date: "2026-10-15" }),
+        ).success,
+      ).toBe(true);
+      expect(
+        timelineEventSchema.safeParse(
+          deniedValues({ close_application: true, event_date: "2026-10-16" }),
+        ).success,
+      ).toBe(false);
+    });
+  });
+
+  it("an interview never closes, so the flag never caps its date", () => {
+    expect(
+      timelineEventSchema.safeParse(
+        interviewValues({
+          close_application: true,
+          event_date: daysFromToday(5),
+        }),
+      ).success,
+    ).toBe(true);
+  });
+});
+
+describe("timelineEventSchema — closing limits equal the old close dialog's (FinalizeWithOutcome)", () => {
+  const closing = { close_application: true, event_date: "2026-09-10" };
+
+  it("notes: 5000 accepted, 5001 refused", () => {
+    expect(
+      timelineEventSchema.safeParse(
+        deniedValues({ ...closing, observation: "a".repeat(5000) }),
+      ).success,
+    ).toBe(true);
+    expect(
+      timelineEventSchema.safeParse(
+        deniedValues({ ...closing, observation: "a".repeat(5001) }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("amount: up to 10 digits and 2 decimals, non-negative, required", () => {
+    for (const ok of ["0", "1234567890", "1234567890.12", "9.5"]) {
+      expect(
+        timelineEventSchema.safeParse(
+          offerValues({ ...closing, salary_amount: ok }),
+        ).success,
+      ).toBe(true);
+    }
+    for (const bad of ["", "12345678901", "100.555", "-1", "abc"]) {
+      expect(
+        timelineEventSchema.safeParse(
+          offerValues({ ...closing, salary_amount: bad }),
+        ).success,
+      ).toBe(false);
+    }
+  });
+
+  it("period: monthly and annually only, never hourly or blank", () => {
+    for (const ok of ["monthly", "annually"]) {
+      expect(
+        timelineEventSchema.safeParse(
+          offerValues({ ...closing, salary_period: ok as never }),
+        ).success,
+      ).toBe(true);
+    }
+    for (const bad of ["hourly", ""]) {
+      expect(
+        timelineEventSchema.safeParse(
+          offerValues({ ...closing, salary_period: bad as never }),
+        ).success,
+      ).toBe(false);
+    }
+  });
+
+  it("currency: one of the 20, required", () => {
+    expect(
+      timelineEventSchema.safeParse(
+        offerValues({ ...closing, salary_currency: "" as never }),
+      ).success,
+    ).toBe(false);
+    expect(
+      timelineEventSchema.safeParse(
+        offerValues({ ...closing, salary_currency: "XYZ" as never }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("denied reason: one of the 10 DENIED_REASONS", () => {
+    expect(
+      timelineEventSchema.safeParse(
+        deniedValues({ ...closing, denied_reason: "position_filled" }),
+      ).success,
+    ).toBe(true);
+    expect(
+      timelineEventSchema.safeParse(
+        deniedValues({ ...closing, denied_reason: "bored" as never }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("date: required on a closing Offer or Denied", () => {
+    expect(
+      timelineEventSchema.safeParse(
+        deniedValues({ ...closing, event_date: "" }),
+      ).success,
+    ).toBe(false);
+  });
+});
+
+describe("toFinalizeOutcomePayload", () => {
+  it("none sends no body at all", () => {
+    expect(
+      toFinalizeOutcomePayload(closeValues({ event_type: "none" })),
+    ).toBeUndefined();
+  });
+
+  it("denied sends the date, trimmed notes and denied_reason, never salary keys", () => {
+    const payload = toFinalizeOutcomePayload(
+      closeValues({ event_type: "denied", observation: "  Not a fit  " }),
+    );
+    expect(payload).toEqual({
+      outcome: "denied",
+      event_date: "2026-09-10",
+      observation: "Not a fit",
+      denied_reason: "unknown",
+    });
+    expect(payload).not.toHaveProperty("salary_amount");
+    expect(payload).not.toHaveProperty("salary_currency");
+    expect(payload).not.toHaveProperty("salary_period");
+  });
+
+  it("denied sends the picked reason", () => {
+    expect(
+      toFinalizeOutcomePayload(
+        closeValues({ event_type: "denied", denied_reason: "salary_mismatch" }),
+      ),
+    ).toMatchObject({ outcome: "denied", denied_reason: "salary_mismatch" });
+  });
+
+  it("offer sends the salary trio (amount trimmed) and never denied_reason", () => {
+    const payload = toFinalizeOutcomePayload(
+      closeValues({
+        event_type: "offer",
+        salary_amount: " 120000 ",
+        salary_currency: "SEK",
+        salary_period: "annually",
+      }),
+    );
+    expect(payload).toEqual({
+      outcome: "offer",
+      event_date: "2026-09-10",
+      observation: undefined,
+      salary_amount: "120000",
+      salary_currency: "SEK",
+      salary_period: "annually",
+    });
+    expect(payload).not.toHaveProperty("denied_reason");
+  });
+
+  it("blank or whitespace-only notes are sent as undefined", () => {
+    expect(
+      toFinalizeOutcomePayload(
+        closeValues({ event_type: "denied", observation: "   " }),
+      ),
+    ).toMatchObject({ observation: undefined });
+  });
+
+  it("never carries the schedule, interview_type or the close flag", () => {
+    const payload = toFinalizeOutcomePayload(
+      closeValues({
+        event_type: "denied",
+        start_time: "09:00",
+        end_time: "10:00",
+        timezone: "UTC",
+        interview_type: "technical",
+      }),
+    );
+    for (const key of [
+      "start_time",
+      "end_time",
+      "timezone",
+      "interview_type",
+      "close_application",
+      "event_type",
+    ]) {
+      expect(payload).not.toHaveProperty(key);
+    }
   });
 });

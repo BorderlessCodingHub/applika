@@ -1,6 +1,6 @@
 # ADR-0006: Frontend platform upgrade and new visual identity
 
-**Status:** Accepted by LuisMSoares on 2026-09-15 · **Date:** 2026-09-15 · **Deciders:** LuisMSoares
+**Status:** Accepted by LuisMSoares on 2026-09-15 · **Date:** 2026-09-15 · **Deciders:** LuisMSoares · **Amended by:** ADR-0022 (original teal palette)
 
 ## Context
 

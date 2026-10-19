@@ -1,7 +1,12 @@
 "use client";
 
 import { type ReactNode } from "react";
+import { RotateCcw } from "lucide-react";
 
+import {
+  FINALIZE_DIALOG_COPY,
+  FINALIZE_REVERSIBLE_COPY,
+} from "@/components/applications/application-close-copy";
 import {
   Dialog,
   DialogContent,
@@ -16,8 +21,11 @@ interface TimelineEventDialogProps {
   open: boolean;
   /** Controlled open-change handler. */
   onOpenChange: (open: boolean) => void;
-  /** `create` = "Add event"; `edit` = "Edit event". */
-  mode: "create" | "edit";
+  /**
+   * `create` = "Add event"; `edit` = "Edit event"; `close` = "Close
+   * application", described by the sentence that says closing is reversible.
+   */
+  mode: "create" | "edit" | "close";
   /** Overrides the default title. */
   title?: ReactNode;
   /** Overrides the default description. */
@@ -34,7 +42,7 @@ interface TimelineEventDialogProps {
 
 const DEFAULTS: Record<
   TimelineEventDialogProps["mode"],
-  { title: string; description: string }
+  { title: string; description: ReactNode }
 > = {
   create: {
     title: "Add event",
@@ -45,10 +53,23 @@ const DEFAULTS: Record<
     title: "Edit event",
     description: "Update the details of this timeline event.",
   },
+  close: {
+    title: FINALIZE_DIALOG_COPY.title,
+    description: (
+      <span className="flex items-start gap-2">
+        <RotateCcw
+          aria-hidden
+          className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+        />
+        <span>{FINALIZE_REVERSIBLE_COPY}</span>
+      </span>
+    ),
+  },
 };
 
 /**
- * Accessible dialog shell for the add/edit timeline-event form. Radix `Dialog`
+ * Accessible dialog shell for the timeline-event form: add, edit, and close
+ * the application (the flag's dialog). Radix `Dialog`
  * traps focus, restores it to the trigger on close, and dismisses on
  * Escape/overlay. Presentational — the parent owns the `<form>`, react-hook-form
  * wiring, mutation, and the footer buttons.
@@ -95,7 +116,7 @@ export function TimelineEventDialog({
           {children}
         </div>
 
-        <DialogFooter className="flex-row justify-end border-t px-6 py-4">
+        <DialogFooter className="flex-row flex-wrap justify-end border-t px-6 py-4">
           {footer}
         </DialogFooter>
       </DialogContent>

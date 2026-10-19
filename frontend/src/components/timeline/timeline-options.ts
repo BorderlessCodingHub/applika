@@ -14,8 +14,15 @@
  */
 
 import type { ComponentType } from "react";
-import { BadgeCheck, CircleX, Users, type LucideProps } from "lucide-react";
+import {
+  BadgeCheck,
+  CircleDashed,
+  CircleX,
+  Users,
+  type LucideProps,
+} from "lucide-react";
 
+import { FINALIZE_OUTCOME_COPY } from "@/components/applications/application-close-copy";
 import {
   DENIED_REASONS,
   INTERVIEW_TYPES,
@@ -33,22 +40,34 @@ export interface SelectOption {
   label: string;
 }
 
-export interface EventTypeConfig {
-  value: TimelineEventType;
+/**
+ * What `EventTypeSelector` can offer: a real event type, or `none` — the
+ * close dialog's "close without an outcome", which is never an event and
+ * never reaches the API's timeline payload.
+ */
+export type EventTypeChoice = TimelineEventType | "none";
+
+/** One chip of `EventTypeSelector`. */
+export interface EventTypeOption {
+  value: EventTypeChoice;
   /** Human label rendered in badges, chips, and read-only views. */
   label: string;
   /** Distinct Lucide icon for this type. */
   icon: ComponentType<LucideProps>;
   /** One-line helper shown under the selector chip / dialog description. */
   hint: string;
-  /** Tinted pill classes for the read-only `EventTypeBadge` (bg + text). */
-  badgeClass: string;
   /** Tinted square icon-tile classes (bg + text + ring) for compact affordances. */
   tileClass: string;
-  /** Solid node-dot classes for the timeline rail. */
-  dotClass: string;
   /** Selected-state chip classes for `EventTypeSelector`. */
   selectedClass: string;
+}
+
+export interface EventTypeConfig extends EventTypeOption {
+  value: TimelineEventType;
+  /** Tinted pill classes for the read-only `EventTypeBadge` (bg + text). */
+  badgeClass: string;
+  /** Solid node-dot classes for the timeline rail. */
+  dotClass: string;
   /** Token colour for chart fills (recharts `fill`), e.g. the stage bars. */
   chartColor: string;
 }
@@ -99,6 +118,32 @@ export const REVEAL_CLASS =
 /** Ordered config list — drive the selector and any legend off this. */
 export const EVENT_TYPE_OPTIONS: readonly EventTypeConfig[] =
   TIMELINE_EVENT_TYPES.map((type) => EVENT_TYPE_CONFIG[type]);
+
+/**
+ * The close dialog's chips (`TimelineEventForm purpose="close"`): None, Offer,
+ * Denied — never Interview. None closes with no timeline event; its look is
+ * the muted one the old outcome picker gave it. Offer and Denied keep their
+ * event look, and the line under the chips says what closing with each does
+ * (`FINALIZE_OUTCOME_COPY`, the old outcome picker's words).
+ */
+export const CLOSE_TYPE_OPTIONS: readonly EventTypeOption[] = [
+  {
+    value: "none",
+    label: FINALIZE_OUTCOME_COPY.none.label,
+    icon: CircleDashed,
+    hint: FINALIZE_OUTCOME_COPY.none.description,
+    tileClass: "bg-muted text-muted-foreground ring-border",
+    selectedClass: "border-muted-foreground/40 bg-accent text-foreground",
+  },
+  {
+    ...EVENT_TYPE_CONFIG.offer,
+    hint: FINALIZE_OUTCOME_COPY.offer.description,
+  },
+  {
+    ...EVENT_TYPE_CONFIG.denied,
+    hint: FINALIZE_OUTCOME_COPY.denied.description,
+  },
+];
 
 export interface InterviewTypeConfig {
   value: InterviewType;
