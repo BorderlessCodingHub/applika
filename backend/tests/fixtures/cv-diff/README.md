@@ -1,12 +1,15 @@
 # `cv-diff` shared fixtures
 
-KODI-017 (T091, R-024/R-025). One JSON file per test case, loaded by **both**
-the backend pytest suite
+One JSON file per test case, kept in the backend's test fixtures
+(`applika/backend/tests/fixtures/cv-diff/`, beside `tests/fixtures/jobs/`) and
+loaded by **both** the backend pytest suite
 (`applika/backend/tests/unit/test_cv_diff_fixtures.py`) and the frontend
-vitest suite (`applika/frontend/src/components/tailored-cvs/cv-diff.test.ts`,
-via a relative path back to this folder). Both implementations of the CV diff
-- the pure Python one (`app/application/services/cv_diff.py`) and the pure
-TypeScript one (`cv-diff.ts`) - must produce `expected` for the same
+vitest suite
+(`applika/frontend/src/components/tailored-cvs/cv-diff.fixtures.test.ts`, via
+the relative path `../../../../backend/tests/fixtures/cv-diff` back to this
+folder; it fails when the folder is missing). Both implementations of the CV
+diff - the pure Python one (`app/application/services/cv_diff.py`) and the
+pure TypeScript one (`cv-diff.ts`) - must produce `expected` for the same
 `baseline`/`current` pair. That is what proves the two are the same diff, not
 just two diffs that happen to agree on the cases each author thought of.
 

@@ -5,7 +5,7 @@
  * implement "Diff design (PINNED)" and "Diff semantics shared by web and
  * server (PINNED)" from the slice brief independently, and `cv-diff.fixtures.
  * test.ts` proves this implementation's `diffCv()` output matches the
- * server's for every case in `applika/fixtures/cv-diff/*.json`.
+ * server's for every case in `applika/backend/tests/fixtures/cv-diff/*.json`.
  *
  * `computeCvDiff()` is the richer internal shape `use-cv-diff.tsx` builds the
  * editor's marker slots from (per-field before/after, added/removed items

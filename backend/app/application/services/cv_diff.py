@@ -4,7 +4,7 @@ KODI-017 T091 (R-024/R-025). This is the SERVER half of the "Diff design
 (PINNED)" the ticket addendum shares with the web diff
 (``frontend/src/components/tailored-cvs/cv-diff.ts``): the two implementations
 are pinned to the same semantics and the same canonical JSON output, proven
-equal by the shared fixtures under ``applika/fixtures/cv-diff/``
+equal by the shared fixtures under ``backend/tests/fixtures/cv-diff/``
 (:mod:`tests.unit.test_cv_diff_fixtures`).
 
 Nothing here touches the database, HTTP or the clock - :func:`diff_cv` takes

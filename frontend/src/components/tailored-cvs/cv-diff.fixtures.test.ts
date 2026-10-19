@@ -7,17 +7,19 @@ import { diffCv, sortCvDiffChanges, type CvDiffSnapshot } from "./cv-diff";
 
 /**
  * Fixture-driven parity between the web's `diffCv()` and the server's own
- * diff (KODI-017 part 3, PINNED): both load every file in
- * `applika/fixtures/cv-diff/*.json` — `{"name", "baseline", "current",
- * "expected"}` — and assert their canonical output equals `expected`.
+ * diff: both load every file in `applika/backend/tests/fixtures/cv-diff/*.json`
+ * — `{"name", "baseline", "current", "expected"}` — and assert their canonical
+ * output equals `expected`.
  *
- * The backend owns creating the folder and the fixtures (T091). This suite
- * SKIPS itself, rather than failing, while the folder does not exist yet —
- * `cv-diff.test.ts` carries the same pinned cases as hand-written unit tests
- * in the meantime. Once the folder appears, this file activates with no
- * further change needed.
+ * The backend owns the folder and the fixtures; its own suite reads them from
+ * the same place. A missing or empty folder FAILS this suite, naming the path
+ * it looked in — it never skips itself, so a moved folder cannot silently turn
+ * the parity check off.
  */
-const FIXTURES_DIR = resolve(__dirname, "../../../../fixtures/cv-diff");
+const FIXTURES_DIR = resolve(
+  __dirname,
+  "../../../../backend/tests/fixtures/cv-diff",
+);
 
 interface CvDiffFixture {
   name: string;
@@ -32,13 +34,22 @@ interface CvDiffFixture {
 
 const hasFixtures = existsSync(FIXTURES_DIR);
 
-describe.skipIf(!hasFixtures)("diffCv matches the server's fixtures", () => {
+describe("diffCv matches the server's fixtures", () => {
+  // Read only when the folder is there, so a missing one fails the test below
+  // instead of throwing while the suite is collected.
   const files = hasFixtures
     ? readdirSync(FIXTURES_DIR).filter((file) => file.endsWith(".json"))
     : [];
 
-  it("found at least one fixture file", () => {
-    expect(files.length).toBeGreaterThan(0);
+  it("finds the fixture folder and at least one fixture file", () => {
+    expect(
+      hasFixtures,
+      `CV diff fixtures folder not found: ${FIXTURES_DIR}`,
+    ).toBe(true);
+    expect(
+      files.length,
+      `no *.json fixture in ${FIXTURES_DIR}`,
+    ).toBeGreaterThan(0);
   });
 
   for (const file of files) {

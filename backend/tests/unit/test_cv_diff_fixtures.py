@@ -1,16 +1,16 @@
-"""Shared fixture harness: the server diff matches ``fixtures/cv-diff/*.json``.
+"""Shared fixture harness: the server diff matches ``tests/fixtures/cv-diff/*.json``.
 
-KODI-017 T091 (R-024/R-025). Every file under ``applika/fixtures/cv-diff/`` is
-loaded and ``diff_cv(baseline, current).canonical()`` is asserted equal to its
+Every file under ``backend/tests/fixtures/cv-diff/`` is loaded and
+``diff_cv(baseline, current).canonical()`` is asserted equal to its
 ``expected``, ``changes`` compared order-insensitively (sorted by
-``(path, kind)``, per ``fixtures/cv-diff/README.md``) since the frontend's
-own diff does not have to walk sections in the same order to agree on the
-same set of changes.
+``(path, kind)``, per ``backend/tests/fixtures/cv-diff/README.md``) since the
+frontend's own diff does not have to walk sections in the same order to agree
+on the same set of changes.
 
 This is the SAME fixture set the frontend's vitest suite reads
-(``frontend/src/components/tailored-cvs/cv-diff.test.ts``), so passing here is
-half of the proof that the web and the server diff agree; the other half is
-that suite passing too.
+(``frontend/src/components/tailored-cvs/cv-diff.fixtures.test.ts``), so passing
+here is half of the proof that the web and the server diff agree; the other
+half is that suite passing too.
 """
 
 import json
@@ -22,7 +22,7 @@ import pytest
 from app.application.dto.tailored_cv import TailoredCVContent
 from app.application.services.cv_diff import diff_cv
 
-FIXTURES_DIR = Path(__file__).resolve().parents[3] / 'fixtures' / 'cv-diff'
+FIXTURES_DIR = Path(__file__).resolve().parents[1] / 'fixtures' / 'cv-diff'
 
 
 def _load_fixtures() -> list[tuple[str, dict[str, Any]]]:
