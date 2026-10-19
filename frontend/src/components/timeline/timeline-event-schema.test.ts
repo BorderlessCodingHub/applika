@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   CLOSING_DATE_MESSAGE,
@@ -894,6 +894,47 @@ describe("timelineEventSchema — the closing date stops at today", () => {
         offerValues({ close_application: false, event_date: daysFromToday(5) }),
       ).success,
     ).toBe(true);
+  });
+
+  describe("compares against the user's LOCAL day, never UTC's", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.unstubAllEnvs();
+    });
+
+    it("Tokyo at 22:30 UTC: the local today is accepted, the local tomorrow refused", () => {
+      vi.stubEnv("TZ", "Asia/Tokyo");
+      vi.useFakeTimers({ toFake: ["Date"] });
+      // 2026-10-15 22:30 UTC is 2026-10-16 07:30 in Tokyo.
+      vi.setSystemTime(new Date(Date.UTC(2026, 9, 15, 22, 30)));
+      expect(
+        timelineEventSchema.safeParse(
+          deniedValues({ close_application: true, event_date: "2026-10-16" }),
+        ).success,
+      ).toBe(true);
+      expect(
+        timelineEventSchema.safeParse(
+          deniedValues({ close_application: true, event_date: "2026-10-17" }),
+        ).success,
+      ).toBe(false);
+    });
+
+    it("Honolulu at 08:30 UTC: the local today is accepted, UTC's today refused", () => {
+      vi.stubEnv("TZ", "Pacific/Honolulu");
+      vi.useFakeTimers({ toFake: ["Date"] });
+      // 2026-10-16 08:30 UTC is 2026-10-15 22:30 in Honolulu.
+      vi.setSystemTime(new Date(Date.UTC(2026, 9, 16, 8, 30)));
+      expect(
+        timelineEventSchema.safeParse(
+          deniedValues({ close_application: true, event_date: "2026-10-15" }),
+        ).success,
+      ).toBe(true);
+      expect(
+        timelineEventSchema.safeParse(
+          deniedValues({ close_application: true, event_date: "2026-10-16" }),
+        ).success,
+      ).toBe(false);
+    });
   });
 
   it("an interview never closes, so the flag never caps its date", () => {

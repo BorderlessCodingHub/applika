@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { AxiosError, AxiosHeaders } from "axios";
 import { type ReactNode } from "react";
 import { toast } from "sonner";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   FINALIZE_OUTCOME_COPY,
@@ -16,6 +16,7 @@ import {
   INITIAL_SCREENING_TAKEN_HINT,
   LEGACY_HOURLY_OFFER_HINT,
 } from "@/components/timeline/timeline-copy";
+import { EVENT_TYPE_CONFIG } from "@/components/timeline/timeline-options";
 import { type TimelineEventView } from "@/components/timeline/timeline-types";
 import {
   browserTimeZone,
@@ -731,6 +732,19 @@ describe("TimelineEventForm close mode — the choices", () => {
     expect(
       screen.getByRole("radiogroup", { name: "Event type" }),
     ).not.toHaveAccessibleDescription(/close/i);
+    for (const option of Object.values(EVENT_TYPE_CONFIG)) {
+      expect(screen.queryByText(option.hint)).not.toBeInTheDocument();
+    }
+  });
+
+  it("labels the chips Outcome in close mode and Event type in Add event", () => {
+    const view = renderForm(RENDER_CLOSE);
+    expect(screen.getByText("Outcome")).toBeInTheDocument();
+    expect(screen.queryByText("Event type")).not.toBeInTheDocument();
+    view.unmount();
+    renderForm();
+    expect(screen.getByText("Event type")).toBeInTheDocument();
+    expect(screen.queryByText("Outcome")).not.toBeInTheDocument();
   });
 });
 
@@ -914,29 +928,32 @@ describe("TimelineEventForm close mode — server-limit parity (mirrors Finalize
 });
 
 describe("TimelineEventForm close mode — outcome date", () => {
+  // Mid-month, so tomorrow is always on the calendar that opens. Only `Date`
+  // is faked: user-event and Radix keep their real timers.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 15, 12, 0, 0));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function calendarDay(day: number) {
+    return screen
+      .getAllByRole("button")
+      .find((b) => b.closest('[role="grid"]') && b.textContent === String(day));
+  }
+
   it("defaults the date to today and disables tomorrow", async () => {
     const user = userEvent.setup();
     renderForm(RENDER_CLOSE);
     await user.click(screen.getByRole("radio", { name: "Denied" }));
     const trigger = screen.getByLabelText("Date");
-    expect(trigger).toHaveTextContent(todayLocalIso());
+    expect(trigger).toHaveTextContent("2026-10-15");
 
     await user.click(trigger);
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    // Only assert when tomorrow is in the month the calendar opened on.
-    if (tomorrow.getMonth() === today.getMonth()) {
-      const cells = screen
-        .getAllByRole("button")
-        .filter(
-          (b) =>
-            b.closest('[role="grid"]') &&
-            b.textContent === String(tomorrow.getDate()),
-        );
-      expect(cells.length).toBeGreaterThan(0);
-      expect(cells[0]).toBeDisabled();
-    }
+    expect(calendarDay(15)).not.toBeDisabled();
+    expect(calendarDay(16)).toBeDisabled();
   });
 
   it("Offer caps the date at today too", async () => {
@@ -944,19 +961,7 @@ describe("TimelineEventForm close mode — outcome date", () => {
     renderForm(RENDER_CLOSE);
     await user.click(screen.getByRole("radio", { name: "Offer" }));
     await user.click(screen.getByLabelText("Date"));
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    if (tomorrow.getMonth() === today.getMonth()) {
-      const cell = screen
-        .getAllByRole("button")
-        .find(
-          (b) =>
-            b.closest('[role="grid"]') &&
-            b.textContent === String(tomorrow.getDate()),
-        );
-      expect(cell).toBeDisabled();
-    }
+    expect(calendarDay(16)).toBeDisabled();
   });
 
   it("Add event (no close) still allows a future date", async () => {
@@ -964,19 +969,7 @@ describe("TimelineEventForm close mode — outcome date", () => {
     renderForm();
     await user.click(screen.getByRole("radio", { name: "Denied" }));
     await user.click(screen.getByLabelText("Date"));
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    if (tomorrow.getMonth() === today.getMonth()) {
-      const cell = screen
-        .getAllByRole("button")
-        .find(
-          (b) =>
-            b.closest('[role="grid"]') &&
-            b.textContent === String(tomorrow.getDate()),
-        );
-      expect(cell).not.toBeDisabled();
-    }
+    expect(calendarDay(16)).not.toBeDisabled();
   });
 });
 
@@ -1131,6 +1124,28 @@ describe("TimelineEventForm close mode — saving", () => {
     expect(
       screen.getByRole("dialog", { name: "Close application" }),
     ).toBeInTheDocument();
+  });
+
+  it("locks the dialog while closing: buttons disabled, the label kept, no second request", async () => {
+    const user = userEvent.setup();
+    let resolve: (value: never) => void = () => {};
+    vi.mocked(services.applications.finalize).mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
+    renderForm(RENDER_CLOSE);
+    const submit = screen.getByRole("button", { name: "Close application" });
+    await user.click(submit);
+    await waitFor(() => expect(submit).toBeDisabled());
+    expect(submit).toHaveTextContent("Close application");
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    await user.click(submit);
+    expect(services.applications.finalize).toHaveBeenCalledTimes(1);
+    resolve(closedApplication());
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith("Application closed"),
+    );
   });
 
   it("a failure with no server answer falls back to 'Could not close it'", async () => {
