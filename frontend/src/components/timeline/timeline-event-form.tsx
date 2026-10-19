@@ -43,6 +43,7 @@ import {
 } from "@/components/timeline/timeline-types";
 import { TimezoneSelect } from "@/components/timeline/timezone-select";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import {
   Form,
@@ -119,6 +120,13 @@ export interface TimelineEventFormProps {
  * records the event and closes in one commit. A save that closes caps the
  * date at today.
  *
+ * Add event with an Offer or Denied shows the "Close the application" box in
+ * the footer, before Cancel, ticked on every open. Ticked, the save is that
+ * same one finalize request; unticked (or an Interview, which never shows
+ * the box), it is `POST /applications/{id}/timeline` as before. The box
+ * lives in the footer, outside the `<form>`, so `<Form>` wraps the whole
+ * dialog. Edit event shows no box and never closes.
+ *
  * R-030/R-032 and the `interview_type` field sit on top of the base event
  * form.
  */
@@ -176,8 +184,10 @@ export function TimelineEventForm({
   // Saving closes the application: always in the close dialog, and for an
   // Offer or Denied whose `close_application` is set. Closing with an event
   // records a day that already happened, so its date stops at today.
+  const showsCloseBox = mode === "create" && (isOffer || isDenied);
   const closesWithEvent =
-    (isOffer || isDenied) && (mode === "close" || closeApplication);
+    (isOffer || isDenied) &&
+    (mode === "close" || (mode === "create" && closeApplication));
   const isClosing = mode === "close" || closesWithEvent;
 
   // The interview type select shows "Unknown" the moment event_type becomes
@@ -251,7 +261,7 @@ export function TimelineEventForm({
     if (
       values.event_type === "none" ||
       (values.event_type !== "interview" &&
-        (mode === "close" || values.close_application))
+        (mode === "close" || (mode === "create" && values.close_application)))
     ) {
       closeWith(values);
       return;
@@ -303,46 +313,72 @@ export function TimelineEventForm({
   const onSubmit = form.handleSubmit(onValid, onInvalid);
 
   return (
-    <TimelineEventDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      mode={mode}
-      footer={
-        <>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isSaving}
-            onClick={() => onOpenChange(false)}
-          >
-            {FINALIZE_DIALOG_COPY.cancel}
-          </Button>
-          <Button type="submit" form={FORM_ID} disabled={isSaving}>
-            {mode === "close" ? (
-              <>
-                {isSaving ? (
-                  <Loader2 className="animate-spin" aria-hidden />
-                ) : (
-                  <Save aria-hidden />
+    <Form {...form}>
+      <TimelineEventDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        mode={mode}
+        footer={
+          <>
+            {showsCloseBox ? (
+              <FormField
+                control={form.control}
+                name="close_application"
+                render={({ field }) => (
+                  <FormItem className="basis-full grid-cols-[auto_1fr] items-center gap-y-0.5 sm:mr-auto sm:basis-auto">
+                    <FormControl>
+                      <Checkbox
+                        ref={field.ref}
+                        name={field.name}
+                        checked={field.value}
+                        onCheckedChange={(checked) =>
+                          field.onChange(checked === true)
+                        }
+                        onBlur={field.onBlur}
+                        disabled={isSaving}
+                      />
+                    </FormControl>
+                    <FormLabel>Close the application</FormLabel>
+                    <FormDescription className="col-start-2">
+                      You can reopen it later.
+                    </FormDescription>
+                  </FormItem>
                 )}
-                {FINALIZE_DIALOG_COPY.submit}
-              </>
-            ) : isSaving ? (
-              <>
-                <Loader2 className="animate-spin" aria-hidden />
-                Saving
-              </>
-            ) : (
-              <>
-                <Save aria-hidden />
-                {mode === "create" ? "Add event" : "Save changes"}
-              </>
-            )}
-          </Button>
-        </>
-      }
-    >
-      <Form {...form}>
+              />
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isSaving}
+              onClick={() => onOpenChange(false)}
+            >
+              {FINALIZE_DIALOG_COPY.cancel}
+            </Button>
+            <Button type="submit" form={FORM_ID} disabled={isSaving}>
+              {mode === "close" ? (
+                <>
+                  {isSaving ? (
+                    <Loader2 className="animate-spin" aria-hidden />
+                  ) : (
+                    <Save aria-hidden />
+                  )}
+                  {FINALIZE_DIALOG_COPY.submit}
+                </>
+              ) : isSaving ? (
+                <>
+                  <Loader2 className="animate-spin" aria-hidden />
+                  Saving
+                </>
+              ) : (
+                <>
+                  <Save aria-hidden />
+                  {mode === "create" ? "Add event" : "Save changes"}
+                </>
+              )}
+            </Button>
+          </>
+        }
+      >
         <form id={FORM_ID} onSubmit={onSubmit} noValidate>
           <TimelineEventFormFields
             isInterview={isInterview}
@@ -610,7 +646,7 @@ export function TimelineEventForm({
             }
           />
         </form>
-      </Form>
-    </TimelineEventDialog>
+      </TimelineEventDialog>
+    </Form>
   );
 }

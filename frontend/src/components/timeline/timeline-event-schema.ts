@@ -37,10 +37,12 @@ import type { CreateTimelineEventPayload } from "@/services/types/timeline";
  * `none` branch: close the application with no outcome. It validates nothing
  * — every field is unmounted for it, so a stale value can never block the
  * close — and it never reaches `toTimelineEventPayload`. `close_application`
- * rides on every branch: `true` when saving closes the application (always
- * in the close dialog), `false` for Add event and Edit event. Closing with an
- * Offer or Denied goes through `toFinalizeOutcomePayload` to
- * `POST /applications/{id}/finalize`, and its date cannot be later than today.
+ * rides on every branch: `true` in the close dialog (always closes) and on
+ * Add event's open (the "Close the application" box, ticked by default and
+ * read only for an Offer or Denied), `false` for Edit event (never closes).
+ * Closing with an Offer or Denied goes through `toFinalizeOutcomePayload` to
+ * `POST /applications/{id}/finalize`, and its date cannot be later than today;
+ * an Offer or Denied added with the box unticked has no date cap.
  */
 
 /** Offer salary period is restricted to monthly/annually. */
@@ -233,7 +235,9 @@ export type TimelineEventCloseValues = Exclude<
 
 /**
  * Blank values for the create flow — defaults to an `interview` of type
- * `unknown` on today's date.
+ * `unknown` on today's date, with `close_application` true: the "Close the
+ * application" box shows only for an Offer or Denied, and it is ticked every
+ * time the dialog opens.
  * `timezone` pre-fills with the browser's own zone (KODI-014): the select
  * cannot be cleared, so a create flow that never touches the field still
  * carries a real zone once the type becomes `interview`.
@@ -251,7 +255,7 @@ export function emptyTimelineEventValues(): TimelineEventEventValues {
     salary_period: "",
     salary_amount: "",
     salary_currency: "",
-    close_application: false,
+    close_application: true,
   } as TimelineEventEventValues;
 }
 
