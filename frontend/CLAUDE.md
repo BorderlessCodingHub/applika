@@ -1875,6 +1875,22 @@ for conditional class merging.
 Tailwind 4 is CSS-first: every token lives in `@theme` in `src/app/globals.css`.
 There is no `tailwind.config.ts`.
 
+**The palette is the original teal one (ADR-0022, amending ADR-0006).** The
+colour tokens in `globals.css`'s first `@layer base` (`:root` light, `.dark`
+dark; dark is the default theme) are the palette of commit `9661a38`, written
+in oklch: each original HSL value converted per CSS Color 4. Tokens with no
+twin there follow fixed rules: `--surface` = card, `--surface-elevated` =
+popover, `--primary-muted` = primary `/ 0.12`, `--info` = primary,
+`--chart-1..5` = primary, success, warning, destructive, muted-foreground, and
+`--border-strong` is its own pinned value. The dark shadows, `--shadow-glow`
+and the `gradient-mesh` stops are the original ones too.
+`src/app/globals-palette.test.ts` pins all of it — every token, light and
+dark, within 1.5/255 per sRGB channel, plus the browser `themeColor` in
+`layout.tsx` — and its `canonicalOklch()` is the only source of the oklch
+numbers: never convert by hand. A value changes only with an ADR. The CV
+preview's print colours (`neutral-*`/`blue-700`) and the categorical colours
+(seniority badges, admin charts, agenda urgency) are not tokens and stay.
+
 **`cn()` and custom utilities.** `shadow-card` and `shadow-elevated` are custom
 `@utility` rules, so stock tailwind-merge does not know they are shadows and
 would keep BOTH sides of an override — leaving the loser to win on stylesheet
