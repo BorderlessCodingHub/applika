@@ -1,7 +1,7 @@
 """Seed the three deterministic E2E users and mint REAL sessions.
 
 Part of the production-simulating E2E harness (see
-``docker-compose.e2e.yml`` and ``scripts/e2e.sh``). GitHub OAuth is the
+``docker-compose.e2e.yml`` and ``frontend/scripts/e2e.sh``). GitHub OAuth is the
 only login path and it cannot run in a headless CI browser, so instead of
 mocking auth in the browser we mint a genuine session out of band: this
 CLI upserts three synthetic users through the REAL ``UserRepository`` and

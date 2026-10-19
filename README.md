@@ -221,5 +221,5 @@ DevTools. It refuses to run when `ENVIRONMENT=PROD`.
 | File | Purpose |
 |---|---|
 | `docker-compose.yml` | This stack. Local development, persistent volumes. |
-| `docker-compose.e2e.yml` | Ephemeral E2E stack (`scripts/e2e.sh`). No volumes, empty DB every run. |
+| `docker-compose.e2e.yml` | Ephemeral E2E stack (`frontend/scripts/e2e.sh`). No volumes, empty DB every run. |
 | `backend/docker-compose.yml`, `frontend/docker-compose.yml` | Older per-project stacks, superseded by the root file. Their volumes live under different project names, so their databases are separate. |

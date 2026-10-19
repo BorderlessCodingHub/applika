@@ -8,7 +8,7 @@ import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
  *
  * Serial on purpose: the last test disconnects the seeded `e2e-discord` user
  * for real, so an earlier test asserting the LINKED state must run before it.
- * `scripts/e2e.sh` re-seeds `discord_id` on every run, so a rerun of this
+ * `frontend/scripts/e2e.sh` re-seeds `discord_id` on every run, so a rerun of this
  * suite always starts from `e2e-discord` linked again.
  *
  * Real discord.com is NEVER reached: `page.route("**://discord.com/**", ...)`
