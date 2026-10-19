@@ -8,7 +8,7 @@ import shlex
 import subprocess
 import sys
 from collections.abc import Sequence
-from contextlib import suppress
+from contextlib import ExitStack, suppress
 from typing import IO, Annotated
 
 import httpx
@@ -198,7 +198,14 @@ def update(
     )
     if found:
         raise _fail(*(blocker_line(blocker) for blocker in found))
-    with updater.update_lock() as acquired:
+    run_it = f'Run it yourself: {_command_line(detected.argv)}'
+    with ExitStack() as stack:
+        try:
+            acquired = stack.enter_context(updater.update_lock())
+        except OSError:
+            # The config folder cannot be written: no other run can hold
+            # the lock there either, so the update the user asked for goes on.
+            acquired = True
         if not acquired:
             raise _fail('Another applika update is running.')
         state = UpdateState(checked_at=updater._now())
@@ -206,14 +213,17 @@ def update(
         try:
             latest = updater.fetch_latest(CHECK_TIMEOUT_SECONDS)
         except (httpx.HTTPError, ValueError, KeyError) as exc:
-            raise _fail(f'Could not reach PyPI: {_pypi_reason(exc)}') from exc
+            raise _fail(
+                f'Could not reach PyPI: {_pypi_reason(exc)}', run_it
+            ) from exc
         state.latest_version = latest
         _save(state)
         old = updater.installed_version()
         newer = updater.is_newer(latest, old)
         if newer is None:
             raise _fail(
-                f'Cannot compare installed {old} with published {latest}.'
+                f'Cannot compare installed {old} with published {latest}.',
+                run_it,
             )
         if not newer:
             typer.echo(f'{PACKAGE_NAME} {old} is up to date.')

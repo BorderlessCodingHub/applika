@@ -414,7 +414,8 @@ def test_not_comparable(monkeypatch, runner, store, installed, latest):
     assert result.exit_code == 1
     assert result.stdout == ''
     assert lines(result.stderr) == [
-        f'Cannot compare installed {installed} with published {latest}.'
+        f'Cannot compare installed {installed} with published {latest}.',
+        f'Run it yourself: {UV_LINE}',
     ]
     assert run.calls == []
 
@@ -505,6 +506,24 @@ def test_kept_by_a_pin(monkeypatch, runner, store, install, tool):
     assert 'Updated' not in result.stdout
 
 
+def test_kept_names_the_version_that_stayed(monkeypatch, runner, store):
+    # A pin to 1.2.0 while PyPI has 1.4.0: the line names what is there.
+    ready(
+        monkeypatch,
+        latest='1.4.0',
+        installed='1.1.0',
+        run=FakeRun(done(), done(stdout='1.2.0\n')),
+    )
+
+    result = invoke(runner, ['update'])
+
+    assert result.exit_code == 1
+    assert lines(result.stderr) == [
+        'uv kept applika-cli 1.2.0: your install pins that version. '
+        'Reinstall without the pin to update.'
+    ]
+
+
 @pytest.mark.parametrize('stdout', ['', 'garbage', '1.2.0rc1'])
 def test_unreadable_verify_output_is_a_failure_not_a_pin(
     monkeypatch, runner, store, stdout
@@ -530,19 +549,23 @@ def test_pypi_down(monkeypatch, runner, store):
 
     assert result.exit_code == 1
     assert result.stdout == ''
-    assert lines(result.stderr) == ['Could not reach PyPI: network down']
+    assert lines(result.stderr) == [
+        'Could not reach PyPI: network down',
+        f'Run it yourself: {UV_LINE}',
+    ]
     assert run.calls == []
 
 
-def test_pypi_error_status_keeps_one_line(monkeypatch, runner, store):
+def test_pypi_error_status_keeps_one_reason_line(monkeypatch, runner, store):
     ready(monkeypatch, pypi=Pypi(status=503))
 
     result = invoke(runner, ['update'])
 
     assert result.exit_code == 1
-    assert len(lines(result.stderr)) == 1
-    assert result.stderr.startswith('Could not reach PyPI: Server error')
-    assert '503' in result.stderr
+    reason, run_it = lines(result.stderr)
+    assert reason.startswith('Could not reach PyPI: Server error')
+    assert '503' in reason
+    assert run_it == f'Run it yourself: {UV_LINE}'
 
 
 @pytest.mark.parametrize(
@@ -560,6 +583,7 @@ def test_pypi_body_without_a_version(monkeypatch, runner, store, body, reason):
 
     assert result.exit_code == 1
     assert result.stderr.startswith(f'Could not reach PyPI: {reason}')
+    assert lines(result.stderr)[-1] == f'Run it yourself: {UV_LINE}'
 
 
 # --- lock and clock -------------------------------------------------------
@@ -579,6 +603,24 @@ def test_lock_held_by_another_update(monkeypatch, runner, store):
     assert run.calls == []
     assert lock.exists()  # someone else's lock stays
     assert not state_file().exists()
+
+
+def test_an_unwritable_config_folder_does_not_stop_the_update(
+    monkeypatch, runner, store
+):
+    def refuse(path, now):
+        raise PermissionError(f'read-only: {path}')
+
+    monkeypatch.setattr(updater, '_acquire', refuse)
+    pypi, run = ready(monkeypatch)
+
+    result = invoke(runner, ['update'])
+
+    assert result.exit_code == 0
+    assert result.exception is None
+    assert result.stdout.endswith('Updated applika-cli 1.1.0 → 1.2.0\n')
+    assert len(pypi.requests) == 1
+    assert len(run.calls) == 2
 
 
 def test_lock_is_released_after_the_update(monkeypatch, runner, store):

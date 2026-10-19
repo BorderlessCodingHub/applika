@@ -317,6 +317,19 @@ applika applications reopen 42
 
 ---
 
+### `applika update [--force]`
+
+Checks PyPI now and installs the latest `applika-cli` with the tool it was
+installed with, or lists every reason it cannot. `--force` only lifts
+`APPLIKA_DISABLE_AUTOUPDATE`. See [Updates](#updates).
+
+```bash
+applika update
+applika update --force
+```
+
+---
+
 ## Application Steps and the deprecated finalize flags
 
 **Deprecated.** Prefer `applications timeline` and `applications finalize --outcome` above. Everything in this section still works exactly as in 0.1.4 — it exists only so installed CLIs and existing scripts keep working.
@@ -506,19 +519,6 @@ Once installed, the AI assistant automatically loads the skill context in every 
 
 ---
 
-### `applika update [--force]`
-
-Checks PyPI now and installs the latest `applika-cli` with the tool it was
-installed with, or lists every reason it cannot. `--force` only lifts
-`APPLIKA_DISABLE_AUTOUPDATE`. See [Updates](#updates).
-
-```bash
-applika update
-applika update --force
-```
-
----
-
 ## Master CVs and application CV copies
 
 Since **1.0.0**. Up to three master CVs per user; one CV copy per application.
@@ -704,8 +704,8 @@ What it prints when nothing blocks it:
 |---|---|---|
 | Nothing newer on PyPI | `applika-cli 1.2.0 is up to date.` | 0 |
 | Updated | `Updating applika-cli 1.1.0 → 1.2.0 (uv tool upgrade applika-cli)…` then `Updated applika-cli 1.1.0 → 1.2.0` | 0 |
-| PyPI cannot be read | `Could not reach PyPI: <reason>` | 1 |
-| A version that is not plain numbers | `Cannot compare installed <a> with published <b>.` | 1 |
+| PyPI cannot be read | `Could not reach PyPI: <reason>`, then `Run it yourself: <command>` | 1 |
+| A version that is not plain numbers | `Cannot compare installed <a> with published <b>.`, then `Run it yourself: <command>` | 1 |
 | The installer failed | `Update failed: <command> exited <code>.`, its last 20 stderr lines, then `Run it yourself: <command>` | 1 |
 | The installer ran past 2 minutes | `Update failed: <command> timed out after 120 s.`, then `Run it yourself: <command>` | 1 |
 | The installer ran but the new version could not be confirmed | `Update failed: <command> ran, but the new version could not be confirmed…`, then `Run it yourself: <command>` | 1 |

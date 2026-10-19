@@ -176,9 +176,10 @@ src/applika/
 - **Daily auto update**: `app.py` `_root` registers `updater.after_command(ctx.obj)`
   with `ctx.call_on_close` after building `AppConfig` (`--version` and bare
   `applika` exit before it; `applika update` never registers it). It
-  swallows every error and Ctrl-C, writes only `Updated applika-cli <old> → <new>` on stderr, and reads env, streams, clock,
-  distribution, prefix, `which` and user site through module seams in
-  `lib/updater.py`. Tests never reach PyPI, spawn an installer or touch
+  swallows every error and Ctrl-C, writes only
+  `Updated applika-cli <old> → <new>` on stderr, and reads env, streams,
+  clock, distribution, prefix, `which` and user site through module seams
+  in `lib/updater.py`. Tests never reach PyPI, spawn an installer or touch
   `~/.config/applika/`: the autouse `updater_guard` (`tests/conftest.py`)
   refuses and records `_transport`/`_run`, points `_state_dir` at `tmp_path`,
   and gives `_env`/`_streams` an empty env and non-TTY streams; a test that
