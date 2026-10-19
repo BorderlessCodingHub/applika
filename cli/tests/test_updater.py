@@ -15,7 +15,11 @@ from conftest import FakeStore, make_session
 
 import applika.app as cli_app
 import applika.commands.version as version_module
-from applika.config import AppConfig, is_default_api_base_url
+from applika.config import (
+    ApiBaseUrlSource,
+    AppConfig,
+    is_default_api_base_url,
+)
 from applika.lib import updater
 from applika.lib.updater import (
     Blocker,
@@ -909,9 +913,30 @@ def test_no_gate_blocks_an_interactive_default_pip_install():
     assert gate() == []
 
 
-def test_url_overridden_alone():
-    assert gate(url=OTHER_URL) == [
-        Blocker(BlockerKind.URL_OVERRIDDEN, OTHER_URL)
+@pytest.mark.parametrize('source', list(ApiBaseUrlSource))
+def test_url_overridden_alone_carries_its_source(source):
+    config = AppConfig(
+        api_base_url=OTHER_URL, store=FakeStore(), api_base_url_source=source
+    )
+
+    found = updater.blockers(
+        config, PIP_INSTALL, {}, ttys(), auto=True, force=False
+    )
+
+    assert found == [Blocker(BlockerKind.URL_OVERRIDDEN, OTHER_URL, source)]
+
+
+def test_other_gates_carry_no_url_source():
+    found = gate(
+        url=OTHER_URL,
+        install=Install('editable', (), '/src'),
+        env={'APPLIKA_DISABLE_AUTOUPDATE': '1'},
+    )
+
+    assert [blocker.source for blocker in found] == [
+        ApiBaseUrlSource.DEFAULT,
+        None,
+        None,
     ]
 
 

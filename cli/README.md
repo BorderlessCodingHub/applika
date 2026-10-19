@@ -506,6 +506,19 @@ Once installed, the AI assistant automatically loads the skill context in every 
 
 ---
 
+### `applika update [--force]`
+
+Checks PyPI now and installs the latest `applika-cli` with the tool it was
+installed with, or lists every reason it cannot. `--force` only lifts
+`APPLIKA_DISABLE_AUTOUPDATE`. See [Updates](#updates).
+
+```bash
+applika update
+applika update --force
+```
+
+---
+
 ## Master CVs and application CV copies
 
 Since **1.0.0**. Up to three master CVs per user; one CV copy per application.
@@ -654,6 +667,52 @@ It stays off, quietly, when:
   `uv tool install --force .` from [Development](#development) never update;
 - it cannot tell how the CLI was installed;
 - `APPLIKA_DISABLE_AUTOUPDATE` is set to anything but empty, `0` or `false`.
+
+### Update now with `applika update`
+
+Updates now, without waiting for the daily check. It checks PyPI at once (it
+gives up after 10 seconds) and installs the latest `applika-cli` with the tool
+it was installed with. Unlike the daily update it runs anywhere: in a
+terminal, in CI, in a pipe, or typed by an AI agent. It needs no sign-in and
+calls no Applika API.
+
+```bash
+applika update            # update now
+applika update --force    # update even when APPLIKA_DISABLE_AUTOUPDATE is set
+```
+
+It refuses, and exits `1`, when something blocks the update. It prints every
+reason, one line each on stderr, each with the way back:
+
+| Reason | Way back |
+|---|---|
+| The API base URL is not `https://applika.dev/api`, from `--api-base-url` | Run without `--api-base-url` |
+| … from `APPLIKA_API_BASE_URL` | Unset `APPLIKA_API_BASE_URL` |
+| … from your saved session | `applika logout`, then `applika login` without `--api-base-url` |
+| The CLI runs from a source checkout (an editable install or `uv tool install --force .`) | Update it with git |
+| It cannot tell how the CLI was installed | Upgrade with the tool you used (below) |
+| `APPLIKA_DISABLE_AUTOUPDATE` is set to anything but empty, `0` or `false` | `applika update --force` |
+
+`--force` only lifts `APPLIKA_DISABLE_AUTOUPDATE`; it changes nothing else.
+An overridden URL, a source checkout or an unknown install refuse with or
+without it. Another `applika update` (or the daily update) running at the same
+time also refuses: `Another applika update is running.`
+
+What it prints when nothing blocks it:
+
+| Result | Output | Exit |
+|---|---|---|
+| Nothing newer on PyPI | `applika-cli 1.2.0 is up to date.` | 0 |
+| Updated | `Updating applika-cli 1.1.0 → 1.2.0 (uv tool upgrade applika-cli)…` then `Updated applika-cli 1.1.0 → 1.2.0` | 0 |
+| PyPI cannot be read | `Could not reach PyPI: <reason>` | 1 |
+| A version that is not plain numbers | `Cannot compare installed <a> with published <b>.` | 1 |
+| The installer failed | `Update failed: <command> exited <code>.`, its last 20 stderr lines, then `Run it yourself: <command>` | 1 |
+| The installer ran past 2 minutes | `Update failed: <command> timed out after 120 s.`, then `Run it yourself: <command>` | 1 |
+| The installer ran but the new version could not be confirmed | `Update failed: <command> ran, but the new version could not be confirmed…`, then `Run it yourself: <command>` | 1 |
+| A pin kept the old version | `<uv\|pipx\|pip> kept applika-cli 1.1.0: your install pins that version. Reinstall without the pin to update.` | 1 |
+
+Every check, failed or not, restarts the once-a-day clock, and the daily
+update never runs right after `applika update`.
 
 To update by hand, use the tool you installed with:
 

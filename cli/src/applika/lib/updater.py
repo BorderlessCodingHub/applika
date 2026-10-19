@@ -28,7 +28,11 @@ from urllib.request import url2pathname
 
 import httpx
 
-from applika.config import AppConfig, is_default_api_base_url
+from applika.config import (
+    ApiBaseUrlSource,
+    AppConfig,
+    is_default_api_base_url,
+)
 
 PACKAGE_NAME = 'applika-cli'
 PYPI_JSON_URL = f'https://pypi.org/pypi/{PACKAGE_NAME}/json'
@@ -395,10 +399,12 @@ class BlockerKind(str, Enum):
 @dataclass(frozen=True)
 class Blocker:
     """One gate that stops the update, with what tripped it (the URL, the
-    checkout path, the env value)."""
+    checkout path, the env value). ``source`` says where an overridden URL
+    comes from; ``None`` for every other gate."""
 
     kind: BlockerKind
     detail: str | None = None
+    source: ApiBaseUrlSource | None = None
 
 
 def _env() -> Mapping[str, str]:
@@ -445,7 +451,13 @@ def blockers(
     only."""
     found: list[Blocker] = []
     if not is_default_api_base_url(config.api_base_url):
-        found.append(Blocker(BlockerKind.URL_OVERRIDDEN, config.api_base_url))
+        found.append(
+            Blocker(
+                BlockerKind.URL_OVERRIDDEN,
+                config.api_base_url,
+                config.api_base_url_source,
+            )
+        )
     if auto:
         if CI_ENV_VAR in env:
             found.append(

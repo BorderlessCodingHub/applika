@@ -72,7 +72,9 @@ All source code lives under `src/applika/` (importable as `applika`).
 src/applika/
 ├── main.py              # Entry point: def main() -> None
 ├── app.py               # Root Typer app + --api-base-url callback → AppConfig
-├── config.py            # AppConfig dataclass + resolve_api_base_url
+├── config.py            # AppConfig dataclass + resolve_api_base_url;
+│                        #   ApiBaseUrlSource (flag/env/session/default) via
+│                        #   resolve_api_base_url_with_source
 ├── skills/
 │   └── applika-cli/     # Bundled SKILL.md (included in wheel, symlinked/copied by skill install)
 ├── schemas/
@@ -118,6 +120,8 @@ src/applika/
     ├── auth.py          # login [--device] [--manual] [--device-name] + logout
     │                    #   + whoami Typer commands (KODI-060)
     ├── skill.py         # skill install Typer sub-app
+    ├── update.py        # applika update [--force]: blockers as stderr lines,
+    │                    #   PyPI check now, install with the detected tool
     ├── cv_shared.py     # behaviour shared by `cvs` and `applications cv`:
     │                    #   load_document, merge_document, emit_cv, download_document,
     │                    #   usage_error (exit 2) / api_error (exit 1) (KODI-018)
@@ -140,7 +144,7 @@ src/applika/
 
 ## Key Patterns
 
-- **Global state**: `AppConfig` (dataclass with `api_base_url` + `store`) lives on `ctx.obj`, set by the root `@app.callback()` in `app.py`.
+- **Global state**: `AppConfig` (dataclass with `api_base_url`, `store` and `api_base_url_source`) lives on `ctx.obj`, set by the root `@app.callback()` in `app.py`. The source comes from `ctx.get_parameter_source('api_base_url')` (flag or env), else the saved session, else the default.
 - **Auth required**: Commands call `require_session(config.store)` → raises `AuthError` if no session.
 - **Payload validation**: Pydantic models (one per command family) validate inputs before API calls; commands catch `ValidationError`/`ValueError` and print via `typer.echo(..., err=True)` + `typer.Exit(1)`. New in 0.2.0: commands that hit the timeline/finalize/reopen routes also catch `ApiError` (`_echo_api_error`) and, on a 409 mentioning "closed", append a hint to run `applications reopen`.
 - **Schemas are vendored**: everything under `schemas/` is a standalone copy (no backend import). Keep in sync with `backend/app/core/enums.py`, `backend/app/application/dto/application.py` and `backend/app/presentation/schemas/timeline_event.py` when the backend changes.
@@ -171,14 +175,21 @@ src/applika/
   `device_flow.poll` takes `sleep`/`monotonic`.
 - **Daily auto update**: `app.py` `_root` registers `updater.after_command(ctx.obj)`
   with `ctx.call_on_close` after building `AppConfig` (`--version` and bare
-  `applika` exit before it). It swallows every error and Ctrl-C, writes only
-  `Updated applika-cli <old> → <new>` on stderr, and reads env, streams, clock,
+  `applika` exit before it; `applika update` never registers it). It
+  swallows every error and Ctrl-C, writes only `Updated applika-cli <old> → <new>` on stderr, and reads env, streams, clock,
   distribution, prefix, `which` and user site through module seams in
   `lib/updater.py`. Tests never reach PyPI, spawn an installer or touch
   `~/.config/applika/`: the autouse `updater_guard` (`tests/conftest.py`)
   refuses and records `_transport`/`_run`, points `_state_dir` at `tmp_path`,
   and gives `_env`/`_streams` an empty env and non-TTY streams; a test that
   drives the update patches those seams itself.
+- **`applika update`** (`commands/update.py`) reuses the same seams through
+  `updater.` attribute lookups (so tests patch them in one place): no terminal
+  check (`blockers(..., auto=False)`), one stderr line per blocker, `--force`
+  lifts only `APPLIKA_DISABLE_AUTOUPDATE`. It tells a pin (the verify reads a
+  parseable release other than the latest) from a failed verify (unparseable
+  output, non-zero exit, timeout): only the first is "kept". No session, no
+  `ApiClient`.
 - **Deprecated, not removed**: `applications steps *` and `applications finalize --step/--feedback/--salary-offer` still work exactly as in 0.1.4 (`.claude/rules/cli-compatibility.md`); only their `--help` text says deprecated. Typer's own `deprecated=True` is deliberately **not** used on them — it prints a `DeprecationWarning` to stderr on every invocation, which corrupts `--output-format json` output under `CliRunner`'s default stderr mixing.
 
 ## CLI Commands
@@ -197,6 +208,7 @@ src/applika/
 | `applika applications steps list/add/edit/delete` | Deprecated — use `applications timeline` |
 | `applika applications cv get/create/edit/delete/download/diff <id>` | Manage an application's CV copy (`--from`, `--file`, `--name`, `--output`, `--type`, `--dir`, `--filename`, `--force`, `--print`) |
 | `applika cvs list/get/create/edit/delete/download` | Manage master CVs (max 3): `--file`, `--name`, `--output`, `--type pdf\|md`, `--dir`, `--filename`, `--force` |
+| `applika update [--force]` | Check PyPI now and install the latest version with the detected tool, or list every reason it refuses (`--force` lifts only `APPLIKA_DISABLE_AUTOUPDATE`) |
 | `applika skill install` | Install the AI skill (symlink/copy) for Claude, Gemini, or Codex |
 
 ## Environment Variables
