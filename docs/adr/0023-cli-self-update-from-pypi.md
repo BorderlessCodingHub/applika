@@ -68,6 +68,15 @@ a new state file, and makes an exception to ADR-0018.
 - On Windows the running CLI's files can be locked. The install then fails like any other failure, and
   `applika update` prints the command to run by hand.
 
+**As-built note (2026-10-19).** The Decision stands. Three places where the build adds to it:
+
+- A `checked_at` in the future (the clock moved back) counts as due, like a damaged file, so a wrong clock cannot
+  stop the daily check.
+- `applika update` also prints `Run it yourself: <command>` when PyPI cannot be reached or the versions cannot be
+  compared, not only when the install fails.
+- In auto mode the `Updated` line can print before the command's own error message, because the update runs when the
+  command closes and the error is printed after that. The exit status is still the command's.
+
 ## Non-goals
 
 - Downgrades, version pinning from the CLI, and pre-release channels.
