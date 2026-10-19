@@ -986,8 +986,9 @@ annually`; `hourly` survives only on a legacy offer migrated from a step or
   writes the event and closes in one commit, so both happen or neither does.
   A save that closes caps the date at today (`DatePickerInput maxDate` plus
   the schema's "Pick today or an earlier date to close the application",
-  keyed on Offer/Denied + `close_application`, which is `true` in close mode
-  and `false` for Add event and Edit event). Toasts: "Application closed";
+  keyed on Offer/Denied + `close_application`, which is `true` in close mode,
+  `true` on every Add event open (the box below) and `false` for Edit event).
+  Toasts: "Application closed";
   `getApiError` (fallback "Could not close it", the dialog stays open — a 409
   reopen message reaches the user this way); "Please fix the highlighted
   fields before closing". The description always contains the word
@@ -997,6 +998,35 @@ annually`; `hourly` survives only on a legacy offer migrated from a step or
   (`{applicationId, payload?}`) and invalidates `["applications"]`,
   `["statistics"]` and that application's timeline key (an outcome lands as
   a new event).
+- **Add event closes with an Offer or Denied unless the box is unticked
+  (PRD 0016).** The owner: "i want a checkbox - that is checked by default -
+  this checkbox tells that opon creation this this event type, the job
+  application will be closed automatically, the user can uncheck this
+  checkbox to keep the application open". In create mode only, an Offer or
+  Denied renders the `close_application` `FormField` with `ui/checkbox.tsx`
+  FIRST in the dialog's footer, before Cancel: label "Close the application",
+  `FormDescription` "You can reopen it later." (no `FormMessage`; a date
+  error stays on the date field). `basis-full` below `sm` puts it on its own
+  row above Cancel and "Add event"; `sm:basis-auto sm:mr-auto` keeps it left
+  on the same row from `sm`. Because the footer sits OUTSIDE the `<form>`,
+  `<Form {...form}>` wraps the whole `TimelineEventDialog`, not just the
+  form — keep it lifted, or the footer `FormField` loses its context.
+  `emptyTimelineEventValues()` seeds `close_application: true` and the
+  open-effect's `form.reset` re-ticks it on every open; the field is
+  UNMOUNTED for Interview but RHF keeps its value (no `shouldUnregister`), so
+  Offer, untick, Interview, Offer shows it still unticked. Ticked, the save
+  is ONE `POST /applications/{id}/finalize` with `toFinalizeOutcomePayload`
+  — never a create then a finalize — toasting "Application closed" (an error
+  toasts `getApiError` and the dialog stays open); unticked, or an Interview,
+  it is `POST /applications/{id}/timeline` as before ("Event added"). Ticked
+  also caps the date at today (`maxDate` + the closing message), and
+  unticking lifts the cap. The submit stays "Add event"; `isSaving` (create,
+  update or finalize) disables the box too. Edit event never shows the box
+  and never finalizes (`timelineEventToFormValues` sets `false`, and the
+  submit and `maxDate` both check `mode === "create"`). Tests toggle it by
+  `getByRole("checkbox", { name: "Close the application" })`; Playwright's
+  `.uncheck()` works on the Radix checkbox. Any e2e that adds an Offer or
+  Denied to an application that must stay open unticks it first.
 - **Closed application UI.** `ApplicationClosedBadge` (keyed on `finalized_at`)
   and `ApplicationReopenButton` (accessible name composed as `` `Reopen
 ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
@@ -1922,6 +1952,17 @@ the card and fails the 3:1 non-text contrast. Keep it when regenerating. Its
 `RadioGroupItem` takes its name from `aria-labelledby` in the job start
 dialog; drive it with a click or `.check()` in Playwright (arrow keys move
 focus but do not check a Radix radio there).
+
+**`components/ui/checkbox.tsx`** is the shadcn `new-york` Checkbox with the
+same ONE applika-only change as `radio-group.tsx`: the unchecked border is
+`border-muted-foreground` (3:1 on the dialog/card background, WCAG 1.4.11)
+instead of the stock `border-input`. Keep it when regenerating. `ui/label`
+dims through `peer-disabled`, so put the label as a LATER SIBLING of the box
+(a `grid-cols-[auto_1fr]` `FormItem`: box, label, description in
+`col-start-2`), never wrapped apart from it. Outside a `<form>` Radix renders
+no hidden input, so the value must live in react-hook-form through a
+`FormField`; `onCheckedChange` yields a `CheckedState`, coerce with
+`checked === true`.
 
 **`components/ui/tabs.tsx`** is the shadcn `new-york` Tabs, unmodified from the
 registry except for one applika-only `variant` on `TabsList`/`TabsTrigger`:
