@@ -54,6 +54,13 @@ VERIFY_ARGV = (
     '-c',
     'import importlib.metadata as m; print(m.version("applika-cli"))',
 )
+# ``-I`` leaves the user site out, so a ``pip --user`` verify puts it back,
+# ahead of the rest as a normal interpreter would. The path comes from this
+# process (``site.getusersitepackages()``), never from PyPI.
+VERIFY_USER_SITE_CODE = (
+    'import sys, importlib.metadata as m; sys.path.insert(0, sys.argv[1]); '
+    'print(m.version("applika-cli"))'
+)
 
 _RELEASE_PATTERN = re.compile(r'\d+(\.\d+)*')
 
@@ -419,7 +426,7 @@ def _is_tty(stream: object) -> bool:
 
 def _disabled_by_env(env: Mapping[str, str]) -> str | None:
     value = env.get(DISABLE_ENV_VAR)
-    if value is None or value.strip().lower() in _ENV_OFF_VALUES:
+    if value is None or value in _ENV_OFF_VALUES:
         return None
     return value
 
@@ -483,6 +490,12 @@ def _same_release(left: str, right: str) -> bool:
     return is_newer(left, right) is False and is_newer(right, left) is False
 
 
+def _verify_argv(install: Install) -> tuple[str, ...]:
+    if '--user' in install.argv:
+        return (sys.executable, '-I', '-c', VERIFY_USER_SITE_CODE, _user_site())
+    return VERIFY_ARGV
+
+
 def install(
     install: Install,
     latest: str,
@@ -509,7 +522,7 @@ def install(
     if remaining <= 0:
         return InstallResult(ok=False, code=0, timed_out=True)
     try:
-        verified = _run(VERIFY_ARGV, remaining)
+        verified = _run(_verify_argv(install), remaining)
     except subprocess.TimeoutExpired:
         return InstallResult(ok=False, code=0, timed_out=True)
     if verified.returncode != 0:
@@ -545,7 +558,9 @@ def _auto_update(config: AppConfig) -> None:
     with update_lock() as acquired:
         if not acquired:
             return
-        # Another process may have checked while this one waited.
+        # Another process may have checked while this one waited; read the
+        # clock again so its start is not taken for a future one.
+        now = _now()
         if not UpdateState.load().due(now):
             return
         state = UpdateState(checked_at=now)

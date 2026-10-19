@@ -955,14 +955,16 @@ def test_unknown_method_alone():
     assert found == [Blocker(BlockerKind.UNKNOWN_METHOD, 'installer conda')]
 
 
-@pytest.mark.parametrize('value', ['1', 'yes', 'true', 'off'])
+@pytest.mark.parametrize(
+    'value', ['1', 'yes', 'true', 'off', 'FALSE', 'False', ' 0 ', '   ']
+)
 def test_disable_env_blocks(value):
     found = gate(env={'APPLIKA_DISABLE_AUTOUPDATE': value})
 
     assert found == [Blocker(BlockerKind.DISABLED_BY_ENV, value)]
 
 
-@pytest.mark.parametrize('value', ['', '0', 'false', 'FALSE', ' 0 '])
+@pytest.mark.parametrize('value', ['', '0', 'false'])
 def test_disable_env_off_values_do_not_block(value):
     assert gate(env={'APPLIKA_DISABLE_AUTOUPDATE': value}) == []
 
@@ -1063,6 +1065,54 @@ def test_install_ok_when_a_new_interpreter_reads_latest(monkeypatch):
     assert [argv for argv, _ in run.calls] == [UV_ARGV, updater.VERIFY_ARGV]
     assert run.calls[0][1] == 120
     assert 0 < run.calls[1][1] <= 120
+
+
+PIP_USER_INSTALL = Install(
+    'pip',
+    (*PIP_ARGV[:-1], '--user', 'applika-cli'),
+    '/home/me/.local/lib/site-packages',
+)
+
+
+def test_pip_user_verify_reads_the_user_site(monkeypatch):
+    monkeypatch.setattr(updater, '_user_site', lambda: '/home/me/.local/site')
+    run = FakeRun(done(), done(stdout='1.2.0'))
+    monkeypatch.setattr(updater, '_run', run)
+
+    assert updater.install(PIP_USER_INSTALL, '1.2.0').ok is True
+
+    assert run.calls[1][0] == (
+        sys.executable,
+        '-I',
+        '-c',
+        updater.VERIFY_USER_SITE_CODE,
+        '/home/me/.local/site',
+    )
+
+
+def test_pip_user_verify_finds_the_user_site_copy_first(monkeypatch, tmp_path):
+    # A real interpreter, no installer: -I alone hides the user site, so
+    # it would read this venv's 1.1.0, not the --user 9.9.9.
+    user_site = tmp_path / 'user-site'
+    make_dist(user_site, installer='pip')
+    metadata = user_site / 'applika_cli-1.1.0.dist-info' / 'METADATA'
+    metadata.write_text(
+        'Metadata-Version: 2.1\nName: applika-cli\nVersion: 9.9.9\n'
+    )
+    monkeypatch.setattr(updater, '_user_site', lambda: str(user_site))
+
+    def read(argv):
+        return subprocess.run(
+            list(argv), capture_output=True, text=True, check=True
+        ).stdout.strip()
+
+    assert read(updater._verify_argv(PIP_USER_INSTALL)) == '9.9.9'
+    assert read(updater.VERIFY_ARGV) != '9.9.9'
+
+
+@pytest.mark.parametrize('install', [UV_INSTALL, PIP_INSTALL])
+def test_other_installs_verify_without_the_user_site(install):
+    assert updater._verify_argv(install) == updater.VERIFY_ARGV
 
 
 def test_install_accepts_a_padded_equal_release(monkeypatch):
@@ -1330,6 +1380,39 @@ def test_a_check_done_while_waiting_for_the_lock_is_honoured(monkeypatch):
     updater.after_command(make_config())
 
     assert pypi.requests == []
+
+
+def test_a_check_started_a_moment_later_elsewhere_is_honoured(monkeypatch):
+    # The other process's start is later than our first clock read: the
+    # clock is read again once the lock is held, so it is not "future".
+    pypi, _ = ready(monkeypatch)
+    clock = iter([NOW, NOW + timedelta(seconds=2)])
+    monkeypatch.setattr(updater, '_now', lambda: next(clock))
+    real_lock = updater.update_lock
+
+    @contextmanager
+    def lock_after_another_check():
+        UpdateState(NOW + timedelta(seconds=1), '1.2.0').save()
+        with real_lock() as acquired:
+            yield acquired
+
+    monkeypatch.setattr(updater, 'update_lock', lock_after_another_check)
+
+    updater.after_command(make_config())
+
+    assert pypi.requests == []
+    assert UpdateState.load().checked_at == NOW + timedelta(seconds=1)
+
+
+def test_the_saved_check_time_is_read_after_the_lock(monkeypatch):
+    pypi, _ = ready(monkeypatch)
+    clock = iter([NOW, NOW + timedelta(seconds=2)])
+    monkeypatch.setattr(updater, '_now', lambda: next(clock))
+
+    updater.after_command(make_config())
+
+    assert len(pypi.requests) == 1
+    assert UpdateState.load().checked_at == NOW + timedelta(seconds=2)
 
 
 def test_failed_check_is_silent_and_waits_a_day(monkeypatch, capsys):

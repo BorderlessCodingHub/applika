@@ -104,9 +104,9 @@ class UpdaterGuard:
 @pytest.fixture(autouse=True)
 def updater_guard(monkeypatch, tmp_path):
     """No test reaches PyPI, runs an installer, touches the real
-    ``~/.config/applika/`` or reads the real ``CI`` and terminal. A test that drives the updater monkeypatches
-    ``updater._transport`` / ``updater._run`` itself; the guard then never
-    sees a call."""
+    ``~/.config/applika/`` or reads the real ``CI`` and terminal. A test
+    that drives the updater monkeypatches ``updater._transport`` /
+    ``updater._run`` itself; the guard then never sees a call."""
     guard = UpdaterGuard()
     monkeypatch.setattr(
         updater, '_transport', httpx.MockTransport(guard.refuse_request)
