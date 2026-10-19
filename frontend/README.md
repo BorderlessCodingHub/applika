@@ -1,130 +1,144 @@
-# Applika.dev v2 - Frontend
+# Applika.dev - Frontend
 
-Job application tracker built with Next.js 16, App Router, and static export. Communicates with a FastAPI backend via cookie-based JWT authentication (GitHub OAuth).
+The Applika.dev web app: built with Next.js 16 (App Router) as a **static export** and served by
+nginx. It talks to the FastAPI backend with cookie-based sessions (GitHub OAuth). In production the
+two share the host `applika.dev`: Traefik sends `/api` to the API and everything else to this app
+([docs/infrastructure.md](../docs/infrastructure.md)).
 
 ## Project Structure
 
 ```
 frontend/
-├── docker/              # Docker configuration
-│   ├── Dockerfile       # Multi-stage build (Node + Nginx)
-│   └── nginx.conf       # Nginx config with SPA routing and caching
-├── public/              # Static files
-│   └── images/          # Image assets
+├── docker/                 # Dockerfile (Node 22 build + nginx 1.27) and nginx.conf
+├── e2e/                    # Playwright specs, run against the real stack
+├── public/                 # Static files
+├── scripts/e2e.sh          # Brings the E2E stack up, seeds it, runs Playwright, tears it down
 ├── src/
-│   ├── app/             # Next.js App Router pages
-│   │   ├── (public)/        # Unauthenticated pages (home, login)
-│   │   └── (protected)/     # Auth-guarded pages
-│   │       ├── admin/           # Admin panel
-│   │       ├── applications/    # Application tracking
-│   │       ├── dashboard/       # Dashboard & statistics
-│   │       ├── profile/         # User profile
-│   │       └── reports/         # Daily reports
-│   ├── components/      # UI components (by feature + shared)
-│   │   ├── admin/
-│   │   ├── applications/
-│   │   ├── dashboard/
-│   │   ├── landing/
-│   │   ├── layout/          # App layout, root & protected providers
-│   │   ├── profile/
-│   │   ├── reports/
-│   │   └── ui/              # shadcn/ui primitives (Radix + Tailwind)
-│   ├── contexts/        # React contexts
-│   │   ├── auth-context.tsx     # Auth state & polling-based token refresh
-│   │   └── supports-context.tsx # Shared lookup data
-│   ├── hooks/           # Custom hooks (data fetching & mutations)
-│   ├── lib/             # Utilities, Axios client, React Query config
-│   ├── services/        # Service layer (DI pattern)
-│   │   ├── implementations/    # Concrete API service classes
-│   │   ├── interfaces/         # Service contracts
-│   │   ├── types/              # Request/response types
-│   │   └── services.ts         # Singleton DI container
-│   └── test/            # Test utilities
+│   ├── app/                # App Router pages
+│   │   ├── (public)/       # Landing page, cookie policy
+│   │   ├── (protected)/    # Signed-in pages: dashboard, applications, agenda, cvs, jobs,
+│   │   │                   #   reports, cycles, profile, device, admin
+│   │   ├── login/          # Sign-in page (no shell)
+│   │   └── cli/code/       # Shows a CLI sign-in code to paste (no session)
+│   ├── components/         # UI by feature (applications, timeline, base-cvs, tailored-cvs,
+│   │                       #   jobs, agenda, admin, profile, features…) + ui/ (shadcn/ui)
+│   ├── contexts/           # Auth and shared lookup data
+│   ├── hooks/              # Data fetching and mutations (TanStack Query)
+│   ├── lib/                # Axios client, query client, utilities
+│   ├── services/           # Typed API service classes + the DI container
+│   └── test/               # Vitest setup
+└── playwright.config.ts, vitest.config.ts, next.config.ts
 ```
 
 ## Prerequisites
 
-- Node.js 22 or higher
-- pnpm (latest version recommended)
+- Node.js 22
+- pnpm 10 (`packageManager` in `package.json`)
 
 ## Environment Setup
 
-Create a `.env.local` file in the root directory:
+Create `.env.local` in this folder:
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api
 ```
 
-## Installation
+The value is baked into the bundle at build time. The API must allow the app's origin
+(`http://127.0.0.1:8080`) in `CORS_ORIGINS`; the root `docker-compose.yml` already does.
 
-1. Install dependencies:
+## Running
+
+The quickest backend is the root compose stack without its `web` service:
 
 ```bash
+docker compose up -d --wait api worker scheduler   # from the repository root
+cd frontend
 pnpm install
-```
-
-2. Run the development server:
-
-```bash
-pnpm dev
-```
-
-3. Build for production:
-
-```bash
-pnpm build
+pnpm dev                                          # http://127.0.0.1:8080
 ```
 
 ## Available Scripts
 
-| Command           | Description                                       |
-| ----------------- | ------------------------------------------------- |
-| `pnpm dev`        | Start development server on port 8080             |
-| `pnpm build`      | Create production build (static export to `out/`) |
-| `pnpm start`      | Serve production build locally on port 8080       |
-| `pnpm test`       | Run tests with Vitest                             |
-| `pnpm test:watch` | Run tests in watch mode                           |
-| `pnpm lint`       | Run ESLint                                        |
-| `pnpm lint-fix`   | Run ESLint with auto-fix                          |
+| Command             | Description                                   |
+| ------------------- | --------------------------------------------- |
+| `pnpm dev`          | Development server on port 8080               |
+| `pnpm build`        | Production build (static export to `out/`)    |
+| `pnpm start`        | Serve the built `out/` locally on port 8080   |
+| `pnpm test`         | Unit and component tests (Vitest, jsdom)      |
+| `pnpm test:watch`   | Vitest in watch mode                          |
+| `pnpm lint`         | ESLint                                        |
+| `pnpm lint-fix`     | ESLint with auto-fix                          |
+| `pnpm format`       | Prettier, write                               |
+| `pnpm format:check` | Prettier, check                               |
+| `pnpm typecheck`    | `tsc --noEmit`                                |
+| `./scripts/e2e.sh`  | Playwright against the real stack (see below) |
+
+The gate for a change to `develop`:
+
+```bash
+pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build
+```
+
+## E2E tests
+
+Playwright drives the **real** stack: the built API image, this app built and served by nginx, a
+real Postgres migrated with `alembic upgrade head` and a real Redis (`docker-compose.e2e.yml` at
+the repository root). Nothing is mocked.
+
+```bash
+./scripts/e2e.sh                       # up -> seed -> test -> down
+./scripts/e2e.sh e2e/smoke.spec.ts     # arguments go to `playwright test`
+KEEP_STACK=1 ./scripts/e2e.sh          # leave the stack up to debug
+```
+
+`pnpm e2e` alone does not work: the specs need the users and sessions `scripts/e2e.sh` seeds.
 
 ## Docker
 
-The project includes a multi-stage Docker build (Node.js build + Nginx) and Docker Compose:
-
 ```bash
-docker compose up --build
+docker compose up --build              # this folder's own stack; the root compose supersedes it
 ```
 
-The `API_BASE_URL` build argument defaults to `http://127.0.0.1/api` and is baked into the static bundle at build time. Override it by setting `NEXT_PUBLIC_API_BASE_URL` in your environment before building.
+`docker/Dockerfile` is a multi-stage build (Node 22 builds the export, nginx 1.27 serves it as a
+non-root user, with SPA routing, gzip and long-lived caching for static assets). The `API_BASE_URL`
+build argument becomes `NEXT_PUBLIC_API_BASE_URL` in the bundle; `frontend-cd.yaml` sets it for
+production.
 
-The Nginx image runs as a non-root user with gzip compression, SPA routing, and long-lived caching for static assets.
+## Beta features
 
-## Accessing the Application
+Features in beta are hidden from users who are not on their beta list
+([ADR-0018](../docs/adr/0018-beta-features-registry-and-allowlist.md)). The API is the rule (a
+gated route answers 404); the web only follows it:
 
-After starting the development server or Docker container, the application will be available at:
+- `useHasFeature(key)` and `useMyFeatures()` (`src/hooks/use-features.ts`) read
+  `GET /users/me/features`;
+- `<FeatureGate feature="…">` (`src/components/features/`) renders the page, or the app's
+  "page not found";
+- a nav item with `feature` (`src/components/layout/nav.ts`) shows only with that feature, marked
+  "Beta" while it is in beta.
 
-- **Dev server:** [http://127.0.0.1:8080](http://127.0.0.1:8080)
-- **Docker:** [http://127.0.0.1:8080](http://127.0.0.1:8080)
+Gated today: `cvs` (CV builder, CV copies, drafts) and `jobs` (job board).
 
 ## Tech Stack
 
-| Category  | Technology                             |
-| --------- | -------------------------------------- |
-| Framework | Next.js 16 (App Router, static export) |
-| Language  | TypeScript                             |
-| Styling   | Tailwind CSS + shadcn/ui (Radix UI)    |
-| State     | TanStack React Query + React Context   |
-| Forms     | React Hook Form + Zod                  |
-| HTTP      | Axios (cookie-based JWT auth)          |
-| Charts    | Recharts                               |
-| Testing   | Vitest + Testing Library               |
-| Linting   | ESLint + Prettier                      |
+| Category  | Technology                                       |
+| --------- | ------------------------------------------------ |
+| Framework | Next.js 16 (App Router, static export), React 19 |
+| Language  | TypeScript                                       |
+| Styling   | Tailwind CSS 4 + shadcn/ui (Radix UI, new-york)  |
+| State     | TanStack Query 5 + React Context                 |
+| Forms     | React Hook Form + Zod                            |
+| HTTP      | Axios (cookie sessions, `withCredentials`)       |
+| Charts    | Recharts                                         |
+| Testing   | Vitest + Testing Library, Playwright             |
+| Linting   | ESLint + Prettier                                |
 
 ## Architecture Notes
 
-- The app is exported as static HTML/JS/CSS — no Node.js server in production
-- Authentication uses HTTP-only JWT cookies with GitHub OAuth
-- Token refresh is handled via polling in AuthContext (10-min interval when connected, 30-sec on failure)
-- Protected routes redirect unauthenticated users to `/login`
-- All API calls go through typed service classes with a DI container (`src/services/services.ts`)
-- Environment variables must be prefixed with `NEXT_PUBLIC_` to be accessible in the browser
+- Exported as static HTML/JS/CSS: no Node.js server in production.
+- Sessions are HTTP-only cookies set by the API. `AuthContext` refreshes them by polling (every
+  10 minutes, every 30 seconds after a failure); a 429 or 503 is retried, never a sign-out.
+- Protected routes send signed-out users to `/login`.
+- Every API call goes through a typed service class in the DI container (`src/services/services.ts`).
+- Only `NEXT_PUBLIC_*` variables reach the browser.
+- More detail on each area lives in [`CLAUDE.md`](CLAUDE.md).

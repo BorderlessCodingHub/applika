@@ -22,6 +22,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - applications timeline add and edit no longer take --type note or --type feedback; existing ones read as interview with interview_type unknown.
 
+### Fixed
+
+- README: the `--api-base-url` example points at a local API instead of a staging host that does not exist, and a duplicated `steps delete` example is gone.
+
 ## [1.1.0] - 2026-10-15
 
 ### Added

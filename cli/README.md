@@ -4,6 +4,10 @@ Command-line interface for [Applika.dev](https://applika.dev) — a structured j
 
 Track every application you send, filter and review your pipeline from the terminal, and keep your AI coding assistant (Claude Code, Gemini, Codex) aware of the CLI through a bundled skill file.
 
+- Website: <https://applika.dev>
+- Package: <https://pypi.org/project/applika-cli/>
+- API: `https://applika.dev/api` by default (see [Global options](#global-options))
+
 ## Requirements
 
 - Python 3.10+
@@ -438,10 +442,6 @@ The positional form still works:
 applika applications steps delete 42 500
 ```
 
-```bash
-applika applications steps delete 42 500
-```
-
 ---
 
 ### `applika applications finalize <application-id>` (deprecated flags)
@@ -627,7 +627,7 @@ never sent unless you asked for it, so the stored text is left alone.
 These flags apply to every command and are passed before the subcommand name:
 
 ```bash
-applika --api-base-url https://staging.applika.dev/api applications list
+applika --api-base-url http://127.0.0.1:8000/api applications list   # a local API
 ```
 
 | Flag | Default | Env variable |

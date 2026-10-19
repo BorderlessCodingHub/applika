@@ -1,32 +1,68 @@
 # Applika.dev
 
-Applika.dev is a full-stack application designed to manage applications and user statistics. It consists of a backend (Python/FastAPI) and a frontend (Next.js/React), organized in separate folders for modular development.
+Applika.dev is a job application tracker for active job seekers: track every application and its
+timeline (interviews, offers, denials), see your statistics and agenda, write master CVs and
+tailored CV copies, and file biweekly reports. It has three parts, each in its own folder:
+
+| Part | Stack | README |
+|---|---|---|
+| `backend/` | Python 3.14, FastAPI, SQLAlchemy 2 async, Alembic, PostgreSQL 16, Redis, taskiq | [backend/README.md](backend/README.md) |
+| `frontend/` | Next.js 16 static export, React 19, Tailwind 4, shadcn/ui, TanStack Query | [frontend/README.md](frontend/README.md) |
+| `cli/` | Python 3.10+, Typer, httpx, published on PyPI as `applika-cli` | [cli/README.md](cli/README.md) |
+
+## Documentation
+
+| Document | What it covers |
+|---|---|
+| [docs/readme.md](docs/readme.md) | Where each part of the production infrastructure lives, who owns each account, what must be transferred |
+| [docs/infrastructure.md](docs/infrastructure.md) | How the parts connect, with diagrams: request flow, auth, deploy, secrets, the beta modules on `develop` |
+| [docs/prd/](docs/prd/) | Product requirements; [0000](docs/prd/0000-product-vision.md) is the product vision |
+| [docs/adr/](docs/adr/) | Architecture decisions |
+| [docs/plan/](docs/plan/) | Technical plans per feature |
+| [backend/CHANGELOG.md](backend/CHANGELOG.md), [cli/CHANGELOG.md](cli/CHANGELOG.md) | What changed, release by release |
 
 ## Project Structure
 
 ```
 root/
-├── backend/      # Python FastAPI backend
-├── cli/          # Python CLI package for the applika command
-├── frontend/     # Next.js React frontend
-├── legacy/       # Legacy code
+├── .github/workflows/      # CI (backend, frontend + e2e, cli) and CD (images, PyPI)
+├── backend/                # FastAPI API and the taskiq background worker
+├── cli/                    # applika-cli, the `applika` command
+├── docs/                   # PRDs, ADRs, plans, infrastructure
+├── frontend/               # Next.js web app (static export served by nginx)
+├── legacy/                 # Legacy code
+├── docker-compose.yml      # Local development stack (the whole app)
+├── docker-compose.e2e.yml  # Ephemeral E2E stack
+├── .env.example            # Settings for docker-compose.yml
 ├── CONTRIBUTORS.md
+├── SECURITY.md
 └── README.md
 ```
+
+## How it runs in production
+
+```
+Browser / applika-cli ──► https://applika.dev ──► Traefik ──┬─ /api ──► api (FastAPI) ──► PostgreSQL, Redis
+                                                            └─ /*   ──► web (nginx, static export)
+```
+
+Both images run on a Docker Swarm stack on a VPS. A merge to `main` builds and publishes them to
+Docker Hub; the containers are then upgraded on the VPS, and migrations are run by hand
+(`alembic upgrade head` in the API container). Details, owners and the parts still on `develop`:
+[docs/infrastructure.md](docs/infrastructure.md).
+
+Branches: work goes to `develop`; `develop` → `main` is a release.
 
 ## Prerequisites
 
 - Docker & Docker Compose (recommended for local development)
-- Python 3.9+ (for backend, if running without Docker)
-- Node.js 20+ and pnpm (for frontend, if running without Docker)
-- [uv](https://docs.astral.sh/uv/) (for backend and CLI Python environments)
+- [uv](https://docs.astral.sh/uv/) for the backend and the CLI
+- Python 3.14 for the backend, 3.10+ for the CLI (uv installs them for you)
+- Node.js 22 and pnpm 10 for the frontend
 
 ## CLI
 
-Install the published CLI from PyPI. The package page has the current install
-and usage docs:
-
-- [applika-cli on PyPI](https://pypi.org/project/applika-cli/)
+Install the published CLI from PyPI ([applika-cli on PyPI](https://pypi.org/project/applika-cli/)):
 
 ```bash
 uv tool install applika-cli
@@ -37,41 +73,8 @@ pipx install applika-cli
 This installs the global `applika` command:
 
 ```bash
-applika --help
-applika --version
-applika version
-```
-
-For local CLI development from this repository:
-
-```bash
-cd cli
-uv sync
-uv run applika --help
-```
-
-If you want the global `applika` command to point at your local checkout while
-you develop, install it in editable mode:
-
-```bash
-cd cli
-uv tool install --force --editable .
-```
-
-Useful commands:
-
-```bash
-cd cli
-make test    # Run CLI tests
-make format  # Format CLI code
-make lint    # Lint CLI code
-```
-
-CLI commands:
-
-```bash
-applika login
-applika logout
+applika login                     # GitHub sign-in in the browser (--device without one)
+applika whoami
 applika applications list
 applika applications new \
   --company "Acme" \
@@ -79,22 +82,24 @@ applika applications new \
   --platform "LinkedIn" \
   --mode active \
   --date 2026-05-08
-applika applications edit 123 --role "Senior Backend Engineer"
-applika applications -n \
-  --company "Acme" \
-  --role "Backend Engineer" \
-  --platform "LinkedIn" \
-  --mode active \
-  --date 2026-05-08
-applika applications steps list 123
-applika applications steps add 123 \
-  --step "Initial Screen" \
-  --date 2026-05-11
-applika applications finalize 123 \
-  --step "Offer" \
-  --feedback "Accepted" \
-  --date 2026-05-18 \
-  --salary-offer 180000
+applika applications timeline add 123 \
+  --type interview --interview-type technical --date 2026-05-11
+applika applications finalize 123 --outcome offer \
+  --salary 180000 --currency USD --period annually --date 2026-05-18
+applika cvs list
+applika update                    # install the latest version now
+```
+
+Every command, flag and exit code: [cli/README.md](cli/README.md).
+
+For local CLI development from this repository:
+
+```bash
+cd cli
+uv sync
+uv run applika --help
+uv tool install --force --editable .   # point the global `applika` at this checkout
+make test && make lint && make format
 ```
 
 ## Quick Start (Docker Compose)
@@ -142,12 +147,21 @@ chain on every api start.
    docker compose down -v     # drops the database too
    ```
 
+### Beta features
+
+New user-facing features start in **beta** ([ADR-0018](docs/adr/0018-beta-features-registry-and-allowlist.md)):
+only users on a feature's beta list see it, and admins see it unless they opt out. Today there are
+two: `cvs` (the CV builder, CV copies and drafts) and `jobs` (the job board, which needs the worker
+below). On a fresh database, make your user an admin, or add it to the list at **Admin → Features**,
+to see them. Releasing a feature to everyone is an admin action on the same screen, never a deploy.
+
 ### Background worker (taskiq)
 
 Job collection (Himalayas and RemoteOK) and the CV fit recompute do not run in
 the api. They run in a [taskiq](https://taskiq-python.github.io/) worker that
-reads its tasks from a Redis queue (ADR-0016). Two processes, both built from
-the backend image with the api's environment:
+reads its tasks from a Redis queue ([ADR-0016](docs/adr/0016-taskiq-worker-for-background-jobs.md)).
+The worker exists for the `jobs` feature. Two processes, both built from the backend image with the
+api's environment:
 
 | Service | Command | Role |
 |---|---|---|
@@ -197,17 +211,17 @@ Docker and the frontend on the host:
 
 ```bash
 docker compose up -d --wait api worker scheduler   # api, worker, scheduler, db and redis
-cd frontend && pnpm install && pnpm dev   # http://127.0.0.1:3000
+cd frontend && pnpm install && pnpm dev            # http://127.0.0.1:8080
 ```
 
 Point the dev server at the api with `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api`
-in `frontend/.env.local`, and add `http://127.0.0.1:3000` to `CORS_ORIGINS` for the
-`api` service.
+in `frontend/.env.local`. `pnpm dev` serves on port 8080, the origin the compose `api` already
+allows in `CORS_ORIGINS`, so leave the `web` service down while it runs.
 
 ### Signing in without a GitHub OAuth app
 
-GitHub is the sole login (ADR 0002), so the UI cannot sign you in without a real
-OAuth app. To poke at a signed-in session anyway, mint one directly:
+GitHub is the sole login ([ADR-0002](docs/adr/0002-github-oauth-sole-login.md)), so the UI cannot
+sign you in without a real OAuth app. To poke at a signed-in session anyway, mint one directly:
 
 ```bash
 docker compose exec api python -m app.scripts.seed_e2e
@@ -223,3 +237,17 @@ DevTools. It refuses to run when `ENVIRONMENT=PROD`.
 | `docker-compose.yml` | This stack. Local development, persistent volumes. |
 | `docker-compose.e2e.yml` | Ephemeral E2E stack (`frontend/scripts/e2e.sh`). No volumes, empty DB every run. |
 | `backend/docker-compose.yml`, `frontend/docker-compose.yml` | Older per-project stacks, superseded by the root file. Their volumes live under different project names, so their databases are separate. |
+
+## Quality gates
+
+A change to `develop` is ready when every gate of the parts it touches is green:
+
+```bash
+cd backend  && make format && make lint && make test
+cd frontend && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build
+cd frontend && ./scripts/e2e.sh          # Playwright against the real stack
+cd cli      && make format && make lint && make test
+```
+
+Database changes follow [ADR-0005](docs/adr/0005-non-destructive-migrations.md): an upgrade never
+drops a column or a table, and every revision has a working downgrade.
