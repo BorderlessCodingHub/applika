@@ -1335,8 +1335,19 @@ def add_timeline_event(
             ),
         ),
     ] = None,
+    keep_open: Annotated[
+        bool,
+        typer.Option(
+            '--keep-open',
+            help=(
+                'Offer or denied: add the event and keep the application '
+                'open. Ignored with --type interview.'
+            ),
+        ),
+    ] = False,
 ) -> None:
-    """Add a timeline event to an application."""
+    """Add a timeline event to an application. An offer or denied event
+    closes the application unless --keep-open."""
     config: AppConfig = ctx.obj
     session = require_session(config.store)
     client = ApiClient(session, config.store)
@@ -1361,11 +1372,37 @@ def add_timeline_event(
             salary_currency=currency,
             salary_period=period,
         )
-        created = client.post_json(
-            f'/applications/{resolved_application_id}/timeline',
-            payload.model_dump(mode='json'),
-        )
-        print_timeline_event_summary(created, 'Added event')
+        if payload.event_type is not EventType.INTERVIEW and not keep_open:
+            # An offer or denied event closes the application: the finalize
+            # outcome body adds the event and closes in one request.
+            outcome_payload = FinalizeOutcomePayload(
+                outcome=FinalizeOutcome(payload.event_type.value),
+                event_date=payload.event_date,
+                observation=payload.observation,
+                salary_amount=payload.salary_amount,
+                salary_currency=payload.salary_currency,
+                salary_period=payload.salary_period,
+                denied_reason=payload.denied_reason,
+            )
+            finalized = client.post(
+                f'/applications/{resolved_application_id}/finalize',
+                outcome_payload.model_dump(mode='json'),
+            )
+            print_finalize_outcome_summary(
+                finalized,
+                'Added event and closed application',
+                outcome=(
+                    outcome_payload.outcome.value
+                    if outcome_payload.outcome is not None
+                    else None
+                ),
+            )
+        else:
+            created = client.post_json(
+                f'/applications/{resolved_application_id}/timeline',
+                payload.model_dump(mode='json'),
+            )
+            print_timeline_event_summary(created, 'Added event')
     except ValidationError as exc:
         _echo_validation_error(exc)
     except ValueError as exc:
