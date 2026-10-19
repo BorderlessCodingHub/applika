@@ -178,7 +178,7 @@ src/applika/
 | `applika applications list` | List applications (filterable) |
 | `applika applications new` | Create a new application |
 | `applika applications edit <id>` | Edit an existing application (named options, or `--file`; `--job-description`/`--job-description-file`) |
-| `applika applications timeline list/add/edit/delete` | Manage an application's timeline (typed interviews, offer, denied) |
+| `applika applications timeline list/add/edit/delete` | Manage an application's timeline (typed interviews, offer, denied); `add --type offer\|denied` closes the application unless `--keep-open` |
 | `applika applications finalize [--outcome offer\|denied]` | Close an application (bodyless = idempotent, no outcome); deprecated `--step`/`--feedback`/`--salary-offer` still work |
 | `applika applications reopen` | Reopen a closed application (idempotent) |
 | `applika applications steps list/add/edit/delete` | Deprecated — use `applications timeline` |

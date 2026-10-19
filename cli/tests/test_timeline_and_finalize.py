@@ -171,6 +171,7 @@ def test_timeline_add_denied_prints_reason_label_in_summary(
             'timeline',
             'add',
             '99',
+            '--keep-open',
             '--type',
             'denied',
             '--date',
@@ -181,6 +182,7 @@ def test_timeline_add_denied_prints_reason_label_in_summary(
     )
 
     assert result.exit_code == 0
+    assert FakeApiClient.captured_post_path == '/applications/99/timeline'
     assert 'Position filled' in result.output
 
 
@@ -507,6 +509,7 @@ def test_timeline_add_offer_happy_path_builds_matching_payload(
             'timeline',
             'add',
             '99',
+            '--keep-open',
             '--type',
             'offer',
             '--date',
@@ -521,6 +524,7 @@ def test_timeline_add_offer_happy_path_builds_matching_payload(
     )
 
     assert result.exit_code == 0
+    assert FakeApiClient.captured_post_path == '/applications/99/timeline'
     assert FakeApiClient.captured_post_payload == {
         'event_type': 'offer',
         'interview_type': None,
@@ -551,6 +555,7 @@ def test_timeline_add_denied_defaults_reason_unknown(monkeypatch, runner):
             'timeline',
             'add',
             '99',
+            '--keep-open',
             '--type',
             'denied',
             '--date',
@@ -559,6 +564,7 @@ def test_timeline_add_denied_defaults_reason_unknown(monkeypatch, runner):
     )
 
     assert result.exit_code == 0
+    assert FakeApiClient.captured_post_path == '/applications/99/timeline'
     assert FakeApiClient.captured_post_payload['denied_reason'] == 'unknown'
 
 
@@ -579,6 +585,7 @@ def test_timeline_add_denied_with_reason_builds_matching_payload(
             'timeline',
             'add',
             '99',
+            '--keep-open',
             '--type',
             'denied',
             '--date',
@@ -589,6 +596,7 @@ def test_timeline_add_denied_with_reason_builds_matching_payload(
     )
 
     assert result.exit_code == 0
+    assert FakeApiClient.captured_post_path == '/applications/99/timeline'
     assert FakeApiClient.captured_post_payload == {
         'event_type': 'denied',
         'interview_type': None,
@@ -651,6 +659,324 @@ def test_timeline_add_409_prints_reopen_hint(monkeypatch, runner):
     assert result.exit_code == 1
     assert 'Reopen the application to edit it' in result.output
     assert 'applika applications reopen 99' in result.output
+
+
+# --------------------------------------------------------------------------
+# applications timeline add --type offer|denied closes unless --keep-open
+# --------------------------------------------------------------------------
+
+
+def _closed_application(**overrides):
+    application = {
+        'id': '99',
+        'company_name': 'Acme',
+        'role': 'Backend Engineer',
+        'salary_offer': None,
+        'last_step': None,
+        'feedback': None,
+        'finalized': True,
+        'finalized_at': '2026-06-10T00:00:00+00:00',
+    }
+    application.update(overrides)
+    return application
+
+
+def _only_finalize_allowed(monkeypatch):
+    """The finalize call is the only request a closing event makes."""
+
+    def _refuse(self, path, *args, **kwargs):
+        raise AssertionError(f'unexpected request to {path}')
+
+    monkeypatch.setattr(FakeApiClient, 'post_json', _refuse)
+    monkeypatch.setattr(FakeApiClient, 'get_json', _refuse)
+
+
+def test_timeline_add_offer_without_keep_open_closes_application(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    _only_finalize_allowed(monkeypatch)
+    FakeApiClient.finalized_response = _closed_application(
+        salary_offer=180000.0
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'offer',
+            '--date',
+            '2026-06-10',
+            '--salary',
+            '180000',
+            '--currency',
+            'USD',
+            '--period',
+            'annually',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_post_path == '/applications/99/finalize'
+    assert FakeApiClient.captured_post_payload == {
+        'outcome': 'offer',
+        'event_date': '2026-06-10',
+        'observation': None,
+        'salary_amount': 180000.0,
+        'salary_currency': 'USD',
+        'salary_period': 'annually',
+        'denied_reason': None,
+    }
+    assert (
+        'Added event and closed application: id=99 company=Acme '
+        'role=Backend Engineer status=closed '
+        'finalized_at=2026-06-10T00:00:00+00:00 outcome=offer' in result.output
+    )
+
+
+def test_timeline_add_denied_without_keep_open_closes_with_unknown_reason(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    _only_finalize_allowed(monkeypatch)
+    FakeApiClient.finalized_response = _closed_application()
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'denied',
+            '--date',
+            '2026-06-11',
+            '--observation',
+            'No feedback',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_post_path == '/applications/99/finalize'
+    assert FakeApiClient.captured_post_payload == {
+        'outcome': 'denied',
+        'event_date': '2026-06-11',
+        'observation': 'No feedback',
+        'salary_amount': None,
+        'salary_currency': None,
+        'salary_period': None,
+        'denied_reason': 'unknown',
+    }
+    assert 'Added event and closed application' in result.output
+    assert 'status=closed' in result.output
+    assert 'outcome=denied' in result.output
+
+
+def test_timeline_add_denied_without_keep_open_sends_picked_reason(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    _only_finalize_allowed(monkeypatch)
+    FakeApiClient.finalized_response = _closed_application()
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'denied',
+            '--date',
+            '2026-06-11',
+            '--reason',
+            'skills_mismatch',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_post_path == '/applications/99/finalize'
+    assert FakeApiClient.captured_post_payload['outcome'] == 'denied'
+    assert (
+        FakeApiClient.captured_post_payload['denied_reason']
+        == 'skills_mismatch'
+    )
+
+
+def test_timeline_add_offer_without_keep_open_validates_before_request(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    _only_finalize_allowed(monkeypatch)
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'offer',
+            '--date',
+            '2026-06-10',
+            '--salary',
+            '180000',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert (
+        '--salary, --currency and --period are required with --type offer'
+        in result.output
+    )
+    assert FakeApiClient.captured_post_path is None
+
+
+def test_timeline_add_interview_with_keep_open_ignores_flag(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    FakeApiClient.event_created_response = {
+        'id': '707',
+        'event_type': 'interview',
+        'event_date': '2026-06-03',
+    }
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'interview',
+            '--date',
+            '2026-06-03',
+            '--keep-open',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeApiClient.captured_post_path == '/applications/99/timeline'
+    assert FakeApiClient.captured_post_payload['event_type'] == 'interview'
+    assert 'keep-open' not in result.output
+    assert 'keep open' not in result.output.lower()
+    assert 'closed' not in result.output
+
+
+def test_timeline_add_offer_without_keep_open_409_prints_reopen_hint(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    FakeApiClient.post_error = ApiError(
+        'Reopen the application to edit it (it is currently closed)', 409
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'offer',
+            '--date',
+            '2026-06-10',
+            '--salary',
+            '1',
+            '--currency',
+            'USD',
+            '--period',
+            'monthly',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert FakeApiClient.captured_post_path == '/applications/99/finalize'
+    assert 'Reopen the application to edit it' in result.output
+    assert 'applika applications reopen 99' in result.output
+
+
+def test_timeline_add_denied_with_keep_open_409_prints_reopen_hint(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    FakeApiClient.post_json_error = ApiError(
+        'Reopen the application to edit it (it is currently closed)', 409
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'denied',
+            '--date',
+            '2026-06-11',
+            '--keep-open',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert FakeApiClient.captured_post_path == '/applications/99/timeline'
+    assert 'Reopen the application to edit it' in result.output
+    assert 'applika applications reopen 99' in result.output
+
+
+def test_timeline_add_offer_future_date_prints_server_refusal(
+    monkeypatch, runner
+):
+    _setup(monkeypatch)
+    _only_finalize_allowed(monkeypatch)
+    detail = 'event_date cannot be in the future (max allowed: 2026-10-20)'
+    FakeApiClient.post_error = ApiError(detail, 422)
+
+    result = runner.invoke(
+        app,
+        [
+            'applications',
+            'timeline',
+            'add',
+            '99',
+            '--type',
+            'offer',
+            '--date',
+            '2999-01-01',
+            '--salary',
+            '1',
+            '--currency',
+            'USD',
+            '--period',
+            'monthly',
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert FakeApiClient.captured_post_path == '/applications/99/finalize'
+    assert FakeApiClient.captured_post_payload['event_date'] == '2999-01-01'
+    assert detail in result.output
+    assert 'Added event' not in result.output
+
+
+def test_timeline_add_help_lists_keep_open(runner):
+    result = runner.invoke(app, ['applications', 'timeline', 'add', '--help'])
+
+    assert result.exit_code == 0
+    assert '--keep-open' in result.output
+    assert 'keep the application open' in result.output
+    assert 'Ignored with --type' in result.output
 
 
 # --------------------------------------------------------------------------

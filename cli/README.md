@@ -233,6 +233,8 @@ applika applications list --search "company name" --output-format json
 
 Manages an application's timeline: typed interviews, an offer, or a denial. Notes and feedback are no longer event types; the ones recorded before read as an interview with interview type `unknown`. Closing an application is reversible (`applications reopen`), so the timeline is editable again after a reopen.
 
+`add --type offer` and `add --type denied` close the application with that event (as `applications finalize --outcome` does) and print the closed application with its outcome, unless `--keep-open` is given. With `--keep-open` the event is only added to the timeline. `--keep-open` is ignored with `--type interview`. A closing event cannot be dated later than today; the server refuses it and nothing changes.
+
 ```bash
 # List events (table or JSON)
 applika applications timeline list 42
@@ -243,13 +245,17 @@ applika applications timeline add 42 \
   --type interview --interview-type technical --date 2026-06-05 \
   --start-time 14:00 --end-time 15:00 --timezone America/Sao_Paulo
 
-# Add an offer (the salary triad is required together; period is monthly or annually only)
+# Add an offer and close the application (the salary triad is required together; period is monthly or annually only)
 applika applications timeline add 42 \
   --type offer --date 2026-06-10 --salary 180000 --currency USD --period annually
 
-# Add a denial with a reason (defaults --reason to unknown if omitted)
+# Add a denial with a reason and close the application (defaults --reason to unknown if omitted)
 applika applications timeline add 42 \
   --type denied --date 2026-06-11 --reason skills_mismatch --observation "Rejected after the technical round"
+
+# Add an offer and keep the application open
+applika applications timeline add 42 \
+  --type offer --date 2026-06-10 --salary 180000 --currency USD --period annually --keep-open
 
 # Edit an event - PUT replaces the whole event; unspecified flags keep the current value
 applika applications timeline edit 42 700 --observation "Updated"
@@ -266,10 +272,11 @@ applika applications timeline delete 42 700
 | `--start-time`/`--end-time` | `add`, `edit` | Must be given together |
 | `--timezone`, `--observation` | `add`, `edit` | |
 | `--salary`, `--currency`, `--period` | `add`, `edit` | Only with `--type offer`; then all three required. `--period` is `monthly` or `annually` (an hourly offer is refused) |
+| `--keep-open` | `add` | With `--type offer` or `denied`: add the event and keep the application open (without it, the event closes the application). Ignored with `--type interview` |
 
 `edit` fetches the current event and overlays the flags given: changing `--type` away from `offer` drops the salary fields, away from `interview` drops the interview type; changing to `interview` without `--interview-type` defaults to `unknown`; changing to `offer` requires the salary triad unless the event already had one.
 
-A write to a closed application's timeline is refused (409) with a hint to run `applika applications reopen <application-id>`.
+A write to a closed application's timeline, closing or not, is refused (409) with a hint to run `applika applications reopen <application-id>`.
 
 ---
 
