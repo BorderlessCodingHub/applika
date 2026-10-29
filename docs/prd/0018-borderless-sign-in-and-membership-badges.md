@@ -30,6 +30,9 @@ As an applika user who belongs to the Borderless community, I want to sign in to
 - Q: Does Borderless return a refresh token at sign-in, and how long does its access token live? (ADR-0024 open question 1) → A: the owner's probe of the live API, 2026-10-29, verbatim: "Token keys found in body: ['accessToken']", "Refresh token in body: False", "data.token.accessToken: str len=32 (not a JWT)", "data.token.expiresIn: int = 604800". No refresh token; the access token lives 7 days from the password sign-in.
 - Q: Where is the membership in Borderless's profile answer, and how is it spelled? (ADR-0024 open question 2) → A: the owner's probe, 2026-10-29, verbatim: "membership at data.user.membership: 'PSP'", "membership at data.membership:      None", "membership at membership:           None". The profile also carries "data.user.github: str", "data.user.hasPassword: bool" and "data.user.authProviders: list[2]".
 - Q: "Borderless returns no refresh token, and its access token dies 7 days after a password sign-in. Applika sessions slide 7 days on every refresh, so after day 7 an active user's membership can no longer be read. What happens to their BASE/PSP access then?" → A: "Lock reports until re-sign-in (Recommended)". Option text: "The applika session goes on. The badge counts as held only while the Borderless token is alive. After expiry, the user menu and profile show 'sign in again to confirm your membership', and the Reports page shows that prompt plus the password form instead of reports. Every reporting member types their Borderless password about once a week. No badge history churn: the badge row stays and the gate checks the token's state."
+- Q: Accept the Discord wording on the report-webhook admin screen? (asked during the build, 2026-10-29) → A: "change the report webhook in admin to instead of configuring and selecting a discord server id with a role id, use the user badges, i must be able to configure a webhook for a pair of badges (1 or more). Example, one webhook for "base" badge and another no "psp". Remove any wording to Discord in admin area."
+- Q: "A webhook will hold one or more badges (BASE, PSP, or both). That needs a new migration, and the expand-first rule requires it in Release A, before the code that uses it. How should it land?" → A: "Rewrite the branch history". Option text: "Rebuild labs01-147 so the new revision sits right after the Release A commit, rewriting the 25 backend and web commits above it, and move the tag. The history stays linear."
+- Q: "You asked to remove Discord wording from the admin area. Reports are still posted in Discord's message format. Which webhook URLs may admins save?" → A: "keep the webhook input as is, only accepting discord webhooks with a generic discord webhook as placeholder."
 
 ## Problem
 
@@ -44,8 +47,8 @@ which only existed to route reports, goes away.
 - US1 (P1) A Borderless member signs in with their Borderless email and password and lands in applika.
 - US2 (P1) A GitHub-era user whose Borderless email matches their old account signs in and finds all their old data.
 - US3 (P1) A BASE or PSP member sees their badge in the user menu and on the profile header, and opens, reads and submits biweekly reports.
-- US4 (P1) A member submits a report and it is posted to every webhook assigned to their badge.
-- US5 (P1) An administrator assigns each report webhook to BASE or PSP, and adds, changes or removes webhooks.
+- US4 (P1) A member submits a report and it is posted once to every webhook that holds their badge.
+- US5 (P1) An administrator gives each report webhook one or more badges (BASE, PSP or both), and adds, changes or removes webhooks.
 - US6 (P1) A command-line user runs `applika login` and completes it on applika's Borderless sign-in page.
 - US7 (P2) A brand-new account's first sign-in shows a one-time screen: restore your data from GitHub, or start fresh.
 - US8 (P2) A GitHub-era user whose emails differ restores their old data by authorising GitHub from that screen or the profile.
@@ -86,13 +89,14 @@ which only existed to route reports, goes away.
 - R-037 Confirming the membership with the Borderless password, from the Reports page or the profile, renews the Borderless access, reads the membership and keeps the user's current applika session; it must be the Borderless account already bound to the user. (clarification: "Lock reports until re-sign-in"; ADR-0024 §1 "a binding never moves")
 - R-038 The system never uses the GitHub account named in the user's Borderless profile to find or restore an applika account. (probe: "data.user.github: str" is self-declared on Borderless and unverified)
 - R-028 Reports stored before a user lost their badge are kept and come back when the badge is regained. (clarification: "Badge holders only")
-- R-029 An administrator can list, add, change and remove report webhooks. Each holds a webhook address, a badge (BASE or PSP) and an optional label. (owner: "As an admin, I want to assign each report webhook to a badge (BASE or PSP)")
-- R-030 A submitted report is saved first, then posted to every webhook whose badge the user holds. The submission succeeds whatever the webhooks answer. (owner: "a member's report goes to the webhooks of their community")
-- R-031 The report webhooks configured before this release are carried over without a badge and receive nothing until an administrator assigns one. (ADR-0024 §6)
+- R-029 An administrator can list, add, change and remove report webhooks. Each holds a webhook address, one or more badges (BASE, PSP, or both) and an optional label. A webhook's badges can be changed but never left empty. (owner: "As an admin, I want to assign each report webhook to a badge (BASE or PSP)"; clarification: "i must be able to configure a webhook for a pair of badges (1 or more)")
+- R-030 A submitted report is saved first, then posted to every webhook whose badges include a badge the user holds, each address once. The submission succeeds whatever the webhooks answer. (owner: "a member's report goes to the webhooks of their community"; clarification: "use the user badges")
+- R-031 The report webhooks configured before this release are carried over. Carried-over webhooks hold no badge and receive nothing until an administrator assigns at least one. (ADR-0024 §6)
 - R-032 After a webhook is saved, the system shows only a masked form of its address. (ADR-0024 §6)
 - R-033 Report and feedback posts carry the applika username and mention nobody. (ADR-0024 §6)
 - R-034 Feedback keeps going to its one configured feedback webhook. (ADR-0024 §6)
 - R-035 The retired GitHub and Discord data is set aside, never deleted, by this change. (ADR-0024 §8; owner's non-destructive migration order)
+- R-039 The admin area shows no Discord wording, except in the webhook address field, which accepts only Discord webhook addresses and shows a generic Discord webhook address as its placeholder. (clarifications: "Remove any wording to Discord in admin area."; "keep the webhook input as is, only accepting discord webhooks with a generic discord webhook as placeholder.")
 
 ## Permissions and tenancy
 
@@ -109,7 +113,7 @@ caller's own empty account, and it takes an old account only when that account h
 
 Only an administrator may list, add, change or remove report webhooks. A non-administrator is refused and sees nothing
 of them. After saving, an administrator sees only a masked address. A report reaches a webhook only when the submitting
-user holds that webhook's badge at submission time, and a post names only the user who submitted it.
+user holds one of that webhook's badges at submission time, and a post names only the user who submitted it.
 
 The server never returns the Borderless password, the Borderless tokens or a GitHub token to anyone, the user included.
 
@@ -131,7 +135,9 @@ The server never returns the Borderless password, the Borderless tokens or a Git
 - The GitHub identity belongs to the caller's own old account that is already bound to another Borderless account: refused (R-024).
 - The new account's session expired while on GitHub's consent screen: the restore fails and the user signs in again.
 - A browser already signed in is used to complete a command-line sign-in: the sign-in page still asks for the Borderless password, and the browser's own session stays as it was.
-- A carried-over webhook has no badge: it receives no report until an administrator assigns one.
+- A carried-over webhook has no badge: it receives no report until an administrator assigns at least one.
+- A webhook holds both BASE and PSP: BASE members' and PSP members' reports both reach it, each report once.
+- An administrator adds a webhook with no badge, or removes the last badge of a webhook: refused with a message; nothing changes.
 - An administrator adds the same webhook address twice, or an address that is not a Discord webhook: refused with a message.
 - A user deletes their account: their Borderless binding, badges and GitHub identity record go with it.
 - The Borderless encryption secret is lost or replaced: every binding is marked as needing a fresh sign-in, and no badge counts until each user confirms with their password.
@@ -155,7 +161,7 @@ The server never returns the Borderless password, the Borderless tokens or a Git
 
 - A GitHub-era user whose email matches sees their old applications on their first Borderless sign-in, with no extra step.
 - No Borderless password, Borderless token or GitHub token appears in a log, a response or the database unencrypted.
-- A PSP member's report reaches the PSP webhooks and no BASE webhook.
+- A PSP member's report reaches every webhook that holds PSP, once each, and no webhook that holds only BASE.
 - A membership change on Borderless shows in applika within one session refresh (about ten minutes on the web) while the Borderless access is alive, else at the next confirmation.
 - A reporting member confirms their membership in under 30 seconds from the Reports page, without losing their session.
 - `applika whoami` from command-line versions 0.1.4, 1.0.1 and 1.1.0 works after the user signs in again.
@@ -177,7 +183,8 @@ The server never returns the Borderless password, the Borderless tokens or a Git
 - The badge reads "BASE" or "PSP", and its accessible name says "Borderless BASE member" or "Borderless PSP member".
 - Visiting the reports page without a badge explains why, rather than showing "page not found"; badges are not secret.
 - Deleting an account revokes nothing at Borderless.
-- Carried-over webhooks keep their labels. A webhook's badge can be changed between BASE and PSP but not cleared.
+- Carried-over webhooks keep their labels.
+- "Remove any wording to Discord in admin area" covers the report-webhook screen's headings, descriptions, help text (such as "In Discord: channel settings…") and the admin navigation labels. The address field keeps its invalid-address message, which names Discord, because the field still accepts only Discord webhook addresses: reports are posted in Discord's message format.
 - The sign-in page links to Borderless for people who have no Borderless account, and carries a short hint that a Borderless account without a password (signed up through another provider) must set one on Borderless first.
 - Confirming the membership keeps the current applika session; it opens no new device and ends none.
 - The user menu asks to confirm the membership only when a badge is recorded; the profile asks whenever the Borderless access has expired or was refused, so a membership gained on Borderless later can be picked up.

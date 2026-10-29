@@ -1,7 +1,7 @@
 # ADR-0024: Borderless is the sole login, GitHub becomes a linked account, Borderless memberships become user badges, and reports are gated and routed by badge (supersedes ADR-0002 and ADR-0013, amends ADR-0019 and ADR-0004, exception to ADR-0018)
 
 **Status:** Accepted by LuisMSoares on 2026-10-29 · **Date:** 2026-10-29 · **Deciders:** LuisMSoares · **Amended:** 2026-10-29, open questions 1 to
-5 closed, 1 and 2 by the owner's live probe (PRD 0018, plan 0018)
+5 closed, 1 and 2 by the owner's live probe (PRD 0018, plan 0018) · Amended by the owner on 2026-10-29 during the build: report webhooks hold one or more badges
 
 ## Context
 
@@ -224,14 +224,21 @@ and every existing user is affected, so it needs an ADR.
     reports (owner: "Lock reports until re-sign-in").
   - Reports stored while the user held a badge stay, and come back when the badge is regained.
   - This replaces the ADR-0013 rule "Server membership, plus the optional roles, is the only report gate".
-- **Webhook routing.** `discord_report_webhooks` is replaced by `report_webhooks`: `url`, `badge` (one of the badge
-  keys), `label`, timestamps. It is managed by admins under `/admin/report-webhooks` with `AdminUserDp`.
-  - A submitted report posts to every webhook whose `badge` the user holds.
+- **Webhook routing.** `discord_report_webhooks` is replaced by `report_webhooks` (`url`, `label`, timestamps) and
+  its badges in `report_webhook_badges` (`report_webhook_id`, `badge`, one row per badge the webhook holds). A webhook holds one or
+  more badges: BASE, PSP, or both (owner, 2026-10-29, during the build: "i must be able to configure a webhook for a
+  pair of badges (1 or more)"). Its badges can be changed but never left empty. It is managed by admins under
+  `/admin/report-webhooks` with `AdminUserDp`.
+  - A submitted report posts to every webhook whose badges include a badge the user holds, each address once.
   - This is the owner's "the webhook will use those roles to determine which webhook to report the status": Borderless
     BASE/PSP take the place of Discord server and role ids.
-  - Release A copies the existing webhook URLs, with `badge` unset, so an admin assigns each one. A row with no badge
-    receives nothing.
+  - Release A copies the existing webhook URLs with no badge, so an admin assigns at least one to each. A webhook
+    with no badge receives nothing.
 - After an admin saves a webhook, the API never returns the full URL again (kept from ADR-0013).
+- **No Discord wording in the admin area** (owner, 2026-10-29: "Remove any wording to Discord in admin area"), except
+  the webhook address field. It still accepts only Discord webhook URLs, because posts use Discord's message format,
+  and shows a generic Discord webhook URL as its placeholder (owner: "keep the webhook input as is, only accepting
+  discord webhooks with a generic discord webhook as placeholder").
 - **No mention.** Posts no longer mention the user, because there is no Discord id. Report posts carry the applika
   username. Feedback keeps `DISCORD_FEEDBACK_WEBHOOK` and posts without a mention.
 - Failure handling is kept from ADR-0013: on a 429, a timeout or a failing webhook, the report is saved and that post
@@ -253,19 +260,25 @@ and every existing user is affected, so it needs an ADR.
 
 ### 8. Releases (ADR-0005)
 
-- **Release A, migration only.**
-  - Adds `borderless_accounts`, `github_connections` (seeded from `users.github_id`), `user_badges` and
-    `report_webhooks` (seeded from `discord_report_webhooks` URLs, with `badge` unset).
-  - Makes `users.github_id` nullable, adds the nullable `users.github_restore_prompt_seen_at` (§3 first sign-in prompt),
-    and adds `borderless` to the `user_sessions.sign_in_method` CHECK (§7).
-  - The downgrade renames the four new tables and the new column to `_old`, keeping their rows (precedent
+- **Release A, migration only, two revisions.**
+  - The first (`d9e0b46dd7e1`) adds `borderless_accounts`, `github_connections` (seeded from `users.github_id`),
+    `user_badges` and `report_webhooks` (seeded from `discord_report_webhooks` URLs, with `badge` unset).
+  - It makes `users.github_id` nullable, adds the nullable `users.github_restore_prompt_seen_at` (§3 first sign-in
+    prompt), and adds `borderless` to the `user_sessions.sign_in_method` CHECK (§7).
+  - Its downgrade renames the four new tables and the new column to `_old`, keeping their rows (precedent
     `ed39a0fad1e5`; a re-upgrade adopts them back), narrows the CHECK and restores `NOT NULL`. It refuses to run if any
     user has a null `github_id` or any session has method `borderless`.
+  - The second (owner's amendment, 2026-10-29), child of the first, adds `report_webhook_badges`
+    (`report_webhook_id` FK `report_webhooks.id` `ON DELETE CASCADE`, `badge` with the badge-key CHECK, primary key
+    `(report_webhook_id, badge)`), copies every non-null `report_webhooks.badge` into it, and renames
+    `report_webhooks.badge` to `badge_old`, which no code maps.
+  - Its downgrade renames `badge_old` back to `badge`, restored from the link rows (one deterministic badge when a
+    webhook holds both), and renames the link table to `report_webhook_badges_old`, which keeps the full set.
 - **Release B, code.**
   - Ships everything above. GitHub sign-in stops, and nothing reads or writes `discord_*` tables, `users.github_id` or
     `users.encrypted_github_token`.
-- **Release C, migration only.** First tops up `github_connections` and `report_webhooks` with the rows created
-  between Release A and Release B. Then renames the retired objects to `_old` and keeps their data:
+- **Release C, migration only.** First tops up `github_connections` and `report_webhooks` (with no badge) with the
+  rows created between Release A and Release B. Then renames the retired objects to `_old` and keeps their data:
   - `discord_connections` → `discord_connections_old`
   - `discord_report_webhooks` → `discord_report_webhooks_old`
   - `users.github_id` → `github_id_old`
@@ -304,7 +317,7 @@ and every existing user is affected, so it needs an ADR.
   member confirms.
 - **A Borderless account without a password cannot sign in** until its owner sets one on Borderless.
 - **Reports are closed to users without BASE or PSP**, including admins who hold no badge. Webhooks copied in Release
-  A post nothing until an admin assigns them a badge.
+  A post nothing until an admin assigns each at least one badge.
 - **Report and feedback posts no longer mention anyone.**
 - The retired GitHub and Discord data stays in `_old` objects. Removing it is a later explicit decision (ADR-0005
   Settled).
