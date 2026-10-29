@@ -22,6 +22,9 @@ export const BADGE_GATE_COPY = {
   loading: "Loading",
 } as const;
 
+/** How long a confirmed gate waits for the reports' h1 before giving up on focus. */
+const HEADING_WAIT_MS = 5_000;
+
 /** `membershipAccess(user).state`, or `loading` while the user loads. */
 export type BadgeGateState = "loading" | "none" | "unconfirmed" | "held";
 
@@ -47,17 +50,41 @@ export function BadgeGateView({
   const rootRef = useRef<HTMLDivElement>(null);
   const previous = useRef(state);
 
-  // A confirmed form unmounts its focused submit; land on the reports' h1, never on a refetch.
+  // A confirmed form unmounts its focused submit; land on the reports' h1,
+  // never on a refetch. The reports usually show a skeleton first (their
+  // queries only start once the badge is held), so wait for the h1 to appear
+  // while focus is still lost, for up to HEADING_WAIT_MS.
   useEffect(() => {
     const was = previous.current;
     previous.current = state;
     if (was !== "unconfirmed" || state !== "held") return;
-    const active = document.activeElement;
-    if (active && active !== document.body) return;
-    const heading = rootRef.current?.querySelector<HTMLElement>("h1");
-    if (!heading) return;
-    if (!heading.hasAttribute("tabindex")) heading.tabIndex = -1;
-    heading.focus();
+    const root = rootRef.current;
+    if (!root) return;
+
+    const focusLost = () => {
+      const active = document.activeElement;
+      return !active || active === document.body;
+    };
+    const tryFocus = (): boolean => {
+      if (!focusLost()) return true; // the user moved on: stop waiting
+      const heading = root.querySelector<HTMLElement>("h1");
+      if (!heading) return false;
+      if (!heading.hasAttribute("tabindex")) heading.tabIndex = -1;
+      heading.focus();
+      return true;
+    };
+    if (tryFocus()) return;
+
+    const observer = new MutationObserver(() => {
+      if (tryFocus()) stop();
+    });
+    const timer = window.setTimeout(() => stop(), HEADING_WAIT_MS);
+    function stop() {
+      observer.disconnect();
+      window.clearTimeout(timer);
+    }
+    observer.observe(root, { childList: true, subtree: true });
+    return stop;
   }, [state]);
 
   return (

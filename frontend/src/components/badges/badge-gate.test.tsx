@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import { useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BadgeGate } from "./badge-gate";
+import { BadgeGate, BadgeGateView } from "./badge-gate";
 import type { User } from "@/services/types/users";
 
 /**
@@ -123,5 +124,66 @@ describe("BadgeGate", () => {
     expect(gate()).toHaveAttribute("data-state", "loading");
     expect(screen.getByRole("status")).toHaveTextContent("Loading");
     expect(Reports).not.toHaveBeenCalled();
+  });
+});
+
+describe("BadgeGateView focus after the membership is confirmed", () => {
+  /** The reports render a skeleton first, then their h1 a tick later. */
+  function SlowReports() {
+    const [ready, setReady] = useState(false);
+    useEffect(() => {
+      const id = setTimeout(() => setReady(true), 30);
+      return () => clearTimeout(id);
+    }, []);
+    return ready ? <h1>My Reports</h1> : <div>Loading reports</div>;
+  }
+
+  function renderView(state: "unconfirmed" | "held", focusable = true) {
+    return (
+      <BadgeGateView
+        state={state}
+        confirm={
+          focusable ? <button type="button">Confirm membership</button> : null
+        }
+      >
+        <SlowReports />
+      </BadgeGateView>
+    );
+  }
+
+  it("lands on the reports' h1 once it appears", async () => {
+    const { rerender } = render(renderView("unconfirmed"));
+    screen.getByRole("button", { name: "Confirm membership" }).focus();
+
+    // The confirmed form unmounts its focused button: focus falls to body.
+    rerender(renderView("held"));
+    expect(document.activeElement).toBe(document.body);
+
+    const heading = await screen.findByRole("heading", { name: "My Reports" });
+    await waitFor(() => expect(heading).toHaveFocus());
+    expect(heading).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("leaves focus alone when the user already moved it", async () => {
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    const { rerender } = render(renderView("unconfirmed"));
+
+    rerender(renderView("held"));
+    act(() => outside.focus());
+
+    const heading = await screen.findByRole("heading", { name: "My Reports" });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(heading).not.toHaveFocus();
+    expect(outside).toHaveFocus();
+    outside.remove();
+  });
+
+  it("never steals focus on a first render that is already held", async () => {
+    render(renderView("held"));
+
+    const heading = await screen.findByRole("heading", { name: "My Reports" });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(heading).not.toHaveFocus();
   });
 });
