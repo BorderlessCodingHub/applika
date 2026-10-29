@@ -378,3 +378,32 @@ describe("LoginPage: ?cli=1", () => {
     expect(assign).not.toHaveBeenCalled();
   });
 });
+
+describe("LoginPage: ?cli=1 after the terminal's marker lapsed", () => {
+  beforeEach(() => {
+    searchParams = new URLSearchParams("cli=1");
+  });
+
+  it("says the terminal sign-in expired instead of leaving silently", async () => {
+    vi.mocked(services.auth.borderlessSignIn).mockResolvedValue({
+      redirect_to: null,
+      new_account: false,
+    });
+    renderPage();
+
+    await signIn();
+
+    await waitFor(() =>
+      expect(errorBox()).toHaveTextContent(
+        "The terminal sign-in expired before you signed in.",
+      ),
+    );
+    expect(errorBox()).toHaveTextContent(
+      "Run applika login in your terminal again.",
+    );
+    expect(assign).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Sign in" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
+  });
+});

@@ -29,6 +29,10 @@ export function webLandingFor(result: BorderlessSignInResult): string {
   return consumeReturnTo() ?? "/dashboard";
 }
 
+/** `?cli=1`, but the API answered a web sign-in: the terminal's marker had lapsed. */
+export const CLI_HANDOFF_LOST =
+  "The terminal sign-in expired before you signed in. This browser is signed in to applika instead.";
+
 interface SignInError {
   message: string;
   hint: string | null;
@@ -42,6 +46,7 @@ export function LoginPage() {
   // with a browser session, and the answer hands the sign-in to the terminal.
   const cli = searchParams.get("cli") === "1";
   const [error, setError] = useState<SignInError | null>(null);
+  const [cliHandoffLost, setCliHandoffLost] = useState(false);
 
   const form = useForm<BorderlessCredentialsValues>({
     resolver: zodResolver(borderlessCredentialsSchema),
@@ -52,6 +57,17 @@ export function LoginPage() {
     mutationFn: (values: BorderlessCredentialsValues) =>
       services.auth.borderlessSignIn(values),
     onSuccess: (result) => {
+      // The terminal's sign-in marker lapsed (it lives a few minutes): the
+      // API signed this browser in instead and has nothing to hand back. Say
+      // so here; the terminal is still waiting and must start again.
+      if (cli && !result.redirect_to) {
+        setCliHandoffLost(true);
+        setError({
+          message: CLI_HANDOFF_LOST,
+          hint: SIGN_IN_COPY.cliExpiredHint,
+        });
+        return;
+      }
       // A full navigation either way: the CLI hand-off leaves applika, and a
       // web sign-in may replace another account's session in this tab, so
       // nothing cached for it may survive.
@@ -86,9 +102,10 @@ export function LoginPage() {
       mode={cli ? "cli" : "web"}
       onSubmit={(values) => {
         setError(null);
+        setCliHandoffLost(false);
         signIn.mutate(values);
       }}
-      pending={signIn.isPending || signIn.isSuccess}
+      pending={signIn.isPending || (signIn.isSuccess && !cliHandoffLost)}
       error={error?.message ?? null}
       errorHint={error?.hint ?? null}
       createAccountHref={APP_CONFIG.borderless.signUpUrl}
