@@ -1,10 +1,15 @@
 "use client";
 
-import { useRef } from "react";
+import { useId, useRef } from "react";
 import { CircleAlert, Loader2 } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 
-import type { DiscordWebhookRow } from "@/components/admin/discord-webhook-list";
+import type { ReportWebhookRow } from "@/components/admin/report-webhook-list";
+import {
+  MEMBERSHIP_BADGE_KEYS,
+  MEMBERSHIP_BADGE_LABEL,
+  type MembershipBadgeKey,
+} from "@/components/badges/membership-badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,39 +29,33 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { cn } from "@/lib/utils";
 
-/** Every field is a string; `role_ids` is the raw textarea text. */
-export interface DiscordWebhookFormValues {
+/** `badge` is `""` until one is picked (a new row, or a carried-over row with none). */
+export interface ReportWebhookFormValues {
   webhook_url: string;
-  guild_id: string;
-  role_ids: string;
+  badge: MembershipBadgeKey | "";
   label: string;
 }
 
-export const EMPTY_DISCORD_WEBHOOK_FORM: DiscordWebhookFormValues = {
+export const EMPTY_REPORT_WEBHOOK_FORM: ReportWebhookFormValues = {
   webhook_url: "",
-  guild_id: "",
-  role_ids: "",
+  badge: "",
   label: "",
 };
 
-export function discordWebhookToFormValues(
-  row: Pick<DiscordWebhookRow, "guild_id" | "role_ids" | "label">,
-): DiscordWebhookFormValues {
+export function reportWebhookToFormValues(
+  row: Pick<ReportWebhookRow, "badge" | "label">,
+): ReportWebhookFormValues {
   // The stored URL is a secret: the edit form starts blank, never pre-filled.
-  return {
-    webhook_url: "",
-    guild_id: row.guild_id,
-    role_ids: row.role_ids.join("\n"),
-    label: row.label ?? "",
-  };
+  return { webhook_url: "", badge: row.badge ?? "", label: row.label ?? "" };
 }
 
-export type DiscordWebhookFormMode = "add" | "edit";
+export type ReportWebhookFormMode = "add" | "edit";
 
 const COPY: Record<
-  DiscordWebhookFormMode,
+  ReportWebhookFormMode,
   {
     title: string;
     description: string;
@@ -67,7 +66,7 @@ const COPY: Record<
   add: {
     title: "Add webhook",
     description:
-      "Reports from members of this server are posted through this webhook.",
+      "Reports from members who hold the chosen badge are posted through this webhook.",
     submit: "Save webhook",
     urlPlaceholder: "https://discord.com/api/webhooks/…",
   },
@@ -79,20 +78,37 @@ const COPY: Record<
   },
 };
 
-export interface DiscordWebhookFormDialogProps {
-  mode: DiscordWebhookFormMode;
+export const REPORT_WEBHOOK_FORM_COPY = {
+  urlLabel: "Webhook URL",
+  urlHelp:
+    "In Discord: channel settings, Integrations, Webhooks, Copy Webhook URL. Only a masked form is shown after saving.",
+  urlCurrent: "Current:",
+  badgeLabel: "Badge",
+  badgeHelp: "Each report goes to the webhooks of its member's badge.",
+  badgeHint: {
+    borderless_base: "Reports from Borderless BASE members.",
+    borderless_psp: "Reports from Borderless PSP members.",
+  } satisfies Record<MembershipBadgeKey, string>,
+  labelLabel: "Label",
+  labelPlaceholder: "e.g. BASE reports channel",
+  labelHelp: "Optional. Up to 100 characters, to tell webhooks apart.",
+  cancel: "Cancel",
+} as const;
+
+export interface ReportWebhookFormDialogProps {
+  mode: ReportWebhookFormMode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  form: UseFormReturn<DiscordWebhookFormValues>;
-  onSubmit: (values: DiscordWebhookFormValues) => void;
+  form: UseFormReturn<ReportWebhookFormValues>;
+  onSubmit: (values: ReportWebhookFormValues) => void;
   isPending?: boolean;
-  /** The API's single `detail` string for a 409 or 422. */
+  /** The API's single `detail` string for a 404, 409 or 422. */
   serverError?: string | null;
   /** Edit only: the stored URL's masked form. */
   currentUrlMasked?: string | null;
 }
 
-export function DiscordWebhookFormDialog({
+export function ReportWebhookFormDialog({
   mode,
   open,
   onOpenChange,
@@ -101,9 +117,11 @@ export function DiscordWebhookFormDialog({
   isPending = false,
   serverError = null,
   currentUrlMasked = null,
-}: DiscordWebhookFormDialogProps) {
+}: ReportWebhookFormDialogProps) {
   const copy = COPY[mode];
   const openerRef = useRef<HTMLElement | null>(null);
+  const badgeLabelId = useId();
+  const optionId = useId();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -133,7 +151,7 @@ export function DiscordWebhookFormDialog({
         <Form {...form}>
           <form
             noValidate
-            data-slot="discord-webhook-form"
+            data-slot="report-webhook-form"
             data-mode={mode}
             onSubmit={form.handleSubmit(onSubmit)}
             className="flex min-h-0 flex-1 flex-col"
@@ -144,7 +162,7 @@ export function DiscordWebhookFormDialog({
                 name="webhook_url"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Webhook URL</FormLabel>
+                    <FormLabel>{REPORT_WEBHOOK_FORM_COPY.urlLabel}</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
@@ -159,13 +177,13 @@ export function DiscordWebhookFormDialog({
                     <FormDescription>
                       {mode === "edit" && currentUrlMasked ? (
                         <>
-                          Current:{" "}
+                          {REPORT_WEBHOOK_FORM_COPY.urlCurrent}{" "}
                           <code className="font-mono text-xs break-all text-foreground/80">
                             {currentUrlMasked}
                           </code>
                         </>
                       ) : (
-                        "In Discord: channel settings, Integrations, Webhooks, Copy Webhook URL. Only a masked form is shown after saving."
+                        REPORT_WEBHOOK_FORM_COPY.urlHelp
                       )}
                     </FormDescription>
                     <FormMessage />
@@ -175,48 +193,64 @@ export function DiscordWebhookFormDialog({
 
               <FormField
                 control={form.control}
-                name="guild_id"
-                render={({ field }) => (
+                name="badge"
+                render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Server id</FormLabel>
+                    {/* A radiogroup is not labelable: the group takes its name from this line. */}
+                    <span
+                      id={badgeLabelId}
+                      data-slot="form-label"
+                      className={cn(
+                        "text-sm leading-none font-medium select-none",
+                        fieldState.error && "text-destructive",
+                      )}
+                    >
+                      {REPORT_WEBHOOK_FORM_COPY.badgeLabel}
+                    </span>
                     <FormControl>
-                      <Input
-                        {...field}
-                        inputMode="numeric"
-                        autoComplete="off"
-                        spellCheck={false}
-                        className="font-numeric"
-                      />
+                      <RadioGroup
+                        aria-labelledby={badgeLabelId}
+                        aria-required
+                        name={field.name}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        className="grid-cols-1 gap-2 sm:grid-cols-2"
+                      >
+                        {MEMBERSHIP_BADGE_KEYS.map((key) => (
+                          <label
+                            key={key}
+                            className={cn(
+                              "flex cursor-pointer items-start gap-3 rounded-md border border-border p-3 transition-colors hover:bg-accent/50 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary-muted",
+                              fieldState.error && "border-destructive/60",
+                            )}
+                          >
+                            <RadioGroupItem
+                              value={key}
+                              aria-labelledby={`${optionId}-${key}-name`}
+                              aria-describedby={`${optionId}-${key}-hint`}
+                              className="mt-0.5"
+                              onBlur={field.onBlur}
+                            />
+                            <span className="flex min-w-0 flex-col gap-1">
+                              <span
+                                id={`${optionId}-${key}-name`}
+                                className="font-display text-sm leading-none font-semibold tracking-wide-label text-foreground"
+                              >
+                                {MEMBERSHIP_BADGE_LABEL[key]}
+                              </span>
+                              <span
+                                id={`${optionId}-${key}-hint`}
+                                className="text-xs text-foreground/70"
+                              >
+                                {REPORT_WEBHOOK_FORM_COPY.badgeHint[key]}
+                              </span>
+                            </span>
+                          </label>
+                        ))}
+                      </RadioGroup>
                     </FormControl>
                     <FormDescription>
-                      17 to 20 digits. In Discord, with Developer Mode on,
-                      right-click the server and pick Copy Server ID.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="role_ids"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Role ids</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        rows={3}
-                        autoComplete="off"
-                        spellCheck={false}
-                        placeholder="One per line, or separated by commas or spaces"
-                        className="max-h-40 font-numeric"
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Optional. Comma, space or newline separated, up to 25. A
-                      member needs one of these roles; leave empty to allow any
-                      member.
+                      {REPORT_WEBHOOK_FORM_COPY.badgeHelp}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -228,16 +262,16 @@ export function DiscordWebhookFormDialog({
                 name="label"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Label</FormLabel>
+                    <FormLabel>{REPORT_WEBHOOK_FORM_COPY.labelLabel}</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
                         autoComplete="off"
-                        placeholder="e.g. Reports, main server"
+                        placeholder={REPORT_WEBHOOK_FORM_COPY.labelPlaceholder}
                       />
                     </FormControl>
                     <FormDescription>
-                      Optional. Up to 100 characters, to tell webhooks apart.
+                      {REPORT_WEBHOOK_FORM_COPY.labelHelp}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -250,7 +284,7 @@ export function DiscordWebhookFormDialog({
               {serverError ? (
                 <div
                   role="alert"
-                  data-slot="discord-webhook-form-error"
+                  data-slot="report-webhook-form-error"
                   className="flex items-start gap-2.5 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-foreground"
                 >
                   <CircleAlert
@@ -266,7 +300,7 @@ export function DiscordWebhookFormDialog({
                   variant="outline"
                   onClick={() => onOpenChange(false)}
                 >
-                  Cancel
+                  {REPORT_WEBHOOK_FORM_COPY.cancel}
                 </Button>
                 <Button
                   type="submit"

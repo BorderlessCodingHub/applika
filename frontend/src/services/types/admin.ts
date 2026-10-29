@@ -1,3 +1,5 @@
+import type { MembershipBadgeKey } from "@/services/types/users";
+
 export interface AdminPlatformStats {
   total_users: number;
   active_users_30d: number;
@@ -16,7 +18,8 @@ export interface AdminUserRow {
   id: string;
   username: string;
   email: string;
-  github_id: string;
+  /** A JSON number; `null` for a Borderless-only account. */
+  github_id: number | null;
   seniority_level?: string;
   location?: string;
   is_admin: boolean;
@@ -182,35 +185,31 @@ export interface AdminPlatformsParams {
 // now 404.
 
 /**
- * Admin report webhook (KODI-027, plan 0009 · `/admin/discord-webhooks`,
- * ADR-0013). `webhook_url_masked` is the ONLY address form the API ever
- * returns — the full URL is never sent back after creation (AC3/AC9).
+ * Admin report webhook (`/admin/report-webhooks`, ADR-0024). A report goes to
+ * the webhooks of its author's badge. `webhook_url_masked` is the only
+ * address form the API returns; `badge` is null only on a row carried over
+ * from before badges, which receives nothing until one is assigned.
  */
-export interface AdminDiscordWebhook {
+export interface AdminReportWebhook {
   id: string;
   label: string | null;
-  guild_id: string;
-  role_ids: string[];
+  badge: MembershipBadgeKey | null;
   webhook_url_masked: string;
   created_at: string;
   updated_at: string | null;
 }
 
-/** `POST /admin/discord-webhooks` body. Every field but `webhook_url` and
- * `guild_id` is optional. */
-export interface CreateDiscordWebhook {
+/** `POST /admin/report-webhooks` body. */
+export interface CreateReportWebhook {
   webhook_url: string;
-  guild_id: string;
-  role_ids?: string[];
+  badge: MembershipBadgeKey;
   label?: string | null;
 }
 
-/** `PATCH /admin/discord-webhooks/{id}` body — the server uses
- * `exclude_unset`, so only the keys present here are changed. */
-export interface UpdateDiscordWebhook {
+/** `PATCH /admin/report-webhooks/{id}` body: only the keys present change; `badge` is never cleared. */
+export interface UpdateReportWebhook {
   webhook_url?: string;
-  guild_id?: string;
-  role_ids?: string[];
+  badge?: MembershipBadgeKey;
   label?: string | null;
 }
 

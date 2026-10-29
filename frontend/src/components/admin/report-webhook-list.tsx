@@ -2,8 +2,8 @@
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import {
+  BadgeAlert,
   CircleAlert,
-  Hash,
   Loader2,
   Pencil,
   Plus,
@@ -12,6 +12,11 @@ import {
   Webhook,
 } from "lucide-react";
 
+import {
+  MEMBERSHIP_BADGE_LABEL,
+  MembershipBadge,
+  type MembershipBadgeKey,
+} from "@/components/badges/membership-badge";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { EmptyState } from "@/components/common/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -19,56 +24,85 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-export interface DiscordWebhookRow {
+export interface ReportWebhookRow {
   id: string;
   label: string | null;
-  guild_id: string;
-  role_ids: string[];
+  /** `null` only on a row carried over from before badges. */
+  badge: MembershipBadgeKey | null;
   webhook_url_masked: string;
 }
 
-export type DiscordWebhookListState = "loading" | "error" | "empty" | "ready";
+export type ReportWebhookListState = "loading" | "error" | "empty" | "ready";
 
-export const UNLABELLED_WEBHOOK = "Unlabelled webhook";
+export const REPORT_WEBHOOK_LIST_COPY = {
+  title: "Report webhooks",
+  add: "Add webhook",
+  unlabelled: "Unlabelled webhook",
+  noBadge: "No badge, receives nothing",
+  badgeTerm: "Badge",
+  webhookTerm: "Webhook",
+  loading: "Loading webhooks",
+  errorTitle: "Could not load webhooks",
+  errorBody: "The list did not load. Check your connection and try again.",
+  retry: "Try again",
+  emptyTitle: "No webhooks yet",
+  emptyBody:
+    "Reports are saved but not posted anywhere until a webhook is added for BASE or PSP.",
+  deleteTitle: "Delete webhook?",
+  deleteConfirm: "Delete",
+} as const;
 
-function rowLabel(row: Pick<DiscordWebhookRow, "label">): string | null {
+function rowLabel(row: Pick<ReportWebhookRow, "label">): string | null {
   return row.label?.trim() ? row.label : null;
 }
 
 /** The row's name inside "Edit …" / "Delete …" accessible names. */
-export function discordWebhookTargetName(
-  row: Pick<DiscordWebhookRow, "label" | "guild_id">,
+export function reportWebhookTargetName(
+  row: Pick<ReportWebhookRow, "label" | "webhook_url_masked">,
 ): string {
-  return rowLabel(row) ?? `webhook for server ${row.guild_id}`;
+  const label = rowLabel(row);
+  if (label) return label;
+  const id = /\/webhooks\/(\d+)\//.exec(row.webhook_url_masked)?.[1];
+  return id ? `webhook ${id}` : "unlabelled webhook";
 }
 
-export function discordWebhookListState({
+export function reportWebhookDeleteDescription(
+  row: Pick<ReportWebhookRow, "label" | "badge">,
+): string {
+  const target = rowLabel(row) ?? "this webhook";
+  if (!row.badge) {
+    return `${target} receives no reports today. Deleting it cannot be undone.`;
+  }
+  return `Reports from Borderless ${MEMBERSHIP_BADGE_LABEL[row.badge]} members will no longer be posted to ${target}. This cannot be undone.`;
+}
+
+export function reportWebhookListState({
   webhooks,
   isLoading,
   isError,
 }: {
-  webhooks: DiscordWebhookRow[] | undefined;
+  webhooks: ReportWebhookRow[] | undefined;
   isLoading?: boolean;
   isError?: boolean;
-}): DiscordWebhookListState {
+}): ReportWebhookListState {
   if (isLoading) return "loading";
   if (webhooks) return webhooks.length > 0 ? "ready" : "empty";
   return isError ? "error" : "loading";
 }
 
-export interface DiscordWebhookListProps {
-  webhooks: DiscordWebhookRow[] | undefined;
+export interface ReportWebhookListProps {
+  webhooks: ReportWebhookRow[] | undefined;
   isLoading?: boolean;
   isError?: boolean;
   onRetry?: () => void;
   onAdd: () => void;
-  onEdit: (webhook: DiscordWebhookRow) => void;
-  onDelete: (webhook: DiscordWebhookRow) => void;
+  onEdit: (webhook: ReportWebhookRow) => void;
+  onDelete: (webhook: ReportWebhookRow) => void;
   deletingId?: string | null;
   className?: string;
 }
 
-export function DiscordWebhookList({
+export function ReportWebhookList({
   webhooks,
   isLoading = false,
   isError = false,
@@ -78,11 +112,11 @@ export function DiscordWebhookList({
   onDelete,
   deletingId = null,
   className,
-}: DiscordWebhookListProps) {
+}: ReportWebhookListProps) {
   const headingId = useId();
   const addRef = useRef<HTMLButtonElement>(null);
   const handOffId = useRef<string | null>(null);
-  const state = discordWebhookListState({ webhooks, isLoading, isError });
+  const state = reportWebhookListState({ webhooks, isLoading, isError });
 
   // A deleted row takes its focused trigger with it; land on Add webhook, never on a refetch.
   useEffect(() => {
@@ -94,7 +128,7 @@ export function DiscordWebhookList({
     addRef.current?.focus();
   }, [webhooks]);
 
-  const confirmDelete = (row: DiscordWebhookRow) => {
+  const confirmDelete = (row: ReportWebhookRow) => {
     handOffId.current = row.id;
     onDelete(row);
   };
@@ -102,7 +136,7 @@ export function DiscordWebhookList({
   return (
     <section
       aria-labelledby={headingId}
-      data-slot="discord-webhooks"
+      data-slot="report-webhooks"
       data-state={state}
       className={cn(
         "@container overflow-hidden rounded-xl bg-card shadow-card",
@@ -113,7 +147,7 @@ export function DiscordWebhookList({
         <div className="flex min-w-0 items-center gap-2">
           <Webhook aria-hidden className="size-4 text-muted-foreground" />
           <h2 id={headingId} className="text-sm font-semibold text-foreground">
-            Report webhooks
+            {REPORT_WEBHOOK_LIST_COPY.title}
           </h2>
           {state === "ready" && webhooks ? (
             <Badge aria-hidden variant="secondary" className="font-numeric">
@@ -123,13 +157,13 @@ export function DiscordWebhookList({
         </div>
         <Button ref={addRef} type="button" size="sm" onClick={onAdd}>
           <Plus aria-hidden data-icon="inline-start" />
-          Add webhook
+          {REPORT_WEBHOOK_LIST_COPY.add}
         </Button>
       </div>
 
       {state === "loading" ? (
         <div role="status" className="divide-y divide-border">
-          <span className="sr-only">Loading webhooks</span>
+          <span className="sr-only">{REPORT_WEBHOOK_LIST_COPY.loading}</span>
           {Array.from({ length: 3 }).map((_, i) => (
             <RowSkeleton key={i} />
           ))}
@@ -138,8 +172,8 @@ export function DiscordWebhookList({
         <div role="alert" className="p-4">
           <EmptyState
             icon={CircleAlert}
-            title="Could not load webhooks"
-            description="The list did not load. Check your connection and try again."
+            title={REPORT_WEBHOOK_LIST_COPY.errorTitle}
+            description={REPORT_WEBHOOK_LIST_COPY.errorBody}
             action={
               onRetry ? (
                 <Button
@@ -149,7 +183,7 @@ export function DiscordWebhookList({
                   onClick={onRetry}
                 >
                   <RefreshCw aria-hidden data-icon="inline-start" />
-                  Try again
+                  {REPORT_WEBHOOK_LIST_COPY.retry}
                 </Button>
               ) : null
             }
@@ -158,15 +192,15 @@ export function DiscordWebhookList({
       ) : state === "empty" ? (
         <div className="p-4">
           <EmptyState
-            icon={Hash}
-            title="No webhooks yet"
-            description="Reports are saved but not posted to Discord until you add a webhook."
+            icon={Webhook}
+            title={REPORT_WEBHOOK_LIST_COPY.emptyTitle}
+            description={REPORT_WEBHOOK_LIST_COPY.emptyBody}
           />
         </div>
       ) : (
         <ul className="divide-y divide-border">
           {webhooks?.map((row) => (
-            <DiscordWebhookItem
+            <ReportWebhookItem
               key={row.id}
               row={row}
               deleting={deletingId === row.id}
@@ -180,24 +214,25 @@ export function DiscordWebhookList({
   );
 }
 
-function DiscordWebhookItem({
+function ReportWebhookItem({
   row,
   deleting,
   onEdit,
   onDelete,
 }: {
-  row: DiscordWebhookRow;
+  row: ReportWebhookRow;
   deleting: boolean;
-  onEdit: (webhook: DiscordWebhookRow) => void;
-  onDelete: (webhook: DiscordWebhookRow) => void;
+  onEdit: (webhook: ReportWebhookRow) => void;
+  onDelete: (webhook: ReportWebhookRow) => void;
 }) {
   const label = rowLabel(row);
-  const target = discordWebhookTargetName(row);
+  const target = reportWebhookTargetName(row);
 
   return (
     <li
-      data-slot="discord-webhook-row"
+      data-slot="report-webhook-row"
       data-webhook-id={row.id}
+      data-badge={row.badge ?? "none"}
       aria-busy={deleting || undefined}
       className={cn(
         "flex items-start gap-3 px-5 py-4 transition-opacity",
@@ -208,7 +243,7 @@ function DiscordWebhookItem({
         aria-hidden
         className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
       >
-        <Hash className="size-4" />
+        <Webhook className="size-4" />
       </span>
 
       <div className="flex min-w-0 flex-1 flex-col gap-3">
@@ -218,10 +253,10 @@ function DiscordWebhookItem({
               "min-w-0 pt-1.5 text-sm leading-5 break-words",
               label
                 ? "font-semibold text-foreground"
-                : "font-medium text-muted-foreground italic",
+                : "font-medium text-foreground/70 italic",
             )}
           >
-            {label ?? UNLABELLED_WEBHOOK}
+            {label ?? REPORT_WEBHOOK_LIST_COPY.unlabelled}
           </h3>
           <div className="-mr-2 flex shrink-0 items-center gap-0.5">
             <Button
@@ -253,44 +288,36 @@ function DiscordWebhookItem({
                   )}
                 </Button>
               }
-              title="Delete webhook?"
-              description={`Reports will no longer be posted to ${label ?? "this webhook"} in server ${row.guild_id}. This cannot be undone.`}
-              confirmLabel="Delete"
+              title={REPORT_WEBHOOK_LIST_COPY.deleteTitle}
+              description={reportWebhookDeleteDescription(row)}
+              confirmLabel={REPORT_WEBHOOK_LIST_COPY.deleteConfirm}
               onConfirm={() => onDelete(row)}
             />
           </div>
         </div>
 
-        <dl className="grid gap-2 text-sm @2xl:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_minmax(0,1.4fr)] @2xl:gap-6">
-          <WebhookDetail term="Server">
+        <dl className="grid gap-2 text-sm @2xl:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] @2xl:gap-6">
+          <WebhookDetail term={REPORT_WEBHOOK_LIST_COPY.badgeTerm}>
             <span
-              data-slot="discord-webhook-guild"
-              className="font-numeric text-foreground"
+              data-slot="report-webhook-badge"
+              className="inline-flex items-start gap-1.5 text-foreground"
             >
-              {row.guild_id}
+              {row.badge ? (
+                <MembershipBadge badge={row.badge} purpose="label" />
+              ) : (
+                <>
+                  <BadgeAlert
+                    aria-hidden
+                    className="mt-0.5 size-4 shrink-0 text-warning"
+                  />
+                  {REPORT_WEBHOOK_LIST_COPY.noBadge}
+                </>
+              )}
             </span>
           </WebhookDetail>
-          <WebhookDetail term="Roles">
-            {row.role_ids.length > 0 ? (
-              <ul
-                data-slot="discord-webhook-roles"
-                className="flex flex-wrap gap-1.5"
-              >
-                {row.role_ids.map((roleId) => (
-                  <li key={roleId}>
-                    <Badge variant="outline" className="font-numeric">
-                      {roleId}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <span className="text-muted-foreground">Any member</span>
-            )}
-          </WebhookDetail>
-          <WebhookDetail term="Webhook">
+          <WebhookDetail term={REPORT_WEBHOOK_LIST_COPY.webhookTerm}>
             <code
-              data-slot="discord-webhook-url"
+              data-slot="report-webhook-url"
               className="font-mono text-xs break-all text-foreground/80"
             >
               {row.webhook_url_masked}
@@ -311,7 +338,7 @@ function WebhookDetail({
 }) {
   return (
     <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] content-start items-baseline gap-x-3 @2xl:grid-cols-1 @2xl:gap-y-1.5">
-      <dt className="font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
+      <dt className="font-display text-[11px] font-semibold tracking-wide-label text-foreground/70 uppercase">
         {term}
       </dt>
       <dd className="min-w-0">{children}</dd>
@@ -325,8 +352,7 @@ function RowSkeleton() {
       <Skeleton className="size-8 shrink-0" />
       <div className="flex min-w-0 flex-1 flex-col gap-3 pt-1.5">
         <Skeleton className="h-4 w-40 max-w-full" />
-        <div className="grid gap-2 @2xl:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_minmax(0,1.4fr)] @2xl:gap-6">
-          <Skeleton className="h-4 w-36 max-w-full" />
+        <div className="grid gap-2 @2xl:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] @2xl:gap-6">
           <Skeleton className="h-4 w-28 max-w-full" />
           <Skeleton className="h-4 w-64 max-w-full" />
         </div>

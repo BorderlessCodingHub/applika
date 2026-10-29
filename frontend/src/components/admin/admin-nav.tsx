@@ -20,7 +20,7 @@ const tabs = [
   { href: "/admin/platforms", label: "Platforms", icon: Globe },
   { href: "/admin/jobs", label: "Jobs", icon: Search },
   { href: "/admin/features", label: "Features", icon: FlaskConical },
-  { href: "/admin/discord-webhooks", label: "Discord", icon: Webhook },
+  { href: "/admin/report-webhooks", label: "Report webhooks", icon: Webhook },
 ];
 
 export function AdminNav() {

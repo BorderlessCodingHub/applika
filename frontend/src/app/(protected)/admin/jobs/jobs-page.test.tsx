@@ -11,7 +11,7 @@ import type { AdminJobSource } from "@/services/types/admin";
 /**
  * KODI-049 (plan 0012, T099) — the admin Jobs page: loading, error, empty and
  * ready; the on/off switch PATCHes (R-034); Run now's 202, 409 and 503 (R-035);
- * a long last error wraps (R-033). Pattern: `discord-webhooks-page.test.tsx`
+ * a long last error wraps (R-033). Pattern: `report-webhooks-page.test.tsx`
  * (mock `services`, not the hooks). Words are asserted, never classes — except
  * the wrap, whose only observable in jsdom is the wrapping utility itself.
  */

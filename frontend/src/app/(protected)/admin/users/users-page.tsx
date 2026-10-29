@@ -389,7 +389,7 @@ export function UsersPage() {
                   <p className="text-[11px] text-muted-foreground uppercase">
                     GitHub ID
                   </p>
-                  <p className="font-medium">{userDetail.github_id}</p>
+                  <p className="font-medium">{userDetail.github_id ?? "—"}</p>
                 </div>
                 {userDetail.first_name && (
                   <div>
