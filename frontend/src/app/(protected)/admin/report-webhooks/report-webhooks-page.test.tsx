@@ -243,6 +243,53 @@ describe("ReportWebhooksPage", () => {
     );
   });
 
+  it("Edit: a label-only change sends only the label", async () => {
+    vi.mocked(services.admin.getReportWebhooks).mockResolvedValue([ROW]);
+    vi.mocked(services.admin.updateReportWebhook).mockResolvedValue(ROW);
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("PSP channel");
+
+    await user.click(screen.getByRole("button", { name: "Edit PSP channel" }));
+    const dialog = await screen.findByRole("dialog");
+    const label = within(dialog).getByLabelText("Label");
+    await user.clear(label);
+    await user.type(label, "PSP reports");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Save changes" }),
+    );
+
+    await waitFor(() =>
+      expect(services.admin.updateReportWebhook).toHaveBeenCalledWith("w1", {
+        label: "PSP reports",
+      }),
+    );
+  });
+
+  it("Edit: a URL typed and cleared again keeps the stored one", async () => {
+    vi.mocked(services.admin.getReportWebhooks).mockResolvedValue([ROW]);
+    vi.mocked(services.admin.updateReportWebhook).mockResolvedValue(ROW);
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("PSP channel");
+
+    await user.click(screen.getByRole("button", { name: "Edit PSP channel" }));
+    const dialog = await screen.findByRole("dialog");
+    const url = within(dialog).getByLabelText("Webhook URL");
+    await user.type(url, "https://discord.com");
+    await user.clear(url);
+    await user.click(within(dialog).getByRole("radio", { name: "BASE" }));
+    await user.click(
+      within(dialog).getByRole("button", { name: "Save changes" }),
+    );
+
+    await waitFor(() =>
+      expect(services.admin.updateReportWebhook).toHaveBeenCalledWith("w1", {
+        badge: "borderless_base",
+      }),
+    );
+  });
+
   it("Edit: a carried-over row with no badge must get one", async () => {
     vi.mocked(services.admin.getReportWebhooks).mockResolvedValue([CARRIED]);
     const user = userEvent.setup();
