@@ -1,25 +1,23 @@
 "use client";
 
-import { APP_CONFIG } from "@/config";
-import { GithubIcon } from "./brand-icons";
+import Link from "next/link";
 import { forwardRef } from "react";
 import { Button } from "./ui/button";
 import { LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
-type SignInLinkProps = React.ComponentPropsWithoutRef<"a"> & {
+type SignInLinkProps = Omit<React.ComponentPropsWithoutRef<"a">, "href"> & {
   children: React.ReactNode;
 };
 
+/** Every "Sign in" call to action leads to applika's Borderless sign-in page. */
+
 export const SignInLink = forwardRef<HTMLAnchorElement, SignInLinkProps>(
   ({ children, ...props }, ref) => {
-    const authHref = `${APP_CONFIG.envs.apiBaseURL}/auth/github/login`;
-
     return (
-      <a ref={ref} href={authHref} {...props}>
-        <GithubIcon className="size-5 shrink-0" />
+      <Link ref={ref} href="/login" {...props}>
         {children}
-      </a>
+      </Link>
     );
   },
 );

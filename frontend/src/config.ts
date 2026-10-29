@@ -3,6 +3,12 @@ export const APP_CONFIG = {
     apiBaseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
     siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "https://applika.dev",
   },
+  borderless: {
+    /** Where a visitor without a Borderless account signs up. */
+    signUpUrl: "https://borderlesscoding.com",
+    /** The Borderless community's home. */
+    homeUrl: "https://borderlesscoding.com",
+  },
   name: "Applika.dev",
   shortName: "Applika.dev",
   logo: "app-logo.webp",

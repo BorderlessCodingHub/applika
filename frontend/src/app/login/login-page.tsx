@@ -1,61 +1,97 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+import {
+  EMPTY_BORDERLESS_CREDENTIALS,
+  type BorderlessCredentialsValues,
+} from "@/components/auth/borderless-credentials";
+import { SIGN_IN_COPY, SignInScreen } from "@/components/auth/sign-in-screen";
+import { APP_CONFIG } from "@/config";
 import { useAuth } from "@/contexts/auth-context";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { SignInLink } from "@/components/auth-buttons";
-import { ApplikaIcon } from "@/components/app-logo";
+import { borderlessCredentialsSchema } from "@/lib/borderless-credentials-schema";
+import { borderlessErrorWords } from "@/lib/borderless-error";
+import { consumeReturnTo } from "@/lib/return-to";
+import { services } from "@/services/services";
+import type { BorderlessSignInResult } from "@/services/types/auth";
+
+/**
+ * Where a web sign-in lands: a new account goes to `/welcome` first (the
+ * return-to path waits for its choice); otherwise the stored return-to path,
+ * else the dashboard.
+ */
+export function webLandingFor(result: BorderlessSignInResult): string {
+  if (result.new_account) return "/welcome";
+  return consumeReturnTo() ?? "/dashboard";
+}
+
+interface SignInError {
+  message: string;
+  hint: string | null;
+}
 
 export function LoginPage() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // `applika login` opens `/login?cli=1`: the password is always asked, even
+  // with a browser session, and the answer hands the sign-in to the terminal.
+  const cli = searchParams.get("cli") === "1";
+  const [error, setError] = useState<SignInError | null>(null);
+
+  const form = useForm<BorderlessCredentialsValues>({
+    resolver: zodResolver(borderlessCredentialsSchema),
+    defaultValues: EMPTY_BORDERLESS_CREDENTIALS,
+  });
+
+  const signIn = useMutation({
+    mutationFn: (values: BorderlessCredentialsValues) =>
+      services.auth.borderlessSignIn(values),
+    onSuccess: (result) => {
+      // A full navigation either way: the CLI hand-off leaves applika, and a
+      // web sign-in may replace another account's session in this tab, so
+      // nothing cached for it may survive.
+      window.location.assign(result.redirect_to ?? webLandingFor(result));
+    },
+    onError: (err) => {
+      const words = borderlessErrorWords(err);
+      setError({
+        message: words.message,
+        hint: words.cliLoginExpired ? SIGN_IN_COPY.cliExpiredHint : null,
+      });
+      if (words.status === 401) {
+        form.resetField("password");
+        form.setFocus("password");
+      }
+    },
+  });
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
+    if (!cli && !isLoading && isAuthenticated) {
       router.replace("/dashboard");
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [cli, isAuthenticated, isLoading, router]);
 
-  if (!isLoading && isAuthenticated) {
+  if (!cli && !isLoading && isAuthenticated) {
     return null;
   }
 
   return (
-    <div className="noise-overlay relative flex min-h-viewport items-center justify-center bg-background p-4">
-      {/* Background decoration */}
-      <div className="absolute inset-0 gradient-mesh" />
-      <div className="absolute inset-0 dot-grid opacity-30" />
-
-      <div className="absolute top-4 right-4 z-10">
-        <ThemeToggle />
-      </div>
-
-      <div className="relative w-full max-w-sm animate-fade-in-up">
-        <div className="rounded-2xl border border-border/60 bg-surface-elevated p-10 text-center shadow-elevated">
-          <div className="mb-8">
-            <h1 className="flex items-center justify-center font-display text-2xl font-bold tracking-tight-display text-foreground">
-              <ApplikaIcon className="size-10 text-primary" />
-              pplika.dev
-            </h1>
-
-            <p className="mt-2 text-sm text-muted-foreground">
-              Track your job applications effortlessly
-            </p>
-          </div>
-          <Button
-            asChild
-            size="lg"
-            className="h-12 w-full gap-2.5 font-display text-base font-semibold glow-primary"
-          >
-            <SignInLink>Login with GitHub</SignInLink>
-          </Button>
-          <p className="mt-5 text-[11px] text-muted-foreground/80">
-            Secure authentication via GitHub OAuth
-          </p>
-        </div>
-      </div>
-    </div>
+    <SignInScreen
+      form={form}
+      mode={cli ? "cli" : "web"}
+      onSubmit={(values) => {
+        setError(null);
+        signIn.mutate(values);
+      }}
+      pending={signIn.isPending || signIn.isSuccess}
+      error={error?.message ?? null}
+      errorHint={error?.hint ?? null}
+      createAccountHref={APP_CONFIG.borderless.signUpUrl}
+    />
   );
 }

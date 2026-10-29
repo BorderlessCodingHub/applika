@@ -2,8 +2,8 @@
 const steps = [
   {
     step: "01",
-    title: "Sign in with GitHub",
-    desc: "One click to authenticate — no forms, no passwords. Your account is ready instantly.",
+    title: "Sign in with Borderless",
+    desc: "Use your Borderless email and password. Your account is ready instantly, with your BASE or PSP membership on it.",
   },
   {
     step: "02",

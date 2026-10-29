@@ -5,6 +5,7 @@ export type SessionStatus = "active" | "signed_out" | "revoked" | "expired";
 export type SessionClientType = "web" | "cli";
 
 export type SignInMethod =
+  | "borderless"
   | "github_web"
   | "cli_browser"
   | "cli_device"

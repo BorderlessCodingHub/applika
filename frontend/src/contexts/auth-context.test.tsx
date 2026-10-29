@@ -97,9 +97,10 @@ function user(): User {
     id: "u-1",
     username: "octocat",
     email: "octocat@example.com",
-    github_id: "1",
-    discord: null,
-    discord_linked: false,
+    github_id: 1,
+    badges: [],
+    borderless: null,
+    github_restore: { available: false, prompt: false },
   };
 }
 
