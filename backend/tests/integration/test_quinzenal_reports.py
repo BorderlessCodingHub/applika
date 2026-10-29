@@ -388,6 +388,53 @@ async def test_stored_report_is_never_recomputed(
     assert metrics['offers_count'] == 1
 
 
+# ---------------------------------------------------------------------------
+# Drafts are excluded from reports (KODI-032, ADR-0014)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.usefixtures('reports_badge')
+async def test_report_excludes_open_draft_with_events(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    """A draft's application and its events never count toward a report,
+    even though it carries a real ``application_date`` and a real
+    interview event - only ``is_draft`` decides."""
+    today = date.today()
+    await ts.seed(
+        db_session,
+        *ts.catalog(),
+        ts.application(1, application_date=today),
+        ts.event(
+            1,
+            1,
+            event_date=today,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.INITIAL_SCREENING,
+        ),
+        ts.application(2, application_date=today, is_draft=True),
+        ts.event(
+            2,
+            2,
+            event_date=today,
+            event_type=EventType.INTERVIEW,
+            interview_type=InterviewType.INITIAL_SCREENING,
+        ),
+    )
+
+    await async_client.post(
+        '/reports/1/submit', json=_payload(today.isoformat())
+    )
+    metrics = (await async_client.get('/reports/1')).json()['metrics']
+
+    assert metrics['applications_count'] == 1, msg(
+        1, metrics['applications_count']
+    )
+    assert metrics['initial_screenings_count'] == 1, msg(
+        1, metrics['initial_screenings_count']
+    )
+
+
 # --- ADR-0024: the badge gate ---
 
 

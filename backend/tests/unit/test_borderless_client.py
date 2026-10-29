@@ -271,3 +271,12 @@ def test_parse_membership_never_reads_the_github_field():
 
     body = {'data': {'user': Guard(membership='PSP', github='octocat')}}
     assert parse_membership(body) is BadgeKey.BORDERLESS_PSP
+
+
+@pytest.mark.parametrize('header', ['inf', '1e400', '99999999'])
+async def test_retry_after_is_capped_and_never_overflows(header):
+    with pytest.raises(BorderlessRateLimited) as excinfo:
+        await _client(
+            lambda r: httpx.Response(429, headers={'Retry-After': header})
+        ).sign_in('ada@example.com', PASSWORD)
+    assert 1 <= excinfo.value.retry_after <= 3600

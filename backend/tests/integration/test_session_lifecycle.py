@@ -541,6 +541,31 @@ async def test_refresh_of_an_unbound_user_is_401_sign_in_again(
     )
 
 
+async def test_a_pre_release_session_never_slides_on_once_bound(
+    real_client: AsyncClient, async_engine, redis_client, bound_user
+):
+    """A session opened before ADR-0024 (its Redis hash still carries
+    ``github_id``) ends on refresh even when its user is bound now."""
+    tokens = await open_session(async_engine, redis_client, USER.id)
+    _, id_key = _keys(tokens.refresh_token, tokens.session_id)
+    await redis_client.hset(id_key, 'github_id', '987654321')
+
+    refused = await real_client.get(
+        '/auth/refresh', cookies={REFRESH_COOKIE_NAME: tokens.refresh_token}
+    )
+
+    assert refused.status_code == 401
+    assert refused.json() == {'detail': 'Sign in again with Borderless'}
+    row = await _row(async_engine, tokens.session_id)
+    assert row.end_reason == 'expired'
+    assert (
+        await redis_client.exists(
+            *_keys(tokens.refresh_token, tokens.session_id)
+        )
+        == 0
+    )
+
+
 async def test_a_token_minted_with_a_github_id_sub_is_refused(
     real_client: AsyncClient, async_engine, redis_client
 ):
