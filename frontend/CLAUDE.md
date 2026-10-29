@@ -168,6 +168,32 @@ The seed resets `cvs` like `jobs` (beta, `e2e-user` listed, `e2e-discord`
 off, no admin opt-out); `beforeAll`/`afterAll` delete e2e-discord's CVs,
 drafts and applications (enrolling it for the wipe) and put that state back.
 
+**Borderless sign-in in E2E (ADR-0024).** The stack runs `borderless-stub`
+(`backend/tests/fixtures/borderless/{stub.py,accounts.json}`,
+`BORDERLESS_API_URL=http://borderless-stub:8081`); nobody calls the real
+Borderless or GitHub. The seed binds the three seeded users to their stub
+accounts with a live access every run (`e2e-user` PSP, `e2e-admin` and
+`e2e-discord` BASE — so every seeded rail has Reports — e2e-user with a
+GitHub identity, every prompt answered); `loginAs` still installs real
+cookies. `e2e/support/auth.ts` `BORDERLESS_ACCOUNTS` mirrors the unseeded
+stub accounts: `e2e-free` (FREE), `e2e-short` (PSP, `expiresIn` `[3,
+604800]`: its FIRST sign-in's access lasts 3 s, so sign it in through the
+form exactly once per stack) and `e2e-unverified`.
+`e2e/borderless-signin.spec.ts` (serial): wrong password / unknown email →
+"Invalid email or password"; unverified → "Verify your email on Borderless
+first"; e2e-free → `/welcome` → Start fresh → no chip, no Reports,
+`GET /reports` 403 `badge_required`; the profile restore aborted at
+`github.com` (`scope=read:user`, a `state`); e2e-user's PSP chip;
+`/auth/cli/authorize` → `/login?cli=1` → the loopback URL with `code` and
+`state` (intercepted, never redeemed); e2e-short expired → Reports entry
+kept, the menu and profile prompts, 403 `membership_unconfirmed`, confirm on
+`/reports` → reports, chip back, sessions unchanged. It never signs a seeded
+user in through the web form (that would add a web session
+`devices.spec.ts` lists). `afterAll` signs e2e-free and e2e-short in through
+the API and `DELETE /users/me`. `e2e/admin-report-webhooks.spec.ts`
+(serial): add with BASE, masked row, the token never in `page.content()`,
+change to PSP without resending the URL, delete as its own cleanup.
+
 ---
 
 ## Architecture
@@ -183,7 +209,7 @@ Route groups control access:
 
 Each protected route has a thin `page.tsx` shell that renders a `*-page.tsx` component containing the actual logic.
 
-`/login` lives at `src/app/login/`, OUTSIDE the `(public)` group, so it renders no landing header or footer. The URL is unchanged.
+`/login` lives at `src/app/login/`, OUTSIDE the `(public)` group, so it renders no landing header or footer. It is the Borderless sign-in form behind a Suspense shell (it reads `?cli=1`); `/welcome` is the one-time choice of a new account (see **Sign-in, welcome, membership badge**).
 
 CLI sign-in routes (KODI-058, ADR-0019):
 
@@ -199,7 +225,9 @@ auto-submits. **Return-to.** A signed-out visit to `/device` makes
 `(protected)/layout.tsx` store path + query in
 `sessionStorage["applika:return-to"]` before `router.replace("/login")`; the
 first authenticated protected render consumes it ONCE (removed before
-navigating) and `router.replace`s to it. Only a same-origin path is followed
+navigating) and `router.replace`s to it — unless the sign-in page already
+consumed it, or the account still owes its `/welcome` answer (then `/welcome`
+consumes it). Only a same-origin path is followed
 (`/x`, never `//host` or `/\host`). `src/lib/return-to.ts` owns the key, the
 allowed paths (`/device` only) and the check; add a path there, not in the
 layout.
@@ -323,6 +351,8 @@ The Axios instance in `src/lib/api-client.ts` handles cookie-based auth with `wi
 
 ### Auth & Token Refresh
 
+Sign-in is the Borderless email + password form at `/login` (ADR-0024; see
+**Sign-in, welcome, membership badge**); there is no GitHub sign-in.
 Authentication uses HTTP-only JWT cookies. Token refresh is handled via **polling in AuthContext** (not via Axios interceptor):
 
 - Polls `services.auth.refresh()` using React Query's `refetchInterval`
@@ -361,8 +391,11 @@ In the 401 interceptor, a refresh that answers 503 rejects the original call
 with that 503 (a temporary error to every caller), never a sign-out; only a
 401 from `/auth/refresh` really ends the session. Other queries show the
 503's `detail` through `getApiError`. The interceptor skips `/auth/*` on a
-401 (a failed refresh must not refresh) EXCEPT `/auth/device/*`, ordinary
-signed-in calls that refresh and replay like any other.
+401 (a failed refresh must not refresh) EXCEPT `/auth/device/*` and
+`/auth/github/restore`, ordinary signed-in calls that refresh and replay like
+any other, and `/auth/borderless/confirm` when its 401 says "Not
+authenticated" (its other 401 is a wrong Borderless password). The sign-in
+itself never refreshes.
 
 ### State Management
 
@@ -1428,93 +1461,105 @@ now one component.
   client-side `router.replace("/admin/platforms")` so a saved link still
   works — this is a static export, so there is no server-side rewrite.
 
-### Profile — connected accounts (`src/components/profile/`, KODI-022, revised KODI-027)
+### Sign-in, welcome, membership badge (ADR-0024)
 
-The owner: "Keep github login but add an option in user profile to sincronize
-with discord." `/profile` gained a **Connected accounts** card, above Delete
-account, for Discord only (GitHub stays login-only, never a link/unlink
-target).
+The owner: "As an applika user who belongs to the Borderless community, I want
+to sign in to applika with my Borderless email and password instead of
+GitHub, so that my BASE or PSP membership shows up as a badge on my account
+and gives me access to the biweekly reports." GitHub sign-in and Discord
+linking are gone; nothing in `src/` calls `/auth/github/login` or
+`/auth/link/discord`. Not behind a beta gate (ADR-0024 §9).
 
-- `connected-accounts.tsx` (`ConnectedAccounts`) is presentational and takes
-  `account?: { name; avatarUrl; needsReconnect } | null` (KODI-027 — replaced
-  the KODI-022 `linked: boolean`, once `GET /users/me` grew a real
-  `discord: DiscordAccount | null` beyond the bare `discord_linked` flag) plus
-  `onConnect`, `onDisconnect`, `isConnecting?`, `isDisconnecting?`. It still
-  never takes the Discord **id** — `discordCardState(account)` derives one of
-  three states, `li[data-provider="discord"][data-state="unlinked"|"linked"|
-"needs_reconnect"]`:
-  - **unlinked** (`account` null): badge "Not connected", "Connect Discord".
-  - **linked**: `Avatar` (`AvatarImage` when `avatarUrl`, else the
-    `DiscordIcon` fallback — Radix `AvatarImage` never mounts in jsdom, so a
-    vitest assertion on the fallback has to read
-    `[data-slot="avatar-fallback"]`, never `getByRole("img")`), a green status
-    dot, badge "Discord connected", `p[data-slot="discord-account-name"]`
-    reading exactly "Connected as `<name>`" (`global_name || username`, `||`
-    not `??` — an empty `global_name` string still falls back), and
-    "Disconnect Discord" behind an `AlertDialog` ("Cancel" / "Disconnect").
-  - **needs_reconnect** (AC5/AC6, `account.needsReconnect`): the same avatar
-    and name line, an amber dot, badge "Reconnect needed", a primary
-    "Reconnect Discord" button wired to the **same** `onConnect` as
-    "Connect Discord" (same OAuth consent flow, AC6), THEN "Disconnect
-    Discord" — "Connect Discord" never renders while a connection exists,
-    reconnected or not.
-  - `profile-view.tsx` maps `user.discord` to the prop; `ConnectedAccounts`
-    itself owns none of that derivation.
-- `discord-link-notice.tsx` (`DiscordLinkNotice`, `DISCORD_LINK_STATUSES`,
-  `isDiscordLinkStatus`) renders the post-redirect outcome: `linked` ("Discord
-  connected. Your reports and feedback will mention you.", `role="status"`),
-  `conflict` ("This Discord account is linked to another Applika account",
-  `role="alert"`) or `error` ("Discord was not connected, try again",
-  `role="alert"`). Assert the exact WORDS — `getByText("Discord connected")`
-  also matches the card's shorter badge; scope with `exact: true` or
-  `[data-slot="discord-link-notice"]`.
-- `hooks/use-account-links.ts`: `useStartDiscordLink` calls
-  `POST /auth/link/discord` and does a TOP-LEVEL navigation
-  (`window.location.assign(authorize_url)`) on success — never an in-app
-  router push, OAuth must own the tab — so there is no success toast, only a
-  failure one (503 → "Discord linking is unavailable", anything else →
-  `getApiError`). `useUnlinkDiscord` calls `DELETE /auth/link/discord`,
-  invalidates `USER_QUERY_KEY` (now exported from `hooks/use-user.ts`) and
-  toasts. `services/types/auth.ts` carries the two wire shapes
-  (`AccountLinkStart`, `AccountLinkOut`).
-- **`/profile`'s outcome route.** Discord's OAuth callback 307s the browser
-  back to `/profile?account=discord&status=linked|conflict|error`.
-  `profile-page.tsx` reads `status` via a LAZY `useState` initializer (not an
-  effect — `react-hooks/set-state-in-effect`), so the notice survives the URL
-  cleanup that immediately follows. An effect does the one-shot side effects
-  (guarded by a `useRef` so React Strict Mode's double-invoke does not
-  double-fire them): invalidate `USER_QUERY_KEY` and clear the query string
-  back to `/profile`. **The clear is `window.history.replaceState(null, "",
-"/profile")`, not `useRouter().replace()`** — verified against the real e2e
-  stack that on this fully static export (`output: "export"`, Next 16, no
-  server to resolve a transition against) `router.replace()` to the SAME
-  pathname with only the query string changed is a no-op: the address bar
-  keeps the original `?account=&status=` indefinitely. Driving the History
-  API directly is what actually updates it. `page.tsx` wraps the page in a
-  `Suspense` boundary — precedent `(protected)/cvs/editor/page.tsx` — because
-  `useSearchParams` suspends and `output: "export"` fails the build otherwise.
-- **E2E** (`e2e/profile-discord.spec.ts`, serial): a third seeded role,
-  `discord` (`SeededRole`, `e2e-discord`), whose `discord_id` is RE-SET on
-  every `frontend/scripts/e2e.sh` seed run — so the suite's own Disconnect test is
-  undone by the next run. `E2E_DISCORD_USER_ID` / `E2E_DISCORD_ACCESS_TOKEN` /
-  `E2E_DISCORD_REFRESH_TOKEN` are exported by `frontend/scripts/e2e.sh` alongside the
-  existing `E2E_*`/`E2E_ADMIN_*` pairs. Real `discord.com` is never reached:
-  the spec's `page.route("**://discord.com/**", ...)` aborts the navigation
-  and asserts the ATTEMPTED authorize URL (`scope=identify guilds
-guilds.members.read`, a `state` param) instead of following it. Since
-  KODI-027 the linked-state test also asserts the seeded row directly:
-  "Connected as E2E Discord" (the seed's `global_name`), no `<img>` (the seed
-  links with no avatar, so only the `DiscordIcon` fallback renders) and no
-  snowflake-shaped text anywhere in the card; the final Disconnect test reads
-  back `GET /users/me` and asserts both `discord_linked: false` AND
-  `discord: null`.
+- **`/login`** (`app/login/page.tsx` Suspense shell, `login-page.tsx`) is the
+  ui-designer's `SignInScreen` (`components/auth/sign-in-screen.tsx`, fields in
+  `auth/borderless-credentials.tsx`) over RHF + zod
+  (`lib/borderless-credentials-schema.ts`: email 1..100, password 1..200) →
+  `services.auth.borderlessSignIn` (`POST /auth/borderless/signin`). Every
+  refusal shows the server's `detail` word for word in
+  `[data-slot="sign-in-error"]` (`lib/borderless-error.ts`
+  `borderlessErrorWords`: 401, 403 `email_unverified`, 409, 422
+  `email_unusable`, 429 with the wait, 503; a raw 422 array or no body gets a
+  fixed line). A 401 clears and focuses the password. The error box is
+  always mounted with `role="alert"`, so `getByRole("alert")` finds it empty —
+  assert the slot or the words. "Sign in" is in the h1, the button and the
+  hint: Playwright needs `exact: true`. "Create a Borderless account" opens
+  `APP_CONFIG.borderless.signUpUrl` in a new tab.
+- **`/login?cli=1`** is where `/auth/cli/authorize` and `/auth/cli/login/{id}`
+  307 the CLI's browser (with the `__cli_login` cookie). It never
+  auto-redirects a signed-in browser and always asks for the password; the
+  answer's `redirect_to` (the loopback URL with `code` and `state`) is
+  followed with `window.location.assign`. 400 "CLI login expired" adds "Run
+  applika login in your terminal again." The CLI branch sets no cookie.
+- **A web sign-in lands with a full navigation**: `new_account` → `/welcome`
+  (the return-to path waits), else `consumeReturnTo() ?? "/dashboard"`. Full,
+  because the sign-in may replace another account's session in the tab.
+  `SignInLink` (`components/auth-buttons.tsx`) is a plain link to `/login`.
+- **`/welcome`** (`(protected)/welcome/welcome-page.tsx`, `WelcomeScreen`) is
+  the one-time choice of a new account: "Restore your data from GitHub"
+  (`POST /auth/github/restore` → `window.location.assign(authorize_url)`; the
+  server marks the prompt seen) or "Start fresh"
+  (`POST /users/me/github-restore/dismiss`, the cached user drops `prompt`,
+  then `consumeReturnTo() ?? "/dashboard"`). `(protected)/layout.tsx` sends
+  every other page to `/welcome` while `user.github_restore.prompt`, and
+  consumes no return-to meanwhile. An account that answered is sent from
+  `/welcome` to the dashboard.
+- **`membershipAccess(user)`** (`components/badges/membership-badge.tsx`) is
+  the ONE rule: no recorded badge `none`; a badge counts (`held`) only while
+  `borderless.status === "active"`, else `unconfirmed`. `MembershipBadge`
+  reads "BASE"/"PSP", `role="img"` named "Borderless BASE member" /
+  "Borderless PSP member" (`purpose="label"` for a webhook's badge: plain
+  text). Held, it shows in `user-menu.tsx` (the rail card beside the name,
+  `sm`, wired to the trigger with `aria-describedby`; the menu label in both
+  variants) and beside the profile h1 (`lg`, a sibling, never inside it).
+  Unconfirmed, the menu shows `ConfirmMembershipMenuItem` ("Sign in again to
+  confirm your membership", a link to `/reports`) instead.
+- **Confirm** (`badges/confirm-membership-form.tsx` `ConfirmMembershipForm`,
+  wired; `ConfirmMembershipFormView` presentational): email prefilled from
+  `borderless.email` + password → `POST /auth/borderless/confirm` (204, the
+  applika session untouched) → awaits the refetch of `["user","me"]`,
+  `["reports"]`, `["report"]`, toast "Membership confirmed". The 401
+  interceptor refreshes on this route only for "Not authenticated" — its
+  other 401 is a wrong password and is never replayed.
+- **Reports follow the badge.** `navItemsFor(isAdmin, features, {
+hasReportsBadge })` lists Reports only with a recorded badge
+  (`badges.length > 0`, held or not; administrators included).
+  `badges/badge-gate.tsx` `BadgeGate` wraps `/reports` and `/reports/[day]`
+  ABOVE the report hooks: `none` → "Reports are for Borderless BASE and PSP
+  members" and why; `unconfirmed` → the confirm form (h1, focus on Password);
+  `held` → the reports. `hooks/use-repports.ts` queries are also enabled only
+  while held (`useHoldsReportsBadge`, a cache read of the user). The API is
+  the rule: 403 `badge_required` / `membership_unconfirmed`.
+
+### Profile — GitHub restore and membership (`src/components/profile/`, ADR-0024)
+
+- `GithubRestoreCard` ("Restore data from GitHub") renders only while
+  `github_restore.available` (no GitHub identity on record);
+  `hooks/use-github-restore.ts` `useStartGithubRestore` does the top-level
+  navigation (409 → `getApiError` toast, 503 → "Restoring from GitHub is
+  unavailable right now"). Its `pending` is `isPending || isSuccess` until the
+  browser leaves.
+- GitHub's callback 307s to `/profile?account=github&status=restored|
+not_found|has_data|already_bound|error`. `profile-page.tsx` reads it once
+  through a lazy `useState`, invalidates (everything on `restored`: the
+  browser is now the OLD account; the user otherwise), and clears the URL
+  with `window.history.replaceState(null, "", "/profile")` — never
+  `router.replace()`, a no-op on the same path in this static export.
+  `GithubRestoreNotice` words live in `github-restore-copy.ts`; `restored` is
+  `role="status"`, the rest `role="alert"`.
+- `ConfirmMembershipNotice` (the confirm form at h2) shows under the header
+  whenever `borderless` exists and its status is not `active`, even with no
+  badge; on success focus goes to the profile h1 if it fell to `body`.
+- `UserProfileAvatar` uses the GitHub avatar only when `github_id` (a JSON
+  number) is set; a Borderless-only account shows initials.
+- Devices: `sign_in_method` `borderless` reads "Borderless in the browser";
+  `github_web` stays for ended rows still listed.
 
 ### Profile — Devices (`src/components/profile/devices-*.tsx`, KODI-058, ADR-0019)
 
 The owner: "a lost of devices connected and a section to revoke the access,
 this must be displayed in a new tab inside user profile". `/profile` is now
 two `Tabs` (`variant="line"`): "Profile" (today's content, the edit form and
-the Discord notice) and "Devices". `?tab=devices` (the `/device` page's "See
+the GitHub restore notice) and "Devices". `?tab=devices` (the `/device` page's "See
 your devices") opens Devices once, through a lazy `useState`; switching tabs
 is local state. **Not gated** (owner: "Gate nothing") — no `FeatureKey`, no
 `FeatureGate`, no `useHasFeature`.
@@ -1546,82 +1591,38 @@ is local state. **Not gated** (owner: "Gate nothing") — no `FeatureKey`, no
   every badge; a web row's name equals its client label. Use `exact: true`,
   the data hooks, and scope confirms to `getByRole("alertdialog")`.
 
-### Admin — Discord webhooks (`app/(protected)/admin/discord-webhooks/`, KODI-027)
+### Admin — Report webhooks (`app/(protected)/admin/report-webhooks/`, ADR-0024)
 
-The owner: "as an admin user i can configure which webhooks to send my
-reports (new table to save the discord webhook url, the server id … and
-multiples roles id …)". Pattern: `admin/supports/supports-page.tsx` (a thin
-`page.tsx` shell over a `*-page.tsx`, no dynamic route segment — this is a
-static export). Nav tab "Discord" in `components/admin/admin-nav.tsx`
-(`/admin/discord-webhooks`, lucide `Webhook` icon).
+The owner: "As an admin, I want to assign each report webhook to a badge (BASE
+or PSP), so that a member's report goes to the webhooks of their community."
+Nav tab "Report webhooks" (lucide `Webhook`) in `admin-nav.tsx`;
+`admin/discord-webhooks/page.tsx` is a client `router.replace` to it (a saved
+link still works; static export, no rewrite).
 
-- `services/types/admin.ts` carries `AdminDiscordWebhook` (`id`, `label`,
-  `guild_id`, `role_ids: string[]`, `webhook_url_masked`, `created_at`,
-  `updated_at`) plus the `CreateDiscordWebhook`/`UpdateDiscordWebhook` request
-  shapes. **The full webhook address never reaches the client after
-  creation** — the API returns only `webhook_url_masked`
-  (`https://discord.com/api/webhooks/<id>/…<last 4>`), so there is no wire
-  type that carries a real `webhook_url` back.
-- `admin-service.ts` adds the CRUD (`getDiscordWebhooks`,
-  `createDiscordWebhook`, `updateDiscordWebhook`, `deleteDiscordWebhook`) and
-  `hooks/use-admin.ts` adds the matching hooks under the query key
-  `["admin", "discord-webhooks"]`. The create/update hooks raise **no** error
-  toast themselves — the PAGE catches the mutation's `onError` so a 409/422
-  can be shown inline in the dialog (see below); only `useDeleteDiscordWebhook`
-  toasts its own errors, since delete has no form to show them in.
-- `discord-webhook-list.tsx` / `discord-webhook-form-dialog.tsx`
-  (`ui-designer` components, composed by `discord-webhooks-page.tsx`) own the
-  four list states (loading/error/empty/ready,
-  `section[data-slot="discord-webhooks"][data-state]`) and the Add/Edit
-  dialog layout; the page owns the query, the zod schema and the wiring.
-- **The zod schema mirrors the server's own validators byte for byte**
-  (`backend/app/application/validators/discord_webhook.py`): the webhook URL
-  regex (`discord.com`/`discordapp.com`, `ptb`/`canary`, an optional
-  `/v<n>`, a 17-20 digit webhook id, a >=20-char token), a guild/role id
-  regex (17-20 digits) and the Postgres `BIGINT` ceiling
-  (`9223372036854775807`) — compared as **`BigInt`, never `Number`**, since a
-  20-digit numeric string already loses precision in a JS double. The five
-  fixed messages ("Invalid Discord webhook URL", "Invalid Discord server
-  id", "Invalid Discord role id", "A webhook may hold at most 25 role ids",
-  "Label must be at most 100 characters") are copied verbatim so a client
-  refusal reads exactly like the server's. `parseRoleIds` in
-  `discord-webhooks-page.tsx` splits the role-ids textarea on comma, space or
-  newline and dedupes by string value before validating the count.
-- **Edit sends only dirty fields, and a blank URL keeps the stored one.**
-  `discordWebhookToFormValues` always resets the URL field to `""` on open
-  (the stored address is a secret, never pre-filled — AC9) and joins
-  `role_ids` with `\n`. On submit, `handleUpdate` reads RHF's own
-  `formState.dirtyFields`: `webhook_url` is sent only when dirty AND
-  non-blank (so leaving it untouched, or touching and then re-blanking it,
-  both keep the stored value); `guild_id`/`role_ids`/`label` are sent only
-  when their own field is dirty — an untouched `role_ids` never resends the
-  same list, and a dirty-but-emptied one sends `[]` (clears, per the
-  server's `PATCH` contract), same for `label: null`.
-- **`serverErrorFrom` never hands a non-string to `<p>{serverError}</p>`.**
-  Every business-rule 409/422 on this route carries a single fixed string
-  `detail` (`_NoInputEchoRoute`, backend `CLAUDE.md`, which strips FastAPI's
-  own array-shaped validation errors from this router's 422s) and
-  `serverErrorFrom` renders it verbatim into
-  `div[role="alert"][data-slot="discord-webhook-form-error"]` — never a toast.
-  A `detail` that is still an array (a raw framework-level 422 slipping past
-  the router) or missing (a non-JSON 5xx body) falls back to a fixed message
-  instead of the generic `getApiError`, which would hand back that same
-  non-string value unguarded and either crash the render or show "undefined".
-- **E2E** (`e2e/admin-discord-webhooks.spec.ts`, serial, new for KODI-027): a
-  valid-FORMAT fake webhook URL and ids — the backend never calls Discord on
-  save (an explicit non-goal), so no `discord.com` mock is needed at all. The
-  suite adds one webhook, asserts the row shows the masked form and
-  `page.content()` never contains the real token, edits its role ids without
-  resending the URL (asserts the URL input reopens blank), then deletes it as
-  its own cleanup — a rerun of the suite must never accumulate rows in the
-  shared database. `admin-gating.spec.ts` and `smoke.spec.ts` both gained the
-  `/admin/discord-webhooks` route alongside the other three admin pages.
+- `services/types/admin.ts` `AdminReportWebhook` (`id`, `label`, `badge`
+  `borderless_base|borderless_psp|null`, `webhook_url_masked`, `created_at`,
+  `updated_at`) plus `CreateReportWebhook` / `UpdateReportWebhook`;
+  `admin-service.ts` CRUD on `/admin/report-webhooks`; `use-admin.ts` key
+  `["admin","report-webhooks"]` (`ADMIN_REPORT_WEBHOOKS_KEY`). Create/update
+  hooks raise no error toast: the page shows 404/409/422 inline in
+  `[data-slot="report-webhook-form-error"]`; delete toasts its own.
+- `components/admin/report-webhook-list.tsx` / `report-webhook-form-dialog.tsx`
+  are the ui-designer's (four list states,
+  `li[data-slot="report-webhook-row"][data-webhook-id][data-badge=…|none]`);
+  `report-webhooks-page.tsx` owns the zod schema, mirroring
+  `backend/app/application/validators/report_webhook.py` (the Discord webhook
+  URL regex, BIGINT as `BigInt`, label ≤ 100 code points) plus a required
+  badge ("Choose BASE or PSP") on create AND edit — a carried-over row reads
+  "No badge, receives nothing" and Edit must assign one; it is never cleared.
+- The URL is a secret: the edit form reopens blank, a blank URL keeps the
+  stored one, and only dirty fields are sent. Only the masked form is ever
+  shown. Badge radios: click or `.check()` in Playwright, never arrow keys.
 
 ### Admin — Jobs (`app/(protected)/admin/jobs/`, PRD 0012, KODI-049, R-033..R-035)
 
 `/admin/jobs` (`page.tsx` shell over `jobs-page.tsx`), nav tab "Jobs" (lucide
 `Search`, after Platforms) in `admin-nav.tsx`. Pattern:
-`admin/discord-webhooks/`. The h1 is "Job sources".
+`admin/report-webhooks/`. The h1 is "Job sources".
 
 - `services/types/admin.ts` carries `AdminJobSource` (`id`, `code`, `name`,
   `base_url`, `platform_id`, `is_enabled`, `last_run_at`, `last_run_status`
@@ -1835,8 +1836,8 @@ not admins can see starts in beta, gated the way `jobs` is below.
   one; no toast. `useHasFeature(key)` returns `{has, stage, isLoading}`, and
   while loading `has` is `false`, so nothing gated flashes in.
 - **Nav.** A `NavItem` with `feature` renders only with that key:
-  `navItemsFor(isAdmin, features)` drops it, and marks it `beta` while the
-  stage is `beta`. `(protected)/layout.tsx` passes `useMyFeatures(isAuthenticated)`.
+  `navItemsFor(isAdmin, features, access)` drops it, and marks it `beta` while the
+  stage is `beta`. Reports also needs `access.hasReportsBadge` (ADR-0024). `(protected)/layout.tsx` passes `useMyFeatures(isAuthenticated)`.
   So the primary nav is 6 entries with neither `jobs` nor `cvs`, 7 with one
   and 8 with both (plus Admin for an admin). `SidebarNav` renders `BetaBadge` on a `beta` entry, `aria-hidden`
   and pointed at by `aria-describedby` — the link's accessible name stays
@@ -2138,8 +2139,9 @@ isFullWidthPath(activePath) || fullWidth.requested`.
   rendered its own would cap the width again from the inside.
 
 - Nav entries live in `src/components/layout/nav.ts`.
-  `navItemsFor(isAdmin, features)` drops an entry whose `feature` key the
-  caller lacks (see **Beta features**) and appends the `/admin` entry, which is deliberately kept OUT of `PRIMARY_NAV` so
+  `navItemsFor(isAdmin, features, { hasReportsBadge })` drops an entry whose
+  `feature` key the caller lacks, drops Reports without a recorded membership
+  badge (see **Beta features**) and appends the `/admin` entry, which is deliberately kept OUT of `PRIMARY_NAV` so
   a non-admin render can never leak it. `isNavItemActive` matches `exact` items
   on the pathname only, and everything else on `href` or `href + "/"` — the
   trailing slash is what stops `/reports` lighting up a `/report` entry.
@@ -2244,4 +2246,4 @@ The `docker-compose.yml` defaults `API_BASE_URL` to `http://127.0.0.1/api` if no
 
 ## Backend Context
 
-The backend is a FastAPI app in `../backend/` with its own `CLAUDE.md`. It runs on port 8000. Auth uses HTTP-only JWT cookies (`__access`). GitHub OAuth is the only login method. See `../backend/CLAUDE.md` for backend-specific guidance.
+The backend is a FastAPI app in `../backend/` with its own `CLAUDE.md`. It runs on port 8000. Auth uses HTTP-only JWT cookies (`__access`). Borderless email + password (`POST /auth/borderless/signin`) is the only sign-in; GitHub is used once, to restore an old account's data (`POST /auth/github/restore`). See `../backend/CLAUDE.md` for backend-specific guidance.
