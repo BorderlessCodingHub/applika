@@ -28,6 +28,8 @@ const PROTECTED_PATHS = [
   // KODI-058: the device approval page; a signed-out visit also stores the
   // return-to (`e2e/devices.spec.ts` follows it after sign-in).
   "/device",
+  // ADR-0024: the one-time welcome choice of a new Borderless account.
+  "/welcome",
 ];
 
 test.describe("anonymous visitors are sent to /login", () => {
@@ -38,11 +40,11 @@ test.describe("anonymous visitors are sent to /login", () => {
       await page.goto(path);
 
       await page.waitForURL("**/login");
-      // The sign-in control is a link (<Button asChild> wrapping an <a>), so
-      // the landing page is proven by its role and name, not by styling.
+      // The Borderless sign-in form, proven by its roles and names.
       await expect(
-        page.getByRole("link", { name: /Login with GitHub/i }),
+        page.getByRole("heading", { name: "Sign in to applika", level: 1 }),
       ).toBeVisible();
+      await expect(page.getByLabel("Password")).toBeVisible();
     });
   }
 });
