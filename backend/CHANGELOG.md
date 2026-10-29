@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- tables borderless_accounts, github_connections (one row per existing user, from users.github_id), user_badges and report_webhooks (the Discord report webhooks copied, badge unset); users.github_restore_prompt_seen_at; users.github_id nullable; sign-in method borderless allowed. No code reads them yet (Release A, ADR-0024).
 - the `cvs` beta feature gates master CVs, application CV copies and drafts (`FeatureKey.CVS`, ADR-0021). On release, revision `647a047921ec` adds to the `cvs` beta list every user whose first master CV or CV copy is newer than the `cvs` row, added by no admin (Release B). A user an admin removed from the list keeps off unless their first CV came after Release A.
 - feature "cvs" ("CV builder") seeded in beta; every user who owns a master CV or a CV copy is on its beta list, added by no admin (Release A, ADR-0021).
 - KODI-057 device sessions (ADR-0019): one session per sign-in, a `user_sessions` row (`UserSessionModel`) plus two Redis keys on `REDIS_URL` (`applika:session:<uuid7>` and `applika:session:id:<sid>`), the refresh value a random UUIDv7.
