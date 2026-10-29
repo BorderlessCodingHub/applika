@@ -1489,7 +1489,10 @@ linking are gone; nothing in `src/` calls `/auth/github/login` or
   auto-redirects a signed-in browser and always asks for the password; the
   answer's `redirect_to` (the loopback URL with `code` and `state`) is
   followed with `window.location.assign`. 400 "CLI login expired" adds "Run
-  applika login in your terminal again." The CLI branch sets no cookie.
+  applika login in your terminal again." The CLI branch sets no cookie. When
+  the `__cli_login` cookie itself lapsed (~5 min) the API does a WEB sign-in
+  (`redirect_to: null`); the page then stays and says the terminal sign-in
+  expired (`CLI_HANDOFF_LOST` + the same hint) instead of navigating.
 - **A web sign-in lands with a full navigation**: `new_account` → `/welcome`
   (the return-to path waits), else `consumeReturnTo() ?? "/dashboard"`. Full,
   because the sign-in may replace another account's session in the tab.
@@ -1526,7 +1529,9 @@ hasReportsBadge })` lists Reports only with a recorded badge
   `badges/badge-gate.tsx` `BadgeGate` wraps `/reports` and `/reports/[day]`
   ABOVE the report hooks: `none` → "Reports are for Borderless BASE and PSP
   members" and why; `unconfirmed` → the confirm form (h1, focus on Password);
-  `held` → the reports. `hooks/use-repports.ts` queries are also enabled only
+  `held` → the reports; on unconfirmed → held with focus lost it waits
+  (MutationObserver, 5 s) for the reports' h1 behind their skeleton and
+  focuses it. `hooks/use-repports.ts` queries are also enabled only
   while held (`useHoldsReportsBadge`, a cache read of the user). The API is
   the rule: 403 `badge_required` / `membership_unconfirmed`.
 
