@@ -9,7 +9,7 @@
 # api command, against a real Postgres and a real Redis. Playwright drives the
 # `web` origin and every request it makes hits the real API — nothing is mocked.
 # See `frontend/scripts/e2e.sh` (the runner) and `backend/app/scripts/seed_e2e.py`
-# (real-session seeding, since GitHub OAuth cannot run headless).
+# (real-session seeding; Borderless sign-in goes to the `borderless-stub`).
 #
 # Isolation: a distinct compose PROJECT name (`applika-e2e`) and `applika-e2e-*`
 # container names — it shares NO project, containers, networks or volumes with
@@ -37,29 +37,21 @@ x-api-environment: &api-environment
   REDIS_URL: redis://redis:6379/0
   # Synthetic, non-secret E2E values. JWT_SECRET is shared with the seed
   # CLI (it runs via `compose exec api`, same env) so the tokens it mints
-  # validate. GITHUB_TOKEN_ENCRYPTION_KEY is a valid, throwaway Fernet key
-  # so app/core/crypto.py can build its Fernet. The GitHub client id and
-  # secret are required settings with no default; the OAuth flow is never
-  # exercised in E2E, so these dummies only satisfy the settings model.
-  # NOT for production.
+  # validate. NOT for production.
   JWT_SECRET: e2e-jwt-secret-not-for-production
-  GITHUB_TOKEN_ENCRYPTION_KEY: auiKtUcX-v_oZqv-A4viHsBK8MPYwDE_AFvK_EIj7WU=
+  # Borderless sign-in (ADR-0024) goes to the stub below, never to the real
+  # Borderless. BORDERLESS_TOKEN_ENCRYPTION_KEY is a fixed throwaway Fernet
+  # key: it encrypts the stub tokens the seed stores. WEB_SIGNIN_URI is the
+  # e2e web's sign-in page, where every CLI browser sign-in lands.
+  BORDERLESS_API_URL: http://borderless-stub:8081
+  BORDERLESS_TOKEN_ENCRYPTION_KEY: auiKtUcX-v_oZqv-A4viHsBK8MPYwDE_AFvK_EIj7WU=
+  WEB_SIGNIN_URI: http://127.0.0.1:8180/login
+  # The GitHub restore answers 503 without a client id and secret. The
+  # dummies let a spec reach the consent URL; real github.com is never
+  # reached (the spec aborts that navigation).
   GITHUB_CLIENT_ID: e2e-dummy-github-client-id
   GITHUB_CLIENT_SECRET: e2e-dummy-github-client-secret
-  # Discord account linking (KODI-022, plan 0009). The OAuth handshake
-  # itself is never exercised in E2E (real discord.com must never be
-  # reached — the spec aborts the navigation and asserts the attempted
-  # URL), so these are dummies that only satisfy the settings model, the
-  # same way the GitHub pair above does. ACCOUNT_LINK_REDIRECT_URI is the
-  # web origin the callback 307s back to.
-  DISCORD_CLIENT_ID: e2e-dummy-discord-client-id
-  DISCORD_CLIENT_SECRET: e2e-dummy-discord-client-secret
   ACCOUNT_LINK_REDIRECT_URI: http://127.0.0.1:8180/profile
-  # KODI-024: a fixed, throwaway Fernet key, distinct from
-  # GITHUB_TOKEN_ENCRYPTION_KEY above - encrypts the seeded e2e-discord
-  # connection's dummy refresh token and whatever the spec's own
-  # Connect/Disconnect/Reconnect flow stores. Not for production.
-  DISCORD_TOKEN_ENCRYPTION_KEY: 8K328DvEKBxnNKoQ_B4ytFTe4FbJCgIcgBnVlgm7Rfs=
   # The browser's origin is the `web` service, not the API's own port.
   # allow_credentials is already True in app/main.py; CORS_HEADERS is
   # widened here (the default is only X-Request-ID + Content-Type) so the
@@ -88,6 +80,25 @@ x-api-environment: &api-environment
   JOBS_INGEST_CRON: "0 0 1 1 *"
 
 services:
+  # Borderless stand-in (ADR-0024): stdlib only, synthetic accounts from
+  # `backend/tests/fixtures/borderless/accounts.json`, mounted read-only.
+  # Reachable only inside the stack; nothing calls the real Borderless.
+  borderless-stub:
+    container_name: applika-e2e-borderless-stub
+    image: python:3.14-slim
+    command: ["python", "/stub/stub.py", "/stub/accounts.json", "--port", "8081"]
+    volumes:
+      - ./backend/tests/fixtures/borderless:/stub:ro
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health')"
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
   # The real API image. `ENVIRONMENT: DEV` overrides the Dockerfile's PROD:
   # it keeps /api/openapi.json reachable (the readiness probe) and — crucially
   # — makes the session cookies non-Secure so they work over plain http in the
@@ -125,6 +136,8 @@ services:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      borderless-stub:
         condition: service_healthy
 
   # ADR-0016: the taskiq worker consuming the `applika:tasks` queue - it runs

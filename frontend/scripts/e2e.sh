@@ -4,9 +4,10 @@
 #
 # Stands up the dedicated, ephemeral, isolated E2E stack
 # (docker-compose.e2e.yml: the REAL API image + the REAL frontend image, a real
-# Postgres migrated by `alembic upgrade head` and a real Redis), seeds a REAL
-# session (no browser mocking — GitHub OAuth can't run headless, so we mint a
-# genuine cookie with the app's own token code), runs Playwright against that
+# Postgres migrated by `alembic upgrade head`, a real Redis and the Borderless
+# stub), seeds a REAL session (no browser mocking — the seed binds each user to
+# its stub Borderless account and mints a genuine cookie with the app's own
+# token code), runs Playwright against that
 # real front door, then tears everything down (always, via a trap). CI calls
 # this same script so local and CI can't drift.
 #
@@ -56,6 +57,21 @@ for i in $(seq 1 60); do
     exit 1
   fi
   sleep 2
+done
+
+# The API reaches Borderless only through the stub (ADR-0024).
+echo "[e2e] Waiting for the Borderless stub ..."
+for i in $(seq 1 30); do
+  if "${COMPOSE[@]}" exec -T borderless-stub python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health')" >/dev/null 2>&1; then
+    echo "[e2e] Borderless stub is up."
+    break
+  fi
+  if [[ "$i" == "30" ]]; then
+    echo "[e2e] Borderless stub did not become ready in time." >&2
+    "${COMPOSE[@]}" logs borderless-stub >&2 || true
+    exit 1
+  fi
+  sleep 1
 done
 
 echo "[e2e] Seeding real sessions (real user rows + real signed cookies)..."

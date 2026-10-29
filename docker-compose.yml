@@ -51,21 +51,17 @@ x-api-environment: &api-environment
   CORS_ORIGINS: '["http://127.0.0.1:8080"]'
   CORS_HEADERS: '["X-Request-ID", "Content-Type", "Accept", "Authorization"]'
   JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-not-for-production}
-  GITHUB_TOKEN_ENCRYPTION_KEY: ${GITHUB_TOKEN_ENCRYPTION_KEY}
-  GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
-  GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+  # Borderless sign-in (ADR-0024): answers 503 until both are set.
+  BORDERLESS_API_URL: ${BORDERLESS_API_URL:-}
+  BORDERLESS_TOKEN_ENCRYPTION_KEY: ${BORDERLESS_TOKEN_ENCRYPTION_KEY:-}
+  WEB_SIGNIN_URI: ${WEB_SIGNIN_URI:-http://127.0.0.1:8080/login}
+  # GitHub restore only (ADR-0024): 503 until the id and secret are set.
+  GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+  GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
   GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/github/callback}
   LOGIN_REDIRECT_URI: ${LOGIN_REDIRECT_URI:-http://127.0.0.1:8080/dashboard}
   DISCORD_FEEDBACK_WEBHOOK: ${DISCORD_FEEDBACK_WEBHOOK:-}
-  # Discord account link (KODI-020): Connect Discord answers 503 until both
-  # the client id and secret are set.
-  DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
-  DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
-  DISCORD_LINK_REDIRECT_URI: ${DISCORD_LINK_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/link/discord/callback}
   ACCOUNT_LINK_REDIRECT_URI: ${ACCOUNT_LINK_REDIRECT_URI:-http://127.0.0.1:8080/profile}
-  # KODI-024: Connect Discord also answers 503 until this is set - its
-  # own Fernet key, distinct from GITHUB_TOKEN_ENCRYPTION_KEY.
-  DISCORD_TOKEN_ENCRYPTION_KEY: ${DISCORD_TOKEN_ENCRYPTION_KEY:-}
   # KODI-039/ADR-0015: the rate limiter is ON by default, but this dev
   # stack raises both limits well above anything a developer or the
   # seed script would hit - the point here is the API being wired up
