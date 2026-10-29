@@ -200,6 +200,10 @@ async def test_unverified_email_is_403_and_nothing_written(
 
 # 113 characters, accepted by ``UserCreateDTO``: only the length refuses it.
 LONG_EMAIL = 'a' * 60 + '@' + 'b' * 40 + '.example.com'
+EMAIL_100 = 'a' * 60 + '@' + 'b' * 27 + '.example.com'
+EMAIL_101 = 'a' * 60 + '@' + 'b' * 28 + '.example.com'
+# 95 characters that normalize to 115 (U+2121 maps to "tel").
+GROWS_ON_NORMALIZING = 'a' * 80 + '@' + '\u2121' * 10 + '.com'
 
 
 async def _bindings(db_session) -> int:
@@ -216,14 +220,16 @@ async def _badges(db_session) -> int:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    'email', [LONG_EMAIL, 'not-an-email'], ids=['over-100', 'invalid']
+    'email',
+    [LONG_EMAIL, EMAIL_101, GROWS_ON_NORMALIZING, 'not-an-email'],
+    ids=['over-100', 'exactly-101', 'grows-on-normalizing', 'invalid'],
 )
 async def test_unusable_borderless_email_is_422_before_any_write(
     db_session, fake_redis, borderless, email
 ):
-    if email == LONG_EMAIL:
-        assert len(email) > 100
-        UserCreateDTO(username='x', email=email)  # valid, just too long
+    if email != 'not-an-email':
+        # valid, just too long once stored
+        assert len(UserCreateDTO(username='x', email=email).email) > 100
     borderless.add(id='bl-long', email=email)
     before = (
         await _users(db_session),
@@ -250,6 +256,22 @@ async def test_unusable_borderless_email_is_422_before_any_write(
         await _bindings(db_session),
         await _badges(db_session),
     ) == before
+
+
+@pytest.mark.asyncio
+async def test_exactly_100_character_borderless_email_creates_the_account(
+    db_session, fake_redis, borderless
+):
+    assert len(EMAIL_100) == 100
+    borderless.add(id='bl-100', email=EMAIL_100)
+
+    result = await _use_case(db_session, fake_redis, borderless).execute(
+        EMAIL_100, PASSWORD
+    )
+
+    assert result.new_account is True
+    user = await db_session.get(UserModel, result.user_id)
+    assert user.email == EMAIL_100
 
 
 @pytest.mark.asyncio

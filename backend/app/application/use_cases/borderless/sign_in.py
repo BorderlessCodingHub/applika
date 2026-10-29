@@ -71,9 +71,13 @@ def new_user_dto(answer: BorderlessSignIn) -> UserCreateDTO:
     if len(answer.email) > EMAIL_MAX:
         raise EmailUnusable()
     try:
-        return UserCreateDTO(username=username_for(answer), email=answer.email)
+        dto = UserCreateDTO(username=username_for(answer), email=answer.email)
     except ValidationError:
         raise EmailUnusable() from None
+    # EmailStr normalizes (UTS46 domain, NFC local part): it can grow.
+    if len(dto.email) > EMAIL_MAX:
+        raise EmailUnusable()
+    return dto
 
 
 def encrypted_token(answer: BorderlessSignIn) -> tuple[str, datetime]:
