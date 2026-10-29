@@ -98,7 +98,7 @@ if status == 'denied' then
 end
 return {
   'approved', fields[1] or '', fields[2] or '', fields[3] or '',
-  fields[4] or '', fields[5] or ''
+  fields[4] or ''
 }
 """
 
