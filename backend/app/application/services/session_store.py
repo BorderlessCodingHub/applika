@@ -183,6 +183,14 @@ class SessionStore:
         except ValueError:
             return None
 
+    async def is_legacy(self, session_id: int) -> bool:
+        """True for a session opened before ADR-0024: only that release's
+        ``open`` wrote ``github_id`` into the hash."""
+        async with redis_guard('is_legacy'):
+            return bool(
+                await self.redis.hexists(id_key(session_id), 'github_id')
+            )
+
     async def end(self, session_id: int) -> None:
         """Delete both keys. A session already gone is a no-op."""
         async with redis_guard('end'):

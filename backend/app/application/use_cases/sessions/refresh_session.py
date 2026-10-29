@@ -70,7 +70,12 @@ class RefreshSessionUseCase:
             raise InvalidSession(USER_NOT_FOUND)
         user_id = user.id
 
-        if await self.binding_repo.get_by_user_id(user_id) is None:
+        # A session opened before ADR-0024 never slides on, even once its
+        # user has bound a Borderless account elsewhere.
+        if (
+            await self.store.is_legacy(session_id)
+            or await self.binding_repo.get_by_user_id(user_id) is None
+        ):
             await self.end_session.end_row(row, 'expired')
             raise InvalidSession(SIGN_IN_AGAIN)
 

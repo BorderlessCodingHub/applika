@@ -86,8 +86,8 @@ def parse_membership(body: Any) -> BadgeKey | None:
 def _retry_after(response: httpx.Response) -> int:
     raw = response.headers.get('Retry-After', '')
     try:
-        return max(1, int(float(raw)))
-    except ValueError:
+        return min(max(1, int(float(raw))), 3600)
+    except ValueError, OverflowError:
         return 60
 
 
