@@ -63,7 +63,7 @@ def login(
         ),
     ] = None,
 ) -> None:
-    """Log in to Applika with GitHub. By default opens your browser.
+    """Log in to Applika with Borderless. By default opens your browser.
 
     Use --manual to paste the code the browser shows, or --device to approve
     a short code in any signed-in browser.

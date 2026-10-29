@@ -9,6 +9,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - table report_webhook_badges (a report webhook holds one or more badges, BASE and/or PSP); each report webhook's badge is copied into it and report_webhooks.badge is kept as badge_old. No code reads it yet (Release A, ADR-0024).
+- Borderless sign-in (ADR-0024): POST /auth/borderless/signin `{email, password}` checks the credentials with Borderless from the server and answers 200 `{redirect_to, new_account}` (web: a `borderless` session and both cookies; with the `__cli_login` marker: `redirect_to` hands the sign-in back to the CLI, no cookie, the browser's session kept); 401 "Invalid email or password", 403 `email_unverified`, 409 `binding_conflict` / `email_ambiguous`, 429 with Retry-After (Borderless's limit, or 5 failures per email in 15 minutes), 503 when Borderless is unavailable or not configured. The Borderless password is never stored or logged; the Borderless token never leaves the server.
+- the account bound to a Borderless account opens on sign-in; with none, the account with the same email (ignoring case) is bound; with none, a new account is created. A binding never moves on sign-in.
+- membership badges BASE and PSP, read from the Borderless profile at every sign-in, confirmation and session refresh while the 7-day Borderless access lives; a failing read never blocks. A badge counts only while that access is alive and not refused; another membership revokes it and keeps its history.
+- POST /auth/borderless/confirm (signed in) renews the Borderless access and reads the membership; 204, the session and cookies untouched; 409 `binding_conflict` for another Borderless account.
+- GitHub restore: POST /auth/github/restore → `{authorize_url}` (scope read:user; 409 when the account already has a GitHub identity, 503 when not configured); GET /auth/github/callback moves the Borderless binding and badges to the GitHub-era account, deletes the empty new account and signs the browser in as the old one, then 307s to ACCOUNT_LINK_REDIRECT_URI?account=github&status=restored|not_found|has_data|already_bound|error. No GitHub token is stored. POST /users/me/github-restore/dismiss → 204.
+- GET/PATCH /users/me: `badges`, `borderless` `{status, expires_at, email}` and `github_restore` `{available, prompt}`.
+- /admin/report-webhooks (GET, POST, PATCH /{id}, DELETE /{id}): a webhook address, a badge (BASE or PSP) and an optional label; only a masked address is returned.
+- settings BORDERLESS_API_URL (https in PROD), BORDERLESS_TOKEN_ENCRYPTION_KEY, BORDERLESS_TIMEOUT_SECONDS, BORDERLESS_REFRESH_TIMEOUT_SECONDS, BORDERLESS_SIGNIN_EMAIL_LIMIT, BORDERLESS_SIGNIN_EMAIL_WINDOW_SECONDS, WEB_SIGNIN_URI.
+- a Borderless stub for the E2E stack and local runs (tests/fixtures/borderless/stub.py, service `borderless-stub` in docker-compose.e2e.yml).
 - tables borderless_accounts, github_connections (one row per existing user, from users.github_id), user_badges and report_webhooks (the Discord report webhooks copied, badge unset); users.github_restore_prompt_seen_at; users.github_id nullable; sign-in method borderless allowed. No code reads them yet (Release A, ADR-0024).
 - the `cvs` beta feature gates master CVs, application CV copies and drafts (`FeatureKey.CVS`, ADR-0021). On release, revision `647a047921ec` adds to the `cvs` beta list every user whose first master CV or CV copy is newer than the `cvs` row, added by no admin (Release B). A user an admin removed from the list keeps off unless their first CV came after Release A.
 - feature "cvs" ("CV builder") seeded in beta; every user who owns a master CV or a CV copy is on its beta list, added by no admin (Release A, ADR-0021).
@@ -336,6 +345,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- the access token's `sub` is `users.id`; every session open before this release ends and every user signs in again with Borderless.
+- /auth/refresh and the refresh_token grant read the Borderless membership instead of checking a GitHub token; a user with no Borderless binding gets 401 "Sign in again with Borderless".
+- /auth/github/login 307s to WEB_SIGNIN_URI; /auth/cli/authorize and /auth/cli/login/{id} 307 to WEB_SIGNIN_URI?cli=1 (400/404 unchanged).
+- /reports* need a held BASE or PSP badge: 403 `badge_required` without a recorded badge (administrators included), 403 `membership_unconfirmed` when the recorded badge does not count. A report posts to the report webhooks of the author's badges; webhooks carried over without a badge receive nothing.
+- report and feedback posts carry the applika username and mention nobody.
+- /admin/users `github_id` comes from the GitHub identity on record and may be null; /users/me `github_id` is nullable.
 - the CV diff fixtures moved from the repository root (fixtures/cv-diff/) to backend/tests/fixtures/cv-diff/, beside the jobs fixtures; the backend and frontend suites read them there, and the frontend suite fails instead of skipping when they are missing. The E2E runner moved to frontend/scripts/e2e.sh. No runtime change.
 - the OpenAPI description of `EventType` names the three event types only; the database internals moved to a code comment. No value changed.
 - without the `cvs` feature, `GET /jobs` and `GET /jobs/{id}` answer with no fit: `best_fit` null, `fits` [], `min_fit` matches no job (`total` 0), `sort=fit` sorts by newest. The `application` mark is unchanged.
@@ -450,6 +465,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
+- Discord linking: /auth/link/discord*, /admin/discord-webhooks*, the `discord` and `discord_linked` fields of /users/me, and the DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DISCORD_LINK_REDIRECT_URI, DISCORD_TOKEN_ENCRYPTION_KEY settings. The Discord tables stay in the database.
+- GitHub sign-in, the stored GitHub token check, GITHUB_TOKEN_ENCRYPTION_KEY, GITHUB_CACHE_TTL_SECONDS and the fastapi-sso dependency (pyjwt is now a direct dependency).
 - timeline event types `note` and `feedback` (ADR-0020): `POST /applications/{id}/timeline` and `PUT /applications/{id}/timeline/{event_id}` refuse them with 422; OpenAPI lists `interview`, `offer` and `denied`. Former notes and feedback read as interviews of type `unknown`, count in the statistics `unknown` stage, in new reports and in the agenda. The 0.1.4 `/steps*` routes show them as "Phase 2" with the same step id as before.
 - KODI-026 `DISCORD_REPORTS_WEBHOOK` and `DISCORD_REPORTS_ORGANIZATION`
   settings, from `config/settings.py`, `.env.example` and both

@@ -46,7 +46,7 @@ When you add or modify any of the following, update the seed script accordingly:
 - Saved job searches (KODI-047) — `seed_job_searches()` deletes any left from a previous run, then creates, renames, lists and deletes one, fills the cap of 10 and asserts the 11th is refused with 409
 - Drafts from a job (KODI-047) — `seed_draft_from_job()` starts one draft from the first job of `GET /jobs` with no application, the first master CV and `tailoring: 'keywords'`, and asserts `job_id`, `has_cv` and the job's `application` mark; with no jobs (no worker run on the dev stack) it logs the skip
 - Beta features (ADR-0018, ADR-0021) — `has_jobs_feature()` and `has_cvs_feature()` read `GET /users/me/features` right after `/supports`; without `jobs` the script skips `seed_job_searches()`; without `cvs` it skips `seed_base_cvs()`, `seed_cv_pdfs()`, `seed_application_cv()` and `seed_drafts()`; `seed_keyword_copy()` and `seed_draft_from_job()` need both. It prints why (an admin enrols the seed user at `/admin/features`) and never fails on the gate. A new gated feature adds its own check here. `app/scripts/seed_e2e.py` resets the features on every run, `jobs` and `cvs` alike: back to `beta` (`released_at` NULL), `e2e-user` on its list, `e2e-discord` off it, every opt-out of `e2e-admin` gone; it fails loudly when either row is missing (run `alembic upgrade head` first)
-- Device sessions (ADR-0019) — the pasted `ACCESS_TOKEN` must be the `__access` cookie of a **live** browser session (its JWT carries `sid`; a token from before the release, or from a browser that logged out or was revoked, is 401 `Session expired`). `app/scripts/seed_e2e.py` opens every e2e session through `OpenSessionUseCase` (a `user_sessions` row + its Redis keys): one `github_web` session per seeded user and one `cli_device` session ("e2e-cli") for `e2e-user`, printed as `cli_access_token`/`cli_refresh_token` and exported by `frontend/scripts/e2e.sh` as `E2E_CLI_ACCESS_TOKEN`/`E2E_CLI_REFRESH_TOKEN`
+- Device sessions (ADR-0019) — the pasted `ACCESS_TOKEN` must be the `__access` cookie of a **live** browser session (its JWT carries `sid`; a token from before the release, or from a browser that logged out or was revoked, is 401 `Session expired`). `app/scripts/seed_e2e.py` opens every e2e session through `OpenSessionUseCase` (a `user_sessions` row + its Redis keys): one `borderless` session per seeded user (each user bound to its stub Borderless account, see `seed_e2e.py`) and one `cli_device` session ("e2e-cli") for `e2e-user`, printed as `cli_access_token`/`cli_refresh_token` and exported by `frontend/scripts/e2e.sh` as `E2E_CLI_ACCESS_TOKEN`/`E2E_CLI_REFRESH_TOKEN`
 - **A 429 is waited out, never treated as a failure** (KODI-039, ADR-0015): the script's `httpx.Client` uses `RetryOn429Transport`, which reads `Retry-After` on a 429 and resends the exact same request once. The dev/e2e compose stacks already raise `RATE_LIMIT_DEFAULT`/`RATE_LIMIT_AUTH` so a normal run never trips it; the retry only matters against a stock, un-raised stack
 
 After any such change, mentally walk through the seed script from top to bottom and confirm it would still run without errors against a fresh database.
@@ -185,60 +185,33 @@ Use cases encapsulate business operations:
 See `app/application/use_cases/applications/create_application.py` for reference.
 
 ### Authentication
-- GitHub OAuth via `fastapi-sso` with scope `user:email` (KODI-026: `read:org` and organisation membership are retired, R-042/R-043)
-- **One session per sign-in, one device** (KODI-057, ADR-0019). A session is a `user_sessions` row (`UserSessionModel`: device name, client, sign-in method, sign-in/last IP, granted, last used, `expires_at`, `ended_at` + `end_reason`; ended rows stay) plus two Redis keys on `REDIS_URL` (the rate limiter's instance), both `EXAT expires_at`: `applika:session:<uuid7>` → the session id, and `applika:session:id:<sid>` hash `{rk, user_id, github_id, last_used_at, last_ip}`. `SessionStore` (`app/application/services/session_store.py`) is the only code that touches them. **A missing key means the session has ended.** The refresh value is never stored in Postgres (not even hashed), never logged and never listed
-- **Access token**: short-lived JWT, payload `{sub: github_id, sid: <user_sessions.id as string>, kind: 'access', exp}`. The web sends it in the HTTP-only `__access` cookie; `applika-cli` 1.1.0+ sends `Authorization: Bearer`. `get_current_user()` reads **Bearer first, then the cookie**, else 401 `Not authenticated`
+- **Borderless is the only sign-in** (ADR-0024). `POST /auth/borderless/signin` `{email, password}` checks the credentials with Borderless from the server (`BorderlessClient`, `app/application/services/borderless_client.py`, httpx; `POST {BORDERLESS_API_URL}/api/auth/signin` → `data.user.*`, `data.token.accessToken`/`expiresIn`; no refresh token). The password is never stored or logged; the Borderless token is stored encrypted (`borderless_accounts.encrypted_access_token`, `encrypt_borderless_token`, `BORDERLESS_TOKEN_ENCRYPTION_KEY`) and never leaves the server. `BorderlessSignInUseCase` (`use_cases/borderless/sign_in.py`): per-email failure counter `applika:borderless:signin:<sha256(lower email)>` (`BORDERLESS_SIGNIN_EMAIL_LIMIT` in `…_WINDOW_SECONDS`, checked before the call, fail open) → 429; Borderless 401 → 401 "Invalid email or password"; 429 → 429 + `Retry-After`; 5xx/timeout (one retry) → 503 "Borderless is unavailable, try again later"; unset URL or key → 503 "Borderless sign-in is not configured"; unverified email → 403 `email_unverified`. Resolution: the account bound to the Borderless id; else the account whose email equals the Borderless email ignoring case (exact spelling first; bound to another id → 409 `binding_conflict`; several, none exact → 409 `email_ambiguous`), bound now; else a new account. A binding never moves on sign-in. Web branch: ends the browser's session `replaced`, opens a `borderless` session, sets both cookies, answers `{redirect_to: null, new_account}`; with the `__cli_login` marker it answers `redirect_to` (the CLI's loopback/oob URL with a one-use code, `cli_handoff_redirect` in `api/oauth.py`), no cookie, the browser's own session untouched
+- **Membership badges** (`user_badges`, `BadgeKey` `borderless_base`|`borderless_psp`, history kept: revoking sets `revoked_at`). `RefreshBadgesUseCase` (`use_cases/borderless/refresh_badges.py`, never raises) runs at every sign-in, confirmation and refresh: binding `needs_reconnect` or expired → no call, nothing written; token no longer decrypts → `needs_reconnect`; `GET /api/users/profile` 200 → `data.user.membership` (only that path, ignoring case: BASE/PSP, else none) applied by `UserBadgeRepository.apply` (at most one live badge); 401/403 → `needs_reconnect`, rows kept; slow/failing/429 → `profile_read_failed_at`, rows kept. `badge_access(binding, live_badges)` (`use_cases/borderless/badge_access.py`) is the ONE rule: held = live row AND binding `active` AND `access_token_expires_at > now`. `data.user.github` is never read
+- **Confirm** (`POST /auth/borderless/confirm`, signed in): same credential check, must be the Borderless account already bound (else 409 `binding_conflict`), renews the token + expiry, `status = active`, reads the membership. 204; no session row, no Redis session write, no cookie
+- **One session per sign-in, one device** (KODI-057, ADR-0019). A session is a `user_sessions` row (`UserSessionModel`: device name, client, sign-in method, sign-in/last IP, granted, last used, `expires_at`, `ended_at` + `end_reason`; ended rows stay) plus two Redis keys on `REDIS_URL` (the rate limiter's instance), both `EXAT expires_at`: `applika:session:<uuid7>` → the session id, and `applika:session:id:<sid>` hash `{rk, user_id, last_used_at, last_ip}`. `SessionStore` (`app/application/services/session_store.py`) is the only code that touches them. **A missing key means the session has ended.** The refresh value is never stored in Postgres (not even hashed), never logged and never listed
+- **Access token**: short-lived JWT, payload `{sub: users.id, sid: <user_sessions.id as string>, kind: 'access', exp}`. The web sends it in the HTTP-only `__access` cookie; `applika-cli` 1.1.0+ sends `Authorization: Bearer`. `get_current_user()` reads **Bearer first, then the cookie**, else 401 `Not authenticated`
 - **Refresh value**: a random `uuid.uuid7()`, in the HTTP-only `__refresh` cookie (web and CLIs 0.1.4–1.0.1) or the CLI's own store (1.1.0). Never rotated
-- **The check on every signed-in request** (`GetCurrentUserUseCase`): JWT decode first (bad/expired → 401 as before); no `sid`, a session whose key is gone, or a session of another GitHub id → 401 `Session expired`; otherwise one Lua script (EXISTS → HSET `last_used_at`, `last_ip`) under `asyncio.timeout(0.5)`. Sets `request.state.session_id` (`CurrentSessionIdDp`). **Fail closed**: a `RedisError`, `OSError` or timeout raises `SessionServiceUnavailable` → 503 `{"detail": "Session service unavailable"}` + `Retry-After: 5`; the request never passes unchecked and nobody is signed out (a 401 would send every client to refresh). The Discord link callback runs the same check on its cookie
-- **Sliding lifetime**: a session ends `REFRESH_TOKEN_EXPIRE_DAYS` (7) after its **last refresh**. `GET /auth/refresh` and the `refresh_token` grant resolve the uuid7, re-check the GitHub token (revoked → the session ends `github_revoked`, 401 `GitHub token revoked`), then `EXPIREAT` both keys and `expires_at` a full window ahead and copy the live last use onto the row. `/auth/refresh` re-sets `__access` (new JWT, same `sid`) **and** `__refresh` (same value, full Max-Age); a refused refresh is 401 and clears both cookies, a 503 clears nothing
-- **Ending a session** (`EndSessionUseCase`): DEL both keys, then set `ended_at` + `end_reason` (`logout` = `GET /auth/logout` / `POST /auth/revoke`, `revoked` = Devices tab, `replaced` = a new web sign-in in the same browser, `github_revoked`) and copy the live last use. Only a live session ends; an ended row, a row past `expires_at` or one whose key is gone is a no-op (it already reads as ended/expired). `DELETE /users/me` DELs every open session's keys before the user goes (rows by CASCADE)
+- **The check on every signed-in request** (`GetCurrentUserUseCase`): JWT decode first (bad/expired → 401 as before); no `sid`, a session whose key is gone, or a `sub` that is not the session's `user_id` (every pre-ADR-0024 token carried a GitHub id) → 401 `Session expired`; otherwise one Lua script (EXISTS → HSET `last_used_at`, `last_ip`) under `asyncio.timeout(0.5)`. Sets `request.state.session_id` (`CurrentSessionIdDp`). **Fail closed**: a `RedisError`, `OSError` or timeout raises `SessionServiceUnavailable` → 503 `{"detail": "Session service unavailable"}` + `Retry-After: 5`; the request never passes unchecked and nobody is signed out (a 401 would send every client to refresh). The GitHub restore callback runs the same check on its cookie
+- **Sliding lifetime**: a session ends `REFRESH_TOKEN_EXPIRE_DAYS` (7) after its **last refresh**. `GET /auth/refresh` and the `refresh_token` grant resolve the uuid7; a user with no Borderless binding ends the session `expired`, 401 `Sign in again with Borderless`; otherwise read the membership (`RefreshBadgesUseCase`, `BORDERLESS_REFRESH_TIMEOUT_SECONDS`, never fails the refresh), then `EXPIREAT` both keys and `expires_at` a full window ahead and copy the live last use onto the row. `/auth/refresh` re-sets `__access` (new JWT, same `sid`) **and** `__refresh` (same value, full Max-Age); a refused refresh is 401 and clears both cookies, a 503 clears nothing
+- **Ending a session** (`EndSessionUseCase`): DEL both keys, then set `ended_at` + `end_reason` (`logout` = `GET /auth/logout` / `POST /auth/revoke`, `revoked` = Devices tab, `replaced` = a new web sign-in in the same browser; `github_revoked` stays only on rows ended before ADR-0024) and copy the live last use. Only a live session ends; an ended row, a row past `expires_at` or one whose key is gone is a no-op (it already reads as ended/expired). `DELETE /users/me` DELs every open session's keys before the user goes (rows by CASCADE)
 - **Cutover** (the release that ships KODI-057): nothing reads `applika:refresh_token:*` any more and a JWT without `sid` is 401, so every web and CLI user signs in again; the old keys die on their TTL
-- **CLI login handoff (legacy, deprecated)**: `/auth/cli/start`, `/auth/cli/login/{id}`, `/auth/cli/exchange` keep their shapes for CLIs 0.1.4–1.0.1 (ADR-0009) and open a `cli_legacy` session at the exchange. A PKCE code is refused there (it is redeemed only with its verifier on `POST /auth/token`)
+- **CLI login handoff (legacy, deprecated)**: `/auth/cli/start`, `/auth/cli/login/{id}`, `/auth/cli/exchange` keep their shapes for CLIs 0.1.4–1.0.1 (ADR-0009) and open a `cli_legacy` session at the exchange. `/auth/cli/login/{id}` and `/auth/cli/authorize` 307 to `WEB_SIGNIN_URI?cli=1` with the `__cli_login` marker (400/404 unchanged); the sign-in completes on applika's Borderless sign-in page. A PKCE code is refused there (it is redeemed only with its verifier on `POST /auth/token`)
 - **CLI sign-in (1.1.0+)**: authorization code + PKCE S256 (`GET /auth/cli/authorize`, loopback `redirect_uri` or `oob` → the code is shown at `CLI_MANUAL_REDIRECT_URI`), or the RFC 8628 device code (`/auth/device/*`, approved by a signed-in web user at `DEVICE_VERIFICATION_URI`). Login state and codes live in `AuthHandoffStateUseCase` (`flow='pkce'`, `code_challenge`, `redirect_uri`; codes `GETDEL`, 60 s); device codes in `DeviceCodeUseCase` (`applika:device:code:<device_code>` hash + `applika:device:user_code:<CODE>`, `EX DEVICE_CODE_TTL_SECONDS`, decided and consumed by Lua). Each CLI sign-in is a session of its own (`client_type='cli'`); a CLI sign-in never ends the browser's own session
 - **Not gated**: the Devices API and every CLI sign-in route are open to every user (owner: "Gate nothing", the ADR-0019 exception to ADR-0018)
-- GitHub access token stored **encrypted** (Fernet) in `users.encrypted_github_token` — never logged or exposed
 - Token and cookie utilities in `app/core/tokens.py`, PKCE in `app/core/pkce.py`, user codes in `app/core/user_codes.py`, device labels (`describe_user_agent`: "Chrome on macOS", "applika-cli 1.1.0", httpx → "applika-cli (older version)") in `app/core/user_agent.py`, encryption in `app/core/crypto.py`
 - Cookie settings: HTTPOnly, Secure in PROD, SameSite=Lax
-- **Tests**: `async_client`/`admin_client` override `get_current_user` (no session needed). A test that sends a real token uses `real_client` (`tests/integration/conftest.py`, the real dependency on `redis_client`) and opens a session through `tests/sessions_seed.py` (`open_session` = row + keys, `live_access_token` = keys only)
+- **Tests**: `async_client`/`admin_client` override `get_current_user` (no session needed). Fakes `FakeBorderlessClient`/`FakeGitHubOAuthService` replace `BorderlessClientDp`/`GitHubOAuthServiceDp` in every test (`tests/conftest.py`, autouse); `bind_borderless(session, user_id, …)` and the `reports_badge` fixture (an active binding + a live PSP badge) set up a member; `bound_user` (`tests/integration/conftest.py`) binds the base user to a fake account with `CREDENTIALS`. A test that sends a real token uses `real_client` (`tests/integration/conftest.py`, the real dependency on `redis_client`) and opens a session through `tests/sessions_seed.py` (`open_session` = row + keys, `live_access_token` = keys only)
 
-### GitHub Integration
-- `GitHubService` (`app/application/services/github_service.py`) validates tokens only. Organisation membership is retired (KODI-026, R-042/R-043): there is no `check_org_membership`, no `org_name`, and `UserRegistrationUseCase.execute` takes no `is_org_member` — sign-in never checks, records or returns it
-- Redis cache with configurable TTL (default 10 min) for `applika:github:token_valid:{user_id}`
-- **Webhook mentions (KODI-021), payload shape.** `DiscordService.post_report_message(message,
-  mention_user_id=None, webhook_url=None)` builds `allowed_mentions` itself:
-  `{'parse': []}` when `mention_user_id` is `None` (byte-identical to before
-  KODI-021), else `{'parse': [], 'users': [str(mention_user_id)]}` — never
-  `everyone` or `roles`, and never another user's id. `webhook_url` posts to
-  that address, else to the constructor's own URL (`get_discord_feedback_service`
-  unchanged); the ctor no longer falls back to an env webhook — see **Report
-  routing** below for how a report's URLs are picked.
-- **Report routing (KODI-026, replaces the org-gated single webhook,
-  R-032..R-040).** `ResolveReportWebhooksUseCase.execute(user_id)`
-  (`app/application/use_cases/quinzenal_reports/resolve_report_webhooks.py`)
-  is the only rule that decides where a submitted report is posted: no
-  connection, a `needs_reconnect` connection, an unconfigured Discord app, or
-  stored `scopes` missing `guilds` all resolve to an empty route (a missing
-  `guilds` scope also marks the row `needs_reconnect`). Otherwise it locks the
-  connection row (`get_by_user_id_for_update`), renews the grant
-  (`DiscordOAuthService.refresh`) — `DiscordGrantRevoked` marks
-  `needs_reconnect`, `DiscordUnavailable` releases the lock, both leaving the
-  report unposted and the connection otherwise untouched — stores the rotated
-  refresh token (`store_grant`, encrypted, R-017) **before** any further
-  Discord call, then reads the user's live guild ids
-  (`list_guild_ids`) and selects every `DiscordReportWebhookModel` configured
-  for one of those guilds (`list_by_guild_ids`). A webhook with `role_ids` set
-  additionally needs one `get_member_role_ids` call per distinct guild (a
-  failure there drops only that guild's role-limited hooks) and is kept only
-  when the user holds at least one of the listed roles. The access token, the
-  guild ids and the role ids are never stored or logged — only the DTO's
-  `discord_id` and the resulting `webhook_urls` (`ReportRouteDTO`,
-  `webhook_urls` `repr=False`) leave the use case. `SubmitReportUseCase`
-  (`quinzenal_reports/submit_report.py`) saves the report first, always
-  answers 201 whatever Discord does, then posts the same message once per
-  resolved URL — `discord_posted` is true if any post succeeded,
-  `discord_error` is every failure's message joined by `'; '` (≤ 500 chars),
-  `None` when there was nothing to post. A Discord failure never raises past
-  this use case.
+### GitHub restore (ADR-0024)
+- GitHub is not a sign-in. `GitHubOAuthService` (`app/application/services/github_service.py`, httpx) serves the one-shot restore only: `authorize_url(state)` (scope `read:user`), `exchange_code`, `fetch_identity -> (id, login)`, `revoke` (best effort). No GitHub token is stored or logged
+- `github_connections` holds the GitHub identity every pre-ADR-0024 account signed in with (seeded by revision `d9e0b46dd7e1`). `POST /auth/github/restore` (`BeginGithubRestoreUseCase`): 409 "This account already has its GitHub data" when the caller has a row; 503 "GitHub restore is not configured" without the client id and secret; marks the welcome prompt seen; a 10-minute nonce (`AccountLinkStateUseCase`, `applika:account_link:github_restore:{nonce}`)
+- `GET /auth/github/callback` always 307s to `ACCOUNT_LINK_REDIRECT_URI?account=github&status=…`: consume the nonce, resolve the caller's own `__access` (`GetCurrentUserUseCase`), require the same user, exchange, read the identity once, revoke, then `CompleteGithubRestoreUseCase`: no row → `not_found` (nothing stored); the old account already bound → `already_bound`; the caller holds data (`UserRepository.holds_data`: applications incl. drafts, cycles, reports, master CVs, CV copies, timeline events) → `has_data`; else, in one transaction, the binding and every badge move to the old account, the caller's session keys are DEL'd and the caller is deleted → `restored`, and the browser gets a new `borderless` session for the old account. Any failure → `error`
+- `users.github_restore_prompt_seen_at`: `github_restore.prompt` on `/users/me` is "no GitHub row and not seen"; `POST /users/me/github-restore/dismiss` marks it
+
+### Reports and webhooks (ADR-0024)
+- `/reports*` carry `RequireReportsBadgeDp`: no live badge → 403 `{detail: "Reports are for Borderless BASE and PSP members", code: "badge_required"}` (administrators included); a live badge that does not count → 403 `{detail: "Sign in again to confirm your membership", code: "membership_unconfirmed"}`. Reports are never deleted; they come back when the badge counts again. No beta gate (ADR-0024 §9)
+- `ResolveReportWebhooksUseCase` → the URLs of every `report_webhooks` row whose badge the author holds, distinct, oldest first; a webhook with no badge receives nothing. `SubmitReportUseCase` saves first, answers 201 whatever the webhooks answer
+- `DiscordService.post_report_message(message, webhook_url=None)` posts `{"content", "allowed_mentions": {"parse": []}}`: report and feedback posts carry `@<username>` and mention nobody. Feedback posts to `DISCORD_FEEDBACK_WEBHOOK`
 
 ### Exception Handling
 Domain exceptions in `app/core/exceptions.py`:
@@ -254,6 +227,7 @@ Domain exceptions in `app/core/exceptions.py`:
 - `InvalidSession` → 401 `{detail}` (KODI-057: a refresh value that resolves to no live session)
 - `OAuthError` → 400 `{"error": <RFC 6749/8628 code>, "detail"}` (KODI-057: `POST /auth/token`)
 - `InvalidRequest` → 400 `{detail}` (KODI-057: a bad PKCE method or challenge on `/auth/cli/authorize`)
+- `CodedRefusal` → its own status, `{detail, code?}` and headers (ADR-0024): `InvalidCredentials` 401, `EmailUnverified` 403 `email_unverified`, `BindingConflict` 409 `binding_conflict`, `EmailAmbiguous` 409 `email_ambiguous`, `SignInRateLimited` 429 + `Retry-After`, `BadgeRequired` 403 `badge_required`, `MembershipUnconfirmed` 403 `membership_unconfirmed`
 - `NotImplementedError` → 501
 
 Handlers registered in `app/presentation/handlers.py` via `register_handlers(app)`.
@@ -655,142 +629,37 @@ middleware ever counts it.
 ### OAuth (`/auth`)
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| GET | `/auth/github/login` | No | Redirect to GitHub OAuth |
-| GET | `/auth/github/callback` | No | OAuth callback: web → opens a `github_web` session (ends the browser's previous one as `replaced`), sets both cookies; CLI marker → 307 to the CLI with a one-use code |
+| POST | `/auth/borderless/signin` | No | ADR-0024: `{email ≤100, password 1..200}` → 200 `{redirect_to, new_account}` (+ cookies on the web branch); 401/403/409/429/503 (see **Authentication**) |
+| POST | `/auth/borderless/confirm` | Yes | ADR-0024: renew the Borderless access, read the membership → 204, session untouched |
+| GET | `/auth/github/login` | No | 307 to `WEB_SIGNIN_URI` (GitHub sign-in is gone) |
+| POST | `/auth/github/restore` | Yes | `{authorize_url}`; 409; 503 (see **GitHub restore**) |
+| GET | `/auth/github/callback` | No (cookie resolved internally) | The GitHub restore callback, always a 307 |
 | POST | `/auth/cli/start` | No | Deprecated (0.1.4–1.0.1): create pending CLI login, return browser login URL |
-| GET | `/auth/cli/login/{login_id}` | No | Deprecated: mark browser flow as CLI login, redirect to GitHub |
+| GET | `/auth/cli/login/{login_id}` | No | Deprecated: mark browser flow as CLI login, 307 to `WEB_SIGNIN_URI?cli=1` |
 | POST | `/auth/cli/exchange` | No | Deprecated: exchange the code for `{access_token, refresh_token, access_expires_in, refresh_expires_in}`, a `cli_legacy` session |
 | GET | `/auth/refresh` | No (`__refresh`) | Slide the session 7 days, re-set `__access` + `__refresh`; 401 clears both; 503 when Redis is down |
 | GET | `/auth/logout` | No (`__refresh`) | End the session (`logout`), clear both cookies |
-| GET | `/auth/cli/authorize` | No | KODI-057: `?redirect_uri&code_challenge&code_challenge_method=S256&state` → 307 GitHub + `__cli_login`; 400 loopback messages, `code_challenge_method must be S256`, `Invalid code_challenge` |
+| GET | `/auth/cli/authorize` | No | KODI-057: `?redirect_uri&code_challenge&code_challenge_method=S256&state` → 307 `WEB_SIGNIN_URI?cli=1` + `__cli_login`; 400 loopback messages, `code_challenge_method must be S256`, `Invalid code_challenge` |
 | POST | `/auth/token` | No | KODI-057: `grant_type` `authorization_code` `{code, code_verifier, redirect_uri, device_name?}` · `refresh_token` · `urn:ietf:params:oauth:grant-type:device_code` → `{access_token, token_type: "Bearer", expires_in, refresh_token, refresh_expires_in}`; 400 `{error, detail}`; 422 bad shape |
 | POST | `/auth/revoke` | No | KODI-057: `{refresh_token}` → 204 for any value, live, ended or unknown (ends a live session as `logout`); 503 when Redis is down (fail closed: a 204 would claim an end that did not happen) |
 | POST | `/auth/device/code` | No | KODI-057: `{device_name?}` → `{device_code, user_code: "XXXX-XXXX", verification_uri, verification_uri_complete, expires_in: 600, interval: 10}` |
 | GET | `/auth/device/verify` | Yes | KODI-057: `?user_code=` → `{device_name, client_label, ip, requested_at, expires_at}`; 404 `Code not found or expired` |
 | POST | `/auth/device/approve`, `/auth/device/deny` | Yes | KODI-057: `{user_code}` → 204; 404; 409 `Code already used`. The poll then answers `authorization_pending`, `slow_down` (faster than `interval`), `access_denied`, `expired_token`, or the session (signed in as the approver, one use) |
 
-### Account links (`/auth/link`, KODI-024, ADR-0013, supersedes ADR-0008/KODI-020)
-
-| Method | Route | Auth | Description |
-|--------|-------|------|-------------|
-| POST | `/auth/link/discord` | Yes | Start the Discord link: 200 `{authorize_url}`, 401, or 503 when the id, the secret or the token key is missing |
-| GET | `/auth/link/discord/callback` | No (cookie resolved internally) | Discord consent lands here; always a 307 to `ACCOUNT_LINK_REDIRECT_URI?account=discord&status=linked\|conflict\|error`, never JSON |
-| DELETE | `/auth/link/discord` | Yes | Disconnect: 200 `{"provider": "discord", "linked": false}`, idempotent |
-
-Connecting Discord from the profile is **separate from GitHub login**: the
-callback never sets, clears or reads a session cookie except to check who is
-already signed in, and it never issues a new one. `POST` creates a single-use,
-10-minute Redis nonce (`AccountLinkStateUseCase`,
-`applika:account_link:discord:{nonce}` -> the user id who started it) and
-returns Discord's authorize URL with scope `identify guilds
-guilds.members.read` - identity, the servers the user is in, and the user's
-roles in those servers, and nothing more (R-014). The callback, in order:
-consumes the nonce (so a replay never matches twice, even on a later
-Discord-side failure), resolves the caller's own `__access` cookie through
-`GetCurrentUserUseCase` (bypassing `CurrentUserDp` on purpose, since the
-callback is a redirect target, not an authenticated JSON endpoint), requires
-that user to be the one the nonce was issued to, then exchanges the code
-(`DiscordOAuthService.exchange_code`) and reads the Discord profile
-(`fetch_profile`). Any refusal at any step - unknown/expired/replayed state,
-session mismatch, a Discord `error` param, a missing `code`, an unconfigured
-app, or `DiscordLinkError` from the exchange/profile fetch - answers
-`status=error` with nothing written. **A Discord id that already belongs to
-another Applika user moves to the caller** (R-008, rewritten 2026-09-24 -
-the owner: "drop the old connection and create the new one"):
-`DiscordConnectionRepository.link` deletes that user's row and writes the
-caller's row with the caller's new grant, in one transaction, and the
-callback answers `status=linked`. Nothing is revoked at Discord for either
-user - a revoke could cancel the caller's own just-granted access, since it
-is the same Discord user authorizing the same app. `status=conflict` is left
-for exactly one case: two users completing consent for the same Discord
-account at the same instant, where the loser's write hits the database's own
-`uq_discord_connections_discord_id` as an `IntegrityError` on commit
-(mapped by `DiscordConnectionRepository.link`) - the loser's row is never
-written and nothing is revoked there either. Disconnect
-(`UnlinkDiscordUseCase`) deletes the connection row, then asks Discord to
-revoke the stored refresh token best-effort - a Discord failure never blocks
-the disconnect, and there is no `is_configured` gate on the route itself
-(only on whether the revoke call is attempted).
-
-**The connection is a record of its own, apart from `users`** (R-012,
-`DiscordConnectionModel`, table `discord_connections`, migration
-`ba44f9cfd3c1`): the Discord user id, username, display name (`global_name`),
-avatar, the granted `scopes`, `access_token_expires_at`, `status` (`active` |
-`needs_reconnect`) and both `linked_at` and the inherited `updated_at`. Both
-`user_id` and `discord_id` are UNIQUE - a Discord account links to at most one
-Applika user, and a user holds at most one connection (AC1/AC2). The refresh
-token is stored **encrypted** (`encrypt_discord_token`/`decrypt_discord_token`
-in `app/core/crypto.py`, keyed by `DISCORD_TOKEN_ENCRYPTION_KEY`, its own
-Fernet secret distinct from `GITHUB_TOKEN_ENCRYPTION_KEY`); the Discord
-**access** token is never stored at all, only ever held in a local variable
-for the request that needs it.
-
-**No revoke at connect, in any outcome** (unlike the old KODI-020 flow, and
-rewritten again 2026-09-24 for the transfer above): `LinkDiscordUseCase`
-encrypts the refresh token and stores the grant; it calls nothing at Discord
-whether the connect is fresh, a reconnect, a transfer, or the losing side of
-a race. **Revoke on disconnect and on account delete**: `UnlinkDiscordUseCase`
-runs before `user_repo.delete` in `DELETE /users/me`, so the row is gone and
-the grant is revoked best-effort before the cascade would have removed the
-row anyway.
-
-**Reconnect** runs the exact same consent flow: `DiscordConnectionRepository
-.link` on the caller's own row refreshes every field (username, global_name,
-avatar, scopes, the encrypted token, the expiry) and sets `status=active` and
-`linked_at=now()`, clearing a `needs_reconnect` mark in place - never a second
-row. A `needs_reconnect` user who authorises a *different* Discord account
-still gets their own row replaced in place; if another user already holds
-that account, it moves exactly as above - that user's row is deleted, the
-caller's row takes the id, and nothing is revoked.
-
-`needs_reconnect` (`DiscordConnectionRepository.mark_needs_reconnect`) is set
-when a scheduled access-token renewal (`DiscordOAuthService.refresh`, K8) gets
-a 400 `invalid_grant` from Discord (`DiscordGrantRevoked`) - a 429, a 5xx or a
-network error (`DiscordUnavailable`) is transient and never marks the
-connection. Each successful renewal replaces the stored refresh token with the
-new one, encrypted (`DiscordConnectionRepository.store_grant`, R-017).
-
-`DiscordOAuthService` (`app/application/services/discord_oauth_service.py`,
-distinct from the webhook `DiscordService` above) does its own `httpx`
-`exchange_code`/`fetch_profile`/`refresh`/`revoke` rather than
-`fastapi_sso.sso.discord.DiscordSSO`: the library sets an `sso_state` cookie
-whenever a caller-chosen `state` is passed to `get_login_redirect`, which
-would break the callback's "sets no cookie" contract, and the flow's CSRF
-check is already the Redis nonce above. No Discord access or refresh token is
-ever logged or appears in `repr()` (`DiscordGrant`'s token fields are
-`repr=False`); a revoke failure is swallowed and logged without the token
-value, and never blocks the caller.
-
-`user_feedback.py` reads the connection's `discord_id` fresh through
-`DiscordConnectionRepositoryDp` on every request, in **any** connection
-status (R-041) - never a cached value on the user, so feedback submitted
-right after `DELETE /auth/link/discord` carries no mention (KODI-021,
-below). `reports.py` no longer reads the connection directly at all
-(KODI-026 retired that interim read): a report's mention comes from
-`ResolveReportWebhooksUseCase`'s `ReportRouteDTO.discord_id`, which is
-`None` whenever the connection is absent, `needs_reconnect`, or the
-Discord app is unconfigured - see **Report routing** below.
+Discord linking is removed (ADR-0024): `/auth/link/discord*` answer 404. The Discord tables stay in the database, unmapped.
 
 ### Users (`/users`)
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
 | GET | `/users/me` | Yes | Get current user profile |
 | PATCH | `/users/me` | Yes | Update profile |
+| POST | `/users/me/github-restore/dismiss` | Yes | ADR-0024: the one-time restore screen is answered; 204, idempotent |
 | GET | `/users/me/features` | Yes | KODI-052: `{features: [{key, stage: 'beta' \| 'general'}]}`, the caller's own, by key (web only; `/users/me` is unchanged for the CLI) |
 | GET | `/users/me/sessions` | Yes | KODI-057: the caller's devices `[{id, client_type, sign_in_method, device_name, client_label, created_ip, last_ip, created_at, last_used_at, expires_at, ended_at, status: active\|signed_out\|revoked\|expired, current}]`: active by `last_used_at` DESC NULLS LAST (live from Redis), then ended by `coalesce(ended_at, expires_at)` DESC within `SESSION_HISTORY_DAYS`. Status derived; the GET writes nothing |
 | DELETE | `/users/me/sessions/{id}` | Yes | KODI-057: revoke → 204 (ended/expired: no-op 204; the current one also clears both cookies); 404 `Session not found` for any other user's id, admins too |
 | POST | `/users/me/sessions/revoke-others` | Yes | KODI-057: every other live session ends as `revoked` → `{revoked: n}` |
 
-Both routes read the caller's Discord connection through
-`DiscordConnectionRepositoryDp` and build the response with
-`UserProfile.from_user(user, connection)` (`app/presentation/schemas/user.py`),
-never the bare `model_validate`, so the derivation has one call site.
-`UserProfile.discord` is `DiscordAccountOut {username, global_name,
-avatar_url, status}` or `null`; `avatar_url` is computed
-(`https://cdn.discordapp.com/avatars/{discord_id}/{avatar}.png?size=64`, or
-`null` without a stored avatar) - the Discord id itself is **never** a field
-on `UserProfile` or on any admin schema. `discord_linked` is `discord is not
-null`.
+`GET`/`PATCH /users/me` build the response with `UserProfile.from_user(user, badges, binding, github)`: `badges` = live rows `[{badge, granted_at}]` held or not; `borderless` = `{status: active|expired|needs_reconnect, expires_at, email}` or null (computed at request time); `github_restore` = `{available: no GitHub row, prompt: available and not seen}`; `github_id` = the caller's `github_connections.github_id` or null. `username`, `first_name`, `last_name`, `email` are unchanged for the CLI.
 
 ### Applications (`/applications`)
 | Method | Route | Auth | Description |
@@ -1230,56 +1099,16 @@ denials/rejected = with a denied event, open/active = `finalized_at` NULL,
 finalized = `finalized_at` set, and activity (30-day active users, the
 heatmap) comes from `timeline_events.created_at`.
 
-### Admin report webhooks (`/admin/discord-webhooks`, KODI-025, ADR-0013)
+### Admin report webhooks (`/admin/report-webhooks`, ADR-0024)
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| GET | `/admin/discord-webhooks` | Admin | List every configured report webhook |
-| POST | `/admin/discord-webhooks` | Admin | Add one (201) |
-| PATCH | `/admin/discord-webhooks/{id}` | Admin | Partial update (200); unknown id 404 |
-| DELETE | `/admin/discord-webhooks/{id}` | Admin | Remove it (204); unknown id 404 |
+| GET | `/admin/report-webhooks` | Admin | `[{id, label, badge \| null, webhook_url_masked, created_at, updated_at}]` |
+| POST | `/admin/report-webhooks` | Admin | `{webhook_url, badge, label?}` → 201; 409 "This webhook is already configured"; 422 |
+| PATCH | `/admin/report-webhooks/{id}` | Admin | Partial; `badge` BASE or PSP only, never null; blank `webhook_url` keeps it; `label: null` clears → 200; 404 "Report webhook not found" |
+| DELETE | `/admin/report-webhooks/{id}` | Admin | 204; 404 |
 
-An admin-managed catalog (ADR-0004), not owned by a user: `guild_id` (the
-Discord server whose membership K8 will check at submit time),
-`webhook_url` (unique) and up to 25 optional `role_ids`, plus a free-text
-`label`. Table `discord_report_webhooks`, added by migration `ba44f9cfd3c1`
-(K5) with **no** ORM model until this ticket; `DiscordReportWebhookModel`
-now maps it object-for-object (no new migration). Not a CLI route.
-
-**The full webhook address is never returned or logged** (AC3): every
-response carries `webhook_url_masked`
-(`https://discord.com/api/webhooks/<webhook_id>/…<last 4 chars of the
-token>`, `app/application/validators/discord_webhook.mask`) and use-case
-logs name the webhook's own id, never the URL. The repository's own
-`IntegrityError` on the unique `webhook_url` (asyncpg's error text quotes
-the URL in its `DETAIL`) is caught and replaced with a fixed-string
-`ResourceConflict('This webhook is already configured')` before it ever
-reaches a log line or a response.
-
-`webhook_url` must be a secure Discord webhook address
-(`discord.com`/`discordapp.com`, the `ptb`/`canary` subdomains, an optional
-`/v<n>` API version segment); `guild_id`/`role_ids` must be Discord
-snowflake ids - 17 to 20 digits **and** within Postgres `BIGINT`
-(`9223372036854775807`), since a 20-digit numeric string can already
-overflow it (a 422, not an unhandled 500). Every field on
-`CreateDiscordWebhookSchema`/`UpdateDiscordWebhookSchema` is optional at the
-schema level on purpose, even the ones required by the API contract:
-FastAPI's default `RequestValidationError` for a *missing* field reports
-`input` as the whole submitted body, which would put `webhook_url` into a
-422 that has nothing to do with it. Making every field optional means a
-missing/blank required field never fails pydantic's own validation - it
-reaches `app/application/validators/discord_webhook.py`, which raises a
-fixed-string `BusinessRuleViolation` (422) instead. `PATCH` is a true
-partial: an omitted or blank/whitespace `webhook_url` keeps the stored one
-(a real new value is re-validated, and a duplicate is still 409);
-`role_ids` fully replaces the stored list whenever the key is present
-(including `[]`); `label: null` clears it, an absent key keeps it -
-`UpdateDiscordWebhookUseCase` reads `model_dump(exclude_unset=True)` to
-tell "omitted" from "sent as null" for exactly that field.
-
-`DiscordReportWebhookRepository.list_by_guild_ids` exists for K8's
-submit-time routing ("selects the webhooks of those servers") and is not
-called by anything yet.
+Table `report_webhooks` (`ReportWebhookModel`), carried over from `discord_report_webhooks` with no badge. A badge accepts `borderless_base`/`borderless_psp` or `BASE`/`PSP`, any case. Only `webhook_url_masked` is ever returned (`validators/report_webhook.mask`), logs name the id, and the router's `NoInputEchoRoute` (`app/presentation/no_input_echo.py`, also on `/auth/borderless/*`) strips `input` from every 422, so the URL (or a password) is never echoed. `/admin/discord-webhooks*` answer 404.
 
 ### Admin job sources (`/admin/jobs`, KODI-046, ADR-0016)
 
@@ -1434,8 +1263,7 @@ Defined in `app/core/enums.py`:
 
 Required:
 - `DATABASE_URL`: postgresql+asyncpg://user:pass@host:port/db
-- `GITHUB_CLIENT_ID`: GitHub OAuth client ID
-- `GITHUB_CLIENT_SECRET`: GitHub OAuth client secret
+- `BORDERLESS_API_URL` (https in PROD) and `BORDERLESS_TOKEN_ENCRYPTION_KEY` (Fernet): sign-in answers 503 until both are set (ADR-0024)
 
 Optional (with defaults):
 - `ENVIRONMENT`: PROD | DEV | TEST (default: DEV)
@@ -1451,29 +1279,15 @@ Optional (with defaults):
 - `CLI_MANUAL_REDIRECT_URI`: the web page that shows a PKCE code to paste (`redirect_uri=oob`, default `http://127.0.0.1:8080/cli/code`; prod `https://applika.dev/cli/code`)
 - `SESSION_HISTORY_DAYS`: ended devices stay listed this long (default 30); older rows are kept, not shown
 - `REDIS_URL`: Redis connection URL (default: redis://localhost:6379/0)
-- `GITHUB_CACHE_TTL_SECONDS`: Redis cache TTL for GitHub API checks (default: 600)
 - `CV_PDF_RENDER_TIMEOUT_SECONDS`: wall-clock ceiling for one CV PDF render (default: 30); past it the request is a 500
-- `GITHUB_TOKEN_ENCRYPTION_KEY`: Fernet key for encrypting GitHub tokens (generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
+- `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`: the GitHub OAuth app of the restore (default unset → 503)
+- `BORDERLESS_TIMEOUT_SECONDS` (5.0), `BORDERLESS_REFRESH_TIMEOUT_SECONDS` (3.0, the membership read on a refresh), `BORDERLESS_SIGNIN_EMAIL_LIMIT` (5), `BORDERLESS_SIGNIN_EMAIL_WINDOW_SECONDS` (900)
+- `WEB_SIGNIN_URI`: the web sign-in page every CLI browser sign-in lands on (`?cli=1`, default `http://127.0.0.1:8080/login`)
 - `DISCORD_FEEDBACK_WEBHOOK`: Discord webhook for user feedback
-- `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET`: Discord OAuth app for the
-  account-link flow (KODI-024, default `None`); the link routes answer 503
-  until the id, the secret AND `DISCORD_TOKEN_ENCRYPTION_KEY` below are all
-  set. Unrelated to `DISCORD_FEEDBACK_WEBHOOK` above, which is a webhook, not
-  an OAuth app. `DISCORD_REPORTS_ORGANIZATION` and `DISCORD_REPORTS_WEBHOOK`
-  are retired (KODI-026): report routing now comes from the admin-managed
-  `discord_report_webhooks` table (**Report routing** above), matched against
-  the servers and roles read live from the submitting user's own Discord
-  connection
-- `DISCORD_LINK_REDIRECT_URI`: the API's own Discord OAuth callback
-  (default `http://127.0.0.1:8000/api/auth/link/discord/callback`)
-- `ACCOUNT_LINK_REDIRECT_URI`: the profile page the callback redirects back
-  to (default `http://127.0.0.1:8080/profile`)
+- `ACCOUNT_LINK_REDIRECT_URI`: the profile page the GitHub restore callback
+  redirects back to (default `http://127.0.0.1:8080/profile`)
 - `ACCOUNT_LINK_STATE_TTL_SECONDS`: TTL of the account-link CSRF nonce in
   Redis (default: 600)
-- `DISCORD_TOKEN_ENCRYPTION_KEY`: Fernet key for encrypting the Discord
-  connection's stored refresh token (KODI-024, default `None`); its own
-  secret, distinct from `GITHUB_TOKEN_ENCRYPTION_KEY` - generate it the same
-  way
 - `CORS_ORIGINS`, `CORS_HEADERS`, `CORS_METHODS`: CORS configuration
 - `RATE_LIMIT_ENABLED`: on/off switch for the API rate limiter (KODI-039,
   ADR-0015, default `True`), read on every request
@@ -1507,10 +1321,13 @@ Optional (with defaults):
 ## Domain Model Relationships
 
 ### Core Entities
-- **User**: GitHub OAuth authenticated users with profile (company, role, salary, tech stack, seniority, availability). `users` carries **no** Discord column (KODI-024/ADR-0013 retired `users.discord_id`); the optional Discord account link is its own `DiscordConnectionModel` row, below - never GitHub login, never a second sign-in path. `users.is_org_member_old` (renamed from `is_org_member` by migration `583226ca46bc`, KODI-029, Release C) is UNMAPPED (KODI-026, R-042/R-043): the column stays in the database, values kept, but no ORM model, use case, DTO or schema reads or writes it any more; deletion only on a later explicit owner order (`.claude/rules/non-destructive-migrations.md` rule 9)
-- **UserSession** (KODI-057, ADR-0019, table `user_sessions`, revision `ed39a0fad1e5`): one sign-in = one device. `client_type` `web`|`cli`, `sign_in_method` `github_web`|`cli_browser`|`cli_device`|`cli_legacy`, `device_name` (given ≤ 100, else from the user agent), `user_agent` (≤ 512), `created_ip`/`last_ip`, `last_used_at` (copied from Redis on refresh and on end), `expires_at` (slides), `ended_at` + `end_reason` (`logout`|`revoked`|`expired`|`github_revoked`|`replaced`, set together). `__table_args__` mirror the revision (four CHECKs, `ix_user_sessions_user_id_created_at`, partial `ix_user_sessions_open`). No refresh value column. The live half is in Redis (see **Authentication**)
-- **DiscordConnection**: one row per linked user (table `discord_connections`, migration `ba44f9cfd3c1`), a record of its own apart from `users` (R-012). `user_id` and `discord_id` are each UNIQUE. Holds the Discord user id, username, display name (`global_name`), avatar, the granted `scopes`, `access_token_expires_at`, `status` (`active` | `needs_reconnect`) and `linked_at`; the refresh token is stored **encrypted** (`encrypted_refresh_token`) and there is **no** access-token column - see **Account links** above for the full flow
-- **DiscordReportWebhook**: admin-managed catalog (KODI-025, ADR-0004/ADR-0013), table `discord_report_webhooks`, added by migration `ba44f9cfd3c1` but unmapped until this ticket - not owned by a `user_id`. `webhook_url` is UNIQUE; `guild_id` is indexed for K8's submit-time lookup; `role_ids` (`BIGINT[]`, default `{}`) and `label` are optional. See **Admin report webhooks** above
+- **User**: signs in with Borderless (ADR-0024); profile (company, role, salary, tech stack, seniority, availability). `users` carries **no** Discord column (KODI-024/ADR-0013 retired `users.discord_id`); the optional Discord account link is its own `DiscordConnectionModel` row, below - never GitHub login, never a second sign-in path. `users.is_org_member_old` (renamed from `is_org_member` by migration `583226ca46bc`, KODI-029, Release C) is UNMAPPED (KODI-026, R-042/R-043): the column stays in the database, values kept, but no ORM model, use case, DTO or schema reads or writes it any more; deletion only on a later explicit owner order (`.claude/rules/non-destructive-migrations.md` rule 9)
+- **UserSession** (KODI-057, ADR-0019, table `user_sessions`, revision `ed39a0fad1e5`): one sign-in = one device. `client_type` `web`|`cli`, `sign_in_method` `github_web` (pre-ADR-0024 rows)|`borderless`|`cli_browser`|`cli_device`|`cli_legacy`, `device_name` (given ≤ 100, else from the user agent), `user_agent` (≤ 512), `created_ip`/`last_ip`, `last_used_at` (copied from Redis on refresh and on end), `expires_at` (slides), `ended_at` + `end_reason` (`logout`|`revoked`|`expired`|`github_revoked`|`replaced`, set together). `__table_args__` mirror the revision (four CHECKs, `ix_user_sessions_user_id_created_at`, partial `ix_user_sessions_open`). No refresh value column. The live half is in Redis (see **Authentication**)
+- **BorderlessAccount** (table `borderless_accounts`, revision `d9e0b46dd7e1`): the Borderless account bound to a user, `user_id` and `borderless_user_id` each UNIQUE, `email`, `encrypted_access_token`, `access_token_expires_at`, `status` `active`|`needs_reconnect`, `linked_at`, `profile_read_at`, `profile_read_failed_at`. No refresh token column
+- **UserBadge** (`user_badges`): `badge` `borderless_base`|`borderless_psp`, `source` `borderless`, `granted_at`, `revoked_at`; partial unique `uq_user_badges_live (user_id, badge) WHERE revoked_at IS NULL`
+- **GithubConnection** (`github_connections`): the GitHub-era identity (`github_id` UNIQUE, `username`, `linked_at`), read only by the restore
+- **ReportWebhook** (`report_webhooks`): admin catalog, `url` UNIQUE, `badge` nullable, `label`
+- `users.github_id`, `users.encrypted_github_token`, `discord_connections` and `discord_report_webhooks` stay in the database, unmapped
 - **Company**: Job companies (ADR-0014). `is_public` (default `True`) and `created_by` (nullable, `ON DELETE SET NULL`) decide visibility - see **Companies and Platforms** above. Uniqueness is two scoped partial indexes, not one global one: `uq_companies_public_name_url` (`lower(name), url` where public) and `uq_companies_private_owner_name_url` (`created_by, lower(name), url` where private) - two users may hold a private company with the same name and url
 - **Application**: Job applications with tracking, salary info, and country. `is_draft` (KODI-032, ADR-0014) marks a "new application with CV" draft, excluded from every read model by default (`NOT_DRAFT`, see **Application drafts** above)
 - **TimelineEvent**: one entry of an application's timeline (`timeline_events`), typed by `EventType`, with `interview_type` on interviews and the salary triple on offers; rows migrated from `application_steps` kept the step's id
@@ -1521,7 +1338,7 @@ Optional (with defaults):
   - Report days: 1, 14, 28, 42, 56, 70, 84, 98, 112, 120
   - Phases: 1-4
   - Includes manual metrics (mock interviews, LinkedIn posts, strategic connections)
-  - Discord integration for posting reports
+  - Posted to the report webhooks of the author's badges
 - **UserFeedback**: In-app feedback from users (score 1-5 + optional text)
 - **BaseCV**: A user's master CV, capped at 3 per user
   - Identity and contact (`name` label, `full_name`, `headline`, `location`, `email`, optional `phone`) plus a `summary`
@@ -1573,7 +1390,7 @@ Optional (with defaults):
 - FeatureBetaUser → Feature and User (many-to-one, **CASCADE** on each); `added_by` → User (**SET NULL**)
 - FeatureAdminOptOut → Feature and User (many-to-one, **CASCADE** on each)
 - UserSession → User (many-to-one, **CASCADE**; `DELETE /users/me` also DELs the Redis keys first)
-- DiscordConnection → User (one-to-one, cascade delete — deleting the user removes the connection; no ORM relationship is declared back on `UserModel`, same as BaseCV/TailoredCV)
+- BorderlessAccount, UserBadge, GithubConnection → User (CASCADE)
 
 Applications are closed ("finalized") when `finalized_at` is set; reopen clears it.
 

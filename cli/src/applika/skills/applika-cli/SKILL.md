@@ -11,7 +11,7 @@ description: >
 # applika-cli Usage Guide
 
 `applika-cli` is a terminal tool for tracking job applications on Applika.dev.
-It signs in with GitHub, gets a session of its own (a device in the web
+It signs in with Borderless (email and password on applika's sign-in page), gets a session of its own (a device in the web
 profile's Devices tab) and stores it locally, sent as `Authorization: Bearer`.
 
 ## 1. Pre-flight: Verify authentication first
@@ -30,9 +30,9 @@ If `whoami` prints an auth error, run login before proceeding:
 applika login
 ```
 
-`applika login` opens the user's browser to GitHub. The sign-in is protected
-by PKCE and comes back to a local loopback callback — the user just clicks
-"Authorize" in the browser and the session is saved automatically. It prints
+`applika login` opens the user's browser to applika's Borderless sign-in page.
+The sign-in is protected by PKCE and comes back to a local loopback callback —
+the user just signs in with their Borderless email and password and the session is saved automatically. It prints
 `Logged in as <username> on <device_name>`.
 
 - `applika login --manual`: the browser cannot reach the local callback

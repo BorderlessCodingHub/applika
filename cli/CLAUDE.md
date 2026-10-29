@@ -197,7 +197,7 @@ src/applika/
 
 | Command | Description |
 |---|---|
-| `applika login [--device] [--manual] [--device-name TEXT]` | GitHub sign-in with a session of the CLI's own: PKCE + local callback (default), paste `code#state` (`--manual`), device code (`--device`) |
+| `applika login [--device] [--manual] [--device-name TEXT]` | Borderless sign-in (on applika's sign-in page) with a session of the CLI's own: PKCE + local callback (default), paste `code#state` (`--manual`), device code (`--device`) |
 | `applika logout` | End the session on the server (`POST /auth/revoke`), then clear it locally |
 | `applika whoami` | Show the currently authenticated user |
 | `applika applications list` | List applications (filterable) |
