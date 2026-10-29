@@ -346,7 +346,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - the access token's `sub` is `users.id`; every session open before this release ends and every user signs in again with Borderless.
-- /auth/refresh and the refresh_token grant read the Borderless membership instead of checking a GitHub token; a user with no Borderless binding gets 401 "Sign in again with Borderless".
+- /auth/refresh and the refresh_token grant read the Borderless membership instead of checking a GitHub token; a user with no Borderless binding, or a session opened before this release, gets 401 "Sign in again with Borderless" and the session ends.
 - /auth/github/login 307s to WEB_SIGNIN_URI; /auth/cli/authorize and /auth/cli/login/{id} 307 to WEB_SIGNIN_URI?cli=1 (400/404 unchanged).
 - /reports* need a held BASE or PSP badge: 403 `badge_required` without a recorded badge (administrators included), 403 `membership_unconfirmed` when the recorded badge does not count. A report posts to the report webhooks of the author's badges; webhooks carried over without a badge receive nothing.
 - report and feedback posts carry the applika username and mention nobody.
