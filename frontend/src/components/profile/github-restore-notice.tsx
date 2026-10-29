@@ -1,6 +1,8 @@
 import {
   CircleAlert,
   CircleCheck,
+  Link2Off,
+  SearchX,
   TriangleAlert,
   X,
   type LucideIcon,
@@ -9,44 +11,46 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export const DISCORD_LINK_STATUSES = ["linked", "conflict", "error"] as const;
+import {
+  GITHUB_RESTORE_COPY,
+  GITHUB_RESTORE_NOTICE_COPY,
+  type GithubRestoreStatus,
+} from "./github-restore-copy";
 
-export type DiscordLinkStatus = (typeof DISCORD_LINK_STATUSES)[number];
-
-export function isDiscordLinkStatus(
-  value: unknown,
-): value is DiscordLinkStatus {
-  return (
-    typeof value === "string" &&
-    (DISCORD_LINK_STATUSES as readonly string[]).includes(value)
-  );
-}
-
-interface NoticeVariant {
-  message: string;
+interface NoticeTone {
   role: "status" | "alert";
   icon: LucideIcon;
   container: string;
   tile: string;
 }
 
-const NOTICE: Record<DiscordLinkStatus, NoticeVariant> = {
-  linked: {
-    message: "Discord connected. Your reports and feedback will mention you.",
+// Text stays `foreground` on every tint; the tone is on the icon tile only.
+const TONE: Record<GithubRestoreStatus, NoticeTone> = {
+  restored: {
     role: "status",
     icon: CircleCheck,
     container: "border-success/30 bg-success/5",
     tile: "bg-success/10 text-success",
   },
-  conflict: {
-    message: "This Discord account is linked to another Applika account",
+  not_found: {
+    role: "alert",
+    icon: SearchX,
+    container: "border-border bg-muted/40",
+    tile: "bg-muted text-foreground/70",
+  },
+  has_data: {
     role: "alert",
     icon: TriangleAlert,
     container: "border-warning/30 bg-warning/5",
     tile: "bg-warning/10 text-warning",
   },
+  already_bound: {
+    role: "alert",
+    icon: Link2Off,
+    container: "border-warning/30 bg-warning/5",
+    tile: "bg-warning/10 text-warning",
+  },
   error: {
-    message: "Discord was not connected, try again",
     role: "alert",
     icon: CircleAlert,
     container: "border-destructive/30 bg-destructive/5",
@@ -54,22 +58,23 @@ const NOTICE: Record<DiscordLinkStatus, NoticeVariant> = {
   },
 };
 
-export interface DiscordLinkNoticeProps {
-  status: DiscordLinkStatus;
+export interface GithubRestoreNoticeProps {
+  status: GithubRestoreStatus;
   onDismiss?: () => void;
   className?: string;
 }
 
-export function DiscordLinkNotice({
+/** The restore callback's outcome on `/profile`, shown once after the redirect. */
+export function GithubRestoreNotice({
   status,
   onDismiss,
   className,
-}: DiscordLinkNoticeProps) {
-  const { message, role, icon: Icon, container, tile } = NOTICE[status];
+}: GithubRestoreNoticeProps) {
+  const { role, icon: Icon, container, tile } = TONE[status];
 
   return (
     <div
-      data-slot="discord-link-notice"
+      data-slot="github-restore-notice"
       data-status={status}
       className={cn(
         "flex animate-fade-in items-center gap-3 rounded-lg border p-3 text-sm motion-reduce:animate-none sm:gap-4 sm:p-4",
@@ -91,7 +96,7 @@ export function DiscordLinkNotice({
         role={role}
         className="min-w-0 flex-1 font-medium text-pretty text-foreground"
       >
-        {message}
+        {GITHUB_RESTORE_NOTICE_COPY[status]}
       </p>
       {onDismiss ? (
         <Button
@@ -99,7 +104,7 @@ export function DiscordLinkNotice({
           variant="ghost"
           size="icon-sm"
           onClick={onDismiss}
-          aria-label="Dismiss notice"
+          aria-label={GITHUB_RESTORE_COPY.dismiss}
           className="-my-1 -mr-1 shrink-0 text-muted-foreground"
         >
           <X aria-hidden />

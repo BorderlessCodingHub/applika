@@ -9,11 +9,11 @@ import { UserProfileView } from "@/components/profile/profile-view";
 import { UserProfileEditForm } from "@/components/profile/edit-form";
 import { useGeneralStats } from "@/hooks/use-statistics";
 import { UserProfileSkeleton } from "@/components/profile/sub-components";
+import { GithubRestoreNotice } from "@/components/profile/github-restore-notice";
 import {
-  DiscordLinkNotice,
-  isDiscordLinkStatus,
-  type DiscordLinkStatus,
-} from "@/components/profile/discord-link-notice";
+  isGithubRestoreStatus,
+  type GithubRestoreStatus,
+} from "@/components/profile/github-restore-copy";
 import { USER_QUERY_KEY } from "@/hooks/use-user";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DevicesTab } from "@/components/profile/devices-tab";
@@ -79,10 +79,12 @@ export function ProfilePage() {
   // effect (`react-hooks/set-state-in-effect`). That is what makes the notice
   // survive the URL cleanup below: by the time that runs and clears the query
   // string, `notice` already holds its own copy.
-  const [notice, setNotice] = useState<DiscordLinkStatus | null>(() => {
+  const [notice, setNotice] = useState<GithubRestoreStatus | null>(() => {
     const account = searchParams.get("account");
     const status = searchParams.get("status");
-    return account === "discord" && isDiscordLinkStatus(status) ? status : null;
+    return account === "github" && isGithubRestoreStatus(status)
+      ? status
+      : null;
   });
   // `?tab=devices` (the `/device` page's "See your devices" link) opens the
   // Devices tab once; switching tabs afterwards is local state only.
@@ -99,10 +101,16 @@ export function ProfilePage() {
     if (consumed.current) return;
     const account = searchParams.get("account");
     const status = searchParams.get("status");
-    if (account !== "discord" || !isDiscordLinkStatus(status)) return;
+    if (account !== "github" || !isGithubRestoreStatus(status)) return;
 
     consumed.current = true;
-    void queryClient.invalidateQueries({ queryKey: USER_QUERY_KEY });
+    // `restored` signed this browser in as the old account: refetch who we
+    // are (and everything cached for the deleted new account).
+    if (status === "restored") {
+      void queryClient.invalidateQueries();
+    } else {
+      void queryClient.invalidateQueries({ queryKey: USER_QUERY_KEY });
+    }
     // Next's app-router `useRouter().replace()` is a no-op here: this app is
     // a fully static export (`output: "export"`, no server to resolve a
     // route transition against) and clearing ONLY the query string on the
@@ -141,7 +149,7 @@ export function ProfilePage() {
         ) : (
           <>
             {notice ? (
-              <DiscordLinkNotice
+              <GithubRestoreNotice
                 status={notice}
                 onDismiss={() => setNotice(null)}
                 className="mx-auto mb-6 max-w-4xl"

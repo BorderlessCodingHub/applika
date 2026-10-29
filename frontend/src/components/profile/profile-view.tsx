@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   AlertTriangle,
   Briefcase,
@@ -19,15 +19,14 @@ import { SelectOptions } from "@/options";
 import { LinkedinIcon } from "../brand-icons";
 import { Badge } from "../ui/badge";
 import { getCurrencySymbol } from "./edit-form-config";
-import {
-  ConnectedAccounts,
-  toConnectedDiscordAccount,
-} from "./connected-accounts";
 import { useDeleteAccount } from "@/hooks/use-user";
+import { useStartGithubRestore } from "@/hooks/use-github-restore";
 import {
-  useStartDiscordLink,
-  useUnlinkDiscord,
-} from "@/hooks/use-account-links";
+  MembershipBadge,
+  membershipAccess,
+} from "@/components/badges/membership-badge";
+import { ConfirmMembershipNotice } from "./confirm-membership-notice";
+import { GithubRestoreCard } from "./github-restore-card";
 
 function formatLabel(v?: string) {
   return v?.replace(/_/g, " ") ?? "";
@@ -53,8 +52,12 @@ export function UserProfileView({
   const badges = computeBadges(userStats);
   const earnedBadges = badges.filter((b) => b.earned);
   const lockedBadges = badges.filter((b) => !b.earned);
-  const startDiscordLink = useStartDiscordLink();
-  const unlinkDiscord = useUnlinkDiscord();
+  const startRestore = useStartGithubRestore();
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const access = membershipAccess(user);
+  const heldBadges = access.state === "held" ? access.badges : [];
+  // Whenever the Borderless access is not active, even with no badge.
+  const needsConfirm = !!user.borderless && user.borderless.status !== "active";
   const currencySymbol = getCurrencySymbol(user.salary_currency);
   const periodLabel =
     SelectOptions.SALARY_PERIOD.find(
@@ -80,12 +83,19 @@ export function UserProfileView({
             </Button>
           </div>
           <div className="mt-3">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold text-foreground">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+              <h1
+                ref={headingRef}
+                tabIndex={-1}
+                className="min-w-0 text-lg font-semibold break-words text-foreground outline-none"
+              >
                 {user.first_name || user.last_name
                   ? `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim()
                   : user.username}
               </h1>
+              {heldBadges.map((badge) => (
+                <MembershipBadge key={badge} badge={badge} size="lg" />
+              ))}
               {user.availability && (
                 <span
                   className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${AVAILABILITY_STYLES[user.availability] ?? AVAILABILITY_STYLES.not_looking}`}
@@ -117,6 +127,21 @@ export function UserProfileView({
           </div>
         </div>
       </div>
+
+      {needsConfirm ? (
+        <ConfirmMembershipNotice
+          user={user}
+          onConfirmed={() => {
+            // The confirmed card unmounts its focused button: land on the h1.
+            requestAnimationFrame(() => {
+              const active = document.activeElement;
+              if (!active || active === document.body) {
+                headingRef.current?.focus();
+              }
+            });
+          }}
+        />
+      ) : null}
 
       {/* Info grid */}
       <div className="rounded-xl bg-card p-6 shadow-card">
@@ -254,14 +279,13 @@ export function UserProfileView({
         )}
       </div>
 
-      {/* Connected accounts */}
-      <ConnectedAccounts
-        account={toConnectedDiscordAccount(user.discord)}
-        onConnect={() => startDiscordLink.mutate()}
-        onDisconnect={() => unlinkDiscord.mutate()}
-        isConnecting={startDiscordLink.isPending || startDiscordLink.isSuccess}
-        isDisconnecting={unlinkDiscord.isPending}
-      />
+      {/* Restore an old GitHub-era account: only with no GitHub identity on record */}
+      {user.github_restore?.available ? (
+        <GithubRestoreCard
+          onRestore={() => startRestore.mutate()}
+          pending={startRestore.isPending || startRestore.isSuccess}
+        />
+      ) : null}
 
       {/* Delete Account */}
       <DeleteAccountCard username={user.username} />

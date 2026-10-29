@@ -14,6 +14,9 @@ import ProtectedLayout from "./layout";
 
 const replace = vi.fn();
 let auth = { isAuthenticated: false, isLoading: false };
+let currentUser: {
+  github_restore: { available: boolean; prompt: boolean };
+} | null = null;
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace }),
@@ -21,7 +24,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/contexts/auth-context", () => ({
-  useAuth: () => ({ ...auth, user: null, logout: vi.fn() }),
+  useAuth: () => ({ ...auth, user: currentUser, logout: vi.fn() }),
 }));
 
 vi.mock("@/hooks/use-features", () => ({
@@ -54,6 +57,7 @@ function renderLayout() {
 beforeEach(() => {
   window.sessionStorage.clear();
   replace.mockClear();
+  currentUser = null;
 });
 
 afterEach(() => {
@@ -145,5 +149,46 @@ describe("ProtectedLayout return-to", () => {
 
     expect(replace).not.toHaveBeenCalled();
     expect(getByText("page")).toBeInTheDocument();
+  });
+});
+
+/**
+ * ADR-0024: a new Borderless account answers the one-time `/welcome` choice
+ * before anything else; the return-to path waits for that answer.
+ */
+describe("ProtectedLayout welcome prompt", () => {
+  it("sends an account with an open prompt to /welcome, keeping the return-to", () => {
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=BCDF-GHJK");
+    auth = { isAuthenticated: true, isLoading: false };
+    currentUser = { github_restore: { available: true, prompt: true } };
+    visit("/dashboard");
+
+    renderLayout();
+
+    expect(replace).toHaveBeenCalledWith("/welcome");
+    expect(replace).toHaveBeenCalledTimes(1);
+    expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBe(
+      "/device?code=BCDF-GHJK",
+    );
+  });
+
+  it("never redirects from /welcome itself", () => {
+    auth = { isAuthenticated: true, isLoading: false };
+    currentUser = { github_restore: { available: true, prompt: true } };
+    visit("/welcome");
+
+    renderLayout();
+
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("leaves an account that already answered where it is", () => {
+    auth = { isAuthenticated: true, isLoading: false };
+    currentUser = { github_restore: { available: true, prompt: false } };
+    visit("/dashboard");
+
+    renderLayout();
+
+    expect(replace).not.toHaveBeenCalled();
   });
 });

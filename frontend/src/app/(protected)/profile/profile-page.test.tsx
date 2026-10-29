@@ -5,16 +5,13 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 import { ProfilePage } from "./profile-page";
 import type { User } from "@/services/types/users";
+import { GITHUB_RESTORE_NOTICE_COPY } from "@/components/profile/github-restore-copy";
 
 /**
- * KODI-022 (plan 0009, T051/T056/T066, T052/T057/T067) — the profile page's
- * `?account=discord&status=...` outcome handling: each status shows exactly
- * its own notice (exact wording), the user query is invalidated once, and
- * the URL is replaced back to `/profile`.
- *
- * `UserProfileView`/`UserProfileEditForm` are stubbed: this suite is about
- * the page's search-param/notice wiring, not the profile body (covered by
- * `connected-accounts.test.tsx` and the existing profile-view tests).
+ * The GitHub restore outcome (`?account=github&status=…`, ADR-0024): each
+ * status shows exactly its own words, the user is refetched once, and the URL
+ * goes back to `/profile`. `UserProfileView` is stubbed: this suite is about
+ * the page's search-param and notice wiring.
  */
 
 let searchParams = new URLSearchParams();
@@ -27,9 +24,14 @@ const USER: User = {
   id: "u1",
   username: "ada",
   email: "ada@example.com",
-  github_id: "gh1",
-  discord: null,
-  discord_linked: false,
+  github_id: null,
+  badges: [],
+  borderless: {
+    status: "active",
+    expires_at: "2026-11-05T00:00:00Z",
+    email: "ada@example.com",
+  },
+  github_restore: { available: true, prompt: false },
 };
 
 vi.mock("@/contexts/auth-context", () => ({
@@ -77,101 +79,96 @@ beforeEach(() => {
   vi.spyOn(window.history, "replaceState").mockImplementation(replaceState);
 });
 
-describe("ProfilePage discord link notices", () => {
-  it("status=linked shows the linked notice, invalidates the user query and replaces the URL", () => {
-    searchParams = new URLSearchParams("account=discord&status=linked");
+const ALERTS = ["not_found", "has_data", "already_bound", "error"] as const;
+
+describe("ProfilePage GitHub restore notices", () => {
+  it("status=restored shows the restored notice, refetches and replaces the URL", () => {
+    searchParams = new URLSearchParams("account=github&status=restored");
     const { invalidateSpy } = renderPage();
 
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Discord connected. Your reports and feedback will mention you.",
+      "Your old applika account is restored. It signs in with Borderless from now on.",
     );
-    expect(
-      screen.queryByText(
-        "This Discord account is linked to another Applika account",
-      ),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Discord was not connected, try again"),
-    ).not.toBeInTheDocument();
-
-    expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ["user", "me"] }),
-    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    // The browser is now the old account: everything cached is refetched.
+    expect(invalidateSpy).toHaveBeenCalledTimes(1);
+    expect(invalidateSpy).toHaveBeenCalledWith();
     expect(replaceState).toHaveBeenCalledWith(null, "", "/profile");
     expect(replaceState).toHaveBeenCalledTimes(1);
   });
 
-  it("status=conflict shows exactly the conflict notice text and no other notice", () => {
-    searchParams = new URLSearchParams("account=discord&status=conflict");
-    const { invalidateSpy } = renderPage();
+  it.each(ALERTS)(
+    "status=%s shows exactly its own alert and refetches the user",
+    (status) => {
+      searchParams = new URLSearchParams(`account=github&status=${status}`);
+      const { invalidateSpy } = renderPage();
+
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        GITHUB_RESTORE_NOTICE_COPY[status],
+      );
+      for (const other of ALERTS.filter((s) => s !== status)) {
+        expect(
+          screen.queryByText(GITHUB_RESTORE_NOTICE_COPY[other]),
+        ).not.toBeInTheDocument();
+      }
+      expect(invalidateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ["user", "me"] }),
+      );
+      expect(replaceState).toHaveBeenCalledWith(null, "", "/profile");
+    },
+  );
+
+  it("has_data explains that two accounts that both hold data are not merged", () => {
+    searchParams = new URLSearchParams("account=github&status=has_data");
+    renderPage();
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "This Discord account is linked to another Applika account",
+      "two accounts that both hold data are not merged",
     );
-    expect(
-      screen.queryByText(
-        "Discord connected. Your reports and feedback will mention you.",
-      ),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Discord was not connected, try again"),
-    ).not.toBeInTheDocument();
-    // T056: a conflict outcome invalidates the user query too, not just "linked".
-    expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ["user", "me"] }),
-    );
-    expect(replaceState).toHaveBeenCalledWith(null, "", "/profile");
   });
 
-  it("status=error shows exactly the error notice text and no other notice", () => {
-    searchParams = new URLSearchParams("account=discord&status=error");
-    const { invalidateSpy } = renderPage();
+  it("not_found tells the user no old account was found", () => {
+    searchParams = new URLSearchParams("account=github&status=not_found");
+    renderPage();
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Discord was not connected, try again",
+      "No old applika account was found for this GitHub account.",
     );
-    expect(
-      screen.queryByText(
-        "This Discord account is linked to another Applika account",
-      ),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(
-        "Discord connected. Your reports and feedback will mention you.",
-      ),
-    ).not.toBeInTheDocument();
-    // T066: an error outcome invalidates the user query too, not just "linked".
-    expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ["user", "me"] }),
-    );
-    expect(replaceState).toHaveBeenCalledWith(null, "", "/profile");
   });
 
-  it("renders no notice and does not touch the router with no account/status params", () => {
+  it("dismisses the notice", async () => {
+    const user = userEvent.setup();
+    searchParams = new URLSearchParams("account=github&status=not_found");
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Dismiss notice" }));
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("renders no notice and leaves the URL alone with no account/status params", () => {
     renderPage();
 
     expect(
-      screen.queryByText("Discord was not connected, try again"),
+      document.querySelector('[data-slot="github-restore-notice"]'),
     ).not.toBeInTheDocument();
     expect(replaceState).not.toHaveBeenCalled();
   });
 
   it("ignores an unknown status value", () => {
-    searchParams = new URLSearchParams("account=discord&status=bogus");
+    searchParams = new URLSearchParams("account=github&status=bogus");
     renderPage();
 
     expect(screen.getByText("Profile View")).toBeInTheDocument();
     expect(replaceState).not.toHaveBeenCalled();
   });
 
-  it("ignores a status for a different account than discord", () => {
-    searchParams = new URLSearchParams("account=github&status=linked");
+  it("ignores an outcome for another account", () => {
+    searchParams = new URLSearchParams("account=other&status=restored");
     const { invalidateSpy } = renderPage();
 
     expect(
-      screen.queryByText(
-        "Discord connected. Your reports and feedback will mention you.",
-      ),
+      document.querySelector('[data-slot="github-restore-notice"]'),
     ).not.toBeInTheDocument();
     expect(invalidateSpy).not.toHaveBeenCalled();
     expect(replaceState).not.toHaveBeenCalled();
