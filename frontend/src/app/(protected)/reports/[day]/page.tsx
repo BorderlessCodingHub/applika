@@ -1,4 +1,5 @@
 import { ReportDays, ReportDaysType } from "@/services/types/reports";
+import { BadgeGate } from "@/components/badges/badge-gate";
 import { ReportDayClient } from "./report-day-page";
 
 interface Props {
@@ -11,5 +12,9 @@ export function generateStaticParams() {
 
 export default async function ReportDayPage({ params }: Props) {
   const { day } = await params;
-  return <ReportDayClient day={day} />;
+  return (
+    <BadgeGate>
+      <ReportDayClient day={day} />
+    </BadgeGate>
+  );
 }

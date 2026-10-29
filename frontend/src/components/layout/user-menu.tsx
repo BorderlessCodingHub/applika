@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import Link from "next/link";
 import { ChevronsUpDown, LogOut, MessageSquareHeart, User } from "lucide-react";
 import {
@@ -10,6 +11,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ConfirmMembershipMenuItem } from "@/components/badges/confirm-membership-form";
+import {
+  MembershipBadge,
+  membershipAccess,
+} from "@/components/badges/membership-badge";
 import { UserProfileAvatar } from "@/components/profile/sub-components";
 import type { User as AppUser } from "@/services/types/users";
 import { cn } from "@/lib/utils";
@@ -34,9 +40,14 @@ export function UserMenu({
   variant = "card",
   className,
 }: UserMenuProps) {
+  const chipId = useId();
   if (!user) return null;
 
   const card = variant === "card";
+  // The chip shows only while the badge counts; a recorded badge that does
+  // not count asks for the password instead (the Reports page holds the form).
+  const access = membershipAccess(user);
+  const heldBadges = access.state === "held" ? access.badges : [];
 
   return (
     <DropdownMenu>
@@ -47,6 +58,7 @@ export function UserMenu({
         aria-label={
           card ? `Open account menu for ${user.username}` : "Open account menu"
         }
+        aria-describedby={card && heldBadges.length > 0 ? chipId : undefined}
         className={cn(
           "flex items-center rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
           card
@@ -68,8 +80,17 @@ export function UserMenu({
         {card ? (
           <>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-xs font-medium text-sidebar-foreground">
-                {user.username}
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="block truncate text-xs font-medium text-sidebar-foreground">
+                  {user.username}
+                </span>
+                {heldBadges.length > 0 ? (
+                  <span id={chipId} className="flex shrink-0 gap-1">
+                    {heldBadges.map((badge) => (
+                      <MembershipBadge key={badge} badge={badge} size="sm" />
+                    ))}
+                  </span>
+                ) : null}
               </span>
               <span className="block truncate text-[11px] text-muted-foreground">
                 {user.email}
@@ -90,8 +111,16 @@ export function UserMenu({
         className="w-56"
       >
         <DropdownMenuLabel className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-sm font-medium" title={user.username}>
-            {user.username}
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span
+              className="truncate text-sm font-medium"
+              title={user.username}
+            >
+              {user.username}
+            </span>
+            {heldBadges.map((badge) => (
+              <MembershipBadge key={badge} badge={badge} />
+            ))}
           </span>
           <span
             className="truncate text-xs font-normal text-muted-foreground"
@@ -102,6 +131,9 @@ export function UserMenu({
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
+        {access.state === "unconfirmed" ? (
+          <ConfirmMembershipMenuItem onSelect={onNavigate} />
+        ) : null}
         <DropdownMenuItem asChild onSelect={onNavigate}>
           <Link href="/profile" className="cursor-pointer gap-2">
             <User className="size-4" />

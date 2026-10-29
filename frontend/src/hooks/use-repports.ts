@@ -9,9 +9,21 @@ import {
 import { toast } from "sonner";
 import { services } from "@/services/services";
 import { rateLimitNotice } from "@/lib/rate-limit";
+import { membershipAccess } from "@/components/badges/membership-badge";
+import { useUserProfile } from "@/hooks/use-user";
 import { ReportDaysType, ReportSubmitPayload } from "@/services/types/reports";
 
 const REPORTS_KEY = ["reports"] as const;
+
+/**
+ * Report routes answer 403 unless the BASE or PSP badge counts (ADR-0024):
+ * the queries stay off until the cached user holds one. Reads the cache
+ * only; `AuthProvider` owns the `/users/me` fetch.
+ */
+export function useHoldsReportsBadge(): boolean {
+  const { data: user } = useUserProfile(false);
+  return membershipAccess(user).state === "held";
+}
 
 function reportDetailKey(day: ReportDaysType | 0, startDate?: string) {
   return ["report", "detail", String(day), startDate ?? ""] as const;
@@ -26,10 +38,11 @@ export function useReportDetail(
   startDate?: string,
   cycleId?: string | null,
 ) {
+  const held = useHoldsReportsBadge();
   const query = useQuery({
     queryKey: [...reportDetailKey(day ?? 0, startDate), cycleId ?? "current"],
     queryFn: () => services.reports.fetchReportDetail(day!, startDate, cycleId),
-    enabled: day !== null,
+    enabled: held && day !== null,
     placeholderData: keepPreviousData,
   });
 
@@ -45,9 +58,11 @@ export function useReportDetail(
 }
 
 export function useReports(cycleId?: string | null) {
+  const held = useHoldsReportsBadge();
   const query = useQuery({
     queryKey: [...REPORTS_KEY, cycleId ?? "current"],
     queryFn: () => services.reports.fetchReports(cycleId),
+    enabled: held,
   });
 
   return {

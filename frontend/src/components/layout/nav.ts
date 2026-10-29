@@ -28,6 +28,11 @@ export interface NavItem {
   feature?: FeatureKey;
   /** Set by `navItemsFor` from the caller's features; never authored here. */
   beta?: boolean;
+  /**
+   * Shown only to a caller with a recorded Borderless BASE or PSP badge,
+   * held or waiting for confirmation (ADR-0024).
+   */
+  needsReportsBadge?: boolean;
 }
 
 export const PRIMARY_NAV: NavItem[] = [
@@ -41,7 +46,12 @@ export const PRIMARY_NAV: NavItem[] = [
   { href: "/jobs", label: "Jobs", icon: Search, feature: "jobs" },
   { href: "/cvs", label: "CVs", icon: FileText, feature: "cvs" },
   { href: "/agenda", label: "Agenda", icon: CalendarClock },
-  { href: "/reports", label: "Reports", icon: NotepadText },
+  {
+    href: "/reports",
+    label: "Reports",
+    icon: NotepadText,
+    needsReportsBadge: true,
+  },
   { href: "/cycles", label: "Cycles", icon: History },
   { href: "/profile", label: "Profile", icon: User },
 ];
@@ -60,17 +70,25 @@ export function isNavItemActive(item: NavItem, pathname: string): boolean {
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
+export interface NavAccess {
+  /** A recorded BASE or PSP badge, held or not (`badges.length > 0`). */
+  hasReportsBadge?: boolean;
+}
+
 /**
  * The entries the caller sees: a gated entry only with its feature (absent
  * while the features are still loading, so it never flashes in), marked
- * `beta` while that feature is in beta; `/admin` only for an admin.
+ * `beta` while that feature is in beta; Reports only with a recorded
+ * membership badge, administrators included; `/admin` only for an admin.
  */
 export function navItemsFor(
   isAdmin: boolean | undefined,
   features: readonly MyFeature[],
+  access: NavAccess = {},
 ): NavItem[] {
   const items: NavItem[] = [];
   for (const item of PRIMARY_NAV) {
+    if (item.needsReportsBadge && !access.hasReportsBadge) continue;
     if (!item.feature) {
       items.push(item);
       continue;

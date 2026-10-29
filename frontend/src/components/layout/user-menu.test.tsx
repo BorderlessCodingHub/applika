@@ -21,10 +21,33 @@ const user: User = {
   id: "u1",
   username: LONG_NAME,
   email: LONG_EMAIL,
-  github_id: "gh1",
-  discord: null,
-  discord_linked: false,
+  github_id: 1,
+  badges: [],
+  borderless: null,
+  github_restore: { available: false, prompt: false },
 };
+
+const ACTIVE = {
+  status: "active" as const,
+  expires_at: "2026-11-05T00:00:00Z",
+  email: "ada@example.com",
+};
+const PSP = [
+  { badge: "borderless_psp" as const, granted_at: "2026-10-01T00:00:00Z" },
+];
+const pspHolder: User = { ...user, badges: PSP, borderless: ACTIVE };
+const pspUnconfirmed: User = {
+  ...user,
+  badges: PSP,
+  borderless: { ...ACTIVE, status: "expired" },
+};
+
+async function openMenu() {
+  await userEvent.click(
+    screen.getByRole("button", { name: /Open account menu/ }),
+  );
+  return screen.findByRole("menu");
+}
 
 function renderMenu(
   props: Partial<React.ComponentProps<typeof UserMenu>> = {},
@@ -134,4 +157,70 @@ describe("UserMenu", () => {
 
     expect(onLogout).toHaveBeenCalledTimes(1);
   });
+});
+
+describe("UserMenu membership badge (ADR-0024)", () => {
+  it.each(["card", "avatar"] as const)(
+    "%s: shows the held PSP chip in the menu label",
+    async (variant) => {
+      renderMenu({ user: pspHolder, variant });
+      const menu = await openMenu();
+
+      const chip = within(menu).getByRole("img", {
+        name: "Borderless PSP member",
+      });
+      expect(chip).toHaveTextContent("PSP");
+      expect(
+        within(menu).queryByText("Sign in again to confirm your membership"),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("card: shows the chip beside the name and describes the trigger with it", () => {
+    renderMenu({ user: pspHolder });
+
+    const trigger = screen.getByRole("button", { name: /Open account menu/ });
+    const chip = screen.getByRole("img", { name: "Borderless PSP member" });
+    expect(chip).toHaveAttribute("data-badge", "borderless_psp");
+    expect(trigger).toHaveAccessibleDescription("PSP");
+  });
+
+  it("shows no chip and no prompt without a recorded badge", async () => {
+    renderMenu({ user: { ...user, borderless: ACTIVE } });
+    expect(screen.queryByRole("img", { name: /Borderless/ })).toBeNull();
+    const menu = await openMenu();
+
+    expect(within(menu).queryByRole("img", { name: /Borderless/ })).toBeNull();
+    expect(
+      within(menu).queryByText("Sign in again to confirm your membership"),
+    ).not.toBeInTheDocument();
+  });
+
+  it.each(["expired", "needs_reconnect"] as const)(
+    "%s: no chip, a prompt linking to /reports instead",
+    async (status) => {
+      const onNavigate = vi.fn();
+      renderMenu({
+        user: { ...pspUnconfirmed, borderless: { ...ACTIVE, status } },
+        onNavigate,
+      });
+      expect(screen.queryByRole("img", { name: /Borderless/ })).toBeNull();
+      const menu = await openMenu();
+
+      expect(
+        within(menu).queryByRole("img", { name: /Borderless/ }),
+      ).toBeNull();
+      const prompt = within(menu).getByRole("menuitem", {
+        name: "Sign in again to confirm your membership",
+      });
+      expect(prompt).toHaveAttribute("href", "/reports");
+
+      // jsdom cannot navigate; the menu's own close signal is what matters.
+      const block = (event: Event) => event.preventDefault();
+      document.addEventListener("click", block);
+      await userEvent.click(prompt);
+      document.removeEventListener("click", block);
+      expect(onNavigate).toHaveBeenCalledTimes(1);
+    },
+  );
 });
