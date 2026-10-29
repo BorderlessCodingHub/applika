@@ -48,12 +48,12 @@ export function WelcomePage() {
   return (
     <WelcomeScreen
       pending={pending}
-      onRestore={() => {
+      onRestore={() =>
         // GitHub's answer lands on /profile with the outcome; a stored
-        // return-to would carry the browser away from it.
-        consumeReturnTo();
-        restore.mutate();
-      }}
+        // return-to would carry the browser away from it. Dropped only once
+        // the restore starts: a refused one leaves "Start fresh" its target.
+        restore.mutate(undefined, { onSuccess: () => consumeReturnTo() })
+      }
       onStartFresh={() =>
         dismiss.mutate(undefined, {
           onSuccess: () => router.replace(consumeReturnTo() ?? "/dashboard"),

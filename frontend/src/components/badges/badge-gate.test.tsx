@@ -162,6 +162,7 @@ describe("BadgeGateView focus after the membership is confirmed", () => {
     const heading = await screen.findByRole("heading", { name: "My Reports" });
     await waitFor(() => expect(heading).toHaveFocus());
     expect(heading).toHaveAttribute("tabindex", "-1");
+    expect(heading).toHaveClass("outline-none");
   });
 
   it("leaves focus alone when the user already moved it", async () => {

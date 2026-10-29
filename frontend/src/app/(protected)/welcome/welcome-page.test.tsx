@@ -142,6 +142,32 @@ describe("WelcomePage", () => {
     expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBeNull();
   });
 
+  it("a refused Restore keeps the return-to for Start fresh", async () => {
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=BCDF-GHJK");
+    vi.mocked(services.auth.startGithubRestore).mockRejectedValue(
+      new AxiosError("x", "ERR_BAD_RESPONSE", undefined, undefined, {
+        status: 503,
+        statusText: "503",
+        headers: new AxiosHeaders(),
+        config: {} as never,
+        data: { detail: "GitHub restore is not configured" },
+      }),
+    );
+    vi.mocked(services.auth.dismissGithubRestore).mockResolvedValue();
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      screen.getByRole("button", { name: "Restore your data from GitHub" }),
+    );
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    await user.click(screen.getByRole("button", { name: "Start fresh" }));
+
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith("/device?code=BCDF-GHJK"),
+    );
+  });
+
   it("Restore unavailable (503) is a toast and both choices come back", async () => {
     vi.mocked(services.auth.startGithubRestore).mockRejectedValue(
       new AxiosError("x", "ERR_BAD_RESPONSE", undefined, undefined, {

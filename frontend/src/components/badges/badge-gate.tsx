@@ -70,6 +70,8 @@ export function BadgeGateView({
       const heading = root.querySelector<HTMLElement>("h1");
       if (!heading) return false;
       if (!heading.hasAttribute("tabindex")) heading.tabIndex = -1;
+      // Like the other headings focused from code: no focus ring on a heading.
+      heading.classList.add("outline-none");
       heading.focus();
       return true;
     };
