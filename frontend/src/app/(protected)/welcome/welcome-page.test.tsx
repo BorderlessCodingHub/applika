@@ -126,6 +126,22 @@ describe("WelcomePage", () => {
     );
   });
 
+  it("Restore drops a stored return-to, so GitHub's outcome stays on the profile", async () => {
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=BCDF-GHJK");
+    vi.mocked(services.auth.startGithubRestore).mockResolvedValue({
+      authorize_url: "https://github.com/login/oauth/authorize?state=n1",
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      screen.getByRole("button", { name: "Restore your data from GitHub" }),
+    );
+
+    await waitFor(() => expect(assign).toHaveBeenCalled());
+    expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBeNull();
+  });
+
   it("Restore unavailable (503) is a toast and both choices come back", async () => {
     vi.mocked(services.auth.startGithubRestore).mockRejectedValue(
       new AxiosError("x", "ERR_BAD_RESPONSE", undefined, undefined, {
