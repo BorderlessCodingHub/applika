@@ -10,7 +10,6 @@ from app.core.enums import (
     Availability,
     Currency,
     DeniedReason,
-    DiscordConnectionStatus,
     EventType,
     ExperienceLevel,
     InterviewType,
@@ -107,9 +106,6 @@ class Base(DeclarativeBase): ...
 class UserModel(BaseMixin, Base):
     __tablename__ = 'users'
 
-    github_id: Mapped[int] = mapped_column(
-        sa.BigInteger, unique=True, index=True, nullable=False
-    )
     username: Mapped[str] = mapped_column(sa.String(100), nullable=False)
     email: Mapped[str] = mapped_column(
         sa.String(100), unique=True, index=True, nullable=False
@@ -151,21 +147,18 @@ class UserModel(BaseMixin, Base):
     )
     bio: Mapped[str | None] = mapped_column(sa.Text)
     linkedin_url: Mapped[str | None] = mapped_column(sa.String(500))
-    encrypted_github_token: Mapped[str | None] = mapped_column(
-        sa.Text, nullable=True
+    github_restore_prompt_seen_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True
     )
     is_admin: Mapped[bool] = mapped_column(
         sa.Boolean, default=False, server_default='false', nullable=False
     )
-    # KODI-024/ADR-0013: the Discord account link is no longer a column on
-    # this table - it moved to its own ``DiscordConnectionModel`` row
-    # (revision ``ba44f9cfd3c1``), read through
-    # ``DiscordConnectionRepository``. ``users`` carries no Discord column at
-    # all, and GitHub stays the only way to sign in.
-    # KODI-026/ADR-0013: GitHub organisation membership is retired (R-042,
-    # R-043). The retired flag column stays in the database (never dropped,
-    # `.claude/rules/non-destructive-migrations.md`) but is intentionally
-    # left off this model - no code reads or writes it any more.
+    # ADR-0024: the sign-in identity lives in ``BorderlessAccountModel``
+    # and the GitHub-era identity in ``GithubConnectionModel``. The retired
+    # GitHub id and GitHub token columns of ``users``, the GitHub
+    # organisation flag and the Discord tables stay in the database (never
+    # dropped, `.claude/rules/non-destructive-migrations.md`) but are left
+    # off the models: no code reads or writes them.
 
     applications: Mapped[list[ApplicationModel]] = relationship(
         back_populates='user'
@@ -199,107 +192,172 @@ class UserModel(BaseMixin, Base):
             self._tech_stack = None
 
 
-class DiscordConnectionModel(BaseMixin, Base):
-    """One Discord account connection per Applika user (KODI-024, ADR-0013).
+_BADGE_SET = "('borderless_base', 'borderless_psp')"
 
-    Mapped object-for-object onto migration ``ba44f9cfd3c1``: ``user_id`` and
-    ``discord_id`` are each UNIQUE (AC1/AC2 - a Discord account links to at
-    most one Applika user, and a user holds at most one connection), the
-    refresh token is stored encrypted and there is **no** access-token
-    column - the access token is never persisted (R-013). The server list
-    and role ids are read live at submit time (K7/K8) and never stored here.
 
-    A record of its own, apart from the user's account data (R-012): no ORM
-    relationship is declared back on ``UserModel``, the same choice already
-    made for ``BaseCVModel``/``TailoredCVModel``. ``ondelete='CASCADE'`` is
-    what removes this row when the owning user is deleted (R-011).
+def _user_fk(table: str) -> sa.ForeignKey:
+    return sa.ForeignKey(
+        'users.id', ondelete='CASCADE', name=f'fk_{table}_user_id'
+    )
+
+
+class BorderlessAccountModel(BaseMixin, Base):
+    """The Borderless account bound to one applika user (ADR-0024).
+
+    Mirrors revision ``d9e0b46dd7e1`` name for name. The access token from
+    the last password sign-in is stored encrypted and never leaves the
+    server; Borderless issues no refresh token. ``status`` is
+    ``active`` or ``needs_reconnect``; expiry is read from
+    ``access_token_expires_at``.
     """
 
-    __tablename__ = 'discord_connections'
+    __tablename__ = 'borderless_accounts'
 
     __table_args__ = (
-        sa.UniqueConstraint('user_id', name='uq_discord_connections_user_id'),
+        sa.PrimaryKeyConstraint('id', name='pk_borderless_accounts'),
+        sa.UniqueConstraint('user_id', name='uq_borderless_accounts_user_id'),
         sa.UniqueConstraint(
-            'discord_id', name='uq_discord_connections_discord_id'
+            'borderless_user_id',
+            name='uq_borderless_accounts_borderless_user_id',
+        ),
+        sa.CheckConstraint(
+            "status IN ('active', 'needs_reconnect')",
+            name='ck_borderless_accounts_status',
         ),
     )
 
     user_id: Mapped[int] = mapped_column(
-        sa.BigInteger,
-        sa.ForeignKey(
-            'users.id',
-            ondelete='CASCADE',
-            name='fk_discord_connections_user_id',
-        ),
+        sa.BigInteger, _user_fk('borderless_accounts'), nullable=False
+    )
+    borderless_user_id: Mapped[str] = mapped_column(
+        sa.String(64), nullable=False
+    )
+    email: Mapped[str] = mapped_column(sa.String(320), nullable=False)
+    encrypted_access_token: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    access_token_expires_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        sa.String(20),
         nullable=False,
-    )
-    discord_id: Mapped[int] = mapped_column(sa.BigInteger, nullable=False)
-    username: Mapped[str] = mapped_column(sa.String(32), nullable=False)
-    global_name: Mapped[str | None] = mapped_column(sa.String(32))
-    avatar: Mapped[str | None] = mapped_column(sa.String(64))
-    scopes: Mapped[str] = mapped_column(sa.String(255), nullable=False)
-    encrypted_refresh_token: Mapped[str] = mapped_column(
-        sa.Text, nullable=False
-    )
-    access_token_expires_at: Mapped[datetime | None] = mapped_column(
-        sa.DateTime(timezone=True)
-    )
-    status: Mapped[DiscordConnectionStatus] = mapped_column(
-        sa.Enum(
-            DiscordConnectionStatus,
-            name='discord_connection_status',
-            values_callable=lambda members: [m.value for m in members],
-            create_constraint=False,
-            native_enum=True,
-        ),
-        nullable=False,
-        default=DiscordConnectionStatus.ACTIVE,
-        server_default='active',
+        default='active',
+        server_default=sa.text("'active'"),
     )
     linked_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True),
         nullable=False,
         default=sa.func.now(),
-        server_default=sa.func.now(),
+        server_default=sa.text('now()'),
     )
-
-
-class DiscordReportWebhookModel(BaseMixin, Base):
-    """Admin-managed report webhook catalog (KODI-025, ADR-0013).
-
-    Mapped object-for-object onto migration ``ba44f9cfd3c1``: a platform
-    catalog row, no ``user_id`` (ADR-0004 - admin-only, not owned by a
-    user), a unique ``webhook_url`` and an indexed ``guild_id`` - K8's
-    submit-time lookup "selects the webhooks of those servers". Optional
-    ``role_ids`` defaults to an empty array; ``label`` is optional free
-    text. ``webhook_url`` is ``repr=False``-equivalent here: ``__repr__`` is
-    overridden so the URL never appears in a log line or a debugger dump
-    (R-030/AC3).
-    """
-
-    __tablename__ = 'discord_report_webhooks'
-
-    __table_args__ = (
-        sa.UniqueConstraint(
-            'webhook_url', name='uq_discord_report_webhooks_webhook_url'
-        ),
-        sa.Index('ix_discord_report_webhooks_guild_id', 'guild_id'),
+    profile_read_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True
     )
-
-    guild_id: Mapped[int] = mapped_column(sa.BigInteger, nullable=False)
-    webhook_url: Mapped[str] = mapped_column(sa.String(500), nullable=False)
-    role_ids: Mapped[list[int]] = mapped_column(
-        ARRAY(sa.BigInteger),
-        nullable=False,
-        default=list,
-        server_default='{}',
+    profile_read_failed_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True
     )
-    label: Mapped[str | None] = mapped_column(sa.String(100))
 
     def __repr__(self) -> str:
         return (
-            f'<DiscordReportWebhookModel id={self.id} '
-            f'guild_id={self.guild_id} label={self.label!r}>'
+            f'<BorderlessAccountModel id={self.id} user_id={self.user_id} '
+            f'status={self.status!r}>'
+        )
+
+
+class GithubConnectionModel(BaseMixin, Base):
+    """The GitHub identity an account signed in with before ADR-0024.
+
+    Read only to find an old account in a GitHub restore. No token is
+    stored. Mirrors revision ``d9e0b46dd7e1``.
+    """
+
+    __tablename__ = 'github_connections'
+
+    __table_args__ = (
+        sa.PrimaryKeyConstraint('id', name='pk_github_connections'),
+        sa.UniqueConstraint('user_id', name='uq_github_connections_user_id'),
+        sa.UniqueConstraint(
+            'github_id', name='uq_github_connections_github_id'
+        ),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        sa.BigInteger, _user_fk('github_connections'), nullable=False
+    )
+    github_id: Mapped[int] = mapped_column(sa.BigInteger, nullable=False)
+    username: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    linked_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False
+    )
+
+
+class UserBadgeModel(BaseMixin, Base):
+    """A membership badge with its history (ADR-0024).
+
+    A live row has ``revoked_at`` NULL; at most one live row per
+    ``(user_id, badge)``. Revoking sets ``revoked_at`` and keeps the row.
+    """
+
+    __tablename__ = 'user_badges'
+
+    __table_args__ = (
+        sa.PrimaryKeyConstraint('id', name='pk_user_badges'),
+        sa.CheckConstraint(
+            f'badge IN {_BADGE_SET}', name='ck_user_badges_badge'
+        ),
+        sa.CheckConstraint(
+            "source IN ('borderless')", name='ck_user_badges_source'
+        ),
+        sa.Index('ix_user_badges_user_id', 'user_id'),
+        sa.Index(
+            'uq_user_badges_live',
+            'user_id',
+            'badge',
+            unique=True,
+            postgresql_where=sa.text('revoked_at IS NULL'),
+        ),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        sa.BigInteger, _user_fk('user_badges'), nullable=False
+    )
+    badge: Mapped[str] = mapped_column(sa.String(40), nullable=False)
+    source: Mapped[str] = mapped_column(sa.String(40), nullable=False)
+    granted_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=False,
+        default=sa.func.now(),
+        server_default=sa.text('now()'),
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True
+    )
+
+
+class ReportWebhookModel(BaseMixin, Base):
+    """Admin-managed report webhook, routed by badge (ADR-0024).
+
+    A platform catalog row, no ``user_id``. ``badge`` NULL receives
+    nothing. ``__repr__`` never prints the URL.
+    """
+
+    __tablename__ = 'report_webhooks'
+
+    __table_args__ = (
+        sa.PrimaryKeyConstraint('id', name='pk_report_webhooks'),
+        sa.UniqueConstraint('url', name='uq_report_webhooks_url'),
+        sa.CheckConstraint(
+            f'badge IN {_BADGE_SET}', name='ck_report_webhooks_badge'
+        ),
+    )
+
+    url: Mapped[str] = mapped_column(sa.String(500), nullable=False)
+    badge: Mapped[str | None] = mapped_column(sa.String(40), nullable=True)
+    label: Mapped[str | None] = mapped_column(sa.String(100), nullable=True)
+
+    def __repr__(self) -> str:
+        return (
+            f'<ReportWebhookModel id={self.id} badge={self.badge!r} '
+            f'label={self.label!r}>'
         )
 
 
@@ -1467,7 +1525,8 @@ class UserSessionModel(BaseMixin, Base):
         ),
         sa.CheckConstraint(
             'sign_in_method IN '
-            "('github_web', 'cli_browser', 'cli_device', 'cli_legacy')",
+            "('github_web', 'cli_browser', 'cli_device', 'cli_legacy', "
+            "'borderless')",
             name='ck_user_sessions_sign_in_method',
         ),
         sa.CheckConstraint(

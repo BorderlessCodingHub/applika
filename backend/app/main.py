@@ -6,7 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config.middleware import register_middleware
 from app.config.rate_limit import RateLimitMiddleware
 from app.config.settings import envs
-from app.presentation.api.account_link import router as account_link_router
 from app.presentation.api.admin import routers as admin_routers
 from app.presentation.api.application import router as application_router
 from app.presentation.api.application_draft import (
@@ -14,9 +13,11 @@ from app.presentation.api.application_draft import (
 )
 from app.presentation.api.application_step import router as app_step_router
 from app.presentation.api.base_cv import router as base_cv_router
+from app.presentation.api.borderless_auth import router as borderless_router
 from app.presentation.api.cli_auth import router as cli_auth_router
 from app.presentation.api.company import router as company_router
 from app.presentation.api.cycle import router as cycle_router
+from app.presentation.api.github_restore import router as restore_router
 from app.presentation.api.job_searches import router as job_search_router
 from app.presentation.api.jobs import router as jobs_router
 from app.presentation.api.oauth import router as auth_router
@@ -93,7 +94,8 @@ register_handlers(app)
 # REST Routes
 app.include_router(auth_router)
 app.include_router(cli_auth_router)
-app.include_router(account_link_router)
+app.include_router(borderless_router)
+app.include_router(restore_router)
 app.include_router(profile_router)
 app.include_router(user_sessions_router)
 app.include_router(support_router)

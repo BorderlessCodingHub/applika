@@ -1,13 +1,14 @@
-"""Validation for admin report webhooks (KODI-025, ADR-0013, T113).
+"""Validation for admin report webhooks (ADR-0024).
 
 Every raised error is a fixed string - never the submitted URL, id or
 label - so a 422 from these routes never leaks the webhook address
-(AC2/AC3/R-030, ``.claude/rules`` "no response, log or error carries a full
+(``.claude/rules`` "no response, log or error carries a full
 URL").
 """
 
 import re
 
+from app.core.enums import BadgeKey
 from app.core.exceptions import BusinessRuleViolation
 
 #: Postgres BIGINT upper bound. A 20-digit numeric string can already
@@ -15,7 +16,6 @@ from app.core.exceptions import BusinessRuleViolation
 #: ``OverflowError``/DB error (500) instead of a clean 422 (plan correction).
 BIGINT_MAX = 9223372036854775807
 
-MAX_ROLE_IDS = 25
 MAX_LABEL_LENGTH = 100
 
 #: ``re.ASCII`` is load-bearing here (backend-qa finding B2): without it
@@ -30,17 +30,18 @@ WEBHOOK_URL_RE = re.compile(
     r'/api(?:/v\d+)?/webhooks/(\d{17,20})/([\w-]{20,})',
     re.ASCII,
 )
-SNOWFLAKE_RE = re.compile(r'\d{17,20}', re.ASCII)
 
 INVALID_WEBHOOK_URL = 'Invalid Discord webhook URL'
-INVALID_GUILD_ID = 'Invalid Discord server id'
-INVALID_ROLE_ID = 'Invalid Discord role id'
-TOO_MANY_ROLE_IDS = f'A webhook may hold at most {MAX_ROLE_IDS} role ids'
+INVALID_BADGE = 'Badge must be BASE or PSP'
+_BADGE_ALIASES = {
+    'base': BadgeKey.BORDERLESS_BASE.value,
+    'psp': BadgeKey.BORDERLESS_PSP.value,
+}
 LABEL_TOO_LONG = f'Label must be at most {MAX_LABEL_LENGTH} characters'
 
 
 def validate_webhook_url(value: str | None) -> str:
-    """Require a secure Discord webhook address (AC2).
+    """Require a secure Discord webhook address.
 
     Accepts ``discord.com``/``discordapp.com``, the ``ptb``/``canary``
     subdomains, an optional ``/v<n>`` API version segment, and refuses every
@@ -59,35 +60,18 @@ def validate_webhook_url(value: str | None) -> str:
     return value
 
 
-def _validate_snowflake(value: str, error_message: str) -> int:
-    if not isinstance(value, str) or not SNOWFLAKE_RE.fullmatch(value):
-        raise BusinessRuleViolation(error_message)
-    int_value = int(value)
-    if int_value > BIGINT_MAX:
-        raise BusinessRuleViolation(error_message)
-    return int_value
-
-
-def validate_guild_id(value: str | None) -> int:
-    if value is None:
-        raise BusinessRuleViolation(INVALID_GUILD_ID)
-    return _validate_snowflake(value, INVALID_GUILD_ID)
-
-
-def validate_role_ids(values: list[str] | None) -> list[int]:
-    """<=25 Discord role ids, deduped, order preserved (T113)."""
-    if not values:
-        return []
-    seen: set[int] = set()
-    deduped: list[int] = []
-    for value in values:
-        role_id = _validate_snowflake(value, INVALID_ROLE_ID)
-        if role_id not in seen:
-            seen.add(role_id)
-            deduped.append(role_id)
-    if len(deduped) > MAX_ROLE_IDS:
-        raise BusinessRuleViolation(TOO_MANY_ROLE_IDS)
-    return deduped
+def validate_badge(value: str | None) -> BadgeKey:
+    """``borderless_base`` or ``borderless_psp`` (``base``/``psp`` accepted,
+    any case). Never ``None``: an unassigned webhook only comes from the
+    migration."""
+    if not isinstance(value, str):
+        raise BusinessRuleViolation(INVALID_BADGE)
+    key = value.strip().lower()
+    key = _BADGE_ALIASES.get(key, key)
+    try:
+        return BadgeKey(key)
+    except ValueError as err:
+        raise BusinessRuleViolation(INVALID_BADGE) from err
 
 
 def validate_label(value: str | None) -> str | None:
@@ -99,7 +83,7 @@ def validate_label(value: str | None) -> str | None:
 
 
 def mask(url: str) -> str:
-    """``https://discord.com/api/webhooks/<webhook_id>/...<last4>`` (AC3).
+    """``https://discord.com/api/webhooks/<webhook_id>/...<last4>`` .
 
     Always normalizes to the plain ``discord.com`` host regardless of which
     accepted host/API-version variant the stored URL used - the masked form

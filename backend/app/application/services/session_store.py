@@ -5,8 +5,8 @@ session, both expiring at the same instant (``EXAT``/``EXPIREAT``):
 
 - ``applika:session:<uuid7>`` -> the session id. The uuid7 is the refresh
   value; a missing key means the session has ended.
-- ``applika:session:id:<sid>`` -> hash ``{rk, user_id, github_id,
-  last_used_at, last_ip}``. ``sid`` is ``user_sessions.id``, the JWT's
+- ``applika:session:id:<sid>`` -> hash ``{rk, user_id, last_used_at,
+  last_ip}``. ``sid`` is ``user_sessions.id``, the JWT's
   ``sid`` claim; ``rk`` is the refresh value.
 
 Every call is bounded by a timeout. A ``RedisError``, an ``OSError`` or a
@@ -40,13 +40,13 @@ OP_TIMEOUT_SECONDS = 2.0
 _TRANSIENT_REDIS_ERRORS = (RedisError, OSError, TimeoutError)
 
 # EXISTS -> HSET in one round trip: a missing key is never re-created by
-# the stamp. Answers the session's ``github_id``, or nil when it has ended.
+# the stamp. Answers the session's ``user_id``, or nil when it has ended.
 _TOUCH_LUA = """
 if redis.call('EXISTS', KEYS[1]) == 0 then
   return false
 end
 redis.call('HSET', KEYS[1], 'last_used_at', ARGV[1], 'last_ip', ARGV[2])
-return redis.call('HGET', KEYS[1], 'github_id')
+return redis.call('HGET', KEYS[1], 'user_id')
 """
 
 # Deletes the refresh key the hash points at, then the hash.
@@ -120,7 +120,6 @@ class SessionStore:
         self,
         session_id: int,
         user_id: int,
-        github_id: int,
         expires_at: datetime,
         last_ip: str | None,
     ) -> str:
@@ -135,7 +134,6 @@ class SessionStore:
                 mapping={
                     'rk': refresh_value,
                     'user_id': str(user_id),
-                    'github_id': str(github_id),
                     'last_used_at': '',
                     'last_ip': last_ip or '',
                 },
@@ -172,15 +170,18 @@ class SessionStore:
         self, session_id: int, ip: str | None, now: datetime | None = None
     ) -> int | None:
         """Stamp the last use and IP on a live session. Answers the
-        session's ``github_id``, or None when the session has ended."""
+        session's ``user_id``, or None when the session has ended."""
         stamp = (now or datetime.now(UTC)).isoformat()
         async with redis_guard('touch', TOUCH_TIMEOUT_SECONDS):
-            github_id = await self._touch_script(
+            user_id = await self._touch_script(
                 keys=[id_key(session_id)], args=[stamp, ip or '']
             )
-        if github_id is None:
+        if user_id is None:
             return None
-        return int(github_id)
+        try:
+            return int(user_id)
+        except ValueError:
+            return None
 
     async def end(self, session_id: int) -> None:
         """Delete both keys. A session already gone is a no-op."""

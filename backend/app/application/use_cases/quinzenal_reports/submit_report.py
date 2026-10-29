@@ -78,7 +78,6 @@ class SubmitReportUseCase:
         phase: int,
         metrics: ReportMetricsDTO,
         payload: SubmitReportPayloadDTO,
-        discord_id: int | None = None,
     ) -> str:
         safe_username = cls._sanitize_discord_text(username, max_length=100)
         safe_biggest_win = cls._sanitize_discord_text(
@@ -93,11 +92,9 @@ class SubmitReportUseCase:
             payload.next_fortnight_goal,
             max_length=500,
         )
-        mention = f' <@{discord_id}>' if discord_id is not None else ''
 
         return (
-            f'🏁 **REPORT - DAY {report_day} OF 120** - @{safe_username}'
-            f'{mention}\n'
+            f'🏁 **REPORT - DAY {report_day} OF 120** - @{safe_username}\n'
             f'📅 Phase: {phase}\n\n'
             '📊 **FORTNIGHT METRICS:**\n'
             f'• Applications sent: {metrics.applications_count}\n'
@@ -224,11 +221,8 @@ class SubmitReportUseCase:
         )
 
         saved_report = await self.report_repo.create(report)
-        # Captured now: ``resolve_webhooks`` may roll back the shared
-        # session to release a connection lock (K8 - Discord unavailable or
-        # a needs_reconnect row), which expires every object the session
-        # already holds, ``saved_report`` included. Plain values survive
-        # that; a later attribute access on the ORM object would not.
+        # Captured now as plain values: a later rollback on the shared
+        # session would expire ``saved_report``.
         report_id = saved_report.id
         report_discord_posted = saved_report.discord_posted
 
@@ -242,7 +236,7 @@ class SubmitReportUseCase:
         discord_errors: list[str] = []
 
         try:
-            route = await self.resolve_webhooks.execute(user_id)
+            webhook_urls = await self.resolve_webhooks.execute(user_id)
         except Exception as exc:
             logger.error(
                 f'Resolving report webhooks failed unexpectedly: '
@@ -255,25 +249,23 @@ class SubmitReportUseCase:
                     }
                 },
             )
-            route = None
+            webhook_urls = []
 
-        if route and route.webhook_urls:
+        if webhook_urls:
             discord_message = self._build_discord_message(
                 report_day=report_day,
                 username=username,
                 phase=report.phase,
                 metrics=metrics,
                 payload=payload,
-                discord_id=route.discord_id,
             )
-            for webhook_url in route.webhook_urls:
+            for webhook_url in webhook_urls:
                 try:
                     (
                         posted,
                         error,
                     ) = await self.discord_service.post_report_message(
                         discord_message,
-                        mention_user_id=route.discord_id,
                         webhook_url=webhook_url,
                     )
                 except Exception as exc:

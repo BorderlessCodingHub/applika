@@ -58,7 +58,6 @@ class CliTokenUseCase:
             raise OAuthError('invalid_grant', VERIFIER_MISMATCH)
         return await self.open_session.execute(
             user_id=int(state['user_id']),
-            github_id=int(state['github_id']),
             client_type='cli',
             sign_in_method='cli_browser',
             user_agent=user_agent,
@@ -80,7 +79,6 @@ class CliTokenUseCase:
         device = await self.device_codes.poll(device_code)
         return await self.open_session.execute(
             user_id=device.user_id,
-            github_id=device.github_id,
             client_type='cli',
             sign_in_method='cli_device',
             user_agent=device.user_agent,

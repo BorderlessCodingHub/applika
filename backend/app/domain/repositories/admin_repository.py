@@ -8,6 +8,7 @@ from app.core.enums import EventType
 from app.domain.models import (
     ApplicationModel,
     CompanyModel,
+    GithubConnectionModel,
     JobSourceModel,
     PlatformModel,
     TimelineEventModel,
@@ -171,27 +172,34 @@ class AdminRepository:
             .subquery('app_counts')
         )
 
-        stmt = select(
-            UserModel.id,
-            UserModel.username,
-            UserModel.email,
-            UserModel.github_id,
-            UserModel.seniority_level,
-            UserModel.location,
-            UserModel.is_admin,
-            func.coalesce(app_counts.c.total_applications, 0).label(
-                'total_applications'
-            ),
-            func.coalesce(app_counts.c.offers, 0).label('offers'),
-            func.coalesce(app_counts.c.denials, 0).label('denials'),
-            func.coalesce(app_counts.c.active_applications, 0).label(
-                'active_applications'
-            ),
-            func.coalesce(
-                app_counts.c.last_activity, UserModel.created_at
-            ).label('last_activity'),
-            UserModel.created_at.label('joined_at'),
-        ).outerjoin(app_counts, UserModel.id == app_counts.c.user_id)
+        stmt = (
+            select(
+                UserModel.id,
+                UserModel.username,
+                UserModel.email,
+                GithubConnectionModel.github_id,
+                UserModel.seniority_level,
+                UserModel.location,
+                UserModel.is_admin,
+                func.coalesce(app_counts.c.total_applications, 0).label(
+                    'total_applications'
+                ),
+                func.coalesce(app_counts.c.offers, 0).label('offers'),
+                func.coalesce(app_counts.c.denials, 0).label('denials'),
+                func.coalesce(app_counts.c.active_applications, 0).label(
+                    'active_applications'
+                ),
+                func.coalesce(
+                    app_counts.c.last_activity, UserModel.created_at
+                ).label('last_activity'),
+                UserModel.created_at.label('joined_at'),
+            )
+            .outerjoin(app_counts, UserModel.id == app_counts.c.user_id)
+            .outerjoin(
+                GithubConnectionModel,
+                GithubConnectionModel.user_id == UserModel.id,
+            )
+        )
 
         # Filters
         if search:
@@ -413,7 +421,11 @@ class AdminRepository:
             'id': user.id,
             'username': user.username,
             'email': user.email,
-            'github_id': user.github_id,
+            'github_id': await self.session.scalar(
+                select(GithubConnectionModel.github_id).where(
+                    GithubConnectionModel.user_id == user.id
+                )
+            ),
             'first_name': user.first_name,
             'last_name': user.last_name,
             'current_role': user.current_role,

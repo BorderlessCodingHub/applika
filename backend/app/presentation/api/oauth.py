@@ -1,22 +1,30 @@
+"""Session routes and the browser half of every sign-in (ADR-0019,
+ADR-0024).
+
+Borderless is the only sign-in (``borderless_auth.py``). GitHub serves
+only the one-shot data restore: ``/auth/github/callback`` is the restore
+callback. Every CLI browser sign-in (``/auth/cli/authorize``, the legacy
+``/auth/cli/login/{id}``) lands on applika's Borderless sign-in page with
+the ``__cli_login`` marker; the sign-in route hands the result back to the
+CLI.
+"""
+
+from urllib.parse import urlencode
+
 from fastapi import APIRouter, HTTPException, Request, Response, status
-from fastapi.responses import (
-    JSONResponse,
-    PlainTextResponse,
-    RedirectResponse,
-)
-from fastapi_sso import OpenID
-from fastapi_sso.sso.github import GithubSSO
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.application.dto.user_session import SessionTokensDTO
+from app.application.services.github_service import GitHubOAuthError
 from app.application.use_cases.cli_auth.authorize import (
     OOB_REDIRECT_URI,
     PKCE_FLOW,
 )
-from app.application.use_cases.user_registration import (
-    UserRegistrationUseCase,
-)
-from app.config.settings import REFRESH_COOKIE_NAME, envs
-from app.core.exceptions import InvalidSession
+from app.application.use_cases.get_current_user import GetCurrentUserUseCase
+from app.application.use_cases.github_restore.complete import RestoreStatus
+from app.config.logging import logger
+from app.config.settings import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, envs
+from app.core.exceptions import InvalidSession, SessionServiceUnavailable
 from app.core.tokens import (
     clear_access_cookie,
     clear_refresh_cookie,
@@ -29,11 +37,14 @@ from app.presentation.api.auth_handoff import (
     validate_cli_callback_url,
 )
 from app.presentation.dependencies import (
+    AccountLinkStateUseCaseDp,
     AuthHandoffStateUseCaseDp,
+    CompleteGithubRestoreUseCaseDp,
     EndSessionUseCaseDp,
-    GitHubServiceDp,
+    GitHubOAuthServiceDp,
     OpenSessionUseCaseDp,
     RefreshSessionUseCaseDp,
+    SessionStoreDp,
     UserRepositoryDp,
     client_ip,
     client_user_agent,
@@ -49,48 +60,28 @@ from app.presentation.schemas.cli_auth import (
 router = APIRouter(prefix='/auth', tags=['OAuth'])
 
 
-github_sso = GithubSSO(
-    client_id=envs.GITHUB_CLIENT_ID,
-    client_secret=envs.GITHUB_CLIENT_SECRET,
-    redirect_uri=envs.GITHUB_REDIRECT_URI,
-    allow_insecure_http=True,
-    scope=['user:email'],
-)
-
-
-async def _build_auth_handoff_response(
-    request: Request,
+async def cli_handoff_redirect(
+    login_id: str,
     auth_handoff_state_use_case: AuthHandoffStateUseCaseDp,
     *,
     user_id: int,
-    github_id: int,
-):
-    handoff_login_id = request.cookies.get(CLI_LOGIN_COOKIE_NAME)
-    if not handoff_login_id:
+) -> str | None:
+    """Where the browser goes to hand a fresh sign-in back to the CLI, or
+    ``None`` when the CLI login expired. Opens no session: the CLI redeems
+    the code for a session of its own."""
+    login_state = await auth_handoff_state_use_case.get_login(login_id)
+    if login_state is None:
         return None
 
-    login_state = await auth_handoff_state_use_case.get_login(handoff_login_id)
-    if login_state is None:
-        error_response = PlainTextResponse(
-            'CLI login expired',
-            status_code=400,
-        )
-        error_response.delete_cookie(CLI_LOGIN_COOKIE_NAME)
-        return error_response
-
-    handoff_response = RedirectResponse(envs.LOGIN_REDIRECT_URI)
-    handoff_response.delete_cookie(CLI_LOGIN_COOKIE_NAME)
-
     if login_state.get('flow') == PKCE_FLOW:
-        # KODI-057: the code is bound to the challenge and the redirect_uri
-        # it goes back to; ``oob`` shows it on the web to paste (R-018).
-        # The login is spent here, the code on POST /auth/token.
-        await auth_handoff_state_use_case.delete_login(handoff_login_id)
+        # The code is bound to the challenge and the redirect_uri it goes
+        # back to; ``oob`` shows it on the web to paste. The login is spent
+        # here, the code on POST /auth/token.
+        await auth_handoff_state_use_case.delete_login(login_id)
         callback_url = login_state['callback_url']
         code = await auth_handoff_state_use_case.create_exchange_code(
-            login_id=handoff_login_id,
+            login_id=login_id,
             user_id=user_id,
-            github_id=github_id,
             flow=PKCE_FLOW,
             code_challenge=login_state.get('code_challenge'),
             redirect_uri=callback_url,
@@ -100,41 +91,36 @@ async def _build_auth_handoff_response(
             if callback_url == OOB_REDIRECT_URI
             else callback_url
         )
-        handoff_response.headers['location'] = build_callback_redirect_url(
+        return build_callback_redirect_url(
             target, code=code, state=login_state['state']
         )
-        return handoff_response
 
     code = await auth_handoff_state_use_case.create_exchange_code(
-        login_id=handoff_login_id,
-        user_id=user_id,
-        github_id=github_id,
+        login_id=login_id, user_id=user_id
     )
-
-    handoff_response.headers['location'] = build_callback_redirect_url(
-        login_state['callback_url'],
-        code=code,
-        state=login_state['state'],
+    return build_callback_redirect_url(
+        login_state['callback_url'], code=code, state=login_state['state']
     )
-
-    return handoff_response
 
 
 def set_session_cookies(tokens: SessionTokensDTO, response: Response) -> None:
-    """``__access`` (the JWT, with ``sid``) and ``__refresh`` (the uuid7,
-    full Max-Age)."""
-    set_access_cookie(str(tokens.github_id), str(tokens.session_id), response)
+    """``__access`` (the JWT, ``sub`` = ``users.id``, with ``sid``) and
+    ``__refresh`` (the uuid7, full Max-Age)."""
+    set_access_cookie(str(tokens.user_id), str(tokens.session_id), response)
     set_refresh_cookie(
         tokens.refresh_token, tokens.refresh_expires_in, response
     )
 
 
-async def redirect_to_github_for_cli(login_id: str, ttl_seconds: int):
-    """Redirect into GitHub OAuth with the ``__cli_login`` marker, so the
-    callback hands the sign-in back to the CLI."""
-    async with github_sso:
-        response = await github_sso.get_login_redirect()
-
+def redirect_to_signin_for_cli(
+    login_id: str, ttl_seconds: int
+) -> RedirectResponse:
+    """307 to applika's Borderless sign-in page with the ``__cli_login``
+    marker, so the sign-in hands the result back to the CLI."""
+    response = RedirectResponse(
+        f'{envs.WEB_SIGNIN_URI}?cli=1',
+        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    )
     response.set_cookie(
         key=CLI_LOGIN_COOKIE_NAME,
         value=login_id,
@@ -146,11 +132,13 @@ async def redirect_to_github_for_cli(login_id: str, ttl_seconds: int):
     return response
 
 
-@router.get('/github/login')
+@router.get('/github/login', status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 async def auth_init():
-    """Initialize auth and redirect"""
-    async with github_sso:
-        return await github_sso.get_login_redirect()
+    """GitHub sign-in is gone (ADR-0024): 307 to the Borderless sign-in
+    page."""
+    return RedirectResponse(
+        envs.WEB_SIGNIN_URI, status_code=status.HTTP_307_TEMPORARY_REDIRECT
+    )
 
 
 @router.post(
@@ -177,80 +165,104 @@ async def cli_start(
     )
 
 
-@router.get('/cli/login/{login_id}', deprecated=True)
+@router.get(
+    '/cli/login/{login_id}',
+    deprecated=True,
+    status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+)
 async def cli_login(
     login_id: str,
     auth_handoff_state_use_case: AuthHandoffStateUseCaseDp,
 ):
-    """Mark the OAuth flow as a CLI login before redirecting to GitHub."""
+    """Mark the sign-in as a CLI login, then 307 to the Borderless sign-in
+    page."""
     login_state = await auth_handoff_state_use_case.get_login(login_id)
     if login_state is None:
         raise HTTPException(status_code=404, detail='CLI login not found')
 
-    return await redirect_to_github_for_cli(
+    return redirect_to_signin_for_cli(
         login_id, auth_handoff_state_use_case.login_ttl_seconds
     )
 
 
-@router.get('/github/callback')
-async def auth_callback(
+def _restore_redirect(outcome: RestoreStatus | str) -> RedirectResponse:
+    query = urlencode({'account': 'github', 'status': outcome})
+    return RedirectResponse(
+        f'{envs.ACCOUNT_LINK_REDIRECT_URI}?{query}',
+        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    )
+
+
+def _restore_failed(reason: str) -> RedirectResponse:
+    logger.info(
+        f'GitHub restore callback failed: {reason}',
+        extra={
+            'extra_data': {'event': 'github_restore_failed', 'reason': reason}
+        },
+    )
+    return _restore_redirect('error')
+
+
+@router.get('/github/callback', status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+async def github_restore_callback(
     request: Request,
     user_repo: UserRepositoryDp,
-    gh_service: GitHubServiceDp,
-    auth_handoff_state_use_case: AuthHandoffStateUseCaseDp,
+    session_store: SessionStoreDp,
+    github: GitHubOAuthServiceDp,
+    state_use_case: AccountLinkStateUseCaseDp,
+    complete: CompleteGithubRestoreUseCaseDp,
     open_session: OpenSessionUseCaseDp,
-    end_session: EndSessionUseCaseDp,
 ):
-    """Verify login, store encrypted GitHub token, issue tokens."""
-    async with github_sso:
-        user = await github_sso.verify_and_process(request)
-        if not user:
-            raise HTTPException(status_code=401, detail='Authentication failed')
-        # ``verify_and_process`` is typed to allow a raw dict when called
-        # with ``return_response=False`` (not how it is called here) - the
-        # default call always returns an ``OpenID`` instance.
-        assert isinstance(user, OpenID)
+    """The GitHub restore callback (ADR-0024). Always a 307 to
+    ``ACCOUNT_LINK_REDIRECT_URI?account=github&status=<outcome>``.
 
-        github_token = github_sso.oauth_client.token.get('access_token')
+    Order: consume the nonce (a replay never matches again), resolve the
+    caller's own session, require both to name the same user, exchange the
+    code, read the identity once, revoke the grant, then complete. No
+    GitHub token is stored. ``restored`` signs the browser in as the old
+    account.
+    """
+    nonce = request.query_params.get('state')
+    nonce_user_id = await state_use_case.consume(nonce) if nonce else None
+    if nonce_user_id is None:
+        return _restore_failed('state')
+    code = request.query_params.get('code')
+    if request.query_params.get('error') or not code:
+        return _restore_failed('consent')
 
-    use_case = UserRegistrationUseCase(user_repo)
-    user_data = await use_case.execute(
-        user,
-        github_token=github_token,
-    )
+    try:
+        authenticated = await GetCurrentUserUseCase(
+            user_repo, session_store
+        ).execute(request.cookies.get(ACCESS_COOKIE_NAME), client_ip(request))
+    except HTTPException, SessionServiceUnavailable:
+        return _restore_failed('session')
+    if authenticated.user.id != nonce_user_id:
+        return _restore_failed('session_mismatch')
+    if not github.is_configured():
+        return _restore_failed('not_configured')
 
-    # Invalidate any stale cache for this user
-    await gh_service.invalidate_cache(user_data.id)
+    try:
+        grant = await github.exchange_code(code)
+    except GitHubOAuthError:
+        return _restore_failed('exchange')
+    try:
+        identity = await github.fetch_identity(grant.access_token)
+    except GitHubOAuthError:
+        await github.revoke(grant.access_token)
+        return _restore_failed('identity')
+    await github.revoke(grant.access_token)
 
-    handoff_response = await _build_auth_handoff_response(
-        request,
-        auth_handoff_state_use_case,
-        user_id=user_data.id,
-        github_id=user_data.github_id,
-    )
-
-    if handoff_response is not None:
-        return handoff_response
-
-    # Web branch only (plan correction 13): signing in again in the same
-    # browser ends that browser's earlier session as ``replaced``. The CLI
-    # branches above never end the browser's own session.
-    await end_session.end_by_refresh(
-        request.cookies.get(REFRESH_COOKIE_NAME),
-        'replaced',
-        user_id=user_data.id,
-    )
-    tokens = await open_session.execute(
-        user_id=user_data.id,
-        github_id=user_data.github_id,
-        client_type='web',
-        sign_in_method='github_web',
-        user_agent=client_user_agent(request),
-        ip=client_ip(request),
-    )
-
-    response = RedirectResponse(envs.LOGIN_REDIRECT_URI)
-    set_session_cookies(tokens, response)
+    result = await complete.execute(nonce_user_id, identity.id)
+    response = _restore_redirect(result.status)
+    if result.status == 'restored' and result.user_id is not None:
+        tokens = await open_session.execute(
+            user_id=result.user_id,
+            client_type='web',
+            sign_in_method='borderless',
+            user_agent=client_user_agent(request),
+            ip=client_ip(request),
+        )
+        set_session_cookies(tokens, response)
     return response
 
 
@@ -279,7 +291,6 @@ async def cli_exchange(
 
     tokens = await open_session.execute(
         user_id=int(code_state['user_id']),
-        github_id=int(code_state['github_id']),
         client_type='cli',
         sign_in_method='cli_legacy',
         user_agent=client_user_agent(request),
@@ -309,8 +320,8 @@ async def refresh_token(
     response: Response,
     use_case: RefreshSessionUseCaseDp,
 ):
-    """Resolve the ``__refresh`` session, re-check the GitHub token, slide
-    the session 7 days ahead and re-set both cookies (``__refresh`` keeps
+    """Resolve the ``__refresh`` session, read the Borderless membership
+    (never fails the refresh), slide the session 7 days ahead and re-set both cookies (``__refresh`` keeps
     its value, with the full Max-Age). 401 clears both cookies; a 503
     (session service down) clears nothing."""
     try:

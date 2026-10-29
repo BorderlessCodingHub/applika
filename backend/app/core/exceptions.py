@@ -77,3 +77,85 @@ class InvalidRequest(UnicornException):
     """A request the API refuses as malformed in a way the schema cannot
     express (KODI-057: a bad PKCE challenge on ``/auth/cli/authorize``).
     Mapped to 400 ``{"detail": <message>}``."""
+
+
+class CodedRefusal(UnicornException):
+    """A refusal with a fixed status, an optional machine ``code`` and
+    optional headers (ADR-0024). Mapped to
+    ``{"detail": <message>, "code": <code>}`` (``code`` omitted when
+    ``None``)."""
+
+    status_code: int = 400
+    code: str | None = None
+
+    def __init__(self, message: str, headers: dict[str, str] | None = None):
+        super().__init__(message)
+        self.headers = headers or {}
+
+
+INVALID_CREDENTIALS = 'Invalid email or password'
+EMAIL_UNVERIFIED = 'Verify your email on Borderless first'
+BORDERLESS_UNAVAILABLE = 'Borderless is unavailable, try again later'
+BORDERLESS_NOT_CONFIGURED = 'Borderless sign-in is not configured'
+BADGE_REQUIRED = 'Reports are for Borderless BASE and PSP members'
+MEMBERSHIP_UNCONFIRMED = 'Sign in again to confirm your membership'
+
+
+class InvalidCredentials(CodedRefusal):
+    status_code = 401
+
+    def __init__(self, message: str = INVALID_CREDENTIALS):
+        super().__init__(message)
+
+
+class EmailUnverified(CodedRefusal):
+    status_code = 403
+    code = 'email_unverified'
+
+    def __init__(self, message: str = EMAIL_UNVERIFIED):
+        super().__init__(message)
+
+
+class BindingConflict(CodedRefusal):
+    status_code = 409
+    code = 'binding_conflict'
+
+
+class EmailAmbiguous(CodedRefusal):
+    status_code = 409
+    code = 'email_ambiguous'
+
+
+class SignInRateLimited(CodedRefusal):
+    """Too many sign-in attempts: 429 with ``Retry-After``."""
+
+    status_code = 429
+
+    def __init__(self, retry_after: int):
+        retry_after = max(1, int(retry_after))
+        super().__init__(
+            f'Too many sign-in attempts. Try again in {retry_after} seconds.',
+            headers={'Retry-After': str(retry_after)},
+        )
+        self.retry_after = retry_after
+
+
+class BadgeRequired(CodedRefusal):
+    """The caller has no recorded BASE or PSP badge."""
+
+    status_code = 403
+    code = 'badge_required'
+
+    def __init__(self, message: str = BADGE_REQUIRED):
+        super().__init__(message)
+
+
+class MembershipUnconfirmed(CodedRefusal):
+    """The caller's recorded badge does not count: the Borderless access
+    expired or was refused."""
+
+    status_code = 403
+    code = 'membership_unconfirmed'
+
+    def __init__(self, message: str = MEMBERSHIP_UNCONFIRMED):
+        super().__init__(message)

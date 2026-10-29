@@ -99,6 +99,18 @@ async def _oauth_error_handler(request: Request, exc: Exception):
     )
 
 
+async def _coded_refusal_handler(request: Request, exc: Exception):
+    assert isinstance(exc, exceptions.CodedRefusal)
+    content: dict[str, str] = {'detail': exc.message}
+    if exc.code is not None:
+        content['code'] = exc.code
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=content,
+        headers=exc.headers or None,
+    )
+
+
 def register_handlers(app: FastAPI):
     """Register all errors handlers for the app"""
     app.add_exception_handler(NotImplementedError, _not_implemented_handler)
@@ -140,3 +152,4 @@ def register_handlers(app: FastAPI):
     app.add_exception_handler(
         exceptions.InvalidRequest, _invalid_request_handler
     )
+    app.add_exception_handler(exceptions.CodedRefusal, _coded_refusal_handler)

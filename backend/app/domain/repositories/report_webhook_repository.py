@@ -1,10 +1,8 @@
-"""Admin report webhook repository (KODI-025, ADR-0013, T114).
+"""Admin report webhook repository (ADR-0024).
 
 The unique-URL ``IntegrityError`` (asyncpg puts the offending value in its
-``DETAIL``) is caught here and turned into a fixed-string ``ResourceConflict``
-- the same discipline ``DiscordConnectionRepository`` uses for
-``uq_discord_connections_discord_id`` - never ``str(err)``, which would leak
-the webhook URL into a log or a response (R-030).
+``DETAIL``) is turned into a fixed-string ``ResourceConflict``, never
+``str(err)``, which would leak the webhook URL into a log or a response.
 """
 
 from datetime import UTC, datetime
@@ -14,46 +12,43 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ResourceConflict
-from app.domain.models import DiscordReportWebhookModel
+from app.domain.models import ReportWebhookModel
 
 ALREADY_CONFIGURED = 'This webhook is already configured'
 
 
-class DiscordReportWebhookRepository:
+class ReportWebhookRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def list_all(self) -> list[DiscordReportWebhookModel]:
+    async def list_all(self) -> list[ReportWebhookModel]:
         result = await self.session.scalars(
-            select(DiscordReportWebhookModel).order_by(
-                DiscordReportWebhookModel.id
-            )
+            select(ReportWebhookModel).order_by(ReportWebhookModel.id)
         )
         return list(result)
 
-    async def get_by_id(self, id: int) -> DiscordReportWebhookModel | None:
+    async def get_by_id(self, id: int) -> ReportWebhookModel | None:
         return await self.session.scalar(
-            select(DiscordReportWebhookModel).where(
-                DiscordReportWebhookModel.id == id
-            )
+            select(ReportWebhookModel).where(ReportWebhookModel.id == id)
         )
 
-    async def list_by_guild_ids(
-        self, guild_ids: list[int]
-    ) -> list[DiscordReportWebhookModel]:
-        """K8's submit-time lookup: the webhooks of a set of servers."""
-        if not guild_ids:
+    async def list_by_badges(
+        self, badges: list[str]
+    ) -> list[ReportWebhookModel]:
+        """The webhooks assigned to any of ``badges``, oldest first. A
+        webhook with no badge is never returned."""
+        if not badges:
             return []
         result = await self.session.scalars(
-            select(DiscordReportWebhookModel).where(
-                DiscordReportWebhookModel.guild_id.in_(guild_ids)
-            )
+            select(ReportWebhookModel)
+            .where(ReportWebhookModel.badge.in_(badges))
+            .order_by(ReportWebhookModel.created_at, ReportWebhookModel.id)
         )
         return list(result)
 
-    async def create(self, **kwargs) -> DiscordReportWebhookModel:
+    async def create(self, **kwargs) -> ReportWebhookModel:
         try:
-            webhook = DiscordReportWebhookModel(**kwargs)
+            webhook = ReportWebhookModel(**kwargs)
             self.session.add(webhook)
             await self.session.commit()
             await self.session.refresh(webhook)
@@ -65,9 +60,7 @@ class DiscordReportWebhookRepository:
             await self.session.rollback()
             raise e
 
-    async def update(
-        self, webhook: DiscordReportWebhookModel
-    ) -> DiscordReportWebhookModel:
+    async def update(self, webhook: ReportWebhookModel) -> ReportWebhookModel:
         try:
             webhook.updated_at = datetime.now(UTC)
             self.session.add(webhook)
@@ -84,9 +77,7 @@ class DiscordReportWebhookRepository:
     async def delete(self, id: int) -> None:
         try:
             await self.session.execute(
-                delete(DiscordReportWebhookModel).where(
-                    DiscordReportWebhookModel.id == id
-                )
+                delete(ReportWebhookModel).where(ReportWebhookModel.id == id)
             )
             await self.session.commit()
         except Exception as e:

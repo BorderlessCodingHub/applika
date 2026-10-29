@@ -25,7 +25,7 @@ class AdminUserRowSchema(BaseSchema):
     id: SnowflakeID
     username: str
     email: str
-    github_id: int
+    github_id: int | None = None
     seniority_level: str | None = None
     location: str | None = None
     is_admin: bool = False
@@ -80,7 +80,7 @@ class AdminUserDetailSchema(BaseSchema):
     id: SnowflakeID
     username: str
     email: str
-    github_id: int
+    github_id: int | None = None
     first_name: str | None = None
     last_name: str | None = None
     current_role: str | None = None

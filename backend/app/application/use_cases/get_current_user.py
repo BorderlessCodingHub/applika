@@ -115,21 +115,23 @@ class GetCurrentUserUseCase:
             raise _session_expired('no_session_claim')
         session_id = int(raw_sid)
 
-        session_github_id = await self.session_store.touch(session_id, ip)
-        if session_github_id is None:
+        session_user_id = await self.session_store.touch(session_id, ip)
+        if session_user_id is None:
             raise _session_expired('session_gone')
-        if str(session_github_id) != str(user_sub):
+        # ``sub`` is ``users.id`` (ADR-0024). A token minted before that
+        # carried a GitHub id and never matches: the session ends.
+        if not str(user_sub).isdigit() or session_user_id != int(user_sub):
             raise _session_expired('session_mismatch')
 
-        user = await self.user_repository.get_by_github_id(int(user_sub))
+        user = await self.user_repository.get_by_id(session_user_id)
         if not user:
             logger.warning(
-                f'Auth failed: user not found for github_id={user_sub}',
+                f'Auth failed: user not found for id={user_sub}',
                 extra={
                     'extra_data': {
                         'event': 'auth_failed',
                         'reason': 'user_not_found',
-                        'github_id': user_sub,
+                        'user_id': user_sub,
                     }
                 },
             )

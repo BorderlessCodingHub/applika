@@ -30,16 +30,16 @@ def next_expiry(now: datetime) -> datetime:
 
 
 def session_tokens(
-    session_id: int, github_id: int, refresh_value: str
+    session_id: int, user_id: int, refresh_value: str
 ) -> SessionTokensDTO:
     """A fresh access JWT for the session, with its unchanged refresh
     value."""
     access_token, _, access_expires_in = create_access_token(
-        str(github_id), str(session_id)
+        str(user_id), str(session_id)
     )
     return SessionTokensDTO(
         session_id=session_id,
-        github_id=github_id,
+        user_id=user_id,
         access_token=access_token,
         access_expires_in=access_expires_in,
         refresh_token=refresh_value,
@@ -68,7 +68,6 @@ class OpenSessionUseCase:
         self,
         *,
         user_id: int,
-        github_id: int,
         client_type: ClientType,
         sign_in_method: SignInMethod,
         user_agent: str | None,
@@ -91,7 +90,6 @@ class OpenSessionUseCase:
             refresh_value = await self.store.open(
                 session_id=session_id,
                 user_id=user_id,
-                github_id=github_id,
                 expires_at=expires_at,
                 last_ip=ip,
             )
@@ -100,4 +98,4 @@ class OpenSessionUseCase:
             # never shows a session that was never live.
             await self.session_repo.delete(session_id)
             raise
-        return session_tokens(session_id, github_id, refresh_value)
+        return session_tokens(session_id, user_id, refresh_value)

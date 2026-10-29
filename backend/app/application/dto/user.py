@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, EmailStr
 
 from app.application.dto import BaseSchema
@@ -10,13 +12,11 @@ from app.core.enums import (
 
 
 class UserCreateDTO(BaseModel):
-    github_id: int
     username: str
     email: EmailStr
 
 
 class UserDTO(BaseSchema):
-    github_id: int
     username: str
     email: EmailStr
     first_name: str | None = None
@@ -34,6 +34,7 @@ class UserDTO(BaseSchema):
     bio: str | None = None
     linkedin_url: str | None = None
     is_admin: bool = False
+    github_restore_prompt_seen_at: datetime | None = None
 
 
 class UserUpdateDTO(BaseModel):

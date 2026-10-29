@@ -4,7 +4,7 @@ R-017).
 Redis on ``REDIS_URL``, both keys ``EX DEVICE_CODE_TTL_SECONDS``:
 
 - ``applika:device:code:<device_code>`` hash ``{user_code, status
-  (pending|approved|denied), user_id, github_id, device_name, ip,
+  (pending|approved|denied), user_id, device_name, ip,
   user_agent, requested_at, last_poll_at}``;
 - ``applika:device:user_code:<CODE>`` -> the device code.
 
@@ -62,10 +62,7 @@ end
 if redis.call('HGET', code_key, 'status') ~= 'pending' then
   return 1
 end
-redis.call(
-  'HSET', code_key, 'status', ARGV[2], 'user_id', ARGV[3],
-  'github_id', ARGV[4]
-)
+redis.call('HSET', code_key, 'status', ARGV[2], 'user_id', ARGV[3])
 return 2
 """
 
@@ -89,8 +86,7 @@ if status ~= 'approved' and status ~= 'denied' then
   return {'expired'}
 end
 local fields = redis.call(
-  'HMGET', code_key, 'user_id', 'github_id', 'device_name', 'user_agent',
-  'ip'
+  'HMGET', code_key, 'user_id', 'device_name', 'user_agent', 'ip'
 )
 local user_code = redis.call('HGET', code_key, 'user_code')
 redis.call('DEL', code_key)
@@ -130,7 +126,6 @@ class ApprovedDevice:
     """An approved device code, consumed: who approved it and what asked."""
 
     user_id: int
-    github_id: int
     device_name: str
     user_agent: str | None
     ip: str | None
@@ -169,7 +164,6 @@ class DeviceCodeUseCase:
                     'user_code': user_code,
                     'status': 'pending',
                     'user_id': '',
-                    'github_id': '',
                     'device_name': device_name_for(device_name, user_agent),
                     'ip': (ip or '')[:IP_MAX],
                     'user_agent': (user_agent or '')[:USER_AGENT_MAX],
@@ -221,18 +215,14 @@ class DeviceCodeUseCase:
             + timedelta(seconds=envs.DEVICE_CODE_TTL_SECONDS),
         )
 
-    async def approve(
-        self, raw_user_code: str, user_id: int, github_id: int
-    ) -> None:
-        await self._decide(raw_user_code, 'approved', user_id, github_id)
+    async def approve(self, raw_user_code: str, user_id: int) -> None:
+        await self._decide(raw_user_code, 'approved', user_id)
 
-    async def deny(
-        self, raw_user_code: str, user_id: int, github_id: int
-    ) -> None:
-        await self._decide(raw_user_code, 'denied', user_id, github_id)
+    async def deny(self, raw_user_code: str, user_id: int) -> None:
+        await self._decide(raw_user_code, 'denied', user_id)
 
     async def _decide(
-        self, raw_user_code: str, status: str, user_id: int, github_id: int
+        self, raw_user_code: str, status: str, user_id: int
     ) -> None:
         user_code = normalize_user_code(raw_user_code)
         if user_code is None:
@@ -240,7 +230,7 @@ class DeviceCodeUseCase:
         async with redis_guard('device_decide'):
             outcome = await self._decide_script(
                 keys=[user_code_key(user_code)],
-                args=[CODE_PREFIX, status, str(user_id), str(github_id)],
+                args=[CODE_PREFIX, status, str(user_id)],
             )
         if outcome == 0:
             raise ResourceNotFound(CODE_NOT_FOUND)
@@ -272,10 +262,9 @@ class DeviceCodeUseCase:
         if outcome == 'denied':
             raise OAuthError('access_denied', 'The sign-in was denied')
 
-        _, user_id, github_id, device_name, user_agent, ip = result
+        _, user_id, device_name, user_agent, ip = result
         return ApprovedDevice(
             user_id=int(user_id),
-            github_id=int(github_id),
             device_name=device_name,
             user_agent=user_agent or None,
             ip=ip or None,

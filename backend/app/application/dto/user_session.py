@@ -8,7 +8,10 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 ClientType = Literal['web', 'cli']
-SignInMethod = Literal['github_web', 'cli_browser', 'cli_device', 'cli_legacy']
+# ``github_web`` stays: ended rows from before ADR-0024 are still listed.
+SignInMethod = Literal[
+    'github_web', 'cli_browser', 'cli_device', 'cli_legacy', 'borderless'
+]
 EndReason = Literal[
     'logout', 'revoked', 'expired', 'github_revoked', 'replaced'
 ]
@@ -22,7 +25,7 @@ class SessionTokensDTO(BaseModel):
     ``refresh_token`` is the session's uuid7, unchanged on refresh."""
 
     session_id: int
-    github_id: int
+    user_id: int
     access_token: str = Field(repr=False)
     access_expires_in: int
     refresh_token: str = Field(repr=False)

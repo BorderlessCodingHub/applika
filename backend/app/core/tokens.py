@@ -1,6 +1,6 @@
 """JWT access token and the session cookies (ADR-0002, ADR-0019).
 
-Access token: a short-lived JWT, ``{sub: github_id, sid: <session id>,
+Access token: a short-lived JWT, ``{sub: users.id, sid: <session id>,
 kind: 'access', exp}``. The web carries it in the HTTP-only ``__access``
 cookie; ``applika-cli`` 1.1.0 and later send it as ``Authorization: Bearer``.
 ``sid`` is the public ``user_sessions.id`` (a snowflake, as a string), never
