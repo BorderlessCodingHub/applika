@@ -9,12 +9,12 @@ when bound to another Borderless account or ambiguous; (3) a new account.
 import pytest
 from sqlalchemy import func, select
 
+from app.application.dto.user import UserCreateDTO
 from app.application.services.borderless_client import (
     BorderlessRateLimited,
     BorderlessSignIn,
     BorderlessUnavailable,
 )
-from app.application.dto.user import UserCreateDTO
 from app.application.use_cases.borderless.credentials import (
     email_counter_key,
 )
@@ -204,6 +204,8 @@ EMAIL_100 = 'a' * 60 + '@' + 'b' * 27 + '.example.com'
 EMAIL_101 = 'a' * 60 + '@' + 'b' * 28 + '.example.com'
 # 95 characters that normalize to 115 (U+2121 maps to "tel").
 GROWS_ON_NORMALIZING = 'a' * 80 + '@' + '\u2121' * 10 + '.com'
+# 99 characters that normalize to exactly 101.
+NORMALIZES_TO_101 = 'a' * 93 + '@' + '\u2121' + '.com'
 
 
 async def _bindings(db_session) -> int:
@@ -221,8 +223,20 @@ async def _badges(db_session) -> int:
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     'email',
-    [LONG_EMAIL, EMAIL_101, GROWS_ON_NORMALIZING, 'not-an-email'],
-    ids=['over-100', 'exactly-101', 'grows-on-normalizing', 'invalid'],
+    [
+        LONG_EMAIL,
+        EMAIL_101,
+        GROWS_ON_NORMALIZING,
+        NORMALIZES_TO_101,
+        'not-an-email',
+    ],
+    ids=[
+        'over-100',
+        'exactly-101',
+        'grows-on-normalizing',
+        'normalizes-to-101',
+        'invalid',
+    ],
 )
 async def test_unusable_borderless_email_is_422_before_any_write(
     db_session, fake_redis, borderless, email

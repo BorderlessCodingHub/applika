@@ -5,8 +5,8 @@ account whose email equals the Borderless email ignoring case (the exact
 spelling first), bound now, refused when it is bound to another Borderless
 account or when several accounts match and none exactly; (3) a new
 account. A binding never moves here. Before (2) and (3), a Borderless email
-applika cannot store (over 100 characters or refused by ``UserCreateDTO``)
-is refused, before any write.
+applika cannot store (over 100 characters once normalized, or refused by
+``UserCreateDTO``) is refused, before any write.
 """
 
 from dataclasses import dataclass
