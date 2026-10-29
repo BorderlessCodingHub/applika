@@ -1,6 +1,6 @@
 # ADR-0002: GitHub OAuth is the sole login (as-built)
 
-**Status:** Accepted by LuisMSoares on 2026-09-15 · Amended by ADR-0013 on 2026-09-24 (scope line) · Amended by ADR-0019 on 2026-10-15 · **Date:** 2026-09-15 · **Deciders:** LuisMSoares
+**Status:** Superseded by ADR-0024 (`0024-borderless-sole-login-and-membership-badges.md`) on 2026-10-29 · was Accepted by LuisMSoares on 2026-09-15 · Amended by ADR-0013 on 2026-09-24 (scope line) · Amended by ADR-0019 on 2026-10-15 · **Date:** 2026-09-15 · **Deciders:** LuisMSoares
 
 ## Context
 

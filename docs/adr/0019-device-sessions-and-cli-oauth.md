@@ -1,6 +1,6 @@
 # ADR-0019: Device sessions in Redis, a session claim checked on every request, and OAuth-style CLI sign-in (amends ADR-0002 and ADR-0015, exception to ADR-0018)
 
-**Status:** Accepted (LuisMSoares, 2026-10-15) · **Date:** 2026-10-15 · **Deciders:** LuisMSoares
+**Status:** Accepted (LuisMSoares, 2026-10-15) · Amended by ADR-0024 on 2026-10-29 (`sub` is `users.id`; CLI sign-in lands on the Borderless sign-in page; `borderless` sign-in method) · **Date:** 2026-10-15 · **Deciders:** LuisMSoares
 
 ## Context
 

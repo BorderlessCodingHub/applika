@@ -1,6 +1,6 @@
 # ADR-0004: Per-user row ownership, `is_admin` as the only role
 
-**Status:** Accepted by LuisMSoares on 2026-09-16 · **Date:** 2026-09-15 · **Deciders:** LuisMSoares
+**Status:** Accepted by LuisMSoares on 2026-09-16 · Amended by ADR-0024 on 2026-10-29 (badges are an entitlement for reports only; `is_admin` stays the only role) · **Date:** 2026-09-15 · **Deciders:** LuisMSoares
 
 ## Context
 

@@ -1,6 +1,6 @@
 # ADR-0013: Discord connection with a stored grant, and admin-routed report webhooks
 
-**Status:** Accepted by LuisMSoares on 2026-09-24 · **Date:** 2026-09-24 · **Deciders:** LuisMSoares · **Supersedes:** ADR-0008 · **Amends:** ADR-0002 (GitHub scope line)
+**Status:** Superseded by ADR-0024 (`0024-borderless-sole-login-and-membership-badges.md`) on 2026-10-29 · was Accepted by LuisMSoares on 2026-09-24 · **Date:** 2026-09-24 · **Deciders:** LuisMSoares · **Supersedes:** ADR-0008 · **Amends:** ADR-0002 (GitHub scope line)
 
 ## Context
 
