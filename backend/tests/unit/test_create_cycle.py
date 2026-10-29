@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 
 from app.application.dto.cycle import CycleCreateDTO
 from app.application.use_cases.cycles.create_cycle import CreateCycleUseCase

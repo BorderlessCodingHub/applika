@@ -5,8 +5,9 @@ REAL ``get_current_user`` (``real_client``). Covers: the web callback opens
 a row and both keys; refresh slides both keys' TTL, ``expires_at`` and the
 ``__refresh`` Max-Age without rotating; logout; a revoked session is refused
 on its next request; a JWT without ``sid`` and a pre-KODI-057 refresh key
-are refused; signing in again replaces the browser's session; a GitHub
-revocation ends it; a lost key reads as expired; the live last use is copied
+are refused; signing in again replaces the browser's session; a refresh
+reads the Borderless membership and never fails on it; an unbound user
+signs in again; a lost key reads as expired; the live last use is copied
 to the row on refresh and on end; Redis down is a 503, never a pass.
 """
 
@@ -17,25 +18,23 @@ from typing import Any
 import jwt
 import pytest
 import redis.asyncio as redis
-from cryptography.fernet import Fernet
-from fastapi.responses import RedirectResponse
-from fastapi_sso import OpenID
 from httpx import AsyncClient
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
+from app.application.services.borderless_client import BorderlessUnavailable
 from app.config.redis import get_redis
 from app.config.settings import (
     ACCESS_COOKIE_NAME,
     REFRESH_COOKIE_NAME,
     envs,
 )
-from app.core.crypto import encrypt_token
 from app.core.tokens import decode_token
-from app.domain.models import UserModel, UserSessionModel
+from app.domain.models import UserSessionModel
 from app.main import app as main_app
-from app.presentation.api import oauth as oauth_api
 from tests.base_db_setup import base_data
+from tests.conftest import FakeBorderlessClient
+from tests.integration.conftest import CREDENTIALS
 from tests.sessions_seed import BROWSER_USER_AGENT, open_session
 
 USER = base_data()['user']
@@ -47,44 +46,9 @@ CHROME_WINDOWS = (
 )
 
 
-class FakeGithubSSO:
-    """GitHub OAuth without GitHub: signs ``github_id`` in."""
-
-    def __init__(self, github_id: int, username: str, email: str):
-        self.openid = OpenID(
-            id=str(github_id),
-            display_name=username,
-            email=email,
-            provider='github',
-        )
-        self.oauth_client = type(
-            'Client', (), {'token': {'access_token': 'gh-token'}}
-        )()
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *exc_info):
-        return False
-
-    async def get_login_redirect(self):
-        return RedirectResponse('https://github.com/login/oauth/authorize')
-
-    async def verify_and_process(self, request):
-        return self.openid
-
-
 @pytest.fixture
-def github_sign_in(monkeypatch, github_service):
-    monkeypatch.setattr(
-        envs, 'GITHUB_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
-    )
-    monkeypatch.setattr(
-        oauth_api,
-        'github_sso',
-        FakeGithubSSO(USER.github_id, USER.username, USER.email),
-    )
-    return github_service
+def borderless_sign_in(bound_user, borderless: FakeBorderlessClient):
+    return borderless
 
 
 async def _row(engine: AsyncEngine, session_id: int) -> UserSessionModel:
@@ -141,14 +105,15 @@ def _keys(refresh_value: str, session_id: int) -> tuple[str, str]:
 
 
 async def test_callback_opens_a_web_session_with_row_and_keys(
-    real_client: AsyncClient, async_engine, redis_client, github_sign_in
+    real_client: AsyncClient, async_engine, redis_client, borderless_sign_in
 ):
-    response = await real_client.get(
-        '/auth/github/callback',
+    response = await real_client.post(
+        '/auth/borderless/signin',
+        json=CREDENTIALS,
         headers={'User-Agent': BROWSER_USER_AGENT},
-        follow_redirects=False,
     )
-    assert response.status_code == 307
+    assert response.status_code == 200
+    assert response.json() == {'redirect_to': None, 'new_account': False}
 
     access = response.cookies.get(ACCESS_COOKIE_NAME)
     refresh_value = response.cookies.get(REFRESH_COOKIE_NAME)
@@ -161,12 +126,12 @@ async def test_callback_opens_a_web_session_with_row_and_keys(
     assert 'HttpOnly' in refresh_cookie
 
     payload = decode_token(access)
-    assert payload['sub'] == str(USER.github_id)
+    assert payload['sub'] == str(USER.id)
     session_id = int(payload.get('sid', '0'))
 
     [row] = await _rows(async_engine, USER.id)
     assert row.id == session_id
-    assert (row.client_type, row.sign_in_method) == ('web', 'github_web')
+    assert (row.client_type, row.sign_in_method) == ('web', 'borderless')
     assert row.device_name == 'Chrome on macOS'
     assert row.user_agent == BROWSER_USER_AGENT
     assert row.created_ip == row.last_ip == '127.0.0.1'
@@ -183,7 +148,7 @@ async def test_callback_opens_a_web_session_with_row_and_keys(
     session_hash = await redis_client.hgetall(id_key)
     assert session_hash['rk'] == refresh_value
     assert session_hash['user_id'] == str(USER.id)
-    assert session_hash['github_id'] == str(USER.github_id)
+    assert 'github_id' not in session_hash
     # Both keys end at the same instant, a full window ahead.
     ttl_refresh = await redis_client.ttl(refresh_key)
     ttl_id = await redis_client.ttl(id_key)
@@ -206,10 +171,10 @@ async def test_callback_opens_a_web_session_with_row_and_keys(
 
 
 async def test_no_refresh_value_or_hash_reaches_postgres(
-    real_client: AsyncClient, async_engine, redis_client, github_sign_in
+    real_client: AsyncClient, async_engine, redis_client, borderless_sign_in
 ):
-    response = await real_client.get(
-        '/auth/github/callback', follow_redirects=False
+    response = await real_client.post(
+        '/auth/borderless/signin', json=CREDENTIALS
     )
     refresh_value = response.cookies.get(REFRESH_COOKIE_NAME)
     [row] = await _rows(async_engine, USER.id)
@@ -228,23 +193,21 @@ async def test_no_refresh_value_or_hash_reaches_postgres(
 
 
 async def test_signing_in_again_replaces_the_browsers_session(
-    real_client: AsyncClient, async_engine, redis_client, github_sign_in
+    real_client: AsyncClient, async_engine, redis_client, borderless_sign_in
 ):
-    first = await real_client.get(
-        '/auth/github/callback', follow_redirects=False
-    )
+    first = await real_client.post('/auth/borderless/signin', json=CREDENTIALS)
     first_refresh = first.cookies.get(REFRESH_COOKIE_NAME)
     first_access = first.cookies.get(ACCESS_COOKIE_NAME)
     assert first_refresh
     assert first_access
     first_id = int(decode_token(first_access).get('sid', '0'))
 
-    second = await real_client.get(
-        '/auth/github/callback',
+    second = await real_client.post(
+        '/auth/borderless/signin',
+        json=CREDENTIALS,
         cookies={REFRESH_COOKIE_NAME: first_refresh},
-        follow_redirects=False,
     )
-    assert second.status_code == 307
+    assert second.status_code == 200
 
     old = await _row(async_engine, first_id)
     assert old.end_reason == 'replaced'
@@ -262,18 +225,16 @@ async def test_signing_in_again_replaces_the_browsers_session(
 
 
 async def test_another_users_refresh_cookie_is_not_replaced(
-    real_client: AsyncClient, async_engine, redis_client, github_sign_in
+    real_client: AsyncClient, async_engine, redis_client, borderless_sign_in
 ):
-    admin_session = await open_session(
-        async_engine, redis_client, ADMIN.id, ADMIN.github_id
-    )
+    admin_session = await open_session(async_engine, redis_client, ADMIN.id)
 
-    response = await real_client.get(
-        '/auth/github/callback',
+    response = await real_client.post(
+        '/auth/borderless/signin',
+        json=CREDENTIALS,
         cookies={REFRESH_COOKIE_NAME: admin_session.refresh_token},
-        follow_redirects=False,
     )
-    assert response.status_code == 307
+    assert response.status_code == 200
 
     admin_row = await _row(async_engine, admin_session.session_id)
     assert admin_row.ended_at is None
@@ -291,11 +252,9 @@ async def test_another_users_refresh_cookie_is_not_replaced(
 
 
 async def test_refresh_slides_both_keys_the_row_and_the_cookie(
-    real_client: AsyncClient, async_engine, redis_client, github_service
+    real_client: AsyncClient, async_engine, redis_client, bound_user
 ):
-    tokens = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
+    tokens = await open_session(async_engine, redis_client, USER.id)
     refresh_key, id_key = _keys(tokens.refresh_token, tokens.session_id)
     soon = datetime.now(UTC) + timedelta(hours=1)
     await redis_client.expireat(refresh_key, int(soon.timestamp()))
@@ -328,11 +287,9 @@ async def test_refresh_slides_both_keys_the_row_and_the_cookie(
 
 
 async def test_refresh_copies_the_live_last_use_onto_the_row(
-    real_client: AsyncClient, async_engine, redis_client, github_service
+    real_client: AsyncClient, async_engine, redis_client, bound_user
 ):
-    tokens = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
+    tokens = await open_session(async_engine, redis_client, USER.id)
     used = await real_client.get(
         '/users/me', headers=_bearer(tokens.access_token)
     )
@@ -392,7 +349,7 @@ async def test_a_jwt_without_sid_is_session_expired(
 ):
     token = jwt.encode(
         {
-            'sub': str(USER.github_id),
+            'sub': str(USER.id),
             'kind': 'access',
             'exp': datetime.now(UTC) + timedelta(minutes=10),
         },
@@ -421,9 +378,7 @@ async def test_no_credentials_is_not_authenticated(real_client: AsyncClient):
 async def test_logout_ends_the_session(
     real_client: AsyncClient, async_engine, redis_client
 ):
-    tokens = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
+    tokens = await open_session(async_engine, redis_client, USER.id)
 
     response = await real_client.get(
         '/auth/logout', cookies={REFRESH_COOKIE_NAME: tokens.refresh_token}
@@ -465,12 +420,8 @@ async def test_logout_without_a_session_still_clears_cookies(
 async def test_a_revoked_device_is_refused_on_its_next_request(
     real_client: AsyncClient, async_engine, redis_client
 ):
-    laptop = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
-    phone = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
+    laptop = await open_session(async_engine, redis_client, USER.id)
+    phone = await open_session(async_engine, redis_client, USER.id)
     assert (
         await real_client.get('/users/me', headers=_bearer(phone.access_token))
     ).status_code == 200
@@ -501,12 +452,8 @@ async def test_a_revoked_device_is_refused_on_its_next_request(
 async def test_ending_a_session_copies_its_last_use(
     real_client: AsyncClient, async_engine, redis_client
 ):
-    laptop = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
-    phone = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id, ip=None
-    )
+    laptop = await open_session(async_engine, redis_client, USER.id)
+    phone = await open_session(async_engine, redis_client, USER.id, ip=None)
     await real_client.get('/users/me', headers=_bearer(phone.access_token))
     live = await redis_client.hgetall(f'applika:session:id:{phone.session_id}')
 
@@ -522,57 +469,95 @@ async def test_ending_a_session_copies_its_last_use(
 
 
 # --------------------------------------------------------------------------
-# AC7: GitHub revoked the token -> the session ends
+# ADR-0024: refresh reads the membership; an unbound user signs in again
 # --------------------------------------------------------------------------
 
 
-async def test_github_revocation_ends_the_session_on_refresh(
+async def test_refresh_reads_the_membership(
     real_client: AsyncClient,
     async_engine,
     redis_client,
-    github_service,
-    monkeypatch,
+    bound_user,
+    borderless: FakeBorderlessClient,
 ):
-    monkeypatch.setattr(
-        envs, 'GITHUB_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
-    )
-    maker = async_sessionmaker(bind=async_engine, expire_on_commit=False)
-    async with maker() as session:
-        await session.execute(
-            update(UserModel)
-            .where(UserModel.id == USER.id)
-            .values(encrypted_github_token=encrypt_token('gh-token'))
-        )
-        await session.commit()
-    tokens = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
+    tokens = await open_session(async_engine, redis_client, USER.id)
+    borderless.accounts[USER.email.lower()]['membership'] = 'BASE'
 
     ok = await real_client.get(
         '/auth/refresh', cookies={REFRESH_COOKIE_NAME: tokens.refresh_token}
     )
-    assert ok.status_code == 200
-    assert github_service.validated == [USER.id]
 
-    github_service.valid = False
+    assert ok.status_code == 200
+    assert borderless.read_calls == ['tok-user']
+    me = await real_client.get(
+        '/users/me', headers=_bearer(tokens.access_token)
+    )
+    assert [b['badge'] for b in me.json()['badges']] == ['borderless_base']
+
+
+async def test_borderless_failure_never_fails_a_refresh(
+    real_client: AsyncClient,
+    async_engine,
+    redis_client,
+    bound_user,
+    borderless: FakeBorderlessClient,
+):
+    tokens = await open_session(async_engine, redis_client, USER.id)
+    borderless.read_error = BorderlessUnavailable('5xx')
+
+    ok = await real_client.get(
+        '/auth/refresh', cookies={REFRESH_COOKIE_NAME: tokens.refresh_token}
+    )
+
+    assert ok.status_code == 200
+    me = await real_client.get(
+        '/users/me', headers=_bearer(tokens.access_token)
+    )
+    assert [b['badge'] for b in me.json()['badges']] == ['borderless_psp']
+    assert me.json()['borderless']['status'] == 'active'
+
+
+async def test_refresh_of_an_unbound_user_is_401_sign_in_again(
+    real_client: AsyncClient, async_engine, redis_client
+):
+    """Every session open before the release ends: its user has no
+    Borderless binding yet."""
+    tokens = await open_session(async_engine, redis_client, USER.id)
+
     refused = await real_client.get(
         '/auth/refresh', cookies={REFRESH_COOKIE_NAME: tokens.refresh_token}
     )
 
     assert refused.status_code == 401
-    assert refused.json() == {'detail': 'GitHub token revoked'}
+    assert refused.json() == {'detail': 'Sign in again with Borderless'}
+    assert _set_cookie(refused, ACCESS_COOKIE_NAME) is not None
     row = await _row(async_engine, tokens.session_id)
-    assert row.end_reason == 'github_revoked'
+    assert row.end_reason == 'expired'
     assert (
         await redis_client.exists(
             *_keys(tokens.refresh_token, tokens.session_id)
         )
         == 0
     )
-    after = await real_client.get(
-        '/users/me', headers=_bearer(tokens.access_token)
+
+
+async def test_a_token_minted_with_a_github_id_sub_is_refused(
+    real_client: AsyncClient, async_engine, redis_client
+):
+    tokens = await open_session(async_engine, redis_client, USER.id)
+    legacy = jwt.encode(
+        {
+            'sub': '987654321',
+            'sid': str(tokens.session_id),
+            'kind': 'access',
+            'exp': datetime.now(UTC) + timedelta(minutes=5),
+        },
+        envs.JWT_SECRET,
+        algorithm=envs.JWT_ALGORITHM,
     )
-    assert after.status_code == 401
+    response = await real_client.get('/users/me', headers=_bearer(legacy))
+    assert response.status_code == 401
+    assert response.json()['detail'] == 'Session expired'
 
 
 # --------------------------------------------------------------------------
@@ -581,14 +566,10 @@ async def test_github_revocation_ends_the_session_on_refresh(
 
 
 async def test_a_lost_key_reads_as_expired_and_cannot_refresh(
-    real_client: AsyncClient, async_engine, redis_client, github_service
+    real_client: AsyncClient, async_engine, redis_client, bound_user
 ):
-    current = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
-    lost = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
+    current = await open_session(async_engine, redis_client, USER.id)
+    lost = await open_session(async_engine, redis_client, USER.id)
     await redis_client.delete(*_keys(lost.refresh_token, lost.session_id))
 
     listed = await real_client.get(
@@ -615,9 +596,7 @@ async def test_a_session_past_its_end_cannot_be_used_once_redis_drops_it(
 ):
     """Redis expires both keys at ``expires_at`` (EXAT): simulate the
     moment by expiring them now."""
-    tokens = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
+    tokens = await open_session(async_engine, redis_client, USER.id)
     for key in _keys(tokens.refresh_token, tokens.session_id):
         await redis_client.expireat(key, int(datetime.now(UTC).timestamp()) - 1)
 
@@ -653,9 +632,7 @@ async def redis_down(redis_client):
 async def test_redis_down_is_503_on_an_authenticated_route(
     real_client: AsyncClient, async_engine, redis_client, redis_down
 ):
-    tokens = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
+    tokens = await open_session(async_engine, redis_client, USER.id)
 
     for response in (
         await real_client.get(
@@ -683,9 +660,7 @@ async def test_redis_down_is_503_on_an_authenticated_route(
 async def test_redis_down_is_503_on_refresh_and_keeps_the_cookies(
     real_client: AsyncClient, async_engine, redis_client, redis_down
 ):
-    tokens = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
+    tokens = await open_session(async_engine, redis_client, USER.id)
 
     response = await real_client.get(
         '/auth/refresh', cookies={REFRESH_COOKIE_NAME: tokens.refresh_token}
@@ -703,9 +678,7 @@ async def test_a_revoked_session_stays_refused_during_an_outage(
 ):
     """Fail closed: during the outage the revoked device gets a 503, not a
     200 - the check never lets a request through unchecked."""
-    tokens = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
+    tokens = await open_session(async_engine, redis_client, USER.id)
     await redis_client.delete(*_keys(tokens.refresh_token, tokens.session_id))
 
     response = await real_client.get(
@@ -738,9 +711,7 @@ async def test_redis_down_is_503_on_logout_and_keeps_the_cookies(
 ):
     """Fail closed on logout too: a 503 rather than a 200 that would claim
     the session ended while its keys stay live."""
-    tokens = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
+    tokens = await open_session(async_engine, redis_client, USER.id)
 
     response = await real_client.get(
         '/auth/logout', cookies={REFRESH_COOKIE_NAME: tokens.refresh_token}
@@ -758,7 +729,7 @@ async def test_a_sign_in_during_an_outage_leaves_no_device(
     real_client: AsyncClient,
     async_engine,
     redis_client,
-    github_sign_in,
+    borderless_sign_in,
     redis_down,
 ):
     """The row is written first; when the keys cannot be, the row goes
@@ -766,15 +737,11 @@ async def test_a_sign_in_during_an_outage_leaves_no_device(
     that row goes: the user's other live device and another user's device
     are untouched."""
     # Opened on the real Redis before the callback hits the dead one.
-    laptop = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
-    other = await open_session(
-        async_engine, redis_client, ADMIN.id, ADMIN.github_id
-    )
+    laptop = await open_session(async_engine, redis_client, USER.id)
+    other = await open_session(async_engine, redis_client, ADMIN.id)
 
-    response = await real_client.get(
-        '/auth/github/callback', follow_redirects=False
+    response = await real_client.post(
+        '/auth/borderless/signin', json=CREDENTIALS
     )
 
     assert response.status_code == 503
@@ -792,9 +759,7 @@ async def test_a_refused_request_never_recreates_the_session_key(
 ):
     """The touch is EXISTS -> HSET in one script: a request on an ended
     session stamps nothing, so no key without a TTL is left behind."""
-    tokens = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
+    tokens = await open_session(async_engine, redis_client, USER.id)
     refresh_key, id_key = _keys(tokens.refresh_token, tokens.session_id)
     await redis_client.delete(refresh_key, id_key)
 

@@ -1,26 +1,36 @@
 """Unit tests for the E2E session seeder.
 
-Fast by design: the database session, the Redis client and the two
-repositories are replaced, so the real token code is exercised without any
-container.
-
-KODI-024: the Discord link moved off ``users.discord_id`` onto its own
-connection row, written through ``DiscordConnectionRepository``.
+The token code runs against an in-memory Redis and a faked session
+repository; the user upsert (bindings, badges, the GitHub identity) runs
+against the test database. The seeded Borderless ids and tokens equal the
+stub's ``accounts.json`` (ADR-0024).
 """
 
 import json
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import cast
 
 import pytest
 import redis.asyncio as redis
-from cryptography.fernet import Fernet
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.application.dto.user import UserCreateDTO
 from app.config.settings import envs
+from app.core.crypto import decrypt_borderless_token
 from app.core.features import FeatureStage
 from app.core.tokens import decode_token
-from app.domain.repositories.user_repository import UserRepository
+from app.domain.models import (
+    BorderlessAccountModel,
+    GithubConnectionModel,
+    UserBadgeModel,
+    UserModel,
+)
 from app.scripts import seed_e2e
+
+STUB_ACCOUNTS = (
+    Path(__file__).parents[1] / 'fixtures' / 'borderless' / 'accounts.json'
+)
 
 
 class FakePipeline:
@@ -123,103 +133,6 @@ async def _no_reset(*_identities) -> None:
     here do not touch a database."""
 
 
-class FakeUserRow:
-    def __init__(self, id: int, github_id: int, username: str, email: str):
-        self.id = id
-        self.github_id = github_id
-        self.username = username
-        self.email = email
-        self.is_admin = False
-        self.encrypted_github_token = 'stale-token'
-
-
-class FakeUserRepository:
-    """In-memory UserRepository double keyed by github_id."""
-
-    def __init__(self):
-        self.rows: dict[int, FakeUserRow] = {}
-        self.next_id = 1000
-
-    async def get_by_github_id(self, id: int):
-        return self.rows.get(id)
-
-    async def create(self, user: UserCreateDTO):
-        self.next_id += 1
-        row = FakeUserRow(
-            id=self.next_id,
-            github_id=user.github_id,
-            username=user.username,
-            email=user.email,
-        )
-        self.rows[user.github_id] = row
-        return row
-
-    async def update(self, user):
-        self.rows[user.github_id] = user
-        return user
-
-
-class FakeConnectionRow:
-    def __init__(
-        self,
-        *,
-        user_id: int,
-        discord_id: int | None = None,
-        username: str | None = None,
-        global_name: str | None = None,
-        avatar: str | None = None,
-        scopes: str | None = None,
-        encrypted_refresh_token: str | None = None,
-        access_token_expires_at=None,
-        status: str | None = None,
-    ):
-        self.user_id = user_id
-        self.discord_id = discord_id
-        self.username = username
-        self.global_name = global_name
-        self.avatar = avatar
-        self.scopes = scopes
-        self.encrypted_refresh_token = encrypted_refresh_token
-        self.access_token_expires_at = access_token_expires_at
-        self.status = status
-
-
-class FakeDiscordConnectionRepository:
-    """In-memory DiscordConnectionRepository double keyed by user_id."""
-
-    def __init__(self):
-        self.rows: dict[int, FakeConnectionRow] = {}
-
-    async def delete_by_user_id(self, user_id: int) -> None:
-        self.rows.pop(user_id, None)
-
-    async def link(
-        self,
-        *,
-        user_id: int,
-        discord_id: int,
-        username: str,
-        global_name: str | None,
-        avatar: str | None,
-        scopes: str,
-        encrypted_refresh_token: str,
-        access_token_expires_at,
-    ) -> FakeConnectionRow:
-        row = FakeConnectionRow(
-            user_id=user_id,
-            discord_id=discord_id,
-            username=username,
-            global_name=global_name,
-            avatar=avatar,
-            scopes=scopes,
-            encrypted_refresh_token=encrypted_refresh_token,
-            access_token_expires_at=access_token_expires_at,
-            status='active',
-        )
-        self.rows[user_id] = row
-        return row
-
-
 class FakeSession:
     """Stands in for the async-context-managed DB session ``upsert_users``
     opens; nothing in it is used directly since both repositories are
@@ -258,103 +171,117 @@ def test_refuses_before_touching_the_database(monkeypatch):
         seed_e2e.main()
 
 
-async def test_upsert_creates_then_updates_idempotently():
-    """Running the upsert twice yields the same row, admin flag applied."""
-    fake_repo = FakeUserRepository()
-    repo = cast(UserRepository, fake_repo)
+async def test_upsert_users_binds_badges_and_is_idempotent(
+    monkeypatch, async_engine, db_session
+):
+    """Each seeded user is found by its stub Borderless id, else by email;
+    its binding holds the stub's seed token (encrypted), expiring in 7
+    days, ``active``; badges PSP, BASE, BASE; ``e2e-user`` has a GitHub
+    identity; the restore prompt is answered; a rerun changes no id."""
+    maker = async_sessionmaker(bind=async_engine, expire_on_commit=False)
+    monkeypatch.setattr(seed_e2e, 'AsyncLocalSession', maker)
 
-    first = await seed_e2e.upsert_user(repo, seed_e2e.E2E_ADMIN, is_admin=True)
-    second = await seed_e2e.upsert_user(repo, seed_e2e.E2E_ADMIN, is_admin=True)
+    first = await seed_e2e.upsert_users()
+    async with maker() as session:
+        binding = await session.scalar(
+            select(BorderlessAccountModel).where(
+                BorderlessAccountModel.user_id == first[0].user_id
+            )
+        )
+        assert binding is not None
+        binding.status = 'needs_reconnect'
+        await session.commit()
+    second = await seed_e2e.upsert_users()
 
     assert first == second
-    assert first.github_id == seed_e2e.E2E_ADMIN.github_id
-    row = fake_repo.rows[seed_e2e.E2E_ADMIN.github_id]
-    assert row.is_admin is True
-    # Emptied so /auth/refresh skips the GitHub token check.
-    assert row.encrypted_github_token is None
+    async with maker() as session:
+        for identity, account in zip(
+            first, seed_e2e.SEED_ACCOUNTS, strict=True
+        ):
+            user = await session.get(UserModel, identity.user_id)
+            assert user is not None
+            assert user.username == account.user.username
+            assert user.is_admin is account.is_admin
+            assert user.github_restore_prompt_seen_at is not None
+            binding = await session.scalar(
+                select(BorderlessAccountModel).where(
+                    BorderlessAccountModel.user_id == identity.user_id
+                )
+            )
+            assert binding is not None
+            assert binding.borderless_user_id == account.borderless_id
+            assert binding.status == 'active'
+            assert decrypt_borderless_token(
+                binding.encrypted_access_token
+            ) == (account.seed_token)
+            assert binding.access_token_expires_at > datetime.now(
+                UTC
+            ) + timedelta(days=6)
+            badges = list(
+                await session.scalars(
+                    select(UserBadgeModel.badge).where(
+                        UserBadgeModel.user_id == identity.user_id,
+                        UserBadgeModel.revoked_at.is_(None),
+                    )
+                )
+            )
+            assert badges == [account.badge.value]
+        github = list(await session.scalars(select(GithubConnectionModel)))
+        assert [(g.user_id, g.github_id) for g in github] == [
+            (first[0].user_id, seed_e2e.E2E_USER_GITHUB_ID)
+        ]
 
 
-async def test_upsert_users_links_discord_connection_only_for_e2e_discord(
-    monkeypatch,
+async def test_upsert_user_adopts_an_existing_account_by_email(
+    monkeypatch, async_engine, db_session
 ):
-    """upsert_users() links e2e-discord's connection and deletes the other
-    two's, deterministically re-set on every run."""
-    fake_repo = FakeUserRepository()
-    fake_conn_repo = FakeDiscordConnectionRepository()
-
-    monkeypatch.setattr(
-        envs, 'DISCORD_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
+    db_session.add(
+        UserModel(id=77, username='old', email='e2e-admin@e2e.applika.dev')
     )
-    monkeypatch.setattr(seed_e2e, 'AsyncLocalSession', lambda: FakeSession())
-    monkeypatch.setattr(seed_e2e, 'UserRepository', lambda session: fake_repo)
-    monkeypatch.setattr(
-        seed_e2e, 'DiscordConnectionRepository', lambda session: fake_conn_repo
-    )
+    await db_session.commit()
+    maker = async_sessionmaker(bind=async_engine, expire_on_commit=False)
+    monkeypatch.setattr(seed_e2e, 'AsyncLocalSession', maker)
 
-    user, admin, discord_user = await seed_e2e.upsert_users()
+    _, admin, _ = await seed_e2e.upsert_users()
 
-    assert set(fake_conn_repo.rows) == {discord_user.user_id}
-    connection = fake_conn_repo.rows[discord_user.user_id]
-    assert connection.discord_id == seed_e2e.E2E_DISCORD_ID
-    assert connection.username == seed_e2e.E2E_DISCORD_USERNAME
-    assert connection.global_name == seed_e2e.E2E_DISCORD_GLOBAL_NAME
-    assert connection.avatar is None
-    assert connection.scopes == seed_e2e.SCOPE
-    assert connection.encrypted_refresh_token is not None
-
-    # Simulate the E2E performing a Disconnect and a stray link between two
-    # seed runs; the next run must undo both.
-    fake_conn_repo.rows.pop(discord_user.user_id, None)
-    fake_conn_repo.rows[user.user_id] = FakeConnectionRow(user_id=user.user_id)
-    fake_conn_repo.rows[admin.user_id] = FakeConnectionRow(
-        user_id=admin.user_id
-    )
-
-    await seed_e2e.upsert_users()
-
-    assert set(fake_conn_repo.rows) == {discord_user.user_id}
+    assert admin.user_id == 77
 
 
-async def test_upsert_users_assigns_admin_flag_to_the_right_user(
-    monkeypatch,
+async def test_upsert_refuses_without_the_encryption_key(
+    monkeypatch, async_engine, db_session
 ):
-    """upsert_users() itself wires is_admin to the right user (not just
-    upsert_user() with hand-picked arguments)."""
-    fake_repo = FakeUserRepository()
-    fake_conn_repo = FakeDiscordConnectionRepository()
+    maker = async_sessionmaker(bind=async_engine, expire_on_commit=False)
+    monkeypatch.setattr(seed_e2e, 'AsyncLocalSession', maker)
+    monkeypatch.setattr(envs, 'BORDERLESS_TOKEN_ENCRYPTION_KEY', None)
+    with pytest.raises(RuntimeError, match='BORDERLESS_TOKEN_ENCRYPTION_KEY'):
+        await seed_e2e.upsert_users()
 
-    monkeypatch.setattr(
-        envs, 'DISCORD_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
-    )
-    monkeypatch.setattr(seed_e2e, 'AsyncLocalSession', lambda: FakeSession())
-    monkeypatch.setattr(seed_e2e, 'UserRepository', lambda session: fake_repo)
-    monkeypatch.setattr(
-        seed_e2e, 'DiscordConnectionRepository', lambda session: fake_conn_repo
-    )
 
-    user, admin, discord_user = await seed_e2e.upsert_users()
-
-    assert (user.github_id, admin.github_id, discord_user.github_id) == (
-        seed_e2e.E2E_USER.github_id,
-        seed_e2e.E2E_ADMIN.github_id,
-        seed_e2e.E2E_DISCORD.github_id,
-    )
-
-    user_row = fake_repo.rows[seed_e2e.E2E_USER.github_id]
-    admin_row = fake_repo.rows[seed_e2e.E2E_ADMIN.github_id]
-
-    assert user_row.is_admin is False
-    assert admin_row.is_admin is True
+def test_seed_accounts_match_the_stub_accounts():
+    stub = {
+        a['id']: a
+        for a in json.loads(STUB_ACCOUNTS.read_text())['accounts']
+    }
+    memberships = {
+        'borderless_psp': 'PSP',
+        'borderless_base': 'BASE',
+    }
+    for account in seed_e2e.SEED_ACCOUNTS:
+        entry = stub[account.borderless_id]
+        assert entry['email'] == account.user.email
+        assert entry['seedToken'] == account.seed_token
+        assert entry['membership'] == memberships[account.badge.value]
+        assert entry['emailVerified'] is True
 
 
 async def test_minted_session_is_a_real_device_session(monkeypatch):
-    """KODI-057: the access token's sub is the github_id and its sid the
+    """The access token's sub is the user's id and its sid the
     session row's id; the refresh value is a uuid7 whose Redis key points
     at that row, next to the session hash (ADR-0019)."""
     import uuid
 
     repo = _fake_sessions(monkeypatch)
-    identity = seed_e2e.Identity(github_id=999000000001, user_id=4242)
+    identity = seed_e2e.Identity(user_id=4242)
     fake_redis = FakeRedis()
 
     access_token, refresh_token = await seed_e2e.mint_session(
@@ -364,12 +291,12 @@ async def test_minted_session_is_a_real_device_session(monkeypatch):
     [row] = repo.rows
     assert row.user_id == identity.user_id
     assert row.client_type == 'web'
-    assert row.sign_in_method == 'github_web'
+    assert row.sign_in_method == 'borderless'
     assert row.device_name == 'Chrome on Linux'
     assert row.ip == seed_e2e.E2E_IP
 
     payload = decode_token(access_token)
-    assert payload['sub'] == str(identity.github_id)
+    assert payload['sub'] == str(identity.user_id)
     assert payload['kind'] == 'access'
     assert payload.get('sid') == str(row.id)
 
@@ -378,7 +305,7 @@ async def test_minted_session_is_a_real_device_session(monkeypatch):
     session_hash = fake_redis.hashes[f'applika:session:id:{row.id}']
     assert session_hash['rk'] == refresh_token
     assert session_hash['user_id'] == str(identity.user_id)
-    assert session_hash['github_id'] == str(identity.github_id)
+    assert 'github_id' not in session_hash
     # Both keys end at the same instant.
     assert (
         fake_redis.expire_at[f'applika:session:{refresh_token}']
@@ -390,7 +317,7 @@ async def test_minted_session_is_a_real_device_session(monkeypatch):
 
 async def test_minted_cli_session_is_named_and_typed(monkeypatch):
     repo = _fake_sessions(monkeypatch)
-    identity = seed_e2e.Identity(github_id=999000000001, user_id=4242)
+    identity = seed_e2e.Identity(user_id=4242)
 
     await seed_e2e.mint_session(
         identity,
@@ -414,9 +341,9 @@ async def test_seed_returns_the_eleven_contract_keys(monkeypatch):
     under the agreed contract keys (KODI-057: eleven, plan correction
     4)."""
     repo = _fake_sessions(monkeypatch)
-    user = seed_e2e.Identity(github_id=999000000001, user_id=11)
-    admin = seed_e2e.Identity(github_id=999000000002, user_id=22)
-    discord_user = seed_e2e.Identity(github_id=999000000003, user_id=33)
+    user = seed_e2e.Identity(user_id=11)
+    admin = seed_e2e.Identity(user_id=22)
+    discord_user = seed_e2e.Identity(user_id=33)
     fake_redis = FakeRedis()
 
     async def _identities():
@@ -444,34 +371,30 @@ async def test_seed_returns_the_eleven_contract_keys(monkeypatch):
     assert all(isinstance(value, str) for value in payload.values())
     # Four sessions, the last one the CLI's, signed in as e2e-user.
     assert [row.sign_in_method for row in repo.rows] == [
-        'github_web',
-        'github_web',
-        'github_web',
+        'borderless',
+        'borderless',
+        'borderless',
         'cli_device',
     ]
     assert repo.rows[3].user_id == user.user_id
     cli_payload = decode_token(payload['cli_access_token'])
-    assert cli_payload['sub'] == str(user.github_id)
+    assert cli_payload['sub'] == str(user.user_id)
     assert cli_payload.get('sid') == str(repo.rows[3].id)
     assert payload['cli_refresh_token'] != payload['refresh_token']
     assert payload['user_id'] == '11'
     assert payload['admin_user_id'] == '22'
     assert payload['discord_user_id'] == '33'
-    assert decode_token(payload['access_token'])['sub'] == str(user.github_id)
-    assert decode_token(payload['admin_access_token'])['sub'] == str(
-        admin.github_id
-    )
-    assert decode_token(payload['discord_access_token'])['sub'] == str(
-        discord_user.github_id
-    )
+    assert decode_token(payload['access_token'])['sub'] == '11'
+    assert decode_token(payload['admin_access_token'])['sub'] == '22'
+    assert decode_token(payload['discord_access_token'])['sub'] == '33'
     assert fake_redis.closed is True
 
 
 def test_main_prints_one_json_line_with_the_contract(monkeypatch, capsys):
     """stdout is exactly one JSON line carrying the eleven string keys."""
-    user = seed_e2e.Identity(github_id=999000000001, user_id=11)
-    admin = seed_e2e.Identity(github_id=999000000002, user_id=22)
-    discord_user = seed_e2e.Identity(github_id=999000000003, user_id=33)
+    user = seed_e2e.Identity(user_id=11)
+    admin = seed_e2e.Identity(user_id=22)
+    discord_user = seed_e2e.Identity(user_id=33)
 
     async def _identities():
         return user, admin, discord_user
@@ -501,28 +424,10 @@ def test_main_prints_one_json_line_with_the_contract(monkeypatch, capsys):
     }
 
 
-def test_seed_github_ids_survive_json_number_precision():
-    """github_id is a JSON number: it must stay JS-safe (< 2**53)."""
-    max_safe_integer = 2**53 - 1
-    for dto in (seed_e2e.E2E_USER, seed_e2e.E2E_ADMIN, seed_e2e.E2E_DISCORD):
-        # Above every real GitHub account id, below the JS safe range.
-        assert 10_000_000_000 < dto.github_id < max_safe_integer
-
-
 def test_e2e_discord_identity():
-    """The Discord-linked seed user carries the documented identity."""
-    assert seed_e2e.E2E_DISCORD.github_id == 999000000003
-    assert seed_e2e.E2E_DISCORD.username == 'e2e-discord'
-    assert seed_e2e.E2E_DISCORD.email == 'e2e-discord@e2e.applika.dev'
-
-
-def test_e2e_discord_id_is_fixed_and_not_js_safe():
-    """The Discord id is internal-only, so it need not stay a JS-safe
-    number - it is never a field on any API schema (DiscordAccountOut
-    carries no id)."""
-    max_safe_integer = 2**53 - 1
-    assert seed_e2e.E2E_DISCORD_ID == 999000000000000003
-    assert seed_e2e.E2E_DISCORD_ID > max_safe_integer
+    """The third seed user keeps its name: the beta specs rely on it."""
+    assert seed_e2e.E2E_DISCORD.user.username == 'e2e-discord'
+    assert seed_e2e.E2E_DISCORD.user.email == 'e2e-discord@e2e.applika.dev'
 
 
 # ---------------------------------------------------------------------------
@@ -566,9 +471,9 @@ def _all_features() -> dict[str, FakeFeature]:
 
 
 IDENTITIES = (
-    seed_e2e.Identity(github_id=999000000001, user_id=11),
-    seed_e2e.Identity(github_id=999000000002, user_id=22),
-    seed_e2e.Identity(github_id=999000000003, user_id=33),
+    seed_e2e.Identity(user_id=11),
+    seed_e2e.Identity(user_id=22),
+    seed_e2e.Identity(user_id=33),
 )
 
 

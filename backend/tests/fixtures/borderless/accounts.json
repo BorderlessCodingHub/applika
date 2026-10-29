@@ -1,0 +1,68 @@
+{
+  "_comment": "Synthetic Borderless accounts for the E2E stack and local runs. Not real data. The seed tokens of the three e2e-* accounts equal app/scripts/seed_e2e.py.",
+  "accounts": [
+    {
+      "id": "e2e-borderless-user",
+      "email": "e2e-user@e2e.applika.dev",
+      "password": "e2e-user-password",
+      "name": "e2e-user",
+      "username": "e2e-user",
+      "emailVerified": true,
+      "membership": "PSP",
+      "seedToken": "e2eseedtokenuser0000000000000001",
+      "expiresIn": 604800
+    },
+    {
+      "id": "e2e-borderless-admin",
+      "email": "e2e-admin@e2e.applika.dev",
+      "password": "e2e-admin-password",
+      "name": "e2e-admin",
+      "username": "e2e-admin",
+      "emailVerified": true,
+      "membership": "BASE",
+      "seedToken": "e2eseedtokenadmin000000000000002",
+      "expiresIn": 604800
+    },
+    {
+      "id": "e2e-borderless-discord",
+      "email": "e2e-discord@e2e.applika.dev",
+      "password": "e2e-discord-password",
+      "name": "e2e-discord",
+      "username": "e2e-discord",
+      "emailVerified": true,
+      "membership": "BASE",
+      "seedToken": "e2eseedtokendiscord0000000000003",
+      "expiresIn": 604800
+    },
+    {
+      "id": "e2e-borderless-free",
+      "email": "e2e-free@e2e.applika.dev",
+      "password": "e2e-free-password",
+      "name": "E2E Free",
+      "username": "e2e-free",
+      "emailVerified": true,
+      "membership": "FREE",
+      "expiresIn": 604800
+    },
+    {
+      "id": "e2e-borderless-short",
+      "email": "e2e-short@e2e.applika.dev",
+      "password": "e2e-short-password",
+      "name": "E2E Short",
+      "username": "e2e-short",
+      "emailVerified": true,
+      "membership": "PSP",
+      "expiresIn": [3, 604800]
+    },
+    {
+      "id": "e2e-borderless-unverified",
+      "email": "e2e-unverified@e2e.applika.dev",
+      "password": "e2e-unverified-password",
+      "name": "E2E Unverified",
+      "username": "e2e-unverified",
+      "emailVerified": false,
+      "membership": "PSP",
+      "expiresIn": 604800
+    }
+  ]
+}

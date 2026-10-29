@@ -38,10 +38,9 @@ async def open_session(
     async_engine: AsyncEngine,
     redis_client: redis.Redis,
     user_id: int,
-    github_id: int,
     *,
     client_type: ClientType = 'web',
-    sign_in_method: SignInMethod = 'github_web',
+    sign_in_method: SignInMethod = 'borderless',
     user_agent: str | None = BROWSER_USER_AGENT,
     ip: str | None = '203.0.113.7',
     device_name: str | None = None,
@@ -53,7 +52,6 @@ async def open_session(
         )
         return await use_case.execute(
             user_id=user_id,
-            github_id=github_id,
             client_type=client_type,
             sign_in_method=sign_in_method,
             user_agent=user_agent,
@@ -64,8 +62,7 @@ async def open_session(
 
 async def live_access_token(
     redis_client: redis.Redis,
-    github_id: int,
-    user_id: int | None = None,
+    user_id: int,
     session_id: int | None = None,
 ) -> str:
     """An access JWT whose session is live in Redis only - no
@@ -74,10 +71,9 @@ async def live_access_token(
     sid = session_id if session_id is not None else generate_snowflake_id()
     await SessionStore(redis_client).open(
         session_id=sid,
-        user_id=user_id if user_id is not None else github_id,
-        github_id=github_id,
+        user_id=user_id,
         expires_at=datetime.now(UTC) + timedelta(days=7),
         last_ip=None,
     )
-    token, _, _ = create_access_token(str(github_id), str(sid))
+    token, _, _ = create_access_token(str(user_id), str(sid))
     return token

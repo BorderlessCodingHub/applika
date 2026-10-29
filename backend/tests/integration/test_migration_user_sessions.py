@@ -769,10 +769,12 @@ async def _create_all(url: str) -> None:
 def test_create_all_builds_the_migrated_user_sessions(
     migration_db: str,
 ) -> None:
-    """``UserSessionModel.__table_args__`` mirror revision ``ed39a0fad1e5``
-    name for name: the tests' ``create_all`` schema equals the migrated one
-    - columns, the four CHECKs, the FK and both indexes."""
-    _upgrade(migration_db, REVISION)
+    """``UserSessionModel.__table_args__`` mirror the migrated table name
+    for name (revision ``ed39a0fad1e5``, its sign-in CHECK widened with
+    ``borderless`` by ``d9e0b46dd7e1``): the tests' ``create_all`` schema
+    equals the head one - columns, the four CHECKs, the FK and both
+    indexes."""
+    _upgrade(migration_db, 'head')
     migrated = (
         _column_shapes(migration_db, TABLE),
         _constraints(migration_db, TABLE),

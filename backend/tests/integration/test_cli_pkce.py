@@ -1,9 +1,10 @@
 """``applika login``: browser sign-in with PKCE S256 (KODI-057, ADR-0019,
 R-015, R-018, R-019, R-020, R-021).
 
-``GET /auth/cli/authorize`` -> GitHub (faked) -> the callback 307s to the
-loopback ``redirect_uri`` (or, with ``oob``, to ``CLI_MANUAL_REDIRECT_URI``)
-with a one-use code -> ``POST /auth/token`` redeems it with the verifier.
+``GET /auth/cli/authorize`` -> applika's Borderless sign-in page -> the
+sign-in (fake Borderless) answers ``redirect_to``, the loopback
+``redirect_uri`` (or, with ``oob``, ``CLI_MANUAL_REDIRECT_URI``) with a
+one-use code -> ``POST /auth/token`` redeems it with the verifier.
 Also the ``refresh_token`` grant and ``POST /auth/revoke``.
 """
 
@@ -25,10 +26,9 @@ from app.config.settings import (
 from app.core.pkce import s256_challenge
 from app.core.tokens import decode_token
 from app.domain.models import UserSessionModel
-from app.presentation.api import oauth as oauth_api
 from app.presentation.api.auth_handoff import CLI_LOGIN_COOKIE_NAME
 from tests.base_db_setup import base_data
-from tests.integration.test_session_lifecycle import FakeGithubSSO
+from tests.integration.conftest import CREDENTIALS
 from tests.sessions_seed import open_session
 
 USER = base_data()['user']
@@ -38,18 +38,8 @@ DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
 
 
 @pytest.fixture
-def github_sign_in(monkeypatch, github_service):
-    from cryptography.fernet import Fernet
-
-    monkeypatch.setattr(
-        envs, 'GITHUB_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
-    )
-    monkeypatch.setattr(
-        oauth_api,
-        'github_sso',
-        FakeGithubSSO(USER.github_id, USER.username, USER.email),
-    )
-    return github_service
+def borderless_sign_in(bound_user):
+    return bound_user
 
 
 def _pkce() -> tuple[str, str]:
@@ -92,18 +82,19 @@ async def _login_code(
     redirect_uri: str = LOOPBACK,
     extra_cookies: dict[str, str] | None = None,
 ) -> tuple[str, str]:
-    """authorize -> callback; answers (code, the callback location)."""
+    """authorize -> Borderless sign-in; answers (code, the redirect)."""
     started = await _authorize(client, challenge, redirect_uri)
     assert started.status_code == 307, started.text
     login_id = started.cookies.get(CLI_LOGIN_COOKIE_NAME)
     assert login_id
-    callback = await client.get(
-        '/auth/github/callback',
+    callback = await client.post(
+        '/auth/borderless/signin',
+        json=CREDENTIALS,
         cookies={CLI_LOGIN_COOKIE_NAME: login_id, **(extra_cookies or {})},
-        follow_redirects=False,
     )
-    assert callback.status_code == 307, callback.text
-    location = callback.headers['location']
+    assert callback.status_code == 200, callback.text
+    assert ACCESS_COOKIE_NAME not in callback.cookies
+    location = callback.json()['redirect_to']
     return parse_qs(urlparse(location).query)['code'][0], location
 
 
@@ -118,7 +109,7 @@ async def _token(client: AsyncClient, **body):
 # --------------------------------------------------------------------------
 
 
-async def test_authorize_redirects_to_github_with_the_cli_marker(
+async def test_authorize_redirects_to_the_signin_page_with_the_cli_marker(
     real_client: AsyncClient, auth_handoff_state_use_case
 ):
     _, challenge = _pkce()
@@ -126,7 +117,7 @@ async def test_authorize_redirects_to_github_with_the_cli_marker(
     response = await _authorize(real_client, challenge)
 
     assert response.status_code == 307
-    assert urlparse(response.headers['location']).hostname == 'github.com'
+    assert response.headers['location'] == f'{envs.WEB_SIGNIN_URI}?cli=1'
     login_id = response.cookies.get(CLI_LOGIN_COOKIE_NAME)
     assert login_id
     stored = await auth_handoff_state_use_case.get_login(login_id)
@@ -203,7 +194,7 @@ async def test_authorize_needs_every_parameter(
 
 
 async def test_loopback_sign_in_gives_the_cli_a_session_of_its_own(
-    real_client: AsyncClient, async_engine, redis_client, github_sign_in
+    real_client: AsyncClient, async_engine, redis_client, borderless_sign_in
 ):
     verifier, challenge = _pkce()
     code, location = await _login_code(real_client, challenge)
@@ -249,7 +240,7 @@ async def test_loopback_sign_in_gives_the_cli_a_session_of_its_own(
 
 
 async def test_without_a_name_the_device_is_named_from_its_agent(
-    real_client: AsyncClient, async_engine, redis_client, github_sign_in
+    real_client: AsyncClient, async_engine, redis_client, borderless_sign_in
 ):
     verifier, challenge = _pkce()
     code, _ = await _login_code(real_client, challenge)
@@ -268,12 +259,10 @@ async def test_without_a_name_the_device_is_named_from_its_agent(
 
 
 async def test_a_cli_sign_in_never_ends_the_browsers_session(
-    real_client: AsyncClient, async_engine, redis_client, github_sign_in
+    real_client: AsyncClient, async_engine, redis_client, borderless_sign_in
 ):
     """Plan correction 13: only the web branch replaces a session."""
-    browser = await open_session(
-        async_engine, redis_client, USER.id, USER.github_id
-    )
+    browser = await open_session(async_engine, redis_client, USER.id)
     verifier, challenge = _pkce()
 
     code, _ = await _login_code(
@@ -306,7 +295,7 @@ async def test_oob_redirects_to_the_manual_code_page(
     real_client: AsyncClient,
     async_engine,
     redis_client,
-    github_sign_in,
+    borderless_sign_in,
     monkeypatch,
 ):
     monkeypatch.setattr(
@@ -338,7 +327,7 @@ async def test_oob_redirects_to_the_manual_code_page(
 
 
 async def test_the_code_is_one_use(
-    real_client: AsyncClient, redis_client, github_sign_in
+    real_client: AsyncClient, redis_client, borderless_sign_in
 ):
     verifier, challenge = _pkce()
     code, _ = await _login_code(real_client, challenge)
@@ -360,7 +349,7 @@ async def test_the_code_is_one_use(
 
 
 async def test_the_code_lives_sixty_seconds(
-    real_client: AsyncClient, redis_client, github_sign_in
+    real_client: AsyncClient, redis_client, borderless_sign_in
 ):
     _, challenge = _pkce()
     code, _ = await _login_code(real_client, challenge)
@@ -369,7 +358,7 @@ async def test_the_code_lives_sixty_seconds(
 
 
 async def test_a_wrong_verifier_is_invalid_grant_and_spends_the_code(
-    real_client: AsyncClient, async_engine, redis_client, github_sign_in
+    real_client: AsyncClient, async_engine, redis_client, borderless_sign_in
 ):
     verifier, challenge = _pkce()
     code, _ = await _login_code(real_client, challenge)
@@ -400,7 +389,7 @@ async def test_a_wrong_verifier_is_invalid_grant_and_spends_the_code(
 
 
 async def test_a_different_redirect_uri_is_invalid_grant(
-    real_client: AsyncClient, redis_client, github_sign_in
+    real_client: AsyncClient, redis_client, borderless_sign_in
 ):
     verifier, challenge = _pkce()
     code, _ = await _login_code(real_client, challenge)
@@ -421,7 +410,7 @@ async def test_a_different_redirect_uri_is_invalid_grant(
 
 
 async def test_a_pkce_code_is_refused_by_the_legacy_exchange(
-    real_client: AsyncClient, redis_client, github_sign_in
+    real_client: AsyncClient, redis_client, borderless_sign_in
 ):
     """Without this, the legacy route would skip the verifier."""
     _, challenge = _pkce()
@@ -440,7 +429,7 @@ async def test_a_legacy_code_is_refused_by_the_token_endpoint(
         callback_url=LOOPBACK, state='x'
     )
     code = await auth_handoff_state_use_case.create_exchange_code(
-        login_id=login_id, user_id=USER.id, github_id=USER.github_id
+        login_id=login_id, user_id=USER.id
     )
     verifier, _ = _pkce()
 
@@ -491,13 +480,12 @@ async def test_a_known_grant_missing_a_field_is_422(
 
 
 async def test_refresh_grant_returns_the_same_value_and_slides(
-    real_client: AsyncClient, async_engine, redis_client, github_service
+    real_client: AsyncClient, async_engine, redis_client, bound_user
 ):
     tokens = await open_session(
         async_engine,
         redis_client,
         USER.id,
-        USER.github_id,
         client_type='cli',
         sign_in_method='cli_browser',
     )
@@ -552,7 +540,6 @@ async def test_revoke_ends_the_cli_session_and_is_204_for_any_value_while_redis_
         async_engine,
         redis_client,
         USER.id,
-        USER.github_id,
         client_type='cli',
         sign_in_method='cli_browser',
     )

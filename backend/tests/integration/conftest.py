@@ -1,4 +1,3 @@
-from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
@@ -17,12 +16,12 @@ from app.config.db import get_session
 from app.config.redis import get_redis
 from app.domain.models import UserModel
 from app.main import app as main_app
-from app.presentation.dependencies import (
-    get_current_user,
-    get_github_service,
-)
+from app.presentation.dependencies import get_current_user
+from tests.conftest import FakeBorderlessClient, bind_borderless
 
 SECOND_USER_ID = 3
+# The base user's Borderless credentials in the fake client (``bound_user``).
+CREDENTIALS = {'email': 'test@user.com', 'password': 'correct-horse'}
 
 
 @asynccontextmanager
@@ -34,7 +33,6 @@ async def as_user(user_id: int, username: str, is_admin: bool = False):
     async def override():
         return UserDTO(
             id=user_id,
-            github_id=user_id,
             username=username,
             email=f'{username}@user.com',
             is_admin=is_admin,
@@ -63,7 +61,6 @@ async def second_user(async_engine: AsyncEngine) -> UserModel:
     async with maker() as session:
         user = UserModel(
             id=SECOND_USER_ID,
-            github_id=SECOND_USER_ID,
             username='seconduser',
             email='second@user.com',
         )
@@ -94,7 +91,6 @@ async def reset_pk_sequences(db_session: AsyncSession):
         'user_feedbacks',
         'base_cvs',
         'tailored_cvs',
-        'discord_connections',
     ]
     for table in tables:
         await db_session.execute(
@@ -138,30 +134,6 @@ async def auth_handoff_state_use_case(redis_client):
     return AuthHandoffStateUseCase(redis_client)
 
 
-class FakeGitHubService:
-    """The GitHub token check without GitHub (KODI-057): ``valid`` is what
-    ``validate_token`` answers."""
-
-    def __init__(self) -> None:
-        self.valid = True
-        self.validated: list[int] = []
-
-    async def validate_token(self, user_id: int, github_token: str) -> bool:
-        self.validated.append(user_id)
-        return self.valid
-
-    async def invalidate_cache(self, user_id: int) -> None:
-        return None
-
-
-@pytest_asyncio.fixture
-async def github_service() -> AsyncIterator[FakeGitHubService]:
-    service = FakeGitHubService()
-    main_app.dependency_overrides[get_github_service] = lambda: service
-    yield service
-    main_app.dependency_overrides.pop(get_github_service, None)
-
-
 @pytest_asyncio.fixture
 async def real_client(async_engine: AsyncEngine, db_session, redis_client):
     """A client with the REAL ``get_current_user`` (KODI-057): every
@@ -180,3 +152,20 @@ async def real_client(async_engine: AsyncEngine, db_session, redis_client):
     ) as client:
         yield client
     main_app.dependency_overrides.pop(get_session, None)
+
+
+@pytest_asyncio.fixture
+async def bound_user(db_session, borderless: FakeBorderlessClient):
+    """The base user bound to a Borderless account the fake client knows,
+    with a PSP badge: a sign-in with ``CREDENTIALS`` opens it, and
+    refreshes read the membership from the fake."""
+    borderless.add(
+        id='bl-user',
+        email=CREDENTIALS['email'],
+        password=CREDENTIALS['password'],
+        token='tok-user',
+        membership='PSP',
+    )
+    return await bind_borderless(
+        db_session, 1, borderless_id='bl-user', token='tok-user'
+    )

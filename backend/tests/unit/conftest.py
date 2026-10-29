@@ -117,7 +117,6 @@ def make_user(**kwargs):
         'id': 1,
         'created_at': datetime(2026, 1, 1, tzinfo=timezone.utc),
         'updated_at': None,
-        'github_id': 1,
         'username': 'testuser',
         'email': 'test@test.com',
         'first_name': None,

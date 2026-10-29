@@ -465,7 +465,7 @@ async def test_user_made_admin_has_jobs_on_the_next_request(
     main_app.dependency_overrides[get_redis] = override_get_redis
     # KODI-057: a real device session (row + Redis keys), plan correction 3.
     tokens = await open_session(
-        async_engine, redis_client, USER_ID, base_data()['user'].github_id
+        async_engine, redis_client, USER_ID
     )
     token = tokens.access_token
     async with AsyncClient(

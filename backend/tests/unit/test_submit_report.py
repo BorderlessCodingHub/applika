@@ -13,7 +13,6 @@ from typing import cast
 
 import pytest
 
-from app.application.dto.discord import ReportRouteDTO
 from app.application.dto.quinzenal_report import SubmitReportPayloadDTO
 from app.application.services.discord_service import DiscordService
 from app.application.use_cases.quinzenal_reports.resolve_report_webhooks import (
@@ -84,18 +83,18 @@ class FakeResolveWebhooks:
     def __init__(
         self,
         calls: list[str],
-        route: ReportRouteDTO | None = None,
+        urls: list[str] | None = None,
         raises: Exception | None = None,
     ):
         self.calls = calls
-        self.route = route or ReportRouteDTO(discord_id=None, webhook_urls=[])
+        self.urls = urls or []
         self.raises = raises
 
     async def execute(self, user_id):
         self.calls.append('resolve_webhooks.execute')
         if self.raises:
             raise self.raises
-        return self.route
+        return self.urls
 
 
 class FakeDiscordService:
@@ -109,11 +108,13 @@ class FakeDiscordService:
         self.result = result
         self.raises = raises
         self.posted_urls: list[str | None] = []
+        self.messages: list[str] = []
 
     async def post_report_message(
-        self, message, mention_user_id=None, webhook_url=None
+        self, message, webhook_url=None
     ):
         self.calls.append('discord_service.post_report_message')
+        self.messages.append(message)
         self.posted_urls.append(webhook_url)
         if self.raises:
             raise self.raises
@@ -168,10 +169,9 @@ async def test_resolve_webhooks_exception_never_escapes_and_report_still_saved()
 async def test_post_report_message_exception_never_escapes():
     calls: list[str] = []
     report_repo = FakeReportRepo(calls)
-    route = ReportRouteDTO(
-        discord_id=555, webhook_urls=['https://hook/a', 'https://hook/b']
+    resolve_webhooks = FakeResolveWebhooks(
+        calls, urls=['https://hook/a', 'https://hook/b']
     )
-    resolve_webhooks = FakeResolveWebhooks(calls, route=route)
     discord_service = FakeDiscordService(
         calls, raises=RuntimeError('connection dropped')
     )
@@ -185,3 +185,20 @@ async def test_post_report_message_exception_never_escapes():
     assert 'https://hook' not in result.discord_error
     # Both configured URLs were still attempted, one failure each.
     assert discord_service.posted_urls == ['https://hook/a', 'https://hook/b']
+
+
+@pytest.mark.asyncio
+async def test_report_post_names_the_username_and_mentions_nobody():
+    """ADR-0024: the post carries the applika username and no ``<@id>``."""
+    calls: list[str] = []
+    report_repo = FakeReportRepo(calls)
+    resolve_webhooks = FakeResolveWebhooks(calls, urls=['https://hook/a'])
+    discord_service = FakeDiscordService(calls)
+    use_case = _use_case(report_repo, discord_service, resolve_webhooks)
+
+    result = await use_case.execute(1, 'ada', 1, _payload())
+
+    assert result.discord_posted is True
+    [message] = discord_service.messages
+    assert '- @ada\n' in message
+    assert '<@' not in message

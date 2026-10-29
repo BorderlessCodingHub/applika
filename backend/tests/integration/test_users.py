@@ -1,20 +1,12 @@
-import pytest
-from cryptography.fernet import Fernet
+from datetime import UTC, datetime, timedelta
+
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.settings import envs
+from app.domain.models import GithubConnectionModel, UserBadgeModel, UserModel
 from tests import msg
 from tests.base_db_setup import base_data
-
-
-@pytest.fixture(autouse=True)
-def _discord_encryption_key(monkeypatch):
-    """A valid Fernet key so ``_seed_connection`` can encrypt a refresh
-    token for the rows this module seeds directly."""
-    monkeypatch.setattr(
-        envs, 'DISCORD_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
-    )
+from tests.conftest import bind_borderless
 
 
 async def test_get_me_returns_new_fields_as_none(
@@ -242,90 +234,89 @@ async def test_update_user_empty_payload_no_changes(
     assert data['username'] == base_data()['user'].username
 
 
-async def test_get_me_discord_linked_false_when_unlinked(
+async def test_get_me_without_binding_or_github_row(
+    async_client: AsyncClient,
+):
+    data = (await async_client.get('/users/me')).json()
+    assert data['badges'] == []
+    assert data['borderless'] is None
+    assert data['github_id'] is None
+    assert data['github_restore'] == {'available': True, 'prompt': True}
+    for gone in ('discord', 'discord_linked', 'discord_id'):
+        assert gone not in data
+    # The CLI's fields are unchanged.
+    for kept in ('username', 'first_name', 'last_name', 'email'):
+        assert kept in data
+
+
+async def test_get_me_lists_badges_and_the_borderless_access(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    response = await async_client.get('/users/me')
-
-    assert response.status_code == 200, msg(200, response.status_code)
-    data = response.json()
-    assert data['discord_linked'] is False
-    assert data['discord'] is None
-    assert 'discord_id' not in data
-
-
-async def test_get_me_discord_linked_true_when_linked(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    from tests.integration.test_account_link_discord import _seed_connection
-
-    await _seed_connection(
-        db_session, base_data()['user'].id, discord_id=555, username='ada'
+    binding = await bind_borderless(db_session, base_data()['user'].id)
+    db_session.add(
+        UserBadgeModel(
+            user_id=base_data()['user'].id,
+            badge='borderless_base',
+            source='borderless',
+            revoked_at=datetime.now(UTC),
+        )
     )
-
-    response = await async_client.get('/users/me')
-
-    assert response.status_code == 200, msg(200, response.status_code)
-    data = response.json()
-    assert data['discord_linked'] is True
-    assert data['discord']['username'] == 'ada'
-    assert data['discord']['status'] == 'active'
-    assert data['discord']['avatar_url'] is None
-    assert 'discord_id' not in data
-    assert 'discord_id' not in data['discord']
-
-
-async def test_get_me_discord_avatar_url_is_computed(
-    async_client: AsyncClient, db_session: AsyncSession
-):
-    from tests.integration.test_account_link_discord import _seed_connection
-
-    connection = await _seed_connection(
-        db_session, base_data()['user'].id, discord_id=555
-    )
-    connection.avatar = 'avatar-hash'
-    db_session.add(connection)
     await db_session.commit()
 
-    response = await async_client.get('/users/me')
+    data = (await async_client.get('/users/me')).json()
 
-    assert response.status_code == 200, msg(200, response.status_code)
-    data = response.json()
-    assert data['discord']['avatar_url'] == (
-        'https://cdn.discordapp.com/avatars/555/avatar-hash.png?size=64'
-    )
+    assert [b['badge'] for b in data['badges']] == ['borderless_psp']
+    assert data['borderless']['status'] == 'active'
+    assert data['borderless']['email'] == binding.email
+    assert 'token' not in str(data['borderless'])
 
 
-async def test_get_me_discord_needs_reconnect_status(
+async def test_get_me_reports_an_expired_or_refused_access(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    from app.core.enums import DiscordConnectionStatus
-    from tests.integration.test_account_link_discord import _seed_connection
-
-    await _seed_connection(
+    await bind_borderless(
         db_session,
         base_data()['user'].id,
-        discord_id=555,
-        status=DiscordConnectionStatus.NEEDS_RECONNECT,
+        expires_in=timedelta(seconds=-1),
     )
-
-    response = await async_client.get('/users/me')
-
-    assert response.status_code == 200, msg(200, response.status_code)
-    data = response.json()
-    assert data['discord']['status'] == 'needs_reconnect'
+    data = (await async_client.get('/users/me')).json()
+    assert data['borderless']['status'] == 'expired'
+    assert [b['badge'] for b in data['badges']] == ['borderless_psp']
 
 
-async def test_patch_me_discord_linked_present_no_discord_id(
+async def test_github_row_sets_github_id_and_hides_the_restore(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    response = await async_client.patch('/users/me', json={'first_name': 'Ada'})
+    db_session.add(
+        GithubConnectionModel(
+            user_id=base_data()['user'].id,
+            github_id=777,
+            username='octo',
+            linked_at=datetime.now(UTC),
+        )
+    )
+    await db_session.commit()
+    data = (await async_client.get('/users/me')).json()
+    assert data['github_id'] == 777
+    assert data['github_restore'] == {'available': False, 'prompt': False}
+    patched = (
+        await async_client.patch('/users/me', json={'first_name': 'Ada'})
+    ).json()
+    assert patched['github_id'] == 777
+    assert patched['first_name'] == 'Ada'
 
-    assert response.status_code == 200, msg(200, response.status_code)
-    data = response.json()
-    assert 'discord_linked' in data
-    assert 'discord' in data
-    assert 'discord_id' not in data
+
+async def test_dismiss_answers_the_prompt_once_and_is_idempotent(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    for _ in range(2):
+        response = await async_client.post('/users/me/github-restore/dismiss')
+        assert response.status_code == 204
+    user = await db_session.get(
+        UserModel, base_data()['user'].id, populate_existing=True
+    )
+    assert user is not None
+    assert user.github_restore_prompt_seen_at is not None
 
 
 async def test_admin_user_detail_has_no_discord_key(

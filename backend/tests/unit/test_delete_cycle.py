@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 
 from app.application.use_cases.cycles.delete_cycle import DeleteCycleUseCase
 from app.core.exceptions import ResourceNotFound

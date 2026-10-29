@@ -122,7 +122,6 @@ def as_repo(fake: FakeFeatureRepository) -> FeatureRepository:
 def _user(user_id: int = 1, is_admin: bool = False) -> UserDTO:
     return UserDTO(
         id=user_id,
-        github_id=user_id,
         username=f'user{user_id}',
         email=f'user{user_id}@user.com',
         is_admin=is_admin,

@@ -1,5 +1,4 @@
 import uuid
-from urllib.parse import parse_qs, urlparse
 
 import pytest
 import pytest_asyncio
@@ -7,7 +6,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.config.settings import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME
+from app.config.settings import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, envs
 from app.core.tokens import decode_token
 from app.domain.models import UserSessionModel
 from app.main import app as main_app
@@ -87,7 +86,6 @@ async def test_cli_exchange_redeems_code_once(
     code = await auth_handoff_state_use_case.create_exchange_code(
         login_id=login_id,
         user_id=USER.id,
-        github_id=USER.github_id,
     )
 
     exchange_response = await real_client.post(
@@ -130,7 +128,7 @@ async def test_cli_exchange_opens_a_cli_legacy_session(
         callback_url='http://127.0.0.1:43129/callback', state='xyz'
     )
     code = await auth_handoff_state_use_case.create_exchange_code(
-        login_id=login_id, user_id=USER.id, github_id=USER.github_id
+        login_id=login_id, user_id=USER.id
     )
 
     data = (
@@ -168,7 +166,7 @@ async def test_installed_cli_refreshes_and_logs_out_through_cookies(
     real_client,
     async_engine,
     auth_handoff_state_use_case,
-    github_service,
+    bound_user,
 ):
     """CLIs 0.1.4 to 1.0.1 replay the exchanged values as cookies:
     ``GET /users/me`` with ``__access``, ``GET /auth/refresh`` with
@@ -178,7 +176,7 @@ async def test_installed_cli_refreshes_and_logs_out_through_cookies(
         callback_url='http://127.0.0.1:43129/callback', state='xyz'
     )
     code = await auth_handoff_state_use_case.create_exchange_code(
-        login_id=login_id, user_id=USER.id, github_id=USER.github_id
+        login_id=login_id, user_id=USER.id
     )
     data = (
         await real_client.post('/auth/cli/exchange', json={'code': code})
@@ -238,16 +236,12 @@ async def test_legacy_cli_routes_are_deprecated_in_openapi(
 
 
 @pytest.mark.asyncio
-async def test_cli_login_redirect_asks_user_email_scope_only(
+async def test_cli_login_redirect_lands_on_the_borderless_signin_page(
     local_async_client,
     auth_handoff_state_use_case,
 ):
-    """The CLI login redirect (`GET /auth/cli/login/{id}`, which reuses the
-    same ``github_sso`` instance as `/auth/github/login`) still reaches
-    GitHub, now asking for `user:email` only - no `read:org` (R-042/R-043).
-    That there is no `/user/orgs` call anywhere in the codebase is a
-    separate, static check: `.claude/rules` T135's
-    `grep -rn check_org_membership applika/backend/app`."""
+    """``GET /auth/cli/login/{id}`` (CLIs 0.1.4 to 1.0.1) now 307s to
+    applika's Borderless sign-in page with the CLI marker (ADR-0024)."""
     start_response = await local_async_client.post(
         '/auth/cli/start',
         json={
@@ -263,9 +257,6 @@ async def test_cli_login_redirect_asks_user_email_scope_only(
         follow_redirects=False,
     )
 
-    assert login_response.status_code in {302, 303, 307}
-    location = login_response.headers['location']
-    parsed = urlparse(location)
-    assert parsed.hostname == 'github.com'
-    params = parse_qs(parsed.query)
-    assert params['scope'] == ['user:email']
+    assert login_response.status_code == 307
+    assert login_response.headers['location'] == f'{envs.WEB_SIGNIN_URI}?cli=1'
+    assert login_response.cookies.get('__cli_login') == login_id

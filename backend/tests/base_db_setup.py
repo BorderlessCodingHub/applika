@@ -23,11 +23,10 @@ class BaseDataType(TypedDict):
 def base_data() -> BaseDataType:
     return {
         'user': UserModel(
-            id=1, github_id=1, username='testuser', email='test@user.com'
+            id=1, username='testuser', email='test@user.com'
         ),
         'admin_user': UserModel(
             id=2,
-            github_id=2,
             username='adminuser',
             email='admin@user.com',
             is_admin=True,

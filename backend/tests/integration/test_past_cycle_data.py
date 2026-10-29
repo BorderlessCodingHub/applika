@@ -363,7 +363,7 @@ async def test_past_cycle_trends(
 # ---------------------------------------------------------------------------
 
 async def test_past_cycle_reports(
-    async_client: AsyncClient, db_session: AsyncSession
+    async_client: AsyncClient, db_session: AsyncSession, reports_badge
 ):
     cycle_id = await _seed_and_archive(async_client, db_session)
 

@@ -597,15 +597,17 @@ def test_the_revision_is_a_new_child_of_the_cvs_topup_head() -> None:
     assert module.down_revision == PARENT_REVISION
 
 
-def test_nothing_in_app_maps_the_new_or_old_objects() -> None:
-    """Release A: no ORM model maps the four tables, their ``_old`` twins,
-    or the prompt column (runbook rule 4, non-destructive rule 7)."""
+def test_app_maps_the_new_objects_and_never_the_old_ones() -> None:
+    """Release A shipped this revision code-free (runbook rule 4); Release
+    B maps the four tables and the prompt column. No ORM model ever maps an
+    ``_old`` twin (non-destructive rule 7)."""
     from app.domain.models import Base
 
     mapped = set(Base.metadata.tables)
-    assert not mapped & {*NEW_TABLES, *OLD_TABLES}
+    assert set(NEW_TABLES) <= mapped
+    assert not mapped & set(OLD_TABLES)
     users = Base.metadata.tables['users']
-    assert PROMPT not in users.c
+    assert PROMPT in users.c
     assert PROMPT_OLD not in users.c
 
 
