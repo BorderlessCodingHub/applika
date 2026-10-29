@@ -99,6 +99,10 @@ BORDERLESS_UNAVAILABLE = 'Borderless is unavailable, try again later'
 BORDERLESS_NOT_CONFIGURED = 'Borderless sign-in is not configured'
 BADGE_REQUIRED = 'Reports are for Borderless BASE and PSP members'
 MEMBERSHIP_UNCONFIRMED = 'Sign in again to confirm your membership'
+EMAIL_UNUSABLE = (
+    'This Borderless email cannot be used with applika: it must be a valid '
+    'address of at most 100 characters'
+)
 
 
 class InvalidCredentials(CodedRefusal):
@@ -124,6 +128,17 @@ class BindingConflict(CodedRefusal):
 class EmailAmbiguous(CodedRefusal):
     status_code = 409
     code = 'email_ambiguous'
+
+
+class EmailUnusable(CodedRefusal):
+    """The Borderless email cannot be an applika account email (too long
+    for ``users.email`` or refused by ``UserCreateDTO``)."""
+
+    status_code = 422
+    code = 'email_unusable'
+
+    def __init__(self, message: str = EMAIL_UNUSABLE):
+        super().__init__(message)
 
 
 class SignInRateLimited(CodedRefusal):

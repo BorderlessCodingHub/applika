@@ -28,7 +28,9 @@ from tests.sessions_seed import open_session
 PASSWORD = CREDENTIALS['password']
 
 
-async def _signin(client: AsyncClient, email: str, password: str = PASSWORD, **kw):
+async def _signin(
+    client: AsyncClient, email: str, password: str = PASSWORD, **kw
+):
     return await client.post(
         '/auth/borderless/signin',
         json={'email': email, 'password': password},
@@ -124,6 +126,44 @@ async def test_unverified_email_is_403(
         'detail': 'Verify your email on Borderless first',
         'code': 'email_unverified',
     }
+
+
+async def test_unusable_borderless_email_is_422_with_nothing_written(
+    real_client: AsyncClient,
+    db_session,
+    redis_client,
+    borderless: FakeBorderlessClient,
+):
+    # The typed email fits the request's 100; the one Borderless answers
+    # with does not fit users.email.
+    account = borderless.add(id='bl-long', email='long@x.io')
+    account['email'] = 'a' * 60 + '@' + 'b' * 40 + '.example.com'
+    users_before = len(list(await db_session.scalars(select(UserModel))))
+    keys_before = set(await redis_client.keys('applika:session:*'))
+
+    response = await _signin(real_client, 'long@x.io')
+
+    assert response.status_code == 422
+    assert response.json() == {
+        'detail': (
+            'This Borderless email cannot be used with applika: it must be '
+            'a valid address of at most 100 characters'
+        ),
+        'code': 'email_unusable',
+    }
+    assert 'set-cookie' not in response.headers
+    assert len(list(await db_session.scalars(select(UserModel)))) == (
+        users_before
+    )
+    assert (
+        await db_session.scalar(
+            select(BorderlessAccountModel).where(
+                BorderlessAccountModel.borderless_user_id == 'bl-long'
+            )
+        )
+        is None
+    )
+    assert set(await redis_client.keys('applika:session:*')) == keys_before
 
 
 async def test_bound_to_another_borderless_account_is_409(
@@ -274,7 +314,9 @@ async def test_legacy_cli_sign_in_hands_back_a_code_with_no_cookie(
     assert [r.id for r in rows] == [browser.session_id]
     assert rows[0].ended_at is None
     code = redirect_to.split('code=')[1].split('&')[0]
-    exchanged = await real_client.post('/auth/cli/exchange', json={'code': code})
+    exchanged = await real_client.post(
+        '/auth/cli/exchange', json={'code': code}
+    )
     assert exchanged.status_code == 200
     assert 'tok-user' not in exchanged.text
 

@@ -14,6 +14,7 @@ from app.application.services.borderless_client import (
     BorderlessSignIn,
     BorderlessUnavailable,
 )
+from app.application.dto.user import UserCreateDTO
 from app.application.use_cases.borderless.credentials import (
     email_counter_key,
 )
@@ -25,6 +26,7 @@ from app.core.crypto import decrypt_borderless_token
 from app.core.exceptions import (
     BindingConflict,
     EmailAmbiguous,
+    EmailUnusable,
     EmailUnverified,
     InvalidCredentials,
     ServiceUnavailable,
@@ -108,9 +110,7 @@ async def test_email_match_ignoring_case_binds_the_existing_account(
     assert result.user_id == base_data()['user'].id
     assert result.new_account is False
     assert await _users(db_session) == before
-    assert await _live_badges(db_session, result.user_id) == [
-        'borderless_base'
-    ]
+    assert await _live_badges(db_session, result.user_id) == ['borderless_base']
 
 
 @pytest.mark.asyncio
@@ -119,9 +119,7 @@ async def test_bound_account_signs_in_and_renews_its_token(
 ):
     user_id = base_data()['user'].id
     await bind_borderless(db_session, user_id, borderless_id='bl-1', badge=None)
-    borderless.add(
-        id='bl-1', email='changed@example.com', token='fresh-token'
-    )
+    borderless.add(id='bl-1', email='changed@example.com', token='fresh-token')
 
     result = await _use_case(db_session, fake_redis, borderless).execute(
         'changed@example.com', PASSWORD
@@ -198,6 +196,78 @@ async def test_unverified_email_is_403_and_nothing_written(
             'u@example.com', PASSWORD
         )
     assert await _users(db_session) == before
+
+
+# 113 characters, accepted by ``UserCreateDTO``: only the length refuses it.
+LONG_EMAIL = 'a' * 60 + '@' + 'b' * 40 + '.example.com'
+
+
+async def _bindings(db_session) -> int:
+    return await db_session.scalar(
+        select(func.count()).select_from(BorderlessAccountModel)
+    )
+
+
+async def _badges(db_session) -> int:
+    return await db_session.scalar(
+        select(func.count()).select_from(UserBadgeModel)
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'email', [LONG_EMAIL, 'not-an-email'], ids=['over-100', 'invalid']
+)
+async def test_unusable_borderless_email_is_422_before_any_write(
+    db_session, fake_redis, borderless, email
+):
+    if email == LONG_EMAIL:
+        assert len(email) > 100
+        UserCreateDTO(username='x', email=email)  # valid, just too long
+    borderless.add(id='bl-long', email=email)
+    before = (
+        await _users(db_session),
+        await _bindings(db_session),
+        await _badges(db_session),
+    )
+    use_case = _use_case(db_session, fake_redis, borderless)
+
+    # More refusals than the per-email limit: never a 429, never counted.
+    for _ in range(6):
+        with pytest.raises(EmailUnusable) as excinfo:
+            await use_case.execute(email, PASSWORD)
+
+    assert excinfo.value.status_code == 422
+    assert excinfo.value.code == 'email_unusable'
+    assert excinfo.value.message == (
+        'This Borderless email cannot be used with applika: it must be a '
+        'valid address of at most 100 characters'
+    )
+    assert await fake_redis.get(email_counter_key(email)) is None
+    assert len(borderless.sign_in_calls) == 6
+    assert (
+        await _users(db_session),
+        await _bindings(db_session),
+        await _badges(db_session),
+    ) == before
+
+
+@pytest.mark.asyncio
+async def test_bound_account_is_not_refused_for_a_long_borderless_email(
+    db_session, fake_redis, borderless
+):
+    user_id = base_data()['user'].id
+    await bind_borderless(db_session, user_id, borderless_id='bl-1', badge=None)
+    borderless.add(id='bl-1', email=LONG_EMAIL)
+
+    result = await _use_case(db_session, fake_redis, borderless).execute(
+        LONG_EMAIL, PASSWORD
+    )
+
+    assert (result.user_id, result.new_account) == (user_id, False)
+    binding = await _binding(db_session, user_id)
+    await db_session.refresh(binding)
+    assert binding.email == LONG_EMAIL
 
 
 @pytest.mark.asyncio

@@ -4,13 +4,16 @@ Resolution, in order: (1) the account bound to the Borderless id; (2) the
 account whose email equals the Borderless email ignoring case (the exact
 spelling first), bound now, refused when it is bound to another Borderless
 account or when several accounts match and none exactly; (3) a new
-account. A binding never moves here.
+account. A binding never moves here. Before (2) and (3), a Borderless email
+applika cannot store (over 100 characters or refused by ``UserCreateDTO``)
+is refused, before any write.
 """
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import redis.asyncio as redis
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dto.user import UserCreateDTO
@@ -31,6 +34,7 @@ from app.core.exceptions import (
     BORDERLESS_NOT_CONFIGURED,
     BindingConflict,
     EmailAmbiguous,
+    EmailUnusable,
     ServiceUnavailable,
 )
 from app.domain.models import UserModel
@@ -45,6 +49,7 @@ BOUND_TO_ANOTHER = (
 )
 AMBIGUOUS = 'More than one applika account uses this email; contact support'
 USERNAME_MAX = 100
+EMAIL_MAX = 100  # users.email is VARCHAR(100)
 
 
 @dataclass(frozen=True)
@@ -58,6 +63,17 @@ def username_for(answer: BorderlessSignIn) -> str:
         if value and value.strip():
             return value.strip()[:USERNAME_MAX]
     return answer.email.split('@', 1)[0][:USERNAME_MAX] or 'user'
+
+
+def new_user_dto(answer: BorderlessSignIn) -> UserCreateDTO:
+    """The account a Borderless answer creates, or ``EmailUnusable`` when
+    its email cannot be stored as an applika account email."""
+    if len(answer.email) > EMAIL_MAX:
+        raise EmailUnusable()
+    try:
+        return UserCreateDTO(username=username_for(answer), email=answer.email)
+    except ValidationError:
+        raise EmailUnusable() from None
 
 
 def encrypted_token(answer: BorderlessSignIn) -> tuple[str, datetime]:
@@ -108,15 +124,11 @@ class BorderlessSignInUseCase:
             )
             return binding.user_id, False
 
+        dto = new_user_dto(answer)
         user = await self._match_by_email(answer.email)
         new_account = user is None
         if user is None:
-            user = await self.users.create(
-                UserCreateDTO(
-                    username=username_for(answer), email=answer.email
-                ),
-                commit=False,
-            )
+            user = await self.users.create(dto, commit=False)
         user_id = user.id
         await self.bindings.bind(
             user_id=user_id,
