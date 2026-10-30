@@ -323,6 +323,22 @@ and every existing user is affected, so it needs an ADR.
   Settled).
 - ADR-0002 becomes "Superseded by ADR-0024" and ADR-0013 becomes "Superseded by ADR-0024". ADR-0019 and ADR-0004 get
   an "Amended by ADR-0024" note. ADR-0018 gets an "Exception: ADR-0024" note.
+- **As-built (2026-10-29, Release B, tag `0018-release-b`).** The build follows the Decision; where it is more
+  specific or departs:
+  - §1 sign-in adds two refusals the Decision does not name: several accounts share the Borderless email ignoring
+    case and none spells it exactly → 409 `email_ambiguous`; a Borderless email applika cannot store (over 100
+    characters, or refused by the account email rules) → 422 `email_unusable`, before any write. Each refusal carries
+    a `code` (`email_unverified`, `binding_conflict`, …). The per-email limit is 5 failures in 900 s
+    (`BORDERLESS_SIGNIN_EMAIL_LIMIT`, `BORDERLESS_SIGNIN_EMAIL_WINDOW_SECONDS`), checked before Borderless is called.
+  - §1 `GET /auth/github/login` answers 307 to the Borderless sign-in page; `GET /auth/github/callback` serves the
+    restore only. `/auth/link/discord*` and `/admin/discord-webhooks*` answer 404.
+  - §3 the restore's refusals reach the user as a redirect, not a 409: the callback always answers 307 to the profile
+    with `account=github&status=restored|not_found|has_data|already_bound|error`. The 409 stays on
+    `POST /auth/github/restore` for a caller that already has a `github_connections` row.
+  - §6 the web keeps `/admin/discord-webhooks` as a page that redirects to `/admin/report-webhooks` (old bookmarks);
+    the owner may remove it later.
+  - Known gaps, left as follow-ups: two simultaneous first sign-ins for one Borderless id, or two simultaneous
+    restores into one account, can answer 500 instead of the refusal.
 
 ## Non-goals
 

@@ -10,6 +10,13 @@ related-prds: [0001-auth-users-profile.md, 0003-statistics-reports-cycles.md, 00
 
 # PRD 0009 — Link a Discord account from the profile, and route reports to the user's Discord servers
 
+> **Retired (as-built note, 2026-10-29, ADR-0024, PRD 0018).** From Release B of plan 0018 Discord
+> linking is gone: `/auth/link/discord*` answer 404, the profile has no Discord card, and no report
+> or feedback post mentions anyone (PRD 0018 R-033). Reports are routed by membership badge, not by
+> Discord server: R-039 is replaced by PRD 0018 R-030 (a report goes to every report webhook whose
+> badges include a badge the author holds). The Discord tables stay in the database, unmapped;
+> Release C renames them `_old`. This PRD is kept as history.
+
 ## In the owner's words
 
 Keep github login but add an option in user profile to sincronize with discord.
@@ -102,6 +109,7 @@ and the owner retires that rule from the whole product.
 - R-037 When Discord is unreachable or failing at report time, the report is saved and not posted, and the connection is left as it is. (clarification 2026-09-24, refresh failure)
 - R-038 The report records whether it reached at least one webhook. (clarification 2026-09-24, `discord_posted`)
 - R-039 Discord server membership, plus the optional roles, is the only rule that decides where a report is posted. The single reports webhook setting no longer exists. (owner: "Remove the environment DISCORD_REPORTS_WEBHOOK"; clarification 2026-09-24, report gate)
+  As-built note (2026-10-29, ADR-0024): replaced by PRD 0018 R-030 from Release B of plan 0018.
 - R-040 The system reads a user's servers and roles when a report is submitted and never stores them. (clarification 2026-09-24, stored data)
 - R-041 Feedback keeps going to its one configured feedback webhook. It mentions a user who has a Discord connection, whatever that user's servers or connection state. (clarification 2026-09-24, feedback)
 - R-042 The system no longer uses GitHub organisation membership for anything. The organisation setting is removed, sign-in asks GitHub for the email permission only, and the system neither checks, records nor returns organisation membership. (clarification 2026-09-24, "removed entirely")
