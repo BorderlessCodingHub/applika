@@ -3,8 +3,9 @@ import { BadgeCheck } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import type { MembershipBadgeKey } from "@/services/types/users";
 
-export type MembershipBadgeKey = "borderless_base" | "borderless_psp";
+export type { MembershipBadgeKey };
 
 /** Display order wherever more than one badge is listed. */
 export const MEMBERSHIP_BADGE_KEYS = [
