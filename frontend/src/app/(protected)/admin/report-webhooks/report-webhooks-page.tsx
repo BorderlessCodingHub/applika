@@ -49,7 +49,9 @@ const WEBHOOK_URL_RE =
 // loses precision in a JS number.
 const BIGINT_MAX = BigInt("9223372036854775807");
 
-function isValidWebhookUrl(value: string): boolean {
+/** The server's `validate_webhook_url`; `webhook-url-parity.test.ts` holds
+ * both to the cases in `backend/tests/fixtures/report-webhook-urls.json`. */
+export function isValidWebhookUrl(value: string): boolean {
   const match = WEBHOOK_URL_RE.exec(value);
   if (!match) return false;
   try {
