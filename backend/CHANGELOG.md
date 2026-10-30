@@ -345,6 +345,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- discord_connections, discord_report_webhooks, users.github_id and users.encrypted_github_token renamed to *_old, data kept; github_connections and report_webhooks topped up with the rows created between the two migrations (Release C, ADR-0024).
 - the access token's `sub` is `users.id`; every session open before this release ends and every user signs in again with Borderless.
 - /auth/refresh and the refresh_token grant read the Borderless membership instead of checking a GitHub token; a user with no Borderless binding, or a session opened before this release, gets 401 "Sign in again with Borderless" and the session ends.
 - /auth/github/login 307s to WEB_SIGNIN_URI; /auth/cli/authorize and /auth/cli/login/{id} 307 to WEB_SIGNIN_URI?cli=1 (400/404 unchanged).
