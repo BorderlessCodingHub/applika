@@ -5,6 +5,9 @@ unhandled 500, and no error message may ever contain the submitted URL or
 label. A webhook holds one or more distinct badges, BASE or PSP, never none.
 """
 
+import json
+from pathlib import Path
+
 import pytest
 
 from app.application.validators.report_webhook import (
@@ -28,53 +31,28 @@ VALID_TOKEN = 'AbCdEfGhIjKlMnOpQrSt0123456789'  # >= 20 chars
 VALID_URL = f'https://discord.com/api/webhooks/{VALID_ID}/{VALID_TOKEN}'
 OVERFLOW_ID = '92233720368547758080'  # 20 digits, > int64 max
 
+#: The URL cases the web's ``isValidWebhookUrl`` must agree on; its own suite
+#: (``webhook-url-parity.test.ts``) reads the same file, so a pattern change
+#: on one side alone fails a test.
+URL_CASES = json.loads(
+    (
+        Path(__file__).parents[1] / 'fixtures' / 'report-webhook-urls.json'
+    ).read_text(encoding='utf-8')
+)
+
 
 # ── webhook_url ──────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize(
-    'url',
-    [
-        VALID_URL,
-        f'https://discordapp.com/api/webhooks/{VALID_ID}/{VALID_TOKEN}',
-        f'https://ptb.discord.com/api/webhooks/{VALID_ID}/{VALID_TOKEN}',
-        f'https://canary.discord.com/api/webhooks/{VALID_ID}/{VALID_TOKEN}',
-        f'https://discord.com/api/v10/webhooks/{VALID_ID}/{VALID_TOKEN}',
-    ],
-)
+@pytest.mark.parametrize('url', [case['url'] for case in URL_CASES['accept']])
 def test_validate_webhook_url_accepts_every_documented_host_variant(url):
     assert validate_webhook_url(url) == url
 
 
 @pytest.mark.parametrize(
     'url',
-    [
-        # http, not https
-        f'http://discord.com/api/webhooks/{VALID_ID}/{VALID_TOKEN}',
-        # wrong host
-        f'https://evil.example.com/api/webhooks/{VALID_ID}/{VALID_TOKEN}',
-        # wrong path
-        f'https://discord.com/webhooks/{VALID_ID}/{VALID_TOKEN}',
-        # webhook id too short
-        f'https://discord.com/api/webhooks/12345/{VALID_TOKEN}',
-        # token too short
-        f'https://discord.com/api/webhooks/{VALID_ID}/short',
-        # not a string
-        None,
-        # empty string
-        '',
-        # trailing newline (backend-qa finding B2: `$` alone matches just
-        # before a final newline, so `match()` + `$` let this through)
-        f'https://discord.com/api/webhooks/{VALID_ID}/{VALID_TOKEN}\n',
-        # non-ASCII "digits" in the webhook id (Arabic-Indic 1-2-3...),
-        # same length (18 chars) as VALID_ID so this is a length-independent
-        # regression test for `re.ASCII` (backend-qa B2-residual: a shorter
-        # non-ASCII string would already fail on length alone, proving
-        # nothing about the ASCII flag)
-        f'https://discord.com/api/webhooks/١٢٣{VALID_ID[3:]}/{VALID_TOKEN}',
-        # non-ASCII letters in the token
-        f'https://discord.com/api/webhooks/{VALID_ID}/' + 'é' * 20,
-    ],
+    # not a string, then every string case the web must refuse too
+    [None, *(case['url'] for case in URL_CASES['refuse'])],
 )
 def test_validate_webhook_url_refuses_everything_else(url):
     with pytest.raises(BusinessRuleViolation) as excinfo:

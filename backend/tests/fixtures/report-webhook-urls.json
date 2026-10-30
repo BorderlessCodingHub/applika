@@ -1,0 +1,67 @@
+{
+  "_doc": "Webhook URL cases both validators must agree on: backend/app/application/validators/report_webhook.py (validate_webhook_url) and the web's isValidWebhookUrl (frontend/src/app/(protected)/admin/report-webhooks/report-webhooks-page.tsx). The backend owns this file; each suite reads it, so a change to one pattern that the other does not follow fails a test.",
+  "accept": [
+    {
+      "url": "https://discord.com/api/webhooks/123456789012345678/AbCdEfGhIjKlMnOpQrSt0123456789",
+      "why": "discord.com"
+    },
+    {
+      "url": "https://discordapp.com/api/webhooks/123456789012345678/AbCdEfGhIjKlMnOpQrSt0123456789",
+      "why": "discordapp.com"
+    },
+    {
+      "url": "https://ptb.discord.com/api/webhooks/123456789012345678/AbCdEfGhIjKlMnOpQrSt0123456789",
+      "why": "ptb subdomain"
+    },
+    {
+      "url": "https://canary.discord.com/api/webhooks/123456789012345678/AbCdEfGhIjKlMnOpQrSt0123456789",
+      "why": "canary subdomain"
+    },
+    {
+      "url": "https://discord.com/api/v10/webhooks/123456789012345678/AbCdEfGhIjKlMnOpQrSt0123456789",
+      "why": "API version segment"
+    }
+  ],
+  "refuse": [
+    {
+      "url": "http://discord.com/api/webhooks/123456789012345678/AbCdEfGhIjKlMnOpQrSt0123456789",
+      "why": "http, not https"
+    },
+    {
+      "url": "https://evil.example.com/api/webhooks/123456789012345678/AbCdEfGhIjKlMnOpQrSt0123456789",
+      "why": "wrong host"
+    },
+    {
+      "url": "https://discord.com/webhooks/123456789012345678/AbCdEfGhIjKlMnOpQrSt0123456789",
+      "why": "wrong path"
+    },
+    {
+      "url": "https://discord.com/api/webhooks/12345/AbCdEfGhIjKlMnOpQrSt0123456789",
+      "why": "webhook id too short"
+    },
+    {
+      "url": "https://discord.com/api/webhooks/123456789012345678/short",
+      "why": "token too short"
+    },
+    {
+      "url": "",
+      "why": "empty string"
+    },
+    {
+      "url": "https://discord.com/api/webhooks/123456789012345678/AbCdEfGhIjKlMnOpQrSt0123456789\n",
+      "why": "trailing newline: an end anchor that matches before a final newline would let it through"
+    },
+    {
+      "url": "https://discord.com/api/webhooks/١٢٣456789012345678/AbCdEfGhIjKlMnOpQrSt0123456789",
+      "why": "non-ASCII (Arabic-Indic) digits in the id, same 18-char length as a valid id: ASCII-only digit matching"
+    },
+    {
+      "url": "https://discord.com/api/webhooks/123456789012345678/éééééééééééééééééééé",
+      "why": "non-ASCII letters in the token"
+    },
+    {
+      "url": "https://discord.com/api/webhooks/92233720368547758080/AbCdEfGhIjKlMnOpQrSt0123456789",
+      "why": "20-digit id above the Postgres BIGINT maximum"
+    }
+  ]
+}
