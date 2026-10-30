@@ -185,31 +185,35 @@ export interface AdminPlatformsParams {
 // now 404.
 
 /**
- * Admin report webhook (`/admin/report-webhooks`, ADR-0024). A report goes to
- * the webhooks of its author's badge. `webhook_url_masked` is the only
- * address form the API returns; `badge` is null only on a row carried over
- * from before badges, which receives nothing until one is assigned.
+ * Admin report webhook (`/admin/report-webhooks`, ADR-0024). A webhook holds
+ * one or more badges, and a report goes to every webhook holding a badge its
+ * author holds. `webhook_url_masked` is the only address form the API
+ * returns; `badges` is `[]` only on a row carried over from before badges,
+ * which receives nothing until one is assigned. Ordered base, psp.
  */
 export interface AdminReportWebhook {
   id: string;
   label: string | null;
-  badge: MembershipBadgeKey | null;
+  badges: MembershipBadgeKey[];
   webhook_url_masked: string;
   created_at: string;
   updated_at: string | null;
 }
 
-/** `POST /admin/report-webhooks` body. */
+/** `POST /admin/report-webhooks` body: one or two distinct badges. */
 export interface CreateReportWebhook {
   webhook_url: string;
-  badge: MembershipBadgeKey;
+  badges: MembershipBadgeKey[];
   label?: string | null;
 }
 
-/** `PATCH /admin/report-webhooks/{id}` body: only the keys present change; `badge` is never cleared. */
+/**
+ * `PATCH /admin/report-webhooks/{id}` body: only the keys present change.
+ * `badges` replaces the whole set and is never empty.
+ */
 export interface UpdateReportWebhook {
   webhook_url?: string;
-  badge?: MembershipBadgeKey;
+  badges?: MembershipBadgeKey[];
   label?: string | null;
 }
 

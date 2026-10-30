@@ -191,8 +191,9 @@ kept, the menu and profile prompts, 403 `membership_unconfirmed`, confirm on
 user in through the web form (that would add a web session
 `devices.spec.ts` lists). `afterAll` signs e2e-free and e2e-short in through
 the API and `DELETE /users/me`. `e2e/admin-report-webhooks.spec.ts`
-(serial): add with BASE, masked row, the token never in `page.content()`,
-change to PSP without resending the URL, delete as its own cleanup.
+(serial): add with BASE + PSP (both chips), masked row, the token never in
+`page.content()`, narrow to PSP without resending the URL, delete as its own
+cleanup.
 
 ---
 
@@ -1598,30 +1599,43 @@ is local state. **Not gated** (owner: "Gate nothing") — no `FeatureKey`, no
 
 ### Admin — Report webhooks (`app/(protected)/admin/report-webhooks/`, ADR-0024)
 
-The owner: "As an admin, I want to assign each report webhook to a badge (BASE
-or PSP), so that a member's report goes to the webhooks of their community."
+The owner: "i must be able to configure a webhook for a pair of badges (1 or
+more). Example, one webhook for "base" badge and another no "psp". Remove any
+wording to Discord in admin area." A webhook holds one or more badges (BASE,
+PSP or both); a report goes to every webhook holding a badge its author holds.
 Nav tab "Report webhooks" (lucide `Webhook`) in `admin-nav.tsx`;
 `admin/discord-webhooks/page.tsx` is a client `router.replace` to it (a saved
 link still works; static export, no rewrite).
 
-- `services/types/admin.ts` `AdminReportWebhook` (`id`, `label`, `badge`
-  `borderless_base|borderless_psp|null`, `webhook_url_masked`, `created_at`,
-  `updated_at`) plus `CreateReportWebhook` / `UpdateReportWebhook`;
-  `admin-service.ts` CRUD on `/admin/report-webhooks`; `use-admin.ts` key
-  `["admin","report-webhooks"]` (`ADMIN_REPORT_WEBHOOKS_KEY`). Create/update
-  hooks raise no error toast: the page shows 404/409/422 inline in
-  `[data-slot="report-webhook-form-error"]`; delete toasts its own.
+- `services/types/admin.ts` `AdminReportWebhook` (`id`, `label`, `badges`
+  `("borderless_base"|"borderless_psp")[]` ordered base, psp — `[]` on a
+  carried-over row, `webhook_url_masked`, `created_at`, `updated_at`);
+  `CreateReportWebhook` (`badges` 1..2 distinct) / `UpdateReportWebhook`
+  (optional `badges` REPLACES the set, never empty); there is no `badge`
+  field. `admin-service.ts` CRUD on `/admin/report-webhooks`; `use-admin.ts`
+  key `["admin","report-webhooks"]` (`ADMIN_REPORT_WEBHOOKS_KEY`).
+  Create/update hooks raise no error toast: the page shows the 404/409/422
+  `detail` verbatim in `[data-slot="report-webhook-form-error"]`; delete
+  toasts its own.
 - `components/admin/report-webhook-list.tsx` / `report-webhook-form-dialog.tsx`
-  are the ui-designer's (four list states,
-  `li[data-slot="report-webhook-row"][data-webhook-id][data-badge=…|none]`);
-  `report-webhooks-page.tsx` owns the zod schema, mirroring
-  `backend/app/application/validators/report_webhook.py` (the Discord webhook
-  URL regex, BIGINT as `BigInt`, label ≤ 100 code points) plus a required
-  badge ("Choose BASE or PSP") on create AND edit — a carried-over row reads
-  "No badge, receives nothing" and Edit must assign one; it is never cleared.
+  (four list states; one chip per badge, or "No badge, receives nothing";
+  `li[data-slot="report-webhook-row"][data-webhook-id][data-badges]` with the
+  keys space-separated or `none`, chips `[data-slot="report-webhook-badge"]`).
+  The dialog's badges are a `role="group"` named "Badges" of two `ui/checkbox`
+  (each named BASE / PSP, its one-line hint as description), kept in base, psp
+  order by `toggleBadge`. `report-webhooks-page.tsx` owns the zod schema,
+  mirroring `backend/app/application/validators/report_webhook.py` (the webhook
+  URL regex, BIGINT as `BigInt`, label ≤ 100 code points) plus at least one
+  badge ("Choose at least one badge: BASE or PSP", the API's words) on create
+  AND edit — a carried-over row opens with none checked and Edit must pick one.
 - The URL is a secret: the edit form reopens blank, a blank URL keeps the
-  stored one, and only dirty fields are sent. Only the masked form is ever
-  shown. Badge radios: click or `.check()` in Playwright, never arrow keys.
+  stored one, and only changed fields are sent (`badges` only when the set
+  differs from the stored one). Only the masked form is ever shown.
+- **No Discord wording in the admin area** except the address field: its
+  add-mode placeholder `https://discord.com/api/webhooks/…` and "Invalid
+  Discord webhook URL" (the stored masked address naturally reads
+  `discord.com` too). `report-webhooks-page.test.tsx` asserts it.
+  Playwright: `.check()`/`.uncheck()` the checkboxes.
 
 ### Admin — Jobs (`app/(protected)/admin/jobs/`, PRD 0012, KODI-049, R-033..R-035)
 

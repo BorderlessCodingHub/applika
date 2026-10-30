@@ -11,6 +11,7 @@ import {
   type MembershipBadgeKey,
 } from "@/components/badges/membership-badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -29,27 +30,44 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 
-/** `badge` is `""` until one is picked (a new row, or a carried-over row with none). */
+/**
+ * `badges` is empty until one is picked (a new row, or a carried-over row
+ * with none), and always kept in `MEMBERSHIP_BADGE_KEYS` order.
+ */
 export interface ReportWebhookFormValues {
   webhook_url: string;
-  badge: MembershipBadgeKey | "";
+  badges: MembershipBadgeKey[];
   label: string;
 }
 
 export const EMPTY_REPORT_WEBHOOK_FORM: ReportWebhookFormValues = {
   webhook_url: "",
-  badge: "",
+  badges: [],
   label: "",
 };
 
+/** The set with `key` turned on or off, in `MEMBERSHIP_BADGE_KEYS` order. */
+export function toggleBadge(
+  badges: readonly MembershipBadgeKey[],
+  key: MembershipBadgeKey,
+  on: boolean,
+): MembershipBadgeKey[] {
+  return MEMBERSHIP_BADGE_KEYS.filter((k) =>
+    k === key ? on : badges.includes(k),
+  );
+}
+
 export function reportWebhookToFormValues(
-  row: Pick<ReportWebhookRow, "badge" | "label">,
+  row: Pick<ReportWebhookRow, "badges" | "label">,
 ): ReportWebhookFormValues {
   // The stored URL is a secret: the edit form starts blank, never pre-filled.
-  return { webhook_url: "", badge: row.badge ?? "", label: row.label ?? "" };
+  return {
+    webhook_url: "",
+    badges: MEMBERSHIP_BADGE_KEYS.filter((k) => row.badges.includes(k)),
+    label: row.label ?? "",
+  };
 }
 
 export type ReportWebhookFormMode = "add" | "edit";
@@ -66,7 +84,7 @@ const COPY: Record<
   add: {
     title: "Add webhook",
     description:
-      "Reports from members who hold the chosen badge are posted through this webhook.",
+      "Reports from members who hold any of the chosen badges are posted through this webhook.",
     submit: "Save webhook",
     urlPlaceholder: "https://discord.com/api/webhooks/…",
   },
@@ -80,11 +98,11 @@ const COPY: Record<
 
 export const REPORT_WEBHOOK_FORM_COPY = {
   urlLabel: "Webhook URL",
-  urlHelp:
-    "In Discord: channel settings, Integrations, Webhooks, Copy Webhook URL. Only a masked form is shown after saving.",
+  urlHelp: "Only a masked form is shown after saving.",
   urlCurrent: "Current:",
-  badgeLabel: "Badge",
-  badgeHelp: "Each report goes to the webhooks of its member's badge.",
+  badgeLabel: "Badges",
+  badgeHelp:
+    "Choose one or both. A report goes to every webhook that holds its member's badge.",
   badgeHint: {
     borderless_base: "Reports from Borderless BASE members.",
     borderless_psp: "Reports from Borderless PSP members.",
@@ -178,7 +196,10 @@ export function ReportWebhookFormDialog({
                       {mode === "edit" && currentUrlMasked ? (
                         <>
                           {REPORT_WEBHOOK_FORM_COPY.urlCurrent}{" "}
-                          <code className="font-mono text-xs break-all text-foreground/80">
+                          <code
+                            data-slot="report-webhook-url-current"
+                            className="font-mono text-xs break-all text-foreground/80"
+                          >
                             {currentUrlMasked}
                           </code>
                         </>
@@ -193,10 +214,10 @@ export function ReportWebhookFormDialog({
 
               <FormField
                 control={form.control}
-                name="badge"
+                name="badges"
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    {/* A radiogroup is not labelable: the group takes its name from this line. */}
+                    {/* A group is not labelable: it takes its name from this line. */}
                     <span
                       id={badgeLabelId}
                       data-slot="form-label"
@@ -208,13 +229,11 @@ export function ReportWebhookFormDialog({
                       {REPORT_WEBHOOK_FORM_COPY.badgeLabel}
                     </span>
                     <FormControl>
-                      <RadioGroup
+                      <div
+                        role="group"
                         aria-labelledby={badgeLabelId}
-                        aria-required
-                        name={field.name}
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        className="grid-cols-1 gap-2 sm:grid-cols-2"
+                        data-slot="report-webhook-badge-options"
+                        className="grid grid-cols-1 gap-2 sm:grid-cols-2"
                       >
                         {MEMBERSHIP_BADGE_KEYS.map((key) => (
                           <label
@@ -224,12 +243,23 @@ export function ReportWebhookFormDialog({
                               fieldState.error && "border-destructive/60",
                             )}
                           >
-                            <RadioGroupItem
+                            <Checkbox
                               value={key}
+                              checked={field.value.includes(key)}
+                              onCheckedChange={(checked) =>
+                                field.onChange(
+                                  toggleBadge(
+                                    field.value,
+                                    key,
+                                    checked === true,
+                                  ),
+                                )
+                              }
+                              onBlur={field.onBlur}
+                              aria-invalid={!!fieldState.error || undefined}
                               aria-labelledby={`${optionId}-${key}-name`}
                               aria-describedby={`${optionId}-${key}-hint`}
                               className="mt-0.5"
-                              onBlur={field.onBlur}
                             />
                             <span className="flex min-w-0 flex-col gap-1">
                               <span
@@ -247,7 +277,7 @@ export function ReportWebhookFormDialog({
                             </span>
                           </label>
                         ))}
-                      </RadioGroup>
+                      </div>
                     </FormControl>
                     <FormDescription>
                       {REPORT_WEBHOOK_FORM_COPY.badgeHelp}

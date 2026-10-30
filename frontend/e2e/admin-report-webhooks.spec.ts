@@ -3,10 +3,11 @@ import { expect, test, type APIRequestContext } from "@playwright/test";
 import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
 
 /**
- * Admin report webhooks (ADR-0024) on the real stack: add one with a badge,
- * see only its masked address, change the badge without resending the URL,
- * and delete it as the spec's own cleanup. The backend never calls Discord on
- * save, so a valid-format fake address is enough; nothing reaches discord.com.
+ * Admin report webhooks (ADR-0024) on the real stack: add one holding BASE and
+ * PSP, see both badges and only its masked address, narrow the set to PSP
+ * without resending the URL, and delete it as the spec's own cleanup. The
+ * backend never posts to a webhook on save, so a valid-format fake address is
+ * enough; nothing leaves the stack.
  */
 
 test.describe.configure({ mode: "serial" });
@@ -18,7 +19,7 @@ const WEBHOOK_URL = `https://discord.com/api/webhooks/123456789012345678/${TOKEN
 interface ReportWebhookRow {
   id: string;
   label: string | null;
-  badge: string | null;
+  badges: string[];
   webhook_url_masked: string;
 }
 
@@ -52,7 +53,7 @@ test.afterAll(async ({ request }) => {
 });
 
 test.describe("report webhooks", () => {
-  test("an admin adds a webhook for BASE and sees only its masked address (AC18, AC19)", async ({
+  test("an admin adds a webhook for BASE and PSP and sees only its masked address (R-029, AC19)", async ({
     page,
     request,
   }) => {
@@ -68,14 +69,16 @@ test.describe("report webhooks", () => {
     await page.getByRole("button", { name: "Add webhook" }).click();
     const dialog = page.getByRole("dialog", { name: "Add webhook" });
     await dialog.getByLabel("Webhook URL").fill(WEBHOOK_URL);
-    await dialog.getByRole("radio", { name: "BASE" }).check();
+    const badges = dialog.getByRole("group", { name: "Badges" });
+    await badges.getByRole("checkbox", { name: "BASE" }).check();
+    await badges.getByRole("checkbox", { name: "PSP" }).check();
     await dialog.getByLabel("Label").fill(LABEL);
     await dialog.getByRole("button", { name: "Save webhook" }).click();
     await expect(dialog).toBeHidden();
 
     const rows = (await listWebhooks(request)).filter((r) => r.label === LABEL);
     expect(rows).toHaveLength(1);
-    expect(rows[0].badge).toBe("borderless_base");
+    expect(rows[0].badges).toEqual(["borderless_base", "borderless_psp"]);
     expect(rows[0].webhook_url_masked).toBe(
       "https://discord.com/api/webhooks/123456789012345678/…stuv",
     );
@@ -83,14 +86,21 @@ test.describe("report webhooks", () => {
     const row = page.locator(
       `[data-slot="report-webhook-row"][data-webhook-id="${rows[0].id}"]`,
     );
-    await expect(row).toHaveAttribute("data-badge", "borderless_base");
+    await expect(row).toHaveAttribute(
+      "data-badges",
+      "borderless_base borderless_psp",
+    );
+    await expect(row.locator('[data-slot="report-webhook-badge"]')).toHaveText([
+      "BASE",
+      "PSP",
+    ]);
     await expect(row.locator('[data-slot="report-webhook-url"]')).toHaveText(
       rows[0].webhook_url_masked,
     );
     expect(await page.content()).not.toContain(TOKEN);
   });
 
-  test("changing the badge keeps the stored URL, which reopens blank (AC18)", async ({
+  test("narrowing the badges to PSP keeps the stored URL, which reopens blank (R-029)", async ({
     page,
     request,
   }) => {
@@ -104,18 +114,23 @@ test.describe("report webhooks", () => {
     const dialog = page.getByRole("dialog", { name: "Edit webhook" });
     await expect(dialog.getByLabel("Webhook URL")).toHaveValue("");
     await expect(dialog.getByText(before.webhook_url_masked)).toBeVisible();
-    await dialog.getByRole("radio", { name: "PSP" }).check();
+    await expect(dialog.getByRole("checkbox", { name: "BASE" })).toBeChecked();
+    await expect(dialog.getByRole("checkbox", { name: "PSP" })).toBeChecked();
+    await dialog.getByRole("checkbox", { name: "BASE" }).uncheck();
     await dialog.getByRole("button", { name: "Save changes" }).click();
     await expect(dialog).toBeHidden();
 
     const row = page.locator(
       `[data-slot="report-webhook-row"][data-webhook-id="${before.id}"]`,
     );
-    await expect(row).toHaveAttribute("data-badge", "borderless_psp");
+    await expect(row).toHaveAttribute("data-badges", "borderless_psp");
+    await expect(row.locator('[data-slot="report-webhook-badge"]')).toHaveText([
+      "PSP",
+    ]);
     const [after] = (await listWebhooks(request)).filter(
       (r) => r.id === before.id,
     );
-    expect(after.badge).toBe("borderless_psp");
+    expect(after.badges).toEqual(["borderless_psp"]);
     expect(after.webhook_url_masked).toBe(before.webhook_url_masked);
     expect(await page.content()).not.toContain(TOKEN);
   });
@@ -141,7 +156,7 @@ test.describe("report webhooks", () => {
     ).toBeFalsy();
   });
 
-  test("a non-admin is refused the report webhooks (AC18)", async ({
+  test("a non-admin is refused the report webhooks (R-029)", async ({
     request,
   }) => {
     const response = await request.get(apiUrl("/admin/report-webhooks"), {

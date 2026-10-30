@@ -18,7 +18,10 @@ import {
   ReportWebhookList,
   type ReportWebhookRow,
 } from "@/components/admin/report-webhook-list";
-import { MEMBERSHIP_BADGE_KEYS } from "@/components/badges/membership-badge";
+import {
+  MEMBERSHIP_BADGE_KEYS,
+  type MembershipBadgeKey,
+} from "@/components/badges/membership-badge";
 import {
   useAdminReportWebhooks,
   useCreateReportWebhook,
@@ -31,8 +34,9 @@ import type {
 } from "@/services/types/admin";
 
 /**
- * Admin report webhooks (ADR-0024): each webhook is assigned to a Borderless
- * badge, and a member's report is posted to the webhooks of their badge. The
+ * Admin report webhooks (ADR-0024): each webhook holds one or more Borderless
+ * badges, and a member's report is posted to every webhook holding one of
+ * their badges. The
  * list and the dialog are ui-designer components; this page owns the query,
  * the zod schema mirroring the server's validators
  * (`backend/app/application/validators/report_webhook.py`) and the
@@ -55,11 +59,20 @@ function isValidWebhookUrl(value: string): boolean {
   }
 }
 
+const BADGES_REQUIRED = "Choose at least one badge: BASE or PSP";
+
+function sameBadges(
+  a: readonly MembershipBadgeKey[],
+  b: readonly MembershipBadgeKey[],
+): boolean {
+  return a.length === b.length && a.every((badge) => b.includes(badge));
+}
+
 function reportWebhookSchema(mode: ReportWebhookFormMode) {
   return z
     .object({
       webhook_url: z.string(),
-      badge: z.union([z.enum(MEMBERSHIP_BADGE_KEYS), z.literal("")]),
+      badges: z.array(z.enum(MEMBERSHIP_BADGE_KEYS)),
       label: z.string(),
     })
     .superRefine((values, ctx) => {
@@ -77,13 +90,13 @@ function reportWebhookSchema(mode: ReportWebhookFormMode) {
           message: "Invalid Discord webhook URL",
         });
       }
-      // Required on create, and an edit never clears it (a carried-over row
-      // with no badge gets one here).
-      if (!values.badge) {
+      // At least one on create, and an edit never empties the set (a
+      // carried-over row with none gets one here). Same words as the API.
+      if (values.badges.length === 0) {
         ctx.addIssue({
           code: "custom",
-          path: ["badge"],
-          message: "Choose BASE or PSP",
+          path: ["badges"],
+          message: BADGES_REQUIRED,
         });
       }
       // Code points, matching the server's Python `len()`.
@@ -161,11 +174,11 @@ export function ReportWebhooksPage() {
   }, [editTarget]);
 
   const handleCreate = (values: ReportWebhookFormValues) => {
-    if (!values.badge) return;
+    if (values.badges.length === 0) return;
     const label = values.label.trim();
     const payload: CreateReportWebhook = {
       webhook_url: values.webhook_url.trim(),
-      badge: values.badge,
+      badges: values.badges,
       label: label ? label : undefined,
     };
     createMutation.mutate(payload, {
@@ -182,8 +195,12 @@ export function ReportWebhooksPage() {
     if (dirty.webhook_url && values.webhook_url.trim()) {
       payload.webhook_url = values.webhook_url.trim();
     }
-    if (dirty.badge && values.badge) {
-      payload.badge = values.badge;
+    // The set is sent whole, and only when it differs from the stored one.
+    if (
+      values.badges.length > 0 &&
+      !sameBadges(values.badges, editTarget.badges)
+    ) {
+      payload.badges = values.badges;
     }
     if (dirty.label) {
       const label = values.label.trim();
@@ -216,8 +233,8 @@ export function ReportWebhooksPage() {
           Report webhooks
         </h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Each webhook belongs to a badge. A member&apos;s biweekly report is
-          posted to the webhooks of their BASE or PSP membership.
+          Each webhook holds one or more badges. A member&apos;s biweekly report
+          is posted to every webhook that holds their BASE or PSP badge.
         </p>
       </motion.div>
 

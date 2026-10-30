@@ -27,8 +27,8 @@ import { cn } from "@/lib/utils";
 export interface ReportWebhookRow {
   id: string;
   label: string | null;
-  /** `null` only on a row carried over from before badges. */
-  badge: MembershipBadgeKey | null;
+  /** `[]` only on a row carried over from before badges: it receives nothing. */
+  badges: MembershipBadgeKey[];
   webhook_url_masked: string;
 }
 
@@ -39,7 +39,7 @@ export const REPORT_WEBHOOK_LIST_COPY = {
   add: "Add webhook",
   unlabelled: "Unlabelled webhook",
   noBadge: "No badge, receives nothing",
-  badgeTerm: "Badge",
+  badgeTerm: "Badges",
   webhookTerm: "Webhook",
   loading: "Loading webhooks",
   errorTitle: "Could not load webhooks",
@@ -66,14 +66,24 @@ export function reportWebhookTargetName(
   return id ? `webhook ${id}` : "unlabelled webhook";
 }
 
+/** `data-badges` hook: the held keys, space-separated, or `none`. */
+export function reportWebhookBadgesAttr(
+  row: Pick<ReportWebhookRow, "badges">,
+): string {
+  return row.badges.length > 0 ? row.badges.join(" ") : "none";
+}
+
 export function reportWebhookDeleteDescription(
-  row: Pick<ReportWebhookRow, "label" | "badge">,
+  row: Pick<ReportWebhookRow, "label" | "badges">,
 ): string {
   const target = rowLabel(row) ?? "this webhook";
-  if (!row.badge) {
+  if (row.badges.length === 0) {
     return `${target} receives no reports today. Deleting it cannot be undone.`;
   }
-  return `Reports from Borderless ${MEMBERSHIP_BADGE_LABEL[row.badge]} members will no longer be posted to ${target}. This cannot be undone.`;
+  const members = row.badges
+    .map((badge) => MEMBERSHIP_BADGE_LABEL[badge])
+    .join(" and ");
+  return `Reports from Borderless ${members} members will no longer be posted to ${target}. This cannot be undone.`;
 }
 
 export function reportWebhookListState({
@@ -232,7 +242,7 @@ function ReportWebhookItem({
     <li
       data-slot="report-webhook-row"
       data-webhook-id={row.id}
-      data-badge={row.badge ?? "none"}
+      data-badges={reportWebhookBadgesAttr(row)}
       aria-busy={deleting || undefined}
       className={cn(
         "flex items-start gap-3 px-5 py-4 transition-opacity",
@@ -299,11 +309,18 @@ function ReportWebhookItem({
         <dl className="grid gap-2 text-sm @2xl:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] @2xl:gap-6">
           <WebhookDetail term={REPORT_WEBHOOK_LIST_COPY.badgeTerm}>
             <span
-              data-slot="report-webhook-badge"
-              className="inline-flex items-start gap-1.5 text-foreground"
+              data-slot="report-webhook-badges"
+              className="inline-flex flex-wrap items-start gap-1.5 text-foreground"
             >
-              {row.badge ? (
-                <MembershipBadge badge={row.badge} purpose="label" />
+              {row.badges.length > 0 ? (
+                row.badges.map((badge) => (
+                  <MembershipBadge
+                    key={badge}
+                    badge={badge}
+                    purpose="label"
+                    data-slot="report-webhook-badge"
+                  />
+                ))
               ) : (
                 <>
                   <BadgeAlert
