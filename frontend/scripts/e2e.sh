@@ -15,6 +15,9 @@
 #   frontend/scripts/e2e.sh                 # full run: up -> seed -> playwright -> down
 #   KEEP_STACK=1 frontend/scripts/e2e.sh    # leave the stack up afterwards (debugging)
 #   frontend/scripts/e2e.sh <pw args>       # forwarded to `playwright test` (e.g. a spec)
+#
+# When Playwright fails, the API and Borderless stub logs are saved to
+# frontend/test-results/e2e-stack.log before teardown.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -100,4 +103,16 @@ echo "[e2e] Seeded user ${E2E_USER_ID}, admin ${E2E_ADMIN_USER_ID} and discord-l
 
 echo "[e2e] Running Playwright against the real front door ${BASE_URL} ..."
 cd "$ROOT_DIR/frontend"
-pnpm exec playwright test "$@"
+status=0
+pnpm exec playwright test "$@" || status=$?
+
+# A failed run keeps the API's and the stub's logs before the trap tears the
+# stack down: frontend/test-results/ is the folder CI uploads on failure.
+if [[ "$status" != "0" ]]; then
+  LOG_FILE="$ROOT_DIR/frontend/test-results/e2e-stack.log"
+  mkdir -p "$(dirname "$LOG_FILE")"
+  "${COMPOSE[@]}" logs --no-color --timestamps api borderless-stub >"$LOG_FILE" 2>&1 || true
+  echo "[e2e] Playwright failed (exit ${status}). API and Borderless stub logs: ${LOG_FILE}. Last API lines:" >&2
+  "${COMPOSE[@]}" logs --no-color --tail 50 api >&2 || true
+fi
+exit "$status"

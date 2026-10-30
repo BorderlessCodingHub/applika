@@ -80,6 +80,10 @@ a real Redis. Nothing is mocked, and there is no `webServer` block.
 KEEP_STACK=1 ./scripts/e2e.sh              # leave the stack up to debug
 ```
 
+A failed run saves the API and Borderless stub logs to
+`test-results/e2e-stack.log` before teardown (CI uploads `test-results/` on
+failure) and prints the last API lines.
+
 `pnpm e2e` on its own will NOT work: `e2e/support/auth.ts` needs the `E2E_*`
 variables that `frontend/scripts/e2e.sh` exports after seeding the real users. The suite
 runs serially (`workers: 1`) against one shared real database, so specs must be
