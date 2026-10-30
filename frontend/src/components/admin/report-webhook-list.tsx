@@ -310,7 +310,11 @@ function ReportWebhookItem({
           <WebhookDetail term={REPORT_WEBHOOK_LIST_COPY.badgeTerm}>
             <span
               data-slot="report-webhook-badges"
-              className="inline-flex flex-wrap items-start gap-1.5 text-foreground"
+              className={cn(
+                "inline-flex items-start gap-1.5 text-foreground",
+                // Chips may wrap; the no-badge line keeps its icon beside the words.
+                row.badges.length > 0 && "flex-wrap",
+              )}
             >
               {row.badges.length > 0 ? (
                 row.badges.map((badge) => (

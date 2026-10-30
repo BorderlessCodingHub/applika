@@ -267,6 +267,12 @@ describe("ReportWebhooksPage", () => {
       "aria-invalid",
       "true",
     );
+    for (const name of ["BASE", "PSP"]) {
+      expect(screen.getByRole("checkbox", { name })).toHaveAttribute(
+        "aria-invalid",
+        "true",
+      );
+    }
     expect(services.admin.createReportWebhook).not.toHaveBeenCalled();
   });
 
@@ -452,6 +458,31 @@ describe("ReportWebhooksPage", () => {
     );
   });
 
+  it("Edit: swapping PSP for BASE sends the new set", async () => {
+    vi.mocked(services.admin.getReportWebhooks).mockResolvedValue([ROW]);
+    vi.mocked(services.admin.updateReportWebhook).mockResolvedValue({
+      ...ROW,
+      badges: ["borderless_base"],
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("PSP channel");
+
+    await user.click(screen.getByRole("button", { name: "Edit PSP channel" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("checkbox", { name: "PSP" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: "BASE" }));
+    await user.click(
+      within(dialog).getByRole("button", { name: "Save changes" }),
+    );
+
+    await waitFor(() =>
+      expect(services.admin.updateReportWebhook).toHaveBeenCalledWith("w1", {
+        badges: ["borderless_base"],
+      }),
+    );
+  });
+
   it("Edit: unchecking every badge is refused", async () => {
     vi.mocked(services.admin.getReportWebhooks).mockResolvedValue([ROW]);
     const user = userEvent.setup();
@@ -559,6 +590,29 @@ describe("ReportWebhooksPage", () => {
       expect(services.admin.updateReportWebhook).toHaveBeenCalledWith("w2", {
         badges: ["borderless_base"],
       }),
+    );
+  });
+
+  it("Edit: shows the server's 409 words inline", async () => {
+    vi.mocked(services.admin.getReportWebhooks).mockResolvedValue([ROW]);
+    vi.mocked(services.admin.updateReportWebhook).mockRejectedValue(
+      httpError(409, "This webhook is already configured"),
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("PSP channel");
+
+    await user.click(screen.getByRole("button", { name: "Edit PSP channel" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText("Webhook URL"), VALID_URL);
+    await user.click(
+      within(dialog).getByRole("button", { name: "Save changes" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="report-webhook-form-error"]'),
+      ).toHaveTextContent("This webhook is already configured"),
     );
   });
 
