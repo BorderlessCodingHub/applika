@@ -18,7 +18,7 @@ from app.lib.types import SnowflakeID
 
 class CreateReportWebhookSchema(BaseModel):
     webhook_url: str | None = None
-    badge: str | None = None
+    badges: list[str] | None = None
     label: str | None = None
 
     model_config = ConfigDict(extra='ignore')
@@ -26,7 +26,7 @@ class CreateReportWebhookSchema(BaseModel):
 
 class UpdateReportWebhookSchema(BaseModel):
     webhook_url: str | None = None
-    badge: str | None = None
+    badges: list[str] | None = None
     label: str | None = None
 
     model_config = ConfigDict(extra='ignore')
@@ -38,7 +38,7 @@ class ReportWebhookSchema(BaseModel):
 
     id: SnowflakeID
     label: str | None = None
-    badge: Literal['borderless_base', 'borderless_psp'] | None = None
+    badges: list[Literal['borderless_base', 'borderless_psp']]
     webhook_url_masked: str
     created_at: datetime
     updated_at: datetime | None = None
@@ -50,7 +50,7 @@ class ReportWebhookSchema(BaseModel):
         return cls.model_validate({
             'id': SnowflakeID(dto.id),
             'label': dto.label,
-            'badge': dto.badge,
+            'badges': dto.badges,
             'webhook_url_masked': mask(dto.url),
             'created_at': dto.created_at,
             'updated_at': dto.updated_at,

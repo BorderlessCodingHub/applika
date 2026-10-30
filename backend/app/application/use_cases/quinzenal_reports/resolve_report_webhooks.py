@@ -1,10 +1,11 @@
 """Resolve which report webhooks a submitted report reaches (ADR-0024).
 
 The owner: "the webhook will use those roles to determine which webhook to
-report the status". A report goes to every webhook assigned to a badge the
+report the status". A report goes to every webhook holding a badge the
 user holds (``badge_access``: a live row while the Borderless access is
-alive and not refused). A webhook with no badge receives nothing. URLs are
-distinct, oldest webhook first, and never logged.
+alive and not refused); a webhook holding both is reached once. A webhook
+with no badge receives nothing. URLs are distinct, oldest webhook first,
+and never logged.
 """
 
 from app.application.use_cases.borderless.badge_access import badge_access

@@ -19,6 +19,7 @@ from app.core.enums import BadgeKey, EventType, InterviewType
 from app.domain.models import (
     BorderlessAccountModel,
     QuinzenalReportModel,
+    ReportWebhookBadgeModel,
     ReportWebhookModel,
     UserBadgeModel,
 )
@@ -61,14 +62,24 @@ def recording():
 
 
 async def _hook(
-    db_session: AsyncSession, url: str, badge: str | None, age_days: int = 0
+    db_session: AsyncSession,
+    url: str,
+    badge: str | list[str] | None,
+    age_days: int = 0,
 ) -> None:
+    """A webhook holding ``badge`` (one, a list, or none)."""
+    if badge is None:
+        badges: list[str] = []
+    elif isinstance(badge, str):
+        badges = [badge]
+    else:
+        badges = badge
     db_session.add(
         ReportWebhookModel(
             url=url,
-            badge=badge,
             created_at=datetime(2026, 1, 1, tzinfo=UTC)
             + timedelta(days=age_days),
+            badge_links=[ReportWebhookBadgeModel(badge=b) for b in badges],
         )
     )
     await db_session.commit()
@@ -615,6 +626,33 @@ async def test_base_member_posts_to_base_hooks_only(
     )
 
     assert recording.urls == ['https://hook/base']
+
+
+@pytest.mark.parametrize(
+    'member', [BadgeKey.BORDERLESS_BASE, BadgeKey.BORDERLESS_PSP]
+)
+async def test_a_hook_holding_both_badges_reaches_either_member_once(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    recording: RecordingDiscordService,
+    member: BadgeKey,
+):
+    await bind_borderless(db_session, USER_ID, badge=member)
+    await _hook(
+        db_session, 'https://hook/both', ['borderless_base', 'borderless_psp']
+    )
+    await _hook(db_session, 'https://hook/psp', 'borderless_psp', 1)
+
+    response = await async_client.post(
+        '/reports/1/submit',
+        json=_payload(start_date=date.today().isoformat()),
+    )
+
+    assert response.status_code == 201
+    expected = ['https://hook/both']
+    if member is BadgeKey.BORDERLESS_PSP:
+        expected.append('https://hook/psp')
+    assert recording.urls == expected
 
 
 async def test_unassigned_hooks_receive_nothing(

@@ -1,8 +1,8 @@
 """Admin report webhook routes (ADR-0024).
 
-All behind ``AdminUserDp``. Each webhook holds an address, a badge (BASE
-or PSP) and an optional label; a report goes to the webhooks of the badges
-its author holds. Responses carry only a masked address, and a 422 on this
+All behind ``AdminUserDp``. Each webhook holds an address, one or more
+badges (BASE, PSP or both) and an optional label; a report goes to every
+webhook holding a badge its author holds. Responses carry only a masked address, and a 422 on this
 router never echoes the submitted input.
 """
 
@@ -61,7 +61,7 @@ async def create_admin_report_webhook(
 ):
     dto = await CreateReportWebhookUseCase(webhook_repo).execute(
         webhook_url=body.webhook_url,
-        badge=body.badge,
+        badges=body.badges,
         label=body.label,
         admin_id=admin.id,
     )

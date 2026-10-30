@@ -1,6 +1,6 @@
 """Report routing by badge (ADR-0024): a report reaches every webhook
-assigned to a badge its author holds, distinct, oldest first; nothing when
-no badge is held or a webhook has no badge."""
+holding a badge its author holds, distinct, oldest first; nothing when no
+badge is held or a webhook has no badge. A webhook may hold both badges."""
 
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
@@ -23,9 +23,9 @@ def _badge(badge):
     return SimpleNamespace(badge=badge, revoked_at=None)
 
 
-def _hook(url, badge, age):
+def _hook(url, badges, age):
     return SimpleNamespace(
-        url=url, badge=badge, created_at=datetime(2026, 1, 1) + age
+        url=url, badges=badges, created_at=datetime(2026, 1, 1) + age
     )
 
 
@@ -45,7 +45,7 @@ class Repos:
     async def list_by_badges(self, badges):
         self.asked.append(list(badges))
         return sorted(
-            (h for h in self.hooks if h.badge in badges),
+            (h for h in self.hooks if set(h.badges) & set(badges)),
             key=lambda h: h.created_at,
         )
 
@@ -56,10 +56,16 @@ def _use_case(repos: Repos) -> ResolveReportWebhooksUseCase:
 
 
 HOOKS = [
-    _hook('https://hook/psp-2', 'borderless_psp', timedelta(days=2)),
-    _hook('https://hook/base', 'borderless_base', timedelta(days=1)),
-    _hook('https://hook/psp-1', 'borderless_psp', timedelta(days=0)),
-    _hook('https://hook/unassigned', None, timedelta(days=0)),
+    _hook('https://hook/psp-2', ['borderless_psp'], timedelta(days=2)),
+    _hook('https://hook/base', ['borderless_base'], timedelta(days=1)),
+    _hook('https://hook/psp-1', ['borderless_psp'], timedelta(days=0)),
+    _hook('https://hook/unassigned', [], timedelta(days=0)),
+]
+BOTH = [
+    _hook(
+        'https://hook/both', ['borderless_base', 'borderless_psp'], timedelta(0)
+    ),
+    _hook('https://hook/psp', ['borderless_psp'], timedelta(days=1)),
 ]
 
 
@@ -80,11 +86,31 @@ async def test_base_member_reaches_base_hooks_only():
 @pytest.mark.asyncio
 async def test_duplicate_urls_are_posted_once():
     hooks = [
-        _hook('https://hook/x', 'borderless_psp', timedelta(0)),
-        _hook('https://hook/x', 'borderless_psp', timedelta(1)),
+        _hook('https://hook/x', ['borderless_psp'], timedelta(0)),
+        _hook('https://hook/x', ['borderless_psp'], timedelta(1)),
     ]
     repos = Repos(_binding(), [_badge('borderless_psp')], hooks)
     assert await _use_case(repos).execute(1) == ['https://hook/x']
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('held', 'expected'),
+    [
+        (['borderless_base'], ['https://hook/both']),
+        (['borderless_psp'], ['https://hook/both', 'https://hook/psp']),
+        (
+            ['borderless_base', 'borderless_psp'],
+            ['https://hook/both', 'https://hook/psp'],
+        ),
+    ],
+    ids=['base', 'psp', 'both'],
+)
+async def test_a_webhook_holding_both_badges_is_reached_by_either(
+    held, expected
+):
+    repos = Repos(_binding(), [_badge(b) for b in held], BOTH)
+    assert await _use_case(repos).execute(1) == expected
 
 
 @pytest.mark.asyncio

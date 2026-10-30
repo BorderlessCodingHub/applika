@@ -2,18 +2,21 @@
 
 A webhook id overflow must be a 422 (``BusinessRuleViolation``), never an
 unhandled 500, and no error message may ever contain the submitted URL or
-label. The badge is BASE or PSP, never null.
+label. A webhook holds one or more distinct badges, BASE or PSP, never none.
 """
 
 import pytest
 
 from app.application.validators.report_webhook import (
+    BADGES_REQUIRED,
     BIGINT_MAX,
+    DUPLICATE_BADGE,
     INVALID_BADGE,
     INVALID_WEBHOOK_URL,
     LABEL_TOO_LONG,
     mask,
     validate_badge,
+    validate_badges,
     validate_label,
     validate_webhook_url,
 )
@@ -116,6 +119,48 @@ def test_validate_badge_refuses_anything_else_including_null(value):
     with pytest.raises(BusinessRuleViolation) as excinfo:
         validate_badge(value)
     assert excinfo.value.message == INVALID_BADGE
+
+
+@pytest.mark.parametrize(
+    ('value', 'expected'),
+    [
+        (['borderless_base'], ['borderless_base']),
+        (['PSP'], ['borderless_psp']),
+        (['psp', 'base'], ['borderless_base', 'borderless_psp']),
+        (
+            ['borderless_base', 'borderless_psp'],
+            ['borderless_base', 'borderless_psp'],
+        ),
+    ],
+)
+def test_validate_badges_accepts_one_or_both(value, expected):
+    assert validate_badges(value) == expected
+
+
+@pytest.mark.parametrize('value', [None, [], 'base', {'base': 1}, 3])
+def test_validate_badges_refuses_none_or_empty(value):
+    with pytest.raises(BusinessRuleViolation) as excinfo:
+        validate_badges(value)
+    assert excinfo.value.message == BADGES_REQUIRED
+
+
+@pytest.mark.parametrize(
+    'value', [['base', 'free'], ['admin'], [None], ['borderless_psp', 3]]
+)
+def test_validate_badges_refuses_an_unknown_badge(value):
+    with pytest.raises(BusinessRuleViolation) as excinfo:
+        validate_badges(value)
+    assert excinfo.value.message == INVALID_BADGE
+
+
+@pytest.mark.parametrize(
+    'value',
+    [['base', 'base'], ['PSP', 'borderless_psp'], ['base', 'psp', 'BASE']],
+)
+def test_validate_badges_refuses_a_duplicate(value):
+    with pytest.raises(BusinessRuleViolation) as excinfo:
+        validate_badges(value)
+    assert excinfo.value.message == DUPLICATE_BADGE
 
 
 # ── label ────────────────────────────────────────────────────────

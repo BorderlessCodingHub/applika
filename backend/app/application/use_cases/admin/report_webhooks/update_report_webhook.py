@@ -1,6 +1,6 @@
 from app.application.dto.report_webhook import ReportWebhookDTO
 from app.application.validators.report_webhook import (
-    validate_badge,
+    validate_badges,
     validate_label,
     validate_webhook_url,
 )
@@ -15,8 +15,8 @@ NOT_FOUND = 'Report webhook not found'
 
 class UpdateReportWebhookUseCase:
     """Partial update. ``fields`` holds only the keys the caller sent. A
-    blank ``webhook_url`` keeps the stored one; ``badge`` is BASE or PSP,
-    never null; ``label: null`` clears the label."""
+    blank ``webhook_url`` keeps the stored one; ``badges`` replaces the set
+    and is never empty or null; ``label: null`` clears the label."""
 
     def __init__(self, webhook_repo: ReportWebhookRepository):
         self.webhook_repo = webhook_repo
@@ -31,12 +31,13 @@ class UpdateReportWebhookUseCase:
         raw_url = fields.get('webhook_url')
         if raw_url is not None and raw_url.strip():
             webhook.url = validate_webhook_url(raw_url)
-        if 'badge' in fields:
-            webhook.badge = validate_badge(fields['badge']).value
+        badges = (
+            validate_badges(fields['badges']) if 'badges' in fields else None
+        )
         if 'label' in fields:
             webhook.label = validate_label(fields['label'])
 
-        webhook = await self.webhook_repo.update(webhook)
+        webhook = await self.webhook_repo.update(webhook, badges=badges)
         logger.info(
             f'Admin updated report webhook {webhook_id}',
             extra={

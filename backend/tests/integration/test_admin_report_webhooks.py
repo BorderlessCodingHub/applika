@@ -1,6 +1,6 @@
 """``/admin/report-webhooks`` (ADR-0024): an administrator lists, adds,
-changes and removes report webhooks, each with an address, a badge (BASE
-or PSP) and an optional label. Only a masked address is ever answered, and
+changes and removes report webhooks, each with an address, one or more
+badges (BASE, PSP or both, never none) and an optional label. Only a masked address is ever answered, and
 a 422 never echoes the submitted URL. ``/admin/discord-webhooks`` is gone.
 """
 
@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config.db import get_session
-from app.domain.models import ReportWebhookModel
+from app.domain.models import ReportWebhookBadgeModel, ReportWebhookModel
 from app.domain.repositories.report_webhook_repository import (
     ReportWebhookRepository,
 )
@@ -46,7 +46,7 @@ async def raw_client(async_engine):
 def _payload(**overrides):
     payload = {
         'webhook_url': VALID_URL,
-        'badge': 'borderless_psp',
+        'badges': ['borderless_psp'],
         'label': 'PSP reports',
     }
     payload.update(overrides)
@@ -97,12 +97,12 @@ async def test_admin_can_create_list_update_and_delete_a_webhook(
     assert set(body) == {
         'id',
         'label',
-        'badge',
+        'badges',
         'webhook_url_masked',
         'created_at',
         'updated_at',
     }
-    assert body['badge'] == 'borderless_psp'
+    assert body['badges'] == ['borderless_psp']
     assert body['label'] == 'PSP reports'
     assert body['webhook_url_masked'] == MASKED
     _no_secret(created)
@@ -114,10 +114,10 @@ async def test_admin_can_create_list_update_and_delete_a_webhook(
 
     updated = await admin_client.patch(
         f'/admin/report-webhooks/{webhook_id}',
-        json={'badge': 'BASE', 'label': 'BASE reports'},
+        json={'badges': ['BASE'], 'label': 'BASE reports'},
     )
     assert updated.status_code == 200
-    assert updated.json()['badge'] == 'borderless_base'
+    assert updated.json()['badges'] == ['borderless_base']
     assert updated.json()['label'] == 'BASE reports'
     assert updated.json()['updated_at'] is not None
 
@@ -137,15 +137,31 @@ async def test_label_is_optional(admin_client: AsyncClient):
 @pytest.mark.parametrize(
     'payload',
     [
-        _payload(badge=None),
+        _payload(badges=None),
         {'webhook_url': VALID_URL},
-        _payload(badge='free'),
+        _payload(badges=[]),
+        _payload(badges=['free']),
+        _payload(badges=['base', 'BASE']),
+        _payload(badges='borderless_psp'),
+        _payload(badges=[3]),
+        {'webhook_url': VALID_URL, 'badge': 'borderless_psp'},
         _payload(webhook_url='https://evil.example.com/hook'),
         _payload(webhook_url=None),
         _payload(label='x' * 101),
     ],
-    ids=['badge-null', 'badge-missing', 'badge-other', 'bad-url', 'no-url',
-         'long-label'],
+    ids=[
+        'badges-null',
+        'badges-missing',
+        'badges-empty',
+        'badges-other',
+        'badges-duplicate',
+        'badges-not-a-list',
+        'badges-not-strings',
+        'old-badge-field',
+        'bad-url',
+        'no-url',
+        'long-label',
+    ],
 )
 async def test_invalid_create_is_422_and_never_echoes_the_url(
     admin_client: AsyncClient, payload
@@ -173,15 +189,70 @@ async def test_type_errors_never_echo_the_url(admin_client: AsyncClient, body):
     _no_secret(response)
 
 
-async def test_patch_badge_null_or_other_is_refused(admin_client: AsyncClient):
+async def test_a_webhook_can_hold_both_badges(admin_client: AsyncClient):
+    created = await admin_client.post(
+        '/admin/report-webhooks',
+        json=_payload(badges=['PSP', 'borderless_base']),
+    )
+    assert created.status_code == 201
+    assert created.json()['badges'] == ['borderless_base', 'borderless_psp']
+    [listed] = (await admin_client.get('/admin/report-webhooks')).json()
+    assert listed['badges'] == ['borderless_base', 'borderless_psp']
+
+
+async def test_patch_badges_replaces_the_set(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
     created = await admin_client.post('/admin/report-webhooks', json=_payload())
     webhook_id = created.json()['id']
-    for badge in (None, 'free'):
-        response = await admin_client.patch(
-            f'/admin/report-webhooks/{webhook_id}', json={'badge': badge}
+
+    both = await admin_client.patch(
+        f'/admin/report-webhooks/{webhook_id}',
+        json={'badges': ['base', 'psp']},
+    )
+    assert both.json()['badges'] == ['borderless_base', 'borderless_psp']
+    base_only = await admin_client.patch(
+        f'/admin/report-webhooks/{webhook_id}', json={'badges': ['base']}
+    )
+    assert base_only.json()['badges'] == ['borderless_base']
+    rows = (
+        await db_session.execute(
+            select(
+                ReportWebhookBadgeModel.report_webhook_id,
+                ReportWebhookBadgeModel.badge,
+            )
         )
-        assert response.status_code == 422
-        assert response.json() == {'detail': 'Badge must be BASE or PSP'}
+    ).all()
+    assert rows == [(int(webhook_id), 'borderless_base')]
+    # A PATCH without ``badges`` keeps the set.
+    labelled = await admin_client.patch(
+        f'/admin/report-webhooks/{webhook_id}', json={'label': 'kept'}
+    )
+    assert labelled.json()['badges'] == ['borderless_base']
+
+
+@pytest.mark.parametrize(
+    ('badges', 'detail'),
+    [
+        (None, 'Choose at least one badge: BASE or PSP'),
+        ([], 'Choose at least one badge: BASE or PSP'),
+        (['free'], 'Badge must be BASE or PSP'),
+        (['psp', 'PSP'], 'Each badge can be chosen once'),
+    ],
+    ids=['null', 'empty', 'other', 'duplicate'],
+)
+async def test_patch_badges_never_empty_or_unknown(
+    admin_client: AsyncClient, badges, detail
+):
+    created = await admin_client.post('/admin/report-webhooks', json=_payload())
+    webhook_id = created.json()['id']
+    response = await admin_client.patch(
+        f'/admin/report-webhooks/{webhook_id}', json={'badges': badges}
+    )
+    assert response.status_code == 422
+    assert response.json() == {'detail': detail}
+    [listed] = (await admin_client.get('/admin/report-webhooks')).json()
+    assert listed['badges'] == ['borderless_psp']
 
 
 async def test_patch_blank_url_keeps_it_and_new_url_is_revalidated(
@@ -214,13 +285,13 @@ async def test_patch_label_null_clears_it(admin_client: AsyncClient):
         f'/admin/report-webhooks/{webhook_id}', json={'label': None}
     )
     assert response.json()['label'] is None
-    assert response.json()['badge'] == 'borderless_psp'
+    assert response.json()['badges'] == ['borderless_psp']
 
 
 async def test_duplicate_url_is_409_without_the_url(admin_client: AsyncClient):
     await admin_client.post('/admin/report-webhooks', json=_payload())
     duplicate = await admin_client.post(
-        '/admin/report-webhooks', json=_payload(badge='borderless_base')
+        '/admin/report-webhooks', json=_payload(badges=['borderless_base'])
     )
     assert duplicate.status_code == 409
     assert duplicate.json() == {'detail': 'This webhook is already configured'}
@@ -247,34 +318,56 @@ async def test_unknown_webhook_is_404(admin_client: AsyncClient):
         assert response.json() == {'detail': 'Report webhook not found'}
 
 
-async def test_carried_over_webhook_without_a_badge_is_listed_as_null(
+async def test_carried_over_webhook_without_a_badge_is_listed_empty(
     admin_client: AsyncClient, db_session: AsyncSession
 ):
     """A webhook carried over from before the release has no badge until an
-    administrator assigns one."""
-    db_session.add(ReportWebhookModel(url=VALID_URL, badge=None, label='old'))
+    administrator assigns at least one."""
+    db_session.add(ReportWebhookModel(url=VALID_URL, label='old'))
     await db_session.commit()
 
     [listed] = (await admin_client.get('/admin/report-webhooks')).json()
-    assert listed['badge'] is None
+    assert listed['badges'] == []
     assert listed['webhook_url_masked'] == MASKED
 
     assigned = await admin_client.patch(
-        f'/admin/report-webhooks/{listed["id"]}', json={'badge': 'PSP'}
+        f'/admin/report-webhooks/{listed["id"]}', json={'badges': ['PSP']}
     )
-    assert assigned.json()['badge'] == 'borderless_psp'
+    assert assigned.json()['badges'] == ['borderless_psp']
+
+
+async def test_deleting_a_webhook_deletes_its_badges(
+    admin_client: AsyncClient, db_session: AsyncSession
+):
+    created = await admin_client.post(
+        '/admin/report-webhooks', json=_payload(badges=['base', 'psp'])
+    )
+    deleted = await admin_client.delete(
+        f'/admin/report-webhooks/{created.json()["id"]}'
+    )
+    assert deleted.status_code == 204
+    assert list(await db_session.scalars(select(ReportWebhookBadgeModel))) == []
 
 
 async def test_list_by_badges_never_returns_an_unassigned_webhook(
     db_session: AsyncSession,
 ):
-    db_session.add_all([
-        ReportWebhookModel(url=VALID_URL, badge=None),
-        ReportWebhookModel(url=OTHER_URL, badge='borderless_base'),
-    ])
-    await db_session.commit()
     repo = ReportWebhookRepository(db_session)
-    assert [w.url for w in await repo.list_by_badges(['borderless_base'])] == [
+    await repo.create(url=VALID_URL, label=None, badges=[])
+    await repo.create(
+        url=OTHER_URL,
+        label=None,
+        badges=['borderless_base', 'borderless_psp'],
+    )
+    # The webhook holding both badges comes back once.
+    assert [
+        w.url
+        for w in await repo.list_by_badges([
+            'borderless_base',
+            'borderless_psp',
+        ])
+    ] == [OTHER_URL]
+    assert [w.url for w in await repo.list_by_badges(['borderless_psp'])] == [
         OTHER_URL
     ]
     assert await repo.list_by_badges([]) == []

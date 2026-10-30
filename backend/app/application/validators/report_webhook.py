@@ -33,6 +33,8 @@ WEBHOOK_URL_RE = re.compile(
 
 INVALID_WEBHOOK_URL = 'Invalid Discord webhook URL'
 INVALID_BADGE = 'Badge must be BASE or PSP'
+BADGES_REQUIRED = 'Choose at least one badge: BASE or PSP'
+DUPLICATE_BADGE = 'Each badge can be chosen once'
 _BADGE_ALIASES = {
     'base': BadgeKey.BORDERLESS_BASE.value,
     'psp': BadgeKey.BORDERLESS_PSP.value,
@@ -60,10 +62,9 @@ def validate_webhook_url(value: str | None) -> str:
     return value
 
 
-def validate_badge(value: str | None) -> BadgeKey:
+def validate_badge(value: object) -> BadgeKey:
     """``borderless_base`` or ``borderless_psp`` (``base``/``psp`` accepted,
-    any case). Never ``None``: an unassigned webhook only comes from the
-    migration."""
+    any case). Never ``None``."""
     if not isinstance(value, str):
         raise BusinessRuleViolation(INVALID_BADGE)
     key = value.strip().lower()
@@ -72,6 +73,17 @@ def validate_badge(value: str | None) -> BadgeKey:
         return BadgeKey(key)
     except ValueError as err:
         raise BusinessRuleViolation(INVALID_BADGE) from err
+
+
+def validate_badges(value: object) -> list[str]:
+    """One or more distinct badges (each as ``validate_badge``), never
+    empty. Returned in ``BadgeKey`` order."""
+    if not isinstance(value, list) or not value:
+        raise BusinessRuleViolation(BADGES_REQUIRED)
+    keys = [validate_badge(item) for item in value]
+    if len(set(keys)) != len(keys):
+        raise BusinessRuleViolation(DUPLICATE_BADGE)
+    return [key.value for key in BadgeKey if key in keys]
 
 
 def validate_label(value: str | None) -> str | None:

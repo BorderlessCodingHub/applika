@@ -8,6 +8,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.core.enums import (
     Availability,
+    BadgeKey,
     Currency,
     DeniedReason,
     EventType,
@@ -336,8 +337,10 @@ class UserBadgeModel(BaseMixin, Base):
 class ReportWebhookModel(BaseMixin, Base):
     """Admin-managed report webhook, routed by badge (ADR-0024).
 
-    A platform catalog row, no ``user_id``. ``badge`` NULL receives
-    nothing. ``__repr__`` never prints the URL.
+    A platform catalog row, no ``user_id``. It holds a set of badges
+    (``report_webhook_badges``); a webhook with none receives nothing.
+    The retired single-badge column of revision ``b86d7ee66d94`` is never
+    mapped. ``__repr__`` never prints the URL.
     """
 
     __tablename__ = 'report_webhooks'
@@ -345,20 +348,56 @@ class ReportWebhookModel(BaseMixin, Base):
     __table_args__ = (
         sa.PrimaryKeyConstraint('id', name='pk_report_webhooks'),
         sa.UniqueConstraint('url', name='uq_report_webhooks_url'),
-        sa.CheckConstraint(
-            f'badge IN {_BADGE_SET}', name='ck_report_webhooks_badge'
-        ),
     )
 
     url: Mapped[str] = mapped_column(sa.String(500), nullable=False)
-    badge: Mapped[str | None] = mapped_column(sa.String(40), nullable=True)
     label: Mapped[str | None] = mapped_column(sa.String(100), nullable=True)
+
+    badge_links: Mapped[list[ReportWebhookBadgeModel]] = relationship(
+        cascade='all, delete-orphan',
+        passive_deletes=True,
+        lazy='selectin',
+    )
+
+    @property
+    def badges(self) -> list[str]:
+        """The webhook's badges, in ``BadgeKey`` order."""
+        held = {link.badge for link in self.badge_links}
+        return [key.value for key in BadgeKey if key.value in held]
 
     def __repr__(self) -> str:
         return (
-            f'<ReportWebhookModel id={self.id} badge={self.badge!r} '
+            f'<ReportWebhookModel id={self.id} badges={self.badges!r} '
             f'label={self.label!r}>'
         )
+
+
+class ReportWebhookBadgeModel(Base):
+    """One badge a report webhook is assigned to (revision
+    ``b86d7ee66d94``). Deleting the webhook deletes its rows."""
+
+    __tablename__ = 'report_webhook_badges'
+
+    __table_args__ = (
+        sa.PrimaryKeyConstraint(
+            'report_webhook_id', 'badge', name='pk_report_webhook_badges'
+        ),
+        sa.CheckConstraint(
+            f'badge IN {_BADGE_SET}', name='ck_report_webhook_badges_badge'
+        ),
+    )
+
+    report_webhook_id: Mapped[int] = mapped_column(
+        sa.BigInteger,
+        sa.ForeignKey(
+            'report_webhooks.id',
+            ondelete='CASCADE',
+            name='fk_report_webhook_badges_report_webhook_id',
+        ),
+        nullable=False,
+        autoincrement=False,
+    )
+    badge: Mapped[str] = mapped_column(sa.String(40), nullable=False)
 
 
 class CompanyModel(BaseMixin, Base):

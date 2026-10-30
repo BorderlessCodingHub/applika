@@ -210,7 +210,7 @@ See `app/application/use_cases/applications/create_application.py` for reference
 
 ### Reports and webhooks (ADR-0024)
 - `/reports*` carry `RequireReportsBadgeDp`: no live badge → 403 `{detail: "Reports are for Borderless BASE and PSP members", code: "badge_required"}` (administrators included); a live badge that does not count → 403 `{detail: "Sign in again to confirm your membership", code: "membership_unconfirmed"}`. Reports are never deleted; they come back when the badge counts again. No beta gate (ADR-0024 §9)
-- `ResolveReportWebhooksUseCase` → the URLs of every `report_webhooks` row whose badge the author holds, distinct, oldest first; a webhook with no badge receives nothing. `SubmitReportUseCase` saves first, answers 201 whatever the webhooks answer
+- `ResolveReportWebhooksUseCase` → the URLs of every `report_webhooks` row holding a badge the author holds (`report_webhook_badges`), each address once, oldest first; a webhook holding both is reached by either member; a webhook with no badge receives nothing. `SubmitReportUseCase` saves first, answers 201 whatever the webhooks answer
 - `DiscordService.post_report_message(message, webhook_url=None)` posts `{"content", "allowed_mentions": {"parse": []}}`: report and feedback posts carry `@<username>` and mention nobody. Feedback posts to `DISCORD_FEEDBACK_WEBHOOK`
 
 ### Exception Handling
@@ -1103,12 +1103,12 @@ heatmap) comes from `timeline_events.created_at`.
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
-| GET | `/admin/report-webhooks` | Admin | `[{id, label, badge \| null, webhook_url_masked, created_at, updated_at}]` |
-| POST | `/admin/report-webhooks` | Admin | `{webhook_url, badge, label?}` → 201; 409 "This webhook is already configured"; 422 |
-| PATCH | `/admin/report-webhooks/{id}` | Admin | Partial; `badge` BASE or PSP only, never null; blank `webhook_url` keeps it; `label: null` clears → 200; 404 "Report webhook not found" |
+| GET | `/admin/report-webhooks` | Admin | `[{id, label, badges: ('borderless_base' \| 'borderless_psp')[], webhook_url_masked, created_at, updated_at}]` (`badges` `[]` for a carried-over row) |
+| POST | `/admin/report-webhooks` | Admin | `{webhook_url, badges: [1..2 distinct], label?}` → 201; 409 "This webhook is already configured"; 422 |
+| PATCH | `/admin/report-webhooks/{id}` | Admin | Partial; `badges` replaces the set, non-empty and distinct, never null; blank `webhook_url` keeps it; `label: null` clears → 200; 404 "Report webhook not found" |
 | DELETE | `/admin/report-webhooks/{id}` | Admin | 204; 404 |
 
-Table `report_webhooks` (`ReportWebhookModel`), carried over from `discord_report_webhooks` with no badge. A badge accepts `borderless_base`/`borderless_psp` or `BASE`/`PSP`, any case. Only `webhook_url_masked` is ever returned (`validators/report_webhook.mask`), logs name the id, and the router's `NoInputEchoRoute` (`app/presentation/no_input_echo.py`, also on `/auth/borderless/*`) strips `input` from every 422, so the URL (or a password) is never echoed. `/admin/discord-webhooks*` answer 404.
+Tables `report_webhooks` (`ReportWebhookModel`, carried over from `discord_report_webhooks` with no badge) and `report_webhook_badges` (`ReportWebhookBadgeModel`, PK `(report_webhook_id, badge)`, CASCADE; revision `b86d7ee66d94`). The repository writes a webhook and its badges in one commit. A badge accepts `borderless_base`/`borderless_psp` or `BASE`/`PSP`, any case; an empty list is 422 "Choose at least one badge: BASE or PSP", a repeat 422 "Each badge can be chosen once", anything else 422 "Badge must be BASE or PSP". Only `webhook_url_masked` is ever returned (`validators/report_webhook.mask`), logs name the id, and the router's `NoInputEchoRoute` (`app/presentation/no_input_echo.py`, also on `/auth/borderless/*`) strips `input` from every 422, so the URL (or a password) is never echoed. `/admin/discord-webhooks*` answer 404.
 
 ### Admin job sources (`/admin/jobs`, KODI-046, ADR-0016)
 
@@ -1326,7 +1326,7 @@ Optional (with defaults):
 - **BorderlessAccount** (table `borderless_accounts`, revision `d9e0b46dd7e1`): the Borderless account bound to a user, `user_id` and `borderless_user_id` each UNIQUE, `email`, `encrypted_access_token`, `access_token_expires_at`, `status` `active`|`needs_reconnect`, `linked_at`, `profile_read_at`, `profile_read_failed_at`. No refresh token column
 - **UserBadge** (`user_badges`): `badge` `borderless_base`|`borderless_psp`, `source` `borderless`, `granted_at`, `revoked_at`; partial unique `uq_user_badges_live (user_id, badge) WHERE revoked_at IS NULL`
 - **GithubConnection** (`github_connections`): the GitHub-era identity (`github_id` UNIQUE, `username`, `linked_at`), read only by the restore
-- **ReportWebhook** (`report_webhooks`): admin catalog, `url` UNIQUE, `badge` nullable, `label`
+- **ReportWebhook** (`report_webhooks`): admin catalog, `url` UNIQUE, `label`; its badges are `report_webhook_badges` rows (none, one or both), `ReportWebhookModel.badges`
 - `users.github_id`, `users.encrypted_github_token`, `discord_connections` and `discord_report_webhooks` stay in the database, unmapped
 - **Company**: Job companies (ADR-0014). `is_public` (default `True`) and `created_by` (nullable, `ON DELETE SET NULL`) decide visibility - see **Companies and Platforms** above. Uniqueness is two scoped partial indexes, not one global one: `uq_companies_public_name_url` (`lower(name), url` where public) and `uq_companies_private_owner_name_url` (`created_by, lower(name), url` where private) - two users may hold a private company with the same name and url
 - **Application**: Job applications with tracking, salary info, and country. `is_draft` (KODI-032, ADR-0014) marks a "new application with CV" draft, excluded from every read model by default (`NOT_DRAFT`, see **Application drafts** above)
