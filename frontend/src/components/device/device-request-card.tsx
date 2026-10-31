@@ -7,15 +7,13 @@ import {
   SquareTerminal,
   TriangleAlert,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { formatSessionTime } from "@/components/profile/devices-copy";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import {
-  DEVICE_SIGN_IN_COPY,
-  type DeviceRequestInfo,
-} from "./device-sign-in-copy";
+import type { DeviceRequestInfo } from "./device-sign-in-copy";
 import { useFocusIfLost } from "./use-focus-if-lost";
 
 export interface DeviceRequestCardProps {
@@ -43,6 +41,8 @@ function Detail({ term, children }: { term: string; children: ReactNode }) {
 }
 
 function Time({ iso }: { iso: string }) {
+  // Subscribes: `formatSessionTime` reads the active language at call time.
+  useLocale();
   return (
     <time dateTime={iso} className="tabular-nums">
       {formatSessionTime(iso)}
@@ -60,10 +60,10 @@ export function DeviceRequestCard({
   onUseDifferentCode,
   className,
 }: DeviceRequestCardProps) {
+  const t = useTranslations("device");
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const busy = pending !== null;
-  const copy = DEVICE_SIGN_IN_COPY;
   useFocusIfLost(headingRef);
 
   const spinner = (
@@ -97,16 +97,16 @@ export function DeviceRequestCard({
             tabIndex={-1}
             className="text-base font-semibold text-foreground outline-none"
           >
-            {copy.requestTitle}
+            {t("requestTitle")}
           </h2>
           <p className="text-sm text-pretty text-muted-foreground">
-            {copy.requestLead}
+            {t("requestLead")}
           </p>
         </div>
       </div>
 
       <dl className="flex flex-col gap-3 px-5 py-5 sm:px-6">
-        <Detail term={copy.terms.code}>
+        <Detail term={t("terms.code")}>
           <span
             data-slot="device-request-code"
             className="font-mono text-lg font-semibold tracking-widest text-foreground"
@@ -114,23 +114,23 @@ export function DeviceRequestCard({
             {userCode}
           </span>
         </Detail>
-        <Detail term={copy.terms.device}>
+        <Detail term={t("terms.device")}>
           <span data-slot="device-request-name" className="font-medium">
             {request.device_name}
           </span>
         </Detail>
-        <Detail term={copy.terms.client}>{request.client_label}</Detail>
-        <Detail term={copy.terms.ip}>
+        <Detail term={t("terms.client")}>{request.client_label}</Detail>
+        <Detail term={t("terms.ip")}>
           {request.ip ? (
             <span className="font-numeric break-all">{request.ip}</span>
           ) : (
-            <span className="text-muted-foreground">{copy.notRecorded}</span>
+            <span className="text-muted-foreground">{t("notRecorded")}</span>
           )}
         </Detail>
-        <Detail term={copy.terms.requested}>
+        <Detail term={t("terms.requested")}>
           <Time iso={request.requested_at} />
         </Detail>
-        <Detail term={copy.terms.expires}>
+        <Detail term={t("terms.expires")}>
           <Time iso={request.expires_at} />
         </Detail>
       </dl>
@@ -145,8 +145,8 @@ export function DeviceRequestCard({
             className="mt-0.5 size-4 shrink-0 text-warning"
           />
           <div className="flex min-w-0 flex-col gap-0.5">
-            <p className="font-medium text-foreground">{copy.warning}</p>
-            <p className="text-foreground/80">{copy.warningDetail}</p>
+            <p className="font-medium text-foreground">{t("warning")}</p>
+            <p className="text-foreground/80">{t("warningDetail")}</p>
           </div>
         </div>
 
@@ -174,7 +174,7 @@ export function DeviceRequestCard({
               aria-disabled={busy || undefined}
               className="aria-disabled:opacity-60 sm:mr-auto"
             >
-              {copy.differentCode}
+              {t("differentCode")}
             </Button>
           ) : null}
           <Button
@@ -188,7 +188,7 @@ export function DeviceRequestCard({
             className="w-full aria-disabled:opacity-60 sm:ml-auto sm:w-auto"
           >
             {pending === "deny" ? spinner : null}
-            {copy.deny}
+            {t("deny")}
           </Button>
           <Button
             type="button"
@@ -200,7 +200,7 @@ export function DeviceRequestCard({
             className="w-full aria-disabled:opacity-60 sm:w-auto"
           >
             {pending === "approve" ? spinner : null}
-            {copy.approve}
+            {t("approve")}
           </Button>
         </div>
       </div>

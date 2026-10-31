@@ -15,6 +15,7 @@ import { APP_CONFIG } from "@/config";
 import { useAuth } from "@/contexts/auth-context";
 import { borderlessCredentialsSchema } from "@/lib/borderless-credentials-schema";
 import { borderlessErrorWords } from "@/lib/borderless-error";
+import { word } from "@/i18n/translator";
 import { consumeReturnTo } from "@/lib/return-to";
 import { services } from "@/services/services";
 import type { BorderlessSignInResult } from "@/services/types/auth";
@@ -29,9 +30,13 @@ export function webLandingFor(result: BorderlessSignInResult): string {
   return consumeReturnTo() ?? "/dashboard";
 }
 
-/** `?cli=1`, but the API answered a web sign-in: the terminal's marker had lapsed. */
-export const CLI_HANDOFF_LOST =
-  "The terminal sign-in expired before you signed in. This browser is signed in to applika instead.";
+/**
+ * `?cli=1`, but the API answered a web sign-in: the terminal's marker had
+ * lapsed. Read at the moment it is shown, in the active language.
+ */
+export function cliHandoffLostMessage(): string {
+  return word("auth.signIn.cliHandoffLost");
+}
 
 interface SignInError {
   message: string;
@@ -63,7 +68,7 @@ export function LoginPage() {
       if (cli && !result.redirect_to) {
         setCliHandoffLost(true);
         setError({
-          message: CLI_HANDOFF_LOST,
+          message: cliHandoffLostMessage(),
           hint: SIGN_IN_COPY.cliExpiredHint,
         });
         return;

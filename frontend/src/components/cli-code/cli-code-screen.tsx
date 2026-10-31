@@ -2,23 +2,11 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, CircleAlert, Copy } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { ApplikaIcon } from "@/components/app-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-
-export const CLI_CODE_COPY = {
-  title: "Sign in to applika-cli",
-  instruction: "Paste this code into your terminal",
-  copy: "Copy",
-  copied: "Copied",
-  copiedStatus: "Code copied.",
-  copyFailed:
-    "Could not copy. The code is selected, copy it with your keyboard.",
-  expiry: "The code works once and expires after a minute.",
-  missingTitle: "This sign-in link is missing its code.",
-  missingBody: "Run the login command in your terminal again.",
-} as const;
 
 export const CLI_CODE_COPIED_MS = 2000;
 
@@ -38,14 +26,15 @@ export interface CliCodeScreenProps {
 }
 
 export function CliCodeScreen({ code, state }: CliCodeScreenProps) {
+  const t = useTranslations("cliCode");
   const value = cliCodeValue(code, state);
 
   return (
-    <div className="noise-overlay relative flex min-h-viewport items-center justify-center bg-background p-4">
+    <div className="noise-overlay relative flex min-h-viewport items-center justify-center bg-background p-4 pt-18 md:pt-4">
       <div aria-hidden className="absolute inset-0 gradient-mesh" />
       <div aria-hidden className="absolute inset-0 dot-grid opacity-30" />
 
-      <div className="absolute top-4 right-4 z-10">
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
         <ThemeToggle />
       </div>
 
@@ -60,7 +49,7 @@ export function CliCodeScreen({ code, state }: CliCodeScreenProps) {
             className="size-10 self-center text-primary"
           />
           <h1 className="mt-4 text-center font-display text-2xl font-bold tracking-tight-display text-balance text-foreground">
-            {CLI_CODE_COPY.title}
+            {t("title")}
           </h1>
           {value ? <CliCodeValue value={value} /> : <CliCodeMissing />}
         </div>
@@ -70,6 +59,7 @@ export function CliCodeScreen({ code, state }: CliCodeScreenProps) {
 }
 
 function CliCodeValue({ value }: { value: string }) {
+  const t = useTranslations("cliCode");
   const instructionId = useId();
   const codeRef = useRef<HTMLElement>(null);
   const [copyState, setCopyState] = useState<CopyState>("idle");
@@ -111,7 +101,7 @@ function CliCodeValue({ value }: { value: string }) {
         id={instructionId}
         className="mt-2 text-center text-sm text-muted-foreground"
       >
-        {CLI_CODE_COPY.instruction}
+        {t("instruction")}
       </p>
       <code
         ref={codeRef}
@@ -132,7 +122,7 @@ function CliCodeValue({ value }: { value: string }) {
         ) : (
           <Copy aria-hidden data-icon="inline-start" />
         )}
-        {copied ? CLI_CODE_COPY.copied : CLI_CODE_COPY.copy}
+        {copied ? t("copied") : t("copy")}
       </Button>
       <p
         role="status"
@@ -140,19 +130,20 @@ function CliCodeValue({ value }: { value: string }) {
         className="text-center text-sm text-foreground [&:not(:empty)]:mt-3"
       >
         {copied
-          ? CLI_CODE_COPY.copiedStatus
+          ? t("copiedStatus")
           : copyState === "failed"
-            ? CLI_CODE_COPY.copyFailed
+            ? t("copyFailed")
             : null}
       </p>
       <p className="mt-5 text-center text-xs text-muted-foreground">
-        {CLI_CODE_COPY.expiry}
+        {t("expiry")}
       </p>
     </>
   );
 }
 
 function CliCodeMissing() {
+  const t = useTranslations("cliCode");
   return (
     <div
       data-slot="cli-code-missing"
@@ -163,10 +154,8 @@ function CliCodeMissing() {
         className="mt-0.5 size-4 shrink-0 text-muted-foreground"
       />
       <div className="flex min-w-0 flex-col gap-1">
-        <p className="font-medium text-foreground">
-          {CLI_CODE_COPY.missingTitle}
-        </p>
-        <p className="text-foreground/80">{CLI_CODE_COPY.missingBody}</p>
+        <p className="font-medium text-foreground">{t("missingTitle")}</p>
+        <p className="text-foreground/80">{t("missingBody")}</p>
       </div>
     </div>
   );

@@ -12,7 +12,13 @@
   "header": {
     "toggleLanguage": "Alternar idioma",
     "switchToEnglish": "Mudar para inglês",
-    "switchToPortuguese": "Mudar para português"
+    "switchToPortuguese": "Mudar para português",
+    "home": "Página inicial do Applika.dev",
+    "openNavigation": "Abrir menu de navegação",
+    "closeNavigation": "Fechar menu de navegação",
+    "navigation": "Navegação",
+    "navigationDescription": "Navegação principal e menu da conta.",
+    "toggleTheme": "Alternar tema"
   },
   "icons": {
     "flagUs": "Bandeira dos Estados Unidos",
@@ -20,7 +26,30 @@
   },
   "auth": {
     "signInFallback": "O login não foi concluído. Tente novamente.",
-    "unreachable": "Não foi possível acessar o Applika. Verifique sua conexão e tente novamente."
+    "unreachable": "Não foi possível acessar o Applika. Verifique sua conexão e tente novamente.",
+    "logout": "Sair",
+    "signIn": {
+      "title": "Entre no Applika",
+      "cliTitle": "Entre no applika-cli",
+      "lead": "Use seu e-mail e senha da Borderless.",
+      "cliCommand": "applika login",
+      "cliNote": "Este acesso conclui o <code>{command}</code> no seu terminal.",
+      "submit": "Entrar",
+      "passwordHint": "Entrou na Borderless por outro provedor de acesso? Defina uma senha na Borderless primeiro e depois entre aqui.",
+      "noAccount": "Ainda não tem conta na Borderless?",
+      "createAccount": "Criar uma conta na Borderless",
+      "opensInNewTab": "Abre em uma nova aba.",
+      "cliExpiredHint": "Execute applika login no seu terminal novamente.",
+      "cliHandoffLost": "O acesso pelo terminal expirou antes de você entrar. Em vez disso, este navegador entrou no Applika."
+    },
+    "credentials": {
+      "emailLabel": "E-mail",
+      "passwordLabel": "Senha",
+      "emailRequired": "Digite seu e-mail da Borderless",
+      "emailTooLong": "O e-mail deve ter no máximo 100 caracteres",
+      "passwordRequired": "Digite sua senha",
+      "passwordTooLong": "A senha deve ter no máximo 200 caracteres"
+    }
   },
   "cookies": {
     "notice": {
@@ -186,5 +215,314 @@
     "ADM-1017": "O rótulo deve ter no máximo {max} caracteres",
     "ADM-1018": "Este webhook já está configurado",
     "unknown": "Algo deu errado"
+  },
+  "timeline": {
+    "eventType": {
+      "interview": "Entrevista",
+      "offer": "Oferta",
+      "denied": "Recusada"
+    },
+    "eventTypeHint": {
+      "interview": "Uma conversa ou avaliação agendada.",
+      "offer": "Você recebeu uma oferta — registre o salário.",
+      "denied": "A candidatura foi recusada ou retirada."
+    },
+    "interviewType": {
+      "unknown": "Desconhecida",
+      "initial_screening": "Triagem inicial",
+      "technical": "Técnica",
+      "cultural": "Cultural",
+      "hiring_manager": "Gestor da vaga",
+      "take_home": "Desafio para casa",
+      "final": "Final"
+    },
+    "interviewTypeShort": {
+      "unknown": "Desconhecida",
+      "initial_screening": "Triagem",
+      "technical": "Técnica",
+      "cultural": "Cultural",
+      "hiring_manager": "Gestor",
+      "take_home": "Desafio para casa",
+      "final": "Final"
+    },
+    "deniedReason": {
+      "unknown": "Desconhecido",
+      "not_good_enough": "Perfil insuficiente",
+      "skills_mismatch": "Habilidades incompatíveis",
+      "assessment_failed": "Reprovado na avaliação",
+      "too_many_candidates": "Muitos candidatos",
+      "position_filled": "Vaga preenchida",
+      "role_closed": "Vaga encerrada",
+      "ghosted": "Sem retorno",
+      "salary_mismatch": "Salário incompatível",
+      "other": "Outro"
+    },
+    "salaryPeriod": {
+      "hourly": "Por hora",
+      "monthly": "Mensal",
+      "annually": "Anual"
+    },
+    "salaryPeriodSuffix": {
+      "hourly": "/h",
+      "monthly": "/mês",
+      "annually": "/ano"
+    }
+  },
+  "options": {
+    "seniority": {
+      "intern": "Estágio",
+      "junior": "Júnior",
+      "mid_level": "Pleno",
+      "senior": "Sênior",
+      "staff": "Staff",
+      "lead": "Líder",
+      "principal": "Principal",
+      "specialist": "Especialista"
+    },
+    "availability": {
+      "open_to_work": "Aberto a oportunidades",
+      "casually_looking": "Olhando sem pressa",
+      "not_looking": "Não estou procurando"
+    },
+    "workMode": {
+      "remote": "Remoto",
+      "hybrid": "Híbrido",
+      "on_site": "Presencial"
+    },
+    "source": {
+      "active": "Ativa (eu me candidatei)",
+      "passive": "Passiva (um recrutador me contatou)"
+    }
+  },
+  "landing": {
+    "tagline": "Rastreador de candidaturas",
+    "heroTitle": "Gerencie sua busca de emprego com <highlight>clareza</highlight>",
+    "heroBody": "Acompanhe candidaturas, monitore seu funil e transforme sua busca de emprego em um processo guiado por dados, com análises em tempo real.",
+    "goToDashboard": "Ir para o painel",
+    "getStarted": "Comece grátis",
+    "dashboard": "Painel",
+    "signIn": "Entrar",
+    "ctaTitle": "Pronto para assumir o controle da sua busca de emprego?",
+    "ctaBody": "Junte-se a centenas de pessoas que acompanham sua busca com mais inteligência, não com mais esforço. Grátis para sempre.",
+    "featuresEyebrow": "Recursos",
+    "featuresTitle": "Tudo o que você precisa para gerenciar sua busca de emprego",
+    "features": {
+      "track": {
+        "title": "Acompanhe candidaturas",
+        "description": "Mantenha todas as suas candidaturas organizadas em um só lugar, com empresa, cargo, plataforma e salário."
+      },
+      "pipeline": {
+        "title": "Funil etapa por etapa",
+        "description": "Siga cada candidatura pelas etapas de contratação — da inscrição à oferta — com etapas e datas personalizadas."
+      },
+      "conversion": {
+        "title": "Análise de conversão",
+        "description": "Veja em quais etapas você passa com mais frequência, a média de dias por etapa e sua taxa de sucesso geral."
+      },
+      "trends": {
+        "title": "Tendências",
+        "description": "Visualize o volume de candidaturas ao longo do tempo e compare as estratégias de busca ativa e passiva."
+      },
+      "borderless": {
+        "title": "Acesso com Borderless",
+        "description": "Entre com sua conta Borderless. Membros BASE e PSP compartilham relatórios quinzenais com a comunidade."
+      },
+      "finalization": {
+        "title": "Encerramento e feedback",
+        "description": "Encerre candidaturas registrando o resultado e aprenda com cada processo."
+      }
+    },
+    "howEyebrow": "Como funciona",
+    "howTitle": "Do cadastro aos insights em minutos",
+    "steps": {
+      "signIn": {
+        "title": "Entre com a Borderless",
+        "description": "Use seu e-mail e senha da Borderless. Sua conta fica pronta na hora, já com sua associação BASE ou PSP."
+      },
+      "add": {
+        "title": "Adicione suas candidaturas",
+        "description": "Registre cada candidatura com empresa, cargo, plataforma e salário. Acompanhe cada detalhe que importa."
+      },
+      "analyze": {
+        "title": "Analise e otimize",
+        "description": "Veja seu painel ganhar vida com taxas de conversão, tendências e insights práticos."
+      }
+    },
+    "openSourceEyebrow": "Código aberto",
+    "openSourceTitle": "Transparente por natureza, feito para a comunidade",
+    "openSourceBody": "O Applika é totalmente de código aberto. Acreditamos que quem busca emprego merece ferramentas que respeitem sua privacidade e o coloquem no controle.",
+    "openSource": {
+      "open": {
+        "title": "Feito às claras",
+        "description": "Cada linha de código é pública. Leia, audite, aprenda com ela — transparência total desde o primeiro dia."
+      },
+      "community": {
+        "title": "Movido pela comunidade",
+        "description": "Pedidos de recursos, relatos de bugs e pull requests são bem-vindos. Molde a ferramenta que você usa todo dia."
+      }
+    },
+    "stats": {
+      "applications": "Candidaturas acompanhadas",
+      "seekers": "Pessoas buscando emprego",
+      "offerRate": "Taxa média de ofertas",
+      "satisfaction": "Satisfação dos usuários"
+    },
+    "testimonialsEyebrow": "Depoimentos",
+    "testimonialsTitle": "Amado por quem busca emprego",
+    "testimonials": {
+      "matheus": {
+        "role": "Engenheiro de software - LLMOps",
+        "quote": "O Applika tem uma interface muito simples que captura métricas extremamente importantes do processo de candidatura!"
+      },
+      "pietro": {
+        "role": "Engenheiro de software",
+        "quote": "Ter cada candidatura acompanhada com etapas e análises mudou meu jeito de buscar emprego. Sempre sei exatamente em que pé está cada processo e no que focar em seguida."
+      },
+      "joao": {
+        "role": "Engenheiro sênior",
+        "quote": "O Applika me mostrou exatamente o que eu estava errando nas minhas candidaturas e, sinceramente, isso mudou tudo para mim."
+      }
+    },
+    "mockup": {
+      "trend": "Tendência",
+      "conversion": "Conversão",
+      "avgDays": "Dias por etapa",
+      "byPlatform": "Plataformas",
+      "activeVsPassive": "Ativa x passiva",
+      "active": "Ativa",
+      "passive": "Passiva",
+      "stats": {
+        "active": "ATIVAS",
+        "offers": "OFERTAS",
+        "denials": "RECUSAS",
+        "total": "TOTAL",
+        "successRate": "SUCESSO"
+      },
+      "steps": {
+        "initialScreen": "Triagem",
+        "phase2": "Fase 2",
+        "phase3": "Fase 3",
+        "phase4": "Fase 4",
+        "offer": "Oferta",
+        "denied": "Recusada"
+      }
+    }
+  },
+  "welcome": {
+    "title": "Já usou o Applika com o GitHub?",
+    "lead": "Recupere sua conta antiga ou comece com uma conta vazia. Você só responde isso uma vez.",
+    "restoreTitle": "Recupere sua conta antiga",
+    "restoreBody": "As candidaturas, ciclos, relatórios e CVs voltam, e a conta passa a entrar com a Borderless.",
+    "restore": "Restaurar seus dados do GitHub",
+    "freshTitle": "Comece com uma conta vazia",
+    "freshBody": "Você ainda pode restaurar pelo seu perfil depois, desde que esta conta não tenha dados.",
+    "startFresh": "Começar do zero"
+  },
+  "cliCode": {
+    "title": "Entre no applika-cli",
+    "instruction": "Cole este código no seu terminal",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "copiedStatus": "Código copiado.",
+    "copyFailed": "Não foi possível copiar. O código está selecionado; copie-o pelo teclado.",
+    "expiry": "O código funciona uma vez e expira em um minuto.",
+    "missingTitle": "Falta o código neste link de acesso.",
+    "missingBody": "Execute o comando de login no seu terminal novamente."
+  },
+  "device": {
+    "title": "Conectar um dispositivo",
+    "lead": "Digite o código que seu terminal mostra. Você verá qual dispositivo está pedindo acesso antes de aprovar.",
+    "codeLabel": "Código do dispositivo",
+    "codeHint": "8 letras, mostradas no seu terminal como XXXX-XXXX.",
+    "codePlaceholder": "XXXX-XXXX",
+    "incomplete": "Digite as 8 letras do código.",
+    "continue": "Continuar",
+    "requestTitle": "Um dispositivo quer entrar",
+    "requestLead": "Confira se estes dados correspondem ao dispositivo que você está conectando.",
+    "terms": {
+      "code": "Código",
+      "device": "Dispositivo",
+      "client": "Cliente",
+      "ip": "Endereço IP",
+      "requested": "Solicitado",
+      "expires": "Código expira"
+    },
+    "notRecorded": "Não registrado",
+    "warning": "Só aprove se foi você quem iniciou este acesso",
+    "warningDetail": "Se alguém enviou este código ou link para você, recuse.",
+    "approve": "Aprovar",
+    "deny": "Recusar",
+    "differentCode": "Usar outro código",
+    "approved": "Dispositivo conectado. Você pode voltar ao seu terminal.",
+    "seeDevices": "Ver seus dispositivos",
+    "denied": "Acesso recusado. O dispositivo não foi conectado.",
+    "anotherCode": "Digitar outro código",
+    "errorFallback": "Algo deu errado. Tente novamente."
+  },
+  "nav": {
+    "primary": "Principal",
+    "dashboard": "Painel",
+    "applications": "Candidaturas",
+    "jobs": "Vagas",
+    "cvs": "CVs",
+    "agenda": "Agenda",
+    "reports": "Relatórios",
+    "cycles": "Ciclos",
+    "profile": "Perfil",
+    "admin": "Admin",
+    "system": "Sistema"
+  },
+  "userMenu": {
+    "open": "Abrir menu da conta",
+    "openFor": "Abrir menu da conta de {username}",
+    "profile": "Perfil",
+    "feedback": "Feedback",
+    "logout": "Sair"
+  },
+  "cycleSelector": {
+    "current": "Ciclo atual",
+    "new": "Novo ciclo",
+    "dialogTitle": "Iniciar um novo ciclo",
+    "dialogDescription": "Todas as candidaturas e relatórios atuais serão arquivados permanentemente em um ciclo com nome. Esta ação não pode ser desfeita, e os dados arquivados ficarão disponíveis apenas para consulta.",
+    "namePlaceholder": "ex.: 1º tri 2026, Busca de emprego 2...",
+    "cancel": "Cancelar",
+    "creating": "Criando...",
+    "start": "Iniciar ciclo"
+  },
+  "agendaDropdown": {
+    "trigger": "Próximas etapas",
+    "title": "Próximas etapas",
+    "viewAll": "Ver tudo",
+    "empty": "Nenhuma etapa nos próximos 7 dias",
+    "today": "Hoje",
+    "tomorrow": "Amanhã"
+  },
+  "notFound": {
+    "code": "404",
+    "title": "Ops! Página não encontrada",
+    "home": "Voltar ao início"
+  },
+  "cliBanner": {
+    "region": "Aviso do applika-cli",
+    "title": "Experimente a ferramenta de linha de comando <mono>applika-cli</mono>",
+    "body": "Uma CLI para registrar candidaturas pelo terminal. Vem com uma skill pronta para ferramentas de IA como Claude e Codex. Veja no PyPI como instalar e todos os detalhes.",
+    "cta": "Ver no PyPI",
+    "dismiss": "Dispensar aviso"
+  },
+  "features": {
+    "beta": "Beta",
+    "loading": "Carregando"
+  },
+  "feedback": {
+    "button": "Feedback",
+    "pickRating": "Selecione uma nota",
+    "thanks": "Obrigado pelo seu feedback!",
+    "failed": "Não foi possível enviar o feedback",
+    "title": "Avalie sua experiência",
+    "description": "O que você está achando do Applika? Seu feedback nos ajuda a melhorar.",
+    "placeholder": "Conte o que você acha… (opcional)",
+    "charactersLeft": "{count, plural, =0 {# caracteres} one {# caractere} other {# caracteres}}",
+    "cancel": "Cancelar",
+    "send": "Enviar feedback"
   }
 }

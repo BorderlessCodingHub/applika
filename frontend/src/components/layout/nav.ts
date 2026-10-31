@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { word } from "@/i18n/translator";
 import type { FeatureKey, MyFeature } from "@/services/types/features";
 
 export interface NavItem {
@@ -35,35 +36,69 @@ export interface NavItem {
   needsReportsBadge?: boolean;
 }
 
+/**
+ * A nav entry whose `label` (and `group`) are getters over `nav.*`: each read
+ * returns the words of the active language. `SidebarNav` subscribes with
+ * `useTranslations`, so a switch re-renders the entries.
+ */
+function entry(
+  key: string,
+  item: Omit<NavItem, "label" | "group">,
+  groupKey?: string,
+): NavItem {
+  const result = { ...item } as NavItem;
+  Object.defineProperty(result, "label", {
+    enumerable: true,
+    get: () => word(`nav.${key}`),
+  });
+  if (groupKey) {
+    Object.defineProperty(result, "group", {
+      enumerable: true,
+      get: () => word(`nav.${groupKey}`),
+    });
+  }
+  return result;
+}
+
 export const PRIMARY_NAV: NavItem[] = [
-  {
+  entry("dashboard", {
     href: "/dashboard",
-    label: "Dashboard",
     icon: LayoutDashboard,
     exact: true,
-  },
-  { href: "/applications", label: "Applications", icon: Briefcase },
-  { href: "/jobs", label: "Jobs", icon: Search, feature: "jobs" },
-  { href: "/cvs", label: "CVs", icon: FileText, feature: "cvs" },
-  { href: "/agenda", label: "Agenda", icon: CalendarClock },
-  {
+  }),
+  entry("applications", { href: "/applications", icon: Briefcase }),
+  entry("jobs", { href: "/jobs", icon: Search, feature: "jobs" }),
+  entry("cvs", { href: "/cvs", icon: FileText, feature: "cvs" }),
+  entry("agenda", { href: "/agenda", icon: CalendarClock }),
+  entry("reports", {
     href: "/reports",
-    label: "Reports",
     icon: NotepadText,
     needsReportsBadge: true,
-  },
-  { href: "/cycles", label: "Cycles", icon: History },
-  { href: "/profile", label: "Profile", icon: User },
+  }),
+  entry("cycles", { href: "/cycles", icon: History }),
+  entry("profile", { href: "/profile", icon: User }),
 ];
 
 // Kept out of PRIMARY_NAV so a non-admin render can never leak it: the
 // (protected) layout appends it only when the acting user's is_admin is true.
-export const ADMIN_NAV: NavItem = {
-  href: "/admin",
-  label: "Admin",
-  icon: Shield,
-  group: "System",
-};
+export const ADMIN_NAV: NavItem = entry(
+  "admin",
+  { href: "/admin", icon: Shield },
+  "system",
+);
+
+/**
+ * A copy of `item` carrying `beta`. Copies the property descriptors, not the
+ * values, so the label getters keep following the active language.
+ */
+function withBeta(item: NavItem, beta: boolean): NavItem {
+  const copy = Object.defineProperties(
+    {},
+    Object.getOwnPropertyDescriptors(item),
+  ) as NavItem;
+  copy.beta = beta;
+  return copy;
+}
 
 export function isNavItemActive(item: NavItem, pathname: string): boolean {
   if (item.exact) return pathname === item.href;
@@ -94,7 +129,7 @@ export function navItemsFor(
       continue;
     }
     const feature = features.find((f) => f.key === item.feature);
-    if (feature) items.push({ ...item, beta: feature.stage === "beta" });
+    if (feature) items.push(withBeta(item, feature.stage === "beta"));
   }
   if (isAdmin) items.push(ADMIN_NAV);
   return items;

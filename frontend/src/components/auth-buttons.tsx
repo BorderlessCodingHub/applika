@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { forwardRef } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "./ui/button";
 import { LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
@@ -26,11 +27,12 @@ SignInLink.displayName = "SignInLink";
 
 export function LogoutButton() {
   const { logout } = useAuth();
+  const t = useTranslations("auth");
 
   return (
     <Button onClick={logout} variant="ghost">
       <LogOut className="h-4 w-4" />
-      <span className="font-display">Logout</span>
+      <span className="font-display">{t("logout")}</span>
     </Button>
   );
 }

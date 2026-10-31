@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { CalendarClock, ChevronRight } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useAgenda } from "@/hooks/use-user";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,8 @@ import { format, addDays, isToday, isTomorrow } from "date-fns";
 import type { AgendaStep } from "@/services/types/applications";
 import { getAgendaUrgencyColor } from "@/lib/utils";
 import { stageLabel } from "@/components/timeline/timeline-options";
+import { dateFnsLocale } from "@/i18n/date-locale";
+import type { Locale } from "@/i18n/config";
 
 function getUserTimezone(): string {
   try {
@@ -37,6 +40,8 @@ function convertToLocalTime(
   const fakeDate = new Date(
     `${dateStr}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`,
   );
+  // `en-US` on purpose: these compute zone offsets by re-parsing the string,
+  // they are never shown (as in `agenda-view.ts`).
   const inSource = new Date(
     fakeDate.toLocaleString("en-US", { timeZone: fromTz }),
   );
@@ -98,11 +103,23 @@ function getUrgencyColor(step: AgendaStep): string {
   return getAgendaUrgencyColor(diffHours);
 }
 
-function getDayLabel(dateStr: string): string {
+/** A day heading's date, written the way each language writes it. */
+const DAY_PATTERN: Record<Locale, string> = {
+  en: "EEE, MMM d",
+  "pt-BR": "EEE, d 'de' MMM",
+};
+
+function getDayLabel(
+  dateStr: string,
+  locale: Locale,
+  t: (key: "today" | "tomorrow") => string,
+): string {
   const date = new Date(dateStr + "T00:00:00");
-  if (isToday(date)) return "Today";
-  if (isTomorrow(date)) return "Tomorrow";
-  return format(date, "EEE, MMM d");
+  if (isToday(date)) return t("today");
+  if (isTomorrow(date)) return t("tomorrow");
+  return format(date, DAY_PATTERN[locale] ?? DAY_PATTERN.en, {
+    locale: dateFnsLocale(locale),
+  });
 }
 
 function groupByDate(steps: AgendaStep[]) {
@@ -116,6 +133,9 @@ function groupByDate(steps: AgendaStep[]) {
 }
 
 export function AgendaDropdown() {
+  const t = useTranslations("agendaDropdown");
+  const locale = useLocale() as Locale;
+  // Data keys, not text: `yyyy-MM-dd` carries no language.
   const today = format(new Date(), "yyyy-MM-dd");
   const weekFromNow = format(addDays(new Date(), 7), "yyyy-MM-dd");
 
@@ -134,7 +154,7 @@ export function AgendaDropdown() {
           <CalendarClock className="h-5 w-5" />
           {/* The trigger is icon-only; without this it reaches the a11y tree
               (and any role-based test) as a button with no name at all. */}
-          <span className="sr-only">Upcoming steps</span>
+          <span className="sr-only">{t("trigger")}</span>
           {upcoming.length > 0 && (
             <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
               {upcoming.length}
@@ -144,12 +164,12 @@ export function AgendaDropdown() {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
         <div className="flex items-center justify-between border-b px-4 py-3">
-          <h4 className="text-sm font-semibold">Upcoming Steps</h4>
+          <h4 className="text-sm font-semibold">{t("title")}</h4>
           <Link
             href="/agenda"
             className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
-            View all
+            {t("viewAll")}
             <ChevronRight className="h-3 w-3" />
           </Link>
         </div>
@@ -157,13 +177,13 @@ export function AgendaDropdown() {
         <div className="max-h-80 overflow-y-auto">
           {grouped.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              No upcoming steps in the next 7 days
+              {t("empty")}
             </div>
           ) : (
             grouped.map(([date, items]) => (
               <div key={date}>
                 <div className="sticky top-0 bg-muted/50 px-4 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-xs">
-                  {getDayLabel(date)}
+                  {getDayLabel(date, locale, t)}
                 </div>
                 {items.map((step) => (
                   <div

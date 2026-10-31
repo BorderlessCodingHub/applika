@@ -1,32 +1,24 @@
 "use client";
+
+import { useTranslations } from "next-intl";
+// Each step's words are `landing.steps.<key>.title|description`.
 const steps = [
-  {
-    step: "01",
-    title: "Sign in with Borderless",
-    desc: "Use your Borderless email and password. Your account is ready instantly, with your BASE or PSP membership on it.",
-  },
-  {
-    step: "02",
-    title: "Add your applications",
-    desc: "Log each application with company, role, platform, and salary. Track every detail that matters.",
-  },
-  {
-    step: "03",
-    title: "Analyze & optimize",
-    desc: "Watch your dashboard light up with conversion rates, trends, and actionable insights.",
-  },
-];
+  { step: "01", key: "signIn" },
+  { step: "02", key: "add" },
+  { step: "03", key: "analyze" },
+] as const;
 
 export function HowItWorksSection() {
+  const t = useTranslations("landing");
   return (
     <section className="relative border-t border-border/60 bg-card/50">
       <div className="mx-auto max-w-5xl px-4 py-16 md:px-8 md:py-20">
         <div className="mb-16 text-center">
           <p className="mb-2 font-display text-base font-semibold tracking-wide-label text-primary uppercase md:text-lg">
-            How It Works
+            {t("howEyebrow")}
           </p>
           <h3 className="font-display text-2xl font-bold tracking-tight-display text-foreground md:text-3xl">
-            From sign-up to insights in minutes
+            {t("howTitle")}
           </h3>
         </div>
         <div className="relative grid gap-8 md:grid-cols-3 md:gap-12">
@@ -39,10 +31,10 @@ export function HowItWorksSection() {
                 </span>
               </div>
               <h4 className="mb-2 font-display text-sm font-semibold text-foreground md:text-base">
-                {item.title}
+                {t(`steps.${item.key}.title`)}
               </h4>
               <p className="mx-auto max-w-xs text-sm leading-relaxed text-muted-foreground">
-                {item.desc}
+                {t(`steps.${item.key}.description`)}
               </p>
             </div>
           ))}

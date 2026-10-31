@@ -12,7 +12,13 @@
   "header": {
     "toggleLanguage": "Toggle language",
     "switchToEnglish": "Switch to English",
-    "switchToPortuguese": "Switch to Portuguese"
+    "switchToPortuguese": "Switch to Portuguese",
+    "home": "Applika.dev home",
+    "openNavigation": "Open navigation menu",
+    "closeNavigation": "Close navigation menu",
+    "navigation": "Navigation",
+    "navigationDescription": "Primary navigation and account menu.",
+    "toggleTheme": "Toggle theme"
   },
   "icons": {
     "flagUs": "United States flag",
@@ -20,7 +26,30 @@
   },
   "auth": {
     "signInFallback": "Sign-in did not finish. Try again.",
-    "unreachable": "Could not reach applika. Check your connection and try again."
+    "unreachable": "Could not reach applika. Check your connection and try again.",
+    "logout": "Logout",
+    "signIn": {
+      "title": "Sign in to applika",
+      "cliTitle": "Sign in to applika-cli",
+      "lead": "Use your Borderless email and password.",
+      "cliCommand": "applika login",
+      "cliNote": "This sign-in completes <code>{command}</code> in your terminal.",
+      "submit": "Sign in",
+      "passwordHint": "Joined Borderless through another sign-in provider? Set a password on Borderless first, then sign in here.",
+      "noAccount": "No Borderless account yet?",
+      "createAccount": "Create a Borderless account",
+      "opensInNewTab": "Opens in a new tab.",
+      "cliExpiredHint": "Run applika login in your terminal again.",
+      "cliHandoffLost": "The terminal sign-in expired before you signed in. This browser is signed in to applika instead."
+    },
+    "credentials": {
+      "emailLabel": "Email",
+      "passwordLabel": "Password",
+      "emailRequired": "Enter your Borderless email",
+      "emailTooLong": "Email must be at most 100 characters",
+      "passwordRequired": "Enter your password",
+      "passwordTooLong": "Password must be at most 200 characters"
+    }
   },
   "cookies": {
     "notice": {
@@ -186,5 +215,314 @@
     "ADM-1017": "Label must be at most {max} characters",
     "ADM-1018": "This webhook is already configured",
     "unknown": "Something went wrong"
+  },
+  "timeline": {
+    "eventType": {
+      "interview": "Interview",
+      "offer": "Offer",
+      "denied": "Denied"
+    },
+    "eventTypeHint": {
+      "interview": "A scheduled conversation or assessment.",
+      "offer": "An offer was extended — record the salary.",
+      "denied": "The application was rejected or withdrawn."
+    },
+    "interviewType": {
+      "unknown": "Unknown",
+      "initial_screening": "Initial screening",
+      "technical": "Technical",
+      "cultural": "Cultural",
+      "hiring_manager": "Hiring manager",
+      "take_home": "Take-home",
+      "final": "Final"
+    },
+    "interviewTypeShort": {
+      "unknown": "Unknown",
+      "initial_screening": "Screening",
+      "technical": "Technical",
+      "cultural": "Cultural",
+      "hiring_manager": "Manager",
+      "take_home": "Take-home",
+      "final": "Final"
+    },
+    "deniedReason": {
+      "unknown": "Unknown",
+      "not_good_enough": "Not good enough",
+      "skills_mismatch": "Skills mismatch",
+      "assessment_failed": "Assessment failed",
+      "too_many_candidates": "Too many candidates",
+      "position_filled": "Position filled",
+      "role_closed": "Role closed",
+      "ghosted": "Ghosted",
+      "salary_mismatch": "Salary mismatch",
+      "other": "Other"
+    },
+    "salaryPeriod": {
+      "hourly": "Hourly",
+      "monthly": "Monthly",
+      "annually": "Annually"
+    },
+    "salaryPeriodSuffix": {
+      "hourly": "/hr",
+      "monthly": "/mo",
+      "annually": "/yr"
+    }
+  },
+  "options": {
+    "seniority": {
+      "intern": "Intern",
+      "junior": "Junior",
+      "mid_level": "Mid Level",
+      "senior": "Senior",
+      "staff": "Staff",
+      "lead": "Lead",
+      "principal": "Principal",
+      "specialist": "Specialist"
+    },
+    "availability": {
+      "open_to_work": "Open to work",
+      "casually_looking": "Casually looking",
+      "not_looking": "Not looking"
+    },
+    "workMode": {
+      "remote": "Remote",
+      "hybrid": "Hybrid",
+      "on_site": "On-site"
+    },
+    "source": {
+      "active": "Active (I applied)",
+      "passive": "Passive (Recruiter contacted me)"
+    }
+  },
+  "landing": {
+    "tagline": "Job Application Tracker",
+    "heroTitle": "Manage your job search with <highlight>clarity</highlight>",
+    "heroBody": "Track applications, monitor your pipeline, and turn your job search into a data-driven process with real-time analytics.",
+    "goToDashboard": "Go to Dashboard",
+    "getStarted": "Get started free",
+    "dashboard": "Dashboard",
+    "signIn": "Sign in",
+    "ctaTitle": "Ready to take control of your job search?",
+    "ctaBody": "Join hundreds of job seekers who track smarter, not harder. Free forever.",
+    "featuresEyebrow": "Features",
+    "featuresTitle": "Everything you need to manage your job search",
+    "features": {
+      "track": {
+        "title": "Track Applications",
+        "description": "Keep all your job applications organized in one place with company, role, platform, and salary details."
+      },
+      "pipeline": {
+        "title": "Step-by-Step Pipeline",
+        "description": "Follow every application through its hiring stages — from applied to offer — with custom steps and dates."
+      },
+      "conversion": {
+        "title": "Conversion Analytics",
+        "description": "See which stages you pass most often, average days per step, and your overall success rate."
+      },
+      "trends": {
+        "title": "Trend Insights",
+        "description": "Visualize your application volume over time and compare active vs passive sourcing strategies."
+      },
+      "borderless": {
+        "title": "Borderless Sign-in",
+        "description": "Sign in with your Borderless account. BASE and PSP members share biweekly reports with their community."
+      },
+      "finalization": {
+        "title": "Finalization & Feedback",
+        "description": "Close out applications with outcome tracking so you can learn from every process."
+      }
+    },
+    "howEyebrow": "How It Works",
+    "howTitle": "From sign-up to insights in minutes",
+    "steps": {
+      "signIn": {
+        "title": "Sign in with Borderless",
+        "description": "Use your Borderless email and password. Your account is ready instantly, with your BASE or PSP membership on it."
+      },
+      "add": {
+        "title": "Add your applications",
+        "description": "Log each application with company, role, platform, and salary. Track every detail that matters."
+      },
+      "analyze": {
+        "title": "Analyze & optimize",
+        "description": "Watch your dashboard light up with conversion rates, trends, and actionable insights."
+      }
+    },
+    "openSourceEyebrow": "Open Source",
+    "openSourceTitle": "Transparent by design, built for the community",
+    "openSourceBody": "Applika is fully open source. We believe job seekers deserve tools that respect their privacy and put them in control.",
+    "openSource": {
+      "open": {
+        "title": "Built in the Open",
+        "description": "Every line of code is public. Read it, audit it, learn from it — full transparency from day one."
+      },
+      "community": {
+        "title": "Community Driven",
+        "description": "Feature requests, bug reports, and pull requests are all welcome. Shape the tool you use every day."
+      }
+    },
+    "stats": {
+      "applications": "Applications tracked",
+      "seekers": "Active job seekers",
+      "offerRate": "Avg offer rate",
+      "satisfaction": "User satisfaction"
+    },
+    "testimonialsEyebrow": "Testimonials",
+    "testimonialsTitle": "Loved by job seekers",
+    "testimonials": {
+      "matheus": {
+        "role": "Software Engineer - LLMOps",
+        "quote": "Applika has a very simple UI that captures extremely important metrics in the application process!"
+      },
+      "pietro": {
+        "role": "Software Engineer",
+        "quote": "Having every application tracked with stages and analytics changed how I approach job hunting. I always know exactly where each process stands and what to focus on next."
+      },
+      "joao": {
+        "role": "Senior Engineer",
+        "quote": "Applika showed me exactly what I was getting wrong in my applications, and honestly, that changed everything for me."
+      }
+    },
+    "mockup": {
+      "trend": "Application Trend",
+      "conversion": "Step Conversion",
+      "avgDays": "Avg Days / Step",
+      "byPlatform": "By Platform",
+      "activeVsPassive": "Active vs Passive",
+      "active": "Active",
+      "passive": "Passive",
+      "stats": {
+        "active": "ACTIVE",
+        "offers": "OFFERS",
+        "denials": "DENIALS",
+        "total": "TOTAL",
+        "successRate": "SUCCESS RATE"
+      },
+      "steps": {
+        "initialScreen": "Initial Screen",
+        "phase2": "Phase 2",
+        "phase3": "Phase 3",
+        "phase4": "Phase 4",
+        "offer": "Offer",
+        "denied": "Denied"
+      }
+    }
+  },
+  "welcome": {
+    "title": "Used applika with GitHub before?",
+    "lead": "Bring back your old account, or start with an empty one. You only answer this once.",
+    "restoreTitle": "Bring back your old account",
+    "restoreBody": "Its applications, cycles, reports and CVs return, and it signs in with Borderless from now on.",
+    "restore": "Restore your data from GitHub",
+    "freshTitle": "Start with an empty account",
+    "freshBody": "You can still restore from your profile later, as long as this account holds no data.",
+    "startFresh": "Start fresh"
+  },
+  "cliCode": {
+    "title": "Sign in to applika-cli",
+    "instruction": "Paste this code into your terminal",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copiedStatus": "Code copied.",
+    "copyFailed": "Could not copy. The code is selected, copy it with your keyboard.",
+    "expiry": "The code works once and expires after a minute.",
+    "missingTitle": "This sign-in link is missing its code.",
+    "missingBody": "Run the login command in your terminal again."
+  },
+  "device": {
+    "title": "Sign in a device",
+    "lead": "Enter the code your terminal shows. You'll see which device is asking before you approve it.",
+    "codeLabel": "Device code",
+    "codeHint": "8 letters, shown in your terminal as XXXX-XXXX.",
+    "codePlaceholder": "XXXX-XXXX",
+    "incomplete": "Enter all 8 letters of the code.",
+    "continue": "Continue",
+    "requestTitle": "A device wants to sign in",
+    "requestLead": "Check that these details match the device you are signing in.",
+    "terms": {
+      "code": "Code",
+      "device": "Device",
+      "client": "Client",
+      "ip": "IP address",
+      "requested": "Requested",
+      "expires": "Code expires"
+    },
+    "notRecorded": "Not recorded",
+    "warning": "Only approve if you started this sign-in yourself",
+    "warningDetail": "If someone sent you this code or link, deny it.",
+    "approve": "Approve",
+    "deny": "Deny",
+    "differentCode": "Use a different code",
+    "approved": "Device signed in. You can return to your terminal.",
+    "seeDevices": "See your devices",
+    "denied": "Sign-in denied. The device was not signed in.",
+    "anotherCode": "Enter another code",
+    "errorFallback": "Something went wrong. Try again."
+  },
+  "nav": {
+    "primary": "Primary",
+    "dashboard": "Dashboard",
+    "applications": "Applications",
+    "jobs": "Jobs",
+    "cvs": "CVs",
+    "agenda": "Agenda",
+    "reports": "Reports",
+    "cycles": "Cycles",
+    "profile": "Profile",
+    "admin": "Admin",
+    "system": "System"
+  },
+  "userMenu": {
+    "open": "Open account menu",
+    "openFor": "Open account menu for {username}",
+    "profile": "Profile",
+    "feedback": "Feedback",
+    "logout": "Logout"
+  },
+  "cycleSelector": {
+    "current": "Current Cycle",
+    "new": "New Cycle",
+    "dialogTitle": "Start a New Cycle",
+    "dialogDescription": "All current applications and reports will be permanently archived under a named cycle. This action cannot be undone, but the archived data will only be available for viewing.",
+    "namePlaceholder": "e.g. Q1 2026, Job Search Round 2...",
+    "cancel": "Cancel",
+    "creating": "Creating...",
+    "start": "Start Cycle"
+  },
+  "agendaDropdown": {
+    "trigger": "Upcoming steps",
+    "title": "Upcoming Steps",
+    "viewAll": "View all",
+    "empty": "No upcoming steps in the next 7 days",
+    "today": "Today",
+    "tomorrow": "Tomorrow"
+  },
+  "notFound": {
+    "code": "404",
+    "title": "Oops! Page not found",
+    "home": "Return to Home"
+  },
+  "cliBanner": {
+    "region": "applika-cli announcement",
+    "title": "Try the <mono>applika-cli</mono> command-line tool",
+    "body": "A CLI to log applications from your terminal. Ships with a ready-to-use skill for AI tools like Claude and Codex. See PyPI for installation and full details.",
+    "cta": "View on PyPI",
+    "dismiss": "Dismiss announcement"
+  },
+  "features": {
+    "beta": "Beta",
+    "loading": "Loading"
+  },
+  "feedback": {
+    "button": "Feedback",
+    "pickRating": "Please select a rating",
+    "thanks": "Thanks for your feedback!",
+    "failed": "Failed to send feedback",
+    "title": "Rate your experience",
+    "description": "How are you enjoying Applika? Your feedback helps us improve.",
+    "placeholder": "Tell us what you think… (optional)",
+    "charactersLeft": "{count, number, ::group-off} characters",
+    "cancel": "Cancel",
+    "send": "Send feedback"
   }
 }

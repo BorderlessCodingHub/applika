@@ -3,6 +3,7 @@
 import type { ReactNode, Ref } from "react";
 import Link from "next/link";
 import { Menu } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { AppLogo } from "@/components/app-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AgendaDropdown } from "@/components/layout/agenda-dropdown";
@@ -39,6 +40,7 @@ export function Header({
   actions,
   className,
 }: HeaderProps) {
+  const t = useTranslations("header");
   return (
     <header
       className={cn(
@@ -51,7 +53,7 @@ export function Header({
         type="button"
         variant="ghost"
         size="icon"
-        aria-label="Open navigation menu"
+        aria-label={t("openNavigation")}
         onClick={onOpenMobileNav}
         className="md:hidden"
       >
@@ -62,7 +64,7 @@ export function Header({
           is the only place it appears, so it links too. */}
       <Link
         href="/dashboard"
-        aria-label="Applika.dev home"
+        aria-label={t("home")}
         className="rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 md:hidden"
       >
         <AppLogo mode="compact" />

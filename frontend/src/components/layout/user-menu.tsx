@@ -3,6 +3,7 @@
 import { useId } from "react";
 import Link from "next/link";
 import { ChevronsUpDown, LogOut, MessageSquareHeart, User } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +41,7 @@ export function UserMenu({
   variant = "card",
   className,
 }: UserMenuProps) {
+  const t = useTranslations("userMenu");
   const chipId = useId();
   if (!user) return null;
 
@@ -56,7 +58,7 @@ export function UserMenu({
         // accessible name has to contain it (WCAG 2.5.3 Label in Name) or a
         // voice-control user cannot address the control by what they see.
         aria-label={
-          card ? `Open account menu for ${user.username}` : "Open account menu"
+          card ? t("openFor", { username: user.username }) : t("open")
         }
         aria-describedby={card && heldBadges.length > 0 ? chipId : undefined}
         className={cn(
@@ -137,7 +139,7 @@ export function UserMenu({
         <DropdownMenuItem asChild onSelect={onNavigate}>
           <Link href="/profile" className="cursor-pointer gap-2">
             <User className="size-4" />
-            Profile
+            {t("profile")}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -148,7 +150,7 @@ export function UserMenu({
           }}
         >
           <MessageSquareHeart className="size-4" />
-          Feedback
+          {t("feedback")}
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
@@ -158,7 +160,7 @@ export function UserMenu({
           onSelect={onLogout}
         >
           <LogOut className="size-4" />
-          Logout
+          {t("logout")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

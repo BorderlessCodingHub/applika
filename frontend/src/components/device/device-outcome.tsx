@@ -2,14 +2,12 @@
 
 import { useId, useRef } from "react";
 import { CircleCheck, CircleX } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button, LinkButton } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import {
-  DEVICE_SIGN_IN_COPY,
-  type DeviceOutcomeKind,
-} from "./device-sign-in-copy";
+import { DEVICES_HREF, type DeviceOutcomeKind } from "./device-sign-in-copy";
 import { useFocusIfLost } from "./use-focus-if-lost";
 
 export interface DeviceOutcomeProps {
@@ -24,6 +22,7 @@ export function DeviceOutcome({
   onStartOver,
   className,
 }: DeviceOutcomeProps) {
+  const t = useTranslations("device");
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const approved = outcome === "approved";
@@ -57,15 +56,15 @@ export function DeviceOutcome({
         tabIndex={-1}
         className="max-w-sm text-base font-semibold text-balance text-foreground outline-none"
       >
-        {approved ? DEVICE_SIGN_IN_COPY.approved : DEVICE_SIGN_IN_COPY.denied}
+        {approved ? t("approved") : t("denied")}
       </h2>
       {approved ? (
-        <LinkButton href={DEVICE_SIGN_IN_COPY.devicesHref} variant="outline">
-          {DEVICE_SIGN_IN_COPY.seeDevices}
+        <LinkButton href={DEVICES_HREF} variant="outline">
+          {t("seeDevices")}
         </LinkButton>
       ) : onStartOver ? (
         <Button type="button" variant="outline" onClick={onStartOver}>
-          {DEVICE_SIGN_IN_COPY.anotherCode}
+          {t("anotherCode")}
         </Button>
       ) : null}
     </section>

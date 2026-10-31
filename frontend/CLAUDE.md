@@ -1577,7 +1577,7 @@ linking are gone; nothing in `src/` calls `/auth/github/login` or
   terminal again." The CLI branch sets no cookie. When
   the `__cli_login` cookie itself lapsed (~5 min) the API does a WEB sign-in
   (`redirect_to: null`); the page then stays and says the terminal sign-in
-  expired (`CLI_HANDOFF_LOST` + the same hint) instead of navigating.
+  expired (`cliHandoffLostMessage()` + the same hint) instead of navigating.
 - **A web sign-in lands with a full navigation**: `new_account` → `/welcome`
   (the return-to path waits), else `consumeReturnTo() ?? "/dashboard"`. Full,
   because the sign-in may replace another account's session in the tab.
@@ -1957,7 +1957,7 @@ not admins can see starts in beta, gated the way `jobs` is below.
   the feature's hooks: `jobs-page.tsx` and `job-view-page.tsx` export a
   `FeatureGate` wrapper over an inner component, so no job request goes out
   without `jobs`.
-- **`components/features/beta-badge.tsx`** (`BetaBadge`, `BETA_LABEL`): the
+- **`components/features/beta-badge.tsx`** (`BetaBadge`, words in `features.beta`): the
   word "Beta", never colour alone; `size="sm"` in the nav, default beside an
   h1. Always a SIBLING of the h1, never inside it, so heading names stay
   exact (`jobs.spec.ts`). `JobDetailView` takes it through `titleBadge`.

@@ -84,3 +84,36 @@ export function translate(
     return null;
   }
 }
+
+/**
+ * `translate` for words the app owns (a key that is always in both message
+ * files): the message in the active language, or the key itself if it is
+ * ever missing — never `null`. For module-level vocabulary read outside React
+ * (`stageLabel`, the option lists' `label` getters, hooks' toasts). A
+ * component rendering its result must also subscribe (`useTranslations` or
+ * `useLocale`) so a switch re-renders it.
+ */
+export function word(key: string, values?: TranslationValues): string {
+  return translate(key, values) ?? key;
+}
+
+/**
+ * A copy object whose fields are getters over `<namespace>.<field>`: each read
+ * returns the words of the active language. For the exported `*_COPY`
+ * constants that tests and non-React code import; components rendering them
+ * read the same keys with `useTranslations(namespace)` (which subscribes).
+ * Never spread the result: a spread reads the getters once and freezes them.
+ */
+export function liveCopy<const K extends string>(
+  namespace: string,
+  fields: readonly K[],
+): Readonly<Record<K, string>> {
+  const copy = {} as Record<K, string>;
+  for (const field of fields) {
+    Object.defineProperty(copy, field, {
+      enumerable: true,
+      get: () => word(`${namespace}.${field}`),
+    });
+  }
+  return copy;
+}

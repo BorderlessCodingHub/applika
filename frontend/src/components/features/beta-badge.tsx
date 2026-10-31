@@ -1,9 +1,10 @@
+"use client";
+
 import type * as React from "react";
+import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-
-export const BETA_LABEL = "Beta";
 
 // Text stays `foreground`: `text-primary` on its own tint is under 4.5:1 in light.
 const SIZE_CLASS = {
@@ -25,6 +26,7 @@ export function BetaBadge({
   className,
   ...props
 }: BetaBadgeProps) {
+  const t = useTranslations("features");
   return (
     <Badge
       variant="outline"
@@ -36,7 +38,7 @@ export function BetaBadge({
       )}
       {...props}
     >
-      {BETA_LABEL}
+      {t("beta")}
     </Badge>
   );
 }

@@ -1,16 +1,19 @@
 "use client";
+import { useFormatter, useTranslations } from "next-intl";
 import { APP_CONFIG } from "@/config";
 import { TrendingUp } from "lucide-react";
 
 // ── Mock data ───────────────────────────────────────────────
 
+// Labels are `landing.mockup.stats.<key>`; a `rate` is a fraction, written
+// as a percentage the way the active language writes it.
 const MOCK_STATS = [
-  { label: "ACTIVE", value: "14", color: "text-foreground" },
-  { label: "OFFERS", value: "5", color: "text-primary" },
-  { label: "DENIALS", value: "36", color: "text-destructive" },
-  { label: "TOTAL", value: "55", color: "text-foreground" },
-  { label: "SUCCESS RATE", value: "9.1%", color: "text-primary" },
-];
+  { key: "active", value: 14, color: "text-foreground" },
+  { key: "offers", value: 5, color: "text-primary" },
+  { key: "denials", value: 36, color: "text-destructive" },
+  { key: "total", value: 55, color: "text-foreground" },
+  { key: "successRate", value: 0.091, rate: true, color: "text-primary" },
+] as const;
 
 const TREND_VALUES = [
   0.4, 0.6, 0.5, 0.7, 0.9, 1.1, 1.0, 1.3, 1.6, 1.4, 1.8, 2.1, 1.9, 2.3, 2.6,
@@ -20,33 +23,41 @@ const TREND_X_LABELS = ["02-14", "02-19", "02-26", "03-01", "03-06", "03-10"];
 const TREND_Y_LABELS = [5, 4, 3, 2, 1];
 
 // Pipeline stages deepen toward the decision on the identity blue; the two
-// outcomes take the chart scale's green and red.
-const STEP_COLORS: Record<string, string> = {
-  "Initial Screen":
-    "color-mix(in oklab, var(--chart-1) 55%, var(--background))",
-  "Phase 2": "color-mix(in oklab, var(--chart-1) 70%, var(--background))",
-  "Phase 3": "color-mix(in oklab, var(--chart-1) 85%, var(--background))",
-  "Phase 4": "var(--chart-1)",
-  Offer: "var(--chart-2)",
-  Denied: "var(--chart-4)",
+// outcomes take the chart scale's green and red. Stage names are
+// `landing.mockup.steps.<key>`.
+type MockStep =
+  | "initialScreen"
+  | "phase2"
+  | "phase3"
+  | "phase4"
+  | "offer"
+  | "denied";
+
+const STEP_COLORS: Record<MockStep, string> = {
+  initialScreen: "color-mix(in oklab, var(--chart-1) 55%, var(--background))",
+  phase2: "color-mix(in oklab, var(--chart-1) 70%, var(--background))",
+  phase3: "color-mix(in oklab, var(--chart-1) 85%, var(--background))",
+  phase4: "var(--chart-1)",
+  offer: "var(--chart-2)",
+  denied: "var(--chart-4)",
 };
 
-const MOCK_CONVERSION = [
-  { name: "Initial Screen", value: 90 },
-  { name: "Phase 2", value: 88 },
-  { name: "Phase 3", value: 85 },
-  { name: "Phase 4", value: 95 },
-  { name: "Offer", value: 35 },
-  { name: "Denied", value: 40 },
+const MOCK_CONVERSION: { name: MockStep; value: number }[] = [
+  { name: "initialScreen", value: 90 },
+  { name: "phase2", value: 88 },
+  { name: "phase3", value: 85 },
+  { name: "phase4", value: 95 },
+  { name: "offer", value: 35 },
+  { name: "denied", value: 40 },
 ];
 
-const MOCK_AVG_DAYS = [
-  { name: "Initial Screen", days: 18 },
-  { name: "Phase 2", days: 18 },
-  { name: "Phase 3", days: 15 },
-  { name: "Phase 4", days: 18 },
-  { name: "Offer", days: 32 },
-  { name: "Denied", days: 38 },
+const MOCK_AVG_DAYS: { name: MockStep; days: number }[] = [
+  { name: "initialScreen", days: 18 },
+  { name: "phase2", days: 18 },
+  { name: "phase3", days: 15 },
+  { name: "phase4", days: 18 },
+  { name: "offer", days: 32 },
+  { name: "denied", days: 38 },
 ];
 
 const MOCK_PLATFORMS = [
@@ -60,6 +71,7 @@ const MOCK_PLATFORMS = [
 // ── Sub-components ──────────────────────────────────────────
 
 function MockTrendChart() {
+  const t = useTranslations("landing.mockup");
   const maxVal = Math.max(...TREND_VALUES);
   const W = 280;
   const H = 64;
@@ -92,7 +104,7 @@ function MockTrendChart() {
     >
       <div className="mb-1.5 flex items-center justify-between">
         <span className="font-display text-[9px] font-semibold text-foreground">
-          Application Trend
+          {t("trend")}
         </span>
         <div className="flex items-center gap-1 text-primary">
           <TrendingUp className="h-2.5 w-2.5" />
@@ -207,6 +219,7 @@ function MockTrendChart() {
 }
 
 function MockConversionChart() {
+  const t = useTranslations("landing.mockup");
   const maxVal = 120;
   const yLabels = [120, 90, 60, 30, 0];
   const W = 160;
@@ -220,7 +233,7 @@ function MockConversionChart() {
       style={{ animationDelay: "1000ms" }}
     >
       <span className="font-display text-[8px] font-semibold text-foreground">
-        Step Conversion
+        {t("conversion")}
       </span>
       <div className="mt-1.5 flex gap-1">
         {/* Y-axis */}
@@ -282,7 +295,7 @@ function MockConversionChart() {
             style={{ gap: `${gap}px` }}
           >
             {MOCK_CONVERSION.map((s) => {
-              const parts = s.name.split(" ");
+              const parts = t(`steps.${s.name}`).split(" ");
               return (
                 <div
                   key={s.name}
@@ -308,6 +321,7 @@ function MockConversionChart() {
 }
 
 function MockAvgDaysChart() {
+  const t = useTranslations("landing.mockup");
   const xLabels = [0, 10, 20, 30, 40];
 
   return (
@@ -316,13 +330,13 @@ function MockAvgDaysChart() {
       style={{ animationDelay: "1100ms" }}
     >
       <span className="font-display text-[8px] font-semibold text-foreground">
-        Avg Days / Step
+        {t("avgDays")}
       </span>
       <div className="mt-2 space-y-1.5">
         {MOCK_AVG_DAYS.map((s) => (
           <div key={s.name} className="flex items-center gap-1.5">
             <span className="w-10 shrink-0 truncate text-right text-[5.5px] leading-none text-muted-foreground">
-              {s.name}
+              {t(`steps.${s.name}`)}
             </span>
             <div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted">
               <div
@@ -349,13 +363,15 @@ function MockAvgDaysChart() {
 }
 
 function MockPlatformBreakdown() {
+  const t = useTranslations("landing.mockup");
+  const format = useFormatter();
   return (
     <div
       className="animate-fade-in-up rounded-lg border border-border/40 bg-background/50 p-2.5"
       style={{ animationDelay: "1200ms" }}
     >
       <span className="font-display text-[8px] font-semibold text-foreground">
-        By Platform
+        {t("byPlatform")}
       </span>
       <div
         className="mt-1.5 space-y-1"
@@ -371,7 +387,11 @@ function MockPlatformBreakdown() {
               {p.count}
             </span>
             <span className="w-4 shrink-0 text-right font-numeric text-[6px] text-muted-foreground">
-              {p.pct.toFixed(1)}%
+              {format.number(p.pct / 100, {
+                style: "percent",
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}
             </span>
             <div className="h-0.5 w-6 overflow-hidden rounded-full bg-muted">
               <div
@@ -387,6 +407,7 @@ function MockPlatformBreakdown() {
 }
 
 function MockActiveVsPassive() {
+  const t = useTranslations("landing.mockup");
   const cx = 18,
     cy = 18,
     R = 14,
@@ -422,7 +443,7 @@ function MockActiveVsPassive() {
       style={{ animationDelay: "1300ms" }}
     >
       <span className="font-display text-[8px] font-semibold text-foreground">
-        Active vs Passive
+        {t("activeVsPassive")}
       </span>
       <div className="mt-2 flex items-center justify-center gap-3">
         <svg viewBox="0 0 36 36" className="h-14 w-14 shrink-0">
@@ -440,11 +461,15 @@ function MockActiveVsPassive() {
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-1">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-            <span className="text-[6px] text-muted-foreground">Active</span>
+            <span className="text-[6px] text-muted-foreground">
+              {t("active")}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground" />
-            <span className="text-[6px] text-muted-foreground">Passive</span>
+            <span className="text-[6px] text-muted-foreground">
+              {t("passive")}
+            </span>
           </div>
         </div>
       </div>
@@ -455,6 +480,8 @@ function MockActiveVsPassive() {
 // ── Main export ─────────────────────────────────────────────
 
 export function DashboardMockup() {
+  const t = useTranslations("landing.mockup");
+  const format = useFormatter();
   return (
     <div className="relative animate-fade-in-up stagger-4">
       <div className="absolute -inset-8 rounded-3xl bg-primary/5 blur-3xl dark:bg-primary/8" />
@@ -487,17 +514,22 @@ export function DashboardMockup() {
           <div className="grid grid-cols-5 gap-1.5">
             {MOCK_STATS.map((s, i) => (
               <div
-                key={s.label}
+                key={s.key}
                 className="animate-fade-in-up rounded-lg border border-border/40 bg-background/50 p-2"
                 style={{ animationDelay: `${500 + i * 70}ms` }}
               >
                 <span className="block font-display text-[7px] leading-none font-medium tracking-wide-label text-muted-foreground">
-                  {s.label}
+                  {t(`stats.${s.key}`)}
                 </span>
                 <p
                   className={`mt-0.5 font-numeric text-base leading-tight font-bold ${s.color}`}
                 >
-                  {s.value}
+                  {"rate" in s
+                    ? format.number(s.value, {
+                        style: "percent",
+                        minimumFractionDigits: 1,
+                      })
+                    : format.number(s.value)}
                 </p>
               </div>
             ))}

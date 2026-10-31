@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { CircleAlert, LoaderCircle } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 
@@ -26,11 +27,6 @@ export const EMPTY_BORDERLESS_CREDENTIALS: BorderlessCredentialsValues = {
   password: "",
 };
 
-export const BORDERLESS_CREDENTIALS_COPY = {
-  emailLabel: "Email",
-  passwordLabel: "Password",
-} as const;
-
 export interface BorderlessCredentialFieldsProps {
   form: UseFormReturn<BorderlessCredentialsValues>;
   autoFocus?: "email" | "password";
@@ -41,6 +37,7 @@ export function BorderlessCredentialFields({
   form,
   autoFocus,
 }: BorderlessCredentialFieldsProps) {
+  const t = useTranslations("auth.credentials");
   return (
     <>
       <FormField
@@ -48,7 +45,7 @@ export function BorderlessCredentialFields({
         name="email"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>{BORDERLESS_CREDENTIALS_COPY.emailLabel}</FormLabel>
+            <FormLabel>{t("emailLabel")}</FormLabel>
             <FormControl>
               <Input
                 {...field}
@@ -71,7 +68,7 @@ export function BorderlessCredentialFields({
         name="password"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>{BORDERLESS_CREDENTIALS_COPY.passwordLabel}</FormLabel>
+            <FormLabel>{t("passwordLabel")}</FormLabel>
             <FormControl>
               <Input
                 {...field}

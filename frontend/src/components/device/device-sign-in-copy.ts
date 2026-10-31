@@ -11,36 +11,11 @@ export type DeviceOutcomeKind = "approved" | "denied";
 
 export const USER_CODE_LENGTH = 8;
 
-export const DEVICE_SIGN_IN_COPY = {
-  title: "Sign in a device",
-  lead: "Enter the code your terminal shows. You'll see which device is asking before you approve it.",
-  codeLabel: "Device code",
-  codeHint: "8 letters, shown in your terminal as XXXX-XXXX.",
-  codePlaceholder: "XXXX-XXXX",
-  incomplete: "Enter all 8 letters of the code.",
-  continue: "Continue",
-  requestTitle: "A device wants to sign in",
-  requestLead: "Check that these details match the device you are signing in.",
-  terms: {
-    code: "Code",
-    device: "Device",
-    client: "Client",
-    ip: "IP address",
-    requested: "Requested",
-    expires: "Code expires",
-  },
-  notRecorded: "Not recorded",
-  warning: "Only approve if you started this sign-in yourself",
-  warningDetail: "If someone sent you this code or link, deny it.",
-  approve: "Approve",
-  deny: "Deny",
-  differentCode: "Use a different code",
-  approved: "Device signed in. You can return to your terminal.",
-  seeDevices: "See your devices",
-  devicesHref: "/profile?tab=devices",
-  denied: "Sign-in denied. The device was not signed in.",
-  anotherCode: "Enter another code",
-} as const;
+/**
+ * Where "See your devices" leads. The screens' words are the `device.*`
+ * messages (`device.terms.*` for the request card's labels).
+ */
+export const DEVICES_HREF = "/profile?tab=devices";
 
 /** Uppercase, letters and digits only, a dash after the fourth; the server normalizes too. */
 export function normalizeUserCode(raw: string): string {

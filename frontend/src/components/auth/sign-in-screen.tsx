@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import { ExternalLink, KeyRound, SquareTerminal } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 
@@ -14,20 +15,21 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Form } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
+import { liveCopy } from "@/i18n/translator";
 
-export const SIGN_IN_COPY = {
-  title: "Sign in to applika",
-  cliTitle: "Sign in to applika-cli",
-  lead: "Use your Borderless email and password.",
-  cliCommand: "applika login",
-  submit: "Sign in",
-  passwordHint:
-    "Joined Borderless through another sign-in provider? Set a password on Borderless first, then sign in here.",
-  noAccount: "No Borderless account yet?",
-  createAccount: "Create a Borderless account",
-  opensInNewTab: "Opens in a new tab.",
-  cliExpiredHint: "Run applika login in your terminal again.",
-} as const;
+/** The sign-in screen's words (`auth.signIn.*`), in the active language. */
+export const SIGN_IN_COPY = liveCopy("auth.signIn", [
+  "title",
+  "cliTitle",
+  "lead",
+  "cliCommand",
+  "submit",
+  "passwordHint",
+  "noAccount",
+  "createAccount",
+  "opensInNewTab",
+  "cliExpiredHint",
+]);
 
 export type SignInMode = "web" | "cli";
 
@@ -58,6 +60,7 @@ export function SignInScreen({
   createAccountHref,
   autoFocus = true,
 }: SignInScreenProps) {
+  const t = useTranslations("auth.signIn");
   const titleId = useId();
   const newTabId = useId();
   const cli = mode === "cli";
@@ -71,11 +74,11 @@ export function SignInScreen({
   };
 
   return (
-    <div className="noise-overlay relative flex min-h-viewport items-center justify-center bg-background p-4">
+    <div className="noise-overlay relative flex min-h-viewport items-center justify-center bg-background p-4 pt-18 md:pt-4">
       <div aria-hidden className="absolute inset-0 gradient-mesh" />
       <div aria-hidden className="absolute inset-0 dot-grid opacity-30" />
 
-      <div className="absolute top-4 right-4 z-10">
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
         <ThemeToggle />
       </div>
 
@@ -93,10 +96,10 @@ export function SignInScreen({
             id={titleId}
             className="mt-4 text-center font-display text-2xl font-bold tracking-tight-display text-balance text-foreground"
           >
-            {cli ? SIGN_IN_COPY.cliTitle : SIGN_IN_COPY.title}
+            {cli ? t("cliTitle") : t("title")}
           </h1>
           <p className="mt-2 text-center text-sm text-foreground/70">
-            {SIGN_IN_COPY.lead}
+            {t("lead")}
           </p>
 
           {cli ? (
@@ -109,11 +112,14 @@ export function SignInScreen({
                 className="mt-0.5 size-4 shrink-0 text-foreground/70"
               />
               <span className="min-w-0">
-                This sign-in completes{" "}
-                <code className="rounded-sm bg-background/70 px-1 py-px font-mono text-[0.8125rem] whitespace-nowrap">
-                  {SIGN_IN_COPY.cliCommand}
-                </code>{" "}
-                in your terminal.
+                {t.rich("cliNote", {
+                  command: t("cliCommand"),
+                  code: (chunks) => (
+                    <code className="rounded-sm bg-background/70 px-1 py-px font-mono text-[0.8125rem] whitespace-nowrap">
+                      {chunks}
+                    </code>
+                  ),
+                })}
               </span>
             </p>
           ) : null}
@@ -142,7 +148,7 @@ export function SignInScreen({
                 size="lg"
                 className="mt-5 h-11 w-full font-display text-base font-semibold glow-primary"
               >
-                {SIGN_IN_COPY.submit}
+                {t("submit")}
               </PendingSubmitButton>
             </form>
           </Form>
@@ -152,13 +158,13 @@ export function SignInScreen({
             className="mt-4 flex items-start gap-2 text-[0.8125rem] leading-5 text-foreground/70"
           >
             <KeyRound aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-            <span className="min-w-0">{SIGN_IN_COPY.passwordHint}</span>
+            <span className="min-w-0">{t("passwordHint")}</span>
           </p>
 
           <Separator className="my-6" />
 
           <p className="text-center text-sm text-foreground/70">
-            {SIGN_IN_COPY.noAccount}{" "}
+            {t("noAccount")}{" "}
             <a
               href={createAccountHref}
               target="_blank"
@@ -167,11 +173,11 @@ export function SignInScreen({
               data-slot="create-borderless-account"
               className="inline-flex items-center gap-1 rounded-sm font-medium text-foreground underline decoration-primary/60 underline-offset-4 outline-none hover:decoration-primary focus-visible:ring-[3px] focus-visible:ring-ring/50"
             >
-              {SIGN_IN_COPY.createAccount}
+              {t("createAccount")}
               <ExternalLink aria-hidden className="size-3.5" />
             </a>
             <span id={newTabId} className="sr-only">
-              {SIGN_IN_COPY.opensInNewTab}
+              {t("opensInNewTab")}
             </span>
           </p>
         </div>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Fragment, useId } from "react";
+import { useTranslations } from "next-intl";
 import { isNavItemActive, type NavItem } from "./nav";
 import { BetaBadge } from "@/components/features/beta-badge";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,8 @@ export function SidebarNav({
   // two SidebarNavs render at once. A shared id would be duplicate HTML and
   // would point the sheet's `aria-describedby` at the hidden rail's copy.
   const uid = useId();
+  // Subscribes: the entries' labels are getters over `nav.*`.
+  const t = useTranslations("nav");
   /**
    * Id of a group's label. The label is NOT `aria-hidden`: with the old amber
    * treatment gone, the group name is the only thing that marks an entry as
@@ -41,7 +44,7 @@ export function SidebarNav({
 
   return (
     <nav
-      aria-label="Primary"
+      aria-label={t("primary")}
       className={cn("flex flex-col gap-0.5", className)}
     >
       {items.map((item, index) => {

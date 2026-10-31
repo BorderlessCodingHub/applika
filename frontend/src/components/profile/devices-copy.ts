@@ -3,6 +3,7 @@ import type {
   SignInMethod,
   UserSession,
 } from "@/services/types/sessions";
+import { intlLocale } from "@/i18n/intl-locale";
 
 export const DEVICES_COPY = {
   activeTitle: "Active",
@@ -78,16 +79,22 @@ export function sessionEndedAt(session: UserSession): string {
   return session.ended_at ?? session.expires_at;
 }
 
-const DATE_TIME = new Intl.DateTimeFormat("en", {
+const DATE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   month: "short",
   day: "numeric",
   year: "numeric",
   hour: "numeric",
   minute: "2-digit",
-});
+};
 
-/** "Oct 15, 2026, 2:32 PM", in the viewer's zone. */
+/**
+ * "Oct 15, 2026, 2:32 PM" ("15 de out. de 2026, 14:32" in pt-BR), in the
+ * viewer's zone and the active language. A component rendering it subscribes
+ * (`useLocale`), so a switch re-renders the dates.
+ */
 export function formatSessionTime(iso: string): string {
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : DATE_TIME.format(date);
+  return Number.isNaN(date.getTime())
+    ? iso
+    : new Intl.DateTimeFormat(intlLocale(), DATE_TIME_OPTIONS).format(date);
 }

@@ -1,43 +1,36 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { Code2, GitFork } from "lucide-react";
 
+// Each value's words are `landing.openSource.<key>.title|description`.
 const values = [
-  {
-    icon: Code2,
-    title: "Built in the Open",
-    description:
-      "Every line of code is public. Read it, audit it, learn from it — full transparency from day one.",
-  },
-  {
-    icon: GitFork,
-    title: "Community Driven",
-    description:
-      "Feature requests, bug reports, and pull requests are all welcome. Shape the tool you use every day.",
-  },
-];
+  { key: "open", icon: Code2 },
+  { key: "community", icon: GitFork },
+] as const;
 
 export function OpenSourceSection() {
+  const t = useTranslations("landing");
   return (
     <section className="relative border-t border-border/60 bg-card/50">
       <div className="mx-auto max-w-5xl px-4 py-16 md:px-8 md:py-20">
         <div className="mb-14 text-center">
           <p className="mb-2 font-display text-base font-semibold tracking-wide-label text-primary uppercase md:text-lg">
-            Open Source
+            {t("openSourceEyebrow")}
           </p>
           <h3 className="font-display text-2xl font-bold tracking-tight-display text-foreground md:text-3xl">
-            Transparent by design, built for the community
+            {t("openSourceTitle")}
           </h3>
           <p className="mx-auto mt-3 max-w-2xl text-base text-muted-foreground">
-            Applika is fully open source. We believe job seekers deserve tools
-            that respect their privacy and put them in control.
+            {t("openSourceBody")}
           </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           {values.map((v, i) => (
             <div
-              key={v.title}
+              key={v.key}
               className={`group animate-fade-in-up stagger-${i + 1} rounded-xl border border-border/60 bg-surface p-6 shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:border-border-strong/60 hover:bg-surface-elevated hover:shadow-elevated`}
             >
               <div className="mb-4 flex items-center gap-5">
@@ -45,11 +38,11 @@ export function OpenSourceSection() {
                   <v.icon className="h-5 w-5 text-primary" />
                 </div>
                 <h4 className="font-display text-sm font-semibold tracking-tight-display text-foreground md:text-base">
-                  {v.title}
+                  {t(`openSource.${v.key}.title`)}
                 </h4>
               </div>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                {v.description}
+                {t(`openSource.${v.key}.description`)}
               </p>
             </div>
           ))}

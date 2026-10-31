@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { AxiosError } from "axios";
+import { useLocale } from "next-intl";
 
 import { DeviceCodeForm } from "@/components/device/device-code-form";
 import { DeviceOutcome } from "@/components/device/device-outcome";
@@ -13,21 +14,21 @@ import {
   type DeviceOutcomeKind,
 } from "@/components/device/device-sign-in-copy";
 import { DeviceSignInLayout } from "@/components/device/device-sign-in-layout";
+import { word } from "@/i18n/translator";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { services } from "@/services/services";
 import type { DeviceCodeInfo } from "@/services/types/auth";
 
-export const DEVICE_ERROR_FALLBACK = "Something went wrong. Try again.";
-
 /**
  * The error's words by code (404 AUTH-1040 "Code not found or expired", 409
  * AUTH-1041 "Code already used", a 429/503 retry text), else its `detail`;
- * a fixed sentence when the body carries neither (a network error, a 5xx
- * page).
+ * a fixed sentence (`device.errorFallback`) when the body carries neither (a
+ * network error, a 5xx page). All in the active language.
  */
 export function deviceErrorText(error: unknown): string {
-  if (!(error instanceof AxiosError)) return DEVICE_ERROR_FALLBACK;
-  return apiErrorMessage(error.response?.data, DEVICE_ERROR_FALLBACK);
+  const fallback = word("device.errorFallback");
+  if (!(error instanceof AxiosError)) return fallback;
+  return apiErrorMessage(error.response?.data, fallback);
 }
 
 type Step =
@@ -40,6 +41,9 @@ type Step =
  * code, see which device asks (name, client, IP, time), approve or deny.
  */
 export function DevicePage() {
+  // Subscribes: `deviceErrorText` runs during render and reads the active
+  // language, so a switch re-renders the error in the new one.
+  useLocale();
   const searchParams = useSearchParams();
   // Prefilled once from `?code=`; the user still presses Continue.
   const [code, setCode] = useState(() =>

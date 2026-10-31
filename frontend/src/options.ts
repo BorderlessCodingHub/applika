@@ -8,6 +8,7 @@ import {
   CURRENCY_OPTIONS,
   SALARY_PERIOD_OPTIONS,
 } from "@/components/timeline/timeline-options";
+import { word } from "@/i18n/translator";
 
 /**
  * AC9 (R-031): derived from the single source of truth
@@ -24,37 +25,52 @@ const CURRENCY = CURRENCY_OPTIONS.map((option) => ({
 
 const SALARY_PERIOD = SALARY_PERIOD_OPTIONS.map((option) => ({
   value: option.value,
-  label: option.label,
-  sufix: option.suffix,
+  get label() {
+    return option.label;
+  },
+  get sufix() {
+    return option.suffix;
+  },
 })) as { value: SalaryPeriodType; label: string; sufix: string }[];
 
-const SENIORITY = [
-  { value: "intern", label: "Intern" },
-  { value: "junior", label: "Junior" },
-  { value: "mid_level", label: "Mid Level" },
-  { value: "senior", label: "Senior" },
-  { value: "staff", label: "Staff" },
-  { value: "lead", label: "Lead" },
-  { value: "principal", label: "Principal" },
-  { value: "specialist", label: "Specialist" },
-] as { value: SeniorityLevelType; label: string }[];
+/**
+ * An option list whose labels are getters: each read returns the words of the
+ * active language (`options.<group>.<value>`). Components rendering them
+ * subscribe with `useTranslations`, so a switch re-renders them.
+ */
+function liveOptions<V extends string>(group: string, values: readonly V[]) {
+  return values.map((value) => ({
+    value,
+    get label() {
+      return word(`options.${group}.${value}`);
+    },
+  }));
+}
 
-const AVAILABILITY = [
-  { value: "open_to_work", label: "Open to work" },
-  { value: "casually_looking", label: "Casually looking" },
-  { value: "not_looking", label: "Not looking" },
-] as { value: AvailabilityType; label: string }[];
+const SENIORITY = liveOptions("seniority", [
+  "intern",
+  "junior",
+  "mid_level",
+  "senior",
+  "staff",
+  "lead",
+  "principal",
+  "specialist",
+] as const) as { value: SeniorityLevelType; label: string }[];
 
-const WORK_MODE = [
-  { value: "remote", label: "Remote" },
-  { value: "hybrid", label: "Hybrid" },
-  { value: "on_site", label: "On-site" },
-] as const;
+const AVAILABILITY = liveOptions("availability", [
+  "open_to_work",
+  "casually_looking",
+  "not_looking",
+] as const) as { value: AvailabilityType; label: string }[];
 
-const SOURCE = [
-  { value: "active", label: "Active (I applied)" },
-  { value: "passive", label: "Passive (Recruiter contacted me)" },
-] as const;
+const WORK_MODE = liveOptions("workMode", [
+  "remote",
+  "hybrid",
+  "on_site",
+] as const);
+
+const SOURCE = liveOptions("source", ["active", "passive"] as const);
 
 export const SelectOptions = {
   CURRENCY,

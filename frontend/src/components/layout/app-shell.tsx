@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { AppLogo } from "@/components/app-logo";
 import { CliPromoBanner } from "@/components/cli-promo-banner";
 import { FeedbackDialog } from "@/components/applications/feedback-dialog";
@@ -48,6 +49,7 @@ export function AppShell({
   headerActions,
   className,
 }: AppShellProps) {
+  const t = useTranslations("header");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const mobileNavTriggerRef = useRef<HTMLButtonElement>(null);
@@ -107,15 +109,15 @@ export function AppShell({
               mobileNavTriggerRef.current?.focus();
             }}
           >
-            <SheetTitle className="sr-only">Navigation</SheetTitle>
+            <SheetTitle className="sr-only">{t("navigation")}</SheetTitle>
             <SheetDescription className="sr-only">
-              Primary navigation and account menu.
+              {t("navigationDescription")}
             </SheetDescription>
 
             <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-sidebar-border bg-sidebar px-4">
               <Link
                 href="/dashboard"
-                aria-label="Applika.dev home"
+                aria-label={t("home")}
                 onClick={closeMobileNav}
                 className="min-w-0 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50"
               >
@@ -126,7 +128,7 @@ export function AppShell({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label="Close navigation menu"
+                  aria-label={t("closeNavigation")}
                   className="shrink-0"
                 >
                   <X className="size-4" />

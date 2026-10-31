@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, History } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   Select,
   SelectButton,
@@ -28,6 +29,7 @@ import { cn } from "@/lib/utils";
 const MIN_APPLICATIONS_FOR_CYCLE = 10;
 
 export function CycleSelector({ className }: { className?: string }) {
+  const t = useTranslations("cycleSelector");
   const { selectedCycleId, setSelectedCycleId } = useCycleContext();
   const { data: cycles } = useCycles();
   const { data: stats } = useGeneralStats();
@@ -65,7 +67,7 @@ export function CycleSelector({ className }: { className?: string }) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="current">Current Cycle</SelectItem>
+            <SelectItem value="current">{t("current")}</SelectItem>
             {(cycles || []).map((cycle) => (
               <SelectItem key={cycle.id} value={cycle.id}>
                 {cycle.name}
@@ -77,7 +79,7 @@ export function CycleSelector({ className }: { className?: string }) {
                 onClick={() => setDialogOpen(true)}
               >
                 <Plus className="h-4 w-4" />
-                New Cycle
+                {t("new")}
               </SelectButton>
             )}
           </SelectContent>
@@ -88,17 +90,15 @@ export function CycleSelector({ className }: { className?: string }) {
         <DialogContent className="sm:max-w-md">
           <form onSubmit={handleSubmit}>
             <DialogHeader>
-              <DialogTitle>Start a New Cycle</DialogTitle>
+              <DialogTitle>{t("dialogTitle")}</DialogTitle>
               <DialogDescription className="text-justify">
-                All current applications and reports will be permanently
-                archived under a named cycle. This action cannot be undone, but
-                the archived data will only be available for viewing.
+                {t("dialogDescription")}
               </DialogDescription>
             </DialogHeader>
 
             <div className="py-4">
               <Input
-                placeholder="e.g. Q1 2026, Job Search Round 2..."
+                placeholder={t("namePlaceholder")}
                 value={cycleName}
                 onChange={(e) => setCycleName(e.target.value)}
                 autoFocus
@@ -111,13 +111,13 @@ export function CycleSelector({ className }: { className?: string }) {
                 variant="outline"
                 onClick={() => setDialogOpen(false)}
               >
-                Cancel
+                {t("cancel")}
               </Button>
               <Button
                 type="submit"
                 disabled={!cycleName.trim() || createCycle.isPending}
               >
-                {createCycle.isPending ? "Creating..." : "Start Cycle"}
+                {createCycle.isPending ? t("creating") : t("start")}
               </Button>
             </DialogFooter>
           </form>
