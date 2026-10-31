@@ -185,13 +185,13 @@ Use cases encapsulate business operations:
 See `app/application/use_cases/applications/create_application.py` for reference.
 
 ### Authentication
-- **Borderless is the only sign-in** (ADR-0024). `POST /auth/borderless/signin` `{email, password}` checks the credentials with Borderless from the server (`BorderlessClient`, `app/application/services/borderless_client.py`, httpx; `POST {BORDERLESS_API_URL}/api/auth/signin` → `data.user.*`, `data.token.accessToken`/`expiresIn`; no refresh token). The password is never stored or logged; the Borderless token is stored encrypted (`borderless_accounts.encrypted_access_token`, `encrypt_borderless_token`, `BORDERLESS_TOKEN_ENCRYPTION_KEY`) and never leaves the server. `BorderlessSignInUseCase` (`use_cases/borderless/sign_in.py`): per-email failure counter `applika:borderless:signin:<sha256(lower email)>` (`BORDERLESS_SIGNIN_EMAIL_LIMIT` in `…_WINDOW_SECONDS`, checked before the call, fail open) → 429; Borderless 401 → 401 "Invalid email or password"; 429 → 429 + `Retry-After`; 5xx/timeout (one retry) → 503 "Borderless is unavailable, try again later"; unset URL or key → 503 "Borderless sign-in is not configured"; unverified email → 403 `email_unverified`. Resolution: the account bound to the Borderless id; else the account whose email equals the Borderless email ignoring case (exact spelling first; bound to another id → 409 `binding_conflict`; several, none exact → 409 `email_ambiguous`), bound now; else a new account. With no binding, a Borderless email over 100 characters (once normalized by `UserCreateDTO`) or refused by `UserCreateDTO` → 422 `email_unusable` before any write (not counted by the limiter). A binding never moves on sign-in. Web branch: ends the browser's session `replaced`, opens a `borderless` session, sets both cookies, answers `{redirect_to: null, new_account}`; with the `__cli_login` marker it answers `redirect_to` (the CLI's loopback/oob URL with a one-use code, `cli_handoff_redirect` in `api/oauth.py`), no cookie, the browser's own session untouched
+- **Borderless is the only sign-in** (ADR-0024). `POST /auth/borderless/signin` `{email, password}` checks the credentials with Borderless from the server (`BorderlessClient`, `app/application/services/borderless_client.py`, httpx; `POST {BORDERLESS_API_URL}/api/auth/signin` → `data.user.*`, `data.token.accessToken`/`expiresIn`; no refresh token). The password is never stored or logged; the Borderless token is stored encrypted (`borderless_accounts.encrypted_access_token`, `encrypt_borderless_token`, `BORDERLESS_TOKEN_ENCRYPTION_KEY`) and never leaves the server. `BorderlessSignInUseCase` (`use_cases/borderless/sign_in.py`): per-email failure counter `applika:borderless:signin:<sha256(lower email)>` (`BORDERLESS_SIGNIN_EMAIL_LIMIT` in `…_WINDOW_SECONDS`, checked before the call, fail open) → 429; Borderless 401 → 401 "Invalid email or password"; 429 → 429 + `Retry-After`; 5xx/timeout (one retry) → 503 "Borderless is unavailable, try again later"; unset URL or key → 503 "Borderless sign-in is not configured"; unverified email → 403 AUTH-1005 (was `email_unverified`). Resolution: the account bound to the Borderless id; else the account whose email equals the Borderless email ignoring case (exact spelling first; bound to another id → 409 AUTH-1006 (was `binding_conflict`); several, none exact → 409 AUTH-1007 (was `email_ambiguous`)), bound now; else a new account. With no binding, a Borderless email over 100 characters (once normalized by `UserCreateDTO`) or refused by `UserCreateDTO` → 422 AUTH-1008 (was `email_unusable`) before any write (not counted by the limiter). A binding never moves on sign-in. Web branch: ends the browser's session `replaced`, opens a `borderless` session, sets both cookies, answers `{redirect_to: null, new_account}`; with the `__cli_login` marker it answers `redirect_to` (the CLI's loopback/oob URL with a one-use code, `cli_handoff_redirect` in `api/oauth.py`), no cookie, the browser's own session untouched
 - **Membership badges** (`user_badges`, `BadgeKey` `borderless_base`|`borderless_psp`, history kept: revoking sets `revoked_at`). `RefreshBadgesUseCase` (`use_cases/borderless/refresh_badges.py`, never raises) runs at every sign-in, confirmation and refresh: binding `needs_reconnect` or expired → no call, nothing written; token no longer decrypts → `needs_reconnect`; `GET /api/users/profile` 200 → `data.user.membership` (only that path, ignoring case: BASE/PSP, else none) applied by `UserBadgeRepository.apply` (at most one live badge); 401/403 → `needs_reconnect`, rows kept; slow/failing/429 → `profile_read_failed_at`, rows kept. `badge_access(binding, live_badges)` (`use_cases/borderless/badge_access.py`) is the ONE rule: held = live row AND binding `active` AND `access_token_expires_at > now`. `data.user.github` is never read
-- **Confirm** (`POST /auth/borderless/confirm`, signed in): same credential check, must be the Borderless account already bound (else 409 `binding_conflict`), renews the token + expiry, `status = active`, reads the membership. 204; no session row, no Redis session write, no cookie
+- **Confirm** (`POST /auth/borderless/confirm`, signed in): same credential check, must be the Borderless account already bound (else 409 AUTH-1010, was `binding_conflict`), renews the token + expiry, `status = active`, reads the membership. 204; no session row, no Redis session write, no cookie
 - **One session per sign-in, one device** (KODI-057, ADR-0019). A session is a `user_sessions` row (`UserSessionModel`: device name, client, sign-in method, sign-in/last IP, granted, last used, `expires_at`, `ended_at` + `end_reason`; ended rows stay) plus two Redis keys on `REDIS_URL` (the rate limiter's instance), both `EXAT expires_at`: `applika:session:<uuid7>` → the session id, and `applika:session:id:<sid>` hash `{rk, user_id, last_used_at, last_ip}`. `SessionStore` (`app/application/services/session_store.py`) is the only code that touches them. **A missing key means the session has ended.** The refresh value is never stored in Postgres (not even hashed), never logged and never listed
 - **Access token**: short-lived JWT, payload `{sub: users.id, sid: <user_sessions.id as string>, kind: 'access', exp}`. The web sends it in the HTTP-only `__access` cookie; `applika-cli` 1.1.0+ sends `Authorization: Bearer`. `get_current_user()` reads **Bearer first, then the cookie**, else 401 `Not authenticated`
 - **Refresh value**: a random `uuid.uuid7()`, in the HTTP-only `__refresh` cookie (web and CLIs 0.1.4–1.0.1) or the CLI's own store (1.1.0). Never rotated
-- **The check on every signed-in request** (`GetCurrentUserUseCase`): JWT decode first (bad/expired → 401 as before); no `sid`, a session whose key is gone, or a `sub` that is not the session's `user_id` (every pre-ADR-0024 token carried a GitHub id) → 401 `Session expired`; otherwise one Lua script (EXISTS → HSET `last_used_at`, `last_ip`) under `asyncio.timeout(0.5)`. Sets `request.state.session_id` (`CurrentSessionIdDp`). **Fail closed**: a `RedisError`, `OSError` or timeout raises `SessionServiceUnavailable` → 503 `{"detail": "Session service unavailable"}` + `Retry-After: 5`; the request never passes unchecked and nobody is signed out (a 401 would send every client to refresh). The GitHub restore callback runs the same check on its cookie
+- **The check on every signed-in request** (`GetCurrentUserUseCase`): JWT decode first (bad/expired → 401 as before); no `sid`, a session whose key is gone, or a `sub` that is not the session's `user_id` (every pre-ADR-0024 token carried a GitHub id) → 401 `Session expired`; otherwise one Lua script (EXISTS → HSET `last_used_at`, `last_ip`) under `asyncio.timeout(0.5)`. Sets `request.state.session_id` (`CurrentSessionIdDp`). **Fail closed**: a `RedisError`, `OSError` or timeout raises `SessionServiceUnavailable` → 503 `{"detail": "Session service unavailable", "code": "AUTH-1003"}` + `Retry-After: 5`; the request never passes unchecked and nobody is signed out (a 401 would send every client to refresh). The GitHub restore callback runs the same check on its cookie
 - **Sliding lifetime**: a session ends `REFRESH_TOKEN_EXPIRE_DAYS` (7) after its **last refresh**. `GET /auth/refresh` and the `refresh_token` grant resolve the uuid7; a user with no Borderless binding ends the session `expired`, 401 `Sign in again with Borderless`; otherwise read the membership (`RefreshBadgesUseCase`, `BORDERLESS_REFRESH_TIMEOUT_SECONDS`, never fails the refresh), then `EXPIREAT` both keys and `expires_at` a full window ahead and copy the live last use onto the row. `/auth/refresh` re-sets `__access` (new JWT, same `sid`) **and** `__refresh` (same value, full Max-Age); a refused refresh is 401 and clears both cookies, a 503 clears nothing
 - **Ending a session** (`EndSessionUseCase`): DEL both keys, then set `ended_at` + `end_reason` (`logout` = `GET /auth/logout` / `POST /auth/revoke`, `revoked` = Devices tab, `replaced` = a new web sign-in in the same browser; `github_revoked` stays only on rows ended before ADR-0024) and copy the live last use. Only a live session ends; an ended row, a row past `expires_at` or one whose key is gone is a no-op (it already reads as ended/expired). `DELETE /users/me` DELs every open session's keys before the user goes (rows by CASCADE)
 - **Cutover** (the release that ships KODI-057): nothing reads `applika:refresh_token:*` any more and a JWT without `sid` is 401, so every web and CLI user signs in again; the old keys die on their TTL
@@ -209,11 +209,35 @@ See `app/application/use_cases/applications/create_application.py` for reference
 - `users.github_restore_prompt_seen_at`: `github_restore.prompt` on `/users/me` is "no GitHub row and not seen"; `POST /users/me/github-restore/dismiss` marks it
 
 ### Reports and webhooks (ADR-0024)
-- `/reports*` carry `RequireReportsBadgeDp`: no live badge → 403 `{detail: "Reports are for Borderless BASE and PSP members", code: "badge_required"}` (administrators included); a live badge that does not count → 403 `{detail: "Sign in again to confirm your membership", code: "membership_unconfirmed"}`. Reports are never deleted; they come back when the badge counts again. No beta gate (ADR-0024 §9)
+- `/reports*` carry `RequireReportsBadgeDp`: no live badge → 403 `{detail: "Reports are for Borderless BASE and PSP members", code: "RPT-1001"}` (was `badge_required`) (administrators included); a live badge that does not count → 403 `{detail: "Sign in again to confirm your membership", code: "RPT-1002"}` (was `membership_unconfirmed`). Reports are never deleted; they come back when the badge counts again. No beta gate (ADR-0024 §9)
 - `ResolveReportWebhooksUseCase` → the URLs of every `report_webhooks` row holding a badge the author holds (`report_webhook_badges`), each address once, oldest first; a webhook holding both is reached by either member; a webhook with no badge receives nothing. `SubmitReportUseCase` saves first, answers 201 whatever the webhooks answer
 - `DiscordService.post_report_message(message, webhook_url=None)` posts `{"content", "allowed_mentions": {"parse": []}}`: report and feedback posts carry `@<username>` and mention nobody. Feedback posts to `DISCORD_FEEDBACK_WEBHOOK`
 
 ### Exception Handling
+**Every error answer carries a numbered code (ADR-0025).** The body is
+`{"detail": <unchanged English message>, "code": "<AREA>-<NNNN>"}`, plus
+`"params"` only when the message names a value; the status and headers are
+the API's own. `ErrorCode` (`app/core/error_codes.py`, a `StrEnum`) is the
+registry and `docs/error-codes.md` the catalog (one row per member, in enum
+order: code, status, detail, params, description, raised by). The web
+translates the code; `detail` stays for installed CLIs and old web bundles.
+- Every domain exception takes its code: `UnicornException(message, code,
+  params=None)`; `exc.body()` builds the JSON. One member is one error; the
+  same error raised at two sites shares one member. A shipped code is never
+  reused, renumbered or redefined.
+- **A new error adds, in the same change**: the `ErrorCode` member (next free
+  number in its area), its `docs/error-codes.md` row, and its `en` and
+  `pt-BR` web messages. `tests/unit/test_error_codes.py` checks enum ==
+  catalog and that every params code sends exactly its catalog params.
+- `params` only when `detail` names a value (a wait, a count, a limit, a date,
+  a name): `params={'seconds': n}` etc., ints or strings (Snowflake ids as
+  strings). Data text (adjustments, device labels, `last_run_error`, CV
+  exports) is never an error and carries no code.
+- Never raise FastAPI's `HTTPException`: raise a domain exception with its
+  code. Inline error bodies (`/auth/refresh`'s refused refresh, the sign-in's
+  "CLI login expired", the rate limiter, `NoInputEchoRoute`) build the same
+  shape by hand.
+
 Domain exceptions in `app/core/exceptions.py`:
 - `ResourceNotFound` → 404
 - `ResourceConflict` → 409
@@ -221,14 +245,14 @@ Domain exceptions in `app/core/exceptions.py`:
 - `BusinessRuleViolation` → 422 (among others: an application archived in a cycle)
 - `InvalidDate` → 422
 - `ForbiddenAccess` → 403
-- `PdfRenderFailed` → 500
-- `ServiceUnavailable` → 503 (KODI-046: the background worker's queue cannot be reached, `POST /admin/jobs/runs` → "Background service unavailable")
-- `SessionServiceUnavailable(ServiceUnavailable)` → 503 `{"detail": "Session service unavailable"}` + `Retry-After: 5` (KODI-057: the session store cannot be reached, on every signed-in route, the GitHub callback, `/auth/refresh`, `/auth/logout` with a `__refresh` cookie, `/auth/token`, `/auth/revoke`, `/auth/device/*`; a sign-in that fails here leaves no `user_sessions` row)
-- `InvalidSession` → 401 `{detail}` (KODI-057: a refresh value that resolves to no live session)
-- `OAuthError` → 400 `{"error": <RFC 6749/8628 code>, "detail"}` (KODI-057: `POST /auth/token`)
-- `InvalidRequest` → 400 `{detail}` (KODI-057: a bad PKCE method or challenge on `/auth/cli/authorize`)
-- `CodedRefusal` → its own status, `{detail, code?}` and headers (ADR-0024): `InvalidCredentials` 401, `EmailUnverified` 403 `email_unverified`, `BindingConflict` 409 `binding_conflict`, `EmailAmbiguous` 409 `email_ambiguous`, `EmailUnusable` 422 `email_unusable`, `SignInRateLimited` 429 + `Retry-After`, `BadgeRequired` 403 `badge_required`, `MembershipUnconfirmed` 403 `membership_unconfirmed`
-- `NotImplementedError` → 501
+- `PdfRenderFailed`, `CVExportFailed` → 500
+- `ServiceUnavailable` → 503 (the background worker's queue, Borderless, GitHub restore not configured, device codes)
+- `SessionServiceUnavailable(ServiceUnavailable)` → 503 `{"detail": "Session service unavailable", "code": "AUTH-1003"}` + `Retry-After: 5` (the session store cannot be reached, on every signed-in route, the GitHub callback, `/auth/refresh`, `/auth/logout` with a `__refresh` cookie, `/auth/token`, `/auth/revoke`, `/auth/device/*`; a sign-in that fails here leaves no `user_sessions` row)
+- `InvalidSession` → 401 (every refusal of the signed-in check - `Not authenticated` AUTH-1001, `Session expired` AUTH-1002, a bad or expired token - and a refresh value that resolves to no live session)
+- `OAuthError` → 400 `{"error": <RFC 6749/8628 code>, "detail", "code"}` (`POST /auth/token`)
+- `InvalidRequest` → 400 (a bad PKCE method or challenge, a bad CLI callback URL, a report start date)
+- `CodedRefusal` → its own status and headers: `InvalidCredentials` 401 AUTH-1004, `EmailUnverified` 403 AUTH-1005, `BindingConflict` 409 AUTH-1006 (AUTH-1010 on confirm), `EmailAmbiguous` 409 AUTH-1007, `EmailUnusable` 422 AUTH-1008, `SignInRateLimited` 429 AUTH-1009 + `Retry-After` + `params.seconds`, `BadgeRequired` 403 RPT-1001, `MembershipUnconfirmed` 403 RPT-1002
+- Framework errors (`handlers.py`): Starlette's 404 GEN-1001, 405 GEN-1002, body parse 400 GEN-1007 (headers kept); every `RequestValidationError` 422 GEN-1003 with FastAPI's list unchanged; `NotImplementedError` 501 GEN-1006; any unhandled exception 500 `{"detail": "Internal Server Error", "code": "GEN-1005"}` (JSON, was plain text)
 
 Handlers registered in `app/presentation/handlers.py` via `register_handlers(app)`.
 
@@ -496,9 +520,9 @@ is hidden from everyone, admins included (fail closed).
   beta list outside `/admin/features`.
 - **Gate**: `require_feature(FeatureKey.X)` in `dependencies.py`, built on
   `CurrentUserDp` (anonymous gets today's 401 first) and `FeatureRepositoryDp`.
-  Without the feature it raises `ResourceNotFound('Not Found')`, so the body
-  is `{"detail": "Not Found"}` - byte-equal to an unknown route
-  (`NOT_FOUND_DETAIL`). Applied on the **router** when the whole router is
+  Without the feature it raises `ResourceNotFound('Not Found', ErrorCode.GEN_NOT_FOUND)`,
+  so the body is `{"detail": "Not Found", "code": "GEN-1001"}` - byte-equal
+  to an unknown route (`NOT_FOUND_DETAIL`). Applied on the **router** when the whole router is
   gated (`api/jobs.py`, `api/job_searches.py` on `jobs`; `api/base_cv.py`,
   `api/tailored_cv.py`, `api/application_draft.py` on `cvs`), on the
   **route** for a second key inside a gated router (`POST
@@ -603,7 +627,7 @@ middleware ever counts it.
   `RATE_LIMIT_ENABLED` (default `True`) is read on every request, so it
   switches with a restart, no release.
 - **Over the limit**: `429`
-  `{"detail": "Too many requests. Try again in <n> seconds."}` +
+  `{"detail": "Too many requests. Try again in <n> seconds.", "code": "GEN-1004", "params": {"seconds": <n>}}` +
   `Retry-After: <n>` + `X-RateLimit-Limit`/`X-RateLimit-Remaining: 0`/
   `X-RateLimit-Reset: <n>`. The route handler never runs. Under the limit,
   the same three `X-RateLimit-*` headers ride the real answer.

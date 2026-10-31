@@ -342,6 +342,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - No CLI changelog entry: `applika-cli` does not call any of the four
     routes (checked: no `/cv`, `/base-cvs/.../markdown` or `/diff` in
     `cli/src`).
+- every error answer carries `code`, a numbered error code (`AREA-NNNN`, e.g. `APP-1001`), next to its unchanged `detail`; the status and the headers are unchanged. OAuth errors on POST /auth/token keep `error` and add `code` (ADR-0025).
+- `params` on the codes whose message names a value (a wait in seconds, a count, a limit, a date, the name of a conflicting platform or public row), e.g. `{"detail": "Too many requests. Try again in 30 seconds.", "code": "GEN-1004", "params": {"seconds": 30}}`. No other code sends `params`.
+- docs/error-codes.md lists every code with its status, English message, params, description and the route or use case that raises it.
 
 ### Changed
 
@@ -463,6 +466,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     `ResolveReportWebhooksUseCase` gates on `DiscordOAuthService
     .is_configured()` first.
   - No CLI changelog entry: no route, request or response field changes.
+- the six named codes are renumbered, their messages unchanged: `email_unverified` → `AUTH-1005`, `binding_conflict` → `AUTH-1006` (sign-in), `email_ambiguous` → `AUTH-1007`, `email_unusable` → `AUTH-1008`, `badge_required` → `RPT-1001`, `membership_unconfirmed` → `RPT-1002`. The membership confirm's "This is not the Borderless account linked to your applika account" (was `binding_conflict` too) is `AUTH-1010`.
+- an unhandled server error answers JSON `{"detail": "Internal Server Error", "code": "GEN-1005"}` (was a plain-text body with the same words), status 500 unchanged.
+- every validation 422 adds `code` `GEN-1003`; its `detail` list of field errors is unchanged.
 
 ### Removed
 

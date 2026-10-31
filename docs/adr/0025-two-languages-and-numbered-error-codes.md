@@ -94,6 +94,21 @@ amends an Accepted ADR. It makes an exception to ADR-0018.
   - ADR-0015: a dated note for the 429 `code` and `params`.
   - ADR-0019: a dated note for the 503 `code` and for `code` beside OAuth `error`.
 
+- **As-built (2026-10-31, backend codes).** The build follows the Decision; where it is more specific or departs,
+  the owner decided on 2026-10-31:
+  - `binding_conflict` was one name for two errors, so it became two codes (one code per error). Sign-in keeps
+    `AUTH-1006` (409, "This email belongs to an applika account linked to another Borderless account"); the membership
+    confirmation (`POST /auth/borderless/confirm`) gets the new `AUTH-1010` (409, "This is not the Borderless account
+    linked to your applika account"). Statuses and English `detail` do not change. Owner: "Accept AUTH-1010 + ADR note
+    (Recommended)".
+  - `params`, as built (owner: "Accept as built + ADR note (Recommended)"): `GEN-1004` and `AUTH-1009` `seconds`;
+    `AUTH-1035` `grant_type`; `APP-1013` and `APP-1014` `field`, `date`; `CAT-1003` `name`; `CV-1002` and `JOB-1003`
+    `max`; `CYC-1001` `min`, `current`; `ADM-1002` and `ADM-1003` `count`; `ADM-1004` `name`, `url`, `id`; `ADM-1005`
+    `name`, `url`; `ADM-1006` `name`, `id`; `ADM-1007` `name`; `ADM-1017` `max`. No `day`: no error names a report
+    day (the duplicate report, `RPT-1003`, carries no value). The company publish 409 splits into `ADM-1004` (the
+    public row read) and `ADM-1005` (a lost race, the row unreadable); the platform publish 409 into `ADM-1006` and
+    `ADM-1007` the same way. `applika/docs/error-codes.md` lists all 124 codes.
+
 ## Non-goals
 
 - Translating the CLI, the Discord posts or any user content. Translated or changed API messages.
