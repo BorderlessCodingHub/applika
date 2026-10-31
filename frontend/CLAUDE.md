@@ -186,11 +186,11 @@ form exactly once per stack) and `e2e-unverified`.
 `e2e/borderless-signin.spec.ts` (serial): wrong password / unknown email →
 "Invalid email or password"; unverified → "Verify your email on Borderless
 first"; e2e-free → `/welcome` → Start fresh → no chip, no Reports,
-`GET /reports` 403 `badge_required`; the profile restore aborted at
+`GET /reports` 403 `RPT-1001`; the profile restore aborted at
 `github.com` (`scope=read:user`, a `state`); e2e-user's PSP chip;
 `/auth/cli/authorize` → `/login?cli=1` → the loopback URL with `code` and
 `state` (intercepted, never redeemed); e2e-short expired → Reports entry
-kept, the menu and profile prompts, 403 `membership_unconfirmed`, confirm on
+kept, the menu and profile prompts, 403 `RPT-1002`, confirm on
 `/reports` → reports, chip back, sessions unchanged. It never signs a seeded
 user in through the web form (that would add a web session
 `devices.spec.ts` lists). `afterAll` signs e2e-free and e2e-short in through
@@ -337,10 +337,88 @@ retry.
 
 Providers are split into two layers:
 
-- **`RootProviders`** (`src/components/layout/root-providers.tsx`) — wraps the entire app in the root layout. Includes QueryClientProvider, ThemeProvider, AuthProvider, TooltipProvider, and Sonner.
+- **`RootProviders`** (`src/components/layout/root-providers.tsx`) — wraps the entire app in the root layout. Includes QueryClientProvider, `LocaleProvider` (inside the query client, above everything else, so Sonner toasts translate; see **i18n**), ThemeProvider, AuthProvider, TooltipProvider, and Sonner.
 - **`ProtectedProviders`** (`src/components/layout/protected-providers.tsx`) — wraps protected routes only. Adds a nested AuthProvider for protected-scope auth state.
 
 The `(protected)/layout.tsx` wraps children with `ProtectedProviders` + `SupportsProvider` + `CycleProvider`, redirects unauthenticated users to `/login`, and renders everything inside `<AppShell>` (see **App shell** below).
+
+### i18n (ADR-0025, plan 0019)
+
+Two languages, `en` (default) and `pt-BR`. **`next-intl` 4** (`^4.14.9`,
+supports Next 16 and React 19), used client-side only: `NextIntlClientProvider`,
+`useTranslations`, `useFormatter`, `createTranslator`. No next-intl plugin,
+routing or middleware (the site is `output: "export"`); no locale in the URL.
+
+- **`src/i18n/config.ts`**: `LOCALES`, `DEFAULT_LOCALE`, `LOCALE_COOKIE`
+  (`NEXT_LOCALE`), one-year max age, `isLocale`.
+- **`src/i18n/resolve-locale.ts`** (pure): a `NEXT_LOCALE` cookie of exactly
+  `en` or `pt-BR` wins; any other value is ignored; else any
+  `navigator.languages` entry `pt`, `pt-*` gives `pt-BR`; else `en`.
+  `localeCookieString` = `NEXT_LOCALE=<locale>; Path=/; Max-Age=31536000;
+SameSite=Lax` (not HttpOnly; JS writes it).
+- **`src/i18n/locale-provider.tsx`** `LocaleProvider` + `useLocaleSwitch()`
+  (`{locale, setLocale, toggleLocale, isPending}`). Every page renders `en`
+  first (the static HTML), so hydration always matches; the language resolves
+  in an effect after mount (English flash for pt visitors, accepted). A pick
+  writes the cookie (on pick only, never on resolve), swaps the messages in a
+  `useTransition` (`isPending`), sets `<html lang>` and points the translator
+  at the same language. No navigation: the tree stays mounted, typed values
+  stay. Cookies blocked: the pick holds for the page view. `timeZone` is UTC
+  on the prerender and the browser's after hydration.
+- **`src/i18n/load-messages.ts`**: `en.json` is in the main bundle, `pt-BR.json`
+  a lazy chunk fetched once.
+- **`src/i18n/translator.ts`**: a module store for code outside React
+  (`translate`, `hasMessage`); only `LocaleProvider` writes it. It is `en`
+  until the provider resolves, and in tests.
+- **`src/i18n/messages/en.json`, `pt-BR.json`**: same keys, same ICU arguments
+  and rich-text tags (`src/i18n/messages.test.ts`). **`en` values are today's
+  exact English words**, so word-asserting tests and e2e stay green. Portuguese
+  follows the `## Glossary` of `docs/plan/0019-language-switcher-and-error-codes.md`;
+  brand names (Applika, Borderless, GitHub, LinkedIn, BASE, PSP) never change.
+  Namespaces so far: `common` (shared primitives), `header`, `icons`, `auth`,
+  `cookies`, `errors`; the screens add theirs.
+- **Errors by code**: `src/lib/api-error-message.ts` is the one place an API
+  error body becomes words: `errors.<code>` with `params` (ICU) → else the
+  string `detail` (an unknown code, an old API) → else the caller's fallback,
+  by default `errors.unknown`. GEN-1003 (every validation 422) is one line; a
+  `detail` array never reaches the screen. `getApiError`, `getBlobApiError`,
+  `rateLimitNotice` (GEN-1004 / AUTH-1009 with `params.seconds`, else
+  `Retry-After`), `borderlessErrorWords` (`cliLoginExpired` = 400 AUTH-1019)
+  and every former direct `.detail` read (`jobApiDetail`, `safeErrorMessage`,
+  `deviceErrorText`, the admin pages' `serverDetail` / `serverErrorFrom`)
+  go through it, with their signatures unchanged. They read the active
+  language at call time, so a request answering after a switch shows the new
+  language. **Never read `response.data.detail` directly.**
+- **A new error** = an `ErrorCode` member in `backend/app/core/error_codes.py`,
+  plus its row in `docs/error-codes.md`, plus `errors.<CODE>` in both message
+  files (params as ICU args). `messages.test.ts` fails until all three agree.
+- **Render-time text must subscribe**: words computed through the module
+  translator during render do not refresh on a switch on their own. A
+  component that renders them also calls `useTranslations` or `useLocale`
+  (better: use `useTranslations` directly); the error helpers are for event
+  handlers and toasts.
+- **Server components cannot translate**: anything that renders words must be
+  under the client provider (`"use client"`). Page `metadata` stays English.
+- **The switcher**: `components/language-toggle.tsx` `LanguageToggle({ variant:
+"default" | "landing" })`, the Borderless platform's switcher ported whole
+  (raw `RadioGroup` from `radix-ui`, every class in exported constants, flags
+  in `components/icons/flag-us.tsx`, `flag-br.tsx`); `LanguageToggleView` is the
+  presentational half. Ungated (ADR-0025 beta exception): no `FeatureKey`,
+  `useHasFeature` or `FeatureGate`. Mount it outside any `<form>`; in
+  Playwright use `.click()`/`.check()`, not arrow keys.
+- **Dates**: `i18n/date-locale.ts` `dateFnsLocale(locale)`; `ui/date-picker.tsx`
+  and `ui/calendar.tsx` follow `useLocale()`. A date-picker's value keeps its
+  `pattern`, language-free; only the display changes.
+- **Tests**: `src/test/setup.ts` wraps every `render`/`renderHook` in an
+  `en` `NextIntlClientProvider` (a test's own `wrapper` sits inside it) and
+  resets the translator to `en` after each test. To test Portuguese, wrap in
+  `NextIntlClientProvider locale="pt-BR"` or call
+  `setTranslatorLocale("pt-BR", await loadMessages("pt-BR"))`.
+  `playwright.config.ts` pins `use.locale: "en-US"`.
+- **`react/jsx-no-literals`: not adopted yet.** Tried as `warn` (`ignoreProps`)
+  on 2026-10-31: 377 warnings in 80 non-test files while the screens are still
+  English, against a zero-warning lint baseline. Rely on review and the pt-BR
+  e2e sweep; adopt it once the screens are translated and the count is zero.
 
 ### Service Layer & DI
 
@@ -1480,11 +1558,12 @@ linking are gone; nothing in `src/` calls `/auth/github/login` or
   `auth/borderless-credentials.tsx`) over RHF + zod
   (`lib/borderless-credentials-schema.ts`: email 1..100, password 1..200) →
   `services.auth.borderlessSignIn` (`POST /auth/borderless/signin`). Every
-  refusal shows the server's `detail` word for word in
+  refusal shows its message by code in the active language in
   `[data-slot="sign-in-error"]` (`lib/borderless-error.ts`
-  `borderlessErrorWords`: 401, 403 `email_unverified`, 409, 422
-  `email_unusable`, 429 with the wait, 503; a raw 422 array or no body gets a
-  fixed line). A 401 clears and focuses the password. The error box is
+  `borderlessErrorWords`, see **i18n**: 401 AUTH-1004, 403 AUTH-1005, 409
+  AUTH-1006 / AUTH-1007, 422 AUTH-1008, 429 AUTH-1009 with the wait, 503
+  AUTH-1017; an unknown code shows the API's `detail`; GEN-1003 is one line;
+  no body gets a fixed line). `en` repeats the API's words exactly. A 401 clears and focuses the password. The error box is
   always mounted with `role="alert"`, so `getByRole("alert")` finds it empty —
   assert the slot or the words. "Sign in" is in the h1, the button and the
   hint: Playwright needs `exact: true`. "Create a Borderless account" opens
@@ -1493,8 +1572,9 @@ linking are gone; nothing in `src/` calls `/auth/github/login` or
   307 the CLI's browser (with the `__cli_login` cookie). It never
   auto-redirects a signed-in browser and always asks for the password; the
   answer's `redirect_to` (the loopback URL with `code` and `state`) is
-  followed with `window.location.assign`. 400 "CLI login expired" adds "Run
-  applika login in your terminal again." The CLI branch sets no cookie. When
+  followed with `window.location.assign`. 400 AUTH-1019 "CLI login expired"
+  (keyed on the code, not the words) adds "Run applika login in your
+  terminal again." The CLI branch sets no cookie. When
   the `__cli_login` cookie itself lapsed (~5 min) the API does a WEB sign-in
   (`redirect_to: null`); the page then stays and says the terminal sign-in
   expired (`CLI_HANDOFF_LOST` + the same hint) instead of navigating.
@@ -1526,8 +1606,9 @@ linking are gone; nothing in `src/` calls `/auth/github/login` or
   `borderless.email` + password → `POST /auth/borderless/confirm` (204, the
   applika session untouched) → awaits the refetch of `["user","me"]`,
   `["reports"]`, `["report"]`, toast "Membership confirmed". The 401
-  interceptor refreshes on this route only for "Not authenticated" — its
-  other 401 is a wrong password and is never replayed.
+  interceptor refreshes on this route only for AUTH-1001 "Not authenticated"
+  (the `detail` is compared only when an old API sends no code) — its other
+  401 is a wrong password (AUTH-1004) and is never replayed.
 - **Reports follow the badge.** `navItemsFor(isAdmin, features, {
 hasReportsBadge })` lists Reports only with a recorded badge
   (`badges.length > 0`, held or not; administrators included).
@@ -1538,7 +1619,8 @@ hasReportsBadge })` lists Reports only with a recorded badge
   (MutationObserver, 5 s) for the reports' h1 behind their skeleton and
   focuses it. `hooks/use-repports.ts` queries are also enabled only
   while held (`useHoldsReportsBadge`, a cache read of the user). The API is
-  the rule: 403 `badge_required` / `membership_unconfirmed`.
+  the rule: 403 RPT-1001 (was `badge_required`) / RPT-1002 (was
+  `membership_unconfirmed`).
 
 ### Profile — GitHub restore and membership (`src/components/profile/`, ADR-0024)
 
