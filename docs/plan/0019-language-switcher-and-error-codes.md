@@ -104,6 +104,53 @@ none. No table, column or migration. Browser only: cookie `NEXT_LOCALE` = `en`|`
 - The 500 body changes from text to JSON. The CLI (`cli/src/applika/lib/api.py:264-270`) now prints `Internal Server Error` instead of `API request failed with status 500`. The owner accepted this on 2026-10-31; `cli/CHANGELOG.md` records it under Changed.
 - English flash for Portuguese visitors (owner accepted).
 
+## Glossary
+The Portuguese (Brazil) words every message uses (`frontend/src/i18n/messages/pt-BR.json`). Natural pt-BR as in Brazilian software UIs: informal "você", imperative buttons ("Salvar", "Cancelar"), sentence case. The owner reviews this table before the screens are translated.
+
+| en | pt-BR |
+|---|---|
+| application | candidatura |
+| draft | rascunho |
+| master CV (base CV) | CV principal |
+| CV copy | cópia do CV |
+| timeline | linha do tempo |
+| cycle | ciclo |
+| fit | aderência |
+| interview stage: Interview | Entrevista |
+| interview stage: Offer | Oferta |
+| interview stage: Denied | Recusada |
+| interview type: Initial screening (short: Screening) | Triagem inicial (curto: Triagem) |
+| interview type: Technical | Técnica |
+| interview type: Cultural | Cultural |
+| interview type: Hiring manager (short: Manager) | Gestor da vaga (curto: Gestor) |
+| interview type: Take-home | Desafio para casa |
+| interview type: Final | Final |
+| interview type: Unknown | Desconhecida |
+| full stage label "Interview - Technical" | "Entrevista - Técnica" |
+| report | relatório |
+| badge | selo |
+| membership | associação |
+| device | dispositivo |
+| session | sessão |
+| sign in | entrar |
+| sign out | sair |
+| dashboard | painel |
+| agenda | agenda |
+| job board | mural de vagas |
+| job | vaga |
+| job source | fonte de vagas |
+| saved search | busca salva |
+| company | empresa |
+| platform | plataforma |
+| feedback | feedback |
+| admin | administração (menu: Admin) |
+| beta | beta |
+| feature (beta feature) | recurso (recurso beta) |
+| cookie | cookie |
+| language | idioma |
+
+Brand names are never translated: Applika, Borderless, GitHub, LinkedIn, BASE, PSP (also applika-cli, Discord).
+
 ## Open
 - No owner markers left: D3–D7 settled 2026-10-31 (PRD `## Clarifications`).
 - Technical: pin a `next-intl` version that supports Next 16.2 static export and React 19.2; the fallback is `use-intl` (same API, no Next coupling).
