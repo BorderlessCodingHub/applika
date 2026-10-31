@@ -266,6 +266,121 @@
       "hourly": "/h",
       "monthly": "/mês",
       "annually": "/ano"
+    },
+    "readOnly": {
+      "closed": "Esta candidatura está encerrada. Reabra-a para adicionar ou editar eventos.",
+      "archived": "Candidaturas de um ciclo anterior ficam arquivadas. Esta linha do tempo não pode mais ser alterada."
+    },
+    "copy": {
+      "initialScreeningTaken": "Esta candidatura já tem uma triagem inicial. Uma candidatura só pode ter uma.",
+      "interviewTypeTaken": "Já registrada",
+      "legacyHourlyOffer": "Esta oferta foi registrada por hora. Escolha mensal ou anual para salvá-la.",
+      "deniedReasonLabel": "Motivo",
+      "deniedFeedbackPrefix": "Feedback"
+    },
+    "schedule": {
+      "legend": "Horário (opcional)",
+      "hint": "Adicione um intervalo de horário para colocar esta entrevista na sua agenda."
+    },
+    "timezone": {
+      "label": "Fuso horário",
+      "placeholder": "Selecione o fuso horário",
+      "search": "Buscar cidade, região ou diferença",
+      "empty": "Nenhum fuso horário encontrado.",
+      "selectedGroup": "Selecionado",
+      "otherGroup": "Outros",
+      "region": {
+        "Africa": "África",
+        "America": "América",
+        "Antarctica": "Antártida",
+        "Arctic": "Ártico",
+        "Asia": "Ásia",
+        "Atlantic": "Atlântico",
+        "Australia": "Austrália",
+        "Europe": "Europa",
+        "Indian": "Índico",
+        "Pacific": "Pacífico"
+      }
+    },
+    "panel": {
+      "title": "Linha do tempo",
+      "description": "Acompanhe o progresso da candidatura ao longo do processo seletivo.",
+      "addEvent": "Adicionar evento"
+    },
+    "eventActions": {
+      "edit": "Editar",
+      "delete": "Excluir"
+    },
+    "form": {
+      "closeApplication": "Encerrar a candidatura",
+      "closeApplicationHint": "Você pode reabri-la depois.",
+      "saving": "Salvando",
+      "submitCreate": "Adicionar evento",
+      "submitEdit": "Salvar alterações",
+      "eventType": "Tipo de evento",
+      "interviewType": "Tipo de entrevista",
+      "date": "Data",
+      "start": "Início",
+      "end": "Fim",
+      "salaryPeriod": "Período do salário",
+      "amount": "Valor",
+      "currency": "Moeda",
+      "currencyPlaceholder": "Selecione a moeda",
+      "notes": "Anotações (opcional)",
+      "notesPlaceholder": "Qualquer coisa que você queira lembrar…",
+      "offerDetails": "Detalhes da oferta",
+      "offerDetailsHint": "Obrigatório para ofertas: registre a remuneração oferecida.",
+      "errors": {
+        "dateRequired": "A data do evento é obrigatória",
+        "dateInvalid": "Informe uma data válida",
+        "timezoneTooLong": "O fuso horário é longo demais",
+        "notesTooLong": "As anotações são longas demais",
+        "scheduleBoth": "Informe o horário de início e de fim, ou nenhum dos dois",
+        "endAfterStart": "O horário de fim deve ser depois do início",
+        "reasonRequired": "Selecione um motivo",
+        "periodRequired": "Selecione um período do salário",
+        "amountRequired": "Informe o valor oferecido",
+        "amountInvalid": "Informe um número válido",
+        "amountNegative": "Deve ser zero ou mais",
+        "amountDigits": "Até 10 dígitos e 2 casas decimais",
+        "currencyRequired": "Selecione uma moeda",
+        "closingDate": "Escolha hoje ou uma data anterior para encerrar a candidatura"
+      }
+    },
+    "toasts": {
+      "fixBeforeClosing": "Corrija os campos destacados antes de encerrar",
+      "fixBeforeSaving": "Corrija os campos destacados antes de salvar",
+      "closed": "Candidatura encerrada",
+      "closeFailed": "Não foi possível encerrar",
+      "added": "Evento adicionado",
+      "addFailed": "Não foi possível adicionar o evento",
+      "updated": "Evento atualizado",
+      "updateFailed": "Não foi possível atualizar o evento",
+      "deleted": "Evento excluído",
+      "deleteFailed": "Não foi possível excluir o evento"
+    },
+    "list": {
+      "emptyTitle": "Nenhum evento ainda",
+      "emptyReadOnly": "Não há atividade registrada para esta candidatura.",
+      "emptyDescription": "Registre entrevistas, ofertas e recusas para contar a história desta candidatura."
+    },
+    "card": {
+      "offeredSalary": "Salário oferecido"
+    },
+    "dialog": {
+      "createTitle": "Adicionar evento",
+      "createDescription": "Registre uma entrevista, oferta ou recusa para esta candidatura.",
+      "editTitle": "Editar evento",
+      "editDescription": "Atualize os detalhes deste evento da linha do tempo."
+    },
+    "section": {
+      "loadErrorTitle": "Não foi possível carregar a linha do tempo",
+      "loadErrorDescription": "Algo deu errado ao buscar os eventos desta candidatura.",
+      "retry": "Tentar de novo",
+      "eventActions": "Ações do evento: {stage}, {date}",
+      "deleteTitle": "Excluir este evento?",
+      "deleteDescription": "Isso remove o evento da linha do tempo para sempre. Não é possível desfazer.",
+      "deleteConfirm": "Excluir"
     }
   },
   "options": {
@@ -874,6 +989,224 @@
       "company": "Empresa: {company}",
       "notes": "Anotações: {notes}",
       "managedBy": "Gerenciado pelo {app}"
+    }
+  },
+  "applications": {
+    "page": {
+      "title": "Candidaturas",
+      "subtitle": "Gerencie e acompanhe todas as suas candidaturas.",
+      "newApplication": "Nova candidatura",
+      "newWithCv": "Nova com CV",
+      "applicationsTab": "Candidaturas",
+      "draftsTab": "Rascunhos",
+      "archivedSubtitle": "Vendo um ciclo arquivado",
+      "searchPlaceholder": "Buscar empresa ou cargo…",
+      "searchLabel": "Buscar empresa ou cargo",
+      "statusFilterLabel": "Status",
+      "allStatuses": "Todos os status",
+      "advancedFilters": "Filtros avançados",
+      "clearFilters": "Limpar tudo",
+      "emptyTitle": "Nenhuma candidatura encontrada",
+      "emptyAction": "Crie sua primeira candidatura",
+      "focusNotInCycle": "Esta candidatura não está no ciclo que você está vendo."
+    },
+    "found": "{count, plural, one {# candidatura encontrada} other {# candidaturas encontradas}}",
+    "status": {
+      "active": "Ativa",
+      "srPrefix": "Status"
+    },
+    "actions": {
+      "edit": "Editar",
+      "delete": "Excluir",
+      "cv": "CV",
+      "details": "Detalhes"
+    },
+    "name": "{role} em {company}",
+    "detail": {
+      "platform": "Plataforma",
+      "source": "Origem",
+      "date": "Data",
+      "experience": "Experiência",
+      "workMode": "Modelo de trabalho",
+      "country": "País",
+      "salaryRange": "Faixa salarial",
+      "expectedSalary": "Pretensão salarial",
+      "jobPosting": "Anúncio da vaga",
+      "jobPostingLink": "Ver anúncio da vaga",
+      "notes": "Anotações"
+    },
+    "close": {
+      "reversible": "Encerrar é reversível: nada é excluído e você pode reabrir esta candidatura a qualquer momento.",
+      "closed": "Encerrada",
+      "closeAction": "Encerrar",
+      "reopenAction": "Reabrir"
+    },
+    "closeDialog": {
+      "title": "Encerrar candidatura",
+      "description": "Encerrar é reversível: nada é excluído e você pode reabrir esta candidatura a qualquer momento.",
+      "outcomeLabel": "Resultado",
+      "submit": "Encerrar",
+      "cancel": "Cancelar"
+    },
+    "closeOutcome": {
+      "none": {
+        "label": "Nenhum",
+        "description": "Encerrar sem resultado. Nada é adicionado à linha do tempo."
+      },
+      "offer": {
+        "label": "Oferta",
+        "description": "Encerrar com uma oferta. Um evento de oferta com o salário é adicionado à linha do tempo."
+      },
+      "denied": {
+        "label": "Recusada",
+        "description": "Encerrar com uma recusa. Um evento de recusa é adicionado à linha do tempo."
+      }
+    },
+    "salary": {
+      "upTo": "Até {amount}"
+    },
+    "toasts": {
+      "deleted": "Candidatura excluída",
+      "deleteFailed": "Não foi possível excluir",
+      "updated": "Candidatura atualizada",
+      "created": "Candidatura criada"
+    },
+    "item": {
+      "cvFor": "CV de {name}",
+      "detailsFor": "Detalhes de {name}",
+      "modeActive": "Ativa",
+      "modePassive": "Passiva"
+    },
+    "filters": {
+      "source": "Origem",
+      "allModes": "Todas as origens",
+      "platform": "Plataforma",
+      "allPlatforms": "Todas",
+      "from": "De",
+      "to": "Até"
+    },
+    "list": {
+      "loading": "Carregando candidaturas",
+      "loadErrorTitle": "Não foi possível carregar as candidaturas",
+      "loadErrorBody": "Algo deu errado ao buscar suas candidaturas.",
+      "retry": "Tentar de novo",
+      "draftsTabCount": "Rascunhos ({count})"
+    },
+    "deleteDialog": {
+      "title": "Excluir candidatura?",
+      "body": "Esta ação não pode ser desfeita.",
+      "cancel": "Cancelar",
+      "confirm": "Excluir"
+    },
+    "pageToasts": {
+      "draftDeleted": "Rascunho excluído",
+      "draftDeleteFailed": "Não foi possível excluir",
+      "reopened": "Candidatura reaberta",
+      "reopenFailed": "Não foi possível reabrir"
+    },
+    "form": {
+      "newTitle": "Nova candidatura",
+      "editTitle": "Editar candidatura",
+      "cancel": "Cancelar",
+      "save": "Salvar alterações",
+      "create": "Criar candidatura"
+    },
+    "validation": {
+      "platformRequired": "A plataforma é obrigatória",
+      "roleRequired": "O cargo é obrigatório",
+      "sourceRequired": "A origem é obrigatória",
+      "dateRequired": "A data da candidatura é obrigatória",
+      "dateInFuture": "A data não pode estar no futuro",
+      "invalidUrl": "URL inválida.",
+      "invalidUrlShort": "URL inválida",
+      "jobDescriptionTooLong": "Use menos de {max} caracteres",
+      "requiredWithSalary": "Obrigatório quando há salário",
+      "companyRequired": "A empresa é obrigatória",
+      "companyNameMin": "O nome da empresa precisa ter pelo menos 1 caractere",
+      "companyNameRequired": "O nome da empresa é obrigatório"
+    },
+    "fields": {
+      "roleSection": "Cargo e empresa",
+      "roleSectionHint": "O que toda candidatura precisa.",
+      "role": "Cargo",
+      "rolePlaceholder": "ex.: Engenheiro sênior",
+      "source": "Origem",
+      "select": "Selecione",
+      "company": "Empresa",
+      "platform": "Plataforma",
+      "applicationDate": "Data da candidatura",
+      "jobLink": "Link da vaga",
+      "detailsSection": "Detalhes",
+      "detailsSectionHint": "Opcional: como você trabalharia e quanto paga.",
+      "workMode": "Modelo de trabalho",
+      "experienceLevel": "Senioridade",
+      "country": "País",
+      "countryPlaceholder": "ex.: Brasil",
+      "currency": "Moeda",
+      "salaryPeriod": "Período do salário",
+      "expected": "Pretensão",
+      "min": "Mín.",
+      "max": "Máx.",
+      "salaryHint": "Escolha uma moeda e um período do salário para informar valores.",
+      "postingSection": "Anúncio e anotações",
+      "postingSectionHint": "O anúncio da vaga e tudo o que você quiser lembrar.",
+      "jobDescription": "Descrição da vaga",
+      "jobDescriptionPlaceholder": "Cole o anúncio da vaga aqui: ele fica ao lado da cópia do CV desta candidatura enquanto você a ajusta.",
+      "jobDescriptionHint": "Opcional. Aparece ao lado da cópia do CV na página de CV da candidatura.",
+      "notes": "Anotações adicionais",
+      "notesPlaceholder": "Anotações opcionais…"
+    },
+    "timezone": {
+      "search": "Buscar fuso horário..."
+    },
+    "catalog": {
+      "onlyYou": "Só você",
+      "createNamed": "Criar \"{name}\"",
+      "alreadyListed": "{name} já está na sua lista.",
+      "freeText": "{name} fica só nesta candidatura.",
+      "company": {
+        "placeholder": "Selecione uma empresa",
+        "listLabel": "Escolha uma empresa",
+        "search": "Busque ou adicione uma empresa",
+        "loading": "Carregando empresas",
+        "noMatch": "Nenhuma empresa corresponde.",
+        "createNew": "Adicionar uma nova empresa",
+        "newTitle": "Nova empresa",
+        "name": "Nome",
+        "url": "URL",
+        "optional": "(opcional)",
+        "urlHint": "Deixe em branco para manter o nome só nesta candidatura.",
+        "privacyHint": "Só você a vê até que um administrador a aprove.",
+        "back": "Voltar",
+        "submit": "Adicionar empresa",
+        "nameRequired": "O nome é obrigatório",
+        "nameTooLong": "O nome deve ter até 200 caracteres",
+        "urlInvalid": "Informe uma URL completa, como https://example.com",
+        "urlTooLong": "A URL deve ter até 2083 caracteres",
+        "createFailed": "Não foi possível adicionar a empresa. Tente de novo.",
+        "nowSelected": "Ela já está selecionada."
+      },
+      "platform": {
+        "placeholder": "Selecione uma plataforma",
+        "listLabel": "Escolha uma plataforma",
+        "search": "Busque ou adicione uma plataforma",
+        "loading": "Carregando plataformas",
+        "noMatch": "Nenhuma plataforma corresponde.",
+        "createNew": "Adicionar uma nova plataforma",
+        "newTitle": "Nova plataforma",
+        "name": "Nome",
+        "url": "URL",
+        "optional": "(opcional)",
+        "privacyHint": "Só você a vê até que um administrador a aprove.",
+        "back": "Voltar",
+        "submit": "Adicionar plataforma",
+        "nameRequired": "O nome é obrigatório",
+        "nameTooLong": "O nome deve ter até 100 caracteres",
+        "urlInvalid": "Informe uma URL completa, como https://example.com",
+        "urlTooLong": "A URL deve ter até 200 caracteres",
+        "createFailed": "Não foi possível adicionar a plataforma. Tente de novo.",
+        "nowSelected": "Ela já está selecionada."
+      }
     }
   }
 }

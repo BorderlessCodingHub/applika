@@ -5,7 +5,7 @@ import { type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ApplicationItem } from "@/components/applications/application-item";
-import { APPLICATION_CLOSED_LABEL } from "@/components/applications/application-close-copy";
+import { APPLICATION_CLOSE_COPY } from "@/components/applications/application-close-copy";
 import type { Application } from "@/services/types/applications";
 import { services } from "@/services/services";
 
@@ -88,7 +88,7 @@ describe("ApplicationItem — open application", () => {
   it("shows Edit and Close, no closed badge, no Reopen", () => {
     renderItem(baseApplication());
     expect(
-      screen.queryByText(APPLICATION_CLOSED_LABEL),
+      screen.queryByText(APPLICATION_CLOSE_COPY.closed),
     ).not.toBeInTheDocument();
     expect(screen.getAllByTitle("Edit").length).toBeGreaterThan(0);
     expect(screen.getAllByTitle("Close").length).toBeGreaterThan(0);
@@ -177,7 +177,7 @@ describe("ApplicationItem — closed application", () => {
       }),
     );
     expect(
-      screen.getAllByText(APPLICATION_CLOSED_LABEL).length,
+      screen.getAllByText(APPLICATION_CLOSE_COPY.closed).length,
     ).toBeGreaterThan(0);
     expect(
       screen.getByRole("button", { name: /reopen backend engineer at acme/i }),
@@ -194,12 +194,12 @@ describe("ApplicationItem — closed application", () => {
       }),
     );
     expect(
-      screen.getAllByText(APPLICATION_CLOSED_LABEL).length,
+      screen.getAllByText(APPLICATION_CLOSE_COPY.closed).length,
     ).toBeGreaterThan(0);
     expect(screen.queryByText("Offer")).not.toBeInTheDocument();
     expect(screen.queryByText("Denied")).not.toBeInTheDocument();
     const pill = screen
-      .getAllByText(APPLICATION_CLOSED_LABEL)[0]
+      .getAllByText(APPLICATION_CLOSE_COPY.closed)[0]
       .closest("[data-tone]");
     expect(pill).toHaveAttribute("data-tone", "neutral");
   });

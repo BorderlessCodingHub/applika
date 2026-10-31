@@ -5,12 +5,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { isAxiosError } from "axios";
 import { useForm, useWatch } from "react-hook-form";
 import { Loader2, Save } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { FINALIZE_DIALOG_COPY } from "@/components/applications/application-close-copy";
 import {
-  DENIED_REASON_FIELD_LABEL,
-  LEGACY_HOURLY_OFFER_HINT,
+  TIMELINE_COPY,
   TIMEZONE_COPY,
 } from "@/components/timeline/timeline-copy";
 import { DeniedReasonSelect } from "@/components/timeline/denied-reason-select";
@@ -55,6 +55,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { word } from "@/i18n/translator";
 import {
   Select,
   SelectContent,
@@ -140,6 +141,7 @@ export function TimelineEventForm({
 }: TimelineEventFormProps) {
   const mode: TimelineEventFormMode =
     purpose === "close" ? "close" : event ? "edit" : "create";
+  const t = useTranslations("timeline.form");
   const createEvent = useCreateTimelineEvent();
   const updateEvent = useUpdateTimelineEvent();
   const finalizeApplication = useFinalizeApplication();
@@ -235,8 +237,8 @@ export function TimelineEventForm({
   const onInvalid = () => {
     toast.error(
       isClosing
-        ? "Please fix the highlighted fields before closing"
-        : "Please fix the highlighted fields before saving",
+        ? word("timeline.toasts.fixBeforeClosing")
+        : word("timeline.toasts.fixBeforeSaving"),
     );
   };
 
@@ -245,12 +247,14 @@ export function TimelineEventForm({
       { applicationId, payload: toFinalizeOutcomePayload(values) },
       {
         onSuccess: () => {
-          toast.success("Application closed");
+          toast.success(word("timeline.toasts.closed"));
           onOpenChange(false);
         },
         onError: (error) => {
           toast.error(
-            isAxiosError(error) ? getApiError(error) : "Could not close it",
+            isAxiosError(error)
+              ? getApiError(error)
+              : word("timeline.toasts.closeFailed"),
           );
         },
       },
@@ -277,14 +281,14 @@ export function TimelineEventForm({
         { applicationId, payload },
         {
           onSuccess: () => {
-            toast.success("Event added");
+            toast.success(word("timeline.toasts.added"));
             onOpenChange(false);
           },
           onError: (error) => {
             toast.error(
               isAxiosError(error)
                 ? getApiError(error)
-                : "Could not add the event",
+                : word("timeline.toasts.addFailed"),
             );
           },
         },
@@ -296,14 +300,14 @@ export function TimelineEventForm({
       { applicationId, eventId: event!.id, payload },
       {
         onSuccess: () => {
-          toast.success("Event updated");
+          toast.success(word("timeline.toasts.updated"));
           onOpenChange(false);
         },
         onError: (error) => {
           toast.error(
             isAxiosError(error)
               ? getApiError(error)
-              : "Could not update the event",
+              : word("timeline.toasts.updateFailed"),
           );
         },
       },
@@ -338,9 +342,9 @@ export function TimelineEventForm({
                         disabled={isSaving}
                       />
                     </FormControl>
-                    <FormLabel>Close the application</FormLabel>
+                    <FormLabel>{t("closeApplication")}</FormLabel>
                     <FormDescription className="col-start-2">
-                      You can reopen it later.
+                      {t("closeApplicationHint")}
                     </FormDescription>
                   </FormItem>
                 )}
@@ -367,12 +371,12 @@ export function TimelineEventForm({
               ) : isSaving ? (
                 <>
                   <Loader2 className="animate-spin" aria-hidden />
-                  Saving
+                  {t("saving")}
                 </>
               ) : (
                 <>
                   <Save aria-hidden />
-                  {mode === "create" ? "Add event" : "Save changes"}
+                  {mode === "create" ? t("submitCreate") : t("submitEdit")}
                 </>
               )}
             </Button>
@@ -393,7 +397,7 @@ export function TimelineEventForm({
                     <FormLabel>
                       {mode === "close"
                         ? FINALIZE_DIALOG_COPY.outcomeLabel
-                        : "Event type"}
+                        : t("eventType")}
                     </FormLabel>
                     <FormControl>
                       <EventTypeSelector
@@ -423,7 +427,7 @@ export function TimelineEventForm({
                 name="interview_type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Interview type</FormLabel>
+                    <FormLabel>{t("interviewType")}</FormLabel>
                     <FormControl>
                       <InterviewTypeSelect
                         value={
@@ -449,7 +453,7 @@ export function TimelineEventForm({
                 name="denied_reason"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{DENIED_REASON_FIELD_LABEL}</FormLabel>
+                    <FormLabel>{TIMELINE_COPY.deniedReasonLabel}</FormLabel>
                     <FormControl>
                       <DeniedReasonSelect
                         value={
@@ -474,7 +478,7 @@ export function TimelineEventForm({
                   name="event_date"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Date</FormLabel>
+                      <FormLabel>{t("date")}</FormLabel>
                       <FormControl>
                         <DatePickerInput
                           value={field.value}
@@ -498,7 +502,7 @@ export function TimelineEventForm({
                 name="start_time"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Start</FormLabel>
+                    <FormLabel>{t("start")}</FormLabel>
                     <FormControl>
                       <Input type="time" disabled={isSaving} {...field} />
                     </FormControl>
@@ -513,7 +517,7 @@ export function TimelineEventForm({
                 name="end_time"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>End</FormLabel>
+                    <FormLabel>{t("end")}</FormLabel>
                     <FormControl>
                       <Input type="time" disabled={isSaving} {...field} />
                     </FormControl>
@@ -548,7 +552,7 @@ export function TimelineEventForm({
                 name="salary_period"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Salary period</FormLabel>
+                    <FormLabel>{t("salaryPeriod")}</FormLabel>
                     <FormControl>
                       <SalaryPeriodToggle
                         value={(field.value as OfferSalaryPeriod | "") ?? ""}
@@ -561,7 +565,7 @@ export function TimelineEventForm({
                     </FormControl>
                     {isLegacyHourlyOffer ? (
                       <FormDescription>
-                        {LEGACY_HOURLY_OFFER_HINT}
+                        {TIMELINE_COPY.legacyHourlyOffer}
                       </FormDescription>
                     ) : null}
                     <FormMessage />
@@ -575,7 +579,7 @@ export function TimelineEventForm({
                 name="salary_amount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Amount</FormLabel>
+                    <FormLabel>{t("amount")}</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -598,7 +602,7 @@ export function TimelineEventForm({
                 name="salary_currency"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Currency</FormLabel>
+                    <FormLabel>{t("currency")}</FormLabel>
                     <Select
                       value={field.value ?? ""}
                       onValueChange={field.onChange}
@@ -606,7 +610,7 @@ export function TimelineEventForm({
                     >
                       <FormControl>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select currency" />
+                          <SelectValue placeholder={t("currencyPlaceholder")} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -629,11 +633,11 @@ export function TimelineEventForm({
                   name="observation"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Notes (optional)</FormLabel>
+                      <FormLabel>{t("notes")}</FormLabel>
                       <FormControl>
                         <Textarea
                           rows={3}
-                          placeholder="Anything you want to remember…"
+                          placeholder={t("notesPlaceholder")}
                           disabled={isSaving}
                           {...field}
                         />

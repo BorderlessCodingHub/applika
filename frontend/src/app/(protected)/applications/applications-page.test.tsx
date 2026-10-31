@@ -5,6 +5,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 import { ApplicationsPage } from "@/app/(protected)/applications/applications-page";
 import type { Application } from "@/services/types/applications";
+import { renderInPortuguese } from "@/test/portuguese";
 
 /**
  * KODI-015 (T075): the new toolbar/list structure. Exercises `useApplications`
@@ -753,5 +754,82 @@ describe("ApplicationsPage without the cvs feature (PRD 0015)", () => {
     );
     expect(useDraftsCalls.every((enabled) => enabled === true)).toBe(true);
     expect(listDrafts).toHaveBeenCalled();
+  });
+});
+
+describe("ApplicationsPage in Portuguese", () => {
+  it("writes the header, tabs, filters, the count and the delete dialog in Portuguese", async () => {
+    setHookState({ filtered: [focusApplication()] });
+    setDraftsState([]);
+    const user = userEvent.setup();
+    await renderInPortuguese(<ApplicationsPage />, {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={new QueryClient()}>
+          {children}
+        </QueryClientProvider>
+      ),
+    });
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Candidaturas" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Nova candidatura" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "Candidaturas" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "Rascunhos (0)" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Buscar empresa ou cargo…"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("1 candidatura encontrada")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("combobox", { name: "Status" }));
+    expect(
+      await screen.findByRole("option", { name: "Todos os status" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Ativa" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Encerrada" }),
+    ).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByRole("button", { name: "Filtros avançados" }));
+    expect(
+      screen.getByText("Origem", { selector: "label" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("De", { selector: "label" })).toBeInTheDocument();
+    expect(screen.getByText("Até", { selector: "label" })).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /^Excluir .+ em .+$/ }),
+    );
+    const dialog = screen.getByRole("alertdialog");
+    expect(
+      within(dialog).getByRole("heading", { name: "Excluir candidatura?" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("Esta ação não pode ser desfeita."),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Cancelar" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Excluir" }),
+    ).toBeInTheDocument();
+  });
+
+  it("writes the load error in Portuguese", async () => {
+    setHookState({ isError: true });
+    await renderInPortuguese(<ApplicationsPage />);
+    expect(
+      screen.getByText("Não foi possível carregar as candidaturas"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Tentar de novo" }),
+    ).toBeInTheDocument();
   });
 });

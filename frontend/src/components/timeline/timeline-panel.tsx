@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { type ReactNode } from "react";
 import { Clock, Lock } from "lucide-react";
 
@@ -51,10 +52,11 @@ export function TimelinePanel({
   action,
   renderActions,
   readOnly = false,
-  readOnlyReason = TIMELINE_READ_ONLY_COPY.closed,
+  readOnlyReason,
   emptyAction,
   className,
 }: TimelinePanelProps) {
+  const t = useTranslations("timeline.list");
   const hasEvents = events.length > 0;
 
   return (
@@ -82,7 +84,7 @@ export function TimelinePanel({
       {readOnly ? (
         <div className="flex items-start gap-2 rounded-lg border border-border bg-surface-elevated px-3 py-2 text-xs text-muted-foreground">
           <Lock aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-          <span>{readOnlyReason}</span>
+          <span>{readOnlyReason ?? TIMELINE_READ_ONLY_COPY.closed}</span>
         </div>
       ) : null}
 
@@ -94,12 +96,8 @@ export function TimelinePanel({
       ) : (
         <EmptyState
           icon={Clock}
-          title="No events yet"
-          description={
-            readOnly
-              ? "There is no activity recorded for this application."
-              : "Log interviews, offers, and rejections to build the story of this application."
-          }
+          title={t("emptyTitle")}
+          description={readOnly ? t("emptyReadOnly") : t("emptyDescription")}
           action={readOnly ? undefined : emptyAction}
           className="border-none bg-transparent px-0 py-8"
         />

@@ -7,15 +7,12 @@ import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  APPLICATION_CLOSE_COPY,
   FINALIZE_OUTCOME_COPY,
-  FINALIZE_REVERSIBLE_COPY,
 } from "@/components/applications/application-close-copy";
 
 import { TimelineEventForm } from "@/components/timeline/timeline-event-form";
-import {
-  INITIAL_SCREENING_TAKEN_HINT,
-  LEGACY_HOURLY_OFFER_HINT,
-} from "@/components/timeline/timeline-copy";
+import { TIMELINE_COPY } from "@/components/timeline/timeline-copy";
 import { EVENT_TYPE_CONFIG } from "@/components/timeline/timeline-options";
 import { type TimelineEventView } from "@/components/timeline/timeline-types";
 import {
@@ -28,7 +25,7 @@ import { services } from "@/services/services";
  * PRD 0008 / ADR 0012 (T046): the interview type select is shown ONLY for
  * `interview` events (default `unknown`) and hidden for every other type
  * (AC7); `initial_screening` is disabled once the application already has one
- * (AC8/R-030); a legacy hourly offer shows `LEGACY_HOURLY_OFFER_HINT` and
+ * (AC8/R-030); a legacy hourly offer shows `TIMELINE_COPY.legacyHourlyOffer` and
  * blocks save until monthly/annually is picked.
  */
 
@@ -212,7 +209,9 @@ describe("TimelineEventForm — R-030 initial screening dedup (AC8)", () => {
     const user = userEvent.setup();
     renderForm({ otherEvents: [OTHER_INITIAL_SCREENING] });
     await user.click(screen.getByRole("radio", { name: "Interview" }));
-    expect(screen.getByText(INITIAL_SCREENING_TAKEN_HINT)).toBeInTheDocument();
+    expect(
+      screen.getByText(TIMELINE_COPY.initialScreeningTaken),
+    ).toBeInTheDocument();
   });
 
   it("shows no taken hint when no other event has initial_screening", async () => {
@@ -220,7 +219,7 @@ describe("TimelineEventForm — R-030 initial screening dedup (AC8)", () => {
     renderForm({ otherEvents: [] });
     await user.click(screen.getByRole("radio", { name: "Interview" }));
     expect(
-      screen.queryByText(INITIAL_SCREENING_TAKEN_HINT),
+      screen.queryByText(TIMELINE_COPY.initialScreeningTaken),
     ).not.toBeInTheDocument();
   });
 
@@ -233,7 +232,7 @@ describe("TimelineEventForm — R-030 initial screening dedup (AC8)", () => {
     });
     await user.click(screen.getByRole("radio", { name: "Interview" }));
     expect(
-      screen.queryByText(INITIAL_SCREENING_TAKEN_HINT),
+      screen.queryByText(TIMELINE_COPY.initialScreeningTaken),
     ).not.toBeInTheDocument();
   });
 });
@@ -250,7 +249,9 @@ describe("TimelineEventForm — legacy hourly offer (R-031 WATCH)", () => {
 
   it("shows the legacy hourly hint and no period pre-selected when editing", async () => {
     renderForm({ event: LEGACY_OFFER, otherEvents: [] });
-    expect(screen.getByText(LEGACY_HOURLY_OFFER_HINT)).toBeInTheDocument();
+    expect(
+      screen.getByText(TIMELINE_COPY.legacyHourlyOffer),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("radio", { name: "Monthly", checked: true }),
     ).not.toBeInTheDocument();
@@ -765,7 +766,9 @@ describe("TimelineEventForm close mode — the choices", () => {
 describe("TimelineEventForm close mode — reversible copy", () => {
   it("always says closing is reversible, as the dialog's description", () => {
     renderForm(RENDER_CLOSE);
-    expect(screen.getByText(FINALIZE_REVERSIBLE_COPY)).toBeInTheDocument();
+    expect(
+      screen.getByText(APPLICATION_CLOSE_COPY.reversible),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("dialog", { name: "Close application" }),
     ).toHaveAccessibleDescription(/reversible/i);

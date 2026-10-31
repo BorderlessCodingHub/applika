@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 
 import { OFFER_SALARY_PERIOD_OPTIONS } from "@/components/timeline/timeline-options";
@@ -43,6 +45,7 @@ export function SalaryPeriodToggle({
   "aria-labelledby": ariaLabelledby,
   "aria-describedby": ariaDescribedby,
 }: SalaryPeriodToggleProps) {
+  const t = useTranslations("timeline.form");
   const selected: OfferSalaryPeriod | undefined =
     value === "monthly" || value === "annually" ? value : undefined;
 
@@ -55,7 +58,7 @@ export function SalaryPeriodToggle({
       aria-invalid={ariaInvalid}
       aria-labelledby={ariaLabelledby}
       aria-describedby={ariaDescribedby}
-      aria-label={ariaLabelledby ? undefined : "Salary period"}
+      aria-label={ariaLabelledby ? undefined : t("salaryPeriod")}
       className={cn(
         "inline-flex h-9 w-full items-center rounded-lg bg-muted p-[3px]",
         className,

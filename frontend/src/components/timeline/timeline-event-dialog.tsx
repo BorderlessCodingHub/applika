@@ -1,11 +1,13 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { type ReactNode } from "react";
 import { RotateCcw } from "lucide-react";
 
 import {
+  APPLICATION_CLOSE_COPY,
   FINALIZE_DIALOG_COPY,
-  FINALIZE_REVERSIBLE_COPY,
 } from "@/components/applications/application-close-copy";
 import {
   Dialog,
@@ -40,20 +42,19 @@ interface TimelineEventDialogProps {
   footer: ReactNode;
 }
 
-const DEFAULTS: Record<
-  TimelineEventDialogProps["mode"],
-  { title: string; description: ReactNode }
-> = {
-  create: {
-    title: "Add event",
-    description:
-      "Record an interview, offer, or rejection for this application.",
-  },
-  edit: {
-    title: "Edit event",
-    description: "Update the details of this timeline event.",
-  },
-  close: {
+/** The default title and description per mode, in the active language (built at render). */
+function useDefaults(mode: TimelineEventDialogProps["mode"]): {
+  title: string;
+  description: ReactNode;
+} {
+  const t = useTranslations("timeline.dialog");
+  if (mode === "create") {
+    return { title: t("createTitle"), description: t("createDescription") };
+  }
+  if (mode === "edit") {
+    return { title: t("editTitle"), description: t("editDescription") };
+  }
+  return {
     title: FINALIZE_DIALOG_COPY.title,
     description: (
       <span className="flex items-start gap-2">
@@ -61,11 +62,11 @@ const DEFAULTS: Record<
           aria-hidden
           className="mt-0.5 size-4 shrink-0 text-muted-foreground"
         />
-        <span>{FINALIZE_REVERSIBLE_COPY}</span>
+        <span>{APPLICATION_CLOSE_COPY.reversible}</span>
       </span>
     ),
-  },
-};
+  };
+}
 
 /**
  * Accessible dialog shell for the timeline-event form: add, edit, and close
@@ -100,7 +101,7 @@ export function TimelineEventDialog({
   children,
   footer,
 }: TimelineEventDialogProps) {
-  const defaults = DEFAULTS[mode];
+  const defaults = useDefaults(mode);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

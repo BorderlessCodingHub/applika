@@ -1,8 +1,9 @@
 "use client";
 
+import { useLocale } from "next-intl";
 import { Loader2, RotateCcw } from "lucide-react";
 
-import { REOPEN_ACTION_LABEL } from "@/components/applications/application-close-copy";
+import { APPLICATION_CLOSE_COPY } from "@/components/applications/application-close-copy";
 import { Button } from "@/components/ui/button";
 
 interface ApplicationReopenButtonProps {
@@ -30,6 +31,8 @@ export function ApplicationReopenButton({
   applicationName,
   className,
 }: ApplicationReopenButtonProps) {
+  // Subscribes: the copy object reads the active language.
+  useLocale();
   return (
     <Button
       type="button"
@@ -39,7 +42,7 @@ export function ApplicationReopenButton({
       disabled={pending}
       aria-label={
         applicationName
-          ? `${REOPEN_ACTION_LABEL} ${applicationName}`
+          ? `${APPLICATION_CLOSE_COPY.reopenAction} ${applicationName}`
           : undefined
       }
       className={className}
@@ -49,7 +52,7 @@ export function ApplicationReopenButton({
       ) : (
         <RotateCcw aria-hidden />
       )}
-      {REOPEN_ACTION_LABEL}
+      {APPLICATION_CLOSE_COPY.reopenAction}
     </Button>
   );
 }

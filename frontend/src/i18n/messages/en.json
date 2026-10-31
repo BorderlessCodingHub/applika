@@ -266,6 +266,121 @@
       "hourly": "/hr",
       "monthly": "/mo",
       "annually": "/yr"
+    },
+    "readOnly": {
+      "closed": "This application is closed. Reopen it to add or edit events.",
+      "archived": "Applications from a past cycle are archived. This timeline can no longer be changed."
+    },
+    "copy": {
+      "initialScreeningTaken": "This application already has an initial screening. An application can have only one.",
+      "interviewTypeTaken": "Already recorded",
+      "legacyHourlyOffer": "This offer was recorded per hour. Choose monthly or annually to save it.",
+      "deniedReasonLabel": "Reason",
+      "deniedFeedbackPrefix": "Feedback"
+    },
+    "schedule": {
+      "legend": "Schedule (optional)",
+      "hint": "Add a time range to place this interview on your agenda."
+    },
+    "timezone": {
+      "label": "Timezone",
+      "placeholder": "Select timezone",
+      "search": "Search city, region or offset",
+      "empty": "No timezone found.",
+      "selectedGroup": "Selected",
+      "otherGroup": "Other",
+      "region": {
+        "Africa": "Africa",
+        "America": "America",
+        "Antarctica": "Antarctica",
+        "Arctic": "Arctic",
+        "Asia": "Asia",
+        "Atlantic": "Atlantic",
+        "Australia": "Australia",
+        "Europe": "Europe",
+        "Indian": "Indian",
+        "Pacific": "Pacific"
+      }
+    },
+    "panel": {
+      "title": "Timeline",
+      "description": "Track the candidate's progress throughout the recruitment process.",
+      "addEvent": "Add event"
+    },
+    "eventActions": {
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "form": {
+      "closeApplication": "Close the application",
+      "closeApplicationHint": "You can reopen it later.",
+      "saving": "Saving",
+      "submitCreate": "Add event",
+      "submitEdit": "Save changes",
+      "eventType": "Event type",
+      "interviewType": "Interview type",
+      "date": "Date",
+      "start": "Start",
+      "end": "End",
+      "salaryPeriod": "Salary period",
+      "amount": "Amount",
+      "currency": "Currency",
+      "currencyPlaceholder": "Select currency",
+      "notes": "Notes (optional)",
+      "notesPlaceholder": "Anything you want to remember…",
+      "offerDetails": "Offer details",
+      "offerDetailsHint": "Required for offers — record the compensation that was extended.",
+      "errors": {
+        "dateRequired": "Event date is required",
+        "dateInvalid": "Enter a valid date",
+        "timezoneTooLong": "Timezone is too long",
+        "notesTooLong": "Notes are too long",
+        "scheduleBoth": "Provide both a start and an end time, or neither",
+        "endAfterStart": "End time must be after start time",
+        "reasonRequired": "Select a reason",
+        "periodRequired": "Select a salary period",
+        "amountRequired": "Enter the offered amount",
+        "amountInvalid": "Enter a valid number",
+        "amountNegative": "Must be zero or more",
+        "amountDigits": "Up to 10 digits and 2 decimal places",
+        "currencyRequired": "Select a currency",
+        "closingDate": "Pick today or an earlier date to close the application"
+      }
+    },
+    "toasts": {
+      "fixBeforeClosing": "Please fix the highlighted fields before closing",
+      "fixBeforeSaving": "Please fix the highlighted fields before saving",
+      "closed": "Application closed",
+      "closeFailed": "Could not close it",
+      "added": "Event added",
+      "addFailed": "Could not add the event",
+      "updated": "Event updated",
+      "updateFailed": "Could not update the event",
+      "deleted": "Event deleted",
+      "deleteFailed": "Could not delete the event"
+    },
+    "list": {
+      "emptyTitle": "No events yet",
+      "emptyReadOnly": "There is no activity recorded for this application.",
+      "emptyDescription": "Log interviews, offers, and rejections to build the story of this application."
+    },
+    "card": {
+      "offeredSalary": "Offered salary"
+    },
+    "dialog": {
+      "createTitle": "Add event",
+      "createDescription": "Record an interview, offer, or rejection for this application.",
+      "editTitle": "Edit event",
+      "editDescription": "Update the details of this timeline event."
+    },
+    "section": {
+      "loadErrorTitle": "We couldn't load the timeline",
+      "loadErrorDescription": "Something went wrong fetching this application's events.",
+      "retry": "Retry",
+      "eventActions": "Event actions: {stage}, {date}",
+      "deleteTitle": "Delete this event?",
+      "deleteDescription": "This permanently removes the timeline event. This can't be undone.",
+      "deleteConfirm": "Delete"
     }
   },
   "options": {
@@ -874,6 +989,224 @@
       "company": "Company: {company}",
       "notes": "Notes: {notes}",
       "managedBy": "Managed by {app}"
+    }
+  },
+  "applications": {
+    "page": {
+      "title": "Applications",
+      "subtitle": "Manage and track all applications in your organization.",
+      "newApplication": "New Application",
+      "newWithCv": "New with CV",
+      "applicationsTab": "Applications",
+      "draftsTab": "Drafts",
+      "archivedSubtitle": "Viewing archived cycle",
+      "searchPlaceholder": "Search company or role…",
+      "searchLabel": "Search company or role",
+      "statusFilterLabel": "Status",
+      "allStatuses": "All statuses",
+      "advancedFilters": "Advanced filters",
+      "clearFilters": "Clear all",
+      "emptyTitle": "No applications found",
+      "emptyAction": "Create your first application",
+      "focusNotInCycle": "This application is not in the cycle you are viewing."
+    },
+    "found": "Found {count} {count, plural, one {application} other {applications}}",
+    "status": {
+      "active": "Active",
+      "srPrefix": "Status"
+    },
+    "actions": {
+      "edit": "Edit",
+      "delete": "Delete",
+      "cv": "CV",
+      "details": "Details"
+    },
+    "name": "{role} at {company}",
+    "detail": {
+      "platform": "Platform",
+      "source": "Source",
+      "date": "Date",
+      "experience": "Experience",
+      "workMode": "Work Mode",
+      "country": "Country",
+      "salaryRange": "Salary Range",
+      "expectedSalary": "Expected Salary",
+      "jobPosting": "Job posting",
+      "jobPostingLink": "View job posting",
+      "notes": "Notes"
+    },
+    "close": {
+      "reversible": "Closing is reversible: nothing is deleted and you can reopen this application at any time.",
+      "closed": "Closed",
+      "closeAction": "Close",
+      "reopenAction": "Reopen"
+    },
+    "closeDialog": {
+      "title": "Close application",
+      "description": "Closing is reversible: nothing is deleted and you can reopen this application at any time.",
+      "outcomeLabel": "Outcome",
+      "submit": "Close application",
+      "cancel": "Cancel"
+    },
+    "closeOutcome": {
+      "none": {
+        "label": "None",
+        "description": "Close without an outcome. Nothing is added to the timeline."
+      },
+      "offer": {
+        "label": "Offer",
+        "description": "Close with an offer. An offer event with its salary is added to the timeline."
+      },
+      "denied": {
+        "label": "Denied",
+        "description": "Close with a rejection. A denied event is added to the timeline."
+      }
+    },
+    "salary": {
+      "upTo": "Up to {amount}"
+    },
+    "toasts": {
+      "deleted": "Application deleted",
+      "deleteFailed": "Failed to delete",
+      "updated": "Application updated",
+      "created": "Application created"
+    },
+    "item": {
+      "cvFor": "CV for {name}",
+      "detailsFor": "Details for {name}",
+      "modeActive": "Active",
+      "modePassive": "Passive"
+    },
+    "filters": {
+      "source": "Source",
+      "allModes": "All modes",
+      "platform": "Platform",
+      "allPlatforms": "All platforms",
+      "from": "From",
+      "to": "To"
+    },
+    "list": {
+      "loading": "Loading applications",
+      "loadErrorTitle": "We couldn't load applications",
+      "loadErrorBody": "Something went wrong fetching your applications.",
+      "retry": "Retry",
+      "draftsTabCount": "Drafts ({count})"
+    },
+    "deleteDialog": {
+      "title": "Delete application?",
+      "body": "This action cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete"
+    },
+    "pageToasts": {
+      "draftDeleted": "Draft deleted",
+      "draftDeleteFailed": "Could not delete it",
+      "reopened": "Application reopened",
+      "reopenFailed": "Could not reopen it"
+    },
+    "form": {
+      "newTitle": "New Application",
+      "editTitle": "Edit Application",
+      "cancel": "Cancel",
+      "save": "Save changes",
+      "create": "Create application"
+    },
+    "validation": {
+      "platformRequired": "Platform is required",
+      "roleRequired": "Role is required",
+      "sourceRequired": "Source is required",
+      "dateRequired": "Application date is required",
+      "dateInFuture": "Date cannot be in the future",
+      "invalidUrl": "Invalid url.",
+      "invalidUrlShort": "Invalid url",
+      "jobDescriptionTooLong": "Keep this under {max} characters",
+      "requiredWithSalary": "Required when salary is set",
+      "companyRequired": "Company is required",
+      "companyNameMin": "Company name must have at least 1 character",
+      "companyNameRequired": "Company name is required"
+    },
+    "fields": {
+      "roleSection": "Role & company",
+      "roleSectionHint": "What every application needs.",
+      "role": "Role",
+      "rolePlaceholder": "e.g. Senior Engineer",
+      "source": "Source",
+      "select": "Select",
+      "company": "Company",
+      "platform": "Platform",
+      "applicationDate": "Application date",
+      "jobLink": "Job link",
+      "detailsSection": "Details",
+      "detailsSectionHint": "Optional — how you'd work and what it pays.",
+      "workMode": "Work mode",
+      "experienceLevel": "Experience level",
+      "country": "Country",
+      "countryPlaceholder": "e.g. Brazil",
+      "currency": "Currency",
+      "salaryPeriod": "Salary period",
+      "expected": "Expected",
+      "min": "Min",
+      "max": "Max",
+      "salaryHint": "Choose a currency and a salary period to enter amounts.",
+      "postingSection": "Posting & notes",
+      "postingSectionHint": "The job posting and anything you want to remember.",
+      "jobDescription": "Job description",
+      "jobDescriptionPlaceholder": "Paste the job posting here — it sits beside this application's CV copy while you tailor it.",
+      "jobDescriptionHint": "Optional. Shown next to the CV copy on the application's CV page.",
+      "notes": "Additional notes",
+      "notesPlaceholder": "Optional notes…"
+    },
+    "timezone": {
+      "search": "Search timezone..."
+    },
+    "catalog": {
+      "onlyYou": "Only you",
+      "createNamed": "Create \"{name}\"",
+      "alreadyListed": "{name} is already in your list.",
+      "freeText": "{name} is kept on this application only.",
+      "company": {
+        "placeholder": "Select a company",
+        "listLabel": "Choose a company",
+        "search": "Search or add a company",
+        "loading": "Loading companies",
+        "noMatch": "No company matches.",
+        "createNew": "Add a new company",
+        "newTitle": "New company",
+        "name": "Name",
+        "url": "URL",
+        "optional": "(optional)",
+        "urlHint": "Leave it blank to keep the name on this application only.",
+        "privacyHint": "Only you see it until an admin approves it.",
+        "back": "Back",
+        "submit": "Add company",
+        "nameRequired": "Name is required",
+        "nameTooLong": "Name must be 200 characters or fewer",
+        "urlInvalid": "Enter a full URL, like https://example.com",
+        "urlTooLong": "URL must be 2083 characters or fewer",
+        "createFailed": "Could not add the company. Try again.",
+        "nowSelected": "It is now selected."
+      },
+      "platform": {
+        "placeholder": "Select a platform",
+        "listLabel": "Choose a platform",
+        "search": "Search or add a platform",
+        "loading": "Loading platforms",
+        "noMatch": "No platform matches.",
+        "createNew": "Add a new platform",
+        "newTitle": "New platform",
+        "name": "Name",
+        "url": "URL",
+        "optional": "(optional)",
+        "privacyHint": "Only you see it until an admin approves it.",
+        "back": "Back",
+        "submit": "Add platform",
+        "nameRequired": "Name is required",
+        "nameTooLong": "Name must be 100 characters or fewer",
+        "urlInvalid": "Enter a full URL, like https://example.com",
+        "urlTooLong": "URL must be 200 characters or fewer",
+        "createFailed": "Could not add the platform. Try again.",
+        "nowSelected": "It is now selected."
+      }
     }
   }
 }

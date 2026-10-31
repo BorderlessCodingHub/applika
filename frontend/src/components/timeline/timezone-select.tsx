@@ -1,5 +1,7 @@
 "use client";
 
+import { useLocale } from "next-intl";
+
 import { useMemo, useState, type KeyboardEvent } from "react";
 import { CheckIcon, ChevronsUpDownIcon, GlobeIcon } from "lucide-react";
 
@@ -130,7 +132,13 @@ function TimezoneOptions({
   onSelect: (zone: string) => void;
 }) {
   // Mounted only while open: the ~420 offsets are computed on first open, then cached.
-  const groups = useMemo(() => groupTimeZones(value), [value]);
+  // The headings follow the language: regroup on a switch.
+  const locale = useLocale();
+  const groups = useMemo(
+    () => groupTimeZones(value),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `locale` re-reads the headings
+    [value, locale],
+  );
 
   return (
     // `label`, not `aria-label` on the input: cmdk points the input's `aria-labelledby` at its own label.
@@ -159,7 +167,10 @@ function TimezoneOptions({
       <CommandList className="max-h-72 min-h-0 overscroll-contain">
         <CommandEmpty>{TIMEZONE_COPY.empty}</CommandEmpty>
         {groups.map((group) => (
-          <CommandGroup key={group.heading} heading={group.heading}>
+          <CommandGroup
+            key={group.options[0]?.value ?? group.heading}
+            heading={group.heading}
+          >
             {group.options.map((option) => {
               const selected = option.value === value;
               return (

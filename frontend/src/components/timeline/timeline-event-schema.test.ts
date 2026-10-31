@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  CLOSING_DATE_MESSAGE,
+  closingDateMessage,
   emptyCloseValues,
   emptyTimelineEventValues,
   timelineEventSchema,
@@ -821,7 +821,7 @@ describe("close_application on Add event and Edit event", () => {
       expect(tickedResult.error?.issues).toEqual([
         expect.objectContaining({
           path: ["event_date"],
-          message: CLOSING_DATE_MESSAGE,
+          message: closingDateMessage(),
         }),
       ]);
       expect(
@@ -894,11 +894,11 @@ describe("timelineEventSchema — the closing date stops at today", () => {
         expect.arrayContaining([
           expect.objectContaining({
             path: ["event_date"],
-            message: CLOSING_DATE_MESSAGE,
+            message: closingDateMessage(),
           }),
         ]),
       );
-      expect(CLOSING_DATE_MESSAGE).toBe(
+      expect(closingDateMessage()).toBe(
         "Pick today or an earlier date to close the application",
       );
     },

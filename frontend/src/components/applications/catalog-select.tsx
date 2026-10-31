@@ -18,7 +18,10 @@ import {
   LockKeyholeIcon,
   PlusIcon,
 } from "lucide-react";
+import { useLocale } from "next-intl";
 import { z } from "zod";
+
+import { word } from "@/i18n/translator";
 
 import { OnlyYouBadge } from "@/components/applications/only-you-badge";
 import { Button } from "@/components/ui/button";
@@ -95,11 +98,13 @@ export type CatalogCreateOutcome =
   | { status: "failed"; message: string };
 
 export function createCatalogLabel(name: string, copy: CatalogCopy): string {
-  return name ? `Create "${name}"` : copy.createNew;
+  return name
+    ? word("applications.catalog.createNamed", { name })
+    : copy.createNew;
 }
 
 export function alreadyListedMessage(name: string): string {
-  return `${name} is already in your list.`;
+  return word("applications.catalog.alreadyListed", { name });
 }
 
 /** Exact, case-insensitive, trimmed match. */
@@ -229,6 +234,8 @@ export function CatalogSelect({
   "aria-required": ariaRequired,
   className,
 }: CatalogSelectProps) {
+  // Subscribes: `copy` and the helpers above read the active language.
+  useLocale();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"list" | "create">("list");
   const [search, setSearch] = useState("");
@@ -553,6 +560,8 @@ function CatalogCreateForm({
   /** Resolves with an error message to show, or `null` once the popover closed. */
   onCreate: (input: NewCatalogInput) => Promise<string | null>;
 }) {
+  // Subscribes: `copy` reads the active language.
+  useLocale();
   const [name, setName] = useState(initialName);
   const [url, setUrl] = useState("");
   const [errors, setErrors] = useState<{ name?: string; url?: string }>({});

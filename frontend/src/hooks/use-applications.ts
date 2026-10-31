@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { isAfter, isBefore, isEqual, parseISO } from "date-fns";
 import { AxiosError } from "axios";
+import { word } from "@/i18n/translator";
 import { services } from "@/services/services";
 import { useSupports } from "@/contexts/supports-context";
 import { CreateApplicationPayload } from "@/services/types/applications";
@@ -191,10 +192,12 @@ export function useApplicationDelete() {
       await queryClient.invalidateQueries({
         queryKey: APPLICATION_CV_FIT_QUERY_KEY,
       });
-      toast.success("Application deleted");
+      toast.success(word("applications.toasts.deleted"));
     },
     onError: (error) =>
-      toast.error(rateLimitNotice(error) ?? "Failed to delete"),
+      toast.error(
+        rateLimitNotice(error) ?? word("applications.toasts.deleteFailed"),
+      ),
   });
 
   async function deleteApplication(id: string) {
@@ -227,7 +230,11 @@ export function useApplicationMutate(props: ApplicationMutateProps) {
       queryKey: APPLICATION_CV_FIT_QUERY_KEY,
     });
     toast.success(
-      props.applicationId ? "Application updated" : "Application created",
+      word(
+        props.applicationId
+          ? "applications.toasts.updated"
+          : "applications.toasts.created",
+      ),
     );
     if (props.onSuccess) await props.onSuccess();
   }

@@ -1,7 +1,8 @@
+import { useLocale } from "next-intl";
 import { type ComponentType } from "react";
 import { type LucideProps } from "lucide-react";
 
-import { APPLICATION_STATUS_SR_PREFIX } from "@/components/applications/application-card-copy";
+import { APPLICATION_STATUS_COPY } from "@/components/applications/application-card-copy";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,8 @@ export function ApplicationStatusPill({
   icon: Icon,
   className,
 }: ApplicationStatusPillProps) {
+  // Subscribes: the copy object reads the active language.
+  useLocale();
   const { pill, dot } = TONE_CLASS[tone];
 
   return (
@@ -51,7 +54,7 @@ export function ApplicationStatusPill({
       ) : (
         <span aria-hidden className={cn("size-2 rounded-full", dot)} />
       )}
-      <span className="sr-only">{APPLICATION_STATUS_SR_PREFIX}: </span>
+      <span className="sr-only">{APPLICATION_STATUS_COPY.srPrefix}: </span>
       {label}
     </Badge>
   );

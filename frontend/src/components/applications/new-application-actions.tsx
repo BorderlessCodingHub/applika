@@ -1,3 +1,4 @@
+import { useLocale } from "next-intl";
 import { FilePlus2Icon, PlusIcon } from "lucide-react";
 
 import { NEW_WITH_CV_HREF } from "@/components/application-drafts/draft-copy";
@@ -21,6 +22,8 @@ export function NewApplicationActions({
   showNewWithCv?: boolean;
   className?: string;
 }) {
+  // Subscribes: the copy object reads the active language.
+  useLocale();
   return (
     <div
       data-slot="new-application-actions"

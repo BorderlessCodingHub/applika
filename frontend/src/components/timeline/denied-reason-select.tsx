@@ -1,8 +1,10 @@
 "use client";
 
+import { useLocale } from "next-intl";
+
 import { Fragment } from "react";
 
-import { DENIED_REASON_FIELD_LABEL } from "@/components/timeline/timeline-copy";
+import { TIMELINE_COPY } from "@/components/timeline/timeline-copy";
 import { DENIED_REASON_OPTIONS } from "@/components/timeline/timeline-options";
 import { type DeniedReason } from "@/components/timeline/timeline-types";
 import {
@@ -53,6 +55,8 @@ export function DeniedReasonSelect({
   "aria-labelledby": ariaLabelledby,
   "aria-describedby": ariaDescribedby,
 }: DeniedReasonSelectProps) {
+  // The labels are read through the module translator: subscribe.
+  useLocale();
   return (
     // `relative`: Radix renders a hidden native <select> at position: absolute.
     <div className={cn("relative", className)}>
@@ -67,7 +71,9 @@ export function DeniedReasonSelect({
           aria-invalid={ariaInvalid}
           aria-labelledby={ariaLabelledby}
           aria-describedby={ariaDescribedby}
-          aria-label={ariaLabelledby ? undefined : DENIED_REASON_FIELD_LABEL}
+          aria-label={
+            ariaLabelledby ? undefined : TIMELINE_COPY.deniedReasonLabel
+          }
         >
           <SelectValue />
         </SelectTrigger>

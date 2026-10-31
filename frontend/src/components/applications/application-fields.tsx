@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useId } from "react";
 import { useWatch, type UseFormReturn } from "react-hook-form";
 
@@ -105,6 +106,7 @@ export function ApplicationFields({
   className,
   sectionHeadingAs = "h3",
 }: ApplicationFieldsProps) {
+  const t = useTranslations("applications.fields");
   const roleId = useId();
   const jobDescriptionId = useId();
   const jobDescriptionHintId = useId();
@@ -177,18 +179,19 @@ export function ApplicationFields({
     >
       <FormSection
         as={sectionHeadingAs}
-        title="Role & company"
-        description="What every application needs."
+        title={t("roleSection")}
+        description={t("roleSectionHint")}
       >
         <div className={ROW2}>
           <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={roleId}>
-              Role<span aria-hidden="true">*</span>
+              {t("role")}
+              <span aria-hidden="true">*</span>
             </Label>
             <Input
               id={roleId}
               {...form.register("role")}
-              placeholder="e.g. Senior Engineer"
+              placeholder={t("rolePlaceholder")}
               aria-required={true}
               aria-invalid={form.formState.errors.role ? true : undefined}
               aria-describedby={
@@ -208,7 +211,8 @@ export function ApplicationFields({
 
           <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="application-fields-source">
-              Source<span aria-hidden="true">*</span>
+              {t("source")}
+              <span aria-hidden="true">*</span>
             </Label>
             <Select
               value={watchMode}
@@ -218,14 +222,14 @@ export function ApplicationFields({
             >
               <SelectTrigger
                 id="application-fields-source"
-                aria-label="Source"
+                aria-label={t("source")}
                 aria-required={true}
                 className={cn(
                   form.formState.errors.mode &&
                     "border-destructive focus:ring-destructive",
                 )}
               >
-                <SelectValue placeholder="Select" />
+                <SelectValue placeholder={t("select")} />
               </SelectTrigger>
               <SelectContent>
                 {SelectOptions.SOURCE.map((o) => (
@@ -246,7 +250,8 @@ export function ApplicationFields({
         <div className={ROW2}>
           <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={companyFieldId}>
-              Company<span aria-hidden="true">*</span>
+              {t("company")}
+              <span aria-hidden="true">*</span>
             </Label>
             <CompanySelect
               id={companyFieldId}
@@ -267,7 +272,8 @@ export function ApplicationFields({
 
           <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={platformFieldId}>
-              Platform<span aria-hidden="true">*</span>
+              {t("platform")}
+              <span aria-hidden="true">*</span>
             </Label>
             <PlatformSelect
               id={platformFieldId}
@@ -299,7 +305,8 @@ export function ApplicationFields({
         <div className={ROW2}>
           <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={dateFieldId}>
-              Application date<span aria-hidden="true">*</span>
+              {t("applicationDate")}
+              <span aria-hidden="true">*</span>
             </Label>
             <DatePickerInput
               id={dateFieldId}
@@ -325,7 +332,7 @@ export function ApplicationFields({
           </div>
 
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={jobLinkId}>Job link</Label>
+            <Label htmlFor={jobLinkId}>{t("jobLink")}</Label>
             <Input
               id={jobLinkId}
               inputMode="url"
@@ -355,12 +362,12 @@ export function ApplicationFields({
 
       <FormSection
         as={sectionHeadingAs}
-        title="Details"
-        description="Optional — how you'd work and what it pays."
+        title={t("detailsSection")}
+        description={t("detailsSectionHint")}
       >
         <div className={ROW3}>
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={workModeId}>Work mode</Label>
+            <Label htmlFor={workModeId}>{t("workMode")}</Label>
             <Select
               value={watchWorkMode}
               onValueChange={(v) =>
@@ -370,7 +377,7 @@ export function ApplicationFields({
               }
             >
               <SelectTrigger id={workModeId}>
-                <SelectValue placeholder="Select" />
+                <SelectValue placeholder={t("select")} />
               </SelectTrigger>
               <SelectContent>
                 {SelectOptions.WORK_MODE.map((o) => (
@@ -383,7 +390,7 @@ export function ApplicationFields({
           </div>
 
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={experienceLevelId}>Experience level</Label>
+            <Label htmlFor={experienceLevelId}>{t("experienceLevel")}</Label>
             <Select
               value={watchExperienceLevel}
               onValueChange={(v) =>
@@ -393,7 +400,7 @@ export function ApplicationFields({
               }
             >
               <SelectTrigger id={experienceLevelId}>
-                <SelectValue placeholder="Select" />
+                <SelectValue placeholder={t("select")} />
               </SelectTrigger>
               <SelectContent>
                 {SelectOptions.SENIORITY.map((o) => (
@@ -406,19 +413,19 @@ export function ApplicationFields({
           </div>
 
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={countryId}>Country</Label>
+            <Label htmlFor={countryId}>{t("country")}</Label>
             <Input
               id={countryId}
               autoComplete="country-name"
               {...form.register("country")}
-              placeholder="e.g. Brazil"
+              placeholder={t("countryPlaceholder")}
             />
           </div>
         </div>
 
         <div className={ROW2}>
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={currencyId}>Currency</Label>
+            <Label htmlFor={currencyId}>{t("currency")}</Label>
             <Select
               value={watchCurrency}
               onValueChange={(v) => {
@@ -434,7 +441,7 @@ export function ApplicationFields({
                     "border-destructive focus:ring-destructive",
                 )}
               >
-                <SelectValue placeholder="Select" />
+                <SelectValue placeholder={t("select")} />
               </SelectTrigger>
               <SelectContent>
                 {SelectOptions.CURRENCY.map((c) => (
@@ -451,7 +458,7 @@ export function ApplicationFields({
             )}
           </div>
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={salaryPeriodId}>Salary period</Label>
+            <Label htmlFor={salaryPeriodId}>{t("salaryPeriod")}</Label>
             <Select
               value={watchSalaryPeriod}
               onValueChange={(v) => {
@@ -467,7 +474,7 @@ export function ApplicationFields({
                     "border-destructive focus:ring-destructive",
                 )}
               >
-                <SelectValue placeholder="Select" />
+                <SelectValue placeholder={t("select")} />
               </SelectTrigger>
               <SelectContent>
                 {SelectOptions.SALARY_PERIOD.map((o) => (
@@ -488,7 +495,7 @@ export function ApplicationFields({
         <div className="flex flex-col gap-1.5">
           <div className={cn(ROW3, !salaryEnabled && "opacity-50")}>
             <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor={expectedSalaryId}>Expected</Label>
+              <Label htmlFor={expectedSalaryId}>{t("expected")}</Label>
               <div className="relative">
                 <span
                   className="absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground"
@@ -510,7 +517,7 @@ export function ApplicationFields({
               </div>
             </div>
             <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor={minSalaryId}>Min</Label>
+              <Label htmlFor={minSalaryId}>{t("min")}</Label>
               <div className="relative">
                 <span
                   className="absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground"
@@ -532,7 +539,7 @@ export function ApplicationFields({
               </div>
             </div>
             <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor={maxSalaryId}>Max</Label>
+              <Label htmlFor={maxSalaryId}>{t("max")}</Label>
               <div className="relative">
                 <span
                   className="absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground"
@@ -556,7 +563,7 @@ export function ApplicationFields({
           </div>
           {!salaryEnabled ? (
             <p id={salaryHintId} className="text-xs text-muted-foreground">
-              Choose a currency and a salary period to enter amounts.
+              {t("salaryHint")}
             </p>
           ) : null}
         </div>
@@ -564,15 +571,15 @@ export function ApplicationFields({
 
       <FormSection
         as={sectionHeadingAs}
-        title="Posting & notes"
-        description="The job posting and anything you want to remember."
+        title={t("postingSection")}
+        description={t("postingSectionHint")}
       >
         <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor={jobDescriptionId}>Job description</Label>
+          <Label htmlFor={jobDescriptionId}>{t("jobDescription")}</Label>
           <Textarea
             id={jobDescriptionId}
             {...form.register("job_description")}
-            placeholder="Paste the job posting here — it sits beside this application's CV copy while you tailor it."
+            placeholder={t("jobDescriptionPlaceholder")}
             rows={6}
             aria-invalid={
               form.formState.errors.job_description ? true : undefined
@@ -599,18 +606,17 @@ export function ApplicationFields({
               id={jobDescriptionHintId}
               className="text-xs text-muted-foreground"
             >
-              Optional. Shown next to the CV copy on the application&apos;s CV
-              page.
+              {t("jobDescriptionHint")}
             </p>
           )}
         </div>
 
         <div className="flex min-w-0 flex-col gap-1.5">
-          <Label htmlFor={observationId}>Additional notes</Label>
+          <Label htmlFor={observationId}>{t("notes")}</Label>
           <Textarea
             id={observationId}
             {...form.register("observation")}
-            placeholder="Optional notes…"
+            placeholder={t("notesPlaceholder")}
             rows={3}
           />
         </div>

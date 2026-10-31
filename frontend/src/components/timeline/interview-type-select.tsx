@@ -1,11 +1,10 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { useId } from "react";
 
-import {
-  INITIAL_SCREENING_TAKEN_HINT,
-  INTERVIEW_TYPE_TAKEN_LABEL,
-} from "@/components/timeline/timeline-copy";
+import { TIMELINE_COPY } from "@/components/timeline/timeline-copy";
 import { INTERVIEW_TYPE_OPTIONS } from "@/components/timeline/timeline-options";
 import { type InterviewType } from "@/components/timeline/timeline-types";
 import {
@@ -56,6 +55,7 @@ export function InterviewTypeSelect({
   "aria-labelledby": ariaLabelledby,
   "aria-describedby": ariaDescribedby,
 }: InterviewTypeSelectProps) {
+  const t = useTranslations("timeline.form");
   const hintId = useId();
   const screeningTaken = disabledValues.includes("initial_screening");
   const describedBy =
@@ -77,7 +77,7 @@ export function InterviewTypeSelect({
           aria-invalid={ariaInvalid}
           aria-labelledby={ariaLabelledby}
           aria-describedby={describedBy}
-          aria-label={ariaLabelledby ? undefined : "Interview type"}
+          aria-label={ariaLabelledby ? undefined : t("interviewType")}
         >
           <SelectValue />
         </SelectTrigger>
@@ -94,7 +94,7 @@ export function InterviewTypeSelect({
                   {option.label}
                   {taken ? (
                     <span className="text-xs text-muted-foreground">
-                      · {INTERVIEW_TYPE_TAKEN_LABEL}
+                      · {TIMELINE_COPY.interviewTypeTaken}
                     </span>
                   ) : null}
                 </SelectItem>
@@ -105,7 +105,7 @@ export function InterviewTypeSelect({
       </Select>
       {screeningTaken ? (
         <p id={hintId} className="text-xs text-muted-foreground">
-          {INITIAL_SCREENING_TAKEN_HINT}
+          {TIMELINE_COPY.initialScreeningTaken}
         </p>
       ) : null}
     </div>

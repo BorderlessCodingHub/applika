@@ -1,11 +1,15 @@
 /**
- * Display formatters for Applications. Pure functions — safe to call from server
- * or client components. Salary numerics arrive as strings on the wire, so these
- * accept strings and degrade gracefully on missing/invalid input.
+ * Display formatters for Applications. Salary numerics arrive as strings on
+ * the wire, so these accept strings and degrade gracefully on missing/invalid
+ * input. Numbers and dates are written the way the active language writes
+ * them (`intlLocale`, read at call time): a component rendering the result
+ * subscribes (`useLocale`), so a switch re-renders it.
  */
 
 import { SALARY_PERIOD_SUFFIXES } from "@/components/timeline/timeline-options";
 import type { SalaryPeriod } from "@/components/timeline/timeline-types";
+import { intlLocale } from "@/i18n/intl-locale";
+import { word } from "@/i18n/translator";
 
 /** The salary-related fields needed to build a display string. */
 export interface SalaryParts {
@@ -22,13 +26,13 @@ function hasValue(value: string | null | undefined): value is string {
   return value != null && value.trim() !== "";
 }
 
-/** Formats a numeric string with locale grouping; falls back to the raw string. */
+/** Formats a numeric string with the language's grouping; falls back to the raw string. */
 function formatAmount(value: string): string {
   const n = Number(value);
   if (!Number.isFinite(n)) return value;
   // Cents only when there are any: "160000.00" -> 160,000 but "25.50" -> 25.50.
   const digits = Number.isInteger(n) ? 0 : 2;
-  return new Intl.NumberFormat(undefined, {
+  return new Intl.NumberFormat(intlLocale(), {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(n);
@@ -69,7 +73,9 @@ export function formatSalary(parts: SalaryParts): string | null {
     return `${prefix}${formatAmount(salaryRangeMin)}+${suffix}`;
   }
   if (hasValue(salaryRangeMax)) {
-    return `Up to ${prefix}${formatAmount(salaryRangeMax)}${suffix}`;
+    return word("applications.salary.upTo", {
+      amount: `${prefix}${formatAmount(salaryRangeMax)}${suffix}`,
+    });
   }
   return null;
 }
@@ -91,5 +97,19 @@ export function formatDate(
     ? new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3]))
     : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString(undefined, options);
+  return date.toLocaleDateString(intlLocale(), options);
+}
+
+/**
+ * An application's `YYYY-MM-DD` day as the row shows it: English keeps the
+ * ISO day it has always shown (byte-identical); Portuguese writes `dd/MM/yyyy`.
+ * Components pass `useLocale()`; without it the active language is read.
+ */
+export function formatApplicationDay(
+  value: string,
+  locale: string = intlLocale(),
+): string {
+  const day = DATE_ONLY.exec(value);
+  if (locale !== "pt-BR" || !day) return value;
+  return `${day[3]}/${day[2]}/${day[1]}`;
 }

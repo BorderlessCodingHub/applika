@@ -1,52 +1,63 @@
-export const APPLICATIONS_PAGE_COPY = {
-  title: "Applications",
-  subtitle: "Manage and track all applications in your organization.",
-  newApplication: "New Application",
-  newWithCv: "New with CV",
-  applicationsTab: "Applications",
-  draftsTab: "Drafts",
-  archivedSubtitle: "Viewing archived cycle",
-  searchPlaceholder: "Search company or role…",
-  searchLabel: "Search company or role",
-  statusFilterLabel: "Status",
-  allStatuses: "All statuses",
-  advancedFilters: "Advanced filters",
-  clearFilters: "Clear all",
-  emptyTitle: "No applications found",
-  emptyAction: "Create your first application",
+import { liveCopy, word } from "@/i18n/translator";
+
+/**
+ * The applications list's words, in the active language (`applications.*`).
+ * Every field is a getter, so a read returns the current language; the
+ * components rendering them subscribe (`useLocale`/`useTranslations`), so a
+ * switch re-renders them. Never spread a copy object: it would freeze the words.
+ */
+export const APPLICATIONS_PAGE_COPY = liveCopy("applications.page", [
+  "title",
+  "subtitle",
+  "newApplication",
+  "newWithCv",
+  "applicationsTab",
+  "draftsTab",
+  "archivedSubtitle",
+  "searchPlaceholder",
+  "searchLabel",
+  "statusFilterLabel",
+  "allStatuses",
+  "advancedFilters",
+  "clearFilters",
+  "emptyTitle",
+  "emptyAction",
   /** `?focus=` (R-011, KODI-038): the application isn't in the list shown. */
-  focusNotInCycle: "This application is not in the cycle you are viewing.",
-} as const;
+  "focusNotInCycle",
+]);
 
 export function foundApplicationsLabel(count: number): string {
-  return `Found ${count} application${count === 1 ? "" : "s"}`;
+  return word("applications.found", { count });
 }
 
-export const APPLICATION_ACTIVE_LABEL = "Active";
+/** The status pill's words: the open status, and its screen-reader prefix. */
+export const APPLICATION_STATUS_COPY = liveCopy("applications.status", [
+  "active",
+  "srPrefix",
+]);
 
-export const APPLICATION_STATUS_SR_PREFIX = "Status";
+export const APPLICATION_ACTION_COPY = liveCopy("applications.actions", [
+  "edit",
+  "delete",
+  "cv",
+  "details",
+]);
 
-export const APPLICATION_ACTION_COPY = {
-  edit: "Edit",
-  delete: "Delete",
-  cv: "CV",
-  details: "Details",
-} as const;
-
+/** "<role> at <company>"; both are the user's own text, as sent. */
 export function applicationName(role: string, company: string): string {
-  return `${role} at ${company}`;
+  return word("applications.name", { role, company });
 }
 
-export const APPLICATION_DETAIL_LABELS = {
-  platform: "Platform",
-  source: "Source",
-  date: "Date",
-  experience: "Experience",
-  workMode: "Work Mode",
-  country: "Country",
-  salaryRange: "Salary Range",
-  expectedSalary: "Expected Salary",
-  jobPosting: "Job posting",
-  jobPostingLink: "View job posting",
-  notes: "Notes",
-} as const;
+export const APPLICATION_DETAIL_LABELS = liveCopy("applications.detail", [
+  "platform",
+  "source",
+  "date",
+  "experience",
+  "workMode",
+  "country",
+  "salaryRange",
+  "expectedSalary",
+  "jobPosting",
+  "jobPostingLink",
+  "notes",
+]);

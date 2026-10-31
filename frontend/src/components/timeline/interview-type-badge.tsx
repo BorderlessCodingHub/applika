@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import {
   DEFAULT_INTERVIEW_TYPE,
@@ -20,12 +21,13 @@ export function InterviewTypeBadge({
   type,
   className,
 }: InterviewTypeBadgeProps) {
+  const t = useTranslations("timeline.form");
   return (
     <Badge
       variant="secondary"
       className={cn("px-2.5 font-semibold", className)}
     >
-      <span className="sr-only">Interview type: </span>
+      <span className="sr-only">{t("interviewType")}: </span>
       {INTERVIEW_TYPE_LABELS[type ?? DEFAULT_INTERVIEW_TYPE]}
     </Badge>
   );

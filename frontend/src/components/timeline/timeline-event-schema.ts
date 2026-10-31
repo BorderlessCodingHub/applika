@@ -9,6 +9,7 @@ import {
 import { browserTimeZone } from "@/components/timeline/timezone-options";
 import type { FinalizeApplicationPayload } from "@/services/types/applications";
 import type { CreateTimelineEventPayload } from "@/services/types/timeline";
+import { word } from "@/i18n/translator";
 
 /**
  * Validation + value-mapping for the add/edit timeline-event form (PRD 0008,
@@ -64,14 +65,18 @@ const commonShape = {
   close_application: z.boolean(),
   event_date: z
     .string()
-    .min(1, "Event date is required")
+    .min(1, { error: () => word("timeline.form.errors.dateRequired") })
     .refine((raw) => !Number.isNaN(new Date(raw).getTime()), {
-      message: "Enter a valid date",
+      error: () => word("timeline.form.errors.dateInvalid"),
     }),
   start_time: z.string(),
   end_time: z.string(),
-  timezone: z.string().max(MAX_TIMEZONE, "Timezone is too long"),
-  observation: z.string().max(MAX_OBSERVATION, "Notes are too long"),
+  timezone: z.string().max(MAX_TIMEZONE, {
+    error: () => word("timeline.form.errors.timezoneTooLong"),
+  }),
+  observation: z.string().max(MAX_OBSERVATION, {
+    error: () => word("timeline.form.errors.notesTooLong"),
+  }),
 };
 
 /**
@@ -94,7 +99,7 @@ function validateSchedule(
     ctx.addIssue({
       code: "custom",
       path: [hasStart ? "end_time" : "start_time"],
-      message: "Provide both a start and an end time, or neither",
+      message: word("timeline.form.errors.scheduleBoth"),
     });
     return;
   }
@@ -102,7 +107,7 @@ function validateSchedule(
     ctx.addIssue({
       code: "custom",
       path: ["end_time"],
-      message: "End time must be after start time",
+      message: word("timeline.form.errors.endAfterStart"),
     });
   }
 }
@@ -122,7 +127,9 @@ const interviewSchema = z.object({
 const deniedSchema = z.object({
   event_type: z.literal("denied"),
   interview_type: z.string().optional(),
-  denied_reason: z.enum(DENIED_REASONS, { message: "Select a reason" }),
+  denied_reason: z.enum(DENIED_REASONS, {
+    error: () => word("timeline.form.errors.reasonRequired"),
+  }),
   ...commonShape,
   salary_period: z.string().optional(),
   salary_amount: z.string().optional(),
@@ -136,20 +143,24 @@ const offerSchema = z.object({
   denied_reason: z.string().optional(),
   ...commonShape,
   salary_period: z.enum(OFFER_SALARY_PERIOD_VALUES, {
-    message: "Select a salary period",
+    error: () => word("timeline.form.errors.periodRequired"),
   }),
   salary_amount: z
     .string()
     .trim()
-    .min(1, "Enter the offered amount")
+    .min(1, { error: () => word("timeline.form.errors.amountRequired") })
     .refine((raw) => Number.isFinite(Number(raw)), {
-      message: "Enter a valid number",
+      error: () => word("timeline.form.errors.amountInvalid"),
     })
-    .refine((raw) => Number(raw) >= 0, { message: "Must be zero or more" })
+    .refine((raw) => Number(raw) >= 0, {
+      error: () => word("timeline.form.errors.amountNegative"),
+    })
     .refine((raw) => SALARY_AMOUNT_PATTERN.test(raw), {
-      message: "Up to 10 digits and 2 decimal places",
+      error: () => word("timeline.form.errors.amountDigits"),
     }),
-  salary_currency: z.enum(SALARY_CURRENCIES, { message: "Select a currency" }),
+  salary_currency: z.enum(SALARY_CURRENCIES, {
+    error: () => word("timeline.form.errors.currencyRequired"),
+  }),
 });
 
 /**
@@ -173,9 +184,13 @@ const noneSchema = z.object({
   salary_currency: z.string().optional(),
 });
 
-/** The message when a closing save carries a date later than today. */
-export const CLOSING_DATE_MESSAGE =
-  "Pick today or an earlier date to close the application";
+/**
+ * The message when a closing save carries a date later than today, in the
+ * active language (read when validation runs).
+ */
+export function closingDateMessage(): string {
+  return word("timeline.form.errors.closingDate");
+}
 
 /** Local-timezone `YYYY-MM-DD` for the date input's initial value. */
 function todayIso(): string {
@@ -204,7 +219,7 @@ function validateClosingDate(
     ctx.addIssue({
       code: "custom",
       path: ["event_date"],
-      message: CLOSING_DATE_MESSAGE,
+      message: closingDateMessage(),
     });
   }
 }
@@ -307,7 +322,7 @@ export function timelineEventToFormValues(
       ...common,
       // A legacy hourly offer rides through as-is; the salary-period toggle
       // then shows nothing selected and the zod enum blocks save until the
-      // user picks monthly or annually (LEGACY_HOURLY_OFFER_HINT).
+      // user picks monthly or annually (TIMELINE_COPY.legacyHourlyOffer).
       salary_period:
         event.salaryPeriod === "monthly" || event.salaryPeriod === "annually"
           ? event.salaryPeriod
