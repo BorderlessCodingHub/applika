@@ -1,5 +1,6 @@
 from app.application.dto.job import JobSourceDTO
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.job_source_repository import (
     JobSourceRepository,
@@ -18,7 +19,9 @@ class UpdateJobSourceUseCase:
     ) -> JobSourceDTO:
         source = await self.source_repo.set_enabled(source_id, is_enabled)
         if source is None:
-            raise ResourceNotFound('Job source not found')
+            raise ResourceNotFound(
+                'Job source not found', ErrorCode.ADM_JOB_SOURCE_NOT_FOUND
+            )
         active = await self.source_repo.active_job_counts()
         logger.info(
             f'Admin switched job source {source.code} '

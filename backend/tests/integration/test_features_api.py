@@ -37,8 +37,8 @@ USER_ID = base_data()['user'].id
 ADMIN_ID = base_data()['admin_user'].id
 OTHER_ADMIN_ID = 9100000000000000001
 JOBS = [{'key': 'jobs', 'stage': 'beta'}]
-FEATURE_NOT_FOUND = {'detail': 'Feature not found'}
-USER_NOT_FOUND = {'detail': 'User not found'}
+FEATURE_NOT_FOUND = {'detail': 'Feature not found', 'code': 'ADM-1008'}
+USER_NOT_FOUND = {'detail': 'User not found', 'code': 'USR-1001'}
 ROW_KEYS = {
     'key',
     'name',
@@ -505,7 +505,7 @@ async def test_move_back_clears_released_at_keeps_the_list_and_hides_again(
     assert row['beta_user_count'] == 1
     unlisted = await async_client.get('/jobs')
     assert unlisted.status_code == 404
-    assert unlisted.json() == {'detail': 'Not Found'}
+    assert unlisted.json() == {'detail': 'Not Found', 'code': 'GEN-1001'}
     async with as_user(other, 'listed'):
         assert (await async_client.get('/jobs')).status_code == 200
 

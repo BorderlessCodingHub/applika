@@ -1,6 +1,7 @@
 """List-timeline-events use case (R-006)."""
 
 from app.application.dto.timeline_event import TimelineEventDTO
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -36,7 +37,9 @@ class ListTimelineEventsUseCase:
             application_id, user_id
         )
         if application is None:
-            raise ResourceNotFound(APPLICATION_NOT_FOUND)
+            raise ResourceNotFound(
+                APPLICATION_NOT_FOUND, ErrorCode.APP_APPLICATION_NOT_FOUND
+            )
 
         events = await self.timeline_event_repo.list_by_application(
             application_id

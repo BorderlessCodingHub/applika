@@ -133,7 +133,11 @@ async def test_eleventh_is_409_and_ten_stay(async_client: AsyncClient):
     response = await create(async_client, 'Search 10')
 
     assert response.status_code == 409, msg(409, response.text)
-    assert response.json() == {'detail': LIMIT}
+    assert response.json() == {
+        'detail': LIMIT,
+        'code': 'JOB-1003',
+        'params': {'max': 10},
+    }
     assert len(await names(async_client)) == 10
 
 
@@ -147,7 +151,11 @@ async def test_concurrent_creates_never_pass_ten(async_client: AsyncClient):
 
     assert sorted(r.status_code for r in responses) == [201, 409]
     loser = next(r for r in responses if r.status_code == 409)
-    assert loser.json() == {'detail': LIMIT}
+    assert loser.json() == {
+        'detail': LIMIT,
+        'code': 'JOB-1003',
+        'params': {'max': 10},
+    }
     assert len(await names(async_client)) == 10
 
 
@@ -197,7 +205,7 @@ async def test_duplicate_name_in_any_case_is_409(async_client: AsyncClient):
     for name in ('Remote Python', 'remote python', '  REMOTE PYTHON '):
         response = await create(async_client, name)
         assert response.status_code == 409, msg(409, (name, response.text))
-        assert response.json() == {'detail': TAKEN}
+        assert response.json() == {'detail': TAKEN, 'code': 'JOB-1004'}
     assert await names(async_client) == ['Remote Python']
 
 
@@ -237,7 +245,7 @@ async def test_rename_to_a_taken_name_is_409_but_own_case_change_is_fine(
         f'/job-searches/{search["id"]}', json={'name': 'TAKEN'}
     )
     assert clash.status_code == 409, msg(409, clash.text)
-    assert clash.json() == {'detail': TAKEN}
+    assert clash.json() == {'detail': TAKEN, 'code': 'JOB-1004'}
 
     recase = await async_client.put(
         f'/job-searches/{search["id"]}', json={'name': 'MINE'}

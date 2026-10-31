@@ -9,13 +9,12 @@ from app.application.use_cases.catalog.resolve import (
     ensure_platform_visible,
     resolve_company,
 )
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceConflict, ResourceNotFound
 
 
 def _company_input(**overrides) -> ApplicationCompanyInputDTO:
-    defaults: dict[str, Any] = dict(
-        name='Acme', url='https://acme.example.com'
-    )
+    defaults: dict[str, Any] = dict(name='Acme', url='https://acme.example.com')
     defaults.update(overrides)
     return ApplicationCompanyInputDTO(**defaults)
 
@@ -122,7 +121,9 @@ async def test_resolve_company_race_re_reads_instead_of_failing():
         None,
         SimpleNamespace(id=8, name='Acme'),
     ]
-    company_repo.create.side_effect = ResourceConflict('duplicate')
+    company_repo.create.side_effect = ResourceConflict(
+        'duplicate', ErrorCode.CAT_COMPANY_EXISTS
+    )
 
     result = await resolve_company(company_repo, _company_input(), user_id=7)
 
@@ -132,7 +133,9 @@ async def test_resolve_company_race_re_reads_instead_of_failing():
 async def test_resolve_company_race_reraises_when_still_not_found():
     company_repo = AsyncMock()
     company_repo.find_visible_match.side_effect = [None, None]
-    company_repo.create.side_effect = ResourceConflict('duplicate')
+    company_repo.create.side_effect = ResourceConflict(
+        'duplicate', ErrorCode.CAT_COMPANY_EXISTS
+    )
 
     with pytest.raises(ResourceConflict):
         await resolve_company(company_repo, _company_input(), user_id=7)

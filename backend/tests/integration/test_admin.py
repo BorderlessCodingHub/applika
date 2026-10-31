@@ -1187,7 +1187,9 @@ async def test_admin_delete_of_a_job_sources_platform_is_refused(
     assert resp.status_code == 409, msg(409, resp.status_code)
     assert resp.json() == {
         'detail': 'Cannot delete: 1 application(s) or job source(s) '
-        'reference this platform'
+        'reference this platform',
+        'code': 'ADM-1003',
+        'params': {'count': 1},
     }
     db_session.expire_all()
     assert await db_session.get(PlatformModel, HIMALAYAS_PLATFORM_ID)

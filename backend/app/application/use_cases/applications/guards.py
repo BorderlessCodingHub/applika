@@ -16,6 +16,7 @@ closed message tells the user what to do.
 
 from typing import Protocol
 
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ApplicationFinalized, BusinessRuleViolation
 
 ARCHIVED_MESSAGE = 'Cannot modify an application from an archived cycle'
@@ -39,9 +40,13 @@ def ensure_mutable(application: _Lifecycle) -> None:
     not help.
     """
     if application.cycle_id is not None:
-        raise BusinessRuleViolation(ARCHIVED_MESSAGE)
+        raise BusinessRuleViolation(
+            ARCHIVED_MESSAGE, ErrorCode.APP_ARCHIVED_CYCLE
+        )
     if application.finalized_at is not None:
-        raise ApplicationFinalized(CLOSED_MESSAGE)
+        raise ApplicationFinalized(
+            CLOSED_MESSAGE, ErrorCode.APP_APPLICATION_CLOSED
+        )
 
 
 def ensure_not_archived(application: _Lifecycle) -> None:
@@ -52,4 +57,6 @@ def ensure_not_archived(application: _Lifecycle) -> None:
     they skip the closed lock. Only the archived lock still blocks them.
     """
     if application.cycle_id is not None:
-        raise BusinessRuleViolation(ARCHIVED_MESSAGE)
+        raise BusinessRuleViolation(
+            ARCHIVED_MESSAGE, ErrorCode.APP_ARCHIVED_CYCLE
+        )

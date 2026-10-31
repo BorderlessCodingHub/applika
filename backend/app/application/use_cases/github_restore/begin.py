@@ -8,6 +8,7 @@ from app.application.services.github_service import GitHubOAuthService
 from app.application.use_cases.account_link_state import (
     AccountLinkStateUseCase,
 )
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceConflict, ServiceUnavailable
 from app.domain.repositories.github_connection_repository import (
     GithubConnectionRepository,
@@ -33,9 +34,13 @@ class BeginGithubRestoreUseCase:
 
     async def execute(self, user_id: int) -> str:
         if not self.github.is_configured():
-            raise ServiceUnavailable(NOT_CONFIGURED)
+            raise ServiceUnavailable(
+                NOT_CONFIGURED, ErrorCode.AUTH_GITHUB_RESTORE_NOT_CONFIGURED
+            )
         if await self.connections.get_by_user_id(user_id) is not None:
-            raise ResourceConflict(ALREADY_RESTORED)
+            raise ResourceConflict(
+                ALREADY_RESTORED, ErrorCode.AUTH_GITHUB_ALREADY_RESTORED
+            )
         await self.users.mark_restore_prompt_seen(user_id)
         nonce = await self.state.create(user_id)
         return self.github.authorize_url(nonce)

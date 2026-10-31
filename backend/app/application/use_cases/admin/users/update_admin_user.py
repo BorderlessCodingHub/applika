@@ -3,6 +3,7 @@ from app.application.dto.admin import (
     AdminUserUpdateDTO,
 )
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.admin_repository import AdminRepository
 from app.domain.repositories.user_repository import UserRepository
@@ -36,7 +37,9 @@ class UpdateAdminUserUseCase:
                     }
                 },
             )
-            raise ResourceNotFound('User not found')
+            raise ResourceNotFound(
+                'User not found', ErrorCode.USR_USER_NOT_FOUND
+            )
 
         update_data = data.model_dump(exclude_unset=True)
         for key, value in update_data.items():
@@ -57,4 +60,9 @@ class UpdateAdminUserUseCase:
         )
 
         detail = await self.admin_repo.get_user_detail(user_id)
+        if detail is None:
+            # Only a concurrent delete between the update and this read.
+            raise ResourceNotFound(
+                'User not found', ErrorCode.USR_USER_NOT_FOUND
+            )
         return AdminUserDetailDTO(**detail)

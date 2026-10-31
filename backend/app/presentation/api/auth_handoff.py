@@ -1,6 +1,7 @@
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from fastapi import HTTPException, status
+from app.core.error_codes import ErrorCode
+from app.core.exceptions import InvalidRequest
 
 CLI_LOGIN_COOKIE_NAME = '__cli_login'
 _ALLOWED_LOOPBACK_HOSTS = {'127.0.0.1', 'localhost', '::1'}
@@ -10,24 +11,24 @@ def validate_cli_callback_url(callback_url: str) -> str:
     parsed = urlparse(callback_url)
 
     if parsed.scheme != 'http':
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail='CLI callback URL must use http',
+        raise InvalidRequest(
+            'CLI callback URL must use http',
+            ErrorCode.AUTH_CLI_CALLBACK_NOT_HTTP,
         )
     if parsed.hostname not in _ALLOWED_LOOPBACK_HOSTS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail='CLI callback URL must target loopback',
+        raise InvalidRequest(
+            'CLI callback URL must target loopback',
+            ErrorCode.AUTH_CLI_CALLBACK_NOT_LOOPBACK,
         )
     if parsed.port is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail='CLI callback URL must include a port',
+        raise InvalidRequest(
+            'CLI callback URL must include a port',
+            ErrorCode.AUTH_CLI_CALLBACK_NO_PORT,
         )
     if parsed.params or parsed.fragment:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail='CLI callback URL must not contain params or fragments',
+        raise InvalidRequest(
+            'CLI callback URL must not contain params or fragments',
+            ErrorCode.AUTH_CLI_CALLBACK_HAS_PARAMS,
         )
 
     return callback_url

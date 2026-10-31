@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 
 import jwt
-from fastapi import HTTPException, status
 
 from app.application.dto.user import UserDTO
 from app.application.services.session_store import SessionStore
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
+from app.core.exceptions import InvalidSession
 from app.core.tokens import decode_token
 from app.domain.repositories.user_repository import UserRepository
 
@@ -18,15 +19,12 @@ class AuthenticatedUser:
     session_id: int
 
 
-def _session_expired(reason: str) -> HTTPException:
+def _session_expired(reason: str) -> InvalidSession:
     logger.info(
         'Auth failed: session expired',
         extra={'extra_data': {'event': 'auth_failed', 'reason': reason}},
     )
-    return HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail=SESSION_EXPIRED,
-    )
+    return InvalidSession(SESSION_EXPIRED, ErrorCode.AUTH_SESSION_EXPIRED)
 
 
 class GetCurrentUserUseCase:
@@ -58,9 +56,8 @@ class GetCurrentUserUseCase:
                     }
                 },
             )
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail='Not authenticated',
+            raise InvalidSession(
+                'Not authenticated', ErrorCode.AUTH_NOT_AUTHENTICATED
             )
 
         try:
@@ -75,9 +72,8 @@ class GetCurrentUserUseCase:
                     }
                 },
             )
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail='Token expired',
+            raise InvalidSession(
+                'Token expired', ErrorCode.AUTH_TOKEN_EXPIRED
             ) from err
         except jwt.InvalidTokenError as err:
             logger.warning(
@@ -89,9 +85,8 @@ class GetCurrentUserUseCase:
                     }
                 },
             )
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail='Invalid token',
+            raise InvalidSession(
+                'Invalid token', ErrorCode.AUTH_INVALID_TOKEN
             ) from err
 
         user_sub = payload.get('sub')
@@ -105,9 +100,8 @@ class GetCurrentUserUseCase:
                     }
                 },
             )
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail='Invalid token payload',
+            raise InvalidSession(
+                'Invalid token payload', ErrorCode.AUTH_INVALID_TOKEN_PAYLOAD
             )
 
         raw_sid = payload.get('sid')
@@ -135,10 +129,7 @@ class GetCurrentUserUseCase:
                     }
                 },
             )
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail='User not found',
-            )
+            raise InvalidSession('User not found', ErrorCode.AUTH_USER_GONE)
 
         return AuthenticatedUser(
             user=UserDTO.model_validate(user), session_id=session_id

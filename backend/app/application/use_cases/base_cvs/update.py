@@ -2,6 +2,7 @@
 
 from app.application.dto.base_cv import BaseCVDTO, BaseCVUpdateDTO
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.base_cv_repository import BaseCVRepository
 
@@ -26,7 +27,9 @@ class UpdateBaseCVUseCase:
             base_cv_id, user_id
         )
         if not base_cv:
-            raise ResourceNotFound('Base CV not found')
+            raise ResourceNotFound(
+                'Base CV not found', ErrorCode.CV_BASE_CV_NOT_FOUND
+            )
 
         changes = data.model_dump(exclude_unset=True)
         base_cv = await self.base_cv_repo.update(base_cv, changes)

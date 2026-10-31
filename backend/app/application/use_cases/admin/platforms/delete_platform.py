@@ -1,4 +1,5 @@
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceConflict
 from app.domain.repositories.admin_repository import AdminRepository
 from app.domain.repositories.platform_repository import (
@@ -34,7 +35,9 @@ class DeletePlatformUseCase:
             )
             raise ResourceConflict(
                 f'Cannot delete: {refs} application(s) or job source(s) '
-                'reference this platform'
+                'reference this platform',
+                ErrorCode.ADM_PLATFORM_IN_USE,
+                params={'count': refs},
             )
 
         await self.platform_repo.delete(platform_id)

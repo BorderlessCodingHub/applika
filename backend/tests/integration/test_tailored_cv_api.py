@@ -1493,7 +1493,8 @@ async def test_tailoring_keywords_without_a_job_description_is_refused(
 
     assert response.status_code == 422, msg(422, response.text)
     assert response.json() == {
-        'detail': 'Add a job description to tailor by keywords'
+        'detail': 'Add a job description to tailor by keywords',
+        'code': 'CV-1005',
     }, response.json()
     assert await _count_rows(db_session) == 0
 
@@ -1631,7 +1632,7 @@ async def test_fit_without_a_copy_is_404(async_client: AsyncClient):
     )
 
     assert response.status_code == 404, msg(404, response.text)
-    assert response.json() == {'detail': 'CV copy not found'}
+    assert response.json() == {'detail': 'CV copy not found', 'code': 'CV-1003'}
 
 
 @pytest.mark.usefixtures('jobs_beta')  # KODI-052: needs "jobs"

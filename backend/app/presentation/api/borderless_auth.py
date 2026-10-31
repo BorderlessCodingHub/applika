@@ -9,6 +9,7 @@ from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import JSONResponse
 
 from app.config.settings import REFRESH_COOKIE_NAME
+from app.core.error_codes import ErrorCode
 from app.presentation.api.auth_handoff import CLI_LOGIN_COOKIE_NAME
 from app.presentation.api.oauth import (
     cli_handoff_redirect,
@@ -75,7 +76,10 @@ async def borderless_sign_in(
         if redirect_to is None:
             expired = JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                content={'detail': 'CLI login expired'},
+                content={
+                    'detail': 'CLI login expired',
+                    'code': ErrorCode.AUTH_CLI_LOGIN_EXPIRED.value,
+                },
             )
             expired.delete_cookie(CLI_LOGIN_COOKIE_NAME)
             return expired

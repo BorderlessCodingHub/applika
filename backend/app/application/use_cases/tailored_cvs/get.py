@@ -4,6 +4,7 @@ from app.application.dto.tailored_cv import TailoredCVDTO
 from app.application.use_cases.tailored_cvs.guards import (
     load_owned_application,
 )
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -42,5 +43,7 @@ class GetTailoredCVUseCase:
             )
         )
         if not tailored_cv:
-            raise ResourceNotFound('CV copy not found')
+            raise ResourceNotFound(
+                'CV copy not found', ErrorCode.CV_COPY_NOT_FOUND
+            )
         return TailoredCVDTO.model_validate(tailored_cv)

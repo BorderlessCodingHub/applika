@@ -14,7 +14,6 @@ from unittest.mock import AsyncMock
 
 import jwt
 import pytest
-from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from redis.exceptions import ConnectionError as RedisConnectionError
 from starlette.requests import Request
@@ -23,9 +22,10 @@ from app.application.services import session_store as store_module
 from app.application.services.session_store import SessionStore
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
 from app.config.settings import envs
-from app.core.exceptions import SessionServiceUnavailable
+from app.core.exceptions import InvalidSession, SessionServiceUnavailable
 from app.core.tokens import create_access_token
 from app.presentation.dependencies import get_current_user
+from tests.error_catalog import catalog
 from tests.unit.conftest import make_user
 
 SID = 7700000000000000001
@@ -77,31 +77,31 @@ def _user_repo():
 
 
 async def test_no_token_raises_401():
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(InvalidSession) as exc_info:
         await _use_case().execute(None)
-    assert exc_info.value.status_code == 401
-    assert exc_info.value.detail == 'Not authenticated'
+    assert catalog()[exc_info.value.code].status == '401'
+    assert exc_info.value.message == 'Not authenticated'
 
 
 async def test_empty_token_raises_401():
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(InvalidSession) as exc_info:
         await _use_case().execute('')
-    assert exc_info.value.status_code == 401
+    assert catalog()[exc_info.value.code].status == '401'
 
 
 async def test_invalid_token_raises_401():
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(InvalidSession) as exc_info:
         await _use_case().execute('invalid.jwt.token')
-    assert exc_info.value.status_code == 401
-    assert exc_info.value.detail == 'Invalid token'
+    assert catalog()[exc_info.value.code].status == '401'
+    assert exc_info.value.message == 'Invalid token'
 
 
 async def test_expired_token_raises_401_before_the_store():
     store = FakeStore()
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(InvalidSession) as exc_info:
         await _use_case(store=store).execute(_make_token('12345', True))
-    assert exc_info.value.status_code == 401
-    assert exc_info.value.detail == 'Token expired'
+    assert catalog()[exc_info.value.code].status == '401'
+    assert exc_info.value.message == 'Token expired'
     assert store.touched == []
 
 
@@ -115,10 +115,10 @@ async def test_token_without_sub_raises_401():
         envs.JWT_SECRET,
         algorithm=envs.JWT_ALGORITHM,
     )
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(InvalidSession) as exc_info:
         await _use_case().execute(token)
-    assert exc_info.value.status_code == 401
-    assert exc_info.value.detail == 'Invalid token payload'
+    assert catalog()[exc_info.value.code].status == '401'
+    assert exc_info.value.message == 'Invalid token payload'
 
 
 # --- the session check ---
@@ -128,41 +128,41 @@ async def test_token_without_sid_is_session_expired():
     """A token minted before KODI-057 carries no ``sid``: everyone signs in
     again at the release (AC22)."""
     store = FakeStore()
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(InvalidSession) as exc_info:
         await _use_case(_user_repo(), store).execute(
             _make_token('12345', sid=None)
         )
-    assert exc_info.value.status_code == 401
-    assert exc_info.value.detail == 'Session expired'
+    assert catalog()[exc_info.value.code].status == '401'
+    assert exc_info.value.message == 'Session expired'
     assert store.touched == []
 
 
 async def test_non_numeric_sid_is_session_expired():
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(InvalidSession) as exc_info:
         await _use_case(_user_repo()).execute(
             _make_token('12345', sid='0190a1b2-uuid')
         )
-    assert exc_info.value.detail == 'Session expired'
+    assert exc_info.value.message == 'Session expired'
 
 
 async def test_touch_miss_is_session_expired():
     """The session's key is gone (revoked, signed out, expired)."""
     repo = _user_repo()
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(InvalidSession) as exc_info:
         await _use_case(repo, FakeStore(user_id=None)).execute(
             _make_token('12345')
         )
-    assert exc_info.value.status_code == 401
-    assert exc_info.value.detail == 'Session expired'
+    assert catalog()[exc_info.value.code].status == '401'
+    assert exc_info.value.message == 'Session expired'
     repo.get_by_id.assert_not_called()
 
 
 async def test_session_of_another_user_is_session_expired():
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(InvalidSession) as exc_info:
         await _use_case(_user_repo(), FakeStore(user_id=999)).execute(
             _make_token('12345')
         )
-    assert exc_info.value.detail == 'Session expired'
+    assert exc_info.value.message == 'Session expired'
 
 
 async def test_store_error_is_503_and_never_the_user():
@@ -189,10 +189,10 @@ async def test_valid_session_returns_the_user_and_its_session():
 async def test_valid_session_user_not_found():
     repo = AsyncMock()
     repo.get_by_id.return_value = None
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(InvalidSession) as exc_info:
         await _use_case(repo).execute(_make_token('12345'))
-    assert exc_info.value.status_code == 401
-    assert exc_info.value.detail == 'User not found'
+    assert catalog()[exc_info.value.code].status == '401'
+    assert exc_info.value.message == 'User not found'
 
 
 # --- the real SessionStore fails closed ---
@@ -307,7 +307,7 @@ async def test_cookie_is_used_without_bearer():
 
 
 async def test_neither_bearer_nor_cookie_is_not_authenticated():
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(InvalidSession) as exc_info:
         await get_current_user(
             _request(),
             _user_repo(),
@@ -315,8 +315,8 @@ async def test_neither_bearer_nor_cookie_is_not_authenticated():
             None,
             None,
         )
-    assert exc_info.value.status_code == 401
-    assert exc_info.value.detail == 'Not authenticated'
+    assert catalog()[exc_info.value.code].status == '401'
+    assert exc_info.value.message == 'Not authenticated'
 
 
 def test_the_session_check_is_bounded_by_half_a_second():
@@ -329,16 +329,16 @@ async def test_token_minted_before_the_cutover_is_session_expired():
     """ADR-0024: a token whose ``sub`` is a GitHub id never matches the
     session's ``users.id``, so every pre-release session ends."""
     repo = _user_repo()
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(InvalidSession) as exc_info:
         await _use_case(repo, FakeStore(user_id=1)).execute(
             _make_token('98765432')
         )
-    assert exc_info.value.status_code == 401
-    assert exc_info.value.detail == 'Session expired'
+    assert catalog()[exc_info.value.code].status == '401'
+    assert exc_info.value.message == 'Session expired'
     repo.get_by_id.assert_not_called()
 
 
 async def test_non_numeric_sub_is_session_expired():
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(InvalidSession) as exc_info:
         await _use_case(_user_repo()).execute(_make_token('octocat'))
-    assert exc_info.value.detail == 'Session expired'
+    assert exc_info.value.message == 'Session expired'

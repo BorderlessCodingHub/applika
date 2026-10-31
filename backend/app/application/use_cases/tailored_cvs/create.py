@@ -13,6 +13,7 @@ from app.application.use_cases.tailored_cvs.guards import (
     load_owned_application,
 )
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import (
     BusinessRuleViolation,
     ResourceConflict,
@@ -77,13 +78,17 @@ class CreateTailoredCVUseCase:
             data.tailoring == 'keywords'
             and not (application.job_description or '').strip()
         ):
-            raise BusinessRuleViolation(NO_JOB_DESCRIPTION_MESSAGE)
+            raise BusinessRuleViolation(
+                NO_JOB_DESCRIPTION_MESSAGE, ErrorCode.CV_NO_JOB_DESCRIPTION
+            )
 
         base_cv = await self.base_cv_repo.get_by_id_and_user_id(
             data.base_cv_id, data.user_id
         )
         if not base_cv:
-            raise ResourceNotFound('Base CV not found')
+            raise ResourceNotFound(
+                'Base CV not found', ErrorCode.CV_BASE_CV_NOT_FOUND
+            )
 
         existing = (
             await self.tailored_cv_repo.get_by_application_id_and_user_id(
@@ -91,7 +96,10 @@ class CreateTailoredCVUseCase:
             )
         )
         if existing:
-            raise ResourceConflict('This application already has a CV copy')
+            raise ResourceConflict(
+                'This application already has a CV copy',
+                ErrorCode.CV_COPY_EXISTS,
+            )
 
         base_cv_dto = BaseCVDTO.model_validate(base_cv)
 

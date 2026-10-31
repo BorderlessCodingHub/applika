@@ -5,6 +5,7 @@ from app.application.use_cases.tailored_cvs.guards import (
     load_owned_application,
 )
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -45,7 +46,9 @@ class DeleteTailoredCVUseCase:
             )
         )
         if not tailored_cv:
-            raise ResourceNotFound('CV copy not found')
+            raise ResourceNotFound(
+                'CV copy not found', ErrorCode.CV_COPY_NOT_FOUND
+            )
 
         await self.tailored_cv_repo.delete(tailored_cv)
         logger.info(

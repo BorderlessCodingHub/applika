@@ -113,7 +113,10 @@ async def test_wrong_password_is_401_whatever_the_cause(
     ]:
         response = await _signin(real_client, email, password)
         assert response.status_code == 401
-        assert response.json() == {'detail': 'Invalid email or password'}
+        assert response.json() == {
+            'detail': 'Invalid email or password',
+            'code': 'AUTH-1004',
+        }
 
 
 async def test_unverified_email_is_403(
@@ -124,7 +127,7 @@ async def test_unverified_email_is_403(
     assert response.status_code == 403
     assert response.json() == {
         'detail': 'Verify your email on Borderless first',
-        'code': 'email_unverified',
+        'code': 'AUTH-1005',
     }
 
 
@@ -149,7 +152,7 @@ async def test_unusable_borderless_email_is_422_with_nothing_written(
             'This Borderless email cannot be used with applika: it must be '
             'a valid address of at most 100 characters'
         ),
-        'code': 'email_unusable',
+        'code': 'AUTH-1008',
     }
     assert 'set-cookie' not in response.headers
     assert len(list(await db_session.scalars(select(UserModel)))) == (
@@ -176,7 +179,7 @@ async def test_bound_to_another_borderless_account_is_409(
     borderless.add(id='bl-new', email='test@user.com')
     response = await _signin(real_client, 'test@user.com')
     assert response.status_code == 409
-    assert response.json()['code'] == 'binding_conflict'
+    assert response.json()['code'] == 'AUTH-1006'
     count = len(list(await db_session.scalars(select(UserModel))))
     assert count == 2
 
@@ -195,7 +198,7 @@ async def test_ambiguous_email_is_409(
     borderless.add(id='bl-dup', email='DUP@mail.io')
     response = await _signin(real_client, 'DUP@mail.io')
     assert response.status_code == 409
-    assert response.json()['code'] == 'email_ambiguous'
+    assert response.json()['code'] == 'AUTH-1007'
 
 
 async def test_per_email_limit_is_429_with_retry_after(
@@ -210,7 +213,9 @@ async def test_per_email_limit_is_429_with_retry_after(
     wait = int(response.headers['Retry-After'])
     assert 0 < wait <= envs.BORDERLESS_SIGNIN_EMAIL_WINDOW_SECONDS
     assert response.json() == {
-        'detail': f'Too many sign-in attempts. Try again in {wait} seconds.'
+        'detail': f'Too many sign-in attempts. Try again in {wait} seconds.',
+        'code': 'AUTH-1009',
+        'params': {'seconds': wait},
     }
 
 
@@ -238,7 +243,8 @@ async def test_borderless_down_is_503_and_open_sessions_keep_working(
 
     assert response.status_code == 503
     assert response.json() == {
-        'detail': 'Borderless is unavailable, try again later'
+        'detail': 'Borderless is unavailable, try again later',
+        'code': 'AUTH-1017',
     }
     me = await real_client.get(
         '/users/me', headers={'Authorization': f'Bearer {tokens.access_token}'}
@@ -256,7 +262,10 @@ async def test_not_configured_is_503(
     borderless.configured = False
     response = await _signin(real_client, 'a@b.io')
     assert response.status_code == 503
-    assert response.json() == {'detail': 'Borderless sign-in is not configured'}
+    assert response.json() == {
+        'detail': 'Borderless sign-in is not configured',
+        'code': 'AUTH-1018',
+    }
 
 
 @pytest.mark.parametrize(
@@ -332,7 +341,10 @@ async def test_unknown_cli_login_is_404_and_expired_one_is_400(
         real_client, CREDENTIALS['email'], cookies={CLI_LOGIN_COOKIE_NAME: 'x'}
     )
     assert expired.status_code == 400
-    assert expired.json() == {'detail': 'CLI login expired'}
+    assert expired.json() == {
+        'detail': 'CLI login expired',
+        'code': 'AUTH-1019',
+    }
 
 
 async def test_github_login_now_lands_on_the_signin_page(

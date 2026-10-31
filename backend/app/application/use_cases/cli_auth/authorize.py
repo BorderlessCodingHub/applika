@@ -1,6 +1,7 @@
 from app.application.use_cases.auth_handoff_state import (
     AuthHandoffStateUseCase,
 )
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import InvalidRequest
 from app.core.pkce import S256, is_valid_challenge
 
@@ -28,9 +29,13 @@ class CliAuthorizeUseCase:
         state: str,
     ) -> str:
         if code_challenge_method != S256:
-            raise InvalidRequest(METHOD_NOT_S256)
+            raise InvalidRequest(
+                METHOD_NOT_S256, ErrorCode.AUTH_PKCE_METHOD_NOT_S256
+            )
         if not is_valid_challenge(code_challenge):
-            raise InvalidRequest(INVALID_CHALLENGE)
+            raise InvalidRequest(
+                INVALID_CHALLENGE, ErrorCode.AUTH_PKCE_INVALID_CHALLENGE
+            )
         return await self.handoff_state.create_login(
             callback_url=redirect_uri,
             state=state,

@@ -1,5 +1,6 @@
 from app.application.dto.admin import AdminUserDetailDTO
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.admin_repository import AdminRepository
 
@@ -22,7 +23,9 @@ class GetAdminUserDetailUseCase:
                     }
                 },
             )
-            raise ResourceNotFound('User not found')
+            raise ResourceNotFound(
+                'User not found', ErrorCode.USR_USER_NOT_FOUND
+            )
 
         logger.info(
             f'Admin viewed user detail: {user_id}',

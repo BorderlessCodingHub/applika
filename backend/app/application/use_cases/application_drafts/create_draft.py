@@ -1,6 +1,7 @@
 from app.application.dto.application_draft import DraftDTO, DraftInputDTO
 from app.application.use_cases.catalog.resolve import ensure_platform_visible
 from app.application.validators.application_date import ensure_not_in_future
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.models import ApplicationModel
 from app.domain.repositories.application_repository import (
@@ -30,7 +31,9 @@ async def resolve_draft_company(
         return None, company_name
     existing = await company_repo.get_visible(company_id, user_id)
     if not existing:
-        raise ResourceNotFound('Company not found')
+        raise ResourceNotFound(
+            'Company not found', ErrorCode.CAT_COMPANY_NOT_FOUND
+        )
     return existing.id, existing.name
 
 

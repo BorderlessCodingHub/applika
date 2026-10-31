@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.application.use_cases.admin.companies.publish_company import (
     PublishCompanyUseCase,
@@ -168,3 +169,125 @@ async def test_publish_platform_collision_names_the_public_row():
     with pytest.raises(ResourceConflict, match='id 6'):
         await uc.execute(1, admin_id=99)
     platform_repo.update.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Numbered codes and params on the 409s (ADR-0025)
+# ---------------------------------------------------------------------------
+
+
+async def test_publish_company_collision_code_and_params():
+    company_repo = AsyncMock()
+    company_repo.get_by_id_unfiltered.return_value = _company()
+    company_repo.find_public_collision.return_value = _company(
+        id=5, is_public=True
+    )
+
+    with pytest.raises(ResourceConflict) as caught:
+        await PublishCompanyUseCase(company_repo, AsyncMock()).execute(1, 99)
+
+    assert caught.value.code == 'ADM-1004'
+    assert caught.value.params == {
+        'name': 'Acme',
+        'url': 'https://acme.example.com',
+        'id': '5',
+    }
+
+
+async def test_publish_company_lost_race_names_the_found_row():
+    company_repo = AsyncMock()
+    company_repo.get_by_id_unfiltered.return_value = _company()
+    company_repo.find_public_collision.side_effect = [
+        None,
+        _company(id=8, is_public=True),
+    ]
+    company_repo.update.side_effect = IntegrityError('x', {}, Exception())
+
+    with pytest.raises(ResourceConflict) as caught:
+        await PublishCompanyUseCase(company_repo, AsyncMock()).execute(1, 99)
+
+    assert caught.value.code == 'ADM-1004'
+    assert caught.value.params == {
+        'name': 'Acme',
+        'url': 'https://acme.example.com',
+        'id': '8',
+    }
+
+
+async def test_publish_company_lost_race_without_the_row():
+    company_repo = AsyncMock()
+    company_repo.get_by_id_unfiltered.return_value = _company()
+    company_repo.find_public_collision.return_value = None
+    company_repo.update.side_effect = IntegrityError('x', {}, Exception())
+
+    with pytest.raises(ResourceConflict) as caught:
+        await PublishCompanyUseCase(company_repo, AsyncMock()).execute(1, 99)
+
+    assert caught.value.code == 'ADM-1005'
+    assert caught.value.params == {
+        'name': 'Acme',
+        'url': 'https://acme.example.com',
+    }
+    assert caught.value.message == (
+        'A public company with this name and URL already exists: '
+        'Acme (https://acme.example.com)'
+    )
+
+
+async def test_publish_company_row_vanishing_after_publish_is_not_found():
+    company_repo = AsyncMock()
+    admin_repo = AsyncMock()
+    company_repo.get_by_id_unfiltered.return_value = _company()
+    company_repo.find_public_collision.return_value = None
+    admin_repo.get_admin_company_row.return_value = None
+
+    with pytest.raises(ResourceNotFound) as caught:
+        await PublishCompanyUseCase(company_repo, admin_repo).execute(1, 99)
+
+    assert caught.value.code == 'CAT-1001'
+
+
+async def test_publish_platform_collision_code_and_params():
+    platform_repo = AsyncMock()
+    platform_repo.get_by_id.return_value = _platform()
+    platform_repo.find_public_by_name.return_value = _platform(
+        id=6, is_public=True
+    )
+
+    with pytest.raises(ResourceConflict) as caught:
+        await PublishPlatformUseCase(platform_repo).execute(1, admin_id=99)
+
+    assert caught.value.code == 'ADM-1006'
+    assert caught.value.params == {'name': 'Founder Board', 'id': '6'}
+
+
+async def test_publish_platform_lost_race_names_the_found_row():
+    platform_repo = AsyncMock()
+    platform_repo.get_by_id.return_value = _platform()
+    platform_repo.find_public_by_name.side_effect = [
+        None,
+        _platform(id=9, is_public=True),
+    ]
+    platform_repo.update.side_effect = IntegrityError('x', {}, Exception())
+
+    with pytest.raises(ResourceConflict) as caught:
+        await PublishPlatformUseCase(platform_repo).execute(1, admin_id=99)
+
+    assert caught.value.code == 'ADM-1006'
+    assert caught.value.params == {'name': 'Founder Board', 'id': '9'}
+
+
+async def test_publish_platform_lost_race_without_the_row():
+    platform_repo = AsyncMock()
+    platform_repo.get_by_id.return_value = _platform()
+    platform_repo.find_public_by_name.return_value = None
+    platform_repo.update.side_effect = IntegrityError('x', {}, Exception())
+
+    with pytest.raises(ResourceConflict) as caught:
+        await PublishPlatformUseCase(platform_repo).execute(1, admin_id=99)
+
+    assert caught.value.code == 'ADM-1007'
+    assert caught.value.params == {'name': 'Founder Board'}
+    assert caught.value.message == (
+        'A public platform with this name already exists: Founder Board'
+    )

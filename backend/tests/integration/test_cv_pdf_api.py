@@ -43,6 +43,7 @@ from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.services.cv_rendering.renderer import RenderedPdf
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import PdfRenderFailed
 from app.domain.models import (
     ApplicationModel,
@@ -644,7 +645,9 @@ class _BrokenRenderer:
     """Stands in for a compiler that cannot produce a PDF today."""
 
     async def render(self, cv: Any) -> RenderedPdf:
-        raise PdfRenderFailed('Could not render the CV PDF')
+        raise PdfRenderFailed(
+            'Could not render the CV PDF', ErrorCode.CV_PDF_RENDER_FAILED
+        )
 
 
 @pytest.fixture

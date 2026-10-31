@@ -61,6 +61,7 @@ from app.application.services.cv_rendering.mapper import (
 )
 from app.config.logging import logger
 from app.config.settings import envs
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import PdfRenderFailed
 
 # The vendored theme folder, copied into every render's temp directory.
@@ -257,7 +258,9 @@ class CVPdfRenderer:
                     }
                 },
             )
-            raise PdfRenderFailed(RENDER_FAILED_MESSAGE) from exc
+            raise PdfRenderFailed(
+                RENDER_FAILED_MESSAGE, ErrorCode.CV_PDF_RENDER_FAILED
+            ) from exc
         except Exception as exc:
             # Only the exception's *type* is logged: RenderCV's messages quote
             # the CV field that upset it, and that is the user's own data.
@@ -270,7 +273,9 @@ class CVPdfRenderer:
                     }
                 },
             )
-            raise PdfRenderFailed(RENDER_FAILED_MESSAGE) from exc
+            raise PdfRenderFailed(
+                RENDER_FAILED_MESSAGE, ErrorCode.CV_PDF_RENDER_FAILED
+            ) from exc
         finally:
             # ``abandon_on_cancel`` means a timed-out compile may still be
             # writing in here, so a failure to delete must not mask the error.

@@ -1,5 +1,6 @@
 from app.application.use_cases.admin.features.common import load_feature
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.feature_repository import FeatureRepository
 
@@ -16,9 +17,9 @@ class AddFeatureUserUseCase:
     async def execute(self, key: str, user_id: int, admin_id: int) -> None:
         feature = await load_feature(self.feature_repo, key)
         if not await self.feature_repo.user_exists(user_id):
-            raise ResourceNotFound(USER_NOT_FOUND)
+            raise ResourceNotFound(USER_NOT_FOUND, ErrorCode.USR_USER_NOT_FOUND)
         if not await self.feature_repo.add_user(feature.id, user_id, admin_id):
-            raise ResourceNotFound(USER_NOT_FOUND)
+            raise ResourceNotFound(USER_NOT_FOUND, ErrorCode.USR_USER_NOT_FOUND)
         logger.info(
             'Admin added a user to a feature beta list',
             extra={

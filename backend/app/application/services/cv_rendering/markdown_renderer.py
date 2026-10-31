@@ -66,6 +66,7 @@ from app.application.services.cv_rendering.renderer import (
 )
 from app.config.logging import logger
 from app.config.settings import envs
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import CVExportFailed
 
 # The one-file override for the Markdown header, copied next to every
@@ -163,7 +164,9 @@ class CVMarkdownRenderer:
                     }
                 },
             )
-            raise CVExportFailed(RENDER_FAILED_MESSAGE) from exc
+            raise CVExportFailed(
+                RENDER_FAILED_MESSAGE, ErrorCode.CV_MARKDOWN_RENDER_FAILED
+            ) from exc
         except Exception as exc:
             # Only the exception's *type* is logged, never its message: same
             # discipline as CVPdfRenderer.render - a RenderCV error message
@@ -177,7 +180,9 @@ class CVMarkdownRenderer:
                     }
                 },
             )
-            raise CVExportFailed(RENDER_FAILED_MESSAGE) from exc
+            raise CVExportFailed(
+                RENDER_FAILED_MESSAGE, ErrorCode.CV_MARKDOWN_RENDER_FAILED
+            ) from exc
         finally:
             shutil.rmtree(work_dir, ignore_errors=True)
 

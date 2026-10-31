@@ -18,6 +18,7 @@ from app.application.use_cases.borderless.refresh_badges import (
     RefreshBadgesUseCase,
 )
 from app.application.use_cases.borderless.sign_in import encrypted_token
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import BindingConflict
 from app.domain.repositories.borderless_account_repository import (
     BorderlessAccountRepository,
@@ -46,7 +47,9 @@ class ConfirmMembershipUseCase:
         )
         binding = await self.bindings.get_by_user_id(user_id)
         if binding is None or binding.borderless_user_id != answer.user_id:
-            raise BindingConflict(NOT_YOUR_ACCOUNT)
+            raise BindingConflict(
+                NOT_YOUR_ACCOUNT, ErrorCode.AUTH_NOT_YOUR_BORDERLESS_ACCOUNT
+            )
         ciphertext, expires_at = encrypted_token(answer)
         await self.bindings.store_tokens(
             binding,

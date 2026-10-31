@@ -28,6 +28,7 @@ from app.core.tokens import decode_token
 from app.domain.models import UserSessionModel
 from app.presentation.api.auth_handoff import CLI_LOGIN_COOKIE_NAME
 from tests.base_db_setup import base_data
+from tests.error_catalog import code_for
 from tests.integration.conftest import CREDENTIALS
 from tests.sessions_seed import open_session
 
@@ -146,7 +147,10 @@ async def test_authorize_accepts_s256_only(
         follow_redirects=False,
     )
     assert response.status_code == 400
-    assert response.json() == {'detail': 'code_challenge_method must be S256'}
+    assert response.json() == {
+        'detail': 'code_challenge_method must be S256',
+        'code': 'AUTH-1026',
+    }
 
 
 @pytest.mark.parametrize('challenge', ['short', 'A' * 129, 'A' * 42 + '='])
@@ -155,7 +159,10 @@ async def test_authorize_refuses_a_bad_challenge(
 ):
     response = await _authorize(real_client, challenge)
     assert response.status_code == 400
-    assert response.json() == {'detail': 'Invalid code_challenge'}
+    assert response.json() == {
+        'detail': 'Invalid code_challenge',
+        'code': 'AUTH-1027',
+    }
 
 
 @pytest.mark.parametrize(
@@ -176,7 +183,7 @@ async def test_authorize_keeps_the_loopback_rules(
     _, challenge = _pkce()
     response = await _authorize(real_client, challenge, redirect_uri)
     assert response.status_code == 400
-    assert response.json() == {'detail': detail}
+    assert response.json() == {'detail': detail, 'code': code_for(detail)}
 
 
 async def test_authorize_needs_every_parameter(
@@ -345,6 +352,7 @@ async def test_the_code_is_one_use(
     assert again.json() == {
         'error': 'invalid_grant',
         'detail': 'Invalid or expired code',
+        'code': 'AUTH-1028',
     }
 
 
@@ -374,6 +382,7 @@ async def test_a_wrong_verifier_is_invalid_grant_and_spends_the_code(
     assert wrong.json() == {
         'error': 'invalid_grant',
         'detail': 'Invalid code_verifier',
+        'code': 'AUTH-1030',
     }
 
     right = await _token(
@@ -406,6 +415,7 @@ async def test_a_different_redirect_uri_is_invalid_grant(
     assert response.json() == {
         'error': 'invalid_grant',
         'detail': 'redirect_uri does not match',
+        'code': 'AUTH-1029',
     }
 
 
@@ -419,7 +429,10 @@ async def test_a_pkce_code_is_refused_by_the_legacy_exchange(
     response = await real_client.post('/auth/cli/exchange', json={'code': code})
 
     assert response.status_code == 401
-    assert response.json() == {'detail': 'Invalid or expired CLI exchange code'}
+    assert response.json() == {
+        'detail': 'Invalid or expired CLI exchange code',
+        'code': 'AUTH-1021',
+    }
 
 
 async def test_a_legacy_code_is_refused_by_the_token_endpoint(
@@ -525,6 +538,7 @@ async def test_refresh_grant_with_an_ended_session_is_invalid_grant(
     assert response.json() == {
         'error': 'invalid_grant',
         'detail': 'Invalid or expired refresh token',
+        'code': 'AUTH-1032',
     }
 
 

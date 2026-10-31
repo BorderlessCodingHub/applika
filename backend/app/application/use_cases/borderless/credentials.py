@@ -22,6 +22,7 @@ from app.application.services.borderless_client import (
 )
 from app.config.logging import logger
 from app.config.settings import envs
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import (
     BORDERLESS_NOT_CONFIGURED,
     BORDERLESS_UNAVAILABLE,
@@ -86,7 +87,9 @@ async def check_credentials(
 ) -> BorderlessSignIn:
     """Borderless's answer for verified credentials, or a refusal."""
     if not client.is_configured():
-        raise ServiceUnavailable(BORDERLESS_NOT_CONFIGURED)
+        raise ServiceUnavailable(
+            BORDERLESS_NOT_CONFIGURED, ErrorCode.AUTH_BORDERLESS_NOT_CONFIGURED
+        )
     await limiter.check(email)
     try:
         result = await client.sign_in(email, password)
@@ -96,9 +99,13 @@ async def check_credentials(
     except BorderlessRateLimited as exc:
         raise SignInRateLimited(exc.retry_after) from exc
     except BorderlessNotConfigured as exc:
-        raise ServiceUnavailable(BORDERLESS_NOT_CONFIGURED) from exc
+        raise ServiceUnavailable(
+            BORDERLESS_NOT_CONFIGURED, ErrorCode.AUTH_BORDERLESS_NOT_CONFIGURED
+        ) from exc
     except BorderlessUnavailable as exc:
-        raise ServiceUnavailable(BORDERLESS_UNAVAILABLE) from exc
+        raise ServiceUnavailable(
+            BORDERLESS_UNAVAILABLE, ErrorCode.AUTH_BORDERLESS_UNAVAILABLE
+        ) from exc
     await limiter.clear(email)
     if not result.email_verified:
         raise EmailUnverified()

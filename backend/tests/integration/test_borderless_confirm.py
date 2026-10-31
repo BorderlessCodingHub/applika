@@ -33,7 +33,10 @@ async def test_confirm_keeps_the_session_and_renews_the_access(
         expires_in=timedelta(seconds=-1),
     )
     borderless.add(
-        id='bl-user', email=CREDENTIALS['email'], token='fresh', membership='BASE'
+        id='bl-user',
+        email=CREDENTIALS['email'],
+        token='fresh',
+        membership='BASE',
     )
     tokens = await open_session(async_engine, redis_client, 1)
     keys_before = sorted(await redis_client.keys('applika:session:*'))
@@ -41,7 +44,9 @@ async def test_confirm_keeps_the_session_and_renews_the_access(
         (r.id, r.ended_at)
         for r in await db_session.scalars(select(UserSessionModel))
     ]
-    me = await real_client.get('/users/me', headers=_bearer(tokens.access_token))
+    me = await real_client.get(
+        '/users/me', headers=_bearer(tokens.access_token)
+    )
     assert me.json()['borderless']['status'] == 'needs_reconnect'
 
     response = await real_client.post(
@@ -64,11 +69,11 @@ async def test_confirm_keeps_the_session_and_renews_the_access(
     assert binding.access_token_expires_at > datetime.now(UTC) + timedelta(
         days=6
     )
-    me = await real_client.get('/users/me', headers=_bearer(tokens.access_token))
+    me = await real_client.get(
+        '/users/me', headers=_bearer(tokens.access_token)
+    )
     assert me.json()['borderless']['status'] == 'active'
-    assert [b['badge'] for b in me.json()['badges']] == [
-        'borderless_base'
-    ]
+    assert [b['badge'] for b in me.json()['badges']] == ['borderless_base']
 
 
 async def test_confirm_with_another_borderless_account_is_409(
@@ -89,10 +94,9 @@ async def test_confirm_with_another_borderless_account_is_409(
     assert response.status_code == 409
     assert response.json() == {
         'detail': (
-            'This is not the Borderless account linked to your applika '
-            'account'
+            'This is not the Borderless account linked to your applika account'
         ),
-        'code': 'binding_conflict',
+        'code': 'AUTH-1010',
     }
 
 
@@ -115,7 +119,10 @@ async def test_confirm_refusals(
         headers=headers,
     )
     assert wrong.status_code == 401
-    assert wrong.json() == {'detail': 'Invalid email or password'}
+    assert wrong.json() == {
+        'detail': 'Invalid email or password',
+        'code': 'AUTH-1004',
+    }
     borderless.sign_in_error = BorderlessUnavailable('down')
     down = await real_client.post(
         '/auth/borderless/confirm', json=CREDENTIALS, headers=headers

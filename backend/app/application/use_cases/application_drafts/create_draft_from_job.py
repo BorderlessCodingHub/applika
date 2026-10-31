@@ -63,6 +63,7 @@ from app.application.validators.application_date import (
 )
 from app.config.logging import logger
 from app.core.enums import WorkMode
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import (
     BusinessRuleViolation,
     ResourceConflict,
@@ -131,7 +132,9 @@ class CreateDraftFromJobUseCase:
     async def _platform_id(self, job: JobModel, user_id: int) -> int:
         source = await self.job_source_repo.get(job.source_id)
         if source is None or source.platform_id is None:
-            raise ResourceNotFound('Platform not found')
+            raise ResourceNotFound(
+                'Platform not found', ErrorCode.CAT_PLATFORM_NOT_FOUND
+            )
         platform = await ensure_platform_visible(
             self.platform_repo, source.platform_id, user_id
         )
@@ -153,14 +156,18 @@ class CreateDraftFromJobUseCase:
 
         job = await self.job_repo.get_by_id(job_id)
         if job is None or not job.is_active:
-            raise ResourceNotFound(JOB_NOT_FOUND)
+            raise ResourceNotFound(JOB_NOT_FOUND, ErrorCode.JOB_JOB_NOT_FOUND)
 
         if await self.application_repo.get_by_job_id(user_id, job.id):
-            raise ResourceConflict(ALREADY_APPLIED)
+            raise ResourceConflict(
+                ALREADY_APPLIED, ErrorCode.APP_ALREADY_APPLIED
+            )
 
         role = _cut(job.title, MAX_ROLE)
         if not role:
-            raise BusinessRuleViolation(MISSING_JOB_TITLE)
+            raise BusinessRuleViolation(
+                MISSING_JOB_TITLE, ErrorCode.APP_JOB_HAS_NO_TITLE
+            )
         company_name = _cut(job.company_name, MAX_COMPANY_NAME)
 
         platform_id = await self._platform_id(job, user_id)
@@ -170,9 +177,13 @@ class CreateDraftFromJobUseCase:
             if not await self.base_cv_repo.get_by_id_and_user_id(
                 base_cv_id, user_id
             ):
-                raise ResourceNotFound('Base CV not found')
+                raise ResourceNotFound(
+                    'Base CV not found', ErrorCode.CV_BASE_CV_NOT_FOUND
+                )
             if tailoring == 'keywords' and not (job_description or '').strip():
-                raise BusinessRuleViolation(NO_JOB_DESCRIPTION_MESSAGE)
+                raise BusinessRuleViolation(
+                    NO_JOB_DESCRIPTION_MESSAGE, ErrorCode.CV_NO_JOB_DESCRIPTION
+                )
 
         company_id: int | None = None
         company_url = web_url(job.company_url)
@@ -208,7 +219,9 @@ class CreateDraftFromJobUseCase:
             )
         except IntegrityError as e:
             if 'uq_applications_user_job' in str(e.orig):
-                raise ResourceConflict(ALREADY_APPLIED) from e
+                raise ResourceConflict(
+                    ALREADY_APPLIED, ErrorCode.APP_ALREADY_APPLIED
+                ) from e
             raise
 
         has_cv = False

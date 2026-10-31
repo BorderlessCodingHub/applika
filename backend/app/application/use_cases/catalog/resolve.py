@@ -8,6 +8,7 @@ application use cases so the rule lives in exactly one place.
 
 from app.application.dto.application import ApplicationCompanyInputDTO
 from app.application.dto.company import CompanyCreateDTO
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceConflict, ResourceNotFound
 from app.domain.models import PlatformModel
 from app.domain.repositories.company_repository import CompanyRepository
@@ -22,7 +23,9 @@ async def ensure_platform_visible(
     and created by that user. Otherwise ``ResourceNotFound`` (R-023)."""
     platform = await platform_repo.get_visible(platform_id, user_id)
     if not platform:
-        raise ResourceNotFound('Platform not found')
+        raise ResourceNotFound(
+            'Platform not found', ErrorCode.CAT_PLATFORM_NOT_FOUND
+        )
     return platform
 
 
@@ -47,7 +50,9 @@ async def resolve_company(
     if isinstance(company, int):
         existing = await company_repo.get_visible(company, user_id)
         if not existing:
-            raise ResourceNotFound('Company not found')
+            raise ResourceNotFound(
+                'Company not found', ErrorCode.CAT_COMPANY_NOT_FOUND
+            )
         return existing.id, existing.name
 
     if company.url is None:

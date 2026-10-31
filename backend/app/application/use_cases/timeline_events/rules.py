@@ -10,6 +10,7 @@ are the last line.
 
 from app.application.dto.timeline_event import TimelineEventWriteDTO
 from app.core.enums import DeniedReason, EventType, InterviewType, SalaryPeriod
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import BusinessRuleViolation, ResourceConflict
 from app.domain.repositories.timeline_event_repository import (
     ONE_INITIAL_SCREENING_MESSAGE,
@@ -80,35 +81,51 @@ def normalize_event[T: TimelineEventWriteDTO](data: T) -> T:
     if data.event_type is EventType.INTERVIEW:
         interview_type = interview_type or InterviewType.UNKNOWN
     elif interview_type is not None:
-        raise BusinessRuleViolation(INTERVIEW_TYPE_ONLY_ON_INTERVIEW)
+        raise BusinessRuleViolation(
+            INTERVIEW_TYPE_ONLY_ON_INTERVIEW,
+            ErrorCode.EVT_INTERVIEW_TYPE_ONLY_ON_INTERVIEW,
+        )
 
     denied_reason = data.denied_reason
     if data.event_type is EventType.DENIED:
         denied_reason = denied_reason or DeniedReason.UNKNOWN
     elif denied_reason is not None:
-        raise BusinessRuleViolation(DENIED_REASON_ONLY_ON_DENIED)
+        raise BusinessRuleViolation(
+            DENIED_REASON_ONLY_ON_DENIED,
+            ErrorCode.EVT_DENIED_REASON_ONLY_ON_DENIED,
+        )
 
     salary = (data.salary_amount, data.salary_currency, data.salary_period)
     if data.event_type is EventType.OFFER:
         if any(field is None for field in salary):
-            raise BusinessRuleViolation(OFFER_NEEDS_SALARY)
+            raise BusinessRuleViolation(
+                OFFER_NEEDS_SALARY, ErrorCode.EVT_OFFER_NEEDS_SALARY
+            )
     elif any(field is not None for field in salary):
-        raise BusinessRuleViolation(SALARY_ONLY_ON_OFFER)
+        raise BusinessRuleViolation(
+            SALARY_ONLY_ON_OFFER, ErrorCode.EVT_SALARY_ONLY_ON_OFFER
+        )
 
     if (data.start_time is None) != (data.end_time is None):
-        raise BusinessRuleViolation(TIMES_TOGETHER)
+        raise BusinessRuleViolation(
+            TIMES_TOGETHER, ErrorCode.EVT_TIMES_TOGETHER
+        )
     if (
         data.start_time is not None
         and data.end_time is not None
         and data.end_time <= data.start_time
     ):
-        raise BusinessRuleViolation(END_AFTER_START)
+        raise BusinessRuleViolation(
+            END_AFTER_START, ErrorCode.EVT_END_AFTER_START
+        )
     if data.event_type is not EventType.INTERVIEW and (
         data.start_time is not None
         or data.end_time is not None
         or data.timezone is not None
     ):
-        raise BusinessRuleViolation(SCHEDULE_ONLY_ON_INTERVIEW)
+        raise BusinessRuleViolation(
+            SCHEDULE_ONLY_ON_INTERVIEW, ErrorCode.EVT_SCHEDULE_ONLY_ON_INTERVIEW
+        )
 
     return data.model_copy(
         update={
@@ -130,7 +147,9 @@ def ensure_offer_period_allowed[T: TimelineEventWriteDTO](data: T) -> None:
         data.event_type is EventType.OFFER
         and data.salary_period not in OFFER_PERIODS
     ):
-        raise BusinessRuleViolation(OFFER_PERIOD_INVALID)
+        raise BusinessRuleViolation(
+            OFFER_PERIOD_INVALID, ErrorCode.EVT_OFFER_PERIOD_INVALID
+        )
 
 
 async def ensure_one_initial_screening(
@@ -151,4 +170,6 @@ async def ensure_one_initial_screening(
     if await timeline_repo.has_initial_screening(
         application_id, exclude_id=replacing_id
     ):
-        raise ResourceConflict(ONE_INITIAL_SCREENING_MESSAGE)
+        raise ResourceConflict(
+            ONE_INITIAL_SCREENING_MESSAGE, ErrorCode.EVT_ONE_INITIAL_SCREENING
+        )

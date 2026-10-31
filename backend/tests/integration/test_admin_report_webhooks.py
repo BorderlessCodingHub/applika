@@ -17,6 +17,7 @@ from app.domain.repositories.report_webhook_repository import (
 )
 from app.main import app as main_app
 from tests import msg
+from tests.error_catalog import code_for
 
 VALID_ID = '123456789012345678'
 VALID_TOKEN = 'AbCdEfGhIjKlMnOpQrSt0123456789'
@@ -75,7 +76,10 @@ async def test_unauthenticated_is_401(raw_client: AsyncClient):
 async def test_non_admin_is_403(async_client: AsyncClient, method, path, body):
     response = await async_client.request(method.upper(), path, json=body)
     assert response.status_code == 403
-    assert response.json() == {'detail': 'Admin access required'}
+    assert response.json() == {
+        'detail': 'Admin access required',
+        'code': 'ADM-1001',
+    }
 
 
 async def test_discord_webhook_routes_are_gone(admin_client: AsyncClient):
@@ -250,7 +254,7 @@ async def test_patch_badges_never_empty_or_unknown(
         f'/admin/report-webhooks/{webhook_id}', json={'badges': badges}
     )
     assert response.status_code == 422
-    assert response.json() == {'detail': detail}
+    assert response.json() == {'detail': detail, 'code': code_for(detail)}
     [listed] = (await admin_client.get('/admin/report-webhooks')).json()
     assert listed['badges'] == ['borderless_psp']
 
@@ -294,7 +298,10 @@ async def test_duplicate_url_is_409_without_the_url(admin_client: AsyncClient):
         '/admin/report-webhooks', json=_payload(badges=['borderless_base'])
     )
     assert duplicate.status_code == 409
-    assert duplicate.json() == {'detail': 'This webhook is already configured'}
+    assert duplicate.json() == {
+        'detail': 'This webhook is already configured',
+        'code': 'ADM-1018',
+    }
 
     other = await admin_client.post(
         '/admin/report-webhooks', json=_payload(webhook_url=OTHER_URL)
@@ -315,7 +322,10 @@ async def test_unknown_webhook_is_404(admin_client: AsyncClient):
             json={'label': 'x'} if method == 'PATCH' else None,
         )
         assert response.status_code == 404
-        assert response.json() == {'detail': 'Report webhook not found'}
+        assert response.json() == {
+            'detail': 'Report webhook not found',
+            'code': 'ADM-1012',
+        }
 
 
 async def test_carried_over_webhook_without_a_badge_is_listed_empty(

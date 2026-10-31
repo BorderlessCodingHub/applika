@@ -200,7 +200,7 @@ async def test_installed_cli_refreshes_and_logs_out_through_cookies(
     assert logged_out.json() == {'detail': 'Logged out'}
     after = await real_client.get('/users/me', cookies=cookies)
     assert after.status_code == 401
-    assert after.json() == {'detail': 'Session expired'}
+    assert after.json() == {'detail': 'Session expired', 'code': 'AUTH-1002'}
 
 
 @pytest.mark.asyncio

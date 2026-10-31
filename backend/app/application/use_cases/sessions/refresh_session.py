@@ -11,6 +11,7 @@ from app.application.use_cases.sessions.open_session import (
     session_tokens,
 )
 from app.config.settings import envs
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import InvalidSession
 from app.domain.repositories.borderless_account_repository import (
     BorderlessAccountRepository,
@@ -53,21 +54,27 @@ class RefreshSessionUseCase:
 
     async def execute(self, refresh_value: str | None) -> SessionTokensDTO:
         if not refresh_value:
-            raise InvalidSession(NOT_AUTHENTICATED)
+            raise InvalidSession(
+                NOT_AUTHENTICATED, ErrorCode.AUTH_NOT_AUTHENTICATED
+            )
 
         session_id = await self.store.resolve_refresh(refresh_value)
         if session_id is None:
-            raise InvalidSession(INVALID_REFRESH)
+            raise InvalidSession(
+                INVALID_REFRESH, ErrorCode.AUTH_INVALID_REFRESH
+            )
 
         row = await self.session_repo.get(session_id)
         if row is None or row.ended_at is not None:
             await self.store.end(session_id)
-            raise InvalidSession(INVALID_REFRESH)
+            raise InvalidSession(
+                INVALID_REFRESH, ErrorCode.AUTH_INVALID_REFRESH
+            )
 
         user = await self.user_repo.get_by_id(row.user_id)
         if user is None:
             await self.store.end(session_id)
-            raise InvalidSession(USER_NOT_FOUND)
+            raise InvalidSession(USER_NOT_FOUND, ErrorCode.AUTH_USER_GONE)
         user_id = user.id
 
         # A session opened before ADR-0024 never slides on, even once its
@@ -77,7 +84,7 @@ class RefreshSessionUseCase:
             or await self.binding_repo.get_by_user_id(user_id) is None
         ):
             await self.end_session.end_row(row, 'expired')
-            raise InvalidSession(SIGN_IN_AGAIN)
+            raise InvalidSession(SIGN_IN_AGAIN, ErrorCode.AUTH_SIGN_IN_AGAIN)
 
         await self.refresh_badges.execute(
             user_id, envs.BORDERLESS_REFRESH_TIMEOUT_SECONDS
@@ -85,7 +92,9 @@ class RefreshSessionUseCase:
 
         expires_at = next_expiry(datetime.now(UTC))
         if not await self.store.slide(session_id, refresh_value, expires_at):
-            raise InvalidSession(INVALID_REFRESH)
+            raise InvalidSession(
+                INVALID_REFRESH, ErrorCode.AUTH_INVALID_REFRESH
+            )
 
         live = await self.store.live(session_id)
         await self.session_repo.set_expiry(

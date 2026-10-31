@@ -313,7 +313,10 @@ async def test_refresh_copies_the_live_last_use_onto_the_row(
 async def test_refresh_without_a_cookie_is_401(real_client: AsyncClient):
     response = await real_client.get('/auth/refresh')
     assert response.status_code == 401
-    assert response.json() == {'detail': 'Not authenticated'}
+    assert response.json() == {
+        'detail': 'Not authenticated',
+        'code': 'AUTH-1001',
+    }
 
 
 # --------------------------------------------------------------------------
@@ -334,7 +337,10 @@ async def test_a_legacy_uuid4_refresh_key_is_refused(
     )
 
     assert response.status_code == 401
-    assert response.json() == {'detail': 'Invalid or expired refresh token'}
+    assert response.json() == {
+        'detail': 'Invalid or expired refresh token',
+        'code': 'AUTH-1015',
+    }
     # A refused refresh clears both cookies.
     assert _set_cookie(response, ACCESS_COOKIE_NAME) is not None
     assert _set_cookie(response, REFRESH_COOKIE_NAME) is not None
@@ -361,13 +367,19 @@ async def test_a_jwt_without_sid_is_session_expired(
         await real_client.get('/users/me', headers=_bearer(token)),
     ):
         assert response.status_code == 401
-        assert response.json() == {'detail': 'Session expired'}
+        assert response.json() == {
+            'detail': 'Session expired',
+            'code': 'AUTH-1002',
+        }
 
 
 async def test_no_credentials_is_not_authenticated(real_client: AsyncClient):
     response = await real_client.get('/users/me')
     assert response.status_code == 401
-    assert response.json() == {'detail': 'Not authenticated'}
+    assert response.json() == {
+        'detail': 'Not authenticated',
+        'code': 'AUTH-1001',
+    }
 
 
 # --------------------------------------------------------------------------
@@ -402,7 +414,7 @@ async def test_logout_ends_the_session(
         '/users/me', headers=_bearer(tokens.access_token)
     )
     assert after.status_code == 401
-    assert after.json() == {'detail': 'Session expired'}
+    assert after.json() == {'detail': 'Session expired', 'code': 'AUTH-1002'}
     refresh = await real_client.get(
         '/auth/refresh', cookies={REFRESH_COOKIE_NAME: tokens.refresh_token}
     )
@@ -436,7 +448,7 @@ async def test_a_revoked_device_is_refused_on_its_next_request(
         '/users/me', headers=_bearer(phone.access_token)
     )
     assert refused.status_code == 401
-    assert refused.json() == {'detail': 'Session expired'}
+    assert refused.json() == {'detail': 'Session expired', 'code': 'AUTH-1002'}
     # Refreshing the revoked device fails too; the laptop is untouched.
     assert (
         await real_client.get(
@@ -529,7 +541,10 @@ async def test_refresh_of_an_unbound_user_is_401_sign_in_again(
     )
 
     assert refused.status_code == 401
-    assert refused.json() == {'detail': 'Sign in again with Borderless'}
+    assert refused.json() == {
+        'detail': 'Sign in again with Borderless',
+        'code': 'AUTH-1016',
+    }
     assert _set_cookie(refused, ACCESS_COOKIE_NAME) is not None
     row = await _row(async_engine, tokens.session_id)
     assert row.end_reason == 'expired'
@@ -555,7 +570,10 @@ async def test_a_pre_release_session_never_slides_on_once_bound(
     )
 
     assert refused.status_code == 401
-    assert refused.json() == {'detail': 'Sign in again with Borderless'}
+    assert refused.json() == {
+        'detail': 'Sign in again with Borderless',
+        'code': 'AUTH-1016',
+    }
     row = await _row(async_engine, tokens.session_id)
     assert row.end_reason == 'expired'
     assert (
@@ -629,7 +647,7 @@ async def test_a_session_past_its_end_cannot_be_used_once_redis_drops_it(
         '/users/me', headers=_bearer(tokens.access_token)
     )
     assert response.status_code == 401
-    assert response.json() == {'detail': 'Session expired'}
+    assert response.json() == {'detail': 'Session expired', 'code': 'AUTH-1002'}
 
 
 # --------------------------------------------------------------------------
@@ -668,7 +686,10 @@ async def test_redis_down_is_503_on_an_authenticated_route(
         ),
     ):
         assert response.status_code == 503
-        assert response.json() == {'detail': 'Session service unavailable'}
+        assert response.json() == {
+            'detail': 'Session service unavailable',
+            'code': 'AUTH-1003',
+        }
         assert response.headers['Retry-After'] == '5'
         # Nobody is signed out: no cookie is cleared.
         assert _set_cookie(response, ACCESS_COOKIE_NAME) is None
@@ -692,7 +713,10 @@ async def test_redis_down_is_503_on_refresh_and_keeps_the_cookies(
     )
 
     assert response.status_code == 503
-    assert response.json() == {'detail': 'Session service unavailable'}
+    assert response.json() == {
+        'detail': 'Session service unavailable',
+        'code': 'AUTH-1003',
+    }
     assert response.headers['Retry-After'] == '5'
     assert _set_cookie(response, REFRESH_COOKIE_NAME) is None
     assert _set_cookie(response, ACCESS_COOKIE_NAME) is None
@@ -727,7 +751,10 @@ async def test_redis_down_is_503_on_the_cli_routes(
         await real_client.post('/auth/device/code', json={}),
     ):
         assert response.status_code == 503
-        assert response.json() == {'detail': 'Session service unavailable'}
+        assert response.json() == {
+            'detail': 'Session service unavailable',
+            'code': 'AUTH-1003',
+        }
         assert response.headers['Retry-After'] == '5'
 
 
@@ -743,7 +770,10 @@ async def test_redis_down_is_503_on_logout_and_keeps_the_cookies(
     )
 
     assert response.status_code == 503
-    assert response.json() == {'detail': 'Session service unavailable'}
+    assert response.json() == {
+        'detail': 'Session service unavailable',
+        'code': 'AUTH-1003',
+    }
     assert response.headers['Retry-After'] == '5'
     assert _set_cookie(response, ACCESS_COOKIE_NAME) is None
     assert _set_cookie(response, REFRESH_COOKIE_NAME) is None

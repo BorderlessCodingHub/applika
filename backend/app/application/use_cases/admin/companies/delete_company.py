@@ -1,4 +1,5 @@
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceConflict
 from app.domain.repositories.admin_repository import AdminRepository
 from app.domain.repositories.company_repository import CompanyRepository
@@ -31,7 +32,9 @@ class DeleteAdminCompanyUseCase:
                 },
             )
             raise ResourceConflict(
-                f'Cannot delete: {refs} application(s) reference this company'
+                f'Cannot delete: {refs} application(s) reference this company',
+                ErrorCode.ADM_COMPANY_IN_USE,
+                params={'count': refs},
             )
 
         await self.company_repo.delete(company_id)

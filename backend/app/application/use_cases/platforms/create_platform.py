@@ -1,6 +1,7 @@
 from sqlalchemy.exc import IntegrityError
 
 from app.application.dto.platform import PlatformCreateDTO, PlatformDTO
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceConflict
 from app.domain.repositories.platform_repository import PlatformRepository
 
@@ -23,7 +24,9 @@ class CreatePlatformUseCase:
         existing = await self.platform_repo.find_visible_by_name(name, user_id)
         if existing:
             raise ResourceConflict(
-                f'A platform with this name already exists: {existing.name}'
+                f'A platform with this name already exists: {existing.name}',
+                ErrorCode.CAT_PLATFORM_NAME_TAKEN,
+                params={'name': existing.name},
             )
 
         try:
@@ -35,7 +38,9 @@ class CreatePlatformUseCase:
             )
         except IntegrityError as err:
             raise ResourceConflict(
-                f'A platform with this name already exists: {name}'
+                f'A platform with this name already exists: {name}',
+                ErrorCode.CAT_PLATFORM_NAME_TAKEN,
+                params={'name': name},
             ) from err
 
         return PlatformDTO.model_validate(platform)

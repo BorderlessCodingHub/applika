@@ -258,7 +258,7 @@ async def test_second_start_is_409_and_keeps_one_row(
     again = await start(async_client, job_id)
 
     assert again.status_code == 409, msg(409, again.text)
-    assert again.json() == {'detail': ALREADY}
+    assert again.json() == {'detail': ALREADY, 'code': 'APP-1011'}
     assert await rows_for_job(db_session, job_id) == 1
 
 
@@ -273,7 +273,7 @@ async def test_two_concurrent_starts_give_one_201_and_one_409(
 
     assert sorted(r.status_code for r in responses) == [201, 409]
     conflict = next(r for r in responses if r.status_code == 409)
-    assert conflict.json() == {'detail': ALREADY}
+    assert conflict.json() == {'detail': ALREADY, 'code': 'APP-1011'}
     assert await rows_for_job(db_session, job_id) == 1
 
 
@@ -321,7 +321,10 @@ async def test_inactive_or_unknown_job_is_404_and_writes_nothing(
     for job_id in (inactive, 999999999999):
         response = await start(async_client, job_id)
         assert response.status_code == 404, msg(404, response.text)
-        assert response.json() == {'detail': 'Job not found'}
+        assert response.json() == {
+            'detail': 'Job not found',
+            'code': 'JOB-1001',
+        }
     assert await rows_for_job(db_session, inactive) == 0
 
 
@@ -339,7 +342,7 @@ async def test_another_users_master_cv_is_404_and_writes_nothing(
     response = await start(async_client, job_id, base_cv_id=str(theirs))
 
     assert response.status_code == 404, msg(404, response.text)
-    assert response.json() == {'detail': 'Base CV not found'}
+    assert response.json() == {'detail': 'Base CV not found', 'code': 'CV-1001'}
     assert await rows_for_job(db_session, job_id) == 0
     assert (
         await db_session.scalar(select(func.count(CompanyModel.id)))
@@ -359,7 +362,8 @@ async def test_keywords_without_a_job_description_is_422_and_writes_nothing(
 
     assert response.status_code == 422, msg(422, response.text)
     assert response.json() == {
-        'detail': 'Add a job description to tailor by keywords'
+        'detail': 'Add a job description to tailor by keywords',
+        'code': 'CV-1005',
     }
     assert await rows_for_job(db_session, job_id) == 0
 
@@ -568,7 +572,8 @@ async def test_a_job_without_title_is_422_and_writes_nothing(
 
         assert response.status_code == 422, msg(422, response.text)
         assert response.json() == {
-            'detail': 'This job has no title to start from'
+            'detail': 'This job has no title to start from',
+            'code': 'APP-1012',
         }
         assert await rows_for_job(db_session, job_id) == 0
         job = (await async_client.get(f'/jobs/{job_id}')).json()
@@ -601,7 +606,7 @@ async def test_losing_the_race_at_the_unique_index_is_the_same_409(
         again = await start(async_client, job_id, **body)
 
         assert again.status_code == 409, msg(409, again.text)
-        assert again.json() == {'detail': ALREADY}
+        assert again.json() == {'detail': ALREADY, 'code': 'APP-1011'}
         assert await rows_for_job(db_session, job_id) == 1
 
 
@@ -705,7 +710,13 @@ async def test_a_day_outside_the_window_is_422_and_writes_nothing(
     )
 
     assert response.status_code == 422, msg(422, response.text)
-    assert response.json() == {'detail': detail}
+    body = response.json()
+    assert body['detail'] == detail
+    assert body['code'] == (
+        'APP-1013' if 'in the future' in detail else 'APP-1014'
+    )
+    assert body['params']['field'] == 'application_date'
+    assert body['params']['date'] in detail
     assert await rows_for_job(db_session, job_id) == 0
     assert await count(db_session, CompanyModel) == companies
     assert await count(db_session, TailoredCVModel) == copies

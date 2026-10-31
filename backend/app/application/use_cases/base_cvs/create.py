@@ -2,6 +2,7 @@
 
 from app.application.dto.base_cv import BaseCVCreateDTO, BaseCVDTO
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceConflict
 from app.domain.repositories.base_cv_repository import BaseCVRepository
 
@@ -45,7 +46,9 @@ class CreateBaseCVUseCase:
                 },
             )
             raise ResourceConflict(
-                f'Base CV limit reached (max {MAX_BASE_CVS} per user)'
+                f'Base CV limit reached (max {MAX_BASE_CVS} per user)',
+                ErrorCode.CV_BASE_CV_LIMIT,
+                params={'max': MAX_BASE_CVS},
             )
 
         base_cv = await self.base_cv_repo.create(data)

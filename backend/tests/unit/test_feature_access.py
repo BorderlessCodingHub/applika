@@ -177,7 +177,7 @@ async def test_require_feature_without_it_is_the_unknown_route_404():
     unknown = await _get(app, '/no-such-route')
 
     assert gated.status_code == 404
-    assert gated.json() == {'detail': 'Not Found'}
+    assert gated.json() == {'detail': 'Not Found', 'code': 'GEN-1001'}
     assert gated.content == unknown.content
 
 
@@ -192,7 +192,7 @@ async def test_require_feature_on_an_unknown_key_is_404_for_an_admin():
     app = _gated_app(FakeFeatureRepository(stages={}), _user(is_admin=True))
     response = await _get(app, '/gated')
     assert response.status_code == 404
-    assert response.json() == {'detail': 'Not Found'}
+    assert response.json() == {'detail': 'Not Found', 'code': 'GEN-1001'}
 
 
 # ---------------------------------------------------------------------------
