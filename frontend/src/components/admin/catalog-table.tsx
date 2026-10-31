@@ -151,7 +151,7 @@ export function CatalogTable<T extends CatalogRow>({
     <>
       <Card className="overflow-hidden">
         <div className="flex flex-col justify-between gap-3 p-5 pb-3 sm:flex-row sm:items-center">
-          <span className="font-numeric text-xs text-muted-foreground">
+          <span className="font-numeric text-xs whitespace-nowrap text-muted-foreground sm:shrink-0">
             {countLabel}
           </span>
           <div className="flex flex-wrap items-center gap-2">

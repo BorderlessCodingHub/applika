@@ -178,7 +178,7 @@ export function JobFiltersToolbar({
       className={cn("flex flex-col gap-3", className)}
     >
       <div className="flex flex-wrap gap-3">
-        <div className="relative min-w-0 basis-full sm:flex-1 sm:basis-0">
+        <div className="relative min-w-0 flex-1 basis-[calc(100%-3.5rem)] sm:basis-0">
           <SearchIcon
             aria-hidden
             className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
@@ -207,7 +207,7 @@ export function JobFiltersToolbar({
         >
           <SelectTrigger
             aria-label={JOBS_COPY.sourceLabel}
-            className="h-11 min-w-0 flex-1 data-[size=default]:h-11 sm:w-44 sm:flex-none"
+            className="order-2 h-11 min-w-0 flex-1 data-[size=default]:h-11 sm:order-none sm:w-44 sm:flex-none"
           >
             <SelectValue />
           </SelectTrigger>
@@ -232,7 +232,7 @@ export function JobFiltersToolbar({
           >
             <SelectTrigger
               aria-label={JOBS_COPY.sortLabel}
-              className="h-11 min-w-0 flex-1 data-[size=default]:h-11 *:data-[slot=select-value]:flex-1 sm:w-40 sm:flex-none"
+              className="order-2 h-11 min-w-0 flex-1 data-[size=default]:h-11 *:data-[slot=select-value]:flex-1 sm:order-none sm:w-40 sm:flex-none"
             >
               <ArrowDownUpIcon aria-hidden />
               <SelectValue />
@@ -258,7 +258,7 @@ export function JobFiltersToolbar({
           aria-expanded={panelOpen}
           aria-controls={ids.panel}
           onClick={() => setPanelOpen((open) => !open)}
-          className="relative size-11"
+          className="relative order-1 size-11 sm:order-none"
         >
           <SlidersHorizontalIcon aria-hidden />
           {advancedCount > 0 ? (

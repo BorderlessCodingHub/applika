@@ -166,7 +166,7 @@ export function JobListItem({
           </ul>
         ) : null}
 
-        <div className="flex items-center justify-end gap-1.5 sm:ml-auto sm:shrink-0">
+        <div className="flex flex-wrap items-center justify-end gap-1.5 sm:ml-auto sm:shrink-0">
           {job.application ? (
             <JobStatusBadge
               application={job.application}

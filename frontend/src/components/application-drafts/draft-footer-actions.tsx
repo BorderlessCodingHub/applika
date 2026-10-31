@@ -119,7 +119,7 @@ export function DraftFooterActions({
       ) : null}
 
       {step === "application" ? (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <LinkButton
             href={APPLICATIONS_HREF}
             variant="outline"
@@ -142,7 +142,7 @@ export function DraftFooterActions({
           </Button>
         </div>
       ) : (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <Button type="button" variant="outline" onClick={onBack}>
             <ArrowLeftIcon aria-hidden data-icon="inline-start" />
             {DRAFT_COPY.back}

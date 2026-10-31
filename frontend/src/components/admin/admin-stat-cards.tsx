@@ -141,7 +141,7 @@ export function AdminStatCards() {
   const { data, isLoading } = useAdminStats();
 
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-5">
       {STATS.map((stat, i) => (
         <motion.div
           key={stat.key}
@@ -163,11 +163,13 @@ export function AdminStatCards() {
           />
 
           <div className="relative z-10">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="font-display text-[11px] font-medium tracking-wide-label text-muted-foreground uppercase">
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <span className="min-w-0 font-display text-[11px] leading-snug font-medium tracking-wide-label text-muted-foreground uppercase">
                 {stat.label}
               </span>
-              <stat.icon className={`h-4 w-4 ${stat.accent} opacity-70`} />
+              <stat.icon
+                className={`hidden h-4 w-4 shrink-0 sm:block ${stat.accent} opacity-70`}
+              />
             </div>
 
             {isLoading ? (

@@ -89,7 +89,7 @@ export function DraftStepper({
                 aria-current={current ? "step" : undefined}
                 disabled={disabled}
                 onClick={() => onStepChange(item)}
-                className="group flex min-w-0 shrink-0 items-center gap-2.5 rounded-md py-1 pr-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="group flex min-w-0 items-center gap-2.5 rounded-md py-1 pr-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span
                   className={cn(

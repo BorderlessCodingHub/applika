@@ -97,7 +97,7 @@ export function PlatformsPage() {
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className="flex items-start justify-between"
+        className="flex flex-wrap items-start justify-between gap-3"
       >
         <div>
           <h1 className="font-display text-xl font-bold tracking-tight-display text-foreground">
