@@ -1,6 +1,6 @@
 # ADR-0018: Beta features: a feature registry with per-feature allowlists (extends ADR-0004)
 
-**Status:** Accepted by LuisMSoares on 2026-10-14 · **Date:** 2026-10-14 · **Deciders:** LuisMSoares · **Amended by:** ADR-0021 (gating a shipped feature) · **Exception:** ADR-0024 (Borderless sign-in and badges ship ungated)
+**Status:** Accepted by LuisMSoares on 2026-10-14 · **Date:** 2026-10-14 · **Deciders:** LuisMSoares · **Amended by:** ADR-0021 (gating a shipped feature), ADR-0025 on 2026-10-31 (the gate's 404 carries `code` GEN-1001) · **Exception:** ADR-0024 (Borderless sign-in and badges ship ungated), ADR-0025 (English and Portuguese and the language switcher ship ungated)
 
 ## Context
 
@@ -87,6 +87,12 @@ other feature.
 exception to the first Consequence above. The owner chose "No gate, an exception" on 2026-10-19: no `FeatureKey`
 member, no seed row, no route and no API call (ADR-0023 Decision, "Beta exception"). The rule holds for every other
 feature.
+
+**Note (2026-10-31, PRD 0019).** English and Portuguese on the web, and the language switcher, are an owner exception
+to the first Consequence above. The owner chose "No gate, everyone at once" on 2026-10-31: no `FeatureKey` member, no
+seed row, no `require_feature` and no web gate (ADR-0025 Decision, "Beta exception"). The rule holds for every other
+feature. ADR-0025 also gives the gate's 404 a code: it answers `{"detail": "Not Found", "code": "GEN-1001"}`, and the
+unknown-route 404 carries the same code, so the two stay byte-equal. The `detail` is unchanged.
 
 ## Non-goals
 

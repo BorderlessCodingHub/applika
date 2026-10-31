@@ -1,6 +1,6 @@
 # ADR-0015: API rate limiter in Redis, per user with an IP fallback
 
-**Status:** Accepted by LuisMSoares on 2026-09-26 · Amended by ADR-0019 on 2026-10-15 · **Date:** 2026-09-26 · **Deciders:** LuisMSoares
+**Status:** Accepted by LuisMSoares on 2026-09-26 · Amended by ADR-0019 on 2026-10-15 · Amended by ADR-0025 on 2026-10-31 (the 429 carries `code` GEN-1004 and `params.seconds`) · **Date:** 2026-09-26 · **Deciders:** LuisMSoares
 
 ## Context
 
@@ -82,6 +82,10 @@ the client address has to survive the Docker Swarm hop (ADR-0010). Selected: "Pe
     server's message. `whoami`, `applications list` and the deprecated `steps` commands show that
     message as the last line of Typer's exception output, with exit code 1. That is how 1.0.0
     already shows any API error in those commands (plan 0011 tasks, Plan corrections 15).
+- Amended 2026-10-31 by ADR-0025 (PRD 0019). The 429 body adds `"code": "GEN-1004"` and `"params": {"seconds": <n>}`
+  next to the unchanged `detail`: `{"detail": "Too many requests. Try again in <n> seconds.", "code": "GEN-1004",
+  "params": {"seconds": <n>}}`. The status, `Retry-After` and the `X-RateLimit-*` headers do not change. Installed
+  CLIs read `detail` as before.
 
 ## Non-goals
 
