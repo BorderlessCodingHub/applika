@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { sectionErrorMessage } from "@/components/base-cvs/base-cv-schema";
+import {
+  limitWords,
+  sectionErrorMessage,
+} from "@/components/base-cvs/base-cv-schema";
 import {
   CV_LANGUAGE_LEVELS,
   type CvFormValues,
@@ -170,11 +173,12 @@ const isBlankEducation = (
 /**
  * "Keep this under N characters" in the active language. Every message here
  * resolves at validation time (`{ error: () => ... }`), never at module load,
- * so it follows the language picked since. `max` goes as a string so the
- * number is never regrouped ("5000", not "5,000"/"5.000").
+ * so it follows the language picked since. `max` goes through `limitWords`:
+ * "5000" in English, "5.000" in Portuguese.
  */
 const tooLong = (max: number) => ({
-  error: () => word("cvs.tailored.validation.tooLong", { max: String(max) }),
+  error: () =>
+    word("cvs.tailored.validation.tooLong", { max: limitWords(max) }),
 });
 
 /** A non-blank single-line string. Whitespace alone does not count. */
@@ -297,8 +301,8 @@ export const tailoredCvSchema = z.object({
       {
         error: () =>
           word("cvs.tailored.validation.linksTooLong", {
-            label: String(TAILORED_CV_MAX.linkLabel),
-            url: String(TAILORED_CV_MAX.linkUrl),
+            label: limitWords(TAILORED_CV_MAX.linkLabel),
+            url: limitWords(TAILORED_CV_MAX.linkUrl),
           }),
       },
     ),
@@ -321,8 +325,8 @@ export const tailoredCvSchema = z.object({
       {
         error: () =>
           word("cvs.tailored.validation.skillsTooLong", {
-            category: String(TAILORED_CV_MAX.skillCategory),
-            keyword: String(TAILORED_CV_MAX.skillKeyword),
+            category: limitWords(TAILORED_CV_MAX.skillCategory),
+            keyword: limitWords(TAILORED_CV_MAX.skillKeyword),
           }),
       },
     ),
@@ -359,8 +363,10 @@ export const tailoredCvSchema = z.object({
       {
         error: () =>
           word("cvs.tailored.validation.experienceTooLong", {
-            company: String(TAILORED_CV_MAX.experienceCompany),
-            description: String(TAILORED_CV_MAX.experienceCompanyDescription),
+            company: limitWords(TAILORED_CV_MAX.experienceCompany),
+            description: limitWords(
+              TAILORED_CV_MAX.experienceCompanyDescription,
+            ),
           }),
       },
     ),
@@ -382,8 +388,8 @@ export const tailoredCvSchema = z.object({
       {
         error: () =>
           word("cvs.tailored.validation.projectsTooLong", {
-            name: String(TAILORED_CV_MAX.projectName),
-            description: String(TAILORED_CV_MAX.projectDescription),
+            name: limitWords(TAILORED_CV_MAX.projectName),
+            description: limitWords(TAILORED_CV_MAX.projectDescription),
           }),
       },
     ),
@@ -412,7 +418,7 @@ export const tailoredCvSchema = z.object({
       {
         error: () =>
           word("cvs.tailored.validation.educationTooLong", {
-            max: String(TAILORED_CV_MAX.educationInstitution),
+            max: limitWords(TAILORED_CV_MAX.educationInstitution),
           }),
       },
     ),
@@ -435,7 +441,7 @@ export const tailoredCvSchema = z.object({
       {
         error: () =>
           word("cvs.tailored.validation.certificationsTooLong", {
-            max: String(TAILORED_CV_MAX.certificationName),
+            max: limitWords(TAILORED_CV_MAX.certificationName),
           }),
       },
     ),
@@ -452,7 +458,7 @@ export const tailoredCvSchema = z.object({
       {
         error: () =>
           word("cvs.tailored.validation.languagesTooLong", {
-            max: String(TAILORED_CV_MAX.languageName),
+            max: limitWords(TAILORED_CV_MAX.languageName),
           }),
       },
     ),

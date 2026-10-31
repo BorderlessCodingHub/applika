@@ -267,6 +267,14 @@ function draftInputsEqual(a: DraftInput, b: DraftInput): boolean {
  * Behind the `cvs` feature: without it, the app's "page not found" and no
  * draft or CV request. The inner `jobs` checks stay.
  */
+export function NewWithCvPage() {
+  return (
+    <FeatureGate feature="cvs">
+      <NewWithCv />
+    </FeatureGate>
+  );
+}
+
 /** The route's Suspense fallback while `useSearchParams` resolves. */
 export function NewWithCvPageFallback() {
   const t = useTranslations("drafts.page");
@@ -276,14 +284,6 @@ export function NewWithCvPageFallback() {
       aria-label={t("pageLoading")}
       className="h-64 w-full animate-pulse rounded-xl bg-muted"
     />
-  );
-}
-
-export function NewWithCvPage() {
-  return (
-    <FeatureGate feature="cvs">
-      <NewWithCv />
-    </FeatureGate>
   );
 }
 

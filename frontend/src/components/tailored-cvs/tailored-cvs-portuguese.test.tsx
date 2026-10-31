@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { useForm } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 
+import { baseCvSchema } from "@/components/base-cvs/base-cv-schema";
 import type { CvFormValues } from "@/components/base-cvs/types";
 import { renderInPortuguese } from "@/test/portuguese";
 import { CvDiffDownloadRow } from "./cv-diff-download-row";
@@ -47,14 +48,22 @@ const ADJUSTMENTS: TailoredCvAdjustment[] = [
   },
 ];
 
-function TailoredCopy({ readOnly = false }: { readOnly?: boolean }) {
+function TailoredCopy({
+  readOnly = false,
+  baseline = BASELINE,
+  values = { ...BASELINE, phone: "" },
+}: {
+  readOnly?: boolean;
+  baseline?: CvDiffSnapshot;
+  values?: CvFormValues;
+}) {
   const form = useForm<CvFormValues>({
     resolver: zodResolver(tailoredCvSchema),
-    defaultValues: { ...BASELINE, phone: "" },
+    defaultValues: values,
   });
   const cvDiff = useCvDiff({
     form,
-    baseline: BASELINE,
+    baseline,
     baselineLabel: "Backend CV",
     readOnly,
     adjustments: ADJUSTMENTS,
@@ -183,6 +192,40 @@ describe("the CV copy in Portuguese", () => {
     ).toHaveTextContent("Restaurar");
   });
 
+  it("shows a language level in the diff in Portuguese; the stored value stays English", async () => {
+    const user = userEvent.setup();
+    const baseline: CvDiffSnapshot = {
+      ...BASELINE,
+      languages: [
+        { id: "l-1", name: "English", level: "Native" },
+        { id: "l-2", name: "Spanish", level: "Basic" },
+      ],
+    };
+    await renderInPortuguese(
+      <TailoredCopy
+        baseline={baseline}
+        values={{
+          ...BASELINE,
+          phone: "",
+          languages: [{ id: "l-1", name: "English", level: "Proficient" }],
+        }}
+      />,
+    );
+    await user.click(screen.getByLabelText("Mostrar alterações"));
+
+    // The removed row's caption: the level in Portuguese, the name as typed.
+    const removed = await screen.findByRole("group", {
+      name: "Item removido (idioma): Spanish",
+    });
+    expect(removed).toHaveTextContent("Básico");
+    expect(removed).not.toHaveTextContent("Basic");
+
+    // The changed marker's original value: "Native" reads "Nativo".
+    await user.click(screen.getByRole("button", { name: /^Alterado: / }));
+    const original = await screen.findByLabelText("Valor original");
+    expect(original).toHaveTextContent(/^Nativo$/);
+  });
+
   it("validates in Portuguese", async () => {
     await renderInPortuguese(<span />);
     const result = tailoredCvSchema.safeParse({
@@ -194,5 +237,25 @@ describe("the CV copy in Portuguese", () => {
     expect(result.error?.issues.map((issue) => issue.message)).toContain(
       "O e-mail é obrigatório",
     );
+  });
+
+  it("groups a length limit the Portuguese way; English keeps the plain digits", async () => {
+    const tooLong = { ...BASELINE, phone: "", summary: "x".repeat(4001) };
+    const english = tailoredCvSchema.safeParse(tooLong);
+    expect(english.error?.issues.map((issue) => issue.message)).toContain(
+      "Keep this under 4000 characters",
+    );
+    expect(
+      baseCvSchema.safeParse(tooLong).error?.issues.map((i) => i.message),
+    ).toContain("Keep this under 4000 characters");
+    await renderInPortuguese(<span />);
+    const portuguese = tailoredCvSchema.safeParse(tooLong);
+    expect(portuguese.error?.issues.map((issue) => issue.message)).toContain(
+      "Use menos de 4.000 caracteres",
+    );
+    // The master CV schema shares the helper.
+    expect(
+      baseCvSchema.safeParse(tooLong).error?.issues.map((i) => i.message),
+    ).toContain("Use menos de 4.000 caracteres");
   });
 });

@@ -40,29 +40,16 @@ import {
 } from "@/components/base-cvs/cv-form-diff";
 import {
   CV_LANGUAGE_LEVELS,
+  LANGUAGE_LEVEL_KEY,
   type CvCertification,
   type CvEducation,
   type CvExperience,
   type CvFormValues,
   type CvLanguage,
-  type CvLanguageLevel,
   type CvLink,
   type CvProject,
 } from "@/components/base-cvs/types";
 import { cn } from "@/lib/utils";
-
-/**
- * Message key of each language level. The menu shows the words of the chosen
- * language; the stored value (and so the preview, PDF and Markdown) stays the
- * English level.
- */
-const LANGUAGE_LEVEL_KEY = {
-  Native: "native",
-  Proficient: "proficient",
-  Conversational: "conversational",
-  "Read/Comprehend": "readComprehend",
-  Basic: "basic",
-} as const satisfies Record<CvLanguageLevel, string>;
 
 /** Client-generated id for a new section row. */
 export function defaultNewItemId(): string {

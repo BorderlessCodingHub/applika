@@ -153,7 +153,7 @@ describe("the master CV editor in Portuguese", () => {
     expect(
       await screen.findByText("Informe seu nome completo"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Informe um nome para o CV")).toBeInTheDocument();
+    expect(screen.getByText("O nome do CV é obrigatório")).toBeInTheDocument();
     expect(screen.queryByText("Your full name is required")).toBeNull();
   });
 });

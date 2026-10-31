@@ -110,6 +110,14 @@ function PageMessage({
  * Behind the `cvs` feature: without it, the app's "page not found" and no CV
  * request — the gate sits above every CV hook. The inner `jobs` check stays.
  */
+export function ApplicationCvPage() {
+  return (
+    <FeatureGate feature="cvs">
+      <ApplicationCv />
+    </FeatureGate>
+  );
+}
+
 /** The route's Suspense fallback while `useSearchParams` resolves. */
 export function ApplicationCvPageFallback() {
   const t = useTranslations("cvs.applicationCv");
@@ -119,14 +127,6 @@ export function ApplicationCvPageFallback() {
       aria-label={t("routeLoading")}
       className="h-64 w-full animate-pulse rounded-xl bg-muted"
     />
-  );
-}
-
-export function ApplicationCvPage() {
-  return (
-    <FeatureGate feature="cvs">
-      <ApplicationCv />
-    </FeatureGate>
   );
 }
 

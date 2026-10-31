@@ -7,7 +7,7 @@
  * applika DOES carry an `id`.
  */
 
-import { liveCopy } from "@/i18n/translator";
+import { liveCopy, word } from "@/i18n/translator";
 
 /** Hard cap on master CVs per user. */
 export const BASE_CVS_MAX = 3;
@@ -131,6 +131,29 @@ export type CvLanguageLevel =
   | "Conversational"
   | "Read/Comprehend"
   | "Basic";
+
+/**
+ * Message key of each language level (`cvs.fields.languageLevel.*`). Screens
+ * show the words of the chosen language; the stored value (and so the
+ * preview, PDF and Markdown) stays the English level.
+ */
+export const LANGUAGE_LEVEL_KEY = {
+  Native: "native",
+  Proficient: "proficient",
+  Conversational: "conversational",
+  "Read/Comprehend": "readComprehend",
+  Basic: "basic",
+} as const satisfies Record<CvLanguageLevel, string>;
+
+/**
+ * A stored level in the active language (the editor's menu, the copy's diff);
+ * a value outside the list shows as stored. A component rendering it must
+ * subscribe (`useLocale`/`useTranslations`).
+ */
+export function languageLevelLabel(level: string): string {
+  const key = LANGUAGE_LEVEL_KEY[level as CvLanguageLevel];
+  return key ? word(`cvs.fields.languageLevel.${key}`) : level;
+}
 
 /** Proficiency options, strongest first. The document prints the level verbatim. */
 export const CV_LANGUAGE_LEVELS: readonly CvLanguageLevel[] = [

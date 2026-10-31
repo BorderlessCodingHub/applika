@@ -10,7 +10,10 @@ import type {
   CvRemovedRowSlot,
 } from "@/components/base-cvs/cv-form-diff";
 import type { CvFormSectionId } from "@/components/base-cvs/cv-form-sections";
-import type { CvFormValues } from "@/components/base-cvs/types";
+import {
+  languageLevelLabel,
+  type CvFormValues,
+} from "@/components/base-cvs/types";
 import {
   CvAddedBadge,
   CV_DIFF_ADDED_ROW_CLASS,
@@ -119,7 +122,8 @@ function detailFor(
     case "certifications":
       return (item.issuer as string) || undefined;
     case "languages":
-      return (item.level as string) || undefined;
+      // The stored level is English (the PDF word); the caption is in the screen's language.
+      return item.level ? languageLevelLabel(item.level as string) : undefined;
     default:
       return undefined;
   }
@@ -311,7 +315,9 @@ export function useCvDiff({
         ? ((change.before as string[]) ?? [])
         : isDate
           ? isoToMonthYear(change.before as string | null)
-          : ((change.before as string | null) ?? "");
+          : section === "languages" && fieldName === "level"
+            ? languageLevelLabel((change.before as string | null) ?? "")
+            : ((change.before as string | null) ?? "");
 
       return (
         <CvChangedMarker

@@ -1,7 +1,8 @@
 import type { FieldErrors } from "react-hook-form";
 import { z } from "zod";
 
-import { word } from "@/i18n/translator";
+import { formatNumber } from "@/i18n/format-number";
+import { getTranslatorLocale, word } from "@/i18n/translator";
 
 import {
   CV_LANGUAGE_LEVELS,
@@ -156,9 +157,18 @@ const isBlankEducation = (
   isBlankPeriod(item);
 
 /**
+ * A character limit as the active language writes it: "4000" in English (as
+ * the screens always printed it), "4.000" in Portuguese. Read at validation
+ * time. Passed to ICU as a string, so English is never regrouped ("4,000").
+ */
+export function limitWords(max: number): string {
+  return formatNumber(max, getTranslatorLocale());
+}
+
+/**
  * A validation message in the active language (`cvs.validation.<key>`),
- * resolved when the schema runs, not when the module loads. Numbers go in as
- * strings: a character limit is printed as is ("4000"), never grouped.
+ * resolved when the schema runs, not when the module loads. Limits go in
+ * through `limitWords`.
  */
 const invalid = (key: string, values?: Record<string, number>) => ({
   error: () =>
@@ -166,7 +176,10 @@ const invalid = (key: string, values?: Record<string, number>) => ({
       `cvs.validation.${key}`,
       values &&
         Object.fromEntries(
-          Object.entries(values).map(([name, value]) => [name, String(value)]),
+          Object.entries(values).map(([name, value]) => [
+            name,
+            limitWords(value),
+          ]),
         ),
     ),
 });
