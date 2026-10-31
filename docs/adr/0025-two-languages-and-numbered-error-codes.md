@@ -109,6 +109,19 @@ amends an Accepted ADR. It makes an exception to ADR-0018.
     public row read) and `ADM-1005` (a lost race, the row unreadable); the platform publish 409 into `ADM-1006` and
     `ADM-1007` the same way. `applika/docs/error-codes.md` lists all 124 codes.
 
+- **As-built (2026-10-31, screens part 1).** Two places keep English formatting under `pt-BR`, taken on the owner's
+  delegation during the build ("do not make quedtios to me, pick the recommended ones, just create a report in the end
+  of what you did"); the owner reviews them in the build's final report:
+  - The shared date-picker button (`frontend/src/components/ui/date-picker.tsx`) keeps its language-free `pattern`
+    (e.g. `2026-10-01` on the report form's start date); only its calendar popup follows the language ("outubro
+    2026"). That is the picker's documented contract (`frontend/CLAUDE.md` "Dates") and its test pins it; the
+    read-only report view shows `01/10/2026`. A `dd/MM/yyyy` button in Portuguese would change every picker in the app
+    and is left to a later owner decision.
+  - The three `toLocaleString("en-US", { timeZone })` calls in `frontend/src/contexts/agenda-notifications-context.tsx`
+    stay `en-US`: they render no text. Two are parsed back by `new Date(...)` to compute a time-zone offset and one
+    reads the zone name; a Portuguese string would give `Invalid Date` and the sound alerts would never fire. Same case
+    as `components/agenda/agenda-view.ts` (plan 0019 tasks, Plan corrections 11). The notification text is translated.
+
 ## Non-goals
 
 - Translating the CLI, the Discord posts or any user content. Translated or changed API messages.

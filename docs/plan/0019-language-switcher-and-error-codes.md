@@ -107,6 +107,8 @@ none. No table, column or migration. Browser only: cookie `NEXT_LOCALE` = `en`|`
 ## Glossary
 The Portuguese (Brazil) words every message uses (`frontend/src/i18n/messages/pt-BR.json`). Natural pt-BR as in Brazilian software UIs: informal "você", imperative buttons ("Salvar", "Cancelar"), sentence case. The owner reviews this table before the screens are translated.
 
+2026-10-31: the owner delegated this review during the build ("do not make quedtios to me, pick the recommended ones, just create a report in the end of what you did"). The table is used as written; the owner reviews it in the build's final report.
+
 | en | pt-BR |
 |---|---|
 | application | candidatura |
@@ -148,6 +150,40 @@ The Portuguese (Brazil) words every message uses (`frontend/src/i18n/messages/pt
 | feature (beta feature) | recurso (recurso beta) |
 | cookie | cookie |
 | language | idioma |
+| sign-in (noun) | acesso |
+| Sign in a device | Conectar um dispositivo |
+| sign out (with an object: "sign out other devices") | desconectar ("Desconectar outros dispositivos") |
+| Logout | Sair |
+| Approve / Deny | Aprovar / Recusar |
+| Revoke | Revogar |
+| pipeline | funil |
+| seniority: Junior / Mid Level / Senior | Júnior / Pleno / Sênior |
+| work mode: Remote / Hybrid / On-site | Remoto / Híbrido / Presencial |
+| salary period: Hourly / Monthly / Annually | Por hora / Mensal / Anual |
+| Badges | Selos |
+| Delete | Excluir |
+| Try again / Retry | Tentar de novo |
+| Success Rate | Taxa de sucesso |
+| fortnight | quinzena |
+| Mock Interviews | Entrevistas simuladas |
+| Strategic Connections | Conexões estratégicas |
+| Fill Report | Preencher |
+| report status: Submitted / Pending / Overdue / Future | Enviado / Pendente / Atrasado / Futuro |
+| Profile | Perfil |
+| Tech Stack | Tecnologias |
+| Today / Tomorrow | Hoje / Amanhã |
+| Current Cycle | Ciclo atual |
+| Toggle theme | Alternar tema |
+| Oops! Page not found | Ops! Página não encontrada |
+| calendar (the file, the user's calendar app) | calendário (the screen stays "agenda") |
+| Upcoming / Past (tabs) | Próximas / Anteriores |
+| All day | Dia inteiro |
+| Add to calendar | Adicionar ao calendário |
+| sound alerts | alertas sonoros |
+| notes | anotações |
+| role | cargo |
+| stage | etapa |
+| "X at Y" (role at company) | "X em Y" |
 
 Brand names are never translated: Applika, Borderless, GitHub, LinkedIn, BASE, PSP (also applika-cli, Discord).
 
