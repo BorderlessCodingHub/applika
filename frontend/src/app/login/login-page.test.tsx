@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AxiosError, AxiosHeaders } from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { LocaleProvider } from "@/i18n/locale-provider";
 
 import { LoginPage } from "./login-page";
 import { RETURN_TO_KEY } from "@/lib/return-to";
@@ -51,6 +52,8 @@ function renderPage() {
     <QueryClientProvider client={client}>
       <LoginPage />
     </QueryClientProvider>,
+    // The sign-in page's top-right slot holds the language switcher.
+    { wrapper: LocaleProvider },
   );
 }
 

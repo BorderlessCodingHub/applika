@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Menu } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { AppLogo } from "@/components/app-logo";
+import { LanguageToggle } from "@/components/language-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AgendaDropdown } from "@/components/layout/agenda-dropdown";
 import { UserMenu } from "@/components/layout/user-menu";
@@ -79,6 +80,7 @@ export function Header({
       <div className="ml-auto flex items-center gap-1.5 md:gap-2">
         {actions}
         <AgendaDropdown />
+        <LanguageToggle variant="default" />
         <ThemeToggle />
         <div className="md:hidden">
           <UserMenu

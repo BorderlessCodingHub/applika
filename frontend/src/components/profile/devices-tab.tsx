@@ -116,7 +116,7 @@ export function DevicesTab({
         <div
           className={cn(
             SECTION_HEAD,
-            "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6",
+            "flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-6",
           )}
         >
           <div className="flex min-w-0 flex-col gap-1">
@@ -140,7 +140,7 @@ export function DevicesTab({
           </div>
 
           {state === "ready" && active.length > 0 ? (
-            <div className="flex flex-col gap-1.5 sm:shrink-0 sm:items-end">
+            <div className="flex flex-col gap-1.5 sm:items-start lg:shrink-0 lg:items-end">
               <ConfirmDialog
                 trigger={
                   <Button

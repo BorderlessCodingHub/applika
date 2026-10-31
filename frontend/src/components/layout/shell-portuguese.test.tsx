@@ -49,6 +49,7 @@ describe("shell in Portuguese", () => {
         onFeedback={vi.fn()}
         onOpenMobileNav={vi.fn()}
       />,
+      { localeSwitch: true },
     );
 
     expect(
@@ -116,6 +117,7 @@ describe("shell in Portuguese", () => {
         onFeedback={vi.fn()}
         onOpenMobileNav={vi.fn()}
       />,
+      { localeSwitch: true },
     );
 
     // The count badge follows the words in the trigger's name.
@@ -150,6 +152,7 @@ describe("shell in Portuguese", () => {
         onFeedback={vi.fn()}
         onOpenMobileNav={vi.fn()}
       />,
+      { localeSwitch: true },
     );
     await userEvent.click(
       screen.getByRole("button", { name: "Próximas etapas" }),

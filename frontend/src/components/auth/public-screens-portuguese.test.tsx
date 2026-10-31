@@ -63,6 +63,7 @@ describe("landing in Portuguese", () => {
         <LandingHeader />
         <HeroSection />
       </>,
+      { localeSwitch: true },
     );
 
     expect(
@@ -85,7 +86,7 @@ describe("landing in Portuguese", () => {
 
   it("offers the dashboard in Portuguese to a signed-in visitor", async () => {
     auth = { isAuthenticated: true, isLoading: false };
-    await renderInPortuguese(<LandingHeader />);
+    await renderInPortuguese(<LandingHeader />, { localeSwitch: true });
     expect(screen.getByRole("link", { name: "Painel" })).toHaveAttribute(
       "href",
       "/dashboard",
@@ -95,7 +96,10 @@ describe("landing in Portuguese", () => {
 
 describe("sign-in in Portuguese", () => {
   it("writes the web sign-in in Portuguese", async () => {
-    await renderInPortuguese(<LoginPage />, { wrapper: withQueries });
+    await renderInPortuguese(<LoginPage />, {
+      wrapper: withQueries,
+      localeSwitch: true,
+    });
 
     expect(
       screen.getByRole("heading", { level: 1, name: "Entre no Applika" }),
@@ -109,7 +113,10 @@ describe("sign-in in Portuguese", () => {
   });
 
   it("validates the empty form in Portuguese", async () => {
-    await renderInPortuguese(<LoginPage />, { wrapper: withQueries });
+    await renderInPortuguese(<LoginPage />, {
+      wrapper: withQueries,
+      localeSwitch: true,
+    });
     await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
 
     expect(
@@ -121,7 +128,10 @@ describe("sign-in in Portuguese", () => {
 
   it("writes the terminal sign-in in Portuguese, the command kept", async () => {
     searchParams = new URLSearchParams("cli=1");
-    await renderInPortuguese(<LoginPage />, { wrapper: withQueries });
+    await renderInPortuguese(<LoginPage />, {
+      wrapper: withQueries,
+      localeSwitch: true,
+    });
 
     expect(
       screen.getByRole("heading", { level: 1, name: "Entre no applika-cli" }),
@@ -141,7 +151,10 @@ describe("sign-in in Portuguese", () => {
       new_account: false,
       redirect_to: null,
     } as never);
-    await renderInPortuguese(<LoginPage />, { wrapper: withQueries });
+    await renderInPortuguese(<LoginPage />, {
+      wrapper: withQueries,
+      localeSwitch: true,
+    });
 
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("E-mail"), "ada@example.com");
@@ -162,7 +175,9 @@ describe("sign-in in Portuguese", () => {
 
 describe("terminal code and welcome in Portuguese", () => {
   it("writes the terminal code screen in Portuguese, the code as sent", async () => {
-    await renderInPortuguese(<CliCodeScreen code="abc" state="xyz" />);
+    await renderInPortuguese(<CliCodeScreen code="abc" state="xyz" />, {
+      localeSwitch: true,
+    });
 
     expect(
       screen.getByRole("heading", { name: "Entre no applika-cli" }),
@@ -172,7 +187,9 @@ describe("terminal code and welcome in Portuguese", () => {
   });
 
   it("says the code is missing in Portuguese", async () => {
-    await renderInPortuguese(<CliCodeScreen code={null} state={null} />);
+    await renderInPortuguese(<CliCodeScreen code={null} state={null} />, {
+      localeSwitch: true,
+    });
     expect(
       screen.getByText("Falta o código neste link de acesso."),
     ).toBeInTheDocument();
@@ -297,7 +314,10 @@ describe("sign-in refusal in Portuguese", () => {
     vi.mocked(services.auth.borderlessSignIn).mockRejectedValue(
       refusal(401, { detail: "Invalid email or password", code: "AUTH-1004" }),
     );
-    await renderInPortuguese(<LoginPage />, { wrapper: withQueries });
+    await renderInPortuguese(<LoginPage />, {
+      wrapper: withQueries,
+      localeSwitch: true,
+    });
 
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("E-mail"), "ada@example.com");

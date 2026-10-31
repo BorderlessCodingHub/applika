@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
+import { LanguageToggle } from "@/components/language-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
@@ -26,7 +27,8 @@ export function LandingHeader() {
           <AppLogo mode="header" />
         </Link>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+          <LanguageToggle variant="default" />
           <ThemeToggle />
           {!isLoading && isAuthenticated ? (
             <Button
@@ -36,7 +38,7 @@ export function LandingHeader() {
             >
               <Link href="/dashboard">
                 {t("dashboard")}
-                <ArrowRight className="h-3.5 w-3.5" />
+                <ArrowRight className="hidden h-3.5 w-3.5 sm:block" />
               </Link>
             </Button>
           ) : (

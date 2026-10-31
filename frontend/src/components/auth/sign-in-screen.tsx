@@ -12,6 +12,7 @@ import {
   PendingSubmitButton,
   type BorderlessCredentialsValues,
 } from "@/components/auth/borderless-credentials";
+import { LanguageToggle } from "@/components/language-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Form } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
@@ -79,6 +80,7 @@ export function SignInScreen({
       <div aria-hidden className="absolute inset-0 dot-grid opacity-30" />
 
       <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+        <LanguageToggle variant="default" />
         <ThemeToggle />
       </div>
 

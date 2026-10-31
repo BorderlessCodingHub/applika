@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useTranslations } from "next-intl";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { ReactNode } from "react";
 
@@ -94,5 +95,55 @@ describe("RootProviders theme", () => {
     });
     expect(document.documentElement.classList.contains("light")).toBe(false);
     expect(window.localStorage.getItem("theme")).toBe("dark");
+  });
+});
+
+describe("RootProviders language", () => {
+  function Probe() {
+    const t = useTranslations("common");
+    return <span data-testid="word">{t("cancel")}</span>;
+  }
+
+  beforeEach(() => {
+    document.cookie = "NEXT_LOCALE=; Path=/; Max-Age=0";
+    document.documentElement.lang = "en";
+  });
+
+  afterEach(() => {
+    document.cookie = "NEXT_LOCALE=; Path=/; Max-Age=0";
+    document.documentElement.lang = "en";
+  });
+
+  it("carries the LocaleProvider: the switcher works and a saved pt-BR applies on load", async () => {
+    document.cookie = "NEXT_LOCALE=pt-BR; Path=/";
+    // Fresh modules, so the toggle shares the providers' LocaleProvider context.
+    vi.resetModules();
+    const { RootProviders } = await import("./root-providers");
+    const { LanguageToggle } = await import("@/components/language-toggle");
+    render(
+      <RootProviders>
+        <LanguageToggle />
+        <Probe />
+      </RootProviders>,
+    );
+
+    // The saved language resolves after mount: words, <html lang> and the pill.
+    await waitFor(() =>
+      expect(screen.getByTestId("word")).toHaveTextContent("Cancelar"),
+    );
+    expect(document.documentElement.lang).toBe("pt-BR");
+    expect(screen.getByRole("radio", { name: "Português" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+
+    // A pick swaps back in place.
+    await userEvent
+      .setup()
+      .click(screen.getByRole("radio", { name: "English" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("word")).toHaveTextContent("Cancel"),
+    );
+    expect(document.documentElement.lang).toBe("en");
   });
 });

@@ -5,6 +5,7 @@ import { Check, CircleAlert, Copy } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { ApplikaIcon } from "@/components/app-logo";
+import { LanguageToggle } from "@/components/language-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 
@@ -35,6 +36,7 @@ export function CliCodeScreen({ code, state }: CliCodeScreenProps) {
       <div aria-hidden className="absolute inset-0 dot-grid opacity-30" />
 
       <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+        <LanguageToggle variant="default" />
         <ThemeToggle />
       </div>
 

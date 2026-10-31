@@ -436,6 +436,33 @@ describe("LanguageToggle in the LocaleProvider", () => {
     );
   });
 
+  it.each([
+    ["no variant", undefined],
+    ["variant default", "default"],
+  ] as const)(
+    "%s: the wrapper renders the default look, never the landing one",
+    (_, variant) => {
+      render(
+        <LocaleProvider>
+          <LanguageToggle variant={variant} />
+        </LocaleProvider>,
+      );
+      const group = screen.getByRole("radiogroup");
+      expect(group).toHaveAttribute(
+        "class",
+        `${ROOT} ${VARIANTS.default.root}`,
+      );
+      expect(screen.getByRole("radio", { name: "English" })).toHaveAttribute(
+        "class",
+        `${ITEM} ${VARIANTS.default.active} ${VARIANTS.default.focus}`,
+      );
+      expect(screen.getByRole("radio", { name: "Português" })).toHaveAttribute(
+        "class",
+        `${ITEM} ${VARIANTS.default.inactive} ${VARIANTS.default.focus}`,
+      );
+    },
+  );
+
   it("passes the landing look through", () => {
     render(
       <LocaleProvider>
