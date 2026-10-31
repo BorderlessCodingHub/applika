@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState } from "react";
 import { RotateCcw } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { badgeVariants } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,13 +12,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-
-export const CV_DIFF_CHANGED_LABEL = "Changed";
-export const CV_DIFF_ORIGINAL_LABEL = "Original";
-export const CV_DIFF_EMPTY_ORIGINAL = "Empty in the original CV.";
-export const CV_DIFF_REVERT_LABEL = "Revert";
-export const CV_DIFF_ADDED_KEYWORDS_LABEL = "Added keywords";
-export const CV_DIFF_REMOVED_KEYWORDS_LABEL = "Removed keywords";
 
 /** A scalar, a string list (bullets, keywords), or empty. */
 export type CvDiffValue = string | readonly string[] | null | undefined;
@@ -82,6 +76,7 @@ export function CvChangedMarker({
   onRevert,
   className,
 }: CvChangedMarkerProps) {
+  const t = useTranslations("cvs.diff");
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const revertedRef = useRef(false);
@@ -114,7 +109,7 @@ export function CvChangedMarker({
           ref={triggerRef}
           type="button"
           data-slot="cv-diff-changed"
-          aria-label={`${CV_DIFF_CHANGED_LABEL}: ${fieldLabel}`}
+          aria-label={t("changedLabel", { field: fieldLabel })}
           className={cn(
             badgeVariants({ variant: "outline" }),
             "absolute end-0 -top-[5px] h-6 cursor-pointer gap-1.5 px-2",
@@ -123,7 +118,7 @@ export function CvChangedMarker({
           )}
         >
           <span aria-hidden className="size-1.5 rounded-full bg-primary" />
-          {CV_DIFF_CHANGED_LABEL}
+          {t("changed")}
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -139,7 +134,7 @@ export function CvChangedMarker({
             id={eyebrowId}
             className="text-xs font-medium tracking-wide-label text-muted-foreground uppercase"
           >
-            {CV_DIFF_ORIGINAL_LABEL}
+            {t("original")}
           </p>
           <p id={titleId} className="text-sm leading-snug font-medium">
             {fieldLabel}
@@ -149,7 +144,7 @@ export function CvChangedMarker({
         <div
           tabIndex={0}
           role="region"
-          aria-label={`${CV_DIFF_ORIGINAL_LABEL} value`}
+          aria-label={t("originalValue")}
           data-slot="cv-diff-original"
           className={cn(
             "max-h-60 overflow-y-auto rounded-md bg-muted/60 px-3 py-2 text-sm break-words whitespace-pre-wrap",
@@ -158,7 +153,7 @@ export function CvChangedMarker({
         >
           {isEmpty(original) ? (
             <span className="text-muted-foreground italic">
-              {CV_DIFF_EMPTY_ORIGINAL}
+              {t("emptyOriginal")}
             </span>
           ) : typeof original === "string" ? (
             original
@@ -176,7 +171,7 @@ export function CvChangedMarker({
         {added?.length ? (
           <div className="flex flex-col gap-1.5">
             <p className="text-xs font-medium text-muted-foreground">
-              {CV_DIFF_ADDED_KEYWORDS_LABEL}
+              {t("addedKeywords")}
             </p>
             <KeywordChips values={added} />
           </div>
@@ -184,7 +179,7 @@ export function CvChangedMarker({
         {removed?.length ? (
           <div className="flex flex-col gap-1.5">
             <p className="text-xs font-medium text-muted-foreground">
-              {CV_DIFF_REMOVED_KEYWORDS_LABEL}
+              {t("removedKeywords")}
             </p>
             <KeywordChips values={removed} struck />
           </div>
@@ -196,11 +191,11 @@ export function CvChangedMarker({
               type="button"
               size="sm"
               variant="outline"
-              aria-label={`${CV_DIFF_REVERT_LABEL} ${fieldLabel}`}
+              aria-label={t("revertLabel", { field: fieldLabel })}
               onClick={revert}
             >
               <RotateCcw aria-hidden />
-              {CV_DIFF_REVERT_LABEL}
+              {t("revert")}
             </Button>
           </div>
         ) : null}

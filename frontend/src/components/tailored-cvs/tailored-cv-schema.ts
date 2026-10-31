@@ -5,6 +5,7 @@ import {
   CV_LANGUAGE_LEVELS,
   type CvFormValues,
 } from "@/components/base-cvs/types";
+import { word } from "@/i18n/translator";
 import { isIsoMonth } from "@/lib/month-year";
 import type { BaseCvWritable } from "@/services/types/base-cv";
 import type { TailoredCv } from "@/components/tailored-cvs/types";
@@ -166,12 +167,24 @@ const isBlankEducation = (
   !text(item.area) &&
   isBlankPeriod(item);
 
+/**
+ * "Keep this under N characters" in the active language. Every message here
+ * resolves at validation time (`{ error: () => ... }`), never at module load,
+ * so it follows the language picked since. `max` goes as a string so the
+ * number is never regrouped ("5000", not "5,000"/"5.000").
+ */
+const tooLong = (max: number) => ({
+  error: () => word("cvs.tailored.validation.tooLong", { max: String(max) }),
+});
+
 /** A non-blank single-line string. Whitespace alone does not count. */
-const requiredText = (message: string, max: number) =>
+const requiredText = (messageKey: string, max: number) =>
   z
     .string()
-    .max(max, `Keep this under ${max} characters`)
-    .refine((value) => value.trim().length > 0, message);
+    .max(max, tooLong(max))
+    .refine((value) => value.trim().length > 0, {
+      error: () => word(`cvs.tailored.validation.${messageKey}`),
+    });
 
 const linkSchema = z.object({
   id: z.string(),
@@ -240,36 +253,31 @@ const languageSchema = z.object({
  * is required on both sections.
  */
 export const tailoredCvSchema = z.object({
-  name: requiredText("A CV label is required", TAILORED_CV_MAX.name),
-  full_name: requiredText("A full name is required", TAILORED_CV_MAX.full_name),
-  headline: requiredText("A headline is required", TAILORED_CV_MAX.headline),
-  location: requiredText("A location is required", TAILORED_CV_MAX.location),
+  name: requiredText("nameRequired", TAILORED_CV_MAX.name),
+  full_name: requiredText("fullNameRequired", TAILORED_CV_MAX.full_name),
+  headline: requiredText("headlineRequired", TAILORED_CV_MAX.headline),
+  location: requiredText("locationRequired", TAILORED_CV_MAX.location),
   email: z
     .string()
-    .max(
-      TAILORED_CV_MAX.email,
-      `Keep this under ${TAILORED_CV_MAX.email} characters`,
-    )
+    .max(TAILORED_CV_MAX.email, tooLong(TAILORED_CV_MAX.email))
     .superRefine((value, ctx) => {
       const trimmed = value.trim();
       if (trimmed.length === 0) {
-        ctx.addIssue({ code: "custom", message: "An email is required" });
+        ctx.addIssue({
+          code: "custom",
+          message: word("cvs.tailored.validation.emailRequired"),
+        });
         return;
       }
       if (!EMAIL_PATTERN.test(trimmed)) {
         ctx.addIssue({
           code: "custom",
-          message: "Enter a valid email address",
+          message: word("cvs.tailored.validation.emailInvalid"),
         });
       }
     }),
-  phone: z
-    .string()
-    .max(
-      TAILORED_CV_MAX.phone,
-      `Keep this under ${TAILORED_CV_MAX.phone} characters`,
-    ),
-  summary: requiredText("A summary is required", TAILORED_CV_MAX.summary),
+  phone: z.string().max(TAILORED_CV_MAX.phone, tooLong(TAILORED_CV_MAX.phone)),
+  summary: requiredText("summaryRequired", TAILORED_CV_MAX.summary),
   links: z
     .array(linkSchema)
     .refine(
@@ -277,7 +285,7 @@ export const tailoredCvSchema = z.object({
         items.every(
           (item) => isBlankLink(item) || (text(item.label) && text(item.url)),
         ),
-      "Every link needs a label and a URL. Remove the rows you do not want.",
+      { error: () => word("cvs.tailored.validation.linksIncomplete") },
     )
     .refine(
       (items) =>
@@ -286,7 +294,13 @@ export const tailoredCvSchema = z.object({
             within(TAILORED_CV_MAX.linkLabel, item.label) &&
             within(TAILORED_CV_MAX.linkUrl, item.url),
         ),
-      `Keep every link label under ${TAILORED_CV_MAX.linkLabel} characters and every URL under ${TAILORED_CV_MAX.linkUrl}.`,
+      {
+        error: () =>
+          word("cvs.tailored.validation.linksTooLong", {
+            label: String(TAILORED_CV_MAX.linkLabel),
+            url: String(TAILORED_CV_MAX.linkUrl),
+          }),
+      },
     ),
   skills: z
     .array(skillCategorySchema)
@@ -295,7 +309,7 @@ export const tailoredCvSchema = z.object({
         items.every(
           (item) => isBlankSkillCategory(item) || text(item.category),
         ),
-      "Every skill category needs a name. Remove the categories you do not want.",
+      { error: () => word("cvs.tailored.validation.skillsIncomplete") },
     )
     .refine(
       (items) =>
@@ -304,7 +318,13 @@ export const tailoredCvSchema = z.object({
             within(TAILORED_CV_MAX.skillCategory, item.category) &&
             within(TAILORED_CV_MAX.skillKeyword, ...item.keywords),
         ),
-      `Keep every category name under ${TAILORED_CV_MAX.skillCategory} characters and every keyword under ${TAILORED_CV_MAX.skillKeyword}.`,
+      {
+        error: () =>
+          word("cvs.tailored.validation.skillsTooLong", {
+            category: String(TAILORED_CV_MAX.skillCategory),
+            keyword: String(TAILORED_CV_MAX.skillKeyword),
+          }),
+      },
     ),
   experience: z
     .array(experienceSchema)
@@ -315,12 +335,11 @@ export const tailoredCvSchema = z.object({
             isBlankExperience(item) ||
             (text(item.company) && text(item.role) && hasStart(item)),
         ),
-      "Every role needs a company, a role and a start month and year (MM/yyyy). Remove the rows you do not want.",
+      { error: () => word("cvs.tailored.validation.experienceIncomplete") },
     )
-    .refine(
-      (items) => items.every((item) => hasValidFinish(item)),
-      "A finish must be a full MM/yyyy and cannot come before its start. Leave it empty for a role you are still in.",
-    )
+    .refine((items) => items.every((item) => hasValidFinish(item)), {
+      error: () => word("cvs.tailored.validation.experienceFinish"),
+    })
     .refine(
       (items) =>
         items.every(
@@ -337,13 +356,19 @@ export const tailoredCvSchema = z.object({
             ) &&
             within(TAILORED_CV_MAX.experienceBullet, ...item.bullets),
         ),
-      `Keep every company, role and location under ${TAILORED_CV_MAX.experienceCompany} characters and every company description under ${TAILORED_CV_MAX.experienceCompanyDescription}.`,
+      {
+        error: () =>
+          word("cvs.tailored.validation.experienceTooLong", {
+            company: String(TAILORED_CV_MAX.experienceCompany),
+            description: String(TAILORED_CV_MAX.experienceCompanyDescription),
+          }),
+      },
     ),
   projects: z
     .array(projectSchema)
     .refine(
       (items) => items.every((item) => isBlankProject(item) || text(item.name)),
-      "Every project needs a name. Remove the rows you do not want.",
+      { error: () => word("cvs.tailored.validation.projectsIncomplete") },
     )
     .refine(
       (items) =>
@@ -354,7 +379,13 @@ export const tailoredCvSchema = z.object({
             within(TAILORED_CV_MAX.projectLink, item.link) &&
             within(TAILORED_CV_MAX.projectLinkLabel, item.link_label),
         ),
-      `Keep every project name under ${TAILORED_CV_MAX.projectName} characters and every description under ${TAILORED_CV_MAX.projectDescription}.`,
+      {
+        error: () =>
+          word("cvs.tailored.validation.projectsTooLong", {
+            name: String(TAILORED_CV_MAX.projectName),
+            description: String(TAILORED_CV_MAX.projectDescription),
+          }),
+      },
     ),
   education: z
     .array(educationSchema)
@@ -365,12 +396,11 @@ export const tailoredCvSchema = z.object({
             isBlankEducation(item) ||
             (text(item.institution) && text(item.degree) && hasStart(item)),
         ),
-      "Every qualification needs an institution, a degree and a start month and year (MM/yyyy). Remove the rows you do not want.",
+      { error: () => word("cvs.tailored.validation.educationIncomplete") },
     )
-    .refine(
-      (items) => items.every((item) => hasValidFinish(item)),
-      "A finish must be a full MM/yyyy and cannot come before its start. Leave it empty for a course you are still on.",
-    )
+    .refine((items) => items.every((item) => hasValidFinish(item)), {
+      error: () => word("cvs.tailored.validation.educationFinish"),
+    })
     .refine(
       (items) =>
         items.every(
@@ -379,7 +409,12 @@ export const tailoredCvSchema = z.object({
             within(TAILORED_CV_MAX.educationDegree, item.degree) &&
             within(TAILORED_CV_MAX.educationArea, item.area),
         ),
-      `Keep every institution, degree and field of study under ${TAILORED_CV_MAX.educationInstitution} characters.`,
+      {
+        error: () =>
+          word("cvs.tailored.validation.educationTooLong", {
+            max: String(TAILORED_CV_MAX.educationInstitution),
+          }),
+      },
     ),
   certifications: z
     .array(certificationSchema)
@@ -390,26 +425,36 @@ export const tailoredCvSchema = z.object({
             isBlankCertification(item) ||
             (text(item.name) && text(item.issuer)),
         ),
-      "Every certification needs a name and an issuer. Remove the rows you do not want.",
+      { error: () => word("cvs.tailored.validation.certificationsIncomplete") },
     )
     .refine(
       (items) =>
         items.every((item) =>
           within(TAILORED_CV_MAX.certificationName, item.name, item.issuer),
         ),
-      `Keep every certification name and issuer under ${TAILORED_CV_MAX.certificationName} characters.`,
+      {
+        error: () =>
+          word("cvs.tailored.validation.certificationsTooLong", {
+            max: String(TAILORED_CV_MAX.certificationName),
+          }),
+      },
     ),
   languages: z
     .array(languageSchema)
     .refine(
       (items) =>
         items.every((item) => isBlankLanguage(item) || text(item.name)),
-      "Every language needs a name. Remove the rows you do not want.",
+      { error: () => word("cvs.tailored.validation.languagesIncomplete") },
     )
     .refine(
       (items) =>
         items.every((item) => within(TAILORED_CV_MAX.languageName, item.name)),
-      `Keep every language under ${TAILORED_CV_MAX.languageName} characters.`,
+      {
+        error: () =>
+          word("cvs.tailored.validation.languagesTooLong", {
+            max: String(TAILORED_CV_MAX.languageName),
+          }),
+      },
     ),
 });
 

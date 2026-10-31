@@ -1208,5 +1208,466 @@
         "nowSelected": "Ela já está selecionada."
       }
     }
+  },
+  "cvs": {
+    "page": {
+      "title": "CVs",
+      "description": "Seus CVs principais. Mantenha até três e reutilize-os em todas as candidaturas.",
+      "back": "Voltar para os CVs"
+    },
+    "list": {
+      "loading": "Carregando seus CVs principais",
+      "errorTitle": "Não foi possível carregar seus CVs principais",
+      "retry": "Tentar de novo",
+      "emptyTitle": "Nenhum CV principal ainda",
+      "emptyBody": "Um CV principal reúne tudo sobre você — identidade e contato, um resumo, links, habilidades, experiência, projetos, certificações e idiomas. Escreva uma vez e reutilize em todas as candidaturas. Você pode manter até três.",
+      "emptyCta": "Criar seu primeiro CV"
+    },
+    "card": {
+      "updated": "Atualizado em {date}",
+      "noSkills": "Nenhuma habilidade adicionada ainda",
+      "roles": "{count, plural, =0 {# cargos} one {# cargo} other {# cargos}}",
+      "projects": "{count, plural, =0 {# projetos} one {# projeto} other {# projetos}}",
+      "languages": "{count, plural, =0 {# idiomas} one {# idioma} other {# idiomas}}",
+      "keywords": "{count, plural, =0 {# palavras-chave} one {# palavra-chave} other {# palavras-chave}}",
+      "edit": "Editar",
+      "editLabel": "Editar {name}",
+      "delete": "Excluir",
+      "deleteLabel": "Excluir {name}",
+      "deleteTitle": "Excluir este CV principal?",
+      "deleteDescription": "\"{name}\" e tudo o que ele contém serão removidos de vez. Isso não pode ser desfeito.",
+      "cancel": "Cancelar"
+    },
+    "new": {
+      "title": "Novo CV principal",
+      "description": "Escreva uma vez. Toda candidatura que você adaptar começa daqui.",
+      "submit": "Criar CV",
+      "limitReason": "Você já tem 3 CVs principais — o limite é três. Exclua um para criar outro.",
+      "slotsLeft": "{remaining} de {max} espaços livres"
+    },
+    "editorPage": {
+      "title": "Editar CV principal",
+      "description": "Altere o que quiser e salve de novo.",
+      "noIdTitle": "Nenhum CV selecionado",
+      "noIdBody": "Abra um CV da sua lista para editá-lo.",
+      "loadErrorTitle": "Não foi possível carregar este CV",
+      "loading": "Carregando este CV principal",
+      "routeLoading": "Carregando o editor de CV",
+      "submit": "Salvar alterações"
+    },
+    "toasts": {
+      "created": "CV principal criado",
+      "saved": "CV principal salvo",
+      "deleted": "CV principal excluído",
+      "copyCreated": "Cópia do CV criada",
+      "copySaved": "Cópia do CV salva",
+      "copyDeleted": "Cópia do CV excluída"
+    },
+    "tailored": {
+      "readOnly": {
+        "finalized": {
+          "title": "Esta candidatura está encerrada.",
+          "body": "Reabra-a para editar este CV."
+        },
+        "archived": {
+          "title": "Esta candidatura está em um ciclo encerrado",
+          "body": "Candidaturas de um ciclo anterior ficam arquivadas. Você pode ler esta cópia do CV, mas ela não pode mais ser editada nem excluída."
+        }
+      },
+      "source": {
+        "deleted": "CV de origem excluído",
+        "deletedHint": "O CV principal de onde esta cópia veio foi excluído. Tudo abaixo continua pertencendo a esta candidatura e pode ser editado.",
+        "copiedFrom": "Copiado de {name}",
+        "copiedFromMaster": "Copiado de um CV principal"
+      },
+      "editor": {
+        "previewRegion": "Pré-visualização do CV",
+        "livePreview": "Pré-visualização",
+        "submit": "Salvar cópia do CV",
+        "cancel": "Cancelar",
+        "deleteLabel": "Excluir esta cópia do CV",
+        "deleteAction": "Excluir cópia",
+        "deleteTitle": "Excluir esta cópia do CV?",
+        "deleteDescription": "A cópia e todas as edições que você fez nela são removidas para sempre. Seus CVs principais não mudam, e você pode criar uma nova cópia para esta candidatura depois.",
+        "deleteConfirm": "Excluir"
+      },
+      "jobDescription": {
+        "title": "Descrição da vaga",
+        "description": "Vem da candidatura. Somente leitura aqui.",
+        "textRegion": "Texto da descrição da vaga",
+        "emptyHint": "Nenhuma descrição da vaga salva para esta candidatura. Adicione uma ao editar a candidatura e ela ficará aqui, ao lado da cópia do CV, enquanto você a adapta.",
+        "add": "Adicionar descrição da vaga"
+      },
+      "tailorByKeywords": {
+        "label": "Adaptar por palavras-chave",
+        "description": "Reordena habilidades e tópicos pela aderência à descrição da vaga. Nenhum texto é adicionado ou alterado."
+      },
+      "picker": {
+        "title": "Escolha um CV principal",
+        "hint": "Escolha o CV principal de onde esta candidatura parte. A cópia é sua para editar para esta vaga — o CV principal nunca muda.",
+        "lockedBody": "Nenhuma cópia do CV foi criada para esta candidatura, e não é mais possível criar uma.",
+        "create": "Criar a cópia do CV"
+      },
+      "validation": {
+        "tooLong": "Use menos de {max} caracteres",
+        "nameRequired": "O nome do CV é obrigatório",
+        "fullNameRequired": "O nome completo é obrigatório",
+        "headlineRequired": "O título profissional é obrigatório",
+        "locationRequired": "A localização é obrigatória",
+        "emailRequired": "O e-mail é obrigatório",
+        "emailInvalid": "Informe um endereço de e-mail válido",
+        "summaryRequired": "O resumo é obrigatório",
+        "linksIncomplete": "Todo link precisa de um rótulo e de uma URL. Remova as linhas que não quiser.",
+        "linksTooLong": "Use menos de {label} caracteres em cada rótulo de link e menos de {url} em cada URL.",
+        "skillsIncomplete": "Toda categoria de habilidades precisa de um nome. Remova as categorias que você não quer.",
+        "skillsTooLong": "Use menos de {category} caracteres em cada nome de categoria e menos de {keyword} em cada palavra-chave.",
+        "experienceIncomplete": "Todo cargo precisa de empresa, cargo e mês e ano de início (MM/aaaa). Remova as linhas que não quiser.",
+        "experienceFinish": "O término precisa ser um MM/aaaa completo e não pode vir antes do início. Deixe vazio para um cargo que você ainda ocupa.",
+        "experienceTooLong": "Use menos de {company} caracteres em cada empresa, cargo e local, e menos de {description} em cada descrição de empresa.",
+        "projectsIncomplete": "Todo projeto precisa de um nome. Remova as linhas que você não quer.",
+        "projectsTooLong": "Use menos de {name} caracteres em cada nome de projeto e menos de {description} em cada descrição.",
+        "educationIncomplete": "Toda formação precisa de instituição, grau e mês e ano de início (MM/aaaa). Remova as linhas que não quiser.",
+        "educationFinish": "O término precisa ser um MM/aaaa completo e não pode vir antes do início. Deixe vazio para um curso em andamento.",
+        "educationTooLong": "Use menos de {max} caracteres em cada instituição, grau e área de estudo.",
+        "certificationsIncomplete": "Toda certificação precisa de um nome e de um emissor. Remova as linhas que você não quer.",
+        "certificationsTooLong": "Use menos de {max} caracteres em cada nome de certificação e emissor.",
+        "languagesIncomplete": "Todo idioma precisa de um nome. Remova as linhas que você não quer.",
+        "languagesTooLong": "Use menos de {max} caracteres em cada idioma."
+      }
+    },
+    "diff": {
+      "added": "Adicionado",
+      "removed": "Removido",
+      "restore": "Restaurar",
+      "removedGroup": "Item removido ({noun}): {title}",
+      "restoreLabel": "Restaurar {noun} {title}",
+      "itemNoun": {
+        "links": "link",
+        "skills": "categoria",
+        "experience": "experiência",
+        "projects": "projeto",
+        "education": "formação",
+        "certifications": "certificação",
+        "languages": "idioma"
+      },
+      "newItem": {
+        "link": "Novo link",
+        "category": "Nova categoria",
+        "role": "Novo cargo",
+        "project": "Novo projeto",
+        "qualification": "Nova formação",
+        "certification": "Nova certificação",
+        "language": "Novo idioma"
+      },
+      "periodOpen": "{from} - atual",
+      "changed": "Alterado",
+      "changedLabel": "Alterado: {field}",
+      "original": "Original",
+      "originalValue": "Valor original",
+      "emptyOriginal": "Vazio no CV original.",
+      "revert": "Reverter",
+      "revertLabel": "Reverter {field}",
+      "addedKeywords": "Palavras-chave adicionadas",
+      "removedKeywords": "Palavras-chave removidas",
+      "sectionCount": "{count, plural, =0 {0 alterações} one {# alteração} other {# alterações}}",
+      "reordered": "reordenado",
+      "countReordered": "{changes}, reordenado",
+      "summaryCount": "{count, plural, =0 {nenhuma alteração} one {# alteração} other {# alterações}}",
+      "comparedWith": "Comparado com {label}: {count}",
+      "originalMaster": "o CV principal original",
+      "showChanges": "Mostrar alterações",
+      "reorderedTitle": "Reordenado pela aderência à vaga",
+      "download": {
+        "label": "Baixar alterações",
+        "pdf": "PDF",
+        "markdown": "Markdown",
+        "as": "{label} em {format}",
+        "pending": "Preparando seu download. Isso pode levar alguns segundos.",
+        "dirtyNotice": "Os downloads refletem a última versão salva."
+      }
+    },
+    "fit": {
+      "title": "Aderência do CV à vaga",
+      "description": "Correspondência de palavras-chave entre a descrição da vaga e esta cópia do CV.",
+      "loading": "Carregando a aderência a esta vaga",
+      "loadError": "Não foi possível carregar a aderência a esta vaga.",
+      "retry": "Tentar de novo",
+      "dirty": "A aderência reflete a última versão salva."
+    },
+    "applicationCv": {
+      "back": "Voltar para candidaturas",
+      "title": "CV da candidatura",
+      "description": "A cópia de um CV principal desta candidatura, editada para a vaga.",
+      "noIdTitle": "Nenhuma candidatura selecionada",
+      "noIdBody": "Abra uma candidatura da sua lista para trabalhar na cópia do CV dela.",
+      "loadingApplication": "Carregando esta candidatura",
+      "openErrorTitle": "Não foi possível abrir esta candidatura",
+      "notInCycle": "Ela não está no ciclo que você está vendo. Troque de ciclo na lista de candidaturas e abra o CV dela por lá.",
+      "loadErrorTitle": "Não foi possível carregar esta cópia do CV",
+      "loadingCopy": "Carregando esta cópia do CV",
+      "diffUnresolved": "Não foi possível consultar o CV principal original para comparar. Tente recarregar a página.",
+      "routeLoading": "Carregando a cópia do CV"
+    },
+    "fields": {
+      "label": {
+        "cvLabel": "Nome do CV",
+        "fullName": "Nome completo",
+        "headline": "Título profissional",
+        "email": "E-mail",
+        "phone": "Telefone",
+        "location": "Localização",
+        "label": "Rótulo",
+        "url": "URL",
+        "summary": "Resumo",
+        "category": "Categoria",
+        "keywords": "Palavras-chave",
+        "company": "Empresa",
+        "role": "Cargo",
+        "start": "Início",
+        "finish": "Término",
+        "companyDescription": "Descrição da empresa",
+        "highlights": "Destaques",
+        "name": "Nome",
+        "link": "Link",
+        "linkLabel": "Texto do link",
+        "description": "Descrição",
+        "institution": "Instituição",
+        "degree": "Grau",
+        "area": "Área de estudo",
+        "issuer": "Emissor",
+        "language": "Idioma",
+        "level": "Nível"
+      },
+      "noun": {
+        "link": "link",
+        "category": "categoria",
+        "experience": "experiência",
+        "project": "projeto",
+        "education": "formação",
+        "certification": "certificação",
+        "language": "idioma",
+        "highlight": "destaque"
+      },
+      "hint": {
+        "cvLabel": "Só você vê isto. É o nome do CV na sua lista.",
+        "optional": "Opcional.",
+        "monthYear": "Mês e ano, MM/aaaa.",
+        "finishRole": "Opcional. Deixe vazio para um cargo atual: sai impresso como \"present\".",
+        "finishCourse": "Opcional. Deixe vazio para um curso em andamento: sai impresso como \"present\"."
+      },
+      "placeholder": {
+        "cvLabel": "CV com foco em backend",
+        "headline": "Engenheira de software sênior",
+        "location": "São Paulo, Brasil",
+        "summary": "Engenheira backend com oito anos em sistemas de pagamento…",
+        "role": "Engenheira backend sênior",
+        "remote": "Remoto",
+        "companyDescription": "Infraestrutura de pagamentos, 8000 pessoas.",
+        "highlight": "Reduzi a latência de liquidação em 40%…",
+        "linkLabel": "Demonstração",
+        "institution": "Universidade de São Paulo",
+        "degree": "Bacharelado",
+        "area": "Ciência da Computação",
+        "language": "Inglês",
+        "level": "Escolha um nível"
+      },
+      "addHighlight": "Adicionar destaque",
+      "moveUp": "Mover {position} para cima",
+      "moveDown": "Mover {position} para baixo",
+      "remove": "Remover {position}",
+      "removeNumbered": "Remover {noun} {number}",
+      "keywords": {
+        "hint": "Pressione Enter ou vírgula para adicionar. Clique em uma palavra-chave para renomeá-la. Alt com a seta para a esquerda ou para a direita a move.",
+        "add": "Adicionar uma palavra-chave",
+        "addTo": "Adicionar uma palavra-chave em {group}",
+        "list": "Palavras-chave",
+        "listIn": "Palavras-chave em {group}",
+        "rename": "Renomear {keyword}",
+        "remove": "Remover {keyword}"
+      },
+      "languageLevel": {
+        "native": "Nativo",
+        "proficient": "Fluente",
+        "conversational": "Conversação",
+        "readComprehend": "Leitura e compreensão",
+        "basic": "Básico"
+      }
+    },
+    "sections": {
+      "identity": {
+        "title": "Identidade e contato",
+        "description": "O cabeçalho do topo do seu CV, mais o nome pelo qual você reconhece este CV."
+      },
+      "links": {
+        "title": "Links",
+        "description": "Portfólio, GitHub, LinkedIn e outros perfis.",
+        "newItem": "Novo link",
+        "add": "Adicionar link",
+        "emptyHint": "Nenhum link ainda. Adicione os perfis que quer no seu CV."
+      },
+      "summary": {
+        "title": "Resumo",
+        "description": "Um breve resumo profissional, com suas palavras."
+      },
+      "experience": {
+        "title": "Experiência",
+        "description": "Seus cargos, do mais recente ao mais antigo.",
+        "newItem": "Novo cargo",
+        "add": "Adicionar experiência",
+        "emptyHint": "Nenhum cargo ainda. Adicione os empregos que quer neste CV."
+      },
+      "projects": {
+        "title": "Projetos",
+        "description": "Projetos pessoais, open source e trabalhos de destaque.",
+        "newItem": "Novo projeto",
+        "add": "Adicionar projeto",
+        "emptyHint": "Nenhum projeto ainda."
+      },
+      "education": {
+        "title": "Formação",
+        "description": "Graduações e diplomas, do mais recente ao mais antigo.",
+        "newItem": "Nova formação",
+        "add": "Adicionar formação",
+        "emptyHint": "Nenhuma formação ainda. Adicione as graduações que quer neste CV."
+      },
+      "certifications": {
+        "title": "Certificações",
+        "description": "Certificações e licenças profissionais.",
+        "newItem": "Novo certificado",
+        "add": "Adicionar certificação",
+        "emptyHint": "Nenhuma certificação ainda."
+      },
+      "languages": {
+        "title": "Idiomas",
+        "description": "Os idiomas que você fala e o seu nível.",
+        "newItem": "Novo idioma",
+        "add": "Adicionar idioma",
+        "emptyHint": "Nenhum idioma ainda."
+      },
+      "skills": {
+        "title": "Habilidades",
+        "description": "Agrupe suas habilidades em categorias. Cada categoria sai impressa em uma linha própria.",
+        "newItem": "Nova categoria",
+        "add": "Adicionar categoria",
+        "noun": "categoria",
+        "emptyHint": "Nenhuma categoria de habilidades ainda. Adicione uma e preencha com palavras-chave.",
+        "categoryEmptyHint": "Nenhuma palavra-chave ainda. Elas saem impressas sob o nome da categoria, separadas por um ponto médio.",
+        "category": "Categoria",
+        "categoryPlaceholder": "Linguagens e frameworks",
+        "keywords": "Palavras-chave",
+        "thisCategory": "esta categoria"
+      }
+    },
+    "validation": {
+      "maxLength": "Use menos de {max} caracteres",
+      "cvLabelRequired": "Informe um nome para o CV",
+      "fullNameRequired": "Informe seu nome completo",
+      "headlineRequired": "Informe um título profissional",
+      "locationRequired": "Informe uma localização",
+      "emailRequired": "Informe um e-mail",
+      "emailInvalid": "Informe um endereço de e-mail válido",
+      "summaryRequired": "Informe um resumo",
+      "links": "Todo link precisa de um rótulo e de uma URL. Remova as linhas que não quiser.",
+      "skills": "Toda categoria de habilidades precisa de um nome. Remova as categorias que não quiser.",
+      "skillsLength": "Use menos de {category} caracteres em cada nome de categoria e menos de {keyword} em cada palavra-chave.",
+      "experience": "Todo cargo precisa de empresa, cargo e mês e ano de início (MM/aaaa). Remova as linhas que não quiser.",
+      "experienceFinish": "O término precisa ser um MM/aaaa completo e não pode vir antes do início. Deixe vazio para um cargo atual.",
+      "projects": "Todo projeto precisa de um nome. Remova as linhas que não quiser.",
+      "education": "Toda formação precisa de instituição, grau e mês e ano de início (MM/aaaa). Remova as linhas que não quiser.",
+      "educationFinish": "O término precisa ser um MM/aaaa completo e não pode vir antes do início. Deixe vazio para um curso em andamento.",
+      "educationLength": "Use menos de {max} caracteres em cada instituição, grau e área de estudo.",
+      "certifications": "Toda certificação precisa de um nome e de um emissor. Remova as linhas que não quiser.",
+      "languages": "Todo idioma precisa de um nome. Remova as linhas que não quiser."
+    },
+    "editor": {
+      "save": "Salvar CV",
+      "cancel": "Cancelar"
+    },
+    "preview": {
+      "pageLabel": "Página {page} de {total}",
+      "pageCount": "{total, plural, one {Pré-visualização do CV: # página.} other {Pré-visualização do CV: # páginas.}}",
+      "documentLabel": "Pré-visualização do CV de {name}",
+      "documentLabelUnnamed": "Pré-visualização do seu CV",
+      "overflowNote": "Um item é maior que uma página A4.",
+      "pagesLabel": "Páginas da pré-visualização do CV",
+      "asideLabel": "Pré-visualização do CV",
+      "livePreview": "Pré-visualização"
+    },
+    "export": {
+      "layoutNotice": "A pré-visualização não mostra o layout final do PDF.",
+      "pdfPending": "Preparando seu PDF. Isso pode levar alguns segundos.",
+      "pdfLabel": "Baixar PDF",
+      "markdownLabel": "Baixar Markdown",
+      "markdownPending": "Preparando seu arquivo Markdown."
+    }
+  },
+  "drafts": {
+    "page": {
+      "pageTitle": "Nova candidatura com CV",
+      "pageSubtitle": "Preencha a candidatura e depois adapte uma cópia de um dos seus CVs principais. Ela é salva como rascunho assim que empresa, cargo e plataforma estiverem preenchidos.",
+      "pageLoading": "Carregando a página de nova candidatura",
+      "backToApplications": "Voltar para candidaturas",
+      "stepsLabel": "Passos",
+      "continueToCv": "Seguir para o CV",
+      "cancel": "Cancelar",
+      "back": "Voltar",
+      "finish": "Concluir",
+      "saving": "Salvando...",
+      "saved": "Salvo",
+      "notSaved": "Não salvo",
+      "requiredNotSaved": "Não salvo: empresa, cargo e plataforma são obrigatórios",
+      "retry": "Tentar de novo",
+      "loading": "Carregando este rascunho",
+      "notFoundTitle": "Este rascunho não está disponível",
+      "notFoundBody": "Ele pode ter sido concluído ou excluído. Os rascunhos concluídos estão na sua lista de candidaturas.",
+      "loadErrorTitle": "Não foi possível carregar este rascunho",
+      "loadErrorBody": "Algo deu errado ao abri-lo.",
+      "tryAgain": "Tentar de novo",
+      "goToApplications": "Ir para candidaturas",
+      "noMasterCvTitle": "Ainda não há um CV principal para copiar",
+      "noMasterCvBody": "O passo 2 começa com uma cópia de um dos seus CVs principais. Crie um antes; este rascunho fica em Rascunhos, na página de candidaturas, pronto para retomar.",
+      "noMasterCvCta": "Criar seu primeiro CV",
+      "applicationNeedsFixing": "Alguns campos da candidatura precisam de correção antes de concluir.",
+      "cvNeedsFixing": "Alguns campos da cópia do CV precisam de correção antes de concluir.",
+      "finishFailed": "Não foi possível concluir este rascunho. Tente de novo.",
+      "created": "Candidatura criada"
+    },
+    "steps": {
+      "application": {
+        "title": "Candidatura",
+        "hint": "Empresa, cargo, plataforma"
+      },
+      "cv": {
+        "title": "CV",
+        "hint": "Cópia de um CV principal"
+      },
+      "label": "Passo {number}: {title}"
+    },
+    "requirement": {
+      "company": "empresa",
+      "role": "cargo",
+      "platform": "plataforma",
+      "cv": "cópia do CV",
+      "missing": "Faltando: {list}"
+    },
+    "section": {
+      "emptyTitle": "Nenhum rascunho ainda.",
+      "description": "Candidaturas que você começou com um CV. Elas são salvas enquanto você digita.",
+      "resume": "Retomar",
+      "cvCopy": "Cópia do CV",
+      "loadError": "Não foi possível carregar seus rascunhos.",
+      "retry": "Tentar de novo",
+      "deleteTitle": "Excluir este rascunho?",
+      "deleteConfirm": "Excluir rascunho",
+      "deleteLabel": "Excluir rascunho {name}",
+      "deleteDescription": "O rascunho de {role} em {company} e a cópia do CV dele são excluídos para sempre. Seus CVs principais não mudam.",
+      "cancel": "Cancelar",
+      "savedJustNow": "Salvo agora mesmo",
+      "savedAgo": "Salvo {distance}"
+    },
+    "validation": {
+      "tooLong": "Use menos de {max} caracteres"
+    },
+    "unknownError": "Algo deu errado. Tente de novo."
   }
 }

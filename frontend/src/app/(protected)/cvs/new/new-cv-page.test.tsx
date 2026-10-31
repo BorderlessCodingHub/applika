@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NewCvPage } from "./new-cv-page";
 import { MY_FEATURES_QUERY_KEY } from "@/hooks/use-features";
 import type { MyFeature } from "@/services/types/features";
-import { BASE_CV_LIMIT_REASON } from "@/components/base-cvs/new-cv-card";
+import { NEW_CV_COPY } from "@/components/base-cvs/new-cv-card";
 
 /**
  * `/cvs/new` (KODI-002 / R-001, R-002).
@@ -249,7 +249,7 @@ describe("NewCvPage", () => {
     listMock.mockResolvedValue([{ id: "1" }, { id: "2" }, { id: "3" }]);
     renderPage();
 
-    expect(await screen.findByText(BASE_CV_LIMIT_REASON)).toBeVisible();
+    expect(await screen.findByText(NEW_CV_COPY.limitReason)).toBeVisible();
     expect(
       screen.queryByRole("button", { name: "Create CV" }),
     ).not.toBeInTheDocument();

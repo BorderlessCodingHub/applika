@@ -2,6 +2,7 @@
 
 import { useId, type ReactNode } from "react";
 import { Plus, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -104,6 +105,11 @@ export interface CvSelectFieldProps<T extends string> {
   onValueChange: (value: T) => void;
   options: readonly T[];
   placeholder?: string;
+  /**
+   * The words shown for an option. The stored value stays as it is (e.g. a
+   * language level the English PDF prints); only the menu translates.
+   */
+  optionLabel?: (option: T) => string;
   disabled?: boolean;
   /** Diff marker; see `CvField`. */
   marker?: ReactNode;
@@ -120,6 +126,7 @@ export function CvSelectField<T extends string>({
   onValueChange,
   options,
   placeholder,
+  optionLabel,
   disabled,
   marker,
   className,
@@ -159,7 +166,7 @@ export function CvSelectField<T extends string>({
         <SelectContent>
           {options.map((option) => (
             <SelectItem key={option} value={option}>
-              {option}
+              {optionLabel ? optionLabel(option) : option}
             </SelectItem>
           ))}
         </SelectContent>
@@ -199,6 +206,7 @@ export function CvStringListField({
   marker,
   className,
 }: CvStringListFieldProps) {
+  const t = useTranslations("cvs.fields");
   const capitalised = noun.charAt(0).toUpperCase() + noun.slice(1);
   const marked = hasMarker(marker);
 
@@ -237,7 +245,7 @@ export function CvStringListField({
                 size="icon-sm"
                 variant="ghost"
                 disabled={disabled}
-                aria-label={`Remove ${noun} ${index + 1}`}
+                aria-label={t("removeNumbered", { noun, number: index + 1 })}
                 onClick={() => onChange(value.filter((_, i) => i !== index))}
                 className="shrink-0 text-muted-foreground hover:text-destructive"
               >

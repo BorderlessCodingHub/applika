@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import { useLocale } from "next-intl";
 import { useWatch, type FieldPath, type UseFormReturn } from "react-hook-form";
 
 import type {
@@ -25,18 +26,13 @@ import { CvDiffSectionCount } from "@/components/tailored-cvs/cv-diff-section-co
 import { CvDiffSummaryBar } from "@/components/tailored-cvs/cv-diff-summary-bar";
 import { CvRemovedRow } from "@/components/tailored-cvs/cv-removed-row";
 import type { TailoredCvAdjustment } from "@/components/tailored-cvs/types";
+import { word } from "@/i18n/translator";
 import { isoToMonthYear } from "@/lib/month-year";
 
-/** Lowercase singular per section, for `CvRemovedRow`'s caption. */
-const ITEM_NOUN: Record<CvFormListSectionId, string> = {
-  links: "link",
-  skills: "category",
-  experience: "experience",
-  projects: "project",
-  education: "education",
-  certifications: "certification",
-  languages: "language",
-};
+/** Lowercase singular per section in the active language, for `CvRemovedRow`'s caption. */
+function itemNoun(section: CvFormListSectionId): string {
+  return word(`cvs.diff.itemNoun.${section}`);
+}
 
 /** The date fields whose baseline value is displayed as `MM/yyyy`, not ISO. */
 const DATE_FIELDS = new Set(["start", "end"]);
@@ -48,7 +44,7 @@ function formatPeriod(
   const from = isoToMonthYear(start ?? "");
   if (!from) return undefined;
   const to = isoToMonthYear(end ?? "");
-  return to ? `${from} - ${to}` : `${from} - present`;
+  return to ? `${from} - ${to}` : word("cvs.diff.periodOpen", { from });
 }
 
 interface AnyItem {
@@ -56,27 +52,34 @@ interface AnyItem {
   [key: string]: unknown;
 }
 
-/** Row caption per section, with the same fallback the section's own editor uses. */
+/**
+ * Row caption per section: the user's own text, else the same fallback the
+ * section's own editor uses, in the active language.
+ */
 function titleFor(section: CvFormListSectionId, item: AnyItem): string {
   switch (section) {
     case "links":
-      return (item.label as string) || "New link";
+      return (item.label as string) || word("cvs.diff.newItem.link");
     case "skills":
-      return (item.category as string) || "New category";
+      return (item.category as string) || word("cvs.diff.newItem.category");
     case "experience":
-      return (item.role as string) || (item.company as string) || "New role";
+      return (
+        (item.role as string) ||
+        (item.company as string) ||
+        word("cvs.diff.newItem.role")
+      );
     case "projects":
-      return (item.name as string) || "New project";
+      return (item.name as string) || word("cvs.diff.newItem.project");
     case "education":
       return (
         (item.institution as string) ||
         (item.degree as string) ||
-        "New qualification"
+        word("cvs.diff.newItem.qualification")
       );
     case "certifications":
-      return (item.name as string) || "New certification";
+      return (item.name as string) || word("cvs.diff.newItem.certification");
     case "languages":
-      return (item.name as string) || "New language";
+      return (item.name as string) || word("cvs.diff.newItem.language");
   }
 }
 
@@ -182,6 +185,9 @@ export function useCvDiff({
   readOnly,
   adjustments = NO_ADJUSTMENTS,
 }: UseCvDiffOptions): UseCvDiffResult {
+  // The slots build words (row captions, nouns) through the module translator:
+  // the language is a dependency, so a switch rebuilds them.
+  const locale = useLocale();
   const [showChanges, setShowChanges] = useState(false);
   const watched = useWatch({ control: form.control }) as Partial<CvFormValues>;
 
@@ -358,7 +364,7 @@ export function useCvDiff({
           node: (
             <CvRemovedRow
               itemId={entry.id}
-              itemNoun={ITEM_NOUN[section]}
+              itemNoun={itemNoun(section)}
               title={titleFor(section, item)}
               detail={detailFor(section, item)}
               onRestore={
@@ -376,7 +382,7 @@ export function useCvDiff({
     // `form` is stable (react-hook-form) and only read through `getValues`/
     // `setValue` inside the callbacks, so it is deliberately not a dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showChanges, detail, baseline, readOnly, adjustments]);
+  }, [showChanges, detail, baseline, readOnly, adjustments, locale]);
 
   const diffSummary: ReactNode = useMemo(() => {
     if (!hasBaseline || !detail) return undefined;

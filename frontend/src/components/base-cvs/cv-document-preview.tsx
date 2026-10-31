@@ -2,21 +2,20 @@
 
 import { useMemo } from "react";
 import { Info } from "lucide-react";
+import { useLocale } from "next-intl";
 
 import {
   buildCvDocumentBlocks,
   type CvDocumentData,
 } from "@/components/base-cvs/cv-document-blocks";
 import {
+  CV_PREVIEW_COPY,
   CvPageStack,
   cvPreviewPageCount,
 } from "@/components/base-cvs/cv-page-sheet";
 import { useCvPageFlow } from "@/components/base-cvs/use-cv-page-flow";
-import { CV_PDF_LAYOUT_NOTICE } from "@/components/base-cvs/types";
+import { CV_EXPORT_COPY } from "@/components/base-cvs/types";
 import { cn } from "@/lib/utils";
-
-/** Names the scrollable pane, which is a tab stop of its own. */
-export const CV_PREVIEW_PAGES_LABEL = "CV preview pages";
 
 export interface CvDocumentPreviewProps {
   cv: CvDocumentData;
@@ -67,6 +66,9 @@ export function CvDocumentPreview({
   exportId,
   className,
 }: CvDocumentPreviewProps) {
+  // Subscribes: the chrome (`CV_PREVIEW_COPY`, the page labels, the notice)
+  // follows a language switch. The sheets' text stays the English twin.
+  useLocale();
   const blocks = useMemo(() => buildCvDocumentBlocks(cv), [cv]);
   const { frameRef, scale, pages } = useCvPageFlow(blocks);
 
@@ -78,7 +80,7 @@ export function CvDocumentPreview({
         // focused in it, and nothing inside a CV preview is focusable.
         tabIndex={0}
         role="group"
-        aria-label={CV_PREVIEW_PAGES_LABEL}
+        aria-label={CV_PREVIEW_COPY.pagesLabel}
         // `relative` for the reason the shell root carries it: an absolutely
         // positioned descendant with no positioned ancestor escapes every
         // clip and stretches the DOCUMENT. `scrollbar-gutter` keeps
@@ -115,7 +117,7 @@ export function CvDocumentPreview({
 
       <figcaption className="flex shrink-0 items-start gap-1.5 text-xs text-pretty text-muted-foreground">
         <Info aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-        <span>{CV_PDF_LAYOUT_NOTICE}</span>
+        <span>{CV_EXPORT_COPY.layoutNotice}</span>
       </figcaption>
     </figure>
   );

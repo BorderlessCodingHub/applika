@@ -2,12 +2,16 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
+import { liveCopy } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
 
-/** Said under every keyword field. It is the only place the reorder keys are told. */
-export const CV_KEYWORDS_HINT =
-  "Press Enter or comma to add. Click a keyword to rename it. Alt with the left or right arrow moves it.";
+/**
+ * `hint` is said under every keyword field; it is the only place the reorder
+ * keys are told (`cvs.fields.keywords.*`, active language). Never spread it.
+ */
+export const CV_KEYWORDS_COPY = liveCopy("cvs.fields.keywords", ["hint"]);
 
 export interface CvKeywordsInputProps {
   /** Controlled keyword list, in print order. */
@@ -68,9 +72,8 @@ export function CvKeywordsInput({
   const inputRef = useRef<HTMLInputElement>(null);
   const atMax = maxKeywords != null && value.length >= maxKeywords;
 
-  const entryLabel = groupLabel
-    ? `Add a keyword to ${groupLabel}`
-    : "Add a keyword";
+  const t = useTranslations("cvs.fields.keywords");
+  const entryLabel = groupLabel ? t("addTo", { group: groupLabel }) : t("add");
 
   // Focus is restored after the list has re-rendered with the new value, so
   // the chip a move or a delete should leave the caret on still exists.
@@ -198,7 +201,7 @@ export function CvKeywordsInput({
       }}
     >
       <ul
-        aria-label={groupLabel ? `Keywords in ${groupLabel}` : "Keywords"}
+        aria-label={groupLabel ? t("listIn", { group: groupLabel }) : t("list")}
         className="contents"
       >
         {value.map((keyword, index) =>
@@ -208,7 +211,7 @@ export function CvKeywordsInput({
                 autoFocus
                 type="text"
                 value={editDraft}
-                aria-label={`Rename ${keyword}`}
+                aria-label={t("rename", { keyword })}
                 size={Math.max(4, editDraft.length + 1)}
                 onChange={(event) => setEditDraft(event.target.value)}
                 onBlur={commitEdit}
@@ -235,7 +238,7 @@ export function CvKeywordsInput({
                   type="button"
                   data-keyword-index={index}
                   disabled={disabled}
-                  aria-label={`Rename ${keyword}`}
+                  aria-label={t("rename", { keyword })}
                   aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight Delete"
                   onClick={() => {
                     setEditDraft(keyword);
@@ -249,7 +252,7 @@ export function CvKeywordsInput({
                 <button
                   type="button"
                   disabled={disabled}
-                  aria-label={`Remove ${keyword}`}
+                  aria-label={t("remove", { keyword })}
                   onClick={() => removeAt(index, true)}
                   className="rounded-full p-0.5 outline-none hover:bg-background/60 focus-visible:ring-[2px] focus-visible:ring-ring/50"
                 >

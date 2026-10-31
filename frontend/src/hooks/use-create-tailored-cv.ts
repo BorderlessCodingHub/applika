@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { APPLICATION_CV_FIT_QUERY_KEY } from "@/hooks/use-application-cv-fit";
 import { TAILORED_CVS_QUERY_KEY } from "@/hooks/use-tailored-cv";
+import { word } from "@/i18n/translator";
 import { getApiError } from "@/lib/api-client";
 import { services } from "@/services/services";
 import type { TailoredCv, TailoringMode } from "@/services/types/tailored-cv";
@@ -41,7 +42,7 @@ export function useCreateTailoredCv(
           queryKey: APPLICATION_CV_FIT_QUERY_KEY,
         }),
       ]);
-      toast.success("CV copy created");
+      toast.success(word("cvs.toasts.copyCreated"));
       opts?.onSuccess?.(cv);
     },
     onError: (error: AxiosError) => toast.error(getApiError(error)),

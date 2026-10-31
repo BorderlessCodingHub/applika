@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { AxiosError } from "axios";
 import { ArrowLeft } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -38,6 +39,7 @@ function EditorMessage({
   /** Announce it. Only for something that WENT WRONG, never for a static state. */
   alert?: boolean;
 }) {
+  const t = useTranslations("cvs.page");
   return (
     <div
       role={alert ? "alert" : undefined}
@@ -48,7 +50,7 @@ function EditorMessage({
         {body}
       </p>
       <LinkButton href="/cvs" variant="outline" size="sm" className="mt-4">
-        Back to CVs
+        {t("back")}
       </LinkButton>
     </div>
   );
@@ -78,6 +80,7 @@ export function CvEditorPage() {
 }
 
 function CvEditor() {
+  const t = useTranslations("cvs");
   const beta = useHasFeature("cvs").stage === "beta";
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -119,36 +122,36 @@ function CvEditor() {
           className="-ml-2 text-muted-foreground"
         >
           <ArrowLeft aria-hidden />
-          Back to CVs
+          {t("page.back")}
         </LinkButton>
         <div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <h1 className="font-display text-2xl font-bold tracking-tight">
-              Edit master CV
+              {t("editorPage.title")}
             </h1>
             {beta ? <BetaBadge /> : null}
           </div>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {cv ? cv.name : "Change anything and save it back."}
+            {cv ? cv.name : t("editorPage.description")}
           </p>
         </div>
       </div>
 
       {!id ? (
         <EditorMessage
-          title="No CV selected"
-          body="Open a CV from your list to edit it."
+          title={t("editorPage.noIdTitle")}
+          body={t("editorPage.noIdBody")}
         />
       ) : error ? (
         <EditorMessage
           alert
-          title="Could not load this CV"
+          title={t("editorPage.loadErrorTitle")}
           body={getApiError(error as AxiosError)}
         />
       ) : isLoading || !cv ? (
         <div
           aria-busy
-          aria-label="Loading this master CV"
+          aria-label={t("editorPage.loading")}
           className="grid gap-6 md:grid-cols-2"
         >
           <Skeleton className="h-96 w-full rounded-xl" />
@@ -164,7 +167,7 @@ function CvEditor() {
               if (message) toast.error(message);
             },
           )}
-          submitLabel="Save changes"
+          submitLabel={t("editorPage.submit")}
           isSubmitting={updateMutation.isPending}
           actions={
             <ExportCvButton
@@ -184,5 +187,20 @@ function CvEditor() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * The route's Suspense fallback (`page.tsx` is a server component and cannot
+ * translate), so its accessible name follows the language.
+ */
+export function CvEditorRouteFallback() {
+  const t = useTranslations("cvs.editorPage");
+  return (
+    <div
+      aria-busy
+      aria-label={t("routeLoading")}
+      className="h-64 w-full animate-pulse rounded-xl bg-muted"
+    />
   );
 }

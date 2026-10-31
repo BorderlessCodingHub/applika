@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Controller, useFormState, useWatch } from "react-hook-form";
+import { useTranslations } from "next-intl";
 import type {
   Control,
   FieldErrors,
@@ -44,10 +45,24 @@ import {
   type CvExperience,
   type CvFormValues,
   type CvLanguage,
+  type CvLanguageLevel,
   type CvLink,
   type CvProject,
 } from "@/components/base-cvs/types";
 import { cn } from "@/lib/utils";
+
+/**
+ * Message key of each language level. The menu shows the words of the chosen
+ * language; the stored value (and so the preview, PDF and Markdown) stays the
+ * English level.
+ */
+const LANGUAGE_LEVEL_KEY = {
+  Native: "native",
+  Proficient: "proficient",
+  Conversational: "conversational",
+  "Read/Comprehend": "readComprehend",
+  Basic: "basic",
+} as const satisfies Record<CvLanguageLevel, string>;
 
 /** Client-generated id for a new section row. */
 export function defaultNewItemId(): string {
@@ -253,6 +268,12 @@ export function CvFormSections({
 }: CvFormSectionsProps) {
   const { control, register } = form;
   const { errors, submitCount } = useFormState({ control });
+  const t = useTranslations("cvs.sections");
+  const f = useTranslations("cvs.fields.label");
+  const n = useTranslations("cvs.fields.noun");
+  const h = useTranslations("cvs.fields.hint");
+  const p = useTranslations("cvs.fields.placeholder");
+  const fields = useTranslations("cvs.fields");
 
   const invalidSections = useMemo(
     () => [
@@ -326,35 +347,35 @@ export function CvFormSections({
       <CvSectionCard
         {...sectionProps("identity")}
         {...sectionDiff("identity")}
-        title="Identity and contact"
-        description="The header at the top of your CV, plus the label you recognise this CV by."
+        title={t("identity.title")}
+        description={t("identity.description")}
         icon={UserRound}
       >
         <div className="grid gap-4 @lg/cv-form:grid-cols-2">
           <CvField
-            label="CV label"
+            label={f("cvLabel")}
             required
             error={errorFor("name")}
             errorId={errorId("name")}
-            marker={marker("name", "CV label")}
-            hint="Only you see this. It names the CV in your list."
+            marker={marker("name", f("cvLabel"))}
+            hint={h("cvLabel")}
             className="@lg/cv-form:col-span-2"
           >
             <Input
               {...register("name")}
               disabled={disabled}
-              placeholder="Backend-focused CV"
+              placeholder={p("cvLabel")}
               aria-invalid={errorFor("name") ? true : undefined}
               aria-describedby={errorFor("name") ? errorId("name") : undefined}
               className={invalid("name")}
             />
           </CvField>
           <CvField
-            label="Full name"
+            label={f("fullName")}
             required
             error={errorFor("full_name")}
             errorId={errorId("full_name")}
-            marker={marker("full_name", "Full name")}
+            marker={marker("full_name", f("fullName"))}
           >
             <Input
               {...register("full_name")}
@@ -368,16 +389,16 @@ export function CvFormSections({
             />
           </CvField>
           <CvField
-            label="Headline"
+            label={f("headline")}
             required
             error={errorFor("headline")}
             errorId={errorId("headline")}
-            marker={marker("headline", "Headline")}
+            marker={marker("headline", f("headline"))}
           >
             <Input
               {...register("headline")}
               disabled={disabled}
-              placeholder="Senior Software Engineer"
+              placeholder={p("headline")}
               aria-invalid={errorFor("headline") ? true : undefined}
               aria-describedby={
                 errorFor("headline") ? errorId("headline") : undefined
@@ -386,11 +407,11 @@ export function CvFormSections({
             />
           </CvField>
           <CvField
-            label="Email"
+            label={f("email")}
             required
             error={errorFor("email")}
             errorId={errorId("email")}
-            marker={marker("email", "Email")}
+            marker={marker("email", f("email"))}
           >
             <Input
               {...register("email")}
@@ -405,11 +426,11 @@ export function CvFormSections({
             />
           </CvField>
           <CvField
-            label="Phone"
+            label={f("phone")}
             error={errorFor("phone")}
             errorId={errorId("phone")}
-            marker={marker("phone", "Phone")}
-            hint="Optional."
+            marker={marker("phone", f("phone"))}
+            hint={h("optional")}
           >
             <Input
               {...register("phone")}
@@ -424,17 +445,17 @@ export function CvFormSections({
             />
           </CvField>
           <CvField
-            label="Location"
+            label={f("location")}
             required
             error={errorFor("location")}
             errorId={errorId("location")}
-            marker={marker("location", "Location")}
+            marker={marker("location", f("location"))}
             className="@lg/cv-form:col-span-2"
           >
             <Input
               {...register("location")}
               disabled={disabled}
-              placeholder="London, United Kingdom"
+              placeholder={p("location")}
               aria-invalid={errorFor("location") ? true : undefined}
               aria-describedby={
                 errorFor("location") ? errorId("location") : undefined
@@ -452,28 +473,28 @@ export function CvFormSections({
           <CvRepeatableSection<CvLink>
             {...sectionProps("links")}
             {...listDiff("links")}
-            title="Links"
-            description="Portfolio, GitHub, LinkedIn and other profiles."
+            title={t("links.title")}
+            description={t("links.description")}
             icon={Link2}
             items={field.value ?? []}
             onChange={field.onChange}
             createItem={() => ({ id: newItemId(), label: "", url: "" })}
-            itemLabel={(item) => item.label || "New link"}
-            addLabel="Add link"
-            itemNoun="link"
-            emptyHint="No links yet. Add the profiles you want on your CV."
+            itemLabel={(item) => item.label || t("links.newItem")}
+            addLabel={t("links.add")}
+            itemNoun={n("link")}
+            emptyHint={t("links.emptyHint")}
             disabled={disabled}
             renderItem={({ item, index, update }) => (
               <div className="grid gap-3 @lg/cv-form:grid-cols-2">
                 <CvField
-                  label="Label"
+                  label={f("label")}
                   marker={itemMarker(
                     "links",
-                    "link",
+                    n("link"),
                     item,
                     index,
                     "label",
-                    "Label",
+                    f("label"),
                   )}
                 >
                   <Input
@@ -484,14 +505,14 @@ export function CvFormSections({
                   />
                 </CvField>
                 <CvField
-                  label="URL"
+                  label={f("url")}
                   marker={itemMarker(
                     "links",
-                    "link",
+                    n("link"),
                     item,
                     index,
                     "url",
-                    "URL",
+                    f("url"),
                   )}
                 >
                   <Input
@@ -510,22 +531,22 @@ export function CvFormSections({
       <CvSectionCard
         {...sectionProps("summary")}
         {...sectionDiff("summary")}
-        title="Summary"
-        description="A short professional summary, in your own words."
+        title={t("summary.title")}
+        description={t("summary.description")}
         icon={ScrollText}
       >
         <CvField
-          label="Summary"
+          label={f("summary")}
           required
           error={errorFor("summary")}
           errorId={errorId("summary")}
-          marker={marker("summary", "Summary")}
+          marker={marker("summary", f("summary"))}
         >
           <Textarea
             {...register("summary")}
             rows={5}
             disabled={disabled}
-            placeholder="Backend engineer with eight years on payment systems…"
+            placeholder={p("summary")}
             aria-invalid={errorFor("summary") ? true : undefined}
             aria-describedby={
               errorFor("summary") ? errorId("summary") : undefined
@@ -547,11 +568,11 @@ export function CvFormSections({
                 ? (item, index, field) =>
                     itemMarker(
                       "skills",
-                      "category",
+                      n("category"),
                       item,
                       index,
                       field,
-                      field === "category" ? "Category" : "Keywords",
+                      field === "category" ? f("category") : f("keywords"),
                     )
                 : undefined
             }
@@ -575,8 +596,8 @@ export function CvFormSections({
             collapsibleItems
             revealItemIds={revealExperienceRows(field.value)}
             revealNonce={submitCount}
-            title="Experience"
-            description="Your roles, most recent first."
+            title={t("experience.title")}
+            description={t("experience.description")}
             icon={Briefcase}
             items={field.value ?? []}
             onChange={field.onChange}
@@ -587,22 +608,24 @@ export function CvFormSections({
               start: "",
               bullets: [],
             })}
-            itemLabel={(item) => item.role || item.company || "New role"}
-            addLabel="Add experience"
-            itemNoun="experience"
-            emptyHint="No roles yet. Add the jobs you want on this CV."
+            itemLabel={(item) =>
+              item.role || item.company || t("experience.newItem")
+            }
+            addLabel={t("experience.add")}
+            itemNoun={n("experience")}
+            emptyHint={t("experience.emptyHint")}
             disabled={disabled}
             renderItem={({ item, index, update }) => (
               <div className="grid gap-3 @lg/cv-form:grid-cols-2">
                 <CvField
-                  label="Company"
+                  label={f("company")}
                   marker={itemMarker(
                     "experience",
-                    "experience",
+                    n("experience"),
                     item,
                     index,
                     "company",
-                    "Company",
+                    f("company"),
                   )}
                 >
                   <Input
@@ -615,20 +638,20 @@ export function CvFormSections({
                   />
                 </CvField>
                 <CvField
-                  label="Role"
+                  label={f("role")}
                   marker={itemMarker(
                     "experience",
-                    "experience",
+                    n("experience"),
                     item,
                     index,
                     "role",
-                    "Role",
+                    f("role"),
                   )}
                 >
                   <Input
                     value={item.role}
                     disabled={disabled}
-                    placeholder="Senior Backend Engineer"
+                    placeholder={p("role")}
                     onChange={(event) => update({ role: event.target.value })}
                   />
                 </CvField>
@@ -639,17 +662,17 @@ export function CvFormSections({
                   own `role="group"` name, never qualified further.
                 */}
                 <CvField
-                  label="Start"
+                  label={f("start")}
                   marker={itemMarker(
                     "experience",
-                    "experience",
+                    n("experience"),
                     item,
                     index,
                     "start",
-                    "Start",
+                    f("start"),
                   )}
                   required
-                  hint="Month and year, MM/yyyy."
+                  hint={h("monthYear")}
                 >
                   <MonthYearInput
                     value={item.start}
@@ -659,16 +682,16 @@ export function CvFormSections({
                   />
                 </CvField>
                 <CvField
-                  label="Finish"
+                  label={f("finish")}
                   marker={itemMarker(
                     "experience",
-                    "experience",
+                    n("experience"),
                     item,
                     index,
                     "end",
-                    "Finish",
+                    f("finish"),
                   )}
-                  hint="Optional. Leave it empty for a role you are still in — it prints as present."
+                  hint={h("finishRole")}
                 >
                   <MonthYearInput
                     value={item.end ?? ""}
@@ -677,34 +700,34 @@ export function CvFormSections({
                   />
                 </CvField>
                 <CvField
-                  label="Location"
+                  label={f("location")}
                   marker={itemMarker(
                     "experience",
-                    "experience",
+                    n("experience"),
                     item,
                     index,
                     "location",
-                    "Location",
+                    f("location"),
                   )}
                 >
                   <Input
                     value={item.location ?? ""}
                     disabled={disabled}
-                    placeholder="Remote"
+                    placeholder={p("remote")}
                     onChange={(event) =>
                       update({ location: event.target.value })
                     }
                   />
                 </CvField>
                 <CvField
-                  label="Company description"
+                  label={f("companyDescription")}
                   marker={itemMarker(
                     "experience",
-                    "experience",
+                    n("experience"),
                     item,
                     index,
                     "company_description",
-                    "Company description",
+                    f("companyDescription"),
                   )}
                   className="@lg/cv-form:col-span-2"
                 >
@@ -712,29 +735,29 @@ export function CvFormSections({
                     rows={2}
                     value={item.company_description ?? ""}
                     disabled={disabled}
-                    placeholder="Payments infrastructure, 8000 people."
+                    placeholder={p("companyDescription")}
                     onChange={(event) =>
                       update({ company_description: event.target.value })
                     }
                   />
                 </CvField>
                 <CvStringListField
-                  label="Highlights"
+                  label={f("highlights")}
                   marker={itemMarker(
                     "experience",
-                    "experience",
+                    n("experience"),
                     item,
                     index,
                     "bullets",
-                    "Highlights",
+                    f("highlights"),
                   )}
                   className="@lg/cv-form:col-span-2"
                   value={item.bullets}
                   disabled={disabled}
                   onChange={(bullets) => update({ bullets })}
-                  addLabel="Add highlight"
-                  noun="highlight"
-                  placeholder="Cut settlement latency by 40%…"
+                  addLabel={fields("addHighlight")}
+                  noun={n("highlight")}
+                  placeholder={p("highlight")}
                 />
               </div>
             )}
@@ -749,8 +772,8 @@ export function CvFormSections({
           <CvRepeatableSection<CvProject>
             {...sectionProps("projects")}
             {...listDiff("projects")}
-            title="Projects"
-            description="Side projects, open source and notable work."
+            title={t("projects.title")}
+            description={t("projects.description")}
             icon={FolderGit2}
             items={field.value ?? []}
             onChange={field.onChange}
@@ -759,22 +782,22 @@ export function CvFormSections({
               name: "",
               description: "",
             })}
-            itemLabel={(item) => item.name || "New project"}
-            addLabel="Add project"
-            itemNoun="project"
-            emptyHint="No projects yet."
+            itemLabel={(item) => item.name || t("projects.newItem")}
+            addLabel={t("projects.add")}
+            itemNoun={n("project")}
+            emptyHint={t("projects.emptyHint")}
             disabled={disabled}
             renderItem={({ item, index, update }) => (
               <div className="grid gap-3 @lg/cv-form:grid-cols-2">
                 <CvField
-                  label="Name"
+                  label={f("name")}
                   marker={itemMarker(
                     "projects",
-                    "project",
+                    n("project"),
                     item,
                     index,
                     "name",
-                    "Name",
+                    f("name"),
                   )}
                 >
                   <Input
@@ -784,14 +807,14 @@ export function CvFormSections({
                   />
                 </CvField>
                 <CvField
-                  label="Link"
+                  label={f("link")}
                   marker={itemMarker(
                     "projects",
-                    "project",
+                    n("project"),
                     item,
                     index,
                     "link",
-                    "Link",
+                    f("link"),
                   )}
                 >
                   <Input
@@ -802,34 +825,34 @@ export function CvFormSections({
                   />
                 </CvField>
                 <CvField
-                  label="Link label"
+                  label={f("linkLabel")}
                   marker={itemMarker(
                     "projects",
-                    "project",
+                    n("project"),
                     item,
                     index,
                     "link_label",
-                    "Link label",
+                    f("linkLabel"),
                   )}
                 >
                   <Input
                     value={item.link_label ?? ""}
                     disabled={disabled}
-                    placeholder="Live demo"
+                    placeholder={p("linkLabel")}
                     onChange={(event) =>
                       update({ link_label: event.target.value })
                     }
                   />
                 </CvField>
                 <CvField
-                  label="Description"
+                  label={f("description")}
                   marker={itemMarker(
                     "projects",
-                    "project",
+                    n("project"),
                     item,
                     index,
                     "description",
-                    "Description",
+                    f("description"),
                   )}
                   className="@lg/cv-form:col-span-2"
                 >
@@ -855,8 +878,8 @@ export function CvFormSections({
           <CvRepeatableSection<CvEducation>
             {...sectionProps("education")}
             {...listDiff("education")}
-            title="Education"
-            description="Degrees and diplomas, most recent first."
+            title={t("education.title")}
+            description={t("education.description")}
             icon={GraduationCap}
             items={field.value ?? []}
             onChange={field.onChange}
@@ -867,85 +890,85 @@ export function CvFormSections({
               start: "",
             })}
             itemLabel={(item) =>
-              item.institution || item.degree || "New qualification"
+              item.institution || item.degree || t("education.newItem")
             }
-            addLabel="Add education"
-            itemNoun="education"
-            emptyHint="No education yet. Add the degrees you want on this CV."
+            addLabel={t("education.add")}
+            itemNoun={n("education")}
+            emptyHint={t("education.emptyHint")}
             disabled={disabled}
             renderItem={({ item, index, update }) => (
               <div className="grid gap-3 @lg/cv-form:grid-cols-2">
                 <CvField
-                  label="Institution"
+                  label={f("institution")}
                   marker={itemMarker(
                     "education",
-                    "education",
+                    n("education"),
                     item,
                     index,
                     "institution",
-                    "Institution",
+                    f("institution"),
                   )}
                   className="@lg/cv-form:col-span-2"
                 >
                   <Input
                     value={item.institution}
                     disabled={disabled}
-                    placeholder="University of Edinburgh"
+                    placeholder={p("institution")}
                     onChange={(event) =>
                       update({ institution: event.target.value })
                     }
                   />
                 </CvField>
                 <CvField
-                  label="Degree"
+                  label={f("degree")}
                   marker={itemMarker(
                     "education",
-                    "education",
+                    n("education"),
                     item,
                     index,
                     "degree",
-                    "Degree",
+                    f("degree"),
                   )}
                 >
                   <Input
                     value={item.degree}
                     disabled={disabled}
-                    placeholder="BSc"
+                    placeholder={p("degree")}
                     onChange={(event) => update({ degree: event.target.value })}
                   />
                 </CvField>
                 <CvField
-                  label="Field of study"
+                  label={f("area")}
                   marker={itemMarker(
                     "education",
-                    "education",
+                    n("education"),
                     item,
                     index,
                     "area",
-                    "Field of study",
+                    f("area"),
                   )}
-                  hint="Optional."
+                  hint={h("optional")}
                 >
                   <Input
                     value={item.area ?? ""}
                     disabled={disabled}
-                    placeholder="Computer Science"
+                    placeholder={p("area")}
                     onChange={(event) => update({ area: event.target.value })}
                   />
                 </CvField>
                 {/* The same pair as an experience row, and required here too. */}
                 <CvField
-                  label="Start"
+                  label={f("start")}
                   marker={itemMarker(
                     "education",
-                    "education",
+                    n("education"),
                     item,
                     index,
                     "start",
-                    "Start",
+                    f("start"),
                   )}
                   required
-                  hint="Month and year, MM/yyyy."
+                  hint={h("monthYear")}
                 >
                   <MonthYearInput
                     value={item.start}
@@ -955,16 +978,16 @@ export function CvFormSections({
                   />
                 </CvField>
                 <CvField
-                  label="Finish"
+                  label={f("finish")}
                   marker={itemMarker(
                     "education",
-                    "education",
+                    n("education"),
                     item,
                     index,
                     "end",
-                    "Finish",
+                    f("finish"),
                   )}
-                  hint="Optional. Leave it empty for a course you are still on — it prints as present."
+                  hint={h("finishCourse")}
                 >
                   <MonthYearInput
                     value={item.end ?? ""}
@@ -985,28 +1008,28 @@ export function CvFormSections({
           <CvRepeatableSection<CvCertification>
             {...sectionProps("certifications")}
             {...listDiff("certifications")}
-            title="Certifications"
-            description="Professional certifications and licences."
+            title={t("certifications.title")}
+            description={t("certifications.description")}
             icon={Award}
             items={field.value ?? []}
             onChange={field.onChange}
             createItem={() => ({ id: newItemId(), name: "", issuer: "" })}
-            itemLabel={(item) => item.name || "New certification"}
-            addLabel="Add certification"
-            itemNoun="certification"
-            emptyHint="No certifications yet."
+            itemLabel={(item) => item.name || t("certifications.newItem")}
+            addLabel={t("certifications.add")}
+            itemNoun={n("certification")}
+            emptyHint={t("certifications.emptyHint")}
             disabled={disabled}
             renderItem={({ item, index, update }) => (
               <div className="grid gap-3 @lg/cv-form:grid-cols-2">
                 <CvField
-                  label="Name"
+                  label={f("name")}
                   marker={itemMarker(
                     "certifications",
-                    "certification",
+                    n("certification"),
                     item,
                     index,
                     "name",
-                    "Name",
+                    f("name"),
                   )}
                 >
                   <Input
@@ -1017,14 +1040,14 @@ export function CvFormSections({
                   />
                 </CvField>
                 <CvField
-                  label="Issuer"
+                  label={f("issuer")}
                   marker={itemMarker(
                     "certifications",
-                    "certification",
+                    n("certification"),
                     item,
                     index,
                     "issuer",
-                    "Issuer",
+                    f("issuer"),
                   )}
                 >
                   <Input
@@ -1047,8 +1070,8 @@ export function CvFormSections({
           <CvRepeatableSection<CvLanguage>
             {...sectionProps("languages")}
             {...listDiff("languages")}
-            title="Languages"
-            description="The languages you speak and how well."
+            title={t("languages.title")}
+            description={t("languages.description")}
             icon={Languages}
             items={field.value ?? []}
             onChange={field.onChange}
@@ -1057,45 +1080,48 @@ export function CvFormSections({
               name: "",
               level: "Proficient",
             })}
-            itemLabel={(item) => item.name || "New language"}
-            addLabel="Add language"
-            itemNoun="language"
-            emptyHint="No languages yet."
+            itemLabel={(item) => item.name || t("languages.newItem")}
+            addLabel={t("languages.add")}
+            itemNoun={n("language")}
+            emptyHint={t("languages.emptyHint")}
             disabled={disabled}
             renderItem={({ item, index, update }) => (
               <div className="grid gap-3 @lg/cv-form:grid-cols-2">
                 <CvField
-                  label="Language"
+                  label={f("language")}
                   marker={itemMarker(
                     "languages",
-                    "language",
+                    n("language"),
                     item,
                     index,
                     "name",
-                    "Language",
+                    f("language"),
                   )}
                 >
                   <Input
                     value={item.name}
                     disabled={disabled}
-                    placeholder="English"
+                    placeholder={p("language")}
                     onChange={(event) => update({ name: event.target.value })}
                   />
                 </CvField>
                 <CvSelectField
-                  label="Level"
+                  label={f("level")}
                   marker={itemMarker(
                     "languages",
-                    "language",
+                    n("language"),
                     item,
                     index,
                     "level",
-                    "Level",
+                    f("level"),
                   )}
                   value={item.level}
                   disabled={disabled}
                   options={CV_LANGUAGE_LEVELS}
-                  placeholder="Pick a level"
+                  optionLabel={(level) =>
+                    fields(`languageLevel.${LANGUAGE_LEVEL_KEY[level]}`)
+                  }
+                  placeholder={p("level")}
                   onValueChange={(level) => update({ level })}
                 />
               </div>

@@ -1,9 +1,10 @@
+"use client";
+
 import { Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-
-export const CV_DIFF_ADDED_LABEL = "Added";
 
 /** `itemClassName` of an added list row: a success change bar on its leading edge. */
 export const CV_DIFF_ADDED_ROW_CLASS =
@@ -11,6 +12,7 @@ export const CV_DIFF_ADDED_ROW_CLASS =
 
 /** Word hidden (still read) under a 20rem `cv-form` container, where the row caption needs the room. */
 export function CvAddedBadge({ className }: { className?: string }) {
+  const t = useTranslations("cvs.diff");
   return (
     <Badge
       variant="outline"
@@ -18,9 +20,7 @@ export function CvAddedBadge({ className }: { className?: string }) {
       className={cn("shrink-0 gap-1", className)}
     >
       <Plus aria-hidden className="text-success" />
-      <span className="sr-only @xs/cv-form:not-sr-only">
-        {CV_DIFF_ADDED_LABEL}
-      </span>
+      <span className="sr-only @xs/cv-form:not-sr-only">{t("added")}</span>
     </Badge>
   );
 }

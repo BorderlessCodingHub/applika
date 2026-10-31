@@ -11,6 +11,7 @@
  */
 
 import type { CvScalars, CvSections } from "@/components/base-cvs/types";
+import { liveCopy } from "@/i18n/translator";
 
 /**
  * The master CV's content, captured once at copy-creation time (KODI-017,
@@ -61,28 +62,28 @@ export interface TailoredCv extends CvScalars, CvSections {
 export type TailoredCvReadOnlyReason = "finalized" | "archived";
 
 /**
- * On-screen text for the read-only banner, per reason.
+ * On-screen text for the read-only banner, per reason, in the active language
+ * (`cvs.tailored.readOnly.<reason>`).
  *
  * Exported because the tests and the e2e suite assert on the words, and because
  * the two reasons are genuinely different facts about the application — a
- * single "read-only" message would hide which one applies.
+ * single "read-only" message would hide which one applies. Never spread it: a
+ * spread freezes the words.
  */
-export const TAILORED_CV_READ_ONLY_COPY: Record<
-  TailoredCvReadOnlyReason,
-  { title: string; body: string }
+export const TAILORED_CV_READ_ONLY_COPY: Readonly<
+  Record<TailoredCvReadOnlyReason, Readonly<{ title: string; body: string }>>
 > = {
-  finalized: {
-    title: "This application is closed.",
-    body: "Reopen it to edit this CV.",
-  },
-  archived: {
-    title: "This application is in a closed cycle",
-    body: "Applications from a past cycle are archived. You can read this CV copy, but it can no longer be edited or deleted.",
-  },
+  finalized: liveCopy("cvs.tailored.readOnly.finalized", ["title", "body"]),
+  archived: liveCopy("cvs.tailored.readOnly.archived", ["title", "body"]),
 };
 
 /**
- * The label shown in place of the source CV's name once that master CV is gone.
- * The words are the acceptance criterion; do not paraphrase them.
+ * The provenance words of a copy (`cvs.tailored.source`). `deleted` is shown
+ * in place of the source CV's name once that master CV is gone; the words are
+ * the acceptance criterion, do not paraphrase them.
  */
-export const TAILORED_CV_SOURCE_DELETED = "source CV deleted";
+export const TAILORED_CV_SOURCE_COPY = liveCopy("cvs.tailored.source", [
+  "deleted",
+  "deletedHint",
+  "copiedFromMaster",
+]);

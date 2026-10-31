@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { AxiosError } from "axios";
+import { useTranslations } from "next-intl";
 import { BetaBadge } from "@/components/features/beta-badge";
 import { FeatureGate } from "@/components/features/feature-gate";
 import { BaseCvList } from "@/components/base-cvs/base-cv-list";
@@ -46,6 +47,7 @@ export function CvsPage() {
 }
 
 function CvGallery() {
+  const t = useTranslations("cvs.page");
   const beta = useHasFeature("cvs").stage === "beta";
   const { data: cvs, isLoading, error, refetch } = useBaseCvs();
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -88,13 +90,12 @@ function CvGallery() {
       <div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <h1 className="font-display text-2xl font-bold tracking-tight">
-            CVs
+            {t("title")}
           </h1>
           {beta ? <BetaBadge /> : null}
         </div>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Your master CVs. Keep up to three and reuse them for every
-          application.
+          {t("description")}
         </p>
       </div>
 

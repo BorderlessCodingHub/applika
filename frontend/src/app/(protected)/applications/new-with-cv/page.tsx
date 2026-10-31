@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { NewWithCvPage } from "./new-with-cv-page";
+import { NewWithCvPage, NewWithCvPageFallback } from "./new-with-cv-page";
 
 /**
  * The page reads `?id=`/`?step=` with `useSearchParams`, which suspends. Under
@@ -8,15 +8,7 @@ import { NewWithCvPage } from "./new-with-cv-page";
  */
 export default function Page() {
   return (
-    <Suspense
-      fallback={
-        <div
-          aria-busy
-          aria-label="Loading the new application page"
-          className="h-64 w-full animate-pulse rounded-xl bg-muted"
-        />
-      }
-    >
+    <Suspense fallback={<NewWithCvPageFallback />}>
       <NewWithCvPage />
     </Suspense>
   );

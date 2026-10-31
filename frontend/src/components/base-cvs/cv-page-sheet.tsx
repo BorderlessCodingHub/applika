@@ -1,5 +1,6 @@
 import type { CvDocumentBlock } from "@/components/base-cvs/cv-document-blocks";
 import { CV_DOCUMENT_EXPORT_ID } from "@/components/base-cvs/cv-document";
+import { liveCopy, word } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
 
 /* -------------------------------------------------------------------------
@@ -35,17 +36,41 @@ export function cvPageIndicator(page: number, total: number): string {
   return `${page} / ${total}`;
 }
 
-/** What a screen reader hears in place of `1 / 2`. */
+/** What a screen reader hears in place of `1 / 2`, in the active language. */
 export function cvPageIndicatorLabel(page: number, total: number): string {
-  return `Page ${page} of ${total}`;
+  return word("cvs.preview.pageLabel", { page, total });
 }
 
-/** Said under a sheet that had to grow because one atom outgrew A4. */
-export const CV_PAGE_OVERFLOW_NOTE = "One item is longer than an A4 page.";
+/**
+ * The preview's chrome words, in the active language (`cvs.preview.*`). The
+ * text INSIDE the sheets is the English twin of the PDF and never translates;
+ * this is the app talking about it.
+ *
+ * - `overflowNote`: said under a sheet that had to grow because one atom
+ *   outgrew A4.
+ * - `pagesLabel`: names the scrollable pane, a tab stop of its own.
+ * - `asideLabel` / `livePreview`: the editors' preview column and its label.
+ *
+ * The components rendering them subscribe (`CvDocumentPreview` calls
+ * `useLocale`). Never spread this object: a spread freezes the words.
+ */
+export const CV_PREVIEW_COPY = liveCopy("cvs.preview", [
+  "overflowNote",
+  "pagesLabel",
+  "asideLabel",
+  "livePreview",
+]);
 
 /** Announced, once per change, when the CV's page count changes. */
 export function cvPreviewPageCount(total: number): string {
-  return total === 1 ? "CV preview: 1 page." : `CV preview: ${total} pages.`;
+  return word("cvs.preview.pageCount", { total });
+}
+
+/** The export root's accessible name: whose CV the sheets show. */
+export function cvPreviewDocumentLabel(fullName: string): string {
+  return fullName
+    ? word("cvs.preview.documentLabel", { name: fullName })
+    : word("cvs.preview.documentLabelUnnamed");
 }
 
 /* -------------------------------------------------------------------------
@@ -122,7 +147,7 @@ export function CvPageStack({
     <article
       id={exportId}
       data-slot="cv-document"
-      aria-label={`CV preview for ${fullName || "your CV"}`}
+      aria-label={cvPreviewDocumentLabel(fullName)}
       className={cn("font-sans", className)}
     >
       <ol className="flex flex-col items-center gap-4 md:gap-6">
@@ -213,7 +238,7 @@ export function CvPageSheet({
       <div className="mt-1.5 flex items-baseline justify-between gap-3">
         {page.overflowing ? (
           <p className="min-w-0 text-[11px] text-pretty text-muted-foreground">
-            {CV_PAGE_OVERFLOW_NOTE}
+            {CV_PREVIEW_COPY.overflowNote}
           </p>
         ) : null}
         <p className="ml-auto shrink-0 font-numeric text-[11px] leading-none text-muted-foreground">

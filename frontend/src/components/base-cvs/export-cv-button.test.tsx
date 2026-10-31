@@ -4,13 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CvDocumentPreview } from "@/components/base-cvs/cv-document-preview";
 import { ExportCvButton } from "@/components/base-cvs/export-cv-button";
-import {
-  CV_MARKDOWN_EXPORT_LABEL,
-  CV_MARKDOWN_EXPORT_PENDING,
-  CV_PDF_EXPORT_LABEL,
-  CV_PDF_EXPORT_PENDING,
-  CV_PDF_LAYOUT_NOTICE,
-} from "@/components/base-cvs/types";
+import { CV_EXPORT_COPY } from "@/components/base-cvs/types";
 import {
   cvDiffMarkdownFilename,
   cvDiffPdfFilename,
@@ -63,8 +57,10 @@ describe("the export button", () => {
   it("says the preview is not the PDF, and ties those words to the button", () => {
     render(<ExportCvButton onExport={() => {}} />);
 
-    const button = screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL });
-    const notice = screen.getByText(CV_PDF_LAYOUT_NOTICE);
+    const button = screen.getByRole("button", {
+      name: CV_EXPORT_COPY.pdfLabel,
+    });
+    const notice = screen.getByText(CV_EXPORT_COPY.layoutNotice);
 
     expect(notice).toBeInTheDocument();
     expect(button).toHaveAttribute("aria-describedby", notice.id);
@@ -77,23 +73,27 @@ describe("the export button", () => {
     // only one. Weakening this would take the notice off an editor screen.
     render(<ExportCvButton onExport={() => {}} layout="inline" />);
 
-    const button = screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL });
-    const notice = screen.getByText(CV_PDF_LAYOUT_NOTICE);
+    const button = screen.getByRole("button", {
+      name: CV_EXPORT_COPY.pdfLabel,
+    });
+    const notice = screen.getByText(CV_EXPORT_COPY.layoutNotice);
 
     expect(notice).toBeVisible();
     expect(notice).not.toHaveClass("sr-only");
-    expect(button).toHaveAccessibleDescription(CV_PDF_LAYOUT_NOTICE);
+    expect(button).toHaveAccessibleDescription(CV_EXPORT_COPY.layoutNotice);
   });
 
   it("says nothing about a preview on the `compact` layout, which renders none", () => {
     render(<ExportCvButton onExport={() => {}} layout="compact" />);
 
-    const button = screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL });
+    const button = screen.getByRole("button", {
+      name: CV_EXPORT_COPY.pdfLabel,
+    });
 
     // Not `sr-only` — ABSENT. A gallery tile shows no preview, so there is
     // nothing for the words to qualify, and an `sr-only` copy per tile only
     // repeated them to the one user who could not check them against a render.
-    expect(screen.queryByText(CV_PDF_LAYOUT_NOTICE)).toBeNull();
+    expect(screen.queryByText(CV_EXPORT_COPY.layoutNotice)).toBeNull();
     expect(button).not.toHaveAttribute("aria-describedby");
   });
 
@@ -102,7 +102,7 @@ describe("the export button", () => {
     render(<ExportCvButton onExport={onExport} />);
 
     await userEvent.click(
-      screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL }),
+      screen.getByRole("button", { name: CV_EXPORT_COPY.pdfLabel }),
     );
     expect(onExport).toHaveBeenCalledTimes(1);
   });
@@ -110,10 +110,12 @@ describe("the export button", () => {
   it("is enabled by default: nothing but a render in flight locks it", () => {
     render(<ExportCvButton onExport={() => {}} />);
 
-    const button = screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL });
+    const button = screen.getByRole("button", {
+      name: CV_EXPORT_COPY.pdfLabel,
+    });
     expect(button).toBeEnabled();
     expect(button).not.toHaveAttribute("aria-busy", "true");
-    expect(screen.queryByText(CV_PDF_EXPORT_PENDING)).toBeNull();
+    expect(screen.queryByText(CV_EXPORT_COPY.pdfPending)).toBeNull();
   });
 
   it("keeps its accessible name while the server renders, and announces the wait", () => {
@@ -121,10 +123,12 @@ describe("the export button", () => {
 
     // The 1-3s render must not move the locator out from under a test or a
     // screen-reader user: the visible label is the SAME in both states.
-    const button = screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL });
+    const button = screen.getByRole("button", {
+      name: CV_EXPORT_COPY.pdfLabel,
+    });
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute("aria-busy", "true");
-    expect(screen.getByText(CV_PDF_EXPORT_PENDING)).toBeInTheDocument();
+    expect(screen.getByText(CV_EXPORT_COPY.pdfPending)).toBeInTheDocument();
   });
 
   it("does not fire again while a render is in flight", async () => {
@@ -132,7 +136,7 @@ describe("the export button", () => {
     render(<ExportCvButton onExport={onExport} isExporting />);
 
     await userEvent.click(
-      screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL }),
+      screen.getByRole("button", { name: CV_EXPORT_COPY.pdfLabel }),
     );
     expect(onExport).not.toHaveBeenCalled();
   });
@@ -142,7 +146,7 @@ describe("the Markdown download (KODI-017 part 3)", () => {
   it("renders no Markdown button at all without `onExportMarkdown`", () => {
     render(<ExportCvButton onExport={() => {}} />);
     expect(
-      screen.queryByRole("button", { name: CV_MARKDOWN_EXPORT_LABEL }),
+      screen.queryByRole("button", { name: CV_EXPORT_COPY.markdownLabel }),
     ).toBeNull();
   });
 
@@ -155,9 +159,11 @@ describe("the Markdown download (KODI-017 part 3)", () => {
       />,
     );
 
-    const pdfButton = screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL });
+    const pdfButton = screen.getByRole("button", {
+      name: CV_EXPORT_COPY.pdfLabel,
+    });
     const markdownButton = screen.getByRole("button", {
-      name: CV_MARKDOWN_EXPORT_LABEL,
+      name: CV_EXPORT_COPY.markdownLabel,
     });
     expect(pdfButton).toBeEnabled();
     expect(markdownButton).toBeEnabled();
@@ -173,12 +179,14 @@ describe("the Markdown download (KODI-017 part 3)", () => {
       />,
     );
     expect(
-      screen.getByRole("button", { name: CV_MARKDOWN_EXPORT_LABEL }),
+      screen.getByRole("button", { name: CV_EXPORT_COPY.markdownLabel }),
     ).toBeDisabled();
-    expect(screen.getByText(CV_MARKDOWN_EXPORT_PENDING)).toBeInTheDocument();
+    expect(
+      screen.getByText(CV_EXPORT_COPY.markdownPending),
+    ).toBeInTheDocument();
     // The PDF button is untouched by the Markdown render being in flight.
     expect(
-      screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL }),
+      screen.getByRole("button", { name: CV_EXPORT_COPY.pdfLabel }),
     ).toBeEnabled();
   });
 
@@ -191,12 +199,12 @@ describe("the Markdown download (KODI-017 part 3)", () => {
       />,
     );
     expect(
-      screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL }),
+      screen.getByRole("button", { name: CV_EXPORT_COPY.pdfLabel }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: CV_MARKDOWN_EXPORT_LABEL }),
+      screen.getByRole("button", { name: CV_EXPORT_COPY.markdownLabel }),
     ).toBeInTheDocument();
-    expect(screen.queryByText(CV_PDF_LAYOUT_NOTICE)).toBeNull();
+    expect(screen.queryByText(CV_EXPORT_COPY.layoutNotice)).toBeNull();
   });
 });
 
@@ -206,7 +214,7 @@ describe("the preview", () => {
 
     const caption = container.querySelector("figcaption");
     expect(caption).not.toBeNull();
-    expect(caption).toHaveTextContent(CV_PDF_LAYOUT_NOTICE);
+    expect(caption).toHaveTextContent(CV_EXPORT_COPY.layoutNotice);
   });
 });
 

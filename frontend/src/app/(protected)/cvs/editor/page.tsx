@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { CvEditorPage } from "./cv-editor-page";
+import { CvEditorPage, CvEditorRouteFallback } from "./cv-editor-page";
 
 /**
  * The editor reads `?id=` with `useSearchParams`, which suspends. Under
@@ -8,15 +8,7 @@ import { CvEditorPage } from "./cv-editor-page";
  */
 export default function Page() {
   return (
-    <Suspense
-      fallback={
-        <div
-          aria-busy
-          aria-label="Loading the CV editor"
-          className="h-64 w-full animate-pulse rounded-xl bg-muted"
-        />
-      }
-    >
+    <Suspense fallback={<CvEditorRouteFallback />}>
       <CvEditorPage />
     </Suspense>
   );

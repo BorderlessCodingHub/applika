@@ -1,14 +1,25 @@
+"use client";
+
+import { useLocale } from "next-intl";
+
+import { word } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
 
-export const CV_DIFF_SECTION_REORDERED = "reordered";
-
+/**
+ * "3 changes", "reordered", "1 change, reordered", in the active language
+ * (`cvs.diff.*`). A component rendering it also subscribes (`useLocale`).
+ */
 export function cvDiffSectionCountLabel(
   count: number,
   reordered = false,
 ): string {
-  if (count <= 0) return reordered ? CV_DIFF_SECTION_REORDERED : "0 changes";
-  const changes = count === 1 ? "1 change" : `${count} changes`;
-  return reordered ? `${changes}, ${CV_DIFF_SECTION_REORDERED}` : changes;
+  const reorderedWord = word("cvs.diff.reordered");
+  if (count <= 0)
+    return reordered
+      ? reorderedWord
+      : word("cvs.diff.sectionCount", { count: 0 });
+  const changes = word("cvs.diff.sectionCount", { count });
+  return reordered ? word("cvs.diff.countReordered", { changes }) : changes;
 }
 
 /**
@@ -24,6 +35,8 @@ export function CvDiffSectionCount({
   reordered?: boolean;
   className?: string;
 }) {
+  // Subscribes: the label is read through the module translator.
+  useLocale();
   return (
     <span
       data-slot="cv-diff-count"

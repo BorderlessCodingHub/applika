@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { useTranslations } from "next-intl";
 import {
   ClockIcon,
   FileTextIcon,
@@ -11,17 +12,13 @@ import {
 } from "lucide-react";
 
 import {
-  DRAFTS_SECTION_COPY,
   NEW_WITH_CV_HREF,
   deleteDraftDescription,
   draftResumeHref,
   lastSavedLabel,
   lastSavedTitle,
 } from "@/components/application-drafts/draft-copy";
-import {
-  APPLICATIONS_PAGE_COPY,
-  applicationName,
-} from "@/components/applications/application-card-copy";
+import { applicationName } from "@/components/applications/application-card-copy";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -84,6 +81,8 @@ export function DraftsSection({
   className,
 }: DraftsSectionProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const t = useTranslations("drafts.section");
+  const tPage = useTranslations("applications.page");
 
   if (isLoading) return null;
 
@@ -101,13 +100,11 @@ export function DraftsSection({
           role="alert"
           className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-border px-4 py-3"
         >
-          <p className="text-sm text-foreground">
-            {DRAFTS_SECTION_COPY.loadError}
-          </p>
+          <p className="text-sm text-foreground">{t("loadError")}</p>
           {onRetry ? (
             <Button type="button" variant="outline" size="sm" onClick={onRetry}>
               <RotateCcwIcon aria-hidden data-icon="inline-start" />
-              {DRAFTS_SECTION_COPY.retry}
+              {t("retry")}
             </Button>
           ) : null}
         </div>
@@ -118,14 +115,14 @@ export function DraftsSection({
           </span>
           <div>
             <p className="text-sm font-medium text-foreground">
-              {DRAFTS_SECTION_COPY.emptyTitle}
+              {t("emptyTitle")}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {DRAFTS_SECTION_COPY.description}
+              {t("description")}
             </p>
           </div>
           <LinkButton href={NEW_WITH_CV_HREF} variant="outline">
-            {APPLICATIONS_PAGE_COPY.newWithCv}
+            {tPage("newWithCv")}
           </LinkButton>
         </div>
       ) : (
@@ -160,6 +157,10 @@ function DraftRow({
   onDeleted: () => void;
 }) {
   const confirmed = useRef(false);
+  // `useTranslations` subscribes this row to the language, so the words the
+  // module helpers return (`applicationName`, `lastSavedLabel`,
+  // `lastSavedTitle`, `deleteDraftDescription`) refresh on a switch.
+  const t = useTranslations("drafts.section");
   const name = applicationName(draft.role, draft.company_name);
   // A draft that has never been edited past its creating POST comes back
   // with `updated_at: null` (`TimeSchema`, backend) — `created_at` is the
@@ -190,7 +191,7 @@ function DraftRow({
         {draft.has_cv ? (
           <Badge variant="secondary">
             <FileTextIcon aria-hidden />
-            {DRAFTS_SECTION_COPY.cvCopy}
+            {t("cvCopy")}
           </Badge>
         ) : null}
 
@@ -203,7 +204,7 @@ function DraftRow({
             tabIndex={deleting ? -1 : undefined}
             className={cn(deleting && "pointer-events-none opacity-50")}
           >
-            {DRAFTS_SECTION_COPY.resume}
+            {t("resume")}
             <span className="sr-only"> {name}</span>
           </LinkButton>
 
@@ -213,7 +214,7 @@ function DraftRow({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label={`Delete draft ${name}`}
+                aria-label={t("deleteLabel", { name })}
                 aria-disabled={deleting || undefined}
                 onClick={(event) => {
                   if (deleting) event.preventDefault();
@@ -240,17 +241,13 @@ function DraftRow({
               }}
             >
               <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {DRAFTS_SECTION_COPY.deleteTitle}
-                </AlertDialogTitle>
+                <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
                 <AlertDialogDescription>
                   {deleteDraftDescription(draft.role, draft.company_name)}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>
-                  {DRAFTS_SECTION_COPY.cancel}
-                </AlertDialogCancel>
+                <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
                 <AlertDialogAction
                   variant="destructive"
                   onClick={() => {
@@ -258,7 +255,7 @@ function DraftRow({
                     onDelete(draft);
                   }}
                 >
-                  {DRAFTS_SECTION_COPY.deleteConfirm}
+                  {t("deleteConfirm")}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

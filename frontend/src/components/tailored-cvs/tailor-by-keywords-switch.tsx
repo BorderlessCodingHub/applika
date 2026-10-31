@@ -2,13 +2,10 @@
 
 import { useId } from "react";
 import { ArrowUpDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-
-export const TAILOR_BY_KEYWORDS_LABEL = "Tailor by keywords";
-export const TAILOR_BY_KEYWORDS_DESCRIPTION =
-  "Reorders skills and bullets by how well they match the job description. No text is added or changed.";
 
 export interface TailorByKeywordsSwitchProps {
   /** On sends `tailoring: "keywords"` with the create; off is the verbatim copy. */
@@ -29,6 +26,7 @@ export function TailorByKeywordsSwitch({
   disabled = false,
   className,
 }: TailorByKeywordsSwitchProps) {
+  const t = useTranslations("cvs.tailored.tailorByKeywords");
   const switchId = useId();
   const descriptionId = useId();
 
@@ -62,14 +60,14 @@ export function TailorByKeywordsSwitch({
               disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
             )}
           >
-            {TAILOR_BY_KEYWORDS_LABEL}
+            {t("label")}
           </label>
         </span>
         <p
           id={descriptionId}
           className="text-sm text-pretty text-muted-foreground"
         >
-          {TAILOR_BY_KEYWORDS_DESCRIPTION}
+          {t("description")}
         </p>
       </div>
     </div>

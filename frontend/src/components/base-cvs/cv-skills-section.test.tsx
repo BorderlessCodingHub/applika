@@ -3,8 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
 
-import { CV_KEYWORDS_HINT } from "./cv-keywords-input";
-import { CV_SKILLS_EMPTY_HINT, CvSkillsSection } from "./cv-skills-section";
+import { CV_KEYWORDS_COPY } from "./cv-keywords-input";
+import { CV_SKILLS_COPY, CvSkillsSection } from "./cv-skills-section";
 import type { CvSkillCategory } from "./types";
 
 /**
@@ -62,7 +62,7 @@ describe("CvSkillsSection — the categories", () => {
   it("starts empty and says what a category is for", () => {
     render(<Harness />);
 
-    expect(screen.getByText(CV_SKILLS_EMPTY_HINT)).toBeInTheDocument();
+    expect(screen.getByText(CV_SKILLS_COPY.emptyHint)).toBeInTheDocument();
     expect(
       screen.queryByRole("group", { name: "category 1" }),
     ).not.toBeInTheDocument();
@@ -284,8 +284,10 @@ describe("CvSkillsSection — the keywords inside a category", () => {
 
     // The keys are told once in words under the field, and carried per chip
     // for a screen reader, because there are no per-chip move buttons.
-    expect(screen.getAllByText(CV_KEYWORDS_HINT).length).toBeGreaterThan(0);
-    expect(CV_KEYWORDS_HINT).toContain("Alt");
+    expect(screen.getAllByText(CV_KEYWORDS_COPY.hint).length).toBeGreaterThan(
+      0,
+    );
+    expect(CV_KEYWORDS_COPY.hint).toContain("Alt");
     expect(
       screen.getByRole("button", { name: "Rename Python" }),
     ).toHaveAttribute("aria-keyshortcuts");

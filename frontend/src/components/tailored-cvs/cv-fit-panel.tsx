@@ -2,22 +2,28 @@
 
 import { useEffect, useId, useRef } from "react";
 import { LoaderCircle, RefreshCw, Target } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { CvSectionCard } from "@/components/base-cvs/cv-section-card";
 import { FitBadge } from "@/components/jobs/fit-badge";
 import { FitKeywords } from "@/components/jobs/fit-keywords";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { liveCopy } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
 
-export const CV_FIT_PANEL_COPY = {
-  title: "CV fit for this job",
-  description: "Keyword match between the job description and this CV copy.",
-  loading: "Loading the fit for this job",
-  loadError: "Could not load the fit for this job.",
-  retry: "Try again",
-  dirty: "The fit reflects the last saved version.",
-} as const;
+/**
+ * The panel's words in the active language (`cvs.fit`). The component reads
+ * the same keys through `useTranslations`. Never spread it.
+ */
+export const CV_FIT_PANEL_COPY = liveCopy("cvs.fit", [
+  "title",
+  "description",
+  "loading",
+  "loadError",
+  "retry",
+  "dirty",
+]);
 
 /** `GET /applications/{id}/cv/fit`; structurally the service's `CvFit`. */
 export interface CvFitPanelData {
@@ -56,6 +62,7 @@ export function CvFitPanel({
   dirty = false,
   className,
 }: CvFitPanelProps) {
+  const t = useTranslations("cvs.fit");
   const statusId = useId();
   const regionRef = useRef<HTMLDivElement>(null);
   const retried = useRef(false);
@@ -99,8 +106,8 @@ export function CvFitPanel({
       className={cn("min-w-0 rounded-xl outline-none", className)}
     >
       <CvSectionCard
-        title={CV_FIT_PANEL_COPY.title}
-        description={CV_FIT_PANEL_COPY.description}
+        title={t("title")}
+        description={t("description")}
         icon={Target}
         status={status}
         statusId={statusId}
@@ -108,7 +115,7 @@ export function CvFitPanel({
         {state === "loading" ? (
           // No role="status": the read-only banner is the editor's one status.
           <div className="flex flex-col gap-3">
-            <span className="sr-only">{CV_FIT_PANEL_COPY.loading}</span>
+            <span className="sr-only">{t("loading")}</span>
             {[0, 1].map((row) => (
               <div key={row} aria-hidden className="flex flex-col gap-1.5">
                 <Skeleton className="h-3.5 w-20" />
@@ -126,9 +133,7 @@ export function CvFitPanel({
             data-slot="cv-fit-error"
             className="flex flex-wrap items-center justify-between gap-3"
           >
-            <p className="text-sm text-foreground/80">
-              {CV_FIT_PANEL_COPY.loadError}
-            </p>
+            <p className="text-sm text-foreground/80">{t("loadError")}</p>
             {onRetry ? (
               <Button
                 type="button"
@@ -152,7 +157,7 @@ export function CvFitPanel({
                 ) : (
                   <RefreshCw aria-hidden data-icon="inline-start" />
                 )}
-                {CV_FIT_PANEL_COPY.retry}
+                {t("retry")}
               </Button>
             ) : null}
           </div>
@@ -167,7 +172,7 @@ export function CvFitPanel({
                 data-slot="cv-fit-dirty"
                 className="border-t border-border/60 pt-3 text-xs text-muted-foreground"
               >
-                {CV_FIT_PANEL_COPY.dirty}
+                {t("dirty")}
               </p>
             ) : null}
           </div>

@@ -2,12 +2,10 @@
 
 import { useRef } from "react";
 import { Undo2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-export const CV_DIFF_REMOVED_LABEL = "Removed";
-export const CV_DIFF_RESTORE_LABEL = "Restore";
 
 const ROW_FOCUS_TARGET =
   '[data-slot="cv-item-trigger"], input:not([type="hidden"]):not(:disabled), textarea:not(:disabled), [role="combobox"]:not(:disabled)';
@@ -15,7 +13,7 @@ const ROW_FOCUS_TARGET =
 export interface CvRemovedRowProps {
   /** The removed item's client id; Restore focuses the row that comes back with it. */
   itemId: string;
-  /** Lowercase singular, as the section's rows use it: "experience". */
+  /** Lowercase singular in the active language, as the section's rows use it: "experience". */
   itemNoun: string;
   /** The row caption the item had, with the section's own fallback ("New role"). */
   title: string;
@@ -35,6 +33,7 @@ export function CvRemovedRow({
   onRestore,
   className,
 }: CvRemovedRowProps) {
+  const t = useTranslations("cvs.diff");
   const rowRef = useRef<HTMLDivElement>(null);
 
   const restore = () => {
@@ -54,7 +53,7 @@ export function CvRemovedRow({
     <div
       ref={rowRef}
       role="group"
-      aria-label={`${CV_DIFF_REMOVED_LABEL} ${itemNoun}: ${title}`}
+      aria-label={t("removedGroup", { noun: itemNoun, title })}
       data-slot="cv-diff-removed"
       className={cn(
         "flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-dashed border-border-strong bg-muted/40 py-2.5 ps-4 pe-3",
@@ -64,7 +63,7 @@ export function CvRemovedRow({
     >
       <div className="flex min-w-0 flex-1 basis-40 flex-col gap-1">
         <span className="text-xs font-medium tracking-wide-label text-muted-foreground uppercase">
-          {CV_DIFF_REMOVED_LABEL}
+          {t("removed")}
         </span>
         <p className="truncate text-sm text-muted-foreground">
           <del className="decoration-muted-foreground/70">{title}</del>
@@ -76,12 +75,12 @@ export function CvRemovedRow({
           type="button"
           size="sm"
           variant="outline"
-          aria-label={`${CV_DIFF_RESTORE_LABEL} ${itemNoun} ${title}`}
+          aria-label={t("restoreLabel", { noun: itemNoun, title })}
           onClick={restore}
           className="shrink-0"
         >
           <Undo2 aria-hidden />
-          {CV_DIFF_RESTORE_LABEL}
+          {t("restore")}
         </Button>
       ) : null}
     </div>

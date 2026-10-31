@@ -5,13 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 import { BaseCvList } from "./base-cv-list";
 import { CvCard } from "./cv-card";
 import {
-  CV_MARKDOWN_EXPORT_LABEL,
-  CV_PDF_EXPORT_LABEL,
-  CV_PDF_EXPORT_PENDING,
-  CV_PDF_LAYOUT_NOTICE,
   skillKeywords,
   type BaseCv,
   type CvSkillCategory,
+  CV_EXPORT_COPY,
 } from "./types";
 
 /**
@@ -320,11 +317,11 @@ describe("the tile's download (AC2)", () => {
     );
 
     const button = screen.getByRole("button", {
-      name: `${CV_PDF_EXPORT_LABEL} Data CV`,
+      name: `${CV_EXPORT_COPY.pdfLabel} Data CV`,
     });
     // The visible text is still the plain label, so the accessible name starts
     // with what the user reads (WCAG 2.5.3).
-    expect(button).toHaveTextContent(CV_PDF_EXPORT_LABEL);
+    expect(button).toHaveTextContent(CV_EXPORT_COPY.pdfLabel);
   });
 
   it("says nothing about a preview it does not render", () => {
@@ -343,12 +340,12 @@ describe("the tile's download (AC2)", () => {
     // once per tile — up to three times on `/cvs` — about a document the page
     // never shows, while a sighted user never saw it at all. Gone from the
     // DOM, and gone from the button's description: the download stands alone.
-    expect(screen.queryByText(CV_PDF_LAYOUT_NOTICE)).toBeNull();
+    expect(screen.queryByText(CV_EXPORT_COPY.layoutNotice)).toBeNull();
     expect(
       screen.getByRole("button", {
-        name: `${CV_PDF_EXPORT_LABEL} Backend CV`,
+        name: `${CV_EXPORT_COPY.pdfLabel} Backend CV`,
       }),
-    ).not.toHaveAccessibleDescription(CV_PDF_LAYOUT_NOTICE);
+    ).not.toHaveAccessibleDescription(CV_EXPORT_COPY.layoutNotice);
   });
 
   it("asks the parent for this CV's PDF, and nothing else", async () => {
@@ -365,7 +362,9 @@ describe("the tile's download (AC2)", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: `${CV_PDF_EXPORT_LABEL} Backend CV` }),
+      screen.getByRole("button", {
+        name: `${CV_EXPORT_COPY.pdfLabel} Backend CV`,
+      }),
     );
 
     expect(onExport).toHaveBeenCalledTimes(1);
@@ -383,7 +382,9 @@ describe("the tile's download (AC2)", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: `${CV_PDF_EXPORT_LABEL} Backend CV` }),
+      screen.getByRole("button", {
+        name: `${CV_EXPORT_COPY.pdfLabel} Backend CV`,
+      }),
     ).toBeEnabled();
     expect(screen.getByRole("link", { name: "Edit Backend CV" })).toBeVisible();
     expect(
@@ -404,7 +405,7 @@ describe("the tile's Markdown download (KODI-017 part 3)", () => {
     );
     expect(
       screen.queryByRole("button", {
-        name: new RegExp(CV_MARKDOWN_EXPORT_LABEL),
+        name: new RegExp(CV_EXPORT_COPY.markdownLabel),
       }),
     ).toBeNull();
   });
@@ -423,10 +424,10 @@ describe("the tile's Markdown download (KODI-017 part 3)", () => {
     );
 
     const markdownButton = screen.getByRole("button", {
-      name: `${CV_MARKDOWN_EXPORT_LABEL} Backend CV`,
+      name: `${CV_EXPORT_COPY.markdownLabel} Backend CV`,
     });
     const pdfButton = screen.getByRole("button", {
-      name: `${CV_PDF_EXPORT_LABEL} Backend CV`,
+      name: `${CV_EXPORT_COPY.pdfLabel} Backend CV`,
     });
     expect(markdownButton).toBeEnabled();
     expect(pdfButton).toBeEnabled();
@@ -459,10 +460,14 @@ describe("the gallery's downloads (AC2)", () => {
     renderList();
 
     expect(
-      screen.getByRole("button", { name: `${CV_PDF_EXPORT_LABEL} Backend CV` }),
+      screen.getByRole("button", {
+        name: `${CV_EXPORT_COPY.pdfLabel} Backend CV`,
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: `${CV_PDF_EXPORT_LABEL} Data CV` }),
+      screen.getByRole("button", {
+        name: `${CV_EXPORT_COPY.pdfLabel} Data CV`,
+      }),
     ).toBeInTheDocument();
   });
 
@@ -472,7 +477,9 @@ describe("the gallery's downloads (AC2)", () => {
     renderList({ onExport });
 
     await user.click(
-      screen.getByRole("button", { name: `${CV_PDF_EXPORT_LABEL} Data CV` }),
+      screen.getByRole("button", {
+        name: `${CV_EXPORT_COPY.pdfLabel} Data CV`,
+      }),
     );
 
     expect(onExport).toHaveBeenCalledTimes(1);
@@ -483,16 +490,16 @@ describe("the gallery's downloads (AC2)", () => {
     renderList({ exportingId: "2" });
 
     const busy = screen.getByRole("button", {
-      name: `${CV_PDF_EXPORT_LABEL} Data CV`,
+      name: `${CV_EXPORT_COPY.pdfLabel} Data CV`,
     });
     const idle = screen.getByRole("button", {
-      name: `${CV_PDF_EXPORT_LABEL} Backend CV`,
+      name: `${CV_EXPORT_COPY.pdfLabel} Backend CV`,
     });
     expect(busy).toBeDisabled();
     expect(busy).toHaveAttribute("aria-busy", "true");
     expect(idle).toBeEnabled();
     // The pending announcement belongs to the busy tile alone.
-    expect(screen.getAllByText(CV_PDF_EXPORT_PENDING)).toHaveLength(1);
+    expect(screen.getAllByText(CV_EXPORT_COPY.pdfPending)).toHaveLength(1);
   });
 
   it("hands the Markdown export through to the right tile, distinct from the PDF one", async () => {
@@ -501,10 +508,10 @@ describe("the gallery's downloads (AC2)", () => {
     renderList({ onExportMarkdown, exportingMarkdownId: "1" });
 
     const busyMarkdown = screen.getByRole("button", {
-      name: `${CV_MARKDOWN_EXPORT_LABEL} Backend CV`,
+      name: `${CV_EXPORT_COPY.markdownLabel} Backend CV`,
     });
     const idleMarkdown = screen.getByRole("button", {
-      name: `${CV_MARKDOWN_EXPORT_LABEL} Data CV`,
+      name: `${CV_EXPORT_COPY.markdownLabel} Data CV`,
     });
     expect(busyMarkdown).toBeDisabled();
     expect(idleMarkdown).toBeEnabled();
@@ -534,6 +541,28 @@ describe("the gallery's downloads (AC2)", () => {
     expect(badgeTexts(container)).toHaveLength(24);
     for (const keyword of ["Python", "PostgreSQL", "Kubernetes", "Terraform"]) {
       expect(screen.getAllByText(keyword)).toHaveLength(2);
+    }
+  });
+});
+
+describe("the tile's updated date", () => {
+  it("is written the English way in English, whatever the browser's own locale", () => {
+    const spy = vi.spyOn(Date.prototype, "toLocaleDateString");
+    try {
+      render(
+        <CvCard
+          cv={cv({ updated_at: "2026-10-20T10:00:00Z" })}
+          href="/cvs/editor?id=1"
+          onDelete={vi.fn()}
+        />,
+      );
+
+      expect(spy).toHaveBeenCalled();
+      // `undefined` would hand the style to the browser's locale.
+      for (const [locale] of spy.mock.calls) expect(locale).toBe("en");
+      expect(screen.getByText(/^Updated Oct 20, 2026$/)).toBeInTheDocument();
+    } finally {
+      spy.mockRestore();
     }
   });
 });

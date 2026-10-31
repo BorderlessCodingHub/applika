@@ -7,6 +7,8 @@
  * applika DOES carry an `id`.
  */
 
+import { liveCopy } from "@/i18n/translator";
+
 /** Hard cap on master CVs per user. */
 export const BASE_CVS_MAX = 3;
 
@@ -196,29 +198,26 @@ export interface BaseCv extends CvScalars, CvSections {
 }
 
 /**
- * Said wherever the on-screen CV is shown or a PDF is asked for.
+ * The export and preview notices, in the active language (`cvs.export.*`).
  *
- * The PDF is typeset on the server (ADR 0011) from the stored CV data, so the
- * browser render is an approximation of the content, never of the page breaks,
- * the fonts or the spacing. The words are the acceptance criterion; do not
- * paraphrase them.
+ * - `layoutNotice`: said wherever the on-screen CV is shown or a PDF is asked
+ *   for. The PDF is typeset on the server (ADR 0011) from the stored CV data,
+ *   so the browser render is an approximation of the content, never of the
+ *   page breaks, the fonts or the spacing. The words are the acceptance
+ *   criterion; do not paraphrase them.
+ * - `pdfPending`: announced while the server typesets the PDF (a few seconds).
+ * - `pdfLabel`: visible text and accessible name of the export action.
+ * - `markdownLabel` / `markdownPending`: the Markdown twin of the PDF export,
+ *   rendered on the server like the PDF (ADR 0011).
+ *
+ * The exported files themselves stay English (the API produces them). A
+ * component rendering these words subscribes (`useLocale`/`useTranslations`).
+ * Never spread this object: a spread freezes the words.
  */
-export const CV_PDF_LAYOUT_NOTICE =
-  "Preview does not show the final PDF layout.";
-
-/** Announced while the server typesets the PDF. A render takes a few seconds. */
-export const CV_PDF_EXPORT_PENDING =
-  "Preparing your PDF. This can take a few seconds.";
-
-/** Visible text and accessible name of the export action. */
-export const CV_PDF_EXPORT_LABEL = "Download PDF";
-
-/**
- * The Markdown twin of the PDF export (KODI-017 part 3). The owner: "create a
- * version of the CV in markdown along side with pdf (that already exists) for
- * download". Rendered on the server, like the PDF (ADR 0011).
- */
-export const CV_MARKDOWN_EXPORT_LABEL = "Download Markdown";
-
-/** Announced while the server renders the Markdown file. */
-export const CV_MARKDOWN_EXPORT_PENDING = "Preparing your Markdown file.";
+export const CV_EXPORT_COPY = liveCopy("cvs.export", [
+  "layoutNotice",
+  "pdfPending",
+  "pdfLabel",
+  "markdownLabel",
+  "markdownPending",
+]);

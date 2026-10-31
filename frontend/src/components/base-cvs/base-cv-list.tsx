@@ -2,18 +2,13 @@
 
 import { useId } from "react";
 import { FileText, RotateCcw, TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CvCard } from "@/components/base-cvs/cv-card";
 import { NewCvCard } from "@/components/base-cvs/new-cv-card";
 import { BASE_CVS_MAX, type BaseCv } from "@/components/base-cvs/types";
 import { cn } from "@/lib/utils";
-
-/** Copy for the zero-CV state. */
-export const BASE_CV_EMPTY_TITLE = "No master CVs yet";
-export const BASE_CV_EMPTY_BODY =
-  "A master CV holds everything about you — identity and contact, a summary, links, skills, experience, projects, certifications and languages. Write it once and reuse it for every application. You can keep up to three.";
-export const BASE_CV_EMPTY_CTA = "Create your first CV";
 
 /** Makes the list a single-choice picker. See `BaseCvListProps.selection`. */
 export interface BaseCvListSelection {
@@ -87,12 +82,13 @@ export function BaseCvList({
   className,
 }: BaseCvListProps) {
   const groupName = useId();
+  const t = useTranslations("cvs.list");
 
   if (isLoading) {
     return (
       <div
         aria-busy
-        aria-label="Loading your master CVs"
+        aria-label={t("loading")}
         className={cn("grid gap-4 md:grid-cols-2", className)}
       >
         {Array.from({ length: 3 }).map((_, index) => (
@@ -112,7 +108,7 @@ export function BaseCvList({
         )}
       >
         <TriangleAlert aria-hidden className="mb-3 size-8 text-destructive" />
-        <p className="text-sm font-medium">Could not load your master CVs</p>
+        <p className="text-sm font-medium">{t("errorTitle")}</p>
         <p className="mt-1 max-w-sm text-xs text-pretty text-muted-foreground">
           {error}
         </p>
@@ -125,7 +121,7 @@ export function BaseCvList({
             className="mt-4"
           >
             <RotateCcw aria-hidden />
-            Try again
+            {t("retry")}
           </Button>
         ) : null}
       </div>
@@ -147,13 +143,13 @@ export function BaseCvList({
           className="mb-3 size-10 text-muted-foreground/40"
         />
         <h2 className="font-display text-base font-semibold">
-          {BASE_CV_EMPTY_TITLE}
+          {t("emptyTitle")}
         </h2>
         <p className="mt-1.5 max-w-md text-sm text-pretty text-muted-foreground">
-          {BASE_CV_EMPTY_BODY}
+          {t("emptyBody")}
         </p>
         <LinkButton href={newHref} className="mt-5">
-          {BASE_CV_EMPTY_CTA}
+          {t("emptyCta")}
         </LinkButton>
       </div>
     );

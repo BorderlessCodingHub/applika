@@ -49,6 +49,19 @@ describe.each(readers)("%s", (_, reader) => {
     );
   });
 
+  it("a known code reads the catalog words in English too, never a detail that differs", () => {
+    // The server's `detail` is stale or reworded: the code decides the words.
+    expect(
+      reader(
+        refused({
+          detail: "Platform LinkedIn is taken (server wording)",
+          code: "CAT-1003",
+          params: { name: "LinkedIn" },
+        }),
+      ),
+    ).toBe("A platform with this name already exists: LinkedIn");
+  });
+
   it("an unknown code shows the detail; no words, the screen's fallback", () => {
     expect(reader(refused({ detail: "New words", code: "NEW-1001" }))).toBe(
       "New words",

@@ -2,6 +2,7 @@
 
 import { useEffect, useId } from "react";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { BaseCvList } from "@/components/base-cvs/base-cv-list";
 import { BASE_CVS_MAX, type BaseCv } from "@/components/base-cvs/types";
@@ -9,14 +10,21 @@ import { Button } from "@/components/ui/button";
 import { TailorByKeywordsSwitch } from "@/components/tailored-cvs/tailor-by-keywords-switch";
 import { TailoredCvReadOnlyBanner } from "@/components/tailored-cvs/tailored-cv-read-only-banner";
 import type { TailoredCvReadOnlyReason } from "@/components/tailored-cvs/types";
+import { liveCopy } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
 
-/** Said on screen, so nobody goes looking for a default CV that does not exist. */
-export const BASE_CV_PICKER_HINT =
-  "Pick the master CV this application starts from. The copy is yours to edit for this job — the master CV never changes.";
-/** Shown in place of the picker when the application no longer accepts a copy. */
-export const BASE_CV_PICKER_LOCKED_BODY =
-  "No CV copy was created for this application, and one can no longer be created.";
+/**
+ * The picker's words in the active language (`cvs.tailored.picker`): `hint` is
+ * said on screen so nobody goes looking for a default CV that does not exist;
+ * `lockedBody` replaces the picker when the application no longer accepts a
+ * copy. The component reads the same keys through `useTranslations`.
+ */
+export const BASE_CV_PICKER_COPY = liveCopy("cvs.tailored.picker", [
+  "title",
+  "hint",
+  "lockedBody",
+  "create",
+]);
 
 /**
  * The preselected master CV, if the choice makes itself: with exactly one there
@@ -49,7 +57,7 @@ export interface BaseCvPickerProps {
   onCreate: () => void;
   /** Reflects an in-flight create: spinner on the action, the list disabled. */
   isCreating?: boolean;
-  /** Visible text and accessible name of the create action. */
+  /** Visible text and accessible name of the create action. Defaults to "Create the CV copy" in the active language. */
   createLabel?: string;
   /** "Tailor by keywords" (R-026). Off by default. */
   tailorByKeywords?: boolean;
@@ -99,7 +107,7 @@ export function BaseCvPicker({
   onValueChange,
   onCreate,
   isCreating = false,
-  createLabel = "Create the CV copy",
+  createLabel,
   tailorByKeywords = false,
   onTailorByKeywordsChange,
   onDelete,
@@ -114,6 +122,7 @@ export function BaseCvPicker({
   readOnlyReason,
   className,
 }: BaseCvPickerProps) {
+  const t = useTranslations("cvs.tailored.picker");
   const hintId = useId();
   const items = options ?? [];
   // A master CV deleted from this list must not stay selected, or the create
@@ -134,7 +143,7 @@ export function BaseCvPicker({
       <div className={cn("flex flex-col gap-4", className)}>
         <TailoredCvReadOnlyBanner reason={readOnlyReason} />
         <p className="rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-pretty text-muted-foreground">
-          {BASE_CV_PICKER_LOCKED_BODY}
+          {t("lockedBody")}
         </p>
       </div>
     );
@@ -166,15 +175,13 @@ export function BaseCvPicker({
     <div className={cn("flex flex-col gap-4", className)}>
       <fieldset disabled={isCreating} className="min-w-0">
         <legend className="mb-1">
-          <h2 className="font-display text-base font-semibold">
-            Choose a master CV
-          </h2>
+          <h2 className="font-display text-base font-semibold">{t("title")}</h2>
         </legend>
         <p
           id={hintId}
           className="mb-4 text-sm text-pretty text-muted-foreground"
         >
-          {BASE_CV_PICKER_HINT}
+          {t("hint")}
         </p>
 
         <BaseCvList
@@ -215,7 +222,7 @@ export function BaseCvPicker({
           className="ml-auto shrink-0 aria-disabled:opacity-60"
         >
           {isCreating ? <Loader2 aria-hidden className="animate-spin" /> : null}
-          {createLabel}
+          {createLabel ?? t("create")}
         </Button>
       </div>
     </div>

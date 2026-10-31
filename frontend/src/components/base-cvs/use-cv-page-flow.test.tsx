@@ -11,7 +11,7 @@ import {
   CV_PAGE_CONTENT_HEIGHT_PX,
   CV_PAGE_HEIGHT_PX,
   CV_PAGE_PADDING_PX,
-  CV_PAGE_OVERFLOW_NOTE,
+  CV_PREVIEW_COPY,
   CvPageStack,
   cvPageIndicator,
   cvPageIndicatorLabel,
@@ -395,7 +395,7 @@ describe("CvPageStack", () => {
 
     const sheet = container.querySelector('[data-slot="cv-page"]');
     expect(sheet?.getAttribute("data-overflowing")).toBe("true");
-    expect(screen.getByText(CV_PAGE_OVERFLOW_NOTE)).toBeInTheDocument();
+    expect(screen.getByText(CV_PREVIEW_COPY.overflowNote)).toBeInTheDocument();
   });
 
   it("marks an ordinary sheet with no overflow flag at all", () => {
@@ -409,7 +409,9 @@ describe("CvPageStack", () => {
 
     const sheet = container.querySelector('[data-slot="cv-page"]');
     expect(sheet?.hasAttribute("data-overflowing")).toBe(false);
-    expect(screen.queryByText(CV_PAGE_OVERFLOW_NOTE)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(CV_PREVIEW_COPY.overflowNote),
+    ).not.toBeInTheDocument();
   });
 });
 

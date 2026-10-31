@@ -3,8 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  CV_DIFF_DOWNLOAD_DIRTY_NOTICE,
-  CV_DIFF_DOWNLOAD_PENDING,
+  CV_DIFF_DOWNLOAD_COPY,
   CvDiffDownloadRow,
 } from "./cv-diff-download-row";
 
@@ -55,7 +54,7 @@ describe("CvDiffDownloadRow", () => {
     expect(
       screen.getByRole("button", { name: "Download changes as Markdown" }),
     ).toBeDisabled();
-    expect(screen.getByText(CV_DIFF_DOWNLOAD_PENDING)).toBeInTheDocument();
+    expect(screen.getByText(CV_DIFF_DOWNLOAD_COPY.pending)).toBeInTheDocument();
   });
 
   it("disables both buttons and shows the server's reason", () => {
@@ -82,7 +81,9 @@ describe("CvDiffDownloadRow", () => {
         dirty
       />,
     );
-    expect(screen.getByText(CV_DIFF_DOWNLOAD_DIRTY_NOTICE)).toBeInTheDocument();
+    expect(
+      screen.getByText(CV_DIFF_DOWNLOAD_COPY.dirtyNotice),
+    ).toBeInTheDocument();
   });
 
   it("says nothing about being dirty when the form is clean", () => {
@@ -90,7 +91,7 @@ describe("CvDiffDownloadRow", () => {
       <CvDiffDownloadRow onExportPdf={() => {}} onExportMarkdown={() => {}} />,
     );
     expect(
-      screen.queryByText(CV_DIFF_DOWNLOAD_DIRTY_NOTICE),
+      screen.queryByText(CV_DIFF_DOWNLOAD_COPY.dirtyNotice),
     ).not.toBeInTheDocument();
   });
 });

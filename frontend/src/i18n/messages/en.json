@@ -1208,5 +1208,466 @@
         "nowSelected": "It is now selected."
       }
     }
+  },
+  "cvs": {
+    "page": {
+      "title": "CVs",
+      "description": "Your master CVs. Keep up to three and reuse them for every application.",
+      "back": "Back to CVs"
+    },
+    "list": {
+      "loading": "Loading your master CVs",
+      "errorTitle": "Could not load your master CVs",
+      "retry": "Try again",
+      "emptyTitle": "No master CVs yet",
+      "emptyBody": "A master CV holds everything about you — identity and contact, a summary, links, skills, experience, projects, certifications and languages. Write it once and reuse it for every application. You can keep up to three.",
+      "emptyCta": "Create your first CV"
+    },
+    "card": {
+      "updated": "Updated {date}",
+      "noSkills": "No skills added yet",
+      "roles": "{count, plural, one {# role} other {# roles}}",
+      "projects": "{count, plural, one {# project} other {# projects}}",
+      "languages": "{count, plural, one {# language} other {# languages}}",
+      "keywords": "{count, plural, one {# keyword} other {# keywords}}",
+      "edit": "Edit",
+      "editLabel": "Edit {name}",
+      "delete": "Delete",
+      "deleteLabel": "Delete {name}",
+      "deleteTitle": "Delete this master CV?",
+      "deleteDescription": "\"{name}\" and everything in it is removed for good. This cannot be undone.",
+      "cancel": "Cancel"
+    },
+    "new": {
+      "title": "New master CV",
+      "description": "Write it once. Every application you tailor starts from here.",
+      "submit": "Create CV",
+      "limitReason": "You already have 3 master CVs — the limit is three. Delete one to create another.",
+      "slotsLeft": "{remaining} of {max} {remaining, plural, one {slot} other {slots}} left"
+    },
+    "editorPage": {
+      "title": "Edit master CV",
+      "description": "Change anything and save it back.",
+      "noIdTitle": "No CV selected",
+      "noIdBody": "Open a CV from your list to edit it.",
+      "loadErrorTitle": "Could not load this CV",
+      "loading": "Loading this master CV",
+      "routeLoading": "Loading the CV editor",
+      "submit": "Save changes"
+    },
+    "toasts": {
+      "created": "Master CV created",
+      "saved": "Master CV saved",
+      "deleted": "Master CV deleted",
+      "copyCreated": "CV copy created",
+      "copySaved": "CV copy saved",
+      "copyDeleted": "CV copy deleted"
+    },
+    "tailored": {
+      "readOnly": {
+        "finalized": {
+          "title": "This application is closed.",
+          "body": "Reopen it to edit this CV."
+        },
+        "archived": {
+          "title": "This application is in a closed cycle",
+          "body": "Applications from a past cycle are archived. You can read this CV copy, but it can no longer be edited or deleted."
+        }
+      },
+      "source": {
+        "deleted": "source CV deleted",
+        "deletedHint": "The master CV this copy came from has been deleted. Everything below still belongs to this application and stays editable.",
+        "copiedFrom": "Copied from {name}",
+        "copiedFromMaster": "Copied from a master CV"
+      },
+      "editor": {
+        "previewRegion": "CV preview",
+        "livePreview": "Live preview",
+        "submit": "Save CV copy",
+        "cancel": "Cancel",
+        "deleteLabel": "Delete this CV copy",
+        "deleteAction": "Delete copy",
+        "deleteTitle": "Delete this CV copy?",
+        "deleteDescription": "The copy and every edit you made to it are removed for good. Your master CVs are untouched, and you can start a new copy for this application afterwards.",
+        "deleteConfirm": "Delete"
+      },
+      "jobDescription": {
+        "title": "Job description",
+        "description": "From the application. Read-only here.",
+        "textRegion": "Job description text",
+        "emptyHint": "No job description saved for this application. Add one when you edit the application and it will sit here, beside the CV copy, while you tailor it.",
+        "add": "Add a job description"
+      },
+      "tailorByKeywords": {
+        "label": "Tailor by keywords",
+        "description": "Reorders skills and bullets by how well they match the job description. No text is added or changed."
+      },
+      "picker": {
+        "title": "Choose a master CV",
+        "hint": "Pick the master CV this application starts from. The copy is yours to edit for this job — the master CV never changes.",
+        "lockedBody": "No CV copy was created for this application, and one can no longer be created.",
+        "create": "Create the CV copy"
+      },
+      "validation": {
+        "tooLong": "Keep this under {max} characters",
+        "nameRequired": "A CV label is required",
+        "fullNameRequired": "A full name is required",
+        "headlineRequired": "A headline is required",
+        "locationRequired": "A location is required",
+        "emailRequired": "An email is required",
+        "emailInvalid": "Enter a valid email address",
+        "summaryRequired": "A summary is required",
+        "linksIncomplete": "Every link needs a label and a URL. Remove the rows you do not want.",
+        "linksTooLong": "Keep every link label under {label} characters and every URL under {url}.",
+        "skillsIncomplete": "Every skill category needs a name. Remove the categories you do not want.",
+        "skillsTooLong": "Keep every category name under {category} characters and every keyword under {keyword}.",
+        "experienceIncomplete": "Every role needs a company, a role and a start month and year (MM/yyyy). Remove the rows you do not want.",
+        "experienceFinish": "A finish must be a full MM/yyyy and cannot come before its start. Leave it empty for a role you are still in.",
+        "experienceTooLong": "Keep every company, role and location under {company} characters and every company description under {description}.",
+        "projectsIncomplete": "Every project needs a name. Remove the rows you do not want.",
+        "projectsTooLong": "Keep every project name under {name} characters and every description under {description}.",
+        "educationIncomplete": "Every qualification needs an institution, a degree and a start month and year (MM/yyyy). Remove the rows you do not want.",
+        "educationFinish": "A finish must be a full MM/yyyy and cannot come before its start. Leave it empty for a course you are still on.",
+        "educationTooLong": "Keep every institution, degree and field of study under {max} characters.",
+        "certificationsIncomplete": "Every certification needs a name and an issuer. Remove the rows you do not want.",
+        "certificationsTooLong": "Keep every certification name and issuer under {max} characters.",
+        "languagesIncomplete": "Every language needs a name. Remove the rows you do not want.",
+        "languagesTooLong": "Keep every language under {max} characters."
+      }
+    },
+    "diff": {
+      "added": "Added",
+      "removed": "Removed",
+      "restore": "Restore",
+      "removedGroup": "Removed {noun}: {title}",
+      "restoreLabel": "Restore {noun} {title}",
+      "itemNoun": {
+        "links": "link",
+        "skills": "category",
+        "experience": "experience",
+        "projects": "project",
+        "education": "education",
+        "certifications": "certification",
+        "languages": "language"
+      },
+      "newItem": {
+        "link": "New link",
+        "category": "New category",
+        "role": "New role",
+        "project": "New project",
+        "qualification": "New qualification",
+        "certification": "New certification",
+        "language": "New language"
+      },
+      "periodOpen": "{from} - present",
+      "changed": "Changed",
+      "changedLabel": "Changed: {field}",
+      "original": "Original",
+      "originalValue": "Original value",
+      "emptyOriginal": "Empty in the original CV.",
+      "revert": "Revert",
+      "revertLabel": "Revert {field}",
+      "addedKeywords": "Added keywords",
+      "removedKeywords": "Removed keywords",
+      "sectionCount": "{count, plural, =0 {0 changes} one {# change} other {# changes}}",
+      "reordered": "reordered",
+      "countReordered": "{changes}, reordered",
+      "summaryCount": "{count, plural, =0 {no changes} one {# change} other {# changes}}",
+      "comparedWith": "Compared with {label}: {count}",
+      "originalMaster": "the original master CV",
+      "showChanges": "Show changes",
+      "reorderedTitle": "Reordered by job match",
+      "download": {
+        "label": "Download changes",
+        "pdf": "PDF",
+        "markdown": "Markdown",
+        "as": "{label} as {format}",
+        "pending": "Preparing your download. This can take a few seconds.",
+        "dirtyNotice": "Downloads reflect the last saved version."
+      }
+    },
+    "fit": {
+      "title": "CV fit for this job",
+      "description": "Keyword match between the job description and this CV copy.",
+      "loading": "Loading the fit for this job",
+      "loadError": "Could not load the fit for this job.",
+      "retry": "Try again",
+      "dirty": "The fit reflects the last saved version."
+    },
+    "applicationCv": {
+      "back": "Back to applications",
+      "title": "Application CV",
+      "description": "This application's own copy of a master CV, edited for the job.",
+      "noIdTitle": "No application selected",
+      "noIdBody": "Open an application from your list to work on its CV copy.",
+      "loadingApplication": "Loading this application",
+      "openErrorTitle": "Could not open this application",
+      "notInCycle": "It is not in the cycle you are viewing. Switch cycles from the applications list and open its CV from there.",
+      "loadErrorTitle": "Could not load this CV copy",
+      "loadingCopy": "Loading this CV copy",
+      "diffUnresolved": "Could not check the original master CV to compare against. Try reloading the page.",
+      "routeLoading": "Loading the CV copy"
+    },
+    "fields": {
+      "label": {
+        "cvLabel": "CV label",
+        "fullName": "Full name",
+        "headline": "Headline",
+        "email": "Email",
+        "phone": "Phone",
+        "location": "Location",
+        "label": "Label",
+        "url": "URL",
+        "summary": "Summary",
+        "category": "Category",
+        "keywords": "Keywords",
+        "company": "Company",
+        "role": "Role",
+        "start": "Start",
+        "finish": "Finish",
+        "companyDescription": "Company description",
+        "highlights": "Highlights",
+        "name": "Name",
+        "link": "Link",
+        "linkLabel": "Link label",
+        "description": "Description",
+        "institution": "Institution",
+        "degree": "Degree",
+        "area": "Field of study",
+        "issuer": "Issuer",
+        "language": "Language",
+        "level": "Level"
+      },
+      "noun": {
+        "link": "link",
+        "category": "category",
+        "experience": "experience",
+        "project": "project",
+        "education": "education",
+        "certification": "certification",
+        "language": "language",
+        "highlight": "highlight"
+      },
+      "hint": {
+        "cvLabel": "Only you see this. It names the CV in your list.",
+        "optional": "Optional.",
+        "monthYear": "Month and year, MM/yyyy.",
+        "finishRole": "Optional. Leave it empty for a role you are still in — it prints as present.",
+        "finishCourse": "Optional. Leave it empty for a course you are still on — it prints as present."
+      },
+      "placeholder": {
+        "cvLabel": "Backend-focused CV",
+        "headline": "Senior Software Engineer",
+        "location": "London, United Kingdom",
+        "summary": "Backend engineer with eight years on payment systems…",
+        "role": "Senior Backend Engineer",
+        "remote": "Remote",
+        "companyDescription": "Payments infrastructure, 8000 people.",
+        "highlight": "Cut settlement latency by 40%…",
+        "linkLabel": "Live demo",
+        "institution": "University of Edinburgh",
+        "degree": "BSc",
+        "area": "Computer Science",
+        "language": "English",
+        "level": "Pick a level"
+      },
+      "addHighlight": "Add highlight",
+      "moveUp": "Move {position} up",
+      "moveDown": "Move {position} down",
+      "remove": "Remove {position}",
+      "removeNumbered": "Remove {noun} {number}",
+      "keywords": {
+        "hint": "Press Enter or comma to add. Click a keyword to rename it. Alt with the left or right arrow moves it.",
+        "add": "Add a keyword",
+        "addTo": "Add a keyword to {group}",
+        "list": "Keywords",
+        "listIn": "Keywords in {group}",
+        "rename": "Rename {keyword}",
+        "remove": "Remove {keyword}"
+      },
+      "languageLevel": {
+        "native": "Native",
+        "proficient": "Proficient",
+        "conversational": "Conversational",
+        "readComprehend": "Read/Comprehend",
+        "basic": "Basic"
+      }
+    },
+    "sections": {
+      "identity": {
+        "title": "Identity and contact",
+        "description": "The header at the top of your CV, plus the label you recognise this CV by."
+      },
+      "links": {
+        "title": "Links",
+        "description": "Portfolio, GitHub, LinkedIn and other profiles.",
+        "newItem": "New link",
+        "add": "Add link",
+        "emptyHint": "No links yet. Add the profiles you want on your CV."
+      },
+      "summary": {
+        "title": "Summary",
+        "description": "A short professional summary, in your own words."
+      },
+      "experience": {
+        "title": "Experience",
+        "description": "Your roles, most recent first.",
+        "newItem": "New role",
+        "add": "Add experience",
+        "emptyHint": "No roles yet. Add the jobs you want on this CV."
+      },
+      "projects": {
+        "title": "Projects",
+        "description": "Side projects, open source and notable work.",
+        "newItem": "New project",
+        "add": "Add project",
+        "emptyHint": "No projects yet."
+      },
+      "education": {
+        "title": "Education",
+        "description": "Degrees and diplomas, most recent first.",
+        "newItem": "New qualification",
+        "add": "Add education",
+        "emptyHint": "No education yet. Add the degrees you want on this CV."
+      },
+      "certifications": {
+        "title": "Certifications",
+        "description": "Professional certifications and licences.",
+        "newItem": "New certification",
+        "add": "Add certification",
+        "emptyHint": "No certifications yet."
+      },
+      "languages": {
+        "title": "Languages",
+        "description": "The languages you speak and how well.",
+        "newItem": "New language",
+        "add": "Add language",
+        "emptyHint": "No languages yet."
+      },
+      "skills": {
+        "title": "Skills",
+        "description": "Group your skills into categories. Each category prints as its own line.",
+        "newItem": "New category",
+        "add": "Add category",
+        "noun": "category",
+        "emptyHint": "No skill categories yet. Add one, then fill it with keywords.",
+        "categoryEmptyHint": "No keywords yet. They print under the category name, joined by a middle dot.",
+        "category": "Category",
+        "categoryPlaceholder": "Languages and frameworks",
+        "keywords": "Keywords",
+        "thisCategory": "this category"
+      }
+    },
+    "validation": {
+      "maxLength": "Keep this under {max} characters",
+      "cvLabelRequired": "A CV label is required",
+      "fullNameRequired": "Your full name is required",
+      "headlineRequired": "A headline is required",
+      "locationRequired": "A location is required",
+      "emailRequired": "An email is required",
+      "emailInvalid": "Enter a valid email address",
+      "summaryRequired": "A summary is required",
+      "links": "Every link needs a label and a URL. Remove the rows you do not want.",
+      "skills": "Every skill category needs a name. Remove the categories you do not want.",
+      "skillsLength": "Keep every category name under {category} characters and every keyword under {keyword}.",
+      "experience": "Every role needs a company, a role and a start month and year (MM/yyyy). Remove the rows you do not want.",
+      "experienceFinish": "A finish must be a full MM/yyyy and cannot come before its start. Leave it empty for a role you are still in.",
+      "projects": "Every project needs a name. Remove the rows you do not want.",
+      "education": "Every qualification needs an institution, a degree and a start month and year (MM/yyyy). Remove the rows you do not want.",
+      "educationFinish": "A finish must be a full MM/yyyy and cannot come before its start. Leave it empty for a course you are still on.",
+      "educationLength": "Keep every institution, degree and field of study under {max} characters.",
+      "certifications": "Every certification needs a name and an issuer. Remove the rows you do not want.",
+      "languages": "Every language needs a name. Remove the rows you do not want."
+    },
+    "editor": {
+      "save": "Save CV",
+      "cancel": "Cancel"
+    },
+    "preview": {
+      "pageLabel": "Page {page} of {total}",
+      "pageCount": "{total, plural, one {CV preview: # page.} other {CV preview: # pages.}}",
+      "documentLabel": "CV preview for {name}",
+      "documentLabelUnnamed": "CV preview for your CV",
+      "overflowNote": "One item is longer than an A4 page.",
+      "pagesLabel": "CV preview pages",
+      "asideLabel": "CV preview",
+      "livePreview": "Live preview"
+    },
+    "export": {
+      "layoutNotice": "Preview does not show the final PDF layout.",
+      "pdfPending": "Preparing your PDF. This can take a few seconds.",
+      "pdfLabel": "Download PDF",
+      "markdownLabel": "Download Markdown",
+      "markdownPending": "Preparing your Markdown file."
+    }
+  },
+  "drafts": {
+    "page": {
+      "pageTitle": "New application with CV",
+      "pageSubtitle": "Fill in the application, then tailor a copy of one of your master CVs. It saves as a draft once company, role and platform are set.",
+      "pageLoading": "Loading the new application page",
+      "backToApplications": "Back to applications",
+      "stepsLabel": "Steps",
+      "continueToCv": "Continue to CV",
+      "cancel": "Cancel",
+      "back": "Back",
+      "finish": "Finish",
+      "saving": "Saving...",
+      "saved": "Saved",
+      "notSaved": "Not saved",
+      "requiredNotSaved": "Not saved: company, role and platform are required",
+      "retry": "Retry",
+      "loading": "Loading this draft",
+      "notFoundTitle": "This draft is not available",
+      "notFoundBody": "It may have been finished or deleted. Finished drafts are in your applications list.",
+      "loadErrorTitle": "Could not load this draft",
+      "loadErrorBody": "Something went wrong while opening it.",
+      "tryAgain": "Try again",
+      "goToApplications": "Go to applications",
+      "noMasterCvTitle": "No master CV to copy yet",
+      "noMasterCvBody": "Step 2 starts from a copy of one of your master CVs. Write one first; this draft stays in Drafts on the applications page, ready to resume.",
+      "noMasterCvCta": "Create your first CV",
+      "applicationNeedsFixing": "Some application fields need fixing before this can finish.",
+      "cvNeedsFixing": "Some CV copy fields need fixing before this can finish.",
+      "finishFailed": "Could not finish this draft. Try again.",
+      "created": "Application created"
+    },
+    "steps": {
+      "application": {
+        "title": "Application",
+        "hint": "Company, role, platform"
+      },
+      "cv": {
+        "title": "CV",
+        "hint": "A copy of a master CV"
+      },
+      "label": "Step {number}: {title}"
+    },
+    "requirement": {
+      "company": "company",
+      "role": "role",
+      "platform": "platform",
+      "cv": "CV copy",
+      "missing": "Missing: {list}"
+    },
+    "section": {
+      "emptyTitle": "No drafts yet.",
+      "description": "Applications you started with a CV. They save as you type.",
+      "resume": "Resume",
+      "cvCopy": "CV copy",
+      "loadError": "Could not load your drafts.",
+      "retry": "Retry",
+      "deleteTitle": "Delete this draft?",
+      "deleteConfirm": "Delete draft",
+      "deleteLabel": "Delete draft {name}",
+      "deleteDescription": "The draft for {role} at {company} and its CV copy are deleted for good. Your master CVs are untouched.",
+      "cancel": "Cancel",
+      "savedJustNow": "Saved just now",
+      "savedAgo": "Saved {distance}"
+    },
+    "validation": {
+      "tooLong": "Keep this under {max} characters"
+    },
+    "unknownError": "Something went wrong. Try again."
   }
 }

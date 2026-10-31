@@ -1,6 +1,8 @@
 import type { FieldErrors } from "react-hook-form";
 import { z } from "zod";
 
+import { word } from "@/i18n/translator";
+
 import {
   CV_LANGUAGE_LEVELS,
   type BaseCv,
@@ -153,11 +155,27 @@ const isBlankEducation = (
   !text(item.area) &&
   isBlankPeriod(item);
 
+/**
+ * A validation message in the active language (`cvs.validation.<key>`),
+ * resolved when the schema runs, not when the module loads. Numbers go in as
+ * strings: a character limit is printed as is ("4000"), never grouped.
+ */
+const invalid = (key: string, values?: Record<string, number>) => ({
+  error: () =>
+    word(
+      `cvs.validation.${key}`,
+      values &&
+        Object.fromEntries(
+          Object.entries(values).map(([name, value]) => [name, String(value)]),
+        ),
+    ),
+});
+
 /** A non-blank single-line string. Whitespace alone does not count. */
-const requiredText = (message: string, max: number) =>
+const requiredText = (message: { error: () => string }, max: number) =>
   z
     .string()
-    .max(max, `Keep this under ${max} characters`)
+    .max(max, invalid("maxLength", { max }))
     .refine((value) => value.trim().length > 0, message);
 
 const linkSchema = z.object({
@@ -233,28 +251,31 @@ const languageSchema = z.object({
  * experience or education period, which is required on BOTH sections.
  */
 export const baseCvSchema = z.object({
-  name: requiredText("A CV label is required", 120),
-  full_name: requiredText("Your full name is required", 160),
-  headline: requiredText("A headline is required", 200),
-  location: requiredText("A location is required", 160),
+  name: requiredText(invalid("cvLabelRequired"), 120),
+  full_name: requiredText(invalid("fullNameRequired"), 160),
+  headline: requiredText(invalid("headlineRequired"), 200),
+  location: requiredText(invalid("locationRequired"), 160),
   email: z
     .string()
-    .max(255, "Keep this under 255 characters")
+    .max(255, invalid("maxLength", { max: 255 }))
     .superRefine((value, ctx) => {
       const trimmed = value.trim();
       if (trimmed.length === 0) {
-        ctx.addIssue({ code: "custom", message: "An email is required" });
+        ctx.addIssue({
+          code: "custom",
+          message: word("cvs.validation.emailRequired"),
+        });
         return;
       }
       if (!EMAIL_PATTERN.test(trimmed)) {
         ctx.addIssue({
           code: "custom",
-          message: "Enter a valid email address",
+          message: word("cvs.validation.emailInvalid"),
         });
       }
     }),
-  phone: z.string().max(40, "Keep this under 40 characters"),
-  summary: requiredText("A summary is required", 4000),
+  phone: z.string().max(40, invalid("maxLength", { max: 40 })),
+  summary: requiredText(invalid("summaryRequired"), 4000),
   links: z
     .array(linkSchema)
     .refine(
@@ -262,7 +283,7 @@ export const baseCvSchema = z.object({
         items.every(
           (item) => isBlankLink(item) || (text(item.label) && text(item.url)),
         ),
-      "Every link needs a label and a URL. Remove the rows you do not want.",
+      invalid("links"),
     ),
   skills: z
     .array(skillCategorySchema)
@@ -271,7 +292,7 @@ export const baseCvSchema = z.object({
         items.every(
           (item) => isBlankSkillCategory(item) || text(item.category),
         ),
-      "Every skill category needs a name. Remove the categories you do not want.",
+      invalid("skills"),
     )
     .refine(
       (items) =>
@@ -280,7 +301,10 @@ export const baseCvSchema = z.object({
             within(BASE_CV_MAX.skillCategory, item.category) &&
             within(BASE_CV_MAX.skillKeyword, ...item.keywords),
         ),
-      `Keep every category name under ${BASE_CV_MAX.skillCategory} characters and every keyword under ${BASE_CV_MAX.skillKeyword}.`,
+      invalid("skillsLength", {
+        category: BASE_CV_MAX.skillCategory,
+        keyword: BASE_CV_MAX.skillKeyword,
+      }),
     ),
   experience: z
     .array(experienceSchema)
@@ -291,17 +315,17 @@ export const baseCvSchema = z.object({
             isBlankExperience(item) ||
             (text(item.company) && text(item.role) && hasStart(item)),
         ),
-      "Every role needs a company, a role and a start month and year (MM/yyyy). Remove the rows you do not want.",
+      invalid("experience"),
     )
     .refine(
       (items) => items.every((item) => hasValidFinish(item)),
-      "A finish must be a full MM/yyyy and cannot come before its start. Leave it empty for a role you are still in.",
+      invalid("experienceFinish"),
     ),
   projects: z
     .array(projectSchema)
     .refine(
       (items) => items.every((item) => isBlankProject(item) || text(item.name)),
-      "Every project needs a name. Remove the rows you do not want.",
+      invalid("projects"),
     ),
   education: z
     .array(educationSchema)
@@ -312,11 +336,11 @@ export const baseCvSchema = z.object({
             isBlankEducation(item) ||
             (text(item.institution) && text(item.degree) && hasStart(item)),
         ),
-      "Every qualification needs an institution, a degree and a start month and year (MM/yyyy). Remove the rows you do not want.",
+      invalid("education"),
     )
     .refine(
       (items) => items.every((item) => hasValidFinish(item)),
-      "A finish must be a full MM/yyyy and cannot come before its start. Leave it empty for a course you are still on.",
+      invalid("educationFinish"),
     )
     .refine(
       (items) =>
@@ -326,7 +350,7 @@ export const baseCvSchema = z.object({
             within(BASE_CV_MAX.educationDegree, item.degree) &&
             within(BASE_CV_MAX.educationArea, item.area),
         ),
-      `Keep every institution, degree and field of study under ${BASE_CV_MAX.educationInstitution} characters.`,
+      invalid("educationLength", { max: BASE_CV_MAX.educationInstitution }),
     ),
   certifications: z
     .array(certificationSchema)
@@ -337,14 +361,14 @@ export const baseCvSchema = z.object({
             isBlankCertification(item) ||
             (text(item.name) && text(item.issuer)),
         ),
-      "Every certification needs a name and an issuer. Remove the rows you do not want.",
+      invalid("certifications"),
     ),
   languages: z
     .array(languageSchema)
     .refine(
       (items) =>
         items.every((item) => isBlankLanguage(item) || text(item.name)),
-      "Every language needs a name. Remove the rows you do not want.",
+      invalid("languages"),
     ),
 });
 

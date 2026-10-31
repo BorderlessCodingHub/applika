@@ -3,6 +3,7 @@
 import type { FormEventHandler, ReactNode } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   CvFormSections,
@@ -10,6 +11,7 @@ import {
   useCvPreviewData,
 } from "@/components/base-cvs/cv-form-sections";
 import { CvDocumentPreview } from "@/components/base-cvs/cv-document-preview";
+import { CV_PREVIEW_COPY } from "@/components/base-cvs/cv-page-sheet";
 import { CvEditorFooter } from "@/components/base-cvs/cv-editor-footer";
 import type { CvFormValues } from "@/components/base-cvs/types";
 import { cn } from "@/lib/utils";
@@ -47,14 +49,15 @@ export interface BaseCvEditorProps {
 export function BaseCvEditor({
   form,
   onSubmit,
-  submitLabel = "Save CV",
+  submitLabel,
   onCancel,
-  cancelLabel = "Cancel",
+  cancelLabel,
   isSubmitting = false,
   actions,
   newItemId = defaultNewItemId,
   className,
 }: BaseCvEditorProps) {
+  const t = useTranslations("cvs.editor");
   const previewCv = useCvPreviewData(form.control);
 
   return (
@@ -99,14 +102,14 @@ export function BaseCvEditor({
           their height.
         */}
         <aside
-          aria-label="CV preview"
+          aria-label={CV_PREVIEW_COPY.asideLabel}
           className={cn(
             "min-w-0 space-y-2",
             "md:sticky md:top-0 md:flex md:max-h-editor-scrollport md:flex-col",
           )}
         >
           <p className="shrink-0 text-xs font-medium tracking-wide-label text-muted-foreground uppercase">
-            Live preview
+            {CV_PREVIEW_COPY.livePreview}
           </p>
           <CvDocumentPreview cv={previewCv} className="md:min-h-0 md:flex-1" />
         </aside>
@@ -131,14 +134,14 @@ export function BaseCvEditor({
             disabled={isSubmitting}
             onClick={onCancel}
           >
-            {cancelLabel}
+            {cancelLabel ?? t("cancel")}
           </Button>
         ) : null}
         <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
           {isSubmitting ? (
             <Loader2 aria-hidden className="animate-spin" />
           ) : null}
-          {submitLabel}
+          {submitLabel ?? t("save")}
         </Button>
       </CvEditorFooter>
     </form>

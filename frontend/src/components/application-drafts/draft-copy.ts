@@ -1,6 +1,9 @@
 import { formatDistanceStrict } from "date-fns";
 import { isAxiosError } from "axios";
 
+import { dateFnsLocale } from "@/i18n/date-locale";
+import { intlLocale } from "@/i18n/intl-locale";
+import { getTranslatorLocale, word } from "@/i18n/translator";
 import { apiErrorMessage } from "@/lib/api-error-message";
 
 export type DraftStep = "application" | "cv";
@@ -17,72 +20,30 @@ export const DRAFT_REQUIREMENT_ORDER: readonly DraftRequirement[] = [
   "cv",
 ];
 
-const REQUIREMENT_LABEL: Record<DraftRequirement, string> = {
-  company: "company",
-  role: "role",
-  platform: "platform",
-  cv: "CV copy",
-};
-
 export const NEW_WITH_CV_HREF = "/applications/new-with-cv";
 
 export function draftResumeHref(draftId: string): string {
   return `${NEW_WITH_CV_HREF}?id=${encodeURIComponent(draftId)}`;
 }
 
-export const DRAFT_COPY = {
-  pageTitle: "New application with CV",
-  pageSubtitle:
-    "Fill in the application, then tailor a copy of one of your master CVs. It saves as a draft once company, role and platform are set.",
-  backToApplications: "Back to applications",
-  stepsLabel: "Steps",
-  steps: {
-    application: {
-      number: 1,
-      title: "Application",
-      hint: "Company, role, platform",
-    },
-    cv: { number: 2, title: "CV", hint: "A copy of a master CV" },
-  },
-  continueToCv: "Continue to CV",
-  cancel: "Cancel",
-  back: "Back",
-  finish: "Finish",
-  saving: "Saving...",
-  saved: "Saved",
-  notSaved: "Not saved",
-  requiredNotSaved: "Not saved: company, role and platform are required",
-  retry: "Retry",
-  loading: "Loading this draft",
-  notFoundTitle: "This draft is not available",
-  notFoundBody:
-    "It may have been finished or deleted. Finished drafts are in your applications list.",
-  loadErrorTitle: "Could not load this draft",
-  loadErrorBody: "Something went wrong while opening it.",
-  tryAgain: "Try again",
-  goToApplications: "Go to applications",
-  noMasterCvTitle: "No master CV to copy yet",
-  noMasterCvBody:
-    "Step 2 starts from a copy of one of your master CVs. Write one first; this draft stays in Drafts on the applications page, ready to resume.",
-  noMasterCvCta: "Create your first CV",
-} as const;
+/**
+ * The draft flow's on-screen words live in `drafts.*` (both message files).
+ * Components read them with `useTranslations("drafts…")`, which subscribes to
+ * the language; the helpers below read the active language at call time
+ * (`word`), so a component calling them must subscribe too.
+ */
 
-export const DRAFTS_SECTION_COPY = {
-  title: "Drafts",
-  emptyTitle: "No drafts yet.",
-  description: "Applications you started with a CV. They save as you type.",
-  resume: "Resume",
-  cvCopy: "CV copy",
-  loadError: "Could not load your drafts.",
-  retry: "Retry",
-  deleteTitle: "Delete this draft?",
-  deleteConfirm: "Delete draft",
-  cancel: "Cancel",
-} as const;
+export const DRAFT_STEP_NUMBER: Record<DraftStep, number> = {
+  application: 1,
+  cv: 2,
+};
 
+/** `Step 1: Application`, the stepper button's accessible name. */
 export function stepLabel(step: DraftStep): string {
-  const { number, title } = DRAFT_COPY.steps[step];
-  return `Step ${number}: ${title}`;
+  return word("drafts.steps.label", {
+    number: DRAFT_STEP_NUMBER[step],
+    title: word(`drafts.steps.${step}.title`),
+  });
 }
 
 /** `Missing: company, role, platform, CV copy`, always in on-screen order. */
@@ -90,11 +51,13 @@ export function missingLabel(missing: readonly DraftRequirement[]): string {
   const ordered = DRAFT_REQUIREMENT_ORDER.filter((item) =>
     missing.includes(item),
   );
-  return `Missing: ${ordered.map((item) => REQUIREMENT_LABEL[item]).join(", ")}`;
+  return word("drafts.requirement.missing", {
+    list: ordered.map((item) => word(`drafts.requirement.${item}`)).join(", "),
+  });
 }
 
 export function deleteDraftDescription(role: string, company: string): string {
-  return `The draft for ${role} at ${company} and its CV copy are deleted for good. Your master CVs are untouched.`;
+  return word("drafts.section.deleteDescription", { role, company });
 }
 
 /** `Saved just now` under a minute (clock skew included), else `Saved 5 minutes ago`. */
@@ -103,9 +66,17 @@ export function lastSavedLabel(
   now: Date = new Date(),
 ): string {
   const saved = new Date(updatedAt);
-  if (Number.isNaN(saved.getTime())) return DRAFT_COPY.saved;
-  if (now.getTime() - saved.getTime() < 60_000) return "Saved just now";
-  return `Saved ${formatDistanceStrict(saved, now, { addSuffix: true, roundingMethod: "floor" })}`;
+  if (Number.isNaN(saved.getTime())) return word("drafts.page.saved");
+  if (now.getTime() - saved.getTime() < 60_000) {
+    return word("drafts.section.savedJustNow");
+  }
+  return word("drafts.section.savedAgo", {
+    distance: formatDistanceStrict(saved, now, {
+      addSuffix: true,
+      roundingMethod: "floor",
+      locale: dateFnsLocale(getTranslatorLocale()),
+    }),
+  });
 }
 
 /**
@@ -147,7 +118,7 @@ export function isNotFutureCalendarDay(
  */
 export function safeErrorMessage(
   error: unknown,
-  fallback = "Something went wrong. Try again.",
+  fallback: string = word("drafts.unknownError"),
 ): string {
   if (!isAxiosError(error)) return fallback;
   return apiErrorMessage(error.response?.data, fallback);
@@ -156,7 +127,7 @@ export function safeErrorMessage(
 export function lastSavedTitle(updatedAt: string): string {
   const saved = new Date(updatedAt);
   if (Number.isNaN(saved.getTime())) return "";
-  return saved.toLocaleString("en", {
+  return saved.toLocaleString(intlLocale(), {
     dateStyle: "medium",
     timeStyle: "short",
   });

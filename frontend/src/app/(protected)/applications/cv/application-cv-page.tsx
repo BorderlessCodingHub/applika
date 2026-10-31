@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { AxiosError } from "axios";
 import { ArrowLeft } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -60,6 +61,7 @@ function PageMessage({
   /** Announce it. Only for something that WENT WRONG, never for a static state. */
   alert?: boolean;
 }) {
+  const t = useTranslations("cvs.applicationCv");
   return (
     <div
       role={alert ? "alert" : undefined}
@@ -75,7 +77,7 @@ function PageMessage({
         size="sm"
         className="mt-4"
       >
-        Back to applications
+        {t("back")}
       </LinkButton>
     </div>
   );
@@ -108,6 +110,18 @@ function PageMessage({
  * Behind the `cvs` feature: without it, the app's "page not found" and no CV
  * request — the gate sits above every CV hook. The inner `jobs` check stays.
  */
+/** The route's Suspense fallback while `useSearchParams` resolves. */
+export function ApplicationCvPageFallback() {
+  const t = useTranslations("cvs.applicationCv");
+  return (
+    <div
+      aria-busy
+      aria-label={t("routeLoading")}
+      className="h-64 w-full animate-pulse rounded-xl bg-muted"
+    />
+  );
+}
+
 export function ApplicationCvPage() {
   return (
     <FeatureGate feature="cvs">
@@ -117,6 +131,7 @@ export function ApplicationCvPage() {
 }
 
 function ApplicationCv() {
+  const t = useTranslations("cvs.applicationCv");
   const beta = useHasFeature("cvs").stage === "beta";
   const searchParams = useSearchParams();
   const applicationId = searchParams.get("id");
@@ -322,19 +337,14 @@ function ApplicationCv() {
 
   function renderBody() {
     if (!applicationId) {
-      return (
-        <PageMessage
-          title="No application selected"
-          body="Open an application from your list to work on its CV copy."
-        />
-      );
+      return <PageMessage title={t("noIdTitle")} body={t("noIdBody")} />;
     }
 
     if (applicationLoading) {
       return (
         <div
           aria-busy
-          aria-label="Loading this application"
+          aria-label={t("loadingApplication")}
           className="grid gap-6 md:grid-cols-2"
         >
           <Skeleton className="h-96 w-full rounded-xl" />
@@ -347,11 +357,11 @@ function ApplicationCv() {
       return (
         <PageMessage
           alert
-          title="Could not open this application"
+          title={t("openErrorTitle")}
           body={
             applicationError
               ? getApiError(applicationError as AxiosError)
-              : "It is not in the cycle you are viewing. Switch cycles from the applications list and open its CV from there."
+              : t("notInCycle")
           }
         />
       );
@@ -393,7 +403,7 @@ function ApplicationCv() {
       return (
         <PageMessage
           alert
-          title="Could not load this CV copy"
+          title={t("loadErrorTitle")}
           body={getApiError(cvError as AxiosError)}
         />
       );
@@ -403,7 +413,7 @@ function ApplicationCv() {
       return (
         <div
           aria-busy
-          aria-label="Loading this CV copy"
+          aria-label={t("loadingCopy")}
           className="grid gap-6 md:grid-cols-2"
         >
           <Skeleton className="h-96 w-full rounded-xl" />
@@ -474,7 +484,7 @@ function ApplicationCv() {
               <CvDiffDownloadRow
                 onExportPdf={() => {}}
                 onExportMarkdown={() => {}}
-                disabledReason="Could not check the original master CV to compare against. Try reloading the page."
+                disabledReason={t("diffUnresolved")}
               />
             ) : undefined
           }
@@ -502,19 +512,19 @@ function ApplicationCv() {
           className="-ml-2 text-muted-foreground"
         >
           <ArrowLeft aria-hidden />
-          Back to applications
+          {t("back")}
         </LinkButton>
         <div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <h1 className="font-display text-2xl font-bold tracking-tight">
-              Application CV
+              {t("title")}
             </h1>
             {beta ? <BetaBadge /> : null}
           </div>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {application
               ? `${application.role} · ${application.company_name}`
-              : "This application's own copy of a master CV, edited for the job."}
+              : t("description")}
           </p>
         </div>
       </div>

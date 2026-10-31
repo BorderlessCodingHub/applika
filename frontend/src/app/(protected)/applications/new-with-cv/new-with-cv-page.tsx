@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { z } from "zod";
 
 import {
@@ -72,12 +73,29 @@ import { BetaBadge } from "@/components/features/beta-badge";
 import { FeatureGate } from "@/components/features/feature-gate";
 import { useHasFeature } from "@/hooks/use-features";
 import { useDebouncedAutosave } from "@/hooks/use-debounced-autosave";
+import { formatNumber } from "@/i18n/format-number";
+import { getTranslatorLocale, word } from "@/i18n/translator";
 import { services } from "@/services/services";
 import type { UpdateTailoredCvPayload } from "@/services/types/tailored-cv";
 import type { DraftInput } from "@/services/types/application-drafts";
 
 /** Server ceiling on `job_description`, mirrored from `application-fields.tsx`. */
 const JOB_DESCRIPTION_MAX = 50_000;
+
+/**
+ * A validation message read at validation time, so it is written in the
+ * active language (the side sheet's `applications.validation.*` words).
+ */
+function message(key: string) {
+  return { error: () => word(`applications.validation.${key}`) };
+}
+
+/** `Keep this under {max} characters`; "50000" in English, "50.000" in Portuguese. */
+function tooLongWords(max: number): string {
+  return word("drafts.validation.tooLong", {
+    max: formatNumber(max, getTranslatorLocale()),
+  });
+}
 
 /**
  * The same rules the side sheet's schema enforces (KODI-033 QA round 1, B1),
@@ -91,20 +109,20 @@ const JOB_DESCRIPTION_MAX = 50_000;
 const draftApplicationSchema = z
   .object({
     company: ZodType.ZodSchema,
-    platform_id: z.string().min(1, "Platform is required"),
+    platform_id: z.string().min(1, message("platformRequired")),
     role: z
       .string()
-      .min(1, "Role is required")
-      .max(200, "Keep this under 200 characters"),
-    mode: z.enum(ModeValues, { error: "Source is required" }),
+      .min(1, message("roleRequired"))
+      .max(200, { error: () => tooLongWords(200) }),
+    mode: z.enum(ModeValues, message("sourceRequired")),
     // See `isNotFutureCalendarDay` (frontend-qa KODI-036 round 1, B1): a
     // `Date`-object comparison here used to refuse a user's own TODAY once
     // their local calendar day was ahead of UTC's.
     application_date: z
       .string()
-      .min(1, "Application date is required")
-      .refine((v) => isNotFutureCalendarDay(v), "Date cannot be in the future"),
-    link_to_job: z.union([z.literal(""), z.httpUrl({ error: "Invalid url." })]),
+      .min(1, message("dateRequired"))
+      .refine((v) => isNotFutureCalendarDay(v), message("dateInFuture")),
+    link_to_job: z.union([z.literal(""), z.httpUrl(message("invalidUrl"))]),
     currency: z.enum(SalaryCurrencyValues).optional(),
     salary_period: z.enum(SalaryPeriodValues).optional(),
     expected_salary: z.nan().or(z.number()),
@@ -116,10 +134,9 @@ const draftApplicationSchema = z
     observation: z.string().optional(),
     job_description: z
       .string()
-      .max(
-        JOB_DESCRIPTION_MAX,
-        `Keep this under ${JOB_DESCRIPTION_MAX} characters`,
-      )
+      .max(JOB_DESCRIPTION_MAX, {
+        error: () => tooLongWords(JOB_DESCRIPTION_MAX),
+      })
       .optional(),
   })
   .superRefine((data, ctx) => {
@@ -130,7 +147,7 @@ const draftApplicationSchema = z
     ) {
       ctx.addIssue({
         code: "custom",
-        message: "Keep this under 200 characters",
+        message: tooLongWords(200),
         path: ["company", "name"],
       });
     }
@@ -142,14 +159,14 @@ const draftApplicationSchema = z
       if (!data.currency) {
         ctx.addIssue({
           code: "custom",
-          message: "Required when salary is set",
+          message: word("applications.validation.requiredWithSalary"),
           path: ["currency"],
         });
       }
       if (!data.salary_period) {
         ctx.addIssue({
           code: "custom",
-          message: "Required when salary is set",
+          message: word("applications.validation.requiredWithSalary"),
           path: ["salary_period"],
         });
       }
@@ -250,6 +267,18 @@ function draftInputsEqual(a: DraftInput, b: DraftInput): boolean {
  * Behind the `cvs` feature: without it, the app's "page not found" and no
  * draft or CV request. The inner `jobs` checks stay.
  */
+/** The route's Suspense fallback while `useSearchParams` resolves. */
+export function NewWithCvPageFallback() {
+  const t = useTranslations("drafts.page");
+  return (
+    <div
+      aria-busy
+      aria-label={t("pageLoading")}
+      className="h-64 w-full animate-pulse rounded-xl bg-muted"
+    />
+  );
+}
+
 export function NewWithCvPage() {
   return (
     <FeatureGate feature="cvs">
@@ -259,6 +288,9 @@ export function NewWithCvPage() {
 }
 
 function NewWithCv() {
+  // Subscribes the page to the language: the load error below is computed
+  // through the module translator (`safeErrorMessage`) during render.
+  useTranslations("drafts");
   // Computed once for all four headers, so the badge never blinks between states.
   const titleBadge =
     useHasFeature("cvs").stage === "beta" ? <BetaBadge /> : undefined;
@@ -660,9 +692,7 @@ function NewWithCv() {
     try {
       const validApplication = await applicationForm.trigger();
       if (!validApplication) {
-        setFinishError(
-          "Some application fields need fixing before this can finish.",
-        );
+        setFinishError(word("drafts.page.applicationNeedsFixing"));
         return;
       }
       // Flush: PUT is a full replace, so sending it once more right before
@@ -681,9 +711,7 @@ function NewWithCv() {
       if (hasCv) {
         const validCv = await cvForm.trigger();
         if (!validCv) {
-          setFinishError(
-            "Some CV copy fields need fixing before this can finish.",
-          );
+          setFinishError(word("drafts.page.cvNeedsFixing"));
           return;
         }
         const payload = toTailoredCvPayload(cvForm.getValues());
@@ -694,12 +722,10 @@ function NewWithCv() {
         id: draftId,
         applicationDate: savedApplicationDate ?? localCalendarDay(),
       });
-      toast.success("Application created");
+      toast.success(word("drafts.page.created"));
       router.push("/applications");
     } catch (error) {
-      setFinishError(
-        safeErrorMessage(error, "Could not finish this draft. Try again."),
-      );
+      setFinishError(safeErrorMessage(error, word("drafts.page.finishFailed")));
     }
   }, [
     draftId,

@@ -8,8 +8,8 @@ import {
   RotateCcwIcon,
   TriangleAlertIcon,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
-import { DRAFT_COPY } from "@/components/application-drafts/draft-copy";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,7 @@ export function DraftPageHeader({
   titleBadge,
   className,
 }: DraftPageHeaderProps) {
+  const t = useTranslations("drafts.page");
   return (
     <header
       data-slot="draft-page-header"
@@ -45,17 +46,17 @@ export function DraftPageHeader({
           className="-ml-2 w-fit text-muted-foreground"
         >
           <ArrowLeftIcon aria-hidden data-icon="inline-start" />
-          {DRAFT_COPY.backToApplications}
+          {t("backToApplications")}
         </LinkButton>
         <div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground sm:text-3xl">
-              {DRAFT_COPY.pageTitle}
+              {t("pageTitle")}
             </h1>
             {titleBadge}
           </div>
           <p className="mt-1 max-w-2xl text-sm text-pretty text-muted-foreground">
-            {subtitle || DRAFT_COPY.pageSubtitle}
+            {subtitle || t("pageSubtitle")}
           </p>
         </div>
       </div>
@@ -65,10 +66,11 @@ export function DraftPageHeader({
 }
 
 export function DraftLoading({ className }: { className?: string }) {
+  const t = useTranslations("drafts.page");
   return (
     <div
       aria-busy
-      aria-label={DRAFT_COPY.loading}
+      aria-label={t("loading")}
       data-slot="draft-loading"
       className={cn("flex flex-col gap-4", className)}
     >
@@ -95,6 +97,7 @@ export function DraftLoadMessage({
   onRetry,
   className,
 }: DraftLoadMessageProps) {
+  const t = useTranslations("drafts.page");
   const notFound = kind === "not-found";
   const Icon = notFound ? FileSearchIcon : TriangleAlertIcon;
 
@@ -116,18 +119,16 @@ export function DraftLoadMessage({
         )}
       />
       <p className="text-sm font-medium text-foreground">
-        {notFound ? DRAFT_COPY.notFoundTitle : DRAFT_COPY.loadErrorTitle}
+        {notFound ? t("notFoundTitle") : t("loadErrorTitle")}
       </p>
       <p className="mt-1 max-w-sm text-sm text-pretty text-muted-foreground">
-        {notFound
-          ? DRAFT_COPY.notFoundBody
-          : detail || DRAFT_COPY.loadErrorBody}
+        {notFound ? t("notFoundBody") : detail || t("loadErrorBody")}
       </p>
       <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
         {!notFound && onRetry ? (
           <Button type="button" variant="outline" size="sm" onClick={onRetry}>
             <RotateCcwIcon aria-hidden data-icon="inline-start" />
-            {DRAFT_COPY.tryAgain}
+            {t("tryAgain")}
           </Button>
         ) : null}
         <LinkButton
@@ -135,7 +136,7 @@ export function DraftLoadMessage({
           variant={notFound ? "default" : "ghost"}
           size="sm"
         >
-          {DRAFT_COPY.goToApplications}
+          {t("goToApplications")}
         </LinkButton>
       </div>
     </div>
@@ -150,6 +151,7 @@ export function DraftNoMasterCv({
   newCvHref?: string;
   className?: string;
 }) {
+  const t = useTranslations("drafts.page");
   return (
     <div
       data-slot="draft-no-master-cv"
@@ -162,13 +164,13 @@ export function DraftNoMasterCv({
         <FilePenLineIcon aria-hidden className="size-6" />
       </span>
       <h2 className="font-display text-base font-semibold text-foreground">
-        {DRAFT_COPY.noMasterCvTitle}
+        {t("noMasterCvTitle")}
       </h2>
       <p className="mt-1.5 max-w-md text-sm text-pretty text-muted-foreground">
-        {DRAFT_COPY.noMasterCvBody}
+        {t("noMasterCvBody")}
       </p>
       <LinkButton href={newCvHref} className="mt-5">
-        {DRAFT_COPY.noMasterCvCta}
+        {t("noMasterCvCta")}
       </LinkButton>
     </div>
   );

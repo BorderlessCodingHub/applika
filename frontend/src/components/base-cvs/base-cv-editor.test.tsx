@@ -15,12 +15,12 @@ import {
   sectionErrorMessage,
   toBaseCvPayload,
 } from "./base-cv-schema";
-import { BASE_CV_LIMIT_REASON, NewCvCard } from "./new-cv-card";
+import { NEW_CV_COPY, NewCvCard } from "./new-cv-card";
 import {
   BASE_CVS_MAX,
-  CV_PDF_EXPORT_LABEL,
   type BaseCv,
   type CvFormValues,
+  CV_EXPORT_COPY,
 } from "./types";
 
 /**
@@ -607,7 +607,7 @@ describe("BaseCvEditor", () => {
     // The `actions` slot is what the PDF export hangs off. Saving is still the
     // primary action; the export sits beside it and neither disables the other.
     expect(
-      screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL }),
+      screen.getByRole("button", { name: CV_EXPORT_COPY.pdfLabel }),
     ).toBeEnabled();
     expect(screen.getByRole("button", { name: "Create CV" })).toBeEnabled();
   });
@@ -651,6 +651,25 @@ describe("BaseCvEditor", () => {
         start: "2018-09",
         end: "2019-09",
       },
+    ]);
+  });
+
+  it("lists the language levels in English, word for word", async () => {
+    const user = userEvent.setup();
+    render(<Harness onValid={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "Add language" }));
+    const row = screen.getByRole("group", { name: "language 1" });
+    await user.click(within(row).getByRole("combobox", { name: "Level" }));
+
+    expect(
+      screen.getAllByRole("option").map((option) => option.textContent),
+    ).toEqual([
+      "Native",
+      "Proficient",
+      "Conversational",
+      "Read/Comprehend",
+      "Basic",
     ]);
   });
 
@@ -1058,12 +1077,12 @@ describe("NewCvCard at the cap", () => {
     render(<NewCvCard href="/cvs/new" count={BASE_CVS_MAX} />);
 
     // Visible text, not a tooltip and not a title attribute.
-    const reason = screen.getByText(BASE_CV_LIMIT_REASON);
+    const reason = screen.getByText(NEW_CV_COPY.limitReason);
     expect(reason).toBeVisible();
-    expect(BASE_CV_LIMIT_REASON).toContain("the limit is three");
+    expect(NEW_CV_COPY.limitReason).toContain("the limit is three");
     expect(
       screen.getByRole("button", { name: "New master CV" }),
-    ).toHaveAccessibleDescription(BASE_CV_LIMIT_REASON);
+    ).toHaveAccessibleDescription(NEW_CV_COPY.limitReason);
   });
 
   it("offers the create link while a slot is free, and counts what is left", () => {
@@ -1074,6 +1093,6 @@ describe("NewCvCard at the cap", () => {
       "/cvs/new",
     );
     expect(screen.getByText("2 of 3 slots left")).toBeInTheDocument();
-    expect(screen.queryByText(BASE_CV_LIMIT_REASON)).not.toBeInTheDocument();
+    expect(screen.queryByText(NEW_CV_COPY.limitReason)).not.toBeInTheDocument();
   });
 });
