@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { useLocale } from "next-intl";
 import { History, LoaderCircle } from "lucide-react";
 
 import { GithubIcon } from "@/components/brand-icons";
@@ -22,6 +23,8 @@ export function GithubRestoreCard({
   pending = false,
   className,
 }: GithubRestoreCardProps) {
+  // Subscribes: the copy getters read the active language at call time.
+  useLocale();
   const headingId = useId();
   const bodyId = useId();
 

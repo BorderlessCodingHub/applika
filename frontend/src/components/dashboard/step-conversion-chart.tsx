@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BarChart,
@@ -12,6 +13,7 @@ import {
   LabelList,
 } from "recharts";
 import { useStepConversion } from "@/hooks/use-statistics";
+import { useFormatNumber } from "@/i18n/format-number";
 import { CustomTooltip } from "./chart-styles";
 import { Card } from "../ui/card";
 import {
@@ -22,50 +24,54 @@ import {
 } from "@/components/timeline/timeline-options";
 import type { StepConversion } from "@/services/types/statistics";
 
-function renderInsideLabel(props: Record<string, unknown>) {
-  const { x, y, width, height, value } = props as {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    value: number;
+function insideLabel(formatNumber: (value: number) => string) {
+  return function renderInsideLabel(props: Record<string, unknown>) {
+    const { x, y, width, height, value } = props as {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      value: number;
+    };
+    if (!value || height < 24) return null;
+    return (
+      <text
+        x={x + width / 2}
+        y={y + 18}
+        fill="white"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={16}
+        fontWeight={700}
+      >
+        {formatNumber(value)}
+      </text>
+    );
   };
-  if (!value || height < 24) return null;
-  return (
-    <text
-      x={x + width / 2}
-      y={y + 18}
-      fill="white"
-      textAnchor="middle"
-      dominantBaseline="central"
-      fontSize={16}
-      fontWeight={700}
-    >
-      {value}
-    </text>
-  );
 }
 
-function renderTopLabel(props: Record<string, unknown>) {
-  const { x, y, width, value } = props as {
-    x: number;
-    y: number;
-    width: number;
-    value: number;
+function topLabel(formatNumber: (value: number) => string) {
+  return function renderTopLabel(props: Record<string, unknown>) {
+    const { x, y, width, value } = props as {
+      x: number;
+      y: number;
+      width: number;
+      value: number;
+    };
+    if (!value) return null;
+    return (
+      <text
+        x={x + width / 2}
+        y={y - 8}
+        fill="var(--muted-foreground)"
+        textAnchor="middle"
+        fontSize={14}
+        fontWeight={500}
+      >
+        {formatNumber(value)}%
+      </text>
+    );
   };
-  if (!value) return null;
-  return (
-    <text
-      x={x + width / 2}
-      y={y - 8}
-      fill="var(--muted-foreground)"
-      textAnchor="middle"
-      fontSize={14}
-      fontWeight={500}
-    >
-      {value}%
-    </text>
-  );
 }
 
 /**
@@ -93,15 +99,16 @@ export function buildConversionRows(rows: StepConversion[] | undefined) {
 
 export function StepConversionChart({ cycleId }: { cycleId?: string | null }) {
   const { data, isLoading } = useStepConversion(cycleId);
+  // Subscribes too: the stage labels (`stageLabel`) read the active language.
+  const t = useTranslations("dashboard.conversion");
+  const formatNumber = useFormatNumber();
   const rows = buildConversionRows(data);
 
   return (
     <Card className="animate-fade-in-up p-5">
       <div className="pb-4">
-        <h2 className="text-base">Stage Conversion</h2>
-        <p className="text-xs text-muted-foreground">
-          Percentage of applications that reached each stage
-        </p>
+        <h2 className="text-base">{t("title")}</h2>
+        <p className="text-xs text-muted-foreground">{t("description")}</p>
       </div>
       {isLoading ? (
         <Skeleton className="h-[240px] w-full rounded-lg" />
@@ -126,7 +133,7 @@ export function StepConversionChart({ cycleId }: { cycleId?: string | null }) {
             <YAxis
               tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
               stroke="none"
-              tickFormatter={(v: number) => `${v}%`}
+              tickFormatter={(v: number) => `${formatNumber(v)}%`}
               domain={[0, (max: number) => Math.ceil((max + 10) / 10) * 10]}
             />
             <Tooltip
@@ -142,9 +149,12 @@ export function StepConversionChart({ cycleId }: { cycleId?: string | null }) {
             <Bar dataKey="conversion_rate" radius={[4, 4, 0, 0]}>
               <LabelList
                 dataKey="total_applications"
-                content={renderInsideLabel}
+                content={insideLabel(formatNumber)}
               />
-              <LabelList dataKey="conversion_rate" content={renderTopLabel} />
+              <LabelList
+                dataKey="conversion_rate"
+                content={topLabel(formatNumber)}
+              />
               {rows.map((entry, i) => (
                 <Cell
                   key={i}

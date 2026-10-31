@@ -2,6 +2,7 @@
 
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslations } from "next-intl";
 import {
   AvailabilityType,
   SalaryCurrencyType,
@@ -43,6 +44,7 @@ export function UserProfileEditForm({
   onCancel,
 }: UserProfileEditFormProps) {
   const mutation = useMutateUserProfile();
+  const t = useTranslations("profile.form");
 
   const defaultFormValues = buildDefaultValues(user);
   const form = useForm<UserProfileFormData>({
@@ -119,7 +121,7 @@ export function UserProfileEditForm({
                 {mutation.isPending && (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 )}
-                Save
+                {t("save")}
               </Button>
               <Button
                 type="button"
@@ -129,51 +131,57 @@ export function UserProfileEditForm({
                 className="gap-1"
               >
                 <X className="h-3.5 w-3.5" />
-                Cancel
+                {t("cancel")}
               </Button>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>First Name</Label>
-              <Input {...form.register("first_name")} placeholder="John" />
+              <Label>{t("firstName")}</Label>
+              <Input
+                {...form.register("first_name")}
+                placeholder={t("firstNamePlaceholder")}
+              />
             </div>
             <div className="space-y-1.5">
-              <Label>Last Name</Label>
-              <Input {...form.register("last_name")} placeholder="Doe" />
+              <Label>{t("lastName")}</Label>
+              <Input
+                {...form.register("last_name")}
+                placeholder={t("lastNamePlaceholder")}
+              />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label>Bio</Label>
+            <Label>{t("bio")}</Label>
             <Textarea
               {...form.register("bio")}
-              placeholder="A short intro about yourself…"
+              placeholder={t("bioPlaceholder")}
               rows={2}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Current Role</Label>
+              <Label>{t("currentRole")}</Label>
               <Input
                 {...form.register("current_role")}
-                placeholder="e.g. Frontend Engineer"
+                placeholder={t("currentRolePlaceholder")}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Company</Label>
+              <Label>{t("company")}</Label>
               <Input
                 {...form.register("current_company")}
-                placeholder="e.g. Acme Inc."
+                placeholder={t("companyPlaceholder")}
               />
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <Label>Salary</Label>
+              <Label>{t("salary")}</Label>
               <div className="relative">
                 <span className="absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium text-muted-foreground">
                   {getCurrencySymbol(watchSalaryCurrency)}
@@ -189,7 +197,7 @@ export function UserProfileEditForm({
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Currency</Label>
+              <Label>{t("currency")}</Label>
               <Select
                 value={watchSalaryCurrency}
                 onValueChange={(v) =>
@@ -211,7 +219,7 @@ export function UserProfileEditForm({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Period</Label>
+              <Label>{t("period")}</Label>
               <Select
                 value={watchSalaryPeriod}
                 onValueChange={(v) =>
@@ -236,7 +244,7 @@ export function UserProfileEditForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Seniority Level</Label>
+              <Label>{t("seniorityLevel")}</Label>
               <Select
                 value={watchSeniorityLevel}
                 onValueChange={(v) =>
@@ -246,7 +254,7 @@ export function UserProfileEditForm({
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select" />
+                  <SelectValue placeholder={t("select")} />
                 </SelectTrigger>
                 <SelectContent>
                   {SelectOptions.SENIORITY.map((o) => (
@@ -258,7 +266,7 @@ export function UserProfileEditForm({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Experience (years)</Label>
+              <Label>{t("experienceYears")}</Label>
               <Input
                 type="number"
                 {...form.register("experience_years", {
@@ -271,14 +279,14 @@ export function UserProfileEditForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Location</Label>
+              <Label>{t("location")}</Label>
               <Input
                 {...form.register("location")}
-                placeholder="e.g. São Paulo, Brazil"
+                placeholder={t("locationPlaceholder")}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Availability</Label>
+              <Label>{t("availability")}</Label>
               <Select
                 value={watchAvailability}
                 onValueChange={(v) =>
@@ -288,7 +296,7 @@ export function UserProfileEditForm({
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select" />
+                  <SelectValue placeholder={t("select")} />
                 </SelectTrigger>
                 <SelectContent>
                   {SelectOptions.AVAILABILITY.map((o) => (
@@ -302,7 +310,7 @@ export function UserProfileEditForm({
           </div>
 
           <div className="space-y-1.5">
-            <Label>LinkedIn URL</Label>
+            <Label>{t("linkedinUrl")}</Label>
             <Input
               {...form.register("linkedin_url")}
               placeholder="https://linkedin.com/in/…"
@@ -310,12 +318,14 @@ export function UserProfileEditForm({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Tech Stack</Label>
+            <Label>{t("techStack")}</Label>
             <Input
               {...form.register("tech_stack_raw")}
               placeholder="React, TypeScript, Node.js, …"
             />
-            <p className="text-[11px] text-muted-foreground">Comma-separated</p>
+            <p className="text-[11px] text-muted-foreground">
+              {t("techStackHint")}
+            </p>
           </div>
         </form>
       </div>

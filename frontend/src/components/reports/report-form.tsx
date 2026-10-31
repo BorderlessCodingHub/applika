@@ -2,6 +2,7 @@
 
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslations } from "next-intl";
 import {
   Award,
   BarChart3,
@@ -27,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useFormatNumber } from "@/i18n/format-number";
 import {
   ReportDays,
   ReportDetailResponse,
@@ -79,6 +81,8 @@ export function ReportForm({
   });
 
   const { submit, isSubmitting } = useReportSubmit();
+  const t = useTranslations("reports.detail");
+  const formatNumber = useFormatNumber();
 
   const {
     register,
@@ -122,12 +126,14 @@ export function ReportForm({
           className="mb-3 flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ChevronLeft className="h-4 w-4" />
-          Back to Reports
+          {t("back")}
         </button>
         <h1 className="font-display text-2xl font-bold tracking-tight">
-          Report — Day {dayInterval} of {ReportDays.at(-1)}
+          {t("heading", { day: dayInterval, total: ReportDays.at(-1) ?? 0 })}
         </h1>
-        <span className="text-sm font-medium text-primary">Phase {phase}</span>
+        <span className="text-sm font-medium text-primary">
+          {t("phase", { phase })}
+        </span>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -136,28 +142,28 @@ export function ReportForm({
           <CardContent className="p-5">
             <SectionHeader
               icon={Bot}
-              title="Auto-Calculated Metrics"
-              description="These metrics are automatically calculated from your application data."
+              title={t("autoTitle")}
+              description={t("autoDescription")}
             />
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <StatCard
                 icon={Briefcase}
-                label="Applications"
+                label={t("applications")}
                 value={metrics?.applications_count ?? 0}
               />
               <StatCard
                 icon={Users}
-                label="Interviews Done"
+                label={t("interviewsDone")}
                 value={metrics?.interviews_completed_fortnight ?? 0}
               />
               <StatCard
                 icon={Award}
-                label="Offers"
+                label={t("offers")}
                 value={metrics?.offers_count ?? 0}
               />
               <StatCard
                 icon={TrendingUp}
-                label="Active Processes"
+                label={t("activeProcesses")}
                 value={metrics?.active_processes_count ?? 0}
               />
             </div>
@@ -167,12 +173,12 @@ export function ReportForm({
         {/* ── Manual Metrics ───────────────────────────────────────────── */}
         <Card>
           <CardContent className="p-5">
-            <SectionHeader icon={Target} title="Manual Metrics" />
+            <SectionHeader icon={Target} title={t("manualTitle")} />
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {/* Challenge Start Date */}
               <div>
-                <Label className="mb-1.5 block">Challenge Start Date</Label>
+                <Label className="mb-1.5 block">{t("startDate")}</Label>
                 <DatePickerInput
                   value={startDate || undefined}
                   disabled={!canSubmit || dayInterval > 1}
@@ -183,7 +189,6 @@ export function ReportForm({
                     });
                   }}
                   maxDate={new Date()}
-                  placeholder="Pick a date"
                   className={cn(
                     errors.start_date &&
                       "border-destructive focus-visible:ring-destructive",
@@ -196,7 +201,7 @@ export function ReportForm({
               <div>
                 <Label className="mb-1.5 flex items-center gap-1.5">
                   <Mic className="h-3.5 w-3.5 text-muted-foreground" />
-                  Mock Interviews
+                  {t("mockInterviews")}
                 </Label>
                 <Input
                   type="number"
@@ -216,7 +221,7 @@ export function ReportForm({
               <div>
                 <Label className="mb-1.5 flex items-center gap-1.5">
                   <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
-                  LinkedIn Posts
+                  {t("linkedinPosts")}
                 </Label>
                 <Input
                   type="number"
@@ -236,7 +241,7 @@ export function ReportForm({
               <div>
                 <Label className="mb-1.5 flex items-center gap-1.5">
                   <Network className="h-3.5 w-3.5 text-muted-foreground" />
-                  Strategic Connections
+                  {t("strategicConnections")}
                 </Label>
                 <Input
                   type="number"
@@ -263,7 +268,7 @@ export function ReportForm({
           <CardContent className="p-5">
             <SectionHeader
               icon={Flame}
-              title="Reflection"
+              title={t("reflection")}
               iconClass="text-amber-500 dark:text-amber-400"
             />
 
@@ -273,12 +278,12 @@ export function ReportForm({
                 <div className="mb-1.5 flex items-center justify-between">
                   <Label className="flex items-center gap-1.5">
                     <TrendingUp className="h-3.5 w-3.5 text-primary" />
-                    Biggest Win
+                    {t("biggestWin")}
                   </Label>
                   <CharCounter count={biggestWin.length} max={WIN_MAX} />
                 </div>
                 <Textarea
-                  placeholder="What was your biggest achievement this fortnight?"
+                  placeholder={t("biggestWinPlaceholder")}
                   className={cn(
                     "resize-none",
                     errors.biggest_win &&
@@ -294,7 +299,7 @@ export function ReportForm({
                 <div className="mb-1.5 flex items-center justify-between">
                   <Label className="flex items-center gap-1.5">
                     <HelpCircle className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
-                    Biggest Challenge
+                    {t("biggestChallenge")}
                   </Label>
                   <CharCounter
                     count={biggestChallenge.length}
@@ -302,7 +307,7 @@ export function ReportForm({
                   />
                 </div>
                 <Textarea
-                  placeholder="What was the biggest challenge you faced?"
+                  placeholder={t("biggestChallengePlaceholder")}
                   className={cn(
                     "resize-none",
                     errors.biggest_challenge &&
@@ -319,27 +324,27 @@ export function ReportForm({
         {/* ── Accumulated Totals ───────────────────────────────────────── */}
         <Card>
           <CardContent className="p-5">
-            <SectionHeader icon={BarChart3} title="Accumulated Totals" />
+            <SectionHeader icon={BarChart3} title={t("totalsTitle")} />
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <StatCard
                 icon={Briefcase}
-                label="Total Applications"
+                label={t("totalApplications")}
                 value={metrics?.total_applications_count ?? 0}
               />
               <StatCard
                 icon={Users}
-                label="Total Initial Screenings"
+                label={t("totalScreenings")}
                 value={metrics?.total_initial_screenings_count ?? 0}
               />
               <StatCard
                 icon={Percent}
-                label="Callback Rate"
-                value={`${((metrics?.callback_rate ?? 0) * 100).toFixed(1)}%`}
+                label={t("callbackRate")}
+                value={`${formatNumber((metrics?.callback_rate ?? 0) * 100, 1)}%`}
               />
               <StatCard
                 icon={Layers}
-                label="Offer Rate"
-                value={`${((metrics?.offer_rate ?? 0) * 100).toFixed(1)}%`}
+                label={t("offerRate")}
+                value={`${formatNumber((metrics?.offer_rate ?? 0) * 100, 1)}%`}
               />
             </div>
           </CardContent>
@@ -348,17 +353,20 @@ export function ReportForm({
         {/* ── Next Fortnight Goal ──────────────────────────────────────── */}
         <Card>
           <CardContent className="p-5">
-            <SectionHeader icon={Target} title="Next Fortnight Goal" />
+            <SectionHeader icon={Target} title={t("goalTitle")} />
             <p className="-mt-2 mb-4 text-xs text-muted-foreground">
-              What do you want to achieve in the next{" "}
-              <span className="font-semibold text-primary">14 days</span>?
+              {t.rich("goalPrompt", {
+                strong: (chunks) => (
+                  <span className="font-semibold text-primary">{chunks}</span>
+                ),
+              })}
             </p>
             <div>
               <div className="mb-1.5 flex justify-end">
                 <CharCounter count={nextGoal.length} max={GOAL_MAX} />
               </div>
               <Textarea
-                placeholder="Set a specific, measurable goal for the next fortnight..."
+                placeholder={t("goalPlaceholder")}
                 className={cn(
                   "min-h-[100px] resize-none",
                   errors.next_fortnight_goal &&
@@ -374,10 +382,10 @@ export function ReportForm({
         {/* ── Footer Actions ───────────────────────────────────────────── */}
         <div className="flex items-center justify-between pt-2">
           <Button type="button" variant="ghost" onClick={onCancel}>
-            Cancel
+            {t("cancel")}
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Submitting..." : "Submit Report"}
+            {isSubmitting ? t("submitting") : t("submit")}
           </Button>
         </div>
       </form>

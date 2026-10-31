@@ -1,3 +1,7 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+import { useFormatNumber } from "@/i18n/format-number";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "../ui/skeleton";
 
@@ -27,6 +31,7 @@ export function StatCard({
   label: string;
   value: string | number;
 }) {
+  const formatNumber = useFormatNumber();
   return (
     <div className="rounded-lg border border-border bg-secondary/40 p-4">
       <div className="mb-2 flex flex-col items-start gap-1.5 sm:flex-row sm:gap-2">
@@ -35,7 +40,9 @@ export function StatCard({
           {label}
         </span>
       </div>
-      <p className="font-numeric text-2xl font-semibold">{value}</p>
+      <p className="font-numeric text-2xl font-semibold">
+        {typeof value === "number" ? formatNumber(value) : value}
+      </p>
     </div>
   );
 }
@@ -67,6 +74,7 @@ export function SectionHeader({
 }
 
 export function CharCounter({ count, max }: { count: number; max: number }) {
+  const t = useTranslations("reports.detail");
   const exceeded = count > max;
   return (
     <span
@@ -75,7 +83,9 @@ export function CharCounter({ count, max }: { count: number; max: number }) {
         exceeded ? "font-medium text-destructive" : "text-muted-foreground",
       )}
     >
-      {exceeded ? `${count - max} over limit` : `${max - count} characters`}
+      {exceeded
+        ? t("overLimit", { count: count - max })
+        : t("remaining", { count: max - count })}
     </span>
   );
 }

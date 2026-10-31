@@ -2,25 +2,25 @@
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { BadgeCheck, ExternalLink, Loader2 } from "lucide-react";
+import { useLocale } from "next-intl";
 
 import { ConfirmMembershipForm } from "@/components/badges/confirm-membership-form";
 import { membershipAccess } from "@/components/badges/membership-badge";
 import { buttonVariants } from "@/components/ui/button";
 import { APP_CONFIG } from "@/config";
 import { useAuth } from "@/contexts/auth-context";
+import { liveCopy } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
 
-export const BADGE_GATE_COPY = {
-  noBadgeTitle: "Reports are for Borderless BASE and PSP members",
-  noBadgeWhy:
-    "Your Borderless account has no BASE or PSP membership on record. Biweekly reports are shared with your Borderless community, so they need one of those memberships.",
-  noBadgeRecent:
-    "Joined BASE or PSP recently? Sign out and sign in again to update your membership.",
-  visitBorderless: "Visit Borderless",
-  opensInNewTab: "Opens in a new tab.",
-  unconfirmedNote: "Your reports open as soon as your membership is confirmed.",
-  loading: "Loading",
-} as const;
+export const BADGE_GATE_COPY = liveCopy("badges.gate", [
+  "noBadgeTitle",
+  "noBadgeWhy",
+  "noBadgeRecent",
+  "visitBorderless",
+  "opensInNewTab",
+  "unconfirmedNote",
+  "loading",
+]);
 
 /** How long a confirmed gate waits for the reports' h1 before giving up on focus. */
 const HEADING_WAIT_MS = 5_000;
@@ -47,6 +47,8 @@ export function BadgeGateView({
   children,
   borderlessHref,
 }: BadgeGateViewProps) {
+  // Subscribes: the copy getters read the active language at call time.
+  useLocale();
   const rootRef = useRef<HTMLDivElement>(null);
   const previous = useRef(state);
 
@@ -115,6 +117,7 @@ export function BadgeGateView({
 }
 
 function NoBadgeExplanation({ borderlessHref }: { borderlessHref?: string }) {
+  useLocale();
   const newTabId = useId();
 
   return (

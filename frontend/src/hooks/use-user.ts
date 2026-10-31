@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AxiosError } from "axios";
 import { toast } from "sonner";
-
+import { word } from "@/i18n/translator";
 import { getApiError } from "@/lib/api-client";
 import { isTemporary, rateLimitNotice, retryAfterMs } from "@/lib/rate-limit";
 import { services } from "@/services/services";
@@ -30,10 +30,10 @@ export function useMutateUserProfile() {
     mutationFn: (data: UpdateUserPayload) => services.users.updateMe(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: USER_QUERY_KEY });
-      toast.success("Profile updated");
+      toast.success(word("profile.toast.updated"));
     },
     onError: (error) =>
-      toast.error(rateLimitNotice(error) ?? "Failed to update profile"),
+      toast.error(rateLimitNotice(error) ?? word("profile.toast.updateFailed")),
   });
 
   async function submit(data: UpdateUserPayload) {

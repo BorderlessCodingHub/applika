@@ -1,11 +1,15 @@
 "use client";
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePlatformStats } from "@/hooks/use-statistics";
+import { useFormatNumber } from "@/i18n/format-number";
 import { Card } from "../ui/card";
 
 export function PlatformBreakdown({ cycleId }: { cycleId?: string | null }) {
   const { data, isLoading } = usePlatformStats(cycleId);
+  const t = useTranslations("dashboard.platform");
+  const formatNumber = useFormatNumber();
 
   const { sorted, total } = useMemo(() => {
     if (!data?.length) return { sorted: [], total: 0 };
@@ -19,10 +23,8 @@ export function PlatformBreakdown({ cycleId }: { cycleId?: string | null }) {
   return (
     <Card className="animate-fade-in-up p-5">
       <div className="pb-4">
-        <h2 className="text-base">By Platform</h2>
-        <p className="text-xs text-muted-foreground">
-          Distribution of applications across job platforms
-        </p>
+        <h2 className="text-base">{t("title")}</h2>
+        <p className="text-xs text-muted-foreground">{t("description")}</p>
       </div>
       {isLoading ? (
         <div className="space-y-2.5">
@@ -45,11 +47,11 @@ export function PlatformBreakdown({ cycleId }: { cycleId?: string | null }) {
                 <div className="mt-[2px] grow border-b-2 border-dashed border-gray-600"></div>
 
                 <span className="shrink-0 text-right font-numeric font-semibold text-foreground">
-                  {p.total_applications}
+                  {formatNumber(p.total_applications)}
                 </span>
 
                 <span className="w-8 text-right text-xs text-muted-foreground">
-                  {pct.toFixed(1)}%
+                  {formatNumber(pct, 1)}%
                 </span>
 
                 <div className="h-2 w-16 overflow-hidden rounded-full bg-muted">

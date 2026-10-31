@@ -1,3 +1,6 @@
+"use client";
+
+import { useLocale } from "next-intl";
 import {
   CircleAlert,
   CircleCheck,
@@ -70,6 +73,8 @@ export function GithubRestoreNotice({
   onDismiss,
   className,
 }: GithubRestoreNoticeProps) {
+  // Subscribes: the copy getters read the active language at call time.
+  useLocale();
   const { role, icon: Icon, container, tile } = TONE[status];
 
   return (

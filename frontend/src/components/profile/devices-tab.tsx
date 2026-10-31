@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
+import { useLocale } from "next-intl";
 import {
   CircleAlert,
   History,
@@ -67,6 +68,8 @@ export function DevicesTab({
   isRevokingOthers = false,
   className,
 }: DevicesTabProps) {
+  // Subscribes: the copy getters read the active language at call time.
+  useLocale();
   const activeHeadingId = useId();
   const endedHeadingId = useId();
   const othersHintId = useId();

@@ -524,5 +524,299 @@
     "charactersLeft": "{count, number, ::group-off} characters",
     "cancel": "Cancel",
     "send": "Send feedback"
+  },
+  "profile": {
+    "tabs": {
+      "profile": "Profile",
+      "devices": "Devices"
+    },
+    "edit": "Edit",
+    "at": "at",
+    "details": "Details",
+    "company": "Company",
+    "salary": "Salary",
+    "seniority": "Seniority",
+    "experience": "Experience",
+    "experienceYears": "{count, plural, =1 {# year} other {# years}}",
+    "location": "Location",
+    "linkedinProfile": "Profile",
+    "techStack": "Tech Stack",
+    "badgesTitle": "Badges",
+    "badgesEarned": "{earned}/{total} earned",
+    "badge": {
+      "first_app": "First Step",
+      "ten_apps": "Getting Serious",
+      "fifty_apps": "Persistence",
+      "hundred_apps": "Centurion",
+      "first_offer": "First Offer",
+      "high_rate": "Sharpshooter"
+    },
+    "badgeDescription": {
+      "first_app": "Created your first application",
+      "ten_apps": "10 applications submitted",
+      "fifty_apps": "50 applications submitted",
+      "hundred_apps": "100 applications submitted",
+      "first_offer": "Received your first offer",
+      "high_rate": "Achieved 20%+ success rate"
+    },
+    "deleteAccount": {
+      "title": "Delete account",
+      "intro": "Once you delete your account, all of your data — applications, steps, reports, and profile — will be permanently removed. This action cannot be undone.",
+      "open": "Delete your account",
+      "warning": "This will permanently delete your account and all associated data.",
+      "itemApplications": "- All your job applications and their steps",
+      "itemReports": "- Your biweekly reports",
+      "itemProfile": "- Your profile information and preferences",
+      "itemCompanies": "- Companies you created (if not used by others)",
+      "phrase": "delete {username}",
+      "confirmLabel": "To confirm, type <b>{phrase}</b> below:",
+      "cancel": "Cancel",
+      "deleting": "Deleting...",
+      "confirm": "I understand, delete my account"
+    },
+    "form": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "firstName": "First Name",
+      "firstNamePlaceholder": "John",
+      "lastName": "Last Name",
+      "lastNamePlaceholder": "Doe",
+      "bio": "Bio",
+      "bioPlaceholder": "A short intro about yourself…",
+      "currentRole": "Current Role",
+      "currentRolePlaceholder": "e.g. Frontend Engineer",
+      "company": "Company",
+      "companyPlaceholder": "e.g. Acme Inc.",
+      "salary": "Salary",
+      "currency": "Currency",
+      "period": "Period",
+      "seniorityLevel": "Seniority Level",
+      "select": "Select",
+      "experienceYears": "Experience (years)",
+      "location": "Location",
+      "locationPlaceholder": "e.g. São Paulo, Brazil",
+      "availability": "Availability",
+      "linkedinUrl": "LinkedIn URL",
+      "techStack": "Tech Stack",
+      "techStackHint": "Comma-separated"
+    },
+    "toast": {
+      "updated": "Profile updated",
+      "updateFailed": "Failed to update profile"
+    },
+    "githubRestore": {
+      "privacy": "GitHub asks you to approve. applika reads your GitHub user id once and keeps no access to your account.",
+      "cardTitle": "Old GitHub account",
+      "cardBody": "Used applika with GitHub before? Restore that account's applications, cycles, reports and CVs, while this account still holds no data.",
+      "cardAction": "Restore data from GitHub",
+      "dismiss": "Dismiss notice",
+      "unavailable": "Restoring from GitHub is unavailable right now",
+      "notice": {
+        "restored": "Your old applika account is restored. It signs in with Borderless from now on.",
+        "not_found": "No old applika account was found for this GitHub account. Nothing was changed.",
+        "has_data": "Not restored: this account already holds data, and two accounts that both hold data are not merged.",
+        "already_bound": "Not restored: that old applika account is already linked to another Borderless account.",
+        "error": "The restore did not finish. Try again."
+      }
+    }
+  },
+  "devices": {
+    "activeTitle": "Active",
+    "activeDescription": "Browsers and CLIs signed in to your account. Revoke any you don't recognize.",
+    "endedTitle": "Ended (last 30 days)",
+    "endedEmpty": "No device has ended in the last 30 days.",
+    "thisDevice": "This device",
+    "revoke": "Revoke",
+    "revokeConfirm": "Revoke access",
+    "revokeBody": "It is signed out on its next request and has to sign in again to use Applika.",
+    "signOut": "Sign out",
+    "signOutTitle": "Sign out of this device?",
+    "signOutBody": "You are signed out here right away and taken to the login page.",
+    "signOutOthers": "Sign out all other devices",
+    "signOutOthersConfirm": "Sign out other devices",
+    "signOutOthersBody": "They are signed out on their next request and have to sign in again. This device stays signed in.",
+    "noOtherDevices": "No other device is signed in.",
+    "cancel": "Cancel",
+    "loading": "Loading devices",
+    "loadErrorTitle": "Could not load your devices",
+    "loadErrorBody": "Check your connection and try again.",
+    "retry": "Try again",
+    "emptyTitle": "No active devices",
+    "emptyBody": "Browsers and CLIs you sign in with appear here.",
+    "never": "Never",
+    "notRecorded": "Not recorded",
+    "revokeTitle": "Revoke access for {name}?",
+    "signOutOthersTitle": "{count, plural, =1 {Sign out 1 other device?} other {Sign out # other devices?}}",
+    "signInIp": "Signed in from {ip}",
+    "signInIpMissing": "Sign-in IP not recorded",
+    "revokeFailed": "Failed to revoke device",
+    "terms": {
+      "client": "Client",
+      "method": "How it signed in",
+      "ip": "IP address",
+      "granted": "Granted",
+      "lastUsed": "Last used",
+      "expires": "Expires",
+      "ended": "Ended"
+    },
+    "status": {
+      "active": "Active",
+      "signed_out": "Signed out",
+      "revoked": "Revoked",
+      "expired": "Expired"
+    },
+    "method": {
+      "borderless": "Borderless in the browser",
+      "github_web": "GitHub in the browser",
+      "cli_browser": "Approved in the browser",
+      "cli_device": "Approved with a device code",
+      "cli_legacy": "Older CLI sign-in"
+    }
+  },
+  "badges": {
+    "memberName": "Borderless {badge} member",
+    "gate": {
+      "noBadgeTitle": "Reports are for Borderless BASE and PSP members",
+      "noBadgeWhy": "Your Borderless account has no BASE or PSP membership on record. Biweekly reports are shared with your Borderless community, so they need one of those memberships.",
+      "noBadgeRecent": "Joined BASE or PSP recently? Sign out and sign in again to update your membership.",
+      "visitBorderless": "Visit Borderless",
+      "opensInNewTab": "Opens in a new tab.",
+      "unconfirmedNote": "Your reports open as soon as your membership is confirmed.",
+      "loading": "Loading"
+    },
+    "confirm": {
+      "title": "Sign in again to confirm your membership",
+      "body": "Enter your Borderless password so applika can read your membership again. You stay signed in.",
+      "submit": "Confirm membership",
+      "confirmed": "Membership confirmed",
+      "reasonExpired": "Your Borderless access expired.",
+      "reasonExpiredPaused": "Your Borderless access expired, so your {badge} badge is paused.",
+      "reasonRejected": "Borderless did not accept applika's last check of your membership.",
+      "reasonRejectedPaused": "Borderless did not accept applika's last check, so your {badge} badge is paused."
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Your application analytics at a glance",
+    "subtitlePast": "Viewing archived cycle",
+    "stats": {
+      "active": "Active",
+      "offers": "Offers",
+      "denials": "Denials",
+      "total": "Total",
+      "successRate": "Success Rate"
+    },
+    "trend": {
+      "title": "Application Trend",
+      "description": "Daily applications submitted over the last 30 days",
+      "series": "Total",
+      "seriesLabel": "Total applications"
+    },
+    "conversion": {
+      "title": "Stage Conversion",
+      "description": "Percentage of applications that reached each stage"
+    },
+    "avgDays": {
+      "title": "Avg Days / Stage",
+      "description": "Average number of days spent in each stage before progressing"
+    },
+    "platform": {
+      "title": "By Platform",
+      "description": "Distribution of applications across job platforms"
+    },
+    "mode": {
+      "title": "Active vs Passive",
+      "description": "Balance between applications you initiated vs. recruiter outreach",
+      "active": "Active",
+      "passive": "Passive"
+    }
+  },
+  "reports": {
+    "status": {
+      "submitted": "Submitted",
+      "pending": "Pending",
+      "overdue": "Overdue",
+      "future": "Future"
+    },
+    "list": {
+      "title": "My Reports <accent>— 120 Days</accent>",
+      "progress": "You are on <em>Day {day}</em> of the challenge",
+      "tip": "Tip",
+      "tipBody": "Reports are due every <strong>14 days</strong> during the 120-day challenge. Complete them on time to track your progress through each phase.",
+      "current": "Current",
+      "submitted": "Submitted",
+      "upcoming": "Upcoming",
+      "day": "Day {day}",
+      "phase": "Phase {phase}",
+      "view": "View",
+      "fill": "Fill Report",
+      "notAvailable": "Not available"
+    },
+    "detail": {
+      "back": "Back to Reports",
+      "heading": "Report — Day {day} of {total}",
+      "phase": "Phase {phase}",
+      "autoTitle": "Auto-Calculated Metrics",
+      "autoDescription": "These metrics are automatically calculated from your application data.",
+      "applications": "Applications",
+      "interviewsDone": "Interviews Done",
+      "offers": "Offers",
+      "activeProcesses": "Active Processes",
+      "manualTitle": "Manual Metrics",
+      "startDate": "Challenge Start Date",
+      "mockInterviews": "Mock Interviews",
+      "linkedinPosts": "LinkedIn Posts",
+      "strategicConnections": "Strategic Connections",
+      "reflection": "Reflection",
+      "biggestWin": "Biggest Win",
+      "biggestWinPlaceholder": "What was your biggest achievement this fortnight?",
+      "biggestChallenge": "Biggest Challenge",
+      "biggestChallengePlaceholder": "What was the biggest challenge you faced?",
+      "totalsTitle": "Accumulated Totals",
+      "totalApplications": "Total Applications",
+      "totalScreenings": "Total Initial Screenings",
+      "callbackRate": "Callback Rate",
+      "offerRate": "Offer Rate",
+      "goalTitle": "Next Fortnight Goal",
+      "goalPrompt": "What do you want to achieve in the next <strong>14 days</strong>?",
+      "goalPlaceholder": "Set a specific, measurable goal for the next fortnight...",
+      "cancel": "Cancel",
+      "submitting": "Submitting...",
+      "submit": "Submit Report",
+      "overLimit": "{count} over limit",
+      "remaining": "{count} characters"
+    },
+    "errors": {
+      "startDateRequired": "Start date is required",
+      "required": "Required",
+      "negative": "Cannot be negative",
+      "winRequired": "Biggest win is required",
+      "challengeRequired": "Biggest challenge is required",
+      "goalRequired": "Next fortnight goal is required",
+      "maxChars": "Maximum {max} characters exceeded"
+    },
+    "toast": {
+      "submitFailed": "Failed to submit report"
+    }
+  },
+  "cycles": {
+    "title": "Cycles",
+    "lead": "Manage your archived job search cycles. Deleting a cycle permanently removes all its applications, reports, and statistics.",
+    "emptyTitle": "No archived cycles yet",
+    "emptyBody": "When you start a new cycle from the header, your current applications and reports will be archived here.",
+    "created": "Created {date}",
+    "view": "View",
+    "delete": "Delete",
+    "dialogTitle": "Delete cycle permanently?",
+    "dialogBody": "This will permanently delete <b>{name}</b> and all its associated applications, reports, and statistics. This action cannot be undone.",
+    "cancel": "Cancel",
+    "deleting": "Deleting...",
+    "confirm": "Delete permanently",
+    "toast": {
+      "created": "New cycle started successfully",
+      "createFailed": "Failed to create cycle",
+      "deleted": "Cycle deleted permanently",
+      "deleteFailed": "Failed to delete cycle"
+    }
   }
 }

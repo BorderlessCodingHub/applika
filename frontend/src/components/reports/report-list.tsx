@@ -1,6 +1,7 @@
 "use client";
 
 import { Eye, FileText } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useReports } from "@/hooks/use-repports";
 import { useCycleContext } from "@/contexts/cycle-context";
 import { Button } from "@/components/ui/button";
@@ -86,6 +87,7 @@ function ReportRow({
   onFill?: () => void;
   onView?: () => void;
 }) {
+  const t = useTranslations("reports.list");
   const phase = LIST_PHASE[report.day] ?? 1;
   const effectiveStatus = getEffectiveStatus(report, currentDay);
   const isSubmitted = effectiveStatus === "submitted";
@@ -114,8 +116,10 @@ function ReportRow({
 
       {/* Label */}
       <div className="min-w-0 flex-1 basis-20">
-        <p className="text-sm leading-tight font-semibold">Day {report.day}</p>
-        <p className="text-xs text-muted-foreground">Phase {phase}</p>
+        <p className="text-sm leading-tight font-semibold">
+          {t("day", { day: report.day })}
+        </p>
+        <p className="text-xs text-muted-foreground">{t("phase", { phase })}</p>
       </div>
 
       {/* Status */}
@@ -131,7 +135,7 @@ function ReportRow({
             className="gap-1.5 text-muted-foreground hover:text-foreground"
           >
             <Eye className="h-3.5 w-3.5" />
-            View
+            {t("view")}
           </Button>
         ) : onFill ? (
           <Button
@@ -141,11 +145,11 @@ function ReportRow({
             className="gap-1.5 border-primary/40 text-primary hover:border-primary hover:bg-primary/10 hover:text-primary"
           >
             <FileText className="h-3.5 w-3.5" />
-            Fill Report
+            {t("fill")}
           </Button>
         ) : (
           <span className="pr-2 text-xs text-muted-foreground">
-            Not available
+            {t("notAvailable")}
           </span>
         )}
       </div>
@@ -156,6 +160,8 @@ function ReportRow({
 export function ReportsList({ onFillReport, onViewReport }: ReportsListProps) {
   const { selectedCycleId, isViewingPastCycle } = useCycleContext();
   const { reports, currentDay, isLoading } = useReports(selectedCycleId);
+  const t = useTranslations("reports.list");
+  const status = useTranslations("reports.status");
 
   if (isLoading) return <ListSkeleton />;
 
@@ -171,12 +177,19 @@ export function ReportsList({ onFillReport, onViewReport }: ReportsListProps) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight">
-            My Reports <span className="text-primary">— 120 Days</span>
+            {t.rich("title", {
+              accent: (chunks) => (
+                <span className="text-primary">{chunks}</span>
+              ),
+            })}
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            You are on{" "}
-            <span className="font-semibold text-primary">Day {currentDay}</span>{" "}
-            of the challenge
+            {t.rich("progress", {
+              day: currentDay,
+              em: (chunks) => (
+                <span className="font-semibold text-primary">{chunks}</span>
+              ),
+            })}
           </p>
         </div>
 
@@ -184,15 +197,15 @@ export function ReportsList({ onFillReport, onViewReport }: ReportsListProps) {
         <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 self-start text-xs text-muted-foreground sm:pt-1">
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            Submitted
+            {status("submitted")}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-yellow-400" />
-            Pending
+            {status("pending")}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-red-400" />
-            Overdue
+            {status("overdue")}
           </span>
         </div>
       </div>
@@ -200,20 +213,21 @@ export function ReportsList({ onFillReport, onViewReport }: ReportsListProps) {
       {/* Tip — visible right below the header */}
       <div className="flex items-start gap-3 rounded-lg border border-primary/25 bg-primary/5 px-4 py-3">
         <span className="mt-px shrink-0 text-xs font-bold tracking-wider text-primary uppercase">
-          Tip
+          {t("tip")}
         </span>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Reports are due every{" "}
-          <span className="font-semibold text-foreground">14 days</span> during
-          the 120-day challenge. Complete them on time to track your progress
-          through each phase.
+          {t.rich("tipBody", {
+            strong: (chunks) => (
+              <span className="font-semibold text-foreground">{chunks}</span>
+            ),
+          })}
         </p>
       </div>
 
       {/* Active: pending + overdue */}
       {active.length > 0 && (
         <div className="space-y-2">
-          <SectionLabel label="Current" count={active.length} />
+          <SectionLabel label={t("current")} count={active.length} />
           {active.map((report) => (
             <ReportRow
               key={report.day}
@@ -232,7 +246,7 @@ export function ReportsList({ onFillReport, onViewReport }: ReportsListProps) {
       {/* Submitted */}
       {submitted.length > 0 && (
         <div className="space-y-2">
-          <SectionLabel label="Submitted" count={submitted.length} />
+          <SectionLabel label={t("submitted")} count={submitted.length} />
           {submitted.map((report) => (
             <ReportRow
               key={report.day}
@@ -247,7 +261,7 @@ export function ReportsList({ onFillReport, onViewReport }: ReportsListProps) {
       {/* Upcoming */}
       {upcoming.length > 0 && (
         <div className="space-y-2">
-          <SectionLabel label="Upcoming" count={upcoming.length} />
+          <SectionLabel label={t("upcoming")} count={upcoming.length} />
           {upcoming.map((report) => (
             <ReportRow
               key={report.day}

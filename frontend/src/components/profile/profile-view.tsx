@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   AlertTriangle,
   Briefcase,
@@ -27,9 +28,19 @@ import {
 } from "@/components/badges/membership-badge";
 import { ConfirmMembershipNotice } from "./confirm-membership-notice";
 import { GithubRestoreCard } from "./github-restore-card";
+import { useIntlLocale } from "@/i18n/intl-locale";
 
 function formatLabel(v?: string) {
   return v?.replace(/_/g, " ") ?? "";
+}
+
+/** An option's label in the active language, else the raw value made readable. */
+function optionLabel(
+  options: readonly { value: string; label: string }[],
+  value?: string | null,
+) {
+  if (!value) return "";
+  return options.find((o) => o.value === value)?.label ?? formatLabel(value);
 }
 
 interface UserProfileViewProps {
@@ -49,7 +60,9 @@ export function UserProfileView({
   userStats,
   onEditClick,
 }: UserProfileViewProps) {
-  const badges = computeBadges(userStats);
+  const t = useTranslations("profile");
+  const intlLocale = useIntlLocale("en-US");
+  const badges = computeBadges(userStats, t);
   const earnedBadges = badges.filter((b) => b.earned);
   const lockedBadges = badges.filter((b) => !b.earned);
   const startRestore = useStartGithubRestore();
@@ -79,7 +92,7 @@ export function UserProfileView({
               onClick={onEditClick}
             >
               <Pencil className="h-3.5 w-3.5" />
-              Edit
+              {t("edit")}
             </Button>
           </div>
           <div className="mt-3">
@@ -100,7 +113,7 @@ export function UserProfileView({
                 <span
                   className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${AVAILABILITY_STYLES[user.availability] ?? AVAILABILITY_STYLES.not_looking}`}
                 >
-                  {formatLabel(user.availability)}
+                  {optionLabel(SelectOptions.AVAILABILITY, user.availability)}
                 </span>
               )}
             </div>
@@ -111,7 +124,7 @@ export function UserProfileView({
                 {user.current_company && (
                   <span>
                     {" "}
-                    at{" "}
+                    {t("at")}{" "}
                     <span className="font-medium text-foreground">
                       {user.current_company}
                     </span>
@@ -145,41 +158,47 @@ export function UserProfileView({
 
       {/* Info grid */}
       <div className="rounded-xl bg-card p-6 shadow-card">
-        <h2 className="mb-4 text-sm font-semibold text-foreground">Details</h2>
+        <h2 className="mb-4 text-sm font-semibold text-foreground">
+          {t("details")}
+        </h2>
         <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
           {user.current_company && (
             <InfoItem
               icon={Building}
-              label="Company"
+              label={t("company")}
               value={user.current_company}
             />
           )}
           {user.current_salary != null && (
             <InfoItem
               icon={Briefcase}
-              label="Salary"
-              value={`${currencySymbol}${user.current_salary.toLocaleString()}${periodLabel ? ` / ${periodLabel}` : ""}`}
+              label={t("salary")}
+              value={`${currencySymbol}${user.current_salary.toLocaleString(intlLocale)}${periodLabel ? ` / ${periodLabel}` : ""}`}
               tabular
             />
           )}
           {user.seniority_level && (
             <InfoItem
               icon={Award}
-              label="Seniority"
-              value={formatLabel(user.seniority_level)}
+              label={t("seniority")}
+              value={optionLabel(SelectOptions.SENIORITY, user.seniority_level)}
               capitalize
             />
           )}
           {user.experience_years != null && (
             <InfoItem
               icon={Calendar}
-              label="Experience"
-              value={`${user.experience_years} year${user.experience_years !== 1 ? "s" : ""}`}
+              label={t("experience")}
+              value={t("experienceYears", { count: user.experience_years })}
               tabular
             />
           )}
           {user.location && (
-            <InfoItem icon={MapPin} label="Location" value={user.location} />
+            <InfoItem
+              icon={MapPin}
+              label={t("location")}
+              value={user.location}
+            />
           )}
           {user.linkedin_url && (
             <div className="flex items-start gap-2">
@@ -192,7 +211,7 @@ export function UserProfileView({
                   rel="noopener noreferrer"
                   className="block max-w-[180px] truncate text-sm text-primary hover:underline"
                 >
-                  Profile
+                  {t("linkedinProfile")}
                 </a>
               </div>
             </div>
@@ -206,7 +225,7 @@ export function UserProfileView({
           <div className="mb-3 flex items-center gap-1.5">
             <Code className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-sm font-semibold text-foreground">
-              Tech Stack
+              {t("techStack")}
             </h2>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -223,9 +242,14 @@ export function UserProfileView({
       <div className="@container/badges rounded-xl bg-card p-6 shadow-card">
         <div className="mb-4 flex items-center gap-1.5">
           <Trophy className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold text-foreground">Badges</h2>
+          <h2 className="text-sm font-semibold text-foreground">
+            {t("badgesTitle")}
+          </h2>
           <span className="ml-auto text-xs text-muted-foreground">
-            {earnedBadges.length}/{badges.length} earned
+            {t("badgesEarned", {
+              earned: earnedBadges.length,
+              total: badges.length,
+            })}
           </span>
         </div>
         {earnedBadges.length > 0 && (
@@ -297,8 +321,9 @@ function DeleteAccountCard({ username }: { username: string }) {
   const [confirmValue, setConfirmValue] = useState("");
   const [expanded, setExpanded] = useState(false);
   const deleteAccount = useDeleteAccount();
+  const t = useTranslations("profile.deleteAccount");
 
-  const confirmText = `delete ${username}`;
+  const confirmText = t("phrase", { username });
   const isConfirmed = confirmValue === confirmText;
 
   return (
@@ -307,7 +332,7 @@ function DeleteAccountCard({ username }: { username: string }) {
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-destructive" />
           <h2 className="text-sm font-semibold text-destructive">
-            Delete account
+            {t("title")}
           </h2>
         </div>
       </div>
@@ -315,32 +340,27 @@ function DeleteAccountCard({ username }: { username: string }) {
       <div className="px-6 py-5">
         {!expanded ? (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              Once you delete your account, all of your data — applications,
-              steps, reports, and profile — will be permanently removed. This
-              action cannot be undone.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("intro")}</p>
             <Button
               variant="destructive"
               size="sm"
               className="shrink-0"
               onClick={() => setExpanded(true)}
             >
-              Delete your account
+              {t("open")}
             </Button>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
               <p className="text-sm font-medium text-destructive">
-                This will permanently delete your account and all associated
-                data.
+                {t("warning")}
               </p>
               <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                <li>- All your job applications and their steps</li>
-                <li>- Your biweekly reports</li>
-                <li>- Your profile information and preferences</li>
-                <li>- Companies you created (if not used by others)</li>
+                <li>{t("itemApplications")}</li>
+                <li>{t("itemReports")}</li>
+                <li>{t("itemProfile")}</li>
+                <li>{t("itemCompanies")}</li>
               </ul>
             </div>
 
@@ -349,11 +369,14 @@ function DeleteAccountCard({ username }: { username: string }) {
                 htmlFor="delete-confirm"
                 className="text-sm text-muted-foreground"
               >
-                To confirm, type{" "}
-                <span className="font-semibold text-foreground">
-                  {confirmText}
-                </span>{" "}
-                below:
+                {t.rich("confirmLabel", {
+                  phrase: confirmText,
+                  b: (chunks) => (
+                    <span className="font-semibold text-foreground">
+                      {chunks}
+                    </span>
+                  ),
+                })}
               </label>
               <Input
                 id="delete-confirm"
@@ -374,7 +397,7 @@ function DeleteAccountCard({ username }: { username: string }) {
                   setConfirmValue("");
                 }}
               >
-                Cancel
+                {t("cancel")}
               </Button>
               <Button
                 variant="destructive"
@@ -382,9 +405,7 @@ function DeleteAccountCard({ username }: { username: string }) {
                 disabled={!isConfirmed || deleteAccount.isPending}
                 onClick={() => deleteAccount.mutate()}
               >
-                {deleteAccount.isPending
-                  ? "Deleting..."
-                  : "I understand, delete my account"}
+                {deleteAccount.isPending ? t("deleting") : t("confirm")}
               </Button>
             </div>
           </div>
@@ -403,12 +424,30 @@ interface BadgeDef {
   color: string;
 }
 
-function computeBadges(stats?: {
-  total_applications: number;
-  success_rate: number;
-  offers: number;
-  denials: number;
-}): BadgeDef[] {
+type BadgeId =
+  | "first_app"
+  | "ten_apps"
+  | "fifty_apps"
+  | "hundred_apps"
+  | "first_offer"
+  | "high_rate";
+
+function computeBadges(
+  stats:
+    | {
+        total_applications: number;
+        success_rate: number;
+        offers: number;
+        denials: number;
+      }
+    | undefined,
+  tr: ReturnType<typeof useTranslations<"profile">>,
+): BadgeDef[] {
+  const words = (id: BadgeId) => ({
+    id,
+    label: tr(`badge.${id}`),
+    description: tr(`badgeDescription.${id}`),
+  });
   const t = stats?.total_applications ?? 0;
   const o = stats?.offers ?? 0;
   const sr = stats?.success_rate ?? 0;
@@ -417,49 +456,37 @@ function computeBadges(stats?: {
   // outcome badges take the chart scale's green and amber.
   return [
     {
-      id: "first_app",
-      label: "First Step",
-      description: "Created your first application",
+      ...words("first_app"),
       icon: Star,
       earned: t >= 1,
       color: "color-mix(in oklab, var(--chart-1) 45%, var(--chart-5))",
     },
     {
-      id: "ten_apps",
-      label: "Getting Serious",
-      description: "10 applications submitted",
+      ...words("ten_apps"),
       icon: Flame,
       earned: t >= 10,
       color: "color-mix(in oklab, var(--chart-1) 65%, var(--chart-5))",
     },
     {
-      id: "fifty_apps",
-      label: "Persistence",
-      description: "50 applications submitted",
+      ...words("fifty_apps"),
       icon: Target,
       earned: t >= 50,
       color: "color-mix(in oklab, var(--chart-1) 85%, var(--chart-5))",
     },
     {
-      id: "hundred_apps",
-      label: "Centurion",
-      description: "100 applications submitted",
+      ...words("hundred_apps"),
       icon: Award,
       earned: t >= 100,
       color: "var(--chart-1)",
     },
     {
-      id: "first_offer",
-      label: "First Offer",
-      description: "Received your first offer",
+      ...words("first_offer"),
       icon: Trophy,
       earned: o >= 1,
       color: "var(--chart-2)",
     },
     {
-      id: "high_rate",
-      label: "Sharpshooter",
-      description: "Achieved 20%+ success rate",
+      ...words("high_rate"),
       icon: Zap,
       earned: sr >= 20 && t >= 5,
       color: "var(--chart-3)",

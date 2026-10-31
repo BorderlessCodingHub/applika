@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 
 import { useAuth } from "@/contexts/auth-context";
 import { UserProfileView } from "@/components/profile/profile-view";
@@ -68,6 +69,7 @@ export function ProfileDevices() {
 
 export function ProfilePage() {
   const [editing, setEditing] = useState(false);
+  const t = useTranslations("profile.tabs");
 
   const { user } = useAuth();
   const stats = useGeneralStats();
@@ -136,8 +138,8 @@ export function ProfilePage() {
       className="mx-auto w-full max-w-4xl gap-6"
     >
       <TabsList variant="line">
-        <TabsTrigger value="profile">Profile</TabsTrigger>
-        <TabsTrigger value="devices">Devices</TabsTrigger>
+        <TabsTrigger value="profile">{t("profile")}</TabsTrigger>
+        <TabsTrigger value="devices">{t("devices")}</TabsTrigger>
       </TabsList>
       <TabsContent value="profile">
         {editing ? (

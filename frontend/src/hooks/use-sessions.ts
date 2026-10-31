@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-
+import { word } from "@/i18n/translator";
 import { rateLimitNotice } from "@/lib/rate-limit";
 import { services } from "@/services/services";
 import type { UserSession } from "@/services/types/sessions";
@@ -22,7 +22,7 @@ export function useSessions() {
 }
 
 function revokeFailed(error: unknown) {
-  toast.error(rateLimitNotice(error) ?? "Failed to revoke device");
+  toast.error(rateLimitNotice(error) ?? word("devices.revokeFailed"));
 }
 
 /**

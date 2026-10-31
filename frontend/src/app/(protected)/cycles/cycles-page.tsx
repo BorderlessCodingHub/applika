@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Eye, History, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useCycles, useDeleteCycle } from "@/hooks/use-cycles";
 import { useCycleContext } from "@/contexts/cycle-context";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { Cycle } from "@/services/types/cycles";
 import { useRouter } from "next/navigation";
+import { useIntlLocale } from "@/i18n/intl-locale";
 
 function ListSkeleton() {
   return (
@@ -29,8 +31,9 @@ function ListSkeleton() {
   );
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, {
+/** "Oct 15, 2026" in English, "15 de out. de 2026" in Portuguese. */
+export function formatCycleDate(iso: string, intlLocale: string) {
+  return new Date(iso).toLocaleDateString(intlLocale, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -42,6 +45,8 @@ export function CyclesPage() {
   const { setSelectedCycleId } = useCycleContext();
   const router = useRouter();
   const [deleteTarget, setDeleteTarget] = useState<Cycle | null>(null);
+  const t = useTranslations("cycles");
+  const intlLocale = useIntlLocale("en-US");
 
   const deleteMutation = useDeleteCycle({
     onSuccess: () => {
@@ -54,12 +59,9 @@ export function CyclesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-bold tracking-tight">
-          Cycles
+          {t("title")}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Manage your archived job search cycles. Deleting a cycle permanently
-          removes all its applications, reports, and statistics.
-        </p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t("lead")}</p>
       </div>
 
       {isLoading ? (
@@ -68,11 +70,10 @@ export function CyclesPage() {
         <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border py-16 text-center">
           <History className="mb-3 h-10 w-10 text-muted-foreground/40" />
           <p className="text-sm font-medium text-muted-foreground">
-            No archived cycles yet
+            {t("emptyTitle")}
           </p>
           <p className="mt-1 max-w-xs text-xs text-muted-foreground/70">
-            When you start a new cycle from the header, your current
-            applications and reports will be archived here.
+            {t("emptyBody")}
           </p>
         </div>
       ) : (
@@ -91,7 +92,9 @@ export function CyclesPage() {
                   {cycle.name}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Created {formatDate(cycle.created_at)}
+                  {t("created", {
+                    date: formatCycleDate(cycle.created_at, intlLocale),
+                  })}
                 </p>
               </div>
 
@@ -106,7 +109,7 @@ export function CyclesPage() {
                   className="gap-1.5 text-muted-foreground hover:text-foreground"
                 >
                   <Eye className="h-3.5 w-3.5" />
-                  View
+                  {t("view")}
                 </Button>
                 <Button
                   size="sm"
@@ -115,7 +118,7 @@ export function CyclesPage() {
                   className="gap-1.5 text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  Delete
+                  {t("delete")}
                 </Button>
               </div>
             </div>
@@ -130,19 +133,21 @@ export function CyclesPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete cycle permanently?</AlertDialogTitle>
+            <AlertDialogTitle>{t("dialogTitle")}</AlertDialogTitle>
             <AlertDialogDescription className="text-justify">
-              This will permanently delete{" "}
-              <span className="font-semibold text-foreground">
-                {deleteTarget?.name}
-              </span>{" "}
-              and all its associated applications, reports, and statistics. This
-              action cannot be undone.
+              {t.rich("dialogBody", {
+                name: deleteTarget?.name ?? "",
+                b: (chunks) => (
+                  <span className="font-semibold text-foreground">
+                    {chunks}
+                  </span>
+                ),
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteMutation.isPending}>
-              Cancel
+              {t("cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() =>
@@ -151,7 +156,7 @@ export function CyclesPage() {
               disabled={deleteMutation.isPending}
               variant="destructive"
             >
-              {deleteMutation.isPending ? "Deleting..." : "Delete permanently"}
+              {deleteMutation.isPending ? t("deleting") : t("confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

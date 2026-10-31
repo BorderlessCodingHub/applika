@@ -524,5 +524,299 @@
     "charactersLeft": "{count, plural, =0 {# caracteres} one {# caractere} other {# caracteres}}",
     "cancel": "Cancelar",
     "send": "Enviar feedback"
+  },
+  "profile": {
+    "tabs": {
+      "profile": "Perfil",
+      "devices": "Dispositivos"
+    },
+    "edit": "Editar",
+    "at": "em",
+    "details": "Detalhes",
+    "company": "Empresa",
+    "salary": "Salário",
+    "seniority": "Senioridade",
+    "experience": "Experiência",
+    "experienceYears": "{count, plural, =1 {# ano} other {# anos}}",
+    "location": "Localização",
+    "linkedinProfile": "Perfil",
+    "techStack": "Tecnologias",
+    "badgesTitle": "Selos",
+    "badgesEarned": "{earned}/{total} conquistados",
+    "badge": {
+      "first_app": "Primeiro passo",
+      "ten_apps": "Levando a sério",
+      "fifty_apps": "Persistência",
+      "hundred_apps": "Centurião",
+      "first_offer": "Primeira oferta",
+      "high_rate": "Atirador de elite"
+    },
+    "badgeDescription": {
+      "first_app": "Criou sua primeira candidatura",
+      "ten_apps": "10 candidaturas enviadas",
+      "fifty_apps": "50 candidaturas enviadas",
+      "hundred_apps": "100 candidaturas enviadas",
+      "first_offer": "Recebeu sua primeira oferta",
+      "high_rate": "Alcançou 20%+ de taxa de sucesso"
+    },
+    "deleteAccount": {
+      "title": "Excluir conta",
+      "intro": "Ao excluir sua conta, todos os seus dados — candidaturas, etapas, relatórios e perfil — serão removidos permanentemente. Esta ação não pode ser desfeita.",
+      "open": "Excluir sua conta",
+      "warning": "Isto excluirá permanentemente sua conta e todos os dados associados.",
+      "itemApplications": "- Todas as suas candidaturas e as etapas delas",
+      "itemReports": "- Seus relatórios quinzenais",
+      "itemProfile": "- As informações e preferências do seu perfil",
+      "itemCompanies": "- Empresas que você criou (se ninguém mais as usa)",
+      "phrase": "excluir {username}",
+      "confirmLabel": "Para confirmar, digite <b>{phrase}</b> abaixo:",
+      "cancel": "Cancelar",
+      "deleting": "Excluindo...",
+      "confirm": "Entendo, excluir minha conta"
+    },
+    "form": {
+      "save": "Salvar",
+      "cancel": "Cancelar",
+      "firstName": "Nome",
+      "firstNamePlaceholder": "João",
+      "lastName": "Sobrenome",
+      "lastNamePlaceholder": "Silva",
+      "bio": "Bio",
+      "bioPlaceholder": "Uma breve apresentação sobre você…",
+      "currentRole": "Cargo atual",
+      "currentRolePlaceholder": "ex.: Engenheiro frontend",
+      "company": "Empresa",
+      "companyPlaceholder": "ex.: Acme Inc.",
+      "salary": "Salário",
+      "currency": "Moeda",
+      "period": "Período",
+      "seniorityLevel": "Nível de senioridade",
+      "select": "Selecione",
+      "experienceYears": "Experiência (anos)",
+      "location": "Localização",
+      "locationPlaceholder": "ex.: São Paulo, Brasil",
+      "availability": "Disponibilidade",
+      "linkedinUrl": "URL do LinkedIn",
+      "techStack": "Tecnologias",
+      "techStackHint": "Separadas por vírgula"
+    },
+    "toast": {
+      "updated": "Perfil atualizado",
+      "updateFailed": "Não foi possível atualizar o perfil"
+    },
+    "githubRestore": {
+      "privacy": "O GitHub pede sua aprovação. O Applika lê seu ID de usuário do GitHub uma vez e não mantém acesso à sua conta.",
+      "cardTitle": "Conta antiga do GitHub",
+      "cardBody": "Já usou o Applika com o GitHub? Restaure as candidaturas, os ciclos, os relatórios e os CVs daquela conta enquanto esta conta ainda não tem dados.",
+      "cardAction": "Restaurar dados do GitHub",
+      "dismiss": "Dispensar aviso",
+      "unavailable": "A restauração pelo GitHub está indisponível no momento",
+      "notice": {
+        "restored": "Sua conta antiga do Applika foi restaurada. A partir de agora, ela entra com a Borderless.",
+        "not_found": "Nenhuma conta antiga do Applika foi encontrada para esta conta do GitHub. Nada foi alterado.",
+        "has_data": "Não restaurada: esta conta já tem dados, e duas contas que têm dados não são mescladas.",
+        "already_bound": "Não restaurada: essa conta antiga do Applika já está vinculada a outra conta Borderless.",
+        "error": "A restauração não foi concluída. Tente novamente."
+      }
+    }
+  },
+  "devices": {
+    "activeTitle": "Ativos",
+    "activeDescription": "Navegadores e CLIs conectados à sua conta. Revogue qualquer um que você não reconheça.",
+    "endedTitle": "Encerrados (últimos 30 dias)",
+    "endedEmpty": "Nenhum dispositivo foi encerrado nos últimos 30 dias.",
+    "thisDevice": "Este dispositivo",
+    "revoke": "Revogar",
+    "revokeConfirm": "Revogar acesso",
+    "revokeBody": "Ele é desconectado na próxima solicitação e precisa entrar de novo para usar o Applika.",
+    "signOut": "Sair",
+    "signOutTitle": "Sair deste dispositivo?",
+    "signOutBody": "Você é desconectado aqui na hora e levado à página de entrada.",
+    "signOutOthers": "Desconectar os outros dispositivos",
+    "signOutOthersConfirm": "Desconectar outros dispositivos",
+    "signOutOthersBody": "Eles são desconectados na próxima solicitação e precisam entrar de novo. Este dispositivo continua conectado.",
+    "noOtherDevices": "Nenhum outro dispositivo está conectado.",
+    "cancel": "Cancelar",
+    "loading": "Carregando dispositivos",
+    "loadErrorTitle": "Não foi possível carregar seus dispositivos",
+    "loadErrorBody": "Verifique sua conexão e tente novamente.",
+    "retry": "Tentar de novo",
+    "emptyTitle": "Nenhum dispositivo ativo",
+    "emptyBody": "Os navegadores e CLIs em que você entrar aparecem aqui.",
+    "never": "Nunca",
+    "notRecorded": "Não registrado",
+    "revokeTitle": "Revogar o acesso de {name}?",
+    "signOutOthersTitle": "{count, plural, =1 {Desconectar 1 outro dispositivo?} other {Desconectar # outros dispositivos?}}",
+    "signInIp": "Entrou pelo IP {ip}",
+    "signInIpMissing": "IP de entrada não registrado",
+    "revokeFailed": "Não foi possível revogar o dispositivo",
+    "terms": {
+      "client": "Cliente",
+      "method": "Como entrou",
+      "ip": "Endereço IP",
+      "granted": "Concedido",
+      "lastUsed": "Último uso",
+      "expires": "Expira",
+      "ended": "Encerrado"
+    },
+    "status": {
+      "active": "Ativo",
+      "signed_out": "Desconectado",
+      "revoked": "Revogado",
+      "expired": "Expirado"
+    },
+    "method": {
+      "borderless": "Borderless no navegador",
+      "github_web": "GitHub no navegador",
+      "cli_browser": "Aprovado no navegador",
+      "cli_device": "Aprovado com código de dispositivo",
+      "cli_legacy": "Acesso por CLI antiga"
+    }
+  },
+  "badges": {
+    "memberName": "Membro Borderless {badge}",
+    "gate": {
+      "noBadgeTitle": "Os relatórios são para membros BASE e PSP da Borderless",
+      "noBadgeWhy": "Sua conta Borderless não tem associação BASE ou PSP registrada. Os relatórios quinzenais são compartilhados com sua comunidade Borderless, por isso precisam de uma dessas associações.",
+      "noBadgeRecent": "Entrou no BASE ou no PSP há pouco tempo? Saia e entre novamente para atualizar sua associação.",
+      "visitBorderless": "Visitar a Borderless",
+      "opensInNewTab": "Abre em uma nova aba.",
+      "unconfirmedNote": "Seus relatórios abrem assim que sua associação for confirmada.",
+      "loading": "Carregando"
+    },
+    "confirm": {
+      "title": "Entre novamente para confirmar sua associação",
+      "body": "Digite sua senha da Borderless para que o Applika leia sua associação novamente. Você continua conectado.",
+      "submit": "Confirmar associação",
+      "confirmed": "Associação confirmada",
+      "reasonExpired": "Seu acesso à Borderless expirou.",
+      "reasonExpiredPaused": "Seu acesso à Borderless expirou, então seu selo {badge} está pausado.",
+      "reasonRejected": "A Borderless não aceitou a última verificação da sua associação feita pelo Applika.",
+      "reasonRejectedPaused": "A Borderless não aceitou a última verificação do Applika, então seu selo {badge} está pausado."
+    }
+  },
+  "dashboard": {
+    "title": "Painel",
+    "subtitle": "Um resumo das suas candidaturas",
+    "subtitlePast": "Vendo um ciclo arquivado",
+    "stats": {
+      "active": "Ativas",
+      "offers": "Ofertas",
+      "denials": "Recusas",
+      "total": "Total",
+      "successRate": "Taxa de sucesso"
+    },
+    "trend": {
+      "title": "Tendência de candidaturas",
+      "description": "Candidaturas enviadas por dia nos últimos 30 dias",
+      "series": "Total",
+      "seriesLabel": "Total de candidaturas"
+    },
+    "conversion": {
+      "title": "Conversão por etapa",
+      "description": "Porcentagem de candidaturas que chegaram a cada etapa"
+    },
+    "avgDays": {
+      "title": "Média de dias / etapa",
+      "description": "Número médio de dias em cada etapa antes de avançar"
+    },
+    "platform": {
+      "title": "Por plataforma",
+      "description": "Distribuição das candidaturas entre as plataformas de vagas"
+    },
+    "mode": {
+      "title": "Ativas x passivas",
+      "description": "Equilíbrio entre candidaturas que você iniciou e contatos de recrutadores",
+      "active": "Ativas",
+      "passive": "Passivas"
+    }
+  },
+  "reports": {
+    "status": {
+      "submitted": "Enviado",
+      "pending": "Pendente",
+      "overdue": "Atrasado",
+      "future": "Futuro"
+    },
+    "list": {
+      "title": "Meus relatórios <accent>— 120 dias</accent>",
+      "progress": "Você está no <em>dia {day}</em> do desafio",
+      "tip": "Dica",
+      "tipBody": "Os relatórios vencem a cada <strong>14 dias</strong> durante o desafio de 120 dias. Entregue-os em dia para acompanhar seu progresso em cada fase.",
+      "current": "Atuais",
+      "submitted": "Enviados",
+      "upcoming": "Próximos",
+      "day": "Dia {day}",
+      "phase": "Fase {phase}",
+      "view": "Ver",
+      "fill": "Preencher",
+      "notAvailable": "Indisponível"
+    },
+    "detail": {
+      "back": "Voltar aos relatórios",
+      "heading": "Relatório — dia {day} de {total}",
+      "phase": "Fase {phase}",
+      "autoTitle": "Métricas calculadas automaticamente",
+      "autoDescription": "Estas métricas são calculadas automaticamente a partir dos dados das suas candidaturas.",
+      "applications": "Candidaturas",
+      "interviewsDone": "Entrevistas feitas",
+      "offers": "Ofertas",
+      "activeProcesses": "Processos ativos",
+      "manualTitle": "Métricas manuais",
+      "startDate": "Início do desafio",
+      "mockInterviews": "Entrevistas simuladas",
+      "linkedinPosts": "Posts no LinkedIn",
+      "strategicConnections": "Conexões estratégicas",
+      "reflection": "Reflexão",
+      "biggestWin": "Maior conquista",
+      "biggestWinPlaceholder": "Qual foi sua maior conquista nesta quinzena?",
+      "biggestChallenge": "Maior desafio",
+      "biggestChallengePlaceholder": "Qual foi o maior desafio que você enfrentou?",
+      "totalsTitle": "Totais acumulados",
+      "totalApplications": "Total de candidaturas",
+      "totalScreenings": "Total de triagens iniciais",
+      "callbackRate": "Taxa de retorno",
+      "offerRate": "Taxa de ofertas",
+      "goalTitle": "Meta da próxima quinzena",
+      "goalPrompt": "O que você quer alcançar nos próximos <strong>14 dias</strong>?",
+      "goalPlaceholder": "Defina uma meta específica e mensurável para a próxima quinzena...",
+      "cancel": "Cancelar",
+      "submitting": "Enviando...",
+      "submit": "Enviar relatório",
+      "overLimit": "{count} acima do limite",
+      "remaining": "{count} caracteres"
+    },
+    "errors": {
+      "startDateRequired": "A data de início é obrigatória",
+      "required": "Obrigatório",
+      "negative": "Não pode ser negativo",
+      "winRequired": "A maior conquista é obrigatória",
+      "challengeRequired": "O maior desafio é obrigatório",
+      "goalRequired": "A meta da próxima quinzena é obrigatória",
+      "maxChars": "Máximo de {max} caracteres excedido"
+    },
+    "toast": {
+      "submitFailed": "Não foi possível enviar o relatório"
+    }
+  },
+  "cycles": {
+    "title": "Ciclos",
+    "lead": "Gerencie seus ciclos de busca de emprego arquivados. Excluir um ciclo remove permanentemente todas as candidaturas, os relatórios e as estatísticas dele.",
+    "emptyTitle": "Nenhum ciclo arquivado ainda",
+    "emptyBody": "Quando você inicia um novo ciclo pelo cabeçalho, suas candidaturas e relatórios atuais são arquivados aqui.",
+    "created": "Criado em {date}",
+    "view": "Ver",
+    "delete": "Excluir",
+    "dialogTitle": "Excluir o ciclo permanentemente?",
+    "dialogBody": "Isto excluirá permanentemente <b>{name}</b> e todas as candidaturas, os relatórios e as estatísticas associados. Esta ação não pode ser desfeita.",
+    "cancel": "Cancelar",
+    "deleting": "Excluindo...",
+    "confirm": "Excluir permanentemente",
+    "toast": {
+      "created": "Novo ciclo iniciado",
+      "createFailed": "Não foi possível criar o ciclo",
+      "deleted": "Ciclo excluído permanentemente",
+      "deleteFailed": "Não foi possível excluir o ciclo"
+    }
   }
 }

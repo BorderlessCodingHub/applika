@@ -1,7 +1,11 @@
+"use client";
+
 import type * as React from "react";
 import { BadgeCheck } from "lucide-react";
+import { useLocale } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
+import { word } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
 import type { MembershipBadgeKey } from "@/services/types/users";
 
@@ -27,9 +31,12 @@ export function isMembershipBadgeKey(
   );
 }
 
-/** "Borderless PSP member": the chip's accessible name. */
+/**
+ * "Borderless PSP member": the chip's accessible name, in the active language
+ * ("BASE"/"PSP" are brand names and never change).
+ */
 export function membershipBadgeName(badge: MembershipBadgeKey): string {
-  return `Borderless ${MEMBERSHIP_BADGE_LABEL[badge]} member`;
+  return word("badges.memberName", { badge: MEMBERSHIP_BADGE_LABEL[badge] });
 }
 
 export type MembershipAccessState = "held" | "unconfirmed" | "none";
@@ -94,6 +101,8 @@ export function MembershipBadge({
   className,
   ...props
 }: MembershipBadgeProps) {
+  // Subscribes: `membershipBadgeName` reads the active language at call time.
+  useLocale();
   const member = purpose === "member";
 
   return (
