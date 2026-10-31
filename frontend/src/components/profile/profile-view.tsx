@@ -220,7 +220,7 @@ export function UserProfileView({
       )}
 
       {/* Badges */}
-      <div className="rounded-xl bg-card p-6 shadow-card">
+      <div className="@container/badges rounded-xl bg-card p-6 shadow-card">
         <div className="mb-4 flex items-center gap-1.5">
           <Trophy className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-sm font-semibold text-foreground">Badges</h2>
@@ -229,7 +229,7 @@ export function UserProfileView({
           </span>
         </div>
         {earnedBadges.length > 0 && (
-          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="mb-4 grid grid-cols-1 gap-3 @sm/badges:grid-cols-2 @xl/badges:grid-cols-3">
             {earnedBadges.map((b) => (
               <div
                 key={b.id}
@@ -256,7 +256,7 @@ export function UserProfileView({
           </div>
         )}
         {lockedBadges.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 @sm/badges:grid-cols-2 @xl/badges:grid-cols-3">
             {lockedBadges.map((b) => (
               <div
                 key={b.id}

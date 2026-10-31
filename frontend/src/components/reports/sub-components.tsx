@@ -29,9 +29,9 @@ export function StatCard({
 }) {
   return (
     <div className="rounded-lg border border-border bg-secondary/40 p-4">
-      <div className="mb-2 flex items-center gap-2">
-        <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
-        <span className="truncate text-xs font-medium text-muted-foreground">
+      <div className="mb-2 flex flex-col items-start gap-1.5 sm:flex-row sm:gap-2">
+        <Icon className="h-3.5 w-3.5 shrink-0 text-primary sm:mt-px" />
+        <span className="min-w-0 text-xs leading-snug font-medium text-muted-foreground">
           {label}
         </span>
       </div>

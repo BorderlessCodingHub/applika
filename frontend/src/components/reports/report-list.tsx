@@ -94,7 +94,7 @@ function ReportRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-4 rounded-lg border border-border bg-card px-4 py-3 transition-opacity",
+        "flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-card px-4 py-3 transition-opacity",
         isFuture && "opacity-50",
       )}
     >
@@ -113,7 +113,7 @@ function ReportRow({
       </div>
 
       {/* Label */}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 basis-20">
         <p className="text-sm leading-tight font-semibold">Day {report.day}</p>
         <p className="text-xs text-muted-foreground">Phase {phase}</p>
       </div>
@@ -122,7 +122,7 @@ function ReportRow({
       <ReportStatusBadge status={effectiveStatus} />
 
       {/* Action */}
-      <div className="ml-2 shrink-0">
+      <div className="ml-auto shrink-0 sm:ml-2">
         {isSubmitted ? (
           <Button
             size="sm"
@@ -181,7 +181,7 @@ export function ReportsList({ onFillReport, onViewReport }: ReportsListProps) {
         </div>
 
         {/* Legend */}
-        <div className="flex shrink-0 items-center gap-4 self-start text-xs text-muted-foreground sm:pt-1">
+        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 self-start text-xs text-muted-foreground sm:pt-1">
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
             Submitted

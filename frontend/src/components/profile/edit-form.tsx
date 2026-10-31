@@ -107,9 +107,9 @@ export function UserProfileEditForm({
           onSubmit={form.handleSubmit(handleSubmitClick)}
           className="-mt-8 space-y-5 px-6 pb-6"
         >
-          <div className="flex items-end justify-between">
+          <div className="flex items-end justify-between gap-3">
             <UserProfileAvatar user={user} />
-            <div className="mb-1 flex gap-2">
+            <div className="mb-1 flex flex-wrap justify-end gap-2">
               <Button
                 type="submit"
                 size="sm"

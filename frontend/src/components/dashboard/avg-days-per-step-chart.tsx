@@ -99,7 +99,8 @@ export function AvgDaysPerStepChart({ cycleId }: { cycleId?: string | null }) {
               dataKey="shortLabel"
               type="category"
               tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
-              width={84}
+              // Fits the longest pt-BR stage label ("Desafio para casa", 12px); 84 clipped it.
+              width={116}
               stroke="none"
             />
             <Tooltip

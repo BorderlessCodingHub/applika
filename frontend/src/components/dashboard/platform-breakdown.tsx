@@ -36,7 +36,10 @@ export function PlatformBreakdown({ cycleId }: { cycleId?: string | null }) {
             const pct = total > 0 ? (p.total_applications / total) * 100 : 0;
             return (
               <div key={p.id} className="mr-3 flex items-center gap-3">
-                <span className="w-auto shrink-0 truncate text-sm text-muted-foreground">
+                <span
+                  className="w-auto min-w-0 truncate text-sm text-muted-foreground"
+                  title={p.name}
+                >
                   {p.name}
                 </span>
                 <div className="mt-[2px] grow border-b-2 border-dashed border-gray-600"></div>

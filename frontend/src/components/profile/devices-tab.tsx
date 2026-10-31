@@ -153,7 +153,7 @@ export function DevicesTab({
                     onClick={(event) => {
                       if (othersLocked) event.preventDefault();
                     }}
-                    className="w-full hover:border-destructive/40 aria-disabled:opacity-60 sm:w-auto"
+                    className="h-auto min-h-8 w-full py-1.5 whitespace-normal hover:border-destructive/40 aria-disabled:opacity-60 sm:h-8 sm:w-auto sm:py-0 sm:whitespace-nowrap"
                   >
                     {isRevokingOthers ? (
                       <LoaderCircle

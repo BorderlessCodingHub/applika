@@ -80,13 +80,13 @@ export function CyclesPage() {
           {cycles.map((cycle) => (
             <div
               key={cycle.id}
-              className="flex items-center gap-4 rounded-lg border border-border bg-card px-4 py-4 transition-colors hover:bg-accent/30"
+              className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-lg border border-border bg-card px-4 py-4 transition-colors hover:bg-accent/30"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/15">
                 <History className="h-5 w-5 text-primary" />
               </div>
 
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 basis-40">
                 <p className="truncate text-sm leading-tight font-semibold">
                   {cycle.name}
                 </p>
@@ -95,7 +95,7 @@ export function CyclesPage() {
                 </p>
               </div>
 
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="ml-auto flex shrink-0 items-center gap-2">
                 <Button
                   size="sm"
                   variant="ghost"

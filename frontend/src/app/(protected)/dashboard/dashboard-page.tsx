@@ -28,12 +28,12 @@ export function DashboardPage() {
 
       <ApplicationTrendChart cycleId={selectedCycleId} />
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <StepConversionChart cycleId={selectedCycleId} />
         <AvgDaysPerStepChart cycleId={selectedCycleId} />
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <PlatformBreakdown cycleId={selectedCycleId} />
         <ActiveVsPassiveChart cycleId={selectedCycleId} />
       </div>
