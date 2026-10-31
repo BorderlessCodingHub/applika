@@ -109,6 +109,8 @@ The Portuguese (Brazil) words every message uses (`frontend/src/i18n/messages/pt
 
 2026-10-31: the owner delegated this review during the build ("do not make quedtios to me, pick the recommended ones, just create a report in the end of what you did"). The table is used as written; the owner reviews it in the build's final report.
 
+2026-10-31, screens part 2 and admin: the rows from "close (an application)" down were added during the build under the same delegation ("do not make quedtios to me, pick the recommended ones, just create a report in the end of what you did"); the owner reviews them in the build's final report.
+
 | en | pt-BR |
 |---|---|
 | application | candidatura |
@@ -184,6 +186,126 @@ The Portuguese (Brazil) words every message uses (`frontend/src/i18n/messages/pt
 | role | cargo |
 | stage | etapa |
 | "X at Y" (role at company) | "X em Y" |
+| close (an application) | encerrar |
+| Closed (application status) | Encerrada |
+| Reopen | Reabrir |
+| Active (application status) | Ativa |
+| outcome | resultado |
+| None (outcome) | Nenhum |
+| source (application mode) | origem |
+| application mode: Active / Passive | Ativa / Passiva |
+| job posting | anúncio da vaga |
+| job link | link da vaga |
+| job description | descrição da vaga |
+| expected salary | pretensão salarial |
+| salary range | faixa salarial |
+| work mode | modelo de trabalho |
+| experience level | senioridade |
+| salary period | período do salário |
+| currency | moeda |
+| amount | valor |
+| offer details | detalhes da oferta |
+| offered salary | salário oferecido |
+| advanced filters | filtros avançados |
+| Clear all | Limpar tudo |
+| From / To (filters) | De / Até |
+| Min / Max | Mín. / Máx. |
+| Only you | Só você |
+| event type | tipo de evento |
+| interview type | tipo de entrevista |
+| schedule (event time) | horário |
+| time zone | fuso horário |
+| reason (denied) | motivo |
+| Start / End | Início / Fim |
+| Save changes | Salvar alterações |
+| time-zone regions: Africa / America / Antarctica / Arctic / Asia / Atlantic / Australia / Europe / Indian / Pacific | África / América / Antártida / Ártico / Ásia / Atlântico / Austrália / Europa / Índico / Pacífico |
+| step (of a wizard) | passo ("etapa" stays the interview stage) |
+| Continue to CV | Seguir para o CV |
+| Finish | Concluir |
+| Resume (a draft) | Retomar |
+| Missing | Faltando |
+| Saving / Saved / Not saved | Salvando / Salvo / Não salvo |
+| slot (the CV limit) | espaço |
+| keyword | palavra-chave |
+| CV sections: summary / experience / education / skills / projects / certifications / languages / contact | resumo / experiência / formação / habilidades / projetos / certificações / idiomas / contato |
+| preview | pré-visualização |
+| tailor (a CV) | adaptar |
+| changes (diff) | alterações |
+| added / removed / changed / reordered | adicionado / removido / alterado / reordenado |
+| read-only | somente leitura |
+| source CV | CV de origem |
+| Copied from | Copiado de |
+| Download | Baixar |
+| Restore / Revert | Restaurar / Reverter |
+| original value | valor original |
+| Application CV | CV da candidatura |
+| CV label | nome do CV |
+| headline | título profissional |
+| bullets | tópicos |
+| highlights | destaques |
+| label (of a link) | rótulo |
+| issuer | emissor |
+| degree | grau |
+| field of study | área de estudo |
+| institution | instituição |
+| level | nível |
+| finish (of a period) | término |
+| location | localização |
+| full name | nome completo |
+| category | categoria |
+| Rename | Renomear |
+| Move up / Move down | Mover para cima / Mover para baixo |
+| CV language level: Native / Proficient / Conversational / Read/Comprehend / Basic | Nativo / Fluente / Conversação / Leitura e compreensão / Básico (menu label only; the stored value, preview and PDF stay English) |
+| link label | texto do link |
+| present (in a period, diffs) | atual (hints keep the PDF word "present") |
+| sort: Newest / Best fit | Recentes / Aderência |
+| best fit (saved-search summary) | melhor aderência |
+| source (job source filter) | fonte |
+| Sort | Ordenar |
+| More filters | Mais filtros |
+| tags | tags |
+| minimum fit / any fit | aderência mínima / qualquer aderência |
+| Published within | Publicada há no máximo |
+| Any time | Qualquer data |
+| Dismiss / Dismissed | Dispensar / Dispensada |
+| Start application | Iniciar candidatura |
+| Applied (job badge) | Enviada |
+| Matched / Missing (keywords) | Encontradas / Faltando |
+| verbatim copy | cópia fiel |
+| company website | site da empresa |
+| just now | agora mesmo |
+| Previous / Next (pager) | Anterior / Próxima |
+| Admin Console | Console de administração |
+| Report webhooks (nav tab / page title) | Webhooks / Webhooks de relatório |
+| User Management / Company Management | Gestão de usuários / Gestão de empresas |
+| Finalization Rate | Taxa de encerramento |
+| Activity Heatmap | Mapa de atividade |
+| Top Platforms / Top Companies | Principais plataformas / Principais empresas |
+| Seniority Distribution | Distribuição por senioridade |
+| User Growth | Crescimento de usuários |
+| Joined (column) | Cadastro |
+| Last Active | Última atividade |
+| Offers / Denials (counts) | Ofertas / Recusas |
+| visibility: All / Public / Private | Todas / Públicas / Privadas |
+| active / inactive (company) | ativa / inativa |
+| availability | disponibilidade |
+| unknown (seniority) | Desconhecida |
+| stage (of a feature) | fase ("etapa" stays the interview stage) |
+| General (feature stage) | Geral |
+| Release to everyone / Released | Liberar para todos / Liberado em |
+| Move back to beta | Voltar para beta |
+| beta list / beta users | lista beta / usuários beta |
+| key (feature key) | chave |
+| username | usuário (column), nome de usuário (sentences) |
+| Done | Pronto ("Concluir" stays Finish) |
+| email | e-mail |
+| run (job collection) / Run now | execução / Executar agora |
+| Last run / Last error | Última execução / Último erro |
+| run status: Failed / Blocked | Falhou / Bloqueada |
+| Never | Nunca |
+| masked (URL) | mascarada |
+| biweekly | quinzenal |
+| admin (users badge) | admin |
 
 Brand names are never translated: Applika, Borderless, GitHub, LinkedIn, BASE, PSP (also applika-cli, Discord).
 
