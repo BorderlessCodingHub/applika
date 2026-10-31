@@ -1,6 +1,8 @@
 import { formatDistanceStrict } from "date-fns";
 import { isAxiosError } from "axios";
 
+import { apiErrorMessage } from "@/lib/api-error-message";
+
 export type DraftStep = "application" | "cv";
 
 /** What stops a draft from being finished, in the order it is listed on screen. */
@@ -138,23 +140,17 @@ export function isNotFutureCalendarDay(
 }
 
 /**
- * `getApiError` returns FastAPI's `detail` UNGUARDED, and a 422's `detail` is
- * an array — rendering it directly into `<p>{message}</p>` throws "Objects
- * are not valid as a React child" (KODI-033 QA round 1, B1). Every place on
- * the draft page that shows a server message to the user goes through this
- * instead: a string `detail` is shown verbatim, anything else falls back to a
- * generic message.
+ * Every place on the draft page that shows a server message to the user goes
+ * through this: the error's code in the active language, else a string
+ * `detail` verbatim, else `fallback` (`lib/api-error-message.ts`). A 422's
+ * `detail` array never reaches `<p>{message}</p>`.
  */
 export function safeErrorMessage(
   error: unknown,
   fallback = "Something went wrong. Try again.",
 ): string {
-  if (isAxiosError(error)) {
-    const detail = (error.response?.data as { detail?: unknown } | undefined)
-      ?.detail;
-    if (typeof detail === "string" && detail.trim()) return detail;
-  }
-  return fallback;
+  if (!isAxiosError(error)) return fallback;
+  return apiErrorMessage(error.response?.data, fallback);
 }
 
 export function lastSavedTitle(updatedAt: string): string {

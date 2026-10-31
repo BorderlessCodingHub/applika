@@ -21,6 +21,7 @@ import {
   useSetFeatureOptOut,
   useSetFeatureStage,
 } from "@/hooks/use-admin";
+import { serverErrorMessage } from "@/lib/api-error-message";
 import type { FeatureStage } from "@/services/types/features";
 
 /** The beta list's page size (AC2): the API's default. */
@@ -28,12 +29,10 @@ export const FEATURE_USERS_PER_PAGE = 25;
 /** How long typing settles before a search request goes out. */
 export const FEATURE_SEARCH_DEBOUNCE_MS = 250;
 
-/** The server's string `detail`, or `null` (a 5xx body, a network error). */
+/** The error's words by code, else its string `detail`, else `null` (a 5xx page, a network error). */
 function serverDetail(error: unknown): string | null {
   if (!isAxiosError(error)) return null;
-  const detail = (error.response?.data as { detail?: unknown } | undefined)
-    ?.detail;
-  return typeof detail === "string" && detail.trim() ? detail : null;
+  return serverErrorMessage(error.response?.data);
 }
 
 /**

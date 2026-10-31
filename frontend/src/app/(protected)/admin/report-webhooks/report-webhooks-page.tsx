@@ -28,6 +28,7 @@ import {
   useDeleteReportWebhook,
   useUpdateReportWebhook,
 } from "@/hooks/use-admin";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import type {
   CreateReportWebhook,
   UpdateReportWebhook,
@@ -116,15 +117,14 @@ const ADD_SCHEMA = reportWebhookSchema("add");
 const EDIT_SCHEMA = reportWebhookSchema("edit");
 
 /**
- * The server's single `detail` string for a 404/409/422; a raw validation
- * error (a `detail` array) or a body with no words gets a fixed line.
+ * The error's words for a 404/409/422 by code (`lib/api-error-message.ts`);
+ * a body with no code the web knows and no string `detail` gets a fixed line.
  */
 function serverErrorFrom(err: AxiosError): string {
-  const detail = (err.response?.data as { detail?: unknown } | undefined)
-    ?.detail;
-  return typeof detail === "string"
-    ? detail
-    : "Could not save the webhook. Try again.";
+  return apiErrorMessage(
+    err.response?.data,
+    "Could not save the webhook. Try again.",
+  );
 }
 
 export function ReportWebhooksPage() {

@@ -110,15 +110,15 @@ describe("ConfirmMembershipForm", () => {
   });
 
   it.each([
-    [401, "Invalid email or password", undefined],
-    [403, "Verify your email on Borderless first", "email_unverified"],
+    [401, "Invalid email or password", "AUTH-1004"],
+    [403, "Verify your email on Borderless first", "AUTH-1005"],
     [
       409,
       "This is not the Borderless account linked to your applika account",
-      "binding_conflict",
+      "AUTH-1010",
     ],
     [429, "Too many sign-in attempts. Try again in 30 seconds.", undefined],
-    [503, "Borderless is unavailable, try again later", undefined],
+    [503, "Borderless is unavailable, try again later", "AUTH-1017"],
   ])("%i shows the server's words", async (status, detail, code) => {
     vi.mocked(services.auth.confirmMembership).mockRejectedValue(
       refusal(status, detail, code),

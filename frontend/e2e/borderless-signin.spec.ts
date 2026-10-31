@@ -168,7 +168,7 @@ test.describe("Borderless sign-in", () => {
     await page.goto("/welcome");
     await page.waitForURL("**/dashboard");
 
-    // AC15: no badge, no Reports entry, the API refuses with badge_required.
+    // AC15: no badge, no Reports entry, the API refuses with RPT-1001.
     await expect(
       primaryNav(page).getByRole("link", { name: "Dashboard" }),
     ).toBeVisible();

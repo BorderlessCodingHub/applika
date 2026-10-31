@@ -36,6 +36,10 @@ export default defineConfig({
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: BASE_URL,
+    // The web follows the browser's language when no NEXT_LOCALE cookie is
+    // set (a pt-* browser gets Portuguese). Pinned so every English-asserting
+    // spec holds on any host; a language spec sets its own context locale.
+    locale: "en-US",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },

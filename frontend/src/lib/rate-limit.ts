@@ -1,5 +1,8 @@
 import { AxiosError } from "axios";
 
+import { serverErrorMessage } from "@/lib/api-error-message";
+import { translate } from "@/i18n/translator";
+
 /**
  * A 429 (and, since KODI-058, a 503) is a TEMPORARY refusal, never a hard error: the caller (a query or a
  * mutation) is expected to wait `retryAfterMs(error)` and try again, keeping
@@ -57,15 +60,21 @@ export function retryAfterMs(error: unknown): number {
 }
 
 /**
- * The 429's own `detail` ("Too many requests. Try again in <n> seconds."),
- * or `null` when it is not a 429 or the body carries no usable string — the
- * same non-empty-string guard `getBlobApiError` applies, so a toast never
- * renders `[object Object]` or "undefined".
+ * The words for a 429, in the active language, or `null` when it is not a
+ * 429. The chain: the body's code (GEN-1004 or AUTH-1009) with
+ * `params.seconds`; else the API's own string `detail` (an API older than the
+ * codes); else GEN-1004 built from the `Retry-After` header; else `null`, so
+ * the caller shows its own line. A toast never renders `[object Object]` or
+ * "undefined".
  */
 export function rateLimitNotice(error: unknown): string | null {
   if (!isRateLimited(error)) return null;
 
-  const detail = (error.response?.data as { detail?: unknown } | undefined)
-    ?.detail;
-  return typeof detail === "string" && detail ? detail : null;
+  const message = serverErrorMessage(error.response?.data);
+  if (message) return message;
+
+  const header = error.response?.headers?.["retry-after"];
+  const seconds = typeof header === "string" ? parseInt(header, 10) : NaN;
+  if (!Number.isFinite(seconds) || seconds < 0) return null;
+  return translate("errors.GEN-1004", { seconds });
 }

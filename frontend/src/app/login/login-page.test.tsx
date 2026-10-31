@@ -150,27 +150,31 @@ describe("LoginPage: the form", () => {
 });
 
 describe("LoginPage: the server's words", () => {
+  // The API's real bodies (docs/error-codes.md): the numbered code, and the
+  // English `detail` the `en` messages repeat word for word.
   it.each([
-    [401, { detail: "Invalid email or password" }],
+    [401, { detail: "Invalid email or password", code: "AUTH-1004" }],
     [
       403,
       {
         detail: "Verify your email on Borderless first",
-        code: "email_unverified",
+        code: "AUTH-1005",
       },
     ],
     [
       409,
       {
-        detail: "This Borderless account is linked to another applika account",
-        code: "binding_conflict",
+        detail:
+          "This email belongs to an applika account linked to another Borderless account",
+        code: "AUTH-1006",
       },
     ],
     [
       409,
       {
-        detail: "More than one applika account uses this email",
-        code: "email_ambiguous",
+        detail:
+          "More than one applika account uses this email; contact support",
+        code: "AUTH-1007",
       },
     ],
     [
@@ -178,11 +182,24 @@ describe("LoginPage: the server's words", () => {
       {
         detail:
           "This Borderless email cannot be used with applika: it must be a valid address of at most 100 characters",
-        code: "email_unusable",
+        code: "AUTH-1008",
       },
     ],
-    [429, { detail: "Too many sign-in attempts. Try again in 42 seconds." }],
-    [503, { detail: "Borderless is unavailable, try again later" }],
+    [
+      429,
+      {
+        detail: "Too many sign-in attempts. Try again in 42 seconds.",
+        code: "AUTH-1009",
+        params: { seconds: 42 },
+      },
+    ],
+    [
+      503,
+      {
+        detail: "Borderless is unavailable, try again later",
+        code: "AUTH-1017",
+      },
+    ],
   ])("%i shows the detail word for word", async (status, data) => {
     vi.mocked(services.auth.borderlessSignIn).mockRejectedValue(
       refusal(status, data),
@@ -198,12 +215,12 @@ describe("LoginPage: the server's words", () => {
     expect(assign).not.toHaveBeenCalled();
   });
 
-  it("422 email_unusable is neither the wrong-password nor the rate-limit wording", async () => {
+  it("422 AUTH-1008 is neither the wrong-password nor the rate-limit wording", async () => {
     vi.mocked(services.auth.borderlessSignIn).mockRejectedValue(
       refusal(422, {
         detail:
           "This Borderless email cannot be used with applika: it must be a valid address of at most 100 characters",
-        code: "email_unusable",
+        code: "AUTH-1008",
       }),
     );
     renderPage();
@@ -215,6 +232,38 @@ describe("LoginPage: the server's words", () => {
     );
     expect(errorBox()).not.toHaveTextContent("Invalid email or password");
     expect(errorBox()).not.toHaveTextContent("Too many");
+  });
+
+  it("a validation 422 (GEN-1003) shows its one line, never the field list", async () => {
+    vi.mocked(services.auth.borderlessSignIn).mockRejectedValue(
+      refusal(422, {
+        detail: [{ loc: ["body", "email"], msg: "x" }],
+        code: "GEN-1003",
+      }),
+    );
+    renderPage();
+
+    await signIn();
+
+    await waitFor(() =>
+      expect(errorBox()).toHaveTextContent(
+        "Some fields are not valid. Check them and try again.",
+      ),
+    );
+    expect(errorBox()).not.toHaveTextContent("[object Object]");
+  });
+
+  it("a code the web does not know shows the API's detail", async () => {
+    vi.mocked(services.auth.borderlessSignIn).mockRejectedValue(
+      refusal(409, { detail: "A brand new refusal", code: "AUTH-9999" }),
+    );
+    renderPage();
+
+    await signIn();
+
+    await waitFor(() =>
+      expect(errorBox()).toHaveTextContent("A brand new refusal"),
+    );
   });
 
   it("a raw validation 422 gets a fixed line, never an object", async () => {
@@ -361,9 +410,9 @@ describe("LoginPage: ?cli=1", () => {
     expect(assign).toHaveBeenCalledTimes(1);
   });
 
-  it("400 CLI login expired tells the user to run applika login again", async () => {
+  it("400 AUTH-1019 CLI login expired tells the user to run applika login again", async () => {
     vi.mocked(services.auth.borderlessSignIn).mockRejectedValue(
-      refusal(400, { detail: "CLI login expired" }),
+      refusal(400, { detail: "CLI login expired", code: "AUTH-1019" }),
     );
     renderPage();
 

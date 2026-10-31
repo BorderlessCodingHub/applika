@@ -19,16 +19,15 @@ import {
   useStartJobRun,
   useUpdateAdminJobSource,
 } from "@/hooks/use-admin";
+import { serverErrorMessage } from "@/lib/api-error-message";
 
 /** After a 202 the list refetches every 3 s for at most 60 s: the API has no "running" state. */
 export const JOB_RUN_POLL_INTERVAL_MS = 3_000;
 export const JOB_RUN_POLL_WINDOW_MS = 60_000;
 
-/** The server's string `detail`, or `null` (a 5xx body, a network error). */
+/** The error's words by code, else its string `detail`, else `null` (a 5xx page, a network error). */
 function serverDetail(error: AxiosError): string | null {
-  const detail = (error.response?.data as { detail?: unknown } | undefined)
-    ?.detail;
-  return typeof detail === "string" && detail.trim() ? detail : null;
+  return serverErrorMessage(error.response?.data);
 }
 
 /**

@@ -13,23 +13,21 @@ import {
   type DeviceOutcomeKind,
 } from "@/components/device/device-sign-in-copy";
 import { DeviceSignInLayout } from "@/components/device/device-sign-in-layout";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { services } from "@/services/services";
 import type { DeviceCodeInfo } from "@/services/types/auth";
 
 export const DEVICE_ERROR_FALLBACK = "Something went wrong. Try again.";
 
 /**
- * The server's own `detail` (404 "Code not found or expired", 409 "Code
- * already used", a 429/503 retry text), verbatim; a fixed sentence when the
- * body carries no string (a network error, a 5xx page).
+ * The error's words by code (404 AUTH-1040 "Code not found or expired", 409
+ * AUTH-1041 "Code already used", a 429/503 retry text), else its `detail`;
+ * a fixed sentence when the body carries neither (a network error, a 5xx
+ * page).
  */
 export function deviceErrorText(error: unknown): string {
-  if (error instanceof AxiosError) {
-    const detail = (error.response?.data as { detail?: unknown } | undefined)
-      ?.detail;
-    if (typeof detail === "string" && detail) return detail;
-  }
-  return DEVICE_ERROR_FALLBACK;
+  if (!(error instanceof AxiosError)) return DEVICE_ERROR_FALLBACK;
+  return apiErrorMessage(error.response?.data, DEVICE_ERROR_FALLBACK);
 }
 
 type Step =

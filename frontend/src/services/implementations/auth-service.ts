@@ -16,8 +16,9 @@ export class AuthService implements IAuthService {
   }
   /**
    * 200 sets the session cookies on the web; with a pending CLI login it
-   * answers `redirect_to` and sets none. Refusals: 400 "CLI login expired",
-   * 401, 403 `email_unverified`, 409, 422 `email_unusable`, 429, 503.
+   * answers `redirect_to` and sets none. Refusals: 400 AUTH-1019 "CLI login
+   * expired", 401 AUTH-1004, 403 AUTH-1005, 409 AUTH-1006 / AUTH-1007, 422
+   * AUTH-1008, 429 AUTH-1009, 503 AUTH-1017 (`docs/error-codes.md`).
    */
   borderlessSignIn(
     credentials: BorderlessCredentials,
