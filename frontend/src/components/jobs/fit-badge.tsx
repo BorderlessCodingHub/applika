@@ -1,6 +1,8 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
 import {
-  JOBS_COPY,
+  useJobsCopy,
   clampFit,
   fitBand,
   fitLabel,
@@ -33,6 +35,7 @@ export interface FitBadgeProps {
 
 /** "Fit 72%": the score in words, a band tint and a ring gauge; never colour alone. */
 export function FitBadge({ score, size = "sm", className, id }: FitBadgeProps) {
+  const copy = useJobsCopy();
   const sizeClass = SIZE_CLASS[size];
 
   if (score === null) {
@@ -48,7 +51,7 @@ export function FitBadge({ score, size = "sm", className, id }: FitBadgeProps) {
           className,
         )}
       >
-        {JOBS_COPY.noFit}
+        {copy.noFit}
       </Badge>
     );
   }

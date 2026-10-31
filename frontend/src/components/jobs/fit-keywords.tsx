@@ -4,7 +4,7 @@ import { useId } from "react";
 import { CheckIcon, MinusIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { JOBS_COPY } from "@/components/jobs/job-copy";
+import { useJobsCopy } from "@/components/jobs/job-copy";
 import { cn } from "@/lib/utils";
 
 export interface FitKeywordsProps {
@@ -26,16 +26,17 @@ export function FitKeywords({ matched, missing, className }: FitKeywordsProps) {
   );
 }
 
+/** The words are read at render (`useJobsCopy`), never here: a module-level read would freeze them. */
 const GROUP = {
   matched: {
-    label: JOBS_COPY.matched,
-    empty: JOBS_COPY.noneMatched,
+    label: "matched",
+    empty: "noneMatched",
     icon: CheckIcon,
     chip: "border-transparent bg-success/10 text-foreground [&>svg]:text-success",
   },
   missing: {
-    label: JOBS_COPY.missing,
-    empty: JOBS_COPY.noneMissing,
+    label: "missing",
+    empty: "noneMissing",
     icon: MinusIcon,
     chip: "border-dashed border-border-strong bg-transparent text-foreground/80 [&>svg]:text-muted-foreground",
   },
@@ -48,8 +49,11 @@ function KeywordGroup({
   kind: keyof typeof GROUP;
   keywords: readonly string[];
 }) {
+  const copy = useJobsCopy();
   const labelId = useId();
-  const { label, empty, icon: Icon, chip } = GROUP[kind];
+  const { icon: Icon, chip } = GROUP[kind];
+  const label = copy[GROUP[kind].label];
+  const empty = copy[GROUP[kind].empty];
 
   return (
     <div data-slot="fit-keyword-group" data-kind={kind}>

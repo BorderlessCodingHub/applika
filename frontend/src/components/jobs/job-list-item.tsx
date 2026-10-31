@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FitBadge } from "@/components/jobs/fit-badge";
 import { JobStatusBadge } from "@/components/jobs/job-status-badge";
 import {
-  JOBS_COPY,
+  useJobsCopy,
   employmentTypeLabel,
   jobViewHref,
   moreTagsLabel,
@@ -65,6 +65,7 @@ export function JobListItem({
   now,
   className,
 }: JobListItemProps) {
+  const copy = useJobsCopy();
   const titleId = useId();
   const Heading = headingLevel === 3 ? "h3" : "h2";
   const published = publishedLabel(job.posted_at, now);
@@ -115,7 +116,7 @@ export function JobListItem({
                   className="inline-flex items-center gap-1"
                 >
                   <EyeOffIcon aria-hidden className="size-3.5" />
-                  {JOBS_COPY.dismissed}
+                  {copy.dismissed}
                 </span>
               </>
             ) : null}
@@ -194,7 +195,7 @@ export function JobListItem({
               data-icon="inline-start"
               className={cn(isPending && "motion-safe:animate-spin")}
             />
-            {job.dismissed ? JOBS_COPY.restore : JOBS_COPY.dismiss}
+            {job.dismissed ? copy.restore : copy.dismiss}
           </Button>
           {/* Always offered with `cvs`, even beside Draft/Applied: starting
               again is how the user reaches "You already have an application". */}
@@ -208,7 +209,7 @@ export function JobListItem({
               className="relative"
             >
               <FilePlus2Icon aria-hidden data-icon="inline-start" />
-              {JOBS_COPY.start}
+              {copy.start}
             </Button>
           ) : null}
         </div>

@@ -88,7 +88,12 @@ export function CvFitPanel({
 
   const status =
     state === "ready" && fit ? (
-      <FitBadge score={fit.score} size="lg" />
+      <FitBadge
+        score={fit.score}
+        size="lg"
+        // The narrow form column at md: the pill may wrap, never spill past the header.
+        className="h-auto min-h-8 max-w-full py-1 whitespace-normal"
+      />
     ) : state === "loading" ? (
       <Skeleton aria-hidden className="h-8 w-24 rounded-full" />
     ) : undefined;

@@ -9,7 +9,7 @@ import {
   JobDetailView,
   JobNotListed,
 } from "@/components/jobs/job-detail-view";
-import { JOBS_COPY } from "@/components/jobs/job-copy";
+import { useJobsCopy } from "@/components/jobs/job-copy";
 import type { JobMarkPending } from "@/components/jobs/job-list-item";
 import { JobLoadError } from "@/components/jobs/job-list-states";
 import { StartApplicationFlow } from "@/components/jobs/start-application-flow";
@@ -24,6 +24,7 @@ import {
   useJob,
   useRestoreJob,
 } from "@/hooks/use-jobs";
+import { unknownErrorMessage } from "@/lib/api-error-message";
 
 /**
  * `/jobs/view?id=` (R-012): the description, the link to the source, and
@@ -44,6 +45,7 @@ export function JobViewPage() {
  * also need `cvs`: without it the server sends `fits: []` anyway.
  */
 function JobView() {
+  const copy = useJobsCopy();
   const beta = useHasFeature("jobs").stage === "beta";
   const hasCvs = useHasFeature("cvs").has;
   const id = useSearchParams().get("id");
@@ -61,8 +63,8 @@ function JobView() {
         <JobDetailBackLink />
         <JobLoadError
           titleAs="h1"
-          title={JOBS_COPY.loadJobErrorTitle}
-          message={jobApiDetail(job.error, "Something went wrong")}
+          title={copy.loadJobErrorTitle}
+          message={jobApiDetail(job.error, unknownErrorMessage())}
           onRetry={() => void job.refetch()}
           isRetrying={job.isFetching}
         />

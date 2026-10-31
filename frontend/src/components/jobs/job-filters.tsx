@@ -29,13 +29,14 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
-  JOBS_COPY,
+  useJobsCopy,
   MIN_FIT_OPTIONS,
   POSTED_WITHIN_OPTIONS,
   advancedJobFilterCount,
   clearJobFilters,
   hasAnyJobFilter,
   minFitOptionLabel,
+  moreFiltersLabel,
   postedWithinOptionLabel,
   removeTagLabel,
 } from "@/components/jobs/job-copy";
@@ -84,6 +85,7 @@ export function JobFiltersToolbar({
   summary,
   className,
 }: JobFiltersToolbarProps) {
+  const copy = useJobsCopy();
   const ids = {
     panel: useId(),
     tags: useId(),
@@ -173,7 +175,7 @@ export function JobFiltersToolbar({
   return (
     <div
       role="search"
-      aria-label={JOBS_COPY.filtersLabel}
+      aria-label={copy.filtersLabel}
       data-slot="job-filters"
       className={cn("flex flex-col gap-3", className)}
     >
@@ -186,8 +188,8 @@ export function JobFiltersToolbar({
           <Input
             type="search"
             enterKeyHint="search"
-            aria-label={JOBS_COPY.searchLabel}
-            placeholder={JOBS_COPY.searchPlaceholder}
+            aria-label={copy.searchLabel}
+            placeholder={copy.searchPlaceholder}
             maxLength={JOB_FILTER_LIMITS.searchMax}
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
@@ -206,14 +208,14 @@ export function JobFiltersToolbar({
           }
         >
           <SelectTrigger
-            aria-label={JOBS_COPY.sourceLabel}
+            aria-label={copy.sourceLabel}
             className="order-2 h-11 min-w-0 flex-1 data-[size=default]:h-11 sm:order-none sm:w-44 sm:flex-none"
           >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value={ALL}>{JOBS_COPY.allSources}</SelectItem>
+              <SelectItem value={ALL}>{copy.allSources}</SelectItem>
               {sourceOptions.map((source) => (
                 <SelectItem key={source.code} value={source.code}>
                   {source.name}
@@ -231,7 +233,7 @@ export function JobFiltersToolbar({
             }
           >
             <SelectTrigger
-              aria-label={JOBS_COPY.sortLabel}
+              aria-label={copy.sortLabel}
               className="order-2 h-11 min-w-0 flex-1 data-[size=default]:h-11 *:data-[slot=select-value]:flex-1 sm:order-none sm:w-40 sm:flex-none"
             >
               <ArrowDownUpIcon aria-hidden />
@@ -239,8 +241,8 @@ export function JobFiltersToolbar({
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="newest">{JOBS_COPY.sortNewest}</SelectItem>
-                <SelectItem value="fit">{JOBS_COPY.sortFit}</SelectItem>
+                <SelectItem value="newest">{copy.sortNewest}</SelectItem>
+                <SelectItem value="fit">{copy.sortFit}</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -250,11 +252,7 @@ export function JobFiltersToolbar({
           type="button"
           variant={panelOpen || advancedCount > 0 ? "secondary" : "outline"}
           size="icon"
-          aria-label={
-            advancedCount > 0
-              ? `${JOBS_COPY.moreFilters} (${advancedCount} active)`
-              : JOBS_COPY.moreFilters
-          }
+          aria-label={moreFiltersLabel(advancedCount)}
           aria-expanded={panelOpen}
           aria-controls={ids.panel}
           onClick={() => setPanelOpen((open) => !open)}
@@ -289,13 +287,13 @@ export function JobFiltersToolbar({
               showFit && "sm:col-span-2 lg:col-span-1",
             )}
           >
-            <Label htmlFor={ids.tags}>{JOBS_COPY.tagsLabel}</Label>
+            <Label htmlFor={ids.tags}>{copy.tagsLabel}</Label>
             <Input
               ref={tagInputRef}
               id={ids.tags}
               value={tagText}
               readOnly={tagsFull}
-              placeholder={tagsFull ? undefined : JOBS_COPY.tagsPlaceholder}
+              placeholder={tagsFull ? undefined : copy.tagsPlaceholder}
               maxLength={JOB_FILTER_LIMITS.tagMax}
               aria-describedby={ids.tagsHint}
               autoComplete="off"
@@ -308,7 +306,7 @@ export function JobFiltersToolbar({
               className="read-only:bg-muted/40"
             />
             <p id={ids.tagsHint} className="text-xs text-muted-foreground">
-              {tagsFull ? JOBS_COPY.tagsFull : JOBS_COPY.tagsHint}
+              {tagsFull ? copy.tagsFull : copy.tagsHint}
             </p>
             {value.tags.length > 0 ? (
               <ul className="mt-1 flex flex-wrap gap-1.5">
@@ -338,7 +336,7 @@ export function JobFiltersToolbar({
 
           {showFit ? (
             <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor={ids.minFit}>{JOBS_COPY.minFitLabel}</Label>
+              <Label htmlFor={ids.minFit}>{copy.minFitLabel}</Label>
               <Select
                 disabled={!fitAvailable}
                 value={value.min_fit == null ? ANY : String(value.min_fit)}
@@ -357,7 +355,7 @@ export function JobFiltersToolbar({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectItem value={ANY}>{JOBS_COPY.anyFit}</SelectItem>
+                    <SelectItem value={ANY}>{copy.anyFit}</SelectItem>
                     {minFitOptions.map((option) => (
                       <SelectItem key={option} value={String(option)}>
                         {minFitOptionLabel(option)}
@@ -371,14 +369,14 @@ export function JobFiltersToolbar({
                   id={ids.minFitHint}
                   className="text-xs text-muted-foreground"
                 >
-                  {JOBS_COPY.minFitNeedsCv}
+                  {copy.minFitNeedsCv}
                 </p>
               )}
             </div>
           ) : null}
 
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={ids.posted}>{JOBS_COPY.postedWithinLabel}</Label>
+            <Label htmlFor={ids.posted}>{copy.postedWithinLabel}</Label>
             <Select
               value={
                 value.posted_within_days == null
@@ -397,7 +395,7 @@ export function JobFiltersToolbar({
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem value={ANY}>{JOBS_COPY.anyTime}</SelectItem>
+                  <SelectItem value={ANY}>{copy.anyTime}</SelectItem>
                   {postedOptions.map((option) => (
                     <SelectItem key={option} value={String(option)}>
                       {postedWithinOptionLabel(option)}
@@ -421,7 +419,7 @@ export function JobFiltersToolbar({
             className="text-muted-foreground"
           >
             <XIcon aria-hidden data-icon="inline-start" />
-            {JOBS_COPY.clearAllFilters}
+            {copy.clearAllFilters}
           </Button>
         ) : null}
         <div className="ml-auto flex items-center gap-2">
@@ -436,7 +434,7 @@ export function JobFiltersToolbar({
             htmlFor={ids.dismissed}
             className="font-normal text-foreground/80"
           >
-            {JOBS_COPY.showDismissed}
+            {copy.showDismissed}
           </Label>
         </div>
       </div>

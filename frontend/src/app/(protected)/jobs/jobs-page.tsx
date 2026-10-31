@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 
 import { JobFiltersToolbar } from "@/components/jobs/job-filters";
 import {
-  JOBS_COPY,
+  useJobsCopy,
   clearJobFilters,
   hasAnyJobFilter,
 } from "@/components/jobs/job-copy";
@@ -51,6 +51,7 @@ import {
   useJobs,
   useRestoreJob,
 } from "@/hooks/use-jobs";
+import { unknownErrorMessage } from "@/lib/api-error-message";
 import { scrollIntoContainer } from "@/lib/scroll-into-container";
 import { cn } from "@/lib/utils";
 import type { JobSearch } from "@/services/types/job-searches";
@@ -108,6 +109,7 @@ function withoutFit(filters: JobFilters): JobFilters {
 }
 
 function JobBoard() {
+  const copy = useJobsCopy();
   const beta = useHasFeature("jobs").stage === "beta";
   const hasCvs = useHasFeature("cvs").has;
   const searchParams = useSearchParams();
@@ -238,12 +240,12 @@ function JobBoard() {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <h1 className="font-display text-2xl font-bold tracking-tight-display sm:text-3xl">
-              {JOBS_COPY.title}
+              {copy.title}
             </h1>
             {beta ? <BetaBadge /> : null}
           </div>
           <p className="mt-1 text-sm text-pretty text-muted-foreground">
-            {hasCvs ? JOBS_COPY.subtitle : JOBS_COPY.subtitleNoCvs}
+            {hasCvs ? copy.subtitle : copy.subtitleNoCvs}
           </p>
         </div>
         <SavedSearchesMenu
@@ -278,7 +280,7 @@ function JobBoard() {
 
       {jobs.isError ? (
         <JobLoadError
-          message={jobApiDetail(jobs.error, "Something went wrong")}
+          message={jobApiDetail(jobs.error, unknownErrorMessage())}
           onRetry={() => void jobs.refetch()}
           isRetrying={jobs.isFetching}
         />
