@@ -131,7 +131,7 @@ describe("JobsPage in Portuguese", () => {
     expect(within(himalayas).getByText("1.203")).toBeInTheDocument();
     expect(within(himalayas).getByText(/^OK$/)).toBeInTheDocument();
     expect(
-      within(himalayas).getByText(/^12 de out\.( de 2026)? 14:00 UTC$/),
+      within(himalayas).getByText(/^12\/10(\/2026)? 14:00 UTC$/),
     ).toHaveAttribute("dateTime", HIMALAYAS.last_run_at);
 
     const remoteok = row("RemoteOK");
@@ -261,10 +261,10 @@ describe("formatJobLastRun", () => {
         "Ontem 23:30 UTC",
       );
       expect(formatJobLastRun("2026-10-03T14:00:00Z", now)).toBe(
-        "3 de out. 14:00 UTC",
+        "03/10 14:00 UTC",
       );
       expect(formatJobLastRun("2025-10-03T14:00:00Z", now)).toBe(
-        "3 de out. de 2025 14:00 UTC",
+        "03/10/2025 14:00 UTC",
       );
       expect(formatJobLastRun(null, now)).toBe("Nunca");
     } finally {

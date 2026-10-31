@@ -74,7 +74,7 @@ function utcDayKey(date: Date): string {
 
 /**
  * "Today 14:00 UTC", "Yesterday 09:00 UTC", "Oct 3 14:00 UTC" (pt-BR: "Hoje
- * 14:00 UTC", "3 de out. 14:00 UTC"), in the active language; the worker's
+ * 14:00 UTC", "03/10 14:00 UTC"), in the active language; the worker's
  * cron is in UTC. A component rendering it must subscribe (`useLocale`).
  */
 export function formatJobLastRun(
@@ -98,10 +98,15 @@ export function formatJobLastRun(
   if (utcDayKey(ran) === utcDayKey(yesterday)) {
     return word("admin.jobs.yesterday", { time });
   }
+  const sameYear = ran.getUTCFullYear() === now.getUTCFullYear();
+  // pt-BR writes the compact "03/10" ("03/10/2025"): "3 de out. de 2025"
+  // pushed the job sources table past its card at 1280px.
+  const options: Intl.DateTimeFormatOptions =
+    intlLocale() === "pt-BR"
+      ? { day: "2-digit", month: "2-digit" }
+      : { month: "short", day: "numeric" };
   const day = utcFormat(
-    ran.getUTCFullYear() === now.getUTCFullYear()
-      ? { month: "short", day: "numeric" }
-      : { month: "short", day: "numeric", year: "numeric" },
+    sameYear ? options : { ...options, year: "numeric" },
   ).format(ran);
   return word("admin.jobs.dayTime", { day, time });
 }

@@ -1,5 +1,5 @@
 "use client";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { APP_CONFIG } from "@/config";
 import { TrendingUp } from "lucide-react";
 
@@ -20,6 +20,13 @@ const TREND_VALUES = [
   2.9,
 ];
 const TREND_X_LABELS = ["02-14", "02-19", "02-26", "03-01", "03-06", "03-10"];
+
+/** A mockup day ("MM-DD") the way the language writes it: pt-BR "DD/MM". */
+function mockDay(label: string, locale: string): string {
+  if (locale !== "pt-BR") return label;
+  const [month, day] = label.split("-");
+  return `${day}/${month}`;
+}
 const TREND_Y_LABELS = [5, 4, 3, 2, 1];
 
 // Pipeline stages deepen toward the decision on the identity blue; the two
@@ -72,6 +79,8 @@ const MOCK_PLATFORMS = [
 
 function MockTrendChart() {
   const t = useTranslations("landing.mockup");
+  const format = useFormatter();
+  const locale = useLocale();
   const maxVal = Math.max(...TREND_VALUES);
   const W = 280;
   const H = 64;
@@ -108,7 +117,9 @@ function MockTrendChart() {
         </span>
         <div className="flex items-center gap-1 text-primary">
           <TrendingUp className="h-2.5 w-2.5" />
-          <span className="font-display text-[8px] font-semibold">+25%</span>
+          <span className="font-display text-[8px] font-semibold">
+            {format.number(0.25, { style: "percent", signDisplay: "always" })}
+          </span>
         </div>
       </div>
 
@@ -191,7 +202,7 @@ function MockTrendChart() {
           <div className="mt-0.5 flex justify-between">
             {TREND_X_LABELS.map((l) => (
               <span key={l} className="text-[5.5px] text-muted-foreground">
-                {l}
+                {mockDay(l, locale)}
               </span>
             ))}
           </div>
@@ -205,10 +216,10 @@ function MockTrendChart() {
             </div>
             <div className="mt-1 flex justify-between">
               <span className="font-display text-[6px] font-medium text-primary">
-                02-14
+                {mockDay("02-14", locale)}
               </span>
               <span className="font-display text-[6px] font-medium text-primary">
-                03-10
+                {mockDay("03-10", locale)}
               </span>
             </div>
           </div>
