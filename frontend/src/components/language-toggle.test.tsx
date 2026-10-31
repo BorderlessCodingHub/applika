@@ -234,7 +234,7 @@ describe("LanguageToggle in the LocaleProvider", () => {
       screen.getByRole("radiogroup", { name: "Toggle language" }),
     ).toBeVisible();
     expect(english()).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByTestId("word")).toHaveTextContent("Cancel");
+    expect(screen.getByTestId("word")).toHaveTextContent(/^Cancel$/);
     await waitFor(() => expect(document.documentElement.lang).toBe("en"));
     expect(localeWrites()).toEqual([]);
   });
@@ -267,7 +267,7 @@ describe("LanguageToggle in the LocaleProvider", () => {
 
     await user.click(english());
     await waitFor(() =>
-      expect(screen.getByTestId("word")).toHaveTextContent("Cancel"),
+      expect(screen.getByTestId("word")).toHaveTextContent(/^Cancel$/),
     );
     expect(document.documentElement.lang).toBe("en");
     expect(localeWrites()).toHaveLength(2);
@@ -295,7 +295,7 @@ describe("LanguageToggle in the LocaleProvider", () => {
     expect(screen.getByRole("radiogroup").className).toContain("opacity-70");
     // The active pill moved at once (optimistic); the words wait.
     expect(portuguese()).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByTestId("word")).toHaveTextContent("Cancel");
+    expect(screen.getByTestId("word")).toHaveTextContent(/^Cancel$/);
 
     release(messages);
 
@@ -365,7 +365,7 @@ describe("LanguageToggle in the LocaleProvider", () => {
     await waitFor(() =>
       expect(english()).toHaveAttribute("aria-checked", "true"),
     );
-    expect(screen.getByTestId("word")).toHaveTextContent("Cancel");
+    expect(screen.getByTestId("word")).toHaveTextContent(/^Cancel$/);
   });
 
   it("another tab's pick is followed on the next page load", async () => {
@@ -424,7 +424,7 @@ describe("LanguageToggle in the LocaleProvider", () => {
     );
     await waitFor(() => expect(english()).not.toBeDisabled());
     expect(portuguese()).not.toBeDisabled();
-    expect(screen.getByTestId("word")).toHaveTextContent("Cancel");
+    expect(screen.getByTestId("word")).toHaveTextContent(/^Cancel$/);
     expect(screen.getByRole("textbox", { name: "Name" })).toBe(input);
     expect(input).toHaveValue("Ada");
     expect(document.documentElement.lang).toBe("en");

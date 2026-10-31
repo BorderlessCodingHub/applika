@@ -141,9 +141,15 @@ describe("RootProviders language", () => {
     await userEvent
       .setup()
       .click(screen.getByRole("radio", { name: "English" }));
+    // Exact match: "Cancelar" contains "Cancel", so a substring check would pass
+    // before the switch lands.
     await waitFor(() =>
-      expect(screen.getByTestId("word")).toHaveTextContent("Cancel"),
+      expect(screen.getByTestId("word")).toHaveTextContent(/^Cancel$/),
     );
     expect(document.documentElement.lang).toBe("en");
+    expect(screen.getByRole("radio", { name: "English" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
   });
 });
