@@ -19,6 +19,7 @@ import {
   featureOwnAccessLock,
   type FeatureAccess,
   type FeatureAccessKind,
+  useFeatureCopyLocale,
 } from "@/components/admin/feature-copy";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -62,6 +63,7 @@ export function FeatureOwnAccess({
   pendingValue,
   className,
 }: FeatureOwnAccessProps) {
+  useFeatureCopyLocale();
   const headingId = useId();
   const switchId = useId();
   const hintId = useId();

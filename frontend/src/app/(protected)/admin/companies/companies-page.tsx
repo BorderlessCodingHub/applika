@@ -29,18 +29,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { APPROVE_COPY } from "@/components/admin/approve-catalog-button";
+import { word } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import type { AdminCompanyRow } from "@/services/types/admin";
 
 const PAGE_SIZE = 15;
 
 const companySchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  url: z.string().url("Must be a valid URL"),
+  name: z.string().min(1, {
+    error: () => word("admin.catalog.form.nameRequired"),
+  }),
+  url: z.string().url({ error: () => word("admin.catalog.form.urlInvalid") }),
 });
 type CompanyFormValues = z.infer<typeof companySchema>;
 
 export function CompaniesPage() {
+  const t = useTranslations("admin.catalog.company");
+  const tf = useTranslations("admin.catalog.form");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [visibility, setVisibility] = useState<CatalogVisibility>("all");
@@ -109,10 +116,10 @@ export function CompaniesPage() {
       >
         <div>
           <h1 className="font-display text-xl font-bold tracking-tight-display text-foreground">
-            Company Management
+            {t("title")}
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Manage companies available on the platform
+            {t("subtitle")}
           </p>
         </div>
         <Button
@@ -121,7 +128,7 @@ export function CompaniesPage() {
           onClick={() => setCreateOpen(true)}
         >
           <Plus className="h-3.5 w-3.5" />
-          Add Company
+          {t("add")}
         </Button>
       </motion.div>
 
@@ -153,7 +160,7 @@ export function CompaniesPage() {
           try {
             await publishCompany.mutateAsync(row.id);
           } catch (error) {
-            return safeErrorMessage(error, "Could not approve it. Try again.");
+            return safeErrorMessage(error, APPROVE_COPY.failed);
           }
         }}
         onToggleActive={(row) =>
@@ -168,14 +175,14 @@ export function CompaniesPage() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Company</DialogTitle>
+            <DialogTitle>{t("add")}</DialogTitle>
           </DialogHeader>
           <form
             onSubmit={createForm.handleSubmit(handleCreate)}
             className="space-y-4"
           >
             <div className="space-y-2">
-              <Label htmlFor="create-name">Name</Label>
+              <Label htmlFor="create-name">{tf("name")}</Label>
               <Input
                 id="create-name"
                 {...createForm.register("name")}
@@ -191,7 +198,7 @@ export function CompaniesPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="create-url">URL</Label>
+              <Label htmlFor="create-url">{tf("url")}</Label>
               <Input
                 id="create-url"
                 {...createForm.register("url")}
@@ -213,10 +220,10 @@ export function CompaniesPage() {
                 variant="outline"
                 onClick={() => setCreateOpen(false)}
               >
-                Cancel
+                {tf("cancel")}
               </Button>
               <Button type="submit" disabled={createCompany.isPending}>
-                {createCompany.isPending ? "Creating..." : "Create"}
+                {createCompany.isPending ? tf("creating") : tf("create")}
               </Button>
             </DialogFooter>
           </form>
@@ -230,14 +237,14 @@ export function CompaniesPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Company</DialogTitle>
+            <DialogTitle>{t("editTitle")}</DialogTitle>
           </DialogHeader>
           <form
             onSubmit={editForm.handleSubmit(handleEdit)}
             className="space-y-4"
           >
             <div className="space-y-2">
-              <Label htmlFor="edit-name">Name</Label>
+              <Label htmlFor="edit-name">{tf("name")}</Label>
               <Input
                 id="edit-name"
                 {...editForm.register("name")}
@@ -253,7 +260,7 @@ export function CompaniesPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-url">URL</Label>
+              <Label htmlFor="edit-url">{tf("url")}</Label>
               <Input
                 id="edit-url"
                 {...editForm.register("url")}
@@ -274,10 +281,10 @@ export function CompaniesPage() {
                 variant="outline"
                 onClick={() => setEditTarget(null)}
               >
-                Cancel
+                {tf("cancel")}
               </Button>
               <Button type="submit" disabled={updateCompany.isPending}>
-                {updateCompany.isPending ? "Saving..." : "Save"}
+                {updateCompany.isPending ? tf("saving") : tf("save")}
               </Button>
             </DialogFooter>
           </form>

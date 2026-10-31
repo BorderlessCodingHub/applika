@@ -1,24 +1,33 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
+
+import { liveCopy } from "@/i18n/translator";
 
 import { cn } from "@/lib/utils";
 
 /** `all` sends no `visibility` param. */
 export type CatalogVisibility = "all" | "public" | "private";
 
-export const CATALOG_VISIBILITY_OPTIONS: ReadonlyArray<{
-  value: CatalogVisibility;
-  label: string;
-}> = [
-  { value: "all", label: "All" },
-  { value: "public", label: "Public" },
-  { value: "private", label: "Private" },
+export const CATALOG_VISIBILITY_VALUES: readonly CatalogVisibility[] = [
+  "all",
+  "public",
+  "private",
 ];
 
-export const CATALOG_VISIBILITY_LABEL = "Visibility";
-export const ADDED_BY_LABEL = "Added by";
-export const ADDED_BY_NONE_SR = "Not recorded";
+/**
+ * The filter's words in the active language (`admin.catalog.visibility.*`):
+ * `label`, `all`, `public`, `private`, `notRecorded`. Components read the same
+ * keys with `useTranslations`, which subscribes to a language switch.
+ */
+export const CATALOG_VISIBILITY_COPY = liveCopy("admin.catalog.visibility", [
+  "label",
+  "all",
+  "public",
+  "private",
+  "notRecorded",
+]);
 
 export function visibilityParam(
   value: CatalogVisibility,
@@ -42,12 +51,13 @@ export function VisibilityFilter({
   disabled?: boolean;
   className?: string;
 }) {
+  const t = useTranslations("admin.catalog.visibility");
   return (
     <RadioGroupPrimitive.Root
       value={value}
       onValueChange={(next) => onValueChange(next as CatalogVisibility)}
       disabled={disabled}
-      aria-label={CATALOG_VISIBILITY_LABEL}
+      aria-label={t("label")}
       orientation="horizontal"
       data-slot="visibility-filter"
       className={cn(
@@ -55,13 +65,13 @@ export function VisibilityFilter({
         className,
       )}
     >
-      {CATALOG_VISIBILITY_OPTIONS.map((option) => (
+      {CATALOG_VISIBILITY_VALUES.map((option) => (
         <RadioGroupPrimitive.Item
-          key={option.value}
-          value={option.value}
+          key={option}
+          value={option}
           className="h-full rounded-md px-3 text-xs font-medium text-foreground/70 transition-colors outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-background data-[state=checked]:text-foreground data-[state=checked]:shadow-sm"
         >
-          {option.label}
+          {t(option)}
         </RadioGroupPrimitive.Item>
       ))}
     </RadioGroupPrimitive.Root>
@@ -76,11 +86,12 @@ export function AddedBy({
   username: string | null | undefined;
   className?: string;
 }) {
+  const t = useTranslations("admin.catalog.visibility");
   if (!username) {
     return (
       <span className={cn("text-muted-foreground", className)}>
         <span aria-hidden>—</span>
-        <span className="sr-only">{ADDED_BY_NONE_SR}</span>
+        <span className="sr-only">{t("notRecorded")}</span>
       </span>
     );
   }

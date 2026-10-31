@@ -29,7 +29,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { APPROVE_COPY } from "@/components/admin/approve-catalog-button";
+import { word } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import type { AdminPlatformRow } from "@/services/types/admin";
 
 const PAGE_SIZE = 15;
@@ -39,11 +42,17 @@ const URL_MAX = 200;
 const platformSchema = z.object({
   name: z
     .string()
-    .min(1, "Name is required")
-    .max(NAME_MAX, `Name must be ${NAME_MAX} characters or fewer`),
+    .min(1, { error: () => word("admin.catalog.form.nameRequired") })
+    .max(NAME_MAX, {
+      error: () =>
+        word("admin.catalog.form.nameTooLong", { max: String(NAME_MAX) }),
+    }),
   url: z
     .string()
-    .max(URL_MAX, `URL must be ${URL_MAX} characters or fewer`)
+    .max(URL_MAX, {
+      error: () =>
+        word("admin.catalog.form.urlTooLong", { max: String(URL_MAX) }),
+    })
     .optional(),
 });
 type PlatformFormValues = z.infer<typeof platformSchema>;
@@ -55,6 +64,8 @@ type PlatformFormValues = z.infer<typeof platformSchema>;
  * `CatalogTable` the companies page uses.
  */
 export function PlatformsPage() {
+  const t = useTranslations("admin.catalog.platform");
+  const tf = useTranslations("admin.catalog.form");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [visibility, setVisibility] = useState<CatalogVisibility>("all");
@@ -101,10 +112,10 @@ export function PlatformsPage() {
       >
         <div>
           <h1 className="font-display text-xl font-bold tracking-tight-display text-foreground">
-            Platforms
+            {t("title")}
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Manage the platforms users pick for their applications
+            {t("subtitle")}
           </p>
         </div>
         <Button
@@ -113,7 +124,7 @@ export function PlatformsPage() {
           onClick={() => setCreateOpen(true)}
         >
           <Plus className="h-3.5 w-3.5" />
-          Add Platform
+          {t("add")}
         </Button>
       </motion.div>
 
@@ -145,7 +156,7 @@ export function PlatformsPage() {
           try {
             await publishMutation.mutateAsync(row.id);
           } catch (error) {
-            return safeErrorMessage(error, "Could not approve it. Try again.");
+            return safeErrorMessage(error, APPROVE_COPY.failed);
           }
         }}
       />
@@ -154,7 +165,7 @@ export function PlatformsPage() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Platform</DialogTitle>
+            <DialogTitle>{t("add")}</DialogTitle>
           </DialogHeader>
           <form
             onSubmit={createForm.handleSubmit((v) =>
@@ -168,7 +179,7 @@ export function PlatformsPage() {
             className="space-y-4"
           >
             <div className="space-y-2">
-              <Label htmlFor="create-platform-name">Name</Label>
+              <Label htmlFor="create-platform-name">{tf("name")}</Label>
               <Input
                 id="create-platform-name"
                 {...createForm.register("name")}
@@ -184,7 +195,7 @@ export function PlatformsPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="create-platform-url">URL (optional)</Label>
+              <Label htmlFor="create-platform-url">{tf("urlOptional")}</Label>
               <Input
                 id="create-platform-url"
                 {...createForm.register("url")}
@@ -206,10 +217,10 @@ export function PlatformsPage() {
                 variant="outline"
                 onClick={() => setCreateOpen(false)}
               >
-                Cancel
+                {tf("cancel")}
               </Button>
               <Button type="submit" disabled={createMutation.isPending}>
-                Create
+                {tf("create")}
               </Button>
             </DialogFooter>
           </form>
@@ -223,7 +234,7 @@ export function PlatformsPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Platform</DialogTitle>
+            <DialogTitle>{t("editTitle")}</DialogTitle>
           </DialogHeader>
           <form
             onSubmit={editForm.handleSubmit((v) =>
@@ -240,7 +251,7 @@ export function PlatformsPage() {
             className="space-y-4"
           >
             <div className="space-y-2">
-              <Label htmlFor="edit-platform-name">Name</Label>
+              <Label htmlFor="edit-platform-name">{tf("name")}</Label>
               <Input
                 id="edit-platform-name"
                 {...editForm.register("name")}
@@ -256,7 +267,7 @@ export function PlatformsPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-platform-url">URL (optional)</Label>
+              <Label htmlFor="edit-platform-url">{tf("urlOptional")}</Label>
               <Input
                 id="edit-platform-url"
                 {...editForm.register("url")}
@@ -277,10 +288,10 @@ export function PlatformsPage() {
                 variant="outline"
                 onClick={() => setEditTarget(null)}
               >
-                Cancel
+                {tf("cancel")}
               </Button>
               <Button type="submit" disabled={updateMutation.isPending}>
-                Save
+                {tf("save")}
               </Button>
             </DialogFooter>
           </form>

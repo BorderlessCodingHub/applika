@@ -10,6 +10,10 @@ import {
   FeatureHeader,
   FeatureNotFound,
 } from "@/components/admin/feature-header";
+import {
+  FEATURE_COPY,
+  useFeatureCopyLocale,
+} from "@/components/admin/feature-copy";
 import { FeatureOwnAccess } from "@/components/admin/feature-own-access";
 import { FeatureStageAction } from "@/components/admin/feature-stage-action";
 import {
@@ -71,6 +75,9 @@ function useDebouncedSearch(value: string, delay: number): string {
  * this component owns the queries, the mutations and the search/page state.
  */
 export function FeatureViewPage() {
+  // `serverDetail` runs during render through the module translator:
+  // subscribe, so a language switch re-renders the 404 heading and list error.
+  useFeatureCopyLocale();
   const searchParams = useSearchParams();
   const featureKey = searchParams.get("key")?.trim() || null;
 
@@ -223,5 +230,17 @@ export function FeatureViewPage() {
         </>
       )}
     </div>
+  );
+}
+
+/** The route's Suspense fallback (`page.tsx`): a server component cannot translate. */
+export function FeatureViewPageFallback() {
+  useFeatureCopyLocale();
+  return (
+    <div
+      aria-busy
+      aria-label={FEATURE_COPY.loading}
+      className="h-64 w-full animate-pulse rounded-xl bg-muted"
+    />
   );
 }

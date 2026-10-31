@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale } from "next-intl";
 import { useState } from "react";
 import {
   BadgeCheckIcon,
@@ -19,20 +20,27 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { liveCopy, word } from "@/i18n/translator";
 
-export const APPROVE_COPY = {
-  action: "Approve",
-  cancel: "Cancel",
-  failed: "Could not approve it. Try again.",
-} as const;
+/** `admin.catalog.approve.*` in the active language; never spread it. */
+export const APPROVE_COPY = liveCopy("admin.catalog.approve", [
+  "action",
+  "cancel",
+  "failed",
+]);
 
 export function approveDescription(
   kind: "company" | "platform",
   name: string,
   addedBy: string | null | undefined,
 ): string {
-  const who = addedBy ? ` It keeps ${addedBy} as the user who added it.` : "";
-  return `${name} becomes public: every user sees it in their ${kind} list and can pick it.${who} It cannot be made private again.`;
+  return [
+    word(`admin.catalog.approve.becomesPublic.${kind}`, { name }),
+    addedBy ? word("admin.catalog.approve.keepsAddedBy", { addedBy }) : null,
+    word("admin.catalog.approve.permanent"),
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 export interface ApproveCatalogButtonProps {
@@ -60,6 +68,9 @@ export function ApproveCatalogButton({
   onApprove,
   onApproved,
 }: ApproveCatalogButtonProps) {
+  // The copy is read through the module translator: subscribe, so a
+  // language switch re-renders the dialog.
+  useLocale();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +106,7 @@ export function ApproveCatalogButton({
           type="button"
           variant="outline"
           size="sm"
-          aria-label={`${APPROVE_COPY.action} ${name}`}
+          aria-label={word("admin.catalog.approve.rowLabel", { name })}
           data-slot="approve-catalog-row"
         >
           <BadgeCheckIcon aria-hidden data-icon="inline-start" />
@@ -104,7 +115,9 @@ export function ApproveCatalogButton({
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{`${APPROVE_COPY.action} ${name}?`}</AlertDialogTitle>
+          <AlertDialogTitle>
+            {word("admin.catalog.approve.title", { name })}
+          </AlertDialogTitle>
           {url ? (
             <p className="max-w-full truncate text-xs text-muted-foreground">
               {url}

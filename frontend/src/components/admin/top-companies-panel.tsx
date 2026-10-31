@@ -3,9 +3,13 @@ import { motion } from "framer-motion";
 import { useTopCompanies } from "@/hooks/use-admin";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
+import { useTranslations } from "next-intl";
+import { useAdminNumber } from "./admin-format";
 
 export function TopCompaniesPanel() {
   const { data, isLoading } = useTopCompanies();
+  const t = useTranslations("admin.dashboard.top");
+  const n = useAdminNumber();
 
   const max = data ? Math.max(...data.map((d) => d.total_across_users)) : 1;
 
@@ -19,7 +23,7 @@ export function TopCompaniesPanel() {
         <div className="mb-4 flex items-center gap-3">
           <div className="h-2 w-2 rounded-full bg-violet-400" />
           <h3 className="font-display text-sm font-semibold tracking-wide-label text-muted-foreground uppercase">
-            Top Companies
+            {t("companies")}
           </h3>
         </div>
 
@@ -31,7 +35,7 @@ export function TopCompaniesPanel() {
           </div>
         ) : !data?.length ? (
           <p className="py-6 text-center text-xs text-muted-foreground/60">
-            No company data yet
+            {t("noCompanies")}
           </p>
         ) : (
           <div className="space-y-3">
@@ -51,10 +55,13 @@ export function TopCompaniesPanel() {
                     </span>
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] text-muted-foreground/60">
-                        {company.unique_users} users
+                        {t("users", {
+                          count: company.unique_users,
+                          total: n(company.unique_users),
+                        })}
                       </span>
                       <span className="font-numeric text-sm font-bold text-foreground">
-                        {company.total_across_users}
+                        {n(company.total_across_users)}
                       </span>
                     </div>
                   </div>

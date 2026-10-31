@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -28,6 +29,7 @@ import {
   useDeleteReportWebhook,
   useUpdateReportWebhook,
 } from "@/hooks/use-admin";
+import { word } from "@/i18n/translator";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import type {
   CreateReportWebhook,
@@ -62,8 +64,6 @@ export function isValidWebhookUrl(value: string): boolean {
   }
 }
 
-const BADGES_REQUIRED = "Choose at least one badge: BASE or PSP";
-
 function sameBadges(
   a: readonly MembershipBadgeKey[],
   b: readonly MembershipBadgeKey[],
@@ -84,13 +84,13 @@ function reportWebhookSchema(mode: ReportWebhookFormMode) {
         ctx.addIssue({
           code: "custom",
           path: ["webhook_url"],
-          message: "Webhook URL is required",
+          message: word("admin.webhooks.validation.urlRequired"),
         });
       } else if (url && !isValidWebhookUrl(url)) {
         ctx.addIssue({
           code: "custom",
           path: ["webhook_url"],
-          message: "Invalid Discord webhook URL",
+          message: word("admin.webhooks.validation.urlInvalid"),
         });
       }
       // At least one on create, and an edit never empties the set (a
@@ -99,7 +99,7 @@ function reportWebhookSchema(mode: ReportWebhookFormMode) {
         ctx.addIssue({
           code: "custom",
           path: ["badges"],
-          message: BADGES_REQUIRED,
+          message: word("admin.webhooks.validation.badgesRequired"),
         });
       }
       // Code points, matching the server's Python `len()`.
@@ -107,7 +107,9 @@ function reportWebhookSchema(mode: ReportWebhookFormMode) {
         ctx.addIssue({
           code: "custom",
           path: ["label"],
-          message: "Label must be at most 100 characters",
+          message: word("admin.webhooks.validation.labelTooLong", {
+            max: "100",
+          }),
         });
       }
     });
@@ -123,11 +125,12 @@ const EDIT_SCHEMA = reportWebhookSchema("edit");
 function serverErrorFrom(err: AxiosError): string {
   return apiErrorMessage(
     err.response?.data,
-    "Could not save the webhook. Try again.",
+    word("admin.webhooks.page.saveFailed"),
   );
 }
 
 export function ReportWebhooksPage() {
+  const t = useTranslations("admin.webhooks.page");
   const {
     data: webhooks,
     isLoading,
@@ -232,11 +235,10 @@ export function ReportWebhooksPage() {
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
         <h1 className="font-display text-xl font-bold tracking-tight-display text-foreground">
-          Report webhooks
+          {t("title")}
         </h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Each webhook holds one or more badges. A member&apos;s biweekly report
-          is posted to every webhook that holds their BASE or PSP badge.
+          {t("description")}
         </p>
       </motion.div>
 

@@ -1785,5 +1785,468 @@
     "postedWithinOption": "{days, plural, one {# day} other {# days}}",
     "fitAtLeast": "Fit {value}%+",
     "summaryBestFit": "Best fit"
+  },
+  "admin": {
+    "jobs": {
+      "title": "Job sources",
+      "description": "The background worker collects jobs every hour from each source that is on. Runs never overlap.",
+      "runNow": "Run now",
+      "runStarted": "Run started",
+      "runFailed": "Could not start a run. Try again.",
+      "tableLabel": "Job sources",
+      "never": "Never",
+      "notRun": "Not run yet",
+      "none": "None",
+      "loading": "Loading job sources",
+      "loadErrorTitle": "Could not load job sources",
+      "loadErrorBody": "The list did not load. Check your connection and try again.",
+      "retry": "Try again",
+      "emptyTitle": "No job sources yet",
+      "emptyBody": "Himalayas and RemoteOK appear here once the database upgrade that adds them has run.",
+      "dismissNotice": "Dismiss message",
+      "columns": {
+        "source": "Source",
+        "enabled": "On",
+        "lastRun": "Last run",
+        "status": "Status",
+        "found": "Found",
+        "saved": "Saved",
+        "listed": "Listed jobs",
+        "lastError": "Last error"
+      },
+      "status": {
+        "ok": "OK",
+        "failed": "Failed",
+        "blocked": "Blocked"
+      },
+      "switchLabel": "Collect from {name}",
+      "today": "Today {time}",
+      "yesterday": "Yesterday {time}",
+      "dayTime": "{day} {time}"
+    },
+    "webhooks": {
+      "page": {
+        "title": "Report webhooks",
+        "description": "Each webhook holds one or more badges. A member's biweekly report is posted to every webhook that holds their BASE or PSP badge.",
+        "saveFailed": "Could not save the webhook. Try again."
+      },
+      "validation": {
+        "urlRequired": "Webhook URL is required",
+        "urlInvalid": "Invalid Discord webhook URL",
+        "badgesRequired": "Choose at least one badge: BASE or PSP",
+        "labelTooLong": "Label must be at most {max} characters"
+      },
+      "list": {
+        "title": "Report webhooks",
+        "add": "Add webhook",
+        "unlabelled": "Unlabelled webhook",
+        "noBadge": "No badge, receives nothing",
+        "badgeTerm": "Badges",
+        "webhookTerm": "Webhook",
+        "loading": "Loading webhooks",
+        "errorTitle": "Could not load webhooks",
+        "errorBody": "The list did not load. Check your connection and try again.",
+        "retry": "Try again",
+        "emptyTitle": "No webhooks yet",
+        "emptyBody": "Reports are saved but not posted anywhere until a webhook is added for BASE or PSP.",
+        "deleteTitle": "Delete webhook?",
+        "deleteConfirm": "Delete",
+        "edit": "Edit {target}",
+        "delete": "Delete {target}",
+        "targetId": "webhook {id}",
+        "targetUnlabelled": "unlabelled webhook",
+        "thisWebhook": "this webhook",
+        "badgePair": "{first} and {second}",
+        "deleteNoBadge": "{target} receives no reports today. Deleting it cannot be undone.",
+        "deleteNoBadgeUnlabelled": "this webhook receives no reports today. Deleting it cannot be undone.",
+        "deleteBody": "Reports from Borderless {members} members will no longer be posted to {target}. This cannot be undone."
+      },
+      "form": {
+        "add": {
+          "title": "Add webhook",
+          "description": "Reports from members who hold any of the chosen badges are posted through this webhook.",
+          "submit": "Save webhook",
+          "urlPlaceholder": "https://discord.com/api/webhooks/…"
+        },
+        "edit": {
+          "title": "Edit webhook",
+          "description": "Only the fields you change are saved.",
+          "submit": "Save changes",
+          "urlPlaceholder": "Leave blank to keep the current URL"
+        },
+        "urlLabel": "Webhook URL",
+        "urlHelp": "Only a masked form is shown after saving.",
+        "urlCurrent": "Current:",
+        "badgeLabel": "Badges",
+        "badgeHelp": "Choose one or both. A report goes to every webhook that holds its member's badge.",
+        "badgeHint": {
+          "borderless_base": "Reports from Borderless BASE members.",
+          "borderless_psp": "Reports from Borderless PSP members."
+        },
+        "labelLabel": "Label",
+        "labelPlaceholder": "e.g. BASE reports channel",
+        "labelHelp": "Optional. Up to 100 characters, to tell webhooks apart.",
+        "cancel": "Cancel"
+      }
+    },
+    "features": {
+      "list": {
+        "title": "Features",
+        "description": "A new feature starts in beta: only users on its beta list and admins have it. Release it to give it to everyone.",
+        "tableLabel": "Features",
+        "loading": "Loading features",
+        "loadErrorTitle": "Could not load features",
+        "loadErrorBody": "The list did not load. Check your connection and try again.",
+        "retry": "Try again",
+        "emptyTitle": "No features yet",
+        "emptyBody": "Features appear here once the database upgrade that adds them has run.",
+        "columns": {
+          "key": "Key",
+          "name": "Name",
+          "stage": "Stage",
+          "betaUsers": "Beta users",
+          "released": "Released",
+          "you": "You"
+        }
+      },
+      "feature": {
+        "noDescription": "No description",
+        "notReleased": "Not released",
+        "notRecorded": "Not recorded",
+        "key": "Key",
+        "released": "Released",
+        "loading": "Loading feature",
+        "loadErrorTitle": "Could not load this feature",
+        "loadErrorBody": "Check your connection and try again.",
+        "retry": "Try again",
+        "notFoundTitle": "Feature not found",
+        "backToFeatures": "Back to features",
+        "notFoundBody": "No feature has the key \"{key}\". Pick one from the list.",
+        "notFoundNoKey": "No feature key was given. Pick one from the list.",
+        "stage": {
+          "beta": "Beta",
+          "general": "General"
+        }
+      },
+      "accessShort": {
+        "general": "Yes, released to everyone",
+        "list": "Yes, on the beta list",
+        "admin": "Yes, as an admin",
+        "off": "No, you turned it off",
+        "yes": "Yes",
+        "no": "No"
+      },
+      "accessReason": {
+        "general": "You have this feature because it's released to everyone.",
+        "list": "You have this feature because you're on the beta list.",
+        "admin": "You have this feature because you're an admin.",
+        "off": "You don't have this feature because you turned it off.",
+        "has": "You have this feature.",
+        "hasNot": "You don't have this feature."
+      },
+      "ownAccess": {
+        "title": "Your access",
+        "switchLabel": "Use this feature myself",
+        "hint": "Turn it off to see the app as users without it do. This changes only what you see.",
+        "lockedGeneral": "Released to everyone. Your choice applies again if it moves back to beta.",
+        "lockedList": "You're on the beta list, so you keep access. Remove yourself from the list to hide it.",
+        "loading": "Loading your access"
+      },
+      "stageAction": {
+        "cancel": "Cancel",
+        "failed": "Could not change the stage. Try again.",
+        "releaseTitle": "Release {name} to everyone?",
+        "releaseEveryone": "Every user gets {name}, including admins who turned it off.",
+        "releaseKeepList": "The beta list is kept, so you can move it back to beta later.",
+        "moveBackTitle": "Move {name} back to beta?",
+        "release": {
+          "action": "Release to everyone",
+          "confirm": "Release to everyone"
+        },
+        "moveBack": {
+          "action": "Move back to beta",
+          "confirm": "Move back to beta",
+          "loseAccess": "Users who are neither on this list nor admins lose access.",
+          "keepList": "The beta list stays as it is, and admins who turned it off lose it again."
+        }
+      },
+      "betaList": {
+        "title": "Beta list",
+        "addUser": "Add user",
+        "searchLabel": "Search the beta list",
+        "searchPlaceholder": "Search by username",
+        "tableLabel": "Beta list",
+        "loading": "Loading the beta list",
+        "loadErrorTitle": "Could not load the beta list",
+        "loadErrorBody": "The list did not load. Check your connection and try again.",
+        "retry": "Try again",
+        "emptyTitle": "No one is on the beta list",
+        "emptyBody": "Users you add get this feature while it's in beta.",
+        "noMatchBody": "The search looks at usernames only.",
+        "clearSearch": "Clear search",
+        "pageEmptyTitle": "This page is empty",
+        "pagerLabel": "Beta list pages",
+        "previousPage": "Previous page",
+        "nextPage": "Next page",
+        "remove": "Remove",
+        "cancel": "Cancel",
+        "count": "{count, plural, one {# user} other {# users}}",
+        "noMatchTitle": "No one on the list matches \"{search}\"",
+        "goToPage": "Go to page {page}",
+        "addedLine": "Added {date}",
+        "addedLineBy": "Added {date} by {user}",
+        "pageLabel": "Page {page} of {totalPages}",
+        "removeLabel": "Remove {username}",
+        "removeTitle": "Remove {username} from the beta list?",
+        "removeBodyBeta": "{username} loses {featureName} on their next page load, unless they're an admin. You can add them again later.",
+        "removeBodyGeneral": "{username} keeps {featureName} while it's released to everyone, and loses it if it moves back to beta.",
+        "removeFailed": "Could not remove {username}. Try again.",
+        "description": {
+          "beta": "These users have it while it's in beta. Admins have it without being on the list.",
+          "general": "Everyone has it now. The list is kept and counts again if it moves back to beta."
+        },
+        "columns": {
+          "username": "Username",
+          "added": "Added",
+          "addedBy": "Added by",
+          "actions": "Actions"
+        }
+      },
+      "addUser": {
+        "trigger": "Add user",
+        "title": "Add users to the beta list",
+        "searchLabel": "Search users",
+        "searchPlaceholder": "Username or email",
+        "idle": "Type a username or email to find a user.",
+        "loading": "Searching users",
+        "errorTitle": "Could not search users.",
+        "retry": "Try again",
+        "add": "Add",
+        "listed": "On the list",
+        "admin": "Admin",
+        "done": "Done",
+        "description": "Search all users by username or email. A user you add gets {featureName} on their next page load.",
+        "noMatch": "No user matches \"{search}\".",
+        "more": "Showing {shown} of {total}. Type more to narrow it down.",
+        "addLabel": "Add {username}",
+        "listedLabel": "{username} is on the list",
+        "addedStatus": "{username} is on the beta list now.",
+        "failed": "Could not add {username}. Try again."
+      }
+    },
+    "nav": {
+      "label": "Admin sections",
+      "dashboard": "Dashboard",
+      "users": "Users",
+      "companies": "Companies",
+      "platforms": "Platforms",
+      "jobs": "Jobs",
+      "features": "Features",
+      "reportWebhooks": "Report webhooks"
+    },
+    "time": {
+      "today": "today",
+      "yesterday": "yesterday",
+      "daysAgo": "{days}d ago",
+      "monthsAgo": "{months}mo ago"
+    },
+    "pager": {
+      "page": "Page {page} of {total}",
+      "previous": "Previous page",
+      "next": "Next page"
+    },
+    "dashboard": {
+      "title": "Admin Console",
+      "subtitle": "Platform-wide analytics and user management",
+      "stats": {
+        "total_users": "Total Users",
+        "active_30d": "Active (30d)",
+        "new_7d": "New (7d)",
+        "total_apps": "Applications",
+        "avg_apps": "Avg / User",
+        "offers": "Total Offers",
+        "denials": "Total Denials",
+        "success_rate": "Success Rate",
+        "finalization_rate": "Finalization Rate",
+        "apps_30d": "Apps (30d)"
+      },
+      "growth": {
+        "title": "User Growth",
+        "totalUsers": "Total Users",
+        "newUsersTitle": "New Users / Month",
+        "newUsers": "New Users"
+      },
+      "seniority": {
+        "title": "Seniority Distribution",
+        "users": "users",
+        "unknown": "unknown"
+      },
+      "top": {
+        "platforms": "Top Platforms",
+        "companies": "Top Companies",
+        "noCompanies": "No company data yet",
+        "users": "{count, plural, other {{total} users}}"
+      },
+      "heatmap": {
+        "title": "Activity Heatmap",
+        "unit": "applications / hour",
+        "less": "Less",
+        "more": "More",
+        "cell": "{day} {hour}:00 — {count, plural, other {{total} applications}}",
+        "days": {
+          "mon": "Mon",
+          "tue": "Tue",
+          "wed": "Wed",
+          "thu": "Thu",
+          "fri": "Fri",
+          "sat": "Sat",
+          "sun": "Sun"
+        }
+      },
+      "activity": {
+        "title": "Users",
+        "total": "{total} total",
+        "searchPlaceholder": "Search users..."
+      }
+    },
+    "users": {
+      "title": "User Management",
+      "subtitle": "View, search, and manage all platform users",
+      "count": "{count, plural, other {{total} users}}",
+      "searchPlaceholder": "Search users...",
+      "adminBadge": "admin",
+      "viewDetails": "View user details",
+      "toggleAdmin": "Toggle user admin",
+      "columns": {
+        "user": "User",
+        "seniority": "Seniority",
+        "apps": "Apps",
+        "offers": "Offers",
+        "denials": "Denials",
+        "joined": "Joined",
+        "lastActive": "Last Active",
+        "actions": "Actions"
+      },
+      "detail": {
+        "email": "Email",
+        "githubId": "GitHub ID",
+        "name": "Name",
+        "role": "Role",
+        "company": "Company",
+        "seniority": "Seniority",
+        "location": "Location",
+        "availability": "Availability",
+        "stats": "Application Stats",
+        "total": "Total",
+        "offers": "Offers",
+        "denials": "Denials",
+        "active": "Active",
+        "bio": "Bio",
+        "techStack": "Tech Stack"
+      }
+    },
+    "catalog": {
+      "visibility": {
+        "label": "Visibility",
+        "all": "All",
+        "public": "Public",
+        "private": "Private",
+        "notRecorded": "Not recorded"
+      },
+      "approve": {
+        "action": "Approve",
+        "cancel": "Cancel",
+        "failed": "Could not approve it. Try again.",
+        "rowLabel": "Approve {name}",
+        "title": "Approve {name}?",
+        "becomesPublic": {
+          "company": "{name} becomes public: every user sees it in their company list and can pick it.",
+          "platform": "{name} becomes public: every user sees it in their platform list and can pick it."
+        },
+        "keepsAddedBy": "It keeps {addedBy} as the user who added it.",
+        "permanent": "It cannot be made private again."
+      },
+      "form": {
+        "name": "Name",
+        "url": "URL",
+        "urlOptional": "URL (optional)",
+        "nameRequired": "Name is required",
+        "urlInvalid": "Must be a valid URL",
+        "nameTooLong": "Name must be {max} characters or fewer",
+        "urlTooLong": "URL must be {max} characters or fewer",
+        "cancel": "Cancel",
+        "create": "Create",
+        "creating": "Creating...",
+        "save": "Save",
+        "saving": "Saving..."
+      },
+      "table": {
+        "retry": "Try again",
+        "url": "URL",
+        "status": "Status",
+        "addedBy": "Added by",
+        "apps": "Apps",
+        "created": "Created",
+        "actions": "Actions",
+        "private": "Private",
+        "opensNewTab": "(opens in a new tab)",
+        "noUrl": "No URL",
+        "active": "active",
+        "inactive": "inactive",
+        "toggleStatus": "Toggle status",
+        "toggleStatusFor": "Toggle status for {name}",
+        "edit": "Edit {name}",
+        "delete": "Delete {name}",
+        "cannotDelete": "Cannot delete: used by applications",
+        "deleteDescription": "This cannot be undone.",
+        "cancel": "Cancel",
+        "deleting": "Deleting...",
+        "deleteAction": "Delete"
+      },
+      "company": {
+        "title": "Company Management",
+        "subtitle": "Manage companies available on the platform",
+        "add": "Add Company",
+        "editTitle": "Edit Company",
+        "column": "Company",
+        "count": "{count, plural, one {{total} company} other {{total} companies}}",
+        "searchLabel": "Search companies",
+        "searchPlaceholder": "Search companies...",
+        "loadError": "Could not load companies.",
+        "noMatch": "No companies match your search.",
+        "empty": "No companies yet.",
+        "deleteFailed": "Could not delete this company.",
+        "deleteRow": "Delete company",
+        "pages": "Company pages"
+      },
+      "platform": {
+        "title": "Platforms",
+        "subtitle": "Manage the platforms users pick for their applications",
+        "add": "Add Platform",
+        "editTitle": "Edit Platform",
+        "column": "Platform",
+        "count": "{count, plural, one {{total} platform} other {{total} platforms}}",
+        "searchLabel": "Search platforms",
+        "searchPlaceholder": "Search platforms...",
+        "loadError": "Could not load platforms.",
+        "noMatch": "No platforms match your search.",
+        "empty": "No platforms yet.",
+        "deleteFailed": "Could not delete this platform.",
+        "deleteRow": "Delete platform",
+        "pages": "Platform pages"
+      }
+    },
+    "toasts": {
+      "userUpdated": "User updated",
+      "companyCreated": "Company created",
+      "companyUpdated": "Company updated",
+      "companyDeleted": "Company deleted",
+      "platformCreated": "Platform created",
+      "platformUpdated": "Platform updated",
+      "platformDeleted": "Platform deleted",
+      "webhookAdded": "Webhook added",
+      "webhookUpdated": "Webhook updated",
+      "webhookDeleted": "Webhook deleted"
+    }
   }
 }

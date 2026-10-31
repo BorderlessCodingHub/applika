@@ -11,24 +11,41 @@ import {
   Users,
   Webhook,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
+
 import { cn } from "@/lib/utils";
 
-const tabs = [
-  { href: "/admin", label: "Dashboard", icon: BarChart3, exact: true },
-  { href: "/admin/users", label: "Users", icon: Users },
-  { href: "/admin/companies", label: "Companies", icon: Building2 },
-  { href: "/admin/platforms", label: "Platforms", icon: Globe },
-  { href: "/admin/jobs", label: "Jobs", icon: Search },
-  { href: "/admin/features", label: "Features", icon: FlaskConical },
-  { href: "/admin/report-webhooks", label: "Report webhooks", icon: Webhook },
+const tabs: {
+  href: string;
+  label: AdminTab;
+  icon: typeof Users;
+  exact?: boolean;
+}[] = [
+  { href: "/admin", label: "dashboard", icon: BarChart3, exact: true },
+  { href: "/admin/users", label: "users", icon: Users },
+  { href: "/admin/companies", label: "companies", icon: Building2 },
+  { href: "/admin/platforms", label: "platforms", icon: Globe },
+  { href: "/admin/jobs", label: "jobs", icon: Search },
+  { href: "/admin/features", label: "features", icon: FlaskConical },
+  { href: "/admin/report-webhooks", label: "reportWebhooks", icon: Webhook },
 ];
+
+type AdminTab =
+  | "dashboard"
+  | "users"
+  | "companies"
+  | "platforms"
+  | "jobs"
+  | "features"
+  | "reportWebhooks";
 
 export function AdminNav() {
   const pathname = usePathname();
+  const t = useTranslations("admin.nav");
 
   return (
     <nav
-      aria-label="Admin sections"
+      aria-label={t("label")}
       className="mb-5 flex items-center gap-1 overflow-x-auto border-b border-border/40 pb-px"
     >
       {tabs.map((tab) => {
@@ -49,7 +66,7 @@ export function AdminNav() {
             )}
           >
             <tab.icon aria-hidden className="h-4 w-4" />
-            {tab.label}
+            {t(tab.label)}
             {active && (
               <span className="absolute inset-x-4 -bottom-px h-0.5 rounded-full bg-amber-400" />
             )}

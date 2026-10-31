@@ -2,6 +2,7 @@
 
 import { useId, useRef } from "react";
 import { CircleAlert, Loader2 } from "lucide-react";
+import { useLocale } from "next-intl";
 import type { UseFormReturn } from "react-hook-form";
 
 import type { ReportWebhookRow } from "@/components/admin/report-webhook-list";
@@ -30,6 +31,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { liveCopy } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
 
 /**
@@ -72,46 +74,54 @@ export function reportWebhookToFormValues(
 
 export type ReportWebhookFormMode = "add" | "edit";
 
-const COPY: Record<
-  ReportWebhookFormMode,
-  {
-    title: string;
-    description: string;
-    submit: string;
-    urlPlaceholder: string;
-  }
+const COPY: Readonly<
+  Record<
+    ReportWebhookFormMode,
+    Readonly<{
+      title: string;
+      description: string;
+      submit: string;
+      urlPlaceholder: string;
+    }>
+  >
 > = {
-  add: {
-    title: "Add webhook",
-    description:
-      "Reports from members who hold any of the chosen badges are posted through this webhook.",
-    submit: "Save webhook",
-    urlPlaceholder: "https://discord.com/api/webhooks/…",
-  },
-  edit: {
-    title: "Edit webhook",
-    description: "Only the fields you change are saved.",
-    submit: "Save changes",
-    urlPlaceholder: "Leave blank to keep the current URL",
-  },
+  add: liveCopy("admin.webhooks.form.add", [
+    "title",
+    "description",
+    "submit",
+    "urlPlaceholder",
+  ]),
+  edit: liveCopy("admin.webhooks.form.edit", [
+    "title",
+    "description",
+    "submit",
+    "urlPlaceholder",
+  ]),
 };
 
-export const REPORT_WEBHOOK_FORM_COPY = {
-  urlLabel: "Webhook URL",
-  urlHelp: "Only a masked form is shown after saving.",
-  urlCurrent: "Current:",
-  badgeLabel: "Badges",
-  badgeHelp:
-    "Choose one or both. A report goes to every webhook that holds its member's badge.",
-  badgeHint: {
-    borderless_base: "Reports from Borderless BASE members.",
-    borderless_psp: "Reports from Borderless PSP members.",
-  } satisfies Record<MembershipBadgeKey, string>,
-  labelLabel: "Label",
-  labelPlaceholder: "e.g. BASE reports channel",
-  labelHelp: "Optional. Up to 100 characters, to tell webhooks apart.",
-  cancel: "Cancel",
-} as const;
+/**
+ * The dialog's words, in the active language (`admin.webhooks.form.*`); the
+ * dialog calls `useLocale`, so a switch re-renders them. Never spread it.
+ */
+export const REPORT_WEBHOOK_FORM_COPY = Object.assign(
+  liveCopy("admin.webhooks.form", [
+    "urlLabel",
+    "urlHelp",
+    "urlCurrent",
+    "badgeLabel",
+    "badgeHelp",
+    "labelLabel",
+    "labelPlaceholder",
+    "labelHelp",
+    "cancel",
+  ]),
+  {
+    badgeHint: liveCopy("admin.webhooks.form.badgeHint", [
+      "borderless_base",
+      "borderless_psp",
+    ]) satisfies Record<MembershipBadgeKey, string>,
+  },
+);
 
 export interface ReportWebhookFormDialogProps {
   mode: ReportWebhookFormMode;
@@ -136,6 +146,8 @@ export function ReportWebhookFormDialog({
   serverError = null,
   currentUrlMasked = null,
 }: ReportWebhookFormDialogProps) {
+  // Subscribes: the copy getters read the active language at render.
+  useLocale();
   const copy = COPY[mode];
   const openerRef = useRef<HTMLElement | null>(null);
   const badgeLabelId = useId();

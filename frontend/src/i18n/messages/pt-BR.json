@@ -1785,5 +1785,468 @@
     "postedWithinOption": "{days, plural, one {# dia} other {# dias}}",
     "fitAtLeast": "Aderência {value}%+",
     "summaryBestFit": "Melhor aderência"
+  },
+  "admin": {
+    "jobs": {
+      "title": "Fontes de vagas",
+      "description": "O serviço em segundo plano coleta vagas a cada hora em cada fonte ativada. As execuções nunca se sobrepõem.",
+      "runNow": "Executar agora",
+      "runStarted": "Execução iniciada",
+      "runFailed": "Não foi possível iniciar uma execução. Tente novamente.",
+      "tableLabel": "Fontes de vagas",
+      "never": "Nunca",
+      "notRun": "Ainda não executada",
+      "none": "Nenhum",
+      "loading": "Carregando as fontes de vagas",
+      "loadErrorTitle": "Não foi possível carregar as fontes de vagas",
+      "loadErrorBody": "A lista não carregou. Verifique sua conexão e tente novamente.",
+      "retry": "Tentar de novo",
+      "emptyTitle": "Nenhuma fonte de vagas ainda",
+      "emptyBody": "Himalayas e RemoteOK aparecem aqui depois que a atualização do banco de dados que as adiciona for executada.",
+      "dismissNotice": "Dispensar mensagem",
+      "columns": {
+        "source": "Fonte",
+        "enabled": "Ativa",
+        "lastRun": "Última execução",
+        "status": "Status",
+        "found": "Encontradas",
+        "saved": "Salvas",
+        "listed": "Vagas ativas",
+        "lastError": "Último erro"
+      },
+      "status": {
+        "ok": "OK",
+        "failed": "Falhou",
+        "blocked": "Bloqueada"
+      },
+      "switchLabel": "Coletar de {name}",
+      "today": "Hoje {time}",
+      "yesterday": "Ontem {time}",
+      "dayTime": "{day} {time}"
+    },
+    "webhooks": {
+      "page": {
+        "title": "Webhooks de relatório",
+        "description": "Cada webhook tem um ou mais selos. O relatório quinzenal de um membro é enviado a todo webhook que tem o selo BASE ou PSP dele.",
+        "saveFailed": "Não foi possível salvar o webhook. Tente novamente."
+      },
+      "validation": {
+        "urlRequired": "A URL do webhook é obrigatória",
+        "urlInvalid": "URL de webhook do Discord inválida",
+        "badgesRequired": "Escolha pelo menos um selo: BASE ou PSP",
+        "labelTooLong": "O rótulo deve ter no máximo {max} caracteres"
+      },
+      "list": {
+        "title": "Webhooks de relatório",
+        "add": "Adicionar webhook",
+        "unlabelled": "Webhook sem rótulo",
+        "noBadge": "Sem selo, não recebe nada",
+        "badgeTerm": "Selos",
+        "webhookTerm": "Webhook",
+        "loading": "Carregando os webhooks",
+        "errorTitle": "Não foi possível carregar os webhooks",
+        "errorBody": "A lista não carregou. Verifique sua conexão e tente novamente.",
+        "retry": "Tentar de novo",
+        "emptyTitle": "Nenhum webhook ainda",
+        "emptyBody": "Os relatórios são salvos, mas não são enviados a lugar nenhum até que um webhook seja adicionado para BASE ou PSP.",
+        "deleteTitle": "Excluir o webhook?",
+        "deleteConfirm": "Excluir",
+        "edit": "Editar {target}",
+        "delete": "Excluir {target}",
+        "targetId": "webhook {id}",
+        "targetUnlabelled": "webhook sem rótulo",
+        "thisWebhook": "este webhook",
+        "badgePair": "{first} e {second}",
+        "deleteNoBadge": "{target} não recebe relatórios hoje. A exclusão não pode ser desfeita.",
+        "deleteNoBadgeUnlabelled": "Este webhook não recebe relatórios hoje. A exclusão não pode ser desfeita.",
+        "deleteBody": "Os relatórios dos membros {members} da Borderless deixarão de ser enviados para {target}. Isso não pode ser desfeito."
+      },
+      "form": {
+        "add": {
+          "title": "Adicionar webhook",
+          "description": "Os relatórios de membros que têm qualquer um dos selos escolhidos são enviados por este webhook.",
+          "submit": "Salvar webhook",
+          "urlPlaceholder": "https://discord.com/api/webhooks/…"
+        },
+        "edit": {
+          "title": "Editar webhook",
+          "description": "Só os campos que você alterar são salvos.",
+          "submit": "Salvar alterações",
+          "urlPlaceholder": "Deixe em branco para manter a URL atual"
+        },
+        "urlLabel": "URL do webhook",
+        "urlHelp": "Depois de salvar, só uma versão mascarada é exibida.",
+        "urlCurrent": "Atual:",
+        "badgeLabel": "Selos",
+        "badgeHelp": "Escolha um ou os dois. Um relatório vai para todo webhook que tem o selo do membro.",
+        "badgeHint": {
+          "borderless_base": "Relatórios de membros BASE da Borderless.",
+          "borderless_psp": "Relatórios de membros PSP da Borderless."
+        },
+        "labelLabel": "Rótulo",
+        "labelPlaceholder": "ex.: canal de relatórios BASE",
+        "labelHelp": "Opcional. Até 100 caracteres, para diferenciar os webhooks.",
+        "cancel": "Cancelar"
+      }
+    },
+    "features": {
+      "list": {
+        "title": "Recursos",
+        "description": "Um novo recurso começa em beta: só os usuários da lista beta e os administradores têm acesso. Libere-o para dar acesso a todos.",
+        "tableLabel": "Recursos",
+        "loading": "Carregando recursos",
+        "loadErrorTitle": "Não foi possível carregar os recursos",
+        "loadErrorBody": "A lista não carregou. Verifique sua conexão e tente de novo.",
+        "retry": "Tentar de novo",
+        "emptyTitle": "Nenhum recurso ainda",
+        "emptyBody": "Os recursos aparecem aqui depois que a atualização do banco de dados que os adiciona for executada.",
+        "columns": {
+          "key": "Chave",
+          "name": "Nome",
+          "stage": "Fase",
+          "betaUsers": "Usuários beta",
+          "released": "Liberado em",
+          "you": "Você"
+        }
+      },
+      "feature": {
+        "noDescription": "Sem descrição",
+        "notReleased": "Não liberado",
+        "notRecorded": "Não registrado",
+        "key": "Chave",
+        "released": "Liberado em",
+        "loading": "Carregando recurso",
+        "loadErrorTitle": "Não foi possível carregar este recurso",
+        "loadErrorBody": "Verifique sua conexão e tente de novo.",
+        "retry": "Tentar de novo",
+        "notFoundTitle": "Recurso não encontrado",
+        "backToFeatures": "Voltar para recursos",
+        "notFoundBody": "Nenhum recurso tem a chave \"{key}\". Escolha um da lista.",
+        "notFoundNoKey": "Nenhuma chave de recurso foi informada. Escolha um da lista.",
+        "stage": {
+          "beta": "Beta",
+          "general": "Geral"
+        }
+      },
+      "accessShort": {
+        "general": "Sim, liberado para todos",
+        "list": "Sim, na lista beta",
+        "admin": "Sim, como administrador",
+        "off": "Não, você desativou",
+        "yes": "Sim",
+        "no": "Não"
+      },
+      "accessReason": {
+        "general": "Você tem este recurso porque ele foi liberado para todos.",
+        "list": "Você tem este recurso porque está na lista beta.",
+        "admin": "Você tem este recurso porque é administrador.",
+        "off": "Você não tem este recurso porque o desativou.",
+        "has": "Você tem este recurso.",
+        "hasNot": "Você não tem este recurso."
+      },
+      "ownAccess": {
+        "title": "Seu acesso",
+        "switchLabel": "Quero usar este recurso",
+        "hint": "Desative para ver o app como os usuários sem ele veem. Isso muda só o que você vê.",
+        "lockedGeneral": "Liberado para todos. Sua escolha volta a valer se ele voltar para beta.",
+        "lockedList": "Você está na lista beta, então mantém o acesso. Saia da lista para ocultá-lo.",
+        "loading": "Carregando seu acesso"
+      },
+      "stageAction": {
+        "cancel": "Cancelar",
+        "failed": "Não foi possível mudar a fase. Tente de novo.",
+        "releaseTitle": "Liberar {name} para todos?",
+        "releaseEveryone": "Todos os usuários recebem {name}, inclusive os administradores que o desativaram.",
+        "releaseKeepList": "A lista beta é mantida, então você pode voltar para beta depois.",
+        "moveBackTitle": "Voltar {name} para beta?",
+        "release": {
+          "action": "Liberar para todos",
+          "confirm": "Liberar para todos"
+        },
+        "moveBack": {
+          "action": "Voltar para beta",
+          "confirm": "Voltar para beta",
+          "loseAccess": "Usuários que não estão nesta lista nem são administradores perdem o acesso.",
+          "keepList": "A lista beta continua como está, e os administradores que o desativaram perdem o acesso de novo."
+        }
+      },
+      "betaList": {
+        "title": "Lista beta",
+        "addUser": "Adicionar usuário",
+        "searchLabel": "Buscar na lista beta",
+        "searchPlaceholder": "Buscar por nome de usuário",
+        "tableLabel": "Lista beta",
+        "loading": "Carregando a lista beta",
+        "loadErrorTitle": "Não foi possível carregar a lista beta",
+        "loadErrorBody": "A lista não carregou. Verifique sua conexão e tente de novo.",
+        "retry": "Tentar de novo",
+        "emptyTitle": "Ninguém está na lista beta",
+        "emptyBody": "Os usuários que você adicionar recebem este recurso enquanto ele estiver em beta.",
+        "noMatchBody": "A busca considera só os nomes de usuário.",
+        "clearSearch": "Limpar busca",
+        "pageEmptyTitle": "Esta página está vazia",
+        "pagerLabel": "Páginas da lista beta",
+        "previousPage": "Página anterior",
+        "nextPage": "Próxima página",
+        "remove": "Remover",
+        "cancel": "Cancelar",
+        "count": "{count, plural, =0 {# usuários} one {# usuário} other {# usuários}}",
+        "noMatchTitle": "Ninguém na lista corresponde a \"{search}\"",
+        "goToPage": "Ir para a página {page}",
+        "addedLine": "Adicionado em {date}",
+        "addedLineBy": "Adicionado em {date} por {user}",
+        "pageLabel": "Página {page} de {totalPages}",
+        "removeLabel": "Remover {username}",
+        "removeTitle": "Remover {username} da lista beta?",
+        "removeBodyBeta": "{username} perde {featureName} no próximo carregamento de página, a menos que seja administrador. Você pode adicionar de novo depois.",
+        "removeBodyGeneral": "{username} mantém {featureName} enquanto ele estiver liberado para todos, e o perde se ele voltar para beta.",
+        "removeFailed": "Não foi possível remover {username}. Tente de novo.",
+        "description": {
+          "beta": "Estes usuários têm acesso enquanto ele está em beta. Os administradores têm acesso sem estar na lista.",
+          "general": "Todos têm acesso agora. A lista é mantida e volta a valer se ele voltar para beta."
+        },
+        "columns": {
+          "username": "Usuário",
+          "added": "Adicionado em",
+          "addedBy": "Adicionado por",
+          "actions": "Ações"
+        }
+      },
+      "addUser": {
+        "trigger": "Adicionar usuário",
+        "title": "Adicionar usuários à lista beta",
+        "searchLabel": "Buscar usuários",
+        "searchPlaceholder": "Nome de usuário ou e-mail",
+        "idle": "Digite um nome de usuário ou e-mail para encontrar um usuário.",
+        "loading": "Buscando usuários",
+        "errorTitle": "Não foi possível buscar usuários.",
+        "retry": "Tentar de novo",
+        "add": "Adicionar",
+        "listed": "Na lista",
+        "admin": "Admin",
+        "done": "Pronto",
+        "description": "Busque todos os usuários por nome de usuário ou e-mail. Quem você adicionar recebe {featureName} no próximo carregamento de página.",
+        "noMatch": "Nenhum usuário corresponde a \"{search}\".",
+        "more": "Mostrando {shown} de {total}. Digite mais para refinar a busca.",
+        "addLabel": "Adicionar {username}",
+        "listedLabel": "{username} está na lista",
+        "addedStatus": "{username} está na lista beta agora.",
+        "failed": "Não foi possível adicionar {username}. Tente de novo."
+      }
+    },
+    "nav": {
+      "label": "Seções da administração",
+      "dashboard": "Painel",
+      "users": "Usuários",
+      "companies": "Empresas",
+      "platforms": "Plataformas",
+      "jobs": "Vagas",
+      "features": "Recursos",
+      "reportWebhooks": "Webhooks"
+    },
+    "time": {
+      "today": "hoje",
+      "yesterday": "ontem",
+      "daysAgo": "há {days, plural, one {# dia} other {# dias}}",
+      "monthsAgo": "há {months, plural, one {# mês} other {# meses}}"
+    },
+    "pager": {
+      "page": "Página {page} de {total}",
+      "previous": "Página anterior",
+      "next": "Próxima página"
+    },
+    "dashboard": {
+      "title": "Console de administração",
+      "subtitle": "Análises de toda a plataforma e gestão de usuários",
+      "stats": {
+        "total_users": "Total de usuários",
+        "active_30d": "Ativos (30 dias)",
+        "new_7d": "Novos (7 dias)",
+        "total_apps": "Candidaturas",
+        "avg_apps": "Média / usuário",
+        "offers": "Total de ofertas",
+        "denials": "Total de recusas",
+        "success_rate": "Taxa de sucesso",
+        "finalization_rate": "Taxa de encerramento",
+        "apps_30d": "Candidaturas (30 dias)"
+      },
+      "growth": {
+        "title": "Crescimento de usuários",
+        "totalUsers": "Total de usuários",
+        "newUsersTitle": "Novos usuários / mês",
+        "newUsers": "Novos usuários"
+      },
+      "seniority": {
+        "title": "Distribuição por senioridade",
+        "users": "usuários",
+        "unknown": "Desconhecida"
+      },
+      "top": {
+        "platforms": "Principais plataformas",
+        "companies": "Principais empresas",
+        "noCompanies": "Ainda não há dados de empresas",
+        "users": "{count, plural, =0 {{total} usuários} one {{total} usuário} other {{total} usuários}}"
+      },
+      "heatmap": {
+        "title": "Mapa de atividade",
+        "unit": "candidaturas / hora",
+        "less": "Menos",
+        "more": "Mais",
+        "cell": "{day} {hour}:00 — {count, plural, =0 {{total} candidaturas} one {{total} candidatura} other {{total} candidaturas}}",
+        "days": {
+          "mon": "Seg",
+          "tue": "Ter",
+          "wed": "Qua",
+          "thu": "Qui",
+          "fri": "Sex",
+          "sat": "Sáb",
+          "sun": "Dom"
+        }
+      },
+      "activity": {
+        "title": "Usuários",
+        "total": "{total} no total",
+        "searchPlaceholder": "Buscar usuários..."
+      }
+    },
+    "users": {
+      "title": "Gestão de usuários",
+      "subtitle": "Veja, busque e gerencie todos os usuários da plataforma",
+      "count": "{count, plural, =0 {{total} usuários} one {{total} usuário} other {{total} usuários}}",
+      "searchPlaceholder": "Buscar usuários...",
+      "adminBadge": "admin",
+      "viewDetails": "Ver detalhes do usuário",
+      "toggleAdmin": "Alternar acesso de administrador",
+      "columns": {
+        "user": "Usuário",
+        "seniority": "Senioridade",
+        "apps": "Candidaturas",
+        "offers": "Ofertas",
+        "denials": "Recusas",
+        "joined": "Cadastro",
+        "lastActive": "Última atividade",
+        "actions": "Ações"
+      },
+      "detail": {
+        "email": "E-mail",
+        "githubId": "ID do GitHub",
+        "name": "Nome",
+        "role": "Cargo",
+        "company": "Empresa",
+        "seniority": "Senioridade",
+        "location": "Localização",
+        "availability": "Disponibilidade",
+        "stats": "Estatísticas de candidaturas",
+        "total": "Total",
+        "offers": "Ofertas",
+        "denials": "Recusas",
+        "active": "Ativas",
+        "bio": "Bio",
+        "techStack": "Tecnologias"
+      }
+    },
+    "catalog": {
+      "visibility": {
+        "label": "Visibilidade",
+        "all": "Todas",
+        "public": "Públicas",
+        "private": "Privadas",
+        "notRecorded": "Não registrado"
+      },
+      "approve": {
+        "action": "Aprovar",
+        "cancel": "Cancelar",
+        "failed": "Não foi possível aprovar. Tente de novo.",
+        "rowLabel": "Aprovar {name}",
+        "title": "Aprovar {name}?",
+        "becomesPublic": {
+          "company": "{name} passa a ser pública: todos os usuários a veem na lista de empresas e podem escolhê-la.",
+          "platform": "{name} passa a ser pública: todos os usuários a veem na lista de plataformas e podem escolhê-la."
+        },
+        "keepsAddedBy": "{addedBy} continua registrado como quem a adicionou.",
+        "permanent": "Não é possível torná-la privada de novo."
+      },
+      "form": {
+        "name": "Nome",
+        "url": "URL",
+        "urlOptional": "URL (opcional)",
+        "nameRequired": "O nome é obrigatório",
+        "urlInvalid": "Informe uma URL válida",
+        "nameTooLong": "O nome deve ter no máximo {max} caracteres",
+        "urlTooLong": "A URL deve ter no máximo {max} caracteres",
+        "cancel": "Cancelar",
+        "create": "Criar",
+        "creating": "Criando...",
+        "save": "Salvar",
+        "saving": "Salvando..."
+      },
+      "table": {
+        "retry": "Tentar de novo",
+        "url": "URL",
+        "status": "Status",
+        "addedBy": "Adicionada por",
+        "apps": "Candidaturas",
+        "created": "Criada em",
+        "actions": "Ações",
+        "private": "Privada",
+        "opensNewTab": "(abre em uma nova aba)",
+        "noUrl": "Sem URL",
+        "active": "ativa",
+        "inactive": "inativa",
+        "toggleStatus": "Alternar status",
+        "toggleStatusFor": "Alternar status de {name}",
+        "edit": "Editar {name}",
+        "delete": "Excluir {name}",
+        "cannotDelete": "Não é possível excluir: usada em candidaturas",
+        "deleteDescription": "Essa ação não pode ser desfeita.",
+        "cancel": "Cancelar",
+        "deleting": "Excluindo...",
+        "deleteAction": "Excluir"
+      },
+      "company": {
+        "title": "Gestão de empresas",
+        "subtitle": "Gerencie as empresas disponíveis na plataforma",
+        "add": "Adicionar empresa",
+        "editTitle": "Editar empresa",
+        "column": "Empresa",
+        "count": "{count, plural, =0 {{total} empresas} one {{total} empresa} other {{total} empresas}}",
+        "searchLabel": "Buscar empresas",
+        "searchPlaceholder": "Buscar empresas...",
+        "loadError": "Não foi possível carregar as empresas.",
+        "noMatch": "Nenhuma empresa corresponde à sua busca.",
+        "empty": "Ainda não há empresas.",
+        "deleteFailed": "Não foi possível excluir esta empresa.",
+        "deleteRow": "Excluir empresa",
+        "pages": "Páginas de empresas"
+      },
+      "platform": {
+        "title": "Plataformas",
+        "subtitle": "Gerencie as plataformas que os usuários escolhem para suas candidaturas",
+        "add": "Adicionar plataforma",
+        "editTitle": "Editar plataforma",
+        "column": "Plataforma",
+        "count": "{count, plural, =0 {{total} plataformas} one {{total} plataforma} other {{total} plataformas}}",
+        "searchLabel": "Buscar plataformas",
+        "searchPlaceholder": "Buscar plataformas...",
+        "loadError": "Não foi possível carregar as plataformas.",
+        "noMatch": "Nenhuma plataforma corresponde à sua busca.",
+        "empty": "Ainda não há plataformas.",
+        "deleteFailed": "Não foi possível excluir esta plataforma.",
+        "deleteRow": "Excluir plataforma",
+        "pages": "Páginas de plataformas"
+      }
+    },
+    "toasts": {
+      "userUpdated": "Usuário atualizado",
+      "companyCreated": "Empresa criada",
+      "companyUpdated": "Empresa atualizada",
+      "companyDeleted": "Empresa excluída",
+      "platformCreated": "Plataforma criada",
+      "platformUpdated": "Plataforma atualizada",
+      "platformDeleted": "Plataforma excluída",
+      "webhookAdded": "Webhook adicionado",
+      "webhookUpdated": "Webhook atualizado",
+      "webhookDeleted": "Webhook excluído"
+    }
   }
 }

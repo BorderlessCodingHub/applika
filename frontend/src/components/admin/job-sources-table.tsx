@@ -10,6 +10,7 @@ import {
   RadioTower,
   RefreshCw,
 } from "lucide-react";
+import { useLocale } from "next-intl";
 
 import {
   JOB_SOURCES_COPY,
@@ -32,6 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useIntlLocale } from "@/i18n/intl-locale";
 import { cn } from "@/lib/utils";
 
 /** `GET /admin/jobs/sources` row; structurally the service's `AdminJobSource`. */
@@ -101,6 +103,8 @@ export function JobSourcesTable({
   className,
 }: JobSourcesTableProps) {
   const captionId = useId();
+  // Subscribes: JOB_SOURCES_COPY and the dates read the active language at render.
+  useLocale();
   const cardRef = useRef<HTMLDivElement>(null);
   const retried = useRef(false);
   const state = jobSourcesListState({ sources, isLoading, isError });
@@ -262,6 +266,7 @@ function JobSourceTableRow({
   onEnabledChange: (source: JobSourceRow, enabled: boolean) => void;
   now?: Date;
 }) {
+  useLocale();
   return (
     <TableRow
       data-slot="job-source-row"
@@ -356,6 +361,7 @@ const OUTCOME: Record<
 
 /** Words carry the outcome; tone text on its tint is under 4.5:1, so the text stays `foreground`. */
 export function JobRunOutcome({ status }: { status: JobRunStatus | null }) {
+  useLocale();
   if (!status) {
     return (
       <span
@@ -385,14 +391,16 @@ export function JobRunOutcome({ status }: { status: JobRunStatus | null }) {
 }
 
 function NumberCell({ value }: { value: number | null }) {
+  const locale = useIntlLocale();
   return (
     <TableCell className={cn(CELL, "text-right font-numeric text-foreground")}>
-      {value === null ? <Missing /> : value.toLocaleString("en")}
+      {value === null ? <Missing /> : value.toLocaleString(locale)}
     </TableCell>
   );
 }
 
 function Missing() {
+  useLocale();
   return (
     <span className="text-muted-foreground">
       <span aria-hidden>—</span>

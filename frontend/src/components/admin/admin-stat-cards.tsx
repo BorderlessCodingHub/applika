@@ -12,15 +12,27 @@ import {
   CheckCircle2,
   CalendarDays,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useAdminStats } from "@/hooks/use-admin";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnimatedCounter } from "./animated-counter";
 import type { LucideIcon } from "lucide-react";
 import { AdminPlatformStats } from "@/services/types/admin";
 
+type StatKey =
+  | "total_users"
+  | "active_30d"
+  | "new_7d"
+  | "total_apps"
+  | "avg_apps"
+  | "offers"
+  | "denials"
+  | "success_rate"
+  | "finalization_rate"
+  | "apps_30d";
+
 interface StatDef {
-  key: string;
-  label: string;
+  key: StatKey;
   icon: LucideIcon;
   accent: string;
   glowColor: string;
@@ -32,7 +44,6 @@ interface StatDef {
 const STATS: StatDef[] = [
   {
     key: "total_users",
-    label: "Total Users",
     icon: Users,
     accent: "text-amber-400",
     glowColor: "rgba(251, 191, 36, 0.12)",
@@ -42,7 +53,6 @@ const STATS: StatDef[] = [
   },
   {
     key: "active_30d",
-    label: "Active (30d)",
     icon: Activity,
     accent: "text-emerald-400",
     glowColor: "rgba(52, 211, 153, 0.12)",
@@ -52,7 +62,6 @@ const STATS: StatDef[] = [
   },
   {
     key: "new_7d",
-    label: "New (7d)",
     icon: UserPlus,
     accent: "text-sky-400",
     glowColor: "rgba(56, 189, 248, 0.12)",
@@ -62,7 +71,6 @@ const STATS: StatDef[] = [
   },
   {
     key: "total_apps",
-    label: "Applications",
     icon: FileText,
     accent: "text-violet-400",
     glowColor: "rgba(167, 139, 250, 0.12)",
@@ -72,7 +80,6 @@ const STATS: StatDef[] = [
   },
   {
     key: "avg_apps",
-    label: "Avg / User",
     icon: BarChart3,
     accent: "text-orange-400",
     glowColor: "rgba(251, 146, 60, 0.12)",
@@ -83,7 +90,6 @@ const STATS: StatDef[] = [
   },
   {
     key: "offers",
-    label: "Total Offers",
     icon: Trophy,
     accent: "text-primary",
     glowColor: "color-mix(in oklab, var(--primary) 12%, transparent)",
@@ -93,7 +99,6 @@ const STATS: StatDef[] = [
   },
   {
     key: "denials",
-    label: "Total Denials",
     icon: XCircle,
     accent: "text-rose-400",
     glowColor: "rgba(251, 113, 133, 0.12)",
@@ -103,7 +108,6 @@ const STATS: StatDef[] = [
   },
   {
     key: "success_rate",
-    label: "Success Rate",
     icon: TrendingUp,
     accent: "text-emerald-400",
     glowColor: "rgba(52, 211, 153, 0.12)",
@@ -115,7 +119,6 @@ const STATS: StatDef[] = [
   },
   {
     key: "finalization_rate",
-    label: "Finalization Rate",
     icon: CheckCircle2,
     accent: "text-cyan-400",
     glowColor: "rgba(34, 211, 238, 0.12)",
@@ -127,7 +130,6 @@ const STATS: StatDef[] = [
   },
   {
     key: "apps_30d",
-    label: "Apps (30d)",
     icon: CalendarDays,
     accent: "text-pink-400",
     glowColor: "rgba(244, 114, 182, 0.12)",
@@ -139,6 +141,7 @@ const STATS: StatDef[] = [
 
 export function AdminStatCards() {
   const { data, isLoading } = useAdminStats();
+  const t = useTranslations("admin.dashboard.stats");
 
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -165,7 +168,7 @@ export function AdminStatCards() {
           <div className="relative z-10">
             <div className="mb-3 flex items-start justify-between gap-2">
               <span className="min-w-0 font-display text-[11px] leading-snug font-medium tracking-wide-label text-muted-foreground uppercase">
-                {stat.label}
+                {t(stat.key)}
               </span>
               <stat.icon
                 className={`hidden h-4 w-4 shrink-0 sm:block ${stat.accent} opacity-70`}

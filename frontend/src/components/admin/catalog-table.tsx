@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
@@ -32,6 +33,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useAdminNumber, useAdminPager } from "@/components/admin/admin-format";
+import { useIntlLocale } from "@/i18n/intl-locale";
 import { cn } from "@/lib/utils";
 import type { AdminCatalogCreatedBy } from "@/services/types/admin";
 
@@ -48,8 +51,8 @@ export interface CatalogRow {
   is_active?: boolean;
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en", {
+function formatDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -112,10 +115,12 @@ export function CatalogTable<T extends CatalogRow>({
   const [deleteTarget, setDeleteTarget] = useState<T | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const plural = kind === "company" ? "companies" : "platforms";
-  const singular = kind === "company" ? "company" : "platform";
-  const label = kind === "company" ? "Company" : "Platform";
-  const countLabel = `${total} ${total === 1 ? singular : plural}`;
+  const t = useTranslations("admin.catalog.table");
+  const tk = useTranslations(`admin.catalog.${kind}`);
+  const n = useAdminNumber();
+  const pager = useAdminPager();
+  const intlLocale = useIntlLocale();
+  const countLabel = tk("count", { count: total, total: n(total) });
 
   const focusVisibilityFilter = () => {
     document
@@ -136,16 +141,12 @@ export function CatalogTable<T extends CatalogRow>({
       closeDelete();
       focusVisibilityFilter();
     } catch (error) {
-      setDeleteError(
-        safeErrorMessage(error, `Could not delete this ${singular}.`),
-      );
+      setDeleteError(safeErrorMessage(error, tk("deleteFailed")));
     }
   };
 
   const emptyMessage =
-    search || visibility !== "all"
-      ? `No ${plural} match your search.`
-      : `No ${plural} yet.`;
+    search || visibility !== "all" ? tk("noMatch") : tk("empty");
 
   return (
     <>
@@ -166,10 +167,10 @@ export function CatalogTable<T extends CatalogRow>({
               />
               <Input
                 type="search"
-                aria-label={`Search ${plural}`}
+                aria-label={tk("searchLabel")}
                 value={search}
                 onChange={(e) => onSearchChange(e.target.value)}
-                placeholder={`Search ${plural}...`}
+                placeholder={tk("searchPlaceholder")}
                 className="h-8 w-full pl-8 sm:w-64"
               />
             </div>
@@ -187,10 +188,10 @@ export function CatalogTable<T extends CatalogRow>({
             role="alert"
             className="flex flex-col items-center gap-3 px-5 py-10 text-center text-sm text-muted-foreground"
           >
-            <p>Could not load {plural}.</p>
+            <p>{tk("loadError")}</p>
             {onRetry ? (
               <Button variant="outline" size="sm" onClick={onRetry}>
-                Try again
+                {t("retry")}
               </Button>
             ) : null}
           </div>
@@ -207,27 +208,27 @@ export function CatalogTable<T extends CatalogRow>({
                 <thead>
                   <tr className="border-y border-border/40 bg-accent/20">
                     <th className="px-5 py-2.5 text-left font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
-                      {label}
+                      {tk("column")}
                     </th>
                     <th className="hidden px-3 py-2.5 text-left font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase md:table-cell">
-                      URL
+                      {t("url")}
                     </th>
                     {onToggleActive ? (
                       <th className="px-3 py-2.5 text-center font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
-                        Status
+                        {t("status")}
                       </th>
                     ) : null}
                     <th className="hidden px-3 py-2.5 text-left font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase md:table-cell">
-                      Added by
+                      {t("addedBy")}
                     </th>
                     <th className="px-3 py-2.5 text-right font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
-                      Apps
+                      {t("apps")}
                     </th>
                     <th className="hidden px-3 py-2.5 text-right font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase lg:table-cell">
-                      Created
+                      {t("created")}
                     </th>
                     <th className="px-5 py-2.5 text-right font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
-                      Actions
+                      {t("actions")}
                     </th>
                   </tr>
                 </thead>
@@ -260,7 +261,7 @@ export function CatalogTable<T extends CatalogRow>({
                               {row.name}
                             </span>
                             {!row.is_public ? (
-                              <OnlyYouBadge label="Private" />
+                              <OnlyYouBadge label={t("private")} />
                             ) : null}
                           </div>
                         </td>
@@ -277,13 +278,13 @@ export function CatalogTable<T extends CatalogRow>({
                               </span>
                               <ExternalLink aria-hidden className="h-3 w-3" />
                               <span className="sr-only">
-                                (opens in a new tab)
+                                {t("opensNewTab")}
                               </span>
                             </a>
                           ) : (
                             <span className="text-muted-foreground">
                               <span aria-hidden>—</span>
-                              <span className="sr-only">No URL</span>
+                              <span className="sr-only">{t("noUrl")}</span>
                             </span>
                           )}
                         </td>
@@ -299,13 +300,15 @@ export function CatalogTable<T extends CatalogRow>({
                                     : "text-muted-foreground",
                                 )}
                               >
-                                {row.is_active ? "active" : "inactive"}
+                                {row.is_active ? t("active") : t("inactive")}
                               </Badge>
                               <button
                                 type="button"
                                 onClick={() => onToggleActive(row)}
-                                title="Toggle status"
-                                aria-label={`Toggle status for ${row.name}`}
+                                title={t("toggleStatus")}
+                                aria-label={t("toggleStatusFor", {
+                                  name: row.name,
+                                })}
                                 className="rounded-full"
                               >
                                 <span
@@ -324,10 +327,10 @@ export function CatalogTable<T extends CatalogRow>({
                           <AddedBy username={row.created_by?.username} />
                         </td>
                         <td className="px-3 py-3 text-right font-numeric text-foreground">
-                          {row.applications_count}
+                          {n(row.applications_count)}
                         </td>
                         <td className="hidden px-3 py-3 text-right text-xs text-muted-foreground lg:table-cell">
-                          {formatDate(row.created_at)}
+                          {formatDate(row.created_at, intlLocale)}
                         </td>
                         <td className="px-5 py-3 text-right">
                           <div className="flex items-center justify-end gap-1">
@@ -345,7 +348,7 @@ export function CatalogTable<T extends CatalogRow>({
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7"
-                              aria-label={`Edit ${row.name}`}
+                              aria-label={t("edit", { name: row.name })}
                               onClick={() => onEdit(row)}
                             >
                               <Pencil aria-hidden className="h-3.5 w-3.5" />
@@ -354,13 +357,13 @@ export function CatalogTable<T extends CatalogRow>({
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-destructive hover:text-destructive"
-                              aria-label={`Delete ${row.name}`}
+                              aria-label={t("delete", { name: row.name })}
                               onClick={() => setDeleteTarget(row)}
                               disabled={row.applications_count > 0}
                               title={
                                 row.applications_count > 0
-                                  ? "Cannot delete: used by applications"
-                                  : `Delete ${singular}`
+                                  ? t("cannotDelete")
+                                  : tk("deleteRow")
                               }
                             >
                               <Trash2 aria-hidden className="h-3.5 w-3.5" />
@@ -376,21 +379,21 @@ export function CatalogTable<T extends CatalogRow>({
 
             {totalPages > 1 ? (
               <nav
-                aria-label={`${label} pages`}
+                aria-label={tk("pages")}
                 className="flex items-center justify-between border-t border-border/30 px-5 py-3"
               >
                 <span
                   aria-live="polite"
                   className="font-numeric text-xs text-muted-foreground"
                 >
-                  Page {page} of {totalPages}
+                  {pager.page(page, totalPages)}
                 </span>
                 <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
                     className="size-8"
-                    aria-label="Previous page"
+                    aria-label={pager.previous}
                     onClick={() => onPageChange(Math.max(1, page - 1))}
                     disabled={page <= 1}
                   >
@@ -400,7 +403,7 @@ export function CatalogTable<T extends CatalogRow>({
                     variant="ghost"
                     size="icon"
                     className="size-8"
-                    aria-label="Next page"
+                    aria-label={pager.next}
                     onClick={() => onPageChange(Math.min(totalPages, page + 1))}
                     disabled={page >= totalPages}
                   >
@@ -419,8 +422,10 @@ export function CatalogTable<T extends CatalogRow>({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete {deleteTarget?.name}</DialogTitle>
-            <DialogDescription>This cannot be undone.</DialogDescription>
+            <DialogTitle>
+              {t("delete", { name: deleteTarget?.name ?? "" })}
+            </DialogTitle>
+            <DialogDescription>{t("deleteDescription")}</DialogDescription>
           </DialogHeader>
           {deleteError ? (
             <p
@@ -433,14 +438,14 @@ export function CatalogTable<T extends CatalogRow>({
           ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={closeDelete}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button
               variant="destructive"
               onClick={() => void confirmDelete()}
               disabled={isDeleting}
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              {isDeleting ? t("deleting") : t("deleteAction")}
             </Button>
           </DialogFooter>
         </DialogContent>
