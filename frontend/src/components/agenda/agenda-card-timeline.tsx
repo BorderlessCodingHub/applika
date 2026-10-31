@@ -1,15 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { CircleAlert, Clock, RefreshCw } from "lucide-react";
 
-import {
-  AGENDA_PAGE_COPY,
-  AGENDA_TIMELINE_COPY,
-  agendaTimelineCountLabel,
-} from "@/components/agenda/agenda-copy";
+import { agendaTimelineCountLabel } from "@/components/agenda/agenda-copy";
 import { IconTile } from "@/components/applications/icon-tile";
-import { TIMELINE_PANEL_COPY } from "@/components/timeline/timeline-copy";
 import { TimelineEventList } from "@/components/timeline/timeline-event-list";
 import { type TimelineEventView } from "@/components/timeline/timeline-types";
 import { Button } from "@/components/ui/button";
@@ -61,6 +57,7 @@ export function AgendaCardTimeline({
   retrying = false,
   className,
 }: AgendaCardTimelineProps) {
+  const t = useTranslations("agenda");
   const sectionRef = useRef<HTMLElement>(null);
   const retryClicked = useRef(false);
 
@@ -81,7 +78,7 @@ export function AgendaCardTimeline({
   if (status === "loading") {
     body = (
       <div role="status" aria-busy="true" className="flex flex-col gap-3">
-        <span className="sr-only">{AGENDA_TIMELINE_COPY.loading}</span>
+        <span className="sr-only">{t("timeline.loading")}</span>
         <TimelineEventCardSkeleton />
         <TimelineEventCardSkeleton />
       </div>
@@ -102,10 +99,10 @@ export function AgendaCardTimeline({
           </span>
           <div className="min-w-0 flex-1 pt-1.5 @md/agenda-card:pt-0">
             <p className="text-sm font-medium text-foreground">
-              {AGENDA_TIMELINE_COPY.loadErrorTitle}
+              {t("timeline.loadErrorTitle")}
             </p>
             <p className="mt-0.5 text-sm break-words text-foreground/80">
-              {errorDetail?.trim() || AGENDA_TIMELINE_COPY.loadErrorFallback}
+              {errorDetail?.trim() || t("timeline.loadErrorFallback")}
             </p>
           </div>
         </div>
@@ -127,7 +124,7 @@ export function AgendaCardTimeline({
               data-icon="inline-start"
               className={cn(retrying && "motion-safe:animate-spin")}
             />
-            {AGENDA_PAGE_COPY.retry}
+            {t("page.retry")}
           </Button>
         ) : null}
       </div>
@@ -138,10 +135,10 @@ export function AgendaCardTimeline({
         <IconTile icon={Clock} size="md" className="max-sm:size-10" />
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">
-            {AGENDA_TIMELINE_COPY.emptyTitle}
+            {t("timeline.emptyTitle")}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {AGENDA_TIMELINE_COPY.emptyDescription}
+            {t("timeline.emptyDescription")}
           </p>
         </div>
       </div>
@@ -172,7 +169,7 @@ export function AgendaCardTimeline({
           />
           <div className="flex flex-wrap items-baseline gap-x-2">
             <h4 className="font-display text-sm font-semibold text-foreground">
-              {TIMELINE_PANEL_COPY.title}
+              {t("timeline.title")}
             </h4>
             {count != null ? (
               <span className="text-xs text-muted-foreground">

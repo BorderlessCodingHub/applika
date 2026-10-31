@@ -818,5 +818,62 @@
       "deleted": "Ciclo excluído permanentemente",
       "deleteFailed": "Não foi possível excluir o ciclo"
     }
+  },
+  "agenda": {
+    "page": {
+      "title": "Agenda",
+      "subtitle": "As etapas das suas candidaturas organizadas por data",
+      "searchPlaceholder": "Buscar candidaturas...",
+      "searchLabel": "Buscar candidaturas",
+      "stageFilterLabel": "Filtrar por etapa",
+      "allStages": "Todas as etapas",
+      "upcomingTab": "Próximas",
+      "pastTab": "Anteriores",
+      "emptyUpcoming": "Nenhuma entrevista agendada",
+      "emptyPast": "Nenhuma entrevista nos últimos 30 dias",
+      "emptyFiltered": "Nenhuma entrevista corresponde à sua busca",
+      "goToApplications": "Ir para candidaturas",
+      "loadErrorTitle": "Não foi possível carregar sua agenda",
+      "retry": "Tentar de novo",
+      "loading": "Carregando agenda"
+    },
+    "card": {
+      "allDay": "Dia inteiro",
+      "converted": "(convertido)",
+      "noNotes": "Sem anotações",
+      "addToCalendarTooltip": "Adicionar ao calendário",
+      "alertOffTooltip": "Alertar 30, 15 e 5 min antes",
+      "alertOnTooltip": "Desativar alertas sonoros",
+      "openTooltip": "Abrir em Candidaturas"
+    },
+    "timeline": {
+      "title": "Linha do tempo",
+      "loading": "Carregando linha do tempo",
+      "loadErrorTitle": "Não foi possível carregar a linha do tempo",
+      "loadErrorFallback": "Algo deu errado ao buscar os eventos desta candidatura.",
+      "emptyTitle": "Nenhum evento ainda",
+      "emptyDescription": "Não há atividade registrada para esta candidatura."
+    },
+    "count": {
+      "events": "{count, plural, one {# evento} other {# eventos}}",
+      "applications": "{count, plural, one {# candidatura} other {# candidaturas}}",
+      "tab": "{tab} ({count})"
+    },
+    "names": {
+      "open": "Abrir {role} em {company}",
+      "addToCalendar": "Adicionar {role} em {company} ao calendário",
+      "alerts": "Alertas sonoros de {role} em {company}",
+      "timeline": "Linha do tempo de {role} em {company}"
+    },
+    "downloaded": "Evento do calendário baixado",
+    "notification": {
+      "body": "Começa em {minutes} minutos"
+    },
+    "calendar": {
+      "role": "Cargo: {role}",
+      "company": "Empresa: {company}",
+      "notes": "Anotações: {notes}",
+      "managedBy": "Gerenciado pelo {app}"
+    }
   }
 }

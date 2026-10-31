@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { loadMessages } from "@/i18n/load-messages";
+import { setTranslatorLocale } from "@/i18n/translator";
 import { genAgendaStepIcsFile } from "@/lib/calendar";
 
 /**
@@ -90,5 +92,47 @@ describe("genAgendaStepIcsFile", () => {
     expect(icsText).not.toContain(
       "UID:app-1-20260918-Interview - Technical@applika",
     );
+  });
+
+  function uidLine(text: string | undefined): string | undefined {
+    return text?.split("\r\n").find((line) => line.startsWith("UID:"));
+  }
+
+  it("in pt-BR, SUMMARY, the file name and the description follow the language", async () => {
+    setTranslatorLocale("pt-BR", await loadMessages("pt-BR"));
+    genAgendaStepIcsFile({ ...baseStep(), observation: "Bring a laptop" });
+    expect(icsText).toContain("SUMMARY:Acme — Entrevista - Técnica");
+    expect(clickedAnchor?.download).toBe("Acme-Entrevista - Técnica.ics");
+    // Labels translated; company, role and notes are the user's words, as sent.
+    expect(icsText).toContain(
+      "DESCRIPTION:Cargo: Backend Engineer — Empresa: Acme — Anotações: Bring a laptop — Gerenciado pelo Applika.dev",
+    );
+  });
+
+  it("the UID line is byte-identical in en and pt-BR, and equals the legacy en value", async () => {
+    genAgendaStepIcsFile(baseStep());
+    const english = uidLine(icsText);
+    expect(english).toBe("UID:app-1-20260918-Interview · Technical@applika");
+
+    setTranslatorLocale("pt-BR", await loadMessages("pt-BR"));
+    genAgendaStepIcsFile(baseStep());
+    const portuguese = uidLine(icsText);
+    expect(icsText).toContain("SUMMARY:Acme — Entrevista - Técnica");
+    expect(portuguese).toBe(english);
+  });
+
+  it("every stage keeps its English UID under pt-BR", async () => {
+    setTranslatorLocale("pt-BR", await loadMessages("pt-BR"));
+    const cases = [
+      ["interview", "take_home", "Interview · Take-home"],
+      ["interview", "hiring_manager", "Interview · Hiring manager"],
+      ["interview", null, "Interview · Unknown"],
+      ["offer", null, "Offer"],
+      ["denied", null, "Denied"],
+    ] as const;
+    for (const [event_type, interview_type, label] of cases) {
+      genAgendaStepIcsFile({ ...baseStep(), event_type, interview_type });
+      expect(uidLine(icsText)).toBe(`UID:app-1-20260918-${label}@applika`);
+    }
   });
 });

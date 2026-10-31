@@ -6,6 +6,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { AgendaPage } from "@/app/(protected)/agenda/agenda-page";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { AgendaStep } from "@/services/types/applications";
+import { renderInPortuguese } from "@/test/portuguese";
 
 const useAgendaMock = vi.fn();
 vi.mock("@/hooks/use-user", () => ({
@@ -873,5 +874,137 @@ describe("AgendaPage", () => {
     renderPage();
 
     expect(screen.getByRole("alert")).toHaveTextContent("Server exploded");
+  });
+});
+
+describe("AgendaPage in Portuguese", () => {
+  function pageTree() {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    return (
+      <QueryClientProvider client={client}>
+        <TooltipProvider>
+          <AgendaPage />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  it("reads the toolbar, tabs, group, card and toast in pt-BR; user content as sent", async () => {
+    useAgendaMock.mockReturnValue({
+      data: [
+        step({
+          id: "a",
+          start_time: "10:00:00",
+          observation: "Bring a laptop",
+        }),
+        step({ id: "b", role: "Recruiter", company_name: "Globex" }),
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    await renderInPortuguese(pageTree());
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Agenda" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("As etapas das suas candidaturas organizadas por data"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: "Buscar candidaturas" }),
+    ).toHaveAttribute("placeholder", "Buscar candidaturas...");
+    expect(
+      screen.getByRole("combobox", { name: "Filtrar por etapa" }),
+    ).toHaveTextContent("Todas as etapas");
+    expect(
+      screen.getByRole("tab", { name: "Próximas (2)" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "Anteriores (0)" }),
+    ).toBeInTheDocument();
+
+    const group = document.querySelector(
+      '[data-slot="agenda-date-group"]',
+    ) as HTMLElement;
+    expect(within(group).getByText("2 candidaturas")).toBeInTheDocument();
+    expect(within(group).getByRole("heading", { level: 2 })).toHaveTextContent(
+      "18 de set de 2026",
+    );
+
+    expect(screen.getAllByText("Entrevista - Técnica")).toHaveLength(2);
+    expect(screen.getByText("Dia inteiro")).toBeInTheDocument();
+    expect(screen.getByText("Sem anotações")).toBeInTheDocument();
+    // Company, role and notes are the user's own words: never translated.
+    expect(screen.getByText("Bring a laptop")).toBeInTheDocument();
+    expect(screen.getByText("Globex")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Abrir Backend Engineer em Acme" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Alertas sonoros de Backend Engineer em Acme",
+      }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: "Adicionar Backend Engineer em Acme ao calendário",
+      }),
+    );
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      "Evento do calendário baixado",
+    );
+  });
+
+  it("reads the empty and error states in pt-BR", async () => {
+    useAgendaMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    const view = await renderInPortuguese(pageTree());
+    expect(screen.getByText("Nenhuma entrevista agendada")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Ir para candidaturas" }),
+    ).toBeInTheDocument();
+    view.unmount();
+
+    useAgendaMock.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: { isAxiosError: true, response: { data: {} } },
+      refetch: vi.fn(),
+    });
+    await renderInPortuguese(pageTree());
+    expect(
+      screen.getByText("Não foi possível carregar sua agenda"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Tentar de novo" }),
+    ).toBeInTheDocument();
+  });
+
+  it("names the loading skeleton in pt-BR", async () => {
+    useAgendaMock.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    await renderInPortuguese(pageTree());
+    expect(screen.getAllByRole("status")[0]).toHaveTextContent(
+      "Carregando agenda",
+    );
   });
 });

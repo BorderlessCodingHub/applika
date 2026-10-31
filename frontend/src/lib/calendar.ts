@@ -1,6 +1,4 @@
 import {
-  INTERVIEW_TYPE_LABELS,
-  EVENT_TYPE_CONFIG,
   DEFAULT_INTERVIEW_TYPE,
   stageLabel,
 } from "@/components/timeline/timeline-options";
@@ -8,24 +6,46 @@ import type {
   InterviewType,
   TimelineEventType,
 } from "@/components/timeline/timeline-types";
+import { word } from "@/i18n/translator";
 
 const APP_NAME = "Applika.dev";
 
 /**
- * The event's OLD stage text, joined with "·" (never the R-027 hyphen from
- * `stageLabel`). Used ONLY in the UID line below: the UID is the event's
- * identity inside the calendar file, and changing it would make re-importing
- * the same event create a duplicate instead of updating it (R-008). The
- * SUMMARY line and the downloaded file's name follow `stageLabel` (the
- * hyphen) like every other stage-label surface.
+ * The OLD English stage words, frozen. They feed only the UID line below and
+ * never follow the app language: the UID is the event's identity inside the
+ * calendar file, and changing it — by the "·" joiner becoming the hyphen, or
+ * by a word becoming Portuguese — would make re-importing the same event
+ * create a duplicate instead of updating it.
+ */
+const LEGACY_EVENT_TYPE_LABELS: Record<TimelineEventType, string> = {
+  interview: "Interview",
+  offer: "Offer",
+  denied: "Denied",
+};
+
+const LEGACY_INTERVIEW_TYPE_LABELS: Record<InterviewType, string> = {
+  unknown: "Unknown",
+  initial_screening: "Initial screening",
+  technical: "Technical",
+  cultural: "Cultural",
+  hiring_manager: "Hiring manager",
+  take_home: "Take-home",
+  final: "Final",
+};
+
+/**
+ * The event's OLD stage text, joined with "·" (never the hyphen of
+ * `stageLabel`), in English in every language. Used ONLY in the UID line.
+ * The SUMMARY line and the downloaded file's name follow `stageLabel` (the
+ * hyphen, the active language) like every other stage-label surface.
  */
 function legacyStageLabel(
   eventType: TimelineEventType,
   interviewType?: InterviewType | null,
 ): string {
-  const base = EVENT_TYPE_CONFIG[eventType].label;
+  const base = LEGACY_EVENT_TYPE_LABELS[eventType];
   if (eventType !== "interview") return base;
-  return `${base} · ${INTERVIEW_TYPE_LABELS[interviewType ?? DEFAULT_INTERVIEW_TYPE]}`;
+  return `${base} · ${LEGACY_INTERVIEW_TYPE_LABELS[interviewType ?? DEFAULT_INTERVIEW_TYPE]}`;
 }
 
 /** Converts "HH:MM" or "HH:MM:SS" to ICS "HHMMSS" format */
@@ -90,11 +110,13 @@ export function genAgendaStepIcsFile(step: {
   }
 
   const descriptionLines = [
-    `Role: ${step.role}`,
-    `Company: ${step.company_name}`,
-    step.observation ? `Notes: ${step.observation}` : "",
+    word("agenda.calendar.role", { role: step.role }),
+    word("agenda.calendar.company", { company: step.company_name }),
+    step.observation
+      ? word("agenda.calendar.notes", { notes: step.observation })
+      : "",
     "",
-    `Managed by ${APP_NAME}`,
+    word("agenda.calendar.managedBy", { app: APP_NAME }),
   ].filter(Boolean);
 
   const description = descriptionLines.join(" — ");

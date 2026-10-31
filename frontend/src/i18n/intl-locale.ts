@@ -7,7 +7,7 @@ import { getTranslatorLocale } from "@/i18n/translator";
  * language: `pt-BR`, or the English tag the call site has always used (`en`,
  * `en-US`), so English output stays byte-identical.
  */
-export function intlTag(locale: string, english = "en"): string {
+function intlTag(locale: string, english = "en"): string {
   return locale === "pt-BR" ? "pt-BR" : english;
 }
 

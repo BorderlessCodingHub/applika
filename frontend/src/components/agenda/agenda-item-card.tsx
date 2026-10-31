@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, type ReactNode } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Bell,
   BellRing,
@@ -15,7 +16,6 @@ import {
 } from "lucide-react";
 
 import {
-  AGENDA_CARD_COPY,
   agendaItemNames,
   formatAgendaDate,
 } from "@/components/agenda/agenda-copy";
@@ -74,6 +74,7 @@ function AgendaTimeColumn({
 }: {
   displayTime: AgendaDisplayTime | null;
 }) {
+  const t = useTranslations("agenda");
   return (
     <div
       data-slot="agenda-time"
@@ -99,7 +100,7 @@ function AgendaTimeColumn({
         </>
       ) : (
         <span className="text-sm leading-6 font-semibold text-foreground">
-          {AGENDA_CARD_COPY.allDay}
+          {t("card.allDay")}
         </span>
       )}
     </div>
@@ -116,6 +117,8 @@ export function AgendaItemCard({
   children,
   className,
 }: AgendaItemCardProps) {
+  const t = useTranslations("agenda");
+  const locale = useLocale();
   const companyId = useId();
   const roleId = useId();
   const names = agendaItemNames(step.role, step.company_name);
@@ -161,7 +164,7 @@ export function AgendaItemCard({
                   <span className="inline-flex items-center gap-1.5">
                     <CalendarDays aria-hidden className="size-3.5 shrink-0" />
                     <time dateTime={step.step_date}>
-                      {formatAgendaDate(step.step_date)}
+                      {formatAgendaDate(step.step_date, locale)}
                     </time>
                   </span>
                   {displayTime ? (
@@ -173,7 +176,7 @@ export function AgendaItemCard({
                           : displayTime.time}
                       </span>
                       {displayTime.converted ? (
-                        <span>{AGENDA_CARD_COPY.converted}</span>
+                        <span>{t("card.converted")}</span>
                       ) : null}
                     </span>
                   ) : null}
@@ -222,8 +225,8 @@ export function AgendaItemCard({
                     </TooltipTrigger>
                     <TooltipContent>
                       {alert.enabled
-                        ? AGENDA_CARD_COPY.alertOnTooltip
-                        : AGENDA_CARD_COPY.alertOffTooltip}
+                        ? t("card.alertOnTooltip")
+                        : t("card.alertOffTooltip")}
                     </TooltipContent>
                   </Tooltip>
                 ) : null}
@@ -243,7 +246,7 @@ export function AgendaItemCard({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {AGENDA_CARD_COPY.addToCalendarTooltip}
+                    {t("card.addToCalendarTooltip")}
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -276,7 +279,7 @@ export function AgendaItemCard({
                 </p>
               ) : (
                 <p className="min-w-0 flex-1 py-1.5 text-sm text-muted-foreground">
-                  {AGENDA_CARD_COPY.noNotes}
+                  {t("card.noNotes")}
                 </p>
               )}
               <Tooltip>
@@ -291,7 +294,7 @@ export function AgendaItemCard({
                     <ExternalLink aria-hidden />
                   </LinkButton>
                 </TooltipTrigger>
-                <TooltipContent>{AGENDA_CARD_COPY.openTooltip}</TooltipContent>
+                <TooltipContent>{t("card.openTooltip")}</TooltipContent>
               </Tooltip>
             </div>
           </div>

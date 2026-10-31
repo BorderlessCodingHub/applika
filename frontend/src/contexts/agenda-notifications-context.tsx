@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 import type { AgendaStep } from "@/services/types/applications";
 import { useAgenda } from "@/hooks/use-user";
 import { stageLabel } from "@/components/timeline/timeline-options";
+import { word } from "@/i18n/translator";
 
 const STORAGE_KEY = "agenda-notifications";
 const ALERT_MINUTES = [30, 15, 5] as const;
@@ -34,6 +35,8 @@ function getStepLocalDateTime(step: AgendaStep): Date | null {
   const stepTz = step.timezone;
   const localTz = getUserTimezone();
   if (stepTz && stepTz !== localTz) {
+    // "en-US" on purpose: the string is parsed back by `new Date`, it is never
+    // shown, so it must not follow the app language.
     const inSource = new Date(dt.toLocaleString("en-US", { timeZone: stepTz }));
     const inLocal = new Date(dt.toLocaleString("en-US", { timeZone: localTz }));
     const diffMs = inLocal.getTime() - inSource.getTime();
@@ -114,9 +117,15 @@ export function AgendaNotificationsProvider({
               typeof Notification !== "undefined" &&
               Notification.permission === "granted"
             ) {
+              // Words read when the alert fires, so a switch since the
+              // timer was set is honoured. The company name is as sent.
               new Notification(
                 `${step.company_name} — ${stageLabel(step.event_type, step.interview_type)}`,
-                { body: `Starts in ${minBefore} minutes` },
+                {
+                  body: word("agenda.notification.body", {
+                    minutes: minBefore,
+                  }),
+                },
               );
             }
           }, delay);

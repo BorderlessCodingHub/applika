@@ -818,5 +818,62 @@
       "deleted": "Cycle deleted permanently",
       "deleteFailed": "Failed to delete cycle"
     }
+  },
+  "agenda": {
+    "page": {
+      "title": "Agenda",
+      "subtitle": "Your application steps organized by date",
+      "searchPlaceholder": "Search applications...",
+      "searchLabel": "Search applications",
+      "stageFilterLabel": "Filter by stage",
+      "allStages": "All stages",
+      "upcomingTab": "Upcoming",
+      "pastTab": "Past",
+      "emptyUpcoming": "No upcoming interviews",
+      "emptyPast": "No past interviews in the last 30 days",
+      "emptyFiltered": "No interviews match your search",
+      "goToApplications": "Go to Applications",
+      "loadErrorTitle": "We couldn't load your agenda",
+      "retry": "Retry",
+      "loading": "Loading agenda"
+    },
+    "card": {
+      "allDay": "All day",
+      "converted": "(converted)",
+      "noNotes": "No notes",
+      "addToCalendarTooltip": "Add to calendar",
+      "alertOffTooltip": "Alert at 30, 15 & 5 min before",
+      "alertOnTooltip": "Disable sound alerts",
+      "openTooltip": "Open in Applications"
+    },
+    "timeline": {
+      "title": "Timeline",
+      "loading": "Loading timeline",
+      "loadErrorTitle": "We couldn't load the timeline",
+      "loadErrorFallback": "Something went wrong fetching this application's events.",
+      "emptyTitle": "No events yet",
+      "emptyDescription": "There is no activity recorded for this application."
+    },
+    "count": {
+      "events": "{count, plural, one {# event} other {# events}}",
+      "applications": "{count, plural, one {# application} other {# applications}}",
+      "tab": "{tab} ({count})"
+    },
+    "names": {
+      "open": "Open {role} at {company}",
+      "addToCalendar": "Add {role} at {company} to calendar",
+      "alerts": "Sound alerts for {role} at {company}",
+      "timeline": "Timeline for {role} at {company}"
+    },
+    "downloaded": "Calendar event downloaded",
+    "notification": {
+      "body": "Starts in {minutes} minutes"
+    },
+    "calendar": {
+      "role": "Role: {role}",
+      "company": "Company: {company}",
+      "notes": "Notes: {notes}",
+      "managedBy": "Managed by {app}"
+    }
   }
 }
