@@ -122,6 +122,14 @@ amends an Accepted ADR. It makes an exception to ADR-0018.
     reads the zone name; a Portuguese string would give `Invalid Date` and the sound alerts would never fire. Same case
     as `components/agenda/agenda-view.ts` (plan 0019 tasks, Plan corrections 11). The notification text is translated.
 
+- **As-built (2026-10-31, closing walk).** "A switch swaps the messages in place, with no navigation" holds, and typed
+  values survive it. The closing walk could not prove that on a half-filled application sheet: the sheet is modal, so
+  while it is open the header switcher is inert (no pointer events, out of the accessibility tree, unreachable by
+  Tab). It was proven instead on the new-application form (`/applications/new-with-cv`: role and notes kept, heading
+  switched, no reload), on the applications search box (its text kept), and by `frontend/e2e/language.spec.ts`
+  (l.367). Taken on the owner's delegation ("do not make quedtios to me, pick the recommended ones, just create a
+  report in the end of what you did"); the Decision is unchanged.
+
 ## Non-goals
 
 - Translating the CLI, the Discord posts or any user content. Translated or changed API messages.
