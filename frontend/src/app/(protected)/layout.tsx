@@ -16,6 +16,11 @@ import {
   storeReturnTo,
 } from "@/lib/return-to";
 
+/** The static export may serve a trailing slash. */
+function isWelcomePath(pathname: string): boolean {
+  return pathname.replace(/\/+$/, "") === "/welcome";
+}
+
 export default function ProtectedLayout({
   children,
 }: {
@@ -38,6 +43,12 @@ export default function ProtectedLayout({
       router.replace("/login");
       return;
     }
+    // A new Borderless account answers the one-time `/welcome` choice first;
+    // the return-to path waits for it (the welcome page consumes it).
+    if (user?.github_restore?.prompt) {
+      if (!isWelcomePath(window.location.pathname)) router.replace("/welcome");
+      return;
+    }
     // Consumed once: removed from storage before navigating.
     const target = consumeReturnTo();
     if (
@@ -46,7 +57,7 @@ export default function ProtectedLayout({
     ) {
       router.replace(target);
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router, user?.github_restore?.prompt]);
 
   if (isLoading) {
     return (
@@ -66,7 +77,9 @@ export default function ProtectedLayout({
         <CycleProvider>
           <AppShell
             activePath={pathname}
-            navItems={navItemsFor(user?.is_admin, features)}
+            navItems={navItemsFor(user?.is_admin, features, {
+              hasReportsBadge: (user?.badges?.length ?? 0) > 0,
+            })}
             user={user}
             onLogout={() => {
               void logout();

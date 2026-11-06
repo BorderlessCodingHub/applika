@@ -35,14 +35,16 @@ function response(status: number, url: string, detail = "x") {
 }
 
 const calls: string[] = [];
-let answers: Array<number> = [];
+let answers: Array<number | [number, string]> = [];
 const originalAdapter = api.defaults.adapter;
 
 beforeEach(() => {
   calls.length = 0;
   const adapter: AxiosAdapter = async (config) => {
     calls.push(config.url ?? "");
-    const status = answers.shift() ?? 200;
+    const answer = answers.shift() ?? 200;
+    const [status, detail] =
+      typeof answer === "number" ? [answer, "x"] : answer;
     if (status === 200) {
       return {
         data: { ok: true },
@@ -52,7 +54,7 @@ beforeEach(() => {
         config,
       };
     }
-    const error = response(status, config.url ?? "");
+    const error = response(status, config.url ?? "", detail);
     error.config = config;
     throw error;
   };
@@ -106,5 +108,48 @@ describe("api-client 401 interceptor", () => {
 
     expect(services.auth.refresh).not.toHaveBeenCalled();
     expect((error as AxiosError).response?.status).toBe(401);
+  });
+
+  it("refreshes on a 401 from the GitHub restore start", async () => {
+    answers = [401, 200];
+    vi.mocked(services.auth.refresh).mockResolvedValueOnce({ detail: "ok" });
+
+    await api.post("/auth/github/restore");
+
+    expect(services.auth.refresh).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual(["/auth/github/restore", "/auth/github/restore"]);
+  });
+
+  it("refreshes the membership confirm only when the session is not authenticated", async () => {
+    answers = [[401, "Not authenticated"], 200];
+    vi.mocked(services.auth.refresh).mockResolvedValueOnce({ detail: "ok" });
+
+    await api.post("/auth/borderless/confirm", {});
+
+    expect(services.auth.refresh).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual([
+      "/auth/borderless/confirm",
+      "/auth/borderless/confirm",
+    ]);
+  });
+
+  it("never replays a wrong Borderless password", async () => {
+    answers = [[401, "Invalid email or password"]];
+
+    const error = await api
+      .post("/auth/borderless/confirm", {})
+      .catch((e) => e);
+
+    expect(services.auth.refresh).not.toHaveBeenCalled();
+    expect(calls).toEqual(["/auth/borderless/confirm"]);
+    expect((error as AxiosError).response?.status).toBe(401);
+  });
+
+  it("never refreshes on a 401 from the Borderless sign-in", async () => {
+    answers = [[401, "Invalid email or password"]];
+
+    await api.post("/auth/borderless/signin", {}).catch((e) => e);
+
+    expect(services.auth.refresh).not.toHaveBeenCalled();
   });
 });

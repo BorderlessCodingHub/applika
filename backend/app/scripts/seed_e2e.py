@@ -1,14 +1,14 @@
 """Seed the three deterministic E2E users and mint REAL sessions.
 
 Part of the production-simulating E2E harness (see
-``docker-compose.e2e.yml`` and ``frontend/scripts/e2e.sh``). GitHub OAuth is the
-only login path and it cannot run in a headless CI browser, so instead of
-mocking auth in the browser we mint a genuine session out of band: this
-CLI upserts three synthetic users through the REAL ``UserRepository`` and
-mints REAL tokens with the app's own ``app.core.tokens`` code against the
-stack's own secrets. The E2E browser then carries a real cookie and every
-request afterwards hits the real API, the real Postgres and the real
-Redis — nothing is stubbed and NO login route is added.
+``docker-compose.e2e.yml`` and ``frontend/scripts/e2e.sh``). Borderless is
+the only sign-in (ADR-0024) and the E2E stack talks to the Borderless stub
+(``backend/tests/fixtures/borderless/``), never the real Borderless. This
+CLI upserts three synthetic users through the REAL repositories, binds each
+to its stub account and mints REAL sessions with the app's own code against
+the stack's own secrets. The E2E browser then carries a real cookie and
+every request afterwards hits the real API, the real Postgres and the real
+Redis.
 
 It is intentionally a CLI run INSIDE the running e2e container
 (``docker compose -f docker-compose.e2e.yml exec -T api python -m
@@ -16,50 +16,33 @@ app.scripts.seed_e2e``), never a route mounted in the app, so it exercises
 real code without adding any network-reachable test surface. It refuses to
 run when ``ENVIRONMENT == 'PROD'``.
 
-KODI-057 (ADR-0019): every session is a REAL device session, opened
-through ``OpenSessionUseCase`` exactly as the GitHub callback opens one - a
-``user_sessions`` row plus its two Redis keys. Facts that are easy to get
-wrong:
+Every session is a REAL device session (ADR-0019), opened through
+``OpenSessionUseCase`` exactly as the Borderless sign-in opens one: a
+``user_sessions`` row plus its two Redis keys. The access token ``sub`` is
+the user's ``users.id`` and its ``sid`` the session row's id; the refresh
+value is the session's uuid7.
 
-* the access token ``sub`` is the user's ``github_id`` and its ``sid`` is
-  the session row's id; ``get_current_user`` refuses a token whose session
-  key is gone, so a spec that revokes a seeded session ends it for the
-  rest of the run;
-* the refresh value is the session's uuid7, the key of
-  ``applika:session:<uuid7>``, which points at the session id.
-
-Each run opens one ``github_web`` session per user ("Chrome on Linux") and
+Each run opens one ``borderless`` session per user ("Chrome on Linux") and
 one more ``cli_device`` session for ``e2e-user`` (device ``e2e-cli``), whose
-tokens are the ``cli_access_token`` / ``cli_refresh_token`` keys (the CLI
-sends the access token as ``Authorization: Bearer``).
+tokens are the ``cli_access_token`` / ``cli_refresh_token`` keys.
 
-``/auth/refresh`` works for these users because
-``app/application/use_cases/sessions/refresh_session.py`` skips the GitHub
-token check when ``user.encrypted_github_token`` is empty — which is why
-every seeded user is stored with ``encrypted_github_token = NULL``.
+Each seeded user is found by its stub Borderless id, else by its email,
+and its binding is re-set every run: the stub's fixed seed token
+(encrypted with the stack's ``BORDERLESS_TOKEN_ENCRYPTION_KEY``), expiring
+7 days from now, ``active``. So ``/auth/refresh`` reads the membership from
+the stub. Badges: ``e2e-user`` PSP, ``e2e-admin`` BASE, ``e2e-discord`` BASE.
+``e2e-user`` has a GitHub identity on record; every seeded user has the
+one-time restore prompt answered. ``e2e-discord`` keeps its name: it is the
+beta specs' third user.
 
 Support data (platforms, steps_definition, feedbacks_definition) is NOT
 seeded here: the initial revision ``e3abe9dc93d4_init_db`` bulk-inserts
 all three tables, so ``alembic upgrade head`` already provides them.
 
-KODI-024: the Discord link moved off ``users.discord_id`` onto its own
-``discord_connections`` row (revision ``ba44f9cfd3c1``). The third user,
-``e2e-discord``, gets its connection row re-created on every run through
-``DiscordConnectionRepository.link`` (a fixed Discord id, username and
-scope, a dummy refresh token encrypted with the stack's own
-``DISCORD_TOKEN_ENCRYPTION_KEY``, status ``active``) — so a Disconnect
-performed by the E2E is undone the next time this script runs.
-``e2e-user`` and ``e2e-admin`` have their connection deleted on every
-upsert, so both stay deterministically unlinked run after run.
-
-KODI-052 (ADR-0018, plan 0013 corrections 2 and 8): every run also puts
-the beta features back in a known state - ``jobs`` in ``beta`` with
-``released_at`` NULL, ``e2e-user`` on its beta list, ``e2e-discord`` off it,
-and every opt-out of ``e2e-admin`` gone - so a crashed beta-features spec
-cannot leak into the next run. The ``jobs`` row itself comes from
-``alembic upgrade head`` (revision ``641001baff09``); without it the script
-fails loudly. ``cvs`` (ADR-0021) gets the same reset, its row from revision
-``f28e3d9705dd``; other users already on its list are left as they are.
+Every run also puts the beta features back in a known state (ADR-0018):
+``jobs`` and ``cvs`` in ``beta`` with ``released_at`` NULL, ``e2e-user`` on
+their beta lists, ``e2e-discord`` off them, and every opt-out of
+``e2e-admin`` gone.
 
 Prints exactly one JSON line to stdout::
 
@@ -73,13 +56,14 @@ Prints exactly one JSON line to stdout::
 import asyncio
 import json
 import sys
+from datetime import UTC, datetime, timedelta
 from typing import NamedTuple
 
 import redis.asyncio as redis
+from sqlalchemy import update
 
 from app.application.dto.user import UserCreateDTO
 from app.application.dto.user_session import ClientType, SignInMethod
-from app.application.services.discord_oauth_service import SCOPE
 from app.application.services.session_store import SessionStore
 from app.application.use_cases.sessions.open_session import (
     OpenSessionUseCase,
@@ -87,51 +71,62 @@ from app.application.use_cases.sessions.open_session import (
 from app.config.db import AsyncLocalSession
 from app.config.redis import redis_client
 from app.config.settings import envs
-from app.core.crypto import encrypt_discord_token
+from app.core.crypto import encrypt_borderless_token
+from app.core.enums import BadgeKey
 from app.core.features import FeatureKey, FeatureStage
-from app.domain.repositories.discord_connection_repository import (
-    DiscordConnectionRepository,
+from app.domain.models import GithubConnectionModel, UserModel
+from app.domain.repositories.borderless_account_repository import (
+    BorderlessAccountRepository,
 )
 from app.domain.repositories.feature_repository import FeatureRepository
+from app.domain.repositories.github_connection_repository import (
+    GithubConnectionRepository,
+)
+from app.domain.repositories.user_badge_repository import UserBadgeRepository
 from app.domain.repositories.user_repository import UserRepository
 from app.domain.repositories.user_session_repository import (
     UserSessionRepository,
 )
 
-# Deterministic, synthetic identities — NOT real data. The github_id
-# values sit far above GitHub's real id range (9-digit today) so they can
-# never collide with a genuine account, yet stay below
-# Number.MAX_SAFE_INTEGER: UserDTO serialises github_id as a JSON number,
-# so a larger value would silently lose precision in the browser and in
-# the Playwright specs. They are stable across runs so specs can rely on
-# a known seeded user.
-E2E_USER = UserCreateDTO(
-    github_id=999000000001,
-    username='e2e-user',
-    email='e2e-user@e2e.applika.dev',
-)
-E2E_ADMIN = UserCreateDTO(
-    github_id=999000000002,
-    username='e2e-admin',
-    email='e2e-admin@e2e.applika.dev',
-)
-E2E_DISCORD = UserCreateDTO(
-    github_id=999000000003,
-    username='e2e-discord',
-    email='e2e-discord@e2e.applika.dev',
-)
 
-# Fixed synthetic Discord id, re-linked to E2E_DISCORD's connection row on
-# every seed run. Unlike the github_ids above it need not stay JS-safe:
-# the Discord id is never a field on any schema (``DiscordAccountOut``
-# carries no id) so it never reaches the browser as a number.
-E2E_DISCORD_ID = 999000000000000003
-E2E_DISCORD_USERNAME = 'e2e-discord'
-E2E_DISCORD_GLOBAL_NAME = 'E2E Discord'
-# Not a real Discord refresh token - the E2E stack revokes it best-effort
-# against discord.com with dummy OAuth credentials, and that revoke is
-# swallowed within the 5s timeout (plan corrections, K6).
-E2E_DISCORD_REFRESH_TOKEN = 'e2e-dummy-refresh-token'
+class SeedAccount(NamedTuple):
+    """A seeded user and the stub Borderless account it is bound to. The
+    ids and tokens equal ``tests/fixtures/borderless/accounts.json``."""
+
+    user: UserCreateDTO
+    borderless_id: str
+    seed_token: str
+    badge: BadgeKey
+    is_admin: bool
+
+
+# Deterministic, synthetic identities: NOT real data.
+E2E_USER = SeedAccount(
+    UserCreateDTO(username='e2e-user', email='e2e-user@e2e.applika.dev'),
+    'e2e-borderless-user',
+    'e2eseedtokenuser0000000000000001',
+    BadgeKey.BORDERLESS_PSP,
+    False,
+)
+E2E_ADMIN = SeedAccount(
+    UserCreateDTO(username='e2e-admin', email='e2e-admin@e2e.applika.dev'),
+    'e2e-borderless-admin',
+    'e2eseedtokenadmin000000000000002',
+    BadgeKey.BORDERLESS_BASE,
+    True,
+)
+E2E_DISCORD = SeedAccount(
+    UserCreateDTO(username='e2e-discord', email='e2e-discord@e2e.applika.dev'),
+    'e2e-borderless-discord',
+    'e2eseedtokendiscord0000000000003',
+    BadgeKey.BORDERLESS_BASE,
+    False,
+)
+SEED_ACCOUNTS = (E2E_USER, E2E_ADMIN, E2E_DISCORD)
+
+# ``e2e-user``'s GitHub-era identity, far above GitHub's real id range.
+E2E_USER_GITHUB_ID = 999000000001
+SEED_TOKEN_LIFETIME = timedelta(days=7)
 
 # What the seeded sessions look like in the device list.
 E2E_IP = '127.0.0.1'
@@ -144,74 +139,91 @@ E2E_CLI_DEVICE_NAME = 'e2e-cli'
 
 
 class Identity(NamedTuple):
-    """The two ids the token code needs, decoupled from the ORM object."""
+    """The id the token code needs, decoupled from the ORM object."""
 
-    github_id: int
     user_id: int
 
 
-async def upsert_user(
-    repo: UserRepository,
-    dto: UserCreateDTO,
-    *,
-    is_admin: bool,
-) -> Identity:
-    """Create or refresh one seeded user. Idempotent by ``github_id``.
+async def upsert_user(session, account: SeedAccount) -> Identity:
+    """Create or refresh one seeded user and its binding. Idempotent: found
+    by its stub Borderless id, else by its email."""
+    users = UserRepository(session)
+    bindings = BorderlessAccountRepository(session)
+    dto = account.user
 
-    KODI-024: the Discord link is no longer set here - it is a separate
-    connection row, written by ``upsert_users`` through
-    ``DiscordConnectionRepository``.
-    """
-    user = await repo.get_by_github_id(dto.github_id)
+    binding = await bindings.get_by_borderless_id(account.borderless_id)
+    user = await users.get_by_id(binding.user_id) if binding else None
     if user is None:
-        user = await repo.create(dto)
+        matches = await users.find_by_email_ci(dto.email)
+        user = matches[0] if matches else await users.create(dto)
+    user_id = user.id
 
     user.username = dto.username
     user.email = dto.email
-    user.is_admin = is_admin
-    # Empty on purpose: it makes /auth/refresh skip the GitHub call.
-    user.encrypted_github_token = None
-    user = await repo.update(user)
+    user.is_admin = account.is_admin
+    await users.update(user)
+    await session.execute(
+        update(UserModel)
+        .where(UserModel.id == user_id)
+        .values(github_restore_prompt_seen_at=datetime.now(UTC))
+    )
+    await session.commit()
 
-    return Identity(github_id=user.github_id, user_id=user.id)
+    ciphertext = encrypt_borderless_token(account.seed_token)
+    if ciphertext is None:
+        raise RuntimeError(
+            'BORDERLESS_TOKEN_ENCRYPTION_KEY must be set in the E2E stack'
+        )
+    expires_at = datetime.now(UTC) + SEED_TOKEN_LIFETIME
+    if binding is None:
+        binding = await bindings.get_by_user_id(user_id)
+    if binding is None:
+        await bindings.bind(
+            user_id=user_id,
+            borderless_user_id=account.borderless_id,
+            email=dto.email,
+            encrypted_access_token=ciphertext,
+            access_token_expires_at=expires_at,
+        )
+    else:
+        binding.borderless_user_id = account.borderless_id
+        await bindings.store_tokens(
+            binding,
+            email=dto.email,
+            encrypted_access_token=ciphertext,
+            access_token_expires_at=expires_at,
+        )
+    await UserBadgeRepository(session).apply(user_id, account.badge)
+    return Identity(user_id=user_id)
+
+
+async def ensure_github_identity(session, user_id: int) -> None:
+    """``e2e-user`` has a GitHub identity on record, so no restore is
+    offered to it."""
+    connections = GithubConnectionRepository(session)
+    if await connections.get_by_user_id(user_id) is not None:
+        return
+    held = await connections.find_by_github_id(E2E_USER_GITHUB_ID)
+    if held is not None:
+        await session.delete(held)
+    session.add(
+        GithubConnectionModel(
+            user_id=user_id,
+            github_id=E2E_USER_GITHUB_ID,
+            username=E2E_USER.user.username,
+            linked_at=datetime.now(UTC),
+        )
+    )
+    await session.commit()
 
 
 async def upsert_users() -> tuple[Identity, Identity, Identity]:
-    """Upsert the regular, admin and Discord-linked users, in order, and
-    reset every seeded user's Discord connection to its deterministic
-    state (KODI-024)."""
+    """Upsert the regular, admin and third user, in order."""
     async with AsyncLocalSession() as session:
-        repo = UserRepository(session)
-        conn_repo = DiscordConnectionRepository(session)
-
-        user = await upsert_user(repo, E2E_USER, is_admin=False)
-        admin = await upsert_user(repo, E2E_ADMIN, is_admin=True)
-        discord_user = await upsert_user(repo, E2E_DISCORD, is_admin=False)
-
-        # Always unlinked, run after run.
-        await conn_repo.delete_by_user_id(user.user_id)
-        await conn_repo.delete_by_user_id(admin.user_id)
-
-        # Always linked to the fixed synthetic Discord id, refreshed in
-        # place: ``link`` re-sets every field including ``status=active``
-        # and ``linked_at``, undoing a Disconnect performed by the E2E.
-        encrypted_refresh_token = encrypt_discord_token(
-            E2E_DISCORD_REFRESH_TOKEN
-        )
-        assert encrypted_refresh_token is not None, (
-            'DISCORD_TOKEN_ENCRYPTION_KEY must be set in the E2E stack'
-        )
-        await conn_repo.link(
-            user_id=discord_user.user_id,
-            discord_id=E2E_DISCORD_ID,
-            username=E2E_DISCORD_USERNAME,
-            global_name=E2E_DISCORD_GLOBAL_NAME,
-            avatar=None,
-            scopes=SCOPE,
-            encrypted_refresh_token=encrypted_refresh_token,
-            access_token_expires_at=None,
-        )
-
+        user = await upsert_user(session, E2E_USER)
+        admin = await upsert_user(session, E2E_ADMIN)
+        discord_user = await upsert_user(session, E2E_DISCORD)
+        await ensure_github_identity(session, user.user_id)
     return user, admin, discord_user
 
 
@@ -253,7 +265,7 @@ async def mint_session(
     redis_conn: redis.Redis,
     *,
     client_type: ClientType = 'web',
-    sign_in_method: SignInMethod = 'github_web',
+    sign_in_method: SignInMethod = 'borderless',
     user_agent: str = E2E_BROWSER_USER_AGENT,
     device_name: str | None = None,
 ) -> tuple[str, str]:
@@ -265,7 +277,6 @@ async def mint_session(
         )
         tokens = await use_case.execute(
             user_id=identity.user_id,
-            github_id=identity.github_id,
             client_type=client_type,
             sign_in_method=sign_in_method,
             user_agent=user_agent,

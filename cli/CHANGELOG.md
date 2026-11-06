@@ -14,12 +14,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `applika login` (every version) completes on applika's Borderless sign-in page: the browser opens it instead of GitHub, and the user signs in with the Borderless email and password. Every user signs in again once at this backend release.
+- GET /users/me adds `badges`, `borderless` and `github_restore`; `github_id` may be null. `username`, `first_name`, `last_name` and `email` are unchanged.
+- help text: `applika login` says it signs in with Borderless.
 - applications timeline add --type offer|denied closes the application with that event (POST /applications/{id}/finalize outcome body); --keep-open keeps it open; ignored with --type interview.
 - the API refuses event_type note and feedback (422); existing ones read as interview with interview_type unknown. 0.1.4 is unaffected: its steps keep their ids.
 - cvs *, applications cv * and drafts answer 404 without the "cvs" beta feature.
 
 ### Removed
 
+- GET /users/me no longer returns `discord` and `discord_linked` (Discord linking is removed).
 - applications timeline add and edit no longer take --type note or --type feedback; existing ones read as interview with interview_type unknown.
 
 ### Fixed

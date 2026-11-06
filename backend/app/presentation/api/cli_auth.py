@@ -73,19 +73,16 @@ async def cli_authorize(
     state: str,
     use_case: CliAuthorizeUseCaseDp,
 ):
-    """307 to GitHub with the ``__cli_login`` marker cookie."""
+    """307 to applika's Borderless sign-in page (``WEB_SIGNIN_URI?cli=1``)
+    with the ``__cli_login`` marker cookie."""
     if redirect_uri != OOB_REDIRECT_URI:
         validate_cli_callback_url(redirect_uri)
     login_id = await use_case.execute(
         redirect_uri, code_challenge, code_challenge_method, state
     )
-    response = await oauth_api.redirect_to_github_for_cli(
+    return oauth_api.redirect_to_signin_for_cli(
         login_id, use_case.handoff_state.login_ttl_seconds
     )
-    # fastapi-sso answers 303; the contract is a 307 (the legacy
-    # ``/auth/cli/login/{id}`` keeps its own status untouched).
-    response.status_code = status.HTTP_307_TEMPORARY_REDIRECT
-    return response
 
 
 @router.post(
@@ -173,7 +170,7 @@ async def device_approve(
     c_user: CurrentUserDp,
     use_case: DeviceCodeUseCaseDp,
 ):
-    await use_case.approve(payload.user_code, c_user.id, c_user.github_id)
+    await use_case.approve(payload.user_code, c_user.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -188,5 +185,5 @@ async def device_deny(
     c_user: CurrentUserDp,
     use_case: DeviceCodeUseCaseDp,
 ):
-    await use_case.deny(payload.user_code, c_user.id, c_user.github_id)
+    await use_case.deny(payload.user_code, c_user.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

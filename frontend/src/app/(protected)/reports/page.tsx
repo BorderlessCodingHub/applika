@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { BadgeGate } from "@/components/badges/badge-gate";
 import { ReportsList } from "@/components/reports/report-list";
 import type { ReportDaysType } from "@/services/types/reports";
 
@@ -12,6 +13,8 @@ export default function ReportPage() {
   };
 
   return (
-    <ReportsList onFillReport={handleSelect} onViewReport={handleSelect} />
+    <BadgeGate>
+      <ReportsList onFillReport={handleSelect} onViewReport={handleSelect} />
+    </BadgeGate>
   );
 }

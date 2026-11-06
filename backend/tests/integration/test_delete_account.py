@@ -1,23 +1,12 @@
 import pytest
-from cryptography.fernet import Fernet
 from httpx import AsyncClient
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config.settings import envs
 from app.domain.models import UserModel
 from tests import msg
 from tests.base_db_setup import base_data
 from tests.sessions_seed import open_session
-
-
-@pytest.fixture(autouse=True)
-def _discord_encryption_key(monkeypatch):
-    """A valid Fernet key so ``_seed_connection`` can encrypt a refresh
-    token for the rows this module seeds directly."""
-    monkeypatch.setattr(
-        envs, 'DISCORD_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
-    )
 
 
 async def test_delete_own_account_returns_204(
@@ -108,92 +97,38 @@ async def test_delete_nonexistent_user_still_returns_204(
     assert resp.status_code == 204, msg(204, resp.status_code)
 
 
-async def test_delete_linked_account_frees_discord_id_for_another_user(
-    async_client: AsyncClient,
-    db_session: AsyncSession,
-    redis_client,
-    async_engine,
+async def test_delete_removes_binding_badges_and_github_row(
+    async_client: AsyncClient, db_session: AsyncSession
 ):
-    """Deleting a linked Applika account removes the Discord link (R-011):
-    another user can then link the same Discord id."""
-    from app.application.use_cases.account_link_state import (
-        AccountLinkStateUseCase,
+    """ADR-0024: the Borderless binding, the badges and the GitHub
+    identity go with the account (CASCADE)."""
+    from datetime import UTC, datetime
+
+    from app.domain.models import (
+        BorderlessAccountModel,
+        GithubConnectionModel,
+        UserBadgeModel,
     )
-    from tests.integration.test_account_link_discord import (
-        FakeDiscordOAuthService,
-        _get_connection,
-        _override_discord_service,
-        _seed_connection,
-        _status,
-    )
+    from tests.conftest import bind_borderless
 
     user_id = base_data()['user'].id
-    other_id = base_data()['admin_user'].id
-    await _seed_connection(db_session, user_id, discord_id=555)
+    await bind_borderless(db_session, user_id)
+    db_session.add(
+        GithubConnectionModel(
+            user_id=user_id,
+            github_id=99,
+            username='octo',
+            linked_at=datetime.now(UTC),
+        )
+    )
+    await db_session.commit()
 
     resp = await async_client.delete('/users/me')
-    assert resp.status_code == 204, msg(204, resp.status_code)
+    assert resp.status_code == 204
 
-    result = await db_session.execute(
-        select(UserModel).where(UserModel.id == user_id)
-    )
-    assert result.scalar_one_or_none() is None
-
-    connection = await _get_connection(db_session, user_id)
-    assert connection is None
-
-    _override_discord_service(FakeDiscordOAuthService(discord_id=555))
-    state_uc = AccountLinkStateUseCase(redis_client)
-    nonce = await state_uc.create(other_id)
-    # KODI-057: the other user signs in for real (plan correction 3).
-    tokens = await open_session(async_engine, redis_client, other_id, 2)
-    token = tokens.access_token
-
-    async_client.cookies.set('__access', token)
-    response = await async_client.get(
-        '/auth/link/discord/callback',
-        params={'code': 'abc', 'state': nonce},
-    )
-    assert _status(response.headers['location']) == 'linked'
-
-    other_connection = await _get_connection(db_session, other_id)
-    assert other_connection is not None
-    assert other_connection.discord_id == 555
-
-
-async def test_delete_linked_account_tries_to_revoke(
-    async_client: AsyncClient,
-    db_session: AsyncSession,
-    redis_client,
-    monkeypatch,
-):
-    """Delete's own revoke attempt (T102): best-effort, before the row goes
-    by cascade."""
-    from cryptography.fernet import Fernet
-
-    from app.config.settings import envs
-    from tests.integration.test_account_link_discord import (
-        FakeDiscordOAuthService,
-        _override_discord_service,
-        _seed_connection,
-    )
-
-    monkeypatch.setattr(
-        envs, 'DISCORD_TOKEN_ENCRYPTION_KEY', Fernet.generate_key().decode()
-    )
-    fake = FakeDiscordOAuthService()
-    _override_discord_service(fake)
-    await _seed_connection(
-        db_session,
-        base_data()['user'].id,
-        discord_id=555,
-        refresh_token='the-refresh-token',
-    )
-
-    resp = await async_client.delete('/users/me')
-
-    assert resp.status_code == 204, msg(204, resp.status_code)
-    assert fake.revoke_calls == ['the-refresh-token']
+    for model in (BorderlessAccountModel, UserBadgeModel, GithubConnectionModel):
+        rows = (await db_session.execute(select(model.id))).all()
+        assert rows == [], model.__tablename__
 
 
 async def test_delete_account_keeps_private_catalog_rows_created_by_null(
@@ -345,16 +280,15 @@ async def test_delete_account_ends_every_session_at_once(
 
     user = base_data()['user']
     other = base_data()['admin_user']
-    web = await open_session(async_engine, redis_client, user.id, 1)
+    web = await open_session(async_engine, redis_client, user.id)
     cli = await open_session(
         async_engine,
         redis_client,
         user.id,
-        1,
         client_type='cli',
         sign_in_method='cli_browser',
     )
-    others = await open_session(async_engine, redis_client, other.id, 2)
+    others = await open_session(async_engine, redis_client, other.id)
 
     resp = await async_client.delete('/users/me')
     assert resp.status_code == 204, msg(204, resp.status_code)

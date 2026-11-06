@@ -34,9 +34,9 @@ const features = [
   },
   {
     icon: Shield,
-    title: "GitHub Authentication",
+    title: "Borderless Sign-in",
     description:
-      "Sign in securely with your GitHub account — no extra passwords to remember.",
+      "Sign in with your Borderless account. BASE and PSP members share biweekly reports with their community.",
   },
   {
     icon: ListChecks,

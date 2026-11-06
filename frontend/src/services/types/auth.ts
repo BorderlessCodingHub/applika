@@ -1,19 +1,29 @@
-/**
- * Account-link wire types (KODI-022, plan 0009). The profile's "Connected
- * accounts" card only ever handles Discord today; `AccountLinkStart` and
- * `AccountLinkOut` are provider-agnostic shapes because the routes they
- * describe (`POST`/`DELETE /auth/link/discord`) already are.
- */
-
-/** `POST /auth/link/discord` response — where to send the user to consent. */
-export interface AccountLinkStart {
-  authorize_url: string;
+/** The Borderless email and password, for `POST /auth/borderless/signin` and `/confirm`. */
+export interface BorderlessCredentials {
+  email: string;
+  password: string;
 }
 
-/** `DELETE /auth/link/discord` response — the post-unlink link state. */
-export interface AccountLinkOut {
-  provider: string;
-  linked: boolean;
+/**
+ * `POST /auth/borderless/signin` 200. `redirect_to`: where the browser goes
+ * to hand a CLI sign-in back (null on the web, which got its cookies).
+ * `new_account`: this sign-in created the applika account.
+ */
+export interface BorderlessSignInResult {
+  redirect_to: string | null;
+  new_account: boolean;
+}
+
+/** Refusal bodies that carry a machine-readable `code` beside the words. */
+export type BorderlessRefusalCode =
+  | "email_unverified"
+  | "email_unusable"
+  | "binding_conflict"
+  | "email_ambiguous";
+
+/** `POST /auth/github/restore` 200: where to send the browser to approve. */
+export interface GithubRestoreStart {
+  authorize_url: string;
 }
 
 /**

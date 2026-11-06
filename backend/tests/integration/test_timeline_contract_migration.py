@@ -1480,7 +1480,6 @@ async def contract_client(
         user = base_data()['user']
         return UserDTO(
             id=user.id,
-            github_id=user.github_id,
             username=user.username,
             email=user.email,
             created_at=dt.now(tz.utc),

@@ -1,8 +1,9 @@
 import { IAuthService } from "../interfaces/i-auth-service";
 import {
-  AccountLinkOut,
-  AccountLinkStart,
+  BorderlessCredentials,
+  BorderlessSignInResult,
   DeviceCodeInfo,
+  GithubRestoreStart,
 } from "../types/auth";
 import { api } from "@/lib/api-client";
 
@@ -13,11 +14,33 @@ export class AuthService implements IAuthService {
   logout(): Promise<{ detail: string }> {
     return api.get("/auth/logout");
   }
-  startDiscordLink(): Promise<AccountLinkStart> {
-    return api.post<AccountLinkStart>("/auth/link/discord").then((r) => r.data);
+  /**
+   * 200 sets the session cookies on the web; with a pending CLI login it
+   * answers `redirect_to` and sets none. Refusals: 400 "CLI login expired",
+   * 401, 403 `email_unverified`, 409, 422 `email_unusable`, 429, 503.
+   */
+  borderlessSignIn(
+    credentials: BorderlessCredentials,
+  ): Promise<BorderlessSignInResult> {
+    return api
+      .post<BorderlessSignInResult>("/auth/borderless/signin", credentials)
+      .then((r) => r.data);
   }
-  unlinkDiscord(): Promise<AccountLinkOut> {
-    return api.delete<AccountLinkOut>("/auth/link/discord").then((r) => r.data);
+  /** 204: the Borderless access is renewed, the applika session untouched. */
+  confirmMembership(credentials: BorderlessCredentials): Promise<void> {
+    return api
+      .post("/auth/borderless/confirm", credentials)
+      .then(() => undefined);
+  }
+  /** 200 the GitHub consent URL | 409 already has its GitHub data | 503. */
+  startGithubRestore(): Promise<GithubRestoreStart> {
+    return api
+      .post<GithubRestoreStart>("/auth/github/restore")
+      .then((r) => r.data);
+  }
+  /** 204, idempotent: the `/welcome` choice is answered. */
+  dismissGithubRestore(): Promise<void> {
+    return api.post("/users/me/github-restore/dismiss").then(() => undefined);
   }
   /** 404 "Code not found or expired"; the server normalizes dashes and case. */
   verifyDeviceCode(userCode: string): Promise<DeviceCodeInfo> {

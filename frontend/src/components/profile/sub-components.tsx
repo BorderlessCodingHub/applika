@@ -20,7 +20,12 @@ export function UserProfileAvatar({
   user: User;
   className?: string;
 }) {
-  const avatarUrl = `https://avatars.githubusercontent.com/u/${user.github_id}?v=4`;
+  // The GitHub avatar only for an account with a GitHub identity on record;
+  // a Borderless-only account shows its initials.
+  const avatarUrl =
+    user.github_id != null
+      ? `https://avatars.githubusercontent.com/u/${user.github_id}?v=4`
+      : undefined;
   const avatarFallback =
     user.first_name && user.last_name
       ? user.first_name[0] + user.last_name[0]
@@ -33,7 +38,7 @@ export function UserProfileAvatar({
         className,
       )}
     >
-      <AvatarImage src={avatarUrl} />
+      {avatarUrl ? <AvatarImage src={avatarUrl} /> : null}
       <AvatarFallback className="bg-primary font-semibold text-primary-foreground uppercase">
         {avatarFallback}
       </AvatarFallback>

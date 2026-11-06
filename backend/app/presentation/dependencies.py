@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dto.tailored_cv import TailoringMode
 from app.application.dto.user import UserDTO
+from app.application.services.borderless_client import BorderlessClient
 from app.application.services.clone_tailoring import CloneTailoringService
 from app.application.services.cv_rendering.diff_pdf_renderer import (
     CVDiffPdfRenderer,
@@ -24,11 +25,8 @@ from app.application.services.cv_rendering.renderer import (
     CVPdfRenderer,
     get_cv_pdf_renderer,
 )
-from app.application.services.discord_oauth_service import (
-    DiscordOAuthService,
-)
 from app.application.services.discord_service import DiscordService
-from app.application.services.github_service import GitHubService
+from app.application.services.github_service import GitHubOAuthService
 from app.application.services.job_queue import JobQueue
 from app.application.services.keyword_tailoring import (
     KeywordTailoringService,
@@ -40,12 +38,6 @@ from app.application.services.tailoring import (
 )
 from app.application.use_cases.account_link_state import (
     AccountLinkStateUseCase,
-)
-from app.application.use_cases.account_links.link_discord import (
-    LinkDiscordUseCase,
-)
-from app.application.use_cases.account_links.unlink_discord import (
-    UnlinkDiscordUseCase,
 )
 from app.application.use_cases.applications.read_model import (
     ApplicationReadModel,
@@ -64,10 +56,26 @@ from app.application.use_cases.base_cvs.render_pdf import (
     RenderBaseCVPdfUseCase,
 )
 from app.application.use_cases.base_cvs.update import UpdateBaseCVUseCase
+from app.application.use_cases.borderless.badge_access import badge_access
+from app.application.use_cases.borderless.confirm_membership import (
+    ConfirmMembershipUseCase,
+)
+from app.application.use_cases.borderless.refresh_badges import (
+    RefreshBadgesUseCase,
+)
+from app.application.use_cases.borderless.sign_in import (
+    BorderlessSignInUseCase,
+)
 from app.application.use_cases.cli_auth.authorize import CliAuthorizeUseCase
 from app.application.use_cases.cli_auth.device_code import DeviceCodeUseCase
 from app.application.use_cases.cli_auth.token import CliTokenUseCase
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
+from app.application.use_cases.github_restore.begin import (
+    BeginGithubRestoreUseCase,
+)
+from app.application.use_cases.github_restore.complete import (
+    CompleteGithubRestoreUseCase,
+)
 from app.application.use_cases.quinzenal_reports.resolve_report_webhooks import (
     ResolveReportWebhooksUseCase,
 )
@@ -115,24 +123,29 @@ from app.application.use_cases.tailored_cvs.update import (
 from app.config.db import get_session
 from app.config.redis import get_redis
 from app.config.settings import ACCESS_COOKIE_NAME, envs
-from app.core.exceptions import ForbiddenAccess, ResourceNotFound
+from app.core.exceptions import (
+    BadgeRequired,
+    ForbiddenAccess,
+    MembershipUnconfirmed,
+    ResourceNotFound,
+)
 from app.core.features import NOT_FOUND_DETAIL, FeatureKey
 from app.domain.repositories.admin_repository import AdminRepository
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
 )
 from app.domain.repositories.base_cv_repository import BaseCVRepository
+from app.domain.repositories.borderless_account_repository import (
+    BorderlessAccountRepository,
+)
 from app.domain.repositories.company_repository import CompanyRepository
 from app.domain.repositories.cycle_repository import CycleRepository
-from app.domain.repositories.discord_connection_repository import (
-    DiscordConnectionRepository,
-)
-from app.domain.repositories.discord_report_webhook_repository import (
-    DiscordReportWebhookRepository,
-)
 from app.domain.repositories.feature_repository import FeatureRepository
 from app.domain.repositories.feedback_definition_repository import (
     FeedbackDefinitionRepository,
+)
+from app.domain.repositories.github_connection_repository import (
+    GithubConnectionRepository,
 )
 from app.domain.repositories.job_dismissal_repository import (
     JobDismissalRepository,
@@ -144,6 +157,9 @@ from app.domain.repositories.job_source_repository import (
 from app.domain.repositories.platform_repository import PlatformRepository
 from app.domain.repositories.quinzenal_report_repository import (
     QuinzenalReportRepository,
+)
+from app.domain.repositories.report_webhook_repository import (
+    ReportWebhookRepository,
 )
 from app.domain.repositories.saved_job_search_repository import (
     SavedJobSearchRepository,
@@ -157,6 +173,7 @@ from app.domain.repositories.tailored_cv_repository import (
 from app.domain.repositories.timeline_event_repository import (
     TimelineEventRepository,
 )
+from app.domain.repositories.user_badge_repository import UserBadgeRepository
 from app.domain.repositories.user_feedback_repository import (
     UserFeedbackRepository,
 )
@@ -223,13 +240,66 @@ PlatformRepositoryDp = Annotated[
 ]
 
 
-def get_discord_report_webhook_repository(session: DbSession):
-    return DiscordReportWebhookRepository(session)
+def get_report_webhook_repository(session: DbSession):
+    return ReportWebhookRepository(session)
 
 
-DiscordReportWebhookRepositoryDp = Annotated[
-    DiscordReportWebhookRepository,
-    Depends(get_discord_report_webhook_repository),
+ReportWebhookRepositoryDp = Annotated[
+    ReportWebhookRepository, Depends(get_report_webhook_repository)
+]
+
+
+def get_borderless_account_repository(session: DbSession):
+    return BorderlessAccountRepository(session)
+
+
+BorderlessAccountRepositoryDp = Annotated[
+    BorderlessAccountRepository, Depends(get_borderless_account_repository)
+]
+
+
+def get_user_badge_repository(session: DbSession):
+    return UserBadgeRepository(session)
+
+
+UserBadgeRepositoryDp = Annotated[
+    UserBadgeRepository, Depends(get_user_badge_repository)
+]
+
+
+def get_github_connection_repository(session: DbSession):
+    return GithubConnectionRepository(session)
+
+
+GithubConnectionRepositoryDp = Annotated[
+    GithubConnectionRepository, Depends(get_github_connection_repository)
+]
+
+
+def get_borderless_client() -> BorderlessClient:
+    return BorderlessClient()
+
+
+BorderlessClientDp = Annotated[BorderlessClient, Depends(get_borderless_client)]
+
+
+def get_github_oauth_service() -> GitHubOAuthService:
+    return GitHubOAuthService()
+
+
+GitHubOAuthServiceDp = Annotated[
+    GitHubOAuthService, Depends(get_github_oauth_service)
+]
+
+
+def get_refresh_badges_use_case(
+    session: DbSession, client: BorderlessClientDp
+) -> RefreshBadgesUseCase:
+    return RefreshBadgesUseCase(session, client)
+
+
+RefreshBadgesUseCaseDp = Annotated[
+    RefreshBadgesUseCase, Depends(get_refresh_badges_use_case)
 ]
 
 QuinzenalReportRepositoryDp = Annotated[
@@ -307,15 +377,6 @@ DiscordFeedbackServiceDp = Annotated[
 RedisDp = Annotated[aioredis.Redis, Depends(get_redis)]
 
 
-async def get_github_service(
-    redis_client: RedisDp,
-) -> GitHubService:
-    return GitHubService(redis_client)
-
-
-GitHubServiceDp = Annotated[GitHubService, Depends(get_github_service)]
-
-
 async def get_auth_handoff_state_use_case(
     redis_client: RedisDp,
 ) -> AuthHandoffStateUseCase:
@@ -324,15 +385,6 @@ async def get_auth_handoff_state_use_case(
 
 AuthHandoffStateUseCaseDp = Annotated[
     AuthHandoffStateUseCase, Depends(get_auth_handoff_state_use_case)
-]
-
-
-def get_discord_oauth_service() -> DiscordOAuthService:
-    return DiscordOAuthService()
-
-
-DiscordOAuthServiceDp = Annotated[
-    DiscordOAuthService, Depends(get_discord_oauth_service)
 ]
 
 
@@ -394,49 +446,17 @@ SavedJobSearchRepositoryDp = Annotated[
 ]
 
 
-def get_discord_connection_repository(session: DbSession):
-    return DiscordConnectionRepository(session)
-
-
-DiscordConnectionRepositoryDp = Annotated[
-    DiscordConnectionRepository, Depends(get_discord_connection_repository)
-]
-
-
-def get_link_discord_use_case(
-    conn_repo: DiscordConnectionRepositoryDp,
-):
-    return LinkDiscordUseCase(conn_repo)
-
-
-LinkDiscordUseCaseDp = Annotated[
-    LinkDiscordUseCase, Depends(get_link_discord_use_case)
-]
-
-
 def get_resolve_report_webhooks_use_case(
-    conn_repo: DiscordConnectionRepositoryDp,
-    webhook_repo: DiscordReportWebhookRepositoryDp,
-    discord_oauth: DiscordOAuthServiceDp,
+    binding_repo: BorderlessAccountRepositoryDp,
+    badge_repo: UserBadgeRepositoryDp,
+    webhook_repo: ReportWebhookRepositoryDp,
 ):
-    return ResolveReportWebhooksUseCase(conn_repo, webhook_repo, discord_oauth)
+    return ResolveReportWebhooksUseCase(binding_repo, badge_repo, webhook_repo)
 
 
 ResolveReportWebhooksUseCaseDp = Annotated[
     ResolveReportWebhooksUseCase,
     Depends(get_resolve_report_webhooks_use_case),
-]
-
-
-def get_unlink_discord_use_case(
-    conn_repo: DiscordConnectionRepositoryDp,
-    discord_oauth: DiscordOAuthServiceDp,
-):
-    return UnlinkDiscordUseCase(conn_repo, discord_oauth)
-
-
-UnlinkDiscordUseCaseDp = Annotated[
-    UnlinkDiscordUseCase, Depends(get_unlink_discord_use_case)
 ]
 
 
@@ -534,9 +554,12 @@ def get_refresh_session_use_case(
     user_repo: UserRepositoryDp,
     session_repo: UserSessionRepositoryDp,
     store: SessionStoreDp,
-    gh_service: GitHubServiceDp,
+    binding_repo: BorderlessAccountRepositoryDp,
+    refresh_badges: RefreshBadgesUseCaseDp,
 ) -> RefreshSessionUseCase:
-    return RefreshSessionUseCase(user_repo, session_repo, store, gh_service)
+    return RefreshSessionUseCase(
+        user_repo, session_repo, store, binding_repo, refresh_badges
+    )
 
 
 RefreshSessionUseCaseDp = Annotated[
@@ -609,6 +632,75 @@ async def get_admin_user(
 
 
 AdminUserDp = Annotated[UserDTO, Depends(get_admin_user)]
+
+
+async def require_reports_badge(
+    user: CurrentUserDp,
+    binding_repo: BorderlessAccountRepositoryDp,
+    badge_repo: UserBadgeRepositoryDp,
+) -> None:
+    """Reports are for BASE and PSP members (ADR-0024), administrators
+    included: no recorded badge → ``badge_required``; a recorded badge that
+    does not count → ``membership_unconfirmed``."""
+    access = badge_access(
+        await binding_repo.get_by_user_id(user.id),
+        await badge_repo.live_for_user(user.id),
+    )
+    if not access.badges:
+        raise BadgeRequired()
+    if not access.held:
+        raise MembershipUnconfirmed()
+
+
+RequireReportsBadgeDp = Depends(require_reports_badge)
+
+
+def get_borderless_sign_in_use_case(
+    session: DbSession, redis_client: RedisDp, client: BorderlessClientDp
+) -> BorderlessSignInUseCase:
+    return BorderlessSignInUseCase(session, redis_client, client)
+
+
+BorderlessSignInUseCaseDp = Annotated[
+    BorderlessSignInUseCase, Depends(get_borderless_sign_in_use_case)
+]
+
+
+def get_confirm_membership_use_case(
+    session: DbSession, redis_client: RedisDp, client: BorderlessClientDp
+) -> ConfirmMembershipUseCase:
+    return ConfirmMembershipUseCase(session, redis_client, client)
+
+
+ConfirmMembershipUseCaseDp = Annotated[
+    ConfirmMembershipUseCase, Depends(get_confirm_membership_use_case)
+]
+
+
+def get_begin_github_restore_use_case(
+    user_repo: UserRepositoryDp,
+    connections: GithubConnectionRepositoryDp,
+    state: AccountLinkStateUseCaseDp,
+    github: GitHubOAuthServiceDp,
+) -> BeginGithubRestoreUseCase:
+    return BeginGithubRestoreUseCase(user_repo, connections, state, github)
+
+
+BeginGithubRestoreUseCaseDp = Annotated[
+    BeginGithubRestoreUseCase, Depends(get_begin_github_restore_use_case)
+]
+
+
+def get_complete_github_restore_use_case(
+    session: DbSession, store: SessionStoreDp
+) -> CompleteGithubRestoreUseCase:
+    return CompleteGithubRestoreUseCase(session, store)
+
+
+CompleteGithubRestoreUseCaseDp = Annotated[
+    CompleteGithubRestoreUseCase,
+    Depends(get_complete_github_restore_use_case),
+]
 
 
 def get_feature_repository(session: DbSession) -> FeatureRepository:

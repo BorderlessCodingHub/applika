@@ -13,8 +13,9 @@ from app.presentation.schemas import BaseSchema
 class UserSessionOut(BaseSchema):
     id: SnowflakeID
     client_type: Literal['web', 'cli']
+    # ``github_web`` stays for rows from before ADR-0024.
     sign_in_method: Literal[
-        'github_web', 'cli_browser', 'cli_device', 'cli_legacy'
+        'github_web', 'cli_browser', 'cli_device', 'cli_legacy', 'borderless'
     ]
     device_name: str
     client_label: str

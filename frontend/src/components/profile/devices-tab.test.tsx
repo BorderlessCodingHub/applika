@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { ProfileDevices } from "@/app/(protected)/profile/profile-page";
 import { DevicesTab, type DevicesTabProps } from "./devices-tab";
-import { formatSessionTime } from "./devices-copy";
+import { SIGN_IN_METHOD_LABEL, formatSessionTime } from "./devices-copy";
 import { services } from "@/services/services";
 import type { UserSession } from "@/services/types/sessions";
 
@@ -35,7 +35,7 @@ vi.mock("sonner", () => ({
 const CURRENT: UserSession = {
   id: "101",
   client_type: "web",
-  sign_in_method: "github_web",
+  sign_in_method: "borderless",
   device_name: "Chrome on macOS",
   client_label: "Chrome 141 on macOS",
   created_ip: "203.0.113.7",
@@ -201,7 +201,7 @@ describe("DevicesTab states", () => {
       "Expires",
     ]);
     expect(current.getByText("Chrome 141 on macOS")).toBeInTheDocument();
-    expect(current.getByText("GitHub in the browser")).toBeInTheDocument();
+    expect(current.getByText("Borderless in the browser")).toBeInTheDocument();
     expect(
       row("101").querySelector('[data-slot="device-last-ip"]'),
     ).toHaveTextContent("203.0.113.9");
@@ -698,5 +698,12 @@ describe("Devices tab wired to the API (use-sessions)", () => {
 
     pending.resolve([CURRENT]);
     await waitFor(() => row("101"));
+  });
+});
+
+describe("sign-in method labels (ADR-0024)", () => {
+  it("names a Borderless sign-in and keeps the label of ended GitHub rows", () => {
+    expect(SIGN_IN_METHOD_LABEL.borderless).toBe("Borderless in the browser");
+    expect(SIGN_IN_METHOD_LABEL.github_web).toBe("GitHub in the browser");
   });
 });

@@ -69,7 +69,6 @@ async def other_admin(db_session: AsyncSession) -> int:
     db_session.add(
         UserModel(
             id=OTHER_ADMIN_ID,
-            github_id=OTHER_ADMIN_ID,
             username='otheradmin',
             email='other@admin.com',
             is_admin=True,
@@ -88,7 +87,6 @@ async def add_users(
         session.add(
             UserModel(
                 id=user_id,
-                github_id=user_id,
                 username=name,
                 email=f'{name}@user.com',
             )
@@ -776,9 +774,9 @@ async def test_e2e_seed_reset_against_postgres(
     maker = async_sessionmaker(bind=async_engine, expire_on_commit=False)
     monkeypatch.setattr(seed_e2e, 'AsyncLocalSession', maker)
     identities = (
-        seed_e2e.Identity(github_id=USER_ID, user_id=USER_ID),
-        seed_e2e.Identity(github_id=ADMIN_ID, user_id=ADMIN_ID),
-        seed_e2e.Identity(github_id=discord_id, user_id=discord_id),
+        seed_e2e.Identity(user_id=USER_ID),
+        seed_e2e.Identity(user_id=ADMIN_ID),
+        seed_e2e.Identity(user_id=discord_id),
     )
 
     for _ in range(2):  # idempotent

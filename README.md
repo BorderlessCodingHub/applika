@@ -114,20 +114,19 @@ chain on every api start.
    cp .env.example .env
    ```
 
-   `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are required settings with no
-   defaults — the api will not boot without them. Create a GitHub OAuth app at
-   <https://github.com/settings/developers> with:
-
-   | Field | Value |
-   |---|---|
-   | Homepage URL | `http://127.0.0.1:8080` |
-   | Authorization callback URL | `http://127.0.0.1:8000/api/auth/github/callback` |
-
-   `GITHUB_TOKEN_ENCRYPTION_KEY` must be a valid Fernet key:
+   Sign-in is Borderless only (ADR-0024). Set `BORDERLESS_API_URL` and
+   `BORDERLESS_TOKEN_ENCRYPTION_KEY`; sign-in answers 503 until both are set.
+   For local runs, point the URL at the stub
+   (`python backend/tests/fixtures/borderless/stub.py`, port 8081, synthetic
+   accounts in `accounts.json`). The key must be a valid Fernet key:
 
    ```bash
    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
    ```
+
+   `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are optional: they serve only
+   the one-shot "restore data from GitHub" (callback
+   `http://127.0.0.1:8000/api/auth/github/callback`, scope `read:user`).
 
 2. **Start everything.**
 

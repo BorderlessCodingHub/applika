@@ -76,7 +76,6 @@ class AuthHandoffStateUseCase:
         self,
         login_id: str,
         user_id: int,
-        github_id: int,
         flow: str | None = None,
         code_challenge: str | None = None,
         redirect_uri: str | None = None,
@@ -85,7 +84,6 @@ class AuthHandoffStateUseCase:
         data: dict[str, str | int] = {
             'login_id': login_id,
             'user_id': user_id,
-            'github_id': github_id,
         }
         if flow is not None:
             data['flow'] = flow

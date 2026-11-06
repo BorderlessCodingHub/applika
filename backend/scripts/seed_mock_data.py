@@ -13,7 +13,7 @@ step/feedback body), and every deprecated answer is checked for its
 
 Usage:
     1. Start the backend server (uv run task run)
-    2. Log in via GitHub OAuth to get an access token
+    2. Sign in on the web with Borderless (ADR-0024) to get an access token
     3. Set ACCESS_TOKEN below with your JWT token
     4. Run: python scripts/seed_mock_data.py
 

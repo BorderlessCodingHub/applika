@@ -5,7 +5,6 @@ description = ""
 requires-python = ">=3.14"
 dependencies = [
     "fastapi[standard]>=0.115",
-    "fastapi-sso>=0.18.0",
     "uvicorn[standard]>=0.34",
     "sqlalchemy[asyncio]>=2.0",
     "asyncpg>=0.30",
@@ -31,6 +30,7 @@ dependencies = [
     "taskiq-redis==1.2.4",
     "httpx==0.28.1",
     "cloudscraper==1.2.71",
+    "pyjwt==2.12.1",
 ]
 
 [dependency-groups]

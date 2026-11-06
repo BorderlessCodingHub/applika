@@ -3,18 +3,27 @@ import {
   SALARY_PERIODS,
 } from "@/components/timeline/timeline-types";
 
-export type DiscordAccountStatus = "active" | "needs_reconnect";
+export type MembershipBadgeKey = "borderless_base" | "borderless_psp";
 
-/**
- * The caller's own Discord connection (KODI-027, plan 0009). Never carries
- * the Discord id — the profile only ever renders `username`/`global_name`/
- * `avatar_url`/`status`. `null` means unlinked.
- */
-export interface DiscordAccount {
-  username: string;
-  global_name: string | null;
-  avatar_url: string | null;
-  status: DiscordAccountStatus;
+/** A recorded (live) badge, held or not: it counts only while `borderless.status` is `active`. */
+export interface UserBadge {
+  badge: MembershipBadgeKey;
+  granted_at: string;
+}
+
+export type BorderlessAccessStatus = "active" | "expired" | "needs_reconnect";
+
+/** The Borderless access from the last password sign-in, computed by the server per request. */
+export interface BorderlessAccess {
+  status: BorderlessAccessStatus;
+  expires_at: string;
+  email: string;
+}
+
+/** `available`: no GitHub identity on record. `prompt`: the one-time `/welcome` choice is still open. */
+export interface GithubRestoreState {
+  available: boolean;
+  prompt: boolean;
 }
 
 export interface User {
@@ -23,7 +32,8 @@ export interface User {
   email: string;
   first_name?: string;
   last_name?: string;
-  github_id: string;
+  /** The GitHub-era identity on record, a JSON number; `null` for a Borderless-only account. */
+  github_id: number | null;
   current_role?: string;
   current_company?: string;
   current_salary?: number;
@@ -37,13 +47,10 @@ export interface User {
   linkedin_url?: string;
   tech_stack?: string[];
   is_admin?: boolean;
-  /**
-   * The caller's own Discord connection, or `null` when unlinked (KODI-027).
-   * `discord_linked` is kept as `discord != null` for any caller that only
-   * needs the flag.
-   */
-  discord: DiscordAccount | null;
-  discord_linked: boolean;
+  /** Live badge rows, held or not. */
+  badges: UserBadge[];
+  borderless: BorderlessAccess | null;
+  github_restore: GithubRestoreState;
 }
 
 export type UpdateUserPayload = Partial<

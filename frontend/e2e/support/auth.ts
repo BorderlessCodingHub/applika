@@ -9,11 +9,12 @@ import type { Page } from "@playwright/test";
  * opaque `__refresh` token stored in the real Redis — then exports them as the
  * `E2E_*` variables read below.
  *
- * `loginAs` installs exactly the cookies a successful GitHub OAuth callback
- * would set, which is the ONLY thing it bypasses: GitHub's own site cannot be
- * driven headless. No login route is added, nothing is mocked, and every
- * request the app makes afterwards — starting with `GET /api/users/me` — hits
- * the real API against the real database.
+ * `loginAs` installs exactly the cookies a successful Borderless sign-in would
+ * set, which is the ONLY thing it bypasses. No login route is added, nothing
+ * is mocked, and every request the app makes afterwards — starting with
+ * `GET /api/users/me` — hits the real API against the real database. The
+ * sign-in form itself is driven against the Borderless stub in
+ * `borderless-signin.spec.ts` (see `BORDERLESS_ACCOUNTS`).
  */
 
 export type SeededRole = "user" | "admin" | "discord";
@@ -22,10 +23,10 @@ export type SeededRole = "user" | "admin" | "discord";
  * The seeded identities, stable across runs. Specs assert against these real
  * values rather than against a browser stub.
  *
- * `discord` (KODI-022, plan 0009) is `e2e-discord`, seeded with a fixed
- * Discord id RE-SET on every seed run — so a Disconnect performed by the E2E
- * suite is undone the next time `frontend/scripts/e2e.sh` seeds, and the role is
- * deterministically linked at the start of every run.
+ * Each is bound to its Borderless stub account with a live access, re-set on
+ * every seed run: `e2e-user` holds PSP, `e2e-admin` and `e2e-discord` hold
+ * BASE, so every seeded user sees Reports. `discord` is only the third user's
+ * role name (the beta specs' "someone else"); it links nothing.
  */
 export const SEEDED_USERS = {
   user: {
@@ -47,6 +48,36 @@ export const SEEDED_USERS = {
   SeededRole,
   { username: string; email: string; isAdmin: boolean }
 >;
+
+/**
+ * The Borderless stub's synthetic accounts the sign-in specs drive through the
+ * form, mirrored from `backend/tests/fixtures/borderless/accounts.json` (the
+ * stub runs as the `borderless-stub` service; nobody calls the real
+ * Borderless). None is seeded: each becomes an applika account on its first
+ * sign-in, and the spec deletes it again.
+ * - `free`: FREE membership, so no badge.
+ * - `short`: PSP, its first access expires after 3 s (`expiresIn` [3, 604800]),
+ *   every later one after a week. Sign it in through the form exactly once.
+ * - `unverified`: an email Borderless has not verified.
+ */
+export const BORDERLESS_ACCOUNTS = {
+  user: {
+    email: "e2e-user@e2e.applika.dev",
+    password: "e2e-user-password",
+  },
+  free: {
+    email: "e2e-free@e2e.applika.dev",
+    password: "e2e-free-password",
+  },
+  short: {
+    email: "e2e-short@e2e.applika.dev",
+    password: "e2e-short-password",
+  },
+  unverified: {
+    email: "e2e-unverified@e2e.applika.dev",
+    password: "e2e-unverified-password",
+  },
+} as const;
 
 /** The env var names `frontend/scripts/e2e.sh` exports for each role. */
 const ENV_VARS = {

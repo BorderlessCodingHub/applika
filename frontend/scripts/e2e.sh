@@ -4,9 +4,10 @@
 #
 # Stands up the dedicated, ephemeral, isolated E2E stack
 # (docker-compose.e2e.yml: the REAL API image + the REAL frontend image, a real
-# Postgres migrated by `alembic upgrade head` and a real Redis), seeds a REAL
-# session (no browser mocking — GitHub OAuth can't run headless, so we mint a
-# genuine cookie with the app's own token code), runs Playwright against that
+# Postgres migrated by `alembic upgrade head`, a real Redis and the Borderless
+# stub), seeds a REAL session (no browser mocking — the seed binds each user to
+# its stub Borderless account and mints a genuine cookie with the app's own
+# token code), runs Playwright against that
 # real front door, then tears everything down (always, via a trap). CI calls
 # this same script so local and CI can't drift.
 #
@@ -14,6 +15,9 @@
 #   frontend/scripts/e2e.sh                 # full run: up -> seed -> playwright -> down
 #   KEEP_STACK=1 frontend/scripts/e2e.sh    # leave the stack up afterwards (debugging)
 #   frontend/scripts/e2e.sh <pw args>       # forwarded to `playwright test` (e.g. a spec)
+#
+# When Playwright fails, the API and Borderless stub logs are saved to
+# frontend/test-results/e2e-stack.log before teardown.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -58,6 +62,21 @@ for i in $(seq 1 60); do
   sleep 2
 done
 
+# The API reaches Borderless only through the stub (ADR-0024).
+echo "[e2e] Waiting for the Borderless stub ..."
+for i in $(seq 1 30); do
+  if "${COMPOSE[@]}" exec -T borderless-stub python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health')" >/dev/null 2>&1; then
+    echo "[e2e] Borderless stub is up."
+    break
+  fi
+  if [[ "$i" == "30" ]]; then
+    echo "[e2e] Borderless stub did not become ready in time." >&2
+    "${COMPOSE[@]}" logs borderless-stub >&2 || true
+    exit 1
+  fi
+  sleep 1
+done
+
 echo "[e2e] Seeding real sessions (real user rows + real signed cookies)..."
 SEED_JSON="$("${COMPOSE[@]}" exec -T api python -m app.scripts.seed_e2e)"
 # Parse with node (always present alongside pnpm) — no jq dependency.
@@ -84,4 +103,16 @@ echo "[e2e] Seeded user ${E2E_USER_ID}, admin ${E2E_ADMIN_USER_ID} and discord-l
 
 echo "[e2e] Running Playwright against the real front door ${BASE_URL} ..."
 cd "$ROOT_DIR/frontend"
-pnpm exec playwright test "$@"
+status=0
+pnpm exec playwright test "$@" || status=$?
+
+# A failed run keeps the API's and the stub's logs before the trap tears the
+# stack down: frontend/test-results/ is the folder CI uploads on failure.
+if [[ "$status" != "0" ]]; then
+  LOG_FILE="$ROOT_DIR/frontend/test-results/e2e-stack.log"
+  mkdir -p "$(dirname "$LOG_FILE")"
+  "${COMPOSE[@]}" logs --no-color --timestamps api borderless-stub >"$LOG_FILE" 2>&1 || true
+  echo "[e2e] Playwright failed (exit ${status}). API and Borderless stub logs: ${LOG_FILE}. Last API lines:" >&2
+  "${COMPOSE[@]}" logs --no-color --tail 50 api >&2 || true
+fi
+exit "$status"

@@ -42,16 +42,19 @@ const PAGES: PageCase[] = [
   {
     path: "/login",
     visitors: ["anon"],
-    // The route now lives at `src/app/login/`, OUTSIDE the `(public)` group, so
-    // it renders no landing header and the only sign-in control on it is this
-    // one. The URL is unchanged.
-    // The h1 is a logo glyph + "pplika.dev", so its accessible name is a poor
-    // assertion target. The sign-in control is the page's unambiguous content.
-    // It is a LINK, not a button: <Button asChild> renders the <a> underneath.
+    // The route lives at `src/app/login/`, OUTSIDE the `(public)` group, so it
+    // renders no landing header. It is the Borderless sign-in form (ADR-0024):
+    // email, password, "Sign in"; no GitHub sign-in anywhere on it.
     assert: async (page) => {
       await expect(
-        page.getByRole("link", { name: /Login with GitHub/i }),
+        page.getByRole("heading", { name: "Sign in to applika", level: 1 }),
       ).toBeVisible();
+      await expect(page.getByLabel("Email")).toBeVisible();
+      await expect(page.getByLabel("Password")).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Sign in", exact: true }),
+      ).toBeVisible();
+      await expect(page.getByText(/GitHub/)).toHaveCount(0);
     },
   },
   {
@@ -151,9 +154,10 @@ const PAGES: PageCase[] = [
     assert: heading("User Management", 1),
   },
   {
-    path: "/admin/discord-webhooks",
+    // ADR-0024: report webhooks assigned to a badge.
+    path: "/admin/report-webhooks",
     visitors: ["admin"],
-    assert: heading("Discord webhooks", 1),
+    assert: heading("Report webhooks", 1),
   },
   {
     // KODI-049 (Plan corrections 23).
@@ -166,6 +170,19 @@ const PAGES: PageCase[] = [
     path: "/admin/features",
     visitors: ["admin"],
     assert: heading("Features", 1),
+  },
+  {
+    // ADR-0024: the one-time choice of a new Borderless account. The seeded
+    // users already answered it, so the page sends them on to the dashboard;
+    // the choice itself is walked in `borderless-signin.spec.ts`.
+    path: "/welcome",
+    visitors: ["user"],
+    assert: async (page) => {
+      await page.waitForURL("**/dashboard");
+      await expect(
+        page.getByRole("heading", { name: "Dashboard", level: 1 }),
+      ).toBeVisible();
+    },
   },
   {
     // KODI-058: the CLI device approval page.
@@ -216,6 +233,17 @@ test("/admin/supports redirects to /admin/platforms", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("/admin/discord-webhooks redirects to /admin/report-webhooks", async ({
+  page,
+}) => {
+  await loginAs(page, "admin");
+  await page.goto("/admin/discord-webhooks");
+  await page.waitForURL("**/admin/report-webhooks");
+  await expect(
+    page.getByRole("heading", { name: "Report webhooks", level: 1 }),
+  ).toBeVisible();
+});
+
 test("the suite covers every page named in the acceptance criteria", () => {
   // Guards the table itself, because the suite is only as good as this list: a
   // route silently dropped from PAGES would leave the suite green while
@@ -225,8 +253,10 @@ test("the suite covers every page named in the acceptance criteria", () => {
   // 14 until KODI-002 added `/cvs`; 17 since KODI-027 added
   // `/admin/discord-webhooks`; 19 since KODI-049 added `/jobs` and
   // `/admin/jobs` (Plan corrections 23); 20 since KODI-054 added
-  // `/admin/features`; 22 since KODI-058 added `/device` and `/cli/code`.
-  expect(PAGES).toHaveLength(22);
+  // `/admin/features`; 22 since KODI-058 added `/device` and `/cli/code`;
+  // 23 since Borderless sign-in added `/welcome` (`/admin/report-webhooks`
+  // replaced `/admin/discord-webhooks`).
+  expect(PAGES).toHaveLength(23);
 
   // A row with no visitors generates no tests at all, which the length check
   // above cannot see. Same for a duplicated path: 15 rows covering 14 routes.

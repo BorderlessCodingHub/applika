@@ -3,18 +3,18 @@ import type {
   ActivityHeatmapPoint,
   AdminCompaniesParams,
   AdminCompanyRow,
-  AdminDiscordWebhook,
   AdminJobRunQueued,
   AdminJobSource,
   AdminPlatform,
   AdminPlatformsParams,
   AdminPlatformStats,
+  AdminReportWebhook,
   AdminUpdateUser,
   AdminUserDetail,
   AdminUserRow,
   AdminUsersParams,
   CreateCompany,
-  CreateDiscordWebhook,
+  CreateReportWebhook,
   PaginatedPlatforms,
   PaginatedResponse,
   SeniorityBreakdown,
@@ -22,7 +22,7 @@ import type {
   TopPlatformStat,
   UpdateCompany,
   UpdateAdminJobSource,
-  UpdateDiscordWebhook,
+  UpdateReportWebhook,
   UserGrowthPoint,
 } from "@/services/types/admin";
 import type {
@@ -160,33 +160,31 @@ export class AdminService {
   // `/admin/step-definitions*` and `/admin/feedback-definitions*` now 404 —
   // the web must never call them.
 
-  // ── Report webhooks (KODI-027) ──────────────────────────────────────
+  // ── Report webhooks (ADR-0024) ──────────────────────────────────
 
-  getDiscordWebhooks(): Promise<AdminDiscordWebhook[]> {
+  getReportWebhooks(): Promise<AdminReportWebhook[]> {
     return api
-      .get<AdminDiscordWebhook[]>("/admin/discord-webhooks")
+      .get<AdminReportWebhook[]>("/admin/report-webhooks")
       .then((r) => r.data);
   }
 
-  createDiscordWebhook(
-    data: CreateDiscordWebhook,
-  ): Promise<AdminDiscordWebhook> {
+  createReportWebhook(data: CreateReportWebhook): Promise<AdminReportWebhook> {
     return api
-      .post<AdminDiscordWebhook>("/admin/discord-webhooks", data)
+      .post<AdminReportWebhook>("/admin/report-webhooks", data)
       .then((r) => r.data);
   }
 
-  updateDiscordWebhook(
+  updateReportWebhook(
     id: string,
-    data: UpdateDiscordWebhook,
-  ): Promise<AdminDiscordWebhook> {
+    data: UpdateReportWebhook,
+  ): Promise<AdminReportWebhook> {
     return api
-      .patch<AdminDiscordWebhook>(`/admin/discord-webhooks/${id}`, data)
+      .patch<AdminReportWebhook>(`/admin/report-webhooks/${id}`, data)
       .then((r) => r.data);
   }
 
-  deleteDiscordWebhook(id: string): Promise<void> {
-    return api.delete(`/admin/discord-webhooks/${id}`).then(() => undefined);
+  deleteReportWebhook(id: string): Promise<void> {
+    return api.delete(`/admin/report-webhooks/${id}`).then(() => undefined);
   }
 
   // ── Job sources (KODI-049) ──────────────────────────────────────────

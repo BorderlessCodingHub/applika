@@ -57,8 +57,8 @@ backend/
 - **Redis 7**: sessions, GitHub cache, rate limiter, the taskiq queue
 - **taskiq** + taskiq-redis: background worker and scheduler
 - **RenderCV + Typst**: CV PDF and Markdown rendering
-- **fastapi-sso** for GitHub OAuth, **PyJWT** for access tokens
-- **cryptography** (Fernet) for the stored GitHub and Discord tokens
+- **httpx** for Borderless sign-in and the GitHub restore, **PyJWT** for access tokens
+- **cryptography** (Fernet) for the stored Borderless access token
 - **Snowflake IDs** for every primary key
 
 ## Environment Variables
@@ -70,8 +70,8 @@ Settings are read from the environment or a `.env` file (`app/config/settings.py
 | Name | Description | Example |
 |------|-------------|---------|
 | `DATABASE_URL` | Async DB connection string | `postgresql+asyncpg://user:pass@host:5432/db` |
-| `GITHUB_CLIENT_ID` | GitHub OAuth client ID | `<your-client-id>` |
-| `GITHUB_CLIENT_SECRET` | GitHub OAuth client secret | `<your-client-secret>` |
+| `BORDERLESS_API_URL` | Borderless API (https in PROD); sign-in answers 503 until set | `https://<borderless host>` |
+| `BORDERLESS_TOKEN_ENCRYPTION_KEY` | Fernet key for the stored Borderless access token | `<fernet key>` |
 
 ### Optional
 
@@ -85,8 +85,10 @@ Settings are read from the environment or a `.env` file (`app/config/settings.py
 | `REFRESH_TOKEN_EXPIRE_DAYS` | A session ends this many days after its last refresh | `7` |
 | `REDIS_URL` | Redis connection URL | `redis://localhost:6379/0` |
 | `GITHUB_REDIRECT_URI` | OAuth callback URL | `http://127.0.0.1:8000/api/auth/github/callback` |
-| `GITHUB_CACHE_TTL_SECONDS` | Redis cache TTL for GitHub token checks | `600` |
-| `GITHUB_TOKEN_ENCRYPTION_KEY` | Fernet key for the stored GitHub tokens | changeme placeholder |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth app of the one-shot data restore; 503 until set | `None` |
+| `WEB_SIGNIN_URI` | Web sign-in page every CLI browser sign-in lands on | `http://127.0.0.1:8080/login` |
+| `BORDERLESS_TIMEOUT_SECONDS` / `BORDERLESS_REFRESH_TIMEOUT_SECONDS` | Borderless call timeouts (sign-in / refresh read) | `5.0` / `3.0` |
+| `BORDERLESS_SIGNIN_EMAIL_LIMIT` / `BORDERLESS_SIGNIN_EMAIL_WINDOW_SECONDS` | Failed sign-ins per email before a 429, and the window | `5` / `900` |
 | `LOGIN_REDIRECT_URI` | Post-login redirect | `http://127.0.0.1:8000/api/docs` |
 | `DEVICE_CODE_TTL_SECONDS` | CLI device-code lifetime | `600` |
 | `DEVICE_CODE_POLL_INTERVAL_SECONDS` | CLI device-code poll interval | `10` |
@@ -94,10 +96,7 @@ Settings are read from the environment or a `.env` file (`app/config/settings.py
 | `CLI_MANUAL_REDIRECT_URI` | Web page that shows a PKCE code to paste | `http://127.0.0.1:8080/cli/code` |
 | `SESSION_HISTORY_DAYS` | Ended devices stay listed this long | `30` |
 | `DISCORD_FEEDBACK_WEBHOOK` | Discord webhook that receives user feedback | `None` |
-| `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` | Discord OAuth app for the profile account link; Connect Discord answers 503 until the id, the secret and the token key below are all set | `None` |
-| `DISCORD_TOKEN_ENCRYPTION_KEY` | Fernet key for the Discord connection's refresh token, distinct from the GitHub one | `None` |
-| `DISCORD_LINK_REDIRECT_URI` | The API's Discord OAuth callback | `http://127.0.0.1:8000/api/auth/link/discord/callback` |
-| `ACCOUNT_LINK_REDIRECT_URI` | Profile page the Discord callback returns to | `http://127.0.0.1:8080/profile` |
+| `ACCOUNT_LINK_REDIRECT_URI` | Profile page the GitHub restore returns to | `http://127.0.0.1:8080/profile` |
 | `ACCOUNT_LINK_STATE_TTL_SECONDS` | TTL of the account-link CSRF nonce | `600` |
 | `CV_PDF_RENDER_TIMEOUT_SECONDS` | Ceiling for one CV PDF render | `30` |
 | `RATE_LIMIT_ENABLED` | API rate limiter on/off | `True` |
@@ -122,7 +121,7 @@ the [root README](../README.md#quick-start-docker-compose).
 ```bash
 git clone https://github.com/ProgramadoresSemPatria/applika.git
 cd applika
-cp .env.example .env        # set GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GITHUB_TOKEN_ENCRYPTION_KEY
+cp .env.example .env        # set BORDERLESS_API_URL, BORDERLESS_TOKEN_ENCRYPTION_KEY
 docker compose up -d --build --wait
 ```
 

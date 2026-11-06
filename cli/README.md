@@ -53,7 +53,7 @@ uv tool install --force --editable .
 
 ## Authentication
 
-The CLI signs in with GitHub and gets a session of its own: each sign-in is a device listed in your web profile's **Devices** tab, where you can revoke it. The session (access + refresh tokens) is saved to `~/.config/applika/session.json` and the access token is sent as `Authorization: Bearer`. It refreshes automatically — you only need to log in once per device.
+The CLI signs in with Borderless (your Borderless email and password, on applika's sign-in page) and gets a session of its own: each sign-in is a device listed in your web profile's **Devices** tab, where you can revoke it. The session (access + refresh tokens) is saved to `~/.config/applika/session.json` and the access token is sent as `Authorization: Bearer`. It refreshes automatically — you only need to log in once per device.
 
 ```bash
 # Default: your browser opens; the sign-in comes back to a local callback (PKCE)

@@ -16,13 +16,25 @@ export function getApiError(error: AxiosError) {
 
 /**
  * A 401 on `/auth/*` is final (a failed `/auth/refresh` must never trigger
- * another refresh). The device approval routes (KODI-058) are ordinary
- * signed-in calls that merely live under `/auth/`: an expired access cookie
- * on `/device` refreshes and retries like any other page.
+ * another refresh). Signed-in calls that merely live under `/auth/` refresh
+ * and retry like any other page: the device approval routes, the GitHub
+ * restore start, and the membership confirm, but the confirm only on
+ * "Not authenticated": its other 401 is a wrong Borderless password, and
+ * replaying that would count one failed attempt twice.
  */
-function refreshesOn401(url: string | undefined): boolean {
+function refreshesOn401(error: AxiosError): boolean {
+  const url = error.config?.url;
   if (!url) return true;
-  return !url.includes("/auth/") || url.includes("/auth/device/");
+  if (!url.includes("/auth/")) return true;
+  if (url.includes("/auth/device/") || url.includes("/auth/github/restore")) {
+    return true;
+  }
+  if (url.includes("/auth/borderless/confirm")) {
+    const detail = (error.response?.data as { detail?: unknown } | undefined)
+      ?.detail;
+    return detail === "Not authenticated";
+  }
+  return false;
 }
 
 let isRefreshing = false;
@@ -46,7 +58,7 @@ api.interceptors.response.use(
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
-      refreshesOn401(originalRequest.url)
+      refreshesOn401(error)
     ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {

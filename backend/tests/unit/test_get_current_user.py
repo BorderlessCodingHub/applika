@@ -44,13 +44,13 @@ def _make_token(
 
 
 class FakeStore:
-    """``touch`` answers the session's github_id, None when it is gone, or
+    """``touch`` answers the session's user id, None when it is gone, or
     raises ``fail``."""
 
     def __init__(
-        self, github_id: int | None = 12345, fail: Exception | None = None
+        self, user_id: int | None = 12345, fail: Exception | None = None
     ):
-        self.github_id = github_id
+        self.github_id = user_id
         self.fail = fail
         self.touched: list[tuple[int, str | None]] = []
 
@@ -69,7 +69,7 @@ def _use_case(repo=None, store=None) -> GetCurrentUserUseCase:
 
 def _user_repo():
     repo = AsyncMock()
-    repo.get_by_github_id.return_value = make_user(github_id=12345)
+    repo.get_by_id.return_value = make_user(id=12345)
     return repo
 
 
@@ -149,17 +149,17 @@ async def test_touch_miss_is_session_expired():
     """The session's key is gone (revoked, signed out, expired)."""
     repo = _user_repo()
     with pytest.raises(HTTPException) as exc_info:
-        await _use_case(repo, FakeStore(github_id=None)).execute(
+        await _use_case(repo, FakeStore(user_id=None)).execute(
             _make_token('12345')
         )
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail == 'Session expired'
-    repo.get_by_github_id.assert_not_called()
+    repo.get_by_id.assert_not_called()
 
 
-async def test_session_of_another_github_id_is_session_expired():
+async def test_session_of_another_user_is_session_expired():
     with pytest.raises(HTTPException) as exc_info:
-        await _use_case(_user_repo(), FakeStore(github_id=999)).execute(
+        await _use_case(_user_repo(), FakeStore(user_id=999)).execute(
             _make_token('12345')
         )
     assert exc_info.value.detail == 'Session expired'
@@ -170,7 +170,7 @@ async def test_store_error_is_503_and_never_the_user():
     store = FakeStore(fail=SessionServiceUnavailable())
     with pytest.raises(SessionServiceUnavailable):
         await _use_case(repo, store).execute(_make_token('12345'))
-    repo.get_by_github_id.assert_not_called()
+    repo.get_by_id.assert_not_called()
 
 
 async def test_valid_session_returns_the_user_and_its_session():
@@ -179,16 +179,16 @@ async def test_valid_session_returns_the_user_and_its_session():
     result = await _use_case(repo, store).execute(
         _make_token('12345'), '198.51.100.4'
     )
-    assert result.user.id == 1
+    assert result.user.id == 12345
     assert result.user.username == 'testuser'
     assert result.session_id == SID
     assert store.touched == [(SID, '198.51.100.4')]
-    repo.get_by_github_id.assert_called_once_with(12345)
+    repo.get_by_id.assert_called_once_with(12345)
 
 
 async def test_valid_session_user_not_found():
     repo = AsyncMock()
-    repo.get_by_github_id.return_value = None
+    repo.get_by_id.return_value = None
     with pytest.raises(HTTPException) as exc_info:
         await _use_case(repo).execute(_make_token('12345'))
     assert exc_info.value.status_code == 401
@@ -220,7 +220,7 @@ async def test_redis_error_on_touch_is_session_service_unavailable():
     with pytest.raises(SessionServiceUnavailable) as exc_info:
         await _use_case(repo, store).execute(_make_token('12345'))
     assert exc_info.value.message == 'Session service unavailable'
-    repo.get_by_github_id.assert_not_called()
+    repo.get_by_id.assert_not_called()
 
 
 async def test_oserror_on_touch_is_session_service_unavailable():
@@ -248,7 +248,7 @@ async def test_hanging_redis_times_out_into_503_within_half_a_second():
         await _use_case(repo, store).execute(_make_token('12345'))
     elapsed = time.monotonic() - started
     assert 0.4 <= elapsed < 1.0
-    repo.get_by_github_id.assert_not_called()
+    repo.get_by_id.assert_not_called()
 
 
 # --- get_current_user: Bearer before the cookie ---
@@ -288,7 +288,7 @@ async def test_bearer_is_read_before_the_cookie():
         cookie,
     )
 
-    assert user.github_id == 12345
+    assert user.id == 12345
     assert store.touched == [(11, '192.0.2.10')]
     assert request.state.session_id == 11
 
@@ -323,3 +323,22 @@ def test_the_session_check_is_bounded_by_half_a_second():
     """ADR-0019: the per-request touch runs under ``asyncio.timeout(0.5)``,
     the rate limiter's bound."""
     assert store_module.TOUCH_TIMEOUT_SECONDS == 0.5
+
+
+async def test_token_minted_before_the_cutover_is_session_expired():
+    """ADR-0024: a token whose ``sub`` is a GitHub id never matches the
+    session's ``users.id``, so every pre-release session ends."""
+    repo = _user_repo()
+    with pytest.raises(HTTPException) as exc_info:
+        await _use_case(repo, FakeStore(user_id=1)).execute(
+            _make_token('98765432')
+        )
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == 'Session expired'
+    repo.get_by_id.assert_not_called()
+
+
+async def test_non_numeric_sub_is_session_expired():
+    with pytest.raises(HTTPException) as exc_info:
+        await _use_case(_user_repo()).execute(_make_token('octocat'))
+    assert exc_info.value.detail == 'Session expired'

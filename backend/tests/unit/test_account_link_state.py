@@ -17,7 +17,7 @@ async def test_create_sets_key_with_ttl_and_prefix():
 
     redis_client.set.assert_called_once()
     key, value = redis_client.set.call_args.args
-    assert key == f'applika:account_link:discord:{nonce}'
+    assert key == f'applika:account_link:github_restore:{nonce}'
     assert value == '42'
     assert redis_client.set.call_args.kwargs['ex'] == (
         envs.ACCOUNT_LINK_STATE_TTL_SECONDS
@@ -34,7 +34,7 @@ async def test_consume_returns_user_id():
 
     assert result == 7
     redis_client.getdel.assert_called_once_with(
-        'applika:account_link:discord:some-nonce'
+        'applika:account_link:github_restore:some-nonce'
     )
 
 

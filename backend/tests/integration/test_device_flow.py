@@ -58,7 +58,7 @@ async def _forget_last_poll(redis_client, device_code: str) -> None:
 
 async def _signed_in(async_engine, redis_client, user=USER):
     return await open_session(
-        async_engine, redis_client, user.id, user.github_id
+        async_engine, redis_client, user.id
     )
 
 
@@ -265,7 +265,7 @@ async def test_an_approved_code_signs_the_cli_in_as_the_approver(
     assert response.status_code == 200, response.text
     tokens = response.json()
     assert tokens['token_type'] == 'Bearer'
-    assert decode_token(tokens['access_token'])['sub'] == str(ADMIN.github_id)
+    assert decode_token(tokens['access_token'])['sub'] == str(ADMIN.id)
     [row] = await _cli_rows(async_engine)
     assert row.user_id == ADMIN.id
     assert (row.client_type, row.device_name) == ('cli', 'build-box')

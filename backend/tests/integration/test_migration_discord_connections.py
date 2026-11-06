@@ -862,18 +862,19 @@ def test_round_trip_upgrade_downgrade_upgrade(migration_db: str) -> None:
     )
 
 
-def test_orm_maps_both_discord_connections_and_report_webhooks() -> None:
+def test_orm_maps_neither_discord_table_any_more() -> None:
     """K5 shipped this revision code-free (non-destructive-migrations.md 7 /
     prod-release-runbook.md 4): no ORM model mapped either table.
 
     K6 (KODI-024) added ``DiscordConnectionModel``, mapped onto
     ``discord_connections``; K7 (KODI-025) added
     ``DiscordReportWebhookModel``, mapped onto ``discord_report_webhooks`` -
-    this assertion follows both changes. Reads ``Base.metadata.tables``
+    ADR-0024 removed Discord linking: both tables stay in the database
+    and no model maps them any more. Reads ``Base.metadata.tables``
     directly rather than scanning ``app.domain.models``' namespace, so it
     also catches a model declared but not imported at module level."""
     from app.domain.models import Base
 
     mapped_tables = set(Base.metadata.tables)
-    assert 'discord_connections' in mapped_tables
-    assert 'discord_report_webhooks' in mapped_tables
+    assert 'discord_connections' not in mapped_tables
+    assert 'discord_report_webhooks' not in mapped_tables

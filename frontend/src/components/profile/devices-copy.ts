@@ -52,6 +52,7 @@ export const SESSION_STATUS_LABEL: Record<SessionStatus, string> = {
 };
 
 export const SIGN_IN_METHOD_LABEL: Record<SignInMethod, string> = {
+  borderless: "Borderless in the browser",
   github_web: "GitHub in the browser",
   cli_browser: "Approved in the browser",
   cli_device: "Approved with a device code",

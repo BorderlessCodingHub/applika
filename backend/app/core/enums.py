@@ -116,20 +116,31 @@ class InterviewType(StrEnum):
     FINAL = 'final'
 
 
-class DiscordConnectionStatus(StrEnum):
-    """A Discord connection's state (KODI-024, ADR-0013, PG type
-    ``discord_connection_status``, lower-case labels - revision
-    ``ba44f9cfd3c1``).
+class BorderlessAccountStatus(StrEnum):
+    """A Borderless binding's stored state (ADR-0024, CHECK
+    ``ck_borderless_accounts_status``).
 
-    ``active`` is a fresh or successfully refreshed grant. ``needs_reconnect``
-    is set when Discord itself revokes the stored refresh token (a 400
-    ``invalid_grant`` on renewal) or when the granted scopes turn out to be
-    missing what report routing needs; the user has to run the consent flow
-    again, which replaces the row in place and clears the mark.
+    ``active`` is a token from the last password sign-in that Borderless has
+    not refused. ``needs_reconnect`` is set when Borderless refuses the token
+    (401/403 on the profile read) or when it no longer decrypts. Expiry is
+    not stored: it is computed from ``access_token_expires_at``.
     """
 
     ACTIVE = 'active'
     NEEDS_RECONNECT = 'needs_reconnect'
+
+
+class BadgeKey(StrEnum):
+    """A membership badge (CHECK ``ck_user_badges_badge``)."""
+
+    BORDERLESS_BASE = 'borderless_base'
+    BORDERLESS_PSP = 'borderless_psp'
+
+
+class BadgeSource(StrEnum):
+    """Where a badge comes from (CHECK ``ck_user_badges_source``)."""
+
+    BORDERLESS = 'borderless'
 
 
 class DeniedReason(StrEnum):

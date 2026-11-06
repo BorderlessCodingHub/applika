@@ -65,8 +65,11 @@ class Settings(BaseSettings):
     JWT_SECRET: str = 'changeme-set-a-strong-jwt-secret-in-production'
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
 
-    GITHUB_CLIENT_ID: str
-    GITHUB_CLIENT_SECRET: str
+    # GitHub restore (ADR-0024): GitHub is no longer a sign-in, only the
+    # one-shot lookup of a GitHub-era account. Unset → the restore answers
+    # 503 "GitHub restore is not configured".
+    GITHUB_CLIENT_ID: str | None = None
+    GITHUB_CLIENT_SECRET: str | None = None
     GITHUB_REDIRECT_URI: str = 'http://127.0.0.1:8000/api/auth/github/callback'
 
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -84,9 +87,21 @@ class Settings(BaseSettings):
     SESSION_HISTORY_DAYS: int = 30
 
     REDIS_URL: str = 'redis://localhost:6379/0'
-    GITHUB_CACHE_TTL_SECONDS: int = 600  # 10 minutes
 
-    GITHUB_TOKEN_ENCRYPTION_KEY: str = 'changeme-set-a-fernet-key-in-production'
+    # Borderless sign-in (ADR-0024): the API checks the email and password
+    # with Borderless from the server. Unset URL or key → sign-in answers
+    # 503 "Borderless sign-in is not configured". The key is a Fernet key
+    # for the stored Borderless access token; losing it marks every
+    # binding ``needs_reconnect`` at its next read.
+    BORDERLESS_API_URL: str | None = None
+    BORDERLESS_TOKEN_ENCRYPTION_KEY: str | None = None
+    BORDERLESS_TIMEOUT_SECONDS: float = 5.0
+    BORDERLESS_REFRESH_TIMEOUT_SECONDS: float = 3.0
+    BORDERLESS_SIGNIN_EMAIL_LIMIT: int = 5
+    BORDERLESS_SIGNIN_EMAIL_WINDOW_SECONDS: int = 900
+    # The web page that hosts the Borderless sign-in form; ``?cli=1`` is
+    # appended for a CLI sign-in.
+    WEB_SIGNIN_URI: str = 'http://127.0.0.1:8080/login'
 
     # Wall-clock ceiling for one server-side CV PDF render (RenderCV +
     # Typst). Past it the request fails with 500 rather than holding a
@@ -96,24 +111,8 @@ class Settings(BaseSettings):
     LOGIN_REDIRECT_URI: str = 'http://127.0.0.1:8000/api/docs'
     DISCORD_FEEDBACK_WEBHOOK: str | None = None
 
-    # Discord account link (KODI-020, ADR 0008): connecting Discord from the
-    # profile is optional and separate from GitHub login. Unset by default -
-    # ``DiscordOAuthService.is_configured()`` is False until both the client
-    # id and secret are set, and the begin route answers 503 until then.
-    DISCORD_CLIENT_ID: str | None = None
-    DISCORD_CLIENT_SECRET: str | None = None
-    DISCORD_LINK_REDIRECT_URI: str = (
-        'http://127.0.0.1:8000/api/auth/link/discord/callback'
-    )
     ACCOUNT_LINK_REDIRECT_URI: str = 'http://127.0.0.1:8080/profile'
     ACCOUNT_LINK_STATE_TTL_SECONDS: int = 600
-
-    # Fernet key for the Discord connection's encrypted refresh token
-    # (KODI-024, ADR-0013). Its own secret, distinct from
-    # ``GITHUB_TOKEN_ENCRYPTION_KEY``. Unset by default:
-    # ``DiscordOAuthService.is_configured()`` is False until the id, the
-    # secret AND this key are all set.
-    DISCORD_TOKEN_ENCRYPTION_KEY: str | None = None
 
     # API rate limiter (KODI-039, ADR-0015): per user with an IP fallback,
     # fixed window in Redis. Environment settings, so changing them takes a
@@ -144,6 +143,17 @@ class Settings(BaseSettings):
             raise ValueError(
                 'JOBS_SCRAPERS must not name the fixture scraper in PROD'
             )
+        return self
+
+    @model_validator(mode='after')
+    def _https_borderless_in_prod(self) -> 'Settings':
+        url = self.BORDERLESS_API_URL
+        if (
+            self.ENVIRONMENT == 'PROD'
+            and url
+            and not url.lower().startswith('https://')
+        ):
+            raise ValueError('BORDERLESS_API_URL must be https in PROD')
         return self
 
     @property

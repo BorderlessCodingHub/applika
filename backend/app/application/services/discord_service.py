@@ -59,20 +59,15 @@ class DiscordService:
     async def post_report_message(
         self,
         message: str,
-        mention_user_id: int | None = None,
         webhook_url: str | None = None,
     ) -> tuple[bool, str | None]:
         """Post one message to ``webhook_url``, or to the ctor's URL when
-        none is given (K8 - a report is posted once per resolved webhook,
-        each call passing its own URL). The payload is unchanged; the URL
-        itself never appears in a log line or a returned error (R-030)."""
-        allowed_mentions: dict[str, object] = {'parse': []}
-        if mention_user_id is not None:
-            allowed_mentions['users'] = [str(mention_user_id)]
-
+        none is given. Mentions nobody (``allowed_mentions.parse`` empty,
+        ADR-0024); the URL never appears in a log line or a returned
+        error."""
         payload: dict[str, object] = {
             'content': message,
-            'allowed_mentions': allowed_mentions,
+            'allowed_mentions': {'parse': []},
         }
 
         resolved_url = webhook_url or self.webhook_url

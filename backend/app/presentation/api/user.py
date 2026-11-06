@@ -2,7 +2,7 @@ from datetime import date
 
 from fastapi import APIRouter, Query, Response
 
-from app.application.dto.user import UserUpdateDTO
+from app.application.dto.user import UserDTO, UserUpdateDTO
 from app.application.use_cases.features.list_my_features import (
     ListMyFeaturesUseCase,
 )
@@ -12,13 +12,14 @@ from app.application.use_cases.get_user_agenda import (
 from app.application.use_cases.update_user import UpdateUserUseCase
 from app.config.settings import envs
 from app.presentation.dependencies import (
+    BorderlessAccountRepositoryDp,
     CurrentUserDp,
-    DiscordConnectionRepositoryDp,
     FeatureRepositoryDp,
+    GithubConnectionRepositoryDp,
     RevokeOtherSessionsUseCaseDp,
     StepDefinitionRepositoryDp,
     TimelineEventRepositoryDp,
-    UnlinkDiscordUseCaseDp,
+    UserBadgeRepositoryDp,
     UserRepositoryDp,
 )
 from app.presentation.schemas import DetailSchema
@@ -29,13 +30,43 @@ from app.presentation.schemas.user import UpdateUserProfile, UserProfile
 router = APIRouter(tags=['Users'], responses={'403': {'model': DetailSchema}})
 
 
+async def _profile(
+    user,
+    badge_repo: UserBadgeRepositoryDp,
+    binding_repo: BorderlessAccountRepositoryDp,
+    github_repo: GithubConnectionRepositoryDp,
+) -> UserProfile:
+    return UserProfile.from_user(
+        user,
+        await badge_repo.live_for_user(user.id),
+        await binding_repo.get_by_user_id(user.id),
+        await github_repo.get_by_user_id(user.id),
+    )
+
+
 @router.get('/users/me', response_model=UserProfile)
 async def get_me(
     c_user: CurrentUserDp,
-    conn_repo: DiscordConnectionRepositoryDp,
+    badge_repo: UserBadgeRepositoryDp,
+    binding_repo: BorderlessAccountRepositoryDp,
+    github_repo: GithubConnectionRepositoryDp,
 ):
-    connection = await conn_repo.get_by_user_id(c_user.id)
-    return UserProfile.from_user(c_user, connection)
+    """The caller's profile, with the recorded badges, the state of the
+    Borderless access and whether a GitHub restore is offered (ADR-0024)."""
+    return await _profile(c_user, badge_repo, binding_repo, github_repo)
+
+
+@router.post(
+    '/users/me/github-restore/dismiss',
+    status_code=204,
+    responses={'401': {'model': DetailSchema}},
+)
+async def dismiss_github_restore(
+    c_user: CurrentUserDp, user_repo: UserRepositoryDp
+):
+    """ "Start fresh": the one-time restore screen never shows again.
+    Idempotent."""
+    await user_repo.mark_restore_prompt_seen(c_user.id)
 
 
 @router.get(
@@ -61,13 +92,14 @@ async def update_me(
     payload: UpdateUserProfile,
     c_user: CurrentUserDp,
     user_repo: UserRepositoryDp,
-    conn_repo: DiscordConnectionRepositoryDp,
+    badge_repo: UserBadgeRepositoryDp,
+    binding_repo: BorderlessAccountRepositoryDp,
+    github_repo: GithubConnectionRepositoryDp,
 ):
     use_case = UpdateUserUseCase(user_repo)
     data = UserUpdateDTO(**payload.model_dump(exclude_unset=True))
-    user = await use_case.execute(c_user.id, data)
-    connection = await conn_repo.get_by_user_id(c_user.id)
-    return UserProfile.from_user(user, connection)
+    user: UserDTO = await use_case.execute(c_user.id, data)
+    return await _profile(user, badge_repo, binding_repo, github_repo)
 
 
 @router.get('/users/me/agenda', response_model=list[AgendaStepSchema])
@@ -95,18 +127,13 @@ async def get_my_agenda(
 async def delete_me(
     c_user: CurrentUserDp,
     user_repo: UserRepositoryDp,
-    unlink_discord_use_case: UnlinkDiscordUseCaseDp,
     revoke_sessions: RevokeOtherSessionsUseCaseDp,
     response: Response,
 ):
     # KODI-057 (R-008): every session of the account ends at once - their
-    # Redis keys go now, their rows with the user by CASCADE.
+    # Redis keys go now, their rows with the user by CASCADE, as do the
+    # Borderless binding, the badges and the GitHub identity row.
     await revoke_sessions.end_all_keys(c_user.id)
-
-    # Revoke the Discord grant best-effort before the row goes by cascade
-    # (T102): the connection would disappear either way once the user is
-    # deleted, but only this call actually asks Discord to revoke it.
-    await unlink_discord_use_case.execute(c_user.id)
 
     user = await user_repo.get_by_id(c_user.id)
     if user:

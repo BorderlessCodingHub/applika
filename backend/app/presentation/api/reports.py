@@ -23,6 +23,7 @@ from app.presentation.dependencies import (
     CurrentUserDp,
     DiscordServiceDp,
     QuinzenalReportRepositoryDp,
+    RequireReportsBadgeDp,
     ResolveReportWebhooksUseCaseDp,
 )
 from app.presentation.schemas import DetailSchema
@@ -33,7 +34,15 @@ from app.presentation.schemas.quinzenal_report import (
     SubmitReportResponse,
 )
 
-router = APIRouter(tags=['Reports'], responses={'403': {'model': DetailSchema}})
+# ADR-0024: reports are for BASE and PSP members. No recorded badge → 403
+# ``badge_required``; a recorded badge that does not count (Borderless
+# access expired or refused) → 403 ``membership_unconfirmed``. Reports are
+# never deleted: they come back when the badge counts again.
+router = APIRouter(
+    tags=['Reports'],
+    responses={'403': {'model': DetailSchema}},
+    dependencies=[RequireReportsBadgeDp],
+)
 
 
 @router.get('/reports', response_model=ReportListResponse)

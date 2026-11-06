@@ -48,6 +48,11 @@ All in `backend/app/application/use_cases/user_stats/`.
   Proof: `QuinzenalReportModel` check constraints in `backend/app/domain/models.py`.
 - **R-008** `GET /reports` lists the user's reports. `GET /reports/{day}` returns one report.
   Proof: `backend/app/application/use_cases/quinzenal_reports/list_reports.py`, `get_report.py`.
+  As-built note (2026-10-29, ADR-0024, PRD 0018 R-027, R-028): from Release B of plan 0018 every
+  `/reports*` route is for Borderless BASE and PSP members only. No recorded badge (administrators
+  included) → 403 `badge_required`; a badge that does not count while the Borderless access is
+  expired → 403 `membership_unconfirmed`. Reports are never deleted and come back with the badge.
+  The web hides the report section without a badge.
 - **R-009** `POST /reports/{day}/submit` accepts only the next report day. Day 1 requires a
   `start_date` that is not in the future. A later day requires day 1. A day that has not been
   reached returns 403. A day already submitted returns 409.
@@ -63,6 +68,10 @@ All in `backend/app/application/use_cases/user_stats/`.
   The single reports webhook and the organisation check are gone; a report posts to the
   admin-configured webhooks of the Discord servers the linked user is in (optionally limited by
   role). `discord_posted` still records the result.
+  As-built note (2026-10-29, ADR-0024, PRD 0018 R-030): from Release B of plan 0018 a submitted
+  report is saved first, then posted to every report webhook whose badges include a badge the
+  author holds, each address once; the post carries the username and mentions nobody. The
+  submission answers 201 whatever the webhooks answer. `discord_posted` still records the result.
 - **R-012** A report is unique on (`user_id`, `report_day`, `cycle_id`), and unique on
   (`user_id`, `report_day`) where `cycle_id` is null.
   Proof: `QuinzenalReportModel`.

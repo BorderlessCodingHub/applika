@@ -178,10 +178,10 @@ dependencies = [
     { name = "cryptography" },
     { name = "email-validator" },
     { name = "fastapi", extra = ["standard"] },
-    { name = "fastapi-sso" },
     { name = "httpx" },
     { name = "pydantic", extra = ["email"] },
     { name = "pydantic-settings" },
+    { name = "pyjwt" },
     { name = "redis", extra = ["hiredis"] },
     { name = "rendercv" },
     { name = "snowflake-id" },
@@ -214,10 +214,10 @@ requires-dist = [
     { name = "cryptography", specifier = ">=46.0.7" },
     { name = "email-validator", specifier = ">=2.3.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115" },
-    { name = "fastapi-sso", specifier = ">=0.18.0" },
     { name = "httpx", specifier = "==0.28.1" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.0" },
     { name = "pydantic-settings", specifier = ">=2.0" },
+    { name = "pyjwt", specifier = "==2.12.1" },
     { name = "redis", extras = ["hiredis"], specifier = ">=7.4.0" },
     { name = "rendercv", specifier = "==2.8" },
     { name = "snowflake-id", specifier = ">=1.0.2" },
@@ -582,22 +582,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/63/e1/05c44e7bbc619e980fab0236cff9f5f323ac1aaa79434b4906febf98b1d3/fastapi_cloud_cli-0.15.0.tar.gz", hash = "sha256:d02515231f3f505f7669c20920343934570a88a08af9f9a6463ca2807f27ffe5", size = 45309, upload-time = "2026-03-11T22:31:32.455Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/40/cc/1ccca747f5609be27186ea8c9219449142f40e3eded2c6089bba6a6ecc82/fastapi_cloud_cli-0.15.0-py3-none-any.whl", hash = "sha256:9ffcf90bd713747efa65447620d29cfbb7b3f7de38d97467952ca6346e418d70", size = 32267, upload-time = "2026-03-11T22:31:33.499Z" },
-]
-
-[[package]]
-name = "fastapi-sso"
-version = "0.21.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "fastapi" },
-    { name = "httpx" },
-    { name = "oauthlib" },
-    { name = "pydantic", extra = ["email"] },
-    { name = "pyjwt" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/96/0a/81e67a78dd6562732cde9e68c9a483516d9de5bd2d5454ac465b66b4e97c/fastapi_sso-0.21.0.tar.gz", hash = "sha256:5fa596e28abb3c9d14567df8a2757f13a0fe4be8a2701fbf6853cf0cd297470b", size = 18029, upload-time = "2026-02-24T18:46:47.041Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/56/4f/22d8cfe4ac207b4718dfdd7a1fea0acdcdb61be2d546bde905ca6ce065a4/fastapi_sso-0.21.0-py3-none-any.whl", hash = "sha256:30e631277050c16e0eb03eb228867b586631e2f5155cc5574e27e28df73356ff", size = 29219, upload-time = "2026-02-24T18:46:47.821Z" },
 ]
 
 [[package]]
@@ -1006,15 +990,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/ce/2efa1f32a07adfe041d48c6d04c08b6f9db66b8512c765983172399b2855/multidict-7.1.0-cp315-cp315t-win_amd64.whl", hash = "sha256:55392202cb374dd1a1f89a8ce1586644870d9e936752059d053e576acc50bc89", size = 99671, upload-time = "2026-10-09T20:31:31.282Z" },
     { url = "https://files.pythonhosted.org/packages/a9/b3/a44c301fe13716c5f2c08afd89a481018988cde4b337b36e28a2b0fcf3a3/multidict-7.1.0-cp315-cp315t-win_arm64.whl", hash = "sha256:f979a077d1c0a9a36dd4fab0d3a36b8de7b593bf935e13df85a380395b2c11ad", size = 98893, upload-time = "2026-10-09T20:31:33.62Z" },
     { url = "https://files.pythonhosted.org/packages/d0/86/a3de309c5e28ee85b314d0e3ba0e0dea6fd361c313322a05e67be4656e1e/multidict-7.1.0-py3-none-any.whl", hash = "sha256:d9ef29cfd98e17085b4f91bba8fa1570bec6787d5c52ce653ed33a58785585d0", size = 28087, upload-time = "2026-10-09T20:31:35.945Z" },
-]
-
-[[package]]
-name = "oauthlib"
-version = "3.3.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/0b/5f/19930f824ffeb0ad4372da4812c50edbd1434f678c90c2733e1188edfc63/oauthlib-3.3.1.tar.gz", hash = "sha256:0f0f8aa759826a193cf66c12ea1af1637f87b9b4622d46e866952bb022e538c9", size = 185918, upload-time = "2025-06-19T22:48:08.269Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/be/9c/92789c596b8df838baa98fa71844d84283302f7604ed565dafe5a6b5041a/oauthlib-3.3.1-py3-none-any.whl", hash = "sha256:88119c938d2b8fb88561af5f6ee0eec8cc8d552b7bb1f712743136eb7523b7a1", size = 160065, upload-time = "2025-06-19T22:48:06.508Z" },
 ]
 
 [[package]]

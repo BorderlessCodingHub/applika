@@ -20,7 +20,7 @@ const ADMIN_PATHS = [
   "/admin/companies",
   "/admin/platforms",
   "/admin/users",
-  "/admin/discord-webhooks",
+  "/admin/report-webhooks",
   "/admin/jobs",
   "/admin/features",
 ];
