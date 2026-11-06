@@ -1570,7 +1570,8 @@ class UserSessionModel(BaseMixin, Base):
         ),
         sa.CheckConstraint(
             'end_reason IN '
-            "('logout', 'revoked', 'expired', 'github_revoked', 'replaced')",
+            "('logout', 'revoked', 'expired', 'github_revoked', 'replaced', "
+            "'borderless_revoked')",
             name='ck_user_sessions_end_reason',
         ),
         sa.CheckConstraint(
