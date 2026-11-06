@@ -10,6 +10,8 @@ related-prds: [0001-auth-users-profile.md, 0003-statistics-reports-cycles.md, 00
 
 # PRD 0018 — Borderless sign-in, membership badges and badge-routed reports
 
+> **Note (2026-11-06, ADR-0026).** R-001..R-006, R-012..R-014, R-017, R-036 and R-037 are replaced by PRD 0020 (Borderless OpenID Connect sign-in). Every other requirement stands.
+
 ## In the owner's words
 
 As an applika user who belongs to the Borderless community, I want to sign in to applika with my Borderless email and password instead of GitHub, so that my BASE or PSP membership shows up as a badge on my account and gives me access to the biweekly reports. If I used applika before with GitHub, I want my old data back: automatically when my Borderless email matches my old account's email, or by linking my GitHub account from my profile when it doesn't. As an admin, I want to assign each report webhook to a badge (BASE or PSP), so that a member's report goes to the webhooks of their community. Discord linking goes away. Build it as decided in docs/adr/0024-borderless-sole-login-and-membership-badges.md, in the three releases that ADR describes (migration A, code B, migration C), and settle its open questions before the plan is final.

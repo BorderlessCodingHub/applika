@@ -33,6 +33,7 @@ What applika does today. Decisions: ADR-0002, ADR-0004.
   (`backend/app/presentation/api/borderless_auth.py`); `GET /auth/github/login` answers 307 to the
   Borderless sign-in page. GitHub stays only as a one-shot restore of an old account
   (`POST /auth/github/restore`, scope `read:user`, no token kept).
+  Note (2026-11-06, ADR-0026): sign-in: PRD 0020.
 - **R-002** The callback creates the user or updates the existing one, matched on `github_id`.
   Proof: `backend/app/application/use_cases/user_registration.py`.
   As-built note (2026-10-29, ADR-0024, PRD 0018): from Release B of plan 0018 the user is found by

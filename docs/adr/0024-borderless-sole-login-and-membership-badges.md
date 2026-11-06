@@ -1,7 +1,7 @@
 # ADR-0024: Borderless is the sole login, GitHub becomes a linked account, Borderless memberships become user badges, and reports are gated and routed by badge (supersedes ADR-0002 and ADR-0013, amends ADR-0019 and ADR-0004, exception to ADR-0018)
 
 **Status:** Accepted by LuisMSoares on 2026-10-29 · **Date:** 2026-10-29 · **Deciders:** LuisMSoares · **Amended:** 2026-10-29, open questions 1 to
-5 closed, 1 and 2 by the owner's live probe (PRD 0018, plan 0018) · Amended by the owner on 2026-10-29 during the build: report webhooks hold one or more badges · Amended by ADR-0025 on 2026-10-31: the six named error codes are renumbered (§6, As-built §1)
+5 closed, 1 and 2 by the owner's live probe (PRD 0018, plan 0018) · Amended by the owner on 2026-10-29 during the build: report webhooks hold one or more badges · Amended by ADR-0025 on 2026-10-31: the six named error codes are renumbered (§6, As-built §1) · Amended by ADR-0026 on 2026-11-06 (§1, §4, §5, §7: OpenID Connect sign-in replaces the password check)
 
 ## Context
 
