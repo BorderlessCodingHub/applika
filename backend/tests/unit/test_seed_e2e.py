@@ -3,7 +3,7 @@
 The token code runs against an in-memory Redis and a faked session
 repository; the user upsert (bindings, badges, the GitHub identity) runs
 against the test database. The seeded Borderless ids and tokens equal the
-stub's ``accounts.json`` (ADR-0024).
+fake Borderless's ``accounts.json`` (ADR-0026).
 """
 
 import json
@@ -257,9 +257,9 @@ async def test_upsert_refuses_without_the_encryption_key(
         await seed_e2e.upsert_users()
 
 
-def test_seed_accounts_match_the_stub_accounts():
+def test_seed_accounts_match_the_fake_accounts():
     stub = {
-        a['id']: a
+        a['sub']: a
         for a in json.loads(STUB_ACCOUNTS.read_text())['accounts']
     }
     memberships = {
@@ -269,9 +269,9 @@ def test_seed_accounts_match_the_stub_accounts():
     for account in seed_e2e.SEED_ACCOUNTS:
         entry = stub[account.borderless_id]
         assert entry['email'] == account.user.email
-        assert entry['seedToken'] == account.seed_token
+        assert entry['seedRefreshToken'] == account.seed_token
         assert entry['membership'] == memberships[account.badge.value]
-        assert entry['emailVerified'] is True
+        assert entry['email_verified'] is True
 
 
 async def test_minted_session_is_a_real_device_session(monkeypatch):
