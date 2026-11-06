@@ -22,6 +22,7 @@ import {
   addedUserStatus,
   listedUserLabel,
   type FeatureUserCandidate,
+  useFeatureCopyLocale,
 } from "@/components/admin/feature-copy";
 import { RetryButton } from "@/components/admin/feature-table";
 import { Badge } from "@/components/ui/badge";
@@ -112,6 +113,7 @@ export function FeatureAddUserDialog({
   onOpenChange,
   className,
 }: FeatureAddUserDialogProps) {
+  useFeatureCopyLocale();
   const searchId = useId();
   const [open, setOpen] = useState(false);
   const [pendingIds, setPendingIds] = useState<readonly string[]>([]);
@@ -336,6 +338,7 @@ function CandidateRow({
   pending: boolean;
   onAdd: () => void;
 }) {
+  useFeatureCopyLocale();
   const busy = pending || listed;
 
   return (

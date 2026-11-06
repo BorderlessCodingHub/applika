@@ -11,6 +11,7 @@ import {
   Trash2,
   Webhook,
 } from "lucide-react";
+import { useLocale } from "next-intl";
 
 import {
   MEMBERSHIP_BADGE_LABEL,
@@ -22,6 +23,7 @@ import { EmptyState } from "@/components/common/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { liveCopy, word } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
 
 export interface ReportWebhookRow {
@@ -34,23 +36,27 @@ export interface ReportWebhookRow {
 
 export type ReportWebhookListState = "loading" | "error" | "empty" | "ready";
 
-export const REPORT_WEBHOOK_LIST_COPY = {
-  title: "Report webhooks",
-  add: "Add webhook",
-  unlabelled: "Unlabelled webhook",
-  noBadge: "No badge, receives nothing",
-  badgeTerm: "Badges",
-  webhookTerm: "Webhook",
-  loading: "Loading webhooks",
-  errorTitle: "Could not load webhooks",
-  errorBody: "The list did not load. Check your connection and try again.",
-  retry: "Try again",
-  emptyTitle: "No webhooks yet",
-  emptyBody:
-    "Reports are saved but not posted anywhere until a webhook is added for BASE or PSP.",
-  deleteTitle: "Delete webhook?",
-  deleteConfirm: "Delete",
-} as const;
+/**
+ * The list's words, in the active language (`admin.webhooks.list.*`). The
+ * components rendering them call `useLocale`, so a switch re-renders them.
+ * Never spread it.
+ */
+export const REPORT_WEBHOOK_LIST_COPY = liveCopy("admin.webhooks.list", [
+  "title",
+  "add",
+  "unlabelled",
+  "noBadge",
+  "badgeTerm",
+  "webhookTerm",
+  "loading",
+  "errorTitle",
+  "errorBody",
+  "retry",
+  "emptyTitle",
+  "emptyBody",
+  "deleteTitle",
+  "deleteConfirm",
+]);
 
 function rowLabel(row: Pick<ReportWebhookRow, "label">): string | null {
   return row.label?.trim() ? row.label : null;
@@ -63,7 +69,9 @@ export function reportWebhookTargetName(
   const label = rowLabel(row);
   if (label) return label;
   const id = /\/webhooks\/(\d+)\//.exec(row.webhook_url_masked)?.[1];
-  return id ? `webhook ${id}` : "unlabelled webhook";
+  return id
+    ? word("admin.webhooks.list.targetId", { id })
+    : word("admin.webhooks.list.targetUnlabelled");
 }
 
 /** `data-badges` hook: the held keys, space-separated, or `none`. */
@@ -76,14 +84,24 @@ export function reportWebhookBadgesAttr(
 export function reportWebhookDeleteDescription(
   row: Pick<ReportWebhookRow, "label" | "badges">,
 ): string {
-  const target = rowLabel(row) ?? "this webhook";
+  const label = rowLabel(row);
   if (row.badges.length === 0) {
-    return `${target} receives no reports today. Deleting it cannot be undone.`;
+    return label
+      ? word("admin.webhooks.list.deleteNoBadge", { target: label })
+      : word("admin.webhooks.list.deleteNoBadgeUnlabelled");
   }
-  const members = row.badges
-    .map((badge) => MEMBERSHIP_BADGE_LABEL[badge])
-    .join(" and ");
-  return `Reports from Borderless ${members} members will no longer be posted to ${target}. This cannot be undone.`;
+  const names = row.badges.map((badge) => MEMBERSHIP_BADGE_LABEL[badge]);
+  const members =
+    names.length === 2
+      ? word("admin.webhooks.list.badgePair", {
+          first: names[0],
+          second: names[1],
+        })
+      : names.join(", ");
+  return word("admin.webhooks.list.deleteBody", {
+    members,
+    target: label ?? word("admin.webhooks.list.thisWebhook"),
+  });
 }
 
 export function reportWebhookListState({
@@ -124,6 +142,8 @@ export function ReportWebhookList({
   className,
 }: ReportWebhookListProps) {
   const headingId = useId();
+  // Subscribes: the copy getters read the active language at render.
+  useLocale();
   const addRef = useRef<HTMLButtonElement>(null);
   const handOffId = useRef<string | null>(null);
   const state = reportWebhookListState({ webhooks, isLoading, isError });
@@ -235,6 +255,7 @@ function ReportWebhookItem({
   onEdit: (webhook: ReportWebhookRow) => void;
   onDelete: (webhook: ReportWebhookRow) => void;
 }) {
+  useLocale();
   const label = rowLabel(row);
   const target = reportWebhookTargetName(row);
 
@@ -273,7 +294,7 @@ function ReportWebhookItem({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={`Edit ${target}`}
+              aria-label={word("admin.webhooks.list.edit", { target })}
               disabled={deleting}
               onClick={() => onEdit(row)}
               className="text-muted-foreground hover:text-foreground"
@@ -286,7 +307,7 @@ function ReportWebhookItem({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label={`Delete ${target}`}
+                  aria-label={word("admin.webhooks.list.delete", { target })}
                   disabled={deleting}
                   aria-busy={deleting || undefined}
                   className="text-destructive hover:text-destructive"

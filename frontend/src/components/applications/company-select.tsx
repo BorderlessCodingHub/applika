@@ -3,6 +3,8 @@
 import * as React from "react";
 import { z } from "zod";
 
+import { liveCopy, word } from "@/i18n/translator";
+
 import {
   alreadyListedMessage,
   CatalogSelect,
@@ -16,31 +18,39 @@ import type { Company } from "@/services/types/applications";
 const NAME_MAX = 200;
 const URL_MAX = 2083;
 
-export const COMPANY_SELECT_COPY: CatalogCopy = {
-  placeholder: "Select a company",
-  listLabel: "Choose a company",
-  search: "Search or add a company",
-  loading: "Loading companies",
-  noMatch: "No company matches.",
-  createNew: "Add a new company",
-  newTitle: "New company",
-  name: "Name",
-  url: "URL",
-  optional: "(optional)",
-  urlHint: "Leave it blank to keep the name on this application only.",
-  privacyHint: "Only you see it until an admin approves it.",
-  back: "Back",
-  submit: "Add company",
-  nameRequired: "Name is required",
-  nameTooLong: "Name must be 200 characters or fewer",
-  urlInvalid: "Enter a full URL, like https://example.com",
-  urlTooLong: "URL must be 2083 characters or fewer",
-  createFailed: "Could not add the company. Try again.",
-  nowSelected: "It is now selected.",
-};
+/**
+ * The company picker's words, in the active language
+ * (`applications.catalog.company.*`). `CatalogSelect` subscribes, so a switch
+ * re-renders them. Never spread it: a spread freezes the words.
+ */
+export const COMPANY_SELECT_COPY: CatalogCopy = liveCopy(
+  "applications.catalog.company",
+  [
+    "placeholder",
+    "listLabel",
+    "search",
+    "loading",
+    "noMatch",
+    "createNew",
+    "newTitle",
+    "name",
+    "url",
+    "optional",
+    "urlHint",
+    "privacyHint",
+    "back",
+    "submit",
+    "nameRequired",
+    "nameTooLong",
+    "urlInvalid",
+    "urlTooLong",
+    "createFailed",
+    "nowSelected",
+  ],
+);
 
 function freeTextMessage(name: string): string {
-  return `${name} is kept on this application only.`;
+  return word("applications.catalog.freeText", { name });
 }
 
 // ---------------------------------------------------------------------------
@@ -252,7 +262,12 @@ const ZodSchema = z
       .object({
         name: z.string().optional(),
         url: z
-          .union([z.literal(""), z.httpUrl({ error: "Invalid url." })])
+          .union([
+            z.literal(""),
+            z.httpUrl({
+              error: () => word("applications.validation.invalidUrl"),
+            }),
+          ])
           .optional(),
       })
       .optional(),
@@ -262,7 +277,7 @@ const ZodSchema = z
     if (value === undefined || value === null) {
       ctx.addIssue({
         code: "custom",
-        message: "Company is required",
+        message: word("applications.validation.companyRequired"),
       });
       return;
     }
@@ -272,7 +287,7 @@ const ZodSchema = z
       if (value.trim().length < 1) {
         ctx.addIssue({
           code: "custom",
-          message: "Company name must have at least 1 character",
+          message: word("applications.validation.companyNameMin"),
         });
       }
       return;
@@ -284,7 +299,7 @@ const ZodSchema = z
         ctx.addIssue({
           path: ["name"],
           code: "custom",
-          message: "Company name is required",
+          message: word("applications.validation.companyNameRequired"),
         });
       }
 
@@ -296,7 +311,7 @@ const ZodSchema = z
         ctx.addIssue({
           path: ["url"],
           code: "custom",
-          message: "Invalid url",
+          message: word("applications.validation.invalidUrlShort"),
         });
       }
     }

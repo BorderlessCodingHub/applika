@@ -11,7 +11,7 @@ CLI.
 
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.application.dto.user_session import SessionTokensDTO
@@ -24,7 +24,12 @@ from app.application.use_cases.get_current_user import GetCurrentUserUseCase
 from app.application.use_cases.github_restore.complete import RestoreStatus
 from app.config.logging import logger
 from app.config.settings import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, envs
-from app.core.exceptions import InvalidSession, SessionServiceUnavailable
+from app.core.error_codes import ErrorCode
+from app.core.exceptions import (
+    InvalidSession,
+    ResourceNotFound,
+    SessionServiceUnavailable,
+)
 from app.core.tokens import (
     clear_access_cookie,
     clear_refresh_cookie,
@@ -178,7 +183,9 @@ async def cli_login(
     page."""
     login_state = await auth_handoff_state_use_case.get_login(login_id)
     if login_state is None:
-        raise HTTPException(status_code=404, detail='CLI login not found')
+        raise ResourceNotFound(
+            'CLI login not found', ErrorCode.AUTH_CLI_LOGIN_NOT_FOUND
+        )
 
     return redirect_to_signin_for_cli(
         login_id, auth_handoff_state_use_case.login_ttl_seconds
@@ -234,7 +241,7 @@ async def github_restore_callback(
         authenticated = await GetCurrentUserUseCase(
             user_repo, session_store
         ).execute(request.cookies.get(ACCESS_COOKIE_NAME), client_ip(request))
-    except HTTPException, SessionServiceUnavailable:
+    except InvalidSession, SessionServiceUnavailable:
         return _restore_failed('session')
     if authenticated.user.id != nonce_user_id:
         return _restore_failed('session_mismatch')
@@ -284,9 +291,9 @@ async def cli_exchange(
 
     # A PKCE code is redeemed only on POST /auth/token, with its verifier.
     if code_state is None or code_state.get('flow') is not None:
-        raise HTTPException(
-            status_code=401,
-            detail='Invalid or expired CLI exchange code',
+        raise InvalidSession(
+            'Invalid or expired CLI exchange code',
+            ErrorCode.AUTH_CLI_EXCHANGE_INVALID,
         )
 
     tokens = await open_session.execute(
@@ -331,7 +338,7 @@ async def refresh_token(
     except InvalidSession as err:
         refused = JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            content={'detail': err.message},
+            content=err.body(),
         )
         clear_access_cookie(refused)
         clear_refresh_cookie(refused)

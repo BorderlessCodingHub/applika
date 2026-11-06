@@ -2,18 +2,25 @@
 
 import { useId } from "react";
 import { Download, FileText, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
+import { liveCopy } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
 
-export const CV_DIFF_DOWNLOAD_LABEL = "Download changes";
-export const CV_DIFF_DOWNLOAD_PDF_LABEL = "PDF";
-export const CV_DIFF_DOWNLOAD_MARKDOWN_LABEL = "Markdown";
-export const CV_DIFF_DOWNLOAD_PENDING =
-  "Preparing your download. This can take a few seconds.";
-/** Said near the buttons while the form holds unsaved edits (PINNED wording). */
-export const CV_DIFF_DOWNLOAD_DIRTY_NOTICE =
-  "Downloads reflect the last saved version.";
+/**
+ * The row's words in the active language (`cvs.diff.download`): `label`,
+ * `pdf`, `markdown`, `pending`, and `dirtyNotice` (said near the buttons while
+ * the form holds unsaved edits, PINNED wording). Exported for the tests; the
+ * component reads the same keys through `useTranslations`. Never spread it.
+ */
+export const CV_DIFF_DOWNLOAD_COPY = liveCopy("cvs.diff.download", [
+  "label",
+  "pdf",
+  "markdown",
+  "pending",
+  "dirtyNotice",
+]);
 
 export interface CvDiffDownloadRowProps {
   onExportPdf: () => void;
@@ -47,6 +54,7 @@ export function CvDiffDownloadRow({
   dirty = false,
   className,
 }: CvDiffDownloadRowProps) {
+  const t = useTranslations("cvs.diff.download");
   const reasonId = useId();
   const disabled = Boolean(disabledReason);
   const pending = isExportingPdf || isExportingMarkdown;
@@ -59,7 +67,7 @@ export function CvDiffDownloadRow({
         className,
       )}
     >
-      <span className="text-sm font-medium">{CV_DIFF_DOWNLOAD_LABEL}</span>
+      <span className="text-sm font-medium">{t("label")}</span>
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
@@ -67,7 +75,7 @@ export function CvDiffDownloadRow({
           size="sm"
           disabled={disabled || pending}
           aria-busy={isExportingPdf}
-          aria-label={`${CV_DIFF_DOWNLOAD_LABEL} as ${CV_DIFF_DOWNLOAD_PDF_LABEL}`}
+          aria-label={t("as", { label: t("label"), format: t("pdf") })}
           aria-describedby={disabled ? reasonId : undefined}
           onClick={onExportPdf}
         >
@@ -76,7 +84,7 @@ export function CvDiffDownloadRow({
           ) : (
             <Download aria-hidden />
           )}
-          {CV_DIFF_DOWNLOAD_PDF_LABEL}
+          {t("pdf")}
         </Button>
         <Button
           type="button"
@@ -84,7 +92,7 @@ export function CvDiffDownloadRow({
           size="sm"
           disabled={disabled || pending}
           aria-busy={isExportingMarkdown}
-          aria-label={`${CV_DIFF_DOWNLOAD_LABEL} as ${CV_DIFF_DOWNLOAD_MARKDOWN_LABEL}`}
+          aria-label={t("as", { label: t("label"), format: t("markdown") })}
           aria-describedby={disabled ? reasonId : undefined}
           onClick={onExportMarkdown}
         >
@@ -93,7 +101,7 @@ export function CvDiffDownloadRow({
           ) : (
             <FileText aria-hidden />
           )}
-          {CV_DIFF_DOWNLOAD_MARKDOWN_LABEL}
+          {t("markdown")}
         </Button>
       </div>
 
@@ -107,14 +115,12 @@ export function CvDiffDownloadRow({
         </p>
       ) : null}
       {dirty ? (
-        <p className="text-xs text-muted-foreground">
-          {CV_DIFF_DOWNLOAD_DIRTY_NOTICE}
-        </p>
+        <p className="text-xs text-muted-foreground">{t("dirtyNotice")}</p>
       ) : null}
 
       {/* Empty but mounted: a live region inserted at the same tick may not announce. */}
       <span aria-live="polite" className="sr-only">
-        {pending ? CV_DIFF_DOWNLOAD_PENDING : ""}
+        {pending ? t("pending") : ""}
       </span>
     </div>
   );

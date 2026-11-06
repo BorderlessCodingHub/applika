@@ -1,5 +1,6 @@
+import { useLocale } from "next-intl";
 import { Badge } from "@/components/ui/badge";
-import { DENIED_REASON_FIELD_LABEL } from "@/components/timeline/timeline-copy";
+import { TIMELINE_COPY } from "@/components/timeline/timeline-copy";
 import {
   DEFAULT_DENIED_REASON,
   DENIED_REASON_LABELS,
@@ -20,9 +21,11 @@ export function DeniedReasonBadge({
   reason,
   className,
 }: DeniedReasonBadgeProps) {
+  // The labels are read through the module translator: subscribe.
+  useLocale();
   return (
     <Badge variant="outline" className={className}>
-      <span className="sr-only">{DENIED_REASON_FIELD_LABEL}: </span>
+      <span className="sr-only">{TIMELINE_COPY.deniedReasonLabel}: </span>
       {DENIED_REASON_LABELS[reason ?? DEFAULT_DENIED_REASON]}
     </Badge>
   );

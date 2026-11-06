@@ -4,6 +4,7 @@ from app.application.use_cases.applications.read_model import (
     ApplicationReadModel,
 )
 from app.application.validators.application_date import ensure_not_in_future
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import BusinessRuleViolation, ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -32,10 +33,14 @@ class FinishDraftUseCase:
     async def execute(self, id: int, data: DraftFinishDTO) -> ApplicationDTO:
         application = await self.application_repo.get_draft(id, data.user_id)
         if not application:
-            raise ResourceNotFound('Draft not found')
+            raise ResourceNotFound(
+                'Draft not found', ErrorCode.APP_DRAFT_NOT_FOUND
+            )
 
         if application.tailored_cv is None:
-            raise BusinessRuleViolation(NEEDS_CV_MESSAGE)
+            raise BusinessRuleViolation(
+                NEEDS_CV_MESSAGE, ErrorCode.APP_DRAFT_NEEDS_CV
+            )
 
         day = data.application_date or application.application_date
         ensure_not_in_future(day, 'application_date')

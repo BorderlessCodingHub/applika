@@ -4,6 +4,7 @@ import { Fragment, useCallback, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
 import { ArrowDown, ArrowUp, ChevronDown, Plus, Trash2 } from "lucide-react";
 import type { LucideProps } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -153,6 +154,7 @@ export function CvRepeatableSection<T extends { id: string }>({
   open,
   onOpenChange,
 }: CvRepeatableSectionProps<T>) {
+  const t = useTranslations("cvs.fields");
   const atMax = max != null && items.length >= max;
   const diffMode =
     itemBadge !== undefined ||
@@ -299,7 +301,7 @@ export function CvRepeatableSection<T extends { id: string }>({
                           type="button"
                           size="icon-sm"
                           variant="ghost"
-                          aria-label={`Move ${position} up`}
+                          aria-label={t("moveUp", { position })}
                           disabled={disabled || index === 0}
                           onClick={() => move(index, -1)}
                         >
@@ -309,7 +311,7 @@ export function CvRepeatableSection<T extends { id: string }>({
                           type="button"
                           size="icon-sm"
                           variant="ghost"
-                          aria-label={`Move ${position} down`}
+                          aria-label={t("moveDown", { position })}
                           disabled={disabled || index === items.length - 1}
                           onClick={() => move(index, 1)}
                         >
@@ -321,7 +323,7 @@ export function CvRepeatableSection<T extends { id: string }>({
                       type="button"
                       size="icon-sm"
                       variant="ghost"
-                      aria-label={`Remove ${position}`}
+                      aria-label={t("remove", { position })}
                       disabled={disabled}
                       onClick={() =>
                         onChange(items.filter((_, i) => i !== index))

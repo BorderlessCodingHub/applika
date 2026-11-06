@@ -3,8 +3,10 @@ import { motion } from "framer-motion";
 import { useActivityHeatmap } from "@/hooks/use-admin";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
+import { useTranslations } from "next-intl";
+import { useAdminNumber } from "./admin-format";
 
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 function getHeatColor(count: number, max: number): string {
@@ -21,6 +23,8 @@ function getHeatColor(count: number, max: number): string {
 
 export function ActivityHeatmap() {
   const { data, isLoading } = useActivityHeatmap();
+  const t = useTranslations("admin.dashboard.heatmap");
+  const n = useAdminNumber();
 
   const max = data ? Math.max(...data.map((d) => d.count), 1) : 1;
 
@@ -37,10 +41,10 @@ export function ActivityHeatmap() {
         <div className="mb-4 flex items-center gap-3">
           <div className="h-2 w-2 rounded-full bg-primary" />
           <h3 className="font-display text-sm font-semibold tracking-wide-label text-muted-foreground uppercase">
-            Activity Heatmap
+            {t("title")}
           </h3>
           <span className="ml-auto text-[10px] text-muted-foreground/50">
-            applications / hour
+            {t("unit")}
           </span>
         </div>
 
@@ -66,7 +70,7 @@ export function ActivityHeatmap() {
               {DAYS.map((day, dayIdx) => (
                 <div key={day} className="mb-[3px] flex items-center gap-1.5">
                   <span className="w-8 shrink-0 text-right font-display text-[10px] text-muted-foreground/60">
-                    {day}
+                    {t(`days.${day}`)}
                   </span>
                   <div className="flex flex-1 gap-[2px]">
                     {HOURS.map((hour) => {
@@ -82,7 +86,12 @@ export function ActivityHeatmap() {
                             duration: 0.3,
                             delay: 0.7 + dayIdx * 0.03 + hour * 0.008,
                           }}
-                          title={`${day} ${hour}:00 — ${count} applications`}
+                          title={t("cell", {
+                            day: t(`days.${day}`),
+                            hour,
+                            count,
+                            total: n(count),
+                          })}
                         />
                       );
                     })}
@@ -93,7 +102,7 @@ export function ActivityHeatmap() {
               {/* Legend */}
               <div className="mt-3 flex items-center justify-end gap-1.5">
                 <span className="text-[9px] text-muted-foreground/50">
-                  Less
+                  {t("less")}
                 </span>
                 {[0, 0.25, 0.5, 0.75, 1].map((intensity, i) => (
                   <div
@@ -108,7 +117,7 @@ export function ActivityHeatmap() {
                   />
                 ))}
                 <span className="text-[9px] text-muted-foreground/50">
-                  More
+                  {t("more")}
                 </span>
               </div>
             </div>

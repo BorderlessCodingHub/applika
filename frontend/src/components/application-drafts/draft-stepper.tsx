@@ -2,9 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import { CheckIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import {
-  DRAFT_COPY,
+  DRAFT_STEP_NUMBER,
   DRAFT_STEPS,
   stepLabel,
   type DraftStep,
@@ -41,6 +42,8 @@ export function DraftStepper({
     {},
   );
   const previous = useRef(step);
+  // Subscribes to the language; `stepLabel` reads it at call time.
+  const t = useTranslations("drafts");
 
   useEffect(() => {
     if (previous.current === step) return;
@@ -50,7 +53,7 @@ export function DraftStepper({
 
   return (
     <nav
-      aria-label={DRAFT_COPY.stepsLabel}
+      aria-label={t("page.stepsLabel")}
       data-slot="draft-stepper"
       className={cn("w-full max-w-xl", className)}
     >
@@ -60,7 +63,9 @@ export function DraftStepper({
           const complete =
             item === "application" ? applicationComplete : cvComplete;
           const disabled = item === "cv" && !canOpenCv;
-          const { number, title, hint } = DRAFT_COPY.steps[item];
+          const number = DRAFT_STEP_NUMBER[item];
+          const title = t(`steps.${item}.title`);
+          const hint = t(`steps.${item}.hint`);
 
           return (
             <li
@@ -89,7 +94,7 @@ export function DraftStepper({
                 aria-current={current ? "step" : undefined}
                 disabled={disabled}
                 onClick={() => onStepChange(item)}
-                className="group flex min-w-0 shrink-0 items-center gap-2.5 rounded-md py-1 pr-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="group flex min-w-0 items-center gap-2.5 rounded-md py-1 pr-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span
                   className={cn(

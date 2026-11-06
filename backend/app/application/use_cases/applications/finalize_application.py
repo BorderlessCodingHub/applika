@@ -30,6 +30,7 @@ from app.application.use_cases.timeline_events.rules import (
 from app.application.validators.application_date import ensure_not_in_future
 from app.config.logging import logger
 from app.core.enums import EventType
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ApplicationFinalized, ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -66,7 +67,9 @@ class FinalizeApplicationUseCase:
             application_id, user_id
         )
         if application is None:
-            raise ResourceNotFound(APPLICATION_NOT_FOUND)
+            raise ResourceNotFound(
+                APPLICATION_NOT_FOUND, ErrorCode.APP_APPLICATION_NOT_FOUND
+            )
 
         ensure_not_archived(application)
 
@@ -130,11 +133,15 @@ class FinalizeApplicationWithOutcomeUseCase:
             application_id, user_id
         )
         if application is None:
-            raise ResourceNotFound(APPLICATION_NOT_FOUND)
+            raise ResourceNotFound(
+                APPLICATION_NOT_FOUND, ErrorCode.APP_APPLICATION_NOT_FOUND
+            )
 
         ensure_not_archived(application)
         if application.finalized_at is not None:
-            raise ApplicationFinalized(CLOSED_MESSAGE)
+            raise ApplicationFinalized(
+                CLOSED_MESSAGE, ErrorCode.APP_APPLICATION_CLOSED
+            )
 
         event_date = data.event_date or datetime.now(UTC).date()
         ensure_not_in_future(event_date, 'event_date')

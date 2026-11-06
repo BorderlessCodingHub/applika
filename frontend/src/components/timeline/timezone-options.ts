@@ -1,4 +1,5 @@
 import { TIMEZONE_COPY } from "@/components/timeline/timeline-copy";
+import { translate } from "@/i18n/translator";
 
 /** Always offered, and the answer when the browser cannot name its own zone. */
 export const FALLBACK_TIME_ZONE = "UTC";
@@ -60,6 +61,8 @@ export function timeZoneOffset(zone: string): string | null {
   if (cached !== undefined) return cached;
   let offset: string | null = null;
   try {
+    // Computes zone parts, never shown as a date: stays `en-US` in every
+    // language (the `GMT-3` it yields is also what the search matches).
     const name = new Intl.DateTimeFormat("en-US", {
       timeZone: zone,
       timeZoneName: "shortOffset",
@@ -73,6 +76,14 @@ export function timeZoneOffset(zone: string): string | null {
   }
   offsetCache.set(zone, offset);
   return offset;
+}
+
+/**
+ * A region heading in the active language (`America` -> `América`); a region
+ * the messages do not list shows as the IANA id has it.
+ */
+export function timeZoneRegionLabel(region: string): string {
+  return translate(`timeline.timezone.region.${region}`) ?? region;
 }
 
 function toOption(zone: string, label: string): TimeZoneOption {
@@ -115,7 +126,7 @@ export function groupTimeZones(selected: string): TimeZoneGroup[] {
     const region = zone.slice(0, slash);
     let group = byRegion.get(region);
     if (!group) {
-      group = { heading: region, options: [] };
+      group = { heading: timeZoneRegionLabel(region), options: [] };
       byRegion.set(region, group);
       groups.push(group);
     }

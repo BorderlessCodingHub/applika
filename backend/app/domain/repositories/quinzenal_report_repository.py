@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import EventType, InterviewType
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceConflict
 from app.domain.models import (
     ApplicationModel,
@@ -92,7 +93,9 @@ class QuinzenalReportRepository:
                 or UNIQUE_REPORT_DAY_CYCLE_CONSTRAINT in error_str
                 or UNIQUE_REPORT_DAY_NULL_CYCLE_CONSTRAINT in error_str
             ):
-                raise ResourceConflict('Report already submitted') from error
+                raise ResourceConflict(
+                    'Report already submitted', ErrorCode.RPT_ALREADY_SUBMITTED
+                ) from error
 
             raise
         except Exception:

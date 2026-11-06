@@ -8,6 +8,7 @@ import {
   moveBackTitle,
   releaseBody,
   releaseTitle,
+  useFeatureCopyLocale,
 } from "@/components/admin/feature-copy";
 import {
   AlertDialog,
@@ -42,6 +43,7 @@ export function FeatureStageAction({
   onConfirm,
   className,
 }: FeatureStageActionProps) {
+  useFeatureCopyLocale();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);

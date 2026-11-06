@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { type ReactNode } from "react";
 import { CalendarClock, Coins } from "lucide-react";
 
@@ -87,6 +88,8 @@ export function TimelineEventFormFields({
   isDenied = false,
   className,
 }: TimelineEventFormFieldsProps) {
+  const t = useTranslations("timeline.form");
+  // SCHEDULE_COPY is read through the module translator: subscribe.
   return (
     <div className={cn("flex flex-col gap-5", className)}>
       {typeField}
@@ -146,10 +149,10 @@ export function TimelineEventFormFields({
         >
           <legend className="flex items-center gap-1.5 px-1 text-[11px] font-medium tracking-wide-label text-success uppercase">
             <Coins aria-hidden className="size-3" />
-            Offer details
+            {t("offerDetails")}
           </legend>
           <p className="mb-3 text-xs text-muted-foreground">
-            Required for offers — record the compensation that was extended.
+            {t("offerDetailsHint")}
           </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="sm:col-span-3">{salaryPeriodField}</div>

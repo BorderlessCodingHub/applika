@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, type ReactNode } from "react";
+import { useLocale } from "next-intl";
 import { Globe, LoaderCircle, LogOut, SquareTerminal } from "lucide-react";
 
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils";
 import type { SessionStatus, UserSession } from "@/services/types/sessions";
 
 import {
+  DEVICE_TERMS,
   DEVICES_COPY,
   SESSION_STATUS_LABEL,
   SIGN_IN_METHOD_LABEL,
@@ -35,6 +37,7 @@ const STATUS_DOT: Record<SessionStatus, string> = {
 };
 
 export function DeviceStatusBadge({ status }: { status: SessionStatus }) {
+  useLocale();
   return (
     <Badge
       variant="outline"
@@ -90,11 +93,14 @@ export function DeviceRow({
   pending = false,
   className,
 }: DeviceRowProps) {
+  // Subscribes: the copy getters and `formatSessionTime` read the active
+  // language at call time, so a switch re-renders the words and the dates.
+  useLocale();
   const nameId = useId();
   const active = session.status === "active";
   const current = active && session.current;
   const Icon = session.client_type === "cli" ? SquareTerminal : Globe;
-  const terms = DEVICES_COPY.terms;
+  const terms = DEVICE_TERMS;
 
   return (
     <li

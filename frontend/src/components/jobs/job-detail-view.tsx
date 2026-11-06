@@ -22,7 +22,7 @@ import { JobFitList, type JobFitListCv } from "@/components/jobs/job-fit-list";
 import type { JobMarkPending } from "@/components/jobs/job-list-item";
 import { JobStatusBadge } from "@/components/jobs/job-status-badge";
 import {
-  JOBS_COPY,
+  useJobsCopy,
   JOBS_HREF,
   employmentTypeLabel,
   isBlankDescription,
@@ -35,6 +35,7 @@ import type { JobDetail } from "@/services/types/jobs";
 import { cn } from "@/lib/utils";
 
 export function JobDetailBackLink({ className }: { className?: string }) {
+  const copy = useJobsCopy();
   return (
     <LinkButton
       href={JOBS_HREF}
@@ -43,7 +44,7 @@ export function JobDetailBackLink({ className }: { className?: string }) {
       className={cn("-ml-2.5 self-start text-muted-foreground", className)}
     >
       <ArrowLeftIcon aria-hidden data-icon="inline-start" />
-      {JOBS_COPY.backToJobs}
+      {copy.backToJobs}
     </LinkButton>
   );
 }
@@ -88,6 +89,7 @@ export function JobDetailView({
   titleBadge,
   className,
 }: JobDetailViewProps) {
+  const copy = useJobsCopy();
   const titleId = useId();
   const descriptionId = useId();
   const published = publishedLabel(job.posted_at, now);
@@ -144,7 +146,7 @@ export function JobDetailView({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 rounded-sm text-sm text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
-                {JOBS_COPY.companyWebsite}
+                {copy.companyWebsite}
                 <ExternalLinkIcon aria-hidden className="size-3.5" />
               </a>
             ) : null}
@@ -178,7 +180,7 @@ export function JobDetailView({
             data-slot="job-inactive-note"
             className="rounded-lg border border-dashed px-3 py-2 text-sm text-foreground/80"
           >
-            {JOBS_COPY.inactiveNote}
+            {copy.inactiveNote}
           </p>
         )}
 
@@ -199,7 +201,7 @@ export function JobDetailView({
               onClick={() => onStart(job)}
             >
               <FilePlus2Icon aria-hidden data-icon="inline-start" />
-              {JOBS_COPY.start}
+              {copy.start}
             </Button>
           ) : null}
           {isHttpUrl(job.job_url) ? (
@@ -216,7 +218,7 @@ export function JobDetailView({
               className="inline-flex items-center gap-1.5 text-sm text-muted-foreground sm:ml-auto"
             >
               <EyeOffIcon aria-hidden className="size-4" />
-              {JOBS_COPY.dismissed}
+              {copy.dismissed}
             </span>
           ) : null}
           <Button
@@ -239,7 +241,7 @@ export function JobDetailView({
               data-icon="inline-start"
               className={cn(isPending && "motion-safe:animate-spin")}
             />
-            {job.dismissed ? JOBS_COPY.restore : JOBS_COPY.dismiss}
+            {job.dismissed ? copy.restore : copy.dismiss}
           </Button>
         </div>
       </header>
@@ -266,11 +268,11 @@ export function JobDetailView({
             id={descriptionId}
             className="font-display text-base font-semibold text-foreground"
           >
-            {JOBS_COPY.descriptionTitle}
+            {copy.descriptionTitle}
           </h2>
           {isBlankDescription(job.description_text) ? (
             <p className="mt-3 text-sm text-foreground/70">
-              {JOBS_COPY.emptyDescription}
+              {copy.emptyDescription}
             </p>
           ) : (
             <div
@@ -303,11 +305,12 @@ function MetaItem({
 
 /** `showFit={false}` (no `cvs`) drops the fit column, like the view. */
 export function JobDetailSkeleton({ showFit = true }: { showFit?: boolean }) {
+  const copy = useJobsCopy();
   return (
     <div className="flex flex-col gap-6" data-slot="job-detail-loading">
       <JobDetailBackLink />
       <div role="status" aria-busy="true" className="flex flex-col gap-6">
-        <span className="sr-only">{JOBS_COPY.loadingJob}</span>
+        <span className="sr-only">{copy.loadingJob}</span>
         <div aria-hidden className="flex flex-col gap-3">
           <Skeleton className="h-3 w-40" />
           <Skeleton className="h-8 w-3/4" />
@@ -341,6 +344,7 @@ export function JobDetailSkeleton({ showFit = true }: { showFit?: boolean }) {
 
 /** A 404: unknown, or left the list without an application of the user's. Its title is the page's h1. */
 export function JobNotListed({ className }: { className?: string }) {
+  const copy = useJobsCopy();
   return (
     <div
       data-slot="job-not-listed"
@@ -353,14 +357,14 @@ export function JobNotListed({ className }: { className?: string }) {
         <SearchXIcon aria-hidden className="size-6" />
       </span>
       <h1 className="font-display text-lg font-semibold text-balance text-foreground">
-        {JOBS_COPY.notListedTitle}
+        {copy.notListedTitle}
       </h1>
       <p className="mt-1.5 max-w-sm text-sm text-pretty text-muted-foreground">
-        {JOBS_COPY.notListedBody}
+        {copy.notListedBody}
       </p>
       <LinkButton href={JOBS_HREF} variant="outline" className="mt-5">
         <ArrowLeftIcon aria-hidden data-icon="inline-start" />
-        {JOBS_COPY.backToJobs}
+        {copy.backToJobs}
       </LinkButton>
     </div>
   );

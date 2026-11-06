@@ -1,21 +1,22 @@
 import { LockKeyholeIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-
-export const ONLY_YOU_LABEL = "Only you";
 
 /**
  * Marks a private company or platform (`is_public: false`) in the pickers. The
  * admin screens pass `label="Private"`.
  */
 export function OnlyYouBadge({
-  label = ONLY_YOU_LABEL,
+  label,
   className,
 }: {
+  /** Defaults to "Only you" in the active language. */
   label?: string;
   className?: string;
 }) {
+  const t = useTranslations("applications.catalog");
   return (
     <Badge
       variant="outline"
@@ -24,7 +25,7 @@ export function OnlyYouBadge({
     >
       {/* Explicit size: CommandItem's `[&_svg:not([class*='size-'])]:size-4` outranks the Badge's own. */}
       <LockKeyholeIcon aria-hidden className="size-3" />
-      {label}
+      {label ?? t("onlyYou")}
     </Badge>
   );
 }

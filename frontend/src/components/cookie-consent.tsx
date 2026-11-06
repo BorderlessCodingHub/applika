@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Cookie, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +71,7 @@ function useReservedHeight(ref: React.RefObject<HTMLElement | null>) {
 
 function CookieConsentBar({ onDismiss }: { onDismiss: () => void }) {
   const barRef = useRef<HTMLDivElement>(null);
+  const t = useTranslations("cookies.notice");
   useReservedHeight(barRef);
 
   return (
@@ -77,7 +79,7 @@ function CookieConsentBar({ onDismiss }: { onDismiss: () => void }) {
       ref={barRef}
       role="dialog"
       aria-live="polite"
-      aria-label="Cookie notice"
+      aria-label={t("label")}
       className={cn(
         // z-40 is the page-chrome layer. It MUST stay below the z-50 Radix
         // portal layer or this bar floats over the open mobile nav sheet.
@@ -93,31 +95,31 @@ function CookieConsentBar({ onDismiss }: { onDismiss: () => void }) {
           </span>
           <div className="min-w-0 space-y-1">
             <p className="font-display text-sm leading-none font-semibold tracking-tight-display">
-              We use essential cookies
+              {t("title")}
             </p>
             <p className="text-xs leading-relaxed text-pretty text-muted-foreground">
-              Applika.dev only uses cookies that are strictly necessary to keep
-              you signed in and to protect your session. No analytics,
-              advertising, or tracking cookies are used.{" "}
-              <Link
-                href="/cookie-policy"
-                className="font-medium text-primary underline underline-offset-2 hover:text-foreground"
-              >
-                Learn more
-              </Link>
-              .
+              {t.rich("body", {
+                link: (chunks) => (
+                  <Link
+                    href="/cookie-policy"
+                    className="font-medium text-primary underline underline-offset-2 hover:text-foreground"
+                  >
+                    {chunks}
+                  </Link>
+                ),
+              })}
             </p>
           </div>
         </div>
 
         <div className="flex shrink-0 items-center justify-end gap-2">
           <Button size="sm" onClick={onDismiss}>
-            Got it
+            {t("gotIt")}
           </Button>
           <button
             type="button"
             onClick={onDismiss}
-            aria-label="Dismiss cookie notice"
+            aria-label={t("dismiss")}
             className={cn(
               "shrink-0 rounded-md p-1 text-muted-foreground transition-colors",
               "hover:bg-accent hover:text-accent-foreground",

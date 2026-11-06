@@ -202,5 +202,8 @@ async def test_expired_cli_login_is_400_and_clears_the_marker():
     )
 
     assert response.status_code == 400
-    assert json.loads(bytes(response.body)) == {'detail': 'CLI login expired'}
+    assert json.loads(bytes(response.body)) == {
+        'detail': 'CLI login expired',
+        'code': 'AUTH-1019',
+    }
     assert CLI_LOGIN_COOKIE_NAME in response.headers.get('set-cookie', '')

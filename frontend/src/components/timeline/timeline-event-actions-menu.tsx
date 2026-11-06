@@ -1,5 +1,7 @@
 "use client";
 
+import { useLocale } from "next-intl";
+
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
 import { TIMELINE_EVENT_ACTION_COPY } from "@/components/timeline/timeline-copy";
@@ -28,6 +30,8 @@ export function TimelineEventActionsMenu({
   onDelete,
   className,
 }: TimelineEventActionsMenuProps) {
+  // The item words are read through the module translator: subscribe.
+  useLocale();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import {
   Banknote,
@@ -25,18 +26,18 @@ import {
 } from "@/components/applications/application-detail-tile";
 import { ApplicationIconAction } from "@/components/applications/application-icon-action";
 import {
+  APPLICATION_STATUS_COPY,
   APPLICATION_ACTION_COPY,
-  APPLICATION_ACTIVE_LABEL,
   APPLICATION_DETAIL_LABELS,
   applicationName,
 } from "@/components/applications/application-card-copy";
-import {
-  APPLICATION_CLOSED_LABEL,
-  CLOSE_ACTION_LABEL,
-} from "@/components/applications/application-close-copy";
+import { APPLICATION_CLOSE_COPY } from "@/components/applications/application-close-copy";
 import { ApplicationReopenButton } from "@/components/applications/application-reopen-button";
 import { ApplicationStatusPill } from "@/components/applications/application-status-pill";
-import { formatSalary } from "@/components/applications/application-format";
+import {
+  formatApplicationDay,
+  formatSalary,
+} from "@/components/applications/application-format";
 import { IconTile } from "@/components/applications/icon-tile";
 import { TimelineSection } from "@/components/timeline/timeline-section";
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,10 @@ export function ApplicationItem({
   const [isExpanded, setExpanded] = useState<boolean>(defaultExpanded ?? false);
   const { supports } = useSupports();
   const companyId = useId();
+  // Subscribes: the copy objects, option labels and formatters read the
+  // active language, so a switch re-renders the row.
+  const t = useTranslations("applications.item");
+  const locale = useLocale();
 
   if (!supports) return null;
 
@@ -163,12 +168,14 @@ export function ApplicationItem({
               <span className="inline-flex items-center gap-2 font-numeric text-sm text-muted-foreground">
                 <Calendar aria-hidden className="size-4" />
                 <time dateTime={app.application_date}>
-                  {app.application_date}
+                  {formatApplicationDay(app.application_date, locale)}
                 </time>
               </span>
               <ApplicationStatusPill
                 label={
-                  isClosed ? APPLICATION_CLOSED_LABEL : APPLICATION_ACTIVE_LABEL
+                  isClosed
+                    ? APPLICATION_CLOSE_COPY.closed
+                    : APPLICATION_STATUS_COPY.active
                 }
                 tone={isClosed ? "neutral" : "success"}
               />
@@ -206,8 +213,8 @@ export function ApplicationItem({
                       {props.onFinalizeClick && (
                         <ApplicationIconAction
                           icon={Flag}
-                          label={`${CLOSE_ACTION_LABEL} ${name}`}
-                          title={CLOSE_ACTION_LABEL}
+                          label={`${APPLICATION_CLOSE_COPY.closeAction} ${name}`}
+                          title={APPLICATION_CLOSE_COPY.closeAction}
                           tone="warning"
                           onClick={() => props.onFinalizeClick!(app)}
                         />
@@ -223,7 +230,7 @@ export function ApplicationItem({
                     <ApplicationIconAction
                       icon={FileText}
                       href={`/applications/cv?id=${app.id}`}
-                      label={`${APPLICATION_ACTION_COPY.cv} for ${name}`}
+                      label={t("cvFor", { name })}
                       title={APPLICATION_ACTION_COPY.cv}
                     />
                   )}
@@ -252,7 +259,7 @@ export function ApplicationItem({
                 type="button"
                 variant="ghost"
                 size="icon-lg"
-                aria-label={`${APPLICATION_ACTION_COPY.details} for ${name}`}
+                aria-label={t("detailsFor", { name })}
                 data-slot="application-item-details-trigger"
                 className={cn(
                   "shrink-0 text-muted-foreground hover:text-foreground",
@@ -280,14 +287,14 @@ export function ApplicationItem({
               label={APPLICATION_DETAIL_LABELS.source}
               tone="success"
             >
-              {app.mode === "active" ? "Active" : "Passive"}
+              {app.mode === "active" ? t("modeActive") : t("modePassive")}
             </ApplicationDetailTile>
             <ApplicationDetailTile
               icon={Calendar}
               label={APPLICATION_DETAIL_LABELS.date}
               tone="neutral"
             >
-              {app.application_date}
+              {formatApplicationDay(app.application_date, locale)}
             </ApplicationDetailTile>
             {app.experience_level ? (
               <ApplicationDetailTile

@@ -16,9 +16,12 @@
 import * as React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { NextIntlClientProvider } from "next-intl";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { DatePickerInput } from "@/components/ui/date-picker";
+import enMessages from "@/i18n/messages/en.json";
+import ptBRMessages from "@/i18n/messages/pt-BR.json";
 
 const ORIGINAL_TZ = process.env.TZ;
 /** UTC-3, year-round: a date string parsed as UTC lands on the previous day. */
@@ -118,5 +121,63 @@ describe("DatePickerInput local-date parsing", () => {
     // `format(date, pattern)` is local too: the emitted string must be the day
     // the user clicked, not that day shifted into UTC.
     expect(onChange).toHaveBeenCalledWith("2026-03-16");
+  });
+});
+
+describe("DatePickerInput follows the active language", () => {
+  function renderIn(locale: "en" | "pt-BR", ui: React.ReactElement) {
+    const messages =
+      locale === "en"
+        ? enMessages
+        : (ptBRMessages as unknown as typeof enMessages);
+    return render(
+      <NextIntlClientProvider
+        locale={locale}
+        messages={messages}
+        timeZone="UTC"
+      >
+        {ui}
+      </NextIntlClientProvider>,
+    );
+  }
+
+  it("the empty trigger says Pick a date / Escolha uma data", () => {
+    const { unmount } = renderIn("en", <DatePickerInput onChange={() => {}} />);
+    expect(screen.getByRole("button", { name: "Pick a date" })).toBeVisible();
+    unmount();
+    renderIn("pt-BR", <DatePickerInput onChange={() => {}} />);
+    expect(
+      screen.getByRole("button", { name: "Escolha uma data" }),
+    ).toBeVisible();
+  });
+
+  it("writes month names and the calendar the Portuguese way under pt-BR", async () => {
+    const user = userEvent.setup();
+    renderIn(
+      "pt-BR",
+      <DatePickerInput
+        value="2026-03-15"
+        pattern="yyyy-MM-dd"
+        onChange={() => {}}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "2026-03-15" }));
+    // react-day-picker's caption, in date-fns ptBR.
+    expect(await screen.findByText(/março 2026/i)).toBeInTheDocument();
+    expect(screen.getByRole("grid")).toHaveAccessibleName(/março/i);
+  });
+
+  it("shows a month-name pattern in Portuguese; the value stays language-free", () => {
+    renderIn(
+      "pt-BR",
+      <DatePickerInput
+        value="15 March 2026"
+        pattern="d MMMM yyyy"
+        onChange={() => {}}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "15 março 2026" }),
+    ).toBeInTheDocument();
   });
 });

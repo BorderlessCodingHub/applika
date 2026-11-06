@@ -25,6 +25,7 @@ from app.application.use_cases.cli_auth.token import (
     DEVICE_CODE,
     REFRESH_TOKEN,
 )
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import OAuthError
 from app.presentation.api import oauth as oauth_api
 from app.presentation.api.auth_handoff import validate_cli_callback_url
@@ -115,6 +116,8 @@ async def token(
         raise OAuthError(
             'unsupported_grant_type',
             f'Unsupported grant_type: {payload.grant_type[:50]}',
+            ErrorCode.AUTH_UNSUPPORTED_GRANT_TYPE,
+            params={'grant_type': payload.grant_type[:50]},
         )
     return _token_response(tokens)
 

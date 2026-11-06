@@ -18,6 +18,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.config.redis import get_redis
 from app.config.settings import envs
+from app.core.error_codes import ErrorCode
 from app.core.rate_limit import bucket_for, hit, subject_for
 
 RATE_LIMIT_HEADERS = (
@@ -86,7 +87,9 @@ class RateLimitMiddleware:
                     'detail': (
                         'Too many requests. Try again in '
                         f'{decision.reset_after} seconds.'
-                    )
+                    ),
+                    'code': ErrorCode.GEN_RATE_LIMITED.value,
+                    'params': {'seconds': decision.reset_after},
                 },
                 headers={
                     'Retry-After': str(decision.reset_after),

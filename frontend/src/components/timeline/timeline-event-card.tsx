@@ -1,10 +1,11 @@
+import { useTranslations } from "next-intl";
 import { type ReactNode } from "react";
 import { Banknote, Calendar, Clock } from "lucide-react";
 
 import { IconTile } from "@/components/applications/icon-tile";
 import { EventTypeBadge } from "@/components/timeline/event-type-badge";
 import { InterviewTypeBadge } from "@/components/timeline/interview-type-badge";
-import { DENIED_FEEDBACK_TITLE_PREFIX } from "@/components/timeline/timeline-copy";
+import { TIMELINE_COPY } from "@/components/timeline/timeline-copy";
 import {
   DEFAULT_DENIED_REASON,
   DENIED_REASON_LABELS,
@@ -40,6 +41,9 @@ export function TimelineEventCard({
   actions,
   className,
 }: TimelineEventCardProps) {
+  const t = useTranslations("timeline.card");
+  // The date and salary are formatted through the active language (module
+  // translator); `useTranslations` above subscribes, so a switch re-renders.
   const config = EVENT_TYPE_CONFIG[event.type];
   const date = formatEventDate(event.eventDate);
   const timeRange = formatTimeRangeParts(
@@ -85,7 +89,7 @@ export function TimelineEventCard({
 
         {showDeniedTitle ? (
           <p className="text-sm font-semibold text-foreground">
-            {DENIED_FEEDBACK_TITLE_PREFIX}:{" "}
+            {TIMELINE_COPY.deniedFeedbackPrefix}:{" "}
             <span>{DENIED_REASON_LABELS[deniedReason]}</span>
           </p>
         ) : null}
@@ -112,7 +116,7 @@ export function TimelineEventCard({
         {salary ? (
           <div className="inline-flex items-center gap-1.5 self-start rounded-md bg-success/10 px-2.5 py-1 font-numeric text-sm font-medium text-success ring-1 ring-success/20">
             <Banknote aria-hidden className="size-3.5 shrink-0" />
-            <span className="sr-only">Offered salary: </span>
+            <span className="sr-only">{t("offeredSalary")}: </span>
             {salary}
           </div>
         ) : null}

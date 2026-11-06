@@ -1,4 +1,7 @@
+"use client";
+
 import { StarIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 const TOTAL_STARS = 5;
 
@@ -8,13 +11,14 @@ const TOTAL_STARS = 5;
  * label are unchanged.
  */
 export function StarRating({ rating }: { rating: number }) {
+  const t = useTranslations("common");
   const filled = Math.max(0, Math.min(TOTAL_STARS, Math.round(rating)));
 
   return (
     <div
       data-slot="star-rating"
       className="flex gap-1"
-      aria-label={`${filled} out of ${TOTAL_STARS} stars`}
+      aria-label={t("starRating", { filled, total: TOTAL_STARS })}
     >
       {Array.from({ length: TOTAL_STARS }).map((_, idx) => (
         <StarIcon

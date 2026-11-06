@@ -52,11 +52,8 @@ export {
 } from "@/components/timeline/timeline-options";
 
 export {
-  DENIED_REASON_FIELD_LABEL,
-  INITIAL_SCREENING_TAKEN_HINT,
-  INTERVIEW_TYPE_TAKEN_LABEL,
-  LEGACY_HOURLY_OFFER_HINT,
   SCHEDULE_COPY,
+  TIMELINE_COPY,
   TIMELINE_READ_ONLY_COPY,
   TIMEZONE_COPY,
   type TimelineReadOnlyReason,

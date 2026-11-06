@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { NotFoundMessage } from "@/components/layout/not-found-message";
 import { useHasFeature } from "@/hooks/use-features";
@@ -23,6 +24,7 @@ interface FeatureGateProps {
  */
 export function FeatureGate({ feature, children }: FeatureGateProps) {
   const { has, isLoading } = useHasFeature(feature);
+  const t = useTranslations("features");
 
   if (isLoading) {
     return (
@@ -32,7 +34,7 @@ export function FeatureGate({ feature, children }: FeatureGateProps) {
         className="flex justify-center py-16 md:py-24"
       >
         <Loader2 aria-hidden className="size-6 animate-spin text-primary" />
-        <span className="sr-only">Loading</span>
+        <span className="sr-only">{t("loading")}</span>
       </div>
     );
   }

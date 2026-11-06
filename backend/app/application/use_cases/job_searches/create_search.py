@@ -4,6 +4,7 @@ from app.application.use_cases.job_searches import (
     MAX_SAVED_SEARCHES,
 )
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceConflict
 from app.domain.repositories.saved_job_search_repository import (
     NAME_TAKEN,
@@ -39,10 +40,14 @@ class CreateJobSearchUseCase:
                     }
                 },
             )
-            raise ResourceConflict(LIMIT_REACHED)
+            raise ResourceConflict(
+                LIMIT_REACHED,
+                ErrorCode.JOB_SEARCH_LIMIT,
+                params={'max': MAX_SAVED_SEARCHES},
+            )
         if await self.search_repo.name_taken(data.user_id, data.name):
             await self.search_repo.rollback()
-            raise ResourceConflict(NAME_TAKEN)
+            raise ResourceConflict(NAME_TAKEN, ErrorCode.JOB_SEARCH_NAME_TAKEN)
 
         search = await self.search_repo.create(
             data.user_id, data.name, data.filters

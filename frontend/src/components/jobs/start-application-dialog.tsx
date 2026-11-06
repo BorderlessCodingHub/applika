@@ -27,7 +27,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FitBadge } from "@/components/jobs/fit-badge";
 import {
-  JOBS_COPY,
+  useJobsCopy,
   jobApplicationHref,
   startDescription,
 } from "@/components/jobs/job-copy";
@@ -91,6 +91,7 @@ export function StartApplicationDialog({
   isPending = false,
   ...props
 }: StartApplicationDialogProps) {
+  const copy = useJobsCopy();
   const openerRef = useRef<HTMLElement | null>(null);
 
   return (
@@ -121,9 +122,7 @@ export function StartApplicationDialog({
         }}
       >
         <DialogHeader className="border-b border-border/60 px-6 pt-6 pr-12 pb-4">
-          <DialogTitle className="font-display">
-            {JOBS_COPY.startTitle}
-          </DialogTitle>
+          <DialogTitle className="font-display">{copy.startTitle}</DialogTitle>
           {props.job ? (
             <DialogDescription className="text-pretty">
               {startDescription(props.job.title, props.job.company_name)}
@@ -156,6 +155,7 @@ function StartApplicationBody({
   isPending: boolean;
   onCancel: () => void;
 }) {
+  const copy = useJobsCopy();
   const ids = {
     cvLegend: useId(),
     cvHint: useId(),
@@ -214,15 +214,13 @@ function StartApplicationBody({
                 aria-hidden
                 className="mt-0.5 size-4 shrink-0 text-warning"
               />
-              {JOBS_COPY.alreadyApplied}
+              {copy.alreadyApplied}
             </p>
             {conflict.isLoading ? (
               <Skeleton className="h-9 w-40" />
             ) : application ? (
               <LinkButton href={jobApplicationHref(application)}>
-                {application.is_draft
-                  ? JOBS_COPY.openDraft
-                  : JOBS_COPY.openApplication}
+                {application.is_draft ? copy.openDraft : copy.openApplication}
                 <ArrowRightIcon aria-hidden data-icon="inline-end" />
               </LinkButton>
             ) : null}
@@ -230,7 +228,7 @@ function StartApplicationBody({
         </div>
         <div className="flex justify-end border-t border-border/60 px-6 py-4">
           <Button type="button" variant="outline" onClick={onCancel}>
-            {JOBS_COPY.close}
+            {copy.close}
           </Button>
         </div>
       </>
@@ -250,10 +248,10 @@ function StartApplicationBody({
             id={ids.cvLegend}
             className="mb-1 text-sm font-semibold text-foreground"
           >
-            {JOBS_COPY.cvLegend}
+            {copy.cvLegend}
           </legend>
           <p id={ids.cvHint} className="mb-3 text-xs text-muted-foreground">
-            {JOBS_COPY.cvHint}
+            {copy.cvHint}
           </p>
 
           {cvsLoading ? (
@@ -272,13 +270,13 @@ function StartApplicationBody({
                   onClick={onRetryCvs}
                 >
                   <RotateCcwIcon aria-hidden data-icon="inline-start" />
-                  {JOBS_COPY.retry}
+                  {copy.retry}
                 </Button>
               ) : null}
             </div>
           ) : options.length === 0 ? (
             <p className="rounded-lg border border-dashed px-3 py-2.5 text-sm text-foreground/80">
-              {JOBS_COPY.noCvs}
+              {copy.noCvs}
             </p>
           ) : (
             <RadioGroup
@@ -302,8 +300,8 @@ function StartApplicationBody({
               ))}
               <OptionRow
                 value={NO_CV}
-                label={JOBS_COPY.noCvOption}
-                description={JOBS_COPY.noCvHint}
+                label={copy.noCvOption}
+                description={copy.noCvHint}
               />
             </RadioGroup>
           )}
@@ -319,7 +317,7 @@ function StartApplicationBody({
               id={ids.copyLegend}
               className="mb-3 text-sm font-semibold text-foreground"
             >
-              {JOBS_COPY.copyLegend}
+              {copy.copyLegend}
             </legend>
             <RadioGroup
               value={tailoring}
@@ -329,14 +327,14 @@ function StartApplicationBody({
             >
               <OptionRow
                 value="copy"
-                label={JOBS_COPY.verbatim}
-                description={JOBS_COPY.verbatimHint}
+                label={copy.verbatim}
+                description={copy.verbatimHint}
               />
               {canTailor ? (
                 <OptionRow
                   value="keywords"
-                  label={JOBS_COPY.keywords}
-                  description={JOBS_COPY.keywordsHint}
+                  label={copy.keywords}
+                  description={copy.keywordsHint}
                 />
               ) : tailorLoading ? (
                 <Skeleton aria-hidden className="h-16 w-full rounded-lg" />
@@ -371,7 +369,7 @@ function StartApplicationBody({
               if (!isPending) onCancel();
             }}
           >
-            {JOBS_COPY.cancel}
+            {copy.cancel}
           </Button>
           <Button
             type="submit"
@@ -387,7 +385,7 @@ function StartApplicationBody({
                 className="motion-safe:animate-spin"
               />
             ) : null}
-            {JOBS_COPY.create}
+            {copy.create}
           </Button>
         </div>
       </div>
@@ -423,7 +421,8 @@ function OptionRow({
       data-slot="start-application-option"
       data-value={value}
       className={cn(
-        "flex cursor-pointer items-start gap-3 rounded-lg border bg-card px-3 py-2.5 transition-colors hover:border-border-strong",
+        // `min-w-0` + wrap: a long fit pill ("Aderência 100%") never widens the row past the dialog.
+        "flex min-w-0 cursor-pointer flex-wrap items-start gap-x-3 gap-y-1.5 rounded-lg border bg-card px-3 py-2.5 transition-colors hover:border-border-strong",
         "has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5",
         "has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60",
       )}
@@ -450,7 +449,12 @@ function OptionRow({
           </span>
         ) : null}
       </span>
-      {trailing ? trailing(trailingId) : null}
+      {trailing ? (
+        // Below sm the fit sits under the name (aligned with it); from sm it trails on the row.
+        <span className="basis-full pl-7 sm:basis-auto sm:pl-0">
+          {trailing(trailingId)}
+        </span>
+      ) : null}
     </label>
   );
 }

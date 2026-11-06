@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from app.application.dto.user_session import EndReason
 from app.application.services.session_store import SessionStore
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.models import UserSessionModel
 from app.domain.repositories.user_session_repository import (
@@ -35,7 +36,9 @@ class EndSessionUseCase:
         (ADR-0004)."""
         row = await self.session_repo.get_own(session_id, user_id)
         if row is None:
-            raise ResourceNotFound(SESSION_NOT_FOUND)
+            raise ResourceNotFound(
+                SESSION_NOT_FOUND, ErrorCode.AUTH_SESSION_NOT_FOUND
+            )
         return await self.end_row(row, reason)
 
     async def end_by_refresh(

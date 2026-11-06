@@ -1,4 +1,6 @@
 "use client";
+
+import { useTranslations } from "next-intl";
 import {
   BarChart3,
   Briefcase,
@@ -7,60 +9,32 @@ import {
   Shield,
 } from "lucide-react";
 
+// Each feature's words are `landing.features.<key>.title|description`.
 const features = [
-  {
-    icon: Briefcase,
-    title: "Track Applications",
-    description:
-      "Keep all your job applications organized in one place with company, role, platform, and salary details.",
-  },
-  {
-    icon: ListChecks,
-    title: "Step-by-Step Pipeline",
-    description:
-      "Follow every application through its hiring stages — from applied to offer — with custom steps and dates.",
-  },
-  {
-    icon: BarChart3,
-    title: "Conversion Analytics",
-    description:
-      "See which stages you pass most often, average days per step, and your overall success rate.",
-  },
-  {
-    icon: LineChart,
-    title: "Trend Insights",
-    description:
-      "Visualize your application volume over time and compare active vs passive sourcing strategies.",
-  },
-  {
-    icon: Shield,
-    title: "Borderless Sign-in",
-    description:
-      "Sign in with your Borderless account. BASE and PSP members share biweekly reports with their community.",
-  },
-  {
-    icon: ListChecks,
-    title: "Finalization & Feedback",
-    description:
-      "Close out applications with outcome tracking so you can learn from every process.",
-  },
-];
+  { key: "track", icon: Briefcase },
+  { key: "pipeline", icon: ListChecks },
+  { key: "conversion", icon: BarChart3 },
+  { key: "trends", icon: LineChart },
+  { key: "borderless", icon: Shield },
+  { key: "finalization", icon: ListChecks },
+] as const;
 
 export function FeaturesSection() {
+  const t = useTranslations("landing");
   return (
     <section className="relative mx-auto max-w-5xl px-4 py-16 md:px-8 md:py-20">
       <div className="mb-14 text-center">
         <p className="mb-2 font-display text-base font-semibold tracking-wide-label text-primary uppercase md:text-lg">
-          Features
+          {t("featuresEyebrow")}
         </p>
         <h3 className="font-display text-2xl font-bold tracking-tight-display text-foreground md:text-3xl">
-          Everything you need to manage your job search
+          {t("featuresTitle")}
         </h3>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {features.map((f, i) => (
           <div
-            key={f.title}
+            key={f.key}
             className={`group animate-fade-in-up stagger-${i + 1} rounded-xl border border-border/60 bg-surface p-6 shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:border-border-strong/60 hover:bg-surface-elevated hover:shadow-elevated`}
           >
             <div className="mb-4 flex items-center gap-5">
@@ -68,11 +42,11 @@ export function FeaturesSection() {
                 <f.icon className="h-5 w-5 text-primary" />
               </div>
               <h4 className="font-display text-sm font-semibold tracking-tight-display text-foreground md:text-base">
-                {f.title}
+                {t(`features.${f.key}.title`)}
               </h4>
             </div>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              {f.description}
+              {t(`features.${f.key}.description`)}
             </p>
           </div>
         ))}

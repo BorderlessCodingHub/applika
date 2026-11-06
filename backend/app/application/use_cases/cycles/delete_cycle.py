@@ -1,4 +1,5 @@
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.cycle_repository import CycleRepository
 
@@ -20,7 +21,10 @@ class DeleteCycleUseCase:
                     }
                 },
             )
-            raise ResourceNotFound('Cycle not found or not owned by user')
+            raise ResourceNotFound(
+                'Cycle not found or not owned by user',
+                ErrorCode.CYC_CYCLE_NOT_FOUND,
+            )
 
         await self.cycle_repo.delete_cycle_cascade(cycle_id, user_id)
         logger.info(

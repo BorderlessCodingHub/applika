@@ -7,9 +7,9 @@ import {
   CircleAlertIcon,
   LoaderCircleIcon,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import {
-  DRAFT_COPY,
   missingLabel,
   type DraftRequirement,
   type DraftStep,
@@ -71,6 +71,8 @@ export function DraftFooterActions({
   finishError,
   className,
 }: DraftFooterActionsProps) {
+  // Subscribes to the language; `missingLabel` reads it at call time.
+  const t = useTranslations("drafts.page");
   const hintId = useId();
   const applicationMissing = missing.filter((item) =>
     APPLICATION_REQUIREMENTS.includes(item),
@@ -119,7 +121,7 @@ export function DraftFooterActions({
       ) : null}
 
       {step === "application" ? (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <LinkButton
             href={APPLICATIONS_HREF}
             variant="outline"
@@ -129,7 +131,7 @@ export function DraftFooterActions({
               window.location.assign(APPLICATIONS_HREF);
             }}
           >
-            {DRAFT_COPY.cancel}
+            {t("cancel")}
           </LinkButton>
           <Button
             type="button"
@@ -137,15 +139,15 @@ export function DraftFooterActions({
             disabled={!canContinue}
             aria-describedby={hint ? hintId : undefined}
           >
-            {DRAFT_COPY.continueToCv}
+            {t("continueToCv")}
             <ArrowRightIcon aria-hidden data-icon="inline-end" />
           </Button>
         </div>
       ) : (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <Button type="button" variant="outline" onClick={onBack}>
             <ArrowLeftIcon aria-hidden data-icon="inline-start" />
-            {DRAFT_COPY.back}
+            {t("back")}
           </Button>
           <Button
             type="button"
@@ -161,7 +163,7 @@ export function DraftFooterActions({
                 className="motion-safe:animate-spin"
               />
             ) : null}
-            {DRAFT_COPY.finish}
+            {t("finish")}
           </Button>
         </div>
       )}

@@ -1,3 +1,4 @@
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -15,5 +16,7 @@ class DeleteDraftUseCase:
     async def execute(self, id: int, user_id: int) -> None:
         application = await self.application_repo.get_draft(id, user_id)
         if not application:
-            raise ResourceNotFound('Draft not found')
+            raise ResourceNotFound(
+                'Draft not found', ErrorCode.APP_DRAFT_NOT_FOUND
+            )
         await self.application_repo.delete_by_id(id)

@@ -9,6 +9,7 @@ URL").
 import re
 
 from app.core.enums import BadgeKey
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import BusinessRuleViolation
 
 #: Postgres BIGINT upper bound. A 20-digit numeric string can already
@@ -53,12 +54,18 @@ def validate_webhook_url(value: str | None) -> str:
     that it is not read as a genuine webhook token.
     """
     if not isinstance(value, str) or not value:
-        raise BusinessRuleViolation(INVALID_WEBHOOK_URL)
+        raise BusinessRuleViolation(
+            INVALID_WEBHOOK_URL, ErrorCode.ADM_INVALID_WEBHOOK_URL
+        )
     match = WEBHOOK_URL_RE.fullmatch(value)
     if not match:
-        raise BusinessRuleViolation(INVALID_WEBHOOK_URL)
+        raise BusinessRuleViolation(
+            INVALID_WEBHOOK_URL, ErrorCode.ADM_INVALID_WEBHOOK_URL
+        )
     if int(match.group(1)) > BIGINT_MAX:
-        raise BusinessRuleViolation(INVALID_WEBHOOK_URL)
+        raise BusinessRuleViolation(
+            INVALID_WEBHOOK_URL, ErrorCode.ADM_INVALID_WEBHOOK_URL
+        )
     return value
 
 
@@ -66,23 +73,29 @@ def validate_badge(value: object) -> BadgeKey:
     """``borderless_base`` or ``borderless_psp`` (``base``/``psp`` accepted,
     any case). Never ``None``."""
     if not isinstance(value, str):
-        raise BusinessRuleViolation(INVALID_BADGE)
+        raise BusinessRuleViolation(INVALID_BADGE, ErrorCode.ADM_INVALID_BADGE)
     key = value.strip().lower()
     key = _BADGE_ALIASES.get(key, key)
     try:
         return BadgeKey(key)
     except ValueError as err:
-        raise BusinessRuleViolation(INVALID_BADGE) from err
+        raise BusinessRuleViolation(
+            INVALID_BADGE, ErrorCode.ADM_INVALID_BADGE
+        ) from err
 
 
 def validate_badges(value: object) -> list[str]:
     """One or more distinct badges (each as ``validate_badge``), never
     empty. Returned in ``BadgeKey`` order."""
     if not isinstance(value, list) or not value:
-        raise BusinessRuleViolation(BADGES_REQUIRED)
+        raise BusinessRuleViolation(
+            BADGES_REQUIRED, ErrorCode.ADM_BADGES_REQUIRED
+        )
     keys = [validate_badge(item) for item in value]
     if len(set(keys)) != len(keys):
-        raise BusinessRuleViolation(DUPLICATE_BADGE)
+        raise BusinessRuleViolation(
+            DUPLICATE_BADGE, ErrorCode.ADM_DUPLICATE_BADGE
+        )
     return [key.value for key in BadgeKey if key in keys]
 
 
@@ -90,7 +103,11 @@ def validate_label(value: str | None) -> str | None:
     if value is None:
         return None
     if len(value) > MAX_LABEL_LENGTH:
-        raise BusinessRuleViolation(LABEL_TOO_LONG)
+        raise BusinessRuleViolation(
+            LABEL_TOO_LONG,
+            ErrorCode.ADM_LABEL_TOO_LONG,
+            params={'max': MAX_LABEL_LENGTH},
+        )
     return value
 
 

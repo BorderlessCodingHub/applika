@@ -1,7 +1,7 @@
 # ADR-0024: Borderless is the sole login, GitHub becomes a linked account, Borderless memberships become user badges, and reports are gated and routed by badge (supersedes ADR-0002 and ADR-0013, amends ADR-0019 and ADR-0004, exception to ADR-0018)
 
 **Status:** Accepted by LuisMSoares on 2026-10-29 · **Date:** 2026-10-29 · **Deciders:** LuisMSoares · **Amended:** 2026-10-29, open questions 1 to
-5 closed, 1 and 2 by the owner's live probe (PRD 0018, plan 0018) · Amended by the owner on 2026-10-29 during the build: report webhooks hold one or more badges
+5 closed, 1 and 2 by the owner's live probe (PRD 0018, plan 0018) · Amended by the owner on 2026-10-29 during the build: report webhooks hold one or more badges · Amended by ADR-0025 on 2026-10-31: the six named error codes are renumbered (§6, As-built §1)
 
 ## Context
 
@@ -243,6 +243,8 @@ and every existing user is affected, so it needs an ADR.
   username. Feedback keeps `DISCORD_FEEDBACK_WEBHOOK` and posts without a mention.
 - Failure handling is kept from ADR-0013: on a 429, a timeout or a failing webhook, the report is saved and that post
   is skipped.
+- **Amended by ADR-0025 (2026-10-31).** The report-gate codes above are renumbered: `badge_required` is now
+  `RPT-1001` and `membership_unconfirmed` is now `RPT-1002`. The 403 status and the English `detail` do not change.
 
 ### 7. CLI and web sign-in surfaces (amends ADR-0019)
 
@@ -330,6 +332,9 @@ and every existing user is affected, so it needs an ADR.
     characters, or refused by the account email rules) → 422 `email_unusable`, before any write. Each refusal carries
     a `code` (`email_unverified`, `binding_conflict`, …). The per-email limit is 5 failures in 900 s
     (`BORDERLESS_SIGNIN_EMAIL_LIMIT`, `BORDERLESS_SIGNIN_EMAIL_WINDOW_SECONDS`), checked before Borderless is called.
+    - Amended by ADR-0025 (2026-10-31). These codes are renumbered: `email_unverified` is now `AUTH-1005`,
+      `binding_conflict` `AUTH-1006`, `email_ambiguous` `AUTH-1007` and `email_unusable` `AUTH-1008`. Statuses and
+      English `detail` do not change.
   - §1 `GET /auth/github/login` answers 307 to the Borderless sign-in page; `GET /auth/github/callback` serves the
     restore only. `/auth/link/discord*` and `/admin/discord-webhooks*` answer 404.
   - §3 the restore's refusals reach the user as a redirect, not a 409: the callback always answers 307 to the profile

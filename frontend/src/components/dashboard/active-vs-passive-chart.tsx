@@ -1,7 +1,9 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { useModeStats } from "@/hooks/use-statistics";
+import { useFormatNumber } from "@/i18n/format-number";
 import { CustomTooltip } from "./chart-styles";
 import { Card } from "../ui/card";
 
@@ -34,51 +36,53 @@ function renderOuterLabel(props: Record<string, unknown>) {
   );
 }
 
-function renderInnerLabel(props: Record<string, unknown>) {
-  const { cx, cy, midAngle, innerRadius, outerRadius, value } = props as {
-    cx: number;
-    cy: number;
-    midAngle: number;
-    innerRadius: number;
-    outerRadius: number;
-    value: number;
-  };
-  const radius = (innerRadius + outerRadius) / 2;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+function innerLabel(formatNumber: (value: number) => string) {
+  return function renderInnerLabel(props: Record<string, unknown>) {
+    const { cx, cy, midAngle, innerRadius, outerRadius, value } = props as {
+      cx: number;
+      cy: number;
+      midAngle: number;
+      innerRadius: number;
+      outerRadius: number;
+      value: number;
+    };
+    const radius = (innerRadius + outerRadius) / 2;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
-  return (
-    <text
-      x={x}
-      y={y}
-      fill="white"
-      textAnchor="middle"
-      dominantBaseline="central"
-      fontSize={14}
-      fontWeight={700}
-    >
-      {value}
-    </text>
-  );
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="white"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={14}
+        fontWeight={700}
+      >
+        {formatNumber(value)}
+      </text>
+    );
+  };
 }
 
 export function ActiveVsPassiveChart({ cycleId }: { cycleId?: string | null }) {
   const { data, isLoading } = useModeStats(cycleId);
+  const t = useTranslations("dashboard.mode");
+  const formatNumber = useFormatNumber();
 
   const chartData = data
     ? [
-        { name: "Active", value: data.active },
-        { name: "Passive", value: data.passive },
+        { name: t("active"), value: data.active },
+        { name: t("passive"), value: data.passive },
       ]
     : [];
 
   return (
     <Card className="animate-fade-in-up p-5">
       <div className="pb-4">
-        <h2 className="text-base">Active vs Passive</h2>
-        <p className="text-xs text-muted-foreground">
-          Balance between applications you initiated vs. recruiter outreach
-        </p>
+        <h2 className="text-base">{t("title")}</h2>
+        <p className="text-xs text-muted-foreground">{t("description")}</p>
       </div>
       {isLoading ? (
         <Skeleton className="h-[180px] w-full rounded-lg" />
@@ -112,7 +116,7 @@ export function ActiveVsPassiveChart({ cycleId }: { cycleId?: string | null }) {
                 outerRadius={72}
                 paddingAngle={2}
                 stroke="none"
-                label={renderInnerLabel}
+                label={innerLabel(formatNumber)}
                 labelLine={false}
                 isAnimationActive={false}
               >
@@ -130,11 +134,11 @@ export function ActiveVsPassiveChart({ cycleId }: { cycleId?: string | null }) {
           <div className="mt-1 flex justify-center gap-4">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <span className="h-2 w-2 shrink-0 rounded-full bg-chart-1" />
-              Active
+              {t("active")}
             </div>
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <span className="h-2 w-2 shrink-0 rounded-full bg-chart-5" />
-              Passive
+              {t("passive")}
             </div>
           </div>
         </>

@@ -28,6 +28,7 @@ from app.application.use_cases.sessions.open_session import (
     device_name_for,
 )
 from app.config.settings import envs
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import (
     OAuthError,
     ResourceConflict,
@@ -155,7 +156,10 @@ class DeviceCodeUseCase:
                     user_code = candidate
                     break
             if user_code is None:
-                raise ServiceUnavailable('Could not allocate a device code')
+                raise ServiceUnavailable(
+                    'Could not allocate a device code',
+                    ErrorCode.AUTH_DEVICE_CODE_UNAVAILABLE,
+                )
 
             pipe = self.redis.pipeline(transaction=True)
             pipe.hset(
@@ -192,7 +196,9 @@ class DeviceCodeUseCase:
         decided is 404."""
         user_code = normalize_user_code(raw_user_code)
         if user_code is None:
-            raise ResourceNotFound(CODE_NOT_FOUND)
+            raise ResourceNotFound(
+                CODE_NOT_FOUND, ErrorCode.AUTH_DEVICE_USER_CODE_NOT_FOUND
+            )
         async with redis_guard('device_verify'):
             device_code = _text(await self.redis.get(user_code_key(user_code)))
             raw = (
@@ -202,7 +208,9 @@ class DeviceCodeUseCase:
             )
         data = {_text(key): _text(value) for key, value in raw.items()}
         if data.get('status') != 'pending':
-            raise ResourceNotFound(CODE_NOT_FOUND)
+            raise ResourceNotFound(
+                CODE_NOT_FOUND, ErrorCode.AUTH_DEVICE_USER_CODE_NOT_FOUND
+            )
 
         requested_at = datetime.fromisoformat(data['requested_at'])
         user_agent = data.get('user_agent') or None
@@ -226,16 +234,22 @@ class DeviceCodeUseCase:
     ) -> None:
         user_code = normalize_user_code(raw_user_code)
         if user_code is None:
-            raise ResourceNotFound(CODE_NOT_FOUND)
+            raise ResourceNotFound(
+                CODE_NOT_FOUND, ErrorCode.AUTH_DEVICE_USER_CODE_NOT_FOUND
+            )
         async with redis_guard('device_decide'):
             outcome = await self._decide_script(
                 keys=[user_code_key(user_code)],
                 args=[CODE_PREFIX, status, str(user_id)],
             )
         if outcome == 0:
-            raise ResourceNotFound(CODE_NOT_FOUND)
+            raise ResourceNotFound(
+                CODE_NOT_FOUND, ErrorCode.AUTH_DEVICE_USER_CODE_NOT_FOUND
+            )
         if outcome == 1:
-            raise ResourceConflict(CODE_ALREADY_USED)
+            raise ResourceConflict(
+                CODE_ALREADY_USED, ErrorCode.AUTH_DEVICE_USER_CODE_USED
+            )
 
     async def poll(self, device_code: str) -> ApprovedDevice:
         """One poll of the token endpoint. Raises the RFC 8628 error for
@@ -252,15 +266,27 @@ class DeviceCodeUseCase:
         result = [_text(item) for item in result]
         outcome = result[0]
         if outcome == 'expired':
-            raise OAuthError('expired_token', 'Device code expired')
+            raise OAuthError(
+                'expired_token',
+                'Device code expired',
+                ErrorCode.AUTH_DEVICE_CODE_EXPIRED,
+            )
         if outcome == 'slow_down':
-            raise OAuthError('slow_down', 'Polling too fast')
+            raise OAuthError(
+                'slow_down', 'Polling too fast', ErrorCode.AUTH_DEVICE_SLOW_DOWN
+            )
         if outcome == 'pending':
             raise OAuthError(
-                'authorization_pending', 'Waiting for the user to approve'
+                'authorization_pending',
+                'Waiting for the user to approve',
+                ErrorCode.AUTH_DEVICE_AUTHORIZATION_PENDING,
             )
         if outcome == 'denied':
-            raise OAuthError('access_denied', 'The sign-in was denied')
+            raise OAuthError(
+                'access_denied',
+                'The sign-in was denied',
+                ErrorCode.AUTH_DEVICE_ACCESS_DENIED,
+            )
 
         _, user_id, device_name, user_agent, ip = result
         return ApprovedDevice(

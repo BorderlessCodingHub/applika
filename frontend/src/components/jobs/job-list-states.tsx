@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/common/empty-state";
 import { Button } from "@/components/ui/button";
 import { JobListItemSkeleton } from "@/components/jobs/job-list-item";
 import {
-  JOBS_COPY,
+  useJobsCopy,
   jobCountLabel,
   pageLabel,
 } from "@/components/jobs/job-copy";
@@ -28,6 +28,7 @@ export function JobListSkeleton({
   count?: number;
   className?: string;
 }) {
+  const copy = useJobsCopy();
   return (
     <div
       role="status"
@@ -35,7 +36,7 @@ export function JobListSkeleton({
       data-slot="job-list-loading"
       className={cn("flex flex-col gap-3", className)}
     >
-      <span className="sr-only">{JOBS_COPY.loadingJobs}</span>
+      <span className="sr-only">{copy.loadingJobs}</span>
       {Array.from({ length: count }, (_, index) => (
         <JobListItemSkeleton key={index} />
       ))}
@@ -45,11 +46,12 @@ export function JobListSkeleton({
 
 /** No job at all and no filter set. */
 export function JobListEmpty({ className }: { className?: string }) {
+  const copy = useJobsCopy();
   return (
     <EmptyState
       icon={BriefcaseBusinessIcon}
-      title={JOBS_COPY.emptyTitle}
-      description={JOBS_COPY.emptyBody}
+      title={copy.emptyTitle}
+      description={copy.emptyBody}
       className={className}
     />
   );
@@ -66,16 +68,15 @@ export function JobListNoMatches({
   showFit?: boolean;
   className?: string;
 }) {
+  const copy = useJobsCopy();
   return (
     <EmptyState
       icon={SearchXIcon}
-      title={JOBS_COPY.noMatchesTitle}
-      description={
-        showFit ? JOBS_COPY.noMatchesBody : JOBS_COPY.noMatchesBodyNoCvs
-      }
+      title={copy.noMatchesTitle}
+      description={showFit ? copy.noMatchesBody : copy.noMatchesBodyNoCvs}
       action={
         <Button type="button" variant="outline" onClick={onClearFilters}>
-          {JOBS_COPY.clearFilters}
+          {copy.clearFilters}
         </Button>
       }
       className={className}
@@ -101,7 +102,7 @@ export interface JobLoadErrorProps {
  * (`aria-disabled`, not `disabled`), so a keyboard user keeps their place.
  */
 export function JobLoadError({
-  title = JOBS_COPY.loadErrorTitle,
+  title,
   titleAs: Title = "p",
   message,
   onRetry,
@@ -110,6 +111,7 @@ export function JobLoadError({
   className,
   ref,
 }: JobLoadErrorProps) {
+  const copy = useJobsCopy();
   return (
     <div
       ref={ref}
@@ -124,7 +126,7 @@ export function JobLoadError({
       <CircleAlertIcon aria-hidden className="size-6 text-destructive" />
       <div>
         <Title className="font-display text-base font-semibold text-foreground">
-          {title}
+          {title ?? copy.loadErrorTitle}
         </Title>
         <p className="mt-1 max-w-md text-sm text-pretty text-foreground/80">
           {message}
@@ -150,7 +152,7 @@ export function JobLoadError({
               ) : (
                 <RotateCcwIcon aria-hidden data-icon="inline-start" />
               )}
-              {JOBS_COPY.retry}
+              {copy.retry}
             </Button>
           ) : null}
           {action}
@@ -170,6 +172,7 @@ export function JobResultsCount({
   className?: string;
   ref?: Ref<HTMLParagraphElement>;
 }) {
+  useJobsCopy();
   return (
     <p
       ref={ref}
@@ -200,13 +203,14 @@ export function JobListPager({
   onPageChange,
   className,
 }: JobListPagerProps) {
+  const copy = useJobsCopy();
   if (totalPages <= 1) return null;
   const atFirst = page <= 1;
   const atLast = page >= totalPages;
 
   return (
     <nav
-      aria-label={JOBS_COPY.pagerLabel}
+      aria-label={copy.pagerLabel}
       data-slot="job-list-pager"
       className={cn(
         "flex items-center justify-between gap-3 border-t border-border/60 pt-4",
@@ -224,7 +228,7 @@ export function JobListPager({
           type="button"
           variant="outline"
           size="sm"
-          aria-label={JOBS_COPY.previousPage}
+          aria-label={copy.previousPage}
           aria-disabled={atFirst || undefined}
           onClick={() => {
             if (!atFirst) onPageChange(page - 1);
@@ -232,20 +236,20 @@ export function JobListPager({
           className="aria-disabled:opacity-50"
         >
           <ChevronLeftIcon aria-hidden data-icon="inline-start" />
-          {JOBS_COPY.previous}
+          {copy.previous}
         </Button>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          aria-label={JOBS_COPY.nextPage}
+          aria-label={copy.nextPage}
           aria-disabled={atLast || undefined}
           onClick={() => {
             if (!atLast) onPageChange(page + 1);
           }}
           className="aria-disabled:opacity-50"
         >
-          {JOBS_COPY.next}
+          {copy.next}
           <ChevronRightIcon aria-hidden data-icon="inline-end" />
         </Button>
       </div>

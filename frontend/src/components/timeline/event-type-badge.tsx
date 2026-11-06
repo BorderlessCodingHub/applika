@@ -1,3 +1,4 @@
+import { useLocale } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { EVENT_TYPE_CONFIG } from "@/components/timeline/timeline-options";
 import { type TimelineEventType } from "@/components/timeline/timeline-types";
@@ -21,6 +22,8 @@ export function EventTypeBadge({
   hideIcon = false,
   className,
 }: EventTypeBadgeProps) {
+  // The label is read through the module translator: subscribe.
+  useLocale();
   const { label, icon: Icon, badgeClass } = EVENT_TYPE_CONFIG[type];
 
   return (

@@ -1,4 +1,7 @@
-import { FEATURE_COPY } from "@/components/admin/feature-copy";
+import {
+  FEATURE_COPY,
+  useFeatureCopyLocale,
+} from "@/components/admin/feature-copy";
 import { BetaBadge } from "@/components/features/beta-badge";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -14,6 +17,7 @@ export function FeatureStageBadge({
   stage,
   className,
 }: FeatureStageBadgeProps) {
+  useFeatureCopyLocale();
   if (stage === "beta") {
     return <BetaBadge data-stage="beta" className={className} />;
   }

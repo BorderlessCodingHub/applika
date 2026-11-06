@@ -49,7 +49,7 @@ from tests.integration.test_tailored_cv_api import (
 
 USER_ID = base_data()['user'].id
 ADMIN_ID = base_data()['admin_user'].id
-NOT_FOUND = {'detail': 'Not Found'}
+NOT_FOUND = {'detail': 'Not Found', 'code': 'GEN-1001'}
 
 # Both words appear in base_cv_payload()'s headline: a fit of 100.
 FIT_KEYWORDS = ['backend', 'engineer']
@@ -341,7 +341,10 @@ async def test_anonymous_gets_todays_401_not_the_404(
                 client, method, f'{path}{suffix}', body, follow_redirects=False
             )
             assert response.status_code == 401, msg(401, (method, path))
-            assert response.json() == {'detail': 'Not authenticated'}
+            assert response.json() == {
+                'detail': 'Not authenticated',
+                'code': 'AUTH-1001',
+            }
 
 
 # ---------------------------------------------------------------------------
@@ -477,7 +480,10 @@ async def test_keywords_tailoring_needs_cvs_through_the_router(
     await unlist(db_session, JOBS_FEATURE_ID)
     response = await async_client.post(path, json=body)
     assert response.status_code == 422
-    assert response.json() == {'detail': 'Unknown tailoring option'}
+    assert response.json() == {
+        'detail': 'Unknown tailoring option',
+        'code': 'CV-1007',
+    }
 
     await enrol(db_session, USER_ID, JOBS_FEATURE_ID)
     response = await async_client.post(path, json=body)

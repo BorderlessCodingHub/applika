@@ -1,4 +1,7 @@
+"use client";
+
 import { Children, type ReactNode } from "react";
+import { useLocale } from "next-intl";
 
 import {
   agendaGroupCountLabel,
@@ -22,6 +25,8 @@ export function AgendaDateGroup({
   children,
   className,
 }: AgendaDateGroupProps) {
+  // The count reads the module translator; `useLocale` re-renders it on a switch.
+  const locale = useLocale();
   return (
     <section
       data-slot="agenda-date-group"
@@ -30,7 +35,7 @@ export function AgendaDateGroup({
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 rounded-xl bg-muted/70 px-4 py-2 @lg/agenda-group:px-5">
         <h2 className="font-display text-base font-bold text-foreground">
-          <time dateTime={date}>{formatAgendaDate(date)}</time>
+          <time dateTime={date}>{formatAgendaDate(date, locale)}</time>
         </h2>
         <p className="text-sm text-muted-foreground">
           {agendaGroupCountLabel(count)}

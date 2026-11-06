@@ -57,9 +57,7 @@ async def _forget_last_poll(redis_client, device_code: str) -> None:
 
 
 async def _signed_in(async_engine, redis_client, user=USER):
-    return await open_session(
-        async_engine, redis_client, user.id
-    )
+    return await open_session(async_engine, redis_client, user.id)
 
 
 async def _cli_rows(engine: AsyncEngine) -> list[UserSessionModel]:
@@ -176,7 +174,10 @@ async def test_verify_an_unknown_code_is_404(
         headers=_bearer(web.access_token),
     )
     assert response.status_code == 404
-    assert response.json() == {'detail': 'Code not found or expired'}
+    assert response.json() == {
+        'detail': 'Code not found or expired',
+        'code': 'AUTH-1040',
+    }
 
 
 async def test_verify_approve_and_deny_need_a_signed_in_user(
@@ -328,7 +329,7 @@ async def test_approving_twice_is_409(
 
     assert first.status_code == 204
     assert second.status_code == 409
-    assert second.json() == {'detail': 'Code already used'}
+    assert second.json() == {'detail': 'Code already used', 'code': 'AUTH-1041'}
     assert deny.status_code == 409
     # A decided code is no longer shown for approval.
     verify = await real_client.get(
@@ -388,7 +389,10 @@ async def test_an_expired_code_is_expired_token_and_404(
             headers=_bearer(web.access_token),
         )
         assert refused.status_code == 404
-        assert refused.json() == {'detail': 'Code not found or expired'}
+        assert refused.json() == {
+            'detail': 'Code not found or expired',
+            'code': 'AUTH-1040',
+        }
 
 
 async def test_an_unknown_device_code_is_expired_token(

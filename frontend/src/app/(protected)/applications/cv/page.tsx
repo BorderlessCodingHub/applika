@@ -1,5 +1,8 @@
 import { Suspense } from "react";
-import { ApplicationCvPage } from "./application-cv-page";
+import {
+  ApplicationCvPage,
+  ApplicationCvPageFallback,
+} from "./application-cv-page";
 
 /**
  * `/applications/cv?id=` — the application's CV copy.
@@ -11,15 +14,7 @@ import { ApplicationCvPage } from "./application-cv-page";
  */
 export default function Page() {
   return (
-    <Suspense
-      fallback={
-        <div
-          aria-busy
-          aria-label="Loading the CV copy"
-          className="h-64 w-full animate-pulse rounded-xl bg-muted"
-        />
-      }
-    >
+    <Suspense fallback={<ApplicationCvPageFallback />}>
       <ApplicationCvPage />
     </Suspense>
   );

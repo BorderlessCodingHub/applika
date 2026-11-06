@@ -605,7 +605,9 @@ test("an application's CV copy is picked, tailored, deleted and picked again", a
     page.getByRole("heading", { name: "Application CV", level: 1 }),
   ).toBeVisible();
 
-  const option = page.getByRole("radio");
+  // Scoped to the picker: the header's language switcher holds two radios.
+  const picker = page.getByRole("group", { name: "Choose a master CV" });
+  const option = picker.getByRole("radio");
   await expect(option).toHaveCount(1);
   await expect(option).toBeChecked();
 
@@ -673,7 +675,9 @@ test("an application's CV copy is picked, tailored, deleted and picked again", a
 
   const pickAgain = page.getByRole("button", { name: "Create the CV copy" });
   await expect(pickAgain).toBeVisible();
-  await expect(page.getByRole("radio")).toHaveCount(1);
+  await expect(
+    page.getByRole("group", { name: "Choose a master CV" }).getByRole("radio"),
+  ).toHaveCount(1);
 
   // A new copy starts from the master CV again, not from the deleted edits.
   await pickAgain.click();
@@ -779,7 +783,7 @@ test("a finalized application's CV copy is readable but locked", async ({
  * KODI-004 — the server-rendered PDF.
  * ------------------------------------------------------------------------ */
 
-/** The words AC3 requires, verbatim. Kept in sync with `CV_PDF_LAYOUT_NOTICE`. */
+/** The words AC3 requires, verbatim. Kept in sync with `CV_EXPORT_COPY.layoutNotice` (en). */
 const PDF_LAYOUT_NOTICE = "Preview does not show the final PDF layout.";
 
 /**

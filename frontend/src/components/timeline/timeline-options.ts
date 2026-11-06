@@ -27,6 +27,7 @@ import {
   DENIED_REASONS,
   INTERVIEW_TYPES,
   SALARY_CURRENCIES,
+  SALARY_PERIODS,
   TIMELINE_EVENT_TYPES,
   type DeniedReason,
   type InterviewType,
@@ -34,6 +35,7 @@ import {
   type SalaryPeriod,
   type TimelineEventType,
 } from "@/components/timeline/timeline-types";
+import { word } from "@/i18n/translator";
 
 export interface SelectOption {
   value: string;
@@ -75,9 +77,13 @@ export interface EventTypeConfig extends EventTypeOption {
 export const EVENT_TYPE_CONFIG: Record<TimelineEventType, EventTypeConfig> = {
   interview: {
     value: "interview",
-    label: "Interview",
+    get label() {
+      return word("timeline.eventType.interview");
+    },
     icon: Users,
-    hint: "A scheduled conversation or assessment.",
+    get hint() {
+      return word("timeline.eventTypeHint.interview");
+    },
     badgeClass: "bg-info/15 text-info",
     tileClass: "bg-info/15 text-info ring-info/25",
     dotClass: "bg-info",
@@ -86,9 +92,13 @@ export const EVENT_TYPE_CONFIG: Record<TimelineEventType, EventTypeConfig> = {
   },
   offer: {
     value: "offer",
-    label: "Offer",
+    get label() {
+      return word("timeline.eventType.offer");
+    },
     icon: BadgeCheck,
-    hint: "An offer was extended — record the salary.",
+    get hint() {
+      return word("timeline.eventTypeHint.offer");
+    },
     badgeClass: "bg-success/15 text-success",
     tileClass: "bg-success/15 text-success ring-success/25",
     dotClass: "bg-success",
@@ -97,9 +107,13 @@ export const EVENT_TYPE_CONFIG: Record<TimelineEventType, EventTypeConfig> = {
   },
   denied: {
     value: "denied",
-    label: "Denied",
+    get label() {
+      return word("timeline.eventType.denied");
+    },
     icon: CircleX,
-    hint: "The application was rejected or withdrawn.",
+    get hint() {
+      return word("timeline.eventTypeHint.denied");
+    },
     badgeClass: "bg-destructive/15 text-destructive",
     tileClass: "bg-destructive/15 text-destructive ring-destructive/25",
     dotClass: "bg-destructive",
@@ -129,21 +143,52 @@ export const EVENT_TYPE_OPTIONS: readonly EventTypeConfig[] =
 export const CLOSE_TYPE_OPTIONS: readonly EventTypeOption[] = [
   {
     value: "none",
-    label: FINALIZE_OUTCOME_COPY.none.label,
+    get label() {
+      return FINALIZE_OUTCOME_COPY.none.label;
+    },
     icon: CircleDashed,
-    hint: FINALIZE_OUTCOME_COPY.none.description,
+    get hint() {
+      return FINALIZE_OUTCOME_COPY.none.description;
+    },
     tileClass: "bg-muted text-muted-foreground ring-border",
     selectedClass: "border-muted-foreground/40 bg-accent text-foreground",
   },
-  {
-    ...EVENT_TYPE_CONFIG.offer,
-    hint: FINALIZE_OUTCOME_COPY.offer.description,
-  },
-  {
-    ...EVENT_TYPE_CONFIG.denied,
-    hint: FINALIZE_OUTCOME_COPY.denied.description,
-  },
+  closeOutcomeOption("offer"),
+  closeOutcomeOption("denied"),
 ];
+
+/**
+ * Offer or Denied as a close chip: the event's look, its closing line as the
+ * hint. The words are getters, read at render time, so they follow the
+ * active language (a spread would freeze them at import).
+ */
+function closeOutcomeOption(type: "offer" | "denied"): EventTypeOption {
+  const config = EVENT_TYPE_CONFIG[type];
+  return {
+    ...config,
+    get label() {
+      return config.label;
+    },
+    get hint() {
+      return FINALIZE_OUTCOME_COPY[type].description;
+    },
+  };
+}
+
+/**
+ * A `value -> label` record whose entries are getters, so a lookup reads the
+ * active language at the moment it is made.
+ */
+function liveLabels<K extends string>(
+  keys: readonly K[],
+  read: (key: K) => string,
+): Record<K, string> {
+  const out = {} as Record<K, string>;
+  for (const key of keys) {
+    Object.defineProperty(out, key, { enumerable: true, get: () => read(key) });
+  }
+  return out;
+}
 
 export interface InterviewTypeConfig {
   value: InterviewType;
@@ -157,38 +202,66 @@ export const INTERVIEW_TYPE_CONFIG: Record<InterviewType, InterviewTypeConfig> =
   {
     unknown: {
       value: "unknown",
-      label: "Unknown",
-      shortLabel: "Unknown",
+      get label() {
+        return word("timeline.interviewType.unknown");
+      },
+      get shortLabel() {
+        return word("timeline.interviewTypeShort.unknown");
+      },
     },
     initial_screening: {
       value: "initial_screening",
-      label: "Initial screening",
-      shortLabel: "Screening",
+      get label() {
+        return word("timeline.interviewType.initial_screening");
+      },
+      get shortLabel() {
+        return word("timeline.interviewTypeShort.initial_screening");
+      },
     },
     technical: {
       value: "technical",
-      label: "Technical",
-      shortLabel: "Technical",
+      get label() {
+        return word("timeline.interviewType.technical");
+      },
+      get shortLabel() {
+        return word("timeline.interviewTypeShort.technical");
+      },
     },
     cultural: {
       value: "cultural",
-      label: "Cultural",
-      shortLabel: "Cultural",
+      get label() {
+        return word("timeline.interviewType.cultural");
+      },
+      get shortLabel() {
+        return word("timeline.interviewTypeShort.cultural");
+      },
     },
     hiring_manager: {
       value: "hiring_manager",
-      label: "Hiring manager",
-      shortLabel: "Manager",
+      get label() {
+        return word("timeline.interviewType.hiring_manager");
+      },
+      get shortLabel() {
+        return word("timeline.interviewTypeShort.hiring_manager");
+      },
     },
     take_home: {
       value: "take_home",
-      label: "Take-home",
-      shortLabel: "Take-home",
+      get label() {
+        return word("timeline.interviewType.take_home");
+      },
+      get shortLabel() {
+        return word("timeline.interviewTypeShort.take_home");
+      },
     },
     final: {
       value: "final",
-      label: "Final",
-      shortLabel: "Final",
+      get label() {
+        return word("timeline.interviewType.final");
+      },
+      get shortLabel() {
+        return word("timeline.interviewTypeShort.final");
+      },
     },
   };
 
@@ -197,10 +270,10 @@ export const INTERVIEW_TYPE_OPTIONS: readonly InterviewTypeConfig[] =
   INTERVIEW_TYPES.map((type) => INTERVIEW_TYPE_CONFIG[type]);
 
 /** value -> label lookup for a saved interview type. */
-export const INTERVIEW_TYPE_LABELS: Record<InterviewType, string> =
-  Object.fromEntries(
-    INTERVIEW_TYPE_OPTIONS.map((option) => [option.value, option.label]),
-  ) as Record<InterviewType, string>;
+export const INTERVIEW_TYPE_LABELS: Record<InterviewType, string> = liveLabels(
+  INTERVIEW_TYPES,
+  (type) => INTERVIEW_TYPE_CONFIG[type].label,
+);
 
 /** The default interview type for a new interview event. */
 export const DEFAULT_INTERVIEW_TYPE: InterviewType = "unknown";
@@ -211,31 +284,28 @@ export interface DeniedReasonConfig {
   label: string;
 }
 
-export const DENIED_REASON_CONFIG: Record<DeniedReason, DeniedReasonConfig> = {
-  unknown: { value: "unknown", label: "Unknown" },
-  not_good_enough: { value: "not_good_enough", label: "Not good enough" },
-  skills_mismatch: { value: "skills_mismatch", label: "Skills mismatch" },
-  assessment_failed: { value: "assessment_failed", label: "Assessment failed" },
-  too_many_candidates: {
-    value: "too_many_candidates",
-    label: "Too many candidates",
-  },
-  position_filled: { value: "position_filled", label: "Position filled" },
-  role_closed: { value: "role_closed", label: "Role closed" },
-  ghosted: { value: "ghosted", label: "Ghosted" },
-  salary_mismatch: { value: "salary_mismatch", label: "Salary mismatch" },
-  other: { value: "other", label: "Other" },
-};
+export const DENIED_REASON_CONFIG: Record<DeniedReason, DeniedReasonConfig> =
+  Object.fromEntries(
+    DENIED_REASONS.map((reason) => [
+      reason,
+      {
+        value: reason,
+        get label() {
+          return word(`timeline.deniedReason.${reason}`);
+        },
+      },
+    ]),
+  ) as Record<DeniedReason, DeniedReasonConfig>;
 
 /** Ordered denied reason list — drive the select off this. */
 export const DENIED_REASON_OPTIONS: readonly DeniedReasonConfig[] =
   DENIED_REASONS.map((reason) => DENIED_REASON_CONFIG[reason]);
 
 /** value -> label lookup for a saved denied reason. */
-export const DENIED_REASON_LABELS: Record<DeniedReason, string> =
-  Object.fromEntries(
-    DENIED_REASON_OPTIONS.map((option) => [option.value, option.label]),
-  ) as Record<DeniedReason, string>;
+export const DENIED_REASON_LABELS: Record<DeniedReason, string> = liveLabels(
+  DENIED_REASONS,
+  (reason) => DENIED_REASON_CONFIG[reason].label,
+);
 
 /** The default reason for a new denied event and a denied close. */
 export const DEFAULT_DENIED_REASON: DeniedReason = "unknown";
@@ -247,23 +317,28 @@ export interface SalaryPeriodOption extends SelectOption {
 }
 
 /** Every salary period the API can return, with its label and amount suffix. */
-export const SALARY_PERIOD_OPTIONS: readonly SalaryPeriodOption[] = [
-  { value: "hourly", label: "Hourly", suffix: "/hr" },
-  { value: "monthly", label: "Monthly", suffix: "/mo" },
-  { value: "annually", label: "Annually", suffix: "/yr" },
-];
+export const SALARY_PERIOD_OPTIONS: readonly SalaryPeriodOption[] =
+  SALARY_PERIODS.map((period) => ({
+    value: period,
+    get label() {
+      return word(`timeline.salaryPeriod.${period}`);
+    },
+    get suffix() {
+      return word(`timeline.salaryPeriodSuffix.${period}`);
+    },
+  }));
 
 /** value -> label lookup for a saved salary period. */
-export const SALARY_PERIOD_LABELS: Record<SalaryPeriod, string> =
-  Object.fromEntries(
-    SALARY_PERIOD_OPTIONS.map((option) => [option.value, option.label]),
-  ) as Record<SalaryPeriod, string>;
+export const SALARY_PERIOD_LABELS: Record<SalaryPeriod, string> = liveLabels(
+  SALARY_PERIODS,
+  (period) => word(`timeline.salaryPeriod.${period}`),
+);
 
 /** value -> amount suffix lookup, e.g. `hourly` -> `/hr`. */
-export const SALARY_PERIOD_SUFFIXES: Record<SalaryPeriod, string> =
-  Object.fromEntries(
-    SALARY_PERIOD_OPTIONS.map((option) => [option.value, option.suffix]),
-  ) as Record<SalaryPeriod, string>;
+export const SALARY_PERIOD_SUFFIXES: Record<SalaryPeriod, string> = liveLabels(
+  SALARY_PERIODS,
+  (period) => word(`timeline.salaryPeriodSuffix.${period}`),
+);
 
 /**
  * Offer salary period options — restricted to `monthly | annually`. Derived from

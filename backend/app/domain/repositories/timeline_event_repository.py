@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.core.enums import EventType, InterviewType
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceConflict
 from app.domain.models import ApplicationModel, TimelineEventModel
 from app.domain.repositories.application_filters import NOT_DRAFT
@@ -58,7 +59,9 @@ def latest_first_order() -> tuple[ColumnElement[Any], ...]:
 
 def _as_conflict(error: IntegrityError) -> ResourceConflict | None:
     if ONE_INITIAL_SCREENING_INDEX in str(error):
-        return ResourceConflict(ONE_INITIAL_SCREENING_MESSAGE)
+        return ResourceConflict(
+            ONE_INITIAL_SCREENING_MESSAGE, ErrorCode.EVT_ONE_INITIAL_SCREENING
+        )
     return None
 
 

@@ -1,8 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { CircleCheckIcon, FilePenLineIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { JOBS_COPY, jobApplicationHref } from "@/components/jobs/job-copy";
+import { useJobsCopy, jobApplicationHref } from "@/components/jobs/job-copy";
 import type { JobApplicationRef } from "@/services/types/jobs";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +24,7 @@ export function JobStatusBadge({
   linkDraft = true,
   className,
 }: JobStatusBadgeProps) {
+  const copy = useJobsCopy();
   const isDraft = application.is_draft;
   const Icon = isDraft ? FilePenLineIcon : CircleCheckIcon;
   const look = cn(
@@ -41,7 +44,7 @@ export function JobStatusBadge({
         className={cn(look, "pointer-events-none", className)}
       >
         <Icon aria-hidden />
-        {JOBS_COPY.draft}
+        {copy.draft}
       </Badge>
     );
   }
@@ -59,7 +62,7 @@ export function JobStatusBadge({
         aria-describedby={describedBy}
       >
         <Icon aria-hidden />
-        {isDraft ? JOBS_COPY.draft : JOBS_COPY.applied}
+        {isDraft ? copy.draft : copy.applied}
       </Link>
     </Badge>
   );

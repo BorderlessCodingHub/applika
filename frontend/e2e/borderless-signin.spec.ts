@@ -168,7 +168,7 @@ test.describe("Borderless sign-in", () => {
     await page.goto("/welcome");
     await page.waitForURL("**/dashboard");
 
-    // AC15: no badge, no Reports entry, the API refuses with badge_required.
+    // AC15: no badge, no Reports entry, the API refuses with RPT-1001.
     await expect(
       primaryNav(page).getByRole("link", { name: "Dashboard" }),
     ).toBeVisible();
@@ -179,7 +179,7 @@ test.describe("Borderless sign-in", () => {
 
     const reports = await page.request.get(apiUrl("/reports"));
     expect(reports.status()).toBe(403);
-    expect((await reports.json()).code).toBe("badge_required");
+    expect((await reports.json()).code).toBe("RPT-1001");
 
     // Visiting Reports anyway explains why it is closed.
     await page.goto("/reports");
@@ -358,7 +358,7 @@ test.describe("Borderless sign-in", () => {
     // AC16: the API refuses with a reason distinct from "no badge".
     const refused = await page.request.get(apiUrl("/reports"));
     expect(refused.status()).toBe(403);
-    expect((await refused.json()).code).toBe("membership_unconfirmed");
+    expect((await refused.json()).code).toBe("RPT-1002");
 
     const sessionsBefore = await (
       await page.request.get(apiUrl("/users/me/sessions"))

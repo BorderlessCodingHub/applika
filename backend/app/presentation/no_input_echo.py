@@ -9,6 +9,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
+from app.core.error_codes import ErrorCode
+
 
 class NoInputEchoRoute(APIRoute):
     """A ``RequestValidationError`` on this router never echoes ``input``.
@@ -22,7 +24,7 @@ class NoInputEchoRoute(APIRoute):
     webhook URL or its token segment. This route class strips ``input``
     from every error on this router **only** - the global handler and
     every other route's 422 shape (installed ``applika-cli`` versions
-    included) are untouched.
+    included) are untouched. Both add ``code`` GEN-1003 (ADR-0025).
     """
 
     def get_route_handler(self):
@@ -43,6 +45,12 @@ class NoInputEchoRoute(APIRoute):
                 for error in errors:
                     if 'loc' in error:
                         error['loc'] = list(error['loc'])
-                return JSONResponse(status_code=422, content={'detail': errors})
+                return JSONResponse(
+                    status_code=422,
+                    content={
+                        'detail': errors,
+                        'code': ErrorCode.GEN_VALIDATION_FAILED.value,
+                    },
+                )
 
         return custom_route_handler

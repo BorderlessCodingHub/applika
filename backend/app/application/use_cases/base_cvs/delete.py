@@ -1,6 +1,7 @@
 """Delete-master-CV use case."""
 
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.base_cv_repository import BaseCVRepository
 
@@ -22,7 +23,9 @@ class DeleteBaseCVUseCase:
             base_cv_id, user_id
         )
         if not base_cv:
-            raise ResourceNotFound('Base CV not found')
+            raise ResourceNotFound(
+                'Base CV not found', ErrorCode.CV_BASE_CV_NOT_FOUND
+            )
 
         await self.base_cv_repo.delete(base_cv)
         logger.info(

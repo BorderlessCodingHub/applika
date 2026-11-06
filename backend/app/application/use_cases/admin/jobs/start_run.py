@@ -1,5 +1,6 @@
 from app.application.services.job_queue import JobQueue
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceConflict, ServiceUnavailable
 
 RUN_IN_PROGRESS = 'A run is already in progress'
@@ -20,14 +21,22 @@ class StartJobRunUseCase:
             running = await self.job_queue.ingest_running()
         except Exception as exc:
             self._unavailable(admin_id, exc)
-            raise ServiceUnavailable(SERVICE_UNAVAILABLE) from exc
+            raise ServiceUnavailable(
+                SERVICE_UNAVAILABLE,
+                ErrorCode.ADM_BACKGROUND_SERVICE_UNAVAILABLE,
+            ) from exc
         if running:
-            raise ResourceConflict(RUN_IN_PROGRESS)
+            raise ResourceConflict(
+                RUN_IN_PROGRESS, ErrorCode.ADM_JOB_RUN_IN_PROGRESS
+            )
         try:
             await self.job_queue.enqueue_ingest()
         except Exception as exc:
             self._unavailable(admin_id, exc)
-            raise ServiceUnavailable(SERVICE_UNAVAILABLE) from exc
+            raise ServiceUnavailable(
+                SERVICE_UNAVAILABLE,
+                ErrorCode.ADM_BACKGROUND_SERVICE_UNAVAILABLE,
+            ) from exc
         logger.info(
             'Admin started a job collection run',
             extra={

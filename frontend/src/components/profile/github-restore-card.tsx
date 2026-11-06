@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { useLocale } from "next-intl";
 import { History, LoaderCircle } from "lucide-react";
 
 import { GithubIcon } from "@/components/brand-icons";
@@ -22,6 +23,8 @@ export function GithubRestoreCard({
   pending = false,
   className,
 }: GithubRestoreCardProps) {
+  // Subscribes: the copy getters read the active language at call time.
+  useLocale();
   const headingId = useId();
   const bodyId = useId();
 
@@ -70,7 +73,7 @@ export function GithubRestoreCard({
           onClick={() => {
             if (!pending) onRestore();
           }}
-          className="w-full aria-disabled:opacity-70 sm:w-auto sm:shrink-0"
+          className="h-auto min-h-8 w-full py-1.5 whitespace-normal aria-disabled:opacity-70 sm:h-8 sm:w-auto sm:shrink-0 sm:py-0 sm:whitespace-nowrap"
         >
           {pending ? (
             <LoaderCircle

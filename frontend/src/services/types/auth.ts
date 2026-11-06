@@ -14,12 +14,22 @@ export interface BorderlessSignInResult {
   new_account: boolean;
 }
 
-/** Refusal bodies that carry a machine-readable `code` beside the words. */
+/**
+ * The Borderless sign-in refusals ADR-0024 named, numbered by ADR-0025
+ * (`docs/error-codes.md`): AUTH-1005 was `email_unverified`, AUTH-1006
+ * `binding_conflict` (sign-in), AUTH-1007 `email_ambiguous`, AUTH-1008
+ * `email_unusable`. AUTH-1010 is the membership confirm's 409 (also
+ * `binding_conflict` before).
+ */
 export type BorderlessRefusalCode =
-  | "email_unverified"
-  | "email_unusable"
-  | "binding_conflict"
-  | "email_ambiguous";
+  | "AUTH-1005"
+  | "AUTH-1006"
+  | "AUTH-1007"
+  | "AUTH-1008"
+  | "AUTH-1010";
+
+/** The report refusals: RPT-1001 was `badge_required`, RPT-1002 `membership_unconfirmed`. */
+export type ReportRefusalCode = "RPT-1001" | "RPT-1002";
 
 /** `POST /auth/github/restore` 200: where to send the browser to approve. */
 export interface GithubRestoreStart {

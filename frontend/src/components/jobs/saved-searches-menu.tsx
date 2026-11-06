@@ -53,6 +53,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   JOBS_COPY,
+  useJobsCopy,
   deleteSearchDescription,
   deleteSearchLabel,
   renameSearchDescription,
@@ -70,14 +71,13 @@ import {
 /** Resolve with nothing to close the dialog, or with the server's `detail` (a 409) to show it inline. */
 export type SavedSearchOutcome = string | null | undefined | void;
 
-const GENERIC_ERROR = "Something went wrong. Try again.";
-
 export const savedSearchNameSchema = z.object({
   name: z
     .string()
     .trim()
-    .min(1, JOBS_COPY.nameRequired)
-    .max(JOB_SEARCH_NAME_MAX, JOBS_COPY.nameTooLong),
+    // Resolved at validation time, so the message follows the language.
+    .min(1, { error: () => JOBS_COPY.nameRequired })
+    .max(JOB_SEARCH_NAME_MAX, { error: () => JOBS_COPY.nameTooLong }),
 });
 
 type NameValues = z.infer<typeof savedSearchNameSchema>;
@@ -121,6 +121,7 @@ export function SavedSearchesMenu({
   max = JOB_SEARCHES_MAX,
   className,
 }: SavedSearchesMenuProps) {
+  const copy = useJobsCopy();
   const headingId = useId();
   const capId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -153,7 +154,7 @@ export function SavedSearchesMenu({
             className={className}
           >
             <BookmarkIcon aria-hidden data-icon="inline-start" />
-            {JOBS_COPY.savedSearches}
+            {copy.savedSearches}
             {items.length > 0 ? (
               <Badge
                 aria-hidden
@@ -186,7 +187,7 @@ export function SavedSearchesMenu({
               id={headingId}
               className="font-display text-sm font-semibold text-foreground"
             >
-              {JOBS_COPY.savedSearches}
+              {copy.savedSearches}
             </p>
             {searches ? (
               <span className="font-numeric text-xs text-muted-foreground">
@@ -206,7 +207,7 @@ export function SavedSearchesMenu({
               className="flex flex-col items-start gap-2 px-4 py-3"
             >
               <p className="text-sm text-foreground/80">
-                {JOBS_COPY.savedLoadError} {error}
+                {copy.savedLoadError} {error}
               </p>
               {onRetry ? (
                 <Button
@@ -216,17 +217,17 @@ export function SavedSearchesMenu({
                   onClick={onRetry}
                 >
                   <RotateCcwIcon aria-hidden data-icon="inline-start" />
-                  {JOBS_COPY.retry}
+                  {copy.retry}
                 </Button>
               ) : null}
             </div>
           ) : items.length === 0 ? (
             <div className="px-4 py-4">
               <p className="text-sm font-medium text-foreground">
-                {JOBS_COPY.savedEmptyTitle}
+                {copy.savedEmptyTitle}
               </p>
               <p className="mt-1 text-xs text-pretty text-muted-foreground">
-                {JOBS_COPY.savedEmptyBody}
+                {copy.savedEmptyBody}
               </p>
             </div>
           ) : (
@@ -264,7 +265,7 @@ export function SavedSearchesMenu({
               className="w-full justify-start"
             >
               <BookmarkPlusIcon aria-hidden data-icon="inline-start" />
-              {JOBS_COPY.saveCurrent}
+              {copy.saveCurrent}
             </Button>
             {atCap ? (
               <p
@@ -322,6 +323,7 @@ function SavedSearchRow({
   onRename: () => void;
   onDelete: () => void;
 }) {
+  useJobsCopy();
   const summaryId = useId();
 
   return (
@@ -400,6 +402,7 @@ function SavedSearchNameDialog({
   onSubmit: (name: string) => Promise<SavedSearchOutcome>;
   returnFocusRef: RefObject<HTMLElement | null>;
 }) {
+  const copy = useJobsCopy();
   const [pending, setPending] = useState(false);
   return (
     <Dialog
@@ -418,19 +421,17 @@ function SavedSearchNameDialog({
       >
         <DialogHeader>
           <DialogTitle className="font-display">
-            {mode === "rename" ? JOBS_COPY.renameTitle : JOBS_COPY.saveCurrent}
+            {mode === "rename" ? copy.renameTitle : copy.saveCurrent}
           </DialogTitle>
           <DialogDescription className="text-pretty">
             {mode === "rename"
               ? renameSearchDescription(defaultName)
-              : JOBS_COPY.saveDialogDescription}
+              : copy.saveDialogDescription}
           </DialogDescription>
         </DialogHeader>
         <NameForm
           defaultName={defaultName}
-          submitLabel={
-            mode === "rename" ? JOBS_COPY.renameSubmit : JOBS_COPY.saveSubmit
-          }
+          submitLabel={mode === "rename" ? copy.renameSubmit : copy.saveSubmit}
           onSubmit={onSubmit}
           onPendingChange={setPending}
           onDone={() => onOpenChange(false)}
@@ -454,6 +455,7 @@ function NameForm({
   onPendingChange: (pending: boolean) => void;
   onDone: () => void;
 }) {
+  const copy = useJobsCopy();
   const form = useForm<NameValues>({
     resolver: zodResolver(savedSearchNameSchema),
     defaultValues: { name: defaultName },
@@ -471,7 +473,7 @@ function NameForm({
       if (typeof outcome === "string" && outcome) setServerError(outcome);
       else onDone();
     } catch {
-      setServerError(GENERIC_ERROR);
+      setServerError(copy.unknownError);
     } finally {
       setPending(false);
       onPendingChange(false);
@@ -491,7 +493,7 @@ function NameForm({
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{JOBS_COPY.nameLabel}</FormLabel>
+              <FormLabel>{copy.nameLabel}</FormLabel>
               <FormControl>
                 <Input
                   {...field}
@@ -517,7 +519,7 @@ function NameForm({
               if (!pending) onDone();
             }}
           >
-            {JOBS_COPY.cancel}
+            {copy.cancel}
           </Button>
           <Button
             type="submit"
@@ -553,6 +555,7 @@ function SavedSearchDeleteDialog({
   onConfirm: () => Promise<SavedSearchOutcome> | undefined;
   returnFocusRef: RefObject<HTMLElement | null>;
 }) {
+  const copy = useJobsCopy();
   const [pending, setPending] = useState(false);
   return (
     <AlertDialog
@@ -567,7 +570,7 @@ function SavedSearchDeleteDialog({
         onCloseAutoFocus={(event) => returnFocus(returnFocusRef, event)}
       >
         <AlertDialogHeader>
-          <AlertDialogTitle>{JOBS_COPY.deleteTitle}</AlertDialogTitle>
+          <AlertDialogTitle>{copy.deleteTitle}</AlertDialogTitle>
           <AlertDialogDescription>
             {deleteSearchDescription(name)}
           </AlertDialogDescription>
@@ -591,6 +594,7 @@ function DeleteActions({
   onPendingChange: (pending: boolean) => void;
   onDone: () => void;
 }) {
+  const copy = useJobsCopy();
   const [pending, setPending] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -604,7 +608,7 @@ function DeleteActions({
       if (typeof outcome === "string" && outcome) setServerError(outcome);
       else onDone();
     } catch {
-      setServerError(GENERIC_ERROR);
+      setServerError(copy.unknownError);
     } finally {
       setPending(false);
       onPendingChange(false);
@@ -621,7 +625,7 @@ function DeleteActions({
             if (pending) event.preventDefault();
           }}
         >
-          {JOBS_COPY.cancel}
+          {copy.cancel}
         </AlertDialogCancel>
         <AlertDialogAction
           variant="destructive"
@@ -641,7 +645,7 @@ function DeleteActions({
               className="motion-safe:animate-spin"
             />
           ) : null}
-          {JOBS_COPY.deleteConfirm}
+          {copy.deleteConfirm}
         </AlertDialogAction>
       </AlertDialogFooter>
     </>

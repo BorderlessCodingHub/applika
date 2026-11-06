@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, FileText, Loader2, Pencil, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,15 +18,16 @@ import { Button, LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ExportCvButton } from "@/components/base-cvs/export-cv-button";
 import { skillKeywords, type BaseCv } from "@/components/base-cvs/types";
+import { useIntlLocale } from "@/i18n/intl-locale";
 import { cn } from "@/lib/utils";
 
-function formatUpdated(value: string | null): string | null {
+function formatUpdated(value: string | null, locale: string): string | null {
   // `new Date(null)` is the epoch, not an invalid date, so a CV that has never
   // been updated would otherwise claim it was updated in 1970.
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -91,8 +93,12 @@ export function CvCard({
   // Every keyword of every category, flattened, deduplicated, uncapped. The
   // owner asked to see what is IN the CV, and a hidden "+7" is the thing they
   // asked us to stop doing.
+  const t = useTranslations("cvs.card");
+  // The chosen language decides the date style ("en" in English), never the
+  // browser's own locale.
+  const locale = useIntlLocale();
   const keywords = skillKeywords(cv.skills);
-  const updated = formatUpdated(cv.updated_at);
+  const updated = formatUpdated(cv.updated_at, locale);
 
   return (
     <Card
@@ -112,7 +118,7 @@ export function CvCard({
           </span>
           {updated ? (
             <span className="text-right text-[11px] text-muted-foreground">
-              {`Updated ${updated}`}
+              {t("updated", { date: updated })}
             </span>
           ) : null}
         </div>
@@ -177,18 +183,16 @@ export function CvCard({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground/70">
-              No skills added yet
-            </p>
+            <p className="text-xs text-muted-foreground/70">{t("noSkills")}</p>
           )}
         </div>
 
         <p className="mt-3 text-[11px] text-muted-foreground">
           {[
-            `${cv.experience.length} ${cv.experience.length === 1 ? "role" : "roles"}`,
-            `${cv.projects.length} ${cv.projects.length === 1 ? "project" : "projects"}`,
-            `${cv.languages.length} ${cv.languages.length === 1 ? "language" : "languages"}`,
-            `${keywords.length} ${keywords.length === 1 ? "keyword" : "keywords"}`,
+            t("roles", { count: cv.experience.length }),
+            t("projects", { count: cv.projects.length }),
+            t("languages", { count: cv.languages.length }),
+            t("keywords", { count: keywords.length }),
           ].join(" \u00b7 ")}
         </p>
 
@@ -218,10 +222,10 @@ export function CvCard({
             href={href}
             variant="outline"
             size="sm"
-            aria-label={`Edit ${cv.name}`}
+            aria-label={t("editLabel", { name: cv.name })}
           >
             <Pencil aria-hidden />
-            Edit
+            {t("edit")}
           </LinkButton>
 
           <AlertDialog>
@@ -231,7 +235,7 @@ export function CvCard({
                 variant="ghost"
                 size="sm"
                 disabled={isDeleting}
-                aria-label={`Delete ${cv.name}`}
+                aria-label={t("deleteLabel", { name: cv.name })}
                 className="text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
               >
                 {isDeleting ? (
@@ -239,23 +243,23 @@ export function CvCard({
                 ) : (
                   <Trash2 aria-hidden />
                 )}
-                Delete
+                {t("delete")}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete this master CV?</AlertDialogTitle>
+                <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  {`"${cv.name}" and everything in it is removed for good. This cannot be undone.`}
+                  {t("deleteDescription", { name: cv.name })}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={onDelete}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
-                  Delete
+                  {t("delete")}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

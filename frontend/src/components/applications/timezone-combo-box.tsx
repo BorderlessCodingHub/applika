@@ -11,6 +11,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Label } from "../ui/label";
 import { Button } from "../ui/button";
@@ -27,10 +28,12 @@ export function TimezoneCombobox({
   onChange: (tz: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const t = useTranslations("timeline.timezone");
+  const tApp = useTranslations("applications.timezone");
 
   return (
     <div className="space-y-1.5">
-      <Label>Timezone</Label>
+      <Label>{t("label")}</Label>
       <Popover open={open} onOpenChange={setOpen} modal>
         <PopoverTrigger asChild>
           <Button
@@ -39,7 +42,7 @@ export function TimezoneCombobox({
             aria-expanded={open}
             className="w-full justify-between font-normal"
           >
-            {value ? value.replace(/_/g, " ") : "Select timezone"}
+            {value ? value.replace(/_/g, " ") : t("placeholder")}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
@@ -49,9 +52,9 @@ export function TimezoneCombobox({
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <Command>
-            <CommandInput placeholder="Search timezone..." />
+            <CommandInput placeholder={tApp("search")} />
             <CommandList className="max-h-52 overflow-y-auto">
-              <CommandEmpty>No timezone found.</CommandEmpty>
+              <CommandEmpty>{t("empty")}</CommandEmpty>
               <CommandGroup>
                 {ALL_TIMEZONES.map((tz) => (
                   <CommandItem

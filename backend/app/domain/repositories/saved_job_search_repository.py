@@ -15,6 +15,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceConflict
 from app.domain.models import SavedJobSearchModel
 
@@ -87,7 +88,9 @@ class SavedJobSearchRepository:
         except IntegrityError as e:
             await self.session.rollback()
             if 'uq_saved_job_searches_user_name' in str(e.orig):
-                raise ResourceConflict(NAME_TAKEN) from e
+                raise ResourceConflict(
+                    NAME_TAKEN, ErrorCode.JOB_SEARCH_NAME_TAKEN
+                ) from e
             raise
         except Exception:
             await self.session.rollback()

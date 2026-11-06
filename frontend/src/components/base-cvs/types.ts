@@ -7,6 +7,8 @@
  * applika DOES carry an `id`.
  */
 
+import { liveCopy, word } from "@/i18n/translator";
+
 /** Hard cap on master CVs per user. */
 export const BASE_CVS_MAX = 3;
 
@@ -130,6 +132,29 @@ export type CvLanguageLevel =
   | "Read/Comprehend"
   | "Basic";
 
+/**
+ * Message key of each language level (`cvs.fields.languageLevel.*`). Screens
+ * show the words of the chosen language; the stored value (and so the
+ * preview, PDF and Markdown) stays the English level.
+ */
+export const LANGUAGE_LEVEL_KEY = {
+  Native: "native",
+  Proficient: "proficient",
+  Conversational: "conversational",
+  "Read/Comprehend": "readComprehend",
+  Basic: "basic",
+} as const satisfies Record<CvLanguageLevel, string>;
+
+/**
+ * A stored level in the active language (the editor's menu, the copy's diff);
+ * a value outside the list shows as stored. A component rendering it must
+ * subscribe (`useLocale`/`useTranslations`).
+ */
+export function languageLevelLabel(level: string): string {
+  const key = LANGUAGE_LEVEL_KEY[level as CvLanguageLevel];
+  return key ? word(`cvs.fields.languageLevel.${key}`) : level;
+}
+
 /** Proficiency options, strongest first. The document prints the level verbatim. */
 export const CV_LANGUAGE_LEVELS: readonly CvLanguageLevel[] = [
   "Native",
@@ -196,29 +221,26 @@ export interface BaseCv extends CvScalars, CvSections {
 }
 
 /**
- * Said wherever the on-screen CV is shown or a PDF is asked for.
+ * The export and preview notices, in the active language (`cvs.export.*`).
  *
- * The PDF is typeset on the server (ADR 0011) from the stored CV data, so the
- * browser render is an approximation of the content, never of the page breaks,
- * the fonts or the spacing. The words are the acceptance criterion; do not
- * paraphrase them.
+ * - `layoutNotice`: said wherever the on-screen CV is shown or a PDF is asked
+ *   for. The PDF is typeset on the server (ADR 0011) from the stored CV data,
+ *   so the browser render is an approximation of the content, never of the
+ *   page breaks, the fonts or the spacing. The words are the acceptance
+ *   criterion; do not paraphrase them.
+ * - `pdfPending`: announced while the server typesets the PDF (a few seconds).
+ * - `pdfLabel`: visible text and accessible name of the export action.
+ * - `markdownLabel` / `markdownPending`: the Markdown twin of the PDF export,
+ *   rendered on the server like the PDF (ADR 0011).
+ *
+ * The exported files themselves stay English (the API produces them). A
+ * component rendering these words subscribes (`useLocale`/`useTranslations`).
+ * Never spread this object: a spread freezes the words.
  */
-export const CV_PDF_LAYOUT_NOTICE =
-  "Preview does not show the final PDF layout.";
-
-/** Announced while the server typesets the PDF. A render takes a few seconds. */
-export const CV_PDF_EXPORT_PENDING =
-  "Preparing your PDF. This can take a few seconds.";
-
-/** Visible text and accessible name of the export action. */
-export const CV_PDF_EXPORT_LABEL = "Download PDF";
-
-/**
- * The Markdown twin of the PDF export (KODI-017 part 3). The owner: "create a
- * version of the CV in markdown along side with pdf (that already exists) for
- * download". Rendered on the server, like the PDF (ADR 0011).
- */
-export const CV_MARKDOWN_EXPORT_LABEL = "Download Markdown";
-
-/** Announced while the server renders the Markdown file. */
-export const CV_MARKDOWN_EXPORT_PENDING = "Preparing your Markdown file.";
+export const CV_EXPORT_COPY = liveCopy("cvs.export", [
+  "layoutNotice",
+  "pdfPending",
+  "pdfLabel",
+  "markdownLabel",
+  "markdownPending",
+]);

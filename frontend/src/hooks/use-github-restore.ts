@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AxiosError } from "axios";
 import { toast } from "sonner";
-
+import { word } from "@/i18n/translator";
 import { USER_QUERY_KEY } from "@/hooks/use-user";
 import { getApiError } from "@/lib/api-client";
 import { services } from "@/services/services";
@@ -24,7 +24,7 @@ export function useStartGithubRestore() {
     },
     onError: (err: AxiosError) => {
       if (err.response?.status === 503) {
-        toast.error("Restoring from GitHub is unavailable right now");
+        toast.error(word("profile.githubRestore.unavailable"));
         return;
       }
       toast.error(getApiError(err));

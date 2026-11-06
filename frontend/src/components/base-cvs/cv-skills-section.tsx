@@ -2,6 +2,7 @@
 
 import { useId, type ReactNode } from "react";
 import { BadgeCheck } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import {
   CV_FIELD_MARKED_CLASS,
@@ -11,21 +12,25 @@ import {
 } from "@/components/base-cvs/cv-editor-fields";
 import type { CvRemovedRowSlot } from "@/components/base-cvs/cv-form-diff";
 import {
-  CV_KEYWORDS_HINT,
+  CV_KEYWORDS_COPY,
   CvKeywordsInput,
 } from "@/components/base-cvs/cv-keywords-input";
 import { CvRepeatableSection } from "@/components/base-cvs/cv-repeatable-section";
 import type { CvCollapsibleProps } from "@/components/base-cvs/cv-section-card";
 import type { CvSkillCategory } from "@/components/base-cvs/types";
+import { liveCopy } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
 
-/** Said when the section carries no category at all. */
-export const CV_SKILLS_EMPTY_HINT =
-  "No skill categories yet. Add one, then fill it with keywords.";
-
-/** Said inside a category that carries no keyword yet. */
-export const CV_SKILLS_CATEGORY_EMPTY_HINT =
-  "No keywords yet. They print under the category name, joined by a middle dot.";
+/**
+ * The skills section's hints, in the active language (`cvs.sections.skills.*`):
+ * `emptyHint` when the section carries no category at all,
+ * `categoryEmptyHint` inside a category that carries no keyword yet.
+ * Never spread it.
+ */
+export const CV_SKILLS_COPY = liveCopy("cvs.sections.skills", [
+  "emptyHint",
+  "categoryEmptyHint",
+]);
 
 export interface CvSkillsSectionProps extends CvCollapsibleProps {
   /** Controlled list of categories, in print order. */
@@ -88,20 +93,21 @@ export function CvSkillsSection({
   open,
   onOpenChange,
 }: CvSkillsSectionProps) {
+  const t = useTranslations("cvs.sections.skills");
   const hintBaseId = useId();
 
   return (
     <CvRepeatableSection<CvSkillCategory>
-      title="Skills"
-      description="Group your skills into categories. Each category prints as its own line."
+      title={t("title")}
+      description={t("description")}
       icon={BadgeCheck}
       items={value}
       onChange={onChange}
       createItem={() => ({ id: newItemId(), category: "", keywords: [] })}
-      itemLabel={(item) => item.category || "New category"}
-      addLabel="Add category"
-      itemNoun="category"
-      emptyHint={CV_SKILLS_EMPTY_HINT}
+      itemLabel={(item) => item.category || t("newItem")}
+      addLabel={t("add")}
+      itemNoun={t("noun")}
+      emptyHint={t("emptyHint")}
       max={maxCategories}
       disabled={disabled}
       status={status}
@@ -141,13 +147,13 @@ export function CvSkillsSection({
         return (
           <div className="space-y-3">
             <CvField
-              label="Category"
+              label={t("category")}
               marker={fieldMarker?.(item, index, "category")}
             >
               <Input
                 value={item.category}
                 disabled={disabled}
-                placeholder="Languages and frameworks"
+                placeholder={t("categoryPlaceholder")}
                 aria-invalid={rowInvalid ? true : undefined}
                 aria-describedby={rowInvalid ? errorId : undefined}
                 className={cn(
@@ -175,12 +181,12 @@ export function CvSkillsSection({
                   keywordsMarked && CV_FIELD_MARKER_GUTTER,
                 )}
               >
-                Keywords
+                {t("keywords")}
               </span>
               {keywordsMarker}
               <CvKeywordsInput
                 value={item.keywords}
-                groupLabel={item.category || "this category"}
+                groupLabel={item.category || t("thisCategory")}
                 disabled={disabled}
                 maxKeywords={maxKeywordsPerCategory}
                 aria-describedby={hintId}
@@ -191,8 +197,8 @@ export function CvSkillsSection({
                 className="text-xs text-pretty text-muted-foreground"
               >
                 {item.keywords.length === 0
-                  ? `${CV_SKILLS_CATEGORY_EMPTY_HINT} ${CV_KEYWORDS_HINT}`
-                  : CV_KEYWORDS_HINT}
+                  ? `${t("categoryEmptyHint")} ${CV_KEYWORDS_COPY.hint}`
+                  : CV_KEYWORDS_COPY.hint}
               </p>
             </div>
           </div>

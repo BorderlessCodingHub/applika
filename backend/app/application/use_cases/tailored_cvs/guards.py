@@ -8,6 +8,7 @@ stays allowed.
 """
 
 from app.application.use_cases.applications.guards import ensure_mutable
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.models import ApplicationModel
 from app.domain.repositories.application_repository import (
@@ -40,7 +41,10 @@ async def load_owned_application(
         application_id, user_id, include_drafts=True
     )
     if not application:
-        raise ResourceNotFound('Application not found or not owned by user')
+        raise ResourceNotFound(
+            'Application not found or not owned by user',
+            ErrorCode.APP_APPLICATION_NOT_FOUND,
+        )
     return application
 
 

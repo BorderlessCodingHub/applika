@@ -1,5 +1,6 @@
 import axios, { AxiosError } from "axios";
 import { APP_CONFIG } from "@/config";
+import { apiErrorCode, apiErrorMessage } from "@/lib/api-error-message";
 import { services } from "@/services/services";
 
 export const api = axios.create({
@@ -7,11 +8,13 @@ export const api = axios.create({
   withCredentials: true,
 });
 
-export function getApiError(error: AxiosError) {
-  if (!error.response?.data) return "Something went wrong";
-
-  const errorData = error.response.data as { detail: string };
-  return errorData.detail;
+/**
+ * The words for a refused request, in the active language: the error's
+ * `code` looked up in the messages (with its `params`), else the API's
+ * English `detail`, else the generic line (`lib/api-error-message.ts`).
+ */
+export function getApiError(error: AxiosError): string {
+  return apiErrorMessage(error.response?.data);
 }
 
 /**
@@ -19,8 +22,9 @@ export function getApiError(error: AxiosError) {
  * another refresh). Signed-in calls that merely live under `/auth/` refresh
  * and retry like any other page: the device approval routes, the GitHub
  * restore start, and the membership confirm, but the confirm only on
- * "Not authenticated": its other 401 is a wrong Borderless password, and
- * replaying that would count one failed attempt twice.
+ * AUTH-1001 "Not authenticated": its other 401 is a wrong Borderless
+ * password (AUTH-1004), and replaying that would count one failed attempt
+ * twice. The `detail` comparison is kept for an API older than the codes.
  */
 function refreshesOn401(error: AxiosError): boolean {
   const url = error.config?.url;
@@ -30,9 +34,12 @@ function refreshesOn401(error: AxiosError): boolean {
     return true;
   }
   if (url.includes("/auth/borderless/confirm")) {
-    const detail = (error.response?.data as { detail?: unknown } | undefined)
-      ?.detail;
-    return detail === "Not authenticated";
+    const data = error.response?.data;
+    const code = apiErrorCode(data);
+    if (code) return code === "AUTH-1001";
+    return (
+      (data as { detail?: unknown } | undefined)?.detail === "Not authenticated"
+    );
   }
   return false;
 }

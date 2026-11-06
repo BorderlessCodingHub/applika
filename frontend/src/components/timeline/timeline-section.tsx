@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { isAxiosError } from "axios";
 import { Clock, Plus, RefreshCw } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { IconTile } from "@/components/applications/icon-tile";
@@ -23,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCycleContext } from "@/contexts/cycle-context";
 import { useDeleteTimelineEvent } from "@/hooks/use-delete-timeline-event";
 import { useTimeline } from "@/hooks/use-timeline";
+import { word } from "@/i18n/translator";
 import { getApiError } from "@/lib/api-client";
 import { toTimelineEventViews } from "@/lib/timeline-view";
 import { cn } from "@/lib/utils";
@@ -53,6 +55,7 @@ export function TimelineSection({
   application,
   className,
 }: TimelineSectionProps) {
+  const t = useTranslations("timeline.section");
   const applicationId = application.id;
   const { isViewingPastCycle } = useCycleContext();
   const { data, isPending, isError, refetch, isFetching } =
@@ -92,14 +95,14 @@ export function TimelineSection({
       { applicationId, eventId: deleteTarget.id },
       {
         onSuccess: () => {
-          toast.success("Event deleted");
+          toast.success(word("timeline.toasts.deleted"));
           setDeleteTarget(null);
         },
         onError: (error) => {
           toast.error(
             isAxiosError(error)
               ? getApiError(error)
-              : "Could not delete the event",
+              : word("timeline.toasts.deleteFailed"),
           );
           setDeleteTarget(null);
         },
@@ -145,8 +148,8 @@ export function TimelineSection({
         </div>
         <EmptyState
           icon={RefreshCw}
-          title="We couldn't load the timeline"
-          description="Something went wrong fetching this application's events."
+          title={t("loadErrorTitle")}
+          description={t("loadErrorDescription")}
           action={
             <Button
               onClick={() => {
@@ -158,7 +161,7 @@ export function TimelineSection({
                 className={isFetching ? "animate-spin" : undefined}
                 aria-hidden
               />
-              Retry
+              {t("retry")}
             </Button>
           }
           className="border-none bg-transparent px-0 py-8"
@@ -185,7 +188,10 @@ export function TimelineSection({
         emptyAction={addButton}
         renderActions={(event) => (
           <TimelineEventActionsMenu
-            label={`Event actions: ${stageLabel(event.type, event.interviewType)}, ${formatEventDate(event.eventDate) ?? event.eventDate}`}
+            label={t("eventActions", {
+              stage: stageLabel(event.type, event.interviewType),
+              date: formatEventDate(event.eventDate) ?? event.eventDate,
+            })}
             onEdit={() => openEdit(event)}
             onDelete={() => setDeleteTarget(event)}
           />
@@ -204,9 +210,9 @@ export function TimelineSection({
 
       <ConfirmDialog
         trigger={<span className="hidden" aria-hidden />}
-        title="Delete this event?"
-        description="This permanently removes the timeline event. This can't be undone."
-        confirmLabel="Delete"
+        title={t("deleteTitle")}
+        description={t("deleteDescription")}
+        confirmLabel={t("deleteConfirm")}
         onConfirm={handleDelete}
         loading={deleteEvent.isPending}
         open={deleteTarget != null}

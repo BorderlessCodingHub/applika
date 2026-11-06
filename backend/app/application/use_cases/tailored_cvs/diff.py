@@ -27,6 +27,7 @@ from app.application.services.cv_diff import CVDiffResult, diff_cv
 from app.application.use_cases.tailored_cvs.guards import (
     load_owned_application,
 )
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceConflict, ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -105,7 +106,9 @@ class ComputeTailoredCVDiffUseCase:
             )
         )
         if not tailored_cv_model:
-            raise ResourceNotFound('CV copy not found')
+            raise ResourceNotFound(
+                'CV copy not found', ErrorCode.CV_COPY_NOT_FOUND
+            )
         tailored_cv = TailoredCVDTO.model_validate(tailored_cv_model)
 
         master = None
@@ -121,7 +124,9 @@ class ComputeTailoredCVDiffUseCase:
                 BaseCVDTO.model_validate(master)
             )
         else:
-            raise ResourceConflict(NO_BASELINE_MESSAGE)
+            raise ResourceConflict(
+                NO_BASELINE_MESSAGE, ErrorCode.CV_NO_BASELINE
+            )
 
         baseline_label = (
             master.name if master is not None else ORIGINAL_MASTER_LABEL

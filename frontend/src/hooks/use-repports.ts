@@ -7,6 +7,7 @@ import {
   keepPreviousData,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { word } from "@/i18n/translator";
 import { services } from "@/services/services";
 import { rateLimitNotice } from "@/lib/rate-limit";
 import { membershipAccess } from "@/components/badges/membership-badge";
@@ -102,7 +103,7 @@ export function useReportSubmit(): UseReportSubmitReturn {
       await queryClient.invalidateQueries({ queryKey: REPORTS_KEY });
     },
     onError: (error) =>
-      toast.error(rateLimitNotice(error) ?? "Failed to submit report"),
+      toast.error(rateLimitNotice(error) ?? word("reports.toast.submitFailed")),
   });
 
   const submit = async (day: ReportDaysType, payload: ReportSubmitPayload) => {

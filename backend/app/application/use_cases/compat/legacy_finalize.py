@@ -53,6 +53,7 @@ from app.application.use_cases.timeline_events.rules import (
 from app.application.validators.application_date import ensure_not_in_future
 from app.config.logging import logger
 from app.core.enums import Currency, DeniedReason, EventType, SalaryPeriod
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import (
     ApplicationFinalized,
     BusinessRuleViolation,
@@ -154,23 +155,32 @@ class LegacyFinalizeApplicationUseCase:
             application_id, user_id
         )
         if application is None:
-            raise ResourceNotFound(APPLICATION_NOT_FOUND)
+            raise ResourceNotFound(
+                APPLICATION_NOT_FOUND, ErrorCode.APP_APPLICATION_NOT_FOUND
+            )
 
         ensure_not_archived(application)
         if application.finalized_at is not None:
-            raise ApplicationFinalized(ALREADY_FINALIZED)
+            raise ApplicationFinalized(
+                ALREADY_FINALIZED, ErrorCode.APP_ALREADY_FINALIZED
+            )
 
         step = await self.step_repo.get_by_id_strict_only(data.step_id)
         if step is None:
-            raise ResourceNotFound(STEP_NOT_FOUND)
+            raise ResourceNotFound(STEP_NOT_FOUND, ErrorCode.APP_STEP_NOT_FOUND)
 
         feedback = await self.feedback_repo.get_by_id(data.feedback_id)
         if feedback is None:
-            raise ResourceNotFound(FEEDBACK_NOT_FOUND)
+            raise ResourceNotFound(
+                FEEDBACK_NOT_FOUND, ErrorCode.APP_FEEDBACK_NOT_FOUND
+            )
 
         event_type, interview_type = event_kind_of(step)
         if data.salary_offer is not None and event_type is not EventType.OFFER:
-            raise BusinessRuleViolation(SALARY_ONLY_ON_OFFER_STEP)
+            raise BusinessRuleViolation(
+                SALARY_ONLY_ON_OFFER_STEP,
+                ErrorCode.APP_SALARY_ONLY_ON_OFFER_STEP,
+            )
 
         salary = (
             offer_salary(application, data.salary_offer)

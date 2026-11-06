@@ -1,11 +1,13 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+
 import { LinkButton } from "@/components/ui/button";
+import { liveCopy } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
 
-export const NOT_FOUND_COPY = {
-  code: "404",
-  title: "Oops! Page not found",
-  home: "Return to Home",
-} as const;
+/** The page's words (`notFound.*`), in the active language. */
+export const NOT_FOUND_COPY = liveCopy("notFound", ["code", "title", "home"]);
 
 // Subtitle is `foreground/70`: `muted-foreground` on `bg-muted` is under 4.5:1 in light.
 const VARIANT_CLASS = {
@@ -24,6 +26,7 @@ export function NotFoundMessage({
   variant = "page",
   className,
 }: NotFoundMessageProps) {
+  const t = useTranslations("notFound");
   const sizes = VARIANT_CLASS[variant];
 
   return (
@@ -42,13 +45,13 @@ export function NotFoundMessage({
           sizes.code,
         )}
       >
-        {NOT_FOUND_COPY.code}
+        {t("code")}
       </h1>
       <p className={cn("mt-3 text-pretty text-foreground/70", sizes.title)}>
-        {NOT_FOUND_COPY.title}
+        {t("title")}
       </p>
       <LinkButton href="/" variant="outline" className="mt-6">
-        {NOT_FOUND_COPY.home}
+        {t("home")}
       </LinkButton>
     </div>
   );

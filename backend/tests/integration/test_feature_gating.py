@@ -37,8 +37,8 @@ from tests.sessions_seed import open_session
 
 USER_ID = base_data()['user'].id
 ADMIN_ID = base_data()['admin_user'].id
-NOT_FOUND = {'detail': 'Not Found'}
-UNKNOWN_TAILORING = {'detail': 'Unknown tailoring option'}
+NOT_FOUND = {'detail': 'Not Found', 'code': 'GEN-1001'}
+UNKNOWN_TAILORING = {'detail': 'Unknown tailoring option', 'code': 'CV-1007'}
 
 # ADR-0021: the CV and draft routes this module reaches need "cvs" too. The
 # ``async_client`` user is on its list (``cvs_beta``) and the admin has it as
@@ -244,7 +244,10 @@ async def test_anonymous_gets_todays_401_not_the_404(
         for method, path, body in gated_calls(world):
             response = await call(client, method, path, body)
             assert response.status_code == 401, msg(401, (method, path))
-            assert response.json() == {'detail': 'Not authenticated'}
+            assert response.json() == {
+                'detail': 'Not authenticated',
+                'code': 'AUTH-1001',
+            }
 
 
 # ---------------------------------------------------------------------------
@@ -464,9 +467,7 @@ async def test_user_made_admin_has_jobs_on_the_next_request(
     main_app.dependency_overrides[get_session] = override_get_session
     main_app.dependency_overrides[get_redis] = override_get_redis
     # KODI-057: a real device session (row + Redis keys), plan correction 3.
-    tokens = await open_session(
-        async_engine, redis_client, USER_ID
-    )
+    tokens = await open_session(async_engine, redis_client, USER_ID)
     token = tokens.access_token
     async with AsyncClient(
         transport=ASGITransport(app=main_app), base_url='http://test/api'

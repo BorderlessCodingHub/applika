@@ -2,9 +2,21 @@ from sqlalchemy.exc import IntegrityError
 
 from app.application.dto.admin import AdminCompanyRowDTO
 from app.config.logging import logger
-from app.core.exceptions import ResourceConflict, ResourceNotFound
+from app.core.error_codes import ErrorCode
+from app.core.exceptions import ErrorParams, ResourceConflict, ResourceNotFound
+from app.domain.models import CompanyModel
 from app.domain.repositories.admin_repository import AdminRepository
 from app.domain.repositories.company_repository import CompanyRepository
+
+
+def _collision_params(collision: CompanyModel) -> ErrorParams:
+    """The public row a publish would duplicate, as the 409 names it
+    (``id`` as a string: a Snowflake id is past a JS number)."""
+    return {
+        'name': f'{collision.name}',
+        'url': f'{collision.url}',
+        'id': str(collision.id),
+    }
 
 
 class PublishCompanyUseCase:
@@ -27,7 +39,9 @@ class PublishCompanyUseCase:
     ) -> AdminCompanyRowDTO:
         company = await self.company_repo.get_by_id_unfiltered(company_id)
         if not company:
-            raise ResourceNotFound('Company not found')
+            raise ResourceNotFound(
+                'Company not found', ErrorCode.CAT_COMPANY_NOT_FOUND
+            )
 
         if company.is_public:
             return await self._row(company_id)
@@ -38,7 +52,9 @@ class PublishCompanyUseCase:
         if collision:
             raise ResourceConflict(
                 'A public company with this name and URL already exists: '
-                f'{collision.name} ({collision.url}, id {collision.id})'
+                f'{collision.name} ({collision.url}, id {collision.id})',
+                ErrorCode.ADM_PUBLIC_COMPANY_EXISTS,
+                params=_collision_params(collision),
             )
 
         # Captured before the update: a rollback on the shared session (the
@@ -57,11 +73,15 @@ class PublishCompanyUseCase:
                 raise ResourceConflict(
                     'A public company with this name and URL already '
                     f'exists: {collision.name} '
-                    f'({collision.url}, id {collision.id})'
+                    f'({collision.url}, id {collision.id})',
+                    ErrorCode.ADM_PUBLIC_COMPANY_EXISTS,
+                    params=_collision_params(collision),
                 ) from err
             raise ResourceConflict(
                 f'A public company with this name and URL already exists: '
-                f'{name} ({url})'
+                f'{name} ({url})',
+                ErrorCode.ADM_PUBLIC_COMPANY_RACE,
+                params={'name': f'{name}', 'url': f'{url}'},
             ) from err
 
         logger.info(
@@ -80,5 +100,7 @@ class PublishCompanyUseCase:
     async def _row(self, company_id: int) -> AdminCompanyRowDTO:
         row = await self.admin_repo.get_admin_company_row(company_id)
         if not row:
-            raise ResourceNotFound('Company not found')
+            raise ResourceNotFound(
+                'Company not found', ErrorCode.CAT_COMPANY_NOT_FOUND
+            )
         return AdminCompanyRowDTO(**row)

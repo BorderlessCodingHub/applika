@@ -5,6 +5,7 @@ from app.application.validators.report_webhook import (
     validate_webhook_url,
 )
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.report_webhook_repository import (
     ReportWebhookRepository,
@@ -26,7 +27,7 @@ class UpdateReportWebhookUseCase:
     ) -> ReportWebhookDTO:
         webhook = await self.webhook_repo.get_by_id(webhook_id)
         if webhook is None:
-            raise ResourceNotFound(NOT_FOUND)
+            raise ResourceNotFound(NOT_FOUND, ErrorCode.ADM_WEBHOOK_NOT_FOUND)
 
         raw_url = fields.get('webhook_url')
         if raw_url is not None and raw_url.strip():

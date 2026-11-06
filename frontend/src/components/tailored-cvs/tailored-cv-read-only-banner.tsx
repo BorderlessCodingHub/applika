@@ -1,9 +1,9 @@
-import { Archive, Flag } from "lucide-react";
+"use client";
 
-import {
-  TAILORED_CV_READ_ONLY_COPY,
-  type TailoredCvReadOnlyReason,
-} from "@/components/tailored-cvs/types";
+import { Archive, Flag } from "lucide-react";
+import { useTranslations } from "next-intl";
+
+import type { TailoredCvReadOnlyReason } from "@/components/tailored-cvs/types";
 import { cn } from "@/lib/utils";
 
 export interface TailoredCvReadOnlyBannerProps {
@@ -25,7 +25,11 @@ export function TailoredCvReadOnlyBanner({
   reason,
   className,
 }: TailoredCvReadOnlyBannerProps) {
-  const { title, body } = TAILORED_CV_READ_ONLY_COPY[reason];
+  // Same keys as `TAILORED_CV_READ_ONLY_COPY`, read through the hook so a
+  // language switch re-renders the banner.
+  const t = useTranslations("cvs.tailored.readOnly");
+  const title = t(`${reason}.title`);
+  const body = t(`${reason}.body`);
   const Icon = reason === "finalized" ? Flag : Archive;
 
   return (

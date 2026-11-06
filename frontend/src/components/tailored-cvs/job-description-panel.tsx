@@ -1,14 +1,11 @@
 "use client";
 
 import { ClipboardList, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { CvSectionCard } from "@/components/base-cvs/cv-section-card";
 import { cn } from "@/lib/utils";
-
-/** Shown when the application carries no job description. */
-export const JOB_DESCRIPTION_EMPTY_HINT =
-  "No job description saved for this application. Add one when you edit the application and it will sit here, beside the CV copy, while you tailor it.";
 
 export interface JobDescriptionPanelProps {
   /** The application's job description. `null`, `undefined` or blank all read as empty. */
@@ -41,12 +38,13 @@ export function JobDescriptionPanel({
   disabled = false,
   className,
 }: JobDescriptionPanelProps) {
+  const t = useTranslations("cvs.tailored.jobDescription");
   const text = (jobDescription ?? "").trim();
 
   return (
     <CvSectionCard
-      title="Job description"
-      description="From the application. Read-only here."
+      title={t("title")}
+      description={t("description")}
       icon={ClipboardList}
       className={className}
       contentClassName="p-0"
@@ -55,7 +53,7 @@ export function JobDescriptionPanel({
         <div
           tabIndex={0}
           role="region"
-          aria-label="Job description text"
+          aria-label={t("textRegion")}
           className={cn(
             "max-h-72 overflow-y-auto p-4 text-sm leading-relaxed whitespace-pre-wrap text-foreground/90",
             "focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-hidden",
@@ -66,13 +64,13 @@ export function JobDescriptionPanel({
       ) : (
         <div className="space-y-3 p-4">
           <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-pretty text-muted-foreground">
-            {JOB_DESCRIPTION_EMPTY_HINT}
+            {t("emptyHint")}
           </p>
           {onAdd && !disabled ? (
             <div className="flex justify-center">
               <Button type="button" size="sm" variant="outline" onClick={onAdd}>
                 <Plus aria-hidden />
-                Add a job description
+                {t("add")}
               </Button>
             </div>
           ) : null}

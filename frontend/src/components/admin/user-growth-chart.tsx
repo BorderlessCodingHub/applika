@@ -15,9 +15,43 @@ import { useUserGrowth } from "@/hooks/use-admin";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import { CustomTooltip } from "@/components/dashboard/chart-styles";
+import { useLocale, useTranslations } from "next-intl";
+import { formatNumber } from "@/i18n/format-number";
+import type { UserGrowthPoint } from "@/services/types/admin";
+
+const PT_MONTH = new Intl.DateTimeFormat("pt-BR", {
+  month: "short",
+  timeZone: "UTC",
+});
+
+/**
+ * The month axis label. English keeps the API's own `label` ("Oct 26");
+ * Portuguese writes it from the point's `date` ("out/26").
+ */
+export function growthMonthLabel(
+  point: Pick<UserGrowthPoint, "date" | "label">,
+  locale: string,
+): string {
+  if (locale !== "pt-BR") return point.label;
+  const date = new Date(`${point.date.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return point.label;
+  const month = PT_MONTH.format(date).replace(".", "");
+  return `${month}/${String(date.getUTCFullYear()).slice(-2)}`;
+}
+
+function useGrowthData() {
+  const query = useUserGrowth();
+  const locale = useLocale();
+  const data = query.data?.map((point) => ({
+    ...point,
+    label: growthMonthLabel(point, locale),
+  }));
+  return { data, isLoading: query.isLoading, locale };
+}
 
 export function UserGrowthChart() {
-  const { data, isLoading } = useUserGrowth();
+  const { data, isLoading, locale } = useGrowthData();
+  const t = useTranslations("admin.dashboard.growth");
 
   return (
     <motion.div
@@ -29,7 +63,7 @@ export function UserGrowthChart() {
         <div className="mb-4 flex items-center gap-3">
           <div className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
           <h3 className="font-display text-sm font-semibold tracking-wide-label text-muted-foreground uppercase">
-            User Growth
+            {t("title")}
           </h3>
         </div>
 
@@ -69,6 +103,7 @@ export function UserGrowthChart() {
                 stroke="none"
               />
               <YAxis
+                tickFormatter={(value: number) => formatNumber(value, locale)}
                 tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                 stroke="none"
               />
@@ -81,7 +116,7 @@ export function UserGrowthChart() {
               <Area
                 type="monotone"
                 dataKey="total_users"
-                name="Total Users"
+                name={t("totalUsers")}
                 stroke="var(--chart-3)"
                 strokeWidth={2}
                 fill="url(#adminGrowthGrad)"
@@ -102,7 +137,8 @@ export function UserGrowthChart() {
 }
 
 export function NewUsersBarChart() {
-  const { data, isLoading } = useUserGrowth();
+  const { data, isLoading, locale } = useGrowthData();
+  const t = useTranslations("admin.dashboard.growth");
 
   return (
     <motion.div
@@ -114,7 +150,7 @@ export function NewUsersBarChart() {
         <div className="mb-4 flex items-center gap-3">
           <div className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
           <h3 className="font-display text-sm font-semibold tracking-wide-label text-muted-foreground uppercase">
-            New Users / Month
+            {t("newUsersTitle")}
           </h3>
         </div>
 
@@ -134,6 +170,7 @@ export function NewUsersBarChart() {
                 stroke="none"
               />
               <YAxis
+                tickFormatter={(value: number) => formatNumber(value, locale)}
                 tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                 stroke="none"
                 allowDecimals={false}
@@ -146,7 +183,7 @@ export function NewUsersBarChart() {
               />
               <Bar
                 dataKey="new_users"
-                name="New Users"
+                name={t("newUsers")}
                 fill="var(--chart-1)"
                 radius={[4, 4, 0, 0]}
                 opacity={0.85}

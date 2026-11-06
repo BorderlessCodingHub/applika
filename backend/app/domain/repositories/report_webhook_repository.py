@@ -14,6 +14,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceConflict
 from app.domain.models import ReportWebhookBadgeModel, ReportWebhookModel
 
@@ -73,7 +74,9 @@ class ReportWebhookRepository:
             return webhook
         except IntegrityError as err:
             await self.session.rollback()
-            raise ResourceConflict(ALREADY_CONFIGURED) from err
+            raise ResourceConflict(
+                ALREADY_CONFIGURED, ErrorCode.ADM_WEBHOOK_ALREADY_CONFIGURED
+            ) from err
         except Exception as e:
             await self.session.rollback()
             raise e
@@ -101,7 +104,9 @@ class ReportWebhookRepository:
             return webhook
         except IntegrityError as err:
             await self.session.rollback()
-            raise ResourceConflict(ALREADY_CONFIGURED) from err
+            raise ResourceConflict(
+                ALREADY_CONFIGURED, ErrorCode.ADM_WEBHOOK_ALREADY_CONFIGURED
+            ) from err
         except Exception as e:
             await self.session.rollback()
             raise e

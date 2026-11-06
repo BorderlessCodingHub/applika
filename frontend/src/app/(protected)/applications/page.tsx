@@ -1,5 +1,8 @@
 import { Suspense } from "react";
-import { ApplicationsPage } from "./applications-page";
+import {
+  ApplicationsPage,
+  ApplicationsPageFallback,
+} from "./applications-page";
 
 /**
  * The page reads `?focus=` with `useSearchParams`, which suspends. Under
@@ -9,15 +12,7 @@ import { ApplicationsPage } from "./applications-page";
  */
 export default function Page() {
   return (
-    <Suspense
-      fallback={
-        <div
-          aria-busy
-          aria-label="Loading applications"
-          className="h-64 w-full animate-pulse rounded-xl bg-muted"
-        />
-      }
-    >
+    <Suspense fallback={<ApplicationsPageFallback />}>
       <ApplicationsPage />
     </Suspense>
   );

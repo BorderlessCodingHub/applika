@@ -3,6 +3,7 @@
 import type { FormEventHandler, ReactNode } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { FileText, Loader2, Trash2, TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import {
   AlertDialog,
@@ -28,15 +29,8 @@ import type { CvFormDiffSlots } from "@/components/base-cvs/cv-form-diff";
 import type { CvFormValues } from "@/components/base-cvs/types";
 import { JobDescriptionPanel } from "@/components/tailored-cvs/job-description-panel";
 import { TailoredCvReadOnlyBanner } from "@/components/tailored-cvs/tailored-cv-read-only-banner";
-import {
-  TAILORED_CV_SOURCE_DELETED,
-  type TailoredCvReadOnlyReason,
-} from "@/components/tailored-cvs/types";
+import type { TailoredCvReadOnlyReason } from "@/components/tailored-cvs/types";
 import { cn } from "@/lib/utils";
-
-/** Said next to the badge, so "source CV deleted" does not read as data loss. */
-export const TAILORED_CV_SOURCE_DELETED_HINT =
-  "The master CV this copy came from has been deleted. Everything below still belongs to this application and stays editable.";
 
 export interface TailoredCvEditorProps {
   /** The react-hook-form instance. The page owns the schema and the defaults. */
@@ -51,7 +45,7 @@ export interface TailoredCvEditorProps {
   jobDescription?: string | null;
   /** Opens the application form so a missing job description can be added. */
   onAddJobDescription?: () => void;
-  /** Visible text and accessible name of the submit button. */
+  /** Visible text and accessible name of the submit button. Defaults to "Save CV copy" in the active language. */
   submitLabel?: string;
   /** Renders a Cancel button when given. */
   onCancel?: () => void;
@@ -107,9 +101,9 @@ export function TailoredCvEditor({
   sourceCvName,
   jobDescription,
   onAddJobDescription,
-  submitLabel = "Save CV copy",
+  submitLabel,
   onCancel,
-  cancelLabel = "Cancel",
+  cancelLabel,
   isSubmitting = false,
   onDelete,
   isDeleting = false,
@@ -122,6 +116,7 @@ export function TailoredCvEditor({
   diff,
   className,
 }: TailoredCvEditorProps) {
+  const t = useTranslations("cvs.tailored");
   const previewCv = useCvPreviewData(form.control);
   const readOnly = Boolean(readOnlyReason);
   const locked = readOnly || isSubmitting || isDeleting;
@@ -141,10 +136,11 @@ export function TailoredCvEditor({
               className="gap-1.5 border-destructive/40 px-2.5 py-1 text-xs font-medium text-destructive"
             >
               <TriangleAlert aria-hidden className="size-3.5" />
-              {TAILORED_CV_SOURCE_DELETED}
+              {t("source.deleted")}
             </Badge>
             <p className="min-w-0 flex-1 text-xs text-pretty text-muted-foreground">
-              {TAILORED_CV_SOURCE_DELETED_HINT}
+              {/* Said next to the badge, so "source CV deleted" does not read as data loss. */}
+              {t("source.deletedHint")}
             </p>
           </>
         ) : (
@@ -156,8 +152,8 @@ export function TailoredCvEditor({
           >
             <FileText aria-hidden className="size-3.5 shrink-0" />
             {sourceCvName
-              ? `Copied from ${sourceCvName}`
-              : "Copied from a master CV"}
+              ? t("source.copiedFrom", { name: sourceCvName })
+              : t("source.copiedFromMaster")}
           </Badge>
         )}
       </div>
@@ -186,14 +182,14 @@ export function TailoredCvEditor({
 
         {/* Same sticky scrollport rules as `BaseCvEditor`'s aside; see frontend/CLAUDE.md "App shell". */}
         <section
-          aria-label="CV preview"
+          aria-label={t("editor.previewRegion")}
           className={cn(
             "min-w-0 space-y-2",
             "md:sticky md:top-0 md:flex md:max-h-editor-scrollport md:flex-col",
           )}
         >
           <p className="shrink-0 text-xs font-medium tracking-wide-label text-muted-foreground uppercase">
-            Live preview
+            {t("editor.livePreview")}
           </p>
           <CvDocumentPreview cv={previewCv} className="md:min-h-0 md:flex-1" />
         </section>
@@ -226,7 +222,7 @@ export function TailoredCvEditor({
                     type="button"
                     variant="ghost"
                     disabled={locked}
-                    aria-label="Delete this CV copy"
+                    aria-label={t("editor.deleteLabel")}
                     className="text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
                   >
                     {isDeleting ? (
@@ -234,25 +230,25 @@ export function TailoredCvEditor({
                     ) : (
                       <Trash2 aria-hidden />
                     )}
-                    Delete copy
+                    {t("editor.deleteAction")}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Delete this CV copy?</AlertDialogTitle>
+                    <AlertDialogTitle>
+                      {t("editor.deleteTitle")}
+                    </AlertDialogTitle>
                     <AlertDialogDescription>
-                      The copy and every edit you made to it are removed for
-                      good. Your master CVs are untouched, and you can start a
-                      new copy for this application afterwards.
+                      {t("editor.deleteDescription")}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>{t("editor.cancel")}</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={onDelete}
                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     >
-                      Delete
+                      {t("editor.deleteConfirm")}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -269,14 +265,14 @@ export function TailoredCvEditor({
                   disabled={locked}
                   onClick={onCancel}
                 >
-                  {cancelLabel}
+                  {cancelLabel ?? t("editor.cancel")}
                 </Button>
               ) : null}
               <Button type="submit" disabled={locked} aria-busy={isSubmitting}>
                 {isSubmitting ? (
                   <Loader2 aria-hidden className="animate-spin" />
                 ) : null}
-                {submitLabel}
+                {submitLabel ?? t("editor.submit")}
               </Button>
             </>
           )}

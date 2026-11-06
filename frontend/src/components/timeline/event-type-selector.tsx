@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { useId } from "react";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 
@@ -61,7 +63,7 @@ export function EventTypeSelector({
   onValueChange,
   options = EVENT_TYPE_OPTIONS,
   showHint = false,
-  label = "Event type",
+  label,
   disabled,
   id,
   className,
@@ -69,6 +71,7 @@ export function EventTypeSelector({
   "aria-labelledby": ariaLabelledby,
   "aria-describedby": ariaDescribedby,
 }: EventTypeSelectorProps) {
+  const t = useTranslations("timeline.form");
   const hintId = useId();
   const hint = showHint
     ? options.find((option) => option.value === value)?.hint
@@ -86,7 +89,7 @@ export function EventTypeSelector({
       aria-invalid={ariaInvalid}
       aria-labelledby={ariaLabelledby}
       aria-describedby={describedBy}
-      aria-label={ariaLabelledby ? undefined : label}
+      aria-label={ariaLabelledby ? undefined : (label ?? t("eventType"))}
       className={cn("grid grid-cols-3 gap-2", !showHint && className)}
     >
       {options.map((option) => {

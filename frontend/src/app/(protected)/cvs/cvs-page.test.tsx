@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CvsPage } from "./cvs-page";
 import { MY_FEATURES_QUERY_KEY } from "@/hooks/use-features";
 import type { MyFeature } from "@/services/types/features";
-import { BASE_CV_LIMIT_REASON } from "@/components/base-cvs/new-cv-card";
+import { NEW_CV_COPY } from "@/components/base-cvs/new-cv-card";
 import type { BaseCv } from "@/services/types/base-cv";
 
 /**
@@ -189,8 +189,8 @@ describe("CvsPage", () => {
       name: "New master CV",
     });
     expect(create).toBeDisabled();
-    expect(screen.getByText(BASE_CV_LIMIT_REASON)).toBeVisible();
-    expect(BASE_CV_LIMIT_REASON).toContain("the limit is three");
+    expect(screen.getByText(NEW_CV_COPY.limitReason)).toBeVisible();
+    expect(NEW_CV_COPY.limitReason).toContain("the limit is three");
     // There is no way around the disabled control: no create link is rendered.
     expect(
       screen.queryByRole("link", { name: "New master CV" }),

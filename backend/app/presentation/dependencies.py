@@ -1,7 +1,7 @@
 from typing import Annotated
 
 import redis.asyncio as aioredis
-from fastapi import Depends, HTTPException, Request, Security, status
+from fastapi import Depends, Request, Security
 from fastapi.security import (
     APIKeyCookie,
     HTTPAuthorizationCredentials,
@@ -123,9 +123,11 @@ from app.application.use_cases.tailored_cvs.update import (
 from app.config.db import get_session
 from app.config.redis import get_redis
 from app.config.settings import ACCESS_COOKIE_NAME, envs
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import (
     BadgeRequired,
     ForbiddenAccess,
+    InvalidSession,
     MembershipUnconfirmed,
     ResourceNotFound,
 )
@@ -503,9 +505,8 @@ async def get_current_user(
 ) -> UserDTO:
     access_token = bearer.credentials if bearer else access_cookie
     if not access_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail='Not authenticated',
+        raise InvalidSession(
+            'Not authenticated', ErrorCode.AUTH_NOT_AUTHENTICATED
         )
     use_case = GetCurrentUserUseCase(user_repo, session_store)
     authenticated = await use_case.execute(access_token, client_ip(request))
@@ -627,7 +628,9 @@ async def get_admin_user(
     user: CurrentUserDp,
 ) -> UserDTO:
     if not user.is_admin:
-        raise ForbiddenAccess('Admin access required')
+        raise ForbiddenAccess(
+            'Admin access required', ErrorCode.ADM_ADMIN_REQUIRED
+        )
     return user
 
 
@@ -640,8 +643,9 @@ async def require_reports_badge(
     badge_repo: UserBadgeRepositoryDp,
 ) -> None:
     """Reports are for BASE and PSP members (ADR-0024), administrators
-    included: no recorded badge → ``badge_required``; a recorded badge that
-    does not count → ``membership_unconfirmed``."""
+    included: no recorded badge → RPT-1001 (was ``badge_required``); a
+    recorded badge that does not count → RPT-1002 (was
+    ``membership_unconfirmed``)."""
     access = badge_access(
         await binding_repo.get_by_user_id(user.id),
         await badge_repo.live_for_user(user.id),
@@ -722,8 +726,9 @@ async def user_has_feature(
 
 
 def require_feature(key: FeatureKey):
-    """A dependency that answers ``404 {"detail": "Not Found"}`` - the same
-    body as an unknown route - when the caller lacks ``key`` (ADR-0018).
+    """A dependency that answers
+    ``404 {"detail": "Not Found", "code": "GEN-1001"}`` - the same body as
+    an unknown route - when the caller lacks ``key`` (ADR-0018).
 
     Built on ``CurrentUserDp``, so an anonymous request gets today's auth
     error first. Put it on a router (``dependencies=[...]``) when the whole
@@ -734,7 +739,7 @@ def require_feature(key: FeatureKey):
         user: CurrentUserDp, feature_repo: FeatureRepositoryDp
     ) -> None:
         if not await user_has_feature(key, user, feature_repo):
-            raise ResourceNotFound(NOT_FOUND_DETAIL)
+            raise ResourceNotFound(NOT_FOUND_DETAIL, ErrorCode.GEN_NOT_FOUND)
 
     return Depends(_require_feature)
 

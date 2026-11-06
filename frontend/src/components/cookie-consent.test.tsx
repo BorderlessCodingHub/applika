@@ -1,6 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import en from "@/i18n/messages/en.json";
+import ptBR from "@/i18n/messages/pt-BR.json";
 
 import { COOKIE_NOTICE_HEIGHT_VAR, CookieConsent } from "./cookie-consent";
 
@@ -108,5 +112,33 @@ describe("CookieConsent", () => {
     ).not.toBeInTheDocument();
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe("1");
     expect(reserved()).toBe("");
+  });
+});
+
+describe("CookieConsent in Portuguese (Brazil)", () => {
+  it("translates the notice, its link and its buttons", () => {
+    render(
+      <NextIntlClientProvider
+        locale="pt-BR"
+        messages={ptBR as unknown as typeof en}
+        timeZone="UTC"
+      >
+        <CookieConsent />
+      </NextIntlClientProvider>,
+    );
+
+    const notice = screen.getByRole("dialog", { name: "Aviso de cookies" });
+    expect(notice).toHaveTextContent("Usamos cookies essenciais");
+    expect(notice).toHaveTextContent(
+      "Não usamos cookies de análise, publicidade ou rastreamento.",
+    );
+    expect(screen.getByRole("link", { name: "Saiba mais" })).toHaveAttribute(
+      "href",
+      "/cookie-policy",
+    );
+    expect(screen.getByRole("button", { name: "Entendi" })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Fechar aviso de cookies" }),
+    ).toBeVisible();
   });
 });

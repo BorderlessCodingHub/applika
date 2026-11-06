@@ -3,6 +3,7 @@
 import { useId, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { BadgeAlert } from "lucide-react";
+import { useLocale } from "next-intl";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,6 +20,7 @@ import { Form } from "@/components/ui/form";
 import { USER_QUERY_KEY } from "@/hooks/use-user";
 import { borderlessCredentialsSchema } from "@/lib/borderless-credentials-schema";
 import { borderlessErrorWords } from "@/lib/borderless-error";
+import { liveCopy, word } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
 import { services } from "@/services/services";
 import type { User } from "@/services/types/users";
@@ -29,11 +31,11 @@ import {
   type MembershipBadgeKey,
 } from "./membership-badge";
 
-export const CONFIRM_MEMBERSHIP_COPY = {
-  title: "Sign in again to confirm your membership",
-  body: "Enter your Borderless password so applika can read your membership again. You stay signed in.",
-  submit: "Confirm membership",
-} as const;
+export const CONFIRM_MEMBERSHIP_COPY = liveCopy("badges.confirm", [
+  "title",
+  "body",
+  "submit",
+]);
 
 /** `borderless.status` values that are not `active`. */
 export type UnconfirmedStatus = "expired" | "needs_reconnect";
@@ -43,14 +45,16 @@ export function confirmMembershipReason(
   status: string | null | undefined,
   badge?: MembershipBadgeKey | null,
 ): string | null {
-  const paused = badge
-    ? `, so your ${MEMBERSHIP_BADGE_LABEL[badge]} badge is paused`
-    : "";
-  if (status === "expired") return `Your Borderless access expired${paused}.`;
+  const values = badge ? { badge: MEMBERSHIP_BADGE_LABEL[badge] } : undefined;
+  if (status === "expired") {
+    return badge
+      ? word("badges.confirm.reasonExpiredPaused", values)
+      : word("badges.confirm.reasonExpired");
+  }
   if (status === "needs_reconnect") {
     return badge
-      ? `Borderless did not accept applika's last check${paused}.`
-      : "Borderless did not accept applika's last check of your membership.";
+      ? word("badges.confirm.reasonRejectedPaused", values)
+      : word("badges.confirm.reasonRejected");
   }
   return null;
 }
@@ -97,6 +101,8 @@ export function ConfirmMembershipFormView({
   autoFocusPassword = false,
   className,
 }: ConfirmMembershipFormViewProps) {
+  // Subscribes: the copy getters read the active language at call time.
+  useLocale();
   const titleId = useId();
   const reason = confirmMembershipReason(status, badge);
 
@@ -189,6 +195,7 @@ export function ConfirmMembershipMenuItem({
   onSelect,
   href = "/reports",
 }: ConfirmMembershipMenuItemProps) {
+  useLocale();
   return (
     <DropdownMenuItem asChild onSelect={onSelect}>
       <Link
@@ -247,7 +254,7 @@ export function ConfirmMembershipForm({
         queryClient.invalidateQueries({ queryKey: ["reports"] }),
         queryClient.invalidateQueries({ queryKey: ["report"] }),
       ]);
-      toast.success("Membership confirmed");
+      toast.success(word("badges.confirm.confirmed"));
       onConfirmed?.();
     },
     onError: (err) => {

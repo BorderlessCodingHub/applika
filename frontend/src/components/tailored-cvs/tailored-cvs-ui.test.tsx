@@ -7,9 +7,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ExportCvButton } from "@/components/base-cvs/export-cv-button";
 import {
-  CV_PDF_EXPORT_LABEL,
   type BaseCv,
   type CvFormValues,
+  CV_EXPORT_COPY,
 } from "@/components/base-cvs/types";
 import { BaseCvPicker } from "./base-cv-picker";
 import { TailoredCvEditor } from "./tailored-cv-editor";
@@ -356,7 +356,9 @@ describe("the tailored CV surface", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: `${CV_PDF_EXPORT_LABEL} Backend CV` }),
+      screen.getByRole("button", {
+        name: `${CV_EXPORT_COPY.pdfLabel} Backend CV`,
+      }),
     );
     expect(onExport).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
   });
@@ -598,7 +600,7 @@ describe("the tailored CV surface", () => {
     // A finalized copy cannot be written, but downloading it is exactly what it
     // is still for: the button is PRESENT and ENABLED, never merely visible.
     expect(
-      screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL }),
+      screen.getByRole("button", { name: CV_EXPORT_COPY.pdfLabel }),
     ).toBeEnabled();
     // The lock itself is untouched by the new footer.
     expect(screen.queryByRole("button", { name: "Save CV copy" })).toBeNull();
@@ -619,7 +621,9 @@ describe("the tailored CV surface", () => {
     );
 
     expect(screen.getByText("source CV deleted")).toBeInTheDocument();
-    const button = screen.getByRole("button", { name: CV_PDF_EXPORT_LABEL });
+    const button = screen.getByRole("button", {
+      name: CV_EXPORT_COPY.pdfLabel,
+    });
     expect(button).toBeEnabled();
     await userEvent.click(button);
     expect(onExport).toHaveBeenCalledTimes(1);

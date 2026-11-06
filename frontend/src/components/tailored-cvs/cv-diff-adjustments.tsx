@@ -2,11 +2,10 @@
 
 import { useId } from "react";
 import { ArrowUpDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type { TailoredCvAdjustment } from "@/components/tailored-cvs/types";
 import { cn } from "@/lib/utils";
-
-export const CV_DIFF_REORDERED_TITLE = "Reordered by job match";
 
 export interface CvDiffAdjustmentsProps {
   /** The copy's `adjustments`; an empty list renders nothing. */
@@ -16,12 +15,15 @@ export interface CvDiffAdjustmentsProps {
 
 /**
  * The keyword tailoring's moves (R-025): a reorder is zero changes in the
- * diff, so the copy's own `adjustments` say what moved, verbatim.
+ * diff, so the copy's own `adjustments` say what moved, verbatim. The title
+ * is app text and translates; each `description` is the API's data and is
+ * shown exactly as sent, English in both languages (R-021).
  */
 export function CvDiffAdjustments({
   adjustments,
   className,
 }: CvDiffAdjustmentsProps) {
+  const t = useTranslations("cvs.diff");
   const titleId = useId();
 
   if (adjustments.length === 0) return null;
@@ -36,7 +38,7 @@ export function CvDiffAdjustments({
         className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
       >
         <ArrowUpDown aria-hidden className="size-3.5 shrink-0 text-primary" />
-        {CV_DIFF_REORDERED_TITLE}
+        {t("reorderedTitle")}
       </p>
       <ul aria-labelledby={titleId} className="flex flex-col gap-1.5">
         {adjustments.map((adjustment, index) => (

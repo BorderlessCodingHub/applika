@@ -31,6 +31,14 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import type { AdminUserRow } from "@/services/types/admin";
+import {
+  useAdminNumber,
+  useAvailabilityLabel,
+  useAdminPager,
+  useAdminRelative,
+  useSeniorityLabel,
+} from "@/components/admin/admin-format";
+import { useLocale, useTranslations } from "next-intl";
 
 type SortKey =
   | "username"
@@ -91,20 +99,20 @@ function SortHeader({
   );
 }
 
-function formatRelative(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days === 0) return "today";
-  if (days === 1) return "yesterday";
-  if (days < 30) return `${days}d ago`;
-  return `${Math.floor(days / 30)}mo ago`;
-}
-
 export function UsersPage() {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("joined_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(0);
+  const t = useTranslations("admin.users");
+  const td = useTranslations("admin.users.detail");
+  const availabilityLabel = useAvailabilityLabel();
+  const locale = useLocale();
+  const tc = useTranslations("admin.users.columns");
+  const n = useAdminNumber();
+  const pager = useAdminPager();
+  const formatRelative = useAdminRelative();
+  const seniorityLabel = useSeniorityLabel();
 
   const [selectedUser, setSelectedUser] = useState<AdminUserRow | null>(null);
 
@@ -140,17 +148,18 @@ export function UsersPage() {
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
         <h1 className="font-display text-xl font-bold tracking-tight-display text-foreground">
-          User Management
+          {t("title")}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          View, search, and manage all platform users
-        </p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t("subtitle")}</p>
       </motion.div>
 
       <Card className="overflow-hidden">
         <div className="flex flex-col justify-between gap-3 p-5 pb-3 sm:flex-row sm:items-center">
           <span className="font-numeric text-xs text-muted-foreground/60">
-            {data?.total ?? 0} users
+            {t("count", {
+              count: data?.total ?? 0,
+              total: n(data?.total ?? 0),
+            })}
           </span>
           <div className="relative">
             <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
@@ -160,7 +169,7 @@ export function UsersPage() {
                 setSearch(e.target.value);
                 setPage(0);
               }}
-              placeholder="Search users..."
+              placeholder={t("searchPlaceholder")}
               className="h-8 w-full pl-8 sm:w-64"
             />
           </div>
@@ -185,7 +194,7 @@ export function UsersPage() {
                   <tr className="border-y border-border/40 bg-accent/20">
                     <th className="px-5 py-2.5 text-left">
                       <SortHeader
-                        label="User"
+                        label={tc("user")}
                         sortKey="username"
                         current={sortKey}
                         dir={sortDir}
@@ -194,12 +203,12 @@ export function UsersPage() {
                     </th>
                     <th className="hidden px-3 py-2.5 text-left lg:table-cell">
                       <span className="font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
-                        Seniority
+                        {tc("seniority")}
                       </span>
                     </th>
                     <th className="px-3 py-2.5 text-right">
                       <SortHeader
-                        label="Apps"
+                        label={tc("apps")}
                         sortKey="total_applications"
                         current={sortKey}
                         dir={sortDir}
@@ -209,7 +218,7 @@ export function UsersPage() {
                     </th>
                     <th className="hidden px-3 py-2.5 text-right md:table-cell">
                       <SortHeader
-                        label="Offers"
+                        label={tc("offers")}
                         sortKey="offers"
                         current={sortKey}
                         dir={sortDir}
@@ -219,7 +228,7 @@ export function UsersPage() {
                     </th>
                     <th className="hidden px-3 py-2.5 text-right md:table-cell">
                       <SortHeader
-                        label="Denials"
+                        label={tc("denials")}
                         sortKey="denials"
                         current={sortKey}
                         dir={sortDir}
@@ -229,7 +238,7 @@ export function UsersPage() {
                     </th>
                     <th className="px-3 py-2.5 text-right">
                       <SortHeader
-                        label="Joined"
+                        label={tc("joined")}
                         sortKey="joined_at"
                         current={sortKey}
                         dir={sortDir}
@@ -239,7 +248,7 @@ export function UsersPage() {
                     </th>
                     <th className="px-5 py-2.5 text-right">
                       <span className="font-display text-[11px] font-semibold tracking-wide-label text-muted-foreground uppercase">
-                        Actions
+                        {tc("actions")}
                       </span>
                     </th>
                   </tr>
@@ -265,7 +274,7 @@ export function UsersPage() {
                                   variant="outline"
                                   className="border-amber-500/30 bg-amber-500/10 text-[10px] text-amber-400"
                                 >
-                                  admin
+                                  {t("adminBadge")}
                                 </Badge>
                               )}
                             </div>
@@ -285,18 +294,18 @@ export function UsersPage() {
                                 "bg-muted text-muted-foreground",
                             )}
                           >
-                            {user.seniority_level.replace("_", " ")}
+                            {seniorityLabel(user.seniority_level)}
                           </Badge>
                         )}
                       </td>
                       <td className="px-3 py-3 text-right font-numeric font-semibold text-foreground">
-                        {user.total_applications}
+                        {n(user.total_applications)}
                       </td>
                       <td className="hidden px-3 py-3 text-right font-numeric text-primary md:table-cell">
-                        {user.offers}
+                        {n(user.offers)}
                       </td>
                       <td className="hidden px-3 py-3 text-right font-numeric text-rose-400 md:table-cell">
-                        {user.denials}
+                        {n(user.denials)}
                       </td>
                       <td className="px-3 py-3 text-right font-numeric text-xs text-muted-foreground">
                         {formatRelative(user.joined_at)}
@@ -308,7 +317,8 @@ export function UsersPage() {
                             size="icon"
                             className="h-7 w-7"
                             onClick={() => setSelectedUser(user)}
-                            title="View user details"
+                            title={t("viewDetails")}
+                            aria-label={t("viewDetails")}
                           >
                             <User className="h-3.5 w-3.5" />
                           </Button>
@@ -322,7 +332,8 @@ export function UsersPage() {
                                 data: { is_admin: !user.is_admin },
                               })
                             }
-                            title="Toggle user admin"
+                            title={t("toggleAdmin")}
+                            aria-label={t("toggleAdmin")}
                           >
                             {user.is_admin ? (
                               <ShieldOff className="h-3.5 w-3.5 text-amber-400" />
@@ -341,12 +352,13 @@ export function UsersPage() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between border-t border-border/30 px-5 py-3">
                 <span className="font-numeric text-xs text-muted-foreground">
-                  Page {page + 1} of {totalPages}
+                  {pager.page(page + 1, totalPages)}
                 </span>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setPage((p) => Math.max(0, p - 1))}
                     disabled={page === 0}
+                    aria-label={pager.previous}
                     className="rounded-md p-1.5 transition-colors hover:bg-accent disabled:opacity-30"
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -356,6 +368,7 @@ export function UsersPage() {
                       setPage((p) => Math.min(totalPages - 1, p + 1))
                     }
                     disabled={page >= totalPages - 1}
+                    aria-label={pager.next}
                     className="rounded-md p-1.5 transition-colors hover:bg-accent disabled:opacity-30"
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -381,20 +394,20 @@ export function UsersPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-[11px] text-muted-foreground uppercase">
-                    Email
+                    {td("email")}
                   </p>
                   <p className="font-medium">{userDetail.email}</p>
                 </div>
                 <div>
                   <p className="text-[11px] text-muted-foreground uppercase">
-                    GitHub ID
+                    {td("githubId")}
                   </p>
                   <p className="font-medium">{userDetail.github_id ?? "—"}</p>
                 </div>
                 {userDetail.first_name && (
                   <div>
                     <p className="text-[11px] text-muted-foreground uppercase">
-                      Name
+                      {td("name")}
                     </p>
                     <p className="font-medium">
                       {userDetail.first_name} {userDetail.last_name}
@@ -404,7 +417,7 @@ export function UsersPage() {
                 {userDetail.current_role && (
                   <div>
                     <p className="text-[11px] text-muted-foreground uppercase">
-                      Role
+                      {td("role")}
                     </p>
                     <p className="font-medium">{userDetail.current_role}</p>
                   </div>
@@ -412,7 +425,7 @@ export function UsersPage() {
                 {userDetail.current_company && (
                   <div>
                     <p className="text-[11px] text-muted-foreground uppercase">
-                      Company
+                      {td("company")}
                     </p>
                     <p className="font-medium">{userDetail.current_company}</p>
                   </div>
@@ -420,7 +433,7 @@ export function UsersPage() {
                 {userDetail.seniority_level && (
                   <div>
                     <p className="text-[11px] text-muted-foreground uppercase">
-                      Seniority
+                      {td("seniority")}
                     </p>
                     <Badge
                       variant="outline"
@@ -430,14 +443,14 @@ export function UsersPage() {
                           "bg-muted text-muted-foreground",
                       )}
                     >
-                      {userDetail.seniority_level.replace("_", " ")}
+                      {seniorityLabel(userDetail.seniority_level)}
                     </Badge>
                   </div>
                 )}
                 {userDetail.location && (
                   <div>
                     <p className="text-[11px] text-muted-foreground uppercase">
-                      Location
+                      {td("location")}
                     </p>
                     <p className="font-medium">{userDetail.location}</p>
                   </div>
@@ -445,10 +458,16 @@ export function UsersPage() {
                 {userDetail.availability && (
                   <div>
                     <p className="text-[11px] text-muted-foreground uppercase">
-                      Availability
+                      {td("availability")}
                     </p>
-                    <p className="font-medium capitalize">
-                      {userDetail.availability.replace("_", " ")}
+                    <p
+                      className={cn(
+                        "font-medium",
+                        // pt-BR labels are sentence case already.
+                        locale !== "pt-BR" && "capitalize",
+                      )}
+                    >
+                      {availabilityLabel(userDetail.availability)}
                     </p>
                   </div>
                 )}
@@ -456,32 +475,40 @@ export function UsersPage() {
 
               <div className="rounded-lg border border-border/40 p-3">
                 <p className="mb-2 text-[11px] font-semibold text-muted-foreground uppercase">
-                  Application Stats
+                  {td("stats")}
                 </p>
                 <div className="grid grid-cols-4 gap-2 text-center">
                   <div>
                     <p className="font-numeric text-lg font-bold">
-                      {userDetail.total_applications}
+                      {n(userDetail.total_applications)}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">Total</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {td("total")}
+                    </p>
                   </div>
                   <div>
                     <p className="font-numeric text-lg font-bold text-primary">
-                      {userDetail.offers}
+                      {n(userDetail.offers)}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">Offers</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {td("offers")}
+                    </p>
                   </div>
                   <div>
                     <p className="font-numeric text-lg font-bold text-rose-400">
-                      {userDetail.denials}
+                      {n(userDetail.denials)}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">Denials</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {td("denials")}
+                    </p>
                   </div>
                   <div>
                     <p className="font-numeric text-lg font-bold text-amber-400">
-                      {userDetail.active_applications}
+                      {n(userDetail.active_applications)}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">Active</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {td("active")}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -489,7 +516,7 @@ export function UsersPage() {
               {userDetail.bio && (
                 <div>
                   <p className="text-[11px] text-muted-foreground uppercase">
-                    Bio
+                    {td("bio")}
                   </p>
                   <p className="mt-1 text-muted-foreground">{userDetail.bio}</p>
                 </div>
@@ -498,7 +525,7 @@ export function UsersPage() {
               {userDetail.tech_stack && userDetail.tech_stack.length > 0 && (
                 <div>
                   <p className="mb-1 text-[11px] text-muted-foreground uppercase">
-                    Tech Stack
+                    {td("techStack")}
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {userDetail.tech_stack.map((t) => (

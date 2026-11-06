@@ -6,8 +6,14 @@ import {
   CLOSE_TYPE_OPTIONS,
   EVENT_TYPE_CONFIG,
   EVENT_TYPE_OPTIONS,
+  INTERVIEW_TYPE_LABELS,
+  SALARY_PERIOD_LABELS,
   stageLabel,
+  stageShortLabel,
 } from "@/components/timeline/timeline-options";
+import { loadMessages } from "@/i18n/load-messages";
+import { setTranslatorLocale } from "@/i18n/translator";
+import { SelectOptions } from "@/options";
 
 /**
  * G9 (KODI-015 reference image): the interview event type uses the `Users`
@@ -87,5 +93,42 @@ describe("CLOSE_TYPE_OPTIONS", () => {
     expect(EVENT_TYPE_CONFIG.offer.hint).toBe(
       "An offer was extended — record the salary.",
     );
+  });
+});
+
+/**
+ * The shared stage vocabulary follows the active language at the moment it
+ * is read: Portuguese words, the same spaced hyphen; English is unchanged
+ * (the setup resets the translator to `en` after each test).
+ */
+describe("stage vocabulary by language", () => {
+  it("reads Portuguese under pt-BR, keeping the hyphen joiner", async () => {
+    setTranslatorLocale("pt-BR", await loadMessages("pt-BR"));
+    expect(stageLabel("interview", "technical")).toBe("Entrevista - Técnica");
+    expect(stageLabel("interview", "initial_screening")).toBe(
+      "Entrevista - Triagem inicial",
+    );
+    expect(stageLabel("offer")).toBe("Oferta");
+    expect(stageLabel("denied")).toBe("Recusada");
+    expect(stageShortLabel("interview", "hiring_manager")).toBe("Gestor");
+    expect(INTERVIEW_TYPE_LABELS.take_home).toBe("Desafio para casa");
+    expect(SALARY_PERIOD_LABELS.monthly).toBe("Mensal");
+    expect(SelectOptions.WORK_MODE.map((o) => o.label)).toEqual([
+      "Remoto",
+      "Híbrido",
+      "Presencial",
+    ]);
+  });
+
+  it("keeps the English words under en", () => {
+    expect(stageLabel("interview", "technical")).toBe("Interview - Technical");
+    expect(stageShortLabel("interview", "hiring_manager")).toBe("Manager");
+    expect(INTERVIEW_TYPE_LABELS.take_home).toBe("Take-home");
+    expect(SALARY_PERIOD_LABELS.monthly).toBe("Monthly");
+    expect(SelectOptions.WORK_MODE.map((o) => o.label)).toEqual([
+      "Remote",
+      "Hybrid",
+      "On-site",
+    ]);
   });
 });

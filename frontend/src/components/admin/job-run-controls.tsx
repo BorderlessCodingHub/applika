@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { CircleAlert, Info, LoaderCircle, RefreshCw, X } from "lucide-react";
+import { useLocale } from "next-intl";
 
 import { JOB_SOURCES_COPY } from "@/components/admin/job-sources-copy";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { cn } from "@/lib/utils";
 export interface JobRunNotice {
   /** "info" for the 409 (a run is already going), "error" for the 503 and anything else. */
   tone: "info" | "error";
-  /** The server's `detail`, verbatim. */
+  /** The error's words (by code, else the server's `detail`), as read when it failed. */
   message: string;
 }
 
@@ -39,6 +40,8 @@ export function JobSourcesHeader({
   className,
 }: JobSourcesHeaderProps) {
   const runNowRef = useRef<HTMLButtonElement>(null);
+  // Subscribes: JOB_SOURCES_COPY reads the active language at render.
+  useLocale();
 
   return (
     <div data-slot="job-sources-header" className={className}>
@@ -108,6 +111,7 @@ function JobRunNoticeBox({
   notice: JobRunNotice;
   onDismiss?: () => void;
 }) {
+  useLocale();
   const isError = notice.tone === "error";
   const Icon = isError ? CircleAlert : Info;
 

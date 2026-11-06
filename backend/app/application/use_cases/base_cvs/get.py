@@ -1,6 +1,7 @@
 """Get-master-CV use case."""
 
 from app.application.dto.base_cv import BaseCVDTO
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.base_cv_repository import BaseCVRepository
 
@@ -21,5 +22,7 @@ class GetBaseCVUseCase:
             base_cv_id, user_id
         )
         if not base_cv:
-            raise ResourceNotFound('Base CV not found')
+            raise ResourceNotFound(
+                'Base CV not found', ErrorCode.CV_BASE_CV_NOT_FOUND
+            )
         return BaseCVDTO.model_validate(base_cv)

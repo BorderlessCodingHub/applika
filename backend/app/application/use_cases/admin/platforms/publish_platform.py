@@ -2,6 +2,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.application.dto.platform import PlatformDTO
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceConflict, ResourceNotFound
 from app.domain.repositories.platform_repository import PlatformRepository
 
@@ -20,7 +21,9 @@ class PublishPlatformUseCase:
     async def execute(self, platform_id: int, admin_id: int) -> PlatformDTO:
         platform = await self.platform_repo.get_by_id(platform_id)
         if not platform:
-            raise ResourceNotFound('Platform not found')
+            raise ResourceNotFound(
+                'Platform not found', ErrorCode.CAT_PLATFORM_NOT_FOUND
+            )
 
         if platform.is_public:
             return await self._dto(platform)
@@ -31,7 +34,9 @@ class PublishPlatformUseCase:
         if collision:
             raise ResourceConflict(
                 'A public platform with this name already exists: '
-                f'{collision.name} (id {collision.id})'
+                f'{collision.name} (id {collision.id})',
+                ErrorCode.ADM_PUBLIC_PLATFORM_EXISTS,
+                params={'name': collision.name, 'id': str(collision.id)},
             )
 
         # Captured before the update: a rollback on the shared session (the
@@ -52,10 +57,14 @@ class PublishPlatformUseCase:
             if collision:
                 raise ResourceConflict(
                     'A public platform with this name already exists: '
-                    f'{collision.name} (id {collision.id})'
+                    f'{collision.name} (id {collision.id})',
+                    ErrorCode.ADM_PUBLIC_PLATFORM_EXISTS,
+                    params={'name': collision.name, 'id': str(collision.id)},
                 ) from err
             raise ResourceConflict(
-                f'A public platform with this name already exists: {name}'
+                f'A public platform with this name already exists: {name}',
+                ErrorCode.ADM_PUBLIC_PLATFORM_RACE,
+                params={'name': name},
             ) from err
 
         logger.info(

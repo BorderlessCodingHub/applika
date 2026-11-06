@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
@@ -9,6 +11,7 @@ import { SignInLink } from "../auth-buttons";
 
 export function HeroSection() {
   const { isAuthenticated, isLoading } = useAuth();
+  const t = useTranslations("landing");
 
   return (
     <section className="relative overflow-hidden">
@@ -21,17 +24,19 @@ export function HeroSection() {
             <div className="mb-6 inline-flex animate-fade-in-up items-center gap-2 rounded-full border border-border/60 bg-surface-elevated px-4 py-1.5 shadow-card">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
               <span className="font-display text-[10px] font-medium tracking-wide-label text-muted-foreground uppercase">
-                Job Application Tracker
+                {t("tagline")}
               </span>
             </div>
 
             <h2 className="animate-fade-in-up font-display text-4xl leading-[1.08] font-extrabold tracking-tight-display text-balance text-foreground stagger-1 md:text-5xl lg:text-[3.5rem]">
-              Manage your job search with{" "}
-              <span className="text-primary">clarity</span>
+              {t.rich("heroTitle", {
+                highlight: (chunks) => (
+                  <span className="text-primary">{chunks}</span>
+                ),
+              })}
             </h2>
             <p className="mx-auto mt-5 max-w-md animate-fade-in-up text-base leading-relaxed text-balance text-muted-foreground stagger-2 md:mx-0 md:text-lg">
-              Track applications, monitor your pipeline, and turn your job
-              search into a data-driven process with real-time analytics.
+              {t("heroBody")}
             </p>
             <div className="mt-8 flex animate-fade-in-up items-center justify-center gap-4 stagger-3 md:justify-start">
               {!isLoading && isAuthenticated ? (
@@ -41,7 +46,7 @@ export function HeroSection() {
                   className="h-12 gap-2 px-8 font-display text-base font-semibold"
                 >
                   <Link href="/dashboard">
-                    Go to Dashboard
+                    {t("goToDashboard")}
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
@@ -51,7 +56,7 @@ export function HeroSection() {
                   size="lg"
                   className="h-12 gap-2.5 px-8 font-display text-base font-semibold glow-primary"
                 >
-                  <SignInLink>Get started free</SignInLink>
+                  <SignInLink>{t("getStarted")}</SignInLink>
                 </Button>
               )}
             </div>

@@ -30,6 +30,7 @@ from app.application.use_cases.borderless.refresh_badges import (
 )
 from app.config.logging import logger
 from app.core.crypto import encrypt_borderless_token
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import (
     BORDERLESS_NOT_CONFIGURED,
     BindingConflict,
@@ -83,7 +84,9 @@ def new_user_dto(answer: BorderlessSignIn) -> UserCreateDTO:
 def encrypted_token(answer: BorderlessSignIn) -> tuple[str, datetime]:
     ciphertext = encrypt_borderless_token(answer.access_token)
     if ciphertext is None:
-        raise ServiceUnavailable(BORDERLESS_NOT_CONFIGURED)
+        raise ServiceUnavailable(
+            BORDERLESS_NOT_CONFIGURED, ErrorCode.AUTH_BORDERLESS_NOT_CONFIGURED
+        )
     expires_at = datetime.now(UTC) + timedelta(seconds=answer.expires_in)
     return ciphertext, expires_at
 

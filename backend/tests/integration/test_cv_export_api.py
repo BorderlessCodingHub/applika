@@ -33,6 +33,7 @@ import sqlalchemy as sa
 from httpx import AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import CVExportFailed
 from app.domain.models import ApplicationModel, BaseCVModel, TailoredCVModel
 from app.lib.types import generate_snowflake_id
@@ -43,6 +44,7 @@ from app.presentation.dependencies import (
 )
 from tests import msg
 from tests.base_db_setup import base_data
+from tests.error_catalog import code_for
 
 # ADR-0021: every route here needs the "cvs" beta feature; ``cvs_beta``
 # seeds it and puts the ``async_client`` user on its list.
@@ -585,12 +587,18 @@ async def test_diff_read_side_works_on_finalized_and_archived_applications(
 
 class _BrokenMarkdownRenderer:
     async def render(self, cv: Any) -> Any:
-        raise CVExportFailed('Could not render the CV Markdown')
+        raise CVExportFailed(
+            'Could not render the CV Markdown',
+            ErrorCode.CV_MARKDOWN_RENDER_FAILED,
+        )
 
 
 class _BrokenDiffPdfRenderer:
     async def render(self, markdown_content: str, slug: str) -> Any:
-        raise CVExportFailed('Could not render the CV diff PDF')
+        raise CVExportFailed(
+            'Could not render the CV diff PDF',
+            ErrorCode.CV_DIFF_PDF_RENDER_FAILED,
+        )
 
 
 @pytest.fixture
@@ -622,7 +630,10 @@ async def test_export_render_failure_is_a_500_with_a_fixed_detail(
     _, application_id = await _setup_copy(async_client)
     response = await async_client.get(f'/applications/{application_id}/{route}')
     assert response.status_code == 500, msg(500, response.text)
-    assert response.json() == {'detail': detail}, msg(detail, response.text)
+    assert response.json() == {
+        'detail': detail,
+        'code': code_for(detail),
+    }, msg(detail, response.text)
     assert 'Ada Example' not in response.text
 
 
@@ -632,4 +643,7 @@ async def test_master_cv_markdown_render_failure_is_a_500(
     base_cv = await _create_base_cv(async_client)
     response = await async_client.get(f'/base-cvs/{base_cv["id"]}/markdown')
     assert response.status_code == 500, msg(500, response.text)
-    assert response.json() == {'detail': 'Could not render the CV Markdown'}
+    assert response.json() == {
+        'detail': 'Could not render the CV Markdown',
+        'code': 'CV-1009',
+    }

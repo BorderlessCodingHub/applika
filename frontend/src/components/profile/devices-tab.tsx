@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
+import { useLocale } from "next-intl";
 import {
   CircleAlert,
   History,
@@ -67,6 +68,8 @@ export function DevicesTab({
   isRevokingOthers = false,
   className,
 }: DevicesTabProps) {
+  // Subscribes: the copy getters read the active language at call time.
+  useLocale();
   const activeHeadingId = useId();
   const endedHeadingId = useId();
   const othersHintId = useId();
@@ -113,7 +116,7 @@ export function DevicesTab({
         <div
           className={cn(
             SECTION_HEAD,
-            "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6",
+            "flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-6",
           )}
         >
           <div className="flex min-w-0 flex-col gap-1">
@@ -137,7 +140,7 @@ export function DevicesTab({
           </div>
 
           {state === "ready" && active.length > 0 ? (
-            <div className="flex flex-col gap-1.5 sm:shrink-0 sm:items-end">
+            <div className="flex flex-col gap-1.5 sm:items-start lg:shrink-0 lg:items-end">
               <ConfirmDialog
                 trigger={
                   <Button
@@ -153,7 +156,7 @@ export function DevicesTab({
                     onClick={(event) => {
                       if (othersLocked) event.preventDefault();
                     }}
-                    className="w-full hover:border-destructive/40 aria-disabled:opacity-60 sm:w-auto"
+                    className="h-auto min-h-8 w-full py-1.5 whitespace-normal hover:border-destructive/40 aria-disabled:opacity-60 sm:h-8 sm:w-auto sm:py-0 sm:whitespace-nowrap"
                   >
                     {isRevokingOthers ? (
                       <LoaderCircle

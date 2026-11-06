@@ -89,6 +89,32 @@ variables that `frontend/scripts/e2e.sh` exports after seeding the real users. T
 runs serially (`workers: 1`) against one shared real database, so specs must be
 read-only or clean up after themselves.
 
+**Languages in E2E.** Every spec runs in an `en-US` browser
+(`playwright.config.ts`); `e2e/language.spec.ts` (serial) is the only one
+with `test.use({ locale: "pt-BR" })`. It proves: a pt browser gets Portuguese
+with `html[lang="pt-BR"]` and no cookie written; the switcher on `/`,
+`/cookie-policy` (and its `NEXT_LOCALE` row), `/login`, `/cli/code`; EN writes
+`NEXT_LOCALE=en` (`Path=/`, `SameSite=Lax`, about one year) and survives a
+reload and `loginAs`; BR in the header switches `/applications` in place (same
+URL, no `framenavigated`, a `window` marker and a half-typed search survive);
+JOB-1004 and JOB-1003 (`params.max`) in Portuguese in the saved-search
+dialog (it tops e2e-user up to 10 saved searches through the API while the
+dialog is open, and deletes every `lang-e2e*` search before, after and in
+`afterAll`); `/admin` and `/admin/features` in Portuguese; a garbage cookie
+loses to the browser language (pt and en); no sideways scroll at 320px on
+landing, login and signed-in pages, both languages. **The pt-BR sweep** reads
+`smoke.spec.ts`'s `PAGES` rows from the file (a route added there is swept
+with no edit) and opens each in a pt context as its first visitor; it polls
+until no visible text node, and no visible `aria-label`/`placeholder`/
+`title`/`alt`, equals an `en` message whose `pt-BR` twin differs. Excluded:
+messages with ICU arguments or tags, words that are also a `pt-BR` value,
+brand names and endonyms, and elements under a non-Portuguese `lang` (the
+"English" radio), and every string of the page's 2xx JSON API answers (data
+is shown as sent and can equal a message: a job's `location_text` "Europe"
+is the `en` timezone region; 4xx bodies are never excluded, so a raw `detail`
+on screen still fails; the legacy `steps`/`feedbacks` lists of `/supports`,
+which the web never shows, are not collected).
+
 **Devices in E2E (KODI-058).** The seed also opens a `cli_device` session for
 `e2e-user` named "e2e-cli"; `frontend/scripts/e2e.sh` exports its tokens as
 `E2E_CLI_ACCESS_TOKEN` / `E2E_CLI_REFRESH_TOKEN`, and
@@ -186,11 +212,11 @@ form exactly once per stack) and `e2e-unverified`.
 `e2e/borderless-signin.spec.ts` (serial): wrong password / unknown email →
 "Invalid email or password"; unverified → "Verify your email on Borderless
 first"; e2e-free → `/welcome` → Start fresh → no chip, no Reports,
-`GET /reports` 403 `badge_required`; the profile restore aborted at
+`GET /reports` 403 `RPT-1001`; the profile restore aborted at
 `github.com` (`scope=read:user`, a `state`); e2e-user's PSP chip;
 `/auth/cli/authorize` → `/login?cli=1` → the loopback URL with `code` and
 `state` (intercepted, never redeemed); e2e-short expired → Reports entry
-kept, the menu and profile prompts, 403 `membership_unconfirmed`, confirm on
+kept, the menu and profile prompts, 403 `RPT-1002`, confirm on
 `/reports` → reports, chip back, sessions unchanged. It never signs a seeded
 user in through the web form (that would add a web session
 `devices.spec.ts` lists). `afterAll` signs e2e-free and e2e-short in through
@@ -337,10 +363,124 @@ retry.
 
 Providers are split into two layers:
 
-- **`RootProviders`** (`src/components/layout/root-providers.tsx`) — wraps the entire app in the root layout. Includes QueryClientProvider, ThemeProvider, AuthProvider, TooltipProvider, and Sonner.
+- **`RootProviders`** (`src/components/layout/root-providers.tsx`) — wraps the entire app in the root layout. Includes QueryClientProvider, `LocaleProvider` (inside the query client, above everything else, so Sonner toasts translate; see **i18n**), ThemeProvider, AuthProvider, TooltipProvider, and Sonner.
 - **`ProtectedProviders`** (`src/components/layout/protected-providers.tsx`) — wraps protected routes only. Adds a nested AuthProvider for protected-scope auth state.
 
 The `(protected)/layout.tsx` wraps children with `ProtectedProviders` + `SupportsProvider` + `CycleProvider`, redirects unauthenticated users to `/login`, and renders everything inside `<AppShell>` (see **App shell** below).
+
+### i18n (ADR-0025, plan 0019)
+
+Two languages, `en` (default) and `pt-BR`. **`next-intl` 4** (`^4.14.9`,
+supports Next 16 and React 19), used client-side only: `NextIntlClientProvider`,
+`useTranslations`, `useFormatter`, `createTranslator`. No next-intl plugin,
+routing or middleware (the site is `output: "export"`); no locale in the URL.
+
+- **`src/i18n/config.ts`**: `LOCALES`, `DEFAULT_LOCALE`, `LOCALE_COOKIE`
+  (`NEXT_LOCALE`), one-year max age, `isLocale`.
+- **`src/i18n/resolve-locale.ts`** (pure): a `NEXT_LOCALE` cookie of exactly
+  `en` or `pt-BR` wins; any other value is ignored; else any
+  `navigator.languages` entry `pt`, `pt-*` gives `pt-BR`; else `en`.
+  `localeCookieString` = `NEXT_LOCALE=<locale>; Path=/; Max-Age=31536000;
+SameSite=Lax` (not HttpOnly; JS writes it).
+- **`src/i18n/locale-provider.tsx`** `LocaleProvider` + `useLocaleSwitch()`
+  (`{locale, setLocale, toggleLocale, isPending}`). Every page renders `en`
+  first (the static HTML), so hydration always matches; the language resolves
+  in an effect after mount (English flash for pt visitors, accepted). A pick
+  writes the cookie (on pick only, never on resolve), swaps the messages in a
+  `useTransition` (`isPending`), sets `<html lang>` and points the translator
+  at the same language. No navigation: the tree stays mounted, typed values
+  stay. Cookies blocked: the pick holds for the page view. `timeZone` is UTC
+  on the prerender and the browser's after hydration.
+- **`src/i18n/load-messages.ts`**: `en.json` is in the main bundle, `pt-BR.json`
+  a lazy chunk fetched once.
+- **`src/i18n/translator.ts`**: a module store for code outside React
+  (`translate`, `hasMessage`); only `LocaleProvider` writes it. It is `en`
+  until the provider resolves, and in tests.
+- **`src/i18n/messages/en.json`, `pt-BR.json`**: same keys, same ICU arguments
+  and rich-text tags (`src/i18n/messages.test.ts`). **`en` values are today's
+  exact English words**, so word-asserting tests and e2e stay green. Portuguese
+  follows the `## Glossary` of `docs/plan/0019-language-switcher-and-error-codes.md`;
+  brand names (Applika, Borderless, GitHub, LinkedIn, BASE, PSP) never change.
+  Namespaces so far: `common` (shared primitives), `header`, `icons`, `auth`,
+  `cookies`, `errors`; the screens add theirs.
+- **Errors by code**: `src/lib/api-error-message.ts` is the one place an API
+  error body becomes words: `errors.<code>` with `params` (ICU) → else the
+  string `detail` (an unknown code, an old API) → else the caller's fallback,
+  by default `errors.unknown`. GEN-1003 (every validation 422) is one line; a
+  `detail` array never reaches the screen. `getApiError`, `getBlobApiError`,
+  `rateLimitNotice` (GEN-1004 / AUTH-1009 with `params.seconds`, else
+  `Retry-After`), `borderlessErrorWords` (`cliLoginExpired` = 400 AUTH-1019)
+  and every former direct `.detail` read (`jobApiDetail`, `safeErrorMessage`,
+  `deviceErrorText`, the admin pages' `serverDetail` / `serverErrorFrom`)
+  go through it, with their signatures unchanged. They read the active
+  language at call time, so a request answering after a switch shows the new
+  language. **Never read `response.data.detail` directly.**
+- **A new error** = an `ErrorCode` member in `backend/app/core/error_codes.py`,
+  plus its row in `docs/error-codes.md`, plus `errors.<CODE>` in both message
+  files (params as ICU args). `messages.test.ts` fails until all three agree.
+- **Render-time text must subscribe**: words computed through the module
+  translator during render do not refresh on a switch on their own. A
+  component that renders them also calls `useTranslations` or `useLocale`
+  (better: use `useTranslations` directly); the error helpers are for event
+  handlers and toasts.
+- **Server components cannot translate**: anything that renders words must be
+  under the client provider (`"use client"`). Page `metadata` stays English.
+- **The switcher**: `components/language-toggle.tsx` `LanguageToggle({ variant:
+"default" | "landing" })`, the Borderless platform's switcher ported whole
+  (raw `RadioGroup` from `radix-ui`, every class in exported constants, flags
+  in `components/icons/flag-us.tsx`, `flag-br.tsx`); `LanguageToggleView` is the
+  presentational half. Ungated (ADR-0025 beta exception): no `FeatureKey`,
+  `useHasFeature` or `FeatureGate`. Mount it outside any `<form>`; in
+  Playwright use `.click()`/`.check()`, not arrow keys.
+- **Where it mounts: four places, `variant="default"` in all of them**, in
+  both themes, at every width, no portal (it renders inline in its host's
+  layer of the **Stacking contract**): the signed-in `Header` (right before
+  `ThemeToggle`, so every protected page, `/welcome` and `/device` included);
+  `LandingHeader` (first in the controls group, before `ThemeToggle` and the
+  CTA; `/cookie-policy` shares it through `(public)/layout.tsx`); and the
+  top-right `absolute top-4 right-4 z-10` box of `SignInScreen` (`/login`) and
+  `CliCodeScreen` (`/cli/code`), before `ThemeToggle`, outside `<main>` and so
+  outside the form. Order is always language, then theme. The `landing` look
+  is ported but mounted NOWHERE. `language-toggle-mounts.test.tsx` scans
+  `src/**/*.tsx` for `<LanguageToggle` and expects exactly these four files,
+  each `variant="default"`: a new mount is added to its list.
+- **Locators for the switcher.** The group is a `radiogroup` named "Toggle
+  language" ("Alternar idioma" in Portuguese); its radios are NAMED by their
+  endonyms "English" and "Português" (each with its own `lang`) and their
+  visible TEXT is "EN" / "BR". Use `getByRole("radio", { name: "English" })`,
+  never `getByText("English")` (a CV language row can say "English" too). Every
+  protected page now carries those two radios, so a page-level
+  `getByRole("radio")` counts them: scope radio locators to the owning group or
+  dialog, and scope the switcher itself to the header (`getByRole("banner")`)
+  inside the shell (the cv-builder picker lesson). Substring pairs to anchor
+  after switching back to English: Cancel/Cancelar, Client/Cliente,
+  Confirm/Confirmar, Edit/Editar, Revert/Reverter.
+- **Dates**: `i18n/date-locale.ts` `dateFnsLocale(locale)`; `ui/date-picker.tsx`
+  and `ui/calendar.tsx` follow `useLocale()`. A date-picker's value keeps its
+  `pattern`, language-free; only the display changes.
+- **Tests**: `src/test/setup.ts` wraps every `render`/`renderHook` in an
+  `en` `NextIntlClientProvider` (a test's own `wrapper` sits inside it) and
+  resets the translator to `en` after each test. To test Portuguese, wrap in
+  `NextIntlClientProvider locale="pt-BR"` or call
+  `setTranslatorLocale("pt-BR", await loadMessages("pt-BR"))`. A screen that
+  holds the switcher needs `LocaleProvider`: `renderInPortuguese(ui, {
+localeSwitch: true })` (`src/test/portuguese.tsx`) for Portuguese,
+  `render(ui, { wrapper: LocaleProvider })` for English. `LocaleProvider` is
+  NOT in `setup.ts` (its after-mount effect would reset tests that set the
+  translator to pt-BR). `playwright.config.ts` pins `use.locale: "en-US"`;
+  only `language.spec.ts` runs Portuguese contexts.
+- **`react/jsx-no-literals` is an `error`** on `src/**/*.tsx` minus tests
+  (`*.test.tsx`, `src/test/**`), with `ignoreProps: true` (attributes are not
+  checked; review and the e2e sweep cover `aria-label`/`placeholder`). JSX text
+  must come from the message files; the `allowedStrings` in
+  `eslint.config.mjs` are only symbols and punctuation (`—`, `·`, `•`, `*`,
+  `:`, `,`, `%`, `+`, `@`, quotes…), brand names (Applika, applika,
+  `.dev`, Borderless, GitHub, LinkedIn, BASE, PSP, applika-cli, Discord) and
+  the endonyms (English, Português, EN, BR). A literal in braces
+  (`{"words"}`) is not caught: do not use it to dodge the rule. No file-level
+  override exists; the CV preview (`cv-document-blocks.tsx`) passes because its
+  English words are data or constants, not JSX text.
+- **The language E2E** is `e2e/language.spec.ts` (see **E2E**).
 
 ### Service Layer & DI
 
@@ -470,7 +610,7 @@ checked, onSelect, describedBy? }`). `CvCard` turns that into a native
   interactive control is ever nested inside another. Selected state is a
   filled radio dot AND a `border-primary`/`ring-primary` outline — never
   colour alone. The radio disables while `isDeleting` is true on that tile.
-- The cap is told on screen by `NewCvCard`, whose default `BASE_CV_LIMIT_REASON`
+- The cap is told on screen by `NewCvCard`, whose default `NEW_CV_COPY.limitReason`
   contains the words "the limit is three". Do NOT pass an API message as
   `reason`: the server's `detail` belongs in the 409 toast, and overriding the
   default would take those words off the screen.
@@ -502,7 +642,7 @@ large, use A4 dimensions". Three files, one seam:
 
 - `cv-page-sheet.tsx` owns the A4 geometry at 96dpi (`CV_PAGE_WIDTH_PX`,
   `CV_PAGE_HEIGHT_PX`, `CV_PAGE_PADDING_PX`, `CV_PAGE_CONTENT_HEIGHT_PX`), the
-  words (`cvPageIndicator`, `cvPageIndicatorLabel`, `CV_PAGE_OVERFLOW_NOTE`,
+  words (`cvPageIndicator`, `cvPageIndicatorLabel`, `CV_PREVIEW_COPY.overflowNote`,
   `cvPreviewPageCount`), the `CvPageLayout` contract and the presentational
   `CvPageStack` / `CvPageSheet`. Pure: props in, markup out.
 - `use-cv-page-flow.ts` is the only thing that measures. `distributeCvBlocks`
@@ -564,7 +704,7 @@ after:inset-0` against a `relative` header (`data-slot="cv-section-header"`).
   `items-center`, so the chevron sits on the centre of the whole two-line
   block ("align the chevron icons to the center vercially of the component").
 - **The preview's page breaks do NOT match the PDF's**, and the owner accepted
-  that: Typst owns the real layout. `CV_PDF_LAYOUT_NOTICE` therefore stays
+  that: Typst owns the real layout. `CV_EXPORT_COPY.layoutNotice` therefore stays
   exactly where and as it is. Now that the preview LOOKS like paginated A4 that
   notice does MORE work, not less.
 
@@ -579,7 +719,7 @@ section where i can create a category and inside this caregory add keywords".
   categories, each wrapping a `CvKeywordsInput`). Keyword reorder is
   KEYBOARD-ONLY (`Alt`+arrow) — a wrapping chip row has no room for two
   buttons per chip — and the keys are told in words once per field via
-  `CV_KEYWORDS_HINT` and per chip via `aria-keyshortcuts`. The keywords block
+  `CV_KEYWORDS_COPY.hint` and per chip via `aria-keyshortcuts`. The keywords block
   is deliberately NOT a `CvField`: that label wraps its child, and the first
   labelable node in a keyword field is a chip button the label would wrongly
   name.
@@ -668,7 +808,7 @@ the same reason: no client-side Markdown generation either.
   gallery's `Edit {name}` and `Delete {name}` do. It is COMPOSED as
   `` `${label} ${cvName}` ``, so a caller cannot break WCAG 2.5.3 by passing an
   unrelated string, and the visible text stays the plain label.
-- **The layout notice (`CV_PDF_LAYOUT_NOTICE` in `base-cvs/types.ts`) is said
+- **The layout notice (`CV_EXPORT_COPY.layoutNotice` in `base-cvs/types.ts`) is said
   where a PREVIEW is rendered, and only there.** It qualifies a render the user
   could mistake for the PDF; a surface with no render has nothing for it to
   qualify. Per surface:
@@ -691,7 +831,7 @@ the same reason: no client-side Markdown generation either.
   says. Assert the WORDS.
 
 - The visible label does not change while the server renders (1-3s): the icon
-  swaps to a spinner and `CV_PDF_EXPORT_PENDING` fills an always-mounted
+  swaps to a spinner and `CV_EXPORT_COPY.pdfPending` fills an always-mounted
   `aria-live` region, so the `"Download PDF"` locator stays stable.
 - `useExportBaseCvPdf` / `useExportTailoredCvPdf` own the request. They
   invalidate nothing (a download changes no row) and raise no SUCCESS toast —
@@ -719,7 +859,7 @@ job. The vocabulary is deliberate and worth keeping straight:
   APPLICATION, and there is at most one;
 - the copy is a full snapshot. Editing or deleting the master CV never touches
   it. Deleting the master only clears the copy's `base_cv_id`, and the editor
-  then shows the words `source CV deleted` (`TAILORED_CV_SOURCE_DELETED`).
+  then shows the words `source CV deleted` (`TAILORED_CV_SOURCE_COPY.deleted`).
 
 **There is no default master CV.** The user picks one per application, every
 time. `BaseCvPicker` is the only way to create a copy, and its one shortcut is
@@ -741,16 +881,16 @@ master CVs" link is GONE (owner decision, 2026-09-19: "remove the button to
 'manage master cvs' since all operations to manage cvs will also be available
 in the page") — every master CV operation (edit, delete, download, create) is
 already on this screen. The empty state (zero master CVs) is `/cvs`'s own
-(`BASE_CV_EMPTY_TITLE`/`BODY`/`CTA` in `base-cvs/base-cv-list.tsx`), not a
+(`cvs.list.emptyTitle`/`emptyBody`/`emptyCta` in `base-cvs/base-cv-list.tsx`), not a
 picker-specific invitation. **Read-only renders no cards at all** — just the
-`TailoredCvReadOnlyBanner` and `BASE_CV_PICKER_LOCKED_BODY`, no list, no
+`TailoredCvReadOnlyBanner` and `BASE_CV_PICKER_COPY.lockedBody`, no list, no
 create, exactly as before this slice.
 
 The module mirrors `base-cvs/` rather than forking it:
 
 - `types.ts` is the vocabulary (`TailoredCv`, `TailoredCvReadOnlyReason`) and
   owns the on-screen copy constants (`TAILORED_CV_READ_ONLY_COPY`,
-  `TAILORED_CV_SOURCE_DELETED`). Assert the WORDS, never the classes.
+  `TAILORED_CV_SOURCE_COPY`). Assert the WORDS, never the classes.
   `src/services/types/tailored-cv.ts` re-exports it.
 - `tailored-cv-schema.ts` mirrors `base-cv-schema.ts` field for field and
   carries every length ceiling explicitly. **Keep every client ceiling at or
@@ -987,7 +1127,7 @@ annually`; `hourly` survives only on a legacy offer migrated from a step or
 - **R-030 (at most one initial-screening interview).** `TimelineEventForm`
   takes `otherEvents` (every event but the one being edited) and disables
   `initial_screening` in `InterviewTypeSelect` — disabled, not hidden, with
-  `INITIAL_SCREENING_TAKEN_HINT` under the trigger — whenever another event is
+  `TIMELINE_COPY.initialScreeningTaken` under the trigger — whenever another event is
   already `interview`/`initial_screening`. The API 409s the same rule
   server-side; its detail reaches the user through the mutation's toast
   (`getApiError`).
@@ -1006,7 +1146,7 @@ annually`; `hourly` survives only on a legacy offer migrated from a step or
   select LOOKS fine, the save just fails).
 - **Legacy hourly offers (R-031 WATCH).** `SalaryPeriodToggle` shows NOTHING
   selected when the loaded value is `hourly` (its own zod branch only accepts
-  `monthly | annually`), and the edit form renders `LEGACY_HOURLY_OFFER_HINT`
+  `monthly | annually`), and the edit form renders `TIMELINE_COPY.legacyHourlyOffer`
   under it — the user must actively repick a period before the edit can save.
   Never default a legacy hourly offer to monthly/annually silently.
 - **Closing is the event dialog in close mode (PRD 0016).** The owner: "Just
@@ -1032,7 +1172,7 @@ annually`; `hourly` survives only on a legacy offer migrated from a step or
   `getApiError` (fallback "Could not close it", the dialog stays open — a 409
   reopen message reaches the user this way); "Please fix the highlighted
   fields before closing". The description always contains the word
-  "reversible" (`FINALIZE_REVERSIBLE_COPY`) beside a muted `RotateCcw`,
+  "reversible" (`APPLICATION_CLOSE_COPY.reversible`) beside a muted `RotateCcw`,
   because `useReopenApplication` makes the promise real.
   `useFinalizeApplication` takes an OPTIONAL payload
   (`{applicationId, payload?}`) and invalidates `["applications"]`,
@@ -1395,7 +1535,7 @@ application entry."
   section that floats beside the list.** It lost its own `h2`/description
   header (the tab trigger already says "Drafts") and its early-return on an
   empty list: with no drafts it renders "No drafts yet." plus a "New with CV"
-  link (`APPLICATIONS_PAGE_COPY.newWithCv`) instead of `null` — including
+  link (`applications.page.newWithCv`, the component subscribes through `useTranslations`) instead of `null` — including
   right after the LAST draft is deleted, so the tab never goes blank. It still
   returns `null` only while `isLoading`. Resume (`draftResumeHref`) always
   targets `/applications/new-with-cv?id=`; the PAGE decides step 1 vs step 2
@@ -1480,11 +1620,12 @@ linking are gone; nothing in `src/` calls `/auth/github/login` or
   `auth/borderless-credentials.tsx`) over RHF + zod
   (`lib/borderless-credentials-schema.ts`: email 1..100, password 1..200) →
   `services.auth.borderlessSignIn` (`POST /auth/borderless/signin`). Every
-  refusal shows the server's `detail` word for word in
+  refusal shows its message by code in the active language in
   `[data-slot="sign-in-error"]` (`lib/borderless-error.ts`
-  `borderlessErrorWords`: 401, 403 `email_unverified`, 409, 422
-  `email_unusable`, 429 with the wait, 503; a raw 422 array or no body gets a
-  fixed line). A 401 clears and focuses the password. The error box is
+  `borderlessErrorWords`, see **i18n**: 401 AUTH-1004, 403 AUTH-1005, 409
+  AUTH-1006 / AUTH-1007, 422 AUTH-1008, 429 AUTH-1009 with the wait, 503
+  AUTH-1017; an unknown code shows the API's `detail`; GEN-1003 is one line;
+  no body gets a fixed line). `en` repeats the API's words exactly. A 401 clears and focuses the password. The error box is
   always mounted with `role="alert"`, so `getByRole("alert")` finds it empty —
   assert the slot or the words. "Sign in" is in the h1, the button and the
   hint: Playwright needs `exact: true`. "Create a Borderless account" opens
@@ -1493,11 +1634,12 @@ linking are gone; nothing in `src/` calls `/auth/github/login` or
   307 the CLI's browser (with the `__cli_login` cookie). It never
   auto-redirects a signed-in browser and always asks for the password; the
   answer's `redirect_to` (the loopback URL with `code` and `state`) is
-  followed with `window.location.assign`. 400 "CLI login expired" adds "Run
-  applika login in your terminal again." The CLI branch sets no cookie. When
+  followed with `window.location.assign`. 400 AUTH-1019 "CLI login expired"
+  (keyed on the code, not the words) adds "Run applika login in your
+  terminal again." The CLI branch sets no cookie. When
   the `__cli_login` cookie itself lapsed (~5 min) the API does a WEB sign-in
   (`redirect_to: null`); the page then stays and says the terminal sign-in
-  expired (`CLI_HANDOFF_LOST` + the same hint) instead of navigating.
+  expired (`cliHandoffLostMessage()` + the same hint) instead of navigating.
 - **A web sign-in lands with a full navigation**: `new_account` → `/welcome`
   (the return-to path waits), else `consumeReturnTo() ?? "/dashboard"`. Full,
   because the sign-in may replace another account's session in the tab.
@@ -1526,8 +1668,9 @@ linking are gone; nothing in `src/` calls `/auth/github/login` or
   `borderless.email` + password → `POST /auth/borderless/confirm` (204, the
   applika session untouched) → awaits the refetch of `["user","me"]`,
   `["reports"]`, `["report"]`, toast "Membership confirmed". The 401
-  interceptor refreshes on this route only for "Not authenticated" — its
-  other 401 is a wrong password and is never replayed.
+  interceptor refreshes on this route only for AUTH-1001 "Not authenticated"
+  (the `detail` is compared only when an old API sends no code) — its other
+  401 is a wrong password (AUTH-1004) and is never replayed.
 - **Reports follow the badge.** `navItemsFor(isAdmin, features, {
 hasReportsBadge })` lists Reports only with a recorded badge
   (`badges.length > 0`, held or not; administrators included).
@@ -1538,7 +1681,8 @@ hasReportsBadge })` lists Reports only with a recorded badge
   (MutationObserver, 5 s) for the reports' h1 behind their skeleton and
   focuses it. `hooks/use-repports.ts` queries are also enabled only
   while held (`useHoldsReportsBadge`, a cache read of the user). The API is
-  the rule: 403 `badge_required` / `membership_unconfirmed`.
+  the rule: 403 RPT-1001 (was `badge_required`) / RPT-1002 (was
+  `membership_unconfirmed`).
 
 ### Profile — GitHub restore and membership (`src/components/profile/`, ADR-0024)
 
@@ -1875,7 +2019,7 @@ not admins can see starts in beta, gated the way `jobs` is below.
   the feature's hooks: `jobs-page.tsx` and `job-view-page.tsx` export a
   `FeatureGate` wrapper over an inner component, so no job request goes out
   without `jobs`.
-- **`components/features/beta-badge.tsx`** (`BetaBadge`, `BETA_LABEL`): the
+- **`components/features/beta-badge.tsx`** (`BetaBadge`, words in `features.beta`): the
   word "Beta", never colour alone; `size="sm"` in the nav, default beside an
   h1. Always a SIBLING of the h1, never inside it, so heading names stay
   exact (`jobs.spec.ts`). `JobDetailView` takes it through `titleBadge`.
@@ -2173,8 +2317,10 @@ isFullWidthPath(activePath) || fullWidth.requested`.
 - **`md` (48rem) is the only breakpoint.** At or above it: a fixed `w-60` rail
   and a one-row `h-14` header, with the account menu in the rail footer
   (`variant="card"`). Below it: the rail is hidden, the nav opens in a
-  `Sheet side="left" size="nav"` named "Navigation", and the header wraps to two
-  rows with the account menu in it (`variant="avatar"`).
+  `Sheet side="left" size="nav"` named "Navigation", and the header wraps:
+  brand row, controls row (agenda, language, theme, account), cycle row; the
+  first two share a row from ~452px. The account menu sits in the controls
+  row (`variant="avatar"`).
 - `AppShell` has a `matchMedia("(min-width: 48rem)")` effect that force-closes
   the sheet on a resize past `md`. Do not remove it: without it Radix keeps focus
   trapped and body scroll locked behind an `md:hidden` panel.

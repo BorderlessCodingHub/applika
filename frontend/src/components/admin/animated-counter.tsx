@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
 
+import { useFormatNumber } from "@/i18n/format-number";
+
 interface AnimatedCounterProps {
   value: number;
   duration?: number;
@@ -22,6 +24,7 @@ export function AnimatedCounter({
   const ref = useRef<HTMLSpanElement>(null);
   const isInView = useInView(ref, { once: true });
   const [displayed, setDisplayed] = useState(0);
+  const formatNumber = useFormatNumber();
 
   useEffect(() => {
     if (!isInView) return;
@@ -45,8 +48,8 @@ export function AnimatedCounter({
 
   const formatted =
     decimals > 0
-      ? displayed.toFixed(decimals)
-      : Math.round(displayed).toString();
+      ? formatNumber(displayed, decimals)
+      : formatNumber(Math.round(displayed));
 
   return (
     <motion.span

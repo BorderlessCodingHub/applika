@@ -9,6 +9,7 @@ day`` — enough to absorb any positive timezone offset.
 
 from datetime import UTC, date, datetime, timedelta
 
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import InvalidDate
 
 
@@ -43,7 +44,10 @@ def ensure_not_in_future(value: date, field_name: str) -> date:
     limit = _max_allowed_today()
     if value > limit:
         raise InvalidDate(
-            f'{field_name} cannot be in the future (max allowed: {limit.isoformat()})'
+            f'{field_name} cannot be in the future '
+            f'(max allowed: {limit.isoformat()})',
+            ErrorCode.APP_DATE_IN_FUTURE,
+            params={'field': field_name, 'date': limit.isoformat()},
         )
     return value
 
@@ -55,6 +59,8 @@ def ensure_not_before_yesterday(value: date, field_name: str) -> date:
     if value < limit:
         raise InvalidDate(
             f'{field_name} cannot be more than one day in the past '
-            f'(min allowed: {limit.isoformat()})'
+            f'(min allowed: {limit.isoformat()})',
+            ErrorCode.APP_DATE_TOO_OLD,
+            params={'field': field_name, 'date': limit.isoformat()},
         )
     return value

@@ -3,9 +3,13 @@ import { motion } from "framer-motion";
 import { useTopPlatforms } from "@/hooks/use-admin";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
+import { useTranslations } from "next-intl";
+import { useAdminNumber } from "./admin-format";
 
 export function TopPlatformsPanel() {
   const { data, isLoading } = useTopPlatforms();
+  const t = useTranslations("admin.dashboard.top");
+  const n = useAdminNumber();
 
   const max = data ? Math.max(...data.map((d) => d.total_across_users)) : 1;
 
@@ -19,7 +23,7 @@ export function TopPlatformsPanel() {
         <div className="mb-4 flex items-center gap-3">
           <div className="h-2 w-2 rounded-full bg-orange-400" />
           <h3 className="font-display text-sm font-semibold tracking-wide-label text-muted-foreground uppercase">
-            Top Platforms
+            {t("platforms")}
           </h3>
         </div>
 
@@ -47,10 +51,13 @@ export function TopPlatformsPanel() {
                     </span>
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] text-muted-foreground/60">
-                        {platform.unique_users} users
+                        {t("users", {
+                          count: platform.unique_users,
+                          total: n(platform.unique_users),
+                        })}
                       </span>
                       <span className="font-numeric text-sm font-bold text-foreground">
-                        {platform.total_across_users}
+                        {n(platform.total_across_users)}
                       </span>
                     </div>
                   </div>

@@ -2,6 +2,7 @@
 
 import { type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import {
   AlertDialog,
@@ -22,9 +23,9 @@ interface ConfirmDialogProps {
   title: ReactNode;
   /** Supporting copy explaining the consequence. */
   description?: ReactNode;
-  /** Confirm button label. Defaults to "Confirm". */
+  /** Confirm button label. Defaults to `common.confirm` ("Confirm"). */
   confirmLabel?: string;
-  /** Cancel button label. Defaults to "Cancel". */
+  /** Cancel button label. Defaults to `common.cancel` ("Cancel"). */
   cancelLabel?: string;
   /** Styles the confirm button as destructive (red). Defaults to `true`. */
   destructive?: boolean;
@@ -52,14 +53,15 @@ export function ConfirmDialog({
   trigger,
   title,
   description,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  cancelLabel,
   destructive = true,
   onConfirm,
   loading = false,
   open,
   onOpenChange,
 }: ConfirmDialogProps) {
+  const t = useTranslations("common");
   const controlled = onOpenChange != null;
 
   return (
@@ -74,7 +76,7 @@ export function ConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={loading}>
-            {cancelLabel}
+            {cancelLabel ?? t("cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
             disabled={loading}
@@ -87,7 +89,7 @@ export function ConfirmDialog({
             variant={destructive ? "destructive" : "default"}
           >
             {loading ? <Loader2 className="animate-spin" aria-hidden /> : null}
-            {confirmLabel}
+            {confirmLabel ?? t("confirm")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

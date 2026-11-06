@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
@@ -8,17 +10,17 @@ import { SignInLink } from "../auth-buttons";
 
 export function CtaSection() {
   const { isAuthenticated, isLoading } = useAuth();
+  const t = useTranslations("landing");
 
   return (
     <section className="relative border-t border-border/60">
       <div className="absolute inset-0 opacity-50 gradient-mesh" />
       <div className="relative mx-auto max-w-5xl px-4 py-16 text-center md:px-8 md:py-20">
         <h3 className="mb-4 font-display text-3xl font-extrabold tracking-tight-display text-foreground md:text-4xl">
-          Ready to take control of your job search?
+          {t("ctaTitle")}
         </h3>
         <p className="mx-auto mb-8 max-w-lg text-base text-muted-foreground md:text-lg">
-          Join hundreds of job seekers who track smarter, not harder. Free
-          forever.
+          {t("ctaBody")}
         </p>
         {!isLoading && isAuthenticated ? (
           <Button
@@ -27,7 +29,7 @@ export function CtaSection() {
             className="h-12 gap-2 px-10 font-display text-base font-semibold glow-primary"
           >
             <Link href="/dashboard">
-              Go to Dashboard
+              {t("goToDashboard")}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
@@ -37,7 +39,7 @@ export function CtaSection() {
             size="lg"
             className="h-12 gap-2.5 px-10 font-display text-base font-semibold glow-primary"
           >
-            <SignInLink>Get started free</SignInLink>
+            <SignInLink>{t("getStarted")}</SignInLink>
           </Button>
         )}
       </div>

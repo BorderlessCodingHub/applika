@@ -2,28 +2,34 @@
 
 import { useId } from "react";
 import { GitCompareArrows } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { CvDiffAdjustments } from "@/components/tailored-cvs/cv-diff-adjustments";
 import type { TailoredCvAdjustment } from "@/components/tailored-cvs/types";
 import { Switch } from "@/components/ui/switch";
+import { word } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
 
-export const CV_DIFF_TOGGLE_LABEL = "Show changes";
-
-/** Said in place of the master's name once it is deleted and only the snapshot is left. */
-export const CV_DIFF_ORIGINAL_MASTER = "the original master CV";
-
+/** "no changes", "1 change", "3 changes" in the active language. */
 export function cvDiffCountLabel(count: number): string {
-  if (count === 0) return "no changes";
-  return count === 1 ? "1 change" : `${count} changes`;
+  return word("cvs.diff.summaryCount", { count });
 }
 
+/**
+ * "Compared with <master CV name>: 3 changes". The master's name is user
+ * content and is never translated; once it is deleted and only the snapshot
+ * is left, "the original master CV" stands in. A component rendering it also
+ * subscribes (`useTranslations`).
+ */
 export function cvDiffSummaryLabel(
   baselineLabel: string | null | undefined,
   count: number,
 ): string {
-  const label = baselineLabel?.trim() || CV_DIFF_ORIGINAL_MASTER;
-  return `Compared with ${label}: ${cvDiffCountLabel(count)}`;
+  const label = baselineLabel?.trim() || word("cvs.diff.originalMaster");
+  return word("cvs.diff.comparedWith", {
+    label,
+    count: cvDiffCountLabel(count),
+  });
 }
 
 export interface CvDiffSummaryBarProps {
@@ -45,6 +51,7 @@ export function CvDiffSummaryBar({
   adjustments,
   className,
 }: CvDiffSummaryBarProps) {
+  const t = useTranslations("cvs.diff");
   const switchId = useId();
   const summaryId = useId();
   const showAdjustments = showChanges && !!adjustments?.length;
@@ -76,7 +83,7 @@ export function CvDiffSummaryBar({
           htmlFor={switchId}
           className="cursor-pointer text-sm font-medium select-none"
         >
-          {CV_DIFF_TOGGLE_LABEL}
+          {t("showChanges")}
         </label>
       </div>
       {showAdjustments && adjustments ? (

@@ -13,6 +13,7 @@ from app.application.use_cases.timeline_events.rules import (
     normalize_event,
 )
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -44,7 +45,9 @@ class CreateTimelineEventUseCase:
             data.application_id, data.user_id
         )
         if application is None:
-            raise ResourceNotFound(APPLICATION_NOT_FOUND)
+            raise ResourceNotFound(
+                APPLICATION_NOT_FOUND, ErrorCode.APP_APPLICATION_NOT_FOUND
+            )
 
         ensure_mutable(application)
         data = normalize_event(data)

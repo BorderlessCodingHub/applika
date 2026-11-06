@@ -26,6 +26,7 @@ from app.application.dto.job import JobBestFitDTO, JobDetailDTO, JobFitDTO
 from app.application.services.keyword_fit import cv_text, score_fit
 from app.application.use_cases.jobs.list_jobs import to_job_summary
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.models import BaseCVModel
 from app.domain.repositories.base_cv_repository import BaseCVRepository
@@ -72,7 +73,7 @@ class GetJobUseCase:
         if row is None or (
             not row.job.is_active and row.application_id is None
         ):
-            raise ResourceNotFound(JOB_NOT_FOUND)
+            raise ResourceNotFound(JOB_NOT_FOUND, ErrorCode.JOB_JOB_NOT_FOUND)
 
         fits: list[JobFitDTO] = []
         if with_fit:

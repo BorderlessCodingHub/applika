@@ -11,8 +11,10 @@ import { isAxiosError, type AxiosError } from "axios";
 import { toast } from "sonner";
 
 import { localCalendarDay } from "@/components/application-drafts/draft-copy";
+import { JOBS_COPY } from "@/components/jobs/job-copy";
 import { APPLICATION_DRAFTS_QUERY_KEY } from "@/hooks/use-application-drafts";
 import { getApiError } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { services } from "@/services/services";
 import type {
   DraftFromJobInput,
@@ -53,15 +55,13 @@ export function useJob(id: string | null | undefined) {
   });
 }
 
-/** The server's string `detail`, or `fallback` (a 422 `detail` can be an array). */
+/** The error's words by code, else its string `detail`, else `fallback` (`lib/api-error-message.ts`). */
 export function jobApiDetail(
   error: unknown,
-  fallback = "Something went wrong. Try again.",
+  fallback: string = JOBS_COPY.unknownError,
 ): string {
   if (!isAxiosError(error)) return fallback;
-  const detail = (error.response?.data as { detail?: unknown } | undefined)
-    ?.detail;
-  return typeof detail === "string" && detail ? detail : fallback;
+  return apiErrorMessage(error.response?.data, fallback);
 }
 
 export function apiStatus(error: unknown): number | undefined {

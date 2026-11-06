@@ -3,6 +3,7 @@ from app.application.dto.admin import (
     AdminCompanyUpdateDTO,
 )
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.admin_repository import AdminRepository
 from app.domain.repositories.company_repository import CompanyRepository
@@ -36,7 +37,9 @@ class UpdateAdminCompanyUseCase:
                     }
                 },
             )
-            raise ResourceNotFound('Company not found')
+            raise ResourceNotFound(
+                'Company not found', ErrorCode.CAT_COMPANY_NOT_FOUND
+            )
 
         update_data = data.model_dump(exclude_unset=True)
         for key, value in update_data.items():

@@ -3,6 +3,7 @@ from app.application.dto.platform import (
     PlatformUpdateDTO,
 )
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.platform_repository import (
     PlatformRepository,
@@ -32,7 +33,9 @@ class UpdatePlatformUseCase:
                     }
                 },
             )
-            raise ResourceNotFound('Platform not found')
+            raise ResourceNotFound(
+                'Platform not found', ErrorCode.CAT_PLATFORM_NOT_FOUND
+            )
 
         update_data = data.model_dump(exclude_unset=True)
         for key, value in update_data.items():

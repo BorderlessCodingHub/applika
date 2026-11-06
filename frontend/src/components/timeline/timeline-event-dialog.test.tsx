@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { FINALIZE_REVERSIBLE_COPY } from "@/components/applications/application-close-copy";
+import { APPLICATION_CLOSE_COPY } from "@/components/applications/application-close-copy";
 import { TimelineEventDialog } from "@/components/timeline/timeline-event-dialog";
 
 /**
@@ -91,7 +91,9 @@ describe("TimelineEventDialog — close mode", () => {
     );
 
     const dialog = screen.getByRole("dialog", { name: "Close application" });
-    expect(dialog).toHaveAccessibleDescription(FINALIZE_REVERSIBLE_COPY);
+    expect(dialog).toHaveAccessibleDescription(
+      APPLICATION_CLOSE_COPY.reversible,
+    );
     expect(dialog).toHaveAccessibleDescription(/reversible/i);
     expect(dialog.className).toContain("sm:max-w-3xl");
     expect(dialog.className).toContain("top-4");

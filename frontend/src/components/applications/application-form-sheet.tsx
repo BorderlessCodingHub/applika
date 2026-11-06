@@ -2,7 +2,10 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslations } from "next-intl";
 import { z } from "zod";
+import { formatNumber } from "@/i18n/format-number";
+import { getTranslatorLocale, word } from "@/i18n/translator";
 import {
   Company,
   ModeValues,
@@ -35,24 +38,25 @@ import { useCompanySearch } from "@/hooks/use-companies";
 import { useApplicationMutate } from "@/hooks/use-applications";
 import { useCreatePlatformOutcome } from "@/hooks/use-create-platform";
 
+/**
+ * A validation message read at validation time, so it is written in the
+ * active language (`applications.validation.*`).
+ */
+function message(key: string, values?: () => Record<string, string>) {
+  return { error: () => word(`applications.validation.${key}`, values?.()) };
+}
+
 const schema = z
   .object({
     company: ZodType.ZodSchema,
-    platform_id: z.string().min(1, "Platform is required"),
-    role: z.string().min(1, "Role is required"),
-    mode: z.enum(ModeValues, {
-      error: "Source is required",
-    }),
+    platform_id: z.string().min(1, message("platformRequired")),
+    role: z.string().min(1, message("roleRequired")),
+    mode: z.enum(ModeValues, message("sourceRequired")),
     application_date: z
       .string()
-      .min(1, "Application date is required")
-      .refine((v) => isNotFutureCalendarDay(v), "Date cannot be in the future"),
-    link_to_job: z.union([
-      z.literal(""),
-      z.httpUrl({
-        error: "Invalid url.",
-      }),
-    ]),
+      .min(1, message("dateRequired"))
+      .refine((v) => isNotFutureCalendarDay(v), message("dateInFuture")),
+    link_to_job: z.union([z.literal(""), z.httpUrl(message("invalidUrl"))]),
     currency: z.enum(SalaryCurrencyValues).optional(),
     salary_period: z.enum(SalaryPeriodValues).optional(),
     expected_salary: z.nan().or(z.number()),
@@ -68,7 +72,10 @@ const schema = z
       .string()
       .max(
         JOB_DESCRIPTION_MAX,
-        `Keep this under ${JOB_DESCRIPTION_MAX} characters`,
+        message("jobDescriptionTooLong", () => ({
+          // "50000" in English (as before), "50.000" in Portuguese.
+          max: formatNumber(JOB_DESCRIPTION_MAX, getTranslatorLocale()),
+        })),
       )
       .optional(),
   })
@@ -82,14 +89,14 @@ const schema = z
       if (!data.currency) {
         ctx.addIssue({
           code: "custom",
-          message: "Required when salary is set",
+          message: word("applications.validation.requiredWithSalary"),
           path: ["currency"],
         });
       }
       if (!data.salary_period) {
         ctx.addIssue({
           code: "custom",
-          message: "Required when salary is set",
+          message: word("applications.validation.requiredWithSalary"),
           path: ["salary_period"],
         });
       }
@@ -148,6 +155,7 @@ export function ApplicationFormSheet({
   const { data: platforms, isLoading: platformsLoading } = usePlatforms();
   const { fetchCompanies } = useCompanySearch();
   const createPlatformOutcome = useCreatePlatformOutcome();
+  const t = useTranslations("applications.form");
   const { submit: applicationSubmit, isPending } = useApplicationMutate({
     applicationId: application ? application.id : undefined,
     onSuccess: () => onOpenChange(false),
@@ -191,7 +199,7 @@ export function ApplicationFormSheet({
       <SheetContent className="overflow-y-auto" size="wide" hideClose>
         <SheetHeader>
           <SheetTitle className="font-display text-xl">
-            {application ? "Edit Application" : "New Application"}
+            {application ? t("editTitle") : t("newTitle")}
           </SheetTitle>
         </SheetHeader>
         <form
@@ -217,12 +225,12 @@ export function ApplicationFormSheet({
             variant="outline"
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {t("cancel")}
           </Button>
 
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {application ? "Save changes" : "Create application"}
+            {application ? t("save") : t("create")}
           </Button>
         </form>
       </SheetContent>

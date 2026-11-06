@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - applications timeline add --keep-open: with --type offer or denied, adds the event and keeps the application open; ignored with --type interview.
 - daily auto update: at most once a day, after a command finishes, applika-cli checks PyPI and installs a newer release with the tool it was installed with (uv tool, pipx or pip), then prints "Updated applika-cli <old> → <new>" on stderr. It stays off when the API base URL is not https://applika.dev/api (flag, APPLIKA_API_BASE_URL or saved session), when APPLIKA_DISABLE_AUTOUPDATE is set, outside an interactive terminal (CI, pipes, AI agents) and for source or editable installs. A failed check or install prints nothing and never changes the command's exit status.
 - applika update [--force]: checks PyPI now and installs the latest applika-cli with the tool it was installed with, in a terminal, in CI, in a pipe or from an AI agent. It lists every reason it refuses: an API base URL other than https://applika.dev/api (with where it comes from and the way back, --force or not), a source or editable install, an install it cannot identify, or APPLIKA_DISABLE_AUTOUPDATE (lifted by --force, the only thing --force does).
+- every API error now carries `code`, a numbered error code, next to its `detail`; `detail`, the statuses and the headers are unchanged, so every published version keeps working and prints the same messages.
 
 ### Changed
 
@@ -20,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - applications timeline add --type offer|denied closes the application with that event (POST /applications/{id}/finalize outcome body); --keep-open keeps it open; ignored with --type interview.
 - the API refuses event_type note and feedback (422); existing ones read as interview with interview_type unknown. 0.1.4 is unaffected: its steps keep their ids.
 - cvs *, applications cv * and drafts answer 404 without the "cvs" beta feature.
+- on an unhandled server error (500) the API answers JSON, so every version prints "Internal Server Error" where it printed "API request failed with status 500".
 
 ### Removed
 

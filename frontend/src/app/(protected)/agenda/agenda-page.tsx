@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import type { AxiosError } from "axios";
 import {
   Briefcase,
@@ -14,7 +15,6 @@ import {
 import { toast } from "sonner";
 
 import {
-  AGENDA_PAGE_COPY,
   agendaItemNames,
   agendaTabLabel,
 } from "@/components/agenda/agenda-copy";
@@ -90,29 +90,26 @@ function AgendaTabPanel({
   isEnabled,
   toggle,
 }: AgendaTabPanelProps) {
+  const t = useTranslations("agenda");
   function handleDownload(step: AgendaStep) {
     genAgendaStepIcsFile(step);
-    toast.success("Calendar event downloaded");
+    toast.success(t("downloaded"));
   }
 
   if (items.length === 0) {
     if (hadItemsBeforeFilter) {
-      return (
-        <EmptyState icon={SearchX} title={AGENDA_PAGE_COPY.emptyFiltered} />
-      );
+      return <EmptyState icon={SearchX} title={t("page.emptyFiltered")} />;
     }
     return (
       <EmptyState
         icon={tab === "upcoming" ? CalendarClock : History}
         title={
-          tab === "upcoming"
-            ? AGENDA_PAGE_COPY.emptyUpcoming
-            : AGENDA_PAGE_COPY.emptyPast
+          tab === "upcoming" ? t("page.emptyUpcoming") : t("page.emptyPast")
         }
         action={
           <LinkButton href="/applications" variant="outline">
             <Briefcase aria-hidden data-icon="inline-start" />
-            {AGENDA_PAGE_COPY.goToApplications}
+            {t("page.goToApplications")}
           </LinkButton>
         }
       />
@@ -159,6 +156,7 @@ function AgendaTabPanel({
 export function AgendaPage() {
   const { data: steps, isLoading, isError, error, refetch } = useAgenda();
   const { toggle, isEnabled } = useAgendaNotifications();
+  const t = useTranslations("agenda");
   const [search, setSearch] = useState("");
   const [interviewType, setInterviewType] = useState("all");
 
@@ -184,12 +182,12 @@ export function AgendaPage() {
         <div role="alert">
           <EmptyState
             icon={RefreshCw}
-            title={AGENDA_PAGE_COPY.loadErrorTitle}
+            title={t("page.loadErrorTitle")}
             description={getApiError(error as AxiosError)}
             action={
               <Button onClick={() => void refetch()}>
                 <RefreshCw aria-hidden data-icon="inline-start" />
-                {AGENDA_PAGE_COPY.retry}
+                {t("page.retry")}
               </Button>
             }
           />
@@ -217,10 +215,10 @@ export function AgendaPage() {
           <IconTile icon={CalendarClock} tone="primary" size="sm" />
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground sm:text-3xl">
-              {AGENDA_PAGE_COPY.title}
+              {t("page.title")}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {AGENDA_PAGE_COPY.subtitle}
+              {t("page.subtitle")}
             </p>
           </div>
         </div>
@@ -232,8 +230,8 @@ export function AgendaPage() {
               className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
             />
             <Input
-              placeholder={AGENDA_PAGE_COPY.searchPlaceholder}
-              aria-label={AGENDA_PAGE_COPY.searchLabel}
+              placeholder={t("page.searchPlaceholder")}
+              aria-label={t("page.searchLabel")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-11 pl-10"
@@ -242,7 +240,7 @@ export function AgendaPage() {
 
           <Select value={interviewType} onValueChange={setInterviewType}>
             <SelectTrigger
-              aria-label={AGENDA_PAGE_COPY.stageFilterLabel}
+              aria-label={t("page.stageFilterLabel")}
               className="h-11 flex-1 data-[size=default]:h-11 *:data-[slot=select-value]:flex-1 sm:w-48 sm:flex-none"
             >
               <Filter aria-hidden />
@@ -250,9 +248,7 @@ export function AgendaPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="all">
-                  {AGENDA_PAGE_COPY.allStages}
-                </SelectItem>
+                <SelectItem value="all">{t("page.allStages")}</SelectItem>
                 {INTERVIEW_TYPE_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
@@ -271,11 +267,11 @@ export function AgendaPage() {
             className="group/agenda-tab"
             aria-label={
               countsReady
-                ? agendaTabLabel(AGENDA_PAGE_COPY.upcomingTab, upcoming.length)
+                ? agendaTabLabel(t("page.upcomingTab"), upcoming.length)
                 : undefined
             }
           >
-            {AGENDA_PAGE_COPY.upcomingTab}
+            {t("page.upcomingTab")}
             {countsReady && (
               <Badge
                 aria-hidden="true"
@@ -291,11 +287,11 @@ export function AgendaPage() {
             className="group/agenda-tab"
             aria-label={
               countsReady
-                ? agendaTabLabel(AGENDA_PAGE_COPY.pastTab, past.length)
+                ? agendaTabLabel(t("page.pastTab"), past.length)
                 : undefined
             }
           >
-            {AGENDA_PAGE_COPY.pastTab}
+            {t("page.pastTab")}
             {countsReady && (
               <Badge
                 aria-hidden="true"

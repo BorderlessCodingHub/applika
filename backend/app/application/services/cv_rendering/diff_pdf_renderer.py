@@ -35,6 +35,7 @@ import typst
 from app.application.services.cv_rendering.renderer import FONTS_DIR
 from app.config.logging import logger
 from app.config.settings import envs
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import CVExportFailed
 
 DIFF_TEMPLATE_PATH = Path(__file__).parent / 'diff_template' / 'diff.typ'
@@ -101,7 +102,9 @@ class CVDiffPdfRenderer:
                     }
                 },
             )
-            raise CVExportFailed(RENDER_FAILED_MESSAGE) from exc
+            raise CVExportFailed(
+                RENDER_FAILED_MESSAGE, ErrorCode.CV_DIFF_PDF_RENDER_FAILED
+            ) from exc
         except Exception as exc:
             logger.error(
                 'CV diff PDF render failed',
@@ -112,7 +115,9 @@ class CVDiffPdfRenderer:
                     }
                 },
             )
-            raise CVExportFailed(RENDER_FAILED_MESSAGE) from exc
+            raise CVExportFailed(
+                RENDER_FAILED_MESSAGE, ErrorCode.CV_DIFF_PDF_RENDER_FAILED
+            ) from exc
         finally:
             shutil.rmtree(work_dir, ignore_errors=True)
 

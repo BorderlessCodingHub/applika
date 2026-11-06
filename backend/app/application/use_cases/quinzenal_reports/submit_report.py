@@ -1,7 +1,5 @@
 from datetime import UTC, date, datetime
 
-from fastapi import HTTPException
-
 from app.application.dto.quinzenal_report import (
     ReportDays,
     ReportMetricsDTO,
@@ -19,7 +17,12 @@ from app.application.use_cases.quinzenal_reports.resolve_report_webhooks import 
     ResolveReportWebhooksUseCase,
 )
 from app.config.logging import logger
-from app.core.exceptions import ResourceConflict
+from app.core.error_codes import ErrorCode
+from app.core.exceptions import (
+    ForbiddenAccess,
+    InvalidRequest,
+    ResourceConflict,
+)
 from app.domain.models import QuinzenalReportModel
 from app.domain.repositories.quinzenal_report_repository import (
     QuinzenalReportRepository,
@@ -146,41 +149,43 @@ class SubmitReportUseCase:
                     }
                 },
             )
-            raise ResourceConflict('Report already submitted')
+            raise ResourceConflict(
+                'Report already submitted', ErrorCode.RPT_ALREADY_SUBMITTED
+            )
 
         next_report_day = get_next_report_day(submitted_days)
         if next_report_day != report_day:
-            raise HTTPException(
-                status_code=403,
-                detail='Must submit current report before proceeding',
+            raise ForbiddenAccess(
+                'Must submit current report before proceeding',
+                ErrorCode.RPT_CURRENT_REPORT_FIRST,
             )
 
         if report_day == 1:
             if payload.start_date is None:
-                raise HTTPException(
-                    status_code=400,
-                    detail='start_date is required for day 1 report',
+                raise InvalidRequest(
+                    'start_date is required for day 1 report',
+                    ErrorCode.RPT_START_DATE_REQUIRED,
                 )
             if payload.start_date > date.today():
-                raise HTTPException(
-                    status_code=400,
-                    detail='start_date cannot be in the future',
+                raise InvalidRequest(
+                    'start_date cannot be in the future',
+                    ErrorCode.RPT_START_DATE_IN_FUTURE,
                 )
             start_date = payload.start_date
         else:
             day_one_report = reports_by_day.get(1)
             if day_one_report is None:
-                raise HTTPException(
-                    status_code=403,
-                    detail='Must submit day 1 report first',
+                raise ForbiddenAccess(
+                    'Must submit day 1 report first',
+                    ErrorCode.RPT_DAY_ONE_FIRST,
                 )
             start_date = day_one_report.start_date
 
         current_day = get_current_day(start_date)
         if current_day < report_day:
-            raise HTTPException(
-                status_code=403,
-                detail='Cannot submit report for a future day',
+            raise ForbiddenAccess(
+                'Cannot submit report for a future day',
+                ErrorCode.RPT_FUTURE_DAY,
             )
 
         period_start, period_end = get_report_period(report_day, start_date)

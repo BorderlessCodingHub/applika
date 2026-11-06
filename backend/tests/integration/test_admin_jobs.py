@@ -97,7 +97,10 @@ async def test_non_admin_is_403(
     response = await _call(async_client, method, url, body)
 
     assert response.status_code == 403, msg(403, response.text)
-    assert response.json() == {'detail': 'Admin access required'}
+    assert response.json() == {
+        'detail': 'Admin access required',
+        'code': 'ADM-1001',
+    }
     assert job_queue.ingests == 0
 
 
@@ -240,7 +243,10 @@ async def test_unknown_source_is_404(admin_client, sources):
     )
 
     assert response.status_code == 404, msg(404, response.text)
-    assert response.json() == {'detail': 'Job source not found'}
+    assert response.json() == {
+        'detail': 'Job source not found',
+        'code': 'ADM-1011',
+    }
 
 
 @pytest.mark.parametrize(
@@ -282,7 +288,10 @@ async def test_run_now_while_one_is_in_progress_is_409(admin_client, job_queue):
     response = await admin_client.post('/admin/jobs/runs')
 
     assert response.status_code == 409, msg(409, response.text)
-    assert response.json() == {'detail': 'A run is already in progress'}
+    assert response.json() == {
+        'detail': 'A run is already in progress',
+        'code': 'ADM-1009',
+    }
     assert job_queue.ingests == 0
 
 
@@ -292,7 +301,10 @@ async def test_run_now_with_the_queue_down_is_503(admin_client, job_queue):
     response = await admin_client.post('/admin/jobs/runs')
 
     assert response.status_code == 503, msg(503, response.text)
-    assert response.json() == {'detail': 'Background service unavailable'}
+    assert response.json() == {
+        'detail': 'Background service unavailable',
+        'code': 'ADM-1010',
+    }
     assert 'redis' not in response.text
 
 
@@ -308,7 +320,10 @@ async def test_run_now_when_only_the_enqueue_fails_is_503(
     response = await admin_client.post('/admin/jobs/runs')
 
     assert response.status_code == 503, msg(503, response.text)
-    assert response.json() == {'detail': 'Background service unavailable'}
+    assert response.json() == {
+        'detail': 'Background service unavailable',
+        'code': 'ADM-1010',
+    }
 
 
 async def test_run_now_with_the_real_lock(

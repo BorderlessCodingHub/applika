@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { MonthYearInput } from "./month-year-input";
 import { MONTH_YEAR_DISPLAY_FORMAT } from "@/lib/month-year";
+import { renderInPortuguese } from "@/test/portuguese";
 
 /**
  * The CV month-and-year control (KODI-007 / AC3).
@@ -228,6 +229,20 @@ describe("MonthYearInput", () => {
     const input = screen.getByLabelText("Start");
 
     expect(input).toBeDisabled();
+    expect(input).toHaveValue("02/2023");
+  });
+
+  it("says the format in Portuguese under pt-BR; the value stays ISO", async () => {
+    const onChange = vi.fn();
+    await renderInPortuguese(
+      <MonthYearInput
+        aria-label="Início"
+        value="2023-02"
+        onChange={onChange}
+      />,
+    );
+    const input = screen.getByRole("textbox", { name: "Início" });
+    expect(input).toHaveAttribute("placeholder", "MM/aaaa");
     expect(input).toHaveValue("02/2023");
   });
 });

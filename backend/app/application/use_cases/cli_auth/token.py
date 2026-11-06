@@ -12,6 +12,7 @@ from app.application.use_cases.sessions.open_session import (
 from app.application.use_cases.sessions.refresh_session import (
     RefreshSessionUseCase,
 )
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import InvalidSession, OAuthError
 from app.core.pkce import verify_s256
 
@@ -23,6 +24,15 @@ GRANT_TYPES = (AUTHORIZATION_CODE, REFRESH_TOKEN, DEVICE_CODE)
 INVALID_CODE = 'Invalid or expired code'
 REDIRECT_MISMATCH = 'redirect_uri does not match'
 VERIFIER_MISMATCH = 'Invalid code_verifier'
+
+# A refused refresh grant keeps the refresh route's message under an OAuth
+# code of its own: the same words, but a 400 ``invalid_grant`` here.
+_GRANT_CODES = {
+    ErrorCode.AUTH_NOT_AUTHENTICATED: ErrorCode.AUTH_GRANT_NOT_AUTHENTICATED,
+    ErrorCode.AUTH_INVALID_REFRESH: ErrorCode.AUTH_GRANT_INVALID_REFRESH,
+    ErrorCode.AUTH_USER_GONE: ErrorCode.AUTH_GRANT_USER_GONE,
+    ErrorCode.AUTH_SIGN_IN_AGAIN: ErrorCode.AUTH_GRANT_SIGN_IN_AGAIN,
+}
 
 
 class CliTokenUseCase:
@@ -51,11 +61,21 @@ class CliTokenUseCase:
         verifier is wrong, bound to its challenge and ``redirect_uri``."""
         state = await self.handoff_state.pop_exchange_code(code)
         if state is None or state.get('flow') != PKCE_FLOW:
-            raise OAuthError('invalid_grant', INVALID_CODE)
+            raise OAuthError(
+                'invalid_grant', INVALID_CODE, ErrorCode.AUTH_GRANT_INVALID_CODE
+            )
         if state.get('redirect_uri') != redirect_uri:
-            raise OAuthError('invalid_grant', REDIRECT_MISMATCH)
+            raise OAuthError(
+                'invalid_grant',
+                REDIRECT_MISMATCH,
+                ErrorCode.AUTH_GRANT_REDIRECT_MISMATCH,
+            )
         if not verify_s256(code_verifier, str(state.get('code_challenge'))):
-            raise OAuthError('invalid_grant', VERIFIER_MISMATCH)
+            raise OAuthError(
+                'invalid_grant',
+                VERIFIER_MISMATCH,
+                ErrorCode.AUTH_GRANT_VERIFIER_MISMATCH,
+            )
         return await self.open_session.execute(
             user_id=int(state['user_id']),
             client_type='cli',
@@ -71,7 +91,9 @@ class CliTokenUseCase:
         try:
             return await self.refresh_session.execute(refresh_token)
         except InvalidSession as err:
-            raise OAuthError('invalid_grant', err.message) from err
+            raise OAuthError(
+                'invalid_grant', err.message, _GRANT_CODES[err.code]
+            ) from err
 
     async def device_code(self, device_code: str) -> SessionTokensDTO:
         """An approved code becomes one ``cli_device`` session signed in as

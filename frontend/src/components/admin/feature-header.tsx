@@ -8,6 +8,7 @@ import {
   FEATURE_LIST_COPY,
   featureNotFoundBody,
   type FeatureRow,
+  useFeatureCopyLocale,
 } from "@/components/admin/feature-copy";
 import { FeatureStageBadge } from "@/components/admin/feature-stage-badge";
 import {
@@ -25,6 +26,7 @@ const H1 =
 
 /** `/admin/features`: the h1 and what a stage means. */
 export function FeatureListHeader({ className }: { className?: string }) {
+  useFeatureCopyLocale();
   return (
     <div data-slot="features-header" className={className}>
       <h1 className={H1}>{FEATURE_LIST_COPY.title}</h1>
@@ -58,6 +60,7 @@ export function FeatureHeader({
   action,
   className,
 }: FeatureHeaderProps) {
+  useFeatureCopyLocale();
   const rootRef = useRef<HTMLElement>(null);
   const retried = useRef(false);
   const state =
@@ -158,17 +161,18 @@ export function FeatureHeader({
 export interface FeatureNotFoundProps {
   /** The `?key=` asked for; absent or blank reads as "no key". */
   featureKey?: string | null;
-  /** The server's 404 `detail`, verbatim ("Feature not found"). */
+  /** The 404 in words (by its code, `api-error-message.ts`), e.g. "Feature not found". */
   message?: string | null;
   className?: string;
 }
 
-/** An unknown `?key=`: the 404 `detail` as the h1 and the way back to the list. */
+/** An unknown `?key=`: the 404 words as the h1 and the way back to the list. */
 export function FeatureNotFound({
   featureKey,
   message,
   className,
 }: FeatureNotFoundProps) {
+  useFeatureCopyLocale();
   return (
     <HeaderNotice
       data-slot="feature-not-found"

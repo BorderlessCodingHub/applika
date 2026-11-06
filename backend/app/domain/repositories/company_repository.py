@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dto.company import CompanyCreateDTO
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceConflict
 from app.domain.models import CompanyModel
 from app.domain.repositories.catalog_visibility import visible_to
@@ -114,7 +115,8 @@ class CompanyRepository:
         except IntegrityError as err:
             await self.session.rollback()
             raise ResourceConflict(
-                'A company with this name and URL already exists.'
+                'A company with this name and URL already exists.',
+                ErrorCode.CAT_COMPANY_EXISTS,
             ) from err
         except Exception as e:
             await self.session.rollback()

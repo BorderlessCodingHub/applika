@@ -5,7 +5,7 @@ import { useId } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FitBadge } from "@/components/jobs/fit-badge";
 import { FitKeywords } from "@/components/jobs/fit-keywords";
-import { JOBS_COPY } from "@/components/jobs/job-copy";
+import { useJobsCopy } from "@/components/jobs/job-copy";
 import { MasterCvInvitation } from "@/components/jobs/master-cv-invitation";
 import type { JobFit } from "@/services/types/jobs";
 import { cn } from "@/lib/utils";
@@ -36,6 +36,7 @@ export function JobFitList({
   isLoading = false,
   className,
 }: JobFitListProps) {
+  const copy = useJobsCopy();
   const headingId = useId();
   const rows: FitRow[] = (
     cvs ?? fits.map((fit) => ({ id: fit.base_cv_id, name: fit.base_cv_name }))
@@ -61,10 +62,10 @@ export function JobFitList({
           id={headingId}
           className="font-display text-base font-semibold text-foreground"
         >
-          {JOBS_COPY.fitTitle}
+          {copy.fitTitle}
         </h2>
         <p className="mt-1 text-sm text-pretty text-muted-foreground">
-          {JOBS_COPY.fitHint}
+          {copy.fitHint}
         </p>
       </div>
 
@@ -83,7 +84,7 @@ export function JobFitList({
       ) : cvs?.length === 0 ? (
         <MasterCvInvitation />
       ) : rows.length === 0 ? (
-        <p className="text-sm text-foreground/70">{JOBS_COPY.noFitBody}</p>
+        <p className="text-sm text-foreground/70">{copy.noFitBody}</p>
       ) : (
         <ul className="flex flex-col divide-y divide-border/60">
           {rows.map((row) => (
@@ -104,9 +105,7 @@ export function JobFitList({
                   missing={row.fit.missing_keywords}
                 />
               ) : (
-                <p className="text-sm text-foreground/70">
-                  {JOBS_COPY.noFitBody}
-                </p>
+                <p className="text-sm text-foreground/70">{copy.noFitBody}</p>
               )}
             </li>
           ))}

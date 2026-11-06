@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AreaChart,
@@ -12,9 +13,22 @@ import {
 } from "recharts";
 import { TrendingUp } from "lucide-react";
 import { useGeneralStats, useTrends } from "@/hooks/use-statistics";
+import { formatNumber } from "@/i18n/format-number";
+import type { TrendPoint } from "@/services/types/statistics";
 import { CustomTooltip } from "./chart-styles";
 import { RangeSlider } from "@/components/ui/range-slider";
 import { Card } from "../ui/card";
+
+/**
+ * A day on the trend's axis: English keeps the API's `MM-DD`; Portuguese
+ * writes `DD/MM`. Read from `application_date` (`YYYY-MM-DD`), no `Date`, so
+ * no zone can shift the day.
+ */
+export function trendDayLabel(point: TrendPoint, locale: string): string {
+  if (locale !== "pt-BR") return point.label;
+  const [, month, day] = point.application_date.substring(0, 10).split("-");
+  return month && day ? `${day}/${month}` : point.label;
+}
 
 export function ApplicationTrendChart({
   cycleId,
@@ -22,6 +36,8 @@ export function ApplicationTrendChart({
   cycleId?: string | null;
 }) {
   const { data: trends, isLoading } = useTrends(cycleId);
+  const t = useTranslations("dashboard.trend");
+  const locale = useLocale();
   const { data: stats } = useGeneralStats();
 
   const total = stats?.total_applications ?? 0;
@@ -36,8 +52,10 @@ export function ApplicationTrendChart({
     if (!trends || trends.length === 0) return [];
     const startIdx = Math.round((range[0] / 100) * (trends.length - 1));
     const endIdx = Math.round((range[1] / 100) * (trends.length - 1));
-    return trends.slice(startIdx, endIdx + 1);
-  }, [trends, range]);
+    return trends
+      .slice(startIdx, endIdx + 1)
+      .map((point) => ({ ...point, label: trendDayLabel(point, locale) }));
+  }, [trends, range, locale]);
 
   const startLabel = visibleData[0]?.label ?? "";
   const endLabel = visibleData[visibleData.length - 1]?.label ?? "";
@@ -47,16 +65,14 @@ export function ApplicationTrendChart({
     <Card className="animate-fade-in-up p-5">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h2 className="text-base">Application Trend</h2>
-          <p className="text-xs text-muted-foreground">
-            Daily applications submitted over the last 30 days
-          </p>
+          <h2 className="text-base">{t("title")}</h2>
+          <p className="text-xs text-muted-foreground">{t("description")}</p>
         </div>
         {!isLoading && trendPct !== 0 && (
           <div className="flex items-center justify-center gap-1 text-primary">
             <TrendingUp className="h-5 w-5" />
             <span className="font-display text-base font-semibold">
-              +{trendPct}%
+              +{formatNumber(trendPct, locale)}%
             </span>
           </div>
         )}
@@ -95,6 +111,7 @@ export function ApplicationTrendChart({
             <YAxis
               tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
               stroke="none"
+              tickFormatter={(v: number) => formatNumber(v, locale)}
             />
             <Tooltip
               content={<CustomTooltip />}
@@ -105,8 +122,8 @@ export function ApplicationTrendChart({
             <Area
               type="monotone"
               dataKey="total_applications"
-              name="Total"
-              label="Total applications"
+              name={t("series")}
+              label={t("seriesLabel")}
               stroke="var(--chart-1)"
               strokeWidth={2}
               fill="url(#trendGradient)"

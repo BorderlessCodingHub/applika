@@ -14,9 +14,11 @@ import { TopPlatformsPanel } from "@/components/admin/top-platforms-panel";
 import { TopCompaniesPanel } from "@/components/admin/top-companies-panel";
 import { ActivityHeatmap } from "@/components/admin/activity-heatmap";
 import { useAuth } from "@/contexts/auth-context";
+import { useTranslations } from "next-intl";
 
 export function AdminPage() {
   const { user } = useAuth();
+  const t = useTranslations("admin.dashboard");
 
   return (
     <div className="space-y-5">
@@ -34,11 +36,11 @@ export function AdminPage() {
                 <Shield className="h-3.5 w-3.5 text-amber-400" />
               </div>
               <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground">
-                Admin Console
+                {t("title")}
               </h1>
             </div>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Platform-wide analytics and user management
+              {t("subtitle")}
             </p>
           </div>
 

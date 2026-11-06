@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { StatCards } from "@/components/dashboard/stat-cards";
 import { ApplicationTrendChart } from "@/components/dashboard/application-trend-chart";
 import { StepConversionChart } from "@/components/dashboard/step-conversion-chart";
@@ -10,17 +11,16 @@ import { useCycleContext } from "@/contexts/cycle-context";
 
 export function DashboardPage() {
   const { selectedCycleId, isViewingPastCycle } = useCycleContext();
+  const t = useTranslations("dashboard");
 
   return (
     <div className="space-y-3">
       <div>
         <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground">
-          Dashboard
+          {t("title")}
         </h1>
         <p className="mt-0.5 text-base text-muted-foreground">
-          {isViewingPastCycle
-            ? "Viewing archived cycle"
-            : "Your application analytics at a glance"}
+          {isViewingPastCycle ? t("subtitlePast") : t("subtitle")}
         </p>
       </div>
 
@@ -28,12 +28,12 @@ export function DashboardPage() {
 
       <ApplicationTrendChart cycleId={selectedCycleId} />
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <StepConversionChart cycleId={selectedCycleId} />
         <AvgDaysPerStepChart cycleId={selectedCycleId} />
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <PlatformBreakdown cycleId={selectedCycleId} />
         <ActiveVsPassiveChart cycleId={selectedCycleId} />
       </div>

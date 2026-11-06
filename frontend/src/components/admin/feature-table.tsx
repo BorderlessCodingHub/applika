@@ -21,10 +21,12 @@ import {
   featureAccessKind,
   featureAccessShort,
   featureHref,
+  formatFeatureCount,
   formatFeatureDate,
   type FeatureAccess,
   type FeatureAccessKind,
   type FeatureRow,
+  useFeatureCopyLocale,
 } from "@/components/admin/feature-copy";
 import { FeatureStageBadge } from "@/components/admin/feature-stage-badge";
 import { EmptyState } from "@/components/common/empty-state";
@@ -83,6 +85,7 @@ export function FeatureTable({
   isRefreshing = false,
   className,
 }: FeatureTableProps) {
+  useFeatureCopyLocale();
   const captionId = useId();
   const cardRef = useRef<HTMLDivElement>(null);
   const retried = useRef(false);
@@ -248,7 +251,7 @@ function FeatureTableRow({ feature }: { feature: FeatureRow }) {
         data-slot="feature-beta-count"
         className={cn(CELL, "text-right font-numeric text-foreground")}
       >
-        {feature.beta_user_count.toLocaleString("en")}
+        {formatFeatureCount(feature.beta_user_count)}
       </TableCell>
 
       <TableCell className={cn(CELL, "whitespace-nowrap")}>
@@ -284,6 +287,7 @@ export function FeatureAccessSummary({
   me: FeatureAccess;
   className?: string;
 }) {
+  useFeatureCopyLocale();
   const kind = featureAccessKind(me);
   const { icon: Icon, tone } = ACCESS_ICON[kind];
   return (
@@ -331,6 +335,7 @@ export function FeatureDescription({
   value: string | null;
   className?: string;
 }) {
+  useFeatureCopyLocale();
   const text = value?.trim();
   return (
     <p
@@ -356,6 +361,7 @@ export function FeatureReleased({
   releasedAt: string | null;
   className?: string;
 }) {
+  useFeatureCopyLocale();
   if (stage === "beta") {
     return (
       <span

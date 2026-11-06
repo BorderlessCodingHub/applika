@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import {
   ReportDays,
   ReportDaysType,
@@ -25,6 +28,22 @@ import { Label } from "../ui/label";
 import { SectionHeader, StatCard } from "./sub-components";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
+import { useFormatNumber } from "@/i18n/format-number";
+import { useIntlLocale } from "@/i18n/intl-locale";
+
+/**
+ * The challenge's start day (`YYYY-MM-DD`): English keeps the ISO date it has
+ * always shown; Portuguese writes `DD/MM/YYYY`. No `Date`, so no zone shift.
+ */
+export function formatReportDay(
+  iso: string | null | undefined,
+  intlLocale: string,
+): string {
+  if (!iso) return "—";
+  if (intlLocale !== "pt-BR") return iso;
+  const [year, month, day] = iso.substring(0, 10).split("-");
+  return year && month && day ? `${day}/${month}/${year}` : iso;
+}
 
 interface ReportReadOnlyProps {
   dayInterval: ReportDaysType;
@@ -40,6 +59,9 @@ export function ReportReadOnly({
   const metrics = reportData.metrics;
   const manualMetrics = reportData.manual_metrics;
   const reportPhase = reportData.report?.phase ?? 1;
+  const t = useTranslations("reports.detail");
+  const formatNumber = useFormatNumber();
+  const intlLocale = useIntlLocale();
 
   return (
     <div className="max-w-7xl space-y-4 py-2">
@@ -51,13 +73,13 @@ export function ReportReadOnly({
           className="mb-3 flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ChevronLeft className="h-4 w-4" />
-          Back to Reports
+          {t("back")}
         </button>
         <h1 className="font-display text-2xl font-bold tracking-tight">
-          Report — Day {dayInterval} of {ReportDays.at(-1)}
+          {t("heading", { day: dayInterval, total: ReportDays.at(-1) ?? 0 })}
         </h1>
         <span className="text-sm font-medium text-primary">
-          Phase {reportPhase}
+          {t("phase", { phase: reportPhase })}
         </span>
       </div>
 
@@ -66,28 +88,28 @@ export function ReportReadOnly({
         <CardContent className="p-5">
           <SectionHeader
             icon={Bot}
-            title="Auto-Calculated Metrics"
-            description="These metrics are automatically calculated from your application data."
+            title={t("autoTitle")}
+            description={t("autoDescription")}
           />
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard
               icon={Briefcase}
-              label="Applications"
+              label={t("applications")}
               value={metrics?.applications_count ?? 0}
             />
             <StatCard
               icon={Users}
-              label="Interviews Done"
+              label={t("interviewsDone")}
               value={metrics?.interviews_completed_fortnight ?? 0}
             />
             <StatCard
               icon={Award}
-              label="Offers"
+              label={t("offers")}
               value={metrics?.offers_count ?? 0}
             />
             <StatCard
               icon={TrendingUp}
-              label="Active Processes"
+              label={t("activeProcesses")}
               value={metrics?.active_processes_count ?? 0}
             />
           </div>
@@ -97,20 +119,23 @@ export function ReportReadOnly({
       {/* ── Manual Metrics ───────────────────────────────────────────── */}
       <Card>
         <CardContent className="p-5">
-          <SectionHeader icon={Target} title="Manual Metrics" />
+          <SectionHeader icon={Target} title={t("manualTitle")} />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <Label className="mb-1.5 block">Challenge Start Date</Label>
+              <Label className="mb-1.5 block">{t("startDate")}</Label>
               <Input
                 className="bg-secondary/40 disabled:opacity-100"
                 disabled
-                value={reportData.period?.start_date ?? "—"}
+                value={formatReportDay(
+                  reportData.period?.start_date,
+                  intlLocale,
+                )}
               />
             </div>
             <div>
               <Label className="mb-1.5 flex items-center gap-1.5">
                 <Mic className="h-3.5 w-3.5 text-muted-foreground" />
-                Mock Interviews
+                {t("mockInterviews")}
               </Label>
               <Input
                 className="bg-secondary/40 disabled:opacity-100"
@@ -121,7 +146,7 @@ export function ReportReadOnly({
             <div>
               <Label className="mb-1.5 flex items-center gap-1.5">
                 <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
-                LinkedIn Posts
+                {t("linkedinPosts")}
               </Label>
               <Input
                 className="bg-secondary/40 disabled:opacity-100"
@@ -132,7 +157,7 @@ export function ReportReadOnly({
             <div>
               <Label className="mb-1.5 flex items-center gap-1.5">
                 <Network className="h-3.5 w-3.5 text-muted-foreground" />
-                Strategic Connections
+                {t("strategicConnections")}
               </Label>
               <Input
                 className="bg-secondary/40 disabled:opacity-100"
@@ -149,14 +174,14 @@ export function ReportReadOnly({
         <CardContent className="p-5">
           <SectionHeader
             icon={Flame}
-            title="Reflection"
+            title={t("reflection")}
             iconClass="text-amber-500 dark:text-amber-400"
           />
           <div className="space-y-4">
             <div>
               <Label className="mb-1.5 flex items-center gap-1.5">
                 <TrendingUp className="h-3.5 w-3.5 text-primary" />
-                Biggest Win
+                {t("biggestWin")}
               </Label>
               <Textarea
                 className="resize-none bg-secondary/40 disabled:opacity-100"
@@ -167,7 +192,7 @@ export function ReportReadOnly({
             <div>
               <Label className="mb-1.5 flex items-center gap-1.5">
                 <HelpCircle className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
-                Biggest Challenge
+                {t("biggestChallenge")}
               </Label>
               <Textarea
                 className="resize-none bg-secondary/40 disabled:opacity-100"
@@ -182,27 +207,27 @@ export function ReportReadOnly({
       {/* ── Accumulated Totals ───────────────────────────────────────── */}
       <Card>
         <CardContent className="p-5">
-          <SectionHeader icon={BarChart3} title="Accumulated Totals" />
+          <SectionHeader icon={BarChart3} title={t("totalsTitle")} />
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard
               icon={Briefcase}
-              label="Total Applications"
+              label={t("totalApplications")}
               value={metrics?.total_applications_count ?? 0}
             />
             <StatCard
               icon={Users}
-              label="Total Initial Screenings"
+              label={t("totalScreenings")}
               value={metrics?.total_initial_screenings_count ?? 0}
             />
             <StatCard
               icon={Percent}
-              label="Callback Rate"
-              value={`${((metrics?.callback_rate ?? 0) * 100).toFixed(1)}%`}
+              label={t("callbackRate")}
+              value={`${formatNumber((metrics?.callback_rate ?? 0) * 100, 1)}%`}
             />
             <StatCard
               icon={Layers}
-              label="Offer Rate"
-              value={`${((metrics?.offer_rate ?? 0) * 100).toFixed(1)}%`}
+              label={t("offerRate")}
+              value={`${formatNumber((metrics?.offer_rate ?? 0) * 100, 1)}%`}
             />
           </div>
         </CardContent>
@@ -211,10 +236,13 @@ export function ReportReadOnly({
       {/* ── Next Fortnight Goal ──────────────────────────────────────── */}
       <Card>
         <CardContent className="p-5">
-          <SectionHeader icon={Target} title="Next Fortnight Goal" />
+          <SectionHeader icon={Target} title={t("goalTitle")} />
           <p className="-mt-2 mb-4 text-xs text-muted-foreground">
-            What do you want to achieve in the next{" "}
-            <span className="font-semibold text-primary">14 days</span>?
+            {t.rich("goalPrompt", {
+              strong: (chunks) => (
+                <span className="font-semibold text-primary">{chunks}</span>
+              ),
+            })}
           </p>
           <Textarea
             className="resize-none bg-secondary/40 disabled:opacity-100"

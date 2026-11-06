@@ -2,17 +2,14 @@
 
 import { useId, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
-import {
-  DEVICE_SIGN_IN_COPY,
-  isCompleteUserCode,
-  normalizeUserCode,
-} from "./device-sign-in-copy";
+import { isCompleteUserCode, normalizeUserCode } from "./device-sign-in-copy";
 
 export interface DeviceCodeFormProps {
   /** Controlled; already normalized ("BCDF-GHJK"). */
@@ -36,12 +33,13 @@ export function DeviceCodeForm({
   autoFocus = false,
   className,
 }: DeviceCodeFormProps) {
+  const t = useTranslations("device");
   const inputId = useId();
   const hintId = useId();
   const errorId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [incomplete, setIncomplete] = useState(false);
-  const message = incomplete ? DEVICE_SIGN_IN_COPY.incomplete : error;
+  const message = incomplete ? t("incomplete") : error;
 
   return (
     <form
@@ -62,7 +60,7 @@ export function DeviceCodeForm({
         className,
       )}
     >
-      <Label htmlFor={inputId}>{DEVICE_SIGN_IN_COPY.codeLabel}</Label>
+      <Label htmlFor={inputId}>{t("codeLabel")}</Label>
       <Input
         ref={inputRef}
         id={inputId}
@@ -79,13 +77,13 @@ export function DeviceCodeForm({
         spellCheck={false}
         inputMode="text"
         maxLength={9}
-        placeholder={DEVICE_SIGN_IN_COPY.codePlaceholder}
+        placeholder={t("codePlaceholder")}
         aria-invalid={message ? true : undefined}
         aria-describedby={message ? `${hintId} ${errorId}` : hintId}
         className="mt-2 h-14 text-center font-mono text-2xl tracking-widest uppercase md:text-2xl"
       />
       <p id={hintId} className="mt-2 text-xs text-muted-foreground">
-        {DEVICE_SIGN_IN_COPY.codeHint}
+        {t("codeHint")}
       </p>
       <p
         id={errorId}
@@ -108,7 +106,7 @@ export function DeviceCodeForm({
             className="motion-safe:animate-spin"
           />
         ) : null}
-        {DEVICE_SIGN_IN_COPY.continue}
+        {t("continue")}
       </Button>
     </form>
   );

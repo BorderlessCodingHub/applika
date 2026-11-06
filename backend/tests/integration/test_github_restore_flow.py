@@ -86,7 +86,9 @@ async def test_restored_signs_in_as_the_old_account_and_deletes_the_new(
     assert _status(response) == 'restored'
     access = response.cookies.get(ACCESS_COOKIE_NAME)
     assert decode_token(access or '')['sub'] == str(OLD_ID)
-    me = await real_client.get('/users/me', cookies={ACCESS_COOKIE_NAME: access})
+    me = await real_client.get(
+        '/users/me', cookies={ACCESS_COOKIE_NAME: access}
+    )
     assert me.json()['id'] == str(OLD_ID)
     assert me.json()['github_id'] == GITHUB_ID
     assert [b['badge'] for b in me.json()['badges']] == ['borderless_psp']
@@ -235,11 +237,17 @@ async def test_restore_begin_refusals(
     cookies = {ACCESS_COOKIE_NAME: old.access_token}
     taken = await real_client.post('/auth/github/restore', cookies=cookies)
     assert taken.status_code == 409
-    assert taken.json() == {'detail': 'This account already has its GitHub data'}
+    assert taken.json() == {
+        'detail': 'This account already has its GitHub data',
+        'code': 'AUTH-1045',
+    }
     github_oauth.configured = False
     off = await real_client.post('/auth/github/restore', cookies=cookies)
     assert off.status_code == 503
-    assert off.json() == {'detail': 'GitHub restore is not configured'}
+    assert off.json() == {
+        'detail': 'GitHub restore is not configured',
+        'code': 'AUTH-1044',
+    }
 
 
 async def test_identity_is_read_once_from_github_never_from_borderless(

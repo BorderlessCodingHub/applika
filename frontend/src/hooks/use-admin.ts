@@ -9,6 +9,7 @@ import {
 import { AxiosError } from "axios";
 import { toast } from "sonner";
 
+import { word } from "@/i18n/translator";
 import { getApiError } from "@/lib/api-client";
 import { services } from "@/services/services";
 import type {
@@ -103,7 +104,7 @@ export function useUpdateAdminUser() {
       qc.invalidateQueries({ queryKey: ["admin", "users"] });
       qc.invalidateQueries({ queryKey: ["admin", "user"] });
       qc.invalidateQueries({ queryKey: ["admin", "platform-stats"] });
-      toast.success("User updated");
+      toast.success(word("admin.toasts.userUpdated"));
     },
     onError: (err: AxiosError) => toast.error(getApiError(err)),
   });
@@ -127,7 +128,7 @@ export function useCreateAdminCompany() {
       services.admin.createCompany(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "companies"] });
-      toast.success("Company created");
+      toast.success(word("admin.toasts.companyCreated"));
     },
     onError: (err: AxiosError) => toast.error(getApiError(err)),
   });
@@ -145,7 +146,7 @@ export function useUpdateAdminCompany() {
     }) => services.admin.updateCompany(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "companies"] });
-      toast.success("Company updated");
+      toast.success(word("admin.toasts.companyUpdated"));
     },
     onError: (err: AxiosError) => toast.error(getApiError(err)),
   });
@@ -157,7 +158,7 @@ export function useDeleteAdminCompany() {
     mutationFn: (id: string) => services.admin.deleteCompany(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "companies"] });
-      toast.success("Company deleted");
+      toast.success(word("admin.toasts.companyDeleted"));
     },
     onError: (err: AxiosError) => toast.error(getApiError(err)),
   });
@@ -209,7 +210,7 @@ export function useCreateAdminPlatform() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "platforms"] });
       qc.invalidateQueries({ queryKey: ["supports"] });
-      toast.success("Platform created");
+      toast.success(word("admin.toasts.platformCreated"));
     },
     onError: (err: AxiosError) => toast.error(getApiError(err)),
   });
@@ -228,7 +229,7 @@ export function useUpdateAdminPlatform() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "platforms"] });
       qc.invalidateQueries({ queryKey: ["supports"] });
-      toast.success("Platform updated");
+      toast.success(word("admin.toasts.platformUpdated"));
     },
     onError: (err: AxiosError) => toast.error(getApiError(err)),
   });
@@ -241,7 +242,7 @@ export function useDeleteAdminPlatform() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "platforms"] });
       qc.invalidateQueries({ queryKey: ["supports"] });
-      toast.success("Platform deleted");
+      toast.success(word("admin.toasts.platformDeleted"));
     },
     onError: (err: AxiosError) => toast.error(getApiError(err)),
   });
@@ -269,7 +270,7 @@ export function useCreateReportWebhook() {
       services.admin.createReportWebhook(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ADMIN_REPORT_WEBHOOKS_KEY });
-      toast.success("Webhook added");
+      toast.success(word("admin.toasts.webhookAdded"));
     },
   });
 }
@@ -281,7 +282,7 @@ export function useUpdateReportWebhook() {
       services.admin.updateReportWebhook(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ADMIN_REPORT_WEBHOOKS_KEY });
-      toast.success("Webhook updated");
+      toast.success(word("admin.toasts.webhookUpdated"));
     },
   });
 }
@@ -292,7 +293,7 @@ export function useDeleteReportWebhook() {
     mutationFn: (id: string) => services.admin.deleteReportWebhook(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ADMIN_REPORT_WEBHOOKS_KEY });
-      toast.success("Webhook deleted");
+      toast.success(word("admin.toasts.webhookDeleted"));
     },
     onError: (err: AxiosError) => toast.error(getApiError(err)),
   });

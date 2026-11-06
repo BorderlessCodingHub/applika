@@ -1,5 +1,7 @@
 import type { AxiosError } from "axios";
 
+import { apiErrorMessage, unknownErrorMessage } from "@/lib/api-error-message";
+
 /**
  * `getApiError` for a request made with `responseType: "blob"`.
  *
@@ -8,10 +10,10 @@ import type { AxiosError } from "axios";
  * `getApiError` reads `detail` straight off `response.data` and would hand the
  * toast `undefined`. This reads the bytes back first.
  *
- * It also GUARDS the shape, which `getApiError` deliberately does not: FastAPI
- * answers a 422 with `detail` as an ARRAY of objects, and that must never reach
- * a toast as `[object Object]`. Only a non-empty string is shown; anything else
- * becomes the generic message.
+ * Once parsed, the body goes through the same chain as `getApiError`
+ * (`lib/api-error-message.ts`): the `code` in the active language, else a
+ * non-empty string `detail`, else the generic line. A 422's `detail` array
+ * never reaches a toast as `[object Object]`.
  *
  * It lives here rather than in `api-client.ts` so it can be used — and tested —
  * without dragging in the axios singleton, which imports the service container
@@ -37,9 +39,8 @@ function readBlobText(blob: Blob): Promise<string> {
 }
 
 export async function getBlobApiError(error: AxiosError): Promise<string> {
-  const fallback = "Something went wrong";
   const data = error.response?.data;
-  if (!data) return fallback;
+  if (!data) return unknownErrorMessage();
 
   let payload: unknown = data;
   if (typeof Blob !== "undefined" && data instanceof Blob) {
@@ -47,10 +48,9 @@ export async function getBlobApiError(error: AxiosError): Promise<string> {
       payload = JSON.parse(await readBlobText(data));
     } catch {
       // An empty body, or a gateway's own HTML error page.
-      return fallback;
+      return unknownErrorMessage();
     }
   }
 
-  const detail = (payload as { detail?: unknown } | null)?.detail;
-  return typeof detail === "string" && detail ? detail : fallback;
+  return apiErrorMessage(payload);
 }

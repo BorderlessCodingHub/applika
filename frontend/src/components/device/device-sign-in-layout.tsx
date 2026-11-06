@@ -1,8 +1,9 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
-
-import { DEVICE_SIGN_IN_COPY } from "./device-sign-in-copy";
 
 export function DeviceSignInLayout({
   children,
@@ -11,6 +12,7 @@ export function DeviceSignInLayout({
   children: ReactNode;
   className?: string;
 }) {
+  const t = useTranslations("device");
   return (
     <div
       data-slot="device-sign-in"
@@ -18,10 +20,10 @@ export function DeviceSignInLayout({
     >
       <div className="min-w-0">
         <h1 className="font-display text-2xl font-bold tracking-tight-display text-foreground sm:text-3xl">
-          {DEVICE_SIGN_IN_COPY.title}
+          {t("title")}
         </h1>
         <p className="mt-1 text-sm text-pretty text-muted-foreground">
-          {DEVICE_SIGN_IN_COPY.lead}
+          {t("lead")}
         </p>
       </div>
       {children}

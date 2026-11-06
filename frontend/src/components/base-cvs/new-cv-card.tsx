@@ -2,16 +2,20 @@
 
 import { useId } from "react";
 import { FilePlus2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button, LinkButton } from "@/components/ui/button";
 import { BASE_CVS_MAX } from "@/components/base-cvs/types";
+import { liveCopy } from "@/i18n/translator";
 import { cn } from "@/lib/utils";
 
 /**
- * Default on-screen reason when the cap is reached. It carries the words
- * "the limit is three" verbatim, which AC2 requires to be visible.
+ * The create tile's words, in the active language (`cvs.new.*`).
+ * `limitReason` is the default on-screen reason when the cap is reached; in
+ * English it carries the words "the limit is three" verbatim, which AC2
+ * requires to be visible. Components rendering it subscribe
+ * (`useTranslations`). Never spread this object: a spread freezes the words.
  */
-export const BASE_CV_LIMIT_REASON =
-  "You already have 3 master CVs — the limit is three. Delete one to create another.";
+export const NEW_CV_COPY = liveCopy("cvs.new", ["title", "limitReason"]);
 
 export interface NewCvCardProps {
   /** Destination for the create action. */
@@ -35,9 +39,10 @@ export function NewCvCard({
   href,
   count,
   max = BASE_CVS_MAX,
-  reason = BASE_CV_LIMIT_REASON,
+  reason,
   className,
 }: NewCvCardProps) {
+  const t = useTranslations("cvs.new");
   const reasonId = useId();
   const remaining = Math.max(0, max - count);
   const atLimit = remaining === 0;
@@ -66,7 +71,7 @@ export function NewCvCard({
             id={reasonId}
             className="max-w-xs text-sm text-pretty text-muted-foreground"
           >
-            {reason}
+            {reason ?? t("limitReason")}
           </p>
           <Button
             type="button"
@@ -75,13 +80,13 @@ export function NewCvCard({
             disabled
             aria-describedby={reasonId}
           >
-            New master CV
+            {t("title")}
           </Button>
         </>
       ) : (
         <>
           <p id={reasonId} className="text-sm text-muted-foreground">
-            {`${remaining} of ${max} ${remaining === 1 ? "slot" : "slots"} left`}
+            {t("slotsLeft", { remaining, max })}
           </p>
           <LinkButton
             href={href}
@@ -89,7 +94,7 @@ export function NewCvCard({
             size="sm"
             aria-describedby={reasonId}
           >
-            New master CV
+            {t("title")}
           </LinkButton>
         </>
       )}

@@ -258,7 +258,7 @@ async def test_unusable_borderless_email_is_422_before_any_write(
             await use_case.execute(email, PASSWORD)
 
     assert excinfo.value.status_code == 422
-    assert excinfo.value.code == 'email_unusable'
+    assert excinfo.value.code == 'AUTH-1008'
     assert excinfo.value.message == (
         'This Borderless email cannot be used with applika: it must be a '
         'valid address of at most 100 characters'

@@ -472,7 +472,7 @@ async def test_no_badge_is_403_badge_required(
     assert response.status_code == 403, msg(403, response.status_code)
     assert response.json() == {
         'detail': 'Reports are for Borderless BASE and PSP members',
-        'code': 'badge_required',
+        'code': 'RPT-1001',
     }
 
 
@@ -482,7 +482,7 @@ async def test_admin_without_a_badge_is_refused_too(
 ):
     response = await _call(admin_client, method, path, body)
     assert response.status_code == 403
-    assert response.json()['code'] == 'badge_required'
+    assert response.json()['code'] == 'RPT-1001'
 
 
 async def test_revoked_badge_only_is_badge_required(
@@ -499,7 +499,7 @@ async def test_revoked_badge_only_is_badge_required(
     )
     await db_session.commit()
     response = await async_client.get('/reports')
-    assert response.json()['code'] == 'badge_required'
+    assert response.json()['code'] == 'RPT-1001'
 
 
 @pytest.mark.parametrize(('method', 'path', 'body'), ROUTES)
@@ -527,7 +527,7 @@ async def test_badge_that_does_not_count_is_403_membership_unconfirmed(
     assert response.status_code == 403
     assert response.json() == {
         'detail': 'Sign in again to confirm your membership',
-        'code': 'membership_unconfirmed',
+        'code': 'RPT-1002',
     }
 
 

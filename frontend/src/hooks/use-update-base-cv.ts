@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { BASE_CVS_QUERY_KEY } from "@/hooks/use-base-cvs";
 import { JOB_QUERY_KEY, JOBS_QUERY_KEY } from "@/hooks/use-jobs";
+import { word } from "@/i18n/translator";
 import { getApiError } from "@/lib/api-client";
 import { services } from "@/services/services";
 import type { BaseCv, UpdateBaseCvPayload } from "@/services/types/base-cv";
@@ -27,7 +28,7 @@ export function useUpdateBaseCv(
         queryClient.invalidateQueries({ queryKey: JOBS_QUERY_KEY }),
         queryClient.invalidateQueries({ queryKey: JOB_QUERY_KEY }),
       ]);
-      toast.success("Master CV saved");
+      toast.success(word("cvs.toasts.saved"));
       opts?.onSuccess?.(cv);
     },
     onError: (error: AxiosError) => toast.error(getApiError(error)),

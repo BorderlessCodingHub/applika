@@ -21,6 +21,7 @@ from app.application.dto.tailored_cv import (
     TailoredCVCreateDTO,
     TailoredCVUpdateDTO,
 )
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import BusinessRuleViolation
 from app.core.features import FeatureKey
 from app.lib.types import SnowflakeID
@@ -94,7 +95,9 @@ async def create_tailored_cv(
     if payload.tailoring == 'keywords' and not await user_has_feature(
         FeatureKey.JOBS, c_user, feature_repo
     ):
-        raise BusinessRuleViolation(UNKNOWN_TAILORING)
+        raise BusinessRuleViolation(
+            UNKNOWN_TAILORING, ErrorCode.CV_UNKNOWN_TAILORING
+        )
     data = TailoredCVCreateDTO(
         user_id=c_user.id,
         application_id=application_id,

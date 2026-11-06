@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { LocaleProvider } from "@/i18n/locale-provider";
 
 import { CycleProvider } from "@/contexts/cycle-context";
 import { AppShell } from "./app-shell";
@@ -45,6 +46,8 @@ function renderShell(
         </AppShell>
       </CycleProvider>
     </QueryClientProvider>,
+    // The shell header holds the language switcher.
+    { wrapper: LocaleProvider },
   );
 }
 
@@ -164,6 +167,7 @@ describe("the shell's content container", () => {
           </AppShell>
         </CycleProvider>
       </QueryClientProvider>,
+      { wrapper: LocaleProvider },
     );
     expect(contentContainer(container).dataset.width).toBe("full");
 

@@ -1,6 +1,6 @@
 # ADR-0019: Device sessions in Redis, a session claim checked on every request, and OAuth-style CLI sign-in (amends ADR-0002 and ADR-0015, exception to ADR-0018)
 
-**Status:** Accepted (LuisMSoares, 2026-10-15) · Amended by ADR-0024 on 2026-10-29 (`sub` is `users.id`; CLI sign-in lands on the Borderless sign-in page; `borderless` sign-in method) · **Date:** 2026-10-15 · **Deciders:** LuisMSoares
+**Status:** Accepted (LuisMSoares, 2026-10-15) · Amended by ADR-0024 on 2026-10-29 (`sub` is `users.id`; CLI sign-in lands on the Borderless sign-in page; `borderless` sign-in method) · Amended by ADR-0025 on 2026-10-31 (the 503 carries `code` AUTH-1003; OAuth errors add `code` beside `error`) · **Date:** 2026-10-15 · **Deciders:** LuisMSoares
 
 ## Context
 
@@ -97,6 +97,11 @@ contract text:
   `GET /auth/cli/authorize` answers 307 as specified.
 - *Web device-code calls.* `verifyDeviceCode`, `approveDeviceCode` and `denyDeviceCode` live in the web's
   `session-service.ts` (with the device list and revoke calls), not in `auth-service.ts` as the plan named.
+
+**Amendment note (2026-10-31, ADR-0025, PRD 0019).** The fail-closed 503 adds `"code": "AUTH-1003"` next to the
+unchanged `detail`: `{"detail": "Session service unavailable", "code": "AUTH-1003"}`, still with `Retry-After: 5`. OAuth
+errors on `POST /auth/token` keep `error` and add `code` beside it: `{"error": <RFC 6749/8628 code>, "detail", "code"}`.
+CLI 1.1.0 still reads `error`, and every installed CLI still reads `detail`.
 
 ## Non-goals
 

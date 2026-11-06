@@ -3,6 +3,8 @@
 import * as React from "react";
 import { format, parse } from "date-fns";
 import { CalendarIcon } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { dateFnsLocale } from "@/i18n/date-locale";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -38,7 +40,7 @@ interface DatePickerInputProps {
  * @param value - The selected date string (yyyy-MM-dd)
  * @param pattern - Optional date pattern used in onChange (default: yyyy-MM-dd)
  * @param onChange - Callback when date changes
- * @param placeholder - Placeholder text
+ * @param placeholder - Placeholder text (default `common.pickDate`)
  * @param minDate - Optional minimum selectable date
  * @param maxDate - Optional maximum selectable date
  * @param disabled - Optional function to disable specific dates
@@ -48,7 +50,7 @@ export function DatePickerInput({
   value,
   pattern = "yyyy-MM-dd",
   onChange,
-  placeholder = "Pick a date",
+  placeholder,
   minDate,
   maxDate,
   disabled,
@@ -59,6 +61,10 @@ export function DatePickerInput({
   "aria-describedby": ariaDescribedby,
 }: DatePickerInputProps) {
   const [open, setOpen] = React.useState(false);
+  const t = useTranslations("common");
+  // The trigger writes the date the way the active language does; the value
+  // handed to `onChange` keeps `pattern`, language-free.
+  const locale = dateFnsLocale(useLocale());
 
   const isDateDisabled = (date: Date) => {
     // Check min date
@@ -98,7 +104,9 @@ export function DatePickerInput({
           )}
         >
           <CalendarIcon className="mr-2 size-4" />
-          {value ? format(formatDate(value), pattern) : placeholder}
+          {value
+            ? format(formatDate(value), pattern, { locale })
+            : (placeholder ?? t("pickDate"))}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">

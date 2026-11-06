@@ -135,7 +135,7 @@ export function CvSectionCard({
                 "after:absolute after:inset-0 after:content-['']",
               )}
             >
-              <span className="block truncate">{title}</span>
+              <span className="block leading-tight break-words">{title}</span>
             </CollapsibleTrigger>
           ) : (
             title

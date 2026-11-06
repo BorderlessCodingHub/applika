@@ -1,25 +1,13 @@
 "use client";
 
 import { useId } from "react";
+import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
 
 import { GithubIcon } from "@/components/brand-icons";
 import { GITHUB_RESTORE_COPY } from "@/components/profile/github-restore-copy";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-export const WELCOME_COPY = {
-  title: "Used applika with GitHub before?",
-  lead: "Bring back your old account, or start with an empty one. You only answer this once.",
-  restoreTitle: "Bring back your old account",
-  restoreBody:
-    "Its applications, cycles, reports and CVs return, and it signs in with Borderless from now on.",
-  restore: "Restore your data from GitHub",
-  freshTitle: "Start with an empty account",
-  freshBody:
-    "You can still restore from your profile later, as long as this account holds no data.",
-  startFresh: "Start fresh",
-} as const;
 
 export type WelcomePending = "restore" | "start-fresh" | null;
 
@@ -40,6 +28,7 @@ export function WelcomeScreen({
   pending = null,
   className,
 }: WelcomeScreenProps) {
+  const t = useTranslations("welcome");
   const titleId = useId();
   const restoreBodyId = useId();
   const freshBodyId = useId();
@@ -68,10 +57,10 @@ export function WelcomeScreen({
           id={titleId}
           className="font-display text-2xl font-bold tracking-tight-display text-balance text-foreground sm:text-3xl"
         >
-          {WELCOME_COPY.title}
+          {t("title")}
         </h1>
         <p className="mt-2 text-sm text-pretty text-foreground/70">
-          {WELCOME_COPY.lead}
+          {t("lead")}
         </p>
       </div>
 
@@ -82,13 +71,13 @@ export function WelcomeScreen({
         >
           <div className="flex min-w-0 flex-col gap-1.5">
             <h2 className="text-sm font-semibold text-foreground">
-              {WELCOME_COPY.restoreTitle}
+              {t("restoreTitle")}
             </h2>
             <p
               id={restoreBodyId}
               className="text-sm text-pretty text-foreground/80"
             >
-              {WELCOME_COPY.restoreBody}
+              {t("restoreBody")}
             </p>
             <p className="text-xs text-pretty text-foreground/70">
               {GITHUB_RESTORE_COPY.privacy}
@@ -103,14 +92,14 @@ export function WelcomeScreen({
             onClick={() => {
               if (!locked) onRestore();
             }}
-            className="w-full aria-disabled:opacity-70 sm:w-auto sm:shrink-0"
+            className="h-auto min-h-9 w-full whitespace-normal aria-disabled:opacity-70 sm:h-9 sm:w-auto sm:shrink-0 sm:whitespace-nowrap"
           >
             {pending === "restore" ? (
               spinner
             ) : (
               <GithubIcon aria-hidden data-icon="inline-start" />
             )}
-            {WELCOME_COPY.restore}
+            {t("restore")}
           </Button>
         </div>
 
@@ -120,13 +109,13 @@ export function WelcomeScreen({
         >
           <div className="flex min-w-0 flex-col gap-1.5">
             <h2 className="text-sm font-semibold text-foreground">
-              {WELCOME_COPY.freshTitle}
+              {t("freshTitle")}
             </h2>
             <p
               id={freshBodyId}
               className="text-sm text-pretty text-foreground/80"
             >
-              {WELCOME_COPY.freshBody}
+              {t("freshBody")}
             </p>
           </div>
           <Button
@@ -139,10 +128,10 @@ export function WelcomeScreen({
             onClick={() => {
               if (!locked) onStartFresh();
             }}
-            className="w-full aria-disabled:opacity-70 sm:w-auto sm:shrink-0"
+            className="h-auto min-h-9 w-full whitespace-normal aria-disabled:opacity-70 sm:h-9 sm:w-auto sm:shrink-0 sm:whitespace-nowrap"
           >
             {pending === "start-fresh" ? spinner : null}
-            {WELCOME_COPY.startFresh}
+            {t("startFresh")}
           </Button>
         </div>
       </div>

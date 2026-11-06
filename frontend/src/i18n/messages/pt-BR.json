@@ -1,0 +1,2252 @@
+{
+  "common": {
+    "close": "Fechar",
+    "confirm": "Confirmar",
+    "cancel": "Cancelar",
+    "pickDate": "Escolha uma data",
+    "commandPalette": "Paleta de comandos",
+    "commandPaletteDescription": "Busque um comando para executar...",
+    "starRating": "{filled} de {total} estrelas",
+    "notifications": "Notificações",
+    "monthYearPlaceholder": "MM/aaaa"
+  },
+  "header": {
+    "toggleLanguage": "Alternar idioma",
+    "switchToEnglish": "Mudar para inglês",
+    "switchToPortuguese": "Mudar para português",
+    "home": "Página inicial do Applika.dev",
+    "openNavigation": "Abrir menu de navegação",
+    "closeNavigation": "Fechar menu de navegação",
+    "navigation": "Navegação",
+    "navigationDescription": "Navegação principal e menu da conta.",
+    "toggleTheme": "Alternar tema"
+  },
+  "icons": {
+    "flagUs": "Bandeira dos Estados Unidos",
+    "flagBr": "Bandeira do Brasil"
+  },
+  "auth": {
+    "signInFallback": "O login não foi concluído. Tente novamente.",
+    "unreachable": "Não foi possível acessar o Applika. Verifique sua conexão e tente novamente.",
+    "logout": "Sair",
+    "signIn": {
+      "title": "Entre no Applika",
+      "cliTitle": "Entre no applika-cli",
+      "lead": "Use seu e-mail e senha da Borderless.",
+      "cliCommand": "applika login",
+      "cliNote": "Este acesso conclui o <code>{command}</code> no seu terminal.",
+      "submit": "Entrar",
+      "passwordHint": "Entrou na Borderless por outro provedor de acesso? Defina uma senha na Borderless primeiro e depois entre aqui.",
+      "noAccount": "Ainda não tem conta na Borderless?",
+      "createAccount": "Criar uma conta na Borderless",
+      "opensInNewTab": "Abre em uma nova aba.",
+      "cliExpiredHint": "Execute applika login no seu terminal novamente.",
+      "cliHandoffLost": "O acesso pelo terminal expirou antes de você entrar. Em vez disso, este navegador entrou no Applika."
+    },
+    "credentials": {
+      "emailLabel": "E-mail",
+      "passwordLabel": "Senha",
+      "emailRequired": "Digite seu e-mail da Borderless",
+      "emailTooLong": "O e-mail deve ter no máximo 100 caracteres",
+      "passwordRequired": "Digite sua senha",
+      "passwordTooLong": "A senha deve ter no máximo 200 caracteres"
+    }
+  },
+  "cookies": {
+    "notice": {
+      "label": "Aviso de cookies",
+      "title": "Usamos cookies essenciais",
+      "body": "O Applika.dev usa apenas cookies estritamente necessários para manter você conectado e proteger sua sessão. Não usamos cookies de análise, publicidade ou rastreamento. <link>Saiba mais</link>.",
+      "gotIt": "Entendi",
+      "dismiss": "Fechar aviso de cookies"
+    },
+    "policy": {
+      "eyebrow": "Legal",
+      "title": "Política de Cookies",
+      "lastUpdated": "Última atualização: {date}",
+      "whatTitle": "O que são cookies?",
+      "whatBody": "Cookies são pequenos arquivos de texto que os sites que você visita colocam no seu dispositivo. Eles são muito usados para fazer os sites funcionarem, ou funcionarem melhor, e para fornecer informações ao dono do site.",
+      "usedTitle": "Cookies que usamos",
+      "usedBody": "O {name} usa <strong>apenas cookies estritamente necessários</strong>, além de um cookie de preferência que lembra o idioma que você escolhe. Esses cookies são necessários para o site funcionar e para manter sua sessão segura. <strong>Não</strong> usamos cookies para análise, publicidade, criação de perfis ou rastreamento por terceiros.",
+      "columnName": "Nome",
+      "columnPurpose": "Finalidade",
+      "columnDuration": "Duração",
+      "columnType": "Tipo",
+      "accessPurpose": "JWT assinado e de curta duração que autentica cada solicitação enquanto você usa o site.",
+      "accessDuration": "15 minutos (HTTP-only, seguro)",
+      "refreshPurpose": "UUID opaco usado como chave para localizar seu token de atualização, que fica guardado no servidor, no Redis. Permite renovar o token de acesso de curta duração sem que você precise entrar novamente.",
+      "refreshDuration": "7 dias (HTTP-only, seguro)",
+      "localePurpose": "Lembra o idioma que você escolheu: guarda en (inglês) ou pt-BR (português do Brasil), para que todas as páginas abram nesse idioma, com ou sem login. Só é definido quando você escolhe um idioma; nada é salvo na sua conta.",
+      "localeDuration": "1 ano (legível pela página)",
+      "typeNecessary": "Estritamente necessário",
+      "typePreference": "Preferência",
+      "thirdPartyTitle": "Cookies de terceiros",
+      "thirdPartyBody": "Nenhum. O {name} não incorpora serviços de terceiros que definem cookies no seu dispositivo.",
+      "managingTitle": "Gerenciar cookies",
+      "managingBody": "Como os cookies que definimos são estritamente necessários, não há opção de consentimento a oferecer: desativá-los impediria você de entrar. Você pode limpar os cookies a qualquer momento nas configurações do navegador, mas isso encerrará sua sessão.",
+      "managingLocale": "O cookie de idioma só é definido quando você escolhe um idioma. Se os cookies estiverem bloqueados, sua escolha vale para a página em que você está, e a próxima página segue o idioma do navegador.",
+      "changesTitle": "Alterações nesta política",
+      "changesBody": "Se nossas práticas de cookies mudarem, atualizaremos esta página e revisaremos a data acima.",
+      "footer": "Dúvidas? Veja nossa <link>página inicial</link> para informações de contato."
+    }
+  },
+  "errors": {
+    "GEN-1001": "Não encontrado",
+    "GEN-1002": "Método não permitido",
+    "GEN-1003": "Alguns campos não são válidos. Verifique-os e tente novamente.",
+    "GEN-1004": "Muitas solicitações. Tente novamente em {seconds} segundos.",
+    "GEN-1005": "Erro interno do servidor",
+    "GEN-1006": "Este recurso foi definido, mas ainda não foi implementado",
+    "GEN-1007": "Ocorreu um erro ao ler o corpo da solicitação",
+    "GEN-1008": "Não foi possível processar a solicitação.",
+    "AUTH-1001": "Não autenticado",
+    "AUTH-1002": "Sessão expirada",
+    "AUTH-1003": "Serviço de sessão indisponível",
+    "AUTH-1004": "E-mail ou senha inválidos",
+    "AUTH-1005": "Verifique seu e-mail na Borderless primeiro",
+    "AUTH-1006": "Este e-mail pertence a uma conta Applika vinculada a outra conta Borderless",
+    "AUTH-1007": "Mais de uma conta Applika usa este e-mail; entre em contato com o suporte",
+    "AUTH-1008": "Este e-mail da Borderless não pode ser usado no Applika: ele deve ser um endereço válido com no máximo 100 caracteres",
+    "AUTH-1009": "Muitas tentativas de entrar. Tente novamente em {seconds} segundos.",
+    "AUTH-1010": "Esta não é a conta Borderless vinculada à sua conta Applika",
+    "AUTH-1011": "Token expirado",
+    "AUTH-1012": "Token inválido",
+    "AUTH-1013": "Conteúdo do token inválido",
+    "AUTH-1014": "Usuário não encontrado",
+    "AUTH-1015": "Token de atualização inválido ou expirado",
+    "AUTH-1016": "Entre novamente com a Borderless",
+    "AUTH-1017": "A Borderless está indisponível, tente novamente mais tarde",
+    "AUTH-1018": "O login com a Borderless não está configurado",
+    "AUTH-1019": "O login do CLI expirou",
+    "AUTH-1020": "Login do CLI não encontrado",
+    "AUTH-1021": "Código de troca do CLI inválido ou expirado",
+    "AUTH-1022": "A URL de retorno do CLI deve usar http",
+    "AUTH-1023": "A URL de retorno do CLI deve apontar para o loopback",
+    "AUTH-1024": "A URL de retorno do CLI deve incluir uma porta",
+    "AUTH-1025": "A URL de retorno do CLI não pode conter parâmetros ou fragmentos",
+    "AUTH-1026": "code_challenge_method deve ser S256",
+    "AUTH-1027": "code_challenge inválido",
+    "AUTH-1028": "Código inválido ou expirado",
+    "AUTH-1029": "redirect_uri não corresponde",
+    "AUTH-1030": "code_verifier inválido",
+    "AUTH-1031": "Não autenticado",
+    "AUTH-1032": "Token de atualização inválido ou expirado",
+    "AUTH-1033": "Usuário não encontrado",
+    "AUTH-1034": "Entre novamente com a Borderless",
+    "AUTH-1035": "grant_type não suportado: {grant_type}",
+    "AUTH-1036": "Código do dispositivo expirado",
+    "AUTH-1037": "Consultas rápidas demais",
+    "AUTH-1038": "Aguardando a aprovação do usuário",
+    "AUTH-1039": "O login foi negado",
+    "AUTH-1040": "Código não encontrado ou expirado",
+    "AUTH-1041": "Código já utilizado",
+    "AUTH-1042": "Não foi possível gerar um código de dispositivo",
+    "AUTH-1043": "Sessão não encontrada",
+    "AUTH-1044": "A restauração pelo GitHub não está configurada",
+    "AUTH-1045": "Esta conta já tem seus dados do GitHub",
+    "USR-1001": "Usuário não encontrado",
+    "APP-1001": "Candidatura não encontrada ou não pertence ao usuário",
+    "APP-1002": "Não é possível alterar uma candidatura de um ciclo arquivado",
+    "APP-1003": "Reabra a candidatura para editá-la (ela está encerrada)",
+    "APP-1004": "Esta candidatura já foi finalizada",
+    "APP-1005": "Etapa não encontrada ou inválida",
+    "APP-1006": "Feedback não encontrado",
+    "APP-1007": "salary_offer só é permitido quando a etapa é uma oferta",
+    "APP-1008": "Etapa da candidatura não encontrada ou não pertence ao usuário",
+    "APP-1009": "Rascunho não encontrado",
+    "APP-1010": "Escolha um CV principal antes de concluir",
+    "APP-1011": "Você já tem uma candidatura para esta vaga",
+    "APP-1012": "Esta vaga não tem um título para começar",
+    "APP-1013": "{field} não pode estar no futuro (máximo permitido: {date})",
+    "APP-1014": "{field} não pode ser mais de um dia no passado (mínimo permitido: {date})",
+    "EVT-1001": "Evento da linha do tempo não encontrado ou não pertence ao usuário",
+    "EVT-1002": "interview_type só é permitido em eventos de entrevista",
+    "EVT-1003": "denied_reason só é permitido em eventos de recusa",
+    "EVT-1004": "Eventos de oferta exigem salary_amount, salary_currency e salary_period",
+    "EVT-1005": "salary_amount, salary_currency e salary_period só são permitidos em eventos de oferta",
+    "EVT-1006": "start_time e end_time devem ser informados juntos",
+    "EVT-1007": "end_time deve ser depois de start_time",
+    "EVT-1008": "start_time, end_time e timezone só são permitidos em eventos de entrevista",
+    "EVT-1009": "O salary_period da oferta deve ser mensal ou anual",
+    "EVT-1010": "Esta candidatura já tem uma entrevista de triagem inicial; uma candidatura só pode ter uma",
+    "CAT-1001": "Empresa não encontrada",
+    "CAT-1002": "Plataforma não encontrada",
+    "CAT-1003": "Já existe uma plataforma com este nome: {name}",
+    "CAT-1004": "Já existe uma empresa com este nome e URL.",
+    "CV-1001": "CV principal não encontrado",
+    "CV-1002": "Limite de CVs principais atingido (máximo de {max} por usuário)",
+    "CV-1003": "Cópia do CV não encontrada",
+    "CV-1004": "Esta candidatura já tem uma cópia do CV",
+    "CV-1005": "Adicione uma descrição da vaga para adaptar por palavras-chave",
+    "CV-1006": "Esta cópia do CV não tem uma base para comparar.",
+    "CV-1007": "Opção de adaptação desconhecida",
+    "CV-1008": "Não foi possível gerar o PDF do CV",
+    "CV-1009": "Não foi possível gerar o Markdown do CV",
+    "CV-1010": "Não foi possível gerar o PDF da comparação do CV",
+    "JOB-1001": "Vaga não encontrada",
+    "JOB-1002": "Busca salva não encontrada",
+    "JOB-1003": "Limite de buscas salvas atingido (máximo de {max})",
+    "JOB-1004": "Já existe uma busca salva com este nome",
+    "CYC-1001": "São necessárias pelo menos {min} candidaturas para iniciar um novo ciclo (atualmente {current})",
+    "CYC-1002": "Ciclo não encontrado ou não pertence ao usuário",
+    "RPT-1001": "Os relatórios são para membros BASE e PSP da Borderless",
+    "RPT-1002": "Entre novamente para confirmar sua associação",
+    "RPT-1003": "Relatório já enviado",
+    "RPT-1004": "Envie o relatório atual antes de continuar",
+    "RPT-1005": "start_date é obrigatório no relatório do dia 1",
+    "RPT-1006": "start_date não pode estar no futuro",
+    "RPT-1007": "Envie o relatório do dia 1 primeiro",
+    "RPT-1008": "Não é possível enviar o relatório de um dia futuro",
+    "ADM-1001": "Acesso de administrador necessário",
+    "ADM-1002": "Não é possível excluir: {count} candidatura(s) fazem referência a esta empresa",
+    "ADM-1003": "Não é possível excluir: {count} candidatura(s) ou fonte(s) de vagas fazem referência a esta plataforma",
+    "ADM-1004": "Já existe uma empresa pública com este nome e URL: {name} ({url}, id {id})",
+    "ADM-1005": "Já existe uma empresa pública com este nome e URL: {name} ({url})",
+    "ADM-1006": "Já existe uma plataforma pública com este nome: {name} (id {id})",
+    "ADM-1007": "Já existe uma plataforma pública com este nome: {name}",
+    "ADM-1008": "Recurso não encontrado",
+    "ADM-1009": "Uma execução já está em andamento",
+    "ADM-1010": "Serviço em segundo plano indisponível",
+    "ADM-1011": "Fonte de vagas não encontrada",
+    "ADM-1012": "Webhook de relatório não encontrado",
+    "ADM-1013": "URL de webhook do Discord inválida",
+    "ADM-1014": "O selo deve ser BASE ou PSP",
+    "ADM-1015": "Escolha pelo menos um selo: BASE ou PSP",
+    "ADM-1016": "Cada selo só pode ser escolhido uma vez",
+    "ADM-1017": "O rótulo deve ter no máximo {max} caracteres",
+    "ADM-1018": "Este webhook já está configurado",
+    "unknown": "Algo deu errado"
+  },
+  "timeline": {
+    "eventType": {
+      "interview": "Entrevista",
+      "offer": "Oferta",
+      "denied": "Recusada"
+    },
+    "eventTypeHint": {
+      "interview": "Uma conversa ou avaliação agendada.",
+      "offer": "Você recebeu uma oferta — registre o salário.",
+      "denied": "A candidatura foi recusada ou retirada."
+    },
+    "interviewType": {
+      "unknown": "Desconhecida",
+      "initial_screening": "Triagem inicial",
+      "technical": "Técnica",
+      "cultural": "Cultural",
+      "hiring_manager": "Gestor da vaga",
+      "take_home": "Desafio para casa",
+      "final": "Final"
+    },
+    "interviewTypeShort": {
+      "unknown": "Desconhecida",
+      "initial_screening": "Triagem",
+      "technical": "Técnica",
+      "cultural": "Cultural",
+      "hiring_manager": "Gestor",
+      "take_home": "Desafio para casa",
+      "final": "Final"
+    },
+    "deniedReason": {
+      "unknown": "Desconhecido",
+      "not_good_enough": "Perfil insuficiente",
+      "skills_mismatch": "Habilidades incompatíveis",
+      "assessment_failed": "Reprovado na avaliação",
+      "too_many_candidates": "Muitos candidatos",
+      "position_filled": "Vaga preenchida",
+      "role_closed": "Vaga encerrada",
+      "ghosted": "Sem retorno",
+      "salary_mismatch": "Salário incompatível",
+      "other": "Outro"
+    },
+    "salaryPeriod": {
+      "hourly": "Por hora",
+      "monthly": "Mensal",
+      "annually": "Anual"
+    },
+    "salaryPeriodSuffix": {
+      "hourly": "/h",
+      "monthly": "/mês",
+      "annually": "/ano"
+    },
+    "readOnly": {
+      "closed": "Esta candidatura está encerrada. Reabra-a para adicionar ou editar eventos.",
+      "archived": "Candidaturas de um ciclo anterior ficam arquivadas. Esta linha do tempo não pode mais ser alterada."
+    },
+    "copy": {
+      "initialScreeningTaken": "Esta candidatura já tem uma triagem inicial. Uma candidatura só pode ter uma.",
+      "interviewTypeTaken": "Já registrada",
+      "legacyHourlyOffer": "Esta oferta foi registrada por hora. Escolha mensal ou anual para salvá-la.",
+      "deniedReasonLabel": "Motivo",
+      "deniedFeedbackPrefix": "Feedback"
+    },
+    "schedule": {
+      "legend": "Horário (opcional)",
+      "hint": "Adicione um intervalo de horário para colocar esta entrevista na sua agenda."
+    },
+    "timezone": {
+      "label": "Fuso horário",
+      "placeholder": "Selecione o fuso horário",
+      "search": "Buscar cidade, região ou diferença",
+      "empty": "Nenhum fuso horário encontrado.",
+      "selectedGroup": "Selecionado",
+      "otherGroup": "Outros",
+      "region": {
+        "Africa": "África",
+        "America": "América",
+        "Antarctica": "Antártida",
+        "Arctic": "Ártico",
+        "Asia": "Ásia",
+        "Atlantic": "Atlântico",
+        "Australia": "Austrália",
+        "Europe": "Europa",
+        "Indian": "Índico",
+        "Pacific": "Pacífico"
+      }
+    },
+    "panel": {
+      "title": "Linha do tempo",
+      "description": "Acompanhe o progresso da candidatura ao longo do processo seletivo.",
+      "addEvent": "Adicionar evento"
+    },
+    "eventActions": {
+      "edit": "Editar",
+      "delete": "Excluir"
+    },
+    "form": {
+      "closeApplication": "Encerrar a candidatura",
+      "closeApplicationHint": "Você pode reabri-la depois.",
+      "saving": "Salvando",
+      "submitCreate": "Adicionar evento",
+      "submitEdit": "Salvar alterações",
+      "eventType": "Tipo de evento",
+      "interviewType": "Tipo de entrevista",
+      "date": "Data",
+      "start": "Início",
+      "end": "Fim",
+      "salaryPeriod": "Período do salário",
+      "amount": "Valor",
+      "currency": "Moeda",
+      "currencyPlaceholder": "Selecione a moeda",
+      "notes": "Anotações (opcional)",
+      "notesPlaceholder": "Qualquer coisa que você queira lembrar…",
+      "offerDetails": "Detalhes da oferta",
+      "offerDetailsHint": "Obrigatório para ofertas: registre a remuneração oferecida.",
+      "errors": {
+        "dateRequired": "A data do evento é obrigatória",
+        "dateInvalid": "Informe uma data válida",
+        "timezoneTooLong": "O fuso horário é longo demais",
+        "notesTooLong": "As anotações são longas demais",
+        "scheduleBoth": "Informe o horário de início e de fim, ou nenhum dos dois",
+        "endAfterStart": "O horário de fim deve ser depois do início",
+        "reasonRequired": "Selecione um motivo",
+        "periodRequired": "Selecione um período do salário",
+        "amountRequired": "Informe o valor oferecido",
+        "amountInvalid": "Informe um número válido",
+        "amountNegative": "Deve ser zero ou mais",
+        "amountDigits": "Até 10 dígitos e 2 casas decimais",
+        "currencyRequired": "Selecione uma moeda",
+        "closingDate": "Escolha hoje ou uma data anterior para encerrar a candidatura"
+      }
+    },
+    "toasts": {
+      "fixBeforeClosing": "Corrija os campos destacados antes de encerrar",
+      "fixBeforeSaving": "Corrija os campos destacados antes de salvar",
+      "closed": "Candidatura encerrada",
+      "closeFailed": "Não foi possível encerrar",
+      "added": "Evento adicionado",
+      "addFailed": "Não foi possível adicionar o evento",
+      "updated": "Evento atualizado",
+      "updateFailed": "Não foi possível atualizar o evento",
+      "deleted": "Evento excluído",
+      "deleteFailed": "Não foi possível excluir o evento"
+    },
+    "list": {
+      "emptyTitle": "Nenhum evento ainda",
+      "emptyReadOnly": "Não há atividade registrada para esta candidatura.",
+      "emptyDescription": "Registre entrevistas, ofertas e recusas para contar a história desta candidatura."
+    },
+    "card": {
+      "offeredSalary": "Salário oferecido"
+    },
+    "dialog": {
+      "createTitle": "Adicionar evento",
+      "createDescription": "Registre uma entrevista, oferta ou recusa para esta candidatura.",
+      "editTitle": "Editar evento",
+      "editDescription": "Atualize os detalhes deste evento da linha do tempo."
+    },
+    "section": {
+      "loadErrorTitle": "Não foi possível carregar a linha do tempo",
+      "loadErrorDescription": "Algo deu errado ao buscar os eventos desta candidatura.",
+      "retry": "Tentar de novo",
+      "eventActions": "Ações do evento: {stage}, {date}",
+      "deleteTitle": "Excluir este evento?",
+      "deleteDescription": "Isso remove o evento da linha do tempo para sempre. Não é possível desfazer.",
+      "deleteConfirm": "Excluir"
+    }
+  },
+  "options": {
+    "seniority": {
+      "intern": "Estágio",
+      "junior": "Júnior",
+      "mid_level": "Pleno",
+      "senior": "Sênior",
+      "staff": "Staff",
+      "lead": "Líder",
+      "principal": "Principal",
+      "specialist": "Especialista"
+    },
+    "availability": {
+      "open_to_work": "Aberto a oportunidades",
+      "casually_looking": "Olhando sem pressa",
+      "not_looking": "Não estou procurando"
+    },
+    "workMode": {
+      "remote": "Remoto",
+      "hybrid": "Híbrido",
+      "on_site": "Presencial"
+    },
+    "source": {
+      "active": "Ativa (eu me candidatei)",
+      "passive": "Passiva (um recrutador me contatou)"
+    }
+  },
+  "landing": {
+    "tagline": "Rastreador de candidaturas",
+    "heroTitle": "Gerencie sua busca de emprego com <highlight>clareza</highlight>",
+    "heroBody": "Acompanhe candidaturas, monitore seu funil e transforme sua busca de emprego em um processo guiado por dados, com análises em tempo real.",
+    "goToDashboard": "Ir para o painel",
+    "getStarted": "Comece grátis",
+    "dashboard": "Painel",
+    "signIn": "Entrar",
+    "ctaTitle": "Pronto para assumir o controle da sua busca de emprego?",
+    "ctaBody": "Junte-se a centenas de pessoas que acompanham sua busca com mais inteligência, não com mais esforço. Grátis para sempre.",
+    "featuresEyebrow": "Recursos",
+    "featuresTitle": "Tudo o que você precisa para gerenciar sua busca de emprego",
+    "features": {
+      "track": {
+        "title": "Acompanhe candidaturas",
+        "description": "Mantenha todas as suas candidaturas organizadas em um só lugar, com empresa, cargo, plataforma e salário."
+      },
+      "pipeline": {
+        "title": "Funil etapa por etapa",
+        "description": "Siga cada candidatura pelas etapas de contratação — da inscrição à oferta — com etapas e datas personalizadas."
+      },
+      "conversion": {
+        "title": "Análise de conversão",
+        "description": "Veja em quais etapas você passa com mais frequência, a média de dias por etapa e sua taxa de sucesso geral."
+      },
+      "trends": {
+        "title": "Tendências",
+        "description": "Visualize o volume de candidaturas ao longo do tempo e compare as estratégias de busca ativa e passiva."
+      },
+      "borderless": {
+        "title": "Acesso com Borderless",
+        "description": "Entre com sua conta Borderless. Membros BASE e PSP compartilham relatórios quinzenais com a comunidade."
+      },
+      "finalization": {
+        "title": "Encerramento e feedback",
+        "description": "Encerre candidaturas registrando o resultado e aprenda com cada processo."
+      }
+    },
+    "howEyebrow": "Como funciona",
+    "howTitle": "Do cadastro aos insights em minutos",
+    "steps": {
+      "signIn": {
+        "title": "Entre com a Borderless",
+        "description": "Use seu e-mail e senha da Borderless. Sua conta fica pronta na hora, já com sua associação BASE ou PSP."
+      },
+      "add": {
+        "title": "Adicione suas candidaturas",
+        "description": "Registre cada candidatura com empresa, cargo, plataforma e salário. Acompanhe cada detalhe que importa."
+      },
+      "analyze": {
+        "title": "Analise e otimize",
+        "description": "Veja seu painel ganhar vida com taxas de conversão, tendências e insights práticos."
+      }
+    },
+    "openSourceEyebrow": "Código aberto",
+    "openSourceTitle": "Transparente por natureza, feito para a comunidade",
+    "openSourceBody": "O Applika é totalmente de código aberto. Acreditamos que quem busca emprego merece ferramentas que respeitem sua privacidade e o coloquem no controle.",
+    "openSource": {
+      "open": {
+        "title": "Feito às claras",
+        "description": "Cada linha de código é pública. Leia, audite, aprenda com ela — transparência total desde o primeiro dia."
+      },
+      "community": {
+        "title": "Movido pela comunidade",
+        "description": "Pedidos de recursos, relatos de bugs e pull requests são bem-vindos. Molde a ferramenta que você usa todo dia."
+      }
+    },
+    "stats": {
+      "applications": "Candidaturas acompanhadas",
+      "seekers": "Pessoas buscando emprego",
+      "offerRate": "Taxa média de ofertas",
+      "satisfaction": "Satisfação dos usuários"
+    },
+    "testimonialsEyebrow": "Depoimentos",
+    "testimonialsTitle": "Amado por quem busca emprego",
+    "testimonials": {
+      "matheus": {
+        "role": "Engenheiro de software - LLMOps",
+        "quote": "O Applika tem uma interface muito simples que captura métricas extremamente importantes do processo de candidatura!"
+      },
+      "pietro": {
+        "role": "Engenheiro de software",
+        "quote": "Ter cada candidatura acompanhada com etapas e análises mudou meu jeito de buscar emprego. Sempre sei exatamente em que pé está cada processo e no que focar em seguida."
+      },
+      "joao": {
+        "role": "Engenheiro sênior",
+        "quote": "O Applika me mostrou exatamente o que eu estava errando nas minhas candidaturas e, sinceramente, isso mudou tudo para mim."
+      }
+    },
+    "mockup": {
+      "trend": "Tendência",
+      "conversion": "Conversão",
+      "avgDays": "Dias por etapa",
+      "byPlatform": "Plataformas",
+      "activeVsPassive": "Ativa x passiva",
+      "active": "Ativa",
+      "passive": "Passiva",
+      "stats": {
+        "active": "ATIVAS",
+        "offers": "OFERTAS",
+        "denials": "RECUSAS",
+        "total": "TOTAL",
+        "successRate": "SUCESSO"
+      },
+      "steps": {
+        "initialScreen": "Triagem",
+        "phase2": "Fase 2",
+        "phase3": "Fase 3",
+        "phase4": "Fase 4",
+        "offer": "Oferta",
+        "denied": "Recusada"
+      }
+    }
+  },
+  "welcome": {
+    "title": "Já usou o Applika com o GitHub?",
+    "lead": "Recupere sua conta antiga ou comece com uma conta vazia. Você só responde isso uma vez.",
+    "restoreTitle": "Recupere sua conta antiga",
+    "restoreBody": "As candidaturas, ciclos, relatórios e CVs voltam, e a conta passa a entrar com a Borderless.",
+    "restore": "Restaurar seus dados do GitHub",
+    "freshTitle": "Comece com uma conta vazia",
+    "freshBody": "Você ainda pode restaurar pelo seu perfil depois, desde que esta conta não tenha dados.",
+    "startFresh": "Começar do zero"
+  },
+  "cliCode": {
+    "title": "Entre no applika-cli",
+    "instruction": "Cole este código no seu terminal",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "copiedStatus": "Código copiado.",
+    "copyFailed": "Não foi possível copiar. O código está selecionado; copie-o pelo teclado.",
+    "expiry": "O código funciona uma vez e expira em um minuto.",
+    "missingTitle": "Falta o código neste link de acesso.",
+    "missingBody": "Execute o comando de login no seu terminal novamente."
+  },
+  "device": {
+    "title": "Conectar um dispositivo",
+    "lead": "Digite o código que seu terminal mostra. Você verá qual dispositivo está pedindo acesso antes de aprovar.",
+    "codeLabel": "Código do dispositivo",
+    "codeHint": "8 letras, mostradas no seu terminal como XXXX-XXXX.",
+    "codePlaceholder": "XXXX-XXXX",
+    "incomplete": "Digite as 8 letras do código.",
+    "continue": "Continuar",
+    "requestTitle": "Um dispositivo quer entrar",
+    "requestLead": "Confira se estes dados correspondem ao dispositivo que você está conectando.",
+    "terms": {
+      "code": "Código",
+      "device": "Dispositivo",
+      "client": "Cliente",
+      "ip": "Endereço IP",
+      "requested": "Solicitado",
+      "expires": "Código expira"
+    },
+    "notRecorded": "Não registrado",
+    "warning": "Só aprove se foi você quem iniciou este acesso",
+    "warningDetail": "Se alguém enviou este código ou link para você, recuse.",
+    "approve": "Aprovar",
+    "deny": "Recusar",
+    "differentCode": "Usar outro código",
+    "approved": "Dispositivo conectado. Você pode voltar ao seu terminal.",
+    "seeDevices": "Ver seus dispositivos",
+    "denied": "Acesso recusado. O dispositivo não foi conectado.",
+    "anotherCode": "Digitar outro código",
+    "errorFallback": "Algo deu errado. Tente novamente."
+  },
+  "nav": {
+    "primary": "Principal",
+    "dashboard": "Painel",
+    "applications": "Candidaturas",
+    "jobs": "Vagas",
+    "cvs": "CVs",
+    "agenda": "Agenda",
+    "reports": "Relatórios",
+    "cycles": "Ciclos",
+    "profile": "Perfil",
+    "admin": "Admin",
+    "system": "Sistema"
+  },
+  "userMenu": {
+    "open": "Abrir menu da conta",
+    "openFor": "Abrir menu da conta de {username}",
+    "profile": "Perfil",
+    "feedback": "Feedback",
+    "logout": "Sair"
+  },
+  "cycleSelector": {
+    "current": "Ciclo atual",
+    "new": "Novo ciclo",
+    "dialogTitle": "Iniciar um novo ciclo",
+    "dialogDescription": "Todas as candidaturas e relatórios atuais serão arquivados permanentemente em um ciclo com nome. Esta ação não pode ser desfeita, e os dados arquivados ficarão disponíveis apenas para consulta.",
+    "namePlaceholder": "ex.: 1º tri 2026, Busca de emprego 2...",
+    "cancel": "Cancelar",
+    "creating": "Criando...",
+    "start": "Iniciar ciclo"
+  },
+  "agendaDropdown": {
+    "trigger": "Próximas etapas",
+    "title": "Próximas etapas",
+    "viewAll": "Ver tudo",
+    "empty": "Nenhuma etapa nos próximos 7 dias",
+    "today": "Hoje",
+    "tomorrow": "Amanhã"
+  },
+  "notFound": {
+    "code": "404",
+    "title": "Ops! Página não encontrada",
+    "home": "Voltar ao início"
+  },
+  "cliBanner": {
+    "region": "Aviso do applika-cli",
+    "title": "Experimente a ferramenta de linha de comando <mono>applika-cli</mono>",
+    "body": "Uma CLI para registrar candidaturas pelo terminal. Vem com uma skill pronta para ferramentas de IA como Claude e Codex. Veja no PyPI como instalar e todos os detalhes.",
+    "cta": "Ver no PyPI",
+    "dismiss": "Dispensar aviso"
+  },
+  "features": {
+    "beta": "Beta",
+    "loading": "Carregando"
+  },
+  "feedback": {
+    "button": "Feedback",
+    "pickRating": "Selecione uma nota",
+    "thanks": "Obrigado pelo seu feedback!",
+    "failed": "Não foi possível enviar o feedback",
+    "title": "Avalie sua experiência",
+    "description": "O que você está achando do Applika? Seu feedback nos ajuda a melhorar.",
+    "placeholder": "Conte o que você acha… (opcional)",
+    "charactersLeft": "{count, plural, =0 {# caracteres} one {# caractere} other {# caracteres}}",
+    "cancel": "Cancelar",
+    "send": "Enviar feedback"
+  },
+  "profile": {
+    "tabs": {
+      "profile": "Perfil",
+      "devices": "Dispositivos"
+    },
+    "edit": "Editar",
+    "at": "em",
+    "details": "Detalhes",
+    "company": "Empresa",
+    "salary": "Salário",
+    "seniority": "Senioridade",
+    "experience": "Experiência",
+    "experienceYears": "{count, plural, =1 {# ano} other {# anos}}",
+    "location": "Localização",
+    "linkedinProfile": "Perfil",
+    "techStack": "Tecnologias",
+    "badgesTitle": "Selos",
+    "badgesEarned": "{earned}/{total} conquistados",
+    "badge": {
+      "first_app": "Primeiro passo",
+      "ten_apps": "Levando a sério",
+      "fifty_apps": "Persistência",
+      "hundred_apps": "Centurião",
+      "first_offer": "Primeira oferta",
+      "high_rate": "Atirador de elite"
+    },
+    "badgeDescription": {
+      "first_app": "Criou sua primeira candidatura",
+      "ten_apps": "10 candidaturas enviadas",
+      "fifty_apps": "50 candidaturas enviadas",
+      "hundred_apps": "100 candidaturas enviadas",
+      "first_offer": "Recebeu sua primeira oferta",
+      "high_rate": "Alcançou 20%+ de taxa de sucesso"
+    },
+    "deleteAccount": {
+      "title": "Excluir conta",
+      "intro": "Ao excluir sua conta, todos os seus dados — candidaturas, etapas, relatórios e perfil — serão removidos permanentemente. Esta ação não pode ser desfeita.",
+      "open": "Excluir sua conta",
+      "warning": "Isto excluirá permanentemente sua conta e todos os dados associados.",
+      "itemApplications": "- Todas as suas candidaturas e as etapas delas",
+      "itemReports": "- Seus relatórios quinzenais",
+      "itemProfile": "- As informações e preferências do seu perfil",
+      "itemCompanies": "- Empresas que você criou (se ninguém mais as usa)",
+      "phrase": "excluir {username}",
+      "confirmLabel": "Para confirmar, digite <b>{phrase}</b> abaixo:",
+      "cancel": "Cancelar",
+      "deleting": "Excluindo...",
+      "confirm": "Entendo, excluir minha conta"
+    },
+    "form": {
+      "save": "Salvar",
+      "cancel": "Cancelar",
+      "firstName": "Nome",
+      "firstNamePlaceholder": "João",
+      "lastName": "Sobrenome",
+      "lastNamePlaceholder": "Silva",
+      "bio": "Bio",
+      "bioPlaceholder": "Uma breve apresentação sobre você…",
+      "currentRole": "Cargo atual",
+      "currentRolePlaceholder": "ex.: Engenheiro frontend",
+      "company": "Empresa",
+      "companyPlaceholder": "ex.: Acme Inc.",
+      "salary": "Salário",
+      "currency": "Moeda",
+      "period": "Período",
+      "seniorityLevel": "Nível de senioridade",
+      "select": "Selecione",
+      "experienceYears": "Experiência (anos)",
+      "location": "Localização",
+      "locationPlaceholder": "ex.: São Paulo, Brasil",
+      "availability": "Disponibilidade",
+      "linkedinUrl": "URL do LinkedIn",
+      "techStack": "Tecnologias",
+      "techStackHint": "Separadas por vírgula"
+    },
+    "toast": {
+      "updated": "Perfil atualizado",
+      "updateFailed": "Não foi possível atualizar o perfil"
+    },
+    "githubRestore": {
+      "privacy": "O GitHub pede sua aprovação. O Applika lê seu ID de usuário do GitHub uma vez e não mantém acesso à sua conta.",
+      "cardTitle": "Conta antiga do GitHub",
+      "cardBody": "Já usou o Applika com o GitHub? Restaure as candidaturas, os ciclos, os relatórios e os CVs daquela conta enquanto esta conta ainda não tem dados.",
+      "cardAction": "Restaurar dados do GitHub",
+      "dismiss": "Dispensar aviso",
+      "unavailable": "A restauração pelo GitHub está indisponível no momento",
+      "notice": {
+        "restored": "Sua conta antiga do Applika foi restaurada. A partir de agora, ela entra com a Borderless.",
+        "not_found": "Nenhuma conta antiga do Applika foi encontrada para esta conta do GitHub. Nada foi alterado.",
+        "has_data": "Não restaurada: esta conta já tem dados, e duas contas que têm dados não são mescladas.",
+        "already_bound": "Não restaurada: essa conta antiga do Applika já está vinculada a outra conta Borderless.",
+        "error": "A restauração não foi concluída. Tente novamente."
+      }
+    }
+  },
+  "devices": {
+    "activeTitle": "Ativos",
+    "activeDescription": "Navegadores e CLIs conectados à sua conta. Revogue qualquer um que você não reconheça.",
+    "endedTitle": "Encerrados (últimos 30 dias)",
+    "endedEmpty": "Nenhum dispositivo foi encerrado nos últimos 30 dias.",
+    "thisDevice": "Este dispositivo",
+    "revoke": "Revogar",
+    "revokeConfirm": "Revogar acesso",
+    "revokeBody": "Ele é desconectado na próxima solicitação e precisa entrar de novo para usar o Applika.",
+    "signOut": "Sair",
+    "signOutTitle": "Sair deste dispositivo?",
+    "signOutBody": "Você é desconectado aqui na hora e levado à página de entrada.",
+    "signOutOthers": "Desconectar os outros dispositivos",
+    "signOutOthersConfirm": "Desconectar outros dispositivos",
+    "signOutOthersBody": "Eles são desconectados na próxima solicitação e precisam entrar de novo. Este dispositivo continua conectado.",
+    "noOtherDevices": "Nenhum outro dispositivo está conectado.",
+    "cancel": "Cancelar",
+    "loading": "Carregando dispositivos",
+    "loadErrorTitle": "Não foi possível carregar seus dispositivos",
+    "loadErrorBody": "Verifique sua conexão e tente novamente.",
+    "retry": "Tentar de novo",
+    "emptyTitle": "Nenhum dispositivo ativo",
+    "emptyBody": "Os navegadores e CLIs em que você entrar aparecem aqui.",
+    "never": "Nunca",
+    "notRecorded": "Não registrado",
+    "revokeTitle": "Revogar o acesso de {name}?",
+    "signOutOthersTitle": "{count, plural, =1 {Desconectar 1 outro dispositivo?} other {Desconectar # outros dispositivos?}}",
+    "signInIp": "Entrou pelo IP {ip}",
+    "signInIpMissing": "IP de entrada não registrado",
+    "revokeFailed": "Não foi possível revogar o dispositivo",
+    "terms": {
+      "client": "Cliente",
+      "method": "Como entrou",
+      "ip": "Endereço IP",
+      "granted": "Concedido",
+      "lastUsed": "Último uso",
+      "expires": "Expira",
+      "ended": "Encerrado"
+    },
+    "status": {
+      "active": "Ativo",
+      "signed_out": "Desconectado",
+      "revoked": "Revogado",
+      "expired": "Expirado"
+    },
+    "method": {
+      "borderless": "Borderless no navegador",
+      "github_web": "GitHub no navegador",
+      "cli_browser": "Aprovado no navegador",
+      "cli_device": "Aprovado com código de dispositivo",
+      "cli_legacy": "Acesso por CLI antiga"
+    }
+  },
+  "badges": {
+    "memberName": "Membro Borderless {badge}",
+    "gate": {
+      "noBadgeTitle": "Os relatórios são para membros BASE e PSP da Borderless",
+      "noBadgeWhy": "Sua conta Borderless não tem associação BASE ou PSP registrada. Os relatórios quinzenais são compartilhados com sua comunidade Borderless, por isso precisam de uma dessas associações.",
+      "noBadgeRecent": "Entrou no BASE ou no PSP há pouco tempo? Saia e entre novamente para atualizar sua associação.",
+      "visitBorderless": "Visitar a Borderless",
+      "opensInNewTab": "Abre em uma nova aba.",
+      "unconfirmedNote": "Seus relatórios abrem assim que sua associação for confirmada.",
+      "loading": "Carregando"
+    },
+    "confirm": {
+      "title": "Entre novamente para confirmar sua associação",
+      "body": "Digite sua senha da Borderless para que o Applika leia sua associação novamente. Você continua conectado.",
+      "submit": "Confirmar associação",
+      "confirmed": "Associação confirmada",
+      "reasonExpired": "Seu acesso à Borderless expirou.",
+      "reasonExpiredPaused": "Seu acesso à Borderless expirou, então seu selo {badge} está pausado.",
+      "reasonRejected": "A Borderless não aceitou a última verificação da sua associação feita pelo Applika.",
+      "reasonRejectedPaused": "A Borderless não aceitou a última verificação do Applika, então seu selo {badge} está pausado."
+    }
+  },
+  "dashboard": {
+    "title": "Painel",
+    "subtitle": "Um resumo das suas candidaturas",
+    "subtitlePast": "Vendo um ciclo arquivado",
+    "stats": {
+      "active": "Ativas",
+      "offers": "Ofertas",
+      "denials": "Recusas",
+      "total": "Total",
+      "successRate": "Taxa de sucesso"
+    },
+    "trend": {
+      "title": "Tendência de candidaturas",
+      "description": "Candidaturas enviadas por dia nos últimos 30 dias",
+      "series": "Total",
+      "seriesLabel": "Total de candidaturas"
+    },
+    "conversion": {
+      "title": "Conversão por etapa",
+      "description": "Porcentagem de candidaturas que chegaram a cada etapa"
+    },
+    "avgDays": {
+      "title": "Média de dias / etapa",
+      "description": "Número médio de dias em cada etapa antes de avançar"
+    },
+    "platform": {
+      "title": "Por plataforma",
+      "description": "Distribuição das candidaturas entre as plataformas de vagas"
+    },
+    "mode": {
+      "title": "Ativas x passivas",
+      "description": "Equilíbrio entre candidaturas que você iniciou e contatos de recrutadores",
+      "active": "Ativas",
+      "passive": "Passivas"
+    }
+  },
+  "reports": {
+    "status": {
+      "submitted": "Enviado",
+      "pending": "Pendente",
+      "overdue": "Atrasado",
+      "future": "Futuro"
+    },
+    "list": {
+      "title": "Meus relatórios <accent>— 120 dias</accent>",
+      "progress": "Você está no <em>dia {day}</em> do desafio",
+      "tip": "Dica",
+      "tipBody": "Os relatórios vencem a cada <strong>14 dias</strong> durante o desafio de 120 dias. Entregue-os em dia para acompanhar seu progresso em cada fase.",
+      "current": "Atuais",
+      "submitted": "Enviados",
+      "upcoming": "Próximos",
+      "day": "Dia {day}",
+      "phase": "Fase {phase}",
+      "view": "Ver",
+      "fill": "Preencher",
+      "notAvailable": "Indisponível"
+    },
+    "detail": {
+      "back": "Voltar aos relatórios",
+      "heading": "Relatório — dia {day} de {total}",
+      "phase": "Fase {phase}",
+      "autoTitle": "Métricas calculadas automaticamente",
+      "autoDescription": "Estas métricas são calculadas automaticamente a partir dos dados das suas candidaturas.",
+      "applications": "Candidaturas",
+      "interviewsDone": "Entrevistas feitas",
+      "offers": "Ofertas",
+      "activeProcesses": "Processos ativos",
+      "manualTitle": "Métricas manuais",
+      "startDate": "Início do desafio",
+      "mockInterviews": "Entrevistas simuladas",
+      "linkedinPosts": "Posts no LinkedIn",
+      "strategicConnections": "Conexões estratégicas",
+      "reflection": "Reflexão",
+      "biggestWin": "Maior conquista",
+      "biggestWinPlaceholder": "Qual foi sua maior conquista nesta quinzena?",
+      "biggestChallenge": "Maior desafio",
+      "biggestChallengePlaceholder": "Qual foi o maior desafio que você enfrentou?",
+      "totalsTitle": "Totais acumulados",
+      "totalApplications": "Total de candidaturas",
+      "totalScreenings": "Total de triagens iniciais",
+      "callbackRate": "Taxa de retorno",
+      "offerRate": "Taxa de ofertas",
+      "goalTitle": "Meta da próxima quinzena",
+      "goalPrompt": "O que você quer alcançar nos próximos <strong>14 dias</strong>?",
+      "goalPlaceholder": "Defina uma meta específica e mensurável para a próxima quinzena...",
+      "cancel": "Cancelar",
+      "submitting": "Enviando...",
+      "submit": "Enviar relatório",
+      "overLimit": "{count} acima do limite",
+      "remaining": "{count} caracteres"
+    },
+    "errors": {
+      "startDateRequired": "A data de início é obrigatória",
+      "required": "Obrigatório",
+      "negative": "Não pode ser negativo",
+      "winRequired": "A maior conquista é obrigatória",
+      "challengeRequired": "O maior desafio é obrigatório",
+      "goalRequired": "A meta da próxima quinzena é obrigatória",
+      "maxChars": "Máximo de {max} caracteres excedido"
+    },
+    "toast": {
+      "submitFailed": "Não foi possível enviar o relatório"
+    }
+  },
+  "cycles": {
+    "title": "Ciclos",
+    "lead": "Gerencie seus ciclos de busca de emprego arquivados. Excluir um ciclo remove permanentemente todas as candidaturas, os relatórios e as estatísticas dele.",
+    "emptyTitle": "Nenhum ciclo arquivado ainda",
+    "emptyBody": "Quando você inicia um novo ciclo pelo cabeçalho, suas candidaturas e relatórios atuais são arquivados aqui.",
+    "created": "Criado em {date}",
+    "view": "Ver",
+    "delete": "Excluir",
+    "dialogTitle": "Excluir o ciclo permanentemente?",
+    "dialogBody": "Isto excluirá permanentemente <b>{name}</b> e todas as candidaturas, os relatórios e as estatísticas associados. Esta ação não pode ser desfeita.",
+    "cancel": "Cancelar",
+    "deleting": "Excluindo...",
+    "confirm": "Excluir permanentemente",
+    "toast": {
+      "created": "Novo ciclo iniciado",
+      "createFailed": "Não foi possível criar o ciclo",
+      "deleted": "Ciclo excluído permanentemente",
+      "deleteFailed": "Não foi possível excluir o ciclo"
+    }
+  },
+  "agenda": {
+    "page": {
+      "title": "Agenda",
+      "subtitle": "As etapas das suas candidaturas organizadas por data",
+      "searchPlaceholder": "Buscar candidaturas...",
+      "searchLabel": "Buscar candidaturas",
+      "stageFilterLabel": "Filtrar por etapa",
+      "allStages": "Todas as etapas",
+      "upcomingTab": "Próximas",
+      "pastTab": "Anteriores",
+      "emptyUpcoming": "Nenhuma entrevista agendada",
+      "emptyPast": "Nenhuma entrevista nos últimos 30 dias",
+      "emptyFiltered": "Nenhuma entrevista corresponde à sua busca",
+      "goToApplications": "Ir para candidaturas",
+      "loadErrorTitle": "Não foi possível carregar sua agenda",
+      "retry": "Tentar de novo",
+      "loading": "Carregando agenda"
+    },
+    "card": {
+      "allDay": "Dia inteiro",
+      "converted": "(convertido)",
+      "noNotes": "Sem anotações",
+      "addToCalendarTooltip": "Adicionar ao calendário",
+      "alertOffTooltip": "Alertar 30, 15 e 5 min antes",
+      "alertOnTooltip": "Desativar alertas sonoros",
+      "openTooltip": "Abrir em Candidaturas"
+    },
+    "timeline": {
+      "title": "Linha do tempo",
+      "loading": "Carregando linha do tempo",
+      "loadErrorTitle": "Não foi possível carregar a linha do tempo",
+      "loadErrorFallback": "Algo deu errado ao buscar os eventos desta candidatura.",
+      "emptyTitle": "Nenhum evento ainda",
+      "emptyDescription": "Não há atividade registrada para esta candidatura."
+    },
+    "count": {
+      "events": "{count, plural, one {# evento} other {# eventos}}",
+      "applications": "{count, plural, one {# candidatura} other {# candidaturas}}",
+      "tab": "{tab} ({count})"
+    },
+    "names": {
+      "open": "Abrir {role} em {company}",
+      "addToCalendar": "Adicionar {role} em {company} ao calendário",
+      "alerts": "Alertas sonoros de {role} em {company}",
+      "timeline": "Linha do tempo de {role} em {company}"
+    },
+    "downloaded": "Evento do calendário baixado",
+    "notification": {
+      "body": "Começa em {minutes} minutos"
+    },
+    "calendar": {
+      "role": "Cargo: {role}",
+      "company": "Empresa: {company}",
+      "notes": "Anotações: {notes}",
+      "managedBy": "Gerenciado pelo {app}"
+    }
+  },
+  "applications": {
+    "page": {
+      "title": "Candidaturas",
+      "subtitle": "Gerencie e acompanhe todas as suas candidaturas.",
+      "newApplication": "Nova candidatura",
+      "newWithCv": "Nova com CV",
+      "applicationsTab": "Candidaturas",
+      "draftsTab": "Rascunhos",
+      "archivedSubtitle": "Vendo um ciclo arquivado",
+      "searchPlaceholder": "Buscar empresa ou cargo…",
+      "searchLabel": "Buscar empresa ou cargo",
+      "statusFilterLabel": "Status",
+      "allStatuses": "Todos os status",
+      "advancedFilters": "Filtros avançados",
+      "clearFilters": "Limpar tudo",
+      "emptyTitle": "Nenhuma candidatura encontrada",
+      "emptyAction": "Crie sua primeira candidatura",
+      "focusNotInCycle": "Esta candidatura não está no ciclo que você está vendo."
+    },
+    "found": "{count, plural, one {# candidatura encontrada} other {# candidaturas encontradas}}",
+    "status": {
+      "active": "Ativa",
+      "srPrefix": "Status"
+    },
+    "actions": {
+      "edit": "Editar",
+      "delete": "Excluir",
+      "cv": "CV",
+      "details": "Detalhes"
+    },
+    "name": "{role} em {company}",
+    "detail": {
+      "platform": "Plataforma",
+      "source": "Origem",
+      "date": "Data",
+      "experience": "Experiência",
+      "workMode": "Modelo de trabalho",
+      "country": "País",
+      "salaryRange": "Faixa salarial",
+      "expectedSalary": "Pretensão salarial",
+      "jobPosting": "Anúncio da vaga",
+      "jobPostingLink": "Ver anúncio da vaga",
+      "notes": "Anotações"
+    },
+    "close": {
+      "reversible": "Encerrar é reversível: nada é excluído e você pode reabrir esta candidatura a qualquer momento.",
+      "closed": "Encerrada",
+      "closeAction": "Encerrar",
+      "reopenAction": "Reabrir"
+    },
+    "closeDialog": {
+      "title": "Encerrar candidatura",
+      "description": "Encerrar é reversível: nada é excluído e você pode reabrir esta candidatura a qualquer momento.",
+      "outcomeLabel": "Resultado",
+      "submit": "Encerrar",
+      "cancel": "Cancelar"
+    },
+    "closeOutcome": {
+      "none": {
+        "label": "Nenhum",
+        "description": "Encerrar sem resultado. Nada é adicionado à linha do tempo."
+      },
+      "offer": {
+        "label": "Oferta",
+        "description": "Encerrar com uma oferta. Um evento de oferta com o salário é adicionado à linha do tempo."
+      },
+      "denied": {
+        "label": "Recusada",
+        "description": "Encerrar com uma recusa. Um evento de recusa é adicionado à linha do tempo."
+      }
+    },
+    "salary": {
+      "upTo": "Até {amount}"
+    },
+    "toasts": {
+      "deleted": "Candidatura excluída",
+      "deleteFailed": "Não foi possível excluir",
+      "updated": "Candidatura atualizada",
+      "created": "Candidatura criada"
+    },
+    "item": {
+      "cvFor": "CV de {name}",
+      "detailsFor": "Detalhes de {name}",
+      "modeActive": "Ativa",
+      "modePassive": "Passiva"
+    },
+    "filters": {
+      "source": "Origem",
+      "allModes": "Todas as origens",
+      "platform": "Plataforma",
+      "allPlatforms": "Todas",
+      "from": "De",
+      "to": "Até"
+    },
+    "list": {
+      "loading": "Carregando candidaturas",
+      "loadErrorTitle": "Não foi possível carregar as candidaturas",
+      "loadErrorBody": "Algo deu errado ao buscar suas candidaturas.",
+      "retry": "Tentar de novo",
+      "draftsTabCount": "Rascunhos ({count})"
+    },
+    "deleteDialog": {
+      "title": "Excluir candidatura?",
+      "body": "Esta ação não pode ser desfeita.",
+      "cancel": "Cancelar",
+      "confirm": "Excluir"
+    },
+    "pageToasts": {
+      "draftDeleted": "Rascunho excluído",
+      "draftDeleteFailed": "Não foi possível excluir",
+      "reopened": "Candidatura reaberta",
+      "reopenFailed": "Não foi possível reabrir"
+    },
+    "form": {
+      "newTitle": "Nova candidatura",
+      "editTitle": "Editar candidatura",
+      "cancel": "Cancelar",
+      "save": "Salvar alterações",
+      "create": "Criar candidatura"
+    },
+    "validation": {
+      "platformRequired": "A plataforma é obrigatória",
+      "roleRequired": "O cargo é obrigatório",
+      "sourceRequired": "A origem é obrigatória",
+      "dateRequired": "A data da candidatura é obrigatória",
+      "dateInFuture": "A data não pode estar no futuro",
+      "invalidUrl": "URL inválida.",
+      "invalidUrlShort": "URL inválida",
+      "jobDescriptionTooLong": "Use menos de {max} caracteres",
+      "requiredWithSalary": "Obrigatório quando há salário",
+      "companyRequired": "A empresa é obrigatória",
+      "companyNameMin": "O nome da empresa precisa ter pelo menos 1 caractere",
+      "companyNameRequired": "O nome da empresa é obrigatório"
+    },
+    "fields": {
+      "roleSection": "Cargo e empresa",
+      "roleSectionHint": "O que toda candidatura precisa.",
+      "role": "Cargo",
+      "rolePlaceholder": "ex.: Engenheiro sênior",
+      "source": "Origem",
+      "select": "Selecione",
+      "company": "Empresa",
+      "platform": "Plataforma",
+      "applicationDate": "Data da candidatura",
+      "jobLink": "Link da vaga",
+      "detailsSection": "Detalhes",
+      "detailsSectionHint": "Opcional: como você trabalharia e quanto paga.",
+      "workMode": "Modelo de trabalho",
+      "experienceLevel": "Senioridade",
+      "country": "País",
+      "countryPlaceholder": "ex.: Brasil",
+      "currency": "Moeda",
+      "salaryPeriod": "Período do salário",
+      "expected": "Pretensão",
+      "min": "Mín.",
+      "max": "Máx.",
+      "salaryHint": "Escolha uma moeda e um período do salário para informar valores.",
+      "postingSection": "Anúncio e anotações",
+      "postingSectionHint": "O anúncio da vaga e tudo o que você quiser lembrar.",
+      "jobDescription": "Descrição da vaga",
+      "jobDescriptionPlaceholder": "Cole o anúncio da vaga aqui: ele fica ao lado da cópia do CV desta candidatura enquanto você a ajusta.",
+      "jobDescriptionHint": "Opcional. Aparece ao lado da cópia do CV na página de CV da candidatura.",
+      "notes": "Anotações adicionais",
+      "notesPlaceholder": "Anotações opcionais…"
+    },
+    "timezone": {
+      "search": "Buscar fuso horário..."
+    },
+    "catalog": {
+      "onlyYou": "Só você",
+      "createNamed": "Criar \"{name}\"",
+      "alreadyListed": "{name} já está na sua lista.",
+      "freeText": "{name} fica só nesta candidatura.",
+      "company": {
+        "placeholder": "Selecione uma empresa",
+        "listLabel": "Escolha uma empresa",
+        "search": "Busque ou adicione uma empresa",
+        "loading": "Carregando empresas",
+        "noMatch": "Nenhuma empresa corresponde.",
+        "createNew": "Adicionar uma nova empresa",
+        "newTitle": "Nova empresa",
+        "name": "Nome",
+        "url": "URL",
+        "optional": "(opcional)",
+        "urlHint": "Deixe em branco para manter o nome só nesta candidatura.",
+        "privacyHint": "Só você a vê até que um administrador a aprove.",
+        "back": "Voltar",
+        "submit": "Adicionar empresa",
+        "nameRequired": "O nome é obrigatório",
+        "nameTooLong": "O nome deve ter até 200 caracteres",
+        "urlInvalid": "Informe uma URL completa, como https://example.com",
+        "urlTooLong": "A URL deve ter até 2083 caracteres",
+        "createFailed": "Não foi possível adicionar a empresa. Tente de novo.",
+        "nowSelected": "Ela já está selecionada."
+      },
+      "platform": {
+        "placeholder": "Selecione uma plataforma",
+        "listLabel": "Escolha uma plataforma",
+        "search": "Busque ou adicione uma plataforma",
+        "loading": "Carregando plataformas",
+        "noMatch": "Nenhuma plataforma corresponde.",
+        "createNew": "Adicionar uma nova plataforma",
+        "newTitle": "Nova plataforma",
+        "name": "Nome",
+        "url": "URL",
+        "optional": "(opcional)",
+        "privacyHint": "Só você a vê até que um administrador a aprove.",
+        "back": "Voltar",
+        "submit": "Adicionar plataforma",
+        "nameRequired": "O nome é obrigatório",
+        "nameTooLong": "O nome deve ter até 100 caracteres",
+        "urlInvalid": "Informe uma URL completa, como https://example.com",
+        "urlTooLong": "A URL deve ter até 200 caracteres",
+        "createFailed": "Não foi possível adicionar a plataforma. Tente de novo.",
+        "nowSelected": "Ela já está selecionada."
+      }
+    }
+  },
+  "cvs": {
+    "page": {
+      "title": "CVs",
+      "description": "Seus CVs principais. Mantenha até três e reutilize-os em todas as candidaturas.",
+      "back": "Voltar para os CVs"
+    },
+    "list": {
+      "loading": "Carregando seus CVs principais",
+      "errorTitle": "Não foi possível carregar seus CVs principais",
+      "retry": "Tentar de novo",
+      "emptyTitle": "Nenhum CV principal ainda",
+      "emptyBody": "Um CV principal reúne tudo sobre você — identidade e contato, um resumo, links, habilidades, experiência, projetos, certificações e idiomas. Escreva uma vez e reutilize em todas as candidaturas. Você pode manter até três.",
+      "emptyCta": "Criar seu primeiro CV"
+    },
+    "card": {
+      "updated": "Atualizado em {date}",
+      "noSkills": "Nenhuma habilidade adicionada ainda",
+      "roles": "{count, plural, =0 {# cargos} one {# cargo} other {# cargos}}",
+      "projects": "{count, plural, =0 {# projetos} one {# projeto} other {# projetos}}",
+      "languages": "{count, plural, =0 {# idiomas} one {# idioma} other {# idiomas}}",
+      "keywords": "{count, plural, =0 {# palavras-chave} one {# palavra-chave} other {# palavras-chave}}",
+      "edit": "Editar",
+      "editLabel": "Editar {name}",
+      "delete": "Excluir",
+      "deleteLabel": "Excluir {name}",
+      "deleteTitle": "Excluir este CV principal?",
+      "deleteDescription": "\"{name}\" e tudo o que ele contém serão removidos de vez. Isso não pode ser desfeito.",
+      "cancel": "Cancelar"
+    },
+    "new": {
+      "title": "Novo CV principal",
+      "description": "Escreva uma vez. Toda candidatura que você adaptar começa daqui.",
+      "submit": "Criar CV",
+      "limitReason": "Você já tem 3 CVs principais — o limite é três. Exclua um para criar outro.",
+      "slotsLeft": "{remaining} de {max} espaços livres"
+    },
+    "editorPage": {
+      "title": "Editar CV principal",
+      "description": "Altere o que quiser e salve de novo.",
+      "noIdTitle": "Nenhum CV selecionado",
+      "noIdBody": "Abra um CV da sua lista para editá-lo.",
+      "loadErrorTitle": "Não foi possível carregar este CV",
+      "loading": "Carregando este CV principal",
+      "routeLoading": "Carregando o editor de CV",
+      "submit": "Salvar alterações"
+    },
+    "toasts": {
+      "created": "CV principal criado",
+      "saved": "CV principal salvo",
+      "deleted": "CV principal excluído",
+      "copyCreated": "Cópia do CV criada",
+      "copySaved": "Cópia do CV salva",
+      "copyDeleted": "Cópia do CV excluída"
+    },
+    "tailored": {
+      "readOnly": {
+        "finalized": {
+          "title": "Esta candidatura está encerrada.",
+          "body": "Reabra-a para editar este CV."
+        },
+        "archived": {
+          "title": "Esta candidatura está em um ciclo encerrado",
+          "body": "Candidaturas de um ciclo anterior ficam arquivadas. Você pode ler esta cópia do CV, mas ela não pode mais ser editada nem excluída."
+        }
+      },
+      "source": {
+        "deleted": "CV de origem excluído",
+        "deletedHint": "O CV principal de onde esta cópia veio foi excluído. Tudo abaixo continua pertencendo a esta candidatura e pode ser editado.",
+        "copiedFrom": "Copiado de {name}",
+        "copiedFromMaster": "Copiado de um CV principal"
+      },
+      "editor": {
+        "previewRegion": "Pré-visualização do CV",
+        "livePreview": "Pré-visualização",
+        "submit": "Salvar cópia do CV",
+        "cancel": "Cancelar",
+        "deleteLabel": "Excluir esta cópia do CV",
+        "deleteAction": "Excluir cópia",
+        "deleteTitle": "Excluir esta cópia do CV?",
+        "deleteDescription": "A cópia e todas as edições que você fez nela são removidas para sempre. Seus CVs principais não mudam, e você pode criar uma nova cópia para esta candidatura depois.",
+        "deleteConfirm": "Excluir"
+      },
+      "jobDescription": {
+        "title": "Descrição da vaga",
+        "description": "Vem da candidatura. Somente leitura aqui.",
+        "textRegion": "Texto da descrição da vaga",
+        "emptyHint": "Nenhuma descrição da vaga salva para esta candidatura. Adicione uma ao editar a candidatura e ela ficará aqui, ao lado da cópia do CV, enquanto você a adapta.",
+        "add": "Adicionar descrição da vaga"
+      },
+      "tailorByKeywords": {
+        "label": "Adaptar por palavras-chave",
+        "description": "Reordena habilidades e tópicos pela aderência à descrição da vaga. Nenhum texto é adicionado ou alterado."
+      },
+      "picker": {
+        "title": "Escolha um CV principal",
+        "hint": "Escolha o CV principal de onde esta candidatura parte. A cópia é sua para editar para esta vaga — o CV principal nunca muda.",
+        "lockedBody": "Nenhuma cópia do CV foi criada para esta candidatura, e não é mais possível criar uma.",
+        "create": "Criar a cópia do CV"
+      },
+      "validation": {
+        "tooLong": "Use menos de {max} caracteres",
+        "nameRequired": "O nome do CV é obrigatório",
+        "fullNameRequired": "O nome completo é obrigatório",
+        "headlineRequired": "O título profissional é obrigatório",
+        "locationRequired": "A localização é obrigatória",
+        "emailRequired": "O e-mail é obrigatório",
+        "emailInvalid": "Informe um endereço de e-mail válido",
+        "summaryRequired": "O resumo é obrigatório",
+        "linksIncomplete": "Todo link precisa de um rótulo e de uma URL. Remova as linhas que não quiser.",
+        "linksTooLong": "Use menos de {label} caracteres em cada rótulo de link e menos de {url} em cada URL.",
+        "skillsIncomplete": "Toda categoria de habilidades precisa de um nome. Remova as categorias que não quiser.",
+        "skillsTooLong": "Use menos de {category} caracteres em cada nome de categoria e menos de {keyword} em cada palavra-chave.",
+        "experienceIncomplete": "Todo cargo precisa de empresa, cargo e mês e ano de início (MM/aaaa). Remova as linhas que não quiser.",
+        "experienceFinish": "O término precisa ser um MM/aaaa completo e não pode vir antes do início. Deixe vazio para um cargo atual.",
+        "experienceTooLong": "Use menos de {company} caracteres em cada empresa, cargo e local, e menos de {description} em cada descrição de empresa.",
+        "projectsIncomplete": "Todo projeto precisa de um nome. Remova as linhas que não quiser.",
+        "projectsTooLong": "Use menos de {name} caracteres em cada nome de projeto e menos de {description} em cada descrição.",
+        "educationIncomplete": "Toda formação precisa de instituição, grau e mês e ano de início (MM/aaaa). Remova as linhas que não quiser.",
+        "educationFinish": "O término precisa ser um MM/aaaa completo e não pode vir antes do início. Deixe vazio para um curso em andamento.",
+        "educationTooLong": "Use menos de {max} caracteres em cada instituição, grau e área de estudo.",
+        "certificationsIncomplete": "Toda certificação precisa de um nome e de um emissor. Remova as linhas que não quiser.",
+        "certificationsTooLong": "Use menos de {max} caracteres em cada nome de certificação e emissor.",
+        "languagesIncomplete": "Todo idioma precisa de um nome. Remova as linhas que não quiser.",
+        "languagesTooLong": "Use menos de {max} caracteres em cada idioma."
+      }
+    },
+    "diff": {
+      "added": "Adicionado",
+      "removed": "Removido",
+      "restore": "Restaurar",
+      "removedGroup": "Item removido ({noun}): {title}",
+      "restoreLabel": "Restaurar {noun} {title}",
+      "itemNoun": {
+        "links": "link",
+        "skills": "categoria",
+        "experience": "experiência",
+        "projects": "projeto",
+        "education": "formação",
+        "certifications": "certificação",
+        "languages": "idioma"
+      },
+      "newItem": {
+        "link": "Novo link",
+        "category": "Nova categoria",
+        "role": "Novo cargo",
+        "project": "Novo projeto",
+        "qualification": "Nova formação",
+        "certification": "Novo certificado",
+        "language": "Novo idioma"
+      },
+      "periodOpen": "{from} - atual",
+      "changed": "Alterado",
+      "changedLabel": "Alterado: {field}",
+      "original": "Original",
+      "originalValue": "Valor original",
+      "emptyOriginal": "Vazio no CV original.",
+      "revert": "Reverter",
+      "revertLabel": "Reverter {field}",
+      "addedKeywords": "Palavras-chave adicionadas",
+      "removedKeywords": "Palavras-chave removidas",
+      "sectionCount": "{count, plural, =0 {0 alterações} one {# alteração} other {# alterações}}",
+      "reordered": "reordenado",
+      "countReordered": "{changes}, reordenado",
+      "summaryCount": "{count, plural, =0 {nenhuma alteração} one {# alteração} other {# alterações}}",
+      "comparedWith": "Comparado com {label}: {count}",
+      "originalMaster": "o CV principal original",
+      "showChanges": "Mostrar alterações",
+      "reorderedTitle": "Reordenado pela aderência à vaga",
+      "download": {
+        "label": "Baixar alterações",
+        "pdf": "PDF",
+        "markdown": "Markdown",
+        "as": "{label} em {format}",
+        "pending": "Preparando seu download. Isso pode levar alguns segundos.",
+        "dirtyNotice": "Os downloads refletem a última versão salva."
+      }
+    },
+    "fit": {
+      "title": "Aderência do CV à vaga",
+      "description": "Correspondência de palavras-chave entre a descrição da vaga e esta cópia do CV.",
+      "loading": "Carregando a aderência a esta vaga",
+      "loadError": "Não foi possível carregar a aderência a esta vaga.",
+      "retry": "Tentar de novo",
+      "dirty": "A aderência reflete a última versão salva."
+    },
+    "applicationCv": {
+      "back": "Voltar para candidaturas",
+      "title": "CV da candidatura",
+      "description": "A cópia de um CV principal desta candidatura, editada para a vaga.",
+      "noIdTitle": "Nenhuma candidatura selecionada",
+      "noIdBody": "Abra uma candidatura da sua lista para trabalhar na cópia do CV dela.",
+      "loadingApplication": "Carregando esta candidatura",
+      "openErrorTitle": "Não foi possível abrir esta candidatura",
+      "notInCycle": "Ela não está no ciclo que você está vendo. Troque de ciclo na lista de candidaturas e abra o CV dela por lá.",
+      "loadErrorTitle": "Não foi possível carregar esta cópia do CV",
+      "loadingCopy": "Carregando esta cópia do CV",
+      "diffUnresolved": "Não foi possível consultar o CV principal original para comparar. Tente recarregar a página.",
+      "routeLoading": "Carregando a cópia do CV"
+    },
+    "fields": {
+      "label": {
+        "cvLabel": "Nome do CV",
+        "fullName": "Nome completo",
+        "headline": "Título profissional",
+        "email": "E-mail",
+        "phone": "Telefone",
+        "location": "Localização",
+        "label": "Rótulo",
+        "url": "URL",
+        "summary": "Resumo",
+        "category": "Categoria",
+        "keywords": "Palavras-chave",
+        "company": "Empresa",
+        "role": "Cargo",
+        "start": "Início",
+        "finish": "Término",
+        "companyDescription": "Descrição da empresa",
+        "highlights": "Destaques",
+        "name": "Nome",
+        "link": "Link",
+        "linkLabel": "Texto do link",
+        "description": "Descrição",
+        "institution": "Instituição",
+        "degree": "Grau",
+        "area": "Área de estudo",
+        "issuer": "Emissor",
+        "language": "Idioma",
+        "level": "Nível"
+      },
+      "noun": {
+        "link": "link",
+        "category": "categoria",
+        "experience": "experiência",
+        "project": "projeto",
+        "education": "formação",
+        "certification": "certificação",
+        "language": "idioma",
+        "highlight": "destaque"
+      },
+      "hint": {
+        "cvLabel": "Só você vê isto. É o nome do CV na sua lista.",
+        "optional": "Opcional.",
+        "monthYear": "Mês e ano, MM/aaaa.",
+        "finishRole": "Opcional. Deixe vazio para um cargo atual: sai impresso como \"present\".",
+        "finishCourse": "Opcional. Deixe vazio para um curso em andamento: sai impresso como \"present\"."
+      },
+      "placeholder": {
+        "cvLabel": "CV com foco em backend",
+        "headline": "Engenheira de software sênior",
+        "location": "São Paulo, Brasil",
+        "summary": "Engenheira backend com oito anos em sistemas de pagamento…",
+        "role": "Engenheira backend sênior",
+        "remote": "Remoto",
+        "companyDescription": "Infraestrutura de pagamentos, 8000 pessoas.",
+        "highlight": "Reduzi a latência de liquidação em 40%…",
+        "linkLabel": "Demonstração",
+        "institution": "Universidade de São Paulo",
+        "degree": "Bacharelado",
+        "area": "Ciência da Computação",
+        "language": "Inglês",
+        "level": "Escolha um nível"
+      },
+      "addHighlight": "Adicionar destaque",
+      "moveUp": "Mover {position} para cima",
+      "moveDown": "Mover {position} para baixo",
+      "remove": "Remover {position}",
+      "removeNumbered": "Remover {noun} {number}",
+      "keywords": {
+        "hint": "Pressione Enter ou vírgula para adicionar. Clique em uma palavra-chave para renomeá-la. Alt com a seta para a esquerda ou para a direita a move.",
+        "add": "Adicionar uma palavra-chave",
+        "addTo": "Adicionar uma palavra-chave em {group}",
+        "list": "Palavras-chave",
+        "listIn": "Palavras-chave em {group}",
+        "rename": "Renomear {keyword}",
+        "remove": "Remover {keyword}"
+      },
+      "languageLevel": {
+        "native": "Nativo",
+        "proficient": "Fluente",
+        "conversational": "Conversação",
+        "readComprehend": "Leitura e compreensão",
+        "basic": "Básico"
+      }
+    },
+    "sections": {
+      "identity": {
+        "title": "Identidade e contato",
+        "description": "O cabeçalho do topo do seu CV, mais o nome pelo qual você reconhece este CV."
+      },
+      "links": {
+        "title": "Links",
+        "description": "Portfólio, GitHub, LinkedIn e outros perfis.",
+        "newItem": "Novo link",
+        "add": "Adicionar link",
+        "emptyHint": "Nenhum link ainda. Adicione os perfis que quer no seu CV."
+      },
+      "summary": {
+        "title": "Resumo",
+        "description": "Um breve resumo profissional, com suas palavras."
+      },
+      "experience": {
+        "title": "Experiência",
+        "description": "Seus cargos, do mais recente ao mais antigo.",
+        "newItem": "Novo cargo",
+        "add": "Adicionar experiência",
+        "emptyHint": "Nenhum cargo ainda. Adicione os empregos que quer neste CV."
+      },
+      "projects": {
+        "title": "Projetos",
+        "description": "Projetos pessoais, open source e trabalhos de destaque.",
+        "newItem": "Novo projeto",
+        "add": "Adicionar projeto",
+        "emptyHint": "Nenhum projeto ainda."
+      },
+      "education": {
+        "title": "Formação",
+        "description": "Graduações e diplomas, do mais recente ao mais antigo.",
+        "newItem": "Nova formação",
+        "add": "Adicionar formação",
+        "emptyHint": "Nenhuma formação ainda. Adicione as graduações que quer neste CV."
+      },
+      "certifications": {
+        "title": "Certificações",
+        "description": "Certificações e licenças profissionais.",
+        "newItem": "Novo certificado",
+        "add": "Adicionar certificação",
+        "emptyHint": "Nenhuma certificação ainda."
+      },
+      "languages": {
+        "title": "Idiomas",
+        "description": "Os idiomas que você fala e o seu nível.",
+        "newItem": "Novo idioma",
+        "add": "Adicionar idioma",
+        "emptyHint": "Nenhum idioma ainda."
+      },
+      "skills": {
+        "title": "Habilidades",
+        "description": "Agrupe suas habilidades em categorias. Cada categoria sai impressa em uma linha própria.",
+        "newItem": "Nova categoria",
+        "add": "Adicionar categoria",
+        "noun": "categoria",
+        "emptyHint": "Nenhuma categoria de habilidades ainda. Adicione uma e preencha com palavras-chave.",
+        "categoryEmptyHint": "Nenhuma palavra-chave ainda. Elas saem impressas sob o nome da categoria, separadas por um ponto médio.",
+        "category": "Categoria",
+        "categoryPlaceholder": "Linguagens e frameworks",
+        "keywords": "Palavras-chave",
+        "thisCategory": "esta categoria"
+      }
+    },
+    "validation": {
+      "maxLength": "Use menos de {max} caracteres",
+      "cvLabelRequired": "O nome do CV é obrigatório",
+      "fullNameRequired": "Informe seu nome completo",
+      "headlineRequired": "Informe um título profissional",
+      "locationRequired": "Informe uma localização",
+      "emailRequired": "Informe um e-mail",
+      "emailInvalid": "Informe um endereço de e-mail válido",
+      "summaryRequired": "Informe um resumo",
+      "links": "Todo link precisa de um rótulo e de uma URL. Remova as linhas que não quiser.",
+      "skills": "Toda categoria de habilidades precisa de um nome. Remova as categorias que não quiser.",
+      "skillsLength": "Use menos de {category} caracteres em cada nome de categoria e menos de {keyword} em cada palavra-chave.",
+      "experience": "Todo cargo precisa de empresa, cargo e mês e ano de início (MM/aaaa). Remova as linhas que não quiser.",
+      "experienceFinish": "O término precisa ser um MM/aaaa completo e não pode vir antes do início. Deixe vazio para um cargo atual.",
+      "projects": "Todo projeto precisa de um nome. Remova as linhas que não quiser.",
+      "education": "Toda formação precisa de instituição, grau e mês e ano de início (MM/aaaa). Remova as linhas que não quiser.",
+      "educationFinish": "O término precisa ser um MM/aaaa completo e não pode vir antes do início. Deixe vazio para um curso em andamento.",
+      "educationLength": "Use menos de {max} caracteres em cada instituição, grau e área de estudo.",
+      "certifications": "Toda certificação precisa de um nome e de um emissor. Remova as linhas que não quiser.",
+      "languages": "Todo idioma precisa de um nome. Remova as linhas que não quiser."
+    },
+    "editor": {
+      "save": "Salvar CV",
+      "cancel": "Cancelar"
+    },
+    "preview": {
+      "pageLabel": "Página {page} de {total}",
+      "pageCount": "{total, plural, one {Pré-visualização do CV: # página.} other {Pré-visualização do CV: # páginas.}}",
+      "documentLabel": "Pré-visualização do CV de {name}",
+      "documentLabelUnnamed": "Pré-visualização do seu CV",
+      "overflowNote": "Um item é maior que uma página A4.",
+      "pagesLabel": "Páginas da pré-visualização do CV",
+      "asideLabel": "Pré-visualização do CV",
+      "livePreview": "Pré-visualização"
+    },
+    "export": {
+      "layoutNotice": "A pré-visualização não mostra o layout final do PDF.",
+      "pdfPending": "Preparando seu PDF. Isso pode levar alguns segundos.",
+      "pdfLabel": "Baixar PDF",
+      "markdownLabel": "Baixar Markdown",
+      "markdownPending": "Preparando seu arquivo Markdown."
+    }
+  },
+  "drafts": {
+    "page": {
+      "pageTitle": "Nova candidatura com CV",
+      "pageSubtitle": "Preencha a candidatura e depois adapte uma cópia de um dos seus CVs principais. Ela é salva como rascunho assim que empresa, cargo e plataforma estiverem preenchidos.",
+      "pageLoading": "Carregando a página de nova candidatura",
+      "backToApplications": "Voltar para candidaturas",
+      "stepsLabel": "Passos",
+      "continueToCv": "Seguir para o CV",
+      "cancel": "Cancelar",
+      "back": "Voltar",
+      "finish": "Concluir",
+      "saving": "Salvando...",
+      "saved": "Salvo",
+      "notSaved": "Não salvo",
+      "requiredNotSaved": "Não salvo: empresa, cargo e plataforma são obrigatórios",
+      "retry": "Tentar de novo",
+      "loading": "Carregando este rascunho",
+      "notFoundTitle": "Este rascunho não está disponível",
+      "notFoundBody": "Ele pode ter sido concluído ou excluído. Os rascunhos concluídos estão na sua lista de candidaturas.",
+      "loadErrorTitle": "Não foi possível carregar este rascunho",
+      "loadErrorBody": "Algo deu errado ao abri-lo.",
+      "tryAgain": "Tentar de novo",
+      "goToApplications": "Ir para candidaturas",
+      "noMasterCvTitle": "Ainda não há um CV principal para copiar",
+      "noMasterCvBody": "O passo 2 começa com uma cópia de um dos seus CVs principais. Crie um antes; este rascunho fica em Rascunhos, na página de candidaturas, pronto para retomar.",
+      "noMasterCvCta": "Criar seu primeiro CV",
+      "applicationNeedsFixing": "Alguns campos da candidatura precisam de correção antes de concluir.",
+      "cvNeedsFixing": "Alguns campos da cópia do CV precisam de correção antes de concluir.",
+      "finishFailed": "Não foi possível concluir este rascunho. Tente de novo.",
+      "created": "Candidatura criada"
+    },
+    "steps": {
+      "application": {
+        "title": "Candidatura",
+        "hint": "Empresa, cargo, plataforma"
+      },
+      "cv": {
+        "title": "CV",
+        "hint": "Cópia de um CV principal"
+      },
+      "label": "Passo {number}: {title}"
+    },
+    "requirement": {
+      "company": "empresa",
+      "role": "cargo",
+      "platform": "plataforma",
+      "cv": "cópia do CV",
+      "missing": "Faltando: {list}"
+    },
+    "section": {
+      "emptyTitle": "Nenhum rascunho ainda.",
+      "description": "Candidaturas que você começou com um CV. Elas são salvas enquanto você digita.",
+      "resume": "Retomar",
+      "cvCopy": "Cópia do CV",
+      "loadError": "Não foi possível carregar seus rascunhos.",
+      "retry": "Tentar de novo",
+      "deleteTitle": "Excluir este rascunho?",
+      "deleteConfirm": "Excluir rascunho",
+      "deleteLabel": "Excluir rascunho {name}",
+      "deleteDescription": "O rascunho de {role} em {company} e a cópia do CV dele são excluídos para sempre. Seus CVs principais não mudam.",
+      "cancel": "Cancelar",
+      "savedJustNow": "Salvo agora mesmo",
+      "savedAgo": "Salvo {distance}"
+    },
+    "validation": {
+      "tooLong": "Use menos de {max} caracteres"
+    },
+    "unknownError": "Algo deu errado. Tente de novo."
+  },
+  "jobs": {
+    "title": "Vagas",
+    "subtitle": "Vagas remotas do Himalayas e do RemoteOK, comparadas com seus CVs principais.",
+    "subtitleNoCvs": "Vagas remotas do Himalayas e do RemoteOK.",
+    "invitation": "Crie um CV principal para ver sua aderência a cada vaga",
+    "emptyTitle": "Nenhuma vaga ainda",
+    "emptyBody": "Novas vagas chegam a cada hora.",
+    "noMatchesTitle": "Nenhuma vaga corresponde a estes filtros",
+    "noMatchesBody": "Tente menos tags, uma aderência mínima menor ou um período maior.",
+    "noMatchesBodyNoCvs": "Tente menos tags ou um período maior.",
+    "clearFilters": "Limpar filtros",
+    "clearAllFilters": "Limpar todos os filtros",
+    "loadErrorTitle": "Não foi possível carregar as vagas",
+    "retry": "Tentar de novo",
+    "pagerLabel": "Páginas da lista de vagas",
+    "previous": "Anterior",
+    "next": "Próxima",
+    "previousPage": "Página anterior",
+    "nextPage": "Próxima página",
+    "start": "Iniciar candidatura",
+    "dismiss": "Dispensar",
+    "restore": "Restaurar",
+    "dismissed": "Dispensada",
+    "draft": "Rascunho",
+    "applied": "Enviada",
+    "filtersLabel": "Filtrar vagas",
+    "searchLabel": "Buscar vagas",
+    "searchPlaceholder": "Cargo, empresa ou texto",
+    "sourceLabel": "Fonte",
+    "allSources": "Todas as fontes",
+    "sortLabel": "Ordenar",
+    "sortNewest": "Recentes",
+    "sortFit": "Aderência",
+    "moreFilters": "Mais filtros",
+    "tagsLabel": "Tags",
+    "tagsPlaceholder": "Adicione uma tag e pressione Enter",
+    "tagsHint": "Vagas com todas as tags. Diferencia maiúsculas de minúsculas.",
+    "tagsFull": "Você pode filtrar por até 10 tags.",
+    "minFitLabel": "Aderência mínima",
+    "anyFit": "Qualquer aderência",
+    "minFitNeedsCv": "Requer um CV principal.",
+    "postedWithinLabel": "Publicada há no máximo",
+    "anyTime": "Qualquer data",
+    "showDismissed": "Mostrar dispensadas",
+    "backToJobs": "Voltar para as vagas",
+    "descriptionTitle": "Descrição",
+    "emptyDescription": "Esta vaga não tem descrição.",
+    "fitTitle": "Sua aderência",
+    "fitHint": "Quanto cada um dos seus CVs principais cobre as palavras-chave desta vaga.",
+    "noFit": "Sem aderência",
+    "noFitBody": "Esta vaga ainda não tem palavras-chave para comparar.",
+    "matched": "Encontradas",
+    "missing": "Faltando",
+    "noneMatched": "Nenhuma palavra-chave desta vaga está neste CV.",
+    "noneMissing": "Este CV cobre todas as palavras-chave.",
+    "notListedTitle": "Esta vaga não está mais listada",
+    "notListedBody": "As vagas saem da lista 15 dias após a publicação, ou antes, quando a fonte as remove.",
+    "loadJobErrorTitle": "Não foi possível carregar esta vaga",
+    "loadingJob": "Carregando esta vaga",
+    "loadingJobs": "Carregando vagas",
+    "companyWebsite": "Site da empresa",
+    "inactiveNote": "Esta vaga não está mais listada. Você ainda a vê porque iniciou uma candidatura a partir dela.",
+    "startTitle": "Iniciar uma candidatura",
+    "cvLegend": "CV principal",
+    "cvHint": "O rascunho recebe uma cópia dele. O CV principal nunca muda.",
+    "noCvOption": "Sem CV",
+    "noCvHint": "Escolha um CV principal na próxima página.",
+    "noCvs": "Você ainda não tem um CV principal. O rascunho começa sem uma cópia do CV.",
+    "copyLegend": "Cópia do CV",
+    "verbatim": "Cópia fiel",
+    "verbatimHint": "Uma cópia exata do CV principal.",
+    "keywords": "Adaptar por palavras-chave",
+    "keywordsHint": "Coloca primeiro as habilidades e os tópicos que correspondem às palavras-chave desta vaga. Nenhum texto é adicionado, removido ou reescrito.",
+    "create": "Criar rascunho",
+    "cancel": "Cancelar",
+    "close": "Fechar",
+    "alreadyApplied": "Você já tem uma candidatura para esta vaga",
+    "openDraft": "Abrir rascunho",
+    "openApplication": "Abrir candidatura",
+    "savedSearches": "Buscas salvas",
+    "savedEmptyTitle": "Nenhuma busca salva ainda",
+    "savedEmptyBody": "Salve a busca, os filtros e a ordenação que você usa com frequência e aplique tudo com um clique.",
+    "savedLoadError": "Não foi possível carregar suas buscas salvas.",
+    "saveCurrent": "Salvar a busca atual",
+    "saveDialogDescription": "Salva o texto da busca, os filtros e a ordenação com um nome.",
+    "saveSubmit": "Salvar busca",
+    "renameTitle": "Renomear busca salva",
+    "renameSubmit": "Renomear",
+    "nameLabel": "Nome",
+    "nameRequired": "Dê um nome a esta busca",
+    "nameTooLong": "Use até 100 caracteres",
+    "deleteTitle": "Excluir esta busca salva?",
+    "deleteConfirm": "Excluir busca",
+    "justNow": "agora mesmo",
+    "withDismissed": "Com dispensadas",
+    "unknownError": "Algo deu errado. Tente de novo.",
+    "startDescription": "Cria um rascunho a partir de {title} em {company}. Você o conclui na próxima página.",
+    "viewOnSource": "Ver no {source}",
+    "moreTags": "+{count} outras",
+    "removeTag": "Remover a tag {tag}",
+    "renameSearch": "Renomear {name}",
+    "deleteSearch": "Excluir {name}",
+    "deleteSearchDescription": "\"{name}\" sai das suas buscas salvas. Vagas e candidaturas não são afetadas.",
+    "renameSearchDescription": "Renomeia \"{name}\". A busca, os filtros e a ordenação continuam iguais.",
+    "savedCap": "Você pode manter até {max} buscas salvas",
+    "savedCount": "{count} de {max}",
+    "jobCount": "{total, plural, =0 {0 vagas} one {# vaga} other {# vagas}}",
+    "page": "Página {page} de {totalPages}",
+    "moreFiltersActive": "Mais filtros ({count, plural, one {# ativo} other {# ativos}})",
+    "fitLabel": "Aderência {score}%",
+    "minFitOption": "{value}% ou mais",
+    "postedWithinOption": "{days, plural, one {# dia} other {# dias}}",
+    "fitAtLeast": "Aderência {value}%+",
+    "summaryBestFit": "Melhor aderência"
+  },
+  "admin": {
+    "jobs": {
+      "title": "Fontes de vagas",
+      "description": "O serviço em segundo plano coleta vagas a cada hora em cada fonte ativada. As execuções nunca se sobrepõem.",
+      "runNow": "Executar agora",
+      "runStarted": "Execução iniciada",
+      "runFailed": "Não foi possível iniciar uma execução. Tente novamente.",
+      "tableLabel": "Fontes de vagas",
+      "never": "Nunca",
+      "notRun": "Ainda não executada",
+      "none": "Nenhum",
+      "loading": "Carregando as fontes de vagas",
+      "loadErrorTitle": "Não foi possível carregar as fontes de vagas",
+      "loadErrorBody": "A lista não carregou. Verifique sua conexão e tente novamente.",
+      "retry": "Tentar de novo",
+      "emptyTitle": "Nenhuma fonte de vagas ainda",
+      "emptyBody": "Himalayas e RemoteOK aparecem aqui depois que a atualização do banco de dados que as adiciona for executada.",
+      "dismissNotice": "Dispensar mensagem",
+      "columns": {
+        "source": "Fonte",
+        "enabled": "Ativa",
+        "lastRun": "Última execução",
+        "status": "Status",
+        "found": "Encontradas",
+        "saved": "Salvas",
+        "listed": "Vagas ativas",
+        "lastError": "Último erro"
+      },
+      "status": {
+        "ok": "OK",
+        "failed": "Falhou",
+        "blocked": "Bloqueada"
+      },
+      "switchLabel": "Coletar de {name}",
+      "today": "Hoje {time}",
+      "yesterday": "Ontem {time}",
+      "dayTime": "{day} {time}"
+    },
+    "webhooks": {
+      "page": {
+        "title": "Webhooks de relatório",
+        "description": "Cada webhook tem um ou mais selos. O relatório quinzenal de um membro é enviado a todo webhook que tem o selo BASE ou PSP dele.",
+        "saveFailed": "Não foi possível salvar o webhook. Tente novamente."
+      },
+      "validation": {
+        "urlRequired": "A URL do webhook é obrigatória",
+        "urlInvalid": "URL de webhook do Discord inválida",
+        "badgesRequired": "Escolha pelo menos um selo: BASE ou PSP",
+        "labelTooLong": "O rótulo deve ter no máximo {max} caracteres"
+      },
+      "list": {
+        "title": "Webhooks de relatório",
+        "add": "Adicionar webhook",
+        "unlabelled": "Webhook sem rótulo",
+        "noBadge": "Sem selo, não recebe nada",
+        "badgeTerm": "Selos",
+        "webhookTerm": "Webhook",
+        "loading": "Carregando os webhooks",
+        "errorTitle": "Não foi possível carregar os webhooks",
+        "errorBody": "A lista não carregou. Verifique sua conexão e tente novamente.",
+        "retry": "Tentar de novo",
+        "emptyTitle": "Nenhum webhook ainda",
+        "emptyBody": "Os relatórios são salvos, mas não são enviados a lugar nenhum até que um webhook seja adicionado para BASE ou PSP.",
+        "deleteTitle": "Excluir o webhook?",
+        "deleteConfirm": "Excluir",
+        "edit": "Editar {target}",
+        "delete": "Excluir {target}",
+        "targetId": "webhook {id}",
+        "targetUnlabelled": "webhook sem rótulo",
+        "thisWebhook": "este webhook",
+        "badgePair": "{first} e {second}",
+        "deleteNoBadge": "{target} não recebe relatórios hoje. A exclusão não pode ser desfeita.",
+        "deleteNoBadgeUnlabelled": "Este webhook não recebe relatórios hoje. A exclusão não pode ser desfeita.",
+        "deleteBody": "Os relatórios dos membros {members} da Borderless deixarão de ser enviados para {target}. Isso não pode ser desfeito."
+      },
+      "form": {
+        "add": {
+          "title": "Adicionar webhook",
+          "description": "Os relatórios de membros que têm qualquer um dos selos escolhidos são enviados por este webhook.",
+          "submit": "Salvar webhook",
+          "urlPlaceholder": "https://discord.com/api/webhooks/…"
+        },
+        "edit": {
+          "title": "Editar webhook",
+          "description": "Só os campos que você alterar são salvos.",
+          "submit": "Salvar alterações",
+          "urlPlaceholder": "Deixe em branco para manter a URL atual"
+        },
+        "urlLabel": "URL do webhook",
+        "urlHelp": "Depois de salvar, só uma versão mascarada é exibida.",
+        "urlCurrent": "Atual:",
+        "badgeLabel": "Selos",
+        "badgeHelp": "Escolha um ou os dois. Um relatório vai para todo webhook que tem o selo do membro.",
+        "badgeHint": {
+          "borderless_base": "Relatórios de membros BASE da Borderless.",
+          "borderless_psp": "Relatórios de membros PSP da Borderless."
+        },
+        "labelLabel": "Rótulo",
+        "labelPlaceholder": "ex.: canal de relatórios BASE",
+        "labelHelp": "Opcional. Até 100 caracteres, para diferenciar os webhooks.",
+        "cancel": "Cancelar"
+      }
+    },
+    "features": {
+      "list": {
+        "title": "Recursos",
+        "description": "Um novo recurso começa em beta: só os usuários da lista beta e os administradores têm acesso. Libere-o para dar acesso a todos.",
+        "tableLabel": "Recursos",
+        "loading": "Carregando recursos",
+        "loadErrorTitle": "Não foi possível carregar os recursos",
+        "loadErrorBody": "A lista não carregou. Verifique sua conexão e tente de novo.",
+        "retry": "Tentar de novo",
+        "emptyTitle": "Nenhum recurso ainda",
+        "emptyBody": "Os recursos aparecem aqui depois que a atualização do banco de dados que os adiciona for executada.",
+        "columns": {
+          "key": "Chave",
+          "name": "Nome",
+          "stage": "Fase",
+          "betaUsers": "Usuários beta",
+          "released": "Liberado em",
+          "you": "Você"
+        }
+      },
+      "feature": {
+        "noDescription": "Sem descrição",
+        "notReleased": "Não liberado",
+        "notRecorded": "Não registrado",
+        "key": "Chave",
+        "released": "Liberado em",
+        "loading": "Carregando recurso",
+        "loadErrorTitle": "Não foi possível carregar este recurso",
+        "loadErrorBody": "Verifique sua conexão e tente de novo.",
+        "retry": "Tentar de novo",
+        "notFoundTitle": "Recurso não encontrado",
+        "backToFeatures": "Voltar para recursos",
+        "notFoundBody": "Nenhum recurso tem a chave \"{key}\". Escolha um da lista.",
+        "notFoundNoKey": "Nenhuma chave de recurso foi informada. Escolha um da lista.",
+        "stage": {
+          "beta": "Beta",
+          "general": "Geral"
+        }
+      },
+      "accessShort": {
+        "general": "Sim, liberado para todos",
+        "list": "Sim, na lista beta",
+        "admin": "Sim, como administrador",
+        "off": "Não, você desativou",
+        "yes": "Sim",
+        "no": "Não"
+      },
+      "accessReason": {
+        "general": "Você tem este recurso porque ele foi liberado para todos.",
+        "list": "Você tem este recurso porque está na lista beta.",
+        "admin": "Você tem este recurso porque é administrador.",
+        "off": "Você não tem este recurso porque o desativou.",
+        "has": "Você tem este recurso.",
+        "hasNot": "Você não tem este recurso."
+      },
+      "ownAccess": {
+        "title": "Seu acesso",
+        "switchLabel": "Quero usar este recurso",
+        "hint": "Desative para ver o app como os usuários sem ele veem. Isso muda só o que você vê.",
+        "lockedGeneral": "Liberado para todos. Sua escolha volta a valer se ele voltar para beta.",
+        "lockedList": "Você está na lista beta, então mantém o acesso. Saia da lista para ocultá-lo.",
+        "loading": "Carregando seu acesso"
+      },
+      "stageAction": {
+        "cancel": "Cancelar",
+        "failed": "Não foi possível mudar a fase. Tente de novo.",
+        "releaseTitle": "Liberar {name} para todos?",
+        "releaseEveryone": "Todos os usuários recebem {name}, inclusive os administradores que o desativaram.",
+        "releaseKeepList": "A lista beta é mantida, então você pode voltar para beta depois.",
+        "moveBackTitle": "Voltar {name} para beta?",
+        "release": {
+          "action": "Liberar para todos",
+          "confirm": "Liberar para todos"
+        },
+        "moveBack": {
+          "action": "Voltar para beta",
+          "confirm": "Voltar para beta",
+          "loseAccess": "Usuários que não estão nesta lista nem são administradores perdem o acesso.",
+          "keepList": "A lista beta continua como está, e os administradores que o desativaram perdem o acesso de novo."
+        }
+      },
+      "betaList": {
+        "title": "Lista beta",
+        "addUser": "Adicionar usuário",
+        "searchLabel": "Buscar na lista beta",
+        "searchPlaceholder": "Buscar por nome de usuário",
+        "tableLabel": "Lista beta",
+        "loading": "Carregando a lista beta",
+        "loadErrorTitle": "Não foi possível carregar a lista beta",
+        "loadErrorBody": "A lista não carregou. Verifique sua conexão e tente de novo.",
+        "retry": "Tentar de novo",
+        "emptyTitle": "Ninguém está na lista beta",
+        "emptyBody": "Os usuários que você adicionar recebem este recurso enquanto ele estiver em beta.",
+        "noMatchBody": "A busca considera só os nomes de usuário.",
+        "clearSearch": "Limpar busca",
+        "pageEmptyTitle": "Esta página está vazia",
+        "pagerLabel": "Páginas da lista beta",
+        "previousPage": "Página anterior",
+        "nextPage": "Próxima página",
+        "remove": "Remover",
+        "cancel": "Cancelar",
+        "count": "{count, plural, =0 {# usuários} one {# usuário} other {# usuários}}",
+        "noMatchTitle": "Ninguém na lista corresponde a \"{search}\"",
+        "goToPage": "Ir para a página {page}",
+        "addedLine": "Adicionado em {date}",
+        "addedLineBy": "Adicionado em {date} por {user}",
+        "pageLabel": "Página {page} de {totalPages}",
+        "removeLabel": "Remover {username}",
+        "removeTitle": "Remover {username} da lista beta?",
+        "removeBodyBeta": "{username} perde {featureName} no próximo carregamento de página, a menos que seja administrador. Você pode adicionar de novo depois.",
+        "removeBodyGeneral": "{username} mantém {featureName} enquanto ele estiver liberado para todos, e o perde se ele voltar para beta.",
+        "removeFailed": "Não foi possível remover {username}. Tente de novo.",
+        "description": {
+          "beta": "Estes usuários têm acesso enquanto ele está em beta. Os administradores têm acesso sem estar na lista.",
+          "general": "Todos têm acesso agora. A lista é mantida e volta a valer se ele voltar para beta."
+        },
+        "columns": {
+          "username": "Usuário",
+          "added": "Adicionado em",
+          "addedBy": "Adicionado por",
+          "actions": "Ações"
+        }
+      },
+      "addUser": {
+        "trigger": "Adicionar usuário",
+        "title": "Adicionar usuários à lista beta",
+        "searchLabel": "Buscar usuários",
+        "searchPlaceholder": "Nome de usuário ou e-mail",
+        "idle": "Digite um nome de usuário ou e-mail para encontrar um usuário.",
+        "loading": "Buscando usuários",
+        "errorTitle": "Não foi possível buscar usuários.",
+        "retry": "Tentar de novo",
+        "add": "Adicionar",
+        "listed": "Na lista",
+        "admin": "Admin",
+        "done": "Pronto",
+        "description": "Busque todos os usuários por nome de usuário ou e-mail. Quem você adicionar recebe {featureName} no próximo carregamento de página.",
+        "noMatch": "Nenhum usuário corresponde a \"{search}\".",
+        "more": "Mostrando {shown} de {total}. Digite mais para refinar a busca.",
+        "addLabel": "Adicionar {username}",
+        "listedLabel": "{username} está na lista",
+        "addedStatus": "{username} está na lista beta agora.",
+        "failed": "Não foi possível adicionar {username}. Tente de novo."
+      }
+    },
+    "nav": {
+      "label": "Seções da administração",
+      "dashboard": "Painel",
+      "users": "Usuários",
+      "companies": "Empresas",
+      "platforms": "Plataformas",
+      "jobs": "Vagas",
+      "features": "Recursos",
+      "reportWebhooks": "Webhooks"
+    },
+    "time": {
+      "today": "hoje",
+      "yesterday": "ontem",
+      "daysAgo": "há {days, plural, one {# dia} other {# dias}}",
+      "monthsAgo": "há {months, plural, one {# mês} other {# meses}}"
+    },
+    "pager": {
+      "page": "Página {page} de {total}",
+      "previous": "Página anterior",
+      "next": "Próxima página"
+    },
+    "dashboard": {
+      "title": "Console de administração",
+      "subtitle": "Análises de toda a plataforma e gestão de usuários",
+      "stats": {
+        "total_users": "Total de usuários",
+        "active_30d": "Ativos (30 dias)",
+        "new_7d": "Novos (7 dias)",
+        "total_apps": "Candidaturas",
+        "avg_apps": "Média / usuário",
+        "offers": "Total de ofertas",
+        "denials": "Total de recusas",
+        "success_rate": "Taxa de sucesso",
+        "finalization_rate": "Taxa de encerramento",
+        "apps_30d": "Candidaturas (30 dias)"
+      },
+      "growth": {
+        "title": "Crescimento de usuários",
+        "totalUsers": "Total de usuários",
+        "newUsersTitle": "Novos usuários / mês",
+        "newUsers": "Novos usuários"
+      },
+      "seniority": {
+        "title": "Distribuição por senioridade",
+        "users": "usuários",
+        "unknown": "Desconhecida"
+      },
+      "top": {
+        "platforms": "Principais plataformas",
+        "companies": "Principais empresas",
+        "noCompanies": "Ainda não há dados de empresas",
+        "users": "{count, plural, =0 {{total} usuários} one {{total} usuário} other {{total} usuários}}"
+      },
+      "heatmap": {
+        "title": "Mapa de atividade",
+        "unit": "candidaturas / hora",
+        "less": "Menos",
+        "more": "Mais",
+        "cell": "{day} {hour}:00 — {count, plural, =0 {{total} candidaturas} one {{total} candidatura} other {{total} candidaturas}}",
+        "days": {
+          "mon": "Seg",
+          "tue": "Ter",
+          "wed": "Qua",
+          "thu": "Qui",
+          "fri": "Sex",
+          "sat": "Sáb",
+          "sun": "Dom"
+        }
+      },
+      "activity": {
+        "title": "Usuários",
+        "total": "{total} no total",
+        "searchPlaceholder": "Buscar usuários..."
+      }
+    },
+    "users": {
+      "title": "Gestão de usuários",
+      "subtitle": "Veja, busque e gerencie todos os usuários da plataforma",
+      "count": "{count, plural, =0 {{total} usuários} one {{total} usuário} other {{total} usuários}}",
+      "searchPlaceholder": "Buscar usuários...",
+      "adminBadge": "admin",
+      "viewDetails": "Ver detalhes do usuário",
+      "toggleAdmin": "Alternar acesso de administrador",
+      "columns": {
+        "user": "Usuário",
+        "seniority": "Senioridade",
+        "apps": "Candidaturas",
+        "offers": "Ofertas",
+        "denials": "Recusas",
+        "joined": "Cadastro",
+        "lastActive": "Última atividade",
+        "actions": "Ações"
+      },
+      "detail": {
+        "email": "E-mail",
+        "githubId": "ID do GitHub",
+        "name": "Nome",
+        "role": "Cargo",
+        "company": "Empresa",
+        "seniority": "Senioridade",
+        "location": "Localização",
+        "availability": "Disponibilidade",
+        "stats": "Estatísticas de candidaturas",
+        "total": "Total",
+        "offers": "Ofertas",
+        "denials": "Recusas",
+        "active": "Ativas",
+        "bio": "Bio",
+        "techStack": "Tecnologias"
+      }
+    },
+    "catalog": {
+      "visibility": {
+        "label": "Visibilidade",
+        "all": "Todas",
+        "public": "Públicas",
+        "private": "Privadas",
+        "notRecorded": "Não registrado"
+      },
+      "approve": {
+        "action": "Aprovar",
+        "cancel": "Cancelar",
+        "failed": "Não foi possível aprovar. Tente de novo.",
+        "rowLabel": "Aprovar {name}",
+        "title": "Aprovar {name}?",
+        "becomesPublic": {
+          "company": "{name} passa a ser pública: todos os usuários a veem na lista de empresas e podem escolhê-la.",
+          "platform": "{name} passa a ser pública: todos os usuários a veem na lista de plataformas e podem escolhê-la."
+        },
+        "keepsAddedBy": "{addedBy} continua registrado como quem a adicionou.",
+        "permanent": "Não é possível torná-la privada de novo."
+      },
+      "form": {
+        "name": "Nome",
+        "url": "URL",
+        "urlOptional": "URL (opcional)",
+        "nameRequired": "O nome é obrigatório",
+        "urlInvalid": "Informe uma URL válida",
+        "nameTooLong": "O nome deve ter no máximo {max} caracteres",
+        "urlTooLong": "A URL deve ter no máximo {max} caracteres",
+        "cancel": "Cancelar",
+        "create": "Criar",
+        "creating": "Criando...",
+        "save": "Salvar",
+        "saving": "Salvando..."
+      },
+      "table": {
+        "retry": "Tentar de novo",
+        "url": "URL",
+        "status": "Status",
+        "addedBy": "Adicionada por",
+        "apps": "Candidaturas",
+        "created": "Criada em",
+        "actions": "Ações",
+        "private": "Privada",
+        "opensNewTab": "(abre em uma nova aba)",
+        "noUrl": "Sem URL",
+        "active": "ativa",
+        "inactive": "inativa",
+        "toggleStatus": "Alternar status",
+        "toggleStatusFor": "Alternar status de {name}",
+        "edit": "Editar {name}",
+        "delete": "Excluir {name}",
+        "cannotDelete": "Não é possível excluir: usada em candidaturas",
+        "deleteDescription": "Essa ação não pode ser desfeita.",
+        "cancel": "Cancelar",
+        "deleting": "Excluindo...",
+        "deleteAction": "Excluir"
+      },
+      "company": {
+        "title": "Gestão de empresas",
+        "subtitle": "Gerencie as empresas disponíveis na plataforma",
+        "add": "Adicionar empresa",
+        "editTitle": "Editar empresa",
+        "column": "Empresa",
+        "count": "{count, plural, =0 {{total} empresas} one {{total} empresa} other {{total} empresas}}",
+        "searchLabel": "Buscar empresas",
+        "searchPlaceholder": "Buscar empresas...",
+        "loadError": "Não foi possível carregar as empresas.",
+        "noMatch": "Nenhuma empresa corresponde à sua busca.",
+        "empty": "Ainda não há empresas.",
+        "deleteFailed": "Não foi possível excluir esta empresa.",
+        "deleteRow": "Excluir empresa",
+        "pages": "Páginas de empresas"
+      },
+      "platform": {
+        "title": "Plataformas",
+        "subtitle": "Gerencie as plataformas que os usuários escolhem para suas candidaturas",
+        "add": "Adicionar plataforma",
+        "editTitle": "Editar plataforma",
+        "column": "Plataforma",
+        "count": "{count, plural, =0 {{total} plataformas} one {{total} plataforma} other {{total} plataformas}}",
+        "searchLabel": "Buscar plataformas",
+        "searchPlaceholder": "Buscar plataformas...",
+        "loadError": "Não foi possível carregar as plataformas.",
+        "noMatch": "Nenhuma plataforma corresponde à sua busca.",
+        "empty": "Ainda não há plataformas.",
+        "deleteFailed": "Não foi possível excluir esta plataforma.",
+        "deleteRow": "Excluir plataforma",
+        "pages": "Páginas de plataformas"
+      }
+    },
+    "toasts": {
+      "userUpdated": "Usuário atualizado",
+      "companyCreated": "Empresa criada",
+      "companyUpdated": "Empresa atualizada",
+      "companyDeleted": "Empresa excluída",
+      "platformCreated": "Plataforma criada",
+      "platformUpdated": "Plataforma atualizada",
+      "platformDeleted": "Plataforma excluída",
+      "webhookAdded": "Webhook adicionado",
+      "webhookUpdated": "Webhook atualizado",
+      "webhookDeleted": "Webhook excluído"
+    }
+  }
+}

@@ -91,9 +91,7 @@ async def _list(client: AsyncClient, token: str) -> list[dict[str, Any]]:
 async def test_list_shape_web_and_cli_and_this_device(
     real_client: AsyncClient, async_engine, redis_client
 ):
-    web = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    web = await open_session(async_engine, redis_client, USER.id)
     cli = await open_session(
         async_engine,
         redis_client,
@@ -139,12 +137,8 @@ async def test_list_shape_web_and_cli_and_this_device(
 async def test_current_follows_the_caller(
     real_client: AsyncClient, async_engine, redis_client
 ):
-    web = await open_session(
-        async_engine, redis_client, USER.id
-    )
-    cli = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    web = await open_session(async_engine, redis_client, USER.id)
+    cli = await open_session(async_engine, redis_client, USER.id)
 
     from_cli = await _list(real_client, cli.access_token)
     current = [item['id'] for item in from_cli if item['current']]
@@ -162,12 +156,8 @@ async def test_current_follows_the_caller(
 async def test_last_used_and_ip_are_read_live_for_active_devices(
     real_client: AsyncClient, async_engine, redis_client
 ):
-    caller = await open_session(
-        async_engine, redis_client, USER.id
-    )
-    other = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    caller = await open_session(async_engine, redis_client, USER.id)
+    other = await open_session(async_engine, redis_client, USER.id)
     when = datetime(2026, 10, 14, 9, 30, tzinfo=UTC)
     await _used_at(redis_client, other.session_id, when, '192.0.2.44')
 
@@ -187,27 +177,13 @@ async def test_order_active_by_last_use_then_ended_by_end(
     real_client: AsyncClient, async_engine, redis_client
 ):
     now = datetime.now(UTC)
-    caller = await open_session(
-        async_engine, redis_client, USER.id
-    )
-    used_old = await open_session(
-        async_engine, redis_client, USER.id
-    )
-    never_used = await open_session(
-        async_engine, redis_client, USER.id
-    )
-    used_new = await open_session(
-        async_engine, redis_client, USER.id
-    )
-    ended_old = await open_session(
-        async_engine, redis_client, USER.id
-    )
-    ended_new = await open_session(
-        async_engine, redis_client, USER.id
-    )
-    lost = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    caller = await open_session(async_engine, redis_client, USER.id)
+    used_old = await open_session(async_engine, redis_client, USER.id)
+    never_used = await open_session(async_engine, redis_client, USER.id)
+    used_new = await open_session(async_engine, redis_client, USER.id)
+    ended_old = await open_session(async_engine, redis_client, USER.id)
+    ended_new = await open_session(async_engine, redis_client, USER.id)
+    lost = await open_session(async_engine, redis_client, USER.id)
 
     await _used_at(
         redis_client, used_old.session_id, now - timedelta(hours=5), '1.1.1.1'
@@ -253,9 +229,7 @@ async def test_order_active_by_last_use_then_ended_by_end(
 async def test_status_for_every_end_reason(
     real_client: AsyncClient, async_engine, redis_client
 ):
-    caller = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    caller = await open_session(async_engine, redis_client, USER.id)
     expected: dict[int, str] = {}
     for reason, status in (
         ('logout', 'signed_out'),
@@ -264,9 +238,7 @@ async def test_status_for_every_end_reason(
         ('github_revoked', 'revoked'),
         ('expired', 'expired'),
     ):
-        tokens = await open_session(
-            async_engine, redis_client, USER.id
-        )
+        tokens = await open_session(async_engine, redis_client, USER.id)
         await _drop_keys(redis_client, tokens)
         await _set_row(
             async_engine,
@@ -275,9 +247,7 @@ async def test_status_for_every_end_reason(
             end_reason=reason,
         )
         expected[tokens.session_id] = status
-    past_end = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    past_end = await open_session(async_engine, redis_client, USER.id)
     await _set_row(
         async_engine,
         past_end.session_id,
@@ -296,18 +266,10 @@ async def test_history_window_is_session_history_days(
     real_client: AsyncClient, async_engine, redis_client
 ):
     now = datetime.now(UTC)
-    caller = await open_session(
-        async_engine, redis_client, USER.id
-    )
-    inside = await open_session(
-        async_engine, redis_client, USER.id
-    )
-    outside = await open_session(
-        async_engine, redis_client, USER.id
-    )
-    old_expired = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    caller = await open_session(async_engine, redis_client, USER.id)
+    inside = await open_session(async_engine, redis_client, USER.id)
+    outside = await open_session(async_engine, redis_client, USER.id)
+    old_expired = await open_session(async_engine, redis_client, USER.id)
     for tokens in (inside, outside, old_expired):
         await _drop_keys(redis_client, tokens)
     await _set_row(
@@ -341,12 +303,8 @@ async def test_history_window_is_session_history_days(
 async def test_list_shows_only_the_callers_devices(
     real_client: AsyncClient, async_engine, redis_client
 ):
-    mine = await open_session(
-        async_engine, redis_client, USER.id
-    )
-    theirs = await open_session(
-        async_engine, redis_client, ADMIN.id
-    )
+    mine = await open_session(async_engine, redis_client, USER.id)
+    theirs = await open_session(async_engine, redis_client, ADMIN.id)
 
     ids = {item['id'] for item in await _list(real_client, mine.access_token)}
 
@@ -367,12 +325,8 @@ async def test_the_list_needs_a_session(real_client: AsyncClient):
 async def test_revoke_another_device(
     real_client: AsyncClient, async_engine, redis_client
 ):
-    caller = await open_session(
-        async_engine, redis_client, USER.id
-    )
-    other = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    caller = await open_session(async_engine, redis_client, USER.id)
+    other = await open_session(async_engine, redis_client, USER.id)
 
     response = await real_client.delete(
         f'/users/me/sessions/{other.session_id}',
@@ -394,9 +348,7 @@ async def test_revoke_another_device(
 async def test_revoke_this_device_clears_both_cookies(
     real_client: AsyncClient, async_engine, redis_client
 ):
-    caller = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    caller = await open_session(async_engine, redis_client, USER.id)
 
     response = await real_client.delete(
         f'/users/me/sessions/{caller.session_id}',
@@ -419,12 +371,8 @@ async def test_revoke_this_device_clears_both_cookies(
 async def test_revoke_an_ended_device_is_a_no_op(
     real_client: AsyncClient, async_engine, redis_client
 ):
-    caller = await open_session(
-        async_engine, redis_client, USER.id
-    )
-    ended = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    caller = await open_session(async_engine, redis_client, USER.id)
+    ended = await open_session(async_engine, redis_client, USER.id)
     ended_at = datetime.now(UTC) - timedelta(days=2)
     await _drop_keys(redis_client, ended)
     await _set_row(
@@ -447,12 +395,8 @@ async def test_revoke_an_expired_device_is_a_no_op(
 ):
     """Plan correction 9: an open row whose key is gone stays "expired";
     DELETE writes nothing."""
-    caller = await open_session(
-        async_engine, redis_client, USER.id
-    )
-    lost = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    caller = await open_session(async_engine, redis_client, USER.id)
+    lost = await open_session(async_engine, redis_client, USER.id)
     await _drop_keys(redis_client, lost)
 
     response = await real_client.delete(
@@ -469,12 +413,8 @@ async def test_revoke_an_expired_device_is_a_no_op(
 async def test_revoke_another_users_device_is_404(
     real_client: AsyncClient, async_engine, redis_client
 ):
-    caller = await open_session(
-        async_engine, redis_client, USER.id
-    )
-    theirs = await open_session(
-        async_engine, redis_client, ADMIN.id
-    )
+    caller = await open_session(async_engine, redis_client, USER.id)
+    theirs = await open_session(async_engine, redis_client, ADMIN.id)
 
     response = await real_client.delete(
         f'/users/me/sessions/{theirs.session_id}',
@@ -482,7 +422,10 @@ async def test_revoke_another_users_device_is_404(
     )
 
     assert response.status_code == 404
-    assert response.json() == {'detail': 'Session not found'}
+    assert response.json() == {
+        'detail': 'Session not found',
+        'code': 'AUTH-1043',
+    }
     assert (await _row(async_engine, theirs.session_id)).ended_at is None
     assert (
         await real_client.get('/users/me', headers=_bearer(theirs.access_token))
@@ -493,12 +436,8 @@ async def test_an_admin_cannot_revoke_another_users_device(
     real_client: AsyncClient, async_engine, redis_client
 ):
     """ADR-0004: no admin bypass."""
-    admin = await open_session(
-        async_engine, redis_client, ADMIN.id
-    )
-    users = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    admin = await open_session(async_engine, redis_client, ADMIN.id)
+    users = await open_session(async_engine, redis_client, USER.id)
 
     response = await real_client.delete(
         f'/users/me/sessions/{users.session_id}',
@@ -506,22 +445,26 @@ async def test_an_admin_cannot_revoke_another_users_device(
     )
 
     assert response.status_code == 404
-    assert response.json() == {'detail': 'Session not found'}
+    assert response.json() == {
+        'detail': 'Session not found',
+        'code': 'AUTH-1043',
+    }
     assert (await _row(async_engine, users.session_id)).ended_at is None
 
 
 async def test_revoke_an_unknown_id_is_404(
     real_client: AsyncClient, async_engine, redis_client
 ):
-    caller = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    caller = await open_session(async_engine, redis_client, USER.id)
     response = await real_client.delete(
         '/users/me/sessions/123456789',
         headers=_bearer(caller.access_token),
     )
     assert response.status_code == 404
-    assert response.json() == {'detail': 'Session not found'}
+    assert response.json() == {
+        'detail': 'Session not found',
+        'code': 'AUTH-1043',
+    }
 
 
 # --------------------------------------------------------------------------
@@ -532,16 +475,12 @@ async def test_revoke_an_unknown_id_is_404(
 async def test_revoke_others_ends_every_live_other_device(
     real_client: AsyncClient, async_engine, redis_client
 ):
-    caller = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    caller = await open_session(async_engine, redis_client, USER.id)
     others = [
         await open_session(async_engine, redis_client, USER.id)
         for _ in range(3)
     ]
-    ended = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    ended = await open_session(async_engine, redis_client, USER.id)
     await _drop_keys(redis_client, ended)
     await _set_row(
         async_engine,
@@ -549,13 +488,9 @@ async def test_revoke_others_ends_every_live_other_device(
         ended_at=datetime.now(UTC),
         end_reason='logout',
     )
-    lost = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    lost = await open_session(async_engine, redis_client, USER.id)
     await _drop_keys(redis_client, lost)
-    someone_else = await open_session(
-        async_engine, redis_client, ADMIN.id
-    )
+    someone_else = await open_session(async_engine, redis_client, ADMIN.id)
 
     response = await real_client.post(
         '/users/me/sessions/revoke-others',
@@ -602,9 +537,7 @@ async def test_no_feature_row_is_needed(
 ):
     """``create_all`` seeds no ``features`` row at all: if any route here
     were gated it would answer the gate's 404."""
-    caller = await open_session(
-        async_engine, redis_client, USER.id
-    )
+    caller = await open_session(async_engine, redis_client, USER.id)
     headers = _bearer(caller.access_token)
     assert (
         await real_client.get('/users/me/sessions', headers=headers)

@@ -2,6 +2,7 @@
 row -> DTO map with the calling admin's own access."""
 
 from app.application.dto.feature import FeatureAccessDTO, FeatureAdminDTO
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.core.features import FeatureStage, access_via
 from app.domain.models import FeatureModel
@@ -16,7 +17,9 @@ FEATURE_NOT_FOUND = 'Feature not found'
 async def load_feature(repo: FeatureRepository, key: str) -> FeatureModel:
     feature = await repo.get_by_key(key)
     if feature is None:
-        raise ResourceNotFound(FEATURE_NOT_FOUND)
+        raise ResourceNotFound(
+            FEATURE_NOT_FOUND, ErrorCode.ADM_FEATURE_NOT_FOUND
+        )
     return feature
 
 

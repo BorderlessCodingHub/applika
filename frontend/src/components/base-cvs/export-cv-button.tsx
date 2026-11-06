@@ -2,15 +2,10 @@
 
 import { useId } from "react";
 import { Download, FileText, Loader2 } from "lucide-react";
+import { useLocale } from "next-intl";
 
 import { Button, type ButtonProps } from "@/components/ui/button";
-import {
-  CV_MARKDOWN_EXPORT_LABEL,
-  CV_MARKDOWN_EXPORT_PENDING,
-  CV_PDF_EXPORT_LABEL,
-  CV_PDF_EXPORT_PENDING,
-  CV_PDF_LAYOUT_NOTICE,
-} from "@/components/base-cvs/types";
+import { CV_EXPORT_COPY } from "@/components/base-cvs/types";
 import { cn } from "@/lib/utils";
 
 export interface ExportCvButtonProps {
@@ -66,7 +61,7 @@ export interface ExportCvButtonProps {
  * pointing at one. The notice qualifies a PREVIEW the user could mistake for
  * the PDF, and a gallery tile renders no preview — so on `/cvs` it described
  * nothing. This changes WHERE the notice is said, never WHAT it says.
- * `CV_PDF_LAYOUT_NOTICE` is byte-identical and `layout="inline"` — the
+ * `CV_EXPORT_COPY.layoutNotice` is byte-identical and `layout="inline"` — the
  * default, and the editors' copy — is untouched.
  */
 export function ExportCvButton({
@@ -74,19 +69,21 @@ export function ExportCvButton({
   isExporting = false,
   onExportMarkdown,
   isExportingMarkdown = false,
-  label = CV_PDF_EXPORT_LABEL,
-  markdownLabel = CV_MARKDOWN_EXPORT_LABEL,
+  label = CV_EXPORT_COPY.pdfLabel,
+  markdownLabel = CV_EXPORT_COPY.markdownLabel,
   variant = "outline",
   cvName,
   layout = "inline",
   className,
 }: ExportCvButtonProps) {
+  // Subscribes: the `CV_EXPORT_COPY` words follow a language switch.
+  useLocale();
   const noticeId = useId();
   const compact = layout === "compact";
   const pending = isExporting
-    ? CV_PDF_EXPORT_PENDING
+    ? CV_EXPORT_COPY.pdfPending
     : isExportingMarkdown
-      ? CV_MARKDOWN_EXPORT_PENDING
+      ? CV_EXPORT_COPY.markdownPending
       : "";
 
   return (
@@ -149,7 +146,7 @@ export function ExportCvButton({
           id={noticeId}
           className="max-w-[34ch] text-xs text-pretty text-muted-foreground"
         >
-          {CV_PDF_LAYOUT_NOTICE}
+          {CV_EXPORT_COPY.layoutNotice}
         </p>
       )}
 

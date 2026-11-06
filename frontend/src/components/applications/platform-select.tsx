@@ -9,6 +9,7 @@ import {
   type CatalogCreateOutcome,
   type CatalogOption,
 } from "@/components/applications/catalog-select";
+import { liveCopy, word } from "@/i18n/translator";
 
 /** The fields of a `GET /platforms` row the picker reads. */
 export interface PlatformOption {
@@ -35,37 +36,47 @@ export type PlatformCreateOutcome =
   | { status: "exists"; message: string; platform?: PlatformOption | null }
   | { status: "failed"; message: string };
 
-export const PLATFORM_SELECT_COPY: CatalogCopy = {
-  placeholder: "Select a platform",
-  listLabel: "Choose a platform",
-  search: "Search or add a platform",
-  loading: "Loading platforms",
-  noMatch: "No platform matches.",
-  createNew: "Add a new platform",
-  newTitle: "New platform",
-  name: "Name",
-  url: "URL",
-  optional: "(optional)",
-  privacyHint: "Only you see it until an admin approves it.",
-  back: "Back",
-  submit: "Add platform",
-  nameRequired: "Name is required",
-  nameTooLong: "Name must be 100 characters or fewer",
-  urlInvalid: "Enter a full URL, like https://example.com",
-  urlTooLong: "URL must be 200 characters or fewer",
-  createFailed: "Could not add the platform. Try again.",
-  nowSelected: "It is now selected.",
-};
+/**
+ * The platform picker's words, in the active language
+ * (`applications.catalog.platform.*`). `CatalogSelect` subscribes, so a switch
+ * re-renders them. Never spread it: a spread freezes the words.
+ */
+export const PLATFORM_SELECT_COPY: CatalogCopy = liveCopy(
+  "applications.catalog.platform",
+  [
+    "placeholder",
+    "listLabel",
+    "search",
+    "loading",
+    "noMatch",
+    "createNew",
+    "newTitle",
+    "name",
+    "url",
+    "optional",
+    "privacyHint",
+    "back",
+    "submit",
+    "nameRequired",
+    "nameTooLong",
+    "urlInvalid",
+    "urlTooLong",
+    "createFailed",
+    "nowSelected",
+  ],
+);
 
 const NAME_MAX = 100;
 const URL_MAX = 200;
 
 export function createPlatformLabel(name: string): string {
-  return name ? `Create "${name}"` : PLATFORM_SELECT_COPY.createNew;
+  return name
+    ? word("applications.catalog.createNamed", { name })
+    : PLATFORM_SELECT_COPY.createNew;
 }
 
 export function alreadyListedMessage(name: string): string {
-  return `${name} is already in your list.`;
+  return word("applications.catalog.alreadyListed", { name });
 }
 
 /** Exact, case-insensitive, trimmed: the rule the server's 409 uses. */

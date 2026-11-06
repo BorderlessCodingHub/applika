@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { FeatureViewPage } from "./feature-view-page";
+import { FeatureViewPage, FeatureViewPageFallback } from "./feature-view-page";
 
 /**
  * The feature page reads `?key=` with `useSearchParams`, which suspends. Under
@@ -8,15 +8,7 @@ import { FeatureViewPage } from "./feature-view-page";
  */
 export default function Page() {
   return (
-    <Suspense
-      fallback={
-        <div
-          aria-busy
-          aria-label="Loading feature"
-          className="h-64 w-full animate-pulse rounded-xl bg-muted"
-        />
-      }
-    >
+    <Suspense fallback={<FeatureViewPageFallback />}>
       <FeatureViewPage />
     </Suspense>
   );

@@ -27,6 +27,7 @@ import {
   removeUserTitle,
   type FeatureBetaUser,
   type FeatureBetaUsersResult,
+  useFeatureCopyLocale,
 } from "@/components/admin/feature-copy";
 import { RetryButton } from "@/components/admin/feature-table";
 import { EmptyState } from "@/components/common/empty-state";
@@ -87,7 +88,7 @@ export interface FeatureBetaListProps {
   result: FeatureBetaUsersResult | undefined;
   isLoading?: boolean;
   isError?: boolean;
-  /** The server's `detail` for a failed load (a 404 "Feature not found"), shown verbatim. */
+  /** A failed load in words (by its code, `api-error-message.ts`), e.g. "Feature not found". */
   errorMessage?: string | null;
   onRetry?: () => void;
   isRetrying?: boolean;
@@ -132,6 +133,7 @@ export function FeatureBetaList({
   action,
   className,
 }: FeatureBetaListProps) {
+  useFeatureCopyLocale();
   const headingId = useId();
   const captionId = useId();
   const sectionRef = useRef<HTMLElement>(null);
@@ -442,6 +444,7 @@ function BetaListPager({
   totalPages: number;
   onPageChange: (page: number) => void;
 }) {
+  useFeatureCopyLocale();
   const atFirst = page <= 1;
   const atLast = page >= totalPages;
 
@@ -504,6 +507,7 @@ function RemoveBetaUserButton({
   /** Armed before the DELETE: the row may leave with the refetch while the dialog is still open. */
   onArm: (armed: boolean) => void;
 }) {
+  useFeatureCopyLocale();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);

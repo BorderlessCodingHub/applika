@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { CalendarIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
+
 import { Input } from "@/components/ui/input";
 import {
   MONTH_YEAR_DISPLAY_FORMAT,
@@ -38,11 +40,12 @@ export interface MonthYearInputProps extends Omit<
 export function MonthYearInput({
   value,
   onChange,
-  placeholder = MONTH_YEAR_DISPLAY_FORMAT,
+  placeholder,
   className,
   wrapperClassName,
   ...props
 }: MonthYearInputProps) {
+  const t = useTranslations("common");
   const iso = value ?? "";
   const display = isoToMonthYear(iso);
   const [draft, setDraft] = React.useState(display);
@@ -62,7 +65,8 @@ export function MonthYearInput({
         inputMode="numeric"
         autoComplete="off"
         maxLength={MONTH_YEAR_DISPLAY_FORMAT.length}
-        placeholder={placeholder}
+        // The display pattern in the screen's language ("MM/yyyy", "MM/aaaa"); the value stays ISO.
+        placeholder={placeholder ?? t("monthYearPlaceholder")}
         value={draft}
         onChange={(event) => {
           const next = maskMonthYear(event.target.value);

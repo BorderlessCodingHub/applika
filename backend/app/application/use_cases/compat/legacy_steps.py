@@ -51,6 +51,7 @@ from app.application.use_cases.timeline_events.update import (
     UpdateTimelineEventUseCase,
 )
 from app.core.enums import EventType
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.models import ApplicationModel, StepDefinitionModel
 from app.domain.repositories.application_repository import (
@@ -111,14 +112,16 @@ class _LegacyStepsBase:
             application_id, user_id
         )
         if application is None:
-            raise ResourceNotFound(APPLICATION_NOT_FOUND)
+            raise ResourceNotFound(
+                APPLICATION_NOT_FOUND, ErrorCode.APP_APPLICATION_NOT_FOUND
+            )
         ensure_mutable(application)
         return application
 
     async def _non_strict_step(self, step_id: int) -> StepDefinitionModel:
         step = await self.step_repo.get_by_id_non_strict_only(step_id)
         if step is None:
-            raise ResourceNotFound(STEP_NOT_FOUND)
+            raise ResourceNotFound(STEP_NOT_FOUND, ErrorCode.APP_STEP_NOT_FOUND)
         return step
 
 
@@ -200,7 +203,10 @@ class UpdateLegacyStepUseCase(_LegacyStepsBase):
             step_record_id, application_id, user_id
         )
         if event is None:
-            raise ResourceNotFound(APPLICATION_STEP_NOT_FOUND)
+            raise ResourceNotFound(
+                APPLICATION_STEP_NOT_FOUND,
+                ErrorCode.APP_APPLICATION_STEP_NOT_FOUND,
+            )
 
         translator = StepTranslator(await self.step_repo.get_all())
         current = translator.reverse(event.event_type, event.interview_type)

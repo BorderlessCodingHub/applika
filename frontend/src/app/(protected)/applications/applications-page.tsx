@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { isAxiosError, type AxiosError } from "axios";
@@ -63,6 +64,18 @@ interface ApplicationAction {
   data?: Application | null;
 }
 
+/** The route's Suspense fallback: a client component, so its name translates. */
+export function ApplicationsPageFallback() {
+  const t = useTranslations("applications.list");
+  return (
+    <div
+      aria-busy
+      aria-label={t("loading")}
+      className="h-64 w-full animate-pulse rounded-xl bg-muted"
+    />
+  );
+}
+
 export function ApplicationsPage() {
   const { selectedCycleId, isViewingPastCycle } = useCycleContext();
   const {
@@ -82,6 +95,8 @@ export function ApplicationsPage() {
   // CVs and drafts live behind `cvs`: without it no CV link, no Drafts tab,
   // no "New with CV" and no drafts request (the archived-cycle shape).
   const { has: hasCvs } = useHasFeature("cvs");
+  // Subscribes: the copy objects below read the active language.
+  const t = useTranslations("applications");
 
   const [appAction, setAppAction] = useState<ApplicationAction>({
     action: "none",
@@ -187,12 +202,14 @@ export function ApplicationsPage() {
     setDeletingDraftId(draft.id);
     deleteDraft.mutate(draft.id, {
       onSuccess: () => {
-        toast.success("Draft deleted");
+        toast.success(t("pageToasts.draftDeleted"));
         setDeletingDraftId(null);
       },
       onError: (error) => {
         toast.error(
-          isAxiosError(error) ? getApiError(error) : "Could not delete it",
+          isAxiosError(error)
+            ? getApiError(error)
+            : t("pageToasts.draftDeleteFailed"),
         );
         setDeletingDraftId(null);
       },
@@ -219,12 +236,14 @@ export function ApplicationsPage() {
     setReopeningId(app.id);
     reopenApplication.mutate(app.id, {
       onSuccess: () => {
-        toast.success("Application reopened");
+        toast.success(t("pageToasts.reopened"));
         setReopeningId(null);
       },
       onError: (error) => {
         toast.error(
-          isAxiosError(error) ? getApiError(error) : "Could not reopen it",
+          isAxiosError(error)
+            ? getApiError(error)
+            : t("pageToasts.reopenFailed"),
         );
         setReopeningId(null);
       },
@@ -274,9 +293,9 @@ export function ApplicationsPage() {
             <SelectItem value="all">
               {APPLICATIONS_PAGE_COPY.allStatuses}
             </SelectItem>
-            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="active">{t("status.active")}</SelectItem>
             {/* G6: option label reads "Closed"; the value stays "finalized". */}
-            <SelectItem value="finalized">Closed</SelectItem>
+            <SelectItem value="finalized">{t("close.closed")}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -301,7 +320,9 @@ export function ApplicationsPage() {
           className="grid animate-fade-in-up grid-cols-2 items-end gap-3 rounded-xl border border-border bg-card p-4 shadow-card motion-reduce:animate-none sm:flex sm:flex-wrap"
         >
           <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
-            <Label htmlFor="applications-filter-mode">Source</Label>
+            <Label htmlFor="applications-filter-mode">
+              {t("filters.source")}
+            </Label>
             <Select
               value={filters.mode}
               onValueChange={(v) =>
@@ -312,16 +333,18 @@ export function ApplicationsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All modes</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="passive">Passive</SelectItem>
+                <SelectItem value="all">{t("filters.allModes")}</SelectItem>
+                <SelectItem value="active">{t("item.modeActive")}</SelectItem>
+                <SelectItem value="passive">{t("item.modePassive")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {(supports?.platforms?.length ?? 0) > 0 && (
             <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
-              <Label htmlFor="applications-filter-platform">Platform</Label>
+              <Label htmlFor="applications-filter-platform">
+                {t("filters.platform")}
+              </Label>
               <Select
                 value={filters.platformId != null ? filters.platformId : "all"}
                 onValueChange={(v) =>
@@ -332,7 +355,9 @@ export function ApplicationsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All platforms</SelectItem>
+                  <SelectItem value="all">
+                    {t("filters.allPlatforms")}
+                  </SelectItem>
                   {supports?.platforms?.map((p) => (
                     <SelectItem key={p.id} value={String(p.id)}>
                       {p.name}
@@ -344,7 +369,9 @@ export function ApplicationsPage() {
           )}
 
           <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
-            <Label htmlFor="applications-filter-from">From</Label>
+            <Label htmlFor="applications-filter-from">
+              {t("filters.from")}
+            </Label>
             <DatePickerInput
               id="applications-filter-from"
               value={filters.dateRange?.start}
@@ -363,7 +390,7 @@ export function ApplicationsPage() {
           </div>
 
           <div className="flex min-w-0 flex-col gap-1.5 sm:w-44">
-            <Label htmlFor="applications-filter-to">To</Label>
+            <Label htmlFor="applications-filter-to">{t("filters.to")}</Label>
             <DatePickerInput
               id="applications-filter-to"
               value={filters.dateRange?.end}
@@ -401,12 +428,12 @@ export function ApplicationsPage() {
       {isError ? (
         <EmptyState
           icon={RefreshCw}
-          title="We couldn't load applications"
-          description="Something went wrong fetching your applications."
+          title={t("list.loadErrorTitle")}
+          description={t("list.loadErrorBody")}
           action={
             <Button onClick={() => void refetch()}>
               <RefreshCw aria-hidden />
-              Retry
+              {t("list.retry")}
             </Button>
           }
         />
@@ -508,7 +535,7 @@ export function ApplicationsPage() {
               aria-label={
                 draftsCount === undefined
                   ? undefined
-                  : `${APPLICATIONS_PAGE_COPY.draftsTab} (${draftsCount})`
+                  : t("list.draftsTabCount", { count: draftsCount })
               }
             >
               {APPLICATIONS_PAGE_COPY.draftsTab}
@@ -578,18 +605,18 @@ export function ApplicationsPage() {
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete application?</AlertDialogTitle>
+              <AlertDialogTitle>{t("deleteDialog.title")}</AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone.
+                {t("deleteDialog.body")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel>{t("deleteDialog.cancel")}</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => deleteApplication(appAction.data!.id)}
                 variant="destructive"
               >
-                Delete
+                {t("deleteDialog.confirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

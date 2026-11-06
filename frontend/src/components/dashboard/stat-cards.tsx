@@ -1,6 +1,8 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGeneralStats } from "@/hooks/use-statistics";
+import { useFormatNumber } from "@/i18n/format-number";
 import { Card } from "../ui/card";
 
 const STAT_COLORS = {
@@ -49,36 +51,38 @@ function StatCard({
 
 export function StatCards({ cycleId }: { cycleId?: string | null }) {
   const { data, isLoading } = useGeneralStats(cycleId);
+  const t = useTranslations("dashboard.stats");
+  const formatNumber = useFormatNumber();
 
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
       <StatCard
-        label="Active"
-        value={data?.active ?? 0}
+        label={t("active")}
+        value={formatNumber(data?.active ?? 0)}
         colorKey="active"
         loading={isLoading}
       />
       <StatCard
-        label="Offers"
-        value={data?.offers ?? 0}
+        label={t("offers")}
+        value={formatNumber(data?.offers ?? 0)}
         colorKey="offers"
         loading={isLoading}
       />
       <StatCard
-        label="Denials"
-        value={data?.denials ?? 0}
+        label={t("denials")}
+        value={formatNumber(data?.denials ?? 0)}
         colorKey="denied"
         loading={isLoading}
       />
       <StatCard
-        label="Total"
-        value={data?.total_applications ?? 0}
+        label={t("total")}
+        value={formatNumber(data?.total_applications ?? 0)}
         colorKey="total"
         loading={isLoading}
       />
       <StatCard
-        label="Success Rate"
-        value={`${data?.success_rate ?? 0}%`}
+        label={t("successRate")}
+        value={`${formatNumber(data?.success_rate ?? 0)}%`}
         colorKey="offers"
         loading={isLoading}
       />

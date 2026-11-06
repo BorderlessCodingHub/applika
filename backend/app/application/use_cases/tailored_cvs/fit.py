@@ -13,6 +13,7 @@ from app.application.services.keyword_fit import (
 from app.application.use_cases.tailored_cvs.guards import (
     load_owned_application,
 )
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -52,7 +53,9 @@ class GetTailoredCVFitUseCase:
             )
         )
         if not tailored_cv:
-            raise ResourceNotFound('CV copy not found')
+            raise ResourceNotFound(
+                'CV copy not found', ErrorCode.CV_COPY_NOT_FOUND
+            )
 
         job_description = application.job_description or ''
         if not job_description.strip():

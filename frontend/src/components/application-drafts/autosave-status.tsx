@@ -7,8 +7,8 @@ import {
   LoaderCircleIcon,
   RotateCcwIcon,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
-import { DRAFT_COPY } from "@/components/application-drafts/draft-copy";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +34,7 @@ export function AutosaveStatus({
   onRetry,
   className,
 }: AutosaveStatusProps) {
+  const t = useTranslations("drafts.page");
   const shown = missingRequired ? "required" : status;
 
   return (
@@ -54,7 +55,7 @@ export function AutosaveStatus({
               aria-hidden
               className="size-4 shrink-0 motion-safe:animate-spin"
             />
-            <span>{DRAFT_COPY.saving}</span>
+            <span>{t("saving")}</span>
           </>
         ) : shown === "saved" ? (
           <>
@@ -62,7 +63,7 @@ export function AutosaveStatus({
               aria-hidden
               className="size-4 shrink-0 text-success"
             />
-            <span>{DRAFT_COPY.saved}</span>
+            <span>{t("saved")}</span>
           </>
         ) : shown === "error" ? (
           <>
@@ -70,9 +71,7 @@ export function AutosaveStatus({
               aria-hidden
               className="size-4 shrink-0 text-destructive"
             />
-            <span className="font-medium text-foreground">
-              {DRAFT_COPY.notSaved}
-            </span>
+            <span className="font-medium text-foreground">{t("notSaved")}</span>
           </>
         ) : shown === "required" ? (
           <>
@@ -81,7 +80,7 @@ export function AutosaveStatus({
               className="size-4 shrink-0 text-warning"
             />
             <span className="text-pretty text-foreground">
-              {DRAFT_COPY.requiredNotSaved}
+              {t("requiredNotSaved")}
             </span>
           </>
         ) : null}
@@ -89,7 +88,7 @@ export function AutosaveStatus({
       {shown === "error" && onRetry ? (
         <Button type="button" variant="outline" size="xs" onClick={onRetry}>
           <RotateCcwIcon aria-hidden data-icon="inline-start" />
-          {DRAFT_COPY.retry}
+          {t("retry")}
         </Button>
       ) : null}
     </div>

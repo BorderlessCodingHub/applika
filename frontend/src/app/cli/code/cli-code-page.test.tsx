@@ -1,6 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { LocaleProvider } from "@/i18n/locale-provider";
 
 import { CliCodePage } from "./cli-code-page";
 
@@ -37,7 +38,7 @@ function setup() {
     configurable: true,
     value: { writeText },
   });
-  render(<CliCodePage />);
+  render(<CliCodePage />, { wrapper: LocaleProvider });
   return user;
 }
 

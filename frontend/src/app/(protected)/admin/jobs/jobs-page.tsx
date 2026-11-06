@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useLocale } from "next-intl";
 import type { AxiosError } from "axios";
 import { toast } from "sonner";
 
@@ -19,16 +20,15 @@ import {
   useStartJobRun,
   useUpdateAdminJobSource,
 } from "@/hooks/use-admin";
+import { serverErrorMessage } from "@/lib/api-error-message";
 
 /** After a 202 the list refetches every 3 s for at most 60 s: the API has no "running" state. */
 export const JOB_RUN_POLL_INTERVAL_MS = 3_000;
 export const JOB_RUN_POLL_WINDOW_MS = 60_000;
 
-/** The server's string `detail`, or `null` (a 5xx body, a network error). */
+/** The error's words by code, else its string `detail`, else `null` (a 5xx page, a network error). */
 function serverDetail(error: AxiosError): string | null {
-  const detail = (error.response?.data as { detail?: unknown } | undefined)
-    ?.detail;
-  return typeof detail === "string" && detail.trim() ? detail : null;
+  return serverErrorMessage(error.response?.data);
 }
 
 /**
@@ -39,6 +39,9 @@ function serverDetail(error: AxiosError): string | null {
  * on/off PATCH and the run start.
  */
 export function JobsPage() {
+  // Subscribes: the notice's words are read at render, so a language switch
+  // re-reads them from the stored error.
+  useLocale();
   const [polling, setPolling] = useState(false);
   const {
     data: sources,
@@ -52,7 +55,16 @@ export function JobsPage() {
   const updateMutation = useUpdateAdminJobSource();
   const runMutation = useStartJobRun();
 
-  const [notice, setNotice] = useState<JobRunNotice | null>(null);
+  const [failure, setFailure] = useState<{
+    tone: JobRunNotice["tone"];
+    error: AxiosError;
+  } | null>(null);
+  const notice: JobRunNotice | null = failure
+    ? {
+        tone: failure.tone,
+        message: serverDetail(failure.error) ?? JOB_SOURCES_COPY.runFailed,
+      }
+    : null;
   const [pendingIds, setPendingIds] = useState<readonly string[]>([]);
 
   useEffect(() => {
@@ -66,16 +78,16 @@ export function JobsPage() {
 
   const handleRunNow = useCallback(() => {
     // Cleared first: the same words twice in a row are otherwise not re-announced.
-    setNotice(null);
+    setFailure(null);
     runMutation.mutate(undefined, {
       onSuccess: () => {
         toast.success(JOB_SOURCES_COPY.runStarted);
         setPolling(true);
       },
       onError: (error) => {
-        setNotice({
+        setFailure({
           tone: error.response?.status === 409 ? "info" : "error",
-          message: serverDetail(error) ?? JOB_SOURCES_COPY.runFailed,
+          error,
         });
       },
     });
@@ -110,7 +122,7 @@ export function JobsPage() {
           onRunNow={handleRunNow}
           isStartingRun={runMutation.isPending}
           notice={notice}
-          onDismissNotice={() => setNotice(null)}
+          onDismissNotice={() => setFailure(null)}
         />
       </motion.div>
 

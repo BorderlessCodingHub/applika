@@ -5,6 +5,7 @@ from app.application.use_cases.application_drafts.create_draft import (
 )
 from app.application.use_cases.catalog.resolve import ensure_platform_visible
 from app.application.validators.application_date import ensure_not_in_future
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -41,7 +42,9 @@ class UpdateDraftUseCase:
 
         application = await self.application_repo.get_draft(id, data.user_id)
         if not application:
-            raise ResourceNotFound('Draft not found')
+            raise ResourceNotFound(
+                'Draft not found', ErrorCode.APP_DRAFT_NOT_FOUND
+            )
 
         await ensure_platform_visible(
             self.platform_repo, data.platform_id, data.user_id

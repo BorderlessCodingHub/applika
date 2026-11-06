@@ -8,6 +8,7 @@ from app.application.services.cv_rendering.markdown_renderer import (
     RenderedMarkdown,
 )
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.base_cv_repository import BaseCVRepository
 
@@ -31,7 +32,9 @@ class RenderBaseCVMarkdownUseCase:
             base_cv_id, user_id
         )
         if not base_cv:
-            raise ResourceNotFound('Base CV not found')
+            raise ResourceNotFound(
+                'Base CV not found', ErrorCode.CV_BASE_CV_NOT_FOUND
+            )
 
         started_at = time.perf_counter()
         rendered = await self.renderer.render(BaseCVDTO.model_validate(base_cv))

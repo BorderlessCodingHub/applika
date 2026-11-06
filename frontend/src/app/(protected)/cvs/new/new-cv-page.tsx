@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -12,7 +13,6 @@ import {
   sectionErrorMessage,
   toBaseCvPayload,
 } from "@/components/base-cvs/base-cv-schema";
-import { BASE_CV_LIMIT_REASON } from "@/components/base-cvs/new-cv-card";
 import { BASE_CVS_MAX, type CvFormValues } from "@/components/base-cvs/types";
 import { BetaBadge } from "@/components/features/beta-badge";
 import { FeatureGate } from "@/components/features/feature-gate";
@@ -42,6 +42,7 @@ export function NewCvPage() {
 }
 
 function NewCvForm() {
+  const t = useTranslations("cvs");
   const beta = useHasFeature("cvs").stage === "beta";
   const router = useRouter();
   const { data: cvs, isLoading: isCountLoading } = useBaseCvs();
@@ -66,17 +67,17 @@ function NewCvForm() {
           className="-ml-2 text-muted-foreground"
         >
           <ArrowLeft aria-hidden />
-          Back to CVs
+          {t("page.back")}
         </LinkButton>
         <div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <h1 className="font-display text-2xl font-bold tracking-tight">
-              New master CV
+              {t("new.title")}
             </h1>
             {beta ? <BetaBadge /> : null}
           </div>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Write it once. Every application you tailor starts from here.
+            {t("new.description")}
           </p>
         </div>
       </div>
@@ -87,7 +88,7 @@ function NewCvForm() {
         // whatever the user typed in between.
         <div
           aria-busy
-          aria-label="Loading your master CVs"
+          aria-label={t("list.loading")}
           className="grid gap-6 md:grid-cols-2"
         >
           <Skeleton className="h-96 w-full rounded-xl" />
@@ -99,10 +100,10 @@ function NewCvForm() {
           className="rounded-xl border border-dashed border-border bg-surface/40 px-6 py-12 text-center"
         >
           <p className="mx-auto max-w-sm text-sm text-pretty text-muted-foreground">
-            {BASE_CV_LIMIT_REASON}
+            {t("new.limitReason")}
           </p>
           <LinkButton href="/cvs" variant="outline" size="sm" className="mt-4">
-            Back to CVs
+            {t("page.back")}
           </LinkButton>
         </div>
       ) : (
@@ -117,7 +118,7 @@ function NewCvForm() {
               if (message) toast.error(message);
             },
           )}
-          submitLabel="Create CV"
+          submitLabel={t("new.submit")}
           onCancel={() => router.push("/cvs")}
           isSubmitting={createMutation.isPending}
         />

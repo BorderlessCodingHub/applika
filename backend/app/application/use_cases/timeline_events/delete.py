@@ -6,6 +6,7 @@ from app.application.use_cases.timeline_events.list import (
     EVENT_NOT_FOUND,
 )
 from app.config.logging import logger
+from app.core.error_codes import ErrorCode
 from app.core.exceptions import ResourceNotFound
 from app.domain.repositories.application_repository import (
     ApplicationRepository,
@@ -37,7 +38,9 @@ class DeleteTimelineEventUseCase:
             application_id, user_id
         )
         if application is None:
-            raise ResourceNotFound(APPLICATION_NOT_FOUND)
+            raise ResourceNotFound(
+                APPLICATION_NOT_FOUND, ErrorCode.APP_APPLICATION_NOT_FOUND
+            )
 
         ensure_mutable(application)
 
@@ -45,7 +48,9 @@ class DeleteTimelineEventUseCase:
             event_id, application_id, user_id
         )
         if event is None:
-            raise ResourceNotFound(EVENT_NOT_FOUND)
+            raise ResourceNotFound(
+                EVENT_NOT_FOUND, ErrorCode.EVT_EVENT_NOT_FOUND
+            )
 
         await self.timeline_event_repo.delete(event)
 
