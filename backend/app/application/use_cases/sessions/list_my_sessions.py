@@ -15,7 +15,7 @@ from app.domain.repositories.user_session_repository import (
 )
 
 _SIGNED_OUT = frozenset({'logout', 'replaced'})
-_REVOKED = frozenset({'revoked', 'github_revoked'})
+_REVOKED = frozenset({'revoked', 'github_revoked', 'borderless_revoked'})
 _DEAD = LiveSession(alive=False)
 
 
@@ -25,8 +25,8 @@ def derive_status(
     alive: bool,
     now: datetime,
 ) -> SessionStatus:
-    """``logout``/``replaced`` -> signed_out, ``revoked``/``github_revoked``
-    -> revoked, ``expired`` -> expired; an open row is expired when its key
+    """``logout``/``replaced`` -> signed_out, ``revoked``/``github_revoked``/
+    ``borderless_revoked`` -> revoked, ``expired`` -> expired; an open row is expired when its key
     is gone or it is past ``expires_at``, else active. Derived on read; the
     list never writes."""
     if end_reason in _SIGNED_OUT:
