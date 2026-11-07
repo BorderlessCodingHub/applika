@@ -1,118 +1,78 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 
-import {
-  EMPTY_BORDERLESS_CREDENTIALS,
-  type BorderlessCredentialsValues,
-} from "@/components/auth/borderless-credentials";
-import { SIGN_IN_COPY, SignInScreen } from "@/components/auth/sign-in-screen";
+import { SignInScreen } from "@/components/auth/sign-in-screen";
 import { APP_CONFIG } from "@/config";
 import { useAuth } from "@/contexts/auth-context";
-import { borderlessCredentialsSchema } from "@/lib/borderless-credentials-schema";
-import { borderlessErrorWords } from "@/lib/borderless-error";
-import { word } from "@/i18n/translator";
 import { consumeReturnTo } from "@/lib/return-to";
 import { services } from "@/services/services";
-import type { BorderlessSignInResult } from "@/services/types/auth";
+import type { User } from "@/services/types/users";
 
 /**
- * Where a web sign-in lands: a new account goes to `/welcome` first (the
- * return-to path waits for its choice); otherwise the stored return-to path,
- * else the dashboard.
+ * Where a signed-in visit to `/login` goes: a new account answers the
+ * one-time `/welcome` choice first (the return-to path waits for it);
+ * otherwise the stored return-to path, else the dashboard.
  */
-export function webLandingFor(result: BorderlessSignInResult): string {
-  if (result.new_account) return "/welcome";
+export function signedInLandingFor(
+  user: Pick<User, "github_restore"> | null,
+): string {
+  if (user?.github_restore?.prompt) return "/welcome";
   return consumeReturnTo() ?? "/dashboard";
 }
 
 /**
- * `?cli=1`, but the API answered a web sign-in: the terminal's marker had
- * lapsed. Read at the moment it is shown, in the active language.
+ * `/login` (ADR-0026): one "Sign in with Borderless" button. The browser
+ * leaves for `GET /auth/borderless/login`, Borderless's own sign-in page,
+ * and the API's callback brings it back here: signed in (the cookies are
+ * set, this page moves on) or with `?error=<code>` (`&cli=1` when the
+ * attempt came from `applika login`). No password, code or token is ever
+ * handled here.
  */
-export function cliHandoffLostMessage(): string {
-  return word("auth.signIn.cliHandoffLost");
-}
-
-interface SignInError {
-  message: string;
-  hint: string | null;
-}
-
 export function LoginPage() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  // `applika login` opens `/login?cli=1`: the password is always asked, even
-  // with a browser session, and the answer hands the sign-in to the terminal.
+  const errorCode = searchParams.get("error");
   const cli = searchParams.get("cli") === "1";
-  const [error, setError] = useState<SignInError | null>(null);
-  const [cliHandoffLost, setCliHandoffLost] = useState(false);
+  const [pending, setPending] = useState(false);
+  // The landing consumes the return-to path: navigate once.
+  const redirected = useRef(false);
 
-  const form = useForm<BorderlessCredentialsValues>({
-    resolver: zodResolver(borderlessCredentialsSchema),
-    defaultValues: EMPTY_BORDERLESS_CREDENTIALS,
-  });
+  // Back from Borderless can restore this page from the bfcache with the
+  // button still pending: start idle again.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setPending(false);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
-  const signIn = useMutation({
-    mutationFn: (values: BorderlessCredentialsValues) =>
-      services.auth.borderlessSignIn(values),
-    onSuccess: (result) => {
-      // The terminal's sign-in marker lapsed (it lives a few minutes): the
-      // API signed this browser in instead and has nothing to hand back. Say
-      // so here; the terminal is still waiting and must start again.
-      if (cli && !result.redirect_to) {
-        setCliHandoffLost(true);
-        setError({
-          message: cliHandoffLostMessage(),
-          hint: SIGN_IN_COPY.cliExpiredHint,
-        });
-        return;
-      }
-      // A full navigation either way: the CLI hand-off leaves applika, and a
-      // web sign-in may replace another account's session in this tab, so
-      // nothing cached for it may survive.
-      window.location.assign(result.redirect_to ?? webLandingFor(result));
-    },
-    onError: (err) => {
-      const words = borderlessErrorWords(err);
-      setError({
-        message: words.message,
-        hint: words.cliLoginExpired ? SIGN_IN_COPY.cliExpiredHint : null,
-      });
-      if (words.status === 401) {
-        form.resetField("password");
-        form.setFocus("password");
-      }
-    },
-  });
+  // A refused CLI sign-in stays on screen even with a browser session: the
+  // words are about the terminal.
+  const redirects = !cli && !isLoading && isAuthenticated;
 
   useEffect(() => {
-    if (!cli && !isLoading && isAuthenticated) {
-      router.replace("/dashboard");
-    }
-  }, [cli, isAuthenticated, isLoading, router]);
+    if (!redirects || redirected.current) return;
+    redirected.current = true;
+    router.replace(signedInLandingFor(user));
+  }, [redirects, router, user]);
 
-  if (!cli && !isLoading && isAuthenticated) {
+  if (redirects) {
     return null;
   }
 
   return (
     <SignInScreen
-      form={form}
-      mode={cli ? "cli" : "web"}
-      onSubmit={(values) => {
-        setError(null);
-        setCliHandoffLost(false);
-        signIn.mutate(values);
+      onSignIn={() => {
+        setPending(true);
+        window.location.assign(services.auth.borderlessLoginUrl());
       }}
-      pending={signIn.isPending || (signIn.isSuccess && !cliHandoffLost)}
-      error={error?.message ?? null}
-      errorHint={error?.hint ?? null}
+      pending={pending}
+      errorCode={errorCode}
+      cli={cli}
       createAccountHref={APP_CONFIG.borderless.signUpUrl}
     />
   );

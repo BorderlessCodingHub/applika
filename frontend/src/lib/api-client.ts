@@ -1,6 +1,7 @@
 import axios, { AxiosError } from "axios";
 import { APP_CONFIG } from "@/config";
-import { apiErrorCode, apiErrorMessage } from "@/lib/api-error-message";
+import { apiErrorMessage } from "@/lib/api-error-message";
+import { recordRefusedRefresh } from "@/lib/session-ended";
 import { services } from "@/services/services";
 
 export const api = axios.create({
@@ -20,28 +21,14 @@ export function getApiError(error: AxiosError): string {
 /**
  * A 401 on `/auth/*` is final (a failed `/auth/refresh` must never trigger
  * another refresh). Signed-in calls that merely live under `/auth/` refresh
- * and retry like any other page: the device approval routes, the GitHub
- * restore start, and the membership confirm, but the confirm only on
- * AUTH-1001 "Not authenticated": its other 401 is a wrong Borderless
- * password (AUTH-1004), and replaying that would count one failed attempt
- * twice. The `detail` comparison is kept for an API older than the codes.
+ * and retry like any other page: the device approval routes and the GitHub
+ * restore start.
  */
 function refreshesOn401(error: AxiosError): boolean {
   const url = error.config?.url;
   if (!url) return true;
   if (!url.includes("/auth/")) return true;
-  if (url.includes("/auth/device/") || url.includes("/auth/github/restore")) {
-    return true;
-  }
-  if (url.includes("/auth/borderless/confirm")) {
-    const data = error.response?.data;
-    const code = apiErrorCode(data);
-    if (code) return code === "AUTH-1001";
-    return (
-      (data as { detail?: unknown } | undefined)?.detail === "Not authenticated"
-    );
-  }
-  return false;
+  return url.includes("/auth/device/") || url.includes("/auth/github/restore");
 }
 
 let isRefreshing = false;
@@ -84,6 +71,9 @@ api.interceptors.response.use(
         processQueue(null);
         return api(originalRequest);
       } catch (refreshError) {
+        // AUTH-1049 (Borderless refused the grant) ends the session here as
+        // it does in AuthProvider's poll: the sign-in page shows its words.
+        recordRefusedRefresh(refreshError);
         processQueue(refreshError);
         return Promise.reject(refreshError);
       } finally {

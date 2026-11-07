@@ -13,7 +13,11 @@ import ProtectedLayout from "./layout";
  */
 
 const replace = vi.fn();
-let auth = { isAuthenticated: false, isLoading: false };
+let auth: {
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  sessionEndedCode?: string | null;
+} = { isAuthenticated: false, isLoading: false };
 let currentUser: {
   github_restore: { available: boolean; prompt: boolean };
 } | null = null;
@@ -24,7 +28,12 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/contexts/auth-context", () => ({
-  useAuth: () => ({ ...auth, user: currentUser, logout: vi.fn() }),
+  useAuth: () => ({
+    sessionEndedCode: null,
+    ...auth,
+    user: currentUser,
+    logout: vi.fn(),
+  }),
 }));
 
 vi.mock("@/hooks/use-features", () => ({
@@ -190,5 +199,46 @@ describe("ProtectedLayout welcome prompt", () => {
     renderLayout();
 
     expect(replace).not.toHaveBeenCalled();
+  });
+});
+
+describe("ProtectedLayout: a session Borderless ended (AUTH-1049, ADR-0026)", () => {
+  it("goes to /login?error=AUTH-1049 so the sign-in page shows the words (AC13)", () => {
+    auth = {
+      isAuthenticated: false,
+      isLoading: false,
+      sessionEndedCode: "AUTH-1049",
+    };
+    visit("/dashboard");
+
+    renderLayout();
+
+    expect(replace).toHaveBeenCalledWith("/login?error=AUTH-1049");
+    expect(replace).toHaveBeenCalledTimes(1);
+  });
+
+  it("still keeps the /device return-to", () => {
+    auth = {
+      isAuthenticated: false,
+      isLoading: false,
+      sessionEndedCode: "AUTH-1049",
+    };
+    visit("/device?code=BCDF-GHJK");
+
+    renderLayout();
+
+    expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBe(
+      "/device?code=BCDF-GHJK",
+    );
+    expect(replace).toHaveBeenCalledWith("/login?error=AUTH-1049");
+  });
+
+  it("any other signed-out visit lands on a plain /login", () => {
+    auth = { isAuthenticated: false, isLoading: false, sessionEndedCode: null };
+    visit("/applications");
+
+    renderLayout();
+
+    expect(replace).toHaveBeenCalledWith("/login");
   });
 });

@@ -8,6 +8,7 @@ import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
+import { recordRefusedRefresh, resetRefusedRefresh } from "@/lib/session-ended";
 import { services } from "@/services/services";
 import type { User } from "@/services/types/users";
 
@@ -25,7 +26,7 @@ import type { User } from "@/services/types/users";
 
 vi.mock("@/services/services", () => ({
   services: {
-    auth: { refresh: vi.fn() },
+    auth: { refresh: vi.fn(), logout: vi.fn() },
     users: { getMe: vi.fn() },
   },
 }));
@@ -104,12 +105,39 @@ function user(): User {
   };
 }
 
+function grantEndedError() {
+  return new AxiosError(
+    "Unauthorized",
+    "ERR_BAD_REQUEST",
+    undefined,
+    undefined,
+    {
+      status: 401,
+      statusText: "Unauthorized",
+      headers: new AxiosHeaders(),
+      config: {} as never,
+      data: {
+        detail:
+          "Your Borderless sign-in has ended. Sign in again with Borderless",
+        code: "AUTH-1049",
+      },
+    },
+  );
+}
+
 function AuthState() {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, sessionEndedCode, logout } = useAuth();
   return (
     <div>
       <span data-testid="loading">{String(isLoading)}</span>
       <span data-testid="authenticated">{String(isAuthenticated)}</span>
+      <span data-testid="ended">{String(sessionEndedCode)}</span>
+      <button type="button" onClick={() => void logout()}>
+        Log out
+      </button>
+      <button type="button" onClick={() => void logout("/login")}>
+        Sign in again
+      </button>
     </div>
   );
 }
@@ -388,5 +416,148 @@ describe("AuthProvider — 503 handling (KODI-058)", () => {
     expect(services.users.getMe).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId("authenticated").textContent).toBe("true");
     expect(screen.getByTestId("loading").textContent).toBe("false");
+  });
+});
+
+describe("AuthProvider — a refresh refused with AUTH-1049 (ADR-0026)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.mocked(services.auth.refresh).mockReset();
+    vi.mocked(services.auth.logout).mockReset();
+    vi.mocked(services.users.getMe).mockReset();
+    resetRefusedRefresh();
+    vi.unstubAllGlobals();
+  });
+
+  it("the poll's AUTH-1049 ends the session and exposes the code", async () => {
+    vi.mocked(services.auth.refresh)
+      .mockResolvedValueOnce({ detail: "refreshed" })
+      .mockRejectedValueOnce(grantEndedError());
+    vi.mocked(services.users.getMe).mockResolvedValue(user());
+
+    renderAuth();
+    await flush();
+    expect(screen.getByTestId("authenticated").textContent).toBe("true");
+    expect(screen.getByTestId("ended").textContent).toBe("null");
+
+    await flush(10 * 60_000);
+
+    expect(screen.getByTestId("authenticated").textContent).toBe("false");
+    expect(screen.getByTestId("loading").textContent).toBe("false");
+    expect(screen.getByTestId("ended").textContent).toBe("AUTH-1049");
+  });
+
+  it("a cold load refused with AUTH-1049 is signed out with the code", async () => {
+    vi.mocked(services.auth.refresh).mockRejectedValue(grantEndedError());
+
+    renderAuth();
+    await flush();
+
+    expect(screen.getByTestId("authenticated").textContent).toBe("false");
+    expect(screen.getByTestId("loading").textContent).toBe("false");
+    expect(screen.getByTestId("ended").textContent).toBe("AUTH-1049");
+  });
+
+  it("any other 401 is signed out with no code (a plain /login)", async () => {
+    vi.mocked(services.auth.refresh).mockRejectedValue(unauthorizedError());
+
+    renderAuth();
+    await flush();
+
+    expect(screen.getByTestId("authenticated").textContent).toBe("false");
+    expect(screen.getByTestId("ended").textContent).toBe("null");
+  });
+
+  it("the interceptor's AUTH-1049 ends a signed-in session the same way", async () => {
+    vi.mocked(services.auth.refresh).mockResolvedValue({ detail: "refreshed" });
+    vi.mocked(services.users.getMe).mockResolvedValue(user());
+
+    renderAuth();
+    await flush();
+    expect(screen.getByTestId("authenticated").textContent).toBe("true");
+
+    act(() => recordRefusedRefresh(grantEndedError()));
+
+    expect(screen.getByTestId("authenticated").textContent).toBe("false");
+    expect(screen.getByTestId("loading").textContent).toBe("false");
+    expect(screen.getByTestId("ended").textContent).toBe("AUTH-1049");
+  });
+
+  // The guard on `isLoading`: an ended session is never "still loading", or
+  // the protected layout would hold its spinner and never send the page to
+  // `/login?error=AUTH-1049`.
+  it("the interceptor's AUTH-1049 during a cold load that is still pending is not loading", async () => {
+    vi.mocked(services.auth.refresh).mockReturnValue(new Promise(() => {}));
+
+    renderAuth();
+    await flush();
+    expect(screen.getByTestId("loading").textContent).toBe("true");
+
+    act(() => recordRefusedRefresh(grantEndedError()));
+
+    expect(screen.getByTestId("loading").textContent).toBe("false");
+    expect(screen.getByTestId("authenticated").textContent).toBe("false");
+    expect(screen.getByTestId("ended").textContent).toBe("AUTH-1049");
+  });
+
+  it("the interceptor's AUTH-1049 while /users/me is still pending is not loading", async () => {
+    // The refresh succeeded; /users/me then got a 401, and the refresh the
+    // interceptor tried was refused before /users/me itself settled.
+    vi.mocked(services.auth.refresh).mockResolvedValue({ detail: "refreshed" });
+    vi.mocked(services.users.getMe).mockReturnValue(new Promise(() => {}));
+
+    renderAuth();
+    await flush();
+    expect(screen.getByTestId("loading").textContent).toBe("true");
+
+    act(() => recordRefusedRefresh(grantEndedError()));
+
+    expect(screen.getByTestId("loading").textContent).toBe("false");
+    expect(screen.getByTestId("authenticated").textContent).toBe("false");
+    expect(screen.getByTestId("ended").textContent).toBe("AUTH-1049");
+  });
+
+  it("a refresh that succeeds after the interceptor's AUTH-1049 signs the tab in again", async () => {
+    vi.mocked(services.auth.refresh).mockResolvedValue({ detail: "refreshed" });
+    vi.mocked(services.users.getMe).mockResolvedValue(user());
+
+    renderAuth();
+    await flush();
+    act(() => recordRefusedRefresh(grantEndedError()));
+    expect(screen.getByTestId("authenticated").textContent).toBe("false");
+
+    // Another tab signed in; this tab's next poll refreshes with its cookies.
+    await flush(10 * 60_000);
+
+    expect(screen.getByTestId("authenticated").textContent).toBe("true");
+    expect(screen.getByTestId("ended").textContent).toBe("null");
+  });
+
+  it("logout goes to / by default and to the asked path otherwise", async () => {
+    const location = { href: "" };
+    vi.stubGlobal("location", location);
+    vi.mocked(services.auth.refresh).mockResolvedValue({ detail: "refreshed" });
+    vi.mocked(services.users.getMe).mockResolvedValue(user());
+    vi.mocked(services.auth.logout).mockResolvedValue({ detail: "ok" });
+
+    renderAuth();
+    await flush();
+
+    await act(async () => {
+      screen.getByRole("button", { name: "Sign in again" }).click();
+    });
+    await flush();
+    expect(location.href).toBe("/login");
+
+    await act(async () => {
+      screen.getByRole("button", { name: "Log out" }).click();
+    });
+    await flush();
+    expect(location.href).toBe("/");
+    expect(services.auth.logout).toHaveBeenCalledTimes(2);
   });
 });

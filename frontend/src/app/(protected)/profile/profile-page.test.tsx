@@ -28,8 +28,8 @@ const USER: User = {
   badges: [],
   borderless: {
     status: "active",
-    expires_at: "2026-11-05T00:00:00Z",
     email: "ada@example.com",
+    checked_at: "2026-11-06T10:00:00Z",
   },
   github_restore: { available: true, prompt: false },
 };

@@ -1,7 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { AxiosError, AxiosHeaders } from "axios";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,7 +14,6 @@ import { FeedbackDialog } from "@/components/applications/feedback-dialog";
 import { HeroSection } from "@/components/landing/hero-section";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { renderInPortuguese } from "@/test/portuguese";
-import { services } from "@/services/services";
 
 /**
  * The public and sign-in screens in Portuguese: landing, sign-in (web and
@@ -39,7 +37,7 @@ vi.mock("@/contexts/auth-context", () => ({
 
 vi.mock("@/services/services", () => ({
   services: {
-    auth: { borderlessSignIn: vi.fn() },
+    auth: { borderlessLoginUrl: vi.fn(() => "http://api.test/login") },
     feedbacks: { create: vi.fn() },
   },
 }));
@@ -95,7 +93,7 @@ describe("landing in Portuguese", () => {
 });
 
 describe("sign-in in Portuguese", () => {
-  it("writes the web sign-in in Portuguese", async () => {
+  it("writes the web sign-in in Portuguese: one button, no field", async () => {
     await renderInPortuguese(<LoginPage />, {
       wrapper: withQueries,
       localeSwitch: true,
@@ -104,71 +102,53 @@ describe("sign-in in Portuguese", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Entre no Applika" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("E-mail")).toBeInTheDocument();
-    expect(screen.getByLabelText("Senha")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Entrar" })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Use sua conta da Borderless. A Borderless confirma que é você e traz você de volta para cá.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Entrar com a Borderless" }),
+    ).toBeInTheDocument();
+    expect(document.querySelectorAll("input")).toHaveLength(0);
     expect(
       screen.getByRole("link", { name: "Criar uma conta na Borderless" }),
     ).toHaveAccessibleDescription("Abre em uma nova aba.");
   });
 
-  it("validates the empty form in Portuguese", async () => {
+  it("says it is opening Borderless in Portuguese", async () => {
+    vi.stubGlobal("location", { ...window.location, assign: vi.fn() });
     await renderInPortuguese(<LoginPage />, {
       wrapper: withQueries,
       localeSwitch: true,
     });
-    await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Entrar com a Borderless" }),
+    );
 
     expect(
-      await screen.findByText("Digite seu e-mail da Borderless"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Digite sua senha")).toBeInTheDocument();
-    expect(services.auth.borderlessSignIn).not.toHaveBeenCalled();
+      document.querySelector('[data-slot="sign-in-pending-status"]'),
+    ).toHaveTextContent("Abrindo a Borderless…");
+    vi.unstubAllGlobals();
   });
 
-  it("writes the terminal sign-in in Portuguese, the command kept", async () => {
-    searchParams = new URLSearchParams("cli=1");
+  it("writes the terminal hint in Portuguese, the command kept", async () => {
+    searchParams = new URLSearchParams("error=AUTH-1019&cli=1");
     await renderInPortuguese(<LoginPage />, {
       wrapper: withQueries,
       localeSwitch: true,
     });
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "Entre no applika-cli" }),
+      screen.getByRole("heading", { level: 1, name: "Entre no Applika" }),
     ).toBeInTheDocument();
-    const note = document.querySelector('[data-slot="sign-in-cli-note"]');
-    expect(note).toHaveTextContent(
-      "Este acesso conclui o applika login no seu terminal.",
+    const hint = document.querySelector('[data-slot="sign-in-cli-hint"]');
+    expect(hint).toHaveTextContent(
+      "Volte ao seu terminal e execute applika login novamente.",
     );
-    expect(within(note as HTMLElement).getByText("applika login").tagName).toBe(
+    expect(within(hint as HTMLElement).getByText("applika login").tagName).toBe(
       "CODE",
-    );
-  });
-
-  it("explains a lapsed terminal sign-in in Portuguese", async () => {
-    searchParams = new URLSearchParams("cli=1");
-    vi.mocked(services.auth.borderlessSignIn).mockResolvedValue({
-      new_account: false,
-      redirect_to: null,
-    } as never);
-    await renderInPortuguese(<LoginPage />, {
-      wrapper: withQueries,
-      localeSwitch: true,
-    });
-
-    const user = userEvent.setup();
-    await user.type(screen.getByLabelText("E-mail"), "ada@example.com");
-    await user.type(screen.getByLabelText("Senha"), "secret");
-    await user.click(screen.getByRole("button", { name: "Entrar" }));
-
-    const error = document.querySelector('[data-slot="sign-in-error"]');
-    expect(
-      await within(error as HTMLElement).findByText(
-        /O acesso pelo terminal expirou/,
-      ),
-    ).toBeInTheDocument();
-    expect(error).toHaveTextContent(
-      "Execute applika login no seu terminal novamente.",
     );
   });
 });
@@ -299,37 +279,53 @@ describe("feedback dialog in Portuguese", () => {
   });
 });
 
-function refusal(status: number, data: unknown) {
-  return new AxiosError("refused", "ERR_BAD_REQUEST", undefined, undefined, {
-    status,
-    statusText: String(status),
-    headers: new AxiosHeaders(),
-    config: {} as never,
-    data,
-  });
-}
+describe("sign-in refusal in Portuguese (AC21)", () => {
+  it.each([
+    ["AUTH-1005", "Verifique seu e-mail na Borderless primeiro"],
+    [
+      "AUTH-1046",
+      "O acesso expirou ou foi iniciado em outro navegador. Comece de novo",
+    ],
+    ["AUTH-1047", "A Borderless não concluiu o acesso. Tente entrar novamente"],
+    [
+      "AUTH-1048",
+      "Não foi possível verificar a resposta da Borderless. Tente entrar novamente",
+    ],
+    [
+      "AUTH-1049",
+      "Seu acesso pela Borderless terminou. Entre novamente com a Borderless",
+    ],
+    ["AUTH-1017", "A Borderless está indisponível, tente novamente mais tarde"],
+    [
+      "AUTH-1006",
+      "Este e-mail pertence a uma conta Applika vinculada a outra conta Borderless. Entre com essa conta Borderless ou entre em contato com o suporte",
+    ],
+  ])(
+    "reads ?error=%s in Portuguese, never its English words",
+    async (code, words) => {
+      searchParams = new URLSearchParams({ error: code });
+      await renderInPortuguese(<LoginPage />, {
+        wrapper: withQueries,
+        localeSwitch: true,
+      });
 
-describe("sign-in refusal in Portuguese", () => {
-  it("reads a known error code in Portuguese, never its English detail", async () => {
-    vi.mocked(services.auth.borderlessSignIn).mockRejectedValue(
-      refusal(401, { detail: "Invalid email or password", code: "AUTH-1004" }),
-    );
+      const error = document.querySelector('[data-slot="sign-in-error"]');
+      expect(error).toHaveAttribute("data-code", code);
+      expect(
+        await within(error as HTMLElement).findByText(words),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it("an unlisted code reads the generic line in Portuguese", async () => {
+    searchParams = new URLSearchParams({ error: "NOPE-0000" });
     await renderInPortuguese(<LoginPage />, {
       wrapper: withQueries,
       localeSwitch: true,
     });
 
-    const user = userEvent.setup();
-    await user.type(screen.getByLabelText("E-mail"), "ada@example.com");
-    await user.type(screen.getByLabelText("Senha"), "wrong");
-    await user.click(screen.getByRole("button", { name: "Entrar" }));
-
-    const error = document.querySelector('[data-slot="sign-in-error"]');
     expect(
-      await within(error as HTMLElement).findByText(
-        "E-mail ou senha inválidos",
-      ),
-    ).toBeInTheDocument();
-    expect(error).not.toHaveTextContent("Invalid email or password");
+      document.querySelector('[data-slot="sign-in-error"]'),
+    ).toHaveTextContent("Algo deu errado");
   });
 });

@@ -11,6 +11,10 @@ vi.mock("@/lib/api-client", () => ({
   },
 }));
 
+vi.mock("@/config", () => ({
+  APP_CONFIG: { envs: { apiBaseURL: "https://applika.dev/api" } },
+}));
+
 import { AuthService } from "./auth-service";
 import { SessionService } from "./session-service";
 
@@ -62,5 +66,15 @@ describe("AuthService device code calls", () => {
     expect(post).toHaveBeenNthCalledWith(2, "/auth/device/deny", {
       user_code: "BCDF-GHJK",
     });
+  });
+});
+
+describe("AuthService Borderless sign-in (ADR-0026)", () => {
+  it("is a top-level navigation to GET /auth/borderless/login, never a request", () => {
+    expect(new AuthService().borderlessLoginUrl()).toBe(
+      "https://applika.dev/api/auth/borderless/login",
+    );
+    expect(get).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
   });
 });
