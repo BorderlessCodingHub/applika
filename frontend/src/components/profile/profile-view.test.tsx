@@ -9,15 +9,15 @@ import { services } from "@/services/services";
 import type { User } from "@/services/types/users";
 
 /**
- * The profile after Borderless sign-in (ADR-0024): the held badge beside the
- * name, the confirm card whenever the access is not active, "Restore data
- * from GitHub" only with no GitHub identity on record, and no connected
- * accounts card.
+ * The profile after Borderless sign-in (ADR-0024, ADR-0026): the held badge
+ * (a recorded badge while the binding is `active`) beside the name, no
+ * password or confirm form anywhere, "Restore data from GitHub" only with no
+ * GitHub identity on record, and no connected accounts card.
  */
 
 vi.mock("@/services/services", () => ({
   services: {
-    auth: { startGithubRestore: vi.fn(), confirmMembership: vi.fn() },
+    auth: { startGithubRestore: vi.fn() },
     users: { deleteMe: vi.fn() },
   },
 }));
@@ -37,8 +37,8 @@ vi.mock("@/components/ui/avatar", () => ({
 
 const ACTIVE = {
   status: "active" as const,
-  expires_at: "2026-11-05T00:00:00Z",
   email: "ada@borderless.example",
+  checked_at: "2026-11-06T10:00:00Z",
 };
 const USER: User = {
   id: "u1",
@@ -85,43 +85,24 @@ describe("UserProfileView: membership", () => {
     ).toBeNull();
   });
 
-  it("shows no chip and no confirm card without a badge while active", () => {
+  it("shows no chip without a badge while active", () => {
     renderView({ ...USER, badges: [] });
+
+    expect(screen.queryByRole("img", { name: /Borderless/ })).toBeNull();
+  });
+
+  it("needs_reconnect: no chip, and never a password or confirm form (AC16, AC22)", () => {
+    renderView({
+      ...USER,
+      borderless: { ...ACTIVE, status: "needs_reconnect" },
+    });
 
     expect(screen.queryByRole("img", { name: /Borderless/ })).toBeNull();
     expect(
       document.querySelector('[data-slot="confirm-membership-notice"]'),
     ).toBeNull();
-  });
-
-  it.each(["expired", "needs_reconnect"] as const)(
-    "%s: no chip, the confirm card instead",
-    (status) => {
-      renderView({ ...USER, borderless: { ...ACTIVE, status } });
-
-      expect(screen.queryByRole("img", { name: /Borderless/ })).toBeNull();
-      expect(
-        document.querySelector('[data-slot="confirm-membership-notice"]'),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("heading", {
-          level: 2,
-          name: "Sign in again to confirm your membership",
-        }),
-      ).toBeInTheDocument();
-    },
-  );
-
-  it("shows the confirm card with no badge too, whenever the access lapsed", () => {
-    renderView({
-      ...USER,
-      badges: [],
-      borderless: { ...ACTIVE, status: "expired" },
-    });
-
-    expect(
-      document.querySelector('[data-slot="confirm-membership-notice"]'),
-    ).toBeInTheDocument();
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+    expect(screen.queryByLabelText(/Password/i)).not.toBeInTheDocument();
   });
 });
 

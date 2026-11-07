@@ -38,7 +38,7 @@ vi.mock("@/hooks/use-user", () => ({
 }));
 
 vi.mock("@/services/services", () => ({
-  services: { auth: { borderlessSignIn: vi.fn() } },
+  services: { auth: { borderlessLoginUrl: vi.fn() } },
 }));
 
 const user: User = {

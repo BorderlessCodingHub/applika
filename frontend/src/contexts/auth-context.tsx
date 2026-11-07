@@ -1,17 +1,35 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import type { User } from "@/services/types/users";
 import { useUserProfile } from "@/hooks/use-user";
 import { services } from "@/services/services";
 import { useQuery } from "@tanstack/react-query";
 import { isTemporary, retryAfterMs } from "@/lib/rate-limit";
+import {
+  grantEndedCode,
+  refusedRefresh,
+  subscribeRefusedRefresh,
+} from "@/lib/session-ended";
 
 interface AuthContextType {
   user: User | null;
-  logout: () => Promise<void>;
+  /** Ends this session, then a full navigation to `redirectTo` (default `/`). */
+  logout: (redirectTo?: string) => Promise<void>;
   isLoading: boolean;
   isAuthenticated: boolean;
+  /**
+   * The code of the refused refresh that ended this session, when the
+   * sign-in page has words for it: `AUTH-1049` (Borderless refused applika's
+   * grant), from this provider's poll or from the 401 interceptor. `null`
+   * otherwise, including a plain signed-out visit.
+   */
+  sessionEndedCode: string | null;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -19,6 +37,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   logout: () => new Promise(() => {}),
   isAuthenticated: false,
+  sessionEndedCode: null,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -39,6 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // true until the query actually settles.
     isPending: isAuthPending,
     isError: isAuthError,
+    error: authError,
+    dataUpdatedAt: authRefreshedAt,
   } = useQuery({
     queryKey: ["applika-auth"],
     queryFn: () => services.auth.refresh(),
@@ -61,13 +82,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isError: isUserError,
   } = useUserProfile(isAuthSuccess);
 
-  const isLoading = isAuthPending || (isAuthSuccess && isUserPending);
+  // The interceptor's refused refresh (a request answered 401, then the
+  // refresh it tried) lands here too, so both end the session the same way —
+  // until a refresh succeeds after it (the user signed in again in another
+  // tab, whose cookies this tab shares).
+  const interceptorRefusal = useSyncExternalStore(
+    subscribeRefusedRefresh,
+    refusedRefresh,
+    () => null,
+  );
+  const interceptorEndedCode =
+    interceptorRefusal && authRefreshedAt <= interceptorRefusal.at
+      ? interceptorRefusal.code
+      : null;
+  const sessionEndedCode =
+    (isAuthError ? grantEndedCode(authError) : null) ?? interceptorEndedCode;
 
-  const handleLogout = async () => {
+  const isLoading =
+    !sessionEndedCode && (isAuthPending || (isAuthSuccess && isUserPending));
+
+  const handleLogout = async (redirectTo = "/") => {
     try {
       await services.auth.logout();
     } finally {
-      window.location.href = "/";
+      window.location.href = redirectTo;
     }
   };
 
@@ -77,7 +115,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: user ?? null,
         logout: handleLogout,
         isLoading,
-        isAuthenticated: !!user && !isUserError && !isAuthError,
+        isAuthenticated:
+          !!user && !isUserError && !isAuthError && !sessionEndedCode,
+        sessionEndedCode,
       }}
     >
       {children}

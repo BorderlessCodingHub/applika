@@ -6,16 +6,12 @@ import ReportDayPage from "./page";
 import type { ReportDaysType } from "@/services/types/reports";
 import type { User } from "@/services/types/users";
 
-/** `/reports/[day]` sits behind the same membership gate as `/reports` (ADR-0024). */
+/** `/reports/[day]` sits behind the same membership gate as `/reports` (ADR-0024, ADR-0026). */
 
 let user: User | null = null;
 
 vi.mock("@/contexts/auth-context", () => ({
-  useAuth: () => ({ user, isLoading: false }),
-}));
-
-vi.mock("@/services/services", () => ({
-  services: { auth: { confirmMembership: vi.fn() } },
+  useAuth: () => ({ user, isLoading: false, logout: vi.fn() }),
 }));
 
 const ReportDayClient = vi.fn(() => <h1>Report day</h1>);
@@ -31,8 +27,8 @@ const BASE: User = {
   badges: [{ badge: "borderless_base", granted_at: "2026-10-01T00:00:00Z" }],
   borderless: {
     status: "active",
-    expires_at: "2026-11-05T00:00:00Z",
     email: "ada@borderless.example",
+    checked_at: "2026-11-06T10:00:00Z",
   },
   github_restore: { available: false, prompt: false },
 };
@@ -62,19 +58,23 @@ describe("/reports/[day] gate", () => {
     expect(ReportDayClient).not.toHaveBeenCalled();
   });
 
-  it("asks for the password while the badge does not count", async () => {
+  it("asks to sign in again, never for a password, while the badge does not count", async () => {
     user = {
       ...BASE,
-      borderless: { ...BASE.borderless!, status: "expired" },
+      borderless: { ...BASE.borderless!, status: "needs_reconnect" },
     };
     ReportDayClient.mockClear();
     await renderDay();
 
     expect(
       screen.getByRole("heading", {
-        name: "Sign in again to confirm your membership",
+        name: "Sign in again to open your reports",
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sign in again" }),
+    ).toBeInTheDocument();
+    expect(document.querySelector("input")).toBeNull();
     expect(ReportDayClient).not.toHaveBeenCalled();
   });
 

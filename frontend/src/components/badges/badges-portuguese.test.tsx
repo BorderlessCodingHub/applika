@@ -1,12 +1,9 @@
 import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { loadMessages } from "@/i18n/load-messages";
-import { setTranslatorLocale } from "@/i18n/translator";
 import { renderInPortuguese } from "@/test/portuguese";
 
 import { BadgeGateView } from "./badge-gate";
-import { confirmMembershipReason } from "./confirm-membership-form";
 import { MembershipBadge } from "./membership-badge";
 
 /** The membership words in Portuguese; "BASE" and "PSP" are brand names and stay. */
@@ -24,7 +21,7 @@ describe("badges in Portuguese", () => {
     await renderInPortuguese(
       <BadgeGateView
         state="none"
-        confirm={null}
+        onSignInAgain={vi.fn()}
         borderlessHref="https://borderless.example"
       >
         <p>reports</p>
@@ -41,14 +38,26 @@ describe("badges in Portuguese", () => {
     ).toHaveAccessibleDescription("Abre em uma nova aba.");
   });
 
-  it("gives the confirm reason in Portuguese", async () => {
-    setTranslatorLocale("pt-BR", await loadMessages("pt-BR"));
+  it("asks to sign in again in Portuguese, with the API's words (AC16)", async () => {
+    await renderInPortuguese(
+      <BadgeGateView state="needs_reconnect" onSignInAgain={vi.fn()}>
+        <p>reports</p>
+      </BadgeGateView>,
+    );
 
-    expect(confirmMembershipReason("expired", "borderless_psp")).toBe(
-      "Seu acesso à Borderless expirou, então seu selo PSP está pausado.",
-    );
-    expect(confirmMembershipReason("needs_reconnect", null)).toBe(
-      "A Borderless não aceitou a última verificação da sua associação feita pelo Applika.",
-    );
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Entre novamente para abrir seus relatórios",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        "Seu acesso pela Borderless terminou. Entre novamente no site do Applika para usar os recursos de membro",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Entrar novamente" }),
+    ).toBeVisible();
   });
 });

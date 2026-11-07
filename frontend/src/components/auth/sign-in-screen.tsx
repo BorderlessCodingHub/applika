@@ -1,78 +1,93 @@
 "use client";
 
-import { useId, type FormEvent } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { ExternalLink, KeyRound, SquareTerminal } from "lucide-react";
-import type { UseFormReturn } from "react-hook-form";
+import {
+  CircleAlert,
+  ExternalLink,
+  LoaderCircle,
+  SquareTerminal,
+} from "lucide-react";
 
 import { ApplikaIcon } from "@/components/app-logo";
-import {
-  BorderlessCredentialFields,
-  BorderlessFormError,
-  PendingSubmitButton,
-  type BorderlessCredentialsValues,
-} from "@/components/auth/borderless-credentials";
 import { LanguageToggle } from "@/components/language-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Form } from "@/components/ui/form";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { liveCopy } from "@/i18n/translator";
 
-/** The sign-in screen's words (`auth.signIn.*`), in the active language. */
-export const SIGN_IN_COPY = liveCopy("auth.signIn", [
-  "title",
-  "cliTitle",
-  "lead",
-  "cliCommand",
-  "submit",
-  "passwordHint",
-  "noAccount",
-  "createAccount",
-  "opensInNewTab",
-  "cliExpiredHint",
-]);
+/** The codes the API sends to `/login?error=`, plus the web's own AUTH-1049. */
+export const SIGN_IN_ERROR_CODES = [
+  "AUTH-1003",
+  "AUTH-1005",
+  "AUTH-1006",
+  "AUTH-1007",
+  "AUTH-1008",
+  "AUTH-1017",
+  "AUTH-1018",
+  "AUTH-1019",
+  "AUTH-1046",
+  "AUTH-1047",
+  "AUTH-1048",
+  "AUTH-1049",
+  "GEN-1005",
+] as const;
 
-export type SignInMode = "web" | "cli";
+export type SignInErrorCode = (typeof SIGN_IN_ERROR_CODES)[number];
+
+/** Listed codes only: the value comes from the URL, and some `errors.*` need ICU arguments. */
+export function signInErrorKey(
+  code: string | null | undefined,
+): SignInErrorCode | "unknown" | null {
+  if (!code) return null;
+  return (SIGN_IN_ERROR_CODES as readonly string[]).includes(code)
+    ? (code as SignInErrorCode)
+    : "unknown";
+}
 
 export interface SignInScreenProps {
-  form: UseFormReturn<BorderlessCredentialsValues>;
-  /** Called only while not pending. */
-  onSubmit: (values: BorderlessCredentialsValues) => void;
-  /** `cli`: the page was opened by `applika login` (`/login?cli=1`). */
-  mode?: SignInMode;
-  /** Keep it true until the browser leaves the page. */
+  /** Never called while `pending`. */
+  onSignIn: () => void;
+  /** Keep it true until the browser leaves; reset it on a bfcache restore. */
   pending?: boolean;
-  /** The server's `detail`, verbatim. */
-  error?: string | null;
-  /** A second line under the error, e.g. `SIGN_IN_COPY.cliExpiredHint`. */
-  errorHint?: string | null;
+  /** The `?error=` value, as read from the URL. */
+  errorCode?: string | null;
+  /** `?cli=1`: the attempt came from `applika login`. */
+  cli?: boolean;
   /** Borderless sign-up page (`config.ts`). */
   createAccountHref: string;
+  /** On mount, focus the error when there is one, else the button. */
   autoFocus?: boolean;
 }
 
 export function SignInScreen({
-  form,
-  onSubmit,
-  mode = "web",
+  onSignIn,
   pending = false,
-  error = null,
-  errorHint = null,
+  errorCode = null,
+  cli = false,
   createAccountHref,
   autoFocus = true,
 }: SignInScreenProps) {
   const t = useTranslations("auth.signIn");
-  const titleId = useId();
+  const tErrors = useTranslations("errors");
+  const leadId = useId();
   const newTabId = useId();
-  const cli = mode === "cli";
+  const errorRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const errorKey = signInErrorKey(errorCode);
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    if (pending) {
-      event.preventDefault();
-      return;
-    }
-    void form.handleSubmit(onSubmit)(event);
-  };
+  useEffect(() => {
+    if (!autoFocus) return;
+    (errorKey ? errorRef.current : buttonRef.current)?.focus();
+  }, [autoFocus, errorKey]);
+
+  const cliRetry: ReactNode = t.rich("cliRetry", {
+    command: t("cliCommand"),
+    code: (chunks) => (
+      <code className="rounded-sm bg-background/70 px-1 py-px font-mono text-[0.8125rem] whitespace-nowrap">
+        {chunks}
+      </code>
+    ),
+  });
 
   return (
     <div className="noise-overlay relative flex min-h-viewport items-center justify-center bg-background p-4 pt-18 md:pt-4">
@@ -87,81 +102,101 @@ export function SignInScreen({
       <main className="relative w-full max-w-md animate-fade-in-up motion-reduce:animate-none">
         <div
           data-slot="sign-in"
-          data-mode={mode}
+          data-mode={cli ? "cli" : "web"}
+          data-pending={pending || undefined}
           className="flex flex-col rounded-2xl border border-border/60 bg-surface-elevated p-6 shadow-elevated sm:p-10"
         >
           <ApplikaIcon
             aria-hidden
             className="size-10 self-center text-primary"
           />
-          <h1
-            id={titleId}
-            className="mt-4 text-center font-display text-2xl font-bold tracking-tight-display text-balance text-foreground"
-          >
-            {cli ? t("cliTitle") : t("title")}
+          <h1 className="mt-4 text-center font-display text-2xl font-bold tracking-tight-display text-balance text-foreground">
+            {t("title")}
           </h1>
-          <p className="mt-2 text-center text-sm text-foreground/70">
+          <p
+            id={leadId}
+            className="mt-2 text-center text-sm text-pretty text-foreground/70"
+          >
             {t("lead")}
           </p>
 
-          {cli ? (
-            <p
-              data-slot="sign-in-cli-note"
-              className="mt-5 flex items-start gap-2.5 rounded-lg border border-border bg-muted/60 px-3 py-2.5 text-sm text-foreground"
+          <div className="mt-6 flex flex-col">
+            <div
+              role="alert"
+              data-slot="sign-in-error"
+              data-code={errorKey ?? undefined}
+              className="[&:not(:empty)]:mb-4"
             >
-              <SquareTerminal
-                aria-hidden
-                className="mt-0.5 size-4 shrink-0 text-foreground/70"
-              />
-              <span className="min-w-0">
-                {t.rich("cliNote", {
-                  command: t("cliCommand"),
-                  code: (chunks) => (
-                    <code className="rounded-sm bg-background/70 px-1 py-px font-mono text-[0.8125rem] whitespace-nowrap">
-                      {chunks}
-                    </code>
-                  ),
-                })}
-              </span>
-            </p>
-          ) : null}
+              {errorKey ? (
+                <div
+                  ref={errorRef}
+                  tabIndex={-1}
+                  className="flex items-start gap-2.5 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-foreground outline-none"
+                >
+                  <CircleAlert
+                    aria-hidden
+                    className="mt-0.5 size-4 shrink-0 text-destructive"
+                  />
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <p className="font-medium break-words">
+                      {tErrors(errorKey)}
+                    </p>
+                    {cli ? (
+                      <p
+                        data-slot="sign-in-cli-hint"
+                        className="text-foreground/80"
+                      >
+                        {cliRetry}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
 
-          <Form {...form}>
-            <form
-              noValidate
-              aria-labelledby={titleId}
-              data-slot="sign-in-form"
-              onSubmit={submit}
-              className="mt-6 flex flex-col"
-            >
-              <div className="flex flex-col gap-4">
-                <BorderlessCredentialFields
-                  form={form}
-                  autoFocus={autoFocus ? "email" : undefined}
-                />
-              </div>
-              <BorderlessFormError
-                slot="sign-in-error"
-                message={error}
-                hint={errorHint}
-              />
-              <PendingSubmitButton
-                pending={pending}
-                size="lg"
-                className="mt-5 h-11 w-full font-display text-base font-semibold glow-primary"
+            {cli && !errorKey ? (
+              <p
+                data-slot="sign-in-cli-hint"
+                className="mb-4 flex items-start gap-2.5 rounded-lg border border-border bg-muted/60 px-3 py-2.5 text-sm text-foreground"
               >
-                {t("submit")}
-              </PendingSubmitButton>
-            </form>
-          </Form>
+                <SquareTerminal
+                  aria-hidden
+                  className="mt-0.5 size-4 shrink-0 text-foreground/70"
+                />
+                <span className="min-w-0">{cliRetry}</span>
+              </p>
+            ) : null}
 
-          <p
-            data-slot="sign-in-password-hint"
-            className="mt-4 flex items-start gap-2 text-[0.8125rem] leading-5 text-foreground/70"
-          >
-            <KeyRound aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-            <span className="min-w-0">{t("passwordHint")}</span>
-          </p>
+            <Button
+              ref={buttonRef}
+              type="button"
+              size="lg"
+              data-action="sign-in-borderless"
+              aria-describedby={leadId}
+              aria-disabled={pending || undefined}
+              aria-busy={pending || undefined}
+              onClick={() => {
+                if (!pending) onSignIn();
+              }}
+              className="h-auto min-h-11 w-full px-4 py-2 font-display text-[0.9375rem] font-semibold whitespace-normal glow-primary aria-disabled:cursor-progress aria-disabled:opacity-70 sm:px-6 sm:text-base"
+            >
+              {pending ? (
+                <LoaderCircle
+                  aria-hidden
+                  data-icon="inline-start"
+                  className="motion-safe:animate-spin"
+                />
+              ) : null}
+              {t("signInWithBorderless")}
+            </Button>
+            <span
+              role="status"
+              data-slot="sign-in-pending-status"
+              className="sr-only"
+            >
+              {pending ? t("pending") : null}
+            </span>
+          </div>
 
           <Separator className="my-6" />
 
