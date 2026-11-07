@@ -1,8 +1,9 @@
-"""Report routing by badge (ADR-0024): a report reaches every webhook
+"""Report routing by badge (ADR-0024, ADR-0026 §7): a report reaches every
+webhook
 holding a badge its author holds, distinct, oldest first; nothing when no
 badge is held or a webhook has no badge. A webhook may hold both badges."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -13,10 +14,8 @@ from app.application.use_cases.quinzenal_reports.resolve_report_webhooks import 
 )
 
 
-def _binding(status='active', expires=timedelta(days=1)) -> Any:
-    return SimpleNamespace(
-        status=status, access_token_expires_at=datetime.now(UTC) + expires
-    )
+def _binding(status='active') -> Any:
+    return SimpleNamespace(status=status)
 
 
 def _badge(badge):
@@ -119,11 +118,10 @@ async def test_a_webhook_holding_both_badges_is_reached_by_either(
     [
         (None, []),
         (_binding(), []),
-        (_binding(expires=timedelta(seconds=-1)), [_badge('borderless_psp')]),
         (_binding(status='needs_reconnect'), [_badge('borderless_psp')]),
         (None, [_badge('borderless_psp')]),
     ],
-    ids=['unbound', 'no-badge', 'expired', 'needs-reconnect', 'no-binding'],
+    ids=['unbound', 'no-badge', 'needs-reconnect', 'no-binding'],
 )
 async def test_nothing_is_posted_without_a_held_badge(binding, badges):
     repos = Repos(binding, badges, HOOKS)

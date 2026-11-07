@@ -1,4 +1,7 @@
-"""The Borderless binding of an applika user (ADR-0024).
+"""The Borderless binding of an applika user (ADR-0024, ADR-0026).
+
+The binding holds the encrypted refresh token only; the access token
+lives in Redis (``BorderlessAccessStore``).
 
 Methods commit unless ``commit=False`` is passed, so a use case that needs
 one transaction (the GitHub restore) shares the session and commits once.
@@ -38,10 +41,13 @@ class BorderlessAccountRepository:
     async def get_by_user_id_for_update(
         self, user_id: int
     ) -> BorderlessAccountModel | None:
+        """The binding, row-locked, with the values the lock saw (an object
+        this session read earlier is refreshed, never served stale)."""
         return await self.session.scalar(
             select(BorderlessAccountModel)
             .where(BorderlessAccountModel.user_id == user_id)
             .with_for_update()
+            .execution_options(populate_existing=True)
         )
 
     async def _commit(self, commit: bool) -> None:
@@ -60,40 +66,59 @@ class BorderlessAccountRepository:
         user_id: int,
         borderless_user_id: str,
         email: str,
-        encrypted_access_token: str,
-        access_token_expires_at: datetime,
+        encrypted_refresh_token: str,
         commit: bool = True,
     ) -> BorderlessAccountModel:
+        now = datetime.now(UTC)
         binding = BorderlessAccountModel(
             user_id=user_id,
             borderless_user_id=borderless_user_id,
             email=email,
-            encrypted_access_token=encrypted_access_token,
-            access_token_expires_at=access_token_expires_at,
+            encrypted_refresh_token=encrypted_refresh_token,
             status=BorderlessAccountStatus.ACTIVE.value,
-            linked_at=datetime.now(UTC),
+            linked_at=now,
+            profile_read_at=now,
         )
         self.session.add(binding)
         await self._commit(commit)
         return binding
 
-    async def store_tokens(
+    async def store_refresh_token(
         self,
         binding: BorderlessAccountModel,
         *,
-        email: str,
-        encrypted_access_token: str,
-        access_token_expires_at: datetime,
+        encrypted_refresh_token: str,
+        email: str | None = None,
         commit: bool = True,
     ) -> BorderlessAccountModel:
-        binding.email = email
-        binding.encrypted_access_token = encrypted_access_token
-        binding.access_token_expires_at = access_token_expires_at
+        """The newest refresh token (encrypted) and a fresh membership
+        read: the binding is ``active`` again."""
+        now = datetime.now(UTC)
+        if email is not None:
+            binding.email = email
+        binding.encrypted_refresh_token = encrypted_refresh_token
         binding.status = BorderlessAccountStatus.ACTIVE.value
-        binding.updated_at = datetime.now(UTC)
+        binding.profile_read_at = now
+        binding.updated_at = now
         self.session.add(binding)
         await self._commit(commit)
         return binding
+
+    async def clear_refresh_token(
+        self,
+        binding: BorderlessAccountModel,
+        *,
+        needs_reconnect: bool = False,
+        commit: bool = True,
+    ) -> None:
+        """Forget the grant; ``needs_reconnect`` when Borderless refused
+        it."""
+        binding.encrypted_refresh_token = None
+        if needs_reconnect:
+            binding.status = BorderlessAccountStatus.NEEDS_RECONNECT.value
+        binding.updated_at = datetime.now(UTC)
+        self.session.add(binding)
+        await self._commit(commit)
 
     async def mark_read_ok(
         self, binding: BorderlessAccountModel, commit: bool = True

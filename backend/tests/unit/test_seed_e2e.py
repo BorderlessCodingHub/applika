@@ -68,6 +68,7 @@ class FakeRedis:
         self.store: dict[str, str] = {}
         self.hashes: dict[str, dict[str, str]] = {}
         self.expire_at: dict[str, int | None] = {}
+        self.deleted: list[str] = []
         self.closed = False
 
     def register_script(self, _source: str):
@@ -78,6 +79,10 @@ class FakeRedis:
 
     def pipeline(self, transaction: bool = True) -> FakePipeline:
         return FakePipeline(self)
+
+    async def delete(self, *keys: str) -> int:
+        self.deleted.extend(keys)
+        return sum(self.store.pop(key, None) is not None for key in keys)
 
     async def aclose(self) -> None:
         self.closed = True
@@ -189,7 +194,9 @@ async def test_upsert_users_binds_badges_and_is_idempotent(
             )
         )
         assert binding is not None
+        # As a refused grant leaves it: a rerun re-arms it.
         binding.status = 'needs_reconnect'
+        binding.encrypted_refresh_token = None
         await session.commit()
     second = await seed_e2e.upsert_users()
 
@@ -211,12 +218,15 @@ async def test_upsert_users_binds_badges_and_is_idempotent(
             assert binding is not None
             assert binding.borderless_user_id == account.borderless_id
             assert binding.status == 'active'
+            # The fake's seeded refresh token, encrypted, re-set every run.
+            assert binding.encrypted_refresh_token != account.seed_token
             assert decrypt_borderless_token(
-                binding.encrypted_access_token
+                binding.encrypted_refresh_token or ''
             ) == (account.seed_token)
-            assert binding.access_token_expires_at > datetime.now(
-                UTC
-            ) + timedelta(days=6)
+            assert binding.profile_read_at is not None
+            assert binding.profile_read_at > datetime.now(UTC) - timedelta(
+                minutes=5
+            )
             badges = list(
                 await session.scalars(
                     select(UserBadgeModel.badge).where(
@@ -355,6 +365,10 @@ async def test_seed_returns_the_eleven_contract_keys(monkeypatch):
 
     payload = await seed_e2e.seed()
 
+    # No access token in Redis: the first check refreshes at the fake.
+    assert fake_redis.deleted == [
+        f'applika:borderless:access:{uid}' for uid in (11, 22, 33)
+    ]
     assert set(payload) == {
         'user_id',
         'access_token',

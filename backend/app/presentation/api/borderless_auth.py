@@ -1,37 +1,55 @@
-"""Borderless sign-in and membership confirmation (ADR-0024).
+"""Sign in with Borderless through OpenID Connect (ADR-0026 §2, §3, §11).
 
-Not behind a beta gate (ADR-0024 §9). The password goes to Borderless
-from the server only; no Borderless token ever reaches the browser or the
-CLI.
+- ``GET /auth/borderless/login``: 307 to Borderless's authorize endpoint
+  for a web sign-in (no ``prompt``: the Borderless browser session is
+  reused), with the ``__borderless_login`` cookie that binds the attempt to
+  this browser.
+- ``GET /auth/borderless/callback``: Borderless's return, always a 307:
+  to ``WEB_SIGNIN_URI`` with a new web session, to the CLI's loopback or
+  manual-code page (``cli_handoff_redirect``, no cookie), or to
+  ``WEB_SIGNIN_URI?error=<code>`` (``&cli=1`` for a CLI sign-in). The
+  attempt cookie is cleared on every answer but AUTH-1046 (no attempt
+  matched: the cookie may be a newer attempt's, in another tab).
+
+Applika never sees a Borderless password, and no Borderless token, code or
+state reaches a response body, the browser or a log; the request log
+redacts the callback's query (``config/middleware.py``). Not behind a beta
+gate (ADR-0024 §9).
 """
 
 from fastapi import APIRouter, Request, Response, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import RedirectResponse
 
+from app.application.use_cases.borderless.complete_login import (
+    BorderlessLoginFailed,
+)
+from app.config.logging import logger
 from app.config.settings import REFRESH_COOKIE_NAME
 from app.core.error_codes import ErrorCode
-from app.presentation.api.auth_handoff import CLI_LOGIN_COOKIE_NAME
+from app.core.exceptions import CodedRefusal, ServiceUnavailable
+from app.presentation.api.auth_handoff import (
+    LOGIN_COOKIE_NAME,
+    attempt_redirect,
+    clear_login_cookie,
+    signin_redirect,
+)
 from app.presentation.api.oauth import (
     cli_handoff_redirect,
     set_session_cookies,
 )
 from app.presentation.dependencies import (
     AuthHandoffStateUseCaseDp,
-    BorderlessSignInUseCaseDp,
-    ConfirmMembershipUseCaseDp,
-    CurrentUserDp,
+    BeginBorderlessLoginUseCaseDp,
+    CompleteBorderlessLoginUseCaseDp,
     EndSessionUseCaseDp,
     OpenSessionUseCaseDp,
     client_ip,
     client_user_agent,
 )
 from app.presentation.no_input_echo import NoInputEchoRoute
-from app.presentation.schemas import DetailSchema
-from app.presentation.schemas.borderless_auth import (
-    BorderlessCredentials,
-    BorderlessSignInResponse,
-    CodedDetailSchema,
-)
+
+# The words of AUTH-1019 (the web shows them for ``?error=AUTH-1019``).
+CLI_LOGIN_EXPIRED = 'CLI login expired'
 
 router = APIRouter(
     prefix='/auth/borderless',
@@ -39,91 +57,97 @@ router = APIRouter(
     route_class=NoInputEchoRoute,
 )
 
-_REFUSALS: dict[int | str, dict] = {
-    '401': {'model': DetailSchema},
-    '403': {'model': CodedDetailSchema},
-    '409': {'model': CodedDetailSchema},
-    '429': {'model': DetailSchema},
-    '503': {'model': DetailSchema},
-}
+
+def _cli_login_expired() -> RedirectResponse:
+    logger.info(f'Borderless CLI sign-in refused ({CLI_LOGIN_EXPIRED})')
+    return signin_redirect(ErrorCode.AUTH_CLI_LOGIN_EXPIRED, cli=True)
 
 
-@router.post(
-    '/signin', response_model=BorderlessSignInResponse, responses=_REFUSALS
-)
-async def borderless_sign_in(
-    payload: BorderlessCredentials,
+def _unexpected(where: str, exc: BaseException) -> None:
+    # The type only: never the query, a code or a token.
+    logger.error(f'Borderless {where} failed ({type(exc).__name__})')
+
+
+@router.get('/login', status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+async def borderless_login(begin: BeginBorderlessLoginUseCaseDp):
+    """Start a web sign-in: 307 to Borderless's authorize endpoint, or to
+    the sign-in page with AUTH-1018 (not configured) or AUTH-1017
+    (Borderless unavailable)."""
+    try:
+        authorize_url, binding = await begin.execute('web')
+    except (CodedRefusal, ServiceUnavailable) as exc:
+        return signin_redirect(exc.code)
+    except Exception as exc:
+        _unexpected('sign-in start', exc)
+        return signin_redirect(ErrorCode.GEN_INTERNAL_ERROR)
+    return attempt_redirect(authorize_url, binding)
+
+
+@router.get('/callback', status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+async def borderless_callback(
     request: Request,
-    sign_in: BorderlessSignInUseCaseDp,
+    complete: CompleteBorderlessLoginUseCaseDp,
     handoff_state: AuthHandoffStateUseCaseDp,
     open_session: OpenSessionUseCaseDp,
     end_session: EndSessionUseCaseDp,
 ):
-    """Sign in with a Borderless email and password.
-
-    Web: ends this browser's earlier session as ``replaced``, opens a
-    ``borderless`` session and sets ``__access`` and ``__refresh``. With the
-    ``__cli_login`` marker: no cookie and the browser's own session is
-    untouched; ``redirect_to`` hands the sign-in back to the CLI.
-    """
-    result = await sign_in.execute(payload.email, payload.password)
-
-    login_id = request.cookies.get(CLI_LOGIN_COOKIE_NAME)
-    if login_id:
-        redirect_to = await cli_handoff_redirect(
-            login_id, handoff_state, user_id=result.user_id
+    """Borderless's return (``code``, ``state``, ``iss``, or ``error``).
+    Web: this browser's earlier session ends ``replaced``, a ``borderless``
+    session opens, both cookies are set. CLI: the code goes back to the CLI
+    and the browser's own session is untouched."""
+    params = {key: value for key, value in request.query_params.items()}
+    response: Response
+    try:
+        outcome = await complete.execute(
+            params, request.cookies.get(LOGIN_COOKIE_NAME)
         )
-        if redirect_to is None:
-            expired = JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content={
-                    'detail': 'CLI login expired',
-                    'code': ErrorCode.AUTH_CLI_LOGIN_EXPIRED.value,
-                },
-            )
-            expired.delete_cookie(CLI_LOGIN_COOKIE_NAME)
-            return expired
-        response = JSONResponse(
-            content=BorderlessSignInResponse(
-                redirect_to=redirect_to, new_account=result.new_account
-            ).model_dump()
-        )
-        response.delete_cookie(CLI_LOGIN_COOKIE_NAME)
+    except BorderlessLoginFailed as failed:
+        if failed.unexpected and failed.__cause__ is not None:
+            _unexpected('callback', failed.__cause__)
+        response = signin_redirect(failed.code, cli=failed.flow == 'cli')
+        # No attempt matched this return: the cookie may belong to a newer
+        # attempt in this browser (two tabs), which must still complete.
+        if failed.code != ErrorCode.AUTH_BORDERLESS_LOGIN_EXPIRED:
+            clear_login_cookie(response)
         return response
 
-    await end_session.end_by_refresh(
-        request.cookies.get(REFRESH_COOKIE_NAME),
-        'replaced',
-        user_id=result.user_id,
-    )
-    tokens = await open_session.execute(
-        user_id=result.user_id,
-        client_type='web',
-        sign_in_method='borderless',
-        user_agent=client_user_agent(request),
-        ip=client_ip(request),
-    )
-    response = JSONResponse(
-        content=BorderlessSignInResponse(
-            redirect_to=None, new_account=result.new_account
-        ).model_dump()
-    )
-    set_session_cookies(tokens, response)
+    try:
+        if outcome.flow == 'cli':
+            target = (
+                await cli_handoff_redirect(
+                    outcome.cli_login_id, handoff_state, user_id=outcome.user_id
+                )
+                if outcome.cli_login_id
+                else None
+            )
+            response = (
+                RedirectResponse(
+                    target, status_code=status.HTTP_307_TEMPORARY_REDIRECT
+                )
+                if target
+                else _cli_login_expired()
+            )
+        else:
+            await end_session.end_by_refresh(
+                request.cookies.get(REFRESH_COOKIE_NAME),
+                'replaced',
+                user_id=outcome.user_id,
+            )
+            tokens = await open_session.execute(
+                user_id=outcome.user_id,
+                client_type='web',
+                sign_in_method='borderless',
+                user_agent=client_user_agent(request),
+                ip=client_ip(request),
+            )
+            response = signin_redirect()
+            set_session_cookies(tokens, response)
+    except ServiceUnavailable as exc:
+        response = signin_redirect(exc.code, cli=outcome.flow == 'cli')
+    except Exception as exc:
+        _unexpected('callback', exc)
+        response = signin_redirect(
+            ErrorCode.GEN_INTERNAL_ERROR, cli=outcome.flow == 'cli'
+        )
+    clear_login_cookie(response)
     return response
-
-
-@router.post(
-    '/confirm',
-    status_code=status.HTTP_204_NO_CONTENT,
-    response_class=Response,
-    responses=_REFUSALS,
-)
-async def confirm_membership(
-    payload: BorderlessCredentials,
-    c_user: CurrentUserDp,
-    use_case: ConfirmMembershipUseCaseDp,
-):
-    """Renew the Borderless access and read the membership for the
-    signed-in user. The current session and its cookies are untouched."""
-    await use_case.execute(c_user.id, payload.email, payload.password)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)

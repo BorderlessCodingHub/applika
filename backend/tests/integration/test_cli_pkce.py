@@ -1,11 +1,12 @@
 """``applika login``: browser sign-in with PKCE S256 (KODI-057, ADR-0019,
 R-015, R-018, R-019, R-020, R-021).
 
-``GET /auth/cli/authorize`` -> applika's Borderless sign-in page -> the
-sign-in (fake Borderless) answers ``redirect_to``, the loopback
-``redirect_uri`` (or, with ``oob``, ``CLI_MANUAL_REDIRECT_URI``) with a
-one-use code -> ``POST /auth/token`` redeems it with the verifier.
-Also the ``refresh_token`` grant and ``POST /auth/revoke``.
+``GET /auth/cli/authorize`` -> straight to the (fake) Borderless's sign-in
+with ``prompt=login`` (ADR-0026 §11) -> Borderless's callback on applika
+307s to the loopback ``redirect_uri`` (or, with ``oob``,
+``CLI_MANUAL_REDIRECT_URI``) with a one-use code -> ``POST /auth/token``
+redeems it with the verifier. Also the ``refresh_token`` grant and
+``POST /auth/revoke``.
 """
 
 import secrets
@@ -26,10 +27,11 @@ from app.config.settings import (
 from app.core.pkce import s256_challenge
 from app.core.tokens import decode_token
 from app.domain.models import UserSessionModel
-from app.presentation.api.auth_handoff import CLI_LOGIN_COOKIE_NAME
+from app.presentation.api.auth_handoff import LOGIN_COOKIE_NAME
+from tests import borderless_flow as flow
 from tests.base_db_setup import base_data
 from tests.error_catalog import code_for
-from tests.integration.conftest import CREDENTIALS
+from tests.integration.conftest import BOUND_SUB
 from tests.sessions_seed import open_session
 
 USER = base_data()['user']
@@ -39,8 +41,8 @@ DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
 
 
 @pytest.fixture
-def borderless_sign_in(bound_user):
-    return bound_user
+def borderless_sign_in(bound_user, fake_borderless):
+    return fake_borderless
 
 
 def _pkce() -> tuple[str, str]:
@@ -79,23 +81,26 @@ async def _authorize(
 
 async def _login_code(
     client: AsyncClient,
+    fake,
     challenge: str,
     redirect_uri: str = LOOPBACK,
     extra_cookies: dict[str, str] | None = None,
 ) -> tuple[str, str]:
-    """authorize -> Borderless sign-in; answers (code, the redirect)."""
+    """authorize -> Borderless's sign-in (always asked) -> applika's
+    callback; answers (code, the redirect)."""
     started = await _authorize(client, challenge, redirect_uri)
     assert started.status_code == 307, started.text
-    login_id = started.cookies.get(CLI_LOGIN_COOKIE_NAME)
-    assert login_id
-    callback = await client.post(
-        '/auth/borderless/signin',
-        json=CREDENTIALS,
-        cookies={CLI_LOGIN_COOKIE_NAME: login_id, **(extra_cookies or {})},
-    )
-    assert callback.status_code == 200, callback.text
+    assert flow.query_of(started.headers['location'])['prompt'] == 'login'
+    async with flow.fake_browser(fake) as browser:
+        answer = await flow.at_borderless(
+            browser, started.headers['location'], BOUND_SUB
+        )
+        callback = await flow.return_to_applika(
+            client, answer, cookies=extra_cookies
+        )
+    assert callback.status_code == 307, callback.text
     assert ACCESS_COOKIE_NAME not in callback.cookies
-    location = callback.json()['redirect_to']
+    location = callback.headers['location']
     return parse_qs(urlparse(location).query)['code'][0], location
 
 
@@ -110,17 +115,26 @@ async def _token(client: AsyncClient, **body):
 # --------------------------------------------------------------------------
 
 
-async def test_authorize_redirects_to_the_signin_page_with_the_cli_marker(
-    real_client: AsyncClient, auth_handoff_state_use_case
+async def test_authorize_goes_straight_to_borderless_asking_to_sign_in(
+    real_client: AsyncClient, redis_client, auth_handoff_state_use_case
 ):
     _, challenge = _pkce()
 
     response = await _authorize(real_client, challenge)
 
     assert response.status_code == 307
-    assert response.headers['location'] == f'{envs.WEB_SIGNIN_URI}?cli=1'
-    login_id = response.cookies.get(CLI_LOGIN_COOKIE_NAME)
-    assert login_id
+    location = response.headers['location']
+    assert location.startswith(f'{envs.BORDERLESS_ISSUER}/oauth2/authorize?')
+    params = flow.query_of(location)
+    assert params['prompt'] == 'login'
+    assert params['redirect_uri'] == envs.BORDERLESS_REDIRECT_URI
+    assert response.cookies.get(LOGIN_COOKIE_NAME)
+    assert '__cli_login' not in response.cookies
+    # The attempt names the CLI login; the CLI login is unchanged.
+    attempt = await redis_client.get(
+        f'applika:borderless:login:{params["state"]}'
+    )
+    login_id = attempt.split('"cli_login_id": "')[1].split('"')[0]
     stored = await auth_handoff_state_use_case.get_login(login_id)
     assert stored == {
         'login_id': login_id,
@@ -204,7 +218,7 @@ async def test_loopback_sign_in_gives_the_cli_a_session_of_its_own(
     real_client: AsyncClient, async_engine, redis_client, borderless_sign_in
 ):
     verifier, challenge = _pkce()
-    code, location = await _login_code(real_client, challenge)
+    code, location = await _login_code(real_client, borderless_sign_in, challenge)
     parsed = urlparse(location)
     assert f'{parsed.scheme}://{parsed.netloc}{parsed.path}' == LOOPBACK
     assert parse_qs(parsed.query)['state'] == ['st-1']
@@ -250,7 +264,7 @@ async def test_without_a_name_the_device_is_named_from_its_agent(
     real_client: AsyncClient, async_engine, redis_client, borderless_sign_in
 ):
     verifier, challenge = _pkce()
-    code, _ = await _login_code(real_client, challenge)
+    code, _ = await _login_code(real_client, borderless_sign_in, challenge)
 
     response = await _token(
         real_client,
@@ -274,6 +288,7 @@ async def test_a_cli_sign_in_never_ends_the_browsers_session(
 
     code, _ = await _login_code(
         real_client,
+        borderless_sign_in,
         challenge,
         extra_cookies={REFRESH_COOKIE_NAME: browser.refresh_token},
     )
@@ -310,7 +325,7 @@ async def test_oob_redirects_to_the_manual_code_page(
     )
     verifier, challenge = _pkce()
 
-    code, location = await _login_code(real_client, challenge, 'oob')
+    code, location = await _login_code(real_client, borderless_sign_in, challenge, 'oob')
 
     parsed = urlparse(location)
     assert f'{parsed.scheme}://{parsed.netloc}{parsed.path}' == (
@@ -337,7 +352,7 @@ async def test_the_code_is_one_use(
     real_client: AsyncClient, redis_client, borderless_sign_in
 ):
     verifier, challenge = _pkce()
-    code, _ = await _login_code(real_client, challenge)
+    code, _ = await _login_code(real_client, borderless_sign_in, challenge)
     body = {
         'grant_type': 'authorization_code',
         'code': code,
@@ -360,7 +375,7 @@ async def test_the_code_lives_sixty_seconds(
     real_client: AsyncClient, redis_client, borderless_sign_in
 ):
     _, challenge = _pkce()
-    code, _ = await _login_code(real_client, challenge)
+    code, _ = await _login_code(real_client, borderless_sign_in, challenge)
     ttl = await redis_client.ttl(f'applika:auth_handoff:code:{code}')
     assert 55 <= ttl <= 60
 
@@ -369,7 +384,7 @@ async def test_a_wrong_verifier_is_invalid_grant_and_spends_the_code(
     real_client: AsyncClient, async_engine, redis_client, borderless_sign_in
 ):
     verifier, challenge = _pkce()
-    code, _ = await _login_code(real_client, challenge)
+    code, _ = await _login_code(real_client, borderless_sign_in, challenge)
 
     wrong = await _token(
         real_client,
@@ -401,7 +416,7 @@ async def test_a_different_redirect_uri_is_invalid_grant(
     real_client: AsyncClient, redis_client, borderless_sign_in
 ):
     verifier, challenge = _pkce()
-    code, _ = await _login_code(real_client, challenge)
+    code, _ = await _login_code(real_client, borderless_sign_in, challenge)
 
     response = await _token(
         real_client,
@@ -424,7 +439,7 @@ async def test_a_pkce_code_is_refused_by_the_legacy_exchange(
 ):
     """Without this, the legacy route would skip the verifier."""
     _, challenge = _pkce()
-    code, _ = await _login_code(real_client, challenge)
+    code, _ = await _login_code(real_client, borderless_sign_in, challenge)
 
     response = await real_client.post('/auth/cli/exchange', json={'code': code})
 
