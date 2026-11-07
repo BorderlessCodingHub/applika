@@ -5,6 +5,7 @@
 # run side by side, the way production serves them: `api` from
 # `backend/Dockerfile` (uvicorn behind the `/api` root path) and `web` from
 # `frontend/docker/Dockerfile` (the Next.js static export served by nginx).
+# The fake Borderless is the one test-only image, built apart from both.
 # The schema comes from the real Alembic chain (`alembic upgrade head`) on the
 # api command, against a real Postgres and a real Redis. Playwright drives the
 # `web` origin and every request it makes hits the real API — nothing is mocked.
@@ -93,31 +94,29 @@ services:
   # fake_oidc.py`): discovery, a sign-in page where the test picks the
   # account, the code exchange with its PKCE and client checks, refresh with
   # rotation, refusal on demand, keys and revocation, plus its `/__fake/*`
-  # controls. It runs on the API image (its venv has pyjwt, cryptography and
-  # httpx; built by `api`, never pulled) with the synthetic accounts mounted
-  # read-only. Every provider endpoint sits under the issuer's path; the
-  # browser reaches the sign-in page on the published port (`--public-url`),
-  # the API reaches the rest in-stack. `--access-ttl 2`: each access token
-  # lives 2 s, so a membership check refreshes at the fake almost every time.
+  # controls. It runs on its OWN test-only image, built from that folder's
+  # Dockerfile (python plus the pinned pyjwt and cryptography, the synthetic
+  # `accounts.json` baked in) and tagged `applika-e2e-borderless-fake`; never
+  # on the API image, which holds no fake code. The image's entrypoint runs
+  # the fake, so `command:` carries its flags only (`--config` and `--port`
+  # keep their defaults: the baked accounts and 8081). Every provider
+  # endpoint sits under the issuer's path; the browser reaches the sign-in
+  # page on the published port (`--public-url`), the API reaches the rest
+  # in-stack. `--access-ttl 2`: each access token lives 2 s, so a membership
+  # check refreshes at the fake almost every time. The image has no curl or
+  # wget: the healthcheck uses its python.
   borderless-fake:
     container_name: applika-e2e-borderless-fake
-    image: applika-e2e-api
-    pull_policy: never
+    image: applika-e2e-borderless-fake
+    build:
+      context: ./backend/tests/fixtures/borderless
     command:
-      - python
-      - /fake/fake_oidc.py
-      - --config
-      - /fake/accounts.json
-      - --port
-      - "8081"
       - --issuer
       - http://borderless-fake:8081/api/auth
       - --public-url
       - http://127.0.0.1:8181
       - --access-ttl
       - "2"
-    volumes:
-      - ./backend/tests/fixtures/borderless:/fake:ro
     ports:
       - "127.0.0.1:8181:8081"
     healthcheck:
@@ -125,7 +124,7 @@ services:
         - "CMD"
         - "python"
         - "-c"
-        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health')"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health', timeout=2)"
       interval: 2s
       timeout: 3s
       retries: 15

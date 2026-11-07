@@ -1,6 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { createServer } from "node:http";
-import type { AddressInfo } from "node:net";
+import { connect } from "node:net";
 
 import {
   expect,
@@ -9,6 +8,7 @@ import {
   type APIRequestContext,
   type Browser,
   type Page,
+  type Request,
 } from "@playwright/test";
 
 import {
@@ -157,28 +157,27 @@ function pkce() {
 }
 
 /**
- * The CLI's loopback listener, as `applika login` opens one on 127.0.0.1.
- * The API 307s the browser straight to it, and Playwright cannot route a
- * redirect target, so a real listener receives it.
+ * A loopback port nothing listens on, for the CLI's callback URL. Found by
+ * CONNECTING (refused), never by listening: `applika login` opens its own
+ * listener there, this test opens none. The API's 307 to it is observed as
+ * the browser's own request instead (see the CLI test).
  */
-async function openLoopback() {
-  let landedOn: URL | null = null;
-  const server = createServer((req, res) => {
-    landedOn ??= new URL(req.url ?? "/", "http://127.0.0.1");
-    res.writeHead(200, { "Content-Type": "text/plain" });
-    res.end("applika-cli got the code");
-  });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const { port } = server.address() as AddressInfo;
-  return {
-    callback: `http://127.0.0.1:${port}/callback`,
-    landedOn: () => landedOn,
-    close: () =>
-      new Promise<void>((resolve) => {
-        server.closeAllConnections();
-        server.close(() => resolve());
-      }),
-  };
+async function closedLoopbackPort(): Promise<number> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const port = 20_000 + Math.floor(Math.random() * 40_000);
+    const refused = await new Promise<boolean>((resolve) => {
+      const socket = connect({ host: "127.0.0.1", port });
+      socket.once("connect", () => {
+        socket.destroy();
+        resolve(false);
+      });
+      socket.once("error", (error: NodeJS.ErrnoException) =>
+        resolve(error.code === "ECONNREFUSED"),
+      );
+    });
+    if (refused) return port;
+  }
+  throw new Error("no closed loopback port found on 127.0.0.1");
 }
 
 type CliTokens = { access_token: string; refresh_token: string };
@@ -265,7 +264,7 @@ test.describe("Borderless sign-in through OpenID Connect", () => {
         cookie: document.cookie,
       }),
     );
-    expect(stored).not.toMatch(/__access|__refresh|__borderless_login/);
+    expect(stored).not.toMatch(/__access|__refresh|__applika_login/);
     expect(stored).not.toContain(first.state);
     expect(stored).not.toMatch(/eyJ[\w-]+\.[\w-]+/);
 
@@ -526,8 +525,9 @@ test.describe("Borderless sign-in through OpenID Connect", () => {
     expect(sessionBefore).toHaveLength(2);
 
     const { verifier, challenge } = pkce();
-    const loopback = await openLoopback();
-    const callback = loopback.callback;
+    const port = await closedLoopbackPort();
+    const loopbackOrigin = `http://127.0.0.1:${port}`;
+    const callback = `${loopbackOrigin}/callback`;
     const state = `e2e-${randomBytes(8).toString("hex")}`;
 
     const authorize = new URL(apiUrl("/auth/cli/authorize"));
@@ -547,21 +547,37 @@ test.describe("Borderless sign-in through OpenID Connect", () => {
       redirect_uri: WEB_CALLBACK,
       code_challenge_method: "S256",
     });
+
+    // The callback 307s the browser to the CLI's loopback. Nothing listens
+    // there: Playwright raises a request for every redirect hop (a route
+    // never sees a redirect target), so the hop is read as the browser
+    // makes it, and its navigation is left to fail.
+    const toLoopback = (hop: Request) =>
+      hop.url().startsWith(`${loopbackOrigin}/`);
+    const hopSeen = page.waitForRequest(toLoopback);
+    const hopFailed = page.waitForEvent("requestfailed", toLoopback);
     await page
       .getByRole("button", { name: account.email, exact: true })
       .click();
+    const hop = await hopSeen;
 
-    let url: URL;
-    try {
-      await expect
-        .poll(() => loopback.landedOn(), {
-          message: "expected the loopback redirect",
-        })
-        .not.toBeNull();
-      url = loopback.landedOn()!;
-    } finally {
-      await loopback.close();
-    }
+    // The hop is the API callback's own 307, reached from Borderless's answer.
+    expect(hop.isNavigationRequest()).toBe(true);
+    expect(hop.method()).toBe("GET");
+    const fromCallback = hop.redirectedFrom();
+    expect(fromCallback, "the hop before the loopback").toBeTruthy();
+    const callbackUrl = new URL(fromCallback!.url());
+    expect(`${callbackUrl.origin}${callbackUrl.pathname}`).toBe(WEB_CALLBACK);
+    expect((await fromCallback!.response())?.status()).toBe(307);
+    const fromFake = fromCallback!.redirectedFrom();
+    expect(fromFake, "the hop before the callback").toBeTruthy();
+    expect(new URL(fromFake!.url()).origin).toBe(FAKE_ORIGIN);
+    // Nobody served it: no listener on the port.
+    expect((await hopFailed).failure()?.errorText).toBe(
+      "net::ERR_CONNECTION_REFUSED",
+    );
+
+    const url = new URL(hop.url());
     expect(url.pathname).toBe("/callback");
     const code = url.searchParams.get("code");
     expect(code).toBeTruthy();
@@ -574,10 +590,14 @@ test.describe("Borderless sign-in through OpenID Connect", () => {
       .map((cookie) => `${cookie.name}=${cookie.value}`)
       .sort();
     expect(sessionAfter).toEqual(sessionBefore);
-    await page.goto("/dashboard");
+    // The tab that followed the hop is still committing the browser's error
+    // page; a new tab of the same browser opens the dashboard on that session.
+    const tab = await page.context().newPage();
+    await tab.goto("/dashboard");
     await expect(
-      page.getByRole("heading", { name: "Dashboard", level: 1 }),
+      tab.getByRole("heading", { name: "Dashboard", level: 1 }),
     ).toBeVisible();
+    await tab.close();
 
     // The CLI redeems the code with its verifier, as every version does.
     const token = await request.post(apiUrl("/auth/token"), {
