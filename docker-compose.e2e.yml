@@ -9,7 +9,8 @@
 # api command, against a real Postgres and a real Redis. Playwright drives the
 # `web` origin and every request it makes hits the real API — nothing is mocked.
 # See `frontend/scripts/e2e.sh` (the runner) and `backend/app/scripts/seed_e2e.py`
-# (real-session seeding; Borderless sign-in goes to the `borderless-stub`).
+# (real-session seeding). Borderless's OpenID Connect sign-in (ADR-0026) is
+# played by the `borderless-fake` service; nothing calls the real Borderless.
 #
 # Isolation: a distinct compose PROJECT name (`applika-e2e`) and `applika-e2e-*`
 # container names — it shares NO project, containers, networks or volumes with
@@ -39,11 +40,19 @@ x-api-environment: &api-environment
   # CLI (it runs via `compose exec api`, same env) so the tokens it mints
   # validate. NOT for production.
   JWT_SECRET: e2e-jwt-secret-not-for-production
-  # Borderless sign-in (ADR-0024) goes to the stub below, never to the real
-  # Borderless. BORDERLESS_TOKEN_ENCRYPTION_KEY is a fixed throwaway Fernet
-  # key: it encrypts the stub tokens the seed stores. WEB_SIGNIN_URI is the
-  # e2e web's sign-in page, where every CLI browser sign-in lands.
-  BORDERLESS_API_URL: http://borderless-stub:8081
+  # Borderless OpenID Connect sign-in (ADR-0026) goes to the `borderless-fake`
+  # service below, never to the real Borderless. The issuer is the fake's
+  # in-stack address; the client id and secret are the SYNTHETIC client of
+  # `backend/tests/fixtures/borderless/accounts.json` (not a secret, not the
+  # real client). The redirect URI is this stack's API callback, registered
+  # in that same file. BORDERLESS_TOKEN_ENCRYPTION_KEY is a fixed throwaway
+  # Fernet key: it encrypts the fake refresh tokens (Postgres) and access
+  # tokens (Redis). WEB_SIGNIN_URI is the e2e web's sign-in page, where every
+  # callback lands, signed in or with `?error=<code>`.
+  BORDERLESS_ISSUER: http://borderless-fake:8081/api/auth
+  BORDERLESS_CLIENT_ID: applika-fake-client
+  BORDERLESS_CLIENT_SECRET: applika-fake-client-secret-not-real
+  BORDERLESS_REDIRECT_URI: http://127.0.0.1:8100/api/auth/borderless/callback
   BORDERLESS_TOKEN_ENCRYPTION_KEY: auiKtUcX-v_oZqv-A4viHsBK8MPYwDE_AFvK_EIj7WU=
   WEB_SIGNIN_URI: http://127.0.0.1:8180/login
   # The GitHub restore answers 503 without a client id and secret. The
@@ -80,15 +89,37 @@ x-api-environment: &api-environment
   JOBS_INGEST_CRON: "0 0 1 1 *"
 
 services:
-  # Borderless stand-in (ADR-0024): stdlib only, synthetic accounts from
-  # `backend/tests/fixtures/borderless/accounts.json`, mounted read-only.
-  # Reachable only inside the stack; nothing calls the real Borderless.
-  borderless-stub:
-    container_name: applika-e2e-borderless-stub
-    image: python:3.14-slim
-    command: ["python", "/stub/stub.py", "/stub/accounts.json", "--port", "8081"]
+  # The fake Borderless (ADR-0026, `backend/tests/fixtures/borderless/
+  # fake_oidc.py`): discovery, a sign-in page where the test picks the
+  # account, the code exchange with its PKCE and client checks, refresh with
+  # rotation, refusal on demand, keys and revocation, plus its `/__fake/*`
+  # controls. It runs on the API image (its venv has pyjwt, cryptography and
+  # httpx; built by `api`, never pulled) with the synthetic accounts mounted
+  # read-only. Every provider endpoint sits under the issuer's path; the
+  # browser reaches the sign-in page on the published port (`--public-url`),
+  # the API reaches the rest in-stack. `--access-ttl 2`: each access token
+  # lives 2 s, so a membership check refreshes at the fake almost every time.
+  borderless-fake:
+    container_name: applika-e2e-borderless-fake
+    image: applika-e2e-api
+    pull_policy: never
+    command:
+      - python
+      - /fake/fake_oidc.py
+      - --config
+      - /fake/accounts.json
+      - --port
+      - "8081"
+      - --issuer
+      - http://borderless-fake:8081/api/auth
+      - --public-url
+      - http://127.0.0.1:8181
+      - --access-ttl
+      - "2"
     volumes:
-      - ./backend/tests/fixtures/borderless:/stub:ro
+      - ./backend/tests/fixtures/borderless:/fake:ro
+    ports:
+      - "127.0.0.1:8181:8081"
     healthcheck:
       test:
         - "CMD"
@@ -137,7 +168,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      borderless-stub:
+      borderless-fake:
         condition: service_healthy
 
   # ADR-0016: the taskiq worker consuming the `applika:tasks` queue - it runs
