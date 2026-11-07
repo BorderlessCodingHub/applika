@@ -21,6 +21,9 @@ from fastapi import APIRouter, BackgroundTasks, Body, Request, Response, status
 
 from app.application.dto.user_session import SessionTokensDTO
 from app.application.use_cases.cli_auth.authorize import OOB_REDIRECT_URI
+from app.application.use_cases.cli_auth.callback_url import (
+    validate_cli_callback_url,
+)
 from app.application.use_cases.cli_auth.token import (
     AUTHORIZATION_CODE,
     DEVICE_CODE,
@@ -29,7 +32,6 @@ from app.application.use_cases.cli_auth.token import (
 from app.core.error_codes import ErrorCode
 from app.core.exceptions import OAuthError
 from app.presentation.api import oauth as oauth_api
-from app.presentation.api.auth_handoff import validate_cli_callback_url
 from app.presentation.dependencies import (
     BeginBorderlessLoginUseCaseDp,
     BorderlessOidcClientDp,
@@ -80,7 +82,7 @@ async def cli_authorize(
     begin: BeginBorderlessLoginUseCaseDp,
 ):
     """307 straight to Borderless's sign-in with ``prompt=login`` and the
-    ``__borderless_login`` attempt cookie (ADR-0026 §11). The browser's own
+    ``__applika_login`` attempt cookie (ADR-0026 §11). The browser's own
     applika session is never opened, ended or replaced."""
     if redirect_uri != OOB_REDIRECT_URI:
         validate_cli_callback_url(redirect_uri)

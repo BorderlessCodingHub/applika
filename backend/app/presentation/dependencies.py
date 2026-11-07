@@ -75,6 +75,9 @@ from app.application.use_cases.borderless.end_grant import (
 from app.application.use_cases.borderless.login_state import (
     BorderlessLoginStateUseCase,
 )
+from app.application.use_cases.borderless.login_target import (
+    BorderlessLoginTargets,
+)
 from app.application.use_cases.borderless.refresh_badges import (
     RefreshBadgesUseCase,
 )
@@ -583,6 +586,17 @@ BorderlessLoginStateUseCaseDp = Annotated[
 ]
 
 
+def get_borderless_login_targets(
+    handoff_state: AuthHandoffStateUseCaseDp,
+) -> BorderlessLoginTargets:
+    return BorderlessLoginTargets(handoff_state)
+
+
+BorderlessLoginTargetsDp = Annotated[
+    BorderlessLoginTargets, Depends(get_borderless_login_targets)
+]
+
+
 def get_end_borderless_grant_use_case(
     session: DbSession,
     session_repo: UserSessionRepositoryDp,
@@ -637,9 +651,11 @@ BorderlessSignInUseCaseDp = Annotated[
 
 
 def get_begin_borderless_login_use_case(
-    oidc: BorderlessOidcClientDp, login_state: BorderlessLoginStateUseCaseDp
+    oidc: BorderlessOidcClientDp,
+    login_state: BorderlessLoginStateUseCaseDp,
+    targets: BorderlessLoginTargetsDp,
 ) -> BeginBorderlessLoginUseCase:
-    return BeginBorderlessLoginUseCase(oidc, login_state)
+    return BeginBorderlessLoginUseCase(oidc, login_state, targets)
 
 
 BeginBorderlessLoginUseCaseDp = Annotated[
@@ -651,8 +667,9 @@ def get_complete_borderless_login_use_case(
     oidc: BorderlessOidcClientDp,
     login_state: BorderlessLoginStateUseCaseDp,
     sign_in: BorderlessSignInUseCaseDp,
+    targets: BorderlessLoginTargetsDp,
 ) -> CompleteBorderlessLoginUseCase:
-    return CompleteBorderlessLoginUseCase(oidc, login_state, sign_in)
+    return CompleteBorderlessLoginUseCase(oidc, login_state, sign_in, targets)
 
 
 CompleteBorderlessLoginUseCaseDp = Annotated[

@@ -49,7 +49,7 @@ async def return_to_applika(
     cookies: dict[str, str] | None = None,
 ) -> httpx.Response:
     """Follow Borderless's redirect to applika's callback (with the
-    ``__borderless_login`` cookie the api client holds)."""
+    ``__applika_login`` cookie the api client holds)."""
     location = borderless_answer.headers['location']
     assert urlsplit(location).path.endswith('/api' + CALLBACK_PATH), location
     return await api.get(

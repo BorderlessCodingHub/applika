@@ -1,5 +1,6 @@
-"""The browser hops of a sign-in: the CLI's loopback callback (ADR-0019)
-and the Borderless attempt cookie and redirects (ADR-0026)."""
+"""The browser hops of a sign-in: the code handed back to the CLI
+(ADR-0019; the allowed targets are ``use_cases/cli_auth/callback_url.py``)
+and the applika attempt cookie and redirects (ADR-0026 §3)."""
 
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
@@ -8,36 +9,6 @@ from fastapi.responses import RedirectResponse
 
 from app.config.settings import envs
 from app.core.error_codes import ErrorCode
-from app.core.exceptions import InvalidRequest
-
-_ALLOWED_LOOPBACK_HOSTS = {'127.0.0.1', 'localhost', '::1'}
-
-
-def validate_cli_callback_url(callback_url: str) -> str:
-    parsed = urlparse(callback_url)
-
-    if parsed.scheme != 'http':
-        raise InvalidRequest(
-            'CLI callback URL must use http',
-            ErrorCode.AUTH_CLI_CALLBACK_NOT_HTTP,
-        )
-    if parsed.hostname not in _ALLOWED_LOOPBACK_HOSTS:
-        raise InvalidRequest(
-            'CLI callback URL must target loopback',
-            ErrorCode.AUTH_CLI_CALLBACK_NOT_LOOPBACK,
-        )
-    if parsed.port is None:
-        raise InvalidRequest(
-            'CLI callback URL must include a port',
-            ErrorCode.AUTH_CLI_CALLBACK_NO_PORT,
-        )
-    if parsed.params or parsed.fragment:
-        raise InvalidRequest(
-            'CLI callback URL must not contain params or fragments',
-            ErrorCode.AUTH_CLI_CALLBACK_HAS_PARAMS,
-        )
-
-    return callback_url
 
 
 def build_callback_redirect_url(
@@ -53,7 +24,7 @@ def build_callback_redirect_url(
     return urlunparse(parsed._replace(query=urlencode(query)))
 
 
-LOGIN_COOKIE_NAME = '__borderless_login'
+LOGIN_COOKIE_NAME = '__applika_login'
 
 
 def login_cookie_path() -> str:

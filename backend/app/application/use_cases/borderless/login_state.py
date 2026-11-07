@@ -1,16 +1,20 @@
 """One Borderless sign-in attempt, in Redis (ADR-0026 §3).
 
-``create`` draws a fresh ``state``, a browser binding, a PKCE verifier and
-a ``nonce`` (``secrets.token_urlsafe(32)`` each) and stores, at
-``applika:borderless:login:<state>`` for ``BORDERLESS_LOGIN_TTL_SECONDS``,
-the binding's SHA-256, the verifier, the nonce, the flow (``web`` or
-``cli``) and the CLI login id. The binding goes to the browser in an
-HttpOnly cookie; the verifier and the nonce never leave Redis.
+``create`` draws a fresh ``state`` (a random version-4 UUID,
+``str(uuid.uuid4())``), a browser binding, a PKCE verifier and a ``nonce``
+(``secrets.token_urlsafe(32)`` each: a verifier needs 43 to 128 characters)
+and stores, at ``applika:borderless:login:<state>`` for
+``BORDERLESS_LOGIN_TTL_SECONDS``, the binding's SHA-256, the verifier, the
+nonce, the flow (``web`` or ``cli``), the CLI login id and the target the
+browser goes to once signed in (``login_target.py``). The binding goes to
+the browser in the HttpOnly ``__applika_login`` cookie; the verifier, the
+nonce and the target never leave Redis.
 
 ``consume`` is single use (``GETDEL``): the record is spent whatever the
-outcome, and it answers only when the cookie's hash matches. A replay, a
-second browser, an expired attempt or an older attempt overwritten in the
-browser by a newer one all answer ``None``.
+outcome, and it answers only when the cookie's hash matches (a
+constant-time compare). A replay, a second browser, an expired attempt, an
+older attempt overwritten in the browser by a newer one, a ``state`` that
+is not a UUID or a record without a target all answer ``None``.
 """
 
 import asyncio
@@ -18,6 +22,7 @@ import hashlib
 import hmac
 import json
 import secrets
+import uuid
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -39,6 +44,14 @@ def _sha256(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
+def _is_uuid(value: str) -> bool:
+    """Only a state ``create`` could have drawn reaches Redis."""
+    try:
+        return str(uuid.UUID(value)) == value
+    except ValueError:
+        return False
+
+
 @dataclass(frozen=True)
 class LoginAttempt:
     """What ``create`` hands back: the state and the challenge go to
@@ -52,10 +65,13 @@ class LoginAttempt:
 
 @dataclass(frozen=True)
 class LoginRecord:
-    """What the callback gets back for a matching state and cookie."""
+    """What the callback gets back for a matching state and cookie.
+    ``target`` is where the attempt said it would end; the callback checks
+    it against ``BorderlessLoginTargets`` before following it."""
 
     flow: Flow
     cli_login_id: str | None
+    target: str
     verifier: str = field(repr=False)
     nonce: str = field(repr=False)
 
@@ -65,10 +81,10 @@ class BorderlessLoginStateUseCase:
         self.redis = redis_client
 
     async def create(
-        self, flow: Flow, cli_login_id: str | None = None
+        self, flow: Flow, cli_login_id: str | None = None, *, target: str
     ) -> LoginAttempt:
         attempt = LoginAttempt(
-            state=secrets.token_urlsafe(32),
+            state=str(uuid.uuid4()),
             binding=secrets.token_urlsafe(32),
             verifier=secrets.token_urlsafe(32),
             nonce=secrets.token_urlsafe(32),
@@ -79,6 +95,7 @@ class BorderlessLoginStateUseCase:
             'nonce': attempt.nonce,
             'flow': flow,
             'cli_login_id': cli_login_id,
+            'target': target,
         }
         try:
             async with asyncio.timeout(REDIS_TIMEOUT_SECONDS):
@@ -94,7 +111,7 @@ class BorderlessLoginStateUseCase:
     async def consume(
         self, state: str | None, binding: str | None
     ) -> LoginRecord | None:
-        if not state or not binding:
+        if not state or not binding or not _is_uuid(state):
             return None
         try:
             async with asyncio.timeout(REDIS_TIMEOUT_SECONDS):
@@ -109,11 +126,12 @@ class BorderlessLoginStateUseCase:
             flow = record['flow']
             verifier = str(record['verifier'])
             nonce = str(record['nonce'])
+            target = record['target']
         except ValueError, KeyError, TypeError:
             return None
         if not hmac.compare_digest(expected, _sha256(binding)):
             return None
-        if flow not in ('web', 'cli'):
+        if flow not in ('web', 'cli') or not isinstance(target, str):
             return None
         cli_login_id = record.get('cli_login_id')
         return LoginRecord(
@@ -121,6 +139,7 @@ class BorderlessLoginStateUseCase:
             cli_login_id=cli_login_id
             if isinstance(cli_login_id, str)
             else None,
+            target=target,
             verifier=verifier,
             nonce=nonce,
         )

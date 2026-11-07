@@ -1,9 +1,10 @@
 """The browser half of a Borderless sign-in (ADR-0026 §2, §3, §11), with
 the use cases mocked: the web and CLI entry points 307 straight to
-Borderless with the ``__borderless_login`` attempt cookie (``prompt=login``
+Borderless with the ``__applika_login`` attempt cookie (``prompt=login``
 for a CLI, chosen by ``begin``), and the callback hands the result to the
 web (cookies) or back to the CLI (no cookie, the browser's own session
-untouched), or to the sign-in page with ``?error=<code>``."""
+untouched) at the target the attempt stored, only while it is still the
+allowed one, or to the sign-in page with ``?error=<code>``."""
 
 from unittest.mock import AsyncMock
 from urllib.parse import parse_qs, urlparse
@@ -30,6 +31,8 @@ from app.presentation.api.auth_handoff import LOGIN_COOKIE_NAME
 
 AUTHORIZE = 'http://borderless.test/api/auth/oauth2/authorize?state=s'
 COOKIE_PATH = 'Path=/api/auth/borderless'
+LOOPBACK = 'http://127.0.0.1:43129/callback'
+EVIL = 'https://evil.example.test/steal'
 
 
 def _request(
@@ -102,6 +105,10 @@ def _error_of(response) -> dict[str, list[str]]:
 # --------------------------------------------------------------------------
 # Entry points
 # --------------------------------------------------------------------------
+
+
+def test_the_attempt_cookie_is_applikas_own():
+    assert LOGIN_COOKIE_NAME == '__applika_login'
 
 
 async def test_web_login_goes_to_borderless_with_the_attempt_cookie():
@@ -200,7 +207,9 @@ async def test_web_callback_opens_a_borderless_session_and_sets_cookies():
     open_session = AsyncMock()
     open_session.execute.return_value = _tokens()
     end_session = AsyncMock()
-    complete = _complete(LoginOutcome('web', None, 1, True))
+    complete = _complete(
+        LoginOutcome('web', None, 1, True, envs.WEB_SIGNIN_URI)
+    )
 
     response = await borderless_auth.borderless_callback(
         _request(
@@ -240,7 +249,7 @@ async def test_cli_callback_goes_to_the_loopback_with_no_session_cookie():
     handoff = AsyncMock()
     handoff.get_login.return_value = {
         'login_id': 'login-123',
-        'callback_url': 'http://127.0.0.1:43129/callback',
+        'callback_url': LOOPBACK,
         'state': 'xyz',
     }
     handoff.create_exchange_code.return_value = 'exchange-code'
@@ -249,7 +258,7 @@ async def test_cli_callback_goes_to_the_loopback_with_no_session_cookie():
 
     response = await borderless_auth.borderless_callback(
         _request('code=c&state=s&iss=x', {'__refresh': 'browser'}),
-        _complete(LoginOutcome('cli', 'login-123', 1, False)),
+        _complete(LoginOutcome('cli', 'login-123', 1, False, LOOPBACK)),
         handoff,
         open_session,
         end_session,
@@ -284,7 +293,9 @@ async def test_cli_pkce_oob_goes_to_the_manual_page(monkeypatch):
     }
     handoff.create_exchange_code.return_value = 'pk-code'
 
-    url = await oauth_api.cli_handoff_redirect('login-9', handoff, user_id=1)
+    url = await oauth_api.cli_handoff_redirect(
+        'login-9', handoff, user_id=1, target='https://web.example/cli/code'
+    )
 
     parsed = urlparse(url or '')
     assert f'{parsed.scheme}://{parsed.netloc}{parsed.path}' == (
@@ -301,13 +312,104 @@ async def test_cli_pkce_oob_goes_to_the_manual_page(monkeypatch):
     handoff.delete_login.assert_awaited_once_with('login-9')
 
 
+async def test_a_web_outcome_naming_another_target_is_never_followed():
+    open_session = AsyncMock()
+    end_session = AsyncMock()
+
+    response = await borderless_auth.borderless_callback(
+        _request('code=c&state=s&iss=x', {'__refresh': 'old'}),
+        _complete(LoginOutcome('web', None, 1, True, EVIL)),
+        AsyncMock(),
+        open_session,
+        end_session,
+    )
+
+    assert response.status_code == 307
+    assert _error_of(response) == {'error': ['AUTH-1046']}
+    assert EVIL not in response.headers['location']
+    open_session.execute.assert_not_awaited()
+    end_session.end_by_refresh.assert_not_awaited()
+    assert not any('__access=' in c for c in _cookies(response))
+
+
+@pytest.mark.parametrize(
+    ('login', 'target'),
+    [
+        # A stored target that is not this login's loopback callback.
+        (
+            {'login_id': 'l', 'callback_url': LOOPBACK, 'state': 'x'},
+            EVIL,
+        ),
+        (
+            {'login_id': 'l', 'callback_url': LOOPBACK, 'state': 'x'},
+            'http://127.0.0.1:9999/callback',
+        ),
+        # An oob login ends on the manual page only.
+        (
+            {
+                'login_id': 'l',
+                'callback_url': 'oob',
+                'state': 'x',
+                'flow': 'pkce',
+                'code_challenge': 'c' * 43,
+            },
+            EVIL,
+        ),
+        # A CLI login whose own callback no longer passes the loopback rules.
+        (
+            {'login_id': 'l', 'callback_url': EVIL, 'state': 'x'},
+            EVIL,
+        ),
+        ({'login_id': 'l', 'callback_url': 'oob', 'state': 'x'}, 'oob'),
+    ],
+)
+async def test_a_cli_target_that_is_not_the_logins_own_is_never_followed(
+    login, target
+):
+    handoff = AsyncMock()
+    handoff.get_login.return_value = login
+
+    response = await borderless_auth.borderless_callback(
+        _request('code=c&state=s&iss=x'),
+        _complete(LoginOutcome('cli', 'l', 1, False, target)),
+        handoff,
+        AsyncMock(),
+        AsyncMock(),
+    )
+
+    assert _error_of(response) == {'error': ['AUTH-1019'], 'cli': ['1']}
+    assert EVIL not in response.headers['location']
+    # Nothing minted, and the CLI login is not spent.
+    handoff.create_exchange_code.assert_not_awaited()
+    handoff.delete_login.assert_not_awaited()
+
+
+async def test_the_query_never_decides_where_the_callback_goes():
+    open_session = AsyncMock()
+    open_session.execute.return_value = _tokens()
+
+    response = await borderless_auth.borderless_callback(
+        _request(
+            'code=c&state=s&iss=x&redirect_uri=https%3A%2F%2Fevil.example.test'
+            '&next=https%3A%2F%2Fevil.example.test&target=%2F%2Fevil.example'
+            '&return_to=https%3A%2F%2Fevil.example.test'
+        ),
+        _complete(LoginOutcome('web', None, 1, True, envs.WEB_SIGNIN_URI)),
+        AsyncMock(),
+        open_session,
+        AsyncMock(),
+    )
+
+    assert response.headers['location'] == envs.WEB_SIGNIN_URI
+
+
 async def test_an_expired_cli_login_is_auth_1019_for_the_cli():
     handoff = AsyncMock()
     handoff.get_login.return_value = None
 
     response = await borderless_auth.borderless_callback(
         _request('code=c&state=s&iss=x'),
-        _complete(LoginOutcome('cli', 'gone', 1, False)),
+        _complete(LoginOutcome('cli', 'gone', 1, False, LOOPBACK)),
         handoff,
         AsyncMock(),
         AsyncMock(),
@@ -367,7 +469,7 @@ async def test_the_session_store_down_after_sign_in_says_so():
 
     response = await borderless_auth.borderless_callback(
         _request('code=c&state=s&iss=x'),
-        _complete(LoginOutcome('web', None, 1, False)),
+        _complete(LoginOutcome('web', None, 1, False, envs.WEB_SIGNIN_URI)),
         AsyncMock(),
         open_session,
         AsyncMock(),
@@ -383,7 +485,7 @@ async def test_anything_unexpected_after_sign_in_is_gen_1005(caplog):
 
     response = await borderless_auth.borderless_callback(
         _request('code=secret-code&state=s&iss=x'),
-        _complete(LoginOutcome('cli', None, 1, False)),
+        _complete(LoginOutcome('cli', None, 1, False, LOOPBACK)),
         AsyncMock(),
         open_session,
         AsyncMock(),
@@ -392,7 +494,7 @@ async def test_anything_unexpected_after_sign_in_is_gen_1005(caplog):
     assert _error_of(response) == {'error': ['AUTH-1019'], 'cli': ['1']}
     response = await borderless_auth.borderless_callback(
         _request('code=secret-code&state=s&iss=x'),
-        _complete(LoginOutcome('web', None, 1, False)),
+        _complete(LoginOutcome('web', None, 1, False, envs.WEB_SIGNIN_URI)),
         AsyncMock(),
         open_session,
         AsyncMock(),
