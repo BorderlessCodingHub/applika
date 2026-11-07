@@ -25,6 +25,7 @@ NOT_AUTHENTICATED = 'Not authenticated'
 INVALID_REFRESH = 'Invalid or expired refresh token'
 USER_NOT_FOUND = 'User not found'
 SIGN_IN_AGAIN = 'Sign in again with Borderless'
+GRANT_ENDED = 'Your Borderless sign-in has ended. Sign in again with Borderless'
 
 
 class RefreshSessionUseCase:
@@ -32,10 +33,14 @@ class RefreshSessionUseCase:
 
     Resolve the refresh value; a user with no Borderless binding (an
     account from before ADR-0024) ends the session as ``expired`` and must
-    sign in again. Otherwise read the membership (never fails the refresh,
-    ADR-0024 §4), then slide both Redis keys and ``expires_at`` a full
-    window ahead and copy the live last use onto the row. The refresh value
-    is never rotated."""
+    sign in again. Otherwise keep the membership current
+    (``RefreshBadgesUseCase``, ADR-0026 §8): when Borderless refused the
+    grant (``ended``, or ``disconnected`` = already ``needs_reconnect``) a
+    WEB session ends ``borderless_revoked`` and the refresh is refused with
+    AUTH-1049; a CLI session slides whatever the outcome (ADR-0026 §9), and
+    a slow or failing Borderless never fails a refresh. Then slide both
+    Redis keys and ``expires_at`` a full window ahead and copy the live
+    last use onto the row. The refresh value is never rotated."""
 
     def __init__(
         self,
@@ -86,9 +91,16 @@ class RefreshSessionUseCase:
             await self.end_session.end_row(row, 'expired')
             raise InvalidSession(SIGN_IN_AGAIN, ErrorCode.AUTH_SIGN_IN_AGAIN)
 
-        await self.refresh_badges.execute(
+        outcome = await self.refresh_badges.execute(
             user_id, envs.BORDERLESS_REFRESH_TIMEOUT_SECONDS
         )
+        if row.client_type == 'web' and outcome in ('ended', 'disconnected'):
+            # ``ended`` already ended every web session; this is then a
+            # no-op.
+            await self.end_session.end_row(row, 'borderless_revoked')
+            raise InvalidSession(
+                GRANT_ENDED, ErrorCode.AUTH_BORDERLESS_GRANT_ENDED
+            )
 
         expires_at = next_expiry(datetime.now(UTC))
         if not await self.store.slide(session_id, refresh_value, expires_at):

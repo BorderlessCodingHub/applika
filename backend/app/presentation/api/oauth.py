@@ -1,17 +1,17 @@
 """Session routes and the browser half of every sign-in (ADR-0019,
-ADR-0024).
+ADR-0024, ADR-0026).
 
-Borderless is the only sign-in (``borderless_auth.py``). GitHub serves
-only the one-shot data restore: ``/auth/github/callback`` is the restore
-callback. Every CLI browser sign-in (``/auth/cli/authorize``, the legacy
-``/auth/cli/login/{id}``) lands on applika's Borderless sign-in page with
-the ``__cli_login`` marker; the sign-in route hands the result back to the
-CLI.
+Borderless's OpenID Connect sign-in is the only sign-in
+(``borderless_auth.py``). GitHub serves only the one-shot data restore:
+``/auth/github/callback`` is the restore callback. Every CLI browser
+sign-in (``/auth/cli/authorize``, the legacy ``/auth/cli/login/{id}``) goes
+straight to Borderless with ``prompt=login``; Borderless's callback hands
+the result back to the CLI.
 """
 
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Request, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.application.dto.user_session import SessionTokensDTO
@@ -26,8 +26,10 @@ from app.config.logging import logger
 from app.config.settings import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, envs
 from app.core.error_codes import ErrorCode
 from app.core.exceptions import (
+    CodedRefusal,
     InvalidSession,
     ResourceNotFound,
+    ServiceUnavailable,
     SessionServiceUnavailable,
 )
 from app.core.tokens import (
@@ -37,18 +39,22 @@ from app.core.tokens import (
     set_refresh_cookie,
 )
 from app.presentation.api.auth_handoff import (
-    CLI_LOGIN_COOKIE_NAME,
+    attempt_redirect,
     build_callback_redirect_url,
+    signin_redirect,
     validate_cli_callback_url,
 )
 from app.presentation.dependencies import (
     AccountLinkStateUseCaseDp,
     AuthHandoffStateUseCaseDp,
+    BeginBorderlessLoginUseCaseDp,
+    BorderlessOidcClientDp,
     CompleteGithubRestoreUseCaseDp,
     EndSessionUseCaseDp,
     GitHubOAuthServiceDp,
     OpenSessionUseCaseDp,
     RefreshSessionUseCaseDp,
+    ReleaseBorderlessGrantUseCaseDp,
     SessionStoreDp,
     UserRepositoryDp,
     client_ip,
@@ -117,24 +123,39 @@ def set_session_cookies(tokens: SessionTokensDTO, response: Response) -> None:
     )
 
 
-def redirect_to_signin_for_cli(
-    login_id: str, ttl_seconds: int
+async def redirect_to_borderless_for_cli(
+    login_id: str, begin: BeginBorderlessLoginUseCaseDp
 ) -> RedirectResponse:
-    """307 to applika's Borderless sign-in page with the ``__cli_login``
-    marker, so the sign-in hands the result back to the CLI."""
-    response = RedirectResponse(
-        f'{envs.WEB_SIGNIN_URI}?cli=1',
-        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-    )
-    response.set_cookie(
-        key=CLI_LOGIN_COOKIE_NAME,
-        value=login_id,
-        httponly=True,
-        secure=envs.ENVIRONMENT == 'PROD',
-        samesite='lax',
-        max_age=ttl_seconds,
-    )
-    return response
+    """307 straight to Borderless's sign-in with ``prompt=login`` (a CLI
+    sign-in always asks, even when the browser is signed in there) and the
+    attempt cookie; Borderless's callback hands the code back to the CLI.
+    Refused → the sign-in page with ``?error=<code>&cli=1``."""
+    try:
+        authorize_url, binding = await begin.execute('cli', login_id)
+    except (CodedRefusal, ServiceUnavailable) as exc:
+        return signin_redirect(exc.code, cli=True)
+    except Exception as exc:
+        logger.error(
+            f'Borderless CLI sign-in start failed ({type(exc).__name__})'
+        )
+        return signin_redirect(ErrorCode.GEN_INTERNAL_ERROR, cli=True)
+    return attempt_redirect(authorize_url, binding)
+
+
+async def release_borderless_grant(
+    user_id: int | None,
+    release: ReleaseBorderlessGrantUseCaseDp,
+    oidc: BorderlessOidcClientDp,
+    background: BackgroundTasks,
+) -> None:
+    """After a session ended: when it was the user's last one, forget the
+    Borderless grant and revoke it at Borderless after answering (ADR-0026
+    §10, best effort)."""
+    if user_id is None:
+        return
+    token = await release.execute(user_id)
+    if token:
+        background.add_task(oidc.revoke, token)
 
 
 @router.get('/github/login', status_code=status.HTTP_307_TEMPORARY_REDIRECT)
@@ -178,18 +199,17 @@ async def cli_start(
 async def cli_login(
     login_id: str,
     auth_handoff_state_use_case: AuthHandoffStateUseCaseDp,
+    begin: BeginBorderlessLoginUseCaseDp,
 ):
-    """Mark the sign-in as a CLI login, then 307 to the Borderless sign-in
-    page."""
+    """307 straight to Borderless's sign-in (``prompt=login``) for this CLI
+    login."""
     login_state = await auth_handoff_state_use_case.get_login(login_id)
     if login_state is None:
         raise ResourceNotFound(
             'CLI login not found', ErrorCode.AUTH_CLI_LOGIN_NOT_FOUND
         )
 
-    return redirect_to_signin_for_cli(
-        login_id, auth_handoff_state_use_case.login_ttl_seconds
-    )
+    return await redirect_to_borderless_for_cli(login_id, begin)
 
 
 def _restore_redirect(outcome: RestoreStatus | str) -> RedirectResponse:
@@ -327,10 +347,11 @@ async def refresh_token(
     response: Response,
     use_case: RefreshSessionUseCaseDp,
 ):
-    """Resolve the ``__refresh`` session, read the Borderless membership
-    (never fails the refresh), slide the session 7 days ahead and re-set both cookies (``__refresh`` keeps
-    its value, with the full Max-Age). 401 clears both cookies; a 503
-    (session service down) clears nothing."""
+    """Resolve the ``__refresh`` session, keep the Borderless membership
+    current, slide the session 7 days ahead and re-set both cookies
+    (``__refresh`` keeps its value, with the full Max-Age). 401 clears both
+    cookies: AUTH-1049 when Borderless refused the grant (web sessions);
+    a 503 (session service down) clears nothing."""
     try:
         tokens = await use_case.execute(
             request.cookies.get(REFRESH_COOKIE_NAME)
@@ -352,13 +373,18 @@ async def refresh_token(
 async def logout(
     request: Request,
     response: Response,
+    background: BackgroundTasks,
     end_session: EndSessionUseCaseDp,
+    release: ReleaseBorderlessGrantUseCaseDp,
+    oidc: BorderlessOidcClientDp,
 ):
     """End this browser's (or installed CLI's) session as ``logout`` and
-    clear both cookies."""
-    await end_session.end_by_refresh(
+    clear both cookies. The user's last session also gives the Borderless
+    grant back (ADR-0026 §10); the Borderless browser session stays."""
+    user_id = await end_session.end_by_refresh(
         request.cookies.get(REFRESH_COOKIE_NAME), 'logout'
     )
+    await release_borderless_grant(user_id, release, oidc, background)
 
     clear_access_cookie(response)
     clear_refresh_cookie(response)

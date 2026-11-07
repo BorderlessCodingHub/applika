@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, BackgroundTasks, Query, Response
 
 from app.application.dto.user import UserDTO, UserUpdateDTO
 from app.application.use_cases.features.list_my_features import (
@@ -13,9 +13,11 @@ from app.application.use_cases.update_user import UpdateUserUseCase
 from app.config.settings import envs
 from app.presentation.dependencies import (
     BorderlessAccountRepositoryDp,
+    BorderlessOidcClientDp,
     CurrentUserDp,
     FeatureRepositoryDp,
     GithubConnectionRepositoryDp,
+    ReleaseBorderlessGrantUseCaseDp,
     RevokeOtherSessionsUseCaseDp,
     StepDefinitionRepositoryDp,
     TimelineEventRepositoryDp,
@@ -128,8 +130,16 @@ async def delete_me(
     c_user: CurrentUserDp,
     user_repo: UserRepositoryDp,
     revoke_sessions: RevokeOtherSessionsUseCaseDp,
+    release: ReleaseBorderlessGrantUseCaseDp,
+    oidc: BorderlessOidcClientDp,
+    background: BackgroundTasks,
     response: Response,
 ):
+    # ADR-0026 §10: applika's Borderless refresh token is revoked after the
+    # answer, best effort; the Redis access token goes now.
+    token = await release.execute(c_user.id, force=True)
+    if token:
+        background.add_task(oidc.revoke, token)
     # KODI-057 (R-008): every session of the account ends at once - their
     # Redis keys go now, their rows with the user by CASCADE, as do the
     # Borderless binding, the badges and the GitHub identity row.

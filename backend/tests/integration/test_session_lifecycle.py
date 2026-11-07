@@ -22,7 +22,8 @@ from httpx import AsyncClient
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
-from app.application.services.borderless_client import BorderlessUnavailable
+from app.application.services.borderless_oidc import BorderlessUnavailable
+from app.application.services.session_store import SessionStore
 from app.config.redis import get_redis
 from app.config.settings import (
     ACCESS_COOKIE_NAME,
@@ -32,9 +33,11 @@ from app.config.settings import (
 from app.core.tokens import decode_token
 from app.domain.models import UserSessionModel
 from app.main import app as main_app
+from app.presentation.dependencies import get_session_store
 from tests.base_db_setup import base_data
-from tests.conftest import FakeBorderlessClient
-from tests.integration.conftest import CREDENTIALS
+from tests import borderless_flow as flow
+from tests.fixtures.borderless.fake_oidc import FakeBorderless
+from tests.integration.conftest import BOUND_SUB
 from tests.sessions_seed import BROWSER_USER_AGENT, open_session
 
 USER = base_data()['user']
@@ -47,8 +50,22 @@ CHROME_WINDOWS = (
 
 
 @pytest.fixture
-def borderless_sign_in(bound_user, borderless: FakeBorderlessClient):
-    return borderless
+def borderless_sign_in(bound_user, fake_borderless: FakeBorderless):
+    """Sign the bound base user in through the fake Borderless (the whole
+    OpenID Connect round trip); answers applika's callback (a 307)."""
+
+    async def sign_in(api: AsyncClient, **kwargs):
+        async with flow.fake_browser(fake_borderless) as browser:
+            return await flow.borderless_sign_in(
+                api, browser, BOUND_SUB, **kwargs
+            )
+
+    return sign_in
+
+
+def _signed_in(response) -> None:
+    assert response.status_code == 307, response.text
+    assert response.headers['location'] == envs.WEB_SIGNIN_URI
 
 
 async def _row(engine: AsyncEngine, session_id: int) -> UserSessionModel:
@@ -107,13 +124,10 @@ def _keys(refresh_value: str, session_id: int) -> tuple[str, str]:
 async def test_callback_opens_a_web_session_with_row_and_keys(
     real_client: AsyncClient, async_engine, redis_client, borderless_sign_in
 ):
-    response = await real_client.post(
-        '/auth/borderless/signin',
-        json=CREDENTIALS,
-        headers={'User-Agent': BROWSER_USER_AGENT},
+    response = await borderless_sign_in(
+        real_client, headers={'User-Agent': BROWSER_USER_AGENT}
     )
-    assert response.status_code == 200
-    assert response.json() == {'redirect_to': None, 'new_account': False}
+    _signed_in(response)
 
     access = response.cookies.get(ACCESS_COOKIE_NAME)
     refresh_value = response.cookies.get(REFRESH_COOKIE_NAME)
@@ -173,9 +187,7 @@ async def test_callback_opens_a_web_session_with_row_and_keys(
 async def test_no_refresh_value_or_hash_reaches_postgres(
     real_client: AsyncClient, async_engine, redis_client, borderless_sign_in
 ):
-    response = await real_client.post(
-        '/auth/borderless/signin', json=CREDENTIALS
-    )
+    response = await borderless_sign_in(real_client)
     refresh_value = response.cookies.get(REFRESH_COOKIE_NAME)
     [row] = await _rows(async_engine, USER.id)
     stored = ' '.join(
@@ -195,19 +207,17 @@ async def test_no_refresh_value_or_hash_reaches_postgres(
 async def test_signing_in_again_replaces_the_browsers_session(
     real_client: AsyncClient, async_engine, redis_client, borderless_sign_in
 ):
-    first = await real_client.post('/auth/borderless/signin', json=CREDENTIALS)
+    first = await borderless_sign_in(real_client)
     first_refresh = first.cookies.get(REFRESH_COOKIE_NAME)
     first_access = first.cookies.get(ACCESS_COOKIE_NAME)
     assert first_refresh
     assert first_access
     first_id = int(decode_token(first_access).get('sid', '0'))
 
-    second = await real_client.post(
-        '/auth/borderless/signin',
-        json=CREDENTIALS,
-        cookies={REFRESH_COOKIE_NAME: first_refresh},
+    second = await borderless_sign_in(
+        real_client, cookies={REFRESH_COOKIE_NAME: first_refresh}
     )
-    assert second.status_code == 200
+    _signed_in(second)
 
     old = await _row(async_engine, first_id)
     assert old.end_reason == 'replaced'
@@ -229,12 +239,12 @@ async def test_another_users_refresh_cookie_is_not_replaced(
 ):
     admin_session = await open_session(async_engine, redis_client, ADMIN.id)
 
-    response = await real_client.post(
-        '/auth/borderless/signin',
-        json=CREDENTIALS,
+    real_client.cookies.clear()
+    response = await borderless_sign_in(
+        real_client,
         cookies={REFRESH_COOKIE_NAME: admin_session.refresh_token},
     )
-    assert response.status_code == 200
+    _signed_in(response)
 
     admin_row = await _row(async_engine, admin_session.session_id)
     assert admin_row.ended_at is None
@@ -490,17 +500,19 @@ async def test_refresh_reads_the_membership(
     async_engine,
     redis_client,
     bound_user,
-    borderless: FakeBorderlessClient,
+    fake_borderless: FakeBorderless,
 ):
     tokens = await open_session(async_engine, redis_client, USER.id)
-    borderless.accounts[USER.email.lower()]['membership'] = 'BASE'
+    fake_borderless.set_account(BOUND_SUB, membership='BASE')
 
     ok = await real_client.get(
         '/auth/refresh', cookies={REFRESH_COOKIE_NAME: tokens.refresh_token}
     )
 
     assert ok.status_code == 200
-    assert borderless.read_calls == ['tok-user']
+    assert [
+        g['grant_type'] for g in fake_borderless.log['grants'][BOUND_SUB]
+    ] == ['refresh_token']
     me = await real_client.get(
         '/users/me', headers=_bearer(tokens.access_token)
     )
@@ -512,10 +524,15 @@ async def test_borderless_failure_never_fails_a_refresh(
     async_engine,
     redis_client,
     bound_user,
-    borderless: FakeBorderlessClient,
+    oidc_client,
+    monkeypatch,
 ):
     tokens = await open_session(async_engine, redis_client, USER.id)
-    borderless.read_error = BorderlessUnavailable('5xx')
+
+    async def down(token, timeout=None):
+        raise BorderlessUnavailable('5xx')
+
+    monkeypatch.setattr(oidc_client, 'refresh', down)
 
     ok = await real_client.get(
         '/auth/refresh', cookies={REFRESH_COOKIE_NAME: tokens.refresh_token}
@@ -785,21 +802,33 @@ async def test_a_sign_in_during_an_outage_leaves_no_device(
     async_engine,
     redis_client,
     borderless_sign_in,
-    redis_down,
 ):
     """The row is written first; when the keys cannot be, the row goes
     too - the device list never shows a session that was never live. Only
     that row goes: the user's other live device and another user's device
-    are untouched."""
+    are untouched. (The sign-in attempt itself lives on the real Redis;
+    the session store is the one that is down.)"""
     # Opened on the real Redis before the callback hits the dead one.
     laptop = await open_session(async_engine, redis_client, USER.id)
     other = await open_session(async_engine, redis_client, ADMIN.id)
-
-    response = await real_client.post(
-        '/auth/borderless/signin', json=CREDENTIALS
+    dead = redis.from_url(
+        'redis://127.0.0.1:1/0',
+        decode_responses=True,
+        socket_connect_timeout=0.2,
     )
+    main_app.dependency_overrides[get_session_store] = lambda: SessionStore(
+        dead
+    )
+    try:
+        response = await borderless_sign_in(real_client)
+    finally:
+        main_app.dependency_overrides.pop(get_session_store, None)
+        await dead.aclose()
 
-    assert response.status_code == 503
+    assert response.status_code == 307
+    assert response.headers['location'] == (
+        f'{envs.WEB_SIGNIN_URI}?error=AUTH-1003'
+    )
     assert _set_cookie(response, ACCESS_COOKIE_NAME) is None
     [kept] = await _rows(async_engine, USER.id)
     assert kept.id == laptop.session_id

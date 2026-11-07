@@ -1,6 +1,12 @@
 from typing import Annotated, Literal
 
-from pydantic import Field, PostgresDsn, UrlConstraints, model_validator
+from pydantic import (
+    Field,
+    PostgresDsn,
+    SecretStr,
+    UrlConstraints,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ACCESS_COOKIE_NAME = '__access'
@@ -88,19 +94,26 @@ class Settings(BaseSettings):
 
     REDIS_URL: str = 'redis://localhost:6379/0'
 
-    # Borderless sign-in (ADR-0024): the API checks the email and password
-    # with Borderless from the server. Unset URL or key → sign-in answers
-    # 503 "Borderless sign-in is not configured". The key is a Fernet key
-    # for the stored Borderless access token; losing it marks every
-    # binding ``needs_reconnect`` at its next read.
-    BORDERLESS_API_URL: str | None = None
+    # Sign in with Borderless (ADR-0026): applika is a confidential OpenID
+    # Connect client of Borderless (discovery at
+    # ``{BORDERLESS_ISSUER}/.well-known/openid-configuration``). Not
+    # configured (issuer, client id, secret or key unset) → the sign-in
+    # sends the browser back with AUTH-1018. The key is a Fernet key for the
+    # refresh token (Postgres) and the access token (Redis); losing it ends
+    # every web session at its next membership check.
+    BORDERLESS_ISSUER: str | None = None
+    BORDERLESS_CLIENT_ID: str | None = None
+    BORDERLESS_CLIENT_SECRET: SecretStr | None = None
+    BORDERLESS_REDIRECT_URI: str = (
+        'http://127.0.0.1:8000/api/auth/borderless/callback'
+    )
     BORDERLESS_TOKEN_ENCRYPTION_KEY: str | None = None
     BORDERLESS_TIMEOUT_SECONDS: float = 5.0
     BORDERLESS_REFRESH_TIMEOUT_SECONDS: float = 3.0
-    BORDERLESS_SIGNIN_EMAIL_LIMIT: int = 5
-    BORDERLESS_SIGNIN_EMAIL_WINDOW_SECONDS: int = 900
-    # The web page that hosts the Borderless sign-in form; ``?cli=1`` is
-    # appended for a CLI sign-in.
+    BORDERLESS_LOGIN_TTL_SECONDS: int = 600
+    BORDERLESS_DISCOVERY_TTL_SECONDS: int = 3600
+    # The web sign-in page: every sign-in ends there, signed in or with
+    # ``?error=<code>`` (``&cli=1`` for a CLI sign-in).
     WEB_SIGNIN_URI: str = 'http://127.0.0.1:8080/login'
 
     # Wall-clock ceiling for one server-side CV PDF render (RenderCV +
@@ -147,14 +160,30 @@ class Settings(BaseSettings):
 
     @model_validator(mode='after')
     def _https_borderless_in_prod(self) -> 'Settings':
-        url = self.BORDERLESS_API_URL
-        if (
-            self.ENVIRONMENT == 'PROD'
-            and url
-            and not url.lower().startswith('https://')
+        """In PROD, a configured Borderless client talks https only: the
+        issuer and the redirect URI (an unset issuer is "not configured"
+        and boots, its sign-in refused with AUTH-1018)."""
+        if self.ENVIRONMENT != 'PROD' or not self.BORDERLESS_ISSUER:
+            return self
+        for name, url in (
+            ('BORDERLESS_ISSUER', self.BORDERLESS_ISSUER),
+            ('BORDERLESS_REDIRECT_URI', self.BORDERLESS_REDIRECT_URI),
         ):
-            raise ValueError('BORDERLESS_API_URL must be https in PROD')
+            if not url.lower().startswith('https://'):
+                raise ValueError(f'{name} must be https in PROD')
         return self
+
+    @property
+    def borderless_configured(self) -> bool:
+        """The issuer, the client id, the client secret and the token key
+        are all set."""
+        return bool(
+            self.BORDERLESS_ISSUER
+            and self.BORDERLESS_CLIENT_ID
+            and self.BORDERLESS_CLIENT_SECRET
+            and self.BORDERLESS_CLIENT_SECRET.get_secret_value()
+            and self.BORDERLESS_TOKEN_ENCRYPTION_KEY
+        )
 
     @property
     def jobs_scrapers(self) -> list[str]:

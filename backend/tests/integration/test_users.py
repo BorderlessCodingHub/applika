@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -266,22 +266,33 @@ async def test_get_me_lists_badges_and_the_borderless_access(
     data = (await async_client.get('/users/me')).json()
 
     assert [b['badge'] for b in data['badges']] == ['borderless_psp']
+    # ADR-0026: {status, email, checked_at}, never a token or an expiry.
+    assert set(data['borderless']) == {'status', 'email', 'checked_at'}
     assert data['borderless']['status'] == 'active'
     assert data['borderless']['email'] == binding.email
+    assert data['borderless']['checked_at'] is not None
     assert 'token' not in str(data['borderless'])
 
 
-async def test_get_me_reports_an_expired_or_refused_access(
+async def test_get_me_reports_a_refused_grant(
     async_client: AsyncClient, db_session: AsyncSession
 ):
     await bind_borderless(
-        db_session,
-        base_data()['user'].id,
-        expires_in=timedelta(seconds=-1),
+        db_session, base_data()['user'].id, status='needs_reconnect'
     )
     data = (await async_client.get('/users/me')).json()
-    assert data['borderless']['status'] == 'expired'
+    assert data['borderless']['status'] == 'needs_reconnect'
     assert [b['badge'] for b in data['badges']] == ['borderless_psp']
+
+
+async def test_patch_me_answers_the_same_borderless_shape(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    await bind_borderless(db_session, base_data()['user'].id)
+    data = (
+        await async_client.patch('/users/me', json={'first_name': 'Ada'})
+    ).json()
+    assert set(data['borderless']) == {'status', 'email', 'checked_at'}
 
 
 async def test_github_row_sets_github_id_and_hides_the_restore(

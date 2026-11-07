@@ -91,16 +91,19 @@ async def test_unparsable_json_is_gen_1003(async_client: AsyncClient):
 
 
 async def test_no_input_echo_422_is_gen_1003_without_input(
-    async_client: AsyncClient,
+    admin_client: AsyncClient,
 ):
-    response = await async_client.post(
-        '/auth/borderless/signin',
-        json={'email': 'a@b.co', 'password': 'p' * 500},
+    # ``NoInputEchoRoute`` (the report-webhook router): a field error never
+    # echoes what was sent.
+    secret_url = 'https://discord.com/api/webhooks/1/' + 's' * 500
+    response = await admin_client.post(
+        '/admin/report-webhooks',
+        json={'webhook_url': [secret_url], 'badges': 'NOPE'},
     )
     body = assert_coded(response, 'GEN-1003')
     assert body['detail']
     assert all('input' not in error for error in body['detail'])
-    assert 'p' * 500 not in response.text
+    assert 's' * 500 not in response.text
 
 
 async def test_rate_limit_429_is_gen_1004_with_seconds(

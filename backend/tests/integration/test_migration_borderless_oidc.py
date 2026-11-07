@@ -648,3 +648,21 @@ def test_the_upgraded_schema_refuses_an_unknown_end_reason(
         _by_id(_sessions(migration_db), LOGOUT_SESSION_ID)['end_reason']
         == 'logout'
     )
+
+
+def test_the_orm_maps_the_refresh_token_and_no_retired_column() -> None:
+    """Rule 7: ``BorderlessAccountModel`` maps the refresh token and
+    neither access token column, under either name."""
+    from app.domain.models import BorderlessAccountModel
+
+    columns = {c.name: c for c in BorderlessAccountModel.__table__.columns}
+    assert 'encrypted_refresh_token' in columns
+    assert columns['encrypted_refresh_token'].nullable is True
+    for retired in (
+        'encrypted_access_token',
+        'access_token_expires_at',
+        'encrypted_access_token_old',
+        'access_token_expires_at_old',
+        'encrypted_refresh_token_old',
+    ):
+        assert retired not in columns

@@ -1,7 +1,8 @@
 """CLI sign-in for ``applika-cli`` 1.1.0 and later (KODI-057, ADR-0019).
 
 - ``GET /auth/cli/authorize``: browser sign-in bound to a PKCE S256
-  challenge; GitHub's callback sends the code to the loopback
+  challenge; it goes straight to Borderless with ``prompt=login``
+  (ADR-0026 §11), whose callback sends the code to the loopback
   ``redirect_uri``, or with ``oob`` to the web page that shows it (R-015,
   R-018).
 - ``POST /auth/token``: ``authorization_code``, ``refresh_token`` and
@@ -16,7 +17,7 @@ with the web ones. Nothing here is behind a beta flag (owner: "Gate
 nothing").
 """
 
-from fastapi import APIRouter, Body, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Body, Request, Response, status
 
 from app.application.dto.user_session import SessionTokensDTO
 from app.application.use_cases.cli_auth.authorize import OOB_REDIRECT_URI
@@ -30,11 +31,14 @@ from app.core.exceptions import OAuthError
 from app.presentation.api import oauth as oauth_api
 from app.presentation.api.auth_handoff import validate_cli_callback_url
 from app.presentation.dependencies import (
+    BeginBorderlessLoginUseCaseDp,
+    BorderlessOidcClientDp,
     CliAuthorizeUseCaseDp,
     CliTokenUseCaseDp,
     CurrentUserDp,
     DeviceCodeUseCaseDp,
     EndSessionUseCaseDp,
+    ReleaseBorderlessGrantUseCaseDp,
     client_ip,
     client_user_agent,
 )
@@ -73,17 +77,17 @@ async def cli_authorize(
     code_challenge_method: str,
     state: str,
     use_case: CliAuthorizeUseCaseDp,
+    begin: BeginBorderlessLoginUseCaseDp,
 ):
-    """307 to applika's Borderless sign-in page (``WEB_SIGNIN_URI?cli=1``)
-    with the ``__cli_login`` marker cookie."""
+    """307 straight to Borderless's sign-in with ``prompt=login`` and the
+    ``__borderless_login`` attempt cookie (ADR-0026 §11). The browser's own
+    applika session is never opened, ended or replaced."""
     if redirect_uri != OOB_REDIRECT_URI:
         validate_cli_callback_url(redirect_uri)
     login_id = await use_case.execute(
         redirect_uri, code_challenge, code_challenge_method, state
     )
-    return oauth_api.redirect_to_signin_for_cli(
-        login_id, use_case.handoff_state.login_ttl_seconds
-    )
+    return await oauth_api.redirect_to_borderless_for_cli(login_id, begin)
 
 
 @router.post(
@@ -127,9 +131,18 @@ async def token(
     status_code=status.HTTP_204_NO_CONTENT,
     response_class=Response,
 )
-async def revoke(payload: RevokeRequest, use_case: EndSessionUseCaseDp):
-    """RFC 7009: 204 whether or not the value named a live session."""
-    await use_case.end_by_refresh(payload.refresh_token, 'logout')
+async def revoke(
+    payload: RevokeRequest,
+    background: BackgroundTasks,
+    use_case: EndSessionUseCaseDp,
+    release: ReleaseBorderlessGrantUseCaseDp,
+    oidc: BorderlessOidcClientDp,
+):
+    """RFC 7009: 204 whether or not the value named a live session. The
+    user's last session also gives the Borderless grant back (ADR-0026
+    §10)."""
+    user_id = await use_case.end_by_refresh(payload.refresh_token, 'logout')
+    await oauth_api.release_borderless_grant(user_id, release, oidc, background)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

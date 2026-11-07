@@ -1,11 +1,12 @@
-"""Biweekly reports (ADR-0024): only BASE and PSP members, routed by
-badge.
+"""Biweekly reports (ADR-0024, ADR-0026): only BASE and PSP members,
+routed by badge.
 
 The tests that exercise report content run as a PSP member
-(``reports_badge``). The gate: no recorded badge → 403 ``badge_required``
-(administrators included); a recorded badge whose Borderless access
-expired or was refused → 403 ``membership_unconfirmed``, until a
-confirmation. A report goes to the webhooks of the badges its author holds.
+(``reports_badge``). The gate keeps the membership current first (a live
+access token: no Borderless call), then: no recorded badge → 403 RPT-1001
+(administrators included); a recorded badge on a binding Borderless
+refused (``needs_reconnect``) → 403 AUTH-1050, until the next sign-in. A
+report goes to the webhooks of the badges its author holds.
 """
 
 from datetime import UTC, date, datetime, timedelta
@@ -15,6 +16,7 @@ from httpx import AsyncClient
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.services.borderless_oidc import BorderlessUnavailable
 from app.core.enums import BadgeKey, EventType, InterviewType
 from app.domain.models import (
     BorderlessAccountModel,
@@ -27,10 +29,26 @@ from app.main import app as main_app
 from app.presentation.dependencies import get_discord_service
 from tests import msg
 from tests.base_db_setup import base_data
-from tests.conftest import FakeBorderlessClient, bind_borderless
+from tests.conftest import bind_borderless
 from tests.integration import timeline_seed as ts
 
 USER_ID = base_data()['user'].id
+
+LOCKED = {
+    'detail': (
+        'Your Borderless sign-in has ended. Sign in again on the applika '
+        'website to use member features'
+    ),
+    'code': 'AUTH-1050',
+}
+
+
+@pytest.fixture(autouse=True)
+async def _fresh_membership(access_store):
+    """The user's Borderless access token is live: the gate reads the
+    database alone, no Borderless call (the refresh path has its own
+    tests below and in ``test_borderless_refresh.py``)."""
+    await access_store.put(USER_ID, 'access-token', 3600)
 
 
 class RecordingDiscordService:
@@ -503,53 +521,107 @@ async def test_revoked_badge_only_is_badge_required(
 
 
 @pytest.mark.parametrize(('method', 'path', 'body'), ROUTES)
-@pytest.mark.parametrize(
-    ('status', 'expires_in'),
-    [
-        ('active', timedelta(seconds=-1)),
-        ('needs_reconnect', timedelta(days=3)),
-    ],
-    ids=['expired', 'needs_reconnect'],
-)
-async def test_badge_that_does_not_count_is_403_membership_unconfirmed(
+async def test_a_badge_on_a_refused_grant_is_403_membership_locked(
     async_client: AsyncClient,
     db_session: AsyncSession,
     method,
     path,
     body,
-    status,
-    expires_in,
 ):
-    await bind_borderless(
-        db_session, USER_ID, status=status, expires_in=expires_in
-    )
+    """AUTH-1050 replaces RPT-1002 (ADR-0026 §9, §13)."""
+    await bind_borderless(db_session, USER_ID, status='needs_reconnect')
     response = await _call(async_client, method, path, body)
     assert response.status_code == 403
-    assert response.json() == {
-        'detail': 'Sign in again to confirm your membership',
-        'code': 'RPT-1002',
-    }
+    assert response.json() == LOCKED
 
 
-async def test_confirm_then_reports_load(
+async def test_the_gate_refreshes_a_missing_access_token(
     async_client: AsyncClient,
     db_session: AsyncSession,
-    borderless: FakeBorderlessClient,
+    fake_borderless,
+    access_store,
 ):
-    await bind_borderless(
-        db_session,
-        USER_ID,
-        borderless_id='bl-me',
-        expires_in=timedelta(seconds=-1),
-    )
-    borderless.add(id='bl-me', email='me@example.com', membership='PSP')
-    assert (await async_client.get('/reports')).status_code == 403
+    """No access token: the gate refreshes once at Borderless (the claim
+    applies), stores the new one, and the next request calls nobody."""
+    access_store.tokens.clear()
+    await bind_borderless(db_session, USER_ID, fake=fake_borderless)
+    fake_borderless.set_account(f'bl-{USER_ID}', membership='BASE')
 
-    confirm = await async_client.post(
-        '/auth/borderless/confirm',
-        json={'email': 'me@example.com', 'password': 'correct-horse'},
+    first = await async_client.get('/reports')
+    second = await async_client.get('/reports')
+
+    assert (first.status_code, second.status_code) == (200, 200)
+    grants = fake_borderless.log['grants'][f'bl-{USER_ID}']
+    assert [g['grant_type'] for g in grants] == ['refresh_token']
+    live = await db_session.scalars(
+        select(UserBadgeModel.badge).where(
+            UserBadgeModel.user_id == USER_ID,
+            UserBadgeModel.revoked_at.is_(None),
+        )
     )
-    assert confirm.status_code == 204, confirm.text
+    assert list(live) == ['borderless_base']
+    assert USER_ID in access_store.tokens
+
+
+async def test_a_grant_borderless_refuses_at_the_gate_locks_it(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    fake_borderless,
+    access_store,
+):
+    access_store.tokens.clear()
+    await bind_borderless(db_session, USER_ID, fake=fake_borderless)
+    fake_borderless.revoke_grants(f'bl-{USER_ID}')
+
+    response = await async_client.get('/reports')
+
+    assert response.status_code == 403
+    assert response.json() == LOCKED
+    binding = await db_session.scalar(
+        select(BorderlessAccountModel).where(
+            BorderlessAccountModel.user_id == USER_ID
+        )
+    )
+    assert binding is not None
+    await db_session.refresh(binding)
+    assert binding.status == 'needs_reconnect'
+    assert binding.encrypted_refresh_token is None
+
+
+async def test_borderless_down_at_the_gate_keeps_the_badge(
+    async_client: AsyncClient,
+    db_session: AsyncSession,
+    fake_borderless,
+    access_store,
+    oidc_client,
+    monkeypatch,
+):
+    access_store.tokens.clear()
+    await bind_borderless(db_session, USER_ID, fake=fake_borderless)
+
+    async def down(token, timeout=None):
+        raise BorderlessUnavailable('5xx')
+
+    monkeypatch.setattr(oidc_client, 'refresh', down)
+
+    response = await async_client.get('/reports')
+    assert response.status_code == 200
+
+
+async def test_a_new_grant_unlocks_the_reports(
+    async_client: AsyncClient, db_session: AsyncSession
+):
+    binding = await bind_borderless(
+        db_session, USER_ID, status='needs_reconnect'
+    )
+    assert (await async_client.get('/reports')).json() == LOCKED
+
+    await db_session.execute(
+        update(BorderlessAccountModel)
+        .where(BorderlessAccountModel.id == binding.id)
+        .values(status='active')
+    )
+    await db_session.commit()
 
     assert (await async_client.get('/reports')).status_code == 200
 

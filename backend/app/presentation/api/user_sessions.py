@@ -5,15 +5,18 @@ Every user has these routes at release: the owner chose "Gate nothing"
 here. Another user's session is a 404, admins included (ADR-0004).
 """
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, BackgroundTasks, Response, status
 
 from app.core.tokens import clear_access_cookie, clear_refresh_cookie
 from app.lib.types import SnowflakeID
+from app.presentation.api.oauth import release_borderless_grant
 from app.presentation.dependencies import (
+    BorderlessOidcClientDp,
     CurrentSessionIdDp,
     CurrentUserDp,
     EndSessionUseCaseDp,
     ListMySessionsUseCaseDp,
+    ReleaseBorderlessGrantUseCaseDp,
     RevokeOtherSessionsUseCaseDp,
 )
 from app.presentation.schemas import DetailSchema
@@ -59,11 +62,16 @@ async def revoke_session(
     session_id: SnowflakeID,
     c_user: CurrentUserDp,
     current_session_id: CurrentSessionIdDp,
+    background: BackgroundTasks,
     use_case: EndSessionUseCaseDp,
+    release: ReleaseBorderlessGrantUseCaseDp,
+    oidc: BorderlessOidcClientDp,
 ):
     """Revoke one own device. An ended or expired one is a no-op 204.
-    Revoking "This device" also clears both cookies."""
-    await use_case.execute(c_user.id, session_id, 'revoked')
+    Revoking "This device" also clears both cookies. Revoking the user's
+    last open session gives the Borderless grant back (ADR-0026 §10)."""
+    if await use_case.execute(c_user.id, session_id, 'revoked'):
+        await release_borderless_grant(c_user.id, release, oidc, background)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     if session_id == current_session_id:
         clear_access_cookie(response)

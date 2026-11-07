@@ -3,6 +3,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.application.services.borderless_oidc import (
+    close_borderless_oidc_client,
+)
 from app.config.middleware import register_middleware
 from app.config.rate_limit import RateLimitMiddleware
 from app.config.settings import envs
@@ -45,6 +48,7 @@ async def lifespan(_: FastAPI):
     await task_broker.start_client()
     yield
     await task_broker.stop_client()
+    await close_borderless_oidc_client()
 
 
 app = FastAPI(

@@ -29,12 +29,14 @@ class BadgeOut(BaseSchema):
 
 
 class BorderlessAccessOut(BaseSchema):
-    """The state of the Borderless access from the last password sign-in,
-    computed at request time. Never the token."""
+    """The state of the user's Borderless binding (ADR-0026). ``active``:
+    the badges count; ``needs_reconnect``: Borderless refused applika's
+    grant, sign in again on the web. ``checked_at``: the last successful
+    membership read. Never a token."""
 
-    status: Literal['active', 'expired', 'needs_reconnect']
-    expires_at: datetime
+    status: Literal['active', 'needs_reconnect']
     email: str
+    checked_at: datetime | None
 
 
 class GithubRestoreOut(BaseSchema):
@@ -91,8 +93,8 @@ class UserProfile(BaseSchema, TimeSchema):
         if binding is not None and status is not None:
             profile.borderless = BorderlessAccessOut(
                 status=status,
-                expires_at=binding.access_token_expires_at,
                 email=binding.email,
+                checked_at=binding.profile_read_at,
             )
         available = github is None
         profile.github_restore = GithubRestoreOut(
