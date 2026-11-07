@@ -2,6 +2,8 @@
 
 **Status:** Accepted by LuisMSoares on 2026-11-06 · **Date:** 2026-11-06 · **Deciders:** LuisMSoares
 
+Amended on 2026-11-07 by the owner's build review (state as a random UUID, stored redirect target, cookie `__applika_login`, the fake's own test image); PRD 0020 Clarifications.
+
 ## Context
 
 ADR-0024 made Borderless the only login when Borderless had no OAuth/OIDC: applika posts the user's email and password to
@@ -38,10 +40,13 @@ decrypt on use/ use lru cache to avoid repetitive decryption of the same token)"
    `response_type=code`, the four scopes, a random `state`, a `nonce` and an S256 `code_challenge`.
    `GET /auth/borderless/callback` always answers 307: to the web sign-in page with a session (web), to the CLI's
    loopback or manual-code page through the existing handoff (CLI), or to the sign-in page with `error=<code>`.
-3. **Binding the attempt.** The attempt is a single-use Redis record keyed by `state` (verifier, nonce, flow, CLI login
-   id), ten minutes, bound to the browser by an HttpOnly, SameSite=Lax cookie whose hash the record holds. The callback
-   requires that cookie, the matching `state`, and the `iss` parameter equal to the issuer (RFC 9207). The code is
-   exchanged with HTTP Basic, the `code_verifier` and the `redirect_uri`.
+3. **Binding the attempt.** The attempt is a single-use Redis record keyed by `state`, a random UUID drawn at the start
+   of the flow (verifier, nonce, flow, CLI login id, and the target to redirect to after sign-in), ten minutes, bound to
+   the browser by applika's own HttpOnly, SameSite=Lax cookie `__applika_login` whose hash the record holds. The
+   callback requires that cookie, the matching `state`, and the `iss` parameter equal to the issuer (RFC 9207). The code
+   is exchanged with HTTP Basic, the `code_verifier` and the `redirect_uri`. The callback redirects to the stored target
+   only after checking it again against the allowed targets (the web sign-in page, or the CLI hand-off of that CLI
+   login); a record whose target is anything else is refused, and no query value decides a target.
 4. **The id_token is verified** against the issuer's JWKS with `EdDSA` as the only algorithm: signature, `iss`, `aud`
    (and `azp` when present) equal to the client id, `exp`, `iat`, and on sign-in `nonce`. A refreshed id_token's `sub`
    must equal the bound account. The callback's query, the code, the state and every token are never logged.
@@ -79,7 +84,8 @@ decrypt on use/ use lru cache to avoid repetitive decryption of the same token)"
 12. **One fake Borderless.** A test double implements discovery, authorize (a page where the test picks the account),
    token (PKCE, client authentication, rotation, reuse refusal, scripted `invalid_grant`, configurable access-token
    life), JWKS (Ed25519) and revoke. Backend tests drive it in-process through an httpx transport; the E2E stack and
-   local runs serve it over HTTP. It replaces the password-API stub.
+   local runs serve it over HTTP. The E2E stack serves it from its own test-only image, never the API image. It
+   replaces the password-API stub.
 13. **Codes and gate.** New codes AUTH-1046 to AUTH-1050 (ADR-0025). AUTH-1004, AUTH-1009, AUTH-1010 and RPT-1002 are
    no longer raised and are never reused. No beta gate (ADR-0024 §9 exception extends to this change).
 

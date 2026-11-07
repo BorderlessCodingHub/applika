@@ -199,11 +199,14 @@ off, no admin opt-out); `beforeAll`/`afterAll` delete e2e-discord's CVs,
 drafts and applications (enrolling it for the wipe) and put that state back.
 
 **Borderless sign-in in E2E (ADR-0026).** The stack runs `borderless-fake`
-(`backend/tests/fixtures/borderless/fake_oidc.py` on the `applika-e2e-api`
-image, `pull_policy: never`, `accounts.json` mounted read-only, `--config
-/fake/accounts.json --issuer http://borderless-fake:8081/api/auth
---public-url http://127.0.0.1:8181 --access-ttl 2`, published on
-`127.0.0.1:8181`, healthcheck on `/health` at its root). The API's env names
+(`backend/tests/fixtures/borderless/fake_oidc.py` on its OWN test-only image
+`applika-e2e-borderless-fake`, built from that folder's `Dockerfile` with
+the synthetic `accounts.json` baked in; never on the API image, which holds
+no fake code. The image's entrypoint runs the fake, so `command:` holds
+flags only: `--issuer http://borderless-fake:8081/api/auth --public-url
+http://127.0.0.1:8181 --access-ttl 2`. Published on `127.0.0.1:8181`; the
+healthcheck reads `/health` at its root with the image's `python`, as the
+image has no curl or wget). The API's env names
 that issuer, the SYNTHETIC client of `accounts.json`
 (`applika-fake-client`, `applika-fake-client-secret-not-real`) and
 `BORDERLESS_REDIRECT_URI=http://127.0.0.1:8100/api/auth/borderless/callback`;
@@ -248,11 +251,17 @@ chip; the profile restore aborted at `github.com` (`scope=read:user`, a
 `state`) and its outcome notice; e2e-unverified → `/login?error=AUTH-1005`
 (nothing else in the URL) with its words; seeded e2e-user's PSP chip;
 `/api/auth/cli/authorize` (PKCE) → the fake's page despite its session
-(`prompt=login` logged) → the loopback URL with `code` and `state`
-(received by a real `node:http` listener on 127.0.0.1, as `applika login`
-opens one: Playwright cannot route a redirect target, and the API 307s
-straight there) while the browser's `__access`/`__refresh` stay the same → the
-code redeemed at `POST /auth/token`; e2e-revoke signed in again →
+(`prompt=login` logged) → the API callback's 307 to the CLI's loopback
+`http://127.0.0.1:<port>/callback` with exactly `code` and `state` (the
+CLI's own state echoed). NOTHING listens there: the port is found closed by
+connecting, never by listening, and the hop is read as the browser's own
+request (Playwright raises one per redirect hop; a route never sees a
+redirect target): `page.waitForRequest` on that origin, its
+`redirectedFrom()` the callback's 307, itself from the fake; the navigation
+then fails `net::ERR_CONNECTION_REFUSED` (asserted), and the dashboard
+check opens a new tab of the same context. The browser's
+`__access`/`__refresh` stay the same → the code redeemed at
+`POST /auth/token` by the CLI's request context; e2e-revoke signed in again →
 `/__fake/grants/{sub}/revoke` → 2.5 s → reload → `/auth/refresh` 401
 AUTH-1049 → `/login?error=AUTH-1049` words; the CLI `refresh_token` grant 200,
 its Bearer `GET /reports` 403 AUTH-1050, its `GET /users/me/sessions` lists

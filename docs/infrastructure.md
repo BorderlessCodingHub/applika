@@ -431,15 +431,19 @@ flowchart LR
 [ADR-0026](adr/0026-borderless-openid-connect-sign-in.md), PRD 0020. Applika never sees a Borderless password.
 
 - `GET /api/auth/borderless/login` sends the browser to Borderless's authorize endpoint (from the
-  issuer's discovery document) with a fresh `state`, a `nonce` and a PKCE S256 challenge. The attempt
-  lives ten minutes in Redis (`applika:borderless:login:<state>`), single use, bound to the browser
-  by the HttpOnly `__borderless_login` cookie. A web sign-in sends no `prompt` (a Borderless browser
+  issuer's discovery document) with a fresh `state` (a random UUID), a `nonce` and a PKCE S256
+  challenge. The attempt lives ten minutes in Redis (`applika:borderless:login:<state>`), single use,
+  with the target to redirect to after sign-in (the web sign-in page, or the CLI's loopback or
+  manual-code page), bound to the browser by applika's own HttpOnly `__applika_login` cookie. A web
+  sign-in sends no `prompt` (a Borderless browser
   session makes it one click); a CLI sign-in (`/api/auth/cli/authorize`, `/api/auth/cli/login/{id}`)
   sends `prompt=login`, so Borderless always asks. `applika login --device` does not use Borderless.
-- `GET /api/auth/borderless/callback` checks the cookie, the `state` and `iss`, exchanges the code
-  with HTTP Basic, the verifier and the redirect URI, and verifies the id_token (EdDSA, issuer,
-  audience, expiry, nonce). Web: a `borderless` session and its cookies. CLI: the code goes back to the
-  CLI's loopback or manual-code page. A refusal lands on `/login?error=<code>`. The request log
+- `GET /api/auth/borderless/callback` checks the cookie, the `state`, the stored target (checked again
+  against the allowed targets; any other is refused, never followed, and no query value decides it)
+  and `iss`, exchanges the code with HTTP Basic, the verifier and the redirect URI, and verifies the
+  id_token (EdDSA, issuer, audience, expiry, nonce). It redirects to the stored target. Web: a
+  `borderless` session and its cookies. CLI: the code goes back to the CLI's loopback or manual-code
+  page. A refusal lands on `/login?error=<code>`. The request log
   writes the callback's query as `?[redacted]`.
 - One Borderless grant per user. The **refresh token** lives only in Postgres
   (`borderless_accounts.encrypted_refresh_token`), Fernet-encrypted, rotated on every use. The
@@ -456,8 +460,10 @@ flowchart LR
   token at Borderless, best effort, after answering. The Borderless browser session is never touched.
 - Tests, the E2E stack and local runs use the fake Borderless
   (`backend/tests/fixtures/borderless/fake_oidc.py`, synthetic accounts in `accounts.json`): the E2E
-  service `borderless-fake` (issuer `http://borderless-fake:8081/api/auth`, the browser reaches it at
-  `http://127.0.0.1:8181`, access tokens of 2 seconds), locally
+  service `borderless-fake` runs it from its own test-only image (`applika-e2e-borderless-fake`, built
+  from `backend/tests/fixtures/borderless/Dockerfile`), never the API image (issuer
+  `http://borderless-fake:8081/api/auth`, the browser reaches it at `http://127.0.0.1:8181`, access
+  tokens of 2 seconds), locally
   `cd backend && uv run python tests/fixtures/borderless/fake_oidc.py --port 8081 --issuer http://127.0.0.1:8081/api/auth`.
   The real Borderless lists only the production redirect URI, so nothing but production reaches it.
 
@@ -472,18 +478,18 @@ sequenceDiagram
 
     B->>A: GET /api/auth/borderless/login
     A->>BL: discovery (cached)
-    A->>R: attempt: state → verifier, nonce, cookie hash (10 min)
-    A-->>B: 307 authorize URL + __borderless_login cookie
+    A->>R: attempt: state (UUID) → verifier, nonce, cookie hash, redirect target (10 min)
+    A-->>B: 307 authorize URL + __applika_login cookie
     B->>BL: sign in (no prompt on the web, prompt=login for the CLI)
     BL-->>B: 307 /api/auth/borderless/callback?code&state&iss
     B->>A: callback (with the cookie)
-    A->>R: consume the attempt (single use)
+    A->>R: consume the attempt (single use), check its redirect target
     A->>BL: POST /oauth2/token (Basic, code, verifier, redirect_uri)
     BL-->>A: access token, refresh token, id_token
     A->>A: verify the id_token (EdDSA, iss, aud, exp, nonce)
     A->>P: bind the account, refresh token (encrypted), badge from the claim
     A->>R: access token (encrypted, EX expires_in)
-    A-->>B: 307 /login + session cookies (web) or the CLI's loopback
+    A-->>B: 307 to the stored target: /login + session cookies (web) or the CLI's loopback
 
     Note over A,BL: Later, at a session refresh or a member-gated request
     A->>R: access token present?
