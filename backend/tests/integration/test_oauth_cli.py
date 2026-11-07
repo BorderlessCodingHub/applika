@@ -262,5 +262,5 @@ async def test_cli_login_redirect_lands_on_the_borderless_signin_page(
     location = login_response.headers['location']
     assert location.startswith(f'{envs.BORDERLESS_ISSUER}/oauth2/authorize?')
     assert '&prompt=login' in location
-    assert login_response.cookies.get('__borderless_login')
+    assert login_response.cookies.get('__applika_login')
     assert login_response.cookies.get('__cli_login') is None

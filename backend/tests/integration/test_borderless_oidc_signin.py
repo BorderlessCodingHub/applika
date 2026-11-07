@@ -2,14 +2,18 @@
 the real stack (Postgres, Redis, the real ``get_current_user``) against the
 fake Borderless: the web round trip (cookies, a ``borderless`` session,
 ``replaced``, the access token in Redis and never in Postgres), the
-attempt's binding (single use, this browser, ten minutes, the newest
-attempt wins), every refusal as ``?error=<code>``, the legacy CLI hand-off
-with ``prompt=login`` and no cookie, the password routes gone, and no
-code, state, token or secret in a log. Nothing reaches the real Borderless.
+attempt (a fresh UUID state, single use, this browser, ten minutes, the
+newest attempt wins), the redirect target stored with it and checked again
+(a tampered target is refused, the query never decides it), every refusal
+as ``?error=<code>``, the legacy CLI hand-off with ``prompt=login`` and no
+cookie, the password routes gone, and no code, state, verifier, nonce,
+token or secret in a log. Nothing reaches the real Borderless.
 """
 
 import asyncio
+import json
 import logging
+import uuid
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -116,7 +120,10 @@ async def test_login_sends_the_browser_to_borderless_with_the_whole_request(
     assert params['scope'] == 'openid profile email offline_access'
     assert params['code_challenge_method'] == 'S256'
     assert len(params['code_challenge']) == 43
-    assert params['state'] and params['nonce']
+    assert params['nonce']
+    # The state is a random version-4 UUID (owner, 2026-11-07).
+    assert uuid.UUID(params['state']).version == 4
+    assert str(uuid.UUID(params['state'])) == params['state']
     # A web sign-in reuses the Borderless browser session (AC18).
     assert 'prompt' not in params
     # The attempt: the verifier and nonce only in Redis, ten minutes.
@@ -124,11 +131,17 @@ async def test_login_sends_the_browser_to_borderless_with_the_whole_request(
     stored = await redis_client.get(key)
     assert stored is not None
     assert params['nonce'] in stored
+    # The record keeps where the sign-in ends: the web sign-in page.
+    assert json.loads(stored)['target'] == envs.WEB_SIGNIN_URI
     assert 590 < await redis_client.ttl(key) <= 600
     cookie = next(
         header
         for header in response.headers.get_list('set-cookie')
         if header.startswith(f'{LOGIN_COOKIE_NAME}=')
+    )
+    assert LOGIN_COOKIE_NAME == '__applika_login'
+    assert '__borderless_login' not in ' '.join(
+        response.headers.get_list('set-cookie')
     )
     assert 'HttpOnly' in cookie
     assert 'Path=/api/auth/borderless' in cookie
@@ -296,6 +309,230 @@ async def test_of_two_attempts_in_one_browser_the_newer_wins(
     )
     completed = await flow.return_to_applika(real_client, newer_answer)
     _signed_in(completed)
+
+
+# --------------------------------------------------------------------------
+# The redirect target: stored with the attempt, checked again, never the
+# query (owner, 2026-11-07)
+# --------------------------------------------------------------------------
+
+EVIL = 'https://evil.example.test/steal'
+
+
+async def _record(redis_client, authorize_url: str) -> tuple[str, dict]:
+    key = f'{LOGIN_PREFIX}{flow.query_of(authorize_url)["state"]}'
+    raw = await redis_client.get(key)
+    assert raw is not None
+    return key, json.loads(raw)
+
+
+async def _tamper(redis_client, authorize_url: str, **changes) -> None:
+    """Rewrite the attempt's Redis record, as someone with Redis access
+    would."""
+    key, record = await _record(redis_client, authorize_url)
+    ttl = await redis_client.ttl(key)
+    await redis_client.set(key, json.dumps({**record, **changes}), ex=ttl)
+
+
+async def _pkce_authorize(api: AsyncClient, redirect_uri: str):
+    return await api.get(
+        '/auth/cli/authorize',
+        params={
+            'redirect_uri': redirect_uri,
+            'code_challenge': 'A' * 43,
+            'code_challenge_method': 'S256',
+            'state': 'cli-state',
+        },
+    )
+
+
+async def test_each_attempt_draws_a_fresh_state_and_the_query_never_picks_the_target(
+    real_client: AsyncClient, redis_client
+):
+    first = await real_client.get('/auth/borderless/login')
+    second = await real_client.get(
+        '/auth/borderless/login',
+        params={
+            'redirect_uri': EVIL,
+            'next': EVIL,
+            'target': EVIL,
+            'return_to': EVIL,
+        },
+    )
+
+    states = [
+        flow.query_of(r.headers['location'])['state'] for r in (first, second)
+    ]
+    assert states[0] != states[1]
+    assert all(uuid.UUID(state).version == 4 for state in states)
+    for response in (first, second):
+        _, record = await _record(redis_client, response.headers['location'])
+        assert record['target'] == envs.WEB_SIGNIN_URI
+        assert EVIL not in json.dumps(record)
+    # Borderless is always told applika's own callback.
+    assert flow.query_of(second.headers['location'])['redirect_uri'] == (
+        envs.BORDERLESS_REDIRECT_URI
+    )
+
+
+async def test_the_stored_target_drives_the_web_redirect_whatever_the_query(
+    real_client: AsyncClient, redis_client, browser
+):
+    begin = await real_client.get('/auth/borderless/login')
+    _, record = await _record(redis_client, begin.headers['location'])
+    answer = await flow.at_borderless(browser, begin.headers['location'], PSP)
+
+    response = await real_client.get(
+        flow.CALLBACK_PATH,
+        params={
+            **flow.query_of(answer.headers['location']),
+            'redirect_uri': EVIL,
+            'next': EVIL,
+            'target': EVIL,
+            'return_to': EVIL,
+        },
+    )
+
+    assert response.headers['location'] == record['target']
+    _signed_in(response)
+
+
+@pytest.mark.parametrize(
+    'target',
+    [
+        EVIL,
+        '//evil.example.test/steal',
+        'http://127.0.0.1:8080/login.evil.example.test',
+        'http://127.0.0.1:8080/login@evil.example.test',
+        'javascript:alert(1)',
+        'http://127.0.0.1:43129/callback',
+    ],
+)
+async def test_a_tampered_web_target_is_refused_and_never_followed(
+    real_client: AsyncClient,
+    redis_client,
+    browser,
+    db_session,
+    fake_borderless,
+    target,
+):
+    begin = await real_client.get('/auth/borderless/login')
+    answer = await flow.at_borderless(browser, begin.headers['location'], PSP)
+    await _tamper(redis_client, begin.headers['location'], target=target)
+
+    response = await flow.return_to_applika(real_client, answer)
+
+    assert _error(response) == {'error': ['AUTH-1046']}
+    assert target not in response.headers['location']
+    assert ACCESS_COOKIE_NAME not in response.cookies
+    # Refused before the exchange: no grant, no account.
+    assert PSP not in fake_borderless.log['grants']
+    users = await db_session.scalars(
+        select(UserModel).where(UserModel.email == 'e2e-user@e2e.applika.dev')
+    )
+    assert list(users) == []
+
+
+async def test_a_web_record_turned_into_a_cli_one_is_refused(
+    real_client: AsyncClient,
+    redis_client,
+    browser,
+    fake_borderless,
+    auth_handoff_state_use_case,
+):
+    login_id = await auth_handoff_state_use_case.create_login(
+        callback_url='http://127.0.0.1:43129/callback', state='s'
+    )
+    begin = await real_client.get('/auth/borderless/login')
+    answer = await flow.at_borderless(browser, begin.headers['location'], PSP)
+    # The CLI login's loopback is allowed for that login only, and the
+    # record still names the web page.
+    await _tamper(
+        redis_client,
+        begin.headers['location'],
+        flow='cli',
+        cli_login_id=login_id,
+    )
+
+    response = await flow.return_to_applika(real_client, answer)
+
+    assert _error(response) == {'error': ['AUTH-1046'], 'cli': ['1']}
+    assert PSP not in fake_borderless.log['grants']
+    assert await auth_handoff_state_use_case.get_login(login_id) is not None
+
+
+@pytest.mark.parametrize('redirect_uri', ['http://127.0.0.1:43129/cb', 'oob'])
+async def test_the_stored_target_drives_the_cli_hand_off(
+    real_client: AsyncClient,
+    redis_client,
+    browser,
+    bound_user,
+    monkeypatch,
+    redirect_uri,
+):
+    monkeypatch.setattr(
+        envs, 'CLI_MANUAL_REDIRECT_URI', 'http://127.0.0.1:8180/cli/code'
+    )
+    entry = await _pkce_authorize(real_client, redirect_uri)
+    assert entry.status_code == 307, entry.text
+    _, record = await _record(redis_client, entry.headers['location'])
+    expected = (
+        'http://127.0.0.1:8180/cli/code'
+        if redirect_uri == 'oob'
+        else redirect_uri
+    )
+    assert (record['flow'], record['target']) == ('cli', expected)
+    answer = await flow.at_borderless(
+        browser, entry.headers['location'], BOUND_SUB
+    )
+
+    response = await real_client.get(
+        flow.CALLBACK_PATH,
+        params={**flow.query_of(answer.headers['location']), 'next': EVIL},
+    )
+
+    assert response.status_code == 307
+    location = response.headers['location']
+    assert location.split('?', 1)[0] == record['target']
+    assert set(flow.query_of(location)) == {'code', 'state'}
+    assert flow.query_of(location)['state'] == 'cli-state'
+    assert ACCESS_COOKIE_NAME not in response.cookies
+
+
+@pytest.mark.parametrize(
+    'target',
+    [EVIL, 'http://127.0.0.1:9999/callback', 'http://127.0.0.1:8080/login'],
+)
+async def test_a_tampered_cli_target_is_refused_and_never_followed(
+    real_client: AsyncClient,
+    redis_client,
+    browser,
+    bound_user,
+    fake_borderless,
+    auth_handoff_state_use_case,
+    target,
+):
+    entry = await _pkce_authorize(real_client, 'http://127.0.0.1:43129/cb')
+    _, record = await _record(redis_client, entry.headers['location'])
+    answer = await flow.at_borderless(
+        browser, entry.headers['location'], BOUND_SUB
+    )
+    await _tamper(redis_client, entry.headers['location'], target=target)
+
+    response = await flow.return_to_applika(real_client, answer)
+
+    assert _error(response) == {'error': ['AUTH-1046'], 'cli': ['1']}
+    assert target not in response.headers['location'].replace(
+        envs.WEB_SIGNIN_URI, ''
+    )
+    # Refused before the exchange: no grant, no code minted, and the CLI
+    # login is not spent.
+    assert BOUND_SUB not in fake_borderless.log['grants']
+    assert await redis_client.keys('applika:auth_handoff:code:*') == []
+    assert (
+        await auth_handoff_state_use_case.get_login(record['cli_login_id'])
+        is not None
+    )
 
 
 # --------------------------------------------------------------------------
@@ -600,6 +837,7 @@ async def test_no_code_state_token_or_secret_reaches_a_log_or_a_body(
     with caplog.at_level(logging.DEBUG):
         begin = await real_client.get('/auth/borderless/login')
         attempt_cookie = real_client.cookies.get(LOGIN_COOKIE_NAME)
+        _, record = await _record(redis_client, begin.headers['location'])
         answer = await flow.at_borderless(
             browser, begin.headers['location'], PSP
         )
@@ -615,6 +853,8 @@ async def test_no_code_state_token_or_secret_reaches_a_log_or_a_body(
         query['code'],
         query['state'],
         authorize['nonce'],
+        record['verifier'],
+        record['binding_sha256'],
         attempt_cookie or 'no-cookie',
         BORDERLESS_CONFIG['client']['client_secret'],
         *fake_borderless.refresh_tokens,

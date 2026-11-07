@@ -16,9 +16,10 @@ from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.application.dto.user_session import SessionTokensDTO
 from app.application.services.github_service import GitHubOAuthError
-from app.application.use_cases.cli_auth.authorize import (
-    OOB_REDIRECT_URI,
-    PKCE_FLOW,
+from app.application.use_cases.cli_auth.authorize import PKCE_FLOW
+from app.application.use_cases.cli_auth.callback_url import (
+    cli_handoff_target,
+    validate_cli_callback_url,
 )
 from app.application.use_cases.get_current_user import GetCurrentUserUseCase
 from app.application.use_cases.github_restore.complete import RestoreStatus
@@ -42,7 +43,6 @@ from app.presentation.api.auth_handoff import (
     attempt_redirect,
     build_callback_redirect_url,
     signin_redirect,
-    validate_cli_callback_url,
 )
 from app.presentation.dependencies import (
     AccountLinkStateUseCaseDp,
@@ -76,12 +76,19 @@ async def cli_handoff_redirect(
     auth_handoff_state_use_case: AuthHandoffStateUseCaseDp,
     *,
     user_id: int,
+    target: str,
 ) -> str | None:
     """Where the browser goes to hand a fresh sign-in back to the CLI, or
-    ``None`` when the CLI login expired. Opens no session: the CLI redeems
-    the code for a session of its own."""
+    ``None`` when the CLI login expired or no longer allows ``target``.
+    ``target`` is the hand-off the sign-in attempt stored at its start
+    (ADR-0026 §3); it is followed only while it is still this login's own
+    (``cli_handoff_target``: its loopback callback, or for ``oob`` the
+    manual-code page). Opens no session: the CLI redeems the code for a
+    session of its own."""
     login_state = await auth_handoff_state_use_case.get_login(login_id)
     if login_state is None:
+        return None
+    if cli_handoff_target(login_state) != target:
         return None
 
     if login_state.get('flow') == PKCE_FLOW:
@@ -89,18 +96,12 @@ async def cli_handoff_redirect(
         # back to; ``oob`` shows it on the web to paste. The login is spent
         # here, the code on POST /auth/token.
         await auth_handoff_state_use_case.delete_login(login_id)
-        callback_url = login_state['callback_url']
         code = await auth_handoff_state_use_case.create_exchange_code(
             login_id=login_id,
             user_id=user_id,
             flow=PKCE_FLOW,
             code_challenge=login_state.get('code_challenge'),
-            redirect_uri=callback_url,
-        )
-        target = (
-            envs.CLI_MANUAL_REDIRECT_URI
-            if callback_url == OOB_REDIRECT_URI
-            else callback_url
+            redirect_uri=login_state['callback_url'],
         )
         return build_callback_redirect_url(
             target, code=code, state=login_state['state']
@@ -110,7 +111,7 @@ async def cli_handoff_redirect(
         login_id=login_id, user_id=user_id
     )
     return build_callback_redirect_url(
-        login_state['callback_url'], code=code, state=login_state['state']
+        target, code=code, state=login_state['state']
     )
 
 
