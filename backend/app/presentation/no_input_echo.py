@@ -1,7 +1,8 @@
 """A route class whose 422 never echoes the submitted input.
 
-Used where a request carries a secret: the admin report webhook URL and
-the Borderless password.
+Used where a request may carry a secret: the admin report webhook URL,
+and the Borderless sign-in routes (whose query carries an authorization
+code and a state).
 """
 
 from fastapi import Request, Response

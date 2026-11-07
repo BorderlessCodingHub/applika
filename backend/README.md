@@ -70,8 +70,9 @@ Settings are read from the environment or a `.env` file (`app/config/settings.py
 | Name | Description | Example |
 |------|-------------|---------|
 | `DATABASE_URL` | Async DB connection string | `postgresql+asyncpg://user:pass@host:5432/db` |
-| `BORDERLESS_API_URL` | Borderless API (https in PROD); sign-in answers 503 until set | `https://<borderless host>` |
-| `BORDERLESS_TOKEN_ENCRYPTION_KEY` | Fernet key for the stored Borderless access token | `<fernet key>` |
+| `BORDERLESS_ISSUER` | Borderless's OpenID Connect issuer (https in PROD); sign-in answers `?error=AUTH-1018` until the issuer, client id, secret and key are set | `https://api.borderlesscoding.com/api/auth` |
+| `BORDERLESS_CLIENT_ID` / `BORDERLESS_CLIENT_SECRET` | applika's confidential client at Borderless (`client_secret_basic`); the secret is an environment value only, never git | `<client id>` / `<secret>` |
+| `BORDERLESS_TOKEN_ENCRYPTION_KEY` | Fernet key for the Borderless refresh token (Postgres) and access token (Redis) | `<fernet key>` |
 
 ### Optional
 
@@ -86,9 +87,11 @@ Settings are read from the environment or a `.env` file (`app/config/settings.py
 | `REDIS_URL` | Redis connection URL | `redis://localhost:6379/0` |
 | `GITHUB_REDIRECT_URI` | OAuth callback URL | `http://127.0.0.1:8000/api/auth/github/callback` |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth app of the one-shot data restore; 503 until set | `None` |
-| `WEB_SIGNIN_URI` | Web sign-in page every CLI browser sign-in lands on | `http://127.0.0.1:8080/login` |
-| `BORDERLESS_TIMEOUT_SECONDS` / `BORDERLESS_REFRESH_TIMEOUT_SECONDS` | Borderless call timeouts (sign-in / refresh read) | `5.0` / `3.0` |
-| `BORDERLESS_SIGNIN_EMAIL_LIMIT` / `BORDERLESS_SIGNIN_EMAIL_WINDOW_SECONDS` | Failed sign-ins per email before a 429, and the window | `5` / `900` |
+| `WEB_SIGNIN_URI` | Web sign-in page every sign-in ends on (`?error=<code>` on a refusal) | `http://127.0.0.1:8080/login` |
+| `BORDERLESS_REDIRECT_URI` | The callback registered at Borderless, exactly (https in PROD) | `http://127.0.0.1:8000/api/auth/borderless/callback` |
+| `BORDERLESS_TIMEOUT_SECONDS` / `BORDERLESS_REFRESH_TIMEOUT_SECONDS` | Borderless call timeouts (sign-in / membership refresh) | `5.0` / `3.0` |
+| `BORDERLESS_LOGIN_TTL_SECONDS` | Life of one sign-in attempt | `600` |
+| `BORDERLESS_DISCOVERY_TTL_SECONDS` | Cache of the issuer's discovery document | `3600` |
 | `LOGIN_REDIRECT_URI` | Post-login redirect | `http://127.0.0.1:8000/api/docs` |
 | `DEVICE_CODE_TTL_SECONDS` | CLI device-code lifetime | `600` |
 | `DEVICE_CODE_POLL_INTERVAL_SECONDS` | CLI device-code poll interval | `10` |
@@ -121,7 +124,7 @@ the [root README](../README.md#quick-start-docker-compose).
 ```bash
 git clone https://github.com/ProgramadoresSemPatria/applika.git
 cd applika
-cp .env.example .env        # set BORDERLESS_API_URL, BORDERLESS_TOKEN_ENCRYPTION_KEY
+cp .env.example .env        # set the BORDERLESS_* keys (the fake Borderless locally)
 docker compose up -d --build --wait
 ```
 

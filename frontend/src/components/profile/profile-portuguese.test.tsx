@@ -28,7 +28,7 @@ import { UserProfileView } from "./profile-view";
 
 vi.mock("@/services/services", () => ({
   services: {
-    auth: { startGithubRestore: vi.fn(), confirmMembership: vi.fn() },
+    auth: { startGithubRestore: vi.fn() },
     users: { deleteMe: vi.fn() },
   },
 }));
@@ -60,8 +60,8 @@ const USER: User = {
   badges: [{ badge: "borderless_psp", granted_at: "2026-10-01T00:00:00Z" }],
   borderless: {
     status: "active",
-    expires_at: "2026-11-05T00:00:00Z",
     email: "ada@borderless.example",
+    checked_at: "2026-11-06T10:00:00Z",
   },
   github_restore: { available: true, prompt: false },
 } as User;

@@ -11,7 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dto.tailored_cv import TailoringMode
 from app.application.dto.user import UserDTO
-from app.application.services.borderless_client import BorderlessClient
+from app.application.services.borderless_access_store import (
+    BorderlessAccessStore,
+)
+from app.application.services.borderless_oidc import (
+    BorderlessOidcClient,
+    borderless_oidc_client,
+)
 from app.application.services.clone_tailoring import CloneTailoringService
 from app.application.services.cv_rendering.diff_pdf_renderer import (
     CVDiffPdfRenderer,
@@ -57,11 +63,26 @@ from app.application.use_cases.base_cvs.render_pdf import (
 )
 from app.application.use_cases.base_cvs.update import UpdateBaseCVUseCase
 from app.application.use_cases.borderless.badge_access import badge_access
-from app.application.use_cases.borderless.confirm_membership import (
-    ConfirmMembershipUseCase,
+from app.application.use_cases.borderless.begin_login import (
+    BeginBorderlessLoginUseCase,
+)
+from app.application.use_cases.borderless.complete_login import (
+    CompleteBorderlessLoginUseCase,
+)
+from app.application.use_cases.borderless.end_grant import (
+    EndBorderlessGrantUseCase,
+)
+from app.application.use_cases.borderless.login_state import (
+    BorderlessLoginStateUseCase,
+)
+from app.application.use_cases.borderless.login_target import (
+    BorderlessLoginTargets,
 )
 from app.application.use_cases.borderless.refresh_badges import (
     RefreshBadgesUseCase,
+)
+from app.application.use_cases.borderless.release_grant import (
+    ReleaseBorderlessGrantUseCase,
 )
 from app.application.use_cases.borderless.sign_in import (
     BorderlessSignInUseCase,
@@ -128,7 +149,7 @@ from app.core.exceptions import (
     BadgeRequired,
     ForbiddenAccess,
     InvalidSession,
-    MembershipUnconfirmed,
+    MembershipLocked,
     ResourceNotFound,
 )
 from app.core.features import NOT_FOUND_DETAIL, FeatureKey
@@ -278,11 +299,15 @@ GithubConnectionRepositoryDp = Annotated[
 ]
 
 
-def get_borderless_client() -> BorderlessClient:
-    return BorderlessClient()
+def get_borderless_oidc_client() -> BorderlessOidcClient:
+    """One per process: it caches the discovery document and the JWKS
+    (ADR-0026). Tests override it with the fake Borderless."""
+    return borderless_oidc_client()
 
 
-BorderlessClientDp = Annotated[BorderlessClient, Depends(get_borderless_client)]
+BorderlessOidcClientDp = Annotated[
+    BorderlessOidcClient, Depends(get_borderless_oidc_client)
+]
 
 
 def get_github_oauth_service() -> GitHubOAuthService:
@@ -293,16 +318,6 @@ GitHubOAuthServiceDp = Annotated[
     GitHubOAuthService, Depends(get_github_oauth_service)
 ]
 
-
-def get_refresh_badges_use_case(
-    session: DbSession, client: BorderlessClientDp
-) -> RefreshBadgesUseCase:
-    return RefreshBadgesUseCase(session, client)
-
-
-RefreshBadgesUseCaseDp = Annotated[
-    RefreshBadgesUseCase, Depends(get_refresh_badges_use_case)
-]
 
 QuinzenalReportRepositoryDp = Annotated[
     QuinzenalReportRepository, Depends(get_quinzenal_report_repository)
@@ -551,6 +566,118 @@ EndSessionUseCaseDp = Annotated[
 ]
 
 
+def get_borderless_access_store(redis_client: RedisDp) -> BorderlessAccessStore:
+    return BorderlessAccessStore(redis_client)
+
+
+BorderlessAccessStoreDp = Annotated[
+    BorderlessAccessStore, Depends(get_borderless_access_store)
+]
+
+
+def get_borderless_login_state(
+    redis_client: RedisDp,
+) -> BorderlessLoginStateUseCase:
+    return BorderlessLoginStateUseCase(redis_client)
+
+
+BorderlessLoginStateUseCaseDp = Annotated[
+    BorderlessLoginStateUseCase, Depends(get_borderless_login_state)
+]
+
+
+def get_borderless_login_targets(
+    handoff_state: AuthHandoffStateUseCaseDp,
+) -> BorderlessLoginTargets:
+    return BorderlessLoginTargets(handoff_state)
+
+
+BorderlessLoginTargetsDp = Annotated[
+    BorderlessLoginTargets, Depends(get_borderless_login_targets)
+]
+
+
+def get_end_borderless_grant_use_case(
+    session: DbSession,
+    session_repo: UserSessionRepositoryDp,
+    store: SessionStoreDp,
+    access: BorderlessAccessStoreDp,
+) -> EndBorderlessGrantUseCase:
+    return EndBorderlessGrantUseCase(session, session_repo, store, access)
+
+
+EndBorderlessGrantUseCaseDp = Annotated[
+    EndBorderlessGrantUseCase, Depends(get_end_borderless_grant_use_case)
+]
+
+
+def get_refresh_badges_use_case(
+    session: DbSession,
+    oidc: BorderlessOidcClientDp,
+    access: BorderlessAccessStoreDp,
+    end_grant: EndBorderlessGrantUseCaseDp,
+) -> RefreshBadgesUseCase:
+    return RefreshBadgesUseCase(session, oidc, access, end_grant)
+
+
+RefreshBadgesUseCaseDp = Annotated[
+    RefreshBadgesUseCase, Depends(get_refresh_badges_use_case)
+]
+
+
+def get_release_borderless_grant_use_case(
+    session: DbSession,
+    session_repo: UserSessionRepositoryDp,
+    access: BorderlessAccessStoreDp,
+) -> ReleaseBorderlessGrantUseCase:
+    return ReleaseBorderlessGrantUseCase(session, session_repo, access)
+
+
+ReleaseBorderlessGrantUseCaseDp = Annotated[
+    ReleaseBorderlessGrantUseCase,
+    Depends(get_release_borderless_grant_use_case),
+]
+
+
+def get_borderless_sign_in_use_case(
+    session: DbSession, access: BorderlessAccessStoreDp
+) -> BorderlessSignInUseCase:
+    return BorderlessSignInUseCase(session, access)
+
+
+BorderlessSignInUseCaseDp = Annotated[
+    BorderlessSignInUseCase, Depends(get_borderless_sign_in_use_case)
+]
+
+
+def get_begin_borderless_login_use_case(
+    oidc: BorderlessOidcClientDp,
+    login_state: BorderlessLoginStateUseCaseDp,
+    targets: BorderlessLoginTargetsDp,
+) -> BeginBorderlessLoginUseCase:
+    return BeginBorderlessLoginUseCase(oidc, login_state, targets)
+
+
+BeginBorderlessLoginUseCaseDp = Annotated[
+    BeginBorderlessLoginUseCase, Depends(get_begin_borderless_login_use_case)
+]
+
+
+def get_complete_borderless_login_use_case(
+    oidc: BorderlessOidcClientDp,
+    login_state: BorderlessLoginStateUseCaseDp,
+    sign_in: BorderlessSignInUseCaseDp,
+    targets: BorderlessLoginTargetsDp,
+) -> CompleteBorderlessLoginUseCase:
+    return CompleteBorderlessLoginUseCase(oidc, login_state, sign_in, targets)
+
+
+CompleteBorderlessLoginUseCaseDp = Annotated[
+    CompleteBorderlessLoginUseCase,
+    Depends(get_complete_borderless_login_use_case),
+]
+
+
 def get_refresh_session_use_case(
     user_repo: UserRepositoryDp,
     session_repo: UserSessionRepositoryDp,
@@ -639,13 +766,19 @@ AdminUserDp = Annotated[UserDTO, Depends(get_admin_user)]
 
 async def require_reports_badge(
     user: CurrentUserDp,
+    refresh_badges: RefreshBadgesUseCaseDp,
     binding_repo: BorderlessAccountRepositoryDp,
     badge_repo: UserBadgeRepositoryDp,
 ) -> None:
-    """Reports are for BASE and PSP members (ADR-0024), administrators
-    included: no recorded badge → RPT-1001 (was ``badge_required``); a
-    recorded badge that does not count → RPT-1002 (was
-    ``membership_unconfirmed``)."""
+    """The ONE dependency of every membership-gated route (ADR-0026 §8, §9),
+    administrators included. First keep the membership current: the Redis
+    access token present → no Borderless call; missing → one refresh
+    (``BORDERLESS_REFRESH_TIMEOUT_SECONDS``). Then: no live badge →
+    RPT-1001; a live badge on a binding Borderless refused
+    (``needs_reconnect``) → AUTH-1050, whatever the client."""
+    await refresh_badges.execute(
+        user.id, envs.BORDERLESS_REFRESH_TIMEOUT_SECONDS
+    )
     access = badge_access(
         await binding_repo.get_by_user_id(user.id),
         await badge_repo.live_for_user(user.id),
@@ -653,32 +786,10 @@ async def require_reports_badge(
     if not access.badges:
         raise BadgeRequired()
     if not access.held:
-        raise MembershipUnconfirmed()
+        raise MembershipLocked()
 
 
 RequireReportsBadgeDp = Depends(require_reports_badge)
-
-
-def get_borderless_sign_in_use_case(
-    session: DbSession, redis_client: RedisDp, client: BorderlessClientDp
-) -> BorderlessSignInUseCase:
-    return BorderlessSignInUseCase(session, redis_client, client)
-
-
-BorderlessSignInUseCaseDp = Annotated[
-    BorderlessSignInUseCase, Depends(get_borderless_sign_in_use_case)
-]
-
-
-def get_confirm_membership_use_case(
-    session: DbSession, redis_client: RedisDp, client: BorderlessClientDp
-) -> ConfirmMembershipUseCase:
-    return ConfirmMembershipUseCase(session, redis_client, client)
-
-
-ConfirmMembershipUseCaseDp = Annotated[
-    ConfirmMembershipUseCase, Depends(get_confirm_membership_use_case)
-]
 
 
 def get_begin_github_restore_use_case(

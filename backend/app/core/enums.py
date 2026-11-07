@@ -117,13 +117,13 @@ class InterviewType(StrEnum):
 
 
 class BorderlessAccountStatus(StrEnum):
-    """A Borderless binding's stored state (ADR-0024, CHECK
+    """A Borderless binding's stored state (ADR-0024, ADR-0026, CHECK
     ``ck_borderless_accounts_status``).
 
-    ``active`` is a token from the last password sign-in that Borderless has
-    not refused. ``needs_reconnect`` is set when Borderless refuses the token
-    (401/403 on the profile read) or when it no longer decrypts. Expiry is
-    not stored: it is computed from ``access_token_expires_at``.
+    ``active``: a grant Borderless has not refused. ``needs_reconnect``:
+    Borderless answered ``invalid_grant`` to a refresh, or the stored
+    refresh token no longer decrypts; member features wait for the next
+    sign-in. There is no expiry.
     """
 
     ACTIVE = 'active'

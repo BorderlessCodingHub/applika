@@ -203,13 +203,15 @@ def _user_fk(table: str) -> sa.ForeignKey:
 
 
 class BorderlessAccountModel(BaseMixin, Base):
-    """The Borderless account bound to one applika user (ADR-0024).
+    """The Borderless account bound to one applika user (ADR-0024,
+    ADR-0026).
 
-    Mirrors revision ``d9e0b46dd7e1`` name for name. The access token from
-    the last password sign-in is stored encrypted and never leaves the
-    server; Borderless issues no refresh token. ``status`` is
-    ``active`` or ``needs_reconnect``; expiry is read from
-    ``access_token_expires_at``.
+    Mirrors revisions ``d9e0b46dd7e1`` and ``f823e8c34e01`` name for name.
+    ``encrypted_refresh_token`` is applika's Borderless refresh token,
+    Fernet-encrypted, NULL when there is no grant. The access token is
+    never in the database (Redis, ``BorderlessAccessStore``); the two
+    retired access token columns are not mapped. ``status`` is ``active``
+    or ``needs_reconnect`` (Borderless refused the grant).
     """
 
     __tablename__ = 'borderless_accounts'
@@ -234,9 +236,8 @@ class BorderlessAccountModel(BaseMixin, Base):
         sa.String(64), nullable=False
     )
     email: Mapped[str] = mapped_column(sa.String(320), nullable=False)
-    encrypted_access_token: Mapped[str] = mapped_column(sa.Text, nullable=False)
-    access_token_expires_at: Mapped[datetime] = mapped_column(
-        sa.DateTime(timezone=True), nullable=False
+    encrypted_refresh_token: Mapped[str | None] = mapped_column(
+        sa.Text, nullable=True
     )
     status: Mapped[str] = mapped_column(
         sa.String(20),
@@ -1570,7 +1571,8 @@ class UserSessionModel(BaseMixin, Base):
         ),
         sa.CheckConstraint(
             'end_reason IN '
-            "('logout', 'revoked', 'expired', 'github_revoked', 'replaced')",
+            "('logout', 'revoked', 'expired', 'github_revoked', 'replaced', "
+            "'borderless_revoked')",
             name='ck_user_sessions_end_reason',
         ),
         sa.CheckConstraint(

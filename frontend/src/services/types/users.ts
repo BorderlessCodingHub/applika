@@ -11,13 +11,14 @@ export interface UserBadge {
   granted_at: string;
 }
 
-export type BorderlessAccessStatus = "active" | "expired" | "needs_reconnect";
+/** `needs_reconnect`: Borderless refused applika's grant; a new sign-in on the web restores it. */
+export type BorderlessAccessStatus = "active" | "needs_reconnect";
 
-/** The Borderless access from the last password sign-in, computed by the server per request. */
+/** The Borderless binding (ADR-0026). `checked_at`: the last time applika read the membership. */
 export interface BorderlessAccess {
   status: BorderlessAccessStatus;
-  expires_at: string;
   email: string;
+  checked_at: string | null;
 }
 
 /** `available`: no GitHub identity on record. `prompt`: the one-time `/welcome` choice is still open. */

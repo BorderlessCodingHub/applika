@@ -236,6 +236,7 @@ async def test_status_for_every_end_reason(
         ('replaced', 'signed_out'),
         ('revoked', 'revoked'),
         ('github_revoked', 'revoked'),
+        ('borderless_revoked', 'revoked'),
         ('expired', 'expired'),
     ):
         tokens = await open_session(async_engine, redis_client, USER.id)

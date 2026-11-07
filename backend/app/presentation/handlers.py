@@ -165,6 +165,9 @@ async def _oauth_error_handler(request: Request, exc: Exception):
 
 
 async def _coded_refusal_handler(request: Request, exc: Exception):
+    """Every ``CodedRefusal``: the sign-in refusals (AUTH-1005 to AUTH-1008,
+    sent as ``?error=`` by the Borderless callback), ``BadgeRequired``
+    (RPT-1001) and ``MembershipLocked`` (AUTH-1050, 403)."""
     assert isinstance(exc, exceptions.CodedRefusal)
     return JSONResponse(
         status_code=exc.status_code,

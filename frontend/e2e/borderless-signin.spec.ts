@@ -1,65 +1,116 @@
 import { createHash, randomBytes } from "node:crypto";
+import { connect } from "node:net";
 
 import {
   expect,
   request as playwrightRequest,
   test,
   type APIRequestContext,
+  type Browser,
   type Page,
+  type Request,
 } from "@playwright/test";
 
-import { BORDERLESS_ACCOUNTS, apiUrl, loginAs } from "./support/auth";
+import {
+  BORDERLESS_ACCOUNTS,
+  apiUrl,
+  borderlessUrl,
+  loginAs,
+  signInWithBorderlessButton,
+  signInWithFake,
+  type BorderlessAccount,
+} from "./support/auth";
 
 /**
- * Borderless sign-in on the real stack (ADR-0024): the built web and API, a
- * real Postgres and Redis, and the `borderless-stub` service in place of
- * Borderless. Nobody calls the real Borderless; the GitHub restore is walked
- * up to GitHub's consent URL and that navigation is aborted, so github.com is
- * never reached either.
+ * Borderless OpenID Connect sign-in on the real stack (ADR-0026): the built
+ * web and API, a real Postgres and Redis, and the `borderless-fake` service
+ * in place of Borderless (`--access-ttl 2`: every access token lives 2 s).
+ * Nobody calls the real Borderless; the GitHub restore is walked up to
+ * GitHub's consent URL and that navigation is aborted, so github.com is never
+ * reached either.
  *
  * Serial, and careful with shared state:
- * - `e2e-free` and `e2e-short` become applika accounts on their first sign-in
- *   here and are deleted again (`DELETE /users/me`) in `afterAll`.
- * - `e2e-short`'s first Borderless access lasts 3 s and every later one a
- *   week, so its form sign-in happens exactly once, in the last test, and
- *   nothing signs it in before that.
- * - Seeded `e2e-user` is never signed in through the web form: that would add
- *   a web session `devices.spec.ts` would list. Its CLI hand-off opens no
- *   session (the code is never redeemed).
+ * - `e2e-free`, `e2e-starter`, `e2e-revoke` and `e2e-logout` become applika
+ *   accounts on their first sign-in here; `beforeAll` and `afterAll` delete
+ *   them (`DELETE /users/me`), so a retry starts from new accounts again.
+ * - Seeded `e2e-user` is never signed in through the web: that would add a
+ *   web session `devices.spec.ts` counts. It only shows its seeded chip.
+ * - Never `POST /__fake/reset` here: the seeded users' rotated refresh
+ *   tokens would be forgotten and their sessions ended.
+ * - Each test starts in a new browser context, so with no fake Borderless
+ *   session: the first sign-in of a test always shows the fake's own page.
  */
 
 test.describe.configure({ mode: "serial" });
 
-type StubAccount = { email: string; password: string };
+const CREATED: BorderlessAccount[] = [
+  BORDERLESS_ACCOUNTS.free,
+  BORDERLESS_ACCOUNTS.starter,
+  BORDERLESS_ACCOUNTS.revoke,
+  BORDERLESS_ACCOUNTS.logout,
+];
 
-/** Sign `account` in through the API, outside any browser. */
-async function apiSession(
-  account: StubAccount,
-): Promise<{ context: APIRequestContext; status: number }> {
-  const context = await playwrightRequest.newContext();
-  const response = await context.post(apiUrl("/auth/borderless/signin"), {
-    data: { email: account.email, password: account.password },
-  });
-  return { context, status: response.status() };
+const WEB_CALLBACK = apiUrl("/auth/borderless/callback");
+const FAKE_ORIGIN = new URL(borderlessUrl()).origin;
+
+type AuthorizeEntry = Record<string, string>;
+type FakeLog = {
+  authorize: AuthorizeEntry[];
+  grants: Record<string, { grant_type: string; at: number }[]>;
+  revokes: { sub: string | null; token_type_hint: string; known: boolean }[];
+};
+
+async function fakeLog(request: APIRequestContext): Promise<FakeLog> {
+  const response = await request.get(borderlessUrl("/__fake/log"));
+  expect(response.status()).toBe(200);
+  return response.json();
 }
 
-/** Delete the applika account `account` signs in to, if there is one. */
-async function deleteAccount(account: StubAccount) {
-  const { context, status } = await apiSession(account);
+async function revokesFor(
+  request: APIRequestContext,
+  account: BorderlessAccount,
+) {
+  return (await fakeLog(request)).revokes.filter(
+    (entry) => entry.sub === account.sub,
+  );
+}
+
+async function setFakeAccount(
+  request: APIRequestContext,
+  account: BorderlessAccount,
+  changes: Record<string, unknown>,
+) {
+  const response = await request.post(
+    borderlessUrl(`/__fake/accounts/${account.sub}`),
+    { data: changes },
+  );
+  expect(response.status(), `fake account ${account.sub}`).toBe(200);
+}
+
+/** Signs `account` in through the fake in its own context, then `DELETE /users/me`. */
+async function deleteAccount(browser: Browser, account: BorderlessAccount) {
+  const context = await browser.newContext();
   try {
-    if (status === 200) {
-      const response = await context.delete(apiUrl("/users/me"));
-      expect(response.status(), `delete ${account.email}`).toBeLessThan(300);
-    }
+    const page = await context.newPage();
+    await signInWithFake(page, account.email);
+    await page.waitForURL(/\/(welcome|dashboard)$/);
+    const response = await page.request.delete(apiUrl("/users/me"));
+    expect(response.status(), `delete ${account.email}`).toBeLessThan(300);
   } finally {
-    await context.dispose();
+    await context.close();
   }
 }
 
-async function signInThroughForm(page: Page, account: StubAccount) {
-  await page.getByLabel("Email").fill(account.email);
-  await page.getByLabel("Password").fill(account.password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+/** A new account answers the one-time welcome choice; an existing one lands on the dashboard. */
+async function landSignedIn(page: Page, { isNew }: { isNew: boolean }) {
+  if (isNew) {
+    await page.waitForURL("**/welcome");
+    await page.getByRole("button", { name: "Start fresh" }).click();
+  }
+  await page.waitForURL("**/dashboard");
+  await expect(
+    page.getByRole("heading", { name: "Dashboard", level: 1 }),
+  ).toBeVisible();
 }
 
 function signInError(page: Page) {
@@ -83,60 +134,221 @@ async function openAccountMenu(page: Page) {
   return page.getByRole("menu");
 }
 
-test.beforeAll(async () => {
-  // A local rerun against a kept stack may find the account from last time.
-  await deleteAccount(BORDERLESS_ACCOUNTS.free);
+async function logOut(page: Page) {
+  const menu = await openAccountMenu(page);
+  await menu.getByRole("menuitem", { name: "Logout" }).click();
+  await page.waitForURL((url) => url.pathname === "/");
+}
+
+/** Every committed page URL of this tab, to prove no code, state or token reaches the web. */
+function trackNavigations(page: Page): string[] {
+  const urls: string[] = [];
+  page.on("framenavigated", (frame) => {
+    if (frame === page.mainFrame()) urls.push(frame.url());
+  });
+  return urls;
+}
+
+/** The CLI's PKCE pair (RFC 7636), as `applika login` makes it. */
+function pkce() {
+  const verifier = randomBytes(32).toString("base64url");
+  const challenge = createHash("sha256").update(verifier).digest("base64url");
+  return { verifier, challenge };
+}
+
+/**
+ * A loopback port nothing listens on, for the CLI's callback URL. Found by
+ * CONNECTING (refused), never by listening: `applika login` opens its own
+ * listener there, this test opens none. The API's 307 to it is observed as
+ * the browser's own request instead (see the CLI test).
+ */
+async function closedLoopbackPort(): Promise<number> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const port = 20_000 + Math.floor(Math.random() * 40_000);
+    const refused = await new Promise<boolean>((resolve) => {
+      const socket = connect({ host: "127.0.0.1", port });
+      socket.once("connect", () => {
+        socket.destroy();
+        resolve(false);
+      });
+      socket.once("error", (error: NodeJS.ErrnoException) =>
+        resolve(error.code === "ECONNREFUSED"),
+      );
+    });
+    if (refused) return port;
+  }
+  throw new Error("no closed loopback port found on 127.0.0.1");
+}
+
+type CliTokens = { access_token: string; refresh_token: string };
+/** e2e-revoke's command-line session, opened in the CLI test and used by the refusal test. */
+let revokeCli: CliTokens | null = null;
+
+test.beforeAll(async ({ browser }) => {
+  // A retry (CI) starts again from accounts that do not exist yet.
+  for (const account of CREATED) await deleteAccount(browser, account);
 });
 
-test.afterAll(async () => {
-  await deleteAccount(BORDERLESS_ACCOUNTS.free);
-  await deleteAccount(BORDERLESS_ACCOUNTS.short);
+test.afterAll(async ({ browser }) => {
+  const control = await playwrightRequest.newContext();
+  try {
+    await setFakeAccount(control, BORDERLESS_ACCOUNTS.logout, {
+      membership: "PSP",
+    });
+  } finally {
+    await control.dispose();
+  }
+  for (const account of CREATED) await deleteAccount(browser, account);
 });
 
-test.describe("Borderless sign-in", () => {
-  test("a wrong password or an unknown email answers Invalid email or password (AC1, AC2)", async ({
+test.describe("Borderless sign-in through OpenID Connect", () => {
+  test("a PSP account signs in on Borderless's own page; logout revokes the grant; signing in again is one click (AC1, AC3, AC12, AC17, AC18, AC22, AC24)", async ({
     page,
+    request,
   }) => {
+    const account = BORDERLESS_ACCOUNTS.logout;
+    const urls = trackNavigations(page);
+
     await page.goto("/login");
     await expect(
       page.getByRole("heading", { name: "Sign in to applika", level: 1 }),
     ).toBeVisible();
-    // AC1: no GitHub sign-in anywhere on the page.
+    // AC1, AC22: one button; no field, no password, no GitHub sign-in.
+    await expect(signInWithBorderlessButton(page)).toBeVisible();
+    await expect(page.locator("input")).toHaveCount(0);
     await expect(page.getByText(/GitHub/)).toHaveCount(0);
 
-    await signInThroughForm(page, {
-      email: BORDERLESS_ACCOUNTS.free.email,
-      password: "not-the-password",
+    await signInWithBorderlessButton(page).click();
+    // The fake Borderless's own sign-in page, on its own origin.
+    await page.waitForURL(borderlessUrl("/**"));
+    await expect(
+      page.getByRole("heading", { name: "Sign in to Borderless (fake)" }),
+    ).toBeVisible();
+    await page.getByLabel("Email").fill(account.email);
+    await page.getByLabel("Password").fill(account.password);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+
+    await landSignedIn(page, { isNew: true });
+    await expect(
+      page.getByRole("img", { name: "Borderless PSP member" }),
+    ).toHaveCount(1);
+
+    // AC3: the attempt carried PKCE S256, a state and a nonce; no `prompt`
+    // on a web sign-in (AC18).
+    const first = (await fakeLog(request)).authorize.at(-1)!;
+    expect(first).toMatchObject({
+      response_type: "code",
+      client_id: "applika-fake-client",
+      redirect_uri: WEB_CALLBACK,
+      code_challenge_method: "S256",
     });
-    await expect(signInError(page)).toHaveText("Invalid email or password");
-    // The password is cleared for the next try.
-    await expect(page.getByLabel("Password")).toHaveValue("");
-
-    await signInThroughForm(page, {
-      email: "nobody-at-all@e2e.applika.dev",
-      password: "whatever",
-    });
-    await expect(signInError(page)).toHaveText("Invalid email or password");
-    await expect(page).toHaveURL(/\/login$/);
-  });
-
-  test("an email Borderless has not verified is asked to verify it there (AC3)", async ({
-    page,
-  }) => {
-    await page.goto("/login");
-    await signInThroughForm(page, BORDERLESS_ACCOUNTS.unverified);
-
-    await expect(signInError(page)).toHaveText(
-      "Verify your email on Borderless first",
+    expect(first.scope.split(" ")).toEqual(
+      expect.arrayContaining(["openid", "profile", "email", "offline_access"]),
     );
-    await expect(page).toHaveURL(/\/login$/);
+    expect(first.code_challenge).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(first.state.length).toBeGreaterThanOrEqual(32);
+    expect(first.nonce.length).toBeGreaterThanOrEqual(32);
+    expect(first.state).not.toBe(first.nonce);
+    expect(first).not.toHaveProperty("prompt");
+
+    // AC12: the web never held a code, a state or a token: no web URL
+    // carried one, nothing readable by script holds one.
+    const webUrls = urls.filter((url) => !url.startsWith(FAKE_ORIGIN));
+    for (const url of webUrls) {
+      expect(url, url).not.toMatch(/[?&](code|state|token|id_token)=/);
+    }
+    const stored = await page.evaluate(() =>
+      JSON.stringify({
+        local: { ...window.localStorage },
+        session: { ...window.sessionStorage },
+        cookie: document.cookie,
+      }),
+    );
+    expect(stored).not.toMatch(/__access|__refresh|__applika_login/);
+    expect(stored).not.toContain(first.state);
+    expect(stored).not.toMatch(/eyJ[\w-]+\.[\w-]+/);
+
+    // AC17: the last session's logout gives the grant back, once, and leaves
+    // the Borderless browser session alone.
+    const revokesBefore = (await revokesFor(request, account)).length;
+    await logOut(page);
+    await expect
+      .poll(async () => (await revokesFor(request, account)).length, {
+        message: "expected one revoke of the refresh token",
+      })
+      .toBe(revokesBefore + 1);
+    expect((await revokesFor(request, account)).at(-1)).toMatchObject({
+      token_type_hint: "refresh_token",
+      known: true,
+    });
+
+    // AC18: signing in again is one click — the fake's session answers
+    // straight back, its page never shows.
+    const fakePagesBefore = urls.filter((url) =>
+      url.startsWith(FAKE_ORIGIN),
+    ).length;
+    await page.goto("/login");
+    await signInWithBorderlessButton(page).click();
+    await landSignedIn(page, { isNew: false });
+    expect(urls.filter((url) => url.startsWith(FAKE_ORIGIN))).toHaveLength(
+      fakePagesBefore,
+    );
+    // AC3: a fresh state for every attempt.
+    const second = (await fakeLog(request)).authorize.at(-1)!;
+    expect(second.state).not.toBe(first.state);
+    expect(second.code_challenge).not.toBe(first.code_challenge);
+    expect(second).not.toHaveProperty("prompt");
+
+    // Leave no session open: the next test's logout must be the last one.
+    await logOut(page);
+    await expect
+      .poll(async () => (await revokesFor(request, account)).length)
+      .toBe(revokesBefore + 2);
   });
 
-  test("a FREE account is new: /welcome once, Start fresh, then no badge and no Reports (AC9, AC15)", async ({
+  test("a membership changed on Borderless shows at the next check; the last logout revokes once (AC8, AC9, AC17)", async ({
+    page,
+    request,
+  }) => {
+    // The previous test signed e2e-logout out everywhere: this sign-in opens
+    // its only session.
+    const account = BORDERLESS_ACCOUNTS.logout;
+    await signInWithFake(page, account.email);
+    await landSignedIn(page, { isNew: false });
+    await expect(
+      page.getByRole("img", { name: "Borderless PSP member" }),
+    ).toHaveCount(1);
+
+    await setFakeAccount(request, account, { membership: "BASE" });
+    // The access token lives 2 s; past it, the next session refresh reads
+    // the membership again through a refresh grant.
+    const grantsBefore = (await fakeLog(request)).grants[account.sub] ?? [];
+    await page.waitForTimeout(2_500);
+    await page.reload();
+    await expect(
+      page.getByRole("img", { name: "Borderless BASE member" }),
+    ).toHaveCount(1);
+    await expect(
+      page.getByRole("img", { name: "Borderless PSP member" }),
+    ).toHaveCount(0);
+    const grantsAfter = (await fakeLog(request)).grants[account.sub] ?? [];
+    expect(
+      grantsAfter
+        .slice(grantsBefore.length)
+        .some((grant) => grant.grant_type === "refresh_token"),
+    ).toBe(true);
+
+    const revokesBefore = (await revokesFor(request, account)).length;
+    await logOut(page);
+    await expect
+      .poll(async () => (await revokesFor(request, account)).length)
+      .toBe(revokesBefore + 1);
+  });
+
+  test("a FREE account is new: /welcome once, Start fresh, then no badge and no Reports (AC8)", async ({
     page,
   }) => {
-    await page.goto("/login");
-    await signInThroughForm(page, BORDERLESS_ACCOUNTS.free);
+    await signInWithFake(page, BORDERLESS_ACCOUNTS.free.email);
 
     await page.waitForURL("**/welcome");
     await expect(
@@ -159,16 +371,19 @@ test.describe("Borderless sign-in", () => {
       page.getByRole("heading", { name: "Dashboard", level: 1 }),
     ).toBeVisible();
 
-    // AC9: remembered; the screen never shows again.
     const me = await page.request.get(apiUrl("/users/me"));
     expect(me.status()).toBe(200);
     const user = await me.json();
     expect(user.github_restore).toEqual({ available: true, prompt: false });
     expect(user.badges).toEqual([]);
+    expect(user.borderless).toMatchObject({
+      status: "active",
+      email: BORDERLESS_ACCOUNTS.free.email,
+    });
     await page.goto("/welcome");
     await page.waitForURL("**/dashboard");
 
-    // AC15: no badge, no Reports entry, the API refuses with RPT-1001.
+    // No badge, no Reports entry, the API refuses with RPT-1001.
     await expect(
       primaryNav(page).getByRole("link", { name: "Dashboard" }),
     ).toBeVisible();
@@ -181,7 +396,6 @@ test.describe("Borderless sign-in", () => {
     expect(reports.status()).toBe(403);
     expect((await reports.json()).code).toBe("RPT-1001");
 
-    // Visiting Reports anyway explains why it is closed.
     await page.goto("/reports");
     await expect(
       page.getByRole("heading", {
@@ -191,11 +405,22 @@ test.describe("Borderless sign-in", () => {
     ).toBeVisible();
   });
 
-  test("the profile offers the GitHub restore; it leaves for github.com asking only read:user (AC10)", async ({
+  test("a STARTER account holds no badge (AC8)", async ({ page }) => {
+    await signInWithFake(page, BORDERLESS_ACCOUNTS.starter.email);
+    await landSignedIn(page, { isNew: true });
+
+    await expect(anyMembershipChip(page)).toHaveCount(0);
+    await expect(
+      primaryNav(page).getByRole("link", { name: "Reports" }),
+    ).toHaveCount(0);
+    const user = await (await page.request.get(apiUrl("/users/me"))).json();
+    expect(user.badges).toEqual([]);
+  });
+
+  test("the profile offers the GitHub restore; it leaves for github.com asking only read:user", async ({
     page,
   }) => {
-    await page.goto("/login");
-    await signInThroughForm(page, BORDERLESS_ACCOUNTS.free);
+    await signInWithFake(page, BORDERLESS_ACCOUNTS.free.email);
     // Answered already: straight to the dashboard, never /welcome.
     await page.waitForURL("**/dashboard");
 
@@ -225,11 +450,10 @@ test.describe("Borderless sign-in", () => {
     expect(url.searchParams.get("state")).toBeTruthy();
   });
 
-  test("a restore outcome shows its words once and clears the URL (AC14)", async ({
+  test("a restore outcome shows its words once and clears the URL", async ({
     page,
   }) => {
-    await page.goto("/login");
-    await signInThroughForm(page, BORDERLESS_ACCOUNTS.free);
+    await signInWithFake(page, BORDERLESS_ACCOUNTS.free.email);
     await page.waitForURL("**/dashboard");
 
     await page.goto("/profile?account=github&status=not_found");
@@ -241,7 +465,25 @@ test.describe("Borderless sign-in", () => {
     await expect(page).toHaveURL(/\/profile$/);
   });
 
-  test("seeded e2e-user sees its own PSP chip in the menu and on the profile, and no restore (AC7, AC10)", async ({
+  test("an email Borderless has not verified lands on /login with words to verify it there (AC7, AC12, AC21)", async ({
+    page,
+  }) => {
+    await signInWithFake(page, BORDERLESS_ACCOUNTS.unverified.email);
+
+    await page.waitForURL("**/login?error=AUTH-1005");
+    // Nothing but the code in the URL bar.
+    expect(new URL(page.url()).search).toBe("?error=AUTH-1005");
+    await expect(signInError(page)).toHaveAttribute("data-code", "AUTH-1005");
+    await expect(signInError(page)).toHaveText(
+      "Verify your email on Borderless first",
+    );
+    // The way back is right below the words.
+    await expect(signInWithBorderlessButton(page)).toBeVisible();
+    const me = await page.request.get(apiUrl("/users/me"));
+    expect(me.status()).toBe(401);
+  });
+
+  test("seeded e2e-user sees its own PSP chip in the menu and on the profile, and no restore", async ({
     page,
   }) => {
     await loginAs(page, "user");
@@ -263,25 +505,30 @@ test.describe("Borderless sign-in", () => {
     ).toHaveText("PSP");
     await page.keyboard.press("Escape");
 
-    // AC10: e2e-user has its GitHub identity on record.
+    // e2e-user has its GitHub identity on record.
     await expect(
       page.getByRole("button", { name: "Restore data from GitHub" }),
     ).toHaveCount(0);
   });
 
-  test("applika login completes on the Borderless sign-in page and lands on the loopback URL (AC6)", async ({
+  test("applika login asks on Borderless even with a Borderless session, and leaves the browser's applika session alone (AC19, AC20)", async ({
     page,
+    request,
   }) => {
-    const verifier = randomBytes(32).toString("base64url");
-    const challenge = createHash("sha256").update(verifier).digest("base64url");
-    const callback = "http://127.0.0.1:53682/callback";
-    const state = `e2e-${randomBytes(8).toString("hex")}`;
+    const account = BORDERLESS_ACCOUNTS.revoke;
+    await signInWithFake(page, account.email);
+    await landSignedIn(page, { isNew: true });
+    const sessionBefore = (await page.context().cookies())
+      .filter((cookie) => ["__access", "__refresh"].includes(cookie.name))
+      .map((cookie) => `${cookie.name}=${cookie.value}`)
+      .sort();
+    expect(sessionBefore).toHaveLength(2);
 
-    let landedOn: string | null = null;
-    await page.route("http://127.0.0.1:53682/**", async (route) => {
-      landedOn = route.request().url();
-      await route.fulfill({ status: 200, body: "applika-cli got the code" });
-    });
+    const { verifier, challenge } = pkce();
+    const port = await closedLoopbackPort();
+    const loopbackOrigin = `http://127.0.0.1:${port}`;
+    const callback = `${loopbackOrigin}/callback`;
+    const state = `e2e-${randomBytes(8).toString("hex")}`;
 
     const authorize = new URL(apiUrl("/auth/cli/authorize"));
     authorize.searchParams.set("redirect_uri", callback);
@@ -290,111 +537,176 @@ test.describe("Borderless sign-in", () => {
     authorize.searchParams.set("state", state);
     await page.goto(authorize.toString());
 
-    await page.waitForURL("**/login?cli=1");
+    // The fake's page shows despite its session: `prompt=login`.
+    await page.waitForURL(borderlessUrl("/**"));
     await expect(
-      page.getByRole("heading", { name: "Sign in to applika-cli", level: 1 }),
+      page.getByRole("heading", { name: "Sign in to Borderless (fake)" }),
     ).toBeVisible();
-    await expect(page.locator('[data-slot="sign-in-cli-note"]')).toContainText(
-      "applika login",
+    expect((await fakeLog(request)).authorize.at(-1)).toMatchObject({
+      prompt: "login",
+      redirect_uri: WEB_CALLBACK,
+      code_challenge_method: "S256",
+    });
+
+    // The callback 307s the browser to the CLI's loopback. Nothing listens
+    // there: Playwright raises a request for every redirect hop (a route
+    // never sees a redirect target), so the hop is read as the browser
+    // makes it, and its navigation is left to fail.
+    const toLoopback = (hop: Request) =>
+      hop.url().startsWith(`${loopbackOrigin}/`);
+    const hopSeen = page.waitForRequest(toLoopback);
+    const hopFailed = page.waitForEvent("requestfailed", toLoopback);
+    await page
+      .getByRole("button", { name: account.email, exact: true })
+      .click();
+    const hop = await hopSeen;
+
+    // The hop is the API callback's own 307, reached from Borderless's answer.
+    expect(hop.isNavigationRequest()).toBe(true);
+    expect(hop.method()).toBe("GET");
+    const fromCallback = hop.redirectedFrom();
+    expect(fromCallback, "the hop before the loopback").toBeTruthy();
+    const callbackUrl = new URL(fromCallback!.url());
+    expect(`${callbackUrl.origin}${callbackUrl.pathname}`).toBe(WEB_CALLBACK);
+    expect((await fromCallback!.response())?.status()).toBe(307);
+    const fromFake = fromCallback!.redirectedFrom();
+    expect(fromFake, "the hop before the callback").toBeTruthy();
+    expect(new URL(fromFake!.url()).origin).toBe(FAKE_ORIGIN);
+    // Nobody served it: no listener on the port.
+    expect((await hopFailed).failure()?.errorText).toBe(
+      "net::ERR_CONNECTION_REFUSED",
     );
 
-    await signInThroughForm(page, BORDERLESS_ACCOUNTS.user);
-
-    await expect
-      .poll(() => landedOn, { message: "expected the loopback redirect" })
-      .not.toBeNull();
-    const url = new URL(landedOn as unknown as string);
-    expect(`${url.origin}${url.pathname}`).toBe(callback);
-    expect(url.searchParams.get("code")).toBeTruthy();
+    const url = new URL(hop.url());
+    expect(url.pathname).toBe("/callback");
+    const code = url.searchParams.get("code");
+    expect(code).toBeTruthy();
     expect(url.searchParams.get("state")).toBe(state);
+    expect([...url.searchParams.keys()].sort()).toEqual(["code", "state"]);
 
-    // The CLI branch sets no browser session.
-    const cookies = await page.context().cookies();
-    expect(cookies.map((cookie) => cookie.name)).not.toContain("__access");
+    // The browser's own applika session: not opened, ended or replaced.
+    const sessionAfter = (await page.context().cookies())
+      .filter((cookie) => ["__access", "__refresh"].includes(cookie.name))
+      .map((cookie) => `${cookie.name}=${cookie.value}`)
+      .sort();
+    expect(sessionAfter).toEqual(sessionBefore);
+    // The tab that followed the hop is still committing the browser's error
+    // page; a new tab of the same browser opens the dashboard on that session.
+    const tab = await page.context().newPage();
+    await tab.goto("/dashboard");
+    await expect(
+      tab.getByRole("heading", { name: "Dashboard", level: 1 }),
+    ).toBeVisible();
+    await tab.close();
+
+    // The CLI redeems the code with its verifier, as every version does.
+    const token = await request.post(apiUrl("/auth/token"), {
+      data: {
+        grant_type: "authorization_code",
+        code,
+        code_verifier: verifier,
+        redirect_uri: callback,
+        device_name: "e2e-revoke-cli",
+      },
+    });
+    expect(token.status()).toBe(200);
+    revokeCli = await token.json();
+    expect(revokeCli?.access_token).toBeTruthy();
+    expect(revokeCli?.refresh_token).toBeTruthy();
   });
 
-  test("an expired Borderless access pauses the badge until the password confirms it (AC8, AC16, AC17)", async ({
+  test("a refused grant ends the web sessions with words, keeps the CLI signed in but locked, and the next web sign-in restores it (AC13, AC14, AC15, AC23)", async ({
     page,
+    request,
   }) => {
-    const short = BORDERLESS_ACCOUNTS.short;
-    await page.goto("/login");
-    await signInThroughForm(page, short);
-    await page.waitForURL("**/welcome");
-    await page.getByRole("button", { name: "Start fresh" }).click();
-    await page.waitForURL("**/dashboard");
-
-    // The stub's first access for this account lasts 3 s.
-    await page.waitForTimeout(4_000);
-    await page.reload();
-    await expect(
-      page.getByRole("heading", { name: "Dashboard", level: 1 }),
-    ).toBeVisible();
-
-    const me = await (await page.request.get(apiUrl("/users/me"))).json();
-    expect(me.borderless.status).toBe("expired");
-    expect(me.badges.map((row: { badge: string }) => row.badge)).toEqual([
-      "borderless_psp",
-    ]);
-
-    // AC16: the Reports entry stays; no chip while the badge does not count.
-    await expect(
-      primaryNav(page).getByRole("link", { name: "Reports" }),
-    ).toBeVisible();
-    await expect(anyMembershipChip(page)).toHaveCount(0);
-
-    // AC8: the menu asks to confirm, and so does the profile.
-    const menu = await openAccountMenu(page);
-    await expect(
-      menu.getByRole("menuitem", {
-        name: "Sign in again to confirm your membership",
-      }),
-    ).toBeVisible();
-    await page.keyboard.press("Escape");
-    await page.goto("/profile");
-    await expect(
-      page.locator('[data-slot="confirm-membership-notice"]'),
-    ).toContainText("Sign in again to confirm your membership");
-
-    // AC16: the API refuses with a reason distinct from "no badge".
-    const refused = await page.request.get(apiUrl("/reports"));
-    expect(refused.status()).toBe(403);
-    expect((await refused.json()).code).toBe("RPT-1002");
-
-    const sessionsBefore = await (
-      await page.request.get(apiUrl("/users/me/sessions"))
-    ).json();
-
-    await page.goto("/reports");
-    const gate = page.locator('[data-slot="badge-gate"]');
-    await expect(gate).toHaveAttribute("data-state", "unconfirmed");
-    await expect(
-      page.getByRole("heading", {
-        name: "Sign in again to confirm your membership",
-        level: 1,
-      }),
-    ).toBeVisible();
-    await expect(page.getByLabel("Email")).toHaveValue(short.email);
-
-    // AC17: the password renews the access; the reports open.
-    await page.getByLabel("Password").fill(short.password);
-    await page.getByRole("button", { name: "Confirm membership" }).click();
-
-    await expect(gate).toHaveAttribute("data-state", "held");
-    await expect(
-      page.getByRole("heading", { name: /My Reports/, level: 1 }),
-    ).toBeVisible();
+    expect(revokeCli, "the CLI test opened a session").not.toBeNull();
+    const account = BORDERLESS_ACCOUNTS.revoke;
+    await signInWithFake(page, account.email);
+    await landSignedIn(page, { isNew: false });
     await expect(
       page.getByRole("img", { name: "Borderless PSP member" }),
     ).toHaveCount(1);
-    const reports = await page.request.get(apiUrl("/reports"));
-    expect(reports.status()).toBe(200);
 
-    // The applika session is kept: the same sessions, still active.
-    const sessionsAfter = await (
-      await page.request.get(apiUrl("/users/me/sessions"))
+    // Borderless refuses applika's grant (30 days, or access revoked).
+    const revoked = await request.post(
+      borderlessUrl(`/__fake/grants/${account.sub}/revoke`),
+    );
+    expect(revoked.status()).toBe(200);
+    expect((await revoked.json()).revoked).toBeGreaterThan(0);
+
+    // Past the access token's 2 s, the web's next session refresh asks.
+    await page.waitForTimeout(2_500);
+    const refused = page.waitForResponse(
+      (response) =>
+        response.url() === apiUrl("/auth/refresh") && response.status() === 401,
+    );
+    await page.reload();
+    const refusal = await refused;
+    expect(await refusal.json()).toEqual({
+      detail:
+        "Your Borderless sign-in has ended. Sign in again with Borderless",
+      code: "AUTH-1049",
+    });
+
+    // AC13: the sign-in page says what happened and what to do.
+    await page.waitForURL("**/login?error=AUTH-1049");
+    await expect(signInError(page)).toHaveAttribute("data-code", "AUTH-1049");
+    await expect(signInError(page)).toHaveText(
+      "Your Borderless sign-in has ended. Sign in again with Borderless",
+    );
+    const signedOut = await page.request.get(apiUrl("/users/me"));
+    expect(signedOut.status()).toBe(401);
+
+    // AC14: the command-line session stays signed in…
+    const refreshedCli = await request.post(apiUrl("/auth/token"), {
+      data: {
+        grant_type: "refresh_token",
+        refresh_token: revokeCli!.refresh_token,
+      },
+    });
+    expect(refreshedCli.status()).toBe(200);
+    revokeCli = await refreshedCli.json();
+    const bearer = { Authorization: `Bearer ${revokeCli!.access_token}` };
+    expect(
+      (await request.get(apiUrl("/users/me"), { headers: bearer })).status(),
+    ).toBe(200);
+
+    // …but a member route is stopped, naming the applika website.
+    const locked = await request.get(apiUrl("/reports"), { headers: bearer });
+    expect(locked.status()).toBe(403);
+    expect(await locked.json()).toEqual({
+      detail:
+        "Your Borderless sign-in has ended. Sign in again on the applika website to use member features",
+      code: "AUTH-1050",
+    });
+
+    // AC23: the web sessions read as ended in the Devices list.
+    const sessions: { client_type: string; status: string }[] = await (
+      await request.get(apiUrl("/users/me/sessions"), { headers: bearer })
     ).json();
-    const shape = (rows: { id: string; status: string }[]) =>
-      rows.map((row) => `${row.id}:${row.status}`).sort();
-    expect(shape(sessionsAfter)).toEqual(shape(sessionsBefore));
+    const web = sessions.filter((row) => row.client_type === "web");
+    expect(web.length).toBeGreaterThanOrEqual(2);
+    expect(web.every((row) => row.status === "revoked")).toBe(true);
+    expect(
+      sessions.some(
+        (row) => row.client_type === "cli" && row.status === "active",
+      ),
+    ).toBe(true);
+
+    // AC14: the next web sign-in restores member access to every session.
+    // This browser still holds its Borderless session: one click (AC18).
+    await signInWithBorderlessButton(page).click();
+    await landSignedIn(page, { isNew: false });
+    await expect(
+      page.getByRole("img", { name: "Borderless PSP member" }),
+    ).toHaveCount(1);
+    const reopened = await request.get(apiUrl("/reports"), { headers: bearer });
+    expect(reopened.status()).toBe(200);
+
+    // The CLI signs out as every version does.
+    const signOut = await request.post(apiUrl("/auth/revoke"), {
+      data: { refresh_token: revokeCli!.refresh_token },
+    });
+    expect(signOut.status()).toBe(204);
   });
 });

@@ -1,10 +1,6 @@
 import { IAuthService } from "../interfaces/i-auth-service";
-import {
-  BorderlessCredentials,
-  BorderlessSignInResult,
-  DeviceCodeInfo,
-  GithubRestoreStart,
-} from "../types/auth";
+import { DeviceCodeInfo, GithubRestoreStart } from "../types/auth";
+import { APP_CONFIG } from "@/config";
 import { api } from "@/lib/api-client";
 
 export class AuthService implements IAuthService {
@@ -15,23 +11,13 @@ export class AuthService implements IAuthService {
     return api.get("/auth/logout");
   }
   /**
-   * 200 sets the session cookies on the web; with a pending CLI login it
-   * answers `redirect_to` and sets none. Refusals: 400 AUTH-1019 "CLI login
-   * expired", 401 AUTH-1004, 403 AUTH-1005, 409 AUTH-1006 / AUTH-1007, 422
-   * AUTH-1008, 429 AUTH-1009, 503 AUTH-1017 (`docs/error-codes.md`).
+   * Where "Sign in with Borderless" sends the browser, a top-level
+   * navigation (ADR-0026): the API 307s to Borderless's own sign-in page and
+   * its callback comes back to `/login`, signed in or with `?error=<code>`.
+   * The web never sees a code, a state or a token.
    */
-  borderlessSignIn(
-    credentials: BorderlessCredentials,
-  ): Promise<BorderlessSignInResult> {
-    return api
-      .post<BorderlessSignInResult>("/auth/borderless/signin", credentials)
-      .then((r) => r.data);
-  }
-  /** 204: the Borderless access is renewed, the applika session untouched. */
-  confirmMembership(credentials: BorderlessCredentials): Promise<void> {
-    return api
-      .post("/auth/borderless/confirm", credentials)
-      .then(() => undefined);
+  borderlessLoginUrl(): string {
+    return `${APP_CONFIG.envs.apiBaseURL}/auth/borderless/login`;
   }
   /** 200 the GitHub consent URL | 409 already has its GitHub data | 503. */
   startGithubRestore(): Promise<GithubRestoreStart> {

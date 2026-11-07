@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 
 import {
+  lockOnRefusedGrant,
   useReportDetail,
   useReports,
   useReportSubmit,
@@ -118,13 +119,15 @@ describe("useReportSubmit — 429 toast (T042)", () => {
 });
 
 /**
- * ADR-0024: the report routes answer 403 unless the BASE or PSP badge counts,
- * so the report queries stay off until the cached user holds one.
+ * ADR-0024, ADR-0026: the report routes answer 403 unless the BASE or PSP
+ * badge counts, so the report queries stay off until the cached user holds
+ * one; a 403 AUTH-1050 (Borderless refused applika's grant) marks the cached
+ * user `needs_reconnect`, which closes them again.
  */
 const ACTIVE = {
   status: "active" as const,
-  expires_at: "2026-11-05T00:00:00Z",
   email: "ada@example.com",
+  checked_at: "2026-11-06T10:00:00Z",
 };
 const BASE_USER: User = {
   id: "u1",
@@ -136,10 +139,12 @@ const BASE_USER: User = {
   github_restore: { available: false, prompt: false },
 };
 
-function wrapperWithUser(user: User | undefined) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
+function wrapperWithUser(
+  user: User | undefined,
+  client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  }),
+) {
   if (user) client.setQueryData(USER_QUERY_KEY, user);
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
@@ -165,10 +170,6 @@ describe("report queries follow the membership badge", () => {
     ["no user cached", undefined],
     ["no recorded badge", { ...BASE_USER, badges: [] }],
     [
-      "a badge whose access expired",
-      { ...BASE_USER, borderless: { ...ACTIVE, status: "expired" as const } },
-    ],
-    [
       "a badge Borderless refused",
       {
         ...BASE_USER,
@@ -192,5 +193,99 @@ describe("report queries follow the membership badge", () => {
 
     await waitFor(() => expect(fetchReports).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(fetchReportDetail).toHaveBeenCalledTimes(1));
+  });
+});
+
+function membershipLocked() {
+  return new AxiosError("Forbidden", "ERR_BAD_REQUEST", undefined, undefined, {
+    status: 403,
+    statusText: "Forbidden",
+    headers: new AxiosHeaders(),
+    config: {} as never,
+    data: {
+      detail:
+        "Your Borderless sign-in has ended. Sign in again on the applika website to use member features",
+      code: "AUTH-1050",
+    },
+  });
+}
+
+function noBadge() {
+  return new AxiosError("Forbidden", "ERR_BAD_REQUEST", undefined, undefined, {
+    status: 403,
+    statusText: "Forbidden",
+    headers: new AxiosHeaders(),
+    config: {} as never,
+    data: {
+      detail: "Reports are for Borderless BASE and PSP members",
+      code: "RPT-1001",
+    },
+  });
+}
+
+describe("a 403 AUTH-1050 closes the reports until a new sign-in", () => {
+  function statusOf(client: QueryClient) {
+    return client.getQueryData<User>(USER_QUERY_KEY)?.borderless?.status;
+  }
+
+  it("the list marks the cached user needs_reconnect", async () => {
+    fetchReports.mockRejectedValue(membershipLocked());
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    renderHook(() => useReports(), {
+      wrapper: wrapperWithUser(BASE_USER, client),
+    });
+
+    await waitFor(() => expect(statusOf(client)).toBe("needs_reconnect"));
+    expect(fetchReports).toHaveBeenCalledTimes(1);
+  });
+
+  it("the detail marks the cached user needs_reconnect", async () => {
+    fetchReportDetail.mockRejectedValue(membershipLocked());
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    renderHook(() => useReportDetail(14), {
+      wrapper: wrapperWithUser(BASE_USER, client),
+    });
+
+    await waitFor(() => expect(statusOf(client)).toBe("needs_reconnect"));
+  });
+
+  it("a submit marks the cached user needs_reconnect too", async () => {
+    submitReport.mockRejectedValueOnce(membershipLocked());
+    const client = new QueryClient({
+      defaultOptions: { mutations: { retry: false } },
+    });
+    const { result } = renderHook(() => useReportSubmit(), {
+      wrapper: wrapperWithUser(BASE_USER, client),
+    });
+
+    result.current.submit(14 as never, { hours: 2 } as never).catch(() => {});
+
+    await waitFor(() => expect(statusOf(client)).toBe("needs_reconnect"));
+    // The gate shows the words; no generic "submit failed" toast on top.
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("RPT-1001, a 500 or a user with no binding are left alone", () => {
+    const client = new QueryClient();
+    client.setQueryData(USER_QUERY_KEY, BASE_USER);
+
+    expect(lockOnRefusedGrant(client, noBadge())).toBe(false);
+    expect(lockOnRefusedGrant(client, serverError())).toBe(false);
+    expect(lockOnRefusedGrant(client, new Error("network"))).toBe(false);
+    expect(statusOf(client)).toBe("active");
+
+    client.setQueryData(USER_QUERY_KEY, { ...BASE_USER, borderless: null });
+    lockOnRefusedGrant(client, membershipLocked());
+    expect(client.getQueryData<User>(USER_QUERY_KEY)?.borderless).toBeNull();
+  });
+
+  it("does nothing with no cached user", () => {
+    const client = new QueryClient();
+    lockOnRefusedGrant(client, membershipLocked());
+    expect(client.getQueryData(USER_QUERY_KEY)).toBeUndefined();
   });
 });

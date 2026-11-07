@@ -26,30 +26,17 @@
     "flagBr": "Bandeira do Brasil"
   },
   "auth": {
-    "signInFallback": "O login não foi concluído. Tente novamente.",
-    "unreachable": "Não foi possível acessar o Applika. Verifique sua conexão e tente novamente.",
     "logout": "Sair",
     "signIn": {
       "title": "Entre no Applika",
-      "cliTitle": "Entre no applika-cli",
-      "lead": "Use seu e-mail e senha da Borderless.",
+      "lead": "Use sua conta da Borderless. A Borderless confirma que é você e traz você de volta para cá.",
+      "signInWithBorderless": "Entrar com a Borderless",
+      "pending": "Abrindo a Borderless…",
       "cliCommand": "applika login",
-      "cliNote": "Este acesso conclui o <code>{command}</code> no seu terminal.",
-      "submit": "Entrar",
-      "passwordHint": "Entrou na Borderless por outro provedor de acesso? Defina uma senha na Borderless primeiro e depois entre aqui.",
+      "cliRetry": "Volte ao seu terminal e execute <code>{command}</code> novamente.",
       "noAccount": "Ainda não tem conta na Borderless?",
       "createAccount": "Criar uma conta na Borderless",
-      "opensInNewTab": "Abre em uma nova aba.",
-      "cliExpiredHint": "Execute applika login no seu terminal novamente.",
-      "cliHandoffLost": "O acesso pelo terminal expirou antes de você entrar. Em vez disso, este navegador entrou no Applika."
-    },
-    "credentials": {
-      "emailLabel": "E-mail",
-      "passwordLabel": "Senha",
-      "emailRequired": "Digite seu e-mail da Borderless",
-      "emailTooLong": "O e-mail deve ter no máximo 100 caracteres",
-      "passwordRequired": "Digite sua senha",
-      "passwordTooLong": "A senha deve ter no máximo 200 caracteres"
+      "opensInNewTab": "Abre em uma nova aba."
     }
   },
   "cookies": {
@@ -104,7 +91,7 @@
     "AUTH-1003": "Serviço de sessão indisponível",
     "AUTH-1004": "E-mail ou senha inválidos",
     "AUTH-1005": "Verifique seu e-mail na Borderless primeiro",
-    "AUTH-1006": "Este e-mail pertence a uma conta Applika vinculada a outra conta Borderless",
+    "AUTH-1006": "Este e-mail pertence a uma conta Applika vinculada a outra conta Borderless. Entre com essa conta Borderless ou entre em contato com o suporte",
     "AUTH-1007": "Mais de uma conta Applika usa este e-mail; entre em contato com o suporte",
     "AUTH-1008": "Este e-mail da Borderless não pode ser usado no Applika: ele deve ser um endereço válido com no máximo 100 caracteres",
     "AUTH-1009": "Muitas tentativas de entrar. Tente novamente em {seconds} segundos.",
@@ -144,6 +131,11 @@
     "AUTH-1043": "Sessão não encontrada",
     "AUTH-1044": "A restauração pelo GitHub não está configurada",
     "AUTH-1045": "Esta conta já tem seus dados do GitHub",
+    "AUTH-1046": "O acesso expirou ou foi iniciado em outro navegador. Comece de novo",
+    "AUTH-1047": "A Borderless não concluiu o acesso. Tente entrar novamente",
+    "AUTH-1048": "Não foi possível verificar a resposta da Borderless. Tente entrar novamente",
+    "AUTH-1049": "Seu acesso pela Borderless terminou. Entre novamente com a Borderless",
+    "AUTH-1050": "Seu acesso pela Borderless terminou. Entre novamente no site do Applika para usar os recursos de membro",
     "USR-1001": "Usuário não encontrado",
     "APP-1001": "Candidatura não encontrada ou não pertence ao usuário",
     "APP-1002": "Não é possível alterar uma candidatura de um ciclo arquivado",
@@ -593,7 +585,8 @@
     "openFor": "Abrir menu da conta de {username}",
     "profile": "Perfil",
     "feedback": "Feedback",
-    "logout": "Sair"
+    "logout": "Sair",
+    "signInAgain": "Entrar novamente"
   },
   "cycleSelector": {
     "current": "Ciclo atual",
@@ -797,18 +790,9 @@
       "noBadgeRecent": "Entrou no BASE ou no PSP há pouco tempo? Saia e entre novamente para atualizar sua associação.",
       "visitBorderless": "Visitar a Borderless",
       "opensInNewTab": "Abre em uma nova aba.",
-      "unconfirmedNote": "Seus relatórios abrem assim que sua associação for confirmada.",
+      "reconnectTitle": "Entre novamente para abrir seus relatórios",
+      "signInAgain": "Entrar novamente",
       "loading": "Carregando"
-    },
-    "confirm": {
-      "title": "Entre novamente para confirmar sua associação",
-      "body": "Digite sua senha da Borderless para que o Applika leia sua associação novamente. Você continua conectado.",
-      "submit": "Confirmar associação",
-      "confirmed": "Associação confirmada",
-      "reasonExpired": "Seu acesso à Borderless expirou.",
-      "reasonExpiredPaused": "Seu acesso à Borderless expirou, então seu selo {badge} está pausado.",
-      "reasonRejected": "A Borderless não aceitou a última verificação da sua associação feita pelo Applika.",
-      "reasonRejectedPaused": "A Borderless não aceitou a última verificação do Applika, então seu selo {badge} está pausado."
     }
   },
   "dashboard": {

@@ -240,8 +240,9 @@ async def test_cli_login_redirect_lands_on_the_borderless_signin_page(
     local_async_client,
     auth_handoff_state_use_case,
 ):
-    """``GET /auth/cli/login/{id}`` (CLIs 0.1.4 to 1.0.1) now 307s to
-    applika's Borderless sign-in page with the CLI marker (ADR-0024)."""
+    """``GET /auth/cli/login/{id}`` (CLIs 0.1.4 to 1.0.1) now 307s
+    straight to Borderless's sign-in with ``prompt=login`` and the attempt
+    cookie (ADR-0026 §11)."""
     start_response = await local_async_client.post(
         '/auth/cli/start',
         json={
@@ -258,5 +259,8 @@ async def test_cli_login_redirect_lands_on_the_borderless_signin_page(
     )
 
     assert login_response.status_code == 307
-    assert login_response.headers['location'] == f'{envs.WEB_SIGNIN_URI}?cli=1'
-    assert login_response.cookies.get('__cli_login') == login_id
+    location = login_response.headers['location']
+    assert location.startswith(f'{envs.BORDERLESS_ISSUER}/oauth2/authorize?')
+    assert '&prompt=login' in location
+    assert login_response.cookies.get('__applika_login')
+    assert login_response.cookies.get('__cli_login') is None

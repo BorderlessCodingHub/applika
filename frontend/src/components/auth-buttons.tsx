@@ -30,7 +30,7 @@ export function LogoutButton() {
   const t = useTranslations("auth");
 
   return (
-    <Button onClick={logout} variant="ghost">
+    <Button onClick={() => void logout()} variant="ghost">
       <LogOut className="h-4 w-4" />
       <span className="font-display">{t("logout")}</span>
     </Button>

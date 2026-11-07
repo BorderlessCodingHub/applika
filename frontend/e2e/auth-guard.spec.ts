@@ -40,11 +40,16 @@ test.describe("anonymous visitors are sent to /login", () => {
       await page.goto(path);
 
       await page.waitForURL("**/login");
-      // The Borderless sign-in form, proven by its roles and names.
+      // The Borderless sign-in (ADR-0026), proven by its roles and names.
       await expect(
         page.getByRole("heading", { name: "Sign in to applika", level: 1 }),
       ).toBeVisible();
-      await expect(page.getByLabel("Password")).toBeVisible();
+      await expect(
+        page.getByRole("button", {
+          name: "Sign in with Borderless",
+          exact: true,
+        }),
+      ).toBeVisible();
     });
   }
 });

@@ -142,27 +142,23 @@ class CodedRefusal(UnicornException):
         self.headers = headers or {}
 
 
-INVALID_CREDENTIALS = 'Invalid email or password'
 EMAIL_UNVERIFIED = 'Verify your email on Borderless first'
 BORDERLESS_UNAVAILABLE = 'Borderless is unavailable, try again later'
 BORDERLESS_NOT_CONFIGURED = 'Borderless sign-in is not configured'
 BADGE_REQUIRED = 'Reports are for Borderless BASE and PSP members'
-MEMBERSHIP_UNCONFIRMED = 'Sign in again to confirm your membership'
+MEMBERSHIP_LOCKED = (
+    'Your Borderless sign-in has ended. Sign in again on the applika '
+    'website to use member features'
+)
 EMAIL_UNUSABLE = (
     'This Borderless email cannot be used with applika: it must be a valid '
     'address of at most 100 characters'
 )
 
 
-class InvalidCredentials(CodedRefusal):
-    status_code = 401
-
-    def __init__(self, message: str = INVALID_CREDENTIALS):
-        super().__init__(message, ErrorCode.AUTH_INVALID_CREDENTIALS)
-
-
 class EmailUnverified(CodedRefusal):
-    """Was ``email_unverified`` (ADR-0024); AUTH-1005 since ADR-0025."""
+    """Was ``email_unverified`` (ADR-0024); AUTH-1005 since ADR-0025.
+    Since ADR-0026 the callback sends it as ``?error=AUTH-1005``."""
 
     status_code = 403
 
@@ -171,18 +167,13 @@ class EmailUnverified(CodedRefusal):
 
 
 class BindingConflict(CodedRefusal):
-    """Was ``binding_conflict`` (ADR-0024). Sign-in: AUTH-1006; the
-    membership confirm passes its own code (AUTH-1010), its message names
-    another error."""
+    """Was ``binding_conflict`` (ADR-0024); AUTH-1006: the email belongs to
+    an applika account bound to another Borderless account."""
 
     status_code = 409
 
-    def __init__(
-        self,
-        message: str,
-        code: ErrorCode = ErrorCode.AUTH_BINDING_CONFLICT,
-    ):
-        super().__init__(message, code)
+    def __init__(self, message: str):
+        super().__init__(message, ErrorCode.AUTH_BINDING_CONFLICT)
 
 
 class EmailAmbiguous(CodedRefusal):
@@ -205,22 +196,6 @@ class EmailUnusable(CodedRefusal):
         super().__init__(message, ErrorCode.AUTH_EMAIL_UNUSABLE)
 
 
-class SignInRateLimited(CodedRefusal):
-    """Too many sign-in attempts: 429 with ``Retry-After``."""
-
-    status_code = 429
-
-    def __init__(self, retry_after: int):
-        retry_after = max(1, int(retry_after))
-        super().__init__(
-            f'Too many sign-in attempts. Try again in {retry_after} seconds.',
-            ErrorCode.AUTH_SIGN_IN_RATE_LIMITED,
-            headers={'Retry-After': str(retry_after)},
-            params={'seconds': retry_after},
-        )
-        self.retry_after = retry_after
-
-
 class BadgeRequired(CodedRefusal):
     """The caller has no recorded BASE or PSP badge. Was
     ``badge_required`` (ADR-0024); RPT-1001 since ADR-0025."""
@@ -231,12 +206,12 @@ class BadgeRequired(CodedRefusal):
         super().__init__(message, ErrorCode.RPT_BADGE_REQUIRED)
 
 
-class MembershipUnconfirmed(CodedRefusal):
-    """The caller's recorded badge does not count: the Borderless access
-    expired or was refused. Was ``membership_unconfirmed`` (ADR-0024);
-    RPT-1002 since ADR-0025."""
+class MembershipLocked(CodedRefusal):
+    """The caller holds a recorded badge, but Borderless refused applika's
+    grant: member features wait for a new sign-in on the web (ADR-0026 §9).
+    AUTH-1050, on every membership-gated route, for every client."""
 
     status_code = 403
 
-    def __init__(self, message: str = MEMBERSHIP_UNCONFIRMED):
-        super().__init__(message, ErrorCode.RPT_MEMBERSHIP_UNCONFIRMED)
+    def __init__(self, message: str = MEMBERSHIP_LOCKED):
+        super().__init__(message, ErrorCode.AUTH_MEMBERSHIP_LOCKED)

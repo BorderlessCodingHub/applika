@@ -93,7 +93,11 @@ sequenceDiagram
 
 ## 3. Authentication
 
-GitHub OAuth is the only login ([ADR-0002](adr/0002-github-oauth-sole-login.md)), for both the web and the CLI.
+**In production today** GitHub OAuth is the only login ([ADR-0002](adr/0002-github-oauth-sole-login.md)), for both the web
+and the CLI, as below. **Not in production yet**: Sign in with Borderless through OpenID Connect
+replaces it ([ADR-0026](adr/0026-borderless-openid-connect-sign-in.md), amending ADR-0024 and ADR-0019): applika is a
+confidential client of Borderless, the GitHub login goes, and GitHub only restores a pre-Borderless
+account's data once. The flow, the token storage and the release are in section 10.5.
 
 ```mermaid
 sequenceDiagram
@@ -223,6 +227,22 @@ the VPS, today Luis. To list them without reading values: `docker secret ls`.
 | `CORS_ORIGINS`, `LOGIN_REDIRECT_URI` | public URLs |
 | `ENVIRONMENT=PROD` | configuration |
 
+From the Borderless sign-in release (section 10.5), on the API service (the worker and the scheduler
+share its environment):
+
+| Variable | What it is |
+|---|---|
+| `BORDERLESS_ISSUER` | Borderless's OpenID Connect issuer, `https://api.borderlesscoding.com/api/auth` (https in PROD) |
+| `BORDERLESS_CLIENT_ID` | applika's client id at Borderless |
+| `BORDERLESS_CLIENT_SECRET` | applika's client secret at Borderless (a Docker secret or env value only, never git) |
+| `BORDERLESS_REDIRECT_URI` | `https://applika.dev/api/auth/borderless/callback`, exactly the address registered at Borderless |
+| `BORDERLESS_TOKEN_ENCRYPTION_KEY` | Fernet key for the Borderless refresh token (Postgres) and access token (Redis); back it up with the stack secrets: losing it ends every web session at its next membership check |
+| `WEB_SIGNIN_URI` | the web sign-in page, `https://applika.dev/login`, where every sign-in ends |
+
+Without the issuer, the client id, the secret or the key the API still boots, and the sign-in sends
+the browser back with `?error=AUTH-1018`. `BORDERLESS_API_URL` and the per-email sign-in limit of the
+password era are gone.
+
 ## 7. Domain and TLS
 
 | Item | Status |
@@ -238,6 +258,7 @@ the VPS, today Luis. To list them without reading values: `docker secret ls`.
 | Service | Use | Provider | Owning account |
 |---|---|---|---|
 | Login | Only login for the web and the CLI ([ADR-0002](adr/0002-github-oauth-sole-login.md)) | GitHub OAuth App | **Luis** (personal). **to transfer** to the Borderless org |
+| Login (not in production yet) | Sign in with Borderless: applika's OpenID Connect client at Borderless (confidential, PKCE S256, `client_secret_basic`), the membership claim for the BASE and PSP badges (section 10.5) | Borderless (`api.borderlesscoding.com`) | **Borderless** registered the client on the owner's request; its only redirect URI is `https://applika.dev/api/auth/borderless/callback`. The secret lives only in the VPS environment |
 | Feedback | Users' feedback (`POST /api/feedbacks`) is posted to Discord by the `DISCORD_FEEDBACK_WEBHOOK` webhook (none received so far). Reports do not use this webhook (section 10.4) | Discord | **Brunno** (personal). **to transfer** |
 | CV PDF | RenderCV + Typst inside the API container | local | no account |
 | E-mail | None: the product sends no e-mail | — | — |
@@ -405,6 +426,94 @@ flowchart LR
     match -- "no" --> skip["skip that server"]
 ```
 
+### 10.5 Sign in with Borderless (OpenID Connect)
+
+[ADR-0026](adr/0026-borderless-openid-connect-sign-in.md), PRD 0020. Applika never sees a Borderless password.
+
+- `GET /api/auth/borderless/login` sends the browser to Borderless's authorize endpoint (from the
+  issuer's discovery document) with a fresh `state` (a random UUID), a `nonce` and a PKCE S256
+  challenge. The attempt lives ten minutes in Redis (`applika:borderless:login:<state>`), single use,
+  with the target to redirect to after sign-in (the web sign-in page, or the CLI's loopback or
+  manual-code page), bound to the browser by applika's own HttpOnly `__applika_login` cookie. A web
+  sign-in sends no `prompt` (a Borderless browser
+  session makes it one click); a CLI sign-in (`/api/auth/cli/authorize`, `/api/auth/cli/login/{id}`)
+  sends `prompt=login`, so Borderless always asks. `applika login --device` does not use Borderless.
+- `GET /api/auth/borderless/callback` checks the cookie, the `state`, the stored target (checked again
+  against the allowed targets; any other is refused, never followed, and no query value decides it)
+  and `iss`, exchanges the code with HTTP Basic, the verifier and the redirect URI, and verifies the
+  id_token (EdDSA, issuer, audience, expiry, nonce). It redirects to the stored target. Web: a
+  `borderless` session and its cookies. CLI: the code goes back to the CLI's loopback or manual-code
+  page. A refusal lands on `/login?error=<code>`. The request log
+  writes the callback's query as `?[redacted]`.
+- One Borderless grant per user. The **refresh token** lives only in Postgres
+  (`borderless_accounts.encrypted_refresh_token`), Fernet-encrypted, rotated on every use. The
+  **access token** never enters Postgres: it lives Fernet-encrypted in Redis
+  (`applika:borderless:access:<user_id>`), expiring with the token (about an hour). Its presence means
+  the membership read is current.
+- The membership (`borderless_membership` in the id_token: BASE, PSP) is re-read when the Redis key is
+  gone, at a session refresh or a member-gated request (the reports): about one Borderless call per
+  hour per active user. No scheduled job. Borderless slow or down never ends a session.
+- `invalid_grant` (30 days after the sign-in, or access revoked): every web session of the user ends
+  `borderless_revoked` and the web asks for a new sign-in (AUTH-1049); CLI sessions stay signed in
+  and their member-gated requests answer AUTH-1050 until the next sign-in.
+- The user's last session ending (logout, device revocation, account deletion) revokes the refresh
+  token at Borderless, best effort, after answering. The Borderless browser session is never touched.
+- Tests, the E2E stack and local runs use the fake Borderless
+  (`backend/tests/fixtures/borderless/fake_oidc.py`, synthetic accounts in `accounts.json`): the E2E
+  service `borderless-fake` runs it from its own test-only image (`applika-e2e-borderless-fake`, built
+  from `backend/tests/fixtures/borderless/Dockerfile`), never the API image (issuer
+  `http://borderless-fake:8081/api/auth`, the browser reaches it at `http://127.0.0.1:8181`, access
+  tokens of 2 seconds), locally
+  `cd backend && uv run python tests/fixtures/borderless/fake_oidc.py --port 8081 --issuer http://127.0.0.1:8081/api/auth`.
+  The real Borderless lists only the production redirect URI, so nothing but production reaches it.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant A as api
+    participant R as Redis
+    participant P as PostgreSQL
+    participant BL as Borderless (OpenID Connect)
+
+    B->>A: GET /api/auth/borderless/login
+    A->>BL: discovery (cached)
+    A->>R: attempt: state (UUID) → verifier, nonce, cookie hash, redirect target (10 min)
+    A-->>B: 307 authorize URL + __applika_login cookie
+    B->>BL: sign in (no prompt on the web, prompt=login for the CLI)
+    BL-->>B: 307 /api/auth/borderless/callback?code&state&iss
+    B->>A: callback (with the cookie)
+    A->>R: consume the attempt (single use), check its redirect target
+    A->>BL: POST /oauth2/token (Basic, code, verifier, redirect_uri)
+    BL-->>A: access token, refresh token, id_token
+    A->>A: verify the id_token (EdDSA, iss, aud, exp, nonce)
+    A->>P: bind the account, refresh token (encrypted), badge from the claim
+    A->>R: access token (encrypted, EX expires_in)
+    A-->>B: 307 to the stored target: /login + session cookies (web) or the CLI's loopback
+
+    Note over A,BL: Later, at a session refresh or a member-gated request
+    A->>R: access token present?
+    alt present
+        A-->>B: go on, no Borderless call
+    else gone (about once an hour)
+        A->>BL: POST /oauth2/token grant_type=refresh_token
+        alt ok
+            A->>P: rotated refresh token + badge from the claim
+            A->>R: new access token
+        else invalid_grant
+            A->>P: web sessions end borderless_revoked, needs_reconnect
+            A-->>B: web: 401 AUTH-1049 · CLI: member routes 403 AUTH-1050
+        else slow or failing
+            A-->>B: go on with the badges as last read
+        end
+    end
+```
+
+**Release** (plan 0020 `## Release`): the revision `f823e8c34e01` ships with its code, together with
+the Borderless sign-in of PRD 0018, in one human release from `develop` to `main`. Set the six
+variables of section 6.2 on the API service before the push; then `alembic upgrade head` in the API
+container and restart it, as for every release.
+
 ## 11. Accounts to transfer
 
 Every account in Brunno's or Luis's personal name, plus the repository.
@@ -418,6 +527,9 @@ flowchart LR
         l4["PyPI applika-cli"]
         l5["Discord Application<br/>(develop only, reports)"]
         l6["Let's Encrypt e-mail"]
+    end
+    subgraph bl["Borderless"]
+        o1["OpenID Connect client of applika<br/>(not in production yet)"]
     end
     subgraph brunno["Brunno (personal)"]
         b1["PostgreSQL"]
@@ -444,6 +556,7 @@ flowchart LR
 | Domain registration `applika.dev` (Hostinger) | Luis (personal) | Borderless | to transfer |
 | DNS (Hostinger) | Luis (personal) | Borderless | to transfer |
 | PyPI `applika-cli` | Luis (personal) | Borderless PyPI organisation | to transfer |
+| Borderless OpenID Connect client of applika (client id, secret, redirect URI) | Borderless, registered on the owner's request | stays with Borderless; the owner asks Borderless for any change (a new redirect URI, a new secret) | nothing to transfer |
 
 Repository notes:
 

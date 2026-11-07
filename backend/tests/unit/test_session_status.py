@@ -18,6 +18,7 @@ EARLIER = NOW - timedelta(seconds=1)
         ('replaced', 'signed_out'),
         ('revoked', 'revoked'),
         ('github_revoked', 'revoked'),
+        ('borderless_revoked', 'revoked'),
         ('expired', 'expired'),
     ],
 )

@@ -12,8 +12,15 @@ ClientType = Literal['web', 'cli']
 SignInMethod = Literal[
     'github_web', 'cli_browser', 'cli_device', 'cli_legacy', 'borderless'
 ]
+# ``borderless_revoked``: a web session Borderless's refusal of applika's
+# grant ended (ADR-0026 §9).
 EndReason = Literal[
-    'logout', 'revoked', 'expired', 'github_revoked', 'replaced'
+    'logout',
+    'revoked',
+    'expired',
+    'github_revoked',
+    'replaced',
+    'borderless_revoked',
 ]
 SessionStatus = Literal['active', 'signed_out', 'revoked', 'expired']
 

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   AlertTriangle,
@@ -26,7 +26,6 @@ import {
   MembershipBadge,
   membershipAccess,
 } from "@/components/badges/membership-badge";
-import { ConfirmMembershipNotice } from "./confirm-membership-notice";
 import { GithubRestoreCard } from "./github-restore-card";
 import { useIntlLocale } from "@/i18n/intl-locale";
 
@@ -66,11 +65,9 @@ export function UserProfileView({
   const earnedBadges = badges.filter((b) => b.earned);
   const lockedBadges = badges.filter((b) => !b.earned);
   const startRestore = useStartGithubRestore();
-  const headingRef = useRef<HTMLHeadingElement>(null);
+  // Held = a recorded badge while the Borderless binding is `active`.
   const access = membershipAccess(user);
   const heldBadges = access.state === "held" ? access.badges : [];
-  // Whenever the Borderless access is not active, even with no badge.
-  const needsConfirm = !!user.borderless && user.borderless.status !== "active";
   const currencySymbol = getCurrencySymbol(user.salary_currency);
   const periodLabel =
     SelectOptions.SALARY_PERIOD.find(
@@ -97,11 +94,7 @@ export function UserProfileView({
           </div>
           <div className="mt-3">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-              <h1
-                ref={headingRef}
-                tabIndex={-1}
-                className="min-w-0 text-lg font-semibold break-words text-foreground outline-none"
-              >
+              <h1 className="min-w-0 text-lg font-semibold break-words text-foreground">
                 {user.first_name || user.last_name
                   ? `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim()
                   : user.username}
@@ -140,21 +133,6 @@ export function UserProfileView({
           </div>
         </div>
       </div>
-
-      {needsConfirm ? (
-        <ConfirmMembershipNotice
-          user={user}
-          onConfirmed={() => {
-            // The confirmed card unmounts its focused button: land on the h1.
-            requestAnimationFrame(() => {
-              const active = document.activeElement;
-              if (!active || active === document.body) {
-                headingRef.current?.focus();
-              }
-            });
-          }}
-        />
-      ) : null}
 
       {/* Info grid */}
       <div className="rounded-xl bg-card p-6 shadow-card">
