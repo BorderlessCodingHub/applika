@@ -114,11 +114,15 @@ chain on every api start.
    cp .env.example .env
    ```
 
-   Sign-in is Borderless only (ADR-0024). Set `BORDERLESS_API_URL` and
-   `BORDERLESS_TOKEN_ENCRYPTION_KEY`; sign-in answers 503 until both are set.
-   For local runs, point the URL at the stub
-   (`python backend/tests/fixtures/borderless/stub.py`, port 8081, synthetic
-   accounts in `accounts.json`). The key must be a valid Fernet key:
+   The only sign-in is Borderless's OpenID Connect sign-in (ADR-0026).
+   Set `BORDERLESS_ISSUER`, `BORDERLESS_CLIENT_ID`, `BORDERLESS_CLIENT_SECRET`
+   and `BORDERLESS_TOKEN_ENCRYPTION_KEY`; until all four are set, sign-in sends
+   the browser back with `?error=AUTH-1018`. The real Borderless accepts only
+   the production callback, so for local runs start the fake Borderless
+   (`cd backend && uv run python tests/fixtures/borderless/fake_oidc.py --port 8081 --issuer http://127.0.0.1:8081/api/auth`)
+   and use its synthetic client id and secret and accounts from
+   `backend/tests/fixtures/borderless/accounts.json`. Never commit a real
+   secret. The key must be a valid Fernet key:
 
    ```bash
    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
