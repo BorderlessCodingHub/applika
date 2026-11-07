@@ -105,6 +105,24 @@ decrypt on use/ use lru cache to avoid repetitive decryption of the same token)"
 - Losing `BORDERLESS_TOKEN_ENCRYPTION_KEY` signs every active user out of the web within about an hour of activity.
 - On acceptance: ADR-0024 gets "Amended by ADR-0026" (§1, §4, §5, §7) and ADR-0019 gets "Amended by ADR-0026"
   (CLI sign-in target, `borderless_revoked` on web sessions).
+- **As-built (2026-11-07).** The build follows the Decision. Where it is more specific or departs:
+  - §9: a binding left `active` with no refresh token (a PRD 0018 password-era binding, development databases only)
+    counts as a refused grant: its web sessions end `borderless_revoked` and it turns `needs_reconnect` (tasks 0020,
+    Plan corrections 4).
+  - §6: the decrypt cache is keyed by the encryption key and the ciphertext, so a replaced key never answers an old
+    plaintext; a failed decryption is never cached (Plan corrections 5).
+  - The owner's build review, accepted on 2026-11-07 (PRD 0020 `## Clarifications`): the `state` is a random UUID
+    checked at the callback, and the redirect target is kept in Redis; the browser-binding cookie stays, renamed
+    `__applika_login`, because it stops login CSRF (§3); the cookie is cleared on every callback answer but AUTH-1046,
+    so of two tabs the later one completes; after a refused grant the user's other web sessions land on a plain
+    sign-in page (a dead refresh value names no session); a membership check within 5 seconds of a failed refresh
+    does not call Borderless again; the E2E reads the CLI's return to its loopback as the browser's own redirect to a
+    closed port, with no listener (the owner rejected a real one); the fake runs from its own test-only image (§12;
+    the owner rejected the API image); the revision's commit carried one test that stayed red until the backend
+    commit, and `docs/error-codes.md` landed with the backend commit.
+  - The AUTH-1006 and AUTH-1047 messages say what to do: "This email belongs to an applika account linked to another
+    Borderless account. Sign in with that Borderless account, or contact support" and "Borderless did not complete
+    the sign-in. Try signing in again". ADR-0025's as-built note quotes the AUTH-1006 text of 2026-10-31.
 
 ## Non-goals
 
