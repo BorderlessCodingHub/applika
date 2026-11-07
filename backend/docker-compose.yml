@@ -15,8 +15,13 @@ services:
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
       - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
       - GITHUB_REDIRECT_URI=${GITHUB_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/github/callback}
-      # Borderless sign-in (ADR-0024): 503 until both are set.
-      - BORDERLESS_API_URL=${BORDERLESS_API_URL:-}
+      # Sign in with Borderless through OpenID Connect (ADR-0026): ?error=AUTH-1018
+      # until the issuer, client id, secret and key are set. Locally, the fake:
+      #   uv run python tests/fixtures/borderless/fake_oidc.py --port 8081 --issuer http://127.0.0.1:8081/api/auth
+      - BORDERLESS_ISSUER=${BORDERLESS_ISSUER:-}
+      - BORDERLESS_CLIENT_ID=${BORDERLESS_CLIENT_ID:-}
+      - BORDERLESS_CLIENT_SECRET=${BORDERLESS_CLIENT_SECRET:-}
+      - BORDERLESS_REDIRECT_URI=${BORDERLESS_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/borderless/callback}
       - BORDERLESS_TOKEN_ENCRYPTION_KEY=${BORDERLESS_TOKEN_ENCRYPTION_KEY:-}
       - WEB_SIGNIN_URI=${WEB_SIGNIN_URI:-http://127.0.0.1:8080/login}
       - LOGIN_REDIRECT_URI=${LOGIN_REDIRECT_URI:-http://127.0.0.1:8080/dashboard}

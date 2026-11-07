@@ -51,8 +51,13 @@ x-api-environment: &api-environment
   CORS_ORIGINS: '["http://127.0.0.1:8080"]'
   CORS_HEADERS: '["X-Request-ID", "Content-Type", "Accept", "Authorization"]'
   JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-not-for-production}
-  # Borderless sign-in (ADR-0024): answers 503 until both are set.
-  BORDERLESS_API_URL: ${BORDERLESS_API_URL:-}
+  # Sign in with Borderless through OpenID Connect (ADR-0026): ?error=AUTH-1018
+  # until the issuer, client id, secret and key are set. Locally, the fake:
+  #   cd backend && uv run python tests/fixtures/borderless/fake_oidc.py --port 8081 --issuer http://127.0.0.1:8081/api/auth
+  BORDERLESS_ISSUER: ${BORDERLESS_ISSUER:-}
+  BORDERLESS_CLIENT_ID: ${BORDERLESS_CLIENT_ID:-}
+  BORDERLESS_CLIENT_SECRET: ${BORDERLESS_CLIENT_SECRET:-}
+  BORDERLESS_REDIRECT_URI: ${BORDERLESS_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/borderless/callback}
   BORDERLESS_TOKEN_ENCRYPTION_KEY: ${BORDERLESS_TOKEN_ENCRYPTION_KEY:-}
   WEB_SIGNIN_URI: ${WEB_SIGNIN_URI:-http://127.0.0.1:8080/login}
   # GitHub restore only (ADR-0024): 503 until the id and secret are set.
