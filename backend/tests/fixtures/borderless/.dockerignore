@@ -1,0 +1,4 @@
+# The image needs the fake and its synthetic accounts, nothing else.
+*
+!fake_oidc.py
+!accounts.json
