@@ -2,7 +2,8 @@
 # fake Borderless sign-in. Run from the repository root.
 #
 #   make help             list the targets
-#   make full-gate        api-gate, front-gate, cli-gate and e2e-gate in a row
+#   make leaks            gitleaks: no secret in any commit or pending change
+#   make full-gate        leaks, then api-gate, front-gate, cli-gate and e2e-gate in a row
 #   make up-build         build and start the local stack (docker-compose.yml)
 #   make run-fake-auth    start the fake Borderless for hand tests on that stack
 
@@ -10,6 +11,13 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 COMPOSE := docker compose
+
+# gitleaks, configured by .gitleaks.toml, with the old findings in .gitleaksignore.
+# A gitleaks on the PATH is used when there is one; otherwise the pinned image runs
+# in Docker, so nothing has to be installed.
+GITLEAKS_VERSION ?= 8.30.1
+GITLEAKS ?= $(if $(shell command -v gitleaks 2>/dev/null),gitleaks,docker run --rm --user "$$(id -u):$$(id -g)" -v "$(CURDIR):/repo" -w /repo ghcr.io/gitleaks/gitleaks:v$(GITLEAKS_VERSION))
+GITLEAKS_FLAGS := --no-banner --redact --verbose --config .gitleaks.toml --gitleaks-ignore-path .gitleaksignore
 
 # The fake Borderless OpenID Connect provider (ADR-0026 §12), run on its own
 # test-only image with plain `docker run`, never as part of a compose file.
@@ -27,7 +35,7 @@ FAKE_AUTH_ISSUER     ?= http://$(FAKE_AUTH_CONTAINER):8081/api/auth
 # Where the browser opens the fake's sign-in page.
 FAKE_AUTH_PUBLIC_URL ?= http://127.0.0.1:$(FAKE_AUTH_PORT)
 
-.PHONY: help front-gate api-gate cli-gate e2e-gate full-gate \
+.PHONY: help leaks front-gate api-gate cli-gate e2e-gate full-gate \
         up build up-build stop run-fake-auth stop-fake-auth
 
 help: ## List the targets
@@ -35,6 +43,13 @@ help: ## List the targets
 		| awk 'BEGIN {FS = ":.*## "} {printf "  make %-16s %s\n", $$1, $$2}'
 
 # ---- Quality gates: check only, nothing is rewritten -------------------------
+
+# Every commit in the history, then the staged and the unstaged changes. New
+# files are scanned once they are staged. A finding prints redacted and fails.
+leaks: ## Secrets: gitleaks on every commit and on staged and unstaged changes
+	$(GITLEAKS) git $(GITLEAKS_FLAGS) .
+	$(GITLEAKS) git $(GITLEAKS_FLAGS) --pre-commit --staged .
+	$(GITLEAKS) git $(GITLEAKS_FLAGS) --pre-commit .
 
 front-gate: ## Frontend: eslint, prettier, tsc, vitest (unit + integration)
 	cd frontend && pnpm lint
@@ -56,7 +71,8 @@ cli-gate: ## CLI: ruff format check, ruff check, pytest
 e2e-gate: ## E2E: Playwright on the real stack (docker-compose.e2e.yml, torn down after)
 	frontend/scripts/e2e.sh
 
-full-gate: ## Every gate in one command: api, front, cli, then e2e
+full-gate: ## Every gate in one command: leaks first, then api, front, cli and e2e
+	$(MAKE) leaks
 	$(MAKE) api-gate
 	$(MAKE) front-gate
 	$(MAKE) cli-gate
