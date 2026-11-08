@@ -263,8 +263,8 @@ test("the suite covers every page named in the acceptance criteria", () => {
   // `/admin/jobs` (Plan corrections 23); 20 since KODI-054 added
   // `/admin/features`; 22 since KODI-058 added `/device` and `/cli/code`;
   // 23 since Borderless sign-in added `/welcome` (`/admin/report-webhooks`
-  // replaced `/admin/discord-webhooks`).
-  expect(PAGES).toHaveLength(23);
+  // replaced `/admin/discord-webhooks`); 24 since the public `/cli` page.
+  expect(PAGES).toHaveLength(24);
 
   // A row with no visitors generates no tests at all, which the length check
   // above cannot see. Same for a duplicated path: 15 rows covering 14 routes.

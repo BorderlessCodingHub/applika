@@ -249,10 +249,10 @@ test.describe("below md the sidebar collapses into a menu", () => {
       },
     );
 
-    // Brand, close, every primary entry and the account menu. Expressed as
-    // `+ 3` rather than a literal so it tracks the nav; the rail test pins
-    // `PRIMARY_LABELS` itself to what actually renders.
-    expect(report.controlCount).toBe(PRIMARY_LABELS.length + 3);
+    // Brand, close, every primary entry, the "Applika CLI" link and the
+    // account menu. Expressed as `+ 4` rather than a literal so it tracks the
+    // nav; the rail test pins `PRIMARY_LABELS` itself to what actually renders.
+    expect(report.controlCount).toBe(PRIMARY_LABELS.length + 4);
 
     // Guard against a vacuous pass: the two pieces of chrome must genuinely
     // share screen space with the panel, or hit-testing proves nothing.
@@ -337,6 +337,7 @@ test.describe("below md the sidebar collapses into a menu", () => {
       ...PRIMARY_LABELS.map((label) =>
         sheet.getByRole("link", { name: label }),
       ),
+      sheet.getByRole("link", { name: "Applika CLI", exact: true }),
       sheet.getByRole("button", { name: "Open account menu" }),
       // Focus is TRAPPED in the panel: tabbing past the last control wraps
       // round to the first one in the panel rather than escaping to the page.
@@ -496,7 +497,7 @@ test.describe("at md and above the shell renders a fixed rail", () => {
     );
   });
 
-  test("tab order in the rail runs brand, entries, account menu", async ({
+  test("tab order in the rail runs brand, entries, the CLI link, account menu", async ({
     page,
   }) => {
     await openDashboard(page);
@@ -508,6 +509,11 @@ test.describe("at md and above the shell renders a fixed rail", () => {
       await page.keyboard.press("Tab");
       await expect(rail.getByRole("link", { name: label })).toBeFocused();
     }
+
+    await page.keyboard.press("Tab");
+    await expect(
+      rail.getByRole("link", { name: "Applika CLI", exact: true }),
+    ).toBeFocused();
 
     await page.keyboard.press("Tab");
     await expect(

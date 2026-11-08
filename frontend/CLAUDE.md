@@ -2281,15 +2281,23 @@ shell needs the same `relative`.
 order — which floated it over the open mobile navigation menu.
 `e2e/shell-responsive.spec.ts` hit-tests this with real geometry.
 
-**`CookieConsent` floats.** It is a bottom-right card (`fixed right-4
-bottom-4`) and reserves no space: owner decision, restoring the original
-behaviour over KODI-003's full-width bar. Nothing writes
-`--cookie-notice-height` any more, so it is always `0px` and the
+**`CookieConsent` floats, and reserves its strip.** It is a bottom-right card
+(`fixed right-4 bottom-4`), the owner's choice over KODI-003's full-width bar.
+While it is mounted it publishes its MEASURED height plus its 16px margin
+below and above (a `ResizeObserver`, so a wrap at 320px or in Portuguese still
+fits) to `--cookie-notice-height` on `<html>`, and REMOVES the property when
+it unmounts — a dismissed notice reserves nothing. `globals.css` spends that
+property in two places: `body` takes it as `padding-bottom` and
+`scroll-padding-bottom`, so a flowing document ends above the strip; and the
 `h-viewport` / `min-h-viewport` / `max-h-scrollport` /
-`max-h-editor-scrollport` utilities reduce to their `100dvh` arithmetic. Keep
-using them instead of `h-dvh`, `h-screen` or `min-h-screen` on a full-viewport
-shell. Known trade-off: until it is dismissed, the card can cover the right end
-of an in-page `sticky bottom-0` footer (the CV editors' submit row).
+`max-h-editor-scrollport` utilities subtract it. **Use those instead of
+`h-dvh`, `h-screen` or `min-h-screen` on any full-viewport shell** — the
+padding and the subtraction add up to exactly one viewport, so reserving space
+never introduces a scrollbar. The card therefore floats in an otherwise empty
+strip and never covers a control, an in-page `sticky bottom-0` footer
+included. The E2E suite keeps the notice up and hit-tests exactly that
+(`cv-builder.spec.ts`, `shell-responsive.spec.ts`). The `z-50` nav sheet is
+`fixed inset-y-0`, so it still overlaps the strip and paints over the card.
 
 **`h-viewport` is the shell; `max-h-scrollport` is the `<main>` inside it.**
 They differ by `--app-header-height`, because the shell `Header` is `main`'s

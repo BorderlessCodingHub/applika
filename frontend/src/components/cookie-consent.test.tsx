@@ -1,26 +1,55 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import en from "@/i18n/messages/en.json";
 import ptBR from "@/i18n/messages/pt-BR.json";
 
-import { CookieConsent } from "./cookie-consent";
+import { COOKIE_NOTICE_HEIGHT_VAR, CookieConsent } from "./cookie-consent";
 
 /**
- * The cookie notice: it is on screen until the user acknowledges it, and the
- * acknowledgement is persisted under `applika.cookie-notice-ack`.
+ * The cookie notice: a floating card in the bottom-right corner.
+ *
+ * Three properties hang off this file:
+ *  - it is on screen until the user acknowledges it, and the acknowledgement is
+ *    persisted under `applika.cookie-notice-ack`;
+ *  - while it is up it RESERVES its height plus its margins on the document, so
+ *    it cannot cover a control — an in-page `sticky bottom-0` footer included;
+ *  - once dismissed it reserves nothing.
  */
 
 const STORAGE_KEY = "applika.cookie-notice-ack";
+/** The height jsdom is told the card has; jsdom itself lays nothing out. */
+const CARD_HEIGHT = 96;
+/** The card's 16px margin below it and again above it. */
+const RESERVED = `${CARD_HEIGHT + 32}px`;
+
+const reserved = () =>
+  document.documentElement.style.getPropertyValue(COOKIE_NOTICE_HEIGHT_VAR);
 
 beforeEach(() => {
   window.localStorage.clear();
+  document.documentElement.style.removeProperty(COOKIE_NOTICE_HEIGHT_VAR);
+  // jsdom lays nothing out, so every rect is 0x0 and a measured reservation
+  // would be indistinguishable from no reservation. Give the card a height.
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+    height: CARD_HEIGHT,
+    width: 1280,
+    top: 0,
+    left: 0,
+    right: 1280,
+    bottom: CARD_HEIGHT,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  } as DOMRect);
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   window.localStorage.clear();
+  document.documentElement.style.removeProperty(COOKIE_NOTICE_HEIGHT_VAR);
 });
 
 describe("CookieConsent", () => {
@@ -48,9 +77,16 @@ describe("CookieConsent", () => {
     expect(
       screen.queryByRole("dialog", { name: "Cookie notice" }),
     ).not.toBeInTheDocument();
+    expect(reserved()).toBe("");
   });
 
-  it("hides and stores the acknowledgement once dismissed", async () => {
+  it("reserves its measured height and margins on the document while it is up", () => {
+    render(<CookieConsent />);
+
+    expect(reserved()).toBe(RESERVED);
+  });
+
+  it("hides, stores the acknowledgement and reserves nothing once dismissed", async () => {
     const user = userEvent.setup();
     render(<CookieConsent />);
 
@@ -60,6 +96,8 @@ describe("CookieConsent", () => {
       screen.queryByRole("dialog", { name: "Cookie notice" }),
     ).not.toBeInTheDocument();
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe("1");
+    // Removed, not zeroed: nothing is left reserving space on the page.
+    expect(reserved()).toBe("");
   });
 
   it("dismisses from the close control too", async () => {
@@ -74,6 +112,7 @@ describe("CookieConsent", () => {
       screen.queryByRole("dialog", { name: "Cookie notice" }),
     ).not.toBeInTheDocument();
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe("1");
+    expect(reserved()).toBe("");
   });
 });
 

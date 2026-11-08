@@ -529,7 +529,7 @@ test("an admin page is Portuguese", async ({ page }) => {
 
 test.describe("pt-BR sweep: no English word left on any page", () => {
   test("the sweep reads smoke.spec.ts's whole route list", () => {
-    expect(SMOKE_ROUTES).toHaveLength(23);
+    expect(SMOKE_ROUTES).toHaveLength(24);
     expect(ENGLISH_ONLY.size).toBeGreaterThan(1000);
   });
 
