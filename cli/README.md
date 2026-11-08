@@ -523,6 +523,11 @@ Once installed, the AI assistant automatically loads the skill context in every 
 
 Since **1.0.0**. Up to three master CVs per user; one CV copy per application.
 
+**Beta.** These commands are behind the CV builder beta on Applika.dev. A user
+who is not on its beta list gets `Not Found` (exit code 1) from every one of
+them. They are hidden from `applika --help` and `applika applications --help`;
+`applika cvs --help` and `applika applications cv --help` still list them.
+
 ### `applika cvs list|get|create|edit|delete|download`
 
 ```bash

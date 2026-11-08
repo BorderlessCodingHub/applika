@@ -191,6 +191,12 @@ src/applika/
   parseable release other than the latest) from a failed verify (unparseable
   output, non-zero exit, timeout): only the first is "kept". No session, no
   `ApiClient`.
+- **Beta command groups are hidden, not removed**: a group behind an API beta
+  feature is registered with `add_typer(..., hidden=True)` (`cvs`,
+  `applications cv`), so its parent's `--help` omits it while its own `--help`
+  lists everything; the API's 404 is the gate. In the bundled skill such
+  commands live under **Beta features**, after the general sections.
+  `tests/test_beta_commands_hidden.py` pins both halves.
 - **Deprecated, not removed**: `applications steps *` and `applications finalize --step/--feedback/--salary-offer` still work exactly as in 0.1.4 (`.claude/rules/cli-compatibility.md`); only their `--help` text says deprecated. Typer's own `deprecated=True` is deliberately **not** used on them — it prints a `DeprecationWarning` to stderr on every invocation, which corrupts `--output-format json` output under `CliRunner`'s default stderr mixing.
 
 ## CLI Commands
@@ -207,8 +213,8 @@ src/applika/
 | `applika applications finalize [--outcome offer\|denied]` | Close an application (bodyless = idempotent, no outcome); deprecated `--step`/`--feedback`/`--salary-offer` still work |
 | `applika applications reopen` | Reopen a closed application (idempotent) |
 | `applika applications steps list/add/edit/delete` | Deprecated — use `applications timeline` |
-| `applika applications cv get/create/edit/delete/download/diff <id>` | Manage an application's CV copy (`--from`, `--file`, `--name`, `--output`, `--type`, `--dir`, `--filename`, `--force`, `--print`) |
-| `applika cvs list/get/create/edit/delete/download` | Manage master CVs (max 3): `--file`, `--name`, `--output`, `--type pdf\|md`, `--dir`, `--filename`, `--force` |
+| `applika applications cv get/create/edit/delete/download/diff <id>` | Beta (`cvs`), hidden from `applications --help`: manage an application's CV copy (`--from`, `--file`, `--name`, `--output`, `--type`, `--dir`, `--filename`, `--force`, `--print`) |
+| `applika cvs list/get/create/edit/delete/download` | Beta (`cvs`), hidden from `applika --help`: manage master CVs (max 3): `--file`, `--name`, `--output`, `--type pdf\|md`, `--dir`, `--filename`, `--force` |
 | `applika update [--force]` | Check PyPI now and install the latest version with the detected tool, or list every reason it refuses (`--force` lifts only `APPLIKA_DISABLE_AUTOUPDATE`) |
 | `applika skill install` | Install the AI skill (symlink/copy) for Claude, Gemini, or Codex |
 

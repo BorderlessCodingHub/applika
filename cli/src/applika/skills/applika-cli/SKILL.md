@@ -14,6 +14,9 @@ description: >
 It signs in with Borderless (on Borderless's own sign-in page), gets a session of its own (a device in the web
 profile's Devices tab) and stores it locally, sent as `Authorization: Bearer`.
 
+Sections 1–12 work for every user. The CV commands are a beta feature and live
+in their own part at the end, **Beta features** (B1, B2).
+
 ## 1. Pre-flight: Verify authentication first
 
 **Always run `applika whoami` before doing anything else.**
@@ -581,7 +584,78 @@ applika applications finalize 1234567890123456789 \
 
 ---
 
-## 11. Master CVs (`applika cvs`) — since 1.0.0
+## 11. `--file` and the job description on applications — since 1.0.0
+
+`applications new` and `applications edit` accept the whole payload as a
+file instead of the named options. The named options still work exactly as
+before; the two inputs are mutually exclusive.
+
+```bash
+# Create from a file (API field names)
+applika applications new --file application.json
+cat application.yaml | applika applications new --file -
+
+# Edit from a file — only the keys present are updated
+applika applications edit <application-id> --file patch.yaml
+
+# The job description (plain text or Markdown)
+applika applications new --file application.json --job-description "We need…"
+applika applications new --file application.json --job-description-file jd.md
+applika applications edit <application-id> --job-description-file jd.md
+applika applications edit <application-id> --job-description ""   # clears it
+```
+
+```json
+{
+  "company": "Acme",
+  "role": "Backend Engineer",
+  "mode": "active",
+  "platform_id": "10",
+  "application_date": "2026-09-23",
+  "link_to_job": "https://jobs.example/acme",
+  "country": "Portugal",
+  "job_description": "We need a backend engineer…"
+}
+```
+
+`company` may be a company id, a company name (resolved the same way
+`--company` resolves it) or an object `{"name": …, "url": …}`.
+`job_description` is also accepted as a key in `--file`; the option wins
+when both are given. On `edit`, the key is never sent unless you asked for
+it, so the stored text is left alone.
+
+---
+
+## 12. Exit codes
+
+- **0** — success.
+- **1** — the API refused the request; the API's `detail` is printed.
+- **2** — a usage or file-validation error; nothing was sent.
+
+---
+
+# Beta features
+
+The commands below are behind the **CV builder** beta (`cvs`) on Applika.dev.
+Only users on its beta list (and admins) can use them; everyone else gets the
+same answer as an unknown route:
+
+```
+Not Found
+```
+
+with exit code **1**. That is not a bug or a bad id: the account is not in
+the beta. Tell the user so, and do not retry or work around it.
+
+- They are hidden from `applika --help` and `applika applications --help`,
+  but still installed: `applika cvs --help` and
+  `applika applications cv --help` list every command as usual.
+- Only reach for them when the user asks for master CVs or an application's
+  CV copy. Applications, the timeline and finalizing (sections 2–11) never
+  need them.
+- Losing the beta deletes nothing: the CVs come back when access does.
+
+## B1. Master CVs (`applika cvs`) — beta, since 1.0.0
 
 Up to **3** master CVs per user. A fourth is refused with a 409.
 
@@ -615,7 +689,7 @@ applika cvs download <cv-id> --type md --dir ./out --filename backend-cv
 applika cvs download <cv-id> --type pdf --force    # overwrite an existing file
 ```
 
-### `--file` rules (all CV commands)
+### `--file` rules (all CV commands, B1 and B2)
 
 - Format is picked by the extension: `.json`, `.yaml`, `.yml`. `-` reads
   stdin and sniffs JSON then YAML.
@@ -679,9 +753,9 @@ existing file is never overwritten unless `--force`.
 
 ---
 
-## 12. An application's CV copy (`applika applications cv`) — since 1.0.0
+## B2. An application's CV copy (`applika applications cv`) — beta, since 1.0.0
 
-One copy per application, made from a master CV and then tailored. A closed
+One copy per application, made from a master CV (B1) and then tailored. A closed
 or archived application refuses writes (the API's message is printed); reads
 and downloads keep working.
 
@@ -712,53 +786,3 @@ applika applications cv delete <application-id> --yes
 
 A copy with no baseline to compare against answers 409, printed as
 "nothing to compare against". `--print` is only valid with `--type md`.
-
----
-
-## 13. `--file` and the job description on applications — since 1.0.0
-
-`applications new` and `applications edit` accept the whole payload as a
-file instead of the named options. The named options still work exactly as
-before; the two inputs are mutually exclusive.
-
-```bash
-# Create from a file (API field names)
-applika applications new --file application.json
-cat application.yaml | applika applications new --file -
-
-# Edit from a file — only the keys present are updated
-applika applications edit <application-id> --file patch.yaml
-
-# The job description (plain text or Markdown)
-applika applications new --file application.json --job-description "We need…"
-applika applications new --file application.json --job-description-file jd.md
-applika applications edit <application-id> --job-description-file jd.md
-applika applications edit <application-id> --job-description ""   # clears it
-```
-
-```json
-{
-  "company": "Acme",
-  "role": "Backend Engineer",
-  "mode": "active",
-  "platform_id": "10",
-  "application_date": "2026-09-23",
-  "link_to_job": "https://jobs.example/acme",
-  "country": "Portugal",
-  "job_description": "We need a backend engineer…"
-}
-```
-
-`company` may be a company id, a company name (resolved the same way
-`--company` resolves it) or an object `{"name": …, "url": …}`.
-`job_description` is also accepted as a key in `--file`; the option wins
-when both are given. On `edit`, the key is never sent unless you asked for
-it, so the stored text is left alone.
-
----
-
-## 14. Exit codes
-
-- **0** — success.
-- **1** — the API refused the request; the API's `detail` is printed.
-- **2** — a usage or file-validation error; nothing was sent.
