@@ -216,6 +216,10 @@ describe("Devices tab in Portuguese", () => {
     expect(
       screen.getByRole("heading", { name: "Encerrados (últimos 30 dias)" }),
     ).toBeVisible();
+    // Ended starts closed; its rows mount once it is opened.
+    await userEvent.click(
+      screen.getByRole("button", { name: "Encerrados (últimos 30 dias)" }),
+    );
 
     const current = within(
       document.querySelector<HTMLElement>('[data-session-id="101"]')!,
@@ -350,6 +354,9 @@ describe("Devices tab language switch", () => {
       </Switcher>,
     );
     expect(screen.getByRole("heading", { name: "Active" })).toBeVisible();
+    await user.click(
+      screen.getByRole("button", { name: "Ended (last 30 days)" }),
+    );
     expect(screen.getByText("Revoked")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "switch" }));

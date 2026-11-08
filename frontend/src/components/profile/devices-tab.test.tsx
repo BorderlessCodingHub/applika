@@ -130,6 +130,13 @@ function endedList() {
   return document.querySelector<HTMLElement>('[data-slot="ended-devices"]');
 }
 
+/** The Ended section starts closed; its list mounts once it is opened. */
+async function openEnded() {
+  await userEvent.click(
+    screen.getByRole("button", { name: "Ended (last 30 days)" }),
+  );
+}
+
 function signOutOthers() {
   return document.querySelector<HTMLElement>('[data-slot="sign-out-others"]')!;
 }
@@ -169,8 +176,9 @@ describe("DevicesTab states", () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it("3 ready: Active then Ended, in server order", () => {
+  it("3 ready: Active then Ended, in server order", async () => {
     renderTab();
+    await openEnded();
 
     expect(
       screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent),
@@ -241,8 +249,9 @@ describe("DevicesTab states", () => {
     expect(row("102")).not.toHaveAttribute("data-current");
   });
 
-  it("shows the status in words and how an ended row ended", () => {
+  it("shows the status in words and how an ended row ended", async () => {
     renderTab();
+    await openEnded();
 
     const status = (id: string) =>
       row(id).querySelector('[data-slot="device-status"]');
@@ -281,11 +290,37 @@ describe("DevicesTab states", () => {
       screen.getByText("Browsers and CLIs you sign in with appear here."),
     ).toBeInTheDocument();
     expect(activeList()).not.toBeInTheDocument();
+  });
+
+  it("4 empty Active: Ended still lists the rest once opened", async () => {
+    renderTab({ sessions: [SIGNED_OUT] });
+
+    await openEnded();
+
     expect(endedList()).toBeInTheDocument();
   });
 
-  it("5 empty Ended: the no-ended line", () => {
+  it("Ended starts closed and toggles open and shut", async () => {
+    renderTab();
+    const toggle = screen.getByRole("button", {
+      name: "Ended (last 30 days)",
+    });
+
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(endedList()).not.toBeInTheDocument();
+
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(endedList()).toBeInTheDocument();
+
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(endedList()).not.toBeInTheDocument();
+  });
+
+  it("5 empty Ended: the no-ended line", async () => {
     renderTab({ sessions: [CURRENT, CLI] });
+    await openEnded();
 
     expect(
       screen.getByText("No device has ended in the last 30 days."),
@@ -393,6 +428,7 @@ describe("DevicesTab states", () => {
   it("9 a revoked row moves to Ended and focus lands on the Active heading", async () => {
     const user = userEvent.setup();
     const { rerender, props } = renderTab();
+    await openEnded();
 
     await user.click(
       within(row("102")).getByRole("button", { name: "Revoke" }),
@@ -483,9 +519,11 @@ describe("Devices tab wired to the API (use-sessions)", () => {
       ]);
     vi.mocked(services.sessions.revoke).mockResolvedValue(undefined);
     renderWired();
+    await waitFor(() => row("102"));
+    await openEnded();
 
     await user.click(
-      await within(await waitFor(() => row("102"))).findByRole("button", {
+      within(row("102")).getByRole("button", {
         name: "Revoke",
       }),
     );
@@ -517,6 +555,7 @@ describe("Devices tab wired to the API (use-sessions)", () => {
     renderWired();
 
     await waitFor(() => row("102"));
+    await openEnded();
     await user.click(signOutOthers());
     await user.click(
       within(screen.getByRole("alertdialog")).getByRole("button", {

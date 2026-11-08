@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef } from "react";
 import { useLocale } from "next-intl";
 import {
+  ChevronDown,
   CircleAlert,
   History,
   LoaderCircle,
@@ -13,6 +14,11 @@ import {
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { EmptyState } from "@/components/common/empty-state";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { UserSession } from "@/services/types/sessions";
@@ -274,23 +280,44 @@ export function DevicesTab({
 
       {state === "ready" ? (
         <section aria-labelledby={endedHeadingId} className={SECTION}>
-          <div className={cn(SECTION_HEAD, "flex items-center gap-2")}>
-            <History aria-hidden className="size-4 text-muted-foreground" />
+          {/* Closed by default: the history matters less than what is
+              signed in now. Closed, the list is unmounted. */}
+          <Collapsible>
             <h2 id={endedHeadingId} className={SECTION_TITLE}>
-              {DEVICES_COPY.endedTitle}
+              <CollapsibleTrigger
+                className={cn(
+                  "group flex w-full items-center gap-2 px-4 py-4 text-left sm:px-6",
+                  "outline-none hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:ring-inset",
+                )}
+              >
+                <History
+                  aria-hidden
+                  className="size-4 shrink-0 text-muted-foreground"
+                />
+                {DEVICES_COPY.endedTitle}
+                <ChevronDown
+                  aria-hidden
+                  className="ml-auto size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
+                />
+              </CollapsibleTrigger>
             </h2>
-          </div>
-          {ended.length > 0 ? (
-            <ul data-slot="ended-devices" className="divide-y divide-border">
-              {ended.map((session) => (
-                <DeviceRow key={session.id} session={session} />
-              ))}
-            </ul>
-          ) : (
-            <p className="px-4 py-5 text-sm text-muted-foreground sm:px-6">
-              {DEVICES_COPY.endedEmpty}
-            </p>
-          )}
+            <CollapsibleContent className="border-t border-border">
+              {ended.length > 0 ? (
+                <ul
+                  data-slot="ended-devices"
+                  className="divide-y divide-border"
+                >
+                  {ended.map((session) => (
+                    <DeviceRow key={session.id} session={session} />
+                  ))}
+                </ul>
+              ) : (
+                <p className="px-4 py-5 text-sm text-muted-foreground sm:px-6">
+                  {DEVICES_COPY.endedEmpty}
+                </p>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
         </section>
       ) : null}
     </div>
