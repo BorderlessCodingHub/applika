@@ -1,68 +1,88 @@
 {
-  "_comment": "Synthetic Borderless accounts for the E2E stack and local runs. Not real data. The seed tokens of the three e2e-* accounts equal app/scripts/seed_e2e.py.",
+  "_comment": "Synthetic client and accounts of the fake Borderless OpenID Connect provider (fake_oidc.py), for the backend tests, the E2E stack and local runs. Not real data, not a real secret. The seedRefreshToken of the three e2e-* accounts equals app/scripts/seed_e2e.py; POST /__fake/reset re-arms them.",
+  "client": {
+    "client_id": "applika-fake-client",
+    "client_secret": "applika-fake-client-secret-not-real",
+    "redirect_uris": [
+      "http://127.0.0.1:8000/api/auth/borderless/callback",
+      "http://127.0.0.1:8100/api/auth/borderless/callback"
+    ]
+  },
   "accounts": [
     {
-      "id": "e2e-borderless-user",
+      "sub": "e2e-borderless-user",
       "email": "e2e-user@e2e.applika.dev",
       "password": "e2e-user-password",
       "name": "e2e-user",
-      "username": "e2e-user",
-      "emailVerified": true,
+      "preferred_username": "e2e-user",
+      "email_verified": true,
       "membership": "PSP",
-      "seedToken": "e2eseedtokenuser0000000000000001",
-      "expiresIn": 604800
+      "seedRefreshToken": "e2eseedtokenuser0000000000000001"
     },
     {
-      "id": "e2e-borderless-admin",
+      "sub": "e2e-borderless-admin",
       "email": "e2e-admin@e2e.applika.dev",
       "password": "e2e-admin-password",
       "name": "e2e-admin",
-      "username": "e2e-admin",
-      "emailVerified": true,
+      "preferred_username": "e2e-admin",
+      "email_verified": true,
       "membership": "BASE",
-      "seedToken": "e2eseedtokenadmin000000000000002",
-      "expiresIn": 604800
+      "seedRefreshToken": "e2eseedtokenadmin000000000000002"
     },
     {
-      "id": "e2e-borderless-discord",
+      "sub": "e2e-borderless-discord",
       "email": "e2e-discord@e2e.applika.dev",
       "password": "e2e-discord-password",
       "name": "e2e-discord",
-      "username": "e2e-discord",
-      "emailVerified": true,
+      "preferred_username": "e2e-discord",
+      "email_verified": true,
       "membership": "BASE",
-      "seedToken": "e2eseedtokendiscord0000000000003",
-      "expiresIn": 604800
+      "seedRefreshToken": "e2eseedtokendiscord0000000000003"
     },
     {
-      "id": "e2e-borderless-free",
+      "sub": "e2e-borderless-free",
       "email": "e2e-free@e2e.applika.dev",
       "password": "e2e-free-password",
       "name": "E2E Free",
-      "username": "e2e-free",
-      "emailVerified": true,
-      "membership": "FREE",
-      "expiresIn": 604800
+      "preferred_username": "e2e-free",
+      "email_verified": true,
+      "membership": "FREE"
     },
     {
-      "id": "e2e-borderless-short",
-      "email": "e2e-short@e2e.applika.dev",
-      "password": "e2e-short-password",
-      "name": "E2E Short",
-      "username": "e2e-short",
-      "emailVerified": true,
-      "membership": "PSP",
-      "expiresIn": [3, 604800]
+      "sub": "e2e-borderless-starter",
+      "email": "e2e-starter@e2e.applika.dev",
+      "password": "e2e-starter-password",
+      "name": "E2E Starter",
+      "preferred_username": "e2e-starter",
+      "email_verified": true,
+      "membership": "STARTER"
     },
     {
-      "id": "e2e-borderless-unverified",
+      "sub": "e2e-borderless-unverified",
       "email": "e2e-unverified@e2e.applika.dev",
       "password": "e2e-unverified-password",
       "name": "E2E Unverified",
-      "username": "e2e-unverified",
-      "emailVerified": false,
-      "membership": "PSP",
-      "expiresIn": 604800
+      "preferred_username": "e2e-unverified",
+      "email_verified": false,
+      "membership": "PSP"
+    },
+    {
+      "sub": "e2e-borderless-revoke",
+      "email": "e2e-revoke@e2e.applika.dev",
+      "password": "e2e-revoke-password",
+      "name": "E2E Revoke",
+      "preferred_username": "e2e-revoke",
+      "email_verified": true,
+      "membership": "PSP"
+    },
+    {
+      "sub": "e2e-borderless-logout",
+      "email": "e2e-logout@e2e.applika.dev",
+      "password": "e2e-logout-password",
+      "name": "E2E Logout",
+      "preferred_username": "e2e-logout",
+      "email_verified": true,
+      "membership": "PSP"
     }
   ]
 }

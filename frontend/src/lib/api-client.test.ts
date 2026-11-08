@@ -7,8 +7,8 @@ import en from "@/i18n/messages/en.json";
 import { setTranslatorLocale } from "@/i18n/translator";
 import { api, getApiError } from "@/lib/api-client";
 import { getBlobApiError } from "@/lib/blob-error";
-import { borderlessErrorWords } from "@/lib/borderless-error";
 import { isTemporary, rateLimitNotice } from "@/lib/rate-limit";
+import { refusedRefresh, resetRefusedRefresh } from "@/lib/session-ended";
 import { services } from "@/services/services";
 
 /**
@@ -75,6 +75,7 @@ beforeEach(() => {
 afterEach(() => {
   api.defaults.adapter = originalAdapter;
   vi.mocked(services.auth.refresh).mockReset();
+  resetRefusedRefresh();
 });
 
 describe("api-client 401 interceptor", () => {
@@ -131,59 +132,48 @@ describe("api-client 401 interceptor", () => {
     expect(calls).toEqual(["/auth/github/restore", "/auth/github/restore"]);
   });
 
-  it("refreshes the membership confirm on AUTH-1001, not authenticated", async () => {
-    answers = [[401, "Not authenticated", "AUTH-1001"], 200];
-    vi.mocked(services.auth.refresh).mockResolvedValueOnce({ detail: "ok" });
-
-    await api.post("/auth/borderless/confirm", {});
-
-    expect(services.auth.refresh).toHaveBeenCalledTimes(1);
-    expect(calls).toEqual([
-      "/auth/borderless/confirm",
-      "/auth/borderless/confirm",
-    ]);
-  });
-
-  it("keys the confirm on the code, not the words: AUTH-1004 never replays", async () => {
-    answers = [[401, "Not authenticated", "AUTH-1004"]];
+  it("never refreshes on a 401 from the retired Borderless routes", async () => {
+    answers = [[401, "Not authenticated", "AUTH-1001"]];
 
     await api.post("/auth/borderless/confirm", {}).catch((e) => e);
 
     expect(services.auth.refresh).not.toHaveBeenCalled();
     expect(calls).toEqual(["/auth/borderless/confirm"]);
   });
+});
 
-  it("an API older than the codes: the confirm still refreshes on the words", async () => {
-    answers = [[401, "Not authenticated"], 200];
-    vi.mocked(services.auth.refresh).mockResolvedValueOnce({ detail: "ok" });
+describe("api-client: a refused refresh that ends the session (AUTH-1049)", () => {
+  it("records AUTH-1049 and rejects with it", async () => {
+    answers = [401];
+    vi.mocked(services.auth.refresh).mockRejectedValueOnce(
+      response(
+        401,
+        "/auth/refresh",
+        "Your Borderless sign-in has ended. Sign in again with Borderless",
+        "AUTH-1049",
+      ),
+    );
 
-    await api.post("/auth/borderless/confirm", {});
+    const error = await api.get("/applications").catch((e) => e);
 
-    expect(services.auth.refresh).toHaveBeenCalledTimes(1);
-    expect(calls).toEqual([
-      "/auth/borderless/confirm",
-      "/auth/borderless/confirm",
-    ]);
-  });
-
-  it("never replays a wrong Borderless password", async () => {
-    answers = [[401, "Invalid email or password"]];
-
-    const error = await api
-      .post("/auth/borderless/confirm", {})
-      .catch((e) => e);
-
-    expect(services.auth.refresh).not.toHaveBeenCalled();
-    expect(calls).toEqual(["/auth/borderless/confirm"]);
+    expect(refusedRefresh()?.code).toBe("AUTH-1049");
     expect((error as AxiosError).response?.status).toBe(401);
+    expect(calls).toEqual(["/applications"]);
   });
 
-  it("never refreshes on a 401 from the Borderless sign-in", async () => {
-    answers = [[401, "Invalid email or password"]];
+  it.each([
+    ["AUTH-1015, another session's refresh", 401, "AUTH-1015"],
+    ["a 503", 503, "AUTH-1003"],
+    ["AUTH-1049 on a non-401", 403, "AUTH-1049"],
+  ])("records nothing for %s", async (_label, status, code) => {
+    answers = [401];
+    vi.mocked(services.auth.refresh).mockRejectedValueOnce(
+      response(status, "/auth/refresh", "x", code),
+    );
 
-    await api.post("/auth/borderless/signin", {}).catch((e) => e);
+    await api.get("/applications").catch((e) => e);
 
-    expect(services.auth.refresh).not.toHaveBeenCalled();
+    expect(refusedRefresh()).toBeNull();
   });
 });
 
@@ -335,47 +325,5 @@ describe("errors by code (ADR-0025)", () => {
       "Muitas solicitações. Tente novamente em 12 segundos.",
     );
     expect(rateLimitNotice(refused(429, {}))).toBeNull();
-  });
-
-  it("the sign-in words go by code; CLI login expired keys on AUTH-1019", async () => {
-    const expired = borderlessErrorWords(
-      refused(400, { detail: "CLI login expired", code: "AUTH-1019" }),
-    );
-    expect(expired).toEqual({
-      message: "CLI login expired",
-      cliLoginExpired: true,
-      status: 400,
-      code: "AUTH-1019",
-    });
-    // The words alone no longer decide.
-    expect(
-      borderlessErrorWords(refused(400, { detail: "CLI login expired" }))
-        .cliLoginExpired,
-    ).toBe(false);
-
-    await inPortuguese();
-    expect(
-      borderlessErrorWords(
-        refused(429, {
-          detail: "Too many sign-in attempts. Try again in 42 seconds.",
-          code: "AUTH-1009",
-          params: { seconds: 42 },
-        }),
-      ).message,
-    ).toBe("Muitas tentativas de entrar. Tente novamente em 42 segundos.");
-    expect(
-      borderlessErrorWords(
-        refused(403, {
-          detail: "Reports are for Borderless BASE and PSP members",
-          code: "RPT-1001",
-        }),
-      ).message,
-    ).toBe("Os relatórios são para membros BASE e PSP da Borderless");
-    expect(borderlessErrorWords(new AxiosError("offline")).message).toBe(
-      "Não foi possível acessar o Applika. Verifique sua conexão e tente novamente.",
-    );
-    expect(borderlessErrorWords(new Error("boom")).message).toBe(
-      "O login não foi concluído. Tente novamente.",
-    );
   });
 });

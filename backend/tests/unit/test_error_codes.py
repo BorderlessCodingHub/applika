@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 from starlette.requests import Request
 
+from app.application.use_cases.borderless import complete_login, sign_in
 from app.core import exceptions
 from app.core.error_codes import ErrorCode
 from app.presentation import handlers
@@ -94,6 +95,20 @@ def test_a_value_in_a_message_is_a_param_of_its_code():
         assert named == set(row.params), row.code
 
 
+# Codes no longer raised since ADR-0026 (the password sign-in and the
+# membership confirm are gone): kept in the registry and the catalog, never
+# reused, never raised. The catalog marks each "not raised since ADR-0026".
+RETIRED = {'AUTH-1004', 'AUTH-1009', 'AUTH-1010', 'RPT-1002'}
+NOT_RAISED = 'not raised since ADR-0026'
+
+
+def test_retired_codes_are_marked_in_the_catalog():
+    marked = {
+        row.code for row in catalog_rows() if NOT_RAISED in row.raised_by
+    }
+    assert marked == RETIRED
+
+
 def _string_constants() -> set[str]:
     found: set[str] = set()
     for path in APP_DIR.rglob('*.py'):
@@ -111,7 +126,7 @@ def test_every_fixed_catalog_message_is_the_apis_own_text():
     for row in catalog_rows():
         if row.params or row.detail.startswith('('):
             continue
-        if row.code in framework_words:
+        if row.code in framework_words or row.code in RETIRED:
             continue
         assert row.detail in constants, row.code
 
@@ -187,23 +202,39 @@ def _params_sent() -> dict[str, set[frozenset[str]]]:
 
 def test_each_params_code_sends_exactly_its_catalog_params():
     sent = _params_sent()
-    expected = {row.code: row.params for row in catalog_rows() if row.params}
+    expected = {
+        row.code: row.params
+        for row in catalog_rows()
+        if row.params and row.code not in RETIRED
+    }
     assert set(sent) == set(expected)
     for code, key_sets in sent.items():
         assert key_sets == {expected[code]}, code
 
 
-def test_every_code_is_raised_somewhere():
-    """No dead code in the registry: each member is used in ``app/``."""
+def _used_members() -> set[str]:
     used: set[str] = set()
     for path in APP_DIR.rglob('*.py'):
         if path.name == 'error_codes.py':
             continue
         used.update(re.findall(r'ErrorCode\.([A-Z0-9_]+)', path.read_text()))
-    assert {m.name for m in ErrorCode} <= used
+    return used
 
 
-# --- the six ADR-0024 codes, renumbered, words kept ---------------------------
+def test_every_code_is_raised_somewhere():
+    """No dead code in the registry: each member is used in ``app/``,
+    except the retired ones."""
+    live = {m.name for m in ErrorCode if m.value not in RETIRED}
+    assert live <= _used_members()
+
+
+def test_a_retired_code_is_never_raised():
+    retired = {m.name for m in ErrorCode if m.value in RETIRED}
+    assert len(retired) == len(RETIRED)
+    assert not retired & _used_members()
+
+
+# --- the ADR-0024 codes, renumbered, words kept -------------------------------
 
 
 @pytest.mark.parametrize(
@@ -218,7 +249,8 @@ def test_every_code_is_raised_somewhere():
         (
             exceptions.BindingConflict(
                 'This email belongs to an applika account linked to another '
-                'Borderless account'
+                'Borderless account. Sign in with that Borderless account, '
+                'or contact support'
             ),
             'AUTH-1006',
             409,
@@ -239,28 +271,63 @@ def test_every_code_is_raised_somewhere():
             403,
             'Reports are for Borderless BASE and PSP members',
         ),
-        (
-            exceptions.MembershipUnconfirmed(),
-            'RPT-1002',
-            403,
-            'Sign in again to confirm your membership',
-        ),
     ],
 )
-def test_the_six_named_codes_are_renumbered(refusal, code, status, detail):
+def test_the_named_codes_are_renumbered(refusal, code, status, detail):
     assert refusal.code == code
     assert refusal.status_code == status
     assert catalog()[code].status == str(status)
     assert refusal.message == (detail or catalog()[code].detail)
 
 
-def test_invalid_credentials_and_the_sign_in_limit_have_codes():
-    assert exceptions.InvalidCredentials().code == 'AUTH-1004'
-    limited = exceptions.SignInRateLimited(42)
-    assert limited.code == 'AUTH-1009'
-    assert limited.params == {'seconds': 42}
-    assert limited.headers == {'Retry-After': '42'}
+def test_the_borderless_openid_connect_codes():
+    """ADR-0026 §13: AUTH-1046 to AUTH-1050. The three callback-only codes
+    travel as ``?error=`` (status ``307``); AUTH-1049 is the refused web
+    refresh (401) and AUTH-1050 the locked member route (403)."""
+    rows = catalog()
+    assert [rows[f'AUTH-{n}'].status for n in range(1046, 1051)] == [
+        '307',
+        '307',
+        '307',
+        '401',
+        '403',
+    ]
+    locked = exceptions.MembershipLocked()
+    assert (locked.code, locked.status_code) == ('AUTH-1050', 403)
+    assert locked.message == rows['AUTH-1050'].detail == (
+        'Your Borderless sign-in has ended. Sign in again on the applika '
+        'website to use member features'
+    )
+    assert rows['AUTH-1049'].detail == (
+        'Your Borderless sign-in has ended. Sign in again with Borderless'
+    )
     assert exceptions.SessionServiceUnavailable().code == 'AUTH-1003'
+
+
+def test_the_callback_only_words_say_what_happened_and_what_to_do():
+    """AC21: the web shows ``errors.<code>``, whose en words are the
+    catalog's; each callback-only code and the binding conflict name the
+    failure and the remedy."""
+    rows = catalog()
+    assert [
+        complete_login.LOGIN_EXPIRED,
+        complete_login.LOGIN_DENIED,
+        complete_login.LOGIN_UNVERIFIABLE,
+        sign_in.BOUND_TO_ANOTHER,
+    ] == [
+        rows['AUTH-1046'].detail,
+        rows['AUTH-1047'].detail,
+        rows['AUTH-1048'].detail,
+        rows['AUTH-1006'].detail,
+    ]
+    assert rows['AUTH-1047'].detail == (
+        'Borderless did not complete the sign-in. Try signing in again'
+    )
+    assert rows['AUTH-1006'].detail == (
+        'This email belongs to an applika account linked to another '
+        'Borderless account. Sign in with that Borderless account, or '
+        'contact support'
+    )
 
 
 def test_a_domain_exception_cannot_be_built_without_a_code():
@@ -347,17 +414,41 @@ async def test_oauth_handler_keeps_error_first():
     ]
 
 
+class _Waited(exceptions.CodedRefusal):
+    status_code = 429
+
+
 async def test_coded_refusal_handler_sends_params_and_headers():
     response = await handlers._coded_refusal_handler(
-        _request(), exceptions.SignInRateLimited(9)
+        _request(),
+        _Waited(
+            'Too many requests. Try again in 9 seconds.',
+            ErrorCode.GEN_RATE_LIMITED,
+            headers={'Retry-After': '9'},
+            params={'seconds': 9},
+        ),
     )
     assert response.status_code == 429
     assert response.headers['retry-after'] == '9'
     assert list(_body(response).items()) == [
-        ('detail', 'Too many sign-in attempts. Try again in 9 seconds.'),
-        ('code', 'AUTH-1009'),
+        ('detail', 'Too many requests. Try again in 9 seconds.'),
+        ('code', 'GEN-1004'),
         ('params', {'seconds': 9}),
     ]
+
+
+async def test_coded_refusal_handler_answers_the_membership_lock():
+    response = await handlers._coded_refusal_handler(
+        _request(), exceptions.MembershipLocked()
+    )
+    assert response.status_code == 403
+    assert _body(response) == {
+        'detail': (
+            'Your Borderless sign-in has ended. Sign in again on the '
+            'applika website to use member features'
+        ),
+        'code': 'AUTH-1050',
+    }
 
 
 async def test_coded_refusal_handler_without_params():

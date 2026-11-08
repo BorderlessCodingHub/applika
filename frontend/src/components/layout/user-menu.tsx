@@ -2,7 +2,13 @@
 
 import { useId } from "react";
 import Link from "next/link";
-import { ChevronsUpDown, LogOut, MessageSquareHeart, User } from "lucide-react";
+import {
+  BadgeAlert,
+  ChevronsUpDown,
+  LogOut,
+  MessageSquareHeart,
+  User,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   DropdownMenu,
@@ -12,12 +18,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ConfirmMembershipMenuItem } from "@/components/badges/confirm-membership-form";
 import {
   MembershipBadge,
   membershipAccess,
 } from "@/components/badges/membership-badge";
 import { UserProfileAvatar } from "@/components/profile/sub-components";
+import { useAuth } from "@/contexts/auth-context";
 import type { User as AppUser } from "@/services/types/users";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +34,11 @@ interface UserMenuProps {
   onFeedback: () => void;
   /** Fired after any item is chosen (the mobile sheet closes on it). */
   onNavigate?: () => void;
+  /**
+   * "Sign in again", offered while a recorded badge waits for a new sign-in:
+   * by default ends this session and opens `/login` (`useAuth().logout`).
+   */
+  onSignInAgain?: () => void;
   /** "card" = sidebar footer (name + email); "avatar" = compact header trigger. */
   variant?: "card" | "avatar";
   className?: string;
@@ -38,16 +49,18 @@ export function UserMenu({
   onLogout,
   onFeedback,
   onNavigate,
+  onSignInAgain,
   variant = "card",
   className,
 }: UserMenuProps) {
   const t = useTranslations("userMenu");
   const chipId = useId();
+  const { logout } = useAuth();
   if (!user) return null;
 
   const card = variant === "card";
   // The chip shows only while the badge counts; a recorded badge that does
-  // not count asks for the password instead (the Reports page holds the form).
+  // not count (Borderless refused applika's grant) offers "Sign in again".
   const access = membershipAccess(user);
   const heldBadges = access.state === "held" ? access.badges : [];
 
@@ -133,8 +146,19 @@ export function UserMenu({
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
-        {access.state === "unconfirmed" ? (
-          <ConfirmMembershipMenuItem onSelect={onNavigate} />
+        {access.state === "needs_reconnect" ? (
+          <DropdownMenuItem
+            data-slot="sign-in-again-menu-item"
+            className="cursor-pointer items-start gap-2"
+            onSelect={() => {
+              onNavigate?.();
+              if (onSignInAgain) onSignInAgain();
+              else void logout("/login");
+            }}
+          >
+            <BadgeAlert aria-hidden className="mt-0.5 text-warning" />
+            <span className="min-w-0 text-pretty">{t("signInAgain")}</span>
+          </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem asChild onSelect={onNavigate}>
           <Link href="/profile" className="cursor-pointer gap-2">

@@ -26,30 +26,17 @@
     "flagBr": "Brazil flag"
   },
   "auth": {
-    "signInFallback": "Sign-in did not finish. Try again.",
-    "unreachable": "Could not reach applika. Check your connection and try again.",
     "logout": "Logout",
     "signIn": {
       "title": "Sign in to applika",
-      "cliTitle": "Sign in to applika-cli",
-      "lead": "Use your Borderless email and password.",
+      "lead": "Use your Borderless account. Borderless confirms it's you and sends you back here.",
+      "signInWithBorderless": "Sign in with Borderless",
+      "pending": "Opening Borderless…",
       "cliCommand": "applika login",
-      "cliNote": "This sign-in completes <code>{command}</code> in your terminal.",
-      "submit": "Sign in",
-      "passwordHint": "Joined Borderless through another sign-in provider? Set a password on Borderless first, then sign in here.",
+      "cliRetry": "Return to your terminal and run <code>{command}</code> again.",
       "noAccount": "No Borderless account yet?",
       "createAccount": "Create a Borderless account",
-      "opensInNewTab": "Opens in a new tab.",
-      "cliExpiredHint": "Run applika login in your terminal again.",
-      "cliHandoffLost": "The terminal sign-in expired before you signed in. This browser is signed in to applika instead."
-    },
-    "credentials": {
-      "emailLabel": "Email",
-      "passwordLabel": "Password",
-      "emailRequired": "Enter your Borderless email",
-      "emailTooLong": "Email must be at most 100 characters",
-      "passwordRequired": "Enter your password",
-      "passwordTooLong": "Password must be at most 200 characters"
+      "opensInNewTab": "Opens in a new tab."
     }
   },
   "cookies": {
@@ -104,7 +91,7 @@
     "AUTH-1003": "Session service unavailable",
     "AUTH-1004": "Invalid email or password",
     "AUTH-1005": "Verify your email on Borderless first",
-    "AUTH-1006": "This email belongs to an applika account linked to another Borderless account",
+    "AUTH-1006": "This email belongs to an applika account linked to another Borderless account. Sign in with that Borderless account, or contact support",
     "AUTH-1007": "More than one applika account uses this email; contact support",
     "AUTH-1008": "This Borderless email cannot be used with applika: it must be a valid address of at most 100 characters",
     "AUTH-1009": "Too many sign-in attempts. Try again in {seconds} seconds.",
@@ -144,6 +131,11 @@
     "AUTH-1043": "Session not found",
     "AUTH-1044": "GitHub restore is not configured",
     "AUTH-1045": "This account already has its GitHub data",
+    "AUTH-1046": "The sign-in expired or was started in another browser. Start it again",
+    "AUTH-1047": "Borderless did not complete the sign-in. Try signing in again",
+    "AUTH-1048": "Borderless's answer could not be verified. Try signing in again",
+    "AUTH-1049": "Your Borderless sign-in has ended. Sign in again with Borderless",
+    "AUTH-1050": "Your Borderless sign-in has ended. Sign in again on the applika website to use member features",
     "USR-1001": "User not found",
     "APP-1001": "Application not found or not owned by user",
     "APP-1002": "Cannot modify an application from an archived cycle",
@@ -586,14 +578,16 @@
     "cycles": "Cycles",
     "profile": "Profile",
     "admin": "Admin",
-    "system": "System"
+    "system": "System",
+    "cli": "Applika CLI"
   },
   "userMenu": {
     "open": "Open account menu",
     "openFor": "Open account menu for {username}",
     "profile": "Profile",
     "feedback": "Feedback",
-    "logout": "Logout"
+    "logout": "Logout",
+    "signInAgain": "Sign in again"
   },
   "cycleSelector": {
     "current": "Current Cycle",
@@ -624,6 +618,28 @@
     "body": "A CLI to log applications from your terminal. Ships with a ready-to-use skill for AI tools like Claude and Codex. See PyPI for installation and full details.",
     "cta": "View on PyPI",
     "dismiss": "Dismiss announcement"
+  },
+  "cliPage": {
+    "eyebrow": "Command line",
+    "title": "applika-cli",
+    "lead": "Log, filter and update your job applications without leaving the terminal. It ships with a skill that teaches AI assistants like Claude, Codex and Gemini how to use it.",
+    "pypi": "View on PyPI",
+    "copy": "Copy command",
+    "copied": "Copied",
+    "installTitle": "Install",
+    "installBody": "Needs Python 3.10 or newer. Install it with <code>uv</code> (recommended) or <code>pipx</code>; either gives you the global <code>applika</code> command.",
+    "signInTitle": "Sign in",
+    "signInBody": "The CLI signs in with your Borderless account and gets a session of its own, listed as a device in your profile's Devices tab, where you can revoke it at any time.",
+    "signInBrowser": "<strong>Default:</strong> your browser opens and the sign-in comes back to the terminal by itself.",
+    "signInManual": "<strong>Browser on another machine:</strong> <code>--manual</code> shows a code in the browser for you to paste in the terminal.",
+    "signInDevice": "<strong>No browser at all</strong> (SSH, containers): <code>--device</code> prints a short code to approve from any signed-in browser.",
+    "trackTitle": "Track from your terminal",
+    "trackBody": "List and filter your pipeline, add new applications, record interviews and offers on the timeline, and close applications when they end. Add <code>--output-format json</code> to pipe the results into other tools.",
+    "skillTitle": "Teach your AI assistant",
+    "skillBody": "<code>applika skill</code> installs the bundled skill for Claude Code, Codex, Gemini or OpenCode. Your assistant then knows every command, checks your session first and builds valid applications for you, so you can just say \"log my application to Stripe\".",
+    "moreTitle": "Everything else",
+    "moreBody": "Application timelines, finalizing and every flag are documented on the package page.",
+    "footer": "Back to the <link>home page</link>."
   },
   "features": {
     "beta": "Beta",
@@ -797,18 +813,9 @@
       "noBadgeRecent": "Joined BASE or PSP recently? Sign out and sign in again to update your membership.",
       "visitBorderless": "Visit Borderless",
       "opensInNewTab": "Opens in a new tab.",
-      "unconfirmedNote": "Your reports open as soon as your membership is confirmed.",
+      "reconnectTitle": "Sign in again to open your reports",
+      "signInAgain": "Sign in again",
       "loading": "Loading"
-    },
-    "confirm": {
-      "title": "Sign in again to confirm your membership",
-      "body": "Enter your Borderless password so applika can read your membership again. You stay signed in.",
-      "submit": "Confirm membership",
-      "confirmed": "Membership confirmed",
-      "reasonExpired": "Your Borderless access expired.",
-      "reasonExpiredPaused": "Your Borderless access expired, so your {badge} badge is paused.",
-      "reasonRejected": "Borderless did not accept applika's last check of your membership.",
-      "reasonRejectedPaused": "Borderless did not accept applika's last check, so your {badge} badge is paused."
     }
   },
   "dashboard": {

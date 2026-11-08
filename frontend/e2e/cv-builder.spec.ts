@@ -39,8 +39,6 @@ const JOB_DESCRIPTION =
 const SKILL_CATEGORY = "Languages and frameworks";
 const INSTITUTION = "E2E University";
 
-const COOKIE_NOTICE = '[role="dialog"][aria-label="Cookie notice"]';
-
 function apiHeaders() {
   return {
     Cookie: authCookieHeader("user"),
@@ -183,49 +181,6 @@ async function finalizeApplication(
   expect(response.ok(), await response.text()).toBeTruthy();
 }
 
-/**
- * The control's own centre really belongs to the control, with the cookie
- * notice UP.
- *
- * This is the inverse of the helper this file used to carry. The notice was a
- * bottom-right `z-40` card sitting on top of the editor's `z-30` sticky submit
- * footer, so every test here had to dismiss it before it could click anything.
- * It is now a full-width bar that RESERVES its own height (`dbbfc3a`), so it
- * cannot reach an in-page sticky footer at any breakpoint. Only a real browser
- * has the layout to prove that; jsdom has none.
- */
-async function expectReachableWithCookieNoticeUp(page: Page, label: string) {
-  await expect(page.locator(COOKIE_NOTICE)).toBeVisible();
-
-  const coveredBy = await page.evaluate(
-    ({ noticeSelector, text }) => {
-      const button = Array.from(
-        document.querySelectorAll<HTMLButtonElement>("button"),
-      ).find((element) => element.textContent?.trim() === text);
-      if (!button) return "no such button";
-
-      const rect = button.getBoundingClientRect();
-      const topmost = document.elementFromPoint(
-        Math.round(rect.left + rect.width / 2),
-        Math.round(rect.top + rect.height / 2),
-      );
-      if (topmost && button.contains(topmost)) return null;
-
-      const notice = document.querySelector(noticeSelector);
-      if (notice && topmost && notice.contains(topmost)) {
-        return "the cookie notice";
-      }
-      return `<${topmost?.tagName.toLowerCase() ?? "nothing"}>`;
-    },
-    { noticeSelector: COOKIE_NOTICE, text: label },
-  );
-
-  expect(
-    coveredBy,
-    `"${label}" is not clickable at its own centre while the cookie notice is up`,
-  ).toBeNull();
-}
-
 /** Fill the fields the form requires. */
 async function fillRequired(page: Page, label: string) {
   await page.getByLabel("CV label", { exact: true }).fill(label);
@@ -313,10 +268,6 @@ test("a master CV can be created, listed, edited and deleted", async ({
     .getByLabel("Highlight 1", { exact: true })
     .fill("Cut settlement latency by 40%");
 
-  // The cookie notice is still up, and the sticky submit footer is reachable
-  // anyway. This used to be impossible; `dismissCookieNotice` is gone because
-  // of it.
-  await expectReachableWithCookieNoticeUp(page, "Create CV");
   await page.getByRole("button", { name: "Create CV" }).click();
 
   // ---- list -----------------------------------------------------------
@@ -650,7 +601,6 @@ test("an application's CV copy is picked, tailored, deleted and picked again", a
   await page
     .getByLabel("Summary", { exact: true })
     .fill("Rewritten for this posting by the E2E suite.");
-  await expectReachableWithCookieNoticeUp(page, "Save CV copy");
   await page.getByRole("button", { name: "Save CV copy" }).click();
   await expect(page.getByText("CV copy saved")).toBeVisible();
 
@@ -766,7 +716,6 @@ test("a finalized application's CV copy is readable but locked", async ({
   await expect(download).toBeVisible();
   await expect(download).toBeEnabled();
   await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(2);
-  await expectReachableWithCookieNoticeUp(page, "Download PDF");
 
   await expectPdfRoute(request, `/applications/${applicationId}/cv/pdf`);
 
@@ -842,7 +791,6 @@ test("a master CV downloads as a PDF the server typeset", async ({
   // the cookie-bar invariant the rest of this file pins.
   const download = page.getByRole("button", { name: "Download PDF" });
   await expect(download).toBeEnabled();
-  await expectReachableWithCookieNoticeUp(page, "Download PDF");
 
   const started = page.waitForEvent("download");
   await download.click();
@@ -876,7 +824,6 @@ test("an application's CV copy downloads as a PDF", async ({
   );
   await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(2);
 
-  await expectReachableWithCookieNoticeUp(page, "Download PDF");
   const started = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download PDF" }).click();
   const saved = await started;
@@ -2083,11 +2030,8 @@ test("the live preview does not gap from the top of the page as it scrolls (12)"
 /**
  * The preview's `<figcaption>` really belongs to ITSELF at its own centre.
  *
- * Sibling of `expectReachableWithCookieNoticeUp`, and the same technique for
- * the mirror-image bug. That helper proves the VIEWPORT-pinned cookie bar does
- * not cover an in-page sticky footer. This one proves the SCROLLPORT-pinned
- * sticky footer does not cover the preview caption above it — which it did,
- * completely, at `md` and up.
+ * It proves the SCROLLPORT-pinned sticky footer does not cover the preview
+ * caption above it — which it did, completely, at `md` and up.
  *
  * Why it matters most on `/cvs/new`: the editors mount `ExportCvButton` in the
  * footer and it carries a second, visible copy of the notice, so the hidden
@@ -2285,7 +2229,6 @@ test("the layout notice is never under the submit row, on either editor (13)", a
 
   // The footer is taller here — it carries the export beside Save and Cancel —
   // so the reservation has to TRACK it, not a constant measured on /cvs/new.
-  await expectReachableWithCookieNoticeUp(page, "Download PDF");
   await expectCaptionUnoccluded(page, "/cvs/editor?id= with the notice up");
 
   // ---- /applications/cv?id=: the OTHER editor, whose sticky column also
@@ -2501,7 +2444,6 @@ test("the diff downloads as Markdown and PDF, and the Markdown carries the saved
   const headline = page.getByLabel("Headline", { exact: true });
   await headline.fill("");
   await headline.fill("Staff Engineer, tailored");
-  await expectReachableWithCookieNoticeUp(page, "Save CV copy");
   await page.getByRole("button", { name: "Save CV copy" }).click();
   await expect(page.getByText("CV copy saved")).toBeVisible();
 

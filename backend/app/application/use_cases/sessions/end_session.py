@@ -46,22 +46,25 @@ class EndSessionUseCase:
         refresh_value: str | None,
         reason: EndReason,
         user_id: int | None = None,
-    ) -> bool:
+    ) -> int | None:
         """End the session a refresh value points at; with ``user_id``,
-        only when that user owns it. Unknown values are a no-op."""
+        only when that user owns it. Answers the ended row's ``user_id``
+        (so the caller can release the Borderless grant when it was the
+        last session), else ``None``. Unknown values are a no-op."""
         if not refresh_value:
-            return False
+            return None
         session_id = await self.store.resolve_refresh(refresh_value)
         if session_id is None:
-            return False
+            return None
         row = await self.session_repo.get(session_id)
         if row is None:
             # A key with no row: nothing to show, nothing to keep.
             await self.store.end(session_id)
-            return False
+            return None
         if user_id is not None and row.user_id != user_id:
-            return False
-        return await self.end_row(row, reason)
+            return None
+        owner = row.user_id
+        return owner if await self.end_row(row, reason) else None
 
     async def end_row(self, row: UserSessionModel, reason: EndReason) -> bool:
         now = datetime.now(UTC)

@@ -1,0 +1,65 @@
+# gitleaks: what counts as a secret in this repository.
+# https://github.com/gitleaks/gitleaks
+#
+# Run it with `make leaks` from the repository root (`make full-gate` runs it
+# first). Known findings in old commits are fingerprinted in .gitleaksignore.
+#
+# A finding fails the gate. Never silence a real credential here or in
+# .gitleaksignore: take it out of the commit (rewrite the branch before it is
+# pushed), and rotate it at the provider if it was ever pushed. Credentials live
+# only in the deployment environment (the VPS env), never in code, docs or
+# examples. Allow only synthetic test values, and say why.
+
+title = "applika"
+
+[extend]
+useDefault = true
+
+# OAuth / OpenID Connect client credentials written as literals:
+#   BORDERLESS_CLIENT_ID=..., GITHUB_CLIENT_SECRET=..., **client_id:** `...`,
+#   "client_secret": "...", client_id: ...
+# The default rules miss a client id: its name holds no "key", "secret" or
+# "token", so a pasted provider spec slips through them.
+[[rules]]
+id = "oauth-client-credential"
+description = "OAuth/OIDC client id or client secret with a literal value"
+regex = '''(?i)client[_-]?(?:id|secret)\b["'`*]{0,3}\s{0,3}(?:=|:|=>)\s{0,3}["'`*]{0,3}\s{0,3}["'`]?([A-Za-z0-9][A-Za-z0-9_-]{19,})'''
+secretGroup = 1
+entropy = 3.0
+keywords = ["client_id", "client-id", "clientid", "client_secret", "client-secret", "clientsecret"]
+
+  # A variable or setting name on the right-hand side, not a value:
+  # client_id=borderless_client_id, CLIENT_ID: BORDERLESS_CLIENT_ID.
+  [[rules.allowlists]]
+  regexTarget = "secret"
+  regexes = ['''^[a-z_]+$''', '''^[A-Z_]+$''']
+
+# Synthetic clients: the fake Borderless's (backend/tests/fixtures/borderless,
+# docker-compose.e2e.yml, the root Makefile) and the E2E stack's dummy GitHub
+# and Discord apps. Never a real client.
+[[allowlists]]
+description = "synthetic OAuth clients for tests and the E2E stack"
+regexTarget = "secret"
+regexes = ['''^applika-fake-client''', '''^e2e-dummy-''']
+
+# The E2E stack's throwaway Fernet keys: they only encrypt rows in the E2E
+# database that docker-compose.e2e.yml creates and tears down.
+[[allowlists]]
+description = "E2E stack synthetic encryption keys"
+condition = "AND"
+paths = ['''^docker-compose\.e2e\.yml$''']
+regexTarget = "match"
+regexes = ['''_TOKEN_ENCRYPTION_KEY:''']
+
+# Synthetic tokens and passwords that backend tests use as fixtures.
+[[allowlists]]
+description = "backend test fixtures"
+condition = "AND"
+paths = ['''^backend/tests/''']
+regexTarget = "secret"
+regexes = [
+  '''^AbCdEfGhIjKl''',  # Discord / report webhook token shape
+  '''^ZzYyXxWwVvUu''',  # a second webhook token
+  '''^pa55-W0rd''',     # Borderless password-proxy test password
+  '''^a1b2c3d4e5f6''',  # Borderless password-proxy test token
+]

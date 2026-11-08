@@ -15,8 +15,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- `applika login` (every version) completes on applika's Borderless sign-in page: the browser opens it instead of GitHub, and the user signs in with the Borderless email and password. Every user signs in again once at this backend release.
-- GET /users/me adds `badges`, `borderless` and `github_restore`; `github_id` may be null. `username`, `first_name`, `last_name` and `email` are unchanged.
+- `applika login` prints a shorter message: in a terminal the sign-in URL is a clickable "Click here to sign in" link instead of the full URL (outside a terminal, e.g. piped or run by an AI agent, the full URL is still printed), and the browser launcher's own error output (`gio: ... Operation not supported`) is no longer shown. `applika login --manual` uses the same link, and the pasted `code#state` shows as `*` per character instead of in clear text.
+- `applika cvs` and `applika applications cv` are hidden from `applika --help` and `applika applications --help`: they are behind the CV builder beta, and a user not on its list gets `Not Found` from the API. They still work, and `applika cvs --help` / `applika applications cv --help` list every command. The bundled skill moves them to a "Beta features" part.
+- `applika login` (every version) completes on Borderless's own sign-in page: the browser opens it instead of GitHub, and Borderless asks for the sign-in even when the browser is already signed in there; applika never sees the Borderless password. `applika login --device` is unchanged (approved by a signed-in web user). Every user signs in again once at this backend release.
+- the CLI stays signed in when Borderless ends applika's access (30 days after the last sign-in, or access revoked): sessions keep refreshing, and a member-only route (the biweekly reports, which no CLI command calls) answers 403 AUTH-1050 "Your Borderless sign-in has ended. Sign in again on the applika website to use member features" until the user signs in again; `applika whoami` keeps working.
+- GET /users/me adds `badges`, `borderless` (`{status, email, checked_at}`) and `github_restore`; `github_id` may be null. `username`, `first_name`, `last_name` and `email` are unchanged.
 - help text: `applika login` says it signs in with Borderless.
 - applications timeline add --type offer|denied closes the application with that event (POST /applications/{id}/finalize outcome body); --keep-open keeps it open; ignored with --type interview.
 - the API refuses event_type note and feedback (422); existing ones read as interview with interview_type unknown. 0.1.4 is unaffected: its steps keep their ids.

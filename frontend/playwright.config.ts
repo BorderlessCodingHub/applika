@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+import { COOKIE_NOTICE_ACKNOWLEDGED } from "./e2e/support/cookie-notice";
+
 /**
  * Playwright E2E — drives the REAL application stack (KODI-001 / R-002).
  *
@@ -40,6 +42,9 @@ export default defineConfig({
     // set (a pt-* browser gets Portuguese). Pinned so every English-asserting
     // spec holds on any host; a language spec sets its own context locale.
     locale: "en-US",
+    // Every test starts as a user who dismissed the floating cookie notice
+    // (e2e/support/cookie-notice.ts); a test about the notice brings it back.
+    storageState: COOKIE_NOTICE_ACKNOWLEDGED,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },

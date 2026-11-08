@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Terminal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { AppLogo } from "@/components/app-logo";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
@@ -33,6 +34,7 @@ export function Sidebar({
   className,
 }: SidebarProps) {
   const t = useTranslations("header");
+  const tNav = useTranslations("nav");
   return (
     <div className={cn("flex h-full min-h-0 flex-col bg-sidebar", className)}>
       {hideBrand ? null : (
@@ -56,6 +58,18 @@ export function Sidebar({
           onNavigate={onNavigate}
           className="p-2"
         />
+      </div>
+
+      {/* The public applika-cli page, outside the shell (landing layout). */}
+      <div className="shrink-0 p-2">
+        <Link
+          href="/cli"
+          onClick={onNavigate}
+          className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium text-primary transition-colors outline-none hover:bg-primary/10 focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50"
+        >
+          <Terminal aria-hidden className="size-4 shrink-0 text-primary" />
+          <span className="truncate">{tNav("cli")}</span>
+        </Link>
       </div>
 
       <div className="shrink-0 border-t border-sidebar-border p-2">

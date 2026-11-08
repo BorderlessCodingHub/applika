@@ -1,6 +1,10 @@
+import contextlib
+import os
 import secrets
 import socket
+import sys
 import webbrowser
+from collections.abc import Iterator
 from typing import Annotated, Any
 from urllib.parse import urlencode
 
@@ -19,6 +23,7 @@ from applika.lib.api import (
     session_from_token,
 )
 from applika.lib.loopback import LoopbackLoginServer
+from applika.lib.masked_input import prompt_masked
 
 AUTHORIZATION_CODE_GRANT = 'authorization_code'
 OOB_REDIRECT_URI = 'oob'
@@ -225,19 +230,53 @@ def _browser_login(
             pkce.s256_challenge(verifier),
             state,
         )
-        webbrowser.open(url)
+        typer.echo('Opening your browser to sign in...')
         typer.echo(
-            'Opening your browser to sign in. If it does not open, '
-            f'visit this URL:\n{url}\n'
-            'If the browser cannot reach this machine, stop and run '
+            "Browser didn't open? "
+            + _link(url, 'Click here to sign in', 'Use this URL to sign in:')
+        )
+        typer.echo(
+            "Browser can't reach this machine? Press Ctrl+C and run "
             '`applika login --manual` or `applika login --device`.'
         )
+        with _quiet_stderr():
+            webbrowser.open(url)
         code = server.wait_for_code(timeout_seconds=LOOPBACK_TIMEOUT_SECONDS)
         return _exchange_code(
             client, code, verifier, server.callback_url, device_name
         )
     finally:
         server.close()
+
+
+def _link(url: str, label: str, fallback: str) -> str:
+    """``label`` as a clickable OSC 8 hyperlink to ``url`` in a terminal.
+
+    Anywhere else (a pipe, CI, an AI agent) the full URL is printed after
+    ``fallback`` instead, so it can still be copied or read.
+    """
+    if sys.stdout.isatty():
+        return f'\033]8;;{url}\033\\{label}\033]8;;\033\\'
+    return f'{fallback}\n{url}'
+
+
+@contextlib.contextmanager
+def _quiet_stderr() -> Iterator[None]:
+    """Silence what a browser launcher prints (``gio: ... Operation not
+    supported``) while it starts: the fd is redirected, so a launcher it
+    spawns inherits the silence too."""
+    try:
+        saved = os.dup(2)
+    except OSError:
+        yield
+        return
+    try:
+        with open(os.devnull, 'w') as devnull:
+            os.dup2(devnull.fileno(), 2)
+            yield
+    finally:
+        os.dup2(saved, 2)
+        os.close(saved)
 
 
 def _manual_login(
@@ -248,8 +287,11 @@ def _manual_login(
     url = _authorize_url(
         api_base_url, OOB_REDIRECT_URI, pkce.s256_challenge(verifier), state
     )
-    typer.echo(f'Open this URL in a browser and sign in:\n{url}')
-    pasted = typer.prompt(MANUAL_PROMPT).strip()
+    typer.echo(
+        'Sign in from any browser: '
+        + _link(url, 'Click here to sign in', 'Open this URL:')
+    )
+    pasted = prompt_masked(MANUAL_PROMPT).strip()
     code, separator, pasted_state = pasted.partition('#')
     if not separator or not code:
         raise RuntimeError(

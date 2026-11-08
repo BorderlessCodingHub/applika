@@ -30,6 +30,18 @@ async function openDevices(page: Page) {
   );
 }
 
+/** "Ended (last 30 days)" starts closed; its rows mount once it is open. */
+async function openEnded(page: Page) {
+  const toggle = page.getByRole("button", {
+    name: "Ended (last 30 days)",
+    exact: true,
+  });
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") {
+    await toggle.click();
+  }
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+}
+
 interface DeviceCode {
   device_code: string;
   user_code: string;
@@ -102,6 +114,7 @@ test.describe("devices", () => {
       .click();
 
     // The row moves to Ended, saying how it ended.
+    await openEnded(page);
     const ended = page.locator('[data-slot="ended-devices"]');
     const endedRow = ended
       .locator('[data-slot="device-row"]')
@@ -270,6 +283,7 @@ test.describe("devices", () => {
       .getByRole("button", { name: "Sign out other devices", exact: true })
       .click();
 
+    await openEnded(page);
     const granted = page
       .locator('[data-slot="ended-devices"] [data-slot="device-row"]')
       .filter({ has: deviceName(page, GRANTED_DEVICE) });

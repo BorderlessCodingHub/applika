@@ -5,6 +5,12 @@ import { describe, expect, it, vi } from "vitest";
 import { UserMenu } from "./user-menu";
 import type { User } from "@/services/types/users";
 
+const logout = vi.hoisted(() => vi.fn());
+
+vi.mock("@/contexts/auth-context", () => ({
+  useAuth: () => ({ logout }),
+}));
+
 /**
  * Account menu (KODI-004 / R-017, R-018).
  *
@@ -29,17 +35,17 @@ const user: User = {
 
 const ACTIVE = {
   status: "active" as const,
-  expires_at: "2026-11-05T00:00:00Z",
   email: "ada@example.com",
+  checked_at: "2026-11-06T10:00:00Z",
 };
 const PSP = [
   { badge: "borderless_psp" as const, granted_at: "2026-10-01T00:00:00Z" },
 ];
 const pspHolder: User = { ...user, badges: PSP, borderless: ACTIVE };
-const pspUnconfirmed: User = {
+const pspNeedsReconnect: User = {
   ...user,
   badges: PSP,
-  borderless: { ...ACTIVE, status: "expired" },
+  borderless: { ...ACTIVE, status: "needs_reconnect" },
 };
 
 async function openMenu() {
@@ -171,7 +177,7 @@ describe("UserMenu membership badge (ADR-0024)", () => {
       });
       expect(chip).toHaveTextContent("PSP");
       expect(
-        within(menu).queryByText("Sign in again to confirm your membership"),
+        within(menu).queryByRole("menuitem", { name: "Sign in again" }),
       ).not.toBeInTheDocument();
     },
   );
@@ -192,35 +198,36 @@ describe("UserMenu membership badge (ADR-0024)", () => {
 
     expect(within(menu).queryByRole("img", { name: /Borderless/ })).toBeNull();
     expect(
-      within(menu).queryByText("Sign in again to confirm your membership"),
+      within(menu).queryByRole("menuitem", { name: "Sign in again" }),
     ).not.toBeInTheDocument();
   });
 
-  it.each(["expired", "needs_reconnect"] as const)(
-    "%s: no chip, a prompt linking to /reports instead",
-    async (status) => {
-      const onNavigate = vi.fn();
-      renderMenu({
-        user: { ...pspUnconfirmed, borderless: { ...ACTIVE, status } },
-        onNavigate,
-      });
-      expect(screen.queryByRole("img", { name: /Borderless/ })).toBeNull();
-      const menu = await openMenu();
+  it("needs_reconnect: no chip, Sign in again instead, which signs out to /login (AC16)", async () => {
+    const onNavigate = vi.fn();
+    const onSignInAgain = vi.fn();
+    renderMenu({ user: pspNeedsReconnect, onNavigate, onSignInAgain });
+    expect(screen.queryByRole("img", { name: /Borderless/ })).toBeNull();
+    const menu = await openMenu();
 
-      expect(
-        within(menu).queryByRole("img", { name: /Borderless/ }),
-      ).toBeNull();
-      const prompt = within(menu).getByRole("menuitem", {
-        name: "Sign in again to confirm your membership",
-      });
-      expect(prompt).toHaveAttribute("href", "/reports");
+    expect(within(menu).queryByRole("img", { name: /Borderless/ })).toBeNull();
+    const item = within(menu).getByRole("menuitem", { name: "Sign in again" });
+    expect(item).not.toHaveAttribute("href");
+    expect(screen.queryByLabelText(/Password/i)).not.toBeInTheDocument();
 
-      // jsdom cannot navigate; the menu's own close signal is what matters.
-      const block = (event: Event) => event.preventDefault();
-      document.addEventListener("click", block);
-      await userEvent.click(prompt);
-      document.removeEventListener("click", block);
-      expect(onNavigate).toHaveBeenCalledTimes(1);
-    },
-  );
+    await userEvent.click(item);
+    expect(onSignInAgain).toHaveBeenCalledTimes(1);
+    // The mobile sheet closes on the same signal.
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it("needs_reconnect: by default Sign in again ends the session and opens /login", async () => {
+    logout.mockClear();
+    renderMenu({ user: pspNeedsReconnect });
+    const menu = await openMenu();
+
+    await userEvent.click(
+      within(menu).getByRole("menuitem", { name: "Sign in again" }),
+    );
+    expect(logout).toHaveBeenCalledWith("/login");
+  });
 });

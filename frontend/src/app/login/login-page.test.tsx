@@ -1,23 +1,34 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { AxiosError, AxiosHeaders } from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LocaleProvider } from "@/i18n/locale-provider";
 
-import { LoginPage } from "./login-page";
+import en from "@/i18n/messages/en.json";
+import pt from "@/i18n/messages/pt-BR.json";
+import { LocaleProvider } from "@/i18n/locale-provider";
+import { SIGN_IN_ERROR_CODES } from "@/components/auth/sign-in-screen";
 import { RETURN_TO_KEY } from "@/lib/return-to";
 import { services } from "@/services/services";
 
+import { LoginPage, signedInLandingFor } from "./login-page";
+
 /**
- * The Borderless sign-in page (ADR-0024): the server's own words for every
- * refusal, the passwordless hint, the sign-up link, the CLI mode that never
- * auto-redirects and follows `redirect_to`, and where a web sign-in lands.
+ * The sign-in page (ADR-0026): one "Sign in with Borderless" button that
+ * leaves for the API's `/auth/borderless/login`, the words of every
+ * `?error=<code>` the callback sends back (in the active language), the
+ * terminal hint on `&cli=1`, and where a signed-in visit lands. No password,
+ * code or token is ever asked for or held.
  */
+
+const LOGIN_URL = "http://127.0.0.1:8000/api/auth/borderless/login";
 
 const replace = vi.fn();
 let searchParams = new URLSearchParams();
-let auth = { isAuthenticated: false, isLoading: false };
+type AuthState = {
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  user: { github_restore: { available: boolean; prompt: boolean } } | null;
+};
+let auth: AuthState = { isAuthenticated: false, isLoading: false, user: null };
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace }),
@@ -29,87 +40,73 @@ vi.mock("@/contexts/auth-context", () => ({
 }));
 
 vi.mock("@/services/services", () => ({
-  services: { auth: { borderlessSignIn: vi.fn() } },
+  services: { auth: { borderlessLoginUrl: vi.fn() } },
 }));
 
 const assign = vi.fn();
 
-function refusal(status: number, data: unknown) {
-  return new AxiosError("refused", "ERR_BAD_REQUEST", undefined, undefined, {
-    status,
-    statusText: String(status),
-    headers: new AxiosHeaders(),
-    config: {} as never,
-    data,
-  });
-}
-
 function renderPage() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return render(
-    <QueryClientProvider client={client}>
-      <LoginPage />
-    </QueryClientProvider>,
-    // The sign-in page's top-right slot holds the language switcher.
-    { wrapper: LocaleProvider },
-  );
+  // The sign-in page's top-right slot holds the language switcher.
+  return render(<LoginPage />, { wrapper: LocaleProvider });
 }
 
-async function signIn(email = "ada@example.com", password = "secret") {
-  const user = userEvent.setup();
-  await user.type(screen.getByLabelText("Email"), email);
-  await user.type(screen.getByLabelText("Password"), password);
-  await user.click(screen.getByRole("button", { name: "Sign in" }));
-  return user;
+function signInButton() {
+  return screen.getByRole("button", { name: "Sign in with Borderless" });
 }
 
 function errorBox() {
-  return document.querySelector('[data-slot="sign-in-error"]')!;
+  return document.querySelector<HTMLElement>('[data-slot="sign-in-error"]')!;
+}
+
+function signedIn(prompt = false): AuthState {
+  return {
+    isAuthenticated: true,
+    isLoading: false,
+    user: { github_restore: { available: true, prompt } },
+  };
+}
+
+function icuArgs(message: string): string[] {
+  return [...message.matchAll(/\{(\w+)/g)].map((match) => match[1]);
 }
 
 beforeEach(() => {
   searchParams = new URLSearchParams();
-  auth = { isAuthenticated: false, isLoading: false };
+  auth = { isAuthenticated: false, isLoading: false, user: null };
   replace.mockClear();
   assign.mockClear();
-  vi.mocked(services.auth.borderlessSignIn).mockReset();
+  vi.mocked(services.auth.borderlessLoginUrl).mockReset();
+  vi.mocked(services.auth.borderlessLoginUrl).mockReturnValue(LOGIN_URL);
   vi.stubGlobal("location", { ...window.location, assign });
   window.sessionStorage.clear();
+  window.localStorage.clear();
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("LoginPage: the form", () => {
-  it("asks for the Borderless email and password, with no GitHub sign-in", () => {
+describe("LoginPage: the Borderless button (AC1, AC22)", () => {
+  it("offers one button and no field: no email, no password, no form, no GitHub", () => {
     renderPage();
 
     expect(
       screen.getByRole("heading", { level: 1, name: "Sign in to applika" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Use your Borderless email and password."),
+      screen.getByText(
+        "Use your Borderless account. Borderless confirms it's you and sends you back here.",
+      ),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Email")).toHaveAttribute("type", "email");
-    expect(screen.getByLabelText("Password")).toHaveAttribute(
-      "type",
-      "password",
+    expect(signInButton()).toHaveAccessibleDescription(
+      "Use your Borderless account. Borderless confirms it's you and sends you back here.",
     );
+    expect(document.querySelectorAll("input")).toHaveLength(0);
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+    expect(document.querySelector("form")).toBeNull();
+    expect(screen.queryByLabelText(/Password/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/GitHub/)).not.toBeInTheDocument();
     expect(document.querySelector('a[href*="auth/github"]')).toBeNull();
-  });
-
-  it("hints that a passwordless Borderless account sets a password first", () => {
-    renderPage();
-
-    expect(
-      document.querySelector('[data-slot="sign-in-password-hint"]'),
-    ).toHaveTextContent(
-      "Joined Borderless through another sign-in provider? Set a password on Borderless first, then sign in here.",
-    );
   });
 
   it("links to Borderless to create an account, in a new tab", () => {
@@ -118,344 +115,298 @@ describe("LoginPage: the form", () => {
     const link = screen.getByRole("link", {
       name: "Create a Borderless account",
     });
-    expect(link).toHaveAttribute("href", "https://borderlesscoding.com");
+    expect(link).toHaveAttribute(
+      "href",
+      "https://platform.borderlesscoding.com/sign-up",
+    );
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(link).toHaveAccessibleDescription("Opens in a new tab.");
   });
 
-  it("refuses an empty submit without calling the API", async () => {
+  it("focuses the button when there is no error", () => {
+    renderPage();
+
+    expect(signInButton()).toHaveFocus();
+    expect(errorBox()).toBeEmptyDOMElement();
+  });
+
+  it("leaves for the API's Borderless sign-in and stays pending until the browser leaves", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await user.click(signInButton());
 
+    expect(assign).toHaveBeenCalledWith(LOGIN_URL);
+    expect(signInButton()).toHaveAttribute("aria-disabled", "true");
+    expect(signInButton()).toHaveAttribute("aria-busy", "true");
     expect(
-      await screen.findByText("Enter your Borderless email"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Enter your password")).toBeInTheDocument();
-    expect(services.auth.borderlessSignIn).not.toHaveBeenCalled();
+      document.querySelector('[data-slot="sign-in-pending-status"]'),
+    ).toHaveTextContent("Opening Borderless…");
+
+    // A second click while leaving does nothing.
+    await user.click(signInButton());
+    expect(assign).toHaveBeenCalledTimes(1);
   });
 
-  it("refuses an email over 100 characters", async () => {
+  it("keeps nothing in the browser's storage (AC12)", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByLabelText("Email"));
-    await user.paste(`${"a".repeat(95)}@x.com`);
-    await user.type(screen.getByLabelText("Password"), "secret");
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    await user.click(signInButton());
 
-    expect(
-      await screen.findByText("Email must be at most 100 characters"),
-    ).toBeInTheDocument();
-    expect(services.auth.borderlessSignIn).not.toHaveBeenCalled();
+    expect(window.sessionStorage).toHaveLength(0);
+    expect(window.localStorage).toHaveLength(0);
+  });
+
+  it("starts idle again when Back restores the page from the bfcache", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(signInButton());
+    expect(signInButton()).toHaveAttribute("aria-disabled", "true");
+
+    // A normal page show keeps the pending state…
+    act(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent("pageshow", { persisted: false }),
+      );
+    });
+    expect(signInButton()).toHaveAttribute("aria-disabled", "true");
+
+    // …a bfcache restore resets it.
+    act(() => {
+      window.dispatchEvent(
+        new PageTransitionEvent("pageshow", { persisted: true }),
+      );
+    });
+    expect(signInButton()).not.toHaveAttribute("aria-disabled");
+    expect(signInButton()).not.toHaveAttribute("aria-busy");
+
+    await user.click(signInButton());
+    expect(assign).toHaveBeenCalledTimes(2);
   });
 });
 
-describe("LoginPage: the server's words", () => {
-  // The API's real bodies (docs/error-codes.md): the numbered code, and the
-  // English `detail` the `en` messages repeat word for word.
+describe("LoginPage: ?error=<code> (AC7, AC13, AC21)", () => {
+  it.each(SIGN_IN_ERROR_CODES)(
+    "%s shows the API's own words, focused",
+    (code) => {
+      searchParams = new URLSearchParams({ error: code });
+      renderPage();
+
+      const words = (en.errors as Record<string, string>)[code];
+      expect(words).toBeTruthy();
+      expect(errorBox()).toHaveAttribute("data-code", code);
+      expect(errorBox()).toHaveTextContent(words);
+      expect(within(errorBox()).getByText(words).closest("[tabindex]")).toBe(
+        document.activeElement,
+      );
+      // The button stays right below the words.
+      expect(signInButton()).toBeEnabled();
+    },
+  );
+
   it.each([
-    [401, { detail: "Invalid email or password", code: "AUTH-1004" }],
+    ["AUTH-1005", "Verify your email on Borderless first"],
     [
-      403,
-      {
-        detail: "Verify your email on Borderless first",
-        code: "AUTH-1005",
-      },
+      "AUTH-1046",
+      "The sign-in expired or was started in another browser. Start it again",
     ],
     [
-      409,
-      {
-        detail:
-          "This email belongs to an applika account linked to another Borderless account",
-        code: "AUTH-1006",
-      },
+      "AUTH-1047",
+      "Borderless did not complete the sign-in. Try signing in again",
     ],
     [
-      409,
-      {
-        detail:
-          "More than one applika account uses this email; contact support",
-        code: "AUTH-1007",
-      },
+      "AUTH-1048",
+      "Borderless's answer could not be verified. Try signing in again",
     ],
     [
-      422,
-      {
-        detail:
-          "This Borderless email cannot be used with applika: it must be a valid address of at most 100 characters",
-        code: "AUTH-1008",
-      },
+      "AUTH-1049",
+      "Your Borderless sign-in has ended. Sign in again with Borderless",
     ],
+    ["AUTH-1017", "Borderless is unavailable, try again later"],
     [
-      429,
-      {
-        detail: "Too many sign-in attempts. Try again in 42 seconds.",
-        code: "AUTH-1009",
-        params: { seconds: 42 },
-      },
+      "AUTH-1006",
+      "This email belongs to an applika account linked to another Borderless account. Sign in with that Borderless account, or contact support",
     ],
-    [
-      503,
-      {
-        detail: "Borderless is unavailable, try again later",
-        code: "AUTH-1017",
-      },
-    ],
-  ])("%i shows the detail word for word", async (status, data) => {
-    vi.mocked(services.auth.borderlessSignIn).mockRejectedValue(
-      refusal(status, data),
-    );
+  ])("%s reads %j", (code, words) => {
+    searchParams = new URLSearchParams({ error: code });
     renderPage();
 
-    await signIn();
-
-    await waitFor(() => expect(errorBox()).toHaveTextContent(data.detail));
-    expect(errorBox()).not.toHaveTextContent(
-      "Run applika login in your terminal again.",
-    );
-    expect(assign).not.toHaveBeenCalled();
+    expect(errorBox()).toHaveTextContent(words);
   });
 
-  it("422 AUTH-1008 is neither the wrong-password nor the rate-limit wording", async () => {
-    vi.mocked(services.auth.borderlessSignIn).mockRejectedValue(
-      refusal(422, {
-        detail:
-          "This Borderless email cannot be used with applika: it must be a valid address of at most 100 characters",
-        code: "AUTH-1008",
-      }),
-    );
-    renderPage();
-
-    await signIn();
-
-    await waitFor(() =>
-      expect(errorBox()).toHaveTextContent("cannot be used with applika"),
-    );
-    expect(errorBox()).not.toHaveTextContent("Invalid email or password");
-    expect(errorBox()).not.toHaveTextContent("Too many");
+  it("every code it shows has a message with no ICU argument, in both languages", () => {
+    for (const code of SIGN_IN_ERROR_CODES) {
+      const enWords = (en.errors as Record<string, string>)[code];
+      const ptWords = (pt.errors as Record<string, string>)[code];
+      expect(enWords, `en ${code}`).toBeTruthy();
+      expect(ptWords, `pt-BR ${code}`).toBeTruthy();
+      expect(icuArgs(enWords), `en ${code}`).toEqual([]);
+      expect(icuArgs(ptWords), `pt-BR ${code}`).toEqual([]);
+    }
   });
 
-  it("a validation 422 (GEN-1003) shows its one line, never the field list", async () => {
-    vi.mocked(services.auth.borderlessSignIn).mockRejectedValue(
-      refusal(422, {
-        detail: [{ loc: ["body", "email"], msg: "x" }],
-        code: "GEN-1003",
-      }),
-    );
+  it.each([
+    "NOPE-0000",
+    "AUTH-1009",
+    "<img src=x onerror=alert(1)>",
+    "errors.AUTH-1005",
+  ])(
+    "an unlisted code (%j) shows the generic line, never a catalog sentence",
+    (code) => {
+      searchParams = new URLSearchParams({ error: code });
+      renderPage();
+
+      expect(errorBox()).toHaveAttribute("data-code", "unknown");
+      expect(errorBox()).toHaveTextContent("Something went wrong");
+      expect(document.querySelector("img")).toBeNull();
+    },
+  );
+
+  it("an empty ?error= shows nothing", () => {
+    searchParams = new URLSearchParams("error=");
     renderPage();
 
-    await signIn();
-
-    await waitFor(() =>
-      expect(errorBox()).toHaveTextContent(
-        "Some fields are not valid. Check them and try again.",
-      ),
-    );
-    expect(errorBox()).not.toHaveTextContent("[object Object]");
+    expect(errorBox()).toBeEmptyDOMElement();
+    expect(signInButton()).toHaveFocus();
   });
 
-  it("a code the web does not know shows the API's detail", async () => {
-    vi.mocked(services.auth.borderlessSignIn).mockRejectedValue(
-      refusal(409, { detail: "A brand new refusal", code: "AUTH-9999" }),
-    );
+  it("signs in again from the error with the same button", async () => {
+    searchParams = new URLSearchParams({ error: "AUTH-1049" });
+    const user = userEvent.setup();
     renderPage();
 
-    await signIn();
+    await user.click(signInButton());
 
-    await waitFor(() =>
-      expect(errorBox()).toHaveTextContent("A brand new refusal"),
-    );
-  });
-
-  it("a raw validation 422 gets a fixed line, never an object", async () => {
-    vi.mocked(services.auth.borderlessSignIn).mockRejectedValue(
-      refusal(422, { detail: [{ loc: ["body", "email"], msg: "x" }] }),
-    );
-    renderPage();
-
-    await signIn();
-
-    await waitFor(() =>
-      expect(errorBox()).toHaveTextContent(
-        "Sign-in did not finish. Try again.",
-      ),
-    );
-  });
-
-  it("401 clears the password and focuses it", async () => {
-    vi.mocked(services.auth.borderlessSignIn).mockRejectedValue(
-      refusal(401, { detail: "Invalid email or password" }),
-    );
-    renderPage();
-
-    await signIn();
-
-    await waitFor(() =>
-      expect(errorBox()).toHaveTextContent("Invalid email or password"),
-    );
-    expect(screen.getByLabelText("Password")).toHaveValue("");
-    expect(screen.getByLabelText("Password")).toHaveFocus();
-    expect(screen.getByLabelText("Email")).toHaveValue("ada@example.com");
-  });
-
-  it("a new submit clears the previous words", async () => {
-    vi.mocked(services.auth.borderlessSignIn)
-      .mockRejectedValueOnce(
-        refusal(503, { detail: "Borderless is unavailable, try again later" }),
-      )
-      .mockReturnValueOnce(new Promise(() => {}));
-    renderPage();
-
-    const user = await signIn();
-    await waitFor(() => expect(errorBox()).toHaveTextContent("try again"));
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
-
-    await waitFor(() => expect(errorBox()).toBeEmptyDOMElement());
+    expect(assign).toHaveBeenCalledWith(LOGIN_URL);
+    // The words stay while the browser leaves.
+    expect(errorBox()).toHaveTextContent("Your Borderless sign-in has ended.");
   });
 });
 
-describe("LoginPage: the web sign-in", () => {
-  it("redirects a signed-in visitor to the dashboard", () => {
-    auth = { isAuthenticated: true, isLoading: false };
+describe("LoginPage: &cli=1 (AC21)", () => {
+  it("adds the terminal hint under the words, the command in <code>", () => {
+    searchParams = new URLSearchParams({ error: "AUTH-1047", cli: "1" });
+    renderPage();
+
+    const hint = within(errorBox()).getByText(
+      (_text, node) => node?.getAttribute("data-slot") === "sign-in-cli-hint",
+    );
+    expect(hint).toHaveTextContent(
+      "Return to your terminal and run applika login again.",
+    );
+    expect(within(hint).getByText("applika login").tagName).toBe("CODE");
+    expect(errorBox()).toHaveTextContent(
+      "Borderless did not complete the sign-in. Try signing in again",
+    );
+    expect(document.querySelector('[data-slot="sign-in"]')).toHaveAttribute(
+      "data-mode",
+      "cli",
+    );
+  });
+
+  it("AUTH-1019 CLI login expired tells the user to run applika login again", () => {
+    searchParams = new URLSearchParams({ error: "AUTH-1019", cli: "1" });
+    renderPage();
+
+    expect(errorBox()).toHaveTextContent("CLI login expired");
+    expect(errorBox()).toHaveTextContent(
+      "Return to your terminal and run applika login again.",
+    );
+  });
+
+  it("keeps the h1 of the web sign-in: the button starts a web sign-in", () => {
+    searchParams = new URLSearchParams({ error: "AUTH-1047", cli: "1" });
+    renderPage();
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Sign in to applika" }),
+    ).toBeInTheDocument();
+  });
+
+  it("stays on screen for a signed-in browser: the words are about the terminal", () => {
+    auth = signedIn();
+    searchParams = new URLSearchParams({ error: "AUTH-1048", cli: "1" });
+    renderPage();
+
+    expect(replace).not.toHaveBeenCalled();
+    expect(errorBox()).toHaveTextContent(
+      "Borderless's answer could not be verified.",
+    );
+  });
+
+  it("without &cli=1 there is no terminal hint", () => {
+    searchParams = new URLSearchParams({ error: "AUTH-1047" });
+    renderPage();
+
+    expect(document.querySelector('[data-slot="sign-in-cli-hint"]')).toBeNull();
+  });
+});
+
+describe("LoginPage: a signed-in visit (the callback's success)", () => {
+  it("goes to the dashboard", () => {
+    auth = signedIn();
     renderPage();
 
     expect(replace).toHaveBeenCalledWith("/dashboard");
-    expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+    expect(replace).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByRole("button", { name: "Sign in with Borderless" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("lands on the dashboard, holding the button pending until the browser leaves", async () => {
-    vi.mocked(services.auth.borderlessSignIn).mockResolvedValue({
-      redirect_to: null,
-      new_account: false,
-    });
-    renderPage();
-
-    await signIn();
-
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("/dashboard"));
-    expect(services.auth.borderlessSignIn).toHaveBeenCalledWith({
-      email: "ada@example.com",
-      password: "secret",
-    });
-    expect(screen.getByRole("button", { name: "Sign in" })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
-  });
-
-  it("follows the stored return-to path once", async () => {
+  it("follows the stored return-to path once", () => {
     window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=BCDF-GHJK");
-    vi.mocked(services.auth.borderlessSignIn).mockResolvedValue({
-      redirect_to: null,
-      new_account: false,
-    });
+    auth = signedIn();
     renderPage();
 
-    await signIn();
-
-    await waitFor(() =>
-      expect(assign).toHaveBeenCalledWith("/device?code=BCDF-GHJK"),
-    );
+    expect(replace).toHaveBeenCalledWith("/device?code=BCDF-GHJK");
     expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBeNull();
   });
 
-  it("sends a new account to /welcome, keeping the return-to for its choice", async () => {
+  it("sends a new account to /welcome, keeping the return-to for its choice", () => {
     window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=BCDF-GHJK");
-    vi.mocked(services.auth.borderlessSignIn).mockResolvedValue({
-      redirect_to: null,
-      new_account: true,
-    });
+    auth = signedIn(true);
     renderPage();
 
-    await signIn();
-
-    await waitFor(() => expect(assign).toHaveBeenCalledWith("/welcome"));
+    expect(replace).toHaveBeenCalledWith("/welcome");
     expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBe(
       "/device?code=BCDF-GHJK",
     );
   });
-});
 
-describe("LoginPage: ?cli=1", () => {
-  beforeEach(() => {
-    searchParams = new URLSearchParams("cli=1");
+  it("moves on from a stale web error once the browser is signed in", () => {
+    auth = signedIn();
+    searchParams = new URLSearchParams({ error: "AUTH-1046" });
+    renderPage();
+
+    expect(replace).toHaveBeenCalledWith("/dashboard");
   });
 
-  it("never auto-redirects a signed-in visitor and always asks for the password", () => {
-    auth = { isAuthenticated: true, isLoading: false };
+  it("waits while the session is still loading", () => {
+    auth = { isAuthenticated: false, isLoading: true, user: null };
     renderPage();
 
     expect(replace).not.toHaveBeenCalled();
-    expect(
-      screen.getByRole("heading", { level: 1, name: "Sign in to applika-cli" }),
-    ).toBeInTheDocument();
-    expect(
-      document.querySelector('[data-slot="sign-in-cli-note"]'),
-    ).toHaveTextContent(
-      "This sign-in completes applika login in your terminal.",
-    );
-    expect(screen.getByLabelText("Password")).toBeInTheDocument();
-  });
-
-  it("follows redirect_to back to the terminal", async () => {
-    const redirect = "http://127.0.0.1:53682/callback?code=abc&state=xyz";
-    vi.mocked(services.auth.borderlessSignIn).mockResolvedValue({
-      redirect_to: redirect,
-      new_account: false,
-    });
-    renderPage();
-
-    await signIn();
-
-    await waitFor(() => expect(assign).toHaveBeenCalledWith(redirect));
-    expect(assign).toHaveBeenCalledTimes(1);
-  });
-
-  it("400 AUTH-1019 CLI login expired tells the user to run applika login again", async () => {
-    vi.mocked(services.auth.borderlessSignIn).mockRejectedValue(
-      refusal(400, { detail: "CLI login expired", code: "AUTH-1019" }),
-    );
-    renderPage();
-
-    await signIn();
-
-    await waitFor(() =>
-      expect(errorBox()).toHaveTextContent("CLI login expired"),
-    );
-    expect(errorBox()).toHaveTextContent(
-      "Run applika login in your terminal again.",
-    );
-    expect(assign).not.toHaveBeenCalled();
+    expect(signInButton()).toBeInTheDocument();
   });
 });
 
-describe("LoginPage: ?cli=1 after the terminal's marker lapsed", () => {
-  beforeEach(() => {
-    searchParams = new URLSearchParams("cli=1");
+describe("signedInLandingFor", () => {
+  it("is /welcome while the welcome choice is open, without touching the return-to", () => {
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=X");
+    expect(
+      signedInLandingFor({ github_restore: { available: true, prompt: true } }),
+    ).toBe("/welcome");
+    expect(window.sessionStorage.getItem(RETURN_TO_KEY)).toBe("/device?code=X");
   });
 
-  it("says the terminal sign-in expired instead of leaving silently", async () => {
-    vi.mocked(services.auth.borderlessSignIn).mockResolvedValue({
-      redirect_to: null,
-      new_account: false,
-    });
-    renderPage();
-
-    await signIn();
-
-    await waitFor(() =>
-      expect(errorBox()).toHaveTextContent(
-        "The terminal sign-in expired before you signed in.",
-      ),
-    );
-    expect(errorBox()).toHaveTextContent(
-      "Run applika login in your terminal again.",
-    );
-    expect(assign).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Sign in" })).not.toHaveAttribute(
-      "aria-disabled",
-    );
+  it("is the return-to path, consumed, else the dashboard", () => {
+    window.sessionStorage.setItem(RETURN_TO_KEY, "/device?code=X");
+    const answered = { github_restore: { available: true, prompt: false } };
+    expect(signedInLandingFor(answered)).toBe("/device?code=X");
+    expect(signedInLandingFor(answered)).toBe("/dashboard");
+    expect(signedInLandingFor(null)).toBe("/dashboard");
   });
 });

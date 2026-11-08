@@ -39,7 +39,7 @@ export function membershipBadgeName(badge: MembershipBadgeKey): string {
   return word("badges.memberName", { badge: MEMBERSHIP_BADGE_LABEL[badge] });
 }
 
-export type MembershipAccessState = "held" | "unconfirmed" | "none";
+export type MembershipAccessState = "held" | "needs_reconnect" | "none";
 
 export interface MembershipAccessInput {
   badges?: readonly { badge: string }[] | null;
@@ -53,9 +53,10 @@ export interface MembershipAccess {
 }
 
 /**
- * One rule for the chip, the menu prompt, the Reports entry and the gate:
- * no recorded badge is `none`; a recorded badge counts (`held`) only while
- * the Borderless access is `active`, otherwise it is `unconfirmed`.
+ * One rule for the chip, the menu prompt, the Reports entry and the gate
+ * (ADR-0026): no recorded badge is `none`; a recorded badge counts (`held`)
+ * only while the Borderless binding is `active`, otherwise Borderless refused
+ * applika's grant and it waits for a new sign-in (`needs_reconnect`).
  */
 export function membershipAccess(
   user: MembershipAccessInput | null | undefined,
@@ -66,7 +67,7 @@ export function membershipAccess(
   const badges = MEMBERSHIP_BADGE_KEYS.filter((key) => recorded.has(key));
   if (badges.length === 0) return { state: "none", badges };
   const active = user?.borderless?.status === "active";
-  return { state: active ? "held" : "unconfirmed", badges };
+  return { state: active ? "held" : "needs_reconnect", badges };
 }
 
 // `sm` drops the seal: it sits after a truncated 12px name in the w-60 rail.

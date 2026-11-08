@@ -282,6 +282,25 @@ async def test_an_approved_code_signs_the_cli_in_as_the_approver(
     assert row.id != admin_web.session_id
 
 
+async def test_the_device_code_never_goes_through_borderless(
+    real_client: AsyncClient, async_engine, redis_client, fake_borderless
+):
+    """ADR-0026 §11, owner 2026-11-06 ("Browser sign-ins only"): ``applika
+    login --device`` stays as it was - approved by a signed-in web user, no
+    Borderless sign-in page, no Borderless token."""
+    web = await _signed_in(async_engine, redis_client)
+    body = await _start(real_client)
+    await real_client.post(
+        '/auth/device/approve',
+        json={'user_code': body['user_code']},
+        headers=_bearer(web.access_token),
+    )
+
+    assert (await _poll(real_client, body['device_code'])).status_code == 200
+    assert fake_borderless.log['authorize'] == []
+    assert fake_borderless.log['grants'] == {}
+
+
 async def test_an_approved_code_is_one_use(
     real_client: AsyncClient, async_engine, redis_client
 ):

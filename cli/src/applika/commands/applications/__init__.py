@@ -111,4 +111,6 @@ cv_app.command('delete')(delete_application_cv)
 cv_app.command('download')(download_application_cv)
 cv_app.command('diff')(diff_application_cv)
 
-applications_app.add_typer(cv_app, name='cv')
+# Behind the `cvs` beta feature, like `applika cvs`: hidden from
+# `applications --help`, still callable and fully listed by its own --help.
+applications_app.add_typer(cv_app, name='cv', hidden=True)

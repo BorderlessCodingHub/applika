@@ -28,8 +28,9 @@
 #     under the `applika` project name, so its database is SEPARATE from the one
 #     `backend/docker-compose.yml` creates.
 #
-# Copy `.env.example` to `.env` first — GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET
-# are required settings with no defaults, so the api will not boot without them.
+# Copy `.env.example` to `.env` first and set the four BORDERLESS_* values — the
+# api boots without them, but every sign-in fails with AUTH-1018 until they are
+# set. `.env.example` also lists the public URLs to change behind a tunnel.
 #
 # NOTE ON THE FRONTEND: the Next.js build is a STATIC EXPORT and
 # NEXT_PUBLIC_API_BASE_URL is baked in at BUILD time, so a frontend source change
@@ -48,18 +49,27 @@ x-api-environment: &api-environment
   DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/applika
   REDIS_URL: redis://redis:6379/0
   # The browser's origin is `web`, not the api's own port.
-  CORS_ORIGINS: '["http://127.0.0.1:8080"]'
+  CORS_ORIGINS: '${CORS_ORIGINS:-["http://127.0.0.1:8080"]}'
   CORS_HEADERS: '["X-Request-ID", "Content-Type", "Accept", "Authorization"]'
   JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-not-for-production}
-  # Borderless sign-in (ADR-0024): answers 503 until both are set.
-  BORDERLESS_API_URL: ${BORDERLESS_API_URL:-}
+  # Sign in with Borderless through OpenID Connect (ADR-0026): ?error=AUTH-1018
+  # until the issuer, client id, secret and key are set. Locally, the fake:
+  #   cd backend && uv run python tests/fixtures/borderless/fake_oidc.py --port 8081 --issuer http://127.0.0.1:8081/api/auth
+  BORDERLESS_ISSUER: ${BORDERLESS_ISSUER:-}
+  BORDERLESS_CLIENT_ID: ${BORDERLESS_CLIENT_ID:-}
+  BORDERLESS_CLIENT_SECRET: ${BORDERLESS_CLIENT_SECRET:-}
+  BORDERLESS_REDIRECT_URI: ${BORDERLESS_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/borderless/callback}
   BORDERLESS_TOKEN_ENCRYPTION_KEY: ${BORDERLESS_TOKEN_ENCRYPTION_KEY:-}
   WEB_SIGNIN_URI: ${WEB_SIGNIN_URI:-http://127.0.0.1:8080/login}
+  # The web pages the CLI sign-in sends the browser to: the device-code
+  # approval (`applika login --device`) and the code#state to paste
+  # (`applika login --manual`).
+  DEVICE_VERIFICATION_URI: ${DEVICE_VERIFICATION_URI:-http://127.0.0.1:8080/device}
+  CLI_MANUAL_REDIRECT_URI: ${CLI_MANUAL_REDIRECT_URI:-http://127.0.0.1:8080/cli/code}
   # GitHub restore only (ADR-0024): 503 until the id and secret are set.
   GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
   GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
   GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/github/callback}
-  LOGIN_REDIRECT_URI: ${LOGIN_REDIRECT_URI:-http://127.0.0.1:8080/dashboard}
   DISCORD_FEEDBACK_WEBHOOK: ${DISCORD_FEEDBACK_WEBHOOK:-}
   ACCOUNT_LINK_REDIRECT_URI: ${ACCOUNT_LINK_REDIRECT_URI:-http://127.0.0.1:8080/profile}
   # KODI-039/ADR-0015: the rate limiter is ON by default, but this dev
@@ -142,7 +152,11 @@ services:
         # directly on :8000; cookies ignore the port, so the session set for
         # host 127.0.0.1 is sent to both origins and SameSite=Lax treats the two
         # ports as same-site.
-        API_BASE_URL: http://127.0.0.1:8000/api
+        API_BASE_URL: ${API_BASE_URL:-http://127.0.0.1:8000/api}
+        # Where "Create a Borderless account" on the sign-in page leads.
+        BORDERLESS_SIGN_UP: ${BORDERLESS_SIGN_UP:-https://platform.borderlesscoding.com/sign-up}
+        # Where "View on PyPI" on the CLI promo banner leads.
+        APPLIKA_CLI: ${APPLIKA_CLI:-https://pypi.org/project/applika-cli/}
     ports:
       - "127.0.0.1:8080:80"
     healthcheck:

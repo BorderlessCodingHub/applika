@@ -16,12 +16,17 @@ from app.config.db import get_session
 from app.config.redis import get_redis
 from app.domain.models import UserModel
 from app.main import app as main_app
-from app.presentation.dependencies import get_current_user
-from tests.conftest import FakeBorderlessClient, bind_borderless
+from app.presentation.dependencies import (
+    get_borderless_access_store,
+    get_current_user,
+)
+from tests.conftest import bind_borderless
+from tests.fixtures.borderless.fake_oidc import FakeBorderless
 
 SECOND_USER_ID = 3
-# The base user's Borderless credentials in the fake client (``bound_user``).
-CREDENTIALS = {'email': 'test@user.com', 'password': 'correct-horse'}
+# The base user's account on the fake Borderless (``bound_user``).
+BOUND_SUB = 'bl-user'
+BOUND_EMAIL = 'test@user.com'
 
 
 @asynccontextmanager
@@ -123,6 +128,8 @@ async def redis_client(redis_container):
         return client
 
     main_app.dependency_overrides[get_redis] = override_get_redis
+    # With a real Redis, the Borderless access tokens live in it too.
+    main_app.dependency_overrides.pop(get_borderless_access_store, None)
     yield client
     await client.flushdb()
     await client.aclose()
@@ -155,17 +162,15 @@ async def real_client(async_engine: AsyncEngine, db_session, redis_client):
 
 
 @pytest_asyncio.fixture
-async def bound_user(db_session, borderless: FakeBorderlessClient):
-    """The base user bound to a Borderless account the fake client knows,
-    with a PSP badge: a sign-in with ``CREDENTIALS`` opens it, and
-    refreshes read the membership from the fake."""
-    borderless.add(
-        id='bl-user',
-        email=CREDENTIALS['email'],
-        password=CREDENTIALS['password'],
-        token='tok-user',
-        membership='PSP',
-    )
+async def bound_user(db_session, fake_borderless: FakeBorderless):
+    """The base user bound to the fake Borderless account ``bl-user``
+    (PSP), whose refresh token the fake knows: a sign-in as ``bl-user``
+    opens the base user, and refreshes read the membership from the
+    fake."""
     return await bind_borderless(
-        db_session, 1, borderless_id='bl-user', token='tok-user'
+        db_session,
+        1,
+        borderless_id=BOUND_SUB,
+        email=BOUND_EMAIL,
+        fake=fake_borderless,
     )

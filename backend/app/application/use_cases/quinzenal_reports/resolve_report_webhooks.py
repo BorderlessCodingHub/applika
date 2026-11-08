@@ -2,8 +2,8 @@
 
 The owner: "the webhook will use those roles to determine which webhook to
 report the status". A report goes to every webhook holding a badge the
-user holds (``badge_access``: a live row while the Borderless access is
-alive and not refused); a webhook holding both is reached once. A webhook
+user holds (``badge_access``: a live row while the Borderless binding is
+``active``); a webhook holding both is reached once. A webhook
 with no badge receives nothing. URLs are distinct, oldest webhook first,
 and never logged.
 """

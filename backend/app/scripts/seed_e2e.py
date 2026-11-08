@@ -1,11 +1,12 @@
 """Seed the three deterministic E2E users and mint REAL sessions.
 
 Part of the production-simulating E2E harness (see
-``docker-compose.e2e.yml`` and ``frontend/scripts/e2e.sh``). Borderless is
-the only sign-in (ADR-0024) and the E2E stack talks to the Borderless stub
-(``backend/tests/fixtures/borderless/``), never the real Borderless. This
-CLI upserts three synthetic users through the REAL repositories, binds each
-to its stub account and mints REAL sessions with the app's own code against
+``docker-compose.e2e.yml`` and ``frontend/scripts/e2e.sh``). Borderless's
+OpenID Connect sign-in is the only sign-in (ADR-0026) and the E2E stack
+talks to the fake Borderless (``backend/tests/fixtures/borderless/``),
+never the real Borderless. This CLI upserts three synthetic users through
+the REAL repositories, binds each to its fake Borderless account and mints
+REAL sessions with the app's own code against
 the stack's own secrets. The E2E browser then carries a real cookie and
 every request afterwards hits the real API, the real Postgres and the real
 Redis.
@@ -26,11 +27,15 @@ Each run opens one ``borderless`` session per user ("Chrome on Linux") and
 one more ``cli_device`` session for ``e2e-user`` (device ``e2e-cli``), whose
 tokens are the ``cli_access_token`` / ``cli_refresh_token`` keys.
 
-Each seeded user is found by its stub Borderless id, else by its email,
-and its binding is re-set every run: the stub's fixed seed token
-(encrypted with the stack's ``BORDERLESS_TOKEN_ENCRYPTION_KEY``), expiring
-7 days from now, ``active``. So ``/auth/refresh`` reads the membership from
-the stub. Badges: ``e2e-user`` PSP, ``e2e-admin`` BASE, ``e2e-discord`` BASE.
+Each seeded user is found by its fake Borderless ``sub``, else by its
+email, and its binding is re-set every run: the account's
+``seedRefreshToken`` from ``accounts.json`` as the refresh token (encrypted
+with the stack's ``BORDERLESS_TOKEN_ENCRYPTION_KEY``), ``active``,
+``profile_read_at`` now, and no access token in Redis, so the first
+``/auth/refresh`` or report request refreshes against the fake (which
+rotates the token: ``frontend/scripts/e2e.sh`` POSTs the fake's
+``/__fake/reset`` before seeding, so a kept stack re-arms it). Badges:
+``e2e-user`` PSP, ``e2e-admin`` BASE, ``e2e-discord`` BASE.
 ``e2e-user`` has a GitHub identity on record; every seeded user has the
 one-time restore prompt answered. ``e2e-discord`` keeps its name: it is the
 beta specs' third user.
@@ -56,7 +61,7 @@ Prints exactly one JSON line to stdout::
 import asyncio
 import json
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import NamedTuple
 
 import redis.asyncio as redis
@@ -64,6 +69,9 @@ from sqlalchemy import update
 
 from app.application.dto.user import UserCreateDTO
 from app.application.dto.user_session import ClientType, SignInMethod
+from app.application.services.borderless_access_store import (
+    BorderlessAccessStore,
+)
 from app.application.services.session_store import SessionStore
 from app.application.use_cases.sessions.open_session import (
     OpenSessionUseCase,
@@ -90,8 +98,9 @@ from app.domain.repositories.user_session_repository import (
 
 
 class SeedAccount(NamedTuple):
-    """A seeded user and the stub Borderless account it is bound to. The
-    ids and tokens equal ``tests/fixtures/borderless/accounts.json``."""
+    """A seeded user and the fake Borderless account it is bound to. The
+    ``sub`` values and refresh tokens equal
+    ``tests/fixtures/borderless/accounts.json``."""
 
     user: UserCreateDTO
     borderless_id: str
@@ -126,7 +135,6 @@ SEED_ACCOUNTS = (E2E_USER, E2E_ADMIN, E2E_DISCORD)
 
 # ``e2e-user``'s GitHub-era identity, far above GitHub's real id range.
 E2E_USER_GITHUB_ID = 999000000001
-SEED_TOKEN_LIFETIME = timedelta(days=7)
 
 # What the seeded sessions look like in the device list.
 E2E_IP = '127.0.0.1'
@@ -146,7 +154,7 @@ class Identity(NamedTuple):
 
 async def upsert_user(session, account: SeedAccount) -> Identity:
     """Create or refresh one seeded user and its binding. Idempotent: found
-    by its stub Borderless id, else by its email."""
+    by its fake Borderless ``sub``, else by its email."""
     users = UserRepository(session)
     bindings = BorderlessAccountRepository(session)
     dto = account.user
@@ -174,7 +182,6 @@ async def upsert_user(session, account: SeedAccount) -> Identity:
         raise RuntimeError(
             'BORDERLESS_TOKEN_ENCRYPTION_KEY must be set in the E2E stack'
         )
-    expires_at = datetime.now(UTC) + SEED_TOKEN_LIFETIME
     if binding is None:
         binding = await bindings.get_by_user_id(user_id)
     if binding is None:
@@ -182,16 +189,14 @@ async def upsert_user(session, account: SeedAccount) -> Identity:
             user_id=user_id,
             borderless_user_id=account.borderless_id,
             email=dto.email,
-            encrypted_access_token=ciphertext,
-            access_token_expires_at=expires_at,
+            encrypted_refresh_token=ciphertext,
         )
     else:
         binding.borderless_user_id = account.borderless_id
-        await bindings.store_tokens(
+        await bindings.store_refresh_token(
             binding,
             email=dto.email,
-            encrypted_access_token=ciphertext,
-            access_token_expires_at=expires_at,
+            encrypted_refresh_token=ciphertext,
         )
     await UserBadgeRepository(session).apply(user_id, account.badge)
     return Identity(user_id=user_id)
@@ -291,6 +296,11 @@ async def seed() -> dict[str, str]:
     user, admin, discord_user = await upsert_users()
     await reset_beta_features(user, admin, discord_user)
     try:
+        # No access token in Redis: each seeded user's first membership
+        # check refreshes against the fake Borderless.
+        access = BorderlessAccessStore(redis_client)
+        for identity in (user, admin, discord_user):
+            await access.drop(identity.user_id)
         access_token, refresh_token = await mint_session(user, redis_client)
         admin_access_token, admin_refresh_token = await mint_session(
             admin, redis_client

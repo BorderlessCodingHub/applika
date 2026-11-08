@@ -1,35 +1,12 @@
-/** The Borderless email and password, for `POST /auth/borderless/signin` and `/confirm`. */
-export interface BorderlessCredentials {
-  email: string;
-  password: string;
-}
-
 /**
- * `POST /auth/borderless/signin` 200. `redirect_to`: where the browser goes
- * to hand a CLI sign-in back (null on the web, which got its cookies).
- * `new_account`: this sign-in created the applika account.
+ * The report refusals: RPT-1001 (was `badge_required`) no recorded BASE or
+ * PSP badge; AUTH-1050 a recorded badge while Borderless refuses applika's
+ * grant, until the next sign-in on the web (ADR-0026, `docs/error-codes.md`).
  */
-export interface BorderlessSignInResult {
-  redirect_to: string | null;
-  new_account: boolean;
-}
+export type ReportRefusalCode = "RPT-1001" | "AUTH-1050";
 
-/**
- * The Borderless sign-in refusals ADR-0024 named, numbered by ADR-0025
- * (`docs/error-codes.md`): AUTH-1005 was `email_unverified`, AUTH-1006
- * `binding_conflict` (sign-in), AUTH-1007 `email_ambiguous`, AUTH-1008
- * `email_unusable`. AUTH-1010 is the membership confirm's 409 (also
- * `binding_conflict` before).
- */
-export type BorderlessRefusalCode =
-  | "AUTH-1005"
-  | "AUTH-1006"
-  | "AUTH-1007"
-  | "AUTH-1008"
-  | "AUTH-1010";
-
-/** The report refusals: RPT-1001 was `badge_required`, RPT-1002 `membership_unconfirmed`. */
-export type ReportRefusalCode = "RPT-1001" | "RPT-1002";
+/** AUTH-1050: member features wait for a new sign-in (`docs/error-codes.md`). */
+export const MEMBERSHIP_LOCKED_CODE = "AUTH-1050";
 
 /** `POST /auth/github/restore` 200: where to send the browser to approve. */
 export interface GithubRestoreStart {

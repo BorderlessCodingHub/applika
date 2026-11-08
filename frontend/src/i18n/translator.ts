@@ -5,9 +5,9 @@ import en from "@/i18n/messages/en.json";
 
 /**
  * The active language for code that runs outside React: the error helpers
- * (`getApiError`, `getBlobApiError`, `rateLimitNotice`,
- * `borderlessErrorWords`) read it at the moment they are called, so a request
- * that answers after a switch shows its message in the new language.
+ * (`getApiError`, `getBlobApiError`, `rateLimitNotice`) read it at the
+ * moment they are called, so a request that answers after a switch shows its
+ * message in the new language.
  *
  * `LocaleProvider` is the only writer (`setTranslatorLocale`). Until it
  * resolves — and in every test that renders no provider — the store holds

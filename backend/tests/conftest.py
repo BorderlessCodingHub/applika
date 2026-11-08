@@ -1,10 +1,12 @@
 import logging
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timezone
 
+import httpx
 import pytest
 import pytest_asyncio
 from cryptography.fernet import Fernet
 from httpx import ASGITransport, AsyncClient
+from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     async_sessionmaker,
@@ -12,13 +14,10 @@ from sqlalchemy.ext.asyncio import (
 )
 from testcontainers.postgres import PostgresContainer
 
-from app.application.services.borderless_client import (
-    BorderlessAccessRefused,
-    BorderlessInvalidCredentials,
-    BorderlessNotConfigured,
-    BorderlessSignIn,
-    parse_membership,
+from app.application.services.borderless_access_store import (
+    BorderlessAccessStore,
 )
+from app.application.services.borderless_oidc import BorderlessOidcClient
 from app.application.services.github_service import (
     GitHubGrant,
     GitHubIdentity,
@@ -26,18 +25,25 @@ from app.application.services.github_service import (
 )
 from app.config.db import get_session
 from app.config.settings import envs
-from app.core.crypto import encrypt_borderless_token
+from app.core.crypto import clear_decrypt_cache, encrypt_borderless_token
 from app.core.enums import BadgeKey
 from app.domain.models import Base, BorderlessAccountModel, UserBadgeModel
 from app.main import app as main_app
 from app.presentation.dependencies import (
-    get_borderless_client,
+    get_borderless_access_store,
+    get_borderless_oidc_client,
     get_current_user,
     get_github_oauth_service,
     get_job_queue,
 )
 from tests.base_db_setup import base_data
 from tests.features_seed import enrol, seed_cvs_feature, seed_jobs_feature
+from tests.fixtures.borderless.fake_oidc import FakeBorderless, load_config
+
+# The fake Borderless every test drives (ADR-0026 §12): synthetic client
+# credentials from ``tests/fixtures/borderless/accounts.json``.
+BORDERLESS_ISSUER = 'http://borderless.test/api/auth'
+BORDERLESS_CONFIG = load_config()
 
 
 @pytest.fixture(autouse=True, scope='session')
@@ -63,89 +69,54 @@ def _app_logger_enabled():
 
 @pytest.fixture(autouse=True, scope='session')
 def _borderless_settings():
-    """A throwaway Fernet key and a fake Borderless URL for every test:
-    nobody calls the real Borderless (the client is faked below)."""
-    previous = (envs.BORDERLESS_API_URL, envs.BORDERLESS_TOKEN_ENCRYPTION_KEY)
-    envs.BORDERLESS_API_URL = 'http://borderless.test'
+    """The fake Borderless's issuer and synthetic client, and a throwaway
+    Fernet key, for every test: nobody calls the real Borderless."""
+    names = (
+        'BORDERLESS_ISSUER',
+        'BORDERLESS_CLIENT_ID',
+        'BORDERLESS_CLIENT_SECRET',
+        'BORDERLESS_REDIRECT_URI',
+        'BORDERLESS_TOKEN_ENCRYPTION_KEY',
+    )
+    previous = {name: getattr(envs, name) for name in names}
+    client = BORDERLESS_CONFIG['client']
+    envs.BORDERLESS_ISSUER = BORDERLESS_ISSUER
+    envs.BORDERLESS_CLIENT_ID = client['client_id']
+    envs.BORDERLESS_CLIENT_SECRET = SecretStr(client['client_secret'])
+    envs.BORDERLESS_REDIRECT_URI = client['redirect_uris'][0]
     envs.BORDERLESS_TOKEN_ENCRYPTION_KEY = Fernet.generate_key().decode()
     yield
-    envs.BORDERLESS_API_URL, envs.BORDERLESS_TOKEN_ENCRYPTION_KEY = previous
+    for name, value in previous.items():
+        setattr(envs, name, value)
 
 
-class FakeBorderlessClient:
-    """``BorderlessClient`` without Borderless. ``add`` registers an
-    account; its token answers ``read_membership`` with its membership.
-    ``sign_in_error`` / ``read_error`` make the next calls raise."""
+@pytest.fixture(autouse=True)
+def _fresh_decrypt_cache():
+    """The refresh-token decrypt cache starts empty in every test."""
+    clear_decrypt_cache()
+    yield
+    clear_decrypt_cache()
+
+
+class MemoryAccessStore(BorderlessAccessStore):
+    """The Redis access-token store, in memory, for tests that run without
+    Redis (``async_client``, ``admin_client``). ``tokens``: user id →
+    ``(access_token, expires_in)``."""
 
     def __init__(self) -> None:
-        self.configured = True
-        self.accounts: dict[str, dict] = {}
-        self.sign_in_error: Exception | None = None
-        self.read_error: Exception | None = None
-        self.sign_in_calls: list[str] = []
-        self.read_calls: list[str] = []
+        self.tokens: dict[int, tuple[str, int]] = {}
 
-    def add(
-        self,
-        *,
-        id: str,
-        email: str,
-        password: str = 'correct-horse',
-        verified: bool = True,
-        membership: str | None = 'PSP',
-        name: str | None = 'Borderless User',
-        username: str | None = 'borderless-user',
-        token: str | None = None,
-        expires_in: int = 604800,
-    ) -> dict:
-        account = {
-            'id': id,
-            'email': email,
-            'password': password,
-            'verified': verified,
-            'membership': membership,
-            'name': name,
-            'username': username,
-            'token': token or f'token-{id}',
-            'expires_in': expires_in,
-        }
-        self.accounts[email.lower()] = account
-        return account
+    async def put(
+        self, user_id: int, access_token: str, expires_in: int
+    ) -> None:
+        if expires_in > 0:
+            self.tokens[user_id] = (access_token, expires_in)
 
-    def is_configured(self) -> bool:
-        return self.configured
+    async def present(self, user_id: int) -> bool:
+        return user_id in self.tokens
 
-    async def sign_in(self, email: str, password: str) -> BorderlessSignIn:
-        self.sign_in_calls.append(email)
-        if not self.configured:
-            raise BorderlessNotConfigured('not configured')
-        if self.sign_in_error is not None:
-            raise self.sign_in_error
-        account = self.accounts.get(email.lower())
-        if account is None or account['password'] != password:
-            raise BorderlessInvalidCredentials('invalid')
-        return BorderlessSignIn(
-            user_id=account['id'],
-            email=account['email'],
-            email_verified=account['verified'],
-            name=account['name'],
-            username=account['username'],
-            access_token=account['token'],
-            expires_in=account['expires_in'],
-        )
-
-    async def read_membership(
-        self, access_token: str, timeout: float | None = None
-    ) -> BadgeKey | None:
-        self.read_calls.append(access_token)
-        if self.read_error is not None:
-            raise self.read_error
-        for account in self.accounts.values():
-            if account['token'] == access_token:
-                return parse_membership({
-                    'data': {'user': {'membership': account['membership']}}
-                })
-        raise BorderlessAccessRefused('refused')
+    async def drop(self, user_id: int) -> None:
+        self.tokens.pop(user_id, None)
 
 
 class FakeGitHubOAuthService:
@@ -186,8 +157,22 @@ class FakeGitHubOAuthService:
 
 
 @pytest.fixture
-def borderless() -> FakeBorderlessClient:
-    return FakeBorderlessClient()
+def fake_borderless() -> FakeBorderless:
+    """The fake Borderless (``tests/fixtures/borderless/fake_oidc.py``),
+    one per test, served in-process through its httpx transport."""
+    return FakeBorderless(BORDERLESS_CONFIG, BORDERLESS_ISSUER)
+
+
+@pytest.fixture
+def oidc_client(fake_borderless: FakeBorderless) -> BorderlessOidcClient:
+    return BorderlessOidcClient(
+        httpx.AsyncClient(transport=fake_borderless.transport())
+    )
+
+
+@pytest.fixture
+def access_store() -> MemoryAccessStore:
+    return MemoryAccessStore()
 
 
 @pytest.fixture
@@ -196,16 +181,29 @@ def github_oauth() -> FakeGitHubOAuthService:
 
 
 @pytest.fixture(autouse=True)
-def _fake_external_services(borderless, github_oauth):
+def _fake_external_services(oidc_client, access_store, github_oauth):
     """Every app the tests drive talks to the fakes, never to Borderless or
-    GitHub."""
-    main_app.dependency_overrides[get_borderless_client] = lambda: borderless
+    GitHub. The access-token store is in memory until a test brings a real
+    Redis (``redis_client`` removes this override)."""
+    main_app.dependency_overrides[get_borderless_oidc_client] = lambda: (
+        oidc_client
+    )
+    main_app.dependency_overrides[get_borderless_access_store] = lambda: (
+        access_store
+    )
     main_app.dependency_overrides[get_github_oauth_service] = lambda: (
         github_oauth
     )
     yield
-    main_app.dependency_overrides.pop(get_borderless_client, None)
+    main_app.dependency_overrides.pop(get_borderless_oidc_client, None)
+    main_app.dependency_overrides.pop(get_borderless_access_store, None)
     main_app.dependency_overrides.pop(get_github_oauth_service, None)
+
+
+_MEMBERSHIPS = {
+    BadgeKey.BORDERLESS_BASE: 'BASE',
+    BadgeKey.BORDERLESS_PSP: 'PSP',
+}
 
 
 async def bind_borderless(
@@ -214,20 +212,37 @@ async def bind_borderless(
     *,
     badge: BadgeKey | None = BadgeKey.BORDERLESS_PSP,
     status: str = 'active',
-    expires_in: timedelta = timedelta(days=7),
     borderless_id: str | None = None,
     token: str | None = None,
+    fake: FakeBorderless | None = None,
+    email: str | None = None,
 ) -> BorderlessAccountModel:
-    """A Borderless binding (and a live badge) for ``user_id``."""
+    """A Borderless binding (and a live badge) for ``user_id``, holding an
+    encrypted refresh token. With ``fake``, the account and that token
+    exist on the fake Borderless too (its membership = ``badge``), so a
+    membership refresh works; ``token=''`` stores no refresh token."""
+    sub = borderless_id or f'bl-{user_id}'
+    email = email or f'user{user_id}@borderless.test'
+    if fake is not None:
+        if sub not in fake.accounts:
+            fake.add_account(
+                sub,
+                email,
+                membership=_MEMBERSHIPS.get(badge) if badge else None,
+                name=f'Borderless {user_id}',
+            )
+        if token != '':
+            token = fake.issue_refresh_token(sub, token)
+    refresh = token if token is not None else f'refresh-{sub}'
     binding = BorderlessAccountModel(
         user_id=user_id,
-        borderless_user_id=borderless_id or f'bl-{user_id}',
-        email=f'user{user_id}@borderless.test',
-        encrypted_access_token=encrypt_borderless_token(
-            token or f'token-bl-{user_id}'
+        borderless_user_id=sub,
+        email=email,
+        encrypted_refresh_token=(
+            encrypt_borderless_token(refresh) if refresh else None
         ),
-        access_token_expires_at=datetime.now(UTC) + expires_in,
         status=status,
+        profile_read_at=datetime.now(timezone.utc),
     )
     session.add(binding)
     if badge is not None:
@@ -321,11 +336,17 @@ async def jobs_beta(db_session) -> int:
 
 
 @pytest_asyncio.fixture
-async def reports_badge(db_session) -> BorderlessAccountModel:
-    """ADR-0024: reports are for BASE and PSP members. The ``async_client``
-    user gets an active binding expiring in 7 days and a live
-    ``borderless_psp`` badge."""
-    return await bind_borderless(db_session, base_data()['user'].id)
+async def reports_badge(
+    db_session, fake_borderless, access_store
+) -> BorderlessAccountModel:
+    """ADR-0026: reports are for BASE and PSP members. The ``async_client``
+    user gets an active binding whose refresh token the fake Borderless
+    knows (PSP), a live ``borderless_psp`` badge and a live access token in
+    the store, so the gate calls nobody."""
+    user_id = base_data()['user'].id
+    binding = await bind_borderless(db_session, user_id, fake=fake_borderless)
+    await access_store.put(user_id, 'access-token', 3600)
+    return binding
 
 
 @pytest_asyncio.fixture

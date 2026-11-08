@@ -1,6 +1,0 @@
-database_init.db
-functiondatabase.py
-.dockerignore
-Dockerfile
-data/
-requirements.txt

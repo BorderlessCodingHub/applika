@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { loginAs, type SeededRole } from "./support/auth";
+import { showCookieNotice } from "./support/cookie-notice";
 
 /**
  * App shell — responsive behaviour and keyboard traversal (KODI-004 / R-017,
@@ -176,12 +177,13 @@ test.describe("below md the sidebar collapses into a menu", () => {
     // the cookie notice used to sit at `z-50` — the same layer as the sheet —
     // and is rendered AFTER the page content, so it won the tie and floated
     // over the open panel.
+    await showCookieNotice(page);
     await openDashboard(page);
 
     const notice = page.locator(COOKIE_NOTICE);
     const banner = page.locator(CLI_BANNER);
-    // A fresh context has acknowledged neither, so both must really be on
-    // screen. Without them the rest of this test proves nothing.
+    // The notice is brought back and the banner was never dismissed, so both
+    // must really be on screen. Without them the rest of this test proves nothing.
     await expect(notice).toBeVisible();
     await expect(banner).toBeVisible();
 
@@ -249,10 +251,10 @@ test.describe("below md the sidebar collapses into a menu", () => {
       },
     );
 
-    // Brand, close, every primary entry and the account menu. Expressed as
-    // `+ 3` rather than a literal so it tracks the nav; the rail test pins
-    // `PRIMARY_LABELS` itself to what actually renders.
-    expect(report.controlCount).toBe(PRIMARY_LABELS.length + 3);
+    // Brand, close, every primary entry, the "Applika CLI" link and the
+    // account menu. Expressed as `+ 4` rather than a literal so it tracks the
+    // nav; the rail test pins `PRIMARY_LABELS` itself to what actually renders.
+    expect(report.controlCount).toBe(PRIMARY_LABELS.length + 4);
 
     // Guard against a vacuous pass: the two pieces of chrome must genuinely
     // share screen space with the panel, or hit-testing proves nothing.
@@ -337,6 +339,7 @@ test.describe("below md the sidebar collapses into a menu", () => {
       ...PRIMARY_LABELS.map((label) =>
         sheet.getByRole("link", { name: label }),
       ),
+      sheet.getByRole("link", { name: "Applika CLI", exact: true }),
       sheet.getByRole("button", { name: "Open account menu" }),
       // Focus is TRAPPED in the panel: tabbing past the last control wraps
       // round to the first one in the panel rather than escaping to the page.
@@ -496,7 +499,7 @@ test.describe("at md and above the shell renders a fixed rail", () => {
     );
   });
 
-  test("tab order in the rail runs brand, entries, account menu", async ({
+  test("tab order in the rail runs brand, entries, the CLI link, account menu", async ({
     page,
   }) => {
     await openDashboard(page);
@@ -508,6 +511,11 @@ test.describe("at md and above the shell renders a fixed rail", () => {
       await page.keyboard.press("Tab");
       await expect(rail.getByRole("link", { name: label })).toBeFocused();
     }
+
+    await page.keyboard.press("Tab");
+    await expect(
+      rail.getByRole("link", { name: "Applika CLI", exact: true }),
+    ).toBeFocused();
 
     await page.keyboard.press("Tab");
     await expect(
@@ -548,6 +556,7 @@ test.describe("at md and above the shell renders a fixed rail", () => {
   });
 
   test("the cookie notice does not cover the rail", async ({ page }) => {
+    await showCookieNotice(page);
     await openDashboard(page);
 
     const notice = page.locator(COOKIE_NOTICE);

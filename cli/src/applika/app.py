@@ -25,7 +25,10 @@ app = typer.Typer(
 )
 
 app.add_typer(applications_app, name='applications')
-app.add_typer(cvs_app, name='cvs')
+# `cvs` is behind the `cvs` beta feature: hidden from `applika --help`, still
+# callable, and `applika cvs --help` lists every command. The API answers
+# 404 to a user who is not on the beta list.
+app.add_typer(cvs_app, name='cvs', hidden=True)
 app.command('skill')(skill)
 app.command('login')(login)
 app.command('logout')(logout)

@@ -80,7 +80,7 @@ a real Redis. Nothing is mocked, and there is no `webServer` block.
 KEEP_STACK=1 ./scripts/e2e.sh              # leave the stack up to debug
 ```
 
-A failed run saves the API and Borderless stub logs to
+A failed run saves the API and fake Borderless logs to
 `test-results/e2e-stack.log` before teardown (CI uploads `test-results/` on
 failure) and prints the last API lines.
 
@@ -198,29 +198,77 @@ The seed resets `cvs` like `jobs` (beta, `e2e-user` listed, `e2e-discord`
 off, no admin opt-out); `beforeAll`/`afterAll` delete e2e-discord's CVs,
 drafts and applications (enrolling it for the wipe) and put that state back.
 
-**Borderless sign-in in E2E (ADR-0024).** The stack runs `borderless-stub`
-(`backend/tests/fixtures/borderless/{stub.py,accounts.json}`,
-`BORDERLESS_API_URL=http://borderless-stub:8081`); nobody calls the real
-Borderless or GitHub. The seed binds the three seeded users to their stub
-accounts with a live access every run (`e2e-user` PSP, `e2e-admin` and
-`e2e-discord` BASE — so every seeded rail has Reports — e2e-user with a
-GitHub identity, every prompt answered); `loginAs` still installs real
-cookies. `e2e/support/auth.ts` `BORDERLESS_ACCOUNTS` mirrors the unseeded
-stub accounts: `e2e-free` (FREE), `e2e-short` (PSP, `expiresIn` `[3,
-604800]`: its FIRST sign-in's access lasts 3 s, so sign it in through the
-form exactly once per stack) and `e2e-unverified`.
-`e2e/borderless-signin.spec.ts` (serial): wrong password / unknown email →
-"Invalid email or password"; unverified → "Verify your email on Borderless
-first"; e2e-free → `/welcome` → Start fresh → no chip, no Reports,
-`GET /reports` 403 `RPT-1001`; the profile restore aborted at
-`github.com` (`scope=read:user`, a `state`); e2e-user's PSP chip;
-`/auth/cli/authorize` → `/login?cli=1` → the loopback URL with `code` and
-`state` (intercepted, never redeemed); e2e-short expired → Reports entry
-kept, the menu and profile prompts, 403 `RPT-1002`, confirm on
-`/reports` → reports, chip back, sessions unchanged. It never signs a seeded
-user in through the web form (that would add a web session
-`devices.spec.ts` lists). `afterAll` signs e2e-free and e2e-short in through
-the API and `DELETE /users/me`. `e2e/admin-report-webhooks.spec.ts`
+**Borderless sign-in in E2E (ADR-0026).** The stack runs `borderless-fake`
+(`backend/tests/fixtures/borderless/fake_oidc.py` on its OWN test-only image
+`applika-e2e-borderless-fake`, built from that folder's `Dockerfile` with
+the synthetic `accounts.json` baked in; never on the API image, which holds
+no fake code. The image's entrypoint runs the fake, so `command:` holds
+flags only: `--issuer http://borderless-fake:8081/api/auth --public-url
+http://127.0.0.1:8181 --access-ttl 2`. Published on `127.0.0.1:8181`; the
+healthcheck reads `/health` at its root with the image's `python`, as the
+image has no curl or wget). The API's env names
+that issuer, the SYNTHETIC client of `accounts.json`
+(`applika-fake-client`, `applika-fake-client-secret-not-real`) and
+`BORDERLESS_REDIRECT_URI=http://127.0.0.1:8100/api/auth/borderless/callback`;
+nobody calls the real Borderless or GitHub. Every provider endpoint sits
+under the issuer's path: the browser opens the sign-in page at
+`:8181/api/auth/oauth2/authorize`, the API reaches the rest in-stack. The
+controls sit at the fake's ROOT: `POST /__fake/accounts/{sub}`
+(`{membership?, email_verified?, deny?}`), `POST /__fake/grants/{sub}/revoke`,
+`GET /__fake/log` (`authorize` params, `grants` by sub, `revokes`; never a
+secret or a token), `POST /__fake/clock`, `POST /__fake/reset`.
+`frontend/scripts/e2e.sh` waits for `:8181/health`, POSTs `/__fake/reset`
+BEFORE the seed (it re-arms every `seedRefreshToken`; the first membership
+check rotates it), exports `E2E_BORDERLESS_URL`, and keeps the api and fake
+logs on failure. **A spec never POSTs `/__fake/reset`**: the fake would
+forget the seeded users' rotated refresh tokens and their next refresh would
+end their web sessions. The seed binds the three seeded users to their fake
+accounts every run (`e2e-user` PSP, `e2e-admin` and `e2e-discord` BASE — so
+every seeded rail has Reports — e2e-user with a GitHub identity, every prompt
+answered); `loginAs` still installs real cookies. With `--access-ttl 2`
+almost every session refresh and report request refreshes at the fake.
+`e2e/support/auth.ts`: `BORDERLESS_ACCOUNTS` mirrors the fake's accounts
+(`sub`, `email`, `password`: `user` (seeded, never through the web),
+`free`, `starter`, `unverified`, `revoke`, `logout`), `borderlessUrl(path)`,
+`signInWithBorderlessButton(page)` and `signInWithFake(page, email)`
+(`/login` → the button → the fake's page → that account's one-click button
+named by its email → back on the web origin; only in a context with NO fake
+session — with one the fake answers straight back and its page never shows).
+`e2e/borderless-signin.spec.ts` (serial; `beforeAll` AND `afterAll` delete
+`e2e-free`, `e2e-starter`, `e2e-revoke`, `e2e-logout` through
+`DELETE /users/me`, so a retry starts from new accounts; `afterAll` puts
+`e2e-logout` back to PSP): `/login` has one button and no input; e2e-logout
+through the fake's Email + Password form → `/welcome` → Start fresh → PSP
+chip; the last `authorize` in `/__fake/log` has S256, a 43-char challenge, a
+state, a nonce and no `prompt`; no web URL carried a code, state or token,
+and script-readable storage and `document.cookie` hold none; logout of the
+last session → exactly one `revokes` entry (`refresh_token`); signing in
+again is one click (no fake page committed) with a new state;
+e2e-logout PSP → BASE through the control → 2.5 s → reload → BASE chip, a
+`refresh_token` grant logged → logout → one more revoke; e2e-free → `/welcome`
+once → no chip, no Reports, `GET /reports` 403 `RPT-1001`; e2e-starter → no
+chip; the profile restore aborted at `github.com` (`scope=read:user`, a
+`state`) and its outcome notice; e2e-unverified → `/login?error=AUTH-1005`
+(nothing else in the URL) with its words; seeded e2e-user's PSP chip;
+`/api/auth/cli/authorize` (PKCE) → the fake's page despite its session
+(`prompt=login` logged) → the API callback's 307 to the CLI's loopback
+`http://127.0.0.1:<port>/callback` with exactly `code` and `state` (the
+CLI's own state echoed). NOTHING listens there: the port is found closed by
+connecting, never by listening, and the hop is read as the browser's own
+request (Playwright raises one per redirect hop; a route never sees a
+redirect target): `page.waitForRequest` on that origin, its
+`redirectedFrom()` the callback's 307, itself from the fake; the navigation
+then fails `net::ERR_CONNECTION_REFUSED` (asserted), and the dashboard
+check opens a new tab of the same context. The browser's
+`__access`/`__refresh` stay the same → the code redeemed at
+`POST /auth/token` by the CLI's request context; e2e-revoke signed in again →
+`/__fake/grants/{sub}/revoke` → 2.5 s → reload → `/auth/refresh` 401
+AUTH-1049 → `/login?error=AUTH-1049` words; the CLI `refresh_token` grant 200,
+its Bearer `GET /reports` 403 AUTH-1050, its `GET /users/me/sessions` lists
+every web row `revoked`; the button again (one click) → PSP chip → the CLI's
+`GET /reports` 200 → `POST /auth/revoke` 204. It never signs a seeded user in
+through the web (that would add a web session `devices.spec.ts` lists).
+`e2e/admin-report-webhooks.spec.ts`
 (serial): add with BASE + PSP (both chips), masked row, the token never in
 `page.content()`, narrow to PSP without resending the URL, delete as its own
 cleanup.
@@ -240,7 +288,7 @@ Route groups control access:
 
 Each protected route has a thin `page.tsx` shell that renders a `*-page.tsx` component containing the actual logic.
 
-`/login` lives at `src/app/login/`, OUTSIDE the `(public)` group, so it renders no landing header or footer. It is the Borderless sign-in form behind a Suspense shell (it reads `?cli=1`); `/welcome` is the one-time choice of a new account (see **Sign-in, welcome, membership badge**).
+`/login` lives at `src/app/login/`, OUTSIDE the `(public)` group, so it renders no landing header or footer. It is the "Sign in with Borderless" button behind a Suspense shell (it reads `?error=` and `?cli=1`); `/welcome` is the one-time choice of a new account (see **Sign-in, welcome, membership badge**).
 
 CLI sign-in routes (KODI-058, ADR-0019):
 
@@ -248,6 +296,11 @@ CLI sign-in routes (KODI-058, ADR-0019):
 | ------------------------ | ---------------------------------------- | ----------------------------------------------------------- |
 | `/device?code=`          | `(protected)/device/page.tsx` (Suspense) | `device-page.tsx` — code, request card, approve/deny        |
 | `/cli/code?code=&state=` | `cli/code/page.tsx` (Suspense)           | `cli-code-page.tsx` — `code#state` read-only, Copy, no auth |
+
+`/cli` (`(public)/cli/`, `cli-page.tsx`) is the public applika-cli page under
+the landing layout: install, sign-in modes, examples, `applika skill`. The
+rail's footer links to it above the account card (`sidebar.tsx`); its PyPI
+links read `APP_CONFIG.cli.url` (`APPLIKA_CLI` build arg).
 
 `/cli/code` sits OUTSIDE the groups like `/login` (no shell, no session): the
 API 307s there when the CLI cannot reach its local callback. `/device` reads
@@ -408,8 +461,7 @@ SameSite=Lax` (not HttpOnly; JS writes it).
   string `detail` (an unknown code, an old API) → else the caller's fallback,
   by default `errors.unknown`. GEN-1003 (every validation 422) is one line; a
   `detail` array never reaches the screen. `getApiError`, `getBlobApiError`,
-  `rateLimitNotice` (GEN-1004 / AUTH-1009 with `params.seconds`, else
-  `Retry-After`), `borderlessErrorWords` (`cliLoginExpired` = 400 AUTH-1019)
+  `rateLimitNotice` (GEN-1004 with `params.seconds`, else `Retry-After`)
   and every former direct `.detail` read (`jobApiDetail`, `safeErrorMessage`,
   `deviceErrorText`, the admin pages' `serverDetail` / `serverErrorFrom`)
   go through it, with their signatures unchanged. They read the active
@@ -439,8 +491,8 @@ SameSite=Lax` (not HttpOnly; JS writes it).
   `LandingHeader` (first in the controls group, before `ThemeToggle` and the
   CTA; `/cookie-policy` shares it through `(public)/layout.tsx`); and the
   top-right `absolute top-4 right-4 z-10` box of `SignInScreen` (`/login`) and
-  `CliCodeScreen` (`/cli/code`), before `ThemeToggle`, outside `<main>` and so
-  outside the form. Order is always language, then theme. The `landing` look
+  `CliCodeScreen` (`/cli/code`), before `ThemeToggle`, outside `<main>`.
+  Order is always language, then theme. The `landing` look
   is ported but mounted NOWHERE. `language-toggle-mounts.test.tsx` scans
   `src/**/*.tsx` for `<LanguageToggle` and expects exactly these four files,
   each `variant="default"`: a new mount is added to its list.
@@ -496,9 +548,11 @@ The Axios instance in `src/lib/api-client.ts` handles cookie-based auth with `wi
 
 ### Auth & Token Refresh
 
-Sign-in is the Borderless email + password form at `/login` (ADR-0024; see
-**Sign-in, welcome, membership badge**); there is no GitHub sign-in.
-Authentication uses HTTP-only JWT cookies. Token refresh is handled via **polling in AuthContext** (not via Axios interceptor):
+Sign-in is Borderless's own OpenID Connect sign-in, started by the "Sign in
+with Borderless" button at `/login` (ADR-0026; see **Sign-in, welcome,
+membership badge**); there is no GitHub sign-in and no password anywhere in
+the web. Authentication uses HTTP-only JWT cookies that the API's callback
+sets; the web never sees a code, a state or a token. Token refresh is handled via **polling in AuthContext** (not via Axios interceptor):
 
 - Polls `services.auth.refresh()` using React Query's `refetchInterval`
 - **10-minute interval** when authenticated
@@ -538,9 +592,29 @@ with that 503 (a temporary error to every caller), never a sign-out; only a
 503's `detail` through `getApiError`. The interceptor skips `/auth/*` on a
 401 (a failed refresh must not refresh) EXCEPT `/auth/device/*` and
 `/auth/github/restore`, ordinary signed-in calls that refresh and replay like
-any other, and `/auth/borderless/confirm` when its 401 says "Not
-authenticated" (its other 401 is a wrong Borderless password). The sign-in
-itself never refreshes.
+any other.
+
+**AUTH-1049: Borderless refused applika's grant (ADR-0026).** The API then
+ends every web session of the user and answers that session's
+`GET /auth/refresh` with `401 {"code": "AUTH-1049"}`, clearing both cookies.
+Two places can see that refusal: `AuthContext`'s poll (its query error) and
+the 401 interceptor (a request answered 401, then the refresh it tried).
+`src/lib/session-ended.ts` is the one place that reads it:
+`grantEndedCode(error)` (a 401 with code AUTH-1049, else `null`),
+`recordRefusedRefresh(error)` (the interceptor's catch; anything but
+AUTH-1049 is ignored) and a tiny external store (`refusedRefresh()`:
+`{code, at}` or `null`) that `AuthProvider` reads with
+`useSyncExternalStore`. `useAuth().sessionEndedCode` is that code from either
+path; while it is set the session is not authenticated and not loading, and
+`(protected)/layout.tsx` sends the page to `signInPathFor(code)` —
+`/login?error=AUTH-1049` — so the sign-in page shows the words. Every other
+signed-out visit keeps the plain `/login`: the user's OTHER web sessions get
+AUTH-1002, then AUTH-1015 on refresh (a dead refresh value names no
+session, so the API cannot say why). A full page load starts with an empty
+store, and `AuthProvider` ignores the recorded refusal once a refresh
+succeeds after its `at` (the user signed in again in another tab).
+`useAuth().logout(redirectTo = "/")` ends this session and navigates there;
+"Sign in again" passes `/login`.
 
 ### State Management
 
@@ -1606,44 +1680,57 @@ now one component.
   client-side `router.replace("/admin/platforms")` so a saved link still
   works — this is a static export, so there is no server-side rewrite.
 
-### Sign-in, welcome, membership badge (ADR-0024)
+### Sign-in, welcome, membership badge (ADR-0024, ADR-0026)
 
-The owner: "As an applika user who belongs to the Borderless community, I want
-to sign in to applika with my Borderless email and password instead of
-GitHub, so that my BASE or PSP membership shows up as a badge on my account
-and gives me access to the biweekly reports." GitHub sign-in and Discord
-linking are gone; nothing in `src/` calls `/auth/github/login` or
-`/auth/link/discord`. Not behind a beta gate (ADR-0024 §9).
+The owner (PRD 0018): "As an applika user who belongs to the Borderless
+community, I want to sign in to applika with my Borderless email and password
+instead of GitHub, so that my BASE or PSP membership shows up as a badge on my
+account and gives me access to the biweekly reports." Since ADR-0026 and
+PRD 0020 the sign-in is Borderless's own OpenID Connect sign-in, applika a
+confidential client from its server: the web shows one button and never asks
+for, holds or sends a password, a code, a state or a token. GitHub sign-in
+and Discord linking are gone; nothing in `src/` calls `/auth/github/login` or
+`/auth/link/discord`. Not behind a beta gate (ADR-0024 §9, ADR-0026).
 
 - **`/login`** (`app/login/page.tsx` Suspense shell, `login-page.tsx`) is the
-  ui-designer's `SignInScreen` (`components/auth/sign-in-screen.tsx`, fields in
-  `auth/borderless-credentials.tsx`) over RHF + zod
-  (`lib/borderless-credentials-schema.ts`: email 1..100, password 1..200) →
-  `services.auth.borderlessSignIn` (`POST /auth/borderless/signin`). Every
-  refusal shows its message by code in the active language in
-  `[data-slot="sign-in-error"]` (`lib/borderless-error.ts`
-  `borderlessErrorWords`, see **i18n**: 401 AUTH-1004, 403 AUTH-1005, 409
-  AUTH-1006 / AUTH-1007, 422 AUTH-1008, 429 AUTH-1009 with the wait, 503
-  AUTH-1017; an unknown code shows the API's `detail`; GEN-1003 is one line;
-  no body gets a fixed line). `en` repeats the API's words exactly. A 401 clears and focuses the password. The error box is
-  always mounted with `role="alert"`, so `getByRole("alert")` finds it empty —
-  assert the slot or the words. "Sign in" is in the h1, the button and the
-  hint: Playwright needs `exact: true`. "Create a Borderless account" opens
-  `APP_CONFIG.borderless.signUpUrl` in a new tab.
-- **`/login?cli=1`** is where `/auth/cli/authorize` and `/auth/cli/login/{id}`
-  307 the CLI's browser (with the `__cli_login` cookie). It never
-  auto-redirects a signed-in browser and always asks for the password; the
-  answer's `redirect_to` (the loopback URL with `code` and `state`) is
-  followed with `window.location.assign`. 400 AUTH-1019 "CLI login expired"
-  (keyed on the code, not the words) adds "Run applika login in your
-  terminal again." The CLI branch sets no cookie. When
-  the `__cli_login` cookie itself lapsed (~5 min) the API does a WEB sign-in
-  (`redirect_to: null`); the page then stays and says the terminal sign-in
-  expired (`cliHandoffLostMessage()` + the same hint) instead of navigating.
-- **A web sign-in lands with a full navigation**: `new_account` → `/welcome`
-  (the return-to path waits), else `consumeReturnTo() ?? "/dashboard"`. Full,
-  because the sign-in may replace another account's session in the tab.
-  `SignInLink` (`components/auth-buttons.tsx`) is a plain link to `/login`.
+  ui-designer's `SignInScreen` (`components/auth/sign-in-screen.tsx`): logo,
+  h1 "Sign in to applika" (always, even with `&cli=1`), lead, the "Sign in
+  with Borderless" button (`[data-action="sign-in-borderless"]`), "Create a
+  Borderless account" (`APP_CONFIG.borderless.signUpUrl`, new tab). The button
+  does `window.location.assign(services.auth.borderlessLoginUrl())`
+  (`{apiBaseURL}/auth/borderless/login`, a top-level navigation: the API 307s
+  to Borderless with PKCE S256, state and nonce, no `prompt`). It stays
+  pending (`aria-disabled` + `aria-busy`, focus kept, an sr-only
+  `role="status"` "Opening Borderless…") until the browser leaves;
+  `login-page.tsx` resets it on `pageshow` with `event.persisted` (Back
+  from Borderless restores the page from the bfcache). No `input` and no
+  `form` on the page. `SignInLink` (`components/auth-buttons.tsx`) is a plain
+  link to `/login`.
+- **The callback comes back to `/login`** (`WEB_SIGNIN_URI`): signed in (the
+  cookies are set; the page moves on with `router.replace`, `/welcome` while
+  `user.github_restore.prompt` — the return-to waits — else
+  `consumeReturnTo() ?? "/dashboard"`, `signedInLandingFor`) or with
+  `?error=<code>` (`&cli=1` on a CLI attempt). The screen resolves
+  `errors.<code>` itself through `useTranslations("errors")`, so the words
+  follow a language switch; `en` is the API's `detail`, word for word.
+  `SIGN_IN_ERROR_CODES` is an ALLOWLIST (AUTH-1003, 1005..1008, 1017..1019,
+  1046..1049, GEN-1005, all free of ICU arguments): a code from the URL
+  never puts an arbitrary catalog sentence on screen, and anything else reads
+  `errors.unknown` (`signInErrorKey`). A new code the API sends to `?error=`
+  is added there. The box `[data-slot="sign-in-error"]` is always mounted
+  with `role="alert"` and carries `data-code` (the shown key); with an error,
+  focus goes to it on load (else to the button). `&cli=1` adds
+  `[data-slot="sign-in-cli-hint"]` "Return to your terminal and run
+  `applika login` again." (the command in `<code>`). A refused CLI attempt
+  stays on screen even for a signed-in browser; a stale WEB error with a live
+  session moves on. "Sign in" is in the h1, the button and the AUTH-1049
+  words: Playwright needs `exact: true`, and never `getByRole("alert")`
+  (Next's route announcer is one too).
+- **`applika login` never shows an applika page**: `/auth/cli/authorize` and
+  `/auth/cli/login/{id}` 307 straight to Borderless with `prompt=login`, and
+  the callback 307s to the CLI's loopback (or `/cli/code`). Only a refusal
+  lands on `/login?error=<code>&cli=1`. `/login?cli=1` without an error has
+  no flow today (the screen shows the hint as a grey note).
 - **`/welcome`** (`(protected)/welcome/welcome-page.tsx`, `WelcomeScreen`) is
   the one-time choice of a new account: "Restore your data from GitHub"
   (`POST /auth/github/restore` → `window.location.assign(authorize_url)`; the
@@ -1653,36 +1740,38 @@ linking are gone; nothing in `src/` calls `/auth/github/login` or
   every other page to `/welcome` while `user.github_restore.prompt`, and
   consumes no return-to meanwhile. An account that answered is sent from
   `/welcome` to the dashboard.
+- **`user.borderless`** is `null` or
+  `{status: "active" | "needs_reconnect", email, checked_at}` (`checked_at`:
+  the last membership read). The API re-reads the membership at every
+  sign-in and whenever its Redis access token is gone (about once an hour;
+  at session refresh and at member-gated requests); the web just shows the
+  result.
 - **`membershipAccess(user)`** (`components/badges/membership-badge.tsx`) is
   the ONE rule: no recorded badge `none`; a badge counts (`held`) only while
-  `borderless.status === "active"`, else `unconfirmed`. `MembershipBadge`
-  reads "BASE"/"PSP", `role="img"` named "Borderless BASE member" /
-  "Borderless PSP member" (`purpose="label"` for a webhook's badge: plain
-  text). Held, it shows in `user-menu.tsx` (the rail card beside the name,
-  `sm`, wired to the trigger with `aria-describedby`; the menu label in both
-  variants) and beside the profile h1 (`lg`, a sibling, never inside it).
-  Unconfirmed, the menu shows `ConfirmMembershipMenuItem` ("Sign in again to
-  confirm your membership", a link to `/reports`) instead.
-- **Confirm** (`badges/confirm-membership-form.tsx` `ConfirmMembershipForm`,
-  wired; `ConfirmMembershipFormView` presentational): email prefilled from
-  `borderless.email` + password → `POST /auth/borderless/confirm` (204, the
-  applika session untouched) → awaits the refetch of `["user","me"]`,
-  `["reports"]`, `["report"]`, toast "Membership confirmed". The 401
-  interceptor refreshes on this route only for AUTH-1001 "Not authenticated"
-  (the `detail` is compared only when an old API sends no code) — its other
-  401 is a wrong password (AUTH-1004) and is never replayed.
+  `borderless.status === "active"`, else `needs_reconnect` (Borderless refused
+  applika's grant). `MembershipBadge` reads "BASE"/"PSP", `role="img"` named
+  "Borderless BASE member" / "Borderless PSP member" (`purpose="label"` for a
+  webhook's badge: plain text). Held, it shows in `user-menu.tsx` (the rail
+  card beside the name, `sm`, wired to the trigger with `aria-describedby`;
+  the menu label in both variants) and beside the profile h1 (`lg`, a
+  sibling, never inside it). `needs_reconnect`: no chip, and the menu offers
+  "Sign in again" (`[data-slot="sign-in-again-menu-item"]`, `onSignInAgain`,
+  by default `useAuth().logout("/login")`).
 - **Reports follow the badge.** `navItemsFor(isAdmin, features, {
 hasReportsBadge })` lists Reports only with a recorded badge
   (`badges.length > 0`, held or not; administrators included).
   `badges/badge-gate.tsx` `BadgeGate` wraps `/reports` and `/reports/[day]`
   ABOVE the report hooks: `none` → "Reports are for Borderless BASE and PSP
-  members" and why; `unconfirmed` → the confirm form (h1, focus on Password);
-  `held` → the reports; on unconfirmed → held with focus lost it waits
-  (MutationObserver, 5 s) for the reports' h1 behind their skeleton and
-  focuses it. `hooks/use-repports.ts` queries are also enabled only
-  while held (`useHoldsReportsBadge`, a cache read of the user). The API is
-  the rule: 403 RPT-1001 (was `badge_required`) / RPT-1002 (was
-  `membership_unconfirmed`).
+  members" and why; `needs_reconnect` → h1 "Sign in again to open your
+  reports", the API's AUTH-1050 words and a "Sign in again" button
+  (`logout("/login")`), never a password form (the h1 takes focus when focus
+  was lost); `held` → the reports. `hooks/use-repports.ts` queries are
+  enabled only while held (`useHoldsReportsBadge`, a cache read of the user),
+  and a report request answered **403 AUTH-1050** (list, detail or submit)
+  runs `lockOnRefusedGrant`: the cached `["user","me"]` gets `borderless.status
+  = "needs_reconnect"`, so the gate, the chip and the menu all flip at once.
+  The API is the rule: 403 RPT-1001 (no live badge) / AUTH-1050 (a live badge
+  while the grant is refused; RPT-1002 is retired).
 
 ### Profile — GitHub restore and membership (`src/components/profile/`, ADR-0024)
 
@@ -1700,9 +1789,10 @@ not_found|has_data|already_bound|error`. `profile-page.tsx` reads it once
   `router.replace()`, a no-op on the same path in this static export.
   `GithubRestoreNotice` words live in `github-restore-copy.ts`; `restored` is
   `role="status"`, the rest `role="alert"`.
-- `ConfirmMembershipNotice` (the confirm form at h2) shows under the header
-  whenever `borderless` exists and its status is not `active`, even with no
-  badge; on success focus goes to the profile h1 if it fell to `body`.
+- The held badge (a recorded badge while `borderless.status === "active"`)
+  sits beside the profile h1. There is no confirm card and no password
+  field: a `needs_reconnect` binding shows no chip, and the account menu
+  offers "Sign in again".
 - `UserProfileAvatar` uses the GitHub avatar only when `github_id` (a JSON
   number) is set; a Borderless-only account shows initials.
 - Devices: `sign_in_method` `borderless` reads "Borderless in the browser";
@@ -2191,22 +2281,23 @@ shell needs the same `relative`.
 order — which floated it over the open mobile navigation menu.
 `e2e/shell-responsive.spec.ts` hit-tests this with real geometry.
 
-**`CookieConsent` reserves space instead of floating.** It is a FULL-WIDTH bar
-pinned to the bottom of the viewport. While it is mounted it publishes its
-MEASURED height (a `ResizeObserver`, so a three-line wrap at 320px still fits)
-to `--cookie-notice-height` on `<html>`, and it REMOVES the property when it
-unmounts — a dismissed notice reserves nothing. `globals.css` spends that
-property in two places: `body` takes it as `padding-bottom` and
-`scroll-padding-bottom`, so a flowing document ends above the bar; and the
-`h-viewport` / `min-h-viewport` / `max-h-scrollport` /
-`max-h-editor-scrollport` utilities subtract it.
-**Use those instead of `h-dvh`, `h-screen` or `min-h-screen` on any
-full-viewport shell** — the padding and the subtraction add up to exactly one
-viewport, so reserving space never introduces a scrollbar. The consequence, and
-the reason the notice stopped being a bottom-right card: it can NO LONGER cover
-an in-page `sticky bottom-0` footer — the CV editor's submit row — at any
-breakpoint. The `z-50` nav sheet is `fixed inset-y-0`, so it still overlaps the
-bar's strip and still paints over it.
+**`CookieConsent` floats over the page, on purpose.** It is a bottom-right
+card (`fixed right-4 bottom-4`) and reserves no space: the owner's decision
+over KODI-003's full-width bar. Until the user clicks "Got it" it covers
+whatever sits in that corner — an in-page `sticky bottom-0` footer included —
+because the user is meant to see it and consent. Do not "fix" that by
+reserving space or moving it out of the way. Nothing writes
+`--cookie-notice-height`, so it is always `0px` and the `h-viewport` /
+`min-h-viewport` / `max-h-scrollport` / `max-h-editor-scrollport` utilities
+reduce to their `100dvh` arithmetic; keep using them instead of `h-dvh`,
+`h-screen` or `min-h-screen` on a full-viewport shell.
+
+**In E2E every context starts with the notice acknowledged**
+(`e2e/support/cookie-notice.ts` `COOKIE_NOTICE_ACKNOWLEDGED`, the config's
+`storageState`), like a user who already consented. A context made with
+`browser.newContext()` passes it too. A test about the notice calls
+`showCookieNotice(page)` before its first navigation
+(`shell-responsive.spec.ts`).
 
 **`h-viewport` is the shell; `max-h-scrollport` is the `<main>` inside it.**
 They differ by `--app-header-height`, because the shell `Header` is `main`'s
@@ -2415,4 +2506,4 @@ The `docker-compose.yml` defaults `API_BASE_URL` to `http://127.0.0.1/api` if no
 
 ## Backend Context
 
-The backend is a FastAPI app in `../backend/` with its own `CLAUDE.md`. It runs on port 8000. Auth uses HTTP-only JWT cookies (`__access`). Borderless email + password (`POST /auth/borderless/signin`) is the only sign-in; GitHub is used once, to restore an old account's data (`POST /auth/github/restore`). See `../backend/CLAUDE.md` for backend-specific guidance.
+The backend is a FastAPI app in `../backend/` with its own `CLAUDE.md`. It runs on port 8000. Auth uses HTTP-only JWT cookies (`__access`). Borderless's OpenID Connect sign-in (`GET /auth/borderless/login` → Borderless → `GET /auth/borderless/callback`) is the only sign-in; GitHub is used once, to restore an old account's data (`POST /auth/github/restore`). See `../backend/CLAUDE.md` for backend-specific guidance.

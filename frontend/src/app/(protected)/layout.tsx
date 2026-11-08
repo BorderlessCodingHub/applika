@@ -15,6 +15,7 @@ import {
   remembersReturnTo,
   storeReturnTo,
 } from "@/lib/return-to";
+import { signInPathFor } from "@/lib/session-ended";
 
 /** The static export may serve a trailing slash. */
 function isWelcomePath(pathname: string): boolean {
@@ -26,7 +27,8 @@ export default function ProtectedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, isLoading, user, logout } = useAuth();
+  const { isAuthenticated, isLoading, user, logout, sessionEndedCode } =
+    useAuth();
   const router = useRouter();
   const pathname = usePathname();
   // Before any early return (rules of hooks); held until the session is
@@ -40,7 +42,9 @@ export default function ProtectedLayout({
       if (remembersReturnTo(window.location.pathname)) {
         storeReturnTo(window.location.pathname + window.location.search);
       }
-      router.replace("/login");
+      // AUTH-1049 (Borderless refused the grant) brings its words along;
+      // any other signed-out visit lands on a plain `/login`.
+      router.replace(signInPathFor(sessionEndedCode));
       return;
     }
     // A new Borderless account answers the one-time `/welcome` choice first;
@@ -57,7 +61,13 @@ export default function ProtectedLayout({
     ) {
       router.replace(target);
     }
-  }, [isAuthenticated, isLoading, router, user?.github_restore?.prompt]);
+  }, [
+    isAuthenticated,
+    isLoading,
+    router,
+    sessionEndedCode,
+    user?.github_restore?.prompt,
+  ]);
 
   if (isLoading) {
     return (

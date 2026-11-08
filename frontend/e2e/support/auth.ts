@@ -13,8 +13,9 @@ import type { Page } from "@playwright/test";
  * set, which is the ONLY thing it bypasses. No login route is added, nothing
  * is mocked, and every request the app makes afterwards — starting with
  * `GET /api/users/me` — hits the real API against the real database. The
- * sign-in form itself is driven against the Borderless stub in
- * `borderless-signin.spec.ts` (see `BORDERLESS_ACCOUNTS`).
+ * sign-in itself (ADR-0026: "Sign in with Borderless" → the provider's own
+ * page → the API's callback) is driven against the fake Borderless in
+ * `borderless-signin.spec.ts` (see `BORDERLESS_ACCOUNTS`, `signInWithFake`).
  */
 
 export type SeededRole = "user" | "admin" | "discord";
@@ -23,10 +24,11 @@ export type SeededRole = "user" | "admin" | "discord";
  * The seeded identities, stable across runs. Specs assert against these real
  * values rather than against a browser stub.
  *
- * Each is bound to its Borderless stub account with a live access, re-set on
- * every seed run: `e2e-user` holds PSP, `e2e-admin` and `e2e-discord` hold
- * BASE, so every seeded user sees Reports. `discord` is only the third user's
- * role name (the beta specs' "someone else"); it links nothing.
+ * Each is bound to its fake Borderless account with that account's
+ * `seedRefreshToken`, re-set on every seed run (`e2e.sh` resets the fake
+ * first): `e2e-user` holds PSP, `e2e-admin` and `e2e-discord` hold BASE, so
+ * every seeded user sees Reports. `discord` is only the third user's role name
+ * (the beta specs' "someone else"); it links nothing.
  */
 export const SEEDED_USERS = {
   user: {
@@ -50,34 +52,91 @@ export const SEEDED_USERS = {
 >;
 
 /**
- * The Borderless stub's synthetic accounts the sign-in specs drive through the
- * form, mirrored from `backend/tests/fixtures/borderless/accounts.json` (the
- * stub runs as the `borderless-stub` service; nobody calls the real
- * Borderless). None is seeded: each becomes an applika account on its first
- * sign-in, and the spec deletes it again.
- * - `free`: FREE membership, so no badge.
- * - `short`: PSP, its first access expires after 3 s (`expiresIn` [3, 604800]),
- *   every later one after a week. Sign it in through the form exactly once.
- * - `unverified`: an email Borderless has not verified.
+ * The fake Borderless's synthetic accounts, mirrored from
+ * `backend/tests/fixtures/borderless/accounts.json` (the fake runs as the
+ * `borderless-fake` service; nobody calls the real Borderless). Its sign-in
+ * page has an Email + Password form and a one-click button per account,
+ * named by the account's email. `sub` names the account in the fake's
+ * `/__fake/*` controls and log.
+ * - `user`: seeded `e2e-user` (PSP). NEVER sign it in through the web: that
+ *   adds a web session `devices.spec.ts` counts.
+ * - `free` (FREE) and `starter` (STARTER): no badge.
+ * - `unverified`: PSP, an email Borderless has not verified (AUTH-1005).
+ * - `revoke` (PSP): its grant is refused on demand.
+ * - `logout` (PSP): its membership is changed on demand; its last logout
+ *   revokes its grant at the fake.
+ * None but `user` is seeded: each becomes an applika account on its first
+ * sign-in, and `borderless-signin.spec.ts` deletes it again.
  */
 export const BORDERLESS_ACCOUNTS = {
   user: {
+    sub: "e2e-borderless-user",
     email: "e2e-user@e2e.applika.dev",
     password: "e2e-user-password",
   },
   free: {
+    sub: "e2e-borderless-free",
     email: "e2e-free@e2e.applika.dev",
     password: "e2e-free-password",
   },
-  short: {
-    email: "e2e-short@e2e.applika.dev",
-    password: "e2e-short-password",
+  starter: {
+    sub: "e2e-borderless-starter",
+    email: "e2e-starter@e2e.applika.dev",
+    password: "e2e-starter-password",
   },
   unverified: {
+    sub: "e2e-borderless-unverified",
     email: "e2e-unverified@e2e.applika.dev",
     password: "e2e-unverified-password",
   },
+  revoke: {
+    sub: "e2e-borderless-revoke",
+    email: "e2e-revoke@e2e.applika.dev",
+    password: "e2e-revoke-password",
+  },
+  logout: {
+    sub: "e2e-borderless-logout",
+    email: "e2e-logout@e2e.applika.dev",
+    password: "e2e-logout-password",
+  },
 } as const;
+
+export type BorderlessAccount =
+  (typeof BORDERLESS_ACCOUNTS)[keyof typeof BORDERLESS_ACCOUNTS];
+
+/** The fake Borderless on its published port (`E2E_BORDERLESS_URL`, `:8181`). */
+export function borderlessUrl(path = ""): string {
+  const base = process.env.E2E_BORDERLESS_URL ?? "http://127.0.0.1:8181";
+  return `${base}${path}`;
+}
+
+/** The applika sign-in page's one button (ADR-0026). */
+export function signInWithBorderlessButton(page: Page) {
+  return page.getByRole("button", {
+    name: "Sign in with Borderless",
+    exact: true,
+  });
+}
+
+/**
+ * Signs `email` in the way a person does: `/login` → "Sign in with
+ * Borderless" → the fake's own sign-in page → that account's one-click
+ * button → the API's callback → back on applika, signed in (or on
+ * `/login?error=<code>`). Returns once the browser is back on the web origin.
+ *
+ * For a browser context with NO fake Borderless session: with one, the fake
+ * answers straight back without its page (AC18), and this helper would wait
+ * for a page that never shows.
+ */
+export async function signInWithFake(page: Page, email: string): Promise<void> {
+  await page.goto("/login");
+  await signInWithBorderlessButton(page).click();
+  await page.waitForURL(borderlessUrl("/**"));
+  await page.getByRole("button", { name: email, exact: true }).click();
+  await page.waitForURL(
+    (url) => url.origin !== new URL(borderlessUrl()).origin,
+  );
+}
 
 /** The env var names `frontend/scripts/e2e.sh` exports for each role. */
 const ENV_VARS = {

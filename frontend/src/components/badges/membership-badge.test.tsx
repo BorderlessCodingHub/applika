@@ -6,13 +6,14 @@ import { MembershipBadge, membershipAccess } from "./membership-badge";
 /**
  * The membership chip (ADR-0024): "BASE" or "PSP" in words, named
  * "Borderless BASE member" / "Borderless PSP member", never colour alone;
- * and the one rule that decides whether a recorded badge counts.
+ * and the one rule that decides whether a recorded badge counts: held =
+ * a recorded badge AND the Borderless binding `active` (ADR-0026).
  */
 
 const ACTIVE = {
   status: "active",
-  expires_at: "2026-11-05T00:00:00Z",
   email: "a@b.c",
+  checked_at: "2026-11-06T10:00:00Z",
 };
 
 describe("MembershipBadge", () => {
@@ -53,17 +54,29 @@ describe("membershipAccess", () => {
     ).toEqual({ state: "held", badges: ["borderless_psp"] });
   });
 
-  it.each(["expired", "needs_reconnect"])(
-    "is unconfirmed while the access is %s",
-    (status) => {
-      expect(
-        membershipAccess({
-          badges: [{ badge: "borderless_base" }],
-          borderless: { ...ACTIVE, status },
-        }).state,
-      ).toBe("unconfirmed");
-    },
-  );
+  it("is needs_reconnect while Borderless refuses applika's grant", () => {
+    expect(
+      membershipAccess({
+        badges: [{ badge: "borderless_base" }],
+        borderless: { ...ACTIVE, status: "needs_reconnect" },
+      }),
+    ).toEqual({ state: "needs_reconnect", badges: ["borderless_base"] });
+  });
+
+  it("does not count a badge with no binding, or a status it does not know", () => {
+    expect(
+      membershipAccess({
+        badges: [{ badge: "borderless_psp" }],
+        borderless: null,
+      }).state,
+    ).toBe("needs_reconnect");
+    expect(
+      membershipAccess({
+        badges: [{ badge: "borderless_psp" }],
+        borderless: { ...ACTIVE, status: "expired" },
+      }).state,
+    ).toBe("needs_reconnect");
+  });
 
   it("lists BASE before PSP, deduped, ignoring unknown keys", () => {
     expect(

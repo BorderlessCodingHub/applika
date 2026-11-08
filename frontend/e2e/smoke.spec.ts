@@ -43,17 +43,19 @@ const PAGES: PageCase[] = [
     path: "/login",
     visitors: ["anon"],
     // The route lives at `src/app/login/`, OUTSIDE the `(public)` group, so it
-    // renders no landing header. It is the Borderless sign-in form (ADR-0024):
-    // email, password, "Sign in"; no GitHub sign-in anywhere on it.
+    // renders no landing header. It is the Borderless sign-in (ADR-0026): one
+    // "Sign in with Borderless" button, no field at all, no GitHub sign-in.
     assert: async (page) => {
       await expect(
         page.getByRole("heading", { name: "Sign in to applika", level: 1 }),
       ).toBeVisible();
-      await expect(page.getByLabel("Email")).toBeVisible();
-      await expect(page.getByLabel("Password")).toBeVisible();
       await expect(
-        page.getByRole("button", { name: "Sign in", exact: true }),
+        page.getByRole("button", {
+          name: "Sign in with Borderless",
+          exact: true,
+        }),
       ).toBeVisible();
+      await expect(page.locator("input")).toHaveCount(0);
       await expect(page.getByText(/GitHub/)).toHaveCount(0);
     },
   },
@@ -64,6 +66,12 @@ const PAGES: PageCase[] = [
     // and it is the only h1 on the route — the `(public)` layout's header and
     // footer contribute no headings at all.
     assert: heading("Cookie Policy", 1),
+  },
+  {
+    path: "/cli",
+    visitors: ["anon", "user"],
+    // Public, under the `(public)` layout; the rail links here when signed in.
+    assert: heading("applika-cli", 1),
   },
 
   // ---- signed-in -------------------------------------------------------
@@ -255,8 +263,8 @@ test("the suite covers every page named in the acceptance criteria", () => {
   // `/admin/jobs` (Plan corrections 23); 20 since KODI-054 added
   // `/admin/features`; 22 since KODI-058 added `/device` and `/cli/code`;
   // 23 since Borderless sign-in added `/welcome` (`/admin/report-webhooks`
-  // replaced `/admin/discord-webhooks`).
-  expect(PAGES).toHaveLength(23);
+  // replaced `/admin/discord-webhooks`); 24 since the public `/cli` page.
+  expect(PAGES).toHaveLength(24);
 
   // A row with no visitors generates no tests at all, which the length check
   // above cannot see. Same for a duplicated path: 15 rows covering 14 routes.

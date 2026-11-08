@@ -4,11 +4,11 @@ import { useState, useSyncExternalStore } from "react";
 import { Terminal, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { APP_CONFIG } from "@/config";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "applika.cli-banner-dismissed";
 const STORAGE_EVENT = "applika:cli-banner-dismissed";
-const PYPI_URL = "https://pypi.org/project/applika-cli/";
 
 function subscribe(onChange: () => void) {
   window.addEventListener("storage", onChange);
@@ -78,7 +78,7 @@ export function CliPromoBanner() {
         variant="default"
         className="col-start-2 row-start-2 shrink-0 justify-self-start"
       >
-        <a href={PYPI_URL} target="_blank" rel="noopener noreferrer">
+        <a href={APP_CONFIG.cli.url} target="_blank" rel="noopener noreferrer">
           {t("cta")}
         </a>
       </Button>
