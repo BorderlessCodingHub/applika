@@ -73,12 +73,14 @@ jobs:
           delete-only-untagged-versions: "true"
           min-versions-to-keep: 0
 
+  # Runs only when the UUID variable is set. Coolify pulls `latest` again
+  # and restarts the resource.
   deploy:
     needs: build-and-push
+    if: vars.COOLIFY_FRONTEND_UUID != ''
     runs-on: ubuntu-latest
 
     steps:
-      # Coolify pulls `latest` again and restarts the resource.
       - name: Trigger Coolify deployment
         env:
           COOLIFY_URL: ${{ vars.COOLIFY_URL }}

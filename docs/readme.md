@@ -64,7 +64,7 @@ needs a stored credential.
 | `COOLIFY_API_UUID` | variable | UUID of the Coolify API resource (`applika-api`); its deploy job is skipped when unset | `backend-cd.yaml` |
 | `COOLIFY_WORKER_UUID` | variable | UUID of the Coolify taskiq worker resource (`applika-api`); its deploy job is skipped when unset | `backend-cd.yaml` |
 | `COOLIFY_SCHEDULER_UUID` | variable | UUID of the Coolify taskiq scheduler resource (`applika-api`); its deploy job is skipped when unset | `backend-cd.yaml` |
-| `COOLIFY_FRONTEND_UUID` | variable | UUID of the Coolify resource running `applika` | `frontend-cd.yaml` |
+| `COOLIFY_FRONTEND_UUID` | variable | UUID of the Coolify resource running `applika`; its deploy job is skipped when unset | `frontend-cd.yaml` |
 | `API_BASE_URL` | variable | Baked into the frontend image at build time | `frontend-cd.yaml` |
 
 ### 3.2 Runtime environment variables (on the VPS, in the swarm stack definition)

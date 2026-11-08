@@ -171,7 +171,7 @@ flowchart LR
    frontend). Only `latest` is kept: the job deletes untagged versions after each push.
 2. A deploy job per resource calls Coolify's deploy API with its UUID; Coolify pulls `latest` and
    restarts it. The backend has three optional jobs (API, worker, scheduler), each skipped when its
-   UUID variable is unset; the frontend has one.
+   UUID variable is unset; the frontend has one, optional the same way.
 3. Migrations are **not** automated: `alembic upgrade head` runs by hand inside the API container,
    then the API restarts. Between steps 2 and 3, the new code runs against the old schema; that is
    why migrations ship expand first.
@@ -218,7 +218,7 @@ needs a stored credential.
 | `COOLIFY_API_UUID` | variable | UUID of the Coolify API resource (`applika-api`); its deploy job is skipped when unset | `backend-cd.yaml` |
 | `COOLIFY_WORKER_UUID` | variable | UUID of the Coolify taskiq worker resource (`applika-api`); its deploy job is skipped when unset | `backend-cd.yaml` |
 | `COOLIFY_SCHEDULER_UUID` | variable | UUID of the Coolify taskiq scheduler resource (`applika-api`); its deploy job is skipped when unset | `backend-cd.yaml` |
-| `COOLIFY_FRONTEND_UUID` | variable | UUID of the Coolify resource running `applika` | `frontend-cd.yaml` |
+| `COOLIFY_FRONTEND_UUID` | variable | UUID of the Coolify resource running `applika`; its deploy job is skipped when unset | `frontend-cd.yaml` |
 | `API_BASE_URL` | variable | Baked into the frontend image at build time | `frontend-cd.yaml` |
 
 ### 6.2 Runtime environment (Docker secrets on the VPS)
