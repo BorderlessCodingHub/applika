@@ -48,7 +48,7 @@ export function CookiePolicyPage() {
   ];
 
   return (
-    <main className="relative mx-auto max-w-3xl px-5 py-14 md:px-8 md:py-20">
+    <main className="relative mx-auto max-w-5xl px-5 py-14 md:px-8 md:py-20">
       <header className="mb-10 space-y-2 border-b border-border/60 pb-8">
         <p className="font-display text-[11px] font-semibold tracking-wide-label text-primary uppercase">
           {t("eyebrow")}
