@@ -92,7 +92,6 @@ Settings are read from the environment or a `.env` file (`app/config/settings.py
 | `BORDERLESS_TIMEOUT_SECONDS` / `BORDERLESS_REFRESH_TIMEOUT_SECONDS` | Borderless call timeouts (sign-in / membership refresh) | `5.0` / `3.0` |
 | `BORDERLESS_LOGIN_TTL_SECONDS` | Life of one sign-in attempt | `600` |
 | `BORDERLESS_DISCOVERY_TTL_SECONDS` | Cache of the issuer's discovery document | `3600` |
-| `LOGIN_REDIRECT_URI` | Post-login redirect | `http://127.0.0.1:8000/api/docs` |
 | `DEVICE_CODE_TTL_SECONDS` | CLI device-code lifetime | `600` |
 | `DEVICE_CODE_POLL_INTERVAL_SECONDS` | CLI device-code poll interval | `10` |
 | `DEVICE_VERIFICATION_URI` | Web page that approves a device code | `http://127.0.0.1:8080/device` |

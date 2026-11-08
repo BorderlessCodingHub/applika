@@ -121,7 +121,6 @@ class Settings(BaseSettings):
     # worker thread; nothing is persisted either way.
     CV_PDF_RENDER_TIMEOUT_SECONDS: int = 30
 
-    LOGIN_REDIRECT_URI: str = 'http://127.0.0.1:8000/api/docs'
     DISCORD_FEEDBACK_WEBHOOK: str | None = None
 
     ACCOUNT_LINK_REDIRECT_URI: str = 'http://127.0.0.1:8080/profile'

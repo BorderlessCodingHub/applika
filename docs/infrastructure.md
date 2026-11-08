@@ -221,10 +221,9 @@ the VPS, today Luis. To list them without reading values: `docker secret ls`.
 | `DATABASE_URL` | Postgres connection |
 | `REDIS_URL` | Redis connection |
 | `JWT_SECRET` | signs the session JWTs |
-| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_REDIRECT_URI` | GitHub OAuth (login) |
-| `GITHUB_TOKEN_ENCRYPTION_KEY` | Fernet key for the stored GitHub tokens |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_REDIRECT_URI` | GitHub OAuth (one-shot data restore) |
 | `DISCORD_FEEDBACK_WEBHOOK` | Discord webhook that receives user feedback (feedback only, not reports) |
-| `CORS_ORIGINS`, `LOGIN_REDIRECT_URI` | public URLs |
+| `CORS_ORIGINS`, `WEB_SIGNIN_URI` | public URLs |
 | `ENVIRONMENT=PROD` | configuration |
 
 From the Borderless sign-in release (section 10.5), on the API service (the worker and the scheduler

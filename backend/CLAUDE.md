@@ -1295,7 +1295,6 @@ Optional (with defaults):
 - `JWT_ALGORITHM`: HS256 (default)
 - `ACCESS_TOKEN_EXPIRE_MINUTES`: 15 (default)
 - `GITHUB_REDIRECT_URI`: OAuth callback URL
-- `LOGIN_REDIRECT_URI`: Post-login redirect
 - `REFRESH_TOKEN_EXPIRE_DAYS`: a session ends this many days after its last refresh (sliding, default: 7)
 - `DEVICE_CODE_TTL_SECONDS`: device-code lifetime (KODI-057, default 600)
 - `DEVICE_CODE_POLL_INTERVAL_SECONDS`: the device poll interval; faster is `slow_down` (default 10)

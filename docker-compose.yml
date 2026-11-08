@@ -65,7 +65,6 @@ x-api-environment: &api-environment
   GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
   GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
   GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/github/callback}
-  LOGIN_REDIRECT_URI: ${LOGIN_REDIRECT_URI:-http://127.0.0.1:8080/dashboard}
   DISCORD_FEEDBACK_WEBHOOK: ${DISCORD_FEEDBACK_WEBHOOK:-}
   ACCOUNT_LINK_REDIRECT_URI: ${ACCOUNT_LINK_REDIRECT_URI:-http://127.0.0.1:8080/profile}
   # KODI-039/ADR-0015: the rate limiter is ON by default, but this dev
