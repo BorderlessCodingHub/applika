@@ -297,6 +297,11 @@ CLI sign-in routes (KODI-058, ADR-0019):
 | `/device?code=`          | `(protected)/device/page.tsx` (Suspense) | `device-page.tsx` — code, request card, approve/deny        |
 | `/cli/code?code=&state=` | `cli/code/page.tsx` (Suspense)           | `cli-code-page.tsx` — `code#state` read-only, Copy, no auth |
 
+`/cli` (`(public)/cli/`, `cli-page.tsx`) is the public applika-cli page under
+the landing layout: install, sign-in modes, examples, `applika skill`. The
+rail's footer links to it above the account card (`sidebar.tsx`); its PyPI
+links read `APP_CONFIG.cli.url` (`APPLIKA_CLI` build arg).
+
 `/cli/code` sits OUTSIDE the groups like `/login` (no shell, no session): the
 API 307s there when the CLI cannot reach its local callback. `/device` reads
 `?code=` once into a lazy `useState` (normalized `XXXX-XXXX`) and never
@@ -2276,22 +2281,15 @@ shell needs the same `relative`.
 order — which floated it over the open mobile navigation menu.
 `e2e/shell-responsive.spec.ts` hit-tests this with real geometry.
 
-**`CookieConsent` reserves space instead of floating.** It is a FULL-WIDTH bar
-pinned to the bottom of the viewport. While it is mounted it publishes its
-MEASURED height (a `ResizeObserver`, so a three-line wrap at 320px still fits)
-to `--cookie-notice-height` on `<html>`, and it REMOVES the property when it
-unmounts — a dismissed notice reserves nothing. `globals.css` spends that
-property in two places: `body` takes it as `padding-bottom` and
-`scroll-padding-bottom`, so a flowing document ends above the bar; and the
+**`CookieConsent` floats.** It is a bottom-right card (`fixed right-4
+bottom-4`) and reserves no space: owner decision, restoring the original
+behaviour over KODI-003's full-width bar. Nothing writes
+`--cookie-notice-height` any more, so it is always `0px` and the
 `h-viewport` / `min-h-viewport` / `max-h-scrollport` /
-`max-h-editor-scrollport` utilities subtract it.
-**Use those instead of `h-dvh`, `h-screen` or `min-h-screen` on any
-full-viewport shell** — the padding and the subtraction add up to exactly one
-viewport, so reserving space never introduces a scrollbar. The consequence, and
-the reason the notice stopped being a bottom-right card: it can NO LONGER cover
-an in-page `sticky bottom-0` footer — the CV editor's submit row — at any
-breakpoint. The `z-50` nav sheet is `fixed inset-y-0`, so it still overlaps the
-bar's strip and still paints over it.
+`max-h-editor-scrollport` utilities reduce to their `100dvh` arithmetic. Keep
+using them instead of `h-dvh`, `h-screen` or `min-h-screen` on a full-viewport
+shell. Known trade-off: until it is dismissed, the card can cover the right end
+of an in-page `sticky bottom-0` footer (the CV editors' submit row).
 
 **`h-viewport` is the shell; `max-h-scrollport` is the `<main>` inside it.**
 They differ by `--app-header-height`, because the shell `Header` is `main`'s
