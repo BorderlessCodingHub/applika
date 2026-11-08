@@ -578,7 +578,8 @@
     "cycles": "Ciclos",
     "profile": "Perfil",
     "admin": "Admin",
-    "system": "Sistema"
+    "system": "Sistema",
+    "cli": "Applika CLI"
   },
   "userMenu": {
     "open": "Abrir menu da conta",
@@ -617,6 +618,28 @@
     "body": "Uma CLI para registrar candidaturas pelo terminal. Vem com uma skill pronta para ferramentas de IA como Claude e Codex. Veja no PyPI como instalar e todos os detalhes.",
     "cta": "Ver no PyPI",
     "dismiss": "Dispensar aviso"
+  },
+  "cliPage": {
+    "eyebrow": "Linha de comando",
+    "title": "applika-cli",
+    "lead": "Registre, filtre e atualize suas candidaturas sem sair do terminal. Vem com uma skill que ensina assistentes de IA como Claude, Codex e Gemini a usá-la.",
+    "pypi": "Ver no PyPI",
+    "copy": "Copiar comando",
+    "copied": "Copiado",
+    "installTitle": "Instalação",
+    "installBody": "Requer Python 3.10 ou mais recente. Instale com <code>uv</code> (recomendado) ou <code>pipx</code>; os dois disponibilizam o comando global <code>applika</code>.",
+    "signInTitle": "Entrar",
+    "signInBody": "A CLI entra com sua conta Borderless e recebe uma sessão própria, listada como um dispositivo na aba Dispositivos do seu perfil, onde você pode revogá-la quando quiser.",
+    "signInBrowser": "<strong>Padrão:</strong> seu navegador abre e o login volta sozinho para o terminal.",
+    "signInManual": "<strong>Navegador em outra máquina:</strong> <code>--manual</code> mostra um código no navegador para você colar no terminal.",
+    "signInDevice": "<strong>Sem navegador</strong> (SSH, contêineres): <code>--device</code> mostra um código curto para aprovar em qualquer navegador conectado.",
+    "trackTitle": "Acompanhe pelo terminal",
+    "trackBody": "Liste e filtre seu funil, adicione candidaturas, registre entrevistas e ofertas na linha do tempo e encerre candidaturas quando terminarem. Use <code>--output-format json</code> para enviar os resultados a outras ferramentas.",
+    "skillTitle": "Ensine seu assistente de IA",
+    "skillBody": "<code>applika skill</code> instala a skill incluída para Claude Code, Codex, Gemini ou OpenCode. Seu assistente passa a conhecer todos os comandos, verifica sua sessão antes e monta candidaturas válidas para você, então basta dizer \"registre minha candidatura na Stripe\".",
+    "moreTitle": "Todo o resto",
+    "moreBody": "Linhas do tempo, encerramento de candidaturas e todas as opções estão documentados na página do pacote.",
+    "footer": "Voltar para a <link>página inicial</link>."
   },
   "features": {
     "beta": "Beta",

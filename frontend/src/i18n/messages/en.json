@@ -578,7 +578,8 @@
     "cycles": "Cycles",
     "profile": "Profile",
     "admin": "Admin",
-    "system": "System"
+    "system": "System",
+    "cli": "Applika CLI"
   },
   "userMenu": {
     "open": "Open account menu",
@@ -617,6 +618,28 @@
     "body": "A CLI to log applications from your terminal. Ships with a ready-to-use skill for AI tools like Claude and Codex. See PyPI for installation and full details.",
     "cta": "View on PyPI",
     "dismiss": "Dismiss announcement"
+  },
+  "cliPage": {
+    "eyebrow": "Command line",
+    "title": "applika-cli",
+    "lead": "Log, filter and update your job applications without leaving the terminal. It ships with a skill that teaches AI assistants like Claude, Codex and Gemini how to use it.",
+    "pypi": "View on PyPI",
+    "copy": "Copy command",
+    "copied": "Copied",
+    "installTitle": "Install",
+    "installBody": "Needs Python 3.10 or newer. Install it with <code>uv</code> (recommended) or <code>pipx</code>; either gives you the global <code>applika</code> command.",
+    "signInTitle": "Sign in",
+    "signInBody": "The CLI signs in with your Borderless account and gets a session of its own, listed as a device in your profile's Devices tab, where you can revoke it at any time.",
+    "signInBrowser": "<strong>Default:</strong> your browser opens and the sign-in comes back to the terminal by itself.",
+    "signInManual": "<strong>Browser on another machine:</strong> <code>--manual</code> shows a code in the browser for you to paste in the terminal.",
+    "signInDevice": "<strong>No browser at all</strong> (SSH, containers): <code>--device</code> prints a short code to approve from any signed-in browser.",
+    "trackTitle": "Track from your terminal",
+    "trackBody": "List and filter your pipeline, add new applications, record interviews and offers on the timeline, and close applications when they end. Add <code>--output-format json</code> to pipe the results into other tools.",
+    "skillTitle": "Teach your AI assistant",
+    "skillBody": "<code>applika skill</code> installs the bundled skill for Claude Code, Codex, Gemini or OpenCode. Your assistant then knows every command, checks your session first and builds valid applications for you, so you can just say \"log my application to Stripe\".",
+    "moreTitle": "Everything else",
+    "moreBody": "Application timelines, finalizing and every flag are documented on the package page.",
+    "footer": "Back to the <link>home page</link>."
   },
   "features": {
     "beta": "Beta",

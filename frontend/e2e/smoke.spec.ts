@@ -67,6 +67,12 @@ const PAGES: PageCase[] = [
     // footer contribute no headings at all.
     assert: heading("Cookie Policy", 1),
   },
+  {
+    path: "/cli",
+    visitors: ["anon", "user"],
+    // Public, under the `(public)` layout; the rail links here when signed in.
+    assert: heading("applika-cli", 1),
+  },
 
   // ---- signed-in -------------------------------------------------------
   {
