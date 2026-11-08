@@ -61,6 +61,11 @@ x-api-environment: &api-environment
   BORDERLESS_REDIRECT_URI: ${BORDERLESS_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/borderless/callback}
   BORDERLESS_TOKEN_ENCRYPTION_KEY: ${BORDERLESS_TOKEN_ENCRYPTION_KEY:-}
   WEB_SIGNIN_URI: ${WEB_SIGNIN_URI:-http://127.0.0.1:8080/login}
+  # The web pages the CLI sign-in sends the browser to: the device-code
+  # approval (`applika login --device`) and the code#state to paste
+  # (`applika login --manual`).
+  DEVICE_VERIFICATION_URI: ${DEVICE_VERIFICATION_URI:-http://127.0.0.1:8080/device}
+  CLI_MANUAL_REDIRECT_URI: ${CLI_MANUAL_REDIRECT_URI:-http://127.0.0.1:8080/cli/code}
   # GitHub restore only (ADR-0024): 503 until the id and secret are set.
   GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
   GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
