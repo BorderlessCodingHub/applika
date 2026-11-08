@@ -156,22 +156,26 @@ flowchart LR
 
     main --> bcd
     main --> fcd
-    bcd -- "DOCKER_HUB_USER / TOKEN" --> hub[("Docker Hub<br/>Luis's account")]
-    fcd -- "DOCKER_HUB_USER / TOKEN" --> hub
-    ccd -- "PYPI_TOKEN" --> pypi[("PyPI<br/>applika-cli")]
+    bcd -- "GITHUB_TOKEN" --> ghcr[("GHCR<br/>applika-api · applika")]
+    fcd -- "GITHUB_TOKEN" --> ghcr
+    ccd -- "Trusted Publishing (OIDC)" --> pypi[("PyPI<br/>applika-cli")]
 
-    luis["Luis"] -- "SSH" --> vps["Hostinger VPS"]
-    vps -- "docker service update<br/>(pulls the new image)" --> hub
-    luis -- "docker exec api<br/>alembic upgrade head<br/>restart api" --> vps
+    bcd -- "deploy API<br/>COOLIFY_API_TOKEN" --> coolify["Coolify"]
+    fcd -- "deploy API<br/>COOLIFY_API_TOKEN" --> coolify
+    coolify -- "pulls latest" --> ghcr
+    luis["Luis"] -- "alembic upgrade head<br/>in the api container" --> coolify
 ```
 
-1. A merge to `main` makes GitHub Actions build the images and push them to Luis's Docker Hub
-   (tags `api-latest` for the API, `latest` for the frontend).
-2. The containers are upgraded by accessing Luis's VPS over SSH (`docker service update`).
+1. A merge to `main` makes GitHub Actions build the images and push them to GHCR
+   (`ghcr.io/<owner>/applika-api:latest` for the API, `ghcr.io/<owner>/applika:latest` for the
+   frontend). Only `latest` is kept: the job deletes untagged versions after each push.
+2. A deploy job per resource calls Coolify's deploy API with its UUID; Coolify pulls `latest` and
+   restarts it. The backend has three optional jobs (API, worker, scheduler), each skipped when its
+   UUID variable is unset; the frontend has one.
 3. Migrations are **not** automated: `alembic upgrade head` runs by hand inside the API container,
    then the API restarts. Between steps 2 and 3, the new code runs against the old schema; that is
    why migrations ship expand first.
-4. The CLI is published to PyPI by `cli-cd.yaml` (`uv publish`, environment `pypi`).
+4. The CLI is published to PyPI by `cli-cd.yaml` (`uv publish`, Trusted Publishing, environment `pypi`).
 
 CI runs on every PR: `backend-ci.yaml` (ruff, pytest), `frontend-ci.yaml` (lint, unit tests, build,
 and Playwright e2e against the real stack from `docker-compose.e2e.yml`), `cli-ci.yaml`.
@@ -181,7 +185,7 @@ and Playwright e2e against the real stack from `docker-compose.e2e.yml`), `cli-c
 | Hosting | **Hostinger** VPS with Docker Swarm |
 | VPS owner | **Luis** (personal). **to transfer** |
 | Access | Luis only (Hostinger panel and SSH) |
-| Image registry | Docker Hub, Luis's personal account (secret `DOCKER_HUB_USER`). **to transfer** |
+| Image registry | GitHub Container Registry, `latest` only |
 
 ## 6. Secrets and configuration
 
@@ -190,26 +194,32 @@ There is no Vault, Doppler or Vercel. Secrets live in two places.
 ```mermaid
 flowchart LR
     subgraph ghs["GitHub Secrets (main repo)"]
-        dh["DOCKER_HUB_USER<br/>DOCKER_HUB_TOKEN"]
-        py["PYPI_TOKEN"]
+        dh["COOLIFY_API_TOKEN"]
+        py["PyPI Trusted Publishing<br/>(no secret)"]
     end
     subgraph ds["Docker secrets (VPS swarm)"]
         rt["DATABASE_URL · REDIS_URL · JWT_SECRET<br/>GITHUB_* · DISCORD_FEEDBACK_WEBHOOK<br/>public URLs"]
     end
-    dh --> cd["image build (CD)"]
+    dh --> cd["deploy (CD)"]
     py --> cli["CLI publish"]
     rt --> api["api service"]
 ```
 
 ### 6.1 GitHub Secrets (Settings → Secrets and variables → Actions, main repository)
 
-Three secrets. Access: admins of `ProgramadoresSemPatria/applika`. **to transfer** with the repository.
+One secret and six variables. Images go to GHCR with the workflow's own `GITHUB_TOKEN`
+(`packages: write`), and the CLI publishes to PyPI through Trusted Publishing (OIDC), so neither
+needs a stored credential.
 
-| Name | Purpose | Used in |
-|---|---|---|
-| `DOCKER_HUB_USER` | Docker Hub user that publishes the images (Luis's personal account) | `backend-cd.yaml`, `frontend-cd.yaml` |
-| `DOCKER_HUB_TOKEN` | Docker Hub access token (Luis's personal account) | `backend-cd.yaml`, `frontend-cd.yaml` |
-| `PYPI_TOKEN` | publish `applika-cli` to PyPI (environment `pypi`) | `cli-cd.yaml` |
+| Name | Kind | Purpose | Used in |
+|---|---|---|---|
+| `COOLIFY_API_TOKEN` | secret | Coolify API token with the `deploy` permission | `backend-cd.yaml`, `frontend-cd.yaml` |
+| `COOLIFY_URL` | variable | Coolify base URL, e.g. `https://coolify.example.com` | `backend-cd.yaml`, `frontend-cd.yaml` |
+| `COOLIFY_API_UUID` | variable | UUID of the Coolify API resource (`applika-api`); its deploy job is skipped when unset | `backend-cd.yaml` |
+| `COOLIFY_WORKER_UUID` | variable | UUID of the Coolify taskiq worker resource (`applika-api`); its deploy job is skipped when unset | `backend-cd.yaml` |
+| `COOLIFY_SCHEDULER_UUID` | variable | UUID of the Coolify taskiq scheduler resource (`applika-api`); its deploy job is skipped when unset | `backend-cd.yaml` |
+| `COOLIFY_FRONTEND_UUID` | variable | UUID of the Coolify resource running `applika` | `frontend-cd.yaml` |
+| `API_BASE_URL` | variable | Baked into the frontend image at build time | `frontend-cd.yaml` |
 
 ### 6.2 Runtime environment (Docker secrets on the VPS)
 
@@ -277,7 +287,7 @@ flowchart LR
 | Item | Status |
 |---|---|
 | Package | `applika-cli` on **PyPI** (not npm): `pypi.org/project/applika-cli` |
-| Publishing | `cli-cd.yaml` with `uv publish`, token `PYPI_TOKEN` in environment `pypi` |
+| Publishing | `cli-cd.yaml` with `uv publish --trusted-publishing always` in environment `pypi`: the PyPI project trusts this repository, workflow `cli-cd.yaml` and environment `pypi`; no token |
 | Authors in the package | Luis Eduardo Soares, David Alecrim (`cli/pyproject.toml`) |
 | PyPI owner | **Luis** (personal). **to transfer**: create a Borderless organisation or account on PyPI and add it as owner |
 | Compatibility | Users do not upgrade in lockstep with the API, so routes a published CLI version calls are never broken |
