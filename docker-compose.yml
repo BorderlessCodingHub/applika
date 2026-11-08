@@ -28,8 +28,9 @@
 #     under the `applika` project name, so its database is SEPARATE from the one
 #     `backend/docker-compose.yml` creates.
 #
-# Copy `.env.example` to `.env` first — GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET
-# are required settings with no defaults, so the api will not boot without them.
+# Copy `.env.example` to `.env` first and set the four BORDERLESS_* values — the
+# api boots without them, but every sign-in fails with AUTH-1018 until they are
+# set. `.env.example` also lists the public URLs to change behind a tunnel.
 #
 # NOTE ON THE FRONTEND: the Next.js build is a STATIC EXPORT and
 # NEXT_PUBLIC_API_BASE_URL is baked in at BUILD time, so a frontend source change
@@ -48,7 +49,7 @@ x-api-environment: &api-environment
   DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/applika
   REDIS_URL: redis://redis:6379/0
   # The browser's origin is `web`, not the api's own port.
-  CORS_ORIGINS: '["http://127.0.0.1:8080"]'
+  CORS_ORIGINS: '${CORS_ORIGINS:-["http://127.0.0.1:8080"]}'
   CORS_HEADERS: '["X-Request-ID", "Content-Type", "Accept", "Authorization"]'
   JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-not-for-production}
   # Sign in with Borderless through OpenID Connect (ADR-0026): ?error=AUTH-1018
@@ -147,7 +148,7 @@ services:
         # directly on :8000; cookies ignore the port, so the session set for
         # host 127.0.0.1 is sent to both origins and SameSite=Lax treats the two
         # ports as same-site.
-        API_BASE_URL: http://127.0.0.1:8000/api
+        API_BASE_URL: ${API_BASE_URL:-http://127.0.0.1:8000/api}
     ports:
       - "127.0.0.1:8080:80"
     healthcheck:
