@@ -60,7 +60,7 @@ re-run `applika whoami` to verify the session is active.
 | ``Please run `applika login` again.`` | Session ended (logged out, revoked in Devices, expired) | Run `applika login` |
 | `Login state mismatch` | Stale callback or pasted value | Retry `applika login` |
 | `Invalid or expired code` on the token exchange | Code used or older than 60 s | Retry `applika login` |
-| Browser doesn't open | Headless environment | Copy the printed URL, or use `applika login --device` |
+| Browser doesn't open | Headless environment | Click the "Click here to sign in" link (outside a terminal the full URL is printed instead), or use `applika login --device` |
 | `The device code expired ...` / `The sign-in was denied ...` | `--device` code not approved in time, or denied | Run `applika login --device` again |
 | `Session service unavailable. Try again in 5 seconds.` | Server outage; the session is kept | Wait and re-run the command |
 

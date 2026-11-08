@@ -1183,6 +1183,7 @@ def test_login_manual_pastes_code_and_checks_state(
     assert result.exit_code == 0, result.output
     assert login_env.opened == []
     assert 'Paste the code shown in the browser:' in result.output
+    assert 'pasted-code' not in result.output
     printed = next(
         line for line in result.output.splitlines() if 'authorize?' in line
     )
@@ -1528,6 +1529,34 @@ def test_login_default_mentions_the_fallbacks(login_env, runner):
     assert result.exit_code == 0, result.output
     assert 'applika login --manual' in result.stdout
     assert 'applika login --device' in result.stdout
+
+
+def test_login_prints_the_full_url_outside_a_terminal(login_env, runner):
+    """Piped (CI, an AI agent): no hyperlink, the URL itself to copy."""
+    result = runner.invoke(app, ['--api-base-url', API, 'login'])
+
+    assert result.exit_code == 0, result.output
+    [url] = login_env.opened
+    assert 'Use this URL to sign in:\n' + url in result.stdout
+    assert '\033]8;;' not in result.stdout
+
+
+def test_link_is_an_osc8_hyperlink_in_a_terminal(monkeypatch):
+    monkeypatch.setattr(auth_commands.sys.stdout, 'isatty', lambda: True)
+
+    text = auth_commands._link('https://x.test/a?b=c', 'Click here', 'URL:')
+
+    assert text == (
+        '\033]8;;https://x.test/a?b=c\033\\Click here\033]8;;\033\\'
+    )
+
+
+def test_link_falls_back_to_the_url_outside_a_terminal(monkeypatch):
+    monkeypatch.setattr(auth_commands.sys.stdout, 'isatty', lambda: False)
+
+    text = auth_commands._link('https://x.test/a', 'Click here', 'URL:')
+
+    assert text == 'URL:\nhttps://x.test/a'
 
 
 def test_root_help_still_lists_every_1_0_1_command_and_flag(runner):
