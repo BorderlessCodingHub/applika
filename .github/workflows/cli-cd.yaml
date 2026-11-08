@@ -58,6 +58,12 @@ jobs:
       run:
         working-directory: cli
     environment: pypi
+    # PyPI Trusted Publishing (OIDC): no API token tied to a PyPI account.
+    # The account that owns `applika-cli` registers this repository, the
+    # `cli-cd.yaml` workflow and the `pypi` environment as its publisher.
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
@@ -70,6 +76,4 @@ jobs:
       - name: Build distribution
         run: uv build
       - name: Publish to PyPI
-        run: uv publish
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: uv publish --trusted-publishing always
