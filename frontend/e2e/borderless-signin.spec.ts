@@ -20,6 +20,7 @@ import {
   signInWithFake,
   type BorderlessAccount,
 } from "./support/auth";
+import { COOKIE_NOTICE_ACKNOWLEDGED } from "./support/cookie-notice";
 
 /**
  * Borderless OpenID Connect sign-in on the real stack (ADR-0026): the built
@@ -89,7 +90,9 @@ async function setFakeAccount(
 
 /** Signs `account` in through the fake in its own context, then `DELETE /users/me`. */
 async function deleteAccount(browser: Browser, account: BorderlessAccount) {
-  const context = await browser.newContext();
+  const context = await browser.newContext({
+    storageState: COOKIE_NOTICE_ACKNOWLEDGED,
+  });
   try {
     const page = await context.newPage();
     await signInWithFake(page, account.email);

@@ -6,6 +6,7 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
+import { COOKIE_NOTICE_ACKNOWLEDGED } from "./cookie-notice";
 
 import {
   apiUrl,
@@ -105,7 +106,9 @@ export async function openAs(
   browser: Browser,
   role: SeededRole,
 ): Promise<Page> {
-  const context = await browser.newContext();
+  const context = await browser.newContext({
+    storageState: COOKIE_NOTICE_ACKNOWLEDGED,
+  });
   const page = await context.newPage();
   await loginAs(page, role);
   return page;

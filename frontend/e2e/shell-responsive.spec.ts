@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { loginAs, type SeededRole } from "./support/auth";
+import { showCookieNotice } from "./support/cookie-notice";
 
 /**
  * App shell — responsive behaviour and keyboard traversal (KODI-004 / R-017,
@@ -176,12 +177,13 @@ test.describe("below md the sidebar collapses into a menu", () => {
     // the cookie notice used to sit at `z-50` — the same layer as the sheet —
     // and is rendered AFTER the page content, so it won the tie and floated
     // over the open panel.
+    await showCookieNotice(page);
     await openDashboard(page);
 
     const notice = page.locator(COOKIE_NOTICE);
     const banner = page.locator(CLI_BANNER);
-    // A fresh context has acknowledged neither, so both must really be on
-    // screen. Without them the rest of this test proves nothing.
+    // The notice is brought back and the banner was never dismissed, so both
+    // must really be on screen. Without them the rest of this test proves nothing.
     await expect(notice).toBeVisible();
     await expect(banner).toBeVisible();
 
@@ -554,6 +556,7 @@ test.describe("at md and above the shell renders a fixed rail", () => {
   });
 
   test("the cookie notice does not cover the rail", async ({ page }) => {
+    await showCookieNotice(page);
     await openDashboard(page);
 
     const notice = page.locator(COOKIE_NOTICE);

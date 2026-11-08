@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Cookie, X } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -9,16 +9,6 @@ import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "applika.cookie-notice-ack";
 const STORAGE_EVENT = "applika:cookie-notice-ack";
-
-/**
- * The custom property `globals.css` reserves space with. `body` pads by it and
- * `h-viewport`/`min-h-viewport` subtract it, so the card never covers page
- * content — including an in-page `sticky bottom-0` footer.
- */
-export const COOKIE_NOTICE_HEIGHT_VAR = "--cookie-notice-height";
-
-/** The card's `bottom-4`, kept clear below it and again above it. */
-const CARD_MARGIN_PX = 16;
 
 function subscribe(onChange: () => void) {
   window.addEventListener("storage", onChange);
@@ -41,48 +31,11 @@ function getSnapshot(): boolean {
 // client immediately re-reads localStorage on mount.
 const getServerSnapshot = (): boolean => true;
 
-/**
- * Reserves a strip at the bottom of the viewport as tall as the card plus its
- * margins while the card is mounted, and releases it on unmount. Measured
- * rather than hardcoded: the copy wraps differently by width and language.
- */
-function useReservedHeight(ref: React.RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    const card = ref.current;
-    const root = document.documentElement;
-    if (!card) return;
-
-    const measure = () => {
-      const height = Math.ceil(card.getBoundingClientRect().height);
-      root.style.setProperty(
-        COOKIE_NOTICE_HEIGHT_VAR,
-        `${height + 2 * CARD_MARGIN_PX}px`,
-      );
-    };
-
-    measure();
-    // jsdom has no ResizeObserver: one measurement is still better than none.
-    const observer =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(measure);
-    observer?.observe(card);
-
-    return () => {
-      observer?.disconnect();
-      root.style.removeProperty(COOKIE_NOTICE_HEIGHT_VAR);
-    };
-  }, [ref]);
-}
-
 function CookieConsentCard({ onDismiss }: { onDismiss: () => void }) {
-  const cardRef = useRef<HTMLDivElement>(null);
   const t = useTranslations("cookies.notice");
-  useReservedHeight(cardRef);
 
   return (
     <div
-      ref={cardRef}
       role="dialog"
       aria-live="polite"
       aria-label={t("label")}
@@ -138,9 +91,8 @@ function CookieConsentCard({ onDismiss }: { onDismiss: () => void }) {
 }
 
 /**
- * The cookie notice: a card in the bottom-right corner of the viewport until
- * the user acknowledges it. It floats, but in a strip it reserves at the
- * bottom of the page, so it never covers a control.
+ * The cookie notice: a card floating over the bottom-right corner of the
+ * viewport until the user acknowledges it.
  */
 export function CookieConsent() {
   const acknowledged = useSyncExternalStore(
