@@ -148,6 +148,10 @@ services:
         # host 127.0.0.1 is sent to both origins and SameSite=Lax treats the two
         # ports as same-site.
         API_BASE_URL: ${API_BASE_URL:-http://127.0.0.1:8000/api}
+        # Where "Create a Borderless account" on the sign-in page leads.
+        BORDERLESS_SIGN_UP: ${BORDERLESS_SIGN_UP:-https://platform.borderlesscoding.com/sign-up}
+        # Where "View on PyPI" on the CLI promo banner leads.
+        APPLIKA_CLI: ${APPLIKA_CLI:-https://pypi.org/project/applika-cli/}
     ports:
       - "127.0.0.1:8080:80"
     healthcheck:

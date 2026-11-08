@@ -115,7 +115,10 @@ describe("LoginPage: the Borderless button (AC1, AC22)", () => {
     const link = screen.getByRole("link", {
       name: "Create a Borderless account",
     });
-    expect(link).toHaveAttribute("href", "https://borderlesscoding.com");
+    expect(link).toHaveAttribute(
+      "href",
+      "https://platform.borderlesscoding.com/sign-up",
+    );
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
     expect(link).toHaveAccessibleDescription("Opens in a new tab.");

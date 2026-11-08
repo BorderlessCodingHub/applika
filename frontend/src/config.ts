@@ -5,9 +5,17 @@ export const APP_CONFIG = {
   },
   borderless: {
     /** Where a visitor without a Borderless account signs up. */
-    signUpUrl: "https://borderlesscoding.com",
+    signUpUrl:
+      process.env.NEXT_PUBLIC_BORDERLESS_SIGN_UP ||
+      "https://platform.borderlesscoding.com/sign-up",
     /** The Borderless community's home. */
     homeUrl: "https://borderlesscoding.com",
+  },
+  cli: {
+    /** The applika-cli page on PyPI, linked from the CLI promo banner. */
+    url:
+      process.env.NEXT_PUBLIC_APPLIKA_CLI ||
+      "https://pypi.org/project/applika-cli/",
   },
   name: "Applika.dev",
   shortName: "Applika.dev",
