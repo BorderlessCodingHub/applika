@@ -285,6 +285,63 @@ until the browser leaves for the fake.
 `page.content()`, narrow to PSP without resending the URL, delete as its own
 cleanup.
 
+**Phone in E2E (PRD 0021, ADR-0027).** No phone project: `playwright.config.ts`
+keeps one Desktop Chrome project, and a phone case sets the viewport itself
+(`test.use({ viewport: PHONE })` or `page.setViewportSize`), so the serial
+order and `--project` stay as they are. `e2e/support/phone.ts` has `PHONE`
+(390×844), `expectPhoneTargets(page, atLeast, exclude?)` (every rendered
+control's box at least 44×44, and a floor on how many were measured;
+`exclude` is a named, commented selector list of today's desktop components a
+board reuses at their desktop size, never a loose filter) and
+`expectNoSidewaysScroll` (the document AND the phone shell's one `<main>`,
+which scrolls itself: its `overflow-y: auto` makes x scroll too, which the
+document never sees). `e2e/phone.spec.ts` at 390×844: the public screens
+(signed out, read-only); as `e2e-user`, Today → Add → the quick add → the
+Application screen → the row under Applied on the Pipeline, the Agenda,
+Insights, then the initials → the Account hub (Jobs and CVs, no Admin), Light
+(held on `/cycles`) and back to Dark, Português (BR) (the hub, the tab bar's
+"Hoje"/"Funil", `/cycles`' "Ciclos") and back to English, then 44px and no
+sideways scroll at 360 and 320; one read-only check per account-area, job and
+CV board — Profile (Edit, then Cancel), Devices (This device; Sign out's sheet
+opened and cancelled, NEVER confirmed: every later spec signs in with that
+session), Cycles, Reports and the current report day (never submitted; on day
+1 in edit mode its date picker is opened and closed), Jobs, a job (Your fit, the Start application
+sheet cancelled, no draft), the draft's step 1 (More details holds the
+application date; nothing typed, no draft), CVs (Delete's sheet cancelled) and
+the CV editor (one row open at a time, the PDF downloaded, no `cv-document`,
+nothing saved), and `/admin` sending e2e-user back to Today; as `e2e-admin`,
+the Account hub's Admin row → seven chips, the Dashboard, Jobs (source cards)
+and Report webhooks (the masked address only) boards, today's add/edit dialog,
+Users / Companies / Platforms / Features / a feature under the same header
+(a `p` "Admin Console", today's one h1), and its own `jobs` opt-out (the Jobs
+row gone on reload, `/jobs` "Oops! Page not found", the opt-out deleted in a
+`finally` and in `afterAll`). Its data: the applications the quick add and
+Log update create are deleted in `afterAll`; one master CV is made through
+the API in `beforeAll` and deleted in `afterAll`; an empty job board gets the
+admin's collection run first (the `cvs-beta.spec.ts` shape; the jobs stay,
+as `jobs.spec.ts`'s do); the one report webhook is made and deleted through
+the API with a synthetic `discord.com` address (`e2e-dummy-…`). **Logout ends
+the session it runs in, so it never runs as a seeded user**: the disposable
+fake account `e2e-free` (no membership, so no grant or badge state to put
+back) is deleted in `beforeAll` AND `afterAll` (`deleteAccount` in
+`e2e/support/auth.ts`, which `borderless-signin.spec.ts` shares), signs in
+through the fake in its own 390×844 context, answers `/welcome` with Start
+fresh, sees only Cycles in Workspace and the closed Reports (`none`, no
+report request sent), then Account → Logout lands on `/` and its
+`GET /users/me` is 401. **Below-md cases elsewhere follow the phone boards**:
+`jobs.spec.ts` at 375 (`sourceRow` is `[data-slot="job-source-row"]` with no
+tag — a `tr` at md and up, an `li` card below; `/jobs` cards are still
+articles named by their titles; `/jobs/view`'s "Your fit" is still a
+`section` with a heading per master CV, visually hidden in its tab's panel;
+the draft's step 2 still shows `[data-slot="cv-fit-panel"]` and is measured
+at 44px with that panel excluded — today's `CvFitPanel`, desktop sized),
+`application-with-cv.spec.ts` (the draft's step 1 at 390 opens "More details"
+before `getByLabel(/application date/i)`), `cv-builder.spec.ts` (`/cvs/editor`
+at 390 is the phone board: nine `cv-acc` rows, one open, "Download PDF", no
+`cv-document`, no layout notice, no Markdown; the restack and stacked-halves
+proofs run on `/cvs/new`, which keeps today's editor and says the notice
+once).
+
 ---
 
 ## Architecture
@@ -3020,13 +3077,14 @@ page)` renders a route in the phone shell with the query client, the cycle
   the real form does — and Radix's `onCloseAutoFocus` on unmount).
   `e2e/shell-responsive.spec.ts` walks the phone shell at
   390×844; `e2e/phone.spec.ts` the public screens (`/`, `/cookie-policy`,
-  `/cli`, `/cli/code`) and, signed in as e2e-user, Today, Add → quick add →
-  the Application screen → Pipeline (the row under Applied; its application
-  deleted in `afterAll`), the Agenda's week and Insights' cycle sheet; `borderless-signin.spec.ts` option C's states and
-  the welcome choice; `devices.spec.ts` `/device`. `e2e/support/phone.ts`
-  has `PHONE` (390×844), `expectPhoneTargets` (every rendered control's box
-  at least 44×44, and a floor on how many were measured) and
-  `expectNoSidewaysScroll`.
+  `/cli`, `/cli/code`), the core screens and the Account hub as e2e-user,
+  every account-area, job and CV board read-only, the admin console as
+  e2e-admin and Logout in a disposable account (see **Phone in E2E**);
+  `borderless-signin.spec.ts` option C's states and the welcome choice;
+  `devices.spec.ts` `/device`. `e2e/support/phone.ts` has `PHONE`
+  (390×844), `expectPhoneTargets` (every rendered control's box at least
+  44×44, and a floor on how many were measured) and
+  `expectNoSidewaysScroll` (the document and the shell's `<main>`).
 - **Locator traps.** "Profile" is inside "View profile"; "Account" names the
   avatar, a back link and the hub's region; "Add", "Back" and "Dark" are
   inside longer names — use `exact: true` in Playwright. A row's name is its

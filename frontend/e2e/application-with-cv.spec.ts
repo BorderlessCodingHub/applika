@@ -212,8 +212,15 @@ test("a draft created with New with CV autosaves, resumes and finishes into a re
     page.getByRole("heading", { name: "New application with CV", level: 1 }),
   ).toBeVisible();
 
-  // AC14 — at 390px step 1 never scrolls sideways.
+  // AC14 — at 390px step 1 never scrolls sideways. Below md it is the phone
+  // draft (PRD 0021): the application date sits under "More details".
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    page.locator('[data-slot="phone-draft"][data-step="application"]'),
+  ).toBeVisible();
+  const moreDetails = page.locator('[data-action="more-details"]');
+  await moreDetails.click();
+  await expect(moreDetails).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByLabel(/application date/i)).toBeVisible();
   // `main` is the page's own scroll container (`max-h-scrollport`), so the
   // DOCUMENT never overflows even if a field inside `main` runs wide

@@ -1183,15 +1183,89 @@ test("the CV pages spend the whole shell width once there is an editor to show (
   }
 });
 
-test("the preview restacks and stays usable below md (AC6)", async ({
+test("below md the CV editor is the phone board: sections that expand one at a time and the PDF, no live preview (PRD 0021)", async ({
   page,
   request,
 }) => {
+  // PRD 0021: the phone CV editor shows the sections as an expandable list
+  // and a PDF action, with no live preview. The restack proof that used to
+  // live here moved to `/cvs/new` (no board, today's editor) below.
   const cvId = await seedBulkyBaseCv(request, 4);
 
   await loginAs(page, "user");
   await page.setViewportSize({ width: 390, height: 844 });
-  const sheets = await openSettledEditor(page, cvId);
+  await page.goto(`/cvs/editor?id=${cvId}`);
+
+  const editor = page.locator('[data-slot="phone-cv-editor"]');
+  await expect(editor).toBeVisible();
+  // Identity and contact opens first, and holds the label.
+  await expect(page.getByLabel("CV label", { exact: true })).toHaveValue(
+    CV_NAME,
+  );
+  const rows = editor.locator('[data-slot="cv-acc"]');
+  await expect(rows).toHaveCount(FORM_SECTIONS.length);
+  await expect(rows.first()).toHaveAttribute("data-section", "identity");
+  await expect(rows.first()).toHaveAttribute("data-open", "true");
+  await expect(editor.locator('[data-slot="cv-acc"][data-open]')).toHaveCount(
+    1,
+  );
+
+  // No preview, so no sheet, no page indicator and no layout notice; no
+  // Markdown either. The PDF is the top bar's "Download PDF".
+  await expect(page.locator('[data-slot="cv-document"]')).toHaveCount(0);
+  await expect(page.locator(SHEET)).toHaveCount(0);
+  await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Download Markdown" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Download PDF", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('[data-action="save-cv"]')).toBeVisible();
+
+  // One row open at a time: Experience opens, Identity folds.
+  const experience = editor.locator(
+    '[data-slot="cv-acc"][data-section="experience"]',
+  );
+  await experience.getByRole("button", { name: "Experience" }).click();
+  await expect(experience).toHaveAttribute("data-open", "true");
+  await expect(rows.first()).not.toHaveAttribute("data-open", /.*/);
+  await expect(editor.locator('[data-slot="cv-acc"][data-open]')).toHaveCount(
+    1,
+  );
+
+  // Nothing runs off the side, in the document or in the shell's `main`.
+  const metrics = await page.evaluate(() => {
+    const doc = document.documentElement;
+    const main = document.querySelector("main");
+    return {
+      innerWidth: window.innerWidth,
+      documentScrollWidth: doc.scrollWidth,
+      mainScrollWidth: main?.scrollWidth ?? -1,
+      mainClientWidth: main?.clientWidth ?? -1,
+    };
+  });
+  expect(
+    metrics.documentScrollWidth,
+    `the phone editor widened the page: ${JSON.stringify(metrics)}`,
+  ).toBeLessThanOrEqual(metrics.innerWidth + 1);
+  expect(
+    metrics.mainScrollWidth,
+    `the phone editor scrolls sideways: ${JSON.stringify(metrics)}`,
+  ).toBeLessThanOrEqual(metrics.mainClientWidth + 1);
+});
+
+test("the preview restacks and stays usable below md on /cvs/new (AC6)", async ({
+  page,
+}) => {
+  // `/cvs/new` has no V2 board (PRD 0021): below md it keeps today's editor,
+  // form then preview, inside the phone layout. Nothing is saved here.
+  await loginAs(page, "user");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/cvs/new");
+  await page.getByLabel("CV label", { exact: true }).fill(CV_NAME);
+  await page.getByLabel("Full name", { exact: true }).fill("E2E Candidate");
+  const sheets = await settledSheetCount(page);
   expect(sheets).toBeGreaterThanOrEqual(1);
 
   // Restacked: the preview is BELOW the form, not a second column beside it.
@@ -1229,24 +1303,23 @@ test("the preview restacks and stays usable below md (AC6)", async ({
     `the paginated preview widened the page: ${JSON.stringify(metrics)}`,
   ).toBeLessThanOrEqual(metrics.innerWidth + 1);
 
-  // KODI-006's AC7 holds at this viewport too: the added height lands in the
-  // editor's own scroll, never in the document's.
+  // The page itself never grows at this viewport either: the added height
+  // lands in the shell's own scroll, never in the document's.
   expect(
     metrics.documentScrollHeight,
     `the paginated preview grew the page: ${JSON.stringify(metrics)}`,
   ).toBeLessThanOrEqual(metrics.innerHeight + 1);
 
-  // Readable: the page indicator is NOT inside the sheet's `scale()`. At a
-  // scale near 0.45 an 11px folio would render at 5px, which is the whole
-  // reason the transform is applied per sheet and not to the stack.
+  // Readable: the page indicator is NOT inside the sheet's `scale()`.
   const indicator = page.getByText(`Page 1 of ${sheets}`).locator("..");
   await expect(indicator).toHaveCSS("font-size", "11px");
   const indicatorBox = await indicator.boundingBox();
   expect(indicatorBox!.height).toBeGreaterThan(8);
 
-  // And it still says the words.
+  // And it still says the words: once on `/cvs/new`, which has no export
+  // button (the caption is the only notice there).
   await expect(page.getByText(`Page 1 of ${sheets}`)).toHaveCount(1);
-  await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(2);
+  await expect(page.getByText(PDF_LAYOUT_NOTICE)).toHaveCount(1);
 });
 
 /* ===========================================================================
@@ -1499,10 +1572,17 @@ test("the form and the preview each take half the editor, with no cap on either 
     expect(copyHalves.form * 2).toBeGreaterThan(copyHalves.split - 48);
   }
 
-  // Below `md` the two stack, form first — the halves are a `md:` rule, not a
-  // 50% the phone inherits.
+  // Below `md` the master CV editor is the phone board, with no preview
+  // (PRD 0021). Today's editor stays on `/cvs/new` (no board), where the two
+  // stack, form first — the halves are a `md:` rule, not a 50% the phone
+  // inherits. Nothing is saved there.
   await page.setViewportSize({ width: 390, height: 844 });
-  await openSettledEditor(page, cvId);
+  await page.goto(`/cvs/editor?id=${cvId}`);
+  await expect(page.locator('[data-slot="phone-cv-editor"]')).toBeVisible();
+  await expect(page.locator('aside[aria-label="CV preview"]')).toHaveCount(0);
+  await page.goto("/cvs/new");
+  await page.getByLabel("CV label", { exact: true }).fill(CV_NAME);
+  await settledSheetCount(page);
   const stacked = await page.evaluate(() => {
     const form = document
       .querySelector<HTMLElement>('[data-slot="cv-section"]')

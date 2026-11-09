@@ -7,6 +7,7 @@ import {
 } from "@playwright/test";
 
 import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
+import { expectPhoneTargets } from "./support/phone";
 
 /**
  * The job board end to end against the REAL stack (PRD 0012, KODI-049, T101).
@@ -155,9 +156,13 @@ async function seedMasterCv(request: APIRequestContext): Promise<string> {
   return ((await response.json()) as { id: string }).id;
 }
 
+/**
+ * A source's row: a `tr` at md and up, the phone board's `li` card below md
+ * (PRD 0021), with the same hooks — so no tag.
+ */
 function sourceRow(page: Page, code: string): Locator {
   return page.locator(
-    `tr[data-slot="job-source-row"][data-source-code="${code}"]`,
+    `[data-slot="job-source-row"][data-source-code="${code}"]`,
   );
 }
 
@@ -222,6 +227,13 @@ async function expectNoSidewaysScroll(page: Page, where: string) {
   );
   expect(metrics.docScroll, detail).toBeLessThanOrEqual(metrics.docClient + 1);
 }
+
+/**
+ * Measured at 44px on the phone draft's step 2, except today's components it
+ * reuses at their desktop size (accepted for PRD 0021): `CvFitPanel`, whose
+ * section-card header button ("CV fit for this job") keeps its desktop box.
+ */
+const DRAFT_STEP_2_DESKTOP_CONTROLS = ['[data-slot="cv-fit-panel"]'] as const;
 
 function jobArticle(page: Page, title: string): Locator {
   return page.getByRole("article", { name: title, exact: true });
@@ -322,9 +334,13 @@ test("admin: Run now collects from both sources; a source turned off is skipped 
     page.getByRole("switch", { name: "Collect from RemoteOK" }),
   ).toBeChecked();
 
-  // ---- 375px: the page never scrolls sideways; the table scrolls inside ----
+  // ---- 375px: the phone board's source cards, never a sideways scroll -----
   await page.setViewportSize({ width: 375, height: 812 });
+  await expect(page.locator('[data-slot="phone-admin-jobs"]')).toBeVisible();
   await expect(sourceRow(page, "himalayas")).toBeVisible();
+  await expect(
+    page.locator('li[data-slot="job-source-row"][data-source-code="remoteok"]'),
+  ).toHaveAttribute("data-enabled", "true");
   await expectNoSidewaysScroll(page, "/admin/jobs");
 });
 
@@ -390,7 +406,10 @@ test("user: list, filters, saved search, fit, tailored draft, Applied, dismiss (
   await expect(page.locator('[data-slot="job-list-item"]')).toHaveCount(1);
 
   // ---- 375px with a long CV name: no sideways scroll on the list ----------
+  // Below md the list is the phone board (PRD 0021): a job is still an
+  // `article` named by its title.
   await page.setViewportSize({ width: 375, height: 812 });
+  await expect(page.locator('[data-slot="phone-jobs"]')).toBeVisible();
   await expect(jobArticle(page, BACKEND_JOB)).toBeVisible();
   await expectNoSidewaysScroll(page, "/jobs");
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -419,7 +438,10 @@ test("user: list, filters, saved search, fit, tailored draft, Applied, dismiss (
   await expect(matched.getByText(/python/i).first()).toBeVisible();
   await expect(missing.getByRole("listitem").first()).toBeVisible();
 
+  // Below md the phone board: "Your fit" is still a `section` with a
+  // (visually hidden) heading per master CV, in its tab's panel.
   await page.setViewportSize({ width: 375, height: 812 });
+  await expect(page.locator('[data-slot="phone-job-detail"]')).toBeVisible();
   await expect(fitList.getByRole("heading", { name: MASTER_CV })).toBeVisible();
   await expectNoSidewaysScroll(page, "/jobs/view");
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -482,9 +504,14 @@ test("user: list, filters, saved search, fit, tailored draft, Applied, dismiss (
     page.locator('[data-slot="cv-diff-count"][data-reordered]').first(),
   ).toContainText("reordered");
 
-  // The draft CV step at 375px: no sideways scroll either.
+  // The draft CV step at 375px: no sideways scroll either. Below md it is the
+  // phone draft's step 2, with the same CV fit panel in the copy's summary.
   await page.setViewportSize({ width: 375, height: 812 });
+  await expect(
+    page.locator('[data-slot="phone-draft"][data-step="cv"]'),
+  ).toBeVisible();
   await expect(fitPanel).toBeVisible();
+  await expectPhoneTargets(page, 4, DRAFT_STEP_2_DESKTOP_CONTROLS);
   await expectNoSidewaysScroll(page, "/applications/new-with-cv (step 2)");
   await page.setViewportSize({ width: 1280, height: 800 });
 

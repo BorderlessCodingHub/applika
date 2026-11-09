@@ -1,4 +1,6 @@
-import type { Page } from "@playwright/test";
+import { expect, type Browser, type Page } from "@playwright/test";
+
+import { COOKIE_NOTICE_ACKNOWLEDGED } from "./cookie-notice";
 
 /**
  * Real seeded sessions for the E2E suite (KODI-001 / R-003).
@@ -140,6 +142,31 @@ export async function signInWithFake(page: Page, email: string): Promise<void> {
   await page.waitForURL(
     (url) => url.origin !== new URL(borderlessUrl()).origin,
   );
+}
+
+/**
+ * Deletes the applika account of a fake Borderless `account`: signs it in
+ * through the fake in its own browser context (a new account is made on the
+ * way, so this works whether or not it exists), then `DELETE /users/me`.
+ * Specs that sign a disposable account in call it in `beforeAll` AND
+ * `afterAll`, so a retry starts from a new account. Never for `user`.
+ */
+export async function deleteAccount(
+  browser: Browser,
+  account: BorderlessAccount,
+): Promise<void> {
+  const context = await browser.newContext({
+    storageState: COOKIE_NOTICE_ACKNOWLEDGED,
+  });
+  try {
+    const page = await context.newPage();
+    await signInWithFake(page, account.email);
+    await page.waitForURL(/\/(welcome|dashboard)$/);
+    const response = await page.request.delete(apiUrl("/users/me"));
+    expect(response.status(), `delete ${account.email}`).toBeLessThan(300);
+  } finally {
+    await context.close();
+  }
 }
 
 /** The env var names `frontend/scripts/e2e.sh` exports for each role. */

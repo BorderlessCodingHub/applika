@@ -24,47 +24,70 @@ const CONTROLS = [
  * Every control the viewport renders (a box of more than 1px each way:
  * hidden trees are 0×0, sr-only text is 1×1) whose box is under 44px either
  * way, as `"<name> <w>x<h>"`. `count` is how many controls were measured, so
- * a check cannot pass by measuring nothing.
+ * a check cannot pass by measuring nothing. A control inside an `exclude`
+ * selector is not measured: pass only a named, commented list of today's
+ * desktop components a board reuses at their desktop size.
  */
 export async function undersizedControls(
   page: Page,
+  exclude: readonly string[] = [],
 ): Promise<{ count: number; small: string[] }> {
-  return page.evaluate((selector) => {
-    const measured = Array.from(
-      document.querySelectorAll<HTMLElement>(selector),
-    )
-      .map((control) => ({ control, rect: control.getBoundingClientRect() }))
-      .filter(
-        ({ control, rect }) =>
-          rect.width > 1 &&
-          rect.height > 1 &&
-          getComputedStyle(control).visibility !== "hidden",
-      );
-    return {
-      count: measured.length,
-      small: measured
-        .filter(({ rect }) => rect.width + 0.5 < 44 || rect.height + 0.5 < 44)
-        .map(
+  return page.evaluate(
+    ({ selector, skip }) => {
+      const measured = Array.from(
+        document.querySelectorAll<HTMLElement>(selector),
+      )
+        .filter((control) => !skip.some((outside) => control.closest(outside)))
+        .map((control) => ({ control, rect: control.getBoundingClientRect() }))
+        .filter(
           ({ control, rect }) =>
-            `${control.getAttribute("aria-label") ?? control.textContent?.trim()} ${Math.round(rect.width)}x${Math.round(rect.height)}`,
-        ),
-    };
-  }, CONTROLS);
+            rect.width > 1 &&
+            rect.height > 1 &&
+            getComputedStyle(control).visibility !== "hidden",
+        );
+      return {
+        count: measured.length,
+        small: measured
+          .filter(({ rect }) => rect.width + 0.5 < 44 || rect.height + 0.5 < 44)
+          .map(
+            ({ control, rect }) =>
+              `${control.getAttribute("aria-label") ?? control.textContent?.trim()} ${Math.round(rect.width)}x${Math.round(rect.height)}`,
+          ),
+      };
+    },
+    { selector: CONTROLS, skip: [...exclude] },
+  );
 }
 
-/** Every control on screen has a 44×44 box (WCAG 2.5.8 AAA target size). */
-export async function expectPhoneTargets(page: Page, atLeast = 1) {
-  const { count, small } = await undersizedControls(page);
+/**
+ * Every control on screen has a 44×44 box (WCAG 2.5.8 AAA target size),
+ * except inside `exclude` (see `undersizedControls`).
+ */
+export async function expectPhoneTargets(
+  page: Page,
+  atLeast = 1,
+  exclude: readonly string[] = [],
+) {
+  const { count, small } = await undersizedControls(page, exclude);
   expect(count, "controls measured").toBeGreaterThanOrEqual(atLeast);
   expect(small, "controls under 44×44").toEqual([]);
 }
 
-/** The page does not scroll sideways. */
+/**
+ * The page does not scroll sideways: neither the document nor, on a
+ * signed-in page, the phone shell's one `<main>` (it scrolls itself:
+ * `overflow-y: auto` makes its x axis scroll too, which the document never
+ * sees). A wide row that scrolls inside its own box (a chip row, a table
+ * wrapper) is not sideways scroll.
+ */
 export async function expectNoSidewaysScroll(page: Page) {
-  const overflow = await page.evaluate(
-    () =>
-      document.documentElement.scrollWidth -
-      document.documentElement.clientWidth,
-  );
-  expect(overflow, "sideways scroll in px").toBeLessThanOrEqual(0);
+  const overflow = await page.evaluate(() => {
+    const doc = document.documentElement;
+    const main = document.querySelector("main");
+    return {
+      document: doc.scrollWidth - doc.clientWidth,
+      main: main ? main.scrollWidth - main.clientWidth : 0,
+    };
+  });
+  expect(overflow, "sideways scroll in px").toEqual({ document: 0, main: 0 });
 }

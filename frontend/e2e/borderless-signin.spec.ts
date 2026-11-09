@@ -6,7 +6,6 @@ import {
   request as playwrightRequest,
   test,
   type APIRequestContext,
-  type Browser,
   type Page,
   type Request,
 } from "@playwright/test";
@@ -15,6 +14,7 @@ import {
   BORDERLESS_ACCOUNTS,
   apiUrl,
   borderlessUrl,
+  deleteAccount,
   loginAs,
   signInWithBorderlessButton,
   signInWithFake,
@@ -98,22 +98,6 @@ async function setFakeAccount(
     { data: changes },
   );
   expect(response.status(), `fake account ${account.sub}`).toBe(200);
-}
-
-/** Signs `account` in through the fake in its own context, then `DELETE /users/me`. */
-async function deleteAccount(browser: Browser, account: BorderlessAccount) {
-  const context = await browser.newContext({
-    storageState: COOKIE_NOTICE_ACKNOWLEDGED,
-  });
-  try {
-    const page = await context.newPage();
-    await signInWithFake(page, account.email);
-    await page.waitForURL(/\/(welcome|dashboard)$/);
-    const response = await page.request.delete(apiUrl("/users/me"));
-    expect(response.status(), `delete ${account.email}`).toBeLessThan(300);
-  } finally {
-    await context.close();
-  }
 }
 
 /** A new account answers the one-time welcome choice; an existing one lands on the dashboard. */
