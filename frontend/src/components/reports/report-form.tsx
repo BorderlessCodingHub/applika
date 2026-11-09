@@ -1,7 +1,6 @@
 "use client";
 
-import { useForm, useWatch } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useWatch } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import {
   Award,
@@ -35,12 +34,12 @@ import {
   type ReportDaysType,
 } from "@/services/types/reports";
 import {
-  reportZodSchema,
   ReportFormType,
   WIN_MAX,
   CHALLENGE_MAX,
   GOAL_MAX,
 } from "./report-form-config";
+import { useReportForm } from "@/hooks/use-report-form";
 import {
   CharCounter,
   FieldError,
@@ -55,30 +54,13 @@ interface ReportFormProps {
   onStartDateChange: (string) => void;
 }
 
-function buildFormDefault(reportData: ReportDetailResponse): ReportFormType {
-  const manualMetrics = reportData.manual_metrics;
-  return {
-    start_date: reportData.period.start_date,
-    mock_interviews_count: manualMetrics?.mock_interviews_count ?? 0,
-    linkedin_posts_count: manualMetrics?.linkedin_posts_count ?? 0,
-    strategic_connections_count:
-      manualMetrics?.strategic_connections_count ?? 0,
-    biggest_win: manualMetrics?.biggest_win ?? "",
-    biggest_challenge: manualMetrics?.biggest_challenge ?? "",
-    next_fortnight_goal: manualMetrics?.next_fortnight_goal ?? "",
-  };
-}
-
 export function ReportForm({
   dayInterval,
   onCancel,
   reportData,
   onStartDateChange,
 }: ReportFormProps) {
-  const form = useForm<ReportFormType>({
-    resolver: zodResolver(reportZodSchema),
-    defaultValues: buildFormDefault(reportData),
-  });
+  const form = useReportForm(reportData);
 
   const { submit, isSubmitting } = useReportSubmit();
   const t = useTranslations("reports.detail");

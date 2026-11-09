@@ -69,10 +69,28 @@ export const PHONE_SCREEN_PATHS: ReadonlySet<string> = new Set([
   "/insights",
   "/welcome",
   "/device",
+  "/profile",
+  "/cycles",
+  "/reports",
+  "/admin",
 ]);
 
+/**
+ * Whole sub-trees that own their padding: every report day (`/reports/14`),
+ * and every admin section, under the phone admin header (the sections
+ * without a board keep today's content inside its 20px sides).
+ */
+export const PHONE_SCREEN_PREFIXES: readonly string[] = [
+  "/reports/",
+  "/admin/",
+];
+
 export function isPhoneScreen(pathname: string): boolean {
-  return PHONE_SCREEN_PATHS.has(normalizePath(pathname));
+  const path = normalizePath(pathname);
+  return (
+    PHONE_SCREEN_PATHS.has(path) ||
+    PHONE_SCREEN_PREFIXES.some((prefix) => path.startsWith(prefix))
+  );
 }
 
 export interface PhoneBack {

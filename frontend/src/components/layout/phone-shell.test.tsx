@@ -11,12 +11,13 @@ import type { User } from "@/services/types/users";
 import { mockPhoneViewport } from "@/test/phone";
 import { AppShell } from "./app-shell";
 import { navItemsFor } from "./nav";
-import { PhoneChromeless, usePhoneShell } from "./phone-shell";
+import { PhoneChromeless, PhoneTopBarEnd, usePhoneShell } from "./phone-shell";
 import {
   PHONE_PARENTS,
   PHONE_SCREEN_PATHS,
   TAB_ROOTS,
   accountRows,
+  isPhoneScreen,
   phoneBackFor,
 } from "./phone-nav";
 
@@ -440,16 +441,18 @@ describe("PhoneShell below md", () => {
     ).toContain("pb-10");
   });
 
-  it.each([...PHONE_SCREEN_PATHS])(
-    "adds no padding around the ported %s screen",
-    (path) => {
-      mockPhoneViewport();
-      renderShell(path);
-      const slot = document.querySelector('[data-slot="app-content"]')!;
+  it.each([
+    ...PHONE_SCREEN_PATHS,
+    "/reports/14",
+    "/admin/users",
+    "/admin/features/view",
+  ])("adds no padding around the ported %s screen", (path) => {
+    mockPhoneViewport();
+    renderShell(path);
+    const slot = document.querySelector('[data-slot="app-content"]')!;
 
-      expect(slot.className).not.toMatch(/(^|\s)(px|pt|pb|py)-/);
-    },
-  );
+    expect(slot.className).not.toMatch(/(^|\s)(px|pt|pb|py)-/);
+  });
 
   it("switches to today's shell when the screen turns past md, losing the quick add", async () => {
     const viewport = mockPhoneViewport();
@@ -479,7 +482,80 @@ describe("PhoneShell below md", () => {
   });
 });
 
+describe("PhoneTopBarEnd", () => {
+  it("puts a screen's item at the right of the back bar, before main", () => {
+    mockPhoneViewport();
+    renderShell("/profile", {
+      children: (
+        <PhoneTopBarEnd>
+          <button type="button">Edit</button>
+        </PhoneTopBarEnd>
+      ),
+    });
+
+    const edit = screen.getByRole("button", { name: "Edit" });
+    const bar = screen.getByRole("banner");
+    expect(
+      bar.querySelector('[data-slot="phone-top-bar-end"]'),
+    ).toContainElement(edit);
+    // The back link stays the bar's only link, and comes first.
+    expect(within(bar).getAllByRole("link")).toHaveLength(1);
+    expect(
+      within(bar)
+        .getByRole("link", { name: "Account" })
+        .compareDocumentPosition(edit) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      edit.compareDocumentPosition(screen.getByRole("main")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("renders nothing on a tab root, which has no back bar", () => {
+    mockPhoneViewport();
+    renderShell("/dashboard", {
+      children: (
+        <PhoneTopBarEnd>
+          <button type="button">Edit</button>
+        </PhoneTopBarEnd>
+      ),
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Edit" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders in place outside the shell (a screen tested alone)", () => {
+    render(
+      <PhoneTopBarEnd>
+        <button type="button">Edit</button>
+      </PhoneTopBarEnd>,
+    );
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+  });
+});
+
 describe("phone-nav", () => {
+  it("treats every report day and every admin section as ported", () => {
+    for (const path of [
+      "/profile",
+      "/cycles",
+      "/reports",
+      "/reports/14",
+      "/admin",
+      "/admin/",
+      "/admin/jobs",
+      "/admin/users",
+      "/admin/features/view",
+    ]) {
+      expect(isPhoneScreen(path), path).toBe(true);
+    }
+    for (const path of ["/jobs", "/cvs", "/reportsx", "/administrator"]) {
+      expect(isPhoneScreen(path), path).toBe(false);
+    }
+  });
+
   it("lists the four tab roots in the board's order", () => {
     expect(TAB_ROOTS.map((root) => [root.href, root.label])).toEqual([
       ["/dashboard", "Today"],

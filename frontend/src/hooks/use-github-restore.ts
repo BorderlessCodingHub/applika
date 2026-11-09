@@ -1,7 +1,13 @@
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AxiosError } from "axios";
 import { toast } from "sonner";
 import { word } from "@/i18n/translator";
+import {
+  isGithubRestoreStatus,
+  type GithubRestoreStatus,
+} from "@/components/profile/github-restore-copy";
 import { USER_QUERY_KEY } from "@/hooks/use-user";
 import { getApiError } from "@/lib/api-client";
 import { services } from "@/services/services";
@@ -55,4 +61,58 @@ export function useDismissGithubRestore() {
     },
     onError: (err: AxiosError) => toast.error(getApiError(err)),
   });
+}
+
+/**
+ * GitHub's callback lands on `/profile?account=github&status=…`: the status
+ * to show (`GithubRestoreNotice`) and its setter, for both widths of the
+ * profile. Read once, from a LAZY initializer straight off the incoming URL,
+ * rather than from an effect (`react-hooks/set-state-in-effect`): that is
+ * what makes the notice survive the URL cleanup below.
+ */
+export function useGithubRestoreReturn() {
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+
+  const [notice, setNotice] = useState<GithubRestoreStatus | null>(() => {
+    const account = searchParams.get("account");
+    const status = searchParams.get("status");
+    return account === "github" && isGithubRestoreStatus(status)
+      ? status
+      : null;
+  });
+  // Guards against React Strict Mode's deliberate double-invoke of effects:
+  // the invalidate/clear-URL side effects below must run exactly once per
+  // redirect, never twice.
+  const consumed = useRef(false);
+
+  useEffect(() => {
+    if (consumed.current) return;
+    const account = searchParams.get("account");
+    const status = searchParams.get("status");
+    if (account !== "github" || !isGithubRestoreStatus(status)) return;
+
+    consumed.current = true;
+    // `restored` signed this browser in as the old account: refetch who we
+    // are (and everything cached for the deleted new account).
+    if (status === "restored") {
+      void queryClient.invalidateQueries();
+    } else {
+      void queryClient.invalidateQueries({ queryKey: USER_QUERY_KEY });
+    }
+    // Next's app-router `useRouter().replace()` is a no-op here: this app is
+    // a fully static export (`output: "export"`, no server to resolve a
+    // route transition against) and clearing ONLY the query string on the
+    // SAME path never triggers a navigation in this build (verified against
+    // the real e2e stack — `router.replace("/profile")` left the URL bar
+    // showing the original `?account=&status=` query indefinitely). The
+    // History API is what the browser actually uses to update the address
+    // bar, so we drive it directly rather than through a router that isn't
+    // doing anything on this specific transition.
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", "/profile");
+    }
+  }, [searchParams, queryClient]);
+
+  return [notice, setNotice] as const;
 }

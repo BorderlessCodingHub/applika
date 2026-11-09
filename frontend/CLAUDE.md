@@ -1893,6 +1893,11 @@ hasReportsBadge })` lists Reports only with a recorded badge
   = "needs_reconnect"`, so the gate, the chip and the menu all flip at once.
   The API is the rule: 403 RPT-1001 (no live badge) / AUTH-1050 (a live badge
   while the grant is refused; RPT-1002 is retired).
+- **Below md** `/reports` and `/reports/<day>` keep the same gate with
+  `closed={renderReportsClosed}`: v2/Reports' closed layout (lock tile,
+  today's words; `none` → "Visit Borderless" + "Sign in again",
+  `needs_reconnect` → "Sign in again" alone). The gate stays above the
+  report hooks: no report request without a held badge.
 
 ### Profile — GitHub restore and membership (`src/components/profile/`, ADR-0024)
 
@@ -1955,6 +1960,13 @@ is local state. **Not gated** (owner: "Gate nothing") — no `FeatureKey`, no
   other devices"; "Revoke" inside "Revoke access"; "Active" is the h2 and
   every badge; a web row's name equals its client label. Use `exact: true`,
   the data hooks, and scope confirms to `getByRole("alertdialog")`.
+- **Below md** the tab is the Devices board (see **Phone shell**, the
+  account area): `?tab=` is read live and the switch is two links; a card
+  shows the name, "This device", how it signed in, IP address, Last used
+  (relative) and Expires; each action confirms in a `PhoneConfirmSheet`
+  (an `alertdialog` too, so the scoping above holds); zero other devices
+  shows "No other device is signed in." instead of the button. The same
+  hooks and calls.
 
 ### Admin — Report webhooks (`app/(protected)/admin/report-webhooks/`, ADR-0024)
 
@@ -1990,6 +2002,14 @@ link still works; static export, no rewrite).
 - The URL is a secret: the edit form reopens blank, a blank URL keeps the
   stored one, and only changed fields are sent (`badges` only when the set
   differs from the stored one). Only the masked form is ever shown.
+- **Below md** the page draws v2/Admin's Report webhooks under the admin
+  header (see **Phone shell**): one card per webhook (label, a pill per
+  badge, the masked address, Edit and Delete with today's names), Delete
+  confirmed in a `PhoneConfirmSheet`, "Add webhook" after the cards; the
+  same query, handlers and `ReportWebhookFormDialog`. The row hooks
+  (`li[data-slot="report-webhook-row"][data-webhook-id][data-badges]`,
+  `[data-slot="report-webhook-badge"]`, `[data-slot="report-webhook-url"]`)
+  are the same at both widths.
 - **No Discord wording in the admin area** except the address field: its
   add-mode placeholder `https://discord.com/api/webhooks/…` and "Invalid
   Discord webhook URL" (the stored masked address naturally reads
@@ -2024,6 +2044,12 @@ link still works; static export, no rewrite).
   while its own PATCH is in flight (the page tracks `pendingIds`), and a
   failure rolls back and toasts `getApiError`. A source that is off keeps its
   last outcome; there is no "Off" status.
+- **Below md** the same page draws v2/Admin's Jobs under the admin header:
+  one card per source (`li[data-slot="job-source-row"]` with the same
+  `data-source-code`/`data-enabled`; `tr` at md and up, so a locator that
+  must work at both widths drops the tag), a `PhoneSwitch` "Collect from
+  <name>", Last run / Status / Listed jobs, the last error, then Run now and
+  the same notice region. Same query, `pendingIds` and handlers.
 - **Run now** (`useStartJobRun`, no toast in the hook): the page clears the
   notice BEFORE each POST (or the same words twice are not re-announced). 202
   → toast "Run started", the list refetches, and then refetches every 3 s for
@@ -2598,9 +2624,25 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
   `/admin/discord-webhooks` "Admin"; any other address "Back" → `/dashboard`),
   `PHONE_SCREEN_PATHS` (screens rendered from their board, which own the
   board's padding: `/dashboard`, `/applications`, `/agenda`, `/account`,
-  `/insights`, `/welcome`, `/device` so far — add a route when its board
-  lands) and `accountRows(navItems)`. Words are getters over `word()`, so the
-  shell also calls `useTranslations`.
+  `/insights`, `/welcome`, `/device`, `/profile`, `/cycles`, `/reports`,
+  `/admin` so far — add a route when its board lands) plus
+  `PHONE_SCREEN_PREFIXES` (`/reports/` every report day, `/admin/` every
+  admin section; `isPhoneScreen` checks both) and `accountRows(navItems)`.
+  Words are getters over `word()`, so the shell also calls `useTranslations`.
+- **The back bar's right-hand item** (a board's Edit, "System" pill, status
+  pill): `<PhoneTopBarEnd>` (`phone-shell.tsx`) portals its children into
+  the shell's bar (`[data-slot="phone-top-bar-end"]`, after the back link,
+  before `<main>`), so the back link stays the shell's and the bar keeps
+  exactly one link. It renders nothing on a screen with no back bar (a tab
+  root) and in place outside the shell (a screen tested alone). A status
+  item gets `role="status"` itself.
+- **Confirmations** on a phone screen are `PhoneConfirmSheet`
+  (`components/phone/phone-confirm-sheet.tsx`): an `alertdialog` sheet,
+  Cancel first and focused, then the action (`tone` `danger` or
+  `primary`); both `aria-disabled` while `pending`; `fallbackFocus` takes
+  focus when the opener left (a revoked card, a deleted row). The caller
+  owns `open`: close it in `onConfirm`, or keep it open while `pending`
+  (a cycle's delete, as today's dialog does). Desktop keeps its dialogs.
 - **Padding.** A route not yet ported keeps today's content inside the phone
   layout with `px-4 pt-6` and a bottom reservation for the fixed chrome:
   `calc(170px + env(safe-area-inset-bottom, 0px))` with tab bar and FAB,
@@ -2717,6 +2759,85 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
   Pipeline: one "Drafts" pill after the stages, with `cvs`, on the current
   cycle, with at least one draft. `useMinuteClock()` (`hooks/`) refreshes
   "in 2h 15m" and "Done".
+- **The account area (v2/Profile, v2/Devices, v2/Cycles, v2/Reports,
+  v2/ReportDay, v2/Admin).** Same wrapper shape: `profile-page.tsx`,
+  `cycles-page.tsx`, `reports/page.tsx`, `reports/[day]/report-day-route.tsx`
+  (the server `page.tsx` renders it) and `admin/admin-page.tsx` pick the
+  screen in `components/phone/screens/` below md; `admin/jobs/jobs-page.tsx`
+  and `admin/report-webhooks/report-webhooks-page.tsx` keep their state and
+  handlers and only swap the render (`AdminJobSourcesScreenView`,
+  `AdminReportWebhooksScreenView`; the add/edit `ReportWebhookFormDialog`
+  stays today's dialog at both widths). Pure logic moved to `src/lib`
+  with the desktop unchanged: `profile-badges.ts` (`profileBadgeStates`),
+  `profile-salary.ts` (`formatProfileSalary`), `reports.ts`
+  (`REPORT_PHASE`, `effectiveReportStatus`), `cycles.ts`
+  (`MIN_APPLICATIONS_FOR_CYCLE`); `hooks/use-report-form.ts`
+  (`useReportForm`, both report forms) and `useGithubRestoreReturn`
+  (`hooks/use-github-restore.ts`, the `?account=github&status=` notice at
+  both widths). `useReports` also returns `data`, `isError` and `refetch`.
+  - **Profile / Devices** are one screen: `?tab=devices` is read on every
+    render (`useSearchParams`), the "Profile sections" nav is two links
+    (`/profile`, `/profile?tab=devices`, the current one
+    `aria-current="page"`) whose plain tap `pushState`s (Back returns), the
+    other section's nav takes focus. Crossing md lands on the URL's tab
+    (the desktop's own tab switch writes no URL, as today). Edit (top bar)
+    swaps in today's `UserProfileEditForm`; "Delete your account" opens
+    today's typed confirmation in place. Devices: Sign out (this device),
+    Revoke and Sign out all other devices each confirm in a
+    `PhoneConfirmSheet`; Sign out still leaves with
+    `window.location.assign("/login")`; Ended shows open.
+  - **Cycles**: the current cycle reads `useGeneralStats(null)` ("since" =
+    the newest archived `created_at`; the API names no current cycle and
+    counts no archived one), New Cycle from 10 applications (the desktop
+    selector's rule) opens a sheet, View views the cycle and opens the
+    Pipeline (`/applications`, the board's link; the desktop goes to
+    `/dashboard`), the trash confirms in a sheet that stays open while the
+    delete runs.
+  - **Reports** sit inside `BadgeGate` at both widths; below md the gate
+    gets `closed={renderReportsClosed}` (`BadgeGateView`'s optional
+    `closed` draws the closed states instead of today's explanations; absent,
+    it renders exactly as before): the lock tile, today's words, "Visit
+    Borderless" + "Sign in again" for `none`, "Sign in again" alone for
+    `needs_reconnect` (AUTH-1050). The current card is the one report the
+    API marks pending or overdue (effective status), "due" = start + day − 1
+    (local day); an archived cycle shows "Not available". ReportDay: the
+    status pill in the top bar (the list's effective status), the start
+    date picked only on day 1, number fields `inputMode="numeric"`, a
+    counter on each textarea, the bar (Cancel / Submit Report) only while
+    the report can be submitted; a day that is not a report day goes back
+    to `/reports`.
+  - **Admin**: `admin/layout.tsx` (a client layout now) renders
+    `AdminPhoneHeader` below md inside `AdminGuard`: "System" in the top
+    bar, "Admin Console" and its lead, the seven sections as `PhoneChipLink`
+    chips (`ADMIN_TABS` from `admin-nav.tsx`; `aria-current="page"`, exact
+    on `/admin`, by prefix elsewhere; the current chip scrolled into view).
+    "Admin Console" is the `h1` on the three boards (`/admin`,
+    `/admin/jobs`, `/admin/report-webhooks`) and a `p` with the same look
+    elsewhere, where today's page keeps its own `h1`
+    (`AdminPhoneContent`, 20px sides). The Jobs and Report webhooks boards
+    draw no title, so each carries a visually hidden `h2`.
+  - Hooks: `data-slot` `phone-profile` (`data-editing`), `profile-sections`,
+    `profile-badges` (`li[data-badge][data-earned]`), `github-restore-card`,
+    `delete-account`, `phone-devices`, `device-row`
+    (`[data-session-id][data-status][data-current]`, cards and ended rows),
+    `device-action`, `device-last-ip`, `sign-out-others`,
+    `no-other-devices`, `phone-cycles`, `cycles-current`, `cycle-row`
+    (`[data-cycle-id]`), `phone-reports`, `reports-current`
+    (`[data-day][data-status]`), `reports-closed` (`[data-reason]`),
+    `phone-report-day` (`[data-day][data-mode]`), `admin-phone-header`,
+    `admin-phone-title`, `admin-phone-chips`, `admin-phone-content`,
+    `phone-admin-dashboard`, `admin-stats`, `phone-admin-jobs`,
+    `job-source-row` (now an `li` below md, same `data-source-code` and
+    `data-enabled`), `job-run-now`, `job-run-notice-region`,
+    `phone-admin-webhooks`, `report-webhook-row`, `report-webhook-url`
+    (the masked address only); `data-action` `edit-profile`,
+    `github-restore`, `open-delete-account`, `delete-account`,
+    `confirm-sign-out`, `confirm-revoke`, `confirm-sign-out-others`,
+    `new-cycle`, `start-cycle`, `view-cycle`, `delete-cycle`,
+    `confirm-delete-cycle`, `fill-report`, `visit-borderless`,
+    `badge-gate-sign-in-again`, `submit-report`, `cancel-report`,
+    `add-webhook`, `edit-webhook`, `delete-webhook`,
+    `confirm-delete-webhook`.
 - **Signed-in screens from their boards** switch with `useIsPhone()` and
   keep today's data wiring: `WelcomeScreen` returns `PhoneWelcomeScreen`
   below md (v2/Welcome: `radiogroup` "How to start" of two `PhoneOption
@@ -2753,6 +2874,10 @@ size="lg"`, restore preselected, ONE CTA that follows the choice —
 page)` renders a route in the phone shell with the query client, the cycle
   context and the messages in the VIEWER's zone (the setup's provider is
   UTC; run the Agenda's tests under `TZ=UTC` and `TZ=Asia/Tokyo`);
+  `renderPhonePage(page)` renders a page alone (no shell) on a phone
+  viewport and returns `viewport`, for the `setPhone(false)` checks that the
+  page swaps to today's desktop body (the desktop shell needs a
+  `LocaleProvider`, the page alone does not);
   `src/test/navigation.ts` is a `next/navigation` stand-in whose
   `useSearchParams` follows `pushState`/`replaceState`/`popstate`;
   `src/test/timeline-dialog-stub.tsx` stands in for `TimelineEventForm`
@@ -2779,7 +2904,15 @@ page)` renders a route in the phone shell with the query client, the cycle
   label and a progressbar; "Active" is a `dt` and a legend item;
   "Applications" is inside "Applications per week"; "Pipeline" is a tab and
   the Application screen's back link; the Agenda's day panel is a
-  `tabpanel`, not a region. Hooks: `data-slot` `phone-today`,
+  `tabpanel`, not a region. In the account area: "Profile" and "Devices"
+  are both the section links and today's tab names at md and up; "Active"
+  is Devices' h1, its status pill words and the Cycles pill; "Revoke
+  access" is the sheet's confirm and inside a card's "Revoke access for
+  <name>"; "Sign out" is a card's button and the sheet's confirm (scope to
+  `getByRole("alertdialog")`); "Sign in again" is the closed Reports'
+  button and the Account hub's row; "Edit" is the Profile bar's button and
+  each webhook card's (named "Edit <target>");
+  "Delete" is inside "Delete <cycle>" and "Delete your account". Hooks: `data-slot` `phone-today`,
   `today-next-interview`, `today-stats`, `today-attention(-item)`,
   `today-upcoming(-item)`, `phone-pipeline`, `pipeline-summary`,
   `pipeline-empty`, `phone-application` (`data-application-id`,

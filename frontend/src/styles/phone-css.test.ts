@@ -687,3 +687,258 @@ describe("phone.css: Today, Pipeline, QuickAdd, Application, Schedule, Insights"
     expect(ruleBody(".ph-ins-day")).toMatch(/min-height:\s*44px/);
   });
 });
+
+// v2/Profile, v2/Devices, v2/Cycles, v2/Reports, v2/ReportDay, v2/Admin and
+// their shared sheet: every board-only class (or the app's adaptation of it).
+const ACCOUNT_AREA_BOARDS = [
+  // v2/Profile
+  "ph-pf",
+  "ph-pf-edit",
+  "ph-pf-seg",
+  "ph-pf-head",
+  "ph-pf-avatar",
+  "ph-pf-who",
+  "ph-pf-name",
+  "ph-pf-role",
+  "ph-pf-pills",
+  "ph-pf-bio",
+  "ph-pf-wrap",
+  "ph-pf-link",
+  "ph-pf-tags",
+  "ph-pf-badges-head",
+  "ph-pf-count",
+  "ph-badges",
+  "ph-badge",
+  "ph-b",
+  "ph-off",
+  "ph-badge-name",
+  "ph-pf-card",
+  "ph-pf-card-h",
+  "ph-pf-delete",
+  "ph-pf-delete-panel",
+  "ph-pf-delete-warning",
+  "ph-pf-delete-list",
+  "ph-pf-phrase",
+  "ph-pf-actions",
+  // v2/Devices
+  "ph-dv-section",
+  "ph-dv-lead",
+  "ph-dv-list",
+  "ph-dv-card",
+  "ph-dv-head",
+  "ph-dv-ic",
+  "ph-dv-who",
+  "ph-dv-title",
+  "ph-dv-name",
+  "ph-dv-here",
+  "ph-dv-method",
+  "ph-dv-dl",
+  "ph-dv-none",
+  "ph-dv-ended",
+  "ph-dv-ended-name",
+  "ph-dv-sub",
+  // v2/Cycles
+  "ph-cy",
+  "ph-cy-current",
+  "ph-cy-current-head",
+  "ph-cy-eyebrow",
+  "ph-cy-name",
+  "ph-cy-stats",
+  "ph-cy-list",
+  "ph-cy-card",
+  "ph-cy-card-main",
+  "ph-cy-title",
+  "ph-cy-sub",
+  "ph-cy-empty",
+  "ph-cy-trash",
+  // v2/Reports
+  "ph-rp",
+  "ph-rp-sections",
+  "ph-rp-accent",
+  "ph-rp-lead",
+  "ph-rp-progress",
+  "ph-rp-tip",
+  "ph-rp-current",
+  "ph-rp-current-head",
+  "ph-rp-day",
+  "ph-rp-meta",
+  "ph-rp-row-title",
+  "ph-rp-sub",
+  "ph-rp-future",
+  "ph-rp-na",
+  "ph-rp-closed",
+  "ph-rp-lock",
+  "ph-rp-closed-h1",
+  "ph-rp-closed-hint",
+  "ph-rp-closed-actions",
+  // v2/ReportDay
+  "ph-rd",
+  "ph-rd-readonly",
+  "ph-rd-h1",
+  "ph-rd-auto-hint",
+  "ph-dd-num",
+  "ph-rd-offers",
+  "ph-rd-section",
+  "ph-rd-grid3",
+  "ph-rd-count",
+  "ph-rd-totals-h",
+  "ph-rd-goal-lbl",
+  "ph-rd-status",
+  "ph-rd-cancel",
+  "ph-rd-submit",
+  "ph-input-host",
+  // v2/Admin
+  "ph-ad-top",
+  "ph-ad-head",
+  "ph-ad-chips",
+  "ph-ad-body",
+  "ph-ad-list",
+  "ph-ad-list-cards",
+  "ph-ad-cards",
+  "ph-ad-other",
+  "ph-ad-card-head",
+  "ph-ad-card-h",
+  "ph-ad-card-note",
+  "ph-ad-bars",
+  "ph-ad-bar-col",
+  "ph-ad-bar",
+  "ph-ad-bar-v",
+  "ph-ad-bar-m",
+  "ph-ad-top-h",
+  "ph-ad-top-list",
+  "ph-ad-top-row",
+  "ph-ad-top-label",
+  "ph-ad-top-v",
+  "ph-ad-none",
+  "ph-ad-src",
+  "ph-ad-src-head",
+  "ph-ad-src-name",
+  "ph-ad-src-pending",
+  "ph-ad-src-dl",
+  "ph-ad-src-strong",
+  "ph-ad-src-error",
+  "ph-notice",
+  "ph-notice-ic",
+  "ph-notice-close",
+  "ph-ad-hook",
+  "ph-ad-hook-head",
+  "ph-ad-hook-label",
+  "ph-ad-hook-badges",
+  "ph-ad-hook-none",
+  "ph-ad-hook-url",
+  "ph-ad-hook-actions",
+  // the confirm and new-cycle sheets, shared
+  "ph-sheet-stack",
+  "ph-sheet-stack-form",
+  "ph-sheet-actions",
+  "ph-strong",
+  "ph-focus-target",
+] as const;
+
+describe("phone.css: Profile, Devices, Cycles, Reports, ReportDay, Admin", () => {
+  it.each(ACCOUNT_AREA_BOARDS)("declares .%s", (name) => {
+    expect(DECLARED.has(name), `.${name} is not declared`).toBe(true);
+  });
+
+  it("draws v2/Profile's avatar, bio, badges and delete section at the board's sizes", () => {
+    const avatar = ruleBody(".ph-pf-avatar");
+    expect(avatar).toMatch(/width:\s*64px/);
+    expect(avatar).toMatch(/height:\s*64px/);
+    expect(avatar).toMatch(/font-size:\s*22px/);
+    expect(avatar).toMatch(/font-weight:\s*700/);
+    const bio = ruleBody(".ph-pf-bio");
+    expect(bio).toMatch(/font-size:\s*15px/);
+    expect(bio).toMatch(/line-height:\s*1\.55/);
+    expect(ruleBody(".ph-badges")).toMatch(
+      /grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/,
+    );
+    const badge = ruleBody(".ph-badge");
+    expect(badge).toMatch(/padding:\s*12px 8px/);
+    expect(badge).toMatch(/border-radius:\s*16px/);
+    const icon = ruleBody(".ph-badge .ph-b");
+    expect(icon).toMatch(/width:\s*36px/);
+    expect(icon).toMatch(/border-radius:\s*12px/);
+    expect(ruleBody(".ph-badge.ph-off")).toMatch(/opacity:\s*0\.45/);
+    expect(ruleBody(".ph-pf-delete")).toMatch(
+      /border:\s*1px solid color-mix\(in oklab, var\(--destructive\) 35%, transparent\)/,
+    );
+    // The LinkedIn link keeps its line and gets a 44px box.
+    expect(ruleBody(".ph-pf-link")).toMatch(/min-height:\s*44px/);
+  });
+
+  it("draws v2/Devices' icon tile, details and ended rows at the board's sizes", () => {
+    const icon = ruleBody(".ph-dv-ic");
+    expect(icon).toMatch(/width:\s*40px/);
+    expect(icon).toMatch(/border-radius:\s*12px/);
+    expect(icon).toMatch(/background:\s*var\(--muted\)/);
+    const dl = ruleBody(".ph-dv-dl");
+    expect(dl).toMatch(/grid-template-columns:\s*auto 1fr/);
+    expect(dl).toMatch(/font-size:\s*13px/);
+    expect(ruleBody(".ph-row.ph-dv-ended")).toMatch(/min-height:\s*64px/);
+  });
+
+  it("draws v2/Cycles' current card, the trash and the sheets at the board's sizes", () => {
+    const name = ruleBody(".ph-cy-name");
+    expect(name).toMatch(/font-size:\s*20px/);
+    expect(name).toMatch(/font-weight:\s*700/);
+    expect(ruleBody(".ph-cy-stats")).toMatch(/font-size:\s*13px/);
+    expect(ruleBody(".ph-iconbtn.ph-cy-trash")).toMatch(
+      /color:\s*var\(--destructive-text\)/,
+    );
+    expect(css).toMatch(
+      /\.ph-sheet\.ph-sheet-stack,\s*\.ph-sheet-stack-form\s*\{[^}]*gap:\s*14px/,
+    );
+  });
+
+  it("draws v2/Reports' progress, tip, current card and closed layout at the board's sizes", () => {
+    const progress = ruleBody(".ph-rp-progress");
+    expect(progress).toMatch(/height:\s*8px/);
+    expect(ruleBody(".ph-rp-progress > span")).toMatch(
+      /background:\s*var\(--primary\)/,
+    );
+    const tip = ruleBody(".ph-rp-tip");
+    expect(tip).toMatch(/padding:\s*12px 14px/);
+    expect(tip).toMatch(/border-radius:\s*14px/);
+    expect(tip).toMatch(/background:\s*var\(--primary-muted\)/);
+    expect(ruleBody(".ph-rp-current")).toMatch(
+      /border:\s*1px solid var\(--primary\)/,
+    );
+    const lock = ruleBody(".ph-rp-lock");
+    expect(lock).toMatch(/width:\s*56px/);
+    expect(lock).toMatch(/border-radius:\s*18px/);
+    expect(ruleBody(".ph-h1.ph-rp-closed-h1")).toMatch(/font-size:\s*26px/);
+  });
+
+  it("draws v2/ReportDay's numbers, grid and number fields at the board's sizes", () => {
+    expect(ruleBody(".ph-dl dd.ph-dd-num")).toMatch(/font-size:\s*22px/);
+    expect(ruleBody(".ph-dl dd.ph-rd-offers")).toMatch(
+      /color:\s*var\(--primary\)/,
+    );
+    expect(ruleBody(".ph-rd-grid3")).toMatch(
+      /grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/,
+    );
+    expect(ruleBody('.ph-input[type="number"]')).toMatch(
+      /appearance:\s*textfield/,
+    );
+    // The form clears the fixed bar; read-only has no bar.
+    expect(ruleBody(".ph-rd")).toMatch(/calc\(120px \+ env/);
+    expect(ruleBody(".ph-rd.ph-rd-readonly")).toMatch(/calc\(40px \+ env/);
+  });
+
+  it("draws v2/Admin's chips, bars, rows and cards at the board's sizes", () => {
+    // The board's 2px top is 4px: the chips' 44px boxes overhang the row.
+    expect(ruleBody(".ph-hs.ph-ad-chips")).toMatch(/padding:\s*4px 20px/);
+    expect(ruleBody(".ph-ad-bars")).toMatch(/height:\s*110px/);
+    expect(ruleBody(".ph-ad-bar")).toMatch(/border-radius:\s*6px 6px 2px 2px/);
+    expect(ruleBody(".ph-ad-bar-col:last-child .ph-ad-bar")).toMatch(
+      /background:\s*var\(--primary\)/,
+    );
+    expect(ruleBody(".ph-ad-top-row")).toMatch(/min-height:\s*40px/);
+    const sources = ruleBody(".ph-ad-src-dl");
+    expect(sources).toMatch(
+      /grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/,
+    );
+    expect(sources).toMatch(/font-size:\s*13px/);
+    expect(ruleBody(".ph-ad-hook-url")).toMatch(/font-size:\s*12px/);
+  });
+});

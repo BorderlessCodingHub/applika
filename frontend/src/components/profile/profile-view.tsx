@@ -19,7 +19,6 @@ import { GeneralStats } from "@/services/types/statistics";
 import { SelectOptions } from "@/options";
 import { LinkedinIcon } from "../brand-icons";
 import { Badge } from "../ui/badge";
-import { getCurrencySymbol } from "./edit-form-config";
 import { useDeleteAccount } from "@/hooks/use-user";
 import { useStartGithubRestore } from "@/hooks/use-github-restore";
 import {
@@ -28,6 +27,12 @@ import {
 } from "@/components/badges/membership-badge";
 import { GithubRestoreCard } from "./github-restore-card";
 import { useIntlLocale } from "@/i18n/intl-locale";
+import {
+  profileBadgeStates,
+  type ProfileBadgeId,
+  type ProfileBadgeStats,
+} from "@/lib/profile-badges";
+import { formatProfileSalary } from "@/lib/profile-salary";
 
 function formatLabel(v?: string) {
   return v?.replace(/_/g, " ") ?? "";
@@ -68,11 +73,7 @@ export function UserProfileView({
   // Held = a recorded badge while the Borderless binding is `active`.
   const access = membershipAccess(user);
   const heldBadges = access.state === "held" ? access.badges : [];
-  const currencySymbol = getCurrencySymbol(user.salary_currency);
-  const periodLabel =
-    SelectOptions.SALARY_PERIOD.find(
-      (o) => o.value === user.salary_period,
-    )?.label?.toLowerCase() ?? "";
+  const salary = formatProfileSalary(user, intlLocale);
 
   return (
     <div className="mx-auto max-w-4xl animate-fade-in-up space-y-6">
@@ -147,11 +148,11 @@ export function UserProfileView({
               value={user.current_company}
             />
           )}
-          {user.current_salary != null && (
+          {salary !== null && (
             <InfoItem
               icon={Briefcase}
               label={t("salary")}
-              value={`${currencySymbol}${user.current_salary.toLocaleString(intlLocale)}${periodLabel ? ` / ${periodLabel}` : ""}`}
+              value={salary}
               tabular
             />
           )}
@@ -402,72 +403,38 @@ interface BadgeDef {
   color: string;
 }
 
-type BadgeId =
-  | "first_app"
-  | "ten_apps"
-  | "fifty_apps"
-  | "hundred_apps"
-  | "first_offer"
-  | "high_rate";
+// Volume badges ramp along the identity blue as the count grows; the two
+// outcome badges take the chart scale's green and amber.
+const BADGE_LOOK: Record<
+  ProfileBadgeId,
+  { icon: React.ElementType; color: string }
+> = {
+  first_app: {
+    icon: Star,
+    color: "color-mix(in oklab, var(--chart-1) 45%, var(--chart-5))",
+  },
+  ten_apps: {
+    icon: Flame,
+    color: "color-mix(in oklab, var(--chart-1) 65%, var(--chart-5))",
+  },
+  fifty_apps: {
+    icon: Target,
+    color: "color-mix(in oklab, var(--chart-1) 85%, var(--chart-5))",
+  },
+  hundred_apps: { icon: Award, color: "var(--chart-1)" },
+  first_offer: { icon: Trophy, color: "var(--chart-2)" },
+  high_rate: { icon: Zap, color: "var(--chart-3)" },
+};
 
 function computeBadges(
-  stats:
-    | {
-        total_applications: number;
-        success_rate: number;
-        offers: number;
-        denials: number;
-      }
-    | undefined,
+  stats: ProfileBadgeStats | undefined,
   tr: ReturnType<typeof useTranslations<"profile">>,
 ): BadgeDef[] {
-  const words = (id: BadgeId) => ({
+  return profileBadgeStates(stats).map(({ id, earned }) => ({
     id,
     label: tr(`badge.${id}`),
     description: tr(`badgeDescription.${id}`),
-  });
-  const t = stats?.total_applications ?? 0;
-  const o = stats?.offers ?? 0;
-  const sr = stats?.success_rate ?? 0;
-
-  // Volume badges ramp along the identity blue as the count grows; the two
-  // outcome badges take the chart scale's green and amber.
-  return [
-    {
-      ...words("first_app"),
-      icon: Star,
-      earned: t >= 1,
-      color: "color-mix(in oklab, var(--chart-1) 45%, var(--chart-5))",
-    },
-    {
-      ...words("ten_apps"),
-      icon: Flame,
-      earned: t >= 10,
-      color: "color-mix(in oklab, var(--chart-1) 65%, var(--chart-5))",
-    },
-    {
-      ...words("fifty_apps"),
-      icon: Target,
-      earned: t >= 50,
-      color: "color-mix(in oklab, var(--chart-1) 85%, var(--chart-5))",
-    },
-    {
-      ...words("hundred_apps"),
-      icon: Award,
-      earned: t >= 100,
-      color: "var(--chart-1)",
-    },
-    {
-      ...words("first_offer"),
-      icon: Trophy,
-      earned: o >= 1,
-      color: "var(--chart-2)",
-    },
-    {
-      ...words("high_rate"),
-      icon: Zap,
-      earned: sr >= 20 && t >= 5,
-      color: "var(--chart-3)",
-    },
-  ];
+    ...BADGE_LOOK[id],
+    earned,
+  }));
 }

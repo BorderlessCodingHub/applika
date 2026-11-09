@@ -24,9 +24,8 @@ import { Input } from "@/components/ui/input";
 import { useCycleContext } from "@/contexts/cycle-context";
 import { useCycles, useCreateCycle } from "@/hooks/use-cycles";
 import { useGeneralStats } from "@/hooks/use-statistics";
+import { MIN_APPLICATIONS_FOR_CYCLE } from "@/lib/cycles";
 import { cn } from "@/lib/utils";
-
-const MIN_APPLICATIONS_FOR_CYCLE = 10;
 
 export function CycleSelector({ className }: { className?: string }) {
   const t = useTranslations("cycleSelector");

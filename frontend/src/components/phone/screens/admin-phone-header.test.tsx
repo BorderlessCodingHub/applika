@@ -1,0 +1,175 @@
+import { screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import AdminLayout from "@/app/(protected)/admin/layout";
+import type { User } from "@/services/types/users";
+import { pathname, routerReplace } from "@/test/navigation";
+import { SAM, renderPhonePage, renderPhoneScreen } from "@/test/phone-screens";
+
+const mocks = vi.hoisted(() => ({
+  user: { current: null as User | null },
+}));
+
+vi.mock("@/contexts/auth-context", () => ({
+  useAuth: () => ({
+    user: mocks.user.current,
+    isLoading: false,
+    logout: vi.fn(),
+  }),
+}));
+
+vi.mock("next/navigation", async () => {
+  const { navigationMock } = await import("@/test/navigation");
+  return navigationMock;
+});
+
+vi.mock("@/services/services", () => ({
+  services: {
+    cycles: { getCycles: () => Promise.resolve([]) },
+    features: { getMine: () => Promise.resolve([]) },
+  },
+}));
+
+const ADMIN: User = { ...SAM, is_admin: true };
+
+beforeEach(() => {
+  mocks.user.current = ADMIN;
+  routerReplace.mockClear();
+});
+
+function renderAdmin(path: string, body = <h1>Users</h1>) {
+  pathname.current = path;
+  return renderPhoneScreen(path, <AdminLayout>{body}</AdminLayout>, {
+    user: mocks.user.current!,
+  });
+}
+
+const chips = () =>
+  within(screen.getByRole("navigation", { name: "Admin sections" }));
+
+describe("the admin header below md", () => {
+  it("heads the dashboard with Admin Console, its lead, seven chips and the System pill", async () => {
+    await renderAdmin("/admin", <p>dashboard body</p>);
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Admin Console" }),
+    ).toHaveClass("ph-h1");
+    expect(
+      screen.getByText("Platform-wide analytics and user management"),
+    ).toHaveClass("ph-lead");
+    const links = chips().getAllByRole("link");
+    expect(
+      links.map((link) => [link.textContent, link.getAttribute("href")]),
+    ).toEqual([
+      ["Dashboard", "/admin"],
+      ["Users", "/admin/users"],
+      ["Companies", "/admin/companies"],
+      ["Platforms", "/admin/platforms"],
+      ["Jobs", "/admin/jobs"],
+      ["Features", "/admin/features"],
+      ["Report webhooks", "/admin/report-webhooks"],
+    ]);
+    expect(links.every((link) => link.classList.contains("ph-chip"))).toBe(
+      true,
+    );
+    expect(chips().getByRole("link", { name: "Dashboard" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(
+      links.filter((link) => link.hasAttribute("aria-current")),
+    ).toHaveLength(1);
+    expect(
+      screen.getByRole("navigation", { name: "Admin sections" }),
+    ).toHaveClass("ph-hs", "ph-ad-chips");
+
+    const bar = screen.getByRole("banner");
+    expect(within(bar).getByRole("link", { name: "Account" })).toHaveAttribute(
+      "href",
+      "/account",
+    );
+    expect(within(bar).getByText("System")).toBeInTheDocument();
+    // A board route: the page renders straight under the header.
+    expect(
+      document.querySelector('[data-slot="admin-phone-content"]'),
+    ).toBeNull();
+  });
+
+  it("marks a section by its prefix: Jobs on /admin/jobs, Features on a feature", async () => {
+    const { unmount } = await renderAdmin("/admin/jobs", <p>jobs body</p>);
+    expect(chips().getByRole("link", { name: "Jobs" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(
+      chips().getByRole("link", { name: "Dashboard" }),
+    ).not.toHaveAttribute("aria-current");
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Admin Console" }),
+    ).toBeInTheDocument();
+    unmount();
+
+    await renderAdmin("/admin/features/view", <h1>Job board</h1>);
+    expect(chips().getByRole("link", { name: "Features" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("keeps today's content and its own h1 under the header on a section without a board", async () => {
+    await renderAdmin("/admin/users");
+
+    const headings = screen.getAllByRole("heading", { level: 1 });
+    expect(headings.map((heading) => heading.textContent)).toEqual(["Users"]);
+    const title = document.querySelector('[data-slot="admin-phone-title"]')!;
+    expect(title.tagName).toBe("P");
+    expect(title).toHaveTextContent("Admin Console");
+    expect(title).toHaveClass("ph-h1");
+    const content = document.querySelector(
+      '[data-slot="admin-phone-content"]',
+    )!;
+    expect(content).toHaveClass("ph-ad-other");
+    expect(content).not.toHaveClass("ph-app");
+    expect(content).toContainElement(headings[0]);
+    expect(chips().getByRole("link", { name: "Users" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("shows nothing to someone who is not an administrator", async () => {
+    mocks.user.current = { ...SAM, is_admin: false };
+    await renderAdmin("/admin", <p>dashboard body</p>);
+
+    expect(
+      screen.queryByRole("navigation", { name: "Admin sections" }),
+    ).toBeNull();
+    expect(screen.queryByText("dashboard body")).toBeNull();
+    expect(routerReplace).toHaveBeenCalledWith("/dashboard");
+  });
+
+  it("puts today's tab bar back at md and up", () => {
+    pathname.current = "/admin";
+    const { viewport } = renderPhonePage(
+      <AdminLayout>
+        <p>dashboard body</p>
+      </AdminLayout>,
+      { user: ADMIN },
+    );
+    expect(
+      document.querySelector('[data-slot="admin-phone-header"]'),
+    ).not.toBeNull();
+
+    viewport.setPhone(false);
+
+    expect(
+      document.querySelector('[data-slot="admin-phone-header"]'),
+    ).toBeNull();
+    const nav = screen.getByRole("navigation", { name: "Admin sections" });
+    expect(within(nav).getAllByRole("link")).toHaveLength(7);
+    expect(
+      within(nav).getByRole("link", { name: "Dashboard" }),
+    ).not.toHaveClass("ph-chip");
+    expect(screen.getByText("dashboard body")).toBeInTheDocument();
+  });
+});

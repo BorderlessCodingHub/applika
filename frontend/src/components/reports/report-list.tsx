@@ -9,20 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ReportStatusBadge } from "./status-badge";
 import type { ReportDay, ReportDaysType } from "@/services/types/reports";
 import { cn } from "@/lib/utils";
-
-// Phase mapping: day → phase number
-const LIST_PHASE: Record<ReportDaysType, 1 | 2 | 3 | 4> = {
-  1: 1,
-  14: 1,
-  28: 1,
-  42: 2,
-  56: 2,
-  70: 3,
-  84: 3,
-  98: 4,
-  112: 4,
-  120: 4,
-};
+import { REPORT_PHASE, effectiveReportStatus } from "@/lib/reports";
 
 interface ReportsListProps {
   onFillReport: (day: ReportDaysType) => void;
@@ -66,16 +53,6 @@ function SectionLabel({ label, count }: { label: string; count: number }) {
   );
 }
 
-function getEffectiveStatus(
-  report: ReportDay,
-  currentDay: number,
-): ReportDay["status"] {
-  if (report.status === "overdue" && currentDay <= report.day + 14) {
-    return "pending";
-  }
-  return report.status;
-}
-
 function ReportRow({
   report,
   currentDay,
@@ -88,8 +65,8 @@ function ReportRow({
   onView?: () => void;
 }) {
   const t = useTranslations("reports.list");
-  const phase = LIST_PHASE[report.day] ?? 1;
-  const effectiveStatus = getEffectiveStatus(report, currentDay);
+  const phase = REPORT_PHASE[report.day] ?? 1;
+  const effectiveStatus = effectiveReportStatus(report, currentDay);
   const isSubmitted = effectiveStatus === "submitted";
   const isFuture = effectiveStatus === "future";
 

@@ -20,6 +20,8 @@ import {
 import type { Cycle } from "@/services/types/cycles";
 import { useRouter } from "next/navigation";
 import { useIntlLocale } from "@/i18n/intl-locale";
+import { CyclesScreen } from "@/components/phone/screens/cycles-screen";
+import { useIsPhone } from "@/hooks/use-is-phone";
 
 function ListSkeleton() {
   return (
@@ -40,7 +42,13 @@ export function formatCycleDate(iso: string, intlLocale: string) {
   });
 }
 
+/** `/cycles`: below md the Cycles board (PRD 0021); at md and up today's page, unchanged. */
 export function CyclesPage() {
+  const isPhone = useIsPhone();
+  return isPhone ? <CyclesScreen /> : <CyclesDesktopPage />;
+}
+
+function CyclesDesktopPage() {
   const { data: cycles, isLoading } = useCycles();
   const { setSelectedCycleId } = useCycleContext();
   const router = useRouter();

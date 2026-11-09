@@ -21,6 +21,9 @@ import {
   useUpdateAdminJobSource,
 } from "@/hooks/use-admin";
 import { serverErrorMessage } from "@/lib/api-error-message";
+import { fromQuery } from "@/components/phone/phone-query-load";
+import { AdminJobSourcesScreenView } from "@/components/phone/screens/admin-job-sources-screen";
+import { useIsPhone } from "@/hooks/use-is-phone";
 
 /** After a 202 the list refetches every 3 s for at most 60 s: the API has no "running" state. */
 export const JOB_RUN_POLL_INTERVAL_MS = 3_000;
@@ -42,6 +45,7 @@ export function JobsPage() {
   // Subscribes: the notice's words are read at render, so a language switch
   // re-reads them from the stored error.
   useLocale();
+  const isPhone = useIsPhone();
   const [polling, setPolling] = useState(false);
   const {
     data: sources,
@@ -49,6 +53,7 @@ export function JobsPage() {
     isError,
     isFetching,
     refetch,
+    error,
   } = useAdminJobSources({
     refetchInterval: polling ? JOB_RUN_POLL_INTERVAL_MS : false,
   });
@@ -110,6 +115,29 @@ export function JobsPage() {
     },
     [pendingIds, updateMutation],
   );
+
+  // Below md the Admin board's Jobs (PRD 0021): the same query, switches and
+  // Run now as the table and header below, unchanged at md and up.
+  if (isPhone) {
+    return (
+      <AdminJobSourcesScreenView
+        sources={fromQuery({
+          data: sources,
+          isError,
+          error,
+          isFetching,
+          refetch,
+        })}
+        refreshing={isFetching && !isLoading && !isError}
+        onEnabledChange={handleEnabledChange}
+        pendingIds={pendingIds}
+        onRunNow={handleRunNow}
+        startingRun={runMutation.isPending}
+        notice={notice}
+        onDismissNotice={() => setFailure(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5">

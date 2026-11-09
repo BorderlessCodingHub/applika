@@ -1,6 +1,5 @@
 import { ReportDays, ReportDaysType } from "@/services/types/reports";
-import { BadgeGate } from "@/components/badges/badge-gate";
-import { ReportDayClient } from "./report-day-page";
+import { ReportDayRoute } from "./report-day-route";
 
 interface Props {
   params: Promise<{ day: ReportDaysType }>;
@@ -12,9 +11,5 @@ export function generateStaticParams() {
 
 export default async function ReportDayPage({ params }: Props) {
   const { day } = await params;
-  return (
-    <BadgeGate>
-      <ReportDayClient day={day} />
-    </BadgeGate>
-  );
+  return <ReportDayRoute day={day} />;
 }

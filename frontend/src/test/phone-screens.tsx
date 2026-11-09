@@ -111,3 +111,34 @@ export async function renderPhoneScreen(
   );
   return { ...result, client };
 }
+
+/**
+ * Renders `page` alone (no shell), with the query client (`features` and the
+ * user seeded) and the cycle context, on a phone-wide viewport: for the
+ * tests that turn the screen past md (`viewport.setPhone(false)`) and check
+ * that the page swaps to today's desktop body. Outside the shell a screen's
+ * `PhoneTopBarEnd` items render in place.
+ */
+export function renderPhonePage(
+  page: ReactNode,
+  {
+    user = SAM,
+    features = [],
+    client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    }),
+  }: Pick<PhoneScreenOptions, "user" | "features" | "client"> = {},
+) {
+  const viewport = mockPhoneViewport();
+  client.setQueryData(USER_QUERY_KEY, user);
+  client.setQueryData(["user", "features"], features);
+  const result = render(
+    <QueryClientProvider client={client}>
+      <CycleProvider>{page}</CycleProvider>
+    </QueryClientProvider>,
+  );
+  return { ...result, client, viewport };
+}

@@ -2506,6 +2506,48 @@
       },
       "offer": "Oferta",
       "denied": "Recusada"
+    },
+    "profile": {
+      "sections": "Seções do perfil",
+      "roleAt": "{role} em {company}",
+      "badgeEarned": "Conquistado: {description}",
+      "badgeNotEarned": "Ainda não conquistado: {description}",
+      "loadingBadges": "Carregando selos",
+      "loading": "Carregando seu perfil",
+      "deleteHint": "Ao excluir sua conta, todos os seus dados — candidaturas, etapas, relatórios e perfil — serão removidos permanentemente."
+    },
+    "devices": {
+      "revokeLabel": "Revogar o acesso de {name}"
+    },
+    "cycles": {
+      "active": "Ativo",
+      "applications": "{count, plural, one {# candidatura} other {# candidaturas}}",
+      "offers": "{count, plural, one {# oferta} other {# ofertas}}",
+      "since": "desde {date}",
+      "archived": "Arquivados",
+      "deleteLabel": "Excluir {name}",
+      "emptyBody": "Quando você inicia um novo ciclo, suas candidaturas e relatórios atuais são arquivados aqui.",
+      "newHint": "Todas as candidaturas e relatórios atuais serão arquivados permanentemente em um ciclo com nome. Esta ação não pode ser desfeita.",
+      "nameLabel": "Nome do ciclo",
+      "loading": "Carregando ciclos"
+    },
+    "reports": {
+      "progress": "Progresso do desafio",
+      "tip": "<strong>Dica</strong> · Os relatórios vencem a cada <strong>14 dias</strong> durante o desafio de 120 dias.",
+      "phaseDue": "Fase {phase} · vence em {date}",
+      "dayPhase": "Dia {day} · Fase {phase}",
+      "loading": "Carregando relatórios"
+    },
+    "reportDay": {
+      "loading": "Carregando relatório"
+    },
+    "admin": {
+      "lastMonths": "{count, plural, one {Último mês} other {Últimos # meses}}",
+      "growthChart": "Novos usuários por mês, de {first} em {firstMonth} a {last} em {lastMonth}",
+      "noData": "Sem dados ainda",
+      "loading": "Carregando o painel",
+      "webhooksHint": "Cada webhook tem um ou mais selos. O relatório quinzenal de um membro é enviado a todo webhook que tem o selo dele.",
+      "edit": "Editar"
     }
   }
 }

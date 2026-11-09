@@ -31,6 +31,9 @@ import {
 } from "@/hooks/use-admin";
 import { word } from "@/i18n/translator";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { fromQuery } from "@/components/phone/phone-query-load";
+import { AdminReportWebhooksScreenView } from "@/components/phone/screens/admin-report-webhooks-screen";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import type {
   CreateReportWebhook,
   UpdateReportWebhook,
@@ -131,11 +134,14 @@ function serverErrorFrom(err: AxiosError): string {
 
 export function ReportWebhooksPage() {
   const t = useTranslations("admin.webhooks.page");
+  const isPhone = useIsPhone();
   const {
     data: webhooks,
     isLoading,
     isError,
     refetch,
+    error,
+    isFetching,
   } = useAdminReportWebhooks();
   const createMutation = useCreateReportWebhook();
   const updateMutation = useUpdateReportWebhook();
@@ -227,6 +233,56 @@ export function ReportWebhooksPage() {
     });
   };
 
+  const dialogs = (
+    <>
+      <ReportWebhookFormDialog
+        mode="add"
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        form={addForm}
+        onSubmit={handleCreate}
+        isPending={createMutation.isPending}
+        serverError={addServerError}
+      />
+
+      <ReportWebhookFormDialog
+        mode="edit"
+        open={!!editTarget}
+        onOpenChange={(open) => !open && setEditTarget(null)}
+        form={editForm}
+        onSubmit={handleUpdate}
+        isPending={updateMutation.isPending}
+        serverError={editServerError}
+        currentUrlMasked={
+          editTarget?.webhook_url_masked ?? lastEditMasked.current
+        }
+      />
+    </>
+  );
+
+  // Below md the Admin board's Report webhooks (PRD 0021): the same query,
+  // the same add/edit dialogs and the same delete, the list drawn as cards.
+  if (isPhone) {
+    return (
+      <>
+        <AdminReportWebhooksScreenView
+          webhooks={fromQuery({
+            data: webhooks,
+            isError,
+            error,
+            isFetching,
+            refetch,
+          })}
+          onAdd={() => setAddOpen(true)}
+          onEdit={(row) => setEditTarget(row)}
+          onDelete={handleDelete}
+          deletingId={deletingId}
+        />
+        {dialogs}
+      </>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <motion.div
@@ -253,28 +309,7 @@ export function ReportWebhooksPage() {
         deletingId={deletingId}
       />
 
-      <ReportWebhookFormDialog
-        mode="add"
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        form={addForm}
-        onSubmit={handleCreate}
-        isPending={createMutation.isPending}
-        serverError={addServerError}
-      />
-
-      <ReportWebhookFormDialog
-        mode="edit"
-        open={!!editTarget}
-        onOpenChange={(open) => !open && setEditTarget(null)}
-        form={editForm}
-        onSubmit={handleUpdate}
-        isPending={updateMutation.isPending}
-        serverError={editServerError}
-        currentUrlMasked={
-          editTarget?.webhook_url_masked ?? lastEditMasked.current
-        }
-      />
+      {dialogs}
     </div>
   );
 }

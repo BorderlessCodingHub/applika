@@ -15,7 +15,8 @@ import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
 
-const tabs: {
+/** The seven sections, in order; the phone's admin header shows the same ones as chips. */
+export const ADMIN_TABS: readonly {
   href: string;
   label: AdminTab;
   icon: typeof Users;
@@ -30,7 +31,7 @@ const tabs: {
   { href: "/admin/report-webhooks", label: "reportWebhooks", icon: Webhook },
 ];
 
-type AdminTab =
+export type AdminTab =
   | "dashboard"
   | "users"
   | "companies"
@@ -48,7 +49,7 @@ export function AdminNav() {
       aria-label={t("label")}
       className="mb-5 flex items-center gap-1 overflow-x-auto border-b border-border/40 pb-px"
     >
-      {tabs.map((tab) => {
+      {ADMIN_TABS.map((tab) => {
         const active = tab.exact
           ? pathname === tab.href
           : pathname.startsWith(tab.href);

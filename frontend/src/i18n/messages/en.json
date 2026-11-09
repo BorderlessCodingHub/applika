@@ -2506,6 +2506,48 @@
       },
       "offer": "Offer",
       "denied": "Denied"
+    },
+    "profile": {
+      "sections": "Profile sections",
+      "roleAt": "{role} at {company}",
+      "badgeEarned": "Earned: {description}",
+      "badgeNotEarned": "Not earned yet: {description}",
+      "loadingBadges": "Loading badges",
+      "loading": "Loading your profile",
+      "deleteHint": "Once you delete your account, all of your data — applications, steps, reports, and profile — will be permanently removed."
+    },
+    "devices": {
+      "revokeLabel": "Revoke access for {name}"
+    },
+    "cycles": {
+      "active": "Active",
+      "applications": "{count, plural, =1 {# application} other {# applications}}",
+      "offers": "{count, plural, =1 {# offer} other {# offers}}",
+      "since": "since {date}",
+      "archived": "Archived",
+      "deleteLabel": "Delete {name}",
+      "emptyBody": "When you start a new cycle, your current applications and reports are archived here.",
+      "newHint": "All current applications and reports will be permanently archived under a named cycle. This action cannot be undone.",
+      "nameLabel": "Cycle name",
+      "loading": "Loading cycles"
+    },
+    "reports": {
+      "progress": "Challenge progress",
+      "tip": "<strong>Tip</strong> · Reports are due every <strong>14 days</strong> during the 120-day challenge.",
+      "phaseDue": "Phase {phase} · due {date}",
+      "dayPhase": "Day {day} · Phase {phase}",
+      "loading": "Loading reports"
+    },
+    "reportDay": {
+      "loading": "Loading report"
+    },
+    "admin": {
+      "lastMonths": "Last {count, plural, =1 {month} other {# months}}",
+      "growthChart": "New users per month, from {first} in {firstMonth} to {last} in {lastMonth}",
+      "noData": "No data yet",
+      "loading": "Loading the dashboard",
+      "webhooksHint": "Each webhook holds one or more badges. A member's biweekly report is posted to every webhook that holds their badge.",
+      "edit": "Edit"
     }
   }
 }
