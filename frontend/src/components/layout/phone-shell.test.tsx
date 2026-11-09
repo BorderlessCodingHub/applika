@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { CycleProvider, useCycleContext } from "@/contexts/cycle-context";
@@ -11,7 +11,12 @@ import type { User } from "@/services/types/users";
 import { mockPhoneViewport } from "@/test/phone";
 import { AppShell } from "./app-shell";
 import { navItemsFor } from "./nav";
-import { PhoneChromeless, PhoneTopBarEnd, usePhoneShell } from "./phone-shell";
+import {
+  PhoneBackHref,
+  PhoneChromeless,
+  PhoneTopBarEnd,
+  usePhoneShell,
+} from "./phone-shell";
 import {
   PHONE_PARENTS,
   PHONE_SCREEN_PATHS,
@@ -533,6 +538,72 @@ describe("PhoneTopBarEnd", () => {
       </PhoneTopBarEnd>,
     );
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+  });
+});
+
+/** Two back-address holds a test mounts and unmounts. */
+function BackHolds() {
+  const [first, setFirst] = useState(true);
+  const [second, setSecond] = useState(false);
+  return (
+    <>
+      {first ? <PhoneBackHref href="/applications?focus=a1" /> : null}
+      {second ? <PhoneBackHref href="/applications?focus=a2" /> : null}
+      <button type="button" onClick={() => setSecond((on) => !on)}>
+        toggle second
+      </button>
+      <button type="button" onClick={() => setFirst((on) => !on)}>
+        toggle first
+      </button>
+    </>
+  );
+}
+
+describe("PhoneBackHref", () => {
+  const backLink = () =>
+    within(screen.getByRole("banner")).getByRole("link", { name: "Pipeline" });
+
+  it("sends the back bar to its address and keeps the map's label", () => {
+    mockPhoneViewport();
+    renderShell("/applications/cv", {
+      children: <PhoneBackHref href="/applications?focus=a1" />,
+    });
+
+    expect(backLink()).toHaveAttribute("href", "/applications?focus=a1");
+    expect(
+      within(screen.getByRole("banner")).getAllByRole("link"),
+    ).toHaveLength(1);
+  });
+
+  it("lets the last one mounted win, and gives the map's address back on unmount", async () => {
+    mockPhoneViewport();
+    const user = userEvent.setup();
+    renderShell("/applications/cv", { children: <BackHolds /> });
+    expect(backLink()).toHaveAttribute("href", "/applications?focus=a1");
+
+    await user.click(screen.getByRole("button", { name: "toggle second" }));
+    expect(backLink()).toHaveAttribute("href", "/applications?focus=a2");
+
+    await user.click(screen.getByRole("button", { name: "toggle second" }));
+    expect(backLink()).toHaveAttribute("href", "/applications?focus=a1");
+
+    await user.click(screen.getByRole("button", { name: "toggle first" }));
+    expect(backLink()).toHaveAttribute("href", "/applications");
+  });
+
+  it("changes nothing on a screen with no back bar", () => {
+    mockPhoneViewport();
+    renderShell("/dashboard", {
+      children: <PhoneBackHref href="/applications?focus=a1" />,
+    });
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+  });
+
+  it("renders nothing and is a no-op outside the shell (a screen tested alone)", () => {
+    const { container } = render(
+      <PhoneBackHref href="/applications?focus=a1" />,
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 });
 

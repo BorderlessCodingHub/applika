@@ -5469,4 +5469,526 @@
       transition: none;
     }
   }
+
+  /* v3: the boards' shared modifiers (AdminUsers, AdminCompanies, AdminPlatforms, AdminFeatures, AdminFeatureView, AdminWebhook, CVNew, ApplicationCV). */
+
+  .ph-h1.ph-h1-26 {
+    font-size: 26px;
+  }
+
+  /* The boards' [disabled], kept focusable (aria-disabled); a pending action keeps the look above (data-disabled, aria-busy). */
+  .ph-btn[aria-disabled="true"]:not([data-disabled]):not([aria-busy="true"]),
+  .ph-iconbtn[aria-disabled="true"]:not([data-disabled]):not(
+      [aria-busy="true"]
+    ) {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .ph-iconbtn[data-disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .ph-iconbtn[aria-busy="true"] {
+    cursor: progress;
+  }
+
+  .ph-iconbtn.ph-flat {
+    box-shadow: none;
+    background: var(--muted);
+  }
+
+  .ph-dl.ph-dl-bg > div {
+    background: var(--background);
+  }
+
+  .ph-dl.ph-dl-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  /* AdminFeatures' facts: a plain three-column grid, no boxes. */
+  .ph-dl.ph-dl-3s {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  .ph-dl.ph-dl-3s > div {
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .ph-dl.ph-dl-3s dt {
+    font-size: inherit;
+    font-weight: 400;
+    color: var(--muted-foreground);
+  }
+
+  .ph-dl.ph-dl-3s dd {
+    margin: 2px 0 0;
+    font-size: inherit;
+    font-weight: 600;
+  }
+
+  .ph-tag.ph-miss {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--border-strong);
+    color: var(--muted-foreground);
+  }
+
+  .ph-box {
+    flex: none;
+    margin-top: 1px;
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 2px solid var(--border-strong);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-foreground);
+  }
+
+  .ph-opt[aria-checked="true"] {
+    border-color: var(--primary);
+    background: var(--primary-muted);
+  }
+
+  .ph-opt[aria-checked="true"] .ph-box {
+    border-color: var(--primary);
+    background: var(--primary);
+  }
+
+  .ph-pick {
+    padding: 14px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-pick.ph-on {
+    border-color: var(--primary);
+    background: var(--primary-muted);
+  }
+
+  .ph-req {
+    color: var(--destructive-text);
+  }
+
+  /* The pages control under a v3 list (AdminUsers, AdminCompanies, AdminPlatforms, AdminFeatureView). */
+  .ph-pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ph-pager-n {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  /* v3/AdminUsers (its head is AdminPhoneHeader's .ph-h1.ph-h1-26 + .ph-lead, its body .ph-ad-body.ph-ad-list); bodies as drawn. */
+
+  .ph-au-search {
+    position: relative;
+  }
+
+  .ph-au-search-ic {
+    position: absolute;
+    left: 16px;
+    top: 17px;
+    color: var(--muted-foreground);
+    pointer-events: none;
+  }
+
+  .ph-input.ph-au-search-input {
+    padding-left: 44px;
+  }
+
+  .ph-au-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ph-au-count,
+  .ph-au-sort-by {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  /* The board's 2px top is 4px: the chips' 44px boxes overhang the row by 4px. */
+  .ph-hs.ph-au-sort {
+    margin: 0 -20px;
+    padding: 4px 20px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-au-arrow {
+    font-size: 12px;
+  }
+
+  .ph-au-list {
+    transition: opacity 0.2s;
+  }
+
+  .ph-au-list[data-refreshing] {
+    opacity: 0.6;
+  }
+
+  .ph-au-row {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-au-head {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .ph-au-ini {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .ph-au-who {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-au-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ph-au-name {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-au-email {
+    font-size: 13px;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ph-au-joined {
+    flex: none;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-au-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ph-au-counts {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-iconbtn.ph-au-shield {
+    color: var(--muted-foreground);
+  }
+
+  .ph-iconbtn.ph-au-shield[aria-pressed="true"] {
+    color: var(--primary);
+  }
+
+  .ph-au-sheet-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-bottom: 12px;
+  }
+
+  .ph-au-sheet-body {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-au-span {
+    grid-column: 1 / -1;
+  }
+
+  .ph-au-bio {
+    margin: 0 4px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .ph-au-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 4px;
+  }
+
+  /* A long username or email ends in an ellipsis; a long detail wraps inside its box (PRD 0022). */
+  .ph-au-name,
+  .ph-h2.ph-au-sheet-h {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-au-name-row > .ph-pill {
+    flex: none;
+  }
+
+  .ph-au-dl dd,
+  .ph-au-bio {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-au-stack > .ph-tag {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* v3/AdminCompanies + v3/AdminPlatforms (one view; Companies adds the status pill and switch); bodies as drawn. */
+
+  .ph-cat-search {
+    position: relative;
+  }
+
+  .ph-cat-search-ic {
+    position: absolute;
+    left: 16px;
+    top: 17px;
+    color: var(--muted-foreground);
+    pointer-events: none;
+  }
+
+  .ph-input.ph-cat-search-input {
+    padding-left: 44px;
+  }
+
+  .ph-seg.ph-cat-seg {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ph-cat-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ph-cat-count {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-cat-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: opacity 0.2s;
+  }
+
+  .ph-cat-list[data-refreshing] {
+    opacity: 0.6;
+  }
+
+  .ph-cat-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-cat-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ph-cat-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .ph-cat-name {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .ph-cat-url-in {
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-cat-nourl {
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-cat-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-btn.ph-cat-edit {
+    flex: 1;
+  }
+
+  .ph-h2.ph-cat-sheet-h {
+    padding: 4px 0 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-cat-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .ph-cat-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-cat-text {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .ph-cat-text > p {
+    margin: 0;
+  }
+
+  .ph-cat-text > .ph-cat-muted {
+    color: var(--muted-foreground);
+  }
+
+  .ph-hint.ph-cat-undone {
+    font-size: 15px;
+  }
+
+  .ph-cat-sheet-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-cat-sheet-actions > .ph-btn:first-child {
+    flex: none;
+  }
+
+  .ph-cat-sheet-actions > .ph-btn:last-child {
+    flex: 1;
+  }
+
+  /* The URL keeps the board's 28px line inside a 44px box (.ph-hit resets the link's colour and font). */
+  .ph-hit.ph-cat-url {
+    align-self: flex-start;
+    justify-content: flex-start;
+    max-width: 100%;
+    margin-block: -8px;
+    color: var(--primary);
+  }
+
+  .ph-hit.ph-cat-url:hover {
+    color: var(--accent-foreground);
+  }
+
+  .ph-cat-url-in {
+    max-width: 100%;
+  }
+
+  .ph-cat-url-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ph-cat-url-ic {
+    flex: none;
+  }
+
+  /* A long name ends in an ellipsis; the pills and the switch keep their size (PRD 0022). */
+  .ph-cat-name {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-cat-title > .ph-pill,
+  .ph-cat-head > .ph-pill {
+    flex: none;
+  }
+
+  .ph-hint.ph-cat-meta,
+  .ph-cat-text > p {
+    overflow-wrap: anywhere;
+  }
+
+  .ph-cat-approve-url {
+    margin: 0;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-cat-form .ph-input[aria-invalid="true"] {
+    border-color: var(--destructive-text);
+  }
 }

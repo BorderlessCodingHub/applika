@@ -38,6 +38,9 @@ import {
   useAdminRelative,
   useSeniorityLabel,
 } from "@/components/admin/admin-format";
+import { fromQuery } from "@/components/phone/phone-query-load";
+import { AdminUsersScreenView } from "@/components/phone/screens/admin-users-screen";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { useLocale, useTranslations } from "next-intl";
 
 type SortKey =
@@ -116,16 +119,24 @@ export function UsersPage() {
 
   const [selectedUser, setSelectedUser] = useState<AdminUserRow | null>(null);
 
-  const { data, isLoading, isFetching } = useAdminUsers({
-    search: search || undefined,
-    sort_by: sortKey,
-    sort_order: sortDir,
-    page: page + 1,
-    per_page: PAGE_SIZE,
-  });
+  const { data, isLoading, isFetching, isError, error, refetch } =
+    useAdminUsers({
+      search: search || undefined,
+      sort_by: sortKey,
+      sort_order: sortDir,
+      page: page + 1,
+      per_page: PAGE_SIZE,
+    });
 
-  const { data: userDetail } = useAdminUserDetail(selectedUser?.id ?? "");
+  const {
+    data: userDetail,
+    isError: detailFailed,
+    error: detailError,
+    isFetching: detailFetching,
+    refetch: refetchDetail,
+  } = useAdminUserDetail(selectedUser?.id ?? "");
   const updateUser = useUpdateAdminUser();
+  const isPhone = useIsPhone();
 
   const users = data?.items ?? [];
   const totalPages = data?.total_pages ?? 0;
@@ -139,6 +150,45 @@ export function UsersPage() {
     }
     setPage(0);
   };
+
+  // Below md v3/AdminUsers (PRD 0022): the same queries, sort, pages, admin
+  // flag and details, drawn as the board's rows and sheet.
+  if (isPhone) {
+    return (
+      <AdminUsersScreenView
+        search={search}
+        onSearchChange={(next) => {
+          setSearch(next);
+          setPage(0);
+        }}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={handleSort}
+        users={fromQuery({ data, isError, error, isFetching, refetch })}
+        refreshing={isFetching && !!data}
+        page={page + 1}
+        onPageChange={(next) => setPage(next - 1)}
+        onToggleAdmin={(user) =>
+          updateUser.mutate({
+            id: user.id,
+            data: { is_admin: !user.is_admin },
+          })
+        }
+        pendingAdminId={
+          updateUser.isPending ? (updateUser.variables?.id ?? null) : null
+        }
+        selected={selectedUser}
+        onSelectedChange={setSelectedUser}
+        detail={fromQuery({
+          data: userDetail,
+          isError: detailFailed,
+          error: detailError,
+          isFetching: detailFetching,
+          refetch: refetchDetail,
+        })}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5">

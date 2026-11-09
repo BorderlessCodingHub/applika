@@ -116,11 +116,67 @@ describe("the admin header below md", () => {
     );
   });
 
+  it.each([
+    [
+      "/admin/users",
+      "User Management",
+      "View, search, and manage all platform users",
+      "Users",
+    ],
+    [
+      "/admin/companies",
+      "Company Management",
+      "Manage companies available on the platform",
+      "Companies",
+    ],
+    [
+      "/admin/platforms",
+      "Platforms",
+      "Manage the platforms users pick for their applications",
+      "Platforms",
+    ],
+  ])(
+    "heads %s with its own title and lead above the chips",
+    async (path, title, lead, chip) => {
+      await renderAdmin(path, <p>board body</p>);
+
+      const headings = screen.getAllByRole("heading", { level: 1 });
+      expect(headings.map((heading) => heading.textContent)).toEqual([title]);
+      expect(headings[0]).toHaveClass("ph-h1", "ph-h1-26");
+      expect(headings[0]).toHaveAttribute("data-slot", "admin-phone-title");
+      expect(screen.getByText(lead)).toHaveClass("ph-lead");
+      expect(screen.queryByText("Admin Console")).toBeNull();
+      expect(chips().getByRole("link", { name: chip })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+      // A board route: the page renders straight under the header.
+      expect(
+        document.querySelector('[data-slot="admin-phone-content"]'),
+      ).toBeNull();
+    },
+  );
+
+  it("keeps Admin Console at 30px on Dashboard, Jobs and Report webhooks", async () => {
+    for (const path of ["/admin", "/admin/jobs", "/admin/report-webhooks"]) {
+      const { unmount } = await renderAdmin(path, <p>board body</p>);
+      const heading = screen.getByRole("heading", {
+        level: 1,
+        name: "Admin Console",
+      });
+      expect(heading).toHaveClass("ph-h1");
+      expect(heading).not.toHaveClass("ph-h1-26");
+      unmount();
+    }
+  });
+
   it("keeps today's content and its own h1 under the header on a section without a board", async () => {
-    await renderAdmin("/admin/users");
+    await renderAdmin("/admin/features", <h1>Features</h1>);
 
     const headings = screen.getAllByRole("heading", { level: 1 });
-    expect(headings.map((heading) => heading.textContent)).toEqual(["Users"]);
+    expect(headings.map((heading) => heading.textContent)).toEqual([
+      "Features",
+    ]);
     const title = document.querySelector('[data-slot="admin-phone-title"]')!;
     expect(title.tagName).toBe("P");
     expect(title).toHaveTextContent("Admin Console");
@@ -131,7 +187,7 @@ describe("the admin header below md", () => {
     expect(content).toHaveClass("ph-ad-other");
     expect(content).not.toHaveClass("ph-app");
     expect(content).toContainElement(headings[0]);
-    expect(chips().getByRole("link", { name: "Users" })).toHaveAttribute(
+    expect(chips().getByRole("link", { name: "Features" })).toHaveAttribute(
       "aria-current",
       "page",
     );

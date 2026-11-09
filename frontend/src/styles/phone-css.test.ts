@@ -1238,3 +1238,289 @@ describe("phone.css: Jobs, JobDetail, StartApplication, Draft, CVs, CVEditor", (
     );
   });
 });
+
+// v3 (PRD 0022): the boards' shared modifiers, the pages control, and the
+// AdminUsers (ph-au-) and AdminCompanies / AdminPlatforms (ph-cat-) inline
+// style blocks made classes.
+const V3_SHARED = [
+  "ph-h1-26",
+  "ph-flat",
+  "ph-dl-bg",
+  "ph-dl-4",
+  "ph-dl-3s",
+  "ph-miss",
+  "ph-box",
+  "ph-pick",
+  "ph-req",
+  "ph-pager",
+  "ph-pager-n",
+] as const;
+
+const V3_ADMIN_USERS = [
+  "ph-au-search",
+  "ph-au-search-ic",
+  "ph-au-search-input",
+  "ph-au-bar",
+  "ph-au-count",
+  "ph-au-sort-by",
+  "ph-au-sort",
+  "ph-au-arrow",
+  "ph-au-list",
+  "ph-au-row",
+  "ph-au-head",
+  "ph-au-ini",
+  "ph-au-who",
+  "ph-au-name-row",
+  "ph-au-name",
+  "ph-au-email",
+  "ph-au-joined",
+  "ph-au-foot",
+  "ph-au-counts",
+  "ph-au-shield",
+  "ph-au-sheet-head",
+  "ph-au-sheet-h",
+  "ph-au-sheet-body",
+  "ph-au-span",
+  "ph-au-bio",
+  "ph-au-stack",
+  "ph-au-dl",
+] as const;
+
+const V3_ADMIN_CATALOG = [
+  "ph-cat-search",
+  "ph-cat-search-ic",
+  "ph-cat-search-input",
+  "ph-cat-seg",
+  "ph-cat-bar",
+  "ph-cat-count",
+  "ph-cat-list",
+  "ph-cat-row",
+  "ph-cat-head",
+  "ph-cat-title",
+  "ph-cat-name",
+  "ph-cat-url",
+  "ph-cat-url-in",
+  "ph-cat-url-text",
+  "ph-cat-url-ic",
+  "ph-cat-nourl",
+  "ph-cat-meta",
+  "ph-cat-actions",
+  "ph-cat-edit",
+  "ph-cat-sheet-h",
+  "ph-cat-form",
+  "ph-cat-confirm",
+  "ph-cat-text",
+  "ph-cat-muted",
+  "ph-cat-undone",
+  "ph-cat-sheet-actions",
+  "ph-cat-approve-url",
+] as const;
+
+describe("phone.css: v3 shared parts, AdminUsers, AdminCompanies, AdminPlatforms", () => {
+  it.each([...V3_SHARED, ...V3_ADMIN_USERS, ...V3_ADMIN_CATALOG])(
+    "declares .%s",
+    (name) => {
+      expect(DECLARED.has(name), `.${name} is not declared`).toBe(true);
+    },
+  );
+
+  it("draws the boards' shared modifiers at their sizes", () => {
+    expect(ruleBody(".ph-h1.ph-h1-26")).toMatch(/font-size:\s*26px/);
+    const flat = ruleBody(".ph-iconbtn.ph-flat");
+    expect(flat).toMatch(/box-shadow:\s*none/);
+    expect(flat).toMatch(/background:\s*var\(--muted\)/);
+    expect(ruleBody(".ph-dl.ph-dl-bg > div")).toMatch(
+      /background:\s*var\(--background\)/,
+    );
+    expect(ruleBody(".ph-dl.ph-dl-4")).toMatch(
+      /grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/,
+    );
+    const three = ruleBody(".ph-dl.ph-dl-3s");
+    expect(three).toMatch(
+      /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/,
+    );
+    expect(three).toMatch(/gap:\s*8px/);
+    expect(three).toMatch(/font-size:\s*13px/);
+    expect(ruleBody(".ph-dl.ph-dl-3s dt")).toMatch(
+      /color:\s*var\(--muted-foreground\)/,
+    );
+    const threeValue = ruleBody(".ph-dl.ph-dl-3s dd");
+    expect(threeValue).toMatch(/margin:\s*2px 0 0/);
+    expect(threeValue).toMatch(/font-weight:\s*600/);
+    const miss = ruleBody(".ph-tag.ph-miss");
+    expect(miss).toMatch(/background:\s*transparent/);
+    expect(miss).toMatch(
+      /box-shadow:\s*inset 0 0 0 1px var\(--border-strong\)/,
+    );
+    expect(miss).toMatch(/color:\s*var\(--muted-foreground\)/);
+    const box = ruleBody(".ph-box");
+    expect(box).toMatch(/width:\s*20px/);
+    expect(box).toMatch(/height:\s*20px/);
+    expect(box).toMatch(/border-radius:\s*6px/);
+    expect(box).toMatch(/border:\s*2px solid var\(--border-strong\)/);
+    expect(ruleBody('.ph-opt[aria-checked="true"]')).toMatch(
+      /background:\s*var\(--primary-muted\)/,
+    );
+    expect(ruleBody('.ph-opt[aria-checked="true"] .ph-box')).toMatch(
+      /background:\s*var\(--primary\)/,
+    );
+    const pick = ruleBody(".ph-pick");
+    expect(pick).toMatch(/padding:\s*14px 16px/);
+    expect(pick).toMatch(/border-radius:\s*20px/);
+    expect(ruleBody(".ph-pick.ph-on")).toMatch(
+      /border-color:\s*var\(--primary\)/,
+    );
+    expect(ruleBody(".ph-req")).toMatch(/color:\s*var\(--destructive-text\)/);
+    const pager = ruleBody(".ph-pager");
+    expect(pager).toMatch(/justify-content:\s*space-between/);
+    expect(pager).toMatch(/gap:\s*8px/);
+    expect(ruleBody(".ph-pager-n")).toMatch(/font-size:\s*13px/);
+  });
+
+  it("dims an unavailable button to .45, and leaves a pending one its 0021 look", () => {
+    // The boards' [disabled], kept focusable through aria-disabled.
+    const unavailable =
+      /\.ph-btn\[aria-disabled="true"\]:not\(\[data-disabled\]\):not\(\[aria-busy="true"\]\),\s*\.ph-iconbtn\[aria-disabled="true"\]:not\(\[data-disabled\]\):not\(\s*\[aria-busy="true"\]\s*\)\s*\{([^}]*)\}/.exec(
+        css,
+      );
+    expect(unavailable).not.toBeNull();
+    expect(unavailable![1]).toMatch(/opacity:\s*0?\.45/);
+    expect(unavailable![1]).toMatch(/cursor:\s*default/);
+    expect(ruleBody(".ph-iconbtn[data-disabled]")).toMatch(/opacity:\s*0?\.6/);
+    expect(ruleBody('.ph-iconbtn[aria-busy="true"]')).toMatch(
+      /cursor:\s*progress/,
+    );
+  });
+
+  it("draws v3/AdminUsers' search, sort row, rows and sheet at the board's sizes", () => {
+    expect(ruleBody(".ph-au-search-ic")).toMatch(/left:\s*16px;\s*top:\s*17px/);
+    expect(ruleBody(".ph-input.ph-au-search-input")).toMatch(
+      /padding-left:\s*44px/,
+    );
+    const sort = ruleBody(".ph-hs.ph-au-sort");
+    expect(sort).toMatch(/margin:\s*0 -20px/);
+    expect(sort).toMatch(/padding:\s*4px 20px/);
+    expect(sort).toMatch(/gap:\s*8px/);
+    expect(ruleBody(".ph-au-arrow")).toMatch(/font-size:\s*12px/);
+    expect(ruleBody(".ph-au-list[data-refreshing]")).toMatch(
+      /opacity:\s*0?\.6/,
+    );
+    const row = ruleBody(".ph-au-row");
+    expect(row).toMatch(/padding:\s*14px 16px/);
+    expect(row).toMatch(/gap:\s*10px/);
+    expect(ruleBody(".ph-au-head")).toMatch(/gap:\s*12px/);
+    const initials = ruleBody(".ph-au-ini");
+    expect(initials).toMatch(/width:\s*40px/);
+    expect(initials).toMatch(/height:\s*40px/);
+    expect(initials).toMatch(/background:\s*var\(--accent\)/);
+    expect(initials).toMatch(/color:\s*var\(--accent-foreground\)/);
+    expect(initials).toMatch(/font-size:\s*13px/);
+    expect(initials).toMatch(/font-weight:\s*700/);
+    expect(ruleBody(".ph-au-who")).toMatch(/min-width:\s*0/);
+    const name = ruleBody(".ph-au-name");
+    expect(name).toMatch(/font-size:\s*15px/);
+    expect(name).toMatch(/font-weight:\s*600/);
+    const email = ruleBody(".ph-au-email");
+    expect(email).toMatch(/font-size:\s*13px/);
+    expect(email).toMatch(/text-overflow:\s*ellipsis/);
+    expect(email).toMatch(/white-space:\s*nowrap/);
+    expect(ruleBody(".ph-au-joined")).toMatch(/flex:\s*none/);
+    expect(ruleBody(".ph-au-foot")).toMatch(/gap:\s*8px/);
+    const counts = ruleBody(".ph-au-counts");
+    expect(counts).toMatch(/font-size:\s*12px/);
+    expect(counts).toMatch(/flex:\s*1/);
+    expect(ruleBody(".ph-iconbtn.ph-au-shield")).toMatch(
+      /color:\s*var\(--muted-foreground\)/,
+    );
+    expect(ruleBody('.ph-iconbtn.ph-au-shield[aria-pressed="true"]')).toMatch(
+      /color:\s*var\(--primary\)/,
+    );
+    expect(ruleBody(".ph-au-sheet-head")).toMatch(/padding-bottom:\s*12px/);
+    expect(ruleBody(".ph-au-sheet-body")).toMatch(/gap:\s*16px/);
+    expect(ruleBody(".ph-au-span")).toMatch(/grid-column:\s*1 \/ -1/);
+    const bio = ruleBody(".ph-au-bio");
+    expect(bio).toMatch(/margin:\s*0 4px/);
+    expect(bio).toMatch(/font-size:\s*15px/);
+    expect(bio).toMatch(/line-height:\s*1\.5/);
+    const stack = ruleBody(".ph-au-stack");
+    expect(stack).toMatch(/flex-wrap:\s*wrap/);
+    expect(stack).toMatch(/gap:\s*6px/);
+  });
+
+  it("ends a long username, sheet title, email or tag in an ellipsis (PRD 0022)", () => {
+    expect(css).toMatch(
+      /\.ph-au-name,\s*\.ph-h2\.ph-au-sheet-h\s*\{[^}]*text-overflow:\s*ellipsis[^}]*white-space:\s*nowrap/,
+    );
+    expect(ruleBody(".ph-au-name-row > .ph-pill")).toMatch(/flex:\s*none/);
+    expect(ruleBody(".ph-au-stack > .ph-tag")).toMatch(
+      /text-overflow:\s*ellipsis/,
+    );
+  });
+
+  it("draws v3/AdminCompanies and v3/AdminPlatforms' list, cards and sheets at the board's sizes", () => {
+    expect(ruleBody(".ph-input.ph-cat-search-input")).toMatch(
+      /padding-left:\s*44px/,
+    );
+    expect(ruleBody(".ph-seg.ph-cat-seg")).toMatch(
+      /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/,
+    );
+    expect(ruleBody(".ph-cat-count")).toMatch(/font-size:\s*13px/);
+    const list = ruleBody(".ph-cat-list");
+    expect(list).toMatch(/list-style:\s*none/);
+    expect(list).toMatch(/gap:\s*10px/);
+    expect(ruleBody(".ph-cat-row")).toMatch(/gap:\s*10px/);
+    expect(ruleBody(".ph-cat-head")).toMatch(/gap:\s*10px/);
+    const title = ruleBody(".ph-cat-title");
+    expect(title).toMatch(/flex-wrap:\s*wrap/);
+    expect(title).toMatch(/gap:\s*6px/);
+    const names = ruleBodies(".ph-cat-name").join("");
+    expect(names).toMatch(/font-size:\s*16px/);
+    expect(names).toMatch(/font-weight:\s*600/);
+    expect(names).toMatch(/text-overflow:\s*ellipsis/);
+    expect(names).toMatch(/white-space:\s*nowrap/);
+    const urlLine = ruleBodies(".ph-cat-url-in").join("");
+    expect(urlLine).toMatch(/min-height:\s*28px/);
+    expect(urlLine).toMatch(/font-size:\s*12px/);
+    expect(urlLine).toMatch(/gap:\s*6px/);
+    const url = ruleBody(".ph-hit.ph-cat-url");
+    expect(url).toMatch(/margin-block:\s*-8px/);
+    expect(url).toMatch(/color:\s*var\(--primary\)/);
+    expect(ruleBody(".ph-cat-url-text")).toMatch(/text-overflow:\s*ellipsis/);
+    expect(ruleBody(".ph-cat-nourl")).toMatch(
+      /color:\s*var\(--muted-foreground\)/,
+    );
+    expect(ruleBody(".ph-cat-actions")).toMatch(/gap:\s*8px/);
+    expect(ruleBody(".ph-btn.ph-cat-edit")).toMatch(/flex:\s*1/);
+    const sheetTitle = ruleBody(".ph-h2.ph-cat-sheet-h");
+    expect(sheetTitle).toMatch(/padding:\s*4px 0 12px/);
+    // A long unbroken name stays readable on an irreversible confirm.
+    expect(sheetTitle).toMatch(/overflow-wrap:\s*anywhere/);
+    expect(ruleBody(".ph-cat-form")).toMatch(/gap:\s*14px/);
+    expect(ruleBody(".ph-cat-confirm")).toMatch(/gap:\s*10px/);
+    const text = ruleBody(".ph-cat-text");
+    expect(text).toMatch(/font-size:\s*15px/);
+    expect(text).toMatch(/line-height:\s*1\.5/);
+    expect(ruleBody(".ph-cat-text > .ph-cat-muted")).toMatch(
+      /color:\s*var\(--muted-foreground\)/,
+    );
+    expect(ruleBody(".ph-hint.ph-cat-undone")).toMatch(/font-size:\s*15px/);
+    const actions = ruleBody(".ph-cat-sheet-actions");
+    expect(actions).toMatch(/margin-top:\s*8px/);
+    expect(actions).toMatch(/gap:\s*8px/);
+    expect(ruleBody(".ph-cat-sheet-actions > .ph-btn:first-child")).toMatch(
+      /flex:\s*none/,
+    );
+    expect(ruleBody(".ph-cat-sheet-actions > .ph-btn:last-child")).toMatch(
+      /flex:\s*1/,
+    );
+    expect(ruleBody(".ph-cat-approve-url")).toMatch(
+      /text-overflow:\s*ellipsis/,
+    );
+    expect(ruleBody('.ph-cat-form .ph-input[aria-invalid="true"]')).toMatch(
+      /border-color:\s*var\(--destructive-text\)/,
+    );
+    expect(ruleBody(".ph-cat-list[data-refreshing]")).toMatch(
+      /opacity:\s*0?\.6/,
+    );
+  });
+});

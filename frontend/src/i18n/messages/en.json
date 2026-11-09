@@ -2549,6 +2549,27 @@
       "webhooksHint": "Each webhook holds one or more badges. A member's biweekly report is posted to every webhook that holds their badge.",
       "edit": "Edit"
     },
+    "adminUsers": {
+      "searchLabel": "Search users",
+      "sortBy": "Sort by",
+      "sortGroup": "Sort users by",
+      "sortChip": "Sort by {label}{dir, select, asc {, ascending} desc {, descending} other {}}",
+      "arrow": "{dir, select, asc {↑} other {↓}}",
+      "counts": "Apps {apps} · Offers {offers} · Denials {denials}",
+      "loading": "Loading users",
+      "noMatch": "No users match your search.",
+      "empty": "No users yet.",
+      "detailLoading": "Loading user details"
+    },
+    "catalog": {
+      "meta": "Added by <who>{addedBy}</who> · <mono>{apps}</mono> {count, plural, one {app} other {apps}} · Created {date}",
+      "company": {
+        "loading": "Loading companies"
+      },
+      "platform": {
+        "loading": "Loading platforms"
+      }
+    },
     "jobs": {
       "toolbar": "Sort and filters",
       "showMore": "Show more",

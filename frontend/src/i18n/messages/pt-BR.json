@@ -2549,6 +2549,27 @@
       "webhooksHint": "Cada webhook tem um ou mais selos. O relatório quinzenal de um membro é enviado a todo webhook que tem o selo dele.",
       "edit": "Editar"
     },
+    "adminUsers": {
+      "searchLabel": "Buscar usuários",
+      "sortBy": "Ordenar por",
+      "sortGroup": "Ordenar usuários por",
+      "sortChip": "Ordenar por {label}{dir, select, asc {, crescente} desc {, decrescente} other {}}",
+      "arrow": "{dir, select, asc {↑} other {↓}}",
+      "counts": "Candidaturas {apps} · Ofertas {offers} · Recusas {denials}",
+      "loading": "Carregando usuários",
+      "noMatch": "Nenhum usuário corresponde à sua busca.",
+      "empty": "Ainda não há usuários.",
+      "detailLoading": "Carregando os detalhes do usuário"
+    },
+    "catalog": {
+      "meta": "Adicionada por <who>{addedBy}</who> · <mono>{apps}</mono> {count, plural, =0 {candidaturas} one {candidatura} other {candidaturas}} · Criada em {date}",
+      "company": {
+        "loading": "Carregando empresas"
+      },
+      "platform": {
+        "loading": "Carregando plataformas"
+      }
+    },
     "jobs": {
       "toolbar": "Ordenação e filtros",
       "showMore": "Mostrar mais",

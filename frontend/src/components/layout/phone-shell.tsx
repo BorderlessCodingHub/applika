@@ -74,6 +74,25 @@ export function PhoneChromeless(): null {
   return null;
 }
 
+const BackHrefContext = createContext<((href: string) => ReleaseChrome) | null>(
+  null,
+);
+
+/**
+ * Renders nothing; while mounted, the shell's back bar goes to `href`
+ * instead of the map's (`phoneBackFor`), keeping the map's label (a screen
+ * that returns to one row of its parent, `/applications?focus=<id>`). A
+ * layout effect, so the link is right before paint; a hold, as
+ * `PhoneChromeless`: the last one mounted wins, and unmounting it gives the
+ * map's address back. A no-op outside the shell and on a screen with no
+ * back bar.
+ */
+export function PhoneBackHref({ href }: { href: string }): null {
+  const hold = useContext(BackHrefContext);
+  useLayoutEffect(() => hold?.(href), [hold, href]);
+  return null;
+}
+
 /** The back bar's right-hand slot: `null` while no back bar is mounted (a tab root). */
 const TopBarEndContext = createContext<{ element: HTMLElement | null } | null>(
   null,
@@ -149,6 +168,10 @@ export function PhoneShell({
   const [quickAddUsed, setQuickAddUsed] = useState(false);
   // `PhoneChromeless` holds: the Application screen draws no tab bar or FAB.
   const [chromeHolds, setChromeHolds] = useState(0);
+  // `PhoneBackHref` holds, in mount order: the last one is the back bar's address.
+  const [backHrefs, setBackHrefs] = useState<
+    readonly { hold: object; href: string }[]
+  >([]);
   // The back bar's end slot, set by its ref (a layout-phase update: filled before paint).
   const [topBarEnd, setTopBarEnd] = useState<HTMLDivElement | null>(null);
   const topBarSlot = useMemo(() => ({ element: topBarEnd }), [topBarEnd]);
@@ -156,6 +179,7 @@ export function PhoneShell({
   const path = normalizePath(activePath);
   const chromeless = chromeHolds > 0;
   const backBar = phoneBackFor(path);
+  const backHref = backHrefs.at(-1)?.href;
   const tabRoot = isTabRoot(path) && !chromeless;
   // An archived cycle's Pipeline is read-only: nothing to add to it (the
   // desktop hides "New application" the same way). Today keeps its FAB.
@@ -184,6 +208,16 @@ export function PhoneShell({
       setChromeHolds((count) => count - 1);
     };
   }, []);
+  const holdBackHref = useCallback((href: string): ReleaseChrome => {
+    const hold = {};
+    setBackHrefs((list) => [...list, { hold, href }]);
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      setBackHrefs((list) => list.filter((entry) => entry.hold !== hold));
+    };
+  }, []);
   const shell = useMemo(
     () => ({ navItems, openFeedback, openQuickAdd }),
     [navItems, openFeedback, openQuickAdd],
@@ -192,82 +226,84 @@ export function PhoneShell({
   return (
     <PhoneShellContext.Provider value={shell}>
       <HideChromeContext.Provider value={hideChrome}>
-        <TopBarEndContext.Provider value={topBarSlot}>
-          {/*
+        <BackHrefContext.Provider value={holdBackHref}>
+          <TopBarEndContext.Provider value={topBarSlot}>
+            {/*
         `relative`, as `AppShell`'s root: it makes the shell the containing
         block its `overflow-hidden` really clips (Radix Select's hidden native
         `<select>`), and with `z-index: auto` it opens no stacking context.
       */}
-          <div
-            data-slot="phone-shell"
-            className="relative flex h-viewport w-full flex-col overflow-hidden bg-background text-foreground"
-          >
-            {backBar ? (
-              <PhoneTopBar
-                href={backBar.href}
-                label={backBar.label}
-                endRef={setTopBarEnd}
-              />
-            ) : null}
-
-            {/* `.ph-scroll`: the boards' main scrolls with no visible scrollbar. */}
-            <main
-              className={cn(
-                "ph-scroll min-h-0 flex-1 overflow-y-auto",
-                reserve.scroll,
-                className,
-              )}
+            <div
+              data-slot="phone-shell"
+              className="relative flex h-viewport w-full flex-col overflow-hidden bg-background text-foreground"
             >
-              <div
-                data-slot="app-content"
-                className={cn(!ported && ["px-4 pt-6", reserve.pad])}
-              >
-                {/* A ported screen owns its board's padding; the banner keeps the board's margins. */}
-                {ported ? (
-                  <div className="px-5 pt-5 empty:hidden">
-                    <CliPromoBanner />
-                  </div>
-                ) : (
-                  <CliPromoBanner />
+              {backBar ? (
+                <PhoneTopBar
+                  href={backHref ?? backBar.href}
+                  label={backBar.label}
+                  endRef={setTopBarEnd}
+                />
+              ) : null}
+
+              {/* `.ph-scroll`: the boards' main scrolls with no visible scrollbar. */}
+              <main
+                className={cn(
+                  "ph-scroll min-h-0 flex-1 overflow-y-auto",
+                  reserve.scroll,
+                  className,
                 )}
-                {children}
-              </div>
-            </main>
+              >
+                <div
+                  data-slot="app-content"
+                  className={cn(!ported && ["px-4 pt-6", reserve.pad])}
+                >
+                  {/* A ported screen owns its board's padding; the banner keeps the board's margins. */}
+                  {ported ? (
+                    <div className="px-5 pt-5 empty:hidden">
+                      <CliPromoBanner />
+                    </div>
+                  ) : (
+                    <CliPromoBanner />
+                  )}
+                  {children}
+                </div>
+              </main>
 
-            {/* The FAB before the tab bar, as the boards order them (focus follows). */}
-            {fab ? (
-              <PhoneFab
-                label={t("add")}
-                aria-haspopup="dialog"
-                onClick={openQuickAdd}
-              />
-            ) : null}
-            {quickAddUsed ? (
-              <QuickAddSheet
-                open={quickAddOpen}
-                onOpenChange={setQuickAddOpen}
-                activePath={path}
-              />
-            ) : null}
+              {/* The FAB before the tab bar, as the boards order them (focus follows). */}
+              {fab ? (
+                <PhoneFab
+                  label={t("add")}
+                  aria-haspopup="dialog"
+                  onClick={openQuickAdd}
+                />
+              ) : null}
+              {quickAddUsed ? (
+                <QuickAddSheet
+                  open={quickAddOpen}
+                  onOpenChange={setQuickAddOpen}
+                  activePath={path}
+                />
+              ) : null}
 
-            {tabRoot ? (
-              <PhoneTabBar
-                label={tNav("primary")}
-                tabs={TAB_ROOTS.map((root) => ({
-                  href: root.href,
-                  label: root.label,
-                  icon: root.icon,
-                  current: root.href === path,
-                }))}
-              />
-            ) : null}
+              {tabRoot ? (
+                <PhoneTabBar
+                  label={tNav("primary")}
+                  tabs={TAB_ROOTS.map((root) => ({
+                    href: root.href,
+                    label: root.label,
+                    icon: root.icon,
+                    current: root.href === path,
+                  }))}
+                />
+              ) : null}
 
-            <FeedbackDialog
-              open={feedbackOpen}
-              onOpenChange={setFeedbackOpen}
-            />
-          </div>
-        </TopBarEndContext.Provider>
+              <FeedbackDialog
+                open={feedbackOpen}
+                onOpenChange={setFeedbackOpen}
+              />
+            </div>
+          </TopBarEndContext.Provider>
+        </BackHrefContext.Provider>
       </HideChromeContext.Provider>
     </PhoneShellContext.Provider>
   );

@@ -54,7 +54,12 @@ import {
  * - `e2e-admin` walks the admin console's chips and boards; the one report
  *   webhook it lists is made and deleted through the API (a synthetic
  *   address), and its own `jobs` opt-out (a feature taken away) is deleted
- *   again before the test ends and in `afterAll`.
+ *   again before the test ends and in `afterAll`. On the v3 boards (Users,
+ *   Companies, Platforms) it never presses the administrator toggle; the
+ *   two private companies it needs are made by `e2e-user` through the API in
+ *   `beforeAll` (one approved on the phone, one used by an application made
+ *   through the API), and the application and both companies are deleted
+ *   in `afterAll`.
  * Logout ends the session it runs in, so it never runs as a seeded user: a
  * disposable fake Borderless account (`e2e-free`, no membership) signs in
  * through the fake in its own context and is deleted (`DELETE /users/me`)
@@ -1123,9 +1128,16 @@ test.describe("the account area, jobs and CVs below md", () => {
     page,
   }) => {
     await loginAs(page, "user");
-    await page.goto("/admin");
-    await page.waitForURL("**/dashboard");
-    await expect(page.locator('[data-slot="phone-today"]')).toBeVisible();
+    for (const path of [
+      "/admin",
+      "/admin/users",
+      "/admin/companies",
+      "/admin/platforms",
+    ]) {
+      await page.goto(path);
+      await page.waitForURL("**/dashboard");
+      await expect(page.locator('[data-slot="phone-today"]')).toBeVisible();
+    }
   });
 });
 
@@ -1136,6 +1148,58 @@ test.describe("the admin console below md", () => {
   /** Synthetic: the API only checks the shape and never posts on save. */
   const HOOK_TAIL = "e2e-dummy-phone-webhook-not-real";
   const HOOK_URL = `https://discord.com/api/webhooks/123456789012345678/${HOOK_TAIL}`;
+
+  const stamp = Date.now();
+  /** Private, made by e2e-user through the API; approved on the phone. */
+  const APPROVE = `e2e-phone-approve-${stamp}`;
+  const APPROVE_URL = "https://e2e-phone-approve.example";
+  /** Private, made by e2e-user; one application uses it, so it cannot be deleted. */
+  const USED = `e2e-phone-used-${stamp}`;
+  const USED_URL = "https://e2e-phone-used.example";
+  /** The platform that application uses (the first of `/supports`). */
+  let usedPlatform = { id: "", name: "" };
+  let approveId = "";
+  let usedCompanyId = "";
+
+  /** e2e-user's `e2e-phone-*` applications, then every `e2e-phone-*` company. */
+  async function deleteOwnCatalogRows(request: APIRequestContext) {
+    const apps = await getJson<Array<{ id: string; company_name: string }>>(
+      request,
+      "user",
+      "/applications",
+    );
+    for (const app of apps) {
+      if (!app.company_name.startsWith("e2e-phone-")) continue;
+      const deleted = await request.delete(apiUrl(`/applications/${app.id}`), {
+        headers: roleHeaders("user"),
+      });
+      expect(deleted.ok(), await deleted.text()).toBeTruthy();
+    }
+    const { items } = await getJson<{
+      items: Array<{ id: string; name: string }>;
+    }>(request, "admin", "/admin/companies?search=e2e-phone-&per_page=100");
+    for (const row of items) {
+      if (!row.name.startsWith("e2e-phone-")) continue;
+      const deleted = await request.delete(
+        apiUrl(`/admin/companies/${row.id}`),
+        { headers: roleHeaders("admin") },
+      );
+      expect(deleted.ok(), await deleted.text()).toBeTruthy();
+    }
+  }
+
+  async function createCompany(
+    request: APIRequestContext,
+    name: string,
+    url: string,
+  ): Promise<string> {
+    const created = await request.post(apiUrl("/companies"), {
+      headers: roleHeaders("user"),
+      data: { name, url },
+    });
+    expect(created.ok(), await created.text()).toBeTruthy();
+    return ((await created.json()) as { id: string }).id;
+  }
 
   async function deleteOwnWebhooks(request: APIRequestContext) {
     const rows = await getJson<Array<{ id: string; label: string | null }>>(
@@ -1160,11 +1224,33 @@ test.describe("the admin console below md", () => {
       data: { webhook_url: HOOK_URL, badges: ["borderless_psp"], label: LABEL },
     });
     expect(created.ok(), await created.text()).toBeTruthy();
+
+    await deleteOwnCatalogRows(request);
+    approveId = await createCompany(request, APPROVE, APPROVE_URL);
+    usedCompanyId = await createCompany(request, USED, USED_URL);
+    const { platforms } = await getJson<{
+      platforms: Array<{ id: string; name: string }>;
+    }>(request, "user", "/supports");
+    usedPlatform = platforms[0];
+    const application = await request.post(apiUrl("/applications"), {
+      headers: roleHeaders("user"),
+      data: {
+        company: usedCompanyId,
+        platform_id: usedPlatform.id,
+        role: "Phone Catalog Engineer",
+        mode: "active",
+        application_date: new Date(Date.now() - 24 * 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 10),
+      },
+    });
+    expect(application.ok(), await application.text()).toBeTruthy();
   });
 
   test.afterAll(async ({ request }) => {
     await deleteOwnWebhooks(request);
     await clearOptOut(request, "jobs");
+    await deleteOwnCatalogRows(request);
   });
 
   const chips = (page: Page) =>
@@ -1271,29 +1357,271 @@ test.describe("the admin console below md", () => {
     expect(await page.content()).not.toContain(HOOK_TAIL);
   });
 
-  test("Users, Companies, Platforms and Features keep today's content under the same header", async ({
+  test("Users: the v3 board under its own h1, the sort chips and a user's details sheet", async ({
     page,
   }) => {
     await loginAs(page, "admin");
     await page.goto("/admin");
-    for (const [name, path] of [
-      ["Users", "/admin/users"],
-      ["Companies", "/admin/companies"],
-      ["Platforms", "/admin/platforms"],
-      ["Features", "/admin/features"],
-    ] as const) {
-      await tapChip(page, name, path);
-      // "Admin Console" is a `p` here: today's page keeps the one h1.
-      await expect(page.locator('p[data-slot="admin-phone-title"]')).toHaveText(
-        "Admin Console",
-      );
-      await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await tapChip(page, "Users", "/admin/users");
+
+    const title = page.getByRole("heading", {
+      level: 1,
+      name: "User Management",
+    });
+    await expect(title).toBeVisible();
+    await expect(title).toHaveClass(/ph-h1-26/);
+    await expect(
+      page.getByText("View, search, and manage all platform users"),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await expect(page.locator('[data-slot="admin-phone-content"]')).toHaveCount(
+      0,
+    );
+
+    const search = page.getByRole("searchbox", { name: "Search users" });
+    await expect(search).toHaveAttribute("placeholder", "Search users...");
+    const listed = page.waitForResponse(
+      (response) =>
+        response.url().includes("/admin/users?") &&
+        response.url().includes("search=e2e") &&
+        response.ok(),
+    );
+    await search.fill("e2e");
+    await listed;
+    const rows = page.locator('li[data-slot="admin-user-row"]');
+    const userRow = rows.filter({
+      has: page.locator(".ph-au-name", { hasText: /^e2e-user$/ }),
+    });
+    await expect(userRow).toHaveCount(1);
+    await expect(rows.filter({ hasText: "e2e-admin" })).toHaveCount(1);
+    await expect(page.locator('[data-slot="user-count"]')).toHaveText(
+      /^\d+ users?$/,
+    );
+    await expect(
+      userRow.getByText(/^Apps \d+ · Offers \d+ · Denials \d+$/),
+    ).toBeVisible();
+
+    // The five chips; the current one presses, again reverses its order.
+    const sort = page.getByRole("group", { name: "Sort users by" });
+    await expect(sort.getByRole("button")).toHaveText([
+      "Joined↓",
+      "User",
+      "Apps",
+      "Offers",
+      "Denials",
+    ]);
+    await sort
+      .getByRole("button", { name: "Sort by Apps", exact: true })
+      .click();
+    const apps = sort.locator('[data-sort="total_applications"]');
+    await expect(apps).toHaveAttribute("aria-pressed", "true");
+    await expect(apps).toHaveAccessibleName("Sort by Apps, descending");
+    await expect(apps.locator(".ph-au-arrow")).toHaveText("↓");
+    await expect(sort.locator('[data-sort="joined_at"]')).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await apps.click();
+    await expect(apps).toHaveAccessibleName("Sort by Apps, ascending");
+    await expect(apps.locator(".ph-au-arrow")).toHaveText("↑");
+    await expect(userRow).toHaveCount(1);
+
+    // The administrator toggle is here and named, but never pressed.
+    await expect(
+      userRow.getByRole("button", { name: "Toggle user admin" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    await page.waitForLoadState("networkidle");
+    await expectPhoneTargets(page, 20);
+    await expectNoSidewaysScroll(page);
+
+    const open = userRow.getByRole("button", { name: "View user details" });
+    await open.click();
+    const sheet = page.getByRole("dialog", { name: "e2e-user", exact: true });
+    await expect(sheet).toBeVisible();
+    const facts = sheet.locator('[data-slot="user-detail-facts"]');
+    await expect(facts.locator("dt").first()).toHaveText("Email");
+    await expect(facts.locator("dt").nth(1)).toHaveText("GitHub ID");
+    await expect(
+      sheet.getByRole("heading", { level: 3, name: "Application Stats" }),
+    ).toBeVisible();
+    await expect(
+      sheet.locator('[data-slot="user-detail-stats"] dt'),
+    ).toHaveText(["Total", "Offers", "Denials", "Active"]);
+    await expectPhoneTargets(page, 20);
+    await expectNoSidewaysScroll(page);
+    await sheet.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(sheet).toHaveCount(0);
+    await expect(open).toBeFocused();
+  });
+
+  test("Companies and Platforms: the v3 boards, the Private filter, Add cancelled, and Delete unavailable on a used row", async ({
+    page,
+  }) => {
+    await loginAs(page, "admin");
+    await page.goto("/admin");
+
+    for (const kind of [
+      {
+        chip: "Companies",
+        path: "/admin/companies",
+        title: "Company Management",
+        lead: "Manage companies available on the platform",
+        search: "Search companies",
+        add: "Add Company",
+        used: USED,
+        usedId: usedCompanyId,
+      },
+      {
+        chip: "Platforms",
+        path: "/admin/platforms",
+        title: "Platforms",
+        lead: "Manage the platforms users pick for their applications",
+        search: "Search platforms",
+        add: "Add Platform",
+        used: usedPlatform.name,
+        usedId: usedPlatform.id,
+      },
+    ]) {
+      await tapChip(page, kind.chip, kind.path);
       await expect(
-        page.locator('[data-slot="admin-phone-content"]'),
-      ).toBeVisible();
-      await page.waitForLoadState("networkidle");
+        page.getByRole("heading", { level: 1, name: kind.title, exact: true }),
+      ).toHaveClass(/ph-h1-26/);
+      await expect(page.getByText(kind.lead)).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+      const cards = page.locator('li[data-slot="catalog-row"]');
+      await expect(cards.first()).toBeVisible();
+
+      // Private: only private rows, the seg pressed.
+      const seg = page.getByRole("group", { name: "Visibility" });
+      await seg.getByRole("button", { name: "Private", exact: true }).click();
+      await expect(
+        seg.getByRole("button", { name: "Private", exact: true }),
+      ).toHaveAttribute("aria-pressed", "true");
+      await expect(
+        page.locator('li[data-slot="catalog-row"]:not([data-private])'),
+      ).toHaveCount(0);
+      await seg.getByRole("button", { name: "All", exact: true }).click();
+      await expect(
+        seg.getByRole("button", { name: "All", exact: true }),
+      ).toHaveAttribute("aria-pressed", "true");
+
+      // Add opens its sheet; Cancel closes it with nothing sent.
+      await page.getByRole("button", { name: kind.add, exact: true }).click();
+      const add = page.getByRole("dialog", { name: kind.add });
+      await expect(add).toBeVisible();
+      await expect(add.getByRole("textbox", { name: "Name" })).toBeFocused();
       await expectNoSidewaysScroll(page);
+      await add.getByRole("button", { name: "Cancel", exact: true }).click();
+      await expect(add).toHaveCount(0);
+
+      // A row an application uses: Delete announced unavailable, with its reason.
+      const listed = page.waitForResponse(
+        (response) =>
+          response.url().includes(`${kind.path}?`) &&
+          response.url().includes("search=") &&
+          response.ok(),
+      );
+      await page.getByRole("searchbox", { name: kind.search }).fill(kind.used);
+      await listed;
+      const used = page.locator(
+        `li[data-slot="catalog-row"][data-catalog-id="${kind.usedId}"]`,
+      );
+      await expect(used).toHaveAttribute("data-used", "true");
+      const del = used.getByRole("button", {
+        name: `Delete ${kind.used}`,
+        exact: true,
+      });
+      await expect(del).toHaveAttribute("aria-disabled", "true");
+      await expect(del).toHaveAccessibleDescription(
+        "Cannot delete: used by applications",
+      );
+      // Focusable, and pressing it opens nothing (Playwright's click waits
+      // for an enabled control, so the press goes through the keyboard).
+      await del.focus();
+      await expect(del).toBeFocused();
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("alertdialog")).toHaveCount(0);
+      await page.waitForLoadState("networkidle");
+      await expectPhoneTargets(page, 12);
+      await expectNoSidewaysScroll(page);
+      await page.getByRole("searchbox", { name: kind.search }).fill("");
     }
+  });
+
+  test("an administrator approves a private company on a phone without a sideways scroll", async ({
+    page,
+    request,
+  }) => {
+    await loginAs(page, "admin");
+    await page.goto("/admin/companies");
+    const listed = page.waitForResponse(
+      (response) =>
+        response.url().includes("/admin/companies?") &&
+        response.url().includes(`search=${APPROVE}`) &&
+        response.ok(),
+    );
+    await page
+      .getByRole("searchbox", { name: "Search companies" })
+      .fill(APPROVE);
+    await listed;
+    const row = page.locator(
+      `li[data-slot="catalog-row"][data-catalog-id="${approveId}"]`,
+    );
+    await expect(row).toHaveAttribute("data-private", "true");
+    await expect(row.locator('[data-slot="catalog-meta"]')).toContainText(
+      "Added by e2e-user",
+    );
+
+    await row
+      .getByRole("button", { name: `Approve ${APPROVE}`, exact: true })
+      .click();
+    const sheet = page.getByRole("alertdialog", {
+      name: `Approve ${APPROVE}?`,
+    });
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toContainText(
+      `${APPROVE} becomes public: every user sees it in their company list and can pick it.`,
+    );
+    await expect(sheet).toContainText(
+      "It keeps e2e-user as the user who added it.",
+    );
+    await expect(sheet).toContainText("It cannot be made private again.");
+    await expect(
+      sheet.getByRole("button", { name: "Cancel", exact: true }),
+    ).toBeFocused();
+    await expectPhoneTargets(page, 4);
+    await expectNoSidewaysScroll(page);
+
+    await sheet.getByRole("button", { name: "Approve", exact: true }).click();
+    await expect(sheet).toHaveCount(0);
+    await expect(row).not.toHaveAttribute("data-private");
+    await expect(
+      row.getByRole("button", { name: `Approve ${APPROVE}` }),
+    ).toHaveCount(0);
+    await expectNoSidewaysScroll(page);
+
+    const { items } = await getJson<{
+      items: Array<{ name: string; is_public: boolean }>;
+    }>(request, "admin", `/admin/companies?search=${APPROVE}`);
+    expect(items.find((item) => item.name === APPROVE)?.is_public).toBe(true);
+  });
+
+  test("Features keeps today's content under the same header", async ({
+    page,
+  }) => {
+    await loginAs(page, "admin");
+    await page.goto("/admin");
+    await tapChip(page, "Features", "/admin/features");
+    // "Admin Console" is a `p` here: today's page keeps the one h1.
+    await expect(page.locator('p[data-slot="admin-phone-title"]')).toHaveText(
+      "Admin Console",
+    );
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await expect(
+      page.locator('[data-slot="admin-phone-content"]'),
+    ).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await expectNoSidewaysScroll(page);
 
     await page.goto("/admin/features/view?key=jobs");
     await expect(
