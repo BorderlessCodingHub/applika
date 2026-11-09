@@ -1,10 +1,10 @@
-"""Start a draft application from a job (KODI-047, PRD 0012 R-017..R-022,
+"""Start a draft application from a job (PRD 0012 R-017..R-022,
 R-026).
 
 Ported from Ían Muliterno's ``create_application_from_job.py``
 (``job_scrapping``, the PR this feature comes from): the job's title, company,
 company website, posting link and source fill the new application, dated
-the caller's local day (KODI-050; server UTC today when not sent) in mode
+the caller's local day (server UTC today when not sent) in mode
 "active", and a company with a website becomes a company row.
 Rebuilt on applika's model (PRD 0010, ADR-0014): the result is a *draft*,
 not an application; the platform is the source's own platform (R-019)

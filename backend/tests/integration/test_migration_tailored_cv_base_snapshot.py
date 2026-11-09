@@ -1,5 +1,5 @@
 """Round-trip test for the ``tailored_cvs.base_snapshot`` revision
-``c1d9f4a7b3e6`` (R5, KODI-017 part 2).
+``c1d9f4a7b3e6`` (R5).
 
 ``.claude/rules/migration-tests.md`` 2: this drives the **real Alembic
 chain** against a dedicated testcontainers Postgres — upgrade to the

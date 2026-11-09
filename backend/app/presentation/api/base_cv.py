@@ -71,7 +71,7 @@ async def create_base_cv(
 
     ``user_id`` is stamped from the acting user; a fourth master CV is refused
     with 409 and the message the user is shown. Then, best effort, its fit on
-    the listed jobs is queued for a recompute (KODI-046, R-016).
+    the listed jobs is queued for a recompute (R-016).
     """
     data = BaseCVCreateDTO(user_id=c_user.id, **payload.model_dump())
     base_cv = await use_case.execute(data)
@@ -110,7 +110,7 @@ async def update_base_cv(
 
     Only the fields explicitly provided are applied; a section provided
     replaces that section whole. 404 if not owned. Then, best effort, its fit
-    is queued for a recompute (KODI-046, R-016).
+    is queued for a recompute (R-016).
     """
     data = BaseCVUpdateDTO(**payload.model_dump(exclude_unset=True))
     base_cv = await use_case.execute(base_cv_id, c_user.id, data)

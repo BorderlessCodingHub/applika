@@ -48,7 +48,7 @@ BORDERLESS_CONFIG = load_config()
 
 @pytest.fixture(autouse=True, scope='session')
 def _rate_limit_disabled():
-    """The limiter is OFF by default in every test (KODI-039, T032): tests
+    """The limiter is OFF by default in every test (T032): tests
     that exercise it turn it back on with ``monkeypatch`` on ``envs``."""
     previous = envs.RATE_LIMIT_ENABLED
     envs.RATE_LIMIT_ENABLED = False
@@ -256,7 +256,7 @@ async def bind_borderless(
 
 
 class FakeJobQueue:
-    """The ``JobQueue`` the API sees in tests (KODI-046, ADR-0016): records
+    """The ``JobQueue`` the API sees in tests (ADR-0016): records
     every call instead of reaching taskiq. ``fail`` makes every call raise,
     ``running`` is what ``ingest_running`` answers."""
 
@@ -326,7 +326,7 @@ async def db_session(async_engine: AsyncEngine):
 
 @pytest_asyncio.fixture
 async def jobs_beta(db_session) -> int:
-    """KODI-052, ADR-0018: the ``jobs`` feature row as revision
+    """ADR-0018: the ``jobs`` feature row as revision
     ``641001baff09`` seeds it (``create_all`` has no seed rows), with the
     ``async_client`` user on its beta list. ``admin_client`` has ``jobs``
     as an admin once the row exists. Returns the feature id."""

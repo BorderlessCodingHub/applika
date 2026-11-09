@@ -103,7 +103,7 @@ class CreateTailoredCVUseCase:
 
         base_cv_dto = BaseCVDTO.model_validate(base_cv)
 
-        # The snapshot the diff baseline reads (R5, KODI-017 part 2) is the
+        # The snapshot the diff baseline reads (R5) is the
         # master CV's content *at this moment*, built **before** the port
         # runs and from a deep copy of the master's own dump - not a
         # reference to ``base_cv_dto`` and not from ``result.content``.

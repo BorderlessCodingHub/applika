@@ -1,4 +1,4 @@
-"""DTOs of the job collection (KODI-046, ADR-0016): what the ingest and fit
+"""DTOs of the job collection (ADR-0016): what the ingest and fit
 use cases hand to the repositories and return to their callers."""
 
 from datetime import datetime
@@ -77,7 +77,7 @@ class IngestRunDTO(BaseModel):
     fit: FitRecomputeDTO = FitRecomputeDTO()
 
 
-# --- The user's job list (KODI-047, plan 0012 ``## Contract``) ---
+# --- The user's job list (plan 0012 ``## Contract``) -------------
 
 JobSort = Literal['newest', 'fit']
 

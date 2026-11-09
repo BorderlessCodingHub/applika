@@ -354,7 +354,7 @@ def test_a_punctuation_only_or_lone_stop_word_tag_is_dropped(tag):
     assert job_keywords('', [tag]) == []
 
 
-# --- KODI-046 widening (owner, 2026-10-12): digits, any script, ``.NET``,
+# --- Keyword widening (owner, 2026-10-12): digits, any script, ``.NET``,
 # ``Python,`` and ``machine- learning`` -------------------------------------
 
 

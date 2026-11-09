@@ -144,7 +144,7 @@ class BadgeSource(StrEnum):
 
 
 class DeniedReason(StrEnum):
-    """The reason on a ``denied`` event only (KODI-014, R-033..R-036).
+    """The reason on a ``denied`` event only (R-033..R-036).
 
     The owner: "to event type denied, add a select input to select a reason
     with unknown pre-filled (add some options by yourself or based in the

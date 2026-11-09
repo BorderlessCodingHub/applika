@@ -1,4 +1,4 @@
-"""Render-master-CV-to-Markdown use case (KODI-017, T090)."""
+"""Render-master-CV-to-Markdown use case (T090)."""
 
 import time
 

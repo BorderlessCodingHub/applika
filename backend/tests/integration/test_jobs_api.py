@@ -1,10 +1,10 @@
-"""The job board for the signed-in user (KODI-047, T069/T070; PRD 0012
+"""The job board for the signed-in user (T069/T070; PRD 0012
 R-007, R-010..R-015, R-029, R-031) against the testcontainers Postgres.
 
 ``create_all`` builds the schema without revision ``b28d5134631f``'s seed,
 so :func:`tests.integration.jobs_seed.seed_sources` adds the two sources.
-Fit rows are written straight into ``job_fit_scores`` (the worker's job,
-KODI-046); the detail's fits are computed live from the master CVs.
+Fit rows are written straight into ``job_fit_scores`` (the worker's job);
+the detail's fits are computed live from the master CVs.
 Every company, CV and posting here is invented.
 """
 
@@ -36,7 +36,7 @@ from tests.integration.jobs_seed import (
     seed_sources,
 )
 
-# KODI-052 (ADR-0018): every route here sits behind the "jobs" beta
+# ADR-0018: every route here sits behind the "jobs" beta
 # feature; ``jobs_beta`` seeds it and puts the ``async_client`` user on its
 # list.
 # ADR-0021: the fit needs "cvs" too (without it the board answers no fit);

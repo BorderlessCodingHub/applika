@@ -1,4 +1,4 @@
-"""The job collection repositories against Postgres (KODI-046, T042): the
+"""The job collection repositories against Postgres (T042): the
 SQL behind insert/update/unchanged, expiry, fit upserts and stale CVs."""
 
 from datetime import timedelta

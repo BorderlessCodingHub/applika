@@ -1,4 +1,4 @@
-"""One collection run (KODI-046, T045/T047; R-004..R-008, R-016, R-034) on
+"""One collection run (T045/T047; R-004..R-008, R-016, R-034) on
 in-memory fakes. The repositories' own SQL is tested against Postgres in
 ``tests/integration/test_job_repositories.py``."""
 

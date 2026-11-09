@@ -27,7 +27,7 @@ from app.config.settings import (
 class TokenPayload(TypedDict):
     sub: str
     kind: Literal['access']
-    # Absent from every token minted before KODI-057: such a token is
+    # Absent from every token minted before device sessions: such a token is
     # refused with 401 "Session expired".
     sid: NotRequired[str]
 

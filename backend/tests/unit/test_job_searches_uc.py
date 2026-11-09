@@ -1,5 +1,5 @@
-"""Unit tests for the saved job search use cases and wire schemas (KODI-047,
-T071/T072). Mocked repository, no database; the lock and the unique index
+"""Unit tests for the saved job search use cases and wire schemas
+(T071/T072). Mocked repository, no database; the lock and the unique index
 are covered against Postgres in ``tests/integration/test_job_searches.py``.
 """
 

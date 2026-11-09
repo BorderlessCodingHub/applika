@@ -1,4 +1,4 @@
-"""catalog visibility and draft flag columns (Release A, KODI-030)
+"""catalog visibility and draft flag columns (Release A)
 
 Revision ID: 3b78c3cd2a71
 Revises: 583226ca46bc

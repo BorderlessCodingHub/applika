@@ -1,4 +1,4 @@
-"""CLI sign-in for ``applika-cli`` 1.1.0 and later (KODI-057, ADR-0019).
+"""CLI sign-in for ``applika-cli`` 1.1.0 and later (ADR-0019).
 
 - ``GET /auth/cli/authorize``: browser sign-in bound to a PKCE S256
   challenge; it goes straight to Borderless with ``prompt=login``

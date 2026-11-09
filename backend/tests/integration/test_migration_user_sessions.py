@@ -1,5 +1,5 @@
 """Round-trip test for the ``user_sessions`` table, revision
-``ed39a0fad1e5`` (KODI-056, Release A of plan 0014).
+``ed39a0fad1e5`` (Release A of plan 0014).
 
 ``.claude/rules/migration-tests.md`` 2: this drives the **real Alembic
 chain** against a dedicated testcontainers Postgres - upgrade to the
@@ -24,7 +24,7 @@ What is asserted here:
   definitions equal the first upgrade's (AC5);
 * ``upgrade()`` drops nothing and ``downgrade()`` is real (AC2, AC3);
 * nothing in ``app/`` maps ``user_sessions_old`` (AC4, AC7); since
-  KODI-057 ``UserSessionModel`` maps ``user_sessions`` and ``create_all``
+  Release B ``UserSessionModel`` maps ``user_sessions`` and ``create_all``
   builds exactly the migrated table.
 
 Plumbing is copied from ``tests/integration/test_migration_feature_flags.py``.
@@ -739,14 +739,14 @@ def test_a_second_round_trip_keeps_the_rows(migration_db: str) -> None:
 
 
 # --------------------------------------------------------------------------
-# KODI-057 - the ORM maps the table (Release B), never its _old twin, and
+# The ORM maps the table (Release B), never its _old twin, and
 # create_all builds exactly the migrated schema
 # --------------------------------------------------------------------------
 
 
 def test_orm_maps_the_table_but_never_its_old_twin() -> None:
-    """KODI-056 (Release A) asserted nothing mapped ``user_sessions``;
-    KODI-057 (Release B) maps it as ``UserSessionModel``. ``_old`` stays
+    """Release A asserted nothing mapped ``user_sessions``;
+    Release B maps it as ``UserSessionModel``. ``_old`` stays
     unmapped (non-destructive-migrations.md rule 7)."""
     from app.domain.models import Base
 

@@ -48,7 +48,7 @@ EVENT_KEYS = {
     'created_at',
     'updated_at',
 }
-# KODI-016 (R-038/R-039): a non-interview event's response omits the three
+# R-038/R-039: a non-interview event's response omits the three
 # schedule keys entirely (not null - absent).
 EVENT_KEYS_NON_INTERVIEW = EVENT_KEYS - {'start_time', 'end_time', 'timezone'}
 
@@ -172,7 +172,7 @@ async def test_full_crud_round_trip(
 async def test_put_is_a_full_replacement(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    # KODI-016: the schedule is interview-only, so the "full body" this PUT
+    # the schedule is interview-only, so the "full body" this PUT
     # replaces from is an interview - the switch to note below both drops
     # observation (the original rule this test pins) and the schedule.
     await ts.seed_open_application(db_session)
@@ -288,7 +288,7 @@ async def test_interview_type_on_non_interview_is_422(
 
 
 # ---------------------------------------------------------------------------
-# Denied reason (KODI-014, R-033..R-036)
+# Denied reason (R-033..R-036)
 # ---------------------------------------------------------------------------
 
 
@@ -385,7 +385,7 @@ async def test_bad_schedule_is_422(
     async_client: AsyncClient, db_session: AsyncSession, times
 ):
     # An interview event, so this pins pairing/ordering, not the (separate)
-    # KODI-016 schedule-only-on-interview rule.
+    # schedule-only-on-interview rule (R-038/R-039).
     await ts.seed_open_application(db_session)
     response = await async_client.post(BASE, json=_interview(**times))
     assert response.status_code == 422
@@ -414,7 +414,7 @@ async def test_timezone_over_100_and_observation_over_5000_are_422(
 async def test_schedule_on_non_interview_is_422(
     async_client: AsyncClient, db_session: AsyncSession, field
 ):
-    """KODI-016 (R-038/R-039), API-level sibling of
+    """R-038/R-039, API-level sibling of
     ``test_interview_type_on_non_interview_is_422``: POST and PUT both
     refuse a non-null schedule field on a non-interview event."""
     await ts.seed_open_application(db_session)

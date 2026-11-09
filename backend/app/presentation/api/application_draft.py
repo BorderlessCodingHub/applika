@@ -1,5 +1,5 @@
-"""Draft applications - the "new application with CV" flow (KODI-032,
-ADR-0014). Registered in ``app/main.py`` **before** ``application_router``
+"""Draft applications - the "new application with CV" flow
+(ADR-0014). Registered in ``app/main.py`` **before** ``application_router``
 so a literal ``/applications/drafts`` path segment is matched by this
 router first (``application_id`` on the sibling router is a
 ``SnowflakeID``, which would refuse "drafts" anyway, but the plan calls for
@@ -139,7 +139,7 @@ async def create_draft_from_job(
     base_cv_repo: BaseCVRepositoryDp,
     create_tailored_cv: CreateTailoredCVUseCaseDp,
 ):
-    """KODI-047: a draft filled from a job, optionally with a master CV
+    """A draft filled from a job, optionally with a master CV
     copy (verbatim by default). Declared before the ``/{draft_id}`` routes.
     """
     use_case = CreateDraftFromJobUseCase(

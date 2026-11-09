@@ -1,6 +1,6 @@
 """Pure CV diff: baseline vs current, field by field. No I/O, no framework.
 
-KODI-017 T091 (R-024/R-025). This is the SERVER half of the "Diff design
+T091 (R-024/R-025). This is the SERVER half of the "Diff design
 (PINNED)" the ticket addendum shares with the web diff
 (``frontend/src/components/tailored-cvs/cv-diff.ts``): the two implementations
 are pinned to the same semantics and the same canonical JSON output, proven

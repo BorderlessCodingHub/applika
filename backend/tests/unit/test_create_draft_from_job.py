@@ -1,4 +1,4 @@
-"""Unit tests for ``CreateDraftFromJobUseCase`` (KODI-047, T066/T068):
+"""Unit tests for ``CreateDraftFromJobUseCase`` (T066/T068):
 the prefill and the cuts, the company rule, the refusals and their order,
 the shared-session copy and the race on ``uq_applications_user_job``.
 Mocked repositories, no database."""
@@ -425,7 +425,7 @@ async def test_another_integrity_error_is_not_disguised():
 
 
 # ---------------------------------------------------------------------------
-# KODI-050: the draft carries the caller's local day. The window tests freeze
+# the draft carries the caller's local day. The window tests freeze
 # a UTC day far from any real run day, so a limit read from the host's clock
 # instead of utc_today() always fails them.
 # ---------------------------------------------------------------------------

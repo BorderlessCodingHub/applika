@@ -143,7 +143,7 @@ async def auth_handoff_state_use_case(redis_client):
 
 @pytest_asyncio.fixture
 async def real_client(async_engine: AsyncEngine, db_session, redis_client):
-    """A client with the REAL ``get_current_user`` (KODI-057): every
+    """A client with the REAL ``get_current_user``: every
     signed-in request goes through the session check on ``redis_client``.
     Sign in with ``tests/sessions_seed.py``."""
     maker = async_sessionmaker(bind=async_engine, expire_on_commit=False)

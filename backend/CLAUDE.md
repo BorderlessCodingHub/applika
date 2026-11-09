@@ -41,13 +41,13 @@ When you add or modify any of the following, update the seed script accordingly:
 - New or changed fields on `POST /base-cvs` — `seed_base_cvs()` creates 3 master CVs and asserts the 4th is refused with 409
 - New or changed behaviour on the `/pdf` export routes — `seed_cv_pdfs()` posts to both at the end of the run and checks the bytes start with `%PDF-`
 - New or changed fields on `/applications/{id}/cv` — `seed_application_cv()` gives roughly half the applications a CV copy and runs the full create → read → update → delete → recreate round trip on the first one, asserting the 2nd copy is refused with 409
-- Tailoring by keywords and the fit (KODI-045, ADR-0017) — `seed_keyword_copy()` makes the second seeded CV copy with `tailoring: 'keywords'` on the first master CV, against `KEYWORDS_JOB_DESCRIPTION` (written so the reorder is guaranteed), asserts `adjustments` is non-empty and `was_ai_generated` is false, then asserts `GET /applications/{id}/cv/fit` answers a `score` from 0 to 100
-- New or changed fields on `/applications/drafts*` — `seed_drafts()` creates one draft that gets a CV copy and is finished into a normal application, and one draft that is left open with a CV copy attached; it asserts the open one never appears in `GET /applications`. The finished draft sends its own `application_date` on create and calls `finish` with no body (KODI-036), asserting the finished application keeps that stored date rather than today's
-- Saved job searches (KODI-047) — `seed_job_searches()` deletes any left from a previous run, then creates, renames, lists and deletes one, fills the cap of 10 and asserts the 11th is refused with 409
-- Drafts from a job (KODI-047) — `seed_draft_from_job()` starts one draft from the first job of `GET /jobs` with no application, the first master CV and `tailoring: 'keywords'`, and asserts `job_id`, `has_cv` and the job's `application` mark; with no jobs (no worker run on the dev stack) it logs the skip
+- Tailoring by keywords and the fit (ADR-0017) — `seed_keyword_copy()` makes the second seeded CV copy with `tailoring: 'keywords'` on the first master CV, against `KEYWORDS_JOB_DESCRIPTION` (written so the reorder is guaranteed), asserts `adjustments` is non-empty and `was_ai_generated` is false, then asserts `GET /applications/{id}/cv/fit` answers a `score` from 0 to 100
+- New or changed fields on `/applications/drafts*` — `seed_drafts()` creates one draft that gets a CV copy and is finished into a normal application, and one draft that is left open with a CV copy attached; it asserts the open one never appears in `GET /applications`. The finished draft sends its own `application_date` on create and calls `finish` with no body, asserting the finished application keeps that stored date rather than today's
+- Saved job searches — `seed_job_searches()` deletes any left from a previous run, then creates, renames, lists and deletes one, fills the cap of 10 and asserts the 11th is refused with 409
+- Drafts from a job — `seed_draft_from_job()` starts one draft from the first job of `GET /jobs` with no application, the first master CV and `tailoring: 'keywords'`, and asserts `job_id`, `has_cv` and the job's `application` mark; with no jobs (no worker run on the dev stack) it logs the skip
 - Beta features (ADR-0018, ADR-0021) — `has_jobs_feature()` and `has_cvs_feature()` read `GET /users/me/features` right after `/supports`; without `jobs` the script skips `seed_job_searches()`; without `cvs` it skips `seed_base_cvs()`, `seed_cv_pdfs()`, `seed_application_cv()` and `seed_drafts()`; `seed_keyword_copy()` and `seed_draft_from_job()` need both. It prints why (an admin enrols the seed user at `/admin/features`) and never fails on the gate. A new gated feature adds its own check here. `app/scripts/seed_e2e.py` resets the features on every run, `jobs` and `cvs` alike: back to `beta` (`released_at` NULL), `e2e-user` on its list, `e2e-discord` off it, every opt-out of `e2e-admin` gone; it fails loudly when either row is missing (run `alembic upgrade head` first)
 - Device sessions (ADR-0019) — the pasted `ACCESS_TOKEN` must be the `__access` cookie of a **live** browser session (its JWT carries `sid`; a token from before the release, or from a browser that logged out or was revoked, is 401 `Session expired`). `app/scripts/seed_e2e.py` opens every e2e session through `OpenSessionUseCase` (a `user_sessions` row + its Redis keys): one `borderless` session per seeded user (each user bound to its fake Borderless account with the account's `seedRefreshToken`, no Redis access key, see `seed_e2e.py`; `frontend/scripts/e2e.sh` POSTs the fake's `/__fake/reset` first) and one `cli_device` session ("e2e-cli") for `e2e-user`, printed as `cli_access_token`/`cli_refresh_token` and exported by `frontend/scripts/e2e.sh` as `E2E_CLI_ACCESS_TOKEN`/`E2E_CLI_REFRESH_TOKEN`
-- **A 429 is waited out, never treated as a failure** (KODI-039, ADR-0015): the script's `httpx.Client` uses `RetryOn429Transport`, which reads `Retry-After` on a 429 and resends the exact same request once. The dev/e2e compose stacks already raise `RATE_LIMIT_DEFAULT`/`RATE_LIMIT_AUTH` so a normal run never trips it; the retry only matters against a stock, un-raised stack
+- **A 429 is waited out, never treated as a failure** (ADR-0015): the script's `httpx.Client` uses `RetryOn429Transport`, which reads `Retry-After` on a 429 and resends the exact same request once. The dev/e2e compose stacks already raise `RATE_LIMIT_DEFAULT`/`RATE_LIMIT_AUTH` so a normal run never trips it; the retry only matters against a stock, un-raised stack
 
 After any such change, mentally walk through the seed script from top to bottom and confirm it would still run without errors against a fresh database.
 
@@ -188,13 +188,13 @@ See `app/application/use_cases/applications/create_application.py` for reference
 - **Sign in with Borderless through OpenID Connect is the only sign-in** (ADR-0026, amending ADR-0024). applika is a confidential client (`BorderlessOidcClient`, `app/application/services/borderless_oidc.py`, httpx, one per process: the issuer's discovery document and JWKS are cached, a failed discovery refetch keeps the last good document for 60 s; `BORDERLESS_ISSUER`, `BORDERLESS_CLIENT_ID`, `BORDERLESS_CLIENT_SECRET` as a per-call HTTP Basic header, `BORDERLESS_REDIRECT_URI`). `GET /auth/borderless/login` (`BeginBorderlessLoginUseCase`) → 307 to the authorize endpoint with `response_type=code`, the four scopes, a `state` (a random UUID, `str(uuid.uuid4())`), a `nonce` and an S256 challenge (binding, verifier and nonce `secrets.token_urlsafe(32)`), no `prompt` on the web (the Borderless browser session makes it one click), plus applika's own HttpOnly `__applika_login` cookie (SameSite=Lax, Path `{API_PREFIX}/auth/borderless`, 600 s). The attempt is `BorderlessLoginStateUseCase` (`applika:borderless:login:<state>` JSON `{binding_sha256, verifier, nonce, flow, cli_login_id, target}`, `GETDEL`, `BORDERLESS_LOGIN_TTL_SECONDS`; Redis down → AUTH-1003); `target` is where the sign-in ends, from `BorderlessLoginTargets` (`use_cases/borderless/login_target.py`): `WEB_SIGNIN_URI` for the web, the CLI login's hand-off for a CLI (`cli_handoff_target`, `use_cases/cli_auth/callback_url.py`: its loopback callback, or `CLI_MANUAL_REDIRECT_URI` for `oob`). `GET /auth/borderless/callback` (`CompleteBorderlessLoginUseCase`) always 307s: cookie hash + `state` → the stored target re-checked against the allowed one (another → AUTH-1046, the CLI login gone → AUTH-1019; never followed, and no query value decides a target) → `iss` = issuer (RFC 9207) → Borderless `error` → the code exchange (Basic, verifier, `redirect_uri`, one retry on 5xx/timeout) → the id_token verified (`EdDSA` only, `iss`, `aud`/`azp`, `exp`, `iat`, the attempt's `nonce`) → `BorderlessSignInUseCase`. Web: this browser's session ends `replaced` (only when it is the same user's), a `borderless` session opens, both cookies, 307 to the stored target (`WEB_SIGNIN_URI`). CLI: `cli_handoff_redirect` to the stored target (loopback or `CLI_MANUAL_REDIRECT_URI`) while it is still that CLI login's own, no cookie. Refused → `WEB_SIGNIN_URI?error=<code>` (`&cli=1` on a CLI flow): AUTH-1046 no attempt for this state and browser (missing, used, expired, other browser, a newer attempt, or a stored target not allowed; the cookie is kept then, it may be the newer tab's), AUTH-1047 Borderless `error`, AUTH-1048 `iss`/code/exchange 4xx/id_token/no refresh token, AUTH-1017 unavailable, AUTH-1018 not configured, AUTH-1005..1008 the sign-in's refusals, AUTH-1019 the CLI login expired, AUTH-1003 Redis, GEN-1005 anything else (ERROR log, the type only). Resolution by `sub` (never the email): the bound account; else the account whose email equals the Borderless email ignoring case (exact first; bound to another `sub` → AUTH-1006; several none exact → AUTH-1007), bound now; else a new account (username = `name`, else `preferred_username`); an unusable email → AUTH-1008 before any write; `email_verified` false → AUTH-1005. A binding never moves. Nothing logs or returns a code, state, token, id_token or the secret; the request log and uvicorn's access log write the callbacks' query as `?[redacted]` (`config/middleware.py`)
 - **Membership badges** (`user_badges`, `BadgeKey` `borderless_base`|`borderless_psp`, history kept: revoking sets `revoked_at`). The id_token's `borderless_membership` (`badge_for`, `use_cases/borderless/membership.py`: BASE/PSP ignoring case; FREE, STARTER, anything else or nothing → none) is applied by `UserBadgeRepository.apply` (at most one live badge) at every sign-in and refresh. One grant per user: the refresh token is `borderless_accounts.encrypted_refresh_token` (Fernet, `BORDERLESS_TOKEN_ENCRYPTION_KEY`, rotated and re-stored on every use; `decrypt_borderless_token` goes through an `lru_cache(1024)` keyed on `(key, ciphertext)`, failures never cached); the access token is `applika:borderless:access:<user_id>` in Redis (`BorderlessAccessStore`, Fernet, `EX expires_in`, never decrypted, never in Postgres; a Redis error counts as missing). `RefreshBadgesUseCase` (`use_cases/borderless/refresh_badges.py`, never raises) → `fresh` (the Redis key exists: no call), `ok` (row lock, Redis checked again, `refresh_token` grant, `sub` must match, rotated token + badges + `profile_read_at` in one commit, then the new access key), `failed` (slow/5xx/429/another refusal/bad id_token/another `sub`: `profile_read_failed_at`, badges kept, no key; the whole refresh, discovery and JWKS included, is bounded by its timeout; a check within `FAILURE_BACKOFF_SECONDS` (5) of a failed refresh, with no later success, answers `failed` without a call, so requests queued on the row lock do not each wait for Borderless), `ended` (`invalid_grant`, a token that no longer decrypts, or an `active` binding with no token) → `EndBorderlessGrantUseCase` under the same row lock: every open WEB session ends `borderless_revoked`, token NULL, `needs_reconnect`, key dropped; CLI sessions stay; `disconnected` (no binding or `needs_reconnect`, no call). `badge_access(binding, live_badges)` (`use_cases/borderless/badge_access.py`) is the ONE rule: held = live row AND binding `active`; there is no expiry
 - **Last session, grant released** (`ReleaseBorderlessGrantUseCase`): after `GET /auth/logout`, `POST /auth/revoke` or `DELETE /users/me/sessions/{id}` ends the user's last open session (and with `force` before `DELETE /users/me`), the refresh token is decrypted and NULLed, the access key dropped, and the route revokes it at Borderless in `BackgroundTasks` (`token_type_hint=refresh_token`, best effort, a WARNING with the status only). Another open session → nothing, Borderless not told. The Borderless browser session is never touched. `POST /auth/borderless/signin` and `/confirm` are gone (404)
-- **One session per sign-in, one device** (KODI-057, ADR-0019). A session is a `user_sessions` row (`UserSessionModel`: device name, client, sign-in method, sign-in/last IP, granted, last used, `expires_at`, `ended_at` + `end_reason`; ended rows stay) plus two Redis keys on `REDIS_URL` (the rate limiter's instance), both `EXAT expires_at`: `applika:session:<uuid7>` → the session id, and `applika:session:id:<sid>` hash `{rk, user_id, last_used_at, last_ip}`. `SessionStore` (`app/application/services/session_store.py`) is the only code that touches them. **A missing key means the session has ended.** The refresh value is never stored in Postgres (not even hashed), never logged and never listed
+- **One session per sign-in, one device** (ADR-0019). A session is a `user_sessions` row (`UserSessionModel`: device name, client, sign-in method, sign-in/last IP, granted, last used, `expires_at`, `ended_at` + `end_reason`; ended rows stay) plus two Redis keys on `REDIS_URL` (the rate limiter's instance), both `EXAT expires_at`: `applika:session:<uuid7>` → the session id, and `applika:session:id:<sid>` hash `{rk, user_id, last_used_at, last_ip}`. `SessionStore` (`app/application/services/session_store.py`) is the only code that touches them. **A missing key means the session has ended.** The refresh value is never stored in Postgres (not even hashed), never logged and never listed
 - **Access token**: short-lived JWT, payload `{sub: users.id, sid: <user_sessions.id as string>, kind: 'access', exp}`. The web sends it in the HTTP-only `__access` cookie; `applika-cli` 1.1.0+ sends `Authorization: Bearer`. `get_current_user()` reads **Bearer first, then the cookie**, else 401 `Not authenticated`
 - **Refresh value**: a random `uuid.uuid7()`, in the HTTP-only `__refresh` cookie (web and CLIs 0.1.4–1.0.1) or the CLI's own store (1.1.0). Never rotated
 - **The check on every signed-in request** (`GetCurrentUserUseCase`): JWT decode first (bad/expired → 401 as before); no `sid`, a session whose key is gone, or a `sub` that is not the session's `user_id` (every pre-ADR-0024 token carried a GitHub id) → 401 `Session expired`; otherwise one Lua script (EXISTS → HSET `last_used_at`, `last_ip`) under `asyncio.timeout(0.5)`. Sets `request.state.session_id` (`CurrentSessionIdDp`). **Fail closed**: a `RedisError`, `OSError` or timeout raises `SessionServiceUnavailable` → 503 `{"detail": "Session service unavailable", "code": "AUTH-1003"}` + `Retry-After: 5`; the request never passes unchecked and nobody is signed out (a 401 would send every client to refresh). The GitHub restore callback runs the same check on its cookie
 - **Sliding lifetime**: a session ends `REFRESH_TOKEN_EXPIRE_DAYS` (7) after its **last refresh**. `GET /auth/refresh` and the `refresh_token` grant resolve the uuid7; a user with no Borderless binding ends the session `expired`, 401 AUTH-1016 `Sign in again with Borderless`; otherwise `RefreshBadgesUseCase` (`BORDERLESS_REFRESH_TIMEOUT_SECONDS`): a WEB row whose grant `ended` or is `disconnected` ends `borderless_revoked` → 401 `{"detail": "Your Borderless sign-in has ended. Sign in again with Borderless", "code": "AUTH-1049"}`; a CLI row slides whatever the outcome; a failing Borderless never fails a refresh. Then `EXPIREAT` both keys and `expires_at` a full window ahead and copy the live last use onto the row. `/auth/refresh` re-sets `__access` (new JWT, same `sid`) **and** `__refresh` (same value, full Max-Age); a refused refresh is 401 and clears both cookies, a 503 clears nothing. The user's other web sessions then read 401 AUTH-1002 (their keys went) and their refresh 401 AUTH-1015
 - **Ending a session** (`EndSessionUseCase`): DEL both keys, then set `ended_at` + `end_reason` (`logout` = `GET /auth/logout` / `POST /auth/revoke`, `revoked` = Devices tab, `replaced` = a new web sign-in in the same browser, `borderless_revoked` = a web session Borderless's refusal of the grant ended (Devices shows it `revoked`); `github_revoked` stays only on rows ended before ADR-0024) and copy the live last use. Only a live session ends; an ended row, a row past `expires_at` or one whose key is gone is a no-op (it already reads as ended/expired). `DELETE /users/me` DELs every open session's keys before the user goes (rows by CASCADE)
-- **Cutover** (the release that ships KODI-057): nothing reads `applika:refresh_token:*` any more and a JWT without `sid` is 401, so every web and CLI user signs in again; the old keys die on their TTL
+- **Cutover** (the release that ships device sessions): nothing reads `applika:refresh_token:*` any more and a JWT without `sid` is 401, so every web and CLI user signs in again; the old keys die on their TTL
 - **CLI login handoff (legacy, deprecated)**: `/auth/cli/start`, `/auth/cli/login/{id}`, `/auth/cli/exchange` keep their shapes for CLIs 0.1.4–1.0.1 (ADR-0009) and open a `cli_legacy` session at the exchange. `/auth/cli/login/{id}` and `/auth/cli/authorize` 307 straight to Borderless's authorize endpoint with `prompt=login` (a CLI sign-in always asks, even when the browser is signed in there) and the `__applika_login` cookie (400/404 unchanged; Borderless unavailable or not configured → `WEB_SIGNIN_URI?error=<code>&cli=1`); Borderless's callback hands the code back. The browser's own applika session is never opened, ended or replaced. A PKCE code is refused by `/auth/cli/exchange` (it is redeemed only with its verifier on `POST /auth/token`)
 - **CLI sign-in (1.1.0+)**: authorization code + PKCE S256 (`GET /auth/cli/authorize`, loopback `redirect_uri` or `oob` → the code is shown at `CLI_MANUAL_REDIRECT_URI`), or the RFC 8628 device code (`/auth/device/*`, approved by a signed-in web user at `DEVICE_VERIFICATION_URI`). Login state and codes live in `AuthHandoffStateUseCase` (`flow='pkce'`, `code_challenge`, `redirect_uri`; codes `GETDEL`, 60 s); device codes in `DeviceCodeUseCase` (`applika:device:code:<device_code>` hash + `applika:device:user_code:<CODE>`, `EX DEVICE_CODE_TTL_SECONDS`, decided and consumed by Lua). Each CLI sign-in is a session of its own (`client_type='cli'`); a CLI sign-in never ends the browser's own session
 - **Not gated**: the Devices API and every CLI sign-in route are open to every user (owner: "Gate nothing", the ADR-0019 exception to ADR-0018)
@@ -409,7 +409,7 @@ The keyword fit (`keyword_fit.py`, a port of Ían's `keywords_service.py`) is
 pure functions: `job_keywords(text, tags)` (25 most frequent terms + 25 most
 frequent word pairs, stop words removed, plus tags; a tag is matched
 as written, its own punctuation included, and dropped when it holds no word
-(`-`, `#`) or is a lone stop word or letter). Since KODI-046 (owner,
+(`-`, `#`) or is a lone stop word or letter). Since the keyword widening (owner,
 2026-10-12) a word may start with a digit and hold letters of any script
 (`5G`, `3D`, `2FA`, `Vue 3`, `Résumé` are kept and matched), a token with no
 letter is never a term (`2024`, `10+`), a leading dot is part of the word
@@ -588,7 +588,7 @@ All entity primary keys use Snowflake-generated `BigInteger` IDs instead of UUID
 - Request ID propagated via context variable (`request_id_ctx`)
 - Added to logs via `RequestIdFilter`
 - Returned in response header `X-Request-ID`
-- `client_ip` is the address **uvicorn resolved** (KODI-039, ADR-0015):
+- `client_ip` is the address **uvicorn resolved** (ADR-0015):
   uvicorn's `proxy_headers` (on by default) rewrites `request.client.host`
   from `X-Forwarded-For` only when the connecting peer is in
   `FORWARDED_ALLOW_IPS`. The middleware reads `request.client.host` only —
@@ -605,7 +605,7 @@ preflight (`OPTIONS`) is answered by `CORSMiddleware` before this
 middleware ever counts it.
 
 - **Subject**: a request whose `Authorization: Bearer` header, else whose
-  `__access` cookie (KODI-057, ADR-0019: Bearer first), holds a valid,
+  `__access` cookie (ADR-0019: Bearer first), holds a valid,
   unexpired access token is counted against that token's subject
   (`user:<sub>`); any other request is counted against the client IP
   (`ip:<addr>`) — the same `client.host` uvicorn resolved, above. The
@@ -664,11 +664,11 @@ middleware ever counts it.
 | GET | `/auth/refresh` | No (`__refresh`) | Slide the session 7 days, re-set `__access` + `__refresh`; 401 clears both; 503 when Redis is down |
 | GET | `/auth/logout` | No (`__refresh`) | End the session (`logout`), clear both cookies |
 | GET | `/auth/cli/authorize` | No | ADR-0019: `?redirect_uri&code_challenge&code_challenge_method=S256&state` → 307 to Borderless's sign-in with `prompt=login` + `__applika_login`; 400 loopback messages, `code_challenge_method must be S256`, `Invalid code_challenge` |
-| POST | `/auth/token` | No | KODI-057: `grant_type` `authorization_code` `{code, code_verifier, redirect_uri, device_name?}` · `refresh_token` · `urn:ietf:params:oauth:grant-type:device_code` → `{access_token, token_type: "Bearer", expires_in, refresh_token, refresh_expires_in}`; 400 `{error, detail}`; 422 bad shape |
-| POST | `/auth/revoke` | No | KODI-057: `{refresh_token}` → 204 for any value, live, ended or unknown (ends a live session as `logout`); 503 when Redis is down (fail closed: a 204 would claim an end that did not happen) |
-| POST | `/auth/device/code` | No | KODI-057: `{device_name?}` → `{device_code, user_code: "XXXX-XXXX", verification_uri, verification_uri_complete, expires_in: 600, interval: 10}` |
-| GET | `/auth/device/verify` | Yes | KODI-057: `?user_code=` → `{device_name, client_label, ip, requested_at, expires_at}`; 404 `Code not found or expired` |
-| POST | `/auth/device/approve`, `/auth/device/deny` | Yes | KODI-057: `{user_code}` → 204; 404; 409 `Code already used`. The poll then answers `authorization_pending`, `slow_down` (faster than `interval`), `access_denied`, `expired_token`, or the session (signed in as the approver, one use) |
+| POST | `/auth/token` | No | ADR-0019: `grant_type` `authorization_code` `{code, code_verifier, redirect_uri, device_name?}` · `refresh_token` · `urn:ietf:params:oauth:grant-type:device_code` → `{access_token, token_type: "Bearer", expires_in, refresh_token, refresh_expires_in}`; 400 `{error, detail}`; 422 bad shape |
+| POST | `/auth/revoke` | No | ADR-0019: `{refresh_token}` → 204 for any value, live, ended or unknown (ends a live session as `logout`); 503 when Redis is down (fail closed: a 204 would claim an end that did not happen) |
+| POST | `/auth/device/code` | No | ADR-0019: `{device_name?}` → `{device_code, user_code: "XXXX-XXXX", verification_uri, verification_uri_complete, expires_in: 600, interval: 10}` |
+| GET | `/auth/device/verify` | Yes | ADR-0019: `?user_code=` → `{device_name, client_label, ip, requested_at, expires_at}`; 404 `Code not found or expired` |
+| POST | `/auth/device/approve`, `/auth/device/deny` | Yes | ADR-0019: `{user_code}` → 204; 404; 409 `Code already used`. The poll then answers `authorization_pending`, `slow_down` (faster than `interval`), `access_denied`, `expired_token`, or the session (signed in as the approver, one use) |
 
 Discord linking is removed (ADR-0024): `/auth/link/discord*` answer 404. The Discord tables are `discord_connections_old` and `discord_report_webhooks_old` (revision `4d3bbb20127f`), unmapped.
 
@@ -678,10 +678,10 @@ Discord linking is removed (ADR-0024): `/auth/link/discord*` answer 404. The Dis
 | GET | `/users/me` | Yes | Get current user profile |
 | PATCH | `/users/me` | Yes | Update profile |
 | POST | `/users/me/github-restore/dismiss` | Yes | ADR-0024: the one-time restore screen is answered; 204, idempotent |
-| GET | `/users/me/features` | Yes | KODI-052: `{features: [{key, stage: 'beta' \| 'general'}]}`, the caller's own, by key (web only; `/users/me` is unchanged for the CLI) |
-| GET | `/users/me/sessions` | Yes | KODI-057: the caller's devices `[{id, client_type, sign_in_method, device_name, client_label, created_ip, last_ip, created_at, last_used_at, expires_at, ended_at, status: active\|signed_out\|revoked\|expired, current}]`: active by `last_used_at` DESC NULLS LAST (live from Redis), then ended by `coalesce(ended_at, expires_at)` DESC within `SESSION_HISTORY_DAYS`. Status derived; the GET writes nothing |
-| DELETE | `/users/me/sessions/{id}` | Yes | KODI-057: revoke → 204 (ended/expired: no-op 204; the current one also clears both cookies); 404 `Session not found` for any other user's id, admins too |
-| POST | `/users/me/sessions/revoke-others` | Yes | KODI-057: every other live session ends as `revoked` → `{revoked: n}` |
+| GET | `/users/me/features` | Yes | ADR-0018: `{features: [{key, stage: 'beta' \| 'general'}]}`, the caller's own, by key (web only; `/users/me` is unchanged for the CLI) |
+| GET | `/users/me/sessions` | Yes | ADR-0019: the caller's devices `[{id, client_type, sign_in_method, device_name, client_label, created_ip, last_ip, created_at, last_used_at, expires_at, ended_at, status: active\|signed_out\|revoked\|expired, current}]`: active by `last_used_at` DESC NULLS LAST (live from Redis), then ended by `coalesce(ended_at, expires_at)` DESC within `SESSION_HISTORY_DAYS`. Status derived; the GET writes nothing |
+| DELETE | `/users/me/sessions/{id}` | Yes | ADR-0019: revoke → 204 (ended/expired: no-op 204; the current one also clears both cookies); 404 `Session not found` for any other user's id, admins too |
+| POST | `/users/me/sessions/revoke-others` | Yes | ADR-0019: every other live session ends as `revoked` → `{revoked: n}` |
 
 `GET`/`PATCH /users/me` build the response with `UserProfile.from_user(user, badges, binding, github)`: `badges` = live rows `[{badge, granted_at}]` held or not; `borderless` = `{status: active|needs_reconnect, email, checked_at}` or null (`checked_at` = the last successful membership read, `profile_read_at`; never a token); `github_restore` = `{available: no GitHub row, prompt: available and not seen}`; `github_id` = the caller's `github_connections.github_id` or null. `username`, `first_name`, `last_name`, `email` are unchanged for the CLI.
 
@@ -695,7 +695,7 @@ Discord linking is removed (ADR-0024): `/auth/link/discord*` answer 404. The Dis
 | POST | `/applications/{id}/finalize` | Yes | Close it. No body → 200, idempotent. New optional outcome body → 200, no Deprecation. 0.1.4 body → 201, deprecated |
 | POST | `/applications/{id}/reopen` | Yes | Reopen a closed application (200, idempotent) |
 
-### Application drafts (`/applications/drafts`, KODI-032, ADR-0014, KODI-036, web only - not a CLI route)
+### Application drafts (`/applications/drafts`, ADR-0014, web only - not a CLI route)
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
@@ -704,7 +704,7 @@ Discord linking is removed (ADR-0024): `/auth/link/discord*` answer 404. The Dis
 | GET | `/applications/drafts/{id}` | Yes | Get one own draft (404 otherwise) |
 | PUT | `/applications/drafts/{id}` | Yes | Full replace of the draft's data; never touches its CV copy |
 | DELETE | `/applications/drafts/{id}` | Yes | Delete it (204); its CV copy is cascade-deleted |
-| POST | `/applications/drafts/from-job` | Yes | KODI-047: `{job_id, base_cv_id?, tailoring?: 'copy' \| 'keywords' = 'copy', application_date?}` → 201 `Draft` filled from the job, dated `application_date` (the caller's local day, KODI-050) or the server's UTC day; 422 `application_date` outside UTC today ± 1; 404 job unknown or off the list, or base CV not own; 409 `"You already have an application for this job"`; 422 `keywords` without a job description |
+| POST | `/applications/drafts/from-job` | Yes | PRD 0012: `{job_id, base_cv_id?, tailoring?: 'copy' \| 'keywords' = 'copy', application_date?}` → 201 `Draft` filled from the job, dated `application_date` (the caller's local day) or the server's UTC day; 422 `application_date` outside UTC today ± 1; 404 job unknown or off the list, or base CV not own; 409 `"You already have an application for this job"`; 422 `keywords` without a job description |
 | POST | `/applications/drafts/{id}/finish` | Yes | Body optional - no body, `{}` or `{application_date}` - → 200 `Application` (same shape `GET /applications` returns); 422 with no CV copy; 422 past `UTC today + 1` |
 
 **Gate (ADR-0018, ADR-0021):** every drafts route needs the `cvs` beta
@@ -724,7 +724,7 @@ finishing"` otherwise), applies `ensure_not_in_future` to the date that will
 be used, flips `is_draft` to `false` and leaves `cycle_id` NULL - the row
 then behaves like any application created the ordinary way.
 
-**`application_date` is saved with the draft** (KODI-036, R-003, reusing the
+**`application_date` is saved with the draft** (R-003, reusing the
 existing `applications.application_date` column - no migration).
 `DraftInput.application_date` is optional: a POST that omits it defaults to
 the server's own day (`ApplicationRepository.create_draft`); a PUT that omits
@@ -805,7 +805,7 @@ offer's `salary_period` is `monthly` or `annually`, same restriction and
 same message as the timeline write schema (`hourly` is a 422) —
 `timeline_events/rules.OFFER_PERIODS`/`OFFER_PERIOD_INVALID`, enforced in
 `FinalizeWithOutcome` and again in `FinalizeApplicationWithOutcomeUseCase`
-via `rules.ensure_offer_period_allowed`. Fixed in KODI-011 remediation
+via `rules.ensure_offer_period_allowed`. Fixed in plan 0008's remediation
 round 1 (R-032): the outcome body used to go through
 `timeline_events/rules.normalize_event` alone, which only checks the
 salary fields are present, not the period's value, so the same offer event
@@ -861,7 +861,7 @@ and `salary_period` (`monthly` or `annually` for an offer); every other type
 refuses all three, so turning an offer into something else drops the salary
 in the same PUT. `start_time`/`end_time` come together, end after start;
 `timezone` ≤ 100, `observation` ≤ 5000. **`start_time`/`end_time`/`timezone`
-are allowed on an interview event only** (KODI-016, R-038/R-039,
+are allowed on an interview event only** (R-038/R-039,
 `ck_timeline_events_schedule_interview_only`; owner: "if event type is
 different from interview, these attributes must be blocked"), same pattern
 as `interview_type`: a non-null value on any other type is a 422, an
@@ -904,7 +904,7 @@ event's type, interview type and salary (0.1.4 `steps edit` without `--step`
 resends it; that reverse step may be strict). A POST/PUT with another step
 still refuses strict steps (404, as always). Writes go through the timeline
 use cases, so every timeline rule, guard and the one-initial-screening 409
-apply — **except** the schedule (KODI-016, R-038/R-039): `legacy_steps.py`
+apply — **except** the schedule (R-038/R-039): `legacy_steps.py`
 drops `start_time`/`end_time`/`timezone` itself before calling into the
 timeline use case whenever the mapped event is not an interview, so an
 installed CLI that always sends times is never 422'd for it
@@ -931,14 +931,14 @@ validation errors carry it too. `Deprecation` is in the CORS
 |--------|-------|------|-------------|
 | GET | `/companies` | Yes | List/search companies visible to the caller |
 | POST | `/companies` | Yes | `{name, url}` → 201 new private company, or 200 reusing an existing visible one |
-| GET | `/platforms` | Yes | (S7, KODI-035) List/search platforms visible to the caller, ordered by name - the web platform picker; `/supports` below stays the CLI's route, unchanged |
+| GET | `/platforms` | Yes | (S7) List/search platforms visible to the caller, ordered by name - the web platform picker; `/supports` below stays the CLI's route, unchanged |
 | POST | `/platforms` | Yes | `{name, url?}` → 201, private to the caller; url is optional |
 
 **Private until published.** `CompanyModel.is_public` / `PlatformModel.is_public`
 (default `True`, migration `3b78c3cd2a71`'s `server_default true` - every row
-that existed before KODI-031 stays public) and `PlatformModel.created_by`
+that existed before private catalog rows stays public) and `PlatformModel.created_by`
 (nullable FK `users.id`, **`ON DELETE SET NULL`**) are the two columns this
-ticket maps onto the ORM; Release A (KODI-030) only added them to the schema.
+ticket maps onto the ORM; Release A only added them to the schema.
 A row a user adds through `POST /companies`, `POST /platforms` or inline on
 `POST /applications` is **private**: visible and selectable only by its
 creator, until an admin publishes it. **There is no admin branch** - an admin
@@ -981,7 +981,7 @@ url)` for a company, on `lower(name)` alone for a platform (there is
 deliberately no uniqueness among existing public platform names - production
 may already hold duplicates, migration `3b78c3cd2a71`'s own note). `GET
 /admin/companies` and `GET /admin/platforms` (the latter paginated since S7,
-KODI-035, on the same shape as companies) both take `?search=&visibility=
+on the same shape as companies) both take `?search=&visibility=
 public|private&sort_by=name|created_at|applications_count&sort_order=asc|
 desc&page&per_page` and answer `{items, total, page, per_page, total_pages}`,
 every row adding `is_public`, `created_by {id, username} | null` and
@@ -1111,7 +1111,7 @@ are gone (404). They are served, unchanged in shape, only so installed
 `EventType`/`InterviewType` enums. The `platforms` list is **not** frozen
 (ADR-0014): it is the caller's visible platforms (`list_visible`, above), a
 platform's `url` is nullable (a platform may have none, whoever added it),
-and each row adds `is_public`. **Unchanged by S7/KODI-035**: `/supports`
+and each row adds `is_public`. **Unchanged by S7**: `/supports`
 still calls `list_visible(user_id)` with no `name` or `order_by_name`, so its
 content, shape and `ORDER BY id` are exactly what installed CLI clients read
 today (R-036) - the web platform picker reads the new `GET /platforms`
@@ -1134,7 +1134,7 @@ heatmap) comes from `timeline_events.created_at`.
 
 Tables `report_webhooks` (`ReportWebhookModel`, carried over from `discord_report_webhooks` with no badge by `d9e0b46dd7e1`, topped up by `4d3bbb20127f`; the source is now `discord_report_webhooks_old`) and `report_webhook_badges` (`ReportWebhookBadgeModel`, PK `(report_webhook_id, badge)`, CASCADE; revision `b86d7ee66d94`). The repository writes a webhook and its badges in one commit. A badge accepts `borderless_base`/`borderless_psp` or `BASE`/`PSP`, any case; an empty list is 422 "Choose at least one badge: BASE or PSP", a repeat 422 "Each badge can be chosen once", anything else 422 "Badge must be BASE or PSP". Only `webhook_url_masked` is ever returned (`validators/report_webhook.mask`), logs name the id, and the router's `NoInputEchoRoute` (`app/presentation/no_input_echo.py`, also on `/auth/borderless/*`) strips `input` from every 422, so the URL is never echoed. `/admin/discord-webhooks*` answer 404.
 
-### Admin job sources (`/admin/jobs`, KODI-046, ADR-0016)
+### Admin job sources (`/admin/jobs`, ADR-0016)
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
@@ -1148,7 +1148,7 @@ CLI route. The platform a source points at (R-019) cannot be deleted from
 `/admin/platforms` - `count_entity_references('platform', id)` counts
 `job_sources.platform_id` as well as applications.
 
-### Admin features (`/admin/features`, KODI-052, ADR-0018)
+### Admin features (`/admin/features`, ADR-0018)
 
 | Method | Route | Auth | Description |
 |--------|-------|------|-------------|
@@ -1170,9 +1170,9 @@ admin writes only their own opt-out row - there is no route to opt someone
 else out. The API never creates, renames or deletes a feature; it joins
 through an Alembic seed row. Not a CLI route; never gated.
 
-### Jobs (`/jobs`, KODI-047, PRD 0012, web only - not a CLI route)
+### Jobs (`/jobs`, PRD 0012, web only - not a CLI route)
 
-**Gate (KODI-052):** the whole router needs the `jobs` beta feature, else
+**Gate:** the whole router needs the `jobs` beta feature, else
 every route is the unknown-route 404. The fit also needs `cvs` (ADR-0021):
 without it `GET /jobs` sends `best_fit: null` on every item, `min_fit`
 matches no job (`items: []`, `total: 0`) and `sort=fit` is `newest`; `GET
@@ -1209,7 +1209,7 @@ ignored (`JobListQuery`).
 **Draft from a job** (`POST /applications/drafts/from-job`,
 `use_cases/application_drafts/create_draft_from_job.py`, a port of Ían
 Muliterno's `create_application_from_job.py`). Checks before any write: a sent
-`application_date` within UTC today ± 1 (422, first, KODI-050), job
+`application_date` within UTC today ± 1 (422, first), job
 listed (404 `"Job not found"`), no application of the caller with that
 `job_id` (409), a non-blank title (422 `"This job has no title to start
 from"`), the source's `platform_id` visible (`ensure_platform_visible`,
@@ -1230,9 +1230,9 @@ both; any failure rolls the draft back. An `IntegrityError` on
 never touches it (not in `DraftInput`, a PUT naming it is 422) and finishing
 keeps it.
 
-### Job searches (`/job-searches`, KODI-047, R-030, R-032)
+### Job searches (`/job-searches`, R-030, R-032)
 
-**Gate (KODI-052):** the whole router needs the `jobs` beta feature, else
+**Gate:** the whole router needs the `jobs` beta feature, else
 every route is the unknown-route 404. The rows stay when a user loses it.
 
 | Method | Route | Auth | Description |
@@ -1254,7 +1254,7 @@ no notification field, route or side effect (R-032).
 Every **interview** event dated inside the window (`from_date`/`to_date`,
 default 30 days either side of today), ordered by date then start time — the
 window and order the steps agenda had. Narrowed to interview events only by
-KODI-016 (R-038/R-039): a non-interview event carries no schedule any more,
+R-038/R-039: a non-interview event carries no schedule any more,
 so an agenda entry with nothing to show would be pointless. An item keeps its
 step-era shape (`id`, `step_id`, `step_date`, `step_name`, `step_color`,
 times, timezone, observation, `application_id`, `company_name`, `role`; the
@@ -1276,7 +1276,7 @@ See `app/tests/` for test fixtures and test files.
 
 Defined in `app/core/enums.py`:
 - **Currency**: the 20 supported (applika's original 9 plus 11 added) — USD, BRL, EUR, GBP, CAD, AUD, JPY, CHF, INR, CNY, SEK, NOK, DKK, PLN, SGD, HKD, NZD, MXN, ZAR, AED
-- **SalaryPeriod**: hourly, monthly, annually. `annual` (what `applika-cli` 0.1.4 sends) is accepted on every input **forever** and means annually: `SalaryPeriod._missing_` maps it, so Pydantic accepts it without OpenAPI advertising it. In the database the `salaryperiod` labels are member names (HOURLY, MONTHLY, ANNUAL, ANNUALLY); `SalaryPeriodType` (`domain/models.py`) writes ANNUALLY and reads both ANNUAL and ANNUALLY as annually, so the API never returns `annual`. The contract migration (`ad747aba90fc`, R2, KODI-013) remapped every row that still held the legacy `ANNUAL` label to `ANNUALLY` on `applications`, `users` and `timeline_events`; the PG enum keeps both labels (Postgres cannot drop one) so a not-yet-remapped row, should one ever appear, still reads as `annually`
+- **SalaryPeriod**: hourly, monthly, annually. `annual` (what `applika-cli` 0.1.4 sends) is accepted on every input **forever** and means annually: `SalaryPeriod._missing_` maps it, so Pydantic accepts it without OpenAPI advertising it. In the database the `salaryperiod` labels are member names (HOURLY, MONTHLY, ANNUAL, ANNUALLY); `SalaryPeriodType` (`domain/models.py`) writes ANNUALLY and reads both ANNUAL and ANNUALLY as annually, so the API never returns `annual`. The contract migration (`ad747aba90fc`, R2) remapped every row that still held the legacy `ANNUAL` label to `ANNUALLY` on `applications`, `users` and `timeline_events`; the PG enum keeps both labels (Postgres cannot drop one) so a not-yet-remapped row, should one ever appear, still reads as `annually`
 - **EventType**: interview, offer, denied (ADR-0020). The PG type `event_type` keeps all five lower-case labels (`note`, `feedback` too); `ck_timeline_events_event_type` allows the three
 - **InterviewType**: unknown, initial_screening, technical, cultural, hiring_manager, take_home, final (PG type `interview_type`); the declaration order is the statistics stage order
 - **ExperienceLevel**: intern, junior, mid_level, senior, staff, lead, principal, specialist
@@ -1296,7 +1296,7 @@ Optional (with defaults):
 - `ACCESS_TOKEN_EXPIRE_MINUTES`: 15 (default)
 - `GITHUB_REDIRECT_URI`: OAuth callback URL
 - `REFRESH_TOKEN_EXPIRE_DAYS`: a session ends this many days after its last refresh (sliding, default: 7)
-- `DEVICE_CODE_TTL_SECONDS`: device-code lifetime (KODI-057, default 600)
+- `DEVICE_CODE_TTL_SECONDS`: device-code lifetime (default 600)
 - `DEVICE_CODE_POLL_INTERVAL_SECONDS`: the device poll interval; faster is `slow_down` (default 10)
 - `DEVICE_VERIFICATION_URI`: the web approval page (default `http://127.0.0.1:8080/device`; prod `https://applika.dev/device`)
 - `CLI_MANUAL_REDIRECT_URI`: the web page that shows a PKCE code to paste (`redirect_uri=oob`, default `http://127.0.0.1:8080/cli/code`; prod `https://applika.dev/cli/code`)
@@ -1312,7 +1312,7 @@ Optional (with defaults):
 - `ACCOUNT_LINK_STATE_TTL_SECONDS`: TTL of the account-link CSRF nonce in
   Redis (default: 600)
 - `CORS_ORIGINS`, `CORS_HEADERS`, `CORS_METHODS`: CORS configuration
-- `RATE_LIMIT_ENABLED`: on/off switch for the API rate limiter (KODI-039,
+- `RATE_LIMIT_ENABLED`: on/off switch for the API rate limiter (see
   ADR-0015, default `True`), read on every request
 - `RATE_LIMIT_DEFAULT`: requests per window on every route outside
   `/auth/*` (default `120`)
@@ -1322,7 +1322,7 @@ Optional (with defaults):
   field), default `127.0.0.1`. The trusted proxy hop(s) `X-Forwarded-For`
   is honoured from — in production, Traefik's overlay subnet. See
   **Rate limiting (ADR-0015)** below
-- `TASKIQ_BROKER_URL`: the taskiq broker's Redis (KODI-046, ADR-0016,
+- `TASKIQ_BROKER_URL`: the taskiq broker's Redis (ADR-0016,
   default unset → `REDIS_URL`)
 - `JOBS_INGEST_ENABLED`: `false` makes every collection run a no-op
   (default `true`)
@@ -1352,7 +1352,7 @@ Optional (with defaults):
 - **ReportWebhook** (`report_webhooks`): admin catalog, `url` UNIQUE, `label`; its badges are `report_webhook_badges` rows (none, one or both), `ReportWebhookModel.badges`
 - Release C (revision `4d3bbb20127f`, ADR-0024 §8) renamed the GitHub-era and Discord objects: `users.github_id_old`, `users.encrypted_github_token_old`, `discord_connections_old` and `discord_report_webhooks_old` stay in the database with their data, unmapped; no code reads or writes them, and they are removed only on an explicit owner order. Its downgrade renames them back and must run before the image is rolled back past Release B
 - **Company**: Job companies (ADR-0014). `is_public` (default `True`) and `created_by` (nullable, `ON DELETE SET NULL`) decide visibility - see **Companies and Platforms** above. Uniqueness is two scoped partial indexes, not one global one: `uq_companies_public_name_url` (`lower(name), url` where public) and `uq_companies_private_owner_name_url` (`created_by, lower(name), url` where private) - two users may hold a private company with the same name and url
-- **Application**: Job applications with tracking, salary info, and country. `is_draft` (KODI-032, ADR-0014) marks a "new application with CV" draft, excluded from every read model by default (`NOT_DRAFT`, see **Application drafts** above)
+- **Application**: Job applications with tracking, salary info, and country. `is_draft` (ADR-0014) marks a "new application with CV" draft, excluded from every read model by default (`NOT_DRAFT`, see **Application drafts** above)
 - **TimelineEvent**: one entry of an application's timeline (`timeline_events`), typed by `EventType`, with `interview_type` on interviews and the salary triple on offers; rows migrated from `application_steps` kept the step's id
 - **StepDefinition**: the frozen legacy step catalog, read only by the compat layer; `event_type`/`interview_type` are its mapping onto the timeline (`strict=True` steps were the finalize-only ones)
 - **FeedbackDefinition**: the frozen legacy outcome catalog, read only by `/supports` and the 0.1.4 finalize body
@@ -1378,12 +1378,12 @@ Optional (with defaults):
   - `was_ai_generated` / `adjustments` are the tailoring port's provenance fields: `was_ai_generated` is always `false`; `adjustments` is `[]` for a verbatim copy and filled by the keyword binding (one `{section, description}` per reordered section, ADR-0017)
   - Created through `TailoringService`, never assembled in the use case
 
-- **JobSource** (KODI-046, table `job_sources`, revision `b28d5134631f`): the admin-managed catalog of job boards (`himalayas`, `remoteok`, seeded by the migration), no owner. `code` UNIQUE; `platform_id` → the public platform named after the source (`ON DELETE SET NULL`, but the admin delete refuses it); `is_enabled`; `last_run_at/status/error/found/saved` (status CHECK `ok`/`failed`/`blocked`)
+- **JobSource** (table `job_sources`, revision `b28d5134631f`): the admin-managed catalog of job boards (`himalayas`, `remoteok`, seeded by the migration), no owner. `code` UNIQUE; `platform_id` → the public platform named after the source (`ON DELETE SET NULL`, but the admin delete refuses it); `is_enabled`; `last_run_at/status/error/found/saved` (status CHECK `ok`/`failed`/`blocked`)
 - **Job** (table `jobs`): one shared posting per `(source_id, external_id)` (`uq_jobs_source_external`): title, company, company url, location (default `Remote`), job url, plain-text description, employment type, salary text, `tags TEXT[]` (GIN `ix_jobs_tags`), `keywords` JSONB (ADR-0017), `content_hash`, `posted_at`, `first_seen_at`, `last_seen_at`, `is_active` (`ix_jobs_active_posted`). Never deleted
 - **JobFitScore** (table `job_fit_scores`): the fit 0..100 (CHECK) of one master CV for one job, UNIQUE `(base_cv_id, job_id)`, `user_id` = the CV's owner, `computed_at`; `ix_job_fit_scores_user_job`
-- **JobDismissal** (KODI-047, table `job_dismissals`): a job one user took off their own list, UNIQUE `(user_id, job_id)` (`uq_job_dismissals_user_job`), both FKs CASCADE. Per user, no admin access
-- **SavedJobSearch** (KODI-047, table `saved_job_searches`): a user's named `JobFilters` (`filters` JSONB), at most 10 per user, `uq_saved_job_searches_user_name` on `(user_id, lower(name))`, user FK CASCADE. Never notifies
-- `Application.job_id` (KODI-047): nullable FK `jobs.id` `ON DELETE SET NULL` (`fk_applications_job_id`); one application per user per job (`uq_applications_user_job`, partial on `job_id IS NOT NULL`); on `Draft` only, absent from `GET /applications` and the `Application` schema
+- **JobDismissal** (table `job_dismissals`): a job one user took off their own list, UNIQUE `(user_id, job_id)` (`uq_job_dismissals_user_job`), both FKs CASCADE. Per user, no admin access
+- **SavedJobSearch** (table `saved_job_searches`): a user's named `JobFilters` (`filters` JSONB), at most 10 per user, `uq_saved_job_searches_user_name` on `(user_id, lower(name))`, user FK CASCADE. Never notifies
+- `Application.job_id`: nullable FK `jobs.id` `ON DELETE SET NULL` (`fk_applications_job_id`); one application per user per job (`uq_applications_user_job`, partial on `job_id IS NOT NULL`); on `Draft` only, absent from `GET /applications` and the `Application` schema
 - Fits, dismissals and saved searches are per user; no admin route reads another user's (ADR-0004)
 - **Feature** (ADR-0018, table `features`, revision `641001baff09`): the beta-feature registry, admin-managed, no owner. `key` UNIQUE (`uq_features_key`), `name`, `description` (nullable), `stage` `beta`|`general` (`ck_features_stage`, server default `beta`), `released_at`. Seeded by migrations only (`jobs` / "Job board", `cvs` / "CV builder")
 - **FeatureBetaUser** (table `feature_beta_users`): one user on one feature's beta list, UNIQUE `(feature_id, user_id)` (`uq_feature_beta_users_feature_user`), `ix_feature_beta_users_user_id`, `added_by` = the admin who added them
@@ -1395,9 +1395,9 @@ Optional (with defaults):
 - Application → Company (many-to-one, optional)
 - TimelineEvent → Application (many-to-one, cascade delete, `passive_deletes=True`)
 - TimelineEvent → User (many-to-one, cascade delete)
-- The contract migration (`ad747aba90fc`, R2, KODI-013) renamed the legacy `applications.last_step_id`, `last_step_date`, `feedback_id`, `feedback_date`, `salary_offer` columns to `*_old` and the `application_steps` table to `application_steps_old`, and dropped the two transitional sync triggers `afd4074c70c2` created. The renamed objects still exist in the database (rule: retire with `_old`, never drop) but **no model maps them** and no code reads them
+- The contract migration (`ad747aba90fc`, R2) renamed the legacy `applications.last_step_id`, `last_step_date`, `feedback_id`, `feedback_date`, `salary_offer` columns to `*_old` and the `application_steps` table to `application_steps_old`, and dropped the two transitional sync triggers `afd4074c70c2` created. The renamed objects still exist in the database (rule: retire with `_old`, never drop) but **no model maps them** and no code reads them
 - Company → User (many-to-one via created_by, **SET NULL** on delete - a deleted user's private companies stay, `created_by` becomes NULL)
-- Platform → User (many-to-one via created_by, **SET NULL** on delete, same as Company - fixed 2026-09-26, KODI-031: this used to read "cascade delete" here, which was never true for either FK)
+- Platform → User (many-to-one via created_by, **SET NULL** on delete, same as Company - fixed 2026-09-26: this used to read "cascade delete" here, which was never true for either FK)
 - QuinzenalReport → User (many-to-one, cascade delete), unique on (user_id, report_day)
 - UserFeedback → User (many-to-one, cascade delete)
 - BaseCV → User (many-to-one, cascade delete), at most 3 per user

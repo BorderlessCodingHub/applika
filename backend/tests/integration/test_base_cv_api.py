@@ -718,7 +718,7 @@ async def test_admin_gets_no_extra_access_to_another_users_master_cv(
     assert await _count_rows(db_session, owner_id) == 1
 
 
-# --- KODI-007: experience and education periods ------------------------------
+# --- experience and education periods ----------------------------------------
 #
 # The owner: "Today for Education and Experience, the period input is optional,
 # this must be required, and needs to change, instead of a bare text input it
@@ -1035,7 +1035,7 @@ async def test_deleting_the_user_deletes_their_master_cvs(
     assert await _count_rows(db_session, user_id) == 0
 
 
-# --- KODI-046 (R-016): a master CV save asks for a fit recompute ------------
+# --- R-016: a master CV save asks for a fit recompute -----------------------
 
 
 async def test_create_and_patch_queue_a_fit_recompute(

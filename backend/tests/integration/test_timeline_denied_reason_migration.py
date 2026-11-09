@@ -1,5 +1,4 @@
-"""Round-trip test for the denied-reason revision ``c8b3e9f4a1d6`` (R3,
-KODI-014).
+"""Round-trip test for the denied-reason revision ``c8b3e9f4a1d6`` (R3).
 
 ``.claude/rules/migration-tests.md``: the **real Alembic chain** against a
 dedicated testcontainers Postgres - upgrade to the revision, downgrade to its
@@ -10,7 +9,7 @@ upgrade and the data asserted after every step. Legacy rows are seeded
 backfill is what turns the seeded ``Denied`` steps into ``denied``
 ``timeline_events`` rows before R3 ever runs.
 
-What is proved here, by acceptance criterion of KODI-014:
+What is proved here, by acceptance criterion of the denied-reason change:
 
 * 4 (backend/migration part) - every ``denied`` event gets a reason from a
   fixed list, matched by the application's legacy feedback **name**, never
@@ -505,7 +504,7 @@ def test_r1_trigger_bodies_are_copied_byte_for_byte() -> None:
 
 
 def test_no_temp_table_is_used() -> None:
-    """The brief's warning: KODI-013 hit a temp-table name collision when a
+    """The brief's warning: R2 hit a temp-table name collision when a
     single multi-revision command crossed two revisions' bodies sharing an
     outer transaction. R3 sidesteps the whole class by using none."""
     import inspect
@@ -517,7 +516,7 @@ def test_no_temp_table_is_used() -> None:
 
 
 # --------------------------------------------------------------------------
-# Upgrade: schema inventory, backfill (KODI-014 criterion 4, 5, 6, 7)
+# Upgrade: schema inventory, backfill (criterion 4, 5, 6, 7)
 # --------------------------------------------------------------------------
 
 
@@ -794,7 +793,7 @@ def test_single_command_downgrade_and_upgrade_cross_two_revisions(
     """A single ``alembic downgrade``/``upgrade`` command that crosses R3's
     downgrade() and R1's own downgrade() in the same outer transaction
     (``migrations/env.py``) must not collide - R3 uses no temp table at all,
-    so the KODI-013 class of bug cannot reproduce here, but the composed
+    so the R2 class of bug cannot reproduce here, but the composed
     round trip itself is still pinned end to end."""
     _upgrade(migration_db, GRANDPARENT_REVISION)
     pre_r1_columns = _columns(migration_db)

@@ -1,4 +1,4 @@
-"""The beta-feature access rule (KODI-052, ADR-0018, T022).
+"""The beta-feature access rule (ADR-0018, T022).
 
 ``access_via`` is the rule as a pure function; the repository runs the same
 predicate in SQL (proved against Postgres in

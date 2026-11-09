@@ -1,4 +1,4 @@
-// Minimal Typst template for a CV diff export (KODI-017, T091).
+// Minimal Typst template for a CV diff export (T091).
 //
 // The diff PDF carries "the same content as the Markdown" (T091, "Diff PDF")
 // - not a typeset replica of the CV itself - so this template does exactly

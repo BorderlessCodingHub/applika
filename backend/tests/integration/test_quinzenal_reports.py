@@ -418,7 +418,7 @@ async def test_stored_report_is_never_recomputed(
 
 
 # ---------------------------------------------------------------------------
-# Drafts are excluded from reports (KODI-032, ADR-0014)
+# Drafts are excluded from reports (ADR-0014)
 # ---------------------------------------------------------------------------
 
 

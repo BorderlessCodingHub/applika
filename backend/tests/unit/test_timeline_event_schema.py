@@ -167,7 +167,7 @@ def test_unknown_interview_type_value_is_rejected(schema):
         schema(**_plain_body(event_type='interview', interview_type='phone'))
 
 
-# -- Denied reason (KODI-014, R-033..R-036, the same pattern) ---------------
+# -- Denied reason (R-033..R-036, the same pattern) -------------------------
 
 
 def _denied_body(**overrides: object) -> dict:
@@ -247,7 +247,7 @@ def test_end_time_must_be_after_start_time(schema, start, end):
         schema(**_interview_body(start_time=start, end_time=end))
 
 
-# -- Schedule only on interview (KODI-016, R-038/R-039, the same pattern) ---
+# -- Schedule only on interview (R-038/R-039, the same pattern) -------------
 
 
 @pytest.mark.parametrize('schema', WRITE_SCHEMAS)
@@ -392,7 +392,7 @@ def test_out_serializes_the_denied_reason():
     assert dumped['denied_reason'] == 'salary_mismatch'
 
 
-# -- Schedule omitted on non-interview (KODI-016, R-038/R-039) --------------
+# -- Schedule omitted on non-interview (R-038/R-039) ------------------------
 
 
 @pytest.mark.parametrize('event_type', ['offer', 'denied'])

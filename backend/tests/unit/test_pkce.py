@@ -1,4 +1,4 @@
-"""PKCE S256 (KODI-057, R-015)."""
+"""PKCE S256 (R-015)."""
 
 import base64
 import hashlib

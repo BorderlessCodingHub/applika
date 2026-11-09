@@ -17,7 +17,7 @@ so both paths leave the same shape behind:
 * ``finalized_at`` is ``finalize_date`` at 00:00 UTC, as the revision
   backfills it from ``feedback_date``;
 * a denied event's ``denied_reason`` is mapped from the legacy feedback's
-  *name* (KODI-014, R-036), with :data:`LEGACY_FEEDBACK_TO_DENIED_REASON` -
+  *name* (R-036), with :data:`LEGACY_FEEDBACK_TO_DENIED_REASON` -
   the exact map migration R3 (``c8b3e9f4a1d6``) uses for its own backfill,
   pinned equal to it by
   ``tests/unit/test_denied_reason_mapping.py``. An unmapped feedback name
@@ -83,7 +83,7 @@ SALARY_ONLY_ON_OFFER_STEP = (
 OFFER_DEFAULT_CURRENCY = Currency.USD
 OFFER_DEFAULT_PERIOD = SalaryPeriod.MONTHLY
 
-# KODI-014 (R-036): the SAME map migration R3 (``c8b3e9f4a1d6``,
+# R-036: the SAME map migration R3 (``c8b3e9f4a1d6``,
 # ``FEEDBACK_TO_DENIED_REASON``) uses for its own backfill of legacy denied
 # events - match by feedback *name*, never by id. Pinned equal to the
 # migration's copy by ``tests/unit/test_denied_reason_mapping.py``.

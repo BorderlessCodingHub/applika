@@ -1,5 +1,5 @@
-"""CLI sign-in schemas for ``applika-cli`` 1.1.0 and later (KODI-057,
-ADR-0019): ``POST /auth/token``, ``POST /auth/revoke`` and the device code
+"""CLI sign-in schemas for ``applika-cli`` 1.1.0 and later
+(ADR-0019): ``POST /auth/token``, ``POST /auth/revoke`` and the device code
 routes. Shapes follow RFC 6749, RFC 7009 and RFC 8628."""
 
 from datetime import datetime

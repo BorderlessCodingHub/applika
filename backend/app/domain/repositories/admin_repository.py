@@ -621,7 +621,7 @@ class AdminRepository:
         """Count how many records reference the given entity.
 
         A platform counts its applications (drafts included) and, since
-        KODI-046 (R-019, plan corrections 13), the job sources pointing at
+        the job board (R-019, plan corrections 13), the job sources pointing at
         it: deleting a source's platform would null ``job_sources.
         platform_id`` and break job -> draft.
         """

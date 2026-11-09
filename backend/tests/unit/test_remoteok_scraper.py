@@ -1,4 +1,4 @@
-"""RemoteOK scraper (KODI-046, T044). Every request is answered by an
+"""RemoteOK scraper (T044). Every request is answered by an
 ``httpx.MockTransport``; nothing here reaches remoteok.com."""
 
 from datetime import datetime, timedelta, timezone

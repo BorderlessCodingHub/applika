@@ -1,4 +1,4 @@
-"""The session check on every signed-in request (KODI-057, ADR-0019).
+"""The session check on every signed-in request (ADR-0019).
 
 JWT first, as before; then ``sid`` must name a live session (else 401
 ``Session expired``); a session store failure is a 503 and never lets the
@@ -125,7 +125,7 @@ async def test_token_without_sub_raises_401():
 
 
 async def test_token_without_sid_is_session_expired():
-    """A token minted before KODI-057 carries no ``sid``: everyone signs in
+    """A token minted before device sessions carries no ``sid``: everyone signs in
     again at the release (AC22)."""
     store = FakeStore()
     with pytest.raises(InvalidSession) as exc_info:

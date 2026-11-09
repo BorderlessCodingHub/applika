@@ -1,4 +1,4 @@
-"""Compile a CV diff's Markdown document into a PDF, with Typst (KODI-017, T091).
+"""Compile a CV diff's Markdown document into a PDF, with Typst (T091).
 
 Sibling of :mod:`app.application.services.cv_rendering.renderer`, much
 smaller: the diff PDF is not a typeset CV, it is "the same content as the

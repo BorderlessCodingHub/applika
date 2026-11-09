@@ -1,4 +1,4 @@
-"""user_sessions: one row per sign-in, kept after it ends (Release A, KODI-056)
+"""user_sessions: one row per sign-in, kept after it ends (Release A)
 
 Revision ID: ed39a0fad1e5
 Revises: 641001baff09
@@ -33,7 +33,7 @@ sessions.
 This is Release A: migration only (``prod-release-runbook.md`` rule 4,
 "expand first"). The table is new, so the code already in production keeps
 working on this schema. ``app/`` maps none of it; the ORM model, Redis and
-the routes ship in Release B (KODI-057), only once the owner confirms
+the routes ship in Release B, only once the owner confirms
 ``alembic upgrade head`` ran in production.
 
 ## non-destructive-migrations.md

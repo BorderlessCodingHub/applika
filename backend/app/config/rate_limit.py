@@ -1,4 +1,4 @@
-"""``RateLimitMiddleware`` (KODI-039, ADR-0015): pure ASGI, wraps every HTTP
+"""``RateLimitMiddleware`` (ADR-0015): pure ASGI, wraps every HTTP
 route in the fixed-window Redis limiter of ``app/core/rate_limit.py``.
 
 Shape copied from ``app/presentation/deprecation.py``

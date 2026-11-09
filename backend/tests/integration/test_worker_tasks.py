@@ -1,4 +1,4 @@
-"""The background tasks end to end (KODI-046, T049; R-004, R-008, R-009,
+"""The background tasks end to end (T049; R-004, R-008, R-009,
 R-016): taskiq's ``InMemoryBroker`` (``ENVIRONMENT=TEST``), the testcontainers
 Postgres and Redis, and the fixture scraper - never a live job board."""
 
@@ -261,7 +261,7 @@ async def test_the_queue_binding_enqueues_and_reads_the_lock(
 
 def test_the_real_broker_blocks_on_brpop_without_a_read_timeout():
     """redis-py 8 defaults ``socket_timeout`` to 5 seconds; the worker's
-    BRPOP would die every 5 seconds with it (found in the KODI-046 compose
+    BRPOP would die every 5 seconds with it (found in the worker's compose
     check). Connecting stays bounded."""
     broker = build_broker('redis://redis:6379/0')
 

@@ -1,5 +1,5 @@
 """Round-trip test for ``users.is_org_member`` -> ``is_org_member_old``
-revision ``583226ca46bc`` (S10, KODI-029, Release C).
+revision ``583226ca46bc`` (S10, Release C).
 
 ``.claude/rules/migration-tests.md`` 2: this drives the **real Alembic
 chain** against a dedicated testcontainers Postgres — upgrade to the
@@ -480,8 +480,8 @@ def test_round_trip_upgrade_downgrade_upgrade(migration_db: str) -> None:
 
 
 def test_orm_never_maps_is_org_member_or_its_old_column() -> None:
-    """Rule 7: no ORM model maps either name (unchanged since Release B,
-    KODI-026)."""
+    """Rule 7: no ORM model maps either name (unchanged since Release B
+    of the Discord reports)."""
     from app.domain.models import UserModel
 
     mapped_columns = {c.name for c in UserModel.__table__.columns}

@@ -48,7 +48,7 @@ class DailyApplicationsLastMonth(TypedDict):
 
 
 def _cycle_filter(cycle_id: int | None) -> ColumnElement[bool]:
-    """Scope + draft exclusion (KODI-032, R-012 in this ticket): a draft
+    """Scope + draft exclusion (R-012 in this ticket): a draft
     never counts toward statistics, whatever the cycle scope."""
     if cycle_id is not None:
         return sa.and_(ApplicationModel.cycle_id == cycle_id, NOT_DRAFT)
@@ -73,8 +73,8 @@ class UserStatsRepository:
     async def get_active_applications_count(
         self, user_id: int, cycle_id: int | None = None
     ) -> int:
-        """Applications in scope whose ``finalized_at`` is NULL (AC23,
-        KODI-013): the same scope/cycle filter as :meth:`get_applications_count`,
+        """Applications in scope whose ``finalized_at`` is NULL (AC23):
+        the same scope/cycle filter as :meth:`get_applications_count`,
         plus the open-application condition."""
         total = await self.session.scalar(
             select(func.count(ApplicationModel.id).label('total')).where(

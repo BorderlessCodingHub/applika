@@ -1,4 +1,4 @@
-"""Beta feature schemas (KODI-052, ADR-0018): the caller's own features
+"""Beta feature schemas (ADR-0018): the caller's own features
 (``GET /users/me/features``) and the admin screen (``/admin/features*``).
 Ids are Snowflake strings on the wire (ADR-0003)."""
 

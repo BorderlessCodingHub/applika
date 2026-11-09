@@ -1,4 +1,4 @@
-"""Beta features (ADR-0018, KODI-052): the keys, the stages and the access
+"""Beta features (ADR-0018): the keys, the stages and the access
 rule.
 
 A user has feature F when F is ``general``, or when a ``(F, user)`` beta-list

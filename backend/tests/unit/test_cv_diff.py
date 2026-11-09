@@ -1,4 +1,4 @@
-"""Unit tests for the pure CV diff function (KODI-017, T091).
+"""Unit tests for the pure CV diff function (T091).
 
 The shared fixtures (``tests/unit/test_cv_diff_fixtures.py``) pin the
 canonical JSON shape end to end; these tests exercise the branches the

@@ -76,7 +76,7 @@ async def test_cli_exchange_redeems_code_once(
     async_engine,
     auth_handoff_state_use_case,
 ):
-    """Same JSON shape as before KODI-057 (cli-compatibility.md 1); the
+    """Same JSON shape as before device sessions (cli-compatibility.md 1); the
     values are now a JWT with ``sid`` and a uuid7, and the code is one
     use."""
     login_id = await auth_handoff_state_use_case.create_login(

@@ -1,4 +1,4 @@
-"""The job board for every signed-in user (KODI-047, PRD 0012 R-007,
+"""The job board for every signed-in user (PRD 0012 R-007,
 R-010..R-015, R-029, R-031).
 
 Each user sees the shared postings with *their own* fit, dismissal and

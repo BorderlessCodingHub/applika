@@ -187,7 +187,7 @@ class PaginatedPlatformsSchema(BaseSchema):
 
 
 class JobSourceAdminRow(BaseSchema):
-    """One job source on the admin screen (KODI-046, R-033)."""
+    """One job source on the admin screen (R-033)."""
 
     id: SnowflakeID
     code: str

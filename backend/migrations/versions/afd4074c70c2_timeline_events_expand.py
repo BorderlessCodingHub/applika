@@ -5,7 +5,7 @@ Revises: d3f7b1c9e2a4
 Create Date: 2026-09-17 12:00:00.000000
 
 Plan ``docs/plan/0008-steps-as-timeline.md`` ``## Data``, revision R1,
-ticket KODI-010. Release A of the plan: **expand only**
+Release A of the plan: **expand only**
 (``.claude/rules/prod-release-runbook.md`` 4). Nothing under ``app/`` reads or
 writes a single object this revision creates; the ORM maps none of them. The
 code that uses them ships in Release B, after the owner confirms
@@ -13,7 +13,7 @@ code that uses them ships in Release B, after the owner confirms
 
 ## Owner decisions, verbatim (PRD 0008 ``## Clarifications``)
 
-- (2026-09-17, KODI-010) Owner, decision (a): "innitial screen is mapped to
+- (2026-09-17) Owner, decision (a): "innitial screen is mapped to
   initial screening, phase 2, phase 3 and phase 4 is mapped to unknown. one
   application can only have one interview of type innitial screening, and
   this is the type counted to the bi-weakly reports." Offer → offer, Denied →
@@ -22,12 +22,12 @@ code that uses them ships in Release B, after the owner confirms
   one Initial Screen step: "Earliest stays, rest unknown (Recommended)" — the
   earliest becomes `initial_screening`, later ones `unknown`; from now on a
   second initial screening on one application is refused.
-- (2026-09-17, KODI-010) Owner, decision (b): "the answer to (b) is set to 0"
+- (2026-09-17) Owner, decision (b): "the answer to (b) is set to 0"
   → "Amount becomes 0": a legacy offer salary without currency or period
   migrates as an offer event with amount 0, missing currency filled with USD
   and missing period with monthly; the original amount stays in
   `applications.salary_offer` until R2 renames it `_old`.
-- (2026-09-17, KODI-010) Owner, decision (c): "(c) is combine from both
+- (2026-09-17) Owner, decision (c): "(c) is combine from both
   projects" — currencies grow from 9 to 20. Salary
   period: "rename to annually and update in cli as well. create a change log
   file for cli and annotate this change there. Any change in the backend that
@@ -87,7 +87,7 @@ across several Offer steps. The original stays in
 ``applications.salary_offer``, untouched. Existing ``ANNUAL`` periods are
 carried as ``ANNUAL``.
 
-## Transitional sync triggers (dropped by R2, KODI-013)
+## Transitional sync triggers (dropped by R2)
 
 Release A runs the old code on this schema, and so does the window between
 the image deploy and the owner's manual migration. PRD R-015: whatever the old

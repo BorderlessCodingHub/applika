@@ -1,6 +1,6 @@
 """Render the diff between an application's CV copy and its baseline as Markdown.
 
-KODI-017 T091. Filename: ``"<pdf slug>-changes.md"`` (PINNED).
+T091. Filename: ``"<pdf slug>-changes.md"`` (PINNED).
 """
 
 from dataclasses import dataclass

@@ -672,7 +672,7 @@ async def test_list_applications_carries_the_job_description(
 
 
 # ---------------------------------------------------------------------------
-# ADR-0014: private companies and platforms (KODI-031)
+# ADR-0014: private companies and platforms
 # ---------------------------------------------------------------------------
 
 
@@ -765,7 +765,7 @@ async def test_update_application_with_foreign_private_company_is_404(
 async def test_get_applications_omits_open_draft(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """GET /applications never includes a draft (KODI-032, ADR-0014)."""
+    """GET /applications never includes a draft (ADR-0014)."""
     created = await async_client.post('/applications', json=_base_payload())
     assert created.status_code == 201
 
@@ -789,7 +789,7 @@ async def test_get_applications_omits_open_draft(
 async def test_list_applications_item_never_carries_job_id(
     async_client: AsyncClient, db_session: AsyncSession
 ):
-    """KODI-047 (cli-compatibility): an application started from a job keeps
+    """CLI compatibility: an application started from a job keeps
     ``job_id`` in the database, but the ``Application`` shape every
     published CLI reads stays unchanged - no ``job_id`` key, in the list or
     in the OpenAPI schema."""

@@ -1,4 +1,4 @@
-"""RemoteOK scraper (KODI-046), a port of Ían Muliterno's ``remoteok.py``
+"""RemoteOK scraper, a port of Ían Muliterno's ``remoteok.py``
 (``job_scrapping``, commit ``e670914``).
 
 Kept from his file: one GET on the public JSON feed (``/api``) with

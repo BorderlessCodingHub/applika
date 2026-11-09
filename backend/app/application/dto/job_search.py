@@ -1,4 +1,4 @@
-"""DTOs of the saved job searches (KODI-047, PRD 0012 R-030): a name and
+"""DTOs of the saved job searches (PRD 0012 R-030): a name and
 the ``JobFilters`` body it applies to the job list. No notification field:
 a saved search never notifies anyone (R-032)."""
 

@@ -155,7 +155,7 @@ async def test_add_offer_step_gets_decision_b_salary():
 
 
 async def test_add_non_interview_step_with_times_drops_them_never_422():
-    """KODI-016 (R-038/R-039): a 0.1.4 client always sends
+    """R-038/R-039: a 0.1.4 client always sends
     start_time/end_time/timezone; a step mapping to a non-interview event
     stores none of them, silently - never a 422
     (``.claude/rules/cli-compatibility.md``)."""
@@ -272,7 +272,7 @@ async def test_edit_offer_to_interview_drops_the_salary():
 
 
 async def test_edit_interview_to_a_non_interview_step_drops_the_schedule():
-    """KODI-016 (R-038/R-039): same as the create path - never a 422, the
+    """R-038/R-039: same as the create path - never a 422, the
     schedule is silently dropped once the event stops being an interview."""
     event = make_event(
         id=42,
@@ -320,7 +320,7 @@ async def test_edit_offer_to_another_offer_step_keeps_the_salary():
 
 
 async def test_edit_denied_with_its_own_reverse_step_keeps_the_reason():
-    """KODI-014, symmetric to the offer/salary case above: a 0.1.4 `steps
+    """Symmetric to the offer/salary case above: a 0.1.4 `steps
     edit` without `--step` resending the event's own (strict) reverse step
     keeps its denied_reason too."""
     event = make_event(

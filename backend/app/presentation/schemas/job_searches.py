@@ -1,4 +1,4 @@
-"""Wire schemas of the saved job searches (KODI-047, PRD 0012 R-030).
+"""Wire schemas of the saved job searches (PRD 0012 R-030).
 
 ``filters`` is a ``JobFilters`` body (``schemas/jobs.py``): an unknown key,
 or a value out of its range, is a 422. ``name`` is stripped, 1..100

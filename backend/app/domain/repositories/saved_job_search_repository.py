@@ -1,4 +1,4 @@
-"""Saved job searches (KODI-047, PRD 0012 R-030).
+"""Saved job searches (PRD 0012 R-030).
 
 Every read and write is scoped to the owning user (ADR-0004): another
 user's search is invisible here, for admins too. ``lock_user`` makes the

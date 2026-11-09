@@ -1,4 +1,4 @@
-"""Integration tests for the four CV export routes added by KODI-017 (T090/T091).
+"""Integration tests for the four CV export routes (T090/T091).
 
 Real pipeline, real Postgres, nothing mocked: RenderCV's Markdown templater
 for the two ``.../markdown`` routes, the pure diff function plus the Markdown

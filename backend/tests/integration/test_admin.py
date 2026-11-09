@@ -318,7 +318,7 @@ async def test_admin_delete_platform_no_refs(
     assert resp.status_code == 204, msg(204, resp.status_code)
 
 
-# ── Private catalog rows and admin Approve (ADR-0014, KODI-031) ────
+# ── Private catalog rows and admin Approve (ADR-0014) ──────────────
 #
 # admin_client and async_client both mutate the SAME global
 # ``get_current_user`` override (they are not per-client identities), so a
@@ -685,7 +685,7 @@ async def test_admin_delete_platform_in_use_is_still_refused(
     assert resp.status_code == 409, msg(409, resp.status_code)
 
 
-# ── Paginated GET /admin/platforms (S7, KODI-035) ───────────────────
+# ── Paginated GET /admin/platforms (S7) ─────────────────────────────
 
 
 async def test_admin_platforms_paging_reports_total_and_total_pages(
@@ -1080,7 +1080,7 @@ async def test_admin_activity_heatmap_counts_timeline_events(
 
 
 # ---------------------------------------------------------------------------
-# Drafts are excluded from admin statistics and user counts (KODI-032)
+# Drafts are excluded from admin statistics and user counts
 # ---------------------------------------------------------------------------
 
 
@@ -1169,7 +1169,7 @@ async def test_admin_delete_platform_in_use_by_a_draft_is_still_refused(
     assert resp.status_code == 409, msg(409, resp.status_code)
 
 
-# ── R-019 guard (KODI-046, plan corrections 13) ─────────────────────
+# ── R-019 guard (plan corrections 13) ───────────────────────────────
 
 
 async def test_admin_delete_of_a_job_sources_platform_is_refused(

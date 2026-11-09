@@ -1,7 +1,7 @@
-"""Open a REAL device session in tests (KODI-057, ADR-0019, plan
+"""Open a REAL device session in tests (ADR-0019, plan
 correction 3).
 
-Since KODI-057 ``get_current_user`` needs a live session: an access JWT
+Since device sessions (ADR-0019), ``get_current_user`` needs a live session: an access JWT
 whose ``sid`` names a ``user_sessions`` row with its Redis keys. Tests that
 send a real ``__access`` cookie or Bearer token (instead of overriding
 ``get_current_user``) open one here, through the app's own

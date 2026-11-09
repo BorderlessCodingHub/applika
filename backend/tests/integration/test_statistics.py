@@ -377,7 +377,7 @@ async def test_trends(async_client: AsyncClient, db_session: AsyncSession):
 
 
 # ---------------------------------------------------------------------------
-# Drafts are excluded (KODI-032, ADR-0014)
+# Drafts are excluded (ADR-0014)
 # ---------------------------------------------------------------------------
 
 

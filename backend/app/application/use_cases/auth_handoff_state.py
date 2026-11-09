@@ -12,7 +12,7 @@ class AuthHandoffStateUseCase:
     session. This state is intentionally separate from the long-lived
     access/refresh token lifecycle.
 
-    KODI-057 (ADR-0019): the same state carries the PKCE browser sign-in of
+    ADR-0019: the same state carries the PKCE browser sign-in of
     ``applika-cli`` 1.1.0. A login or code with ``flow='pkce'`` also holds
     the ``code_challenge`` and the ``redirect_uri`` it is bound to; a code
     without ``flow`` is the legacy handoff. Codes stay one use (``GETDEL``)

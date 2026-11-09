@@ -16,10 +16,10 @@ The write body is validated in cross-field passes (``model_validator``, mode
   salary). ``annual`` from an installed CLI is accepted as ``annually``.
 * **Interview type** (applika, R-002/R-003): only on an ``interview``, where
   it defaults to ``unknown``; on any other type it is refused.
-* **Denied reason** (KODI-014, R-033..R-036, the same pattern): only on a
+* **Denied reason** (R-033..R-036, the same pattern): only on a
   ``denied`` event, where it defaults to ``unknown``; on any other type it
   is refused.
-* **Schedule** (KODI-016, R-038/R-039, the same pattern): ``start_time``,
+* **Schedule** (R-038/R-039, the same pattern): ``start_time``,
   ``end_time`` and ``timezone`` are only allowed on an ``interview`` event;
   a non-null value on any other type is refused (422). Explicit nulls or
   absent keys are always fine. ``TimelineEventOut`` omits the three keys
@@ -134,7 +134,7 @@ class _TimelineEventWrite(BaseSchema):
 
     @model_validator(mode='after')
     def _validate_schedule_event_type(self) -> '_TimelineEventWrite':
-        """KODI-016 (R-038/R-039): the schedule is only allowed on an
+        """R-038/R-039: the schedule is only allowed on an
         interview event, same pattern as interview_type/denied_reason.
         Explicit nulls or absent keys are always fine."""
         if self.event_type is not EventType.INTERVIEW and (
@@ -184,7 +184,7 @@ class TimelineEventOut(BaseSchema):
     def _omit_schedule_on_non_interview(
         self, handler: SerializerFunctionWrapHandler
     ) -> dict[str, Any]:
-        """KODI-016 (R-038/R-039). Owner: "the api must omit the extra
+        """R-038/R-039. Owner: "the api must omit the extra
         attributed to non intervierw type". A non-interview event drops
         ``start_time``, ``end_time`` and ``timezone`` from the response
         body entirely - not just nulled, absent - everywhere this schema is

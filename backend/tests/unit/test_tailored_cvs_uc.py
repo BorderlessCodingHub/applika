@@ -533,7 +533,7 @@ async def test_create_logs_the_tailoring_mode(monkeypatch):
     assert calls[0]['extra']['extra_data']['tailoring'] == 'keywords'
 
 
-# --- base_snapshot (R5, KODI-017 part 2) ------------------------------------
+# --- base_snapshot (R5) -----------------------------------------------------
 
 
 async def test_create_passes_the_master_cv_as_the_snapshot():

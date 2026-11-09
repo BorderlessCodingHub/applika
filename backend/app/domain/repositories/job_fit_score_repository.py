@@ -1,4 +1,4 @@
-"""The fit of each master CV for each listed job (KODI-046, ADR-0017)."""
+"""The fit of each master CV for each listed job (ADR-0017)."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass

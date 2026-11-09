@@ -31,7 +31,7 @@ async def load_owned_application(
     (docs/adr/0004-row-ownership-and-is-admin.md), and being an admin
     grants nothing.
 
-    ``include_drafts=True`` (KODI-032): the CV-copy routes are also how a
+    ``include_drafts=True``: the CV-copy routes are also how a
     "new application with CV" draft's copy is created, read, edited and
     deleted (PRD 0007's page reused for step 2, ADR-0014), so this is the
     one caller that must see a draft - every other read path excludes it

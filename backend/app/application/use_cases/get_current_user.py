@@ -28,10 +28,10 @@ def _session_expired(reason: str) -> InvalidSession:
 
 
 class GetCurrentUserUseCase:
-    """The session check on every signed-in request (KODI-057, ADR-0019).
+    """The session check on every signed-in request (ADR-0019).
 
     JWT first (bad or expired -> 401 as before); then the token's ``sid``
-    must name a live session: no ``sid`` (a token minted before KODI-057),
+    must name a live session: no ``sid`` (a token minted before device sessions),
     a session whose Redis key is gone, or one that belongs to another
     GitHub id -> 401 ``Session expired``. A store failure raises
     ``SessionServiceUnavailable`` (503): the request never goes through

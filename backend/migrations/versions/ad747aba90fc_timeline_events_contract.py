@@ -7,8 +7,8 @@ Revises: af50c83911a7
 Create Date: 2026-09-18 09:00:00.000000
 
 Plan ``docs/plan/0008-steps-as-timeline.md`` ``## Data``, revision R2,
-ticket KODI-013. Release C of the plan: **the contract migration**. Release B
-(KODI-011) already reads and writes nothing this revision renames — the ORM
+Release C of the plan: **the contract migration**. Release B
+already reads and writes nothing this revision renames — the ORM
 has not mapped ``application_steps`` or the legacy ``applications`` columns
 since Release B (see ``afd4074c70c2``'s own test,
 ``test_release_b_orm_maps_the_new_objects_and_nothing_old``). Nothing under
@@ -19,8 +19,8 @@ unrelated response DTO field computed from the timeline, or the deprecated
 compat schema for the 0.1.4 request/response shape — none of it is a SQL
 column or table name).
 
-**Re-parented by KODI-014 (R3, ``c8b3e9f4a1d6``) and again by KODI-016
-(R4, ``af50c83911a7``).** The owner folded both R3 ("denied_reason on
+**Re-parented by R3 (``c8b3e9f4a1d6``) and again by R4
+(``af50c83911a7``).** The owner folded both R3 ("denied_reason on
 timeline_events") and R4 ("schedule kept on interview events only") into
 Release A, so the chain is now R1 (``afd4074c70c2``) -> R3
 (``c8b3e9f4a1d6``) -> R4 (``af50c83911a7``) -> R2 (this revision), not
@@ -76,19 +76,19 @@ still reads them, frozen, for installed CLIs (R-018/AC4).
    ``timeline_events`` — the three tables that carry the column. The PG enum
    itself is untouched (Postgres cannot drop a label); only the rows move.
 
-## R4's trigger bodies, not R3's (KODI-014, then KODI-016, re-parenting)
+## R4's trigger bodies, not R3's (R3's, then R4's, re-parenting)
 
-Before the first re-parenting (KODI-014), R2's ``downgrade()`` recreated the
+Before the first re-parenting, R2's ``downgrade()`` recreated the
 two sync trigger functions byte-identical to R1's own bodies, because a
 downgrade to ``afd4074c70c2`` put the schema back in exactly R1's shape.
-KODI-014 moved that target to R3's bodies (denied-reason-aware), and
-KODI-016 moves it one more step, to **R4's**: now that R3 and R4 both sit
+R3's re-parenting moved that target to R3's bodies (denied-reason-aware), and
+R4's moves it one more step, to **R4's**: now that R3 and R4 both sit
 between R1 and R2, downgrading R2 lands on **R4's** schema
 (``timeline_events.denied_reason``, its CHECK, and R4's own
 ``ck_timeline_events_schedule_interview_only`` are all still there — neither
 R3 nor R4 is touched by this revision's downgrade), not R3's and not R1's.
 Recreating R3's plain (pre-schedule-nulling) step body there would leave the
-same kind of live gap KODI-014's own note already describes for R1's body:
+same kind of live gap R3's own re-parenting note already describes for R1's body:
 an old-code step insert/update for a non-interview step that still carries
 ``start_time``/``end_time``/``timezone`` would ``INSERT`` a row that
 violates ``ck_timeline_events_schedule_interview_only`` — caught by the
@@ -172,7 +172,7 @@ revision can rely on), so amending R1 to record failed-sync ids *is* still
 technically possible without breaking rule 1 of
 ``non-destructive-migrations.md`` (precedent: ``f2a9c1d4b6e8`` was amended in
 place before it ever ran anywhere) — but it changes a different ticket's
-migration (KODI-010) and trades one guarantee (R-015, a rare trigger-failure
+migration and trades one guarantee (R-015, a rare trigger-failure
 case) against another (a user's delete staying deleted), which is the
 owner's call, not an engineering one to make silently mid-slice.
 
@@ -198,7 +198,7 @@ non-destructive-migrations rule, but it is a decision about R-015's exact
 guarantee versus engineering cost for what R1's own design already treats as
 an exceptional, logged event — the owner's call.
 
-## Denied-with-salary (KODI-010 flag)
+## Denied-with-salary (flagged in Release A)
 
 A legacy finalize with a ``Denied`` step and a ``salary_offer`` kept that
 salary only in ``applications.salary_offer`` — the offer CHECK on
@@ -291,7 +291,7 @@ depends_on: Union[str, Sequence[str], None] = None
 # ``app/application/use_cases/compat/step_translation.py``.
 #
 # The two trigger-body constants (``_STEP_FUNCTION_SQL``, ``_APP_FUNCTION_
-# SQL`` below) are the one exception since KODI-014's/KODI-016's
+# SQL`` below) are the one exception since R3's/R4's
 # re-parenting: they are copied from R4 (``af50c83911a7``), not R1 or R3,
 # because ``downgrade()`` recreates the triggers on R4's schema now - see
 # "R4's trigger bodies, not R3's" in the module docstring.
@@ -355,9 +355,9 @@ _APP_TRIGGER = 'trg_applications_finalize_sync'
 _STEP_FUNCTION = 'timeline_events_sync_application_step'
 _APP_FUNCTION = 'timeline_events_sync_application_finalize'
 
-# R3's (``c8b3e9f4a1d6``, KODI-014) denied-reason mapping, unchanged by R4
+# R3's (``c8b3e9f4a1d6``) denied-reason mapping, unchanged by R4
 # and duplicated here so the trigger bodies below stay byte-compatible with
-# R4's (``af50c83911a7``, KODI-016). Match by feedback *name*, never by id;
+# R4's (``af50c83911a7``). Match by feedback *name*, never by id;
 # anything unmapped or missing falls back to DENIED_REASON_FALLBACK.
 FEEDBACK_TO_DENIED_REASON: dict[str, str] = {
     'Not good enough': 'not_good_enough',
@@ -472,7 +472,7 @@ def _feedback_id_sql(event_type: str) -> str:
 
 
 # --------------------------------------------------------------------------
-# Trigger bodies, byte-identical to R4's (``af50c83911a7``) since KODI-016's
+# Trigger bodies, byte-identical to R4's (``af50c83911a7``) since R4's
 # re-parenting (they were R3's, ``c8b3e9f4a1d6``, before it) - dropped by
 # upgrade(), recreated by downgrade().
 # --------------------------------------------------------------------------

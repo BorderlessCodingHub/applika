@@ -1,4 +1,4 @@
-"""The device list's derived status (KODI-057, R-013, R-014)."""
+"""The device list's derived status (R-013, R-014)."""
 
 from datetime import UTC, datetime, timedelta
 

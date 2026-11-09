@@ -1,5 +1,5 @@
 """Shared read filter that keeps drafts out of every read model
-(ADR-0014, KODI-032).
+(ADR-0014).
 
 A draft ("new application with CV" in progress) is a real ``applications``
 row with ``is_draft = true``. It must never surface through the ordinary

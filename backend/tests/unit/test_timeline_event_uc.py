@@ -279,7 +279,7 @@ def test_a_scheduled_event_with_timezone_and_observation_is_valid():
     assert result.timezone == 'America/Sao_Paulo'
 
 
-# -- Schedule only on interview (KODI-016, R-038/R-039, same pattern) -------
+# -- Schedule only on interview (R-038/R-039, same pattern) -----------------
 
 
 @pytest.mark.parametrize('event_type', ['offer', 'denied'])

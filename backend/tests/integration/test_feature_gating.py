@@ -1,5 +1,5 @@
-"""The "jobs" beta gate against the testcontainers Postgres (KODI-052,
-ADR-0018, T023; PRD 0013 R-002, R-003, R-005, R-012, R-013, R-015, R-016,
+"""The "jobs" beta gate against the testcontainers Postgres
+(ADR-0018, T023; PRD 0013 R-002, R-003, R-005, R-012, R-013, R-015, R-016,
 R-017, R-020..R-025, R-027, R-028).
 
 The ``jobs`` row is inserted exactly as revision ``641001baff09`` seeds it
@@ -466,7 +466,7 @@ async def test_user_made_admin_has_jobs_on_the_next_request(
     main_app.dependency_overrides.clear()
     main_app.dependency_overrides[get_session] = override_get_session
     main_app.dependency_overrides[get_redis] = override_get_redis
-    # KODI-057: a real device session (row + Redis keys), plan correction 3.
+    # a real device session (row + Redis keys), plan correction 3.
     tokens = await open_session(async_engine, redis_client, USER_ID)
     token = tokens.access_token
     async with AsyncClient(

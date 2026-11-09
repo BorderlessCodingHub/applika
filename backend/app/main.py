@@ -60,7 +60,7 @@ app = FastAPI(
 )
 
 
-# The rate limiter (KODI-039, ADR-0015) is installed BEFORE (= inside) the
+# The rate limiter (ADR-0015) is installed BEFORE (= inside) the
 # CORS middleware below, so CORS wraps it: a 429 still carries
 # Access-Control-Allow-Origin, and a browser preflight (OPTIONS) is answered
 # by CORSMiddleware before this middleware ever counts it.
@@ -76,7 +76,7 @@ app.add_middleware(
     # read the PDF download's filename unless this header is exposed.
     # ``Deprecation`` is exposed for the same reason: a browser client of a
     # deprecated route can read it (R-020). The rate limiter's headers
-    # (KODI-039, ADR-0015) are exposed so the web app can read them and
+    # (ADR-0015) are exposed so the web app can read them and
     # Retry-After across origins (R-019).
     expose_headers=[
         'Content-Disposition',

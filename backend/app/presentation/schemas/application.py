@@ -154,7 +154,7 @@ DENIED_REASON_ONLY_ON_DENIED_OUTCOME = (
 
 class FinalizeWithOutcome(BaseSchema):
     """The new optional finalize body (R-032, backend part of R-032; the UI
-    is KODI-012).
+    is the web's finalize form).
 
     ``outcome`` is ``offer``, ``denied`` or absent. A body that reaches this
     schema always has at least one key and neither ``step_id`` nor
@@ -178,14 +178,14 @@ class FinalizeWithOutcome(BaseSchema):
     * an offer's ``salary_period`` is ``monthly`` or ``annually``, same as
       the timeline write schema and the same message
       (``use_cases/timeline_events/rules.OFFER_PERIOD_INVALID``); ``hourly``
-      is refused. This was a gap fixed in KODI-011 remediation round 1
+      is refused. This was a gap fixed in plan 0008's remediation round 1
       (R-032): the outcome body used to reach the database through
       ``rules.normalize_event`` alone, which does not restrict the period,
       so the same offer event was valid through ``/timeline`` and refused
       through ``/finalize``, or the reverse. The legacy 0.1.4 finalize body
       is untouched: it still fills the period from the application, which
       can itself be hourly.
-    * ``denied_reason`` (KODI-014, R-033..R-036) is only allowed when
+    * ``denied_reason`` (R-033..R-036) is only allowed when
       ``outcome`` is ``denied``; refused on ``offer`` and refused with no
       outcome, same as the salary triad's own restriction. It defaults to
       ``unknown`` when absent (``rules.normalize_event``), same as the

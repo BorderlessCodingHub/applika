@@ -1,4 +1,4 @@
-"""The scrapers a run uses, by source code (KODI-046), a port of Ían
+"""The scrapers a run uses, by source code, a port of Ían
 Muliterno's ``registry.py`` (``job_scrapping``, commit ``e670914``).
 
 His module-level ``SCRAPERS`` dict always held both boards; here the dict is

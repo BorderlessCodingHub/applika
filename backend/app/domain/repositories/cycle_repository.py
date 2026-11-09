@@ -34,7 +34,7 @@ class CycleRepository:
         )
 
     async def count_current_applications(self, user_id: int) -> int:
-        """Excludes drafts (KODI-032): a draft never counts toward the
+        """Excludes drafts: a draft never counts toward the
         current board, and starting a new cycle never archives one
         (``archive_current_applications``, below)."""
         result = await self.session.scalar(
@@ -60,7 +60,7 @@ class CycleRepository:
     async def archive_current_applications(
         self, user_id: int, cycle_id: int
     ) -> int:
-        """A draft is never archived (KODI-032): it stays open and out of
+        """A draft is never archived: it stays open and out of
         every cycle until it is finished or deleted."""
         result = await self.session.execute(
             update(ApplicationModel)

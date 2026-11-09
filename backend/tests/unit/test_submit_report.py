@@ -1,4 +1,4 @@
-"""Unit tests for ``SubmitReportUseCase`` (KODI-026 backend-qa B1/B2).
+"""Unit tests for ``SubmitReportUseCase`` (QA findings B1/B2).
 
 Fakes stand in for the repository, the Discord service and
 ``ResolveReportWebhooksUseCase``, so these tests run without a database or

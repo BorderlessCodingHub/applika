@@ -14,10 +14,10 @@ NEEDS_CV_MESSAGE = 'Pick a master CV before finishing'
 
 
 class FinishDraftUseCase:
-    """Turn a draft into a normal application (KODI-032 acceptance #2, #7,
+    """Turn a draft into a normal application (drafts API acceptance #2, #7,
     #8): a CV copy is required, ``is_draft`` flips to false and ``cycle_id``
     stays NULL - a finished draft joins the current board like any other
-    application. KODI-036, R-003: the finish body's ``application_date`` is
+    application. R-003: the finish body's ``application_date`` is
     optional - given, it wins; absent, the draft's own stored date (set on
     create or on a later PUT) is used. Either way the date is refused in the
     future, same rule every other application date uses."""

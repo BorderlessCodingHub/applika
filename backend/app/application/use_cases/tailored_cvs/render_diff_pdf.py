@@ -1,6 +1,6 @@
 """Render the diff between an application's CV copy and its baseline as a PDF.
 
-KODI-017 T091. Same content as :mod:`render_diff_markdown`, compiled through
+T091. Same content as :mod:`render_diff_markdown`, compiled through
 Typst (:mod:`app.application.services.cv_rendering.diff_pdf_renderer`).
 """
 

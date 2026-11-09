@@ -1,4 +1,4 @@
-"""feature registry, beta list and admin opt-outs (Release A, KODI-051)
+"""feature registry, beta list and admin opt-outs (Release A)
 
 Revision ID: 641001baff09
 Revises: b28d5134631f
@@ -23,13 +23,13 @@ snowflake ``BIGINT`` with no sequence (ADR-0003), every table carrying
 Seed: the feature ``jobs`` / "Job board" / "Remote job list, CV fit and
 keyword tailoring (PRD 0012)" in ``beta``, ``released_at`` NULL, with no
 beta-list row and no opt-out row - so every admin has it and no other user
-does until an admin adds them (the rule itself is code, KODI-052).
+does until an admin adds them (the rule itself is code).
 
 This is Release A: migration only (``prod-release-runbook.md`` rule 4,
 "expand first"). Every object above is a new table, so the code already in
 production keeps working on this schema. ``app/`` maps none of these
 objects; the ORM models, the access rule and the admin routes ship in
-Release B (KODI-052), only once the owner confirms ``alembic upgrade head``
+Release B, only once the owner confirms ``alembic upgrade head``
 ran in production.
 
 ## non-destructive-migrations.md

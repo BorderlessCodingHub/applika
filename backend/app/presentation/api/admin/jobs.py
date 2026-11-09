@@ -1,4 +1,4 @@
-"""Admin job sources (KODI-046, R-033..R-035), a rebuild of Ían Muliterno's
+"""Admin job sources (R-033..R-035), a rebuild of Ían Muliterno's
 ``admin/jobs.py`` (``job_scrapping``, commit ``e670914``).
 
 His two routes - start an ingestion (202) and read each source's status -

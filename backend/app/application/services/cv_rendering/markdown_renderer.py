@@ -6,7 +6,7 @@ same vendored ``applika`` theme, same ``SECTION_ORDER`` - is fed to RenderCV
 2.8's own Markdown templater
 (``rendercv.renderer.templater.templater.render_full_template(model,
 "markdown")``), in memory, with the throwaway directory removed in
-``finally`` exactly like the PDF path (KODI-017, T090).
+``finally`` exactly like the PDF path (T090).
 
 **One override, and why it exists.** RenderCV computes a per-format
 ``cv._connections`` list that already includes every header contact - email,

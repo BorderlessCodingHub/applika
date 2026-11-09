@@ -30,8 +30,8 @@
 # Normally you don't call those directly — `frontend/scripts/e2e.sh` does.
 name: applika-e2e
 
-# The API's environment, shared by `api`, `worker` and `scheduler` (KODI-049,
-# Plan corrections 10/11): the worker and the scheduler run the same image with
+# The API's environment, shared by `api`, `worker` and `scheduler`
+# (Plan corrections 10/11): the worker and the scheduler run the same image with
 # the same settings, the way `docker-compose.yml` shares `*api-environment`.
 x-api-environment: &api-environment
   ENVIRONMENT: DEV
@@ -68,18 +68,18 @@ x-api-environment: &api-environment
   # axios preflight from the SPA passes without editing settings.py.
   CORS_ORIGINS: '["http://127.0.0.1:8180"]'
   CORS_HEADERS: '["X-Request-ID", "Content-Type", "Accept", "Authorization"]'
-  # KODI-039/ADR-0015: the rate limiter wraps every route, so it would
+  # ADR-0015: the rate limiter wraps every route, so it would
   # otherwise trip on the seed script and on a Playwright run driving
   # many requests in this one 60s window - raised so the limiter stays
   # wired up (still ON) without the E2E suite ever hitting a 429.
   RATE_LIMIT_DEFAULT: "100000"
   RATE_LIMIT_AUTH: "10000"
-  # KODI-057 (ADR-0019, plan 0014 correction 7): the device-code approval
+  # ADR-0019 (plan 0014 correction 7): the device-code approval
   # page and the PKCE manual-code page live on the e2e web, not on the dev
   # stack's :8080 default, so `verification_uri_complete` opens this stack.
   DEVICE_VERIFICATION_URI: http://127.0.0.1:8180/device
   CLI_MANUAL_REDIRECT_URI: http://127.0.0.1:8180/cli/code
-  # Job board (KODI-049). The FIXTURE scraper serves every enabled source
+  # Job board. The FIXTURE scraper serves every enabled source
   # (himalayas, remoteok) from `backend/tests/fixtures/jobs/postings.json`,
   # mounted read-only below: nothing ever reaches himalayas.app or
   # remoteok.com. The settings model refuses `fixture` in PROD. The cron is

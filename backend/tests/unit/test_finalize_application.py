@@ -312,7 +312,7 @@ async def test_denied_outcome_creates_event_without_salary():
     assert values['salary_amount'] is None
     assert values['salary_currency'] is None
     assert values['salary_period'] is None
-    # KODI-014: no reason given defaults to unknown.
+    # no reason given defaults to unknown.
     assert values['denied_reason'] is DeniedReason.UNKNOWN
 
 
@@ -347,7 +347,7 @@ async def test_offer_outcome_missing_salary_triad_is_422():
 
 
 async def test_offer_outcome_hourly_period_is_422():
-    """Defense in depth (KODI-011 remediation round 1, R-032):
+    """Defense in depth (remediation round 1, R-032):
     ``ensure_offer_period_allowed`` refuses ``hourly`` even though the
     presentation schema already restricts an offer outcome's
     ``salary_period`` to monthly/annually - the same restriction the

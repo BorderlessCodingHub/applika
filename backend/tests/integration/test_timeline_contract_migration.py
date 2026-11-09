@@ -1,10 +1,10 @@
-"""Round-trip test for the contract revision ``ad747aba90fc`` (R2, KODI-013).
+"""Round-trip test for the contract revision ``ad747aba90fc`` (R2).
 
 ``.claude/rules/migration-tests.md``: the **real Alembic chain** against a
 dedicated testcontainers Postgres - upgrade to the revision, downgrade to its
 parent, upgrade again - with rows seeded before the upgrade and the data
-asserted after every step. **KODI-014 re-parented R2 onto R3**
-(``c8b3e9f4a1d6``, denied_reason, folded into Release A), and **KODI-016
+asserted after every step. **the denied-reason change re-parented R2 onto R3**
+(``c8b3e9f4a1d6``, denied_reason, folded into Release A), and **the schedule change
 re-parented it again onto R4** (``af50c83911a7``, schedule-interview-only,
 also folded into Release A): the chain is now R1 (``afd4074c70c2``) -> R3
 (``c8b3e9f4a1d6``) -> R4 (``af50c83911a7``) -> R2 (this revision), so R2's
@@ -12,7 +12,7 @@ own "parent" for the round trip is R4, not R3 or R1 directly (see
 ``PARENT_REVISION``/``GRANDPARENT_REVISION``/``GREATGRANDPARENT_REVISION``/
 ``GREATGREATGRANDPARENT_REVISION`` below).
 
-What is proved here, by acceptance criterion of KODI-013 (Engineer A's
+What is proved here, by acceptance criterion of the contract migration (Engineer A's
 ownership - see the slice brief):
 
 * AC1 (R-015) - the **reconcile design**: this revision ships with no
@@ -37,7 +37,7 @@ ownership - see the slice brief):
   migration.
 * AC17 (R-031, row remap) - ``ANNUAL`` -> ``ANNUALLY`` on ``applications``,
   ``users`` and ``timeline_events``, reversed on downgrade.
-* The KODI-010 Denied-with-salary flag survives the round trip in
+* The Denied-with-salary flag survives the round trip in
   ``applications.salary_offer_old``, pinned by
   ``test_denied_with_salary_survives_the_round_trip``.
 * T052 (AC2-AC5, backend side, on the **post-R2** schema): the deprecated
@@ -78,9 +78,9 @@ from testcontainers.postgres import PostgresContainer
 from app.config.settings import envs
 
 REVISION = 'ad747aba90fc'
-# KODI-016 re-parented R2 onto R4 (``af50c83911a7``, schedule-interview-only,
+# The schedule change re-parented R2 onto R4 (``af50c83911a7``, schedule-interview-only,
 # folded into Release A): the chain is now R1 -> R3 -> R4 -> R2, not
-# R1 -> R3 -> R2 (KODI-014's own re-parenting) and not R1 -> R2 directly.
+# R1 -> R3 -> R2 (R3's own re-parenting) and not R1 -> R2 directly.
 PARENT_REVISION = 'af50c83911a7'
 # R4's own down_revision (R3) - two hops below head.
 GRANDPARENT_REVISION = 'c8b3e9f4a1d6'
@@ -125,7 +125,7 @@ PLATFORM_ID = 7300000000000000002
 APP_UNSYNCED = 7300000000000000101  # old-code write the trigger failed to sync
 APP_BDELETED = 7300000000000000102  # step whose migrated event was deleted
 APP_OFFER_SALARY = 7300000000000000103  # finalized offer, untouched by C
-APP_DENIED_SALARY = 7300000000000000104  # KODI-010 flag: Denied + salary
+APP_DENIED_SALARY = 7300000000000000104  # flagged in Release A: Denied + salary
 APP_ANNUAL = 7300000000000000105  # ANNUAL rows on all 3 tables
 APP_TOUCHED_BY_C = 7300000000000000106  # Release C writes after the upgrade
 
@@ -505,7 +505,7 @@ def _seed_at_r1(url: str) -> None:
                 closed_on=date(2025, 8, 20),
             ),
             app(
-                # KODI-010 flag: last step Denied, but a salary was kept -
+                # Flagged in Release A: last step Denied, but a salary was kept -
                 # no offer event exists for this application at all.
                 APP_DENIED_SALARY,
                 salary='3000.00',
@@ -550,7 +550,7 @@ def _seed_at_r1(url: str) -> None:
                     'user_id': USER_ID,
                     'event_type': 'denied',
                     'interview_type': None,
-                    # KODI-014 (R3): matches APP_DENIED_SALARY's legacy
+                    # R3: matches APP_DENIED_SALARY's legacy
                     # feedback 'Not good enough' -> not_good_enough.
                     'denied_reason': 'not_good_enough',
                     'event_date': date(2025, 8, 15),
@@ -795,7 +795,7 @@ def test_upgrade_source_drops_no_column_or_table() -> None:
 
 
 def test_the_revision_is_a_child_of_r4() -> None:
-    """KODI-016 re-parented R2 onto R4 (``af50c83911a7``)."""
+    """The schedule change re-parented R2 onto R4 (``af50c83911a7``)."""
     module = _load_migration_module()
 
     assert module.revision == REVISION
@@ -818,14 +818,14 @@ def test_the_revision_chain_above_r3_resolves() -> None:
     assert cvs_topup.down_revision == 'f28e3d9705dd'
     cvs_event_types = script.get_revision('f28e3d9705dd')
     assert cvs_event_types.down_revision == 'ed39a0fad1e5'
-    kodi_056 = script.get_revision('ed39a0fad1e5')
-    assert kodi_056.down_revision == '641001baff09'
-    kodi_051 = script.get_revision('641001baff09')
-    assert kodi_051.down_revision == 'b28d5134631f'
-    kodi_044 = script.get_revision('b28d5134631f')
-    assert kodi_044.down_revision == '3b78c3cd2a71'
-    kodi_030 = script.get_revision('3b78c3cd2a71')
-    assert kodi_030.down_revision == '583226ca46bc'
+    user_sessions = script.get_revision('ed39a0fad1e5')
+    assert user_sessions.down_revision == '641001baff09'
+    feature_flags = script.get_revision('641001baff09')
+    assert feature_flags.down_revision == 'b28d5134631f'
+    job_board = script.get_revision('b28d5134631f')
+    assert job_board.down_revision == '3b78c3cd2a71'
+    catalog_visibility = script.get_revision('3b78c3cd2a71')
+    assert catalog_visibility.down_revision == '583226ca46bc'
     s10 = script.get_revision('583226ca46bc')
     assert s10.down_revision == 'ba44f9cfd3c1'
     k5 = script.get_revision('ba44f9cfd3c1')
@@ -845,7 +845,7 @@ def test_duplicated_constants_match_revision_af50c83911a7_and_step_translation()
 ):
     """A revision must not import another revision, so R2 copies R1's
     constants and SQL - this pins the copies against drift. The trigger
-    bodies are the one exception since the KODI-014 (then KODI-016)
+    bodies are the one exception since the R3 (then R4)
     re-parenting: they are now copied from R4 (``af50c83911a7``), not R3 or
     R1 directly - see "R4's trigger bodies, not R3's" in the revision's own
     docstring."""
@@ -1007,7 +1007,7 @@ def test_upgrade_never_resurrects_orphaned_application_steps_rows(
 
 
 # --------------------------------------------------------------------------
-# Upgrade: row remap (AC17) and the KODI-010 flag
+# Upgrade: row remap (AC17) and the Denied-with-salary flag
 # --------------------------------------------------------------------------
 
 
@@ -1038,7 +1038,7 @@ def test_annual_rows_are_remapped_to_annually(migration_db: str) -> None:
 def test_denied_with_salary_moves_to_salary_offer_old_untouched(
     migration_db: str,
 ) -> None:
-    """The KODI-010 flag: no new home is invented for the value."""
+    """The Denied-with-salary flag: no new home is invented for the value."""
     _upgrade(migration_db, PARENT_REVISION)
     _seed_at_r1(migration_db)
 
@@ -1092,7 +1092,7 @@ def _release_c_writes(url: str) -> None:
         event_type='denied',
         interview_type=None,
         # A fresh Release C write with no legacy feedback context - the
-        # app's own default (KODI-014's ``normalize_event``).
+        # app's own default (``normalize_event``).
         denied_reason='unknown',
         event_date=date(2026, 10, 2),
         observation=None,
@@ -1161,7 +1161,7 @@ def test_round_trip_upgrade_downgrade_upgrade(migration_db: str) -> None:
         {'id': USER_ID},
     )
     assert users == [{'period': 'ANNUAL'}]
-    # The KODI-010 flag survived the round trip untouched.
+    # The Denied-with-salary flag survived the round trip untouched.
     assert apps[APP_DENIED_SALARY]['salary_offer'] == Decimal('3000.00')
 
     # The step-less offer event folds back into application_steps too.
@@ -1245,7 +1245,7 @@ def test_denied_with_salary_survives_the_round_trip(migration_db: str) -> None:
 
 
 # --------------------------------------------------------------------------
-# R2 must not break the reason column (KODI-014 re-parenting, brief item f)
+# R2 must not break the reason column (R3 re-parenting, brief item f)
 # --------------------------------------------------------------------------
 
 
@@ -1314,7 +1314,7 @@ def test_single_command_downgrade_and_upgrade_cross_four_revisions(
     migration_db: str,
 ) -> None:
     """Remediation round 1 regression (AC7 R-029, AC8), widened first by the
-    KODI-014 re-parenting and again by KODI-016's: a single ``alembic
+    R3 re-parenting and again by R4's: a single ``alembic
     downgrade``/``upgrade`` command that crosses this revision's
     downgrade(), *then* R4's (``af50c83911a7``), *then* R3's
     (``c8b3e9f4a1d6``), *then* R1's (``afd4074c70c2``) in the same run must
@@ -1324,14 +1324,14 @@ def test_single_command_downgrade_and_upgrade_cross_four_revisions(
     outer transaction (no ``transaction_per_migration``), so a single
     ``alembic downgrade d3f7b1c9e2a4`` from head now runs four
     downgrade()s in that same still-open transaction where it used to run
-    two, then three. Before the original fix (KODI-013 remediation round 1),
+    two, then three. Before the original fix (R2's remediation round 1),
     R2 and R1 both created a temp table named ``timeline_downgrade_touched``
     with ``ON COMMIT DROP`` - which only fires once the *whole* command's
     transaction commits, not between revisions - so R1's ``CREATE TEMPORARY
     TABLE`` raised ``asyncpg.exceptions.DuplicateTableError``. R2 was fixed
     by scoping its temp table to its own name
     (``timeline_downgrade_touched_ad747aba90fc``) and dropping it explicitly
-    at the end of its own ``downgrade()``. R3 (KODI-014) and R4 (KODI-016)
+    at the end of its own ``downgrade()``. R3 and R4
     both sidestep the whole class of bug by using no temporary table
     anywhere, so inserting either between R2 and R1 introduces no new
     collision - this test is the proof. R1 (Release A, released) is
@@ -1359,7 +1359,7 @@ def test_single_command_downgrade_and_upgrade_cross_four_revisions(
     assert 'denied_reason' not in _types(migration_db)
 
     # The legacy data is back, restored all the way to the pre-R1 shape by
-    # the three chained downgrades: the KODI-010 flag and a step the R1
+    # the three chained downgrades: the Denied-with-salary flag and a step the R1
     # trigger never got the chance to sync (application_steps.timezone
     # widening reversed too, since we are back before that revision ran).
     # ``applications.finalized_at`` does not exist at all pre-R1, so this
@@ -1418,7 +1418,7 @@ def contract_container() -> Iterator[PostgresContainer]:
 def contract_db_url(contract_container: PostgresContainer) -> str:
     """Migrates to ``head``, not the pinned ``REVISION`` (R2): the API-level
     AC tests below share the ORM with the rest of the app, and every later
-    migration this branch adds a mapped column for (KODI-019/020's
+    migration this branch adds a mapped column for (the Discord link's
     ``users.discord_id``, and any future one) must be present for an ORM
     insert to work at all. ``REVISION``'s own upgrade/downgrade round-trip
     tests above are unaffected - they drive raw SQL, not the ORM, and stay
@@ -1506,7 +1506,7 @@ def test_orm_maps_only_objects_that_exist_post_r2_and_nothing_old(
     already true since Release B, R1's own test pins it at R1).
 
     ``contract_db_url`` stops at R2 (``REVISION``, the module constant); R5
-    (``c1d9f4a7b3e6``, KODI-017 part 2) is a later, unrelated child of R2
+    (``c1d9f4a7b3e6``) is a later, unrelated child of R2
     that adds ``tailored_cvs.base_snapshot`` and the ORM maps it, so this
     test upgrades its own dedicated, function-scoped database the rest of
     the way to ``head`` before comparing - the R2-only parity this test

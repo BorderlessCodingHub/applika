@@ -1,4 +1,4 @@
-"""The jobs one user dismissed (KODI-047, PRD 0012 R-029).
+"""The jobs one user dismissed (PRD 0012 R-029).
 
 Every read and write is keyed on the acting user's id (ADR-0004): a user
 only ever adds or removes their own row, and an admin has no other access.

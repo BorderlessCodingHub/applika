@@ -21,7 +21,7 @@ class ApplicationRepository:
         (``tailored_cvs/guards.load_owned_application``) passes
         ``include_drafts=True`` so the CV-copy routes work on a draft; every
         other caller keeps the default, which never returns a draft
-        (ADR-0014, KODI-032)."""
+        (ADR-0014)."""
         stmt = select(ApplicationModel).where(
             ApplicationModel.id == id, ApplicationModel.user_id == user_id
         )
@@ -89,7 +89,7 @@ class ApplicationRepository:
         await self.session.commit()
         return int(getattr(result, 'rowcount', 0) or 0)
 
-    # --- Drafts (KODI-032, ADR-0014) -------------------------------------
+    # --- Drafts (ADR-0014) -----------------------------------------------
 
     async def create_draft(
         self,
@@ -99,12 +99,12 @@ class ApplicationRepository:
         job_id: int | None = None,
         commit: bool = True,
     ) -> ApplicationModel:
-        """KODI-036, R-003: ``data.application_date`` is optional - given, it
+        """R-003: ``data.application_date`` is optional - given, it
         is stored as-is (already validated by ``CreateDraftUseCase``);
         absent, the draft is dated with the server's own day, same as
         before this ticket.
 
-        KODI-047: ``job_id`` is the job a draft was started from
+        ``job_id`` is the job a draft was started from
         (``CreateDraftFromJobUseCase``). ``commit=False`` adds and flushes
         the row without committing, so the request's next write (the CV
         copy, on the same session) commits both; on a failed flush the

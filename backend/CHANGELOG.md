@@ -474,6 +474,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - the six named codes are renumbered, their messages unchanged (AUTH-1006's message later gained what to do; see Added): `email_unverified` → `AUTH-1005`, `binding_conflict` → `AUTH-1006` (sign-in), `email_ambiguous` → `AUTH-1007`, `email_unusable` → `AUTH-1008`, `badge_required` → `RPT-1001`, `membership_unconfirmed` → `RPT-1002`. The membership confirm's "This is not the Borderless account linked to your applika account" (was `binding_conflict` too) is `AUTH-1010`.
 - an unhandled server error answers JSON `{"detail": "Internal Server Error", "code": "GEN-1005"}` (was a plain-text body with the same words), status 500 unchanged.
 - every validation 422 adds `code` `GEN-1003`; its `detail` list of field errors is unchanged.
+- internal ticket references removed from code comments, docstrings and tests; no behaviour change. Eight OpenAPI descriptions lose theirs: the `DeniedReason`, `DraftFromJob` and `JobSourceAdminRow` schemas, the finalize body's outcome shape, and `POST /applications/drafts/from-job`, `POST /auth/cli/exchange`, `POST /base-cvs` and `PATCH /base-cvs/{base_cv_id}`. No route, field or status changes.
 
 ### Removed
 

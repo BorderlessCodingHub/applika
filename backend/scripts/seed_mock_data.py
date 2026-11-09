@@ -17,7 +17,7 @@ Usage:
     3. Set ACCESS_TOKEN below with your JWT token
     4. Run: python scripts/seed_mock_data.py
 
-KODI-057 (ADR-0019): paste the ``__access`` cookie of a LIVE browser
+ADR-0019: paste the ``__access`` cookie of a LIVE browser
 session. The JWT carries ``sid`` and every request checks that session in
 Redis, so a token from before the release, or from a browser that has
 since logged out or been revoked under Profile > Devices, answers 401
@@ -57,7 +57,7 @@ INTERVIEW_TYPES = [
     'take_home',
     'final',
 ]
-# KODI-014: a denied event/finalize picks one of these at random, some of the
+# a denied event/finalize picks one of these at random, some of the
 # time; the rest stay unset and default to `unknown` server-side.
 DENIED_REASONS = [
     'not_good_enough',
@@ -524,8 +524,8 @@ def seed_drafts(
     company_id: str,
     base_cv_ids: list[str],
 ) -> None:
-    """Exercise the "new application with CV" draft flow (KODI-032,
-    ADR-0014, KODI-036): one draft finished with a CV copy (it becomes an
+    """Exercise the "new application with CV" draft flow
+    (ADR-0014): one draft finished with a CV copy (it becomes an
     ordinary application), one left open with a CV copy attached (it must
     stay out of ``GET /applications`` and everything else that reads
     applications). The finished draft sends its own ``application_date`` on
@@ -562,7 +562,7 @@ def seed_drafts(
                 f'  Failed to attach a CV copy to the draft: {cv_resp.status_code}'
             )
 
-    # No body (KODI-036): the finish date comes from the draft's own stored
+    # No body: the finish date comes from the draft's own stored
     # application_date, not from today.
     finish_resp = client.post(
         f'/applications/drafts/{finished_draft["id"]}/finish'
@@ -630,8 +630,8 @@ def _feature_keys(client: httpx.Client) -> list[str]:
 
 
 def has_jobs_feature(client: httpx.Client) -> bool:
-    """Whether the seed user has the "jobs" beta feature (KODI-052,
-    ADR-0018). Without it every job route answers 404 and "keywords"
+    """Whether the seed user has the "jobs" beta feature
+    (ADR-0018). Without it every job route answers 404 and "keywords"
     tailoring 422, so the job steps are skipped, never failed."""
     keys = _feature_keys(client)
     print(f'Features of the seed user: {keys or "none"}')
@@ -646,7 +646,7 @@ def has_cvs_feature(client: httpx.Client) -> bool:
 
 
 def seed_job_searches(client: httpx.Client) -> None:
-    """Saved job searches (KODI-047, R-030): create, rename, list and
+    """Saved job searches (R-030): create, rename, list and
     delete one, then fill the cap and prove the 11th is refused with 409.
     Leaves the ten behind. A saved search notifies no one (R-032)."""
     print('Seeding saved job searches...')
@@ -693,7 +693,7 @@ def seed_job_searches(client: httpx.Client) -> None:
 
 def seed_draft_from_job(client: httpx.Client, base_cv_ids: list[str]) -> None:
     """Start one draft from a job with a master CV tailored by keywords
-    (KODI-047, R-017/R-020). Jobs only exist once the worker has run on the
+    (R-017/R-020). Jobs only exist once the worker has run on the
     dev stack; with an empty list the step is skipped and says so."""
     resp = client.get('/jobs', params={'per_page': 25})
     assert resp.status_code == 200, f'{resp.status_code} {resp.text}'
@@ -1010,7 +1010,7 @@ def build_headers() -> dict:
 
 
 class RetryOn429Transport(httpx.HTTPTransport):
-    """Waits out the API's rate limiter (KODI-039, ADR-0015).
+    """Waits out the API's rate limiter (ADR-0015).
 
     The dev/e2e compose stacks raise ``RATE_LIMIT_DEFAULT``/
     ``RATE_LIMIT_AUTH`` so a normal seed run never trips the limiter, but a
@@ -1051,7 +1051,7 @@ def main():
 
         platform_ids = [p['id'] for p in platforms]
 
-        # ----- Beta features (KODI-052): no "jobs", no job steps -----
+        # ----- Beta features: no "jobs", no job steps ----------------
         jobs_enabled = has_jobs_feature(client)
         if not jobs_enabled:
             print(
@@ -1068,7 +1068,7 @@ def main():
                 '/admin/features)'
             )
 
-        # ----- GET /platforms (S7, KODI-035): the web picker's own route,
+        # ----- GET /platforms (S7): the web picker's own route,
         # visible platforms only, ordered by name instead of /supports' id
         # order - same visible set either way. -----
         web_platforms_resp = client.get('/platforms')
@@ -1078,7 +1078,7 @@ def main():
             'GET /platforms must show the same visible set as /supports'
         )
 
-        # ----- Private catalog rows (KODI-031, ADR-0014) -----
+        # ----- Private catalog rows (ADR-0014) ---------------
         # A platform with no url, and a company: both start private to this
         # seed user, exercised end to end on one application below.
         print('Seeding a private platform and a private company...')
@@ -1203,7 +1203,7 @@ def main():
             app_date = random_date(DATE_START, DATE_END - timedelta(days=20))
 
             # The first application exercises the private platform and
-            # company end to end (KODI-031).
+            # company end to end.
             if i == 0:
                 platform_id = private_platform_id
                 company_field = private_company_id

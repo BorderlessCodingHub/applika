@@ -1,4 +1,4 @@
-"""PKCE S256 (RFC 7636) for the CLI browser sign-in (KODI-057, ADR-0019).
+"""PKCE S256 (RFC 7636) for the CLI browser sign-in (ADR-0019).
 
 Only ``S256`` is accepted. A challenge is 43 to 128 base64url characters; a
 verifier is 43 to 128 of RFC 7636's unreserved characters.

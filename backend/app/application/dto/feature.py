@@ -1,4 +1,4 @@
-"""DTOs of the beta features (KODI-052, ADR-0018): what the feature use
+"""DTOs of the beta features (ADR-0018): what the feature use
 cases return to the routers."""
 
 from datetime import datetime

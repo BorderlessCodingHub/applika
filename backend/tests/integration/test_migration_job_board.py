@@ -1,5 +1,5 @@
 """Round-trip test for the job board tables, ``applications.job_id`` and the
-source platforms, revision ``b28d5134631f`` (KODI-044, Release A).
+source platforms, revision ``b28d5134631f`` (Release A).
 
 ``.claude/rules/migration-tests.md`` 2: this drives the **real Alembic
 chain** against a dedicated testcontainers Postgres - upgrade to the
@@ -29,7 +29,7 @@ What is asserted here:
 * the second upgrade renames everything back: rows, columns and index
   definitions equal the first upgrade's, no second source or platform; a
   source whose platform vanished while rolled back gets one again;
-* Release B (KODI-046, KODI-047): ``app/`` maps the five tables and
+* Release B: ``app/`` maps the five tables and
   ``applications.job_id`` exactly as this revision builds them -
   autogenerate finds no difference, and ``create_all`` builds the same
   constraints and indexes - and maps no ``*_old`` object.
@@ -1192,7 +1192,7 @@ def test_reupgrade_repeats_the_platform_lookup(migration_db: str) -> None:
 
 
 # --------------------------------------------------------------------------
-# AC5, as amended by Release B (KODI-046, KODI-047): app/ maps all five
+# AC5, as amended by Release B: app/ maps all five
 # tables and applications.job_id exactly as this revision builds them; no
 # ``*_old`` object is ever mapped
 # --------------------------------------------------------------------------

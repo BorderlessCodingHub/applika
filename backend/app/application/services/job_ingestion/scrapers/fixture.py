@@ -1,4 +1,4 @@
-"""The fixture scraper (KODI-046, plan corrections 10): every source served
+"""The fixture scraper (plan corrections 10): every source served
 from one JSON file, for the integration tests and the e2e stack. Never in
 PROD - ``Settings`` refuses ``fixture`` in ``JOBS_SCRAPERS`` there.
 

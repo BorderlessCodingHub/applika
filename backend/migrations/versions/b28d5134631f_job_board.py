@@ -1,4 +1,4 @@
-"""job board tables, applications.job_id, source platforms (Release A, KODI-044)
+"""job board tables, applications.job_id, source platforms (Release A)
 
 Revision ID: b28d5134631f
 Revises: 3b78c3cd2a71

@@ -1,4 +1,4 @@
-"""Unit tests for the pure rate-limit core (KODI-039, T028)."""
+"""Unit tests for the pure rate-limit core (T028)."""
 
 import asyncio
 import logging
@@ -121,7 +121,7 @@ def test_subject_for_no_client_host():
     assert subject_for({}, {}, None) == 'ip:unknown'
 
 
-# --- KODI-057 (ADR-0019): Bearer first, then the cookie, then the IP ---
+# --- ADR-0019: Bearer first, then the cookie, then the IP --------------
 
 
 def test_subject_for_bearer_token_counts_against_its_user():
