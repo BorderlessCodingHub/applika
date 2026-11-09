@@ -402,15 +402,29 @@ describe("the account area in Portuguese below md", () => {
     ).toBeInTheDocument();
     unmount();
 
-    await renderPt("/admin/report-webhooks", <ReportWebhooksPage />);
+    // v3/AdminWebhook (PRD 0022): the section heads itself with its lead.
+    await renderPt(
+      "/admin/report-webhooks",
+      <AdminLayout>
+        <ReportWebhooksPage />
+      </AdminLayout>,
+    );
     expect(
-      await screen.findByText(
-        "Cada webhook tem um ou mais selos. O relatório quinzenal de um membro é enviado a todo webhook que tem o selo dele.",
+      screen.getByRole("heading", { level: 1, name: "Webhooks de relatório" }),
+    ).toHaveClass("ph-h1", "ph-h1-26");
+    expect(
+      screen.getByText(
+        "Cada webhook tem um ou mais selos. O relatório quinzenal de um membro é enviado a todo webhook que tem o selo BASE ou PSP dele.",
       ),
-    ).toBeInTheDocument();
+    ).toHaveClass("ph-lead");
     expect(
       screen.getByRole("button", { name: "Adicionar webhook" }),
     ).toBeInTheDocument();
-    expect(await screen.findByText("Editar")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Editar webhook sem rótulo" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Excluir webhook sem rótulo" }),
+    ).toBeInTheDocument();
   });
 });

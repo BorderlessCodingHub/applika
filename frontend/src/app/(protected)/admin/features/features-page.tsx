@@ -2,7 +2,10 @@
 
 import { FeatureListHeader } from "@/components/admin/feature-header";
 import { FeatureTable } from "@/components/admin/feature-table";
+import { fromQuery } from "@/components/phone/phone-query-load";
+import { AdminFeaturesScreenView } from "@/components/phone/screens/admin-features-screen";
 import { useAdminFeatures } from "@/hooks/use-admin";
+import { useIsPhone } from "@/hooks/use-is-phone";
 
 /**
  * `/admin/features` (KODI-054, AC1): every feature with its key, name,
@@ -12,7 +15,20 @@ import { useAdminFeatures } from "@/hooks/use-admin";
  * `/admin/features/view?key=`.
  */
 export function FeaturesPage() {
-  const { data, isLoading, isError, isFetching, refetch } = useAdminFeatures();
+  const { data, isLoading, isError, isFetching, refetch, error } =
+    useAdminFeatures();
+  const isPhone = useIsPhone();
+
+  // Below md v3/AdminFeatures (PRD 0022): the same query, one card per
+  // feature under the admin header, which heads it "Features".
+  if (isPhone) {
+    return (
+      <AdminFeaturesScreenView
+        features={fromQuery({ data, isError, error, isFetching, refetch })}
+        refreshing={isFetching && !isLoading && !isError}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-5">

@@ -14,9 +14,10 @@ import { useIsPhone } from "@/hooks/use-is-phone";
  * Every `/admin/*` page, for administrators only (`AdminGuard`). Below md
  * the Admin board's header and chips sit over every section; the sections
  * in `ADMIN_BOARD_PATHS` (Dashboard, Users, Companies, Platforms, Jobs,
- * Report webhooks) render their boards, the other sections today's content
- * inside the header's 20px sides (PRD 0021, PRD 0022). At md and up today's
- * `AdminNav` over the page, unchanged.
+ * Features, a feature, Report webhooks) render their boards (a feature's
+ * under the bar's "System" pill alone), the redirect shells (Supports,
+ * Discord webhooks) today's content inside the header's 20px sides (PRD
+ * 0021, PRD 0022). At md and up today's `AdminNav` over the page, unchanged.
  */
 export default function AdminLayout({
   children,

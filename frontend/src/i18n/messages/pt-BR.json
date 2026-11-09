@@ -2546,7 +2546,6 @@
       "growthChart": "Novos usuários por mês, de {first} em {firstMonth} a {last} em {lastMonth}",
       "noData": "Sem dados ainda",
       "loading": "Carregando o painel",
-      "webhooksHint": "Cada webhook tem um ou mais selos. O relatório quinzenal de um membro é enviado a todo webhook que tem o selo dele.",
       "edit": "Editar"
     },
     "adminUsers": {

@@ -53,9 +53,12 @@ import {
  *   as `cvs-beta.spec.ts` does (the jobs stay, like `jobs.spec.ts`'s).
  * - `e2e-admin` walks the admin console's chips and boards; the one report
  *   webhook it lists is made and deleted through the API (a synthetic
- *   address), and its own `jobs` opt-out (a feature taken away) is deleted
- *   again before the test ends and in `afterAll`. On the v3 boards (Users,
- *   Companies, Platforms) it never presses the administrator toggle; the
+ *   address), the one it adds through the v3 sheet is deleted through the
+ *   v3 delete sheet (and through the API in `afterAll`), and its own `jobs`
+ *   opt-out (a feature taken away) is deleted again before the test ends
+ *   and in `afterAll`. On a feature's page it never presses Your access,
+ *   Add or a stage confirm (the stage sheet is cancelled). On the v3 boards
+ *   (Users, Companies, Platforms) it never presses the administrator toggle; the
  *   two private companies it needs are made by `e2e-user` through the API in
  *   `beforeAll` (one approved on the phone, one used by an application made
  *   through the API), and the application and both companies are deleted
@@ -1148,6 +1151,10 @@ test.describe("the admin console below md", () => {
   /** Synthetic: the API only checks the shape and never posts on save. */
   const HOOK_TAIL = "e2e-dummy-phone-webhook-not-real";
   const HOOK_URL = `https://discord.com/api/webhooks/123456789012345678/${HOOK_TAIL}`;
+  /** Added through the v3 sheet and deleted through its delete sheet. */
+  const SHEET_LABEL = "e2e phone sheet webhook";
+  const SHEET_TAIL = "e2e-dummy-token-not-real";
+  const SHEET_URL = `https://discord.com/api/webhooks/000000000000000000/${SHEET_TAIL}`;
 
   const stamp = Date.now();
   /** Private, made by e2e-user through the API; approved on the phone. */
@@ -1208,7 +1215,7 @@ test.describe("the admin console below md", () => {
       "/admin/report-webhooks",
     );
     for (const row of rows) {
-      if (row.label !== LABEL) continue;
+      if (row.label !== LABEL && row.label !== SHEET_LABEL) continue;
       const deleted = await request.delete(
         apiUrl(`/admin/report-webhooks/${row.id}`),
         { headers: roleHeaders("admin") },
@@ -1264,7 +1271,7 @@ test.describe("the admin console below md", () => {
     ).toHaveAttribute("aria-current", "page");
   }
 
-  test("the Admin row opens the console: seven chips, the Dashboard, Jobs and Report webhooks boards", async ({
+  test("the Admin row opens the console: seven chips, the Dashboard and Jobs boards under Admin Console", async ({
     page,
   }) => {
     await loginAs(page, "admin");
@@ -1321,12 +1328,33 @@ test.describe("the admin console below md", () => {
     await expect(page.locator('[data-slot="job-run-now"]')).toBeVisible();
     await expectPhoneTargets(page, 4);
     await expectNoSidewaysScroll(page);
+  });
 
-    // Report webhooks: the masked address only, never the stored one.
+  test("Report webhooks: the v3 cards under its own h1; Edit's sheet cancelled, a webhook added and deleted through the sheets", async ({
+    page,
+  }) => {
+    await loginAs(page, "admin");
+    await page.goto("/admin");
     await tapChip(page, "Report webhooks", "/admin/report-webhooks");
+
+    // The section heads itself (v3/AdminWebhook); no "Admin Console" here.
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText([
+      "Report webhooks",
+    ]);
     await expect(
-      page.getByRole("heading", { level: 1, name: "Admin Console" }),
+      page.getByText(
+        "Each webhook holds one or more badges. A member's biweekly report is posted to every webhook that holds their BASE or PSP badge.",
+        { exact: true },
+      ),
     ).toBeVisible();
+    await expect(page.getByText("Admin Console", { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(page.locator('[data-slot="phone-top-bar-end"]')).toContainText(
+      "System",
+    );
+
+    // The API-made webhook: its card, the masked address only.
     const row = page
       .locator('li[data-slot="report-webhook-row"]')
       .filter({ hasText: LABEL });
@@ -1336,24 +1364,84 @@ test.describe("the admin console below md", () => {
     await expect(row.locator('[data-slot="report-webhook-badge"]')).toHaveText([
       "PSP",
     ]);
+    await expect(
+      row.getByRole("button", { name: `Edit ${LABEL}` }),
+    ).toBeVisible();
+    await expect(
+      row.getByRole("button", { name: `Delete ${LABEL}` }),
+    ).toBeVisible();
     expect(await page.content()).not.toContain(HOOK_TAIL);
     await expectPhoneTargets(page, 4);
     await expectNoSidewaysScroll(page);
 
-    // Today's add/edit dialog at both widths: it fits the phone too.
+    // Edit: the current masked address and a blank field, then Cancel.
     await row.getByRole("button", { name: `Edit ${LABEL}` }).click();
     const edit = page.getByRole("dialog", { name: "Edit webhook" });
     await expect(edit).toBeVisible();
     await expect(edit.getByLabel("Webhook URL")).toHaveValue("");
+    await expect(
+      edit.locator('[data-slot="report-webhook-url-current"]'),
+    ).toHaveText("https://discord.com/api/webhooks/123456789012345678/…real");
+    await expect(edit.getByText("Current:", { exact: false })).toBeVisible();
+    await expect(edit.getByRole("checkbox", { name: "PSP" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    await expect(
+      edit.getByRole("button", { name: "Save changes" }),
+    ).toBeVisible();
+    await expectPhoneTargets(page, 8);
     await expectNoSidewaysScroll(page);
-    await page.keyboard.press("Escape");
+    await edit.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(edit).toHaveCount(0);
-    await page.locator('[data-action="add-webhook"]').click();
+
+    // Add through the sheet: the address, BASE and its own label.
+    await page.getByRole("button", { name: "Add webhook" }).click();
     const add = page.getByRole("dialog", { name: "Add webhook" });
     await expect(add).toBeVisible();
+    await expect(add.getByLabel("Webhook URL")).toBeFocused();
+    await expect(add.getByRole("group", { name: "Badges" })).toBeVisible();
+    await expectPhoneTargets(page, 8);
     await expectNoSidewaysScroll(page);
-    await page.keyboard.press("Escape");
+    await add.getByLabel("Webhook URL").fill(SHEET_URL);
+    await add.getByRole("checkbox", { name: "BASE" }).click();
+    await expect(add.getByRole("checkbox", { name: "BASE" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    await add.getByLabel("Label").fill(SHEET_LABEL);
+    await add.getByRole("button", { name: "Save webhook" }).click();
     await expect(add).toHaveCount(0);
+
+    const added = page
+      .locator('li[data-slot="report-webhook-row"]')
+      .filter({ hasText: SHEET_LABEL });
+    await expect(
+      added.locator('[data-slot="report-webhook-badge"]'),
+    ).toHaveText(["BASE"]);
+    await expect(added.locator('[data-slot="report-webhook-url"]')).toHaveText(
+      "https://discord.com/api/webhooks/000000000000000000/…real",
+    );
+    expect(await page.content()).not.toContain(SHEET_TAIL);
+    await expectNoSidewaysScroll(page);
+
+    // Delete through the board's sheet: Cancel first, then Delete.
+    await added.getByRole("button", { name: `Delete ${SHEET_LABEL}` }).click();
+    const remove = page.getByRole("alertdialog", { name: "Delete webhook?" });
+    await expect(remove).toBeVisible();
+    await expect(
+      remove.getByRole("button", { name: "Cancel", exact: true }),
+    ).toBeFocused();
+    await expect(remove).toContainText(
+      `Reports from Borderless BASE members will no longer be posted to ${SHEET_LABEL}. This cannot be undone.`,
+    );
+    await expectPhoneTargets(page, 4);
+    await expectNoSidewaysScroll(page);
+    await remove.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(remove).toHaveCount(0);
+    await expect(added).toHaveCount(0);
+    await expect(row).toHaveCount(1);
+    expect(await page.content()).not.toContain(SHEET_TAIL);
     expect(await page.content()).not.toContain(HOOK_TAIL);
   });
 
@@ -1606,32 +1694,161 @@ test.describe("the admin console below md", () => {
     expect(items.find((item) => item.name === APPROVE)?.is_public).toBe(true);
   });
 
-  test("Features keeps today's content under the same header", async ({
+  test("Features: the v3 cards under its own h1, one per feature; the jobs card opens its page", async ({
     page,
+    request,
   }) => {
+    const seeded = await getJson<Array<{ key: string; name: string }>>(
+      request,
+      "admin",
+      "/admin/features",
+    );
+    expect(seeded.map((feature) => feature.key)).toContain("jobs");
+
     await loginAs(page, "admin");
     await page.goto("/admin");
     await tapChip(page, "Features", "/admin/features");
-    // "Admin Console" is a `p` here: today's page keeps the one h1.
-    await expect(page.locator('p[data-slot="admin-phone-title"]')).toHaveText(
-      "Admin Console",
-    );
-    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText([
+      "Features",
+    ]);
     await expect(
-      page.locator('[data-slot="admin-phone-content"]'),
+      page.getByText(
+        "A new feature starts in beta: only users on its beta list and admins have it. Release it to give it to everyone.",
+        { exact: true },
+      ),
     ).toBeVisible();
-    await page.waitForLoadState("networkidle");
+    await expect(page.locator('[data-slot="admin-phone-content"]')).toHaveCount(
+      0,
+    );
+
+    // One card per row of the `features` table, as the API lists them.
+    const cards = page.locator('li[data-slot="feature-row"]');
+    await expect(cards).toHaveCount(seeded.length);
+    for (let index = 0; index < seeded.length; index += 1) {
+      await expect(cards.nth(index)).toHaveAttribute(
+        "data-feature-key",
+        seeded[index].key,
+      );
+    }
+    const jobs = cards.filter({
+      has: page.locator('[data-slot="feature-key"]', { hasText: /^jobs$/ }),
+    });
+    await expect(jobs.getByRole("link", { name: "Job board" })).toHaveAttribute(
+      "href",
+      "/admin/features/view?key=jobs",
+    );
+    await expect(jobs.locator('[data-slot="feature-you"]')).toContainText(
+      "You",
+    );
+    await expect(jobs.locator('[data-slot="feature-beta-count"]')).toHaveText(
+      /^\d[\d,]*$/,
+    );
+    await expectPhoneTargets(page, 7 + seeded.length);
     await expectNoSidewaysScroll(page);
 
-    await page.goto("/admin/features/view?key=jobs");
+    await jobs.getByRole("link", { name: "Job board" }).click();
+    await page.waitForURL("**/admin/features/view?key=jobs");
     await expect(
       page.getByRole("heading", { level: 1, name: "Job board" }),
     ).toBeVisible();
+  });
+
+  test("a feature: back Features and the System pill, no chips; Your access, the beta list, Add user searched then Done, the stage sheet cancelled", async ({
+    page,
+  }) => {
+    await loginAs(page, "admin");
+    await page.goto("/admin/features/view?key=jobs");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText([
+      "Job board",
+    ]);
+    // The bar: back to Features and the System pill; no chips, no Admin Console.
+    const back = page
+      .locator('[data-slot="phone-top-bar"]')
+      .getByRole("link", { name: "Features", exact: true });
+    await expect(back).toHaveAttribute("href", "/admin/features");
+    await expect(page.locator('[data-slot="phone-top-bar-end"]')).toContainText(
+      "System",
+    );
+    await expect(chips(page)).toHaveCount(0);
+    await expect(page.getByText("Admin Console", { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(page.locator('[data-slot="feature-key"]')).toHaveText("jobs");
+
+    // Your access: the switch is there, never pressed.
+    const access = page.getByRole("region", { name: "Your access" });
     await expect(
-      chips(page).getByRole("link", { name: "Features", exact: true }),
-    ).toHaveAttribute("aria-current", "page");
+      access.getByRole("switch", { name: "Use this feature myself" }),
+    ).toBeVisible();
+    await expect(
+      access.locator('[data-slot="feature-own-access-reason"]'),
+    ).toHaveText(/^You (have|don't have) this feature/);
+
+    // The beta list holds e2e-user (the seed's).
+    const list = page.getByRole("region", { name: "Beta list" });
+    await expect(
+      list.locator('[data-slot="feature-beta-list-count"]'),
+    ).toHaveText(/^\d+ users?$/);
+    await list
+      .getByRole("searchbox", { name: "Search the beta list" })
+      .fill("e2e-user");
+    const member = list.locator(
+      'li[data-slot="feature-beta-user"][data-username="e2e-user"]',
+    );
+    await expect(member).toBeVisible();
+    await expect(
+      member.getByRole("button", { name: "Remove e2e-user" }),
+    ).toBeVisible();
+    await list
+      .getByRole("searchbox", { name: "Search the beta list" })
+      .fill("");
+    await expect(member).toBeVisible();
     await page.waitForLoadState("networkidle");
+    await expectPhoneTargets(page, 6);
     await expectNoSidewaysScroll(page);
+
+    // Add user: search everyone, then Done (nobody is added).
+    await list.getByRole("button", { name: "Add user", exact: true }).click();
+    const add = page.getByRole("dialog", {
+      name: "Add users to the beta list",
+    });
+    await expect(add).toBeVisible();
+    const search = add.getByRole("searchbox", { name: "Search users" });
+    await expect(search).toBeFocused();
+    await search.fill("e2e");
+    await expect(
+      add.getByRole("button", { name: "e2e-user is on the list" }),
+    ).toBeVisible();
+    await expect(
+      add
+        .locator(
+          'li[data-slot="feature-add-user-row"][data-username="e2e-admin"]',
+        )
+        .getByText("Admin", { exact: true }),
+    ).toBeVisible();
+    await expectPhoneTargets(page, 6);
+    await expectNoSidewaysScroll(page);
+    await add.getByRole("button", { name: "Done", exact: true }).click();
+    await expect(add).toHaveCount(0);
+
+    // The stage sheet: opened, then Cancel (never confirmed).
+    const stage = page.locator('[data-slot="feature-stage-action"]');
+    const releasing =
+      (await stage.getAttribute("data-next-stage")) === "general";
+    await stage.click();
+    const sheet = page.getByRole("alertdialog", {
+      name: releasing
+        ? "Release Job board to everyone?"
+        : "Move Job board back to beta?",
+    });
+    await expect(sheet).toBeVisible();
+    const cancel = sheet.getByRole("button", { name: "Cancel", exact: true });
+    await expect(cancel).toBeFocused();
+    await expectPhoneTargets(page, 6);
+    await expectNoSidewaysScroll(page);
+    await cancel.click();
+    await expect(sheet).toHaveCount(0);
+    await expect(stage).toBeFocused();
   });
 
   test("a feature taken away: its Account row goes on the next load and its address is not found", async ({

@@ -653,7 +653,6 @@ describe("phone-nav", () => {
     ).toEqual([
       ["/cvs/new", "/cvs"],
       ["/applications/cv", "/applications"],
-      ["/admin/features/view", "/admin/features"],
       ["/admin/supports", "/admin"],
       ["/admin/discord-webhooks", "/admin"],
     ]);

@@ -4139,73 +4139,6 @@
     color: var(--muted-foreground);
   }
 
-  .ph-ad-hook {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .ph-ad-hook[data-deleting] {
-    opacity: 0.6;
-  }
-
-  .ph-ad-hook-head {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-  }
-
-  .ph-ad-hook-label {
-    margin: 0;
-    min-width: 0;
-    font-size: 16px;
-    font-weight: 600;
-    overflow-wrap: anywhere;
-  }
-
-  .ph-ad-hook-label[data-unlabelled] {
-    font-weight: 500;
-    font-style: italic;
-    color: var(--muted-foreground);
-  }
-
-  .ph-ad-hook-badges {
-    flex: none;
-    display: flex;
-    gap: 4px;
-  }
-
-  .ph-ad-hook-none {
-    margin: 0;
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    font-size: 13px;
-    line-height: 1.45;
-  }
-
-  .ph-ad-hook-none > svg {
-    flex: none;
-    margin-top: 1px;
-    color: var(--warning);
-  }
-
-  .ph-ad-hook-url {
-    font-size: 12px;
-    color: var(--muted-foreground);
-    word-break: break-all;
-  }
-
-  .ph-ad-hook-actions {
-    margin-top: 4px;
-    display: flex;
-    gap: 8px;
-  }
-
-  .ph-ad-hook-actions > .ph-btn:first-child {
-    flex: 1;
-  }
-
   /* The boards' sheets stack 14px apart (v2/Cycles); Cancel first, the action fills the row. */
   .ph-sheet.ph-sheet-stack,
   .ph-sheet-stack-form {
@@ -5990,5 +5923,673 @@
 
   .ph-cat-form .ph-input[aria-invalid="true"] {
     border-color: var(--destructive-text);
+  }
+
+  /* v3: the boards' state cards (v3/AdminFeatures l.89-100, empty and failed load), drawn by Features, a feature and Report webhooks. */
+
+  .ph-card.ph-state-card {
+    text-align: center;
+    padding: 28px 20px;
+  }
+
+  .ph-state-t {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-hint.ph-state-b {
+    margin-top: 6px;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-card.ph-alert-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-hint.ph-alert-b {
+    overflow-wrap: anywhere;
+  }
+
+  /* PhoneCheckOption: v3/AdminWebhook's .opt as a checkbox (l.46-49, l.121-124; .ph-box and the checked look above). */
+
+  .ph-opt.ph-opt-chk {
+    width: 100%;
+    font-size: 15px;
+  }
+
+  .ph-opt.ph-opt-chk[aria-invalid="true"] {
+    border-color: var(--destructive-text);
+  }
+
+  .ph-opt-text {
+    min-width: 0;
+  }
+
+  .ph-opt-l {
+    display: block;
+    font-weight: 600;
+  }
+
+  .ph-opt-d {
+    display: block;
+    margin-top: 2px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  /* v3/AdminFeatures (its head is AdminPhoneHeader's .ph-h1.ph-h1-26 + .ph-lead, its body .ph-ad-body; facts .ph-dl.ph-dl-3s); bodies as drawn. */
+
+  .ph-af-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: opacity 0.2s;
+  }
+
+  .ph-af-list[data-refreshing] {
+    opacity: 0.6;
+  }
+
+  .ph-card.ph-af-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    color: var(--foreground);
+  }
+
+  .ph-af-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .ph-af-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-af-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .ph-af-name {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .ph-hint.ph-af-desc {
+    margin-top: 4px;
+  }
+
+  .ph-af-chev {
+    flex: none;
+    margin-top: 2px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-af-you {
+    margin: 0;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  .ph-af-you-k {
+    color: var(--muted-foreground);
+  }
+
+  .ph-af-yes {
+    flex: none;
+    color: var(--success);
+  }
+
+  .ph-af-no {
+    flex: none;
+    color: var(--muted-foreground);
+  }
+
+  .ph-af-you-v {
+    font-weight: 500;
+  }
+
+  /* A long name ends in an ellipsis; a long description, key or reason wraps inside the card (PRD 0022). */
+  .ph-af-name {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-af-title > .ph-pill {
+    flex: none;
+  }
+
+  .ph-hint.ph-af-desc,
+  .ph-af-dl dd,
+  .ph-af-you-v {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-hint.ph-af-desc[data-empty],
+  .ph-lead.ph-fv-lead[data-empty] {
+    font-style: italic;
+  }
+
+  /* v3/AdminFeatureView (its bar is the shell's back "Features" + the System pill; its main is .ph-ad-body: px20 pb40 gap16); bodies as drawn. */
+
+  .ph-fv-header {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-fv-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .ph-card.ph-fv-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-fv-card-h {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .ph-fv-reason {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .ph-fv-switch-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-fv-switch-l {
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  /* The board's locked switch (.switch[disabled], l.51), kept focusable; a saving one keeps the 0021 pending look. */
+  .ph-switch.ph-fv-switch[aria-disabled="true"]:not([aria-busy="true"]) {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .ph-fv-card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ph-fv-count {
+    flex: none;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-fv-tools {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  .ph-field.ph-fv-search {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-input.ph-fv-search-input {
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  /* Add user is drawn 44px tall beside the 44px search: its box is the shape. */
+  .ph-btn.ph-sm.ph-fv-add {
+    --ph-hit-inset: 0px;
+    flex: none;
+    white-space: nowrap;
+  }
+
+  .ph-fv-members {
+    list-style: none;
+    margin: 0 -16px -16px;
+    padding: 0;
+    transition: opacity 0.2s;
+  }
+
+  .ph-fv-members[data-refreshing] {
+    opacity: 0.6;
+  }
+
+  .ph-fv-members[data-paged] {
+    margin-bottom: 0;
+  }
+
+  .ph-fv-member {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-fv-who {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-fv-user {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-fv-email {
+    font-size: 13px;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ph-fv-added {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-btn.ph-fv-remove {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  /* The pages row closes the card under the last member, a row of its own. */
+  .ph-pager.ph-fv-pager {
+    margin: -12px -16px -8px;
+    padding: 8px 16px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .ph-fv-state {
+    margin: 0 -16px -16px;
+    padding: 20px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .ph-fv-state.ph-fv-loading {
+    padding: 12px 16px 16px;
+    align-items: stretch;
+  }
+
+  .ph-fv-state-t {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-h2.ph-fv-sheet-h {
+    flex: none;
+    padding: 4px 0 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-fv-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .ph-fv-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-fv-lines > p {
+    margin: 0;
+  }
+
+  .ph-fv-lines > .ph-fv-muted {
+    color: var(--muted-foreground);
+  }
+
+  .ph-fv-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-fv-actions > .ph-btn:first-child {
+    flex: none;
+  }
+
+  .ph-fv-actions > .ph-btn:last-child {
+    flex: 1;
+  }
+
+  .ph-fv-add-body {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-hint.ph-fv-add-hint {
+    font-size: 14px;
+  }
+
+  .ph-fv-found {
+    flex: 0 1 auto;
+    min-height: 120px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    transition: opacity 0.2s;
+  }
+
+  .ph-fv-found[data-refreshing] {
+    opacity: 0.6;
+  }
+
+  .ph-fv-found-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .ph-fv-cand {
+    min-height: 60px;
+    padding: 8px 14px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ph-fv-cand + .ph-fv-cand {
+    border-top: 1px solid var(--border);
+  }
+
+  .ph-fv-cand-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ph-fv-cand-top > .ph-pill,
+  .ph-btn.ph-fv-cand-add {
+    flex: none;
+  }
+
+  /* "On the list" is the board's pill inside a 44px box: the same button as Add, so focus stays on it. */
+  .ph-hit.ph-fv-listed {
+    flex: none;
+    cursor: default;
+  }
+
+  .ph-fv-found-note {
+    margin: 0;
+    padding: 20px 14px;
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--muted-foreground);
+  }
+
+  .ph-fv-found-note.ph-fv-found-alert {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    color: var(--foreground);
+  }
+
+  .ph-fv-found-alert > p {
+    margin: 0;
+  }
+
+  .ph-fv-found-pad {
+    padding: 8px 14px;
+  }
+
+  .ph-hint.ph-fv-found-more {
+    padding: 10px 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* The live region stays mounted; empty, it takes no gap. */
+  .ph-fv-status:empty {
+    margin-top: -12px;
+  }
+
+  .ph-fv-status-p {
+    margin: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .ph-fv-ok {
+    flex: none;
+    margin-top: 2px;
+    color: var(--success);
+  }
+
+  /* A long feature name or username ends in an ellipsis; an email too; the rest wraps (PRD 0022). */
+  .ph-h1.ph-fv-name,
+  .ph-fv-user {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-fv-title > .ph-pill {
+    flex: none;
+  }
+
+  .ph-h1.ph-fv-h1,
+  .ph-lead.ph-fv-lead,
+  .ph-fv-key,
+  .ph-fv-reason,
+  .ph-fv-added,
+  .ph-fv-state > p,
+  .ph-fv-lines > p,
+  .ph-fv-found-note,
+  .ph-fv-status-p {
+    overflow-wrap: anywhere;
+  }
+
+  /* v3/AdminWebhook (its head is AdminPhoneHeader's .ph-h1.ph-h1-26 + .ph-lead, its body .ph-ad-body); bodies as drawn. */
+
+  .ph-wh-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-card.ph-wh-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: opacity 0.2s;
+  }
+
+  .ph-wh-card[data-deleting] {
+    opacity: 0.6;
+  }
+
+  .ph-wh-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ph-wh-label {
+    flex: 1;
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .ph-wh-label[data-unlabelled] {
+    font-weight: 500;
+    font-style: italic;
+    color: var(--muted-foreground);
+  }
+
+  .ph-iconbtn.ph-wh-del {
+    color: var(--destructive-text);
+  }
+
+  .ph-wh-dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 8px 10px;
+    align-items: center;
+    font-size: 13px;
+  }
+
+  .ph-wh-dl dt {
+    color: var(--muted-foreground);
+  }
+
+  .ph-wh-dl dd {
+    margin: 0;
+  }
+
+  .ph-wh-badges-dd {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .ph-wh-none {
+    color: var(--muted-foreground);
+  }
+
+  .ph-wh-url {
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-h2.ph-wh-sheet-h {
+    flex: none;
+    padding-top: 4px;
+  }
+
+  .ph-hint.ph-wh-sheet-d {
+    flex: none;
+    padding: 6px 0 14px;
+    font-size: 14px;
+  }
+
+  /* The board's scroll column, 4px wider each side so a focused field's ring is not clipped. */
+  .ph-wh-form {
+    min-height: 0;
+    margin: 0 -4px;
+    padding: 0 4px 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-wh-current-url {
+    font-size: 12px;
+  }
+
+  .ph-wh-badges {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ph-lbl.ph-wh-legend {
+    padding: 0;
+    margin-bottom: 6px;
+  }
+
+  .ph-hint.ph-wh-error {
+    color: var(--destructive-text);
+  }
+
+  .ph-wh-form .ph-input[aria-invalid="true"] {
+    border-color: var(--destructive-text);
+  }
+
+  .ph-wh-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-wh-actions > .ph-btn:first-child {
+    flex: none;
+  }
+
+  .ph-wh-actions > .ph-btn:last-child {
+    flex: 1;
+  }
+
+  /* A long label or masked address ends in an ellipsis; a sheet's words wrap (PRD 0022). */
+  .ph-wh-label,
+  .ph-wh-url {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-wh-badges-dd > .ph-pill {
+    flex: none;
+  }
+
+  .ph-hint.ph-wh-sheet-d,
+  .ph-wh-none,
+  .ph-wh-current-url,
+  .ph-hint.ph-wh-error {
+    overflow-wrap: anywhere;
   }
 }

@@ -28,6 +28,15 @@ export interface PhoneLoadableProps<T> {
   className?: string;
   /** On the error card: inside a board card, drop its own card look. */
   errorClassName?: string;
+  /** The failure as the board draws it (v3/AdminFeatures' card); absent, `PhoneLoadError`. Its retry calls the `onRetry` given here. */
+  error?: (failure: PhoneLoadFailure) => ReactNode;
+}
+
+/** A failed section, as `PhoneLoadable` hands it to a board's own error card. */
+export interface PhoneLoadFailure {
+  message: string;
+  onRetry: () => void;
+  retrying: boolean;
 }
 
 /**
@@ -41,6 +50,7 @@ export function PhoneLoadable<T>({
   children,
   className,
   errorClassName,
+  error,
 }: PhoneLoadableProps<T>) {
   const region = useRef<HTMLDivElement>(null);
   const retried = useRef(false);
@@ -66,20 +76,39 @@ export function PhoneLoadable<T>({
       {state.status === "loading" ? (
         loading
       ) : state.status === "error" ? (
-        <PhoneLoadError
-          message={state.message}
-          retrying={state.retrying}
-          className={errorClassName}
-          onRetry={() => {
-            retried.current = true;
-            state.onRetry();
-          }}
-        />
+        error ? (
+          <BoardFailure
+            render={error}
+            message={state.message}
+            retrying={state.retrying ?? false}
+            onRetry={() => {
+              retried.current = true;
+              state.onRetry();
+            }}
+          />
+        ) : (
+          <PhoneLoadError
+            message={state.message}
+            retrying={state.retrying}
+            className={errorClassName}
+            onRetry={() => {
+              retried.current = true;
+              state.onRetry();
+            }}
+          />
+        )
       ) : (
         children(state.data)
       )}
     </div>
   );
+}
+
+function BoardFailure({
+  render,
+  ...failure
+}: PhoneLoadFailure & { render: (failure: PhoneLoadFailure) => ReactNode }) {
+  return <>{render(failure)}</>;
 }
 
 export interface PhoneSkeletonProps {

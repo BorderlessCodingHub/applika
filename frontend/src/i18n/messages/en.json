@@ -2546,7 +2546,6 @@
       "growthChart": "New users per month, from {first} in {firstMonth} to {last} in {lastMonth}",
       "noData": "No data yet",
       "loading": "Loading the dashboard",
-      "webhooksHint": "Each webhook holds one or more badges. A member's biweekly report is posted to every webhook that holds their badge.",
       "edit": "Edit"
     },
     "adminUsers": {

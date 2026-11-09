@@ -120,7 +120,6 @@ function back(href: string, key: string): PhoneBack {
 export const PHONE_PARENTS: Readonly<Record<string, PhoneBack>> = {
   "/cvs/new": back("/cvs", "nav.cvs"),
   "/applications/cv": back("/applications", "phone.shell.pipeline"),
-  "/admin/features/view": back("/admin/features", "admin.nav.features"),
   "/admin/supports": back("/admin", "nav.admin"),
   "/admin/discord-webhooks": back("/admin", "nav.admin"),
 };
@@ -131,6 +130,7 @@ const BOARD_PARENTS: Readonly<Record<string, PhoneBack>> = {
   "/jobs/view": back("/jobs", "nav.jobs"),
   "/cvs/editor": back("/cvs", "nav.cvs"),
   "/applications/new-with-cv": back("/applications", "nav.applications"),
+  "/admin/features/view": back("/admin/features", "admin.nav.features"),
 };
 
 /** Screens the Account hub opens: their boards return to it. */

@@ -95,8 +95,8 @@ describe("the admin header below md", () => {
     ).toBeNull();
   });
 
-  it("marks a section by its prefix: Jobs on /admin/jobs, Features on a feature", async () => {
-    const { unmount } = await renderAdmin("/admin/jobs", <p>jobs body</p>);
+  it("marks a section by its prefix: Jobs on /admin/jobs", async () => {
+    await renderAdmin("/admin/jobs", <p>jobs body</p>);
     expect(chips().getByRole("link", { name: "Jobs" })).toHaveAttribute(
       "aria-current",
       "page",
@@ -107,13 +107,38 @@ describe("the admin header below md", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Admin Console" }),
     ).toBeInTheDocument();
-    unmount();
+  });
 
+  it("gives a feature's page only the System pill: back Features, no title, lead or chips", async () => {
     await renderAdmin("/admin/features/view", <h1>Job board</h1>);
-    expect(chips().getByRole("link", { name: "Features" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+
+    expect(
+      screen.queryByRole("navigation", { name: "Admin sections" }),
+    ).toBeNull();
+    expect(
+      document.querySelector('[data-slot="admin-phone-header"]'),
+    ).toBeNull();
+    expect(
+      document.querySelector('[data-slot="admin-phone-title"]'),
+    ).toBeNull();
+    expect(screen.queryByText("Admin Console")).toBeNull();
+    expect(
+      screen.queryByText("Platform-wide analytics and user management"),
+    ).toBeNull();
+    const headings = screen.getAllByRole("heading", { level: 1 });
+    expect(headings.map((heading) => heading.textContent)).toEqual([
+      "Job board",
+    ]);
+
+    const bar = screen.getByRole("banner");
+    const back = within(bar).getByRole("link");
+    expect(back).toHaveAccessibleName("Features");
+    expect(back).toHaveAttribute("href", "/admin/features");
+    expect(within(bar).getByText("System")).toBeInTheDocument();
+    // A board route: the page renders bare, with its own 20px sides.
+    expect(
+      document.querySelector('[data-slot="admin-phone-content"]'),
+    ).toBeNull();
   });
 
   it.each([
@@ -134,6 +159,18 @@ describe("the admin header below md", () => {
       "Platforms",
       "Manage the platforms users pick for their applications",
       "Platforms",
+    ],
+    [
+      "/admin/features",
+      "Features",
+      "A new feature starts in beta: only users on its beta list and admins have it. Release it to give it to everyone.",
+      "Features",
+    ],
+    [
+      "/admin/report-webhooks",
+      "Report webhooks",
+      "Each webhook holds one or more badges. A member's biweekly report is posted to every webhook that holds their BASE or PSP badge.",
+      "Report webhooks",
     ],
   ])(
     "heads %s with its own title and lead above the chips",
@@ -157,8 +194,8 @@ describe("the admin header below md", () => {
     },
   );
 
-  it("keeps Admin Console at 30px on Dashboard, Jobs and Report webhooks", async () => {
-    for (const path of ["/admin", "/admin/jobs", "/admin/report-webhooks"]) {
+  it("keeps Admin Console at 30px on Dashboard and Jobs only", async () => {
+    for (const path of ["/admin", "/admin/jobs"]) {
       const { unmount } = await renderAdmin(path, <p>board body</p>);
       const heading = screen.getByRole("heading", {
         level: 1,
@@ -170,28 +207,30 @@ describe("the admin header below md", () => {
     }
   });
 
-  it("keeps today's content and its own h1 under the header on a section without a board", async () => {
-    await renderAdmin("/admin/features", <h1>Features</h1>);
+  it.each(["/admin/supports", "/admin/discord-webhooks"])(
+    "keeps today's content and its own h1 under the header on %s, a redirect shell with no board",
+    async (path) => {
+      await renderAdmin(path, <h1>Redirecting</h1>);
 
-    const headings = screen.getAllByRole("heading", { level: 1 });
-    expect(headings.map((heading) => heading.textContent)).toEqual([
-      "Features",
-    ]);
-    const title = document.querySelector('[data-slot="admin-phone-title"]')!;
-    expect(title.tagName).toBe("P");
-    expect(title).toHaveTextContent("Admin Console");
-    expect(title).toHaveClass("ph-h1");
-    const content = document.querySelector(
-      '[data-slot="admin-phone-content"]',
-    )!;
-    expect(content).toHaveClass("ph-ad-other");
-    expect(content).not.toHaveClass("ph-app");
-    expect(content).toContainElement(headings[0]);
-    expect(chips().getByRole("link", { name: "Features" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-  });
+      const headings = screen.getAllByRole("heading", { level: 1 });
+      expect(headings.map((heading) => heading.textContent)).toEqual([
+        "Redirecting",
+      ]);
+      const title = document.querySelector('[data-slot="admin-phone-title"]')!;
+      expect(title.tagName).toBe("P");
+      expect(title).toHaveTextContent("Admin Console");
+      expect(title).toHaveClass("ph-h1");
+      const content = document.querySelector(
+        '[data-slot="admin-phone-content"]',
+      )!;
+      expect(content).toHaveClass("ph-ad-other");
+      expect(content).not.toHaveClass("ph-app");
+      expect(content).toContainElement(headings[0]);
+      expect(
+        screen.getByRole("navigation", { name: "Admin sections" }),
+      ).toBeInTheDocument();
+    },
+  );
 
   it("shows nothing to someone who is not an administrator", async () => {
     mocks.user.current = { ...SAM, is_admin: false };

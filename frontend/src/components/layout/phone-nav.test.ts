@@ -8,10 +8,10 @@ import {
 } from "./phone-nav";
 
 /**
- * The back bar the map gives each screen today (PRD 0021), pinned before the
- * v3 screens land: the admin sections the v3 boards draw (Users, Companies,
- * Platforms) keep "Account" → /account, and the screens still without a
- * board keep their parents.
+ * The back bar the map gives each screen (PRD 0021, PRD 0022): the admin
+ * sections keep "Account" → /account, a feature's page returns to Features
+ * (v3/AdminFeatureView's own back), and the screens still without a board
+ * keep their parents.
  */
 const BACK_BARS: [path: string, back: [href: string, label: string] | null][] =
   [
@@ -72,10 +72,20 @@ describe("phoneBackFor", () => {
     ).toEqual([
       ["/cvs/new", "/cvs", "CVs"],
       ["/applications/cv", "/applications", "Pipeline"],
-      ["/admin/features/view", "/admin/features", "Features"],
       ["/admin/supports", "/admin", "Admin"],
       ["/admin/discord-webhooks", "/admin", "Admin"],
     ]);
+  });
+
+  it("draws a feature's back from its board, not from the no-board map", () => {
+    expect(PHONE_PARENTS["/admin/features/view"]).toBeUndefined();
+    for (const path of ["/admin/features/view", "/admin/features/view/"]) {
+      const back = phoneBackFor(path);
+      expect(back && [back.href, back.label], path).toEqual([
+        "/admin/features",
+        "Features",
+      ]);
+    }
   });
 });
 

@@ -4,18 +4,27 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CompaniesPage } from "@/app/(protected)/admin/companies/companies-page";
+import { FeaturesPage } from "@/app/(protected)/admin/features/features-page";
+import { FeatureViewPage } from "@/app/(protected)/admin/features/view/feature-view-page";
 import AdminLayout from "@/app/(protected)/admin/layout";
 import { PlatformsPage } from "@/app/(protected)/admin/platforms/platforms-page";
+import { ReportWebhooksPage } from "@/app/(protected)/admin/report-webhooks/report-webhooks-page";
 import { UsersPage } from "@/app/(protected)/admin/users/users-page";
 import en from "@/i18n/messages/en.json";
 import ptBR from "@/i18n/messages/pt-BR.json";
-import type { AdminUserDetail, AdminUserRow } from "@/services/types/admin";
+import type {
+  AdminReportWebhook,
+  AdminUserDetail,
+  AdminUserRow,
+} from "@/services/types/admin";
+import type { AdminFeature } from "@/services/types/features";
 import type { User } from "@/services/types/users";
-import { pathname } from "@/test/navigation";
+import { pathname, setLocation } from "@/test/navigation";
 import { SAM, renderPhoneScreen } from "@/test/phone-screens";
 
 /**
- * The v3 admin boards (Users, Companies, Platforms) in Portuguese, with
+ * The v3 admin boards (Users, Companies, Platforms, Features, a feature,
+ * Report webhooks) in Portuguese, with
  * their sheets open: the boards' new words and the reused ones follow the
  * language, and no English word of these screens is left on the phone.
  */
@@ -96,6 +105,45 @@ const ROWS = [
   },
 ];
 
+const JOBS: AdminFeature = {
+  key: "jobs",
+  name: "Job board",
+  description: null,
+  stage: "beta",
+  beta_user_count: 1,
+  released_at: null,
+  updated_at: "2026-10-14T12:00:00Z",
+  me: { has: true, via: "admin", opted_out: false },
+};
+
+const CVS: AdminFeature = {
+  ...JOBS,
+  key: "cvs",
+  name: "CV builder",
+  stage: "general",
+  released_at: "2026-10-20T12:00:00Z",
+  me: { has: true, via: "general", opted_out: false },
+};
+
+const HOOKS: AdminReportWebhook[] = [
+  {
+    id: "w1",
+    label: null,
+    badges: ["borderless_base", "borderless_psp"],
+    webhook_url_masked: "example.invalid/hooks/••••ummy",
+    created_at: "2026-10-01T10:00:00Z",
+    updated_at: null,
+  },
+  {
+    id: "w2",
+    label: "#old",
+    badges: [],
+    webhook_url_masked: "example.invalid/hooks/••••0000",
+    created_at: "2026-09-01T10:00:00Z",
+    updated_at: null,
+  },
+];
+
 const catalog = () =>
   Promise.resolve({
     items: ROWS,
@@ -122,6 +170,24 @@ vi.mock("@/services/services", () => ({
       getPlatforms: () => catalog(),
       publishCompany: vi.fn(),
       publishPlatform: vi.fn(),
+      getFeatures: () => Promise.resolve([JOBS, CVS]),
+      getFeatureUsers: () =>
+        Promise.resolve({
+          items: [
+            {
+              user_id: "u-mila",
+              username: "mila.costa",
+              email: "mila@costa.dev",
+              added_at: "2026-10-14T12:00:00Z",
+              added_by: { id: "u-sam", username: "samcarter" },
+            },
+          ],
+          total: 1,
+          page: 1,
+          per_page: 25,
+          total_pages: 1,
+        }),
+      getReportWebhooks: () => Promise.resolve(HOOKS),
     },
     cycles: { getCycles: () => Promise.resolve([]) },
     features: { getMine: () => Promise.resolve([]) },
@@ -147,6 +213,9 @@ const SCREEN_NAMESPACES = [
   "admin.pager.",
   "admin.time.",
   "admin.nav.",
+  "admin.features.",
+  "admin.webhooks.",
+  "common.cancel",
   "phone.adminUsers.",
   "phone.catalog.",
   "phone.admin.",
@@ -385,4 +454,236 @@ describe("the v3 admin boards in Portuguese below md", () => {
       expect(englishLeft(document.body)).toEqual([]);
     },
   );
+
+  it("Features", async () => {
+    await renderPt("/admin/features", <FeaturesPage />);
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Recursos" }),
+    ).toHaveClass("ph-h1", "ph-h1-26");
+    expect(
+      screen.getByText(
+        "Um novo recurso começa em beta: só os usuários da lista beta e os administradores têm acesso. Libere-o para dar acesso a todos.",
+      ),
+    ).toHaveClass("ph-lead");
+    expect(
+      await screen.findByRole("link", { name: "Job board" }),
+    ).toBeInTheDocument();
+    for (const word of [
+      "Beta",
+      "Geral",
+      "Sem descrição",
+      "Chave",
+      "Usuários beta",
+      "Liberado em",
+      "Não liberado",
+      "Sim, como administrador",
+      "Sim, liberado para todos",
+    ]) {
+      expect(screen.getAllByText(word).length, word).toBeGreaterThan(0);
+    }
+    expect(screen.getAllByText("Você")).toHaveLength(2);
+    expect(screen.getByText("20 de out. de 2026")).toBeInTheDocument();
+    expect(englishLeft(document.body)).toEqual([]);
+  });
+
+  it("a feature, with the stage, remove and Add user sheets open", async () => {
+    const user = userEvent.setup();
+    setLocation("/admin/features/view?key=jobs");
+    await renderPt("/admin/features/view", <FeatureViewPage />);
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Job board" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("mila.costa")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Recursos" })).toHaveAttribute(
+      "href",
+      "/admin/features",
+    );
+    expect(screen.getByText("Sistema")).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Seu acesso" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Você tem este recurso porque é administrador."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("switch", { name: "Quero usar este recurso" }),
+    ).toHaveAccessibleDescription(
+      "Desative para ver o app como os usuários sem ele veem. Isso muda só o que você vê.",
+    );
+    expect(
+      screen.getByRole("region", { name: "Lista beta" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("1 usuário")).toBeInTheDocument();
+    expect(
+      screen.getByRole("searchbox", { name: "Buscar na lista beta" }),
+    ).toHaveAttribute("placeholder", "Buscar por nome de usuário");
+    expect(
+      screen.getByText("Adicionado em 14 de out. de 2026 por samcarter"),
+    ).toBeInTheDocument();
+    expect(englishLeft(document.body)).toEqual([]);
+
+    await user.click(
+      screen.getByRole("button", { name: "Liberar para todos" }),
+    );
+    const stage = await screen.findByRole("alertdialog", {
+      name: "Liberar Job board para todos?",
+    });
+    expect(stage).toHaveAccessibleDescription(
+      "Todos os usuários recebem Job board, inclusive os administradores que o desativaram. A lista beta é mantida, então você pode voltar para beta depois.",
+    );
+    expect(englishLeft(document.body)).toEqual([]);
+    await user.click(within(stage).getByRole("button", { name: "Cancelar" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Remover mila.costa" }),
+    );
+    const remove = await screen.findByRole("alertdialog", {
+      name: "Remover mila.costa da lista beta?",
+    });
+    expect(
+      within(remove).getByRole("button", { name: "Remover" }),
+    ).toBeInTheDocument();
+    expect(englishLeft(document.body)).toEqual([]);
+    await user.click(within(remove).getByRole("button", { name: "Cancelar" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Adicionar usuário" }));
+    const add = await screen.findByRole("dialog", {
+      name: "Adicionar usuários à lista beta",
+    });
+    const search = within(add).getByRole("searchbox", {
+      name: "Buscar usuários",
+    });
+    expect(search).toHaveAttribute("placeholder", "Nome de usuário ou e-mail");
+    expect(
+      within(add).getByText(
+        "Digite um nome de usuário ou e-mail para encontrar um usuário.",
+      ),
+    ).toBeInTheDocument();
+    await user.type(search, "sam");
+    expect(
+      await within(add).findByRole("button", {
+        name: "Adicionar samcarter",
+      }),
+    ).toHaveTextContent("Adicionar");
+    expect(within(add).getByText("Admin")).toBeInTheDocument();
+    expect(
+      within(add).getByRole("button", { name: "Pronto" }),
+    ).toBeInTheDocument();
+    expect(englishLeft(document.body)).toEqual([]);
+  });
+
+  it("a feature that is not found", async () => {
+    setLocation("/admin/features/view?key=nope");
+    await renderPt("/admin/features/view", <FeatureViewPage />);
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Recurso não encontrado",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Nenhum recurso tem a chave "nope". Escolha um da lista.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Voltar para recursos" }),
+    ).toBeInTheDocument();
+    expect(englishLeft(document.body)).toEqual([]);
+  });
+
+  it("Report webhooks, with the add, edit and delete sheets open", async () => {
+    const user = userEvent.setup();
+    await renderPt("/admin/report-webhooks", <ReportWebhooksPage />);
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Webhooks de relatório" }),
+    ).toHaveClass("ph-h1", "ph-h1-26");
+    expect(await screen.findByText("Webhook sem rótulo")).toBeInTheDocument();
+    expect(screen.getByText("Sem selo, não recebe nada")).toBeInTheDocument();
+    expect(screen.getAllByText("Selos")).toHaveLength(2);
+    expect(
+      screen.getByRole("button", { name: "Editar webhook sem rótulo" }),
+    ).toBeInTheDocument();
+    expect(englishLeft(document.body)).toEqual([]);
+
+    await user.click(screen.getByRole("button", { name: "Adicionar webhook" }));
+    const addSheet = await screen.findByRole("dialog", {
+      name: "Adicionar webhook",
+    });
+    expect(addSheet).toHaveAccessibleDescription(
+      "Os relatórios de membros que têm qualquer um dos selos escolhidos são enviados por este webhook.",
+    );
+    expect(
+      within(addSheet).getByLabelText("URL do webhook"),
+    ).toHaveAccessibleDescription(
+      "Depois de salvar, só uma versão mascarada é exibida.",
+    );
+    expect(
+      within(addSheet).getByRole("group", { name: "Selos" }),
+    ).toHaveAccessibleDescription(
+      "Escolha um ou os dois. Um relatório vai para todo webhook que tem o selo do membro.",
+    );
+    expect(
+      within(addSheet).getByRole("checkbox", { name: "BASE" }),
+    ).toHaveAccessibleDescription("Relatórios de membros BASE da Borderless.");
+    expect(within(addSheet).getByLabelText("Rótulo")).toHaveAttribute(
+      "placeholder",
+      "ex.: canal de relatórios BASE",
+    );
+    await user.click(
+      within(addSheet).getByRole("button", { name: "Salvar webhook" }),
+    );
+    expect(
+      await within(addSheet).findByText("A URL do webhook é obrigatória"),
+    ).toBeInTheDocument();
+    expect(englishLeft(document.body)).toEqual([]);
+    await user.click(
+      within(addSheet).getByRole("button", { name: "Cancelar" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Editar #old" }));
+    const editSheet = await screen.findByRole("dialog", {
+      name: "Editar webhook",
+    });
+    expect(within(editSheet).getByLabelText("URL do webhook")).toHaveAttribute(
+      "placeholder",
+      "Deixe em branco para manter a URL atual",
+    );
+    expect(within(editSheet).getByText(/^Atual:/)).toBeInTheDocument();
+    expect(
+      within(editSheet).getByRole("button", { name: "Salvar alterações" }),
+    ).toBeInTheDocument();
+    expect(englishLeft(document.body)).toEqual([]);
+    await user.click(
+      within(editSheet).getByRole("button", { name: "Cancelar" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Excluir #old" }));
+    const remove = await screen.findByRole("alertdialog", {
+      name: "Excluir o webhook?",
+    });
+    expect(remove).toHaveAccessibleDescription(
+      "#old não recebe relatórios hoje. A exclusão não pode ser desfeita.",
+    );
+    expect(
+      within(remove).getByRole("button", { name: "Excluir" }),
+    ).toBeInTheDocument();
+    expect(englishLeft(document.body)).toEqual([]);
+  });
 });

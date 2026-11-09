@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BadgeAlert, Loader2 } from "lucide-react";
+import { Loader2, Pen, Plus, Trash } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   reportWebhookBadgesAttr,
@@ -10,28 +10,40 @@ import {
   type ReportWebhookRow,
 } from "@/components/admin/report-webhook-list";
 import { MEMBERSHIP_BADGE_LABEL } from "@/components/badges/membership-badge";
-import { PhoneConfirmSheet } from "@/components/phone/phone-confirm-sheet";
 import {
   PhoneLoadable,
   PhoneSkeleton,
   PhoneSkeletonCard,
   type PhoneLoad,
 } from "@/components/phone/phone-load";
+import {
+  PhoneSheetDescription,
+  PhoneSheetFrame,
+  PhoneSheetTitle,
+} from "@/components/phone/phone-sheet";
+import {
+  PhoneAlertCard,
+  PhoneEmptyCard,
+} from "@/components/phone/phone-state-card";
 
 export interface AdminReportWebhooksScreenViewProps {
   /** `useAdminReportWebhooks()`: masked URLs only, as the API sends them. */
   webhooks: PhoneLoad<readonly ReportWebhookRow[]>;
-  /** Opens today's `ReportWebhookFormDialog` in add mode. */
+  /** Opens the add sheet (`PhoneReportWebhookSheet`, mounted by the page). */
   onAdd: () => void;
-  /** Opens it in edit mode for the row. */
+  /** Opens the edit sheet on the row. */
   onEdit: (webhook: ReportWebhookRow) => void;
-  /** After the sheet's confirm. */
+  /** After the delete sheet's confirm. */
   onDelete: (webhook: ReportWebhookRow) => void;
   /** The id whose DELETE is in flight. */
   deletingId: string | null;
 }
 
-/** v2/Admin's Report webhooks below md (under `AdminPhoneHeader`): props in, the board out. */
+/**
+ * v3/AdminWebhook below md (under `AdminPhoneHeader`, which heads it
+ * "Report webhooks" with its lead): props in, the board out. One card per
+ * webhook, "Add webhook" after them, Delete confirmed in the board's sheet.
+ */
 export function AdminReportWebhooksScreenView({
   webhooks,
   onAdd,
@@ -40,9 +52,7 @@ export function AdminReportWebhooksScreenView({
   deletingId,
 }: AdminReportWebhooksScreenViewProps) {
   const t = useTranslations("admin.webhooks.list");
-  const tPhone = useTranslations("phone.admin");
   const tCommon = useTranslations("common");
-  const tPage = useTranslations("admin.webhooks.page");
   const addButton = useRef<HTMLButtonElement>(null);
   const [target, setTarget] = useState<ReportWebhookRow | null>(null);
   const [open, setOpen] = useState(false);
@@ -60,35 +70,35 @@ export function AdminReportWebhooksScreenView({
   }, [rows]);
 
   return (
-    <div
-      data-slot="phone-admin-webhooks"
-      className="ph-app ph-ad-body ph-ad-list"
-    >
-      {/* The board draws no section title: the chip names it; this h2 keeps the outline. */}
-      <h2 className="ph-sr">{tPage("title")}</h2>
-      <p className="ph-hint">{tPhone("webhooksHint")}</p>
-
+    <div data-slot="phone-admin-webhooks" className="ph-app ph-ad-body">
       <PhoneLoadable
         state={webhooks}
-        className="ph-ad-list-cards"
         loading={
           <PhoneSkeleton label={t("loading")}>
-            <PhoneSkeletonCard className="h-[132px]" />
-            <PhoneSkeletonCard className="h-[132px]" />
+            <PhoneSkeletonCard className="h-[134px]" />
+            <PhoneSkeletonCard className="h-[134px]" />
           </PhoneSkeleton>
         }
+        error={(failure) => (
+          <PhoneAlertCard
+            data-slot="report-webhooks-error"
+            title={t("errorTitle")}
+            body={t("errorBody")}
+            retryLabel={t("retry")}
+            onRetry={failure.onRetry}
+            retrying={failure.retrying}
+          />
+        )}
       >
         {(list) =>
           list.length === 0 ? (
-            <div
+            <PhoneEmptyCard
               data-slot="report-webhooks-empty"
-              className="ph-card ph-ad-hook"
-            >
-              <p className="ph-ad-hook-label">{t("emptyTitle")}</p>
-              <p className="ph-hint">{t("emptyBody")}</p>
-            </div>
+              title={t("emptyTitle")}
+              body={t("emptyBody")}
+            />
           ) : (
-            <ul data-slot="report-webhooks" className="ph-ad-cards">
+            <ul data-slot="report-webhooks" className="ph-wh-list">
               {list.map((row) => (
                 <WebhookCard
                   key={row.id}
@@ -114,25 +124,47 @@ export function AdminReportWebhooksScreenView({
         className="ph-btn ph-pri"
         onClick={onAdd}
       >
+        <Plus size={18} strokeWidth={2.5} aria-hidden="true" />
         {t("add")}
       </button>
 
-      <PhoneConfirmSheet
+      <PhoneSheetFrame
         open={open}
         onOpenChange={setOpen}
-        title={t("deleteTitle")}
-        description={target ? reportWebhookDeleteDescription(target) : ""}
-        cancelLabel={tCommon("cancel")}
-        confirmLabel={t("deleteConfirm")}
-        confirmAction="confirm-delete-webhook"
+        alert
+        described
         fallbackFocus={addButton}
-        onConfirm={() => {
-          setOpen(false);
-          if (!target) return;
-          handOff.current = target.id;
-          onDelete(target);
-        }}
-      />
+      >
+        <span className="ph-grab" aria-hidden="true" />
+        <PhoneSheetTitle className="ph-h2 ph-wh-sheet-h">
+          {t("deleteTitle")}
+        </PhoneSheetTitle>
+        <PhoneSheetDescription className="ph-hint ph-wh-sheet-d">
+          {target ? reportWebhookDeleteDescription(target) : null}
+        </PhoneSheetDescription>
+        <div data-slot="delete-webhook-sheet" className="ph-wh-actions">
+          <button
+            type="button"
+            className="ph-btn ph-sec"
+            onClick={() => setOpen(false)}
+          >
+            {tCommon("cancel")}
+          </button>
+          <button
+            type="button"
+            data-action="confirm-delete-webhook"
+            className="ph-btn ph-dan"
+            onClick={() => {
+              setOpen(false);
+              if (!target) return;
+              handOff.current = target.id;
+              onDelete(target);
+            }}
+          >
+            {t("deleteConfirm")}
+          </button>
+        </div>
+      </PhoneSheetFrame>
     </div>
   );
 }
@@ -149,7 +181,6 @@ function WebhookCard({
   onDelete: () => void;
 }) {
   const t = useTranslations("admin.webhooks.list");
-  const tPhone = useTranslations("phone.admin");
   const label = row.label?.trim() ? row.label : null;
   const target = reportWebhookTargetName(row);
 
@@ -160,40 +191,13 @@ function WebhookCard({
       data-badges={reportWebhookBadgesAttr(row)}
       aria-busy={deleting || undefined}
       data-deleting={deleting || undefined}
-      className="ph-card ph-ad-hook"
+      className="ph-card ph-wh-card"
     >
-      <div className="ph-ad-hook-head">
-        <span
-          data-unlabelled={label ? undefined : ""}
-          className="ph-ad-hook-label"
-        >
+      <div className="ph-wh-head">
+        <span data-unlabelled={label ? undefined : ""} className="ph-wh-label">
           {label ?? t("unlabelled")}
         </span>
-        {row.badges.length > 0 ? (
-          <span data-slot="report-webhook-badges" className="ph-ad-hook-badges">
-            {row.badges.map((badge) => (
-              <span
-                key={badge}
-                data-slot="report-webhook-badge"
-                data-badge={badge}
-                className="ph-pill ph-pri"
-              >
-                {MEMBERSHIP_BADGE_LABEL[badge]}
-              </span>
-            ))}
-          </span>
-        ) : null}
-      </div>
-      {row.badges.length === 0 ? (
-        <p data-slot="report-webhook-badges" className="ph-ad-hook-none">
-          <BadgeAlert size={16} aria-hidden="true" />
-          {t("noBadge")}
-        </p>
-      ) : null}
-      <code data-slot="report-webhook-url" className="ph-mono ph-ad-hook-url">
-        {row.webhook_url_masked}
-      </code>
-      <div className="ph-ad-hook-actions">
+        {/* aria-disabled, never disabled: a disabled button drops focus to <body>. */}
         <button
           type="button"
           aria-haspopup="dialog"
@@ -201,12 +205,12 @@ function WebhookCard({
           aria-disabled={deleting || undefined}
           data-disabled={deleting || undefined}
           data-action="edit-webhook"
-          className="ph-btn ph-sm ph-sec"
+          className="ph-iconbtn ph-flat"
           onClick={() => {
             if (!deleting) onEdit();
           }}
         >
-          {tPhone("edit")}
+          <Pen size={18} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -216,17 +220,41 @@ function WebhookCard({
           aria-busy={deleting || undefined}
           data-disabled={deleting || undefined}
           data-action="delete-webhook"
-          className="ph-btn ph-sm ph-dan"
+          className="ph-iconbtn ph-flat ph-wh-del"
           onClick={() => {
             if (!deleting) onDelete();
           }}
         >
           {deleting ? (
-            <Loader2 size={16} aria-hidden="true" className="ph-spin" />
-          ) : null}
-          {t("deleteConfirm")}
+            <Loader2 size={18} aria-hidden="true" className="ph-spin" />
+          ) : (
+            <Trash size={18} aria-hidden="true" />
+          )}
         </button>
       </div>
+      <dl className="ph-wh-dl">
+        <dt>{t("badgeTerm")}</dt>
+        <dd data-slot="report-webhook-badges" className="ph-wh-badges-dd">
+          {row.badges.length > 0 ? (
+            row.badges.map((badge) => (
+              <span
+                key={badge}
+                data-slot="report-webhook-badge"
+                data-badge={badge}
+                className="ph-pill ph-pri"
+              >
+                {MEMBERSHIP_BADGE_LABEL[badge]}
+              </span>
+            ))
+          ) : (
+            <span className="ph-wh-none">{t("noBadge")}</span>
+          )}
+        </dd>
+        <dt>{t("webhookTerm")}</dt>
+        <dd data-slot="report-webhook-url" className="ph-mono ph-wh-url">
+          {row.webhook_url_masked}
+        </dd>
+      </dl>
     </li>
   );
 }

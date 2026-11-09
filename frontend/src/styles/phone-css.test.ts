@@ -820,13 +820,6 @@ const ACCOUNT_AREA_BOARDS = [
   "ph-notice",
   "ph-notice-ic",
   "ph-notice-close",
-  "ph-ad-hook",
-  "ph-ad-hook-head",
-  "ph-ad-hook-label",
-  "ph-ad-hook-badges",
-  "ph-ad-hook-none",
-  "ph-ad-hook-url",
-  "ph-ad-hook-actions",
   // the confirm and new-cycle sheets, shared
   "ph-sheet-stack",
   "ph-sheet-stack-form",
@@ -939,7 +932,20 @@ describe("phone.css: Profile, Devices, Cycles, Reports, ReportDay, Admin", () =>
       /grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/,
     );
     expect(sources).toMatch(/font-size:\s*13px/);
-    expect(ruleBody(".ph-ad-hook-url")).toMatch(/font-size:\s*12px/);
+  });
+
+  it("leaves no 0021 webhook card behind: v3/AdminWebhook replaced it (PRD 0022)", () => {
+    for (const name of [
+      "ph-ad-hook",
+      "ph-ad-hook-head",
+      "ph-ad-hook-label",
+      "ph-ad-hook-badges",
+      "ph-ad-hook-none",
+      "ph-ad-hook-url",
+      "ph-ad-hook-actions",
+    ]) {
+      expect(DECLARED.has(name), `.${name} is still declared`).toBe(false);
+    }
   });
 });
 
@@ -1522,5 +1528,361 @@ describe("phone.css: v3 shared parts, AdminUsers, AdminCompanies, AdminPlatforms
     expect(ruleBody(".ph-cat-list[data-refreshing]")).toMatch(
       /opacity:\s*0?\.6/,
     );
+  });
+});
+
+// v3 (PRD 0022): the state cards and the check option the K2 boards share,
+// and the AdminFeatures (ph-af-), AdminFeatureView (ph-fv-) and AdminWebhook
+// (ph-wh-) inline style blocks made classes.
+const V3_STATES_AND_CHECK = [
+  "ph-state-card",
+  "ph-state-t",
+  "ph-state-b",
+  "ph-alert-card",
+  "ph-alert-b",
+  "ph-opt-chk",
+  "ph-opt-text",
+  "ph-opt-l",
+  "ph-opt-d",
+] as const;
+
+const V3_ADMIN_FEATURES = [
+  "ph-af-list",
+  "ph-af-card",
+  "ph-af-head",
+  "ph-af-main",
+  "ph-af-title",
+  "ph-af-name",
+  "ph-af-desc",
+  "ph-af-chev",
+  "ph-af-dl",
+  "ph-af-you",
+  "ph-af-you-k",
+  "ph-af-yes",
+  "ph-af-no",
+  "ph-af-you-v",
+] as const;
+
+const V3_ADMIN_FEATURE_VIEW = [
+  "ph-fv-header",
+  "ph-fv-title",
+  "ph-fv-name",
+  "ph-fv-lead",
+  "ph-fv-key",
+  "ph-fv-h1",
+  "ph-fv-card",
+  "ph-fv-card-h",
+  "ph-fv-card-head",
+  "ph-fv-count",
+  "ph-fv-reason",
+  "ph-fv-switch-row",
+  "ph-fv-switch-l",
+  "ph-fv-switch",
+  "ph-fv-tools",
+  "ph-fv-search",
+  "ph-fv-search-input",
+  "ph-fv-add",
+  "ph-fv-members",
+  "ph-fv-member",
+  "ph-fv-who",
+  "ph-fv-user",
+  "ph-fv-email",
+  "ph-fv-added",
+  "ph-fv-remove",
+  "ph-fv-pager",
+  "ph-fv-state",
+  "ph-fv-state-t",
+  "ph-fv-loading",
+  "ph-fv-sheet-h",
+  "ph-fv-confirm",
+  "ph-fv-lines",
+  "ph-fv-muted",
+  "ph-fv-actions",
+  "ph-fv-add-body",
+  "ph-fv-add-hint",
+  "ph-fv-found",
+  "ph-fv-found-list",
+  "ph-fv-found-note",
+  "ph-fv-found-alert",
+  "ph-fv-found-pad",
+  "ph-fv-found-more",
+  "ph-fv-cand",
+  "ph-fv-cand-top",
+  "ph-fv-cand-add",
+  "ph-fv-listed",
+  "ph-fv-status",
+  "ph-fv-status-p",
+  "ph-fv-ok",
+] as const;
+
+const V3_ADMIN_WEBHOOK = [
+  "ph-wh-list",
+  "ph-wh-card",
+  "ph-wh-head",
+  "ph-wh-label",
+  "ph-wh-del",
+  "ph-wh-dl",
+  "ph-wh-badges-dd",
+  "ph-wh-none",
+  "ph-wh-url",
+  "ph-wh-sheet-h",
+  "ph-wh-sheet-d",
+  "ph-wh-form",
+  "ph-wh-current-url",
+  "ph-wh-badges",
+  "ph-wh-legend",
+  "ph-wh-error",
+  "ph-wh-actions",
+] as const;
+
+describe("phone.css: v3 state cards, check option, AdminFeatures, AdminFeatureView, AdminWebhook", () => {
+  it.each([
+    ...V3_STATES_AND_CHECK,
+    ...V3_ADMIN_FEATURES,
+    ...V3_ADMIN_FEATURE_VIEW,
+    ...V3_ADMIN_WEBHOOK,
+  ])("declares .%s", (name) => {
+    expect(DECLARED.has(name), `.${name} is not declared`).toBe(true);
+  });
+
+  it("draws the boards' empty and failed-load cards at AdminFeatures' sizes", () => {
+    const empty = ruleBody(".ph-card.ph-state-card");
+    expect(empty).toMatch(/text-align:\s*center/);
+    expect(empty).toMatch(/padding:\s*28px 20px/);
+    const title = ruleBody(".ph-state-t");
+    expect(title).toMatch(/font-size:\s*16px/);
+    expect(title).toMatch(/font-weight:\s*600/);
+    expect(ruleBody(".ph-hint.ph-state-b")).toMatch(/margin-top:\s*6px/);
+    const alert = ruleBody(".ph-card.ph-alert-card");
+    expect(alert).toMatch(/flex-direction:\s*column/);
+    expect(alert).toMatch(/gap:\s*10px/);
+  });
+
+  it("draws the check option as AdminWebhook's .opt with a box", () => {
+    const option = ruleBody(".ph-opt.ph-opt-chk");
+    expect(option).toMatch(/width:\s*100%/);
+    expect(option).toMatch(/font-size:\s*15px/);
+    expect(ruleBody('.ph-opt.ph-opt-chk[aria-invalid="true"]')).toMatch(
+      /border-color:\s*var\(--destructive-text\)/,
+    );
+    expect(ruleBody(".ph-opt-l")).toMatch(/font-weight:\s*600/);
+    const description = ruleBody(".ph-opt-d");
+    expect(description).toMatch(/margin-top:\s*2px/);
+    expect(description).toMatch(/font-size:\s*13px/);
+    expect(description).toMatch(/color:\s*var\(--muted-foreground\)/);
+  });
+
+  it("draws v3/AdminFeatures' cards at the board's sizes", () => {
+    const list = ruleBody(".ph-af-list");
+    expect(list).toMatch(/list-style:\s*none/);
+    expect(list).toMatch(/gap:\s*10px/);
+    expect(ruleBody(".ph-af-list[data-refreshing]")).toMatch(
+      /opacity:\s*0?\.6/,
+    );
+    const card = ruleBody(".ph-card.ph-af-card");
+    expect(card).toMatch(/flex-direction:\s*column/);
+    expect(card).toMatch(/gap:\s*12px/);
+    expect(card).toMatch(/color:\s*var\(--foreground\)/);
+    const head = ruleBody(".ph-af-head");
+    expect(head).toMatch(/align-items:\s*flex-start/);
+    expect(head).toMatch(/gap:\s*10px/);
+    expect(ruleBody(".ph-af-main")).toMatch(/min-width:\s*0/);
+    const title = ruleBody(".ph-af-title");
+    expect(title).toMatch(/gap:\s*8px/);
+    expect(title).toMatch(/flex-wrap:\s*wrap/);
+    const names = ruleBodies(".ph-af-name").join("");
+    expect(names).toMatch(/font-size:\s*16px/);
+    expect(names).toMatch(/font-weight:\s*600/);
+    expect(ruleBodies(".ph-hint.ph-af-desc").join("")).toMatch(
+      /margin-top:\s*4px/,
+    );
+    const chevron = ruleBody(".ph-af-chev");
+    expect(chevron).toMatch(/margin-top:\s*2px/);
+    expect(chevron).toMatch(/color:\s*var\(--muted-foreground\)/);
+    const you = ruleBody(".ph-af-you");
+    expect(you).toMatch(/padding-top:\s*10px/);
+    expect(you).toMatch(/border-top:\s*1px solid var\(--border\)/);
+    expect(you).toMatch(/gap:\s*8px/);
+    expect(you).toMatch(/font-size:\s*13px/);
+    expect(ruleBody(".ph-af-you-k")).toMatch(
+      /color:\s*var\(--muted-foreground\)/,
+    );
+    expect(ruleBody(".ph-af-yes")).toMatch(/color:\s*var\(--success\)/);
+    expect(ruleBody(".ph-af-no")).toMatch(/color:\s*var\(--muted-foreground\)/);
+    expect(ruleBody(".ph-af-you-v")).toMatch(/font-weight:\s*500/);
+  });
+
+  it("draws v3/AdminFeatureView's head, cards, members and sheets at the board's sizes", () => {
+    expect(ruleBody(".ph-fv-header")).toMatch(/gap:\s*16px/);
+    const title = ruleBody(".ph-fv-title");
+    expect(title).toMatch(/gap:\s*10px/);
+    expect(title).toMatch(/flex-wrap:\s*wrap/);
+    const card = ruleBody(".ph-card.ph-fv-card");
+    expect(card).toMatch(/flex-direction:\s*column/);
+    expect(card).toMatch(/gap:\s*12px/);
+    const cardTitle = ruleBody(".ph-fv-card-h");
+    expect(cardTitle).toMatch(/font-size:\s*16px/);
+    expect(cardTitle).toMatch(/font-weight:\s*600/);
+    const reason = ruleBody(".ph-fv-reason");
+    expect(reason).toMatch(/font-size:\s*14px/);
+    expect(reason).toMatch(/line-height:\s*1\.5/);
+    expect(ruleBody(".ph-fv-switch-row")).toMatch(/gap:\s*12px/);
+    const switchLabel = ruleBody(".ph-fv-switch-l");
+    expect(switchLabel).toMatch(/flex:\s*1/);
+    expect(switchLabel).toMatch(/font-size:\s*15px/);
+    expect(switchLabel).toMatch(/font-weight:\s*500/);
+    // The board's locked switch (`.switch[disabled]`), kept focusable.
+    const locked = ruleBody(
+      '.ph-switch.ph-fv-switch[aria-disabled="true"]:not([aria-busy="true"])',
+    );
+    expect(locked).toMatch(/opacity:\s*0?\.45/);
+    expect(locked).toMatch(/cursor:\s*default/);
+    const head = ruleBody(".ph-fv-card-head");
+    expect(head).toMatch(/align-items:\s*baseline/);
+    expect(head).toMatch(/justify-content:\s*space-between/);
+    expect(ruleBody(".ph-fv-count")).toMatch(/font-size:\s*13px/);
+    const tools = ruleBody(".ph-fv-tools");
+    expect(tools).toMatch(/gap:\s*8px/);
+    expect(tools).toMatch(/align-items:\s*flex-end/);
+    const search = ruleBody(".ph-input.ph-fv-search-input");
+    expect(search).toMatch(/height:\s*44px/);
+    expect(search).toMatch(/border-radius:\s*12px/);
+    // Add user is drawn 44px tall: its hit box is the shape.
+    expect(ruleBody(".ph-btn.ph-sm.ph-fv-add")).toMatch(
+      /--ph-hit-inset:\s*0px/,
+    );
+    expect(ruleBody(".ph-fv-members")).toMatch(/margin:\s*0 -16px -16px/);
+    const member = ruleBody(".ph-fv-member");
+    expect(member).toMatch(/padding:\s*12px 16px/);
+    expect(member).toMatch(/border-top:\s*1px solid var\(--border\)/);
+    expect(member).toMatch(/gap:\s*12px/);
+    expect(ruleBodies(".ph-fv-user").join("")).toMatch(/font-size:\s*15px/);
+    const email = ruleBody(".ph-fv-email");
+    expect(email).toMatch(/font-size:\s*13px/);
+    expect(email).toMatch(/text-overflow:\s*ellipsis/);
+    const added = ruleBody(".ph-fv-added");
+    expect(added).toMatch(/margin-top:\s*2px/);
+    expect(added).toMatch(/font-size:\s*12px/);
+    expect(ruleBody(".ph-pager.ph-fv-pager")).toMatch(
+      /border-top:\s*1px solid var\(--border\)/,
+    );
+    expect(ruleBody(".ph-h2.ph-fv-sheet-h")).toMatch(/padding:\s*4px 0 12px/);
+    const confirm = ruleBody(".ph-fv-confirm");
+    expect(confirm).toMatch(/gap:\s*10px/);
+    expect(confirm).toMatch(/font-size:\s*15px/);
+    expect(confirm).toMatch(/line-height:\s*1\.5/);
+    expect(ruleBody(".ph-fv-lines > .ph-fv-muted")).toMatch(
+      /color:\s*var\(--muted-foreground\)/,
+    );
+    const actions = ruleBody(".ph-fv-actions");
+    expect(actions).toMatch(/margin-top:\s*8px/);
+    expect(actions).toMatch(/gap:\s*8px/);
+    expect(ruleBody(".ph-fv-actions > .ph-btn:first-child")).toMatch(
+      /flex:\s*none/,
+    );
+    expect(ruleBody(".ph-fv-actions > .ph-btn:last-child")).toMatch(
+      /flex:\s*1/,
+    );
+    expect(ruleBody(".ph-fv-add-body")).toMatch(/gap:\s*12px/);
+    expect(ruleBody(".ph-hint.ph-fv-add-hint")).toMatch(/font-size:\s*14px/);
+    const found = ruleBody(".ph-fv-found");
+    expect(found).toMatch(/border-radius:\s*16px/);
+    expect(found).toMatch(/border:\s*1px solid var\(--border\)/);
+    const candidate = ruleBody(".ph-fv-cand");
+    expect(candidate).toMatch(/min-height:\s*60px/);
+    expect(candidate).toMatch(/padding:\s*8px 14px/);
+    expect(candidate).toMatch(/gap:\s*10px/);
+    expect(ruleBody(".ph-fv-cand + .ph-fv-cand")).toMatch(
+      /border-top:\s*1px solid var\(--border\)/,
+    );
+    expect(ruleBody(".ph-fv-cand-top")).toMatch(/gap:\s*6px/);
+  });
+
+  it("ends a long feature name, username or email in an ellipsis; the key, reason and sheet words wrap (PRD 0022)", () => {
+    const names = ruleBodies(".ph-af-name").join("");
+    expect(names).toMatch(/text-overflow:\s*ellipsis/);
+    expect(names).toMatch(/white-space:\s*nowrap/);
+    expect(css).toMatch(
+      /\.ph-h1\.ph-fv-name,\s*\.ph-fv-user\s*\{[^}]*text-overflow:\s*ellipsis[^}]*white-space:\s*nowrap/,
+    );
+    expect(ruleBody(".ph-af-title > .ph-pill")).toMatch(/flex:\s*none/);
+    expect(ruleBody(".ph-fv-title > .ph-pill")).toMatch(/flex:\s*none/);
+    expect(css).toMatch(
+      /\.ph-h1\.ph-fv-h1,[^{]*\.ph-fv-key,[^{]*\.ph-fv-reason,[^{]*\{[^}]*overflow-wrap:\s*anywhere/,
+    );
+    // Portuguese "Adicionar usuário" and "Remover" never wrap.
+    expect(ruleBody(".ph-btn.ph-sm.ph-fv-add")).toMatch(
+      /white-space:\s*nowrap/,
+    );
+    expect(ruleBody(".ph-btn.ph-fv-remove")).toMatch(/white-space:\s*nowrap/);
+  });
+
+  it("draws v3/AdminWebhook's cards and sheets at the board's sizes", () => {
+    const list = ruleBody(".ph-wh-list");
+    expect(list).toMatch(/list-style:\s*none/);
+    expect(list).toMatch(/gap:\s*10px/);
+    expect(ruleBody(".ph-card.ph-wh-card")).toMatch(/gap:\s*10px/);
+    expect(ruleBody(".ph-wh-card[data-deleting]")).toMatch(/opacity:\s*0?\.6/);
+    const head = ruleBody(".ph-wh-head");
+    expect(head).toMatch(/align-items:\s*center/);
+    expect(head).toMatch(/gap:\s*8px/);
+    const label = ruleBodies(".ph-wh-label").join("");
+    expect(label).toMatch(/font-size:\s*16px/);
+    expect(label).toMatch(/font-weight:\s*600/);
+    expect(ruleBody(".ph-wh-label[data-unlabelled]")).toMatch(
+      /font-style:\s*italic/,
+    );
+    expect(ruleBody(".ph-iconbtn.ph-wh-del")).toMatch(
+      /color:\s*var\(--destructive-text\)/,
+    );
+    const facts = ruleBody(".ph-wh-dl");
+    expect(facts).toMatch(/grid-template-columns:\s*76px minmax\(0, 1fr\)/);
+    expect(facts).toMatch(/gap:\s*8px 10px/);
+    expect(facts).toMatch(/align-items:\s*center/);
+    expect(facts).toMatch(/font-size:\s*13px/);
+    expect(ruleBody(".ph-wh-dl dt")).toMatch(
+      /color:\s*var\(--muted-foreground\)/,
+    );
+    const badges = ruleBody(".ph-wh-badges-dd");
+    expect(badges).toMatch(/gap:\s*4px/);
+    expect(badges).toMatch(/flex-wrap:\s*wrap/);
+    expect(ruleBody(".ph-wh-none")).toMatch(
+      /color:\s*var\(--muted-foreground\)/,
+    );
+    const url = ruleBody(".ph-wh-url");
+    expect(url).toMatch(/font-size:\s*12px/);
+    expect(url).toMatch(/color:\s*var\(--muted-foreground\)/);
+    expect(ruleBody(".ph-h2.ph-wh-sheet-h")).toMatch(/padding-top:\s*4px/);
+    const description = ruleBody(".ph-hint.ph-wh-sheet-d");
+    expect(description).toMatch(/padding:\s*6px 0 14px/);
+    expect(description).toMatch(/font-size:\s*14px/);
+    const form = ruleBody(".ph-wh-form");
+    expect(form).toMatch(/min-height:\s*0/);
+    expect(form).toMatch(/gap:\s*16px/);
+    expect(ruleBody(".ph-wh-current-url")).toMatch(/font-size:\s*12px/);
+    const group = ruleBody(".ph-wh-badges");
+    expect(group).toMatch(/border:\s*0/);
+    expect(group).toMatch(/gap:\s*8px/);
+    expect(ruleBody(".ph-lbl.ph-wh-legend")).toMatch(/margin-bottom:\s*6px/);
+    expect(ruleBody(".ph-hint.ph-wh-error")).toMatch(
+      /color:\s*var\(--destructive-text\)/,
+    );
+    expect(ruleBody('.ph-wh-form .ph-input[aria-invalid="true"]')).toMatch(
+      /border-color:\s*var\(--destructive-text\)/,
+    );
+    expect(ruleBody(".ph-wh-actions")).toMatch(/gap:\s*8px/);
+    expect(ruleBody(".ph-wh-actions > .ph-btn:first-child")).toMatch(
+      /flex:\s*none/,
+    );
+    expect(ruleBody(".ph-wh-actions > .ph-btn:last-child")).toMatch(
+      /flex:\s*1/,
+    );
+  });
+
+  it("ends a long webhook label or masked address in an ellipsis (PRD 0022)", () => {
+    expect(css).toMatch(
+      /\.ph-wh-label,\s*\.ph-wh-url\s*\{[^}]*text-overflow:\s*ellipsis[^}]*white-space:\s*nowrap/,
+    );
+    expect(ruleBody(".ph-wh-badges-dd > .ph-pill")).toMatch(/flex:\s*none/);
   });
 });

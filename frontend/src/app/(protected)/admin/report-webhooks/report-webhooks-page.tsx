@@ -31,6 +31,7 @@ import {
 } from "@/hooks/use-admin";
 import { word } from "@/i18n/translator";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { PhoneReportWebhookSheet } from "@/components/phone/phone-report-webhook-sheet";
 import { fromQuery } from "@/components/phone/phone-query-load";
 import { AdminReportWebhooksScreenView } from "@/components/phone/screens/admin-report-webhooks-screen";
 import { useIsPhone } from "@/hooks/use-is-phone";
@@ -233,9 +234,13 @@ export function ReportWebhooksPage() {
     });
   };
 
+  // Below md v3/AdminWebhook's sheet, with the dialog's props: the same
+  // form, schema, submit and refusal.
+  const FormSheet = isPhone ? PhoneReportWebhookSheet : ReportWebhookFormDialog;
+
   const dialogs = (
     <>
-      <ReportWebhookFormDialog
+      <FormSheet
         mode="add"
         open={addOpen}
         onOpenChange={setAddOpen}
@@ -245,7 +250,7 @@ export function ReportWebhooksPage() {
         serverError={addServerError}
       />
 
-      <ReportWebhookFormDialog
+      <FormSheet
         mode="edit"
         open={!!editTarget}
         onOpenChange={(open) => !open && setEditTarget(null)}
@@ -260,8 +265,8 @@ export function ReportWebhooksPage() {
     </>
   );
 
-  // Below md the Admin board's Report webhooks (PRD 0021): the same query,
-  // the same add/edit dialogs and the same delete, the list drawn as cards.
+  // Below md v3/AdminWebhook (PRD 0022): the same query, handlers and
+  // delete, the list drawn as cards, add and edit in the board's sheet.
   if (isPhone) {
     return (
       <>
