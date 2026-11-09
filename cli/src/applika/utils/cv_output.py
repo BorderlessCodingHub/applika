@@ -1,4 +1,4 @@
-"""CV renderers for ``--output`` (KODI-018).
+"""CV renderers for ``--output``.
 
 ``text`` is a human summary, ``json``/``yaml`` print the API response as-is
 (the spec's "Round trip" convention: what comes out goes back into

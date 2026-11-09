@@ -1,4 +1,4 @@
-"""``applika cvs …`` - the master CV commands (KODI-018)."""
+"""``applika cvs …`` - the master CV commands."""
 
 from __future__ import annotations
 

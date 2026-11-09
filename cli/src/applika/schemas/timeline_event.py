@@ -85,7 +85,7 @@ class _TimelineEventBase(BaseModel):
 
     @model_validator(mode='after')
     def validate_schedule(self) -> '_TimelineEventBase':
-        # KODI-016: start/end time and timezone are refused (client-side,
+        # start/end time and timezone are refused (client-side,
         # same mechanism as --interview-type / --reason) unless the
         # resulting event type is interview. The API mirrors this with a
         # 422; this check just saves the round trip.
@@ -121,7 +121,7 @@ class TimelineEventEntry(TypedDict):
     salary_period: str | None
     created_at: str
     updated_at: str | None
-    # KODI-016: absent (not null) on every non-interview event — the API
+    # absent (not null) on every non-interview event — the API
     # omits these keys entirely instead of sending them as null.
     start_time: NotRequired[str | None]
     end_time: NotRequired[str | None]

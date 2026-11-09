@@ -1,4 +1,4 @@
-"""Device code sign-in (RFC 8628) for `applika login --device` (KODI-060).
+"""Device code sign-in (RFC 8628) for `applika login --device`.
 
 ``start`` asks ``POST /auth/device/code`` for a short user code; ``poll``
 asks ``POST /auth/token`` with the device code grant every ``interval``

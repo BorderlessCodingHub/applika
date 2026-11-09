@@ -81,15 +81,15 @@ src/applika/
 │   ├── enums.py         # Enum types: Currency (20), SalaryPeriod, OfferPeriod,
 │   │                    #   EventType, InterviewType, FinalizeOutcome, ExperienceLevel,
 │   │                    #   WorkMode, ApplicationMode, ModeFilter, StatusFilter, OutputFormat, ClearField,
-│   │                    #   CvListOutput, CvOutput, DownloadType (KODI-018)
+│   │                    #   CvListOutput, CvOutput, DownloadType
 │   ├── application.py  # Pydantic models: ApplicationCreate, ApplicationUpdate,
 │   │                    #   ApplicationCompany, FinalizeOutcomePayload (vendored from backend DTOs)
 │   ├── application_file.py # ApplicationFile — the `applications new|edit --file` payload,
-│   │                    #   plus APPLICATION_READ_ONLY_KEYS / APPLICATION_REQUIRED_FIELDS (KODI-018)
+│   │                    #   plus APPLICATION_READ_ONLY_KEYS / APPLICATION_REQUIRED_FIELDS
 │   ├── application_step.py # ApplicationStepCreate/Update, FinalizeApplication (0.1.4 legacy body)
 │   ├── cv.py            # CVDocument + the seven section item models, READ_ONLY_KEYS,
-│   │                    #   DOCUMENT_KEYS, SECTION_KEYS, assign_item_ids (KODI-018)
-│   ├── timeline_event.py   # TimelineEventCreate/Update, TimelineEventEntry (KODI-013)
+│   │                    #   DOCUMENT_KEYS, SECTION_KEYS, assign_item_ids
+│   ├── timeline_event.py   # TimelineEventCreate/Update, TimelineEventEntry
 │   └── supports.py     # SupportSchema — platforms and companies from /supports
 ├── lib/
 │   ├── api.py           # ApiClient (httpx + `Authorization: Bearer`, no cookies,
@@ -97,47 +97,47 @@ src/applika/
 │   │                    #   require_session, open_client, session_from_token,
 │   │                    #   create_session_from_exchange (legacy shape);
 │   │                    #   refresh = POST /auth/token refresh_token grant;
-│   │                    #   logout() = POST /auth/revoke (KODI-060);
+│   │                    #   logout() = POST /auth/revoke;
 │   │                    #   post() sends an optional body (None = no body at all);
-│   │                    #   patch_json() and fetch_raw() -> (bytes, headers) (KODI-018)
+│   │                    #   patch_json() and fetch_raw() -> (bytes, headers)
 │   ├── cv_file.py       # --file loading (JSON/YAML/stdin), local validation,
-│   │                    #   FileInputError, USAGE_EXIT_CODE (KODI-018)
+│   │                    #   FileInputError, USAGE_EXIT_CODE
 │   ├── download.py      # --type/--dir/--filename/--force naming rules,
-│   │                    #   Content-Disposition parsing (KODI-018)
+│   │                    #   Content-Disposition parsing
 │   ├── session.py       # SessionData, SessionStore (~/.config/applika/session.json)
 │   ├── updater.py       # daily auto update: PyPI read, detect_install, blockers,
 │   │                    #   install (+ fresh-interpreter verify), after_command,
 │   │                    #   update.json + update.lock; never imports commands/
 │   ├── loopback.py      # LoopbackLoginServer for OAuth callback
-│   ├── pkce.py          # PKCE verifier, S256 challenge, state (KODI-060)
-│   └── device_flow.py   # RFC 8628 device code: start + poll (KODI-060)
+│   ├── pkce.py          # PKCE verifier, S256 challenge, state
+│   └── device_flow.py   # RFC 8628 device code: start + poll
 ├── utils/
 │   ├── output.py        # render_application_table, render_timeline_event_table,
 │   │                     #   print_application_summary, print_timeline_event_summary, print_finalize_summary
 │   └── cv_output.py     # dump_json/dump_yaml, print_cv_summary, render_cv_table,
-│                         #   render_cv_markdown_table (KODI-018)
+│                         #   render_cv_markdown_table
 └── commands/
     ├── auth.py          # login [--device] [--manual] [--device-name] + logout
-    │                    #   + whoami Typer commands (KODI-060)
+    │                    #   + whoami Typer commands
     ├── skill.py         # skill install Typer sub-app
     ├── update.py        # applika update [--force]: blockers as stderr lines,
     │                    #   PyPI check now, install with the detected tool
     ├── cv_shared.py     # behaviour shared by `cvs` and `applications cv`:
     │                    #   load_document, merge_document, emit_cv, download_document,
-    │                    #   usage_error (exit 2) / api_error (exit 1) (KODI-018)
+    │                    #   usage_error (exit 2) / api_error (exit 1)
     ├── cvs/
     │   ├── __init__.py  # cvs_app Typer sub-app: list/get/create/edit/delete/download
-    │   └── commands.py  # the master CV commands (KODI-018)
+    │   └── commands.py  # the master CV commands
     └── applications/
         ├── __init__.py  # applications_app Typer sub-app: list/new/edit/finalize/reopen,
         │                #   the deprecated `steps` sub-app, the `timeline` sub-app,
-        │                #   the `cv` sub-app (KODI-018)
+        │                #   the `cv` sub-app
         ├── commands.py    # list_applications, new_application, edit_application,
         │                  #   finalize_application (legacy + --outcome), reopen_application,
         │                  #   list/add/edit/delete_application_step (deprecated),
         │                  #   list/add/edit/delete_timeline_event
-        ├── cv.py          # get/create/edit/delete/download/diff_application_cv (KODI-018)
-        ├── file_input.py  # --file + --job-description plumbing for new/edit (KODI-018)
+        ├── cv.py          # get/create/edit/delete/download/diff_application_cv
+        ├── file_input.py  # --file + --job-description plumbing for new/edit
         ├── filter.py      # filter_applications
         └── api_resolve.py # resolve_platform_id, resolve_company_input, resolve_step_id, resolve_feedback_id
 ```
@@ -167,7 +167,7 @@ src/applika/
   puts the key on the wire when `--job-description`, `--job-description-file`
   or a `job_description` key in `--file` asked for it. `--job-description ""`
   sends `null` (clears it).
-- **Sessions fail closed (KODI-060)**: a 429 or 503 on the refresh, a 503 on
+- **Sessions fail closed**: a 429 or 503 on the refresh, a 503 on
   any route, and a 429/503/network error on `logout` keep `session.json`; any
   other refused refresh clears it. The file keeps its four keys so older CLI
   versions can read it. Tests never reach the network: `auth._transport` is a

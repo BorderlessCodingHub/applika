@@ -39,7 +39,7 @@ def _client(tmp_path, handler, session=None):
 
 
 def test_sends_bearer_and_user_agent_and_never_a_cookie(tmp_path):
-    """KODI-060 AC4: the access token goes in ``Authorization: Bearer``;
+    """The access token goes in ``Authorization: Bearer``;
     a cookie the server sets is never stored nor sent back."""
     seen = []
 
@@ -135,7 +135,7 @@ def test_second_401_after_refresh_is_an_auth_error(tmp_path):
 def test_refresh_refused_with_429_or_503_keeps_the_session(
     tmp_path, refresh_status, detail
 ):
-    """KODI-040 + KODI-060 fail closed: a refresh refused with 429 or 503
+    """Fail closed (1.0.1, 1.1.0): a refresh refused with 429 or 503
     keeps session.json byte for byte and fails with ApiError (not
     AuthError), no wait, no retry."""
     state = {'refresh_calls': 0, 'applications_calls': 0}
@@ -371,7 +371,7 @@ def test_logout_other_answer_clears_and_reports_the_status(tmp_path, status):
 
 
 def test_post_without_payload_sends_no_body(tmp_path):
-    """KODI-013: a bodyless finalize/reopen close must send no bytes and no
+    """A bodyless finalize/reopen close must send no bytes and no
     Content-Type - not even an empty ``{}`` - so it is indistinguishable
     from a client that never heard of the outcome body."""
     captured = {}

@@ -1,4 +1,4 @@
-"""Vendored CV document schemas (KODI-018).
+"""Vendored CV document schemas.
 
 Standalone copies of the backend's ``BaseCVCreate`` / ``BaseCVUpdate`` /
 ``TailoredCVUpdate`` constraints

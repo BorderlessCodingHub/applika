@@ -38,7 +38,7 @@ class ApplicationCreate(BaseModel):
     experience_level: ExperienceLevel | None = None
     work_mode: WorkMode | None = None
     country: str | None = None
-    # KODI-018: the posting's free text. The API's ``UpdateApplication``
+    # the posting's free text. The API's ``UpdateApplication``
     # treats it as *sticky* - omit the key and the stored text stays, send
     # ``null`` and it is cleared - so ``applications edit`` pops the key
     # from the dumped payload unless the caller actually asked for it.

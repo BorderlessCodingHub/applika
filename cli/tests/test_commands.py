@@ -972,7 +972,7 @@ def test_skill_force_overwrites(monkeypatch, runner, tmp_path):
     assert (dest / 'SKILL.md').exists()
 
 
-# --- KODI-060: login (browser PKCE, --manual, --device), logout ---------
+# --- login (browser PKCE, --manual, --device), logout -------------------
 
 API = 'http://127.0.0.1:8000/api'
 TOKEN_ANSWER = {

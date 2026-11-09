@@ -1,4 +1,4 @@
-"""KODI-013: applika-cli 0.2.0 - timeline commands, finalize --outcome and
+"""Applika-cli 0.2.0 - timeline commands, finalize --outcome and
 reopen. New tests only; the 0.1.4 tests in test_commands.py are untouched."""
 
 import json
@@ -1420,7 +1420,7 @@ def test_timeline_edit_tolerates_missing_denied_reason_in_response(
 
 
 # --------------------------------------------------------------------------
-# KODI-016: schedule (start-time/end-time/timezone) refused off interview,
+# schedule (start-time/end-time/timezone) refused off interview,
 # a stored schedule never re-sent once the resulting type is not interview,
 # and a timeline event dict missing the three schedule keys is tolerated.
 # --------------------------------------------------------------------------
@@ -1509,7 +1509,7 @@ def test_timeline_add_timezone_alone_on_non_interview_refused(
 
 
 def test_timeline_add_interview_schedule_still_accepted(monkeypatch, runner):
-    """Interview add behaviour is unchanged by KODI-016."""
+    """Interview add behaviour is unchanged by the schedule-only-on-interview rule."""
     _setup(monkeypatch)
     FakeApiClient.event_created_response = {
         'id': '703',

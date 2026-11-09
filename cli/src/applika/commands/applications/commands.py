@@ -341,7 +341,7 @@ def new_application(
     except FileInputError as exc:
         _usage_exit(str(exc))
     except ApiError as exc:
-        # KODI-018: the spec pins "print the API's detail, exit 1". Before
+        # the spec pins "print the API's detail, exit 1". Before
         # this the refusal escaped as a traceback; an invocation that used
         # to succeed is unaffected.
         _echo_api_error(exc)
@@ -1102,7 +1102,7 @@ def finalize_application(
             if output_format == OutputFormat.JSON:
                 print(json.dumps(finalized, indent=2, sort_keys=True))
             else:
-                # 0.1.4's own output, pinned - do not change (KODI-013
+                # 0.1.4's own output, pinned - do not change (0.2.0's
                 # remediation round 1: only the 0.2.0 paths below changed).
                 print_finalize_summary(finalized, 'Finalized application')
         else:
@@ -1128,7 +1128,7 @@ def finalize_application(
             if output_format == OutputFormat.JSON:
                 print(json.dumps(finalized, indent=2, sort_keys=True))
             else:
-                # KODI-013 remediation round 1: Application.last_step is the
+                # 0.2.0 remediation round 1: Application.last_step is the
                 # latest-dated timeline event, not the closing one - a
                 # future-dated interview added before closing can sort
                 # after the outcome event. Print what actually happened -
@@ -1182,7 +1182,7 @@ def reopen_application(
         reopened = client.post(
             f'/applications/{resolved_application_id}/reopen'
         )
-        # KODI-013 remediation round 1: status/finalized_at instead of the
+        # 0.2.0 remediation round 1: status/finalized_at instead of the
         # plain date= print_application_summary gave, for the same status-
         # over-timeline-derived-fields reasoning as the 0.2.0 finalize paths.
         print_finalize_outcome_summary(reopened, 'Reopened application')
@@ -1582,7 +1582,7 @@ def edit_timeline_event(
             )
         )
 
-        # KODI-016: a stored schedule is never re-sent once the resulting
+        # a stored schedule is never re-sent once the resulting
         # type is not interview — the PUT is a full replace, so an
         # unspecified schedule flag on a non-interview edit sends null
         # (or omits the key), same as interview_type/denied_reason above.
@@ -1814,7 +1814,7 @@ def _as_float(value: Any) -> float | None:
 
 
 def _usage_exit(message: str) -> None:
-    """A usage/file-validation failure: nothing was sent, exit 2 (KODI-018)."""
+    """A usage/file-validation failure: nothing was sent, exit 2."""
     typer.echo(message, err=True)
     raise typer.Exit(USAGE_EXIT_CODE)
 

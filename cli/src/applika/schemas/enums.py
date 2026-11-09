@@ -5,7 +5,7 @@ class Currency(str, Enum):
     """The 20 supported salary currencies (R-031).
 
     Order matches ``applika/backend/app/core/enums.py``: the 9 known first,
-    then the 11 KODI-011 added.
+    then the 11 the API added later.
     """
 
     USD = 'USD'
@@ -38,7 +38,7 @@ class SalaryPeriod(str, Enum):
     ``--salary-period annual`` sending the literal string ``annual`` — the API
     still accepts it (``SalaryPeriod._missing_`` on the backend). ``ANNUALLY``
     is added so ``applications edit`` can round-trip an application the API
-    already reports as ``annually`` (KODI-011's known 0.1.4 limitation, fixed
+    already reports as ``annually`` (a known 0.1.4 limitation, fixed
     here). No 0.2.0 *new* command (``timeline``, ``finalize --outcome``) ever
     offers or sends ``annual``: those use ``OfferPeriod`` below, which never
     had it.
@@ -79,7 +79,7 @@ class InterviewType(str, Enum):
 
 
 class DeniedReason(str, Enum):
-    """The 10 denied-event reasons (R-033..R-036, KODI-014). Same wire
+    """The 10 denied-event reasons (R-033..R-036). Same wire
     values as ``backend/app/core/enums.py``'s ``DeniedReason``."""
 
     UNKNOWN = 'unknown'
@@ -145,7 +145,7 @@ class OutputFormat(str, Enum):
 
 
 class CvListOutput(str, Enum):
-    """``cvs list --output`` (KODI-018): ``md`` is a Markdown table."""
+    """``cvs list --output``: ``md`` is a Markdown table."""
 
     TABLE = 'table'
     JSON = 'json'
@@ -154,7 +154,7 @@ class CvListOutput(str, Enum):
 
 
 class CvOutput(str, Enum):
-    """``--output`` of every single-CV command (KODI-018).
+    """``--output`` of every single-CV command.
 
     ``md`` is the CV as the *server* renders it - a second call to
     ``GET /base-cvs/{id}/markdown`` or ``GET /applications/{id}/cv/markdown``,
@@ -168,7 +168,7 @@ class CvOutput(str, Enum):
 
 
 class DownloadType(str, Enum):
-    """``--type`` of every download/diff command (KODI-018). Required."""
+    """``--type`` of every download/diff command. Required."""
 
     PDF = 'pdf'
     MD = 'md'

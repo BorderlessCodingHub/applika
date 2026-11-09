@@ -11,7 +11,7 @@ from applika.lib.session import SessionData, SessionStore
 
 REFRESH_TOKEN_GRANT = 'refresh_token'
 # Answers that mean "try again later": the stored session is kept (fail
-# closed, ADR-0019 / KODI-060).
+# closed, ADR-0019).
 TRANSIENT_STATUSES = (429, 503)
 DEFAULT_RETRY_AFTER_SECONDS = 5
 
@@ -170,7 +170,7 @@ class ApiClient:
         return self.request('PUT', path, json=payload).json()
 
     def patch_json(self, path: str, payload: dict[str, Any]) -> Any:
-        """PATCH with a body - the master CV's partial update (KODI-018)."""
+        """PATCH with a body - the master CV's partial update."""
         return self.request('PATCH', path, json=payload).json()
 
     def delete(self, path: str) -> None:
@@ -181,7 +181,7 @@ class ApiClient:
         method: str,
         path: str,
     ) -> tuple[bytes, dict[str, str]]:
-        """The response body as bytes plus its headers (KODI-018).
+        """The response body as bytes plus its headers.
 
         The CV download routes answer ``application/pdf`` or
         ``text/markdown`` and carry the file name in ``Content-Disposition``,
