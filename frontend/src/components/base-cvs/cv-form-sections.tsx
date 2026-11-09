@@ -276,6 +276,7 @@ export function CvFormSections({
   const sectionProps = (id: CvFormSectionId) => ({
     open: disclosure.isOpen(id),
     onOpenChange: (next: boolean) => disclosure.setOpen(id, next),
+    sectionId: id,
   });
 
   // The schema validates experience as a WHOLE array (`base-cv-schema.ts` uses

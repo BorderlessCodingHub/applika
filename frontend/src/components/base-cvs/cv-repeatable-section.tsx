@@ -153,6 +153,7 @@ export function CvRepeatableSection<T extends { id: string }>({
   defaultOpen,
   open,
   onOpenChange,
+  sectionId,
 }: CvRepeatableSectionProps<T>) {
   const t = useTranslations("cvs.fields");
   const atMax = max != null && items.length >= max;
@@ -229,6 +230,7 @@ export function CvRepeatableSection<T extends { id: string }>({
       defaultOpen={defaultOpen}
       open={open}
       onOpenChange={onOpenChange}
+      sectionId={sectionId}
     >
       <>
         {items.length === 0 ? (

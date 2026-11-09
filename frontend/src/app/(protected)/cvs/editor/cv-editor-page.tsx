@@ -19,6 +19,7 @@ import {
 } from "@/components/base-cvs/base-cv-schema";
 import { BetaBadge } from "@/components/features/beta-badge";
 import { FeatureGate } from "@/components/features/feature-gate";
+import { CvEditorScreenView } from "@/components/phone/screens/cv-editor-screen";
 import { LinkButton } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CvFormValues } from "@/components/base-cvs/types";
@@ -26,6 +27,7 @@ import { useBaseCv } from "@/hooks/use-base-cv";
 import { useExportBaseCvMarkdown } from "@/hooks/use-export-base-cv-markdown";
 import { useExportBaseCvPdf } from "@/hooks/use-export-base-cv-pdf";
 import { useHasFeature } from "@/hooks/use-features";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { useUpdateBaseCv } from "@/hooks/use-update-base-cv";
 import { getApiError } from "@/lib/api-client";
 
@@ -69,7 +71,8 @@ function EditorMessage({
  * until the CV has been saved once.
  *
  * Behind the `cvs` feature: without it, the app's "page not found" and no CV
- * request.
+ * request. Below md the same state renders the v2/CVEditor board (PRD 0021):
+ * the sections as an expandable list, the PDF action, no preview.
  */
 export function CvEditorPage() {
   return (
@@ -86,7 +89,7 @@ function CvEditor() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
 
-  const { data: cv, isLoading, error } = useBaseCv(id);
+  const { data: cv, isLoading, error, refetch, isFetching } = useBaseCv(id);
 
   const form = useForm<CvFormValues>({
     resolver: zodResolver(baseCvSchema),
@@ -111,6 +114,42 @@ function CvEditor() {
   // edits on screen.
   const exportMutation = useExportBaseCvPdf();
   const exportMarkdownMutation = useExportBaseCvMarkdown();
+  const isPhone = useIsPhone();
+
+  const onSubmit = form.handleSubmit(
+    (values) => updateMutation.mutate(toBaseCvPayload(values)),
+    (errors) => {
+      const message = sectionErrorMessage(errors);
+      if (message) toast.error(message);
+    },
+  );
+
+  if (isPhone) {
+    return (
+      <CvEditorScreenView
+        noId={!id}
+        cv={
+          error
+            ? {
+                status: "error",
+                message: getApiError(error as AxiosError),
+                onRetry: () => void refetch(),
+                retrying: isFetching,
+              }
+            : isLoading || !cv
+              ? { status: "loading" }
+              : { status: "ready", data: cv }
+        }
+        form={form}
+        onSubmit={onSubmit}
+        saving={updateMutation.isPending}
+        onExportPdf={() =>
+          exportMutation.mutate({ id: id ?? "", name: cv?.name ?? "" })
+        }
+        exportingPdf={exportMutation.isPending}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -160,13 +199,7 @@ function CvEditor() {
       ) : (
         <BaseCvEditor
           form={form}
-          onSubmit={form.handleSubmit(
-            (values) => updateMutation.mutate(toBaseCvPayload(values)),
-            (errors) => {
-              const message = sectionErrorMessage(errors);
-              if (message) toast.error(message);
-            },
-          )}
+          onSubmit={onSubmit}
           submitLabel={t("editorPage.submit")}
           isSubmitting={updateMutation.isPending}
           actions={

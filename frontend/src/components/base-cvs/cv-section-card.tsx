@@ -1,6 +1,11 @@
 "use client";
 
-import type { ComponentType, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  type ComponentType,
+  type ReactNode,
+} from "react";
 import { ChevronDown } from "lucide-react";
 import type { LucideProps } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -28,7 +33,28 @@ export interface CvCollapsibleProps {
   open?: boolean;
   /** Fired with the next state on every trigger press. */
   onOpenChange?: (open: boolean) => void;
+  /** `CvFormSections`' id for the section, handed to a `CvSectionFrame`; never rendered. */
+  sectionId?: string;
 }
+
+/** One section as a `CvSectionFrame` receives it: the card's words and its fields. */
+export interface CvSectionFrameProps {
+  sectionId?: string;
+  title: string;
+  description?: ReactNode;
+  status?: ReactNode;
+  statusId?: string;
+  children: ReactNode;
+}
+
+/**
+ * Draws every `CvSectionCard` below it its own way (the phone CV editor's
+ * accordion rows), with the same fields; the frame owns the open state.
+ * Absent, the card renders exactly as before.
+ */
+export const CvSectionFrame = createContext<
+  ((section: CvSectionFrameProps) => ReactNode) | null
+>(null);
 
 export interface CvSectionCardProps extends CvCollapsibleProps {
   /** Section title. Rendered as the heading given by `as`. */
@@ -94,10 +120,16 @@ export function CvSectionCard({
   defaultOpen = true,
   open,
   onOpenChange,
+  sectionId,
   children,
   className,
   contentClassName,
 }: CvSectionCardProps) {
+  const frame = useContext(CvSectionFrame);
+  if (frame) {
+    return frame({ sectionId, title, description, status, statusId, children });
+  }
+
   const hasStatus = status !== undefined && status !== null && status !== false;
 
   const header = (

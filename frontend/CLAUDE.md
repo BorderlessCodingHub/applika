@@ -987,6 +987,15 @@ the same reason: no client-side Markdown generation either.
   for any blob request. It lives outside `api-client.ts` on purpose: that module
   imports the service container, so a service cannot import back from it.
 
+**On a phone (PRD 0021).** Below md `/cvs` is v2/CVs (`CvsScreen`: cards
+with headline, last update, every keyword, counts, Edit and Delete behind a
+`PhoneConfirmSheet`, the new-CV tile with the slots left) and `/cvs/editor`
+is v2/CVEditor on the page's own form, save and PDF export: the sections are
+`PhoneCvSections` rows over `CvFormSections` (through `CvSectionFrame`, see
+**Phone shell**), no live preview, no Markdown, one bar. `/cvs/new` has no
+board and keeps today's editor inside the phone layout. Crossing md reseeds
+the editor from the stored CV: an unsaved edit is lost (no autosave).
+
 ### Tailored CVs (`src/components/tailored-cvs/`)
 
 A **tailored CV** is an application's own COPY of a master CV, edited for that
@@ -1707,6 +1716,15 @@ application entry."
   typed in the last debounce window is lost even if it has not fired yet. A
   422 (no CV copy, or a future date) surfaces as the server's own `detail` in
   `[data-slot="draft-finish-error"]`.
+- **On a phone (PRD 0021).** Below md the page renders v2/Draft
+  (`DraftScreen`) from the SAME state, after all its hooks ran: both forms,
+  both autosave loops, Finish and the beforeunload guard are unchanged. Step
+  1 puts the board's six fields first and the rest (the application date
+  included) under "More details"; step 2 summarises the copy as the board's
+  rows and edits it in place ("Edit the CV copy"), see **Phone shell**.
+  Crossing md remounts the page: it reloads the draft from `?id=` (what the
+  autosave saved); a change typed in the last second before the crossing is
+  not saved.
 
 ### Admin — private company/platform rows (`components/admin/catalog-visibility.tsx`, `approve-catalog-button.tsx`, PRD 0010, AC19/AC20)
 
@@ -2216,6 +2234,13 @@ KODI-047 contract. Every commit porting his logic ends with the trailer
   "Dismissed", "Draft" / "Open draft", nav "Jobs" / "Back to jobs", "Rename" /
   "Rename <name>". Use `exact: true`. A dialog has its own sr-only "Close", so
   the conflict panel's "Close" is not unique by name.
+- **On a phone (PRD 0021).** Below md `/jobs` is v2/Jobs and `/jobs/view`
+  v2/JobDetail, inside the same `jobs` gate, on the same hooks and URL keys
+  (`use-job-board.ts` holds the URL writing and the saved-search wiring both
+  widths use); "Show more" replaces the pager and writes no `?page=`; a card
+  shows its Draft/Applied mark or Dismiss, and Start application is the job
+  page's, as the StartApplication sheet on `useStartApplicationFlow`. See
+  **Phone shell** for the hooks and the locator traps.
 
 ### Beta features (PRD 0013, KODI-053)
 
@@ -2595,8 +2620,11 @@ same way the V2 boards drive today's phone screens; desktop stays as it is.
   pages render after auth, so nothing flashes. `AppShell` calls it after its
   own hooks and returns `<PhoneShell/>` below md: the desktop branch is
   untouched. Crossing md remounts the page (a half-filled quick add is lost;
-  a draft keeps its autosave). `hooks/use-mobile.ts` (shadcn) is unused and
-  is not the switch.
+  a draft keeps what its autosave already saved, and the debounced change
+  typed in the last second before the crossing is dropped, since
+  `useDebouncedAutosave` cancels it on unmount; the master CV editor has no
+  autosave, so its unsaved edits are lost). `hooks/use-mobile.ts` (shadcn)
+  is unused and is not the switch.
 - **`components/layout/phone-shell.tsx`** `PhoneShell`: a `relative
 h-viewport` column (no rail, no navigation sheet, no `Header`), the back bar
   ABOVE exactly ONE `<main>` that scrolls, holding
@@ -2625,7 +2653,8 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
   `PHONE_SCREEN_PATHS` (screens rendered from their board, which own the
   board's padding: `/dashboard`, `/applications`, `/agenda`, `/account`,
   `/insights`, `/welcome`, `/device`, `/profile`, `/cycles`, `/reports`,
-  `/admin` so far — add a route when its board lands) plus
+  `/admin`, `/jobs`, `/jobs/view`, `/cvs`, `/cvs/editor`,
+  `/applications/new-with-cv` — add a route when its board lands) plus
   `PHONE_SCREEN_PREFIXES` (`/reports/` every report day, `/admin/` every
   admin section; `isPhoneScreen` checks both) and `accountRows(navItems)`.
   Words are getters over `word()`, so the shell also calls `useTranslations`.
@@ -2838,6 +2867,106 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
     `badge-gate-sign-in-again`, `submit-report`, `cancel-report`,
     `add-webhook`, `edit-webhook`, `delete-webhook`,
     `confirm-delete-webhook`.
+- **Jobs, CVs and the draft (v2/Jobs, v2/JobDetail, v2/StartApplication,
+  v2/Draft, v2/CVs, v2/CVEditor).** Each phone branch sits INSIDE the page's
+  existing `FeatureGate` (`jobs` for `/jobs` and `/jobs/view`, `cvs` for
+  `/cvs`, `/cvs/editor` and `/applications/new-with-cv`), so no gated request
+  leaves without access; the draft's inner `jobs` checks stay.
+  - **Jobs** (`screens/jobs-screen.tsx` `JobsScreen`): the URL's filters
+    through `components/jobs/use-job-board.ts` (`useUrlJobFilters`,
+    `writeJobsUrl` with `pushState`, `withoutFit`, `useSavedSearchesMenu` —
+    the desktop board reads the same module); page 1 is `useJobs(filters, 1)`
+    and every "Show more" page `useQueries` on the same `["jobs", filters,
+page]` key, so the optimistic dismiss reaches all of them; the phone
+    writes no `?page=` and a filter change starts again at page 1; a failed
+    later page keeps the list, toasts and retries on the next tap. Search
+    debounced 300 ms (Enter or blur flushes); Best fit / Newest are
+    `aria-pressed` chips in a `toolbar` "Sort and filters"; the source is a
+    sheet of buttons (a tap applies and closes); "More filters" is a sheet
+    with tags, minimum fit, published within, Show dismissed and today's
+    `SavedSearchesMenu` (desktop sizes). A card is an `article` named by its
+    title; it shows its Draft/Applied mark OR Dismiss (the board), never
+    Start application (that is on the job page). Without `cvs`: no fit, no
+    Best fit, no invitation, "Draft" plain text.
+  - **A job** (`screens/job-detail-screen.tsx` `JobDetailScreen`): "Your fit"
+    is a `section` (`[data-slot="job-fit-list"]`) of Radix `Tabs` (tablist
+    "Master CV", chips "Name · 82%" / "Name · No fit yet", best first); every
+    panel is force-mounted with a visually hidden h3 = the CV's name, and the
+    inactive ones are `display: none` (`.ph-jd-card[data-state="inactive"]`).
+    The ring is `role="img"` "Fit 82%". Start application is
+    `screens/start-application-sheet.tsx` `StartApplicationSheet` on
+    `useStartApplicationFlow` (`components/jobs/start-application-flow.tsx`;
+    the desktop dialog is `<StartApplicationDialog
+{...useStartApplicationFlow(props)} />`), a `dialog` "Start an
+    application" with the same radios, preselection, 409 and inline errors.
+  - **CVs** (`screens/cvs-screen.tsx` `CvsScreen`): one card per master CV,
+    Edit (link "Edit <name>") and Delete ("Delete <name>") confirmed in a
+    `PhoneConfirmSheet` that stays open while the delete runs, closes on
+    success and keeps the sheet on a failure (today's toast); the new-CV
+    tile shows the slots left and gives way to today's `limitReason` line at
+    three. No Markdown or PDF on the cards (the board draws none).
+  - **The CV editor and the draft keep their state in the page** and swap
+    the render after every hook ran (`cv-editor-page.tsx` returns
+    `CvEditorScreenView`, `new-with-cv-page.tsx` returns `DraftScreen`): the
+    forms, the save, the export and both autosave loops are the desktop's.
+    The editor's sections are `components/phone/phone-cv-sections.tsx`
+    `PhoneCvSections`: today's `CvFormSections` drawn through the
+    `CvSectionFrame` context (`base-cvs/cv-section-card.tsx`; absent, a card
+    renders exactly as before) as `[data-slot="cv-acc"][data-section]` rows,
+    a heading around `button.ph-acc` named by the title and described by its
+    meta, Identity open first, one open at a time, every failing section
+    opened by a submit. No preview (`cv-document`) and no `CvEditorFooter`
+    on the phone; PDF is the top bar's "Download PDF" (visible "PDF").
+  - **The draft** (`screens/draft-screen.tsx`): step 1 is the board's
+    Company, Role, Platform, Experience + Work mode, Job description, then
+    "More details" (`[data-action="more-details"]`, hidden not unmounted, it
+    opens itself when a field inside starts failing) with Source, the
+    application date (`DatePickerInput` labelled "Application date"), link,
+    country, salary and notes. Step 2 before a copy: the "Tailor by
+    keywords" switch card (with `jobs` and a saved job description) and the
+    master CV options; with a copy: the board's section rows
+    (`li.ph-sec-row[data-section]`, "Reordered" from `adjustments`), today's
+    `CvFitPanel` (`[data-slot="cv-fit-panel"]`, `jobs` only) and "Edit the
+    CV copy", which edits the copy IN PLACE (`[data-slot="draft-cv-editor"]`,
+    `PhoneCvSections` with h3 rows on the page's CV form, autosaved) — not
+    `/applications/cv?id=`: that page reads the application from the
+    cycle's list and the API lists no draft, so a draft id lands on "not in
+    the cycle". `useBaseCvs` is called in `DraftScreen` only, so the
+    desktop's step 1 sends nothing new. "Delete copy", "Show changes" and
+    the diff downloads stay desktop-only.
+  - Hooks: `data-slot` `phone-jobs`, `jobs-toolbar`, `job-list`,
+    `job-list-item` (`article[data-job-id][data-dismissed]`), `fit-badge`
+    (`[data-band][data-score]`), `job-status-badge[data-status]`,
+    `job-dismissed-mark`, `job-list-empty`, `job-list-no-matches`,
+    `job-source-options`, `job-filters-sheet`, `job-saved-searches`,
+    `phone-job-detail[data-job-id]`, `job-fit-list`, `job-fit-tabs`,
+    `fit-ring`, `fit-keyword-group[data-kind]`, `job-description`,
+    `job-not-listed`, `start-application-form`, `start-application-error`,
+    `start-application-conflict`, `phone-cvs`, `cv-list`,
+    `cv-card[data-cv-id][data-deleting]`, `cv-new-tile`, `cvs-limit`,
+    `cvs-empty`, `phone-cv-editor`, `cv-acc[data-section][data-open]`,
+    `phone-draft[data-step]`, `draft-stepper`, `draft-application-step`,
+    `draft-more-details`, `draft-cv-step`, `draft-cv-copy`,
+    `draft-cv-editor`, `tailor-by-keywords`, `draft-no-master-cv`,
+    `draft-not-found`, `draft-missing`, `draft-finish-error`,
+    `autosave-status[data-state]`; `data-action` `sort-fit`, `sort-newest`,
+    `choose-source`, `more-filters`, `dismiss-job`, `restore-job`,
+    `show-more`, `clear-filters`, `company-website`, `view-on-source`,
+    `start-application`, `create-draft`, `open-existing`, `edit-cv`,
+    `delete-cv`, `confirm-delete-cv`, `new-cv`, `download-pdf`,
+    `toggle-cv-section`, `cancel-cv`, `save-cv`, `more-details`,
+    `continue-to-cv`, `cancel-draft`, `back`, `finish`, `create-cv-copy`,
+    `edit-cv-copy`, `done-editing-cv`, `retry-autosave`.
+  - Locator traps: "Jobs" is the back link on a job and the h1 of `/jobs`;
+    "CVs" the back link of the editor and the h1 of `/cvs`; "Done" closes
+    More filters and the draft's inline CV editor; "Close" is the start
+    sheet's X and the 409 panel's own button; "Draft" is a card's mark and
+    inside "Create draft" / "Open draft"; "Dismiss" is inside "Dismissed";
+    "Edit the CV copy" is the draft's button and the inline editor's h2;
+    "Delete" is the sheet's confirm and inside "Delete <name>"; "Links",
+    "Skills" … are both an editor row's button and its heading; "PDF" is
+    the visible text of "Download PDF". At md and up the same addresses
+    render today's pages.
 - **Signed-in screens from their boards** switch with `useIsPhone()` and
   keep today's data wiring: `WelcomeScreen` returns `PhoneWelcomeScreen`
   below md (v2/Welcome: `radiogroup` "How to start" of two `PhoneOption
@@ -2877,7 +3006,13 @@ page)` renders a route in the phone shell with the query client, the cycle
   `renderPhonePage(page)` renders a page alone (no shell) on a phone
   viewport and returns `viewport`, for the `setPhone(false)` checks that the
   page swaps to today's desktop body (the desktop shell needs a
-  `LocaleProvider`, the page alone does not);
+  `LocaleProvider`, the page alone does not); `renderShellAcrossMd(path,
+  page)` renders it inside the real `AppShell` with a `LocaleProvider` and
+  returns `viewport`, so `setPhone(false)` remounts the page as the app
+  does (the draft and CV editor crossing tests). A test's
+  `vi.mock("@/contexts/auth-context")` factory must not `await
+  import("@/test/phone-screens")`: that module imports the mocked one, and
+  the run hangs; import `SAM` at the top instead;
   `src/test/navigation.ts` is a `next/navigation` stand-in whose
   `useSearchParams` follows `pushState`/`replaceState`/`popstate`;
   `src/test/timeline-dialog-stub.tsx` stands in for `TimelineEventForm`

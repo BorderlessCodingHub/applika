@@ -8,6 +8,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { navItemsFor } from "@/components/layout/nav";
 import { CycleProvider, useCycleContext } from "@/contexts/cycle-context";
 import { USER_QUERY_KEY } from "@/hooks/use-user";
+import { LocaleProvider } from "@/i18n/locale-provider";
 import en from "@/i18n/messages/en.json";
 import ptBR from "@/i18n/messages/pt-BR.json";
 import { setTranslatorLocale } from "@/i18n/translator";
@@ -139,6 +140,48 @@ export function renderPhonePage(
     <QueryClientProvider client={client}>
       <CycleProvider>{page}</CycleProvider>
     </QueryClientProvider>,
+  );
+  return { ...result, client, viewport };
+}
+
+/**
+ * Renders `page` at `path` inside the real `AppShell` on a phone-wide
+ * viewport, with a `LocaleProvider` (the desktop header's language switcher
+ * needs one), and returns `viewport`: `setPhone(false)` swaps the shell and
+ * REMOUNTS the page, as crossing md does in the app (state held by the page
+ * is gone; what it loads again comes from the query cache or the API).
+ */
+export function renderShellAcrossMd(
+  path: string,
+  page: ReactNode,
+  {
+    user = SAM,
+    features = [],
+    client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    }),
+  }: Pick<PhoneScreenOptions, "user" | "features" | "client"> = {},
+) {
+  const viewport = mockPhoneViewport();
+  client.setQueryData(USER_QUERY_KEY, user);
+  client.setQueryData(["user", "features"], features);
+  const result = render(
+    <QueryClientProvider client={client}>
+      <CycleProvider>
+        <AppShell
+          activePath={path}
+          navItems={navItemsFor(false, features, { hasReportsBadge: false })}
+          user={user}
+          onLogout={vi.fn()}
+        >
+          {page}
+        </AppShell>
+      </CycleProvider>
+    </QueryClientProvider>,
+    { wrapper: LocaleProvider },
   );
   return { ...result, client, viewport };
 }

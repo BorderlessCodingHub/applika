@@ -4257,4 +4257,1216 @@
       min-height: 44px;
     }
   }
+
+  /* v2/Jobs, v2/JobDetail, v2/StartApplication, v2/Draft, v2/CVs, v2/CVEditor: their own <style> classes, bodies as drawn. */
+
+  .ph-fit {
+    height: 26px;
+    padding: 0 9px 0 6px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--foreground);
+    white-space: nowrap;
+  }
+
+  .ph-fit.ph-strong {
+    background: color-mix(in oklab, var(--success) 16%, transparent);
+  }
+
+  .ph-fit.ph-partial {
+    background: color-mix(in oklab, var(--warning) 16%, transparent);
+  }
+
+  .ph-fit.ph-low {
+    background: var(--muted);
+    color: color-mix(in oklab, var(--foreground) 75%, transparent);
+  }
+
+  .ph-kw {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 26px;
+    padding: 0 9px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .ph-kw.ph-m {
+    background: color-mix(in oklab, var(--success) 16%, transparent);
+  }
+
+  .ph-kw.ph-x {
+    border: 1px dashed var(--border-strong);
+    color: color-mix(in oklab, var(--foreground) 80%, transparent);
+  }
+
+  .ph-step {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 0;
+    background: transparent;
+    color: var(--muted-foreground);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .ph-step .ph-n {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    border: 2px solid var(--border-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    box-sizing: border-box;
+  }
+
+  .ph-step.ph-on {
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    color: var(--foreground);
+  }
+
+  .ph-step.ph-on .ph-n {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  .ph-sec-row {
+    min-height: 52px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .ph-acc {
+    width: 100%;
+    min-height: 60px;
+    padding: 0 16px;
+    border: 0;
+    background: transparent;
+    color: var(--foreground);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .ph-acc .ph-chev {
+    transition: transform 0.15s;
+  }
+
+  .ph-acc[aria-expanded="true"] .ph-chev {
+    transform: rotate(180deg);
+  }
+
+  /* The six boards' inline style blocks made classes, bodies as drawn. */
+
+  /* v2/Jobs (its top bar's Beta is .ph-pill; the hint under the list is .ph-hint centred) */
+  .ph-jb {
+    padding: 0 0 calc(40px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-jb-head,
+  .ph-jb-search,
+  .ph-jb-body {
+    padding: 0 20px;
+  }
+
+  .ph-jb-search-box {
+    position: relative;
+  }
+
+  .ph-jb-search-ic {
+    position: absolute;
+    left: 16px;
+    top: 17px;
+    color: var(--muted-foreground);
+    pointer-events: none;
+  }
+
+  .ph-input.ph-jb-search-input {
+    padding-left: 44px;
+  }
+
+  /* The board's 2px top is 4px: the chips' 44px boxes overhang the row by 4px. */
+  .ph-hs.ph-jb-chips {
+    padding: 4px 20px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-jb-chip-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ph-jb-results {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    outline: none;
+  }
+
+  .ph-jb-list {
+    list-style: none;
+    margin: 0;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: opacity 0.2s;
+  }
+
+  .ph-jb-list[data-refreshing] {
+    opacity: 0.6;
+  }
+
+  .ph-card.ph-jb-card {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .ph-jb-card[data-dismissed] {
+    opacity: 0.75;
+  }
+
+  .ph-app .ph-jb-link {
+    display: block;
+    padding: 16px 16px 12px;
+    color: var(--foreground);
+  }
+
+  .ph-app .ph-jb-link:focus-visible {
+    outline-offset: -2px;
+  }
+
+  .ph-jb-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .ph-jb-who {
+    min-width: 0;
+  }
+
+  .ph-jb-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-jb-sub {
+    margin: 2px 0 0;
+    font-size: 14px;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  .ph-jb-tags {
+    list-style: none;
+    margin: 10px 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ph-jb-tag-li {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  /* A long tag, keyword or fact wraps inside its chip instead of widening the card. */
+  .ph-tag.ph-jb-tag,
+  .ph-tag.ph-cv-tag,
+  .ph-kw {
+    max-width: 100%;
+    height: auto;
+    min-height: 26px;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-jb-more-tags {
+    align-self: center;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-jb-foot {
+    padding: 0 16px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ph-jb-posted {
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-jb-dismissed {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-jb-dismiss {
+    flex: none;
+    min-height: 44px;
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+    color: var(--muted-foreground);
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
+  .ph-jb-dismiss[aria-disabled="true"] {
+    cursor: progress;
+    opacity: 0.7;
+  }
+
+  /* The status pill keeps the board's 24px inside a 44px box. */
+  .ph-hit.ph-jb-status {
+    flex: none;
+    margin-block: -10px;
+  }
+
+  .ph-hint.ph-jb-note {
+    padding: 0 20px;
+    text-align: center;
+  }
+
+  .ph-show-more.ph-jb-more {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .ph-jb-state {
+    margin: 0 20px;
+  }
+
+  .ph-jb-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .ph-jb-state-h {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .ph-group.ph-jb-options {
+    box-shadow: none;
+    border: 1px solid var(--border);
+  }
+
+  .ph-jb-check {
+    flex: none;
+    color: var(--primary);
+  }
+
+  .ph-jb-chipset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-block: 4px;
+  }
+
+  .ph-chip[data-disabled] {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .ph-jb-tag-picked {
+    gap: 2px;
+    padding-right: 0;
+  }
+
+  .ph-jb-tag-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-hit.ph-jb-tag-x {
+    flex: none;
+    margin: -9px -10px -9px -6px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-jb-toggle {
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .ph-jb-saved {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* v2/JobDetail (its h1 is .ph-h1 at 26px; the bar is .ph-bar) */
+  .ph-jd {
+    padding: 4px 20px calc(120px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .ph-jd.ph-jd-nobar {
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-jd-meta {
+    margin: 0;
+    font-size: 14px;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  .ph-h1.ph-jd-h1 {
+    margin-top: 6px;
+    font-size: 26px;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-jd-tags {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ph-jd-marks {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+  }
+
+  .ph-hint.ph-jd-note {
+    flex-basis: 100%;
+  }
+
+  .ph-hint.ph-jd-hint {
+    margin-top: 4px;
+  }
+
+  .ph-jd-gap {
+    margin-top: 12px;
+  }
+
+  /* The CV chips' 44px boxes overhang the board's row by 4px. */
+  .ph-hs.ph-jd-tabs {
+    margin: 8px 0 -4px;
+    padding: 4px 0;
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-card.ph-jd-card {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .ph-jd-card[data-state="inactive"] {
+    display: none;
+  }
+
+  .ph-jd-ring {
+    flex: none;
+  }
+
+  .ph-jd-score {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .ph-jd-pct {
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  .ph-jd-band {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-lbl.ph-jd-kw-lbl {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .ph-jd-kws {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ph-jd-desc {
+    margin: 10px 0 0;
+    font-size: 15px;
+    line-height: 1.6;
+    color: color-mix(in oklab, var(--foreground) 85%, transparent);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-btn.ph-jd-source {
+    margin-top: 16px;
+  }
+
+  .ph-bar > .ph-jd-dismiss {
+    flex: none;
+  }
+
+  .ph-bar > .ph-jd-dismiss:only-child,
+  .ph-bar > .ph-jd-start {
+    flex: 1;
+  }
+
+  .ph-jd-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 28px 20px;
+    text-align: center;
+  }
+
+  .ph-jd-empty-ic {
+    width: 48px;
+    height: 48px;
+    border-radius: 999px;
+    background: var(--primary-muted);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-jd-empty-h {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  /* v2/StartApplication (its options are .ph-opt; Cancel / Create draft are .ph-sheet-actions) */
+  .ph-sa-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .ph-sa-title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .ph-sa-close {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    margin-right: -10px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--muted-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .ph-sheet-body {
+    flex: 1;
+    min-height: 0;
+    margin: 0 -20px;
+    padding: 4px 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .ph-sa-fieldset {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ph-lbl.ph-sa-legend {
+    margin-bottom: 4px;
+    padding: 0;
+  }
+
+  .ph-hint.ph-sa-hint {
+    margin-bottom: 4px;
+  }
+
+  .ph-hint.ph-sa-none {
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px dashed var(--border-strong);
+  }
+
+  .ph-sa-error-card {
+    box-shadow: none;
+    border: 1px dashed var(--border-strong);
+  }
+
+  .ph-notice.ph-sa-alert {
+    margin-top: 8px;
+    outline: none;
+  }
+
+  .ph-sheet-foot {
+    padding-top: 8px;
+  }
+
+  .ph-sa-conflict {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px dashed var(--border-strong);
+    outline: none;
+  }
+
+  .ph-sa-conflict-h {
+    margin: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-sa-conflict-h > svg {
+    flex: none;
+    margin-top: 2px;
+    color: var(--warning);
+  }
+
+  /* v2/Draft (its fields are .ph-field / .ph-input, "More details" is QuickAdd's .ph-qa-more) */
+  .ph-dr {
+    padding: 4px 20px calc(120px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .ph-dr[data-noted] {
+    padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-dr.ph-dr-nobar {
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-h1.ph-dr-h1,
+  .ph-h1.ph-ce-h1 {
+    font-size: 26px;
+  }
+
+  .ph-dr-status {
+    padding-right: 8px;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+  }
+
+  .ph-dr-ok {
+    flex: none;
+    color: var(--success);
+  }
+
+  .ph-dr-bad {
+    flex: none;
+    color: var(--destructive-text);
+  }
+
+  .ph-dr-warn {
+    flex: none;
+    color: var(--warning);
+  }
+
+  .ph-dr-steps {
+    padding: 4px;
+    border-radius: 18px;
+    background: var(--muted);
+    display: flex;
+    gap: 4px;
+  }
+
+  .ph-step {
+    min-width: 0;
+    min-height: 50px;
+  }
+
+  .ph-step[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .ph-app .ph-step:focus-visible {
+    outline-offset: -2px;
+  }
+
+  .ph-step-text {
+    min-width: 0;
+  }
+
+  .ph-step-t,
+  .ph-step-s {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-step-t {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .ph-step-s {
+    font-size: 12px;
+  }
+
+  .ph-dr-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .ph-dr-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .ph-dr-tri {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .ph-dr-tri[data-disabled] {
+    opacity: 0.5;
+  }
+
+  .ph-dr-amount {
+    position: relative;
+  }
+
+  .ph-dr-sym {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    pointer-events: none;
+  }
+
+  .ph-input.ph-dr-amount-input {
+    padding-left: 34px;
+    padding-right: 10px;
+  }
+
+  .ph-hint.ph-dr-error {
+    color: var(--destructive-text);
+  }
+
+  .ph-dr-cv {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    outline: none;
+  }
+
+  .ph-card.ph-dr-tailor {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-dr-tailor-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-dr-tailor-t {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-dr-tailor-s {
+    display: block;
+    margin-top: 2px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--muted-foreground);
+  }
+
+  .ph-dr-copied {
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-dr-copied-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-dr-sec-name {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-dr-sec-meta {
+    flex: none;
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-dr-sec-meta.ph-mono {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ph-dr-edit-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .ph-dr-message,
+  .ph-ce-message {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .ph-dr-message-ic {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: var(--primary-muted);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-dr-message-h,
+  .ph-ce-message-h {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .ph-dr-alert {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* The bar holds a note row (what is missing, Finish's failure) above its two buttons. */
+  .ph-bar.ph-dr-bar {
+    flex-wrap: wrap;
+  }
+
+  .ph-bar > .ph-dr-lead-btn {
+    flex: none;
+  }
+
+  .ph-bar > .ph-dr-go-btn {
+    flex: 1;
+  }
+
+  .ph-dr-note {
+    flex-basis: 100%;
+    margin: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--muted-foreground);
+  }
+
+  .ph-dr-note.ph-dr-note-bad {
+    color: var(--foreground);
+  }
+
+  .ph-dr-note.ph-dr-note-bad > svg {
+    flex: none;
+    margin-top: 1px;
+    color: var(--destructive-text);
+  }
+
+  /* Today's pickers and selects drawn as the board's .input: their Button utilities outrank this layer. */
+  .ph-input-host [data-slot="catalog-select"] [role="combobox"],
+  .ph-input-host [data-slot="select-trigger"] {
+    width: 100% !important;
+    height: 52px !important;
+    padding: 0 16px !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 14px !important;
+    background: var(--surface) !important;
+    color: var(--foreground) !important;
+    box-shadow: none !important;
+    font-size: 16px !important;
+    font-weight: 400 !important;
+  }
+
+  .ph-input-host
+    [data-slot="catalog-select"]
+    [role="combobox"][aria-invalid="true"],
+  .ph-input-host [data-slot="select-trigger"][aria-invalid="true"] {
+    border-color: var(--destructive-text) !important;
+  }
+
+  .ph-input-host [data-slot="select-trigger"][data-placeholder] {
+    color: var(--muted-foreground) !important;
+  }
+
+  /* v2/CVs (its tags are .ph-tag, Edit / Delete are .ph-btn.ph-sm) */
+  .ph-cv {
+    padding: 0 20px calc(40px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-cv-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    outline: none;
+  }
+
+  .ph-cv-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-card.ph-cv-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: opacity 0.2s;
+  }
+
+  .ph-cv-card[data-deleting] {
+    opacity: 0.6;
+  }
+
+  .ph-cv-head {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .ph-cv-thumb {
+    flex: none;
+    width: 44px;
+    height: 52px;
+    border-radius: 8px;
+    background: var(--muted);
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 9px 8px;
+    box-sizing: border-box;
+  }
+
+  .ph-cv-thumb > span {
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border-strong);
+  }
+
+  .ph-cv-thumb > span:first-child {
+    height: 4px;
+    width: 70%;
+    background: var(--primary);
+  }
+
+  .ph-cv-thumb > span:last-child {
+    width: 60%;
+  }
+
+  .ph-cv-who {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .ph-cv-name {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-cv-headline {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  .ph-cv-updated {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-cv-tags {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ph-cv-counts {
+    margin: 0;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-cv-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .ph-cv-actions > :first-child {
+    flex: 1;
+  }
+
+  .ph-app .ph-cv-new {
+    min-height: 120px;
+    border-radius: 20px;
+    border: 2px dashed var(--border-strong);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--foreground);
+  }
+
+  .ph-cv-new-ic {
+    color: var(--primary);
+  }
+
+  .ph-cv-new-t {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-cv-new-s {
+    font-size: 13px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-hint.ph-cv-limit {
+    text-align: center;
+  }
+
+  .ph-cv-empty {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* v2/CVEditor (its rows are .ph-acc in a .ph-group; PDF is .ph-btn.ph-sm.ph-sec) */
+  .ph-ce {
+    padding: 0 20px calc(120px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-ce.ph-ce-nobar {
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* CvFormSections' root as the board's group: its rows are divs, so the hairline is drawn here. */
+  .ph-group.ph-ce-list > * + * {
+    border-top: 1px solid var(--border);
+  }
+
+  .ph-acc-h {
+    margin: 0;
+    font: inherit;
+  }
+
+  .ph-app .ph-ce-list .ph-acc:focus-visible {
+    outline-offset: -2px;
+  }
+
+  .ph-acc-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-acc-t {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-acc-m {
+    display: block;
+    margin-top: 2px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  .ph-acc-m.ph-acc-bad {
+    color: var(--destructive-text);
+  }
+
+  .ph-chev {
+    flex: none;
+    color: var(--muted-foreground);
+  }
+
+  .ph-ce-status {
+    padding: 0 16px 8px;
+  }
+
+  .ph-ce-panel {
+    padding: 0 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Today's CV fields drawn as the board's .input (their utilities outrank this layer); their icon buttons keep today's size. */
+  .ph-ce-panel [data-slot="input"],
+  .ph-ce-panel [data-slot="select-trigger"] {
+    height: 52px !important;
+    padding: 0 16px !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 14px !important;
+    background: var(--surface) !important;
+    box-shadow: none !important;
+    font-size: 16px !important;
+  }
+
+  .ph-ce-panel [data-slot="textarea"] {
+    min-height: 96px !important;
+    padding: 12px 16px !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 14px !important;
+    background: var(--surface) !important;
+    box-shadow: none !important;
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+  }
+
+  .ph-ce-panel [data-slot="input"][aria-invalid="true"],
+  .ph-ce-panel [data-slot="textarea"][aria-invalid="true"] {
+    border-color: var(--destructive-text) !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ph-acc .ph-chev {
+      transition: none;
+    }
+  }
 }

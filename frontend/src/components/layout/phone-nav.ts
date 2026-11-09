@@ -73,6 +73,11 @@ export const PHONE_SCREEN_PATHS: ReadonlySet<string> = new Set([
   "/cycles",
   "/reports",
   "/admin",
+  "/jobs",
+  "/jobs/view",
+  "/cvs",
+  "/cvs/editor",
+  "/applications/new-with-cv",
 ]);
 
 /**

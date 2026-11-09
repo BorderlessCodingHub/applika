@@ -38,6 +38,7 @@ import {
 import { DraftApplicationStep } from "@/components/application-drafts/draft-application-step";
 import { DraftCvStep } from "@/components/application-drafts/draft-cv-step";
 import { CvFitPanel } from "@/components/tailored-cvs/cv-fit-panel";
+import { DraftScreen } from "@/components/phone/screens/draft-screen";
 import type { ApplicationFieldsValues } from "@/components/applications/application-fields";
 import { ZodType } from "@/components/applications/company-select";
 import type { Company } from "@/services/types/applications";
@@ -72,6 +73,7 @@ import {
 import { BetaBadge } from "@/components/features/beta-badge";
 import { FeatureGate } from "@/components/features/feature-gate";
 import { useHasFeature } from "@/hooks/use-features";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { useDebouncedAutosave } from "@/hooks/use-debounced-autosave";
 import { formatNumber } from "@/i18n/format-number";
 import { getTranslatorLocale, word } from "@/i18n/translator";
@@ -266,6 +268,10 @@ function draftInputsEqual(a: DraftInput, b: DraftInput): boolean {
  *
  * Behind the `cvs` feature: without it, the app's "page not found" and no
  * draft or CV request. The inner `jobs` checks stay.
+ *
+ * Below md the same state renders the v2/Draft board (`DraftScreen`, PRD
+ * 0021), after every hook here has run: the forms and the autosave are the
+ * same at both widths.
  */
 export function NewWithCvPage() {
   return (
@@ -294,6 +300,7 @@ function NewWithCv() {
   // Computed once for all four headers, so the badge never blinks between states.
   const titleBadge =
     useHasFeature("cvs").stage === "beta" ? <BetaBadge /> : undefined;
+  const isPhone = useIsPhone();
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -371,6 +378,8 @@ function NewWithCv() {
     data: cvData,
     isLoading: cvLoading,
     error: cvError,
+    refetch: refetchCv,
+    isFetching: cvFetching,
   } = useTailoredCv(draftId);
   // QA round 2, D2: TanStack Query keeps the last-known `data` around across a
   // refetch that answers 404 (e.g. right after a delete), so reading `cvData`
@@ -750,6 +759,85 @@ function NewWithCv() {
         }`
       : null;
 
+  const fitPanel =
+    jobTools && cv && !fitIsNoCopy ? (
+      <CvFitPanel
+        fit={fitQuery.data}
+        isLoading={fitQuery.isLoading}
+        isError={fitQuery.isError}
+        onRetry={() => void fitQuery.refetch()}
+        isRetrying={fitQuery.isFetching}
+        dirty={cvAutosave.status === "saving" || cvAutosave.status === "error"}
+      />
+    ) : undefined;
+
+  if (isPhone) {
+    const phoneAutosave =
+      step === "application" ? applicationAutosave : cvAutosave;
+    return (
+      <DraftScreen
+        state={
+          idParam && draftQuery.isLoading
+            ? { status: "loading" }
+            : idParam && draftNotFound
+              ? { status: "not-found" }
+              : idParam && draftQuery.isError
+                ? {
+                    status: "error",
+                    message: safeErrorMessage(draftQuery.error),
+                    onRetry: () => void draftQuery.refetch(),
+                    retrying: draftQuery.isFetching,
+                  }
+                : { status: "ready" }
+        }
+        step={draftId ? step : "application"}
+        onStepChange={goToStep}
+        canOpenCv={Boolean(draftId)}
+        autosave={{
+          status: phoneAutosave.status,
+          missingRequired:
+            step === "application" &&
+            Boolean(draftId) &&
+            applicationAutosave.missingRequired,
+          onRetry: phoneAutosave.retry,
+        }}
+        form={
+          applicationForm as unknown as UseFormReturn<ApplicationFieldsValues>
+        }
+        fetchCompanies={fetchCompanies}
+        companySelectValue={companySelectValue}
+        onCompanyChange={handleCompanyChange}
+        platforms={platforms}
+        platformsLoading={platformsLoading}
+        onCreatePlatform={createPlatformOutcome}
+        hasUnsavedRisk={hasUnsavedRisk}
+        copy={
+          cvError && !isNoTailoredCv(cvError)
+            ? {
+                status: "error",
+                message: safeErrorMessage(cvError),
+                onRetry: () => void refetchCv(),
+                retrying: cvFetching,
+              }
+            : cvLoading
+              ? { status: "loading" }
+              : { status: "ready", data: cv ?? null }
+        }
+        canTailorByKeywords={jobTools}
+        onCreateCopy={(baseCvId, tailoring) =>
+          createTailoredCv.mutate({ baseCvId, tailoring })
+        }
+        creatingCopy={createTailoredCv.isPending}
+        cvForm={cvForm}
+        fit={fitPanel}
+        missing={missing}
+        onFinish={() => void handleFinish()}
+        finishing={finishDraft.isPending}
+        finishError={finishError}
+      />
+    );
+  }
+
   if (idParam && draftQuery.isLoading) {
     return (
       <div className="space-y-6">
@@ -854,21 +942,7 @@ function NewWithCv() {
           onAddJobDescription={() => goToStep("application")}
           jobDescription={watchedApplication.job_description}
           canTailorByKeywords={jobTools}
-          fit={
-            jobTools && cv && !fitIsNoCopy ? (
-              <CvFitPanel
-                fit={fitQuery.data}
-                isLoading={fitQuery.isLoading}
-                isError={fitQuery.isError}
-                onRetry={() => void fitQuery.refetch()}
-                isRetrying={fitQuery.isFetching}
-                dirty={
-                  cvAutosave.status === "saving" ||
-                  cvAutosave.status === "error"
-                }
-              />
-            ) : undefined
-          }
+          fit={fitPanel}
         />
       ) : null}
       {step === "cv" && draftId && !hasCv ? (

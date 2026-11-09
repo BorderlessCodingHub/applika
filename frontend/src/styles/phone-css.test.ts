@@ -942,3 +942,299 @@ describe("phone.css: Profile, Devices, Cycles, Reports, ReportDay, Admin", () =>
     expect(ruleBody(".ph-ad-hook-url")).toMatch(/font-size:\s*12px/);
   });
 });
+
+const JOBS_CVS_DRAFT_BOARDS = [
+  // the boards' own classes (Jobs, JobDetail, Draft, CVEditor)
+  "ph-fit",
+  "ph-strong",
+  "ph-partial",
+  "ph-low",
+  "ph-kw",
+  "ph-m",
+  "ph-x",
+  "ph-step",
+  "ph-n",
+  "ph-sec-row",
+  "ph-acc",
+  "ph-chev",
+  // v2/Jobs
+  "ph-jb",
+  "ph-jb-head",
+  "ph-jb-search",
+  "ph-jb-search-box",
+  "ph-jb-search-ic",
+  "ph-jb-search-input",
+  "ph-jb-chips",
+  "ph-jb-chip-text",
+  "ph-jb-body",
+  "ph-jb-results",
+  "ph-jb-list",
+  "ph-jb-card",
+  "ph-jb-link",
+  "ph-jb-top",
+  "ph-jb-who",
+  "ph-jb-title",
+  "ph-jb-sub",
+  "ph-jb-tags",
+  "ph-jb-tag-li",
+  "ph-jb-tag",
+  "ph-jb-more-tags",
+  "ph-jb-foot",
+  "ph-jb-posted",
+  "ph-jb-dismissed",
+  "ph-jb-dismiss",
+  "ph-jb-status",
+  "ph-jb-note",
+  "ph-jb-more",
+  "ph-jb-state",
+  "ph-jb-empty",
+  "ph-jb-state-h",
+  "ph-jb-options",
+  "ph-jb-check",
+  "ph-jb-chipset",
+  "ph-jb-tag-picked",
+  "ph-jb-tag-text",
+  "ph-jb-tag-x",
+  "ph-jb-toggle",
+  "ph-jb-saved",
+  // v2/JobDetail
+  "ph-jd",
+  "ph-jd-nobar",
+  "ph-jd-meta",
+  "ph-jd-h1",
+  "ph-jd-tags",
+  "ph-jd-marks",
+  "ph-jd-note",
+  "ph-jd-hint",
+  "ph-jd-gap",
+  "ph-jd-tabs",
+  "ph-jd-card",
+  "ph-jd-ring",
+  "ph-jd-score",
+  "ph-jd-pct",
+  "ph-jd-band",
+  "ph-jd-kw-lbl",
+  "ph-jd-kws",
+  "ph-jd-desc",
+  "ph-jd-source",
+  "ph-jd-dismiss",
+  "ph-jd-start",
+  "ph-jd-empty",
+  "ph-jd-empty-ic",
+  "ph-jd-empty-h",
+  // v2/StartApplication
+  "ph-sa-head",
+  "ph-sa-title",
+  "ph-sa-close",
+  "ph-sheet-body",
+  "ph-sa-fieldset",
+  "ph-sa-legend",
+  "ph-sa-hint",
+  "ph-sa-none",
+  "ph-sa-error-card",
+  "ph-sa-alert",
+  "ph-sheet-foot",
+  "ph-sa-conflict",
+  "ph-sa-conflict-h",
+  // v2/Draft
+  "ph-dr",
+  "ph-dr-nobar",
+  "ph-dr-h1",
+  "ph-dr-status",
+  "ph-dr-ok",
+  "ph-dr-bad",
+  "ph-dr-warn",
+  "ph-dr-steps",
+  "ph-step-text",
+  "ph-step-t",
+  "ph-step-s",
+  "ph-dr-fields",
+  "ph-dr-pair",
+  "ph-dr-tri",
+  "ph-dr-amount",
+  "ph-dr-sym",
+  "ph-dr-amount-input",
+  "ph-dr-error",
+  "ph-dr-cv",
+  "ph-dr-tailor",
+  "ph-dr-tailor-text",
+  "ph-dr-tailor-t",
+  "ph-dr-tailor-s",
+  "ph-dr-copied",
+  "ph-dr-copied-text",
+  "ph-dr-sec-name",
+  "ph-dr-sec-meta",
+  "ph-dr-edit-head",
+  "ph-dr-message",
+  "ph-dr-message-ic",
+  "ph-dr-message-h",
+  "ph-dr-alert",
+  "ph-dr-bar",
+  "ph-dr-lead-btn",
+  "ph-dr-go-btn",
+  "ph-dr-note",
+  "ph-dr-note-bad",
+  // v2/CVs
+  "ph-cv",
+  "ph-cv-body",
+  "ph-cv-list",
+  "ph-cv-card",
+  "ph-cv-head",
+  "ph-cv-thumb",
+  "ph-cv-who",
+  "ph-cv-name",
+  "ph-cv-headline",
+  "ph-cv-updated",
+  "ph-cv-tags",
+  "ph-cv-tag",
+  "ph-cv-counts",
+  "ph-cv-actions",
+  "ph-cv-new",
+  "ph-cv-new-ic",
+  "ph-cv-new-t",
+  "ph-cv-new-s",
+  "ph-cv-limit",
+  "ph-cv-empty",
+  // v2/CVEditor
+  "ph-ce",
+  "ph-ce-nobar",
+  "ph-ce-h1",
+  "ph-ce-message",
+  "ph-ce-message-h",
+  "ph-ce-list",
+  "ph-acc-h",
+  "ph-acc-text",
+  "ph-acc-t",
+  "ph-acc-m",
+  "ph-acc-bad",
+  "ph-ce-status",
+  "ph-ce-panel",
+] as const;
+
+describe("phone.css: Jobs, JobDetail, StartApplication, Draft, CVs, CVEditor", () => {
+  it.each(JOBS_CVS_DRAFT_BOARDS)("declares .%s", (name) => {
+    expect(DECLARED.has(name), `.${name} is not declared`).toBe(true);
+  });
+
+  it("draws v2/Jobs' fit pill, search, card and footer at the board's sizes", () => {
+    const fit = ruleBody(".ph-fit");
+    expect(fit).toMatch(/height:\s*26px/);
+    expect(fit).toMatch(/border-radius:\s*999px/);
+    expect(fit).toMatch(/font-size:\s*12px/);
+    expect(fit).toMatch(/font-weight:\s*600/);
+    expect(ruleBody(".ph-fit.ph-strong")).toMatch(
+      /background:\s*color-mix\(in oklab, var\(--success\) 16%, transparent\)/,
+    );
+    expect(ruleBody(".ph-fit.ph-partial")).toMatch(
+      /background:\s*color-mix\(in oklab, var\(--warning\) 16%, transparent\)/,
+    );
+    expect(ruleBody(".ph-fit.ph-low")).toMatch(/background:\s*var\(--muted\)/);
+    expect(ruleBody(".ph-input.ph-jb-search-input")).toMatch(
+      /padding-left:\s*44px/,
+    );
+    const icon = ruleBody(".ph-jb-search-ic");
+    expect(icon).toMatch(/left:\s*16px/);
+    expect(icon).toMatch(/top:\s*17px/);
+    expect(ruleBody(".ph-app .ph-jb-link")).toMatch(
+      /padding:\s*16px 16px 12px/,
+    );
+    const title = ruleBody(".ph-jb-title");
+    expect(title).toMatch(/font-size:\s*16px/);
+    expect(title).toMatch(/font-weight:\s*600/);
+    expect(title).toMatch(/line-height:\s*1\.3/);
+    expect(ruleBody(".ph-jb-posted")).toMatch(/font-size:\s*13px/);
+    // Dismiss keeps its text look inside a 44px box.
+    expect(ruleBody(".ph-jb-dismiss")).toMatch(/min-height:\s*44px/);
+    // The chips' 44px boxes overhang the row: 4px, not the board's 2px.
+    expect(ruleBody(".ph-hs.ph-jb-chips")).toMatch(/padding:\s*4px 20px/);
+  });
+
+  it("draws v2/JobDetail's keywords, h1, score and description at the board's sizes", () => {
+    const keyword = ruleBody(".ph-kw");
+    expect(keyword).toMatch(/height:\s*26px/);
+    expect(keyword).toMatch(/border-radius:\s*8px/);
+    expect(keyword).toMatch(/font-size:\s*13px/);
+    expect(keyword).toMatch(/font-weight:\s*500/);
+    expect(ruleBody(".ph-kw.ph-m")).toMatch(
+      /background:\s*color-mix\(in oklab, var\(--success\) 16%, transparent\)/,
+    );
+    expect(ruleBody(".ph-kw.ph-x")).toMatch(
+      /border:\s*1px dashed var\(--border-strong\)/,
+    );
+    expect(ruleBody(".ph-h1.ph-jd-h1")).toMatch(/font-size:\s*26px/);
+    const pct = ruleBody(".ph-jd-pct");
+    expect(pct).toMatch(/font-size:\s*26px/);
+    expect(pct).toMatch(/font-weight:\s*700/);
+    const description = ruleBody(".ph-jd-desc");
+    expect(description).toMatch(/font-size:\s*15px/);
+    expect(description).toMatch(/line-height:\s*1\.6/);
+    // One CV's panel shows at a time; the others stay in the DOM for their headings.
+    expect(ruleBody('.ph-jd-card[data-state="inactive"]')).toMatch(
+      /display:\s*none/,
+    );
+    expect(ruleBody(".ph-jd")).toMatch(/calc\(120px \+ env/);
+  });
+
+  it("draws v2/StartApplication's title and close at the board's sizes", () => {
+    const title = ruleBody(".ph-sa-title");
+    expect(title).toMatch(/font-size:\s*22px/);
+    expect(title).toMatch(/font-weight:\s*700/);
+    const close = ruleBody(".ph-sa-close");
+    expect(close).toMatch(/width:\s*44px/);
+    expect(close).toMatch(/height:\s*44px/);
+  });
+
+  it("draws v2/Draft's steps nav, step, number and section rows at the board's sizes", () => {
+    const steps = ruleBody(".ph-dr-steps");
+    expect(steps).toMatch(/padding:\s*4px/);
+    expect(steps).toMatch(/border-radius:\s*18px/);
+    expect(steps).toMatch(/background:\s*var\(--muted\)/);
+    const step = ruleBody(".ph-step");
+    expect(step).toMatch(/padding:\s*10px 12px/);
+    expect(step).toMatch(/border-radius:\s*14px/);
+    const number = ruleBody(".ph-step .ph-n");
+    expect(number).toMatch(/width:\s*26px/);
+    expect(number).toMatch(/height:\s*26px/);
+    expect(number).toMatch(/border:\s*2px solid var\(--border-strong\)/);
+    expect(ruleBody(".ph-step.ph-on")).toMatch(
+      /background:\s*var\(--surface\)/,
+    );
+    expect(ruleBody(".ph-step.ph-on .ph-n")).toMatch(
+      /background:\s*var\(--primary\)/,
+    );
+    expect(ruleBody(".ph-sec-row")).toMatch(/min-height:\s*52px/);
+    expect(css).toMatch(
+      /\.ph-h1\.ph-dr-h1,\s*\.ph-h1\.ph-ce-h1\s*\{\s*font-size:\s*26px/,
+    );
+    // The bar holds a note while one shows: the content clears it.
+    expect(ruleBody(".ph-dr")).toMatch(/calc\(120px \+ env/);
+    expect(ruleBody(".ph-dr[data-noted]")).toMatch(/calc\(160px \+ env/);
+  });
+
+  it("draws v2/CVs' thumb, counts and new-CV tile at the board's sizes", () => {
+    const thumb = ruleBody(".ph-cv-thumb");
+    expect(thumb).toMatch(/width:\s*44px/);
+    expect(thumb).toMatch(/height:\s*52px/);
+    expect(thumb).toMatch(/border-radius:\s*8px/);
+    expect(ruleBody(".ph-cv-counts")).toMatch(/font-size:\s*12px/);
+    const tile = ruleBody(".ph-app .ph-cv-new");
+    expect(tile).toMatch(/min-height:\s*120px/);
+    expect(tile).toMatch(/border-radius:\s*20px/);
+    expect(tile).toMatch(/border:\s*2px dashed var\(--border-strong\)/);
+  });
+
+  it("draws v2/CVEditor's rows and turns the chevron in .15s, off under reduced motion", () => {
+    const row = ruleBody(".ph-acc");
+    expect(row).toMatch(/min-height:\s*60px/);
+    expect(row).toMatch(/padding:\s*0 16px/);
+    expect(ruleBody(".ph-acc .ph-chev")).toMatch(
+      /transition:\s*transform 0\.15s/,
+    );
+    expect(ruleBody('.ph-acc[aria-expanded="true"] .ph-chev')).toMatch(
+      /transform:\s*rotate\(180deg\)/,
+    );
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.ph-acc \.ph-chev\s*\{\s*transition:\s*none;/,
+    );
+  });
+});

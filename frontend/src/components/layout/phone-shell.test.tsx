@@ -382,7 +382,7 @@ describe("PhoneShell below md", () => {
 
   it("pads a screen without a board with today's padding", () => {
     mockPhoneViewport();
-    renderShell("/jobs");
+    renderShell("/cvs/new");
     const slot = document.querySelector('[data-slot="app-content"]')!;
 
     expect(slot.className).toContain("px-4");
@@ -409,7 +409,7 @@ describe("PhoneShell below md", () => {
 
   it("adds no scroll padding where no chrome is fixed", () => {
     mockPhoneViewport();
-    renderShell("/jobs");
+    renderShell("/cvs/new");
 
     expect(screen.getByRole("main").className).not.toContain("scroll-pb-");
   });
@@ -435,7 +435,7 @@ describe("PhoneShell below md", () => {
       unmount();
     }
 
-    renderShell("/jobs");
+    renderShell("/cvs/new");
     expect(
       document.querySelector('[data-slot="app-content"]')!.className,
     ).toContain("pb-10");
@@ -537,7 +537,7 @@ describe("PhoneTopBarEnd", () => {
 });
 
 describe("phone-nav", () => {
-  it("treats every report day and every admin section as ported", () => {
+  it("treats every report day, every admin section and the job, CV and draft boards as ported", () => {
     for (const path of [
       "/profile",
       "/cycles",
@@ -548,10 +548,21 @@ describe("phone-nav", () => {
       "/admin/jobs",
       "/admin/users",
       "/admin/features/view",
+      "/jobs",
+      "/jobs/view",
+      "/cvs",
+      "/cvs/editor",
+      "/applications/new-with-cv",
     ]) {
       expect(isPhoneScreen(path), path).toBe(true);
     }
-    for (const path of ["/jobs", "/cvs", "/reportsx", "/administrator"]) {
+    for (const path of [
+      "/cvs/new",
+      "/applications/cv",
+      "/jobsx",
+      "/reportsx",
+      "/administrator",
+    ]) {
       expect(isPhoneScreen(path), path).toBe(false);
     }
   });

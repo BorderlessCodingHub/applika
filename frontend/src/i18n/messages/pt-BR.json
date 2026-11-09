@@ -2548,6 +2548,64 @@
       "loading": "Carregando o painel",
       "webhooksHint": "Cada webhook tem um ou mais selos. O relatório quinzenal de um membro é enviado a todo webhook que tem o selo dele.",
       "edit": "Editar"
+    },
+    "jobs": {
+      "toolbar": "Ordenação e filtros",
+      "showMore": "Mostrar mais",
+      "dismissedNote": "{count, plural, one {# dispensada} other {# dispensadas}} · Veja as dispensadas em Mais filtros",
+      "done": "Pronto"
+    },
+    "jobDetail": {
+      "loadingFit": "Carregando sua aderência",
+      "cvTab": "{name} · {score}%",
+      "cvTabNoFit": "{name} · Sem aderência",
+      "band": {
+        "strong": "Aderência forte",
+        "partial": "Aderência parcial",
+        "low": "Aderência baixa"
+      }
+    },
+    "startApplication": {
+      "cvHint": "Aderência {score}% · atualizado em {date}",
+      "keywordsHint": "Coloca primeiro as habilidades e os tópicos que correspondem às palavras-chave desta vaga. Nenhum texto é adicionado ou removido."
+    },
+    "draft": {
+      "lead": "Preencha a candidatura e depois adapte uma cópia de um dos seus CVs principais. Ela é salva como rascunho enquanto você digita.",
+      "experience": "Experiência",
+      "moreDetailsHint": "Data, origem, link, salário",
+      "tailorHint": "Reordena habilidades e tópicos pela aderência à descrição da vaga.",
+      "loadingCopy": "Carregando a cópia do CV",
+      "loadingMasterCvs": "Carregando seus CVs principais",
+      "sectionsLabel": "Seções da cópia do CV",
+      "reordered": "Reordenada",
+      "editCopy": "Editar a cópia do CV",
+      "editTitle": "Editar a cópia do CV",
+      "editHint": "As alterações são salvas neste rascunho enquanto você digita.",
+      "done": "Pronto",
+      "meta": {
+        "summary": "{count, plural, one {# caractere} other {# caracteres}}",
+        "skills": "{count, plural, one {# grupo} other {# grupos}}",
+        "education": "{count, plural, one {# item} other {# itens}}",
+        "certifications": "{count, plural, one {# certificação} other {# certificações}}"
+      }
+    },
+    "cvs": {
+      "deleting": "Excluindo..."
+    },
+    "cvEditor": {
+      "pdf": "PDF",
+      "invalid": "Precisa de ajuste",
+      "meta": {
+        "empty": "Nenhum ainda",
+        "links": "{count, plural, =0 {Nenhum ainda} one {# link} other {# links}}",
+        "summary": "{count, plural, =0 {Nenhum ainda} one {# caractere} other {# caracteres}}",
+        "skills": "{groups, plural, =0 {Nenhum ainda} one {# grupo · {keywords, plural, one {# palavra-chave} other {# palavras-chave}}} other {# grupos · {keywords, plural, one {# palavra-chave} other {# palavras-chave}}}}",
+        "experience": "{count, plural, =0 {Nenhum ainda} one {# cargo} other {# cargos}}",
+        "projects": "{count, plural, =0 {Nenhum ainda} one {# projeto} other {# projetos}}",
+        "education": "{count, plural, =0 {Nenhuma ainda} one {# formação} other {# formações}}",
+        "certifications": "{count, plural, =0 {Nenhuma ainda} one {# certificação} other {# certificações}}",
+        "languages": "{count, plural, =0 {Nenhum ainda} one {# idioma} other {# idiomas}}"
+      }
     }
   }
 }

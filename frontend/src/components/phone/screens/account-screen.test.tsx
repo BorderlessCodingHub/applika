@@ -425,7 +425,8 @@ describe("AccountScreen", () => {
     expect(
       screen.getByRole("region", { name: "Espaço de trabalho" }),
     ).toBeInTheDocument();
-    expect(document.documentElement.lang).toBe("pt-BR");
+    // LocaleProvider sets <html lang> in a passive effect: wait for it.
+    await waitFor(() => expect(document.documentElement.lang).toBe("pt-BR"));
   });
 
   it("opens the feedback dialog from Send feedback", async () => {

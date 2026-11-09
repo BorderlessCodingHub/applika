@@ -2548,6 +2548,64 @@
       "loading": "Loading the dashboard",
       "webhooksHint": "Each webhook holds one or more badges. A member's biweekly report is posted to every webhook that holds their badge.",
       "edit": "Edit"
+    },
+    "jobs": {
+      "toolbar": "Sort and filters",
+      "showMore": "Show more",
+      "dismissedNote": "{count} dismissed · Show dismissed in More filters",
+      "done": "Done"
+    },
+    "jobDetail": {
+      "loadingFit": "Loading your fit",
+      "cvTab": "{name} · {score}%",
+      "cvTabNoFit": "{name} · No fit yet",
+      "band": {
+        "strong": "Strong fit",
+        "partial": "Partial fit",
+        "low": "Low fit"
+      }
+    },
+    "startApplication": {
+      "cvHint": "Fit {score}% · updated {date}",
+      "keywordsHint": "Puts the skills and bullets that match this job's keywords first. No text is added or removed."
+    },
+    "draft": {
+      "lead": "Fill in the application, then tailor a copy of one of your master CVs. It saves as a draft while you type.",
+      "experience": "Experience",
+      "moreDetailsHint": "Date, source, link, salary",
+      "tailorHint": "Reorders skills and bullets by how well they match the job description.",
+      "loadingCopy": "Loading the CV copy",
+      "loadingMasterCvs": "Loading your master CVs",
+      "sectionsLabel": "CV copy sections",
+      "reordered": "Reordered",
+      "editCopy": "Edit the CV copy",
+      "editTitle": "Edit the CV copy",
+      "editHint": "Changes save to this draft as you type.",
+      "done": "Done",
+      "meta": {
+        "summary": "{count, plural, one {# character} other {# characters}}",
+        "skills": "{count, plural, one {# group} other {# groups}}",
+        "education": "{count, plural, one {# entry} other {# entries}}",
+        "certifications": "{count, plural, one {# certification} other {# certifications}}"
+      }
+    },
+    "cvs": {
+      "deleting": "Deleting..."
+    },
+    "cvEditor": {
+      "pdf": "PDF",
+      "invalid": "Needs a fix",
+      "meta": {
+        "empty": "None yet",
+        "links": "{count, plural, =0 {None yet} one {# link} other {# links}}",
+        "summary": "{count, plural, =0 {None yet} one {# character} other {# characters}}",
+        "skills": "{groups, plural, =0 {None yet} one {# group · {keywords, plural, one {# keyword} other {# keywords}}} other {# groups · {keywords, plural, one {# keyword} other {# keywords}}}}",
+        "experience": "{count, plural, =0 {None yet} one {# role} other {# roles}}",
+        "projects": "{count, plural, =0 {None yet} one {# project} other {# projects}}",
+        "education": "{count, plural, =0 {None yet} one {# qualification} other {# qualifications}}",
+        "certifications": "{count, plural, =0 {None yet} one {# certification} other {# certifications}}",
+        "languages": "{count, plural, =0 {None yet} one {# language} other {# languages}}"
+      }
     }
   }
 }
