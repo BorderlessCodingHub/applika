@@ -48,7 +48,7 @@ class DailyApplicationsLastMonth(TypedDict):
 
 
 def _cycle_filter(cycle_id: int | None) -> ColumnElement[bool]:
-    """Scope + draft exclusion (R-012 in this ticket): a draft
+    """Scope + draft exclusion (PRD 0010): a draft
     never counts toward statistics, whatever the cycle scope."""
     if cycle_id is not None:
         return sa.and_(ApplicationModel.cycle_id == cycle_id, NOT_DRAFT)

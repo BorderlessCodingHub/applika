@@ -3,7 +3,7 @@
 ``.claude/rules/migration-tests.md``: the **real Alembic chain** against a
 dedicated testcontainers Postgres - upgrade to the revision, downgrade to its
 parent, upgrade again - with rows seeded before the upgrade and the data
-asserted after every step. **the denied-reason change re-parented R2 onto R3**
+asserted after every step. **The denied-reason change re-parented R2 onto R3**
 (``c8b3e9f4a1d6``, denied_reason, folded into Release A), and **the schedule change
 re-parented it again onto R4** (``af50c83911a7``, schedule-interview-only,
 also folded into Release A): the chain is now R1 (``afd4074c70c2``) -> R3

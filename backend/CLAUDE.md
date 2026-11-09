@@ -938,7 +938,7 @@ validation errors carry it too. `Deprecation` is in the CORS
 (default `True`, migration `3b78c3cd2a71`'s `server_default true` - every row
 that existed before private catalog rows stays public) and `PlatformModel.created_by`
 (nullable FK `users.id`, **`ON DELETE SET NULL`**) are the two columns this
-ticket maps onto the ORM; Release A only added them to the schema.
+change maps onto the ORM; Release A only added them to the schema.
 A row a user adds through `POST /companies`, `POST /platforms` or inline on
 `POST /applications` is **private**: visible and selectable only by its
 creator, until an admin publishes it. **There is no admin branch** - an admin

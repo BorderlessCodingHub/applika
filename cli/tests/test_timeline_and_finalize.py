@@ -1,4 +1,4 @@
-"""Applika-cli 0.2.0 - timeline commands, finalize --outcome and
+"""``applika-cli`` 0.2.0 - timeline commands, finalize --outcome and
 reopen. New tests only; the 0.1.4 tests in test_commands.py are untouched."""
 
 import json
