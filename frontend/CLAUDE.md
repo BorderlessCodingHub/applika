@@ -302,6 +302,19 @@ the landing layout: install, sign-in modes, examples, `applika skill`. The
 rail's footer links to it above the account card (`sidebar.tsx`); its PyPI
 links read `APP_CONFIG.cli.url` (`APPLIKA_CLI` build arg).
 
+Phone-only routes (ADR-0027, PRD 0021):
+
+| Route       | Shell                           | Component                                                      |
+| ----------- | ------------------------------- | -------------------------------------------------------------- |
+| `/insights` | `(protected)/insights/page.tsx` | `insights-page.tsx` — the fourth tab; md and up → `/dashboard` |
+| `/account`  | `(protected)/account/page.tsx`  | `account-page.tsx` — the Account hub; md and up → `/profile`   |
+
+They are the only addresses the phone layout adds; every other screen keeps
+its address at both widths. At md and up each page `router.replace`s
+(`useLeaveAtDesktop` in `hooks/use-is-phone.ts`: read from `matchMedia` in an
+effect, never from the server snapshot, and again when the width crosses md
+while the page is open) and renders nothing meanwhile.
+
 `/cli/code` sits OUTSIDE the groups like `/login` (no shell, no session): the
 API 307s there when the CLI cannot reach its local callback. `/device` reads
 `?code=` once into a lazy `useState` (normalized `XXXX-XXXX`) and never
@@ -2270,11 +2283,17 @@ shell needs the same `relative`.
 
 **Stacking contract.** Layers, lowest first. Keep new chrome inside it:
 
-| z      | layer                               | members                                                               |
-| ------ | ----------------------------------- | --------------------------------------------------------------------- |
-| `z-30` | in-column sticky chrome             | the shell `Header`, `CvEditorFooter`                                  |
-| `z-40` | fixed/sticky page chrome, no portal | `LandingHeader`, `CookieConsent`                                      |
-| `z-50` | the Radix portal layer              | Sheet overlay/content, Dialog, DropdownMenu, Popover, Tooltip, Sonner |
+| z      | layer                               | members                                                                                         |
+| ------ | ----------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `z-30` | in-column sticky chrome             | the shell `Header`, `CvEditorFooter`                                                            |
+| `z-40` | fixed/sticky page chrome, no portal | `LandingHeader`, `CookieConsent`; below md the phone tab bar, the FAB and `.ph-bar` (phone.css) |
+| `z-50` | the Radix portal layer              | Sheet overlay/content, Dialog, DropdownMenu, Popover, Tooltip, Sonner, `PhoneSheet` (scrim too) |
+
+Below md the phone chrome sits in the `z-40` layer with `CookieConsent`, which
+is rendered after it and so covers the tab bar until "Got it" (the owner's
+choice: the notice floats on purpose). Phone sheets are Radix Dialogs in the
+portal layer, above every bar. `PhoneShell`'s root is `relative` with no
+`z-*`, `isolate` or `transform`, exactly as `AppShell`'s.
 
 `CookieConsent` MUST stay at `z-40`. It is rendered after `children` in
 `root-providers.tsx`, so at `z-50` it ties with the sheet and wins on document
@@ -2356,10 +2375,12 @@ provable anywhere else.
 ### App shell
 
 Every signed-in page renders inside `AppShell`
-(`src/components/layout/app-shell.tsx`), which owns the mobile-menu and feedback
-state and hoists a SINGLE `FeedbackDialog`. It renders `CliPromoBanner` and the
-content container itself, so no page component renders one — including the
-pages that do NOT want it.
+(`src/components/layout/app-shell.tsx`). At md and up it is the rail shell
+below, which owns the mobile-menu and feedback state and hoists a SINGLE
+`FeedbackDialog`. Below md it returns `PhoneShell` instead (ADR-0027; see
+**Phone shell** below). Either way it renders `CliPromoBanner` and the content
+container itself, so no page component renders one — including the pages that
+do NOT want it.
 
 - **The width opt-out lives in `src/components/layout/content-width.ts`**, not
   as a prop, and comes in TWO forms. The container carries
@@ -2407,28 +2428,122 @@ isFullWidthPath(activePath) || fullWidth.requested`.
   Assert on that, never on a class.
 - **`md` (48rem) is the only breakpoint.** At or above it: a fixed `w-60` rail
   and a one-row `h-14` header, with the account menu in the rail footer
-  (`variant="card"`). Below it: the rail is hidden, the nav opens in a
-  `Sheet side="left" size="nav"` named "Navigation", and the header wraps:
-  brand row, controls row (agenda, language, theme, account), cycle row; the
-  first two share a row from ~452px. The account menu sits in the controls
-  row (`variant="avatar"`).
+  (`variant="card"`). Below it the phone shell renders instead (next section);
+  the rail shell's narrow layout — the nav in a `Sheet side="left" size="nav"`
+  named "Navigation" and the wrapping header — is still in `AppShell` and its
+  CSS, but no signed-in page reaches it any more, because `AppShell` branches
+  on the width first.
 - `AppShell` has a `matchMedia("(min-width: 48rem)")` effect that force-closes
-  the sheet on a resize past `md`. Do not remove it: without it Radix keeps focus
-  trapped and body scroll locked behind an `md:hidden` panel.
-- Below `md` the account menu is mounted TWICE (header and sheet). Scope test
-  locators by container or Playwright's strict mode will fail.
-- Accessible names the tests depend on: `Open navigation menu`,
-  `Close navigation menu`, `Applika.dev home`, the `Primary` navigation
-  landmark, and `Open account menu` — which the `card` variant extends to
-  `Open account menu for <username>`, because the username is its VISIBLE label
-  and WCAG 2.5.3 requires the accessible name to contain it. Playwright's
-  `getByRole(..., { name })` is a substring match, so both variants match
-  `"Open account menu"`; Testing Library's is exact, so a vitest locator needs
-  the full string or a regex.
+  that sheet on a resize past `md`. Keep it with the sheet.
+- Accessible names the md-and-up tests depend on: `Applika.dev home`, the
+  `Primary` navigation landmark, and `Open account menu` — which the `card`
+  variant extends to `Open account menu for <username>`, because the username
+  is its VISIBLE label and WCAG 2.5.3 requires the accessible name to contain
+  it. Playwright's `getByRole(..., { name })` is a substring match, so both
+  variants match `"Open account menu"`; Testing Library's is exact, so a
+  vitest locator needs the full string or a regex.
 - The group divider (`System`) is NOT `aria-hidden`: with the old amber
   treatment gone it is the only thing marking the Admin entry as privileged.
   Grouped entries point at it with `aria-describedby`, which describes without
   renaming — `admin-gating.spec.ts` asserts the name is exactly `Admin`.
+
+### Phone shell (below md, ADR-0027, PRD 0021)
+
+The owner: "all futures components and pages needs also to be designed for
+mobile as well". **A new page or component ships its phone layout below md,
+from its own design** (PRD 0021 Q4: "new screens gets its own artifact"), the
+same way the V2 boards drive today's phone screens; desktop stays as it is.
+
+- **The switch.** `hooks/use-is-phone.ts` `useIsPhone()` is
+  `useSyncExternalStore` over `matchMedia(PHONE_QUERY)`
+  (`"(max-width: 47.99rem)"`, so 768px is desktop), server snapshot `false`.
+  The width alone decides: never the user agent, never the account. Protected
+  pages render after auth, so nothing flashes. `AppShell` calls it after its
+  own hooks and returns `<PhoneShell/>` below md: the desktop branch is
+  untouched. Crossing md remounts the page (a half-filled quick add is lost;
+  a draft keeps its autosave). `hooks/use-mobile.ts` (shadcn) is unused and
+  is not the switch.
+- **`components/layout/phone-shell.tsx`** `PhoneShell`: a `relative
+h-viewport` column (no rail, no navigation sheet, no `Header`), the back bar
+  ABOVE exactly ONE `<main>` that scrolls, holding
+  `data-slot="app-content"` with `CliPromoBanner` first, then the page; the
+  tab bar after `<main>`; the FAB; ONE hoisted `FeedbackDialog`.
+  `usePhoneShell()` gives a screen inside it `{navItems, openFeedback}` (the
+  Account hub's rows and its Send feedback).
+- **`components/layout/phone-nav.ts`** is the map, one place: `TAB_ROOTS`
+  (`/dashboard` Today, `/applications` Pipeline, `/agenda` Agenda,
+  `/insights` Insights), `FAB_PATHS` (`/dashboard`, `/applications`),
+  `phoneBackFor(pathname)` (the back bar: tab roots and `/welcome` none;
+  `/account` "Back" → `/dashboard`; `/jobs` `/cvs` `/cycles` `/reports`
+  `/profile` `/device` `/admin` and `/admin/*` "Account" → `/account`;
+  `/jobs/view` "Jobs", `/cvs/editor` "CVs", `/reports/<day>` "Reports",
+  `/applications/new-with-cv` "Applications"; `PHONE_PARENTS` for the screens
+  with no board: `/cvs/new` "CVs", `/applications/cv` "Pipeline",
+  `/admin/features/view` "Features", `/admin/supports` and
+  `/admin/discord-webhooks` "Admin"; any other address "Back" → `/dashboard`),
+  `PHONE_SCREEN_PATHS` (screens rendered from their board, which own the
+  board's padding: `/account`, `/insights` so far — add a route when its board
+  lands) and `accountRows(navItems)`. Words are getters over `word()`, so the
+  shell also calls `useTranslations`.
+- **Padding.** A route not yet ported keeps today's content inside the phone
+  layout with `px-4 pt-6` and a bottom reservation for the fixed chrome:
+  `calc(170px + env(safe-area-inset-bottom, 0px))` with tab bar and FAB,
+  `110px + …` with the tab bar alone, `40px` otherwise. A ported screen
+  (`PHONE_SCREEN_PATHS`) gets no padding from the shell and reserves its own
+  (`120px + …` above a `.ph-bar`). Not yet ported tab roots get an interim row
+  holding only the avatar (today's page keeps its own h1). `<main>` also takes
+  the matching `scroll-pb-*` on every screen with fixed chrome, so a focused
+  control is scrolled clear of the tab bar and FAB (WCAG 2.4.11), and
+  `.ph-scroll` (no visible scrollbar, as the boards draw it). The FAB comes
+  before the tab bar in the DOM, as on the boards.
+- **Tab bar** (`PhoneTabBar`): `nav` named "Primary", four links, the current
+  one `aria-current="page"` (assert on that only), labels truncate. Below md
+  it is the only "Primary" landmark; at md and up the rail's nav has the same
+  name, so a test crossing md looks for `[data-slot="phone-tab-bar"]`.
+- **FAB** ("Add", `aria-haspopup="dialog"`) on `/dashboard` and
+  `/applications` only. It toggles `quickAddOpen` in the shell; the slot holds
+  today's create sheet (`ApplicationFormSheet`) until the quick-add board
+  lands. It lives in the shell, so crossing md unmounts it.
+- **Avatar** (`PhoneAvatar`): the initials (`lib/phone-format.ts`
+  `initials()`: first + last name's first letters, else the username's first
+  two, uppercased — the desktop avatar's rule) in a link named "Account" to
+  `/account`. `displayName()` is "first last", else the username.
+- **The Account hub** (`/account`, `components/phone/screens/account-screen.tsx`
+  `AccountScreen` over the designer's `AccountScreenView`): name, initials,
+  one pill per held badge, View profile; Workspace (Jobs, CVs, Reports,
+  Cycles) and Account (Profile, Devices & CLI, Sign in a device, Admin) rows
+  from `accountRows(navItems)` — the rail's own entries, so feature keys, the
+  Reports badge and `is_admin` decide exactly as on desktop and a feature
+  taken away drops its row on the next load; metas from today's hooks
+  (`useReports` only while the badge is held, `useSessions`, `useCycles` +
+  the viewed cycle), nothing while loading or failed; Language (`radiogroup`
+  "Language", `useLocaleSwitch`) and Theme (`radiogroup` "Theme", Light /
+  Dark, next-themes); Send feedback (the shell's dialog); "Sign in again"
+  while a badge waits for a sign-in (`logout("/login")`); Logout; the cookie
+  policy. This is where the language and theme controls live on a signed-in
+  phone page: below md there is no header.
+- **The pattern sheet** is `src/styles/phone.css` (imported by `globals.css`):
+  the V2 boards' shared classes ported whole with the `ph-` prefix, then the
+  app's adaptations. Every selector needs a `ph-` class, so nothing matches
+  at md and up (`styles/phone-css.test.ts`). Put `.ph-app` on the phone chrome
+  and on a ported screen's root, never around today's content. The only token
+  it added to `globals.css` is `--destructive-text`; `--ph-glow` is local.
+- **44px.** Every control on a phone screen has a box of at least 44×44
+  (`getBoundingClientRect`), its visible shape the board's size: `.ph-hit`, or
+  the `::before` shape of `.ph-btn.ph-sm`, `.ph-chip`, `.ph-seg > *`,
+  `.ph-switch`. `CliPromoBanner` and `CookieConsent` get `max-md:` 44px boxes.
+- **Primitives** in `components/phone/` (thin wrappers over `ph-*`, words by
+  props): top bar, tab bar, FAB, avatar, heading, sheet (Radix Dialog, closes
+  itself when `PHONE_QUERY` stops matching), segmented, option, switch, pill, chip,
+  group/row, field, action bar, stat grid; icons in `phone-icons.ts`.
+- **Tests.** `src/test/setup.ts` answers `matchMedia` `false`, so every test
+  renders desktop. `src/test/phone.ts` `mockPhoneViewport()` makes the phone
+  query match for one test and `setPhone(false)` turns the screen past md.
+  `e2e/shell-responsive.spec.ts` walks the phone shell at 390×844.
+- **Locator traps.** "Profile" is inside "View profile"; "Account" names the
+  avatar, a back link and the hub's region; "Add", "Back" and "Dark" are
+  inside longer names — use `exact: true` in Playwright. A row's name is its
+  label only; its meta is its description.
 
 ---
 
@@ -2443,7 +2558,13 @@ isFullWidthPath(activePath) || fullWidth.requested`.
 | `src/contexts/supports-context.tsx`               | Shared lookup data (platforms only — steps/feedbacks removed, R-021)                  |
 | `src/components/layout/root-providers.tsx`        | Root-level providers (QueryClient, Theme, Auth, Tooltip, Sonner)                      |
 | `src/components/layout/protected-providers.tsx`   | Protected-route providers (nested AuthProvider)                                       |
-| `src/components/layout/app-shell.tsx`             | Signed-in shell: rail, header, mobile sheet, feedback dialog                          |
+| `src/components/layout/app-shell.tsx`             | Signed-in shell: rail, header, feedback dialog; below md returns `PhoneShell`         |
+| `src/components/layout/phone-shell.tsx`           | Phone shell: back bar, one `<main>`, tab bar, FAB, feedback dialog, `usePhoneShell`   |
+| `src/components/layout/phone-nav.ts`              | Tab roots, FAB, back bars, `PHONE_SCREEN_PATHS`, `accountRows(navItems)`              |
+| `src/hooks/use-is-phone.ts`                       | `useIsPhone()` (below md), `useLeaveAtDesktop()` for the phone-only routes            |
+| `src/styles/phone.css`                            | The V2 pattern sheet, every class `ph-` prefixed                                      |
+| `src/components/phone/`                           | Phone primitives, `phone-icons.ts`, `screens/` (the ported boards)                    |
+| `src/lib/phone-format.ts`                         | `initials()` and `displayName()` with the username fallback                           |
 | `src/components/layout/nav.ts`                    | Nav entries, `navItemsFor()` feature + admin filter, `isNavItemActive()`              |
 | `src/components/layout/sidebar.tsx`               | Rail body: brand, nav, account menu (rail AND mobile sheet)                           |
 | `src/components/layout/sidebar-nav.tsx`           | Nav entry list; owns `aria-current="page"`                                            |

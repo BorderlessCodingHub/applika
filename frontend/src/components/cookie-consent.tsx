@@ -74,6 +74,9 @@ function CookieConsentCard({ onDismiss }: { onDismiss: () => void }) {
           aria-label={t("dismiss")}
           className={cn(
             "shrink-0 rounded-md p-1 text-muted-foreground transition-colors",
+            // Below md every control is at least 44px both ways (PRD 0021):
+            // a 44px box on the same 24px footprint.
+            "max-md:-m-2.5 max-md:p-3.5",
             "hover:bg-accent hover:text-accent-foreground",
             "focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-hidden",
           )}
@@ -82,7 +85,7 @@ function CookieConsentCard({ onDismiss }: { onDismiss: () => void }) {
         </button>
       </div>
       <div className="mt-3 flex justify-end">
-        <Button size="sm" onClick={onDismiss}>
+        <Button size="sm" onClick={onDismiss} className="max-md:h-11">
           {t("gotIt")}
         </Button>
       </div>

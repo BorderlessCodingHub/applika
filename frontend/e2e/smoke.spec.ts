@@ -193,6 +193,31 @@ const PAGES: PageCase[] = [
     },
   },
   {
+    // The phone's fourth tab (ADR-0027). This suite is desktop, where the
+    // address goes to the dashboard (PRD 0021); the phone screen is walked in
+    // `shell-responsive.spec.ts`.
+    path: "/insights",
+    visitors: ["user"],
+    assert: async (page) => {
+      await page.waitForURL("**/dashboard");
+      await expect(
+        page.getByRole("heading", { name: "Dashboard", level: 1 }),
+      ).toBeVisible();
+    },
+  },
+  {
+    // The phone's Account hub (ADR-0027). At desktop the address goes to the
+    // profile (PRD 0021); the hub is walked in `shell-responsive.spec.ts`.
+    path: "/account",
+    visitors: ["user"],
+    assert: async (page) => {
+      await page.waitForURL("**/profile");
+      await expect(
+        page.getByRole("heading", { name: "Details" }),
+      ).toBeVisible();
+    },
+  },
+  {
     // KODI-058: the CLI device approval page.
     path: "/device",
     visitors: ["user"],
@@ -263,8 +288,9 @@ test("the suite covers every page named in the acceptance criteria", () => {
   // `/admin/jobs` (Plan corrections 23); 20 since KODI-054 added
   // `/admin/features`; 22 since KODI-058 added `/device` and `/cli/code`;
   // 23 since Borderless sign-in added `/welcome` (`/admin/report-webhooks`
-  // replaced `/admin/discord-webhooks`); 24 since the public `/cli` page.
-  expect(PAGES).toHaveLength(24);
+  // replaced `/admin/discord-webhooks`); 24 since the public `/cli` page;
+  // 26 since the phone shell added `/insights` and `/account`.
+  expect(PAGES).toHaveLength(26);
 
   // A row with no visitors generates no tests at all, which the length check
   // above cannot see. Same for a duplicated path: 15 rows covering 14 routes.

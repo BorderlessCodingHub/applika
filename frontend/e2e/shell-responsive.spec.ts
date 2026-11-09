@@ -4,14 +4,15 @@ import { loginAs, type SeededRole } from "./support/auth";
 import { showCookieNotice } from "./support/cookie-notice";
 
 /**
- * App shell — responsive behaviour and keyboard traversal (KODI-004 / R-017,
- * R-018, R-019, R-020).
+ * App shell — responsive behaviour and keyboard traversal (PRD 0006 R-017,
+ * R-018, R-020; ADR-0027 below md).
  *
- * Criterion 5 ("on narrow screens the sidebar collapses into a menu the user
- * can open and close") is a NARROW-SCREEN behaviour, so it is EXERCISED at a
- * phone viewport rather than asserted at a desktop one. `playwright.config.ts`
- * ships a single Desktop Chrome project, so the viewport is overridden per
- * describe block instead of adding a project.
+ * Below md (ADR-0027, PRD 0021) a signed-in page renders in the phone shell:
+ * no rail, no navigation menu, a bottom tab bar on Today, Pipeline, Agenda
+ * and Insights, back bars elsewhere, and the Account hub behind the initials.
+ * It is EXERCISED at a phone viewport. `playwright.config.ts` ships a single
+ * Desktop Chrome project, so the viewport is overridden per describe block
+ * instead of adding a project. At md and up the shell is unchanged.
  *
  * Everything here runs against the REAL stack `frontend/scripts/e2e.sh` stands up, and
  * asserts on roles, accessible names and GEOMETRY — never on class names — so
@@ -26,7 +27,6 @@ const MOBILE = { width: 390, height: 844 };
 /** Comfortably above `md` (48rem / 768px). */
 const DESKTOP = { width: 1280, height: 800 };
 
-const SHEET_PANEL = '[data-slot="sheet-content"]';
 const COOKIE_NOTICE = '[role="dialog"][aria-label="Cookie notice"]';
 const CLI_BANNER = '[role="region"][aria-label="applika-cli announcement"]';
 
@@ -71,8 +71,8 @@ async function openDashboard(page: Page, role: SeededRole = "user") {
   await expect(
     page.getByRole("heading", { name: "Dashboard", level: 1 }),
   ).toBeVisible();
-  // At md+ the rail proves the render too; below md the closed sheet renders
-  // no nav, and the received answer is what the sheet opens with.
+  // At md+ the rail proves the render too; below md there is no rail, and
+  // the received answer is what the Account hub lists.
   const rail = page.locator("aside");
   if (
     body.features.some((feature) => feature.key === "jobs") &&
@@ -86,17 +86,6 @@ async function openDashboard(page: Page, role: SeededRole = "user") {
 
 const menuTrigger = (page: Page) =>
   page.getByRole("button", { name: "Open navigation menu" });
-
-/** The mobile navigation panel. Named, because the cookie notice is a dialog too. */
-const navSheet = (page: Page) =>
-  page.getByRole("dialog", { name: "Navigation" });
-
-async function openMenu(page: Page): Promise<Locator> {
-  await menuTrigger(page).click();
-  const sheet = navSheet(page);
-  await expect(sheet).toBeVisible();
-  return sheet;
-}
 
 /**
  * Wait until a locator's rectangle stops moving.
@@ -122,320 +111,355 @@ async function waitForStableBox(locator: Locator, label: string) {
     .toBe(true);
 }
 
-test.describe("below md the sidebar collapses into a menu", () => {
+const TAB_LABELS = ["Today", "Pipeline", "Agenda", "Insights"];
+const TAB_HREFS = ["/dashboard", "/applications", "/agenda", "/insights"];
+
+/** The bottom tab bar: below md it is the only "Primary" navigation. */
+const tabBar = (page: Page) =>
+  page.getByRole("navigation", { name: "Primary" });
+
+/** The phone avatar: the user's initials, named "Account". */
+const avatar = (page: Page) => page.locator('[data-slot="phone-avatar"]');
+
+/** Open a signed-in page and wait for the phone shell to own it. */
+async function openPhone(page: Page, path: string, role: SeededRole = "user") {
+  await loginAs(page, role);
+  // The Account rows follow the gated entries, which join only once
+  // `/users/me/features` answers: wait for that answer.
+  const features = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname.endsWith("/users/me/features") &&
+      response.request().method() === "GET",
+  );
+  await page.goto(path);
+  await features;
+  await expect(page.locator('[data-slot="phone-shell"]')).toBeVisible();
+}
+
+/** The Account hub's sections, regions named by their headings. */
+const workspaceRows = (page: Page) =>
+  page.getByRole("region", { name: "Workspace" }).getByRole("link");
+const accountSection = (page: Page) =>
+  page.getByRole("region", { name: "Account", exact: true });
+
+test.describe("below md the phone shell carries a bottom tab bar", () => {
   test.use({ viewport: MOBILE });
 
-  test("the rail is gone and the menu trigger takes its place", async ({
+  test("no rail, no navigation menu: the tab bar takes their place", async ({
     page,
   }) => {
     await openDashboard(page);
 
-    // The rail is the only <aside> in the shell; below `md` it is display:none.
-    await expect(page.locator("aside")).toBeHidden();
-    // With the rail hidden and the panel closed, no primary nav is on screen.
-    await expect(page.getByRole("navigation", { name: "Primary" })).toHaveCount(
-      0,
-    );
-
-    await expect(menuTrigger(page)).toBeVisible();
-  });
-
-  test("opening the menu reveals the navigation in a modal dialog", async ({
-    page,
-  }) => {
-    await openDashboard(page);
-    const sheet = await openMenu(page);
-
-    // Modality, asserted by BEHAVIOUR rather than by `aria-modal`: Radix marks
-    // everything outside the portal `aria-hidden` instead of setting
-    // `aria-modal` on the panel, so while the panel is open the page behind it
-    // is gone from the accessibility tree — the trigger included.
-    await expect(sheet).toHaveAttribute("data-state", "open");
+    // The phone shell renders no rail at all, and no header to hold the menu.
+    await expect(page.locator("aside")).toHaveCount(0);
     await expect(menuTrigger(page)).toHaveCount(0);
 
-    await expect(
-      sheet.getByRole("navigation", { name: "Primary" }),
-    ).toBeVisible();
-
-    for (const label of PRIMARY_LABELS) {
-      await expect(sheet.getByRole("link", { name: label })).toBeVisible();
+    const tabs = tabBar(page).getByRole("link");
+    await expect(tabs).toHaveText(TAB_LABELS);
+    for (const [index, href] of TAB_HREFS.entries()) {
+      await expect(tabs.nth(index)).toHaveAttribute("href", href);
     }
+    await expect(tabBar(page)).toBeInViewport();
+  });
 
-    // The controls the header cannot hold below `md` move in here with it.
+  test("each tab root marks its own tab, and only it", async ({ page }) => {
+    await openDashboard(page);
+
+    for (const [index, label] of TAB_LABELS.entries()) {
+      if (index > 0) {
+        await tabBar(page).getByRole("link", { name: label }).click();
+        await page.waitForURL(`**${TAB_HREFS[index]}`);
+      }
+      const current = tabBar(page).locator('[aria-current="page"]');
+      await expect(current).toHaveCount(1);
+      await expect(current).toHaveText(label);
+    }
     await expect(
-      sheet.getByRole("button", { name: "Open account menu" }),
-    ).toBeVisible();
-    await expect(
-      sheet.getByRole("link", { name: "Applika.dev home" }),
+      page.getByRole("heading", { name: "Insights", level: 1 }),
     ).toBeVisible();
   });
 
-  test("the cookie notice and the CLI banner do not cover the open menu", async ({
+  test("the tab bar is reachable by keyboard and Enter follows a tab", async ({
     page,
   }) => {
-    // This is T047's literal wording, and the regression it guards is real:
-    // the cookie notice used to sit at `z-50` — the same layer as the sheet —
-    // and is rendered AFTER the page content, so it won the tie and floated
-    // over the open panel.
+    await openPhone(page, "/insights");
+    await expect(
+      page.getByRole("heading", { name: "Insights", level: 1 }),
+    ).toBeVisible();
+
+    const today = tabBar(page).getByRole("link", { name: "Today" });
+    let reached = false;
+    for (let presses = 0; presses < 20 && !reached; presses++) {
+      await page.keyboard.press("Tab");
+      reached = await today.evaluate((el) => el === document.activeElement);
+    }
+    expect(reached, "Tab never reached the tab bar").toBe(true);
+
+    for (const label of TAB_LABELS.slice(1)) {
+      await page.keyboard.press("Tab");
+      await expect(
+        tabBar(page).getByRole("link", { name: label }),
+      ).toBeFocused();
+    }
+    await page.keyboard.press("Shift+Tab");
+    await expect(
+      tabBar(page).getByRole("link", { name: "Agenda" }),
+    ).toBeFocused();
+    await page.keyboard.press("Enter");
+    await page.waitForURL("**/agenda");
+    await expect(tabBar(page).locator('[aria-current="page"]')).toHaveText(
+      "Agenda",
+    );
+  });
+
+  test("the cookie notice covers the tab bar until Got it", async ({
+    page,
+  }) => {
+    // The owner's choice: the notice floats over the page on purpose, and
+    // over the tab bar too, until it is acknowledged.
     await showCookieNotice(page);
     await openDashboard(page);
 
     const notice = page.locator(COOKIE_NOTICE);
-    const banner = page.locator(CLI_BANNER);
-    // The notice is brought back and the banner was never dismissed, so both
-    // must really be on screen. Without them the rest of this test proves nothing.
     await expect(notice).toBeVisible();
-    await expect(banner).toBeVisible();
-
-    const sheet = await openMenu(page);
-    await waitForStableBox(sheet, "the navigation panel");
     await waitForStableBox(notice, "the cookie notice");
+    await waitForStableBox(tabBar(page), "the tab bar");
 
-    const report = await page.evaluate(
-      ({ panelSelector, noticeSelector, bannerSelector }) => {
-        const panel = document.querySelector<HTMLElement>(panelSelector);
-        if (!panel) throw new Error("the navigation panel is not in the DOM");
+    const topmostPerTab = () =>
+      page.evaluate(
+        ({ noticeSelector }) => {
+          const bar = document.querySelector('[data-slot="phone-tab-bar"]');
+          if (!bar) throw new Error("the tab bar is not in the DOM");
+          const notice = document.querySelector(noticeSelector);
+          return Array.from(bar.querySelectorAll("a")).map((tab) => {
+            const rect = tab.getBoundingClientRect();
+            const topmost = document.elementFromPoint(
+              Math.round(rect.left + rect.width / 2),
+              Math.round(rect.top + rect.height / 2),
+            );
+            if (topmost && tab.contains(topmost)) return "tab";
+            if (topmost && notice?.contains(topmost)) return "notice";
+            return topmost ? `<${topmost.tagName.toLowerCase()}>` : "nothing";
+          });
+        },
+        { noticeSelector: COOKIE_NOTICE },
+      );
 
-        const panelRect = panel.getBoundingClientRect();
-        const rectOf = (selector: string) =>
-          document
-            .querySelector<HTMLElement>(selector)
-            ?.getBoundingClientRect();
-        const intersects = (a: DOMRect | undefined, b: DOMRect) =>
-          !!a &&
-          a.left < b.right &&
-          a.right > b.left &&
-          a.top < b.bottom &&
-          a.bottom > b.top;
+    // Guard against a vacuous pass: the notice really sits over the bar.
+    expect(await topmostPerTab()).toContain("notice");
+    expect(await topmostPerTab()).not.toContain("nothing");
 
-        const describe = (element: Element | null) => {
-          if (!element) return "nothing";
-          const label =
-            element.getAttribute("aria-label") ??
-            element.textContent?.trim().slice(0, 40) ??
-            "";
-          return `<${element.tagName.toLowerCase()}> ${label}`.trim();
-        };
-
-        // Every control the user has to be able to reach inside the panel.
-        const controls = Array.from(
-          panel.querySelectorAll<HTMLElement>("a[href], button"),
-        );
-
-        const obstructed = controls
-          .map((control) => {
-            const rect = control.getBoundingClientRect();
-            const x = Math.round(rect.left + rect.width / 2);
-            const y = Math.round(rect.top + rect.height / 2);
-            const topmost = document.elementFromPoint(x, y);
-            if (topmost && panel.contains(topmost)) return null;
-            return {
-              control: describe(control),
-              at: `${x},${y}`,
-              coveredBy: describe(topmost),
-            };
-          })
-          .filter((entry) => entry !== null);
-
-        return {
-          controlCount: controls.length,
-          noticeOverlapsPanel: intersects(rectOf(noticeSelector), panelRect),
-          bannerOverlapsPanel: intersects(rectOf(bannerSelector), panelRect),
-          obstructed,
-        };
-      },
-      {
-        panelSelector: SHEET_PANEL,
-        noticeSelector: COOKIE_NOTICE,
-        bannerSelector: CLI_BANNER,
-      },
-    );
-
-    // Brand, close, every primary entry, the "Applika CLI" link and the
-    // account menu. Expressed as `+ 4` rather than a literal so it tracks the
-    // nav; the rail test pins `PRIMARY_LABELS` itself to what actually renders.
-    expect(report.controlCount).toBe(PRIMARY_LABELS.length + 4);
-
-    // Guard against a vacuous pass: the two pieces of chrome must genuinely
-    // share screen space with the panel, or hit-testing proves nothing.
-    expect(
-      report.noticeOverlapsPanel,
-      "the cookie notice does not even reach the panel's footprint — this case would pass without testing anything",
-    ).toBe(true);
-    expect(
-      report.bannerOverlapsPanel,
-      "the CLI banner does not even reach the panel's footprint — this case would pass without testing anything",
-    ).toBe(true);
-
-    // The real assertion: at the centre of every control in the panel, the
-    // topmost element is part of the panel.
-    expect(
-      report.obstructed,
-      "something is painted over the open navigation menu",
-    ).toEqual([]);
-  });
-
-  test("the close control closes the menu", async ({ page }) => {
-    await openDashboard(page);
-    const sheet = await openMenu(page);
-
-    await sheet.getByRole("button", { name: "Close navigation menu" }).click();
-
-    await expect(sheet).toBeHidden();
-    await expect(menuTrigger(page)).toBeVisible();
-  });
-
-  test("choosing an entry navigates and closes the menu", async ({ page }) => {
-    await openDashboard(page);
-    const sheet = await openMenu(page);
-
-    await sheet.getByRole("link", { name: "Applications" }).click();
-
-    await page.waitForURL("**/applications");
-    await expect(
-      page.getByRole("heading", { name: "Applications", level: 1 }),
-    ).toBeVisible();
-    // The shell stays mounted across a client-side navigation, so the panel
-    // only closes because the entry reports the navigation back to it.
-    await expect(sheet).toBeHidden();
-  });
-
-  test("clicking the overlay closes the menu", async ({ page }) => {
-    await openDashboard(page);
-    const sheet = await openMenu(page);
-    await waitForStableBox(sheet, "the navigation panel");
-
-    // Deliberately to the right of the 17rem panel, and above the cookie
-    // notice, so the click lands on the overlay itself.
-    await page
-      .locator('[data-slot="sheet-overlay"]')
-      .click({ position: { x: 340, y: 420 } });
-
-    await expect(sheet).toBeHidden();
-  });
-
-  test("the menu is traversable by keyboard and hands focus back on Escape", async ({
-    page,
-  }) => {
-    await openDashboard(page);
-
-    const trigger = menuTrigger(page);
-    await trigger.focus();
-    await expect(trigger).toBeFocused();
-    await page.keyboard.press("Enter");
-
-    const sheet = navSheet(page);
-    await expect(sheet).toBeVisible();
-
-    // Focus moves into the panel, onto the close control. Radix deliberately
-    // skips anchors when it picks the initial target, so the brand link is not
-    // it — the first non-link tabbable control is.
-    const closeControl = sheet.getByRole("button", {
-      name: "Close navigation menu",
-    });
-    await expect(closeControl).toBeFocused();
-
-    const tabOrder: Locator[] = [
-      ...PRIMARY_LABELS.map((label) =>
-        sheet.getByRole("link", { name: label }),
-      ),
-      sheet.getByRole("link", { name: "Applika CLI", exact: true }),
-      sheet.getByRole("button", { name: "Open account menu" }),
-      // Focus is TRAPPED in the panel: tabbing past the last control wraps
-      // round to the first one in the panel rather than escaping to the page.
-      sheet.getByRole("link", { name: "Applika.dev home" }),
-      closeControl,
-    ];
-
-    for (const target of tabOrder) {
-      await page.keyboard.press("Tab");
-      await expect(target).toBeFocused();
+    // Its controls are phone controls too: a 44px box both ways.
+    for (const control of [
+      notice.getByRole("button", { name: "Dismiss cookie notice" }),
+      notice.getByRole("button", { name: "Got it" }),
+    ]) {
+      const box = await control.boundingBox();
+      expect(box, "the control has no box").not.toBeNull();
+      expect(box!.width + 0.5).toBeGreaterThanOrEqual(44);
+      expect(box!.height + 0.5).toBeGreaterThanOrEqual(44);
     }
 
-    // Shift+Tab retraces the same order.
-    await page.keyboard.press("Shift+Tab");
-    await expect(
-      sheet.getByRole("link", { name: "Applika.dev home" }),
-    ).toBeFocused();
+    await notice.getByRole("button", { name: "Got it" }).click();
+    await expect(notice).toBeHidden();
 
-    await page.keyboard.press("Escape");
-    await expect(sheet).toBeHidden();
-    // Focus comes back to the control that opened the panel. Radix cannot do
-    // this on its own here (the sheet is controlled and has no Dialog.Trigger),
-    // so `AppShell` restores it by hand — without that a keyboard user is
-    // dropped on <body>.
-    await expect(trigger).toBeFocused();
+    await expect.poll(topmostPerTab).toEqual(["tab", "tab", "tab", "tab"]);
   });
 
-  test("Enter on a focused entry navigates, so the menu is usable without a pointer", async ({
+  test("the initials open the Account hub, which goes Back to Today", async ({
     page,
   }) => {
     await openDashboard(page);
-    const sheet = await openMenu(page);
 
-    await sheet.getByRole("link", { name: "Cycles" }).focus();
-    await page.keyboard.press("Enter");
+    await expect(avatar(page)).toHaveAccessibleName("Account");
+    await expect(avatar(page)).toHaveText(/^[A-Z0-9]{1,2}$/);
+    await avatar(page).click();
+    await page.waitForURL("**/account");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
-    await page.waitForURL("**/cycles");
-    await expect(
-      page.getByRole("heading", { name: "Cycles", level: 1 }),
-    ).toBeVisible();
-    await expect(sheet).toBeHidden();
+    const back = page.getByRole("banner").getByRole("link");
+    await expect(back).toHaveAccessibleName("Back");
+    await back.click();
+    await page.waitForURL("**/dashboard");
+    await expect(tabBar(page).locator('[aria-current="page"]')).toHaveText(
+      "Today",
+    );
   });
 
-  test("the account menu in the panel keeps profile, feedback and logout", async ({
+  test("every tab root shows the initials", async ({ page }) => {
+    await openPhone(page, "/dashboard");
+    for (const href of TAB_HREFS) {
+      await page.goto(href);
+      await expect(avatar(page)).toBeVisible();
+      await expect(avatar(page)).toHaveAttribute("href", "/account");
+    }
+  });
+
+  test("the Account hub lists Jobs and CVs and no Admin for a user", async ({
     page,
   }) => {
-    await openDashboard(page);
-    const sheet = await openMenu(page);
+    await openPhone(page, "/account");
 
-    // Scoped to the panel: below `md` the same control also exists in the
-    // header, and an unscoped locator is a strict-mode violation.
-    await sheet.getByRole("button", { name: "Open account menu" }).click();
-
-    const menu = page.getByRole("menu");
-    await expect(menu.getByRole("menuitem", { name: "Profile" })).toBeVisible();
+    // e2e-user is on the jobs and cvs beta lists and holds PSP (the seed).
+    await expect(workspaceRows(page)).toHaveCount(4);
+    for (const [index, name] of [
+      "Jobs",
+      "CVs",
+      "Reports",
+      "Cycles",
+    ].entries()) {
+      await expect(workspaceRows(page).nth(index)).toHaveAccessibleName(name);
+    }
     await expect(
-      menu.getByRole("menuitem", { name: "Feedback" }),
+      page.getByRole("link", { name: "Jobs", exact: true }),
+    ).toHaveAccessibleDescription("Beta");
+
+    const account = accountSection(page);
+    await expect(
+      account.getByRole("link", { name: "Profile", exact: true }),
     ).toBeVisible();
-    await expect(menu.getByRole("menuitem", { name: "Logout" })).toBeVisible();
+    await expect(
+      account.getByRole("link", { name: "Devices & CLI" }),
+    ).toBeVisible();
+    await expect(
+      account.getByRole("link", { name: "Sign in a device" }),
+    ).toBeVisible();
+    await expect(account.getByRole("link", { name: "Admin" })).toHaveCount(0);
+    await expect(
+      page.getByRole("radiogroup", { name: "Language" }),
+    ).toBeVisible();
+    await expect(page.getByRole("radiogroup", { name: "Theme" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Send feedback" }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Logout" })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Cookie policy" }),
+    ).toHaveAttribute("href", "/cookie-policy");
   });
 
-  test("the panel leaks no Admin entry to a non-admin", async ({ page }) => {
-    await openDashboard(page, "user");
-    const sheet = await openMenu(page);
-
-    // The panel mounts a SECOND copy of the nav. The admin-gating suite's
-    // count-0 assertion is exact, so a leak here would break it too.
-    await expect(sheet.getByRole("link", { name: "Admin" })).toHaveCount(0);
-    // The control: the entries that should be here are here.
-    await expect(sheet.getByRole("link", { name: "Dashboard" })).toBeVisible();
-  });
-
-  test("the panel shows exactly one Admin entry to an admin", async ({
+  test("the Account hub shows exactly one Admin to an admin", async ({
     page,
   }) => {
-    await openDashboard(page, "admin");
-    const sheet = await openMenu(page);
+    await openPhone(page, "/account", "admin");
 
-    const admin = sheet.getByRole("link", { name: "Admin" });
+    const admin = accountSection(page).getByRole("link", { name: "Admin" });
     await expect(admin).toHaveCount(1);
     await expect(admin).toHaveAttribute("href", "/admin");
+    await expect(admin).toHaveAccessibleDescription("System");
   });
 
-  test("the header keeps the cycle selector, agenda and theme toggle", async ({
+  test("Send feedback opens the feedback dialog", async ({ page }) => {
+    await openPhone(page, "/account");
+
+    await page.getByRole("button", { name: "Send feedback" }).click();
+    await expect(
+      page.getByRole("dialog", { name: "Rate your experience" }),
+    ).toBeVisible();
+  });
+
+  test("the theme switches from the Account hub", async ({ page }) => {
+    await openPhone(page, "/account");
+    const theme = page.getByRole("radiogroup", { name: "Theme" });
+    const html = page.locator("html");
+
+    await theme.getByRole("radio", { name: "Light" }).click();
+    await expect(html).not.toHaveClass(/\bdark\b/);
+    await expect(theme.getByRole("radio", { name: "Light" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+
+    await theme.getByRole("radio", { name: "Dark", exact: true }).click();
+    await expect(html).toHaveClass(/\bdark\b/);
+  });
+
+  test("a screen without the tab bar goes back to the screen it came from", async ({
+    page,
+  }) => {
+    await openPhone(page, "/cycles");
+    await expect(tabBar(page)).toHaveCount(0);
+
+    const back = page.getByRole("banner").getByRole("link");
+    await expect(back).toHaveAccessibleName("Account");
+    await back.click();
+    await page.waitForURL("**/account");
+    await expect(page.getByRole("region", { name: "Workspace" })).toBeVisible();
+  });
+
+  test("the chrome and the Account hub give every control 44px both ways", async ({
+    page,
+  }) => {
+    const undersized = () =>
+      page.evaluate(() => {
+        const shell = document.querySelector('[data-slot="phone-shell"]');
+        if (!shell) throw new Error("the phone shell is not in the DOM");
+        // The shell's own chrome, the ported hub and the banner the shell
+        // renders; today's content on unported screens is not in this ticket.
+        const controls = Array.from(
+          shell.querySelectorAll<HTMLElement>(
+            [
+              '[data-slot="phone-shell"] > [data-slot="phone-top-bar"] a',
+              '[data-slot="phone-tab-bar"] a',
+              '[data-slot="phone-avatar"]',
+              '[data-slot="phone-fab"]',
+              '[data-slot="phone-account"] a',
+              '[data-slot="phone-account"] button',
+              '[role="region"][aria-label="applika-cli announcement"] a',
+              '[role="region"][aria-label="applika-cli announcement"] button',
+            ].join(", "),
+          ),
+        );
+        return {
+          count: controls.length,
+          small: controls
+            .map((control) => {
+              const rect = control.getBoundingClientRect();
+              return rect.width + 0.5 < 44 || rect.height + 0.5 < 44
+                ? `${control.getAttribute("aria-label") ?? control.textContent?.trim()} ${Math.round(rect.width)}x${Math.round(rect.height)}`
+                : null;
+            })
+            .filter((entry) => entry !== null),
+        };
+      });
+
+    await openPhone(page, "/dashboard");
+    await expect(avatar(page)).toBeVisible();
+    const dashboard = await undersized();
+    expect(dashboard.count).toBeGreaterThanOrEqual(6);
+    expect(dashboard.small).toEqual([]);
+
+    await page.goto("/account");
+    await expect(page.getByRole("region", { name: "Workspace" })).toBeVisible();
+    const account = await undersized();
+    expect(account.count).toBeGreaterThanOrEqual(15);
+    expect(account.small).toEqual([]);
+  });
+
+  test("turning the screen past md switches the layout and drops the quick add", async ({
     page,
   }) => {
     await openDashboard(page);
-    const header = page.locator("header");
 
-    await expect(header.getByRole("combobox")).toBeVisible();
-    await expect(
-      header.getByRole("button", { name: "Upcoming steps" }),
-    ).toBeVisible();
-    await expect(
-      header.getByRole("button", { name: "Toggle theme" }),
-    ).toBeVisible();
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+    const quickAdd = page.getByRole("dialog", { name: "New Application" });
+    await expect(quickAdd).toBeVisible();
+
+    await page.setViewportSize(DESKTOP);
+    await expect(page.locator("aside")).toBeVisible();
+    await expect(page.locator('[data-slot="phone-tab-bar"]')).toHaveCount(0);
+    await expect(quickAdd).toHaveCount(0);
+    // Nothing stayed trapped: the rail answers a click.
+    await page
+      .locator("aside")
+      .getByRole("link", { name: "Agenda", exact: true })
+      .click();
+    await page.waitForURL("**/agenda");
+
+    await page.setViewportSize(MOBILE);
+    await expect(tabBar(page)).toBeVisible();
+    await expect(page.locator("aside")).toHaveCount(0);
+    await expect(quickAdd).toHaveCount(0);
   });
 });
 

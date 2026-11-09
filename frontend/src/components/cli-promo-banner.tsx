@@ -76,7 +76,8 @@ export function CliPromoBanner() {
         asChild
         size="sm"
         variant="default"
-        className="col-start-2 row-start-2 shrink-0 justify-self-start"
+        // Below md every control is at least 44px both ways (PRD 0021).
+        className="col-start-2 row-start-2 shrink-0 justify-self-start max-md:h-11"
       >
         <a href={APP_CONFIG.cli.url} target="_blank" rel="noopener noreferrer">
           {t("cta")}
@@ -89,6 +90,8 @@ export function CliPromoBanner() {
         aria-label={t("dismiss")}
         className={cn(
           "col-start-3 row-start-1 shrink-0 self-start rounded-md p-1 text-muted-foreground transition-colors sm:self-auto",
+          // A 44px box below md, the same 24px footprint in the grid.
+          "max-md:-m-2.5 max-md:p-3.5",
           "hover:bg-accent hover:text-accent-foreground",
           "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
         )}

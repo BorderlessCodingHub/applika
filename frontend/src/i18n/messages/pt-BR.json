@@ -2255,5 +2255,32 @@
       "webhookUpdated": "Webhook atualizado",
       "webhookDeleted": "Webhook excluído"
     }
+  },
+  "phone": {
+    "shell": {
+      "today": "Hoje",
+      "pipeline": "Funil",
+      "insights": "Insights",
+      "add": "Adicionar",
+      "account": "Conta",
+      "back": "Voltar"
+    },
+    "account": {
+      "workspace": "Espaço de trabalho",
+      "viewProfile": "Ver perfil",
+      "devices": "Dispositivos e CLI",
+      "signedIn": "{count, plural, one {# conectado} other {# conectados}}",
+      "codeFormat": "XXXX-XXXX",
+      "reportDay": "Dia {day}",
+      "language": "Idioma",
+      "english": "English",
+      "portuguese": "Português (BR)",
+      "theme": "Tema",
+      "light": "Claro",
+      "dark": "Escuro",
+      "sendFeedback": "Enviar feedback",
+      "cookiePolicy": "Política de cookies",
+      "openSource": "Applika.dev · código aberto"
+    }
   }
 }

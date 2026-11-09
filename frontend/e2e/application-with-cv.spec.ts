@@ -123,6 +123,79 @@ test.afterEach(async ({ request }) => {
   await wipeE2ePlatforms(request);
 });
 
+test("a draft keeps what it autosaved when the screen turns across md", async ({
+  page,
+  request,
+}) => {
+  // PRD 0021 edge case: below md the page renders in the phone shell, so a
+  // rotation across 768px remounts it; what the autosave saved must survive.
+  const supports = await request.get(apiUrl("/supports"), {
+    headers: apiHeaders(),
+  });
+  expect(supports.ok(), await supports.text()).toBeTruthy();
+  const { platforms } = (await supports.json()) as {
+    platforms: Array<{ id: string }>;
+  };
+  expect(platforms.length).toBeGreaterThan(0);
+  const created = await request.post(apiUrl("/applications/drafts"), {
+    headers: apiHeaders(),
+    data: {
+      company_id: null,
+      company_name: COMPANY,
+      role: ROLE,
+      platform_id: platforms[0].id,
+      mode: "active",
+      // Yesterday in UTC is never after the browser's own today, whatever its
+      // zone; the server's default (its UTC today) can be, and step 1 then
+      // refuses to save a "future" date.
+      application_date: new Date(Date.now() - 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10),
+    },
+  });
+  expect(created.ok(), await created.text()).toBeTruthy();
+  const { id } = (await created.json()) as { id: string };
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await loginAs(page, "user");
+  await page.goto(`/applications/new-with-cv?id=${id}`);
+  await expect(page.locator('[data-slot="phone-shell"]')).toBeVisible();
+  const role = page.getByPlaceholder(/senior engineer/i);
+  await expect(role).toHaveValue(ROLE);
+
+  const edited = `${ROLE} rotated`;
+  const saved = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname.endsWith(`/applications/drafts/${id}`) &&
+      response.request().method() === "PUT" &&
+      response.ok(),
+  );
+  await role.fill(edited);
+  await saved;
+  await expect(
+    page.locator('[data-slot="autosave-status"][data-state="saved"]'),
+  ).toBeVisible();
+
+  for (const [viewport, shell] of [
+    [{ width: 1280, height: 800 }, "aside"],
+    [{ width: 390, height: 844 }, '[data-slot="phone-shell"]'],
+  ] as const) {
+    await page.setViewportSize(viewport);
+    await expect(page.locator(shell)).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`[?&]id=${id}(&|$)`));
+    await expect(page.getByPlaceholder(/senior engineer/i)).toHaveValue(edited);
+    await expect(
+      page.locator('[data-slot="autosave-status"][data-state="error"]'),
+    ).toHaveCount(0);
+  }
+
+  const stored = await request.get(apiUrl(`/applications/drafts/${id}`), {
+    headers: apiHeaders(),
+  });
+  expect(stored.ok(), await stored.text()).toBeTruthy();
+  expect(((await stored.json()) as { role: string }).role).toBe(edited);
+});
+
 test("a draft created with New with CV autosaves, resumes and finishes into a real application", async ({
   page,
   request,

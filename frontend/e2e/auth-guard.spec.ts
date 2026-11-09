@@ -30,6 +30,9 @@ const PROTECTED_PATHS = [
   "/device",
   // ADR-0024: the one-time welcome choice of a new Borderless account.
   "/welcome",
+  // ADR-0027: the phone's Insights tab and Account hub.
+  "/insights",
+  "/account",
 ];
 
 test.describe("anonymous visitors are sent to /login", () => {

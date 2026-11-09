@@ -2,6 +2,8 @@
 
 @import "tw-animate-css";
 
+@import "../styles/phone.css";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -349,6 +351,7 @@
 
     --destructive: oklch(0.548 0.195 26.6);
     --destructive-foreground: oklch(1 0 0);
+    --destructive-text: oklch(0.548 0.195 26.6);
 
     --success: oklch(0.64 0.122 165.6);
     --warning: oklch(0.766 0.163 71.1);
@@ -406,6 +409,7 @@
 
     --destructive: oklch(0.514 0.163 25);
     --destructive-foreground: oklch(1 0 0);
+    --destructive-text: oklch(0.74 0.14 25);
 
     --success: oklch(0.668 0.115 175.7);
     --warning: oklch(0.766 0.163 71.1);
@@ -483,6 +487,13 @@
     /* Documents that flow: the last line stops above the bar. */
     padding-bottom: var(--cookie-notice-height, 0px);
     scroll-padding-bottom: var(--cookie-notice-height, 0px);
+    /*
+      `viewportFit: "cover"` (layout.tsx) lets the phone chrome reach under
+      the home indicator. A notched phone held sideways is md and up: these
+      keep the desktop out of the sensor housing, as before. 0 elsewhere.
+    */
+    padding-inline: env(safe-area-inset-left, 0px)
+      env(safe-area-inset-right, 0px);
   }
 
   ::selection {

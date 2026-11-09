@@ -206,6 +206,17 @@ const SAME_AS: Record<string, string> = {
 /** token -> the alpha its rule names. Every other token is opaque. */
 const ALPHA: Record<string, number> = { "primary-muted": 0.12 };
 
+/**
+ * ADR-0027 (the phone pattern sheet): token -> [light, dark] oklch, pinned as
+ * written, outside ORIGINAL and SAME_AS because no original HSL twin exists.
+ * `--destructive-text` is the colour of destructive words (Logout, a field
+ * error) on the phone screens: light keeps the light `--destructive`, dark is
+ * the V2 boards' lighter red, readable on the dark surface.
+ */
+const ADR_0027: Record<string, [string, string]> = {
+  "destructive-text": ["0.548 0.195 26.6", "0.74 0.14 25"],
+};
+
 const THEMES = ["light", "dark"] as const;
 type Theme = (typeof THEMES)[number];
 
@@ -332,11 +343,25 @@ describe.each(THEMES)("%s palette tokens", (theme) => {
     expect(colour.alpha, `${theme} --${token} alpha`).toBe(ALPHA[token] ?? 1);
   });
 
+  it.each(Object.keys(ADR_0027))(
+    `--%s takes its ADR-0027 ${theme} value`,
+    (token) => {
+      const value = tokens[token];
+      expect(value, `--${token} is missing in ${theme}`).toBeDefined();
+      const colours = parseOklchs(value);
+      expect(colours, `--${token}: ${value}`).toHaveLength(1);
+      const [colour] = colours;
+      expect(colour.text).toBe(ADR_0027[token][theme === "light" ? 0 : 1]);
+      expect(colour.alpha, `${theme} --${token} alpha`).toBe(1);
+    },
+  );
+
   it("pins every colour token it declares", () => {
+    const covered = [...pinned, ...Object.keys(ADR_0027)];
     const colourTokens = Object.entries(tokens)
       .filter(([name, v]) => !name.startsWith("shadow") && /oklch\(/.test(v))
       .map(([name]) => name);
-    expect(colourTokens.filter((t) => !pinned.includes(t))).toEqual([]);
+    expect(colourTokens.filter((t) => !covered.includes(t))).toEqual([]);
   });
 
   it("does not port the original-only tokens", () => {
@@ -348,6 +373,12 @@ describe.each(THEMES)("%s palette tokens", (theme) => {
     ]) {
       expect(tokens[gone], `--${gone}`).toBeUndefined();
     }
+  });
+});
+
+describe("ADR-0027 tokens", () => {
+  it("keeps the light --destructive as the light --destructive-text", () => {
+    expect(TOKENS.light["destructive-text"]).toBe(TOKENS.light.destructive);
   });
 });
 
