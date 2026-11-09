@@ -102,7 +102,8 @@ async function renderPhone(path: string, page: React.ReactNode = null) {
 }
 
 describe("phone shell in Portuguese", () => {
-  it("names the tab bar, its tabs, Add and the avatar", async () => {
+  // The avatar is each board header's own now (core-screens-portuguese.test.tsx).
+  it("names the tab bar, its tabs and Add", async () => {
     await renderPhone("/dashboard");
 
     const nav = screen.getByRole("navigation", { name: "Principal" });
@@ -114,10 +115,6 @@ describe("phone shell in Portuguese", () => {
     expect(
       screen.getByRole("button", { name: "Adicionar" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Conta" })).toHaveAttribute(
-      "href",
-      "/account",
-    );
   });
 
   it.each([

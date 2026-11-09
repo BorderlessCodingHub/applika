@@ -2344,6 +2344,168 @@
     },
     "welcome": {
       "howToStart": "How to start"
+    },
+    "load": {
+      "retry": "Retry"
+    },
+    "today": {
+      "greeting": {
+        "morning": "Good morning, {name}",
+        "afternoon": "Good afternoon, {name}",
+        "evening": "Good evening, {name}"
+      },
+      "nextInterview": "Next interview · {when}",
+      "startsIn": {
+        "hoursMinutes": "in {hours}h {minutes}m",
+        "hours": "in {hours}h",
+        "minutes": "in {minutes}m"
+      },
+      "addToCalendar": "Add to calendar",
+      "open": "Open",
+      "stats": {
+        "active": "Active",
+        "offers": "Offers",
+        "success": "Success",
+        "seeInsights": "See insights",
+        "loading": "Loading your numbers"
+      },
+      "attention": {
+        "title": "Needs your attention",
+        "quiet": "No update for {days, plural, one {# day} other {# days}}",
+        "logUpdate": "Log update",
+        "closeIt": "Close it",
+        "caughtUp": "All caught up. Every active application has a recent update."
+      },
+      "upcoming": {
+        "title": "Coming up",
+        "none": "No interviews coming up.",
+        "noMore": "Nothing else coming up."
+      }
+    },
+    "pipeline": {
+      "search": "Search applications",
+      "summary": "{cycle} · {count, plural, one {# application} other {# applications}}",
+      "filterLabel": "Filter by stage",
+      "all": "All",
+      "stage": {
+        "technical": "Technical",
+        "screening": "Screening",
+        "applied": "Applied",
+        "offer": "Offer",
+        "closed": "Closed"
+      },
+      "ago": {
+        "day": "{count}d",
+        "week": "{count}w",
+        "month": "{count}mo"
+      },
+      "agoLong": {
+        "day": "{count, plural, one {# day ago} other {# days ago}}",
+        "week": "{count, plural, one {# week ago} other {# weeks ago}}",
+        "month": "{count, plural, one {# month ago} other {# months ago}}"
+      },
+      "stale": "Stale",
+      "showMore": "Show {count} more"
+    },
+    "quickAdd": {
+      "title": "Add application",
+      "lead": "Just the essentials — you can add the rest later.",
+      "company": "Company",
+      "companyPlaceholder": "e.g. Northwind Labs",
+      "role": "Role",
+      "rolePlaceholder": "e.g. Senior Backend Engineer",
+      "where": "Where did you apply?",
+      "other": "Other",
+      "appliedOn": "Applied on",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "pickDate": "Pick a date",
+      "moreDetails": "More details",
+      "moreDetailsHint": "Link, work mode, salary",
+      "link": "Job posting link",
+      "linkPlaceholder": "https://",
+      "workMode": "Work mode",
+      "salaryFrom": "Salary from",
+      "salaryTo": "to",
+      "salaryToName": "Salary to",
+      "salaryFromPlaceholder": "60,000",
+      "salaryToPlaceholder": "75,000",
+      "startWithCv": "Start with a CV instead",
+      "submit": "Add to pipeline",
+      "salaryInvalid": "Enter the salary as a number, e.g. 60,000",
+      "salaryNeedsProfile": "Set your salary currency and period in your profile first, or leave the salary empty"
+    },
+    "application": {
+      "more": "More actions",
+      "loading": "Loading application",
+      "applied": "Applied {date} via {platform}",
+      "appliedOn": "Applied {date}",
+      "closed": "{outcome, select, denied {Closed · Denied} offer {Closed · Offer} other {Closed}}",
+      "progress": "Stage progress",
+      "nextStep": "Next step · {days, plural, =0 {today} =1 {tomorrow} other {in # days}}",
+      "nextWhen": "{date} · {time}",
+      "details": "Details",
+      "detail": {
+        "source": "Source",
+        "workMode": "Work mode",
+        "country": "Country",
+        "experience": "Experience",
+        "salaryRange": "Salary range",
+        "expected": "Expected"
+      },
+      "history": "History",
+      "historyWhen": "{date} · {status, select, scheduled {scheduled} passed {passed} other {done}}"
+    },
+    "agenda": {
+      "previousWeek": "Previous week",
+      "nextWeek": "Next week",
+      "weekOf": "Week of {date}",
+      "day": "{weekday} {month} {day}{today, select, yes {, today} other {}}{events, select, yes {, has events} other {}}",
+      "dayTitleToday": "Today · {date}",
+      "done": "Done",
+      "duration": {
+        "minutes": "{minutes} min",
+        "hours": "{hours} h",
+        "hoursMinutes": "{hours} h {minutes} min"
+      },
+      "companyDuration": "{company} · {duration}",
+      "timeRange": "{start} to {end}",
+      "alerts": "Sound alerts for {role} at {company}, 30, 15 and 5 minutes before",
+      "emptyDay": "Nothing scheduled this day.",
+      "later": "Later"
+    },
+    "insights": {
+      "chooseCycle": "Choose a cycle",
+      "successRate": "Success rate",
+      "applications": "Applications",
+      "funnel": "Funnel",
+      "funnelSub": "How far your applications get",
+      "perWeek": "Applications per week",
+      "weeks": "{count, plural, one {# week} other {# weeks}}",
+      "weeklyChart": "{trend, select, rising {Weekly applications rising from {first} to {last}} falling {Weekly applications falling from {first} to {last}} other {Weekly applications steady at {last}}}: {values}",
+      "stepDays": "Average days per step",
+      "step": {
+        "appliedToScreening": "Applied → Screening",
+        "screeningToTechnical": "Screening → Technical",
+        "technicalToOffer": "Technical → Offer"
+      },
+      "days": "{days, plural, one {# day} other {# days}}",
+      "noData": "No data",
+      "mode": "Active vs passive",
+      "modeSub": "You applied vs. a recruiter reached out"
+    },
+    "stageTitle": {
+      "interview": {
+        "unknown": "Interview",
+        "initial_screening": "Initial screening",
+        "technical": "Technical interview",
+        "cultural": "Cultural interview",
+        "hiring_manager": "Hiring manager interview",
+        "take_home": "Take-home",
+        "final": "Final interview"
+      },
+      "offer": "Offer",
+      "denied": "Denied"
     }
   }
 }

@@ -57,26 +57,14 @@ export function hasFab(pathname: string): boolean {
 }
 
 /**
- * Tab roots whose V2 board has not landed yet: they keep today's content and
- * get an interim row holding only the avatar (the board's header replaces it
- * when the screen is ported).
- */
-export const INTERIM_HEADING_PATHS: readonly string[] = [
-  "/dashboard",
-  "/applications",
-  "/agenda",
-];
-
-export function hasInterimHeading(pathname: string): boolean {
-  return INTERIM_HEADING_PATHS.includes(normalizePath(pathname));
-}
-
-/**
  * Screens rendered from their own V2 board: they own the board's padding, so
  * the shell adds none around them. Every other route keeps today's content
  * and today's padding inside the phone layout. Grows as boards are ported.
  */
 export const PHONE_SCREEN_PATHS: ReadonlySet<string> = new Set([
+  "/dashboard",
+  "/applications",
+  "/agenda",
   "/account",
   "/insights",
   "/welcome",

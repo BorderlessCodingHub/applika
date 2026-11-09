@@ -4,30 +4,28 @@ import {
   createContext,
   useCallback,
   useContext,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import { useTranslations } from "next-intl";
-import { ApplicationFormSheet } from "@/components/applications/application-form-sheet";
 import { FeedbackDialog } from "@/components/applications/feedback-dialog";
 import { CliPromoBanner } from "@/components/cli-promo-banner";
 import { PRIMARY_NAV, type NavItem } from "@/components/layout/nav";
 import {
   TAB_ROOTS,
   hasFab,
-  hasInterimHeading,
   isPhoneScreen,
   isTabRoot,
   normalizePath,
   phoneBackFor,
 } from "@/components/layout/phone-nav";
-import { PhoneAvatar } from "@/components/phone/phone-avatar";
 import { PhoneFab } from "@/components/phone/phone-fab";
-import { PhoneHeading } from "@/components/phone/phone-heading";
 import { PhoneTabBar } from "@/components/phone/phone-tab-bar";
 import { PhoneTopBar } from "@/components/phone/phone-top-bar";
-import { initials } from "@/lib/phone-format";
+import { QuickAddSheet } from "@/components/phone/screens/quick-add-sheet";
+import { useCycleContext } from "@/contexts/cycle-context";
 import { cn } from "@/lib/utils";
 import type { User } from "@/services/types/users";
 
@@ -36,6 +34,8 @@ interface PhoneShellValue {
   navItems: readonly NavItem[];
   /** Opens the shell's one FeedbackDialog. */
   openFeedback: () => void;
+  /** Opens the FAB's quick-add sheet (the Pipeline's "Create your first application"). */
+  openQuickAdd: () => void;
 }
 
 const PhoneShellContext = createContext<PhoneShellValue | null>(null);
@@ -49,12 +49,37 @@ export function usePhoneShell(): PhoneShellValue {
   return context;
 }
 
+/** `usePhoneShell()`, or `null` outside the shell (a screen rendered on its own in a test). */
+export function useOptionalPhoneShell(): PhoneShellValue | null {
+  return useContext(PhoneShellContext);
+}
+
+/** Withdraws one hold. Safe to call twice. */
+type ReleaseChrome = () => void;
+
+const HideChromeContext = createContext<(() => ReleaseChrome) | null>(null);
+
+/**
+ * Renders nothing; while mounted, the shell draws no tab bar and no FAB and
+ * reserves no room for them (v2/Application draws neither: the screen owns
+ * its sticky header and its fixed bar). Render it in the same branch as the
+ * screen. A layout effect, so the chrome is gone before paint; a COUNT, as
+ * `FullWidthContent`'s, so Strict Mode's remount never releases a hold
+ * another still keeps. A no-op outside the shell.
+ */
+export function PhoneChromeless(): null {
+  const hide = useContext(HideChromeContext);
+  useLayoutEffect(() => hide?.(), [hide]);
+  return null;
+}
+
 export interface PhoneShellProps {
   children: ReactNode;
   /** Current pathname, from `usePathname()` in the consuming layout. */
   activePath: string;
   /** Nav entries, already filtered for the acting user (see `navItemsFor`). */
   navItems?: NavItem[];
+  /** The signed-in user. Each board header draws the initials itself (`useAuth`), so the shell reads none. */
   user: User | null;
   className?: string;
 }
@@ -92,25 +117,32 @@ export function PhoneShell({
   children,
   activePath,
   navItems = PRIMARY_NAV,
-  user,
   className,
 }: PhoneShellProps) {
   const t = useTranslations("phone.shell");
   const tNav = useTranslations("nav");
+  const { isViewingPastCycle } = useCycleContext();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  // The FAB's quick add. Today's create sheet fills the slot until the
-  // QuickAdd board lands; it lives here, so crossing md unmounts a half-filled one.
+  // The FAB's quick add (v2/QuickAdd). It lives here, so crossing md
+  // unmounts a half-filled one (PRD 0021 edge case).
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   // Mounted on the first press only: the closed sheet would already fetch
   // the platforms on a screen that never asked for them.
   const [quickAddUsed, setQuickAddUsed] = useState(false);
+  // `PhoneChromeless` holds: the Application screen draws no tab bar or FAB.
+  const [chromeHolds, setChromeHolds] = useState(0);
 
   const path = normalizePath(activePath);
+  const chromeless = chromeHolds > 0;
   const backBar = phoneBackFor(path);
-  const tabRoot = isTabRoot(path);
-  const fab = hasFab(path);
+  const tabRoot = isTabRoot(path) && !chromeless;
+  // An archived cycle's Pipeline is read-only: nothing to add to it (the
+  // desktop hides "New application" the same way). Today keeps its FAB.
+  const fab =
+    hasFab(path) &&
+    !chromeless &&
+    !(path === "/applications" && isViewingPastCycle);
   const ported = isPhoneScreen(path);
-  const avatar = user ? <PhoneAvatar initials={initials(user)} /> : null;
   const reserve = fab
     ? RESERVE.tabAndFab
     : tabRoot
@@ -118,90 +150,95 @@ export function PhoneShell({
       : RESERVE.none;
 
   const openFeedback = useCallback(() => setFeedbackOpen(true), []);
+  const openQuickAdd = useCallback(() => {
+    setQuickAddUsed(true);
+    setQuickAddOpen(true);
+  }, []);
+  const hideChrome = useCallback((): ReleaseChrome => {
+    setChromeHolds((count) => count + 1);
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      setChromeHolds((count) => count - 1);
+    };
+  }, []);
   const shell = useMemo(
-    () => ({ navItems, openFeedback }),
-    [navItems, openFeedback],
+    () => ({ navItems, openFeedback, openQuickAdd }),
+    [navItems, openFeedback, openQuickAdd],
   );
 
   return (
     <PhoneShellContext.Provider value={shell}>
-      {/*
+      <HideChromeContext.Provider value={hideChrome}>
+        {/*
         `relative`, as `AppShell`'s root: it makes the shell the containing
         block its `overflow-hidden` really clips (Radix Select's hidden native
         `<select>`), and with `z-index: auto` it opens no stacking context.
       */}
-      <div
-        data-slot="phone-shell"
-        className="relative flex h-viewport w-full flex-col overflow-hidden bg-background text-foreground"
-      >
-        {backBar ? (
-          <PhoneTopBar href={backBar.href} label={backBar.label} />
-        ) : null}
-
-        {/* `.ph-scroll`: the boards' main scrolls with no visible scrollbar. */}
-        <main
-          className={cn(
-            "ph-scroll min-h-0 flex-1 overflow-y-auto",
-            reserve.scroll,
-            className,
-          )}
+        <div
+          data-slot="phone-shell"
+          className="relative flex h-viewport w-full flex-col overflow-hidden bg-background text-foreground"
         >
-          <div
-            data-slot="app-content"
-            className={cn(!ported && ["px-4 pt-6", reserve.pad])}
-          >
-            {/* A ported screen owns its board's padding; the banner keeps the board's margins. */}
-            {ported ? (
-              <div className="px-5 pt-5 empty:hidden">
-                <CliPromoBanner />
-              </div>
-            ) : (
-              <CliPromoBanner />
-            )}
-            {hasInterimHeading(path) && avatar ? (
-              // Until the screen's board header lands: only the avatar, where the
-              // board puts it (20px from the top and the right of the screen).
-              <PhoneHeading trailing={avatar} className="-mt-1 pr-1" />
-            ) : null}
-            {children}
-          </div>
-        </main>
+          {backBar ? (
+            <PhoneTopBar href={backBar.href} label={backBar.label} />
+          ) : null}
 
-        {/* The FAB before the tab bar, as the boards order them (focus follows). */}
-        {fab ? (
-          <>
+          {/* `.ph-scroll`: the boards' main scrolls with no visible scrollbar. */}
+          <main
+            className={cn(
+              "ph-scroll min-h-0 flex-1 overflow-y-auto",
+              reserve.scroll,
+              className,
+            )}
+          >
+            <div
+              data-slot="app-content"
+              className={cn(!ported && ["px-4 pt-6", reserve.pad])}
+            >
+              {/* A ported screen owns its board's padding; the banner keeps the board's margins. */}
+              {ported ? (
+                <div className="px-5 pt-5 empty:hidden">
+                  <CliPromoBanner />
+                </div>
+              ) : (
+                <CliPromoBanner />
+              )}
+              {children}
+            </div>
+          </main>
+
+          {/* The FAB before the tab bar, as the boards order them (focus follows). */}
+          {fab ? (
             <PhoneFab
               label={t("add")}
               aria-haspopup="dialog"
-              onClick={() => {
-                setQuickAddUsed(true);
-                setQuickAddOpen(true);
-              }}
+              onClick={openQuickAdd}
             />
-            {quickAddUsed ? (
-              <ApplicationFormSheet
-                open={quickAddOpen}
-                onOpenChange={setQuickAddOpen}
-                application={null}
-              />
-            ) : null}
-          </>
-        ) : null}
+          ) : null}
+          {quickAddUsed ? (
+            <QuickAddSheet
+              open={quickAddOpen}
+              onOpenChange={setQuickAddOpen}
+              activePath={path}
+            />
+          ) : null}
 
-        {tabRoot ? (
-          <PhoneTabBar
-            label={tNav("primary")}
-            tabs={TAB_ROOTS.map((root) => ({
-              href: root.href,
-              label: root.label,
-              icon: root.icon,
-              current: root.href === path,
-            }))}
-          />
-        ) : null}
+          {tabRoot ? (
+            <PhoneTabBar
+              label={tNav("primary")}
+              tabs={TAB_ROOTS.map((root) => ({
+                href: root.href,
+                label: root.label,
+                icon: root.icon,
+                current: root.href === path,
+              }))}
+            />
+          ) : null}
 
-        <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
-      </div>
+          <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
+        </div>
+      </HideChromeContext.Provider>
     </PhoneShellContext.Provider>
   );
 }

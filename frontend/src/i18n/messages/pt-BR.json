@@ -2344,6 +2344,168 @@
     },
     "welcome": {
       "howToStart": "Como começar"
+    },
+    "load": {
+      "retry": "Tentar de novo"
+    },
+    "today": {
+      "greeting": {
+        "morning": "Bom dia, {name}",
+        "afternoon": "Boa tarde, {name}",
+        "evening": "Boa noite, {name}"
+      },
+      "nextInterview": "Próxima entrevista · {when}",
+      "startsIn": {
+        "hoursMinutes": "em {hours} h {minutes} min",
+        "hours": "em {hours} h",
+        "minutes": "em {minutes} min"
+      },
+      "addToCalendar": "Adicionar ao calendário",
+      "open": "Abrir",
+      "stats": {
+        "active": "Ativas",
+        "offers": "Ofertas",
+        "success": "Sucesso",
+        "seeInsights": "Ver insights",
+        "loading": "Carregando seus números"
+      },
+      "attention": {
+        "title": "Precisa da sua atenção",
+        "quiet": "Sem atualização há {days, plural, one {# dia} other {# dias}}",
+        "logUpdate": "Atualizar",
+        "closeIt": "Encerrar",
+        "caughtUp": "Tudo em dia. Toda candidatura ativa tem uma atualização recente."
+      },
+      "upcoming": {
+        "title": "A seguir",
+        "none": "Nenhuma entrevista agendada.",
+        "noMore": "Nada mais agendado."
+      }
+    },
+    "pipeline": {
+      "search": "Buscar candidaturas",
+      "summary": "{cycle} · {count, plural, one {# candidatura} other {# candidaturas}}",
+      "filterLabel": "Filtrar por etapa",
+      "all": "Todas",
+      "stage": {
+        "technical": "Técnica",
+        "screening": "Triagem",
+        "applied": "Enviada",
+        "offer": "Oferta",
+        "closed": "Encerrada"
+      },
+      "ago": {
+        "day": "{count} d",
+        "week": "{count} sem",
+        "month": "{count} m"
+      },
+      "agoLong": {
+        "day": "há {count, plural, one {# dia} other {# dias}}",
+        "week": "há {count, plural, one {# semana} other {# semanas}}",
+        "month": "há {count, plural, one {# mês} other {# meses}}"
+      },
+      "stale": "Parada",
+      "showMore": "Mostrar mais {count}"
+    },
+    "quickAdd": {
+      "title": "Adicionar candidatura",
+      "lead": "Só o essencial — você pode adicionar o resto depois.",
+      "company": "Empresa",
+      "companyPlaceholder": "ex.: Northwind Labs",
+      "role": "Cargo",
+      "rolePlaceholder": "ex.: Engenheiro de backend",
+      "where": "Onde você se candidatou?",
+      "other": "Outra",
+      "appliedOn": "Data da candidatura",
+      "today": "Hoje",
+      "yesterday": "Ontem",
+      "pickDate": "Escolher data",
+      "moreDetails": "Mais detalhes",
+      "moreDetailsHint": "Link, modelo de trabalho, salário",
+      "link": "Link da vaga",
+      "linkPlaceholder": "https://",
+      "workMode": "Modelo de trabalho",
+      "salaryFrom": "Salário de",
+      "salaryTo": "até",
+      "salaryToName": "Salário até",
+      "salaryFromPlaceholder": "60.000",
+      "salaryToPlaceholder": "75.000",
+      "startWithCv": "Começar com um CV",
+      "submit": "Adicionar ao funil",
+      "salaryInvalid": "Informe o salário como número, ex.: 60.000",
+      "salaryNeedsProfile": "Defina a moeda e o período do salário no seu perfil antes, ou deixe o salário em branco"
+    },
+    "application": {
+      "more": "Mais ações",
+      "loading": "Carregando candidatura",
+      "applied": "Enviada em {date} via {platform}",
+      "appliedOn": "Enviada em {date}",
+      "closed": "{outcome, select, denied {Encerrada · Recusada} offer {Encerrada · Oferta} other {Encerrada}}",
+      "progress": "Progresso das etapas",
+      "nextStep": "Próxima etapa · {days, plural, =0 {hoje} =1 {amanhã} other {em # dias}}",
+      "nextWhen": "{date} · {time}",
+      "details": "Detalhes",
+      "detail": {
+        "source": "Origem",
+        "workMode": "Modelo de trabalho",
+        "country": "País",
+        "experience": "Experiência",
+        "salaryRange": "Faixa salarial",
+        "expected": "Pretensão"
+      },
+      "history": "Histórico",
+      "historyWhen": "{date} · {status, select, scheduled {agendada} passed {aprovada} other {concluída}}"
+    },
+    "agenda": {
+      "previousWeek": "Semana anterior",
+      "nextWeek": "Próxima semana",
+      "weekOf": "Semana de {date}",
+      "day": "{weekday}, {day} de {month}{today, select, yes {, hoje} other {}}{events, select, yes {, com eventos} other {}}",
+      "dayTitleToday": "Hoje · {date}",
+      "done": "Concluída",
+      "duration": {
+        "minutes": "{minutes} min",
+        "hours": "{hours} h",
+        "hoursMinutes": "{hours} h {minutes} min"
+      },
+      "companyDuration": "{company} · {duration}",
+      "timeRange": "das {start} às {end}",
+      "alerts": "Alertas sonoros de {role} em {company}, 30, 15 e 5 minutos antes",
+      "emptyDay": "Nada agendado neste dia.",
+      "later": "Depois"
+    },
+    "insights": {
+      "chooseCycle": "Escolha um ciclo",
+      "successRate": "Taxa de sucesso",
+      "applications": "Candidaturas",
+      "funnel": "Funil de etapas",
+      "funnelSub": "Até onde suas candidaturas chegam",
+      "perWeek": "Candidaturas por semana",
+      "weeks": "{count, plural, one {# semana} other {# semanas}}",
+      "weeklyChart": "{trend, select, rising {Candidaturas por semana subindo de {first} para {last}} falling {Candidaturas por semana caindo de {first} para {last}} other {Candidaturas por semana estáveis em {last}}}: {values}",
+      "stepDays": "Média de dias por etapa",
+      "step": {
+        "appliedToScreening": "Enviada → Triagem",
+        "screeningToTechnical": "Triagem → Técnica",
+        "technicalToOffer": "Técnica → Oferta"
+      },
+      "days": "{days, plural, one {# dia} other {# dias}}",
+      "noData": "Sem dados",
+      "mode": "Ativas x passivas",
+      "modeSub": "Você se candidatou x um recrutador entrou em contato"
+    },
+    "stageTitle": {
+      "interview": {
+        "unknown": "Entrevista",
+        "initial_screening": "Triagem inicial",
+        "technical": "Entrevista técnica",
+        "cultural": "Entrevista cultural",
+        "hiring_manager": "Entrevista com o gestor",
+        "take_home": "Desafio para casa",
+        "final": "Entrevista final"
+      },
+      "offer": "Oferta",
+      "denied": "Recusada"
     }
   }
 }

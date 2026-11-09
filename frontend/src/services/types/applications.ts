@@ -88,6 +88,22 @@ export interface Application {
    * event, no edit application, Reopen offered (PRD 0008, ADR 0012).
    */
   finalized_at: string | null;
+  /**
+   * The latest timeline event as its legacy step (the CLI 0.1.4 summary the
+   * API derives): "Initial Screen", "Phase 2" (any other interview), "Offer"
+   * or "Denied"; `null` with no event. The phone Pipeline's stage reads it
+   * (`pipelineStage`, `src/lib/pipeline.ts`). Optional here so a fixture may
+   * leave it out: absent reads as `null`.
+   */
+  last_step?: ApplicationLastStep | null;
+}
+
+/** `Application.last_step`: `date` is the event's `YYYY-MM-DD`. */
+export interface ApplicationLastStep {
+  id: string;
+  name: string;
+  color: string;
+  date: string;
 }
 
 export interface CreateApplicationPayload {

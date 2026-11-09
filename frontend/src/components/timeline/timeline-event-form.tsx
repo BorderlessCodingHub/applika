@@ -103,6 +103,8 @@ export interface TimelineEventFormProps {
    * type select once the application already has one.
    */
   otherEvents: TimelineEventView[];
+  /** See `TimelineEventDialog`'s `onCloseAutoFocus` (the phone screens use it). */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 /**
@@ -138,6 +140,7 @@ export function TimelineEventForm({
   purpose = "event",
   event,
   otherEvents,
+  onCloseAutoFocus,
 }: TimelineEventFormProps) {
   const mode: TimelineEventFormMode =
     purpose === "close" ? "close" : event ? "edit" : "create";
@@ -322,6 +325,7 @@ export function TimelineEventForm({
         open={open}
         onOpenChange={onOpenChange}
         mode={mode}
+        onCloseAutoFocus={onCloseAutoFocus}
         footer={
           <>
             {showsCloseBox ? (

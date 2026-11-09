@@ -27,6 +27,8 @@ interface RowContent {
   trailing?: ReactNode;
   /** `data-row` on the link or button, for tests. */
   rowKey?: string;
+  /** A button row that opens a dialog (`aria-haspopup`). */
+  popup?: "dialog";
   className?: string;
 }
 
@@ -42,6 +44,7 @@ export function PhoneGroupRow({
   metaMono = false,
   trailing,
   rowKey,
+  popup,
   className,
 }: PhoneGroupRowProps) {
   const labelId = useId();
@@ -93,7 +96,12 @@ export function PhoneGroupRow({
           {body}
         </Link>
       ) : (
-        <button type="button" onClick={onClick} {...shared}>
+        <button
+          type="button"
+          onClick={onClick}
+          aria-haspopup={popup}
+          {...shared}
+        >
           {body}
         </button>
       )}

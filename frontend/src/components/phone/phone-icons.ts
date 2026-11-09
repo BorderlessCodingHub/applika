@@ -54,6 +54,31 @@ export const PhoneGithub = createLucideIcon("phone-github", [
   ["path", { d: "M9 18c-4.51 2-5-2-7-2", key: "phone-github-2" }],
 ]);
 
+// v2/Today's add-to-calendar draws lucide's older CalendarPlus (its corner ends at 13 / h8).
+export const PhoneCalendarPlus = createLucideIcon("phone-calendar-plus", [
+  ["path", { d: "M8 2v4", key: "phone-calendar-plus-1" }],
+  ["path", { d: "M16 2v4", key: "phone-calendar-plus-2" }],
+  [
+    "path",
+    {
+      d: "M21 13V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8",
+      key: "phone-calendar-plus-3",
+    },
+  ],
+  ["path", { d: "M3 10h18", key: "phone-calendar-plus-4" }],
+  ["path", { d: "M16 19h6", key: "phone-calendar-plus-5" }],
+  ["path", { d: "M19 16v6", key: "phone-calendar-plus-6" }],
+]);
+
+// v2/Schedule's sound-alert bell is lucide's older Bell; lucide 1.x redrew it.
+export const PhoneBell = createLucideIcon("phone-bell", [
+  [
+    "path",
+    { d: "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9", key: "phone-bell-1" },
+  ],
+  ["path", { d: "M10.3 21a1.94 1.94 0 0 0 3.4 0", key: "phone-bell-2" }],
+]);
+
 export const PHONE_TAB_ICONS = {
   "/dashboard": House,
   "/applications": PhoneKanban,

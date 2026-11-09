@@ -316,16 +316,46 @@ test("a draft created with New with CV autosaves, resumes and finishes into a re
   await expect(page.getByText("No drafts yet.")).toBeVisible();
 });
 
-test("the side sheet that creates/edits an application without a CV never scrolls sideways at 390px (AC6/AC14)", async ({
+test("the side sheet that edits an application without a CV never scrolls sideways at 390px (AC6/AC14)", async ({
   page,
+  request,
 }) => {
-  await loginAs(page, "user");
-  await page.goto("/applications");
-  await page.setViewportSize({ width: 390, height: 844 });
+  // Below md the Pipeline has no "New Application" button (PRD 0021): the
+  // quick add creates (phone.spec.ts), and today's side sheet is reached
+  // through the Application screen's More → Edit. `afterEach` deletes it.
+  const supports = await request.get(apiUrl("/supports"), {
+    headers: apiHeaders(),
+  });
+  expect(supports.ok(), await supports.text()).toBeTruthy();
+  const { platforms } = (await supports.json()) as {
+    platforms: Array<{ id: string }>;
+  };
+  const created = await request.post(apiUrl("/applications"), {
+    headers: apiHeaders(),
+    data: {
+      company: { name: COMPANY, url: null },
+      platform_id: platforms[0].id,
+      role: ROLE,
+      mode: "active",
+      application_date: new Date(Date.now() - 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10),
+    },
+  });
+  expect(created.ok(), await created.text()).toBeTruthy();
+  const { id } = (await created.json()) as { id: string };
 
-  await page.getByRole("button", { name: "New Application" }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await loginAs(page, "user");
+  await page.goto(`/applications?focus=${id}`);
   await expect(
-    page.getByRole("heading", { name: "New Application" }),
+    page.getByRole("heading", { level: 1, name: COMPANY }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Edit Application" }),
   ).toBeVisible();
 
   const sheetMetrics = await page.evaluate(() => {
@@ -341,4 +371,5 @@ test("the side sheet that creates/edits an application without a CV never scroll
     sheetMetrics.scrollWidth,
     `the side sheet scrolled sideways at 390px: ${JSON.stringify(sheetMetrics)}`,
   ).toBeLessThanOrEqual(sheetMetrics.clientWidth + 1);
+  expect(sheetMetrics.clientWidth).toBeGreaterThan(0);
 });

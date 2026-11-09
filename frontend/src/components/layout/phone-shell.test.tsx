@@ -4,13 +4,14 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { CycleProvider } from "@/contexts/cycle-context";
+import { CycleProvider, useCycleContext } from "@/contexts/cycle-context";
 import { LocaleProvider } from "@/i18n/locale-provider";
 import type { MyFeature } from "@/services/types/features";
 import type { User } from "@/services/types/users";
 import { mockPhoneViewport } from "@/test/phone";
 import { AppShell } from "./app-shell";
 import { navItemsFor } from "./nav";
+import { PhoneChromeless, usePhoneShell } from "./phone-shell";
 import {
   PHONE_PARENTS,
   PHONE_SCREEN_PATHS,
@@ -27,14 +28,35 @@ vi.mock("@/services/services", () => ({
   },
 }));
 
-// Today's create sheet fills the quick-add slot; its form is tested on its own.
+// The quick-add sheet fills the FAB's slot; its form is tested on its own
+// (quick-add-sheet.test.tsx).
 const { sheetRendered } = vi.hoisted(() => ({ sheetRendered: vi.fn() }));
-vi.mock("@/components/applications/application-form-sheet", () => ({
-  ApplicationFormSheet: ({ open }: { open: boolean }) => {
+vi.mock("@/components/phone/screens/quick-add-sheet", () => ({
+  QuickAddSheet: ({ open }: { open: boolean }) => {
     sheetRendered(open);
-    return open ? <div role="dialog" aria-label="New Application" /> : null;
+    return open ? <div role="dialog" aria-label="Add application" /> : null;
   },
 }));
+
+/** A past cycle for the archived-cycle cases. */
+function PickPastCycle() {
+  const { setSelectedCycleId } = useCycleContext();
+  return (
+    <button type="button" onClick={() => setSelectedCycleId("c2")}>
+      pick past cycle
+    </button>
+  );
+}
+
+/** A screen asking the shell for the quick add, as the Pipeline's empty state does. */
+function CreateFirst() {
+  const { openQuickAdd } = usePhoneShell();
+  return (
+    <button type="button" onClick={openQuickAdd}>
+      create first
+    </button>
+  );
+}
 
 const USER: User = {
   id: "u1",
@@ -223,30 +245,16 @@ describe("PhoneShell below md", () => {
     expect(screen.queryByRole("banner")).not.toBeInTheDocument();
   });
 
-  it.each(["/dashboard", "/applications", "/agenda"])(
-    "shows the initials on %s, opening the Account hub",
+  it.each(["/dashboard", "/applications", "/agenda", "/insights"])(
+    "draws no interim avatar row on %s: the board's header carries it",
     (path) => {
       mockPhoneViewport();
       renderShell(path);
 
-      const avatar = screen.getByRole("link", { name: "Account" });
-      expect(avatar).toHaveAttribute("href", "/account");
-      expect(avatar).toHaveTextContent("SC");
-      // An interim row: today's page keeps its own h1, so the row adds none.
+      expect(document.querySelector('[data-slot="phone-avatar"]')).toBeNull();
       expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
     },
   );
-
-  it("takes the initials from the username without a first name", () => {
-    mockPhoneViewport();
-    renderShell("/dashboard", {
-      user: { ...USER, first_name: undefined, last_name: undefined },
-    });
-
-    expect(screen.getByRole("link", { name: "Account" })).toHaveTextContent(
-      "SC",
-    );
-  });
 
   it.each(["/account", "/jobs", "/welcome"])(
     "puts no avatar row on %s",
@@ -259,7 +267,7 @@ describe("PhoneShell below md", () => {
   );
 
   it.each(["/dashboard", "/applications"])(
-    "offers Add on %s, which opens the create sheet",
+    "offers Add on %s, which opens the quick-add sheet",
     async (path) => {
       mockPhoneViewport();
       const user = userEvent.setup();
@@ -268,17 +276,87 @@ describe("PhoneShell below md", () => {
       const add = screen.getByRole("button", { name: "Add" });
       expect(add).toHaveAttribute("aria-haspopup", "dialog");
       expect(
-        screen.queryByRole("dialog", { name: "New Application" }),
+        screen.queryByRole("dialog", { name: "Add application" }),
       ).not.toBeInTheDocument();
 
       await user.click(add);
       expect(
-        screen.getByRole("dialog", { name: "New Application" }),
+        screen.getByRole("dialog", { name: "Add application" }),
       ).toBeInTheDocument();
     },
   );
 
-  it("mounts the create sheet only once Add is pressed, so it fetches nothing before", async () => {
+  it("opens the quick add for a screen that asks (openQuickAdd)", async () => {
+    mockPhoneViewport();
+    const user = userEvent.setup();
+    renderShell("/applications", { children: <CreateFirst /> });
+
+    await user.click(screen.getByRole("button", { name: "create first" }));
+    expect(
+      screen.getByRole("dialog", { name: "Add application" }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides Add on an archived cycle's Pipeline, and keeps it on Today", async () => {
+    mockPhoneViewport();
+    const user = userEvent.setup();
+    const { unmount } = renderShell("/applications", {
+      children: <PickPastCycle />,
+    });
+    expect(screen.getByRole("button", { name: "Add" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "pick past cycle" }));
+    expect(
+      screen.queryByRole("button", { name: "Add" }),
+    ).not.toBeInTheDocument();
+    // The tab bar stays: the archived Pipeline is still a tab root.
+    expect(
+      screen.getByRole("navigation", { name: "Primary" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("main").className).toContain(
+      "scroll-pb-[calc(110px+env(safe-area-inset-bottom,0px))]",
+    );
+    unmount();
+
+    renderShell("/dashboard", { children: <PickPastCycle /> });
+    await user.click(screen.getByRole("button", { name: "pick past cycle" }));
+    expect(screen.getByRole("button", { name: "Add" })).toBeInTheDocument();
+  });
+
+  it("draws no tab bar, no FAB and no reservation while a screen is chromeless", () => {
+    mockPhoneViewport();
+    const { rerender } = renderShell("/applications", {
+      children: <PhoneChromeless />,
+    });
+
+    expect(document.querySelector('[data-slot="phone-tab-bar"]')).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Add" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("main").className).not.toContain("scroll-pb-");
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+
+    // The marker gone (back to the list): the chrome is back.
+    rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <CycleProvider>
+          <AppShell
+            activePath="/applications"
+            navItems={navItemsFor(false, BOTH, { hasReportsBadge: true })}
+            user={USER}
+            onLogout={vi.fn()}
+          >
+            <p>page content</p>
+          </AppShell>
+        </CycleProvider>
+      </QueryClientProvider>,
+    );
+    expect(
+      screen.getByRole("navigation", { name: "Primary" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add" })).toBeInTheDocument();
+  });
+
+  it("mounts the quick-add sheet only once Add is pressed, so it fetches nothing before", async () => {
     mockPhoneViewport();
     sheetRendered.mockClear();
     const user = userEvent.setup();
@@ -301,15 +379,13 @@ describe("PhoneShell below md", () => {
     },
   );
 
-  it("pads today's content and keeps it clear of the tab bar and FAB", () => {
+  it("pads a screen without a board with today's padding", () => {
     mockPhoneViewport();
-    renderShell("/dashboard");
+    renderShell("/jobs");
     const slot = document.querySelector('[data-slot="app-content"]')!;
 
     expect(slot.className).toContain("px-4");
-    expect(slot.className).toContain(
-      "pb-[calc(170px+env(safe-area-inset-bottom,0px))]",
-    );
+    expect(slot.className).toContain("pt-6");
   });
 
   it.each([
@@ -348,13 +424,15 @@ describe("PhoneShell below md", () => {
     ).toBeTruthy();
   });
 
-  it("reserves the tab bar alone on Agenda and 40px elsewhere", () => {
+  it("leaves the four tab roots' bottom room to their boards, and reserves 40px elsewhere", () => {
     mockPhoneViewport();
-    const { unmount } = renderShell("/agenda");
-    expect(
-      document.querySelector('[data-slot="app-content"]')!.className,
-    ).toContain("pb-[calc(110px+env(safe-area-inset-bottom,0px))]");
-    unmount();
+    for (const path of TAB_PATHS) {
+      const { unmount } = renderShell(path);
+      expect(
+        document.querySelector('[data-slot="app-content"]')!.className,
+      ).not.toMatch(/(^|\s)pb-/);
+      unmount();
+    }
 
     renderShell("/jobs");
     expect(
@@ -379,7 +457,7 @@ describe("PhoneShell below md", () => {
     renderShell("/dashboard");
     await user.click(screen.getByRole("button", { name: "Add" }));
     expect(
-      screen.getByRole("dialog", { name: "New Application" }),
+      screen.getByRole("dialog", { name: "Add application" }),
     ).toBeInTheDocument();
 
     viewport.setPhone(false);
@@ -388,7 +466,7 @@ describe("PhoneShell below md", () => {
     // The rail's own nav is "Primary" too: look for the tab bar itself.
     expect(document.querySelector('[data-slot="phone-tab-bar"]')).toBeNull();
     expect(
-      screen.queryByRole("dialog", { name: "New Application" }),
+      screen.queryByRole("dialog", { name: "Add application" }),
     ).not.toBeInTheDocument();
 
     viewport.setPhone(true);
@@ -396,7 +474,7 @@ describe("PhoneShell below md", () => {
       screen.getByRole("navigation", { name: "Primary" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("dialog", { name: "New Application" }),
+      screen.queryByRole("dialog", { name: "Add application" }),
     ).not.toBeInTheDocument();
   });
 });

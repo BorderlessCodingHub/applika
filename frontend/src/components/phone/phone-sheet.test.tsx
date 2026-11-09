@@ -1,10 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { mockPhoneViewport } from "@/test/phone";
-import { PhoneSheet } from "./phone-sheet";
+import {
+  PhoneSheet,
+  PhoneSheetClose,
+  PhoneSheetDescription,
+  PhoneSheetFrame,
+  PhoneSheetTitle,
+} from "./phone-sheet";
 
 function Harness({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) {
   const [open, setOpen] = useState(false);
@@ -80,5 +86,81 @@ describe("PhoneSheet", () => {
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(opener).toHaveFocus();
+  });
+});
+
+/** A sheet opened from a row of another sheet, as the Application's More → Delete. */
+function ChainHarness() {
+  const [first, setFirst] = useState(false);
+  const [second, setSecond] = useState(false);
+  const fallback = useRef<HTMLButtonElement>(null);
+  return (
+    <>
+      <button ref={fallback} type="button" onClick={() => setFirst(true)}>
+        more
+      </button>
+      <PhoneSheet open={first} onOpenChange={setFirst} title="Actions">
+        <button
+          type="button"
+          onClick={() => {
+            setFirst(false);
+            setSecond(true);
+          }}
+        >
+          delete row
+        </button>
+      </PhoneSheet>
+      <PhoneSheet
+        open={second}
+        onOpenChange={setSecond}
+        alert
+        title="Delete it?"
+        description="This cannot be undone."
+        fallbackFocus={fallback}
+      >
+        <PhoneSheetClose>cancel</PhoneSheetClose>
+      </PhoneSheet>
+    </>
+  );
+}
+
+describe("PhoneSheet on the frame", () => {
+  it("falls back to the given control when the one that opened it is gone", async () => {
+    mockPhoneViewport();
+    const user = userEvent.setup();
+    render(<ChainHarness />);
+
+    await user.click(screen.getByRole("button", { name: "more" }));
+    await user.click(screen.getByRole("button", { name: "delete row" }));
+    const alert = screen.getByRole("alertdialog", { name: "Delete it?" });
+    expect(alert).toHaveAccessibleDescription("This cannot be undone.");
+
+    await user.click(screen.getByRole("button", { name: "cancel" }));
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "more" })).toHaveFocus();
+  });
+
+  it("lets a board draw its own head and footer on the frame, with its own scrim", async () => {
+    mockPhoneViewport();
+    render(
+      <PhoneSheetFrame
+        open
+        onOpenChange={() => {}}
+        described
+        scrimClassName="ph-qa-scrim"
+        className="ph-qa-sheet"
+      >
+        <PhoneSheetTitle>Add application</PhoneSheetTitle>
+        <PhoneSheetDescription>Just the essentials.</PhoneSheetDescription>
+      </PhoneSheetFrame>,
+    );
+
+    const sheet = screen.getByRole("dialog", { name: "Add application" });
+    expect(sheet).toHaveAccessibleDescription("Just the essentials.");
+    expect(sheet).toHaveClass("ph-sheet", "ph-qa-sheet");
+    expect(
+      document.querySelector('[data-slot="phone-sheet-scrim"]'),
+    ).toHaveClass("ph-scrim", "ph-qa-scrim");
   });
 });

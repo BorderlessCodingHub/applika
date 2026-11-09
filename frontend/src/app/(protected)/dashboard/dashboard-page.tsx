@@ -8,8 +8,16 @@ import { AvgDaysPerStepChart } from "@/components/dashboard/avg-days-per-step-ch
 import { PlatformBreakdown } from "@/components/dashboard/platform-breakdown";
 import { ActiveVsPassiveChart } from "@/components/dashboard/active-vs-passive-chart";
 import { useCycleContext } from "@/contexts/cycle-context";
+import { TodayScreen } from "@/components/phone/screens/today-screen";
+import { useIsPhone } from "@/hooks/use-is-phone";
 
+/** `/dashboard`: below md the Today board (PRD 0021); at md and up today's dashboard, unchanged. */
 export function DashboardPage() {
+  const isPhone = useIsPhone();
+  return isPhone ? <TodayScreen /> : <DashboardDesktopPage />;
+}
+
+function DashboardDesktopPage() {
   const { selectedCycleId, isViewingPastCycle } = useCycleContext();
   const t = useTranslations("dashboard");
 

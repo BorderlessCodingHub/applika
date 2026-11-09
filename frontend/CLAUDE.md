@@ -437,6 +437,23 @@ identically to "the id isn't in this list" and would show the false notice
 on every failed load instead of leaving the resolution for a successful
 retry.
 
+**Below md `?focus=<id>` is the Application screen's address (PRD 0021).**
+`ApplicationsPage` returns `PhoneApplicationsPage` below md and today's page
+(`ApplicationsDesktopPage`, unchanged) at md and up; crossing md remounts
+the other. The phone does NOT read `?focus=` once: it reads it on every
+render through `useSearchParams` (the `jobs-page.tsx` precedent; Next keeps
+it in sync with the History API) and mirrors it in state with the "adjust
+state when a prop changes" pattern, so the back gesture works. A Pipeline
+row's plain tap `pushState`s `?focus=<id>` (the row is a real link to that
+address for a new tab); "Pipeline" goes `history.back()` when that tap
+pushed it, else `replaceState(null, "", "/applications")` (opened from
+Today, the Agenda or a link). Never `router.replace`/`router.push` on the
+same path (a no-op here). The quick add opens a new application the same
+way: `pushState` on `/applications`, `router.push` from anywhere else. The
+list's scroll and the focus on the opened row come back with it. An id the
+viewed cycle does not hold shows "This application is not in the cycle you
+are viewing." as the screen's own card, not a toast; the URL keeps it.
+
 ### Providers
 
 Providers are split into two layers:
@@ -1349,6 +1366,17 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   dead code; `.ics` export now lives only on the agenda page
   (`genAgendaStepIcsFile`). Porting it to the timeline form is an open owner
   call, not an oversight.
+- **On a phone (PRD 0021).** The Application screen
+  (`/applications?focus=<id>` below md) and Today's "Needs your attention"
+  mount this module's `TimelineEventForm` through
+  `components/phone/phone-timeline-dialog.tsx`: "Log update" is Add event
+  (it reads the application's events for R-030), "Close it" / "Close" is
+  close mode. A closed application (`finalized_at`) shows Reopen only
+  (`useReopenApplication`), an archived cycle nothing to write. The history
+  reads the timeline itself (`lib/application-history.ts`): a future event
+  is "scheduled", a past interview followed by a later event "passed",
+  anything else past "done"; the stage reached is the furthest of the
+  events (`reachedStage`).
 - **jsdom polyfills for Radix in `src/test/setup.ts`.** `hasPointerCapture` /
   `setPointerCapture` / `releasePointerCapture` / `scrollIntoView` and a
   `ResizeObserver` stub were added here (KODI-012) — jsdom implements none of
@@ -1523,6 +1551,15 @@ window, same `AgendaStep` fields (R-014/R-012).
 - **Tab state is never in the URL.** `Tabs defaultValue="upcoming"` means a
   fresh page load — including a hard refresh — always opens on Upcoming,
   which is the owner's explicit ask ("upcoming first and active by default").
+- **Below md the page is the Schedule board** (`AgendaPage` returns
+  `screens/agenda-screen.tsx` `AgendaScreen`; the desktop body is
+  `AgendaDesktopPage`, unchanged). It reuses this module's primitives:
+  `agenda-view.ts` now also exports `agendaStartInstant(step, localTz)` (a
+  timed step's start in its own zone, an untimed one's local midnight),
+  `calendarDayIn` and `getUserTimezone`; `isStepPast` decides "Done" and
+  the bell (timed upcoming only), `getDisplayTime` the local times. The
+  window is the shown week plus 60 days (`useAgenda({from_date, to_date})`,
+  so the phone's request differs from the desktop's ±30 days default).
 
 ### Application drafts (`src/components/application-drafts/`, PRD 0010, KODI-033)
 
@@ -2539,8 +2576,15 @@ h-viewport` column (no rail, no navigation sheet, no `Header`), the back bar
   ABOVE exactly ONE `<main>` that scrolls, holding
   `data-slot="app-content"` with `CliPromoBanner` first, then the page; the
   tab bar after `<main>`; the FAB; ONE hoisted `FeedbackDialog`.
-  `usePhoneShell()` gives a screen inside it `{navItems, openFeedback}` (the
-  Account hub's rows and its Send feedback).
+  `usePhoneShell()` gives a screen inside it `{navItems, openFeedback,
+openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
+  "Create your first application"); `useOptionalPhoneShell()` is the same or
+  `null` outside the shell (a screen rendered alone in a test).
+  `<PhoneChromeless />` (renders `null`) hides the tab bar, the FAB and their
+  bottom reservation while it is mounted: the Application screen renders it
+  (v2/Application draws neither and owns its sticky header and fixed bar).
+  It is COUNTED in a layout effect, the `FullWidthContent` shape, and a
+  no-op outside the shell.
 - **`components/layout/phone-nav.ts`** is the map, one place: `TAB_ROOTS`
   (`/dashboard` Today, `/applications` Pipeline, `/agenda` Agenda,
   `/insights` Insights), `FAB_PATHS` (`/dashboard`, `/applications`),
@@ -2553,16 +2597,19 @@ h-viewport` column (no rail, no navigation sheet, no `Header`), the back bar
   `/admin/features/view` "Features", `/admin/supports` and
   `/admin/discord-webhooks` "Admin"; any other address "Back" → `/dashboard`),
   `PHONE_SCREEN_PATHS` (screens rendered from their board, which own the
-  board's padding: `/account`, `/insights`, `/welcome`, `/device` so far —
-  add a route when its board lands) and `accountRows(navItems)`. Words are getters over `word()`, so the
+  board's padding: `/dashboard`, `/applications`, `/agenda`, `/account`,
+  `/insights`, `/welcome`, `/device` so far — add a route when its board
+  lands) and `accountRows(navItems)`. Words are getters over `word()`, so the
   shell also calls `useTranslations`.
 - **Padding.** A route not yet ported keeps today's content inside the phone
   layout with `px-4 pt-6` and a bottom reservation for the fixed chrome:
   `calc(170px + env(safe-area-inset-bottom, 0px))` with tab bar and FAB,
   `110px + …` with the tab bar alone, `40px` otherwise. A ported screen
   (`PHONE_SCREEN_PATHS`) gets no padding from the shell and reserves its own
-  (`120px + …` above a `.ph-bar`). Not yet ported tab roots get an interim row
-  holding only the avatar (today's page keeps its own h1). `<main>` also takes
+  (`170px + …` on Today and the Pipeline, `110px + …` on the Agenda and
+  Insights, `120px + …` above a `.ph-bar` or the Application bar). Each tab
+  root's board header carries the avatar (the interim avatar row is gone).
+  `<main>` also takes
   the matching `scroll-pb-*` on every screen with fixed chrome, so a focused
   control is scrolled clear of the tab bar and FAB (WCAG 2.4.11), and
   `.ph-scroll` (no visible scrollbar, as the boards draw it). The FAB comes
@@ -2572,9 +2619,25 @@ h-viewport` column (no rail, no navigation sheet, no `Header`), the back bar
   it is the only "Primary" landmark; at md and up the rail's nav has the same
   name, so a test crossing md looks for `[data-slot="phone-tab-bar"]`.
 - **FAB** ("Add", `aria-haspopup="dialog"`) on `/dashboard` and
-  `/applications` only. It toggles `quickAddOpen` in the shell; the slot holds
-  today's create sheet (`ApplicationFormSheet`) until the quick-add board
-  lands. It lives in the shell, so crossing md unmounts it.
+  `/applications` only, and not on an archived cycle's Pipeline (read-only,
+  as the desktop hides "New application"; Today keeps it). It opens the
+  quick-add sheet (`screens/quick-add-sheet.tsx` `QuickAddSheet`, v2/QuickAdd
+  on `PhoneSheetFrame`), mounted in the shell on the first press, so the
+  closed sheet fetches nothing before and crossing md unmounts a half-filled
+  one (it is not autosaved). Company is `CompanySelect`, Role, "Where did you
+  apply?" is up to three platform chips (the ones the user's current-cycle
+  applications use most, then by name; the first is picked) plus "Other"
+  (`PlatformSelect`), "Applied on" is Today / Yesterday / Pick a date
+  (`DatePickerInput`, `maxDate` today; days are LOCAL calendar days, never
+  `toISOString`), and "More details" folds the link, the work mode and the
+  salary (from/to sent as `salary_range_min/max` in the PROFILE's
+  `salary_currency`/`salary_period`; without both a salary is refused with
+  "Set your salary currency and period in your profile first, or leave the
+  salary empty"). "Add to pipeline" creates with `mode: "active"` through
+  `useApplicationMutate` (its `onSuccess` now receives the saved row), puts
+  the app back on the current cycle (`setSelectedCycleId(null)`) and opens
+  `/applications?focus=<id>`. "Start with a CV instead" (`/applications/new-with-cv`)
+  only with `cvs`.
 - **Avatar** (`PhoneAvatar`): the initials (`lib/phone-format.ts`
   `initials()`: first + last name's first letters, else the username's first
   two, uppercased — the desktop avatar's rule) in a link named "Account" to
@@ -2607,6 +2670,53 @@ h-viewport` column (no rail, no navigation sheet, no `Header`), the back bar
   props): top bar, tab bar, FAB, avatar, heading, sheet (Radix Dialog, closes
   itself when `PHONE_QUERY` stops matching), segmented, option, switch, pill, chip,
   group/row, field, action bar, stat grid; icons in `phone-icons.ts`.
+- **The core screens (v2/Today, v2/Pipeline, v2/QuickAdd,
+  v2/Application, v2/Schedule, v2/Insights).** Each `*-page.tsx` is a
+  wrapper: `useIsPhone() ? <XScreen/> : <XDesktopPage/>`, the desktop body
+  renamed and unchanged, so hook order never changes. Each screen file holds
+  the designer's `XScreenView` (props in, board out) and the wired `XScreen`
+  on today's hooks; pure logic is in `src/lib`: `pipeline.ts`
+  (`pipelineStage` from `last_step` — closed once `finalized_at`, none →
+  Applied, "Initial Screen" → Screening, "Offer" → Offer, "Denied" → Closed,
+  any other → Technical; `lastUpdate`, `STALE_DAYS = 14`, `isStale` more
+  than 14 days, `ago`, `groupByStage`, `attentionList`, `reachedStage`),
+  `insights.ts` (funnel, 8 ISO weeks, `stepDays` floored at 0 with `null`
+  for the dash, mode), `phone-format.ts` (greeting by hour and first name,
+  `timeToStart`, `nextInterview`/`upcomingAgenda`/`agendaDay` through
+  `agenda-view.ts`'s zone primitives, local `dayKey`/`parseDayKey`,
+  `stageTitleKey`/`stagePillKey`), `application-history.ts` (the history's
+  scheduled / passed / done). Every data section is a `PhoneLoad`
+  (`components/phone/phone-load.tsx` `PhoneLoadable`; `phone-query-load.ts`
+  `fromQuery` maps a query: `getApiError`, Retry refetches). Today reads
+  `useApplications(null)` and `useGeneralStats(null)` — the CURRENT cycle,
+  whatever is viewed — and `useAgenda()`, which is not cycle-scoped (every
+  application's interviews, as on the desktop). Pipeline, the Application screen and
+  Insights read the viewed cycle (`CycleProvider`); Insights' cycle pill is
+  where a phone picks it (the header's cycle selector is desktop only), and
+  an archived cycle is read-only everywhere (no Add, no bar, no Edit,
+  Delete or Reopen); a tap on an application link on Today or the Agenda,
+  while an archive is viewed, views the current cycle again first when the
+  application is in it (`phone/current-cycle-links.tsx`
+  `OpensOnCurrentCycle`), else the archive stays. Log update / Close it / Close
+  open today's `TimelineEventForm` (`phone/phone-timeline-dialog.tsx`, add
+  or close), mounted open with no Radix trigger, so it hands focus back
+  itself through the form's optional `onCloseAutoFocus` (threaded to
+  `TimelineEventDialog`; the desktop passes none): to the button that opened
+  it (found by its `data-action`, as Safari does not focus a tapped button),
+  else — or when that button leaves soon after, a closed card leaving
+  Today's list, Close turning into Reopen — to the screen's fallback. On
+  close it also refreshes `["applications"]`: the timeline hooks refresh no
+  list, and the phone's stage, Stale, "Denied" and Today's attention all
+  read `last_step` from it;
+  Edit opens today's `ApplicationFormSheet` (its optional
+  `onCloseAutoFocus` returns focus to More). The Agenda's week is the
+  viewer's: `agendaDay` puts a timed item on the local day of its start;
+  `useAgenda({from_date, to_date})` asks for the shown week and 60 days
+  after it ("Later" is the next five after the chosen day); the bell
+  (`useAgendaNotifications`) only on a timed upcoming card. Drafts on the
+  Pipeline: one "Drafts" pill after the stages, with `cvs`, on the current
+  cycle, with at least one draft. `useMinuteClock()` (`hooks/`) refreshes
+  "in 2h 15m" and "Done".
 - **Signed-in screens from their boards** switch with `useIsPhone()` and
   keep today's data wiring: `WelcomeScreen` returns `PhoneWelcomeScreen`
   below md (v2/Welcome: `radiogroup` "How to start" of two `PhoneOption
@@ -2639,9 +2749,20 @@ size="lg"`, restore preselected, ONE CTA that follows the choice —
   renders desktop. `src/test/phone.ts` `mockPhoneViewport()` makes the phone
   query match for one test and `setPhone(false)` turns the screen past md.
   A CSS-switched screen renders BOTH trees in jsdom: scope queries by the
-  tree's `data-slot`. `e2e/shell-responsive.spec.ts` walks the phone shell at
+  tree's `data-slot`. `src/test/phone-screens.tsx` `renderPhoneScreen(path,
+page)` renders a route in the phone shell with the query client, the cycle
+  context and the messages in the VIEWER's zone (the setup's provider is
+  UTC; run the Agenda's tests under `TZ=UTC` and `TZ=Asia/Tokyo`);
+  `src/test/navigation.ts` is a `next/navigation` stand-in whose
+  `useSearchParams` follows `pushState`/`replaceState`/`popstate`;
+  `src/test/timeline-dialog-stub.tsx` stands in for `TimelineEventForm`
+  (Cancel, Save — which refreshes the applications in close mode only, as
+  the real form does — and Radix's `onCloseAutoFocus` on unmount).
+  `e2e/shell-responsive.spec.ts` walks the phone shell at
   390×844; `e2e/phone.spec.ts` the public screens (`/`, `/cookie-policy`,
-  `/cli`, `/cli/code`); `borderless-signin.spec.ts` option C's states and
+  `/cli`, `/cli/code`) and, signed in as e2e-user, Today, Add → quick add →
+  the Application screen → Pipeline (the row under Applied; its application
+  deleted in `afterAll`), the Agenda's week and Insights' cycle sheet; `borderless-signin.spec.ts` option C's states and
   the welcome choice; `devices.spec.ts` `/device`. `e2e/support/phone.ts`
   has `PHONE` (390×844), `expectPhoneTargets` (every rendered control's box
   at least 44×44, and a floor on how many were measured) and
@@ -2649,7 +2770,24 @@ size="lg"`, restore preselected, ONE CTA that follows the choice —
 - **Locator traps.** "Profile" is inside "View profile"; "Account" names the
   avatar, a back link and the hub's region; "Add", "Back" and "Dark" are
   inside longer names — use `exact: true` in Playwright. A row's name is its
-  label only; its meta is its description.
+  label only; its meta is its description. On the core screens: "Close" (a
+  sheet's X), "Close it" (Today) and the Application bar's "Close" — use
+  `[data-action="close-application"]`; the "Today" date chip vs the "Today"
+  tab; the "Agenda" link and h1 vs the tab; the Pipeline's pills are tabs
+  named with their counts ("All 34"); "Offer" (pill) vs "Offers" (stat);
+  the picked-date trigger is named "Applied on"; "Success rate" names a
+  label and a progressbar; "Active" is a `dt` and a legend item;
+  "Applications" is inside "Applications per week"; "Pipeline" is a tab and
+  the Application screen's back link; the Agenda's day panel is a
+  `tabpanel`, not a region. Hooks: `data-slot` `phone-today`,
+  `today-next-interview`, `today-stats`, `today-attention(-item)`,
+  `today-upcoming(-item)`, `phone-pipeline`, `pipeline-summary`,
+  `pipeline-empty`, `phone-application` (`data-application-id`,
+  `data-closed`, `data-archived`), `application-actions`, `phone-agenda`,
+  `agenda-event`, `phone-insights`; `data-action` `log-update`,
+  `close-application`, `reopen`, `more`, `back`, `choose-cycle`,
+  `previous-week`, `next-week`, `alert`; rows carry `data-application-id`,
+  `data-stage`, `data-stale`.
 
 ---
 
@@ -2670,7 +2808,10 @@ size="lg"`, restore preselected, ONE CTA that follows the choice —
 | `src/hooks/use-is-phone.ts`                       | `useIsPhone()` (below md), `useLeaveAtDesktop()` for the phone-only routes            |
 | `src/styles/phone.css`                            | The V2 pattern sheet, every class `ph-` prefixed                                      |
 | `src/components/phone/`                           | Phone primitives, `phone-icons.ts`, `screens/` (the ported boards)                    |
-| `src/lib/phone-format.ts`                         | `initials()` and `displayName()` with the username fallback                           |
+| `src/lib/phone-format.ts`                         | `initials()`, `displayName()`, greeting, time to start, agenda days, stage keys       |
+| `src/lib/pipeline.ts`                             | Pipeline stage from `last_step`, stale (more than 14 days), ago, groups, attention    |
+| `src/lib/insights.ts`                             | Insights funnel, 8 ISO weeks, average days per step (floored, dash), mode             |
+| `src/components/phone/screens/`                   | The ported boards: each `XScreenView` and its wired `XScreen`                         |
 | `src/components/layout/nav.ts`                    | Nav entries, `navItemsFor()` feature + admin filter, `isNavItemActive()`              |
 | `src/components/layout/sidebar.tsx`               | Rail body: brand, nav, account menu (rail AND mobile sheet)                           |
 | `src/components/layout/sidebar-nav.tsx`           | Nav entry list; owns `aria-current="page"`                                            |

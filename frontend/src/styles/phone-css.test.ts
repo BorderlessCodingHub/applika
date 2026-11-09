@@ -385,3 +385,305 @@ describe("phone.css: the sign-in, public and CLI boards", () => {
     expect(outside).not.toMatch(/\.ph-pair\b/);
   });
 });
+
+// v2/Today, v2/Pipeline, v2/QuickAdd, v2/Application, v2/Schedule and
+// v2/Insights: each board's own classes, then what the app adds to them.
+const CORE_BOARDS = [
+  // shared by these boards
+  "ph-ghost",
+  "ph-input-soft",
+  "ph-lbl-strong",
+  "ph-kv",
+  "ph-card-lg",
+  "ph-h2-sm",
+  "ph-sub",
+  // v2/Today
+  "ph-today",
+  "ph-today-head",
+  "ph-today-date",
+  "ph-today-h1",
+  "ph-hero",
+  "ph-hero-eyebrow",
+  "ph-hero-dot",
+  "ph-hero-when",
+  "ph-hero-title",
+  "ph-hero-sub",
+  "ph-hero-actions",
+  "ph-hero-range",
+  "ph-hero-cal",
+  "ph-hero-open",
+  "ph-stats",
+  "ph-stats-num",
+  "ph-stats-lbl",
+  "ph-stats-go",
+  "ph-sec-head",
+  "ph-sec-count",
+  "ph-sec-link",
+  "ph-attn-list",
+  "ph-attn-head",
+  "ph-tile",
+  "ph-attn-text",
+  "ph-attn-company",
+  "ph-attn-role",
+  "ph-attn-quiet",
+  "ph-attn-clock",
+  "ph-attn-actions",
+  "ph-caught-up",
+  "ph-up-list",
+  "ph-up-row",
+  "ph-up-date",
+  "ph-up-dow",
+  "ph-up-day",
+  "ph-up-text",
+  "ph-up-title",
+  "ph-up-sub",
+  "ph-up-time",
+  // v2/Pipeline
+  "ph-pipe-head",
+  "ph-pipe-bar",
+  "ph-pipe-sub",
+  "ph-pipe-pills",
+  "ph-stage-pill",
+  "ph-stage-pill-count",
+  "ph-pipe-main",
+  "ph-stage-h",
+  "ph-stage-dot",
+  "ph-stage-count",
+  "ph-pipe-row",
+  "ph-pipe-text",
+  "ph-pipe-company",
+  "ph-pipe-role",
+  "ph-pipe-meta",
+  "ph-pipe-ago",
+  "ph-stale",
+  "ph-stale-dot",
+  "ph-outcome",
+  "ph-show-more",
+  // v2/QuickAdd
+  "ph-qa-scrim",
+  "ph-qa-sheet",
+  "ph-qa-grab",
+  "ph-qa-head",
+  "ph-qa-title",
+  "ph-qa-close",
+  "ph-qa-lead",
+  "ph-qa-form",
+  "ph-qa-group",
+  "ph-qa-group-lbl",
+  "ph-qa-choices",
+  "ph-choice",
+  "ph-qa-more",
+  "ph-qa-more-hint",
+  "ph-qa-more-chev",
+  "ph-qa-details",
+  "ph-qa-salary",
+  "ph-qa-foot",
+  "ph-qa-cv",
+  "ph-qa-cta",
+  // v2/Application
+  "ph-ap-more",
+  "ph-ap-main",
+  "ph-ap-tile",
+  "ph-ap-h1",
+  "ph-ap-role",
+  "ph-ap-meta",
+  "ph-ap-steps",
+  "ph-ap-step",
+  "ph-ap-step-bar",
+  "ph-ap-step-label",
+  "ph-ap-next",
+  "ph-ap-next-eyebrow",
+  "ph-ap-next-title",
+  "ph-ap-next-when",
+  "ph-ap-cal",
+  "ph-kv-list",
+  "ph-ap-link",
+  "ph-ap-history-h",
+  "ph-ap-history",
+  "ph-ap-ev",
+  "ph-ap-ev-rail",
+  "ph-ap-ev-dot",
+  "ph-ap-ev-line",
+  "ph-ap-ev-body",
+  "ph-ap-ev-title",
+  "ph-ap-ev-when",
+  "ph-ap-notes",
+  "ph-ap-bar",
+  "ph-ap-close",
+  "ph-ap-log",
+  // v2/Schedule (the Agenda)
+  "ph-ag-top",
+  "ph-ag-head",
+  "ph-ag-month-row",
+  "ph-ag-month",
+  "ph-ag-nav",
+  "ph-ag-week",
+  "ph-ag-day",
+  "ph-ag-dow",
+  "ph-ag-num",
+  "ph-ag-dot",
+  "ph-ag-main",
+  "ph-ag-gh",
+  "ph-ag-list",
+  "ph-ag-ev",
+  "ph-ag-when-col",
+  "ph-ag-time",
+  "ph-ag-end",
+  "ph-ag-line",
+  "ph-ag-card",
+  "ph-ag-card-head",
+  "ph-ag-pill-dot",
+  "ph-ag-when",
+  "ph-ag-h3",
+  "ph-ag-sub",
+  "ph-ag-notes",
+  "ph-ag-actions",
+  "ph-ag-icon",
+  "ph-ag-open",
+  "ph-ag-empty",
+  // v2/Insights
+  "ph-ins",
+  "ph-ins-head",
+  "ph-ins-cycle",
+  "ph-ins-hero",
+  "ph-ins-label",
+  "ph-ins-rate",
+  "ph-ins-meter",
+  "ph-ins-meter-fill",
+  "ph-ins-dl",
+  "ph-ins-stat",
+  "ph-ins-stat-label",
+  "ph-ins-stat-value",
+  "ph-ins-funnel",
+  "ph-ins-fn-head",
+  "ph-ins-fn-label",
+  "ph-ins-fn-n",
+  "ph-ins-fn-pct",
+  "ph-ins-track",
+  "ph-ins-fill",
+  "ph-ins-week-head",
+  "ph-ins-weeks",
+  "ph-ins-week",
+  "ph-ins-week-v",
+  "ph-ins-week-bar",
+  "ph-ins-days",
+  "ph-ins-day",
+  "ph-ins-day-label",
+  "ph-ins-day-value",
+  "ph-ins-mode",
+  "ph-ins-mode-a",
+  "ph-ins-mode-p",
+  "ph-ins-legend",
+  "ph-ins-key",
+  "ph-ins-swatch",
+  "ph-ins-key-n",
+] as const;
+
+const CORE_ADAPTATIONS = [
+  "ph-pipe-top",
+  "ph-pipe-search",
+  "ph-today-greet",
+  "ph-hero-btns",
+  "ph-qa-error",
+  "ph-input-soft-host",
+  "ph-ap-head",
+  "ph-ap-readonly",
+  "ph-ap-tile-row",
+  "ph-ap-danger",
+  "ph-ag-allday",
+  "ph-ins-archived",
+  "ph-ins-empty",
+  "ph-ins-cycle-name",
+] as const;
+
+describe("phone.css: Today, Pipeline, QuickAdd, Application, Schedule, Insights", () => {
+  it.each([...CORE_BOARDS, ...CORE_ADAPTATIONS])("declares .%s", (name) => {
+    expect(DECLARED.has(name), `.${name} is not declared`).toBe(true);
+  });
+
+  it("draws v2/Today's hero, ghost buttons and Coming up rows at the board's sizes", () => {
+    const hero = ruleBody(".ph-hero");
+    expect(hero).toMatch(/padding:\s*20px/);
+    expect(hero).toMatch(/border-radius:\s*24px/);
+    expect(hero).toMatch(/160deg/);
+    expect(hero).toMatch(/var\(--primary\) 16%/);
+    expect(hero).toMatch(/var\(--primary\) 35%/);
+    expect(ruleBody(".ph-hero-cal")).toMatch(/width:\s*44px/);
+    expect(ruleBody(".ph-hero-cal")).toMatch(/border-radius:\s*14px/);
+    const ghost = ruleBody(".ph-ghost");
+    expect(ghost).toMatch(/height:\s*40px/);
+    expect(ghost).toMatch(/padding:\s*0 14px/);
+    expect(ghost).toMatch(/border-radius:\s*12px/);
+    expect(ruleBody(".ph-up-row")).toMatch(/min-height:\s*64px/);
+  });
+
+  it("draws v2/Pipeline's pills, rows and Show more at the board's sizes", () => {
+    const pill = ruleBody(".ph-stage-pill");
+    expect(pill).toMatch(/height:\s*40px/);
+    expect(pill).toMatch(/border-radius:\s*999px/);
+    expect(ruleBody(".ph-pipe-row")).toMatch(/min-height:\s*68px/);
+    expect(ruleBody(".ph-show-more")).toMatch(/min-height:\s*48px/);
+    // The 40px pill and ghost button get a 44px box, the shape drawn inside it.
+    expect(css).toMatch(
+      /\.ph-ghost,\s*\.ph-stage-pill\s*\{[^}]*height:\s*44px/,
+    );
+  });
+
+  it("truncates a long company, role or name instead of breaking the row", () => {
+    for (const name of [".ph-pipe-company", ".ph-pipe-role"]) {
+      expect(ruleBody(name), name).toMatch(/text-overflow:\s*ellipsis/);
+    }
+    expect(css).toMatch(
+      /\.ph-attn-company,\s*\.ph-attn-role,\s*\.ph-hero-sub,\s*\.ph-up-title,\s*\.ph-up-sub,[^{]*\{[^}]*text-overflow:\s*ellipsis/,
+    );
+    expect(ruleBody(".ph-today-head .ph-today-h1")).toMatch(
+      /-webkit-line-clamp:\s*2/,
+    );
+    expect(ruleBody(".ph-ins-cycle-name")).toMatch(/text-overflow:\s*ellipsis/);
+  });
+
+  it("draws v2/QuickAdd's fields, chips and CTA at the board's sizes", () => {
+    const input = ruleBody(".ph-input-soft");
+    expect(input).toMatch(/height:\s*52px/);
+    expect(input).toMatch(/border-radius:\s*14px/);
+    expect(ruleBody(".ph-choice")).toMatch(/height:\s*44px/);
+    const cta = ruleBody(".ph-qa-cta");
+    expect(cta).toMatch(/height:\s*56px/);
+    expect(cta).toMatch(/border-radius:\s*16px/);
+  });
+
+  it("keeps the Application bar fixed over the bottom inset, and the headers sticky under it", () => {
+    const bar = ruleBody("div.ph-ap-bar");
+    expect(bar).toMatch(/position:\s*fixed/);
+    expect(bar).toMatch(/z-index:\s*40/);
+    expect(bar).toMatch(/env\(safe-area-inset-bottom, 0px\)/);
+    for (const head of [".ph-top.ph-ap-head", "div.ph-ag-top"]) {
+      const body = ruleBody(head);
+      expect(body, head).toMatch(/position:\s*sticky/);
+      expect(body, head).toMatch(/z-index:\s*30/);
+    }
+    expect(ruleBody(".ph-kv")).toMatch(/min-height:\s*52px/);
+    // The boards' rows are content-box (52px and 44px plus their border).
+    expect(css).toMatch(
+      /\.ph-kv-list > \.ph-kv,\s*\.ph-ins-days > \.ph-ins-day\s*\{[^}]*box-sizing:\s*content-box/,
+    );
+  });
+
+  it("draws v2/Schedule's week strip and card actions at the board's sizes", () => {
+    const day = ruleBody(".ph-ag-day");
+    expect(day).toMatch(/height:\s*68px/);
+    expect(day).toMatch(/border-radius:\s*16px/);
+    const icon = ruleBody(".ph-ag-icon");
+    expect(icon).toMatch(/width:\s*44px/);
+    expect(icon).toMatch(/height:\s*44px/);
+  });
+
+  it("draws v2/Insights' rate, weekly bars and day rows at the board's sizes", () => {
+    expect(ruleBody(".ph-ins-rate")).toMatch(/font-size:\s*52px/);
+    expect(ruleBody(".ph-ins-week-bar")).toMatch(/border-radius:\s*6px/);
+    expect(ruleBody(".ph-ins-week:last-child .ph-ins-week-bar")).toMatch(
+      /background:\s*var\(--primary\)/,
+    );
+    expect(ruleBody(".ph-ins-day")).toMatch(/min-height:\s*44px/);
+  });
+});

@@ -68,8 +68,15 @@ async function openDashboard(page: Page, role: SeededRole = "user") {
   const body = (await (await features).json()) as {
     features: Array<{ key: string }>;
   };
+  // At md and up today's dashboard; below md the Today board (PRD 0021),
+  // whose h1 is the greeting.
+  const phone = (page.viewportSize()?.width ?? 1280) < 768;
   await expect(
-    page.getByRole("heading", { name: "Dashboard", level: 1 }),
+    phone
+      ? page.locator('[data-slot="phone-today"]').getByRole("heading", {
+          level: 1,
+        })
+      : page.getByRole("heading", { name: "Dashboard", level: 1 }),
   ).toBeVisible();
   // At md+ the rail proves the render too; below md there is no rail, and
   // the received answer is what the Account hub lists.
@@ -442,7 +449,7 @@ test.describe("below md the phone shell carries a bottom tab bar", () => {
     await openDashboard(page);
 
     await page.getByRole("button", { name: "Add", exact: true }).click();
-    const quickAdd = page.getByRole("dialog", { name: "New Application" });
+    const quickAdd = page.getByRole("dialog", { name: "Add application" });
     await expect(quickAdd).toBeVisible();
 
     await page.setViewportSize(DESKTOP);
