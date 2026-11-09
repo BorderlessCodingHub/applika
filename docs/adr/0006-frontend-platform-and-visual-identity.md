@@ -1,6 +1,6 @@
 # ADR-0006: Frontend platform upgrade and new visual identity
 
-**Status:** Accepted by LuisMSoares on 2026-09-15 · **Date:** 2026-09-15 · **Deciders:** LuisMSoares · **Amended by:** ADR-0022 (original teal palette)
+**Status:** Accepted by LuisMSoares on 2026-09-15 · **Date:** 2026-09-15 · **Deciders:** LuisMSoares · **Amended by:** ADR-0022 (original teal palette), ADR-0027 on 2026-11-08 (phone shell below md; Borderless badge on sign-in only)
 
 ## Context
 
