@@ -13,7 +13,7 @@ import type { Page } from "@playwright/test";
  * set, which is the ONLY thing it bypasses. No login route is added, nothing
  * is mocked, and every request the app makes afterwards — starting with
  * `GET /api/users/me` — hits the real API against the real database. The
- * sign-in itself (ADR-0026: "Sign in with Borderless" → the provider's own
+ * sign-in itself (ADR-0026: "Continue with Borderless" → the provider's own
  * page → the API's callback) is driven against the fake Borderless in
  * `borderless-signin.spec.ts` (see `BORDERLESS_ACCOUNTS`, `signInWithFake`).
  */
@@ -110,16 +110,20 @@ export function borderlessUrl(path = ""): string {
   return `${base}${path}`;
 }
 
-/** The applika sign-in page's one button (ADR-0026). */
+/**
+ * The applika sign-in page's one button (ADR-0026, option C). Each width has
+ * its own tree; the hidden one is out of role queries, so this is the
+ * button the viewport shows.
+ */
 export function signInWithBorderlessButton(page: Page) {
   return page.getByRole("button", {
-    name: "Sign in with Borderless",
+    name: "Continue with Borderless",
     exact: true,
   });
 }
 
 /**
- * Signs `email` in the way a person does: `/login` → "Sign in with
+ * Signs `email` in the way a person does: `/login` → "Continue with
  * Borderless" → the fake's own sign-in page → that account's one-click
  * button → the API's callback → back on applika, signed in (or on
  * `/login?error=<code>`). Returns once the browser is back on the web origin.

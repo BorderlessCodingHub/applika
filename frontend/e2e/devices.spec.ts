@@ -1,6 +1,11 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { apiUrl, cliBearerHeader, loginAs } from "./support/auth";
+import {
+  PHONE,
+  expectNoSidewaysScroll,
+  expectPhoneTargets,
+} from "./support/phone";
 
 /**
  * Devices and CLI device sign-in (KODI-058, PRD 0014, ADR-0019) against the
@@ -10,7 +15,8 @@ import { apiUrl, cliBearerHeader, loginAs } from "./support/auth";
  * e2e-user's seeded CLI session ("e2e-cli"); e2e-user's web session, which
  * every later spec signs in with, is never revoked, and "Sign out all other
  * devices" is never confirmed here. The device grant in test 2 adds one more
- * CLI session for e2e-user, which nothing else counts.
+ * CLI session for e2e-user, which nothing else counts. The phone pass (last)
+ * approves a code it never redeems, so it opens no session.
  */
 
 const SEEDED_CLI_DEVICE = "e2e-cli";
@@ -310,16 +316,93 @@ test.describe("devices", () => {
   }) => {
     await page.goto("/cli/code?code=e2e-code&state=e2e-state");
 
+    // Both widths' trees are in the page; this viewport shows the desktop one.
+    const desktop = page.locator('[data-slot="cli-code-desktop"]');
+    await expect(page.locator('[data-slot="cli-code-phone"]')).toBeHidden();
     await expect(
-      page.getByRole("heading", { level: 1, name: "Sign in to applika-cli" }),
+      desktop.getByRole("heading", {
+        level: 1,
+        name: "Sign in to applika-cli",
+      }),
     ).toBeVisible();
     await expect(
-      page.getByText("Paste this code into your terminal"),
+      desktop.getByText("Paste this code into your terminal"),
     ).toBeVisible();
-    await expect(page.locator('[data-slot="cli-code-value"]')).toHaveText(
+    await expect(desktop.locator('[data-slot="cli-code-value"]')).toHaveText(
       "e2e-code#e2e-state",
     );
-    await expect(page.getByRole("button", { name: "Copy" })).toBeVisible();
+    await expect(desktop.getByRole("button", { name: "Copy" })).toBeVisible();
     expect(new URL(page.url()).pathname.replace(/\/$/, "")).toBe("/cli/code");
+  });
+  test("below md, /device is the DeviceSignIn board: code, request with its warning, approve, outcome", async ({
+    page,
+    request,
+  }) => {
+    const codeResponse = await request.post(apiUrl("/auth/device/code"), {
+      data: { device_name: "e2e-phone-approve" },
+    });
+    expect(codeResponse.status()).toBe(200);
+    const code = (await codeResponse.json()) as DeviceCode;
+
+    await page.setViewportSize(PHONE);
+    await loginAs(page, "user");
+    await page.goto(code.verification_uri_complete);
+
+    // The code step: the board's form, prefilled once from `?code=`.
+    const form = page.locator('[data-slot="device-code-form"]');
+    await expect(
+      form.getByRole("heading", { level: 1, name: "Sign in a device" }),
+    ).toBeVisible();
+    await expect(page.locator('[data-slot="device-sign-in"]')).toHaveCount(0);
+    await expect(page.getByLabel("Device code")).toHaveValue(code.user_code);
+    await expect(page.getByLabel("Device code")).toBeFocused();
+    await expect(
+      page.locator('[data-slot="phone-top-bar"]').getByRole("link", {
+        name: "Account",
+        exact: true,
+      }),
+    ).toHaveAttribute("href", "/account");
+    await expectPhoneTargets(page, 3);
+    await expectNoSidewaysScroll(page);
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+
+    // The request, its details and the warning; Deny / Approve in the bar.
+    const card = page.locator('[data-slot="device-request"]');
+    await expect(
+      card.getByRole("heading", {
+        level: 1,
+        name: "A device wants to sign in",
+      }),
+    ).toBeVisible();
+    await expect(card.locator('[data-slot="device-request-name"]')).toHaveText(
+      "e2e-phone-approve",
+    );
+    await expect(card.locator('[data-slot="device-request-code"]')).toHaveText(
+      code.user_code,
+    );
+    const warning = card.getByRole("note");
+    await expect(warning).toBeVisible();
+    await expect(warning).toContainText(
+      "Only approve if you started this sign-in yourself",
+    );
+    const bar = page.locator('[data-slot="phone-action-bar"]');
+    await expect(bar).toBeInViewport();
+    await expectPhoneTargets(page, 4);
+    await expectNoSidewaysScroll(page);
+    await bar.getByRole("button", { name: "Approve", exact: true }).click();
+
+    // The outcome, and the way to the Devices tab.
+    const outcome = page.locator('[data-slot="device-outcome"]');
+    await expect(outcome).toHaveAttribute("data-outcome", "approved");
+    await expect(
+      outcome.getByRole("heading", {
+        level: 1,
+        name: "Device signed in. You can return to your terminal.",
+      }),
+    ).toBeVisible();
+    await expect(
+      outcome.getByRole("link", { name: "See your devices" }),
+    ).toHaveAttribute("href", "/profile?tab=devices");
+    await expectPhoneTargets(page, 3);
   });
 });

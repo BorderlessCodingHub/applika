@@ -79,6 +79,8 @@ export function hasInterimHeading(pathname: string): boolean {
 export const PHONE_SCREEN_PATHS: ReadonlySet<string> = new Set([
   "/account",
   "/insights",
+  "/welcome",
+  "/device",
 ]);
 
 export function isPhoneScreen(pathname: string): boolean {

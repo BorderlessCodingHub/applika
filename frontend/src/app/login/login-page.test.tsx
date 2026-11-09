@@ -8,15 +8,19 @@ import { LocaleProvider } from "@/i18n/locale-provider";
 import { SIGN_IN_ERROR_CODES } from "@/components/auth/sign-in-screen";
 import { RETURN_TO_KEY } from "@/lib/return-to";
 import { services } from "@/services/services";
+import { mockPhoneViewport } from "@/test/phone";
 
 import { LoginPage, signedInLandingFor } from "./login-page";
 
 /**
- * The sign-in page (ADR-0026): one "Sign in with Borderless" button that
- * leaves for the API's `/auth/borderless/login`, the words of every
- * `?error=<code>` the callback sends back (in the active language), the
+ * The sign-in page (ADR-0026, option C): one "Continue with Borderless"
+ * button that leaves for the API's `/auth/borderless/login`, the words of
+ * every `?error=<code>` the callback sends back (in the active language), the
  * terminal hint on `&cli=1`, and where a signed-in visit lands. No password,
- * code or token is ever asked for or held.
+ * code or token is ever asked for or held. Both widths' trees are in the DOM
+ * (CSS shows one); jsdom answers `matchMedia` as a desktop, so these cases
+ * read the desktop tree (`[data-slot="sign-in-desktop"]`) unless they say
+ * otherwise. `sign-in-screen.test.tsx` covers each tree on its own.
  */
 
 const LOGIN_URL = "http://127.0.0.1:8000/api/auth/borderless/login";
@@ -50,12 +54,27 @@ function renderPage() {
   return render(<LoginPage />, { wrapper: LocaleProvider });
 }
 
-function signInButton() {
-  return screen.getByRole("button", { name: "Sign in with Borderless" });
+const LEAD =
+  "Sign in with Borderless. It confirms it's you and sends you back here.";
+
+/** The tree the width shows: desktop unless the test mocks a phone. */
+function shown(slot: "sign-in-desktop" | "sign-in-phone" = "sign-in-desktop") {
+  return document.querySelector<HTMLElement>(`[data-slot="${slot}"]`)!;
 }
 
-function errorBox() {
-  return document.querySelector<HTMLElement>('[data-slot="sign-in-error"]')!;
+/** The CTA by its hook: its name reads "Opening Borderless…" while pending. */
+function signInButton(
+  slot: "sign-in-desktop" | "sign-in-phone" = "sign-in-desktop",
+) {
+  return shown(slot).querySelector<HTMLButtonElement>(
+    'button[data-action="sign-in-borderless"]',
+  )!;
+}
+
+function errorBox(
+  slot: "sign-in-desktop" | "sign-in-phone" = "sign-in-desktop",
+) {
+  return shown(slot).querySelector<HTMLElement>('[data-slot="sign-in-error"]')!;
 }
 
 function signedIn(prompt = false): AuthState {
@@ -90,17 +109,24 @@ describe("LoginPage: the Borderless button (AC1, AC22)", () => {
   it("offers one button and no field: no email, no password, no form, no GitHub", () => {
     renderPage();
 
+    const desktop = within(shown());
     expect(
-      screen.getByRole("heading", { level: 1, name: "Sign in to applika" }),
+      desktop.getByRole("heading", { level: 1, name: "Sign in to applika" }),
     ).toBeInTheDocument();
+    expect(desktop.getByText(LEAD)).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Use your Borderless account. Borderless confirms it's you and sends you back here.",
-      ),
-    ).toBeInTheDocument();
-    expect(signInButton()).toHaveAccessibleDescription(
-      "Use your Borderless account. Borderless confirms it's you and sends you back here.",
-    );
+      desktop.getByRole("button", { name: "Continue with Borderless" }),
+    ).toBe(signInButton());
+    expect(signInButton()).toHaveAccessibleDescription(LEAD);
+    // One CTA per width, nothing else to press.
+    expect(
+      document.querySelectorAll('button[data-action="sign-in-borderless"]'),
+    ).toHaveLength(2);
+    expect(
+      within(shown("sign-in-phone")).getByRole("button", {
+        name: "Continue with Borderless",
+      }),
+    ).toBe(signInButton("sign-in-phone"));
     expect(document.querySelectorAll("input")).toHaveLength(0);
     expect(document.querySelector('input[type="password"]')).toBeNull();
     expect(document.querySelector("form")).toBeNull();
@@ -112,8 +138,8 @@ describe("LoginPage: the Borderless button (AC1, AC22)", () => {
   it("links to Borderless to create an account, in a new tab", () => {
     renderPage();
 
-    const link = screen.getByRole("link", {
-      name: "Create a Borderless account",
+    const link = within(shown()).getByRole("link", {
+      name: "I don't have a Borderless account",
     });
     expect(link).toHaveAttribute(
       "href",
@@ -184,6 +210,40 @@ describe("LoginPage: the Borderless button (AC1, AC22)", () => {
 
     await user.click(signInButton());
     expect(assign).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("LoginPage at phone width (option C below md)", () => {
+  it("focuses the phone tree's button and leaves from it, pending on both", async () => {
+    mockPhoneViewport();
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(signInButton("sign-in-phone")).toHaveFocus();
+    await user.click(signInButton("sign-in-phone"));
+
+    expect(assign).toHaveBeenCalledWith(LOGIN_URL);
+    for (const slot of ["sign-in-phone", "sign-in-desktop"] as const) {
+      expect(signInButton(slot)).toHaveAttribute("aria-busy", "true");
+      expect(signInButton(slot)).toHaveTextContent("Opening Borderless…");
+    }
+    await user.click(signInButton("sign-in-phone"));
+    expect(assign).toHaveBeenCalledTimes(1);
+  });
+
+  it("focuses the phone tree's alert on ?error=, the cli line inside it", () => {
+    mockPhoneViewport();
+    searchParams = new URLSearchParams({ error: "AUTH-1046", cli: "1" });
+    renderPage();
+
+    const box = errorBox("sign-in-phone");
+    expect(box).toHaveTextContent(
+      "The sign-in expired or was started in another browser. Start it again",
+    );
+    expect(box).toHaveTextContent(
+      "Return to your terminal and run applika login again.",
+    );
+    expect(document.activeElement).toBe(box.querySelector(".ph-signin-alert"));
   });
 });
 
@@ -260,7 +320,11 @@ describe("LoginPage: ?error=<code> (AC7, AC13, AC21)", () => {
 
       expect(errorBox()).toHaveAttribute("data-code", "unknown");
       expect(errorBox()).toHaveTextContent("Something went wrong");
-      expect(document.querySelector("img")).toBeNull();
+      expect(errorBox().querySelector("img")).toBeNull();
+      // The only images are the two badges, both from the app's own file.
+      for (const img of document.querySelectorAll("img")) {
+        expect(img).toHaveAttribute("src", "/borderless-logo.png");
+      }
     },
   );
 
@@ -321,7 +385,16 @@ describe("LoginPage: &cli=1 (AC21)", () => {
     renderPage();
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "Sign in to applika" }),
+      within(shown()).getByRole("heading", {
+        level: 1,
+        name: "Sign in to applika",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(shown("sign-in-phone")).getByRole("heading", {
+        level: 1,
+        name: "One account for your whole job search",
+      }),
     ).toBeInTheDocument();
   });
 
@@ -351,9 +424,7 @@ describe("LoginPage: a signed-in visit (the callback's success)", () => {
 
     expect(replace).toHaveBeenCalledWith("/dashboard");
     expect(replace).toHaveBeenCalledTimes(1);
-    expect(
-      screen.queryByRole("button", { name: "Sign in with Borderless" }),
-    ).not.toBeInTheDocument();
+    expect(document.querySelector('[data-slot="sign-in"]')).toBeNull();
   });
 
   it("follows the stored return-to path once", () => {

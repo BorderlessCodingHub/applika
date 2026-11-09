@@ -1,12 +1,15 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, RotateCcw, Shield } from "lucide-react";
 
 import { GithubIcon } from "@/components/brand-icons";
+import { PhoneGithub } from "@/components/phone/phone-icons";
+import { PhoneOption, PhoneOptionGroup } from "@/components/phone/phone-option";
 import { GITHUB_RESTORE_COPY } from "@/components/profile/github-restore-copy";
 import { Button } from "@/components/ui/button";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { cn } from "@/lib/utils";
 
 export type WelcomePending = "restore" | "start-fresh" | null;
@@ -22,7 +25,15 @@ export interface WelcomeScreenProps {
 }
 
 /** The one-time choice a new Borderless account sees at `/welcome`. */
-export function WelcomeScreen({
+export function WelcomeScreen(props: WelcomeScreenProps) {
+  return useIsPhone() ? (
+    <PhoneWelcomeScreen {...props} />
+  ) : (
+    <DesktopWelcomeScreen {...props} />
+  );
+}
+
+function DesktopWelcomeScreen({
   onRestore,
   onStartFresh,
   pending = null,
@@ -134,6 +145,97 @@ export function WelcomeScreen({
             {t("startFresh")}
           </Button>
         </div>
+      </div>
+    </section>
+  );
+}
+
+type WelcomeChoice = "restore" | "start-fresh";
+
+/** v2/Welcome below md: pick an answer (restore first, as drawn), then one button for it. */
+export function PhoneWelcomeScreen({
+  onRestore,
+  onStartFresh,
+  pending = null,
+  className,
+}: WelcomeScreenProps) {
+  const t = useTranslations("welcome");
+  const tPhone = useTranslations("phone.welcome");
+  const tRestore = useTranslations("profile.githubRestore");
+  const titleId = useId();
+  const [choice, setChoice] = useState<WelcomeChoice>("restore");
+  const locked = pending !== null;
+  const restore = choice === "restore";
+
+  return (
+    <section
+      aria-labelledby={titleId}
+      data-slot="welcome-phone"
+      data-pending={pending ?? undefined}
+      data-choice={choice}
+      className={cn("ph-app flex min-h-viewport flex-col", className)}
+    >
+      <div className="flex flex-1 flex-col px-6 pt-18">
+        <span className="flex size-14 items-center justify-center rounded-[18px] bg-primary-muted text-primary">
+          <RotateCcw size={26} aria-hidden="true" />
+        </span>
+        <h1 id={titleId} className="ph-h1 mt-6">
+          {t("title")}
+        </h1>
+        <p className="ph-lead text-[16px]">{t("lead")}</p>
+        <PhoneOptionGroup
+          label={tPhone("howToStart")}
+          value={choice}
+          onValueChange={(next) => setChoice(next as WelcomeChoice)}
+          disabled={locked}
+          className="mt-7 gap-3"
+        >
+          <PhoneOption
+            value="restore"
+            size="lg"
+            title={t("restoreTitle")}
+            hint={t("restoreBody")}
+          />
+          <PhoneOption
+            value="start-fresh"
+            size="lg"
+            title={t("freshTitle")}
+            hint={t("freshBody")}
+          />
+        </PhoneOptionGroup>
+      </div>
+
+      <div className="ph-safe-bottom flex flex-col gap-3 px-6 pt-4">
+        {restore ? (
+          <p data-slot="welcome-restore-hint" className="ph-hint flex gap-2">
+            <Shield size={16} aria-hidden="true" className="mt-px flex-none" />
+            {tRestore("privacy")}
+          </p>
+        ) : null}
+        <button
+          type="button"
+          data-action={choice}
+          aria-disabled={locked || undefined}
+          aria-busy={pending === choice || undefined}
+          onClick={() => {
+            if (locked) return;
+            if (restore) onRestore();
+            else onStartFresh();
+          }}
+          className="ph-btn ph-pri h-14 aria-disabled:cursor-progress aria-disabled:opacity-75"
+        >
+          {pending === choice ? (
+            <LoaderCircle
+              size={18}
+              strokeWidth={2.25}
+              aria-hidden="true"
+              className="ph-spin"
+            />
+          ) : restore ? (
+            <PhoneGithub size={18} aria-hidden="true" />
+          ) : null}
+          {restore ? t("restore") : t("startFresh")}
+        </button>
       </div>
     </section>
   );

@@ -29,14 +29,25 @@
     "logout": "Sair",
     "signIn": {
       "title": "Entre no Applika",
-      "lead": "Use sua conta da Borderless. A Borderless confirma que é você e traz você de volta para cá.",
       "signInWithBorderless": "Entrar com a Borderless",
       "pending": "Abrindo a Borderless…",
       "cliCommand": "applika login",
       "cliRetry": "Volte ao seu terminal e execute <code>{command}</code> novamente.",
-      "noAccount": "Ainda não tem conta na Borderless?",
-      "createAccount": "Criar uma conta na Borderless",
-      "opensInNewTab": "Abre em uma nova aba."
+      "opensInNewTab": "Abre em uma nova aba.",
+      "optionC": {
+        "backToHome": "Voltar ao início",
+        "logo": "Applika",
+        "badge": "com a Borderless",
+        "eyebrow": "applika × Borderless",
+        "headline": "Uma conta para toda a sua busca de emprego",
+        "lead": "Entre com a Borderless. Ela confirma que é você e traz você de volta para cá.",
+        "continue": "Continuar com a Borderless",
+        "noAccount": "Não tenho conta na Borderless",
+        "about": "Sobre o Applika",
+        "featApplications": "Todas as candidaturas em um só lugar",
+        "featInterviews": "Entrevistas na sua agenda",
+        "featReports": "Relatórios quinzenais para a sua comunidade Borderless"
+      }
     }
   },
   "cookies": {
@@ -2263,7 +2274,8 @@
       "insights": "Insights",
       "add": "Adicionar",
       "account": "Conta",
-      "back": "Voltar"
+      "back": "Voltar",
+      "home": "Início"
     },
     "account": {
       "workspace": "Espaço de trabalho",
@@ -2281,6 +2293,57 @@
       "sendFeedback": "Enviar feedback",
       "cookiePolicy": "Política de cookies",
       "openSource": "Applika.dev · código aberto"
+    },
+    "landing": {
+      "eyebrow": "Rastreador de candidaturas gratuito e de código aberto",
+      "heroTitle": "Gerencie sua busca de emprego com <highlight>clareza</highlight>.",
+      "heroBody": "Cada candidatura, entrevista e resultado em um lugar tranquilo — com os números que mostram o que está funcionando.",
+      "previewLabel": "Prévia do produto",
+      "preview": {
+        "initials": "NL",
+        "company": "Northwind Labs",
+        "role": "Engenheiro de back-end sênior",
+        "applied": "Enviada",
+        "event": "Entrevista técnica",
+        "eventTime": "sáb. 14:00",
+        "successRate": "Taxa de sucesso"
+      },
+      "features": {
+        "track": {
+          "title": "Acompanhe cada candidatura",
+          "body": "Empresa, cargo, plataforma e salário — e a etapa em que cada processo está."
+        },
+        "interviews": {
+          "title": "Nunca perca uma entrevista",
+          "body": "Cada etapa entra na sua agenda, com alertas antes de começar."
+        },
+        "learn": {
+          "title": "Descubra o que funciona",
+          "body": "Conversão por etapa, dias por etapa e busca ativa vs. passiva."
+        }
+      },
+      "stepsTitle": "Pronto para usar em minutos",
+      "steps": {
+        "signIn": {
+          "title": "Entre com a Borderless.",
+          "body": "Sem senha nova: sua conta da Borderless é a sua conta do Applika."
+        },
+        "add": {
+          "title": "Adicione suas candidaturas.",
+          "body": "Três campos bastam para começar."
+        },
+        "analyze": {
+          "title": "Analise e otimize.",
+          "body": "Seus insights se completam conforme você avança."
+        }
+      },
+      "openSourceTitle": "Código aberto, feito às claras",
+      "openSourceBody": "Cada linha de código é pública. Pedidos de recursos, relatos de bugs e pull requests são bem-vindos.",
+      "viewOnGithub": "Ver no GitHub",
+      "copyright": "© {name}"
+    },
+    "welcome": {
+      "howToStart": "Como começar"
     }
   }
 }

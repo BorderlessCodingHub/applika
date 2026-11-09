@@ -21,6 +21,11 @@ import {
   type BorderlessAccount,
 } from "./support/auth";
 import { COOKIE_NOTICE_ACKNOWLEDGED } from "./support/cookie-notice";
+import {
+  PHONE,
+  expectNoSidewaysScroll,
+  expectPhoneTargets,
+} from "./support/phone";
 
 /**
  * Borderless OpenID Connect sign-in on the real stack (ADR-0026): the built
@@ -40,6 +45,13 @@ import { COOKIE_NOTICE_ACKNOWLEDGED } from "./support/cookie-notice";
  *   tokens would be forgotten and their sessions ended.
  * - Each test starts in a new browser context, so with no fake Borderless
  *   session: the first sign-in of a test always shows the fake's own page.
+ *
+ * `/login` is sign-in option C (signin/C_Mobile below md, signin/C_Desktop at
+ * md and up), one tree per width by CSS: role queries see the tree the
+ * viewport shows; a `data-slot` locator names its tree. The last describe
+ * walks C's states at 390×844 and the desktop tree, signed out. "Opening
+ * Borderless…" (pending) lasts only until the browser leaves for the fake:
+ * `sign-in-screen.test.tsx` and `login-page.test.tsx` prove it.
  */
 
 test.describe.configure({ mode: "serial" });
@@ -116,8 +128,15 @@ async function landSignedIn(page: Page, { isNew }: { isNew: boolean }) {
   ).toBeVisible();
 }
 
-function signInError(page: Page) {
-  return page.locator('[data-slot="sign-in-error"]');
+type SignInTree = "sign-in-desktop" | "sign-in-phone";
+
+/** The refusal box of one width's tree (each tree has its own). */
+function signInError(page: Page, tree: SignInTree = "sign-in-desktop") {
+  return page.locator(`[data-slot="${tree}"] [data-slot="sign-in-error"]`);
+}
+
+function cliHint(page: Page, tree: SignInTree) {
+  return page.locator(`[data-slot="${tree}"] [data-slot="sign-in-cli-hint"]`);
 }
 
 function primaryNav(page: Page) {
@@ -420,6 +439,60 @@ test.describe("Borderless sign-in through OpenID Connect", () => {
     expect(user.badges).toEqual([]);
   });
 
+  test("a new account answers the welcome choice on a phone (v2/Welcome)", async ({
+    browser,
+  }) => {
+    // STARTER answered on the desktop just before: deleted, it is new again.
+    await deleteAccount(browser, BORDERLESS_ACCOUNTS.starter);
+    const context = await browser.newContext({
+      viewport: PHONE,
+      storageState: COOKIE_NOTICE_ACKNOWLEDGED,
+    });
+    try {
+      const page = await context.newPage();
+      await signInWithFake(page, BORDERLESS_ACCOUNTS.starter.email);
+      await page.waitForURL("**/welcome");
+
+      await expect(page.locator('[data-slot="welcome-phone"]')).toBeVisible();
+      await expect(
+        page.getByRole("heading", {
+          name: "Used applika with GitHub before?",
+          level: 1,
+        }),
+      ).toBeVisible();
+      const choice = page.getByRole("radiogroup", { name: "How to start" });
+      const restore = choice.getByRole("radio", {
+        name: "Bring back your old account",
+      });
+      const fresh = choice.getByRole("radio", {
+        name: "Start with an empty account",
+      });
+      await expect(restore).toBeChecked();
+      await expect(
+        page.getByRole("button", { name: "Restore your data from GitHub" }),
+      ).toBeVisible();
+      await expectPhoneTargets(page, 4);
+      await expectNoSidewaysScroll(page);
+
+      // One button, for the answer picked.
+      await fresh.click();
+      await expect(fresh).toBeChecked();
+      await expect(
+        page.getByRole("button", { name: "Restore your data from GitHub" }),
+      ).toHaveCount(0);
+      await page
+        .getByRole("button", { name: "Start fresh", exact: true })
+        .click();
+
+      await page.waitForURL("**/dashboard");
+      await expect(page.locator('[data-slot="phone-tab-bar"]')).toBeVisible();
+      const user = await (await page.request.get(apiUrl("/users/me"))).json();
+      expect(user.github_restore).toEqual({ available: true, prompt: false });
+    } finally {
+      await context.close();
+    }
+  });
+
   test("the profile offers the GitHub restore; it leaves for github.com asking only read:user", async ({
     page,
   }) => {
@@ -711,5 +784,174 @@ test.describe("Borderless sign-in through OpenID Connect", () => {
       data: { refresh_token: revokeCli!.refresh_token },
     });
     expect(signOut.status()).toBe(204);
+  });
+});
+
+test.describe("sign-in option C, signed out", () => {
+  const AUTH_1046 =
+    "The sign-in expired or was started in another browser. Start it again";
+  const CLI_RETRY = "Return to your terminal and run applika login again.";
+
+  async function openPhone(page: Page, path: string) {
+    await page.setViewportSize(PHONE);
+    await page.goto(path);
+    await expect(page.locator('[data-slot="sign-in-phone"]')).toBeVisible();
+    await expect(page.locator('[data-slot="sign-in-desktop"]')).toBeHidden();
+  }
+
+  test("390×844, ready: C_Mobile's heading, the badge on the app icon, Continue with Borderless", async ({
+    page,
+  }) => {
+    await openPhone(page, "/login");
+    const phone = page.locator('[data-slot="sign-in-phone"]');
+
+    await expect(
+      page.getByRole("heading", {
+        name: "One account for your whole job search",
+        level: 1,
+      }),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await expect(
+      phone.getByRole("img", { name: "Applika", exact: true }),
+    ).toBeVisible();
+    const badge = phone.getByRole("img", { name: "with Borderless" });
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveAttribute("src", "/borderless-logo.png");
+    // Served by the built frontend: the image decoded.
+    expect(
+      await badge.evaluate((img) => (img as HTMLImageElement).naturalWidth),
+    ).toBeGreaterThan(0);
+    await expect(phone.getByText("applika × Borderless")).toBeVisible();
+
+    // Focus on load lands in the visible tree's CTA.
+    const cta = signInWithBorderlessButton(page);
+    await expect(cta).toHaveCount(1);
+    await expect(cta).toBeVisible();
+    await expect(cta).toBeFocused();
+    await expect(cta).toHaveAccessibleDescription(
+      "Sign in with Borderless. It confirms it's you and sends you back here.",
+    );
+    const account = page.getByRole("link", {
+      name: "I don't have a Borderless account",
+    });
+    await expect(account).toBeVisible();
+    await expect(account).toHaveAttribute("target", "_blank");
+    await expect(account).toHaveAccessibleDescription("Opens in a new tab.");
+    await expect(
+      page.getByRole("link", { name: "Back to home", exact: true }),
+    ).toHaveAttribute("href", "/");
+    await expect(
+      page.getByRole("radiogroup", { name: "Toggle language" }),
+    ).toHaveCount(1);
+    await expect(signInError(page, "sign-in-phone")).toBeEmpty();
+    await expect(cliHint(page, "sign-in-phone")).toHaveCount(0);
+    await expect(page.locator("input")).toHaveCount(0);
+
+    await expectPhoneTargets(page, 5);
+    await expectNoSidewaysScroll(page);
+  });
+
+  test("390×844, refused: ?error=AUTH-1046 says why in the phone tree's alert, focused", async ({
+    page,
+  }) => {
+    await openPhone(page, "/login?error=AUTH-1046");
+
+    const alert = signInError(page, "sign-in-phone");
+    await expect(alert).toHaveAttribute("data-code", "AUTH-1046");
+    await expect(alert).toHaveText(AUTH_1046);
+    await expect(alert).toBeVisible();
+    await expect(alert.locator('[tabindex="-1"]')).toBeFocused();
+    await expect(cliHint(page, "sign-in-phone")).toHaveCount(0);
+    // The way back is right below the words.
+    await expect(signInWithBorderlessButton(page)).toBeVisible();
+    await expectPhoneTargets(page, 5);
+    await expectNoSidewaysScroll(page);
+  });
+
+  test("390×844, from the command line: &cli=1 shows the terminal hint", async ({
+    page,
+  }) => {
+    await openPhone(page, "/login?cli=1");
+
+    const hint = cliHint(page, "sign-in-phone");
+    await expect(hint).toBeVisible();
+    await expect(hint).toHaveText(CLI_RETRY);
+    await expect(hint.locator("code")).toHaveText("applika login");
+    await expect(signInError(page, "sign-in-phone")).toBeEmpty();
+    // The h1 stays the web sign-in's: the button starts a web sign-in.
+    await expect(
+      page.getByRole("heading", {
+        name: "One account for your whole job search",
+        level: 1,
+      }),
+    ).toBeVisible();
+    await expect(signInWithBorderlessButton(page)).toBeFocused();
+    await expectNoSidewaysScroll(page);
+  });
+
+  test("390×844, refused from the command line: the reason and the cli line in one alert", async ({
+    page,
+  }) => {
+    await openPhone(page, "/login?error=AUTH-1046&cli=1");
+
+    const alert = signInError(page, "sign-in-phone");
+    await expect(alert).toHaveAttribute("data-code", "AUTH-1046");
+    await expect(alert).toContainText(AUTH_1046);
+    await expect(alert).toContainText(CLI_RETRY);
+    await expect(
+      alert.locator('[data-slot="sign-in-cli-hint"] code'),
+    ).toHaveText("applika login");
+    await expect(cliHint(page, "sign-in-phone")).toHaveCount(1);
+    await expect(alert.locator('[tabindex="-1"]')).toBeFocused();
+    await expectPhoneTargets(page, 5);
+    await expectNoSidewaysScroll(page);
+  });
+
+  test("desktop: C_Desktop's h1 beside the About applika panel, the phone tree hidden", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/login");
+
+    const desktop = page.locator('[data-slot="sign-in-desktop"]');
+    await expect(desktop).toBeVisible();
+    await expect(page.locator('[data-slot="sign-in-phone"]')).toBeHidden();
+    await expect(
+      page.getByRole("heading", { name: "Sign in to applika", level: 1 }),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    const about = page.getByRole("region", { name: "About applika" });
+    await expect(about).toBeVisible();
+    await expect(
+      about.getByRole("heading", {
+        name: "One account for your whole job search",
+        level: 2,
+      }),
+    ).toBeVisible();
+    for (const feature of [
+      "Every application in one place",
+      "Interviews on your agenda",
+      "Biweekly reports for your Borderless community",
+    ]) {
+      await expect(about.getByText(feature)).toBeVisible();
+    }
+    await expect(
+      about.getByRole("img", { name: "with Borderless" }),
+    ).toBeVisible();
+    await expect(signInWithBorderlessButton(page)).toBeFocused();
+    await expect(
+      page.getByRole("link", { name: "Back to home", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("radiogroup", { name: "Toggle language" }),
+    ).toBeVisible();
+    await expectNoSidewaysScroll(page);
+
+    // From md (768) up the desktop tree fits with no second breakpoint.
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await expect(desktop).toBeVisible();
+    await expect(signInWithBorderlessButton(page)).toBeInViewport();
+    await expectNoSidewaysScroll(page);
   });
 });

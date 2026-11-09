@@ -646,6 +646,421 @@
     }
   }
 
+  /* Board-only classes, bodies as drawn; C_Desktop's twins of C_Mobile's names are -lg / c-side-glow. */
+
+  .ph-c-glow {
+    position: absolute;
+    left: 50%;
+    top: 150px;
+    width: 360px;
+    height: 360px;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: radial-gradient(
+      circle,
+      oklch(0.768 0.139 174.6 / 0.18) 0%,
+      oklch(0.506 0.156 295.7 / 0.1) 45%,
+      transparent 70%
+    );
+  }
+
+  .ph-app-ic {
+    position: relative;
+    width: 104px;
+    height: 104px;
+    border-radius: 30px;
+    background: linear-gradient(
+      150deg,
+      color-mix(in oklab, var(--primary) 22%, var(--surface)),
+      var(--surface)
+    );
+    border: 1px solid color-mix(in oklab, var(--primary) 35%, transparent);
+    box-shadow: var(--shadow-elevated), var(--ph-glow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+  }
+
+  .ph-c-badge {
+    position: absolute;
+    right: -14px;
+    bottom: -14px;
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 0 0 4px var(--background);
+  }
+
+  .ph-c-badge img {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .ph-c-side {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    background: linear-gradient(
+      160deg,
+      color-mix(in oklab, var(--primary) 10%, var(--background)),
+      var(--background) 60%
+    );
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 96px;
+  }
+
+  .ph-c-side-glow {
+    position: absolute;
+    right: -120px;
+    top: -120px;
+    width: 520px;
+    height: 520px;
+    border-radius: 999px;
+    background: radial-gradient(
+      circle,
+      oklch(0.506 0.156 295.7 / 0.16) 0%,
+      transparent 65%
+    );
+  }
+
+  .ph-app-ic-lg {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    border-radius: 34px;
+    background: linear-gradient(
+      150deg,
+      color-mix(in oklab, var(--primary) 22%, var(--surface)),
+      var(--surface)
+    );
+    border: 1px solid color-mix(in oklab, var(--primary) 35%, transparent);
+    box-shadow: var(--shadow-elevated), var(--ph-glow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+  }
+
+  .ph-c-badge-lg {
+    position: absolute;
+    right: -16px;
+    bottom: -16px;
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 0 0 5px var(--background);
+  }
+
+  .ph-c-badge-lg img {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .ph-feat {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .ph-feat span {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--primary-muted);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-doc h2 {
+    margin: 28px 0 8px;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .ph-doc p {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.6;
+    color: color-mix(in oklab, var(--foreground) 82%, transparent);
+  }
+
+  .ph-ck {
+    padding: 14px 16px;
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* The boards' inline style blocks made classes, bodies as drawn. */
+
+  .ph-c-main {
+    width: 560px;
+    flex: none;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 80px;
+    box-sizing: border-box;
+  }
+
+  .ph-c-headline {
+    position: relative;
+    margin: 12px 0 0;
+    max-width: 520px;
+    font-size: 44px;
+    line-height: 1.08;
+    font-weight: 800;
+    letter-spacing: -0.035em;
+  }
+
+  .ph-signin-alert {
+    margin-top: 24px;
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid color-mix(in oklab, var(--destructive) 40%, transparent);
+    background: color-mix(in oklab, var(--destructive) 10%, transparent);
+    display: flex;
+    gap: 10px;
+  }
+
+  .ph-signin-alert code {
+    padding: 1px 5px;
+    border-radius: 5px;
+    background: var(--muted);
+    font-size: 13px;
+    color: var(--foreground);
+  }
+
+  .ph-signin-hint {
+    margin: 24px 0 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--muted);
+    display: flex;
+    gap: 10px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .ph-signin-hint code {
+    padding: 1px 5px;
+    border-radius: 5px;
+    background: var(--background);
+    font-size: 13px;
+  }
+
+  .ph-landing-header {
+    height: 64px;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .ph-landing-hero {
+    padding: 32px 20px 0;
+  }
+
+  .ph-landing-eyebrow {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--primary);
+  }
+
+  .ph-landing-h1 {
+    margin: 12px 0 0;
+    font-size: 42px;
+    line-height: 1.05;
+    font-weight: 800;
+    letter-spacing: -0.035em;
+  }
+
+  .ph-landing-lead {
+    margin: 16px 0 0;
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--muted-foreground);
+  }
+
+  .ph-landing-preview {
+    padding: 36px 20px 8px;
+  }
+
+  .ph-landing-preview-card {
+    padding: 18px;
+    border-radius: 22px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-elevated);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-landing-preview-tile {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: var(--accent);
+    color: var(--accent-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .ph-landing-stage {
+    flex: none;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--primary-muted);
+    color: var(--accent-foreground);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .ph-landing-event {
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: var(--background);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-landing-stats {
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .ph-landing-features {
+    padding: 48px 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .ph-landing-feature-tile {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: var(--primary-muted);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-landing-steps {
+    margin: 48px 20px 0;
+    padding: 24px;
+    border-radius: 24px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .ph-landing-quote {
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.45;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  .ph-landing-open {
+    margin: 48px 20px 0;
+    padding-top: 28px;
+    border-top: 1px solid var(--border);
+  }
+
+  .ph-landing-footer {
+    margin-top: 40px;
+    padding: 0 20px 140px;
+    display: flex;
+    gap: 20px;
+    font-size: 13px;
+  }
+
+  .ph-landing-cta {
+    position: sticky;
+    bottom: 0;
+    margin-top: auto;
+    padding: 12px 20px 28px;
+    background: linear-gradient(to top, var(--background) 70%, transparent);
+  }
+
+  .ph-landing-cta-btn {
+    height: 54px;
+    border-radius: 16px;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: 0 0 24px -4px oklch(0.768 0.139 174.6 / 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .ph-cli-code {
+    margin: 28px 0 0;
+    width: 100%;
+    padding: 22px 12px;
+    box-sizing: border-box;
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    user-select: all;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-device-code {
+    height: 64px;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-align: center;
+  }
+
+  .ph-device-note {
+    padding: 14px;
+    border-radius: 16px;
+    background: color-mix(in oklab, var(--warning) 12%, transparent);
+    border: 1px solid color-mix(in oklab, var(--warning) 40%, transparent);
+    display: flex;
+    gap: 10px;
+  }
+
   /* What the app needs on top of the boards. */
 
   .ph-app {
@@ -818,5 +1233,62 @@
   .ph-app :is(.ph-hit, .ph-avatar):focus-visible > * {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
+  }
+
+  /* Light `--ph-glow: none` voids the list (elevated alone); boards are content-box, no reset. */
+
+  .ph-app-ic,
+  .ph-app-ic-lg {
+    box-sizing: content-box;
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .dark .ph-app-ic,
+  .dark .ph-app-ic-lg {
+    box-shadow: var(--shadow-elevated), var(--ph-glow);
+  }
+
+  /* C desktop from 768 to 1920 with no second breakpoint: equal to the board at 1440. */
+
+  .ph-c-side {
+    padding: 0 clamp(32px, 6.667vw, 96px);
+  }
+
+  .ph-c-main {
+    width: clamp(400px, 38.889vw, 560px);
+    padding: 0 clamp(32px, 5.556vw, 80px);
+  }
+
+  .ph-c-headline {
+    font-size: clamp(30px, 3.056vw, 44px);
+  }
+
+  /* Bottom blocks clear the home indicator. */
+
+  .ph-landing-cta {
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ph-safe-bottom {
+    padding-bottom: calc(36px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* A screen under the shell's 56px back bar fills the rest, as the board's column does. */
+
+  .ph-below-top {
+    min-height: calc(100dvh - var(--cookie-notice-height, 0px) - 56px);
+  }
+
+  /* The language + theme pair in the boards' chip slot: 44px boxes below md, its classes untouched. */
+
+  @media (max-width: 47.99rem) {
+    .ph-pair [role="radio"] {
+      height: 44px;
+    }
+
+    .ph-pair > button {
+      min-width: 44px;
+      min-height: 44px;
+    }
   }
 }

@@ -1,16 +1,25 @@
-import { render, screen } from "@testing-library/react";
-import { NextIntlClientProvider } from "next-intl";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { APP_CONFIG } from "@/config";
-import en from "@/i18n/messages/en.json";
-import ptBR from "@/i18n/messages/pt-BR.json";
+import { LocaleProvider } from "@/i18n/locale-provider";
+import { renderInPortuguese } from "@/test/portuguese";
 
 import { CliPage } from "./cli-page";
 
+// Below md the page sits under the phone public bar, which holds the
+// language switcher: it needs a `LocaleProvider`.
+function renderPage() {
+  return render(<CliPage />, { wrapper: LocaleProvider });
+}
+
+function publicBar() {
+  return document.querySelector<HTMLElement>('[data-slot="phone-public-bar"]')!;
+}
+
 describe("CliPage", () => {
   it("shows the CLI, its install commands and links to PyPI", () => {
-    render(<CliPage />);
+    renderPage();
 
     expect(
       screen.getByRole("heading", { level: 1, name: "applika-cli" }),
@@ -24,16 +33,31 @@ describe("CliPage", () => {
     }
   });
 
-  it("reads in Portuguese (Brazil), commands unchanged", () => {
-    render(
-      <NextIntlClientProvider
-        locale="pt-BR"
-        messages={ptBR as unknown as typeof en}
-        timeZone="UTC"
-      >
-        <CliPage />
-      </NextIntlClientProvider>,
+  it("keeps today's content under the phone public bar: Home and the pair", () => {
+    renderPage();
+
+    const bar = publicBar();
+    expect(bar).toHaveClass("md:hidden");
+    expect(within(bar).getByRole("link", { name: "Home" })).toHaveAttribute(
+      "href",
+      "/",
     );
+    expect(
+      within(bar).getByRole("radiogroup", { name: "Toggle language" }),
+    ).toBeInTheDocument();
+    expect(
+      within(bar).getByRole("button", { name: /toggle theme/i }),
+    ).toBeInTheDocument();
+    // The bar comes before today's one <main>, never inside it.
+    const main = screen.getByRole("main");
+    expect(main).not.toContainElement(bar);
+    expect(
+      bar.compareDocumentPosition(main) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("reads in Portuguese (Brazil), commands unchanged", async () => {
+    await renderInPortuguese(<CliPage />, { localeSwitch: true });
 
     expect(
       screen.getByRole("heading", { level: 2, name: "Instalação" }),
@@ -45,5 +69,8 @@ describe("CliPage", () => {
       }),
     ).toBeVisible();
     expect(screen.getByText("uv tool install applika-cli")).toBeVisible();
+    expect(
+      within(publicBar()).getByRole("link", { name: "Início" }),
+    ).toHaveAttribute("href", "/");
   });
 });

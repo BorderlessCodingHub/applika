@@ -14,14 +14,18 @@ import {
 } from "@/components/language-toggle";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { Header } from "@/components/layout/header";
+import { PhoneLanding } from "@/components/phone/landing/phone-landing";
+import { PhonePublicBar } from "@/components/phone/phone-public-bar";
 import { LocaleProvider } from "@/i18n/locale-provider";
 import type { User } from "@/services/types/users";
 
 /**
- * Where the language switcher is mounted (plan 0019): the signed-in header,
- * the landing header (the cookie policy page shares it), the sign-in page and
- * the terminal code page. The `default` look everywhere, right before the
- * theme toggle; the `landing` look is ported but mounted nowhere.
+ * Where the language switcher is mounted (plan 0019, PRD 0021): the signed-in
+ * header, the landing header (md and up; the cookie policy and /cli pages
+ * share it), the phone landing's header and the phone public bar (below md:
+ * /cookie-policy, /cli), the sign-in page and the terminal code page (one
+ * mount each, laid out for both widths). The `default` look everywhere, right
+ * before the theme toggle; the `landing` look is ported but mounted nowhere.
  */
 
 vi.mock("next/navigation", () => ({
@@ -117,6 +121,22 @@ describe("LanguageToggle mounts", () => {
     expectDefaultToggleBeforeTheme();
   });
 
+  it("the phone landing's header holds it, default look, before the theme toggle", () => {
+    render(<PhoneLanding />, { wrapper: Providers });
+    expectDefaultToggleBeforeTheme();
+    expect(screen.getByRole("banner")).toContainElement(
+      screen.getByRole("radiogroup", { name: "Toggle language" }),
+    );
+  });
+
+  it("the phone public bar (cookie policy, /cli below md) holds it, default look", () => {
+    render(<PhonePublicBar />, { wrapper: Providers });
+    expectDefaultToggleBeforeTheme();
+    expect(screen.getByRole("banner")).toContainElement(
+      screen.getByRole("radiogroup", { name: "Toggle language" }),
+    );
+  });
+
   it("no source file mounts the landing look; every mount asks for default", () => {
     const root = resolve(process.cwd(), "src");
     const mounts = readdirSync(root, { recursive: true })
@@ -134,6 +154,8 @@ describe("LanguageToggle mounts", () => {
       "components/cli-code/cli-code-screen.tsx",
       "components/landing/landing-header.tsx",
       "components/layout/header.tsx",
+      "components/phone/landing/phone-landing.tsx",
+      "components/phone/phone-public-bar.tsx",
     ]);
     for (const [, text] of mounts) {
       const tags = text.match(/<LanguageToggle\b[^>]*>/g) ?? [];

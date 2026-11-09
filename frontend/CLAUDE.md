@@ -132,7 +132,10 @@ the one other active session it ends is the device grant it made itself. Then
 `/device?code=` → `/login` → `loginAs` + `/dashboard` lands back on `/device`
 with the code filled in; "Sign out all other devices" ends the granted
 session (its Bearer gets 401) and keeps "This device"; `/cli/code?code=&state=`
-shows `code#state`.
+shows `code#state` (in its desktop tree); last, at 390×844, a new code
+walks the DeviceSignIn board: code → request with its warning note →
+Approve in the action bar → the outcome and "See your devices". That code
+is never redeemed, so it opens no session.
 
 **The job board in E2E (KODI-049).** `docker-compose.e2e.yml` also runs
 `worker` and `scheduler` (`applika-e2e-worker`/`-scheduler`, the
@@ -230,7 +233,8 @@ almost every session refresh and report request refreshes at the fake.
 `e2e/support/auth.ts`: `BORDERLESS_ACCOUNTS` mirrors the fake's accounts
 (`sub`, `email`, `password`: `user` (seeded, never through the web),
 `free`, `starter`, `unverified`, `revoke`, `logout`), `borderlessUrl(path)`,
-`signInWithBorderlessButton(page)` and `signInWithFake(page, email)`
+`signInWithBorderlessButton(page)` (the "Continue with Borderless" button of
+the tree the viewport shows) and `signInWithFake(page, email)`
 (`/login` → the button → the fake's page → that account's one-click button
 named by its email → back on the web origin; only in a context with NO fake
 session — with one the fake answers straight back and its page never shows).
@@ -250,6 +254,8 @@ once → no chip, no Reports, `GET /reports` 403 `RPT-1001`; e2e-starter → no
 chip; the profile restore aborted at `github.com` (`scope=read:user`, a
 `state`) and its outcome notice; e2e-unverified → `/login?error=AUTH-1005`
 (nothing else in the URL) with its words; seeded e2e-user's PSP chip;
+a new account's welcome choice at 390×844 (STARTER deleted and signed in
+again: the "How to start" radiogroup, Start fresh → the phone dashboard);
 `/api/auth/cli/authorize` (PKCE) → the fake's page despite its session
 (`prompt=login` logged) → the API callback's 307 to the CLI's loopback
 `http://127.0.0.1:<port>/callback` with exactly `code` and `state` (the
@@ -268,6 +274,12 @@ its Bearer `GET /reports` 403 AUTH-1050, its `GET /users/me/sessions` lists
 every web row `revoked`; the button again (one click) → PSP chip → the CLI's
 `GET /reports` 200 → `POST /auth/revoke` 204. It never signs a seeded user in
 through the web (that would add a web session `devices.spec.ts` lists).
+Its last describe is read-only and signed out: option C's states at
+390×844 (`/login` ready — the phone h1, the decoded badge image, the CTA
+focused —, `?error=AUTH-1046`, `?cli=1`, `?error=AUTH-1046&cli=1`) and the
+desktop tree (h1 "Sign in to applika", the "About applika" region, fitting
+at 768 with no sideways scroll). Pending is not walked there: it lasts only
+until the browser leaves for the fake.
 `e2e/admin-report-webhooks.spec.ts`
 (serial): add with BASE + PSP (both chips), masked row, the token never in
 `page.content()`, narrow to PSP without resending the URL, delete as its own
@@ -288,7 +300,7 @@ Route groups control access:
 
 Each protected route has a thin `page.tsx` shell that renders a `*-page.tsx` component containing the actual logic.
 
-`/login` lives at `src/app/login/`, OUTSIDE the `(public)` group, so it renders no landing header or footer. It is the "Sign in with Borderless" button behind a Suspense shell (it reads `?error=` and `?cli=1`); `/welcome` is the one-time choice of a new account (see **Sign-in, welcome, membership badge**).
+`/login` lives at `src/app/login/`, OUTSIDE the `(public)` group, so it renders no landing header or footer. It is sign-in option C with its one "Continue with Borderless" button, behind a Suspense shell (it reads `?error=` and `?cli=1`); `/welcome` is the one-time choice of a new account (see **Sign-in, welcome, membership badge**).
 
 CLI sign-in routes (KODI-058, ADR-0019):
 
@@ -497,18 +509,37 @@ SameSite=Lax` (not HttpOnly; JS writes it).
   presentational half. Ungated (ADR-0025 beta exception): no `FeatureKey`,
   `useHasFeature` or `FeatureGate`. Mount it outside any `<form>`; in
   Playwright use `.click()`/`.check()`, not arrow keys.
-- **Where it mounts: four places, `variant="default"` in all of them**, in
-  both themes, at every width, no portal (it renders inline in its host's
-  layer of the **Stacking contract**): the signed-in `Header` (right before
-  `ThemeToggle`, so every protected page, `/welcome` and `/device` included);
-  `LandingHeader` (first in the controls group, before `ThemeToggle` and the
-  CTA; `/cookie-policy` shares it through `(public)/layout.tsx`); and the
-  top-right `absolute top-4 right-4 z-10` box of `SignInScreen` (`/login`) and
-  `CliCodeScreen` (`/cli/code`), before `ThemeToggle`, outside `<main>`.
-  Order is always language, then theme. The `landing` look
-  is ported but mounted NOWHERE. `language-toggle-mounts.test.tsx` scans
-  `src/**/*.tsx` for `<LanguageToggle` and expects exactly these four files,
-  each `variant="default"`: a new mount is added to its list.
+- **Where it mounts: six files, `variant="default"` in all of them**, in
+  both themes, no portal (it renders inline in its host's layer of the
+  **Stacking contract**), one mount per file and ONE switcher on screen at
+  any width. Order is always language, then theme, as siblings:
+  - the signed-in `Header` (right before `ThemeToggle`, so every protected
+    page at md and up, `/welcome` and `/device` included; below md a
+    signed-in page has no header and the Account hub's "Language" radiogroup
+    is the switch, see **Phone shell**);
+  - `LandingHeader`, md and up only (`(public)/layout.tsx` hides it below
+    md): first in the controls group, before `ThemeToggle` and the CTA, for
+    `/`, `/cookie-policy` and `/cli`;
+  - below md, the header of `PhoneLanding` (`/`), in
+    `components/phone/landing/phone-landing.tsx`, and `PhonePublicBar`,
+    the "Home" back bar of `/cookie-policy` and `/cli`, in
+    `components/phone/phone-public-bar.tsx`;
+  - `SignInScreen` (`/login`) and `CliCodeScreen` (`/cli/code`): one mount
+    laid out for both widths, outside both trees and outside `<main>`. On
+    `/login` it is `[data-slot="sign-in-bar"]`: below md the C_Mobile top
+    bar (back "Back to home" → `/` on the left, the pair on the right), at md
+    and up `absolute top-5 right-6 z-10`; on `/cli/code` the
+    `absolute top-4 right-4 z-10` box at both widths.
+
+  Below md the pair sits in a `.ph-pair` wrapper: `phone.css` gives its
+  radios a 44px height and the theme button a 44×44 box under
+  `@media (max-width: 47.99rem)`, so `LanguageToggle`'s own classes stay
+  exactly today's and md and up renders as before. The `landing` look is
+  ported but mounted NOWHERE. `language-toggle-mounts.test.tsx` scans
+  `src/**/*.tsx` for `<LanguageToggle` and expects exactly these six files,
+  each with one `<LanguageToggle variant="default" />`: a new mount is
+  added to its list.
+
 - **Locators for the switcher.** The group is a `radiogroup` named "Toggle
   language" ("Alternar idioma" in Portuguese); its radios are NAMED by their
   endonyms "English" and "Português" (each with its own `lang`) and their
@@ -517,7 +548,11 @@ SameSite=Lax` (not HttpOnly; JS writes it).
   protected page now carries those two radios, so a page-level
   `getByRole("radio")` counts them: scope radio locators to the owning group or
   dialog, and scope the switcher itself to the header (`getByRole("banner")`)
-  inside the shell (the cv-builder picker lesson). Substring pairs to anchor
+  inside the shell (the cv-builder picker lesson). The public screens mount
+  both widths' trees but one pair: Playwright's role queries skip the
+  `display: none` tree, so `getByRole("radiogroup", { name: "Toggle
+language" })` finds exactly one at any width; in vitest (no CSS) it is one
+  too, because the pair sits outside the trees. Substring pairs to anchor
   after switching back to English: Cancel/Cancelar, Client/Cliente,
   Confirm/Confirmar, Edit/Editar, Revert/Reverter.
 - **Dates**: `i18n/date-locale.ts` `dateFnsLocale(locale)`; `ui/date-picker.tsx`
@@ -561,9 +596,9 @@ The Axios instance in `src/lib/api-client.ts` handles cookie-based auth with `wi
 
 ### Auth & Token Refresh
 
-Sign-in is Borderless's own OpenID Connect sign-in, started by the "Sign in
-with Borderless" button at `/login` (ADR-0026; see **Sign-in, welcome,
-membership badge**); there is no GitHub sign-in and no password anywhere in
+Sign-in is Borderless's own OpenID Connect sign-in, started by the
+"Continue with Borderless" button at `/login` (ADR-0026; see **Sign-in,
+welcome, membership badge**); there is no GitHub sign-in and no password anywhere in
 the web. Authentication uses HTTP-only JWT cookies that the API's callback
 sets; the web never sees a code, a state or a token. Token refresh is handled via **polling in AuthContext** (not via Axios interceptor):
 
@@ -1706,15 +1741,42 @@ and Discord linking are gone; nothing in `src/` calls `/auth/github/login` or
 `/auth/link/discord`. Not behind a beta gate (ADR-0024 §9, ADR-0026).
 
 - **`/login`** (`app/login/page.tsx` Suspense shell, `login-page.tsx`) is the
-  ui-designer's `SignInScreen` (`components/auth/sign-in-screen.tsx`): logo,
-  h1 "Sign in to applika" (always, even with `&cli=1`), lead, the "Sign in
-  with Borderless" button (`[data-action="sign-in-borderless"]`), "Create a
-  Borderless account" (`APP_CONFIG.borderless.signUpUrl`, new tab). The button
+  ui-designer's `SignInScreen` (`components/auth/sign-in-screen.tsx`), sign-in
+  **option C at both widths** (the owner: "To the artifact for sign-in, I
+  choose the option C."; PRD 0021): `signin/C_Mobile` below md,
+  `signin/C_Desktop` at md and up, with `v2/SignIn`'s states drawn inside.
+  Both trees are mounted and CSS shows one (`md:hidden` /
+  `hidden md:flex`), so there is no hydration mismatch:
+  `main[data-slot="sign-in-phone"]` (the glow, the Applika app icon 104 with
+  the Borderless badge, eyebrow "applika × Borderless", h1 "One account for
+  your whole job search", lead, the CTA h56 and the account link at the
+  bottom) and `[data-slot="sign-in-desktop"]` (`section` "About applika":
+  icon 120 + badge 54, the same eyebrow, the headline as an h2 and three
+  feature rows; `main.ph-c-main`: h1 "Sign in to applika" — always, even
+  with `&cli=1` — lead, states, the CTA h52 r14, the account link). The
+  desktop tree is fluid from 768 to 1920 with no second breakpoint
+  (`clamp()` on the side padding, the main width and padding, and the h2),
+  and equals the board at 1440×900. `ph-` classes style both trees
+  (`.ph-app` on the root: C_Desktop's root is `.app` too); the language +
+  theme pair is mounted once outside both (see **i18n**). The Applika mark
+  is `role="img"` "Applika"; the badge is
+  `public/borderless-logo.png` (`BORDERLESS_BADGE_SRC`, a copy of the design
+  file's asset) through `next/image` `unoptimized`, `alt` "with Borderless",
+  in `[data-slot="sign-in-badge"]`; the badge is on the sign-in page only
+  (ADR-0027). The lead is "Sign in with Borderless. It confirms it's you and
+  sends you back here." and describes the CTA (`aria-describedby`, an id per
+  tree). The CTA (`[data-action="sign-in-borderless"]`, one per tree) reads
+  "Continue with Borderless"; the link "I don't have a Borderless account"
+  (`[data-slot="create-borderless-account"]`) opens
+  `APP_CONFIG.borderless.signUpUrl` in a new tab (`rel="noopener
+noreferrer"`, described by the sr-only "Opens in a new tab."). The button
   does `window.location.assign(services.auth.borderlessLoginUrl())`
   (`{apiBaseURL}/auth/borderless/login`, a top-level navigation: the API 307s
   to Borderless with PKCE S256, state and nonce, no `prompt`). It stays
-  pending (`aria-disabled` + `aria-busy`, focus kept, an sr-only
-  `role="status"` "Opening Borderless…") until the browser leaves;
+  pending (`aria-disabled` + `aria-busy`, focus kept, opacity .75, the
+  spinner and the label "Opening Borderless…" in both trees, plus ONE
+  sr-only `role="status"` `[data-slot="sign-in-pending-status"]` with the
+  same words) until the browser leaves;
   `login-page.tsx` resets it on `pageshow` with `event.persisted` (Back
   from Borderless restores the page from the bfcache). No `input` and no
   `form` on the page. `SignInLink` (`components/auth-buttons.tsx`) is a plain
@@ -1730,11 +1792,20 @@ and Discord linking are gone; nothing in `src/` calls `/auth/github/login` or
   1046..1049, GEN-1005, all free of ICU arguments): a code from the URL
   never puts an arbitrary catalog sentence on screen, and anything else reads
   `errors.unknown` (`signInErrorKey`). A new code the API sends to `?error=`
-  is added there. The box `[data-slot="sign-in-error"]` is always mounted
-  with `role="alert"` and carries `data-code` (the shown key); with an error,
-  focus goes to it on load (else to the button). `&cli=1` adds
-  `[data-slot="sign-in-cli-hint"]` "Return to your terminal and run
-  `applika login` again." (the command in `<code>`). A refused CLI attempt
+  is added there. **The five states** sit under the lead in each tree:
+  ready; pending; refused (the alert `.ph-signin-alert`, its code's words);
+  from the command line (`&cli=1`: the hint `.ph-signin-hint` with a
+  terminal icon); refused from the command line (the alert, with the cli
+  line inside it). Each tree has its own `[data-slot="sign-in-error"]`,
+  always mounted with `role="alert"` and `data-code` (the shown key), and
+  its own `[data-slot="sign-in-cli-hint"]` "Return to your terminal and run
+  `applika login` again." (the command in `<code>`). **Focus on load lands
+  in the VISIBLE tree** (`matchMedia(PHONE_QUERY)` picks it, never the
+  hidden one): its alert box (`tabindex="-1"`) when there is an error, else
+  its CTA. Tests scope every query to a tree's `data-slot` (vitest renders
+  both; Playwright's role queries see the visible one, but a `data-slot`
+  locator matches both — name the tree, e.g.
+  `[data-slot="sign-in-phone"] [data-slot="sign-in-error"]`). A refused CLI attempt
   stays on screen even for a signed-in browser; a stale WEB error with a live
   session moves on. "Sign in" is in the h1, the button and the AUTH-1049
   words: Playwright needs `exact: true`, and never `getByRole("alert")`
@@ -2482,8 +2553,8 @@ h-viewport` column (no rail, no navigation sheet, no `Header`), the back bar
   `/admin/features/view` "Features", `/admin/supports` and
   `/admin/discord-webhooks` "Admin"; any other address "Back" → `/dashboard`),
   `PHONE_SCREEN_PATHS` (screens rendered from their board, which own the
-  board's padding: `/account`, `/insights` so far — add a route when its board
-  lands) and `accountRows(navItems)`. Words are getters over `word()`, so the
+  board's padding: `/account`, `/insights`, `/welcome`, `/device` so far —
+  add a route when its board lands) and `accountRows(navItems)`. Words are getters over `word()`, so the
   shell also calls `useTranslations`.
 - **Padding.** A route not yet ported keeps today's content inside the phone
   layout with `px-4 pt-6` and a bottom reservation for the fixed chrome:
@@ -2536,10 +2607,45 @@ h-viewport` column (no rail, no navigation sheet, no `Header`), the back bar
   props): top bar, tab bar, FAB, avatar, heading, sheet (Radix Dialog, closes
   itself when `PHONE_QUERY` stops matching), segmented, option, switch, pill, chip,
   group/row, field, action bar, stat grid; icons in `phone-icons.ts`.
+- **Signed-in screens from their boards** switch with `useIsPhone()` and
+  keep today's data wiring: `WelcomeScreen` returns `PhoneWelcomeScreen`
+  below md (v2/Welcome: `radiogroup` "How to start" of two `PhoneOption
+size="lg"`, restore preselected, ONE CTA that follows the choice —
+  `[data-action="restore"]` or `[data-action="start-fresh"]` — on the same
+  restore / dismiss calls); `device-page.tsx` hands the same props to
+  `components/phone/screens/device-screen.tsx` (`PhoneDeviceCode`,
+  `PhoneDeviceRequest` with the `role="note"` warning and Deny / Approve in
+  a `PhoneActionBar`, `PhoneDeviceOutcome`) instead of `DeviceSignInLayout`
+  and `components/device/*`. The data hooks (`device-code-form`,
+  `device-request*`, `device-outcome`) are the same at both widths; the
+  step and `?code=` survive a crossing of md.
+- **Public screens switch by CSS**, one tree per width with a `data-slot`
+  per tree, so the static HTML hydrates as is: `/` (`PhoneLanding`
+  `[data-slot="landing-phone"]`, v2/Landing, with its sticky
+  `[data-slot="landing-phone-cta"]`; today's sections in
+  `[data-slot="landing-desktop"]`), `/cookie-policy` (`PhoneCookiePolicy`
+  `[data-slot="cookie-policy-phone"]`, today's words in the board's cards
+  `li[data-slot="cookie-row"][data-cookie]`; today's page in
+  `[data-slot="cookie-policy-desktop"]`), `/cli/code`
+  (`[data-slot="cli-code-phone"]` / `[data-slot="cli-code-desktop"]`) and
+  `/login` (above). `/cli` has no board: below md today's content sits under
+  `PhonePublicBar` (`components/phone/phone-public-bar.tsx`,
+  `header[data-slot="phone-public-bar"]`, sticky: back "Home" → `/` and the
+  language + theme pair), which `/cookie-policy` shares. The md-and-up trees
+  use `hidden md:contents` (and `(public)/layout.tsx` wraps `LandingHeader`
+  and `LandingFooter` the same way), never `md:block`: a block wrapper
+  would make the sticky landing header stick to the wrapper.
 - **Tests.** `src/test/setup.ts` answers `matchMedia` `false`, so every test
   renders desktop. `src/test/phone.ts` `mockPhoneViewport()` makes the phone
   query match for one test and `setPhone(false)` turns the screen past md.
-  `e2e/shell-responsive.spec.ts` walks the phone shell at 390×844.
+  A CSS-switched screen renders BOTH trees in jsdom: scope queries by the
+  tree's `data-slot`. `e2e/shell-responsive.spec.ts` walks the phone shell at
+  390×844; `e2e/phone.spec.ts` the public screens (`/`, `/cookie-policy`,
+  `/cli`, `/cli/code`); `borderless-signin.spec.ts` option C's states and
+  the welcome choice; `devices.spec.ts` `/device`. `e2e/support/phone.ts`
+  has `PHONE` (390×844), `expectPhoneTargets` (every rendered control's box
+  at least 44×44, and a floor on how many were measured) and
+  `expectNoSidewaysScroll`.
 - **Locator traps.** "Profile" is inside "View profile"; "Account" names the
   avatar, a back link and the hub's region; "Add", "Back" and "Dark" are
   inside longer names — use `exact: true` in Playwright. A row's name is its

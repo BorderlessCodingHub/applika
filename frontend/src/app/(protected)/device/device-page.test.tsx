@@ -7,12 +7,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { formatSessionTime } from "@/components/profile/devices-copy";
 import { services } from "@/services/services";
 import type { DeviceCodeInfo } from "@/services/types/auth";
+import { mockPhoneViewport } from "@/test/phone";
 import { DevicePage } from "./device-page";
 
 /**
- * KODI-058 (AC9 web half, AC10): `/device` — the code (prefilled from
- * `?code=`), the request card with the device's name, IP and request time,
- * Approve / Deny, and the server's own 404/409 words.
+ * `/device` (ADR-0019): the code (prefilled from `?code=`), the request card
+ * with the device's name, IP and request time, Approve / Deny, and the
+ * server's own 404/409 words. At md and up today's card; below md the
+ * v2/DeviceSignIn views on the same mutations (`useIsPhone`).
  */
 
 let searchParams = new URLSearchParams();
@@ -333,5 +335,267 @@ describe("DevicePage", () => {
     expect(approve).toHaveAttribute("aria-disabled", "true");
     await user.click(approve);
     expect(services.auth.approveDeviceCode).not.toHaveBeenCalled();
+  });
+});
+
+describe("DevicePage below md (v2/DeviceSignIn)", () => {
+  const form = () =>
+    document.querySelector<HTMLElement>('[data-slot="device-code-form"]')!;
+  const codeError = () =>
+    document.querySelector<HTMLElement>('[data-slot="device-code-error"]')!;
+
+  it("renders the board's code step, not today's card, with ?code= prefilled once", () => {
+    mockPhoneViewport();
+    searchParams = new URLSearchParams("code=bcdf-ghjk");
+    renderPage();
+
+    expect(form()).toHaveClass("ph-app");
+    expect(document.querySelector('[data-slot="device-sign-in"]')).toBeNull();
+    expect(
+      within(form()).getByRole("heading", {
+        level: 1,
+        name: "Sign in a device",
+      }),
+    ).toBeInTheDocument();
+    expect(codeInput()).toHaveValue("BCDF-GHJK");
+    expect(codeInput()).toHaveFocus();
+    expect(codeInput()).toHaveAccessibleDescription(
+      "8 letters, shown in your terminal as XXXX-XXXX.",
+    );
+    expect(services.auth.verifyDeviceCode).not.toHaveBeenCalled();
+  });
+
+  it("refuses an incomplete code on the client, in the field", async () => {
+    mockPhoneViewport();
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(codeInput(), "bcdf g");
+    expect(codeInput()).toHaveValue("BCDF-G");
+    await user.click(continueButton());
+
+    expect(codeError()).toHaveAttribute("role", "alert");
+    expect(codeError()).toHaveTextContent("Enter all 8 letters of the code.");
+    expect(codeInput()).toHaveAttribute("aria-invalid", "true");
+    expect(codeInput()).toHaveFocus();
+    expect(services.auth.verifyDeviceCode).not.toHaveBeenCalled();
+  });
+
+  it("goes from the code to the request, with its warning, then approve to the outcome", async () => {
+    mockPhoneViewport();
+    const user = userEvent.setup();
+    searchParams = new URLSearchParams("code=BCDF-GHJK");
+    vi.mocked(services.auth.verifyDeviceCode).mockResolvedValue(REQUEST);
+    vi.mocked(services.auth.approveDeviceCode).mockResolvedValue(undefined);
+    renderPage();
+
+    await user.click(continueButton());
+
+    const request = await screen.findByRole("region", {
+      name: "A device wants to sign in",
+    });
+    expect(request).toHaveAttribute("data-slot", "device-request");
+    const inRequest = within(request);
+    expect(
+      request.querySelector('[data-slot="device-request-code"]'),
+    ).toHaveTextContent("BCDF-GHJK");
+    expect(
+      request.querySelector('[data-slot="device-request-name"]'),
+    ).toHaveTextContent("e2e-laptop");
+    expect(inRequest.getByText("applika-cli 1.1.0")).toBeInTheDocument();
+    expect(inRequest.getByText("198.51.100.23")).toBeInTheDocument();
+    expect(
+      inRequest.getByText(formatSessionTime(REQUEST.requested_at)),
+    ).toHaveAttribute("dateTime", REQUEST.requested_at);
+    const warning = inRequest.getByRole("note");
+    expect(warning).toHaveAttribute("data-slot", "device-request-warning");
+    expect(warning).toHaveTextContent(
+      "Only approve if you started this sign-in yourself",
+    );
+    expect(warning).toHaveTextContent(
+      "If someone sent you this code or link, deny it.",
+    );
+
+    await user.click(inRequest.getByRole("button", { name: "Approve" }));
+
+    const outcome = await screen.findByRole("status");
+    expect(outcome).toHaveAttribute("data-slot", "device-outcome");
+    expect(outcome).toHaveAttribute("data-outcome", "approved");
+    expect(
+      within(outcome).getByRole("heading", {
+        level: 1,
+        name: "Device signed in. You can return to your terminal.",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(outcome).getByRole("link", { name: "See your devices" }),
+    ).toHaveAttribute("href", "/profile?tab=devices");
+    expect(services.auth.approveDeviceCode).toHaveBeenCalledWith("BCDF-GHJK");
+    expect(services.auth.denyDeviceCode).not.toHaveBeenCalled();
+  });
+
+  it("deny goes to the denied outcome, and Enter another code starts over", async () => {
+    mockPhoneViewport();
+    const user = userEvent.setup();
+    searchParams = new URLSearchParams("code=BCDF-GHJK");
+    vi.mocked(services.auth.verifyDeviceCode).mockResolvedValue(REQUEST);
+    vi.mocked(services.auth.denyDeviceCode).mockResolvedValue(undefined);
+    renderPage();
+
+    await user.click(continueButton());
+    await user.click(await screen.findByRole("button", { name: "Deny" }));
+
+    const outcome = await screen.findByRole("status");
+    expect(outcome).toHaveAttribute("data-outcome", "denied");
+    expect(outcome).toHaveTextContent(
+      "Sign-in denied. The device was not signed in.",
+    );
+    expect(services.auth.denyDeviceCode).toHaveBeenCalledWith("BCDF-GHJK");
+    expect(services.auth.approveDeviceCode).not.toHaveBeenCalled();
+
+    await user.click(
+      within(outcome).getByRole("button", { name: "Enter another code" }),
+    );
+    expect(codeInput()).toHaveValue("");
+    expect(form()).toBeInTheDocument();
+  });
+
+  it("shows a verify 404's words in the field, and typing clears them", async () => {
+    mockPhoneViewport();
+    const user = userEvent.setup();
+    searchParams = new URLSearchParams("code=BCDF-GHJK");
+    vi.mocked(services.auth.verifyDeviceCode).mockRejectedValue(
+      apiError(404, "Code not found or expired"),
+    );
+    renderPage();
+
+    await user.click(continueButton());
+
+    await waitFor(() =>
+      expect(codeError()).toHaveTextContent("Code not found or expired"),
+    );
+    expect(codeInput()).toHaveAttribute("aria-invalid", "true");
+    await user.type(codeInput(), "{backspace}");
+    expect(codeError()).toBeEmptyDOMElement();
+  });
+
+  it("a non-JSON verify failure shows the fixed sentence", async () => {
+    mockPhoneViewport();
+    const user = userEvent.setup();
+    searchParams = new URLSearchParams("code=BCDF-GHJK");
+    vi.mocked(services.auth.verifyDeviceCode).mockRejectedValue(
+      new Error("Network Error"),
+    );
+    renderPage();
+
+    await user.click(continueButton());
+
+    await waitFor(() =>
+      expect(codeError()).toHaveTextContent("Something went wrong. Try again."),
+    );
+  });
+
+  it("a verify in flight is aria-busy and does not send twice", async () => {
+    mockPhoneViewport();
+    const user = userEvent.setup();
+    searchParams = new URLSearchParams("code=BCDF-GHJK");
+    vi.mocked(services.auth.verifyDeviceCode).mockReturnValue(
+      new Promise(() => {}),
+    );
+    renderPage();
+
+    await user.click(continueButton());
+    await waitFor(() =>
+      expect(continueButton()).toHaveAttribute("aria-busy", "true"),
+    );
+    expect(continueButton()).toHaveAttribute("aria-disabled", "true");
+    await user.click(continueButton());
+    expect(services.auth.verifyDeviceCode).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an approve 409 in the action bar, above Deny and Approve", async () => {
+    mockPhoneViewport();
+    const user = userEvent.setup();
+    searchParams = new URLSearchParams("code=BCDF-GHJK");
+    vi.mocked(services.auth.verifyDeviceCode).mockResolvedValue(REQUEST);
+    vi.mocked(services.auth.approveDeviceCode).mockRejectedValue(
+      apiError(409, "Code already used"),
+    );
+    renderPage();
+
+    await user.click(continueButton());
+    await user.click(await screen.findByRole("button", { name: "Approve" }));
+
+    const error = document.querySelector<HTMLElement>(
+      '[data-slot="device-request-error"]',
+    )!;
+    await waitFor(() => expect(error).toHaveTextContent("Code already used"));
+    expect(error).toHaveAttribute("role", "alert");
+    expect(error.closest('[data-slot="phone-action-bar"]')).toContainElement(
+      screen.getByRole("button", { name: "Approve" }),
+    );
+  });
+
+  it("while approving, both are aria-disabled, Approve is aria-busy, Deny does nothing", async () => {
+    mockPhoneViewport();
+    const user = userEvent.setup();
+    searchParams = new URLSearchParams("code=BCDF-GHJK");
+    vi.mocked(services.auth.verifyDeviceCode).mockResolvedValue(REQUEST);
+    vi.mocked(services.auth.approveDeviceCode).mockReturnValue(
+      new Promise(() => {}),
+    );
+    renderPage();
+
+    await user.click(continueButton());
+    const approve = await screen.findByRole("button", { name: "Approve" });
+    await user.click(approve);
+
+    await waitFor(() => expect(approve).toHaveAttribute("aria-busy", "true"));
+    const deny = screen.getByRole("button", { name: "Deny" });
+    expect(deny).toHaveAttribute("aria-disabled", "true");
+    expect(
+      screen.getByRole("button", { name: "Use a different code" }),
+    ).toHaveAttribute("aria-disabled", "true");
+    await user.click(deny);
+    expect(services.auth.denyDeviceCode).not.toHaveBeenCalled();
+  });
+
+  it("'Use a different code' goes back to an empty code step", async () => {
+    mockPhoneViewport();
+    const user = userEvent.setup();
+    searchParams = new URLSearchParams("code=BCDF-GHJK");
+    vi.mocked(services.auth.verifyDeviceCode).mockResolvedValue(REQUEST);
+    renderPage();
+
+    await user.click(continueButton());
+    await user.click(
+      await screen.findByRole("button", { name: "Use a different code" }),
+    );
+
+    expect(codeInput()).toHaveValue("");
+  });
+
+  it("keeps the step when the screen crosses md", async () => {
+    const viewport = mockPhoneViewport();
+    const user = userEvent.setup();
+    searchParams = new URLSearchParams("code=BCDF-GHJK");
+    vi.mocked(services.auth.verifyDeviceCode).mockResolvedValue(REQUEST);
+    renderPage();
+
+    await user.click(continueButton());
+    // Both widths share the data hooks (e2e reads either); the look differs.
+    const request = () =>
+      document.querySelector('[data-slot="device-request"]');
+    await screen.findByRole("region", { name: "A device wants to sign in" });
+    expect(request()).toHaveClass("ph-app");
+
+    viewport.setPhone(false);
+
+    expect(request()).not.toHaveClass("ph-app");
+    expect(
+      document.querySelector('[data-slot="device-sign-in"]'),
+    ).toBeInTheDocument();
+    expect(screen.getByText("e2e-laptop")).toBeInTheDocument();
+    expect(services.auth.verifyDeviceCode).toHaveBeenCalledTimes(1);
   });
 });

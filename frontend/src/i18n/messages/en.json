@@ -29,14 +29,25 @@
     "logout": "Logout",
     "signIn": {
       "title": "Sign in to applika",
-      "lead": "Use your Borderless account. Borderless confirms it's you and sends you back here.",
       "signInWithBorderless": "Sign in with Borderless",
       "pending": "Opening Borderless…",
       "cliCommand": "applika login",
       "cliRetry": "Return to your terminal and run <code>{command}</code> again.",
-      "noAccount": "No Borderless account yet?",
-      "createAccount": "Create a Borderless account",
-      "opensInNewTab": "Opens in a new tab."
+      "opensInNewTab": "Opens in a new tab.",
+      "optionC": {
+        "backToHome": "Back to home",
+        "logo": "Applika",
+        "badge": "with Borderless",
+        "eyebrow": "applika × Borderless",
+        "headline": "One account for your whole job search",
+        "lead": "Sign in with Borderless. It confirms it's you and sends you back here.",
+        "continue": "Continue with Borderless",
+        "noAccount": "I don't have a Borderless account",
+        "about": "About applika",
+        "featApplications": "Every application in one place",
+        "featInterviews": "Interviews on your agenda",
+        "featReports": "Biweekly reports for your Borderless community"
+      }
     }
   },
   "cookies": {
@@ -2263,7 +2274,8 @@
       "insights": "Insights",
       "add": "Add",
       "account": "Account",
-      "back": "Back"
+      "back": "Back",
+      "home": "Home"
     },
     "account": {
       "workspace": "Workspace",
@@ -2281,6 +2293,57 @@
       "sendFeedback": "Send feedback",
       "cookiePolicy": "Cookie policy",
       "openSource": "Applika.dev · open source"
+    },
+    "landing": {
+      "eyebrow": "Free & open-source job tracker",
+      "heroTitle": "Manage your job search with <highlight>clarity</highlight>.",
+      "heroBody": "Every application, interview and outcome in one calm place — with the numbers to show what's working.",
+      "previewLabel": "Product preview",
+      "preview": {
+        "initials": "NL",
+        "company": "Northwind Labs",
+        "role": "Senior Backend Engineer",
+        "applied": "Applied",
+        "event": "Technical interview",
+        "eventTime": "Sat 14:00",
+        "successRate": "Success rate"
+      },
+      "features": {
+        "track": {
+          "title": "Track every application",
+          "body": "Company, role, platform and salary — and the stage each process is in."
+        },
+        "interviews": {
+          "title": "Never miss an interview",
+          "body": "Every step lands on your agenda, with alerts before it starts."
+        },
+        "learn": {
+          "title": "Learn what works",
+          "body": "Conversion per stage, days per step and active vs passive sourcing."
+        }
+      },
+      "stepsTitle": "Up and running in minutes",
+      "steps": {
+        "signIn": {
+          "title": "Sign in with Borderless.",
+          "body": "No new password: your Borderless account is your Applika account."
+        },
+        "add": {
+          "title": "Add your applications.",
+          "body": "Three fields is enough to start."
+        },
+        "analyze": {
+          "title": "Analyze & optimize.",
+          "body": "Your insights fill in as you go."
+        }
+      },
+      "openSourceTitle": "Open source, built in the open",
+      "openSourceBody": "Every line of code is public. Feature requests, bug reports and pull requests are all welcome.",
+      "viewOnGithub": "View on GitHub",
+      "copyright": "© {name}"
+    },
+    "welcome": {
+      "howToStart": "How to start"
     }
   }
 }

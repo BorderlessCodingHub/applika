@@ -1,19 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { AxiosError } from "axios";
 import { useLocale } from "next-intl";
 
-import { DeviceCodeForm } from "@/components/device/device-code-form";
-import { DeviceOutcome } from "@/components/device/device-outcome";
-import { DeviceRequestCard } from "@/components/device/device-request-card";
+import {
+  DeviceCodeForm,
+  type DeviceCodeFormProps,
+} from "@/components/device/device-code-form";
+import {
+  DeviceOutcome,
+  type DeviceOutcomeProps,
+} from "@/components/device/device-outcome";
+import {
+  DeviceRequestCard,
+  type DeviceRequestCardProps,
+} from "@/components/device/device-request-card";
 import {
   normalizeUserCode,
   type DeviceOutcomeKind,
 } from "@/components/device/device-sign-in-copy";
 import { DeviceSignInLayout } from "@/components/device/device-sign-in-layout";
+import {
+  PhoneDeviceCode,
+  PhoneDeviceOutcome,
+  PhoneDeviceRequest,
+} from "@/components/phone/screens/device-screen";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { word } from "@/i18n/translator";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { services } from "@/services/services";
@@ -78,43 +93,58 @@ export function DevicePage() {
     setStep({ kind: "code" });
   };
 
-  return (
-    <DeviceSignInLayout>
-      {step.kind === "code" ? (
-        <DeviceCodeForm
-          code={code}
-          onCodeChange={(next) => {
-            verify.reset();
-            setCode(next);
-          }}
-          onSubmit={(userCode) => verify.mutate(userCode)}
-          pending={verify.isPending}
-          error={verify.isError ? deviceErrorText(verify.error) : null}
-          autoFocus
-        />
-      ) : step.kind === "request" ? (
-        <DeviceRequestCard
-          request={step.request}
-          userCode={step.userCode}
-          onApprove={() =>
-            decide.mutate({ userCode: step.userCode, outcome: "approved" })
-          }
-          onDeny={() =>
-            decide.mutate({ userCode: step.userCode, outcome: "denied" })
-          }
-          pending={
-            decide.isPending
-              ? decide.variables?.outcome === "approved"
-                ? "approve"
-                : "deny"
-              : null
-          }
-          error={decide.isError ? deviceErrorText(decide.error) : null}
-          onUseDifferentCode={startOver}
-        />
-      ) : (
-        <DeviceOutcome outcome={step.outcome} onStartOver={startOver} />
-      )}
-    </DeviceSignInLayout>
-  );
+  // Below md the v2/DeviceSignIn views take the same props as today's.
+  const isPhone = useIsPhone();
+  let content: ReactNode;
+  if (step.kind === "code") {
+    const props: DeviceCodeFormProps = {
+      code,
+      onCodeChange: (next) => {
+        verify.reset();
+        setCode(next);
+      },
+      onSubmit: (userCode) => verify.mutate(userCode),
+      pending: verify.isPending,
+      error: verify.isError ? deviceErrorText(verify.error) : null,
+      autoFocus: true,
+    };
+    content = isPhone ? (
+      <PhoneDeviceCode {...props} />
+    ) : (
+      <DeviceCodeForm {...props} />
+    );
+  } else if (step.kind === "request") {
+    const props: DeviceRequestCardProps = {
+      request: step.request,
+      userCode: step.userCode,
+      onApprove: () =>
+        decide.mutate({ userCode: step.userCode, outcome: "approved" }),
+      onDeny: () =>
+        decide.mutate({ userCode: step.userCode, outcome: "denied" }),
+      pending: decide.isPending
+        ? decide.variables?.outcome === "approved"
+          ? "approve"
+          : "deny"
+        : null,
+      error: decide.isError ? deviceErrorText(decide.error) : null,
+      onUseDifferentCode: startOver,
+    };
+    content = isPhone ? (
+      <PhoneDeviceRequest {...props} />
+    ) : (
+      <DeviceRequestCard {...props} />
+    );
+  } else {
+    const props: DeviceOutcomeProps = {
+      outcome: step.outcome,
+      onStartOver: startOver,
+    };
+    content = isPhone ? (
+      <PhoneDeviceOutcome {...props} />
+    ) : (
+      <DeviceOutcome {...props} />
+    );
+  }
+
+  return isPhone ? content : <DeviceSignInLayout>{content}</DeviceSignInLayout>;
 }

@@ -542,7 +542,11 @@ test.describe("pt-BR sweep: no English word left on any page", () => {
 
       await page.goto(route.path);
       await expectLanguage(page, "pt-BR");
-      await expect(page.locator("h1, h2").first()).toBeVisible();
+      // The public screens hold both widths' trees (PRD 0021): the first
+      // heading in the DOM can be the hidden phone tree's.
+      await expect(
+        page.locator("h1, h2").filter({ visible: true }).first(),
+      ).toBeVisible();
       await page.waitForLoadState("networkidle");
 
       // Polled: the first paint is English (the static HTML), and data-driven
@@ -685,7 +689,9 @@ test.describe("320px: no sideways scroll", () => {
       for (const path of ["/", "/dashboard", "/applications", "/account"]) {
         await page.goto(path);
         await expectLanguage(page, lang);
-        await expect(page.locator("h1, h2").first()).toBeVisible();
+        await expect(
+          page.locator("h1, h2").filter({ visible: true }).first(),
+        ).toBeVisible();
         if (path === "/") {
           await expect(page.getByRole("radiogroup").first()).toBeVisible();
         }
