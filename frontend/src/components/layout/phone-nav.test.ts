@@ -10,8 +10,9 @@ import {
 /**
  * The back bar the map gives each screen (PRD 0021, PRD 0022): the admin
  * sections keep "Account" → /account, a feature's page returns to Features
- * (v3/AdminFeatureView's own back), and the screens still without a board
- * keep their parents.
+ * (v3/AdminFeatureView's own back), an application's CV copy returns to
+ * "Application" (v3/ApplicationCV), and the two admin redirects keep their
+ * parents.
  */
 const BACK_BARS: [path: string, back: [href: string, label: string] | null][] =
   [
@@ -40,7 +41,7 @@ const BACK_BARS: [path: string, back: [href: string, label: string] | null][] =
     ["/jobs/view", ["/jobs", "Jobs"]],
     ["/cvs/editor", ["/cvs", "CVs"]],
     ["/cvs/new", ["/cvs", "CVs"]],
-    ["/applications/cv", ["/applications", "Pipeline"]],
+    ["/applications/cv", ["/applications", "Application"]],
     ["/applications/new-with-cv", ["/applications", "Applications"]],
     ["/reports/14", ["/reports", "Reports"]],
     ["/somewhere/else", ["/dashboard", "Back"]],
@@ -62,7 +63,7 @@ describe("phoneBackFor", () => {
     }
   });
 
-  it("keeps today's parents for the screens without a board", () => {
+  it("keeps today's parents for the two admin redirects, the only addresses without a board", () => {
     expect(
       Object.entries(PHONE_PARENTS).map(([path, back]) => [
         path,
@@ -70,7 +71,6 @@ describe("phoneBackFor", () => {
         back.label,
       ]),
     ).toEqual([
-      ["/applications/cv", "/applications", "Pipeline"],
       ["/admin/supports", "/admin", "Admin"],
       ["/admin/discord-webhooks", "/admin", "Admin"],
     ]);
@@ -81,6 +81,18 @@ describe("phoneBackFor", () => {
     for (const path of ["/cvs/new", "/cvs/new/"]) {
       const back = phoneBackFor(path);
       expect(back && [back.href, back.label], path).toEqual(["/cvs", "CVs"]);
+    }
+  });
+
+  it("draws an application's CV copy's back from its board: Application", () => {
+    expect(PHONE_PARENTS["/applications/cv"]).toBeUndefined();
+    for (const path of ["/applications/cv", "/applications/cv/"]) {
+      const back = phoneBackFor(path);
+      // The map's address; the screen points it at its row (`PhoneBackHref`).
+      expect(back && [back.href, back.label], path).toEqual([
+        "/applications",
+        "Application",
+      ]);
     }
   });
 
@@ -117,8 +129,14 @@ describe("isPhoneScreen", () => {
     }
   });
 
-  it("keeps today's padding on the screens whose boards land later", () => {
-    expect(isPhoneScreen("/applications/cv")).toBe(false);
+  it("lets an application's CV copy own its padding (v3/ApplicationCV)", () => {
+    for (const path of ["/applications/cv", "/applications/cv/"]) {
+      expect(isPhoneScreen(path), path).toBe(true);
+    }
+  });
+
+  it("keeps today's padding on an address no map names", () => {
+    expect(isPhoneScreen("/somewhere/new")).toBe(false);
   });
 
   it("never maps the public /cli: its phone tree is the page's own, outside the shell", () => {

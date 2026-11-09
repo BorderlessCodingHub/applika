@@ -120,7 +120,7 @@ describe("phone shell in Portuguese", () => {
   it.each([
     ["/account", "Voltar"],
     ["/jobs", "Conta"],
-    ["/applications/cv", "Funil"],
+    ["/applications/cv", "Candidatura"],
     ["/jobs/view", "Vagas"],
     ["/reports/3", "Relatórios"],
     ["/applications/new-with-cv", "Candidaturas"],

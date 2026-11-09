@@ -8,7 +8,11 @@ import {
   baseCvSchema,
   emptyBaseCvValues,
 } from "@/components/base-cvs/base-cv-schema";
-import { CV_FORM_SECTION_IDS } from "@/components/base-cvs/cv-form-sections";
+import type { CvFormDiffSlots } from "@/components/base-cvs/cv-form-diff";
+import {
+  CV_FORM_SECTION_IDS,
+  type CvFormSectionId,
+} from "@/components/base-cvs/cv-form-sections";
 import {
   CvSectionCard,
   CvSectionFrame,
@@ -36,11 +40,17 @@ function Harness({
   values = FILLED,
   headingLevel,
   subline,
+  firstOpen,
+  diff,
+  reordered,
   onValid = vi.fn(),
 }: {
   values?: CvFormValues;
   headingLevel?: "h2" | "h3";
   subline?: "meta" | "description";
+  firstOpen?: CvFormSectionId | null;
+  diff?: CvFormDiffSlots;
+  reordered?: ReadonlySet<CvFormSectionId>;
   onValid?: () => void;
 }) {
   const form = useForm<CvFormValues>({
@@ -53,6 +63,9 @@ function Harness({
         form={form}
         headingLevel={headingLevel}
         subline={subline}
+        firstOpen={firstOpen}
+        diff={diff}
+        reordered={reordered}
       />
       <button type="submit">Save</button>
     </form>
@@ -280,6 +293,133 @@ describe("PhoneCvSections subline", () => {
         "Portfolio, GitHub, LinkedIn and other profiles.",
       ),
     ).toBeInTheDocument();
+  });
+});
+
+/** A copy's markers, with a section status the rows render under themselves. */
+function diffSlots(
+  status: Partial<Record<CvFormSectionId, string>>,
+): CvFormDiffSlots {
+  return {
+    field: () => undefined,
+    sectionStatus: (section) => status[section],
+    itemBadge: () => undefined,
+    itemClassName: () => undefined,
+    removedRows: () => undefined,
+  };
+}
+
+const REORDERED: ReadonlySet<CvFormSectionId> = new Set<CvFormSectionId>([
+  "skills",
+  "experience",
+]);
+
+describe("PhoneCvSections on a CV copy (v3/ApplicationCV)", () => {
+  it("firstOpen={null} opens no row on load, as the board draws them", () => {
+    render(<Harness firstOpen={null} />);
+
+    for (const toggle of screen.getAllByRole("button", { expanded: false })) {
+      expect(toggle).toHaveAttribute("data-action", "toggle-cv-section");
+    }
+    expect(screen.queryAllByRole("button", { expanded: true })).toHaveLength(0);
+    expect(
+      document.querySelectorAll('[data-slot="cv-acc"][data-open]'),
+    ).toHaveLength(0);
+  });
+
+  it("firstOpen={null} still opens a section holding an error after a submit", async () => {
+    const user = userEvent.setup();
+    render(<Harness values={{ ...FILLED, full_name: "" }} firstOpen={null} />);
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    const identity = screen.getByRole("button", {
+      name: "Identity and contact",
+    });
+    expect(identity).toHaveAttribute("aria-expanded", "true");
+    expect(identity).toHaveAccessibleDescription("Needs a fix");
+  });
+
+  it("reordered: the named rows' meta ends · Reordered, the others stay as today", () => {
+    render(<Harness reordered={REORDERED} />);
+
+    expect(
+      screen.getByRole("button", { name: "Skills" }),
+    ).toHaveAccessibleDescription("2 groups · 5 keywords · Reordered");
+    // An empty section says so first (board l.214-215).
+    expect(
+      screen.getByRole("button", { name: "Experience" }),
+    ).toHaveAccessibleDescription("None yet · Reordered");
+    expect(
+      screen.getByRole("button", { name: "Links" }),
+    ).toHaveAccessibleDescription("2 links");
+    expect(row("skills").querySelector(".ph-acc-m")).toHaveTextContent(
+      "2 groups · 5 keywords · Reordered",
+    );
+  });
+
+  it("reordered: an invalid row still reads Needs a fix", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        values={{
+          ...FILLED,
+          skills: [{ id: "s1", category: "", keywords: ["Python"] }],
+        }}
+        reordered={REORDERED}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(
+      screen.getByRole("button", { name: "Skills" }),
+    ).toHaveAccessibleDescription("Needs a fix");
+  });
+
+  it("reordered is ignored by the description subline (v3/CVNew)", () => {
+    render(
+      <Harness
+        values={emptyBaseCvValues()}
+        subline="description"
+        reordered={REORDERED}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Skills" }),
+    ).toHaveAccessibleDescription(
+      "Group your skills into categories. Each category prints as its own line.",
+    );
+  });
+
+  it("diff: a section's status renders under its row and describes its toggle", () => {
+    render(<Harness diff={diffSlots({ skills: "2 changes" })} />);
+
+    const skills = screen.getByRole("button", { name: "Skills" });
+    expect(skills).toHaveAccessibleDescription(
+      "2 groups · 5 keywords 2 changes",
+    );
+    const status = row("skills").querySelector(".ph-ce-status");
+    expect(status).toHaveTextContent("2 changes");
+    // Outside the heading: the toggle's name stays the section title.
+    expect(status!.closest("h2")).toBeNull();
+    expect(row("links").querySelector(".ph-ce-status")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Links" }),
+    ).toHaveAccessibleDescription("2 links");
+  });
+
+  it("without the new props a row renders exactly as before", () => {
+    const before = render(<Harness />);
+    const html = before.container.innerHTML;
+    before.unmount();
+    const after = render(
+      <Harness firstOpen="identity" diff={undefined} reordered={undefined} />,
+    );
+    // useId differs per mount: compare with the generated ids blanked.
+    const strip = (markup: string) => markup.replace(/_r_[^"\s]*_/g, "ID");
+    expect(strip(after.container.innerHTML)).toBe(strip(html));
   });
 });
 

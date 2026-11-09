@@ -227,7 +227,7 @@ describe("PhoneShell below md", () => {
     ["/reports/7", "Reports", "/reports"],
     ["/applications/new-with-cv", "Applications", "/applications"],
     ["/cvs/new", "CVs", "/cvs"],
-    ["/applications/cv", "Pipeline", "/applications"],
+    ["/applications/cv", "Application", "/applications"],
     ["/admin/features/view", "Features", "/admin/features"],
     ["/admin/supports", "Admin", "/admin"],
     ["/admin/discord-webhooks", "Admin", "/admin"],
@@ -387,7 +387,8 @@ describe("PhoneShell below md", () => {
 
   it("pads a screen without a board with today's padding", () => {
     mockPhoneViewport();
-    renderShell("/applications/cv");
+    // Every protected page has a board now: an address no map names stands in.
+    renderShell("/somewhere/new");
     const slot = document.querySelector('[data-slot="app-content"]')!;
 
     expect(slot.className).toContain("px-4");
@@ -440,7 +441,7 @@ describe("PhoneShell below md", () => {
       unmount();
     }
 
-    renderShell("/applications/cv");
+    renderShell("/somewhere/new");
     expect(
       document.querySelector('[data-slot="app-content"]')!.className,
     ).toContain("pb-10");
@@ -561,7 +562,9 @@ function BackHolds() {
 
 describe("PhoneBackHref", () => {
   const backLink = () =>
-    within(screen.getByRole("banner")).getByRole("link", { name: "Pipeline" });
+    within(screen.getByRole("banner")).getByRole("link", {
+      name: "Application",
+    });
 
   it("sends the back bar to its address and keeps the map's label", () => {
     mockPhoneViewport();
@@ -625,11 +628,12 @@ describe("phone-nav", () => {
       "/cvs/editor",
       "/cvs/new",
       "/applications/new-with-cv",
+      "/applications/cv",
     ]) {
       expect(isPhoneScreen(path), path).toBe(true);
     }
     for (const path of [
-      "/applications/cv",
+      "/somewhere/new",
       "/jobsx",
       "/reportsx",
       "/administrator",
@@ -647,11 +651,10 @@ describe("phone-nav", () => {
     ]);
   });
 
-  it("maps the screens without a board to their parents", () => {
+  it("maps the two admin redirects, the only addresses without a board, to their parents", () => {
     expect(
       Object.entries(PHONE_PARENTS).map(([path, back]) => [path, back.href]),
     ).toEqual([
-      ["/applications/cv", "/applications"],
       ["/admin/supports", "/admin"],
       ["/admin/discord-webhooks", "/admin"],
     ]);

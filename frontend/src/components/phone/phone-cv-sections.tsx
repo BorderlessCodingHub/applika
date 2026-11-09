@@ -14,6 +14,7 @@ import {
   CvSectionFrame,
   type CvSectionFrameProps,
 } from "@/components/base-cvs/cv-section-card";
+import type { CvFormDiffSlots } from "@/components/base-cvs/cv-form-diff";
 import { skillKeywords, type CvFormValues } from "@/components/base-cvs/types";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,16 @@ export interface PhoneCvSectionsProps {
    * and the open panel no longer repeats it).
    */
   subline?: "meta" | "description";
+  /** The row open on load; `null` opens none (v3/ApplicationCV draws every row closed). */
+  firstOpen?: CvFormSectionId | null;
+  /** A CV copy's markers, passed to `CvFormSections`; a section's `status` sits under its row. */
+  diff?: CvFormDiffSlots;
+  /**
+   * Sections the keyword tailoring reordered: their `meta` line ends
+   * "· Reordered" (v3/ApplicationCV). The row says it, so a `diff` status
+   * passed with it must not say it again.
+   */
+  reordered?: ReadonlySet<CvFormSectionId>;
   className?: string;
 }
 
@@ -54,15 +65,19 @@ export function PhoneCvSections({
   newItemId,
   headingLevel = "h2",
   subline = "meta",
+  firstOpen = FIRST_OPEN,
+  diff,
+  reordered,
   className,
 }: PhoneCvSectionsProps) {
   const t = useTranslations("phone.cvEditor");
+  const tDraft = useTranslations("phone.draft");
   const { errors, submitCount } = useFormState({ control: form.control });
   const values = useWatch({ control: form.control }) as Partial<CvFormValues>;
   const [disclosure, setDisclosure] = useState(() => ({
     submitCount,
     open: new Set<CvFormSectionId>([
-      FIRST_OPEN,
+      ...(firstOpen ? [firstOpen] : []),
       ...CV_FORM_SECTION_IDS.filter((id) => cvSectionHasError(id, errors)),
     ]),
   }));
@@ -121,6 +136,12 @@ export function PhoneCvSections({
     }
   };
 
+  const metaLine = (id: CvFormSectionId): string => {
+    const meta = metaFor(id);
+    if (!reordered?.has(id)) return meta;
+    return [meta || t("meta.empty"), tDraft("reordered")].join(" · ");
+  };
+
   const frame = (section: CvSectionFrameProps) => {
     const id = isSectionId(section.sectionId) ? section.sectionId : null;
     if (!id) return section.children;
@@ -133,7 +154,7 @@ export function PhoneCvSections({
         description={
           byDescription || id === FIRST_OPEN ? undefined : section.description
         }
-        meta={byDescription ? section.description : metaFor(id)}
+        meta={byDescription ? section.description : metaLine(id)}
         invalid={cvSectionHasError(id, errors)}
         open={disclosure.open.has(id)}
         onToggle={() => toggle(id)}
@@ -151,6 +172,7 @@ export function PhoneCvSections({
         form={form}
         disabled={disabled}
         newItemId={newItemId}
+        diff={diff}
         className={cn("ph-group ph-ce-list space-y-0", className)}
       />
     </CvSectionFrame.Provider>

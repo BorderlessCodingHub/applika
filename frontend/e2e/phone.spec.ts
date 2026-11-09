@@ -52,6 +52,14 @@ import {
  *   master CV it needs is made through the API in `beforeAll` and deleted
  *   in `afterAll`; an empty job board gets the admin's collection run first,
  *   as `cvs-beta.spec.ts` does (the jobs stay, like `jobs.spec.ts`'s).
+ *   An application's CV copy (v3/ApplicationCV): an application with a job
+ *   description that names PostgreSQL but not Python or FastAPI is made
+ *   through the API; the picker creates its copy with Tailor by keywords
+ *   (one `skills` adjustment, no diff change), the editor is read and the
+ *   PDF downloaded (nothing saved from the page), one headline edit is saved
+ *   through the API so Show changes draws today's markers, the application
+ *   is closed through the API and its copy read again. The application, and its copy with it, is
+ *   deleted in `afterAll`.
  * - `e2e-admin` walks the admin console's chips and boards; the one report
  *   webhook it lists is made and deleted through the API (a synthetic
  *   address), the one it adds through the v3 sheet is deleted through the
@@ -806,6 +814,24 @@ async function getJson<T>(
   return (await response.json()) as T;
 }
 
+/** A CV copy's editable fields: its full-replace PUT sends exactly these. */
+const COPY_FIELDS = [
+  "name",
+  "full_name",
+  "headline",
+  "location",
+  "email",
+  "phone",
+  "summary",
+  "links",
+  "skills",
+  "experience",
+  "projects",
+  "education",
+  "certifications",
+  "languages",
+] as const;
+
 /** How long the admin's collection run may take to fill an empty board. */
 const RUN_TIMEOUT = 120_000;
 
@@ -841,6 +867,9 @@ test.describe("the account area, jobs and CVs below md", () => {
   /** The master CV the CV, job and draft boards read; made and deleted here. */
   const CV_NAME = `Phone E2E master CV ${stamp}`;
   let cvId = "";
+  /** The application whose CV copy the copy board makes; deleted in `afterAll`. */
+  const COPY_COMPANY = `Phone CV Copy Co ${stamp}`;
+  let copyAppId = "";
 
   test.beforeAll(async ({ request }) => {
     test.setTimeout(RUN_TIMEOUT + 30_000);
@@ -884,6 +913,13 @@ test.describe("the account area, jobs and CVs below md", () => {
   });
 
   test.afterAll(async ({ request }) => {
+    if (copyAppId) {
+      // Its CV copy goes with it.
+      const app = await request.delete(apiUrl(`/applications/${copyAppId}`), {
+        headers: roleHeaders("user"),
+      });
+      expect([200, 204, 404], await app.text()).toContain(app.status());
+    }
     if (!cvId) return;
     const deleted = await request.delete(apiUrl(`/base-cvs/${cvId}`), {
       headers: roleHeaders("user"),
@@ -1345,6 +1381,264 @@ test.describe("the account area, jobs and CVs below md", () => {
     expect(after.map((cv) => cv.id).sort()).toEqual(
       before.map((cv) => cv.id).sort(),
     );
+  });
+
+  test("an application's CV copy: the picker with Tailor by keywords, the copy's editor, back to the application, then read-only once closed", async ({
+    page,
+    request,
+  }) => {
+    const { platforms } = await getJson<{ platforms: Array<{ id: string }> }>(
+      request,
+      "user",
+      "/supports",
+    );
+    const created = await request.post(apiUrl("/applications"), {
+      headers: roleHeaders("user"),
+      data: {
+        company: { name: COPY_COMPANY, url: null },
+        platform_id: platforms[0].id,
+        role: "Phone CV Engineer",
+        mode: "active",
+        application_date: new Date().toISOString().slice(0, 10),
+        // PostgreSQL, but not Python or FastAPI: Tailor moves one keyword.
+        job_description:
+          "We run PostgreSQL in production and want someone who has tuned PostgreSQL at scale.",
+      },
+    });
+    expect(created.ok(), await created.text()).toBeTruthy();
+    copyAppId = ((await created.json()) as { id: string }).id;
+
+    await loginAs(page, "user");
+    await page.goto(`/applications/cv?id=${copyAppId}`);
+
+    // The picker.
+    const board = page.locator('[data-slot="phone-application-cv"]');
+    await expect(board).toHaveAttribute("data-state", "picker");
+    const top = page.locator('[data-slot="phone-top-bar"]');
+    await expect(
+      top.getByRole("link", { name: "Application", exact: true }),
+    ).toHaveAttribute("href", `/applications?focus=${copyAppId}`);
+    await expect(
+      page
+        .locator('[data-slot="phone-top-bar-end"]')
+        .getByText("Beta", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Application CV" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(`Phone CV Engineer · ${COPY_COMPANY}`, { exact: true }),
+    ).toBeVisible();
+    const group = page.getByRole("group", { name: "Choose a master CV" });
+    // The radio is a 1×1 sr-only input: its label row is the target.
+    await group.getByText(CV_NAME, { exact: true }).click();
+    await expect(
+      group.getByRole("radio", { name: CV_NAME, exact: true }),
+    ).toBeChecked();
+    for (const name of [
+      `Download PDF of ${CV_NAME}`,
+      `Download Markdown of ${CV_NAME}`,
+      `Delete ${CV_NAME}`,
+    ]) {
+      await expect(
+        group.getByRole("button", { name, exact: true }),
+      ).toBeVisible();
+    }
+    await expect(
+      group.getByRole("link", { name: `Edit ${CV_NAME}`, exact: true }),
+    ).toHaveAttribute("href", `/cvs/editor?id=${cvId}`);
+    await expect(
+      page.getByRole("link", { name: /^New master CV/ }),
+    ).toHaveAttribute("href", "/cvs/new");
+    const tailor = page.getByRole("switch", { name: "Tailor by keywords" });
+    await expect(tailor).toHaveAttribute("aria-checked", "false");
+    const create = page
+      .locator('[data-slot="phone-action-bar"]')
+      .getByRole("button", { name: "Create the CV copy", exact: true });
+    await expect(create).toBeVisible();
+    // Back, the choice's four actions, the tile, Tailor and Create.
+    await expectPhoneTargets(page, 8);
+    await expectNoSidewaysScroll(page);
+
+    await tailor.click();
+    await expect(tailor).toHaveAttribute("aria-checked", "true");
+    await create.click();
+
+    // The copy's editor.
+    await expect(board).toHaveAttribute("data-state", "editor");
+    await expect(
+      page.getByText(`Copied from ${CV_NAME}`, { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Job description" }),
+    ).toContainText("We run PostgreSQL in production");
+    // The fit loads after the copy.
+    await expect(
+      page.locator('[data-slot="cv-fit-panel"][data-state="ready"]'),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole("region", { name: "CV fit for this job" })
+        .getByRole("list", { name: "Matched" }),
+    ).toContainText(/postgresql/i);
+    const changes = page.getByRole("region", { name: "Changes" });
+    const showChanges = changes.getByRole("switch", { name: "Show changes" });
+    // A reorder is no diff change.
+    await expect(showChanges).toHaveAccessibleDescription(
+      `Compared with ${CV_NAME}: no changes`,
+    );
+    await expect(
+      changes.getByText("Downloads reflect the last saved version.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    const rows = board.locator('[data-slot="cv-acc"]');
+    await expect(rows).toHaveCount(9);
+    await expect(board.locator('[data-slot="cv-acc"][data-open]')).toHaveCount(
+      0,
+    );
+    const skills = board.locator('[data-slot="cv-acc"][data-section="skills"]');
+    const skillsToggle = skills.getByRole("button", {
+      name: "Skills",
+      exact: true,
+    });
+    await expect(skillsToggle).toHaveAccessibleDescription(/· Reordered$/);
+    await expect(
+      page.getByRole("button", { name: "Delete copy", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page
+        .locator('[data-slot="phone-action-bar"]')
+        .getByRole("button", { name: "Save CV copy", exact: true }),
+    ).toBeVisible();
+
+    await showChanges.click();
+    await expect(showChanges).toHaveAttribute("aria-checked", "true");
+    const moves = changes.getByRole("list", { name: "Reordered by job match" });
+    await expect(moves.locator('li[data-section="skills"]')).toHaveText(
+      "Skills",
+    );
+    // Said once: the row keeps "Reordered", no second "reordered" status.
+    await expect(skillsToggle).toHaveAccessibleDescription(/· Reordered$/);
+    // Back, Show changes and its form input, two Download changes, nine
+    // rows, Download PDF and Markdown, Delete copy, Save.
+    await expectPhoneTargets(page, 17);
+    await expectNoSidewaysScroll(page);
+
+    // Identity open: the board's own fields.
+    await rows
+      .first()
+      .getByRole("button", { name: "Identity and contact", exact: true })
+      .click();
+    await expect(rows.first()).toHaveAttribute("data-open", "true");
+    await expectPhoneTargets(page, 20);
+    await expectNoSidewaysScroll(page);
+
+    // Skills open: a category's row keeps today's 32px move and remove
+    // buttons (P80, as on the CV editor); the rest of the panel is measured.
+    await skillsToggle.click();
+    await expect(skills).toHaveAttribute("data-open", "true");
+    await expectPhoneTargets(page, 17, [
+      // Today's CvRepeatableSection item, desktop sized inside the board's row.
+      '[data-slot="cv-repeatable-item"]',
+    ]);
+    await expectNoSidewaysScroll(page);
+
+    // The copy's PDF, typeset by the server: a read.
+    const started = page.waitForEvent("download");
+    await page
+      .getByRole("button", { name: "Download PDF", exact: true })
+      .click();
+    const saved = await started;
+    expect(saved.suggestedFilename()).toMatch(/\.pdf$/);
+    const bytes = await readFile((await saved.path())!);
+    expect(bytes.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+
+    // One edit saved through the API: Show changes then draws today's diff
+    // markers inside the rows, measured with the named exclude list.
+    const copy = await getJson<Record<string, unknown>>(
+      request,
+      "user",
+      `/applications/${copyAppId}/cv`,
+    );
+    const edited = await request.put(apiUrl(`/applications/${copyAppId}/cv`), {
+      headers: roleHeaders("user"),
+      data: {
+        ...Object.fromEntries(COPY_FIELDS.map((key) => [key, copy[key]])),
+        headline: "Staff Backend Engineer",
+      },
+    });
+    expect(edited.ok(), await edited.text()).toBeTruthy();
+    await page.reload();
+    await expect(board).toHaveAttribute("data-state", "editor");
+    await showChanges.click();
+    await expect(showChanges).toHaveAccessibleDescription(
+      `Compared with ${CV_NAME}: 1 change`,
+    );
+    const identity = rows.first();
+    await expect(
+      identity.getByRole("button", {
+        name: "Identity and contact",
+        exact: true,
+      }),
+    ).toHaveAccessibleDescription(/1 change$/);
+    await identity
+      .getByRole("button", { name: "Identity and contact", exact: true })
+      .click();
+    await expect(
+      identity.getByRole("button", { name: "Changed: Headline", exact: true }),
+    ).toBeVisible();
+    await expectPhoneTargets(page, 20, [
+      // Today's CvChangedMarker, desktop sized beside a changed field.
+      '[data-slot="cv-diff-changed"]',
+    ]);
+    await expectNoSidewaysScroll(page);
+
+    // Back "Application": that application's screen.
+    await top.getByRole("link", { name: "Application", exact: true }).click();
+    await page.waitForURL(
+      (url) =>
+        url.pathname === "/applications" &&
+        url.searchParams.get("focus") === copyAppId,
+    );
+    await expect(
+      page.locator(
+        `[data-slot="phone-application"][data-application-id="${copyAppId}"]`,
+      ),
+    ).toBeVisible();
+
+    // Closed through the API (bodyless): the copy reads only.
+    const finalized = await request.post(
+      apiUrl(`/applications/${copyAppId}/finalize`),
+      { headers: { Cookie: authCookieHeader("user") } },
+    );
+    expect(finalized.ok(), await finalized.text()).toBeTruthy();
+    await page.goto(`/applications/cv?id=${copyAppId}`);
+    await expect(board).toHaveAttribute("data-state", "editor");
+    const banner = page.locator('[data-slot="cv-copy-read-only"]');
+    await expect(banner).toHaveAttribute("role", "status");
+    await expect(banner).toContainText("This application is closed.");
+    await expect(banner).toContainText("Reopen it to edit this CV.");
+    await expect(
+      page.getByRole("button", { name: "Save CV copy", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Delete copy", exact: true }),
+    ).toHaveCount(0);
+    for (const name of [
+      "Download PDF",
+      "Download Markdown",
+      "Download changes as PDF",
+      "Download changes as Markdown",
+    ]) {
+      await expect(
+        page.getByRole("button", { name, exact: true }),
+      ).toBeVisible();
+    }
+    // Back, Show changes and its input, two Download changes, nine rows,
+    // Download PDF and Markdown.
+    await expectPhoneTargets(page, 15);
+    await expectNoSidewaysScroll(page);
   });
 
   test("/cli signed in: the Cli board's header offers Dashboard instead of Sign in", async ({

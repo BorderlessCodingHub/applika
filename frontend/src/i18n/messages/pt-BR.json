@@ -2275,7 +2275,8 @@
       "add": "Adicionar",
       "account": "Conta",
       "back": "Voltar",
-      "home": "Início"
+      "home": "Início",
+      "application": "Candidatura"
     },
     "account": {
       "workspace": "Espaço de trabalho",
@@ -2626,6 +2627,13 @@
         "certifications": "{count, plural, =0 {Nenhuma ainda} one {# certificação} other {# certificações}}",
         "languages": "{count, plural, =0 {Nenhum ainda} one {# idioma} other {# idiomas}}"
       }
+    },
+    "applicationCv": {
+      "changes": "Alterações",
+      "pdfOf": "Baixar PDF de {name}",
+      "markdownOf": "Baixar Markdown de {name}",
+      "showMore": "Mostrar mais",
+      "showLess": "Mostrar menos"
     }
   }
 }

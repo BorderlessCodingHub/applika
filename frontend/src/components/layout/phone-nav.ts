@@ -79,6 +79,7 @@ export const PHONE_SCREEN_PATHS: ReadonlySet<string> = new Set([
   "/cvs/editor",
   "/cvs/new",
   "/applications/new-with-cv",
+  "/applications/cv",
 ]);
 
 /**
@@ -115,11 +116,10 @@ function back(href: string, key: string): PhoneBack {
 }
 
 /**
- * Screens with no V2 board: the parent the back bar returns to, named after
- * it. `/applications/cv` returns to the list the phone calls Pipeline.
+ * Addresses with no board of their own (the two admin redirects): the
+ * parent the back bar returns to, named after it.
  */
 export const PHONE_PARENTS: Readonly<Record<string, PhoneBack>> = {
-  "/applications/cv": back("/applications", "phone.shell.pipeline"),
   "/admin/supports": back("/admin", "nav.admin"),
   "/admin/discord-webhooks": back("/admin", "nav.admin"),
 };
@@ -131,6 +131,8 @@ const BOARD_PARENTS: Readonly<Record<string, PhoneBack>> = {
   "/cvs/editor": back("/cvs", "nav.cvs"),
   "/cvs/new": back("/cvs", "nav.cvs"),
   "/applications/new-with-cv": back("/applications", "nav.applications"),
+  // The screen returns to its application (`PhoneBackHref`, `?focus=<id>`).
+  "/applications/cv": back("/applications", "phone.shell.application"),
   "/admin/features/view": back("/admin/features", "admin.nav.features"),
 };
 

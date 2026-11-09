@@ -2093,7 +2093,7 @@ describe("phone.css: v3 Cli and CVNew", () => {
     expect(sentence).toMatch(/line-height:\s*1\.5/);
   });
 
-  it("draws v3/CVNew's own fields as its .lbl, .req and .hint, inside .ph-cn only", () => {
+  it("draws v3/CVNew's own fields as its .lbl, .req and .hint, inside .ph-cn (and the copy editor's .ph-acv) only", () => {
     expect(
       flatRuleBody('.ph-cn [data-section="identity"] > .ph-ce-panel > div'),
     ).toMatch(/gap:\s*12px !important/);
@@ -2218,5 +2218,363 @@ describe("phone.css: v3 Cli and CVNew", () => {
     for (const selector of rules) {
       expect(selector, selector).toMatch(/^\.ph-cn[\s.-]|^\.ph-card\.ph-cn-/);
     }
+  });
+});
+
+// v3/ApplicationCV (`ph-acv-`, the `.ph-acv` scope): the board's own <style>
+// classes and inline blocks.
+const V3_ACV = [
+  "ph-acv-form",
+  "ph-acv-pick",
+  "ph-acv-pick-body",
+  "ph-acv-hint",
+  "ph-acv-group",
+  "ph-acv-choice",
+  "ph-acv-opt",
+  "ph-acv-opt-text",
+  "ph-acv-name",
+  "ph-acv-upd",
+  "ph-acv-who",
+  "ph-acv-acts",
+  "ph-acv-act",
+  "ph-acv-del",
+  "ph-acv-new",
+  "ph-acv-tailor",
+  "ph-acv-tailor-text",
+  "ph-acv-tailor-t",
+  "ph-acv-locked",
+  "ph-acv-banner",
+  "ph-acv-banner-ic",
+  "ph-acv-banner-text",
+  "ph-acv-banner-t",
+  "ph-acv-banner-b",
+  "ph-acv-src",
+  "ph-acv-jd",
+  "ph-acv-h2",
+  "ph-acv-jd-text",
+  "ph-acv-clamp",
+  "ph-acv-more",
+  "ph-acv-add",
+  "ph-acv-fit",
+  "ph-acv-fit-head",
+  "ph-acv-fit-pill",
+  "ph-acv-kw-h",
+  "ph-acv-fit-err",
+  "ph-acv-fit-err-t",
+  "ph-acv-chg",
+  "ph-acv-row",
+  "ph-acv-chg-l",
+  "ph-acv-cmp",
+  "ph-acv-moves",
+  "ph-acv-dl",
+  "ph-acv-dl-l",
+  "ph-acv-foot",
+  "ph-acv-grow",
+  "ph-acv-full",
+] as const;
+
+/** K3's v3/CVNew field and list rules the copy editor shares: each `.ph-cn` selector and its `.ph-acv` twin. */
+const ACV_TWINS: [cvNew: string, copy: string][] = [
+  [
+    '.ph-cn [data-section="identity"] > .ph-ce-panel > div',
+    '.ph-acv [data-section="identity"] > .ph-ce-panel > div',
+  ],
+  ...(["identity", "summary"] as const).flatMap((section) => {
+    const cn = `.ph-cn [data-section="${section}"] > .ph-ce-panel`;
+    const acv = `.ph-acv [data-section="${section}"] > .ph-ce-panel`;
+    return [
+      "label > span:first-child",
+      'label > span:first-child > [aria-hidden="true"]',
+      "label ~ p",
+      "label ~ p[id]",
+    ].map((tail): [string, string] => [`${cn} ${tail}`, `${acv} ${tail}`]);
+  }),
+  // The copy's rows open with the section's description: the empty hint follows it.
+  [
+    ".ph-cn .ph-ce-panel > p:first-child",
+    ".ph-acv .ph-ce-panel > .ph-hint + p",
+  ],
+  [".ph-cn .ph-ce-panel > p[id]", ".ph-acv .ph-ce-panel > p[id]"],
+  ...[
+    'div:has(> [data-slot="button"][data-variant="outline"][data-size="sm"])',
+    'div > [data-slot="button"][data-variant="outline"][data-size="sm"]',
+    'div > [data-slot="button"][data-variant="outline"][data-size="sm"]::before',
+    'div > [data-slot="button"][data-variant="outline"][data-size="sm"]:focus-visible::before',
+    'div > [data-slot="button"][data-variant="outline"][data-size="sm"] > svg',
+  ].map((tail): [string, string] => [
+    `.ph-cn .ph-ce-panel > ${tail}`,
+    `.ph-acv .ph-ce-panel > ${tail}`,
+  ]),
+];
+
+describe("phone.css: v3 ApplicationCV", () => {
+  it.each(["ph-acv", ...V3_ACV])("declares .%s", (name) => {
+    expect(DECLARED.has(name), `.${name} is not declared`).toBe(true);
+  });
+
+  it("keeps ApplicationCV on its own prefix", () => {
+    const board = [...DECLARED].filter((name) => name.startsWith("ph-acv-"));
+    expect(board.sort()).toEqual([...V3_ACV].sort());
+  });
+
+  it("every ApplicationCV selector sits under .ph-acv or a ph-acv- class, or is the shared .ph-pick radio dot", () => {
+    const rules = ALL_SELECTORS.flatMap((list) => list.split(","))
+      .map((selector) => selector.trim())
+      .filter((selector) => /ph-acv\b|ph-acv-/.test(selector));
+    expect(rules.length).toBeGreaterThan(0);
+    for (const selector of rules) {
+      expect(selector, selector).toMatch(
+        /^\.ph-acv[\s-]|^\.ph-(?:hint|pick|btn|app|card|pill)[.\s][^,]*ph-acv/,
+      );
+    }
+    const loose = ALL_SELECTORS.filter((list) =>
+      /^\.ph-pick\.ph-on \.ph-radio/.test(list),
+    );
+    expect(loose).toEqual([
+      ".ph-pick.ph-on .ph-radio",
+      ".ph-pick.ph-on .ph-radio::after",
+    ]);
+  });
+
+  it.each(ACV_TWINS)(
+    "shares v3/CVNew's field rule %s with the copy editor",
+    (cvNew, copy) => {
+      expect(flatRuleBody(copy)).toBe(flatRuleBody(cvNew));
+    },
+  );
+
+  it("lays the screen out as drawn: the form and the picker in columns", () => {
+    const form = ruleBody(".ph-acv-form");
+    expect(form).toMatch(/flex-direction:\s*column/);
+    expect(form).toMatch(/gap:\s*16px/);
+    const pick = flatRuleBody(".ph-acv-pick");
+    expect(pick).toMatch(/flex-direction:\s*column/);
+    expect(pick).toMatch(/gap:\s*12px/);
+    expect(flatRuleBody(".ph-acv-pick-body")).toBe(pick);
+    expect(ruleBodies(".ph-acv-pick-body").at(-1)).toMatch(/outline:\s*none/);
+    expect(ruleBody(".ph-hint.ph-acv-hint")).toMatch(/margin-top:\s*4px/);
+    const group = ruleBody(".ph-acv-group");
+    expect(group).toMatch(/flex-direction:\s*column/);
+    expect(group).toMatch(/gap:\s*10px/);
+  });
+
+  it("draws a choice as the board's .pick: the label row, the dot, the name, update and who", () => {
+    expect(ruleBody(".ph-pick.ph-acv-choice")).toMatch(
+      /transition:\s*opacity 0\.2s/,
+    );
+    expect(ruleBody(".ph-pick.ph-acv-choice[data-deleting]")).toMatch(
+      /opacity:\s*0\.6/,
+    );
+    const opt = ruleBody(".ph-acv-opt");
+    expect(opt).toMatch(/position:\s*relative/);
+    expect(opt).toMatch(/width:\s*100%/);
+    expect(opt).toMatch(/display:\s*flex/);
+    expect(opt).toMatch(/gap:\s*12px/);
+    expect(opt).toMatch(/align-items:\s*flex-start/);
+    expect(opt).toMatch(/color:\s*var\(--foreground\)/);
+    expect(opt).toMatch(/text-align:\s*left/);
+    expect(opt).toMatch(/cursor:\s*pointer/);
+    const ring = ruleBody(".ph-app .ph-acv-opt:has(> input:focus-visible)");
+    expect(ring).toMatch(/outline:\s*2px solid var\(--primary\)/);
+    expect(ring).toMatch(/outline-offset:\s*2px/);
+    expect(ruleBody(".ph-pick.ph-on .ph-radio")).toMatch(
+      /border-color:\s*var\(--primary\)/,
+    );
+    const dot = ruleBody(".ph-pick.ph-on .ph-radio::after");
+    expect(dot).toMatch(/content:\s*""/);
+    expect(dot).toMatch(/width:\s*10px/);
+    expect(dot).toMatch(/height:\s*10px/);
+    expect(dot).toMatch(/border-radius:\s*999px/);
+    expect(dot).toMatch(/background:\s*var\(--primary\)/);
+    const text = ruleBody(".ph-acv-opt-text");
+    expect(text).toMatch(/flex:\s*1/);
+    expect(text).toMatch(/min-width:\s*0/);
+    const name = ruleBody(".ph-acv-name");
+    expect(name).toMatch(/display:\s*block/);
+    expect(name).toMatch(/font-size:\s*16px/);
+    expect(name).toMatch(/font-weight:\s*600/);
+    expect(name).toMatch(/overflow-wrap:\s*anywhere/);
+    const updated = ruleBody(".ph-acv-upd");
+    expect(updated).toMatch(/margin-top:\s*2px/);
+    expect(updated).toMatch(/font-size:\s*12px/);
+    expect(updated).toMatch(/color:\s*var\(--muted-foreground\)/);
+    const who = ruleBody(".ph-acv-who");
+    expect(who).toMatch(/margin-top:\s*4px/);
+    expect(who).toMatch(/font-size:\s*13px/);
+    expect(who).toMatch(/color:\s*var\(--muted-foreground\)/);
+    expect(who).toMatch(/overflow-wrap:\s*anywhere/);
+  });
+
+  it("draws the card actions, the new tile and the Tailor card at the board's sizes", () => {
+    const acts = ruleBody(".ph-acv-acts");
+    expect(acts).toMatch(/flex-wrap:\s*wrap/);
+    expect(acts).toMatch(/gap:\s*6px/);
+    const act = ruleBody(".ph-btn.ph-sm.ph-acv-act");
+    expect(act).toMatch(/flex:\s*1/);
+    expect(act).toMatch(/padding:\s*0 10px/);
+    expect(act).toMatch(/white-space:\s*nowrap/);
+    const del = ruleBody(".ph-btn.ph-sm.ph-acv-del");
+    expect(del).toMatch(/padding:\s*0 12px/);
+    expect(del).toMatch(/white-space:\s*nowrap/);
+    const tile = ruleBody(".ph-app .ph-cv-new.ph-acv-new");
+    expect(tile).toMatch(/min-height:\s*96px/);
+    expect(tile).toMatch(/gap:\s*4px/);
+    const tailor = ruleBody(".ph-card.ph-acv-tailor");
+    expect(tailor).toMatch(/display:\s*flex/);
+    expect(tailor).toMatch(/gap:\s*12px/);
+    expect(tailor).toMatch(/align-items:\s*flex-start/);
+    const tailorText = ruleBody(".ph-acv-tailor-text");
+    expect(tailorText).toMatch(/flex:\s*1/);
+    expect(tailorText).toMatch(/min-width:\s*0/);
+    const tailorT = ruleBody(".ph-acv-tailor-t");
+    expect(tailorT).toMatch(/display:\s*block/);
+    expect(tailorT).toMatch(/font-size:\s*15px/);
+    expect(tailorT).toMatch(/font-weight:\s*600/);
+    expect(tailorT).toMatch(/cursor:\s*pointer/);
+    const locked = ruleBody(".ph-acv-locked");
+    expect(locked).toMatch(/padding:\s*24px 20px/);
+    expect(locked).toMatch(/border-radius:\s*20px/);
+    expect(locked).toMatch(/border:\s*2px dashed var\(--border-strong\)/);
+    expect(locked).toMatch(/text-align:\s*center/);
+    expect(locked).toMatch(/font-size:\s*15px/);
+    expect(locked).toMatch(/line-height:\s*1\.5/);
+    expect(locked).toMatch(/color:\s*var\(--muted-foreground\)/);
+  });
+
+  it("draws the read-only banner in the warning tint, and the source pill's column", () => {
+    const banner = ruleBody(".ph-acv-banner");
+    expect(banner).toMatch(/padding:\s*14px/);
+    expect(banner).toMatch(/border-radius:\s*16px/);
+    expect(banner).toMatch(
+      /border:\s*1px solid color-mix\(in oklab, var\(--warning\) 45%, transparent\)/,
+    );
+    expect(banner).toMatch(
+      /background:\s*color-mix\(in oklab, var\(--warning\) 12%, transparent\)/,
+    );
+    expect(banner).toMatch(/display:\s*flex/);
+    expect(banner).toMatch(/gap:\s*10px/);
+    const icon = ruleBody(".ph-acv-banner-ic");
+    expect(icon).toMatch(/flex:\s*none/);
+    expect(icon).toMatch(/margin-top:\s*1px/);
+    expect(icon).toMatch(/color:\s*var\(--warning\)/);
+    const text = ruleBody(".ph-acv-banner-text");
+    expect(text).toMatch(/min-width:\s*0/);
+    expect(text).toMatch(/font-size:\s*14px/);
+    expect(text).toMatch(/line-height:\s*1\.45/);
+    const title = ruleBody(".ph-acv-banner-t");
+    expect(title).toMatch(/margin:\s*0/);
+    expect(title).toMatch(/font-weight:\s*600/);
+    const body = ruleBody(".ph-acv-banner-b");
+    expect(body).toMatch(/margin:\s*2px 0 0/);
+    expect(body).toMatch(/color:\s*var\(--muted-foreground\)/);
+    const source = ruleBody(".ph-acv-src");
+    expect(source).toMatch(/flex-direction:\s*column/);
+    expect(source).toMatch(/align-items:\s*flex-start/);
+    expect(source).toMatch(/gap:\s*6px/);
+  });
+
+  it("draws the job description card: four lines, then Show more in a 44px box", () => {
+    const card = ruleBody(".ph-card.ph-acv-jd");
+    expect(card).toMatch(/flex-direction:\s*column/);
+    expect(card).toMatch(/gap:\s*8px/);
+    const h2 = ruleBody(".ph-acv-h2");
+    expect(h2).toMatch(/margin:\s*0/);
+    expect(h2).toMatch(/font-size:\s*15px/);
+    expect(h2).toMatch(/font-weight:\s*600/);
+    const text = ruleBody(".ph-acv-jd-text");
+    expect(text).toMatch(/margin:\s*0/);
+    expect(text).toMatch(/font-size:\s*14px/);
+    expect(text).toMatch(/line-height:\s*1\.55/);
+    expect(text).toMatch(/white-space:\s*pre-wrap/);
+    expect(text).toMatch(/overflow-wrap:\s*anywhere/);
+    const clamp = ruleBody(".ph-acv-jd-text.ph-acv-clamp");
+    expect(clamp).toMatch(/display:\s*-webkit-box/);
+    expect(clamp).toMatch(/-webkit-line-clamp:\s*4/);
+    expect(clamp).toMatch(/-webkit-box-orient:\s*vertical/);
+    expect(clamp).toMatch(/overflow:\s*hidden/);
+    const more = ruleBody(".ph-acv-more");
+    expect(more).toMatch(/align-self:\s*flex-start/);
+    expect(more).toMatch(/min-height:\s*44px/);
+    expect(more).toMatch(/margin:\s*-10px 0 -12px/);
+    expect(more).toMatch(/background:\s*transparent/);
+    expect(more).toMatch(/color:\s*var\(--primary\)/);
+    expect(more).toMatch(/font-size:\s*14px/);
+    expect(more).toMatch(/font-weight:\s*600/);
+    expect(ruleBody(".ph-btn.ph-sm.ph-acv-add")).toMatch(
+      /align-self:\s*flex-start/,
+    );
+  });
+
+  it("draws the fit card: the head, the pill, Matched and Missing, the error", () => {
+    const card = ruleBody(".ph-card.ph-acv-fit");
+    expect(card).toMatch(/flex-direction:\s*column/);
+    expect(card).toMatch(/gap:\s*10px/);
+    expect(card).toMatch(/outline:\s*none/);
+    const head = ruleBody(".ph-acv-fit-head");
+    expect(head).toMatch(/display:\s*flex/);
+    expect(head).toMatch(/align-items:\s*center/);
+    expect(head).toMatch(/justify-content:\s*space-between/);
+    expect(head).toMatch(/gap:\s*8px/);
+    expect(ruleBody(".ph-pill.ph-acv-fit-pill")).toMatch(/flex:\s*none/);
+    const kw = ruleBody(".ph-acv-kw-h");
+    expect(kw).toMatch(/margin:\s*4px 0 0/);
+    expect(kw).toMatch(/font-size:\s*13px/);
+    expect(kw).toMatch(/font-weight:\s*600/);
+    const error = ruleBody(".ph-acv-fit-err");
+    expect(error).toMatch(/flex-direction:\s*column/);
+    expect(error).toMatch(/align-items:\s*flex-start/);
+    expect(error).toMatch(/gap:\s*10px/);
+    const errorText = ruleBody(".ph-acv-fit-err-t");
+    expect(errorText).toMatch(/margin:\s*0/);
+    expect(errorText).toMatch(/font-size:\s*14px/);
+  });
+
+  it("draws the Changes card: the switch row, the compared line, the moves inline, Download changes", () => {
+    const card = ruleBody(".ph-card.ph-acv-chg");
+    expect(card).toMatch(/flex-direction:\s*column/);
+    expect(card).toMatch(/gap:\s*12px/);
+    const row = ruleBody(".ph-acv-row");
+    expect(row).toMatch(/display:\s*flex/);
+    expect(row).toMatch(/align-items:\s*center/);
+    expect(row).toMatch(/gap:\s*12px/);
+    const label = ruleBody(".ph-acv-chg-l");
+    expect(label).toMatch(/flex:\s*1/);
+    expect(label).toMatch(/min-width:\s*0/);
+    expect(label).toMatch(/font-size:\s*15px/);
+    expect(label).toMatch(/font-weight:\s*600/);
+    expect(label).toMatch(/cursor:\s*pointer/);
+    const compared = ruleBody(".ph-acv-cmp");
+    expect(compared).toMatch(/margin:\s*0/);
+    expect(compared).toMatch(/font-size:\s*14px/);
+    expect(compared).toMatch(/overflow-wrap:\s*anywhere/);
+    const moves = ruleBody(".ph-acv-moves");
+    expect(moves).toMatch(/display:\s*inline/);
+    expect(moves).toMatch(/margin:\s*0/);
+    expect(moves).toMatch(/padding:\s*0/);
+    expect(moves).toMatch(/list-style:\s*none/);
+    expect(ruleBody(".ph-acv-moves > li")).toMatch(/display:\s*inline/);
+    expect(ruleBody(".ph-acv-moves > li + li::before")).toMatch(
+      /content:\s*", "/,
+    );
+    const dl = ruleBody(".ph-acv-dl");
+    expect(dl).toMatch(/display:\s*flex/);
+    expect(dl).toMatch(/align-items:\s*center/);
+    expect(dl).toMatch(/gap:\s*6px/);
+    const dlLabel = ruleBody(".ph-acv-dl-l");
+    expect(dlLabel).toMatch(/flex:\s*1/);
+    expect(dlLabel).toMatch(/min-width:\s*0/);
+    expect(dlLabel).toMatch(/font-size:\s*14px/);
+    expect(dlLabel).toMatch(/font-weight:\s*500/);
+  });
+
+  it("draws the downloads row: two halves, Delete copy on its own line", () => {
+    const foot = ruleBody(".ph-acv-foot");
+    expect(foot).toMatch(/display:\s*flex/);
+    expect(foot).toMatch(/flex-wrap:\s*wrap/);
+    expect(foot).toMatch(/gap:\s*8px/);
+    const grow = ruleBody(".ph-btn.ph-sm.ph-acv-grow");
+    expect(grow).toMatch(/flex:\s*1/);
+    expect(grow).toMatch(/white-space:\s*nowrap/);
+    expect(ruleBody(".ph-btn.ph-sm.ph-acv-full")).toMatch(/flex:\s*1 0 100%/);
   });
 });

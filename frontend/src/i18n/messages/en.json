@@ -2275,7 +2275,8 @@
       "add": "Add",
       "account": "Account",
       "back": "Back",
-      "home": "Home"
+      "home": "Home",
+      "application": "Application"
     },
     "account": {
       "workspace": "Workspace",
@@ -2626,6 +2627,13 @@
         "certifications": "{count, plural, =0 {None yet} one {# certification} other {# certifications}}",
         "languages": "{count, plural, =0 {None yet} one {# language} other {# languages}}"
       }
+    },
+    "applicationCv": {
+      "changes": "Changes",
+      "pdfOf": "Download PDF of {name}",
+      "markdownOf": "Download Markdown of {name}",
+      "showMore": "Show more",
+      "showLess": "Show less"
     }
   }
 }

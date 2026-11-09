@@ -6805,13 +6805,16 @@
     line-height: 1.5;
   }
 
-  /* The board's own fields (Identity and contact, Summary) as its .lbl, .req and .hint: CvField's utilities outrank this layer. A list section's items keep today's look. */
-  .ph-cn [data-section="identity"] > .ph-ce-panel > div {
+  /* The board's own fields (Identity and contact, Summary) as its .lbl, .req and .hint: CvField's utilities outrank this layer. A list section's items keep today's look. v3/ApplicationCV's copy editor (.ph-acv) is the same body. */
+  .ph-cn [data-section="identity"] > .ph-ce-panel > div,
+  .ph-acv [data-section="identity"] > .ph-ce-panel > div {
     gap: 12px !important;
   }
 
   .ph-cn [data-section="identity"] > .ph-ce-panel label > span:first-child,
-  .ph-cn [data-section="summary"] > .ph-ce-panel label > span:first-child {
+  .ph-cn [data-section="summary"] > .ph-ce-panel label > span:first-child,
+  .ph-acv [data-section="identity"] > .ph-ce-panel label > span:first-child,
+  .ph-acv [data-section="summary"] > .ph-ce-panel label > span:first-child {
     font-size: 13px !important;
     line-height: normal !important;
     font-weight: 600 !important;
@@ -6829,23 +6832,40 @@
     > .ph-ce-panel
     label
     > span:first-child
+    > [aria-hidden="true"],
+  .ph-acv
+    [data-section="identity"]
+    > .ph-ce-panel
+    label
+    > span:first-child
+    > [aria-hidden="true"],
+  .ph-acv
+    [data-section="summary"]
+    > .ph-ce-panel
+    label
+    > span:first-child
     > [aria-hidden="true"] {
     color: var(--destructive-text) !important;
   }
 
   .ph-cn [data-section="identity"] > .ph-ce-panel label ~ p,
-  .ph-cn [data-section="summary"] > .ph-ce-panel label ~ p {
+  .ph-cn [data-section="summary"] > .ph-ce-panel label ~ p,
+  .ph-acv [data-section="identity"] > .ph-ce-panel label ~ p,
+  .ph-acv [data-section="summary"] > .ph-ce-panel label ~ p {
     font-size: 13px !important;
     line-height: 1.45 !important;
   }
 
   .ph-cn [data-section="identity"] > .ph-ce-panel label ~ p[id],
-  .ph-cn [data-section="summary"] > .ph-ce-panel label ~ p[id] {
+  .ph-cn [data-section="summary"] > .ph-ce-panel label ~ p[id],
+  .ph-acv [data-section="identity"] > .ph-ce-panel label ~ p[id],
+  .ph-acv [data-section="summary"] > .ph-ce-panel label ~ p[id] {
     color: var(--destructive-text) !important;
   }
 
-  /* A list section's empty hint as the board's .hint, not today's dashed box: its utilities outrank this layer. */
-  .ph-cn .ph-ce-panel > p:first-child {
+  /* A list section's empty hint as the board's .hint, not today's dashed box: its utilities outrank this layer. On the copy editor's meta rows it follows the section's description. */
+  .ph-cn .ph-ce-panel > p:first-child,
+  .ph-acv .ph-ce-panel > .ph-hint + p {
     padding: 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
@@ -6855,7 +6875,8 @@
   }
 
   /* A list section's own error line (Skills), not drawn: the phone's error text. */
-  .ph-cn .ph-ce-panel > p[id] {
+  .ph-cn .ph-ce-panel > p[id],
+  .ph-acv .ph-ce-panel > p[id] {
     margin-top: 0 !important;
     font-size: 13px !important;
     line-height: 1.45 !important;
@@ -6865,12 +6886,19 @@
   /* A section's add button as the board's .btn.sec.sm in a 44px box (the .ph-btn.ph-sm model): its utilities outrank this layer. */
   .ph-cn
     .ph-ce-panel
+    > div:has(> [data-slot="button"][data-variant="outline"][data-size="sm"]),
+  .ph-acv
+    .ph-ce-panel
     > div:has(> [data-slot="button"][data-variant="outline"][data-size="sm"]) {
     margin-top: 0 !important;
     display: flex;
   }
 
   .ph-cn
+    .ph-ce-panel
+    > div
+    > [data-slot="button"][data-variant="outline"][data-size="sm"],
+  .ph-acv
     .ph-ce-panel
     > div
     > [data-slot="button"][data-variant="outline"][data-size="sm"] {
@@ -6892,6 +6920,10 @@
   .ph-cn
     .ph-ce-panel
     > div
+    > [data-slot="button"][data-variant="outline"][data-size="sm"]::before,
+  .ph-acv
+    .ph-ce-panel
+    > div
     > [data-slot="button"][data-variant="outline"][data-size="sm"]::before {
     content: "";
     position: absolute;
@@ -6904,12 +6936,21 @@
   .ph-cn
     .ph-ce-panel
     > div
+    > [data-slot="button"][data-variant="outline"][data-size="sm"]:focus-visible::before,
+  .ph-acv
+    .ph-ce-panel
+    > div
     > [data-slot="button"][data-variant="outline"][data-size="sm"]:focus-visible::before {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
   }
 
   .ph-cn
+    .ph-ce-panel
+    > div
+    > [data-slot="button"][data-variant="outline"][data-size="sm"]
+    > svg,
+  .ph-acv
     .ph-ce-panel
     > div
     > [data-slot="button"][data-variant="outline"][data-size="sm"]
@@ -6977,5 +7018,343 @@
 
   .ph-cn-figure > figcaption > svg {
     display: none;
+  }
+
+  /* v3/ApplicationCV (its main is v2/CVEditor's .ph-ce, its head .ph-h1.ph-h1-26 + .ph-lead, its h2 .ph-h2, its choices .ph-pick with .ph-radio, its tags and counts v2/CVs' .ph-cv-tags / .ph-tag.ph-cv-tag / .ph-cv-counts, its new tile v2/CVs' .ph-cv-new, its rows PhoneCvSections' .ph-acc in .ph-group.ph-ce-list, its bars .ph-bar with .ph-dr-go-btn); bodies as drawn. */
+
+  .ph-acv-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .ph-acv-pick,
+  .ph-acv-pick-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-acv-pick-body {
+    outline: none;
+  }
+
+  .ph-hint.ph-acv-hint {
+    margin-top: 4px;
+  }
+
+  .ph-acv-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ph-pick.ph-acv-choice {
+    transition: opacity 0.2s;
+  }
+
+  .ph-pick.ph-acv-choice[data-deleting] {
+    opacity: 0.6;
+  }
+
+  /* The board's .opt as the radio's label: the native radio is visually hidden, the row is its target. */
+  .ph-acv-opt {
+    position: relative;
+    width: 100%;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    color: var(--foreground);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .ph-app .ph-acv-opt:has(> input:focus-visible) {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .ph-pick.ph-on .ph-radio {
+    border-color: var(--primary);
+  }
+
+  .ph-pick.ph-on .ph-radio::after {
+    content: "";
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--primary);
+  }
+
+  .ph-acv-opt-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-acv-name {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-acv-upd {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  .ph-acv-who {
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+  }
+
+  /* The four actions fit one row at 390px; a narrower phone wraps Delete under them. */
+  .ph-acv-acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* A button's words stay on one line; a row too narrow for them wraps the button instead. */
+  .ph-btn.ph-sm.ph-acv-act {
+    flex: 1;
+    padding: 0 10px;
+    white-space: nowrap;
+  }
+
+  .ph-btn.ph-sm.ph-acv-del {
+    padding: 0 12px;
+    white-space: nowrap;
+  }
+
+  .ph-app .ph-cv-new.ph-acv-new {
+    min-height: 96px;
+    gap: 4px;
+  }
+
+  .ph-card.ph-acv-tailor {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .ph-acv-tailor-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ph-acv-tailor-t {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* A closed or archived application with no copy (not drawn): nothing to choose, today's words. */
+  .ph-acv-locked {
+    margin: 0;
+    padding: 24px 20px;
+    border-radius: 20px;
+    border: 2px dashed var(--border-strong);
+    text-align: center;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+  }
+
+  .ph-acv-banner {
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid color-mix(in oklab, var(--warning) 45%, transparent);
+    background: color-mix(in oklab, var(--warning) 12%, transparent);
+    display: flex;
+    gap: 10px;
+  }
+
+  .ph-acv-banner-ic {
+    flex: none;
+    margin-top: 1px;
+    color: var(--warning);
+  }
+
+  .ph-acv-banner-text {
+    min-width: 0;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .ph-acv-banner-t {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .ph-acv-banner-b {
+    margin: 2px 0 0;
+    color: var(--muted-foreground);
+  }
+
+  .ph-acv-src {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .ph-card.ph-acv-jd {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ph-acv-h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-acv-jd-text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .ph-acv-jd-text.ph-acv-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* "Show more" / "Show less" (not drawn, the owner's assumption): a text button in a 44px box, its words 10px under the text. */
+  .ph-acv-more {
+    align-self: flex-start;
+    min-height: 44px;
+    margin: -10px 0 -12px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    color: var(--primary);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .ph-btn.ph-sm.ph-acv-add {
+    align-self: flex-start;
+  }
+
+  .ph-card.ph-acv-fit {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    outline: none;
+  }
+
+  .ph-acv-fit-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ph-pill.ph-acv-fit-pill {
+    flex: none;
+  }
+
+  .ph-acv-kw-h {
+    margin: 4px 0 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .ph-acv-fit-err {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .ph-acv-fit-err-t {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  .ph-card.ph-acv-chg {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-acv-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-acv-chg-l {
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .ph-acv-cmp {
+    margin: 0;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+
+  /* "Reordered by job match: Skills, Experience": one inline list, a comma between its items. */
+  .ph-acv-moves {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .ph-acv-moves > li {
+    display: inline;
+  }
+
+  .ph-acv-moves > li + li::before {
+    content: ", ";
+  }
+
+  .ph-acv-dl {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ph-acv-dl-l {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .ph-acv-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .ph-btn.ph-sm.ph-acv-grow {
+    flex: 1;
+    white-space: nowrap;
+  }
+
+  .ph-btn.ph-sm.ph-acv-full {
+    flex: 1 0 100%;
   }
 }
