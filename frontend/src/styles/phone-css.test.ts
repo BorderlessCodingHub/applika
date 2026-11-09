@@ -1886,3 +1886,337 @@ describe("phone.css: v3 state cards, check option, AdminFeatures, AdminFeatureVi
     expect(ruleBody(".ph-wh-badges-dd > .ph-pill")).toMatch(/flex:\s*none/);
   });
 });
+
+// v3/Cli (`ph-clp-`; `ph-cli-` is /cli/code's) and v3/CVNew (`ph-cn-`, the
+// `.ph-cn` scope): each board's own <style> classes and inline blocks.
+const V3_CLI = [
+  "ph-clp-tile",
+  "ph-clp-eyebrow",
+  "ph-clp-h1",
+  "ph-clp-pypi",
+  "ph-clp-sec",
+  "ph-clp-h",
+  "ph-clp-body",
+  "ph-clp-code",
+  "ph-clp-term",
+  "ph-clp-p",
+  "ph-clp-copy",
+  "ph-clp-list",
+  "ph-clp-li",
+  "ph-clp-b",
+  "ph-clp-more",
+  "ph-clp-more-h",
+  "ph-clp-more-p",
+  "ph-clp-more-a",
+  "ph-clp-back",
+  "ph-clp-back-a",
+  "ph-clp-footer",
+] as const;
+
+const V3_CV_NEW = [
+  "ph-cn",
+  "ph-cn-limit",
+  "ph-cn-limit-t",
+  "ph-cn-pv",
+  "ph-cn-pv-h",
+  "ph-cn-figure",
+] as const;
+
+/** `css` with every run of whitespace made one space: prettier wraps long selectors. */
+const flatCss = css.replace(/\s+/g, " ");
+
+/** The body of the first rule whose (whitespace-normalised) selector list holds `selector`. */
+function flatRuleBody(selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = new RegExp(
+    `(?:^|[\\s},])${escaped}\\s*(?:,[^{}]*)?\\{([^}]*)\\}`,
+  ).exec(flatCss);
+  expect(match, `no rule for ${selector}`).not.toBeNull();
+  return match![1];
+}
+
+describe("phone.css: v3 Cli and CVNew", () => {
+  it.each([...V3_CLI, ...V3_CV_NEW])("declares .%s", (name) => {
+    expect(DECLARED.has(name), `.${name} is not declared`).toBe(true);
+  });
+
+  it("keeps v3/Cli on its own prefix, clear of /cli/code's .ph-cli-", () => {
+    const cliPage = [...DECLARED].filter((name) => name.startsWith("ph-clp-"));
+    expect(cliPage.sort()).toEqual([...V3_CLI].sort());
+  });
+
+  it("draws v3/Cli's hero at the board's sizes", () => {
+    const tile = ruleBody(".ph-clp-tile");
+    expect(tile).toMatch(/width:\s*56px/);
+    expect(tile).toMatch(/height:\s*56px/);
+    expect(tile).toMatch(/border-radius:\s*18px/);
+    expect(tile).toMatch(/background:\s*var\(--primary-muted\)/);
+    expect(tile).toMatch(/color:\s*var\(--primary\)/);
+    expect(tile).toMatch(/justify-content:\s*center/);
+    expect(ruleBody(".ph-landing-eyebrow.ph-clp-eyebrow")).toMatch(
+      /margin-top:\s*20px/,
+    );
+    const h1 = ruleBody(".ph-clp-h1");
+    expect(h1).toMatch(/margin:\s*8px 0 0/);
+    expect(h1).toMatch(/font-size:\s*38px/);
+    expect(h1).toMatch(/line-height:\s*1\.05/);
+    expect(h1).toMatch(/font-weight:\s*700/);
+    expect(h1).toMatch(/letter-spacing:\s*-0\.03em/);
+    const pypi = ruleBody(".ph-clp-pypi");
+    expect(pypi).toMatch(/margin-top:\s*24px/);
+    expect(pypi).toMatch(/height:\s*52px/);
+    expect(pypi).toMatch(/border-radius:\s*16px/);
+    expect(pypi).toMatch(/background:\s*var\(--primary\)/);
+    expect(pypi).toMatch(/color:\s*var\(--primary-foreground\)/);
+    expect(pypi).toMatch(/gap:\s*8px/);
+    expect(pypi).toMatch(/font-size:\s*15px/);
+    expect(pypi).toMatch(/font-weight:\s*600/);
+  });
+
+  it("draws v3/Cli's sections, bodies, codes and the sign-in list at the board's sizes", () => {
+    expect(ruleBody(".ph-clp-sec")).toMatch(/padding:\s*48px 20px 0/);
+    const h = ruleBody(".ph-clp-h");
+    expect(h).toMatch(/font-size:\s*20px/);
+    expect(h).toMatch(/font-weight:\s*700/);
+    expect(h).toMatch(/letter-spacing:\s*-0\.02em/);
+    const body = ruleBody(".ph-clp-body");
+    expect(body).toMatch(/margin:\s*8px 0 0/);
+    expect(body).toMatch(/font-size:\s*15px/);
+    expect(body).toMatch(/line-height:\s*1\.55/);
+    expect(body).toMatch(/color:\s*var\(--muted-foreground\)/);
+    expect(css).toMatch(
+      /\.ph-clp-body strong,\s*\.ph-clp-li strong\s*\{[^}]*color:\s*var\(--foreground\)[^}]*font-weight:\s*600/,
+    );
+    const code = ruleBody(".ph-clp-code");
+    expect(code).toMatch(/padding:\s*1px 6px/);
+    expect(code).toMatch(/border-radius:\s*6px/);
+    expect(code).toMatch(/background:\s*var\(--muted\)/);
+    expect(code).toMatch(/font-size:\s*13px/);
+    const list = ruleBody(".ph-clp-list");
+    expect(list).toMatch(/list-style:\s*none/);
+    expect(list).toMatch(/margin:\s*16px 0 0/);
+    expect(list).toMatch(/flex-direction:\s*column/);
+    expect(list).toMatch(/gap:\s*12px/);
+    const li = ruleBody(".ph-clp-li");
+    expect(li).toMatch(/display:\s*flex/);
+    expect(li).toMatch(/gap:\s*12px/);
+    expect(li).toMatch(/align-items:\s*flex-start/);
+    expect(li).toMatch(/font-size:\s*15px/);
+    expect(li).toMatch(/line-height:\s*1\.55/);
+    expect(li).toMatch(/color:\s*var\(--muted-foreground\)/);
+    const bullet = ruleBody(".ph-clp-b");
+    expect(bullet).toMatch(/width:\s*6px/);
+    expect(bullet).toMatch(/height:\s*6px/);
+    expect(bullet).toMatch(/border-radius:\s*999px/);
+    expect(bullet).toMatch(/margin-top:\s*9px/);
+    expect(bullet).toMatch(/background:\s*var\(--primary\)/);
+  });
+
+  it("draws v3/Cli's terminal: the pre scrolls inside itself, the prompt is never selected, Copy is 44px", () => {
+    const term = ruleBody(".ph-clp-term");
+    expect(term).toMatch(/margin-top:\s*16px/);
+    expect(term).toMatch(/border-radius:\s*16px/);
+    expect(term).toMatch(/background:\s*var\(--surface\)/);
+    expect(term).toMatch(/border:\s*1px solid var\(--border\)/);
+    expect(term).toMatch(/box-shadow:\s*var\(--shadow-card\)/);
+    expect(term).toMatch(/display:\s*flex/);
+    expect(term).toMatch(/align-items:\s*flex-start/);
+    expect(term).toMatch(/gap:\s*4px/);
+    expect(term).toMatch(/padding:\s*6px 6px 6px 0/);
+    const pre = ruleBody(".ph-clp-term > pre");
+    expect(pre).toMatch(/flex:\s*1/);
+    expect(pre).toMatch(/min-width:\s*0/);
+    expect(pre).toMatch(/padding:\s*10px 0 10px 16px/);
+    expect(pre).toMatch(/font-size:\s*13px/);
+    expect(pre).toMatch(/line-height:\s*1\.75/);
+    expect(pre).toMatch(/white-space:\s*pre/);
+    const prompt = ruleBody(".ph-clp-p");
+    expect(prompt).toMatch(/color:\s*var\(--muted-foreground\)/);
+    expect(prompt).toMatch(/-webkit-user-select:\s*none/);
+    expect(prompt).toMatch(/(?:^|[^-])user-select:\s*none/);
+    const copy = ruleBody(".ph-clp-copy");
+    expect(copy).toMatch(/width:\s*44px/);
+    expect(copy).toMatch(/height:\s*44px/);
+    expect(copy).toMatch(/border-radius:\s*12px/);
+    expect(copy).toMatch(/background:\s*transparent/);
+    expect(copy).toMatch(/color:\s*var\(--muted-foreground\)/);
+    expect(ruleBody('.ph-clp-copy[data-done="true"]')).toMatch(
+      /color:\s*var\(--primary\)/,
+    );
+  });
+
+  it("draws v3/Cli's Everything else card, the line back home and the footer at the board's sizes", () => {
+    const more = ruleBody(".ph-clp-more");
+    expect(more).toMatch(/margin:\s*48px 20px 0/);
+    expect(more).toMatch(/padding:\s*24px/);
+    expect(more).toMatch(/border-radius:\s*24px/);
+    expect(more).toMatch(/background:\s*var\(--surface\)/);
+    expect(more).toMatch(/box-shadow:\s*var\(--shadow-card\)/);
+    const moreH = ruleBody(".ph-clp-more-h");
+    expect(moreH).toMatch(/font-size:\s*17px/);
+    expect(moreH).toMatch(/font-weight:\s*600/);
+    const moreP = ruleBody(".ph-clp-more-p");
+    expect(moreP).toMatch(/margin:\s*6px 0 0/);
+    expect(moreP).toMatch(/font-size:\s*15px/);
+    expect(moreP).toMatch(/line-height:\s*1\.55/);
+    expect(moreP).toMatch(/color:\s*var\(--muted-foreground\)/);
+    const moreA = ruleBody(".ph-clp-more-a");
+    expect(moreA).toMatch(/margin-top:\s*8px/);
+    expect(moreA).toMatch(/min-height:\s*44px/);
+    expect(moreA).toMatch(/display:\s*inline-flex/);
+    expect(moreA).toMatch(/gap:\s*6px/);
+    expect(moreA).toMatch(/font-size:\s*15px/);
+    expect(moreA).toMatch(/font-weight:\s*600/);
+    const back = ruleBody(".ph-clp-back");
+    expect(back).toMatch(/margin:\s*32px 20px 0/);
+    expect(back).toMatch(/font-size:\s*15px/);
+    expect(back).toMatch(/color:\s*var\(--muted-foreground\)/);
+    const backA = ruleBody(".ph-clp-back-a");
+    expect(backA).toMatch(/display:\s*inline-flex/);
+    expect(backA).toMatch(/min-height:\s*44px/);
+    expect(backA).toMatch(/font-weight:\s*600/);
+    expect(ruleBody(".ph-landing-footer.ph-clp-footer")).toMatch(
+      /padding-bottom:\s*calc\(48px \+ env\(safe-area-inset-bottom, 0px\)\)/,
+    );
+  });
+
+  it("draws v3/CVNew's limit card at the board's sizes", () => {
+    const limit = ruleBody(".ph-cn-limit");
+    expect(limit).toMatch(/padding:\s*24px 20px/);
+    expect(limit).toMatch(/border-radius:\s*20px/);
+    expect(limit).toMatch(/border:\s*2px dashed var\(--border-strong\)/);
+    expect(limit).toMatch(/flex-direction:\s*column/);
+    expect(limit).toMatch(/gap:\s*14px/);
+    expect(limit).toMatch(/text-align:\s*center/);
+    const sentence = ruleBody(".ph-cn-limit-t");
+    expect(sentence).toMatch(/font-size:\s*15px/);
+    expect(sentence).toMatch(/line-height:\s*1\.5/);
+  });
+
+  it("draws v3/CVNew's own fields as its .lbl, .req and .hint, inside .ph-cn only", () => {
+    expect(
+      flatRuleBody('.ph-cn [data-section="identity"] > .ph-ce-panel > div'),
+    ).toMatch(/gap:\s*12px !important/);
+    for (const section of ["identity", "summary"]) {
+      const panel = `.ph-cn [data-section="${section}"] > .ph-ce-panel`;
+      const label = flatRuleBody(`${panel} label > span:first-child`);
+      expect(label, section).toMatch(/font-size:\s*13px !important/);
+      expect(label, section).toMatch(/line-height:\s*normal !important/);
+      expect(label, section).toMatch(/font-weight:\s*600 !important/);
+      expect(label, section).toMatch(/color:\s*var\(--muted-foreground\)/);
+      expect(
+        flatRuleBody(
+          `${panel} label > span:first-child > [aria-hidden="true"]`,
+        ),
+        section,
+      ).toMatch(/color:\s*var\(--destructive-text\) !important/);
+      const hint = flatRuleBody(`${panel} label ~ p`);
+      expect(hint, section).toMatch(/font-size:\s*13px !important/);
+      expect(hint, section).toMatch(/line-height:\s*1\.45 !important/);
+      expect(flatRuleBody(`${panel} label ~ p[id]`), section).toMatch(
+        /color:\s*var\(--destructive-text\) !important/,
+      );
+    }
+  });
+
+  it("draws v3/CVNew's list panels: the empty hint, the error line and Add as .btn.sec.sm in a 44px box", () => {
+    const empty = flatRuleBody(".ph-cn .ph-ce-panel > p:first-child");
+    expect(empty).toMatch(/padding:\s*0 !important/);
+    expect(empty).toMatch(/border:\s*0 !important/);
+    expect(empty).toMatch(/border-radius:\s*0 !important/);
+    expect(empty).toMatch(/text-align:\s*start !important/);
+    expect(empty).toMatch(/font-size:\s*13px !important/);
+    expect(empty).toMatch(/line-height:\s*1\.45 !important/);
+    const error = flatRuleBody(".ph-cn .ph-ce-panel > p[id]");
+    expect(error).toMatch(/margin-top:\s*0 !important/);
+    expect(error).toMatch(/font-size:\s*13px !important/);
+    expect(error).toMatch(/line-height:\s*1\.45 !important/);
+    expect(error).toMatch(/color:\s*var\(--destructive-text\) !important/);
+
+    const add =
+      '.ph-cn .ph-ce-panel > div > [data-slot="button"][data-variant="outline"][data-size="sm"]';
+    const wrap = flatRuleBody(
+      '.ph-cn .ph-ce-panel > div:has(> [data-slot="button"][data-variant="outline"][data-size="sm"])',
+    );
+    expect(wrap).toMatch(/margin-top:\s*0 !important/);
+    expect(wrap).toMatch(/display:\s*flex/);
+    const button = flatRuleBody(add);
+    expect(button).toMatch(/height:\s*44px !important/);
+    expect(button).toMatch(/margin-block:\s*-2px/);
+    expect(button).toMatch(/padding:\s*0 14px !important/);
+    expect(button).toMatch(/gap:\s*8px !important/);
+    expect(button).toMatch(/border:\s*0 !important/);
+    expect(button).toMatch(/border-radius:\s*12px !important/);
+    expect(button).toMatch(/background:\s*transparent !important/);
+    expect(button).toMatch(/box-shadow:\s*none !important/);
+    expect(button).toMatch(/color:\s*var\(--foreground\) !important/);
+    expect(button).toMatch(/font-size:\s*14px !important/);
+    expect(button).toMatch(/font-weight:\s*600 !important/);
+    const shape = flatRuleBody(`${add}::before`);
+    expect(shape).toMatch(/inset:\s*2px 0/);
+    expect(shape).toMatch(/background:\s*var\(--muted\)/);
+    const ring = flatRuleBody(`${add}:focus-visible::before`);
+    expect(ring).toMatch(/outline:\s*2px solid var\(--primary\)/);
+    expect(ring).toMatch(/outline-offset:\s*2px/);
+    expect(flatRuleBody(`${add} > svg`)).toMatch(/stroke-width:\s*2\.5/);
+  });
+
+  it("draws v3/CVNew's Live preview card: today's preview in a 210px column, the sheet r6, the indicator and caption centred", () => {
+    const card = ruleBody(".ph-card.ph-cn-pv");
+    expect(card).toMatch(/flex-direction:\s*column/);
+    expect(card).toMatch(/gap:\s*12px/);
+    expect(card).toMatch(/align-items:\s*center/);
+    const h = ruleBody(".ph-cn-pv-h");
+    expect(h).toMatch(/align-self:\s*flex-start/);
+    expect(h).toMatch(/font-size:\s*12px/);
+    expect(h).toMatch(/font-weight:\s*600/);
+    expect(h).toMatch(/letter-spacing:\s*0\.08em/);
+    expect(h).toMatch(/text-transform:\s*uppercase/);
+    expect(h).toMatch(/color:\s*var\(--muted-foreground\)/);
+    const figure = ruleBody(".ph-cn-figure");
+    expect(figure).toMatch(/position:\s*relative/);
+    expect(figure).toMatch(/align-self:\s*stretch/);
+    expect(figure).toMatch(/flex-direction:\s*column/);
+    expect(figure).toMatch(/align-items:\s*center/);
+    expect(figure).toMatch(/gap:\s*12px/);
+    const frame = ruleBody('.ph-cn-figure > [role="group"]');
+    expect(frame).toMatch(/width:\s*210px/);
+    expect(frame).toMatch(/max-width:\s*100%/);
+    expect(frame).toMatch(/margin-block:\s*0 !important/);
+    const sheet = ruleBody(
+      '.ph-cn-figure [data-slot="cv-page"] > div:first-child',
+    );
+    expect(sheet).toMatch(/border-radius:\s*6px/);
+    expect(sheet).toMatch(/box-shadow:\s*var\(--shadow-elevated\) !important/);
+    const indicator = ruleBody(
+      '.ph-cn-figure [data-slot="cv-page"] > div:last-child',
+    );
+    expect(indicator).toMatch(/margin-top:\s*12px !important/);
+    expect(indicator).toMatch(/flex-wrap:\s*wrap/);
+    expect(indicator).toMatch(/justify-content:\s*center !important/);
+    const count = ruleBody(
+      '.ph-cn-figure [data-slot="cv-page"] > div:last-child > p:last-child',
+    );
+    expect(count).toMatch(/margin-left:\s*0 !important/);
+    expect(count).toMatch(/font-size:\s*12px !important/);
+    expect(count).toMatch(/line-height:\s*normal !important/);
+    const caption = ruleBody(".ph-cn-figure > figcaption");
+    expect(caption).toMatch(/justify-content:\s*center/);
+    expect(caption).toMatch(/font-size:\s*13px !important/);
+    expect(caption).toMatch(/line-height:\s*1\.45 !important/);
+    expect(caption).toMatch(/text-align:\s*center/);
+    expect(ruleBody(".ph-cn-figure > figcaption > svg")).toMatch(
+      /display:\s*none/,
+    );
+  });
+
+  it("restyles today's CV fields on /cvs/new only: every CVNew rule sits under .ph-cn or a ph-cn- class", () => {
+    const rules = ALL_SELECTORS.flatMap((list) => list.split(","))
+      .map((selector) => selector.trim())
+      .filter((selector) => /ph-cn\b|ph-cn-/.test(selector));
+    expect(rules.length).toBeGreaterThan(0);
+    for (const selector of rules) {
+      expect(selector, selector).toMatch(/^\.ph-cn[\s.-]|^\.ph-card\.ph-cn-/);
+    }
+  });
+});

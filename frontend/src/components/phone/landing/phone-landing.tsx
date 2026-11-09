@@ -4,10 +4,8 @@ import Link from "next/link";
 import { ArrowUpRight, Calendar, ChartLine } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 
-import { ApplikaIcon } from "@/components/app-logo";
-import { LanguageToggle } from "@/components/language-toggle";
+import { PhoneLandingHeader } from "@/components/phone/landing/phone-landing-header";
 import { PhoneKanban } from "@/components/phone/phone-icons";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { APP_CONFIG } from "@/config";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
@@ -32,7 +30,6 @@ const PREVIEW_DONE = 3;
 export function PhoneLanding() {
   const t = useTranslations("phone.landing");
   const tLanding = useTranslations("landing");
-  const tHeader = useTranslations("header");
   const tSignIn = useTranslations("auth.signIn");
   const tTimeline = useTranslations("timeline");
   const tNav = useTranslations("nav");
@@ -55,32 +52,7 @@ export function PhoneLanding() {
       data-slot="landing-phone"
       className="ph-app relative flex min-h-viewport flex-col md:hidden"
     >
-      <header className="ph-landing-header h-auto min-h-16 flex-wrap gap-x-1 gap-y-1 py-[7px]">
-        <Link
-          href="/"
-          aria-label={tHeader("home")}
-          className="flex min-h-11 items-center gap-1.5 text-foreground"
-        >
-          <ApplikaIcon size={30} aria-hidden="true" className="text-primary" />
-          <span className="text-[16px] font-bold tracking-[-0.01em]">
-            <span>applika</span>
-            <span>.dev</span>
-          </span>
-        </Link>
-        {/* 44px boxes abut, no gap: one row from 387px wide, else this group wraps right. */}
-        <div className="ml-auto flex items-center">
-          <div className="ph-pair flex items-center">
-            <LanguageToggle variant="default" />
-            <ThemeToggle />
-          </div>
-          <Link
-            href={destination}
-            className="flex min-h-11 items-center text-[15px] font-semibold"
-          >
-            {signedIn ? tLanding("dashboard") : tLanding("signIn")}
-          </Link>
-        </div>
-      </header>
+      <PhoneLandingHeader />
 
       <main>
         <section className="ph-landing-hero">

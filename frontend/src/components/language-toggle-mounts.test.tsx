@@ -154,7 +154,7 @@ describe("LanguageToggle mounts", () => {
       "components/cli-code/cli-code-screen.tsx",
       "components/landing/landing-header.tsx",
       "components/layout/header.tsx",
-      "components/phone/landing/phone-landing.tsx",
+      "components/phone/landing/phone-landing-header.tsx",
       "components/phone/phone-public-bar.tsx",
     ]);
     for (const [, text] of mounts) {

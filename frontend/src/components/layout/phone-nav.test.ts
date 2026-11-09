@@ -70,11 +70,18 @@ describe("phoneBackFor", () => {
         back.label,
       ]),
     ).toEqual([
-      ["/cvs/new", "/cvs", "CVs"],
       ["/applications/cv", "/applications", "Pipeline"],
       ["/admin/supports", "/admin", "Admin"],
       ["/admin/discord-webhooks", "/admin", "Admin"],
     ]);
+  });
+
+  it("draws the new master CV's back from its board: CVs", () => {
+    expect(PHONE_PARENTS["/cvs/new"]).toBeUndefined();
+    for (const path of ["/cvs/new", "/cvs/new/"]) {
+      const back = phoneBackFor(path);
+      expect(back && [back.href, back.label], path).toEqual(["/cvs", "CVs"]);
+    }
   });
 
   it("draws a feature's back from its board, not from the no-board map", () => {
@@ -104,9 +111,17 @@ describe("isPhoneScreen", () => {
     }
   });
 
-  it("keeps today's padding on the screens whose boards land later", () => {
-    for (const path of ["/cvs/new", "/applications/cv", "/cli"]) {
-      expect(isPhoneScreen(path), path).toBe(false);
+  it("lets the new master CV own its padding (v3/CVNew)", () => {
+    for (const path of ["/cvs/new", "/cvs/new/"]) {
+      expect(isPhoneScreen(path), path).toBe(true);
     }
+  });
+
+  it("keeps today's padding on the screens whose boards land later", () => {
+    expect(isPhoneScreen("/applications/cv")).toBe(false);
+  });
+
+  it("never maps the public /cli: its phone tree is the page's own, outside the shell", () => {
+    expect(isPhoneScreen("/cli")).toBe(false);
   });
 });

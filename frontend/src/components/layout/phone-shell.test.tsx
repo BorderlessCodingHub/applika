@@ -387,7 +387,7 @@ describe("PhoneShell below md", () => {
 
   it("pads a screen without a board with today's padding", () => {
     mockPhoneViewport();
-    renderShell("/cvs/new");
+    renderShell("/applications/cv");
     const slot = document.querySelector('[data-slot="app-content"]')!;
 
     expect(slot.className).toContain("px-4");
@@ -440,7 +440,7 @@ describe("PhoneShell below md", () => {
       unmount();
     }
 
-    renderShell("/cvs/new");
+    renderShell("/applications/cv");
     expect(
       document.querySelector('[data-slot="app-content"]')!.className,
     ).toContain("pb-10");
@@ -623,12 +623,12 @@ describe("phone-nav", () => {
       "/jobs/view",
       "/cvs",
       "/cvs/editor",
+      "/cvs/new",
       "/applications/new-with-cv",
     ]) {
       expect(isPhoneScreen(path), path).toBe(true);
     }
     for (const path of [
-      "/cvs/new",
       "/applications/cv",
       "/jobsx",
       "/reportsx",
@@ -651,7 +651,6 @@ describe("phone-nav", () => {
     expect(
       Object.entries(PHONE_PARENTS).map(([path, back]) => [path, back.href]),
     ).toEqual([
-      ["/cvs/new", "/cvs"],
       ["/applications/cv", "/applications"],
       ["/admin/supports", "/admin"],
       ["/admin/discord-webhooks", "/admin"],

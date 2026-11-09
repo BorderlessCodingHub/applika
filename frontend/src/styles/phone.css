@@ -6592,4 +6592,390 @@
   .ph-hint.ph-wh-error {
     overflow-wrap: anywhere;
   }
+
+  /* v3/Cli (its header is PhoneLandingHeader's .ph-landing-header; its hero, eyebrow, lead and footer are v2/Landing's .ph-landing-hero, -eyebrow, -lead, -footer); bodies as drawn. */
+
+  .ph-clp-tile {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    background: var(--primary-muted);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ph-landing-eyebrow.ph-clp-eyebrow {
+    margin-top: 20px;
+  }
+
+  .ph-clp-h1 {
+    margin: 8px 0 0;
+    font-size: 38px;
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  /* A filled link: later than .ph-app's link colours, so its own colour holds on hover too. */
+  .ph-clp-pypi {
+    margin-top: 24px;
+    height: 52px;
+    border-radius: 16px;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-clp-sec {
+    padding: 48px 20px 0;
+  }
+
+  .ph-clp-h {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .ph-clp-body {
+    margin: 8px 0 0;
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--muted-foreground);
+  }
+
+  .ph-clp-body strong,
+  .ph-clp-li strong {
+    color: var(--foreground);
+    font-weight: 600;
+  }
+
+  .ph-clp-code {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: var(--muted);
+    color: var(--foreground);
+    font-size: 13px;
+  }
+
+  .ph-clp-term {
+    margin-top: 16px;
+    border-radius: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 6px 6px 6px 0;
+  }
+
+  .ph-clp-term > pre {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 10px 0 10px 16px;
+    font-size: 13px;
+    line-height: 1.75;
+    white-space: pre;
+  }
+
+  .ph-clp-p {
+    color: var(--muted-foreground);
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .ph-clp-copy {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--muted-foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .ph-clp-copy[data-done="true"] {
+    color: var(--primary);
+  }
+
+  .ph-clp-list {
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ph-clp-li {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--muted-foreground);
+  }
+
+  .ph-clp-b {
+    flex: none;
+    margin-top: 9px;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--primary);
+  }
+
+  .ph-clp-more {
+    margin: 48px 20px 0;
+    padding: 24px;
+    border-radius: 24px;
+    background: var(--surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .ph-clp-more-h {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .ph-clp-more-p {
+    margin: 6px 0 0;
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--muted-foreground);
+  }
+
+  .ph-clp-more-a {
+    margin-top: 8px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .ph-clp-back {
+    margin: 32px 20px 0;
+    font-size: 15px;
+    color: var(--muted-foreground);
+  }
+
+  /* The board's inline link, in a 44px box. */
+  .ph-clp-back-a {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    font-weight: 600;
+  }
+
+  .ph-landing-footer.ph-clp-footer {
+    padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* v3/CVNew (its main is v2/CVEditor's .ph-ce, its rows PhoneCvSections' .ph-acc in .ph-group.ph-ce-list, its bar .ph-bar with .ph-dr-lead-btn / .ph-dr-go-btn); bodies as drawn. */
+
+  .ph-cn-limit {
+    padding: 24px 20px;
+    border-radius: 20px;
+    border: 2px dashed var(--border-strong);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    text-align: center;
+  }
+
+  .ph-cn-limit-t {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  /* The board's own fields (Identity and contact, Summary) as its .lbl, .req and .hint: CvField's utilities outrank this layer. A list section's items keep today's look. */
+  .ph-cn [data-section="identity"] > .ph-ce-panel > div {
+    gap: 12px !important;
+  }
+
+  .ph-cn [data-section="identity"] > .ph-ce-panel label > span:first-child,
+  .ph-cn [data-section="summary"] > .ph-ce-panel label > span:first-child {
+    font-size: 13px !important;
+    line-height: normal !important;
+    font-weight: 600 !important;
+    color: var(--muted-foreground);
+  }
+
+  .ph-cn
+    [data-section="identity"]
+    > .ph-ce-panel
+    label
+    > span:first-child
+    > [aria-hidden="true"],
+  .ph-cn
+    [data-section="summary"]
+    > .ph-ce-panel
+    label
+    > span:first-child
+    > [aria-hidden="true"] {
+    color: var(--destructive-text) !important;
+  }
+
+  .ph-cn [data-section="identity"] > .ph-ce-panel label ~ p,
+  .ph-cn [data-section="summary"] > .ph-ce-panel label ~ p {
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+  }
+
+  .ph-cn [data-section="identity"] > .ph-ce-panel label ~ p[id],
+  .ph-cn [data-section="summary"] > .ph-ce-panel label ~ p[id] {
+    color: var(--destructive-text) !important;
+  }
+
+  /* A list section's empty hint as the board's .hint, not today's dashed box: its utilities outrank this layer. */
+  .ph-cn .ph-ce-panel > p:first-child {
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    text-align: start !important;
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+  }
+
+  /* A list section's own error line (Skills), not drawn: the phone's error text. */
+  .ph-cn .ph-ce-panel > p[id] {
+    margin-top: 0 !important;
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+    color: var(--destructive-text) !important;
+  }
+
+  /* A section's add button as the board's .btn.sec.sm in a 44px box (the .ph-btn.ph-sm model): its utilities outrank this layer. */
+  .ph-cn
+    .ph-ce-panel
+    > div:has(> [data-slot="button"][data-variant="outline"][data-size="sm"]) {
+    margin-top: 0 !important;
+    display: flex;
+  }
+
+  .ph-cn
+    .ph-ce-panel
+    > div
+    > [data-slot="button"][data-variant="outline"][data-size="sm"] {
+    position: relative;
+    isolation: isolate;
+    height: 44px !important;
+    margin-block: -2px;
+    padding: 0 14px !important;
+    gap: 8px !important;
+    border: 0 !important;
+    border-radius: 12px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--foreground) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+  }
+
+  .ph-cn
+    .ph-ce-panel
+    > div
+    > [data-slot="button"][data-variant="outline"][data-size="sm"]::before {
+    content: "";
+    position: absolute;
+    inset: 2px 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--muted);
+  }
+
+  .ph-cn
+    .ph-ce-panel
+    > div
+    > [data-slot="button"][data-variant="outline"][data-size="sm"]:focus-visible::before {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .ph-cn
+    .ph-ce-panel
+    > div
+    > [data-slot="button"][data-variant="outline"][data-size="sm"]
+    > svg {
+    stroke-width: 2.5;
+  }
+
+  .ph-card.ph-cn-pv {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .ph-cn-pv-h {
+    align-self: flex-start;
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  /* Today's CvDocumentPreview in the board's 210px column (the scale follows the frame's clientWidth): its utilities outrank this layer. */
+  .ph-cn-figure {
+    position: relative;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ph-cn-figure > [role="group"] {
+    width: 210px;
+    max-width: 100%;
+    margin-block: 0 !important;
+  }
+
+  .ph-cn-figure [data-slot="cv-page"] > div:first-child {
+    border-radius: 6px;
+    box-shadow: var(--shadow-elevated) !important;
+  }
+
+  .ph-cn-figure [data-slot="cv-page"] > div:last-child {
+    margin-top: 12px !important;
+    flex-wrap: wrap;
+    justify-content: center !important;
+    text-align: center;
+  }
+
+  .ph-cn-figure [data-slot="cv-page"] > div:last-child > p:last-child {
+    margin-left: 0 !important;
+    font-size: 12px !important;
+    line-height: normal !important;
+  }
+
+  .ph-cn-figure > figcaption {
+    justify-content: center;
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+    text-align: center;
+  }
+
+  .ph-cn-figure > figcaption > svg {
+    display: none;
+  }
 }

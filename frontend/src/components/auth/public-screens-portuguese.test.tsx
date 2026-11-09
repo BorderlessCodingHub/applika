@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { CliPage } from "@/app/(public)/cli/cli-page";
 import { LoginPage } from "@/app/login/login-page";
 import { WelcomeScreen } from "@/components/auth/welcome-screen";
 import { CliCodeScreen } from "@/components/cli-code/cli-code-screen";
@@ -317,6 +318,99 @@ describe("phone landing and public bar in Portuguese", () => {
     expect(
       screen.getByRole("radiogroup", { name: "Alternar idioma" }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("the applika-cli page in Portuguese", () => {
+  it("writes v3/Cli and today's page in Portuguese, commands and brand kept", async () => {
+    await renderInPortuguese(<CliPage />, { localeSwitch: true });
+    const phone = within(tree("cli-phone"));
+    const desktop = within(tree("cli-desktop"));
+
+    for (const view of [phone, desktop]) {
+      expect(view.getByText("Linha de comando")).toBeInTheDocument();
+      expect(
+        view.getByRole("heading", { level: 1, name: "applika-cli" }),
+      ).toBeInTheDocument();
+      expect(
+        view
+          .getAllByRole("heading", { level: 2 })
+          .map((heading) => heading.textContent),
+      ).toEqual([
+        "Instalação",
+        "Entrar",
+        "Acompanhe pelo terminal",
+        "Ensine seu assistente de IA",
+        "Todo o resto",
+      ]);
+      expect(
+        view.getAllByRole("button", { name: "Copiar comando" }),
+      ).toHaveLength(4);
+      expect(
+        view.getByRole("link", { name: "página inicial" }),
+      ).toHaveAttribute("href", "/");
+    }
+
+    // The phone tree's own header, list and footer.
+    const header = within(phone.getByRole("banner"));
+    expect(
+      header.getByRole("link", { name: "Página inicial do Applika.dev" }),
+    ).toHaveAttribute("href", "/");
+    expect(header.getByRole("link", { name: "Entrar" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+    expect(
+      header.getByRole("radiogroup", { name: "Alternar idioma" }),
+    ).toBeInTheDocument();
+    expect(
+      phone.getAllByRole("link", { name: "Ver no PyPI Abre em uma nova aba." }),
+    ).toHaveLength(2);
+    expect(phone.getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "Padrão: seu navegador abre e o login volta sozinho para o terminal.",
+      "Navegador em outra máquina: --manual mostra um código no navegador para você colar no terminal.",
+      "Sem navegador (SSH, contêineres): --device mostra um código curto para aprovar em qualquer navegador conectado.",
+    ]);
+    expect(
+      phone.getByRole("link", { name: "Política de cookies" }),
+    ).toHaveAttribute("href", "/cookie-policy");
+    expect(phone.getByRole("contentinfo")).toHaveTextContent("© Applika.dev");
+    // The commands stay English.
+    expect(
+      tree("cli-phone").querySelector('[data-slot="cli-phone-commands"]'),
+    ).toHaveTextContent("$ uv tool install applika-cli");
+  });
+
+  it("says Copiado once Copy has written the commands", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    await renderInPortuguese(<CliPage />, { localeSwitch: true });
+    const phone = within(tree("cli-phone"));
+
+    await user.click(
+      phone.getAllByRole("button", { name: "Copiar comando" })[0],
+    );
+
+    expect(phone.getByRole("button", { name: "Copiado" })).toBeInTheDocument();
+    expect(
+      tree("cli-phone").querySelector('[data-slot="cli-phone-copy-status"]'),
+    ).toHaveTextContent("Copiado");
+  });
+
+  it("offers Painel to a signed-in visitor", async () => {
+    auth = { isAuthenticated: true, isLoading: false };
+    await renderInPortuguese(<CliPage />, { localeSwitch: true });
+    const header = within(within(tree("cli-phone")).getByRole("banner"));
+
+    expect(header.getByRole("link", { name: "Painel" })).toHaveAttribute(
+      "href",
+      "/dashboard",
+    );
+    expect(header.queryByRole("link", { name: "Entrar" })).toBeNull();
   });
 });
 

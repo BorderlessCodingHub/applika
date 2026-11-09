@@ -25,6 +25,12 @@ export interface PhoneCvSectionsProps {
   newItemId?: () => string;
   /** The rows' heading level: `h2` under the editor's h1, `h3` under the draft's "Edit the CV copy". */
   headingLevel?: "h2" | "h3";
+  /**
+   * A row's second line: `meta` (v2/CVEditor: what the section holds) or
+   * `description` (v3/CVNew: the section's description, Identity included,
+   * and the open panel no longer repeats it).
+   */
+  subline?: "meta" | "description";
   className?: string;
 }
 
@@ -47,6 +53,7 @@ export function PhoneCvSections({
   disabled,
   newItemId,
   headingLevel = "h2",
+  subline = "meta",
   className,
 }: PhoneCvSectionsProps) {
   const t = useTranslations("phone.cvEditor");
@@ -117,13 +124,16 @@ export function PhoneCvSections({
   const frame = (section: CvSectionFrameProps) => {
     const id = isSectionId(section.sectionId) ? section.sectionId : null;
     if (!id) return section.children;
+    const byDescription = subline === "description";
     return (
       <PhoneCvSectionRow
         id={id}
         headingLevel={headingLevel}
         title={section.title}
-        description={id === FIRST_OPEN ? undefined : section.description}
-        meta={metaFor(id)}
+        description={
+          byDescription || id === FIRST_OPEN ? undefined : section.description
+        }
+        meta={byDescription ? section.description : metaFor(id)}
         invalid={cvSectionHasError(id, errors)}
         open={disclosure.open.has(id)}
         onToggle={() => toggle(id)}
@@ -164,7 +174,7 @@ function PhoneCvSectionRow({
   headingLevel: "h2" | "h3";
   title: string;
   description?: ReactNode;
-  meta: string;
+  meta: ReactNode;
   invalid: boolean;
   open: boolean;
   onToggle: () => void;

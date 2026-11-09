@@ -30,8 +30,9 @@ import {
  * The public screens switch by CSS (one tree per width, `data-slot` per
  * tree; Playwright leaves `display: none` out of role queries): below md
  * `/` is v2/Landing, `/cookie-policy` v2/CookiePolicy, `/cli/code`
- * v2/CliCode, and `/cli` (no board) keeps today's content under the phone
- * public bar. The landing header and footer are md-and-up only. `/login`
+ * v2/CliCode, and `/cli` v3/Cli (PRD 0022: the landing's phone header, the
+ * four command blocks with Copy, its own footer). The landing header and
+ * footer are md-and-up only. `/login`
  * (option C) is walked in `borderless-signin.spec.ts`, `/device` in
  * `devices.spec.ts`, the signed-in shell in `shell-responsive.spec.ts`.
  *
@@ -182,25 +183,154 @@ test.describe("public screens below md", () => {
     await page.waitForURL((url) => url.pathname === "/");
   });
 
-  test("/cli keeps today's content under the phone public bar", async ({
+  test("/cli is the Cli board: the header with the pair and Sign in, the four command blocks with Copy, the footer", async ({
     page,
+    context,
   }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.goto("/cli");
 
-    await expectHomeBackLink(page);
-    await expectThePair(page);
+    const phone = page.locator('[data-slot="cli-phone"]');
+    await expect(phone).toBeVisible();
+    await expect(page.locator('[data-slot="cli-desktop"]')).toBeHidden();
+    // The phone tree's own header and footer; the landing's are md and up.
     await expect(page.getByRole("banner")).toHaveCount(1);
-    await expect(page.getByRole("contentinfo")).toHaveCount(0);
+    await expect(page.getByRole("contentinfo")).toHaveCount(1);
+    await expect(page.locator('[data-slot="phone-public-bar"]')).toHaveCount(0);
+    const header = phone.getByRole("banner");
+    await expect(
+      header.getByRole("link", { name: "Applika.dev home", exact: true }),
+    ).toHaveAttribute("href", "/");
+    await expectThePair(page);
+    await expect(
+      header.getByRole("link", { name: "Sign in", exact: true }),
+    ).toHaveAttribute("href", "/login");
+
+    await expect(
+      phone.getByText("Command line", { exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByRole("heading", { level: 1, name: "applika-cli" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { level: 2, name: "Install" }),
-    ).toBeVisible();
-    await expect(page.getByText("uv tool install applika-cli")).toBeVisible();
+      phone.getByRole("link", {
+        name: "View on PyPI Opens in a new tab.",
+        exact: true,
+      }),
+    ).toHaveCount(2);
+    for (const name of [
+      "Install",
+      "Sign in",
+      "Track from your terminal",
+      "Teach your AI assistant",
+      "Everything else",
+    ]) {
+      await expect(
+        page.getByRole("heading", { level: 2, name, exact: true }),
+      ).toBeVisible();
+    }
+    await expect(phone.locator('[data-slot="cli-phone-modes"] li')).toHaveCount(
+      3,
+    );
+    const terms = phone.locator('[data-slot="cli-phone-term"]');
+    await expect(terms).toHaveCount(4);
+    await expect(
+      terms.first().locator('[data-slot="cli-phone-commands"]'),
+    ).toHaveText("$ uv tool install applika-cli\n$ pipx install applika-cli");
+    await expect(
+      phone.getByRole("button", { name: "Copy command", exact: true }),
+    ).toHaveCount(4);
 
-    await expectPhoneTargets(page, 8);
+    // The footer: the line back home, then Cookie policy and the ©.
+    await expect(
+      phone.getByRole("link", { name: "home page", exact: true }),
+    ).toHaveAttribute("href", "/");
+    const footer = page.getByRole("contentinfo");
+    await expect(
+      footer.getByRole("link", { name: "Cookie policy", exact: true }),
+    ).toHaveAttribute("href", "/cookie-policy");
+    await expect(footer).toContainText("© Applika.dev");
+
+    // home, the two radios, theme, Sign in, two PyPI, four Copy, home page,
+    // Cookie policy.
+    await expectPhoneTargets(page, 13);
     await expectNoSidewaysScroll(page);
+    // The long Track command scrolls inside its own block.
+    const track = terms.nth(2).locator('[data-slot="cli-phone-commands"]');
+    expect(
+      await track.evaluate((pre) => pre.scrollWidth > pre.clientWidth),
+    ).toBe(true);
+
+    // Copy writes today's commands (no "$ ") and says Copied.
+    await terms
+      .first()
+      .getByRole("button", { name: "Copy command", exact: true })
+      .click();
+    await expect(
+      terms.first().getByRole("button", { name: "Copied", exact: true }),
+    ).toBeVisible();
+    await expect(
+      phone.locator('[data-slot="cli-phone-copy-status"]').first(),
+    ).toHaveText("Copied");
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      "uv tool install applika-cli\npipx install applika-cli",
+    );
+    await expect(
+      terms.first().getByRole("button", { name: "Copy command", exact: true }),
+    ).toBeVisible({ timeout: 5_000 });
+  });
+
+  test("/cli with the clipboard refused: no Copied, and the commands stay selectable", async ({
+    page,
+    context,
+  }) => {
+    await page.goto("/cli");
+    // The browser itself refuses the write (no stub of the page's code).
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("Browser.setPermission", {
+      origin: new URL(page.url()).origin,
+      permission: { name: "clipboard-write" },
+      setting: "denied",
+    });
+
+    const phone = page.locator('[data-slot="cli-phone"]');
+    const install = phone.locator(
+      '[data-slot="cli-phone-term"][data-block="install"]',
+    );
+    expect(
+      await page.evaluate(() =>
+        navigator.clipboard.writeText("probe").then(
+          () => "written",
+          () => "refused",
+        ),
+      ),
+    ).toBe("refused");
+
+    await install
+      .getByRole("button", { name: "Copy command", exact: true })
+      .click();
+    await page.waitForTimeout(300);
+    await expect(
+      install.getByRole("button", { name: "Copy command", exact: true }),
+    ).toBeVisible();
+    await expect(phone.getByRole("button", { name: "Copied" })).toHaveCount(0);
+    await expect(
+      phone.locator('[data-slot="cli-phone-copy-status"]').first(),
+    ).toHaveText("");
+
+    // Selectable by hand: the commands; the "$ " prompts never are.
+    const commands = install.locator('[data-slot="cli-phone-commands"]');
+    await expect(commands).toHaveCSS("user-select", "auto");
+    await expect(commands.locator(".ph-clp-p").first()).toHaveCSS(
+      "user-select",
+      "none",
+    );
+    await commands.selectText();
+    const selected = await page.evaluate(() =>
+      window.getSelection()?.toString(),
+    );
+    expect(selected).toContain("uv tool install applika-cli");
+    expect(selected).toContain("pipx install applika-cli");
   });
 
   test("/cli/code is the CliCode board: the code, Copy that says Copied, the expiry", async ({
@@ -1125,6 +1255,117 @@ test.describe("the account area, jobs and CVs below md", () => {
     expect(saved.suggestedFilename()).toMatch(/\.pdf$/);
     const bytes = await readFile((await saved.path())!);
     expect(bytes.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+  });
+
+  test("the new master CV: back CVs and Beta, the rows with Identity open, the Live preview card, Cancel to CVs (nothing created)", async ({
+    page,
+    request,
+  }) => {
+    const before = await getJson<Array<{ id: string }>>(
+      request,
+      "user",
+      "/base-cvs",
+    );
+    // Below the cap of three, so the page offers the form.
+    expect(before.length).toBeLessThan(3);
+    await loginAs(page, "user");
+    await page.goto("/cvs/new");
+
+    const board = page.locator('[data-slot="phone-cv-new"]');
+    await expect(board).toHaveAttribute("data-state", "form");
+    const top = page.locator('[data-slot="phone-top-bar"]');
+    await expect(
+      top.getByRole("link", { name: "CVs", exact: true }),
+    ).toHaveAttribute("href", "/cvs");
+    await expect(
+      page
+        .locator('[data-slot="phone-top-bar-end"]')
+        .getByText("Beta", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "New master CV" }),
+    ).toBeVisible();
+
+    const rows = board.locator('[data-slot="cv-acc"]');
+    await expect(rows).toHaveCount(9);
+    await expect(rows.first()).toHaveAttribute("data-section", "identity");
+    await expect(rows.first()).toHaveAttribute("data-open", "true");
+    await expect(board.locator('[data-slot="cv-acc"][data-open]')).toHaveCount(
+      1,
+    );
+    await expect(
+      rows
+        .first()
+        .getByRole("button", { name: "Identity and contact", exact: true }),
+    ).toHaveAccessibleDescription(
+      "The header at the top of your CV, plus the label you recognise this CV by.",
+    );
+    await expect(page.getByLabel("CV label", { exact: true })).toBeVisible();
+
+    const preview = page.getByRole("region", { name: "Live preview" });
+    await expect(preview).toBeVisible();
+    await expect(preview.locator('[data-slot="cv-page"]')).toHaveCount(1);
+    await expect(preview.getByText("1 / 1", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Preview does not show the final PDF layout."),
+    ).toHaveCount(1);
+    const sheet = await preview
+      .locator('[data-slot="cv-page"] > div')
+      .first()
+      .boundingBox();
+    expect(Math.round(sheet!.width)).toBe(210);
+    expect(Math.round(sheet!.height)).toBe(297);
+
+    const bar = page.locator('[data-slot="phone-action-bar"]');
+    await expect(
+      bar.getByRole("button", { name: "Create CV", exact: true }),
+    ).toBeVisible();
+    // Identity's six fields, the nine row toggles, the frame, the bar.
+    await expectPhoneTargets(page, 18);
+    await expectNoSidewaysScroll(page);
+
+    // An empty list row: its hint and Add, one row open at a time.
+    const links = board.locator('[data-slot="cv-acc"][data-section="links"]');
+    await links.getByRole("button", { name: "Links", exact: true }).click();
+    await expect(links).toHaveAttribute("data-open", "true");
+    await expect(rows.first()).not.toHaveAttribute("data-open", /.*/);
+    await expect(
+      links.getByRole("button", { name: "Add link", exact: true }),
+    ).toBeVisible();
+    await expectPhoneTargets(page, 12);
+
+    await bar.getByRole("link", { name: "Cancel", exact: true }).click();
+    await page.waitForURL((url) => url.pathname === "/cvs");
+    await expect(page.locator('[data-slot="phone-cvs"]')).toBeVisible();
+    const after = await getJson<Array<{ id: string }>>(
+      request,
+      "user",
+      "/base-cvs",
+    );
+    expect(after.map((cv) => cv.id).sort()).toEqual(
+      before.map((cv) => cv.id).sort(),
+    );
+  });
+
+  test("/cli signed in: the Cli board's header offers Dashboard instead of Sign in", async ({
+    page,
+  }) => {
+    await loginAs(page, "user");
+    await page.goto("/cli");
+
+    const header = page.locator('[data-slot="cli-phone"]').getByRole("banner");
+    const dashboard = header.getByRole("link", {
+      name: "Dashboard",
+      exact: true,
+    });
+    await expect(dashboard).toBeVisible();
+    await expect(dashboard).toHaveAttribute("href", "/dashboard");
+    await expect(
+      header.getByRole("link", { name: "Sign in", exact: true }),
+    ).toHaveCount(0);
+    await expectThePair(page);
+    await expectPhoneTargets(page, 13);
+    await expectNoSidewaysScroll(page);
   });
 
   test("Admin is an administrator's only: the address sends e2e-user back to Today", async ({

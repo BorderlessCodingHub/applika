@@ -35,10 +35,12 @@ const FILLED: CvFormValues = {
 function Harness({
   values = FILLED,
   headingLevel,
+  subline,
   onValid = vi.fn(),
 }: {
   values?: CvFormValues;
   headingLevel?: "h2" | "h3";
+  subline?: "meta" | "description";
   onValid?: () => void;
 }) {
   const form = useForm<CvFormValues>({
@@ -47,7 +49,11 @@ function Harness({
   });
   return (
     <form noValidate onSubmit={form.handleSubmit(onValid)}>
-      <PhoneCvSections form={form} headingLevel={headingLevel} />
+      <PhoneCvSections
+        form={form}
+        headingLevel={headingLevel}
+        subline={subline}
+      />
       <button type="submit">Save</button>
     </form>
   );
@@ -160,6 +166,120 @@ describe("PhoneCvSections", () => {
       screen.getByRole("heading", { level: 3, name: "Links" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 2 })).toBeNull();
+  });
+});
+
+/** v3/CVNew's nine rows (CVNew.dc.html l.136-144): each section's description. */
+const DESCRIPTIONS: [id: string, title: string, description: string][] = [
+  [
+    "identity",
+    "Identity and contact",
+    "The header at the top of your CV, plus the label you recognise this CV by.",
+  ],
+  ["links", "Links", "Portfolio, GitHub, LinkedIn and other profiles."],
+  ["summary", "Summary", "A short professional summary, in your own words."],
+  [
+    "skills",
+    "Skills",
+    "Group your skills into categories. Each category prints as its own line.",
+  ],
+  ["experience", "Experience", "Your roles, most recent first."],
+  ["projects", "Projects", "Side projects, open source and notable work."],
+  ["education", "Education", "Degrees and diplomas, most recent first."],
+  [
+    "certifications",
+    "Certifications",
+    "Professional certifications and licences.",
+  ],
+  ["languages", "Languages", "The languages you speak and how well."],
+];
+
+const panelOf = (id: string) =>
+  row(id).querySelector<HTMLElement>(".ph-ce-panel")!;
+
+describe("PhoneCvSections subline", () => {
+  it("description: every row's second line is its section's description, Identity included", () => {
+    render(<Harness values={emptyBaseCvValues()} subline="description" />);
+
+    expect(
+      Array.from(document.querySelectorAll('[data-slot="cv-acc"]')).map(
+        (item) => item.getAttribute("data-section"),
+      ),
+    ).toEqual(DESCRIPTIONS.map(([id]) => id));
+    for (const [id, title, description] of DESCRIPTIONS) {
+      const toggle = screen.getByRole("button", { name: title });
+      expect(toggle, id).toHaveAccessibleDescription(description);
+      expect(row(id).querySelector(".ph-acc-m"), id).toHaveTextContent(
+        description,
+      );
+    }
+    expect(
+      screen.getByRole("button", { name: "Identity and contact" }),
+    ).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("description: the open panel does not repeat it, an empty list shows its hint and Add", async () => {
+    const user = userEvent.setup();
+    render(<Harness values={emptyBaseCvValues()} subline="description" />);
+
+    expect(
+      within(panelOf("identity")).queryByText(DESCRIPTIONS[0][2]),
+    ).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Links" }));
+    const links = within(panelOf("links"));
+    expect(
+      links.queryByText("Portfolio, GitHub, LinkedIn and other profiles."),
+    ).toBeNull();
+    expect(
+      links.getByText("No links yet. Add the profiles you want on your CV."),
+    ).toBeInTheDocument();
+    expect(links.getByRole("button", { name: "Add link" })).toBeInTheDocument();
+  });
+
+  it("description: a section with an error still reads Needs a fix", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness values={{ ...FILLED, full_name: "" }} subline="description" />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    const identity = screen.getByRole("button", {
+      name: "Identity and contact",
+    });
+    expect(identity).toHaveAccessibleDescription("Needs a fix");
+    expect(
+      screen.getByRole("button", { name: "Links" }),
+    ).toHaveAccessibleDescription(
+      "Portfolio, GitHub, LinkedIn and other profiles.",
+    );
+  });
+
+  it("meta (the default) keeps v2/CVEditor's rows: what the section holds, the hint in the panel", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const explicit = render(<Harness subline="meta" />);
+
+    for (const scope of [
+      within(document.body.firstElementChild as HTMLElement),
+      within(explicit.container),
+    ]) {
+      expect(
+        scope.getByRole("button", { name: "Identity and contact" }),
+      ).toHaveAccessibleDescription("Sam Carter · Backend Engineer");
+      expect(
+        scope.getByRole("button", { name: "Links" }),
+      ).toHaveAccessibleDescription("2 links");
+    }
+    await user.click(
+      within(explicit.container).getByRole("button", { name: "Links" }),
+    );
+    expect(
+      within(explicit.container).getByText(
+        "Portfolio, GitHub, LinkedIn and other profiles.",
+      ),
+    ).toBeInTheDocument();
   });
 });
 

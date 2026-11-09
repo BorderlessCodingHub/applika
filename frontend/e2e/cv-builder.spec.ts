@@ -1189,7 +1189,8 @@ test("below md the CV editor is the phone board: sections that expand one at a t
 }) => {
   // PRD 0021: the phone CV editor shows the sections as an expandable list
   // and a PDF action, with no live preview. The restack proof that used to
-  // live here moved to `/cvs/new` (no board, today's editor) below.
+  // live here moved to `/cvs/new` below, whose phone board (v3/CVNew, PRD
+  // 0022) puts the live preview card after the rows.
   const cvId = await seedBulkyBaseCv(request, 4);
 
   await loginAs(page, "user");
@@ -1255,53 +1256,77 @@ test("below md the CV editor is the phone board: sections that expand one at a t
   ).toBeLessThanOrEqual(metrics.mainClientWidth + 1);
 });
 
-test("the preview restacks and stays usable below md on /cvs/new (AC6)", async ({
+test("below md /cvs/new is the CVNew board: the rows, then the live preview card, never wider than the phone (AC6, PRD 0022)", async ({
   page,
 }) => {
-  // `/cvs/new` has no V2 board (PRD 0021): below md it keeps today's editor,
-  // form then preview, inside the phone layout. Nothing is saved here.
+  // v3/CVNew (PRD 0022): the sections as an expandable list, then the board's
+  // "Live preview" card holding today's live preview at the board's 210px
+  // sheet. Nothing is saved here.
   await loginAs(page, "user");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/cvs/new");
+
+  const board = page.locator('[data-slot="phone-cv-new"]');
+  await expect(board).toHaveAttribute("data-state", "form");
+  const rows = board.locator('[data-slot="cv-acc"]');
+  await expect(rows).toHaveCount(FORM_SECTIONS.length);
+  await expect(rows.first()).toHaveAttribute("data-section", "identity");
+  await expect(rows.first()).toHaveAttribute("data-open", "true");
   await page.getByLabel("CV label", { exact: true }).fill(CV_NAME);
   await page.getByLabel("Full name", { exact: true }).fill("E2E Candidate");
   const sheets = await settledSheetCount(page);
   expect(sheets).toBeGreaterThanOrEqual(1);
 
-  // Restacked: the preview is BELOW the form, not a second column beside it.
-  const label = await page
-    .getByLabel("CV label", { exact: true })
-    .boundingBox();
-  const preview = await page.locator('[data-slot="cv-document"]').boundingBox();
-  expect(label, "the form did not render").not.toBeNull();
-  expect(preview, "the preview did not render").not.toBeNull();
-  expect(preview!.y).toBeGreaterThan(label!.y + label!.height);
+  // Stacked: the preview card comes AFTER the last row, not beside the form.
+  const card = page.locator('[data-slot="cv-new-preview"]');
+  await expect(
+    card.getByRole("heading", { name: "Live preview" }),
+  ).toBeVisible();
+  const lastRow = await rows.last().boundingBox();
+  const cardBox = await card.boundingBox();
+  expect(lastRow, "the rows did not render").not.toBeNull();
+  expect(cardBox, "the preview card did not render").not.toBeNull();
+  expect(cardBox!.y).toBeGreaterThan(lastRow!.y + lastRow!.height);
+  // Live: the sheet holds what was just typed.
+  await expect(card.locator(SHEET).first()).toContainText("E2E Candidate");
 
   const metrics = await page.evaluate((sheetSelector) => {
     const doc = document.documentElement;
-    const sheet = document.querySelector<HTMLElement>(sheetSelector);
-    const frame = document.querySelector<HTMLElement>(
-      '[data-slot="cv-document"]',
-    )?.parentElement;
+    const main = document.querySelector("main");
+    const sheet = document
+      .querySelector<HTMLElement>(sheetSelector)
+      ?.firstElementChild?.getBoundingClientRect();
+    const frame = document
+      .querySelector<HTMLElement>('[data-slot="cv-document"]')
+      ?.parentElement?.getBoundingClientRect();
 
     return {
       innerWidth: window.innerWidth,
       innerHeight: window.innerHeight,
       documentScrollWidth: doc.scrollWidth,
       documentScrollHeight: doc.scrollHeight,
-      sheetWidth: sheet?.getBoundingClientRect().width ?? -1,
-      sheetRight: sheet?.getBoundingClientRect().right ?? -1,
-      frameWidth: frame?.clientWidth ?? -1,
+      mainScrollWidth: main?.scrollWidth ?? -1,
+      mainClientWidth: main?.clientWidth ?? -1,
+      sheetWidth: sheet?.width ?? -1,
+      sheetHeight: sheet?.height ?? -1,
+      sheetRight: sheet?.right ?? -1,
+      frameWidth: frame?.width ?? -1,
     };
   }, SHEET);
 
-  // Usable: the sheet fills the column it is in and nothing runs off the side.
-  expect(metrics.sheetWidth).toBeGreaterThan(metrics.frameWidth - 2);
+  // The board's sheet: 210px wide in a 210px column, A4 tall, inside the phone.
+  expect(Math.round(metrics.frameWidth)).toBe(210);
+  expect(Math.round(metrics.sheetWidth)).toBe(210);
+  expect(Math.round(metrics.sheetHeight)).toBe(297);
   expect(metrics.sheetRight).toBeLessThanOrEqual(metrics.innerWidth + 1);
   expect(
     metrics.documentScrollWidth,
     `the paginated preview widened the page: ${JSON.stringify(metrics)}`,
   ).toBeLessThanOrEqual(metrics.innerWidth + 1);
+  expect(
+    metrics.mainScrollWidth,
+    `the paginated preview scrolls sideways: ${JSON.stringify(metrics)}`,
+  ).toBeLessThanOrEqual(metrics.mainClientWidth + 1);
 
   // The page itself never grows at this viewport either: the added height
   // lands in the shell's own scroll, never in the document's.
@@ -1310,9 +1335,10 @@ test("the preview restacks and stays usable below md on /cvs/new (AC6)", async (
     `the paginated preview grew the page: ${JSON.stringify(metrics)}`,
   ).toBeLessThanOrEqual(metrics.innerHeight + 1);
 
-  // Readable: the page indicator is NOT inside the sheet's `scale()`.
+  // Readable: the page indicator is NOT inside the sheet's `scale()`; the
+  // board draws it 12px, centred under the sheet.
   const indicator = page.getByText(`Page 1 of ${sheets}`).locator("..");
-  await expect(indicator).toHaveCSS("font-size", "11px");
+  await expect(indicator).toHaveCSS("font-size", "12px");
   const indicatorBox = await indicator.boundingBox();
   expect(indicatorBox!.height).toBeGreaterThan(8);
 
@@ -1573,8 +1599,8 @@ test("the form and the preview each take half the editor, with no cap on either 
   }
 
   // Below `md` the master CV editor is the phone board, with no preview
-  // (PRD 0021). Today's editor stays on `/cvs/new` (no board), where the two
-  // stack, form first — the halves are a `md:` rule, not a 50% the phone
+  // (PRD 0021), and `/cvs/new` is v3/CVNew (PRD 0022): the rows, then the
+  // Live preview card — the halves are a `md:` rule, not a 50% the phone
   // inherits. Nothing is saved there.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/cvs/editor?id=${cvId}`);
@@ -1583,26 +1609,27 @@ test("the form and the preview each take half the editor, with no cap on either 
   await page.goto("/cvs/new");
   await page.getByLabel("CV label", { exact: true }).fill(CV_NAME);
   await settledSheetCount(page);
+  await expect(page.locator('aside[aria-label="CV preview"]')).toHaveCount(0);
   const stacked = await page.evaluate(() => {
-    const form = document
-      .querySelector<HTMLElement>('[data-slot="cv-section"]')
+    const rows = document
+      .querySelector<HTMLElement>('[data-slot="phone-cv-new"] .ph-ce-list')
       ?.getBoundingClientRect();
     const preview = document
-      .querySelector<HTMLElement>('aside[aria-label="CV preview"]')
+      .querySelector<HTMLElement>('[data-slot="cv-new-preview"]')
       ?.getBoundingClientRect();
     return {
       inner: window.innerWidth,
       previewWidth: Math.round(preview?.width ?? -1),
       previewTop: Math.round(preview?.top ?? -1),
-      formTop: Math.round(form?.top ?? -1),
-      formWidth: Math.round(form?.width ?? -1),
+      rowsBottom: Math.round(rows?.bottom ?? -1),
+      rowsWidth: Math.round(rows?.width ?? -1),
     };
   });
-  // Stacked, form first, and each of them spends the whole narrow column.
-  expect(stacked.previewTop).toBeGreaterThan(stacked.formTop);
+  // Stacked, rows first, and each of them spends the whole narrow column.
+  expect(stacked.previewTop).toBeGreaterThan(stacked.rowsBottom);
   expect(stacked.previewWidth).toBeGreaterThan(stacked.inner / 2);
   expect(
-    Math.abs(stacked.previewWidth - stacked.formWidth),
+    Math.abs(stacked.previewWidth - stacked.rowsWidth),
   ).toBeLessThanOrEqual(1);
 });
 
