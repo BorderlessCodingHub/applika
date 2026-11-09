@@ -296,7 +296,8 @@ board reuses at their desktop size, never a loose filter) and
 `expectNoSidewaysScroll` (the document AND the phone shell's one `<main>`,
 which scrolls itself: its `overflow-y: auto` makes x scroll too, which the
 document never sees). `e2e/phone.spec.ts` at 390×844: the public screens
-(signed out, read-only); as `e2e-user`, Today → Add → the quick add → the
+(signed out, read-only; `/cli` is the v3 board, its Copy says "Copied", and
+a refused clipboard says nothing); as `e2e-user`, Today → Add → the quick add → the
 Application screen → the row under Applied on the Pipeline, the Agenda,
 Insights, then the initials → the Account hub (Jobs and CVs, no Admin), Light
 (held on `/cycles`) and back to Dark, Português (BR) (the hub, the tab bar's
@@ -309,18 +310,41 @@ session), Cycles, Reports and the current report day (never submitted; on day
 sheet cancelled, no draft), the draft's step 1 (More details holds the
 application date; nothing typed, no draft), CVs (Delete's sheet cancelled) and
 the CV editor (one row open at a time, the PDF downloaded, no `cv-document`,
-nothing saved), and `/admin` sending e2e-user back to Today; as `e2e-admin`,
-the Account hub's Admin row → seven chips, the Dashboard, Jobs (source cards)
-and Report webhooks (the masked address only) boards, today's add/edit dialog,
-Users / Companies / Platforms / Features / a feature under the same header
-(a `p` "Admin Console", today's one h1), and its own `jobs` opt-out (the Jobs
-row gone on reload, `/jobs` "Oops! Page not found", the opt-out deleted in a
+nothing saved), the new master CV (back "CVs" and Beta, Identity open, the
+Live preview card, Cancel back to `/cvs`; nothing created), an application's
+CV copy (the picker creates it with Tailor by keywords, the editor is read
+and its PDF downloaded, Show changes draws today's markers, back
+"Application" to `?focus=<id>`, then read-only once the application is
+closed; its 44px checks exclude, by name and only where they show,
+`[data-slot="cv-repeatable-item"]` with Skills open and
+`[data-slot="cv-diff-changed"]` beside a change), `/cli` signed in offering
+Dashboard, and `/admin` sending e2e-user back to Today; as `e2e-admin`, the
+Account hub's Admin row → seven chips, the Dashboard and Jobs (source cards)
+boards under "Admin Console", then the v3 boards, each under its own h1:
+Report webhooks (the masked address only; Edit's sheet cancelled, one
+webhook added through the sheet and deleted through the delete sheet), Users
+(the sort chips and a user's details sheet; the administrator toggle is
+never pressed), Companies and Platforms (the Private filter, Add cancelled,
+Delete unavailable on a used row), an administrator approving a private
+company through the phone sheet with no sideways scroll while the sheet is
+open and after, Features (one card per feature; the jobs card opens its
+page) and a feature (back "Features" and the System pill, no chips; Your
+access, the beta list, Add user searched then Done, the stage sheet
+cancelled; Your access, Add and a stage confirm are never pressed), and its
+own `jobs` opt-out (the Jobs row gone on reload, `/jobs` "Oops! Page not found", the opt-out deleted in a
 `finally` and in `afterAll`). Its data: the applications the quick add and
 Log update create are deleted in `afterAll`; one master CV is made through
 the API in `beforeAll` and deleted in `afterAll`; an empty job board gets the
 admin's collection run first (the `cvs-beta.spec.ts` shape; the jobs stay,
-as `jobs.spec.ts`'s do); the one report webhook is made and deleted through
-the API with a synthetic `discord.com` address (`e2e-dummy-…`). **Logout ends
+as `jobs.spec.ts`'s do); the one report webhook it lists is made and deleted
+through the API, and the one the sheet adds is deleted through the delete
+sheet and again in `afterAll`, both with a synthetic `discord.com` address
+(`e2e-dummy-…-not-real`); the CV copy's application (a job description
+naming PostgreSQL but not Python or FastAPI) is made through the API and
+deleted, its copy with it, in `afterAll`; the two private companies (one
+approved on the phone, one used by an application) are made by `e2e-user`
+through the API in `beforeAll` and deleted with that application in
+`afterAll`. **Logout ends
 the session it runs in, so it never runs as a seeded user**: the disposable
 fake account `e2e-free` (no membership, so no grant or badge state to put
 back) is deleted in `beforeAll` AND `afterAll` (`deleteAccount` in
@@ -338,9 +362,11 @@ at 44px with that panel excluded — today's `CvFitPanel`, desktop sized),
 `application-with-cv.spec.ts` (the draft's step 1 at 390 opens "More details"
 before `getByLabel(/application date/i)`), `cv-builder.spec.ts` (`/cvs/editor`
 at 390 is the phone board: nine `cv-acc` rows, one open, "Download PDF", no
-`cv-document`, no layout notice, no Markdown; the restack and stacked-halves
-proofs run on `/cvs/new`, which keeps today's editor and says the notice
-once).
+`cv-document`, no layout notice, no Markdown; `/cvs/new` at 390 is v3/CVNew:
+the rows, then the Live preview card after the last row, its sheet 210px
+wide and A4 tall, the page indicator outside the sheet's `scale()` at 12px,
+the notice said once, never wider than the phone; the stacked-halves proof
+runs there too, rows first).
 
 ---
 
@@ -369,7 +395,12 @@ CLI sign-in routes (KODI-058, ADR-0019):
 `/cli` (`(public)/cli/`, `cli-page.tsx`) is the public applika-cli page under
 the landing layout: install, sign-in modes, examples, `applika skill`. The
 rail's footer links to it above the account card (`sidebar.tsx`); its PyPI
-links read `APP_CONFIG.cli.url` (`APPLIKA_CLI` build arg).
+links read `APP_CONFIG.cli.url` (`APPLIKA_CLI` build arg). It switches by CSS
+like the other public screens: below md v3/Cli (`PhoneCli`,
+`[data-slot="cli-phone"]`, under `PhoneLandingHeader`), at md and up today's
+page in `[data-slot="cli-desktop"]` (`hidden md:contents`). Both trees copy
+the commands `cli-page.tsx` exports (`INSTALL`, `SIGN_IN`, `TRACK`, `SKILL`,
+with `COPIED_MS`); see **Phone shell**.
 
 Phone-only routes (ADR-0027, PRD 0021):
 
@@ -448,7 +479,10 @@ inner `jobs` checks on the last two stay.
 **`/applications/cv?id=` is the reading column while it shows the picker, and
 full width only once it shows the editor (KODI-017)** — see **App shell**
 below for the mechanism. `/cvs/new` and `/cvs/editor` stay full width in every
-state, path-based, unchanged.
+state, path-based, unchanged. Below md `/applications/cv?id=` is
+v3/ApplicationCV, and its back bar "Application" returns to that
+application, `/applications?focus=<id>` (`PhoneBackHref`; see **Phone
+shell** and **Tailored CVs**).
 
 **`/applications?focus=<application_id>` (R-011, KODI-038)** is how the
 agenda card's note-row link opens the applications list with one row already
@@ -594,9 +628,10 @@ SameSite=Lax` (not HttpOnly; JS writes it).
   - `LandingHeader`, md and up only (`(public)/layout.tsx` hides it below
     md): first in the controls group, before `ThemeToggle` and the CTA, for
     `/`, `/cookie-policy` and `/cli`;
-  - below md, the header of `PhoneLanding` (`/`), in
-    `components/phone/landing/phone-landing.tsx`, and `PhonePublicBar`,
-    the "Home" back bar of `/cookie-policy` and `/cli`, in
+  - below md, `PhoneLandingHeader`, the public phone header of `/`
+    (`PhoneLanding`) and `/cli` (`PhoneCli`), in
+    `components/phone/landing/phone-landing-header.tsx`, and
+    `PhonePublicBar`, the "Home" back bar of `/cookie-policy`, in
     `components/phone/phone-public-bar.tsx`;
   - `SignInScreen` (`/login`) and `CliCodeScreen` (`/cli/code`): one mount
     laid out for both widths, outside both trees and outside `<main>`. On
@@ -1049,9 +1084,19 @@ with headline, last update, every keyword, counts, Edit and Delete behind a
 `PhoneConfirmSheet`, the new-CV tile with the slots left) and `/cvs/editor`
 is v2/CVEditor on the page's own form, save and PDF export: the sections are
 `PhoneCvSections` rows over `CvFormSections` (through `CvSectionFrame`, see
-**Phone shell**), no live preview, no Markdown, one bar. `/cvs/new` has no
-board and keeps today's editor inside the phone layout. Crossing md reseeds
-the editor from the stored CV: an unsaved edit is lost (no autosave).
+**Phone shell**), no live preview, no Markdown, one bar. `/cvs/new` is
+v3/CVNew (PRD 0022): `new-cv-page.tsx` calls `useIsPhone()` after every hook
+and returns `CvNewScreenView` (`components/phone/screens/cv-new-screen.tsx`)
+on the same form and create mutation: back "CVs", the Beta pill, the h1 and
+its lead, a skeleton until the CV count is known, at three master CVs the
+limit card (`[data-slot="cv-new-limit"]`: today's sentence and "Back to
+CVs", no form), else the `PhoneCvSections` rows with each section's
+description as the subline (`subline="description"`) and Identity open, the
+"Live preview" card (`[data-slot="cv-new-preview"]`: today's
+`CvDocumentPreview` at 210px, its page count, the layout notice said once
+as the caption) and the bar, Cancel and Create CV (both pending while the CV
+is created). Crossing md reseeds the editor from the stored CV: an unsaved
+edit is lost (no autosave); on `/cvs/new` the unsaved new CV is lost.
 
 ### Tailored CVs (`src/components/tailored-cvs/`)
 
@@ -1280,6 +1325,46 @@ reflect the last saved version."` note sits beside them — the export is
   `IBaseCvService`/`ITailoredCvService`) plus `exportDiffMarkdown`/
   `exportDiffPdf` (`ITailoredCvService` only) — all `GET` with
   `responseType: "blob"`, unlike the `POST` PDF routes.
+
+**On a phone (PRD 0022).** Below md `/applications/cv?id=` is
+v3/ApplicationCV: `application-cv-page.tsx` keeps every hook, mutation and
+derived state and returns `ApplicationCvScreenView`
+(`components/phone/screens/application-cv-screen.tsx`). The back bar is
+"Application" → `/applications?focus=<id>` (`PhoneBackHref`, mounted
+whenever `?id=` is there), then the Beta pill, the h1 "Application CV" and
+"role · company".
+
+- **Picker.** The master CVs are native radios named by the CV name and
+  described by date and headline (visually hidden: the 44px label row is the
+  target and carries the focus ring), each with "Download PDF of <name>",
+  "Download Markdown of <name>", "Edit <name>" and "Delete <name>" beside it
+  (Delete in a sheet); the new-CV tile, or today's limit sentence at three;
+  "Tailor by keywords" only with `jobs` and a non-blank job description, off
+  by default (today's `jobTools`); Create stays `aria-disabled` until a pick.
+- **Editor.** The source pill ("Copied from …", or the deleted source in the
+  warning tone), the job description clamped to four lines with Show more,
+  the fit card (the board's look, `cv-fit-panel` slots kept), Changes with
+  Show changes (today's `CvChangedMarker`s inside the rows), "Reordered by job
+  match" (one `li[data-section]` per adjustment with the translated section
+  title, the server's sentence for an unknown section; "Reordered" said once
+  per row), every `PhoneCvSections` row closed (`firstOpen={null}`, with
+  `diff` and `reordered`), Download PDF and Markdown, the diff downloads
+  with today's names (`aria-disabled` with the reason on a 409 or an
+  unresolved baseline), Delete copy, Save. No live preview and no layout
+  notice, as on `/cvs/editor`.
+- **Read-only.** A closed or archived application shows the banner (Lock
+  when closed, Archive when archived) and the downloads, no Save; with no
+  copy yet, the banner and today's locked sentence in a dashed card, no
+  choices, tile or bar. With no job description: no Tailor, no fit request,
+  and "Add a job description" opens today's `ApplicationFormSheet`.
+- Hooks: `data-slot` `phone-application-cv`, `cv-copy-picker`, `cv-choices`,
+  `cv-choice`, `tailor-by-keywords`, `cv-copy-editor`, `cv-copy-source`,
+  `cv-copy-job-description`, `cv-copy-changes`, `cv-diff-adjustments`,
+  `cv-copy-downloads`, `cv-copy-read-only`, `cv-copy-locked`,
+  `application-cv-message`; `data-action` `create-cv-copy`,
+  `toggle-job-description`, `add-job-description`, `save-cv-copy`,
+  `delete-cv-copy`, `download-pdf`, `download-markdown`,
+  `download-changes-pdf`, `download-changes-markdown`.
 
 ### Application Timeline (`src/components/timeline/`)
 
@@ -1798,6 +1883,19 @@ VERBATIM in `[data-slot="approve-catalog-error"]`, naming the colliding public
 row — never a generic message. A private row's own name carries `OnlyYouBadge`
 with `label="Private"`.
 
+**Below md** (PRD 0022) `/admin/companies` and `/admin/platforms` are
+v3/AdminCompanies and v3/AdminPlatforms, one view (`CatalogScreenView`,
+`components/phone/screens/admin-catalog-screen.tsx`) on each page's own
+query, forms, schema and mutations: search, the All / Public / Private chips,
+a card per row (the name with a Private pill, the address without its
+scheme, who added it and how many applications use it; Companies adds the
+status pill and switch), `PhonePager`, and Add, Edit, Approve and Delete in
+sheets. Approve shows "Approve" and is named "Approve <name>"; its sheet (an
+`alertdialog` with the row's address) keeps a 409 `detail` VERBATIM inside
+it (`[data-slot="approve-catalog-error"]`). A used row's Delete is
+`aria-disabled` on a phone, still focusable and described by its reason
+(`[data-slot="catalog-delete-reason"]`); the desktop table keeps `disabled`.
+
 ### Company picker = platform picker; a three-section application form; a paginated admin Platforms page (PRD 0010, KODI-035)
 
 The owner: "i liked how you did the select input for platform, do the same for
@@ -2077,11 +2175,21 @@ link still works; static export, no rewrite).
 - The URL is a secret: the edit form reopens blank, a blank URL keeps the
   stored one, and only changed fields are sent (`badges` only when the set
   differs from the stored one). Only the masked form is ever shown.
-- **Below md** the page draws v2/Admin's Report webhooks under the admin
-  header (see **Phone shell**): one card per webhook (label, a pill per
-  badge, the masked address, Edit and Delete with today's names), Delete
-  confirmed in a `PhoneConfirmSheet`, "Add webhook" after the cards; the
-  same query, handlers and `ReportWebhookFormDialog`. The row hooks
+- **Below md** the page draws v3/AdminWebhook (PRD 0022) under the admin
+  header, which heads it "Report webhooks" with its lead (see **Phone
+  shell**): one card per webhook (label, a pill per badge, the masked
+  address, Edit and Delete with today's names), Delete confirmed in the
+  board's `alertdialog` sheet, "Add webhook" after the cards, today's words
+  in the empty and failed-load cards. Add and edit open
+  `PhoneReportWebhookSheet` (`components/phone/phone-report-webhook-sheet.tsx`),
+  which takes `ReportWebhookFormDialog`'s props, so the page swaps one for
+  the other on the same form, zod schema, submit and server refusal: the URL
+  field opens blank, the edit sheet shows "Current:" with the masked
+  address, the badges are two `PhoneCheckOption`s (`role="checkbox"`, named
+  BASE / PSP, described by their line) in a fieldset "Badges", field errors
+  sit under their fields and the refusal
+  (`[data-slot="report-webhook-form-error"]`) above the buttons. The same
+  query and handlers. The row hooks
   (`li[data-slot="report-webhook-row"][data-webhook-id][data-badges]`,
   `[data-slot="report-webhook-badge"]`, `[data-slot="report-webhook-url"]`)
   are the same at both widths.
@@ -2205,6 +2313,22 @@ tab "Features" (lucide `FlaskConical`, after Jobs) in `admin-nav.tsx`.
   `exact: true`; "Beta list" is inside "Add users to the beta list"; reason
   vs hint sentences ("…released to everyone." / "Released to everyone. …")
   — assert the full strings.
+- **Below md** (PRD 0022): `/admin/features` is v3/AdminFeatures
+  (`AdminFeaturesScreenView`, `components/phone/screens/admin-features-screen.tsx`)
+  under the admin header, which heads it "Features" with its lead: one card
+  per feature, a link to its page named by the feature name, the stage pill,
+  Key / Beta users / Released and the "You" row; today's words in the empty
+  and failed-load cards (`PhoneEmptyCard`, `PhoneAlertCard`, "Try again").
+  `/admin/features/view?key=` is v3/AdminFeatureView
+  (`AdminFeatureViewScreenView`) on the page's own queries, mutations,
+  search and page state, the not-found rule included: back "Features" and
+  the System pill (no chips), the h1 and the stage pill, Key / Released, the
+  stage button with its confirm sheet (Move back to beta confirms with the
+  primary button), Your access (locked as above, showing the stored choice),
+  the beta list (count, search, Add user, Remove in a sheet, `PhonePager` at
+  25), the Add user sheet (it focuses its search; "Add <user>", then "<user>
+  is on the list"; Done) and the not-found card ("Back to features"). Every
+  confirm sheet is an `alertdialog` with the server's `detail` in place.
 
 ### Job board (`src/components/jobs/`, PRD 0012)
 
@@ -2702,16 +2826,20 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
   `phoneBackFor(pathname)` (the back bar: tab roots and `/welcome` none;
   `/account` "Back" → `/dashboard`; `/jobs` `/cvs` `/cycles` `/reports`
   `/profile` `/device` `/admin` and `/admin/*` "Account" → `/account`;
-  `/jobs/view` "Jobs", `/cvs/editor` "CVs", `/reports/<day>` "Reports",
-  `/applications/new-with-cv` "Applications"; `PHONE_PARENTS` for the screens
-  with no board: `/cvs/new` "CVs", `/applications/cv` "Pipeline",
-  `/admin/features/view` "Features", `/admin/supports` and
-  `/admin/discord-webhooks` "Admin"; any other address "Back" → `/dashboard`),
+  `BOARD_PARENTS`, the back bars the boards draw: `/jobs/view` "Jobs",
+  `/cvs/editor` and `/cvs/new` "CVs", `/applications/new-with-cv`
+  "Applications", `/applications/cv` "Application" (the screen's
+  `PhoneBackHref` makes it `/applications?focus=<id>`),
+  `/admin/features/view` "Features"; `/reports/<day>` "Reports";
+  `PHONE_PARENTS` for the two addresses with no board, the redirects
+  `/admin/supports` and `/admin/discord-webhooks` "Admin"; any other address
+  (the tests use `/somewhere/new`) "Back" → `/dashboard`),
   `PHONE_SCREEN_PATHS` (screens rendered from their board, which own the
   board's padding: `/dashboard`, `/applications`, `/agenda`, `/account`,
   `/insights`, `/welcome`, `/device`, `/profile`, `/cycles`, `/reports`,
-  `/admin`, `/jobs`, `/jobs/view`, `/cvs`, `/cvs/editor`,
-  `/applications/new-with-cv` — add a route when its board lands) plus
+  `/admin`, `/jobs`, `/jobs/view`, `/cvs`, `/cvs/editor`, `/cvs/new`,
+  `/applications/new-with-cv`, `/applications/cv` — add a route when its
+  board lands) plus
   `PHONE_SCREEN_PREFIXES` (`/reports/` every report day, `/admin/` every
   admin section; `isPhoneScreen` checks both) and `accountRows(navItems)`.
   Words are getters over `word()`, so the shell also calls `useTranslations`.
@@ -2722,6 +2850,13 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
   exactly one link. It renders nothing on a screen with no back bar (a tab
   root) and in place outside the shell (a screen tested alone). A status
   item gets `role="status"` itself.
+- **The back bar's address** (PRD 0022): `<PhoneBackHref href />`
+  (`phone-shell.tsx`, renders `null`) sends the back bar to `href` instead of
+  the map's address while it is mounted, keeping the map's label: a hold set
+  in a layout effect, as `PhoneChromeless`; the last one mounted wins and
+  unmounting it gives the map's address back. A no-op outside the shell and
+  on a screen with no back bar. `/applications/cv` mounts it whenever `?id=`
+  is there: back "Application" → `/applications?focus=<id>`.
 - **Confirmations** on a phone screen are `PhoneConfirmSheet`
   (`components/phone/phone-confirm-sheet.tsx`): an `alertdialog` sheet,
   Cancel first and focused, then the action (`tone` `danger` or
@@ -2790,6 +2925,14 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
   at md and up (`styles/phone-css.test.ts`). Put `.ph-app` on the phone chrome
   and on a ported screen's root, never around today's content. The only token
   it added to `globals.css` is `--destructive-text`; `--ph-glow` is local.
+  The v3 boards (PRD 0022) add no token: their shared modifiers
+  (`.ph-h1-26`, `.ph-dl-*`, `.ph-box`, `.ph-opt[aria-checked]`, `.ph-pick`,
+  `.ph-req`, `.ph-tag.ph-miss`, `aria-disabled` on `.ph-btn` and
+  `.ph-iconbtn`, the pager and the state cards) follow the V2 classes, then
+  one board-only prefix per board: `ph-au-` (Users), `ph-cat-` (Companies,
+  Platforms), `ph-af-` (Features), `ph-fv-` (a feature), `ph-wh-` (Report
+  webhooks), `ph-clp-` (`/cli`), `ph-cn-` (`/cvs/new`) and `ph-acv-`
+  (`/applications/cv`). `phone-css.test.ts` pins every one.
 - **44px.** Every control on a phone screen has a box of at least 44×44
   (`getBoundingClientRect`), its visible shape the board's size: `.ph-hit`, or
   the `::before` shape of `.ph-btn.ph-sm`, `.ph-chip`, `.ph-seg > *`,
@@ -2797,7 +2940,14 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
 - **Primitives** in `components/phone/` (thin wrappers over `ph-*`, words by
   props): top bar, tab bar, FAB, avatar, heading, sheet (Radix Dialog, closes
   itself when `PHONE_QUERY` stops matching), segmented, option, switch, pill, chip,
-  group/row, field, action bar, stat grid; icons in `phone-icons.ts`.
+  group/row, field, action bar, stat grid; icons in `phone-icons.ts`. The v3
+  boards added `PhonePager` (`phone-pager.tsx`: Previous, "Page N of M",
+  Next; nothing with one page; the ends `aria-disabled`, so focus stays),
+  `PhoneCheckOption` (`phone-check-option.tsx`: a `role="checkbox"` option
+  named by its label, described by its line), `PhoneEmptyCard` and
+  `PhoneAlertCard` (`phone-state-card.tsx`: a board's empty and failed-load
+  cards) and `PhoneLoadable`'s optional `error` render (the board's own
+  failed-load card, its retry the section's).
 - **The core screens (v2/Today, v2/Pipeline, v2/QuickAdd,
   v2/Application, v2/Schedule, v2/Insights).** Each `*-page.tsx` is a
   wrapper: `useIsPhone() ? <XScreen/> : <XDesktopPage/>`, the desktop body
@@ -2852,8 +3002,9 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
   screen in `components/phone/screens/` below md; `admin/jobs/jobs-page.tsx`
   and `admin/report-webhooks/report-webhooks-page.tsx` keep their state and
   handlers and only swap the render (`AdminJobSourcesScreenView`,
-  `AdminReportWebhooksScreenView`; the add/edit `ReportWebhookFormDialog`
-  stays today's dialog at both widths). Pure logic moved to `src/lib`
+  `AdminReportWebhooksScreenView`; below md the add/edit form is
+  `PhoneReportWebhookSheet` on `ReportWebhookFormDialog`'s props, PRD 0022).
+  Pure logic moved to `src/lib`
   with the desktop unchanged: `profile-badges.ts` (`profileBadgeStates`),
   `profile-salary.ts` (`formatProfileSalary`), `reports.ts`
   (`REPORT_PHASE`, `effectiveReportStatus`), `cycles.ts`
@@ -2894,14 +3045,25 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
     to `/reports`.
   - **Admin**: `admin/layout.tsx` (a client layout now) renders
     `AdminPhoneHeader` below md inside `AdminGuard`: "System" in the top
-    bar, "Admin Console" and its lead, the seven sections as `PhoneChipLink`
+    bar, a title and its lead, the seven sections as `PhoneChipLink`
     chips (`ADMIN_TABS` from `admin-nav.tsx`; `aria-current="page"`, exact
     on `/admin`, by prefix elsewhere; the current chip scrolled into view).
-    "Admin Console" is the `h1` on the three boards (`/admin`,
-    `/admin/jobs`, `/admin/report-webhooks`) and a `p` with the same look
-    elsewhere, where today's page keeps its own `h1`
-    (`AdminPhoneContent`, 20px sides). The Jobs and Report webhooks boards
-    draw no title, so each carries a visually hidden `h2`.
+    The title is "Admin Console" on the Dashboard and Jobs; each v3 section
+    in `SECTION_HEADS` (Users, Companies, Platforms, Features, Report
+    webhooks; PRD 0022) puts today's page title (26px, `.ph-h1-26`) and
+    subtitle there instead; a feature's page (`PILL_ONLY_PATHS`,
+    `/admin/features/view`) gets the pill alone and heads itself. The title
+    is the `h1` on every board (`ADMIN_BOARD_PATHS`: `/admin`,
+    `/admin/users`, `/admin/companies`, `/admin/platforms`, `/admin/jobs`,
+    `/admin/features`, `/admin/features/view`, `/admin/report-webhooks`) and
+    a `p` with the same look over the two redirect shells (Supports, Discord
+    webhooks), which keep today's content in `AdminPhoneContent` (20px
+    sides). The Jobs board draws no title, so it carries a visually hidden
+    `h2`. `/admin/users` is v3/AdminUsers (`AdminUsersScreenView`: search,
+    five sort chips, the count, a row per user with the administrator
+    switch, `PhonePager` at 15, a user's details sheet); the other v3
+    sections are under **Admin — private company/platform rows**, **Admin —
+    Report webhooks** and **Admin — Features**.
   - Hooks: `data-slot` `phone-profile` (`data-editing`), `profile-sections`,
     `profile-badges` (`li[data-badge][data-earned]`), `github-restore-card`,
     `delete-account`, `phone-devices`, `device-row`
@@ -2923,7 +3085,25 @@ openQuickAdd}` (the Account hub's rows, its Send feedback, the Pipeline's
     `confirm-delete-cycle`, `fill-report`, `visit-borderless`,
     `badge-gate-sign-in-again`, `submit-report`, `cancel-report`,
     `add-webhook`, `edit-webhook`, `delete-webhook`,
-    `confirm-delete-webhook`.
+    `confirm-delete-webhook`. The v3 admin boards add `data-slot`
+    `phone-admin-users`, `user-sort`, `user-count`, `admin-users`,
+    `admin-user-row`, `users-empty`, `user-detail-facts`,
+    `user-detail-stats`, `phone-admin-catalog`, `visibility-filter`,
+    `catalog-count`, `catalog-list`, `catalog-row`, `catalog-url`,
+    `catalog-meta`, `catalog-empty`, `catalog-delete-reason`,
+    `approve-catalog-row`, `approve-catalog-sheet`, `approve-catalog-error`,
+    `delete-catalog-sheet`, `catalog-delete-error`, `catalog-form`,
+    `catalog-form-error`, `phone-admin-features`, `features`, `feature-row`,
+    `feature-link`, `feature-you`, `features-empty`, `features-error`,
+    `phone-admin-feature`, `feature-own-access`, `feature-beta-list`,
+    `feature-beta-user`, `feature-add-user-sheet`, `feature-not-found`,
+    `report-webhooks`, `report-webhooks-empty`, `report-webhooks-error`,
+    `delete-webhook-sheet`, `report-webhook-form`,
+    `report-webhook-url-current`, `report-webhook-badge-options`;
+    `data-action` `view-user`, `toggle-admin`, `add-catalog`,
+    `edit-catalog`, `save-catalog`, `toggle-active`, `approve-catalog`,
+    `confirm-approve-catalog`, `delete-catalog`, `confirm-delete-catalog`,
+    `use-feature`, `add-user-done`, `save-webhook`.
 - **Jobs, CVs and the draft (v2/Jobs, v2/JobDetail, v2/StartApplication,
   v2/Draft, v2/CVs, v2/CVEditor).** Each phone branch sits INSIDE the page's
   existing `FeatureGate` (`jobs` for `/jobs` and `/jobs/view`, `cvs` for
@@ -2974,6 +3154,9 @@ page]` key, so the optimistic dismiss reaches all of them; the phone
     meta, Identity open first, one open at a time, every failing section
     opened by a submit. No preview (`cv-document`) and no `CvEditorFooter`
     on the phone; PDF is the top bar's "Download PDF" (visible "PDF").
+    `PhoneCvSections` also takes `subline` (`"meta"`, the default, or
+    `"description"` on `/cvs/new`), `firstOpen` (`null`: every row closed,
+    `/applications/cv`), `diff` and `reordered` (the CV copy's markers).
   - **The draft** (`screens/draft-screen.tsx`): step 1 is the board's
     Company, Role, Platform, Experience + Work mode, Job description, then
     "More details" (`[data-action="more-details"]`, hidden not unmounted, it
@@ -3024,6 +3207,19 @@ page]` key, so the optimistic dismiss reaches all of them; the phone
     "Skills" … are both an editor row's button and its heading; "PDF" is
     the visible text of "Download PDF". At md and up the same addresses
     render today's pages.
+- **The v3 screens (PRD 0022)**: `/admin/users`, `/admin/companies`,
+  `/admin/platforms`, `/admin/features`, `/admin/features/view`,
+  `/admin/report-webhooks`, `/cli`, `/cvs/new` and `/applications/cv`, each
+  from its own v3 board. The signed-in eight keep the account area's wrapper
+  shape: the page keeps its hooks, calls `useIsPhone()` after them and
+  returns the board's `…ScreenView` with its own queries, forms and
+  mutations (`report-webhooks-page.tsx` swaps `ReportWebhookFormDialog` for
+  `PhoneReportWebhookSheet`); `/cli` switches by CSS (below). `/cvs/new` and
+  `/applications/cv` stay inside their `FeatureGate feature="cvs"` with
+  today's Beta mark. A sheet closes when the width crosses md, and a
+  half-filled form in it is lost. Details: **Admin — private
+  company/platform rows**, **Admin — Report webhooks**, **Admin —
+  Features**, **Master CVs** and **Tailored CVs** ("On a phone").
 - **Signed-in screens from their boards** switch with `useIsPhone()` and
   keep today's data wiring: `WelcomeScreen` returns `PhoneWelcomeScreen`
   below md (v2/Welcome: `radiogroup` "How to start" of two `PhoneOption
@@ -3043,12 +3239,21 @@ size="lg"`, restore preselected, ONE CTA that follows the choice —
   `[data-slot="landing-desktop"]`), `/cookie-policy` (`PhoneCookiePolicy`
   `[data-slot="cookie-policy-phone"]`, today's words in the board's cards
   `li[data-slot="cookie-row"][data-cookie]`; today's page in
-  `[data-slot="cookie-policy-desktop"]`), `/cli/code`
-  (`[data-slot="cli-code-phone"]` / `[data-slot="cli-code-desktop"]`) and
-  `/login` (above). `/cli` has no board: below md today's content sits under
+  `[data-slot="cookie-policy-desktop"]`), `/cli` (`PhoneCli`
+  `[data-slot="cli-phone"]`, v3/Cli, PRD 0022: the four command blocks
+  `[data-slot="cli-phone-term"]`, each Copy ("Copy command",
+  `data-action="copy-commands"`, described by its section's heading)
+  copying the block's commands and saying "Copied" with its own status
+  line, the "$ " prompts hidden from screen readers and never copied, View
+  on PyPI, its own footer; today's page in `[data-slot="cli-desktop"]`),
+  `/cli/code` (`[data-slot="cli-code-phone"]` /
+  `[data-slot="cli-code-desktop"]`) and `/login` (above). `/` and `/cli`
+  share `PhoneLandingHeader`
+  (`components/phone/landing/phone-landing-header.tsx`: the home link, the
+  language + theme pair, Sign in, or Dashboard when signed in).
   `PhonePublicBar` (`components/phone/phone-public-bar.tsx`,
   `header[data-slot="phone-public-bar"]`, sticky: back "Home" → `/` and the
-  language + theme pair), which `/cookie-policy` shares. The md-and-up trees
+  pair) is `/cookie-policy`'s alone. The md-and-up trees
   use `hidden md:contents` (and `(public)/layout.tsx` wraps `LandingHeader`
   and `LandingFooter` the same way), never `md:block`: a block wrapper
   would make the sticky landing header stick to the wrapper.
@@ -3078,8 +3283,10 @@ page)` renders a route in the phone shell with the query client, the cycle
   `e2e/shell-responsive.spec.ts` walks the phone shell at
   390×844; `e2e/phone.spec.ts` the public screens (`/`, `/cookie-policy`,
   `/cli`, `/cli/code`), the core screens and the Account hub as e2e-user,
-  every account-area, job and CV board read-only, the admin console as
-  e2e-admin and Logout in a disposable account (see **Phone in E2E**);
+  every account-area, job and CV board read-only, the new master CV and an
+  application's CV copy, the admin console's v2 and v3 boards as e2e-admin
+  (a private company approved on the phone included) and Logout in a
+  disposable account (see **Phone in E2E**);
   `borderless-signin.spec.ts` option C's states and the welcome choice;
   `devices.spec.ts` `/device`. `e2e/support/phone.ts` has `PHONE`
   (390×844), `expectPhoneTargets` (every rendered control's box at least
@@ -3105,7 +3312,14 @@ page)` renders a route in the phone shell with the query client, the cycle
   `getByRole("alertdialog")`); "Sign in again" is the closed Reports'
   button and the Account hub's row; "Edit" is the Profile bar's button and
   each webhook card's (named "Edit <target>");
-  "Delete" is inside "Delete <cycle>" and "Delete your account". Hooks: `data-slot` `phone-today`,
+  "Delete" is inside "Delete <cycle>" and "Delete your account". On the v3
+  screens: "Approve" is a private row's visible word inside "Approve
+  <name>"; "Features" is a feature page's back link, a chip and the h1 of
+  `/admin/features`; "Application" is the CV copy's back link and inside
+  "Application CV"; "Add user" opens the sheet and "Add <user>" adds;
+  "Download PDF" is inside "Download PDF of <name>" on the copy's picker;
+  every `/cli` block has its own "Copy command" (scope to
+  `[data-slot="cli-phone-term"]`). Hooks: `data-slot` `phone-today`,
   `today-next-interview`, `today-stats`, `today-attention(-item)`,
   `today-upcoming(-item)`, `phone-pipeline`, `pipeline-summary`,
   `pipeline-empty`, `phone-application` (`data-application-id`,
