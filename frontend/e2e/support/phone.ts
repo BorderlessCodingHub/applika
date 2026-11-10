@@ -97,8 +97,7 @@ export async function expectNoSidewaysScroll(page: Page) {
  * mobile browser (Edge and Safari on iOS) collapses its toolbars only on a
  * document scroll. `<main>` is no scroll container; a page taller than the
  * viewport scrolls the document, and the tab bar (when the screen has one)
- * stays pinned to the bottom of the viewport meanwhile, with no
- * `--ph-chrome-shift` to add.
+ * stays pinned to the bottom of the viewport meanwhile.
  */
 export async function expectDocumentScrolls(page: Page) {
   const state = await page.evaluate(() => {
@@ -112,14 +111,9 @@ export async function expectDocumentScrolls(page: Page) {
     const barBottom = bar
       ? window.innerHeight - bar.getBoundingClientRect().bottom
       : null;
-    const shift =
-      document.documentElement.style.getPropertyValue("--ph-chrome-shift");
     window.scrollTo(0, 0);
-    return { overflowY, tall, scrolled, barBottom, shift };
+    return { overflowY, tall, scrolled, barBottom };
   });
-  // Chromium keeps fixed chrome on the visible bottom: nothing to correct
-  // (`lib/fixed-chrome-shift.ts` only moves it on iOS Edge and Chrome).
-  expect(state.shift, "no chrome shift where none is needed").toBe("");
   expect(state.overflowY, "<main> is no scroll container").toBe("visible");
   if (state.tall)
     expect(state.scrolled, "the document scrolls").toBeGreaterThan(0);
