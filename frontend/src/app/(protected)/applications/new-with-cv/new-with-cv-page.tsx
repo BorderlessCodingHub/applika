@@ -228,10 +228,6 @@ interface CompanyMeta {
   name: string;
 }
 
-/** Every field `DraftInput` carries, compared value by value — never by
- * re-serializing (key order differs between what the server returns and what
- * this page builds) and never by identity. Used to skip a `PUT` that would
- * send back exactly what was just loaded (QA round 1, B2/P3). */
 /**
  * When a draft or its CV copy was last written: `updated_at`, or
  * `created_at` before its first edit. `null` when unknown.
@@ -261,6 +257,10 @@ function sameFormValues(a: object, b: object): boolean {
   );
 }
 
+/** Every field `DraftInput` carries, compared value by value — never by
+ * re-serializing (key order differs between what the server returns and what
+ * this page builds) and never by identity. Used to skip a `PUT` that would
+ * send back exactly what was just loaded (QA round 1, B2/P3). */
 function draftInputsEqual(a: DraftInput, b: DraftInput): boolean {
   return (
     a.company_id === b.company_id &&
