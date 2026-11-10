@@ -240,6 +240,50 @@ describe("attentionList", () => {
       attentionList([app({ application_date: "2026-11-01" })], TODAY),
     ).toEqual([]);
   });
+
+  it("leaves out an open application whose latest event is a denial, however quiet", () => {
+    const denied = app({
+      id: "denied",
+      application_date: "2026-09-01",
+      last_step: step("Denied", "2026-09-10"),
+    });
+    const list = attentionList(
+      [
+        denied,
+        app({
+          id: "offer",
+          application_date: "2026-09-01",
+          last_step: step("Offer", "2026-09-20"),
+        }),
+        app({
+          id: "interview",
+          application_date: "2026-09-01",
+          last_step: step("Phase 2", "2026-10-01"),
+        }),
+      ],
+      TODAY,
+    );
+    expect(list.map(({ app: item, days }) => [item.id, days])).toEqual([
+      ["offer", 50],
+      ["interview", 39],
+    ]);
+    // Still stale and still under Closed on the Pipeline (P6).
+    expect(isStale(denied, TODAY)).toBe(true);
+    expect(groupByStage([denied], TODAY)).toEqual([
+      {
+        stage: "closed",
+        rows: [
+          {
+            app: denied,
+            stage: "closed",
+            outcome: "denied",
+            days: 60,
+            stale: true,
+          },
+        ],
+      },
+    ]);
+  });
 });
 
 describe("reachedStage", () => {

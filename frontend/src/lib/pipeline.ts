@@ -134,14 +134,16 @@ export function groupByStage<T extends PipelineApplication>(
 
 /**
  * Today's "Needs your attention": the stale applications, most days without
- * an update first.
+ * an update first. An open application whose latest event is a denial is
+ * left out: nothing is awaited from it (the Pipeline still lists it under
+ * Closed).
  */
 export function attentionList<T extends PipelineApplication>(
   apps: readonly T[],
   today: Date = new Date(),
 ): { app: T; days: number }[] {
   return apps
-    .filter((app) => isStale(app, today))
+    .filter((app) => isStale(app, today) && pipelineOutcome(app) !== "denied")
     .map((app) => ({ app, days: quietDays(app, today) }))
     .sort((a, b) => b.days - a.days);
 }

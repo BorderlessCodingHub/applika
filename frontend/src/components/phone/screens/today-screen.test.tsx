@@ -290,6 +290,37 @@ describe("TodayScreen", () => {
     );
   });
 
+  it("leaves out a quiet open application whose latest event is a denial", async () => {
+    mocks.getApplications.mockResolvedValue([
+      app({
+        id: "quiet20",
+        company_name: "Lumen Health",
+        application_date: "2026-10-20",
+      }),
+      app({
+        id: "denied",
+        company_name: "Denied Corp",
+        application_date: "2026-09-01",
+        last_step: {
+          id: "e1",
+          name: "Denied",
+          color: "#ef4444",
+          date: "2026-09-15",
+        },
+      }),
+    ]);
+    await renderToday();
+
+    const section = screen.getByRole("region", {
+      name: "Needs your attention",
+    });
+    const items = await within(section).findAllByRole("listitem");
+    expect(
+      items.map((item) => item.getAttribute("data-application-id")),
+    ).toEqual(["quiet20"]);
+    expect(section).not.toHaveTextContent("Denied Corp");
+  });
+
   it("closes a quiet application through today's close dialog", async () => {
     const user = userEvent.setup();
     await renderToday();

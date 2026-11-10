@@ -514,10 +514,13 @@ test.describe("signed-in core screens below md", () => {
   let createdPath = "";
   /** An application quiet for 25 days, made through the API, deleted in `afterAll`. */
   const QUIET = `Phone Quiet Co ${stamp}`;
+  /** Open, its latest event a denial 20 days ago; made through the API, deleted in `afterAll`. */
+  const DENIED = `Phone Denied Co ${stamp}`;
 
   test.afterAll(async ({ request }) => {
     await deleteApplicationsAt(request, COMPANY);
     await deleteApplicationsAt(request, QUIET);
+    await deleteApplicationsAt(request, DENIED);
   });
 
   test("Today: the greeting, the tab bar with Today current, the initials to the Account hub", async ({
@@ -595,6 +598,77 @@ test.describe("signed-in core screens below md", () => {
     // The event dates it today: no longer quiet, it leaves the list.
     await expect(dialog).toHaveCount(0);
     await expect(card).toHaveCount(0);
+  });
+
+  test("Today: a quiet open application whose latest event is a denial stays off Needs your attention", async ({
+    page,
+    request,
+  }) => {
+    const supports = await request.get(apiUrl("/supports"), {
+      headers: apiHeaders(),
+    });
+    expect(supports.ok(), await supports.text()).toBeTruthy();
+    const { platforms } = (await supports.json()) as {
+      platforms: Array<{ id: string }>;
+    };
+    const daysAgo = (days: number) =>
+      new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+    const ids: Record<string, string> = {};
+    for (const [key, company] of [
+      ["quiet", QUIET],
+      ["denied", DENIED],
+    ] as const) {
+      const created = await request.post(apiUrl("/applications"), {
+        headers: { ...apiHeaders(), "Content-Type": "application/json" },
+        data: {
+          company: { name: company, url: null },
+          platform_id: platforms[0].id,
+          role: "Quiet Engineer",
+          mode: "active",
+          application_date: daysAgo(30),
+        },
+      });
+      expect(created.ok(), await created.text()).toBeTruthy();
+      ids[key] = ((await created.json()) as { id: string }).id;
+    }
+    // A denial added as an event only: the application stays open.
+    const denial = await request.post(
+      apiUrl(`/applications/${ids.denied}/timeline`),
+      {
+        headers: { ...apiHeaders(), "Content-Type": "application/json" },
+        data: { event_type: "denied", event_date: daysAgo(20) },
+      },
+    );
+    expect(denial.ok(), await denial.text()).toBeTruthy();
+
+    await loginAs(page, "user");
+    await page.goto("/dashboard");
+    const attention = page.getByRole("region", {
+      name: "Needs your attention",
+    });
+    const item = (id: string) =>
+      attention.locator(
+        `[data-slot="today-attention-item"][data-application-id="${id}"]`,
+      );
+    await expect(item(ids.quiet)).toBeVisible();
+    // 30 days by the UTC calendar: 29 to 31 by the browser's local one.
+    await expect(item(ids.quiet)).toContainText(
+      /No update for (29|30|31) days/,
+    );
+    await expect(item(ids.denied)).toHaveCount(0);
+    await expect(attention).not.toContainText(DENIED);
+    await expectNoSidewaysScroll(page);
+
+    // The Pipeline still lists it under Closed, quiet as it is (P6).
+    await tabBar(page).getByRole("link", { name: "Pipeline" }).click();
+    await page.waitForURL("**/applications");
+    const row = page.locator(
+      `[data-application-id="${ids.denied}"][data-stage="closed"]`,
+    );
+    await expect(row).toBeVisible();
+    await expect(row).toHaveAttribute("data-stale", "true");
   });
 
   test("Add on Today: the quick add creates it, opens it, and the Pipeline lists it under Applied", async ({
