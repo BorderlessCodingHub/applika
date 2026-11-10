@@ -121,6 +121,9 @@ export interface PhoneShellProps {
   className?: string;
 }
 
+/** Below md the applika-cli banner shows on Today only. */
+const CLI_BANNER_PATH = "/dashboard";
+
 /**
  * The fixed chrome over the bottom of <main>: tab bar + FAB, the tab bar
  * alone, nothing. `pad` keeps today's content clear of it (a ported screen
@@ -257,14 +260,12 @@ export function PhoneShell({
                   data-slot="app-content"
                   className={cn(!ported && ["px-4 pt-6", reserve.pad])}
                 >
-                  {/* A ported screen owns its board's padding; the banner keeps the board's margins. */}
-                  {ported ? (
+                  {/* The applika-cli banner, on Today only (at md and up `AppShell` keeps it on every page). Today is a ported screen: the banner keeps the board's margins. */}
+                  {path === CLI_BANNER_PATH ? (
                     <div className="px-5 pt-5 empty:hidden">
                       <CliPromoBanner />
                     </div>
-                  ) : (
-                    <CliPromoBanner />
-                  )}
+                  ) : null}
                   {children}
                 </div>
               </main>

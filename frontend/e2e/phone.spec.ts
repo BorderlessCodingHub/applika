@@ -993,7 +993,8 @@ test.describe("the account area, jobs and CVs below md", () => {
     await expect(page.locator('[data-slot="github-restore-card"]')).toHaveCount(
       0,
     );
-    await expectPhoneTargets(page, 6);
+    // No applika-cli banner here: below md it shows on Today only.
+    await expectPhoneTargets(page, 5);
     await expectNoSidewaysScroll(page);
 
     // Edit (the top bar) swaps in today's form; Cancel brings the board back.
@@ -1069,7 +1070,8 @@ test.describe("the account area, jobs and CVs below md", () => {
         .locator('[data-slot="cycles-empty"]')
         .or(page.locator('li[data-slot="cycle-row"]').first()),
     ).toBeVisible();
-    await expectPhoneTargets(page, 3);
+    // New cycle (the applika-cli banner shows on Today only).
+    await expectPhoneTargets(page, 1);
     await expectNoSidewaysScroll(page);
   });
 

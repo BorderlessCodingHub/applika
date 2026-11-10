@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { loginAs, type SeededRole } from "./support/auth";
 import { showCookieNotice } from "./support/cookie-notice";
+import { expectNoSidewaysScroll } from "./support/phone";
 
 /**
  * App shell — responsive behaviour and keyboard traversal (PRD 0006 R-017,
@@ -436,11 +437,56 @@ test.describe("below md the phone shell carries a bottom tab bar", () => {
     expect(dashboard.count).toBeGreaterThanOrEqual(6);
     expect(dashboard.small).toEqual([]);
 
+    // The hub has no applika-cli banner (Today only).
     await page.goto("/account");
     await expect(page.getByRole("region", { name: "Workspace" })).toBeVisible();
     const account = await undersized();
-    expect(account.count).toBeGreaterThanOrEqual(15);
+    expect(account.count).toBeGreaterThanOrEqual(14);
     expect(account.small).toEqual([]);
+  });
+
+  test("the applika-cli banner shows on Today only, and Dismiss still hides it", async ({
+    page,
+  }) => {
+    await openPhone(page, "/dashboard");
+    const banner = page.locator(CLI_BANNER);
+    await expect(banner).toBeVisible();
+    await expectNoSidewaysScroll(page);
+
+    for (const path of ["/applications", "/agenda", "/insights", "/cvs/new"]) {
+      await page.goto(path);
+      await expect(page.locator('[data-slot="phone-shell"]')).toBeVisible();
+      await expect(page.locator('[data-slot="app-content"]')).not.toBeEmpty();
+      await expect(banner, `the banner on ${path}`).toHaveCount(0);
+    }
+
+    // Back on Today it is there until dismissed, then gone after a reload.
+    await page.goto("/dashboard");
+    await expect(banner).toBeVisible();
+    await banner
+      .getByRole("button", { name: "Dismiss announcement", exact: true })
+      .click();
+    await expect(banner).toHaveCount(0);
+    await page.reload();
+    await expect(avatar(page)).toBeVisible();
+    await expect(banner).toHaveCount(0);
+  });
+
+  test("an admin screen shows no applika-cli banner below md", async ({
+    page,
+  }) => {
+    await openPhone(page, "/admin/companies", "admin");
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "Company Management",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.locator('li[data-slot="catalog-row"]').first(),
+    ).toBeVisible();
+    await expect(page.locator(CLI_BANNER)).toHaveCount(0);
   });
 
   test("turning the screen past md switches the layout and drops the quick add", async ({
@@ -567,8 +613,18 @@ test.describe("at md and above the shell renders a fixed rail", () => {
       header.getByRole("button", { name: "Toggle theme" }),
     ).toBeVisible();
 
-    // The CLI promo banner stays at the top of the content column.
+    // The CLI promo banner stays at the top of the content column, on every
+    // page at md and up (below md, Today only).
     await expect(page.locator(CLI_BANNER)).toBeVisible();
+    for (const path of ["/applications", "/agenda", "/cvs/new"]) {
+      await page.goto(path);
+      await expect(page.locator("aside")).toBeVisible();
+      await expect(
+        page.locator(CLI_BANNER),
+        `the banner on ${path}`,
+      ).toBeVisible();
+    }
+    await page.goto("/dashboard");
 
     // Profile, feedback and logout move into the rail's account menu.
     await page

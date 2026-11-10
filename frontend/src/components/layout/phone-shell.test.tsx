@@ -127,6 +127,17 @@ describe("AppShell at md and up", () => {
     expect(document.querySelector('[data-slot="phone-tab-bar"]')).toBeNull();
     expect(document.querySelector('[data-slot="phone-shell"]')).toBeNull();
   });
+
+  it.each(["/dashboard", "/applications", "/agenda", "/admin/companies"])(
+    "shows the applika-cli banner on %s, as today",
+    (path) => {
+      renderShell(path);
+
+      expect(
+        screen.getByRole("region", { name: "applika-cli announcement" }),
+      ).toBeInTheDocument();
+    },
+  );
 });
 
 describe("PhoneShell below md", () => {
@@ -384,6 +395,57 @@ describe("PhoneShell below md", () => {
       ).not.toBeInTheDocument();
     },
   );
+
+  it("shows the applika-cli banner on Today, in the board's margins", () => {
+    mockPhoneViewport();
+    renderShell("/dashboard");
+    const banner = screen.getByRole("region", {
+      name: "applika-cli announcement",
+    });
+
+    expect(banner.parentElement).toHaveClass("px-5", "pt-5", "empty:hidden");
+    expect(
+      document.querySelector('[data-slot="app-content"]')!.firstElementChild,
+    ).toBe(banner.parentElement);
+  });
+
+  it.each([
+    "/applications",
+    "/agenda",
+    "/insights",
+    "/account",
+    "/cvs/new",
+    "/admin",
+    "/admin/companies",
+    "/somewhere/new",
+  ])("shows no applika-cli banner on %s", (path) => {
+    mockPhoneViewport();
+    renderShell(path);
+
+    expect(
+      screen.queryByRole("region", { name: "applika-cli announcement" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the banner's Dismiss on Today", async () => {
+    mockPhoneViewport();
+    const user = userEvent.setup();
+    renderShell("/dashboard");
+    try {
+      await user.click(
+        screen.getByRole("button", { name: "Dismiss announcement" }),
+      );
+
+      expect(
+        screen.queryByRole("region", { name: "applika-cli announcement" }),
+      ).not.toBeInTheDocument();
+      expect(
+        window.localStorage.getItem("applika.cli-banner-dismissed"),
+      ).not.toBeNull();
+    } finally {
+      window.localStorage.removeItem("applika.cli-banner-dismissed");
+    }
+  });
 
   it("pads a screen without a board with today's padding", () => {
     mockPhoneViewport();
