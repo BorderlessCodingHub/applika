@@ -43,6 +43,13 @@ const DEFAULT_DELAY_MS = 1000;
  *
  * The very first render is never saved — `isReady` can already be `true` when
  * resuming an existing draft, and nothing changed yet to justify a request.
+ *
+ * Unmounting SENDS the save that was still waiting out its delay (leaving
+ * the page, or crossing md, which remounts it): the last edit is never
+ * dropped. Nothing is sent when no save is waiting (no change, or not
+ * ready), and a change queued behind a request in flight is sent once that
+ * request settles, as when mounted — one request at a time, latest wins.
+ * After unmount `onSave` is the last rendered one, and no state is set.
  */
 export function useDebouncedAutosave<T>({
   value,
@@ -65,6 +72,8 @@ export function useDebouncedAutosave<T>({
   const onSaveRef = useRef(onSave);
   const mounted = useRef(true);
   const firstEffect = useRef(true);
+  // A save is waiting out its delay: the unmount sends it.
+  const due = useRef(false);
 
   useEffect(() => {
     onSaveRef.current = onSave;
@@ -76,14 +85,6 @@ export function useDebouncedAutosave<T>({
   useEffect(() => {
     latestValue.current = value;
   });
-
-  useEffect(
-    () => () => {
-      mounted.current = false;
-      clearTimeout(timer.current);
-    },
-    [],
-  );
 
   if (value !== renderedValue || isReady !== renderedReady) {
     setRenderedValue(value);
@@ -97,7 +98,8 @@ export function useDebouncedAutosave<T>({
 
   // A loop, not recursion: each pass sends whatever is CURRENT in
   // `latestValue` at the moment the previous request settles, so a change
-  // that lands mid-flight is picked up with no extra debounce wait.
+  // that lands mid-flight is picked up with no extra debounce wait — also
+  // after unmount, so a save queued behind the one in flight still goes.
   const runSave = useCallback(async (initial: T) => {
     inFlight.current = true;
     let next: T | undefined = initial;
@@ -110,21 +112,18 @@ export function useDebouncedAutosave<T>({
       } catch {
         failed = true;
       }
-      if (!mounted.current) return;
       if (pending.current) {
         pending.current = false;
         next = latestValue.current;
-      } else if (failed) {
-        inFlight.current = false;
-        setStatus("error");
-      } else {
-        inFlight.current = false;
-        setStatus("saved");
+        continue;
       }
+      inFlight.current = false;
+      if (mounted.current) setStatus(failed ? "error" : "saved");
     }
   }, []);
 
   const fire = useCallback(() => {
+    due.current = false;
     if (inFlight.current) {
       pending.current = true;
       return;
@@ -138,10 +137,23 @@ export function useDebouncedAutosave<T>({
       return;
     }
     clearTimeout(timer.current);
+    due.current = isReady;
     if (!isReady) return;
     timer.current = setTimeout(fire, delayMs);
     return () => clearTimeout(timer.current);
   }, [value, isReady, delayMs, fire]);
+
+  // Declared after the effects above, so on unmount it runs after them: the
+  // value effect has cleared its timer, and `due` says whether a save waits.
+  // Mounting again (Strict Mode's second mount) marks it mounted again.
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      clearTimeout(timer.current);
+      if (due.current) fire();
+    };
+  }, [fire]);
 
   const retry = useCallback(() => {
     clearTimeout(timer.current);

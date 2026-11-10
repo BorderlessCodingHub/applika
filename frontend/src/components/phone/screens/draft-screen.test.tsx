@@ -1,6 +1,6 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { NewWithCvPage } from "@/app/(protected)/applications/new-with-cv/new-with-cv-page";
 import { SupportsProvider } from "@/contexts/supports-context";
@@ -156,10 +156,22 @@ const NO_COPY = { isAxiosError: true, response: { status: 404 } };
 
 /** The server's draft: what the last POST or PUT stored. */
 let stored: Draft;
+/** The server's clock: each PUT is a later write (`updated_at`). */
+let writes = 0;
+const writtenAt = () =>
+  new Date(Date.parse("2026-09-26T10:00:00Z") + ++writes * 1000).toISOString();
+
+// A save the page sends as it unmounts (`useDebouncedAutosave`) settles
+// before the next test starts, so none of its calls lands in that test.
+afterEach(async () => {
+  cleanup();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+});
 
 beforeEach(() => {
   mocks.features.current = JOBS_AND_CVS;
   stored = draftFrom();
+  writes = 0;
   mocks.getDraft.mockReset().mockImplementation(async () => stored);
   mocks.createDraft.mockReset().mockImplementation(async (data: DraftInput) => {
     stored = draftFrom({ ...data, id: "draft-new" } as Partial<Draft>);
@@ -168,7 +180,12 @@ beforeEach(() => {
   mocks.updateDraft
     .mockReset()
     .mockImplementation(async (id: string, data: DraftInput) => {
-      stored = draftFrom({ ...stored, ...data, id } as Partial<Draft>);
+      stored = draftFrom({
+        ...stored,
+        ...data,
+        id,
+        updated_at: writtenAt(),
+      } as Partial<Draft>);
       return stored;
     });
   mocks.finishDraft.mockReset().mockResolvedValue({ id: "draft-9" });
@@ -563,7 +580,7 @@ describe("the new application with CV below md", () => {
 });
 
 describe("the draft across md (PRD 0021 edge case)", () => {
-  it("swaps the layout and keeps what autosave saved; a change typed within the last second before crossing is dropped", async () => {
+  it("swaps the layout and keeps every edit: one typed within the last second before crossing is sent as the phone page unmounts", async () => {
     const user = userEvent.setup();
     setLocation("/applications/new-with-cv?id=draft-9");
     mocks.features.current = JOBS_AND_CVS;
@@ -596,11 +613,62 @@ describe("the draft across md (PRD 0021 edge case)", () => {
     viewport.setPhone(false);
 
     expect(document.querySelector('[data-slot="phone-draft"]')).toBeNull();
-    expect(await screen.findByDisplayValue("Engineer II")).toBeInTheDocument();
-    expect(screen.queryByDisplayValue("Engineer III")).toBeNull();
+    await waitFor(() =>
+      expect(mocks.updateDraft).toHaveBeenLastCalledWith(
+        "draft-9",
+        expect.objectContaining({ role: "Engineer III" }),
+      ),
+    );
+    // GET /applications/drafts/{id}: the server holds the last typed value.
+    expect(((await mocks.getDraft("draft-9")) as Draft).role).toBe(
+      "Engineer III",
+    );
+    // The desktop page seeded from the cache first, then shows that save.
+    expect(await screen.findByDisplayValue("Engineer III")).toBeInTheDocument();
+    // Sent once: no second PUT once the debounce would have fired.
     await new Promise((resolve) => setTimeout(resolve, 1500));
-    expect(mocks.updateDraft).toHaveBeenCalledTimes(puts);
-    expect(stored.role).toBe("Engineer II");
+    expect(mocks.updateDraft).toHaveBeenCalledTimes(puts + 1);
     expect(window.location.search).toBe("?id=draft-9");
   }, 15_000);
+
+  it("sends nothing when the screen crosses md with nothing typed since the last save", async () => {
+    setLocation("/applications/new-with-cv?id=draft-9");
+    mocks.features.current = JOBS_AND_CVS;
+    const { viewport } = renderShellAcrossMd(
+      "/applications/new-with-cv",
+      page,
+      { features: JOBS_AND_CVS },
+    );
+    await screen.findByDisplayValue("Engineer");
+    // Past the load's own (no-op) autosave pass.
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+
+    viewport.setPhone(false);
+    expect(await screen.findByDisplayValue("Engineer")).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    expect(mocks.updateDraft).not.toHaveBeenCalled();
+  }, 15_000);
+});
+
+describe("leaving the phone draft (PRD 0021 edge case)", () => {
+  it("sends an edit typed within the last second before the page is left", async () => {
+    const user = userEvent.setup();
+    setLocation("/applications/new-with-cv?id=draft-9");
+    const { unmount } = await renderDraft();
+
+    const role = await screen.findByDisplayValue("Engineer");
+    await user.type(role, " Lead");
+    expect(mocks.updateDraft).not.toHaveBeenCalled();
+    // A link elsewhere unmounts the page before the debounce fires.
+    unmount();
+
+    await waitFor(() =>
+      expect(mocks.updateDraft).toHaveBeenCalledWith(
+        "draft-9",
+        expect.objectContaining({ role: "Engineer Lead" }),
+      ),
+    );
+    expect(stored.role).toBe("Engineer Lead");
+    expect(mocks.updateDraft).toHaveBeenCalledTimes(1);
+  });
 });

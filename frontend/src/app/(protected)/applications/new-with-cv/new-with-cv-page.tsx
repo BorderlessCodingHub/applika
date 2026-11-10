@@ -79,7 +79,7 @@ import { formatNumber } from "@/i18n/format-number";
 import { getTranslatorLocale, word } from "@/i18n/translator";
 import { services } from "@/services/services";
 import type { UpdateTailoredCvPayload } from "@/services/types/tailored-cv";
-import type { DraftInput } from "@/services/types/application-drafts";
+import type { Draft, DraftInput } from "@/services/types/application-drafts";
 
 /** Server ceiling on `job_description`, mirrored from `application-fields.tsx`. */
 const JOB_DESCRIPTION_MAX = 50_000;
@@ -232,6 +232,35 @@ interface CompanyMeta {
  * re-serializing (key order differs between what the server returns and what
  * this page builds) and never by identity. Used to skip a `PUT` that would
  * send back exactly what was just loaded (KODI-033 QA round 1, B2/P3). */
+/**
+ * When a draft or its CV copy was last written: `updated_at`, or
+ * `created_at` before its first edit. `null` when unknown.
+ */
+function savedAt(
+  row: { created_at: string; updated_at: string | null } | null | undefined,
+): string | null {
+  return row ? (row.updated_at ?? row.created_at) : null;
+}
+
+/** `a` is a later write than `b`; never when either is unknown. */
+function savedLater(a: string | null, b: string | null): boolean {
+  return a !== null && b !== null && Date.parse(a) > Date.parse(b);
+}
+
+/** Two sets of form values agree; absent, `null` and `""` read alike (a field mounts with `""`). */
+function sameFormValues(a: object, b: object): boolean {
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const blank = (value: unknown) =>
+    value === undefined || value === null || value === "";
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+  return [...keys].every(
+    (key) =>
+      (blank(left[key]) && blank(right[key])) ||
+      JSON.stringify(left[key]) === JSON.stringify(right[key]),
+  );
+}
+
 function draftInputsEqual(a: DraftInput, b: DraftInput): boolean {
   return (
     a.company_id === b.company_id &&
@@ -337,11 +366,14 @@ function NewWithCv() {
   // sent only when something actually changed since load (KODI-033 QA round
   // 1, B2/P3) — state, not a ref: both are also SET from the render-phase
   // seeding block below, and writing a ref during render is a lint error here.
-  const [lastSavedDraftInput, setLastSavedDraftInput] =
-    useState<DraftInput | null>(null);
+  const [lastSavedDraftInput, setLastSavedDraftInput] = useState<Draft | null>(
+    null,
+  );
   const [lastSavedCvPayload, setLastSavedCvPayload] = useState<string | null>(
     null,
   );
+  // When the copy this page last seeded or saved was written (`savedAt`).
+  const [lastSavedCvAt, setLastSavedCvAt] = useState<string | null>(null);
 
   // Mirrors `draftId` for the async autosave loop (`saveApplication` below).
   // `draftId` itself is a derived value (`idParam ?? createdId`), so a normal
@@ -395,6 +427,7 @@ function NewWithCv() {
       setSeededCvFor(created.id);
       cvForm.reset(values);
       setLastSavedCvPayload(JSON.stringify(toTailoredCvPayload(values)));
+      setLastSavedCvAt(savedAt(created));
       setHasCv(true);
     },
   });
@@ -460,6 +493,34 @@ function NewWithCv() {
     if (stepParam !== "application" && stepParam !== "cv") {
       setStep(draft.has_cv ? "cv" : "application");
     }
+  } else if (
+    draft &&
+    lastSavedDraftInput &&
+    savedLater(savedAt(draft), savedAt(lastSavedDraftInput)) &&
+    sameFormValues(
+      applicationForm.getValues(),
+      applicationValuesFromDraft(lastSavedDraftInput),
+    )
+  ) {
+    // A later save this page did not make: crossing md remounts the page,
+    // and the copy that left sent its last edit as it unmounted
+    // (`useDebouncedAutosave`) after this one had seeded from the cache.
+    // Shown only while the form still holds what this page last seeded or
+    // saved (nothing typed here is lost); a stale refetch is never later.
+    // The step stays.
+    applicationForm.reset(applicationValuesFromDraft(draft));
+    if (draft.company_id) {
+      setCompanyMeta({ id: draft.company_id, name: draft.company_name });
+    }
+    setLastSavedDraftInput(draft);
+    setCompanySelectValue(
+      draft.company_id
+        ? { id: draft.company_id, name: draft.company_name, url: "" }
+        : draft.company_name
+          ? { id: "", name: draft.company_name, url: "" }
+          : null,
+    );
+    setHasCv(draft.has_cv);
   }
 
   // Seed the CV form exactly once per copy id — never re-seeded on a later
@@ -470,7 +531,20 @@ function NewWithCv() {
     setLastSavedCvPayload(
       JSON.stringify(toTailoredCvPayload(tailoredCvToFormValues(cv))),
     );
+    setLastSavedCvAt(savedAt(cv));
     if (!hasCv) setHasCv(true);
+  } else if (
+    cv &&
+    savedLater(savedAt(cv), lastSavedCvAt) &&
+    JSON.stringify(toTailoredCvPayload(cvForm.getValues())) ===
+      lastSavedCvPayload
+  ) {
+    // As above, for the copy: its last edit, sent by the page that crossed md.
+    cvForm.reset(tailoredCvToFormValues(cv));
+    setLastSavedCvPayload(
+      JSON.stringify(toTailoredCvPayload(tailoredCvToFormValues(cv))),
+    );
+    setLastSavedCvAt(savedAt(cv));
   }
 
   const watchedApplication = useWatch({ control: applicationForm.control });
@@ -562,7 +636,12 @@ function NewWithCv() {
       }
       const qs = new URLSearchParams();
       qs.set("id", created.id);
-      router.replace(`${NEW_WITH_CV_HREF}?${qs.toString()}`);
+      // A create sent on unmount (`useDebouncedAutosave`) can settle after
+      // the user left: only this page's address takes the new id (a remount
+      // across md is still on it).
+      if (window.location.pathname.replace(/\/$/, "") === NEW_WITH_CV_HREF) {
+        router.replace(`${NEW_WITH_CV_HREF}?${qs.toString()}`);
+      }
     } else {
       const saved = await updateDraft.mutateAsync({
         id: draftIdRef.current,
@@ -600,8 +679,9 @@ function NewWithCv() {
       if (serialized === lastSavedCvPayload) return;
       const valid = await cvForm.trigger();
       if (!valid) throw new Error("validation");
-      await updateTailoredCvSilently.mutateAsync(payload);
+      const saved = await updateTailoredCvSilently.mutateAsync(payload);
       setLastSavedCvPayload(serialized);
+      setLastSavedCvAt(savedAt(saved));
     },
   });
 
@@ -724,8 +804,9 @@ function NewWithCv() {
           return;
         }
         const payload = toTailoredCvPayload(cvForm.getValues());
-        await updateTailoredCvSilently.mutateAsync(payload);
+        const saved = await updateTailoredCvSilently.mutateAsync(payload);
         setLastSavedCvPayload(JSON.stringify(payload));
+        setLastSavedCvAt(savedAt(saved));
       }
       await finishDraft.mutateAsync({
         id: draftId,

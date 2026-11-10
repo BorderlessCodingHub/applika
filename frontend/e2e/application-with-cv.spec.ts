@@ -196,6 +196,100 @@ test("a draft keeps what it autosaved when the screen turns across md", async ({
   expect(((await stored.json()) as { role: string }).role).toBe(edited);
 });
 
+test("an edit typed within the autosave delay is saved when the screen crosses md, and when the draft is left", async ({
+  page,
+  request,
+}) => {
+  // PRD 0021 edge case: the page remounts across 768px and unmounts when it
+  // is left; the save still waiting out its second goes as it unmounts.
+  const supports = await request.get(apiUrl("/supports"), {
+    headers: apiHeaders(),
+  });
+  expect(supports.ok(), await supports.text()).toBeTruthy();
+  const { platforms } = (await supports.json()) as {
+    platforms: Array<{ id: string }>;
+  };
+  const created = await request.post(apiUrl("/applications/drafts"), {
+    headers: apiHeaders(),
+    data: {
+      company_id: null,
+      company_name: COMPANY,
+      role: ROLE,
+      platform_id: platforms[0].id,
+      mode: "active",
+      application_date: new Date(Date.now() - 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10),
+    },
+  });
+  expect(created.ok(), await created.text()).toBeTruthy();
+  const { id } = (await created.json()) as { id: string };
+
+  /** GET /applications/drafts: the role the server holds for this draft. */
+  const storedRole = async () => {
+    const response = await request.get(apiUrl("/applications/drafts"), {
+      headers: apiHeaders(),
+    });
+    expect(response.ok(), await response.text()).toBeTruthy();
+    const drafts = (await response.json()) as Array<{
+      id: string;
+      role: string;
+    }>;
+    return drafts.find((draft) => draft.id === id)?.role;
+  };
+  const putOf = () =>
+    page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname.endsWith(
+          `/applications/drafts/${id}`,
+        ) && response.request().method() === "PUT",
+    );
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await loginAs(page, "user");
+  await page.goto(`/applications/new-with-cv?id=${id}`);
+  await expect(page.locator('[data-slot="phone-shell"]')).toBeVisible();
+  const role = page.getByPlaceholder(/senior engineer/i);
+  await expect(role).toHaveValue(ROLE);
+
+  // Saved by the debounce first, so the crossing below starts from a save.
+  const first = `${ROLE} saved`;
+  let put = putOf();
+  await role.fill(first);
+  expect((await put).ok()).toBeTruthy();
+  await expect(
+    page.locator('[data-slot="autosave-status"][data-state="saved"]'),
+  ).toBeVisible();
+
+  // Typed, then the screen crosses md within the delay.
+  const crossed = `${ROLE} crossed`;
+  put = putOf();
+  await role.fill(crossed);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  expect((await put).ok()).toBeTruthy();
+  await expect(page.locator("aside")).toBeVisible();
+  await expect.poll(storedRole).toBe(crossed);
+  // The desktop page shows the server's last save, not the cache it seeded from.
+  await expect(page.getByPlaceholder(/senior engineer/i)).toHaveValue(crossed);
+  await expect(page).toHaveURL(new RegExp(`[?&]id=${id}(&|$)`));
+
+  // Back on the phone: typed, then the draft is left through its back link.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator('[data-slot="phone-shell"]')).toBeVisible();
+  const phoneRole = page.getByPlaceholder(/senior engineer/i);
+  await expect(phoneRole).toHaveValue(crossed);
+  const left = `${ROLE} left`;
+  put = putOf();
+  await phoneRole.fill(left);
+  await page
+    .locator('[data-slot="phone-top-bar"]')
+    .getByRole("link", { name: "Applications", exact: true })
+    .click();
+  await page.waitForURL((url) => url.pathname === "/applications");
+  expect((await put).ok()).toBeTruthy();
+  await expect.poll(storedRole).toBe(left);
+});
+
 test("a draft created with New with CV autosaves, resumes and finishes into a real application", async ({
   page,
   request,

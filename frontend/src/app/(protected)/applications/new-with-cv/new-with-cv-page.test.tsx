@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-query";
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -141,8 +142,17 @@ function draftFrom(
   };
 }
 
+// A save the page sends as it unmounts (`useDebouncedAutosave`) settles
+// before the next test starts, so none of its calls lands in that test.
+afterEach(async () => {
+  cleanup();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
+  // The page's own address: a draft created there takes its `?id=`.
+  window.history.replaceState(null, "", "/applications/new-with-cv");
   myFeatures = [
     { key: "jobs", stage: "beta" },
     { key: "cvs", stage: "general" },
@@ -398,6 +408,16 @@ describe("NewWithCvPage — autosave gating and draft creation (AC6/AC7)", () =>
 });
 
 describe("NewWithCvPage — step 1 Cancel (AC15, KODI-036)", () => {
+  // The spied `location` below is a copy: put jsdom's own back, so a later
+  // test still reads the address the page moved to.
+  const realLocation = window.location;
+  afterEach(() => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: realLocation,
+    });
+  });
+
   it("forces a real top-level navigation when unsaved typing is at risk", async () => {
     const assignSpy = vi.fn();
     Object.defineProperty(window, "location", {
@@ -715,6 +735,115 @@ describe("NewWithCvPage — CV autosave correctness (AC5/AC7/AC8, QA round 1 B2/
       await screen.findByLabelText("Headline", { exact: true }),
     ).toHaveValue("Edited headline");
   });
+});
+
+describe("NewWithCvPage — leaving the page within the autosave delay (PRD 0021 edge case)", () => {
+  const RESUMED = {
+    id: "draft-9",
+    company_name: "Acme",
+    role: "Engineer",
+    platform_id: "plt-1",
+  };
+
+  it("sends the edit typed in the last second as the page unmounts, once", async () => {
+    searchParams = new URLSearchParams("id=draft-9");
+    getDraftMock.mockResolvedValue(draftFrom(RESUMED));
+    const user = userEvent.setup();
+    const { unmount } = renderPage();
+
+    const role = await screen.findByDisplayValue("Engineer");
+    await user.type(role, " Lead");
+    expect(updateDraftMock).not.toHaveBeenCalled();
+    unmount();
+
+    await waitFor(() => expect(updateDraftMock).toHaveBeenCalledTimes(1));
+    expect(updateDraftMock.mock.calls[0][0]).toBe("draft-9");
+    expect(lastPut()?.role).toBe("Engineer Lead");
+    await sleep(1300);
+    expect(updateDraftMock).toHaveBeenCalledTimes(1);
+  }, 10_000);
+
+  it("sends nothing as it unmounts when nothing changed", async () => {
+    searchParams = new URLSearchParams("id=draft-9");
+    getDraftMock.mockResolvedValue(draftFrom(RESUMED));
+    const { unmount } = renderPage();
+
+    await screen.findByDisplayValue("Engineer");
+    unmount();
+    await sleep(1300);
+    expect(updateDraftMock).not.toHaveBeenCalled();
+  }, 10_000);
+
+  it("sends the CV copy's last edit as the page unmounts on step 2", async () => {
+    searchParams = new URLSearchParams("id=draft-9&step=cv");
+    getDraftMock.mockResolvedValue(draftFrom({ ...RESUMED, has_cv: true }));
+    getTailoredCvMock.mockResolvedValue(SAVED_CV);
+    updateTailoredCvMock.mockImplementation(
+      (_id: string, data: Record<string, unknown>) =>
+        Promise.resolve({ ...SAVED_CV, ...data }),
+    );
+    const user = userEvent.setup();
+    const { unmount } = renderPage();
+
+    const headline = await screen.findByLabelText("Headline", {
+      exact: true,
+    });
+    await user.clear(headline);
+    await user.type(headline, "Left headline");
+    expect(updateTailoredCvMock).not.toHaveBeenCalled();
+    unmount();
+
+    await waitFor(() => expect(updateTailoredCvMock).toHaveBeenCalledTimes(1));
+    expect(updateTailoredCvMock.mock.calls[0][0]).toBe("draft-9");
+    expect(updateTailoredCvMock.mock.calls[0][1]).toMatchObject({
+      headline: "Left headline",
+    });
+  }, 10_000);
+
+  it("creates a new draft typed in the last second, and leaves the address it went to alone", async () => {
+    createDraftMock.mockResolvedValue(
+      draftFrom({
+        id: "draft-new",
+        company_name: "Acme",
+        role: "Engineer",
+        platform_id: "plt-1",
+      }),
+    );
+    const user = userEvent.setup();
+    const { unmount } = renderPage();
+
+    await screen.findByRole("combobox", { name: /platform/i });
+    await user.type(
+      screen.getByPlaceholderText(/senior engineer/i),
+      "Engineer",
+    );
+    await user.click(await screen.findByRole("combobox", { name: "Company" }));
+    await user.type(
+      screen.getByPlaceholderText(/search or add a company/i),
+      "Acme",
+    );
+    await user.click(await screen.findByText('Create "Acme"'));
+    await user.click(screen.getByRole("button", { name: /^add company$/i }));
+    await user.click(screen.getByRole("combobox", { name: /platform/i }));
+    await user.click(await screen.findByRole("option", { name: "LinkedIn" }));
+    expect(createDraftMock).not.toHaveBeenCalled();
+
+    // A link to the list: the address changes, then the page unmounts.
+    window.history.replaceState(null, "", "/applications");
+    unmount();
+
+    await waitFor(() => expect(createDraftMock).toHaveBeenCalledTimes(1));
+    expect(createDraftMock.mock.calls[0][0]).toMatchObject({
+      role: "Engineer",
+      company_name: "Acme",
+      platform_id: "plt-1",
+    });
+    await sleep(300);
+    expect(replaceMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("id=draft-new"),
+    );
+    expect(window.location.pathname).toBe("/applications");
+  }, 10_000);
 });
 
 describe("NewWithCvPage — creating and deleting the CV copy (AC4/AC7, QA round 2 D1/D2)", () => {

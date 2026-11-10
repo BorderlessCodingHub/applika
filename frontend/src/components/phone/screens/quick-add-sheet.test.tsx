@@ -8,7 +8,12 @@ import { CycleProvider } from "@/contexts/cycle-context";
 import type { User } from "@/services/types/users";
 import { routerPush, setLocation } from "@/test/navigation";
 import { mockPhoneViewport } from "@/test/phone";
-import { PickPastCycle, SAM, ViewedCycle } from "@/test/phone-screens";
+import {
+  PickPastCycle,
+  SAM,
+  ViewedCycle,
+  renderShellAcrossMd,
+} from "@/test/phone-screens";
 import { QuickAddSheet, platformChips } from "./quick-add-sheet";
 
 const mocks = vi.hoisted(() => ({
@@ -35,6 +40,10 @@ vi.mock("@/services/services", () => ({
       getApplications: mocks.getApplications,
     },
     features: { getMine: () => Promise.resolve(mocks.features) },
+    // The shell's own reads, for the quick add across md.
+    cycles: { getCycles: () => Promise.resolve([]) },
+    sessions: { list: () => Promise.resolve([]) },
+    users: { getAgenda: () => Promise.resolve([]) },
     platforms: {
       list: () =>
         Promise.resolve([
@@ -393,5 +402,31 @@ describe("platformChips", () => {
       "b",
       "c",
     ]);
+  });
+});
+
+describe("the quick add across md (PRD 0021 edge case)", () => {
+  it("is lost with what was typed when the screen turns past md: nothing is created", async () => {
+    const user = userEvent.setup();
+    const { viewport } = renderShellAcrossMd("/dashboard", <p>today</p>);
+
+    await user.click(screen.getByRole("button", { name: "Add" }));
+    await screen.findByRole("dialog", { name: "Add application" });
+    await fillEssentials(user);
+    expect(screen.getByLabelText("Role")).toHaveValue(
+      "Senior Backend Engineer",
+    );
+
+    // Typed, then the screen turns past md: the shell (and the sheet) goes.
+    viewport.setPhone(false);
+    expect(
+      screen.queryByRole("dialog", { name: "Add application" }),
+    ).not.toBeInTheDocument();
+
+    viewport.setPhone(true);
+    await user.click(screen.getByRole("button", { name: "Add" }));
+    await screen.findByRole("dialog", { name: "Add application" });
+    expect(screen.getByLabelText("Role")).toHaveValue("");
+    expect(mocks.createApplication).not.toHaveBeenCalled();
   });
 });
