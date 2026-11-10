@@ -8,7 +8,7 @@ import { createLucideIcon } from "lucide-react";
  *   the mobile sheet header and the mobile header row.
  *
  * The `sidebar` and `mobile` modes were dropped with `app-layout.tsx` /
- * `app-header.tsx` in KODI-004: nothing rendered them once the shell landed.
+ * `app-header.tsx` in PRD 0007: nothing rendered them once the shell landed.
  */
 export function AppLogo({ mode }: { mode: "header" | "compact" }) {
   if (mode === "compact") {

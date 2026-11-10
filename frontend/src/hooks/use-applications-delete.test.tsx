@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useApplicationDelete } from "@/hooks/use-applications";
 
 /**
- * T042/T043 (KODI-041): a rate-limited application delete shows the
+ * T042/T043: a rate-limited application delete shows the
  * server's own `detail` in the usual error toast instead of the fixed
  * "Failed to delete" text (R-025); any other failure keeps that fixed text.
  */

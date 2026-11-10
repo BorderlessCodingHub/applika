@@ -49,9 +49,9 @@ export function getCurrencySymbol(currency: string) {
 }
 
 /**
- * The field set the application-with-CV draft page (KODI-033) and the side
+ * The field set the application-with-CV draft page and the side
  * sheet share. `application_date` is optional at this type level only —
- * both callers' own zod schemas require it (KODI-036, AC1/AC3): the sheet's
+ * both callers' own zod schemas require it (AC1/AC3): the sheet's
  * schema already did, and the draft page's schema now does too, since every
  * draft carries and autosaves an application date from step 1.
  */
@@ -91,7 +91,7 @@ export interface ApplicationFieldsProps {
 /**
  * Every field the side sheet asks for, minus the chrome (Sheet, header,
  * Cancel/submit) and the schema/submit wiring — both callers own those.
- * Grouped into three titled sections (KODI-035, T110): "Role & company" (what
+ * Grouped into three titled sections (T110): "Role & company" (what
  * every application needs), "Details" (optional work mode/pay) and "Posting &
  * notes" (the job posting and free-text notes).
  */

@@ -18,8 +18,8 @@ import {
  */
 
 /**
- * Full width in every state (KODI-008). `/applications/cv` left the list with
- * KODI-017 — "only full width when we have a cv copy to the application" — and
+ * Full width in every state. `/applications/cv` left the list (PRD 0007:
+ * "only full width when we have a cv copy to the application") and
  * asks through {@link FullWidthContent} from its editor branch.
  */
 export const FULL_WIDTH_PATHS = ["/cvs/new", "/cvs/editor"] as const;

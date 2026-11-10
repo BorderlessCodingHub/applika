@@ -184,7 +184,7 @@ function sameHeights(a: CvBlockHeights, b: CvBlockHeights): boolean {
  * measure pass converges. An off-screen measuring container would duplicate
  * the CV's text in the DOM (breaking Playwright's strict locators) and, if
  * absolutely positioned without a positioned ancestor, would stretch `<html>`
- * and regress KODI-006's AC7 — the exact trap `frontend/CLAUDE.md` documents
+ * and regress the no-scroll AC7 — the exact trap `frontend/CLAUDE.md` documents
  * under "an `overflow: hidden` on a STATIC ancestor clips nothing".
  *
  * `element.offsetHeight`, never `getBoundingClientRect().height`: the sheet is

@@ -9,7 +9,7 @@ import {
 import { PLATFORM_SELECT_COPY } from "@/components/applications/platform-select";
 import { COMPANY_SELECT_COPY } from "@/components/applications/company-select";
 
-/** KODI-035: the shared picker behind both the platform and company fields. */
+/** PRD 0010: the shared picker behind both the platform and company fields. */
 
 const OPTIONS: CatalogOption[] = [
   { id: "p-1", name: "LinkedIn", url: "https://linkedin.com", is_public: true },
@@ -60,7 +60,7 @@ describe("CatalogSelect", () => {
     vi.useRealTimers();
   });
 
-  it("calls onSearchChange immediately (not debounced) on open, with the current search (KODI-035, AC1 (b))", async () => {
+  it("calls onSearchChange immediately (not debounced) on open, with the current search (AC1 (b))", async () => {
     const onSearchChange = vi.fn();
     const user = userEvent.setup();
     setup({ onSearchChange });

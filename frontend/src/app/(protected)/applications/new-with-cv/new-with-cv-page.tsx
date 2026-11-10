@@ -100,8 +100,8 @@ function tooLongWords(max: number): string {
 }
 
 /**
- * The same rules the side sheet's schema enforces (KODI-033 QA round 1, B1),
- * plus `application_date` (KODI-036, AC1/AC3): step 1 now asks for it too, and
+ * The same rules the side sheet's schema enforces (QA round 1, B1),
+ * plus `application_date` (AC1/AC3): step 1 now asks for it too, and
  * it is validated here the same way — required and never later than the
  * user's own today. Applying this schema is what stops an invalid job link,
  * an out-of-range job description or a future date from ever reaching a
@@ -117,7 +117,7 @@ const draftApplicationSchema = z
       .min(1, message("roleRequired"))
       .max(200, { error: () => tooLongWords(200) }),
     mode: z.enum(ModeValues, message("sourceRequired")),
-    // See `isNotFutureCalendarDay` (frontend-qa KODI-036 round 1, B1): a
+    // See `isNotFutureCalendarDay` (frontend-qa round 1, B1): a
     // `Date`-object comparison here used to refuse a user's own TODAY once
     // their local calendar day was ahead of UTC's.
     application_date: z
@@ -231,7 +231,7 @@ interface CompanyMeta {
 /** Every field `DraftInput` carries, compared value by value — never by
  * re-serializing (key order differs between what the server returns and what
  * this page builds) and never by identity. Used to skip a `PUT` that would
- * send back exactly what was just loaded (KODI-033 QA round 1, B2/P3). */
+ * send back exactly what was just loaded (QA round 1, B2/P3). */
 /**
  * When a draft or its CV copy was last written: `updated_at`, or
  * `created_at` before its first edit. `null` when unknown.
@@ -284,13 +284,13 @@ function draftInputsEqual(a: DraftInput, b: DraftInput): boolean {
 }
 
 /**
- * `/applications/new-with-cv` (PRD 0010, KODI-033): create an application and
+ * `/applications/new-with-cv` (PRD 0010): create an application and
  * its CV copy together, in two steps, as a draft that autosaves. This
  * component owns BOTH react-hook-form instances, BOTH autosave loops, the CV
  * copy's query and mutations, company resolution and the beforeunload guard.
  *
  * Everything the draft needs to survive a step switch lives HERE, never in
- * `DraftCvStep` (KODI-033 QA round 1, B2/B3): that component switches in and
+ * `DraftCvStep` (QA round 1, B2/B3): that component switches in and
  * out of the DOM on every step change, so anything it held as local state or
  * a ref would reset on remount and either autosave an empty CV over a real
  * copy or revert an unsaved edit the instant the user came back to step 2.
@@ -363,7 +363,7 @@ function NewWithCv() {
   );
 
   // The last DraftInput/CV payload known to match the server, so a `PUT` is
-  // sent only when something actually changed since load (KODI-033 QA round
+  // sent only when something actually changed since load (QA round
   // 1, B2/P3) — state, not a ref: both are also SET from the render-phase
   // seeding block below, and writing a ref during render is a lint error here.
   const [lastSavedDraftInput, setLastSavedDraftInput] = useState<Draft | null>(
@@ -380,7 +380,7 @@ function NewWithCv() {
   // render always sees it correctly — but `useDebouncedAutosave`'s internal
   // loop can call `saveApplication` a SECOND time, synchronously in the same
   // microtask right after the first `POST` resolves and BEFORE React commits
-  // the `setCreatedId` that would otherwise flip `draftId` (KODI-033 QA round
+  // the `setCreatedId` that would otherwise flip `draftId` (QA round
   // 1, B2): that second call would still see the OLD closure's `draftId ===
   // null` and `POST` a second draft. Writing this ref synchronously, inside
   // `saveApplication` itself, the moment the first `POST` resolves, is what
@@ -441,9 +441,9 @@ function NewWithCv() {
   });
   // A SILENT update for autosave — the toasting `useUpdateTailoredCv` would
   // pop a "CV copy saved" toast about once a second while the user types
-  // (KODI-033 QA round 1, should-fix P6).
+  // (QA round 1, should-fix P6).
   //
-  // `networkMode: "always"` (KODI-034, owner-ordered 2026-09-26): same
+  // `networkMode: "always"` (owner-ordered 2026-09-26): same
   // offline-autosave fix as `useCreateDraft`/`useUpdateDraft`
   // (`use-application-drafts.ts`) — R-008 covers both the application data
   // and the CV copy, so this step-2 autosave mutation gets the same option
@@ -560,7 +560,7 @@ function NewWithCv() {
   );
 
   // The picker itself resolves a URL-having company to a real id at confirm
-  // time (KODI-035, T111) — there is no URL-blur/confirm step left here.
+  // time (T111) — there is no URL-blur/confirm step left here.
   const resolveCompany = useCallback(async (): Promise<{
     company_id: string | null;
     company_name: string;
@@ -626,7 +626,7 @@ function NewWithCv() {
     if (!draftIdRef.current) {
       const created = await createDraft.mutateAsync(input);
       // Set synchronously, BEFORE any state update — see the note on
-      // `draftIdRef` above (KODI-033 QA round 1, B2).
+      // `draftIdRef` above (QA round 1, B2).
       draftIdRef.current = created.id;
       setCreatedId(created.id);
       setSeededFor(created.id);
@@ -729,7 +729,7 @@ function NewWithCv() {
   // (never from the server's `draft`, which is what D3 fixed away from) —
   // needed because `DraftApplicationStep` UNMOUNTS on step change and
   // `CompanySelect` re-seeds its own internal selection from this prop the
-  // moment it remounts (KODI-033 QA round 1, B1): without this, going to step
+  // moment it remounts (QA round 1, B1): without this, going to step
   // 2 and back showed whatever `companySelectValue` held at the draft's
   // ORIGINAL load — reverting a company changed since, or wiping a
   // free-text company's typed URL back to `""` — and the next autosave PUT

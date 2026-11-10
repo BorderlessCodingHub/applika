@@ -7,7 +7,7 @@ import { CompanySelect } from "@/components/applications/company-select";
 import { api } from "@/lib/api-client";
 
 /**
- * KODI-035 remediation r1 (QA F1): `company-select.test.tsx` mocks
+ * Remediation r1 (QA F1): `company-select.test.tsx` mocks
  * `useCreateCompany` itself, so it never exercises the line that actually
  * reads the HTTP status (`CompanyService.create`, `r.status === 201`). This
  * file mocks nothing above axios: the REAL `useCreateCompany` hook and the

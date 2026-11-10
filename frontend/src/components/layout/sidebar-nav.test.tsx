@@ -14,7 +14,7 @@ import { SidebarNav } from "./sidebar-nav";
 import type { MyFeature } from "@/services/types/features";
 
 /**
- * Shell navigation (KODI-004 / R-017, R-020).
+ * Shell navigation (R-017, R-020).
  *
  * Two properties hang off this file:
  *  - criterion 3 — exactly one entry is marked as the current page, and it is
@@ -281,7 +281,7 @@ describe("SidebarNav rendering", () => {
   });
 });
 
-describe("the Jobs entry (KODI-048, Plan corrections 8)", () => {
+describe("the Jobs entry (Plan corrections 8)", () => {
   const jobs = PRIMARY_NAV.find((item) => item.href === "/jobs")!;
 
   it("sits in the primary nav, labelled Jobs, right after Applications", () => {
@@ -312,7 +312,7 @@ describe("the Jobs entry (KODI-048, Plan corrections 8)", () => {
   });
 });
 
-describe("the CVs entry (KODI-002 / R-001)", () => {
+describe("the CVs entry (R-001)", () => {
   const cvs = PRIMARY_NAV.find((item) => item.href === "/cvs")!;
 
   it("sits in the primary nav, labelled CVs, right after Jobs", () => {
@@ -348,7 +348,7 @@ describe("the CVs entry (KODI-002 / R-001)", () => {
   });
 });
 
-describe("the Jobs entry behind the jobs feature (KODI-053, PRD 0013)", () => {
+describe("the Jobs entry behind the jobs feature (PRD 0013)", () => {
   const primaryLinks = () =>
     Array.from(renderedLinks()).map((link) => link.getAttribute("href"));
 

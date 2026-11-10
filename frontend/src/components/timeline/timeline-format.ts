@@ -36,8 +36,8 @@ export function formatEventDate(
  * `startTime`/`endTime` are `HH:mm` strings. Returns `null` when there is no
  * start time (i.e. the event is not scheduled) — true both for an
  * interview with a blank schedule and for a non-interview event, whose
- * `startTime`/`endTime`/`timezone` are absent from the wire entirely
- * (KODI-016). The zone is rendered READABLE (underscores as spaces, e.g.
+ * `startTime`/`endTime`/`timezone` are absent from the wire entirely.
+ * The zone is rendered READABLE (underscores as spaces, e.g.
  * `America/Sao Paulo`) via `timeZoneLabel` — the exact formatter
  * `TimezoneSelect` uses — never the raw IANA id and never a second
  * implementation of the same substitution.

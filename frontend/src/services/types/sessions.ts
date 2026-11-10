@@ -1,4 +1,4 @@
-/** `/users/me/sessions` wire types (KODI-057, ADR-0019). Ids are Snowflake strings. */
+/** `/users/me/sessions` wire types (ADR-0019). Ids are Snowflake strings. */
 
 export type SessionStatus = "active" | "signed_out" | "revoked" | "expired";
 

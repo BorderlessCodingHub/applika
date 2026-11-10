@@ -1,7 +1,7 @@
 /**
- * Job board wire shapes (PRD 0012, KODI-047 `backend/app/presentation/schemas/jobs.py`).
+ * Job board wire shapes (PRD 0012, `backend/app/presentation/schemas/jobs.py`).
  * Ported from Ían Muliterno's `job_scrapping` branch (`e670914`,
- * `frontend/src/services/types/jobs.ts`) onto the KODI-047 contract. IDs are
+ * `frontend/src/services/types/jobs.ts`) onto the PRD 0012 contract. IDs are
  * Snowflake STRINGS on the wire.
  */
 
@@ -119,7 +119,7 @@ export interface DraftFromJobInput {
   base_cv_id?: string;
   tailoring?: JobTailoring;
   /**
-   * The caller's LOCAL calendar day, `YYYY-MM-DD` (KODI-050). The server dates
+   * The caller's LOCAL calendar day, `YYYY-MM-DD`. The server dates
    * the draft with it, so it matches the day Finish later checks against;
    * absent, the server falls back to its own UTC day.
    */

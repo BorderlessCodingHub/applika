@@ -407,7 +407,7 @@ export function CvRepeatableSection<T extends { id: string }>({
 
         {/*
           The add control, INSIDE the disclosure and directly below the last
-          row. The owner, KODI-009: "remove the button to insert a new
+          row. The owner: "remove the button to insert a new
           link/category/etc from the category header and put inside the
           colapsable section, preferable bellow from the last item added".
 
@@ -416,7 +416,7 @@ export function CvRepeatableSection<T extends { id: string }>({
           left in the header), and an EMPTY section still offers one, below the
           hint. It also lands where the same gesture already lives one level
           down — `CvStringListField` has put its own add button under its list
-          since KODI-002.
+          since PRD 0007.
         */}
         <div className="mt-3">
           <Button

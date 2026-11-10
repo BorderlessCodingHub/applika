@@ -1,7 +1,7 @@
 import type { JobFilters } from "@/services/types/jobs";
 
 /**
- * Saved job searches (PRD 0012 R-031/R-032, KODI-047
+ * Saved job searches (PRD 0012 R-031/R-032,
  * `backend/app/presentation/schemas/job_searches.py`). No notification field
  * exists, by design (R-032).
  */

@@ -64,8 +64,8 @@ export function BaseCvEditor({
     <form onSubmit={onSubmit} className={cn("space-y-6", className)} noValidate>
       {/*
         Strictly half and half at EVERY width — two equal `1fr` tracks, no cap
-        on either side. KODI-008 capped the preview at `2xl` and gave the
-        surplus to the form; KODI-009 reverses that on the owner's own words:
+        on either side. The A4 preview first capped it at `2xl` and gave the
+        surplus to the form; this reverses that on the owner's own words:
         "increace the preview width size keep 50/50 w-1/2 to the CV form and
         w-1/2 to CV preview". Do not re-introduce a `2xl` (or any) cap — the
         asymmetry was tried and rejected. Below `md` the two stack, form first.
@@ -80,7 +80,7 @@ export function BaseCvEditor({
         {/*
           Stuck to the TOP of the scrollport, and exactly as tall as it.
 
-          KODI-009, the owner: "when I scroll the page the live preciew creates
+          The owner: "when I scroll the page the live preciew creates
           a gap from the top of the page". It did, by 104px, every one of which
           was dead: `md:top-20` reserved 5rem for chrome that does not exist
           INSIDE `main` — `main` is the scrollport and the shell `Header` is

@@ -10,7 +10,7 @@ import type { MyFeature } from "@/services/types/features";
 import { NEW_CV_COPY } from "@/components/base-cvs/new-cv-card";
 
 /**
- * `/cvs/new` (KODI-002 / R-001, R-002).
+ * `/cvs/new` (R-001, R-002).
  *
  * AC1 — the form captures the label, the identity and contact block, the
  * summary and the sections, and sends them to the API.

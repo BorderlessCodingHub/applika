@@ -329,7 +329,7 @@ export function useDeleteReportWebhook({
   });
 }
 
-// ── Job sources (KODI-049, R-033..R-035) ────────────────────────────────
+// ── Job sources (R-033..R-035) ──────────────────────────────────────────
 
 export const ADMIN_JOB_SOURCES_KEY = ["admin", "job-sources"] as const;
 
@@ -409,7 +409,7 @@ export function useStartJobRun() {
   });
 }
 
-// ── Beta features (KODI-054, PRD 0013 R-006..R-017) ─────────────────────
+// ── Beta features (PRD 0013 R-006..R-017) ───────────────────────────────
 
 export const ADMIN_FEATURES_KEY = ["admin", "features"] as const;
 export const ADMIN_FEATURE_USERS_KEY = ["admin", "feature-users"] as const;

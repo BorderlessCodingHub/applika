@@ -39,7 +39,7 @@ interface TimelinePanelProps {
 }
 
 /**
- * Titled "Timeline" panel (KODI-015 reference image), mounted in an
+ * Titled "Timeline" panel (PRD 0008 reference image), mounted in an
  * application row's expansion. Flat below `sm`, bordered from `sm` up — the
  * card shell it sits in already carries the border at that width. Renders the
  * event list, an empty state when there are no events, and a read-only notice

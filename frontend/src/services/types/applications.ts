@@ -46,7 +46,7 @@ export interface AgendaStep {
  * Body for `POST /applications/{id}/finalize`. `outcome: undefined`/omitted
  * sends a bodyless request (idempotent close, no outcome event). `offer`
  * requires the salary triad; `denied` takes only the date/observation and an
- * optional `denied_reason` (KODI-014, default `unknown`) — `denied_reason` is
+ * optional `denied_reason` (default `unknown`) — `denied_reason` is
  * 422 with any other outcome, so it is never sent for `offer`.
  */
 export interface FinalizeApplicationPayload {
@@ -57,7 +57,7 @@ export interface FinalizeApplicationPayload {
   salary_amount?: string;
   salary_currency?: SalaryCurrency;
   salary_period?: OfferSalaryPeriod;
-  /** Denied-only (KODI-014); omitted for `offer`. */
+  /** Denied-only; omitted for `offer`. */
   denied_reason?: DeniedReason;
 }
 
@@ -79,7 +79,7 @@ export interface Application {
   work_mode?: WorkModeType;
   country?: string;
   observation?: string;
-  /** The job posting's text, kept beside the application's CV copy (KODI-003). */
+  /** The job posting's text, kept beside the application's CV copy. */
   job_description?: string | null;
   finalized: boolean;
   /**

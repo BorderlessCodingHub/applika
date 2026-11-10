@@ -11,7 +11,7 @@ import {
 } from "@/components/timeline/timezone-options";
 
 /**
- * PRD 0008 / ADR 0012, KODI-014 (AC3): the timezone picker is a searchable
+ * PRD 0008 / ADR 0012 (AC3): the timezone picker is a searchable
  * combobox over `Intl.supportedValuesOf("timeZone")`, `UTC` always offered,
  * grouped by region, with a stored-but-unlisted value shown first in its own
  * "Selected" group.

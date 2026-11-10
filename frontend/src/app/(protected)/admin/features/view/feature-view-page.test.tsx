@@ -15,7 +15,7 @@ import type {
 } from "@/services/types/features";
 
 /**
- * KODI-054 (plan 0013, T048) — `/admin/features/view?key=` (AC2-AC11): the
+ * Plan 0013, T048 — `/admin/features/view?key=` (AC2-AC11): the
  * beta list (columns, search, pager, add, duplicate add, remove behind a
  * confirm), the stage dialogs and their words, "Your access" (each reason,
  * the general and listed locks with their words, PUT/DELETE opt-out), Cancel

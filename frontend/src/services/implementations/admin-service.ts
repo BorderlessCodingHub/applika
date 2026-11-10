@@ -187,7 +187,7 @@ export class AdminService {
     return api.delete(`/admin/report-webhooks/${id}`).then(() => undefined);
   }
 
-  // ── Job sources (KODI-049) ──────────────────────────────────────────
+  // ── Job sources ─────────────────────────────────────────────────────
 
   getJobSources(): Promise<AdminJobSource[]> {
     return api.get<AdminJobSource[]>("/admin/jobs/sources").then((r) => r.data);
@@ -208,7 +208,7 @@ export class AdminService {
     return api.post<AdminJobRunQueued>("/admin/jobs/runs").then((r) => r.data);
   }
 
-  // ── Beta features (KODI-052 API, KODI-054) ──────────────────────────
+  // ── Beta features ───────────────────────────────────────────────────
 
   /** `GET /admin/features`: every feature with its count, release date and the caller's own access. */
   getFeatures(): Promise<AdminFeature[]> {

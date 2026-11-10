@@ -115,7 +115,7 @@ is the `en` timezone region; 4xx bodies are never excluded, so a raw `detail`
 on screen still fails; the legacy `steps`/`feedbacks` lists of `/supports`,
 which the web never shows, are not collected).
 
-**Devices in E2E (KODI-058).** The seed also opens a `cli_device` session for
+**Devices in E2E.** The seed also opens a `cli_device` session for
 `e2e-user` named "e2e-cli"; `frontend/scripts/e2e.sh` exports its tokens as
 `E2E_CLI_ACCESS_TOKEN` / `E2E_CLI_REFRESH_TOKEN`, and
 `e2e/support/auth.ts`'s `cliBearerHeader()` is the `Authorization: Bearer`
@@ -137,7 +137,7 @@ walks the DeviceSignIn board: code → request with its warning note →
 Approve in the action bar → the outcome and "See your devices". That code
 is never redeemed, so it opens no session.
 
-**The job board in E2E (KODI-049).** `docker-compose.e2e.yml` also runs
+**The job board in E2E.** `docker-compose.e2e.yml` also runs
 `worker` and `scheduler` (`applika-e2e-worker`/`-scheduler`, the
 `applika-e2e-api` image with `pull_policy: never`, the commands of ADR-0016,
 `depends_on: api: service_healthy`). They share the API's env through the
@@ -159,8 +159,8 @@ pages. It wipes the seeded user's drafts, applications, saved searches and
 master CVs before it starts, and `afterAll` restores dismissals and turns
 every source back on.
 
-**Beta features in E2E (KODI-054).** `e2e/beta-features.spec.ts` (serial)
-drives `/admin/features` against the real KODI-052 API and the KODI-053 gate,
+**Beta features in E2E.** `e2e/beta-features.spec.ts` (serial)
+drives `/admin/features` against the real beta features API and the `jobs` gate,
 with two browser sessions (`e2e-admin` and `e2e-discord`, a second
 `browser.newContext()`): the features row (count, "Yes, as an admin"); the
 admin turns `jobs` off for themselves (rail 8 entries with Admin, `/jobs`
@@ -385,7 +385,7 @@ Each protected route has a thin `page.tsx` shell that renders a `*-page.tsx` com
 
 `/login` lives at `src/app/login/`, OUTSIDE the `(public)` group, so it renders no landing header or footer. It is sign-in option C with its one "Continue with Borderless" button, behind a Suspense shell (it reads `?error=` and `?cli=1`); `/welcome` is the one-time choice of a new account (see **Sign-in, welcome, membership badge**).
 
-CLI sign-in routes (KODI-058, ADR-0019):
+CLI sign-in routes (ADR-0019):
 
 | Route                    | Shell                                    | Component                                                   |
 | ------------------------ | ---------------------------------------- | ----------------------------------------------------------- |
@@ -435,7 +435,7 @@ page that reads `useSearchParams()` outside a `<Suspense>` boundary. The shell
 see `src/app/(protected)/cvs/editor/`, which is the precedent for any future
 `?query=` route.
 
-Master CV routes (KODI-002):
+Master CV routes:
 
 | Route             | Shell                             | Component                            |
 | ----------------- | --------------------------------- | ------------------------------------ |
@@ -443,19 +443,19 @@ Master CV routes (KODI-002):
 | `/cvs/new`        | `(protected)/cvs/new/page.tsx`    | `new-cv-page.tsx` — create           |
 | `/cvs/editor?id=` | `(protected)/cvs/editor/page.tsx` | `cv-editor-page.tsx` — edit          |
 
-Application CV copy route (KODI-003):
+Application CV copy route:
 
 | Route                  | Shell                                  | Component                                     |
 | ---------------------- | -------------------------------------- | --------------------------------------------- |
 | `/applications/cv?id=` | `(protected)/applications/cv/page.tsx` | `application-cv-page.tsx` — picker AND editor |
 
-New application with CV, i.e. a draft (PRD 0010, KODI-033):
+New application with CV, i.e. a draft (PRD 0010):
 
 | Route                                 | Shell                                           | Component                                                         |
 | ------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------- |
 | `/applications/new-with-cv?id=&step=` | `(protected)/applications/new-with-cv/page.tsx` | `new-with-cv-page.tsx` — both steps, owns both forms and autosave |
 
-Job board (PRD 0012, KODI-048) — see **Job board** below:
+Job board (PRD 0012) — see **Job board** below:
 
 | Route            | Shell                            | Component                                         |
 | ---------------- | -------------------------------- | ------------------------------------------------- |
@@ -465,8 +465,8 @@ Job board (PRD 0012, KODI-048) — see **Job board** below:
 `?id=` is the APPLICATION's id, never the copy's. There is no nav entry: the
 route is reached from the CV link on an application row, and
 `e2e/shell-responsive.spec.ts` pins `PRIMARY_NAV` at eight entries for a user
-with `jobs` (Jobs right after Applications since KODI-048; seven without it
-since KODI-053 — see **Beta features**).
+with `jobs` (Jobs right after Applications since PRD 0012; seven without it
+since PRD 0013 — see **Beta features**).
 Since PRD 0015 the eight need `cvs` too: seven with one of the two features,
 six with neither.
 
@@ -477,14 +477,14 @@ they render the app's "page not found" and send no CV or draft request. The
 inner `jobs` checks on the last two stay.
 
 **`/applications/cv?id=` is the reading column while it shows the picker, and
-full width only once it shows the editor (KODI-017)** — see **App shell**
+full width only once it shows the editor** — see **App shell**
 below for the mechanism. `/cvs/new` and `/cvs/editor` stay full width in every
 state, path-based, unchanged. Below md `/applications/cv?id=` is
 v3/ApplicationCV, and its back bar "Application" returns to that
 application, `/applications?focus=<id>` (`PhoneBackHref`; see **Phone
 shell** and **Tailored CVs**).
 
-**`/applications?focus=<application_id>` (R-011, KODI-038)** is how the
+**`/applications?focus=<application_id>` (R-011)** is how the
 agenda card's note-row link opens the applications list with one row already
 expanded. `applications-page.tsx` follows the same shell-owns-the-Suspense-
 boundary/one-shot-read/`replaceState` shape as `cvs/editor` and
@@ -718,8 +718,8 @@ sets; the web never sees a code, a state or a token. Token refresh is handled vi
 
 User profile is fetched separately via `useUserProfile()` only after auth succeeds.
 
-**A 429 on either query is temporary, never a sign-out (KODI-041, R-019/R-024).**
-The backend rate-limiter (KODI-039) answers a refused request with `429` +
+**A 429 on either query is temporary, never a sign-out (R-019/R-024).**
+The backend rate-limiter answers a refused request with `429` +
 `Retry-After` (+ `X-RateLimit-*`, all CORS-exposed). `src/lib/rate-limit.ts` is
 the single place that reads that shape — `isRateLimited(error)` (an axios
 429), `retryAfterMs(error)` (the `retry-after` header, axios lowercases it, in
@@ -736,7 +736,7 @@ today's behaviour: no retry, straight to `isError`. Do not change the 401
 interceptor in `api-client.ts` for this — it is unrelated to the refresh
 query's own retry.
 
-**A 503 is temporary too (KODI-058, ADR-0019 "fail closed").** When the API
+**A 503 is temporary too (ADR-0019 "fail closed").** When the API
 cannot reach Redis it refuses every signed-in request (and `/auth/refresh`)
 with `503 {"detail":"Session service unavailable"}` + `Retry-After: 5`. That
 is the session STORE being down, not the session ending, so it must never
@@ -785,7 +785,7 @@ succeeds after its `at` (the user signed in again in another tab).
 Mutations always call `queryClient.invalidateQueries()` on success and show a
 `sonner` toast on error. A mutation with a fixed error message shows the 429's
 own retry text instead, when there is one: `toast.error(rateLimitNotice(error)
-?? "Failed to …")` (KODI-041, R-025) — every toast already showing
+?? "Failed to …")` (R-025) — every toast already showing
 `getApiError(error)` (which returns the `detail` unconditionally) needs no
 change, since a 429's `detail` already flows through it.
 
@@ -824,7 +824,7 @@ the pages wire data to them:
   submit. It MINTS section-item ids via its `newItemId` prop. Section item ids
   are CLIENT-generated and preserved round-trip — never regenerate them on load.
 - `base-cv-list.tsx` owns all four list states and the delete confirmation.
-- **`BaseCvList`/`CvCard` carry an optional `selection` variant (KODI-017)**,
+- **`BaseCvList`/`CvCard` carry an optional `selection` variant**,
   which is how `tailored-cvs/base-cv-picker.tsx` reuses them instead of
   forking them. Absent, both render EXACTLY as they do on `/cvs` today — the
   prop only ADDS behaviour, it never changes the unselected render.
@@ -852,7 +852,7 @@ checked, onSelect, describedBy? }`). `CvCard` turns that into a native
   `educationDegreeLine`, `visibleSkillCategories`, `visibleEducation`) and
   `buildCvDocumentBlocks(cv)`. `cv-document.tsx` is now only the BARREL that
   re-exports that vocabulary — the continuous `CvDocument` renderer was removed
-  with KODI-008 once nothing rendered it, because the whole pinned parity table
+  with PRD 0007 once nothing rendered it, because the whole pinned parity table
   was then asserting markup no user could see. There is one container,
   `CvDocumentPreview`, and the table runs against it.
 - Every leaf deliberately uses raw `neutral-*`/`blue-700` utilities instead of
@@ -867,7 +867,7 @@ checked, onSelect, describedBy? }`). `CvCard` turns that into a native
   document's export root cannot be one of its pages. Still exactly one such
   node per mounted document. Nothing reads it today and nothing new should.
 
-**The live preview is real A4 pagination (KODI-008).** The owner: "if possible,
+**The live preview is real A4 pagination.** The owner: "if possible,
 make the preview during CV creation create pages if the document become too
 large, use A4 dimensions". Three files, one seam:
 
@@ -882,7 +882,7 @@ large, use A4 dimensions". Three files, one seam:
   `offsetHeight` (never `getBoundingClientRect().height`: the sheet is inside a
   `transform: scale()`) IN PLACE, in a layout effect, with no off-screen
   measuring container — one would duplicate the CV's text in the DOM and, if
-  absolutely positioned, stretch `<html>` and regress KODI-006's AC7.
+  absolutely positioned, stretch `<html>` and regress the no-page-scroll AC7.
 - **The no-measurement path is a contract, not a stopgap.** jsdom, the
   static-export prerender and the first paint all render `singleCvPage()`: ONE
   sheet holding the complete document, indicator `1 / 1`. Never replace it with
@@ -912,12 +912,12 @@ large, use A4 dimensions". Three files, one seam:
   `calc(100dvh - var(--cookie-notice-height,0px) - 12rem)` and that `12rem`
   was a lump with three unrelated things in it: the shell header that `100dvh`
   wrongly counts (the pane lives in `main`, not in the viewport), a phantom
-  `md:top-20` sticky offset, and the aside's own label and caption. KODI-009
+  `md:top-20` sticky offset, and the aside's own label and caption. PRD 0007
   measured the result at 720px — the first sheet 104px below the top of the
   scrollport at every scroll position, which is the gap the owner reported.
   `max-h-editor-scrollport` replaces the first two; flexbox replaces the third.
 - **`CvSectionCard` has no header action slot, and its whole header toggles.**
-  The owner, KODI-009: "remove the button to insert a new link/category/etc
+  The owner: "remove the button to insert a new link/category/etc
   from the category header and put inside the colapsable section, preferable
   bellow from the last item added". Every repeatable section's add control now
   renders INSIDE `CollapsibleContent`, directly under the last row (under the
@@ -939,7 +939,7 @@ after:inset-0` against a `relative` header (`data-slot="cv-section-header"`).
   exactly where and as it is. Now that the preview LOOKS like paginated A4 that
   notice does MORE work, not less.
 
-**Skills are CATEGORIES, and education is a section (KODI-006).** The owner:
+**Skills are CATEGORIES, and education is a section.** The owner:
 "skills isn't simply a section where i put "tags" or just "keywords" it's a
 section where i can create a category and inside this caregory add keywords".
 
@@ -984,7 +984,7 @@ section where i can create a category and inside this caregory add keywords".
   actually at fault, never on the keyword entry the user filled in correctly,
   and never on a valid sibling row.
 
-**A CV date is a month and a year (KODI-007).** The owner: "instead of a bare
+**A CV date is a month and a year.** The owner: "instead of a bare
 text input it needs to ask when started and when finished (finish is optional,
 when empty is counted as Present), it's a date input but only for month and
 year "MM/yyyy" for both start and finish".
@@ -1014,14 +1014,14 @@ year "MM/yyyy" for both start and finish".
 **The PDF is rendered on the SERVER** (`docs/adr/0011`, Accepted):
 RenderCV/Typst, one fixed theme named `applika`, no theme parameter, no user
 choice. **Never add `html2pdf`, a `cv-pdf.ts` or any client-side rasteriser.**
-So is its Markdown twin (KODI-017 part 3) — RenderCV's own Markdown renderer,
+So is its Markdown twin — RenderCV's own Markdown renderer,
 the same reason: no client-side Markdown generation either.
 
 - `export-cv-button.tsx` is the whole affordance and is PRESENTATIONAL: no hook,
   no service, no axios. It takes `onExport` and `isExporting` and it has NO
   `disabled` prop — only a render already in flight locks it, so no caller can
   take the download away from a finalized or archived CV copy, or from a copy
-  whose master CV was deleted. Since KODI-017 part 3 it ALSO takes the optional
+  whose master CV was deleted. It ALSO takes the optional
   `onExportMarkdown`/`isExportingMarkdown` pair: given, a second "Download
   Markdown" button renders beside "Download PDF", same pending/live-region
   pattern, same "no `disabled` prop but the render in flight" rule. Every call
@@ -1118,7 +1118,7 @@ and the picker reports it through `onValueChange`, so the PAGE stays the single
 source of truth for the selection. With none, the picker becomes an invitation
 to write a master CV first.
 
-**The picker IS the `/cvs` gallery (KODI-017).** The owner: "basically just use
+**The picker IS the `/cvs` gallery.** The owner: "basically just use
 the same components there in here with the same buttons to delete, edit and
 download." `BaseCvPicker` is rebuilt on `BaseCvList`/`CvCard` rather than its
 own markup — no more `BaseCvOption`, no more skill-CATEGORY badges or a hidden
@@ -1155,9 +1155,9 @@ The module mirrors `base-cvs/` rather than forking it:
 - `was_ai_generated` exists on the wire type and renders NOWHERE. Nothing in
   this product generates a CV, and no UI may suggest it will. `adjustments`
   (`TailoredCvAdjustment[]`, `{section, description}`) DOES render since
-  KODI-049 — see "Tailor by keywords" below.
+  PRD 0012 — see "Tailor by keywords" below.
 
-**"Tailor by keywords" and the CV fit (PRD 0012, KODI-049, R-025/R-026/R-028,
+**"Tailor by keywords" and the CV fit (PRD 0012, R-025/R-026/R-028,
 ADR-0017).** The verbatim copy stays the default everywhere; keyword tailoring
 is opt-in.
 
@@ -1199,7 +1199,7 @@ match"})`), and a section an adjustment names gets "reordered" on its header
   count (`CvDiffSectionCount` `reordered`, `data-reordered`: "reordered", "1
   change, reordered"). The "Compared with X: N changes" line is unchanged.
   `cv-diff.ts`, `applika/backend/tests/fixtures/cv-diff/` and the server diff are UNCHANGED
-  (KODI-045 AC6): skill-category and keyword reorders show ONLY through
+  (AC6): skill-category and keyword reorders show ONLY through
   `adjustments`; a pure reorder is still zero diff changes. `adjustments` is
   written once at creation and can go stale after edits — a known gap.
 
@@ -1231,18 +1231,18 @@ A 404 from `GET /applications/{id}/cv` is NOT a failure — it is the ordinary
 `isNoTailoredCv(error)` to tell it apart from a real one.
 
 **`application.finalized_at` (not the `finalized` boolean) is the source of
-truth for "closed" everywhere (KODI-012, PRD 0008, ADR 0012).** It replaced a
+truth for "closed" everywhere (PRD 0008, ADR 0012).** It replaced a
 step/feedback-driven "finalize" with a real application TIMELINE. Both fields
 are set together server-side, but every read-only derivation on the web keys
 on `finalized_at != null` — including the tailored-CV `readOnlyReason` above,
 which was `application.finalized ? "finalized" : …` before this slice.
 
 **The copy editor is 50/50 at every width from `md`, with the job description
-above Identity and contact (KODI-017 part 2).** The owner: "instead of showing
+above Identity and contact.** The owner: "instead of showing
 the job description in the right side just above cv preview, move to the
 left above identity and contact" — and drop the `2xl` cap `BaseCvEditor` never
 had either, so the two editors match at every width, not just up to `2xl`
-(KODI-009's note on the cap is superseded). `TailoredCvEditor`'s form column is
+(the earlier note on the cap is superseded). `TailoredCvEditor`'s form column is
 now `JobDescriptionPanel`, then the diff `diffSummary` slot, then
 `CvFormSections`, in DOM order — which is also the mobile stacking order. The
 preview column is unchanged: sticky, `max-h-editor-scrollport`, the same
@@ -1252,8 +1252,8 @@ TEN level-2 headings where the master CV editor has nine; any test asserting
 that list has to count the job description first.
 
 **The copy's diff against its baseline is computed TWICE, independently, on
-the web and on the server, from one PINNED shared contract (KODI-017 parts 2
-and 3).** Baseline resolution: `cv.base_snapshot` (the master CV's content,
+the web and on the server, from one PINNED shared contract.** Baseline
+resolution: `cv.base_snapshot` (the master CV's content,
 captured once at copy-creation time, `TailoredCvSnapshot` in `types.ts`) when
 present, else the CURRENT master CV fetched via `base_cv_id`, else no diff UI
 at all — the `source CV deleted` note stays exactly as it was. Neither is ever
@@ -1286,7 +1286,7 @@ only, and `toTailoredCvPayload` never emits it (the API's `extra=forbid` would
   call behind Revert and Restore. Read-only passes `onRevert`/`onRestore` as
   `undefined` rather than omitting the marker — markers and badges still show
   on a locked copy, only the actions that would write to it are gone.
-- The marker components (`ui-designer`-delivered, KODI-017 part 2 spec) are
+- The marker components (`ui-designer`-delivered, PRD 0007 spec) are
   `cv-diff-summary-bar.tsx` (`CvDiffSummaryBar`, the toggle and the "Compared
   with `<label>`: N changes" text — `<label>` is the CURRENT master's name
   when `base_cv_id` resolves, else "the original master CV", ALWAYS, even
@@ -1299,8 +1299,8 @@ only, and `toTailoredCvPayload` never emits it (the API's `extra=forbid` would
   `CvRepeatableSection`/`CvSkillsSection`/`CvField` — absent, every one of
   those renders BYTE-IDENTICAL to before this slice, which is what keeps the
   master CV editor untouched.
-- **"Download changes"** (`cv-diff-download-row.tsx`, `CvDiffDownloadRow`,
-  KODI-017 part 3) sits under `CvDiffSummaryBar` in the same `diffSummary`
+- **"Download changes"** (`cv-diff-download-row.tsx`, `CvDiffDownloadRow`)
+  sits under `CvDiffSummaryBar` in the same `diffSummary`
   slot, offering the diff as a Markdown file or a PDF —
   `GET /applications/{id}/cv/diff/{markdown|pdf}`, rendered on the SERVER
   from the SAVED copy (ADR 0011: no client rasteriser), never the form's
@@ -1316,7 +1316,7 @@ only, and `toTailoredCvPayload` never emits it (the API's `extra=forbid` would
 reflect the last saved version."` note sits beside them — the export is
   always of the saved row, never a preview of the edit in progress.
 - `ExportCvButton` gained a Markdown button beside the PDF one
-  (`onExportMarkdown`/`isExportingMarkdown`, KODI-017 part 3): every surface
+  (`onExportMarkdown`/`isExportingMarkdown`): every surface
   that renders the PDF button renders both — `/cvs` tiles, `/cvs/editor`, the
   picker's `CvCard`s and the copy editor. Same pending/live-region pattern,
   one shared layout notice. `src/lib/pdf-download.ts` gained
@@ -1530,13 +1530,13 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   events (`reachedStage`).
 - **jsdom polyfills for Radix in `src/test/setup.ts`.** `hasPointerCapture` /
   `setPointerCapture` / `releasePointerCapture` / `scrollIntoView` and a
-  `ResizeObserver` stub were added here (KODI-012) — jsdom implements none of
+  `ResizeObserver` stub were added here — jsdom implements none of
   them, and Radix `Select`/`RadioGroup` (the interview type select, the event
   type selector and its close-mode chips, the salary period toggle) reach
   for all of them when opening or measuring. Any future test that opens a
   Radix `Select` needs nothing extra; these are global.
-- **The event dialog is `max-w-3xl`, top-anchored, only its body scrolls
-  (KODI-014).** `timeline-event-dialog.tsx`'s `DialogContent` is
+- **The event dialog is `max-w-3xl`, top-anchored, only its body
+  scrolls.** `timeline-event-dialog.tsx`'s `DialogContent` is
   `top-4 translate-y-0 … sm:top-[8dvh] sm:max-h-[84dvh] sm:max-w-3xl` with
   `flex flex-col gap-0 p-0`; the header and footer are fixed `px-6` bands and
   only the middle `overflow-y-auto` div scrolls. Picking an event type grows
@@ -1545,22 +1545,22 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   body can grow tall should copy this shape rather than centring + `max-h` on
   the whole `DialogContent`.
 - **A type-specific field group is UNMOUNTED, never CSS-hidden, and its
-  payload is nulled or omitted from the wire side, not just left unfilled
-  (KODI-014, revised KODI-016).** The interview-only schedule
+  payload is nulled or omitted from the wire side, not just left
+  unfilled.** The interview-only schedule
   (start/end/`TimezoneSelect`) and the denied-only `DeniedReasonSelect`
   follow the same shape as the offer salary group before them:
   `TimelineEventFormFields` takes an
   `isInterview`/`isDenied`/`isOffer` flag and render the group or `null`, so a
   value the user typed before switching types never sits in an invisible
   control. **A non-interview event never sends a schedule, on CREATE or
-  EDIT, whatever was stored (KODI-016).** `toTimelineEventPayload` takes only
+  EDIT, whatever was stored.** `toTimelineEventPayload` takes only
   the form values — no `original`/stored-event argument any more — and reads
   the CURRENT `event_type`: for `interview` it sends `start_time`/`end_time`/
   `timezone` (nulling `timezone` whenever `start_time` is blank, because
   `TimezoneSelect` cannot be cleared and always holds a real zone); for every
   other type it OMITS the three keys from the payload ENTIRELY — not `null`,
   ABSENT — even when editing an event that already carries a legacy stored
-  schedule. This replaces KODI-014's interim rule, which kept an already
+  schedule. This replaces an earlier interim rule, which kept an already
   non-interview event's stored schedule unchanged on an edit that left the
   type alone; the owner's final call (2026-09-18) is that a non-interview
   event is blocked from ever carrying a schedule, full stop, so there is
@@ -1568,7 +1568,7 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   stored-schedule case.
 - **The response mirrors the rule: `start_time`/`end_time`/`timezone` are
   ABSENT (not `null`) on a non-interview `TimelineEvent`, never REQUIRED
-  fields (KODI-016).** `services/types/timeline.ts`'s `TimelineEvent` marks
+  fields.** `services/types/timeline.ts`'s `TimelineEvent` marks
   all three optional (`?:`); `toHourMinute` in `lib/timeline-view.ts` passes
   `undefined` through unchanged rather than crashing or coercing it to
   `null`, and `timelineEventToFormValues`'s `event.startTime ?? ""` /
@@ -1576,16 +1576,16 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   same way they tolerate `null`. Nothing may crash or render the string
   `"undefined"` when the keys are absent — see
   `timeline-event-card.test.tsx` and `lib/timeline-view.test.ts`.
-- **A card shows the zone READABLE, exactly like `TimezoneSelect`
-  (KODI-016).** `formatTimeRange` (`timeline-format.ts`) renders the zone
+- **A card shows the zone READABLE, exactly like
+  `TimezoneSelect`.** `formatTimeRange` (`timeline-format.ts`) renders the zone
   through `timeZoneLabel` from `timezone-options.ts` — the SAME formatter the
   select's trigger and options use (underscores as spaces, e.g.
   `America/Sao Paulo`) — never the raw IANA id and never a second
   implementation of the same substitution. The STORED and SENT value is
   always the raw id (`America/Sao_Paulo`); only the on-screen label is
   reformatted.
-- **`TimezoneSelect` (`timezone-select.tsx`) and `timezone-options.ts`
-  (KODI-014)** are the pattern for any future searchable single-choice
+- **`TimezoneSelect` (`timezone-select.tsx`) and `timezone-options.ts`**
+  are the pattern for any future searchable single-choice
   combobox: a `Popover` + `Command` over `Intl.supportedValuesOf("timeZone")`
   (`UTC` force-included), grouped by region via `groupTimeZones`, with a
   stored value the browser does not list shown FIRST in its own `"Selected"`
@@ -1597,7 +1597,7 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   nothing is stored. `timeZoneFilter` is a literal case-insensitive substring
   match (id + offset), never cmdk's fuzzy default — fuzzy would match `"zzzz"`
   into `Brazzaville`.
-- **`DeniedReasonSelect`/`DeniedReasonBadge` (KODI-014)** are the
+- **`DeniedReasonSelect`/`DeniedReasonBadge`** are the
   `denied_reason` counterpart of `InterviewTypeSelect`/`InterviewTypeBadge`:
   a plain Radix `Select` (not a combobox — only 10 fixed values), grouped
   Unknown | the 8 named reasons | Other, defaulting to `unknown`
@@ -1607,7 +1607,7 @@ ${role} at ${company}` ``, WCAG 2.5.3) live in `src/components/applications/`.
   assert on `/reason:\s*<label>/i`, never an exact string, the same convention
   `InterviewTypeBadge` already set.
 
-### Agenda (`src/components/agenda/`, `app/(protected)/agenda/agenda-page.tsx`, KODI-037)
+### Agenda (`src/components/agenda/`, `app/(protected)/agenda/agenda-page.tsx`)
 
 Rewritten after `docs/refs/agenda-rework.png`: Upcoming | Past tabs (Upcoming
 always selected on open), date groups, rich cards, a toolbar search + stage
@@ -1660,7 +1660,7 @@ window, same `AgendaStep` fields (R-014/R-012).
   - a `"Calendar event downloaded"` toast) and the `alert` prop. The
     chevron's `CollapsibleContent` reveals `AgendaCardTimeline`
     (`components/agenda/agenda-card-timeline.tsx`, ui-designer-delivered,
-    KODI-038, R-012) — loaded on open, read-only (no `renderActions`, no
+    R-012) — loaded on open, read-only (no `renderActions`, no
     actions menu, ever). `agenda-page.tsx` wires it as a small child,
     `AgendaCardTimelineBody`, passed as `AgendaItemCard`'s `children`: it
     calls `useTimeline(step.application_id)` unconditionally, and it is
@@ -1712,7 +1712,7 @@ window, same `AgendaStep` fields (R-014/R-012).
   window is the shown week plus 60 days (`useAgenda({from_date, to_date})`,
   so the phone's request differs from the desktop's ±30 days default).
 
-### Application drafts (`src/components/application-drafts/`, PRD 0010, KODI-033)
+### Application drafts (`src/components/application-drafts/`, PRD 0010)
 
 The owner: "i want to add option to the user to create a job application and a
 cv together (this option will be available only in the web app, no support to
@@ -1731,7 +1731,7 @@ application entry."
   picker/editor split as `application-cv-page.tsx`, reused against a DRAFT id
   — the backend accepts a draft id under `/applications/{id}/cv` exactly like
   a real application id.
-- **The draft carries a date from the moment step 1 exists (KODI-036, AC1,
+- **The draft carries a date from the moment step 1 exists (AC1,
   R-003).** `showDate` is GONE from `ApplicationFields` — both callers ask for
   the application date now. A new draft presets it to the browser's own
   calendar day, never `toISOString()` (`localCalendarDay()` in
@@ -1753,9 +1753,9 @@ application entry."
   not silently change any of them). The sheet still owns its own zod schema,
   its own submit and its own Sheet chrome; `ApplicationFields` owns only the
   fields. The first section's third line is the application date and then the
-  job link, side by side (KODI-036, AC3/AC4, R-037) — same `ROW2` grid both
+  job link, side by side (AC3/AC4, R-037) — same `ROW2` grid both
   fields before it use, not a full-width row of its own any more.
-- **Card-free, flat sections (KODI-036, AC10-AC16, R-043..R-049).**
+- **Card-free, flat sections (AC10-AC16, R-043..R-049).**
   `form-section.tsx`'s `FormSection` dropped its `icon` prop and its `Card`
   shell: a section is now a bare `<section>`, a title (`as="h2"` on the page,
   `as="h3"` in the sheet, under the sheet's own `h2` title) plus a muted
@@ -1771,7 +1771,7 @@ application entry."
   form any more (AC5) — `draft-application-step.tsx` dropped the `max-w-4xl`
   it used to pass, and the new-with-cv PAGE (not the fields) is what bounds
   the content column, same as any other page.
-- **Step 1's bottom row is Cancel + Continue to CV (KODI-036, AC15).**
+- **Step 1's bottom row is Cancel + Continue to CV (AC15).**
   `DraftFooterActions`' step-1 branch grew a `LinkButton` to `/applications`
   beside the existing Continue button. Cancel never deletes an existing
   draft — it is a plain navigation, not a mutation. Its one piece of behaviour
@@ -1830,7 +1830,7 @@ application entry."
   marks a `is_public === false` company or platform in both pickers with
   "Only you"; the admin screens pass `label="Private"`. The backend already
   filters visibility; this is the UI half only.
-- **Applications | Drafts tabs (KODI-036, AC8/AC9, R-041/R-042).** On the
+- **Applications | Drafts tabs (AC8/AC9, R-041/R-042).** On the
   current cycle, `applications-page.tsx` wraps the toolbar+filters+list in a
   shadcn `Tabs` (`variant="line"`): "Applications" (`defaultValue`, so it is
   always the one selected when the page opens — Tabs state is not persisted
@@ -1896,7 +1896,7 @@ it (`[data-slot="approve-catalog-error"]`). A used row's Delete is
 `aria-disabled` on a phone, still focusable and described by its reason
 (`[data-slot="catalog-delete-reason"]`); the desktop table keeps `disabled`.
 
-### Company picker = platform picker; a three-section application form; a paginated admin Platforms page (PRD 0010, KODI-035)
+### Company picker = platform picker; a three-section application form; a paginated admin Platforms page (PRD 0010)
 
 The owner: "i liked how you did the select input for platform, do the same for
 company as well, same select component with same behavior." Both pickers are
@@ -2097,7 +2097,7 @@ not_found|has_data|already_bound|error`. `profile-page.tsx` reads it once
 - Devices: `sign_in_method` `borderless` reads "Borderless in the browser";
   `github_web` stays for ended rows still listed.
 
-### Profile — Devices (`src/components/profile/devices-*.tsx`, KODI-058, ADR-0019)
+### Profile — Devices (`src/components/profile/devices-*.tsx`, ADR-0019)
 
 The owner: "a lost of devices connected and a section to revoke the access,
 this must be displayed in a new tab inside user profile". `/profile` is now
@@ -2199,7 +2199,7 @@ link still works; static export, no rewrite).
   `discord.com` too). `report-webhooks-page.test.tsx` asserts it.
   Playwright: `.check()`/`.uncheck()` the checkboxes.
 
-### Admin — Jobs (`app/(protected)/admin/jobs/`, PRD 0012, KODI-049, R-033..R-035)
+### Admin — Jobs (`app/(protected)/admin/jobs/`, PRD 0012, R-033..R-035)
 
 `/admin/jobs` (`page.tsx` shell over `jobs-page.tsx`), nav tab "Jobs" (lucide
 `Search`, after Platforms) in `admin-nav.tsx`. Pattern:
@@ -2240,10 +2240,10 @@ link still works; static export, no rewrite).
   → an info notice with the server's `detail` ("A run is already in
   progress"); 503 and anything else → an error notice with the `detail`
   ("Background service unavailable"), or "Could not start a run. Try again."
-  when there is no string `detail`. Pending uses the KODI-048 pattern
+  when there is no string `detail`. Pending uses the job board's pattern
   (`aria-disabled` + `aria-busy`, focus stays).
 
-### Admin — Features (`app/(protected)/admin/features/`, PRD 0013, KODI-054)
+### Admin — Features (`app/(protected)/admin/features/`, PRD 0013)
 
 The owner: "with the jobs featurw implemented i would like to block this
 feature under beta features and release only to selected beta users". Nav
@@ -2334,7 +2334,7 @@ tab "Features" (lucide `FlaskConical`, after Jobs) in `admin-nav.tsx`.
 
 Ported from Ían Muliterno's `job_scrapping` branch (`e670914`, his job-card,
 job-filters, job-list, job-detail-sheet, types, service and hook) onto the
-KODI-047 contract. Every commit porting his logic ends with the trailer
+PRD 0012 contract. Every commit porting his logic ends with the trailer
 `Co-authored-by: Ían Muliterno <iannimuliterno@gmail.com>` (R-003).
 
 - **Routes.** `/jobs` (`jobs-page.tsx`) and `/jobs/view?id=`
@@ -2381,7 +2381,7 @@ KODI-047 contract. Every commit porting his logic ends with the trailer
 - **Draft / Applied.** `JobStatusBadge` links "Draft" to
   `/applications/new-with-cv?id=<id>` and "Applied" to
   `/applications?focus=<id>` (`jobApplicationHref`). "Start application" is
-  rendered ALWAYS, beside the badge (orchestrator decision, KODI-048):
+  rendered ALWAYS, beside the badge (orchestrator decision):
   starting again is how AC8's "offers to open the one that exists" is
   reached.
   That holds with `cvs`; without it (PRD 0015) there is no Start and "Draft"
@@ -2393,7 +2393,7 @@ KODI-047 contract. Every commit porting his logic ends with the trailer
   "Verbatim copy" is preselected; "Tailor by keywords" is NOT RENDERED for a
   blank description (R-026), never just disabled. No CV picked sends
   `{job_id}`; a CV sends `{job_id, base_cv_id, tailoring}`; both always add
-  `application_date: localCalendarDay()` (KODI-050), so the draft carries the
+  `application_date: localCalendarDay()`, so the draft carries the
   user's local day, never the server's UTC one. Success
   `router.push("/applications/new-with-cv?id=<id>&step=cv")` and the dialog
   stays pending until the page changes. A 404/422 `detail` shows INLINE
@@ -2423,7 +2423,7 @@ KODI-047 contract. Every commit porting his logic ends with the trailer
   page's, as the StartApplication sheet on `useStartApplicationFlow`. See
   **Phone shell** for the hooks and the locator traps.
 
-### Beta features (PRD 0013, KODI-053)
+### Beta features (PRD 0013)
 
 The owner: "with the jobs featurw implemented i would like to block this
 feature under beta features and release only to selected beta users, all mew
@@ -2561,7 +2561,7 @@ override it.
   Cancel/Submit footer.
 - `size?: "form" | "wide" | "nav"` — the width/padding preset, default
   `"form"`. `"form"` is `w-full p-6 sm:max-w-2xl`, the wide form panel most
-  sheets in the app use; `"wide"` (KODI-036, AC6, R-039) is the same panel up
+  sheets in the app use; `"wide"` (AC6, R-039) is the same panel up
   to `sm:max-w-4xl` — today only the application create/edit sheet
   (`application-form-sheet.tsx`) asks for it; `"nav"` is
   `w-[17rem] gap-0 p-0 sm:max-w-[17rem]`, the mobile navigation panel. The
@@ -2569,12 +2569,12 @@ override it.
   from the outside — add a preset here instead.
 - **A sheet's title can be shown larger than the default** by passing a class
   straight to `SheetTitle` (it forwards `className`, unlike the width preset
-  above) — `application-form-sheet.tsx` passes `font-display text-xl` (KODI-036,
-  AC7, R-040) on top of the base `font-semibold`. The words themselves ("New
+  above) — `application-form-sheet.tsx` passes `font-display text-xl` (AC7,
+  R-040) on top of the base `font-semibold`. The words themselves ("New
   Application" / "Edit Application") are unchanged — `e2e/cv-builder.spec.ts`'s
   "Edit Application" assertion still matches them.
 
-**`components/ui/radio-group.tsx`** (KODI-048) is the shadcn `new-york`
+**`components/ui/radio-group.tsx`** is the shadcn `new-york`
 RadioGroup with ONE applika-only change: the unchecked ring is
 `border-muted-foreground`, because the stock `border-input` is 1.3:1 against
 the card and fails the 3:1 non-text contrast. Keep it when regenerating. Its
@@ -2642,7 +2642,7 @@ order — which floated it over the open mobile navigation menu.
 
 **`CookieConsent` floats over the page, on purpose.** It is a bottom-right
 card (`fixed right-4 bottom-4`) and reserves no space: the owner's decision
-over KODI-003's full-width bar. Until the user clicks "Got it" it covers
+over the earlier full-width bar. Until the user clicks "Got it" it covers
 whatever sits in that corner — an in-page `sticky bottom-0` footer included —
 because the user is meant to see it and consent. Do not "fix" that by
 reserving space or moving it out of the way. Nothing writes
@@ -2667,7 +2667,7 @@ paragraph below, and note that the CV editors' sticky preview pane is that
 case.** Reaching for
 `100dvh` there measures the wrong box, overshoots by exactly the header, and
 ends in a hand-tuned constant subtracting the difference back off; that is the
-bug KODI-009 fixed in the CV preview. `--app-header-height` is declared once in
+bug PRD 0007 fixed in the CV preview. `--app-header-height` is declared once in
 `globals.css` and `header.tsx` sizes itself from it, so the two cannot drift.
 It is only true at `md` and up, where the header is one row — which is also the
 only place anything sticks.
@@ -2704,7 +2704,7 @@ collapses to exactly `max-h-scrollport` when no editor is mounted (the property
 is unset and the `0px` fallback applies). Drop either subtraction and something
 lands under something: without the cookie one the pane runs past the bar,
 without the footer one the pane's last band — the preview's `<figcaption>`,
-carrying the layout notice — ends UNDER the submit row. That was the KODI-009
+carrying the layout notice — ends UNDER the submit row. That was the PRD 0007
 defect and it was total at `md` and up: on `/cvs/editor?id=` the export button's
 own copy of the notice survived in the footer, but `/cvs/new` has no export
 button, so the caption was the ONLY copy on screen and none of it was visible.
@@ -2729,13 +2729,13 @@ do NOT want it.
   - **By PATH**, for a route that is full width in every state:
     `isFullWidthPath(activePath)` checks `FULL_WIDTH_PATHS`, today
     `/cvs/new` and `/cvs/editor` — the owner: "also, use the full page width
-    for this page" (KODI-008). Matched on the same `activePath` the nav is
+    for this page". Matched on the same `activePath` the nav is
     matched on, tolerates the trailing slash the static export serves, and is
     deliberately kept OUT of `nav.ts`: these are not nav entries, and
     `PRIMARY_NAV` is pinned at eight (with `jobs` and `cvs`) by
     `e2e/shell-responsive.spec.ts`.
   - **By CONTENT**, for a route that is full width only while one surface is
-    on screen: `/applications/cv` left `FULL_WIDTH_PATHS` with KODI-017 — the
+    on screen: `/applications/cv` left `FULL_WIDTH_PATHS` (PRD 0007) — the
     owner: "only full width when we have a cv copy to the application" — and
     the page instead renders `<FullWidthContent />` (a component that renders
     `null`) from the SAME branch as the surface that wants the width, so the

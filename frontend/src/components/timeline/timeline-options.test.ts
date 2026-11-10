@@ -16,7 +16,7 @@ import { setTranslatorLocale } from "@/i18n/translator";
 import { SelectOptions } from "@/options";
 
 /**
- * G9 (KODI-015 reference image): the interview event type uses the `Users`
+ * G9 (the PRD 0008 reference image): the interview event type uses the `Users`
  * icon everywhere it is drawn from `EVENT_TYPE_CONFIG` — the timeline event
  * card's tile, the read-only `EventTypeBadge`, and the Add-event dialog's
  * `EventTypeSelector` chip, which all read `config.icon` from this single

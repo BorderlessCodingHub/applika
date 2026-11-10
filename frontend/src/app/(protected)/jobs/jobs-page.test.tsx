@@ -738,7 +738,7 @@ describe("/jobs: saved searches (AC12)", () => {
   });
 });
 
-describe("/jobs behind the jobs feature (KODI-053, PRD 0013)", () => {
+describe("/jobs behind the jobs feature (PRD 0013)", () => {
   it("shows the app's page not found to a user without jobs, and asks for no job", async () => {
     myFeatures = [];
     renderPage();

@@ -64,7 +64,7 @@ export interface TailoredCvEditorProps {
   actions?: ReactNode;
   /**
    * Replaces Cancel and the submit button on the right of the footer. The draft
-   * page (KODI-033) saves as the user types and puts its status, Back and
+   * page saves as the user types and puts its status, Back and
    * Finish here instead.
    */
   footerEnd?: ReactNode;
@@ -145,7 +145,7 @@ export function TailoredCvEditor({
           </>
         ) : (
           // A long master CV name wraps inside the badge instead of pushing
-          // the page sideways at 375px (KODI-049).
+          // the page sideways at 375px.
           <Badge
             variant="secondary"
             className="h-auto max-w-full gap-1.5 px-2.5 py-1 text-xs font-medium wrap-anywhere whitespace-normal"
@@ -159,8 +159,8 @@ export function TailoredCvEditor({
       </div>
 
       {/*
-        50/50 at every width from `md`, like `BaseCvEditor` (KODI-009); no `2xl`
-        cap (KODI-017). The job description leads the FORM column, so the DOM
+        50/50 at every width from `md`, like `BaseCvEditor`; no `2xl`
+        cap. The job description leads the FORM column, so the DOM
         order is the mobile order too: job description, fields, preview.
       */}
       <div className="grid gap-6 md:grid-cols-2 md:items-start">

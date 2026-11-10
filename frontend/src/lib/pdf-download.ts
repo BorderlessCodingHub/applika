@@ -30,7 +30,7 @@ export function cvPdfFilename(name: string): string {
   return `${cvFilenameSlug(name)}.pdf`;
 }
 
-/** `<slug>.md` — the Markdown twin of `cvPdfFilename` (KODI-017 part 3). */
+/** `<slug>.md` — the Markdown twin of `cvPdfFilename`. */
 export function cvMarkdownFilename(name: string): string {
   return `${cvFilenameSlug(name)}.md`;
 }

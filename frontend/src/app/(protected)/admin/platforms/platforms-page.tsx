@@ -63,7 +63,7 @@ const platformSchema = z.object({
 type PlatformFormValues = z.infer<typeof platformSchema>;
 
 /**
- * Admin platforms page (PRD 0010, KODI-035). Replaces `SupportsPage` — the
+ * Admin platforms page (PRD 0010). Replaces `SupportsPage` — the
  * step/feedback definition catalogs are gone (PRD 0008/ADR 0012, R-021), so a
  * former tab bar with a single tab is now this page directly, on the same
  * `CatalogTable` the companies page uses.

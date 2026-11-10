@@ -42,7 +42,7 @@ export interface BaseCvListProps {
   onExport?: (cv: BaseCv) => void;
   /** Id of the CV whose PDF render is in flight. */
   exportingId?: string | null;
-  /** Asks the server for one CV's Markdown (KODI-017 part 3), beside the PDF. */
+  /** Asks the server for one CV's Markdown, beside the PDF. */
   onExportMarkdown?: (cv: BaseCv) => void;
   /** Id of the CV whose Markdown render is in flight. */
   exportingMarkdownId?: string | null;

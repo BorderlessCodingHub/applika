@@ -9,7 +9,7 @@ import { services } from "@/services/services";
 import type { AdminPlatformRow } from "@/services/types/admin";
 
 /**
- * PRD 0010 (KODI-035, T119): the admin "Supports" page is now "Platforms",
+ * PRD 0010 (T119): the admin "Supports" page is now "Platforms",
  * built on the same `CatalogTable` the companies page uses — paginated,
  * searchable, with visibility filter, Added by, Apps and Approve on private
  * rows, the 409 `detail` shown verbatim.

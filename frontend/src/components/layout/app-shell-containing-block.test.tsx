@@ -12,7 +12,7 @@ vi.mock("@/services/services", () => ({
 }));
 
 /**
- * The containing-block contract behind AC7 (KODI-006).
+ * The containing-block contract behind AC7.
  *
  * The owner: "When creating a new master CV, remove the page scroll". The
  * cause was not the editor's height. Radix `Select` renders a visually hidden

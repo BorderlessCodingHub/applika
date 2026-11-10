@@ -209,8 +209,8 @@ export function TimelineEventForm({
     }
   }, [isInterview, form]);
 
-  // Same pattern as interview_type above, for the denied reason select
-  // (KODI-014): seed "unknown" the moment event_type becomes "denied" so a
+  // Same pattern as interview_type above, for the denied reason select:
+  // seed "unknown" the moment event_type becomes "denied" so a
   // save with the select left untouched still carries a valid default.
   useEffect(() => {
     if (isDenied && !form.getValues("denied_reason")) {

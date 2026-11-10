@@ -212,7 +212,7 @@ function ApplicationsDesktopPage() {
   const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
   const advancedPanelId = useId();
 
-  // `?focus=` (R-011, KODI-038): read once, off the incoming URL, via a LAZY
+  // `?focus=` (R-011): read once, off the incoming URL, via a LAZY
   // useState initializer — never an effect (`react-hooks/set-state-in-effect`).
   const searchParams = useSearchParams();
   const [focusId] = useState<string | null>(() => searchParams.get("focus"));

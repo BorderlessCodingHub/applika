@@ -4,7 +4,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 import { CompanySelect } from "@/components/applications/company-select";
 
-/** KODI-035 (T108): the company field, on `CatalogSelect`, same as platform. */
+/** T108 (PRD 0010): the company field, on `CatalogSelect`, same as platform. */
 
 const setValue = vi.fn();
 const createCompanyMock = vi.fn();
@@ -37,7 +37,7 @@ beforeEach(() => {
 });
 
 describe("CompanySelect", () => {
-  it("lists the visible companies on open, including a private one (KODI-035, AC1 (b))", async () => {
+  it("lists the visible companies on open, including a private one (AC1 (b))", async () => {
     const fetchCompanies = vi.fn().mockResolvedValue([
       {
         id: "co-1",

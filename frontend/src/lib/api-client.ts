@@ -63,7 +63,7 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
-      // A refresh refused with 503 (the session store is down, KODI-057)
+      // A refresh refused with 503 (the session store is down)
       // rejects with that 503: callers see a temporary error (`isTemporary`)
       // and retry; nothing here signs the user out.
       try {

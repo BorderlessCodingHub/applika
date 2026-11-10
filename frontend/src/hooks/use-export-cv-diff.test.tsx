@@ -11,7 +11,7 @@ import {
 import { TailoredCvService } from "@/services/implementations/tailored-cv-service";
 
 /**
- * The wire contract of the "Download changes" export (KODI-017 part 3):
+ * The wire contract of the "Download changes" export:
  * `GET /applications/{id}/cv/diff/{markdown|pdf}`, blob response, the
  * `-changes` filename suffix, and — the one rule this hook adds beyond the
  * plain CV exports — `onNoBaseline` fires ONLY on a 409. A transient 500 must

@@ -10,7 +10,7 @@ import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
 import { expectPhoneTargets } from "./support/phone";
 
 /**
- * The job board end to end against the REAL stack (PRD 0012, KODI-049, T101).
+ * The job board end to end against the REAL stack (PRD 0012, T101).
  *
  * The e2e compose runs the real `worker` and `scheduler` from the API image
  * with `JOBS_SCRAPERS=fixture`: every enabled source is served from
@@ -28,7 +28,7 @@ import { expectPhoneTargets } from "./support/phone";
 
 test.describe.configure({ mode: "serial" });
 
-/** A long master CV name with a long unbroken word: the 375px check (KODI-048 follow-up). */
+/** A long master CV name with a long unbroken word: the 375px check (a PRD 0012 follow-up). */
 const MASTER_CV =
   "E2E Jobs master CV Pneumonoultramicroscopicsilicovolcanoconiosis-backend";
 const BACKEND_JOB = "Senior Python Backend Engineer";
@@ -456,7 +456,7 @@ test("user: list, filters, saved search, fit, tailored draft, Applied, dismiss (
   await expect(page).toHaveURL(/\/applications\/new-with-cv\?id=[^&]+&step=cv/);
   await expect(page.getByText(`Copied from ${MASTER_CV}`)).toBeVisible();
 
-  // KODI-050: the draft is dated with the BROWSER's calendar day, on either
+  // The draft is dated with the BROWSER's calendar day (PRD 0012), on either
   // side of UTC (east of UTC the old server-UTC date was "yesterday", which
   // Finish would still accept, so assert the date itself).
   const draftId = new URL(page.url()).searchParams.get("id");

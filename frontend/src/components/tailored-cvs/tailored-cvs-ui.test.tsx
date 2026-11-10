@@ -92,7 +92,7 @@ function Editor(props: Partial<React.ComponentProps<typeof TailoredCvEditor>>) {
 }
 
 /**
- * The tailored-CV surface, as a VISUAL contract (KODI-003).
+ * The tailored-CV surface, as a VISUAL contract.
  *
  * It asserts the acceptance criteria that are visible: the picker preselects a
  * lone master CV (AC2) and never invents a default (AC1), a copy whose source
@@ -104,7 +104,7 @@ function Editor(props: Partial<React.ComponentProps<typeof TailoredCvEditor>>) {
  * Presentational only — no queries, no services. The page's wiring is tested
  * separately.
  */
-describe("the CV copy carries the same sections as a master CV (KODI-006)", () => {
+describe("the CV copy carries the same sections as a master CV", () => {
   it("edits skills as categories and carries an education section (AC3, AC4)", async () => {
     // AC4 names BOTH surfaces — "A master CV and an application's CV copy".
     // The copy gets them for free because the editor body is the master CV's
@@ -136,7 +136,7 @@ describe("the CV copy carries the same sections as a master CV (KODI-006)", () =
     expect(qualification.getByLabelText("Degree")).toHaveValue("MSc");
   });
 
-  it("asks the copy for the same required start and optional finish (KODI-007)", async () => {
+  it("asks the copy for the same required start and optional finish", async () => {
     // The copy's body IS `CvFormSections`, so it gets the period pair for
     // free. This pins that it stays that way — AC1 and AC2 name both surfaces.
     const user = userEvent.setup();
@@ -173,7 +173,7 @@ describe("the CV copy carries the same sections as a master CV (KODI-006)", () =
   it("renders its sections in the owner's order, education included", () => {
     render(<Editor />);
 
-    // The job description panel (KODI-017) now leads the FORM column, above
+    // The job description panel now leads the FORM column, above
     // Identity and contact — it is a `CvSectionCard` too, so its own `h2`
     // heading is first. Scoped to the CV field body otherwise: the copy's own
     // provenance badge carries no heading.
@@ -294,7 +294,7 @@ describe("the tailored CV surface", () => {
     expect(screen.queryByText("Backend CV")).not.toBeInTheDocument();
     const status = screen.getByRole("status");
     expect(status).toHaveTextContent("This application is closed.");
-    // AC21 (KODI-013 addendum): the banner also says what to do about it.
+    // AC21 (PRD 0008 addendum): the banner also says what to do about it.
     expect(status).toHaveTextContent(TAILORED_CV_READ_ONLY_COPY.finalized.body);
   });
 
@@ -409,7 +409,7 @@ describe("the tailored CV surface", () => {
     ).toBeDisabled();
   });
 
-  it("picker's 'Tailor by keywords' switch is off by default and toggles (KODI-049, R-026)", async () => {
+  it("picker's 'Tailor by keywords' switch is off by default and toggles (R-026)", async () => {
     const onTailorByKeywordsChange = vi.fn();
     render(
       <BaseCvPicker
@@ -586,7 +586,7 @@ describe("the tailored CV surface", () => {
     expect(screen.getByRole("status")).toHaveTextContent("closed cycle");
   });
 
-  it("editor keeps the export, and ONLY the export, in read-only mode (KODI-004, AC1)", () => {
+  it("editor keeps the export, and ONLY the export, in read-only mode (AC1)", () => {
     render(
       <Editor
         baseCvId="7"
@@ -610,7 +610,7 @@ describe("the tailored CV surface", () => {
     expect(screen.getByLabelText("Full name")).toBeDisabled();
   });
 
-  it("editor exports a copy whose master CV is gone (KODI-004, AC1)", async () => {
+  it("editor exports a copy whose master CV is gone (AC1)", async () => {
     const onExport = vi.fn();
     render(
       <Editor

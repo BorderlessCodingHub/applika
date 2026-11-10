@@ -3,8 +3,7 @@ import { expect, test, type APIRequestContext } from "@playwright/test";
 import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
 
 /**
- * `/applications/new-with-cv` against the REAL stack (PRD 0010, KODI-033;
- * revised KODI-036).
+ * `/applications/new-with-cv` against the REAL stack (PRD 0010).
  *
  * One draft, start to finish: step 1 (company, role, a brand-new PRIVATE
  * platform, a PAST application date), autosave, a full page reload that
@@ -318,7 +317,7 @@ test("a draft created with New with CV autosaves, resumes and finishes into a re
   await expect(page.getByLabel(/application date/i)).toBeVisible();
   // `main` is the page's own scroll container (`max-h-scrollport`), so the
   // DOCUMENT never overflows even if a field inside `main` runs wide
-  // (frontend-qa KODI-036 round 1, test-gap #3) — measure `main` itself.
+  // (frontend-qa round 1, test-gap #3) — measure `main` itself.
   const step1Metrics = await page.evaluate(() => {
     const main = document.querySelector("main");
     return {

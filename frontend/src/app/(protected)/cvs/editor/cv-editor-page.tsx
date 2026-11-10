@@ -107,7 +107,7 @@ function CvEditor() {
     onSuccess: () => router.push("/cvs"),
   });
 
-  // One instance, the CV named at press time (KODI-009 moved the id and the
+  // One instance, the CV named at press time (PRD 0007 moved the id and the
   // name onto the mutation variables so `/cvs` can export any of its tiles).
   // Named from the SERVER's copy of the CV, never from the form: the fallback
   // filename has to match the document the server renders, not the unsaved

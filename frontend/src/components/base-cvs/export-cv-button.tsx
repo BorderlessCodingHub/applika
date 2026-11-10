@@ -14,7 +14,7 @@ export interface ExportCvButtonProps {
   /** Disables the button and swaps the icon for a spinner while the server renders. */
   isExporting?: boolean;
   /**
-   * Asks the server for the SAME CV as Markdown (KODI-017 part 3), rendered
+   * Asks the server for the SAME CV as Markdown, rendered
    * beside the PDF button. Omit only for a surface with no Markdown route yet
    * — every call site the slice names passes it.
    */
@@ -41,7 +41,7 @@ export interface ExportCvButtonProps {
 }
 
 /**
- * Asks for the server-rendered PDF (and, since KODI-017 part 3, Markdown) of
+ * Asks for the server-rendered PDF (and its Markdown twin) of
  * the CV on screen, and says in the same breath that the preview beside it is
  * not the final PDF layout.
  *

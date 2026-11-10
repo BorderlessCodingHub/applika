@@ -40,7 +40,7 @@ const CLI_BANNER = '[role="region"][aria-label="applika-cli announcement"]';
  * Kept BY HAND rather than derived from `PRIMARY_NAV`: this suite asserts tab
  * order and hit-testing against the list, so a derived copy would follow an
  * accidental nav change instead of catching it. The price is that the constant
- * can rot — KODI-002 inserting `/cvs` went unnoticed here — so the rail test
+ * can rot — PRD 0007 inserting `/cvs` went unnoticed here — so the rail test
  * below pins it to the rendered nav, exactly and in order, and fails with the
  * whole list in the diff the moment the two disagree.
  */
@@ -58,8 +58,8 @@ const PRIMARY_LABELS = [
 async function openDashboard(page: Page, role: SeededRole = "user") {
   await loginAs(page, role);
   // The gated Jobs entry joins the nav only once `/users/me/features`
-  // answers (KODI-053), AFTER the h1: wait for it, or a Tab walk or an entry
-  // count can run against the nav without Jobs (KODI-054 QA, a load flake).
+  // answers, AFTER the h1: wait for it, or a Tab walk or an entry
+  // count can run against the nav without Jobs (QA, a load flake).
   const features = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname.endsWith("/users/me/features") &&
@@ -536,7 +536,7 @@ test.describe("at md and above the shell renders a fixed rail", () => {
     // `Primary` landmark, so the landmark's links are the entries alone.
     // Without this, a nav change surfaces as an unrelated tab-order failure
     // three tests away instead of here, naming the real cause.
-    // KODI-053: the Jobs link's TEXT also holds its "Beta" badge while the
+    // PRD 0013: the Jobs link's TEXT also holds its "Beta" badge while the
     // seeded user's `jobs` is in beta; its accessible name stays "Jobs". The
     // CVs link does the same while `cvs` is in beta.
     await expect(

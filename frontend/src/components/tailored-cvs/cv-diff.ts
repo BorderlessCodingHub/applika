@@ -1,5 +1,5 @@
 /**
- * The CV copy diff (KODI-017 part 2 + 3).
+ * The CV copy diff.
  *
  * Pure — no React, no I/O — and shared in SPIRIT with the server: both sides
  * implement "Diff design (PINNED)" and "Diff semantics shared by web and

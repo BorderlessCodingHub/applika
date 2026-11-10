@@ -16,7 +16,7 @@ import {
 } from "@/lib/pdf-download";
 
 /**
- * The PDF export affordance (KODI-004).
+ * The PDF export affordance.
  *
  * Three things are pinned here, all of them acceptance criteria rather than
  * styling:
@@ -142,7 +142,7 @@ describe("the export button", () => {
   });
 });
 
-describe("the Markdown download (KODI-017 part 3)", () => {
+describe("the Markdown download", () => {
   it("renders no Markdown button at all without `onExportMarkdown`", () => {
     render(<ExportCvButton onExport={() => {}} />);
     expect(
@@ -234,7 +234,7 @@ describe("the download filename", () => {
     expect(cvPdfFilename("   ")).toBe("cv.pdf");
   });
 
-  it("is the slug plus .md for the Markdown twin (KODI-017 part 3)", () => {
+  it("is the slug plus .md for the Markdown twin", () => {
     expect(cvMarkdownFilename("Backend CV")).toBe("backend-cv.md");
     expect(cvMarkdownFilename("   ")).toBe("cv.md");
   });

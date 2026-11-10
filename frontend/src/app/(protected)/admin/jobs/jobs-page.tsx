@@ -35,7 +35,7 @@ function serverDetail(error: AxiosError): string | null {
 }
 
 /**
- * Admin job sources (KODI-049, R-033..R-035). Pattern:
+ * Admin job sources (R-033..R-035). Pattern:
  * `admin/report-webhooks/report-webhooks-page.tsx`. The header, the notice
  * and the table are ui-designer components (`job-run-controls.tsx`,
  * `job-sources-table.tsx`); this component owns the query, the optimistic

@@ -8,7 +8,7 @@ import {
 } from "./support/phone";
 
 /**
- * Devices and CLI device sign-in (KODI-058, PRD 0014, ADR-0019) against the
+ * Devices and CLI device sign-in (PRD 0014, ADR-0019) against the
  * real stack: the built API and web, Postgres, Redis.
  *
  * Serial, and careful with shared state: the only session this spec ends is

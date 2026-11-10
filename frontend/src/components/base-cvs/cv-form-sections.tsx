@@ -229,7 +229,7 @@ export interface CvFormSectionsProps {
  * projects, education, certifications and languages, in that order, with the
  * inline errors the form already holds.
  *
- * The owner's order, KODI-009: "change the links position to above summary,
+ * The owner's order: "change the links position to above summary,
  * today is identity, summary and links..., i want identity, links and
  * summary...". This is the EDITOR's order only. The typeset document's section
  * order is pinned against the server's `mapper.py` and is not this list; links

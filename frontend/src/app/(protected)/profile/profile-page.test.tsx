@@ -176,7 +176,7 @@ describe("ProfilePage GitHub restore notices", () => {
 });
 
 /**
- * KODI-058 (AC2, AC8): "Profile" (today's content) and "Devices" tabs, side
+ * PRD 0014 (AC2, AC8): "Profile" (today's content) and "Devices" tabs, side
  * by side, for every user — no feature gate. `?tab=devices` (the `/device`
  * page's "See your devices") opens Devices.
  */

@@ -30,7 +30,7 @@ export interface JobDescriptionPanelProps {
  * panel used to carry a second one — a Hide/Show button in the header's action
  * slot — which once the card itself became collapsible left the same body
  * behind TWO independent toggles that could disagree. The card's header is now
- * the single control, and the action slot is gone with it (KODI-009).
+ * the single control, and the action slot is gone with it.
  */
 export function JobDescriptionPanel({
   jobDescription,

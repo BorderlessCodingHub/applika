@@ -175,7 +175,7 @@ export interface UseCvDiffResult {
 
 /**
  * Builds `TailoredCvEditor`'s `diffSummary` and `diff` props from a baseline
- * and the form's own live values (KODI-017).
+ * and the form's own live values.
  *
  * Recomputes on every watched keystroke, so a revert or an edit updates the
  * counts immediately — `diffCv`/`computeCvDiff` (`cv-diff.ts`) are pure, this

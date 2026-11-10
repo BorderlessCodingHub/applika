@@ -19,7 +19,7 @@ import {
 import { CvDocumentPreview } from "./cv-document-preview";
 
 /**
- * The live preview, against the owner's template (KODI-006).
+ * The live preview, against the owner's template.
  *
  * The owner reviewed the built feature on a real stack and named what was
  * wrong. Every assertion here is one of his sentences:
@@ -43,7 +43,7 @@ import { CvDocumentPreview } from "./cv-document-preview";
  * are pinned here against `cv_rendering/mapper.py`.
  *
  * Every one of them is asserted against `CvDocumentPreview` — the ONE container
- * the user ever sees (KODI-008). They used to run against `CvDocument`, the
+ * the user ever sees. They used to run against `CvDocument`, the
  * continuous renderer, which by then nothing in `src/` rendered; markup nobody
  * renders cannot pin anything.
  */
@@ -121,8 +121,8 @@ function cv(over: Partial<CvDocumentData> = {}): CvDocumentData {
  *
  * This is the container the USER sees. The whole table below used to run
  * against `CvDocument`, the continuous renderer — which, once
- * `CvDocumentPreview` stopped rendering it, nothing in `src/` rendered at all
- * (KODI-008).
+ * `CvDocumentPreview` stopped rendering it, nothing in `src/` rendered at
+ * all.
  */
 function documentSection(section: CvDocumentSection): HTMLElement {
   const blocks = document.querySelectorAll<HTMLElement>(
@@ -545,7 +545,7 @@ describe("the education section (AC4)", () => {
   });
 });
 
-describe("the date text, the fifth pinned twin of the PDF (KODI-007 / AC5)", () => {
+describe("the date text, the fifth pinned twin of the PDF (AC5)", () => {
   // The owner: "instead of a bare text input it needs to ask when started and
   // when finished (finish is optional, when empty is counted as Present)".
   //

@@ -7,7 +7,7 @@ import {
 } from "./cv-editor-footer";
 
 /**
- * The CV editors' sticky submit row (KODI-009).
+ * The CV editors' sticky submit row.
  *
  * It is the SECOND bottom-anchored element in the app that reserves its own
  * height, after `CookieConsent`, and it exists because the first one is not

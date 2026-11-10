@@ -62,7 +62,7 @@ interface AgendaTabPanelProps {
 }
 
 /**
- * The chevron body (R-012, KODI-038). Rendered as `AgendaItemCard`'s
+ * The chevron body (R-012). Rendered as `AgendaItemCard`'s
  * `children`, so Radix `CollapsibleContent` (unmounts while closed, see
  * `collapsible.tsx`) is what makes this load only once the card is opened —
  * no `open` state is lifted into the page. Read-only: no `renderActions`.

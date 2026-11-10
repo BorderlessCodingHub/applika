@@ -6,7 +6,7 @@ import {
 } from "@/components/application-drafts/draft-copy";
 
 /**
- * KODI-036, AC1 (frontend-qa round 1, B1): the application-date "not in the
+ * AC1 (PRD 0010; frontend-qa round 1, B1): the application-date "not in the
  * future" check compares CALENDAR STRINGS, never `Date` objects. A
  * `Date`-object comparison (`new Date(v) <= new Date()`) used to refuse a
  * user's own TODAY whenever their local calendar day was already ahead of

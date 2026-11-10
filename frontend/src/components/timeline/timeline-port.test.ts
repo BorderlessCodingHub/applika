@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 /**
  * Pins T040: the 16 files of `src/components/timeline/`. Per the owner's
- * KODI-011 lesson ("port a named source WHOLE, never a prose subset" —
+ * PRD 0008 lesson ("port a named source WHOLE, never a prose subset" —
  * feature 0007's "40% deviation"), this test hard-codes each file's export
  * surface (captured 2026-09-18 via `grep -nE "^export "`) and asserts every
  * one of those names still appears in the file. The expectations below are

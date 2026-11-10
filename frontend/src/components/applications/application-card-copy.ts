@@ -22,7 +22,7 @@ export const APPLICATIONS_PAGE_COPY = liveCopy("applications.page", [
   "clearFilters",
   "emptyTitle",
   "emptyAction",
-  /** `?focus=` (R-011, KODI-038): the application isn't in the list shown. */
+  /** `?focus=` (R-011): the application isn't in the list shown. */
   "focusNotInCycle",
 ]);
 

@@ -146,14 +146,14 @@ describe("TimelineSection — offer and denied cards (AC2)", () => {
     expect(screen.getByText(/\/hr/)).toBeInTheDocument();
   });
 
-  it("hides the Feedback title when the denied reason is unknown by default (G3, KODI-015)", async () => {
+  it("hides the Feedback title when the denied reason is unknown by default (G3)", async () => {
     renderSection([baseEvent({ id: "denied-1", event_type: "denied" })]);
 
     expect(await screen.findByText("Denied")).toBeInTheDocument();
     expect(screen.queryByText(/feedback:/i)).not.toBeInTheDocument();
   });
 
-  it("shows a denied event's stored reason (KODI-014)", async () => {
+  it("shows a denied event's stored reason", async () => {
     renderSection([
       baseEvent({
         id: "denied-2",

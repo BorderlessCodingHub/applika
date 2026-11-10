@@ -6,7 +6,7 @@ import type {
 } from "@/services/types/users";
 
 /**
- * `/applications/drafts*` (PRD 0010, KODI-033; revised KODI-036). A draft is
+ * `/applications/drafts*` (PRD 0010). A draft is
  * an application not yet finished, but it DOES carry a date from the moment
  * step 1 exists: `application_date` presets to the browser's own calendar day
  * (`localCalendarDay()`), autosaves like every other field, survives a
@@ -43,7 +43,7 @@ export interface DraftInput {
 export interface Draft extends DraftInput {
   id: string;
   has_cv: boolean;
-  /** The job board job this draft was started from (PRD 0012, KODI-047);
+  /** The job board job this draft was started from (PRD 0012);
    * `null` for a draft started from scratch. Response-only. */
   job_id: string | null;
   /** Always present on a response, whatever the request sent (server default

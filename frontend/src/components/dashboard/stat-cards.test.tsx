@@ -7,7 +7,7 @@ import { StatCards } from "./stat-cards";
  * AC4 (R-022): offers and denials come from the API's own numbers; the card
  * recomputes nothing from step or event names.
  *
- * AC23 (KODI-013 addendum) — owner: "Active = not closed (Recommended)". Active
+ * AC23 (PRD 0008 addendum) — owner: "Active = not closed (Recommended)". Active
  * now comes straight off `data.active` (applications with `finalized_at`
  * `null`), never `total_applications - offers - denials`. `active` is
  * deliberately set to a value the old arithmetic would NOT produce

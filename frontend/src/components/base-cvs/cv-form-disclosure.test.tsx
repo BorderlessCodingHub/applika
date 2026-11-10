@@ -14,7 +14,7 @@ import { CV_FORM_SECTION_IDS } from "./cv-form-sections";
 import type { CvFormValues } from "./types";
 
 /**
- * The CV form's disclosures (KODI-009 / AC4, AC5, AC6, AC7).
+ * The CV form's disclosures (AC4, AC5, AC6, AC7).
  *
  * The owner: "make each section in the form colapsable, do the same to each
  * experience inside Experience section (keep open as default when i open the

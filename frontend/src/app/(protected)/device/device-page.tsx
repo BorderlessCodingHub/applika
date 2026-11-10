@@ -52,7 +52,7 @@ type Step =
   | { kind: "outcome"; outcome: DeviceOutcomeKind };
 
 /**
- * Device sign-in approval (KODI-058, ADR-0019, R-017): enter or confirm the
+ * Device sign-in approval (ADR-0019, R-017): enter or confirm the
  * code, see which device asks (name, client, IP, time), approve or deny.
  */
 export function DevicePage() {

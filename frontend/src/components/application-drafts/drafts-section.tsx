@@ -62,7 +62,7 @@ export interface DraftsSectionProps {
 }
 
 /**
- * The Drafts tab body on the applications page (KODI-036, AC2/AC8): company,
+ * The Drafts tab body on the applications page (AC2/AC8): company,
  * role, last saved, Resume and Delete. Since it IS the tab's whole content —
  * not a section floating alongside the applications list any more — it owns
  * no heading of its own (the tab trigger already says "Drafts"); the count
@@ -166,7 +166,7 @@ function DraftRow({
   // with `updated_at: null` (`TimeSchema`, backend) — `created_at` is the
   // last time it was actually saved. Never render the `null` verbatim: `new
   // Date(null)` is 1 Jan 1970, not NaN, which used to read "Saved 56 years
-  // ago" (frontend-qa KODI-036 round 1, B2).
+  // ago" (frontend-qa round 1, B2).
   const lastSavedAt = draft.updated_at ?? draft.created_at;
 
   return (

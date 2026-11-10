@@ -9,10 +9,10 @@ import {
 import { DraftApplicationStep } from "@/components/application-drafts/draft-application-step";
 
 /**
- * KODI-035 T110/B2, revised KODI-036: a committed test asserting the
+ * T110/B2 (PRD 0010), revised later: a committed test asserting the
  * three-section layout itself — heading order AND level per call site, the
  * field labels inside each section, and the responsive ROW2/ROW3 container-query
- * grid classes. Since KODI-036 both callers ask for the application date (AC3,
+ * grid classes. Both callers now ask for the application date (AC3,
  * AC4): `showDate` is gone, `className` carries no width limit of its own
  * (AC5), and the date shares its row with the job link.
  */
@@ -43,7 +43,7 @@ function Harness({
   );
 }
 
-describe("ApplicationFields — three-section layout (KODI-035 T110, KODI-036 AC3-AC5, AC10-AC14)", () => {
+describe("ApplicationFields — three-section layout (T110, AC3-AC5, AC10-AC14)", () => {
   it("renders the three sections as h3, in order, in the sheet (default heading level)", () => {
     render(<Harness />);
 
@@ -236,7 +236,7 @@ function DraftHarness() {
   );
 }
 
-describe("DraftApplicationStep — what the new-with-cv page actually passes (KODI-036)", () => {
+describe("DraftApplicationStep — what the new-with-cv page actually passes", () => {
   it("renders h2 sections, no width limit of its own, and the application date", () => {
     const { container } = render(<DraftHarness />);
 

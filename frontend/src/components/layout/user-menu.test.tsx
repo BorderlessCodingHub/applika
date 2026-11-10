@@ -12,7 +12,7 @@ vi.mock("@/contexts/auth-context", () => ({
 }));
 
 /**
- * Account menu (KODI-004 / R-017, R-018).
+ * Account menu (R-017, R-018).
  *
  * Covers the two properties the shell depends on: a long username or email
  * never widens the 15rem rail or the 14rem menu (T045), and the menu still

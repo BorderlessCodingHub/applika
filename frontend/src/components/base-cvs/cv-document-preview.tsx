@@ -47,7 +47,7 @@ export interface CvDocumentPreviewProps {
  * `max-h-[calc(100dvh - cookie - 12rem)]`, and that `12rem` was a guess with
  * three different things folded into it — the shell header `100dvh` wrongly
  * counted, the caller's phantom `top-20` sticky offset, and the caller's own
- * label and caption. KODI-009 measured it: the first sheet sat 104px below the
+ * label and caption. PRD 0007 measured it: the first sheet sat 104px below the
  * top of the scrollport at every scroll position, which is the gap the owner
  * reported. The CALLER now bounds the column with `max-h-editor-scrollport`
  * and lays it out as a flex column; this figure just fills its share
@@ -59,7 +59,8 @@ export interface CvDocumentPreviewProps {
  * notice on `/cvs/new`, where no export button exists yet.
  *
  * Below `md` there is no cap at all and the sheets flow in `main`'s scroll,
- * which is where KODI-006's AC7 requires every pixel of added height to land.
+ * which is where the no-page-scroll AC7 requires every pixel of added height
+ * to land.
  */
 export function CvDocumentPreview({
   cv,

@@ -24,8 +24,8 @@ export interface DraftApplicationStepProps {
 }
 
 /**
- * Step 1 of `/applications/new-with-cv` (PRD 0010, KODI-033, revised
- * KODI-036): the same fields the side sheet asks for, including the
+ * Step 1 of `/applications/new-with-cv` (PRD 0010): the same fields the
+ * side sheet asks for, including the
  * application date (AC1/AC3 — preset to today, saved with the draft, kept on
  * resume) and with `mode` preset to `active` by the page's default values.
  * No width limit of its own (AC5) — the form fills the page's content

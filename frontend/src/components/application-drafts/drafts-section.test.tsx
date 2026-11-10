@@ -8,7 +8,7 @@ import {
 } from "@/components/application-drafts/drafts-section";
 
 /**
- * PRD 0010 (KODI-033, T077): AC11/AC13. Revised KODI-036, T142: this is now
+ * PRD 0010 (T077): AC11/AC13. Revised by T142: this is now
  * the Drafts TAB's whole body (AC2/AC8) — no own heading (the tab trigger
  * already says "Drafts"), and it stays VISIBLE with no drafts instead of
  * rendering `null`, offering a way to start one.
@@ -62,7 +62,7 @@ describe("DraftsSection", () => {
     expect(resume).toHaveAttribute("href", "/applications/new-with-cv?id=d-1");
   });
 
-  it("falls back to created_at when updated_at is null, never 'Saved 56 years ago' (KODI-036 B2)", () => {
+  it("falls back to created_at when updated_at is null, never 'Saved 56 years ago' (B2)", () => {
     const neverUpdated: DraftsSectionItem = {
       ...DRAFT,
       created_at: new Date().toISOString(),

@@ -71,7 +71,7 @@ function useDebouncedSearch(value: string, delay: number): string {
 }
 
 /**
- * `/admin/features/view?key=` (KODI-054, AC2-AC11): the feature's header and
+ * `/admin/features/view?key=` (AC2-AC11): the feature's header and
  * stage action, the admin's own access, and its beta list with the add-user
  * dialog. Every piece is a ui-designer component (`components/admin/feature-*`);
  * this component owns the queries, the mutations and the search/page state.

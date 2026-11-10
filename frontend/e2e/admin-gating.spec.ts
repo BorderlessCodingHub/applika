@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
 
 /**
- * Admin gating (KODI-001 / R-005).
+ * Admin gating (R-005).
  *
  * Two seeded identities, both real: `e2e-user` (`is_admin: false`) and
  * `e2e-admin` (`is_admin: true`). Gating is client-side (`AdminGuard`) because

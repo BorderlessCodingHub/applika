@@ -25,8 +25,8 @@ export interface UseExportCvDiffOptions {
 }
 
 /**
- * Download the diff between a CV copy and its baseline as Markdown
- * (KODI-017 part 3): `GET /applications/{id}/cv/diff/markdown`, rendered on
+ * Download the diff between a CV copy and its baseline as Markdown:
+ * `GET /applications/{id}/cv/diff/markdown`, rendered on
  * the server from the SAVED copy — not the form's unsaved edits.
  */
 export function useExportCvDiffMarkdown(

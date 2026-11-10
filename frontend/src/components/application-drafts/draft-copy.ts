@@ -95,7 +95,7 @@ export function localCalendarDay(date: Date = new Date()): string {
 /**
  * `value` (a `YYYY-MM-DD` application date) is today or earlier, compared as
  * CALENDAR STRINGS against `localCalendarDay()` — never as `Date` objects
- * (frontend-qa KODI-036 round 1, B1). `new Date(v) <= new Date()` reads "now"
+ * (frontend-qa round 1, B1). `new Date(v) <= new Date()` reads "now"
  * at whatever precision `Date` gives it, which is really UTC-relative once
  * both sides are compared as instants; a user whose local calendar day is
  * already ahead of UTC's (most of Asia/Oceania, and Europe past midnight) had

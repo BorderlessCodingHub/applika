@@ -9,7 +9,7 @@ import { services } from "@/services/services";
 import type { AdminFeature } from "@/services/types/features";
 
 /**
- * KODI-054 (plan 0013, T048) — `/admin/features` (AC1): the four list states,
+ * Plan 0013, T048 — `/admin/features` (AC1): the four list states,
  * the six columns, the beta-list count as the API counts it (admins who have
  * it only as admins are not on it), the release date, the admin's own access
  * in words, and the row link to `/admin/features/view?key=`. Pattern:

@@ -24,7 +24,7 @@ export interface UseDebouncedAutosaveResult {
 const DEFAULT_DELAY_MS = 1000;
 
 /**
- * Debounced autosave (PRD 0010, KODI-033): one request in flight, the latest
+ * Debounced autosave (PRD 0010): one request in flight, the latest
  * value always wins.
  *
  * The debounce WAIT itself is reported as `"saving"` (never `"idle"` once

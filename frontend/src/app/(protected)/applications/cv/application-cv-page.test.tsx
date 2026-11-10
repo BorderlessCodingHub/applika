@@ -13,7 +13,7 @@ import type { BaseCv } from "@/services/types/base-cv";
 import type { TailoredCv } from "@/services/types/tailored-cv";
 
 /**
- * `/applications/cv?id=` — the application's CV copy (KODI-003).
+ * `/applications/cv?id=` — the application's CV copy.
  *
  * This suite is the WIRING half of the acceptance criteria: what the page asks
  * the API for, what it does with the answer, and which surface it puts on
@@ -29,7 +29,7 @@ import type { TailoredCv } from "@/services/types/tailored-cv";
  * AC9 (the application's job description sits beside the editor) and AC10 (a
  * finalized or archived application locks both surfaces).
  *
- * KODI-004 adds one more: the PDF export is mounted in BOTH modes and is never
+ * The PDF export adds one more: it is mounted in BOTH modes and is never
  * disabled by the lock. Refusing to write a finalized copy and refusing to read
  * it are different things (AC1).
  */
@@ -232,7 +232,7 @@ function noCopy() {
   };
 }
 
-// Tracks whether the page asks the shell for the full width (KODI-017, AC1),
+// Tracks whether the page asks the shell for the full width (AC1),
 // without paying for a real `AppShell` (its header pulls in cycles/statistics
 // queries this suite does not mock). `release` is returned fresh per call, the
 // same COUNT contract `useFullWidthRequests` implements.
@@ -457,7 +457,7 @@ describe("ApplicationCvPage", () => {
     expect(screen.getByRole("button", { name: "Download PDF" })).toBeEnabled();
   });
 
-  it("downloads a finalized application's CV copy anyway (KODI-004, AC1)", async () => {
+  it("downloads a finalized application's CV copy anyway (AC1)", async () => {
     const saved: string[] = [];
     const click = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
@@ -564,7 +564,7 @@ describe("ApplicationCvPage", () => {
     click.mockRestore();
   });
 
-  describe("full width only when the editor is on screen (KODI-017, AC1)", () => {
+  describe("full width only when the editor is on screen (AC1)", () => {
     it("does not ask for the full width while the application is loading", () => {
       getApplications.mockReturnValue(new Promise(() => {}));
       renderPage();
@@ -659,7 +659,7 @@ describe("ApplicationCvPage", () => {
   });
 });
 
-describe("the diff baseline resolution (KODI-017)", () => {
+describe("the diff baseline resolution", () => {
   /** A master CV that has since drifted from what the snapshot captured. */
   const DRIFTED_MASTER: BaseCv = {
     ...MASTER_CVS[0],
@@ -806,7 +806,7 @@ describe("the diff baseline resolution (KODI-017)", () => {
   });
 });
 
-describe("Markdown downloads beside the PDF ones (KODI-017 part 3)", () => {
+describe("Markdown downloads beside the PDF ones", () => {
   it("mounts the copy's Markdown export beside its PDF one", async () => {
     const user = userEvent.setup();
     getCopy.mockResolvedValue(COPY);
@@ -835,7 +835,7 @@ describe("Markdown downloads beside the PDF ones (KODI-017 part 3)", () => {
   });
 });
 
-describe("the diff download row calls the right mutation per button (KODI-017 part 3)", () => {
+describe("the diff download row calls the right mutation per button", () => {
   it("Markdown calls exportDiffMarkdown, never exportDiffPdf", async () => {
     const user = userEvent.setup();
     getCopy.mockResolvedValue({ ...COPY, base_snapshot: null });
@@ -867,7 +867,7 @@ describe("the diff download row calls the right mutation per button (KODI-017 pa
   });
 });
 
-describe("Tailor by keywords and the CV fit (KODI-049)", () => {
+describe("Tailor by keywords and the CV fit", () => {
   const BLANK_JD: Application = { ...APPLICATION, job_description: "   " };
 
   it("offers the switch, off, when the application has a job description (R-026)", async () => {
@@ -928,7 +928,7 @@ describe("Tailor by keywords and the CV fit (KODI-049)", () => {
     expect(within(panel).getByText("kubernetes")).toBeInTheDocument();
     expect(within(panel).getByText("Matched")).toBeInTheDocument();
     expect(within(panel).getByText("Missing")).toBeInTheDocument();
-    // KODI-050 (owner): the description no longer says "No AI.".
+    // The owner (PRD 0012): the description no longer says "No AI.".
     expect(
       within(panel).getByText(
         "Keyword match between the job description and this CV copy.",
@@ -1116,7 +1116,7 @@ describe("Tailor by keywords and the CV fit (KODI-049)", () => {
   });
 });
 
-describe("Tailor by keywords and the CV fit behind the jobs feature (KODI-053, PRD 0013)", () => {
+describe("Tailor by keywords and the CV fit behind the jobs feature (PRD 0013)", () => {
   beforeEach(() => {
     myFeatures = [{ key: "cvs", stage: "beta" }];
   });

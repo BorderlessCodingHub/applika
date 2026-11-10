@@ -15,7 +15,7 @@ export interface ICompanyService {
   /**
    * `GET /companies?name=` — visible companies (public + the caller's
    * private ones), searched by name. `name` omitted or blank hits
-   * `GET /companies` with no query (KODI-035): every visible company, so
+   * `GET /companies` with no query: every visible company, so
    * the picker can list them on open (AC1), the same as `IPlatformService.list`.
    */
   searchCompanies(name?: string): Promise<Company[]>;

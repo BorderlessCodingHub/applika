@@ -86,7 +86,7 @@ const COLLAPSIBLE_CONTENT_CLASS = cn(
  * description and the fields underneath. Shell only — the caller owns the
  * `<form>` and the fields.
  *
- * **The WHOLE header toggles the section.** The owner, KODI-009: "remove the
+ * **The WHOLE header toggles the section.** The owner: "remove the
  * button to insert a new link/category/etc from the category header and put
  * inside the colapsable section". With nothing else competing for the header
  * there is no reason to make the user aim at the title, so the header is one

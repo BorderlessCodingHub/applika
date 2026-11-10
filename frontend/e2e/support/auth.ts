@@ -3,7 +3,7 @@ import { expect, type Browser, type Page } from "@playwright/test";
 import { COOKIE_NOTICE_ACKNOWLEDGED } from "./cookie-notice";
 
 /**
- * Real seeded sessions for the E2E suite (KODI-001 / R-003).
+ * Real seeded sessions for the E2E suite (R-003).
  *
  * `frontend/scripts/e2e.sh` runs the backend's own seed script inside the API container.
  * It creates two genuine user rows in the real database and mints real session
@@ -267,7 +267,7 @@ export function apiUrl(path = ""): string {
 
 /**
  * The `Authorization` header value of e2e-user's seeded CLI session
- * (KODI-057: a `cli_device` session named "e2e-cli", exported by
+ * (PRD 0014: a `cli_device` session named "e2e-cli", exported by
  * `frontend/scripts/e2e.sh` as `E2E_CLI_ACCESS_TOKEN`). The CLI sends its access token
  * as a Bearer, never as a cookie. `e2e/devices.spec.ts` revokes this session,
  * so it is refused for the rest of the run after that spec.

@@ -8,7 +8,7 @@ import { useAdminFeatures } from "@/hooks/use-admin";
 import { useIsPhone } from "@/hooks/use-is-phone";
 
 /**
- * `/admin/features` (KODI-054, AC1): every feature with its key, name,
+ * `/admin/features` (AC1): every feature with its key, name,
  * description, stage, beta-list count, release date and the admin's own
  * access in words. The header and the table are ui-designer components
  * (`feature-header.tsx`, `feature-table.tsx`); a row's name links to

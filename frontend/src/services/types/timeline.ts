@@ -28,7 +28,7 @@ import type {
  * A timeline event as returned by `GET /applications/{id}/timeline`,
  * `POST …/timeline`, and `PUT …/timeline/{event_id}`. The scheduling trio
  * (`start_time`/`end_time`/`timezone`) is OPTIONAL — the keys themselves are
- * ABSENT (not merely `null`) whenever `event_type !== "interview"` (KODI-016:
+ * ABSENT (not merely `null`) whenever `event_type !== "interview"` (PRD 0008:
  * the API omits them for non-interview events). `interview_type` is non-null
  * only for `interview` events and the salary trio only for `offer` events.
  * `salary_period` can be the legacy `hourly` on an offer migrated from a step or
@@ -45,7 +45,7 @@ export interface TimelineEvent {
   event_type: TimelineEventType;
   /** Interview-only: one of the 7 hardcoded interview types. */
   interview_type: InterviewType | null;
-  /** Denied-only: one of the 10 hardcoded reasons (KODI-014). */
+  /** Denied-only: one of the 10 hardcoded reasons. */
   denied_reason: DeniedReason | null;
   /** ISO-8601 calendar date (`YYYY-MM-DD`). Required. */
   event_date: string;
@@ -84,7 +84,7 @@ interface TimelineEventBodyBase {
  * (the backend CHECK rejects them for non-offer types). `interview_type` is
  * present only when `event_type` is `"interview"` (the backend defaults a
  * missing one to `unknown`, but the form always sends it); it is 422 on any
- * other type. `denied_reason` (KODI-014) is present only when `event_type` is
+ * other type. `denied_reason` is present only when `event_type` is
  * `"denied"` (the backend defaults a missing one to `unknown`, but the form
  * always sends it); it is 422 on any other type.
  */

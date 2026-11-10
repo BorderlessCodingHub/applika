@@ -157,7 +157,7 @@ export interface AdminPlatform {
   created_by?: AdminCatalogCreatedBy | null;
 }
 
-/** `GET /admin/platforms` row (PRD 0010, KODI-035): paginated, like `AdminCompanyRow`. */
+/** `GET /admin/platforms` row (PRD 0010): paginated, like `AdminCompanyRow`. */
 export interface AdminPlatformRow {
   id: string;
   name: string;
@@ -217,7 +217,7 @@ export interface UpdateReportWebhook {
   label?: string | null;
 }
 
-// ── Job sources (KODI-049, R-033..R-035) ────────────────────────────────
+// ── Job sources (R-033..R-035) ──────────────────────────────────────────
 
 /** How a source's last run ended. `null` on the row until it first runs. */
 export type AdminJobRunStatus = "ok" | "failed" | "blocked";

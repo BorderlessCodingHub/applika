@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 const TOTAL_STARS = 5;
 
 /**
- * applika-only component (KODI-002 / T032): a read-only 5-star display.
+ * applika-only component (T032): a read-only 5-star display.
  * Restyled by hand to the new-york idiom; the rounding and the accessible
  * label are unchanged.
  */

@@ -7,7 +7,7 @@ import { CompaniesPage } from "./companies-page";
 import { services } from "@/services/services";
 
 /**
- * PRD 0010 (KODI-033, T087): visibility filter, Added by (nested `created_by`)
+ * PRD 0010 (T087): visibility filter, Added by (nested `created_by`)
  * and Approve on private rows only, with the 409 `detail` shown verbatim.
  */
 

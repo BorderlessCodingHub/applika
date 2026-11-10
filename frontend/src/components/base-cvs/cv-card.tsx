@@ -60,7 +60,7 @@ export interface CvCardProps {
   onExport?: () => void;
   /** Reflects an in-flight PDF render on this card. */
   isExporting?: boolean;
-  /** Asks the server for this CV's Markdown (KODI-017 part 3), beside the PDF. */
+  /** Asks the server for this CV's Markdown, beside the PDF. */
   onExportMarkdown?: () => void;
   /** Reflects an in-flight Markdown render on this card. */
   isExportingMarkdown?: boolean;

@@ -6,7 +6,7 @@ import { ApplicationFormSheet } from "@/components/applications/application-form
 import type { Application } from "@/services/types/applications";
 
 /**
- * Characterization test (KODI-033, T061) written BEFORE extracting
+ * Characterization test (T061) written BEFORE extracting
  * `application-fields.tsx` out of this sheet (T065): it pins the payloads the
  * sheet sends on create/edit (existing company id, a brand-new
  * `{name, url}`, a name-only company) and the validation messages, so the
@@ -95,7 +95,7 @@ beforeEach(() => {
   fetchCompanies.mockClear();
 });
 
-describe("ApplicationFormSheet — wide sheet, larger title (KODI-036, AC6/AC7)", () => {
+describe("ApplicationFormSheet — wide sheet, larger title (AC6/AC7)", () => {
   it("opens up to 4xl with a larger, unchanged-wording title", () => {
     render(
       <ApplicationFormSheet open onOpenChange={() => {}} application={null} />,
@@ -240,7 +240,7 @@ describe("ApplicationFormSheet — validation (characterization)", () => {
     expect(screen.getByText("Platform is required")).toBeInTheDocument();
     const platformTrigger = screen.getByRole("combobox", { name: "Platform" });
     expect(platformTrigger).toHaveAttribute("aria-invalid", "true");
-    // KODI-035 remediation r1 (QA F2): the error text must be LINKED to the
+    // Remediation r1 (QA F2): the error text must be LINKED to the
     // trigger via aria-describedby, same as the Company field below.
     expect(platformTrigger).toHaveAccessibleDescription("Platform is required");
     expect(submit).not.toHaveBeenCalled();
@@ -307,8 +307,8 @@ describe("ApplicationFormSheet — edit payload (characterization)", () => {
   });
 });
 
-describe("ApplicationFormSheet — application date, own local today (KODI-034, T147)", () => {
-  // Owner order 2026-09-26 (found in KODI-036): `new Date(v) <= new Date()`
+describe("ApplicationFormSheet — application date, own local today (T147)", () => {
+  // Owner order 2026-09-26 (found in PRD 0010): `new Date(v) <= new Date()`
   // refused the user's own TODAY whenever their local calendar day was
   // already ahead of UTC's. On a UTC-hosted CI runner, faking the system
   // time alone is not enough to reproduce that — local day would equal UTC

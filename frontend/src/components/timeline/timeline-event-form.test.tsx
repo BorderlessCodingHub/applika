@@ -270,7 +270,7 @@ describe("TimelineEventForm — legacy hourly offer (R-031 WATCH)", () => {
   });
 });
 
-describe("TimelineEventForm — schedule visibility (AC2, KODI-014)", () => {
+describe("TimelineEventForm — schedule visibility (AC2)", () => {
   it("shows the schedule inputs by default (a new event is an interview)", () => {
     renderForm();
     expect(screen.getByLabelText("Start")).toBeInTheDocument();
@@ -305,7 +305,7 @@ describe("TimelineEventForm — schedule visibility (AC2, KODI-014)", () => {
     },
   );
 
-  it("omits the schedule from the payload after switching away from Interview (AC2/AC3, KODI-014/KODI-016)", async () => {
+  it("omits the schedule from the payload after switching away from Interview (AC2/AC3)", async () => {
     const user = userEvent.setup();
     vi.mocked(services.timeline.create).mockResolvedValue({
       id: "e-2",
@@ -354,7 +354,7 @@ describe("TimelineEventForm — schedule visibility (AC2, KODI-014)", () => {
   });
 });
 
-describe("TimelineEventForm — a non-interview event never sends a schedule (KODI-016)", () => {
+describe("TimelineEventForm — a non-interview event never sends a schedule", () => {
   const STORED_DENIED_WITH_LEGACY_SCHEDULE: TimelineEventView = {
     id: "denied-1",
     type: "denied",
@@ -490,7 +490,7 @@ describe("TimelineEventForm — a non-interview event never sends a schedule (KO
   });
 });
 
-describe("TimelineEventForm — timezone (AC3, KODI-014)", () => {
+describe("TimelineEventForm — timezone (AC3)", () => {
   it("pre-fills the timezone select with the browser's own zone for a new interview", async () => {
     const user = userEvent.setup();
     renderForm();
@@ -521,7 +521,7 @@ describe("TimelineEventForm — timezone (AC3, KODI-014)", () => {
   });
 });
 
-describe("TimelineEventForm — denied reason (AC4, KODI-014)", () => {
+describe("TimelineEventForm — denied reason (AC4)", () => {
   it("hides the reason select by default (interview)", () => {
     renderForm();
     expect(

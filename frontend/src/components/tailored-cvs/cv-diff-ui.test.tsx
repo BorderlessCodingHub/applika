@@ -12,7 +12,7 @@ import type { TailoredCvAdjustment } from "./types";
 import { useCvDiff } from "./use-cv-diff";
 
 /**
- * The diff UI wired end to end (KODI-017 part 2): the hook building the
+ * The diff UI wired end to end: the hook building the
  * marker/added/removed slots from a real baseline and a real form, rendered
  * through `TailoredCvEditor`. `cv-diff.test.ts` covers `diffCv` itself in
  * isolation; this covers what the user actually sees and can click.
@@ -84,7 +84,7 @@ function Harness({
   );
 }
 
-describe("the diff UI (KODI-017)", () => {
+describe("the diff UI", () => {
   it("shows the summary bar with no changes until the toggle and an edit", async () => {
     render(<Harness />);
     expect(
@@ -298,7 +298,7 @@ describe("the diff UI (KODI-017)", () => {
   });
 });
 
-describe("keyword-tailoring moves in the comparison (KODI-049, R-025)", () => {
+describe("keyword-tailoring moves in the comparison (R-025)", () => {
   const ADJUSTMENTS: TailoredCvAdjustment[] = [
     {
       section: "skills",

@@ -33,7 +33,7 @@ function isProfileTab(value: string | null): value is ProfileTab {
 }
 
 /**
- * The Devices tab's data half (KODI-058). Mounted only while its tab is open
+ * The Devices tab's data half. Mounted only while its tab is open
  * (Radix unmounts an inactive `TabsContent`), so the list is fetched on first
  * open, not with the profile.
  */

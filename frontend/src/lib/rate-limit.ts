@@ -4,13 +4,13 @@ import { serverErrorMessage } from "@/lib/api-error-message";
 import { translate } from "@/i18n/translator";
 
 /**
- * A 429 (and, since KODI-058, a 503) is a TEMPORARY refusal, never a hard error: the caller (a query or a
+ * A 429 (and, since PRD 0014, a 503) is a TEMPORARY refusal, never a hard error: the caller (a query or a
  * mutation) is expected to wait `retryAfterMs(error)` and try again, keeping
  * whatever it already had on screen. This module is the single place that
  * reads the shape of that refusal — the axios status, the `retry-after`
- * header (KODI-039's API contract) and the `detail` text — so nothing else
+ * header (the API's PRD 0011 contract) and the `detail` text — so nothing else
  * has to know axios lowercases response headers or that FastAPI's `detail`
- * is sometimes not a plain string (KODI-039 always sends one for a 429, but
+ * is sometimes not a plain string (the API always sends one for a 429, but
  * this still guards the shape the way `getBlobApiError` does for a blob).
  *
  * It lives outside `api-client.ts` for the same reason `blob-error.ts` does:
@@ -19,7 +19,7 @@ import { translate } from "@/i18n/translator";
  */
 
 const DEFAULT_RETRY_AFTER_MS = 60_000;
-/** A 503 is the session store being briefly unreachable (KODI-057 sends `Retry-After: 5`). */
+/** A 503 is the session store being briefly unreachable (the API sends `Retry-After: 5`). */
 const DEFAULT_UNAVAILABLE_RETRY_AFTER_MS = 5_000;
 const MIN_RETRY_AFTER_MS = 1_000;
 
@@ -29,7 +29,7 @@ export function isRateLimited(error: unknown): error is AxiosError {
 
 /**
  * A 503 is the API saying its session store (Redis) is unreachable
- * (KODI-057, ADR-0019 "fail closed"): the request was refused, NOT the
+ * (ADR-0019 "fail closed"): the request was refused, NOT the
  * session. Like a 429 it is temporary and must never sign the web out.
  */
 export function isServiceUnavailable(error: unknown): error is AxiosError {

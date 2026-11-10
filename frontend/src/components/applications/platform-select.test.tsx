@@ -7,7 +7,7 @@ import {
   type PlatformOption,
 } from "@/components/applications/platform-select";
 
-/** PRD 0010 (KODI-033, T082): the shared creatable platform picker. */
+/** PRD 0010 (T082): the shared creatable platform picker. */
 
 const OPTIONS: PlatformOption[] = [
   { id: "p-1", name: "LinkedIn", url: "https://linkedin.com", is_public: true },

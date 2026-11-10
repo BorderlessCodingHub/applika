@@ -50,7 +50,7 @@ export interface DraftCvStepProps {
 }
 
 /**
- * Step 2 of `/applications/new-with-cv` (PRD 0010, KODI-033, T068): the same
+ * Step 2 of `/applications/new-with-cv` (PRD 0010, T068): the same
  * behaviour as the standalone application CV page (PRD 0007) — full snapshot
  * copy, one copy per application, job description beside the editor, a diff
  * against the master, and a fresh copy from another master after deleting the
@@ -59,7 +59,7 @@ export interface DraftCvStepProps {
  *
  * Purely presentational: the page owns the form, the copy query, the create/
  * delete mutations and the seeding — kept OUT of this component on purpose
- * (KODI-033 QA round 1, B2/B3) because this component switches in and out of
+ * (QA round 1, B2/B3) because this component switches in and out of
  * the DOM on every step change, and anything it owned as local state or a ref
  * (which copy id it already seeded) would reset on every remount, autosaving
  * `emptyTailoredCvValues()` over a real copy or reverting an unsaved edit the

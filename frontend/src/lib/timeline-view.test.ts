@@ -39,7 +39,7 @@ describe("toTimelineEventView (AC1)", () => {
     expect(view.endTime).toBeNull();
   });
 
-  it("does not crash when the schedule keys are entirely absent (KODI-016, non-interview response)", () => {
+  it("does not crash when the schedule keys are entirely absent (non-interview response)", () => {
     const nonInterview: TimelineEvent = {
       id: "2",
       application_id: "a",

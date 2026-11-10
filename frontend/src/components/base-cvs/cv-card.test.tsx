@@ -12,7 +12,7 @@ import {
 } from "./types";
 
 /**
- * The `/cvs` gallery tile (KODI-009 / AC1, AC2).
+ * The `/cvs` gallery tile (AC1, AC2).
  *
  * The owner, round 3: "what you did was listing every skill categoty and put
  * all keywords in plain text, THIS WHAT NOT WHAT I SAID, i said to display all
@@ -393,7 +393,7 @@ describe("the tile's download (AC2)", () => {
   });
 });
 
-describe("the tile's Markdown download (KODI-017 part 3)", () => {
+describe("the tile's Markdown download", () => {
   it("renders no Markdown button without `onExportMarkdown`", () => {
     render(
       <CvCard

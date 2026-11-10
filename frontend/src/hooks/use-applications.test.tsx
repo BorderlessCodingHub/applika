@@ -8,7 +8,7 @@ import { services } from "@/services/services";
 import type { Application } from "@/services/types/applications";
 
 /**
- * G7 (KODI-015): `hasAdvancedFilters` must count the panel controls (mode,
+ * G7: `hasAdvancedFilters` must count the panel controls (mode,
  * platform, date range), not the toolbar `status` select. Before this fix the
  * sliders button lit up on a toolbar-only filter and "Clear all" stayed
  * hidden when only a panel field (e.g. Source/mode) was set.

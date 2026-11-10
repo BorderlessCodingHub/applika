@@ -219,7 +219,7 @@ function ApplicationCv() {
     cv?.name ?? "",
   );
 
-  // The diff downloads (KODI-017 part 3): the SAVED copy vs. its baseline,
+  // The diff downloads: the SAVED copy vs. its baseline,
   // rendered by the server. A 409 (no baseline) or any other failure sets
   // `diffDownloadError`, which disables the row with the server's own reason.
   const exportDiffMarkdownMutation = useExportCvDiffMarkdown(
@@ -233,7 +233,7 @@ function ApplicationCv() {
     { onNoBaseline: setDiffDownloadError },
   );
 
-  // Master CV delete/export for the picker (KODI-017), the same pattern
+  // Master CV delete/export for the picker, the same pattern
   // `cvs-page.tsx` uses — named distinctly from the tailored-CV `exportMutation`
   // above since both mount on this page.
   const deleteBaseCvMutation = useDeleteBaseCv({
@@ -307,7 +307,7 @@ function ApplicationCv() {
   const sourceCvName =
     baseCvs.data?.find((item) => item.id === cv?.base_cv_id)?.name ?? null;
 
-  // Baseline resolution (KODI-017): the snapshot taken at copy time, else the
+  // Baseline resolution: the snapshot taken at copy time, else the
   // CURRENT master CV via `base_cv_id`, else no diff UI at all — the "source
   // CV deleted" note above stays exactly as it is either way.
   const baselineSnapshot: CvDiffSnapshot | null = useMemo(() => {
@@ -551,7 +551,7 @@ function ApplicationCv() {
       <>
         {/*
           The editor is the ONLY surface on this route that spends the whole
-          shell width (KODI-017) — every other branch above (no application,
+          shell width — every other branch above (no application,
           loading, error, the picker in every one of its states) stays in the
           reading column. `readOnlyReason` does not branch the return here, so
           one marker covers both the editable and the read-only editor.

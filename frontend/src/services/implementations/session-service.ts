@@ -5,7 +5,7 @@ import type {
   UserSession,
 } from "@/services/types/sessions";
 
-/** The caller's devices (KODI-058, ADR-0019): `/users/me/sessions`. */
+/** The caller's devices (ADR-0019): `/users/me/sessions`. */
 export class SessionService implements ISessionService {
   /** Server order: active by last use, then ended within 30 days. */
   list(): Promise<UserSession[]> {

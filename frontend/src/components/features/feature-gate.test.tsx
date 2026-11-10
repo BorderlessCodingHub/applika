@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FeatureGate } from "./feature-gate";
 import { NOT_FOUND_COPY } from "@/components/layout/not-found-message";
 
-/** KODI-053: children with the feature, a spinner while loading, else the app's 404. */
+/** PRD 0013: children with the feature, a spinner while loading, else the app's 404. */
 
 const getMine = vi.fn();
 

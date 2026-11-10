@@ -288,7 +288,7 @@ function JobSourceTableRow({
 
       <TableCell className={CELL}>
         <span className="flex h-5 items-center gap-2">
-          {/* Pending keeps focus: aria-disabled, not disabled (KODI-048). */}
+          {/* Pending keeps focus: aria-disabled, not disabled. */}
           <Switch
             checked={source.is_enabled}
             aria-label={jobSourceSwitchLabel(source.name)}

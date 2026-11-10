@@ -21,7 +21,7 @@ import {
 import { distributeCvBlocks } from "./use-cv-page-flow";
 
 /**
- * The A4 flow engine (KODI-008).
+ * The A4 flow engine.
  *
  * The owner: "if possible, make the preview during CV creation create pages if
  * the document become too large, use A4 dimensions".

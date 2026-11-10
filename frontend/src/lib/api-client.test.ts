@@ -12,7 +12,7 @@ import { refusedRefresh, resetRefusedRefresh } from "@/lib/session-ended";
 import { services } from "@/services/services";
 
 /**
- * KODI-058: the 401 interceptor's refresh. A refresh refused with 503 (the
+ * PRD 0014: the 401 interceptor's refresh. A refresh refused with 503 (the
  * session store is down) must surface as that temporary 503 — never as a
  * sign-out — and the device approval routes, which live under `/auth/`,
  * refresh on a 401 like any other signed-in call.
