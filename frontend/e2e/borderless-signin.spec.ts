@@ -457,7 +457,8 @@ test.describe("Borderless sign-in through OpenID Connect", () => {
       await expect(
         page.getByRole("button", { name: "Restore your data from GitHub" }),
       ).toBeVisible();
-      await expectPhoneTargets(page, 4);
+      // The two answers and the button (the applika-cli banner shows on Today only).
+      await expectPhoneTargets(page, 3);
       await expectNoSidewaysScroll(page);
 
       // One button, for the answer picked.

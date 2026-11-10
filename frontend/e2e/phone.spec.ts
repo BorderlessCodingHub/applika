@@ -1035,7 +1035,9 @@ test.describe("the account area, jobs and CVs below md", () => {
     await expect(
       page.getByRole("heading", { level: 2, name: "Ended" }),
     ).toBeVisible();
-    await expectPhoneTargets(page, 6);
+    // After devices.spec.ts, this device alone; the applika-cli banner shows
+    // on Today only.
+    await expectPhoneTargets(page, 4);
     await expectNoSidewaysScroll(page);
 
     // e2e-user's own web session: the sheet opens and is cancelled, never confirmed.
