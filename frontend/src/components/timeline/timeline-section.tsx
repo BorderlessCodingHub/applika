@@ -47,7 +47,7 @@ interface TimelineSectionProps {
  *
  * "Archived" is not derived from `application.cycle_id`, a field applika's
  * `Application` does not carry on the wire — applika already established
- * (tailored-cvs, see `frontend/CLAUDE.md`) that "archived" is only knowable
+ * (tailored-cvs, see `frontend/AGENTS.md`) that "archived" is only knowable
  * from the cycle currently being VIEWED, via `useCycleContext().isViewingPastCycle`. This
  * follows that existing convention instead of inventing a second one.
  */

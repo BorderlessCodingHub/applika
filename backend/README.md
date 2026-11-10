@@ -139,4 +139,4 @@ tests/              # unit/ and integration/ (real Postgres in a container)
 ```
 
 Every change is recorded in [CHANGELOG.md](CHANGELOG.md). More detail on each
-area: [CLAUDE.md](CLAUDE.md).
+area: [AGENTS.md](AGENTS.md).

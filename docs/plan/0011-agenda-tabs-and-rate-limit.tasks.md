@@ -71,7 +71,7 @@ K1 = agenda page + stage label → K2 = agenda card links, read-only timeline, a
      - `hooks/use-repports.ts` l.88;
      - `components/applications/feedback-dialog.tsx` l.65.
    - Every other toast already shows `getApiError(error)` = `detail`, so it shows the 429 message unchanged.
-   - K4 T042 fixes the six. Query error states and the draft autosave status ("Not saved" + Retry) keep their own words: they are not the app's usual error notice (the sonner toast, frontend `CLAUDE.md`).
+   - K4 T042 fixes the six. Query error states and the draft autosave status ("Not saved" + Retry) keep their own words: they are not the app's usual error notice (the sonner toast, frontend `AGENTS.md`).
    - The new agenda page shows `detail` when its load fails (K1 T010). Today it shows the empty state on an error.
 7. **Installed CLIs drop their session on a 429 refresh. Settled by the owner on 2026-09-27: "Fix in a new CLI version".**
    - `cli/src/applika/lib/api.py` l.83-87: `_refresh()` clears the stored session on any non-200 from `/auth/refresh`.
@@ -88,7 +88,7 @@ K1 = agenda page + stage label → K2 = agenda card links, read-only timeline, a
    - `scope['path']` holds `/api/...` when the proxy keeps the prefix (and in tests, `base_url=http://test/api`), and `/...` when the proxy strips it.
    - Strip `root_path` only when `path` starts with it.
 10. **The `get_redis` override is async.** `redis = await scope['app'].dependency_overrides.get(get_redis, get_redis)()`.
-11. **Frontend `CLAUDE.md` is not named by the plan.** It asks to be updated on a new UI pattern, a new routing shape and a token-refresh change. K1, K2 and K4 update it.
+11. **Frontend `AGENTS.md` is not named by the plan.** It asks to be updated on a new UI pattern, a new routing shape and a token-refresh change. K1, K2 and K4 update it.
 12. **Tests that already exist.**
     - `components/applications/application-item.test.tsx` exists; K2 extends it for `defaultExpanded`.
     - `timeline-options.test.ts` has no `stageLabel` assertion today; K1 adds one.
@@ -104,7 +104,7 @@ K1 = agenda page + stage label → K2 = agenda card links, read-only timeline, a
     - That is how 1.0.0 already shows any API error there. R-028 says "No command, flag or output of earlier versions changes", so K6 does not add a global handler.
     - The refresh 429 still "fails with the server's retry message". K5 T053 looks at both kinds of output.
 16. **Version.** `pyproject.toml` is `1.0.0`. The installed version is read from package metadata (`commands/version.py`, `importlib.metadata`), so no source file pins it. No test asserts "1.0.0" (grep).
-17. **Docs.** `cli/CLAUDE.md` does not describe the refresh, so it needs no change. `cli/README.md` l.52 does ("The session refreshes automatically on expiry"), so K6 adds one sentence there. The bundled `SKILL.md` does not mention the refresh.
+17. **Docs.** `cli/AGENTS.md` does not describe the refresh, so it needs no change. `cli/README.md` l.52 does ("The session refreshes automatically on expiry"), so K6 adds one sentence there. The bundled `SKILL.md` does not mention the refresh.
 18. **The 1.0.1 heading takes everything under `[Unreleased]`.** Today that is the earlier API notes from features 0009 and 0010, plus K3's 429 entry. The plan says `[Unreleased]` → `[1.0.1] - <date>`. K6 leaves a new empty `## [Unreleased]` above it (Keep a Changelog).
 
 ## K1 — Agenda page: Upcoming | Past tabs, date groups, rich cards, search and stage filter; hyphen stage label with the old calendar UID   side: frontend   covers: R-001 (every element; the chevron's content and the link's landing in K2), R-002, R-003, R-004, R-005, R-006, R-007, R-008, R-009, R-010, R-013, R-014, R-015, R-027   deps: —
@@ -124,13 +124,13 @@ Touch:
 - frontend/src/lib/calendar.test.ts (new)
 - frontend/src/components/layout/agenda-dropdown.test.tsx
 - frontend/src/components/dashboard/chart-styles.test.tsx
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - docs/refs/agenda-rework.png (element list R-002, R-006, R-007; tab order per R-003)
 - frontend/src/app/(protected)/applications/applications-page.tsx (toolbar l.148-188; Tabs l.395-425)
 - frontend/src/components/applications/application-item.tsx (card shell l.83-120, `Collapsible`)
 - frontend/src/components/applications/icon-tile.tsx
-- frontend/CLAUDE.md "### UI Components" (tabs `variant="line"`, `font-numeric`, `font-display`), "### Application Timeline" (`stageLabel`, `timeZoneLabel`); ADR-0006 tokens in src/app/globals.css
+- frontend/AGENTS.md "### UI Components" (tabs `variant="line"`, `font-numeric`, `font-display`), "### Application Timeline" (`stageLabel`, `timeZoneLabel`); ADR-0006 tokens in src/app/globals.css
 Steps:
 - T001 [US1] Branch and start:
   - check that `git log --oneline develop` holds `f90eb79` (the 0010 merge); if it does not, stop and ask the owner which base to cut from;
@@ -205,7 +205,7 @@ Steps:
   - the alert button shows on timed Upcoming cards only, never on Past;
   - the link href is `/applications?focus=<application_id>`;
   - the three empty-state texts; the error shows `detail`.
-- T013 [US1] frontend/CLAUDE.md:
+- T013 [US1] frontend/AGENTS.md:
   - a new "### Agenda (`src/components/agenda/`, PRD 0011)" section:
     - `agenda-view.ts` is the pure split/filter/group over the same ±30-day window;
     - the card's anatomy; the alert button on Upcoming only;
@@ -244,7 +244,7 @@ Touch:
 - frontend/src/components/applications/application-item.tsx
 - frontend/src/components/applications/application-item.test.tsx
 - frontend/e2e/agenda.spec.ts (new)
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - frontend/src/app/(protected)/cvs/editor/page.tsx (Suspense + `useSearchParams` under static export)
 - frontend/src/app/(protected)/profile/profile-page.tsx (lazy `useState` from search params, one-shot `useRef`, `window.history.replaceState`)
@@ -265,7 +265,7 @@ Steps:
   - once the list has loaded:
     - the id is in the shown list → that row gets `defaultExpanded` and `scrollIntoView` (on the default "Applications" tab);
     - the id is not in the list (archived cycle, deleted since, filtered) → one notice, "This application is not in the cycle you are viewing.", through the app's usual toast;
-  - then `window.history.replaceState(null, "", "/applications")`. `router.replace` is a no-op on this static export (frontend CLAUDE.md).
+  - then `window.history.replaceState(null, "", "/applications")`. `router.replace` is a no-op on this static export (frontend AGENTS.md).
 - T020 [P] [US1] Vitest:
   - frontend/src/app/(protected)/applications/applications-page.test.tsx:
     - `?focus=<listed id>` → that row is expanded, `scrollIntoView` is called, and the URL goes back to `/applications`;
@@ -282,7 +282,7 @@ Steps:
     - the chevron shows the timeline with both events and no actions;
     - the external link lands on `/applications` with that row expanded, and the URL is `/applications`.
   - `afterAll` deletes the application.
-- T022 [US1] frontend/CLAUDE.md: add `/applications?focus=` to Routing (the Suspense shell, the one-shot read, `replaceState`, the notice); in the Agenda section, the card's read-only timeline loads on open.
+- T022 [US1] frontend/AGENTS.md: add `/applications?focus=` to Routing (the Suspense shell, the one-shot read, `replaceState`, the notice); in the Agenda section, the card's read-only timeline loads on open.
 - T023 [US1] Gate:
   - the frontend chain as in T014;
   - `scripts/e2e.sh e2e/agenda.spec.ts e2e/smoke.spec.ts e2e/timeline.spec.ts` green, with no applika-e2e container left;
@@ -308,7 +308,7 @@ Touch:
 - backend/scripts/seed_mock_data.py
 - docker-compose.yml
 - docker-compose.e2e.yml
-- backend/CLAUDE.md
+- backend/AGENTS.md
 - backend/CHANGELOG.md
 - cli/CHANGELOG.md
 Pattern:
@@ -382,7 +382,7 @@ Steps:
 - T034 [US6] Stacks and seed:
   - backend/scripts/seed_mock_data.py: the `httpx.Client` waits `Retry-After` and retries once on a 429, in one place (a small transport wrapper);
   - docker-compose.yml and docker-compose.e2e.yml, api env: `RATE_LIMIT_DEFAULT: "100000"`, `RATE_LIMIT_AUTH: "10000"`.
-- T035 [US7] backend/CLAUDE.md:
+- T035 [US7] backend/AGENTS.md:
   - Environment Variables: the four settings and `FORWARDED_ALLOW_IPS` (uvicorn);
   - a new "### Rate limiting (ADR-0015)" section: buckets, subject, the fixed window and `EXPIREAT`, fail open with the 0.5 s bound, CORS order, Traefik + `FORWARDED_ALLOW_IPS`, the deploy order, tests off by default, the compose stacks raised;
   - Request ID Logging: `client_ip` is the resolved address;
@@ -429,7 +429,7 @@ Touch:
 - frontend/src/hooks/use-cycles.ts
 - frontend/src/hooks/use-repports.ts
 - frontend/src/components/applications/feedback-dialog.tsx
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - frontend/src/lib/blob-error.ts (a helper kept outside api-client.ts, which imports the service container)
 - frontend/src/lib/api-client.ts (`getApiError`, the 401 interceptor: it leaves the auth query alone)
@@ -460,7 +460,7 @@ Steps:
     - a 401 → not authenticated;
     - a `/users/me` 429 → still authenticated;
   - one fixed-text site (use-cycles): a 429 shows the server's detail; a 500 still shows "Failed to create cycle".
-- T044 [US6] frontend/CLAUDE.md, "### Auth & Token Refresh": a 429 on refresh or on `/users/me` retries after `Retry-After` and never signs out; `rate-limit.ts`; fixed-text toasts go through `rateLimitNotice`.
+- T044 [US6] frontend/AGENTS.md, "### Auth & Token Refresh": a 429 on refresh or on `/users/me` retries after `Retry-After` and never signs out; `rate-limit.ts`; fixed-text toasts go through `rateLimitNotice`.
 - T045 [US6] Gate:
   - the frontend chain as in K1 T014;
   - `scripts/e2e.sh e2e/smoke.spec.ts e2e/auth-guard.spec.ts` green, with no container left;
@@ -509,7 +509,7 @@ Steps:
   - rename that section to `## [1.0.1] - <date of this commit>`. It takes K3's 429 entry and the earlier API notes with it (Plan corrections 18);
   - put a new empty `## [Unreleased]` above it;
   - the heading must match `pyproject.toml`.
-- T060 [US8] cli/README.md l.52: add one sentence — a refresh refused with 429 keeps the session; run the command again after the wait. cli/CLAUDE.md is unchanged: it does not describe the refresh (Plan corrections 17).
+- T060 [US8] cli/README.md l.52: add one sentence — a refresh refused with 429 keeps the session; run the command again after the wait. cli/AGENTS.md is unchanged: it does not describe the refresh (Plan corrections 17).
 - T061 [US8] Checks and gate:
   - cli-compatibility rule 4, no command or flag changes: `git diff develop -- cli/src/applika/commands cli/src/applika/app.py` is empty;
   - `make format && make lint && make test` in cli;
@@ -527,7 +527,7 @@ Touch:
 - otherwise verify only
 Pattern: .claude/rules/quality-gates.md; docs/plan/0010-application-with-cv-drafts-private-catalogs.tasks.md K5
 Steps:
-- T046 Gate in CLAUDE.md order:
+- T046 Gate in AGENTS.md order:
   - `cd backend && make format && make lint && make test`;
   - `cd frontend && pnpm lint && pnpm test && pnpm build`;
   - `cd cli && make format && make lint && make test`.
@@ -597,7 +597,7 @@ Steps:
   - the owner's merge to `main` also publishes `applika-cli` 1.0.1 to PyPI (cli-cd.yaml). PyPI has no rollback: a fix goes in 1.0.2;
   - the agent never touches prod.
 AC:
-- Project full gate green in CLAUDE.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty ≤ 171 with changed files clean, coverage ≥ 90%, prettier, tsc).
+- Project full gate green in AGENTS.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty ≤ 171 with changed files clean, coverage ≥ 90%, prettier, tsc).
 - Every ADR the feature drafted reads Accepted (ADR-0015, Accepted 2026-09-26; bound 0001, 0002, 0006, 0009, 0010, 0012 Accepted).
 - No test infrastructure left behind: no E2E containers, ephemeral stacks, temp databases or testcontainers.
 - The E2E the feature earned (agenda.spec.ts, with the whole suite green under the limiter via scripts/e2e.sh) runs inside the gate and is green; the limiter is carried by tests/unit/test_rate_limit.py and tests/integration/test_rate_limit.py on a real Redis, the web 429 handling by auth-context.test.tsx and rate-limit.test.ts, and the CLI 1.0.1 refresh 429 by cli/tests/test_api.py, as named in T048.

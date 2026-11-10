@@ -15,7 +15,7 @@ from the whole product"): "The ORM stops mapping ``users.is_org_member`` in
 the code release. A later, migration-only release renames the column to
 ``is_org_member_old``, and its downgrade renames it back." That code release
 is Release B (tag ``0009-release-b``) — ``app/`` has not mapped,
-read or written this column since that tag (see ``backend/CLAUDE.md``'s
+read or written this column since that tag (see ``backend/AGENTS.md``'s
 **User** entity bullet; ``grep -rn is_org_member app/`` finds nothing).
 This revision is Release C, the
 migration-only rename ``prod-release-runbook.md`` rule 4 calls for: the code

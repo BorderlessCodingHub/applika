@@ -49,7 +49,7 @@ K1 = S1 migration (Release A) → K2 = S2 backend catalog visibility + publish �
   - The plan's 409 detail becomes `A platform with this name already exists: <name>`.
   - The picker selects the listed platform on an exact case-insensitive match, before any POST.
   - On a 409 anyway (race or stale list), it refetches and selects the match.
-- **`companies.created_by` is already `ON DELETE SET NULL`** (revision `b2c3d4e5f6a1`, `CompanyModel`). `backend/CLAUDE.md` still says "Company → User (… cascade delete)"; K2 fixes that line. K1 gives platforms the same FK rule.
+- **`companies.created_by` is already `ON DELETE SET NULL`** (revision `b2c3d4e5f6a1`, `CompanyModel`). `backend/AGENTS.md` still says "Company → User (… cascade delete)"; K2 fixes that line. K1 gives platforms the same FK rule.
 - **The url-less platform 500.** `/supports` `PlatformSchema.url` is `str` (`backend/app/presentation/schemas/support.py`), but `platforms.url` is nullable and the admin create accepts no URL. That is the "admin 500" of plan Open 4. The admin `PlatformSchema.url` is already `str | None`.
 - **No `POST /companies` today.** `backend/app/presentation/api/company.py` has GET only. `use_cases/companies/create_company.py` exists but no route uses it; K2 reshapes it.
 - **Company reuse is new.** `create_application.py` `_resolve_company` creates without normalising the URL and without reuse, so a duplicate is a 409 today. After K2 it reuses a visible match (R-021). That is CLI-visible, so it goes in both changelogs.
@@ -69,7 +69,7 @@ K1 = S1 migration (Release A) → K2 = S2 backend catalog visibility + publish �
   - `smoke.spec.ts` l.136-138 asserts heading "Supports Data" at `/admin/supports`.
   - `admin-gating.spec.ts` l.21 lists `/admin/supports`.
   K6 T120 moves both to `/admin/platforms` and checks that the old path lands on Platforms.
-- **Stale pointers after the move.** `admin/supports/supports-page.tsx` is named as a pattern in `frontend/CLAUDE.md` (the "Admin — private company/platform rows" and "Admin — Discord webhooks" sections) and in comments in `admin/discord-webhooks/discord-webhooks-page.tsx` and its test. K6 T123 repoints them to `admin/platforms/platforms-page.tsx`.
+- **Stale pointers after the move.** `admin/supports/supports-page.tsx` is named as a pattern in `frontend/AGENTS.md` (the "Admin — private company/platform rows" and "Admin — Discord webhooks" sections) and in comments in `admin/discord-webhooks/discord-webhooks-page.tsx` and its test. K6 T123 repoints them to `admin/platforms/platforms-page.tsx`.
 - **Company picker tests.** `company-select-options.test.tsx` exists and goes with `company-select-options.tsx`. There is no `company-select.test.tsx`; K6 creates it. The service method is `services.companies.searchCompanies`; the plan calls it `search`.
 - **The 409 path in `use-create-platform.ts`** refetches `["supports"]` to select the colliding row. After S7 the picker reads `["platforms", name]`. The hook invalidates both keys (plan), and the 409 still has to select the colliding row (`use-create-platform.test.tsx`).
 - **"(same for get /companies)".** `GET /companies?name=` already exists as its own route (K2). The owner's route answer was "GET /platforms + paginated admin list", so no new companies route is needed. K6's company picker reads `GET /companies`.
@@ -77,7 +77,7 @@ K1 = S1 migration (Release A) → K2 = S2 backend catalog visibility + publish �
 
 ### Plan corrections, S8 / K7 (checked against the code, 2026-09-26)
 - **Plan header is stale again.** After the second rewrite, plan l.7 reads "0014 (Proposed, this plan)", but `docs/adr/0014-private-catalog-rows-and-draft-applications.md` reads Accepted (2026-09-25). K5 T095 fixes the header line.
-- **Backend docstrings still say a draft never gets a date.** `app/presentation/schemas/application_draft.py` l.5 and `app/application/dto/application_draft.py` l.4 both say it. So does the backend `CLAUDE.md` "Application drafts" table, which still shows finish as `{application_date}` only. K7 T126 and T131 rewrite them.
+- **Backend docstrings still say a draft never gets a date.** `app/presentation/schemas/application_draft.py` l.5 and `app/application/dto/application_draft.py` l.4 both say it. So does the backend `AGENTS.md` "Application drafts" table, which still shows finish as `{application_date}` only. K7 T126 and T131 rewrite them.
 - **Stale comment in the fields component.** `application-fields.tsx` l.90 says "the draft page passes `max-w-4xl`". It goes with R-038 (K7 T134).
 - **The E2E assertion that breaks.** `application-with-cv.spec.ts` l.207 asserts `[data-slot="drafts-section"]` count 0 after finishing. With R-041 the Drafts tab stays visible with its empty state, so that assertion changes (K7 T144).
 - **Nothing new needed for narrow/wide or the date limit.**
@@ -207,7 +207,7 @@ Touch:
 - backend/tests/integration/test_admin.py
 - backend/tests/integration/test_delete_account.py
 - backend/scripts/seed_mock_data.py
-- backend/CLAUDE.md
+- backend/AGENTS.md
 - backend/CHANGELOG.md
 - cli/CHANGELOG.md
 Pattern:
@@ -335,7 +335,7 @@ Steps:
     - companies created through the CLI are private until an admin publishes them;
     - `POST /applications` with a known name+URL reuses the company instead of answering 409;
     - 0.1.4, 0.2.0 and 1.0.0 are unaffected.
-- T040 [US4] In backend/CLAUDE.md:
+- T040 [US4] In backend/AGENTS.md:
   - route tables: Companies (POST), Platforms (new), admin publish;
   - the visibility rule;
   - Company and Platform domain notes;
@@ -391,7 +391,7 @@ Touch:
 - backend/tests/integration/test_admin.py
 - backend/tests/integration/test_delete_account.py
 - backend/scripts/seed_mock_data.py
-- backend/CLAUDE.md
+- backend/AGENTS.md
 - backend/CHANGELOG.md
 Pattern:
 - backend/app/application/use_cases/applications/create_application.py
@@ -492,7 +492,7 @@ Steps:
 - T057 [US3] CLI compatibility (R-015): `uv run pytest tests -k "steps or finalize or supports"`; `make test` in cli; the `GET /applications` item shape is unchanged.
 - T058 [US2] In backend/scripts/seed_mock_data.py: one draft finished with a CV copy, and one open draft; assert that `GET /applications` omits the open one.
 - T059 [US2] Docs and changelog.
-  - backend/CLAUDE.md:
+  - backend/AGENTS.md:
     - the Application drafts route table;
     - `is_draft` and the `NOT_DRAFT` rule in the domain notes;
     - a Seed Script Rule bullet for drafts.
@@ -566,7 +566,7 @@ Touch:
 - frontend/src/services/implementations/admin-service.ts
 - frontend/src/services/services.ts
 - frontend/e2e/application-with-cv.spec.ts (new)
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - frontend/src/components/applications/company-select.tsx
 - frontend/src/components/timeline/timezone-select.tsx
@@ -574,7 +574,7 @@ Pattern:
 - frontend/src/app/(protected)/cvs/editor/page.tsx (Suspense + `useSearchParams` under static export)
 - frontend/src/components/ui/alert-dialog.tsx
 - frontend/e2e/cv-builder.spec.ts
-- frontend/CLAUDE.md "### Routing", "### Forms" (`useWatch`, never `form.watch()`), "### Tailored CVs", "### UI Components", "### App shell"; ADR-0006.
+- frontend/AGENTS.md "### Routing", "### Forms" (`useWatch`, never `form.watch()`), "### Tailored CVs", "### UI Components", "### App shell"; ADR-0006.
 Contract: as K2 and K3. Frontend uses:
 - `POST /platforms`; `POST|GET /companies`; `GET /supports` (`url: string|null`, `is_public`);
 - `/applications/drafts*` and `/finish`; `/applications/{id}/cv*`;
@@ -713,7 +713,7 @@ Steps:
     - delete leftover drafts and the application (as `user`);
     - delete the platform (as `admin`, `DELETE /admin/platforms/{id}`);
     - delete the master CV.
-- T089 [US1] In frontend/CLAUDE.md:
+- T089 [US1] In frontend/AGENTS.md:
   - Routing: `/applications/new-with-cv`;
   - a new "### Application drafts" section: the auto-save contract, no browser storage, finish sends the local day;
   - the platform picker; admin Approve; `application-fields.tsx` shared by the sheet and the page.
@@ -763,7 +763,7 @@ Touch:
 - backend/tests/integration/test_admin.py
 - backend/tests/integration/test_supports.py (verify only: unchanged, green)
 - backend/scripts/seed_mock_data.py
-- backend/CLAUDE.md
+- backend/AGENTS.md
 - backend/CHANGELOG.md
 - frontend/src/components/applications/catalog-select.tsx (new)
 - frontend/src/components/applications/catalog-select.test.tsx (new)
@@ -802,14 +802,14 @@ Touch:
 - frontend/e2e/application-with-cv.spec.ts
 - frontend/e2e/smoke.spec.ts
 - frontend/e2e/admin-gating.spec.ts
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - backend/app/presentation/api/company.py (`list_companies`)
 - backend/app/domain/repositories/admin_repository.py (`get_admin_companies`, `_admin_company_row_query`)
 - backend/app/application/use_cases/admin/companies/list_companies.py
 - frontend/src/components/applications/platform-select.tsx (the picker to extract whole)
 - frontend/src/app/(protected)/admin/companies/companies-page.tsx (the table to extract)
-- frontend/CLAUDE.md "### Forms" (`useWatch`, never `form.watch()`), "### Routing", "### UI Components"; ADR-0006
+- frontend/AGENTS.md "### Forms" (`useWatch`, never `form.watch()`), "### Routing", "### UI Components"; ADR-0006
 Contract:
 - `GET /platforms?name=` (new) → 200 `[{id, name, url: str|null, is_public}]`, visible rows only, case-insensitive substring match, ordered by name | 401. Web only.
 - `GET /admin/platforms` (replaces the bare list): `?search=&visibility=public|private&sort_by=name|created_at|applications_count&sort_order=asc|desc&page≥1&per_page=1..100 (25)`.
@@ -930,12 +930,12 @@ Steps:
   - the cleanup reads the paginated `/admin/platforms?search=E2E Private` `.items`.
 - T122 [US8] Backend docs:
   - backend/scripts/seed_mock_data.py calls `GET /platforms` beside `/supports` and asserts the same visible set;
-  - backend/CLAUDE.md: add `GET /platforms` to the Companies and Platforms route table; `/admin/platforms` is paginated with a drafts-free `applications_count`; `/supports` is unchanged;
+  - backend/AGENTS.md: add `GET /platforms` to the Companies and Platforms route table; `/admin/platforms` is paginated with a drafts-free `applications_count`; `/supports` is unchanged;
   - backend/CHANGELOG.md `[Unreleased]`:
     - Added `- GET /platforms?name=: visible platforms, searchable, ordered by name (web picker).`
     - Changed `- GET /admin/platforms paginated with search, visibility, sort and applications_count (drafts excluded); /supports unchanged.`
   - No CLI entry: no CLI route is touched.
-- T123 [US8] frontend/CLAUDE.md:
+- T123 [US8] frontend/AGENTS.md:
   - `catalog-select.tsx` (the company picker is the platform picker), `form-section.tsx` and the three sections, `catalog-table.tsx`, `use-platforms.ts`;
   - `/admin/platforms` and the `/admin/supports` redirect;
   - repoint the `admin/supports/supports-page.tsx` pointers, and the comments in the discord-webhooks page and its test, to `admin/platforms/platforms-page.tsx`.
@@ -979,7 +979,7 @@ Touch:
 - backend/tests/unit/test_application_drafts.py
 - backend/tests/integration/test_application_drafts.py
 - backend/scripts/seed_mock_data.py
-- backend/CLAUDE.md
+- backend/AGENTS.md
 - backend/CHANGELOG.md
 - frontend/src/components/applications/form-section.tsx
 - frontend/src/components/applications/application-fields.tsx
@@ -1000,7 +1000,7 @@ Touch:
 - frontend/src/app/(protected)/applications/applications-page.tsx
 - frontend/src/app/(protected)/applications/applications-page.test.tsx
 - frontend/e2e/application-with-cv.spec.ts
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - backend/app/presentation/api/application.py (`job_description` is sticky on PUT through `model_fields_set`: an absent key keeps the stored value)
 - backend/app/application/validators/application_date.py (`ensure_not_in_future`)
@@ -1008,7 +1008,7 @@ Pattern:
 - frontend/src/components/ui/date-picker.tsx (`maxDate`)
 - frontend/src/components/ui/sheet.tsx (`size` presets)
 - shadcn/ui `tabs` (new-york, unified `radix-ui`)
-- frontend/CLAUDE.md "### Forms" (`useWatch`), "### Date Inputs", "### UI Components", "### App shell"; ADR-0006
+- frontend/AGENTS.md "### Forms" (`useWatch`), "### Date Inputs", "### UI Components", "### App shell"; ADR-0006
 Contract:
 - `DraftInput` gains `application_date?: date`:
   - beyond UTC today + 1 → 422 (`ensure_not_in_future`);
@@ -1046,7 +1046,7 @@ Steps:
     - a draft created without a date finishes dated with its creation day (the pre-S8 edge case).
 - T131 [US10] Backend docs and changelog:
   - backend/scripts/seed_mock_data.py: `seed_drafts()` sends `application_date` and finishes one draft with no body;
-  - backend/CLAUDE.md: in "Application drafts", the date is saved with the draft (POST, or server today; PUT keeps it when absent) and the finish body is optional; update the Seed Script Rule bullet;
+  - backend/AGENTS.md: in "Application drafts", the date is saved with the draft (POST, or server today; PUT keeps it when absent) and the finish body is optional; update the Seed Script Rule bullet;
   - backend/CHANGELOG.md `[Unreleased]` Changed: `- drafts carry application_date (optional on POST/PUT; absent on POST = server today, absent on PUT = kept; beyond UTC today + 1 = 422); POST /applications/drafts/{id}/finish body optional, the stored date is used when absent.`
   - No CLI entry: drafts are not a CLI route.
 - T132 [US8] Flatten frontend/src/components/applications/form-section.tsx for its one caller (R-043..R-045):
@@ -1108,7 +1108,7 @@ Steps:
   - set a past date in step 1; the finished application shows that date;
   - at 390px width, step 1 and the side sheet both have `scrollWidth <= clientWidth` (R-047).
   Every other spec that opens the sheet stays green in the T146 full run (`cv-builder.spec.ts` "Edit Application").
-- T145 [US8] frontend/CLAUDE.md:
+- T145 [US8] frontend/AGENTS.md:
   - "Application drafts": the tabs, the date field, step 1's Cancel;
   - "Company picker = platform picker…": the flat `FormSection`, no card, container columns;
   - "UI Components": `SheetContent` `size="wide"`.
@@ -1151,7 +1151,7 @@ Touch:
 Pattern: .claude/rules/quality-gates.md; docs/plan/0009-discord-account-link.tasks.md K10
 Release gate: the K5 tip is Release B, tagged `0010-release-b`. The owner merges it only after confirming that A's `alembic upgrade head` ran in prod.
 Steps:
-- T091 Gate in CLAUDE.md order:
+- T091 Gate in AGENTS.md order:
   - `cd backend && make format && make lint && make test`;
   - `cd frontend && pnpm lint && pnpm test && pnpm build`;
   - `cd cli && make format && make lint && make test`.
@@ -1286,7 +1286,7 @@ Steps:
   - Rollback A, after B = `alembic downgrade 583226ca46bc`.
   - The agent never touches prod.
 AC:
-- Project full gate green in CLAUDE.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty ≤ 171 with changed files clean, coverage ≥ 90%, prettier, tsc).
+- Project full gate green in AGENTS.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty ≤ 171 with changed files clean, coverage ≥ 90%, prettier, tsc).
 - Every ADR the feature drafted reads Accepted (ADR-0014, Accepted 2026-09-25; bound 0001, 0003, 0004, 0005, 0006, 0009 Accepted).
 - No test infrastructure left behind: no E2E containers, ephemeral stacks, temp databases or testcontainers.
 - The E2E the feature earned (application-with-cv.spec.ts with the S8 Drafts tab, past-date and 390px no-overflow checks, plus the S7 changes to smoke.spec.ts and admin-gating.spec.ts, via scripts/e2e.sh) runs inside the gate and is green; admin Approve, catalog visibility, drafts out of read models, the failed-save path, the company picker, the three form sections, the admin Platforms page, the with-CV date, the card-free layout, the wide sheet and the Applications | Drafts tabs are carried by the unit, integration and vitest layers named in T093.

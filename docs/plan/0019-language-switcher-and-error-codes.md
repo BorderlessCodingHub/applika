@@ -28,7 +28,7 @@ none. No table, column or migration. Browser only: cookie `NEXT_LOCALE` = `en`|`
 - The worker is untouched (no HTTP). Scraper `SourceFailed` text is data and stays English (owner, D7).
 - `applika/docs/error-codes.md` (new): area table, then one row per code: code | status | `detail` (English) | params (or —) | description | raised by (route or use case).
 - `backend/CHANGELOG.md` `[Unreleased]`: Added `code` on every error; Changed: six named codes renumbered. `cli/CHANGELOG.md` `[Unreleased]`: Added `code` on every API error; `detail` unchanged. Changed: on an unhandled 500 the CLI prints `Internal Server Error` where it printed `API request failed with status 500` (owner, 2026-10-31).
-- `backend/CLAUDE.md` "Exception Handling" section: the code rule.
+- `backend/AGENTS.md` "Exception Handling" section: the code rule.
 - Pattern: `handlers.py` `_coded_refusal_handler` (already emits `{detail, code}`).
 
 ## Frontend
@@ -46,7 +46,7 @@ none. No table, column or migration. Browser only: cookie `NEXT_LOCALE` = `en`|`
 - Formatting: 41 `toLocale*String`/`Intl.*` calls in 20 files use the active locale. `date-fns` gets `ptBR` in `ui/date-picker.tsx`; react-day-picker `locale` in `ui/calendar.tsx`. `base-cvs/cv-document-blocks.tsx` is untouched: the preview stays the English twin of the PDF (owner, D7). Server data stays as sent: `adjustments.description`, the device `client_label`, `last_run_error`.
 - `timeline/timeline-options.ts` `stageLabel()` reads the translator. `src/lib/calendar.ts` SUMMARY is translated; the `legacyStageLabel()` UID is untouched. `src/contexts/agenda-notifications-context.tsx` notifications are translated.
 - Server components that render text become client: `src/app/(public)/cookie-policy/cookie-policy-page.tsx` (plus a NEXT_LOCALE row) and `src/app/not-found.tsx`. `page.tsx` metadata stays English.
-- Design system: no separate doc. `applika/frontend/CLAUDE.md` binds: "UI Components" (raw Radix primitive, `cn()`); "Stacking contract" (inside the `z-30` header and the `z-40` landing header, no portal); "App shell" (`md` is the only breakpoint, the header wraps below it, account menu mounted twice so scope locators); "Fonts".
+- Design system: no separate doc. `applika/frontend/AGENTS.md` binds: "UI Components" (raw Radix primitive, `cn()`); "Stacking contract" (inside the `z-30` header and the `z-40` landing header, no portal); "App shell" (`md` is the only breakpoint, the header wraps below it, account menu mounted twice so scope locators); "Fonts".
 - Pattern: `src/components/theme-toggle.tsx` (header control), `src/hooks/use-features.ts` (provider and hook), `src/components/tailored-cvs/cv-diff.fixtures.test.ts` (a web test reading a file outside `frontend/`).
 
 ## Contract

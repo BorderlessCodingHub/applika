@@ -43,7 +43,7 @@ Changed:
 - `app/core/rate_limit.py` `subject_for(headers, cookies, host)`: Bearer, then `__access`, then IP; `app/config/rate_limit.py` passes headers.
 - `app/config/settings.py`: `DEVICE_CODE_TTL_SECONDS=600`, `DEVICE_CODE_POLL_INTERVAL_SECONDS=10`, `DEVICE_VERIFICATION_URI='http://127.0.0.1:8080/device'`, `CLI_MANUAL_REDIRECT_URI='http://127.0.0.1:8080/cli/code'`, `SESSION_HISTORY_DAYS=30`.
 - `app/main.py`: include both routers. `app/scripts/seed_e2e.py`: `mint_session` via `OpenSessionUseCase`; extra `cli_device` session for e2e-user. `scripts/e2e.sh`: export `E2E_CLI_ACCESS_TOKEN`, `E2E_CLI_REFRESH_TOKEN`. `scripts/seed_mock_data.py`: header note only (pasted `__access` carries `sid`).
-- `backend/CLAUDE.md` (Authentication, tables, env vars, domain model), `backend/CHANGELOG.md`.
+- `backend/AGENTS.md` (Authentication, tables, env vars, domain model), `backend/CHANGELOG.md`.
 Pattern: router `app/presentation/api/account_link.py`; repo `app/domain/repositories/discord_connection_repository.py`; use case `app/application/use_cases/account_links/unlink_discord.py`; Redis state `app/application/use_cases/auth_handoff_state.py`; migration `641001baff09_feature_flags.py`.
 
 ## Frontend (B)
@@ -57,8 +57,8 @@ Module `frontend/src/`.
 - `app/(protected)/layout.tsx`: path `/device` → `sessionStorage['applika:return-to']` before `router.replace("/login")`; once authenticated, consume once, `router.replace` (value must start `/`, not `//`).
 - `app/cli/code/page.tsx` + `cli-code-page.tsx` (new), outside groups like `/login`, no auth: shows `<code>#<state>` read-only + "Copy" + "Paste this code into your terminal".
 - i18n: none (frontend has no i18n).
-- Design system (`frontend/CLAUDE.md`): `### UI Components` (`components/ui/tabs.tsx` variant `line`, `cn()`, tokens in `src/app/globals.css` `@theme`), `### Profile — connected accounts` (card, badge, `AlertDialog` confirm), `### Auth & Token Refresh` (429 never signs out), `### Routing` (Suspense around `useSearchParams`, `/login` outside groups).
-- No `useHasFeature`/`FeatureGate`/nav `feature` (owner exception). `frontend/CLAUDE.md` updated.
+- Design system (`frontend/AGENTS.md`): `### UI Components` (`components/ui/tabs.tsx` variant `line`, `cn()`, tokens in `src/app/globals.css` `@theme`), `### Profile — connected accounts` (card, badge, `AlertDialog` confirm), `### Auth & Token Refresh` (429 never signs out), `### Routing` (Suspense around `useSearchParams`, `/login` outside groups).
+- No `useHasFeature`/`FeatureGate`/nav `feature` (owner exception). `frontend/AGENTS.md` updated.
 Pattern: `components/profile/connected-accounts.tsx` + `hooks/use-account-links.ts`.
 
 ## CLI (C) — applika-cli 1.1.0
@@ -67,7 +67,7 @@ Pattern: `components/profile/connected-accounts.tsx` + `hooks/use-account-links.
 - `cli/src/applika/lib/api.py`: `Authorization: Bearer`, no cookies; `_refresh` → `POST /auth/token` `refresh_token` grant; 429 or 503 keeps `session.json` and raises `ApiError(detail)`; other non-200 clears; 503 on any other route → `ApiError`, no refresh, session kept; `logout` → `POST /auth/revoke` then clear; UA `applika-cli/<version> (<platform.system()>)`.
 - `cli/src/applika/lib/session.py`: shape unchanged (4 keys). Old CLIs read a 1.1.0 file: same JWT works as `__access` cookie, uuid7 works on `GET /auth/refresh`.
 - `cli/src/applika/commands/auth.py`: `login [--device] [--manual] [--device-name TEXT]` (default `socket.gethostname()`, ≤100); ends existing session first (revoke, errors ignored); prints `Logged in as <username> on <device_name>`. `lib/loopback.py` reused.
-- `cli/pyproject.toml` 1.1.0, `cli/CHANGELOG.md`, `cli/CLAUDE.md`, `cli/src/applika/skills/applika-cli/SKILL.md` (login section).
+- `cli/pyproject.toml` 1.1.0, `cli/CHANGELOG.md`, `cli/AGENTS.md`, `cli/src/applika/skills/applika-cli/SKILL.md` (login section).
 
 ## Contract
 - `GET /auth/cli/authorize?redirect_uri&code_challenge&code_challenge_method=S256&state` → 307 GitHub + `__cli_login`; 400 `{detail}`: existing loopback messages, `"code_challenge_method must be S256"`, `"Invalid code_challenge"` (43..128 base64url). `redirect_uri` = loopback (`validate_cli_callback_url`) or literal `oob`.

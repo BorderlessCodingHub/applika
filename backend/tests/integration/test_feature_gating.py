@@ -216,7 +216,7 @@ async def test_non_json_body_and_undefined_method_differ_as_documented(
     """Plan correction 5 (owner-approved): FastAPI decodes the body before
     any dependency, so a body that is not JSON is its 422 ``json_invalid``;
     Starlette answers an undefined method with 405. Recorded in the backend
-    CLAUDE.md, not hidden."""
+    AGENTS.md, not hidden."""
     response = await async_client.post(
         '/job-searches',
         content=b'{not json',

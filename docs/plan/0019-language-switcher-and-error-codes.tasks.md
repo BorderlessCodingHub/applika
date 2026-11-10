@@ -43,7 +43,7 @@ K1 (KODI-082) backend codes + catalog → K2 (KODI-083) web i18n core + switcher
 16. **`.detail` readers.** 31 reads in 15 files, plan names 10. Full list: `lib/api-client.ts`, `lib/borderless-error.ts`, `lib/blob-error.ts`, `lib/rate-limit.ts`, `app/(protected)/device/device-page.tsx`, `app/(protected)/admin/jobs/jobs-page.tsx`, `components/tailored-cvs/cv-removed-row.tsx`, `hooks/use-jobs.ts`, `app/(protected)/admin/report-webhooks/report-webhooks-page.tsx`, `services/implementations/auth-service.ts`, `app/(protected)/admin/features/view/feature-view-page.tsx`, `components/jobs/job-test-fixtures.ts` (fixture), `components/application-drafts/draft-page-states.tsx`, `services/interfaces/i-auth-service.ts`, `components/application-drafts/draft-copy.ts`. K2 moves all of them through `lib/api-error-message.ts`, so one ticket owns R-017 and R-018.
 17. **Shared text outside the plan's areas.** `src/components/ui/*` (accessible names such as the sr-only "Close"), `src/components/common/*`, `src/components/cookie-consent.tsx` → K2. `components/applications/feedback-dialog.tsx` (hoisted by `AppShell`), `cli-promo-banner.tsx`, `theme-toggle.tsx`, `app-logo.tsx`, `components/features/*`, `src/options.ts` and `components/timeline/timeline-options.ts` (read first by profile, dashboard and agenda) → K3.
 18. **Mount points** (verified): `components/layout/header.tsx` l.80 and `components/landing/landing-header.tsx` l.26 are the `<ThemeToggle />` lines; `app/login/login-page.tsx` and `app/cli/code/cli-code-page.tsx` exist and have no header. All four mount in K4.
-19. **CLAUDE.md lines naming old codes.** `backend/CLAUDE.md` names the six strings in Authentication, Reports and Exception Handling, the 429 body in Rate limiting, the gate's `{"detail": "Not Found"}` in Beta features and the 503 body in Authentication (plan names only Exception Handling) → K1. `frontend/CLAUDE.md` l.189, l.193, l.1485-1496, l.1541 → K2.
+19. **AGENTS.md lines naming old codes.** `backend/AGENTS.md` names the six strings in Authentication, Reports and Exception Handling, the 429 body in Rate limiting, the gate's `{"detail": "Not Found"}` in Beta features and the 503 body in Authentication (plan names only Exception Handling) → K1. `frontend/AGENTS.md` l.189, l.193, l.1485-1496, l.1541 → K2.
 20. **Changelogs.** Both files already open `## [Unreleased]` at l.7: append.
 
 ## K1 — Backend: numbered `code` on every error answer, `params`, the error catalog, changelogs   side: backend   covers: R-011, R-012, R-013, R-014 (API), R-015, R-016, R-019 (API, catalog), R-020 (API), R-021 (API), R-022   deps: —
@@ -61,7 +61,7 @@ Touch:
 - docs/error-codes.md (new)
 - backend/tests/unit/test_error_codes.py (new), backend/tests/integration/test_error_codes.py (new); integration/test_feature_gating.py, test_rate_limit.py, test_borderless_signin.py, test_borderless_confirm.py, test_quinzenal_reports.py; unit/test_borderless_sign_in.py, unit/test_get_current_user.py; the 18 files of Plan corrections 6; tests/conftest.py
 - frontend/e2e/borderless-signin.spec.ts (l.182, l.361)
-- backend/CHANGELOG.md, cli/CHANGELOG.md, backend/CLAUDE.md
+- backend/CHANGELOG.md, cli/CHANGELOG.md, backend/AGENTS.md
 Pattern:
 - backend/app/presentation/handlers.py `_coded_refusal_handler` (already emits `{detail, code}`)
 - backend/tests/integration/test_feature_gating.py (404 byte-equal to the unknown route)
@@ -111,7 +111,7 @@ Steps:
 - T012 [US6] [US7] Docs and changelogs (no ticket keys; changelogs rule 3):
   - backend/CHANGELOG.md `## [Unreleased]`: Added (`code` on every error answer, `params` on value-naming codes, `docs/error-codes.md`); Changed (`badge_required`, `membership_unconfirmed`, `email_unverified`, `binding_conflict`, `email_ambiguous`, `email_unusable` renumbered RPT-1001, RPT-1002, AUTH-1005..AUTH-1008, messages unchanged; an unhandled 500 answers JSON; every validation 422 adds `code` GEN-1003);
   - cli/CHANGELOG.md `## [Unreleased]`: Added (`code` on every API error, `detail` unchanged, statuses and headers unchanged); Changed (on a 500 the CLI prints "Internal Server Error" where it printed "API request failed with status 500", Plan corrections 9);
-  - backend/CLAUDE.md: Exception Handling (every domain exception takes an `ErrorCode`; a new error adds the member, a catalog row and an `en` and a `pt-BR` web message in the same change, ADR-0025 Consequences); the bodies in Authentication, Reports, Rate limiting and Beta features carry their codes (Plan corrections 19).
+  - backend/AGENTS.md: Exception Handling (every domain exception takes an `ErrorCode`; a new error adds the member, a catalog row and an `en` and a `pt-BR` web message in the same change, ADR-0025 Consequences); the bodies in Authentication, Reports, Rate limiting and Beta features carry their codes (Plan corrections 19).
 - T013 [US7] Checks, gate:
   - `uv run pytest tests -k "steps or finalize or supports"`; `cd cli && make lint && make test`, unchanged CLI source;
   - `grep -rn "HTTPException(" backend/app` → none; `grep -rnE "'(badge_required|membership_unconfirmed|email_unverified|binding_conflict|email_ambiguous|email_unusable)'" backend/app` → none;
@@ -153,7 +153,7 @@ Touch:
 - frontend/src/app/(public)/cookie-policy/cookie-policy-page.tsx; frontend/src/components/cookie-consent.tsx
 - frontend/src/test/setup.ts; frontend/playwright.config.ts; frontend/eslint.config.mjs (only if `react/jsx-no-literals` is adopted)
 - frontend/src/i18n/resolve-locale.test.ts, messages.test.ts, frontend/src/components/language-toggle.test.tsx, frontend/src/lib/api-client.test.ts (new); app/login/login-page.test.tsx, components/badges/confirm-membership-form.test.tsx
-- frontend/CLAUDE.md; docs/plan/0019-language-switcher-and-error-codes.md (`## Glossary`)
+- frontend/AGENTS.md; docs/plan/0019-language-switcher-and-error-codes.md (`## Glossary`)
 Pattern:
 - frontend/src/hooks/use-features.ts (provider-fed hook)
 - frontend/src/components/theme-toggle.tsx (header control)
@@ -161,7 +161,7 @@ Pattern:
 - the reference `LanguageToggle` as transcribed in plan `## Contract`
 Contract: K1's (above). Cookie `NEXT_LOCALE=<en|pt-BR>; Path=/; Max-Age=31536000; SameSite=Lax`, not HttpOnly, written by the browser on pick only. Switcher: plan `## Contract`, every class verbatim.
 Steps:
-- T014 [US1] Build on `labs01-145` after the K1 tip. `pnpm add next-intl` at a version that supports Next 16.2 static export and React 19.2 (plan `## Open`); no routing, no middleware (`output: "export"`). If none does, `use-intl` (same API, no Next coupling); record which in frontend/CLAUDE.md.
+- T014 [US1] Build on `labs01-145` after the K1 tip. `pnpm add next-intl` at a version that supports Next 16.2 static export and React 19.2 (plan `## Open`); no routing, no middleware (`output: "export"`). If none does, `use-intl` (same API, no Next coupling); record which in frontend/AGENTS.md.
 - T015 [P] [US2] [US3] Create frontend/src/i18n/config.ts (new): `LOCALES = ["en","pt-BR"]`, `DEFAULT_LOCALE = "en"`, `LOCALE_COOKIE = "NEXT_LOCALE"`, max age 31536000.
 - T016 [P] [US2] Create frontend/src/i18n/resolve-locale.ts (new), pure: a cookie of exactly `en` or `pt-BR` wins; any other value is ignored; else any `navigator.languages` entry starting `pt` (`pt`, `pt-PT`, `pt-BR`) → `pt-BR`; else `en`.
 - T017 [US1] [US3] Create frontend/src/i18n/locale-provider.tsx (new): resolves after mount; `en` imported statically, `pt-BR` by dynamic import; `NextIntlClientProvider locale messages timeZone={browserTimeZone()}`; sets `document.documentElement.lang` on resolve and on every switch; `useLocaleSwitch()` = `{locale, setLocale, toggleLocale, isPending}` with `useTransition`, writes the cookie on pick only; no navigation, the tree stays mounted, so typed values stay; cookies blocked → the switch holds for this page view.
@@ -178,14 +178,14 @@ Steps:
   - frontend/src/lib/api-error-message.ts (new); the 31 `.detail` reads in 15 files go through it.
 - T023 [US1] Shared text: frontend/src/components/ui/* accessible names (sr-only "Close" and the like); ui/date-picker.tsx date-fns `ptBR` under `pt-BR`; ui/calendar.tsx react-day-picker `locale` and its month labels (l.40); frontend/src/components/common/* (empty state, confirm dialog).
 - T024 [US3] Cookies: frontend/src/app/(public)/cookie-policy/cookie-policy-page.tsx becomes a client component, translated, plus a `NEXT_LOCALE` row (a preference cookie the user sets by choosing a language; holds `en` or `pt-BR`; one year); `cookie-policy/page.tsx` metadata stays English; frontend/src/components/cookie-consent.tsx translated.
-- T025 [US1] Harness: frontend/src/test/setup.ts supplies `en` messages, so existing word assertions hold; frontend/playwright.config.ts `use.locale: "en-US"` (Plan corrections 13); try `react/jsx-no-literals` in frontend/eslint.config.mjs: adopt it (warn) if the noise is reasonable, else record the decision in frontend/CLAUDE.md (plan `## Open`).
+- T025 [US1] Harness: frontend/src/test/setup.ts supplies `en` messages, so existing word assertions hold; frontend/playwright.config.ts `use.locale: "en-US"` (Plan corrections 13); try `react/jsx-no-literals` in frontend/eslint.config.mjs: adopt it (warn) if the noise is reasonable, else record the decision in frontend/AGENTS.md (plan `## Open`).
 - T026 [P] [US1] [US2] [US3] [US4] Vitest:
   - frontend/src/i18n/resolve-locale.test.ts: valid cookie wins; garbage cookie ignored; `pt`, `pt-PT`, `pt-BR` → `pt-BR`; `fr` → `en`; no cookie, no languages → `en`;
   - frontend/src/components/language-toggle.test.tsx: order, names, every class of both variants, disabled + `opacity-70` while pending, cookie attributes on pick, none before, `html[lang]`, a typed input keeps its value across a switch, text swaps with no navigation;
   - frontend/src/i18n/messages.test.ts: `en` and `pt-BR` have the same keys, no empty value, the same ICU args per key; `errors.*` == the catalog's codes and each message's ICU args == that code's params, reading `../docs/error-codes.md`, failing (never skipping) when the file is missing;
   - frontend/src/lib/api-client.test.ts: known code → pt-BR text with its params, unknown code → `detail`, no body → generic line in the active language, GEN-1003 → one line;
   - app/login/login-page.test.tsx l.159-206 and components/badges/confirm-membership-form.test.tsx l.114-118: numbered codes.
-- T027 [US1] frontend/CLAUDE.md: an i18n section (provider, messages, translator, errors by code, `en` = today's words, a new error = enum member + catalog row + two messages, server components cannot translate, the switcher and its hooks); old code strings at l.189, l.193, l.1485-1496, l.1541 → numbered (Plan corrections 19).
+- T027 [US1] frontend/AGENTS.md: an i18n section (provider, messages, translator, errors by code, `en` = today's words, a new error = enum member + catalog row + two messages, server components cannot translate, the switcher and its hooks); old code strings at l.189, l.193, l.1485-1496, l.1541 → numbered (Plan corrections 19).
 - T028 [US1] Gate, close:
   - `pnpm lint && pnpm prettier --check . && pnpm tsc --noEmit && pnpm test && pnpm build` in frontend;
   - full `frontend/scripts/e2e.sh` green; no applika-e2e container, network or volume left;
@@ -271,7 +271,7 @@ Touch:
 - frontend/src/hooks/use-applications.ts, use-timeline.ts, use-create-base-cv.ts, use-update-base-cv.ts, use-delete-base-cv.ts, use-create-tailored-cv.ts, use-update-tailored-cv.ts, use-delete-tailored-cv.ts, use-export-base-cv-pdf.ts, use-export-base-cv-markdown.ts, use-export-tailored-cv-pdf.ts, use-export-tailored-cv-markdown.ts, use-export-cv-diff.ts, use-jobs.ts, use-job-searches.ts, use-admin.ts
 - mounts: frontend/src/components/layout/header.tsx (l.80), frontend/src/components/landing/landing-header.tsx (l.26), frontend/src/app/login/login-page.tsx, frontend/src/app/cli/code/cli-code-page.tsx
 - frontend/e2e/language.spec.ts (new); e2e specs that pin header content, if any
-- tests beside the touched screens; frontend/CLAUDE.md
+- tests beside the touched screens; frontend/AGENTS.md
 Pattern:
 - frontend/src/components/theme-toggle.tsx and its two mounts (header control placement)
 - frontend/e2e/devices.spec.ts (serial spec that cleans up after itself); frontend/e2e/shell-responsive.spec.ts (320px geometry)
@@ -288,7 +288,7 @@ Steps:
   - frontend/src/components/layout/header.tsx l.80, before `<ThemeToggle />`, every protected page at every width (welcome and device included);
   - frontend/src/components/landing/landing-header.tsx l.26 (also `/cookie-policy` through `(public)/layout.tsx`);
   - a top-right slot of its own in frontend/src/app/login/login-page.tsx and frontend/src/app/cli/code/cli-code-page.tsx;
-  - the `landing` variant mounted nowhere; inside the `z-30` header and the `z-40` landing header, no portal (frontend/CLAUDE.md "Stacking contract").
+  - the `landing` variant mounted nowhere; inside the `z-30` header and the `z-40` landing header, no portal (frontend/AGENTS.md "Stacking contract").
 - T046 [US1] [US5] ui-designer pass: the toggle in its four places, both themes, desktop and 320px (no sideways scroll, header still fits); pt-BR on the rail, tabs, table headers, dialogs of K4's screens.
 - T047 [P] [US1] [US5] Vitest: header and landing header render `LanguageToggle` `default`; login and terminal code slots; an admin screen and a jobs screen in pt-BR; the CV preview text stays English under pt-BR; every existing word test green on `en`.
 - T048 [US1] [US2] [US3] [US4] [US5] E2E frontend/e2e/language.spec.ts (new, serial), real stack:
@@ -301,7 +301,7 @@ Steps:
   - a garbage cookie value → browser detection decides;
   - 320px: no sideways scroll on landing, login and a signed-in page;
   - cleans up its cookies and any data it made.
-- T049 [US1] frontend/CLAUDE.md: where the switcher mounts, the language E2E and its sweep, name clashes for locators ("English" / "Português" are item names, "EN" / "BR" their text).
+- T049 [US1] frontend/AGENTS.md: where the switcher mounts, the language E2E and its sweep, name clashes for locators ("English" / "Português" are item names, "EN" / "BR" their text).
 - T050 [US1] Gate, close: `pnpm lint && pnpm prettier --check . && pnpm tsc --noEmit && pnpm test && pnpm build`; full `frontend/scripts/e2e.sh` green, language.spec.ts included; no applika-e2e container, network or volume left; `git -C applika diff 418aab2f -- frontend/src/services/types/features.ts backend/app/core/features.py` → empty; commits conventional, no ticket key (e.g. `feat(web): mount the language switcher`); not a merge point.
 AC:
 - The switcher sits in the signed-in header on every protected page and in the header of the landing and cookie policy pages. It also sits on the sign-in page and the terminal code page. It uses the default look everywhere, the landing page header included, in both themes. The landing look is ported but not mounted.
@@ -315,7 +315,7 @@ AC:
 - Playwright runs against the real stack: the built API, the built frontend, a real Postgres and a real Redis, migrated with `alembic upgrade head`. No mocked API. (.claude/rules/quality-gates.md)
 
 ## K5 — Closing 0019: full gate, E2E with the pt-BR sweep, ADR-0025, walk in both languages and themes, tag `0019-release`   side: both (backend, frontend, cli)   covers: — (closing)   deps: K4
-Goal: Prove the release whole: the full gate in CLAUDE.md order plus the target gates, the whole E2E suite with language.spec.ts and its pt-BR sweep, ADR-0025 Accepted and matching the build, no test infrastructure left, a walk by hand in both languages and both themes, the `0019-release` tag. No new feature work.
+Goal: Prove the release whole: the full gate in AGENTS.md order plus the target gates, the whole E2E suite with language.spec.ts and its pt-BR sweep, ADR-0025 Accepted and matching the build, no test infrastructure left, a walk by hand in both languages and both themes, the `0019-release` tag. No new feature work.
 Owner's words: "Today Applika is available in just one language - english - and I want to expand to english and portuguese, access this website and implement the same language switcher https://platform.borderlesscoding.com/ to this app."
 Clarified: success signals: in Portuguese no screen shows English text other than user content, product names, the endonyms and the Assumptions' exceptions; every error code the API can return is in the catalog and has a message in both languages, a check fails the build otherwise; switching takes effect with no reload on the landing page, the sign-in page and a signed-in page; the CLI's own test suite passes with no change.
 Covers: — (closing)
@@ -326,7 +326,7 @@ Touch:
 Pattern: .claude/rules/quality-gates.md; docs/plan/0018-borderless-sign-in-and-membership-badges.tasks.md K4
 Contract: none new.
 Steps:
-- T051 On `labs01-145` after the K4 tip. Gate in CLAUDE.md order:
+- T051 On `labs01-145` after the K4 tip. Gate in AGENTS.md order:
   - `cd backend && make format && make lint && make test`;
   - `cd frontend && pnpm lint && pnpm test && pnpm build`;
   - `cd cli && make format && make lint && make test`.
@@ -359,7 +359,7 @@ Steps:
   - owner steps (`### Release`): merge into `develop` only after `0018-release-c` is merged; no `alembic` step; CD deploys API and web; rollback = previous image tags;
   - the agent never touches prod or `main`.
 AC:
-- Project full gate green in CLAUDE.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty with no new diagnostics beyond 171 and touched files clean, coverage ≥ 90%, prettier, tsc).
+- Project full gate green in AGENTS.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty with no new diagnostics beyond 171 and touched files clean, coverage ≥ 90%, prettier, tsc).
 - Every ADR the feature drafted reads Accepted (ADR-0025, Accepted 2026-10-31; ADR-0024 amended by it; ADR-0015, ADR-0018 and ADR-0019 carry its dated notes; ADR-0018 carries its beta exception; bound ADR-0006 and ADR-0009 Accepted).
 - No test infrastructure left behind: no E2E containers, ephemeral stacks, temp databases, testcontainers or Borderless stub left running.
 - The E2E the feature earned (language.spec.ts with its pt-BR sweep, and the updated borderless-signin.spec.ts; the whole suite green via frontend/scripts/e2e.sh on the real stack) runs inside the gate and is green; codes, params, catalog parity, locale edge cases, message parity, the calendar UID and installed CLIs are carried by the cheaper layers named in T053.

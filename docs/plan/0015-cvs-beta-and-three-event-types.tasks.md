@@ -36,13 +36,13 @@ K1 Release A migration → K2 backend → K3 web → K4 applika-cli → K5 closi
 7. **Test modules that call CV or draft routes (plan: "every CV/draft test module").** `test_base_cv_api.py`, `test_tailored_cv_api.py`, `test_cv_pdf_api.py`, `test_cv_export_api.py`, `test_application_drafts.py`, `test_jobs_draft.py`, `test_delete_account.py` (l.261, 307), `test_statistics.py` (l.395-418), `test_cycles.py` (l.152), `test_admin.py` (l.915, 1152), `test_applications.py` (l.771), `test_feature_gating.py` (R-027 cases). `admin_client` has `cvs` once the row exists. Also `tests/unit/test_seed_e2e.py` l.567-595 (`reset_beta_features`).
 8. **Web glue the plan omits.** `hooks/use-application-drafts.ts` `useDrafts()` (`applications-page.tsx` l.179) fires `GET /applications/drafts` for everyone: without `cvs` it must not run. "New with CV" lives in `components/applications/new-application-actions.tsx` l.33-36. `components/timeline/event-type-selector.tsx` l.27-57 says "5 types" and lays out `sm:grid-cols-5`. `services/types/timeline.ts` l.44 comment. `job-list-item.tsx` l.38 and `job-detail-view.tsx` l.56 take a required `onStart`. `job-fit-list.tsx` l.84 shows the master CV invitation on the job page. `jobs-page.tsx` l.106-107, l.243 derive `fitAvailable` from `useBaseCvs`.
 9. **E2E pins.** `beta-features.spec.ts` `BASE_LINKS = 7` (l.44) serves both `e2e-admin` (has `cvs` as admin) and `e2e-discord` (no `cvs` now): e2e-discord's counts at l.320, 341, 376, 436, 466 drop by one; the admin's stay. The l.318 comment says seven. `shell-responsive.spec.ts` l.465 lets only Jobs carry "Beta" in its text; CVs gets the same regex; l.33-35 docstring. `smoke.spec.ts` length 22 unchanged (no new route; `user` and `admin` both have `cvs`).
-10. **CLI names the plan omits.** `cli/src/applika/commands/applications/__init__.py` l.90 (timeline help "notes, interviews, offers"), `commands.py` l.1256 (help), and the `cli/CLAUDE.md` commands table ("notes, typed interviews, offer/denied"). The plan names `README.md` and `SKILL.md` only.
+10. **CLI names the plan omits.** `cli/src/applika/commands/applications/__init__.py` l.90 (timeline help "notes, interviews, offers"), `commands.py` l.1256 (help), and the `cli/AGENTS.md` commands table ("notes, typed interviews, offer/denied"). The plan names `README.md` and `SKILL.md` only.
 11. **CLI version at release.** `cli/pyproject.toml` is 1.1.0, never published (PyPI holds 0.1.1..0.1.4), and `cli/CHANGELOG.md` already has `## [1.1.0] - 2026-10-15`. PRD assumption: entries go under `## [Unreleased]`, the version is numbered at release. K4 bumps nothing. `.github/workflows/cli-cd.yaml` publishes pyproject's version on a push to `main` touching `cli/**`. **Owner decides the number at release.**
 12. **R-003 edge.** A DELETE leaves no trace, so R2 cannot see a removal. It keeps off a removed user whose earliest CV predates the `cvs` row. It adds back a user an admin added after A and removed before R2 whose first CV came after A, and a pre-A owner who deleted every pre-A CV and made a new one. The ACs stay verbatim. **Owner to confirm the limit.**
 13. **CLI CI triggers.** `.github/workflows/cli-ci.yaml` runs on pushes to `develop` and `actions/*`, PRs to `develop`/`main`, and `workflow_dispatch`. It does not run on a push of the integration branch. "Green on GitHub for the branch" = the owner pushes it and dispatches "CLI CI" on it (`gh workflow run "CLI CI" --ref integration/0015-cvs-beta-and-three-event-types`), or confirms after the `develop` merge.
 14. **CLI CI cause, checked.** `typer/rich_utils.py` l.74-81 sets `FORCE_TERMINAL` at import from `GITHUB_ACTIONS`, `FORCE_COLOR` or `PY_COLORS` (and `_TYPER_FORCE_DISABLE_TERMINAL`, also at import). An env passed to `CliRunner` comes too late. Fix in the tests (K5).
 15. **Names the plan omits.** `backend/tests/integration/test_cvs_gating.py` (new: the plan's "Gate" tests); `tests/features_seed.py` `seed_cvs_feature`.
-16. **Commit key line.** `frontend/CLAUDE.md` "## Tooling" still says commits carry the ticket key. `.claude/rules/branches-and-commits.md` 2 wins (no key). K3 fixes that one line in the file it edits anyway.
+16. **Commit key line.** `frontend/AGENTS.md` "## Tooling" still says commits carry the ticket key. `.claude/rules/branches-and-commits.md` 2 wins (no key). K3 fixes that one line in the file it edits anyway.
 17. **ty baseline.** Rule: 171, ratchets down only, compared against `develop`. Every new or changed file is clean.
 18. **Timestamps.** The conversion keeps `created_at` and `updated_at` (PRD assumption): raw SQL, no `updated_at = now()`.
 19. **Release A merge into develop.** With one branch, the owner merges tag `0015-release-a` into `develop` (`--no-ff`) when he releases A, then the B tip later. `backend/CHANGELOG.md` may then carry lines from both merges under `## [Unreleased]`: keep both (0013, 0014 precedent).
@@ -135,7 +135,7 @@ Touch:
 - backend/tests/conftest.py, backend/tests/features_seed.py
 - backend/tests (Plan corrections 4..7): unit/conftest.py, test_step_translation.py, test_timeline_event_uc.py, test_timeline_event_schema.py, test_legacy_steps_uc.py, test_application_read_model.py, test_conversion_rate.py, test_general_statistics.py, test_step_avg_days.py, test_seed_e2e.py; integration/timeline_seed.py, test_timeline_api.py, test_application_steps.py, test_agenda.py, test_statistics.py, test_finalize.py, test_migrated_data_reads.py, test_past_cycle_data.py, test_timeline_expand_migration.py, test_timeline_contract_migration.py, test_base_cv_api.py, test_tailored_cv_api.py, test_cv_pdf_api.py, test_cv_export_api.py, test_application_drafts.py, test_jobs_draft.py, test_delete_account.py, test_cycles.py, test_admin.py, test_applications.py, test_feature_gating.py
 - backend/app/scripts/seed_e2e.py, backend/scripts/seed_mock_data.py
-- backend/CLAUDE.md, backend/CHANGELOG.md, cli/CHANGELOG.md
+- backend/AGENTS.md, backend/CHANGELOG.md, cli/CHANGELOG.md
 Pattern:
 - backend/app/presentation/api/jobs.py (router `dependencies=[require_feature(...)]` l.32-38, `add_slash_twins(router)` l.104)
 - backend/app/presentation/api/tailored_cv.py l.124-130 + l.343, application_draft.py l.115-121 + l.243 (route gate, twins)
@@ -200,7 +200,7 @@ Steps:
   - backend/app/scripts/seed_e2e.py `reset_beta_features`, every run: `cvs` back to `beta` (`released_at` NULL); `e2e-user` on its list; `e2e-discord` off it; `e2e-admin`'s opt-outs gone; a missing `cvs` row fails loudly (run `alembic upgrade head`); tests/unit/test_seed_e2e.py l.567-595 for both keys;
   - backend/scripts/seed_mock_data.py: `has_cvs_feature()` beside `has_jobs_feature()` (l.626, read l.1033); without it skip `seed_base_cvs`, `seed_cv_pdfs`, `seed_application_cv`, `seed_keyword_copy`, `seed_drafts`, `seed_draft_from_job` and print why; `seed_timeline()` notes → interviews (l.792, l.877).
 - T021 [US1] Docs and changelogs (no ticket keys in new lines):
-  - backend/CLAUDE.md: Beta features (`FeatureKey.CVS`, the three gated routers, both-keys routes, `cvs_beta`, the ADR-0021 list); Base CVs, Application CVs, drafts, Jobs (no fit without `cvs`) gate lines; Application Timeline + Enums (three types, `event_type_old` unmapped, the CHECK); Steps reverse map line; Seed Script Rule (`has_cvs_feature`);
+  - backend/AGENTS.md: Beta features (`FeatureKey.CVS`, the three gated routers, both-keys routes, `cvs_beta`, the ADR-0021 list); Base CVs, Application CVs, drafts, Jobs (no fit without `cvs`) gate lines; Application Timeline + Enums (three types, `event_type_old` unmapped, the CHECK); Steps reverse map line; Seed Script Rule (`has_cvs_feature`);
   - backend/CHANGELOG.md `## [Unreleased]`: Added (`cvs` gate, R2 top-up), Changed (no fit without `cvs`; drafts and CV routes 404 without `cvs`), Removed (event types note and feedback: 422);
   - cli/CHANGELOG.md `## [Unreleased]` (changelogs rule 3): Changed `- the API refuses event_type note and feedback (422); existing ones read as interview with interview_type unknown. 0.1.4 is unaffected: its steps keep their ids.` and `- cvs *, applications cv * and drafts answer 404 without the "cvs" beta feature.`
 - T022 [US1] Checks, gate, close:
@@ -253,14 +253,14 @@ Touch:
 - frontend/src/components/timeline/timeline-types.ts, timeline-options.ts, timeline-event-schema.ts, timeline-event-form.tsx, event-type-selector.tsx; frontend/src/services/types/timeline.ts
 - frontend/src/components/timeline/timeline-event-schema.test.ts, timeline-event-form.test.tsx, timeline-section.test.tsx, timeline-event-card.test.tsx; frontend/src/lib/timeline-view.test.ts; frontend/src/hooks/use-timeline.test.tsx; frontend/src/app/(protected)/agenda/agenda-page.test.tsx
 - frontend/e2e/cvs-beta.spec.ts (new), e2e/beta-features.spec.ts, e2e/shell-responsive.spec.ts, e2e/timeline.spec.ts
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - frontend/src/app/(protected)/jobs/jobs-page.tsx (exported `FeatureGate` over an inner component l.88-96, `BetaBadge` sibling of the h1 l.211-216)
 - frontend/src/components/layout/nav.ts (`feature: "jobs"` l.41, `navItemsFor`)
 - frontend/src/app/(protected)/applications/applications-page.tsx archived-cycle branch l.487-491 (no Tabs)
 - frontend/src/hooks/use-application-cv-fit.ts (`enabled` gate)
 - frontend/e2e/beta-features.spec.ts (two contexts, `openAs`, `addByUsername`, `afterAll` cleanup), e2e/support/auth.ts
-- frontend/CLAUDE.md "### Beta features", "### Application Timeline"; ui-designer; ADR-0006 tokens
+- frontend/AGENTS.md "### Beta features", "### Application Timeline"; ui-designer; ADR-0006 tokens
 Contract (from K2): `GET /users/me/features` → `{features: [{key: "jobs"|"cvs", stage}]}`; without `cvs` every base-CV, application-CV and draft route → 404 `{"detail": "Not Found"}`; `GET /jobs*` without `cvs` → `best_fit: null`, `fits: []`; timeline `event_type` ∈ `interview|offer|denied`, else 422.
 Steps:
 - T023 [US1] Build on `integration/0015-cvs-beta-and-three-event-types` after the K2 tip.
@@ -294,7 +294,7 @@ Steps:
   - e2e/beta-features.spec.ts: e2e-discord's rail counts drop by one (l.318-320, 341, 376, 436, 466), the admin's stay (Plan corrections 9);
   - e2e/shell-responsive.spec.ts: CVs text `/^CVs(?: Beta)?$/` beside Jobs (l.465); docstring l.33-35;
   - e2e/timeline.spec.ts: "Note" radios (l.180, 241, 534) → Offer / Denied / Interview; the API note (l.225) → interview; the dialog shows three radios and opens on Interview / Unknown.
-- T031 [US1] frontend/CLAUDE.md: "### Beta features" (`cvs`, what it hides, 6/7/8 entries); Routing (the CV routes are gated); "### Application Timeline" vocabulary (three types, default Interview / Unknown); E2E (`cvs-beta.spec.ts`, the seed resets `cvs`); "## Tooling" commit line without a ticket key (Plan corrections 16). No ticket keys in new lines.
+- T031 [US1] frontend/AGENTS.md: "### Beta features" (`cvs`, what it hides, 6/7/8 entries); Routing (the CV routes are gated); "### Application Timeline" vocabulary (three types, default Interview / Unknown); E2E (`cvs-beta.spec.ts`, the seed resets `cvs`); "## Tooling" commit line without a ticket key (Plan corrections 16). No ticket keys in new lines.
 - T032 [US1] Gate, close:
   - `pnpm lint && pnpm prettier --check . && pnpm tsc --noEmit && pnpm test && pnpm build` in frontend;
   - full `scripts/e2e.sh` green; no applika-e2e container, network or volume left;
@@ -319,7 +319,7 @@ Touch:
 - cli/src/applika/schemas/enums.py
 - cli/src/applika/commands/applications/commands.py, cli/src/applika/commands/applications/__init__.py
 - cli/tests/test_timeline_and_finalize.py
-- cli/README.md, cli/src/applika/skills/applika-cli/SKILL.md, cli/CLAUDE.md, cli/CHANGELOG.md
+- cli/README.md, cli/src/applika/skills/applika-cli/SKILL.md, cli/AGENTS.md, cli/CHANGELOG.md
 Pattern:
 - cli/src/applika/schemas/enums.py `InterviewType` (Typer choice from an enum)
 - cli/tests/test_timeline_and_finalize.py (FakeApiClient, `captured_post_payload`)
@@ -329,7 +329,7 @@ Steps:
 - T033 [US4] Build on `integration/0015-cvs-beta-and-three-event-types` after the K3 tip.
 - T034 [US4] cli/src/applika/schemas/enums.py `EventType` = INTERVIEW, OFFER, DENIED (l.65-70); commands.py `--type` help (l.1256) "interview, offer, denied"; applications/__init__.py timeline help (l.90) "interviews, offers and denials"; `timeline edit` reads `EventType(existing['event_type'])` (l.1506): the API sends three now.
 - T035 [P] [US4] cli/tests/test_timeline_and_finalize.py: note cases → interview (unknown) / offer / denied; `add --type note`, `add --type feedback`, `edit … --type note` → exit 2, nothing sent; `timeline add --help` lists the three and neither note nor feedback; asserts on Rich-rendered text stay colour-proof (pass under `GITHUB_ACTIONS=true FORCE_COLOR=1`; Plan corrections 14).
-- T036 [US4] Docs: cli/README.md timeline section (l.234-262); cli/src/applika/skills/applika-cli/SKILL.md (l.286-323); cli/CLAUDE.md commands table; cli/CHANGELOG.md `## [Unreleased]` `### Removed` `- applications timeline add and edit no longer take --type note or --type feedback; existing ones read as interview with interview_type unknown.` No version bump (Plan corrections 11). The 0.1.4 commands (`applications steps *`, `finalize --step/--feedback/--salary-offer`) untouched.
+- T036 [US4] Docs: cli/README.md timeline section (l.234-262); cli/src/applika/skills/applika-cli/SKILL.md (l.286-323); cli/AGENTS.md commands table; cli/CHANGELOG.md `## [Unreleased]` `### Removed` `- applications timeline add and edit no longer take --type note or --type feedback; existing ones read as interview with interview_type unknown.` No version bump (Plan corrections 11). The 0.1.4 commands (`applications steps *`, `finalize --step/--feedback/--salary-offer`) untouched.
 - T037 [US4] Checks, close:
   - `make format && make lint && make test` in cli; `GITHUB_ACTIONS=true FORCE_COLOR=1 uv run pytest` → only the five known failures K5 fixes;
   - the changelogs verify command; `applika --help` and `applika applications steps --help` unchanged;
@@ -341,7 +341,7 @@ AC:
 - Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). New entries go under `## [Unreleased]` with `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`. The CLI's version heading matches `applika/cli/pyproject.toml` when it is released. (.claude/rules/changelogs.md 4)
 
 ## K5 — Closing 0015: full gate, CLI CI fix, E2E, ADRs, walk, Release B   side: both   covers: — (closing; T046 guards the release split)   deps: K3, K4
-Goal: Prove 0015 whole: full gate in CLAUDE.md order, the CLI CI repair the owner ordered, E2E, ADRs, a by-hand walk on a real stack across both releases and their rollbacks, and tag Release B. No new feature work.
+Goal: Prove 0015 whole: full gate in AGENTS.md order, the CLI CI repair the owner ordered, E2E, ADRs, a by-hand walk on a real stack across both releases and their rollbacks, and tag Release B. No new feature work.
 Owner's words: "i would like to lock the cv builder and applications cv's in a feature flag just like jobs, sobre event types, i would like to also remove the types "notes" and "feedback", keeping only "interview", "offer" and "denied"" Owner, 2026-10-17: "create an another ticket or include in the final ticket to fix the cli tests, the github action "CLI CI" is failing with 5 errors of 329 passing"
 Clarified: success signals: after the second release every user who had a CV before the first one still opens /cvs and their application CVs, with no admin action; a user with neither "jobs" nor "cvs" sees six navigation entries, one of them seven, both eight; after the first release's migration no note or feedback event exists and `GET /applications/{id}/steps` answers 0.1.4 the same before and after; the owner releases "cvs" from /admin/features in under a minute, without a deploy. CLI CI: failing on develop since the 0014 merge (runs 39044778340, 39050335938), green locally.
 Covers: — (closing)
@@ -354,7 +354,7 @@ Touch:
 Pattern: .claude/rules/quality-gates.md; docs/plan/0014-cli-device-sign-in-and-devices.tasks.md K5
 Contract: none new.
 Steps:
-- T038 On `integration/0015-cvs-beta-and-three-event-types`. Gate in CLAUDE.md order:
+- T038 On `integration/0015-cvs-beta-and-three-event-types`. Gate in AGENTS.md order:
   - `cd backend && make format && make lint && make test`;
   - `cd frontend && pnpm lint && pnpm test && pnpm build`;
   - `cd cli && make format && make lint && make test`.
@@ -402,7 +402,7 @@ Steps:
   - the owner steps of `### Releases`: B only after A's `alembic upgrade head` is confirmed; `alembic upgrade head` right after the B deploy; the CLI version number before `develop` → `main` (Plan corrections 11); the R-003 limit (Plan corrections 12); rollback B, then A;
   - the agent never touches prod.
 AC:
-- Project full gate green in CLAUDE.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty with no new diagnostics and changed files clean, coverage ≥ 90%, prettier, tsc).
+- Project full gate green in AGENTS.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty with no new diagnostics and changed files clean, coverage ≥ 90%, prettier, tsc).
 - create an another ticket or include in the final ticket to fix the cli tests, the github action "CLI CI" is failing with 5 errors of 329 passing (owner, 2026-10-17): `GITHUB_ACTIONS=true FORCE_COLOR=1 uv run pytest` in cli has 0 failures, and "CLI CI" is green on GitHub for the branch.
 - Every ADR the feature drafted reads Accepted (ADR-0020 and ADR-0021, Accepted 2026-10-17; bound 0004, 0005, 0009, 0012, 0016, 0018 Accepted; 0012 and 0018 point at 0020 and 0021).
 - No test infrastructure left behind: no E2E containers, ephemeral stacks, temp databases or testcontainers.

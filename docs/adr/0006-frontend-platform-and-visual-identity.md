@@ -43,7 +43,7 @@ The owner orders a new visual identity for applika. Selected: "Keep Applika name
 
 - `/app/*` URL prefix: not adopted. Owner: "Keep current URLs (Recommended)".
 - Applika-only components (calendar, command, date-picker, range-slider, star-rating): kept and
-  restyled to new-york; the `<DatePickerInput>` mandate in `frontend/CLAUDE.md` stays.
+  restyled to new-york; the `<DatePickerInput>` mandate in `frontend/AGENTS.md` stays.
   Owner: "Keep, restyle to new-york (Recommended)".
 - Default theme: dark (target oklch palette), light derived from the same hues, toggle kept. Owner:
   "Dark default, derived light (Recommended)".

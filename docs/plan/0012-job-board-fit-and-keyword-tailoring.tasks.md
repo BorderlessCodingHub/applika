@@ -44,8 +44,8 @@ K1 history import (R0) → K2 Release A migration → K3 keyword fit + Tailor by
 4. **No PR.** Plan S1's "PR body names Ían, links his upstream PR, lists exceptions" becomes the annotated tag message and the backend changelog line. "Merges with a merge commit" becomes the owner's `git merge --no-ff`.
 5. **"One transaction" for job → draft.** Every repository commits inside its own method (`ApplicationRepository.create_draft` l.126, `TailoredCVRepository.create` l.92). K5 uses the shared-session, single-commit pattern of `use_cases/compat/legacy_finalize.py`: the draft is added and flushed without a commit, and the copy's create commits both. A private company made by `resolve_company` commits first; on a later failure it stays private and is reused next time.
 6. **R-021 "offers to open the one that exists".** The plan's 409 is a fixed string with no id. The web reads the existing application from `JobSummary.application`; on a 409 it refetches `GET /jobs/{id}` and offers "Open draft" / "Open application". No body change.
-7. **R-025 "the comparison shows those moves".** `backend/app/application/services/cv_diff.py` and `frontend/src/components/tailored-cvs/cv-diff.ts`, pinned to each other by `fixtures/cv-diff/`, match items by id and keywords as a set. A category or keyword reorder is zero changes; a bullet reorder is one "changed" bullets value. The plan has no step. K7 lists the copy's `adjustments` in the comparison while "Show changes" is on. The diff semantics and fixtures stay untouched. Frontend `CLAUDE.md` says `adjustments` "render NOWHERE"; K7 changes that line for `adjustments` only.
-8. **Nav order pinned twice.** Plan: Jobs after Applications. `frontend/src/components/layout/sidebar-nav.test.tsx` l.250-255 pins CVs right after Applications (an earlier choice, no PRD line). `frontend/e2e/shell-responsive.spec.ts` l.42-50 `PRIMARY_LABELS` pins seven entries. Frontend `CLAUDE.md` says "seven" (l.133, l.1552). The plan wins; K6 updates all three.
+7. **R-025 "the comparison shows those moves".** `backend/app/application/services/cv_diff.py` and `frontend/src/components/tailored-cvs/cv-diff.ts`, pinned to each other by `fixtures/cv-diff/`, match items by id and keywords as a set. A category or keyword reorder is zero changes; a bullet reorder is one "changed" bullets value. The plan has no step. K7 lists the copy's `adjustments` in the comparison while "Show changes" is on. The diff semantics and fixtures stay untouched. Frontend `AGENTS.md` says `adjustments` "render NOWHERE"; K7 changes that line for `adjustments` only.
+8. **Nav order pinned twice.** Plan: Jobs after Applications. `frontend/src/components/layout/sidebar-nav.test.tsx` l.250-255 pins CVs right after Applications (an earlier choice, no PRD line). `frontend/e2e/shell-responsive.spec.ts` l.42-50 `PRIMARY_LABELS` pins seven entries. Frontend `AGENTS.md` says "seven" (l.133, l.1552). The plan wins; K6 updates all three.
 9. **Compose and CD missing from the plan's S3 list.** ADR-0016 requires guarded updates in `.github/workflows/backend-cd.yaml` and the two services in the dev and e2e compose files. K4 does `backend-cd.yaml` and `docker-compose.yml`; K7 does `docker-compose.e2e.yml`.
 10. **Fixture data is not in the image.** `backend/Dockerfile` copies only `app/`, `migrations/`, `alembic.ini`. The fixture JSON lives in `backend/tests/fixtures/jobs/postings.json` (K4). The e2e compose mounts it read-only and points `JOBS_FIXTURE_PATH` at the mount (K7). The plan does not say which source a fixture run fills: with `JOBS_SCRAPERS=fixture`, the fixture scraper serves every enabled source from the file, keyed by source code.
 11. **E2E scheduler.** An hourly cron could fire mid-suite. The e2e compose sets `JOBS_INGEST_CRON` to a value that does not fire during a run (e.g. `0 0 1 1 *`). The spec starts the run with `POST /admin/jobs/runs` and polls `GET /admin/jobs/sources`.
@@ -57,7 +57,7 @@ K1 history import (R0) → K2 Release A migration → K3 keyword fit + Tailor by
     - 503 has no domain exception (`app/core/exceptions.py`; `account_link.py` raises `HTTPException` in the route). K4 adds `ServiceUnavailable` → 503 in `app/core/exceptions.py` + `app/presentation/handlers.py`.
     - Web: `hooks/use-jobs.ts`, `hooks/use-job-searches.ts`, `hooks/use-application-cv-fit.ts` (new); `hooks/use-create-tailored-cv.ts` takes `tailoring`. Admin sources go through `admin-service.ts`, `types/admin.ts`, `hooks/use-admin.ts` (no `i-admin-service.ts`, 0010 precedent), key `["admin", "job-sources"]`.
 16. **"Not offered", not "off".** Plan: the switch is "off without JD". PRD edge: "the choice is not offered"; R-026: "offered only when". K6 and K7 do not render it without a JD.
-17. **Filters in the URL on a static export.** Frontend `CLAUDE.md`: `router.replace()` to the same pathname with only a new query is a no-op. K6 writes filters with `window.history.pushState`/`replaceState` and reads them with `useSearchParams`.
+17. **Filters in the URL on a static export.** Frontend `AGENTS.md`: `router.replace()` to the same pathname with only a new query is a no-op. K6 writes filters with `window.history.pushState`/`replaceState` and reads them with `useSearchParams`.
 18. **No user-level source list.** The contract has no non-admin route listing sources. The PRD fixes two sources (non-goal "Sources other than Himalayas and RemoteOK"), so K6 keeps a constant `JOB_SOURCES` in `services/types/jobs.ts`.
 19. **Small semantics the plan leaves open, decided here.**
     - Tag filter: a job matches when it carries every chosen tag (`tags @> :tags`).
@@ -211,7 +211,7 @@ Touch:
 - backend/tests/unit/test_tailored_cvs_uc.py
 - backend/tests/integration/test_tailored_cv_api.py
 - backend/scripts/seed_mock_data.py
-- backend/CLAUDE.md
+- backend/AGENTS.md
 - backend/CHANGELOG.md
 - cli/CHANGELOG.md
 - docs/adr/0007-product-and-schema-convergence.md (status line only)
@@ -265,7 +265,7 @@ Steps:
     - `/cv/fit` on an application and on a draft → 200, 0..100, lists; blank JD → `score` null; no copy → 404; another user's → 404; two calls → the same body.
 - T034 [US5] backend/scripts/seed_mock_data.py `seed_application_cv()`: one application with a JD gets `tailoring: 'keywords'`; assert `adjustments` non-empty and `was_ai_generated` false; assert `GET /cv/fit` score in 0..100.
 - T035 [US5] Docs:
-  - backend/CLAUDE.md: "The Tailoring Port" → two bindings, a per-request resolver, the clone by default, ADR-0017; the TailoredCV note "always `false` / `[]` today" → `adjustments` filled by the keyword binding; the Application CVs table gains `tailoring` and `GET /{id}/cv/fit`; a Seed Script Rule bullet for `keywords` and `/cv/fit`.
+  - backend/AGENTS.md: "The Tailoring Port" → two bindings, a per-request resolver, the clone by default, ADR-0017; the TailoredCV note "always `false` / `[]` today" → `adjustments` filled by the keyword binding; the Application CVs table gains `tailoring` and `GET /{id}/cv/fit`; a Seed Script Rule bullet for `keywords` and `/cv/fit`.
   - docs/adr/0007-product-and-schema-convergence.md status line: append ` · Amended by ADR-0017 on 2026-10-11 (tailoring binding line, ATS non-goal)`. The Decision text is untouched.
 - T036 [US5] Changelogs:
   - backend/CHANGELOG.md Added: `- keyword tailoring binding (ADR-0017) and GET /applications/{id}/cv/fit.` Changed: `- POST /applications/{id}/cv takes an optional tailoring ("copy" default, "keywords").`
@@ -319,7 +319,7 @@ Touch:
 - backend/tests/integration/test_worker_tasks.py (new), test_admin_jobs.py (new), test_base_cv_api.py, test_admin.py
 - docker-compose.yml
 - .github/workflows/backend-cd.yaml
-- backend/CLAUDE.md, backend/CHANGELOG.md
+- backend/AGENTS.md, backend/CHANGELOG.md
 - docs/adr/0010-deploy-shape.md (status line only)
 Pattern:
 - `git show e670914:backend/app/application/services/job_ingestion/scrapers/{base,himalayas,remoteok,registry}.py`, `…:backend/tests/unit/test_himalayas_scraper.py`, `…:backend/app/presentation/api/admin/jobs.py` (Ían; port)
@@ -409,7 +409,7 @@ Steps:
   - .github/workflows/backend-cd.yaml deploy script: after the API update, for each of `vars.SWARM_WORKER_SERVICE_NAME` and `vars.SWARM_SCHEDULER_SERVICE_NAME`: `if [ -n "$NAME" ] && docker service inspect "$NAME" >/dev/null 2>&1; then docker service update --image <the same api-latest image> "$NAME" --force; fi`. A stack without them still deploys;
   - `docker compose config -q` passes; `docker compose up -d --build --wait` → worker and scheduler running; `POST /admin/jobs/runs` → a run in `docker compose logs worker`.
 - T056 [US2] Docs:
-  - backend/CLAUDE.md: a new "### Background worker (ADR-0016)" section (broker, queue, lock, a session per task, no result backend, a single scheduler, the fixture scraper refused in PROD, Redis down = runs pause while the API serves); Environment Variables: `TASKIQ_BROKER_URL`, the `JOBS_*`; Essential Commands: worker and scheduler locally; the admin jobs route table; Domain: JobSource, Job, JobFitScore and their relationships; Exception Handling: `ServiceUnavailable` → 503; File Organization: `app/worker/`, `use_cases/jobs/`;
+  - backend/AGENTS.md: a new "### Background worker (ADR-0016)" section (broker, queue, lock, a session per task, no result backend, a single scheduler, the fixture scraper refused in PROD, Redis down = runs pause while the API serves); Environment Variables: `TASKIQ_BROKER_URL`, the `JOBS_*`; Essential Commands: worker and scheduler locally; the admin jobs route table; Domain: JobSource, Job, JobFitScore and their relationships; Exception Handling: `ServiceUnavailable` → 503; File Organization: `app/worker/`, `use_cases/jobs/`;
   - docs/adr/0010-deploy-shape.md status line: append ` · Amended by ADR-0016 on 2026-10-11 (worker and scheduler services)`.
 - T057 [US2] backend/CHANGELOG.md Added: `- taskiq worker and scheduler (ADR-0016): hourly Himalayas and RemoteOK collection, fit recompute, GET/PATCH /admin/jobs/sources and POST /admin/jobs/runs; TASKIQ_BROKER_URL and JOBS_* settings; CD updates the worker and scheduler services when they exist.` No CLI entry: admin routes only.
 - T058 [US2] Gate, close:
@@ -458,7 +458,7 @@ Touch:
 - backend/tests/integration/test_jobs_api.py, test_jobs_draft.py, test_job_searches.py (new)
 - backend/tests/integration/test_application_drafts.py, test_applications.py, test_delete_account.py
 - backend/scripts/seed_mock_data.py
-- backend/CLAUDE.md, backend/CHANGELOG.md
+- backend/AGENTS.md, backend/CHANGELOG.md
 Pattern:
 - backend/app/application/use_cases/application_drafts/create_draft.py (`to_draft_dto`, check order)
 - backend/app/application/use_cases/catalog/resolve.py (`resolve_company`, `ensure_platform_visible`)
@@ -536,7 +536,7 @@ Steps:
   - `seed_job_searches()`: create, rename, list, delete; when 10 exist, the 11th → 409;
   - when `GET /jobs` has items (dev stack with a worker), start one draft from a job with a master CV and `keywords`; assert `job_id` and `has_cv`; otherwise log the skip.
 - T075 [US4] Docs and changelog:
-  - backend/CLAUDE.md: route tables Jobs, Job searches, `POST /applications/drafts/from-job`; domain notes JobDismissal, SavedJobSearch, `Application.job_id` (one per user per job; absent from `GET /applications`); per-user fits, dismissals and searches, no admin access; Seed Script Rule bullets.
+  - backend/AGENTS.md: route tables Jobs, Job searches, `POST /applications/drafts/from-job`; domain notes JobDismissal, SavedJobSearch, `Application.job_id` (one per user per job; absent from `GET /applications`); per-user fits, dismissals and searches, no admin access; Seed Script Rule bullets.
   - backend/CHANGELOG.md Added: `- GET /jobs, GET /jobs/{id}, PUT|DELETE /jobs/{id}/dismissal, /job-searches (max 10 per user), POST /applications/drafts/from-job; Draft gains job_id.` No CLI entry: jobs and drafts are web only; `GET /applications` is unchanged.
 - T076 [US2] Gate, close:
   - `uv run pytest tests -k "steps or finalize or supports"`; `make test` in cli;
@@ -579,7 +579,7 @@ Touch:
 - frontend/src/hooks/use-create-base-cv.ts, use-update-base-cv.ts, use-delete-base-cv.ts
 - frontend/src/components/layout/nav.ts, frontend/src/components/layout/sidebar-nav.test.tsx
 - frontend/e2e/shell-responsive.spec.ts
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - frontend/src/app/(protected)/applications/cv/page.tsx + application-cv-page.tsx (Suspense shell, `?id=`)
 - frontend/src/app/(protected)/applications/applications-page.tsx (toolbar, search, empty states)
@@ -588,7 +588,7 @@ Pattern:
 - frontend/src/app/(protected)/profile/profile-page.tsx (History API instead of `router.replace` on this static export)
 - frontend/src/hooks/use-application-drafts.ts (query keys, invalidation)
 - `git show e670914:frontend/src/components/jobs/{job-filters,job-card,job-list,job-detail-sheet}.tsx`, `…:frontend/src/services/types/jobs.ts`, `…:frontend/src/services/implementations/job-service.ts`, `…:frontend/src/hooks/use-jobs.ts` (Ían; port)
-- frontend/CLAUDE.md "### Routing", "### Service Layer & DI", "### State Management", "### Forms", "### Tailored CVs", "### Application drafts", "### UI Components", "### App shell"; ADR-0006 tokens; ui-designer for new components.
+- frontend/AGENTS.md "### Routing", "### Service Layer & DI", "### State Management", "### Forms", "### Tailored CVs", "### Application drafts", "### UI Components", "### App shell"; ADR-0006 tokens; ui-designer for new components.
 Contract (from K5): `JobFilters`, `JobSummary`, `JobDetail`; `GET /jobs`, `GET /jobs/{id}`, `PUT | DELETE /jobs/{id}/dismissal`, `POST /applications/drafts/from-job`, `/job-searches` CRUD; 409 details 'You already have an application for this job', 'A saved search with this name already exists', 'Saved search limit reached (max 10)'.
 Steps:
 - T077 [US2] Build on integration/0012-job-board after the K5 tip.
@@ -650,7 +650,7 @@ Steps:
   - saved-searches-menu.test.tsx (new): apply pushes filters; save; rename; delete confirm; the cap text; a 409 inline;
   - job-view-page.test.tsx (new): fits per CV with matched and missing; the external link; the 404 text;
   - sidebar-nav.test.tsx.
-- T090 [US2] frontend/CLAUDE.md:
+- T090 [US2] frontend/AGENTS.md:
   - a new "### Job board (`src/components/jobs/`, PRD 0012)" section: the routes (`/jobs`, `/jobs/view?id=`), filters in the URL through the History API, query keys, the fit badge words, the Draft/Applied links, the start dialog flow, the saved-search cap, `JOB_SOURCES`;
   - Routing: `PRIMARY_NAV` is eight entries now (the "seven" lines at l.133 and l.1552).
 - T091 [US2] Gate, close:
@@ -694,7 +694,7 @@ Touch:
 - frontend/src/services/implementations/admin-service.ts, services/types/admin.ts, hooks/use-admin.ts
 - frontend/e2e/jobs.spec.ts (new), frontend/e2e/admin-gating.spec.ts, frontend/e2e/smoke.spec.ts
 - docker-compose.e2e.yml
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - frontend/src/app/(protected)/admin/platforms/page.tsx + platforms-page.tsx (admin shell)
 - frontend/src/app/(protected)/admin/discord-webhooks/discord-webhooks-page.tsx (list states; `admin-service.ts` + `use-admin.ts` shape)
@@ -746,7 +746,7 @@ Steps:
   - dismiss another job → gone; "Show dismissed" → Restore → back (R-029);
   - `afterAll`: delete the application, the saved search and the master CV.
 - T102 [US8] frontend/e2e/admin-gating.spec.ts and frontend/e2e/smoke.spec.ts: add `/admin/jobs` to the admin routes and the `/jobs` heading (Plan corrections 23).
-- T103 [US5] frontend/CLAUDE.md:
+- T103 [US5] frontend/AGENTS.md:
   - "### Tailored CVs": the switch, the fit panel, and `adjustments` now render in the comparison (replace "render NOWHERE" for `adjustments`; `was_ai_generated` still nowhere);
   - a new "### Admin — Jobs" section;
   - "### E2E": `jobs.spec.ts`, the worker and scheduler services, the fixture scraper and the cron set not to fire.
@@ -775,7 +775,7 @@ Touch:
 Pattern: .claude/rules/quality-gates.md; docs/plan/0011-agenda-tabs-and-rate-limit.tasks.md K5
 Contract: none new.
 Steps:
-- T105 Gate in CLAUDE.md order:
+- T105 Gate in AGENTS.md order:
   - `cd backend && make format && make lint && make test`;
   - `cd frontend && pnpm lint && pnpm test && pnpm build`;
   - `cd cli && make format && make lint && make test`.
@@ -822,7 +822,7 @@ Steps:
   - the owner steps of `### Releases` (B): worker + scheduler services and repo vars before the deploy; merge only after A's `alembic upgrade head` is confirmed; rollback B, then A;
   - the agent never touches prod.
 AC:
-- Project full gate green in CLAUDE.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty ≤ 171 with changed files clean, coverage ≥ 90%, prettier, tsc).
+- Project full gate green in AGENTS.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty ≤ 171 with changed files clean, coverage ≥ 90%, prettier, tsc).
 - Every ADR the feature drafted reads Accepted (ADR-0016 and ADR-0017, Accepted 2026-10-11; bound 0001, 0003, 0004, 0005, 0006, 0007, 0009, 0010, 0014, 0015 Accepted).
 - No test infrastructure left behind: no E2E containers, ephemeral stacks, temp databases or testcontainers.
 - The E2E the feature earned (jobs.spec.ts with the worker, the scheduler and the fixture scraper, the whole suite green via scripts/e2e.sh) runs inside the gate and is green; real Himalayas and RemoteOK HTTP, the run lock, expiry, fit determinism, the reorder invariants, the CLI verbatim copy and the migration round trip are carried by the cheaper layers named in T107.

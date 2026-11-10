@@ -26,7 +26,7 @@ K1 web: flag opens the event dialog → K2 web: Add event box → K3 applika-cli
 2. **Uncommitted docs on `develop`.** PRD 0016, plan 0016, ADR-0022, ADR-0006's status line, this tasks file, and `.claude/agent-memory/` (never `.claude/agent-memory-local/`). K1 T001 commits them alone, first, on the integration branch.
 3. **Mount lines.** `applications-page.tsx` import l.43, mount l.564-570 (plan says "l.565"). The `"finalize"` action (l.62) and `handleFinalizeClick` (l.210-212) stay. The flag is `application-item.tsx` l.206-214.
 4. **None shows no other fields.** `TimelineEventFormFields` always renders the date slot (l.116) and the notes slot (l.162). Close + None → the form passes `null` for both. `timeline-event-form-fields.tsx` stays unchanged (pinned by `timeline-port.test.ts`). The `none` branch validates nothing. Why: `finalize-dialog.tsx` l.94-98, a stale value in an unmounted field never blocks the close.
-5. **What the plan leaves out of the port source.** frontend/CLAUDE.md "### Application Timeline" says to port a named source whole. The plan's Frontend list skips these parts of `finalize-dialog.tsx` / `finalize-outcome-fields.tsx`:
+5. **What the plan leaves out of the port source.** frontend/AGENTS.md "### Application Timeline" says to port a named source whole. The plan's Frontend list skips these parts of `finalize-dialog.tsx` / `finalize-outcome-fields.tsx`:
    - the line under the chips that explains the picked outcome (`FINALIZE_OUTCOME_COPY[value].description`, wired as the group's description, finalize-outcome-fields.tsx l.72-75, l.126-128). Close mode only;
    - the `RotateCcw` icon beside the reversible sentence (finalize-dialog.tsx l.281-287);
    - the invalid toast "Please fix the highlighted fields before closing" (l.254);
@@ -39,9 +39,9 @@ K1 web: flag opens the event dialog → K2 web: Add event box → K3 applika-cli
    - l.333-372, l.374-403 and l.535-571.
 
    Each of the four unticks "Close the application" before saving. The new test covers the ticked case.
-9. **Checkbox contrast.** Stock new-york `checkbox.tsx` draws the unchecked border with `border-input`. `ui/radio-group.tsx` swapped that token for `border-muted-foreground` to reach 3:1 against the card (frontend/CLAUDE.md "### UI Components"). K2 makes the same applika-only change and notes it there.
+9. **Checkbox contrast.** Stock new-york `checkbox.tsx` draws the unchecked border with `border-input`. `ui/radio-group.tsx` swapped that token for `border-muted-foreground` to reach 3:1 against the card (frontend/AGENTS.md "### UI Components"). K2 makes the same applika-only change and notes it there.
 10. **CLI docs the plan omits.** `cli/README.md` timeline section l.232-272 (examples l.246-252, flag table l.261-268). In SKILL.md, l.247-261 says "Add it to the timeline without closing the application": that example now needs `--keep-open`.
-11. **frontend/CLAUDE.md lines the plan's three items miss:** l.69, l.927, l.957, l.970-983, l.1008, l.1025, l.1040, l.2137.
+11. **frontend/AGENTS.md lines the plan's three items miss:** l.69, l.927, l.957, l.970-983, l.1008, l.1025, l.1040, l.2137.
 12. **Browser theme colour.** `frontend/src/app/layout.tsx` l.83 `themeColor: "#0c0d12"` is today's blue-identity dark background. R-017/R-018 → it becomes the hex of the original dark `--background` (228 22% 8%, about `#101219`; the converter decides). The palette test pins it.
 13. **Categorical colours kept (R-020).** Beyond the plan's three: `components/admin/admin-stat-cards.tsx` (sky, violet, cyan), `admin/top-companies-panel.tsx`, `admin/user-growth-chart.tsx`, `admin/seniority-donut.tsx`, and `lib/utils.ts` l.34-39 (agenda urgency hex). None are tokens; none change.
 14. **Tag.** One release → one annotated tag, `0016-release`, on the K5 tip. The plan names no tag.
@@ -64,11 +64,11 @@ Touch:
 - frontend/src/components/applications/application-close-copy.ts
 - removed: frontend/src/components/applications/finalize-dialog.tsx, finalize-dialog.test.tsx, finalize-outcome-fields.tsx
 - frontend/e2e/timeline.spec.ts
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - frontend/src/components/timeline/timeline-event-form.tsx (form, `useWatch`, seeding effects, toasts)
 - frontend/src/components/applications/finalize-dialog.tsx + finalize-outcome-fields.tsx (port source, whole, then delete)
-- frontend/CLAUDE.md "### Forms", "### Application Timeline", "### Date Inputs"
+- frontend/AGENTS.md "### Forms", "### Application Timeline", "### Date Inputs"
 Contract (existing routes, unchanged; ADR-0012):
 - `POST /applications/{id}/finalize`, no body → 200 `Application`; already closed → 200 no-op.
 - same, `{outcome: "offer", event_date, observation?, salary_amount, salary_currency, salary_period: "monthly"|"annually"}` | `{outcome: "denied", event_date, observation?, denied_reason}` → 200 `Application` (event + `finalized_at` in one commit); 404 not owned; 422 archived; 409 "Reopen the application to edit it (it is currently closed)"; 422 "event_date cannot be in the future (max allowed: …)" past UTC today + 1; 422 bad salary, period or reason.
@@ -145,7 +145,7 @@ Steps:
   - close flows l.212-224, l.285-310, l.419-440: `page.getByRole("alertdialog")` → `page.getByRole("dialog", { name: "Close application" })`. The "Close application" button and the `/reversible/` assert stay;
   - flow 1 asserts the close dialog's radios: None, Offer, Denied, with None checked;
   - header comment l.10-32.
-- T011 [US1] frontend/CLAUDE.md (Plan corrections 11, the close-mode half): l.69, l.927, l.957, l.970-983 (outcome-picker bullet → `TimelineEventForm purpose="close"`, None bodyless, Offer/Denied outcome body, date ≤ today), l.1008, l.1025, l.1040, l.2137 (key-files row → `timeline-event-form.tsx`). No ticket keys.
+- T011 [US1] frontend/AGENTS.md (Plan corrections 11, the close-mode half): l.69, l.927, l.957, l.970-983 (outcome-picker bullet → `TimelineEventForm purpose="close"`, None bodyless, Offer/Denied outcome body, date ≤ today), l.1008, l.1025, l.1040, l.2137 (key-files row → `timeline-event-form.tsx`). No ticket keys.
 - T012 [US1] Gate, close:
   - `cd frontend && pnpm lint && pnpm prettier --check . && pnpm tsc --noEmit && pnpm test && pnpm build`;
   - `../scripts/e2e.sh e2e/timeline.spec.ts` green; no applika-e2e container, network or volume left;
@@ -176,11 +176,11 @@ Touch:
 - frontend/src/components/timeline/timeline-event-form.tsx, timeline-event-schema.ts
 - frontend/src/components/timeline/timeline-event-form.test.tsx, timeline-event-schema.test.ts
 - frontend/e2e/timeline.spec.ts
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - frontend/src/components/timeline/timeline-event-form.tsx after K1 (close mode, `toFinalizeOutcomePayload`)
 - frontend/src/components/ui/radio-group.tsx (applika-only unchecked border, 3:1)
-- frontend/CLAUDE.md "### Forms" (`useWatch`), "### Application Timeline", "### UI Components"
+- frontend/AGENTS.md "### Forms" (`useWatch`), "### Application Timeline", "### UI Components"
 Contract (existing routes, unchanged): ticked → `POST /applications/{id}/finalize` with the outcome body (K1 Contract); unticked or interview → `POST /applications/{id}/timeline` → 201 `TimelineEvent`, 409 reopen message on a closed application; edit → `PUT /applications/{id}/timeline/{event_id}`.
 Steps:
 - T013 [US2] Build on `integration/0016-close-with-event-and-teal-palette` after the K1 tip.
@@ -222,7 +222,7 @@ Steps:
   - new test, ticked: Add event → Offer (monthly, an amount, a currency), box ticked → "Closed", the offer on the read-only timeline, no "Add event";
   - same test, unticked: Reopen; Add event → Denied, untick → saved; the row stays open ("Active" pill, flag still there);
   - header comment.
-- T019 [US2] frontend/CLAUDE.md:
+- T019 [US2] frontend/AGENTS.md:
   - "### Application Timeline": the box (create, offer/denied only, ticked on open, one finalize request when ticked, date ≤ today when closing, edit never closes, the lifted `FormProvider`);
   - "### UI Components": `ui/checkbox.tsx`'s applika-only border;
   - no ticket keys.
@@ -249,7 +249,7 @@ Release: one (no migration, no backend change, nothing run by hand; the CLI ship
 Touch:
 - cli/src/applika/commands/applications/commands.py (`add_timeline_event` l.1240-1376)
 - cli/tests/test_timeline_and_finalize.py
-- cli/CHANGELOG.md, cli/README.md, cli/src/applika/skills/applika-cli/SKILL.md, cli/CLAUDE.md
+- cli/CHANGELOG.md, cli/README.md, cli/src/applika/skills/applika-cli/SKILL.md, cli/AGENTS.md
 Pattern:
 - cli/src/applika/commands/applications/commands.py `finalize_application` `--outcome` path l.1108-1145 (`FinalizeOutcomePayload`, `client.post`, `print_finalize_outcome_summary`)
 - cli/tests/test_timeline_and_finalize.py `test_finalize_outcome_offer_payload` (l.1644), `test_finalize_409_prints_reopen_hint` (l.1961), `test_timeline_add_409_prints_reopen_hint` (l.631)
@@ -286,7 +286,7 @@ Steps:
     - no version bump (Plan corrections 15); no backend CHANGELOG line (Plan corrections 17);
   - cli/README.md timeline section l.232-272: the offer/denied examples say they close; one `--keep-open` example; a flag-table row (Plan corrections 10);
   - cli/src/applika/skills/applika-cli/SKILL.md l.247-261 (the "without closing" example gains `--keep-open`) and l.296-307;
-  - cli/CLAUDE.md commands-table row for `applications timeline`.
+  - cli/AGENTS.md commands-table row for `applications timeline`.
 - T025 [US4] [US6] Checks, close:
   - `cd cli && make format && make lint && make test`;
   - `GITHUB_ACTIONS=true FORCE_COLOR=1 uv run pytest` → 0 failed; `uv run --python 3.10 pytest` → 0 failed;
@@ -314,7 +314,7 @@ Touch:
 - frontend/src/app/globals.css
 - frontend/src/app/globals-palette.test.ts (new)
 - frontend/src/app/layout.tsx (l.83 `themeColor`)
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - original: `git -C applika show 9661a38:frontend/src/app/globals.css` l.222-264 (mesh, glow) and l.312-415 (tokens, shadows)
 - plan `## Frontend` Palette table; ADR-0022 `## Decision` (derived rules)
@@ -343,13 +343,13 @@ Steps:
 - T030 [P] [US5] frontend/src/app/layout.tsx l.83 `themeColor` → the hex of the original dark `--background` (228 22% 8%) (Plan corrections 12).
 - T031 [US5] What stays (R-019, R-020):
   - not touched: `cv-document-blocks.tsx` `blue-700`; seniority `blue-*` in `admin/users/users-page.tsx` l.48 and `admin/user-activity-table.tsx` l.29; the categorical colours of Plan corrections 13; `root-providers.tsx` `defaultTheme="dark"`; the fonts in layout.tsx; every component file;
-  - K4's commits touch only globals.css, globals-palette.test.ts, layout.tsx and frontend/CLAUDE.md.
+  - K4's commits touch only globals.css, globals-palette.test.ts, layout.tsx and frontend/AGENTS.md.
 - T032 [US5] Contrast and screenshots (plan `## Risks`):
   - on the e2e stack (`KEEP_STACK=1 ../scripts/e2e.sh e2e/smoke.spec.ts`), screenshot both themes at desktop and 390px: landing (mesh, glow), dashboard, applications with an open and a closed row, the event dialog (chips, checkbox, radio ring, badges), jobs (fit badge, "Beta"), admin features;
   - measure text pairs ≥ 4.5:1 and non-text ≥ 3:1: dark `--primary-foreground` on `--primary`; `--muted-foreground` on `--background` and `--card`; `text-success|destructive|warning|info` on their `/15` tints; the unchecked borders of `ui/radio-group.tsx` and `ui/checkbox.tsx`;
   - screenshots and the contrast list go to the scratchpad, outside the repo, for the owner. No token value changes (R-017): a failure goes to the owner, not into a fix;
   - stack down after: no applika-e2e container, network or volume left.
-- T033 [US5] frontend/CLAUDE.md "### UI Components": the tokens are the original palette of `9661a38` written as oklch (ADR-0022, amending ADR-0006); `globals-palette.test.ts` pins them; a token value changes only with the ADR. No ticket keys.
+- T033 [US5] frontend/AGENTS.md "### UI Components": the tokens are the original palette of `9661a38` written as oklch (ADR-0022, amending ADR-0006); `globals-palette.test.ts` pins them; a token value changes only with the ADR. No ticket keys.
 - T034 [US5] Gate, close:
   - `cd frontend && pnpm lint && pnpm prettier --check . && pnpm tsc --noEmit && pnpm test && pnpm build`;
   - not a merge point.
@@ -361,7 +361,7 @@ AC:
 - Not gated: changes to existing screens, bug fixes, admin-only screens, and the worker (`app/worker/`, which acts for no user). (.claude/rules/beta-features.md 7)
 
 ## K5 — Closing 0016: full gate, E2E, ADR-0022, walk, one release   side: both   covers: — (closing)   deps: K2, K3, K4
-Goal: Prove 0016 whole: the full gate in CLAUDE.md order plus the target gates, the whole E2E suite, ADR-0022 Accepted, no infra left, a walk by hand on a real stack (light and dark, the flag close, Add event ticked and unticked, the CLI with and without `--keep-open`, 0.1.4), and the `0016-release` tag. No new feature work.
+Goal: Prove 0016 whole: the full gate in AGENTS.md order plus the target gates, the whole E2E suite, ADR-0022 Accepted, no infra left, a walk by hand on a real stack (light and dark, the flag close, Add event ticked and unticked, the CLI with and without `--keep-open`, 0.1.4), and the `0016-release` tag. No new feature work.
 Owner's words: "when i add an event of type offer or denied, the application isn't finalized just as in the close button with a "flag" icon, what i want is, when the user clicks in this close button, i want to display the same dialog used to add a new event to the timeline but displaying only none, offer and denied types and when creating an event with type offer and denied, the application must be finalized (the none type only appear when the user clicks in the flag button sice we dont have an event type for this, it only serves to close the application without an offer and/or a denied). The second thing and no much important is to restore the visual identify from blue to green (as was originally)"
 Clarified: success signals: closing with an offer from the flag takes no more clicks than today; adding an offer that closes the application takes one dialog instead of two; no application closed through an offer or denied event is ever left without that event; the owner reviews screenshots of both themes and confirms they look "as was originally"; the applika-cli 0.1.4 tests stay green.
 Covers: — (closing)
@@ -373,7 +373,7 @@ Touch:
 Pattern: .claude/rules/quality-gates.md; docs/plan/0015-cvs-beta-and-three-event-types.tasks.md K5
 Contract: none new.
 Steps:
-- T035 On `integration/0016-close-with-event-and-teal-palette` after the K4 tip. Gate in CLAUDE.md order:
+- T035 On `integration/0016-close-with-event-and-teal-palette` after the K4 tip. Gate in AGENTS.md order:
   - `cd backend && make format && make lint && make test`;
   - `cd frontend && pnpm lint && pnpm test && pnpm build`;
   - `cd cli && make format && make lint && make test`.
@@ -429,7 +429,7 @@ Steps:
   - the owner steps of `### Release`: screenshots reviewed and "as was originally" confirmed before the merge; merge `--no-ff` into `develop`; `develop` → `main` is the owner's release; the CLI version number before the publish (Plan corrections 15); rollback = the previous frontend image;
   - the agent never touches prod or `main`, and never pushes.
 AC:
-- Project full gate green in CLAUDE.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty with no new diagnostics beyond 171, coverage ≥ 90%, prettier, tsc).
+- Project full gate green in AGENTS.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty with no new diagnostics beyond 171, coverage ≥ 90%, prettier, tsc).
 - Every ADR the feature drafted reads Accepted (ADR-0022, Accepted 2026-10-19; ADR-0006 carries "Amended by: ADR-0022"; bound 0004, 0009, 0012, 0020 Accepted).
 - No test infrastructure left behind: no E2E containers, ephemeral stacks, temp databases or testcontainers.
 - The E2E the feature earned (timeline.spec.ts close flows on the event dialog and the box ticked/unticked test, the whole suite via scripts/e2e.sh) runs inside the gate and is green; the atomic close, the 409, the future-date 422, the palette values, the CLI --keep-open paths and 0.1.4 are carried by the cheaper layers named in T037.

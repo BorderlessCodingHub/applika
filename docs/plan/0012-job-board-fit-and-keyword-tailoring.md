@@ -80,7 +80,7 @@ Patterns: `app/application/use_cases/application_drafts/create_draft.py`, `app/d
   `CreateDraftUseCase`, `CreateTailoredCVUseCase`, one transaction; `create_draft` + `job_id`; cut to field limits.
   `use_cases/job_searches/*`, `job_dismissal_repository.py`, `saved_job_search_repository.py`, `api/jobs.py`,
   `api/job_searches.py`, `schemas/jobs.py`, `schemas/job_searches.py` (new); `main.py` routers; `Draft` + `job_id`.
-  `scripts/seed_mock_data.py`: searches, `tailoring: keywords`, `/cv/fit`. `backend/CLAUDE.md`: worker, jobs, bindings.
+  `scripts/seed_mock_data.py`: searches, `tailoring: keywords`, `/cv/fit`. `backend/AGENTS.md`: worker, jobs, bindings.
 
 ## Frontend
 Module `frontend/src`, no i18n lib. Patterns: `app/(protected)/applications/cv/application-cv-page.tsx`,
@@ -94,7 +94,7 @@ Module `frontend/src`, no i18n lib. Patterns: `app/(protected)/applications/cv/a
 - Services (new) `services/{interfaces/i-job-service,implementations/job-service,types/jobs}.ts` + job-search trio, in
   `services/services.ts`; `tailored-cv-service.ts` `create(…, tailoring)`, `getFit`.
 - Query keys `jobs`, `job`, `job-searches`, `application-cv-fit`, `admin-job-sources`; start invalidates `jobs`, `application-drafts`.
-- Design system (none named): `frontend/CLAUDE.md` "### Routing", "### Service Layer & DI", "### State Management",
+- Design system (none named): `frontend/AGENTS.md` "### Routing", "### Service Layer & DI", "### State Management",
   "### Forms", "### Tailored CVs", "### Application drafts", "### UI Components", "### App shell"; ADR-0006 tokens. ui-designer.
 
 ## Contract

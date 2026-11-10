@@ -13,7 +13,7 @@ import { apiUrl, authCookieHeader, loginAs } from "./support/auth";
  * One seeded application carries two INTERVIEW events (PRD 0008: the agenda
  * only lists interviews) — one a few days in the future, one a few days in
  * the past, both inside the ±30-day window `GET /users/me/agenda` reads
- * (`backend/CLAUDE.md`, **Agenda**). That single application exercises the
+ * (`backend/AGENTS.md`, **Agenda**). That single application exercises the
  * whole slice: Upcoming/Past tabs and their counts, the search filter, the
  * hyphenated stage pill, the `.ics` download filename, the chevron's
  * read-only timeline (both events, no actions — R-012) and the note row's

@@ -43,7 +43,7 @@ export function AutosaveStatus({
       data-state={shown}
       className={cn("flex min-w-0 items-center gap-2", className)}
     >
-      {/* No `role="status"`: the CV copy editor's screen keeps one (frontend/CLAUDE.md). */}
+      {/* No `role="status"`: the CV copy editor's screen keeps one (frontend/AGENTS.md). */}
       <p
         aria-live="polite"
         aria-atomic="true"

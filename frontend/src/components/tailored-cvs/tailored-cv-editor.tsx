@@ -180,7 +180,7 @@ export function TailoredCvEditor({
           />
         </div>
 
-        {/* Same sticky scrollport rules as `BaseCvEditor`'s aside; see frontend/CLAUDE.md "App shell". */}
+        {/* Same sticky scrollport rules as `BaseCvEditor`'s aside; see frontend/AGENTS.md "App shell". */}
         <section
           aria-label={t("editor.previewRegion")}
           className={cn(
@@ -198,7 +198,7 @@ export function TailoredCvEditor({
       {/*
         Same `CvEditorFooter` in both states, shared with `BaseCvEditor` so the
         two cannot drift: it sits above the cookie bar because `CookieConsent`
-        RESERVES its height on `body` (see frontend/CLAUDE.md, "Stacking
+        RESERVES its height on `body` (see frontend/AGENTS.md, "Stacking
         contract"), and it RESERVES ITS OWN height in turn for the preview
         column above. The e2e suite hit-tests both. Read-only with no `actions`
         mounts no footer at all — and then reserves nothing, which is correct.

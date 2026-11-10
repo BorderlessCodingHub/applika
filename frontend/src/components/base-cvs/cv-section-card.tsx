@@ -138,7 +138,7 @@ export function CvSectionCard({
       className={cn(
         // `relative` is what bounds the trigger's stretched `::after`. With
         // `z-index: auto` it creates NO stacking context, so the shell's
-        // z-30/40/50 contract is untouched (frontend/CLAUDE.md).
+        // z-30/40/50 contract is untouched (frontend/AGENTS.md).
         "relative flex flex-row items-center gap-3 border-b border-border p-4",
         collapsible && [
           "cursor-pointer",

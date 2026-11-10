@@ -57,7 +57,7 @@ const config = [
     },
   },
   {
-    // Words on screen come from the message files (see CLAUDE.md "i18n").
+    // Words on screen come from the message files (see AGENTS.md "i18n").
     // Only symbols, brand names and the language endonyms may be JSX text.
     files: ["src/**/*.tsx"],
     ignores: ["src/**/*.test.tsx", "src/test/**"],

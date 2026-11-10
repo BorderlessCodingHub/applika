@@ -9,7 +9,7 @@ import { SAM, renderPhoneScreen } from "@/test/phone-screens";
 
 /*
  * The week, the days and the times are the VIEWER's: run this file under
- * more than one zone (frontend/CLAUDE.md, Agenda):
+ * more than one zone (frontend/AGENTS.md, Agenda):
  *   TZ=UTC pnpm vitest run src/components/phone/screens/agenda-screen.test.tsx
  *   TZ=Asia/Tokyo pnpm vitest run src/components/phone/screens/agenda-screen.test.tsx
  */

@@ -66,7 +66,7 @@ K1 → K2 → K3 → K4 (all built) → K5 S5 migration (Release A2) → K6 S6 c
 - **`README.md`** names neither `DISCORD_REPORTS_*` variable, so the plan's env line for it is stale. Nothing changes there.
 - **Scopes missing at report time.** The plan Risk "routing without `guilds` treated as `needs_reconnect`" had no step; K8 T124 adds one.
 - **ty baseline.** The rule baseline is 171 and only ratchets down. Every file a slice creates or changes is clean.
-- **Frontend.** The frontend is Tailwind 4 + shadcn new-york (`frontend/CLAUDE.md`). There is no `components/ui/table.tsx`, so the admin list follows `supports-page.tsx`.
+- **Frontend.** The frontend is Tailwind 4 + shadcn new-york (`frontend/AGENTS.md`). There is no `components/ui/table.tsx`, so the admin list follows `supports-page.tsx`.
 
 ## History — K1..K4 as built (plan 0009 before the expansion, 2026-09-23)
 
@@ -101,7 +101,7 @@ K1 S1 migration (Release A) → K2 S2 backend: connect, conflict, disconnect, fa
 - **CLI changelog:** `/users/me` is a CLI route, so the additive `discord_linked` goes in both changelogs (.claude/rules/changelogs.md 3). `cli/CHANGELOG.md` has had no `[Unreleased]` section since 1.0.0, so K2 opens one.
 - **CLI version:** the CLI is at 1.0.0. The R-019 checks cover `whoami` on 0.1.4, 0.2.0 and 1.0.0.
 - **ty baseline:** the rule baseline is 171 and only ratchets down. 20 was measured on 2026-09-19 (backend-qa memory). A slice never raises the total, and every file a slice creates or changes is clean.
-- **Frontend stack:** the frontend is Tailwind 4 + shadcn new-york (`frontend/CLAUDE.md`); the stack table in the workspace CLAUDE.md is stale.
+- **Frontend stack:** the frontend is Tailwind 4 + shadcn new-york (`frontend/AGENTS.md`); the stack table in the workspace AGENTS.md is stale.
 - **E2E Disconnect:** K4 T064 clears the seeded `e2e-discord` link. The seed re-sets `discord_id` on every upsert. The spec runs as `test.describe.serial` with Disconnect last.
 - **Rollback:** the K1 downgrade drops `discord_id`, which is allowed because this revision created it. A rollback past Release A loses the links written since Release B; users relink.
 
@@ -188,7 +188,7 @@ Touch:
 - backend/tests/integration/test_account_link_discord.py (new)
 - backend/tests/integration/test_users.py
 - backend/tests/integration/test_delete_account.py
-- backend/CLAUDE.md
+- backend/AGENTS.md
 - backend/CHANGELOG.md
 - cli/CHANGELOG.md
 Pattern:
@@ -280,7 +280,7 @@ Steps:
 - T022 [US1] Changelogs:
   - backend/CHANGELOG.md, Added: routes, settings, `discord_linked`.
   - cli/CHANGELOG.md: open `## [Unreleased]` with Changed `- GET|PATCH /users/me returns a new discord_linked boolean; additive; no CLI change; 0.1.4, 0.2.0, 1.0.0 unaffected.`
-- T023 [US1] Document in backend/CLAUDE.md:
+- T023 [US1] Document in backend/AGENTS.md:
   - the Account links endpoints;
   - the five env vars;
   - `DiscordOAuthService` vs `DiscordService`;
@@ -301,7 +301,7 @@ Steps:
   - IntegrityError → `ResourceConflict` plus rollback (race: exactly one wins);
   - the same user relinking → no-op.
 - T029 [US3] Integration test in backend/tests/integration/test_account_link_discord.py: user B's callback carries a Discord id that user A holds → 307 `status=conflict`. A keeps the id, B stays unlinked, and `GET /users/me` for B returns `discord_linked` false.
-- T030 [US3] Added entry (conflict outcome) in backend/CHANGELOG.md; conflict rule in backend/CLAUDE.md. Backend gate as in K1 T008.
+- T030 [US3] Added entry (conflict outcome) in backend/CHANGELOG.md; conflict rule in backend/AGENTS.md. Backend gate as in K1 T008.
 - T031 [US4] Add `unlink_discord(user_id)` in backend/app/domain/repositories/user_repository.py: `discord_id = None`, commit; idempotent.
 - T032 [US4] Create `UnlinkDiscordUseCase.execute(user_id)` → `user_repo.unlink_discord`, in backend/app/application/use_cases/account_links/unlink_discord.py (new). No `DiscordOAuthService` dependency, no Discord call.
 - T033 [US4] Create the disconnect route:
@@ -323,7 +323,7 @@ Steps:
     - another user can link the freed id.
   - Delete account, in backend/tests/integration/test_delete_account.py: `DELETE /users/me` of a linked user → row gone → another user links the same id → linked.
   - The "next feedback post has no mention after disconnect" check moved to K3 T046.
-- T036 [US4] Added entry (`DELETE /auth/link/discord`) in backend/CHANGELOG.md; the endpoint in backend/CLAUDE.md. Backend gate as in K1 T008.
+- T036 [US4] Added entry (`DELETE /auth/link/discord`) in backend/CHANGELOG.md; the endpoint in backend/AGENTS.md. Backend gate as in K1 T008.
 - T037 [US5] Callback failures, in backend/app/presentation/api/account_link.py and backend/app/application/services/discord_oauth_service.py. Each → `status=error`, with nothing stored:
   - a Discord `error` query param (e.g. `access_denied`) or a missing `code`: no call to Discord, but the nonce is still consumed;
   - `fetch_discord_id` raises `DiscordLinkError` (code exchange refused, Discord unreachable, id missing);
@@ -374,7 +374,7 @@ Touch:
 - backend/tests/unit/test_discord_mentions.py (new)
 - backend/tests/integration/test_quinzenal_reports.py
 - backend/tests/integration/test_user_feedback.py (new)
-- backend/CLAUDE.md
+- backend/AGENTS.md
 - backend/CHANGELOG.md
 Pattern: backend/app/application/services/discord_service.py (`post_report_message` payload), backend/tests/integration/test_quinzenal_reports.py
 Contract: no route change. Webhook payload:
@@ -404,7 +404,7 @@ Steps:
   - Feedback, in backend/tests/integration/test_user_feedback.py (new), with a recording fake `DiscordFeedbackServiceDp`:
     - linked and unlinked users post `/feedbacks` → the fake gets `mention_user_id` / None;
     - after `DELETE /auth/link/discord`, the next `/feedbacks` post carries no mention (moved from K2 T035).
-- T047 [US2] Document webhook mentions in backend/CLAUDE.md; Changed entry in backend/CHANGELOG.md. Backend gate as in K1 T008.
+- T047 [US2] Document webhook mentions in backend/AGENTS.md; Changed entry in backend/CHANGELOG.md. Backend gate as in K1 T008.
 AC:
 - When a linked user's biweekly report is posted to Discord, the post mentions that user.
 - When a linked user's feedback is posted to Discord, the post mentions that user.
@@ -440,7 +440,7 @@ Touch:
 - backend/app/scripts/seed_e2e.py
 - backend/tests/unit/test_seed_e2e.py
 - backend/CHANGELOG.md
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - applika:
   - frontend/src/app/(protected)/cvs/editor/page.tsx (Suspense + `useSearchParams` under static export)
@@ -491,7 +491,7 @@ Steps:
   - `e2e-user` sees Connect Discord; on click, `page.route('https://discord.com/**')` aborts the request; the requested URL has `scope=identify` and `state`;
   - `e2e-discord` sees "Discord connected" and no Connect.
 - T055 [US1] Docs and gates:
-  - Add the Connected accounts card, `use-account-links` and the profile `?account=&status=` notice under Suspense to frontend/CLAUDE.md.
+  - Add the Connected accounts card, `use-account-links` and the profile `?account=&status=` notice under Suspense to frontend/AGENTS.md.
   - Frontend gate: `pnpm lint && pnpm prettier --check . && pnpm tsc --noEmit && pnpm test && pnpm build` in frontend.
   - Backend gate on the seed change: ruff; ty clean on changed files; pytest.
   - `scripts/e2e.sh e2e/profile-discord.spec.ts e2e/smoke.spec.ts` green.
@@ -675,7 +675,7 @@ Touch:
 - docker-compose.yml
 - backend/docker-compose.yml
 - backend/README.md
-- backend/CLAUDE.md
+- backend/AGENTS.md
 - backend/CHANGELOG.md
 - cli/CHANGELOG.md
 Pattern:
@@ -811,8 +811,8 @@ Steps:
   - Disconnect in E2E now revokes against discord.com with dummy credentials, best-effort. It is swallowed within the 5 s timeout.
 - T107 [US1] Env and docs:
   - add `DISCORD_TOKEN_ENCRYPTION_KEY` to .env.example, docker-compose.yml, backend/docker-compose.yml and backend/README.md;
-  - backend/CLAUDE.md, Account links section: the scopes, the encrypted grant, no revoke at connect in any outcome, the link transfer (holder's row deleted; `conflict` only on the race), revoke on disconnect and on account delete, `needs_reconnect`, the `discord` object on `/users/me`, the env var;
-  - backend/CLAUDE.md, Domain Model: `DiscordConnection`; `users` has no Discord column.
+  - backend/AGENTS.md, Account links section: the scopes, the encrypted grant, no revoke at connect in any outcome, the link transfer (holder's row deleted; `conflict` only on the race), revoke on disconnect and on account delete, `needs_reconnect`, the `discord` object on `/users/me`, the env var;
+  - backend/AGENTS.md, Domain Model: `DiscordConnection`; `users` has no Discord column.
   Confirm backend/scripts/seed_mock_data.py still runs.
 - T108 [US1] Changelogs (rule 3):
   - backend/CHANGELOG.md:
@@ -874,7 +874,7 @@ Touch:
 - backend/app/presentation/dependencies.py
 - backend/tests/unit/test_discord_webhook_validation.py (new)
 - backend/tests/integration/test_admin_discord_webhooks.py (new)
-- backend/CLAUDE.md
+- backend/AGENTS.md
 - backend/CHANGELOG.md
 Pattern:
 - backend/app/presentation/api/admin/platforms.py
@@ -937,7 +937,7 @@ Steps:
   - 404;
   - no response body, 422 included, contains the token segment of the URL.
 - T122 [US6] Docs, changelog and gate:
-  - backend/CLAUDE.md: the new admin endpoints and their rules;
+  - backend/AGENTS.md: the new admin endpoints and their rules;
   - backend/CHANGELOG.md, Added: the admin report webhooks API. It is not a CLI route, so there is no CLI entry;
   - backend gate as in K5 T087;
   - `grep -rn "_old" backend/app/` has no hits.
@@ -977,7 +977,7 @@ Touch:
 - docker-compose.yml
 - backend/docker-compose.yml
 - backend/README.md
-- backend/CLAUDE.md
+- backend/AGENTS.md
 - backend/CHANGELOG.md
 Pattern:
 - backend/app/domain/repositories/base_cv_repository.py and backend/app/application/use_cases/base_cvs/create.py (`FOR UPDATE` held within one transaction)
@@ -1070,7 +1070,7 @@ Steps:
   - backend/tests/integration/test_oauth_cli.py: the login redirect asks for `scope=user:email` only; there is no `/user/orgs` call;
   - backend/tests/integration/test_admin.py: the user detail has no `is_org_member` key;
   - `grep -rnE "is_org_member|DISCORD_REPORTS_|read:org|check_org_membership" backend/app` has no hits.
-- T136 [US7] In backend/CLAUDE.md:
+- T136 [US7] In backend/AGENTS.md:
   - the Authentication scope line becomes `user:email`;
   - GitHub Integration without the org check;
   - webhook mentions become report routing;
@@ -1129,7 +1129,7 @@ Touch:
 - frontend/src/app/(protected)/admin/discord-webhooks/discord-webhooks-page.test.tsx (new)
 - frontend/e2e/profile-discord.spec.ts
 - frontend/e2e/admin-discord-webhooks.spec.ts (new)
-- frontend/CLAUDE.md
+- frontend/AGENTS.md
 Pattern:
 - frontend/src/app/(protected)/admin/supports/supports-page.tsx and frontend/src/app/(protected)/admin/supports/supports-page.test.tsx
 - frontend/src/components/ui/avatar.tsx, frontend/src/components/ui/dialog.tsx, frontend/src/components/ui/alert-dialog.tsx, frontend/src/components/brand-icons.tsx (`DiscordIcon`)
@@ -1188,7 +1188,7 @@ Steps:
 - T148 [US6] E2E in frontend/e2e/admin-discord-webhooks.spec.ts (new), on the real API, with no Discord call:
   - `e2e-admin` → Discord tab → add a fixed fake webhook → a masked row, with the token absent from the page → edit the role ids → delete → gone (the DB is shared, so the spec cleans up);
   - `e2e-user` cannot reach the page (same gating as `/admin`).
-- T149 [US1] In frontend/CLAUDE.md, update the Profile section (the `account` prop, Connected as, avatar fallback, Reconnect, E2E) and add the admin Discord webhooks page.
+- T149 [US1] In frontend/AGENTS.md, update the Profile section (the `account` prop, Connected as, avatar fallback, Reconnect, E2E) and add the admin Discord webhooks page.
 - T150 [US1] Gates:
   - `pnpm lint && pnpm prettier --check . && pnpm tsc --noEmit && pnpm test && pnpm build`;
   - `scripts/e2e.sh e2e/profile-discord.spec.ts e2e/admin-discord-webhooks.spec.ts e2e/admin-gating.spec.ts e2e/smoke.spec.ts` green;
@@ -1215,7 +1215,7 @@ Touch:
 Pattern: .claude/rules/quality-gates.md; old K5 T070-T078 above
 Release gate: this tip is the Release B boundary, tagged `0009-release-b`. The owner merges it only after confirming A2's `alembic upgrade head` ran in prod.
 Steps:
-- T151 Gate in CLAUDE.md order:
+- T151 Gate in AGENTS.md order:
   - `cd backend && make format && make lint && make test`;
   - `cd frontend && pnpm lint && pnpm test && pnpm build`;
   - `cd cli && make format && make lint && make test`.
@@ -1309,7 +1309,7 @@ Steps:
   - Rollback B = the previous image, and only after C is rolled back if C shipped.
   - Success signals: no Discord id on two users; no access token and no plaintext refresh token in the DB; the GitHub consent asks for email only; `whoami` green on 0.1.4, 0.2.0 and 1.0.0.
 AC:
-- Project full gate green in CLAUDE.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty ≤ 171 with changed files clean, coverage ≥ 90%, prettier, tsc).
+- Project full gate green in AGENTS.md order: `cd backend && make format && make lint && make test`, then `cd frontend && pnpm lint && pnpm test && pnpm build`, then `cd cli && make format && make lint && make test`; plus .claude/rules/quality-gates.md target gates (ty ≤ 171 with changed files clean, coverage ≥ 90%, prettier, tsc).
 - Every ADR the feature drafted reads Accepted (ADR-0013, Accepted 2026-09-24; bound 0001, 0002, 0004, 0005, 0010 Accepted; 0008 reads Superseded by ADR-0013).
 - No test infrastructure left behind: no E2E containers, ephemeral stacks, temp databases or testcontainers.
 - The E2E the feature earned (profile-discord.spec.ts and admin-discord-webhooks.spec.ts via scripts/e2e.sh) runs inside the gate and is green; report routing, Discord OAuth and revoke are carried by the unit and integration layers named in T153.
@@ -1323,7 +1323,7 @@ Touch:
 - backend/tests/integration/test_migration_retire_is_org_member.py (new)
 - backend/tests/integration/test_timeline_contract_migration.py
 - backend/CHANGELOG.md
-- backend/CLAUDE.md
+- backend/AGENTS.md
 Pattern:
 - backend/migrations/versions/ad747aba90fc_timeline_events_contract.py (rename to `_old`, downgrade renames back)
 - backend/tests/integration/test_timeline_contract_migration.py (contract round trip)
@@ -1352,10 +1352,10 @@ Steps:
   - `grep -rn "_old" backend/app/` and `grep -rn "is_org_member" backend/app/` have no hits;
   - local DB: `uv run alembic downgrade -1 && uv run alembic upgrade head`;
   - `uv run pytest tests/integration -k migration`;
-  - `git diff 0009-release-b --name-only` lists only `backend/migrations/versions/`, `backend/tests/integration/`, `backend/CHANGELOG.md` and `backend/CLAUDE.md`.
+  - `git diff 0009-release-b --name-only` lists only `backend/migrations/versions/`, `backend/tests/integration/`, `backend/CHANGELOG.md` and `backend/AGENTS.md`.
 - T165 Docs and changelog:
   - backend/CHANGELOG.md, Changed: `users.is_org_member renamed is_org_member_old (Release C, migration only); values kept; nothing reads it.` No CLI entry.
-  - backend/CLAUDE.md, `users` line: `is_org_member_old`, unmapped.
+  - backend/AGENTS.md, `users` line: `is_org_member_old`, unmapped.
 - T166 Gate:
   - backend gate as in K5 T087;
   - the full scripts/e2e.sh green on a stack migrated through C (the seed inserts users; the default fills `_old`);

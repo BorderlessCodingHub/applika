@@ -85,7 +85,7 @@ l.312-415. Token: light · dark (HSL); "= x" = same original HSL as x, both them
   FLAG: oklch numbers NOT computed here. Engineer converts each HSL per CSS Color 4 (HSL → sRGB → linear sRGB → OKLab,
   Ottosson M1/M2 → OKLCH), L and C to 3 decimals, H to 1 decimal, achromatic `L 0 0`, with the parity test's converter.
   The test is the proof, not hand arithmetic.
-Design system: none named. `frontend/CLAUDE.md` binds: "### Forms" (`useWatch`, never `form.watch()`), "### Application
+Design system: none named. `frontend/AGENTS.md` binds: "### Forms" (`useWatch`, never `form.watch()`), "### Application
 Timeline" (type groups unmounted, dialog shape), "### Date Inputs" (`DatePickerInput`), "### UI Components" (tokens only in
 `globals.css`). i18n: none. Pattern files: `timeline-event-form.tsx`; `finalize-dialog.tsx` (port source, then delete).
 
@@ -129,8 +129,8 @@ offer on timeline; Reopen; Add event → Denied unticked → stays open.
 ## Docs
 - `cli/CHANGELOG.md` `[Unreleased]`: Added `--keep-open`; Changed "applications timeline add --type offer|denied closes the
   application with that event (POST /applications/{id}/finalize outcome body); --keep-open keeps it open; ignored with
-  --type interview." `cli/src/applika/skills/applika-cli/SKILL.md` (l.253, l.296-306), `cli/CLAUDE.md` command table.
-- `frontend/CLAUDE.md`: outcome-picker bullet → close mode + checkbox; key-files row → `timeline-event-form.tsx`; palette note.
+  --type interview." `cli/src/applika/skills/applika-cli/SKILL.md` (l.253, l.296-306), `cli/AGENTS.md` command table.
+- `frontend/AGENTS.md`: outcome-picker bullet → close mode + checkbox; key-files row → `timeline-event-form.tsx`; palette note.
 
 ## Rules that bind
 - cli-compatibility: 0.1.4 routes + finalize body untouched; `timeline` is in no published CLI. changelogs: CLI entry
